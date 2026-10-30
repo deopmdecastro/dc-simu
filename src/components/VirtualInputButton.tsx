@@ -34,15 +34,16 @@ export default function VirtualInputButton({
   /** Simulador de sinais de um PLC do esquema (entrada física); sem isto, entradas virtuais globais. */
   plcId?: string
 }) {
-  const on = useSimStore((s) => plcId ? !!readPlcSim(s, plcId).inputs[address] : !!s.virtualInputs[address])
   const mode: VirtualInputMode = useSimStore((s) => (plcId ? readPlcSim(s, plcId).modes[address] : s.virtualInputModes[address]) ?? 'latch')
+  // NC sem valor gravado está em repouso: fechado (1).
+  const on = useSimStore((s) => plcId ? (readPlcSim(s, plcId).inputs[address] ?? mode === 'nc') : !!s.virtualInputs[address])
   const setGlobal = useSimStore((s) => s.setVirtualInput)
   const setGlobalMode = useSimStore((s) => s.setVirtualInputMode)
   const setPlc = useSimStore((s) => s.setPlcSimInput)
   const setPlcMode = useSimStore((s) => s.setPlcSimInputMode)
   const setInput = (addr: string, value: boolean) => plcId ? setPlc(plcId, addr, value) : setGlobal(addr, value)
   const setMode = (addr: string, value: VirtualInputMode) => plcId ? setPlcMode(plcId, addr, value) : setGlobalMode(addr, value)
-  const current = () => { const st = useSimStore.getState(); return plcId ? !!readPlcSim(st, plcId).inputs[address] : !!st.virtualInputs[address] }
+  const current = () => { const st = useSimStore.getState(); return plcId ? (readPlcSim(st, plcId).inputs[address] ?? mode === 'nc') : !!st.virtualInputs[address] }
 
   /** true enquanto um premir momentâneo (rato/toque) está a decorrer */
   const held = useRef(false)

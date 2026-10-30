@@ -4,6 +4,7 @@ import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
 import { upgradeNativeMotorMeter } from '../project/nativeMotorMeter'
+import { upgradeNativeNcSimInputs } from '../project/nativeSimInputs'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
@@ -635,14 +636,19 @@ function runOneTick(state: Store, dtMs: number) {
         ? powered && logo.positive.has(t.id)
         : pass1.energizedTerminals.has(t.id)
     }
-    // Simulador de sinais: um sinal injetado soma-se ao que chega pelos cabos
-    // (equivale a um botão virtual em paralelo). NC por tocar repousa a 1.
+    // Simulador de sinais: INT/NO somam-se ao que chega pelos cabos (botão virtual
+    // em paralelo). NC é um contacto fechado em série: com cabo no borne deixa
+    // passar o sinal do cabo e, premido, corta-o (ex.: EMERG/STOP NF ligados);
+    // sem cabo é a própria fonte, a 1 em repouso.
     const simInputs = plc.state.simInputs as Record<string, boolean> | undefined
     const simModes = plc.state.simInputModes as Record<string, VirtualInputMode> | undefined
     if (simInputs || simModes) for (const t of plc.terminals) {
       if (!/^I\d+\.\d+$/.test(t.label)) continue
-      const injected = simInputs?.[t.label] ?? simModes?.[t.label] === 'nc'
-      if (injected) table[t.label] = true
+      if (simModes?.[t.label] === 'nc') {
+        const closed = simInputs?.[t.label] ?? true
+        const wired = wires.some((w) => w.fromTerminalId === t.id || w.toTerminalId === t.id)
+        table[t.label] = wired ? table[t.label] && closed : closed
+      } else if (simInputs?.[t.label]) table[t.label] = true
     }
     const program = plc.id === state.activePlcId ? ladder.rungs
       : state.plcPrograms[plc.id]?.rungs ?? (state.activePlcId === null && plc.id === plcs[0].id ? ladder.rungs : [])
@@ -1107,7 +1113,9 @@ export const useSimStore = create<Store>((set, get) => {
     // Sem histórico (como as entradas virtuais): premir um botão não é uma edição do esquema.
     plc.state = { ...plc.state, simInputs: { ...(plc.state.simInputs as Record<string, boolean> | undefined), [address]: on } }
     const rt = get().runtime.plcRuntime[plcId]
-    if (rt) rt.table[address] = on
+    // NC fechado depende do cabo em série: o scan seguinte calcula o valor.
+    const nc = (plc.state.simInputModes as Record<string, VirtualInputMode> | undefined)?.[address] === 'nc'
+    if (rt && !(nc && on)) rt.table[address] = on
     set((st) => ({ components: [...st.components], dirty: true }))
     recomputeIfPaused()
   },
@@ -2776,7 +2784,7 @@ export const useSimStore = create<Store>((set, get) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
-      const parsed = upgradeNativeMotorMeter(original)
+      const parsed = upgradeNativeNcSimInputs(upgradeNativeMotorMeter(original))
       setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]

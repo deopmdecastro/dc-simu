@@ -25,6 +25,7 @@ import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE } from './nativeMotorMeter'
 import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
+import { NATIVE_NC_SIM_FEATURE, withNativeNcSimInputs } from './nativeSimInputs'
 import { grafcetExampleContent, grafcetExamples } from './grafcetExamples'
 
 /** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
@@ -283,7 +284,8 @@ export function buildNativePartidaDireta(): Built {
   // —— Grupo comando (à direita, separado da força) ——
   const control = place('breaker2p', 'native-q0', 'Q0', 'Proteção do comando', 0.55, RAIL_Y)
   const psu = place('powerSupplyProauto24A', 'native-psu', 'PS1', 'Fonte 24 V', 1.25, RAIL_Y)
-  const plc = place('plcSiemensLogo1224RC', 'native-plc', 'PLC1', 'LOGO! 12/24RC', 2.15, RAIL_Y)
+  // EMERG e STOP são NF: os botões de simulação começam fechados (1) e premidos cortam o sinal.
+  const plc = withNativeNcSimInputs(place('plcSiemensLogo1224RC', 'native-plc', 'PLC1', 'LOGO! 12/24RC', 2.15, RAIL_Y))
   // Calha cobre força + comando
   const rail = place('dinRail15x55', 'native-rail', 'TR1', 'Calha DIN', -0.4, RAIL_Y)
   rail.state.lengthMm = 620
@@ -396,7 +398,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_NC_SIM_FEATURE],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

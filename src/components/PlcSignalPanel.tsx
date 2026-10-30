@@ -21,7 +21,7 @@ const MODE_NAME: Record<VirtualInputMode, string> = {
  */
 export default function PlcSignalPanel({ plcId, compact = false }: { plcId: string; compact?: boolean }) {
   // I/O ao vivo durante RUN: as listas mantêm referência; o tick marca as varreduras.
-  useSimStore((s) => s.simTick)
+  const simTick = useSimStore((s) => s.simTick)
   const plc = useSimStore((s) => s.components.find((c) => c.id === plcId))
   const components = useSimStore((s) => s.components)
   const wires = useSimStore((s) => s.wires)
@@ -35,12 +35,14 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
   const clear = useSimStore((s) => s.clearPlcSimInputs)
   const stopped = useSimStore((s) => s.sim.runState === 'stopped')
   const tagList = plc && (plc.id === activePlcId || !activePlcId) ? tags : []
-  const inputs = useMemo(() => plcIoRows(plc, 'I', table, wires, components, tagList), [plc, table, wires, components, tagList])
-  const outputs = useMemo(() => plcIoRows(plc, 'Q', table, wires, components, tagList), [plc, table, wires, components, tagList])
+  const inputs = useMemo(() => plcIoRows(plc, 'I', table, wires, components, tagList), [plc, table, wires, components, tagList, simTick])
+  const outputs = useMemo(() => plcIoRows(plc, 'Q', table, wires, components, tagList), [plc, table, wires, components, tagList, simTick])
   if (!plc) return null
   const powered = plc.state.powered !== false
-  const injected = inputs.filter((row) => sim.inputs[row.address]).length
-  const hasSignals = Object.values(sim.inputs).some(Boolean)
+  // Sinal ativo = fora do repouso: INT/NO ligados, NC premido (aberto).
+  const changed = (address: string) => sim.modes[address] === 'nc' ? sim.inputs[address] === false : !!sim.inputs[address]
+  const injected = inputs.filter((row) => changed(row.address)).length
+  const hasSignals = Object.keys({ ...sim.inputs, ...sim.modes }).some(changed)
 
   return <section className={`vio-panel plc-sim ${compact ? 'is-compact' : ''} ${stopped ? 'is-stopped' : ''}`} aria-label={`Simulador de sinais de ${plc.ref}`} data-plc-sim={plc.id}>
     {stopped && <details className="vio-help is-info"><summary><b>STOP</b> · Pode testar as entradas</summary><p>Cada alteração calcula um ciclo. Use Run para execução contínua.</p></details>}
@@ -74,7 +76,7 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
           })}
           {!inputs.length && <small className="vio-empty">Este PLC não tem entradas digitais.</small>}
         </div>
-        <p className="vio-hint"><kbd>Clique</kbd> injeta o sinal · clique na etiqueta <b>INT</b>/<b>NO</b>/<b>NC</b> para mudar o tipo de contacto · o sinal soma-se ao dos cabos</p>
+        <p className="vio-hint"><kbd>Clique</kbd> injeta o sinal · clique na etiqueta <b>INT</b>/<b>NO</b>/<b>NC</b> para mudar o tipo de contacto · INT/NO somam-se ao cabo; NC fica em série (premido corta o sinal)</p>
       </div>
       <div className="vio-col">
         <div className="vio-head"><strong>Saídas (Q) <em className={outputs.some((row) => row.on) ? 'is-live' : ''}>{outputs.filter((row) => row.on && powered).length} ativa(s)</em></strong></div>

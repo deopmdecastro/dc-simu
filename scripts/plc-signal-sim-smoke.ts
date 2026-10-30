@@ -13,6 +13,8 @@
  */
 import { useSimStore } from '../src/store/useSimStore'
 import type { LadderRung } from '../src/types'
+import { nativePartidaDiretaContent } from '../src/project/nativeProjects'
+import { NATIVE_NC_SIM_FEATURE } from '../src/project/nativeSimInputs'
 
 let checks = 0
 const ok = (label: string, condition: boolean) => { checks += 1; if (!condition) { console.error(`[plc-signal-sim] ${label}`); process.exit(1) } }
@@ -67,5 +69,36 @@ ok('sinais gravados com o projeto', savedLogo.state.simInputModes['I0.1'] === 'n
 store().newProject()
 store().loadJSON(json)
 ok('sinais repostos ao abrir o projeto', (plcState(logo).simInputModes as Record<string, string>)['I0.1'] === 'nc')
+
+
+// Projeto nativo: EMERG (I0.0) e STOP (I0.2) são NF ligados por cabo. Os botões de
+// simulação começam em NC fechado (1) e, em série com o cabo, premidos cortam o sinal.
+const native = nativePartidaDiretaContent()
+const nativePlc = 'native-plc'
+const seeded = (native.components as Array<{ id: string; state: Record<string, unknown> }>).find((c) => c.id === nativePlc)!.state
+ok('nativo: EMERG e STOP simulados como NC', (seeded.simInputModes as Record<string, string>)['I0.0'] === 'nc' && (seeded.simInputModes as Record<string, string>)['I0.2'] === 'nc')
+ok('nativo: START continua INT', !(seeded.simInputModes as Record<string, string>)['I0.1'])
+const legacy = JSON.parse(JSON.stringify(native))
+legacy.nativeFeatures = (legacy.nativeFeatures as string[]).filter((v) => v !== NATIVE_NC_SIM_FEATURE)
+const legacyPlc = legacy.components.find((c: { id: string }) => c.id === nativePlc)
+legacyPlc.state.simInputModes = { 'I0.1': 'push' }
+legacyPlc.state.simInputs = {}
+store().loadJSON(JSON.stringify(legacy))
+const upgraded = plcState(nativePlc)
+ok('nativo antigo: atualização aplica NC a EMERG e STOP', (upgraded.simInputModes as Record<string, string>)['I0.0'] === 'nc' && (upgraded.simInputModes as Record<string, string>)['I0.2'] === 'nc')
+ok('nativo antigo: tipo escolhido pelo utilizador preservado', (upgraded.simInputModes as Record<string, string>)['I0.1'] === 'push')
+ok('nativo antigo: marca registada', store().nativeFeatures.includes(NATIVE_NC_SIM_FEATURE))
+for (let i = 0; i < 20; i++) store().step()
+ok('nativo: EMERG e STOP em repouso = 1 (cabo + NC fechado)', table(nativePlc)['I0.0'] === true && table(nativePlc)['I0.2'] === true)
+store().setPlcSimInput(nativePlc, 'I0.2', false)
+store().step()
+ok('nativo: premir STOP simulado corta o sinal com cabo ligado', table(nativePlc)['I0.2'] === false)
+store().setPlcSimInput(nativePlc, 'I0.2', true)
+store().step()
+ok('nativo: largar STOP simulado repõe o sinal do cabo', table(nativePlc)['I0.2'] === true)
+const emerg = store().components.find((c) => c.id === 'native-emerg')!
+store().setComponentState(emerg.id, { pressed: true, latched: true })
+for (let i = 0; i < 3; i++) store().step()
+ok('nativo: cogumelo físico premido corta I0.0 mesmo com o NC simulado fechado', table(nativePlc)['I0.0'] === false)
 
 console.log(`[plc-signal-sim] ${checks} verificações OK`)
