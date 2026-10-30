@@ -120,7 +120,6 @@ import {
   faUsers,
   faWandMagicSparkles,
   faXmark,
-  faStairs,
   faIdCard,
   faCreditCard,
   faKey,
@@ -249,8 +248,8 @@ export const IconFocus = fa(faCrosshairs)
 export const IconGround = fa(faDownLeftAndUpRightToCenter)
 export const IconRuler = fa(faRulerCombined)
 
-/* Ícones próprios de função (evitam repetir o mesmo símbolo em botões diferentes). */
-export const IconGrafcet = fa(faStairs)
+/* Símbolo oficial GRAFCET: três etapas ligadas, conforme a referência aprovada. */
+export const IconGrafcet = fa(faDiagramProject)
 export const IconAccount = fa(faUserGear)
 export const IconIdCard = fa(faIdCard)
 export const IconCard = fa(faCreditCard)

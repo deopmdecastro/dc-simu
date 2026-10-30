@@ -55,7 +55,6 @@ import {
   IconSearch,
   IconWire,
   IconChevronDown, IconCheck,
-  IconSchematic,
   IconPlus,
   IconImport,
   IconTemplates,
@@ -3593,7 +3592,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           {/* Estado Vazio Amigável */}
           {!steps.length && (
             <div className="grafcet-empty">
-              <span className="grafcet-empty-icon" aria-hidden="true"><IconSchematic size={26} /></span>
+              <span className="grafcet-empty-icon" aria-hidden="true"><IconGrafcet size={26} /></span>
               <strong>Ainda não há etapas</strong>
               <p>{full ? 'Crie a primeira etapa ou parta de um modelo, de um exemplo ou de um ficheiro.' : 'Abra o editor para criar a primeira etapa.'}</p>
               {full && (
