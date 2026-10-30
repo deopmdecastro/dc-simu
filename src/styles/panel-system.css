@@ -149,7 +149,9 @@
 /* ===== GRAFCET: propriedades (ecrãs largos; em ecrãs pequenos mantém-se o painel recolhível) ===== */
 @media (min-width: 701px) {
   .grafcet-properties { padding: 0 var(--pn-pad) 16px; gap: var(--pn-gap); }
-  .grafcet-properties-summary { position: sticky; top: 0; z-index: 3; margin: 0 calc(var(--pn-pad) * -1); padding: 8px var(--pn-pad); min-height: var(--pn-head-h); background: var(--pn-bg); border-bottom: 1px solid var(--pn-line-soft); }
+  /* A sombra sólida tapa o padding do painel (até 18 px no GRAFCET em ecrã inteiro) acima e
+   * aos lados do cabeçalho fixo: sem ela, a lista que sobe aparecia nessa faixa. */
+  .grafcet-properties-summary { position: sticky; top: 0; z-index: 3; margin: 0 calc(var(--pn-pad) * -1); padding: 8px var(--pn-pad); min-height: var(--pn-head-h); background: var(--pn-bg); border-bottom: 1px solid var(--pn-line-soft); box-shadow: 0 -18px 0 18px var(--pn-bg); }
   .grafcet-inspector-group { padding-bottom: 12px; border-bottom: 1px solid var(--pn-line-soft); }
   .grafcet-inspector-group:last-child { border-bottom: 0; }
 }
