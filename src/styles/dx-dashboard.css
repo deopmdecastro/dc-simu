@@ -708,7 +708,6 @@
 .dx-cover-empty small { font-size: 11.5px; color: #8b98ab; }
 .dx-cover-empty-logo { display: grid; place-items: center; margin-bottom: 2px; opacity: 0.95; }
 .dx-cover-empty-logo svg { display: block; }
-.dx-cover-ghost { width: 88px; height: auto; margin-bottom: 4px; fill: #e1e8f1; stroke: #c4cfde; stroke-width: 1.4; }
 
 .dx-proj-chips {
   position: absolute;
@@ -794,7 +793,7 @@
   .dx-projects.is-list .dx-proj-badge { display: none; }
   .dx-hero-body h2 { font-size: 22px; }
 }
-.dx-projects.is-list .dx-cover-empty small, .dx-projects.is-list .dx-cover-ghost { display: none; }
+.dx-projects.is-list .dx-cover-empty small { display: none; }
 
 /* Seletor do tipo de projeto (Tudo / Ladder / GRAFCET) */
 .dx-kind { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--dx-line, #d6dae1); border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s; }

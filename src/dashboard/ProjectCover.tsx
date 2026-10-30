@@ -91,35 +91,10 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
     )
   }
 
-  if (!geom && preview && preview.kind && preview.kind !== 'all') {
-    const isLadder = preview.kind === 'ladder'
-    const has = isLadder ? (preview.stats?.rungs ?? 0) > 0 : false
-    return (
-      <div className="dx-cover dx-cover-empty" ref={hostRef} aria-hidden="true">
-        <svg viewBox="0 0 120 80" className="dx-cover-ghost">
-          {isLadder ? (
-            <>
-              <path d="M22 10V70M98 10V70" fill="none" />
-              <path d="M22 28H44M76 28H98M22 52H98" fill="none" />
-              <path d="M44 20V36M52 20V36" fill="none" />
-              <rect x="58" y="21" width="14" height="14" rx="3" />
-            </>
-          ) : (
-            <>
-              <rect x="46" y="8" width="28" height="18" />
-              <rect x="46" y="54" width="28" height="18" />
-              <path d="M60 26V54M52 40H68" fill="none" />
-              <rect x="82" y="55" width="22" height="16" />
-            </>
-          )}
-        </svg>
-        <span>{isLadder ? 'Ladder' : 'GRAFCET'}</span>
-        <small>{has ? 'O cover é gerado ao abrir e sair do editor' : 'Abra o editor para começar'}</small>
-      </div>
-    )
-  }
-
+  // Sem capa nem geometria: o mesmo logótipo para todos os tipos de projeto (só o título muda).
   if (!geom || !preview) {
+    const emptyTitle = preview?.kind === 'grafcet' ? 'GRAFCET vazio' : preview?.kind === 'ladder' ? 'Ladder vazio' : 'Projeto vazio'
+    const emptyHint = preview?.kind === 'grafcet' ? 'Abra o editor para criar as etapas' : preview?.kind === 'ladder' ? 'Abra o editor para criar as networks' : 'Abra o editor para adicionar componentes'
     return (
       <div className="dx-cover dx-cover-empty" ref={hostRef} aria-hidden="true">
         {/* Logo na mesma paleta do ghost SVG (#c4cfde stroke / #e1e8f1 fill). */}
@@ -132,8 +107,8 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
             />
           </svg>
         </span>
-        <span>Projeto vazio</span>
-        <small>Abra o editor para adicionar componentes</small>
+        <span>{emptyTitle}</span>
+        <small>{emptyHint}</small>
       </div>
     )
   }

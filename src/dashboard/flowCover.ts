@@ -39,7 +39,7 @@ function frame(box: Box, label = '', badge = ''): string {
 <rect width="${COVER_W}" height="${COVER_H}" fill="url(#dots)"/>
 <g transform="translate(${tx.toFixed(1)} ${ty.toFixed(1)}) scale(${scale.toFixed(3)})">${box.body}</g>
 ${badge || label ? `<g font-family="${SANS}">
-${badge ? `<rect x="20" y="20" width="${badge.length * 9 + 32}" height="26" rx="13" fill="${BRAND}"/><text x="34" y="37" font-size="12" font-weight="700" fill="#fff" letter-spacing=".6">${esc(badge)}</text>` : ''}
+${badge ? `<rect x="20" y="${COVER_H - 46}" width="${badge.length * 9 + 32}" height="26" rx="13" fill="${BRAND}"/><text x="34" y="${COVER_H - 29}" font-size="12" font-weight="700" fill="#fff" letter-spacing=".6">${esc(badge)}</text>` : ''}
 ${label ? `<text x="${COVER_W - 22}" y="${COVER_H - 20}" font-size="12" font-weight="600" fill="${MUTED}" text-anchor="end">${esc(label)}</text>` : ''}
 </g>` : ''}
 </svg>`
