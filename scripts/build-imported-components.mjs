@@ -55,6 +55,20 @@ for (const item of config) {
         cursor = face.last + 1
       }
       if (cursor * 3 < mesh.index.array.length) geometry.addGroup(cursor * 3, mesh.index.array.length - cursor * 3, 0)
+      // Um grupo contíguo por material: o GLTFExporter gera uma primitiva por grupo e
+      // todas partilham o buffer de posições (ver compact-glb-primitives.mjs).
+      const source = geometry.index.array
+      const merged = new Uint32Array(source.length)
+      const byMaterial = new Map()
+      for (const group of geometry.groups) byMaterial.set(group.materialIndex, [...(byMaterial.get(group.materialIndex) ?? []), group])
+      geometry.clearGroups()
+      let at = 0
+      for (const [materialIndex, groups] of byMaterial) {
+        const start = at
+        for (const group of groups) { merged.set(source.subarray(group.start, group.start + group.count), at); at += group.count }
+        geometry.addGroup(start, at - start, materialIndex)
+      }
+      geometry.setIndex(new THREE.Uint32BufferAttribute(merged, 1))
     }
     const object = new THREE.Mesh(geometry, materials.length > 1 ? materials : materials[0])
     object.name = `cad_${index}_${(mesh.name ?? 'peca').replace(/[^\w-]/g, '_').slice(0, 70)}`

@@ -13,6 +13,7 @@ import { IMPORTED_COMPONENT_TYPES } from '../src/types/imported'
 import { canInsertComponent3D, getComponentGlbSpec } from '../src/three/modelPaths'
 import { useSimStore } from '../src/store/useSimStore'
 import models from '../src/data/imported-component-models.json'
+import { parseGlb, redundantPrimitives } from './compact-glb-primitives.mjs'
 
 let checks=0
 const check=(ok: unknown,message:string)=>{assert.ok(ok,message);checks++;console.log('PASS — '+message)}
@@ -99,6 +100,7 @@ for(const model of models){
  check(file.startsWith(path.resolve('public')+path.sep),'caminho GLB contido em public')
  const bytes=await fs.readFile(file)
  assert.equal(createHash('sha256').update(bytes).digest('hex'),model.glbSha256)
+ check(redundantPrimitives(parseGlb(bytes).json)===0,`${model.type}: uma primitiva por material em cada malha (sem buffers de posições repetidos)`)
  const {scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),'')
  const size=new THREE.Box3().setFromObject(scene,true).getSize(new THREE.Vector3()).multiplyScalar(1000)
  const expected=model.physicalSizeMm

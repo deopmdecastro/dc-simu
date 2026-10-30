@@ -124,8 +124,8 @@
     },
     "meshes": 18,
     "triangles": 19474,
-    "bytes": 1000636,
-    "glbSha256": "1269a7c6f7fe26a72bc7a1ded4b5209896af1753b84f2d8653f98cc4472dbf21"
+    "bytes": 607104,
+    "glbSha256": "19a03c833e8397240980d87eb93b8d5480375258b06fc6691aeb92b7a6164c98"
   },
   {
     "type": "thermalRelaySiemens3ru1116",
@@ -156,8 +156,8 @@
     },
     "meshes": 32,
     "triangles": 175145,
-    "bytes": 9328660,
-    "glbSha256": "38674485436bf783473f1898610e4af2c2a248cd34855ddc3599947e071d284d"
+    "bytes": 6219576,
+    "glbSha256": "9245d644883bc4d39887c131dbf6dd011fdcad19ae1418bfe03c0665309d279c"
   },
   {
     "type": "residualBreakerHagerCfc225p",
@@ -188,8 +188,8 @@
     },
     "meshes": 23,
     "triangles": 70200,
-    "bytes": 2477752,
-    "glbSha256": "6b4a5cf2aaa51309e6544af86aa513636c24ff1de4ad90cdfef12db3f1618561"
+    "bytes": 2367880,
+    "glbSha256": "e8cc1b26394318fe388cf4ed6f099e2dee22a39c6a3ba003c40fb17c429c6ed6"
   },
   {
     "type": "selectorSchneiderXa2ed33",
@@ -380,8 +380,8 @@
     },
     "meshes": 6,
     "triangles": 9624,
-    "bytes": 553788,
-    "glbSha256": "1f8bd2b5d5ad204de2757662b99fdf0ff3e24edc48ec827ed323a81905148340"
+    "bytes": 310616,
+    "glbSha256": "7b93ce0a6e924372e0a54ad1e7ec4ae8d7055122535d3220d30fd543823f3f0a"
   },
   {
     "type": "towerLightSb23011",
@@ -444,7 +444,7 @@
     },
     "meshes": 17,
     "triangles": 7004,
-    "bytes": 288752,
-    "glbSha256": "03f4920252ef9d6fb38c8809e1616542676802046cf80e335a90f765b93d4dda"
+    "bytes": 235460,
+    "glbSha256": "e1e82b2761b55de01c5e11a04f8b37bfbbff6e5ca1ac1570f94b29a7a8099f3c"
   }
 ]
