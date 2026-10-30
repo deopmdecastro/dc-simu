@@ -118,6 +118,7 @@ import { foldText } from '../utils/text'
 import { readGrafcetFile } from './importFile'
 import type { FluidSimImportMode } from './fluidSim4'
 import GrafcetImportDialog from './GrafcetImportDialog'
+import GrafcetImportReview from './GrafcetImportReview'
 import { requireFeature } from '../saas/usePlan'
 import '../styles/grafcet-construction.css'
 import { InlineName } from '../ui/InlineName'
@@ -1680,6 +1681,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     setTab('transitions')
     notify('Ponto de quebra criado — arraste-o para dobrar a linha · duplo clique remove-o')
   }
+  const addLinkBendFromButton = (tid: string, points: Point[], world: Point, e: React.SyntheticEvent) => {
+    if (!full || activeTool !== 'select' || isSpacePan) return
+    e.stopPropagation()
+    const p = snapOn ? { x: snapToGrid(world.x, SPINE_X), y: snapToGrid(world.y, START_Y) } : { x: Math.round(world.x), y: Math.round(world.y) }
+    const bends = points.slice(1, -1)
+    const at = bendInsertIndex(points, p)
+    commitBends(tid, [...bends.slice(0, at), p, ...bends.slice(at)])
+    setSelected(tid)
+    setSelectedActionId(null)
+    setTab('transitions')
+    notify('Ponto de quebra criado — arraste-o para dobrar a linha')
+  }
   const onBendPointerDown = (tid: string, index: number, e: React.PointerEvent) => {
     if (!full || activeTool !== 'select' || isSpacePan) return
     if (e.button !== 0) return
@@ -1877,8 +1890,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const t = transitions.find((tr) => tr.id === p.id)
     if (!t) return { x: SPINE_X, y: cursorY }
     const pos = transitionAnchors.get(t.id) ?? transXY(t)
-    if (p.kind === 'trans-in') return { x: pos.x, y: t.from.filter(existsStep).length ? pos.y - 8 : pos.y - 30 }
-    return { x: pos.x, y: t.to.filter(existsStep).length ? pos.y + 8 : pos.y + 30 }
+    // Mantém a área de captura dos portos fora da barra IEC para esta continuar arrastável.
+    if (p.kind === 'trans-in') return { x: pos.x, y: t.from.filter(existsStep).length ? pos.y - 18 : pos.y - 30 }
+    return { x: pos.x, y: t.to.filter(existsStep).length ? pos.y + 18 : pos.y + 30 }
   }
 
   /** Porto de destino (entrada) válido sob um ponto, para completar um fio. */
@@ -3023,9 +3037,19 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       if (result.source === 'fluidsim4' && !requireFeature('fluidsimImport', notify)) return
       const imported = result.program
       const actionCount = imported.steps.reduce((total, step) => total + (step.actions?.length ?? 0), 0) + (imported.freeActions?.length ?? 0)
-      const summary = `${file.name}\n${imported.steps.length} etapas · ${imported.transitions?.length ?? 0} transições · ${actionCount} ações · ${imported.comments?.length ?? 0} textos${imported.importReview ? '\nDesenho editável para revisão; simulação e geração de Ladder bloqueadas até concluir a revisão.' : ''}`
-      const warnings = result.warnings.length ? `\n\n${result.warnings.join('\n')}` : ''
-      if (!await uiConfirm(`${summary}${warnings}\n\nSubstituir o GRAFCET atual, incluindo as suas páginas? Pode desfazer a importação.`, { title: 'Importar GRAFCET', confirmLabel: 'Importar', cancelLabel: 'Cancelar' })) return
+      if (!await uiConfirm('Confirme a importação do diagrama.', {
+        title: 'Importar GRAFCET', confirmLabel: 'Importar', cancelLabel: 'Cancelar', className: 'dcx-dialog-import-review',
+        content: <GrafcetImportReview
+          fileName={file.name}
+          source={result.source}
+          steps={imported.steps.length}
+          transitions={imported.transitions?.length ?? 0}
+          actions={actionCount}
+          texts={imported.comments?.length ?? 0}
+          warnings={result.warnings}
+          needsReview={Boolean(imported.importReview)}
+        />,
+      })) return
       if (!stillCurrent()) return
       // Uma importação substitui o programa completo; save() mescla apenas a página ativa.
       setGrafcet(imported, 'force', 'grafcet:import')
@@ -3751,7 +3775,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     return (
                       <g
                         key={transition.id}
-                        className={`${full ? 'grafcet-graph-link' : ''} grafcect-free ${freeSelected ? 'is-selected' : ''}`}
+                        className={`${full ? 'grafcet-graph-link' : ''} grafcect-free ${freeSelected ? 'is-selected' : ''}${transition.source && !transition.from.length ? ' is-source' : ''}`}
                         onClick={(e) => {
                           e.stopPropagation()
                           if (full) {
@@ -3781,9 +3805,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
                         aria-keyshortcuts="L"
-                        aria-label={`Transição T${transitionIndex + 1} por ligar: ${transition.condition}. Arraste-a sobre uma etapa ou use Ligar, tecla L.`}
+                        aria-label={transition.source && !transition.from.length ? `Transição-fonte T${transitionIndex + 1}: ${transition.condition}. Sem etapa de origem; dispara quando a condição é verdadeira.` : `Transição T${transitionIndex + 1} por ligar: ${transition.condition}. Arraste-a sobre uma etapa ou use Ligar, tecla L.`}
                       >
-                        <title>{`Transição T${transitionIndex + 1} por ligar · arraste sobre uma etapa ou use a ferramenta Ligar [L]`}</title>
+                        <title>{transition.source && !transition.from.length ? `Transição-fonte T${transitionIndex + 1} · sem etapa de origem, sempre validada` : `Transição T${transitionIndex + 1} por ligar · arraste sobre uma etapa ou use a ferramenta Ligar [L]`}</title>
                         {/* halo de agarre generoso para rato e toque */}
                         <rect x={ftx - 42} y={fty - 34} width="84" height="68" fill="transparent" />
 
@@ -4147,13 +4171,34 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                         {/* Barra transversal normalizada IEC 60848 */}
                         <line
+                          className="grafcet-transition-bar"
                           x1={tx - 14}
                           y1={ty}
                           x2={tx + 14}
                           y2={ty}
                           stroke={linkColor}
                           strokeWidth={selectedLink || enabled ? 4 : 3}
+                          onPointerDown={(e) => startSegmentDrag(transition.id, bends.length ? linkPoints : bent ? [{ x: sourceX, y: sBottom }, { x: sourceX, y: midY }, { x: targetX, y: midY }, { x: targetX, y: tTop }] : linkPoints, e)}
+                          onPointerMove={(e) => moveSegment(transition.id, e)}
+                          onPointerUp={(e) => finishSegment(transition.id, e)}
+                          onPointerCancel={cancelBendDrag}
+                          style={{ cursor: 'grab', touchAction: 'none', pointerEvents: 'stroke' }}
                         />
+                        {full && (isTransHovered || selectedLink) && (
+                          <g
+                            className="grafcet-node-handle grafcet-add-bend-handle"
+                            onClick={(e) => addLinkBendFromButton(transition.id, linkPoints, { x: tx, y: ty }, e)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addLinkBendFromButton(transition.id, linkPoints, { x: tx, y: ty }, e) } }}
+                            style={{ cursor: 'pointer' }} role="button" tabIndex={0}
+                            aria-label={`Adicionar n\u00f3 \u00e0 liga\u00e7\u00e3o da transi\u00e7\u00e3o ${transition.name || `T${transitionIndex + 1}`}`}
+                          >
+                            <title>Adicionar nó à ligação (Enter ou Espaço)</title>
+                            <rect x={tx + 22} y={ty - 25} width="78" height="22" rx="6" fill="#0f766e" stroke="#ffffff" strokeWidth="1.5" />
+                            <circle cx={tx + 33} cy={ty - 14} r="6" fill="none" stroke="#ffffff" strokeWidth="1.2" />
+                            <path d={`M ${tx + 33} ${ty - 17} V ${ty - 11} M ${tx + 30} ${ty - 14} H ${tx + 36}`} stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
+                            <text x={tx + 43} y={ty - 11} fill="#ffffff" fontSize="8" fontWeight="700">Adicionar nó</text>
+                          </g>
+                        )}
 
                         {/* Identificador numérico da transição à esquerda normalizado IEC */}
                         <text
@@ -4336,13 +4381,34 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                         {/* Barra transversal da transição */}
                         <line
+                          className="grafcet-transition-bar"
                           x1={tx - 14}
                           y1={ty}
                           x2={tx + 14}
                           y2={ty}
                           stroke={linkColor}
                           strokeWidth={selectedLink || enabled ? 4 : 3}
+                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e)}
+                          onPointerMove={(e) => moveSegment(transition.id, e)}
+                          onPointerUp={(e) => finishSegment(transition.id, e)}
+                          onPointerCancel={cancelBendDrag}
+                          style={{ cursor: 'grab', touchAction: 'none', pointerEvents: 'stroke' }}
                         />
+                        {full && (isTransHovered || selectedLink) && (
+                          <g
+                            className="grafcet-node-handle grafcet-add-bend-handle"
+                            onClick={(e) => addLinkBendFromButton(transition.id, linkPoints, { x: tx, y: ty }, e)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addLinkBendFromButton(transition.id, linkPoints, { x: tx, y: ty }, e) } }}
+                            style={{ cursor: 'pointer' }} role="button" tabIndex={0}
+                            aria-label={`Adicionar n\u00f3 \u00e0 liga\u00e7\u00e3o da transi\u00e7\u00e3o ${transition.name || `T${transitionIndex + 1}`}`}
+                          >
+                            <title>Adicionar nó à ligação (Enter ou Espaço)</title>
+                            <rect x={tx + 22} y={ty - 25} width="78" height="22" rx="6" fill="#0f766e" stroke="#ffffff" strokeWidth="1.5" />
+                            <circle cx={tx + 33} cy={ty - 14} r="6" fill="none" stroke="#ffffff" strokeWidth="1.2" />
+                            <path d={`M ${tx + 33} ${ty - 17} V ${ty - 11} M ${tx + 30} ${ty - 14} H ${tx + 36}`} stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
+                            <text x={tx + 43} y={ty - 11} fill="#ffffff" fontSize="8" fontWeight="700">Adicionar nó</text>
+                          </g>
+                        )}
 
                         {/* Identificador da transição à esquerda */}
                         <text

@@ -105,3 +105,51 @@
   .dcx-dialog p { font-size: 12px; }
   .dcx-dialog-actions .dcx-dialog-btn { min-height: 36px; padding: 0 12px; font-size: 12px; }
 }
+
+/* Pré-visualização estruturada da importação GRAFCET. */
+.dcx-dialog-import-review {
+  width: min(620px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+  gap: 11px; padding: 20px;
+}
+.grafcet-import-review { display: flex; min-height: 0; flex-direction: column; gap: 11px; }
+.grafcet-import-review-file { display: flex; min-width: 0; align-items: center; gap: 9px; }
+.grafcet-import-review-file-icon { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border: 1px solid #dbe5f5; border-radius: 8px; background: #f2f6fd; color: #3157a5; }
+.grafcet-import-review-file-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.grafcet-import-review-file-copy strong { overflow: hidden; color: #27344b; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.grafcet-import-review-file-copy small { color: #64748b; font-size: 11px; }
+.grafcet-import-review-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; border: 1px solid #dbe2ec; border-radius: 9px; background: #fff; }
+.grafcet-import-review-metric { display: flex; min-width: 0; flex-direction: column; gap: 1px; padding: 8px 10px; }
+.grafcet-import-review-metric + .grafcet-import-review-metric { border-left: 1px solid #e5eaf1; }
+.grafcet-import-review-metric strong { color: #1e293b; font-size: 18px; line-height: 1.1; font-weight: 750; }
+.grafcet-import-review-metric span { overflow: hidden; color: #64748b; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.grafcet-import-review-status { display: flex; align-items: flex-start; gap: 9px; padding: 10px 11px; border: 1px solid #f1d299; border-radius: 8px; background: #fff9ed; color: #81490c; }
+.grafcet-import-review-status.is-ready { border-color: #b8e2c5; background: #f0faf3; color: #17643a; }
+.grafcet-import-review-status-icon { flex: 0 0 auto; margin-top: 1px; }
+.grafcet-import-review-status > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.grafcet-import-review-status strong { font-size: 12px; font-weight: 750; }
+.grafcet-import-review-status small { color: #5e6675; font-size: 11px; line-height: 1.4; }
+.grafcet-import-review-warnings { display: flex; min-height: 0; flex-direction: column; overflow: hidden; border: 1px solid #dbe2ec; border-radius: 9px; background: #f8fafc; }
+.grafcet-import-review-warnings-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; color: #27344b; font-size: 11px; font-weight: 750; }
+.grafcet-import-review-warnings-heading > span { display: grid; min-width: 21px; height: 21px; place-items: center; padding: 0 5px; border-radius: 6px; background: #e9eef6; color: #46556c; font-variant-numeric: tabular-nums; }
+.grafcet-import-review-groups { min-height: 0; max-height: min(38vh, 330px); overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.grafcet-import-review-groups:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.grafcet-import-review-group + .grafcet-import-review-group { border-top: 1px solid #e2e8f0; }
+.grafcet-import-review-group h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 7px 10px 4px; color: #53647c; font-size: 10px; font-weight: 750; }
+.grafcet-import-review-group h3 span:last-child { color: #8794a6; font-variant-numeric: tabular-nums; }
+.grafcet-import-review-group ul { display: grid; gap: 4px; margin: 0; padding: 0 10px 8px; list-style: none; }
+.grafcet-import-review-group li { display: flex; align-items: flex-start; gap: 7px; color: #4b5b72; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.grafcet-import-review-group li::before { width: 4px; height: 4px; flex: 0 0 auto; margin-top: 5px; border-radius: 50%; background: #d28a25; content: ''; }
+.grafcet-import-review-repeat { flex: 0 0 auto; margin-left: auto; padding: 0 4px; border-radius: 4px; background: #e8edf4; color: #58677c; font-size: 9px; font-weight: 700; }
+.grafcet-import-review-replace { padding-top: 1px; color: #64748b !important; font-size: 11px !important; line-height: 1.4 !important; }
+.dcx-dialog-import-review .dcx-dialog-actions { flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .dcx-dialog-import-review { width: min(560px, 100%); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); padding: 15px; gap: 9px; }
+  .grafcet-import-review { gap: 8px; }
+  .grafcet-import-review-metric { padding: 7px 6px; }
+  .grafcet-import-review-metric strong { font-size: 16px; }
+  .grafcet-import-review-metric span { font-size: 9.5px; }
+  .grafcet-import-review-status { padding: 8px 9px; }
+  .grafcet-import-review-groups { max-height: min(34vh, 270px); }
+}
+.grafcet-import-review-tip { margin: 0 10px 10px; padding: 7px 9px; border-radius: 7px; background: #eff6ff; color: #1e40af; font-size: 11.5px; line-height: 1.45; }
+.grafcet-import-review-tip code { padding: 0 3px; border-radius: 4px; background: #dbeafe; font-size: 11px; }

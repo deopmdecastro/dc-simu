@@ -7,7 +7,10 @@ import { chromium } from 'playwright'
 const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.GRAFCET_TEST_OUTPUT || path.resolve('runtime/grafcet-ux-modals')
 await mkdir(output, { recursive: true })
-const browser = await chromium.launch(process.env.GRAFCET_TEST_CHANNEL ? { channel: process.env.GRAFCET_TEST_CHANNEL } : {})
+const browser = await chromium.launch({
+  ...(process.env.GRAFCET_TEST_CHANNEL ? { channel: process.env.GRAFCET_TEST_CHANNEL } : {}),
+  ...(process.env.GRAFCET_TEST_EXECUTABLE ? { executablePath: process.env.GRAFCET_TEST_EXECUTABLE } : {}),
+})
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
@@ -16,6 +19,7 @@ await context.route('**/*', (route) => {
 await context.addInitScript(() => {
   performance.setResourceTimingBufferSize(10000)
   localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
+  localStorage.removeItem('dcsimu:supabase:config:v1')
 // O Vite (com HMR) serve módulos alterados com «?t=…»: um import('/src/…') sem esse sufixo criava
 // OUTRA instância da store e os dados de teste iam para uma store que a página não usa. Importa o módulo
 // exatamente com o URL que a aplicação carregou.
@@ -110,6 +114,38 @@ try {
   const transition = (await readProgram()).transitions[0]
   check(transition.from.includes('ux-step-3') && transition.to.includes('ux-step-7') && transition.targetInfo === 'Referência de teste', 'guardar preserva origens, destinos e anotação')
 
+  // Transição-fonte (sem origem, ex.: emergência) e condições de estado G0 <> Xn nas origens.
+  const setTransition = (patch) => page.evaluate(async (patch) => {
+    const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    const program = useSimStore.getState().grafcet
+    useSimStore.getState().setGrafcet({ ...program, transitions: program.transitions.map((item, index) => (index === 0 ? { ...item, ...patch } : item)) }, 'force')
+  }, patch)
+  await setTransition({ from: [], to: ['ux-step-7'], condition: '/I7', source: false })
+  await page.getByRole('button', { name: /^Transição T1 por ligar:/ }).dispatchEvent('dblclick')
+  await page.locator('#trans-condition-input').waitFor()
+  check(await dialog().getByText(/Transição solta: faltam origens/).isVisible(), 'sem origem e sem a marca de fonte, a transição continua assinalada como solta')
+  await origins.getByRole('checkbox', { name: /Transição-fonte/ }).check()
+  check(await dialog().getByText(/Transição solta/).count() === 0 && await origins.getByRole('searchbox').count() === 0, 'transição-fonte: sem aviso de solta e sem lista de etapas de origem')
+  check(await dialog().locator('.grafcet-map-steps .is-source').isVisible(), 'a pré-visualização mostra «Transição-fonte · sempre validada»')
+  const stateBlock = origins.getByRole('group', { name: 'Condições de estado de etapa' })
+  await stateBlock.getByRole('combobox', { name: 'Número da etapa para a condição de estado' }).fill('5')
+  await stateBlock.getByRole('button', { name: 'Juntar', exact: true }).click()
+  check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <> X5', 'Juntar acrescenta G0 <> X5 (X5 inativa) à condição com E')
+  check(await stateBlock.getByText('X5 inativa').isVisible(), 'a condição de estado aparece como pílula nas origens')
+  await stateBlock.getByRole('button', { name: 'Retirar G0 <> X5 da condição' }).click()
+  check(await page.locator('#trans-condition-input').inputValue() === '/I7', 'retirar a pílula devolve a condição anterior')
+  await stateBlock.getByRole('combobox', { name: 'Número da etapa para a condição de estado' }).fill('X6')
+  await stateBlock.getByRole('radio', { name: 'ativa', exact: true }).click()
+  await stateBlock.getByRole('button', { name: 'Juntar', exact: true }).click()
+  check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <=> X6', 'estado «ativa» escreve G0 <=> X6')
+  await capture('desktop-transition-source')
+  await save()
+  await dialog().waitFor({ state: 'hidden' })
+  check(await page.getByRole('button', { name: /^Transição-fonte T1:/ }).count() === 1, 'no diagrama a transição deixa de dizer «por ligar» e identifica-se como transição-fonte')
+  const sourceTransition = (await readProgram()).transitions[0]
+  check(sourceTransition.source === true && !sourceTransition.from.length && sourceTransition.condition === '/I7 * G0 <=> X6', 'guardar conserva a transição-fonte e a condição de estado')
+  await setTransition({ ...transition, source: false })
+
   await openAction()
   await page.locator('#action-var-input').waitFor()
   check(await fitsViewport(), 'ação cabe no ecrã com o rodapé acessível')
@@ -150,6 +186,81 @@ try {
     await capture('mobile-' + name)
     await close()
   }
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.evaluate(async () => {
+    const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    useSimStore.getState().setGrafcet({ name: 'Projeto atual', steps: [], transitions: [] }, 'force')
+  })
+  const importTrigger = page.getByRole('button', { name: 'Importar GRAFCET', exact: true })
+  const openImport = () => importTrigger.click()
+  await openImport()
+  const returnFocusTarget = await importTrigger.elementHandle()
+  const reviewWarnings = [
+    'a transição 9 tem ligações incompletas ou uma sincronização ainda não suportada.',
+    'a transição 9 tem ligações incompletas ou uma sincronização ainda não suportada.',
+    'Destino por referência 51 inexistente; ligação por completar.',
+    'condição não suportada em T24: G0 <> X5.',
+    'A ação L_Amarela ficou solta: não tem ligação a uma etapa.',
+    'A ação L_Amarela ficou solta: não tem ligação a uma etapa.',
+    'ação memorizada, de evento ou de forçagem ainda não suportada.',
+    'variável de ação inválida: Y7_E+_Vacuo_On.',
+  ]
+  const reviewProgram = {
+    name: 'GRAFCET sintético para teste de revisão',
+    steps: [{ id: 'review-step-0', name: '0', initial: true, action: '', condition: '', actions: [], x: 0, y: 0 }],
+    transitions: [], comments: [], importReview: { source: 'fluidsim4', warnings: reviewWarnings },
+  }
+  const reviewFile = { name: 'Grafcet sintético.grafcet', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(reviewProgram)) }
+  await page.locator('form.grafcet-import-dialog input[type="file"]').setInputFiles(reviewFile)
+  const review = page.getByRole('alertdialog', { name: 'Importar GRAFCET' })
+  await review.waitFor()
+  check(await review.evaluate((element) => element.contains(document.activeElement)), 'ao abrir, o foco entra no diálogo')
+  const warningRegion = review.getByRole('region', { name: `Avisos da importação (${reviewWarnings.length})` })
+  check(await warningRegion.getAttribute('tabindex') === '0', 'lista de avisos tem tab stop próprio')
+  await warningRegion.focus()
+  check(await warningRegion.evaluate((element) => element === document.activeElement), 'a lista focada é identificada como região de avisos')
+  await page.keyboard.press('Tab')
+  check(await review.getByRole('button', { name: 'Cancelar', exact: true }).evaluate((element) => element === document.activeElement), 'Tab da lista avança para as ações do diálogo')
+  await page.keyboard.press('Shift+Tab')
+  check(await warningRegion.evaluate((element) => element === document.activeElement), 'Shift+Tab permanece no ciclo de foco do diálogo')
+  check(await review.getByText('Grafcet sintético.grafcet', { exact: true }).isVisible(), 'a revisão identifica ficheiro e formato de origem')
+  check(await review.getByText('Desenho importado para revisão', { exact: true }).isVisible(), 'a revisão explica o bloqueio de simulação e Ladder')
+  check(await review.getByText('Ligações e destinos', { exact: true }).isVisible() && await review.getByText('Condições e variáveis', { exact: true }).isVisible() && await review.getByText('Ações e qualificadores', { exact: true }).isVisible(), 'avisos são agrupados por área de revisão')
+  const looseAction = 'A ação L_Amarela ficou solta: não tem ligação a uma etapa.'
+  const actionGroup = review.locator('#grafcet-import-review-actions').locator('xpath=..')
+  const linkGroup = review.locator('#grafcet-import-review-links').locator('xpath=..')
+  check(await actionGroup.getByText(looseAction, { exact: true }).count() === 1 && await linkGroup.getByText(looseAction, { exact: true }).count() === 0, 'ações soltas são classificadas como ações mesmo quando descrevem ligações')
+  check(await review.getByText('×2', { exact: true }).count() === 2, 'avisos repetidos ficam resumidos sem perder o número de ocorrências')
+  check(await review.getByText('Etapas', { exact: true }).isVisible() && await review.getByText('Transições', { exact: true }).isVisible() && await review.getByText('Ações', { exact: true }).isVisible() && await review.getByText('Textos', { exact: true }).isVisible(), 'contagens do conteúdo ficam legíveis em indicadores')
+  const reviewBox = await review.boundingBox()
+  await page.screenshot({ path: path.join(output, 'import-review-desktop.png') })
+  check(reviewBox.x >= 0 && reviewBox.x + reviewBox.width <= 1440 && reviewBox.y >= 0 && reviewBox.y + reviewBox.height <= 900, 'pré-visualização cabe no ecrã desktop')
+  const beforeCancel = await readProgram()
+  await review.getByRole('button', { name: 'Cancelar', exact: true }).click()
+  await review.waitFor({ state: 'hidden' })
+  check(JSON.stringify(await readProgram()) === JSON.stringify(beforeCancel), 'cancelar mantém o GRAFCET atual intacto')
+  check(await returnFocusTarget.evaluate((element) => element === document.activeElement), 'fechar a confirmação devolve o foco ao controlo que a abriu')
+  await openImport()
+  await page.locator('form.grafcet-import-dialog input[type="file"]').setInputFiles(reviewFile)
+  const mobileReview = page.getByRole('alertdialog', { name: 'Importar GRAFCET' })
+  await mobileReview.waitFor()
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobileBox = await mobileReview.boundingBox()
+  check(mobileBox.x >= 0 && mobileBox.x + mobileBox.width <= 390 && mobileBox.y >= 0 && mobileBox.y + mobileBox.height <= 844, 'pré-visualização cabe no ecrã móvel')
+  check(await mobileReview.getByRole('button', { name: 'Cancelar', exact: true }).isVisible() && await mobileReview.getByRole('button', { name: 'Importar', exact: true }).isVisible(), 'ações ficam visíveis no telemóvel')
+  await page.screenshot({ path: path.join(output, 'import-review-mobile.png') })
+  await page.keyboard.press('Escape')
+  await mobileReview.waitFor({ state: 'hidden' })
+  check(JSON.stringify(await readProgram()) === JSON.stringify(beforeCancel), 'Escape cancela sem alterar o GRAFCET atual')
+  await openImport()
+  await page.locator('form.grafcet-import-dialog input[type="file"]').setInputFiles(reviewFile)
+  const enterReview = page.getByRole('alertdialog', { name: 'Importar GRAFCET' })
+  await enterReview.waitFor()
+  await enterReview.getByRole('button', { name: 'Importar', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await enterReview.waitFor({ state: 'hidden' })
+  const importedReview = await readProgram()
+  check(importedReview.name === reviewProgram.name && importedReview.importReview.warnings.length === reviewWarnings.length, 'confirmar importa e conserva os avisos para revisão')
   check(errors.length === 0, 'sem erros de execução no navegador')
   await writeFile(path.join(output, 'result.json'), JSON.stringify({ ok: true, checks, browserErrors: errors }, null, 2) + '\n')
   console.log(`OK — ${checks.length} verificações de modais`)

@@ -18,6 +18,7 @@ await context.route('**/*', (route) => {
 await context.addInitScript(() => {
   performance.setResourceTimingBufferSize(10000)
   localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
+  localStorage.removeItem('dcsimu:supabase:config:v1')
 // O Vite (com HMR) serve módulos alterados com «?t=…»: um import('/src/…') sem esse sufixo criava
 // OUTRA instância da store e os dados de teste iam para uma store que a página não usa. Importa o módulo
 // exatamente com o URL que a aplicação carregou.
@@ -122,6 +123,68 @@ try {
   check(program.linkBends?.t1?.length >= 1, 'arrastar a linha cria uma dobra persistente')
   await undo()
   check(!(await read()).linkBends?.t1?.length, 'Desfazer remove a dobra criada num único gesto')
+
+  const importedBends = { ...fixture(), transitions: [{ ...fixture().transitions[0], condition: 'G0 <> X9 * /1Hz' }], linkBends: { t1: [{ x: 300, y: 240 }] } }
+  await set(importedBends)
+  await page.evaluate(async () => { const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
+  const conditionChecks = await page.evaluate(async () => {
+    const { validCondition } = await globalThis.__dcAppImport('/src/grafcet/engine.ts')
+    return { crossChart: validCondition('G0 <> X9'), negatedClock: validCondition('/1Hz') }
+  })
+  check(conditionChecks.crossChart && conditionChecks.negatedClock, 'o browser reconhece G0 <> X9 e a condição negada /1Hz')
+  check((await page.locator('.grafcet-graph-link').first().textContent()).includes('G0 <> X9'), 'o desenho mantém a referência G0 <> X9 ao apresentar /1Hz')
+  const negated = page.locator('.grafcet-graph-link tspan[style*="overline"]').filter({ hasText: '1Hz' }).first()
+  check(await negated.count() > 0, 'a condição negada /1Hz mantém a sobrelinha no diagrama')
+  await set({ ...importedBends, transitions: [{ ...importedBends.transitions[0], condition: 'I1' }] })
+  await page.evaluate(async () => { const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
+  const transitionBar = page.locator('.grafcet-transition-bar').first()
+  const barPoint = await transitionBar.evaluate((line) => {
+    const matrix = line.getScreenCTM(), svg = line.ownerSVGElement
+    const point = svg.createSVGPoint(); point.x = (Number(line.getAttribute('x1')) + Number(line.getAttribute('x2'))) / 2; point.y = Number(line.getAttribute('y1'))
+    const screen = point.matrixTransform(matrix)
+    const path = svg.querySelector('.grafcet-editable-segment')
+    const length = path.getTotalLength()
+    let nearest = { distance: Infinity, at: 0 }
+    for (let i = 0; i <= 100; i++) {
+      const at = length * i / 100, candidate = path.getPointAtLength(at)
+      const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y)
+      if (distance < nearest.distance) nearest = { distance, at }
+    }
+    const before = path.getPointAtLength(Math.max(0, nearest.at - 1)), after = path.getPointAtLength(Math.min(length, nearest.at + 1))
+    return { x: screen.x, y: screen.y, moveX: Math.abs(after.x - before.x) < 1 }
+  })
+  const barHitTarget = await page.evaluate(({ x, y }) => {
+    const target = document.elementFromPoint(x, y)
+    return target?.getAttribute('class') || target?.nodeName
+  }, barPoint)
+  check(barHitTarget === 'grafcet-transition-bar', 'a barra visível da transição recebe o gesto do rato')
+  const bendsBeforeBarDrag = JSON.stringify((await read()).linkBends.t1)
+  await page.mouse.move(barPoint.x, barPoint.y); await page.mouse.down(); await page.mouse.move(barPoint.x + (barPoint.moveX ? 48 : 0), barPoint.y + (barPoint.moveX ? 0 : 48), { steps: 8 }); await page.mouse.up()
+  check(JSON.stringify((await read()).linkBends.t1) !== bendsBeforeBarDrag, 'arrastar a barra visível move a ligação importada e persiste linkBends')
+  const bendsBeforeAddButton = (await read()).linkBends.t1.length
+  const nodeButton = page.getByRole('button', { name: 'Adicionar nó à ligação da transição T1', exact: true })
+  await nodeButton.click()
+  check((await read()).linkBends?.t1?.length === bendsBeforeAddButton + 1, 'o botão Adicionar nó cria e persiste uma nova dobra na ligação importada')
+  const bendHandle = page.locator('[aria-label^="Ponto de quebra"]').first()
+  const bendBounds = await bendHandle.boundingBox(); assert.ok(bendBounds)
+  const bendsBeforeHandleDrag = JSON.stringify((await read()).linkBends.t1)
+  await page.mouse.move(bendBounds.x + bendBounds.width / 2, bendBounds.y + bendBounds.height / 2)
+  await page.mouse.down(); await page.mouse.move(bendBounds.x + bendBounds.width / 2 + 44, bendBounds.y + bendBounds.height / 2 + 22, { steps: 8 }); await page.mouse.up()
+  check(JSON.stringify((await read()).linkBends.t1) !== bendsBeforeHandleDrag, 'o nó criado pode ser arrastado e a nova posição fica em linkBends')
+  const savedBends = JSON.stringify((await read()).linkBends.t1)
+  if (output) await page.screenshot({ path: path.join(output, 'grafcet-add-link-node-desktop.png') })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const collapseTools = page.getByRole('button', { name: /Recolher ferramentas/ })
+  if (await collapseTools.isVisible()) await collapseTools.click()
+  if (output) await page.locator('.grafcet-canvas svg[aria-label="Etapas, ações e transições do GRAFCET"]').screenshot({ path: path.join(output, 'grafcet-add-link-node-mobile.png') })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const restoredBends = await page.evaluate(async () => {
+    const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    const store = useSimStore.getState()
+    const name = 'GRAFCET line-node browser smoke'
+    return store.saveProjectAs(name) && store.loadProjectByName(name) ? useSimStore.getState().grafcet.linkBends?.t1 : null
+  })
+  check(JSON.stringify(restoredBends) === savedBends, 'guardar e reabrir o projeto conserva o nó e a posição arrastada')
 
   const cycle = fixture()
   cycle.steps.find((item) => item.id === 'c').x = 180

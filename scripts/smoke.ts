@@ -1,4 +1,6 @@
 import './node-env'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import fs from 'node:fs'
 import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
@@ -8,6 +10,7 @@ import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, align
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
 import { GRAFCET_TEMPLATES } from '../src/grafcet/templates'
 import { stepNumberOf, stripGrafcetPrefix, normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
+import ActionSymbol, { actionShape } from '../src/grafcet/ActionSymbol'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
  * Não depende do React: exercita o motor de continuidade, o motor Ladder, o
@@ -2035,8 +2038,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   // Validação e simulação FluidSIM / grafcet.io
   check('GRAFCET FluidSIM: temporização padrão IEC 10s/X85 válida', validCondition('10s/X85') && validCondition('1s/X45') && validCondition('500ms/X90'))
   check('GRAFCET FluidSIM: expressões booleanas com *, +, / e _ válidas', validCondition('B_Start * B_Stop_NF * fc_a0 * fc_b0 * /In_Man') && validCondition('_B_Stop_NF + G1X75') && validCondition('b0 * /S_Rolamento'))
+  check('GRAFCET: comparações de etapa G0 e composição booleana são aceites', validCondition('G0 <> X9') && validCondition('G0 <=> X9') && validCondition('G0 <> X9 * (I1 + /I2)') && !validCondition('G0 >< X9'))
+  check('GRAFCET: G0 <> X9 é verdadeiro quando X9 está inativa no gráfico atual', evalCondition('G0 <> X9', {}, { activeIndexes: new Set([1]) }) && !evalCondition('G0 <> X9', {}, { activeIndexes: new Set([9]) }) && evalCondition('G0 <=> X9', {}, { activeIndexes: new Set([9]) }))
   check('GRAFCET FluidSIM: avaliação de temporizador 10s/X85', evalCondition('10s/X85', {}, { stepElapsedByName: { '85': 10500 }, activeStepNames: new Set(['85']) }) && !evalCondition('10s/X85', {}, { stepElapsedByName: { '85': 8000 }, activeStepNames: new Set(['85']) }))
   check('GRAFCET FluidSIM: avaliação booleana complexa', evalCondition('B_Start * B_Stop_NF * fc_a0 * fc_b0 * /In_Man', { B_START: true, B_STOP_NF: true, FC_A0: true, FC_B0: true, IN_MAN: false }))
+  const negatedClock = renderToStaticMarkup(createElement(ActionSymbol, { x: 0, y: 0, w: 140, h: 30, shape: actionShape({ type: 'conditional', condition: '/1Hz' }), label: 'Q1', condition: '/1Hz' }))
+  check('GRAFCET IEC: ação condicional /1Hz desenha 1Hz com sobrelinha', negatedClock.includes('text-decoration:overline') && negatedClock.includes('>1Hz</tspan>') && !negatedClock.includes('/1Hz</text>'))
 }
 
 /* GRAFCET → Ladder: o programa gerado tem de comportar-se como o simulador GRAFCET. */

@@ -1,4 +1,5 @@
 import type { GrafcetAction } from './engine'
+import { renderConditionTspans } from './grafcetRender'
 
 /** Qualificadores que ocupam uma célula própria à esquerda da caixa (S, R, D, L). */
 export const QUALIFIER_CELL_KINDS = ['S', 'R', 'D', 'L']
@@ -59,7 +60,7 @@ export default function ActionSymbol({
       {conditional && (
         <g>
           <path d={`M ${x + 16} ${y} V ${y - (mini ? 6 : 10)} H ${x + (mini ? 40 : 85)}`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
-          {!mini && <text x={x + 20} y={y - 13} fill="#2563eb" fontSize="10" fontWeight="700">{(condition || '1').length > 17 ? `${(condition || '1').slice(0, 16)}…` : condition || '1'}</text>}
+          {!mini && <text x={x + 20} y={y - 13} fill="#2563eb" fontSize="10" fontWeight="700">{renderConditionTspans((condition || '1').length > 17 ? `${(condition || '1').slice(0, 16)}…` : condition || '1')}</text>}
         </g>
       )}
       <rect className="grafcet-action-box" x={x} y={y} width={w} height={h} rx="1" fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeDasharray={dashed ? '6 3' : undefined} />

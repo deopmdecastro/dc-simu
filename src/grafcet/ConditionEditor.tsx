@@ -177,7 +177,7 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
           rememberSelection()
           setCursor(event.currentTarget.selectionStart ?? value.length)
         }}
-        onBlur={() => { setTypeaheadOpen(false) }} placeholder="Ex.: I1 * /I2 — escreva um nome ou endereço para sugestões" autoComplete="off" spellCheck={false} aria-invalid={!!error} aria-describedby={`${id}-status${error ? ` ${errorId}` : ''}`} />
+        onBlur={() => { setTypeaheadOpen(false) }} placeholder="Ex.: G0 <> X9 * (I1 + /I2) — escreva para sugestões" autoComplete="off" spellCheck={false} aria-invalid={!!error} aria-describedby={`${id}-status${error ? ` ${errorId}` : ''}`} />
       {typeaheadItems.length > 0 && <ul className="grafcet-typeahead" id={`${id}-typeahead`} role="listbox" aria-label="Sugestões da tabela de sinais">
         {typeaheadItems.map((entry, index) => <li key={entry.address} id={typeaheadOptionId(index)} role="option" aria-selected={index === typeaheadActive} className={index === typeaheadActive ? 'is-active' : ''}
           onMouseDown={(event) => { event.preventDefault(); acceptTypeahead(entry.address) }} onMouseEnter={() => setTypeaheadIndex(index)}>
@@ -205,7 +205,7 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
           const rows = filtered.filter((item) => item.source === source)
           return rows.length ? <section key={source}><h4>{source === 'table' ? 'Sinais da tabela' : 'Recursos da expressão'}</h4>{rows.map((item) => <button type="button" key={item.value} data-variable-token={item.value} onClick={() => insert(item.value, true)}><code>{item.value}</code><span>{item.label && <b>{item.label}</b>}{item.comment && <small>{item.comment}</small>}</span></button>)}</section> : null
         })}{!filtered.length && <p>Nenhum sinal corresponde à pesquisa. Pode declarar sinais em «Variáveis» ou escrever o endereço manualmente.</p>}</div>
-        <p className="grafcet-property-note">Xn refere-se ao índice da etapa. T(…) usa o tempo da etapa da ação ou das origens da transição.</p>
+        <p className="grafcet-property-note">Exemplos: <code>G0 &lt;&gt; X9</code> (X9 inativa), <code>/1Hz</code> (relógio negado), <code>MW1 &gt;= 5</code> e <code>I1 * (I2 + /I3)</code>. G0 consulta o GRAFCET atual; referências importadas a outros gráficos ficam assinaladas para revisão. T(…) usa o tempo da etapa da ação ou das origens.</p>
       </div>}
       <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Modelos de condição</summary><div><p>Substituir toda a expressão por:</p><div className="grafcet-property-chips" role="group" aria-label="Substituir condição por modelo">{['1', 'T(1s)', 'T(2s)', 'T(5s)'].map((preset) => <button key={preset} type="button" onClick={() => replace(preset)} title={`Substituir toda a condição por ${preset}`}>{preset}</button>)}</div></div></details>
     </div>

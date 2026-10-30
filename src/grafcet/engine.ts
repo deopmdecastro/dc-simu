@@ -99,6 +99,9 @@ export interface GrafcetTransition {
    *  cada ponta mostra o número da etapa do outro lado (ex.: X141). */
   wireless?: boolean
   chart?: string
+  /** Transição-fonte (IEC 60848): sem etapa de origem, está sempre validada e dispara
+   *  quando a receptividade é verdadeira (ex.: emergência → etapa de paragem). */
+  source?: boolean
 }
 
 /** Texto livre do GRAFCET (legendas, títulos, notas de projeto). */
@@ -325,7 +328,7 @@ export function parseIecTimer(str: string): IecTimerInfo | null {
  *  - B_Start, B_Stop_NF, fc_a0, fc_b0, In_Man, b0, b1, S_Rolamento
  *  - Timers: 10s/X85, 5s/X90, 1s/X45, 20s/X15, T(5s), T(500ms)
  *  - Frequências: 1HZ, 0.5 HZ, 2 HZ
- *  - Etapas ativas: X85, X1, G0X3, G0X5, G1X75, G0X1, G2X135, G0 <=> X5
+ *  - Etapas ativas: X85, X1, G0X3, G0X5, G1X75, G0X1, G2X135, G0 <=> X5, G0 <> X9
  *  - Operadores: AND (*, ., &, AND), OR (+, |, OR), NOT (!, NOT, leading /, leading _)
  *  - Flancos: ^I1, \I1, ↑I1, ↓I1
  *  - Constantes: 1, 0, TRUE, FALSE */
@@ -366,7 +369,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   // Rejeita sintaxes incorretas explícitas de operadores duplos ou inválidos
   if (/&&|\|\||\^\s*&|\^\s*\||\\\s*&|\\\s*\||\*\s*\*|\+\s*\+/.test(src)) return null
 
-  const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*<=>\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?`, 'gi')
+  const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*(?:<=>|==|=|<>)\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?`, 'gi')
 
   const rawTokens = src.match(regex)
   if (!rawTokens) return null
@@ -407,6 +410,14 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
     }
     const cmp = parseCompareToken(token)
     if (cmp) return compareNumbers(cmp.op, readNumber(cmp.left), readNumber(cmp.right))
+    // No simulador atual há um único GRAFCET em execução. O prefixo G<n>
+    // mantém a compatibilidade gráfica de importação e consulta o estado X<n>
+    // local; <> é a negação explícita dessa etapa (não uma leitura de outro PLC).
+    const grafcetCompare = token.match(/^G\d+\s*(<=>|==|=|<>)\s*X(\d+)$/i)
+    if (grafcetCompare) {
+      const active = stepIsActive(grafcetCompare[2], ctx)
+      return grafcetCompare[1] === '<>' ? !active : active
+    }
     if (token.startsWith('T(')) {
       const ms = parseDuration(token)
       return ms === null ? null : (ctx.elapsedMs ?? 0) >= ms
@@ -572,7 +583,8 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
   const simTimeMs = (runtime.simTimeMs ?? 0) + dtMs
 
   for (const transition of transitionsOf(program)) {
-    if (!transition.from.length || !transition.to.length ||
+    const sourceTransition = !!transition.source && !transition.from.length
+    if ((!transition.from.length && !sourceTransition) || !transition.to.length ||
         !transition.from.every((id) => current.has(id) && !consumed.has(id)) ||
         !transition.to.every((id) => ids.has(id))) continue
 
@@ -745,7 +757,9 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
 
   transitions.forEach((transition, index) => {
     const name = transition.name || `T${index + 1}`
-    if (!transition.from.length || !transition.to.length) {
+    if (transition.source && !transition.from.length && !transition.to.length) {
+      issues.push({ id: `${transition.id}:links`, level: 'error', message: `${name} é uma transição-fonte sem destino.`, entityId: transition.id, tab: 'transitions' })
+    } else if ((!transition.from.length && !transition.source) || !transition.to.length) {
       issues.push({ id: `${transition.id}:links`, level: 'error', message: `${name} precisa de origem e destino.`, entityId: transition.id, tab: 'transitions' })
     } else if ([...transition.from, ...transition.to].some((stepId) => !stepIds.has(stepId))) {
       issues.push({ id: `${transition.id}:missing`, level: 'error', message: `${name} referencia uma etapa inexistente.`, entityId: transition.id, tab: 'transitions' })

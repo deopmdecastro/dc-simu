@@ -44,7 +44,7 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
     const containFocus = (event: FocusEvent) => {
       const dialog = dialogRef.current
       // Um diálogo aberto por cima (ex.: pré-visualização de importação) tem o seu próprio foco.
-      if (dialog && event.target instanceof Element && !dialog.contains(event.target) && !event.target.closest('[role="dialog"]')) dialog.focus()
+      if (dialog && event.target instanceof Element && !dialog.contains(event.target) && !event.target.closest('[role="dialog"],[role="alertdialog"]')) dialog.focus()
     }
     document.addEventListener('focusin', containFocus)
     return () => {

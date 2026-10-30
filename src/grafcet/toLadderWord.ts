@@ -137,7 +137,8 @@ export function wordMethodBlocker(program: GrafcetProgram): string | null {
     return null
   }
   for (const t of transitionsOf(program)) {
-    if (!t.from.length || !t.to.length || !t.from.every((id) => ids.has(id)) || !t.to.every((id) => ids.has(id))) return 'há transições sem etapa de origem ou destino'
+    // Transição-fonte (source): sem origem, sempre validada — só a receptividade decide.
+    if ((!t.from.length && !t.source) || !t.to.length || !t.from.every((id) => ids.has(id)) || !t.to.every((id) => ids.has(id))) return 'há transições sem etapa de origem ou destino'
     const tree = parse(t.condition || '1')
     if (!tree) return `a receptividade «${t.condition}» não é convertível`
     const issue = findIssue(tree, unsupported)

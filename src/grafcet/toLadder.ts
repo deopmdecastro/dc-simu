@@ -15,7 +15,7 @@ export type Node =
   | { t: 'freq'; hz: number }
   | { t: 'cmp'; left: string; op: LadderCompareOp; right: string }
 
-const TOKEN_REGEX = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|\d+(?:\.\d+)?\s*HZ|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*`, 'gi')
+const TOKEN_REGEX = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|\d+(?:\.\d+)?\s*HZ|G\d+\s*(?:<=>|==|=|<>)\s*X\d+|G\d+X\d+|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*`, 'gi')
 
 export function parse(expression: string): Node | null {
   const src = stripGrafcetPrefix(expression).trim()
@@ -62,6 +62,13 @@ export function parse(expression: string): Node | null {
     }
     if (token.startsWith('X') && /^\d+$/.test(token.slice(1))) {
       return { t: 'step', index: Number(token.slice(1)) }
+    }
+    // G0 <> X9 / G0 <=> X9 / G0X9: etapa X9 do GRAFCET atual (como no motor); <> é a negação.
+    const grafcetStep = token.match(/^G\d+\s*(<=>|==|=|<>)\s*X(\d+)$/) ?? token.match(/^G\d+X(\d+)$/)
+    if (grafcetStep) {
+      const negated = grafcetStep.length === 3 && grafcetStep[1] === '<>'
+      const step: Node = { t: 'step', index: Number(grafcetStep[grafcetStep.length - 1]) }
+      return negated ? { t: 'not', a: step } : step
     }
     if (/^[IQM]\d{1,4}(?:\.[0-7])?$/.test(token) || /^[A-Z][A-Z0-9_]*$/.test(token)) {
       return { t: 'lit', address: token }

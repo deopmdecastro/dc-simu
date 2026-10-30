@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 /**
  * Caixas de diálogo da plataforma (substituem `window.alert/confirm/prompt`).
@@ -30,6 +30,8 @@ type Request = {
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
+  content?: ReactNode
+  className?: string
   defaultValue?: string
   resolve: (value: boolean | string | null) => void
 }
@@ -46,7 +48,7 @@ function ask(request: Omit<Request, 'resolve'>): Promise<boolean | string | null
   })
 }
 
-export type ConfirmOptions = { title?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean }
+export type ConfirmOptions = { title?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean; content?: ReactNode; className?: string }
 
 /** Aviso simples com um só botão. */
 export async function uiAlert(message: string, options: { title?: string; confirmLabel?: string } = {}): Promise<void> {
@@ -61,6 +63,8 @@ export async function uiConfirm(message: string, options: ConfirmOptions = {}): 
     confirmLabel: options.confirmLabel ?? 'Continuar',
     cancelLabel: options.cancelLabel ?? 'Cancelar',
     danger: options.danger,
+    content: options.content,
+    className: options.className,
   })
   return answer === true
 }
@@ -90,18 +94,64 @@ export default function DialogHost() {
   const [queue, setQueue] = useState<Request[]>([])
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const returnFocusRef = useRef<HTMLElement | SVGElement | null>(null)
+  const wasOpenRef = useRef(false)
   const current = queue[0]
 
   useEffect(() => {
-    push = (request) => setQueue((items) => [...items, request])
+    push = (request) => {
+      if (!wasOpenRef.current) {
+        const active = document.activeElement
+        returnFocusRef.current = active instanceof HTMLElement || active instanceof SVGElement ? active : null
+        wasOpenRef.current = true
+      }
+      setQueue((items) => [...items, request])
+    }
     return () => { push = null }
   }, [])
+
+  useLayoutEffect(() => {
+    if (!current) {
+      const previous = returnFocusRef.current
+      returnFocusRef.current = null
+      wasOpenRef.current = false
+      if (previous?.isConnected && typeof previous.focus === 'function') previous.focus({ preventScroll: true })
+      return
+    }
+    const dialog = dialogRef.current
+    const preferred = dialog?.querySelector<HTMLElement>('[autofocus], [data-initial-focus]')
+      ?? dialog?.querySelector<HTMLElement>('.dcx-dialog-actions .is-primary')
+      ?? dialog
+    preferred?.focus({ preventScroll: true })
+  }, [current])
 
   // Teclado do diálogo em captura: Enter confirma e Esc cancela antes de qualquer atalho do editor.
   const keysRef = useRef<{ accept: () => void; cancel: () => void } | null>(null)
   useEffect(() => {
     if (!current) return
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') {
+        const dialog = dialogRef.current
+        const focusable = Array.from(dialog?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex]:not([tabindex="-1"]),[contenteditable="true"]',
+        ) ?? []).filter((element) => element.getClientRects().length > 0 && !element.closest('[hidden],[aria-hidden="true"]'))
+        if (!focusable.length) {
+          event.preventDefault()
+          dialog?.focus({ preventScroll: true })
+          return
+        }
+        const active = document.activeElement
+        const index = focusable.indexOf(active as HTMLElement)
+        if (event.shiftKey && index <= 0) {
+          event.preventDefault()
+          focusable[focusable.length - 1].focus({ preventScroll: true })
+        } else if (!event.shiftKey && (index === focusable.length - 1 || index < 0)) {
+          event.preventDefault()
+          focusable[0].focus({ preventScroll: true })
+        }
+        return
+      }
       if (event.key !== 'Enter' && event.key !== 'Escape') return
       const target = event.target as HTMLElement | null
       if (event.key === 'Enter' && target?.closest('.dcx-dialog-actions button')) return // o botão focado decide (Cancelar ou Confirmar)
@@ -133,9 +183,9 @@ export default function DialogHost() {
 
   return (
     <div className="dcx-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && current.kind !== 'alert') cancel() }}>
-      <div className={`dcx-dialog${current.kind === 'choose' ? ' is-choice' : ''}`} role="alertdialog" aria-modal="true" aria-label={current.title}>
+      <div ref={dialogRef} tabIndex={-1} className={`dcx-dialog${current.kind === 'choose' ? ' is-choice' : ''}${current.className ? ` ${current.className}` : ''}`} role="alertdialog" aria-modal="true" aria-label={current.title}>
         <h2>{current.title}</h2>
-        <p>{current.message}</p>
+        {current.content ?? <p>{current.message}</p>}
         {current.kind === 'prompt' && <input
           ref={inputRef}
           className="dcx-dialog-input"

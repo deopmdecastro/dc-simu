@@ -3,7 +3,7 @@ import { useSimStore } from '../src/store/useSimStore'
 import { applyLadderFromGrafcet, generatedLadderMethod, hasGeneratedLadder, ladderMethodOptions, ladderSyncStatus } from '../src/grafcet/ladderSync'
 import { grafcetToLadderWord, stepLanes, wordMethodBlocker } from '../src/grafcet/toLadderWord'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
-import { emptyGrafcetRuntime, scanGrafcet, stepNumberOf, transitionsOf } from '../src/grafcet/engine'
+import { emptyGrafcetRuntime, scanGrafcet, stepNumberOf, transitionsOf, validateGrafcet } from '../src/grafcet/engine'
 import { grafcetExamples } from '../src/project/grafcetExamples'
 import type { GrafcetProgram } from '../src/grafcet/engine'
 import { runScan } from '../src/ladder/ladderEngine'
@@ -181,5 +181,69 @@ for (const example of [basicExample, normalExample, advancedExample]) {
     const expected = 10 * hz * 2
     check(toggles >= expected * 0.8 && toggles <= expected, `${example.level}: ${q} pisca a ${hz} Hz no Ladder (${toggles} mudanças em 10 s)`)
   }
+}
+
+// Condições de estado de etapa importadas: G0 <> X9 (X9 inativa), G0 <=> X9 e G0X9 (X9 ativa).
+{
+  const gstep = (id: string, name: string, initial = false) => ({ id, name, initial, stepType: initial ? 'initial' as const : 'simple' as const, action: '', condition: '', actions: [] })
+  const states: GrafcetProgram = { name: 'g0', steps: [gstep('a', '0', true), gstep('b', '1'), gstep('c', '2')], transitions: [
+    { id: 't1', from: ['a'], to: ['b'], condition: 'I0.0' },
+    { id: 't2', from: ['b'], to: ['c'], condition: 'G0 <=> X1 * I0.1' },
+    { id: 't3', from: ['c'], to: ['a'], condition: 'G0 <> X1 * G0X2 * I0.2' },
+  ] }
+  check(wordMethodBlocker(states) === null, 'G0 <> Xn, G0 <=> Xn e G0Xn cabem no registo de etapa (MOVE)')
+  const ladder = grafcetToLadderWord(states, {})
+  const tbl: Record<string, boolean> = {}
+  const sdb: DbTable = {}
+  const sedges: Record<string, boolean> = {}
+  const stimers = {}
+  runScan({ rungs: ladder.startupRungs }, tbl, stimers, {}, 100, {}, [], sdb, sedges)
+  const go = (inputs: Record<string, boolean>) => { Object.assign(tbl, inputs); runScan({ rungs: [...ladder.grafcetRungs, ...ladder.outputRungs] }, tbl, stimers, {}, 100, {}, [], sdb, sedges); return sdb[ladder.word]?.value }
+  const path = [go({}), go({ 'I0.0': true }), go({ 'I0.1': true }), go({ 'I0.2': true })].join(' → ')
+  check(path === '0 → 1 → 2 → 0' && ladder.warnings.length === 0, `Ladder MOVE com G0 <> X1 / G0 <=> X1 / G0X2 evolui 0 → 1 → 2 → 0 (${path})`)
+}
+
+// Transição-fonte (IEC 60848): sem origem, sempre validada. /I0.7 (emergência) ativa a etapa 9;
+// o motor GRAFCET, o Ladder MOVE e o Ladder por bits evoluem da mesma forma.
+{
+  const gstep = (id: string, name: string, initial = false, out?: string) => ({ id, name, initial, stepType: initial ? 'initial' as const : 'simple' as const, action: '', condition: '', actions: out ? [{ id: `a-${id}`, address: out, condition: '1' }] : [] })
+  const program: GrafcetProgram = { name: 'fonte', steps: [gstep('a', '0', true), gstep('b', '1', false, 'Q0.0'), gstep('e', '9', false, 'Q0.6')], transitions: [
+    { id: 't1', from: ['a'], to: ['b'], condition: 'I0.0 * /X9' },
+    { id: 't2', from: ['b'], to: ['a'], condition: 'I0.1 + X9' },
+    { id: 'ts', from: [], to: ['e'], condition: '/I0.7', source: true },
+    { id: 't9', from: ['e'], to: ['a'], condition: 'I0.7 * I0.5' },
+  ] }
+  check(wordMethodBlocker(program) === null && validateGrafcet(program).every((issue) => issue.level !== 'error'), 'transição-fonte: válida no diagnóstico e no registo de etapa (MOVE)')
+  const loose: GrafcetProgram = { ...program, transitions: program.transitions.map((t) => (t.id === 'ts' ? { ...t, source: false } : t)) }
+  check(validateGrafcet(loose).some((issue) => issue.id === 'ts:links' && issue.level === 'error'), 'sem a marca de fonte, uma transição sem origem continua a ser um erro (rascunho solto)')
+  const word = grafcetToLadderWord(program, {})
+  const bits = grafcetToLadder(program, [], { startupBlock: true })
+  const inputs = ['I0.0', 'I0.1', 'I0.5', 'I0.7']
+  const rest = { 'I0.7': true }
+  const gTable: Record<string, boolean> = { ...rest }
+  let rt = emptyGrafcetRuntime()
+  const sims = [{ name: 'MOVE', rungs: [...word.grafcetRungs, ...word.outputRungs], startup: word.startupRungs }, { name: 'bits', rungs: bits.rungs, startup: bits.startupRungs }].map((sim) => {
+    const table: Record<string, boolean> = { ...rest }
+    const db: DbTable = {}
+    const edges: Record<string, boolean> = {}
+    const timers = {}
+    runScan({ rungs: sim.startup }, table, timers, {}, 100, {}, [], db, edges)
+    return { ...sim, table, db, edges, timers, mismatches: 0 }
+  })
+  let seed = 11
+  const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
+  let reached9 = 0
+  for (let hold = 0; hold < 600; hold++) {
+    for (const input of inputs) if (rand() < 0.3) { const v = !gTable[input]; gTable[input] = v; for (const sim of sims) sim.table[input] = v }
+    const scans = 1 + Math.floor(rand() * 8)
+    for (let k = 0; k < scans; k++) {
+      rt = scanGrafcet(program, rt, gTable, 100)
+      for (const sim of sims) runScan({ rungs: sim.rungs }, sim.table, sim.timers, {}, 100, {}, [], sim.db, sim.edges)
+    }
+    if (gTable['Q0.6']) reached9++
+    for (const sim of sims) if (['Q0.0', 'Q0.6'].some((q) => !!gTable[q] !== !!sim.table[q])) sim.mismatches++
+  }
+  check(reached9 > 20, `a emergência (/I0.7) ativou a etapa 9 em ${reached9} patamares`)
+  for (const sim of sims) check(sim.mismatches === 0, `transição-fonte: Ladder ${sim.name} igual ao GRAFCET em 600 patamares (${sim.mismatches} divergências)`)
 }
 console.log('OK')

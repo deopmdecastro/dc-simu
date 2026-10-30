@@ -23,6 +23,7 @@ const GROUPS = [
       { keys: ['Arrastar'], label: 'Largar o elemento sobre uma etapa liga-o (barra: topo = origem, fundo = destino); arrastar uma ação ligada para fora desanexa-a' },
       { keys: ['L'], label: 'Ligar por linha: etapa→etapa cria transição; porto roxo da etapa→ação liga a ação' },
       { keys: ['Arrastar etapa'], label: 'Largar uma etapa junto a uma barra solta também liga a transição' },
+      { keys: ['Enter / Espaço'], label: 'Com a transição selecionada, use «Adicionar nó» junto à barra para inserir um ponto na linha; arraste a pega para dobrar' },
     ],
   },
   {
