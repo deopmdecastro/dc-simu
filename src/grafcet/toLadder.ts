@@ -11,9 +11,11 @@ export type Node =
   | { t: 'not'; a: Node }
   | { t: 'timer'; ms: number; key?: string }
   | { t: 'step'; index: number }
+  /** Intermitência (1HZ, 0.5 HZ): onda quadrada com essa frequência. */
+  | { t: 'freq'; hz: number }
   | { t: 'cmp'; left: string; op: LadderCompareOp; right: string }
 
-const TOKEN_REGEX = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*`, 'gi')
+const TOKEN_REGEX = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|\d+(?:\.\d+)?\s*HZ|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*`, 'gi')
 
 export function parse(expression: string): Node | null {
   const src = stripGrafcetPrefix(expression).trim()
@@ -53,6 +55,10 @@ export function parse(expression: string): Node | null {
     const iec = parseIecTimer(token)
     if (iec) {
       return { t: 'timer', ms: iec.d1, key: token }
+    }
+    if (/^\d+(?:\.\d+)?\s*HZ$/.test(token)) {
+      const hz = parseFloat(token)
+      return hz > 0 ? { t: 'freq', hz } : null
     }
     if (token.startsWith('X') && /^\d+$/.test(token.slice(1))) {
       return { t: 'step', index: Number(token.slice(1)) }
@@ -99,7 +105,7 @@ export function toDnf(node: Node, neg: boolean, resolve: (n: Node) => string | n
     case 'not': return toDnf(node.a, !neg, resolve)
     case 'lit': return [[{ address: node.address, neg, edge: node.edge }]]
     case 'cmp': return [[{ address: node.left, neg: false, cmp: { op: neg ? NEGATED_OP[node.op] : node.op, right: node.right } }]]
-    case 'timer': case 'step': { const address = resolve(node); return address ? [[{ address, neg }]] : null }
+    case 'timer': case 'step': case 'freq': { const address = resolve(node); return address ? [[{ address, neg }]] : null }
     case 'and': case 'or': {
       const isAnd = (node.t === 'and') !== neg // De Morgan
       const left = toDnf(node.a, neg, resolve)
@@ -209,6 +215,21 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
   const push = (name: string, branches: LadderContact[][], coils: LadderCoilEl[], extra: Partial<LadderRung> = {}) => pushTo(rungs, name, branches, coils, extra)
   const toContacts = (lits: Literal[]) => lits.map((l): LadderContact => l.cmp ? { ...contact(l.address, 'CMP'), compareOp: l.cmp.op, compareType: /\./.test(l.address + l.cmp.right) ? 'Real' : 'Int', compareValue: l.cmp.right } : contact(l.address, l.edge === 'R' ? (l.neg ? 'FALLING' : 'RISING') : l.edge === 'F' ? (l.neg ? 'RISING' : 'FALLING') : l.neg ? 'NC' : 'NO'))
   const timer = (address: string, presetMs: number): LadderTimer => ({ kind: 'timer', id: nanoid(6), address, timerType: 'TON', presetMs })
+  // Intermitência (1HZ…): oscilador de dois TON de meio período — [/Tb] → TON Ta; [Ta] → TON Tb. Ta é o relógio.
+  const clocks = new Map<number, string>()
+  const clockFor = (hz: number): string => {
+    const existing = clocks.get(hz)
+    if (existing) return existing
+    const half = Math.max(Math.round(500 / hz), 1)
+    const on = alloc('T')
+    const off = alloc('T')
+    clocks.set(hz, on)
+    tag(on, `Temp_T_${hz}Hz_on`, `Temporização ${half / 1000} s: relógio ${hz} Hz (meio período ligado)`)
+    tag(off, `Temp_T_${hz}Hz_off`, `Temporização ${half / 1000} s: relógio ${hz} Hz (meio período desligado)`)
+    push(`GRAFCET · Relógio ${hz} Hz · ${on}`, [[contact(off, 'NC')]], [], { timer: timer(on, half), comment: withName(`${on} fecha a cada ${half / 1000} s — intermitência ${hz} Hz`) })
+    push(`GRAFCET · Relógio ${hz} Hz · ${off}`, [[contact(on)]], [], { timer: timer(off, half), comment: withName(`${off} repõe ${on} ao fim de ${half / 1000} s`) })
+    return on
+  }
 
   // Uma condição → ramos paralelos de contactos em série (cada ramo começa por `prefix`).
   const branchesFor = (condition: string, prefix: LadderContact[], resolve: (n: Node) => string | null, label: string): LadderContact[][] | null => {
@@ -294,6 +315,7 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
         return transitionTimers.get(`${t.id}|${n.ms}`) ?? null
       }
       if (n.t === 'step') return bitOfIndex(n.index)
+      if (n.t === 'freq') return clockFor(n.hz)
       return null
     }
     const branches = branchesFor(t.condition, [...prefix, ...guards], resolve, `T${k + 1}`)
@@ -319,11 +341,11 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
     for (const a of list) {
       const stepContact = contact(stepBits[a.stepId])
       let prefix = [stepContact]
-      let resolve = (n: Node) => (n.t === 'step' ? bitOfIndex(n.index) : null)
+      let resolve = (n: Node) => (n.t === 'step' ? bitOfIndex(n.index) : n.t === 'freq' ? clockFor(n.hz) : null)
       if (a.timerAddress) {
         const tAddress = a.timerAddress
         prefix = [stepContact, contact(tAddress, a.kind === 'D' ? 'NO' : 'NC')]
-        resolve = (n: Node) => (n.t === 'step' ? bitOfIndex(n.index) : n.t === 'timer' ? tAddress : null)
+        resolve = (n: Node) => (n.t === 'step' ? bitOfIndex(n.index) : n.t === 'timer' ? tAddress : n.t === 'freq' ? clockFor(n.hz) : null)
       }
       const branches = branchesFor(a.condition, prefix, resolve, `Ação ${address} (etapa ${stepNumberOf(steps[a.index], a.index)})`)
       if (!branches) continue

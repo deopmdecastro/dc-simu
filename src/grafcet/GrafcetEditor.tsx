@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
-import { uiConfirm } from '../ui/dialogs'
+import { uiChoose, uiConfirm } from '../ui/dialogs'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { allowedViews } from '../project/kind'
 import { isSmallScreen } from '../ui/cleanMode'
@@ -44,7 +44,7 @@ import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_GRAFCET } from '../ui/textStyle'
 import type { CanvasTextStyle } from '../types'
 import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
-import { applyLadderFromGrafcet, describeLadderDiff, diffGeneratedLadder, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
+import { applyLadderFromGrafcet, describeLadderDiff, diffGeneratedLadder, generatedLadderMethod, hasGeneratedLadder, ladderMethodOptions, ladderSyncStatus, previewLadder, type LadderMethod } from './ladderSync'
 import {
   IconChevronLeft,
   IconCopy,
@@ -920,28 +920,48 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (!steps.length) return notify('Crie primeiro as etapas do GRAFCET')
     if (errorCount) return notify('Corrija os erros do GRAFCET antes de gerar o Ladder')
     const updating = hasGeneratedLadder()
-    if (!updating) {
-      const preview = previewLadder({ ...program, transitions })
-      const note = preview.warnings.length ? `\n\nAvisos:\n- ${preview.warnings.join('\n- ')}` : ''
-      const what = preview.method === 'word'
-        ? `• Registo de etapa: G0 (%MW) guarda o número da etapa ativa\n• Complete restart [OB 100]: ${preview.startupRungs.length} network(s) (G0 = etapa inicial)\n• FC Grafcet: ${preview.blocks?.find((b) => b.label === 'Grafcet')?.rungs.length ?? 0} networks (uma por transição, com MOVE)\n• FC Outputs: ${preview.blocks?.find((b) => b.label === 'Outputs')?.rungs.length ?? 0} networks (saídas por etapa)\n• Main [OB 1]: chama os FC Grafcet e Outputs\n• Tabela de variáveis: ${preview.tags.length} novas entradas, saídas e registo`
-        : `• Complete restart [OB 100]: ${preview.startupRungs.length} networks (repõe e ativa as etapas iniciais)\n• Main [OB 1]: ${preview.rungs.length} networks (funções do GRAFCET e saídas)\n• Tabela de variáveis: ${preview.tags.length} entradas, saídas e memórias\n\n(Método de bits de etapa: ${preview.fallbackReason ?? 'GRAFCET fora do registo de etapa'}.)`
-      if (
-        !(await uiConfirm(
-          `Gerar o Ladder deste GRAFCET?\n\n${what}\n\nDepois de gerado, o botão passa a «Atualizar Ladder» e o Ladder acompanha o GRAFCET. As suas networks ficam como estão.${note}`
-        ))
-      )
-        return
-    } else {
+    const full = { ...program, transitions }
+    // Escolha do método: registo de etapa (MOVE) ou bits de etapa (SET/RESET), com o que cada um gera.
+    const options = ladderMethodOptions(full)
+    const current = generatedLadderMethod()
+    const summary = (method: LadderMethod) => {
+      const preview = previewLadder(full, method)
+      const lines = method === 'word'
+        ? `OB 100: G0 = etapa inicial · FC Grafcet: ${preview.blocks?.find((b) => b.label === 'Grafcet')?.rungs.length ?? 0} networks · FC Outputs: ${preview.blocks?.find((b) => b.label === 'Outputs')?.rungs.length ?? 0} networks · ${preview.tags.length} variáveis novas`
+        : `OB 100: ${preview.startupRungs.length} networks · Main [OB 1]: ${preview.rungs.length} networks · ${preview.tags.length} variáveis`
+      return preview.warnings.length ? `${lines}\n${preview.warnings.length} aviso${preview.warnings.length === 1 ? '' : 's'}: ${preview.warnings[0]}` : lines
+    }
+    const choice = await uiChoose(
+      updating
+        ? `O Ladder deste GRAFCET já foi gerado${current === 'word' ? ' com o registo de etapa (MOVE)' : ' com bits de etapa'}. Escolha o método da atualização. As suas networks ficam como estão.`
+        : 'Escolha como converter o GRAFCET em Ladder. Depois de gerado, o botão passa a «Atualizar Ladder» e o Ladder acompanha o GRAFCET; as suas networks ficam como estão.',
+      [
+        {
+          id: 'word', title: 'Registo de etapa (MOVE)', badge: options.word.available ? 'Recomendado' : undefined,
+          description: 'G0 (%MW) guarda o número da etapa ativa: cada transição é um MOVE, cada saída compara G0 e as temporizações são TON. Organizado em FC Grafcet e FC Outputs.',
+          detail: options.word.available ? summary('word') : undefined,
+          disabled: !options.word.available, reason: options.word.reason ?? undefined,
+        },
+        {
+          id: 'bit', title: 'Bits de etapa (SET/RESET)',
+          description: 'Um bit de memória por etapa, ativado e desativado com SET/RESET. Serve qualquer GRAFCET: etapas em paralelo, várias etapas iniciais e ações memorizadas (S/R/D/L).',
+          detail: summary('bit'),
+        },
+      ],
+      { title: updating ? 'Atualizar Ladder' : 'Gerar Ladder', confirmLabel: updating ? 'Continuar' : 'Gerar Ladder', defaultId: current ?? (options.word.available ? 'word' : 'bit') },
+    )
+    if (!choice) return
+    const method = choice as LadderMethod
+    if (updating) {
       // GRAFCET-LADDER-DIFF-01: mostrar o que muda antes de substituir as networks geradas.
-      const diff = diffGeneratedLadder({ ...program, transitions })
+      const diff = diffGeneratedLadder(full, method)
       if (diff.empty) {
         useGrafcetUi.getState().setLadderSync('synced')
         return notify('O Ladder já corresponde ao GRAFCET — nada a atualizar')
       }
       if (!(await uiConfirm(`Atualizar o Ladder gerado?\n\n${describeLadderDiff(diff)}\n\nSó mudam as networks «GRAFCET ·», «Complete restart ·» e os FC gerados. As suas networks ficam como estão.`))) return
     }
-    const result = applyLadderFromGrafcet({ ...program, transitions })
+    const result = applyLadderFromGrafcet(full, method)
     useGrafcetUi.getState().setLadderSync('synced')
     const warn = result.warnings.length ? ` · ${result.warnings.length} aviso${result.warnings.length === 1 ? '' : 's'}: ${result.warnings[0]}` : ''
     // Projeto só GRAFCET, primeira geração: o editor Ladder passa a existir — abrir para o utilizador o ver.

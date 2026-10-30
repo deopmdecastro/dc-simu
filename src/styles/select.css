@@ -75,6 +75,28 @@
 .dcx-dialog-btn.is-primary:hover { background: #1d4ed8; }
 .dcx-dialog-btn.is-primary.is-danger { border-color: #dc2626; background: #dc2626; }
 .dcx-dialog-btn.is-primary.is-danger:hover { background: #b91c1c; }
+/* uiChoose: opções em cartões (rádio). */
+.dcx-dialog.is-choice { width: min(520px, 100%); }
+.dcx-choice-list { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.dcx-choice {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 11px 12px; text-align: left;
+  border: 1px solid #d7dee8; border-radius: 10px; background: #fff; color: #27344b; font: inherit; cursor: pointer;
+  transition: border-color .12s, background .12s, box-shadow .12s;
+}
+.dcx-choice:hover:not(:disabled) { border-color: #9bb7f6; background: #f8faff; }
+.dcx-choice.is-selected { border-color: #2563eb; background: #f3f7ff; box-shadow: 0 0 0 3px #2563eb1f; }
+.dcx-choice.is-disabled { cursor: not-allowed; background: #f8fafc; color: #8492a6; }
+.dcx-choice:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.dcx-choice-radio { flex: none; width: 16px; height: 16px; margin-top: 2px; border: 1.5px solid #9aa8bc; border-radius: 50%; background: #fff; }
+.dcx-choice.is-selected .dcx-choice-radio { border-color: #2563eb; box-shadow: inset 0 0 0 3.5px #fff; background: #2563eb; }
+.dcx-choice.is-disabled .dcx-choice-radio { border-color: #cbd5e1; background: #eef2f7; }
+.dcx-choice-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dcx-choice-body strong { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: inherit; }
+.dcx-choice-body strong em { padding: 1px 6px; border-radius: 999px; background: #dcfce7; color: #166534; font-size: 10px; font-style: normal; font-weight: 700; }
+.dcx-choice-body > span { font-size: 12px; line-height: 1.45; color: #4b5b72; }
+.dcx-choice.is-disabled .dcx-choice-body > span { color: #8492a6; }
+.dcx-choice-body small { font-size: 11px; line-height: 1.4; color: #64748b; white-space: pre-line; }
+.dcx-choice-body small.is-reason { color: #b45309; }
 @media (max-width: 560px) {
   /* Centrado e compacto, como no PC — só com tipos e botões um pouco menores. */
   .dcx-dialog-backdrop { align-items: center; padding: 16px; }

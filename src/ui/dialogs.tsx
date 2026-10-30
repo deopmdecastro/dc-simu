@@ -9,8 +9,22 @@ import { useEffect, useRef, useState } from 'react'
  * promessa para o código continuar a ler como antes (`if (await uiConfirm(…))`).
  */
 
+/** Opção de `uiChoose`: cartão selecionável; indisponível mostra o motivo e não se escolhe. */
+export type ChoiceOption = {
+  id: string
+  title: string
+  description: string
+  /** detalhe curto por baixo (ex.: o que vai ser gerado) */
+  detail?: string
+  badge?: string
+  disabled?: boolean
+  /** porque não está disponível */
+  reason?: string
+}
+
 type Request = {
-  kind: 'alert' | 'confirm' | 'prompt'
+  kind: 'alert' | 'confirm' | 'prompt' | 'choose'
+  options?: ChoiceOption[]
   message: string
   title?: string
   confirmLabel?: string
@@ -62,6 +76,15 @@ export async function uiPrompt(message: string, defaultValue = '', options: { ti
   return typeof answer === 'string' ? answer : null
 }
 
+/** Escolha entre opções (cartões). Devolve o `id` escolhido, ou `null` se o utilizador cancelar. */
+export async function uiChoose(message: string, options: ChoiceOption[], settings: { title?: string; confirmLabel?: string; defaultId?: string } = {}): Promise<string | null> {
+  const available = options.filter((option) => !option.disabled)
+  if (!available.length) return null
+  const fallback = settings.defaultId && available.some((option) => option.id === settings.defaultId) ? settings.defaultId : available[0].id
+  const answer = await ask({ kind: 'choose', message, options, defaultValue: fallback, title: settings.title ?? 'Escolher', confirmLabel: settings.confirmLabel ?? 'Continuar', cancelLabel: 'Cancelar' })
+  return typeof answer === 'string' ? answer : null
+}
+
 /** Host global: montado uma vez na raiz da aplicação. */
 export default function DialogHost() {
   const [queue, setQueue] = useState<Request[]>([])
@@ -104,13 +127,13 @@ export default function DialogHost() {
     current.resolve(value)
     setQueue((items) => items.slice(1))
   }
-  const accept = () => close(current.kind === 'prompt' ? text : true)
-  const cancel = () => close(current.kind === 'prompt' ? null : false)
+  const accept = () => close(current.kind === 'prompt' || current.kind === 'choose' ? text : true)
+  const cancel = () => close(current.kind === 'prompt' || current.kind === 'choose' ? null : false)
   keysRef.current = { accept, cancel }
 
   return (
     <div className="dcx-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && current.kind !== 'alert') cancel() }}>
-      <div className="dcx-dialog" role="alertdialog" aria-modal="true" aria-label={current.title}>
+      <div className={`dcx-dialog${current.kind === 'choose' ? ' is-choice' : ''}`} role="alertdialog" aria-modal="true" aria-label={current.title}>
         <h2>{current.title}</h2>
         <p>{current.message}</p>
         {current.kind === 'prompt' && <input
@@ -120,6 +143,19 @@ export default function DialogHost() {
           autoFocus
           onChange={(event) => setText(event.target.value)}
         />}
+        {current.kind === 'choose' && <div className="dcx-choice-list" role="radiogroup" aria-label={current.title}>
+          {(current.options ?? []).map((option) => <button key={option.id} type="button" role="radio" aria-checked={text === option.id} disabled={option.disabled}
+            className={`dcx-choice${text === option.id ? ' is-selected' : ''}${option.disabled ? ' is-disabled' : ''}`} data-choice={option.id}
+            onClick={() => setText(option.id)} onDoubleClick={() => { setText(option.id); close(option.id) }}>
+            <span className="dcx-choice-radio" aria-hidden="true" />
+            <span className="dcx-choice-body">
+              <strong>{option.title}{option.badge && <em>{option.badge}</em>}</strong>
+              <span>{option.description}</span>
+              {option.detail && !option.disabled && <small>{option.detail}</small>}
+              {option.disabled && option.reason && <small className="is-reason">Indisponível: {option.reason}</small>}
+            </span>
+          </button>)}
+        </div>}
         <div className="dcx-dialog-actions">
           {current.kind !== 'alert' && <button type="button" className="dcx-dialog-btn" onClick={cancel}>{current.cancelLabel ?? 'Cancelar'}</button>}
           <button type="button" className={`dcx-dialog-btn is-primary${current.danger ? ' is-danger' : ''}`} autoFocus={current.kind !== 'prompt'} onClick={accept}>{current.confirmLabel ?? 'OK'}</button>

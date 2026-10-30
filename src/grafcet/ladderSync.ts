@@ -9,12 +9,14 @@ import { grafcetToLadder, type LadderFromGrafcet } from './toLadder'
 import { WORD_FC_GRAFCET, WORD_FC_OUTPUTS, WORD_REGISTER_COMMENT, WORD_REGISTER_NAME, grafcetToLadderWord, wordMethodBlocker } from './toLadderWord'
 
 export type LadderSyncStatus = 'none' | 'synced' | 'stale' | 'blocked'
+/** Método de conversão: registo de etapa (MOVE em %MW) ou bits de etapa (SET/RESET). */
+export type LadderMethod = 'word' | 'bit'
 
 const MAIN_PREFIX = 'GRAFCET ·'
 const RESTART_PREFIX = 'Complete restart ·'
 /** Comentários das tags criadas pelo gerador (servem para distingui-las das do utilizador). */
-const GENERATED_COMMENT = /^(Bit da etapa|Receptividade T|Temporização|Tempo [DL] de|Valor memorizado|Valor contínuo|Saída do GRAFCET|Entrada usada em)/
-const GENERATED_BIT_NAME = /^(Etapa_|Rec_T|Temp_T|Tempo_[DL]_|Mem_|Cont_)/
+const GENERATED_COMMENT = /^(Bit da etapa|Receptividade T|Temporização|Tempo [DL] de|Valor memorizado|Valor contínuo|Saída do GRAFCET|Entrada usada em|Evolução do GRAFCET neste ciclo)/
+const GENERATED_BIT_NAME = /^(Etapa_|Rec_T|Temp_T|Tempo_[DL]_|Mem_|Cont_|Evolucao_G0)/
 
 const isMainRung = (r: LadderRung) => r.name.startsWith(MAIN_PREFIX)
 const isRestartRung = (r: LadderRung) => r.name.startsWith(RESTART_PREFIX)
@@ -58,7 +60,20 @@ interface Plan {
   baseTags: LadderTag[]
 }
 
-function plan(program: GrafcetProgram): Plan {
+/** Método do Ladder já gerado (FC «Grafcet» = registo de etapa); `null` se ainda não há Ladder gerado. */
+export function generatedLadderMethod(): LadderMethod | null {
+  if (!hasGeneratedLadder()) return null
+  return generatedFcOf(plcFilesOf(useSimStore.getState()), WORD_FC_GRAFCET) ? 'word' : 'bit'
+}
+
+/** Métodos disponíveis para este GRAFCET: o registo de etapa só serve sequências simples. */
+export function ladderMethodOptions(program: GrafcetProgram): { word: { available: boolean; reason: string | null }; bit: { available: boolean } } {
+  const reason = wordMethodBlocker({ ...program, transitions: transitionsOf(program) })
+  return { word: { available: !reason, reason }, bit: { available: true } }
+}
+
+/** Sem método pedido: mantém o do Ladder já gerado; na primeira geração, o registo de etapa quando possível. */
+function plan(program: GrafcetProgram, requested?: LadderMethod): Plan {
   const state = useSimStore.getState()
   const restartFile = restartFileOf(state)
   const keptMain = state.ladder.rungs.filter((r) => !isMainRung(r))
@@ -69,7 +84,8 @@ function plan(program: GrafcetProgram): Plan {
   const reserved = [...collectUsedAddresses({ rungs: keptMain }), ...collectUsedAddresses({ rungs: keptRestart }), ...baseTags.map((t) => t.address)]
   const full = { ...program, transitions: transitionsOf(program) }
   // Sequências simples → registo de etapa (G0 em %MW + FC Grafcet/Outputs); o resto → bits de etapa com SET/RESET.
-  const blocker = wordMethodBlocker(full)
+  const method = requested ?? generatedLadderMethod() ?? 'word'
+  const blocker = method === 'bit' ? 'método dos bits de etapa escolhido' : wordMethodBlocker(full)
   let result: LadderFromGrafcet
   if (!blocker) {
     const word = grafcetToLadderWord(full, { reserved, tags: baseTags, name: program.name })
@@ -141,9 +157,9 @@ export function diffRungs(before: LadderRung[], after: LadderRung[], files: Proj
 }
 
 /** GRAFCET-LADDER-DIFF-01 — o que «Atualizar Ladder» vai mudar, antes de substituir. */
-export function diffGeneratedLadder(program: GrafcetProgram): LadderDiff {
+export function diffGeneratedLadder(program: GrafcetProgram, method?: LadderMethod): LadderDiff {
   const state = useSimStore.getState()
-  const { result, restartFileId, baseTags } = plan(program)
+  const { result, restartFileId, baseTags } = plan(program, method)
   const files = plcFilesOf(state)
   const restart = restartFileId ? files.find((f) => f.id === restartFileId)?.rungs ?? [] : []
   const sections: LadderDiff['sections'] = [
@@ -187,13 +203,13 @@ export function describeLadderDiff(diff: LadderDiff): string {
 }
 
 /** Pré-visualização para a confirmação da primeira geração. */
-export function previewLadder(program: GrafcetProgram): LadderFromGrafcet {
-  return plan(program).result
+export function previewLadder(program: GrafcetProgram, method?: LadderMethod): LadderFromGrafcet {
+  return plan(program, method).result
 }
 
 /** Gera ou atualiza o Ladder: substitui só as networks «GRAFCET ·» / «Complete restart ·»; as do utilizador ficam. */
-export function applyLadderFromGrafcet(program: GrafcetProgram): LadderFromGrafcet {
-  const { result, keptRestart, restartFileId, baseTags } = plan(program)
+export function applyLadderFromGrafcet(program: GrafcetProgram, method?: LadderMethod): LadderFromGrafcet {
+  const { result, keptRestart, restartFileId, baseTags } = plan(program, method)
   const state = useSimStore.getState()
   // FC do método «registo de etapa»: cria ou atualiza; se o GRAFCET deixou de caber no método, apaga os que sobram.
   const targetIds = new Map<string, string>()
