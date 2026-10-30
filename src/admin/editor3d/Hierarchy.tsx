@@ -94,6 +94,12 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
   // Filtro por nome e grupos recolhidos: um GLB separado chega a dezenas de peças.
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<ElementCategory>('all')
+  // Com a ferramenta Cabo (ou em Simular) o painel ganha o separador «Cabos de teste»: um só scroll, sem painéis empilhados.
+  const [leftTab, setLeftTab] = useState<'elements' | 'wires'>('elements')
+  const hasWires = !!wireSlot
+  useEffect(() => { setLeftTab(hasWires ? 'wires' : 'elements') }, [hasWires])
+  const showWires = hasWires && leftTab === 'wires'
+  const testWireCount = useEditorStore((s) => s.testWires.length)
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
   const treeRef = useRef<HTMLDivElement>(null)
   // Lista compacta ou cartões com a miniatura de cada peça.
@@ -198,7 +204,12 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
         <button className="ce-mobile-panel-close" type="button" aria-label="Fechar hierarquia e voltar ao canvas" title="Fechar hierarquia e voltar ao canvas" onClick={onMobileClose}><IconArrowLeft size={13} /><span>Canvas</span></button>
       </>}
     />
-    {wireSlot && !panelCollapsed && <div className="ce-left-wires">{wireSlot}</div>}
+    {hasWires && !panelCollapsed && <div className="ce-seg ce-left-tabs" role="tablist" aria-label="Conteúdo do painel">
+      <button role="tab" aria-selected={!showWires} className={showWires ? '' : 'is-on'} onClick={() => setLeftTab('elements')}>Elementos <em>{counts.all}</em></button>
+      <button role="tab" aria-selected={showWires} className={showWires ? 'is-on' : ''} onClick={() => setLeftTab('wires')}>Cabos de teste <em>{testWireCount}</em></button>
+    </div>}
+    {showWires && !panelCollapsed && <div className="ce-left-wires is-tab" role="tabpanel">{wireSlot}</div>}
+    {!showWires && <>
     <div className="ce-search">
       <IconSearch size={11} />
       <input className="dx-input" type="search" value={query} placeholder="Pesquisar qualquer elemento…" aria-label="Pesquisar na hierarquia"
@@ -208,7 +219,7 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
         onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(groupIds))}>{allCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}</button>}
     </div>
     <div className="ce-element-filters" role="group" aria-label="Filtrar elementos">
-      {CATEGORIES.map(([key, label]) => <button key={key} type="button" aria-pressed={category === key} className={category === key ? 'is-on' : ''} onClick={() => setCategory(key)}><span className="ce-filter-label">{label}</span><span className="ce-filter-count">{counts[key]}</span></button>)}
+      {CATEGORIES.filter(([key]) => key === 'all' || key === category || counts[key] > 0).map(([key, label]) => <button key={key} type="button" aria-pressed={category === key} className={category === key ? 'is-on' : ''} onClick={() => setCategory(key)}><span className="ce-filter-label">{label}</span><span className="ce-filter-count">{counts[key]}</span></button>)}
     </div>
     {selection && <div className="ce-selection-actions"><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={focusSelection}><IconFocus size={13} />Enquadrar seleção</button><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={openProperties}>Propriedades</button></div>}
     <div className="ce-hierarchy-scroll">
@@ -311,5 +322,6 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
       </ElementSection>
     </div>
     </div>
+    </>}
   </aside>
 }

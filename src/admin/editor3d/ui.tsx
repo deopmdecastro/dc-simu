@@ -1,5 +1,5 @@
 import DcxSelect from '../../ui/Select'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { Vec3 } from '../../catalog/types'
 import { IconChevronRight } from '../../ui/icons'
 
@@ -68,16 +68,31 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
   </DcxSelect>
 }
 
+/** Cor: amostra (seletor do sistema) + HEX editável; um HEX inválido não é aplicado e repõe-se ao sair. */
 export function Color({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return <span className="ce-color"><input type="color" value={/^#[0-9a-f]{6}$/i.test(value) ? value : '#000000'} onChange={(event) => onChange(event.target.value)} /><code>{value}</code></span>
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  const valid = (hex: string) => /^#[0-9a-f]{6}$/i.test(hex)
+  return <span className="ce-color">
+    <input type="color" value={valid(value) ? value : '#000000'} onChange={(event) => onChange(event.target.value)} aria-label="Escolher cor" />
+    <input className="dx-input ce-color-hex" value={draft} maxLength={7} spellCheck={false} aria-label="Cor em HEX" aria-invalid={!valid(draft)}
+      onChange={(event) => { const next = event.target.value.trim(); setDraft(next); if (valid(next)) onChange(next.toLowerCase()) }}
+      onBlur={() => { if (!valid(draft)) setDraft(value) }} />
+  </span>
 }
 
 export function Check({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return <label className="ce-check"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />{label}</label>
 }
 
+/** Deslizador + valor exato editável (limitado ao intervalo). */
 export function Slider({ value, onChange, min = 0, max = 1, step = 0.01 }: { value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number }) {
-  return <span className="ce-slider"><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(parseFloat(event.target.value))} /><code>{Math.round(value * 100) / 100}</code></span>
+  const clamp = (next: number) => Math.max(min, Math.min(max, next))
+  return <span className="ce-slider">
+    <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(parseFloat(event.target.value))} />
+    <input type="number" className="dx-input ce-slider-num" min={min} max={max} step={step} value={Math.round(value * 100) / 100} aria-label="Valor"
+      onChange={(event) => { const next = parseFloat(event.target.value); if (Number.isFinite(next)) onChange(clamp(next)) }} />
+  </span>
 }
 
 export function Empty({ children }: { children: ReactNode }) { return <p className="ce-empty">{children}</p> }

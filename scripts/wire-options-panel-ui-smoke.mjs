@@ -60,11 +60,11 @@ try {
 
   const ends = page.locator('.dc-wire-new .wo-end')
   const conductors = page.locator('.dc-wire-new .wo-choice')
-  check((await ends.count()) === 8, 'Todas as ponteiras/terminais têm uma opção própria')
+  check((await ends.count()) === 10, 'Todas as ponteiras/terminais têm uma opção própria')
   check((await conductors.count()) === 2, 'Condutor rígido e flexível aparecem como duas opções')
   const endIcons = await page.locator('.dc-wire-new .wo-end svg').count()
   const conductorIcons = await page.locator('.dc-wire-new .wo-choice svg').count()
-  check(endIcons === 8, 'Cada terminal tem o ícone da ponteira desenhado')
+  check(endIcons === 10, 'Cada terminal tem o ícone da ponteira desenhado')
   check(conductorIcons === 2, 'Cada condutor tem o ícone do cabo (flexível/rígido) desenhado')
   check((await page.locator('.dc-wire-new .wo-swatch').count()) === 13, 'A paleta de 13 cores está no painel lateral')
   check((await page.locator('.dc-wire-new .wo-gauge').count()) === 9, 'As secções (0,5 a 16 mm²) estão no painel lateral')
@@ -123,7 +123,7 @@ try {
   await cePanel.waitFor({ timeout: 20000 })
   check(await cePanel.isVisible(), 'No editor de componentes as opções dos cabos estão no painel esquerdo')
   check((await page.locator('.ce-left-wires .wo-fields').count()) === 1, 'O mesmo bloco de opções (partilhado) é usado nos dois editores')
-  check((await page.locator('.ce-left-wires .wo-end').count()) === 8, 'O editor mostra os ícones de todas as ponteiras')
+  check((await page.locator('.ce-left-wires .wo-end').count()) === 10, 'O editor mostra os ícones de todas as ponteiras')
   check((await page.locator('.ce-left-wires .wo-choice').count()) === 2, 'O editor mostra os ícones do condutor rígido e flexível')
 
   const position = await page.evaluate(() => {

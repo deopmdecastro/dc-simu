@@ -11,7 +11,8 @@ import { WireOptionsFields } from '../../ui/WireOptions'
 const KEYS: Array<[string, string]> = [['Clique', 'larga um ponto'], ['Duplo clique / Enter', 'ponta livre'], ['Backspace', 'desfaz ponto'], ['Esc', 'cancela'], ['Shift', 'trava o eixo'], ['Alt', 'sem snap']]
 
 /** Painel dos cabos de teste: valores dos cabos novos, estado do desenho em direto, veredicto por cabo e resumo. */
-export default function WirePanel() {
+/** `embedded`: dentro do separador «Cabos de teste» do painel esquerdo — sem cabeçalho nem recolher próprios. */
+export default function WirePanel({ embedded = false }: { embedded?: boolean } = {}) {
   const wires = useEditorStore((s) => s.testWires)
   const terminals = useEditorStore((s) => s.def.terminals)
   const wireFrom = useEditorStore((s) => s.wireFrom)
@@ -22,7 +23,8 @@ export default function WirePanel() {
   const set = useEditorStore((s) => s.set)
   const ribbon = useEditorStore((s) => s.ribbon)
   const info = useWireInfo()
-  const [open, setOpen] = useState(true)
+  const [expanded, setOpen] = useState(true)
+  const open = embedded || expanded
   const [keys, setKeys] = useState(false)
   const drafting = !!(wireFrom || wireStart)
   const verdicts = useMemo(() => wires.map((wire) => evaluateWire(terminals, wire)), [wires, terminals])
@@ -31,8 +33,8 @@ export default function WirePanel() {
   const state = useEditorStore.getState()
   const setDefaults = (patch: Partial<typeof defaults>) => set({ wireDefaults: { ...defaults, ...patch } })
 
-  return <div className={`ce-wirepanel${open ? '' : ' is-collapsed'}`} role="status">
-    <SidePanelHeader
+  return <div className={`ce-wirepanel${open ? '' : ' is-collapsed'}${embedded ? ' is-embedded' : ''}`} role="status">
+    {!embedded && <SidePanelHeader
       className="ce-wirepanel-head"
       eyebrow="CABOS"
       title="Cabos de teste"
@@ -43,7 +45,7 @@ export default function WirePanel() {
       toggleLabel={open ? 'Recolher cabos de teste' : 'Expandir cabos de teste'}
       toggleClassName="ce-wp-toggle"
       detail={wires.length > 0 ? `${wires.length} cabo${wires.length === 1 ? '' : 's'}` : undefined}
-    />
+    />}
     {open && <>
       {/* Opções dos cabos e ponteiras no painel lateral (o mesmo bloco do simulador). */}
       <div className="ce-wp-new" aria-label="Opções dos cabos novos">
