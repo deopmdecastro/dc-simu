@@ -129,6 +129,12 @@ interface Store extends CircuitState {
   addCanvasText: (text: Omit<CanvasText, 'id' | 'createdAt'>) => string
   updateCanvasText: (id: string, patch: Partial<CanvasText>) => void
   removeCanvasText: (id: string) => void
+  /** Incrementa a cada varredura publicada (`pushRuntime`). Substitui as cópias
+   *  por tick das listas `components`/`wires`: quem apresenta estado elétrico em
+   *  tempo real (LEDs, bornes energizados, monitores) subscreve este escalar em
+   *  vez da identidade das listas — as listas mantêm a referência porque o motor
+   *  simula por mutação no sítio. */
+  simTick: number
   runtime: RuntimeExtras
   showEmptyWelcome: boolean
   dismissEmptyWelcome: () => void
@@ -861,6 +867,7 @@ export const useSimStore = create<Store>((set, get) => {
     measurements: [],
     blackBox: false,
   },
+  simTick: 0,
   activeScenario: 'custom',
   selectedComponentIds: [],
   selectedWireId: null,
@@ -3008,9 +3015,12 @@ export const useSimStore = create<Store>((set, get) => {
 })
 
 function pushRuntime(set: (partial: Partial<Store>) => void, st: Store) {
+  // `components`/`wires` são mutados no sítio pelo motor: copiar as listas a cada
+  // varredura (10 Hz) obrigava TODOS os subscritores a re-renderizar e refazia
+  // memos pesados (rotas 3D, índices de bornes). Basta o escalar `simTick` —
+  // quem mostra estado elétrico ao vivo subscreve-o explicitamente.
   set({
-    components: [...st.components],
-    wires: [...st.wires],
+    simTick: st.simTick + 1,
     runtime: { ...st.runtime },
     grafcetRuntime: { ...st.grafcetRuntime },
     sim: { ...st.sim },

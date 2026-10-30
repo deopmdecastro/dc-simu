@@ -46,4 +46,13 @@ for(const type of TYPES){const art=document.createElement('article');art.innerHT
  try{Object.assign(entry,await views(type))}catch(e){entry.vistasErro=String(e)}
  fig('capa',entry.capa);fig('miniatura',entry.miniatura);fig('esquema (frente)',entry.esquema);fig('topo',entry.topo);fig('direita',entry.direita)}
 window.coverAudit=results;window.ready=true;
+/* Diagnóstico de superfícies (opcional): expõe por material a família detetada e os mapas aplicados. */
+import {surfaceFamilyOf} from '/src/three/cadSurface.ts';
+window.coverMaterialInfo=async(type)=>{const spec=getComponentModelSpec(type);if(!src.has(spec.path))src.set(spec.path,(await loader.loadAsync(spec.path)).scene);
+ const root=fitComponentModel(cloneModelScene(src.get(spec.path)),spec);
+ if(type==='motor3ph'){applyEditorMotorTextures(root)}else if(type==='emergencyButton'||type==='emergencyButtonKeyP20ACR'){applyEmergencyButtonFinish(root,type)}else{root.traverse((c)=>{const m=c;if(!m.isMesh)return;const s=Array.isArray(m.material)?m.material:[m.material];const e=s.map((x)=>finishCadMaterial(x,{envMapIntensity:1.2}));m.material=Array.isArray(m.material)?e:e[0]})}
+ const antes=[];root.traverse((m)=>{if(!m.isMesh)return;for(const mat of Array.isArray(m.material)?m.material:[m.material])antes.push({name:mat.name||'-',map:!!mat.map,family:mat.userData?.cadSurface??surfaceFamilyOf(mat),type:mat.type})});
+ await applyCadSurfaceTextures(root,{unitsPerMm:1,renderUnitsPerMm:1});
+ const depois=[];root.traverse((m)=>{if(!m.isMesh)return;for(const mat of Array.isArray(m.material)?m.material:[m.material])depois.push({name:mat.name||'-',family:mat.userData?.cadSurface??null,map:!!mat.map,normal:!!mat.normalMap,rough:!!mat.roughnessMap,bump:!!mat.bumpMap})});
+ return {antes,depois}};
 </script></html>

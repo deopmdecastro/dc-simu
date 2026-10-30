@@ -18,6 +18,8 @@ const MODE_NAME: Record<VirtualInputMode, string> = {
  * resultado (precisam do PLC alimentado).
  */
 export default function PlcSignalPanel({ plcId, compact = false }: { plcId: string; compact?: boolean }) {
+  // I/O ao vivo durante RUN: as listas mantêm referência; o tick marca as varreduras.
+  useSimStore((s) => s.simTick)
   const plc = useSimStore((s) => s.components.find((c) => c.id === plcId))
   const components = useSimStore((s) => s.components)
   const wires = useSimStore((s) => s.wires)

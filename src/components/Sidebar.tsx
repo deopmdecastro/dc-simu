@@ -234,6 +234,8 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
  */
 export default function Sidebar({ width = 300, quickAddOnPick = false, onComponentAdded, onCollapse }: { width?: number | string; quickAddOnPick?: boolean; onComponentAdded?: () => void; onCollapse?: () => void }) {
   const components = useSimStore((s) => s.components)
+  // Estado elétrico do inspetor (bornes energizados, indicadores): tick da simulação.
+  useSimStore((s) => s.simTick)
   const grid = useSimStore((s) => s.grid)
   const wires = useSimStore((s) => s.wires)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)

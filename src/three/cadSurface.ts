@@ -68,6 +68,60 @@ function tiledTexture(url: string, srgb: boolean, tileMm: number): Promise<THREE
   return pending
 }
 
+const albedoCache = new Map<string, Promise<THREE.Texture | null>>()
+
+/**
+ * Albedo fotográfico neutralizado para tingir «por multiplicação».
+ *
+ * Os mapas de cor do ambientCG trazem o tom da fotografia original; se os
+ * ligássemos diretamente, a carcaça pintada de branco saía bege/cinzenta.
+ * Aqui a imagem fica dessaturada (15% de croma preserva variação de tom, como
+ * riscos de zincado ou nódoas de óleo) e com a luminância média normalizada
+ * para 96 %: `color × map` mantém a cor calibrada do material e ganha o detalhe
+ * real da superfície — passa de «gesso plano» para material fotografado.
+ */
+function tintedAlbedo(entry: TextureLibraryEntry, tileMm: number): Promise<THREE.Texture | null> {
+  const key = `${entry.id}|${tileMm}`
+  let pending = albedoCache.get(key)
+  if (pending) return pending
+  pending = baseTexture(entry.maps.color, true).then((texture) => {
+    const image = texture.image as { width?: number; height?: number } | undefined
+    if (!image?.width || typeof document === 'undefined') return null
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height ?? image.width
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return null
+    ctx.drawImage(image as CanvasImageSource, 0, 0)
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const px = data.data
+    let sum = 0
+    for (let i = 0; i < px.length; i += 4) {
+      const luma = px[i] * 0.2126 + px[i + 1] * 0.7152 + px[i + 2] * 0.0722
+      px[i] = Math.round(luma * 0.85 + px[i] * 0.15)
+      px[i + 1] = Math.round(luma * 0.85 + px[i + 1] * 0.15)
+      px[i + 2] = Math.round(luma * 0.85 + px[i + 2] * 0.15)
+      sum += luma
+    }
+    const lift = 244 / Math.max(sum / (px.length / 4), 1) // média → ~96 % de branco
+    for (let i = 0; i < px.length; i += 4) {
+      px[i] = Math.min(255, Math.round(px[i] * lift))
+      px[i + 1] = Math.min(255, Math.round(px[i + 1] * lift))
+      px[i + 2] = Math.min(255, Math.round(px[i + 2] * lift))
+    }
+    ctx.putImageData(data, 0, 0)
+    const neutral = new THREE.CanvasTexture(canvas)
+    neutral.wrapS = neutral.wrapT = THREE.RepeatWrapping
+    neutral.colorSpace = THREE.SRGBColorSpace
+    neutral.anisotropy = 8
+    neutral.repeat.set(1 / tileMm, 1 / tileMm)
+    neutral.needsUpdate = true
+    return neutral
+  }).catch(() => null)
+  albedoCache.set(key, pending)
+  return pending
+}
+
 let grain: THREE.DataTexture | null = null
 /** Grão de injeção do termoplástico (≈ 0,04 mm por píxel, 2,5 mm por repetição). */
 function polymerGrain(): THREE.DataTexture {
@@ -230,7 +284,11 @@ function assignMaps(material: THREE.MeshStandardMaterial, entry: TextureLibraryE
   const normalP = tiledTexture(entry.maps.normal, false, spec.tileMm)
   const roughP = tiledTexture(entry.maps.roughness, false, spec.tileMm)
   const metalP = spec.metalness && entry.maps.metalness ? tiledTexture(entry.maps.metalness, false, spec.tileMm) : Promise.resolve(null)
-  return Promise.all([normalP, roughP, metalP]).then(([normalMap, roughnessMap, metalnessMap]) => {
+  const colorP = tintedAlbedo(entry, spec.tileMm)
+  return Promise.all([normalP, roughP, metalP, colorP]).then(([normalMap, roughnessMap, metalnessMap, albedo]) => {
+    // O albedo neutro multiplica a cor do material — a peça ganha o detalhe da
+    // fotografia real (riscos, grão, nuance) sem perder a cor de fábrica.
+    if (albedo && !material.map) material.map = albedo
     material.normalMap = normalMap
     material.normalScale.set(spec.normalScale, spec.normalScale)
     material.roughnessMap = roughnessMap

@@ -8,6 +8,7 @@ import Select from '../ui/Select'
 import type React from 'react'
 import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
@@ -145,13 +146,37 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const compileLabel = useLadderUi((s) => s.compileLabel)
   const [componentTableOpen, setComponentTableOpen] = useState(false)
   const [pdfOpen, setPdfOpen] = useState(false)
+  // Subscrições granulares: sem isto a barra toda re-renderizava a cada varredura
+  // da simulação (10 Hz) porque o destructure subscrevia a store inteira.
+  const simRunState = useSimStore((s) => s.sim.runState)
+  const simMode = useSimStore((s) => s.sim.mode)
+  const simSpeed = useSimStore((s) => s.sim.speed)
+  const simBlackBox = useSimStore((s) => s.sim.blackBox)
+  const tool = useSimStore((s) => s.tool)
+  const grid = useSimStore((s) => s.grid)
+  const zoom = useSimStore((s) => s.zoom)
+  const components = useSimStore((s) => s.components)
+  const wires = useSimStore((s) => s.wires)
+  const selectedComponentIds = useSimStore((s) => s.selectedComponentIds)
+  const history = useSimStore((s) => s.history)
+  const future = useSimStore((s) => s.future)
+  const currentProjectName = useSimStore((s) => s.currentProjectName)
+  const dirty = useSimStore((s) => s.dirty)
+  const wireDefaults = useSimStore((s) => s.wireDefaults)
+  const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const {
-    sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
-    step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
-    components, undo, redo, history, future, organizeWires, wires, selectedComponentIds,
-    alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName, currentProjectName,
-    dirty, wireDefaults, setWireDefaults, gridDragEnabled, setGridDragEnabled,
-  } = useSimStore()
+    play, pause, stop, reset, setSpeed, setSimMode,
+    step, saveJSON, loadJSON, setTool, setGrid, setZoom,
+    undo, redo, organizeWires,
+    alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName,
+    setWireDefaults, setGridDragEnabled,
+  } = useSimStore(useShallow((s) => ({
+    play: s.play, pause: s.pause, stop: s.stop, reset: s.reset, setSpeed: s.setSpeed, setSimMode: s.setMode,
+    step: s.step, saveJSON: s.saveJSON, loadJSON: s.loadJSON, setTool: s.setTool, setGrid: s.setGrid, setZoom: s.setZoom,
+    undo: s.undo, redo: s.redo, organizeWires: s.organizeWires,
+    alignSelection: s.alignSelection, distributeSelection: s.distributeSelection, autoNumberWires: s.autoNumberWires, setCurrentProjectName: s.setCurrentProjectName,
+    setWireDefaults: s.setWireDefaults, setGridDragEnabled: s.setGridDragEnabled,
+  })))
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)
   const viewLocked = useSimStore((state) => state.viewLocked)
@@ -279,7 +304,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     paused: { text: 'PAUSE', cls: 'bg-state-pause' },
     stopped: { text: 'STOP', cls: 'bg-state-stop' },
   }
-  const runBadge = RUN_LABEL[sim.runState] ?? RUN_LABEL.stopped
+  const runBadge = RUN_LABEL[simRunState] ?? RUN_LABEL.stopped
   const ladderZoom = useLadderZoom((state) => state.zoom)
   const setLadderZoom = useLadderZoom((state) => state.setZoom)
   // Demonstração (landing): barra minimalista — apenas Play, Pause e troca de ambiente (3D / Ladder / GRAFCET).
@@ -372,8 +397,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const compactMoreSections: ToolMenuSection[] = [
     ...fileSections,
     { title: 'Execução', items: [
-      ...(['realtime', 'turbo', 'step'] as const).map((value, index) => ({ id: `mode-${value}`, label: ['Tempo real', 'Turbo', 'Passo a passo'][index], icon: <IconPlay size={15} />, pressed: sim.mode === value, onSelect: () => setSimMode(value) })),
-      ...[0.25, 0.5, 1, 2, 4, 10].map((value) => ({ id: `speed-${value}`, label: `Velocidade ${value}×`, pressed: sim.speed === value, onSelect: () => setSpeed(value) })),
+      ...(['realtime', 'turbo', 'step'] as const).map((value, index) => ({ id: `mode-${value}`, label: ['Tempo real', 'Turbo', 'Passo a passo'][index], icon: <IconPlay size={15} />, pressed: simMode === value, onSelect: () => setSimMode(value) })),
+      ...[0.25, 0.5, 1, 2, 4, 10].map((value) => ({ id: `speed-${value}`, label: `Velocidade ${value}×`, pressed: simSpeed === value, onSelect: () => setSpeed(value) })),
     ] },
     { title: 'Vista', items: [
       ...(viewControls?.grid ? [{ id: 'grid', label: 'Mostrar malha', icon: <IconGrid size={15} />, pressed: viewControls.grid.on, onSelect: viewControls.grid.toggle }] : []),
@@ -390,7 +415,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         { id: 'minimap', label: 'Minimapa', icon: <IconGrid size={15} />, pressed: grafcetMinimap, onSelect: () => useGrafcetUi.getState().emit('toggleMinimap') },
       ] : []),
       { id: 'clean', label: 'Modo clean', icon: <IconFocus size={15} />, pressed: clean, onSelect: () => setClean(!clean) },
-      { id: 'black-box', label: 'Modo caixa-preta', icon: <IconLock size={15} />, pressed: sim.blackBox, onSelect: () => useSimStore.getState().toggleBlackBox() },
+      { id: 'black-box', label: 'Modo caixa-preta', icon: <IconLock size={15} />, pressed: simBlackBox, onSelect: () => useSimStore.getState().toggleBlackBox() },
       { id: 'shortcuts', label: 'Atalhos de teclado', kbd: '?', icon: <IconHelp size={15} />, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('openShortcuts') : mode === 'monitor' ? setMonitorHelp(true) : requestShortcuts(mode) },
     ] },
   ]
@@ -461,8 +486,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <div className="dc-seg" role="toolbar" aria-label="Controle de simulação">
             <button
               onClick={play}
-              disabled={sim.runState === 'running'}
-              className={`dc-tool-btn !font-semibold ${sim.runState === 'running' ? '' : '!text-state-run'}`}
+              disabled={simRunState === 'running'}
+              className={`dc-tool-btn !font-semibold ${simRunState === 'running' ? '' : '!text-state-run'}`}
               title="Iniciar simulação (RUN)"
               aria-label="Play"
             >
@@ -470,14 +495,14 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </button>
             <button
               onClick={pause}
-              disabled={sim.runState !== 'running'}
+              disabled={simRunState !== 'running'}
               className={`${segBtn(false)} ${demo ? '!font-semibold !px-2.5' : '!px-2'} !text-state-pause`}
               title="Pausar"
               aria-label="Pause"
             >
               <IconPause size={13} /> {demo && <span className="hidden sm:inline">Pause</span>}
             </button>
-            {!demo && <button onClick={stop} disabled={sim.runState === 'stopped'} className={`${segBtn(false)} !px-2 !text-ink-700`} title="Parar (STOP)">
+            {!demo && <button onClick={stop} disabled={simRunState === 'stopped'} className={`${segBtn(false)} !px-2 !text-ink-700`} title="Parar (STOP)">
               <IconStop size={13} />
             </button>}
             {!demo && <button onClick={step} className={`${segBtn(false)} !px-2 !text-brand-600`} title="Avançar um ciclo de varredura">
@@ -490,7 +515,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           {!demo && (
             <>
           <Select
-            value={sim.mode}
+            value={simMode}
             onChange={(e) => setSimMode(e.target.value as any)}
             className="dc-runtime-setting dc-select !w-auto hidden lg:block"
             title="Modo de execução: tempo real = 100 ms por ciclo; turbo = ciclos acelerados; passo a passo = um ciclo por clique"
@@ -499,7 +524,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <option value="turbo">Turbo</option>
             <option value="step">Passo a passo</option>
           </Select>
-          <Select value={sim.speed} onChange={(e) => setSpeed(Number(e.target.value))} className="dc-runtime-setting dc-select !w-[62px]" title="Velocidade da simulação">
+          <Select value={simSpeed} onChange={(e) => setSpeed(Number(e.target.value))} className="dc-runtime-setting dc-select !w-[62px]" title="Velocidade da simulação">
             {[0.25, 0.5, 1, 2, 4, 10].map((v) => (
               <option key={v} value={v}>{v}×</option>
             ))}
@@ -507,9 +532,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <span className="tb-sep dc-runtime-sep" />
           <span
             className={`dc-run-badge inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
-            title={`Estado do simulador: ${runBadge.text} · scan #${sim.scanCount}`}
+            onPointerEnter={(e) => { e.currentTarget.title = `Estado do simulador: ${runBadge.text} · scan #${useSimStore.getState().sim.scanCount}` }}
+            title={`Estado do simulador: ${runBadge.text}`}
           >
-            {sim.runState === 'running' ? (
+            {simRunState === 'running' ? (
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-70" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
@@ -967,10 +993,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           {/* ferramentas de diagnóstico do projeto atual */}
           {!demo && <button
             onClick={() => useSimStore.getState().toggleBlackBox()}
-            className={`dc-blackbox-toggle dc-btn ${sim.blackBox ? '!border-amber-300 !bg-amber-50 !text-amber-700' : ''}`}
+            className={`dc-blackbox-toggle dc-btn ${simBlackBox ? '!border-amber-300 !bg-amber-50 !text-amber-700' : ''}`}
             title="Modo caixa-preta: esconde o ladder e força diagnóstico por medição"
           >
-            <IconLock size={13} /> <span className="hidden xl:inline">{sim.blackBox ? 'Caixa-preta ON' : 'Caixa-preta'}</span>
+            <IconLock size={13} /> <span className="hidden xl:inline">{simBlackBox ? 'Caixa-preta ON' : 'Caixa-preta'}</span>
           </button>}
         </div>}
       {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}

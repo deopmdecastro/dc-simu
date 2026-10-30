@@ -1658,6 +1658,9 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
 } & WireEditHandlers) {
   const wires = useSimStore((s) => s.wires)
   const runState = useSimStore((s) => s.sim.runState)
+  // Energia dos cabos ao vivo: as listas mantêm a referência entre varreduras,
+  // logo o re-render decorre do contador `simTick` (antes: cópias a 10 Hz).
+  const simTick = useSimStore((s) => s.simTick)
   const storedComponents = useSimStore((s) => s.components)
   const editor = useSimStore((s) => s.viewOrientationEditor)
   const components = useMemo(() => storedComponents.map((component) => editor?.componentId === component.id ? {
@@ -2275,6 +2278,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const [glLost, setGlLost] = useState(false)
   const [softwareGl, setSoftwareGl] = useState(IS_SOFTWARE_WEBGL)
   const gridSettings = useSimStore((s) => s.grid)
+  // LEDs/estados dos componentes em RUN: subscrição explícita do tick da simulação
+  // (a identidade das listas já não muda a cada varredura).
+  const simTick = useSimStore((s) => s.simTick)
   const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
   const storedComponents = useSimStore((s) => s.components)

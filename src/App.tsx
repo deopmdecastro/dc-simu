@@ -2,7 +2,7 @@ import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
 import { IconGrafcet, IconLayers, IconSchematic, IconWarning, IconXCircle } from './ui/icons'
 import CollapsedPanelRail from './components/CollapsedPanelRail'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
@@ -10,12 +10,14 @@ import Sidebar from './components/Sidebar'
 import SidePanelHeader from './components/SidePanelHeader'
 import ProjectObjects from './components/ProjectObjects'
 import SimulationDock from './components/SimulationDock'
-import LadderEditor from './ladder/LadderEditor'
 import type { LadderSection } from './ladder/LadderSections'
-import GrafcetEditor from './grafcet/GrafcetEditor'
-import SchematicView from './schematic/SchematicView'
 import { ComponentEditorDock } from './components/ComponentViewEditor'
-import MonitorPanel from './components/MonitorPanel'
+import RouteLoading from './ui/RouteLoading'
+
+const SchematicView = lazy(() => import('./schematic/SchematicView'))
+const LadderEditor = lazy(() => import('./ladder/LadderEditor'))
+const GrafcetEditor = lazy(() => import('./grafcet/GrafcetEditor'))
+const MonitorPanel = lazy(() => import('./components/MonitorPanel'))
 import PlanLocked from './saas/PlanLocked'
 import { useCan } from './saas/usePlan'
 import { useSimStore } from './store/useSimStore'
@@ -232,12 +234,14 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         )}
         {mode === 'schematic' && !showLibrary && !demo && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { setShowLadder(false); setShowLibrary(true) }} />}
         <div className="flex-1 min-w-0 flex flex-col relative">
-          {mode === 'schematic' && <SchematicView libraryCollapsed={demo || !showLibrary} />}
-          {mode === 'ladder' && !canLadder && !demo && <PlanLocked feature="ladder" />}
-          {mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
-          {mode === 'ladder' && (canLadder || demo) && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
-          {mode === 'grafcet' && (canGrafcet || demo) && <GrafcetEditor full={!demo} onOpenLadder={() => setMode('ladder')} />}
-          {mode === 'monitor' && <MonitorPanel />}
+          <Suspense fallback={<RouteLoading label="A carregar a vista…" />}>
+            {mode === 'schematic' && <SchematicView libraryCollapsed={demo || !showLibrary} />}
+            {mode === 'ladder' && !canLadder && !demo && <PlanLocked feature="ladder" />}
+            {mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
+            {mode === 'ladder' && (canLadder || demo) && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
+            {mode === 'grafcet' && (canGrafcet || demo) && <GrafcetEditor full={!demo} onOpenLadder={() => setMode('ladder')} />}
+            {mode === 'monitor' && <MonitorPanel />}
+          </Suspense>
         </div>
         {mode === 'schematic' && !demo && <ComponentEditorDock />}
         {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
@@ -253,7 +257,9 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
                   <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')}><IconSchematic size={13} /><span>Entradas/Saídas</span></button>
                   <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}><IconLayers size={13} /><span>Objetos</span></button>
                 </div>
-                {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : rightTab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
+                <Suspense fallback={<RouteLoading label="A carregar o GRAFCET…" />}>
+                  {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : rightTab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
+                </Suspense>
               </>
             ) : (
               <CollapsedPanelRail className="pn-shell-rail" label="GRAFCET, sinais e objetos" side="right" icon={<IconLayers size={15} />} onExpand={() => { setShowLibrary(false); setShowLadder(true) }} />

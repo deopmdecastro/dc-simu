@@ -363,8 +363,24 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
   const assemblyOnly = !hasGlb && isTerminalAssemblyComponent(type)
   const [coverSrc, setCoverSrc] = useState<string | null>(null)
   const fallback = useMemo(() => (hasGlb || assemblyOnly ? '' : getComponentThumbnail(type)), [assemblyOnly, hasGlb, type])
+  // A geração da capa (render WebGL por modelo) só dispara quando o cartão está
+  // prestes a aparecer — de outro modo a biblioteca gerava as ~70 capas no
+  // arranque e bloqueava o editor durante segundos.
+  const holderRef = useRef<HTMLDivElement | null>(null)
+  const [inView, setInView] = useState(false)
+  useEffect(() => {
+    if ((!hasGlb && !assemblyOnly) || inView) return
+    const node = holderRef.current
+    if (!node || typeof IntersectionObserver === 'undefined') { setInView(true); return }
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setInView(true); io.disconnect() }
+    }, { rootMargin: '480px' })
+    io.observe(node)
+    return () => io.disconnect()
+  }, [assemblyOnly, hasGlb, inView])
   useEffect(() => {
     if (!hasGlb && !assemblyOnly) return
+    if (!inView) return
     let active = true
     setCoverSrc(null)
     const request = hasGlb ? getComponentCoverImage(type) : getCad3DImage(type)
@@ -373,9 +389,9 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
       if (active) setCoverSrc(getComponentThumbnail(type))
     })
     return () => { active = false }
-  }, [assemblyOnly, hasGlb, type])
+  }, [assemblyOnly, hasGlb, inView, type])
   const src = hasGlb || assemblyOnly ? coverSrc : fallback
-  if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken dc-thumb-loading" role="img" aria-label="A preparar a capa" />
+  if (!src) return <div ref={holderRef} style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken dc-thumb-loading" role="img" aria-label="A preparar a capa" />
   return (
     <img
       src={src}

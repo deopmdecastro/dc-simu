@@ -1,6 +1,7 @@
 import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { importedComponentInfo, importedActuationPatch } from '../electrical/importedComponents'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
 import { IconCube, IconLock, IconProbe, IconSchematic } from '../ui/icons'
@@ -265,6 +266,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [tilt, setTilt] = useState<Tilt2D>(() => ({ yaw: 0, pitch: 0 }))
   const isTilted = Math.abs(tilt.yaw) > 0.5 || Math.abs(tilt.pitch) > 0.5
   const allComponents = useSimStore((s) => s.components)
+  // Estado elétrico ao vivo (bornes/cabos energizados): com as listas estáveis por
+  // referência desde o `simTick`, este escalar marca as varreduras da simulação.
+  const simTick = useSimStore((s) => s.simTick)
   const sheets = useSimStore((s) => s.sheets)
   const activeSheetId = useSimStore((s) => s.activeSheetId)
   const addSheet = useSimStore((s) => s.addSheet)
@@ -411,7 +415,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     sendSelectionToBack,
     bringSelectionForward,
     sendSelectionBackward,
-  } = useSimStore()
+  } = useSimStore(useShallow((s) => ({
+    selectComponents: s.selectComponents, selectWire: s.selectWire, selectTerminal: s.selectTerminal,
+    moveComponent: s.moveComponent, commitHistory: s.commitHistory, addWire: s.addWire, addFreeWire: s.addFreeWire,
+    pressButton: s.pressButton, toggleTerminal: s.toggleTerminal, deleteSelection: s.deleteSelection,
+    rotateComponent: s.rotateComponent, duplicateComponents: s.duplicateComponents, setZoom: s.setZoom, setPan: s.setPan,
+    runProbe: s.runProbe, clearProbe: s.clearProbe, connectChain: s.connectChain, updateWire: s.updateWire,
+    bringSelectionToFront: s.bringSelectionToFront, sendSelectionToBack: s.sendSelectionToBack,
+    bringSelectionForward: s.bringSelectionForward, sendSelectionBackward: s.sendSelectionBackward,
+  })))
 
   const svgRef = useRef<SVGSVGElement>(null)
   const pinchRef = useRef<{ distance: number; zoom: number; worldX: number; worldY: number } | null>(null)
@@ -442,7 +454,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     view3DScale: viewOrientationEditor.scale3D,
     view3DRenderMode: viewOrientationEditor.renderMode3D,
     bodyColor: viewOrientationEditor.bodyColor3D,
-  } : component), [components, viewOrientationEditor])
+  } : component), [components, viewOrientationEditor, simTick])
 
   const terminalIndex = useMemo(() => {
     const map = new Map<string, { c: ElectricalComponent; x: number; y: number; label: string; color: string; energized: boolean }>()
@@ -453,7 +465,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       }
     }
     return map
-  }, [displayComponents])
+    // simTick: t.energized muda por mutação durante a simulação.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayComponents, simTick])
 
   useEffect(() => {
     if (tool !== 'wire' || gridDragEnabled) { setChain([]); setWireFrom(null); setFreeStart(null); setDraftPoints([]); setActiveWireId(null) }

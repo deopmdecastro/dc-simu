@@ -32,6 +32,8 @@ function SectionTitle({ children, icon: Icon }: { children: string; icon?: typeo
 }
 
 export default function MonitorPanel() {
+  // Varreduras da simulação: leituras/contagens são mutadas no sítio pelo motor.
+  useSimStore((s) => s.simTick)
   const table = useSimStore((s) => s.runtime.table)
   const timers = useSimStore((s) => s.runtime.timers)
   const counters = useSimStore((s) => s.runtime.counters)
