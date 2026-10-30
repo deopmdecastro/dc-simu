@@ -32,6 +32,31 @@ function forkGeometry(): THREE.ExtrudeGeometry {
   return forkShape
 }
 
+let ringShape: THREE.ExtrudeGeometry | null = null
+/** Olhal plano: anel furado (M4) com pescoço cónico até à manga de crimpagem. */
+function ringLugGeometry(): THREE.ExtrudeGeometry {
+  if (ringShape) return ringShape
+  const outer = 4.6 * U
+  const hole = 2.25 * U
+  const neckEnd = 8 * U
+  const neckHalf = 1.9 * U
+  const a = Math.asin(neckHalf / outer)
+  const shape = new THREE.Shape()
+  // contorno: arco do anel (aberto para +Y) fechado pelo pescoço
+  shape.moveTo(neckHalf, Math.cos(a) * outer)
+  shape.absarc(0, 0, outer, Math.PI / 2 - a, Math.PI / 2 + a - 2 * Math.PI, false)
+  shape.lineTo(-neckHalf, Math.cos(a) * outer)
+  shape.lineTo(-neckHalf, neckEnd)
+  shape.lineTo(neckHalf, neckEnd)
+  shape.closePath()
+  const h = new THREE.Path()
+  h.absarc(0, 0, hole, 0, Math.PI * 2, true)
+  shape.holes.push(h)
+  ringShape = new THREE.ExtrudeGeometry(shape, { depth: 0.8 * U, bevelEnabled: false, curveSegments: 28 })
+  ringShape.translate(0, 0, 0)
+  return ringShape
+}
+
 function Cyl({ y, length, radius, color, metalness = 0.15, roughness = 0.5, scaleX = 1 }: { y: number; length: number; radius: number; color: string; metalness?: number; roughness?: number; scaleX?: number }) {
   return <mesh position={[0, y, 0]} scale={[scaleX, 1, 1]} userData={{ noPick: true }} raycast={() => null}>
     <cylinderGeometry args={[radius, radius, length, 16]} />
@@ -126,20 +151,35 @@ export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: Wir
           <Cyl y={collar / 2} length={collar} radius={collarR} color={color} roughness={0.68} />
         </>
       }
-      case 'ring':
+      case 'ring': {
+        // Olhal assente no perno (centro do anel = ponto do borne), com anilha e porca por cima.
+        const t = 0.8 * U
+        const hexR = (7 / 2) / Math.cos(Math.PI / 6) * U
+        const metal = <meshStandardMaterial color={METAL} metalness={0.85} roughness={0.28} />
+        const zinc = { color: '#b9bfc8', metalness: 0.9, roughness: 0.32 }
+        return <>
+          <mesh geometry={ringLugGeometry()} userData={{ noPick: true }} raycast={() => null}>{metal}</mesh>
+          <Cyl y={9.6 * U} length={3.6 * U} radius={Math.max(R * 0.95, 1.7 * U)} scaleX={1} color={METAL} metalness={0.85} roughness={0.25} />
+          <Cyl y={11.4 * U + 3.3 * U} length={6.6 * U} radius={collarR} color={color} roughness={0.45} />
+          {geometry.studNut && <group position={[0, 0, t]} rotation={[Math.PI / 2, 0, 0]} userData={{ noPick: true }}>
+            {/* anilha plana */}
+            <mesh position={[0, 0.4 * U, 0]} raycast={() => null}><cylinderGeometry args={[4.4 * U, 4.4 * U, 0.8 * U, 32]} /><meshStandardMaterial {...zinc} /></mesh>
+            {/* porca sextavada M4 */}
+            <mesh position={[0, (0.8 + 1.6) * U, 0]} rotation={[0, Math.PI / 6, 0]} raycast={() => null}><cylinderGeometry args={[hexR, hexR, 3.2 * U, 6]} /><meshStandardMaterial {...zinc} /></mesh>
+            {/* ponta do perno */}
+            <mesh position={[0, (0.8 + 3.2 + 0.8) * U, 0]} raycast={() => null}><cylinderGeometry args={[1.9 * U, 1.9 * U, 1.6 * U, 20]} /><meshStandardMaterial {...zinc} /></mesh>
+          </group>}
+        </>
+      }
       case 'fork':
+
       case 'faston': {
         const palm = 10 * U
         const barrel = 4 * U
         const collar = 6 * U
-        const lug = geometry.type === 'ring'
-          ? <mesh position={[0, 5 * U, 0]} userData={{ noPick: true }} raycast={() => null}>
-            <torusGeometry args={[3.4 * U, 1.1 * U, 10, 28]} />
-            <meshStandardMaterial color={METAL} metalness={0.85} roughness={0.28} />
-          </mesh>
-          : geometry.type === 'fork'
-            ? <mesh geometry={forkGeometry()} userData={{ noPick: true }} raycast={() => null}><meshStandardMaterial color={METAL} metalness={0.85} roughness={0.28} /></mesh>
-            : <mesh position={[0, palm / 2, 0]} userData={{ noPick: true }} raycast={() => null}>
+        const lug = geometry.type === 'fork'
+          ? <mesh geometry={forkGeometry()} userData={{ noPick: true }} raycast={() => null}><meshStandardMaterial color={METAL} metalness={0.85} roughness={0.28} /></mesh>
+          : <mesh position={[0, palm / 2, 0]} userData={{ noPick: true }} raycast={() => null}>
               <boxGeometry args={[6.3 * U, palm, 0.9 * U]} />
               <meshStandardMaterial color={METAL} metalness={0.85} roughness={0.28} />
             </mesh>

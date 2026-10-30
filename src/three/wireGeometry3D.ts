@@ -213,6 +213,8 @@ export type WireEndGeometry = {
   socketDiameterMm?: number
   length: number
   portCount?: number
+  /** Olhal apertado num perno: desenha anilha e porca por cima. */
+  studNut?: boolean
 }
 
 function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerMm = 2.8): { head: V3; geometry: WireEndGeometry } {
@@ -259,7 +261,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   if (head.z < plateSafeZ) head.z = plateSafeZ
   return {
     head: arr(head),
-    geometry: { type, origin: arr(origin), axis: arr(axis), normal: arr(thick), embedMm, socketDiameterMm: endpoint.socketDiameterMm, length, portCount: type === 'ferruleDouble' ? nPorts : undefined },
+    geometry: { type, origin: arr(origin), axis: arr(axis), normal: arr(thick), embedMm, socketDiameterMm: endpoint.socketDiameterMm, length, portCount: type === 'ferruleDouble' ? nPorts : undefined, studNut: type === 'ring' && Boolean(endpoint.motorContext) },
   }
 }
 
