@@ -5449,28 +5449,45 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       )}
                     </div>
 
-                    <div className="grafcet-form-heading">
+                    <div className="grafcet-form-heading grafcet-actions-heading">
                       <h3>Ações</h3>
-                      <button onClick={() => addActionToStep(selectedStep)}>+ ação</button>
+                      <button type="button" onClick={() => addActionToStep(selectedStep)}>
+                        <IconPlus size={12} />
+                        Adicionar ação
+                      </button>
                     </div>
                     <div className="grafcet-action-layout-toggle" role="group" aria-label="Disposição das ações no diagrama">
-                      <span>Disposição:</span>
-                      <button
-                        type="button"
-                        aria-pressed={stepActionLayout(selectedStep) === 'row'}
-                        onClick={() => updateStep(selectedStep.id, { actionLayout: 'row' }, 'force')}
-                        title="Ações lado a lado (a nova ação aparece à direita)"
-                      >
-                        ▭▭ Em linha
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={stepActionLayout(selectedStep) === 'column'}
-                        onClick={() => updateStep(selectedStep.id, { actionLayout: 'column' }, 'force')}
-                        title="Ações empilhadas na vertical (a nova ação aparece por baixo)"
-                      >
-                        ▭ Empilhadas
-                      </button>
+                      <span className="grafcet-action-layout-label">Disposição</span>
+                      <div className="grafcet-action-layout-options">
+                        <button
+                          type="button"
+                          aria-pressed={stepActionLayout(selectedStep) === 'row'}
+                          onClick={() => updateStep(selectedStep.id, { actionLayout: 'row' }, 'force')}
+                          title="Ações lado a lado (a nova ação aparece à direita)"
+                        >
+                          <svg className="grafcet-action-layout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                            <rect x="2" y="8" width="8" height="8" rx="1" />
+                            <path d="M10 12h4" />
+                            <rect x="14" y="8" width="8" height="8" rx="1" />
+                          </svg>
+                          <span>Em linha</span>
+                          <IconCheck className="grafcet-action-layout-check" size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={stepActionLayout(selectedStep) === 'column'}
+                          onClick={() => updateStep(selectedStep.id, { actionLayout: 'column' }, 'force')}
+                          title="Ações empilhadas na vertical (a nova ação aparece por baixo)"
+                        >
+                          <svg className="grafcet-action-layout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                            <rect x="6" y="2" width="12" height="8" rx="1" />
+                            <path d="M12 10v4" />
+                            <rect x="6" y="14" width="12" height="8" rx="1" />
+                          </svg>
+                          <span>Empilhadas</span>
+                          <IconCheck className="grafcet-action-layout-check" size={11} />
+                        </button>
+                      </div>
                     </div>
 
                     {actionsOf(selectedStep).map((action, actionIndex) => {
