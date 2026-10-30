@@ -69,3 +69,7 @@ produção (`vite preview`).
   o texto fica a ~64 % do tamanho.
 - O registo de contas continua desativado por desenho (só as contas Admin e User).
 - As quatro suítes de UI que já falhavam antes precisam de revisão própria.
+
+## Atualização 2026-10-30 (2) — PC com a barra completa, sem dropdowns
+
+A compactação por largura (`max-width: 1279px`) e por transbordo medido (`useOverflowCompact`) fazia o PC abrir com os menus «Ferramentas / Painéis / Mais», como num tablet. Passou a valer só para telemóvel (`max-width: 743px` ou `PHONE_TOUCH_QUERY`) em `Toolbar.tsx` e `ComponentEditor3D.tsx`. PC e tablet (que recebe `width=1280`) mostram a barra completa; o excedente desliza na horizontal. O smoke `test:tablet-parity-ui` verifica a ausência de menus compactos.

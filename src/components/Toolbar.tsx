@@ -1,5 +1,6 @@
 import { uiConfirm } from '../ui/dialogs'
-import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
+import { PHONE_TOUCH_QUERY } from '../ui/device'
+import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -249,11 +250,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   }
 
   const narrowBar = useNarrowMenu()
-  const compactQuery = useNarrowMenu('(max-width: 1279px), (pointer: coarse) and (max-height: 520px)')
-  // Também compacta quando o conteúdo completo não cabe (medido): nada fica cortado na borda.
+  // Barra completa em PC e tablet (o tablet recebe o layout de PC via meta viewport);
+  // só o telemóvel usa menus «Mais». Se a janela for estreita, a barra completa desliza na horizontal.
+  const compactQuery = useNarrowMenu(`(max-width: 743px), ${PHONE_TOUCH_QUERY}`)
   const shellRef = useRef<HTMLDivElement>(null)
-  const overflowCompact = useOverflowCompact(shellRef, '.dc-toolbar-main, .dc-toolbar-row2, .dc-views-container', !demo && !compactQuery, [mode])
-  const compactBar = compactQuery || overflowCompact
+  const compactBar = compactQuery
   // Modelos e importação/exportação ficam agrupados mesmo num ecrã grande.
   const desktopGrafcetMenu = mode === 'grafcet'
   const fileSections: ToolMenuSection[] = [{

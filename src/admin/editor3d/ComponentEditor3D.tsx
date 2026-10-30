@@ -1,5 +1,6 @@
 import { uiConfirm } from '../../ui/dialogs'
-import { HistoryGroup, ShortcutsButton, ToolMenu, ViewControls, useOverflowCompact, type ToolMenuItem, type ToolMenuSection } from '../../ui/toolbarKit'
+import { PHONE_TOUCH_QUERY } from '../../ui/device'
+import { HistoryGroup, ShortcutsButton, ToolMenu, ViewControls, type ToolMenuItem, type ToolMenuSection } from '../../ui/toolbarKit'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -125,7 +126,7 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
   const tab = useEditorStore((s) => s.tab)
   const toolbarsRef = useRef<HTMLDivElement>(null)
   const compactQuery = useCompactView()
-  const compact = useOverflowCompact(toolbarsRef, '.ce-ribbon', !compactQuery) || compactQuery
+  const compact = compactQuery
   const current = RIBBON.find((item) => item.id === active) ?? RIBBON[0]
   const flash = (text: string) => window.dispatchEvent(new CustomEvent('ce-flash', { detail: text }))
 
@@ -332,10 +333,11 @@ function StatusBar() {
 }
 
 /** Ecrã estreito/telemóvel: a barra da vista passa a um menu só. */
+const COMPACT_VIEW_QUERY = `(max-width: 743px), ${PHONE_TOUCH_QUERY}`
 function useCompactView(): boolean {
-  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 520px)').matches)
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia(COMPACT_VIEW_QUERY).matches)
   useEffect(() => {
-    const query = window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 520px)')
+    const query = window.matchMedia(COMPACT_VIEW_QUERY)
     const update = () => setCompact(query.matches)
     update()
     query.addEventListener('change', update)

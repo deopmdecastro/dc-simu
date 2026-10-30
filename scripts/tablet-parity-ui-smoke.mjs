@@ -5,7 +5,7 @@ import { chromium } from 'playwright'
 
 // Paridade tablet ↔ PC e barras sem cortes.
 // - Tablets (tátil, lado curto ≥ 600 px) recebem a largura de layout do PC (1280 px).
-// - As barras do editor nunca cortam botões na borda: compactam quando não cabem.
+// - PC e tablet mostram SEMPRE a barra completa (sem menus «Ferramentas/Painéis/Mais»); o que não cabe desliza na horizontal.
 // - Os indicadores da administração não sobrepõem ícone, rótulo, valor e seta.
 // Requer `vite preview` em PARITY_TEST_URL (por omissão http://127.0.0.1:4173).
 const baseURL = process.env.PARITY_TEST_URL || 'http://127.0.0.1:4173'
@@ -73,8 +73,10 @@ try {
       const tab = page.locator('.dc-toolbar-shell button').filter({ hasText: new RegExp('^\\s*' + view) }).first()
       await tab.click()
       await page.waitForTimeout(1800)
-      const clipped = await clippedToolbarButtons(page)
-      check(clipped.length === 0, `${vp.name} · ${view}: nenhum botão da barra cortado (${clipped.join(', ') || 'ok'})`)
+      const compactMenus = await page.locator('.dc-toolbar-shell.is-compact, .dc-toolbar-compact, .dc-compact-menu').count()
+      check(compactMenus === 0, `${vp.name} · ${view}: barra completa, sem menus compactos de telemóvel (${compactMenus})`)
+      const scrolls = await clippedToolbarButtons(page)
+      check(scrolls.every((item) => item.includes('desliza')), `${vp.name} · ${view}: o excedente só desliza, nada fica inacessível (${scrolls.join(', ') || 'cabe tudo'})`)
       await capture(page, `${vp.name}--${view.toLowerCase()}`)
     }
     check(errors.length === 0, `${vp.name}: sem erros JavaScript (${errors[0] ?? 'ok'})`)
