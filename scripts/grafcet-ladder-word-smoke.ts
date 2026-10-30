@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { useSimStore } from '../src/store/useSimStore'
 import { applyLadderFromGrafcet, generatedLadderMethod, hasGeneratedLadder, ladderMethodOptions, ladderSyncStatus } from '../src/grafcet/ladderSync'
-import { grafcetToLadderWord, wordMethodBlocker } from '../src/grafcet/toLadderWord'
+import { grafcetToLadderWord, stepLanes, wordMethodBlocker } from '../src/grafcet/toLadderWord'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
 import { emptyGrafcetRuntime, scanGrafcet, stepNumberOf, transitionsOf } from '../src/grafcet/engine'
 import { grafcetExamples } from '../src/project/grafcetExamples'
@@ -79,12 +79,29 @@ check(ladderSyncStatus(state().grafcet) === 'stale', 'alterar uma receptividade 
 applyLadderFromGrafcet(state().grafcet)
 check(ladderSyncStatus(state().grafcet) === 'synced' && state().tags.filter((t) => t.name === 'Start').length === 1, 'atualizar sincroniza sem duplicar tags')
 
-// Fallback: etapas em paralelo continuam a usar o método dos bits.
+// Etapas em paralelo: um registo por sequência (G0, G1); o ramo extra para (−1) na convergência.
 const parallel: GrafcetProgram = { name: 'par', steps: [step('a', '0', true), step('b', '1', false, 'Q0.0'), step('c', '2', false, 'Q0.1')], transitions: [{ id: 't', from: ['a'], to: ['b', 'c'], condition: 'Start' }, { id: 'u', from: ['b', 'c'], to: ['a'], condition: 'Stop' }] }
-check(wordMethodBlocker(parallel) !== null, 'etapas em paralelo não usam o registo de etapa')
+check(wordMethodBlocker(parallel) === null, 'etapas em paralelo também usam o registo de etapa (um registo por sequência)')
 state().setGrafcet(parallel)
 applyLadderFromGrafcet(state().grafcet)
-check(!files().some((f) => /^(Grafcet|Outputs) \[FC/.test(f.name)) && !state().tags.some((t) => t.name === 'G0') && ladderSyncStatus(state().grafcet) === 'synced', 'em paralelo: FCs e G0 removidos, método dos bits aplicado')
+check(files().some((f) => /^Grafcet \[FC/.test(f.name)) && state().tags.some((t) => t.name === 'G0') && state().tags.some((t) => t.name === 'G1') && ladderSyncStatus(state().grafcet) === 'synced', 'em paralelo: FC Grafcet com G0 e G1, sincronizado')
+{
+  const grafcetFile = files().find((f) => /^Grafcet \[FC/.test(f.name))!
+  const g1 = state().tags.find((t) => t.name === 'G1')!.address
+  check(grafcetFile.rungs!.some((r) => r.move?.target === g1 && r.move.source === '-1'), 'a convergência E para a sequência G1 (MOVE −1)')
+  const tbl: Record<string, boolean> = {}
+  const pdb: DbTable = {}
+  const pedges: Record<string, boolean> = {}
+  runScan({ rungs: autoExecRungs(files(), 'obStartup') }, tbl, {}, {}, 10, {}, [], pdb, pedges)
+  const scanPar = (inputs: Record<string, boolean>) => { Object.assign(tbl, inputs); runScan({ rungs: state().ladder.rungs }, tbl, {}, {}, 10, callableBlocks(files()), [], pdb, pedges) }
+  const regs = () => [pdb[state().tags.find((t) => t.name === 'G0')!.address]?.value, pdb[g1]?.value].join(',')
+  scanPar({ 'I0.0': false, 'I0.1': false })
+  check(regs() === '0,-1', 'arranque: G0 = 0 e G1 parado (−1)')
+  scanPar({ 'I0.0': true })
+  check(regs() === '1,2' && tbl['Q0.0'] && tbl['Q0.1'], 'Start: as etapas 1 e 2 ficam ativas ao mesmo tempo (Q0.0 e Q0.1)')
+  scanPar({ 'I0.0': false, 'I0.1': true })
+  check(regs() === '0,-1' && !tbl['Q0.0'] && !tbl['Q0.1'], 'Stop: a convergência volta à etapa 0 e para G1')
+}
 
 // Método escolhido pelo utilizador: bits numa sequência que cabe no MOVE; fica até se pedir outro.
 state().newProject('grafcet')
@@ -96,16 +113,16 @@ applyLadderFromGrafcet(state().grafcet)
 check(generatedLadderMethod() === 'bit', 'atualizar sem escolher mantém o método já gerado')
 applyLadderFromGrafcet(state().grafcet, 'word')
 check(generatedLadderMethod() === 'word' && ladderSyncStatus(state().grafcet) === 'synced' && !state().tags.some((t) => /^Etapa_/.test(t.name)), 'trocar para MOVE substitui os bits pelo registo G0')
-check(ladderMethodOptions(parallel).word.available === false && !!ladderMethodOptions(parallel).word.reason, 'em paralelo o MOVE aparece indisponível, com o motivo')
+const delayed: GrafcetProgram = { ...teste, steps: teste.steps.map((s, i) => i ? { ...s, actions: [{ id: 'd', address: 'Q0.3', condition: '1', kind: 'D' as const, timeMs: 500 }] } : s) }
+check(ladderMethodOptions(parallel).word.available === true && ladderMethodOptions(delayed).word.available === false && !!ladderMethodOptions(delayed).word.reason, 'paralelo disponível no MOVE; ações D continuam indisponíveis, com o motivo')
 
 // Exemplos GRAFCET 1 e 2 (temporizações t/Xn e flancos) também cabem no registo de etapa:
 // o Ladder MOVE gerado evolui como o GRAFCET — mesma etapa ativa e mesmas saídas — com entradas
 // pseudoaleatórias mantidas 1–40 ciclos (dá tempo às temporizações).
 const [basicExample, normalExample, advancedExample] = grafcetExamples()
-check(wordMethodBlocker({ ...advancedExample.program, transitions: transitionsOf(advancedExample.program) }) !== null, 'exemplo avançado (paralelo, duas etapas iniciais) continua fora do registo de etapa')
 const advancedBits = grafcetToLadder({ ...advancedExample.program, transitions: transitionsOf(advancedExample.program) }, [], { startupBlock: true })
 check(advancedBits.warnings.length === 0 && advancedBits.rungs.some((r) => /Relógio 2 Hz/.test(r.name) && r.timer?.timerType === 'TON'), `exemplo avançado: bits de etapa sem avisos, com a intermitência 2HZ num relógio de dois TON${advancedBits.warnings.length ? ' — ' + advancedBits.warnings.join('; ') : ''}`)
-for (const example of [basicExample, normalExample]) {
+for (const example of [basicExample, normalExample, advancedExample]) {
   const program = { ...example.program, transitions: transitionsOf(example.program) }
   check(wordMethodBlocker(program) === null, `${example.level}: cabe no registo de etapa (MOVE)`)
   const ladder = grafcetToLadderWord(program, { tags: example.tags, name: program.name })
@@ -128,32 +145,35 @@ for (const example of [basicExample, normalExample]) {
   let mismatches = 0
   const visited = new Set<number>()
   const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648
-  for (let hold = 0; hold < 400; hold++) {
+  // Três sementes seguidas (o estado continua de uma para a outra): 1200 patamares por exemplo.
+  for (const start of [7, 42, 2026]) for (let hold = (seed = start, 0); hold < 400; hold++) {
     for (const input of inputs) if (rand() < 0.35) { const v = !gTable[input]; gTable[input] = v; lTable[input] = v }
     const scans = 1 + Math.floor(rand() * 40)
     for (let k = 0; k < scans; k++) {
       rt = scanGrafcet(program, rt, gTable, 100)
       runScan({ rungs }, lTable, lTimers, {}, 100, {}, [], lDb, lEdges)
     }
-    const gStep = rt.active.map((id) => numberOf.get(id)).join(',')
-    const lStep = String(lDb[ladder.word]?.value)
-    visited.add(Number(lStep))
+    const gStep = rt.active.map((id) => numberOf.get(id)!).sort((a, b) => a - b).join(',')
+    const lActive = ladder.words.map((w) => Number(lDb[w]?.value)).filter((v) => v >= 0).sort((a, b) => a - b)
+    const lStep = lActive.join(',')
+    lActive.forEach((v) => visited.add(v))
     if (gStep !== lStep || outputs.some((q) => !!gTable[q] !== !!lTable[q])) {
-      if (mismatches < 3) console.log(`  divergência ${example.level} patamar ${hold}: GRAFCET X${gStep} · Ladder G0=${lStep} · entradas ${inputs.map((i) => `${i}=${+!!gTable[i]}`).join(' ')}`)
+      if (mismatches < 3) console.log(`  divergência ${example.level} patamar ${hold}: GRAFCET X${gStep} · Ladder ${ladder.words.length > 1 ? 'G0…G' + (ladder.words.length - 1) : 'G0'}=${lStep} · entradas ${inputs.map((i) => `${i}=${+!!gTable[i]}`).join(' ')}`)
       mismatches++
     }
   }
-  check(mismatches === 0, `${example.level}: Ladder MOVE evolui como o GRAFCET em 400 patamares de entradas (${mismatches} divergências)`)
+  check(mismatches === 0, `${example.level}: Ladder MOVE evolui como o GRAFCET em 1200 patamares de entradas (3 sementes) (${mismatches} divergências)`)
   check(visited.size === program.steps.length, `${example.level}: a sequência passou por todas as ${program.steps.length} etapas (${[...visited].sort((a, b) => a - b).join(', ')})`)
   for (const q of blinking) {
     const owner = program.steps.find((s) => (s.actions ?? []).some((a) => a.address === q))!
     const hz = parseFloat((owner.actions ?? []).find((a) => a.address === q)!.condition!)
-    lDb[ladder.word] = { type: 'INT', value: Number(stepNumberOf(owner, program.steps.indexOf(owner))) }
+    const ownerWord = ladder.words[stepLanes(program).laneOf.get(owner.id) ?? 0]
+    lDb[ownerWord] = { type: 'INT', value: Number(stepNumberOf(owner, program.steps.indexOf(owner))) }
     // Mantém a etapa (entradas que não a fazem evoluir não interessam aqui): força G0 antes de cada scan.
     let toggles = 0
     let last = !!lTable[q]
     for (let k = 0; k < 100; k++) {
-      lDb[ladder.word].value = Number(stepNumberOf(owner, program.steps.indexOf(owner)))
+      lDb[ownerWord].value = Number(stepNumberOf(owner, program.steps.indexOf(owner)))
       runScan({ rungs: ladder.outputRungs.concat(ladder.grafcetRungs.filter((r) => r.timer && !r.move)) }, lTable, lTimers, {}, 100, {}, [], lDb, lEdges)
       if (!!lTable[q] !== last) { toggles++; last = !!lTable[q] }
     }

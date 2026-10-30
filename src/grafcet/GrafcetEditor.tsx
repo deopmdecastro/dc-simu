@@ -927,7 +927,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const summary = (method: LadderMethod) => {
       const preview = previewLadder(full, method)
       const lines = method === 'word'
-        ? `OB 100: G0 = etapa inicial · FC Grafcet: ${preview.blocks?.find((b) => b.label === 'Grafcet')?.rungs.length ?? 0} networks · FC Outputs: ${preview.blocks?.find((b) => b.label === 'Outputs')?.rungs.length ?? 0} networks · ${preview.tags.length} variáveis novas`
+        ? `OB 100: ${(preview.tags.filter((t) => /^G\d+$/.test(t.name)).map((t) => t.name).join(', ') || 'G0')} = etapa inicial · FC Grafcet: ${preview.blocks?.find((b) => b.label === 'Grafcet')?.rungs.length ?? 0} networks · FC Outputs: ${preview.blocks?.find((b) => b.label === 'Outputs')?.rungs.length ?? 0} networks · ${preview.tags.length} variáveis novas`
         : `OB 100: ${preview.startupRungs.length} networks · Main [OB 1]: ${preview.rungs.length} networks · ${preview.tags.length} variáveis`
       return preview.warnings.length ? `${lines}\n${preview.warnings.length} aviso${preview.warnings.length === 1 ? '' : 's'}: ${preview.warnings[0]}` : lines
     }
@@ -938,13 +938,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       [
         {
           id: 'word', title: 'Registo de etapa (MOVE)', badge: options.word.available ? 'Recomendado' : undefined,
-          description: 'G0 (%MW) guarda o número da etapa ativa: cada transição é um MOVE, cada saída compara G0 e as temporizações são TON. Organizado em FC Grafcet e FC Outputs.',
+          description: 'Cada sequência guarda o número da sua etapa ativa num registo (G0, G1… em %MW): cada transição é um MOVE, cada saída compara o registo e as temporizações são TON. Etapas em paralelo e vários GRAFCET usam um registo cada. Organizado em FC Grafcet e FC Outputs.',
           detail: options.word.available ? summary('word') : undefined,
           disabled: !options.word.available, reason: options.word.reason ?? undefined,
         },
         {
           id: 'bit', title: 'Bits de etapa (SET/RESET)',
-          description: 'Um bit de memória por etapa, ativado e desativado com SET/RESET. Serve qualquer GRAFCET: etapas em paralelo, várias etapas iniciais e ações memorizadas (S/R/D/L).',
+          description: 'Um bit de memória por etapa, ativado e desativado com SET/RESET. Serve qualquer GRAFCET, incluindo ações temporizadas (D/L) e de impulso.',
           detail: summary('bit'),
         },
       ],

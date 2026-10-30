@@ -6,7 +6,7 @@ import { blockDisplayName, suggestNumber } from '../ladder/blockCatalog'
 import type { ProjectFile } from '../ladder/projectFiles'
 import { transitionsOf, validateGrafcet, type GrafcetProgram } from './engine'
 import { grafcetToLadder, type LadderFromGrafcet } from './toLadder'
-import { WORD_FC_GRAFCET, WORD_FC_OUTPUTS, WORD_REGISTER_COMMENT, WORD_REGISTER_NAME, grafcetToLadderWord, wordMethodBlocker } from './toLadderWord'
+import { WORD_FC_GRAFCET, WORD_FC_OUTPUTS, WORD_REGISTER_COMMENT, grafcetToLadderWord, wordMethodBlocker } from './toLadderWord'
 
 export type LadderSyncStatus = 'none' | 'synced' | 'stale' | 'blocked'
 /** Método de conversão: registo de etapa (MOVE em %MW) ou bits de etapa (SET/RESET). */
@@ -23,8 +23,8 @@ const isRestartRung = (r: LadderRung) => r.name.startsWith(RESTART_PREFIX)
 /** Memória/temporizador criado pelo gerador: é refeito a cada atualização. */
 const isGeneratedBit = (t: LadderTag) => /^[MT]\d{1,2}$/i.test(t.address.trim()) && GENERATED_BIT_NAME.test(t.name) && GENERATED_COMMENT.test(t.comment ?? '')
 
-/** Registo de etapa (G0 = %MW) criado pelo método «registo de etapa»: refeito a cada atualização. */
-const isGeneratedWord = (t: LadderTag) => /^MW\d+$/i.test(t.address.trim().replace(/^%/, '')) && t.name === WORD_REGISTER_NAME && t.comment === WORD_REGISTER_COMMENT
+/** Registos de etapa (G0, G1… = %MW) criados pelo método «registo de etapa»: refeitos a cada atualização. */
+const isGeneratedWord = (t: LadderTag) => /^MW\d+$/i.test(t.address.trim().replace(/^%/, '')) && /^G\d+$/.test(t.name) && t.comment === WORD_REGISTER_COMMENT
 
 const WORD_FC_LABELS = [WORD_FC_GRAFCET, WORD_FC_OUTPUTS]
 /** FC gerado pelo método «registo de etapa»: «Grafcet [FC n]» / «Outputs [FC n]». */
