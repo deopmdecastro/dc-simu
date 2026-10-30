@@ -3,7 +3,7 @@ import type { ComponentType } from '../types'
 import { WIRE_COLORS } from '../schematic/symbols'
 import { hasComponent3DVisual } from '../three/modelPaths'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
-import type { ProjectPreviewData, PreviewComponent } from './projectPreview'
+import type { ProjectPreviewData, PreviewComponent, PreviewWire } from './projectPreview'
 
 const imageKey = (c: PreviewComponent) => `${c.t}:${(c.o ?? [0, 0, 0]).join(':')}`
 
@@ -182,12 +182,38 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
             </g>
           )
         })}
-        {preview.wires.map((w, i) => {
-          const mx = (w.a[0] + w.b[0]) / 2
-          return <path key={`w${i}`} d={`M${w.a[0]} ${w.a[1]}H${mx}V${w.b[1]}H${w.b[0]}`} fill="none" stroke={wireColor(w.c)} strokeWidth={stroke * 1.7} strokeLinejoin="round" strokeLinecap="round" opacity=".9" />
-        })}
+        {preview.wires.map((w, i) => (
+          <path key={`w${i}`} d={coverWirePath(w, i, stroke)} fill="none" stroke={wireColor(w.c)} strokeWidth={stroke * 1.5} strokeLinejoin="round" strokeLinecap="round" opacity=".9" />
+        ))}
         {devices.map((c) => c.p.map((pt, k) => <circle key={`${c.ref}${k}${pt[0]}`} cx={pt[0]} cy={pt[1]} r={stroke * 1.7} className="dx-cover-pin" />))}
       </svg>
     </div>
   )
+}
+
+/**
+ * Traçado de um cabo na capa, como num quadro: sai do borne na vertical até uma
+ * calha acima/abaixo do aparelho, segue na horizontal numa faixa própria (para
+ * não se sobrepor aos outros) e desce/sobe até ao borne de destino.
+ */
+function coverWirePath(w: PreviewWire, index: number, stroke: number): string {
+  const [ax, ay] = w.a
+  const [bx, by] = w.b
+  if (w.sa === undefined || w.sb === undefined || w.ea === undefined || w.eb === undefined) {
+    const mx = (ax + bx) / 2
+    return `M${ax} ${ay}H${mx}V${by}H${bx}`
+  }
+  const lane = (index % 7) * stroke * 2.6
+  const gap = stroke * 6 + lane
+  const channel = (side: -1 | 1, limit: number) => limit + side * gap
+  if (w.sa === w.sb) {
+    // Os dois bornes saem para o mesmo lado: uma só calha para lá do aparelho mais saliente.
+    const y = w.sa < 0 ? Math.min(channel(-1, w.ea), channel(-1, w.eb)) : Math.max(channel(1, w.ea), channel(1, w.eb))
+    return `M${ax} ${ay}V${y}H${bx}V${by}`
+  }
+  // Lados opostos: calha de cada aparelho e uma prumada vertical entre os dois.
+  const ya = channel(w.sa, w.ea)
+  const yb = channel(w.sb, w.eb)
+  const x = (ax + bx) / 2 + (index % 5 - 2) * stroke * 2.6
+  return `M${ax} ${ay}V${ya}H${x}V${yb}H${bx}V${by}`
 }

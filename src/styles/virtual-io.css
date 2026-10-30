@@ -143,7 +143,7 @@
 }
 
 /* Alvos de toque maiores em ecrãs táteis */
-@media (pointer: coarse) {
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
   .vio-panel .vio-stepper { height: 34px; }
   .vio-panel .vio-stepper button { min-width: 36px; }
   .vio-panel .vio-actions .vio-clear { height: 34px; }
@@ -174,7 +174,7 @@
 .ladder-bottom-actions .ladder-bottom-toggle svg { transition: transform .15s; }
 .ladder-bottom-actions .ladder-bottom-toggle svg.is-flipped { transform: rotate(180deg); }
 
-@media (pointer: coarse) {
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
   .ladder-bottom-actions .ladder-status-reset, .ladder-bottom-actions .ladder-bottom-toggle { height: 32px; }
 }
 @media (prefers-reduced-motion: reduce) { .ladder-bottom-actions * { transition: none !important; } }
@@ -231,7 +231,7 @@
 @media (max-width: 640px) {
   .vio-outputs { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
-@media (pointer: coarse) { .vio-lamp { min-height: 44px; } .ladder-live-word { height: 30px; } }
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) { .vio-lamp { min-height: 44px; } .ladder-live-word { height: 30px; } }
 
 /* ───── «PLC em STOP»: entradas congeladas até ao Run ───── */
 .vio-note.is-info { color: #1e3a5f; background: #eaf2fd; border: 1px solid #cfdff5; }
@@ -293,7 +293,7 @@
   gap: 2px 7px;
   padding: 6px 9px;
 }
-@media (pointer: coarse) {
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
   .vio-panel.is-compact .vio-switch,
   .vio-panel.is-compact .vio-lamp {
     min-height: 54px;
@@ -320,7 +320,7 @@
 .ladder-status-grid > .plc-sim { grid-column: 1 / -1; padding: 4px 0 8px; border-bottom: 1px dashed var(--line, #d6dae3); }
 
 /* ───── 2026-10-28 refine: mobile + desktop polish for Virtual IO ───── */
-@media (max-width: 720px), (pointer: coarse) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .vio-panel {
     padding: 12px 14px 16px;
     gap: 12px;

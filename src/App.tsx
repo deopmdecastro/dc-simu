@@ -63,7 +63,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   })
   // Paridade tablet↔desktop: tablets (≥900 px ou landscape ≥768) usam painéis
   // laterais fixos como no desktop. Só telemóveis / ecrãs estreitos usam gavetas.
-  const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse) and (max-height: 560px)').matches)
+  const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse) and (max-height: 520px)').matches)
   const [showLadder, setShowLadder] = useState(() => useSimUi.getState().schematic || !compactWorkspace())
   const [rightTab, setRightTab] = useState<'grafcet' | 'signals' | 'objects'>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())

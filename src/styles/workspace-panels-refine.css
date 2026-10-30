@@ -27,4 +27,4 @@
 }
 
 @container workspace-ladder-status (min-width:1251px) { .ladder-panel-picker { display:none; } }
-@media (max-width:720px), (pointer:coarse) { .ladder-panel-picker select { height:40px; } .vio-help summary { min-height:40px; display:flex; align-items:center; gap:4px; } .vio-panel .vio-cell .vio-mode { min-height:40px; } }
+@media (max-width:720px), (pointer: coarse) and (max-height: 520px) { .ladder-panel-picker select { height:40px; } .vio-help summary { min-height:40px; display:flex; align-items:center; gap:4px; } .vio-panel .vio-cell .vio-mode { min-height:40px; } }

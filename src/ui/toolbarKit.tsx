@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type React from 'react'
 import type { ReactNode } from 'react'
@@ -159,7 +159,7 @@ export interface ToolMenuSection {
 }
 
 /** Ecrã estreito / telemóvel: o menu passa a folha inferior. Exportado para os painéis que também trocam de controlo a 720 px. */
-export function useNarrowMenu(query = '(max-width: 720px), (pointer: coarse) and (max-height: 720px)') {
+export function useNarrowMenu(query = '(max-width: 720px), (pointer: coarse) and (max-height: 520px)') {
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
   useEffect(() => {
     const media = window.matchMedia(query)
@@ -169,6 +169,60 @@ export function useNarrowMenu(query = '(max-width: 720px), (pointer: coarse) and
     return () => media.removeEventListener('change', update)
   }, [query])
   return narrow
+}
+
+/**
+ * Barra que passa a compacta quando o conteúdo completo deixa de caber — medido
+ * nos elementos `selectors` dentro de `ref`, não por ponto de quebra. Nada fica
+ * cortado na borda (PC ou tablet); volta à barra completa quando a janela ganha
+ * a largura que faltava. `deps` volta a medir (por exemplo, ao trocar de vista).
+ */
+export function useOverflowCompact(ref: RefObject<HTMLElement | null>, selectors: string, enabled = true, deps: unknown[] = []) {
+  const [compact, setCompact] = useState(false)
+  /** Largura de janela de que a barra completa precisa, por vista (chave = deps). */
+  const needed = useRef(new Map<string, number>())
+  const depsKey = JSON.stringify(deps)
+  // Vista já medida: decide logo, sem piscar. Vista nova: mostra a barra completa e mede.
+  useLayoutEffect(() => {
+    const need = needed.current.get(depsKey)
+    setCompact(need !== undefined && window.innerWidth < need)
+  }, [depsKey])
+  // Medições feitas antes de as fontes assentarem dão larguras a mais: volta a medir.
+  useEffect(() => {
+    let alive = true
+    document.fonts?.ready.then(() => { if (alive) { needed.current.clear(); setCompact(false) } }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  useLayoutEffect(() => {
+    if (!enabled) return
+    let frame = 0
+    let confirm = 0
+    const overflow = () => {
+      const root = ref.current
+      if (!root) return 0
+      let extra = 0
+      root.querySelectorAll<HTMLElement>(selectors).forEach((el) => { extra = Math.max(extra, el.scrollWidth - el.clientWidth) })
+      return extra > 1 ? extra : 0
+    }
+    const check = () => {
+      frame = 0
+      if (!compact) {
+        // Só compacta se o transbordo persistir (evita piscar durante a troca de vista).
+        if (!overflow()) return
+        window.clearTimeout(confirm)
+        confirm = window.setTimeout(() => {
+          const extra = overflow()
+          if (extra) { needed.current.set(depsKey, window.innerWidth + extra + 8); setCompact(true) }
+        }, 400)
+      } else if (window.innerWidth >= (needed.current.get(depsKey) ?? 0)) setCompact(false)
+    }
+    // Duas passagens: a primeira pode apanhar a barra ainda a trocar de vista.
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = requestAnimationFrame(check) }) }
+    schedule()
+    window.addEventListener('resize', schedule)
+    return () => { window.removeEventListener('resize', schedule); if (frame) cancelAnimationFrame(frame); window.clearTimeout(confirm) }
+  }, [enabled, compact, selectors, ref, depsKey])
+  return enabled && compact
 }
 
 export function ToolMenu({ label, icon, sections, title, className = '', badge, align = 'start', trigger }: {

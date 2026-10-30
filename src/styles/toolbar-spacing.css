@@ -176,7 +176,7 @@
   z-index: 1;
 }
 
-@media (pointer: coarse) {
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
   .dc-toolbar-main .dc-tool-btn,
   .dc-toolbar-row2 .dc-tool-btn,
   .ladder-editor-toolbar .dc-tool-btn,
@@ -205,7 +205,7 @@
    (42 px em cima, 40 px em baixo, controlos a 30 px, raio 6). A versão anterior
    tinha uma barra própria — 48 px, botões de 40 px e raio 7, com a segunda faixa
    a quebrar em três linhas porque `min-height: 0` desligava a altura comum. */
-@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 520px) {
   .ce-toolbars.is-compact .ce-ribbon-primary { min-height: 42px; }
   .ce-toolbars.is-compact .ce-ribbon-secondary { min-height: 40px; }
   .ce-toolbars.is-compact .dc-tool-btn { min-height: var(--toolbar-control-height); border-radius: 6px; }

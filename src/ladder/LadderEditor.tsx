@@ -1,3 +1,4 @@
+import { PHONE_TOUCH_QUERY } from '../ui/device'
 import { withEmptyNetworkBelow } from './autoNetwork'
 import { useLadderZoom, fitLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from './ladderZoom'
 import { pinchZoom, usePinchZoom } from '../ui/usePinchZoom'
@@ -1465,7 +1466,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   // até o utilizador escolher a escala à mão (pinça ou botões de zoom).
   useEffect(() => {
     if (manualZoom.current) return
-    if (!window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) return
+    if (!window.matchMedia(`(max-width: 900px), ${PHONE_TOUCH_QUERY}`).matches) return
     if (!rungs.length) return
     // Duas passagens: a primeira mede o diagrama antes de o desenho assentar.
     const first = window.setTimeout(() => { if (!manualZoom.current) fitToWidth(false) }, 120)

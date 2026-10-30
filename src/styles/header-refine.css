@@ -58,7 +58,7 @@
 @media (max-width: 420px) {
   .account-bar .dx-logo-text, .account-bar .dx-brand-name { display: none; } /* ícone da marca fica; o nome do projeto ganha a largura */
 }
-@media (pointer: coarse) {
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
   .dc-toolbar-main .dc-tool-btn, .dc-toolbar-row2 .dc-tool-btn { min-height: 36px; }
 }
 
@@ -140,7 +140,7 @@
 
 .account-bar .dx-logo { flex: 0 0 auto; }
 .account-bar .dx-logo-text { white-space: nowrap; }
-@media (min-width: 1101px) and (max-width: 1800px) {
+@media (min-width: 1101px) {
   .dc-grafcet-toolbar > [aria-label="Ferramentas de seleção e navegação"] button > span { display: none; }
   .dc-grafcet-toolbar > .tb-sep { display: none; }
   .dc-grafcet-toolbar .grafcet-toolbar-secondary { gap: 6px !important; }
@@ -152,7 +152,7 @@
   .account-bar .dx-account-trigger-copy { display: none; }
   .account-bar .dx-account-trigger { width: var(--hdr-ctl); padding: 0; justify-content: center; }
 }
-@media (min-width: 1101px) and (max-width: 1800px) {
+@media (min-width: 1101px) {
   .dc-toolbar-row2 [aria-label="Ferramentas de edição"] button > span,
   .dc-toolbar-row2 [aria-label="Secções do editor Ladder"] button > span,
   .dc-toolbar-row2 .dc-blackbox-toggle > span { display: none; }

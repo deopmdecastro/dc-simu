@@ -2089,7 +2089,7 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
     border-radius: 2px; background: rgba(255, 255, 255, .85);
   }
 
-  @media (pointer: coarse) {
+  @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
     .dc-btn, .dc-icon-btn, .dc-tool-btn { min-height: 32px; }
   }
 }
@@ -2443,7 +2443,7 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 
 /* Biblioteca e GRAFCET como folhas de ecrã inteiro em telefones. */
 .dc-mobile-panel-tools { display:none; align-items:center; gap:4px; }
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .dc-mobile-panel-tools { display:flex; }
   .dc-workspace .dc-mobile-fullscreen-panel {
     position:fixed !important; inset:0 !important; top:0 !important; left:0 !important; right:0 !important;
@@ -2504,7 +2504,7 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
    - cubo/HUD do 3D sem a reserva de 43 px do painel antigo
    ====================================================================== */
 .dc-sheet-head { display:none; }
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   /* a folha aberta passa por cima da barra do projeto (que tem z-index 50) */
   .dx-editor-in:has(.dc-mobile-fullscreen-panel) { position:relative; z-index:60; }
   /* mais específico que a regra de gaveta (<1200 px), que fixava 92 vw */

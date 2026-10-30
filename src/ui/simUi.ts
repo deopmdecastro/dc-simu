@@ -1,3 +1,4 @@
+import { PHONE_TOUCH_QUERY } from './device'
 import { useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { isSmallScreen } from './cleanMode'
@@ -23,7 +24,7 @@ const readHints = () => {
   try {
     const saved = localStorage.getItem(HINTS_KEY)
     if (saved !== null) return saved === '1'
-    return !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches
+    return !window.matchMedia(`(max-width: 700px), ${PHONE_TOUCH_QUERY}`).matches
   } catch { return true }
 }
 

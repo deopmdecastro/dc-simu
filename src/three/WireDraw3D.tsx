@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Text } from '@react-three/drei'
+import { Text } from './SceneText'
 import * as THREE from 'three'
 import { create } from 'zustand'
 import { useSimStore } from '../store/useSimStore'

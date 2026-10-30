@@ -41,14 +41,27 @@
       })()
     </script>
     <script>
-      /* Identifica tablets sem reduzir a escala da interface: o layout adapta-se
-         à largura real do dispositivo, mantendo texto e alvos de toque legíveis. */
+      /* Paridade tablet ↔ PC: um tablet (ecrã tátil com o lado curto ≥ 600 px)
+         recebe sempre o layout de secretária. Se a largura atual for menor do que
+         1280 px (retrato, iPad mini, tablets Android), o navegador desenha a página
+         a 1280 px e ajusta-a ao ecrã — exatamente o mesmo layout do PC. */
       (function () {
         if (!window.matchMedia) return
+        var LAYOUT = 1280
+        var meta = document.querySelector('meta[name="viewport"]')
+        var base = meta ? meta.getAttribute('content') : ''
+        var current = ''
         function apply() {
           var shortSide = Math.min(screen.width, screen.height)
-          var tablet = window.matchMedia('(pointer: coarse)').matches && shortSide >= 600
+          var longSide = Math.max(screen.width, screen.height)
+          var coarse = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 1
+          var tablet = coarse && shortSide >= 600
           document.documentElement.setAttribute('data-tablet', tablet ? 'true' : 'false')
+          if (!meta) return
+          var landscape = window.matchMedia('(orientation: landscape)').matches
+          var deviceWidth = landscape ? longSide : shortSide
+          var next = tablet && deviceWidth < LAYOUT ? 'width=' + LAYOUT + ', viewport-fit=cover' : base
+          if (next !== current) { meta.setAttribute('content', next); current = next }
         }
         apply()
         window.addEventListener('orientationchange', function () { setTimeout(apply, 150) })

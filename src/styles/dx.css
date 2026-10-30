@@ -1282,7 +1282,7 @@ button.dx-notification-item:hover {
   border-radius: 50%;
   background: var(--dx-ink-3);
 }
-@media (max-width: 720px), (pointer: coarse) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .dx-profile-menu.dx-account-popover {
     width: min(340px, calc(100vw - 24px));
   }
@@ -1852,7 +1852,7 @@ button.dx-notification-item:hover {
   height: 44px;
   font-size: 15px;
 }
-@media (max-width: 720px), (pointer: coarse) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .dx-account-popover {
     width: min(340px, calc(100vw - 16px));
     max-height: min(80vh, 560px);
@@ -1870,7 +1870,7 @@ button.dx-notification-item:hover {
 /* force-rebuild 20261028152457 */
 
 /* rebuild-force */
-@media (max-width: 720px), (pointer: coarse) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .vio-switch { min-height: 56px !important; }
   .dc-side-panel-actions > button { min-width: 40px; min-height: 40px; }
 }

@@ -1,5 +1,5 @@
 import { uiConfirm } from '../ui/dialogs'
-import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
+import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -249,7 +249,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   }
 
   const narrowBar = useNarrowMenu()
-  const compactBar = useNarrowMenu('(max-width: 1279px), (pointer: coarse) and (max-height: 720px)')
+  const compactQuery = useNarrowMenu('(max-width: 1279px), (pointer: coarse) and (max-height: 520px)')
+  // Também compacta quando o conteúdo completo não cabe (medido): nada fica cortado na borda.
+  const shellRef = useRef<HTMLDivElement>(null)
+  const overflowCompact = useOverflowCompact(shellRef, '.dc-toolbar-main, .dc-toolbar-row2, .dc-views-container', !demo && !compactQuery, [mode])
+  const compactBar = compactQuery || overflowCompact
   // Modelos e importação/exportação ficam agrupados mesmo num ecrã grande.
   const desktopGrafcetMenu = mode === 'grafcet'
   const fileSections: ToolMenuSection[] = [{
@@ -391,7 +395,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   ]
 
   return (
-    <div className={`dc-toolbar-shell shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20${compactBar && !demo ? ' is-compact' : ''}`}>
+    <div ref={shellRef} className={`dc-toolbar-shell shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20${compactBar && !demo ? ' is-compact' : ''}`}>
       {/* ============================ linha 1 — projeto · vistas · simulação */}
       <div ref={mainBarRef} className={`flex items-center gap-2 px-3 min-h-[46px] ${demo ? 'justify-between' : 'border-b border-line-soft'} dc-toolbar-main`}>
         {/* arquivo — ações frequentes; na demonstração a barra fica só com Play/Pause + 3D/Ladder/GRAFCET */}

@@ -452,7 +452,7 @@
 
 /* No telefone o editor deixa de comprimir três painéis desktop lado a lado. */
 .ce-mobile-panes { display:none; }
-@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 520px) {
   .ce-root { width:100vw; height:100%; overflow:hidden; }
   /* Cabeçalho: nada de linha cortada por baixo do título. Deixa envolver em
      duas linhas e mostra-as por inteiro (antes tinha altura fixa + overflow). */
@@ -595,7 +595,7 @@
 /* --------------------------------------------------------------------------
    Telemóvel: barra da vista 3D numa só linha deslizante, sem tapar o cubo
    -------------------------------------------------------------------------- */
-@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 520px) {
   .ce-viewbar { top:6px; left:6px; right:84px; flex-wrap:wrap; gap:5px; overflow:visible; pointer-events:none; }
   .ce-viewbar::-webkit-scrollbar { display:none; }
   .ce-viewbar > .ce-group { flex:0 0 auto; padding:2px; }
@@ -676,7 +676,7 @@
   .ce-top .ce-autosave { display:none; }
   .ce-header-actions { gap:4px; }
 }
-@media (max-width:1024px), (pointer:coarse) and (max-height:700px) {
+@media (max-width:1024px), (pointer: coarse) and (max-height: 520px) {
   .ce-top.account-bar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 6px !important; padding:4px 6px !important; }
   .ce-top.account-bar .ce-title { min-width:0; display:flex; flex-wrap:wrap; gap:2px 6px; }
   .ce-top.account-bar .ce-title strong { min-width:0; max-width:100%; width:100%; font-size:12px; line-height:15px; }
@@ -788,7 +788,7 @@
 .ce-panel-resizer::after { content:''; position:absolute; top:0; bottom:0; left:2px; width:1px; background:var(--dx-line); }
 .ce-panel-resizer:hover::after, .ce-panel-resizer:focus-visible::after { width:3px; left:1px; background:var(--dx-brand); }
 @media (min-width:1025px) { .ce-body { grid-template-columns:minmax(48px,var(--ce-left-current-width,274px)) 5px minmax(0,1fr) 5px minmax(48px,var(--ce-right-current-width,360px)); transition:grid-template-columns .18s ease; } }
-@media (max-width:1024px), (pointer:coarse) and (max-height:700px) {
+@media (max-width:1024px), (pointer: coarse) and (max-height: 520px) {
   .ce-panel-resizer { display:none; }
   .ce-toolbars .ce-ribbon { min-height:42px; padding:4px 6px; gap:6px; scrollbar-width:none; }
   .ce-toolbars .ce-ribbon .dc-tool-btn { min-height:32px; }
@@ -949,6 +949,8 @@
 .ce-panel-collapse:hover { border-color:var(--dx-line); background:var(--dx-surface-2); color:var(--dx-ink); }
 .ce-panel-collapse:focus-visible { outline:2px solid var(--dx-focus-ring); outline-offset:1px; }
 .ce-collapsed-label, .ce-mobile-panel-close { display:none; }
+/* O botão genérico das ações do painel não pode reativar o «Canvas» (só telemóvel) no PC/tablet. */
+.dc-side-panel-actions > .ce-mobile-panel-close { display:none; }
 .ce-mobile-panel-close { flex:none; align-items:center; justify-content:center; gap:5px; min-height:32px; padding:4px 8px; border:1px solid var(--dx-line); border-radius:6px; background:var(--dx-surface); color:var(--dx-ink-2); font:inherit; font-size:11px; font-weight:650; cursor:pointer; white-space:nowrap; }
 .ce-mobile-panel-close:hover { border-color:var(--dx-brand-line); background:var(--dx-brand-soft); color:var(--dx-brand-700); }
 .ce-mobile-panel-close:focus-visible { outline:2px solid var(--dx-focus-ring); outline-offset:1px; }
@@ -984,9 +986,9 @@
     writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; text-overflow:ellipsis;
   }
 }
-@media (max-width:1024px), (pointer:coarse) and (max-height:700px) {
+@media (max-width:1024px), (pointer: coarse) and (max-height: 520px) {
   .ce-panel-collapse { display:none; }
-  .ce-mobile-panel-close { display:inline-flex; min-height:40px; }
+  .ce-mobile-panel-close, .dc-side-panel-actions > .ce-mobile-panel-close { display:inline-flex; min-height:40px; }
   .ce-hierarchy-title .ce-mobile-panel-close { margin-left:auto; }
   .ce-inspector-context .ce-mobile-panel-close { min-height:36px; }
 }
@@ -1114,7 +1116,7 @@
                                      desliza na horizontal (nunca quebra).
    Controlos com --toolbar-control-height (30 px) e raio 6, como nos restantes
    editores; o «Mais» continua fixo à direita. */
-@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 520px) {
   .ce-toolbars.is-compact .ce-ribbon {
     flex-wrap: nowrap; padding: 0 9px; gap: var(--toolbar-gap, 8px);
     overflow-x: auto; overflow-y: hidden; scroll-snap-type: none;
@@ -1165,7 +1167,7 @@
      botões dentro de grupos  30 px sem borda (grupo com borda e raio 6);
      faixa de painéis  como a linha de páginas do GRAFCET: etiquetas pequenas
      com contorno, em vez de três botões grandes a preencher a largura. */
-@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 520px) {
   /* ---- cabeçalho numa linha ---- */
   .ce-top.account-bar {
     display: flex; flex-wrap: nowrap; align-items: center; gap: 8px !important;
@@ -1220,7 +1222,7 @@
 }
 
 /* v5.5 · painéis de hierarquia e propriedades em telefones estreitos. */
-@media (max-width: 600px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 600px), (pointer: coarse) and (max-height: 520px) {
   .ce-mobile-panes {
     position: relative;
     z-index: 2;

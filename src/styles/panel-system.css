@@ -247,7 +247,7 @@
 .dc-side-panel-actions > button:active {
   background: color-mix(in srgb, var(--pn-brand-soft) 60%, white);
 }
-@media (max-width: 720px), (pointer: coarse) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .dc-side-panel-head {
     min-height: 58px;
     padding: 10px 12px;

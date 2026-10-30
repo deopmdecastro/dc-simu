@@ -9,7 +9,8 @@ import { chromium } from 'playwright'
 const baseURL = process.env.EDITOR3D_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.EDITOR3D_TEST_OUTPUT
 const browser = await chromium.launch(process.env.EDITOR3D_TEST_CHANNEL ? { channel: process.env.EDITOR3D_TEST_CHANNEL } : {})
-const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' })
+// Barra completa: a 1440 px a 2.ª linha do Esquema/GRAFCET não cabe e a barra passa a compacta (Atalhos no «Mais»); medir a barra completa num ecrã largo.
+const context = await browser.newContext({ viewport: { width: 1920, height: 1000 }, serviceWorkers: 'block' })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
   const local = url.origin === new URL(baseURL).origin && !url.pathname.startsWith('/api/') && url.pathname !== '/version.json'

@@ -38,7 +38,7 @@
 .dcx-select-item:disabled { opacity: .4; cursor: not-allowed; }
 
 /* Toque: alvos maiores. */
-@media (hover: none) and (pointer: coarse) {
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
   .dcx-select { min-height: 34px; }
   .dcx-select-item { min-height: 40px; font-size: 13px; }
 }

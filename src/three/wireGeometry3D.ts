@@ -826,6 +826,7 @@ function buildMotorGlandBody3D(
   panelAxis: V3,
   motorEnd: WireEndpoint3D,
   motorHead: V3,
+  motorAxis: V3,
   outerMm: number,
   obstacles: WireObstacle[],
 ): { points: V3[]; entry: V3 } {
@@ -902,42 +903,55 @@ function buildMotorGlandBody3D(
     )
   }
 
-  // Entrada pelo furo real do bucim M20: eixo do tubo → interior → borne.
-  // Offsets laterais mínimos para não sobrepor cabos no mesmo furo.
-  const gx = MOTOR_GLAND.x + dx * 0.35
-  const gy = MOTOR_GLAND.y + dy * 0.35
+  // Entrada pelo furo real do bucim M20. O troço exterior contorna o motor
+  // pela esquerda e pela frente (z > carcaça) e só então segue o eixo do furo;
+  // cada cabo tem o seu quadrante no furo (±2,6 mm) para não se sobreporem.
+  const gx = MOTOR_GLAND.x + dx
+  const gy = MOTOR_GLAND.y + dy
   const boxZ1 = MOTOR_BOX.z1
   const wall = MOTOR_BOX.wall
-  const approach = cad(-20 + idx * 5, gy, boxZ1 + 28 + idx * 2.5)
+  const frontClear = MOTOR_CAD.maxZ + 22 + idx * 6
+  const entryLeft = cad(-38, gy, frontClear)
+  const frontSweep = cad(gx, gy, frontClear)
   const glandOutside = cad(gx, gy, boxZ1 + 14)
   const glandMouth = cad(gx, gy, boxZ1 + 6)
   const glandThru = cad(gx, gy, boxZ1 - wall * 0.5)
   const glandInside = cad(gx, gy, boxZ1 - wall - 8)
 
-  // Dentro da caixa: transição suave + aproximação axial ao borne.
-  const fanX = headCad.x * 0.72 + gx * 0.28
-  const fanY = headCad.y * 0.55 + gy * 0.45
-  const fanZ = Math.min(headCad.z + 14, (boxZ1 - wall - 8) - 4)
-  const preTerminal = cad(fanX, fanY, fanZ)
-  const nearTerminal = cad(headCad.x, headCad.y + 0.8, Math.max(headCad.z + 5, 24))
+  // Dentro da caixa: um ponto intermédio por fila de bornes (alturas e
+  // profundidades distintas evitam cruzamentos) e chegada axial (+Y) ao borne.
+  const midY = (gy + headCad.y) * 0.5
+  const mixX = (k: number) => headCad.x * k + gx * (1 - k)
+  const innerBoxPoints: V3[] = label === 'PE'
+    ? [cad(mixX(0.55), midY, 38)]
+    : label === 'U1' || label === 'W2'
+      // U1/W2 atravessam por cima do olhal do PE (que fica à frente, junto ao bucim)
+      ? [cad(gx - 2, headCad.y + 10, boxZ1 - wall - 12), cad(mixX(0.5), headCad.y + 9, 26)]
+      : label === 'V1' || label === 'U2'
+        ? [cad(mixX(0.55), midY + 3, 26)]
+        : [cad(mixX(0.5), midY, 22)]
+  // Chegada alinhada com a terminação: ponteira na vertical (+Y), olhal deitado
+  // sob a porca e virado para o bucim.
+  const approach: V3 = arr(v(motorHead).addScaledVector(v(motorAxis), 7 * U))
 
   const rawControls: V3[] = [
     ...panelChain,
     [panelRightX, bottomDuctY, ductZ],
-    [approach[0], bottomDuctY, Math.max(ductZ, (ductZ + approach[2]) * 0.45)],
-    approach,
+    [entryLeft[0], bottomDuctY, Math.max(ductZ, (ductZ + entryLeft[2]) * 0.5)],
+    entryLeft,
+    frontSweep,
     glandOutside,
     glandMouth,
     glandThru,
-    glandInside,
-    preTerminal,
-    nearTerminal,
+    label === 'U1' || label === 'W2' ? cad(gx, gy, boxZ1 - wall - 3) : glandInside,
+    ...innerBoxPoints,
+    approach,
     motorHead,
   ]
   const deduped = rawControls.filter((pt, i) => i === 0 || v(pt).distanceTo(v(rawControls[i - 1])) > 1e-4)
   return {
-    points: keepInFrontOfPlate(roundCorners(deduped, outerMm, 4.2), outerMm),
-    entry: approach,
+    points: keepInFrontOfPlate(roundCorners(deduped, outerMm, 3.6), outerMm),
+    entry: entryLeft,
   }
 }
 
@@ -982,11 +996,15 @@ export function buildWirePath3D(
     const { trunkHint, plan } = computeBasePlan(wire, from, to, outerMm, obstacles)
     const effectivePlan = plan ? (slotOverride ? { ...plan, slot: slotOverride } : plan) : undefined
     const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint, effectivePlan)
-    const a = endHead(from, fromType, preliminary[Math.min(1, preliminary.length - 1)], outerMm)
-    const b = endHead(to, toType, preliminary[Math.max(0, preliminary.length - 2)], outerMm)
+    // A terminação no motor aponta para o interior do bucim (olhal deitado
+    // sob a porca); a do quadro segue o traçado preliminar.
+    const motorSide = toMotorGland ? to : from
+    const glandTarget = arr(motorCadToWorld(motorSide.motorContext!.component, v(motorSide.motorContext!.pivot), MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 - MOTOR_BOX.wall - 8))
+    const a = endHead(from, fromType, fromMotorGland ? glandTarget : preliminary[Math.min(1, preliminary.length - 1)], outerMm)
+    const b = endHead(to, toType, toMotorGland ? glandTarget : preliminary[Math.max(0, preliminary.length - 2)], outerMm)
     const gland = toMotorGland
-      ? buildMotorGlandBody3D(from, a.head, a.geometry.axis, to, b.head, outerMm, obstacles)
-      : buildMotorGlandBody3D(to, b.head, b.geometry.axis, from, a.head, outerMm, obstacles)
+      ? buildMotorGlandBody3D(from, a.head, a.geometry.axis, to, b.head, b.geometry.axis, outerMm, obstacles)
+      : buildMotorGlandBody3D(to, b.head, b.geometry.axis, from, a.head, a.geometry.axis, outerMm, obstacles)
     let entryIndex = 0
     for (let i = 1; i < gland.points.length; i++) if (v(gland.points[i]).distanceToSquared(v(gland.entry)) < v(gland.points[entryIndex]).distanceToSquared(v(gland.entry))) entryIndex = i
     const motorRoute: NonNullable<WirePath3D['motorRoute']> = { side: toMotorGland ? 'to' : 'from', points: toMotorGland ? gland.points.slice(entryIndex) : gland.points.slice(entryIndex).reverse() }

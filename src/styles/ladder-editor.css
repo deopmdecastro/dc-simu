@@ -367,7 +367,7 @@
    ao diagrama. Agora: resumo numa faixa deslizante de pastilhas, a linha
    redundante desaparece, o estado vazio encolhe e as réguas ficam finas.
    =========================================================================== */
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   /* Resumo: uma linha de pastilhas que desliza (nada é cortado sem sinal). */
   .ladder-program-summary {
     display: flex; grid-template-columns: none;
@@ -413,19 +413,19 @@
 
 /* Alvo do programa: no telemóvel o rótulo e a ajuda desaparecem (o select já
    diz qual é o PLC) e a barra deixa de mostrar texto cortado a meio. */
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .ladder-plc-target { padding: 5px 8px !important; gap: 6px !important; }
   .ladder-plc-target > label, .ladder-plc-target > span:last-child { display: none; }
   .ladder-plc-target > .dc-select { flex: 1 1 auto; max-width: none; width: 100%; min-height: 32px; font-size: 11.5px; }
 }
 
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   /* Sem PLC no esquema, a linha do alvo não tem nada a dizer: sai de cena. */
   .ladder-plc-target:has(.dc-select:disabled) { display: none; }
 }
 /* O cartão de estado vazio não precisa de altura mínima: encolhe com o conteúdo
    e o «Criar primeira network» fica muito acima do fundo do ecrã. */
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
   .ladder-empty-state, .ladder-empty-state.is-compact { min-height: 0 !important; max-width: 100%; padding: 18px 14px; margin: 10px; }
 }
 

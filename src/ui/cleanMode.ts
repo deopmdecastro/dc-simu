@@ -11,7 +11,7 @@ const KEY = 'dcsimu:clean-mode:v1'
 export const isSmallScreen = () => {
   try {
     if (isTabletDesktop()) return false
-    return window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
+    return window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 520px)').matches
   } catch { return false }
 }
 

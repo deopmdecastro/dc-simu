@@ -72,7 +72,7 @@ export default defineConfig({
         importScripts: ['/sw-migration.js'],
         // Precache só da aplicação (shell). Modelos GLB, PDFs e texturas pesam ~38 MB: ficam fora do
         // precache (a primeira visita deixa de descarregar tudo) e entram em cache ao primeiro uso.
-        globPatterns: ['**/*.{js,css,html,svg,png,webp}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff}'],
         globIgnores: ['models/**', 'datasheets/**', 'textures/**', '**/*.glb', '**/*.pdf'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         cleanupOutdatedCaches: true,

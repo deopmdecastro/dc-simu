@@ -1,5 +1,5 @@
 import { uiConfirm } from '../../ui/dialogs'
-import { HistoryGroup, ShortcutsButton, ToolMenu, ViewControls, type ToolMenuItem, type ToolMenuSection } from '../../ui/toolbarKit'
+import { HistoryGroup, ShortcutsButton, ToolMenu, ViewControls, useOverflowCompact, type ToolMenuItem, type ToolMenuSection } from '../../ui/toolbarKit'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -123,7 +123,9 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
   const snap = useEditorStore((s) => s.snap)
   const zoom = useEditorStore((s) => s.camStats.zoom)
   const tab = useEditorStore((s) => s.tab)
-  const compact = useCompactView()
+  const toolbarsRef = useRef<HTMLDivElement>(null)
+  const compactQuery = useCompactView()
+  const compact = useOverflowCompact(toolbarsRef, '.ce-ribbon', !compactQuery) || compactQuery
   const current = RIBBON.find((item) => item.id === active) ?? RIBBON[0]
   const flash = (text: string) => window.dispatchEvent(new CustomEvent('ce-flash', { detail: text }))
 
@@ -274,7 +276,7 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
 
   const moreMenu = <ToolMenu label="Mais" title="Ferramentas e opções" icon={<IconTools size={14} />} sections={entrySections} align="end" className="ce-more" />
 
-  return <div className={`ce-toolbars${compact ? ' is-compact' : ''}`}>
+  return <div ref={toolbarsRef} className={`ce-toolbars${compact ? ' is-compact' : ''}`}>
     <div className="ce-ribbon ce-ribbon-primary" role="toolbar" aria-label="Ferramentas">
       {groupHistory}
       <span className="tb-sep" />
@@ -331,9 +333,9 @@ function StatusBar() {
 
 /** Ecrã estreito/telemóvel: a barra da vista passa a um menu só. */
 function useCompactView(): boolean {
-  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 700px)').matches)
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 520px)').matches)
   useEffect(() => {
-    const query = window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 700px)')
+    const query = window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 520px)')
     const update = () => setCompact(query.matches)
     update()
     query.addEventListener('change', update)

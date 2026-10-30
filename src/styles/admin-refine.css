@@ -669,17 +669,19 @@
 .dx-admin .cb-component-chips { align-items: center; padding-left: 78px; }
 .dx-admin .cb-component > .cb-actions { min-width: 0; }
 .dx-admin .adm-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
-.dx-admin .adm-tile { position: relative; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: auto auto auto; align-items: center; column-gap: 8px; row-gap: 1px; min-width: 0; min-height: 100px; padding: 12px; }
-.dx-admin .adm-tile > span:not(.adm-tile-icon) { grid-column: 2; grid-row: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dx-admin .adm-tile strong { grid-column: 1 / -1; grid-row: 2; font-size: 25px; }
-.dx-admin .adm-tile small { grid-column: 1 / -1; grid-row: 3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dx-admin .adm-tile-icon { display: grid; grid-column: 1; grid-row: 1; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--dx-brand-soft-2); color: var(--dx-brand-700); }
-.dx-admin .adm-tile-arrow { position: absolute; right: 10px; bottom: 10px; display: grid; place-items: center; width: 21px; height: 21px; padding: 4px; border-radius: 50%; background: var(--dx-brand-soft); color: var(--dx-brand-700); }
-.dx-admin .adm-tile.is-approved .adm-tile-icon { background: var(--dx-run-soft); color: var(--dx-run); }
-.dx-admin .adm-tile.is-rejected .adm-tile-icon { background: var(--dx-danger-soft); color: var(--dx-danger); }
-.dx-admin .adm-tile.is-projects .adm-tile-icon { background: var(--dx-warn-soft); color: var(--dx-warn); }
-.dx-admin .adm-tile.is-accounts .adm-tile-icon { background: var(--dx-brand-soft-2); color: var(--dx-brand-700); }
-.dx-admin .adm-tile.is-storage .adm-tile-icon { background: var(--dx-surface-2); color: var(--dx-ink-3); }
+.dx-admin .adm-tile { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; align-content: start; gap: 6px; min-width: 0; min-height: 100px; padding: 12px; }
+/* Marcação atual: topo (ícone + rótulo) · valor · rodapé (detalhe + seta), cada um na sua linha. */
+.dx-admin .adm-tile-top { grid-row: 1; min-width: 0; }
+.dx-admin .adm-tile strong { grid-row: 2; font-size: 25px; }
+.dx-admin .adm-tile-foot { grid-row: 3; min-width: 0; margin-top: auto; }
+.dx-admin .adm-tile-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dx-admin .adm-tile-icon { display: grid; flex: none; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--dx-brand-soft-2); color: var(--dx-brand-700); }
+.dx-admin .adm-tile-pending .adm-tile-icon { background: var(--dx-warn-soft); color: var(--dx-warn); }
+.dx-admin .adm-tile-approved .adm-tile-icon { background: var(--dx-run-soft); color: var(--dx-run); }
+.dx-admin .adm-tile-rejected .adm-tile-icon { background: var(--dx-danger-soft); color: var(--dx-danger); }
+.dx-admin .adm-tile-projects .adm-tile-icon { background: #f8e8d0; color: #b46200; }
+.dx-admin .adm-tile-accounts .adm-tile-icon { background: var(--dx-brand-soft-2); color: var(--dx-brand-700); }
+.dx-admin .adm-tile-storage .adm-tile-icon { background: var(--dx-surface-2); color: var(--dx-ink-3); }
 .dx-admin .adm-overview-panel .cb-link { min-height: 34px; padding: 0 8px; border-radius: var(--dx-r-sm); transition: color var(--dx-fast), background var(--dx-fast), box-shadow var(--dx-fast); }
 .dx-admin .adm-overview-panel .cb-link:hover { background: var(--dx-brand-soft); color: var(--dx-brand-800); }
 .dx-admin .adm-overview-panel .cb-link:focus-visible { outline: none; background: var(--dx-brand-soft); box-shadow: var(--dx-focus); }
@@ -697,7 +699,6 @@
   .dx-admin .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
   .dx-admin .adm-tile { min-height: 92px; padding: 10px; }
   .dx-admin .adm-tile strong { font-size: 22px; }
-  .dx-admin .adm-tile-arrow { right: 8px; bottom: 8px; }
   .dx-admin .adm-overview-side { grid-template-columns: minmax(0, 1fr); }
   .dx-admin .cb-filters-components { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .dx-admin .cb-filters-components > :first-child, .dx-admin .cb-filters-components > .cb-export { grid-column: 1 / -1; }

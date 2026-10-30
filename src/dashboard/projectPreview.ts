@@ -15,7 +15,8 @@ export type PreviewComponent = {
   o?: [number, number, number]
   p: Array<[number, number]>
 }
-export type PreviewWire = { a: [number, number]; b: [number, number]; c?: string }
+/** `sa`/`sb`: lado de saída do borne (-1 = topo, 1 = base do aparelho); `ea`/`eb`: limite do aparelho nesse lado. */
+export type PreviewWire = { a: [number, number]; b: [number, number]; c?: string; sa?: -1 | 1; sb?: -1 | 1; ea?: number; eb?: number }
 export type ProjectPreviewData = {
   components: PreviewComponent[]
   wires: PreviewWire[]
@@ -61,6 +62,7 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
   const rawList = Array.isArray(data.components) ? (data.components as unknown[]) : []
   const rawWires = Array.isArray(data.wires) ? (data.wires as unknown[]) : []
   const at = new Map<string, [number, number]>()
+  const edge = new Map<string, { side: -1 | 1; limit: number }>()
 
   const components: PreviewComponent[] = []
   for (const raw of rawList.slice(0, 400)) {
@@ -80,7 +82,15 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
       for (let i = 0; i < Math.round(r / 90) % 4; i++) [lx, ly] = [-ly, lx]
       const x = sx + w / 2 + lx * w
       const y = sy + h / 2 + ly * h
-      if (typeof t.id === 'string') at.set(t.id, [x, y])
+      if (typeof t.id === 'string') {
+        at.set(t.id, [x, y])
+        // Caixa do aparelho já rodada (90°/270° trocam largura e altura).
+        const quarter = Math.round(r / 90) % 2 !== 0
+        const half = (quarter ? w : h) / 2
+        const cy = sy + h / 2
+        const side: -1 | 1 = y <= cy ? -1 : 1
+        edge.set(t.id, { side, limit: Math.round(cy + side * half) })
+      }
       p.push([Math.round(x), Math.round(y)])
     }
     const vo = isObj(raw.viewOrientation) ? raw.viewOrientation : null
@@ -108,10 +118,14 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
     const a = pt(raw.fromTerminalId, raw.fromPoint)
     const b = pt(raw.toTerminalId, raw.toPoint)
     if (!a || !b) continue
+    const ea = typeof raw.fromTerminalId === 'string' ? edge.get(raw.fromTerminalId) : undefined
+    const eb = typeof raw.toTerminalId === 'string' ? edge.get(raw.toTerminalId) : undefined
     wires.push({
       a: [Math.round(a[0]), Math.round(a[1])],
       b: [Math.round(b[0]), Math.round(b[1])],
       c: typeof raw.color === 'string' ? raw.color.slice(0, 16) : undefined,
+      ...(ea ? { sa: ea.side, ea: ea.limit } : {}),
+      ...(eb ? { sb: eb.side, eb: eb.limit } : {}),
     })
   }
 
