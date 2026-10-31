@@ -4,7 +4,7 @@ import { HistoryGroup, ShortcutsButton, ToolMenu, ViewControls, type ToolMenuIte
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
+import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, preloadDefinitionTextures, resolveState, runtimeSpec } from '../../catalog/definition'
 import { builtinTypeOf, upgradeBuiltinDraft } from './builtinComponents'
 import type { ComponentType } from '../../types'
 import { catalogApi } from '../../catalog/catalogApi'
@@ -434,6 +434,7 @@ function PublishDialog({ onClose, onDone }: { onClose: () => void; onDone: (mess
     setBusy(true); setError('')
     try {
       await loadGlbAssets(def, glbCache)
+      await preloadDefinitionTextures(def)
       const runtime = runtimeSpec(def, boundsMm(def, glbCache))
       const glb = await bakeGlb(def, glbCache)
       if (glb.length > 6_000_000) throw new Error('O modelo 3D resultante é demasiado grande (máx. ≈ 4,5 MB). Simplifique os modelos GLB importados.')
@@ -538,7 +539,10 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         if (upgraded) loaded = { ...loaded, draft: upgraded }
       }
       useEditorStore.getState().open(loaded)
-      if (await loadGlbAssets(useEditorStore.getState().def, glbCache)) useEditorStore.getState().bumpGlb()
+      const defNow = useEditorStore.getState().def
+      await loadGlbAssets(defNow, glbCache)
+      await preloadDefinitionTextures(defNow)
+      useEditorStore.getState().bumpGlb()
     }).catch((value) => !cancelled && setLoadError(value instanceof Error ? value.message : 'Não foi possível abrir o componente'))
     return () => { cancelled = true }
   }, [id])

@@ -5,6 +5,7 @@ import { createGltfLoader } from '../three/gltfLoader'
 import { nanoid } from 'nanoid'
 import { stampBasePose } from './basePose'
 import { fitComponentModel } from '../three/modelFit'
+import { finishCadMaterial } from '../three/catalogMaterials'
 import { getComponentModelSpec } from '../three/modelPaths'
 import { tintTerminalBodyMaterials } from '../three/terminalAssembly'
 import { textureLibraryEntry } from '../three/textureLibrary'
@@ -105,7 +106,11 @@ function textureForUrl(url: string | null, srgb: boolean): THREE.Texture | null 
   const key = textureKey(url, srgb)
   let texture = textureCache.get(key)
   if (!texture) {
-    texture = prepareTexture(textureLoader.load(url), url, srgb)
+    // load() is async: first frames may lack the image until preloadDefinitionTextures / loadAsync fills the cache.
+    texture = prepareTexture(textureLoader.load(url, (ready) => {
+      prepareTexture(ready, url, srgb)
+      ready.needsUpdate = true
+    }), url, srgb)
     textureCache.set(key, texture)
   }
   return texture
@@ -358,7 +363,10 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
         const clone = source.clone(true)
         clone.traverse((child) => { const mesh = child as THREE.Mesh; if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((item) => item.clone()) : mesh.material.clone() })
         // Material escolhido sobre o CAD (ex.: textura real): fica fora a ferragem gerada da caixa de bornes.
-        const override = part.overrideMaterial && part.materialId ? materials.get(part.materialId) : undefined
+        const overrideRaw = part.overrideMaterial && part.materialId ? materials.get(part.materialId) : undefined
+        // Não substituir o CAD por um material liso branco/cinza sem mapas: isso é a causa clássica do «GLB branco» no editor.
+        const override = overrideRaw && (materialHasTextures(overrideRaw) || (overrideRaw.color && overrideRaw.color.toLowerCase() !== '#ffffff' && overrideRaw.color.toLowerCase() !== '#fff'))
+          ? overrideRaw : undefined
         if (override) {
           clone.updateMatrixWorld(true)
           const material = makeMaterial(def, override)
@@ -412,11 +420,31 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
   return root
 }
 
+
+/** Acabamento PBR igual ao Painel 3D: CAD «gesso» passa a plástico/metal com texturas legíveis no editor. */
+function finishGlbTree(root: THREE.Object3D) {
+  if (root.userData.__dcFinished) return
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh || !mesh.material) return
+    mesh.material = Array.isArray(mesh.material)
+      ? mesh.material.map((item) => finishCadMaterial(item, { envMapIntensity: 1.1 }))
+      : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
+    mesh.castShadow = mesh.receiveShadow = true
+  })
+  root.userData.__dcFinished = true
+}
+
 export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): Promise<boolean> {
   let changed = false
   const loader = createGltfLoader()
   for (const part of def.parts) {
-    if (part.kind !== 'glb' || !part.asset || cache.has(part.asset)) continue
+    if (part.kind !== 'glb' || !part.asset) continue
+    if (cache.has(part.asset)) {
+      const existing = cache.get(part.asset)!
+      if (!existing.userData.__dcFinished) { finishGlbTree(existing); changed = true }
+      continue
+    }
     const asset = def.assets[part.asset]
     if (!asset) continue
     try {
@@ -428,6 +456,7 @@ export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): 
         // Botões de emergência: a cabeça (cogumelo/fole) passa a ser um nó próprio
         // (`dcsimu_head`) para o controlo a afundar sem arrastar a carcaça.
         if (asset.builtinType && ACTUATOR_HEAD_TYPES.includes(asset.builtinType)) extractActuatorHead(fitted, fitted)
+        finishGlbTree(fitted)
         cache.set(part.asset, fitted)
         changed = true
         continue
@@ -442,6 +471,7 @@ export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): 
       gltf.scene.scale.multiplyScalar(k)
       gltf.scene.position.sub(box.getCenter(new THREE.Vector3()).multiplyScalar(k))
       holder.add(gltf.scene)
+      finishGlbTree(holder)
       cache.set(part.asset, holder)
       changed = true
     } catch { /* GLB inválido: a peça fica vazia */ }
