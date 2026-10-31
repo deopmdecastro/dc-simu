@@ -604,8 +604,8 @@
       "label": "NA",
       "face": "left",
       "x": 0.000207,
-      "y": 0.935,
-      "z": 0.21,
+      "y": 0.905,
+      "z": 0.24,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"
@@ -614,8 +614,8 @@
       "label": "NF",
       "face": "left",
       "x": 0.000207,
-      "y": 0.965,
-      "z": 0.17,
+      "y": 0.995,
+      "z": 0.14,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"

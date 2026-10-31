@@ -931,6 +931,20 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('LS XBM-DN32S é PLC programável com 16DI/16DO', isProgrammablePlc(ls) && plcIoCapacity(ls).inputs === 16 && plcIoCapacity(ls).outputs === 16)
   check('TS Adapter IE é acessório e não recebe programa Ladder', !isProgrammablePlc(createComponent('siemensTsAdapterIeBasic')))
 
+  // Cabos soltos (torre SB2-3011, sensor XUK): a ponta fica a 45 mm do corpo (antes era colada à superfície).
+  {
+    const tower = createComponent('towerLightSb23011')
+    const sensor = createComponent('photoSensorXukt1ksml2')
+    const towerDim = component3DDimensions(tower)
+    const sensorDim = component3DDimensions(sensor)
+    const below = tower.terminals.filter((t) => t.contact === 'lead').map((t) => (-towerDim.y / 2 - terminalLocal3D(tower, t).y) * 100)
+    const left = sensor.terminals.filter((t) => t.contact === 'lead').map((t) => (-sensorDim.x / 2 - terminalLocal3D(sensor, t).x) * 100)
+    check('torre SB2-3011: os 4 fios (R/Y/G/COM) terminam 45 mm abaixo da base', below.length === 4 && below.every((mm) => Math.abs(mm - 45) < 1), below.map((v) => v.toFixed(1)).join(','))
+    check('sensor XUK: os 3 condutores (COM/NA/NF) terminam 45 mm fora do corpo, afastados entre si', left.length === 3 && left.every((mm) => Math.abs(mm - 45) < 1), left.map((v) => v.toFixed(1)).join(','))
+    const tips = sensor.terminals.filter((t) => t.contact === 'lead').map((t) => terminalLocal3D(sensor, t))
+    const gap = Math.min(...tips.flatMap((a, i) => tips.slice(i + 1).map((b) => a.distanceTo(b) * 100)))
+    check('sensor XUK: pontas dos condutores a pelo menos 3 mm umas das outras (cabo aberto)', gap >= 3, gap.toFixed(1))
+  }
   // Motor monofásico: o mesmo DRN80 duplicado com a carcaça azul e a placa U1 Z1 / U2 Z2 + PE.
   {
     const glbChunks = (file: string) => {

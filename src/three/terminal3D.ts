@@ -36,8 +36,16 @@ export function normalizeTerminal3DPosition(value: Partial<Terminal3DPosition> |
  * e coloca o borne na face operacional (+Z) do equipamento. */
 export function terminal3DPositionOf(terminal: Terminal): Terminal3DPosition {
   const fallback = { x: clamp(terminal.x), y: clamp(1 - terminal.y), z: 1 }
+  // Cabo solto (pigtail): a ponta livre fica FORA do corpo (ex.: 45 mm abaixo da torre). Limitar a 0..1
+  // colava a ponta à superfície — o cabo desaparecia e os fios ligavam-se ao corpo. Só um limite largo.
+  if (terminal.contact === 'lead' && terminal.position3D) {
+    const free = (value: number | undefined, fb: number) => Math.min(LEAD_LIMIT, Math.max(-LEAD_LIMIT + 1, finite(value, fb)))
+    return { x: free(terminal.position3D.x, fallback.x), y: free(terminal.position3D.y, fallback.y), z: free(terminal.position3D.z, fallback.z) }
+  }
   return normalizeTerminal3DPosition(terminal.position3D, fallback)
 }
+/** Ponta de um cabo solto: até 6 vezes a dimensão do aparelho para fora (protege contra valores absurdos). */
+const LEAD_LIMIT = 7
 
 export function positionOnTerminalFace(position: Terminal3DPosition, face: Terminal3DFace): Terminal3DPosition {
   const next = { ...position }
