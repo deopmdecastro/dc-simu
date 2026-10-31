@@ -294,6 +294,13 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       break
     }
 
+    // Condensador de arranque/funcionamento: caminho condutivo entre os dois terminais
+    // (modelo de continuidade binária; em AC o condensador passa a corrente).
+    case 'capacitorRun60uF': {
+      if (!c.state.failed) pair(la('1'), la('2'))
+      break
+    }
+
     // cargas puras (sinaleiros, motores, medidores) não são ponte de passagem
     default:
       break

@@ -96,6 +96,7 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   // --- Motores / acionamentos ---------------------------------------------
   motor3ph: { primary: 'motor3', related: ['motor6'], iec60617: '60617-6 / 06-08-01', refLetter: 'M' },
   motor1ph: { primary: 'motor3', iec60617: '60617-6 / 06-04-01', refLetter: 'M', note: 'Motor monofásico — símbolo de máquina' },
+  capacitorRun60uF: { primary: 'capacitor', iec60617: '60617-4 / 04-02-01', refLetter: 'C', note: 'Condensador de arranque/funcionamento 60 µF (CBB65)' },
   vfd: { iec60617: '60617-6 / conversor de frequência', refLetter: 'T', note: 'Sem CmdKind directo; no IEC usa-se o símbolo de conversor' },
   softStarter: { iec60617: '60617-6 / arrancador progressivo', refLetter: 'T' },
 

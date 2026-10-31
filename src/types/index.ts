@@ -86,6 +86,7 @@ export type ComponentType =
   // --- Motores / acionamentos ------------------------------------------
   | 'motor3ph'
   | 'motor1ph'
+  | 'capacitorRun60uF'
   | 'vfd'
   | 'softStarter'
   // --- Controladores ----------------------------------------------------

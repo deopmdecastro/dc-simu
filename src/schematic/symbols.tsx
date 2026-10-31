@@ -460,6 +460,28 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         )
       }
 
+      // Condensador de arranque/funcionamento (IEC 60617-4 / 04-02-01)
+      case 'capacitorRun60uF': {
+        const failed = !!c.state.failed
+        const uf = c.state.capacitanceUf ?? 60
+        const cx = w / 2
+        const cy = h / 2
+        return (
+          <g>
+            {/* corpo cilíndrico simplificado */}
+            <rect x={cx - 18} y={12} width={36} height={h - 28} rx={4} fill={failed ? '#3f1f1f' : '#1e293b'} stroke={failed ? '#ef4444' : s} strokeWidth={1.5} />
+            {/* símbolo IEC: duas placas paralelas */}
+            <line x1={cx - 10} y1={cy - 10} x2={cx - 10} y2={cy + 10} stroke="#e2e8f0" strokeWidth={3} strokeLinecap="round" />
+            <line x1={cx + 10} y1={cy - 10} x2={cx + 10} y2={cy + 10} stroke="#e2e8f0" strokeWidth={3} strokeLinecap="round" />
+            {/* ligações aos bornes (topo) */}
+            <line x1={cx - 10} y1={cy - 10} x2={cx - 10} y2={18} stroke="#94a3b8" strokeWidth={1.5} />
+            <line x1={cx + 10} y1={cy - 10} x2={cx + 10} y2={18} stroke="#94a3b8" strokeWidth={1.5} />
+            {label(4, 12, c.ref, 9, '#93c5fd')}
+            {label(4, h - 6, `${uf} µF`, 9, failed ? '#f87171' : '#64748b')}
+          </g>
+        )
+      }
+
       // --------------------------------------------------------- acionamentos
       case 'vfd':
       case 'softStarter': {
