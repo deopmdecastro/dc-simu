@@ -74,7 +74,7 @@ try {
   await tabs().waitFor()
 
   // 1) Esquema: Atalhos, Simulação e folhas com nome editável no sítio
-  await openView('Esquema')
+  await openView('3D Realista')
   await page.setViewportSize({ width: 1920, height: 1000 })
   await page.evaluate(async()=> {
     const {useSimStore}=await import('/src/store/useSimStore.ts')
@@ -130,7 +130,7 @@ try {
   for(const width of [1280,768,390]) {
     await page.setViewportSize({width,height:900})
     await page.waitForTimeout(200)
-    for(const view of ['Esquema','GRAFCET']) {
+    for(const view of ['3D Realista','GRAFCET']) {
       await openView(view)
       if(width<1280) {
         await toolbar.getByRole('button',{name:'Ferramentas',exact:true}).click()

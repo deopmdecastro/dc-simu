@@ -176,7 +176,7 @@
   z-index: 1;
 }
 
-@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   .dc-toolbar-main .dc-tool-btn,
   .dc-toolbar-row2 .dc-tool-btn,
   .ladder-editor-toolbar .dc-tool-btn,
@@ -205,7 +205,7 @@
    (42 px em cima, 40 px em baixo, controlos a 30 px, raio 6). A versão anterior
    tinha uma barra própria — 48 px, botões de 40 px e raio 7, com a segunda faixa
    a quebrar em três linhas porque `min-height: 0` desligava a altura comum. */
-@media (max-width: 1024px), (pointer: coarse) and (max-height: 520px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   .ce-toolbars.is-compact .ce-ribbon-primary { min-height: 42px; }
   .ce-toolbars.is-compact .ce-ribbon-secondary { min-height: 40px; }
   .ce-toolbars.is-compact .dc-tool-btn { min-height: var(--toolbar-control-height); border-radius: 6px; }
@@ -237,3 +237,10 @@
   .dc-toolbar-main { gap: 10px; }
 }
 
+
+/* 2.ª linha densa (PC/tablet sem espaço): botões com ícone mostram só o ícone; o texto continua no DOM
+   (nome acessível e título), por isso nada desaparece — apenas encolhe. */
+.dc-toolbar-row2.is-dense .dc-tool-btn:has(svg),
+.dc-toolbar-row2.is-dense .dc-seg > button:has(svg) { font-size: 0; gap: 0; padding-left: 7px; padding-right: 7px; }
+.dc-toolbar-row2.is-dense .dc-tool-btn:has(svg) kbd,
+.dc-toolbar-row2.is-dense .dc-tool-btn:has(svg) .dc-kbd { display: none; }

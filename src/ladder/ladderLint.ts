@@ -199,3 +199,32 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
   const order = { error: 0, warning: 1, info: 2 }
   return issues.sort((a, b) => order[a.level] - order[b.level])
 }
+
+/**
+ * Programa efetivamente executado: a Main mais os blocos chamados por CALL (FC1/FC2 e blocos do projeto),
+ * recursivamente e sem ciclos — como o PLC corre. Sem isto, saídas escritas dentro de um FC apareciam
+ * como «nunca escritas».
+ */
+export function executedRungs(main: LadderProgram['rungs'], functions?: Record<string, LadderProgram['rungs'] | undefined>): LadderProgram['rungs'] {
+  if (!functions) return main
+  const out = [...main]
+  const visited = new Set<string>()
+  const visit = (rungs: LadderProgram['rungs']) => {
+    for (const rung of rungs) {
+      const id = rung.call?.targetId
+      if (!id || visited.has(id) || !functions[id]?.length) continue
+      visited.add(id)
+      out.push(...functions[id]!)
+      visit(functions[id]!)
+    }
+  }
+  visit(main)
+  return out
+}
+
+/** Mapa de blocos chamáveis (mesmo que o motor monta): FC1/FC2 + blocos de programa do projeto. */
+export function callableFunctions(fcBlocks: Partial<Record<'fc1' | 'fc2', LadderProgram['rungs']>> | undefined, files: Array<{ id: string; folder?: string; rungs?: LadderProgram['rungs'] }> = []): Record<string, LadderProgram['rungs']> {
+  const map: Record<string, LadderProgram['rungs']> = { fc1: fcBlocks?.fc1 ?? [], fc2: fcBlocks?.fc2 ?? [] }
+  for (const file of files) if (file.folder === 'programBlocks') map[file.id] = file.rungs ?? []
+  return map
+}

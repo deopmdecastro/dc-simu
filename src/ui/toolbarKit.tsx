@@ -159,7 +159,7 @@ export interface ToolMenuSection {
 }
 
 /** Ecrã estreito / telemóvel: o menu passa a folha inferior. Exportado para os painéis que também trocam de controlo a 720 px. */
-export function useNarrowMenu(query = '(max-width: 720px), (pointer: coarse) and (max-height: 520px)') {
+export function useNarrowMenu(query = '(max-width: 720px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px)') {
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
   useEffect(() => {
     const media = window.matchMedia(query)

@@ -72,7 +72,7 @@
 
 /* Telemóvel: a biblioteca de bornes ocupa o ecrã e tem «Fechar» bem visível */
 .tl-close-label { display:none; }
-@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   .ce-modal.ce-modal-fixed { padding:0; align-items:stretch; }
   .ce-modal-fixed .ce-modal-card.tl-modal-card { width:100%; max-width:none; height:100%; max-height:none; border-radius:0; padding:0; gap:0; overflow:hidden; }
   .tl-modal-card .ce-lib-head { padding:max(8px, env(safe-area-inset-top, 0px)) 12px 8px; min-height:52px; font-size:14px; background:#fff; }

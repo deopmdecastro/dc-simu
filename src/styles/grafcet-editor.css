@@ -2019,7 +2019,7 @@
 .grafcet-action-layout-check { flex:none; visibility:hidden; }
 .grafcet-action-layout-options button[aria-pressed="true"] .grafcet-action-layout-check { visibility:visible; }
 .grafcet-actions-heading button:focus-visible,.grafcet-action-layout-options button:focus-visible { outline:2px solid var(--dx-brand); outline-offset:2px; }
-@media (max-width:743px), (pointer:coarse) and (max-height:520px) {
+@media (max-width:743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   .grafcet-actions-heading button,.grafcet-action-layout-options button { min-height:40px; }
 }
 

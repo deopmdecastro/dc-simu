@@ -3259,7 +3259,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>
 
       {/* overlay HTML normal (fora do Canvas) — evita que o drei <Html> projete o botão para o centro do ecrã */}
-      <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor={frontEdit ? 'Esquema 2D' : 'Esquema 3D'} extra={PANEL3D_SHORTCUTS} />
+      <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor={frontEdit ? '3D Realista · vista 2D' : '3D Realista'} extra={PANEL3D_SHORTCUTS} />
     </div>
   )
 }

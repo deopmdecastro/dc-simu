@@ -26,7 +26,7 @@ try {
   await dialog.getByRole('textbox', { name: 'Nome do projeto', exact: true }).fill('Verificação sintética dos encaixes')
   await dialog.getByRole('button', { name: 'Criar projeto', exact: true }).click()
   await page.getByRole('tablist', { name: 'Vistas' }).waitFor()
-  await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: 'Esquema', exact: true }).click()
+  await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: '3D Realista', exact: true }).click()
   const types = await page.evaluate(async () => Object.keys((await import('/src/electrical/realInterfaces.ts')).REAL_TERMINALS))
   for (const type of types) {
     const expected = await page.evaluate(async (type) => {

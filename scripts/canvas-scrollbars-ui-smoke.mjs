@@ -103,7 +103,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 })
 
   await page.goto(baseURL + '/projects/native-partida-direta-v5')
-  await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: 'Esquema', exact: true }).click()
+  await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: '3D Realista', exact: true }).click()
   await page.locator('.panel3d-stage').waitFor({ timeout: 60000 })
   await page.getByRole('button', { name: 'Visualização 3D', exact: true }).click()
   let label = 'Visualização 3D'

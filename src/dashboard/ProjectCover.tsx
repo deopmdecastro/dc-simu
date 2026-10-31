@@ -93,8 +93,8 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
 
   // Sem capa nem geometria: o mesmo logótipo para todos os tipos de projeto (só o título muda).
   if (!geom || !preview) {
-    const emptyTitle = preview?.kind === 'commands' ? 'Esquema de comandos' : preview?.kind === 'grafcet' ? 'GRAFCET vazio' : preview?.kind === 'ladder' ? 'Ladder vazio' : 'Projeto vazio'
-    const emptyHint = preview?.kind === 'commands' ? 'Abra o simulador de comandos elétricos' : preview?.kind === 'grafcet' ? 'Abra o editor para criar as etapas' : preview?.kind === 'ladder' ? 'Abra o editor para criar as networks' : 'Abra o editor para adicionar componentes'
+    const emptyTitle = preview?.kind === 'commands' ? 'Esquema IEC' : preview?.kind === 'grafcet' ? 'GRAFCET vazio' : preview?.kind === 'ladder' ? 'Ladder vazio' : 'Projeto vazio'
+    const emptyHint = preview?.kind === 'commands' ? 'Abra o simulador do Esquema IEC' : preview?.kind === 'grafcet' ? 'Abra o editor para criar as etapas' : preview?.kind === 'ladder' ? 'Abra o editor para criar as networks' : 'Abra o editor para adicionar componentes'
     return (
       <div className="dx-cover dx-cover-empty" ref={hostRef} aria-hidden="true">
         {/* Logo na mesma paleta do ghost SVG (#c4cfde stroke / #e1e8f1 fill). */}

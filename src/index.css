@@ -2089,7 +2089,7 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
     border-radius: 2px; background: rgba(255, 255, 255, .85);
   }
 
-  @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) {
+  @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
     .dc-btn, .dc-icon-btn, .dc-tool-btn { min-height: 32px; }
   }
 }
@@ -2443,7 +2443,7 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 
 /* Biblioteca e GRAFCET como folhas de ecrã inteiro em telefones. */
 .dc-mobile-panel-tools { display:none; align-items:center; gap:4px; }
-@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   .dc-mobile-panel-tools { display:flex; }
   .dc-workspace .dc-mobile-fullscreen-panel {
     position:fixed !important; inset:0 !important; top:0 !important; left:0 !important; right:0 !important;
@@ -2504,7 +2504,7 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
    - cubo/HUD do 3D sem a reserva de 43 px do painel antigo
    ====================================================================== */
 .dc-sheet-head { display:none; }
-@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   /* a folha aberta passa por cima da barra do projeto (que tem z-index 50) */
   .dx-editor-in:has(.dc-mobile-fullscreen-panel) { position:relative; z-index:60; }
   /* mais específico que a regra de gaveta (<1200 px), que fixava 92 vw */
@@ -3027,3 +3027,31 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 .dc-color-native::-webkit-color-swatch-wrapper { padding: 2px; }
 .dc-color-native::-webkit-color-swatch { border: none; border-radius: 4px; }
 [data-light-color-field] .dc-color-hex-input-wrap code { font-size: 11px; color: #475569; }
+
+/* Etiqueta de diagnóstico por simulador (3D Realista, Esquema IEC, Ladder, GRAFCET): ✓ OK · ! avisos · ✖ erros */
+.dc-diag-tag { display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 7px; border-radius: 999px; border: 1px solid #a9dabb; background: #f0faf4; color: #15803d; font-size: 10px; font-weight: 700; line-height: 1; white-space: nowrap; flex: 0 0 auto; }
+.dc-diag-tag.is-warning { border-color: #f1ce8b; background: #fff6e5; color: #92590a; }
+.dc-diag-tag.is-error { border-color: #f0b4b9; background: #fff1f2; color: #b4232f; }
+.dc-diag-tag.is-compact { height: 16px; padding: 0 5px; gap: 3px; font-size: 9.5px; }
+.dc-diag-tag b { font-weight: 800; font-variant-numeric: tabular-nums; }
+button.dc-diag-tag { cursor: pointer; }
+button.dc-diag-tag:hover { filter: brightness(0.97); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
+button.dc-diag-tag:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+/* Dentro do botão de vista ativo (fundo azul) a etiqueta mantém as cores do estado. */
+[role='tablist'] [aria-selected='true'] .dc-diag-tag { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85); }
+.dc-diag-panel { padding: 12px; overflow: auto; min-height: 0; flex: 1 1 auto; }
+.dc-diag-panel .grafcet-issue:disabled { cursor: default; opacity: 1; }
+.dc-dock-tabs button .dc-diag-tag { margin-left: 2px; }
+/* Painel direito com 4 separadores (GRAFCET · Entradas/Saídas · Objetos · Diagnóstico): cabem sem cortar. */
+.dc-dock-tabs button { display:inline-flex; align-items:center; justify-content:center; gap:4px; min-width:0; padding:5px 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dc-dock-tabs button > span:not(.dc-diag-tag) { overflow:hidden; text-overflow:ellipsis; }
+/* Selo no canto do ícone da vista (barra «Vistas»): não ocupa largura. */
+.dc-diag-tag.is-badge { position:absolute; top:-3px; right:-3px; height:14px; min-width:14px; padding:0 3px; justify-content:center; font-size:8.5px; border-width:1.5px; border-color:#fff; box-shadow:0 1px 2px rgba(15,23,42,.18); }
+.dc-diag-tag.is-badge.is-ok { background:#16a34a; color:#fff; }
+.dc-diag-tag.is-badge.is-warning { background:#f59e0b; color:#fff; }
+.dc-diag-tag.is-badge.is-error { background:#dc2626; color:#fff; }
+/* Barra «Vistas» estreita: as vistas inativas ficam só com o ícone (nome no título), a ativa mantém o nome. */
+.dc-views-container { container-type: inline-size; container-name: dc-views; }
+@container dc-views (max-width: 640px) {
+  [role='tablist'] [role='tab'][aria-selected='false'] .dc-view-label { display: none; }
+}

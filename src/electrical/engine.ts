@@ -301,9 +301,56 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
   return bridges
 }
 
-/** Terminais que são fonte de energia (sempre vivos, ou vivos enquanto a fonte estiver ativa). */
-export function sourceTerminalIds(components: ElectricalComponent[], faults?: FaultState): string[] {
+const HEAD_BREAKERS = new Set(['breaker1p', 'breakerSteckSdC25', 'breaker2p', 'breaker3p', 'breaker4p', 'motorBreaker', 'motorBreakerPkzmC10', 'residualBreaker'])
+/** Componentes que alimentam a rede (mesmo desligados: nesse caso o que está a jusante fica sem tensão). */
+const FEEDER_TYPES = /^(powerSource|powerSupply|busbar|earthBar)/
+
+/**
+ * Entradas de disjuntor que estão A JUSANTE de outro aparelho (ligadas, por cabos e bornes passivos, à saída
+ * de outro componente ou a uma fonte). Essas entradas NÃO são «a rede»: recebem a tensão pelo circuito.
+ * Sem esta distinção, desligar o disjuntor geral não cortava nada — as entradas do disjuntor-motor e do
+ * disjuntor do comando a jusante continuavam a contar como fonte.
+ */
+function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set<string> {
+  const parent = new Map<string, string>()
+  const find = (id: string): string => {
+    let root = parent.get(id) ?? id
+    while (root !== (parent.get(root) ?? root)) root = parent.get(root) ?? root
+    if (root !== id) parent.set(id, root)
+    return root
+  }
+  const union = (a: string, b: string) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb) }
+  for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) union(w.fromTerminalId, w.toTerminalId)
+  // Bornes e réguas: condutores passivos, sempre em continuidade.
+  for (const c of components) if (/^terminal/.test(c.type)) for (const [a, b] of internalBridges(c)) union(a, b)
+  const feeders = new Map<string, Set<string>>() // rede → componentes que a alimentam
+  for (const c of components) {
+    for (const term of c.terminals) {
+      if (!(FEEDER_TYPES.test(c.type) || term.kind === 'power-out')) continue
+      const root = find(term.id)
+      if (!feeders.has(root)) feeders.set(root, new Set())
+      feeders.get(root)!.add(c.id)
+    }
+  }
+  const fed = new Set<string>()
+  for (const c of components) {
+    if (!HEAD_BREAKERS.has(c.type)) continue
+    for (const term of c.terminals) {
+      if (term.kind !== 'power-in' && term.label !== 'N1') continue
+      const from = feeders.get(find(term.id))
+      if (from && [...from].some((id) => id !== c.id)) fed.add(term.id)
+    }
+  }
+  return fed
+}
+
+/**
+ * Terminais que são fonte de energia (sempre vivos, ou vivos enquanto a fonte estiver ativa).
+ * Com `wires`, as entradas de disjuntor alimentadas por outro aparelho deixam de contar como rede.
+ */
+export function sourceTerminalIds(components: ElectricalComponent[], faults?: FaultState, wires?: Wire[]): string[] {
   const ids: string[] = []
+  const fedInputs = wires ? fedBreakerInputs(components, wires) : null
   for (const c of components) {
     const push = (label: string) => {
       const term = t(c, label)
@@ -324,6 +371,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     // rede entrando pelos polos de entrada dos disjuntores gerais
     if (c.type === 'breaker1p' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'motorBreakerPkzmC10' || c.type === 'residualBreaker') {
       c.terminals.filter((x) => x.kind === 'power-in' || (x.label === 'N1')).forEach((x) => {
+        if (fedInputs?.has(x.id)) return
         if (faults?.phaseLoss && /L2|[35]/.test(x.label)) return
         ids.push(x.id)
       })

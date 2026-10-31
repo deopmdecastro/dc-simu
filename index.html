@@ -41,7 +41,8 @@
       })()
     </script>
     <script>
-      /* Paridade tablet ↔ PC: um tablet (ecrã tátil com o lado curto ≥ 600 px)
+      /* Paridade tablet ↔ PC: um tablet (ecrã tátil com o lado curto ≥ 480 px — os telemóveis
+         ficam abaixo de ~440 px; tablets de 7–8″ como o Fire HD 8 têm ~533 px)
          recebe sempre o layout de secretária. Se a largura atual for menor do que
          1280 px (retrato, iPad mini, tablets Android), o navegador desenha a página
          a 1280 px e ajusta-a ao ecrã — exatamente o mesmo layout do PC. */
@@ -55,7 +56,7 @@
           var shortSide = Math.min(screen.width, screen.height)
           var longSide = Math.max(screen.width, screen.height)
           var coarse = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 1
-          var tablet = coarse && shortSide >= 600
+          var tablet = coarse && shortSide >= 480
           document.documentElement.setAttribute('data-tablet', tablet ? 'true' : 'false')
           if (!meta) return
           var landscape = window.matchMedia('(orientation: landscape)').matches

@@ -1671,7 +1671,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         </div>
       )}
 
-      <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Esquema" />
+      <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="3D Realista" />
     </div>
   )
 }

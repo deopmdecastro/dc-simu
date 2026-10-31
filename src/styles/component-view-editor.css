@@ -501,4 +501,4 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .vcube-corner.se svg { transform:scaleY(-1); }
 .vcube-corner:hover { color:#1d4ed8; }
 .vcube-floating .vcube-corner { width:15px; height:15px; border-radius:50%; border-width:1px; opacity:.85; background:#ffffffe6; padding:2px; }
-@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) { .vcube-corner { width:20px; height:20px; } }
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) { .vcube-corner { width:20px; height:20px; } }

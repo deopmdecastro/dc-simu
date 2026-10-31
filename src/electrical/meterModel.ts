@@ -101,7 +101,7 @@ export function meterInputFor(def: ComponentDefinition, meter: ElectricalCompone
   // corrente: o seletor fecha COM—mA/10 A em série (ver `state.meterBridge`)
   const jack = dial === 'ma' ? ma : amp
   if (!jack || !leads.com || !(dial === 'ma' ? leads.ma : leads.amp)) return input
-  const sources = sourceTerminalIds(components)
+  const sources = sourceTerminalIds(components, undefined, wires)
   const live = computeContinuity(components, wires, sources).energizedTerminals
   if (!live.has(com.id) && !live.has(jack.id)) return input
   const amps = downstreamCurrentA(components, wires, live, live.has(com.id) ? jack.id : com.id, meter.id)

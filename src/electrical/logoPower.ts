@@ -3,7 +3,7 @@ import { computeContinuity, sourceTerminalIds } from './engine'
 
 /** Aproximação binária da alimentação DC L+/M; não simula tensão analógica. */
 export function logoElectricalInputs(plc: ElectricalComponent, components: ElectricalComponent[], wires: Wire[]) {
-  const positiveRoots = sourceTerminalIds(components).filter((id) => {
+  const positiveRoots = sourceTerminalIds(components, undefined, wires).filter((id) => {
     const term = components.flatMap((c) => c.terminals).find((t) => t.id === id)
     return term?.kind !== 'neutral' && term?.kind !== 'earth'
   })

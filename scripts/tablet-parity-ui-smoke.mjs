@@ -69,7 +69,7 @@ try {
       check(layout.width >= 1280, `${vp.name}: layout com a largura do PC (${layout.width}px)`)
     } else check(layout.width === vp.width, `${vp.name}: PC com a largura real`)
     check(await page.locator('.dc-mobile-backdrop:visible, .grafcet-toolbox-backdrop:visible').count() === 0, `${vp.name}: painéis laterais fixos (sem gaveta)`)
-    for (const view of ['Esquema', 'Ladder', 'GRAFCET']) {
+    for (const view of ['3D Realista', 'Ladder', 'GRAFCET']) {
       const tab = page.locator('.dc-toolbar-shell button').filter({ hasText: new RegExp('^\\s*' + view) }).first()
       await tab.click()
       await page.waitForTimeout(1800)

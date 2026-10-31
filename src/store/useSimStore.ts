@@ -597,7 +597,7 @@ function runOneTick(state: Store, dtMs: number) {
     // O motor é binário: não modela a banda de tensão nem atrasos reais.
     c.state.powerReady = c.state.powered
   }
-  const srcs = sourceTerminalIds(components, sim.faults)
+  const srcs = sourceTerminalIds(components, sim.faults, wires)
 
   // 1) Primeira passagem — apenas chaves físicas (botões, disjuntores, sensores)
   const pass1 = computeContinuity(components, wires, srcs)

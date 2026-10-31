@@ -67,7 +67,7 @@ try {
     return style.backgroundColor === 'rgb(247, 249, 252)' && style.backgroundImage.includes('linear-gradient')
   }), 'área Ladder herda fundo e linhas comuns')
 
-  await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: 'Esquema', exact: true }).click()
+  await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: '3D Realista', exact: true }).click()
   await page.getByRole('button', { name: 'Visualização 3D', exact: true }).click()
   await page.locator('.schematic-view-shell[data-canvas-mode="3d"] canvas').waitFor()
   await setGrid({ style: 'dots', size: 20 })

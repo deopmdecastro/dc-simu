@@ -1489,6 +1489,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     ids.includes(stepId) ? ids.filter((value) => value !== stepId) : [...ids, stepId]
 
   const issues: ValidationIssue[] = validateGrafcet({ ...program, transitions })
+  // Barra de estado «erros · avisos» → separador Diagnóstico (só no editor completo).
+  useEffect(() => {
+    if (!full) return
+    const open = (event: Event) => { if ((event as CustomEvent).detail === 'grafcet') setTab('diagnostics') }
+    window.addEventListener('dcsimu:open-diagnostics', open)
+    return () => window.removeEventListener('dcsimu:open-diagnostics', open)
+  }, [full])
   const errorCount = issues.filter((issue) => issue.level === 'error').length
 
   const selectIssue = (issue: ValidationIssue) => {

@@ -1,6 +1,8 @@
 import type { ElectricalComponent, Wire, SimulationDiagnostic, FaultState } from '../types'
 import { TEMPLATES } from '../electrical/factory'
 
+const isSupport = (type: string) => /^dinRail|rail|busbar|barra|mountingPlate|cableDuct|calha/i.test(type)
+
 let counter = 0
 const id = () => `diag-${++counter}`
 
@@ -32,7 +34,8 @@ export function detectDiagnostics(
 
   // 2. Motor sem proteção térmica
   const motors = components.filter((c) => c.type === 'motor3ph' || c.type === 'motor1ph')
-  const hasThermal = components.some((c) => c.type === 'thermalRelay')
+  // Proteção contra sobrecarga: relé térmico OU disjuntor-motor (PKZM, GV2ME…), que já tem o disparo térmico.
+  const hasThermal = components.some((c) => /thermal|motorBreaker/i.test(c.type))
   if (motors.length > 0 && !hasThermal) {
     diags.push({ id: id(), level: 'warning', message: `AVISO: motor ${motors[0].ref} sem relé térmico de proteção.` })
   }
@@ -111,6 +114,8 @@ export function detectDiagnostics(
     for (let j = i + 1; j < components.length; j++) {
       const a = components[i]
       const b = components[j]
+      // Calhas DIN e barras são suportes: os aparelhos ficam montados POR CIMA delas de propósito.
+      if (isSupport(a.type) || isSupport(b.type)) continue
       const overlap =
         a.schematicX < b.schematicX + b.w &&
         a.schematicX + a.w > b.schematicX &&

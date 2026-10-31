@@ -89,7 +89,7 @@ try {
   await tabs().waitFor()
 
   // 1) Esquema: Atalhos, Simulação e folhas com nome editável no sítio
-  await openView('Esquema')
+  await openView('3D Realista')
   await expectShortcuts('schematic', /Esquema 2D|Esquema 3D/)
   const schemSim = page.locator('[data-sim-toggle="schematic"]')
   check(await schemSim.count() === 1, 'Botão «Simulação» no Esquema')
@@ -231,7 +231,7 @@ try {
   // 5) Tablet e telemóvel: menus em vez de ferramentas cortadas ou scroll oculto.
   for (const width of [375,390,760,1024]) {
     await page.setViewportSize({ width, height: 900 })
-    for (const [index, view] of ['Esquema', 'Ladder', 'GRAFCET'].entries()) {
+    for (const [index, view] of ['3D Realista', 'Ladder', 'GRAFCET'].entries()) {
       await tabs().getByRole('tab').nth(index).click()
       await page.waitForTimeout(250)
       const metrics = await page.locator('.dc-toolbar-row2').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, h: el.getBoundingClientRect().height, wrap: getComputedStyle(el).flexWrap }))

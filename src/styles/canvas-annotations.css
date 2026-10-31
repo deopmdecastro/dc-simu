@@ -91,7 +91,7 @@
 .cnote-send:disabled { opacity: .35; cursor: default; }
 .cnote-send:not(:disabled):hover { filter: brightness(1.15); }
 @media (pointer: coarse) { .cnote-msg-del { opacity: 1; } }
-@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) { .cnote-icon { width: 36px; height: 36px; } }
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) { .cnote-icon { width: 36px; height: 36px; } }
 
 /* ---------- texto livre ---------- */
 .ctext {

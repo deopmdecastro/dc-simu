@@ -88,7 +88,7 @@ try {
   await state(store=>{const s=store.getState(); store.setState({grafcet:{...s.grafcet,transitions:s.grafcet.transitions.map(tr=>({...tr,condition:tr.condition.replace('*PERMISSIVE','')}))}})})
   await properties.getByRole('tab',{name:'Entradas/Saídas',exact:true}).click()
   await properties.getByRole('button',{name:'Run',exact:true}).click()
-  await view('Esquema')
+  await view('3D Realista')
   check(await state(store=>store.getState().sim.runState==='running'),'Trocar GRAFCET → Esquema mantém RUN')
   await view('GRAFCET')
   await openSimulation()

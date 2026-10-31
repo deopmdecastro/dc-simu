@@ -1,3 +1,5 @@
+import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from './diagnostics/viewDiagnostics'
+import { CommandsDiagnosticsPanel, SchematicDiagnosticsPanel, ViewDiagnosticsTag } from './diagnostics/DiagnosticsUi'
 import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
 import { IconGrafcet, IconLayers, IconSchematic, IconWarning, IconXCircle } from './ui/icons'
@@ -70,9 +72,9 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   })
   // Paridade tablet↔desktop: tablets (≥900 px ou landscape ≥768) usam painéis
   // laterais fixos como no desktop. Só telemóveis / ecrãs estreitos usam gavetas.
-  const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse) and (max-height: 520px)').matches)
+  const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse) and (max-height: 520px) and (max-width: 1100px)').matches)
   const [showLadder, setShowLadder] = useState(() => useSimUi.getState().schematic || !compactWorkspace())
-  const [rightTab, setRightTab] = useState<'grafcet' | 'signals' | 'objects'>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
+  const [rightTab, setRightTab] = useState<'grafcet' | 'signals' | 'objects' | 'diagnostics'>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
   const compact = compactWorkspace()
 
@@ -193,9 +195,22 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
     }
   }, [resizing])
 
-  const errors = diagnostics.filter((d) => d.level === 'error').length
-  const warnings = diagnostics.filter((d) => d.level === 'warning').length
-  const hasErrorState = mode === 'commands' ? cmdFault : errors > 0 || Object.values(faults ?? {}).some(Boolean)
+  // A barra de estado mostra o diagnóstico da vista aberta (o mesmo da etiqueta e do painel «Diagnóstico»).
+  const schematicDiag = useSchematicDiagnostics()
+  const commandsDiag = useCommandsDiagnostics()
+  const ladderDiag = useLadderDiagnostics()
+  const grafcetDiag = useGrafcetDiagnostics()
+  const viewDiag = mode === 'commands' ? commandsDiag : mode === 'ladder' ? ladderDiag : mode === 'grafcet' ? grafcetDiag : mode === 'schematic' ? schematicDiag : null
+  const errors = viewDiag ? viewDiag.errors : diagnostics.filter((d) => d.level === 'error').length
+  const warnings = viewDiag ? viewDiag.warnings : diagnostics.filter((d) => d.level === 'warning').length
+  const simErrors = diagnostics.filter((d) => d.level === 'error').length
+  /** Onde abrir o detalhe: painel lateral no 3D Realista/Esquema IEC, separador próprio no Ladder/GRAFCET, Monitor no resto. */
+  const openDiagnostics = () => {
+    if (mode === 'schematic' || mode === 'commands') { if (compact) setShowLibrary(false); setRightTab('diagnostics'); setShowLadder(true) }
+    else if (mode === 'ladder' || mode === 'grafcet') window.dispatchEvent(new CustomEvent('dcsimu:open-diagnostics', { detail: mode }))
+    else setMode('monitor')
+  }
+  const hasErrorState = mode === 'commands' ? cmdFault : simErrors > 0 || Object.values(faults ?? {}).some(Boolean)
 
   // estados do PLC — STOP → READY → RUN → PAUSE → ERROR
   const state = hasErrorState
@@ -264,14 +279,17 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           >
             {showLadder ? (
               <>
-                <SheetHeader title="GRAFCET, sinais e objetos" side="right" onClose={() => setShowLadder(false)} />
+                <SheetHeader title="GRAFCET, sinais, objetos e diagnóstico" side="right" onClose={() => setShowLadder(false)} />
                 <div className="dc-dock-tabs" role="tablist" aria-label="Painel direito">
-                  <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')}><IconGrafcet size={13} /><span>GRAFCET</span></button>
-                  <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')}><IconSchematic size={13} /><span>Entradas/Saídas</span></button>
-                  <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}><IconLayers size={13} /><span>Objetos</span></button>
+                  <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')} aria-label="GRAFCET" title="GRAFCET"><IconGrafcet size={13} /><span>GRAFCET</span></button>
+                  <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')} aria-label="Entradas/Saídas" title="Entradas/Saídas"><IconSchematic size={13} /><span>E/S</span></button>
+                  <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')} aria-label="Objetos" title="Objetos"><IconLayers size={13} /><span>Objetos</span></button>
+                  <button role="tab" aria-selected={rightTab === 'diagnostics'} aria-label="Diagnóstico" className={rightTab === 'diagnostics' ? 'is-on' : ''} onClick={() => setRightTab('diagnostics')} data-dock-tab="diagnostics" title="Diagnóstico: erros e avisos desta vista"><span>Diagnóstico</span><ViewDiagnosticsTag view={mode === 'commands' ? 'commands' : 'schematic'} compact /></button>
                 </div>
                 <Suspense fallback={<RouteLoading label="A carregar o GRAFCET…" />}>
-                  {rightTab === 'grafcet'
+                  {rightTab === 'diagnostics'
+                    ? (mode === 'commands' ? <CommandsDiagnosticsPanel /> : <SchematicDiagnosticsPanel />)
+                    : rightTab === 'grafcet'
                     ? <GrafcetEditor onOpenEditor={views.includes('grafcet') ? () => setMode('grafcet') : undefined} />
                     : mode === 'commands'
                       ? rightTab === 'signals' ? <CommandsIoPanel /> : <CommandsObjects />
@@ -321,18 +339,18 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         <span className="dc-sb-diag ml-1 inline-flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setMode('monitor')}
+            onClick={openDiagnostics}
             className={`${errors ? 'text-state-error font-semibold' : 'text-ink-400'} hover:underline focus-visible:underline`}
-            title="Abrir os diagnósticos no Monitor"
-            aria-label={`${errors} erros; abrir diagnósticos no Monitor`}
+            title="Abrir o diagnóstico desta vista"
+            aria-label={`${errors} erros; abrir o diagnóstico`}
           ><IconXCircle size={11} /><span>{errors}<span className="dc-sb-diag-label"> erro(s)</span></span></button>
           <span className="text-ink-300" aria-hidden="true">·</span>
           <button
             type="button"
-            onClick={() => setMode('monitor')}
+            onClick={openDiagnostics}
             className={`${warnings ? 'text-state-pause font-semibold' : 'text-ink-400'} hover:underline focus-visible:underline`}
-            title="Abrir os diagnósticos no Monitor"
-            aria-label={`${warnings} avisos; abrir diagnósticos no Monitor`}
+            title="Abrir o diagnóstico desta vista"
+            aria-label={`${warnings} avisos; abrir o diagnóstico`}
           ><IconWarning size={11} /><span>{warnings}<span className="dc-sb-diag-label"> aviso(s)</span></span></button>
         </span>
         <span className="ml-auto inline-flex items-center gap-2 min-w-0">

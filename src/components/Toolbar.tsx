@@ -1,6 +1,7 @@
+import { ViewDiagnosticsTag } from '../diagnostics/DiagnosticsUi'
 import { uiConfirm } from '../ui/dialogs'
 import { PHONE_TOUCH_QUERY } from '../ui/device'
-import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
+import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -60,10 +61,10 @@ const TOOLS: Array<{ id: EditorTool; label: string; icon: typeof IconCursor; hin
 ]
 
 const VIEWS: Array<{ id: ViewMode; label: string; icon: typeof IconSchematic; key: string }> = [
-  { id: 'schematic', label: 'Esquema', icon: IconSchematic, key: 'F1' },
+  { id: 'schematic', label: '3D Realista', icon: IconSchematic, key: 'F1' },
   { id: 'ladder', label: 'Ladder', icon: IconLadder, key: 'F2' },
   { id: 'grafcet', label: 'GRAFCET', icon: IconGrafcet, key: 'F5' },
-  { id: 'commands', label: 'Comandos', icon: IconCommands, key: 'F6' },
+  { id: 'commands', label: 'Esquema IEC', icon: IconCommands, key: 'F6' },
   { id: 'monitor', label: 'Monitor', icon: IconMonitor, key: 'F4' },
 ]
 
@@ -306,6 +307,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const compactQuery = useNarrowMenu(`(max-width: 743px), ${PHONE_TOUCH_QUERY}`)
   const shellRef = useRef<HTMLDivElement>(null)
   const compactBar = compactQuery
+  // PC e tablet: quando a 2.ª linha não cabe, os botões com ícone ficam só com o ícone (o nome fica no título e
+  // no nome acessível) — todas as ferramentas continuam à vista, sem deslizar nem menus «Mais».
+  const denseRow2 = useOverflowCompact(shellRef, '.dc-toolbar-row2', !compactBar && !demo, [mode])
   // Modelos e importação/exportação ficam agrupados mesmo num ecrã grande.
   const desktopGrafcetMenu = mode === 'grafcet'
   const fileSections: ToolMenuSection[] = [{
@@ -385,7 +389,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'signals', label: 'Tabela de variáveis', icon: <IconTag size={15} />, onSelect: () => useGrafcetUi.getState().emit('openSignals') },
     { id: 'diagnostics', label: 'Diagnóstico', icon: <IconShield size={15} />, onSelect: () => useGrafcetUi.getState().emit('openDiagnostics') },
   ] }]
-  const toolSections: ToolMenuSection[] = mode === 'commands' ? [{ title: 'Ferramentas de comandos', items: COMMAND_TOOLS.map(({ id, label, icon: Icon, hint, key }) => ({ id, label, hint, icon: <Icon size={15} />, kbd: key, pressed: cmdTool === id, onSelect: () => useCommandsUi.getState().setTool(id) })) }, { title: 'Esquema', items: [
+  const toolSections: ToolMenuSection[] = mode === 'commands' ? [{ title: 'Ferramentas do Esquema IEC', items: COMMAND_TOOLS.map(({ id, label, icon: Icon, hint, key }) => ({ id, label, hint, icon: <Icon size={15} />, kbd: key, pressed: cmdTool === id, onSelect: () => useCommandsUi.getState().setTool(id) })) }, { title: 'Esquema', items: [
     { id: 'cmd-rotate', label: 'Rodar 90°', icon: <IconRotate size={15} />, kbd: 'R', disabled: cmdSelection?.type !== 'part' || cmdRunning, disabledReason: 'Selecione um símbolo', onSelect: () => useCommandsUi.getState().emit('rotate') },
     { id: 'cmd-delete', label: 'Apagar seleção', icon: <IconDelete size={15} />, kbd: 'Del', disabled: !cmdSelection || cmdRunning, disabledReason: 'Selecione um símbolo ou cabo', onSelect: () => useCommandsUi.getState().emit('delete') },
     { id: 'cmd-examples', label: 'Exemplos', icon: <IconTemplates size={15} />, disabled: cmdRunning, onSelect: () => useCommandsUi.getState().emit('examples') },
@@ -503,13 +507,15 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   aria-label={displayLabel}
                   aria-selected={mode === id}
                   onClick={() => setMode(id)}
-                  className={`inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3.5' : 'px-4'} rounded-[6px] text-xs font-semibold transition-all ${
+                  className={`relative inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3.5' : 'px-3 2xl:px-4'} whitespace-nowrap rounded-[6px] text-xs font-semibold transition-all ${
                     mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
                   }`}
                   title={`${displayLabel} [${key} · Ctrl+${visibleViews.findIndex((v) => v.id === id) + 1}]`}
                 >
                   <Icon size={14} />
-                  <span className={demo ? 'inline' : 'hidden md:inline'}>{displayLabel}</span>
+                  <span className={`dc-view-label ${demo ? 'inline' : 'hidden md:inline'}`}>{displayLabel}</span>
+                  {/* Estado do diagnóstico desta vista (✓ OK · ! avisos · ✖ erros), como o separador do GRAFCET */}
+                  {!demo && id !== 'monitor' && <ViewDiagnosticsTag view={id} badge label={displayLabel} />}
                 </button>
               )
             })}
@@ -600,7 +606,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {mode !== 'monitor' && <ToolMenu label="Painéis" icon={<IconLayers size={15} />} sections={panelSections} className="dc-compact-menu" />}
         <ToolMenu label="Mais" title="Opções do projeto e da vista" icon={<IconMore size={15} />} sections={compactMoreSections} className="dc-compact-menu dc-compact-more" align="end" />
       </div>}
-      {!demo && !compactBar && <div ref={row2BarRef} className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
+      {!demo && !compactBar && <div ref={row2BarRef} className={`dc-toolbar-row2 ${denseRow2 ? 'is-dense' : ''} flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
         {/* desfazer / refazer — comum a todas as vistas (fora da demonstração) */}
         {!demo && <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />}
 

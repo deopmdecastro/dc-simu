@@ -65,7 +65,7 @@ assert('CSS de enquadre da demonstração', read('src/styles/dx-landing.css').in
 // ── Redução «só simular» (2026-10-28) ────────────────────────────────────────
 assert('Run/Pausa/Stop ficam; Passo e Reset fora da demo', tb.includes("{!demo && <button onClick={step}") && tb.includes("{!demo && <button onClick={reset}"))
 assert('Botão Clean fora da demo', tb.includes("{!demo && <button type=\"button\" className={`dc-tool-btn dc-clean-toggle"))
-assert('Atalhos fora da demo (esquema e grafcet)', tb.includes("{mode !== 'grafcet' && !demo && (") && tb.includes("{!demo && <ShortcutsButton scope=\"grafcet\""))
+assert('Atalhos fora da demo (esquema e grafcet)', tb.includes("{mode !== 'grafcet' && mode !== 'commands' && !demo && (") && tb.includes("{!demo && <ShortcutsButton scope=\"grafcet\""))
 
 const store2 = read('src/store/useSimStore.ts')
 assert('Arrastar componentes bloqueado na demo (moveComponent)', store2.includes('moveComponent: (id, x, y, movingIds) => {\n    // Demonstração e simulação em curso: utilizadores não movem componentes.\n    if (get().demoMode) return'))
@@ -123,13 +123,13 @@ assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', tb.inc
 // Revisão: render leve, sem rotação automática e seleção possível durante o RUN
 assert('Painel 3D: sem amortecimento nem rotação automática', panel.includes('screenSpacePanning autoRotate={false} />') && !panel.includes('enableDamping dampingFactor'))
 assert('Painel 3D: shadow map sob pedido (não por frame)', panel.includes('gl.shadowMap.autoUpdate = false') && panel.includes('function ShadowsOnDemand') && panel.includes('<ShadowsOnDemand watch={shadowWatch} />'))
-assert('Painel 3D: geometria dos cabos em cache e coordenada entre todos os cabos', panel.includes('cachedWireGeometry(wire, from, to, obstacles, prebuilt)') && panel.includes('buildAllWirePaths3D(wires, components, pivots, obstacles)') && panel.includes('wireGeomCache.set(key, geom)'))
+assert('Painel 3D: geometria dos cabos em cache e coordenada entre todos os cabos', panel.includes('cachedWireGeometry(wire, from, to, obstacles, prebuilt)') && panel.includes('useWireRouting(') && panel.includes('wireGeomCache.set(key, geom)'))
 assert('Botão de emergência 3D: acabamento vermelho/preto/latão fiel aplicado no painel e catálogo', read('src/three/catalogMaterials.ts').includes('export function applyEmergencyButtonFinish') && panel.includes('applyEmergencyButtonFinish(fitted, c.type)') && read('src/three/CatalogComponent3D.tsx').includes('applyEmergencyButtonFinish(object, builtin)'))
 assert('Painel 3D: caixas de obstáculos estáveis durante o RUN', panel.includes('const obstaclesKey = useMemo'))
 assert('Demo: simLocked inclui demoMode e barra de seleção/edição fica oculta', panel.includes('const simLocked = demoMode ||') && read('src/components/SelectionBar.tsx').includes('if (demoMode || (!hasComponents && !wireId && !terminalId)) return null'))
 const cat3d = read('src/three/CatalogComponent3D.tsx')
 assert('Catálogo 3D: premir botão na demo atua sem abrir barra de edição/seleção', cat3d.includes('if (!useSimStore.getState().demoMode) useSimStore.getState().selectComponents([c.id])'))
-assert('Toolbar mobile e desktop na demo: rótulos 3D/Ladder/GRAFCET e Play/Pause sempre visíveis sem botão Editor extra', !tb.includes('Abrir no editor') && tb.includes("className={demo ? 'inline' : 'hidden md:inline'}"))
+assert('Toolbar mobile e desktop na demo: rótulos 3D/Ladder/GRAFCET e Play/Pause sempre visíveis sem botão Editor extra', !tb.includes('Abrir no editor') && tb.includes("${demo ? 'inline' : 'hidden md:inline'}"))
 assert('GRAFCET e Ladder bloqueiam edição/eliminação na demo', grafed.includes('const full = fullProp && !demoMode') && ladder2.includes('readonly={demoMode}'))
 
 if (failures) {

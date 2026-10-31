@@ -437,7 +437,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
           {!diagram.parts.length && (
             <div className="dc-cmd-empty">
               <IconCommands size={22} />
-              <strong>Esquema de comandos vazio</strong>
+              <strong>Esquema IEC vazio</strong>
               <span>Escolha símbolos na Biblioteca ou abra um exemplo (arranque direto, estrela-triângulo).</span>
               {!demo && <button type="button" className="dc-btn dc-btn-primary" onPointerDown={(e) => e.stopPropagation()} onClick={() => void loadExample()}>Abrir um exemplo</button>}
             </div>

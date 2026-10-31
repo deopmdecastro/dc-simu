@@ -17,7 +17,7 @@ page.on('pageerror',error=>errors.push(error.message))
 const types=['fuseHolderSchneiderDf101v','residualBreakerHagerCfc225p','selectorSchneiderXa2ed33','photoSensorXukt1ksml2']
 try{
  await page.goto(baseURL+'/projects/native-partida-direta-v5')
- await page.getByRole('tab',{name:'Esquema',exact:true}).waitFor({timeout:120000})
+ await page.getByRole('tab',{name:'3D Realista',exact:true}).waitFor({timeout:120000})
  await page.waitForFunction(()=>!document.body.innerText.includes('A carregar o editor'))
  const inserted=await page.evaluate(async types=>{
   const {useSimStore}=await import('/src/store/useSimStore.ts')

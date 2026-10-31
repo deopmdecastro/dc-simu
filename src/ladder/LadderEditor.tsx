@@ -6,7 +6,7 @@ import { useLadderUi } from './ladderBus'
 import { useShortcutsRequest, useSimUi } from '../ui/simUi'
 import VirtualIoPanel from '../components/VirtualIoPanel'
 import PlcSignalPanel from '../components/PlcSignalPanel'
-import { lintLadder } from './ladderLint'
+import { callableFunctions, executedRungs, lintLadder } from './ladderLint'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
 import LadderSections, { type LadderSection } from './LadderSections'
@@ -1422,13 +1422,21 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const addRung = useSimStore((s) => s.addRung)
   const updateRung = useSimStore((s) => s.updateRung)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
-  const lintIssues = useMemo(() => lintLadder({ rungs }, { physicalInputs: plcs.length > 0, tags }), [rungs, plcs.length, tags])
+  const lintFcBlocks = useSimStore((s) => s.fcBlocks)
+  const lintFiles = useSimStore((s) => s.projectFiles[s.activePlcId ?? '_general'])
+  const lintIssues = useMemo(() => lintLadder({ rungs: executedRungs(rungs, callableFunctions(lintFcBlocks, lintFiles)) }, { physicalInputs: plcs.length > 0, tags }), [rungs, lintFcBlocks, lintFiles, plcs.length, tags])
   const lintCount = lintIssues.filter((issue) => issue.level !== 'info').length
   const forcedAddrs = useSimStore((s) => s.forces)
   const breakpointCount = useSimStore((s) => Object.keys(s.ladderBreakpoints).filter((id) => s.ladder.rungs.some((r) => r.id === id)).length)
   const breakHit = useSimStore((s) => s.ladderBreakHit)
   const canDebug = useCan('ladderDebug')
   const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint' | 'compile'>('io')
+  // Etiqueta/barra de estado «erros · avisos» → abre a Verificação.
+  useEffect(() => {
+    const open = (event: Event) => { if ((event as CustomEvent).detail === 'ladder') { setStatusTab('lint'); setShowStatus(true) } }
+    window.addEventListener('dcsimu:open-diagnostics', open)
+    return () => window.removeEventListener('dcsimu:open-diagnostics', open)
+  }, [])
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
   const ladderZoom = useLadderZoom((state) => state.zoom)
