@@ -14,6 +14,10 @@
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { importedTemplates, upgradeImportedTerminals } from './importedComponents'
 import { FACE_INWARD, terminalInsetMm, realTerminalPosition, leadRootPosition, LEAD_PIGTAIL_LENGTH_MM, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
+
+const FACE_OUTWARD_3D: Record<RealTerminalSpot['face'], [number, number, number]> = {
+  front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0],
+}
 import { LEGACY_REAL_TERMINALS } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
@@ -936,7 +940,7 @@ function applyRealInterfaces() {
               diameterMm: spot.diameterMm ?? 1.5,
               depthMm: LEAD_PIGTAIL_LENGTH_MM,
               insetMm: 0,
-              normal: [-inx, -iny, -inz] as [number, number, number],
+              normal: FACE_OUTWARD_3D[spot.face],
               position: root,
             }
           : existing?.socket3D,

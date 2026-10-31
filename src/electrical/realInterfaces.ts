@@ -72,13 +72,13 @@ export function realTerminalPosition(type: ComponentType, spot: RealTerminalSpot
   // Saída do cabo: sentido oposto ao interior da face.
   const ox = -inx, oy = -iny, oz = -inz
   if (spot.contact === 'lead') {
-    // Ponta livre a LEAD_PIGTAIL_LENGTH_MM para fora do corpo — e aí que se liga o cabo.
+    // Ponta livre a LEAD_PIGTAIL_LENGTH_MM para fora do corpo (coordenadas podem sair de 0..1).
     const len = LEAD_PIGTAIL_LENGTH_MM
-    if (!size) return { x: clamp(spot.x), y: 1 - clamp(spot.y), z: clamp(spot.z) }
+    if (!size) return { x: spot.x, y: 1 - spot.y, z: spot.z }
     return {
-      x: clamp(spot.x + (ox * len) / size.width),
-      y: 1 - clamp(spot.y + (oy * len) / size.height),
-      z: clamp(spot.z + (oz * len) / size.depth),
+      x: spot.x + (ox * len) / size.width,
+      y: 1 - (spot.y + (oy * len) / size.height),
+      z: spot.z + (oz * len) / size.depth,
     }
   }
   const inset = size ? terminalInsetMm(spot) : 0

@@ -53,7 +53,16 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
     assert.ok(normal.distanceTo(new THREE.Vector3().setComponent(axis, sign)) < 1e-6, `${prefix}: cabo sai pela face errada`)
     // Pinos, lâminas e pontas de fio não têm cavidade: basta a face e o ponto dentro do volume do modelo.
     if (spot.contact && spot.contact !== 'socket') {
-      assert.ok(box.clone().expandByScalar(.5).containsPoint(p), `${prefix}: ${spot.contact} fora do volume do modelo`)
+      // lead: ponta livre fora do corpo; pin/surface: junto à face.
+      if (spot.contact === 'lead') {
+        const outSign = ['front', 'right', 'top'].includes(spot.face) ? 1 : -1
+        const outside = outSign > 0
+          ? p.getComponent(axis) >= box.max.getComponent(axis) - .2
+          : p.getComponent(axis) <= box.min.getComponent(axis) + .2
+        assert.ok(outside, `${prefix}: ponta do cabo deveria sair do volume pela face ${spot.face}`)
+      } else {
+        assert.ok(box.clone().expandByScalar(.5).containsPoint(p), `${prefix}: ${spot.contact} fora do volume do modelo`)
+      }
       contacts++
       continue
     }

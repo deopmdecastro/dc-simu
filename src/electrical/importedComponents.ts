@@ -4,6 +4,10 @@ import type { ImportedComponentType } from '../types/imported'
 import type { ComponentType } from '../types'
 import { REAL_TERMINALS, realTerminalPosition, leadRootPosition, LEAD_PIGTAIL_LENGTH_MM, FACE_INWARD } from './realInterfaces'
 
+const FACE_OUTWARD_3D: Record<string, [number, number, number]> = {
+  front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0],
+}
+
 type Pair = readonly [string, string]
 export type ImportedComponentInfo = {
   name: string; manufacturer: string; reference: string; category: ComponentCategory; tag: string
@@ -102,7 +106,7 @@ export function upgradeImportedTerminals(component: ElectricalComponent, makeTer
         diameterMm: spot.diameterMm ?? 1.5,
         depthMm: LEAD_PIGTAIL_LENGTH_MM,
         insetMm: 0,
-        normal: [-inx, -iny, -inz],
+        normal: FACE_OUTWARD_3D[spot.face],
         position: leadRootPosition(component.type, spot),
       },
     }
