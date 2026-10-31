@@ -513,3 +513,18 @@
 .dc-cmd.is-running .dc-cmd-canvas .dc-cmd-text-anchor { cursor: default; }
 .dc-cmd.is-running .dc-cmd-actuator,
 .dc-cmd.is-running .dc-cmd-actuator .dc-cmd-symbol { cursor: pointer !important; }
+
+/* Janela «Editar texto» da referência (duplo clique no nome) */
+.dc-cmd-tag-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.dc-cmd-tag-style { padding: 0; border: 0; margin: 0; }
+.dc-cmd-tag-style legend { margin-bottom: 6px; color: #334155; font-size: 12px; font-weight: 650; }
+.dc-cmd-tag-toggles { display: inline-flex; gap: 4px; }
+.dc-cmd-tag-toggles button { width: 34px; height: 32px; border: 1px solid #d5deeb; border-radius: 8px; background: #fff; color: #334155; cursor: pointer; }
+.dc-cmd-tag-toggles button:hover { border-color: #93c5fd; background: #f8fbff; }
+.dc-cmd-tag-toggles button[aria-pressed="true"] { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; box-shadow: 0 0 0 1px #2563eb inset; }
+.dc-cmd-tag-rotation { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: center; }
+.dc-cmd-tag-colors { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dc-cmd-tag-colors button { width: 22px; height: 22px; border: 1px solid #cbd5e1; border-radius: 999px; cursor: pointer; padding: 0; }
+.dc-cmd-tag-colors button.is-on { outline: 2px solid #2563eb; outline-offset: 2px; }
+.dc-cmd-tag-colors input[type="color"] { width: 28px; height: 24px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; }
+.dc-cmd-tag-dialog .grafcet-property-chips button[aria-pressed="true"] { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }

@@ -1,4 +1,5 @@
 // Símbolos IEC 60617 / ISO 1219 — desenhos DC-Simu e variantes QElectroTech atribuídas em docs/third-party/qelectrotech.
+import { fontStack } from '../ui/textStyle'
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import { CMD_PARTS, partBox, partTerminals, terminalAt, terminalLabel, type CmdKind, type CmdPart } from './model'
 
@@ -393,7 +394,7 @@ export function CmdSymbol({ part, state, selected, showTerminals = true, onTagPo
         const rotation = part.tagStyle?.rotation ?? 0
         return <text className={`dc-cmd-tag${link ? ' is-link' : ''}${onTagPointerDown ? ' is-draggable' : ''}`} data-cmd-tag={part.id}
           x={x} y={y} textAnchor={anchor} transform={`rotate(${rotation} ${x} ${y})`}
-          style={{ fontSize: size, fill: part.tagStyle?.color ?? INK }} stroke="none" onPointerDown={onTagPointerDown}>{part.tag}</text>
+          style={{ fontSize: size, fill: part.tagStyle?.color ?? INK, ...(part.tagStyle?.font ? { fontFamily: fontStack(part.tagStyle.font) } : null), ...(part.tagStyle?.bold === false ? { fontWeight: 400 } : null), ...(part.tagStyle?.italic ? { fontStyle: 'italic' } : null), ...(part.tagStyle?.underline ? { textDecoration: 'underline' } : null) }} stroke="none" onPointerDown={onTagPointerDown}>{part.tag}</text>
       })()}
       {showTerminals && partTerminals(part).map((t, i) => {
         const at = terminalAt({ ...part, x: 0, y: 0 }, i)

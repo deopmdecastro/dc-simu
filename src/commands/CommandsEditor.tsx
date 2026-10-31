@@ -19,6 +19,7 @@ import {
 } from './model'
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
 import PageLinkDialog from './PageLinkDialog'
+import TagTextDialog from './TagTextDialog'
 import { emptyCmdRuntime, isClosed } from './engine'
 import { CmdSymbol, cmdTagPosition, cmdTagBounds, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
@@ -106,6 +107,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number } | null>(null)
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [pageLinkModal, setPageLinkModal] = useState<{ partId: string } | null>(null)
+  const [tagModal, setTagModal] = useState<{ partId: string } | null>(null)
   const selectedPartIds = useCommandsUi((s) => s.selectedPartIds)
   const selectParts = useCommandsUi((s) => s.selectParts)
   const running = rt.running
@@ -682,6 +684,13 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                   key={part.id}
                   onPointerDown={(e) => onPartDown(part, e)}
                   onDoubleClick={(e) => {
+                    // Duplo clique no nome do elemento: modal de edição do texto (conteúdo, tamanho, rotação, cor…).
+                    if (editable && tool === 'select' && !placing && part.kind !== 'pageRef' && part.kind !== 'pageRefIn' && part.tag && part.kind !== 'node' && part.kind !== 'supply' && (e.target as Element).closest?.('[data-cmd-tag]')) {
+                      e.stopPropagation()
+                      select({ type: 'part', id: part.id })
+                      setTagModal({ partId: part.id })
+                      return
+                    }
                     if (part.kind !== 'pageRef' && part.kind !== 'pageRefIn') return
                     e.stopPropagation()
                     select({ type: 'part', id: part.id })
@@ -828,6 +837,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         }}
       />
       
+      {tagModal && <TagTextDialog partId={tagModal.partId} onClose={() => setTagModal(null)} />}
       {pageLinkModal && (
         <PageLinkDialog
           partId={pageLinkModal.partId}
