@@ -11,7 +11,7 @@ import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { uiChoose, uiConfirm } from '../ui/dialogs'
 import { editorGridBackground } from '../ui/editorTheme'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
-import { IconCommands } from '../ui/icons'
+import { IconCommands, IconPlus } from '../ui/icons'
 import {
   CMD_GRID, CMD_PARTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
   type CmdEnd, type CmdKind, type CmdPart, type CmdWire, type CommandsDiagram, type Pt,
@@ -485,7 +485,9 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
 
   return (
     <div className={`dc-cmd ${running ? 'is-running' : ''}`}>
+      <div className="dc-cmd-main">
       <div className="dc-cmd-pages" role="tablist" aria-label="Páginas do esquema IEC">
+        <span className="dc-cmd-pages-label">Páginas</span>
         {pages.map((sh) => {
           const active = sh.id === pageId
           const count = partsOnPage(diagram, sh.id).length
@@ -514,11 +516,10 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         })}
         {editable && (
           <button type="button" className="dc-cmd-page-add" onClick={onAddPage} title="Nova página do esquema. Ligue a corrente entre páginas com o símbolo «Ligação entre páginas».">
-            + Página
+            + Nova página
           </button>
         )}
       </div>
-      <div className="dc-cmd-main">
         <div
           id={canvasId}
           ref={viewportRef}
@@ -571,13 +572,31 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
             </g>
           </svg>
           {!pageParts.length && (
-            <div className="dc-cmd-empty">
-              <IconCommands size={22} />
-              <strong>{pages.length > 1 ? 'Página vazia' : 'Esquema IEC vazio'}</strong>
-              <span>{pages.length > 1
+            <div className="dc-cmd-empty" onPointerDown={(e) => e.stopPropagation()}>
+              <span className="dc-cmd-empty-icon" aria-hidden="true"><IconCommands size={26} /></span>
+              <strong>{pages.length > 1 ? 'Ainda não há símbolos nesta página' : 'Ainda não há símbolos'}</strong>
+              <p>{pages.length > 1
                 ? 'Coloque símbolos nesta página ou use «Ligação entre páginas» para trazer corrente de outra folha.'
-                : 'Escolha símbolos na Biblioteca ou abra um exemplo (arranque direto, estrela-triângulo).'}</span>
-              {!demo && <button type="button" className="dc-btn dc-btn-primary" onPointerDown={(e) => e.stopPropagation()} onClick={() => void loadExample()}>Abrir um exemplo</button>}
+                : 'Escolha símbolos na Biblioteca ou parta de um exemplo (arranque direto, estrela-triângulo).'}</p>
+              <div className="dc-cmd-empty-actions">
+                {!demo && (
+                  <button type="button" className="dc-btn dc-btn-primary dc-cmd-empty-main" onClick={() => void loadExample()}>
+                    <IconPlus size={14} />Abrir um exemplo
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="dc-btn dc-cmd-empty-wide"
+                  onClick={() => {
+                    // Abre a biblioteca de símbolos (sidebar esquerda).
+                    try { window.dispatchEvent(new CustomEvent('dc-cmd-open-library')) } catch { /* ignore */ }
+                    const lib = document.querySelector('.dc-cmd-sidebar, [data-commands-library], .commands-library')
+                    if (lib instanceof HTMLElement) lib.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+                  }}
+                >
+                  Escolher símbolos na Biblioteca
+                </button>
+              </div>
             </div>
           )}
           {rt.fault && <div className="dc-cmd-fault" role="alert"><strong>Simulação parada</strong><span>{rt.fault}</span></div>}
