@@ -218,3 +218,48 @@ export function moveBendOrthogonal(bends: readonly Point[], index: number, p: Po
     return { ...b }
   })
 }
+
+/**
+ * Percurso ortogonal da origem ao destino a passar pela barra da transição em `bar`
+ * (a barra fica sempre num troço vertical descendente, como na IEC 60848). Usado para mover a
+ * transição livremente sem soltar as linhas:
+ *  - destino abaixo: desce da origem, vai à coluna da barra, atravessa-a e segue para o destino;
+ *  - destino acima ou demasiado perto (retorno): depois da barra contorna por uma calha lateral e
+ *    entra no destino por cima.
+ * `clampBar` devolve a barra limitada a ficar abaixo da etapa de origem.
+ */
+export function clampBar(source: Point, bar: Point, clearance = 20): Point {
+  return { x: Math.round(bar.x), y: Math.round(Math.max(bar.y, source.y + clearance * 2)) }
+}
+
+export function routeViaBar(source: Point, rawBar: Point, target: Point, clearance = 20): Point[] {
+  const bar = clampBar(source, rawBar, clearance)
+  const above = Math.round((source.y + bar.y) / 2)
+  const head: Point[] = [{ x: source.x, y: source.y }, { x: source.x, y: above }, { x: bar.x, y: above }, { x: bar.x, y: bar.y }]
+  if (target.y - bar.y >= clearance * 2) {
+    const below = Math.round((bar.y + target.y) / 2)
+    return simplifyOrthogonal([...head, { x: bar.x, y: below }, { x: target.x, y: below }, { x: target.x, y: target.y }])
+  }
+  // Retorno: desce um pouco, vai à calha lateral, sobe e entra no destino por cima.
+  const down = bar.y + clearance
+  const track = Math.min(source.x, target.x, bar.x) - clearance * 3
+  const top = target.y - clearance
+  return simplifyOrthogonal([...head, { x: bar.x, y: down }, { x: track, y: down }, { x: track, y: top }, { x: target.x, y: top }, { x: target.x, y: target.y }])
+}
+
+/** O ponto `p` está sobre o percurso ortogonal (com tolerância em px)? */
+export function pointOnPolyline(points: readonly Point[], p: Point, tolerance = 1.5): boolean {
+  const pts = expandPolyline(points)
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    const minX = Math.min(a.x, b.x) - tolerance
+    const maxX = Math.max(a.x, b.x) + tolerance
+    const minY = Math.min(a.y, b.y) - tolerance
+    const maxY = Math.max(a.y, b.y) + tolerance
+    if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) continue
+    // Troços ortogonais: basta estar na faixa do segmento.
+    if (Math.abs(a.x - b.x) <= tolerance || Math.abs(a.y - b.y) <= tolerance) return true
+  }
+  return false
+}

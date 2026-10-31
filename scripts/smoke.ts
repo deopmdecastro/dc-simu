@@ -79,6 +79,7 @@ import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, ru
 import type { ControlDef } from '../src/catalog/types'
 import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
 import { dinFerruleColor, FERRULE_SWATCHES } from '../src/schematic/wireEndColor'
+import { clampBar, pointOnPolyline, routeViaBar } from '../src/grafcet/links'
 
 let failures = 0
 function check(name: string, cond: boolean, extra = '') {
@@ -2522,6 +2523,23 @@ console.log('\n— Tabela de sinais dinâmica —')
   useSimStore.getState().loadJSON(JSON.stringify({ ...fixture, components: [oldMeter], wires: [] }))
   check('Carregamento completo: recupera quatro tomadas sem perder as ligações antigas', useSimStore.getState().components[0].terminals.length === 4 && oldMeter.terminals.every((terminal) => useSimStore.getState().components[0].terminals.some((next) => next.id === terminal.id)))
   useSimStore.getState().loadJSON(JSON.stringify(fixture))
+}
+
+// Transições movidas livremente: o percurso passa sempre pela barra, em ângulos retos, ligado às duas etapas.
+{
+  const isOrthogonal = (points: Array<{ x: number; y: number }>) => points.slice(1).every((p, i) => p.x === points[i].x || p.y === points[i].y)
+  const cases: Array<[string, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }]> = [
+    ['ao lado', { x: 151, y: 100 }, { x: 320, y: 230 }, { x: 151, y: 400 }],
+    ['abaixo do destino', { x: 151, y: 100 }, { x: 260, y: 470 }, { x: 151, y: 400 }],
+    ['retorno', { x: 151, y: 500 }, { x: 60, y: 560 }, { x: 151, y: 80 }],
+    ['acima da origem', { x: 151, y: 300 }, { x: 200, y: 120 }, { x: 151, y: 500 }],
+  ]
+  check('GRAFCET: mover a barra refaz o percurso pela barra, ortogonal e ligado às duas etapas', cases.every(([, source, bar, target]) => {
+    const route = routeViaBar(source, bar, target)
+    const first = route[0], last = route[route.length - 1]
+    return first.x === source.x && first.y === source.y && last.x === target.x && last.y === target.y && isOrthogonal(route) && pointOnPolyline(route, clampBar(source, bar))
+  }))
+  check('GRAFCET: a barra não sobe acima da etapa de origem', clampBar({ x: 151, y: 300 }, { x: 200, y: 120 }).y >= 340)
 }
 
 // Ponteiras: código de cores DIN 46228-4 pela secção do cabo.

@@ -157,10 +157,19 @@ try {
     const target = document.elementFromPoint(x, y)
     return target?.getAttribute('class') || target?.nodeName
   }, barPoint)
-  check(barHitTarget === 'grafcet-transition-bar', 'a barra visível da transição recebe o gesto do rato')
+  check(['grafcet-transition-bar', 'grafcet-transition-bar-hit'].includes(barHitTarget), 'a barra visível da transição (ou a sua área de toque) recebe o gesto do rato')
   const bendsBeforeBarDrag = JSON.stringify((await read()).linkBends.t1)
   await page.mouse.move(barPoint.x, barPoint.y); await page.mouse.down(); await page.mouse.move(barPoint.x + (barPoint.moveX ? 48 : 0), barPoint.y + (barPoint.moveX ? 0 : 48), { steps: 8 }); await page.mouse.up()
   check(JSON.stringify((await read()).linkBends.t1) !== bendsBeforeBarDrag, 'arrastar a barra visível move a ligação importada e persiste linkBends')
+  // Arrasto livre (2D): a transição segue o rato na diagonal e as linhas acompanham sem se soltarem.
+  const barBefore = (await read()).linkBars?.t1
+  const freePoint = await page.evaluate(() => { const bar = document.querySelector('.grafcet-transition-bar-hit'); const box = bar.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 } })
+  await page.mouse.move(freePoint.x, freePoint.y); await page.mouse.down(); await page.mouse.move(freePoint.x + 70, freePoint.y + 36, { steps: 10 }); await page.mouse.up()
+  const afterFree = await read()
+  const barAfter = afterFree.linkBars?.t1
+  check(!!barAfter && (!barBefore || (barAfter.x !== barBefore.x && barAfter.y !== barBefore.y)), `a transição move-se livremente na diagonal e a posição fica em linkBars (${JSON.stringify(barBefore)} → ${JSON.stringify(barAfter)})`)
+  const freeLinked = await page.evaluate(() => { const bar = document.querySelector('.grafcet-transition-bar'); const path = document.querySelector('.grafcet-editable-segment'); const bx = Number(bar.getAttribute('x1')) + 14, by = Number(bar.getAttribute('y1')); const length = path.getTotalLength(); let best = Infinity; for (let i = 0; i <= 200; i++) { const p = path.getPointAtLength(length * i / 200); best = Math.min(best, Math.hypot(p.x - bx, p.y - by)) } return best })
+  check(freeLinked < 2, `depois de mover, a barra continua sobre a linha (distância ${freeLinked.toFixed(1)} px): as linhas não se soltam`)
   const bendsBeforeAddButton = (await read()).linkBends.t1.length
   const nodeButton = page.getByRole('button', { name: 'Adicionar nó à ligação da transição T1', exact: true })
   await nodeButton.click()

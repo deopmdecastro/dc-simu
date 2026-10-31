@@ -140,6 +140,8 @@ export interface GrafcetProgram {
   comments?: GrafcetComment[]
   /** Pontos de quebra das ligações (duplo clique na linha), por id de transição ligada 1→1. */
   linkBends?: Record<string, Array<{ x: number; y: number }>>
+  /** Posição livre da barra de cada transição ligada (arrastada pelo utilizador); só vale enquanto estiver sobre o percurso. */
+  linkBars?: Record<string, { x: number; y: number }>
   charts?: GrafcetChart[]
   activeChart?: string
 }
