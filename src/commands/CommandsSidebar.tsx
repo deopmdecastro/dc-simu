@@ -192,11 +192,12 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
         const go = (pageId: string) => useCommandsUi.getState().setActivePageId(pageId)
         return (
           <div className="dc-cmd-page-link-box">
+            <button type="button" className="dc-btn dc-btn-primary dc-cmd-page-link-open" onClick={() => useCommandsUi.getState().emit('pageLink')}>Configurar ligação…</button>
             <p className="dc-cmd-muted">
               {part.tag
                 ? (peers.length
                     ? <>Liga electricamente a: <b>{peers.map((pg) => pg.name).join(', ')}</b>.</>
-                    : <>Sem par noutra página. Duplo clique no símbolo abre a modal de linkagem, ou use os botões abaixo.</>)
+                    : <>Sem par noutra página: a corrente ainda não passa. Use «Configurar ligação…» (ou duplo clique no símbolo) para criar o par.</>)
                 : <>Defina um nome (ex.: X1). O mesmo nome noutra página une as folhas.</>}
             </p>
             {peers.length > 0 && (

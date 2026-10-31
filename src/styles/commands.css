@@ -405,3 +405,44 @@
 .dc-cmd-io .dc-cmd-dock-fault {
   margin: 8px 10px 0;
 }
+
+/* Seleção e hover iguais ao GRAFCET: halo azul, traço azul, fundo leve e pegas brancas nos cantos. */
+.dc-cmd-symbol-sel-fill { fill: rgba(37, 99, 235, .05); stroke: none; }
+.dc-cmd-symbol-sel-handle { fill: #fff; stroke: #2563eb; stroke-width: 1.4px; vector-effect: non-scaling-stroke; }
+.dc-cmd-symbol.is-selected > g { stroke: #2563eb; }
+.dc-cmd-symbol.is-selected .dc-cmd-tag { fill: #1d4ed8; }
+.dc-cmd-symbol:not(.is-selected):hover .dc-cmd-tag { fill: #2563eb; }
+.dc-cmd-tag.is-link { font-size: 10.5px; letter-spacing: .02em; }
+
+/* Janela «Ligação entre páginas» */
+.dc-cmd-link-dialog .grafcet-property-grid { grid-template-columns: minmax(0, 1fr) 236px; }
+.dc-cmd-link-direction { padding: 0; border: 0; margin: 0; }
+.dc-cmd-link-direction legend { margin-bottom: 6px; color: #334155; font-size: 12px; font-weight: 650; }
+.dc-cmd-link-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dc-cmd-link-toggle button { display: grid; gap: 1px; padding: 8px 10px; border: 1px solid #d5deeb; border-radius: 8px; background: #fff; color: #334155; text-align: left; cursor: pointer; }
+.dc-cmd-link-toggle button b { font-size: 12.5px; }
+.dc-cmd-link-toggle button small { color: #64748b; font-size: 11px; }
+.dc-cmd-link-toggle button:hover { border-color: #93c5fd; background: #f8fbff; }
+.dc-cmd-link-toggle button.is-on { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; box-shadow: 0 0 0 1px #2563eb inset; }
+.dc-cmd-link-peers { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.dc-cmd-link-peers li { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+.dc-cmd-link-peers li > span:nth-child(2) { display: grid; flex: 1; }
+.dc-cmd-link-peers b { color: #0f172a; font-size: 12.5px; }
+.dc-cmd-link-peers small { color: #64748b; font-size: 11px; }
+.dc-cmd-link-peers .dc-btn { height: 26px; padding: 0 10px; font-size: 11.5px; }
+.dc-cmd-link-dot { width: 8px; height: 8px; flex: none; border-radius: 999px; }
+.dc-cmd-link-dot.is-out { background: #2563eb; }
+.dc-cmd-link-dot.is-in { background: #16a34a; }
+.dc-cmd-link-create .grafcet-var-row { display: flex; gap: 6px; }
+.dc-cmd-link-create select { flex: 1; min-width: 0; }
+.dc-cmd-link-create .dc-btn { flex: none; white-space: nowrap; }
+.dc-cmd-link-preview svg { width: 100%; height: auto; }
+.dc-cmd-link-sheet { fill: #fff; stroke: #cbd5e1; stroke-width: 1.2; }
+.dc-cmd-link-sheet.is-missing { stroke-dasharray: 4 3; fill: #f8fafc; }
+.dc-cmd-link-sheet-name { fill: #475569; font-size: 10px; font-weight: 650; }
+.dc-cmd-link-wire { stroke: #1e293b; stroke-width: 1.8; }
+.dc-cmd-link-box { fill: #fff; stroke: #1e293b; stroke-width: 1.5; }
+.dc-cmd-link-wire.is-missing, .dc-cmd-link-box.is-missing { stroke: #94a3b8; stroke-dasharray: 3 3; }
+.dc-cmd-link-arrow { fill: none; stroke: #2563eb; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dc-cmd-link-net { fill: #1d4ed8; font-size: 11px; font-weight: 750; }
+@media (max-width: 720px) { .dc-cmd-link-dialog .grafcet-property-grid { grid-template-columns: 1fr; } }

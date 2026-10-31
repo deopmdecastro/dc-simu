@@ -9,7 +9,7 @@ import { DEFAULT_PAGE_ID } from './pages'
 export type CmdTool = 'select' | 'wire' | 'erase' | 'pan'
 export type CmdSelection = { type: 'part' | 'wire'; id: string } | null
 /** IDs de símbolos selecionados (multi-seleção no canvas). O `selection` principal alimenta o inspetor. */
-export type CmdUiEvent = 'fit' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'examples' | 'import' | 'clear' | 'rotate' | 'delete' | 'focusSelection'
+export type CmdUiEvent = 'fit' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'examples' | 'import' | 'clear' | 'rotate' | 'delete' | 'focusSelection' | 'pageLink'
 
 interface CommandsUi {
   tool: CmdTool

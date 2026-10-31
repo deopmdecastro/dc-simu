@@ -229,6 +229,12 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     else if (name === 'rotate' && editable) rotateSelected()
     else if (name === 'delete' && editable) removeSelected()
     else if (name === 'focusSelection') focusSelection()
+    else if (name === 'pageLink') {
+      // Inspetor → «Configurar ligação…»: abre a janela da ligação selecionada.
+      const sel = useCommandsUi.getState().selection
+      const part = sel?.type === 'part' ? useSimStore.getState().commands.parts.find((p) => p.id === sel.id) : undefined
+      if (part && (part.kind === 'pageRef' || part.kind === 'pageRefIn')) setPageLinkModal({ partId: part.id })
+    }
   }, [event?.n])
 
   // Duplo clique na Biblioteca: insere no centro da vista, no primeiro sítio livre.
@@ -800,9 +806,14 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         <PageLinkDialog
           partId={pageLinkModal.partId}
           onClose={() => setPageLinkModal(null)}
-          onGoPage={(pageId) => {
+          onGoPage={(pageId, focusPartId) => {
             setActivePageId(pageId)
             setPageLinkModal(null)
+            // Abre a página do par já com o conector selecionado e centrado.
+            if (focusPartId) {
+              select({ type: 'part', id: focusPartId })
+              window.setTimeout(() => useCommandsUi.getState().emit('focusSelection'), 60)
+            }
           }}
         />
       )}

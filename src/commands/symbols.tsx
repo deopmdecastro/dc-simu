@@ -322,15 +322,26 @@ export function CmdSymbol({ part, state, selected, showTerminals = true }: { par
         rx={4}
         ry={4}
       />
-      {selected && <rect x={box.x - part.x - 4} y={box.y - part.y - 4} width={box.w + 8} height={box.h + 8} className="dc-cmd-symbol-sel" />}
+      {/* Seleção como no GRAFCET: fundo azul leve + pegas nos cantos (sem caixa preta). */}
+      {selected && (() => {
+        const x0 = box.x - part.x - 6, y0 = box.y - part.y - 6, x1 = x0 + box.w + 12, y1 = y0 + box.h + 12
+        return <g className="dc-cmd-symbol-sel" pointerEvents="none">
+          <rect className="dc-cmd-symbol-sel-fill" x={x0} y={y0} width={x1 - x0} height={y1 - y0} rx={4} />
+          {[[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([cx, cy], i) => <rect key={i} className="dc-cmd-symbol-sel-handle" x={cx - 3} y={cy - 3} width={6} height={6} rx={1.2} />)}
+        </g>
+      })()}
       {/* Área de clique invisível: o símbolo inteiro responde (não só os traços) — premir botões, selecionar, arrastar. */}
       <rect className="dc-cmd-symbol-hit" x={box.x - part.x - 4} y={box.y - part.y - 4} width={box.w + 8} height={box.h + 8} fill="transparent" stroke="none" />
       <g transform={`rotate(${part.rot})`} stroke={INK} strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
         {symbolBody(part, st)}
       </g>
-      {part.tag && part.kind !== 'node' && part.kind !== 'supply' && (
-        <text className="dc-cmd-tag" x={0} y={-8} textAnchor="middle" fontSize={11} fontWeight={700} fill={INK} stroke="none">{part.tag}</text>
-      )}
+      {part.tag && part.kind !== 'node' && part.kind !== 'supply' && (() => {
+        // Conectores entre páginas: o nome da rede fica por cima da caixa (antes sobrepunha-se à seta).
+        const link = part.kind === 'pageRef' || part.kind === 'pageRefIn'
+        const x = link ? box.x - part.x + box.w / 2 : 0
+        const y = link ? box.y - part.y - 5 : -8
+        return <text className={`dc-cmd-tag${link ? ' is-link' : ''}`} x={x} y={y} textAnchor="middle" fontSize={11} fontWeight={700} fill={INK} stroke="none">{part.tag}</text>
+      })()}
       {showTerminals && partTerminals(part).map((t, i) => {
         const at = terminalAt({ ...part, x: 0, y: 0 }, i)
         const label = terminalLabel(part, i)
