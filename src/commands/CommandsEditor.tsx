@@ -177,15 +177,24 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   useEffect(() => { const id = window.setTimeout(() => fit(), 60); return () => window.clearTimeout(id) }, [fit])
 
   // ---------------------------------------------------------------- pedidos da barra
-  const loadExample = async () => {
-    const id = await uiChoose('Escolha um esquema de exemplo. Substitui o esquema atual (pode desfazer).', COMMANDS_EXAMPLES.map((e) => ({ id: e.id, title: e.title, description: e.detail })), { title: 'Exemplos de comandos', confirmLabel: 'Abrir exemplo' })
+  const applyExample = (id: string) => {
     const example = COMMANDS_EXAMPLES.find((e) => e.id === id)
     if (!example) return
     useCommandsUi.getState().stop()
     const next = example.build()
     commit(next)
     select(null)
+    const firstPage = next.pages?.[0]?.id
+    if (firstPage) setActivePageId(firstPage)
     window.setTimeout(() => fit(next), 30)
+  }
+  const loadExample = async () => {
+    const id = await uiChoose(
+      'Escolha um esquema de exemplo. Substitui o esquema atual (pode desfazer).',
+      COMMANDS_EXAMPLES.map((e) => ({ id: e.id, title: e.title, description: e.detail })),
+      { title: 'Exemplos de esquema IEC', confirmLabel: 'Abrir exemplo' },
+    )
+    if (id) applyExample(id)
   }
   const clearAll = async () => {
     if (!useSimStore.getState().commands.parts.length) return
@@ -581,14 +590,22 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
               <div className="dc-cmd-empty-actions">
                 {!demo && (
                   <button type="button" className="dc-btn dc-btn-primary dc-cmd-empty-main" onClick={() => void loadExample()}>
-                    <IconPlus size={14} />Abrir um exemplo
+                    <IconPlus size={14} />Ver todos os exemplos
                   </button>
+                )}
+                {!demo && (
+                  <div className="dc-cmd-empty-examples">
+                    {COMMANDS_EXAMPLES.slice(0, 4).map((ex) => (
+                      <button key={ex.id} type="button" className="dc-btn" title={ex.detail} onClick={() => applyExample(ex.id)}>
+                        {ex.title}
+                      </button>
+                    ))}
+                  </div>
                 )}
                 <button
                   type="button"
                   className="dc-btn dc-cmd-empty-wide"
                   onClick={() => {
-                    // Abre a biblioteca de símbolos (sidebar esquerda).
                     try { window.dispatchEvent(new CustomEvent('dc-cmd-open-library')) } catch { /* ignore */ }
                     const lib = document.querySelector('.dc-cmd-sidebar, [data-commands-library], .commands-library')
                     if (lib instanceof HTMLElement) lib.scrollIntoView({ block: 'nearest', behavior: 'smooth' })

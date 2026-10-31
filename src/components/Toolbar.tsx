@@ -643,7 +643,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdSelection?.type !== 'part' || cmdRunning} onClick={() => useCommandsUi.getState().emit('rotate')} title="Rodar o símbolo selecionado 90° [R]"><IconRotate size={13} /><span className="hidden lg:inline">Rodar</span></button>
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdSelection || cmdRunning} onClick={() => useCommandsUi.getState().emit('delete')} title="Apagar o símbolo ou cabo selecionado [Del]"><IconDelete size={13} /><span className="hidden lg:inline">Apagar</span></button>
             <span className="tb-sep" />
-            <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo (arranque direto, estrela-triângulo)"><IconTemplates size={13} /><span>Exemplos</span></button>
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo IEC (arranque, inversão, emergência, pneumática…)"><IconTemplates size={13} /><span>Exemplos</span></button>
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span className="hidden xl:inline">Limpar</span></button>
             <span className="tb-sep" />
             {annotationTools}
