@@ -70,7 +70,11 @@ export function removeSelected() {
   select(null)
 }
 
-export function removeItem(item: { type: 'part' | 'wire'; id: string }) {
+export function removeItem(item: { type: 'part' | 'wire' | 'text'; id: string }) {
+  if (item.type === 'text') {
+    useSimStore.getState().removeCanvasText(item.id)
+    return
+  }
   const diagram = getDiagram()
   if (item.type === 'part') commitDiagram({ ...diagram, parts: diagram.parts.filter((p) => p.id !== item.id), wires: diagram.wires.filter((w) => w.a.part !== item.id && w.b.part !== item.id) })
   else commitDiagram({ ...diagram, wires: diagram.wires.filter((w) => w.id !== item.id) })
