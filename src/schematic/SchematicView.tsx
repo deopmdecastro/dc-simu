@@ -1146,7 +1146,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           strokeWidth={Math.max(12, width + 10)}
           strokeLinecap="round"
           strokeLinejoin="round"
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: tool === 'erase' ? 'not-allowed' : tool === 'pan' ? 'grab' : tool === 'wire' ? 'crosshair' : 'pointer' }}
           onMouseDown={(e) => {
             if (tool === 'pan' || e.button !== 0 || tool === 'wire') return
             releaseTypingFocus()
@@ -1410,8 +1410,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       {isTilted && <button type="button" className="schematic-tilt-note" onClick={() => setTilt({ yaw: 0, pitch: 0 })} title="Voltar à vista frontal para editar">Vista inclinada · <b>Voltar a Frente</b> para editar</button>}
       <svg
         ref={svgRef}
-        className="w-full h-full"
-        style={{ ...(isTilted ? { pointerEvents: 'none' as const, transform: `perspective(1600px) rotateX(${tilt.pitch}deg) rotateY(${tilt.yaw}deg)`, transformOrigin: '50% 50%' } : {}), transition: 'transform .12s linear', cursor: gridDragEnabled ? (panning ? 'grabbing' : 'grab') : tool === 'select' ? 'default' : tool === 'wire' ? 'crosshair' : tool === 'pan' ? 'grab' : 'pointer' }}
+        className={`w-full h-full schematic-canvas is-tool-${gridDragEnabled || tool === 'pan' ? 'pan' : tool}${panning ? ' is-panning' : ''}`}
+        style={{ ...(isTilted ? { pointerEvents: 'none' as const, transform: `perspective(1600px) rotateX(${tilt.pitch}deg) rotateY(${tilt.yaw}deg)`, transformOrigin: '50% 50%' } : {}), transition: 'transform .12s linear' }}
          onMouseDown={onBackgroundDown}
          onMouseMove={onMouseMove}
          onMouseUp={onMouseUp}
@@ -1511,7 +1511,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
                     fill="transparent"
                     stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2f6bff' : isDrawTarget ? '#16a34a' : isSel ? '#db2777' : 'transparent'}
                     strokeWidth={2}
-                    style={{ cursor: isViewEditing ? 'grab' : tool === 'select' ? 'pointer' : 'crosshair' }}
+                    style={{ cursor: isViewEditing ? 'grab' : tool === 'erase' ? 'not-allowed' : tool === 'pan' ? 'grab' : tool === 'select' ? 'pointer' : 'crosshair' }}
                     onMouseDown={(e) => {
                       if (isViewEditing) {
                         e.preventDefault()

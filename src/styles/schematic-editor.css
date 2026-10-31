@@ -78,3 +78,22 @@
   .schematic-view-shell[data-sim-dock="true"] { flex-direction:column; }
   .schematic-sim-dock { flex:0 0 46%; border-left:0; border-top:1px solid #dbe4f0; }
 }
+
+/* Cursor por ferramenta no Esquema (alinhado ao Esquema IEC) */
+.schematic-canvas { cursor: default; }
+.schematic-canvas.is-tool-select { cursor: default; }
+.schematic-canvas.is-tool-wire { cursor: crosshair; }
+.schematic-canvas.is-tool-probe { cursor: crosshair; }
+.schematic-canvas.is-tool-erase { cursor: not-allowed; }
+.schematic-canvas.is-tool-pan { cursor: grab; }
+.schematic-canvas.is-tool-pan.is-panning,
+.schematic-canvas.is-panning { cursor: grabbing; }
+
+/* Filhos não sobrescrevem o cursor da ferramenta */
+.schematic-canvas.is-tool-wire *,
+.schematic-canvas.is-tool-probe * { cursor: crosshair; }
+.schematic-canvas.is-tool-erase * { cursor: not-allowed; }
+.schematic-canvas.is-tool-pan *,
+.schematic-canvas.is-tool-pan.is-panning *,
+.schematic-canvas.is-panning * { cursor: grab; }
+.schematic-canvas.is-panning * { cursor: grabbing; }
