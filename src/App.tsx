@@ -132,6 +132,22 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
     } catch { /* localStorage indisponível */ }
   }, [mode, ladderSection])
 
+
+  useEffect(() => {
+    const openLib = () => {
+      try {
+        if (window.matchMedia('(max-width: 900px)').matches) setShowLadder(false)
+      } catch { /* ignore */ }
+      setShowLibrary(true)
+    }
+    window.addEventListener('dc-cmd-open-library', openLib)
+    window.addEventListener('dcsimu:open-library', openLib)
+    return () => {
+      window.removeEventListener('dc-cmd-open-library', openLib)
+      window.removeEventListener('dcsimu:open-library', openLib)
+    }
+  }, [])
+
   useEffect(() => {
     if (!showLibrary && !showLadder) return
     const closeDrawers = (event: KeyboardEvent) => {

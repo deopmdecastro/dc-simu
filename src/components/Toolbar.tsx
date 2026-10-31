@@ -1,4 +1,5 @@
-import { ViewDiagnosticsTag } from '../diagnostics/DiagnosticsUi'
+import { ViewDiagnosticsTag, DiagnosticsTag } from '../diagnostics/DiagnosticsUi'
+import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from '../diagnostics/viewDiagnostics'
 import { uiConfirm } from '../ui/dialogs'
 import { PHONE_TOUCH_QUERY } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
@@ -73,7 +74,7 @@ const COMMAND_TOOLS: Array<{ id: CmdTool; label: string; icon: typeof IconCursor
   { id: 'select', label: 'Selecionar', icon: IconCursor, hint: 'Selecionar e arrastar símbolos; puxar um cabo a partir de um borne', key: '1' },
   { id: 'wire', label: 'Cabo', icon: IconWire, hint: 'Ligar bornes: arraste ou clique num borne e depois no destino (um cabo cria um nó)', key: '2' },
   { id: 'erase', label: 'Apagar', icon: IconErase, hint: 'Apagar o símbolo ou o cabo clicado', key: '4' },
-  { id: 'pan', label: 'Mover vista', icon: IconPan, hint: 'Mover a vista (ou botão do meio / arrastar o fundo)', key: '5' },
+  { id: 'pan', label: 'Mover vista', icon: IconHand, hint: 'Mover a vista (arrastar o fundo; botão do meio também serve)', key: '5' },
 ]
 
 const GRAFCET_TOOLS: Array<{ id: 'select' | 'pan' | 'connect'; label: string; icon: typeof IconCursor; key: string; title: string }> = [
@@ -168,6 +169,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const plcRunState = useSimStore((s) => s.sim.runState)
   // Vista Comandos: o transporte (Run/Pausa/Stop) comanda a simulação do esquema de comandos.
   const isCmd = mode === 'commands'
+  const schematicDiag = useSchematicDiagnostics()
+  const commandsDiag = useCommandsDiagnostics()
+  const ladderDiag = useLadderDiagnostics()
+  const viewDiagSummary = mode === 'commands' ? commandsDiag : mode === 'ladder' ? ladderDiag : mode === 'schematic' ? schematicDiag : null
   const cmdRunning = useCommandsUi((s) => s.rt.running)
   const cmdPaused = useCommandsUi((s) => s.paused)
   const cmdTool = useCommandsUi((s) => s.tool)
@@ -1032,6 +1037,25 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           )}
 
           <div className="flex-1 min-w-[8px]" />
+
+          {/* Etiqueta de diagnóstico (erros/avisos) — mesma linguagem do GRAFCET nas outras vistas */}
+          {!demo && viewDiagSummary && (mode === 'schematic' || mode === 'commands' || mode === 'ladder') && (
+            <button
+              type="button"
+              className={`dc-status-chip grafcet-validation ${viewDiagSummary.status === 'error' ? 'is-error' : viewDiagSummary.status === 'warning' ? 'is-warn' : 'is-ok'}`}
+              title={viewDiagSummary.status === 'ok' ? 'Sem problemas nesta vista' : 'Abrir diagnóstico'}
+              onClick={() => {
+                if (mode === 'ladder') window.dispatchEvent(new CustomEvent('dcsimu:open-diagnostics', { detail: 'ladder' }))
+                else if (mode === 'commands' || mode === 'schematic') window.dispatchEvent(new CustomEvent('dcsimu:open-diagnostics', { detail: mode }))
+              }}
+            >
+              {viewDiagSummary.status === 'error'
+                ? <><IconWarning size={12} /><span>{viewDiagSummary.errors} erro{viewDiagSummary.errors === 1 ? '' : 's'}</span></>
+                : viewDiagSummary.status === 'warning'
+                ? <><IconWarning size={12} /><span>{viewDiagSummary.warnings} aviso{viewDiagSummary.warnings === 1 ? '' : 's'}</span></>
+                : <><IconCheck size={12} /><span>Tudo OK</span></>}
+            </button>
+          )}
 
           {/* vista GRAFCET: validação, zoom e atalhos */}
           {mode === 'grafcet' && (

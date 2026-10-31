@@ -13,8 +13,9 @@
 .dc-cmd-stop { border-color: #dc2626 !important; background: #fff1f2 !important; color: #b91c1c !important; font-weight: 650; }
 
 /* Área de desenho */
-.dc-cmd-canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
-.dc-cmd-canvas:active { cursor: grabbing; }
+.dc-cmd-canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; cursor: default; user-select: none; }
+.dc-cmd-canvas.is-tool-pan, .dc-cmd-canvas.is-tool-pan:active { cursor: grab; }
+.dc-cmd-canvas.is-tool-pan:active { cursor: grabbing; }
 .dc-cmd-canvas.is-placing { cursor: copy; }
 .dc-cmd-svg { position: absolute; inset: 0; display: block; }
 .dc-cmd-text { fill: #334155; font-size: 13px; font-weight: 650; }

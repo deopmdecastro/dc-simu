@@ -334,7 +334,9 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       }
     }
     select(null)
-    startPan(event)
+    // Em «Selecionar» o fundo só desseleciona; mover a vista é com a ferramenta Mão/Pan,
+    // botão do meio ou (abaixo) Espaço+arrastar — senão mão e seleção parecem iguais.
+    if (tool === 'pan') startPan(event)
   }
   const onPartDown = (part: CmdPart, event: ReactPointerEvent) => {
     if (event.button !== 0 || tool === 'pan') return
@@ -594,8 +596,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                   className="dc-btn dc-btn-primary dc-cmd-empty-main"
                   onClick={() => {
                     try { window.dispatchEvent(new CustomEvent('dc-cmd-open-library')) } catch { /* ignore */ }
-                    const lib = document.querySelector('.dc-cmd-sidebar, [data-commands-library], .commands-library')
-                    if (lib instanceof HTMLElement) lib.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+                    try { window.dispatchEvent(new CustomEvent('dcsimu:open-library')) } catch { /* ignore */ }
                   }}
                 >
                   <IconPlus size={14} />Criar esquema IEC
