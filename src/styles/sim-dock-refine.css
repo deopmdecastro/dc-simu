@@ -25,8 +25,10 @@
 }
 .gdock.is-open { flex-basis: clamp(200px, 34%, 340px); }
 .gdock-bar {
-  display: flex; align-items: center; gap: 8px; flex: none; min-height: 42px; padding: 0 8px 0 4px;
+  display: flex; align-items: center; gap: 8px; flex: none; min-height: 42px;
+  padding: 0 8px 0 max(8px, env(safe-area-inset-left, 0px));
   background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft);
+  box-sizing: border-box;
 }
 .gdock.is-collapsed .gdock-bar { border-bottom: 0; }
 .gdock-tabs { display: flex; align-items: stretch; gap: 2px; flex: 1 1 auto; min-width: 0; align-self: stretch; overflow-x: auto; scrollbar-width: none; }
@@ -96,15 +98,20 @@
 }
 @media (max-width: 800px) {
   .gdock.is-open { flex-basis: auto; max-height: 46dvh; }
-  .gdock-bar { min-height: 46px; gap: 6px; padding: 0 6px 0 2px; }
-  .gdock-tabs button { padding: 0 10px; }
-  .gdock-tabs button { min-width: 44px; justify-content: center; }
+  /* Padding esquerdo simétrico (≥ 10 px): o 2 px anterior cortava o separador E/S no telemóvel. */
+  .gdock-bar {
+    min-height: 46px;
+    gap: 6px;
+    padding: 0 max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px));
+  }
+  .gdock-tabs { padding-left: 0; }
+  .gdock-tabs button { padding: 0 10px; min-width: 44px; justify-content: center; }
   .gdock-tabs button svg { width: 15px !important; height: 15px !important; }
   .gdock-state { height: 30px; padding: 0 8px; }
   /* No telemóvel o transporte já está na barra de ferramentas (sempre visível): o painel
      mostra só o estado, para os separadores terem nome e alvo de toque. */
   .gdock-transport.sim-transport { display: none; }
-  .gdock-body { padding: 10px 12px 14px; }
+  .gdock-body { padding: 10px 12px 14px; padding-left: max(12px, env(safe-area-inset-left, 0px)); }
 }
 @media (max-width: 380px) {
   .gdock-state-label { display: none; }

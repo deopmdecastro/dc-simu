@@ -29,7 +29,11 @@
 @media (max-width: 720px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   .dc-statusbar {
     height: auto !important; min-height: 30px;
-    padding-bottom: var(--mr-safe-bottom); padding-inline: 10px; gap: 8px !important;
+    padding-bottom: var(--mr-safe-bottom);
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    gap: 8px !important;
+    box-sizing: border-box;
   }
   /* Versão e contador de ciclos são ruído no telemóvel; o resto cabe numa linha. */
   .dc-statusbar .dc-sb-brand,
