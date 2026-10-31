@@ -393,6 +393,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'cmd-rotate', label: 'Rodar 90°', icon: <IconRotate size={15} />, kbd: 'R', disabled: cmdSelection?.type !== 'part' || cmdRunning, disabledReason: 'Selecione um símbolo', onSelect: () => useCommandsUi.getState().emit('rotate') },
     { id: 'cmd-delete', label: 'Apagar seleção', icon: <IconDelete size={15} />, kbd: 'Del', disabled: !cmdSelection || cmdRunning, disabledReason: 'Selecione um símbolo ou cabo', onSelect: () => useCommandsUi.getState().emit('delete') },
     { id: 'cmd-examples', label: 'Exemplos', icon: <IconTemplates size={15} />, disabled: cmdRunning, onSelect: () => useCommandsUi.getState().emit('examples') },
+    { id: 'cmd-import', label: 'Importar', icon: <IconImport size={15} />, disabled: cmdRunning, onSelect: () => useCommandsUi.getState().emit('import') },
     { id: 'cmd-clear', label: 'Limpar esquema', icon: <IconErase size={15} />, disabled: !cmdHasParts || cmdRunning, onSelect: () => useCommandsUi.getState().emit('clear') },
   ] }] : mode === 'schematic' ? [{ title: 'Ferramentas do esquema', items: TOOLS.map(({ id, label, icon: Icon, hint, key }) => ({ id, label, hint, icon: <Icon size={15} />, kbd: key, pressed: tool === id, onSelect: () => setTool(id) })) }, {
     title: 'Disposição', items: [
@@ -644,6 +645,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdSelection || cmdRunning} onClick={() => useCommandsUi.getState().emit('delete')} title="Apagar o símbolo ou cabo selecionado [Del]"><IconDelete size={13} /><span className="hidden lg:inline">Apagar</span></button>
             <span className="tb-sep" />
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo IEC (arranque, inversão, emergência, pneumática…)"><IconTemplates size={13} /><span>Exemplos</span></button>
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('import')} title="Importar FluidSIM (.ct) ou CADe SIMU (.cad)"><IconImport size={13} /><span>Importar</span></button>
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span className="hidden xl:inline">Limpar</span></button>
             <span className="tb-sep" />
             {annotationTools}

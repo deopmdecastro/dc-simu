@@ -20,6 +20,8 @@ import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, re
 import { emptyCmdRuntime, isClosed } from './engine'
 import { CmdSymbol, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES } from './examples'
+import CommandsImportDialog from './CommandsImportDialog'
+import type { CircuitImportResult } from './fluidSimCircuit'
 import { MOMENTARY, TOGGLES, useCommandsUi } from './commandsUi'
 import { addPart, commitDiagram, defaultTag, removeItem, removeSelected, rotateSelected } from './editing'
 import { CommandsNotesLayer, CommandsTextsLayer, CommandsTextToolbar, DEFAULT_TEXT_STYLE_COMMANDS } from './CommandsAnnotations'
@@ -216,6 +218,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     else if (name === 'zoomOut') zoomAt(1 / 1.15)
     else if (name === 'zoomReset') setView((v) => ({ ...v, scale: 1 }))
     else if (name === 'examples') void loadExample()
+    else if (name === 'import') setImportOpen(true)
     else if (name === 'clear') void clearAll()
     else if (name === 'rotate' && editable) rotateSelected()
     else if (name === 'delete' && editable) removeSelected()
@@ -602,6 +605,11 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                     ))}
                   </div>
                 )}
+                {!demo && (
+                  <button type="button" className="dc-btn" onClick={() => setImportOpen(true)}>
+                    Importar FluidSIM / CADe SIMU
+                  </button>
+                )}
                 <button
                   type="button"
                   className="dc-btn dc-cmd-empty-wide"
@@ -651,6 +659,21 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
             onChange={({ x, y }) => setView((v) => ({ ...v, x: -x * v.scale, y: -y * v.scale }))} />
         </div>
       </div>
+      <CommandsImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(result: CircuitImportResult, source: string) => {
+          useCommandsUi.getState().stop()
+          commit(result.diagram)
+          select(null)
+          const first = result.diagram.pages?.[0]?.id
+          if (first) setActivePageId(first)
+          const ign = result.ignored.length ? ` · ${result.ignored.length} tipos ignorados` : ''
+          notify(`Importado «${source}»: ${result.stats.symbols} símbolos, ${result.stats.wires} cabos${ign}`)
+          window.setTimeout(() => fit(result.diagram), 30)
+        }}
+      />
     </div>
   )
 }
+

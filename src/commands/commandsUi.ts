@@ -8,7 +8,7 @@ import { DEFAULT_PAGE_ID } from './pages'
 
 export type CmdTool = 'select' | 'wire' | 'erase' | 'pan'
 export type CmdSelection = { type: 'part' | 'wire'; id: string } | null
-export type CmdUiEvent = 'fit' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'examples' | 'clear' | 'rotate' | 'delete' | 'focusSelection'
+export type CmdUiEvent = 'fit' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'examples' | 'import' | 'clear' | 'rotate' | 'delete' | 'focusSelection'
 
 interface CommandsUi {
   tool: CmdTool
