@@ -5,13 +5,14 @@
  * Como nos aparelhos reais:
  *  - raízes juntas (um só cabo a sair do corpo, ex.: sensor) → bainha multipolar preta que se abre
  *    nos condutores coloridos;
- *  - raízes afastadas (ex.: base da torre) → fios individuais, quase paralelos;
+ *  - torre SB2-3011 → tampa e bucim central, com fios separados até aos bornes;
+ *  - restantes raízes afastadas → fios individuais, quase paralelos;
  *  - em ambos, o fim de cada condutor é cobre descarnado.
  */
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
-import { leadPigtailLayout, type Core } from './leadPigtailLayout'
+import { leadPigtailLayout, towerCableEntry, type Core } from './leadPigtailLayout'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 
 const U = PANEL_UNITS_PER_MM
@@ -45,6 +46,36 @@ function CoreMesh({ core }: { core: Core }) {
   </group>
 }
 
+/** Tampa sobre a cavidade e bucim central, modelados como acessórios visuais. */
+function TowerCableEntry3D({ component }: { component: ElectricalComponent }) {
+  const entry = towerCableEntry(component)
+  if (!entry) return null
+  const { center, coverWidth, coverDepth, coverThickness, glandRadius } = entry
+  return <group position={center} name="tower-cable-entry" userData={{ noSnapshot: true }}>
+    <mesh position={[0, -coverThickness / 2, 0]} castShadow>
+      <boxGeometry args={[coverWidth, coverThickness, coverDepth]} />
+      <meshStandardMaterial color="#30363d" metalness={0.45} roughness={0.52} />
+    </mesh>
+    {/* Porca hexagonal e corpo do bucim na face exterior da tampa. */}
+    <mesh position={[0, -3.3 * U, 0]} castShadow>
+      <cylinderGeometry args={[glandRadius * 1.18, glandRadius * 1.18, 2.8 * U, 6]} />
+      <meshStandardMaterial color="#2b3035" metalness={0.24} roughness={0.5} />
+    </mesh>
+    <mesh position={[0, -6.7 * U, 0]} castShadow>
+      <cylinderGeometry args={[glandRadius, glandRadius * 0.83, 4.5 * U, 16]} />
+      <meshStandardMaterial color="#181d22" metalness={0.15} roughness={0.48} />
+    </mesh>
+    <mesh position={[0, -9.2 * U, 0]}>
+      <cylinderGeometry args={[glandRadius * 0.7, glandRadius * 0.7, 1 * U, 16]} />
+      <meshStandardMaterial color="#0c1014" roughness={0.8} />
+    </mesh>
+    {[-1, 1].map(sign => <mesh key={sign} position={[sign * 15.5 * U, -2.1 * U, 0]}>
+      <cylinderGeometry args={[1.15 * U, 1.15 * U, 0.5 * U, 12]} />
+      <meshStandardMaterial color="#9ca3af" metalness={0.8} roughness={0.35} />
+    </mesh>)}
+  </group>
+}
+
 /** Desenha os cabos soltos de um componente (torre de luz, sensores de 3 fios…). */
 export default function LeadPigtails3D({ component }: { component: ElectricalComponent }) {
   const layout = useMemo(() => leadPigtailLayout(component), [component])
@@ -53,6 +84,7 @@ export default function LeadPigtails3D({ component }: { component: ElectricalCom
   if (!layout) return null
   return (
     <group name={`leads-${component.id}`} userData={{ noSnapshot: true }}>
+      <TowerCableEntry3D component={component} />
       {layout.sheath && <>
         <mesh geometry={layout.sheath.geometry} castShadow>
           <meshStandardMaterial color={SHEATH} roughness={0.62} metalness={0.05} envMapIntensity={0.8} />

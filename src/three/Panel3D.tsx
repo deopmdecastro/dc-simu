@@ -5,7 +5,7 @@ import { importedComponentInfo, importedActuationPatch } from '../electrical/imp
 import { animateImportedRig, paintImportedModel, rigImportedModel } from './importedFinish'
 import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, useGLTF, useProgress } from '@react-three/drei'
+import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, Billboard, useGLTF, useProgress } from '@react-three/drei'
 import { Text } from './SceneText'
 import { useRef, useMemo, useState, useEffect, useId, Suspense, Component, type MutableRefObject } from 'react'
 import { createPortal } from 'react-dom'
@@ -376,7 +376,8 @@ function ConnectionTerminal3D({ component, terminal, active, onPick }: {
   const position = terminalLocal3D(component, terminal)
   const k = terminalMarkerScale(terminal)
   const [hover, setHover] = useState(false)
-  const radius = terminalMarkerRadius(component, terminal) * (active ? 1.1 : hover ? 1.05 : 1)
+  const isLead = terminal.contact === 'lead'
+  const radius = Math.max(isLead ? 0.014 : 0, terminalMarkerRadius(component, terminal)) * (active ? 1.1 : hover ? 1.05 : 1)
   return <group position={position}
     onClick={onPick ? (event) => { event.stopPropagation(); onPick(terminal.id) } : undefined}
     onPointerDown={(event) => event.stopPropagation()}
@@ -387,7 +388,9 @@ function ConnectionTerminal3D({ component, terminal, active, onPick }: {
       <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : terminal.color} emissiveIntensity={active ? 1 : hover ? 0.45 : 0.2} />
     </mesh>
     <mesh><sphereGeometry args={[Math.max(0.012, radius * 1.8), 10, 10]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
-    {(active || hover) && <Text position={[0, 0.045 + 0.035 * k, 0]} fontSize={0.048} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>}
+    {(active || hover || isLead) && <Billboard position={[0, 0.045 + 0.035 * k, 0]}>
+      <Text fontSize={0.048} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>
+    </Billboard>}
   </group>
 }
 

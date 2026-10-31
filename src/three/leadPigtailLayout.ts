@@ -17,6 +17,22 @@ function rootLocal(component: ElectricalComponent, terminal: Terminal): THREE.Ve
   return tip.clone().multiplyScalar(0.85)
 }
 
+/** Tampa e bucim adicionados à abertura retangular da base do CAD SB2-3011.
+ * Medidas visuais aproximadas em mm, não são uma especificação do fabricante. */
+export function towerCableEntry(component: ElectricalComponent) {
+  if (component.type !== 'towerLightSb23011') return null
+  const dim = component3DDimensions(component)
+  const baseY = -dim.y / 2
+  const center = new THREE.Vector3(0, baseY, 9.5 * U)
+  return {
+    center,
+    coverWidth: 34 * U, coverDepth: 22 * U, coverThickness: 2 * U,
+    glandRadius: 6 * U,
+    // Extremidade visível do bucim, com o conjunto de fios a sair pelo centro.
+    exit: center.clone().add(new THREE.Vector3(0, -10 * U, 0)),
+  }
+}
+
 export type Core = { terminal: Terminal; points: THREE.Vector3[]; tip: THREE.Vector3; radius: number; color: string }
 
 export function leadPigtailLayout(component: ElectricalComponent) {
@@ -34,6 +50,19 @@ export function leadPigtailLayout(component: ElectricalComponent) {
   const perp = side.sub(dir.clone().multiplyScalar(side.dot(dir))).normalize()
   const radiusOf = (t: Terminal) => Math.max(0.6, (t.socket3D?.diameterMm ?? t.diameter ?? 1.5) * 0.5) * U
   const fanOf = (index: number) => (items.length <= 1 ? 0 : (index / (items.length - 1)) * 2 - 1)
+
+  const entry = towerCableEntry(component)
+  if (entry) {
+    // Os quatro fios saem do mesmo bucim e abrem em leque até aos bornes
+    // já existentes; posições elétricas e raízes guardadas não são alteradas.
+    const cores: Core[] = items.map(({ terminal, tip }, index) => {
+      const fan = fanOf(index)
+      const start = entry.exit.clone().add(new THREE.Vector3(fan * 1.1 * U, 2 * U, 0))
+      const mid = start.clone().lerp(tip, 0.5).addScaledVector(perp, fan * 1.5 * U)
+      return { terminal, tip, points: [start, mid, tip], radius: radiusOf(terminal) * 0.75, color: terminal.color || '#1e293b' }
+    })
+    return { sheath: null, cores }
+  }
 
   if (items.length > 1 && spread < MULTICORE_SPREAD_MM * U) {
     // Cabo multipolar: bainha comum até ~40 % do comprimento, depois os condutores abrem-se.

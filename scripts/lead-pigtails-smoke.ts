@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { createComponent, upgradeRealInterfacePositions } from '../src/electrical/factory'
 import { REAL_TERMINALS, leadRootPosition, realTerminalPosition } from '../src/electrical/realInterfaces'
-import { leadPigtailLayout } from '../src/three/leadPigtailLayout'
+import { leadPigtailLayout, towerCableEntry } from '../src/three/leadPigtailLayout'
 import { terminalLocal3D, terminalWorld3D } from '../src/three/terminal3D'
 import { fitComponentModel } from '../src/three/modelFit'
 import { getComponentModelSpec } from '../src/three/modelPaths'
@@ -45,6 +45,19 @@ const towerLayout = leadPigtailLayout(tower)!
 assert.equal(towerLayout.sheath, null)
 assert.equal(towerLayout.cores.length, 4)
 for (const core of towerLayout.cores) assert.ok(core.tip.distanceTo(terminalLocal3D(tower, core.terminal)) < 1e-10)
+const entry = towerCableEntry(tower)!
+assert.ok(entry && !towerCableEntry(sensor), 'tampa/bucim apenas na torre correspondente')
+assert.ok(entry.coverWidth >= .30 && entry.coverDepth >= .18, 'tampa cobre abertura medida no CAD')
+assert.equal(entry.exit.y, entry.center.y - .1, 'bucim fica para fora da base')
+for (const core of towerLayout.cores) {
+  const start = core.points[0]
+  assert.ok(Math.abs(start.x - entry.exit.x) + core.radius < entry.glandRadius * .7, 'cada fio sai pelo bucim')
+  assert.ok(Math.abs(start.z - entry.exit.z) + core.radius < entry.glandRadius * .7, 'fio nasce dentro do bucim')
+}
+assert.deepEqual(towerLayout.cores.map(c => c.terminal.label), ['R', 'Y', 'G', 'COM'])
+const restoredTower = upgradeRealInterfacePositions(JSON.parse(JSON.stringify(tower)))
+assert.deepEqual(restoredTower.terminals, tower.terminals, 'reabertura conserva bornes, IDs e pontos')
+
 
 const oldY: Record<string, number> = { COM: .95, NA: .905, NF: .995 }
 const oldZ: Record<string, number> = { COM: .19, NA: .24, NF: .14 }
@@ -85,4 +98,4 @@ for (const core of layout.cores) {
   assert.ok(expected.distanceTo(terminalWorld3D(sensor, core.terminal, pivot)) < 1e-9, 'ponta visual e alvo elétrico permanecem alinhados após transformar')
 }
 layout.sheath!.geometry.dispose()
-console.log('PASS — bainha CAD contínua, fios e bornes coincidentes, torre, migração e transformações')
+console.log('PASS — bainha CAD, tampa e bucim, fios e bornes coincidentes, migração e transformações')
