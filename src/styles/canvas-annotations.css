@@ -18,7 +18,7 @@
   position: relative; display: inline-flex; align-items: center; gap: 7px; max-width: 220px; height: 34px; padding: 0 11px 0 8px;
   border: 1px solid color-mix(in srgb, var(--note-edge) 45%, transparent); border-radius: 10px 10px 10px 3px;
   background: var(--note-paper); color: var(--note-ink); box-shadow: var(--note-shadow);
-  font: 650 12.5px/1 var(--dx-font, Inter, system-ui, sans-serif); white-space: nowrap; cursor: grab; touch-action: none;
+  font: 650 12.5px/1 var(--dx-font, Inter, system-ui, sans-serif); white-space: nowrap; cursor: pointer; touch-action: none;
   transition: transform .12s ease, box-shadow .12s ease;
 }
 .cnote-chip::after { /* ponta da nota a apontar para o sítio do desenho */
@@ -49,7 +49,7 @@
 .cnote-head { display: flex; align-items: center; gap: 4px; padding: 12px 8px 8px 12px; }
 .cnote-title-input {
   flex: 1; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid transparent; border-radius: 8px;
-  background: transparent; color: var(--note-ink); font: 750 14px/1.2 var(--dx-font, Inter, system-ui, sans-serif);
+  background: transparent; color: var(--note-ink); font: 750 14px/1.2 var(--dx-font, Inter, system-ui, sans-serif); cursor: text; caret-color: var(--note-ink);
 }
 .cnote-title-input::placeholder { color: color-mix(in srgb, var(--note-ink) 45%, transparent); }
 .cnote-title-input:hover { background: rgba(255, 255, 255, .45); }
@@ -83,7 +83,7 @@
 .cnote-compose textarea {
   flex: 1; min-width: 0; max-height: 120px; padding: 8px 10px; resize: none;
   border: 1px solid color-mix(in srgb, var(--note-edge) 40%, transparent); border-radius: 10px;
-  background: rgba(255, 255, 255, .78); color: #1f2937; font: 500 12.5px/1.45 var(--dx-font, Inter, system-ui, sans-serif);
+  background: rgba(255, 255, 255, .78); color: #1f2937; font: 500 12.5px/1.45 var(--dx-font, Inter, system-ui, sans-serif); cursor: text; caret-color: #2563eb;
   field-sizing: content;
 }
 .cnote-compose textarea:focus { outline: none; border-color: var(--note-edge); background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--note-edge) 22%, transparent); }
@@ -124,6 +124,15 @@
 .txb-spacer { flex: 1; }
 .txb-color i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--pn-line, #d3dbe5); }
 .txb-text-btn { border: 1px solid var(--pn-line, #d3dbe5) !important; }
+.txb-text-btn span { white-space: nowrap; }
+.txb-layout { border: 1px solid var(--pn-line, #d3dbe5) !important; }
+.txb-layout-panel { right: 0; left: auto; display: grid; gap: 10px; width: min(240px, calc(100vw - 32px)); padding: 12px; }
+.txb-layout-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--pn-ink-2, #3d4b5e); font-size: 12px; font-weight: 650; }
+.txb-layout-control { display: inline-flex; align-items: center; gap: 5px; }
+.txb-layout-control input { width: 74px; height: 30px; padding: 0 7px; border: 1px solid var(--pn-line, #d3dbe5); border-radius: 7px; color: var(--pn-ink, #17202e); background: #fff; font: 650 12px var(--dx-font, Inter, system-ui, sans-serif); text-align: right; }
+.txb-layout-control input:focus { outline: none; border-color: var(--pn-brand, #2655e5); box-shadow: 0 0 0 2px color-mix(in srgb, var(--pn-brand, #2655e5) 18%, transparent); }
+.txb-layout-control small { min-width: 14px; color: var(--pn-ink-3, #64748b); font-size: 10px; font-weight: 600; }
+.txb-layout-reset { justify-content: center !important; width: 100%; min-height: 30px; border-top: 1px solid var(--pn-line-soft, #e2e8f0) !important; border-radius: 0 !important; color: var(--pn-brand-ink, #1e42d3) !important; font-size: 11px !important; }
 .txb-icon.is-danger:hover { background: #fee2e2 !important; color: #b91c1c !important; }
 .txb-pop-wrap { position: relative; }
 .txb-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; margin: 0; padding: 6px; list-style: none; border: 1px solid var(--pn-line, #d3dbe5); border-radius: 12px; background: var(--pn-bg, #fff); box-shadow: 0 18px 40px -16px rgba(15, 23, 42, .5); }
@@ -138,7 +147,8 @@
 @media (max-width: 640px) {
   .txb { gap: 2px; }
   .txb button { height: 36px; min-width: 36px; }
-  .txb-text-btn { display: none !important; }
+  .txb-text-btn { display: inline-flex !important; min-width: 36px !important; padding: 0 8px !important; }
+  .txb-text-btn span, .txb-layout-label { display: none; }
   .txb-font { min-width: 96px !important; }
 }
 @media (prefers-reduced-motion: reduce) { .cnote-chip { transition: none; } }

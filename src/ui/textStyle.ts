@@ -43,7 +43,7 @@ export function textCss(style: Partial<CanvasTextStyle>, sizePx: number): CSSPro
     textDecoration: style.underline ? 'underline' : 'none',
     textAlign: style.align ?? 'left',
     background: style.background || 'transparent',
-    whiteSpace: 'pre',
+    whiteSpace: 'pre-wrap',
   }
 }
 

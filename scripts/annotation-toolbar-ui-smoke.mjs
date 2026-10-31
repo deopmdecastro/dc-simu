@@ -6,7 +6,11 @@ import { chromium } from 'playwright'
 // Anotações nas barras: 2D/3D/GRAFCET, criação, arrasto, persistência e ecrãs pequenos.
 const baseURL = process.env.EDITOR3D_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.EDITOR3D_TEST_OUTPUT
-const browser = await chromium.launch(process.env.EDITOR3D_TEST_CHANNEL ? { channel: process.env.EDITOR3D_TEST_CHANNEL } : {})
+const browser = await chromium.launch(process.env.EDITOR3D_TEST_CHANNEL
+  ? { channel: process.env.EDITOR3D_TEST_CHANNEL }
+  : process.env.EDITOR3D_TEST_CHROMIUM_PATH
+    ? { executablePath: process.env.EDITOR3D_TEST_CHROMIUM_PATH }
+    : {})
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
@@ -124,13 +128,53 @@ try {
   await page.keyboard.press('Escape')
   check(await sim(store=>store.getState().grafcet.comments.some(c=>c.text==='Texto GRAFCET')),'GRAFCET: texto livre funcional na barra')
   await capture('annotations-grafcet')
+
+  // 3) Esquema IEC: comentário com cursor de escrita e texto com propriedades completas.
+  await openView('Esquema IEC')
+  await createNote('Comentário IEC')
+  const iecChip=page.locator('.dc-cmd-note-anchor .cnote-chip').first()
+  check(await iecChip.evaluate(el=>getComputedStyle(el).cursor)==='pointer','IEC: comentário indica que pode ser aberto com cursor de mão')
+  await iecChip.click()
+  const iecDialog=page.getByRole('dialog').filter({has:page.getByRole('textbox',{name:'Título do comentário'})})
+  const iecComposer=iecDialog.getByRole('textbox',{name:'Nova mensagem'})
+  await iecComposer.waitFor()
+  check(await iecComposer.evaluate(el=>document.activeElement===el&&getComputedStyle(el).cursor==='text'&&getComputedStyle(el).caretColor!=='auto'),'IEC: abrir comentário foca o campo com cursor de texto')
+  await iecDialog.getByRole('button',{name:'Fechar',exact:true}).click()
+
+  await toolbar.getByRole('button',{name:'Texto livre',exact:true}).click()
+  const commandsCanvas=page.locator('.dc-cmd-canvas'),commandsBox=await commandsCanvas.boundingBox()
+  await page.mouse.click(commandsBox.x+commandsBox.width*.62,commandsBox.y+commandsBox.height*.48)
+  const iecTextEditor=page.locator('.dc-cmd-text-edit')
+  await iecTextEditor.waitFor()
+  check(await iecTextEditor.evaluate(el=>document.activeElement===el&&getComputedStyle(el).cursor==='text'),'IEC: editar texto mostra o caret de escrita')
+  await iecTextEditor.fill('Rótulo IEC\nCircuito')
+  await iecTextEditor.evaluate(el=>el.blur())
+  await iecTextEditor.waitFor({state:'detached'})
+  const textBar=page.getByRole('toolbar',{name:'Formatação e propriedades do texto'})
+  await textBar.getByRole('button',{name:'Editar texto'}).click()
+  await iecTextEditor.waitFor()
+  check(await iecTextEditor.evaluate(el=>document.activeElement===el),'IEC: o botão «Editar texto» abre e foca o conteúdo')
+  await textBar.getByRole('button',{name:'Posição e dimensões'}).click()
+  await textBar.getByRole('spinbutton',{name:'Rotação do texto'}).fill('25')
+  await textBar.getByRole('spinbutton',{name:'Largura do texto'}).fill('220')
+  await textBar.getByRole('radio',{name:'Ao centro'}).click()
+  const iecText=await sim(store=>store.getState().canvasTexts.find(t=>t.view==='commands'))
+  check(iecText.text==='Rótulo IEC\nCircuito'&&iecText.rotation===25&&iecText.width===220&&iecText.align==='center','IEC: conteúdo, alinhamento, largura e rotação ficam guardados')
+  const renderedText=await page.locator('.dc-cmd-text-anchor.is-selected').evaluate(el=>({transform:el.style.transform,width:getComputedStyle(el.querySelector('.dc-cmd-text-body')).width}))
+  check(renderedText.transform==='rotate(25deg)'&&parseFloat(renderedText.width)>0,'IEC: rotação e largura são aplicadas ao texto renderizado')
+  await textBar.getByRole('button',{name:'Aumentar tamanho'}).click()
+  check(await sim(store=>store.getState().canvasTexts.find(t=>t.view==='commands').size)>iecText.size,'IEC: o cartão permite aumentar o tamanho do texto')
+  check(await page.locator('.dc-cmd-text-anchor').first().evaluate(el=>getComputedStyle(el).cursor)==='pointer','IEC: texto selecionável apresenta cursor de mão')
+  await textBar.getByRole('button',{name:'Concluir'}).click()
+  await capture('annotations-iec')
+
   const before=await sim(store=>({notes:store.getState().canvasNotes,texts:store.getState().canvasTexts,comments:store.getState().grafcet.comments}))
   await sim(store=>store.getState().loadJSON(store.getState().saveJSON()))
   assert.deepEqual(JSON.parse(JSON.stringify(await sim(store=>({notes:store.getState().canvasNotes,texts:store.getState().canvasTexts,comments:store.getState().grafcet.comments})))),JSON.parse(JSON.stringify(before)))
   for(const width of [1280,768,390]) {
     await page.setViewportSize({width,height:900})
     await page.waitForTimeout(200)
-    for(const view of ['3D Realista','GRAFCET']) {
+    for(const view of ['3D Realista','GRAFCET','Esquema IEC']) {
       await openView(view)
       if(width<1280) {
         await toolbar.getByRole('button',{name:'Ferramentas',exact:true}).click()

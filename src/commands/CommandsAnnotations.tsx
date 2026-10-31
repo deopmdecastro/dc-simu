@@ -115,7 +115,7 @@ export function CommandsTextsLayer({
           <div
             key={item.id}
             className={`dc-cmd-text-anchor${selected ? ' is-selected' : ''}`}
-            style={{ left: viewX + item.x * scale, top: viewY + item.y * scale }}
+            style={{ left: viewX + item.x * scale, top: viewY + item.y * scale, transform: `rotate(${item.rotation ?? 0}deg)`, transformOrigin: 'top left' }}
             onPointerDown={(event) => {
               if (readOnly || event.button !== 0) return
               event.stopPropagation()
@@ -153,7 +153,7 @@ export function CommandsTextsLayer({
             {editing ? (
               <textarea
                 className="dc-cmd-text-edit"
-                style={{ ...textCss(item, sizePx), fontFamily: fontStack(item.font) }}
+                style={{ ...textCss(item, sizePx), fontFamily: fontStack(item.font), width: item.width == null ? undefined : Math.max(60, item.width * scale) }}
                 defaultValue={item.text}
                 autoFocus
                 onPointerDown={(e) => e.stopPropagation()}
@@ -177,6 +177,7 @@ export function CommandsTextsLayer({
                   fontFamily: fontStack(item.font),
                   background: item.background || undefined,
                   textDecoration: item.underline ? 'underline' : undefined,
+                  width: item.width == null ? undefined : Math.max(60, item.width * scale),
                 }}
               >
                 {item.text || 'Texto'}
@@ -192,9 +193,11 @@ export function CommandsTextsLayer({
 export function CommandsTextToolbar({
   text,
   onDone,
+  onEdit,
 }: {
   text: CanvasText
   onDone: () => void
+  onEdit: () => void
 }) {
   return (
     <div className="dc-cmd-text-toolbar">
@@ -202,12 +205,16 @@ export function CommandsTextToolbar({
         style={text}
         unit="px"
         onChange={(patch) => useSimStore.getState().updateCanvasText(text.id, patch)}
+        rotation={text.rotation}
+        onRotationChange={(rotation) => useSimStore.getState().updateCanvasText(text.id, { rotation })}
+        width={text.width}
+        onWidthChange={(width) => useSimStore.getState().updateCanvasText(text.id, { width })}
         onDelete={() => {
           useSimStore.getState().removeCanvasText(text.id)
           onDone()
         }}
         onDone={onDone}
-        onEdit={() => { /* parent sets editing */ }}
+        onEdit={onEdit}
       />
     </div>
   )

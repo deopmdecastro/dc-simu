@@ -693,6 +693,10 @@ export interface CanvasText extends CanvasTextStyle {
   x: number
   y: number
   z?: number
+  /** Rotação visual em graus; usada pelo Esquema IEC. */
+  rotation?: number
+  /** Largura do bloco em unidades do canvas; indefinida = automática. */
+  width?: number
   /** Página do Esquema IEC (folha). */
   page?: string
   createdAt: string

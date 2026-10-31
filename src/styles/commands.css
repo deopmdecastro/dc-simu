@@ -295,9 +295,10 @@
 }
 .dc-cmd-text-anchor {
   transform: translate(0, 0);
-  cursor: grab;
+  cursor: pointer;
   max-width: min(320px, 60vw);
 }
+.dc-cmd-text-anchor:active { cursor: grabbing; }
 .dc-cmd-text-anchor.is-selected .dc-cmd-text-body {
   outline: 2px solid var(--dx-brand, #2655e5);
   outline-offset: 2px;
@@ -320,6 +321,8 @@
   resize: both;
   font: inherit;
   line-height: 1.2;
+  cursor: text;
+  caret-color: var(--dx-brand, #2655e5);
 }
 .dc-cmd-text-toolbar {
   position: absolute;

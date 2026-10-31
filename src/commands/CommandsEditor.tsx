@@ -799,7 +799,11 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
             readOnly={!editable}
           />
           {selectedFreeText && editable && (
-            <CommandsTextToolbar text={selectedFreeText} onDone={() => { setSelectedTextId(null); setEditingTextId(null) }} />
+            <CommandsTextToolbar
+              text={selectedFreeText}
+              onDone={() => { setSelectedTextId(null); setEditingTextId(null) }}
+              onEdit={() => setEditingTextId(selectedFreeText.id)}
+            />
           )}
           {running && <div className="dc-cmd-hint">{paused ? 'Simulação em pausa' : 'Simulação: prima os botões no esquema · clique no térmico para o disparar'}</div>}
           <CanvasPanScrollbars label="Esquema de comandos" controlsId={canvasId}
