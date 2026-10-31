@@ -65,7 +65,7 @@ export const FACE_INWARD: Record<RealTerminalSpot['face'], [number, number, numb
 export const LEAD_PIGTAIL_LENGTH_MM = 45
 
 /** Ponto de ligação: dentro do encaixe (socket) ou na ponta do cabo solto (lead). */
-export function realTerminalPosition(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
+export function realTerminalPosition(type: ComponentType, spot: RealTerminalSpot, legacyLead = false): { x: number; y: number; z: number } {
   const size = getComponentPhysicalSizeMm(type)
   const clamp = (value: number) => Math.min(1, Math.max(0, value))
   const [inx, iny, inz] = FACE_INWARD[spot.face]
@@ -77,7 +77,10 @@ export function realTerminalPosition(type: ComponentType, spot: RealTerminalSpot
     if (!size) return { x: spot.x, y: 1 - spot.y, z: spot.z }
     return {
       x: spot.x + (ox * len) / size.width,
-      y: 1 - (spot.y + (oy * len) / size.height),
+      // Os condutores do XUKT saem separados e não convergem nas pontas de cobre.
+      y: 1 - (spot.y + (oy * len) / size.height) + (!legacyLead && type === 'photoSensorXukt1ksml2'
+        ? ({ COM: -6, NA: 0, NF: 6 } as Record<string, number>)[spot.label] / size.height || 0
+        : 0),
       z: spot.z + (oz * len) / size.depth,
     }
   }

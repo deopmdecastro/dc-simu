@@ -955,6 +955,24 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     const previous = LEGACY_REAL_TERMINALS[c.type]?.find((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
     const at = terminal.position3D
     if (!spot || terminal.pinned) return canonical
+    // XUKT: as primeiras raízes automáticas estavam deslocadas do fim da
+    // bainha que já existe no CAD. Migrar só o par ponta/raiz conhecido;
+    // bornes movidos ou fixados pelo utilizador nunca são reposicionados.
+    if (c.type === 'photoSensorXukt1ksml2' && terminal.contact === 'lead' && at && terminal.socket3D?.position) {
+      const oldY: Record<string, number> = { COM: 0.95, NA: 0.905, NF: 0.995 }
+      const oldZ: Record<string, number> = { COM: 0.19, NA: 0.24, NF: 0.14 }
+      if (oldY[label] !== undefined) {
+        const oldSpot = { ...spot, y: oldY[label], z: oldZ[label] }
+        const oldTip = realTerminalPosition(c.type, oldSpot, true)
+        const oldRoot = leadRootPosition(c.type, oldSpot)
+        const root = terminal.socket3D.position
+        const close = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-6
+        if (close(at, oldTip) && close(root, oldRoot)) {
+          changed = true
+          return { ...canonical, position3D: realTerminalPosition(c.type, spot), socket3D: { ...terminal.socket3D, position: leadRootPosition(c.type, spot) } }
+        }
+      }
+    }
     // Projetos antigos sem pigtails: aplica contact:lead + cores + socket da ficha real.
     if (spot.contact === 'lead' && terminal.contact !== 'lead') {
       changed = true

@@ -594,8 +594,8 @@
       "label": "COM",
       "face": "left",
       "x": 0.000207,
-      "y": 0.95,
-      "z": 0.19,
+      "y": 0.978,
+      "z": 0.036,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"
@@ -604,8 +604,8 @@
       "label": "NA",
       "face": "left",
       "x": 0.000207,
-      "y": 0.905,
-      "z": 0.24,
+      "y": 0.964,
+      "z": 0.036,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"
@@ -614,8 +614,8 @@
       "label": "NF",
       "face": "left",
       "x": 0.000207,
-      "y": 0.995,
-      "z": 0.14,
+      "y": 0.95,
+      "z": 0.036,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"
