@@ -802,3 +802,15 @@
 .dx-kind input { margin-top: 3px; accent-color: var(--dx-brand, #2563eb); }
 .dx-kind span { display: grid; gap: 2px; }
 .dx-kind small { color: var(--dx-ink-4, #6b7280); font-size: 12px; line-height: 1.35; }
+/* Lista de tipos no «Criar projeto»: rola em ecrãs baixos (4 opções). */
+.dx-dialog-kind-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(52vh, 360px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+@media (min-height: 780px) {
+  .dx-dialog-kind-list { max-height: none; overflow: visible; }
+}

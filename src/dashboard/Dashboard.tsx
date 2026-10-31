@@ -701,7 +701,7 @@ export default function Dashboard({
               {modal.type === 'create' && (
                 <fieldset className="dx-field" style={{ border: 0, padding: 0, margin: '12px 0 0' }}>
                   <legend className="dx-label">Tipo de projeto</legend>
-                  <div role="radiogroup" aria-label="Tipo de projeto" style={{ display: 'grid', gap: 8 }}>
+                  <div role="radiogroup" aria-label="Tipo de projeto" className="dx-dialog-kind-list">
                     {PROJECT_KINDS.map((k) => (
                       <label key={k.id} className={`dx-kind ${kind === k.id ? 'is-on' : ''}`}>
                         <input type="radio" name="project-kind" value={k.id} checked={kind === k.id} onChange={() => setKind(k.id)} />

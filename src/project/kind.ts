@@ -4,9 +4,9 @@ export type WorkspaceView = 'schematic' | 'ladder' | 'grafcet' | 'commands' | 'm
 
 export const PROJECT_KINDS: Array<{ id: ProjectKind; label: string; short: string; detail: string }> = [
   { id: 'all', label: 'Tudo', short: 'Completo', detail: '3D Realista, Esquema IEC, Ladder, GRAFCET e monitor — o simulador completo.' },
+  { id: 'commands', label: 'Esquema IEC', short: 'Esquema IEC', detail: 'Só o editor de esquemas IEC 60617 (potência e comando: contactores, botões, temporizadores, motores) e o seu simulador.' },
   { id: 'ladder', label: 'Ladder', short: 'Ladder', detail: 'Só o editor Ladder, o seu simulador (scan, entradas/saídas) e o monitor.' },
   { id: 'grafcet', label: 'GRAFCET', short: 'GRAFCET', detail: 'Só o editor GRAFCET e o seu simulador (etapas, transições, entradas/saídas).' },
-  { id: 'commands', label: 'Esquema IEC', short: 'Esquema IEC', detail: 'Esquema de potência e comando (contactores, botões, temporizadores, motores) e o seu simulador.' },
 ]
 
 export const VIEWS_BY_KIND: Record<ProjectKind, WorkspaceView[]> = {
