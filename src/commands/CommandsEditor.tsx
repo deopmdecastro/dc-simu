@@ -589,32 +589,37 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                 ? 'Coloque símbolos nesta página ou use «Ligação entre páginas» para trazer corrente de outra folha.'
                 : 'Escolha símbolos na Biblioteca ou parta de um exemplo, de um modelo ou de um ficheiro.'}</p>
               <div className="dc-cmd-empty-actions">
-                {!demo && (
-                  <button type="button" className="dc-btn dc-btn-primary dc-cmd-empty-main" onClick={() => loadExample()}>
-                    <IconTemplates size={14} />Ver todos os exemplos
-                  </button>
-                )}
-                {!demo && (
-                  <button type="button" className="dc-btn" title="Arranque direto com retenção" onClick={() => applyExample('direct')}>
-                    <IconExample size={14} />Arranque direto
-                  </button>
-                )}
-                {!demo && (
-                  <button type="button" className="dc-btn" onClick={() => setImportOpen(true)}>
-                    <IconImport size={14} />Importar FluidSIM
-                  </button>
-                )}
                 <button
                   type="button"
-                  className="dc-btn dc-cmd-empty-wide"
+                  className="dc-btn dc-btn-primary dc-cmd-empty-main"
                   onClick={() => {
                     try { window.dispatchEvent(new CustomEvent('dc-cmd-open-library')) } catch { /* ignore */ }
                     const lib = document.querySelector('.dc-cmd-sidebar, [data-commands-library], .commands-library')
                     if (lib instanceof HTMLElement) lib.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
                   }}
                 >
-                  <IconPlus size={14} />Escolher símbolos na Biblioteca
+                  <IconPlus size={14} />Criar esquema IEC
                 </button>
+                {!demo && (
+                  <button type="button" className="dc-btn" onClick={() => loadExample()}>
+                    <IconTemplates size={14} />Modelos industriais
+                  </button>
+                )}
+                {!demo && (
+                  <button type="button" className="dc-btn" onClick={() => setImportOpen(true)}>
+                    <IconImport size={14} />Importar esquema
+                  </button>
+                )}
+                {!demo && (
+                  <button
+                    type="button"
+                    className="dc-btn dc-cmd-empty-wide"
+                    title="Arranque direto com retenção, paragem e relé térmico"
+                    onClick={() => applyExample('direct')}
+                  >
+                    <IconExample size={14} />Exemplo de arranque direto
+                  </button>
+                )}
               </div>
             </div>
           )}
