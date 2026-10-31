@@ -3125,3 +3125,8 @@ button.dc-diag-tag:focus-visible { outline: 2px solid #2563eb; outline-offset: 1
 .pdfx-tb-field input { border: 1px solid #d9e4fa; border-radius: 8px; padding: 6px 9px; font-size: 12.5px; color: #1e2b44; background: #fff; }
 .pdfx-tb-field input:focus { outline: none; border-color: #2655e5; box-shadow: 0 0 0 2px #eaf0ff; }
 @media (max-width: 720px) { .pdfx-tb-grid { grid-template-columns: 1fr; } }
+
+/* Diagnóstico no painel direito (igual ao separador GRAFCET) */
+.dc-dock-tabs button.has-warning { border-color: #f1ce8b; background: #fffaf0; }
+.dc-dock-tabs button.has-warning.is-on { border-color: #d97706; background: #fff6e5; color: #9a5b07; }
+.dc-dock-tabs button.is-valid .dc-diag-tag.is-ok { /* já tem estilo próprio */ }

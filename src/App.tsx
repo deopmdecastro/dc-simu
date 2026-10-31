@@ -232,6 +232,19 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
     else if (mode === 'ladder' || mode === 'grafcet') window.dispatchEvent(new CustomEvent('dcsimu:open-diagnostics', { detail: mode }))
     else setMode('monitor')
   }
+  // Etiqueta de alertas na barra / badge das vistas → abrir o painel Diagnóstico (como no GRAFCET).
+  useEffect(() => {
+    const open = (event: Event) => {
+      const detail = (event as CustomEvent).detail
+      if (detail === 'schematic' || detail === 'commands') {
+        if (compact) setShowLibrary(false)
+        setRightTab('diagnostics')
+        setShowLadder(true)
+      }
+    }
+    window.addEventListener('dcsimu:open-diagnostics', open)
+    return () => window.removeEventListener('dcsimu:open-diagnostics', open)
+  }, [compact])
   const hasErrorState = mode === 'commands' ? cmdFault : simErrors > 0 || Object.values(faults ?? {}).some(Boolean)
 
   // estados do PLC — STOP → READY → RUN → PAUSE → ERROR
@@ -323,7 +336,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
                   <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')} aria-label="GRAFCET" title="GRAFCET"><IconGrafcet size={13} /><span>GRAFCET</span></button>
                   <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')} aria-label="Entradas/Saídas" title="Entradas/Saídas"><IconSchematic size={13} /><span>E/S</span></button>
                   <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')} aria-label="Objetos" title="Objetos"><IconLayers size={13} /><span>Objetos</span></button>
-                  <button role="tab" aria-selected={rightTab === 'diagnostics'} aria-label="Diagnóstico" className={rightTab === 'diagnostics' ? 'is-on' : ''} onClick={() => setRightTab('diagnostics')} data-dock-tab="diagnostics" title="Diagnóstico: erros e avisos desta vista"><span>Diagnóstico</span><ViewDiagnosticsTag view={mode === 'commands' ? 'commands' : 'schematic'} compact /></button>
+                  <button role="tab" aria-selected={rightTab === 'diagnostics'} aria-label="Diagnóstico" className={`${rightTab === 'diagnostics' ? 'is-on' : ''} ${viewDiag && viewDiag.status !== 'ok' ? 'has-warning' : 'is-valid'}`.trim()} onClick={() => setRightTab('diagnostics')} data-dock-tab="diagnostics" title="Diagnóstico: erros e avisos desta vista"><span>Diagnóstico</span><ViewDiagnosticsTag view={mode === 'commands' ? 'commands' : 'schematic'} compact /></button>
                 </div>
                 <Suspense fallback={<RouteLoading label="A carregar o GRAFCET…" />}>
                   {rightTab === 'diagnostics'
