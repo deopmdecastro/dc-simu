@@ -2581,6 +2581,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (component.type === 'towerLight') return [0, RAIL_Y + 1.3, 0.12]
     if (component.type === 'pilotLightAd22') return [0, RAIL_Y + 1.05, 0.4]
     if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [0, RAIL_Y + 1.15, 0.12]
+    if (component.type === 'capacitorRun60uF') return [0, RAIL_Y + 0.7, 0.5]
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [0, RAIL_Y + 0.9, 0.3]
     return [0, RAIL_Y + 1.05, 0.4]
   }
@@ -3280,6 +3281,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
+          else if (c.type === 'capacitorRun60uF' && getComponentModelSpec(c.type)) {
+            const [px, py, pz] = frontPivot(c)
+            const fallback = <group position={[x + px, py, pz]}>
+              <mesh castShadow><cylinderGeometry args={[0.22, 0.22, 0.55, 24]} /><meshStandardMaterial color="#c4cdd6" metalness={0.55} roughness={0.35} /></mesh>
+              <mesh position={[0, 0.3, 0]}><boxGeometry args={[0.12, 0.06, 0.08]} /><meshStandardMaterial color="#1e293b" /></mesh>
+              <Label text={c.ref} position={[0, 0.42, 0]} />
+            </group>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><CadComponentReal3D c={c} x={x} position={[x + px, py, pz]} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+          }
           else if (c.type === 'motor3ph') {
             const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>

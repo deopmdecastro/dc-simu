@@ -3,6 +3,8 @@ import { createGltfLoader } from './gltfLoader'
 import type { ComponentType } from '../types'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
+import { paintImportedModel } from './importedFinish'
+import { importedComponentInfo } from '../electrical/importedComponents'
 import { applyEditorMotorTextures, waitMotorTextures } from './motorEditorTextures'
 import { applyCadSurfaceTextures } from './cadSurface'
 import { addStudioLights, getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
@@ -146,6 +148,10 @@ async function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentTy
     await waitMotorTextures()
     return
   }
+  // Importados (torre, sensor, …): cores por peça como no Painel 3D, antes do PBR comum.
+  if (importedComponentInfo(type)) {
+    paintImportedModel(type, root)
+  }
   if (type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR') {
     applyEmergencyButtonFinish(root, type)
   } else {
@@ -246,12 +252,14 @@ const coverCache = new Map<string, Promise<string>>()
  * produto a 3/4, com o mesmo acabamento e estúdio do Painel 3D.
  */
 export function getComponentCoverImage(type: ComponentType): Promise<string> {
-  const cached = coverCache.get(type)
+  // v2: capas com paintImportedModel + PBR (torre/sensor deixam de sair sem textura).
+  const cacheKey = `v2:${type}`
+  const cached = coverCache.get(cacheKey)
   if (cached) return cached
   const pending = renderQueue.then(async () => (await renderPose(type, [restPose(type)]))[0])
   renderQueue = pending.then(() => undefined, () => undefined)
-  coverCache.set(type, pending)
-  pending.catch(() => coverCache.delete(type))
+  coverCache.set(cacheKey, pending)
+  pending.catch(() => coverCache.delete(cacheKey))
   return pending
 }
 
