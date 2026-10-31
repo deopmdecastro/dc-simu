@@ -110,19 +110,39 @@
   .dc-inspector-group-body { padding: 12px; gap: 10px; }
 
   .dc-inspector-terminal { padding: 10px !important; border-radius: 10px !important; }
-  /* Linha 1: rótulo + biblioteca + função; linha 2 (acções) abaixo, sem apertar nada. */
-  .dc-inspector-terminal > .flex.items-center.gap-1 {
-    display: grid; grid-template-columns: 64px 40px minmax(0, 1fr) 40px; gap: 8px; align-items: center;
+  /* Campos em grelha; ações (Editar + remover) numa segunda linha completa, sem corte. */
+  .dc-inspector-terminal-head {
+    display: flex; flex-direction: column; align-items: stretch; gap: 8px;
   }
-  .dc-inspector-terminal > .flex.items-center.gap-1 > input[type="color"] { width: 40px; height: 40px; padding: 3px; border-radius: 8px; }
-  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-input,
-  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-select,
-  .dc-inspector-terminal > .flex.items-center.gap-1 .dc-select { height: var(--mr-touch) !important; min-height: var(--mr-touch); font-size: 14px !important; }
-  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-input { width: 100% !important; }
-  .dc-inspector-terminal > .flex.items-center.gap-1 > button:not(.dc-icon-btn) {
-    grid-column: 1 / span 3; height: 38px !important; font-size: 12px !important; border-radius: 8px;
+  .dc-inspector-terminal-fields {
+    display: grid;
+    grid-template-columns: 64px 40px minmax(0, 1fr) 40px;
+    gap: 8px;
+    flex: none;
+    width: 100%;
   }
-  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-icon-btn { grid-column: 4; height: 38px; width: 40px; }
+  .dc-inspector-terminal-label { width: 100% !important; min-width: 0; }
+  .dc-inspector-terminal-kind { width: 100%; min-width: 0; }
+  .dc-inspector-terminal-color { width: 40px; height: 40px; padding: 3px; border-radius: 8px; }
+  .dc-inspector-terminal-fields .dc-input,
+  .dc-inspector-terminal-fields .dc-select {
+    height: var(--mr-touch) !important; min-height: var(--mr-touch); font-size: 14px !important;
+  }
+  .dc-inspector-terminal-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 40px;
+    gap: 8px;
+    margin-left: 0;
+    width: 100%;
+  }
+  .dc-inspector-terminal-edit {
+    width: 100%;
+    height: 38px !important;
+    min-height: 38px;
+    font-size: 12px !important;
+    border-radius: 8px;
+  }
+  .dc-inspector-terminal-remove { width: 40px; height: 38px; }
   .dc-inspector-terminal label > span { font-size: 11px !important; }
   .dc-inspector-terminal .dc-select,
   .dc-inspector-terminal-details .dc-input { height: var(--mr-touch) !important; font-size: 14px !important; }

@@ -1918,7 +1918,63 @@ button:disabled { cursor:not-allowed; }
 .dc-inspector-group > summary:hover { background:#e8f0fc; }
 .dc-inspector-group-body { display:flex; flex-direction:column; gap:9px; padding:10px; }
 .dc-inspector-count { margin-left:auto; background:#fff; border:1px solid #dce4ef; border-radius:999px; padding:0 6px; font-size:10px; color:var(--dx-ink-3); }
-.dc-inspector-terminal { background:#fff; }
+.dc-inspector-terminal { background:#fff; overflow: visible; }
+/* Cabeçalho do borne: campos encolhem; «Editar» e remover nunca são cortados. */
+.dc-inspector-terminal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.dc-inspector-terminal-fields {
+  display: flex;
+  flex: 1 1 160px;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.dc-inspector-terminal-label {
+  flex: none;
+  width: 3.25rem;
+  min-width: 2.5rem;
+}
+.dc-inspector-terminal-kind {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.dc-inspector-terminal-color {
+  flex: none;
+  width: 1.75rem;
+  height: 1.375rem;
+  padding: 0;
+  border: 1px solid var(--dx-line, #dce4ef);
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+}
+.dc-inspector-terminal-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.dc-inspector-terminal-edit {
+  flex: none;
+  height: 26px !important;
+  min-height: 26px;
+  padding: 0 10px !important;
+  font-size: 10px !important;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.dc-inspector-terminal-remove {
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
 .dc-inspector-terminal-details { display:grid; grid-template-columns:minmax(0,1fr) 54px 54px; gap:5px; margin-top:7px; }
 .dc-inspector-terminal-details label { min-width:0; display:flex; flex-direction:column; gap:3px; }
 .dc-inspector-terminal-details label span { font-size:9px; color:var(--dx-ink-3); text-transform:uppercase; }

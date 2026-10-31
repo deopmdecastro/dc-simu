@@ -730,44 +730,48 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <div className="flex flex-col gap-1">
                   {selectedComponent.terminals.map((t) => (
                     <div key={t.id} className={`dc-inspector-terminal rounded-[7px] border px-2 py-2 transition-colors ${t.energized ? 'border-emerald-300 bg-state-runbg/60' : 'border-line bg-white'}`}>
-                      <div className="flex items-center gap-1">
-                        <input
-                          className="dc-input !w-14 font-mono"
-                          aria-label={`Nome do borne ${t.label}`}
-                          value={t.label}
-                          onChange={(e) => useSimStore.getState().updateTerminal(t.id, { label: e.target.value })}
-                        />
-                        <LabelLibrary
-                          title="Escolher rótulo padrão IEC para este borne"
-                          onPick={(l) => useSimStore.getState().updateTerminal(t.id, { label: l })}
-                        />
-                        <Select
-                          className="dc-select flex-1"
-                          aria-label={`Função do borne ${t.label}`}
-                          value={t.kind}
-                          onChange={(e) => useSimStore.getState().updateTerminal(t.id, { kind: e.target.value as TerminalKind })}
-                        >
-                          {Object.entries(TERMINAL_KIND_LABEL).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                          ))}
-                        </Select>
-                        <input
-                          type="color"
-                          aria-label={`Cor do borne ${t.label}`}
-                          title={`Cor do borne ${t.label}`}
-                          className="w-7 h-[22px] rounded border border-line cursor-pointer"
-                          value={t.color}
-                          onChange={(e) => useSimStore.getState().updateTerminal(t.id, { color: e.target.value })}
-                        />
-                        <button className="dc-btn !h-6 !px-2 !text-[9px]" title="Editar este borne no painel completo do componente" onClick={() => {
-                          useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')
-                          useSimStore.getState().setViewActiveTerminal(t.id)
-                        }}>Editar</button>
-                        <button className="dc-icon-btn !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={async () => {
-                          const linked = wires.filter((wire) => wire.fromTerminalId === t.id || wire.toTerminalId === t.id).length
-                          if (linked && !await uiConfirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
-                          useSimStore.getState().deleteTerminal(t.id)
-                        }}><IconClose size={11} /></button>
+                      <div className="dc-inspector-terminal-head">
+                        <div className="dc-inspector-terminal-fields">
+                          <input
+                            className="dc-input dc-inspector-terminal-label font-mono"
+                            aria-label={`Nome do borne ${t.label}`}
+                            value={t.label}
+                            onChange={(e) => useSimStore.getState().updateTerminal(t.id, { label: e.target.value })}
+                          />
+                          <LabelLibrary
+                            title="Escolher rótulo padrão IEC para este borne"
+                            onPick={(l) => useSimStore.getState().updateTerminal(t.id, { label: l })}
+                          />
+                          <Select
+                            className="dc-select dc-inspector-terminal-kind"
+                            aria-label={`Função do borne ${t.label}`}
+                            value={t.kind}
+                            onChange={(e) => useSimStore.getState().updateTerminal(t.id, { kind: e.target.value as TerminalKind })}
+                          >
+                            {Object.entries(TERMINAL_KIND_LABEL).map(([k, v]) => (
+                              <option key={k} value={k}>{v}</option>
+                            ))}
+                          </Select>
+                          <input
+                            type="color"
+                            aria-label={`Cor do borne ${t.label}`}
+                            title={`Cor do borne ${t.label}`}
+                            className="dc-inspector-terminal-color"
+                            value={t.color}
+                            onChange={(e) => useSimStore.getState().updateTerminal(t.id, { color: e.target.value })}
+                          />
+                        </div>
+                        <div className="dc-inspector-terminal-actions">
+                          <button type="button" className="dc-btn dc-inspector-terminal-edit" title="Editar este borne no painel completo do componente" onClick={() => {
+                            useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')
+                            useSimStore.getState().setViewActiveTerminal(t.id)
+                          }}>Editar</button>
+                          <button type="button" className="dc-icon-btn dc-inspector-terminal-remove !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={async () => {
+                            const linked = wires.filter((wire) => wire.fromTerminalId === t.id || wire.toTerminalId === t.id).length
+                            if (linked && !await uiConfirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
+                            useSimStore.getState().deleteTerminal(t.id)
+                          }}><IconClose size={11} /></button>
+                        </div>
                       </div>
                       <label className="mt-1.5 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Categoria elétrica {t.electricalClass ? '· definida' : '· sugestão da ficha'}</span><Select
                         className="dc-select !h-[26px] !text-[10px]"
