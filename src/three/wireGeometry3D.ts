@@ -191,7 +191,7 @@ export const FLAT_LUG_TYPES: WireEndType[] = ['ring', 'fork', 'faston']
 /** Comprimento físico de cada terminação (mm), da ponta ao início do cabo isolado. */
 export function wireEndLengthMm(type: WireEndType): number {
   switch (type) {
-    case 'ferrule': return 5 + FERRULE_COLLAR_MM
+    case 'ferrule': return 5.8 + FERRULE_COLLAR_MM  // +0.8 mm: isolamento encaixa sob o anel da ponteira
     case 'ferruleDouble': return 5 + DOUBLE_FERRULE_COLLAR_MM
     case 'pin': return 14
     case 'ring':
@@ -548,7 +548,7 @@ export function wireBodyPoints3D(
     return keepInFrontOfPlate(curve.getPoints(Math.max(32, controls.length * 16)).map(arr), outerMm)
   }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
-  const radiusFactor = wire.flexibility === 'flexible' ? 8.5 : 6.8
+  const radiusFactor = wire.flexibility === 'flexible' ? 10.5 : 8.2
   return keepInFrontOfPlate(roundCorners(controls, outerMm, radiusFactor), outerMm)
 }
 
@@ -724,8 +724,8 @@ function computeBasePlan(
 /** Cantos em arco de círculo suave (mais subdivisões) sem vincos poligonais nem “partir”. */
 export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6): V3[] {
   if (points.length < 3) return points
-  // Raio mínimo industrial um pouco maior para curvas de saída do terminal e cotovelos.
-  const radius = Math.max(outerMm * radiusFactor, 14) * U
+  // Raio mínimo industrial generoso: evita cotovelos em «V» e ponteiras desalinhadas.
+  const radius = Math.max(outerMm * radiusFactor, 18) * U
   const out: V3[] = [points[0]]
   const last = points.length - 1
   // Os dois arcos adjacentes partilham o mesmo segmento: os cortes nunca
@@ -1080,7 +1080,46 @@ export function buildWirePath3D(
   const body = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, effectivePlan)
   const safe = finishWireBody(keepInFrontOfPlate(body, outerMm), wire, outerMm, obstacles,
     [{ componentId: from.componentId, axis: a.geometry.axis }, { componentId: to.componentId, axis: b.geometry.axis }])
-  return { points: safe, starts: [a.geometry, b.geometry] }
+  // Ponta livre: forçar um troço reto curto no eixo da ponteira para o isolamento
+  // encaixar no colar sem «flutuar» nem sair torto após o arredondamento.
+  const aligned = alignFreeEndApproach(safe, from, a, to, b, outerMm)
+  return { points: aligned, starts: [a.geometry, b.geometry] }
+}
+
+/** Garante ~8–12 mm de cabo alinhado com o eixo da ponteira em pontas livres.
+ *  A primeira/última amostra do tubo fica exactamente em `head` (início do isolamento),
+ *  e o troço seguinte segue o eixo da ponteira — elimina vãos e ponteiras tortas. */
+function alignFreeEndApproach(
+  points: V3[],
+  from: WireEndpoint3D,
+  a: { head: V3; geometry: WireEndGeometry },
+  to: WireEndpoint3D,
+  b: { head: V3; geometry: WireEndGeometry },
+  outerMm: number,
+): V3[] {
+  if (points.length < 2) return points
+  const lead = Math.max(9, outerMm * 3.5) * U
+  let out = points.slice()
+  const needsLead = (type: WireEndType) => type !== 'none' && type !== 'tinned'
+
+  if (from.free && needsLead(a.geometry.type)) {
+    const axis = v(a.geometry.axis)
+    const head = v(a.head)
+    const target = head.clone().addScaledVector(axis, lead)
+    // Fixar origem no head e inserir ponto de abordagem axial.
+    const rest = out.slice(1).filter((pt) => v(pt).distanceTo(head) > lead * 0.55)
+    out = [arr(head), arr(target), ...rest]
+    out = out.filter((pt, i) => i === 0 || v(pt).distanceTo(v(out[i - 1])) > 1e-4)
+  }
+  if (to.free && needsLead(b.geometry.type)) {
+    const axis = v(b.geometry.axis)
+    const head = v(b.head)
+    const target = head.clone().addScaledVector(axis, lead)
+    const rest = out.slice(0, -1).filter((pt) => v(pt).distanceTo(head) > lead * 0.55)
+    out = [...rest, arr(target), arr(head)]
+    out = out.filter((pt, i) => i === 0 || v(pt).distanceTo(v(out[i - 1])) > 1e-4)
+  }
+  return out
 }
 
 /* --------------------- separação 3D coordenada (zero cabo dentro de cabo) */

@@ -114,13 +114,16 @@ export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: Wir
       case 'ferrule': {
         // Ponteira tubular isolada REDONDA (comando e força): manga metálica +
         // colar cilíndrico proporcional ao cabo — nunca um bloco quadrado.
+        // O anel escuro sobrepõe-se ligeiramente ao isolamento do tubo para
+        // eliminar o «vão» entre cabo e ponteira nas pontas livres.
         const sleeve = Math.min(embed || 6 * U, 8 * U)
         const collar = FERRULE_COLLAR_MM * U
         return <>
           <Cyl y={-sleeve / 2} length={sleeve} radius={sleeveR} color={METAL} metalness={0.88} roughness={0.22} />
           <Cyl y={collar / 2} length={collar} radius={collarR} color={color} roughness={0.6} />
           <Cyl y={collar - 0.4 * U} length={0.9 * U} radius={collarR * 0.92} color={color} roughness={0.64} />
-          <Cyl y={collar + 0.2 * U} length={0.45 * U} radius={R * 1.02} color="#1e2430" roughness={0.9} />
+          <Cyl y={collar + 0.35 * U} length={1.1 * U} radius={R * 1.06} color="#1e2430" roughness={0.9} />
+          <Cyl y={collar + 0.85 * U} length={0.7 * U} radius={R * 1.01} color="#1e2430" roughness={0.92} />
         </>
       }
       case 'ferruleDouble': {
