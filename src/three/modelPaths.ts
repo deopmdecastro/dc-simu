@@ -86,6 +86,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   /** 1 m por omissão; o comprimento real vem de `state.lengthMm`. */
   dinRail15x55: { width: 1000, height: 15, depth: 5.5 },
   motor3ph: { width: 264, height: 208, depth: 156 },
+  /** Mesmo envelope do SEW DRN80 — variante monofásica azul DC-Simu. */
+  motor1ph: { width: 264, height: 208, depth: 156 },
   /** Cilindro CBB65 genérico (~Ø50 × 119 mm). Valores elétricos vêm do estado. */
   capacitorRun60uF: { width: 50, height: 119, depth: 50 },
   pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
@@ -175,6 +177,7 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   dinRail15x55: spec('dinRail15x55', MODEL_PATHS.dinRail15x55, [0, 0, 0], 'rail'),
 
   motor3ph: spec('motor3ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
+  motor1ph: spec('motor1ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
   /** Condensador genérico (STEP → GLB). Capacitância/tensão editáveis no estado. */
   capacitorRun60uF: spec('capacitorRun60uF', MODEL_PATHS.capacitorRunGeneric, [0, 0, 0], 'machine'),
   pilotLightAd22: spec('pilotLightAd22', MODEL_PATHS.pilotLightAd22, [Math.PI / 2, 0, 0], 'panel-front'),

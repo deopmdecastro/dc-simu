@@ -447,15 +447,19 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'motor1ph': {
         const run = !!c.state.running
         const dir = c.state.direction
+        const mono = c.type === 'motor1ph'
+        // Monofásico: azul DC-Simu; trifásico: corpo escuro (vermelho de fase no esquema de potência).
+        const body = run ? (mono ? '#1d4ed8' : '#1e3a8a') : (mono ? '#2563eb' : '#1f2937')
+        const rim = run ? '#60a5fa' : (mono ? '#93c5fd' : s)
         return (
           <g>
-            <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 6} fill={run ? '#1e3a8a' : '#1f2937'} stroke={run ? '#60a5fa' : s} strokeWidth={2} />
+            <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 6} fill={body} stroke={rim} strokeWidth={2} />
             <text x={w / 2 - 8} y={h / 2 + 6} fontSize={18} fill="#e5e7eb" fontWeight="bold">M</text>
             <text x={w / 2 + 12} y={h / 2 + 6} fontSize={12} fill={run ? '#4ade80' : '#64748b'}>
               {run ? (dir === 'cw' ? '↻' : '↺') : '⏹'}
             </text>
-            {label(4, 12, c.ref, 10, '#93c5fd')}
-            {label(4, h - 4, `${c.state.cv ?? 1} cv`, 8, '#64748b')}
+            {label(4, 12, c.ref, 10, mono ? '#bfdbfe' : '#93c5fd')}
+            {label(4, h - 4, mono ? '1~' : `${c.state.cv ?? 1} cv`, 8, mono ? '#93c5fd' : '#64748b')}
           </g>
         )
       }
