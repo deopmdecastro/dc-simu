@@ -63,14 +63,41 @@ export default function MultimeterDm20Panel({ component, model, interactive = tr
     rotatePart('occurrence_of_Plane008_Material004_0')
     rotatePart('occurrence_of_Plane010_Material003_0')
   }, [model, dialAngle])
+  /**
+   * Caixa de uma peça do GLB no referencial deste painel (o pai comum do modelo e das áreas de clique).
+   * O modelo tanto é ajustado pela base (biblioteca) como pelo centro (painel 3D, pivô central): medir as
+   * peças reais mantém o LCD, o seletor e as teclas alinhados nos dois casos — com posições fixas, no
+   * modelo centrado as áreas ficavam 0,92 acima (o seletor caía no LCD e as teclas fora do aparelho).
+   */
+  const partBox = (name: string): THREE.Box3 | null => {
+    const part = model?.getObjectByName(name)
+    if (!model || !part) return null
+    model.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(part, true)
+    if (model.parent) box.applyMatrix4(model.parent.matrixWorld.clone().invert())
+    return box.isEmpty() ? null : box
+  }
   const lcdFit = useMemo(() => {
-    const glass = model?.getObjectByName('occurrence_of_Cube002_Material008_0')
-    if (!glass) return { position: [0, 1.49, 0.102] as [number, number, number], size: [0.6, 0.32] as [number, number] }
-    model!.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(glass, true)
+    const box = partBox('occurrence_of_Cube002_Material008_0')
+    if (!box) return { position: [0, 1.49, 0.102] as [number, number, number], size: [0.6, 0.32] as [number, number] }
     const center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3())
     // Quatro milésimos à frente do vidro: visualmente colado, sem z-fighting.
     return { position: [center.x, center.y, box.max.z + 0.004] as [number, number, number], size: [size.x, size.y] as [number, number] }
+  }, [model])
+  /** Áreas de clique sobre as peças reais: seletor (corpo preto) e teclas SELECT / OFF / HOLD. */
+  const controlFit = useMemo(() => {
+    const at = (name: string, fallback: [number, number, number], fallbackRadius: number) => {
+      const box = partBox(name)
+      if (!box) return { position: fallback, radius: fallbackRadius }
+      const center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3())
+      return { position: [center.x, center.y, box.max.z + 0.01] as [number, number, number], radius: Math.max(size.x, size.y) / 2 * 1.08 }
+    }
+    return {
+      dial: at('occurrence_of_Plane008_Material004_0', [0, 0.67, 0.18], 0.21),
+      sel: at('occurrence_of_Plane004_Material003_0', [-0.22, 1.14, 0.18], 0.075),
+      off: at('occurrence_of_Plane002_Material002_0', [0, 1.14, 0.18], 0.075),
+      hold: at('occurrence_of_Plane003_Material007_0', [0.22, 1.14, 0.18], 0.075),
+    }
   }, [model])
   const physicalButtons = useMemo(() => {
     const buttons = {
@@ -96,15 +123,15 @@ export default function MultimeterDm20Panel({ component, model, interactive = tr
     }
   })
   const act = (control: ControlDef, gesture: 'press' | { step: 1 | -1 }) => triggerControl(DM20_DEFINITION, component.id, control, gesture)
-  const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.18]} userData={{ presentationOverlay: true }}
+  const hit = (id: 'sel' | 'off' | 'hold', control: ControlDef) => <mesh name={`dm20-${id}-hit`} position={controlFit[id].position} userData={{ presentationOverlay: true }}
     onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { if (!interactive) return; e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>
-    <circleGeometry args={[0.075, 20]} /><meshStandardMaterial transparent opacity={pressed === id ? 0.35 : 0.03} color="#94a3b8" /></mesh>
+    <circleGeometry args={[controlFit[id].radius, 20]} /><meshStandardMaterial transparent opacity={pressed === id ? 0.35 : 0.03} color="#94a3b8" /></mesh>
   return <group>
     {/* Tamanho e posição vêm diretamente da caixa do vidro LCD no próprio GLB. */}
     <mesh position={lcdFit.position} renderOrder={4}><planeGeometry args={lcdFit.size} /><meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-4} polygonOffsetUnits={-4} /></mesh>
-    <mesh position={[0, 0.67, 0.18]} userData={{ presentationOverlay: true }} onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
-      <circleGeometry args={[0.21, 28]} /><meshBasicMaterial transparent opacity={0.025} depthWrite={false} />
+    <mesh position={controlFit.dial.position} userData={{ presentationOverlay: true }} name="dm20-dial-hit" onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
+      <circleGeometry args={[controlFit.dial.radius, 28]} /><meshBasicMaterial transparent opacity={0.025} depthWrite={false} />
     </mesh>
-    {hit('sel', -0.22, 1.14, selectButton)}{hit('off', 0, 1.14, powerButton)}{hit('hold', 0.22, 1.14, holdButton)}
+    {hit('sel', selectButton)}{hit('off', powerButton)}{hit('hold', holdButton)}
   </group>
 }
