@@ -526,22 +526,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 >
                   <Icon size={14} />
                   <span className={`dc-view-label ${demo ? 'inline' : 'hidden md:inline'}`}>{displayLabel}</span>
-                  {/* Estado do diagnóstico desta vista (✓ OK · ! avisos · ✖ erros). Clique abre o painel Diagnóstico (como no GRAFCET). */}
-                  {!demo && id !== 'monitor' && (
-                    <ViewDiagnosticsTag
-                      view={id}
-                      badge
-                      label={displayLabel}
-                      onClick={() => {
-                        if (id !== mode) setMode(id)
-                        // Abrir o painel da vista: GRAFCET e Ladder ouvem o evento; 3D/Comandos também (App.tsx).
-                        window.setTimeout(() => {
-                          if (id === 'grafcet') useGrafcetUi.getState().emit('openDiagnostics')
-                          else window.dispatchEvent(new CustomEvent('dcsimu:open-diagnostics', { detail: id }))
-                        }, id !== mode ? 40 : 0)
-                      }}
-                    />
-                  )}
+                  {/* Estado do diagnóstico desta vista (✓ OK · ! avisos · ✖ erros), como o separador do GRAFCET */}
+                  {!demo && id !== 'monitor' && <ViewDiagnosticsTag view={id} badge label={displayLabel} />}
                 </button>
               )
             })}
