@@ -8,6 +8,7 @@ import { DEFAULT_PAGE_ID } from './pages'
 
 export type CmdTool = 'select' | 'wire' | 'erase' | 'pan'
 export type CmdSelection = { type: 'part' | 'wire'; id: string } | null
+/** IDs de símbolos selecionados (multi-seleção no canvas). O `selection` principal alimenta o inspetor. */
 export type CmdUiEvent = 'fit' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'examples' | 'import' | 'clear' | 'rotate' | 'delete' | 'focusSelection'
 
 interface CommandsUi {
@@ -19,9 +20,13 @@ interface CommandsUi {
   zoom: number
   setZoom: (zoom: number) => void
   selection: CmdSelection
+  /** Todos os símbolos selecionados (marquee / Shift·Ctrl). */
+  selectedPartIds: string[]
   /** Origem da seleção: no canvas abre o Inspetor; ao colocar da Biblioteca fica na Biblioteca. */
   selectedFrom: 'canvas' | 'library'
   select: (selection: CmdSelection, from?: 'canvas' | 'library') => void
+  /** Substitui ou junta a multi-seleção de símbolos; define `selection` no primeiro id. */
+  selectParts: (ids: string[], additive?: boolean, from?: 'canvas' | 'library') => void
   placing: CmdKind | null
   setPlacing: (kind: CmdKind | null) => void
   rt: CmdRuntime
@@ -64,8 +69,30 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   zoom: 1,
   setZoom: (zoom) => set({ zoom }),
   selection: null,
+  selectedPartIds: [],
   selectedFrom: 'canvas',
-  select: (selection, from = 'canvas') => set({ selection, selectedFrom: from }),
+  select: (selection, from = 'canvas') => set({
+    selection,
+    selectedFrom: from,
+    selectedPartIds: selection?.type === 'part' ? [selection.id] : [],
+  }),
+  selectParts: (ids, additive = false, from = 'canvas') => set((state) => {
+    const unique = [...new Set(ids.filter(Boolean))]
+    let next = unique
+    if (additive) {
+      const setIds = new Set(state.selectedPartIds)
+      for (const id of unique) {
+        if (setIds.has(id)) setIds.delete(id)
+        else setIds.add(id)
+      }
+      next = [...setIds]
+    }
+    return {
+      selectedPartIds: next,
+      selection: next.length ? { type: 'part' as const, id: next[next.length - 1] } : null,
+      selectedFrom: from,
+    }
+  }),
   placing: null,
   setPlacing: (placing) => set({ placing, tool: 'select' }),
   rt: emptyCmdRuntime(),
@@ -73,7 +100,7 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   start: () => {
     const { rt, paused } = get()
     if (rt.running && paused) { set({ paused: false }); return }
-    set({ selection: null, placing: null, paused: false, rt: stepCommands(diagram(), { ...emptyCmdRuntime(), running: true }, 0) })
+    set({ selection: null, selectedPartIds: [], placing: null, paused: false, rt: stepCommands(diagram(), { ...emptyCmdRuntime(), running: true }, 0) })
   },
   stop: () => set({ rt: emptyCmdRuntime(), paused: false }),
   pause: () => { if (get().rt.running) set({ paused: true }) },
@@ -93,7 +120,7 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
     set({ recent: next })
   },
   activePageId: DEFAULT_PAGE_ID,
-  setActivePageId: (id) => set({ activePageId: id, selection: null }),
+  setActivePageId: (id) => set({ activePageId: id, selection: null, selectedPartIds: [] }),
 }))
 
 /** Símbolos que se operam com o rato durante a simulação. */

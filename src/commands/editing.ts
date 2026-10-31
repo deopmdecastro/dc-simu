@@ -53,7 +53,18 @@ export function patchPart(id: string, patch: Partial<CmdPart>) {
 }
 
 export function removeSelected() {
-  const { selection, select } = useCommandsUi.getState()
+  const { selection, selectedPartIds, select } = useCommandsUi.getState()
+  if (selectedPartIds.length > 1) {
+    const diagram = getDiagram()
+    const drop = new Set(selectedPartIds)
+    commitDiagram({
+      ...diagram,
+      parts: diagram.parts.filter((p) => !drop.has(p.id)),
+      wires: diagram.wires.filter((w) => !drop.has(w.a.part) && !drop.has(w.b.part)),
+    })
+    select(null)
+    return
+  }
   if (!selection) return
   removeItem(selection)
   select(null)
@@ -66,8 +77,13 @@ export function removeItem(item: { type: 'part' | 'wire'; id: string }) {
 }
 
 export function rotateSelected() {
-  const selection = useCommandsUi.getState().selection
-  if (selection?.type !== 'part') return
+  const { selection, selectedPartIds } = useCommandsUi.getState()
+  const ids = selectedPartIds.length ? selectedPartIds : (selection?.type === 'part' ? [selection.id] : [])
+  if (!ids.length) return
   const diagram = getDiagram()
-  commitDiagram({ ...diagram, parts: diagram.parts.map((p) => (p.id === selection.id ? { ...p, rot: ((p.rot + 90) % 360) as CmdRotation } : p)) })
+  const setIds = new Set(ids)
+  commitDiagram({
+    ...diagram,
+    parts: diagram.parts.map((p) => (setIds.has(p.id) ? { ...p, rot: ((p.rot + 90) % 360) as CmdRotation } : p)),
+  })
 }

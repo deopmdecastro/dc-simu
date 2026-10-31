@@ -102,7 +102,10 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const [notice, setNotice] = useState<string | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasId = useId()
-  const gesture = useRef<{ kind: 'pan' | 'move' | 'mid' | 'wire' | 'press'; startX: number; startY: number; view?: View; partId?: string; offset?: Pt; wireId?: string; moved?: boolean; tag?: string } | null>(null)
+  const gesture = useRef<{ kind: 'pan' | 'move' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number } | null>(null)
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  const selectedPartIds = useCommandsUi((s) => s.selectedPartIds)
+  const selectParts = useCommandsUi((s) => s.selectParts)
   const running = rt.running
   const editable = !running && !demo
 
@@ -336,6 +339,15 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         return
       }
     }
+    // Seleção por retângulo (marquee) na ferramenta Selecionar.
+    if (tool === 'select' && editable) {
+      const additive = event.shiftKey || event.ctrlKey || event.metaKey
+      if (!additive) select(null)
+      gesture.current = { kind: 'marquee', startX: event.clientX, startY: event.clientY, x0: p.x, y0: p.y, x1: p.x, y1: p.y }
+      setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
+      ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
+      return
+    }
     select(null)
     // Em «Selecionar» o fundo só desseleciona; mover a vista é com a ferramenta Mão/Pan,
     // botão do meio ou (abaixo) Espaço+arrastar — senão mão e seleção parecem iguais.
@@ -354,9 +366,30 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     if (demo) return
     if (tool === 'erase') { removeItem({ type: 'part', id: part.id }); select(null); return }
     if (placing) return
-    select({ type: 'part', id: part.id })
+    const additive = event.shiftKey || event.ctrlKey || event.metaKey
+    const already = selectedPartIds.includes(part.id)
+    let ids = selectedPartIds
+    if (additive) {
+      selectParts([part.id], true)
+      ids = useCommandsUi.getState().selectedPartIds
+    } else if (!already) {
+      select({ type: 'part', id: part.id })
+      ids = [part.id]
+    } else {
+      // Clique num elemento já selecionado: mantém o grupo para arrastar em conjunto.
+      select({ type: 'part', id: part.id })
+      ids = selectedPartIds.length ? selectedPartIds : [part.id]
+    }
     const p = toWorld(event.clientX, event.clientY)
-    gesture.current = { kind: 'move', startX: event.clientX, startY: event.clientY, partId: part.id, offset: { x: p.x - part.x, y: p.y - part.y } }
+    gesture.current = {
+      kind: 'move',
+      startX: event.clientX,
+      startY: event.clientY,
+      partId: part.id,
+      partIds: ids,
+      origin: { x: part.x, y: part.y },
+      offset: { x: p.x - part.x, y: p.y - part.y },
+    }
     ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
   }
   const onTermDown = (end: CmdEnd, event: ReactPointerEvent) => {
@@ -381,11 +414,21 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     const g = gesture.current
     if (!g) return
     if (g.kind === 'pan' && g.view) setView({ ...g.view, x: g.view.x + event.clientX - g.startX, y: g.view.y + event.clientY - g.startY })
-    if (g.kind === 'move' && g.partId && g.offset) {
+    if (g.kind === 'marquee' && g.x0 !== undefined && g.y0 !== undefined) {
+      g.x1 = p.x; g.y1 = p.y
+      setMarquee({ x0: g.x0, y0: g.y0, x1: p.x, y1: p.y })
+    }
+    if (g.kind === 'move' && g.partId && g.offset && g.origin) {
       const x = snap(p.x - g.offset.x), y = snap(p.y - g.offset.y)
-      const part = stored.parts.find((q) => q.id === g.partId)
-      if (part && (part.x !== x || part.y !== y)) { g.moved = true; setPreview({ ...stored, parts: stored.parts.map((q) => (q.id === g.partId ? { ...q, x, y } : q)) }) }
-      else if (part) setPreview(null)
+      const dx = x - g.origin.x, dy = y - g.origin.y
+      const ids = new Set(g.partIds?.length ? g.partIds : [g.partId])
+      if (dx !== 0 || dy !== 0) {
+        g.moved = true
+        setPreview({
+          ...stored,
+          parts: stored.parts.map((q) => (ids.has(q.id) ? { ...q, x: snap(q.x + dx), y: snap(q.y + dy) } : q)),
+        })
+      } else setPreview(null)
     }
     if (g.kind === 'mid' && g.wireId) { g.moved = true; setPreview({ ...stored, wires: stored.wires.map((q) => (q.id === g.wireId ? { ...q, mid: snap(p.y) } : q)) }) }
     if (g.kind === 'wire' && draft) { setDraft({ ...draft, to: p }); setHoverTerm(terminalNear(p, draft.from)) }
@@ -395,6 +438,19 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     gesture.current = null
     if (!g) return
     if (g.kind === 'press' && g.tag) { useCommandsUi.getState().press(g.tag, false); return }
+    if (g.kind === 'marquee') {
+      const x0 = Math.min(g.x0 ?? 0, g.x1 ?? 0), x1 = Math.max(g.x0 ?? 0, g.x1 ?? 0)
+      const y0 = Math.min(g.y0 ?? 0, g.y1 ?? 0), y1 = Math.max(g.y0 ?? 0, g.y1 ?? 0)
+      setMarquee(null)
+      const hits = pageParts.filter((part) => {
+        const b = partBox(part)
+        return b.x + b.w >= x0 && b.x <= x1 && b.y + b.h >= y0 && b.y <= y1
+      }).map((part) => part.id)
+      const additive = event.shiftKey || event.ctrlKey || event.metaKey
+      if (hits.length) selectParts(hits, additive)
+      else if (!additive) select(null)
+      return
+    }
     if ((g.kind === 'move' || g.kind === 'mid') && preview && g.moved) commit(preview)
     else setPreview(null)
     if (g.kind === 'wire' && draft) {
@@ -424,7 +480,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         if (undoKey === 'y' || e.shiftKey) useSimStore.getState().redo(); else useSimStore.getState().undo()
         return
       }
-      if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); select(null); return }
+      if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); setMarquee(null); select(null); return }
       if (mod || !editable) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedTextId) { e.preventDefault(); useSimStore.getState().removeCanvasText(selectedTextId); setSelectedTextId(null); setEditingTextId(null); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSelected(); return }
@@ -593,7 +649,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
               })}
               {pageParts.map((part) => (
                 <g key={part.id} onPointerDown={(e) => onPartDown(part, e)} className={running && (MOMENTARY.includes(part.kind) || TOGGLES.includes(part.kind) || part.kind.startsWith('thermal')) ? 'dc-cmd-actuator' : undefined}>
-                  <CmdSymbol part={part} state={stateOf(part)} selected={selection?.type === 'part' && selection.id === part.id} />
+                  <CmdSymbol part={part} state={stateOf(part)} selected={selectedPartIds.includes(part.id) || (selection?.type === 'part' && selection.id === part.id)} />
                 </g>
               ))}
               {editable && tool !== 'pan' && tool !== 'erase' && <g className={`dc-cmd-ports ${showPorts ? 'is-wiring' : ''}`}>{pageParts.flatMap((part) => partTerminals(part).map((_, i) => {
@@ -610,6 +666,20 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                 const target = over && hoverTerm ? terminalAt(over, hoverTerm.term) : { x: snap(draft.to.x), y: snap(draft.to.y) }
                 return <path className="dc-cmd-wire-draft" d={wirePoints(a, target).map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ')} />
               })()}
+              {marquee && (
+                <rect
+                  className="dc-cmd-marquee"
+                  x={Math.min(marquee.x0, marquee.x1)}
+                  y={Math.min(marquee.y0, marquee.y1)}
+                  width={Math.abs(marquee.x1 - marquee.x0)}
+                  height={Math.abs(marquee.y1 - marquee.y0)}
+                  fill="rgba(37, 99, 235, 0.12)"
+                  stroke="#2563eb"
+                  strokeWidth={1.5 / Math.max(view.scale, 0.01)}
+                  strokeDasharray={`${4 / Math.max(view.scale, 0.01)} ${3 / Math.max(view.scale, 0.01)}`}
+                  pointerEvents="none"
+                />
+              )}
               {placing && cursor && <g className="dc-cmd-ghost" pointerEvents="none"><CmdSymbol part={{ id: 'ghost', kind: placing, x: cursor.x, y: cursor.y, rot: 0, tag: defaultTag(diagram, placing), lines: placing === 'supply' ? ['L1', 'L2', 'L3'] : undefined }} showTerminals={false} /></g>}
             </g>
           </svg>

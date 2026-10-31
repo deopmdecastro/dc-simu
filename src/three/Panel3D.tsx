@@ -7,7 +7,7 @@ import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, useGLTF } from '@react-three/drei'
 import { Text } from './SceneText'
-import { useRef, useMemo, useState, useEffect, useId, Suspense, Component } from 'react'
+import { useRef, useMemo, useState, useEffect, useId, Suspense, Component, type MutableRefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -406,6 +406,14 @@ function getGlowTexture(): THREE.CanvasTexture {
 
 /** Brilho suave atrás do componente selecionado. Substitui o anel do chão, que
  * cortava/tapava o modelo: é um sprite aditivo sem escrita de profundidade. */
+
+/** Mantém a câmara atual acessível fora do Canvas (marquee em ecrã). */
+function CameraProjectCapture({ camRef }: { camRef: MutableRefObject<THREE.Camera | null> }) {
+  const { camera } = useThree()
+  useFrame(() => { camRef.current = camera })
+  return null
+}
+
 function SelectionGlow({ component }: { component: ElectricalComponent }) {
   const size = component3DDimensions(component)
   const scale = component3DScaleOf(component)
@@ -2372,6 +2380,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   } : component), [storedComponents, viewOrientationEditor])
   const sceneCenterRef = useRef<[number, number, number]>([0, 0, 0.3])
   const stageRef = useRef<HTMLDivElement>(null)
+  const multiDragOrigins = useRef<Record<string, { x: number; y: number }>>({})
+  const cameraProjectRef = useRef<THREE.Camera | null>(null)
+  const [marquee3d, setMarquee3d] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  const marqueeDrag = useRef<{ x0: number; y0: number; additive: boolean } | null>(null)
+
   const stageId = useId()
   const cameraScrollBridge = useRef<PanelScrollBridge>({})
   const [stageVisible, setStageVisible] = useState(true)
@@ -2717,9 +2730,33 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         else selectComponents([component.id], additive)
       }}
       onMove={(position) => movePanelComponent(component, position)}
-      onDragStart={() => beginPanelDrag(component.id)}
-      onDragTo={(point) => dragPanelTo(component.id, point)}
-      onDragEnd={() => endPanelDrag(component.id)}
+      onDragStart={() => {
+        const ids = selectedIds.includes(component.id) && selectedIds.length > 1 ? selectedIds : [component.id]
+        multiDragOrigins.current = {}
+        for (const id of ids) {
+          beginPanelDrag(id)
+          const pivot = panelPivots[id]
+          if (pivot) multiDragOrigins.current[id] = { x: pivot.x, y: pivot.y }
+        }
+      }}
+      onDragTo={(point) => {
+        const origin = multiDragOrigins.current[component.id]
+        const ids = Object.keys(multiDragOrigins.current)
+        if (!origin || ids.length <= 1) {
+          dragPanelTo(component.id, point)
+          return
+        }
+        const dx = point.x - origin.x
+        const dy = point.y - origin.y
+        for (const id of ids) {
+          const o = multiDragOrigins.current[id]
+          if (o) dragPanelTo(id, { x: o.x + dx, y: o.y + dy })
+        }
+      }}
+      onDragEnd={() => {
+        for (const id of Object.keys(multiDragOrigins.current)) endPanelDrag(id)
+        multiDragOrigins.current = {}
+      }}
       onTerminalPick={pickConnectionTerminal}
     >{content}</OrientedInstance>
   }
@@ -3045,7 +3082,59 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
          const id = addComponent(compType, Math.round(panelToSchematicX(cx) - 40), Math.round(panelToSchematicY(cy) - 40))
          selectComponents(id ? [id] : [])
        }}
+       onPointerDown={(e) => {
+         // Shift + arrastar no fundo: seleção por retângulo (sem interferir com órbita normal).
+         if (demoMode || simLocked || tool !== 'select' || e.button !== 0 || !e.shiftKey) return
+         if ((e.target as HTMLElement).closest('canvas') === null) return
+         marqueeDrag.current = { x0: e.clientX, y0: e.clientY, additive: e.ctrlKey || e.metaKey }
+         setMarquee3d({ x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY })
+         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+       }}
+       onPointerMove={(e) => {
+         if (!marqueeDrag.current) return
+         setMarquee3d({ x0: marqueeDrag.current.x0, y0: marqueeDrag.current.y0, x1: e.clientX, y1: e.clientY })
+       }}
+       onPointerUp={(e) => {
+         const drag = marqueeDrag.current
+         if (!drag) return
+         marqueeDrag.current = null
+         const x0 = Math.min(drag.x0, e.clientX), x1 = Math.max(drag.x0, e.clientX)
+         const y0 = Math.min(drag.y0, e.clientY), y1 = Math.max(drag.y0, e.clientY)
+         setMarquee3d(null)
+         const cam = cameraProjectRef.current
+         const stage = stageRef.current
+         if (!cam || !stage || x1 - x0 < 6 || y1 - y0 < 6) return
+         const rect = stage.getBoundingClientRect()
+         const hits: string[] = []
+         for (const component of components) {
+           const pivot = panelPivots[component.id]
+           if (!pivot) continue
+           const v = pivot.clone().project(cam)
+           if (v.z < -1 || v.z > 1) continue
+           const sx = rect.left + (v.x * 0.5 + 0.5) * rect.width
+           const sy = rect.top + (-v.y * 0.5 + 0.5) * rect.height
+           if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) hits.push(component.id)
+         }
+         if (hits.length) selectComponents(hits, drag.additive)
+         else if (!drag.additive) selectComponents([])
+       }}
      >
+      {marquee3d && (
+        <div
+          className="panel3d-marquee-rect"
+          style={{
+            position: 'fixed',
+            left: Math.min(marquee3d.x0, marquee3d.x1),
+            top: Math.min(marquee3d.y0, marquee3d.y1),
+            width: Math.abs(marquee3d.x1 - marquee3d.x0),
+            height: Math.abs(marquee3d.y1 - marquee3d.y0),
+            border: '1.5px dashed #2563eb',
+            background: 'rgba(37, 99, 235, 0.12)',
+            pointerEvents: 'none',
+            zIndex: 40,
+          }}
+        />
+      )}
       <ViewCube
           yaw={cameraStats.yaw}
           pitch={cameraStats.pitch}
@@ -3079,7 +3168,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
-      <Canvas frameloop={!stageVisible ? 'never' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
+      <Canvas frameloop={!stageVisible ? 'never' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect' && !marqueeDrag.current) selectComponents([]) }}>
+        <CameraProjectCapture camRef={cameraProjectRef} />
         onCreated={({ gl }) => {
           gl.toneMapping = STUDIO_TONE_MAPPING
           gl.toneMappingExposure = STUDIO_EXPOSURE
