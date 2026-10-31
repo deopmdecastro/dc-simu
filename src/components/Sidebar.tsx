@@ -14,6 +14,7 @@ import TerminalLibrary from './TerminalLibrary'
 import { useSimStore } from '../store/useSimStore'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
+import { iecAssociationOf, iecPrimaryLabel, iecRelatedLabels } from '../electrical/iecAssociation'
 import type { ComponentType, TerminalElectricalClass, TerminalKind, TerminalType, Wire, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import { terminalClassesCompatible, terminalDatasheetGuidance, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
@@ -493,6 +494,44 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               </div></details>
               {selectedComponent.catalog && <CatalogInspector component={selectedComponent} />}
               <DatasheetPanel type={selectedComponent.type} />
+              {(() => {
+                const iec = iecAssociationOf(selectedComponent.type)
+                const primary = iecPrimaryLabel(iec)
+                const related = iecRelatedLabels(iec)
+                return (
+                  <details className="dc-inspector-group" open>
+                    <summary>Símbolo IEC</summary>
+                    <div className="dc-inspector-group-body space-y-1.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-[10px] text-ink-500">Principal</span>
+                        <span className="text-[11px] font-medium text-ink-800 text-right">{primary}</span>
+                      </div>
+                      {iec.refLetter ? (
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-[10px] text-ink-500">Ref. IEC 81346</span>
+                          <span className="text-[11px] font-mono text-ink-700">{iec.refLetter}</span>
+                        </div>
+                      ) : null}
+                      {iec.iec60617 ? (
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-[10px] text-ink-500">IEC 60617</span>
+                          <span className="text-[10px] font-mono text-ink-600 text-right">{iec.iec60617}</span>
+                        </div>
+                      ) : null}
+                      {related.length > 0 ? (
+                        <div>
+                          <span className="text-[10px] text-ink-500">Relacionados no esquema</span>
+                          <ul className="mt-0.5 text-[10px] text-ink-700 list-disc pl-4">
+                            {related.map((r) => <li key={r}>{r}</li>)}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {iec.note ? <p className="text-[9px] text-ink-400 leading-snug">{iec.note}</p> : null}
+                      <p className="text-[9px] text-ink-400 leading-snug">Associação 3D Realista ↔ Esquema IEC. Os símbolos desenhados seguem a IEC 60617.</p>
+                    </div>
+                  </details>
+                )
+              })()}
               <details className="dc-inspector-group" open><summary>Posição e aparência</summary><div className="dc-inspector-group-body">
               <LayerButtons />
               <div className="grid grid-cols-2 gap-2">

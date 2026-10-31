@@ -358,6 +358,12 @@ export interface CatalogMeta {
   coverLocked?: boolean
   /** "O que é" (tipo escolhido ao criar, ex.: Disjuntor). */
   kind?: string
+  /**
+   * Símbolo IEC 60617 associado (CmdKind do Esquema IEC).
+   * Liga o modelo 3D ao desenho normativo usado em «Esquema IEC».
+   * Exemplos: breaker3, coil, pushNO, motor3, lamp, fuse…
+   */
+  iecSymbol?: string
   /** Ficha técnica: link e/ou PDF (o PDF vai em `assets.datasheet` do rascunho e não segue nas versões publicadas). */
   datasheet?: { status: 'have' | 'none'; url?: string; fileName?: string }
   properties: Array<{ key: string; value: string }>
