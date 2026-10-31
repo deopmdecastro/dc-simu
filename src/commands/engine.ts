@@ -92,6 +92,19 @@ function solve(diagram: CommandsDiagram, rt: CmdRuntime): Solved {
     if (!isClosed(part, rt)) continue
     for (const [a, b] of CMD_PARTS[part.kind].poles) nets.union(key(part.id, a), key(part.id, b))
   }
+  // Ligações entre páginas: pageRef com o mesmo tag (nome de rede) ficam unidos.
+  const pageRefByTag = new Map<string, string[]>()
+  for (const part of diagram.parts) {
+    if (part.kind !== 'pageRef') continue
+    const tag = (part.tag || '').trim()
+    if (!tag) continue
+    const list = pageRefByTag.get(tag) ?? []
+    list.push(part.id)
+    pageRefByTag.set(tag, list)
+  }
+  for (const ids of pageRefByTag.values()) {
+    for (let i = 1; i < ids.length; i++) nets.union(key(ids[0], 0), key(ids[i], 0))
+  }
   const potentials = new Map<string, Set<string>>()
   for (const part of diagram.parts) {
     if (part.kind !== 'supply') continue

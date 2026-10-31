@@ -119,3 +119,77 @@
 /* «A posicionar…» por cima do fundo da biblioteca: não empurra os cartões (o duplo clique acerta sempre). */
 .dc-cmd-sidebar { position: relative; }
 .dc-cmd-placing { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3; border: 1px solid #bfd3fb; border-radius: 8px; box-shadow: 0 6px 16px rgba(15, 23, 42, .12); }
+
+/* Páginas do Esquema IEC */
+.dc-cmd-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--dx-line-soft, #e2e8f0);
+  background: var(--dx-surface-2, #f6f8fb);
+  flex: none;
+}
+.dc-cmd-page-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+  border-radius: 8px;
+  background: var(--dx-surface, #fff);
+  overflow: hidden;
+}
+.dc-cmd-page-chip.is-active {
+  border-color: var(--dx-brand, #2655e5);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dx-brand, #2655e5) 25%, transparent);
+}
+.dc-cmd-page-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dx-ink-2, #334155);
+  cursor: pointer;
+}
+.dc-cmd-page-chip.is-active .dc-cmd-page-name { color: var(--dx-brand-700, #1d4ed8); }
+.dc-cmd-page-name em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--dx-surface-2, #eef2f7);
+  color: var(--dx-ink-4, #64748b);
+}
+.dc-cmd-page-del {
+  border: 0;
+  border-left: 1px solid var(--dx-line-soft, #e2e8f0);
+  background: transparent;
+  padding: 0 8px;
+  color: var(--dx-ink-4, #94a3b8);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.dc-cmd-page-del:hover { color: #dc2626; background: #fef2f2; }
+.dc-cmd-page-add {
+  border: 1px dashed var(--dx-line, #cbd5e1);
+  border-radius: 8px;
+  background: transparent;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dx-ink-3, #64748b);
+  cursor: pointer;
+}
+.dc-cmd-page-add:hover {
+  border-color: var(--dx-brand, #2655e5);
+  color: var(--dx-brand-700, #1d4ed8);
+  background: color-mix(in srgb, var(--dx-brand, #2655e5) 6%, transparent);
+}

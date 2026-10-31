@@ -16,6 +16,7 @@ import {
   CMD_GRID, CMD_PARTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
   type CmdEnd, type CmdKind, type CmdPart, type CmdWire, type CommandsDiagram, type Pt,
 } from './model'
+import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID } from './pages'
 import { emptyCmdRuntime, isClosed } from './engine'
 import { CmdSymbol, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES } from './examples'
@@ -38,8 +39,19 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const gridStyle = useSimStore((s) => s.grid.style)
   // Pré-visualização durante um gesto (mover/arrastar troço): só vai para o histórico ao largar.
   const [preview, setPreview] = useState<CommandsDiagram | null>(null)
-  const diagram = preview ?? stored
+  const diagram = useMemo(() => normalizeCommandsPages(preview ?? stored), [preview, stored])
+  const activePageId = useCommandsUi((s) => s.activePageId)
+  const setActivePageId = useCommandsUi((s) => s.setActivePageId)
+  const pages = pagesOf(diagram)
+  const pageId = pages.some((p) => p.id === activePageId) ? activePageId : pages[0].id
+  const pageParts = useMemo(() => partsOnPage(diagram, pageId), [diagram, pageId])
+  const pageWires = useMemo(() => wiresOnPage(diagram, pageId), [diagram, pageId])
+  const pageTexts = useMemo(() => textsOnPage(diagram, pageId), [diagram, pageId])
   const partById = useMemo(() => new Map(diagram.parts.map((p) => [p.id, p])), [diagram])
+  // Sincronizar página ativa se a atual deixou de existir.
+  useEffect(() => {
+    if (!pages.some((p) => p.id === activePageId)) setActivePageId(pages[0].id)
+  }, [pages, activePageId, setActivePageId])
 
   const tool = useCommandsUi((s) => s.tool)
   const gridOn = useCommandsUi((s) => s.gridOn)
@@ -82,7 +94,9 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     const delay = rt.delays[part.tag] ?? part.delayMs ?? 3000
     const progress = since !== undefined ? Math.min(1, (rt.time - since) / delay) : undefined
     return {
-      closed: isClosed(part, rt), energized: !!rt.coils[part.tag], lit: !!rt.lamps[part.id], motor: rt.motors[part.id],
+      closed: isClosed(part, rt),
+      energized: part.kind === 'pageRef' ? !!rt.live[`${part.id}:0`] : !!rt.coils[part.tag],
+      lit: !!rt.lamps[part.id], motor: rt.motors[part.id],
       progress: part.kind === 'timerCoil' || part.kind === 'timedNO' || part.kind === 'timedNC' ? progress : undefined,
       tripped: !!rt.tripped[part.tag],
     }
@@ -118,7 +132,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   useNonPassiveListener(viewportRef, 'wheel', wheel)
 
   const bounds = useMemo(() => {
-    const boxes = diagram.parts.map(partBox)
+    const boxes = pageParts.map(partBox)
     if (!boxes.length) return { minX: 0, minY: 0, maxX: 800, maxY: 600 }
     return {
       minX: Math.min(...boxes.map((b) => b.x)) - 60, minY: Math.min(...boxes.map((b) => b.y)) - 60,
@@ -192,7 +206,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   // ---------------------------------------------------------------- acertos
   const terminalNear = (p: Pt, exclude?: CmdEnd): CmdEnd | null => {
     let best: CmdEnd | null = null, bestD = 10 / Math.min(1, view.scale)
-    for (const part of diagram.parts) partTerminals(part).forEach((_, i) => {
+    for (const part of pageParts) partTerminals(part).forEach((_, i) => {
       if (exclude && exclude.part === part.id && exclude.term === i) return
       const at = terminalAt(part, i)
       const d = Math.hypot(at.x - p.x, at.y - p.y)
@@ -207,7 +221,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   }
   const wireNear = (p: Pt): { wire: CmdWire; at: Pt } | null => {
     let best: { wire: CmdWire; at: Pt } | null = null, bestD = 7 / Math.min(1, view.scale)
-    for (const w of diagram.wires) {
+    for (const w of pageWires) {
       const pts = pointsOf(w)
       for (let i = 1; i < pts.length; i++) {
         const { d, q } = distToSegment(p, pts[i - 1], pts[i])
@@ -221,7 +235,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     const end = terminalNear(target, a)
     if (end) {
       if (diagram.wires.some((w) => (w.a.part === a.part && w.a.term === a.term && w.b.part === end.part && w.b.term === end.term) || (w.b.part === a.part && w.b.term === a.term && w.a.part === end.part && w.a.term === end.term))) { notify('Esses bornes já estão ligados'); return true }
-      commit({ ...diagram, wires: [...diagram.wires, { id: nanoid(8), a, b: end }] })
+      commit({ ...diagram, wires: [...diagram.wires, { id: nanoid(8), a, b: end, page: pageId }] })
       return true
     }
     // Largar sobre um cabo: cria um nó nesse ponto e divide o cabo em dois.
@@ -231,7 +245,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       const rest = diagram.wires.filter((w) => w.id !== hit.wire.id)
       commit({
         ...diagram,
-        parts: [...diagram.parts, node],
+        parts: [...diagram.parts, { ...node, page: pageId }],
         wires: [...rest, { id: nanoid(8), a: hit.wire.a, b: { part: node.id, term: 0 } }, { id: nanoid(8), a: { part: node.id, term: 0 }, b: hit.wire.b }, { id: nanoid(8), a, b: { part: node.id, term: 0 } }],
       })
       notify('Nó criado na ligação')
@@ -380,8 +394,65 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   // Mesmo fundo de grelha dos outros editores (pontos ou linhas, como escolhido no projeto).
   const background = editorGridBackground({ enabled: gridOn, style: gridStyle === 'lines' ? 'lines' : 'dots', spacing: grid, x: view.x - 1, y: view.y - 1 })
 
+  const onAddPage = () => {
+    if (!editable) return
+    const next = addPage(diagram)
+    const created = pagesOf(next).at(-1)
+    commit(next)
+    if (created) setActivePageId(created.id)
+    notify(created ? `Página «${created.name}» criada` : 'Página criada')
+  }
+  const onRenamePage = (id: string, current: string) => {
+    if (!editable) return
+    const name = window.prompt('Nome da página', current)
+    if (name == null) return
+    commit(renamePage(diagram, id, name))
+  }
+  const onRemovePage = (id: string) => {
+    if (!editable) return
+    const result = removePage(diagram, id)
+    if (result.error) { notify(result.error); return }
+    commit(result.diagram)
+    const remain = pagesOf(result.diagram)
+    setActivePageId(remain.some((p) => p.id === pageId) ? pageId : remain[0].id)
+    notify('Página eliminada')
+  }
+
   return (
     <div className={`dc-cmd ${running ? 'is-running' : ''}`}>
+      <div className="dc-cmd-pages" role="tablist" aria-label="Páginas do esquema IEC">
+        {pages.map((sh) => {
+          const active = sh.id === pageId
+          const count = partsOnPage(diagram, sh.id).length
+          return (
+            <span key={sh.id} className={`dc-cmd-page-chip ${active ? 'is-active' : ''}`}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className="dc-cmd-page-name"
+                title={active ? 'Clique para renomear' : 'Abrir página'}
+                onClick={() => {
+                  if (active && editable) onRenamePage(sh.id, sh.name)
+                  else setActivePageId(sh.id)
+                }}
+                onDoubleClick={() => editable && onRenamePage(sh.id, sh.name)}
+              >
+                {sh.name}
+                <em>{count}</em>
+              </button>
+              {pages.length > 1 && editable && (
+                <button type="button" className="dc-cmd-page-del" aria-label={`Eliminar ${sh.name}`} title="Eliminar página (só se estiver vazia)" onClick={() => onRemovePage(sh.id)}>×</button>
+              )}
+            </span>
+          )
+        })}
+        {editable && (
+          <button type="button" className="dc-cmd-page-add" onClick={onAddPage} title="Nova página do esquema. Ligue a corrente entre páginas com o símbolo «Ligação entre páginas».">
+            + Página
+          </button>
+        )}
+      </div>
       <div className="dc-cmd-main">
         <div
           id={canvasId}
@@ -401,8 +472,8 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         >
           <svg className="dc-cmd-svg" width="100%" height="100%">
             <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
-              {diagram.texts?.map((t) => <text key={t.id} className="dc-cmd-text" x={t.x} y={t.y}>{t.text}</text>)}
-              {diagram.wires.map((w) => {
+              {pageTexts.map((t) => <text key={t.id} className="dc-cmd-text" x={t.x} y={t.y}>{t.text}</text>)}
+              {pageWires.map((w) => {
                 const pts = pointsOf(w)
                 if (pts.length < 2) return null
                 const d = pts.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ')
@@ -412,12 +483,12 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                   <path d={d} className="dc-cmd-wire" stroke={wireColor(w)} strokeWidth={running && rt.liveWires[w.id] ? 2.4 : 1.6} />
                 </g>
               })}
-              {diagram.parts.map((part) => (
+              {pageParts.map((part) => (
                 <g key={part.id} onPointerDown={(e) => onPartDown(part, e)} className={running && (MOMENTARY.includes(part.kind) || TOGGLES.includes(part.kind) || part.kind.startsWith('thermal')) ? 'dc-cmd-actuator' : undefined}>
                   <CmdSymbol part={part} state={stateOf(part)} selected={selection?.type === 'part' && selection.id === part.id} />
                 </g>
               ))}
-              {editable && tool !== 'pan' && tool !== 'erase' && <g className={`dc-cmd-ports ${showPorts ? 'is-wiring' : ''}`}>{diagram.parts.flatMap((part) => partTerminals(part).map((_, i) => {
+              {editable && tool !== 'pan' && tool !== 'erase' && <g className={`dc-cmd-ports ${showPorts ? 'is-wiring' : ''}`}>{pageParts.flatMap((part) => partTerminals(part).map((_, i) => {
                 const at = terminalAt(part, i)
                 const hot = hoverTerm?.part === part.id && hoverTerm.term === i
                 return <circle key={`${part.id}:${i}`} className={`dc-cmd-port ${hot ? 'is-hot' : ''}`} data-cmd-port={`${part.id}:${i}`} cx={at.x} cy={at.y} r={hot ? 6 : 4.5}
@@ -434,11 +505,13 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
               {placing && cursor && <g className="dc-cmd-ghost" pointerEvents="none"><CmdSymbol part={{ id: 'ghost', kind: placing, x: cursor.x, y: cursor.y, rot: 0, tag: defaultTag(diagram, placing), lines: placing === 'supply' ? ['L1', 'L2', 'L3'] : undefined }} showTerminals={false} /></g>}
             </g>
           </svg>
-          {!diagram.parts.length && (
+          {!pageParts.length && (
             <div className="dc-cmd-empty">
               <IconCommands size={22} />
-              <strong>Esquema IEC vazio</strong>
-              <span>Escolha símbolos na Biblioteca ou abra um exemplo (arranque direto, estrela-triângulo).</span>
+              <strong>{pages.length > 1 ? 'Página vazia' : 'Esquema IEC vazio'}</strong>
+              <span>{pages.length > 1
+                ? 'Coloque símbolos nesta página ou use «Ligação entre páginas» para trazer corrente de outra folha.'
+                : 'Escolha símbolos na Biblioteca ou abra um exemplo (arranque direto, estrela-triângulo).'}</span>
               {!demo && <button type="button" className="dc-btn dc-btn-primary" onPointerDown={(e) => e.stopPropagation()} onClick={() => void loadExample()}>Abrir um exemplo</button>}
             </div>
           )}

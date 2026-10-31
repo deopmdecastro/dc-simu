@@ -16,6 +16,8 @@ export type CmdKind =
   | 'contact3' | 'contactNO' | 'contactNC' | 'timedNO' | 'timedNC' | 'thermalNC' | 'thermalNO'
   | 'pushNO' | 'pushNC' | 'emergency' | 'selector' | 'limitNO'
   | 'coil' | 'timerCoil' | 'lamp' | 'motor3' | 'motor6'
+  /** Referência de potencial / conector entre páginas: o mesmo tag une a corrente entre folhas. */
+  | 'pageRef'
 
 export type CmdRotation = 0 | 90 | 180 | 270
 
@@ -36,6 +38,8 @@ export interface CmdPart {
   color?: 'green' | 'red' | 'yellow' | 'white' | 'blue'
   /** Alimentação: fases/polaridades disponíveis, uma por borne (L1, L2, L3, N, PE, L+, M). */
   lines?: string[]
+  /** Página do esquema (folha). Por omissão a primeira. */
+  page?: string
 }
 
 export interface CmdEnd { part: string; term: number }
@@ -46,19 +50,33 @@ export interface CmdWire {
   b: CmdEnd
   /** Posição do troço do meio (y se o cabo muda de coluna, x se muda de linha); vazio = a meio. */
   mid?: number
+  /** Página do cabo (folha). Por omissão a dos bornes. */
+  page?: string
 }
 
-export interface CmdText { id: string; x: number; y: number; text: string }
+export interface CmdText { id: string; x: number; y: number; text: string; page?: string }
+
+export interface CmdPage {
+  id: string
+  name: string
+}
 
 export interface CommandsDiagram {
   parts: CmdPart[]
   wires: CmdWire[]
   texts?: CmdText[]
+  /** Folhas do esquema. Sem valor: uma única «Página 1». */
+  pages?: CmdPage[]
   /** Nome do esquema (aparece no cabeçalho e na capa). */
   name?: string
 }
 
-export const emptyCommands = (): CommandsDiagram => ({ parts: [], wires: [], texts: [] })
+export const emptyCommands = (): CommandsDiagram => ({
+  parts: [],
+  wires: [],
+  texts: [],
+  pages: [{ id: 'page-1', name: 'Página 1' }],
+})
 
 export interface Pt { x: number; y: number }
 
@@ -84,6 +102,7 @@ const pole = (x: number, top: string, bottom: string, h = 60) => [{ x, y: 0, lab
 export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   supply: { label: 'Alimentação', hint: 'Fases L1 L2 L3 / N / PE', family: 'source', prefix: '', terminals: [{ x: 0, y: 0, label: 'L1' }], poles: [], box: { x: -12, y: -26, w: 24, h: 30 } },
   node: { label: 'Nó', hint: 'Ponto de ligação de cabos', family: 'source', prefix: '', terminals: [{ x: 0, y: 0, label: '' }], poles: [], box: { x: -6, y: -6, w: 12, h: 12 } },
+  pageRef: { label: 'Ligação entre páginas', hint: 'Leva ou traz corrente de outra página — o mesmo nome (tag) une as páginas', family: 'source', prefix: 'X', terminals: [{ x: 0, y: 0, label: '' }], poles: [], box: { x: -10, y: -14, w: 56, h: 28 } },
   fuse: { label: 'Fusível', hint: 'Proteção contra curto-circuito', family: 'protection', prefix: 'F', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -10, y: 0, w: 20, h: 60 } },
   fuse3: { label: 'Fusíveis 3P', hint: 'Três fusíveis do circuito de potência', family: 'protection', prefix: 'F', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
   breaker3: { label: 'Disjuntor-motor', hint: 'Q · manobra e proteção (clique para ligar/desligar)', family: 'protection', prefix: 'Q', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
@@ -111,7 +130,7 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
 
 /** Grupos da paleta, pela ordem em que se monta um esquema. */
 export const CMD_PALETTE: Array<{ title: string; kinds: CmdKind[] }> = [
-  { title: 'Alimentação', kinds: ['supply', 'node'] },
+  { title: 'Alimentação', kinds: ['supply', 'node', 'pageRef'] },
   { title: 'Proteção e manobra', kinds: ['fuse3', 'fuse', 'disconnector3', 'breaker3', 'thermal3', 'thermalNC', 'thermalNO'] },
   { title: 'Botões e sensores', kinds: ['pushNC', 'pushNO', 'emergency', 'selector', 'limitNO'] },
   { title: 'Contactores e relés', kinds: ['coil', 'contact3', 'contactNO', 'contactNC'] },
@@ -165,6 +184,11 @@ export function wirePoints(a: Pt, b: Pt, mid?: number): Pt[] {
 
 /** Próxima referência livre com o prefixo do símbolo (K1, K2…). */
 export function nextTag(diagram: CommandsDiagram, kind: CmdKind): string {
+  if (kind === 'pageRef') {
+    // Nomes de rede típicos: X1, X2… (o mesmo nome noutra página liga a corrente)
+    const used = new Set(diagram.parts.filter((p) => p.kind === 'pageRef').map((p) => p.tag))
+    for (let n = 1; ; n++) if (!used.has(`X${n}`)) return `X${n}`
+  }
   const prefix = CMD_PARTS[kind].prefix
   if (!prefix) return ''
   const used = new Set(diagram.parts.map((p) => p.tag))

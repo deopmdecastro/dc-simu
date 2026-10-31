@@ -89,6 +89,18 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color'>, st: 
       </g>)}</>
     }
     case 'node': return <circle cx={0} cy={0} r={3.4} fill={INK} stroke="none" />
+    case 'pageRef': {
+      // Conector entre folhas (IEC-style): seta + barra; a etiqueta (tag) é a rede.
+      const live = !st.idle && st.energized
+      const stroke = live ? '#16a34a' : INK
+      return <>
+        <circle cx={0} cy={0} r={3.2} fill={live ? '#16a34a' : INK} stroke="none" />
+        <line x1={0} y1={0} x2={22} y2={0} stroke={stroke} strokeWidth={1.8} />
+        <path d="M 18 -5 L 28 0 L 18 5 Z" fill={stroke} stroke="none" />
+        <rect x={28} y={-10} width={14} height={20} rx={2} fill={live ? '#dcfce7' : '#fff'} stroke={stroke} strokeWidth={1.5} />
+        <path d="M 35 -6 L 35 6" stroke={stroke} strokeWidth={1.2} />
+      </>
+    }
     case 'fuse': case 'fuse3': return <>{(part.kind === 'fuse' ? [0] : [0, 20, 40]).map((x) => <g key={x}>
       <line x1={x} y1={0} x2={x} y2={60} />
       <rect x={x - 5.5} y={16} width={11} height={28} fill="#fff" />

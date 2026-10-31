@@ -9,6 +9,7 @@ import { normalizeKind, type ProjectKind } from '../project/kind'
 import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
 import { emptyCommands, type CommandsDiagram } from '../commands/model'
+import { normalizeCommandsPages } from '../commands/pages'
 import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, setGrafcetNumericReader, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
 import type {
@@ -1001,7 +1002,7 @@ export const useSimStore = create<Store>((set, get) => {
     if (get().demoMode) return
     if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(historyKey))) get().commitHistory()
     if (historyMode === 'force') resetGroupedEdit()
-    set({ commands: diagram, dirty: true })
+    set({ commands: normalizeCommandsPages(diagram), dirty: true })
   },
   setGrafcet: (program, historyMode = 'force', historyKey = 'grafcet') => {
     // Demonstração da landing: o GRAFCET é só de visualização/simulação —
@@ -2853,7 +2854,7 @@ export const useSimStore = create<Store>((set, get) => {
         fcNames: parsed.fcNames ?? {},
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
-        commands: Array.isArray(parsed.commands?.parts) && Array.isArray(parsed.commands?.wires) ? parsed.commands : emptyCommands(),
+        commands: Array.isArray(parsed.commands?.parts) && Array.isArray(parsed.commands?.wires) ? normalizeCommandsPages(parsed.commands) : emptyCommands(),
         virtualInputCount: typeof parsed.virtualInputCount === 'number' ? Math.max(1, Math.min(32, parsed.virtualInputCount)) : 8,
         virtualOutputCount: typeof parsed.virtualOutputCount === 'number' ? Math.max(1, Math.min(32, parsed.virtualOutputCount)) : 8,
         virtualMemoryCount: typeof parsed.virtualMemoryCount === 'number' ? Math.max(0, Math.min(32, parsed.virtualMemoryCount)) : 0,

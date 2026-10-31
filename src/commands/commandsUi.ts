@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { useSimStore } from '../store/useSimStore'
 import { emptyCmdRuntime, stepCommands, type CmdRuntime } from './engine'
 import type { CmdKind } from './model'
+import { DEFAULT_PAGE_ID } from './pages'
 
 export type CmdTool = 'select' | 'wire' | 'erase' | 'pan'
 export type CmdSelection = { type: 'part' | 'wire'; id: string } | null
@@ -43,6 +44,9 @@ interface CommandsUi {
   /** Símbolos colocados recentemente (o último primeiro), guardados neste navegador. */
   recent: CmdKind[]
   markRecent: (kind: CmdKind) => void
+  /** Página ativa do esquema (folha). */
+  activePageId: string
+  setActivePageId: (id: string) => void
 }
 
 const RECENT_KEY = 'dcsimu:commands:library:recent'
@@ -88,6 +92,8 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
     try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)) } catch { /* armazenamento indisponível */ }
     set({ recent: next })
   },
+  activePageId: DEFAULT_PAGE_ID,
+  setActivePageId: (id) => set({ activePageId: id, selection: null }),
 }))
 
 /** Símbolos que se operam com o rato durante a simulação. */

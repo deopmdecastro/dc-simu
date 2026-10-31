@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import { useSimStore } from '../store/useSimStore'
 import { CMD_PARTS, emptyCommands, nextTag, snap, terminalLabel, type CmdKind, type CmdPart, type CmdRotation, type CommandsDiagram, type Pt } from './model'
 import { useCommandsUi } from './commandsUi'
+import { DEFAULT_PAGE_ID, normalizeCommandsPages, pagesOf } from './pages'
 
 export const getDiagram = (): CommandsDiagram => useSimStore.getState().commands ?? emptyCommands()
 export const commitDiagram = (next: CommandsDiagram) => useSimStore.getState().setCommands(next, 'force')
@@ -26,11 +27,13 @@ export function defaultTag(diagram: CommandsDiagram, kind: CmdKind): string {
   return nextTag(diagram, kind)
 }
 
-export function addPart(kind: CmdKind, at: Pt): CmdPart {
-  const diagram = getDiagram()
+export function addPart(kind: CmdKind, at: Pt, pageId?: string): CmdPart {
+  const diagram = normalizeCommandsPages(getDiagram())
+  const pages = pagesOf(diagram)
+  const page = pageId && pages.some((p) => p.id === pageId) ? pageId : (useCommandsUi.getState().activePageId || pages[0]?.id || DEFAULT_PAGE_ID)
   const tag = defaultTag(diagram, kind)
   const part: CmdPart = {
-    id: nanoid(8), kind, x: snap(at.x), y: snap(at.y), rot: 0, tag,
+    id: nanoid(8), kind, x: snap(at.x), y: snap(at.y), rot: 0, tag, page,
     ...(kind === 'supply' ? { lines: ['L1', 'L2', 'L3'] } : {}),
     ...(kind === 'timerCoil' ? { delayMs: 3000 } : {}),
     ...(kind === 'lamp' ? { color: 'green' as const } : {}),

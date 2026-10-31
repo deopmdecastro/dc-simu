@@ -7,6 +7,7 @@ import { useSimStore } from '../store/useSimStore'
 import { CMD_PALETTE, CMD_PARTS, emptyCommands, partBox, partTerminals, type CmdKind, type CmdPart } from './model'
 import { symbolBody } from './symbols'
 import { useCommandsUi } from './commandsUi'
+import { pageRefPeers } from './pages'
 import { patchPart, removeSelected, rotateSelected } from './editing'
 import { devicesOf } from './engine'
 
@@ -179,10 +180,22 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
   return (
     <fieldset className="dc-cmd-props" disabled={disabled}>
       <p className="dc-cmd-muted">{def.hint}</p>
-      {def.prefix && <label className="dc-cmd-field"><span>Referência</span>
-        <input className="dc-input" value={part.tag} onChange={(e) => onChange({ tag: e.target.value.toUpperCase().replace(/\s+/g, '') })} aria-label="Referência do aparelho" />
+      {(def.prefix || part.kind === 'pageRef') && <label className="dc-cmd-field"><span>{part.kind === 'pageRef' ? 'Nome da ligação (rede)' : 'Referência'}</span>
+        <input className="dc-input" value={part.tag} onChange={(e) => onChange({ tag: e.target.value.toUpperCase().replace(/\s+/g, '') })} aria-label={part.kind === 'pageRef' ? 'Nome da ligação entre páginas' : 'Referência do aparelho'} placeholder={part.kind === 'pageRef' ? 'Ex.: X1, 24V, L1' : undefined} />
       </label>}
-      {def.family === 'contact' && <p className="dc-cmd-muted">Comandado pelo aparelho <b>{part.tag || '—'}</b> (bobina, temporizador ou relé térmico com a mesma referência).</p>}
+      {part.kind === 'pageRef' && (() => {
+        const peers = pageRefPeers(useSimStore.getState().commands, part.tag, part.page)
+        return (
+          <p className="dc-cmd-muted">
+            {part.tag
+              ? (peers.length
+                  ? <>Liga electricamente a: {peers.map((pg) => pg.name).join(', ')}. O mesmo nome noutra página leva ou traz a corrente.</>
+                  : <>Coloque outro «Ligação entre páginas» com o nome <b>{part.tag}</b> noutra página para passar a corrente.</>)
+              : <>Defina um nome (ex.: X1 ou 24V). O mesmo nome noutra página une as folhas.</>}
+          </p>
+        )
+      })()}
+{def.family === 'contact' && <p className="dc-cmd-muted">Comandado pelo aparelho <b>{part.tag || '—'}</b> (bobina, temporizador ou relé térmico com a mesma referência).</p>}
       {part.kind === 'supply' && <label className="dc-cmd-field"><span>Fases</span>
         <select className="dc-input" value={(part.lines ?? ['L1']).join(' ')} onChange={(e) => onChange({ lines: e.target.value.split(' ') })} aria-label="Fases da alimentação">
           {SUPPLY_PRESETS.map((p) => <option key={p.join(' ')} value={p.join(' ')}>{p.join(' · ')}</option>)}
@@ -196,7 +209,7 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
           <option value="green">Verde (marcha)</option><option value="red">Vermelho (paragem/defeito)</option><option value="yellow">Amarelo (alerta)</option><option value="white">Branco</option><option value="blue">Azul</option>
         </select>
       </label>}
-      {part.kind !== 'supply' && part.kind !== 'node' && <div className="dc-cmd-field"><span>Marcação dos bornes</span>
+      {part.kind !== 'supply' && part.kind !== 'node' && part.kind !== 'pageRef' && <div className="dc-cmd-field"><span>Marcação dos bornes</span>
         <div className="dc-cmd-terms">{terms.map((t, i) => <input key={i} className="dc-input" value={part.labels?.[i] ?? t.label} onChange={(e) => { const labels = terms.map((x, j) => part.labels?.[j] ?? x.label); labels[i] = e.target.value; onChange({ labels }) }} aria-label={`Borne ${i + 1}`} />)}</div>
       </div>}
       <div className="dc-cmd-actions">
