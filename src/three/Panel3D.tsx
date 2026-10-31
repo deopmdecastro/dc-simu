@@ -1676,10 +1676,11 @@ function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D
   return geom
 }
 
-function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
+function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, ...handlers }: {
   pivots: Record<string, THREE.Vector3>
   editMode: Panel3DEditMode
   selectedWireId: string | null
+  onRoutingLoadingChange: (loading: boolean) => void
 } & WireEditHandlers) {
   const wires = useSimStore((s) => s.wires)
   const runState = useSimStore((s) => s.sim.runState)
@@ -1721,6 +1722,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     `${wiresGeoKey}#${obstaclesKey}`,
     () => createWireRoutingJob(wires, components, pivots),
   )
+  useEffect(() => { onRoutingLoadingChange(!coordinatedPaths && !routingError) }, [coordinatedPaths, routingError, onRoutingLoadingChange])
   const blockedNotice = useRef('')
   useEffect(() => {
     if (!coordinatedPaths) return
@@ -1771,10 +1773,8 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
   }
 
   return <group userData={{ noPick: true }}>
-    {/* Só mostra o overlay de cálculo quando os modelos já carregaram e ainda não há paths.
-        Enquanto modelos carregam, o overlay de página cobre a vista; evitar sobreposição. */}
-    {!coordinatedPaths && !modelsLoading && <Html center><div role={routingError ? 'alert' : 'status'} className="rounded border border-line-soft bg-white px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
-      {routingError ? <>Não foi possível calcular os cabos. <button type="button" className="underline" onClick={retryRouting}>Tentar novamente</button></> : 'A calcular os cabos…'}
+    {!coordinatedPaths && routingError && !modelsLoading && <Html center><div role="alert" className="rounded border border-line-soft bg-white px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
+      Não foi possível calcular os cabos. <button type="button" className="underline" onClick={retryRouting}>Tentar novamente</button>
     </div></Html>}
     {wires.map((storedWire) => {
     // Sem traçado confirmado, não fazer o cálculo síncrono de cada cabo como fallback.
@@ -2330,6 +2330,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   useShortcutsRequest('schematic', () => setShortcutHelpOpen(true))
   const [glLost, setGlLost] = useState(false)
   const [modelsLoading, setModelsLoading] = useState(false)
+  const [routingLoading, setRoutingLoading] = useState(true)
   const [softwareGl, setSoftwareGl] = useState(IS_SOFTWARE_WEBGL)
   const gridSettings = useSimStore((s) => s.grid)
   // LEDs/estados dos componentes em RUN: subscrição explícita do tick da simulação
@@ -3330,6 +3331,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           return wrapOriented(c, content)
         })}
         <Wires3D
+          onRoutingLoadingChange={setRoutingLoading}
           pivots={panelPivots}
           editMode={editMode}
           selectedWireId={demoMode ? null : selectedWireId}
@@ -3368,8 +3370,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           scrollBridge={cameraScrollBridge} scrollBounds={contentBounds ?? { minX: -2, maxX: 2, minY: -2, maxY: 2, minZ: -0.2, maxZ: 0.6 }}
           frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} viewLocked={viewLocked} />
       </Canvas>
-      {modelsLoading && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ pointerEvents: 'none' }} aria-hidden={false}>
+      {(modelsLoading || routingLoading) && (
+        <div className="absolute inset-0 z-50" data-testid="panel3d-loading">
           <RouteLoading label="A carregar o editor…" />
         </div>
       )}
