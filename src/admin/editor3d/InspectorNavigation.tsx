@@ -6,7 +6,7 @@ import SidePanelHeader from '../../components/SidePanelHeader'
 const GROUPS: Array<{ id: string; label: string; tabs: Array<[InspectorTab, string]> }> = [
   { id: 'build', label: 'Construção', tabs: [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['wires', 'Cabos']] },
   { id: 'behavior', label: 'Funcionamento', tabs: [['controls', 'Botões'], ['displays', 'Ecrãs'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações']] },
-  { id: 'component', label: 'Componente', tabs: [['component', 'Componente']] },
+  { id: 'component', label: 'Componente', tabs: [['component', 'Componente'], ['iec', 'Símbolo IEC']] },
 ]
 
 export default function InspectorNavigation({ collapsed = false, onToggle, onMobileClose }: { collapsed?: boolean; onToggle: () => void; onMobileClose: () => void }) {

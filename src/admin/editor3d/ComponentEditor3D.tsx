@@ -22,6 +22,7 @@ import EditorActionMenu from './EditorActionMenu'
 import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } from './tabs2'
 import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
+import { IecTab } from './tabsIec'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
 import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler, IconSave, IconHelp, IconCube, IconTools } from '../../ui/icons'
@@ -774,7 +775,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         <InspectorNavigation collapsed={panels.collapsed.right} onToggle={() => panels.toggle('right')} onMobileClose={() => setMobilePane('canvas')} />
         <div className="ce-inspector">
           {tab === 'object' && <ObjectTab />}{tab === 'materials' && <MaterialsTab />}{tab === 'terminals' && <TerminalsTab />}
-          {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'controls' && <ControlsTab />}{tab === 'displays' && <DisplaysTab />}{tab === 'component' && <ComponentTab />}
+          {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'controls' && <ControlsTab />}{tab === 'displays' && <DisplaysTab />}{tab === 'component' && <ComponentTab />}{tab === 'iec' && <IecTab />}
         </div>
       </aside>
     </div>

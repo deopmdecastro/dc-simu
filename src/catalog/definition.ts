@@ -58,6 +58,7 @@ export function normalizeDefinition(input: Partial<ComponentDefinition> | undefi
     states: input?.states?.length ? input.states : base.states,
     interactions: input?.interactions ?? [], assets: input?.assets ?? {},
     vars: input?.vars ?? [], controls: input?.controls ?? [], displays: input?.displays ?? [],
+    iec: input?.iec,
   }
   const partIds = new Set(def.parts.map((part) => part.id))
   def.parts = def.parts.map((part) => (part.parentId && !partIds.has(part.parentId) ? { ...part, parentId: null } : part))

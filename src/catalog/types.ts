@@ -320,6 +320,39 @@ export interface AssetDef {
   builtinType?: ComponentType
 }
 
+/** Símbolo IEC associado ao componente 3D (Esquema IEC / IEC 60617). */
+export interface IecTerminalDef {
+  x: number
+  y: number
+  label: string
+}
+
+/** Definição editável de um símbolo IEC (pode partir de um CmdKind base). */
+export interface IecSymbolDef {
+  /** Identificador estável no componente. */
+  id: string
+  label: string
+  /** CmdKind de base cujo desenho se reutiliza; se omitido, usa-se um rectângulo genérico. */
+  basedOn?: string
+  /** Prefixo IEC 81346-2 (Q, F, K, S, M, H…). */
+  prefix: string
+  terminals: IecTerminalDef[]
+  /** Pares de índices de bornes que conduzem quando o elemento está fechado. */
+  poles: Array<[number, number]>
+  box: { x: number; y: number; w: number; h: number }
+  note?: string
+}
+
+/** Dados IEC guardados na definição do componente. */
+export interface IecDef {
+  /** Símbolo principal (CmdKind integrado ou id de `symbols`). */
+  primary?: string
+  /** Símbolos relacionados (contactos auxiliares, etc.). */
+  related?: string[]
+  /** Símbolos personalizados criados neste componente. */
+  symbols?: IecSymbolDef[]
+}
+
 export interface ComponentDefinition {
   /** Elementos integrados já introduzidos; evita recriar elementos apagados pelo autor. */
   builtinSeeds?: string[]
@@ -340,6 +373,8 @@ export interface ComponentDefinition {
   controls?: ControlDef[]
   displays?: DisplayDef[]
   behavior?: BehaviorDef
+  /** Associação e símbolos IEC 60617 (Esquema IEC). */
+  iec?: IecDef
 }
 
 export interface CatalogMeta {
@@ -364,6 +399,8 @@ export interface CatalogMeta {
    * Exemplos: breaker3, coil, pushNO, motor3, lamp, fuse…
    */
   iecSymbol?: string
+  /** Símbolos IEC relacionados (CmdKind), separados da associação principal. */
+  iecRelated?: string[]
   /** Ficha técnica: link e/ou PDF (o PDF vai em `assets.datasheet` do rascunho e não segue nas versões publicadas). */
   datasheet?: { status: 'have' | 'none'; url?: string; fileName?: string }
   properties: Array<{ key: string; value: string }>

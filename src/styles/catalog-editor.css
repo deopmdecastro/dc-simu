@@ -1398,3 +1398,82 @@
 .ce-color-swatch:hover { transform:scale(1.12); }
 .ce-color-swatch.is-on { box-shadow:0 0 0 2px var(--dx-brand,#2655e5); }
 .ce-color-swatch:focus-visible { outline:2px solid var(--dx-brand,#2655e5); outline-offset:2px; }
+
+/* —— Aba Símbolo IEC (editor de componentes) —— */
+.ce-iec-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+  border-radius: 10px;
+  background:
+    linear-gradient(45deg, #f1f5f9 25%, transparent 25%) 0 0 / 12px 12px,
+    linear-gradient(-45deg, #f1f5f9 25%, transparent 25%) 0 6px / 12px 12px,
+    #fff;
+  overflow: hidden;
+}
+.ce-iec-preview.is-empty {
+  color: var(--dx-ink-4, #94a3b8);
+  font-size: 11px;
+}
+.ce-iec-preview svg { display: block; max-width: 100%; max-height: 100%; }
+.ce-iec-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ce-iec-fields { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ce-iec-sim {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--dx-surface-2, #f6f8fb);
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+}
+.ce-iec-sim-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--dx-ink-4); }
+.ce-iec-sim-row { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.ce-iec-sim-row .ce-field { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; }
+.ce-iec-sim-row .ce-field em { font-style: normal; font-size: 11px; color: var(--dx-ink-3); min-width: 2.5em; }
+.ce-iec-related { display: flex; flex-direction: column; gap: 10px; }
+.ce-iec-related-group { display: flex; flex-direction: column; gap: 4px; }
+.ce-iec-related-title { font-size: 10px; font-weight: 600; color: var(--dx-ink-4); text-transform: uppercase; letter-spacing: .04em; }
+.ce-iec-related-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ce-iec-library { display: flex; flex-direction: column; gap: 14px; }
+.ce-iec-lib-group h4 { margin: 0 0 6px; font-size: 11px; font-weight: 700; color: var(--dx-ink-3); }
+.ce-iec-lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.ce-iec-lib-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+  border-radius: 8px;
+  background: var(--dx-surface, #fff);
+}
+.ce-iec-lib-tile.is-primary { border-color: var(--dx-brand, #2655e5); box-shadow: 0 0 0 1px var(--dx-brand-line, #c0d4fc); }
+.ce-iec-lib-name { font-size: 10px; font-weight: 600; text-align: center; color: var(--dx-ink-2); line-height: 1.25; }
+.ce-iec-lib-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.ce-iec-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+}
+.ce-iec-custom-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ce-iec-custom-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+.ce-iec-term-row { align-items: center; }
+.ce-iec-term-row .ce-num { width: 64px; }

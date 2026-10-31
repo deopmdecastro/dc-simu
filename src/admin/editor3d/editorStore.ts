@@ -13,7 +13,7 @@ export type Selection = { kind: 'part' | 'terminal' | 'light' | 'control' | 'dis
 export type Tool = 'translate' | 'rotate' | 'scale'
 /** Ferramentas da barra principal (como no simulador): 1 Selecionar · 2 Borne · 3 Cabo · 4 Apagar · 5 Arrastar malha. */
 export type Ribbon = 'select' | 'terminal' | 'wire' | 'delete' | 'pan' | 'measure'
-export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'controls' | 'displays' | 'wires' | 'component'
+export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'controls' | 'displays' | 'wires' | 'component' | 'iec'
 export type ViewCommand = { kind: 'fit' | 'fitSel' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit' | 'zoom'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
 /** Estado da câmara para a barra: ângulos e zoom honesto (100 % = modelo enquadrado). */
 export type CamStats = { yaw: number; pitch: number; /** distância de enquadramento em mm (referência do zoom) */ fit: number; /** percentagem de zoom inteira */ zoom: number }

@@ -176,9 +176,15 @@ function fromCatalogMeta(type: ComponentType): IecAssociation | undefined {
   if (!entry) return undefined
   const meta = entry.meta
   // Campo explícito no meta (quando o autor o preenche no Admin).
-  const explicit = (meta as { iecSymbol?: string }).iecSymbol as CmdKind | undefined
+  const explicit = meta.iecSymbol as CmdKind | undefined
+  const related = (meta.iecRelated ?? []).filter((k): k is CmdKind => k in CMD_PARTS)
   if (explicit && explicit in CMD_PARTS) {
-    return { primary: explicit, refLetter: CMD_PARTS[explicit].prefix || meta.tag?.[0], note: meta.kind }
+    return {
+      primary: explicit,
+      related: related.length ? related : undefined,
+      refLetter: CMD_PARTS[explicit].prefix || meta.tag?.[0],
+      note: meta.kind,
+    }
   }
   if (meta.kind) {
     const key = meta.kind.trim().toLowerCase()
