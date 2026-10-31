@@ -1699,6 +1699,9 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     terminals: editor.terminals,
     view3DScale: editor.scale3D,
   } : component), [storedComponents, editor])
+  // Enquanto modelos GLB ainda estão a carregar (Suspense/useProgress), não mostrar
+  // o overlay de cálculo de cabos — evita tela de processamento sobre cena incompleta.
+  const { active: modelsLoading } = useProgress()
 
   // sólidos a contornar: os cabos passam à frente dos componentes, nunca por dentro.
   // A chave posicional mantém as caixas estáveis durante os ticks da simulação
@@ -1773,7 +1776,9 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
   }
 
   return <group userData={{ noPick: true }}>
-    {!coordinatedPaths && <Html center><div role={routingError ? 'alert' : 'status'} className="rounded border border-line-soft bg-white px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
+    {/* Só mostra o overlay de cálculo quando os modelos já carregaram e ainda não há paths.
+        Enquanto GLBs estão em Suspense, ModelLoading3D já fornece feedback; evitar sobreposição. */}
+    {!coordinatedPaths && !modelsLoading && <Html center><div role={routingError ? 'alert' : 'status'} className="rounded border border-line-soft bg-white px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
       {routingError ? <>Não foi possível calcular os cabos. <button type="button" className="underline" onClick={retryRouting}>Tentar novamente</button></> : 'A calcular os cabos…'}
     </div></Html>}
     {wires.map((storedWire) => {
