@@ -1,6 +1,7 @@
 import type { ElectricalComponent, Wire, SimulationDiagnostic, FaultState, Terminal } from '../types'
 import { TEMPLATES } from '../electrical/factory'
 import { terminalClassesCompatible, terminalElectricalClassOf } from '../electrical/terminalClassification'
+import { computePhaseLabels, type PhaseTag } from '../electrical/phases'
 
 const isSupport = (type: string) => /^dinRail|rail|busbar|barra|mountingPlate|cableDuct|calha/i.test(type)
 
@@ -311,6 +312,136 @@ export function detectDiagnostics(
       if (t.kind === 'earth') return
       if (!isConnected(t.id)) {
         diags.push({ id: id(), level: 'info', message: `INFO: ${c.ref}:${t.label} sem cabo.`, componentId: c.id })
+      }
+    })
+  })
+
+  // 19. Mais cabos soltos: bornes de potência de motores e contactores
+  components.forEach((c) => {
+    if (c.type === 'motor3ph' || c.type === 'motor1ph') {
+      const power = c.terminals.filter((t) => /^(U1|V1|W1|U|V|W)$/i.test(t.label) || t.kind === 'power-in')
+      const open = power.filter((t) => !isConnected(t.id))
+      if (open.length === power.length && power.length) {
+        diags.push({ id: id(), level: 'error', message: `ERRO: motor ${c.ref} sem nenhum cabo de potência (U/V/W soltos).`, componentId: c.id })
+      } else if (open.length) {
+        diags.push({ id: id(), level: 'error', message: `ERRO: motor ${c.ref} — fase(s) solta(s): ${open.map((t) => t.label).join(', ')}.`, componentId: c.id })
+      }
+    }
+    if (c.type === 'contactor' || c.type === 'contactor4p' || c.type === 'contactorWegCWC09') {
+      const ins = c.terminals.filter((t) => /^(1|3|5|1L1|3L2|5L3|L1|L2|L3)$/i.test(t.label))
+      const outs = c.terminals.filter((t) => /^(2|4|6|2T1|4T2|6T3|T1|T2|T3)$/i.test(t.label))
+      const openIn = ins.filter((t) => !isConnected(t.id))
+      const openOut = outs.filter((t) => !isConnected(t.id))
+      if (openIn.length && openIn.length < ins.length) {
+        diags.push({ id: id(), level: 'warning', message: `AVISO: ${c.ref} — entrada de potência incompleta (${openIn.map((t) => t.label).join(', ')} solto).`, componentId: c.id })
+      }
+      if (openOut.length && openOut.length < outs.length) {
+        diags.push({ id: id(), level: 'warning', message: `AVISO: ${c.ref} — saída de potência incompleta (${openOut.map((t) => t.label).join(', ')} solto).`, componentId: c.id })
+      }
+    }
+  })
+
+  // 20. Fases invertidas / sequência incorrecta no motor trifásico
+  const phaseLabels = computePhaseLabels(components, wires)
+  const PHASE_ORDER: PhaseTag[] = ['L1', 'L2', 'L3']
+  components.filter((c) => c.type === 'motor3ph').forEach((m) => {
+    const u = m.terminals.find((t) => t.label === 'U1')
+    const v = m.terminals.find((t) => t.label === 'V1')
+    const w = m.terminals.find((t) => t.label === 'W1')
+    if (!u || !v || !w) return
+    const seq = [u, v, w].map((t) => phaseLabels.get(t.id))
+    const defined = seq.filter((s): s is PhaseTag => s === 'L1' || s === 'L2' || s === 'L3')
+    // Neutro ou PE num borne de fase do motor
+    for (const t of [u, v, w]) {
+      const tag = phaseLabels.get(t.id)
+      if (tag === 'N') {
+        diags.push({ id: id(), level: 'error', message: `ERRO: neutro no borne ${t.label} do motor ${m.ref} (esperado L1/L2/L3).`, componentId: m.id })
+      }
+      if (tag === 'PE') {
+        diags.push({ id: id(), level: 'error', message: `ERRO: PE no borne ${t.label} do motor ${m.ref}.`, componentId: m.id })
+      }
+    }
+    if (defined.length < 3) {
+      // Falta identidade de fase em algum borne já ligado
+      const missing = [u, v, w].filter((t) => isConnected(t.id) && !phaseLabels.has(t.id))
+      if (missing.length) {
+        diags.push({ id: id(), level: 'warning', message: `AVISO: motor ${m.ref} — fase não identificada em ${missing.map((t) => t.label).join(', ')} (cabo sem origem L1/L2/L3).`, componentId: m.id })
+      }
+      return
+    }
+    // Duas fases iguais → curto lógico / ligação errada
+    if (new Set(defined).size < 3) {
+      diags.push({ id: id(), level: 'error', message: `ERRO: motor ${m.ref} com a mesma fase em dois bornes (U1/V1/W1 = ${seq.join('-')}).`, componentId: m.id })
+      return
+    }
+    const key = seq.join('-')
+    if (key === 'L1-L2-L3') {
+      // sequência correcta (horário)
+    } else if (key === 'L3-L2-L1') {
+      diags.push({ id: id(), level: 'warning', message: `AVISO: motor ${m.ref} com fases invertidas (L3-L2-L1) — rotação anti-horária.`, componentId: m.id })
+    } else {
+      diags.push({ id: id(), level: 'error', message: `ERRO: motor ${m.ref} com sequência de fases incorrecta (${key}) — esperado L1-L2-L3 ou L3-L2-L1 (inversão).`, componentId: m.id })
+    }
+  })
+
+  // 21. Fases cruzadas no contactor (saída T1/T2/T3 vs entrada)
+  components.filter((c) => c.type === 'contactor' || c.type === 'contactor4p' || c.type === 'contactorWegCWC09').forEach((c) => {
+    const mapPairs: Array<[string, string, string]> = [
+      ['1', '2', 'L1'], ['3', '4', 'L2'], ['5', '6', 'L3'],
+      ['1L1', '2T1', 'L1'], ['3L2', '4T2', 'L2'], ['5L3', '6T3', 'L3'],
+    ]
+    for (const [inp, out, expect] of mapPairs) {
+      const ti = c.terminals.find((t) => t.label === inp)
+      const to = c.terminals.find((t) => t.label === out)
+      if (!ti || !to) continue
+      const tagIn = phaseLabels.get(ti.id)
+      const tagOut = phaseLabels.get(to.id)
+      // Com contactor aberto as fases de saída podem não propagar; só avisar se ambas têm tag e diferem
+      if (tagIn && tagOut && tagIn !== tagOut && PHASE_ORDER.includes(tagIn) && PHASE_ORDER.includes(tagOut)) {
+        // Contactor fechado propaga a mesma fase; se tags diferem no mesmo pólo, há ligação externa cruzada na saída
+        if (c.state.energized) {
+          diags.push({ id: id(), level: 'error', message: `ERRO: ${c.ref} pólo ${inp}→${out}: fase ${tagIn} à entrada e ${tagOut} à saída com bobina excitada.`, componentId: c.id })
+        }
+      }
+    }
+  })
+
+  // 22. Cabo de fase (kind power/control) a ligar dois bornes de fases diferentes sem ser através de carga
+  wires.forEach((w) => {
+    if (w.fromPoint || w.toPoint || !w.fromTerminalId || !w.toTerminalId) return
+    const a = termIndex.get(w.fromTerminalId)
+    const b = termIndex.get(w.toTerminalId)
+    if (!a || !b) return
+    const tagA = phaseLabels.get(w.fromTerminalId)
+    const tagB = phaseLabels.get(w.toTerminalId)
+    // Se o grafo já propagou a mesma tag, ok; se seeds directos em barras diferentes no mesmo cabo:
+    const seedPhase = (hit: { component: ElectricalComponent; terminal: Terminal }): PhaseTag | null => {
+      const lab = hit.terminal.label
+      if (hit.component.type === 'busbarPhase' || hit.component.type === 'powerSource3ph') {
+        if (lab === 'L1') return 'L1'
+        if (lab === 'L2') return 'L2'
+        if (lab === 'L3') return 'L3'
+        if (lab === 'N') return 'N'
+      }
+      if (hit.component.type === 'powerSource1ph') {
+        if (lab === 'L') return 'L1'
+        if (lab === 'N') return 'N'
+      }
+      return null
+    }
+    const sa = seedPhase(a)
+    const sb = seedPhase(b)
+    if (sa && sb && sa !== sb && (sa === 'L1' || sa === 'L2' || sa === 'L3') && (sb === 'L1' || sb === 'L2' || sb === 'L3')) {
+      diags.push({ id: id(), level: 'error', message: `ERRO: cabo ${w.number ?? w.id.slice(0, 6)} faz curto entre ${sa} e ${sb} (${a.component.ref}↔${b.component.ref}).`, componentId: a.component.id })
+    }
+  })
+
+  // 23. Cabos soltos em bornes de alimentação de fontes
+  components.filter((c) => /powerSource|powerSupply/i.test(c.type)).forEach((c) => {
+    c.terminals.forEach((t) => {
+      if (t.kind === 'earth') return
+      if (!isConnected(t.id)) {
+        diags.push({ id: id(), level: 'warning', message: `AVISO: ${c.ref}:${t.label} sem cabo (fonte/alimentação).`, componentId: c.id })
       }
     })
   })
