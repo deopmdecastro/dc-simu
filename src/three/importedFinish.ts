@@ -233,7 +233,7 @@ export function rigImportedModel(type: string, root: THREE.Object3D, parts: Part
     root.traverse((node) => {
       const mesh = node as THREE.Mesh
       const lens = mesh.isMesh ? mesh.userData.towerLens as string | undefined : undefined
-      if (lens) lampOf(mesh, lens, lens === 'red' ? LENS.red.emissive : lens === 'yellow' ? LENS.amber.emissive : LENS.green.emissive, rig, { color: lens === 'red' ? '#ff3a2a' : lens === 'yellow' ? '#ffb340' : '#3dff7a', distance: 1.4, intensity: 1 })
+      if (lens) lampOf(mesh, lens, lens === 'red' ? LENS.red.emissive : lens === 'yellow' ? LENS.amber.emissive : LENS.green.emissive, rig)
     })
   } else if (type === 'safetyRelaySiemens3tk2840') {
     const leds = parts.filter((p) => p.center.x > 6 && p.center.y > 30 && p.center.y < 50 && p.box.max.z > 88 && maxDim(p) < 5).sort((a, b) => b.center.y - a.center.y)
@@ -291,6 +291,9 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     lamp.value = next
     lamp.material.emissive.copy(lamp.glow)
     lamp.material.emissiveIntensity = lamp.value * 2.2
+    // Como a lâmpada nativa: acesa não passa pelo tone mapping, para saturar e «queimar» no vidro.
+    const saturate = lamp.value > 0.02
+    if (lamp.material.toneMapped === saturate) { lamp.material.toneMapped = !saturate; lamp.material.needsUpdate = true }
     lamp.material.color.copy(lamp.base).lerp(lamp.glow, lamp.value * .35)
     if (lamp.light) lamp.light.intensity = lamp.value * 1.1
   }

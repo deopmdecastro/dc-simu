@@ -862,7 +862,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   const centered = !!position
   const { scene } = useGLTF(spec.path)
   const importedType = importedComponentInfo(c.type) ? c.type : null
-  const { model, importedRig } = useMemo(() => {
+  const { model, importedRig, lenses } = useMemo(() => {
     const obj = cloneModelScene(scene)
     // CAD importados: cores reais por peça antes do acabamento PBR comum.
     const parts = importedType ? paintImportedModel(importedType, obj) : null
@@ -880,7 +880,23 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     if (rigged) finish(obj)
     const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, centered ? 'center' : 'bottom')
     void applyCadSurfaceTextures(fitted)
-    return { model: fitted, importedRig: rigged }
+    // Torre: posição de cada lente já no referencial do modelo ajustado, para ancorar o halo no vidro.
+    const lenses: Array<{ role: 'red' | 'yellow' | 'green'; color: string; center: [number, number, number]; radius: number }> = []
+    if (importedType === 'towerLightSb23011') {
+      fitted.updateMatrixWorld(true)
+      const colors = { red: '#ef4444', yellow: '#eab308', green: '#22c55e' } as const
+      const box = new THREE.Box3()
+      const size = new THREE.Vector3()
+      fitted.traverse((node) => {
+        const mesh = node as THREE.Mesh
+        const role = mesh.isMesh ? mesh.userData.towerLens as 'red' | 'yellow' | 'green' | undefined : undefined
+        if (!role) return
+        box.setFromObject(mesh)
+        box.getSize(size)
+        lenses.push({ role, color: colors[role], center: [(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.max.z], radius: Math.max(size.x, size.z) / 2 })
+      })
+    }
+    return { model: fitted, importedRig: rigged, lenses }
   }, [scene, spec, centered, importedType])
   const invalidateFrame = useThree((three) => three.invalidate)
   useFrame((_, delta) => {
@@ -965,6 +981,8 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   })
   return <group position={position ?? [x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
+    {/* Torre: mesmo GlowHalo «lamp» (halo aditivo + luz de ponto) da lâmpada do projeto nativo, encostado ao vidro de cada lente. */}
+    {lenses.map((lens) => <GlowHalo key={lens.role} color={lens.color} on={simActive && !!c.state[lens.role]} radius={lens.radius} kind="lamp" position={lens.center} />)}
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
     {/* Sem luz de ponto «energizado»: montar/desmontar luzes recompilava os shaders de toda a cena a cada
