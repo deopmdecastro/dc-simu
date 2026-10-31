@@ -245,3 +245,10 @@
   pointer-events: auto;
 }
 .dc-cmd-canvas.is-placing-text { cursor: text; }
+
+.dc-cmd-buzz path { animation: dc-cmd-buzz 0.4s ease-in-out infinite; }
+@keyframes dc-cmd-buzz {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.dc-cmd-actuator { cursor: pointer; }

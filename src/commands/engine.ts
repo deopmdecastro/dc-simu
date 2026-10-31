@@ -31,6 +31,10 @@ export interface CmdRuntime {
   /** Cabos sob tensão (id → fase/polaridade). */
   liveWires: Record<string, string>
   lamps: Record<string, boolean>
+  /** Cargas sob tensão (buzzer, solenoide, aquecedor, PLC out visual). */
+  loads: Record<string, boolean>
+  /** Posição do êmbolo 0 = recolhido, 1 = avançado (cilindros). */
+  actuators: Record<string, number>
   motors: Record<string, CmdMotorState>
   fault?: string
 }
@@ -45,7 +49,7 @@ export interface CmdMotorState {
 }
 
 export const emptyCmdRuntime = (): CmdRuntime => ({
-  running: false, time: 0, pressed: {}, toggled: {}, tripped: {}, coils: {}, coilSince: {}, delays: {}, live: {}, liveWires: {}, lamps: {}, motors: {},
+  running: false, time: 0, pressed: {}, toggled: {}, tripped: {}, coils: {}, coilSince: {}, delays: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {},
 })
 
 const key = (part: string, term: number) => `${part}:${term}`
@@ -56,19 +60,23 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
   const on = !!rt.coils[part.tag]
   const timed = on && rt.time - (rt.coilSince[part.tag] ?? rt.time) >= (rt.delays?.[part.tag] ?? 3000)
   switch (part.kind) {
-    case 'fuse': case 'fuse3': case 'thermal3': return true
-    case 'breaker3': return !rt.toggled[part.tag] && !rt.tripped[part.tag]
+    case 'fuse': case 'fuse3': case 'thermal3': case 'resistor': case 'capacitor': case 'throttle': case 'checkValve': return true
+    case 'diode': return true // modelo simplificado: conduz no sentido do esquema
+    case 'breaker1': case 'breaker3': case 'rcd': return !rt.toggled[part.tag] && !rt.tripped[part.tag]
     case 'disconnector3': return !rt.toggled[part.tag]
-    case 'contact3': case 'contactNO': return on
+    case 'contact3': case 'contactNO': case 'changeover': return on
     case 'contactNC': return !on
     case 'timedNO': return timed
     case 'timedNC': return !timed
     case 'thermalNC': return !rt.tripped[part.tag]
     case 'thermalNO': return !!rt.tripped[part.tag]
-    case 'pushNO': case 'limitNO': return !!rt.pressed[part.tag]
-    case 'pushNC': return !rt.pressed[part.tag]
+    case 'pushNO': case 'pushIllum': case 'limitNO': case 'proximity': return !!rt.pressed[part.tag]
+    case 'pushNC': case 'limitNC': return !rt.pressed[part.tag]
     case 'emergency': return !rt.toggled[part.tag]
     case 'selector': return !!rt.toggled[part.tag]
+    case 'plcOut': return !!rt.coils[part.tag] || !!rt.toggled[part.tag]
+    // Válvulas: posição 1 quando a bobina Y com o mesmo tag está sob tensão, ou toggle manual
+    case 'valve32': case 'valve52': return !!rt.coils[part.tag] || !!rt.toggled[part.tag]
     default: return false
   }
 }
@@ -89,6 +97,28 @@ function solve(diagram: CommandsDiagram, rt: CmdRuntime): Solved {
   const nets = new Nets()
   for (const w of diagram.wires) nets.union(key(w.a.part, w.a.term), key(w.b.part, w.b.term))
   for (const part of diagram.parts) {
+    if (part.kind === 'changeover') {
+      if (isClosed(part, rt)) nets.union(key(part.id, 0), key(part.id, 1))
+      else nets.union(key(part.id, 0), key(part.id, 2))
+      continue
+    }
+    if (part.kind === 'valve32') {
+      // Ativada: 1→2; repouso: 1→3 (escape)
+      if (isClosed(part, rt)) nets.union(key(part.id, 0), key(part.id, 1))
+      else nets.union(key(part.id, 0), key(part.id, 2))
+      continue
+    }
+    if (part.kind === 'valve52') {
+      // Ativada: 1→4 e 2→3; repouso: 1→2 e 4→5
+      if (isClosed(part, rt)) {
+        nets.union(key(part.id, 0), key(part.id, 1))
+        nets.union(key(part.id, 2), key(part.id, 4))
+      } else {
+        nets.union(key(part.id, 0), key(part.id, 2))
+        nets.union(key(part.id, 1), key(part.id, 3))
+      }
+      continue
+    }
     if (!isClosed(part, rt)) continue
     for (const [a, b] of CMD_PARTS[part.kind].poles) nets.union(key(part.id, a), key(part.id, b))
   }
@@ -137,7 +167,7 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   const delays = Object.fromEntries(diagram.parts.filter((p) => p.kind === 'timerCoil').map((p) => [p.tag, p.delayMs ?? 3000]))
   const rt: CmdRuntime = { ...previous, delays, time: previous.time + Math.max(0, dtMs), coils: { ...previous.coils }, coilSince: { ...previous.coilSince }, fault: undefined }
   // Parada: tudo sem tensão; a falha que a parou continua visível até se voltar a arrancar.
-  if (!rt.running) return { ...rt, fault: previous.fault, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, motors: {} }
+  if (!rt.running) return { ...rt, fault: previous.fault, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {} }
   const coilParts = diagram.parts.filter((p) => p.kind === 'coil' || p.kind === 'timerCoil')
   let solved = solve(diagram, rt)
   const seen = new Set<string>()
@@ -160,7 +190,7 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   }
   if (rt.fault) {
     // Um curto real queima os fusíveis: tudo fica sem tensão até corrigir e reiniciar.
-    return { ...rt, running: false, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, motors: {} }
+    return { ...rt, running: false, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {} }
   }
 
   const live: Record<string, string> = {}
@@ -174,10 +204,52 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   const lamps: Record<string, boolean> = {}
   for (const lamp of diagram.parts.filter((p) => p.kind === 'lamp')) lamps[lamp.id] = powered(potentialOf(solved, lamp.id, 0), potentialOf(solved, lamp.id, 1))
 
+  const loadKinds = new Set(['buzzer', 'solenoid', 'heater', 'plcOut', 'pushIllum'])
+  const loads: Record<string, boolean> = {}
+  for (const p of diagram.parts) {
+    if (!loadKinds.has(p.kind)) continue
+    if (p.kind === 'pushIllum') {
+      // lâmpada do botão: bornes X1-X2 (2,3) se existirem
+      loads[p.id] = powered(potentialOf(solved, p.id, 2), potentialOf(solved, p.id, 3))
+    } else {
+      loads[p.id] = powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
+    }
+  }
+
+  // Solenoides eléctricos alimentam bobinas virtuais Y* para válvulas com o mesmo tag
+  const coils = { ...rt.coils }
+  for (const p of diagram.parts) {
+    if (p.kind === 'solenoid' && loads[p.id] && p.tag) coils[p.tag] = true
+  }
+
+  // Cilindros: avançam se a câmara A estiver pressurizada (rede ligada a airSource/hydPump via válvula)
+  const pressureRoots = new Set<string>()
+  for (const p of diagram.parts) {
+    if (p.kind === 'airSource' || p.kind === 'hydPump') pressureRoots.add(solved.nets.find(key(p.id, 0)))
+  }
+  const pressurized = (partId: string, term: number) => pressureRoots.has(solved.nets.find(key(partId, term)))
+  const actuators: Record<string, number> = { ...rt.actuators }
+  const dt = 0.08
+  for (const p of diagram.parts) {
+    if (p.kind === 'cylSE') {
+      const extend = pressurized(p.id, 0)
+      const cur = actuators[p.id] ?? 0
+      actuators[p.id] = Math.max(0, Math.min(1, cur + (extend ? dt : -dt * 0.7)))
+    } else if (p.kind === 'cylDE' || p.kind === 'hydCyl') {
+      const a = pressurized(p.id, 0)
+      const b = pressurized(p.id, 1)
+      const cur = actuators[p.id] ?? 0
+      let next = cur
+      if (a && !b) next = cur + dt
+      else if (b && !a) next = cur - dt
+      actuators[p.id] = Math.max(0, Math.min(1, next))
+    }
+  }
+
   const motors: Record<string, CmdMotorState> = {}
   for (const m of diagram.parts.filter((p) => p.kind === 'motor3' || p.kind === 'motor6')) motors[m.id] = motorState(m, solved, live)
 
-  return { ...rt, live, liveWires, lamps, motors }
+  return { ...rt, coils, live, liveWires, lamps, loads, actuators, motors }
 }
 
 function motorState(m: CmdPart, s: Solved, live: Record<string, string>): CmdMotorState {

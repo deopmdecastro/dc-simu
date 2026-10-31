@@ -119,7 +119,10 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     return {
       closed: isClosed(part, rt),
       energized: part.kind === 'pageRef' ? !!rt.live[`${part.id}:0`] : !!rt.coils[part.tag],
-      lit: !!rt.lamps[part.id], motor: rt.motors[part.id],
+      lit: !!rt.lamps[part.id],
+      load: !!(rt.loads && rt.loads[part.id]),
+      motor: rt.motors[part.id],
+      actuator: rt.actuators?.[part.id],
       progress: part.kind === 'timerCoil' || part.kind === 'timedNO' || part.kind === 'timedNC' ? progress : undefined,
       tripped: !!rt.tripped[part.tag],
     }
