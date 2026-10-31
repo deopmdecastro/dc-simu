@@ -205,9 +205,9 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           if (schematicSimPanelOn) setShowLadder(false)
           else { if (compact) setShowLibrary(false); setRightTab('signals'); setShowLadder(true) }
         }}
-        onOpenLibrary={() => { setShowLadder(false); setShowLibrary(true) }}
-        onOpenGrafcet={() => { setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
-        onOpenObjects={() => { setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
+        onOpenLibrary={() => { if (compact) setShowLadder(false); setShowLibrary(true) }}
+        onOpenGrafcet={() => { if (compact) setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
+        onOpenObjects={() => { if (compact) setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
         {mode === 'schematic' && !demo && (showLibrary || showLadder) && (
           <button
@@ -233,7 +233,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             />
           </>
         )}
-        {mode === 'schematic' && !showLibrary && !demo && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { setShowLadder(false); setShowLibrary(true) }} />}
+        {mode === 'schematic' && !showLibrary && !demo && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { if (compact) setShowLadder(false); setShowLibrary(true) }} />}
         <div className="flex-1 min-w-0 flex flex-col relative">
           <Suspense fallback={<RouteLoading label="A carregar a vista…" />}>
             {mode === 'schematic' && <SchematicView libraryCollapsed={demo || !showLibrary} />}
@@ -264,7 +264,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
                 </Suspense>
               </>
             ) : (
-              <CollapsedPanelRail className="pn-shell-rail" label="GRAFCET, sinais e objetos" side="right" icon={<IconLayers size={15} />} onExpand={() => { setShowLibrary(false); setShowLadder(true) }} />
+              <CollapsedPanelRail className="pn-shell-rail" label="GRAFCET, sinais e objetos" side="right" icon={<IconLayers size={15} />} onExpand={() => { if (compact) setShowLibrary(false); setShowLadder(true) }} />
             )}
           </div>
         )}

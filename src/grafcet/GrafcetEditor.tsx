@@ -92,7 +92,7 @@ import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, align
 import { useEditorShortcuts } from '../ui/shortcuts'
 import { pinchPan, usePinchZoom } from '../ui/usePinchZoom'
 import { useGrafcetUi, type GrafcetBusAction } from './grafcetBus'
-import { EDITOR_THEME } from '../ui/editorTheme'
+import { editorGridBackground, EDITOR_THEME } from '../ui/editorTheme'
 import {
   GRID,
   SPINE_X,
@@ -3764,18 +3764,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           aria-label="Diagrama GRAFCET"
           style={
             full
-              ? gridOn
-                ? {
-                    // A grelha acompanha pan/zoom e coincide com o encaixe. Usa os mesmos
-                    // fundo e pontos de 1 px dos restantes editores, sem linhas maiores próprias.
-                    backgroundColor: EDITOR_THEME.background,
-                    backgroundImage: sharedGridStyle === 'lines'
-                      ? `linear-gradient(to right, ${EDITOR_THEME.line} 1px, transparent 1px), linear-gradient(to bottom, ${EDITOR_THEME.line} 1px, transparent 1px)`
-                      : `radial-gradient(circle at 1px 1px, ${EDITOR_THEME.dot} 1px, transparent 1px)`,
-                    backgroundSize: `${gridSpacing}px ${gridSpacing}px`,
-                    backgroundPosition: `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
-                  }
-                : { backgroundImage: 'none' }
+              ? editorGridBackground({ enabled: gridOn, style: sharedGridStyle, spacing: gridSpacing,
+                  x: position.x + SPINE_X * scale - gridSpacing / 2,
+                  y: position.y + START_Y * scale - gridSpacing / 2 })
               : undefined
           }
           onDoubleClick={(event) => {

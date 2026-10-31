@@ -100,7 +100,8 @@
     "test:imported-components-ui": "node scripts/imported-components-ui-smoke.mjs",
     "test:imported-finish-ui": "node scripts/imported-finish-ui-smoke.mjs",
     "place:imported-terminals": "python3 scripts/place-imported-terminals.py",
-    "audit:imported-terminals": "tsx scripts/audit-imported-terminals.ts"
+    "audit:imported-terminals": "tsx scripts/audit-imported-terminals.ts",
+    "test:editor-grid-background": "tsx scripts/editor-grid-background-smoke.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

@@ -34,3 +34,19 @@ export const editorPalette = (dark: boolean) => ({
   floorMain: dark ? EDITOR_THEME.floorMainDark : EDITOR_THEME.floorMain,
   floorSub: dark ? EDITOR_THEME.floorSubDark : EDITOR_THEME.floorSub,
 })
+
+/** Fundo comum; o passo visual pode ser reduzido pelo zoom sem alterar o snap. */
+export function editorGridBackground({ enabled = true, style = 'dots', spacing = EDITOR_GRID_STEP, dark = false, x = 0, y = 0 }: {
+  enabled?: boolean; style?: 'dots' | 'lines'; spacing?: number; dark?: boolean; x?: number; y?: number
+} = {}) {
+  const palette = editorPalette(dark)
+  const step = Number.isFinite(spacing) && spacing > 0 ? spacing : EDITOR_GRID_STEP
+  return {
+    backgroundColor: palette.background,
+    backgroundImage: !enabled ? 'none' : style === 'lines'
+      ? `linear-gradient(to right, ${palette.line} 1px, transparent 1px), linear-gradient(to bottom, ${palette.line} 1px, transparent 1px)`
+      : `radial-gradient(circle at 1px 1px, ${palette.dot} 1px, transparent 1px)`,
+    backgroundSize: `${step}px ${step}px`,
+    backgroundPosition: `${x}px ${y}px`,
+  }
+}

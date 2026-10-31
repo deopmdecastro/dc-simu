@@ -18,7 +18,7 @@ import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
 import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
 import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
-import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
+import { EDITOR_THEME, editorPalette, editorGridBackground } from '../ui/editorTheme'
 import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
@@ -2941,11 +2941,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const sceneBackground = backgroundMode === 'white' ? '#ffffff' : palette.background
   const stageStyle = backgroundMode === 'white'
     ? { background: '#ffffff' }
-    : {
-        backgroundColor: palette.background,
-        backgroundImage: `radial-gradient(circle, ${palette.dot} 1px, transparent 1px)`,
-        backgroundSize: `${EDITOR_THEME.step}px ${EDITOR_THEME.step}px`,
-      }
+    : editorGridBackground({ enabled: showGrid && gridSettings.enabled, style: gridSettings.style,
+        spacing: gridSettings.size, dark: backgroundMode === 'dark' })
 
   // Atalhos dos cabos (leem sempre o estado atual através da ref).
   const wireKeysRef = useRef<(event: KeyboardEvent) => boolean>(() => false)
