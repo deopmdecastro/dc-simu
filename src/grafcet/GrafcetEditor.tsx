@@ -341,7 +341,7 @@ export const nextFreeStepNumber = (steps: readonly GrafcetStep[]): number => {
 /** Zoom máximo do diagrama (roda do rato, botões e pinça): suficiente para ler os textos num telemóvel. */
 const GRAFCET_ZOOM_MAX = 5
 
-export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, onOpenLadder }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void }) {
+export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, onOpenLadder, lockedChartId }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void; /** Força uma página (chart) — usado na vista dividida. */ lockedChartId?: string }) {
   const demoMode = useSimStore((state) => state.demoMode)
   // Na demonstração da landing o GRAFCET funciona exclusivamente em modo visualização/simulação (sem edição nem eliminação).
   const full = fullProp && !demoMode
@@ -360,7 +360,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   //  ligações «sem fio» X, sinais S/Q/I/MW e ações S/R).
   const pageCharts = program.charts ?? []
   const firstChartId = pageCharts[0]?.id
-  const activeChart = pageCharts.some((c) => c.id === program.activeChart) ? program.activeChart! : firstChartId
+  const activeChart = lockedChartId && pageCharts.some((c) => c.id === lockedChartId)
+    ? lockedChartId
+    : (pageCharts.some((c) => c.id === program.activeChart) ? program.activeChart! : firstChartId)
   const inPage = <T extends { chart?: string }>(x: T): boolean => !firstChartId || (x.chart ?? firstChartId) === activeChart
   const allSteps = program.steps
   const allTransitions = transitionsOf(program)
@@ -3648,7 +3650,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         </header>
       )}
 
-      {full && (
+      {full && !lockedChartId && (
         <div className="grafcet-pages" role="tablist" aria-label="Páginas do GRAFCET">
           <span className="grafcet-title-edit">
             <InlineName

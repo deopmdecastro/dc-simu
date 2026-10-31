@@ -8,6 +8,8 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
+import SplitViewDialog from './components/SplitViewDialog'
+import { useSplitView } from './ui/splitViewStore'
 import Sidebar from './components/Sidebar'
 import SidePanelHeader from './components/SidePanelHeader'
 import ProjectObjects from './components/ProjectObjects'
@@ -261,6 +263,22 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         )}
         {(mode === 'schematic' || mode === 'commands') && !showLibrary && !demo && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { if (compact) setShowLadder(false); setShowLibrary(true) }} />}
         <div className="flex-1 min-w-0 flex flex-col relative">
+          {splitEnabled ? (
+            <SplitWorkspace
+              left={splitLeft}
+              right={splitRight}
+              orientation={splitOrientation}
+              demo={demo}
+              canLadder={canLadder}
+              canGrafcet={canGrafcet}
+              ladderSection={ladderSection}
+              setLadderSection={setLadderSection}
+              setMode={setMode}
+              views={views}
+              showLibrary={showLibrary}
+              setShowLibrary={setShowLibrary}
+            />
+          ) : (
           <Suspense fallback={<RouteLoading label="A carregar a vista…" />}>
             {mode === 'schematic' && <SchematicView libraryCollapsed={demo || !showLibrary} />}
             {mode === 'ladder' && !canLadder && !demo && <PlanLocked feature="ladder" />}
@@ -270,6 +288,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             {mode === 'commands' && <CommandsEditor demo={demo} />}
             {mode === 'monitor' && <MonitorPanel />}
           </Suspense>
+          )}
         </div>
         {mode === 'schematic' && !demo && <ComponentEditorDock />}
         {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
@@ -315,6 +334,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
       </div>
 
       {/* ============================================== barra de estado */}
+      {!demo && <SplitViewDialog availableViews={views} />}
       {!demo && <footer className="dc-statusbar shrink-0 flex items-center gap-2 px-3 h-[26px] border-t border-line bg-surface-rail text-[11px] text-ink-500 select-none">
         <span className="dc-sb-brand text-ink-400 font-semibold tracking-wide">DC·SIMU <span className="font-normal">v4.6</span></span>
         <span className="dc-sb-sep h-3.5 w-px bg-line" />
@@ -362,3 +382,86 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
     </div>
   )
 }
+
+
+const VIEW_LABELS: Record<ViewMode, string> = {
+  schematic: '3D Realista',
+  ladder: 'Ladder',
+  grafcet: 'GRAFCET',
+  commands: 'Esquema IEC',
+  monitor: 'Monitor',
+}
+
+function SplitWorkspace({
+  left,
+  right,
+  orientation,
+  demo,
+  canLadder,
+  canGrafcet,
+  ladderSection,
+  setLadderSection,
+  setMode,
+  views,
+  showLibrary,
+  setShowLibrary,
+}: {
+  left: { mode: ViewMode; chartId?: string }
+  right: { mode: ViewMode; chartId?: string }
+  orientation: 'horizontal' | 'vertical'
+  demo: boolean
+  canLadder: boolean
+  canGrafcet: boolean
+  ladderSection: LadderSection
+  setLadderSection: (s: LadderSection) => void
+  setMode: (m: ViewMode) => void
+  views: ViewMode[]
+  showLibrary: boolean
+  setShowLibrary: (v: boolean) => void
+}) {
+  const charts = useSimStore((s) => s.grafcet.charts ?? [])
+  const chartLabel = (id?: string) => {
+    if (!id) return ''
+    const c = charts.find((x) => x.id === id)
+    return c ? (c.title || c.name || id) : id
+  }
+  const renderPane = (pane: { mode: ViewMode; chartId?: string }, side: 'left' | 'right') => {
+    const title =
+      pane.mode === 'grafcet' && pane.chartId
+        ? `${VIEW_LABELS.grafcet} · ${chartLabel(pane.chartId)}`
+        : VIEW_LABELS[pane.mode]
+    return (
+      <div className="split-view-pane-wrap" data-split-side={side}>
+        <div className="split-view-pane-bar">
+          <strong>{title}</strong>
+        </div>
+        <div className="split-view-pane-body">
+          <Suspense fallback={<RouteLoading label="A carregar…" />}>
+            {pane.mode === 'schematic' && <SchematicView libraryCollapsed />}
+            {pane.mode === 'ladder' && !canLadder && !demo && <PlanLocked feature="ladder" />}
+            {pane.mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
+            {pane.mode === 'ladder' && (canLadder || demo) && (
+              <LadderEditor
+                section={ladderSection}
+                setSection={setLadderSection}
+                onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined}
+              />
+            )}
+            {pane.mode === 'grafcet' && (canGrafcet || demo) && (
+              <GrafcetEditor full={!demo} onOpenLadder={() => setMode('ladder')} lockedChartId={pane.chartId} />
+            )}
+            {pane.mode === 'commands' && <CommandsEditor demo={demo} />}
+            {pane.mode === 'monitor' && <MonitorPanel />}
+          </Suspense>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className={`split-view-root is-${orientation}`}>
+      {renderPane(left, 'left')}
+      {renderPane(right, 'right')}
+    </div>
+  )
+}
+

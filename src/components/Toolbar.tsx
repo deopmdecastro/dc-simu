@@ -21,6 +21,7 @@ import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } fro
 import { useLadderUi } from '../ladder/ladderBus'
 import LadderVariablesMenu from '../ladder/LadderVariablesMenu'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
+import { useSplitView } from '../ui/splitViewStore'
 import { useCommandsUi, type CmdTool } from '../commands/commandsUi'
 import { stepCommands } from '../commands/engine'
 import { validateGrafcet } from '../grafcet/engine'
@@ -33,7 +34,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconUnlock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconDelete, IconRotate, IconMore, IconText, IconNote,
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconDelete, IconRotate, IconMore, IconText, IconNote, IconCompare,
 } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
@@ -151,6 +152,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const [clean, setClean] = useCleanMode()
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
   const [monitorHelp, setMonitorHelp] = useState(false)
+  const splitEnabled = useSplitView((s) => s.enabled)
+  const openSplitDialog = useSplitView((s) => s.openDialog)
+  const disableSplit = useSplitView((s) => s.disable)
+  const grafcetCharts = useSimStore((s) => s.grafcet.charts ?? [])
+  const canSplit = !demo && (views.length > 1 || (grafcetCharts?.length ?? 0) > 1)
   const ladderSimPanelOn = useSimUi((s) => s.ladder)
   const simPanelOn = mode === 'schematic' || mode === 'commands' ? schematicSimPanelOn : mode === 'ladder' && ladderSimPanelOn
   const compileState = useLadderUi((s) => s.compileState)
@@ -521,6 +527,23 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               )
             })}
           </div>
+          {!demo && canSplit && (
+            <button
+              type="button"
+              onClick={() => (splitEnabled ? disableSplit() : openSplitDialog())}
+              className={`ml-1.5 inline-flex items-center gap-1.5 h-[34px] px-2.5 rounded-lg border text-xs font-semibold transition-all ${
+                splitEnabled
+                  ? 'border-brand-600 bg-brand-600 text-white shadow-md'
+                  : 'border-line bg-surface-sunken text-ink-600 hover:text-ink-900 hover:bg-white'
+              }`}
+              title={splitEnabled ? 'Fechar vista dividida (dois canvas)' : 'Ver dois canvas ao mesmo tempo (ambientes ou páginas GRAFCET)'}
+              aria-label={splitEnabled ? 'Fechar vista dividida' : 'Ver dois canvas'}
+              aria-pressed={splitEnabled}
+            >
+              <IconCompare size={14} />
+              <span className="hidden lg:inline">{splitEnabled ? 'Uma vista' : 'Dois canvas'}</span>
+            </button>
+          )}
         </div>
 
         {/* simulação + estado — canto direito */}
