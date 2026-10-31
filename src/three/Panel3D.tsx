@@ -60,6 +60,7 @@ import { wireEndColor } from '../schematic/wireEndColor'
 import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
 import { useWireRouting } from './useWireRouting'
 import { createWireRoutingJob } from './wireRoutingJob'
+import RouteLoading from '../ui/RouteLoading'
 
 const PANEL_FLOOR_Y = -2.6
 /** Margem (1 = 100 mm) da chapa à volta do equipamento. */
@@ -78,17 +79,11 @@ const MOTOR_CENTER_Y = PANEL_FLOOR_Y + MOTOR_TARGET_HEIGHT / 2
 const terminalMarkerScale = (terminal: { diameter?: number }): number =>
   typeof terminal.diameter === 'number' && terminal.diameter > 0 ? Math.max(0.35, Math.min(2.6, terminal.diameter / 9)) : 1
 
-function ModelLoading3D({ label = 'Modelo 3D' }: { label?: string }) {
-  const { progress } = useProgress()
-  return (
-    <Html center distanceFactor={7} transform sprite>
-      <div role="status" aria-live="polite" style={{ minWidth: 170, padding: '10px 14px', borderRadius: 10, background: 'rgba(15,23,42,.92)', color: '#f8fafc', boxShadow: '0 8px 24px rgba(15,23,42,.25)', textAlign: 'center', fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <strong style={{ display: 'block', fontSize: 12, marginBottom: 7 }}>A carregar {label}…</strong>
-        <div style={{ height: 5, overflow: 'hidden', borderRadius: 99, background: '#334155' }}><span style={{ display: 'block', width: `${Math.max(8, Math.min(100, progress || 8))}%`, height: '100%', borderRadius: 99, background: '#60a5fa', transition: 'width .2s ease' }} /></div>
-        <small style={{ display: 'block', marginTop: 5, color: '#cbd5e1' }}>{Math.round(progress)}%</small>
-      </div>
-    </Html>
-  )
+/** Reporta o estado de carregamento dos GLB (drei useProgress) para o overlay de página. */
+function ModelsProgressReporter({ onChange }: { onChange: (active: boolean) => void }) {
+  const { active } = useProgress()
+  useEffect(() => { onChange(active) }, [active, onChange])
+  return null
 }
 
 function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: string; position: [number, number, number]; color?: string; size?: number }) {
@@ -1222,7 +1217,7 @@ function PLC3D({ c, x, interactive = true }: { c: ElectricalComponent; x: number
   if (c.type === 'plcSiemensLogo1224RC') {
     return (
       <Model3DErrorBoundary fallback={<PLCBox3D c={c} x={x} />}>
-        <Suspense fallback={<ModelLoading3D label={c.ref} />}>
+        <Suspense fallback={null}>
           <LogoSiemens1224RCMesh c={c} x={x} interactive={interactive} />
         </Suspense>
       </Model3DErrorBoundary>
@@ -1777,7 +1772,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
 
   return <group userData={{ noPick: true }}>
     {/* Só mostra o overlay de cálculo quando os modelos já carregaram e ainda não há paths.
-        Enquanto GLBs estão em Suspense, ModelLoading3D já fornece feedback; evitar sobreposição. */}
+        Enquanto modelos carregam, o overlay de página cobre a vista; evitar sobreposição. */}
     {!coordinatedPaths && !modelsLoading && <Html center><div role={routingError ? 'alert' : 'status'} className="rounded border border-line-soft bg-white px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
       {routingError ? <>Não foi possível calcular os cabos. <button type="button" className="underline" onClick={retryRouting}>Tentar novamente</button></> : 'A calcular os cabos…'}
     </div></Html>}
@@ -2334,6 +2329,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   /** Telemóvel: a explicação da ferramenta fica a um toque (o cartão ocupava um quarto do ecrã). */
   useShortcutsRequest('schematic', () => setShortcutHelpOpen(true))
   const [glLost, setGlLost] = useState(false)
+  const [modelsLoading, setModelsLoading] = useState(false)
   const [softwareGl, setSoftwareGl] = useState(IS_SOFTWARE_WEBGL)
   const gridSettings = useSimStore((s) => s.grid)
   // LEDs/estados dos componentes em RUN: subscrição explícita do tick da simulação
@@ -3214,6 +3210,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           } catch { /* ignore */ }
         }}
       >
+        <ModelsProgressReporter onChange={setModelsLoading} />
         <CameraProjectCapture camRef={cameraProjectRef} />
         <StudioEnvironment />
         <SoftwareRunInvalidator active={softwareGl && stageVisible && (runState === 'running' || burstActive)} />
@@ -3246,15 +3243,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
-          if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<ModelLoading3D label={c.ref} />}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
-          else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<ModelLoading3D label={c.ref} />}><ImportedCadDevice c={c} x={x} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
+          if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><Suspense fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><LogoSiemens1224RCMesh c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'thermalRelay') content = <ThermalRelay3D c={c} x={x} />
           else if (hasDinRailModel(c.type)) {
             const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><CadComponentReal3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CadComponentReal3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph') content = <PowerSupply3D c={c} x={x} />
@@ -3291,19 +3288,19 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           if (isCatalogType(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
             const [px, py, pz] = frontPivot(c)
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
           } else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) {
             const [px,py,pz] = frontPivot(c)
             const fallback = <Sensor3D c={c} x={x} onToggle={() => {}} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><ImportedCadDevice c={c} x={x} position={[x+px,py,pz]} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} position={[x+px,py,pz]} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'multimeterDm20') {
             // O CAD e os bornes usam o mesmo pivô central também fora da calha.
             // A antiga montagem pela base deslocava o corpo 40 mm em profundidade.
             const [px, py, pz] = frontPivot(c)
-            content = <Model3DErrorBoundary fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><Suspense fallback={<ModelLoading3D label={c.ref} />}><CadComponentReal3D c={c} x={x} position={[x + px, py, pz]} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><Suspense fallback={null}><CadComponentReal3D c={c} x={x} position={[x + px, py, pz]} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'pilotLightAd22') {
             const fallback = <Lamp3D c={c} x={x} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
           else if (c.type === 'capacitorRun60uF' && getComponentModelSpec(c.type)) {
@@ -3313,18 +3310,18 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               <mesh position={[0, 0.3, 0]}><boxGeometry args={[0.12, 0.06, 0.08]} /><meshStandardMaterial color="#1e293b" /></mesh>
               <Label text={c.ref} position={[0, 0.42, 0]} />
             </group>
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><CadComponentReal3D c={c} x={x} position={[x + px, py, pz]} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CadComponentReal3D c={c} x={x} position={[x + px, py, pz]} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           }
           else if (c.type === 'motor3ph') {
             const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'motor1ph') {
             const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           }
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => setComponentState(c.id, { startPressed: pressed }))} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={<ModelLoading3D label={c.ref} />}><DualPushButtonReal3D c={c} x={x}
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><DualPushButtonReal3D c={c} x={x}
               onStart={(pressed) => activateComponent(c, () => setComponentState(c.id, { startPressed: pressed }))}
               onStop={(pressed) => activateComponent(c, () => setComponentState(c.id, { stopPressed: pressed }))} /></Suspense></Model3DErrorBoundary>
           } else if ((c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR') && getCommandModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />}><Suspense fallback={<PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} /></Suspense></Model3DErrorBoundary>
@@ -3371,6 +3368,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           scrollBridge={cameraScrollBridge} scrollBounds={contentBounds ?? { minX: -2, maxX: 2, minY: -2, maxY: 2, minZ: -0.2, maxZ: 0.6 }}
           frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} viewLocked={viewLocked} />
       </Canvas>
+      {modelsLoading && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ pointerEvents: 'none' }} aria-hidden={false}>
+          <RouteLoading label="A carregar o editor…" />
+        </div>
+      )}
 
       <PanelCanvasScrollbars bridge={cameraScrollBridge} controlsId={stageId} disabled={viewLocked} label={frontEdit ? 'Esquema 3D frontal' : 'Visualização 3D'} />
 
