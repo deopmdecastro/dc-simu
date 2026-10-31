@@ -429,7 +429,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'add-note', label: 'Comentário', hint: 'Criar uma nota com conversa no desenho', icon: <IconNote size={13} />, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('addNote') : requestCanvasAction('addNote') },
     { id: 'add-text', label: 'Texto livre', hint: 'Clique no desenho para colocar texto · Esc cancela', icon: <IconText size={13} />, pressed: textPlacement, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('addText') : requestCanvasAction('addText') },
   ]
-  if (mode === 'schematic' || mode === 'grafcet') toolSections.push({ id: 'annotations', title: 'Anotações', items: annotationItems })
+  if (mode === 'schematic' || mode === 'grafcet' || mode === 'commands') toolSections.push({ id: 'annotations', title: 'Anotações', items: annotationItems })
   const annotationTools = <div className="dc-seg" role="group" aria-label="Anotações">
     {annotationItems.map(item => <TbButton key={item.id} aria-label={item.label} title={item.hint} onClick={item.onSelect} pressed={item.pressed} className={`dc-tool-btn !gap-1.5${item.pressed ? ' dc-tool-active' : ''}`}>
       {item.icon}<span>{item.id === 'add-text' ? 'Texto' : item.label}</span>
@@ -645,6 +645,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <span className="tb-sep" />
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo (arranque direto, estrela-triângulo)"><IconTemplates size={13} /><span>Exemplos</span></button>
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span className="hidden xl:inline">Limpar</span></button>
+            <span className="tb-sep" />
+            {annotationTools}
           </>
         )}
 

@@ -193,3 +193,55 @@
   color: var(--dx-brand-700, #1d4ed8);
   background: color-mix(in srgb, var(--dx-brand, #2655e5) 6%, transparent);
 }
+
+/* Comentários e textos livres no Esquema IEC */
+.dc-cmd-notes-layer,
+.dc-cmd-texts-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+.dc-cmd-note-anchor,
+.dc-cmd-text-anchor {
+  position: absolute;
+  pointer-events: auto;
+  transform: translate(-4px, -4px);
+}
+.dc-cmd-text-anchor {
+  transform: translate(0, 0);
+  cursor: grab;
+  max-width: min(320px, 60vw);
+}
+.dc-cmd-text-anchor.is-selected .dc-cmd-text-body {
+  outline: 2px solid var(--dx-brand, #2655e5);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.dc-cmd-text-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 1px 2px;
+  min-width: 1em;
+}
+.dc-cmd-text-edit {
+  display: block;
+  min-width: 120px;
+  min-height: 1.4em;
+  border: 1px solid var(--dx-brand, #2655e5);
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: #fff;
+  resize: both;
+  font: inherit;
+  line-height: 1.2;
+}
+.dc-cmd-text-toolbar {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  pointer-events: auto;
+}
+.dc-cmd-canvas.is-placing-text { cursor: text; }

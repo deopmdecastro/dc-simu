@@ -22,6 +22,9 @@ import { CmdSymbol, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES } from './examples'
 import { MOMENTARY, TOGGLES, useCommandsUi } from './commandsUi'
 import { addPart, commitDiagram, defaultTag, removeItem, removeSelected, rotateSelected } from './editing'
+import { CommandsNotesLayer, CommandsTextsLayer, CommandsTextToolbar, DEFAULT_TEXT_STYLE_COMMANDS } from './CommandsAnnotations'
+import { useCanvasAction, useSimUi } from '../ui/simUi'
+import { NOTE_COLORS } from '../ui/textStyle'
 import '../styles/commands.css'
 
 type View = { x: number; y: number; scale: number }
@@ -39,6 +42,16 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const gridStyle = useSimStore((s) => s.grid.style)
   // Pré-visualização durante um gesto (mover/arrastar troço): só vai para o histórico ao largar.
   const [preview, setPreview] = useState<CommandsDiagram | null>(null)
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null)
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
+  const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [placingText, setPlacingText] = useState(false)
+  const canvasNotes = useSimStore((s) => s.canvasNotes)
+  const canvasTexts = useSimStore((s) => s.canvasTexts)
+  useEffect(() => {
+    useSimUi.setState({ textPlacement: placingText })
+    return () => { useSimUi.setState({ textPlacement: false }) }
+  }, [placingText])
   const diagram = useMemo(() => normalizeCommandsPages(preview ?? stored), [preview, stored])
   const activePageId = useCommandsUi((s) => s.activePageId)
   const setActivePageId = useCommandsUi((s) => s.setActivePageId)
@@ -47,6 +60,16 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const pageParts = useMemo(() => partsOnPage(diagram, pageId), [diagram, pageId])
   const pageWires = useMemo(() => wiresOnPage(diagram, pageId), [diagram, pageId])
   const pageTexts = useMemo(() => textsOnPage(diagram, pageId), [diagram, pageId])
+  const pageNotes = useMemo(
+    () => canvasNotes.filter((n) => n.view === 'commands' && (!n.page || n.page === pageId)),
+    [canvasNotes, pageId],
+  )
+  const freeTexts = useMemo(
+    () => canvasTexts.filter((t) => t.view === 'commands' && (!t.page || t.page === pageId)),
+    [canvasTexts, pageId],
+  )
+  const selectedFreeText = freeTexts.find((t) => t.id === selectedTextId) ?? null
+
   const partById = useMemo(() => new Map(diagram.parts.map((p) => [p.id, p])), [diagram])
   // Sincronizar página ativa se a atual deixou de existir.
   useEffect(() => {
@@ -263,6 +286,16 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     if (event.button === 1 || (event.button === 0 && tool === 'pan')) { startPan(event); return }
     if (event.button !== 0) return
     const p = toWorld(event.clientX, event.clientY)
+    if (placingText && editable) {
+      const id = useSimStore.getState().addCanvasText({
+        ...DEFAULT_TEXT_STYLE_COMMANDS, view: 'commands', page: pageId, text: 'Texto', x: snap(p.x), y: snap(p.y),
+      })
+      setPlacingText(false)
+      setSelectedTextId(id)
+      setEditingTextId(id)
+      notify('Texto colocado — duplo clique para editar')
+      return
+    }
     if (placing && editable) {
       const part = addPart(placing, p)
       notify(`${CMD_PARTS[part.kind].label}${part.tag ? ` ${part.tag}` : ''} colocado`)
@@ -373,8 +406,9 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         if (undoKey === 'y' || e.shiftKey) useSimStore.getState().redo(); else useSimStore.getState().undo()
         return
       }
-      if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); select(null); return }
+      if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); select(null); return }
       if (mod || !editable) return
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedTextId) { e.preventDefault(); useSimStore.getState().removeCanvasText(selectedTextId); setSelectedTextId(null); setEditingTextId(null); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSelected(); return }
       const key = e.key.toLowerCase()
       if (key === 'r') rotateSelected()
@@ -385,6 +419,33 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  })
+
+  useCanvasAction((action) => {
+    if (!editable) return
+    if (action === 'addNote') {
+      const centre = { x: snap((size.width / 2 - view.x) / view.scale), y: snap((size.height / 2 - view.y) / view.scale) }
+      const before = new Set(useSimStore.getState().canvasNotes.map((n) => n.id))
+      useSimStore.getState().addCanvasNote({
+        text: '', view: 'commands', page: pageId, x: centre.x, y: centre.y,
+        color: NOTE_COLORS[0].id, messages: [],
+      })
+      const created = useSimStore.getState().canvasNotes.find((n) => !before.has(n.id))
+      setPlacingText(false)
+      setSelectedTextId(null)
+      if (created) setOpenNoteId(created.id)
+      notify('Comentário criado — escreva a conversa na nota')
+      return
+    }
+    if (action === 'addText') {
+      setPlacingText((v) => {
+        const next = !v
+        notify(next ? 'Clique no esquema para colocar texto · Esc cancela' : 'Colocação de texto cancelada')
+        return next
+      })
+      setSelectedTextId(null)
+      setOpenNoteId(null)
+    }
   })
 
   // ---------------------------------------------------------------- desenho
@@ -457,7 +518,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         <div
           id={canvasId}
           ref={viewportRef}
-          className={`dc-cmd-canvas is-tool-${tool} ${placing ? 'is-placing' : ''}`}
+          className={`dc-cmd-canvas is-tool-${tool} ${placing ? 'is-placing' : ''} ${placingText ? 'is-placing-text' : ''}`}
           style={background}
           onPointerDown={onCanvasDown} onPointerMove={onMove} onPointerUp={onUp}
           onPointerCancel={() => { gesture.current = null; setPreview(null); setDraft(null) }}
@@ -517,6 +578,32 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
           )}
           {rt.fault && <div className="dc-cmd-fault" role="alert"><strong>Simulação parada</strong><span>{rt.fault}</span></div>}
           {notice && !rt.fault && <div className="dc-cmd-toast" role="status">{notice}</div>}
+          {placingText && <div className="dc-cmd-hint">Clique para colocar texto · Esc cancela</div>}
+          <CommandsNotesLayer
+            notes={pageNotes}
+            viewX={view.x}
+            viewY={view.y}
+            scale={view.scale}
+            openId={openNoteId}
+            setOpenId={setOpenNoteId}
+            toWorld={toWorld}
+            readOnly={!editable}
+          />
+          <CommandsTextsLayer
+            texts={freeTexts}
+            viewX={view.x}
+            viewY={view.y}
+            scale={view.scale}
+            selectedId={selectedTextId}
+            editingId={editingTextId}
+            setSelectedId={setSelectedTextId}
+            setEditingId={setEditingTextId}
+            toWorld={toWorld}
+            readOnly={!editable}
+          />
+          {selectedFreeText && editable && (
+            <CommandsTextToolbar text={selectedFreeText} onDone={() => { setSelectedTextId(null); setEditingTextId(null) }} />
+          )}
           {running && <div className="dc-cmd-hint">{paused ? 'Simulação em pausa' : 'Simulação: prima os botões no esquema · clique no térmico para o disparar'}</div>}
           <CanvasPanScrollbars label="Esquema de comandos" controlsId={canvasId}
             view={{ x: -view.x / view.scale, y: -view.y / view.scale, width: size.width / view.scale, height: size.height / view.scale }}

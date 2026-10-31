@@ -29,6 +29,7 @@ export const noteTheme = (color: string | undefined) => NOTE_COLORS.find((item) 
 
 export const DEFAULT_TEXT_STYLE_3D: CanvasTextStyle = { font: 'sans', size: 24, color: '#0f172a', bold: true, align: 'left' }
 export const DEFAULT_TEXT_STYLE_GRAFCET: CanvasTextStyle = { font: 'sans', size: 14, color: '#334155', bold: true, align: 'left' }
+export const DEFAULT_TEXT_STYLE_COMMANDS: CanvasTextStyle = { font: 'sans', size: 14, color: '#1e293b', bold: false, align: 'left' }
 
 /** Estilo CSS de um texto livre (o tamanho é dado pelo chamador, em px). */
 export function textCss(style: Partial<CanvasTextStyle>, sizePx: number): CSSProperties {

@@ -635,7 +635,7 @@ export interface GridSettings {
   railMagnet?: boolean
 }
 
-export type CanvasNoteView = 'schematic' | '3d' | 'grafcet'
+export type CanvasNoteView = 'schematic' | '3d' | 'grafcet' | 'commands'
 
 /** Mensagem de um comentário do canvas (a conversa vive dentro da nota). */
 export interface CanvasNoteMessage {
@@ -654,6 +654,8 @@ export interface CanvasNote {
   view: CanvasNoteView
   /** Folha GRAFCET a que a nota pertence. */
   chart?: string
+  /** Página do Esquema IEC (folha). */
+  page?: string
   x: number
   y: number
   z?: number
@@ -688,6 +690,8 @@ export interface CanvasText extends CanvasTextStyle {
   x: number
   y: number
   z?: number
+  /** Página do Esquema IEC (folha). */
+  page?: string
   createdAt: string
 }
 
