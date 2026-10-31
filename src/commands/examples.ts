@@ -274,7 +274,10 @@ export function signalingPanelExample(): CommandsDiagram {
   const s2 = b.part('pushIllum', 140, 160, 'S2', { color: 'red' })
   const sel = b.part('selector', 220, 160, 'S3')
   const lim = b.part('limitNO', 300, 160, 'B1')
+  // Contactos NA (13-14)
   b.wire(fuse, 1, s1, 0); b.wire(fuse, 1, s2, 0, 160); b.wire(fuse, 1, sel, 0, 160); b.wire(fuse, 1, lim, 0, 160)
+  // Lâmpadas integradas dos botões (X1-X2) sempre alimentadas a 24 V
+  b.wire(fuse, 1, s1, 2, 160); b.wire(fuse, 1, s2, 2, 160)
 
   const k1 = b.part('coil', 60, 280, 'K1')
   const k2 = b.part('coil', 140, 280, 'K2')
@@ -293,9 +296,11 @@ export function signalingPanelExample(): CommandsDiagram {
   b.wire(fuse, 1, h3, 0, 400); b.wire(fuse, 1, buzz, 0, 400)
 
   const n = b.part('supply', 40, 500, '', { lines: ['0V'] })
-  const row = [b.node(60, 500), b.node(140, 500), b.node(220, 500), b.node(300, 500)]
+  const row = [b.node(60, 500), b.node(140, 500), b.node(220, 500), b.node(300, 500), b.node(80, 500), b.node(160, 500)]
   b.wire(k1, 1, row[0], 0); b.wire(k2, 1, row[1], 0)
   b.wire(h1, 1, row[0], 0); b.wire(h2, 1, row[1], 0); b.wire(h3, 1, row[2], 0); b.wire(buzz, 1, row[3], 0)
+  // Retorno 0 V das lâmpadas dos botões iluminados (X2)
+  b.wire(s1, 3, row[4], 0); b.wire(s2, 3, row[5], 0)
   b.wire(n, 0, row[0], 0)
   row.slice(1).forEach((nd, i) => b.wire(row[i], 0, nd, 0))
   return b.diagram
