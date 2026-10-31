@@ -439,7 +439,8 @@ export function wireBodyPoints3D(
   let controls: V3[]
   let smooth = wire.route === 'arc'
   const frontZ = wireFrontLimit(outerMm)
-  const leadStep = Math.max(outerMm * 3.0 * U, 0.048)
+  // Saída axial mais longa a partir da ponteira: dá espaço para a curva não “partir”.
+  const leadStep = Math.max(outerMm * 4.8 * U, 0.085)
 
   if (manual.length > 0) {
     controls = [a, ...manual, b]
@@ -547,7 +548,7 @@ export function wireBodyPoints3D(
     return keepInFrontOfPlate(curve.getPoints(Math.max(32, controls.length * 16)).map(arr), outerMm)
   }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
-  const radiusFactor = wire.flexibility === 'flexible' ? 7.2 : 5.6
+  const radiusFactor = wire.flexibility === 'flexible' ? 8.5 : 6.8
   return keepInFrontOfPlate(roundCorners(controls, outerMm, radiusFactor), outerMm)
 }
 
@@ -720,10 +721,11 @@ function computeBasePlan(
   return { trunkHint, plan }
 }
 
-/** Cantos em arco de círculo suave (12 subdivisões por curva) sem vincos poligonais. */
+/** Cantos em arco de círculo suave (mais subdivisões) sem vincos poligonais nem “partir”. */
 export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6): V3[] {
   if (points.length < 3) return points
-  const radius = Math.max(outerMm * radiusFactor, 11) * U
+  // Raio mínimo industrial um pouco maior para curvas de saída do terminal e cotovelos.
+  const radius = Math.max(outerMm * radiusFactor, 14) * U
   const out: V3[] = [points[0]]
   const last = points.length - 1
   for (let index = 1; index < last; index += 1) {
@@ -742,7 +744,12 @@ export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6):
     if (phi > Math.PI - 0.02) { out.push(arr(corner)); continue }
     const half = Math.max(0.08, phi / 2)
     const wanted = radius / Math.tan(half)
-    const cut = Math.min(wanted, index === 1 ? lenPrev * 0.85 : lenPrev * 0.48, index === last - 1 ? lenNext * 0.85 : lenNext * 0.48)
+    // Cortes mais generosos junto aos bornes (extremos) e um pouco mais no meio.
+    const cut = Math.min(
+      wanted,
+      index === 1 ? lenPrev * 0.9 : lenPrev * 0.55,
+      index === last - 1 ? lenNext * 0.9 : lenNext * 0.55,
+    )
     if (cut < 1e-4) { out.push(arr(corner)); continue }
     const start = corner.clone().addScaledVector(dirPrev, cut)
     const end = corner.clone().addScaledVector(dirNext, cut)
@@ -756,7 +763,8 @@ export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6):
     if (axis.lengthSq() < 1e-10) { out.push(arr(corner)); continue }
     axis.normalize()
     const angle = vs.angleTo(ve)
-    const steps = Math.max(10, Math.ceil(angle / 0.12))
+    // Mais subdivisões → arco contínuo, sem facetagem que “parte” a curva.
+    const steps = Math.max(16, Math.ceil(angle / 0.08))
     for (let step = 0; step <= steps; step += 1) {
       out.push(arr(center.clone().add(vs.clone().applyAxisAngle(axis, (angle * step) / steps))))
     }
