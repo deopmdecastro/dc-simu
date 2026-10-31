@@ -17,7 +17,7 @@ const NC_AT_REST: CmdKind[] = ['contactNC', 'timedNC', 'thermalNC', 'pushNC', 'e
 const FAVORITES_KEY = 'dcsimu:commands:library:favorites'
 const COLLAPSED_KEY = 'dcsimu:commands:library:collapsed'
 /** Pastas abertas na primeira utilização: as que se usam para montar o primeiro circuito. */
-const DEFAULT_OPEN = ['Alimentação', 'Botões e sensores', 'Contactores e relés']
+const DEFAULT_OPEN = ['Alimentação', 'Comando', 'Contactos', 'Bobinas e cargas']
 const readKinds = (key: string): CmdKind[] => {
   try { return (JSON.parse(localStorage.getItem(key) ?? '[]') as string[]).filter((k): k is CmdKind => k in CMD_PARTS) } catch { return [] }
 }
