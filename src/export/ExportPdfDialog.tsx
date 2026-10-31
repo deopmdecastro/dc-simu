@@ -8,7 +8,7 @@ import { IconChevronDown } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import {
   collectLadderBlocks, defaultPdfOptions, generateProjectPdf,
-  type PdfExportOptions, type PdfLadderBlock,
+  type PdfExportOptions, type PdfLadderBlock, type PdfOrientation, type PdfTitleBlock,
 } from './pdfExport'
 import { captureGrafcetChart, captureLadderRungs } from './realCapture'
 
@@ -173,6 +173,55 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
           <button type="button" onClick={() => preset('none')}>Nada</button>
           <span className="pdfx-pages" title="Estimativa — o número final depende do tamanho dos diagramas">≈ {pageEstimate} página{pageEstimate === 1 ? '' : 's'}</span>
         </div>
+        <Section title="Orientação da folha" hint="A4 vertical ou horizontal">
+          <div className="pdfx-orient" role="radiogroup" aria-label="Orientação">
+            <label className={`pdfx-orient-opt ${opts.orientation === 'portrait' ? 'is-on' : ''}`}>
+              <input type="radio" name="pdf-orient" checked={opts.orientation === 'portrait'} onChange={() => setOpts({ ...opts, orientation: 'portrait' })} />
+              <span className="pdfx-orient-ico" aria-hidden="true">▯</span>
+              <span>Vertical <em>(retrato)</em></span>
+            </label>
+            <label className={`pdfx-orient-opt ${opts.orientation === 'landscape' ? 'is-on' : ''}`}>
+              <input type="radio" name="pdf-orient" checked={opts.orientation === 'landscape'} onChange={() => setOpts({ ...opts, orientation: 'landscape' })} />
+              <span className="pdfx-orient-ico is-land" aria-hidden="true">▭</span>
+              <span>Horizontal <em>(paisagem)</em></span>
+            </label>
+          </div>
+        </Section>
+        <Section title="Esquadria" hint="Bloco de legenda no rodapé de cada página">
+          <label className="pdfx-tb-enable">
+            <input type="checkbox" checked={opts.titleBlock.enabled} onChange={() => setOpts({ ...opts, titleBlock: { ...opts.titleBlock, enabled: !opts.titleBlock.enabled } })} />
+            <span>Incluir esquadria personalizada</span>
+          </label>
+          {opts.titleBlock.enabled && (
+            <div className="pdfx-tb-grid">
+              {([
+                ['company', 'Empresa / marca'],
+                ['companyLine', 'Subtítulo da empresa'],
+                ['author', 'Autor / desenhado por'],
+                ['role', 'Função'],
+                ['client', 'Cliente'],
+                ['location', 'Local'],
+                ['projectName', 'Projeto'],
+                ['drawingTitle', 'Título do desenho'],
+                ['discipline', 'Disciplina'],
+                ['sheetNumber', 'N.º da folha'],
+                ['scale', 'Escala'],
+                ['revision', 'Revisão'],
+                ['date', 'Data'],
+                ['notes', 'Notas'],
+              ] as Array<[keyof PdfTitleBlock, string]>).map(([key, label]) => (
+                <label key={key} className="pdfx-tb-field">
+                  <span>{label}</span>
+                  <input
+                    type="text"
+                    value={String(opts.titleBlock[key] ?? '')}
+                    onChange={(e) => setOpts({ ...opts, titleBlock: { ...opts.titleBlock, [key]: e.target.value } })}
+                  />
+                </label>
+              ))}
+            </div>
+          )}
+        </Section>
         <div className="pdf-export-grid">
           <Section title="Documento" hint="Estrutura e dados do projeto">
             <label><input type="checkbox" checked={opts.cover} onChange={() => toggle('cover')} /> <span>Capa com a marca DC-Simu e estatísticas</span></label>

@@ -29,6 +29,27 @@ export interface PdfLadderBlock {
   rungs: LadderRung[]
 }
 
+export type PdfOrientation = 'portrait' | 'landscape'
+
+/** Campos da esquadria (bloco de legenda no canto da folha). */
+export interface PdfTitleBlock {
+  enabled: boolean
+  company: string
+  companyLine: string
+  author: string
+  role: string
+  client: string
+  location: string
+  projectName: string
+  drawingTitle: string
+  discipline: string
+  sheetNumber: string
+  scale: string
+  revision: string
+  date: string
+  notes: string
+}
+
 export interface PdfExportOptions {
   cover: boolean
   info: boolean
@@ -39,6 +60,10 @@ export interface PdfExportOptions {
   ladder: Record<string, number[]>
   /** charts/páginas do GRAFCET a incluir (ids); vazio = todos */
   grafcetCharts: string[]
+  /** Orientação A4 da folha. */
+  orientation: PdfOrientation
+  /** Dados da esquadria (desenhada no rodapé de cada página de conteúdo). */
+  titleBlock: PdfTitleBlock
 }
 
 export interface PdfProjectSource {
@@ -73,7 +98,30 @@ export function collectLadderBlocks(src: PdfProjectSource): PdfLadderBlock[] {
 export function defaultPdfOptions(src: PdfProjectSource): PdfExportOptions {
   const ladder: Record<string, number[]> = {}
   for (const block of collectLadderBlocks(src)) ladder[block.id] = block.rungs.map((_, i) => i)
-  return { cover: true, info: true, tags: true, schematic: true, grafcet: true, ladder, grafcetCharts: [] }
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const date = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+  return {
+    cover: true, info: true, tags: true, schematic: true, grafcet: true, ladder, grafcetCharts: [],
+    orientation: 'portrait',
+    titleBlock: {
+      enabled: true,
+      company: 'DC-Simu',
+      companyLine: 'Simulador de Automação Industrial',
+      author: '',
+      role: '',
+      client: '',
+      location: '',
+      projectName: src.projectName || '',
+      drawingTitle: 'Documentação do projeto',
+      discipline: 'Automação',
+      sheetNumber: '01',
+      scale: '—',
+      revision: '0',
+      date,
+      notes: '',
+    },
+  }
 }
 
 /** Aplica a seleção de networks a um bloco (fora da gama → ignorado). */
@@ -88,10 +136,31 @@ const BRAND = '#2655e5'
 const INK = '#1e2b44'
 const MUTED = '#6b7a90'
 
-const PAGE_W = 595.28 // A4 em pontos
-const PAGE_H = 841.89
+const A4_PORTRAIT_W = 595.28 // A4 em pontos
+const A4_PORTRAIT_H = 841.89
 const MARGIN = 48
-const CONTENT_W = PAGE_W - MARGIN * 2
+/** Métricas da folha atual (atualizadas no início de `generateProjectPdf`). */
+let PAGE_W = A4_PORTRAIT_W
+let PAGE_H = A4_PORTRAIT_H
+let CONTENT_W = PAGE_W - MARGIN * 2
+/** Altura reservada à esquadria no rodapé (0 se desligada). */
+let TITLE_BLOCK_H = 0
+
+function applyPageLayout(orientation: PdfOrientation, titleBlockEnabled: boolean) {
+  if (orientation === 'landscape') {
+    PAGE_W = A4_PORTRAIT_H
+    PAGE_H = A4_PORTRAIT_W
+  } else {
+    PAGE_W = A4_PORTRAIT_W
+    PAGE_H = A4_PORTRAIT_H
+  }
+  CONTENT_W = PAGE_W - MARGIN * 2
+  TITLE_BLOCK_H = titleBlockEnabled ? 72 : 0
+}
+
+function footerSafeY() {
+  return PAGE_H - 30 - TITLE_BLOCK_H
+}
 
 const shortDate = () => {
   const d = new Date()
@@ -130,11 +199,85 @@ function header(doc: jsPDF, section: string, projectName: string) {
   doc.line(MARGIN, 64, PAGE_W - MARGIN, 64)
 }
 
-function footers(doc: jsPDF, projectName: string) {
+function drawTitleBlock(doc: jsPDF, tb: PdfTitleBlock, pageIndex: number, pageCount: number) {
+  if (!tb.enabled) return
+  const h = TITLE_BLOCK_H
+  const y0 = PAGE_H - MARGIN / 2 - h
+  const x0 = MARGIN
+  const w = CONTENT_W
+  // Grelha tipo esquadria de projeto (canto inferior)
+  doc.setDrawColor('#1e2b44')
+  doc.setLineWidth(1.1)
+  doc.rect(x0, y0, w, h)
+  doc.setLineWidth(0.5)
+
+  // Colunas: empresa | projeto | título | meta
+  const c1 = w * 0.22
+  const c2 = w * 0.28
+  const c3 = w * 0.28
+  const c4 = w - c1 - c2 - c3
+  const x1 = x0 + c1
+  const x2 = x1 + c2
+  const x3 = x2 + c3
+
+  doc.line(x1, y0, x1, y0 + h)
+  doc.line(x2, y0, x2, y0 + h)
+  doc.line(x3, y0, x3, y0 + h)
+  // linhas horizontais na coluna meta e projeto
+  doc.line(x1, y0 + h * 0.45, x3, y0 + h * 0.45)
+  doc.line(x3, y0 + h * 0.33, x0 + w, y0 + h * 0.33)
+  doc.line(x3, y0 + h * 0.66, x0 + w, y0 + h * 0.66)
+  doc.line(x3 + c4 * 0.5, y0 + h * 0.66, x3 + c4 * 0.5, y0 + h)
+
+  const cell = (label: string, value: string, x: number, y: number, maxW: number, valueSize = 9) => {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(MUTED)
+    doc.text(label, x + 3, y + 7)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(valueSize); doc.setTextColor(INK)
+    const lines = doc.splitTextToSize((value || '—').trim() || '—', maxW - 6)
+    doc.text(lines.slice(0, 2), x + 3, y + 16)
+  }
+
+  // Empresa
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
+  doc.text(tb.company || 'DC-Simu', x0 + 4, y0 + 16)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(MUTED)
+  const sub = doc.splitTextToSize(tb.companyLine || '', c1 - 8)
+  doc.text(sub.slice(0, 2), x0 + 4, y0 + 28)
+  if (tb.author || tb.role) {
+    doc.setTextColor(INK); doc.setFontSize(7)
+    doc.text([tb.author, tb.role].filter(Boolean).join(' · '), x0 + 4, y0 + h - 8)
+  }
+
+  // Projeto / cliente / local
+  cell('Projeto', tb.projectName, x1, y0, c2, 9)
+  cell('Cliente / Local', [tb.client, tb.location].filter(Boolean).join(' — ') || '—', x1, y0 + h * 0.45, c2, 8)
+
+  // Título do desenho
+  cell('Título', tb.drawingTitle, x2, y0, c3, 9)
+  cell('Disciplina', tb.discipline, x2, y0 + h * 0.45, c3, 8)
+
+  // Meta: nº folha, escala, revisão, data
+  cell('Folha', `${tb.sheetNumber}.${String(pageIndex).padStart(2, '0')}`, x3, y0, c4 * 0.5, 12)
+  cell('Escala', tb.scale || '—', x3 + c4 * 0.5, y0, c4 * 0.5, 9)
+  cell('Rev.', tb.revision || '0', x3, y0 + h * 0.33, c4 * 0.5, 9)
+  cell('Data', tb.date || shortDate().slice(0, 10), x3 + c4 * 0.5, y0 + h * 0.33, c4 * 0.5, 8)
+  cell('Página', `${pageIndex} / ${pageCount}`, x3, y0 + h * 0.66, c4 * 0.5, 8)
+  if (tb.notes) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(MUTED)
+    doc.text(doc.splitTextToSize(tb.notes, c4 * 0.5 - 6).slice(0, 2), x3 + c4 * 0.5 + 3, y0 + h * 0.66 + 14)
+  }
+}
+
+function footers(doc: jsPDF, projectName: string, titleBlock?: PdfTitleBlock) {
   const pages = doc.getNumberOfPages()
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i)
-    doc.setDrawColor('#e4eaf4'); doc.setLineWidth(0.6)
+    if (titleBlock?.enabled) {
+      drawTitleBlock(doc, titleBlock, i, pages)
+      continue
+    }
+    doc.setDrawColor('#d7deeb')
+    doc.setLineWidth(0.6)
     doc.line(MARGIN, PAGE_H - 30, PAGE_W - MARGIN, PAGE_H - 30)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
@@ -143,8 +286,8 @@ function footers(doc: jsPDF, projectName: string) {
     if (i > 1) doc.text(projectName.length > 48 ? `${projectName.slice(0, 47)}…` : projectName, PAGE_W / 2, PAGE_H - 18, { align: 'center' })
     doc.text(`Página ${i} de ${pages}`, PAGE_W - MARGIN, PAGE_H - 18, { align: 'right' })
   }
-  doc.setTextColor(INK)
 }
+
 
 function coverPage(doc: jsPDF, src: PdfProjectSource, contents: string[]) {
   // banda superior da marca
@@ -210,7 +353,7 @@ function coverPage(doc: jsPDF, src: PdfProjectSource, contents: string[]) {
     doc.text('Conteúdo deste documento', MARGIN, cy)
     cy += 18
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK)
-    for (const item of contents.slice(0, Math.max(0, Math.floor((PAGE_H - 60 - cy) / 15)))) {
+    for (const item of contents.slice(0, Math.max(0, Math.floor((footerSafeY() - 30 - cy) / 15)))) {
       doc.setFillColor(BRAND); doc.circle(MARGIN + 3, cy - 3, 1.8, 'F')
       doc.text(item, MARGIN + 14, cy)
       cy += 15
@@ -252,7 +395,7 @@ function tagsPage(doc: jsPDF, src: PdfProjectSource) {
   sorted.forEach((t, i) => {
     const note = doc.splitTextToSize(t.comment || '', CONTENT_W - 326) as string[]
     const rowH = Math.max(18, note.length * 11 + 7)
-    if (y + rowH > PAGE_H - 50) { doc.addPage(); header(doc, 'Tabela de tags', src.projectName); y = 92; tableHead() }
+    if (y + rowH > footerSafeY() - 20) { doc.addPage(); header(doc, 'Tabela de tags', src.projectName); y = 92; tableHead() }
     if (i % 2 === 0) { doc.setFillColor('#f7f9fd'); doc.rect(MARGIN, y - 11, CONTENT_W, rowH, 'F') }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(INK)
     doc.text(t.name || '—', MARGIN + 8, y + 2)
@@ -303,7 +446,8 @@ export interface PdfExportResult {
  * `schematicImage` é opcional: quando omisso tenta-se `captureCover()` (vista 3D real).
  */
 export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportOptions, schematicImage?: string | null, hooks: PdfCaptureHooks = {}): Promise<PdfExportResult> {
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  applyPageLayout(opts.orientation ?? 'portrait', !!opts.titleBlock?.enabled)
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: opts.orientation === 'landscape' ? 'landscape' : 'portrait' })
   const sections: string[] = []
   const skippedImages: string[] = []
   let first = true
@@ -368,7 +512,7 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
       newPage(); header(doc, 'GRAFCET', src.projectName)
       if (realCap) {
         const w = CONTENT_W
-        const h = Math.min(PAGE_H - 190, (w * realCap.h) / realCap.w)
+        const h = Math.min(footerSafeY() - 160, (w * realCap.h) / realCap.w)
         doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
         doc.text(title, MARGIN, 84)
         doc.setTextColor(INK)
@@ -379,7 +523,7 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
         doc.text(`${caption} · desenho real do editor`, MARGIN, 94 + h + 14)
         doc.setTextColor(INK)
       } else if (img) {
-        addImageFit(doc, img, 92, PAGE_H - 180, caption)
+        addImageFit(doc, img, 92, footerSafeY() - 150, caption)
       } else {
         doc.setTextColor(MUTED); doc.setFontSize(10)
         doc.text(`Diagrama indisponível neste contexto — ${program.steps.length} etapas, ${(program.transitions ?? []).length} transições.`, MARGIN, 100)
@@ -413,7 +557,7 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
         const title = rung.name?.trim()
         const headH = 16
         const imgH = cap ? Math.min((CONTENT_W * cap.h) / cap.w, 320) : 0
-        if (y + headH + imgH + 14 > PAGE_H - 56) { doc.addPage(); header(doc, `Ladder — ${block.title}`, src.projectName); y = 92 }
+        if (y + headH + imgH + 14 > footerSafeY() - 26) { doc.addPage(); header(doc, `Ladder — ${block.title}`, src.projectName); y = 92 }
         doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(BRAND)
         doc.text(title ? `${num} — ${title}` : num, MARGIN, y + 10)
         y += headH
@@ -428,7 +572,7 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
         doc.setTextColor(INK)
       })
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(MUTED)
-      if (y + 14 > PAGE_H - 50) { doc.addPage(); header(doc, `Ladder — ${block.title}`, src.projectName); y = 92 }
+      if (y + 14 > footerSafeY() - 20) { doc.addPage(); header(doc, `Ladder — ${block.title}`, src.projectName); y = 92 }
       doc.text(`Desenho real do editor · ${real.length} de ${block.rungs.length} networks exportadas`, MARGIN, y + 10)
       doc.setTextColor(INK)
     } else {
@@ -436,12 +580,12 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
       const svg = ladderCoverSvg(rungs, block.title)
       const img = canRaster() && svg ? await svgToJpegDataUrl(svg) : null
       if (img) {
-        addImageFit(doc, img, 92, PAGE_H - 180, `${rungs.length} de ${block.rungs.length} networks exportadas`)
+        addImageFit(doc, img, 92, footerSafeY() - 150, `${rungs.length} de ${block.rungs.length} networks exportadas`)
       } else {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
         let y = 96
         rungs.forEach((r, i) => {
-          if (y > PAGE_H - 60) return
+          if (y > footerSafeY() - 30) return
           doc.setTextColor(MUTED); doc.text(`Network ${(indices[i] ?? i) + 1}`, MARGIN, y)
           doc.setTextColor(INK); doc.text(r.name || '—', MARGIN + 80, y)
           y += 16
@@ -452,6 +596,6 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
     sections.push(`Ladder — ${block.title}`)
   }
 
-  footers(doc, src.projectName || 'Projeto')
+  footers(doc, src.projectName || 'Projeto', opts.titleBlock)
   return { blob: doc.output('blob'), pages: doc.getNumberOfPages(), sections, skippedImages }
 }
