@@ -44,3 +44,4 @@
 .grafcet-graph-action .grafcet-action-box { filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .1)); }
 /* O porto de uma ação anexada só aparece ao passar o rato, ao selecionar ou com Ligar (parado parecia um ponto solto). */
 .grafcet-action-ports.is-idle .grafcet-port-ring { opacity: 0; }
+.grafcet-link-node { fill: #263d59; stroke: #fff; stroke-width: 1.2; vector-effect: non-scaling-stroke; }

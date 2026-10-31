@@ -144,6 +144,20 @@ try {
   await linkEnd('from').waitFor()
   await drag(linkEnd('from'), port('step-out', 'c'))
   check((await read()).transitions[0].from.join() === 'c', 'arrastar a ponta da origem para a saída de outra etapa troca a origem')
+  // Juntar: a ponta de origem largada sobre a linha de outra ligação da mesma etapa cria um nó.
+  const detour = { ...fixture(), transitions: [...fixture().transitions, { id: 't2', name: 'T2', from: ['a'], to: ['c'], condition: 'I2' }], linkBends: { t2: [{ x: 420, y: 180 }, { x: 420, y: 330 }] } }
+  await set(detour); await toSelect()
+  await page.locator('.grafcet-transition-bar-hit[data-transition-id="t2"]').hover()
+  await page.locator('.grafcet-link-end[data-detach-mode="from"][data-detach-id="t2"]').waitFor()
+  const onT1 = await middle(port('step-in', 'b'))
+  const t2From = await middle(page.locator('.grafcet-link-end[data-detach-mode="from"][data-detach-id="t2"]'))
+  await page.mouse.move(t2From.x, t2From.y); await page.mouse.down(); await page.mouse.move(onT1.x, onT1.y - 90, { steps: 12 }); await page.mouse.up()
+  program = await read()
+  const joined = program.linkBends?.t2 ?? []
+  check(program.transitions.length === 2 && program.transitions[1].from.join() === 'a' && joined[0]?.x === 180 && joined.at(-1)?.x === 500, `largar a ponta sobre a linha de T1 faz T2 seguir essa linha até ao nó (${JSON.stringify(joined)})`)
+  check(await page.locator(`.grafcet-link-node[data-node="180:${joined[0]?.y}"]`).count() === 1, 'o ponto de junção aparece como nó na linha')
+  await undo()
+  check(JSON.stringify((await read()).linkBends.t2) === JSON.stringify(detour.linkBends.t2), 'Desfazer repõe o percurso anterior')
   const withAction = fixture(); withAction.steps[0].actions = [{ id: 'act1', address: 'Q0.0', kind: 'N', condition: '1' }]
   await set(withAction); await toSelect()
   await page.locator('[data-action-id="act1"]').click()

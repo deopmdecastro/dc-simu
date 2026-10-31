@@ -263,3 +263,50 @@ export function pointOnPolyline(points: readonly Point[], p: Point, tolerance = 
   }
   return false
 }
+
+/** Ponto do percurso ortogonal mais próximo de `p`: o troço (em `expandPolyline(points)`), o ponto e a distância. */
+export function nearestOnPolyline(points: readonly Point[], p: Point): { leg: number; point: Point; dist: number } {
+  const pts = expandPolyline(points)
+  let best = { leg: 0, point: pts[0] ?? p, dist: Infinity }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len2 = dx * dx + dy * dy
+    const t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0
+    const q = { x: Math.round(a.x + dx * t), y: Math.round(a.y + dy * t) }
+    const dist = Math.hypot(p.x - q.x, p.y - q.y)
+    if (dist < best.dist) best = { leg: i, point: q, dist }
+  }
+  return best
+}
+
+/**
+ * Junta uma ligação ao percurso de outra que parte do mesmo ponto (`other` começa nessa ancoragem):
+ * segue o percurso da outra até ao nó `at` (no troço `leg`) e daí vai a direito para a coluna de `end`.
+ * Devolve as quebras a guardar (sem as ancoragens).
+ */
+export function joinBends(other: readonly Point[], leg: number, at: Point, end: Point): Point[] {
+  const pts = expandPolyline(other)
+  const shared = pts.slice(1, leg + 1).map((q) => ({ x: Math.round(q.x), y: Math.round(q.y) }))
+  const node = { x: Math.round(at.x), y: Math.round(at.y) }
+  // Num troço horizontal que já passa pela coluna da outra ponta, o nó fica nessa coluna (sem ir e voltar).
+  const from = pts[leg]
+  if (from && same(from.y, node.y) && Math.min(from.x, node.x) <= end.x && end.x <= Math.max(from.x, node.x)) node.x = Math.round(end.x)
+  const last = shared[shared.length - 1]
+  if (!last || !same(last.x, node.x) || !same(last.y, node.y)) shared.push(node)
+  if (!same(node.x, end.x) && !same(node.y, end.y)) shared.push({ x: Math.round(end.x), y: node.y })
+  return shared
+}
+
+/**
+ * Nó onde a ligação `a` se separa de `b` (ambas a partir da mesma ancoragem): o último vértice de `a`,
+ * a contar do início, até onde todo o percurso está sobre `b`. `null` se só partilham a ancoragem.
+ */
+export function divergencePoint(a: readonly Point[], b: readonly Point[]): Point | null {
+  const pts = simplifyOrthogonal(expandPolyline(a))
+  let k = 0
+  while (k + 1 < pts.length - 1 && pointOnPolyline(b, pts[k + 1])) k++
+  return k >= 1 ? pts[k] : null
+}

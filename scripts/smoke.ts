@@ -79,7 +79,7 @@ import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, ru
 import type { ControlDef } from '../src/catalog/types'
 import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
 import { dinFerruleColor, FERRULE_SWATCHES } from '../src/schematic/wireEndColor'
-import { clampBar, pointOnPolyline, routeViaBar } from '../src/grafcet/links'
+import { clampBar, divergencePoint, expandPolyline, joinBends, nearestOnPolyline, pointOnPolyline, routeViaBar } from '../src/grafcet/links'
 
 let failures = 0
 function check(name: string, cond: boolean, extra = '') {
@@ -2539,6 +2539,13 @@ console.log('\n— Tabela de sinais dinâmica —')
     const first = route[0], last = route[route.length - 1]
     return first.x === source.x && first.y === source.y && last.x === target.x && last.y === target.y && isOrthogonal(route) && pointOnPolyline(route, clampBar(source, bar))
   }))
+  // Juntar uma ligação à linha de outra da mesma etapa: segue-a até ao nó e daí vai ao destino.
+  const shared = [{ x: 200, y: 226 }, { x: 200, y: 252 }, { x: 956, y: 252 }, { x: 956, y: 352 }]
+  const hit = nearestOnPolyline(shared, { x: 780, y: 258 })
+  const joined = joinBends(shared, hit.leg, hit.point, { x: 605, y: 370 })
+  const route = expandPolyline([{ x: 200, y: 226 }, ...joined, { x: 605, y: 370 }])
+  check('GRAFCET: largar a ponta sobre outra linha da mesma etapa cria o nó na coluna do destino, sem ir e voltar', hit.point.y === 252 && JSON.stringify(joined) === JSON.stringify([{ x: 200, y: 252 }, { x: 605, y: 252 }]) && isOrthogonal(route))
+  check('GRAFCET: o nó de derivação é o ponto onde a ligação deixa a outra linha', JSON.stringify(divergencePoint(route, shared)) === JSON.stringify({ x: 605, y: 252 }) && divergencePoint([{ x: 0, y: 0 }, { x: 0, y: 50 }], [{ x: 0, y: 0 }, { x: 40, y: 0 }]) === null)
   check('GRAFCET: a barra não sobe acima da etapa de origem', clampBar({ x: 151, y: 300 }, { x: 200, y: 120 }).y >= 340)
 }
 

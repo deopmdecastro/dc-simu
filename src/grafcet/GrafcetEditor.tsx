@@ -113,7 +113,7 @@ import {
   type Box,
 } from './layout'
 
-import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, clampBar, expandPolyline, findClearSpot, interiorBends, moveBendOrthogonal, nearestLeg, pointOnPolyline, polylineMidpoint, routeThrough, routeVertical, routeViaBar, simplifyOrthogonal, type Point, type SegmentDrag } from './links'
+import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, clampBar, divergencePoint, expandPolyline, joinBends, nearestOnPolyline, findClearSpot, interiorBends, moveBendOrthogonal, nearestLeg, pointOnPolyline, polylineMidpoint, routeThrough, routeVertical, routeViaBar, simplifyOrthogonal, type Point, type SegmentDrag } from './links'
 import { foldText } from '../utils/text'
 import { readGrafcetFile } from './importFile'
 import type { FluidSimImportMode } from './fluidSim4'
@@ -1910,6 +1910,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   // A geometria efetivamente desenhada alimenta os portos, incluindo transições já ligadas.
   const transitionAnchors = new Map<string, Point>()
+  /** Percurso desenhado de cada ligação 1→1 (origem → destino): serve para juntar ligações num nó. */
+  const linkPolylines = new Map<string, Point[]>()
   // Áreas de agarrar das barras: desenhadas por cima de TODAS as linhas (a área invisível de uma linha
   // desenhada depois tapava a barra de outra transição, que deixava de se poder arrastar).
   const barHitLayer: React.ReactElement[] = []
@@ -2159,6 +2161,43 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     notify(`${detach.mode === 'to' ? 'Destino' : 'Origem'} de ${t.name || `T${transitions.indexOf(t) + 1}`}: Etapa ${stepNum(detach.stepId)} → Etapa ${stepNum(target.id)}`)
   }
 
+  /**
+   * Larga a ponta de uma ligação sobre outra linha que sai da mesma etapa (ou chega à mesma etapa):
+   * a ligação passa a seguir essa linha até ao ponto largado, onde fica um nó de derivação/junção.
+   */
+  const joinLinkAt = (detach: WireDetach, p: Point): boolean => {
+    if (detach.mode === 'action') return false
+    const t = transitions.find((item) => item.id === detach.id)
+    if (!t || t.from.length !== 1 || t.to.length !== 1 || !existsStep(t.from[0]) || !existsStep(t.to[0])) return false
+    const reach = Math.max(8, 12 / scale)
+    const candidates = transitions
+      .filter((o) => o.id !== t.id && !o.wireless && o.from.length === 1 && o.to.length === 1 && (detach.mode === 'from' ? o.from[0] === t.from[0] : o.to[0] === t.to[0]))
+      .map((o) => {
+        const line = linkPolylines.get(o.id)
+        if (!line) return null
+        const path = detach.mode === 'from' ? line : [...line].reverse()
+        return { o, path, hit: nearestOnPolyline(path, p) }
+      })
+      .filter((c): c is NonNullable<typeof c> => !!c && c.hit.dist <= reach && c.hit.leg + 1 < expandPolyline(c.path).length)
+      .sort((a, b) => a.hit.dist - b.hit.dist)
+    const best = candidates[0]
+    if (!best) return false
+    // Ponta que fica: entrada do destino (ao mover a origem) ou saída da origem (ao mover o destino).
+    const end = detach.mode === 'from' ? { x: stepX(t.to[0]), y: stepY(t.to[0]) } : { x: stepX(t.from[0]), y: stepY(t.from[0]) + stepHOf(t.from[0]) }
+    const joined = joinBends(best.path, best.hit.leg, best.hit.point, end)
+    const bends = detach.mode === 'from' ? joined : [...joined].reverse()
+    // A barra fica no troço vertical próprio (depois do nó ao mover a origem, antes do nó ao mover o destino).
+    const { [t.id]: _bar, ...linkBars } = program.linkBars ?? {}
+    const node = joined[joined.length - 1]
+    const ownLeg = node && Math.round(node.x) === Math.round(end.x) ? Math.abs(end.y - node.y) : 0
+    const bar = ownLeg >= 30 ? { x: Math.round(end.x), y: Math.round((node.y + end.y) / 2) } : null
+    save({ linkBends: { ...(program.linkBends ?? {}), [t.id]: bends }, linkBars: bar ? { ...linkBars, [t.id]: bar } : linkBars }, 'force')
+    setSelected(t.id)
+    setSelectedActionId(null)
+    notify(`${t.name || `T${transitions.indexOf(t) + 1}`} junta-se à linha de ${best.o.name || `T${transitions.indexOf(best.o) + 1}`} num nó`)
+    return true
+  }
+
   const cancelWire = (silent = true) => {
     quickWireRef.current = false
     setWireDraft(null)
@@ -2227,7 +2266,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         // Ponta agarrada: larga sobre outra etapa para religar; no vazio a ligação fica como estava.
         const target = hitWireTarget(w.x, w.y, wireHitStart(draft))
         if (target) completeDetach(draft.detach, target)
-        else if (draft.moved) notify('Ligação mantida — largue a ponta sobre outra etapa para a mudar')
+        else if (draft.moved && !joinLinkAt(draft.detach, w)) notify('Ligação mantida — largue a ponta sobre outra etapa ou sobre outra linha da mesma etapa')
         cancelWire()
         return
       }
@@ -4059,7 +4098,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   const manualLink = isPinned(sourceStep ?? undefined) || isPinned(targetStep ?? undefined) || dragPos?.id === sourceStep?.id || dragPos?.id === targetStep?.id
                   const isForward = !!sourceStep && !!targetStep && stepY(targetStep.id) >= stepY(sourceStep.id) + stepHOf(sourceStep.id) + 24
                   const isConsecutive =
-                    isSingleSource && isSingleTarget && sourceStep && targetStep && !selfLoop && (manualLink ? isForward && clearPath(sourceStep, targetStep) : targetIdx === sourceIdx + 1)
+                    isSingleSource && isSingleTarget && sourceStep && targetStep && !selfLoop && (manualLink ? isForward && (clearPath(sourceStep, targetStep) || bendsOf(transition.id).length > 0) : targetIdx === sourceIdx + 1)
                   const isReturning =
                     isSingleSource && isSingleTarget && sourceStep && targetStep && !selfLoop && !isConsecutive && (manualLink ? !isForward : stepY(targetStep.id) <= stepY(sourceStep.id))
 
@@ -4256,6 +4295,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     const tx = barFree?.x ?? barMid?.x ?? (barOnFirstLeg ? sourceX : targetX)
                     const ty = barFree?.y ?? barMid?.y ?? (barOnFirstLeg ? Math.round((sBottom + midY) / 2) : bent || (roomForOr && orDivergent) ? Math.round((midY + tTop) / 2) : midY)
                     transitionAnchors.set(transition.id, { x: tx, y: ty })
+                    linkPolylines.set(transition.id, expandPolyline(bends.length ? linkPoints : bent ? [{ x: sourceX, y: sBottom }, { x: sourceX, y: midY }, { x: targetX, y: midY }, { x: targetX, y: tTop }] : linkPoints))
 
                     return (
                       <g
@@ -4462,6 +4502,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       .filter(({ a, b }) => a.x === b.x && b.y < a.y - 40)
                       .sort((m, n) => (m.a.y - m.b.y) - (n.a.y - n.b.y)).pop()
                     transitionAnchors.set(transition.id, { x: tx, y: ty })
+                    linkPolylines.set(transition.id, expandPolyline(linkPoints))
                     const delX = bends.length ? tx - 18 : trackX
                     const delY = bends.length ? ty - 12 : (sBottom + tTop) / 2 - 16
                     const arrowAt = bends.length ? (upLeg ? { x: upLeg.a.x, y: (upLeg.a.y + upLeg.b.y) / 2 } : null) : { x: trackX, y: (sBottom + tTop) / 2 }
@@ -5686,6 +5727,24 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 )}
 
                 {/* FIO EM CURSO (ferramenta Ligar): linha tracejada do porto de saída até ao cursor */}
+                {/* NÓS DE DERIVAÇÃO/JUNÇÃO: onde uma ligação deixa a linha de outra da mesma etapa */}
+                {(() => {
+                  const nodes = new Map<string, Point>()
+                  const simple = transitions.filter((t) => !t.wireless && t.from.length === 1 && t.to.length === 1 && linkPolylines.has(t.id))
+                  for (const a of simple) for (const b of simple) {
+                    if (a.id === b.id) continue
+                    const pa = linkPolylines.get(a.id)!
+                    const pb = linkPolylines.get(b.id)!
+                    const split = a.from[0] === b.from[0] ? divergencePoint(pa, pb) : null
+                    const merge = a.to[0] === b.to[0] ? divergencePoint([...pa].reverse(), [...pb].reverse()) : null
+                    for (const n of [split, merge]) if (n) nodes.set(`${Math.round(n.x)}:${Math.round(n.y)}`, n)
+                  }
+                  if (!nodes.size) return null
+                  return <g className="grafcet-link-nodes" pointerEvents="none">
+                    {[...nodes.entries()].map(([key, n]) => <circle key={key} className="grafcet-link-node" data-node={key} cx={n.x} cy={n.y} r="3.5" />)}
+                  </g>
+                })()}
+
                 {/* PONTAS DAS LIGAÇÕES: agarrar a ponta de uma ligação selecionada e largá-la noutra etapa */}
                 {full && !running && activeTool !== 'pan' && !wireDraft && (() => {
                   const handles: { key: string; at: Point; detach: WireDetach; label: string; dir: 'up' | 'down' | 'right' }[] = []
