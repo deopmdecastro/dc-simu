@@ -56,6 +56,19 @@ function CoreMesh({ core }: { core: Core }) {
       rEnd: r * 1.12,
     }
   }, [core])
+  // Manga na ponta: cobre o troço descarnado por completo (sem cobre à vista).
+  const tipShrink = useMemo(() => {
+    const pts = core.points
+    if (pts.length < 2) return null
+    const before = pts[pts.length - 2]
+    const dir = core.tip.clone().sub(before).normalize()
+    const length = STRIP_MM * U + 3.5 * U
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
+    // Centrada sobre o cobre, estendendo-se um pouco sobre o isolamento colorido.
+    const center = core.tip.clone().addScaledVector(dir, -length * 0.42)
+    const r = core.radius
+    return { center, quaternion, length, rMid: r * 1.35, rEnd: r * 1.08 }
+  }, [core])
   return <group userData={{ noSnapshot: true }}>
     <mesh geometry={insulation} castShadow>
       <meshStandardMaterial color={core.color} roughness={0.5} metalness={0.04} envMapIntensity={0.9} />
@@ -76,9 +89,26 @@ function CoreMesh({ core }: { core: Core }) {
         </mesh>
       </group>
     )}
+    {/* cobre interno (coberto pela manga da ponta) */}
     <mesh geometry={copper.geometry} position={copper.center} quaternion={copper.quaternion} castShadow>
       <meshStandardMaterial color={COPPER} roughness={0.32} metalness={0.85} envMapIntensity={1.2} />
     </mesh>
+    {tipShrink && (
+      <group position={tipShrink.center} quaternion={tipShrink.quaternion} userData={{ noSnapshot: true }}>
+        <mesh castShadow>
+          <cylinderGeometry args={[tipShrink.rMid, tipShrink.rMid, tipShrink.length * 0.75, 14]} />
+          <meshStandardMaterial color="#1a1f27" roughness={0.72} metalness={0.04} />
+        </mesh>
+        <mesh position={[0, tipShrink.length * 0.4, 0]} castShadow>
+          <cylinderGeometry args={[tipShrink.rEnd, tipShrink.rMid, tipShrink.length * 0.28, 14]} />
+          <meshStandardMaterial color="#0f1318" roughness={0.8} metalness={0.03} />
+        </mesh>
+        <mesh position={[0, -tipShrink.length * 0.4, 0]} castShadow>
+          <cylinderGeometry args={[tipShrink.rMid, tipShrink.rEnd, tipShrink.length * 0.28, 14]} />
+          <meshStandardMaterial color="#0f1318" roughness={0.8} metalness={0.03} />
+        </mesh>
+      </group>
+    )}
   </group>
 }
 
