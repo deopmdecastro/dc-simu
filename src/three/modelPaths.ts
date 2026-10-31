@@ -28,6 +28,8 @@ export const MODEL_PATHS = {
   terminalPE: '/models/bornes-e-barras/terminal-pe.glb',
   dinRail15x55: '/models/bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb',
   motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
+  /** Condensador genérico CBB65 (STEP Godrej → GLB). Valores de capacitância/tensão são atribuídos no estado. */
+  capacitorRunGeneric: '/models/motores/capacitor-run-generic.glb',
   pilotLightAd22: '/models/sinalizacao/ad22-22ds-24v.glb',
   multimeterDm20: '/models/aparelhos-de-medir/rgk-dm20-multimetro.glb',
 } as const
@@ -84,6 +86,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   /** 1 m por omissão; o comprimento real vem de `state.lengthMm`. */
   dinRail15x55: { width: 1000, height: 15, depth: 5.5 },
   motor3ph: { width: 264, height: 208, depth: 156 },
+  /** Cilindro CBB65 genérico (~Ø50 × 119 mm). Valores elétricos vêm do estado. */
+  capacitorRun60uF: { width: 50, height: 119, depth: 50 },
   pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
   multimeterDm20: { width: 88, height: 184, depth: 53 },
 }
@@ -171,6 +175,8 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   dinRail15x55: spec('dinRail15x55', MODEL_PATHS.dinRail15x55, [0, 0, 0], 'rail'),
 
   motor3ph: spec('motor3ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
+  /** Condensador genérico (STEP → GLB). Capacitância/tensão editáveis no estado. */
+  capacitorRun60uF: spec('capacitorRun60uF', MODEL_PATHS.capacitorRunGeneric, [0, 0, 0], 'machine'),
   pilotLightAd22: spec('pilotLightAd22', MODEL_PATHS.pilotLightAd22, [Math.PI / 2, 0, 0], 'panel-front'),
   multimeterDm20: spec('multimeterDm20', MODEL_PATHS.multimeterDm20, [0, 0, 0], 'machine'),
 }

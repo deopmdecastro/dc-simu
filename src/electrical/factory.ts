@@ -606,13 +606,13 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     },
   },
   /**
-   * Condensador de arranque/funcionamento CBB65 60 µF 450 VAC (Godrej / estilo industrial).
-   * Dois terminais de faston no topo. Não polarizado. Usado com motores monofásicos
-   * (enrolamento auxiliar) e correção de fator de potência.
-   * Modelo de referência: 60uf capacitor godrej.SLDPRT + foto do utilizador.
+   * Condensador genérico de arranque/funcionamento (estilo CBB65 cilíndrico).
+   * GLB gerado a partir do STEP «60uf capacitor godrej». Valores de capacitância,
+   * tensão e tolerância são atribuídos no estado (defaults 60 µF / 450 VAC).
+   * Dois terminais faston no topo. Não polarizado.
    */
   capacitorRun60uF: {
-    category: 'motor', paletteName: 'Condensador 60 µF · CBB65 450 VAC', group: 'Motores', tag: 'C', w: 70, h: 110,
+    category: 'motor', paletteName: 'Condensador (genérico CBB65)', group: 'Motores', tag: 'C', w: 70, h: 110,
     terminals: [
       T('1', 'power-in', 0.3, 0, { position3D: { x: 0.32, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
       T('2', 'power-out', 0.7, 0, { position3D: { x: 0.68, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
@@ -623,8 +623,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       voltageVac: 450,
       frequencyHz: 50,
       temperatureClass: '40/85/21',
-      manufacturer: 'Godrej / CBB65',
-      model: '60 µF 450 VAC',
+      manufacturer: 'Genérico / CBB65',
+      model: 'Condensador de arranque',
       code: 'CBB65',
       failed: false,
     },
