@@ -96,6 +96,18 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color'>, st: 
         <path d="M 35 -6 L 35 6" stroke={stroke} strokeWidth={1.2} />
       </>
     }
+    case 'pageRefIn': {
+      // Espelho: caixa → seta → borne (corrente a chegar de outra página).
+      const live = !st.idle && st.energized
+      const stroke = live ? active : INK
+      return <>
+        <rect x={-42} y={-10} width={14} height={20} rx={2} fill={live ? '#dcfce7' : '#fff'} stroke={stroke} strokeWidth={1.5} />
+        <path d="M -35 -6 L -35 6" stroke={stroke} strokeWidth={1.2} />
+        <path d="M -28 -5 L -18 0 L -28 5 Z" fill={stroke} stroke="none" />
+        <line x1={-18} y1={0} x2={0} y2={0} stroke={stroke} strokeWidth={1.8} />
+        <circle cx={0} cy={0} r={3.2} fill={live ? active : INK} stroke="none" />
+      </>
+    }
     case 'fuse': case 'fuse3': return <>{(part.kind === 'fuse' ? [0] : [0, 20, 40]).map((x) => <g key={x}>
       <line x1={x} y1={0} x2={x} y2={60} />
       <rect x={x - 5.5} y={16} width={11} height={28} fill="#fff" />

@@ -125,7 +125,7 @@ function solve(diagram: CommandsDiagram, rt: CmdRuntime): Solved {
   // Ligações entre páginas: pageRef com o mesmo tag (nome de rede) ficam unidos.
   const pageRefByTag = new Map<string, string[]>()
   for (const part of diagram.parts) {
-    if (part.kind !== 'pageRef') continue
+    if (part.kind !== 'pageRef' && part.kind !== 'pageRefIn') continue
     const tag = (part.tag || '').trim()
     if (!tag) continue
     const list = pageRefByTag.get(tag) ?? []

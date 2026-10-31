@@ -7,7 +7,7 @@ import { useSimStore } from '../store/useSimStore'
 import { CMD_PALETTE, CMD_PARTS, emptyCommands, partBox, partTerminals, type CmdKind, type CmdPart } from './model'
 import { symbolBody } from './symbols'
 import { useCommandsUi } from './commandsUi'
-import { pageRefPeers } from './pages'
+import { pageRefPeers, pagesOf, pageIdOf } from './pages'
 import { patchPart, removeSelected, rotateSelected } from './editing'
 import { devicesOf } from './engine'
 
@@ -23,6 +23,8 @@ const readKinds = (key: string): CmdKind[] => {
 }
 
 /** Miniatura do símbolo IEC (a mesma geometria do esquema, em repouso). */
+
+const isPageLink = (kind: string) => kind === 'pageRef' || kind === 'pageRefIn'
 function SymbolThumb({ kind }: { kind: CmdKind }) {
   const lines = kind === 'supply' ? ['L1', 'L2', 'L3'] : undefined
   const box = partBox({ id: 'pv', kind, x: 0, y: 0, rot: 0, tag: '', lines })
@@ -180,19 +182,38 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
   return (
     <fieldset className="dc-cmd-props" disabled={disabled}>
       <p className="dc-cmd-muted">{def.hint}</p>
-      {(def.prefix || part.kind === 'pageRef') && <label className="dc-cmd-field"><span>{part.kind === 'pageRef' ? 'Nome da ligação (rede)' : 'Referência'}</span>
-        <input className="dc-input" value={part.tag} onChange={(e) => onChange({ tag: e.target.value.toUpperCase().replace(/\s+/g, '') })} aria-label={part.kind === 'pageRef' ? 'Nome da ligação entre páginas' : 'Referência do aparelho'} placeholder={part.kind === 'pageRef' ? 'Ex.: X1, 24V, L1' : undefined} />
+      {(def.prefix || isPageLink(part.kind)) && <label className="dc-cmd-field"><span>{isPageLink(part.kind) ? 'Nome da ligação (rede)' : 'Referência'}</span>
+        <input className="dc-input" value={part.tag} onChange={(e) => onChange({ tag: e.target.value.toUpperCase().replace(/\s+/g, '') })} aria-label={isPageLink(part.kind) ? 'Nome da ligação entre páginas' : 'Referência do aparelho'} placeholder={isPageLink(part.kind) ? 'Ex.: X1, 24V, L1' : undefined} />
       </label>}
-      {part.kind === 'pageRef' && (() => {
-        const peers = pageRefPeers(useSimStore.getState().commands, part.tag, part.page)
+      {isPageLink(part.kind) && (() => {
+        const diagram = useSimStore.getState().commands
+        const peers = pageRefPeers(diagram, part.tag, part.page)
+        const pages = pagesOf(diagram)
+        const go = (pageId: string) => useCommandsUi.getState().setActivePageId(pageId)
         return (
-          <p className="dc-cmd-muted">
-            {part.tag
-              ? (peers.length
-                  ? <>Liga electricamente a: {peers.map((pg) => pg.name).join(', ')}. O mesmo nome noutra página leva ou traz a corrente.</>
-                  : <>Coloque outro «Ligação entre páginas» com o nome <b>{part.tag}</b> noutra página para passar a corrente.</>)
-              : <>Defina um nome (ex.: X1 ou 24V). O mesmo nome noutra página une as folhas.</>}
-          </p>
+          <div className="dc-cmd-page-link-box">
+            <p className="dc-cmd-muted">
+              {part.tag
+                ? (peers.length
+                    ? <>Liga electricamente a: <b>{peers.map((pg) => pg.name).join(', ')}</b>.</>
+                    : <>Sem par noutra página. Duplo clique no símbolo abre a modal de linkagem, ou use os botões abaixo.</>)
+                : <>Defina um nome (ex.: X1). O mesmo nome noutra página une as folhas.</>}
+            </p>
+            {peers.length > 0 && (
+              <div className="dc-cmd-actions" style={{ marginTop: 6 }}>
+                {peers.map((pg) => (
+                  <button key={pg.id} type="button" className="dc-btn" onClick={() => go(pg.id)}>
+                    Ir a {pg.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {pages.filter((p) => p.id !== pageIdOf(part, pages[0]?.id)).length > 0 && (
+              <p className="dc-cmd-muted" style={{ marginTop: 8 }}>
+                Dica: <b>duplo clique</b> no conector para criar o par noutra página.
+              </p>
+            )}
+          </div>
         )
       })()}
 {def.family === 'contact' && <p className="dc-cmd-muted">Comandado pelo aparelho <b>{part.tag || '—'}</b> (bobina, temporizador ou relé térmico com a mesma referência).</p>}
@@ -209,7 +230,7 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
           <option value="green">Verde (marcha)</option><option value="red">Vermelho (paragem/defeito)</option><option value="yellow">Amarelo (alerta)</option><option value="white">Branco</option><option value="blue">Azul</option>
         </select>
       </label>}
-      {part.kind !== 'supply' && part.kind !== 'node' && part.kind !== 'pageRef' && <div className="dc-cmd-field"><span>Marcação dos bornes</span>
+      {part.kind !== 'supply' && part.kind !== 'node' && !isPageLink(part.kind) && <div className="dc-cmd-field"><span>Marcação dos bornes</span>
         <div className="dc-cmd-terms">{terms.map((t, i) => <input key={i} className="dc-input" value={part.labels?.[i] ?? t.label} onChange={(e) => { const labels = terms.map((x, j) => part.labels?.[j] ?? x.label); labels[i] = e.target.value; onChange({ labels }) }} aria-label={`Borne ${i + 1}`} />)}</div>
       </div>}
       <div className="dc-cmd-actions">

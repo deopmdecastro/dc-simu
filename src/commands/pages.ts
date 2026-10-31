@@ -108,7 +108,7 @@ export function pageRefPeers(diagram: CommandsDiagram, tag: string, exceptPage?:
   const pages = pagesOf(diagram)
   const found = new Set<string>()
   for (const p of diagram.parts) {
-    if (p.kind !== 'pageRef') continue
+    if (p.kind !== 'pageRef' && p.kind !== 'pageRefIn') continue
     if (p.tag.trim() !== net) continue
     const pid = pageIdOf(p, pages[0].id)
     if (exceptPage && pid === exceptPage) continue

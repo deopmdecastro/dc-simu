@@ -17,7 +17,8 @@ import {
   CMD_GRID, CMD_PARTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
   type CmdEnd, type CmdKind, type CmdPart, type CmdWire, type CommandsDiagram, type Pt,
 } from './model'
-import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID } from './pages'
+import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
+import PageLinkDialog from './PageLinkDialog'
 import { emptyCmdRuntime, isClosed } from './engine'
 import { CmdSymbol, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
@@ -104,6 +105,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const canvasId = useId()
   const gesture = useRef<{ kind: 'pan' | 'move' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number } | null>(null)
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  const [pageLinkModal, setPageLinkModal] = useState<{ partId: string } | null>(null)
   const selectedPartIds = useCommandsUi((s) => s.selectedPartIds)
   const selectParts = useCommandsUi((s) => s.selectParts)
   const running = rt.running
@@ -129,7 +131,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     const progress = since !== undefined ? Math.min(1, (rt.time - since) / delay) : undefined
     return {
       closed: isClosed(part, rt),
-      energized: part.kind === 'pageRef' ? !!rt.live[`${part.id}:0`] : !!rt.coils[part.tag],
+      energized: (part.kind === 'pageRef' || part.kind === 'pageRefIn') ? !!rt.live[`${part.id}:0`] : !!rt.coils[part.tag],
       lit: !!rt.lamps[part.id],
       load: !!(rt.loads && rt.loads[part.id]),
       motor: rt.motors[part.id],
@@ -648,7 +650,17 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                 </g>
               })}
               {pageParts.map((part) => (
-                <g key={part.id} onPointerDown={(e) => onPartDown(part, e)} className={running && (MOMENTARY.includes(part.kind) || TOGGLES.includes(part.kind) || part.kind.startsWith('thermal')) ? 'dc-cmd-actuator' : undefined}>
+                <g
+                  key={part.id}
+                  onPointerDown={(e) => onPartDown(part, e)}
+                  onDoubleClick={(e) => {
+                    if (part.kind !== 'pageRef' && part.kind !== 'pageRefIn') return
+                    e.stopPropagation()
+                    select({ type: 'part', id: part.id })
+                    setPageLinkModal({ partId: part.id })
+                  }}
+                  className={running && (MOMENTARY.includes(part.kind) || TOGGLES.includes(part.kind) || part.kind.startsWith('thermal')) ? 'dc-cmd-actuator' : undefined}
+                >
                   <CmdSymbol part={part} state={stateOf(part)} selected={selectedPartIds.includes(part.id) || (selection?.type === 'part' && selection.id === part.id)} />
                 </g>
               ))}
@@ -783,7 +795,18 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
           window.setTimeout(() => fit(result.diagram), 30)
         }}
       />
-      <CommandsExamplesDialog
+      
+      {pageLinkModal && (
+        <PageLinkDialog
+          partId={pageLinkModal.partId}
+          onClose={() => setPageLinkModal(null)}
+          onGoPage={(pageId) => {
+            setActivePageId(pageId)
+            setPageLinkModal(null)
+          }}
+        />
+      )}
+<CommandsExamplesDialog
         open={examplesOpen}
         onClose={() => setExamplesOpen(false)}
         onLoad={(example) => applyExample(example)}

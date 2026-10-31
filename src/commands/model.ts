@@ -11,7 +11,7 @@
 export const CMD_GRID = 20
 
 export type CmdKind =
-  | 'supply' | 'node' | 'ground' | 'pageRef'
+  | 'supply' | 'node' | 'ground' | 'pageRef' | 'pageRefIn'
   | 'fuse' | 'fuse3' | 'breaker1' | 'breaker3' | 'disconnector3' | 'thermal3' | 'rcd'
   | 'contact3' | 'contactNO' | 'contactNC' | 'changeover' | 'timedNO' | 'timedNC' | 'thermalNC' | 'thermalNO'
   | 'pushNO' | 'pushNC' | 'pushIllum' | 'emergency' | 'selector' | 'limitNO' | 'limitNC' | 'proximity'
@@ -107,7 +107,9 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   supply: { label: 'Alimentação', hint: 'Fases L1 L2 L3 / N / PE', family: 'source', prefix: '', terminals: [{ x: 0, y: 0, label: 'L1' }], poles: [], box: { x: -12, y: -26, w: 24, h: 30 } },
   node: { label: 'Nó', hint: 'Ponto de ligação de cabos', family: 'source', prefix: '', terminals: [{ x: 0, y: 0, label: '' }], poles: [], box: { x: -6, y: -6, w: 12, h: 12 } },
   ground: { label: 'Terra / PE', hint: 'Ligação à terra de proteção', family: 'source', prefix: 'PE', terminals: [{ x: 0, y: 0, label: 'PE' }], poles: [], box: { x: -14, y: -4, w: 28, h: 28 } },
-  pageRef: { label: 'Ligação entre páginas', hint: 'Leva ou traz corrente de outra página — o mesmo nome (tag) une as páginas', family: 'source', prefix: 'X', terminals: [{ x: 0, y: 0, label: '' }], poles: [], box: { x: -10, y: -14, w: 56, h: 28 } },
+  pageRef: { label: 'Ligação → outras páginas', hint: 'Conector de saída: leva corrente para outra página — o mesmo nome (tag) une as páginas', family: 'source', prefix: 'X', terminals: [{ x: 0, y: 0, label: '' }], poles: [], box: { x: -10, y: -14, w: 56, h: 28 } },
+  pageRefIn: { label: 'Ligação ← outras páginas', hint: 'Conector de entrada: recebe corrente de outra página — o mesmo nome (tag) une as páginas', family: 'source', prefix: 'X', terminals: [{ x: 0, y: 0, label: '' }], poles: [], box: { x: -42, y: -14, w: 56, h: 28 } },
+
   fuse: { label: 'Fusível', hint: 'Proteção contra curto-circuito', family: 'protection', prefix: 'F', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -10, y: 0, w: 20, h: 60 } },
   fuse3: { label: 'Fusíveis 3P', hint: 'Três fusíveis do circuito de potência', family: 'protection', prefix: 'F', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
   breaker1: { label: 'Disjuntor 1P', hint: 'Q · unipolar (clique para ligar/desligar)', family: 'protection', prefix: 'Q', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -12, y: 0, w: 24, h: 60 } },
@@ -160,7 +162,7 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
 }
 
 export const CMD_PALETTE: Array<{ title: string; kinds: CmdKind[] }> = [
-  { title: 'Alimentação', kinds: ['supply', 'node', 'ground', 'pageRef'] },
+  { title: 'Alimentação', kinds: ['supply', 'node', 'ground', 'pageRef', 'pageRefIn'] },
   { title: 'Proteção', kinds: ['fuse', 'fuse3', 'breaker1', 'breaker3', 'disconnector3', 'thermal3', 'rcd'] },
   { title: 'Contactos', kinds: ['contact3', 'contactNO', 'contactNC', 'changeover', 'timedNO', 'timedNC', 'thermalNC', 'thermalNO'] },
   { title: 'Comando', kinds: ['pushNO', 'pushNC', 'pushIllum', 'emergency', 'selector'] },
@@ -217,9 +219,9 @@ export function wirePoints(a: Pt, b: Pt, mid?: number): Pt[] {
 
 /** Próxima referência livre com o prefixo do símbolo (K1, K2…). */
 export function nextTag(diagram: CommandsDiagram, kind: CmdKind): string {
-  if (kind === 'pageRef') {
+  if (kind === 'pageRef' || kind === 'pageRefIn') {
     // Nomes de rede típicos: X1, X2… (o mesmo nome noutra página liga a corrente)
-    const used = new Set(diagram.parts.filter((p) => p.kind === 'pageRef').map((p) => p.tag))
+    const used = new Set(diagram.parts.filter((p) => p.kind === 'pageRef' || p.kind === 'pageRefIn').map((p) => p.tag))
     for (let n = 1; ; n++) if (!used.has(`X${n}`)) return `X${n}`
   }
   const prefix = CMD_PARTS[kind].prefix
