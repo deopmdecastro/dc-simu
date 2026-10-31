@@ -300,6 +300,16 @@ export function CmdSymbol({ part, state, selected, showTerminals = true }: { par
   const st = state ?? {}
   return (
     <g className={`dc-cmd-symbol${selected ? ' is-selected' : ''}${st.idle ? '' : ' is-live'}`} data-cmd-part={part.id} data-cmd-kind={part.kind} transform={`translate(${part.x} ${part.y})`}>
+      {/* Halo de hover/seleção — mesmo padrão do GRAFCET (sem tooltip nativo preto). */}
+      <rect
+        className="dc-cmd-hover-halo"
+        x={box.x - part.x - 6}
+        y={box.y - part.y - 6}
+        width={box.w + 12}
+        height={box.h + 12}
+        rx={4}
+        ry={4}
+      />
       {selected && <rect x={box.x - part.x - 4} y={box.y - part.y - 4} width={box.w + 8} height={box.h + 8} className="dc-cmd-symbol-sel" />}
       {/* Área de clique invisível: o símbolo inteiro responde (não só os traços) — premir botões, selecionar, arrastar. */}
       <rect className="dc-cmd-symbol-hit" x={box.x - part.x - 4} y={box.y - part.y - 4} width={box.w + 8} height={box.h + 8} fill="transparent" stroke="none" />

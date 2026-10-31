@@ -22,6 +22,25 @@
 .dc-cmd-tag { fill: #0f172a; font-size: 12px; font-weight: 750; }
 .dc-cmd-term { fill: #64748b; font-size: 8.5px; font-weight: 600; }
 .dc-cmd-symbol { cursor: move; }
+/* Hover IEC = GRAFCET: halo azul suave, sem caixas pretas de tooltip nativo */
+.dc-cmd-hover-halo {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 5px;
+  stroke-opacity: 0;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  transition: stroke-opacity .14s ease;
+}
+.dc-cmd-symbol:hover .dc-cmd-hover-halo { stroke-opacity: .09; }
+.dc-cmd-symbol.is-selected .dc-cmd-hover-halo { stroke-opacity: .16; }
+.dc-cmd-symbol.is-selected:hover .dc-cmd-hover-halo { stroke-opacity: .2; }
+.dc-cmd-symbol:hover > g { stroke: #3b82f6; }
+.dc-cmd-symbol.is-selected:hover > g { stroke: #1d4ed8; }
+.dc-cmd-wire:hover { stroke: #3b82f6; }
+/* Portas: realce no hover, sem <title> nativo */
+.dc-cmd-port { pointer-events: all; }
+
 .is-running .dc-cmd-symbol { cursor: default; }
 .dc-cmd-actuator .dc-cmd-symbol { cursor: pointer; }
 .dc-cmd-actuator:hover .dc-cmd-symbol > g { stroke: #2563eb; }

@@ -655,8 +655,16 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
               {editable && tool !== 'pan' && tool !== 'erase' && <g className={`dc-cmd-ports ${showPorts ? 'is-wiring' : ''}`}>{pageParts.flatMap((part) => partTerminals(part).map((_, i) => {
                 const at = terminalAt(part, i)
                 const hot = hoverTerm?.part === part.id && hoverTerm.term === i
-                return <circle key={`${part.id}:${i}`} className={`dc-cmd-port ${hot ? 'is-hot' : ''}`} data-cmd-port={`${part.id}:${i}`} cx={at.x} cy={at.y} r={hot ? 6 : 4.5}
-                  onPointerDown={(e) => onTermDown({ part: part.id, term: i }, e)}><title>{`${part.tag || CMD_PARTS[part.kind].label} · borne ${terminalLabel(part, i) || i + 1} — arraste ou clique para ligar`}</title></circle>
+                return <circle
+                  key={`${part.id}:${i}`}
+                  className={`dc-cmd-port ${hot ? 'is-hot' : ''}`}
+                  data-cmd-port={`${part.id}:${i}`}
+                  cx={at.x}
+                  cy={at.y}
+                  r={hot ? 6 : 4.5}
+                  aria-label={`${part.tag || CMD_PARTS[part.kind].label} · borne ${terminalLabel(part, i) || i + 1} — arraste ou clique para ligar`}
+                  onPointerDown={(e) => onTermDown({ part: part.id, term: i }, e)}
+                />
               }))}</g>}
               {draft && (() => {
                 const from = partById.get(draft.from.part)
