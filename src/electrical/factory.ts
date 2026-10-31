@@ -966,8 +966,8 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
       } as Record<string, string>)[spot.label]
       return {
         ...canonical,
-        contact: 'lead',
-        terminalType: canonical.terminalType === 'screw' ? 'tubular' : canonical.terminalType,
+        contact: 'lead' as const,
+        terminalType: (canonical.terminalType === 'screw' ? 'tubular' : canonical.terminalType),
         color: leadColor ?? canonical.color,
         position3D: tip,
         diameter: spot.diameterMm ?? canonical.diameter,
@@ -978,7 +978,7 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
           normal: FACE_OUTWARD_3D[spot.face],
           position: root,
         },
-      }
+      } satisfies Terminal
     }
     if (!at) return canonical
     const target = realTerminalPosition(c.type, spot)
@@ -1090,7 +1090,7 @@ function applyRealInterfaces() {
         position3D: tip,
         diameter: spot.diameterMm ?? existing?.diameter,
         terminalType: isLead ? 'tubular' : (existing?.terminalType ?? 'screw'),
-        contact: spot.contact ?? 'socket',
+        contact: (spot.contact ?? 'socket') as Terminal['contact'],
         color: leadColor ?? existing?.color,
         socket3D: isLead
           ? {
