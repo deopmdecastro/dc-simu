@@ -148,6 +148,7 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
                 {!isCollapsed && <div className="dc-library-grid">{group.kinds.map(tile)}</div>}
               </section>
             })}
+            <p className="text-ink-400 text-[10px] p-2">Variantes QElectroTech: selecione um fusível, resistência, condensador ou díodo no esquema e escolha o desenho no Inspetor.</p>
             <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
               Clique num símbolo e depois no esquema (encaixa na malha), ou <b className="text-ink-500">arraste-o</b>. Duplo clique insere já no centro da vista · Shift+clique posiciona vários · Esc cancela. Ligue os bornes com a ferramenta Cabo — largar sobre um cabo cria um nó.
             </p>
@@ -226,6 +227,14 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
       {part.kind === 'timerCoil' && <label className="dc-cmd-field"><span>Atraso à operação (s)</span>
         <input className="dc-input" type="number" min={0.1} step={0.5} value={(part.delayMs ?? 3000) / 1000} onChange={(e) => onChange({ delayMs: Math.max(100, Math.round(Number(e.target.value) * 1000) || 100) })} aria-label="Atraso do temporizador em segundos" />
       </label>}
+      {(['fuse', 'resistor', 'capacitor', 'diode'] as CmdKind[]).includes(part.kind) && <div className="dc-cmd-field">
+        <label><span>Desenho do símbolo</span>
+          <select className="dc-input" aria-label="Desenho do símbolo" value={part.symbolStyle ?? 'native'} onChange={(e) => onChange({ symbolStyle: e.target.value === 'qet' ? 'qet' : undefined })}>
+            <option value="native">DC-Simu</option><option value="qet">QElectroTech (IEC)</option>
+          </select>
+        </label>
+        <p className="dc-cmd-muted">Variante gráfica adaptada de <a href="https://github.com/qelectrotech/qelectrotech-elements" target="_blank" rel="noreferrer">QElectroTech</a>, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">CC BY 3.0</a>. Bornes e simulação mantêm-se DC-Simu.</p>
+      </div>}
       {part.kind === 'lamp' && <label className="dc-cmd-field"><span>Cor</span>
         <select className="dc-input" value={part.color ?? 'green'} onChange={(e) => onChange({ color: e.target.value as CmdPart['color'] })} aria-label="Cor do sinalizador">
           <option value="green">Verde (marcha)</option><option value="red">Vermelho (paragem/defeito)</option><option value="yellow">Amarelo (alerta)</option><option value="white">Branco</option><option value="blue">Azul</option>

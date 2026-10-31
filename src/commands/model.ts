@@ -34,6 +34,8 @@ export interface CmdPart {
   rot: CmdRotation
   /** Referência do aparelho (IEC 81346): K1, S1, F7, M1… */
   tag: string
+  /** Variante gráfica opcional; não altera terminais nem comportamento elétrico. */
+  symbolStyle?: 'qet'
   /** Marcação dos bornes, pela ordem de `CMD_PARTS[kind].terminals`. */
   labels?: string[]
   /** Temporizador: atraso à operação (ms). */

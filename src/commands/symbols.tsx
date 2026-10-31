@@ -1,4 +1,4 @@
-// Símbolos IEC 60617 / ISO 1219 — desenhos próprios DC-Simu (SVG vectorial + estados animados).
+// Símbolos IEC 60617 / ISO 1219 — desenhos DC-Simu e variantes QElectroTech atribuídas em docs/third-party/qelectrotech.
 import type { ReactNode } from 'react'
 import { CMD_PARTS, partBox, partTerminals, terminalAt, terminalLabel, type CmdKind, type CmdPart } from './model'
 
@@ -67,7 +67,16 @@ const threePole = (kind: CmdKind, st: CmdSymbolState, active: string) => {
   )
 }
 
-export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color'>, st: CmdSymbolState = {}): ReactNode {
+export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'symbolStyle'>, st: CmdSymbolState = {}): ReactNode {
+  if (part.symbolStyle === 'qet') {
+    // Geometria da coleção QElectroTech; transformações alinham os bornes em (0,0) e (0,60).
+    switch (part.kind) {
+      case 'fuse': return <g transform="translate(0 30)"><line x1={0} y1={-30} x2={0} y2={30} /><rect x={-5} y={-15} width={10} height={30} /></g>
+      case 'resistor': return <g transform="translate(0 24) rotate(90) scale(1.2)"><line x1={-20} y1={0} x2={-10} y2={0} /><rect x={-10} y={-5} width={30} height={10} /><line x1={20} y1={0} x2={30} y2={0} /></g>
+      case 'capacitor': return <g transform="translate(0 20) scale(.55 1.3333333333)"><line x1={-20} y1={10} x2={20} y2={10} /><line x1={-20} y1={5} x2={20} y2={5} /><line x1={0} y1={10} x2={0} y2={30} /><line x1={0} y1={5} x2={0} y2={-15} /></g>
+      case 'diode': return <g transform="translate(0 60) scale(1 1.5)"><line x1={0} y1={-40} x2={0} y2={0} /><line x1={-10} y1={-10} x2={10} y2={-10} /><polygon points="-10,-30 10,-30 0,-10" /></g>
+    }
+  }
   const active = '#16a34a'
   const loadOn = !!(st.load || st.lit || st.energized)
   switch (part.kind) {
