@@ -8,7 +8,7 @@ import { nanoid } from 'nanoid'
 import { useSimStore } from '../store/useSimStore'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
-import { uiChoose, uiConfirm } from '../ui/dialogs'
+import { uiConfirm } from '../ui/dialogs'
 import { editorGridBackground } from '../ui/editorTheme'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { IconCommands, IconPlus } from '../ui/icons'
@@ -19,7 +19,8 @@ import {
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID } from './pages'
 import { emptyCmdRuntime, isClosed } from './engine'
 import { CmdSymbol, PHASE_COLORS, type CmdSymbolState } from './symbols'
-import { COMMANDS_EXAMPLES } from './examples'
+import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
+import CommandsExamplesDialog from './CommandsExamplesDialog'
 import CommandsImportDialog from './CommandsImportDialog'
 import type { CircuitImportResult } from './fluidSimCircuit'
 import { MOMENTARY, TOGGLES, useCommandsUi } from './commandsUi'
@@ -49,6 +50,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [placingText, setPlacingText] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [examplesOpen, setExamplesOpen] = useState(false)
   const canvasNotes = useSimStore((s) => s.canvasNotes)
   const canvasTexts = useSimStore((s) => s.canvasTexts)
   useEffect(() => {
@@ -180,8 +182,10 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   useEffect(() => { const id = window.setTimeout(() => fit(), 60); return () => window.clearTimeout(id) }, [fit])
 
   // ---------------------------------------------------------------- pedidos da barra
-  const applyExample = (id: string) => {
-    const example = COMMANDS_EXAMPLES.find((e) => e.id === id)
+  const applyExample = (idOrExample: string | CommandsExampleInfo) => {
+    const example = typeof idOrExample === 'string'
+      ? COMMANDS_EXAMPLES.find((e) => e.id === idOrExample)
+      : idOrExample
     if (!example) return
     useCommandsUi.getState().stop()
     const next = example.build()
@@ -191,14 +195,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     if (firstPage) setActivePageId(firstPage)
     window.setTimeout(() => fit(next), 30)
   }
-  const loadExample = async () => {
-    const id = await uiChoose(
-      'Escolha um esquema de exemplo. Substitui o esquema atual (pode desfazer).',
-      COMMANDS_EXAMPLES.map((e) => ({ id: e.id, title: e.title, description: e.detail })),
-      { title: 'Exemplos de esquema IEC', confirmLabel: 'Abrir exemplo' },
-    )
-    if (id) applyExample(id)
-  }
+  const loadExample = () => setExamplesOpen(true)
   const clearAll = async () => {
     if (!useSimStore.getState().commands.parts.length) return
     if (!(await uiConfirm('Apagar todos os símbolos e cabos? Pode desfazer com Ctrl+Z.', { title: 'Limpar esquema', confirmLabel: 'Limpar', danger: true }))) return
@@ -593,13 +590,13 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                 : 'Escolha símbolos na Biblioteca ou parta de um exemplo (arranque direto, estrela-triângulo).'}</p>
               <div className="dc-cmd-empty-actions">
                 {!demo && (
-                  <button type="button" className="dc-btn dc-btn-primary dc-cmd-empty-main" onClick={() => void loadExample()}>
+                  <button type="button" className="dc-btn dc-btn-primary dc-cmd-empty-main" onClick={() => loadExample()}>
                     <IconPlus size={14} />Ver todos os exemplos
                   </button>
                 )}
                 {!demo && (
                   <div className="dc-cmd-empty-examples">
-                    {COMMANDS_EXAMPLES.slice(0, 4).map((ex) => (
+                    {COMMANDS_EXAMPLES.filter((ex) => ex.level === 1 || ex.id === 'star-delta' || ex.id === 'reversing').slice(0, 4).map((ex) => (
                       <button key={ex.id} type="button" className="dc-btn" title={ex.detail} onClick={() => applyExample(ex.id)}>
                         {ex.title}
                       </button>
@@ -673,6 +670,11 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
           notify(`Importado «${source}»: ${result.stats.symbols} símbolos, ${result.stats.wires} cabos${ign}`)
           window.setTimeout(() => fit(result.diagram), 30)
         }}
+      />
+      <CommandsExamplesDialog
+        open={examplesOpen}
+        onClose={() => setExamplesOpen(false)}
+        onLoad={(example) => applyExample(example)}
       />
     </div>
   )

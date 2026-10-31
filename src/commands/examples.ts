@@ -382,13 +382,35 @@ export function pneumaticCylinderExample(): CommandsDiagram {
   return b.diagram
 }
 
-export const COMMANDS_EXAMPLES: Array<{ id: string; title: string; detail: string; build: () => CommandsDiagram }> = [
-  { id: 'direct', title: 'Arranque direto', detail: 'Retenção pelo K1, paragem S1, relé térmico F1 e sinalizador de marcha.', build: directStartExample },
-  { id: 'star-delta', title: 'Arranque estrela-triângulo', detail: 'K1 + K3 (estrela) e, após o tempo de K6, K2 (triângulo), com encravamentos.', build: starDeltaExample },
-  { id: 'reversing', title: 'Inversão de marcha', detail: 'Dois contactores KF/KR com encravamento elétrico e sinalização de sentido.', build: reversingStartExample },
-  { id: 'emergency', title: 'Paragem de emergência', detail: 'Cogumelo S0 em série no comando, lâmpada de emergência e retenção K1.', build: emergencyStopExample },
-  { id: 'delayed', title: 'Arranque temporizado', detail: 'Temporizador K6 (3 s) antes de fechar o contactor do motor.', build: delayedStartExample },
-  { id: 'signaling', title: 'Painel de sinalização', detail: 'Botões iluminados, seletor, fim-de-curso, lâmpadas e buzzer a 24 V.', build: signalingPanelExample },
-  { id: 'multipage', title: 'Duas páginas (potência + comando)', detail: 'Potência e comando em folhas separadas, unidos por ligações entre páginas.', build: multiPageExample },
-  { id: 'pneumatic', title: 'Cilindro pneumático 5/2', detail: 'Fonte de ar, válvula 5/2, cilindro de duplo efeito e solenoides de comando.', build: pneumaticCylinderExample },
+export type CommandsExampleCategory = 'motores' | 'seguranca' | 'sinalizacao' | 'avancado'
+
+export interface CommandsExampleInfo {
+  id: string
+  title: string
+  detail: string
+  category: CommandsExampleCategory
+  /** 1 = básico, 2 = intermédio, 3 = avançado */
+  level: 1 | 2 | 3
+  order: number
+  tag?: string
+  build: () => CommandsDiagram
+}
+
+/** Metadados alinhados ao diálogo de modelos do GRAFCET (categorias + nível). */
+export const COMMANDS_EXAMPLE_CATEGORIES: Array<{ id: CommandsExampleCategory; label: string; hint: string }> = [
+  { id: 'motores', label: 'Motores e arranques', hint: 'Partidas industriais com contactores e temporização' },
+  { id: 'seguranca', label: 'Segurança', hint: 'Paragens e encravamentos de proteção' },
+  { id: 'sinalizacao', label: 'Sinalização e painel', hint: 'Botões, lâmpadas e seletores' },
+  { id: 'avancado', label: 'Avançado', hint: 'Várias páginas e circuitos mistos' },
+]
+
+export const COMMANDS_EXAMPLES: CommandsExampleInfo[] = [
+  { id: 'direct', title: 'Arranque direto', detail: 'Retenção pelo K1, paragem S1, relé térmico F1 e sinalizador de marcha.', category: 'motores', level: 1, order: 1, tag: 'Retenção', build: directStartExample },
+  { id: 'star-delta', title: 'Arranque estrela-triângulo', detail: 'K1 + K3 (estrela) e, após o tempo de K6, K2 (triângulo), com encravamentos.', category: 'motores', level: 2, order: 2, tag: 'Temporizador', build: starDeltaExample },
+  { id: 'reversing', title: 'Inversão de marcha', detail: 'Dois contactores KF/KR com encravamento elétrico e sinalização de sentido.', category: 'motores', level: 2, order: 3, tag: 'Encravamento', build: reversingStartExample },
+  { id: 'delayed', title: 'Arranque temporizado', detail: 'Temporizador K6 (3 s) antes de fechar o contactor do motor.', category: 'motores', level: 1, order: 4, tag: 'TON', build: delayedStartExample },
+  { id: 'emergency', title: 'Paragem de emergência', detail: 'Cogumelo S0 em série no comando, lâmpada de emergência e retenção K1.', category: 'seguranca', level: 1, order: 1, tag: 'S0', build: emergencyStopExample },
+  { id: 'signaling', title: 'Painel de sinalização', detail: 'Botões iluminados, seletor, fim-de-curso, lâmpadas e buzzer a 24 V.', category: 'sinalizacao', level: 2, order: 1, build: signalingPanelExample },
+  { id: 'multipage', title: 'Duas páginas (potência + comando)', detail: 'Potência e comando em folhas separadas, unidos por ligações entre páginas.', category: 'avancado', level: 3, order: 1, tag: 'Páginas', build: multiPageExample },
+  { id: 'pneumatic', title: 'Cilindro pneumático 5/2', detail: 'Fonte de ar, válvula 5/2, cilindro de duplo efeito e solenoides de comando.', category: 'avancado', level: 2, order: 2, tag: 'Pneumática', build: pneumaticCylinderExample },
 ]
