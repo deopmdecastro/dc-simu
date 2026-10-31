@@ -1,5 +1,6 @@
-import type { ElectricalComponent, Wire, SimulationDiagnostic, FaultState } from '../types'
+import type { ElectricalComponent, Wire, SimulationDiagnostic, FaultState, Terminal } from '../types'
 import { TEMPLATES } from '../electrical/factory'
+import { terminalClassesCompatible, terminalElectricalClassOf } from '../electrical/terminalClassification'
 
 const isSupport = (type: string) => /^dinRail|rail|busbar|barra|mountingPlate|cableDuct|calha/i.test(type)
 
@@ -148,6 +149,170 @@ export function detectDiagnostics(
   // 12. Tipos declarados mas sem implementação visual (não deve ocorrer)
   components.forEach((c) => {
     if (!TEMPLATES[c.type]) diags.push({ id: id(), level: 'error', message: `ERRO: componente ${c.ref} tem tipo desconhecido (${c.type}).`, componentId: c.id })
+  })
+
+  // --- Índice borne → componente/terminal ---
+  const termIndex = new Map<string, { component: ElectricalComponent; terminal: Terminal }>()
+  for (const c of components) {
+    for (const term of c.terminals) termIndex.set(term.id, { component: c, terminal: term })
+  }
+  const wireTouches = (w: Wire, terminalId: string) =>
+    (!w.fromPoint && w.fromTerminalId === terminalId) || (!w.toPoint && w.toTerminalId === terminalId)
+  const isConnected = (terminalId: string) => wires.some((w) => wireTouches(w, terminalId))
+
+  // 13. Cabos soltos / ponta livre
+  wires.forEach((w) => {
+    const fromFree = Boolean(w.fromPoint) || !w.fromTerminalId
+    const toFree = Boolean(w.toPoint) || !w.toTerminalId
+    const label = w.number ?? w.id.slice(0, 6)
+    if (fromFree && toFree) {
+      diags.push({ id: id(), level: 'error', message: `ERRO: cabo ${label} solto nas duas pontas — sem continuidade eléctrica.` })
+    } else if (fromFree || toFree) {
+      const fixed = fromFree ? (termIndex.get(w.toTerminalId)?.component.ref ?? '?') : (termIndex.get(w.fromTerminalId)?.component.ref ?? '?')
+      diags.push({ id: id(), level: 'warning', message: `AVISO: cabo ${label} com ponta livre (ligado só a ${fixed}).`, componentId: termIndex.get(fromFree ? w.toTerminalId : w.fromTerminalId)?.component.id })
+    }
+  })
+
+  // 14. Classes eléctricas incompatíveis (AC↔DC, rede↔potência, etc.)
+  wires.forEach((w) => {
+    if (w.fromPoint || w.toPoint || !w.fromTerminalId || !w.toTerminalId) return
+    const a = termIndex.get(w.fromTerminalId)
+    const b = termIndex.get(w.toTerminalId)
+    if (!a || !b) return
+    const ca = terminalElectricalClassOf(a.component, a.terminal)
+    const cb = terminalElectricalClassOf(b.component, b.terminal)
+    if (!terminalClassesCompatible(ca, cb)) {
+      diags.push({
+        id: id(),
+        level: 'error',
+        message: `ERRO: cabo ${w.number ?? w.id.slice(0, 6)} liga ${a.component.ref}:${a.terminal.label} (${ca.toUpperCase()}) a ${b.component.ref}:${b.terminal.label} (${cb.toUpperCase()}) — classes incompatíveis.`,
+        componentId: a.component.id,
+      })
+    }
+  })
+
+  // 15. Polaridade / função do borne vs função do cabo
+  const PHASE_KIND = new Set(['power', 'control'])
+  wires.forEach((w) => {
+    if (w.fromPoint && w.toPoint) return
+    const ends: Array<'from' | 'to'> = ['from', 'to']
+    for (const side of ends) {
+      const tid = side === 'from' ? w.fromTerminalId : w.toTerminalId
+      const free = side === 'from' ? Boolean(w.fromPoint) : Boolean(w.toPoint)
+      if (free || !tid) continue
+      const hit = termIndex.get(tid)
+      if (!hit) continue
+      const { component: c, terminal: term } = hit
+      const kind = w.kind ?? 'control'
+      // Neutro do cabo em borne que não é neutro/comum
+      if (kind === 'neutral' && term.kind !== 'neutral' && term.kind !== 'coil-minus' && !/^N$|^COM$|^0V$|^M$/i.test(term.label)) {
+        diags.push({
+          id: id(),
+          level: 'error',
+          message: `ERRO: cabo neutro ${w.number ?? w.id.slice(0, 6)} ligado ao borne ${term.label} de ${c.ref} (não é neutro/COM).`,
+          componentId: c.id,
+        })
+      }
+      // PE em borne que não é terra
+      if (kind === 'earth' && term.kind !== 'earth' && !/^PE$|^GND$/i.test(term.label)) {
+        diags.push({
+          id: id(),
+          level: 'error',
+          message: `ERRO: cabo de proteção (PE) ${w.number ?? w.id.slice(0, 6)} ligado ao borne ${term.label} de ${c.ref}.`,
+          componentId: c.id,
+        })
+      }
+      // Fase/potência no COM da torre ou neutro
+      if (PHASE_KIND.has(kind) && (term.kind === 'earth' || (term.kind === 'neutral' && kind === 'power'))) {
+        diags.push({
+          id: id(),
+          level: 'error',
+          message: `ERRO: cabo de fase/potência ${w.number ?? w.id.slice(0, 6)} ligado ao borne ${term.label} de ${c.ref} (${term.kind}).`,
+          componentId: c.id,
+        })
+      }
+    }
+  })
+
+  // 16. Torre de sinalização / sensores de cabo solto — ligações incompletas ou COM ausente
+  const LEAD_DEVICES = /^(towerLight|towerLightSb23011|photoSensor|photoSensorXukt1ksml2|proximitySensor)$/
+  components.filter((c) => LEAD_DEVICES.test(c.type)).forEach((c) => {
+    const leads = c.terminals.filter((t) => t.contact === 'lead' || t.terminalType === 'tubular')
+    const terms = leads.length ? leads : c.terminals
+    const open = terms.filter((t) => !isConnected(t.id))
+    const com = terms.find((t) => /^COM$|^0V$|^M$|^N$/i.test(t.label) || t.kind === 'coil-minus' || t.kind === 'neutral')
+    if (com && !isConnected(com.id) && terms.some((t) => t.id !== com.id && isConnected(t.id))) {
+      diags.push({
+        id: id(),
+        level: 'error',
+        message: `ERRO: ${c.ref} tem condutor(es) ligados mas o comum (${com.label}) está solto — a torre/sensor não fecha circuito.`,
+        componentId: c.id,
+      })
+    }
+    if (open.length === terms.length) {
+      diags.push({ id: id(), level: 'warning', message: `AVISO: ${c.ref} sem nenhum cabo ligado aos pigtails.`, componentId: c.id })
+    } else if (open.length) {
+      diags.push({
+        id: id(),
+        level: 'warning',
+        message: `AVISO: ${c.ref} — cabo(s) solto(s): ${open.map((t) => t.label).join(', ')}.`,
+        componentId: c.id,
+      })
+    }
+  })
+
+  // 17. Neutro (ou fase) no fio de cor errada da torre: COM deve ser o retorno comum
+  components.filter((c) => /towerLight/i.test(c.type)).forEach((c) => {
+    const colorLeads = c.terminals.filter((t) => /^(R|Y|G|RED|YELLOW|GREEN)$/i.test(t.label))
+    const com = c.terminals.find((t) => /^COM$/i.test(t.label) || t.kind === 'coil-minus')
+    for (const lead of colorLeads) {
+      const attached = wires.filter((w) => wireTouches(w, lead.id))
+      for (const w of attached) {
+        // Neutro no fio de cor da lâmpada (deveria ir ao COM)
+        if (w.kind === 'neutral') {
+          diags.push({
+            id: id(),
+            level: 'error',
+            message: `ERRO: neutro no fio ${lead.label} de ${c.ref} — o retorno comum deve ir ao borne COM.`,
+            componentId: c.id,
+          })
+        }
+        // PE no fio de cor
+        if (w.kind === 'earth') {
+          diags.push({
+            id: id(),
+            level: 'error',
+            message: `ERRO: PE ligado ao fio ${lead.label} de ${c.ref}.`,
+            componentId: c.id,
+          })
+        }
+      }
+    }
+    if (com) {
+      for (const w of wires.filter((x) => wireTouches(x, com.id))) {
+        // Fase de potência trifásica no COM (sinalização costuma ser comando 24V/AC fase-neutro)
+        if (w.kind === 'power') {
+          diags.push({
+            id: id(),
+            level: 'warning',
+            message: `AVISO: cabo de potência no COM de ${c.ref} — confirme se a torre não deveria usar circuito de comando.`,
+            componentId: c.id,
+          })
+        }
+      }
+    }
+  })
+
+  // 18. Bornes de sinalização/comando com uma ponta só (pigtail ou borne)
+  components.forEach((c) => {
+    if (c.category !== 'signaling' && c.category !== 'command' && c.category !== 'sensor') return
+    if (LEAD_DEVICES.test(c.type)) return // já coberto em 16
+    c.terminals.forEach((t) => {
+      if (t.kind === 'earth') return
+      if (!isConnected(t.id)) {
+        diags.push({ id: id(), level: 'info', message: `INFO: ${c.ref}:${t.label} sem cabo.`, componentId: c.id })
+      }
+    })
   })
 
   return diags
