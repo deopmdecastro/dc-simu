@@ -461,7 +461,8 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const onAddPage = () => {
     if (!editable) return
     const next = addPage(diagram)
-    const created = pagesOf(next).at(-1)
+    const pages = pagesOf(next)
+    const created = pages[pages.length - 1]
     commit(next)
     if (created) setActivePageId(created.id)
     notify(created ? `Página «${created.name}» criada` : 'Página criada')

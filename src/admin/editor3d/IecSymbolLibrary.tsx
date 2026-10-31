@@ -12,7 +12,7 @@ import { IconCheck, IconCopy, IconPlus, IconSearch } from '../../ui/icons'
 
 function Thumb({ kind, tag }: { kind: CmdKind; tag?: string }) {
   const part = useMemo(
-    () => ({ id: kind, kind, x: 0, y: 0, rot: 0 as const, tag: tag ?? CMD_PARTS[kind].prefix || 'X' }),
+    () => ({ id: kind, kind, x: 0, y: 0, rot: 0 as const, tag: tag ?? (CMD_PARTS[kind].prefix || 'X') }),
     [kind, tag],
   )
   const box = CMD_PARTS[kind].box
