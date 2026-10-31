@@ -11,6 +11,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { Text } from './SceneText'
+import { Billboard } from '@react-three/drei'
 import type { ElectricalComponent, Terminal } from '../types'
 import { LEAD_PIGTAIL_LENGTH_MM } from '../electrical/realInterfaces'
 import { component3DDimensions, terminalLocal3D } from './terminal3D'
@@ -123,10 +124,16 @@ export default function LeadPigtails3D({ component }: { component: ElectricalCom
               <meshStandardMaterial color={core.color} roughness={0.42} metalness={0.2} />
             </mesh>
             <mesh position={[0, core.tip.clone().sub(root).length() + 0.012, 0]} renderOrder={35} userData={{ noPick: true }} raycast={() => null}>
-              <sphereGeometry args={[Math.max(core.radius * 1.7, 0.028), 16, 12]} />
+              <sphereGeometry args={[Math.max(core.radius * 1.35, 0.022), 16, 12]} />
               <meshStandardMaterial color={core.color} emissive={core.color} emissiveIntensity={0.12} roughness={0.38} />
             </mesh>
-            <Text position={[core.tip.clone().sub(root).length() + 0.055, 0, 0]} rotation={[0, 0, 0]} fontSize={0.065} color="#0f172a" outlineWidth={0.006} outlineColor="#ffffff" anchorX="left" anchorY="middle" depthOffset={-6}>{label}</Text>
+            <Billboard position={[0, core.tip.clone().sub(root).length() + 0.075, 0]} follow userData={{ noPick: true }} raycast={() => null}>
+              <mesh position={[0, 0, -0.006]} renderOrder={40}>
+                <planeGeometry args={[Math.max(label.length * 0.034, 0.12), 0.075]} />
+                <meshBasicMaterial color="#ffffff" transparent opacity={0.92} depthWrite={false} />
+              </mesh>
+              <Text fontSize={0.052} color="#0f172a" anchorX="center" anchorY="middle" outlineWidth={0.003} outlineColor="#ffffff" depthOffset={-8}>{label}</Text>
+            </Billboard>
           </group>
         )
       })}
