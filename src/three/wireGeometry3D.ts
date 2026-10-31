@@ -193,7 +193,7 @@ export function wireEndLengthMm(type: WireEndType): number {
   switch (type) {
     case 'ferrule': return 5.8 + FERRULE_COLLAR_MM  // +0.8 mm: isolamento encaixa sob o anel da ponteira
     case 'ferruleDouble': return 5 + DOUBLE_FERRULE_COLLAR_MM
-    case 'heatShrink': return 16
+    case 'heatShrink': return 12
     case 'pin': return 14
     case 'ring':
     case 'fork':

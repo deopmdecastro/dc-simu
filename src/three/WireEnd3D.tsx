@@ -112,21 +112,42 @@ export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: Wir
           <Cyl y={88 * U} length={12 * U} radius={2.4 * U} color={color} roughness={0.8} />
         </>
       case 'heatShrink': {
-        // Manga termoretrátil: tubo cónico preto/cinza a unir o cabo isolado à emenda
-        // (sensores de 3 fios, torres de sinalização e cabos multipolares).
-        const sleeve = Math.max(geometry.length * 0.72, 10 * U)
-        const rTip = Math.max(R * 1.15, 1.4 * U)
-        const rBase = Math.max(R * 1.55, 2.1 * U)
+        // Manga termoretrátil realista (emenda de cabo de sensor/torre):
+        // tubo quase cilíndrico, ligeiro estreitamento nas bocas, anéis de
+        // aperto e cobre só no extremo — sem «funil» exagerado.
+        const body = Math.max(geometry.length * 0.85, 12 * U)
+        const rWire = Math.max(R * 1.08, 1.15 * U)
+        const rMid = Math.max(R * 1.38, 1.55 * U)
+        const lip = 1.1 * U
+        const mat = { color: '#1a1f27', roughness: 0.72, metalness: 0.04 }
+        const matDark = { color: '#0f1318', roughness: 0.8, metalness: 0.03 }
         return <>
-          <mesh position={[0, sleeve * 0.42, 0]} userData={{ noPick: true }} raycast={() => null}>
-            <cylinderGeometry args={[rBase, rTip, sleeve, 16]} />
-            <meshStandardMaterial color="#1f2937" roughness={0.78} metalness={0.05} />
+          {/* corpo principal — quase cilindro */}
+          <mesh position={[0, body * 0.42, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[rMid, rMid * 0.96, body * 0.72, 20]} />
+            <meshStandardMaterial {...mat} />
           </mesh>
-          <mesh position={[0, sleeve * 0.78, 0]} userData={{ noPick: true }} raycast={() => null}>
-            <cylinderGeometry args={[rBase * 1.08, rBase * 1.02, 2.2 * U, 16]} />
-            <meshStandardMaterial color="#111827" roughness={0.82} metalness={0.04} />
+          {/* boca inferior (lado do cabo de painel) — aperta sobre o isolamento */}
+          <mesh position={[0, body * 0.04, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[rMid * 0.96, rWire, body * 0.14, 20]} />
+            <meshStandardMaterial {...mat} />
           </mesh>
-          <Cyl y={sleeve * 0.12} length={2.4 * U} radius={R * 0.55} color={COPPER} metalness={0.7} roughness={0.35} />
+          {/* boca superior (lado do pigtail / cobre) */}
+          <mesh position={[0, body * 0.82, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[rWire * 1.02, rMid, body * 0.16, 20]} />
+            <meshStandardMaterial {...mat} />
+          </mesh>
+          {/* anéis de aperto nas extremidades */}
+          <mesh position={[0, lip * 0.35, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[rWire * 1.12, rWire * 1.08, lip, 16]} />
+            <meshStandardMaterial {...matDark} />
+          </mesh>
+          <mesh position={[0, body * 0.92, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[rWire * 1.1, rWire * 1.05, lip * 0.85, 16]} />
+            <meshStandardMaterial {...matDark} />
+          </mesh>
+          {/* cobre descarnado só na ponta superior, curto e centrado */}
+          <Cyl y={body * 0.98 + 1.6 * U} length={3.2 * U} radius={R * 0.48} color={COPPER} metalness={0.75} roughness={0.32} />
         </>
       }
       case 'ferrule': {

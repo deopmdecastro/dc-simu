@@ -74,7 +74,7 @@ export function wireEndLengthMm(type: WireEndType): number {
   switch (type) {
     case 'ferrule': return 14
     case 'ferruleDouble': return 16
-    case 'heatShrink': return 18
+    case 'heatShrink': return 14
     case 'pin': return 15
     case 'ring': case 'fork': case 'faston': return 20
     case 'tinned': return 8

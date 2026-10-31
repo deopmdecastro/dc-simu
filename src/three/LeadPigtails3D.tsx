@@ -36,27 +36,45 @@ function CoreMesh({ core }: { core: Core }) {
     return { insulation: insulationGeometry, copper: { geometry: copperGeometry, quaternion, center } }
   }, [core])
   useEffect(() => () => { insulation.dispose(); copper.geometry.dispose() }, [insulation, copper])
-  // Manga termoretrátil na raiz do condutor (saída da bainha multipolar).
+  // Manga termoretrátil na raiz do condutor (saída da bainha multipolar):
+  // tubo curto, quase cilíndrico, a apertar o isolamento colorido.
   const shrink = useMemo(() => {
     const pts = core.points
     if (pts.length < 2) return null
     const a = pts[0]
     const b = pts[1]
     const dir = b.clone().sub(a).normalize()
-    const length = 9 * U
+    const length = 6.5 * U
     const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
-    const center = a.clone().addScaledVector(dir, length * 0.45)
-    return { center, quaternion, length, rIn: core.radius * 1.15, rOut: core.radius * 1.55 }
+    const center = a.clone().addScaledVector(dir, length * 0.48)
+    const r = core.radius
+    return {
+      center,
+      quaternion,
+      length,
+      rMid: r * 1.32,
+      rEnd: r * 1.12,
+    }
   }, [core])
   return <group userData={{ noSnapshot: true }}>
     <mesh geometry={insulation} castShadow>
       <meshStandardMaterial color={core.color} roughness={0.5} metalness={0.04} envMapIntensity={0.9} />
     </mesh>
     {shrink && (
-      <mesh position={shrink.center} quaternion={shrink.quaternion} castShadow userData={{ noSnapshot: true }}>
-        <cylinderGeometry args={[shrink.rOut, shrink.rIn, shrink.length, 12]} />
-        <meshStandardMaterial color="#1f2937" roughness={0.78} metalness={0.05} />
-      </mesh>
+      <group position={shrink.center} quaternion={shrink.quaternion} userData={{ noSnapshot: true }}>
+        <mesh castShadow>
+          <cylinderGeometry args={[shrink.rMid, shrink.rMid * 0.98, shrink.length * 0.7, 14]} />
+          <meshStandardMaterial color="#1a1f27" roughness={0.72} metalness={0.04} />
+        </mesh>
+        <mesh position={[0, -shrink.length * 0.38, 0]} castShadow>
+          <cylinderGeometry args={[shrink.rMid * 0.98, shrink.rEnd, shrink.length * 0.28, 14]} />
+          <meshStandardMaterial color="#1a1f27" roughness={0.74} metalness={0.04} />
+        </mesh>
+        <mesh position={[0, shrink.length * 0.38, 0]} castShadow>
+          <cylinderGeometry args={[shrink.rEnd, shrink.rMid, shrink.length * 0.28, 14]} />
+          <meshStandardMaterial color="#0f1318" roughness={0.8} metalness={0.03} />
+        </mesh>
+      </group>
     )}
     <mesh geometry={copper.geometry} position={copper.center} quaternion={copper.quaternion} castShadow>
       <meshStandardMaterial color={COPPER} roughness={0.32} metalness={0.85} envMapIntensity={1.2} />
