@@ -30,7 +30,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconUnlock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate, IconMore, IconText, IconNote,
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconRotate, IconMore, IconText, IconNote,
 } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
@@ -47,7 +47,7 @@ const ALIGN_BUTTONS: Array<{ edge: AlignEdge; icon: typeof IconAlignLeft; hint: 
   { edge: 'bottom', icon: IconAlignBottom, hint: 'Alinhar embaixo' },
 ]
 
-export type ViewMode = 'schematic' | 'ladder' | 'grafcet' | 'monitor'
+export type ViewMode = 'schematic' | 'ladder' | 'grafcet' | 'commands' | 'monitor'
 
 const TOOLS: Array<{ id: EditorTool; label: string; icon: typeof IconCursor; hint: string; key: string }> = [
   { id: 'select', label: 'Selecionar', icon: IconCursor, hint: 'Selecionar / arrastar componentes', key: '1' },
@@ -61,6 +61,7 @@ const VIEWS: Array<{ id: ViewMode; label: string; icon: typeof IconSchematic; ke
   { id: 'schematic', label: 'Esquema', icon: IconSchematic, key: 'F1' },
   { id: 'ladder', label: 'Ladder', icon: IconLadder, key: 'F2' },
   { id: 'grafcet', label: 'GRAFCET', icon: IconGrafcet, key: 'F5' },
+  { id: 'commands', label: 'Comandos', icon: IconCommands, key: 'F6' },
   { id: 'monitor', label: 'Monitor', icon: IconMonitor, key: 'F4' },
 ]
 

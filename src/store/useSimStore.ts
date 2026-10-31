@@ -8,6 +8,7 @@ import { upgradeNativeNcSimInputs } from '../project/nativeSimInputs'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
+import { emptyCommands, type CommandsDiagram } from '../commands/model'
 import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, setGrafcetNumericReader, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
 import type {
@@ -75,6 +76,8 @@ export interface Snapshot {
   ladder: LadderRung[]
   /** Incluído no histórico para que Desfazer/Refazer funcione também no editor GRAFCET. */
   grafcet?: GrafcetProgram
+  /** Esquema de comandos elétricos (simulador de comandos). */
+  commands?: CommandsDiagram
   fcBlocks?: { fc1: LadderRung[]; fc2: LadderRung[] }
   plcPrograms?: Record<string, PlcProgram>
   activePlcId?: string | null
@@ -141,6 +144,9 @@ interface Store extends CircuitState {
   dismissEmptyWelcome: () => void
   grafcet: GrafcetProgram
   grafcetRuntime: GrafcetRuntime
+  /** Esquema de comandos elétricos (potência + comando, símbolos IEC 60617). */
+  commands: CommandsDiagram
+  setCommands: (diagram: CommandsDiagram, historyMode?: 'auto' | 'force' | 'skip', historyKey?: string) => void
   setGrafcet: (program: GrafcetProgram, historyMode?: 'auto' | 'force' | 'skip', historyKey?: string) => void
   fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
   /** FC1/FC2 não vêm por defeito: só entram na árvore depois de adicionadas
@@ -557,7 +563,7 @@ function snapshot(state: Store): Snapshot {
   const plcTags = { ...state.plcTags, ...(state.activePlcId ? { [state.activePlcId]: state.tags } : {}) }
   return JSON.parse(JSON.stringify({
     components: state.components, wires: state.wires, ladder: state.ladder.rungs,
-    grafcet: state.grafcet,
+    grafcet: state.grafcet, commands: state.commands,
     fcBlocks: state.fcBlocks, activePlcId: state.activePlcId,
     plcPrograms: programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks),
     tags: state.tags, plcTags,
@@ -990,6 +996,13 @@ export const useSimStore = create<Store>((set, get) => {
   },
   grafcet: emptyGrafcet(),
   grafcetRuntime: emptyGrafcetRuntime(),
+  commands: emptyCommands(),
+  setCommands: (diagram, historyMode = 'force', historyKey = 'commands') => {
+    if (get().demoMode) return
+    if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(historyKey))) get().commitHistory()
+    if (historyMode === 'force') resetGroupedEdit()
+    set({ commands: diagram, dirty: true })
+  },
   setGrafcet: (program, historyMode = 'force', historyKey = 'grafcet') => {
     // Demonstração da landing: o GRAFCET é só de visualização/simulação —
     // navegar entre páginas é inofensivo, editar etapas/transições não.
@@ -2548,6 +2561,7 @@ export const useSimStore = create<Store>((set, get) => {
       wires: prev.wires,
       ladder: { rungs: prev.ladder },
       grafcet: prev.grafcet ?? s.grafcet,
+      commands: prev.commands ?? s.commands,
       fcBlocks: prev.fcBlocks ?? s.fcBlocks,
       plcPrograms: prev.plcPrograms ?? s.plcPrograms,
       activePlcId: prev.activePlcId !== undefined ? prev.activePlcId : s.activePlcId,
@@ -2573,6 +2587,7 @@ export const useSimStore = create<Store>((set, get) => {
       wires: next.wires,
       ladder: { rungs: next.ladder },
       grafcet: next.grafcet ?? s.grafcet,
+      commands: next.commands ?? s.commands,
       fcBlocks: next.fcBlocks ?? s.fcBlocks,
       plcPrograms: next.plcPrograms ?? s.plcPrograms,
       activePlcId: next.activePlcId !== undefined ? next.activePlcId : s.activePlcId,
@@ -2762,6 +2777,7 @@ export const useSimStore = create<Store>((set, get) => {
         projectFolderLabels: s.projectFolderLabels,
         fcNames: s.fcNames,
         grafcet: s.grafcet,
+        commands: s.commands,
         tags: s.tags,
         virtualInputs: s.virtualInputs,
         virtualInputModes: s.virtualInputModes,
@@ -2837,6 +2853,7 @@ export const useSimStore = create<Store>((set, get) => {
         fcNames: parsed.fcNames ?? {},
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
+        commands: Array.isArray(parsed.commands?.parts) && Array.isArray(parsed.commands?.wires) ? parsed.commands : emptyCommands(),
         virtualInputCount: typeof parsed.virtualInputCount === 'number' ? Math.max(1, Math.min(32, parsed.virtualInputCount)) : 8,
         virtualOutputCount: typeof parsed.virtualOutputCount === 'number' ? Math.max(1, Math.min(32, parsed.virtualOutputCount)) : 8,
         virtualMemoryCount: typeof parsed.virtualMemoryCount === 'number' ? Math.max(0, Math.min(32, parsed.virtualMemoryCount)) : 0,
@@ -2887,6 +2904,7 @@ export const useSimStore = create<Store>((set, get) => {
       fcNames: {},
       grafcet: emptyGrafcet(),
       grafcetRuntime: emptyGrafcetRuntime(),
+      commands: emptyCommands(),
       tags: [],
       activeScenario: 'custom',
       runtime: EMPTY_RUNTIME(),

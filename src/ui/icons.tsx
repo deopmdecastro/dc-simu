@@ -127,6 +127,7 @@ import {
   faEllipsis,
   faSliders,
   faUserGear,
+  faBolt,
 } from '@fortawesome/free-solid-svg-icons'
 
 export type IconProps = { size?: number; className?: string; title?: string }
@@ -250,6 +251,8 @@ export const IconRuler = fa(faRulerCombined)
 
 /* Símbolo oficial GRAFCET: três etapas ligadas, conforme a referência aprovada. */
 export const IconGrafcet = fa(faDiagramProject)
+/** Comandos elétricos (contactores, botões, motores). */
+export const IconCommands = fa(faBolt)
 export const IconAccount = fa(faUserGear)
 export const IconIdCard = fa(faIdCard)
 export const IconCard = fa(faCreditCard)

@@ -1,0 +1,85 @@
+/* ===== Simulador de comandos elétricos ===== */
+.dc-cmd { position: relative; display: flex; flex: 1; min-height: 0; background: #f7f9fc; }
+.dc-cmd-main { position: relative; display: flex; flex: 1; min-width: 0; flex-direction: column; }
+
+/* Barra superior do editor */
+.dc-cmd-bar { display: flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 10px; border-bottom: 1px solid #e2e8f0; background: #fff; overflow-x: auto; }
+.dc-cmd-bar .dc-btn { flex: none; height: 28px; padding: 0 10px; font-size: 12px; }
+.dc-cmd-title { margin-right: 6px; color: #1e293b; font-size: 13px; white-space: nowrap; }
+.dc-cmd-zoom { min-width: 40px; color: #64748b; font-size: 11px; font-variant-numeric: tabular-nums; }
+.dc-cmd-spacer { flex: 1; }
+.dc-cmd-run { border-color: #16a34a !important; background: #16a34a !important; color: #fff !important; font-weight: 650; }
+.dc-cmd-run:hover:not(:disabled) { background: #15803d !important; }
+.dc-cmd-stop { border-color: #dc2626 !important; background: #fff1f2 !important; color: #b91c1c !important; font-weight: 650; }
+
+/* Área de desenho */
+.dc-cmd-canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+.dc-cmd-canvas:active { cursor: grabbing; }
+.dc-cmd-canvas.is-placing { cursor: copy; }
+.dc-cmd-svg { position: absolute; inset: 0; display: block; }
+.dc-cmd-text { fill: #334155; font-size: 13px; font-weight: 650; }
+.dc-cmd-tag { fill: #0f172a; font-size: 12px; font-weight: 750; }
+.dc-cmd-term { fill: #64748b; font-size: 8.5px; font-weight: 600; }
+.dc-cmd-symbol { cursor: move; }
+.is-running .dc-cmd-symbol { cursor: default; }
+.dc-cmd-actuator .dc-cmd-symbol { cursor: pointer; }
+.dc-cmd-actuator:hover .dc-cmd-symbol > g { stroke: #2563eb; }
+.dc-cmd-select { fill: rgba(37, 99, 235, .06); stroke: #2563eb; stroke-width: 1.2; stroke-dasharray: 4 3; }
+.dc-cmd-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; transition: stroke .15s ease; }
+.dc-cmd-wire-halo { fill: none; stroke: rgba(37, 99, 235, .28); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.dc-cmd-wire-draft { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 6 4; pointer-events: none; }
+/* Bornes: invisíveis até passar o rato por cima ou durante a ligação de um cabo (não poluem o esquema). */
+.dc-cmd-port { fill: #fff; stroke: #64748b; stroke-width: 1.3; cursor: crosshair; opacity: 0; transition: opacity .12s ease; }
+.dc-cmd-ports.is-wiring .dc-cmd-port { opacity: .75; }
+.dc-cmd-port:hover, .dc-cmd-port.is-hot { opacity: 1; fill: #dbeafe; stroke: #2563eb; stroke-width: 2; }
+.dc-cmd-ghost { opacity: .5; }
+.dc-cmd-motor-spin { animation: dc-cmd-spin 1.1s linear infinite; }
+@keyframes dc-cmd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dc-cmd-motor-spin { animation: none; } }
+
+/* Mensagens sobre o desenho */
+.dc-cmd-empty { position: absolute; left: 50%; top: 50%; display: grid; justify-items: center; gap: 8px; max-width: 340px; padding: 22px; transform: translate(-50%, -50%); color: #475569; text-align: center; }
+.dc-cmd-empty strong { color: #1e293b; font-size: 15px; }
+.dc-cmd-empty span { font-size: 12.5px; line-height: 1.5; }
+.dc-cmd-fault { position: absolute; left: 50%; top: 14px; display: grid; gap: 2px; max-width: 520px; padding: 10px 14px; transform: translateX(-50%); border: 1px solid #fecaca; border-radius: 10px; background: #fff1f2; box-shadow: 0 6px 18px rgba(15, 23, 42, .12); color: #991b1b; font-size: 12.5px; }
+.dc-cmd-toast { position: absolute; left: 50%; bottom: 16px; padding: 7px 12px; transform: translateX(-50%); border-radius: 8px; background: #0f172a; color: #fff; font-size: 12px; pointer-events: none; }
+.dc-cmd-hint { position: absolute; left: 12px; top: 10px; padding: 5px 10px; border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #166534; font-size: 11.5px; pointer-events: none; }
+
+/* Painéis laterais */
+.dc-cmd-palette, .dc-cmd-panel { display: flex; flex: none; flex-direction: column; width: 248px; min-height: 0; border-right: 1px solid #e2e8f0; background: #fff; }
+.dc-cmd-panel { width: 280px; border-right: 0; border-left: 1px solid #e2e8f0; }
+.dc-cmd-palette-body, .dc-cmd-panel-body { flex: 1; min-height: 0; padding: 10px 12px 16px; overflow-y: auto; }
+.dc-cmd-palette h3 { margin: 10px 0 6px; color: #64748b; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.dc-cmd-palette-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.dc-cmd-palette-item { display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #334155; font-size: 10px; line-height: 1.2; text-align: center; cursor: pointer; }
+.dc-cmd-palette-item svg { width: 100%; height: 46px; }
+.dc-cmd-palette-item:hover:not(:disabled) { border-color: #93c5fd; background: #f8fbff; }
+.dc-cmd-palette-item.is-on { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 2px rgba(37, 99, 235, .15); }
+.dc-cmd-palette-item:disabled { opacity: .45; cursor: not-allowed; }
+.dc-cmd-tip, .dc-cmd-muted { color: #64748b; font-size: 11.5px; line-height: 1.5; }
+.dc-cmd-tip { margin-top: 12px; }
+.dc-cmd-rail { display: flex; flex: none; flex-direction: column; align-items: center; gap: 8px; width: 40px; padding-top: 12px; border: 0; border-right: 1px solid #e2e8f0; background: #fff; color: #475569; font-size: 10.5px; writing-mode: vertical-rl; cursor: pointer; }
+.dc-cmd-rail.is-right { border-right: 0; border-left: 1px solid #e2e8f0; }
+.dc-cmd-props { display: grid; gap: 10px; font-size: 12.5px; color: #334155; }
+.dc-cmd-props p { margin: 0; }
+.dc-cmd-field { display: grid; gap: 4px; }
+.dc-cmd-field > span { color: #475569; font-size: 11px; font-weight: 650; }
+.dc-cmd-field .dc-input { height: 30px; }
+.dc-cmd-terms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.dc-cmd-actions { display: flex; gap: 6px; }
+.dc-btn.is-danger { color: #b91c1c; }
+.dc-btn.is-danger:hover:not(:disabled) { border-color: #fecaca; background: #fff1f2; }
+.dc-btn.is-on { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+.dc-cmd-time { margin: 0 0 8px; color: #475569; font-size: 12px; }
+.dc-cmd-devices { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.dc-cmd-device { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px 8px; border: 1px solid #e2e8f0; border-radius: 8px; }
+.dc-cmd-device b { min-width: 30px; color: #0f172a; font-size: 12.5px; }
+.dc-cmd-device .dc-btn { height: 24px; padding: 0 8px; font-size: 11px; }
+.dc-cmd-chip { padding: 2px 7px; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: 10.5px; font-weight: 650; }
+.dc-cmd-chip.is-on { background: #dcfce7; color: #166534; }
+.dc-cmd-chip.is-timer { background: #fef3c7; color: #92400e; }
+
+@media (max-width: 900px) {
+  .dc-cmd-palette { width: 200px; }
+  .dc-cmd-panel { position: absolute; right: 0; top: 42px; bottom: 0; z-index: 5; box-shadow: -8px 0 20px rgba(15, 23, 42, .1); }
+}

@@ -17,6 +17,7 @@ import RouteLoading from './ui/RouteLoading'
 const SchematicView = lazy(() => import('./schematic/SchematicView'))
 const LadderEditor = lazy(() => import('./ladder/LadderEditor'))
 const GrafcetEditor = lazy(() => import('./grafcet/GrafcetEditor'))
+const CommandsEditor = lazy(() => import('./commands/CommandsEditor'))
 const MonitorPanel = lazy(() => import('./components/MonitorPanel'))
 import PlanLocked from './saas/PlanLocked'
 import { useCan } from './saas/usePlan'
@@ -50,7 +51,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
       const saved = localStorage.getItem('dcsimu:workspace:view') as ViewMode | 'panel3d' | null
       // O antigo "Painel 3D" passou a ser a Visualização 3D do Esquema.
       if (saved === 'panel3d') { localStorage.setItem('dc-simu:schematic-canvas-mode:v1', '3d'); return coerceView('schematic', kind, hasLadder) }
-      return saved && ['schematic', 'ladder', 'grafcet', 'monitor'].includes(saved) ? coerceView(saved, kind, hasLadder) : defaultView(kind)
+      return saved && ['schematic', 'ladder', 'grafcet', 'commands', 'monitor'].includes(saved) ? coerceView(saved, kind, hasLadder) : defaultView(kind)
     } catch { return defaultView(kind) }
   })
   // Só vistas permitidas pelo tipo de projeto (Tudo / Ladder / GRAFCET) — mais o
@@ -240,11 +241,12 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             {mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
             {mode === 'ladder' && (canLadder || demo) && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
             {mode === 'grafcet' && (canGrafcet || demo) && <GrafcetEditor full={!demo} onOpenLadder={() => setMode('ladder')} />}
+            {mode === 'commands' && <CommandsEditor demo={demo} />}
             {mode === 'monitor' && <MonitorPanel />}
           </Suspense>
         </div>
         {mode === 'schematic' && !demo && <ComponentEditorDock />}
-        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
+        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && mode !== 'commands' && !(mode === 'schematic' && editingComponent) && (
           <div
             className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
@@ -266,7 +268,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             )}
           </div>
         )}
-        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
+        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && mode !== 'commands' && !(mode === 'schematic' && editingComponent) && showLadder && (
           <div
             className="dc-resize-handle dc-resize-handle-left"
             onPointerDown={(e) => {

@@ -614,7 +614,7 @@ export default function Dashboard({
                           <span className="dx-spin" aria-hidden /> A abrir…
                         </>
                       ) : (
-                        p.preview?.kind === 'grafcet' ? 'Abrir no editor GRAFCET' : p.preview?.kind === 'ladder' ? 'Abrir no editor Ladder' : 'Abrir no editor 3D'
+                        p.preview?.kind === 'commands' ? 'Abrir no simulador de comandos' : p.preview?.kind === 'grafcet' ? 'Abrir no editor GRAFCET' : p.preview?.kind === 'ladder' ? 'Abrir no editor Ladder' : 'Abrir no editor 3D'
                       )}
                     </button>
                     {p.role === 'owner' && (

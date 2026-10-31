@@ -9,7 +9,7 @@ import { isSmallScreen } from './cleanMode'
  *  - pedido para abrir os «Atalhos» do simulador ativo.
  */
 export type SimPanelView = 'schematic' | 'ladder'
-export type ShortcutView = 'schematic' | 'ladder' | 'grafcet' | 'monitor'
+export type ShortcutView = 'schematic' | 'ladder' | 'grafcet' | 'commands' | 'monitor'
 
 const KEYS: Record<SimPanelView, string> = { schematic: 'dcsimu:schematic:sim-open', ladder: 'dcsimu:ladder:status-open' }
 const fallback = (view: SimPanelView) => view === 'ladder' && !isSmallScreen()

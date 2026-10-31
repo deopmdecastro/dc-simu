@@ -30,8 +30,8 @@ export type ProjectPreviewData = {
   cover?: string
   /** diagrama GRAFCET/Ladder real (SVG) quando ainda não há cover guardado */
   flow?: string
-  /** tipo de projeto: all | ladder | grafcet */
-  kind?: 'all' | 'ladder' | 'grafcet'
+  /** tipo de projeto: all | ladder | grafcet | commands */
+  kind?: 'all' | 'ladder' | 'grafcet' | 'commands'
 }
 
 /** Valida a miniatura guardada no conteúdo do projeto. */
@@ -136,9 +136,9 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
   }
 
   const rungs = isObj(data.ladder) && Array.isArray(data.ladder.rungs) ? (data.ladder.rungs as LadderRung[]) : []
-  const kind = data.projectKind === 'ladder' || data.projectKind === 'grafcet' ? data.projectKind : 'all'
+  const kind = data.projectKind === 'ladder' || data.projectKind === 'grafcet' || data.projectKind === 'commands' ? data.projectKind : 'all'
   const cover = previewCoverOf(data)
-  return { components, wires, cover, flow: cover || kind === 'all' ? undefined : flowPreviewOf(kind, rungs, data.grafcet), kind, stats: { components: rawList.length, wires: rawWires.length, rungs: rungs.length } }
+  return { components, wires, cover, flow: cover || kind === 'all' || kind === 'commands' ? undefined : flowPreviewOf(kind, rungs, data.grafcet), kind, stats: { components: rawList.length, wires: rawWires.length, rungs: rungs.length } }
 }
 
 /** Projetos GRAFCET/Ladder sem cover guardado (ex.: exemplos semeados, nunca abertos):
