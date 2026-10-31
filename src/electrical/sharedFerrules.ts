@@ -133,3 +133,57 @@ export function sharedFerrulePort(
     isLeader: portIndex === 0,
   }
 }
+
+
+/** Tipos com cabo multipolar / pigtails (sensor, torre): a ponta no aparelho usa termoretrátil. */
+export const LEAD_HEAT_SHRINK_TYPES = new Set([
+  'towerLight',
+  'towerLightSb23011',
+  'photoSensor',
+  'photoSensorXukt1ksml2',
+  'proximitySensor',
+])
+
+/**
+ * Nas ligações a bornes `lead` de sensores e torres de sinalização, a ponta do
+ * cabo no aparelho passa automaticamente a `heatShrink` (manga a unir o
+ * condutor ao cabo multipolar). Ligações a outros bornes não são alteradas.
+ * `componentTypeByTerminalId` mapeia terminalId → tipo de componente.
+ */
+export function syncLeadCableHeatShrink(
+  wires: Wire[],
+  componentTypeByTerminalId: Map<string, string>,
+): Wire[] {
+  if (wires.length === 0) return wires
+  let mutated = false
+  const next = wires.map((w) => {
+    let fromEndType = w.fromEndType
+    let toEndType = w.toEndType
+    const apply = (terminalId: string | undefined, free: boolean, current: WireEndType | undefined, side: 'from' | 'to') => {
+      if (!terminalId || free) return current
+      if (current && FIXED_CONNECTOR_ENDS.has(current)) return current
+      const ctype = componentTypeByTerminalId.get(terminalId)
+      if (!ctype || !LEAD_HEAT_SHRINK_TYPES.has(ctype)) {
+        // Reverte heatShrink automático se o borne deixou de ser lead-cable
+        if (current === 'heatShrink' && (side === 'from' ? w.fromEndType === 'heatShrink' : w.toEndType === 'heatShrink')) {
+          // keep user choice if they explicitly set heatShrink elsewhere — only auto-clear when type not in set
+          return current
+        }
+        return current
+      }
+      if (current !== 'heatShrink') {
+        mutated = true
+        return 'heatShrink' as WireEndType
+      }
+      return current
+    }
+    fromEndType = apply(w.fromTerminalId, Boolean(w.fromPoint), fromEndType ?? w.endType, 'from') ?? fromEndType
+    toEndType = apply(w.toTerminalId, Boolean(w.toPoint), toEndType ?? w.endType, 'to') ?? toEndType
+    if (fromEndType !== w.fromEndType || toEndType !== w.toEndType) {
+      mutated = true
+      return { ...w, fromEndType, toEndType }
+    }
+    return w
+  })
+  return mutated ? next : wires
+}

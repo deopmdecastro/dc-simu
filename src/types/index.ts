@@ -359,7 +359,7 @@ export type WireRoute = 'orthogonal' | 'direct' | 'arc' | 'manhattan'
  * ponteira tubular, ponteira dupla, olhal, forquilha, pino, faston, estanhado
  * ou ponta nua.
  */
-export type WireEndType = 'none' | 'ferrule' | 'ferruleDouble' | 'ring' | 'fork' | 'pin' | 'faston' | 'tinned' | 'banana' | 'probe'
+export type WireEndType = 'none' | 'ferrule' | 'ferruleDouble' | 'heatShrink' | 'ring' | 'fork' | 'pin' | 'faston' | 'tinned' | 'banana' | 'probe'
 
 /** Valores usados ao desenhar novos cabos (ferramenta Cabo). */
 export interface WireDefaults {

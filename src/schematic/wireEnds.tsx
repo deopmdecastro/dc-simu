@@ -4,6 +4,7 @@ import type { WireEndType } from '../types'
 export const WIRE_END_OPTIONS: Array<{ id: WireEndType; label: string; hint: string }> = [
   { id: 'ferrule', label: 'Ponteira', hint: 'Ponteira tubular isolada (cabo flexível em borne de parafuso/mola)' },
   { id: 'ferruleDouble', label: 'Ponteira dupla', hint: 'Dois condutores numa só ponteira' },
+  { id: 'heatShrink', label: 'Termoretrátil', hint: 'Manga termoretrátil para unir/emendar cabos de sensor e torre de luz' },
   { id: 'ring', label: 'Olhal', hint: 'Terminal de olhal (anel) para parafuso' },
   { id: 'fork', label: 'Forquilha', hint: 'Terminal em U / garfo' },
   { id: 'pin', label: 'Pino', hint: 'Terminal tipo pino' },
@@ -32,6 +33,9 @@ export function WireEndIcon({ type, color = '#ef4444', size = 34 }: { type: Wire
       break
     case 'ferruleDouble':
       end = (<><rect x={4} y={4.5} width={11} height={7} rx={1} fill={metal} stroke={edge} strokeWidth={0.7} /><line x1={4} y1={8} x2={15} y2={8} stroke={edge} strokeWidth={0.6} /><rect x={15} y={2.5} width={7} height={11} rx={1.8} fill={color} stroke={edge} strokeWidth={0.6} /></>)
+      break
+    case 'heatShrink':
+      end = (<><rect x={3} y={5} width={14} height={6} rx={2.2} fill="#1f2937" stroke={edge} strokeWidth={0.5} /><rect x={5} y={5.8} width={10} height={4.4} rx={1.6} fill="#111827" /><line x1={17} y1={8} x2={22} y2={8} stroke={color} strokeWidth={2.4} strokeLinecap="round" /></>)
       break
     case 'ring':
       end = (<><circle cx={7} cy={8} r={4.6} fill="none" stroke={metal} strokeWidth={2.6} /><circle cx={7} cy={8} r={4.6} fill="none" stroke={edge} strokeWidth={0.6} /><rect x={11} y={6} width={6} height={4} fill={metal} stroke={edge} strokeWidth={0.5} /><rect x={17} y={4.5} width={5} height={7} rx={1.2} fill={color} stroke={edge} strokeWidth={0.6} /></>)

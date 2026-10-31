@@ -111,6 +111,24 @@ export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: Wir
           {[34, 42, 50, 58, 66].map(y => <Cyl key={y} y={y * U} length={1.2 * U} radius={4.5 * U} color={color} roughness={0.88} />)}
           <Cyl y={88 * U} length={12 * U} radius={2.4 * U} color={color} roughness={0.8} />
         </>
+      case 'heatShrink': {
+        // Manga termoretrátil: tubo cónico preto/cinza a unir o cabo isolado à emenda
+        // (sensores de 3 fios, torres de sinalização e cabos multipolares).
+        const sleeve = Math.max(geometry.length * 0.72, 10 * U)
+        const rTip = Math.max(R * 1.15, 1.4 * U)
+        const rBase = Math.max(R * 1.55, 2.1 * U)
+        return <>
+          <mesh position={[0, sleeve * 0.42, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[rBase, rTip, sleeve, 16]} />
+            <meshStandardMaterial color="#1f2937" roughness={0.78} metalness={0.05} />
+          </mesh>
+          <mesh position={[0, sleeve * 0.78, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[rBase * 1.08, rBase * 1.02, 2.2 * U, 16]} />
+            <meshStandardMaterial color="#111827" roughness={0.82} metalness={0.04} />
+          </mesh>
+          <Cyl y={sleeve * 0.12} length={2.4 * U} radius={R * 0.55} color={COPPER} metalness={0.7} roughness={0.35} />
+        </>
+      }
       case 'ferrule': {
         // Ponteira tubular isolada REDONDA (comando e força): manga metálica +
         // colar cilíndrico proporcional ao cabo — nunca um bloco quadrado.

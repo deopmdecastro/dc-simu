@@ -1321,6 +1321,8 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  // Mesmo modelo de brilho dos sinaleiros do projeto nativo (LandingShowcase / AD22):
+  // lente emissiva + GlowHalo kind="lamp" com castLight e subida/descida suaves.
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const bulbs: Array<[string, boolean]> = [
     ['#ef4444', simActive && !!c.state.red],
@@ -1333,9 +1335,16 @@ function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
         <group key={i} position={[0, 0.22 - i * 0.2, 0]}>
           <mesh>
             <cylinderGeometry args={[0.12, 0.12, 0.16, 20]} />
-            <meshStandardMaterial color={on ? col : '#334155'} emissive={on ? col : '#000'} emissiveIntensity={on ? 2 : 0} toneMapped={!on} />
+            <meshStandardMaterial
+              color={on ? col : '#334155'}
+              emissive={on ? col : '#000000'}
+              emissiveIntensity={on ? 2.2 : 0.05}
+              toneMapped={!on}
+              roughness={0.35}
+              metalness={0.05}
+            />
           </mesh>
-          <GlowHalo color={col} on={on} radius={0.12} kind="tower" castLight={false} position={[0, 0, 0.12]} />
+          <GlowHalo color={col} on={on} radius={0.11} kind="lamp" castLight position={[0, 0, 0.12]} rise={0.05} fall={0.18} />
         </group>
       ))}
       <Label text={c.ref} position={[0, 0.42, 0]} />

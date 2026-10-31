@@ -193,6 +193,7 @@ export function wireEndLengthMm(type: WireEndType): number {
   switch (type) {
     case 'ferrule': return 5.8 + FERRULE_COLLAR_MM  // +0.8 mm: isolamento encaixa sob o anel da ponteira
     case 'ferruleDouble': return 5 + DOUBLE_FERRULE_COLLAR_MM
+    case 'heatShrink': return 16
     case 'pin': return 14
     case 'ring':
     case 'fork':
@@ -226,7 +227,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   // Probe: embed curto para a ponta assentar no borne; ferrules mais curtas
   // para não «saltar» fora do furo em bornes pequenos.
   const embedMm = normal && type === 'banana' ? 4 : normal && type === 'probe' ? PROBE_EMBED_MM
-    : normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 5 : 0
+    : normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'heatShrink' || type === 'pin') ? 5 : 0
   const length = Math.max(0.01, (wireEndLengthMm(type) - embedMm) * U)
   const plateSafeZ = PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.016
   let axis = dir.clone()

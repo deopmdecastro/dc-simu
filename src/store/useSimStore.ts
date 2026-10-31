@@ -39,7 +39,7 @@ import type {
   CanvasText,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
-import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
+import { syncLeadCableHeatShrink, syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
@@ -851,6 +851,16 @@ function deenergizeComponents(components: ElectricalComponent[]): ElectricalComp
       terminals: component.terminals.map((terminal) => ({ ...terminal, energized: false })),
     }
   })
+}
+
+
+const normalizeWires = (wires: Wire[], components: ElectricalComponent[] = []) => {
+  const afterFerrule = syncSharedTerminalFerrules(wires)
+  const byTerm = new Map<string, string>()
+  for (const c of components) {
+    for (const term of c.terminals ?? []) byTerm.set(term.id, c.type)
+  }
+  return syncLeadCableHeatShrink(afterFerrule, byTerm)
 }
 
 export const useSimStore = create<Store>((set, get) => {
@@ -1724,7 +1734,7 @@ export const useSimStore = create<Store>((set, get) => {
         }),
       } : item) : state.components,
       wires: changed && removedTerminalIds.size > 0
-        ? syncSharedTerminalFerrules(state.wires.filter((wire) => !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId)))
+        ? normalizeWires(state.wires.filter((wire) => !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId)), state.components)
         : state.wires,
       selectedWireId: state.selectedWireId && state.wires.some((wire) => wire.id === state.selectedWireId && !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId)) ? state.selectedWireId : null,
       selectedTerminalId: state.selectedTerminalId && validTerminalIds.has(state.selectedTerminalId) ? state.selectedTerminalId : null,
@@ -2055,7 +2065,7 @@ export const useSimStore = create<Store>((set, get) => {
     set((s) => {
       const remaining = s.components.filter((c) => !ids.includes(c.id))
       const deadTerminals = new Set(s.components.filter((c) => ids.includes(c.id)).flatMap((c) => c.terminals.map((t) => t.id)))
-      const wires = syncSharedTerminalFerrules(s.wires.filter((w) => !deadTerminals.has(w.fromTerminalId) && !deadTerminals.has(w.toTerminalId)))
+      const wires = normalizeWires(s.wires.filter((w) => !deadTerminals.has(w.fromTerminalId) && !deadTerminals.has(w.toTerminalId)), s.components)
       const living = remaining.filter(isProgrammablePlc)
       const programs = programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks, s.fcAdded)
       const keptPrograms = Object.fromEntries(Object.entries(programs).filter(([id]) => living.some((p) => p.id === id)))
@@ -2171,7 +2181,7 @@ export const useSimStore = create<Store>((set, get) => {
     get().commitHistory()
     set((s) => ({
       components: s.components.map((c) => ({ ...c, terminals: c.terminals.filter((t) => t.id !== terminalId) })),
-      wires: syncSharedTerminalFerrules(s.wires.filter((w) => w.fromTerminalId !== terminalId && w.toTerminalId !== terminalId)),
+      wires: normalizeWires(s.wires.filter((w) => w.fromTerminalId !== terminalId && w.toTerminalId !== terminalId), s.components),
       selectedTerminalId: null,
       dirty: true,
     }))
@@ -2242,7 +2252,7 @@ export const useSimStore = create<Store>((set, get) => {
     // neutro azul-claro, PE verde-amarelo, sinal laranja, bus violeta
     if (!color && defs.autoColor) wire.color = WIRE_KIND_COLOR[wire.kind]
 
-    set((s) => ({ wires: syncSharedTerminalFerrules([...s.wires, wire]), selectedWireId: wire.id, dirty: true }))
+    set((s) => ({ wires: normalizeWires([...s.wires, wire], s.components), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo ${wire.number} criado (${a?.comp.ref ?? '?'} → ${b?.comp.ref ?? '?'}).`)
     if (a && b && !terminalClassesCompatible(a.electricalClass, b.electricalClass)) {
       get().pushEvent('warning', `Verifique ${wire.number}: ${TERMINAL_ELECTRICAL_CLASS_LABEL[a.electricalClass]} ligado a ${TERMINAL_ELECTRICAL_CLASS_LABEL[b.electricalClass]}.`)
@@ -2263,7 +2273,7 @@ export const useSimStore = create<Store>((set, get) => {
       fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`, energized: false,
     }
-    set((state) => ({ wires: syncSharedTerminalFerrules([...state.wires, wire]), selectedWireId: wire.id, dirty: true }))
+    set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo livre ${wire.number} criado (sem continuidade elétrica até ligar ambas as pontas).`)
     recomputeIfActive()
   },
@@ -2302,7 +2312,7 @@ export const useSimStore = create<Store>((set, get) => {
       fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`, energized: false,
     }
-    set((state) => ({ wires: syncSharedTerminalFerrules([...state.wires, wire]), selectedWireId: wire.id, dirty: true }))
+    set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo livre ${wire.number} desenhado no 3D (sem continuidade elétrica até ligar ambas as pontas).`)
     recomputeIfActive()
     return wire.id
@@ -2313,7 +2323,7 @@ export const useSimStore = create<Store>((set, get) => {
     set((s) => {
       const updated = s.wires.map((w) => (w.id === id ? { ...w, ...patch } : w))
       const needsSync = 'fromTerminalId' in patch || 'toTerminalId' in patch
-      return { wires: needsSync ? syncSharedTerminalFerrules(updated) : updated, dirty: true }
+      return { wires: needsSync ? normalizeWires(updated, s.components) : updated, dirty: true }
     })
   },
 
@@ -2325,7 +2335,7 @@ export const useSimStore = create<Store>((set, get) => {
       return
     }
     get().commitHistory()
-    set((s) => ({ wires: syncSharedTerminalFerrules(s.wires.filter((w) => w.id !== id)), selectedWireId: null, dirty: true }))
+    set((s) => ({ wires: normalizeWires(s.wires.filter((w) => w.id !== id), s.components), selectedWireId: null, dirty: true }))
     recomputeIfActive()
   },
 
@@ -2820,7 +2830,7 @@ export const useSimStore = create<Store>((set, get) => {
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
       const snapDirty = alignedWires.some((wire, i) => wire !== loadedWires[i])
       const cleanComponents = deenergizeComponents(loadedComponents)
-      const cleanWires = syncSharedTerminalFerrules(alignedWires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)))
+      const cleanWires = normalizeWires(alignedWires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)), cleanComponents)
       const plcIds = cleanComponents.filter(isProgrammablePlc).map((c) => c.id)
       const loadedActiveId = plcIds.includes(parsed.activePlcId) ? parsed.activePlcId : plcIds[0] ?? null
       const programs = (parsed.plcPrograms ?? {}) as Record<string, PlcProgram>
@@ -3030,7 +3040,7 @@ export const useSimStore = create<Store>((set, get) => {
 
     set((s) => ({
       components: [...s.components, ...newComponents],
-      wires: syncSharedTerminalFerrules([...s.wires, ...newWires]),
+      wires: normalizeWires([...s.wires, ...newWires], s.components),
       selectedComponentIds: newComponents.map((c) => c.id),
       selectedWireId: null,
       dirty: true,
