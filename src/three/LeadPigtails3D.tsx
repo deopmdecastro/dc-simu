@@ -10,6 +10,7 @@
  */
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { Text } from './SceneText'
 import type { ElectricalComponent, Terminal } from '../types'
 import { LEAD_PIGTAIL_LENGTH_MM } from '../electrical/realInterfaces'
 import { component3DDimensions, terminalLocal3D } from './terminal3D'
@@ -106,6 +107,29 @@ export default function LeadPigtails3D({ component }: { component: ElectricalCom
   if (!layout) return null
   return (
     <group name={`leads-${component.id}`} userData={{ noSnapshot: true }}>
+      {layout.cores.map((core) => {
+        const root = core.points[0]
+        const direction = core.points[1].clone().sub(root).normalize()
+        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)
+        const label = core.terminal.label
+        return (
+          <group key={`lead-marker-${core.terminal.id}`} position={root} quaternion={quaternion}>
+            <mesh position={[0, -0.006, 0]} userData={{ noPick: true }} raycast={() => null}>
+              <cylinderGeometry args={[core.radius * 1.55, core.radius * 1.72, 0.035, 18]} />
+              <meshStandardMaterial color="#20252d" roughness={0.5} metalness={0.3} />
+            </mesh>
+            <mesh position={[0, 0.018, 0]} userData={{ noPick: true }} raycast={() => null}>
+              <torusGeometry args={[core.radius * 1.12, core.radius * 0.18, 8, 20]} />
+              <meshStandardMaterial color={core.color} roughness={0.42} metalness={0.2} />
+            </mesh>
+            <mesh position={[0, core.tip.clone().sub(root).length() + 0.012, 0]} renderOrder={35} userData={{ noPick: true }} raycast={() => null}>
+              <sphereGeometry args={[Math.max(core.radius * 1.7, 0.028), 16, 12]} />
+              <meshStandardMaterial color={core.color} emissive={core.color} emissiveIntensity={0.12} roughness={0.38} />
+            </mesh>
+            <Text position={[core.tip.clone().sub(root).length() + 0.055, 0, 0]} rotation={[0, 0, 0]} fontSize={0.065} color="#0f172a" outlineWidth={0.006} outlineColor="#ffffff" anchorX="left" anchorY="middle" depthOffset={-6}>{label}</Text>
+          </group>
+        )
+      })}
       {layout.sheath && <>
         <mesh geometry={layout.sheath.geometry} castShadow>
           <meshStandardMaterial color={SHEATH} roughness={0.62} metalness={0.05} envMapIntensity={0.8} />
