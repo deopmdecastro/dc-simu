@@ -447,7 +447,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
    * (ligar ações), entrada de transição solta, entrada de ação solta e "etapa como destino de ação".
    */
   type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in' | 'step-action' | 'action-in' | 'action-out' | 'step-attach' | 'branch-out'; id: string; side?: 'l' | 'r' | 't' | 'b' }
-  const [wireDraft, setWireDraft] = useState<{ start: PortRef; x: number; y: number; moved: boolean } | null>(null)
+  /**
+   * Ponta de uma ligação existente a ser levada para outro ponto: `from`/`to` troca uma origem/destino
+   * da transição `id`; `action` muda a ação `id` de etapa. A ponta que fica parada é o início do fio.
+   */
+  type WireDetach = { mode: 'from' | 'to' | 'action'; id: string; stepId: string }
+  const [wireDraft, setWireDraft] = useState<{ start: PortRef; x: number; y: number; moved: boolean; detach?: WireDetach } | null>(null)
   const [wireHover, setWireHover] = useState<PortRef | null>(null)
   const wireDraftRef = useRef<typeof wireDraft>(null)
   const wireHoverRef = useRef<PortRef | null>(null)
@@ -2104,6 +2109,56 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     }
   }
 
+  /** Porto usado para procurar o ponto de chegada: ao mudar uma ação de etapa procura-se uma etapa. */
+  const wireHitStart = (draft: { start: PortRef; detach?: WireDetach }): PortRef =>
+    draft.detach?.mode === 'action' ? { kind: 'action-in', id: draft.detach.id } : draft.start
+
+  /** Agarra a ponta de uma ligação existente (origem/destino de transição ou etapa de uma ação). */
+  const startDetach = (detach: WireDetach, event: React.PointerEvent) => {
+    event.stopPropagation()
+    event.preventDefault()
+    if (event.button !== 0) return
+    const start: PortRef = detach.mode === 'to' ? { kind: 'trans-out', id: detach.id }
+      : detach.mode === 'from' ? { kind: 'trans-in', id: detach.id }
+      : { kind: 'action-out', id: detach.id }
+    const w = clientToWorld(event.clientX, event.clientY)
+    quickWireRef.current = true
+    setWireDraft({ start, x: w.x, y: w.y, moved: false, detach })
+    setWireHover(null)
+  }
+
+  /** Larga a ponta agarrada: troca a etapa ligada, mantendo a condição, as ações e o resto da ligação. */
+  const completeDetach = (detach: WireDetach, target: PortRef) => {
+    const stepNum = (sid: string) => {
+      const s = stepById.get(sid)
+      return s ? getStepDisplayInfo(s, steps.indexOf(s)).stepNumber : '?'
+    }
+    if (detach.mode === 'action') {
+      const owner = target.kind === 'action-out' ? steps.find((s) => actionsOf(s).some((a) => a.id === target.id))?.id : target.id
+      if (!owner || !stepById.has(owner) || owner === detach.stepId) return
+      moveActionToStep(detach.stepId, detach.id, owner)
+      return
+    }
+    const t = transitions.find((item) => item.id === detach.id)
+    const wanted = detach.mode === 'to' ? 'step-in' : 'step-out'
+    if (!t || target.kind !== wanted || target.id === detach.stepId) return
+    const list = detach.mode === 'to' ? t.to : t.from
+    if (list.includes(target.id)) return notify(`A Etapa ${stepNum(target.id)} já é ${detach.mode === 'to' ? 'destino' : 'origem'} desta transição`)
+    const next = list.map((sid) => (sid === detach.stepId ? target.id : sid))
+    // As dobras e a posição da barra pertenciam ao percurso antigo: a ligação volta a ser traçada.
+    const { [t.id]: _bends, ...linkBends } = program.linkBends ?? {}
+    const { [t.id]: _bar, ...linkBars } = program.linkBars ?? {}
+    save({
+      transitions: transitions.map((item) => (item.id === t.id ? { ...item, [detach.mode]: next } : item)),
+      linkBends,
+      linkBars,
+    }, 'force')
+    setSelected(t.id)
+    setSelectedActionId(null)
+    setTab('transitions')
+    notify(`${detach.mode === 'to' ? 'Destino' : 'Origem'} de ${t.name || `T${transitions.indexOf(t) + 1}`}: Etapa ${stepNum(detach.stepId)} → Etapa ${stepNum(target.id)}`)
+  }
+
   const cancelWire = (silent = true) => {
     quickWireRef.current = false
     setWireDraft(null)
@@ -2123,9 +2178,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }
   const renderWirePort = (port: PortRef, at: Point, label: string) => {
     const armed = wireDraft?.start.kind === port.kind && wireDraft.start.id === port.id && (wireDraft.start.side ?? '') === (port.side ?? '')
-    const target = wireHover?.kind === port.kind && wireHover.id === port.id && (port.kind !== 'action-in' || !port.side || wireHover.side === undefined || wireHover.side === port.side)
+    const target = (wireHover?.kind === port.kind && wireHover.id === port.id && (port.kind !== 'action-in' || !port.side || wireHover.side === undefined || wireHover.side === port.side))
+      || (wireHover?.kind === 'step-attach' && port.kind === 'step-action' && wireHover.id === port.id)
     const origin = wireDraft?.start.kind
-    const compatible = !!origin && (
+    const compatible = !!origin && (wireDraft?.detach?.mode === 'action' ? port.kind === 'step-action' && port.id !== wireDraft.detach.stepId : (
       (['step-out', 'trans-out', 'branch-out'].includes(origin) && port.kind === 'step-in') ||
       (origin === 'step-out' && port.kind === 'trans-in') ||
       (['step-in', 'trans-in'].includes(origin) && port.kind === 'step-out') ||
@@ -2134,7 +2190,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       (origin === 'step-action' && port.kind === 'action-in') ||
       (origin === 'action-in' && port.kind === 'action-out') ||
       (origin === 'action-out' && (port.kind === 'action-in' || port.kind === 'action-out') && port.id !== wireDraft?.start.id)
-    )
+    ))
     return <g key={`${port.kind}-${port.id}-${port.side ?? ''}`} className={`grafcet-construction-port ${armed ? 'is-armed' : ''} ${compatible ? 'is-compatible' : ''} ${target ? 'is-target' : ''}`}
       role="button" tabIndex={0} aria-label={label} data-port-kind={port.kind} data-port-id={port.id} data-port-side={port.side}
       onPointerDown={(event) => startQuickWire(port, event)} onClick={(event) => event.stopPropagation()}
@@ -2159,7 +2215,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       const w = clientToWorld(event.clientX, event.clientY)
       const draft = wireDraftRef.current
       if (!draft) return
-      const target = hitWireTarget(w.x, w.y, draft.start)
+      const target = hitWireTarget(w.x, w.y, wireHitStart(draft))
       setWireDraft({ ...draft, x: w.x, y: w.y, moved: draft.moved || Math.hypot(w.x - portPosOf(draft.start).x, w.y - portPosOf(draft.start).y) > 8 })
       setWireHover(target)
     }
@@ -2167,6 +2223,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       const draft = wireDraftRef.current
       if (!draft) return
       const w = clientToWorld(event.clientX, event.clientY)
+      if (draft.detach) {
+        // Ponta agarrada: larga sobre outra etapa para religar; no vazio a ligação fica como estava.
+        const target = hitWireTarget(w.x, w.y, wireHitStart(draft))
+        if (target) completeDetach(draft.detach, target)
+        else if (draft.moved) notify('Ligação mantida — largue a ponta sobre outra etapa para a mudar')
+        cancelWire()
+        return
+      }
       const origin = portPosOf(draft.start)
       if (!draft.moved && Math.hypot(w.x - origin.x, w.y - origin.y) < 8 / scale) return
       const target = hitWireTarget(w.x, w.y, draft.start)
@@ -5622,10 +5686,51 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 )}
 
                 {/* FIO EM CURSO (ferramenta Ligar): linha tracejada do porto de saída até ao cursor */}
+                {/* PONTAS DAS LIGAÇÕES: agarrar a ponta de uma ligação selecionada e largá-la noutra etapa */}
+                {full && !running && activeTool !== 'pan' && !wireDraft && (() => {
+                  const handles: { key: string; at: Point; detach: WireDetach; label: string; dir: 'up' | 'down' | 'right' }[] = []
+                  const stepLabel = (sid: string) => {
+                    const s = stepById.get(sid)
+                    return s ? `Etapa ${getStepDisplayInfo(s, steps.indexOf(s)).stepNumber}` : 'etapa'
+                  }
+                  for (const t of transitions) {
+                    if (t.wireless || !(selected === t.id || hoveredTransitionId === t.id)) continue
+                    const name = t.name || `T${transitions.indexOf(t) + 1}`
+                    for (const sid of t.from.filter(existsStep)) handles.push({ key: `from-${t.id}-${sid}`, at: { x: stepX(sid), y: stepY(sid) + stepHOf(sid) + 9 }, detach: { mode: 'from', id: t.id, stepId: sid }, label: `Origem de ${name} (${stepLabel(sid)}): arraste para outra etapa`, dir: 'up' })
+                    for (const sid of t.to.filter(existsStep)) handles.push({ key: `to-${t.id}-${sid}`, at: { x: stepX(sid), y: stepY(sid) - 9 }, detach: { mode: 'to', id: t.id, stepId: sid }, label: `Destino de ${name} (${stepLabel(sid)}): arraste para outra etapa`, dir: 'down' })
+                  }
+                  const owner = selectedActionId ? steps.find((s) => actionsOf(s).some((a) => a.id === selectedActionId)) : undefined
+                  if (owner && selectedActionId && !selectedActionId.startsWith('legacy-')) {
+                    handles.push({ key: `action-${selectedActionId}`, at: { x: stepX(owner.id) + stepSizeOf(owner.id).w / 2 + 9, y: stepY(owner.id) + stepHOf(owner.id) / 2 }, detach: { mode: 'action', id: selectedActionId, stepId: owner.id }, label: `Ligação da ação à ${stepLabel(owner.id)}: arraste para outra etapa`, dir: 'right' })
+                  }
+                  if (!handles.length) return null
+                  return <g className="grafcet-link-ends">
+                    {handles.map(({ key, at, detach, label, dir }) => (
+                      <g key={key} className="grafcet-link-end" role="button" tabIndex={0} aria-label={label}
+                        data-detach-mode={detach.mode} data-detach-id={detach.id} data-detach-step={detach.stepId}
+                        onPointerDown={(event) => startDetach(detach, event)}
+                        onMouseEnter={() => { if (detach.mode !== 'action') hoverElement('transition', detach.id) }}
+                        onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}
+                        style={{ cursor: 'grab', touchAction: 'none' }}>
+                        <title>{label} · solte no vazio para cancelar</title>
+                        <circle cx={at.x} cy={at.y} r="12" fill="transparent" />
+                        <circle className="grafcet-link-end-dot" cx={at.x} cy={at.y} r="5.5" />
+                        <path className="grafcet-link-end-grip" d={dir === 'right' ? `M ${at.x - 1.5} ${at.y - 2.5} V ${at.y + 2.5} M ${at.x + 1.5} ${at.y - 2.5} V ${at.y + 2.5}` : `M ${at.x - 2.5} ${at.y - 1.5} H ${at.x + 2.5} M ${at.x - 2.5} ${at.y + 1.5} H ${at.x + 2.5}`} />
+                      </g>
+                    ))}
+                  </g>
+                })()}
+
                 {wireDraft && (
                   <g className="grafcet-wire-draft" style={{ pointerEvents: 'none' }}>
                     {(() => {
-                      const from = portPosOf(wireDraft.start)
+                      const detachOwner = wireDraft.detach?.mode === 'action' ? stepById.get(wireDraft.detach.stepId) : undefined
+                      const detachBox = detachOwner && wireDraft.detach ? attachedBoxes(detachOwner).get(wireDraft.detach.id) : undefined
+                      const from = detachBox ? { x: detachBox.x, y: detachBox.y + detachBox.h / 2 } : portPosOf(wireDraft.start)
+                      const oldEnd = !wireDraft.detach ? null
+                        : wireDraft.detach.mode === 'to' ? { x: stepX(wireDraft.detach.stepId), y: stepY(wireDraft.detach.stepId) }
+                        : wireDraft.detach.mode === 'from' ? { x: stepX(wireDraft.detach.stepId), y: stepY(wireDraft.detach.stepId) + stepHOf(wireDraft.detach.stepId) }
+                        : { x: stepX(wireDraft.detach.stepId) + stepSizeOf(wireDraft.detach.stepId).w / 2, y: stepY(wireDraft.detach.stepId) + stepHOf(wireDraft.detach.stepId) / 2 }
                       const my = (from.y + wireDraft.y) / 2
                       const color = wireHover ? '#16a34a' : '#2563eb'
                       return (
@@ -5640,6 +5745,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             className="grafcet-wire-draft-line"
                           />
                           <circle cx={wireDraft.x} cy={wireDraft.y} r="4" fill={color} />
+                          {oldEnd && !wireHover && <circle className="grafcet-link-end-old" cx={oldEnd.x} cy={oldEnd.y} r="7" />}
                           <circle cx={from.x} cy={from.y} r="6.5" fill="none" stroke={color} strokeWidth="2" opacity="0.7">
                           </circle>
                         </>
@@ -5654,7 +5760,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           {full && steps.length > 0 && !running && activeTool !== 'pan' && !isSpacePan && <div className={`grafcet-construction-guide ${wireDraft ? 'is-active' : ''}`}>
             <span className="grafcet-construction-indicator" aria-hidden="true" />
             <span role="status" aria-live="polite">{wireDraft
-              ? wireHover ? 'Solte para ligar · Esc cancela' : wireDraft.start.kind === 'branch-out' ? 'Escolha uma etapa para o novo ramo · Esc cancela' : 'Escolha outro ponto para ligar · Esc cancela'
+              ? wireDraft.detach ? wireHover ? 'Solte para religar a esta etapa · Esc cancela' : 'Leve a ponta até outra etapa · solte no vazio para manter' : wireHover ? 'Solte para ligar · Esc cancela' : wireDraft.start.kind === 'branch-out' ? 'Escolha uma etapa para o novo ramo · Esc cancela' : 'Escolha outro ponto para ligar · Esc cancela'
               : demoMode ? 'Selecione etapas e ligações · arraste o fundo para ajustar a vista' : 'Arraste os pontos para ligar · arraste uma linha para a dobrar'}</span>
             {wireDraft && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => cancelWire()} aria-label="Cancelar ligação em curso"><IconClose size={12} />Cancelar</button>}
           </div>}

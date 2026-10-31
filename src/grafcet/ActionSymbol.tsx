@@ -51,7 +51,7 @@ export default function ActionSymbol({
 }: ActionSymbolProps) {
   const { conditional, allocation, qualifier } = shape
   const marker = allocation === 'activation' || allocation === 'deactivation' || allocation === 'event'
-  const textX = qualifier ? x + qualifierW + 9 : x + (marker ? 17 : 10)
+  const textX = qualifier ? x + qualifierW + 10 : x + (marker ? 18 : 12)
   const midY = y + h / 2
   const ax = x + 6
   const head = Math.min(5, h / 6)
@@ -63,20 +63,21 @@ export default function ActionSymbol({
           {!mini && <text x={x + 20} y={y - 13} fill="#2563eb" fontSize="10" fontWeight="700">{renderConditionTspans((condition || '1').length > 17 ? `${(condition || '1').slice(0, 16)}…` : condition || '1')}</text>}
         </g>
       )}
-      <rect className="grafcet-action-box" x={x} y={y} width={w} height={h} rx="1" fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeDasharray={dashed ? '6 3' : undefined} />
+      <rect className="grafcet-action-box" x={x} y={y} width={w} height={h} rx="2.5" fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeDasharray={dashed ? '6 3' : undefined} />
       {allocation === 'compulsory' && <rect x={x + 3} y={y + 3} width={w - 6} height={h - 6} fill="none" stroke={stroke} strokeWidth={Math.max(1, strokeWidth * 0.8)} />}
       {qualifier && (
         <g>
+          {!mini && <rect x={x + strokeWidth / 2} y={y + strokeWidth / 2} width={qualifierW - strokeWidth / 2} height={h - strokeWidth} fill={stroke} opacity="0.07" pointerEvents="none" />}
           <line x1={x + qualifierW} y1={y} x2={x + qualifierW} y2={y + h} stroke={stroke} strokeWidth={strokeWidth} />
           {mini ? (
             <text x={x + qualifierW / 2} y={midY + 3.5} textAnchor="middle" fill={stroke} fontSize="10.5" fontWeight="700">{qualifier}</text>
           ) : qualifier === 'D' || qualifier === 'L' ? (
             <>
-              <text x={x + qualifierW / 2} y={y + 13} textAnchor="middle" fill={stroke} fontSize="9.5" fontWeight="700">{qualifier}</text>
-              <text x={x + qualifierW / 2} y={y + 24} textAnchor="middle" fill={stroke} fontSize="8" fontWeight="600">{timeSeconds ?? 2}s</text>
+              <text x={x + qualifierW / 2} y={midY - 5} textAnchor="middle" dominantBaseline="central" fill={stroke} fontSize="10" fontWeight="700">{qualifier}</text>
+              <text x={x + qualifierW / 2} y={midY + 7} textAnchor="middle" dominantBaseline="central" fill={stroke} fontSize="8.5" fontWeight="600">{timeSeconds ?? 2}s</text>
             </>
           ) : (
-            <text x={x + qualifierW / 2} y={y + 19} textAnchor="middle" fill={stroke} fontSize="12" fontWeight="700">{qualifier}</text>
+            <text x={x + qualifierW / 2} y={midY} textAnchor="middle" dominantBaseline="central" fill={stroke} fontSize="12.5" fontWeight="700">{qualifier}</text>
           )}
         </g>
       )}
@@ -94,9 +95,9 @@ export default function ActionSymbol({
       )}
       {allocation === 'event' && <path d={`M ${x} ${midY - 6} L ${x + 9} ${midY} L ${x} ${midY + 6} Z`} fill={stroke} />}
       {!mini && (
-        <text x={textX} y={subLabel ? y + 13 : y + 19} fill={textColor} fontSize="11.5" fontWeight="600" fontFamily={subLabel ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}>
+        <text x={textX} y={subLabel ? midY - 6 : midY} dominantBaseline="central" fill={textColor} fontSize="12" fontWeight="650" fontFamily={subLabel ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}>
           {label}
-          {subLabel ? <tspan x={textX} y={y + 24} fill="#64748b" fontSize="9" fontWeight="500" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{subLabel}</tspan> : null}
+          {subLabel ? <tspan x={textX} y={midY + 8} fill="#64748b" fontSize="9.5" fontWeight="500" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{subLabel}</tspan> : null}
         </text>
       )}
     </g>

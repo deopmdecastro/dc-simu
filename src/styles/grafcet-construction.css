@@ -31,3 +31,16 @@
 .grafcet-step-ports.is-idle .grafcet-port-ring { r: 3.5px; stroke-width: 1.2; opacity: .8; }
 .grafcet-step-ports.is-idle .grafcet-port-core { display: none; }
 .grafcet-step-ports.is-idle .grafcet-construction-port:hover .grafcet-port-ring { r: 5px; opacity: 1; }
+
+/* Pontas das ligações: agarrar e largar noutra etapa para religar */
+.grafcet-link-end { outline: none; }
+.grafcet-link-end .grafcet-link-end-dot { fill: #2563eb; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .3)); transition: r .12s ease; }
+.grafcet-link-end .grafcet-link-end-grip { stroke: #fff; stroke-width: 1.2; stroke-linecap: round; pointer-events: none; }
+.grafcet-link-end:hover .grafcet-link-end-dot,
+.grafcet-link-end:focus-visible .grafcet-link-end-dot { r: 7; fill: #1d4ed8; }
+.grafcet-link-end-old { fill: none; stroke: #94a3b8; stroke-width: 1.6; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+
+/* Caixa da ação: sombra suave para se destacar da grelha */
+.grafcet-graph-action .grafcet-action-box { filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .1)); }
+/* O porto de uma ação anexada só aparece ao passar o rato, ao selecionar ou com Ligar (parado parecia um ponto solto). */
+.grafcet-action-ports.is-idle .grafcet-port-ring { opacity: 0; }
