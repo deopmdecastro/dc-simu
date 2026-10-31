@@ -48,6 +48,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [placingText, setPlacingText] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const canvasNotes = useSimStore((s) => s.canvasNotes)
   const canvasTexts = useSimStore((s) => s.canvasTexts)
   useEffect(() => {
