@@ -67,7 +67,9 @@
 }
 .dc-cmd-empty strong { display: block; color: #1d4ed8; font-size: 17px; }
 .dc-cmd-empty p { color: var(--dx-ink-3, #64748b); margin: 10px 0 18px; font-size: 13.5px; line-height: 1.45; }
-.dc-cmd-empty-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+/* Mesma grelha do estado vazio do GRAFCET: principal a largura toda, dois
+   botões lado a lado, atalho largo com traço. */
+.dc-cmd-empty-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .dc-cmd-empty-actions .dc-btn {
   display: inline-flex;
   align-items: center;
@@ -80,22 +82,13 @@
   line-height: 1.2;
 }
 .dc-cmd-empty-actions .dc-btn > svg { margin: 0; }
+.dc-cmd-empty-main,
+.dc-cmd-empty-wide { grid-column: 1 / -1; }
 .dc-cmd-empty-main { min-height: 46px; font-size: 14px; }
 .dc-cmd-empty-wide {
   border-style: dashed;
   background: transparent;
   color: #41618e;
-}
-.dc-cmd-empty-examples {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.dc-cmd-empty-examples .dc-btn {
-  min-height: 40px;
-  font-size: 12.5px;
-  white-space: normal;
-  line-height: 1.25;
 }
 @media (max-width: 520px) {
   .dc-cmd-empty { top: 44%; padding: 22px 14px 16px; width: min(420px, calc(100% - 24px)); }

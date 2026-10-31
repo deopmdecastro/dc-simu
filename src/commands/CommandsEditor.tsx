@@ -11,7 +11,7 @@ import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { uiConfirm } from '../ui/dialogs'
 import { editorGridBackground } from '../ui/editorTheme'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
-import { IconCommands, IconPlus } from '../ui/icons'
+import { IconCommands, IconExample, IconImport, IconPlus, IconTemplates } from '../ui/icons'
 import {
   CMD_GRID, CMD_PARTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
   type CmdEnd, type CmdKind, type CmdPart, type CmdWire, type CommandsDiagram, type Pt,
@@ -587,25 +587,21 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
               <strong>{pages.length > 1 ? 'Ainda não há símbolos nesta página' : 'Ainda não há símbolos'}</strong>
               <p>{pages.length > 1
                 ? 'Coloque símbolos nesta página ou use «Ligação entre páginas» para trazer corrente de outra folha.'
-                : 'Escolha símbolos na Biblioteca ou parta de um exemplo (arranque direto, estrela-triângulo).'}</p>
+                : 'Escolha símbolos na Biblioteca ou parta de um exemplo, de um modelo ou de um ficheiro.'}</p>
               <div className="dc-cmd-empty-actions">
                 {!demo && (
                   <button type="button" className="dc-btn dc-btn-primary dc-cmd-empty-main" onClick={() => loadExample()}>
-                    <IconPlus size={14} />Ver todos os exemplos
+                    <IconTemplates size={14} />Ver todos os exemplos
                   </button>
                 )}
                 {!demo && (
-                  <div className="dc-cmd-empty-examples">
-                    {COMMANDS_EXAMPLES.filter((ex) => ex.level === 1 || ex.id === 'star-delta' || ex.id === 'reversing').slice(0, 4).map((ex) => (
-                      <button key={ex.id} type="button" className="dc-btn" title={ex.detail} onClick={() => applyExample(ex.id)}>
-                        {ex.title}
-                      </button>
-                    ))}
-                  </div>
+                  <button type="button" className="dc-btn" title="Arranque direto com retenção" onClick={() => applyExample('direct')}>
+                    <IconExample size={14} />Arranque direto
+                  </button>
                 )}
                 {!demo && (
                   <button type="button" className="dc-btn" onClick={() => setImportOpen(true)}>
-                    Importar FluidSIM / CADe SIMU
+                    <IconImport size={14} />Importar FluidSIM
                   </button>
                 )}
                 <button
@@ -617,7 +613,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                     if (lib instanceof HTMLElement) lib.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
                   }}
                 >
-                  Escolher símbolos na Biblioteca
+                  <IconPlus size={14} />Escolher símbolos na Biblioteca
                 </button>
               </div>
             </div>

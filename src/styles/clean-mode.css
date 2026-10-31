@@ -266,11 +266,12 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 
 /* Modelos prontos */
 .gtpl-backdrop { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: #0f172a66; backdrop-filter: blur(2px); }
-.gtpl-dialog { display: flex; flex-direction: column; width: min(680px, 100%); max-height: min(86dvh, 760px); border-radius: 16px; background: #fff; box-shadow: 0 24px 60px #0f172a40; overflow: hidden; outline: 0; }
-.gtpl-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 10px; }
-.gtpl-head strong { display: block; font-size: 16px; color: #1e293b; }
-.gtpl-head small { color: #64748b; font-size: 12px; }
-.gtpl-close { width: 40px; height: 40px; border: 1px solid #dce4ef; border-radius: 10px; background: #f8fafc; color: #475569; font-size: 15px; }
+.gtpl-dialog { display: flex; flex-direction: column; width: min(680px, 100%); max-height: min(86dvh, 760px); border-radius: 16px; background: #fff; box-shadow: 0 24px 60px #0f172a40; overflow: hidden; outline: 0; text-align: left; }
+.gtpl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px 10px; }
+.gtpl-head > div { min-width: 0; flex: 1; text-align: left; }
+.gtpl-head strong { display: block; font-size: 16px; color: #1e293b; line-height: 1.3; }
+.gtpl-head small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; line-height: 1.35; }
+.gtpl-close { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #dce4ef; border-radius: 10px; background: #f8fafc; color: #475569; font-size: 15px; line-height: 1; }
 .gtpl-tools { display: grid; gap: 8px; padding: 0 18px 10px; border-bottom: 1px solid #e5eaf3; }
 .gtpl-search { width: 100%; min-height: 40px; font-size: 16px; }
 .gtpl-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -278,18 +279,18 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 .gtpl-chips button { flex: none; min-height: 34px; padding: 0 12px; border: 1px solid #dce4ef; border-radius: 999px; background: #fff; color: #475569; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .gtpl-chips button.is-active { background: #2455d8; border-color: #2455d8; color: #fff; }
 .gtpl-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 18px calc(16px + env(safe-area-inset-bottom, 0px)); }
-.gtpl-group h3 { display: flex; flex-direction: column; gap: 1px; margin: 16px 0 8px; font-size: 13px; color: #25344c; }
+.gtpl-group h3 { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin: 16px 0 8px; font-size: 13px; color: #25344c; text-align: left; }
 .gtpl-group h3 small { font-weight: 400; font-size: 11.5px; color: #64748b; }
-.gtpl-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
-.gtpl-card-main { min-width: 0; }
-.gtpl-card-main strong { font-size: 13.5px; color: #0f172a; }
+.gtpl-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; text-align: left; }
+.gtpl-card-main { min-width: 0; flex: 1; text-align: left; }
+.gtpl-card-main strong { display: block; font-size: 13.5px; color: #0f172a; line-height: 1.3; }
 .gtpl-card-main p { margin: 3px 0 8px; font-size: 12px; line-height: 1.4; color: #64748b; }
 .gtpl-meta { display: flex; flex-wrap: wrap; gap: 5px; }
 .gtpl-meta span { padding: 2px 8px; border-radius: 999px; background: #e8eef9; color: #3b4a63; font-size: 10.5px; font-weight: 600; }
 .gtpl-meta .gtpl-level.is-1 { background: #dcfce7; color: #166534; }
 .gtpl-meta .gtpl-level.is-2 { background: #fef3c7; color: #92400e; }
 .gtpl-meta .gtpl-level.is-3 { background: #fee2e2; color: #991b1b; }
-.gtpl-load { flex: none; min-height: 40px; }
+.gtpl-load { flex: none; align-self: center; min-height: 40px; min-width: 96px; }
 .gtpl-confirm { flex: none; display: grid; gap: 6px; justify-items: end; }
 .gtpl-confirm small { color: #92400e; font-size: 11px; font-weight: 600; }
 .gtpl-confirm > div { display: flex; gap: 6px; }
@@ -298,8 +299,11 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 @media (max-width: 640px) {
   .gtpl-backdrop { align-items: flex-end; padding: 0; }
   .gtpl-dialog { width: 100%; max-height: 90dvh; border-radius: 18px 18px 0 0; }
-  .gtpl-card { flex-direction: column; align-items: stretch; }
-  .gtpl-load, .gtpl-confirm { width: 100%; }
+  .gtpl-head { padding: 14px 16px 8px; }
+  .gtpl-tools { padding: 0 16px 10px; }
+  .gtpl-body { padding: 4px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .gtpl-card { flex-direction: column; align-items: stretch; gap: 10px; }
+  .gtpl-load, .gtpl-confirm { width: 100%; align-self: stretch; }
   .gtpl-confirm { justify-items: stretch; }
   .gtpl-confirm > div { justify-content: flex-end; }
 }
