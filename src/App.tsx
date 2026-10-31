@@ -51,6 +51,10 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const viewsAll = allowedViews(projectKind, hasLadderProgram)
   // Demonstração: apenas as vistas de projeto (o Monitor de diagnóstico fica para o editor completo).
   const views = demo ? viewsAll.filter((v) => v !== 'monitor') : viewsAll
+  const splitEnabled = useSplitView((s) => s.enabled)
+  const splitLeft = useSplitView((s) => s.left)
+  const splitRight = useSplitView((s) => s.right)
+  const splitOrientation = useSplitView((s) => s.orientation)
   const [mode, setModeRaw] = useState<ViewMode>(() => {
     const kind = useSimStore.getState().projectKind
     const hasLadder = hasGeneratedLadder()
