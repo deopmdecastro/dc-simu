@@ -20,6 +20,8 @@ import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } fro
 import { useLadderUi } from '../ladder/ladderBus'
 import LadderVariablesMenu from '../ladder/LadderVariablesMenu'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
+import { useCommandsUi, type CmdTool } from '../commands/commandsUi'
+import { stepCommands } from '../commands/engine'
 import { validateGrafcet } from '../grafcet/engine'
 import { ladderSyncStatus } from '../grafcet/ladderSync'
 import ComponentTableDialog from './ComponentTableDialog'
@@ -30,7 +32,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconUnlock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconRotate, IconMore, IconText, IconNote,
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconDelete, IconRotate, IconMore, IconText, IconNote,
 } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
@@ -63,6 +65,13 @@ const VIEWS: Array<{ id: ViewMode; label: string; icon: typeof IconSchematic; ke
   { id: 'grafcet', label: 'GRAFCET', icon: IconGrafcet, key: 'F5' },
   { id: 'commands', label: 'Comandos', icon: IconCommands, key: 'F6' },
   { id: 'monitor', label: 'Monitor', icon: IconMonitor, key: 'F4' },
+]
+
+const COMMAND_TOOLS: Array<{ id: CmdTool; label: string; icon: typeof IconCursor; hint: string; key: string }> = [
+  { id: 'select', label: 'Selecionar', icon: IconCursor, hint: 'Selecionar e arrastar símbolos; puxar um cabo a partir de um borne', key: '1' },
+  { id: 'wire', label: 'Cabo', icon: IconWire, hint: 'Ligar bornes: arraste ou clique num borne e depois no destino (um cabo cria um nó)', key: '2' },
+  { id: 'erase', label: 'Apagar', icon: IconErase, hint: 'Apagar o símbolo ou o cabo clicado', key: '4' },
+  { id: 'pan', label: 'Mover vista', icon: IconPan, hint: 'Mover a vista (ou botão do meio / arrastar o fundo)', key: '5' },
 ]
 
 const GRAFCET_TOOLS: Array<{ id: 'select' | 'pan' | 'connect'; label: string; icon: typeof IconCursor; key: string; title: string }> = [
@@ -142,14 +151,24 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
   const [monitorHelp, setMonitorHelp] = useState(false)
   const ladderSimPanelOn = useSimUi((s) => s.ladder)
-  const simPanelOn = mode === 'schematic' ? schematicSimPanelOn : mode === 'ladder' && ladderSimPanelOn
+  const simPanelOn = mode === 'schematic' || mode === 'commands' ? schematicSimPanelOn : mode === 'ladder' && ladderSimPanelOn
   const compileState = useLadderUi((s) => s.compileState)
   const compileLabel = useLadderUi((s) => s.compileLabel)
   const [componentTableOpen, setComponentTableOpen] = useState(false)
   const [pdfOpen, setPdfOpen] = useState(false)
   // Subscrições granulares: sem isto a barra toda re-renderizava a cada varredura
   // da simulação (10 Hz) porque o destructure subscrevia a store inteira.
-  const simRunState = useSimStore((s) => s.sim.runState)
+  const plcRunState = useSimStore((s) => s.sim.runState)
+  // Vista Comandos: o transporte (Run/Pausa/Stop) comanda a simulação do esquema de comandos.
+  const isCmd = mode === 'commands'
+  const cmdRunning = useCommandsUi((s) => s.rt.running)
+  const cmdPaused = useCommandsUi((s) => s.paused)
+  const cmdTool = useCommandsUi((s) => s.tool)
+  const cmdGrid = useCommandsUi((s) => s.gridOn)
+  const cmdZoom = useCommandsUi((s) => s.zoom)
+  const cmdSelection = useCommandsUi((s) => s.selection)
+  const cmdHasParts = useSimStore((s) => (s.commands?.parts.length ?? 0) > 0)
+  const simRunState = isCmd ? (cmdRunning ? (cmdPaused ? 'paused' : 'running') : 'stopped') : plcRunState
   const simMode = useSimStore((s) => s.sim.mode)
   const simSpeed = useSimStore((s) => s.sim.speed)
   const simBlackBox = useSimStore((s) => s.sim.blackBox)
@@ -166,8 +185,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const wireDefaults = useSimStore((s) => s.wireDefaults)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const {
-    play, pause, stop, reset, setSpeed, setSimMode,
-    step, saveJSON, loadJSON, setTool, setGrid, setZoom,
+    play: plcPlay, pause: plcPause, stop: plcStop, reset: plcReset, setSpeed, setSimMode,
+    step: plcStep, saveJSON, loadJSON, setTool, setGrid, setZoom,
     undo, redo, organizeWires,
     alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName,
     setWireDefaults, setGridDragEnabled,
@@ -178,6 +197,12 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     alignSelection: s.alignSelection, distributeSelection: s.distributeSelection, autoNumberWires: s.autoNumberWires, setCurrentProjectName: s.setCurrentProjectName,
     setWireDefaults: s.setWireDefaults, setGridDragEnabled: s.setGridDragEnabled,
   })))
+  const cmdUi = useCommandsUi.getState()
+  const play = isCmd ? cmdUi.start : plcPlay
+  const pause = isCmd ? cmdUi.pause : plcPause
+  const stop = isCmd ? cmdUi.stop : plcStop
+  const step = isCmd ? () => { if (!cmdUi.rt.running) { cmdUi.start(); useCommandsUi.getState().pause() } else useCommandsUi.setState({ rt: stepCommands(useSimStore.getState().commands, useCommandsUi.getState().rt, 100) }) } : plcStep
+  const reset = isCmd ? () => { cmdUi.stop(); useCommandsUi.getState().start() } : plcReset
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)
   const viewLocked = useSimStore((state) => state.viewLocked)
@@ -330,6 +355,12 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         canOut: ladderZoom > LADDER_ZOOM_MIN,
         canIn: ladderZoom < LADDER_ZOOM_MAX,
       },
+    } : mode === 'commands' ? {
+      grid: { on: cmdGrid, toggle: () => useCommandsUi.getState().toggleGrid(), title: 'Mostrar/ocultar a malha (o encaixe é sempre de 20 px)' },
+      zoom: {
+        percent: Math.round(cmdZoom * 100), onOut: () => useCommandsUi.getState().emit('zoomOut'), onIn: () => useCommandsUi.getState().emit('zoomIn'), onReset: () => useCommandsUi.getState().emit('zoomReset'),
+        onFit: () => useCommandsUi.getState().emit('fit'), fitTitle: 'Enquadrar o esquema (Ctrl+0 / duplo clique no fundo)',
+      },
     } : mode === 'grafcet' ? {
       grid: { on: grafcetGrid, toggle: () => useGrafcetUi.getState().toggleGrid(), title: 'Mostrar/ocultar a grelha' },
       snap: { on: grafcetSnap, toggle: () => useGrafcetUi.getState().toggleSnap(), title: 'Encaixar à grelha ao arrastar (Alt = livre)' },
@@ -345,7 +376,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
   // As ações que não cabem passam para menus com nome e atalho. O transporte
   // e a abertura das E/S continuam sempre visíveis, sem deslocar a barra.
-  const panelSections: ToolMenuSection[] = mode === 'schematic' ? [{ title: 'Painéis do projeto', items: [
+  const panelSections: ToolMenuSection[] = mode === 'schematic' || mode === 'commands' ? [{ title: 'Painéis do projeto', items: [
     { id: 'library', label: 'Biblioteca', icon: <IconCube size={15} />, onSelect: () => onOpenLibrary?.() },
     { id: 'grafcet', label: 'Visualizar GRAFCET', icon: <IconGrafcet size={15} />, onSelect: () => onOpenGrafcet?.() },
     { id: 'objects', label: 'Objetos do projeto', icon: <IconLayers size={15} />, onSelect: () => onOpenObjects?.() },
@@ -354,7 +385,12 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'signals', label: 'Tabela de variáveis', icon: <IconTag size={15} />, onSelect: () => useGrafcetUi.getState().emit('openSignals') },
     { id: 'diagnostics', label: 'Diagnóstico', icon: <IconShield size={15} />, onSelect: () => useGrafcetUi.getState().emit('openDiagnostics') },
   ] }]
-  const toolSections: ToolMenuSection[] = mode === 'schematic' ? [{ title: 'Ferramentas do esquema', items: TOOLS.map(({ id, label, icon: Icon, hint, key }) => ({ id, label, hint, icon: <Icon size={15} />, kbd: key, pressed: tool === id, onSelect: () => setTool(id) })) }, {
+  const toolSections: ToolMenuSection[] = mode === 'commands' ? [{ title: 'Ferramentas de comandos', items: COMMAND_TOOLS.map(({ id, label, icon: Icon, hint, key }) => ({ id, label, hint, icon: <Icon size={15} />, kbd: key, pressed: cmdTool === id, onSelect: () => useCommandsUi.getState().setTool(id) })) }, { title: 'Esquema', items: [
+    { id: 'cmd-rotate', label: 'Rodar 90°', icon: <IconRotate size={15} />, kbd: 'R', disabled: cmdSelection?.type !== 'part' || cmdRunning, disabledReason: 'Selecione um símbolo', onSelect: () => useCommandsUi.getState().emit('rotate') },
+    { id: 'cmd-delete', label: 'Apagar seleção', icon: <IconDelete size={15} />, kbd: 'Del', disabled: !cmdSelection || cmdRunning, disabledReason: 'Selecione um símbolo ou cabo', onSelect: () => useCommandsUi.getState().emit('delete') },
+    { id: 'cmd-examples', label: 'Exemplos', icon: <IconTemplates size={15} />, disabled: cmdRunning, onSelect: () => useCommandsUi.getState().emit('examples') },
+    { id: 'cmd-clear', label: 'Limpar esquema', icon: <IconErase size={15} />, disabled: !cmdHasParts || cmdRunning, onSelect: () => useCommandsUi.getState().emit('clear') },
+  ] }] : mode === 'schematic' ? [{ title: 'Ferramentas do esquema', items: TOOLS.map(({ id, label, icon: Icon, hint, key }) => ({ id, label, hint, icon: <Icon size={15} />, kbd: key, pressed: tool === id, onSelect: () => setTool(id) })) }, {
     title: 'Disposição', items: [
       ...ALIGN_BUTTONS.map(({ edge, icon: Icon, hint }) => ({ id: edge, label: hint, icon: <Icon size={15} />, disabled: sel < 2, disabledReason: 'Selecione pelo menos dois componentes', onSelect: () => alignSelection(edge) })),
       { id: 'distribute-h', label: 'Distribuir na horizontal', disabled: sel < 3, disabledReason: 'Selecione pelo menos três componentes', onSelect: () => distributeSelection('horizontal') },
@@ -518,19 +554,19 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <Select
             value={simMode}
             onChange={(e) => setSimMode(e.target.value as any)}
-            className="dc-runtime-setting dc-select !w-auto hidden lg:block"
+            className={`dc-runtime-setting dc-select !w-auto hidden lg:block ${isCmd ? "!hidden" : ""}`}
             title="Modo de execução: tempo real = 100 ms por ciclo; turbo = ciclos acelerados; passo a passo = um ciclo por clique"
           >
             <option value="realtime">Tempo real</option>
             <option value="turbo">Turbo</option>
             <option value="step">Passo a passo</option>
           </Select>
-          <Select value={simSpeed} onChange={(e) => setSpeed(Number(e.target.value))} className="dc-runtime-setting dc-select !w-[62px]" title="Velocidade da simulação">
+          <Select value={simSpeed} onChange={(e) => setSpeed(Number(e.target.value))} className={`dc-runtime-setting dc-select !w-[62px] ${isCmd ? "!hidden" : ""}`} title="Velocidade da simulação">
             {[0.25, 0.5, 1, 2, 4, 10].map((v) => (
               <option key={v} value={v}>{v}×</option>
             ))}
           </Select>
-          <span className="tb-sep dc-runtime-sep" />
+          {!isCmd && <span className="tb-sep dc-runtime-sep" />}
           <span
             className={`dc-run-badge inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
             onPointerEnter={(e) => { e.currentTarget.title = `Estado do simulador: ${runBadge.text} · scan #${useSimStore.getState().sim.scanCount}` }}
@@ -556,8 +592,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
       {/* ============================ linha 2 — contextual à vista ativa (oculta na demonstração) */}
       {!demo && compactBar && <div ref={row2BarRef} className="dc-toolbar-row2 dc-toolbar-compact" aria-label="Ferramentas do projeto">
-        {mode !== 'monitor' && <SimToggleButton on={mode === 'grafcet' ? grafcetSimVisible : simPanelOn} scope={mode}
-          onClick={() => mode === 'grafcet' ? useGrafcetUi.getState().toggleSim() : mode === 'schematic' ? onToggleSchematicSim?.() : useSimUi.getState().toggleSimPanel('ladder')}
+        {mode !== 'monitor' && <SimToggleButton on={mode === 'grafcet' ? grafcetSimVisible : simPanelOn} scope={mode === 'commands' ? 'schematic' : mode}
+          onClick={() => mode === 'grafcet' ? useGrafcetUi.getState().toggleSim() : mode === 'schematic' || mode === 'commands' ? onToggleSchematicSim?.() : useSimUi.getState().toggleSimPanel('ladder')}
           title="Abrir controlos de simulação e entradas/saídas" />}
         <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
         {toolSections.length > 0 && <ToolMenu label="Ferramentas" icon={<IconTools size={15} />} sections={toolSections} className="dc-compact-menu" />}
@@ -571,7 +607,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {/* Telemóvel: os painéis de ecrã inteiro vêm a seguir ao histórico — antes
             ficavam no fim de uma faixa que desliza e eram os primeiros a ficar fora
             de vista, apesar de serem as ações mais usadas no esquema. */}
-                  {mode === 'schematic' && !demo && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
+                  {(mode === 'schematic' || mode === 'commands') && !demo && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
             <button className="dc-tool-btn" onClick={onOpenLibrary} title="Abrir biblioteca em ecrã inteiro"><IconCube size={14} /><span>Biblioteca</span></button>
             <button className="dc-tool-btn" onClick={onOpenGrafcet} title="Abrir GRAFCET em ecrã inteiro"><IconGrafcet size={14} /><span>GRAFCET</span></button>
             <button className="dc-tool-btn" onClick={onOpenObjects} title="Ver os objetos do projeto"><IconLayers size={14} /><span>Objetos</span></button>
@@ -579,6 +615,33 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
 
         {/* «Simulação» igual ao do GRAFCET: mostra/esconde o painel de simulação da vista */}
+        {mode === 'commands' && !demo && (
+          <>
+            <span className="tb-sep" />
+            <SimToggleButton on={simPanelOn} scope="schematic" onClick={() => onToggleSchematicSim?.()}
+              title={simPanelOn ? 'Recolher as entradas e saídas' : 'Abrir as entradas e saídas dos comandos no painel do projeto; Run inicia a simulação'} />
+            <span className="tb-sep" />
+            <div className="dc-seg" role="toolbar" aria-label="Ferramentas de comandos">
+              {COMMAND_TOOLS.map((t) => {
+                const Icon = t.icon
+                return (
+                  <button key={t.id} type="button" onClick={() => useCommandsUi.getState().setTool(t.id)} className={segBtn(cmdTool === t.id)} aria-pressed={cmdTool === t.id} title={`${t.hint} [${t.key}]`} disabled={cmdRunning && t.id !== 'pan' && t.id !== 'select'}>
+                    <Icon size={13} />
+                    <span className="hidden lg:inline">{t.label}</span>
+                    <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${cmdTool === t.id ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>{t.key}</kbd>
+                  </button>
+                )
+              })}
+            </div>
+            <span className="tb-sep" />
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdSelection?.type !== 'part' || cmdRunning} onClick={() => useCommandsUi.getState().emit('rotate')} title="Rodar o símbolo selecionado 90° [R]"><IconRotate size={13} /><span className="hidden lg:inline">Rodar</span></button>
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdSelection || cmdRunning} onClick={() => useCommandsUi.getState().emit('delete')} title="Apagar o símbolo ou cabo selecionado [Del]"><IconDelete size={13} /><span className="hidden lg:inline">Apagar</span></button>
+            <span className="tb-sep" />
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo (arranque direto, estrela-triângulo)"><IconTemplates size={13} /><span>Exemplos</span></button>
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span className="hidden xl:inline">Limpar</span></button>
+          </>
+        )}
+
         {(mode === 'schematic' || mode === 'ladder') && !demo && (
           <>
             <span className="tb-sep" />
@@ -979,7 +1042,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           )}
 
           {/* atalhos de teclado do simulador ativo (o GRAFCET tem o seu junto à validação) */}
-          {mode !== 'grafcet' && !demo && (
+          {mode !== 'grafcet' && mode !== 'commands' && !demo && (
             <ShortcutsButton scope={mode} onClick={() => (mode === 'monitor' ? setMonitorHelp(true) : requestShortcuts(mode))}
               title={`Atalhos de teclado — ${mode === 'schematic' ? 'Esquema 2D/3D' : mode === 'ladder' ? 'Ladder' : 'Monitor'} (?)`} />
           )}

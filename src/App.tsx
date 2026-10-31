@@ -18,6 +18,9 @@ const SchematicView = lazy(() => import('./schematic/SchematicView'))
 const LadderEditor = lazy(() => import('./ladder/LadderEditor'))
 const GrafcetEditor = lazy(() => import('./grafcet/GrafcetEditor'))
 const CommandsEditor = lazy(() => import('./commands/CommandsEditor'))
+const CommandsSidebar = lazy(() => import('./commands/CommandsSidebar'))
+const CommandsIoPanel = lazy(() => import('./commands/CommandsPanels').then((m) => ({ default: m.CommandsIoPanel })))
+const CommandsObjects = lazy(() => import('./commands/CommandsPanels').then((m) => ({ default: m.CommandsObjects })))
 const MonitorPanel = lazy(() => import('./components/MonitorPanel'))
 import PlanLocked from './saas/PlanLocked'
 import { useCan } from './saas/usePlan'
@@ -25,6 +28,7 @@ import { useSimStore } from './store/useSimStore'
 import { allowedViews, coerceView, defaultView } from './project/kind'
 import { hasGeneratedLadder } from './grafcet/ladderSync'
 import { useSimUi } from './ui/simUi'
+import { useCommandsUi } from './commands/commandsUi'
 
 /** Cabeçalho das folhas em ecrã inteiro (só aparece em telemóveis): título + botão «Fechar» bem visível. */
 function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClose: () => void; side?: 'left' | 'right' }) {
@@ -102,7 +106,12 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   useEffect(() => { useSimUi.getState().setSimPanel('schematic', schematicSimPanelOn) }, [schematicSimPanelOn])
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const scanCount = useSimStore((s) => s.sim.scanCount)
-  const runState = useSimStore((s) => s.sim.runState)
+  const plcRunState = useSimStore((s) => s.sim.runState)
+  // Na vista Comandos a barra de estado mostra a simulação do esquema de comandos.
+  const cmdRunning = useCommandsUi((s) => s.rt.running)
+  const cmdPaused = useCommandsUi((s) => s.paused)
+  const cmdFault = useCommandsUi((s) => !!s.rt.fault)
+  const runState = mode === 'commands' ? (cmdRunning ? (cmdPaused ? 'paused' : 'running') : 'stopped') : plcRunState
   const faults = useSimStore((s) => s.sim.faults)
   const currentProjectName = useSimStore((s) => s.currentProjectName)
   const dirty = useSimStore((s) => s.dirty)
@@ -186,7 +195,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
 
   const errors = diagnostics.filter((d) => d.level === 'error').length
   const warnings = diagnostics.filter((d) => d.level === 'warning').length
-  const hasErrorState = errors > 0 || Object.values(faults ?? {}).some(Boolean)
+  const hasErrorState = mode === 'commands' ? cmdFault : errors > 0 || Object.values(faults ?? {}).some(Boolean)
 
   // estados do PLC — STOP → READY → RUN → PAUSE → ERROR
   const state = hasErrorState
@@ -209,7 +218,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         onOpenGrafcet={() => { if (compact) setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
         onOpenObjects={() => { if (compact) setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
-        {mode === 'schematic' && !demo && (showLibrary || showLadder) && (
+        {(mode === 'schematic' || mode === 'commands') && !demo && (showLibrary || showLadder) && (
           <button
             type="button"
             className="dc-mobile-backdrop"
@@ -217,10 +226,12 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             onClick={() => { setShowLibrary(false); setShowLadder(false) }}
           />
         )}
-        {mode === 'schematic' && showLibrary && !demo && (
+        {(mode === 'schematic' || mode === 'commands') && showLibrary && !demo && (
           <>
             <div className="mobile-library-panel relative shrink-0 flex flex-col" style={compact ? undefined : { width: panelSizes.sidebar }}>
-              <Sidebar width={compact ? '100%' : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />
+              {mode === 'commands'
+                ? <Suspense fallback={<RouteLoading label="A carregar a biblioteca…" />}><CommandsSidebar width={compact ? '100%' : panelSizes.sidebar} onCollapse={() => setShowLibrary(false)} /></Suspense>
+                : <Sidebar width={compact ? '100%' : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />}
             </div>
             <div
               className="dc-resize-handle"
@@ -233,7 +244,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             />
           </>
         )}
-        {mode === 'schematic' && !showLibrary && !demo && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { if (compact) setShowLadder(false); setShowLibrary(true) }} />}
+        {(mode === 'schematic' || mode === 'commands') && !showLibrary && !demo && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { if (compact) setShowLadder(false); setShowLibrary(true) }} />}
         <div className="flex-1 min-w-0 flex flex-col relative">
           <Suspense fallback={<RouteLoading label="A carregar a vista…" />}>
             {mode === 'schematic' && <SchematicView libraryCollapsed={demo || !showLibrary} />}
@@ -246,7 +257,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           </Suspense>
         </div>
         {mode === 'schematic' && !demo && <ComponentEditorDock />}
-        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && mode !== 'commands' && !(mode === 'schematic' && editingComponent) && (
+        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
             className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
@@ -260,7 +271,11 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
                   <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}><IconLayers size={13} /><span>Objetos</span></button>
                 </div>
                 <Suspense fallback={<RouteLoading label="A carregar o GRAFCET…" />}>
-                  {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : rightTab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
+                  {rightTab === 'grafcet'
+                    ? <GrafcetEditor onOpenEditor={views.includes('grafcet') ? () => setMode('grafcet') : undefined} />
+                    : mode === 'commands'
+                      ? rightTab === 'signals' ? <CommandsIoPanel /> : <CommandsObjects />
+                      : rightTab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
                 </Suspense>
               </>
             ) : (
@@ -268,7 +283,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             )}
           </div>
         )}
-        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && mode !== 'commands' && !(mode === 'schematic' && editingComponent) && showLadder && (
+        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
           <div
             className="dc-resize-handle dc-resize-handle-left"
             onPointerDown={(e) => {

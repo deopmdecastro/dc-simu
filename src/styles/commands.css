@@ -43,7 +43,7 @@
 .dc-cmd-empty span { font-size: 12.5px; line-height: 1.5; }
 .dc-cmd-fault { position: absolute; left: 50%; top: 14px; display: grid; gap: 2px; max-width: 520px; padding: 10px 14px; transform: translateX(-50%); border: 1px solid #fecaca; border-radius: 10px; background: #fff1f2; box-shadow: 0 6px 18px rgba(15, 23, 42, .12); color: #991b1b; font-size: 12.5px; }
 .dc-cmd-toast { position: absolute; left: 50%; bottom: 16px; padding: 7px 12px; transform: translateX(-50%); border-radius: 8px; background: #0f172a; color: #fff; font-size: 12px; pointer-events: none; }
-.dc-cmd-hint { position: absolute; left: 12px; top: 10px; padding: 5px 10px; border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #166534; font-size: 11.5px; pointer-events: none; }
+.dc-cmd-hint { position: absolute; right: 18px; bottom: 18px; padding: 5px 10px; border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #166534; font-size: 11.5px; pointer-events: none; }
 
 /* Painéis laterais */
 .dc-cmd-palette, .dc-cmd-panel { display: flex; flex: none; flex-direction: column; width: 248px; min-height: 0; border-right: 1px solid #e2e8f0; background: #fff; }
@@ -83,3 +83,35 @@
   .dc-cmd-palette { width: 200px; }
   .dc-cmd-panel { position: absolute; right: 0; top: 42px; bottom: 0; z-index: 5; box-shadow: -8px 0 20px rgba(15, 23, 42, .1); }
 }
+
+/* ===== Mesmo enquadramento do Esquema: biblioteca/inspetor à esquerda, GRAFCET/E/S/Objetos à direita ===== */
+.dc-cmd-sidebar .dc-cmd-palette-body { padding-top: 4px; }
+.dc-cmd-sidebar h3 { margin: 10px 0 6px; color: #64748b; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.dc-cmd-sidebar fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.dc-cmd-canvas.is-tool-pan { cursor: grab; }
+.dc-cmd-canvas.is-tool-wire { cursor: crosshair; }
+.dc-cmd-canvas.is-tool-erase, .dc-cmd-canvas.is-tool-erase .dc-cmd-symbol { cursor: not-allowed; }
+.dc-cmd-canvas.is-tool-erase .dc-cmd-symbol:hover > g { stroke: #dc2626; }
+.dc-cmd-canvas.is-tool-pan .dc-cmd-symbol { cursor: grab; }
+
+.dc-cmd-dock { display: grid; align-content: start; gap: 12px; flex: 1; min-height: 0; padding: 10px 12px 16px; overflow-y: auto; font-size: 12.5px; color: #334155; }
+.dc-cmd-dock h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; color: #64748b; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.dc-cmd-dock h3 em { padding: 0 6px; border-radius: 999px; background: #e8edf5; color: #475569; font-size: 9.5px; font-style: normal; }
+.dc-cmd-dock p { margin: 0; }
+.dc-cmd-simbar { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 9px; background: #f8fafc; }
+.dc-cmd-simbar .dc-tool-btn { gap: 5px; }
+.dc-cmd-state { padding: 2px 8px; border-radius: 5px; color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; font-weight: 750; letter-spacing: .08em; }
+.dc-cmd-state.is-run { background: #16a34a; }
+.dc-cmd-state.is-pause { background: #d97706; }
+.dc-cmd-state.is-stop { background: #64748b; }
+.dc-cmd-simbar .dc-cmd-time { margin: 0 0 0 auto; color: #475569; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.dc-cmd-dock-fault { padding: 8px 10px; border: 1px solid #fecaca; border-radius: 8px; background: #fff1f2; color: #991b1b; font-size: 12px; }
+.dc-cmd-kind { color: #64748b; font-size: 10.5px; }
+.dc-cmd-device .dc-btn:disabled { opacity: .5; }
+.dc-cmd-objects { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.dc-cmd-objects li { display: grid; grid-template-columns: 36px 1fr; align-items: start; gap: 6px; }
+.dc-cmd-objects li > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.dc-cmd-objects b { padding-top: 3px; color: #0f172a; font-size: 12px; }
+.dc-cmd-object { padding: 3px 7px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #334155; font-size: 11px; cursor: pointer; }
+.dc-cmd-object:hover { border-color: #93c5fd; background: #f8fbff; }
+.dc-cmd-object.is-on { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
