@@ -6,7 +6,7 @@ import { GLOW_SPECS, glowFrame, glowTexture, stepGlow, type GlowKind } from './g
 interface GlowHaloProps {
   color: string
   on: boolean
-  /** Raio da lente em unidades do painel; o halo é proporcional. */
+  /** Raio da lente em unidades do painel; o halo é proporcional. Com `kind="lens"`, `position` é o CENTRO da lente (luz por dentro). */
   radius: number
   position?: [number, number, number]
   kind?: GlowKind
@@ -50,7 +50,7 @@ export function GlowHalo({ color, on, radius, position = [0, 0, 0], kind = 'lamp
 
   return <group position={position} userData={{ noPick: true, noSnapshot: true }}>
     <sprite ref={sprite} material={material} renderOrder={40} raycast={() => null} visible={on} />
-    {withLight && <pointLight ref={light} color={color} intensity={0} distance={radius * 22} decay={2} position={[0, 0, radius * 1.5]} />}
+    {withLight && <pointLight ref={light} color={color} intensity={0} distance={radius * (kind === 'lens' ? 14 : 22)} decay={2} position={kind === 'lens' ? [0, 0, 0] : [0, 0, radius * 1.5]} />}
   </group>
 }
 

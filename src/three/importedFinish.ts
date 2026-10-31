@@ -295,6 +295,12 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     const saturate = lamp.value > 0.02
     if (lamp.material.toneMapped === saturate) { lamp.material.toneMapped = !saturate; lamp.material.needsUpdate = true }
     lamp.material.color.copy(lamp.base).lerp(lamp.glow, lamp.value * .35)
+    // Lentes da torre: acesas ficam translúcidas e sem escrever profundidade, para a luz de dentro (GlowHalo) se ver através do vidro.
+    if (lamp.role === 'red' || lamp.role === 'yellow' || lamp.role === 'green') {
+      lamp.material.transparent = true
+      lamp.material.opacity = .92 - .14 * lamp.value
+      lamp.material.depthWrite = lamp.value < .02
+    }
     if (lamp.light) lamp.light.intensity = lamp.value * 1.1
   }
   return moving

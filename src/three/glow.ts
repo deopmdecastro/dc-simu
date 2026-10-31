@@ -6,7 +6,7 @@
 
 import * as THREE from 'three'
 
-export type GlowKind = 'led' | 'lamp' | 'tower'
+export type GlowKind = 'led' | 'lamp' | 'tower' | 'lens'
 
 export interface GlowSpec {
   /** Escala base do halo, em múltiplos do raio da lente. */
@@ -23,6 +23,8 @@ export const GLOW_SPECS: Record<GlowKind, GlowSpec> = {
   led: { scale: 5.2, opacity: 0.85, emissive: 2.4, light: 0 },
   lamp: { scale: 4.4, opacity: 0.9, emissive: 2.2, light: 0.9 },
   tower: { scale: 3.6, opacity: 0.85, emissive: 2, light: 0.6 },
+  /** Luz DENTRO da lente: halo contido (≈1,3× o diâmetro) e luz de ponto no centro, a iluminar a própria lente e os vizinhos. */
+  lens: { scale: 2.7, opacity: 0.95, emissive: 2.2, light: 0.35 },
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, Number.isFinite(value) ? value : min))

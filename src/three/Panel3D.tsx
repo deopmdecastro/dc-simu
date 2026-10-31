@@ -208,9 +208,9 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
       </mesh>
       <mesh position={[0.2, 0.34, 0.24]}>
         <sphereGeometry args={[0.05, 16, 16]} />
-        <meshStandardMaterial color={en ? '#22c55e' : '#334155'} emissive={en ? '#22c55e' : '#000000'} emissiveIntensity={en ? 2.2 : 0} toneMapped={!en} />
+        <meshStandardMaterial color={en ? '#22c55e' : '#334155'} emissive={en ? '#22c55e' : '#000000'} emissiveIntensity={en ? 2.2 : 0} toneMapped={!en} transparent opacity={en ? 0.85 : 1} depthWrite={!en} />
       </mesh>
-      <GlowHalo color="#22c55e" on={en} radius={0.05} kind="led" position={[0.2, 0.34, 0.3]} />
+      <GlowHalo color="#22c55e" on={en} radius={0.05} kind="lens" position={[0.2, 0.34, 0.24]} />
       <Label text={c.ref} position={[0, 0.52, 0.23]} />
     </group>
   )
@@ -880,7 +880,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     if (rigged) finish(obj)
     const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, centered ? 'center' : 'bottom')
     void applyCadSurfaceTextures(fitted)
-    // Torre: posição de cada lente já no referencial do modelo ajustado, para ancorar o halo no vidro.
+    // Torre: centro de cada lente já no referencial do modelo ajustado: a luz fica DENTRO da lente.
     const lenses: Array<{ role: 'red' | 'yellow' | 'green'; color: string; center: [number, number, number]; radius: number }> = []
     if (importedType === 'towerLightSb23011') {
       fitted.updateMatrixWorld(true)
@@ -893,7 +893,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
         if (!role) return
         box.setFromObject(mesh)
         box.getSize(size)
-        lenses.push({ role, color: colors[role], center: [(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.max.z], radius: Math.max(size.x, size.z) / 2 })
+        lenses.push({ role, color: colors[role], center: [(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2], radius: Math.max(size.x, size.z) / 2 })
       })
     }
     return { model: fitted, importedRig: rigged, lenses }
@@ -981,8 +981,8 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   })
   return <group position={position ?? [x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
-    {/* Torre: mesmo GlowHalo «lamp» (halo aditivo + luz de ponto) da lâmpada do projeto nativo, encostado ao vidro de cada lente. */}
-    {lenses.map((lens) => <GlowHalo key={lens.role} color={lens.color} on={simActive && !!c.state[lens.role]} radius={lens.radius} kind="lamp" position={lens.center} />)}
+    {/* Torre: halo contido + luz de ponto no centro de cada lente (por dentro), a lente fica translúcida e emissiva quando acesa. */}
+    {lenses.map((lens) => <GlowHalo key={lens.role} color={lens.color} on={simActive && !!c.state[lens.role]} radius={lens.radius} kind="lens" position={lens.center} />)}
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
     {/* Sem luz de ponto «energizado»: montar/desmontar luzes recompilava os shaders de toda a cena a cada
@@ -1277,10 +1277,10 @@ function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
     <group position={[x, RAIL_Y + 1.15, 0.12]}>
       <mesh castShadow>
         <cylinderGeometry args={[0.115, 0.115, 0.14, 24]} />
-        <meshStandardMaterial color={glass ?? (on ? color : '#374151')} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} />
+        <meshStandardMaterial color={glass ?? (on ? color : '#374151')} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} transparent opacity={on ? 0.82 : 1} depthWrite={!on} />
       </mesh>
-      {/* Halo encostado diretamente à superfície frontal do cilindro/lente */}
-      <GlowHalo color={color} on={on} radius={0.115} kind="lamp" position={[0, 0, 0.116]} />
+      {/* Luz por dentro da lente: halo no centro do cilindro, vidro translúcido quando aceso */}
+      <GlowHalo color={color} on={on} radius={0.115} kind="lens" position={[0, 0, 0]} />
       <Label text={c.ref} position={[0, 0.22, 0]} />
     </group>
   )
@@ -1324,6 +1324,8 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
         else standard.color.copy(selected).multiplyScalar(on ? 1 : 0.42)
         standard.emissive.copy(selected)
         standard.emissiveIntensity = on ? 1.8 : 0.05
+        // Aceso: vidro translúcido que deixa ver a luz por dentro (e não tapa o halo no depth buffer).
+        standard.transparent = true; standard.opacity = on ? 0.8 : 1; standard.depthWrite = !on
         const toneMapped = !on
         if (standard.toneMapped !== toneMapped) { standard.toneMapped = toneMapped; standard.needsUpdate = true }
       })
@@ -1332,8 +1334,8 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [color, glass, model, on, invalidateFrame])
   return <group position={[x, RAIL_Y + 1.05, 0.4]}>
     <primitive object={model} />
-    {/* Halo encostado diretamente ao vidro exterior da lente frontal (z = +0,2575 no AD22 centrado) */}
-    <GlowHalo color={color} on={on} radius={0.11} kind="lamp" position={[0, 0, 0.258]} />
+    {/* Luz por dentro da lente frontal: centro da lente (z 42,5…51,5 mm → +0,2125 no AD22 centrado) */}
+    <GlowHalo color={color} on={on} radius={0.11} kind="lens" position={[0, 0, 0.2125]} />
     <Label text={`${c.ref} · AD22`} position={[0, 0.3, 0.08]} color="#334155" />
   </group>
 }
@@ -1360,9 +1362,12 @@ function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
               toneMapped={!on}
               roughness={0.35}
               metalness={0.05}
+              transparent
+              opacity={on ? 0.82 : 1}
+              depthWrite={!on}
             />
           </mesh>
-          <GlowHalo color={col} on={on} radius={0.11} kind="lamp" castLight position={[0, 0, 0.12]} rise={0.05} fall={0.18} />
+          <GlowHalo color={col} on={on} radius={0.11} kind="lens" castLight position={[0, 0, 0]} rise={0.05} fall={0.18} />
         </group>
       ))}
       <Label text={c.ref} position={[0, 0.42, 0]} />

@@ -151,7 +151,7 @@ export class StateAnimator {
     return resolveLightLook(light, this.target.lights[light.id], this.vars)
   }
 
-  /** Halo aditivo («brilho real») encostado à face frontal da lente, com subida/descida suaves e pisca. Devolve true enquanto muda. */
+  /** Halo aditivo («brilho real») no CENTRO da lente (luz por dentro), com subida/descida suaves e pisca. Devolve true enquanto muda. */
   private updateHalos(dt: number): boolean {
     const texture = glowTexture(THREE)
     if (!texture) return false
@@ -196,12 +196,8 @@ export class StateAnimator {
         if (localBox.isEmpty()) continue
         const localSize = localBox.getSize(new THREE.Vector3())
         const lensRadius = Math.max(localSize.x, localSize.y, localSize.z * 0.5) / 2
-        // Encostado diretamente à superfície frontal do vidro da lente (+Z local).
-        const lensFront = new THREE.Vector3(
-          (localBox.min.x + localBox.max.x) / 2,
-          (localBox.min.y + localBox.max.y) / 2,
-          localBox.max.z + lensRadius * 0.03,
-        )
+        // Dentro da lente: centro do volume, para o brilho não aparecer ao lado quando se vê de lado.
+        const lensFront = localBox.getCenter(new THREE.Vector3())
         const material = new THREE.SpriteMaterial({ map: texture, color: light.color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })
         const sprite = new THREE.Sprite(material)
         sprite.position.copy(lensFront)
@@ -216,7 +212,7 @@ export class StateAnimator {
       }
       const status = this.lightStatus(light)
       const settings = glowSettings(light)
-      const spec = GLOW_SPECS[light.kind === 'lamp' ? 'lamp' : 'led']
+      const spec = GLOW_SPECS[light.kind === 'lamp' ? 'lens' : 'led']
       const previous = halo.level
       halo.level = stepGlow(halo.level, status.on && settings.enabled, dt, settings.riseMs / 1000, settings.fallMs / 1000)
       const frame = glowFrame(spec, halo.level, this.clock, status.blink)
@@ -272,6 +268,14 @@ export class StateAnimator {
             delete item.userData.dcGlassBase
           }
           item.toneMapped = !isOn
+          // Lâmpadas/sinaleiros: aceso, o vidro fica translúcido e não escreve profundidade, para a luz de dentro se ver através dele.
+          if (light.kind === 'lamp') {
+            if (item.userData.dcLensBase === undefined) item.userData.dcLensBase = { transparent: item.transparent, opacity: item.opacity, depthWrite: item.depthWrite }
+            const base = item.userData.dcLensBase as { transparent: boolean; opacity: number; depthWrite: boolean }
+            item.transparent = isOn ? true : base.transparent
+            item.opacity = isOn ? Math.min(base.opacity, 0.82) : base.opacity
+            item.depthWrite = isOn ? false : base.depthWrite
+          }
           if (isOn) { item.emissive.set(look.color); item.emissiveIntensity = Math.max(1.6, look.intensity) * pulse }
           else { item.emissive.set(light.nodes?.length ? '#000000' : material?.emissive ?? '#000000'); item.emissiveIntensity = light.nodes?.length ? 0 : material?.emissiveIntensity ?? 0 }
         }

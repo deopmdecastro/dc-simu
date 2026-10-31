@@ -111,7 +111,8 @@ anim.update(0.25)
 const mountedHalo = lampRoot.children.find((ch) => ch.userData[GLOW_HALO_FLAG])
 ok(Boolean(mountedHalo), 'halo montado na raiz do sinalizador sem inflacionar a malha da lente')
 ok(Math.abs(mountedHalo!.position.x) < 1e-4 && Math.abs(mountedHalo!.position.y) < 1e-4, 'halo centrado exatamente no eixo da lente (imune ao pivô do painel)')
-ok(mountedHalo!.position.z >= 25.0 && mountedHalo!.position.z <= 25.8, 'halo encostado à face frontal do vidro da lente (z = 22 + 3 + ~0.33 mm)')
+ok(Math.abs(mountedHalo!.position.z - 22) < 1e-4, 'halo no centro da lente (luz por dentro, z = 22 mm), não na face frontal')
+ok(GLOW_SPECS.lens.scale < GLOW_SPECS.lamp.scale && GLOW_SPECS.lens.scale <= 3, 'halo interno contido (≈ diâmetro da lente), sem espalhar para fora')
 
 
 // --- cores de luzes: vidro (lente) + brilho (luz emitida), paleta do utilizador e biblioteca
