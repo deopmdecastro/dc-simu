@@ -325,3 +325,92 @@
 .dc-cmd-page-chip.is-active > .dc-inline-name { cursor: text; }
 .dc-cmd-page-chip > .dc-inline-name-input { min-width: 90px; margin: 2px; padding: 3px 8px; border: 1px solid var(--dx-brand, #2655e5); border-radius: 6px; outline: none; font: inherit; font-size: 12px; font-weight: 600; color: #1d3fae; box-shadow: 0 0 0 2px rgba(38, 85, 229, .15); }
 .dc-cmd-page-add { display: inline-flex; align-items: center; gap: 5px; }
+
+/* E/S IEC alinhado ao painel 3D (SimulationDock + vio-panel) */
+.dc-cmd-io.schematic-sim-dock.is-embedded {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+.dc-cmd-io .schematic-sim-dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0;
+}
+.dc-cmd-io .vio-panel {
+  padding: 8px 10px 12px;
+  border: 0;
+  background: transparent;
+}
+.dc-cmd-io .vio-cols {
+  display: grid;
+  gap: 14px;
+}
+.dc-cmd-io .vio-head strong em {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e8edf5;
+  color: #475569;
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+.dc-cmd-io .vio-head strong em.is-live {
+  background: #dcfce7;
+  color: #166534;
+}
+.dc-cmd-vio-inputs {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+}
+.dc-cmd-device-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.dc-cmd-device-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px 2px 0;
+}
+.dc-cmd-device-main b {
+  color: #0f172a;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.dc-cmd-device-main small {
+  color: #64748b;
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+.dc-cmd-device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.dc-cmd-device-cell .dc-btn {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.dc-cmd-device-cell.is-active {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+.dc-cmd-io .dc-cmd-dock-fault {
+  margin: 8px 10px 0;
+}
