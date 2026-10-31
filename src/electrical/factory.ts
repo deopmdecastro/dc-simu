@@ -581,19 +581,29 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('PE', 'earth', 0.93, 0.5, { position3D: { x: 0.9, y: 1, z: 0.52 }, terminalType: 'screw', diameter: 11 }),
     ],
     // Valores da ficha CADENAS/3Dfindit recebida com o modelo DRN80MK4-B3.
+    // motorConnection: 'star' | 'delta' — define a ligação dos enrolamentos (estrela ou triângulo).
+    // Em estrela: W2-U2-V2 interligados (tensão de fase = linha/√3). Em triângulo: U1-W2, V1-U2, W1-V2.
     defaultState: {
       running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
       manufacturer: 'SEW-EURODRIVE', model: 'DRN80MK4/B3', mounting: 'B3', frame: 80,
       phases: 3, powerKw: 0.55, cv: 0.75, rpm: 1435, frequencyHz: 50, voltage: '400V', currentA: 1.29,
-      cosPhi: 0.75, torqueNm: 3.65, massKg: 11, motorConnection: 'star',
+      cosPhi: 0.75, torqueNm: 3.65, massKg: 11, motorConnection: 'star', // opção: 'star' | 'delta'
     },
   },
   motor1ph: {
-    category: 'motor', paletteName: 'Motor monofásico', group: 'Motores', tag: 'M', w: 100, h: 120,
+    category: 'motor', paletteName: 'Motor monofásico · azul DC-Simu', group: 'Motores', tag: 'M', w: 120, h: 120,
     terminals: [
-      T('U1', 'power-in', 0.3, 0), T('U2', 'coil-minus', 0.7, 0), T('PE', 'earth', 0.5, 1),
+      T('U1', 'power-in', 0.25, 0, { position3D: { x: 0.28, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
+      T('U2', 'coil-minus', 0.75, 0, { position3D: { x: 0.72, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
+      T('PE', 'earth', 0.5, 1, { position3D: { x: 0.5, y: 1, z: 0.52 }, terminalType: 'screw', diameter: 11 }),
     ],
-    defaultState: { running: false, direction: 'stopped', rpmVisual: 0, tripped: false, cv: 0.5 },
+    // Adaptado do motor3ph SEW; cor azul característica DC-Simu para identificação visual no esquema e 3D.
+    defaultState: {
+      running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
+      manufacturer: 'DC-Simu', model: 'Mono 0,37 kW', mounting: 'B3', frame: 71,
+      phases: 1, powerKw: 0.37, cv: 0.5, rpm: 1400, frequencyHz: 50, voltage: '230V', currentA: 2.5,
+      cosPhi: 0.85, torqueNm: 2.5, massKg: 7, motorConnection: 'single', color: '#2563eb',
+    },
   },
   vfd: {
     category: 'drive', paletteName: 'Inversor de frequência (VFD)', group: 'Acionamentos', tag: 'CFW', w: 150, h: 170,
