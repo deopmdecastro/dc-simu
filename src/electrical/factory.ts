@@ -21,6 +21,7 @@ const FACE_OUTWARD_3D: Record<RealTerminalSpot['face'], [number, number, number]
 import { LEGACY_REAL_TERMINALS } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
+import { terminalAssemblyConductors, TERMINAL_CONDUCTOR_PATTERN } from '../three/terminalAssembly'
 import { nanoid } from 'nanoid'
 import type {
   ElectricalComponent,
@@ -812,6 +813,15 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: {},
   },
+  terminalSet24v: {
+    category: 'terminal', paletteName: 'Conjunto de bornes 24V · 0V/+24V/PE', group: 'Bornes e barras', tag: 'X', w: 135, h: 86,
+    terminals: [
+      T('0V-IN', 'neutral', 1 / 6, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 1 / 6, y: 1, z: 1 } }), T('0V-OUT', 'neutral', 1 / 6, 1, { color: '#171717', terminalType: 'screw', position3D: { x: 1 / 6, y: 0, z: 1 } }),
+      T('+24V-IN', 'power-in', 0.50, 0, { color: '#dc2626', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }), T('+24V-OUT', 'power-out', 0.50, 1, { color: '#dc2626', terminalType: 'screw', position3D: { x: 0.50, y: 0, z: 1 } }),
+      T('PE-IN', 'earth', 5 / 6, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 5 / 6, y: 1, z: 1 } }), T('PE-OUT', 'earth', 5 / 6, 1, { color: '#27834a', terminalType: 'screw', position3D: { x: 5 / 6, y: 0, z: 1 } }),
+    ],
+    defaultState: {},
+  },
   terminalSet3ph: {
     category: 'terminal', paletteName: 'Conjunto de bornes trifásico · L1/L2/L3/N/PE', group: 'Bornes e barras', tag: 'X', w: 200, h: 86,
     terminals: [
@@ -881,6 +891,15 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('PE', 'earth', 0.90, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.90, y: 1, z: 1 } }),
     ],
     defaultState: { on: true, nominalV: 400, frequencyHz: 50 },
+  },
+  powerSource24v: {
+    category: 'power', paletteName: 'Fonte DC 24V · 0V/+24V/PE', group: 'Fontes', tag: 'QG', w: 135, h: 95,
+    terminals: [
+      T('0V', 'neutral', 1 / 6, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 1 / 6, y: 1, z: 1 } }),
+      T('+24V', 'power-out', 0.50, 0, { color: '#dc2626', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }),
+      T('PE', 'earth', 5 / 6, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 5 / 6, y: 1, z: 1 } }),
+    ],
+    defaultState: { on: true, nominalV: 24 },
   },
   analogAmmeter: {
     category: 'power', paletteName: 'Amperímetro analógico', group: 'Fontes', tag: 'PI', w: 80, h: 80,
@@ -1128,15 +1147,15 @@ applyRealInterfaces()
 
 /** Aplica aos conjuntos e fontes a calibração dos furos do PTI6 usado em cada módulo. */
 function applyTerminalAssemblyInterfaces() {
-  const types: ComponentType[] = ['terminalSet1ph', 'terminalSet3ph', 'powerSource1ph', 'powerSource3ph']
+  const types: ComponentType[] = ['terminalSet1ph', 'terminalSet3ph', 'terminalSet24v', 'powerSource1ph', 'powerSource3ph', 'powerSource24v']
   const module = getComponentPhysicalSizeMm('terminalPhoenixPti6')
   const spots = REAL_TERMINALS.terminalPhoenixPti6
   if (!module || !spots?.length) return
   for (const type of types) {
     const template = TEMPLATES[type]
-    const conductors = type.endsWith('1ph') ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
+    const conductors = terminalAssemblyConductors(type)
     for (const terminal of template.terminals) {
-      const match = /^(L1|L2|L3|L|N|PE)(?:-(IN|OUT))?$/.exec(terminal.label)
+      const match = TERMINAL_CONDUCTOR_PATTERN.exec(terminal.label)
       if (!match) continue
       const [, conductor, direction] = match
       const index = conductors.indexOf(conductor)

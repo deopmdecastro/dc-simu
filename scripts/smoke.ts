@@ -995,10 +995,37 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('cor da luz é individual e não altera outra instância', pilot.state.color === '#3b82f6' && secondPilot.state.color === '#ef4444')
 }
 
+/* Fonte DC 24 V e borne 24 V nativos: preto (0 V) · vermelho (+24 V) · verde (PE), como o borne e a fonte trifásicos. */
+{
+  const src = createComponent('powerSource24v')
+  const set = createComponent('terminalSet24v')
+  const colorOf = (c: typeof src, label: string) => terminalByLabel(c, label)?.color
+  check('fonte 24 V: +24V vermelho, 0V preto e PE verde', colorOf(src, '+24V') === '#dc2626' && colorOf(src, '0V') === '#171717' && colorOf(src, 'PE') === '#27834a')
+  check('borne 24 V: entradas e saídas com as mesmas cores', (['+24V', '0V', 'PE'] as const).every((n) => colorOf(set, `${n}-IN`) === colorOf(src, n) && colorOf(set, `${n}-OUT`) === colorOf(src, n)))
+  const xs = ['0V', '+24V', 'PE'].map((n) => terminalByLabel(src, n)!.position3D!.x)
+  check('fonte 24 V: ordem preto · vermelho · verde alinhada com os 3 módulos PTI6', xs[0] < xs[1] && xs[1] < xs[2] && xs[0] < 1 / 3 && xs[2] > 2 / 3, xs.join(', '))
+  check('fonte 24 V: furos calibrados no PTI6 (socket3D)', src.terminals.every((t) => !!t.socket3D))
+  const on = sourceTerminalIds([src])
+  check('fonte 24 V ligada alimenta +24V, 0V e PE', ['+24V', '0V', 'PE'].every((n) => on.includes(terminalByLabel(src, n)!.id)))
+  const off = sourceTerminalIds([{ ...src, state: { ...src.state, on: false } }])
+  check('fonte 24 V desligada só mantém o PE', off.length === 1 && off[0] === terminalByLabel(src, 'PE')!.id)
+  const w = { id: 'w24', fromTerminalId: terminalByLabel(src, '+24V')!.id, toTerminalId: terminalByLabel(set, '+24V-IN')!.id, color: 'red', gauge: '1.5mm²', kind: 'power', route: 'direct', bend: 0.5, flexibility: 'rigid', energized: false, number: 1, z: 0 } as Wire
+  const cont = computeContinuity([src, set], [w], sourceTerminalIds([src]))
+  check('borne 24 V passa o +24V da entrada para a saída', cont.energizedTerminals.has(terminalByLabel(set, '+24V-OUT')!.id))
+  check('borne 24 V não mistura condutores (0V-OUT sem cabo não fica energizado)', !cont.energizedTerminals.has(terminalByLabel(set, '0V-OUT')!.id))
+  // Cores gravadas no próprio GLB (mesmo método do borne trifásico).
+  const glb = fs.readFileSync('public/models/bornes-e-barras/conjunto-bornes-24v.glb')
+  const doc = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8').trim())
+  const toHex = (m: { pbrMetallicRoughness: { baseColorFactor: number[] } }) => '#' + m.pbrMetallicRoughness.baseColorFactor.slice(0, 3).map((v) => { const x = v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055; return Math.round(x * 255).toString(16).padStart(2, '0') }).join('')
+  const poly = (name: string) => (doc.materials as Array<{ name?: string; pbrMetallicRoughness: { baseColorFactor: number[] } }>).filter((m) => m.name === `Polímero ${name}`).map(toHex)
+  check('GLB 24 V: corpos dos módulos preto, vermelho e verde', poly('0V').every((h: string) => h === '#171717') && poly('+24V').every((h: string) => h === '#dc2626') && poly('PE').every((h: string) => h === '#27834a') && poly('0V').length === 2 && poly('+24V').length === 2 && poly('PE').length === 2, JSON.stringify([poly('0V'), poly('+24V'), poly('PE')]))
+  check('GLB 24 V: 3 módulos PTI6 (3 × 4 nós)', doc.scenes[0].nodes.length === 3 && doc.nodes.length === 12)
+}
+
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 41 componentes com GLB real (25 anteriores e 16 novos) (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 41 && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 43 componentes com GLB real (25 anteriores, 16 novos e os 2 conjuntos 24 V) (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 43 && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))

@@ -258,8 +258,9 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       break
     }
     case 'terminalSet1ph':
-    case 'terminalSet3ph': {
-      const conductors = c.type === 'terminalSet1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
+    case 'terminalSet3ph':
+    case 'terminalSet24v': {
+      const conductors = c.type === 'terminalSet1ph' ? ['L', 'N', 'PE'] : c.type === 'terminalSet24v' ? ['0V', '+24V', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
       for (const conductor of conductors) pair(la(`${conductor}-IN`), la(`${conductor}-OUT`))
       break
     }
@@ -388,6 +389,11 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     if (c.type === 'powerSource1ph') {
       push('PE')
       if (c.state.on !== false) { push('L'); push('N') }
+    }
+    if (c.type === 'powerSource24v') {
+      // DC: +24 V e retorno 0 V (neutral, não contamina o positivo) só com a fonte ligada; PE sempre.
+      push('PE')
+      if (c.state.on !== false) { push('+24V'); push('0V') }
     }
     if (c.type === 'powerSource3ph') {
       push('PE')

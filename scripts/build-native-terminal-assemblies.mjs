@@ -32,7 +32,7 @@ function build(conductors, output) {
   if (sourceDoc.nodes.length !== 4 || sourceDoc.meshes.length !== 3 || sourceDoc.materials.length !== 3) {
     throw new Error('Estrutura inesperada no GLB Phoenix PTI 6; não vou gerar o modelo composto.')
   }
-  const phaseColors = { L: '#171717', L1: '#171717', L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: '#27834a' }
+  const phaseColors = { L: '#171717', L1: '#171717', L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: '#27834a', '0V': '#171717', '+24V': '#dc2626' }
   const width = 8.15
   const depth = 48.5
   const height = 66.02
@@ -117,3 +117,5 @@ function build(conductors, output) {
 
 build(['L', 'N', 'PE'], path.join(root, 'public/models/bornes-e-barras/conjunto-bornes-monofasico.glb'))
 build(['L1', 'L2', 'L3', 'N', 'PE'], path.join(root, 'public/models/bornes-e-barras/conjunto-bornes-trifasico.glb'))
+// 24 Vdc: preto (0 V) · vermelho (+24 V) · verde (PE)
+build(['0V', '+24V', 'PE'], path.join(root, 'public/models/bornes-e-barras/conjunto-bornes-24v.glb'))

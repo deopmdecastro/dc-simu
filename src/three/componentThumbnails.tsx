@@ -237,7 +237,7 @@ function buildController(g: THREE.Group, type: string) {
 }
 
 function buildTerminal(g: THREE.Group, type: string) {
-  if (type === 'terminalSet1ph' || type === 'terminalSet3ph') {
+  if (type === 'terminalSet1ph' || type === 'terminalSet3ph' || type === 'terminalSet24v') {
     // A miniatura chega por getCad3DImage e usa instâncias do GLB PTI6.
     return
   }
@@ -251,7 +251,7 @@ function buildTerminal(g: THREE.Group, type: string) {
 }
 
 function buildPower(g: THREE.Group, type: string) {
-  if (type === 'powerSource1ph' || type === 'powerSource3ph') {
+  if (type === 'powerSource1ph' || type === 'powerSource3ph' || type === 'powerSource24v') {
     // A miniatura chega por getCad3DImage e usa instâncias do GLB PTI6.
     return
   }

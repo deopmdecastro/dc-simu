@@ -4,7 +4,7 @@ import { componentOrientationOf, orientationRadians } from './componentOrientati
 import * as THREE from 'three'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../electrical/realInterfaces'
 import { editorTerminalRadiusMm } from '../catalog/terminalGeometry'
-import { isTerminalAssemblyComponent } from './terminalAssembly'
+import { isTerminalAssemblyComponent, terminalAssemblyConductors } from './terminalAssembly'
 
 export type Terminal3DFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom'
 export type Terminal3DPosition = { x: number; y: number; z: number }
@@ -93,7 +93,7 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
   }
   if (isTerminalAssemblyComponent(component.type)) {
     const terminal = getComponentModelSpec('terminalPhoenixPti6')!.physicalSizeMm
-    const count = component.type.endsWith('1ph') ? 3 : 5
+    const count = terminalAssemblyConductors(component.type).length
     return {
       x: terminal.width * count * PANEL_UNITS_PER_MM,
       y: terminal.height * PANEL_UNITS_PER_MM,

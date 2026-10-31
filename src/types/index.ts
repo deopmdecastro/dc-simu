@@ -106,10 +106,12 @@ export type ComponentType =
   | 'earthBar'
   | 'terminalSet1ph'
   | 'terminalSet3ph'
+  | 'terminalSet24v'
   | 'transformer'
   | 'powerSupply'
   | 'powerSource1ph'
   | 'powerSource3ph'
+  | 'powerSource24v'
   | 'powerSupplyProauto24A'
   | 'analogAmmeter'
   // --- Aparelhos de medir ----------------------------------------------

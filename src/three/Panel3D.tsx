@@ -1169,7 +1169,7 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
 function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const powered = simActive && (c.type === 'powerSupplyProauto24A' ? !!c.state.powered : !!c.state.on)
-  if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph') return <TerminalAssembly3D c={c} x={x} />
+  if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') return <TerminalAssembly3D c={c} x={x} />
   const title = c.type === 'powerSupplyProauto24A' ? '24V / 5A' : '24V'
   return <group position={[x, RAIL_Y + 0.48, 0]}>
     <mesh castShadow><boxGeometry args={[0.85, 0.96, 0.48]} /><meshStandardMaterial color="#46515c" metalness={0.18} roughness={0.72} /></mesh>
@@ -3293,8 +3293,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CadComponentReal3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
-          else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph') content = <PowerSupply3D c={c} x={x} />
-          else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph') content = <TerminalAssembly3D c={c} x={x} />
+          else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') content = <PowerSupply3D c={c} x={x} />
+          else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} interactive={interactive && !c.locked} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />

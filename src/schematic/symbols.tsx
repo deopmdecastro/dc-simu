@@ -673,7 +673,8 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'busbarNeutral':
       case 'earthBar':
       case 'terminalSet1ph':
-      case 'terminalSet3ph': {
+      case 'terminalSet3ph':
+      case 'terminalSet24v': {
         return (
           <g>
             <rect x={2} y={h / 2 - 17} width={w - 4} height={34} rx={4} fill="#334155" stroke={s} />
@@ -729,6 +730,17 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
             {label(6, 12, c.ref, 10, '#93c5fd')}
           </g>
         )
+      }
+      case 'powerSource24v': {
+        const on = c.state.on !== false
+        return <g>
+          <rect x={4} y={8} width={w - 8} height={h - 16} rx={7} fill="#e2e8f0" stroke={on ? '#dc2626' : s} strokeWidth={2} />
+          <rect x={10} y={h * 0.36} width={w - 20} height={h * 0.37} rx={4} fill="#f8fafc" stroke="#94a3b8" />
+          <text x={w / 2} y={h * 0.52} textAnchor="middle" fontSize={12} fill="#0f172a" fontWeight="bold">{`${c.state.nominalV ?? 24} V`}</text>
+          <text x={w / 2} y={h * 0.64} textAnchor="middle" fontSize={8} fill="#475569">DC</text>
+          <circle cx={w - 14} cy={17} r={4} fill={on ? '#16a34a' : '#94a3b8'} />
+          {label(7, 15, c.ref, 9, '#334155')}
+        </g>
       }
       case 'powerSource1ph':
       case 'powerSource3ph': {

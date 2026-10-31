@@ -7,7 +7,7 @@ import { inferFromFunction } from '../../catalog/terminalProfiles'
 import { DEFAULT_META } from '../../catalog/definition'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 } from '../../catalog/types'
 import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm, hasComponent3DVisual } from '../../three/modelPaths'
-import { isTerminalAssemblyComponent, terminalAssemblyLayout } from '../../three/terminalAssembly'
+import { isTerminalAssemblyComponent, terminalAssemblyLayout, TERMINAL_CONDUCTOR_PATTERN } from '../../three/terminalAssembly'
 import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../../electrical/realInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
@@ -126,7 +126,7 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
 /** Centro dos furos medidos no PTI6, transformado para o referencial da montagem. */
 function terminalAssemblyTerminal(type: ComponentType, item: TerminalTemplate): Pick<TerminalDef, 'position' | 'normal' | 'diameterMm' | 'socketDepthMm' | 'socketInsetMm'> | null {
   if (!isTerminalAssemblyComponent(type)) return null
-  const match = /^(L1|L2|L3|L|N|PE)(?:-(IN|OUT))?$/.exec(item.label)
+  const match = TERMINAL_CONDUCTOR_PATTERN.exec(item.label)
   if (!match) return null
   const [, conductor, direction] = match
   const layout = terminalAssemblyLayout(type, getComponentPhysicalSizeMm('terminalPhoenixPti6')!.width)

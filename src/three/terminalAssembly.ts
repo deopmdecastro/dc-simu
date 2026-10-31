@@ -3,18 +3,24 @@ import type { ComponentType } from '../types'
 
 /** Tipos nativos com GLBs compostos a partir do borne Phoenix PTI6 original. */
 export const TERMINAL_ASSEMBLY_TYPES = new Set<ComponentType>([
-  'powerSource1ph', 'powerSource3ph', 'terminalSet1ph', 'terminalSet3ph',
+  'powerSource1ph', 'powerSource3ph', 'powerSource24v', 'terminalSet1ph', 'terminalSet3ph', 'terminalSet24v',
 ])
 
 export const TERMINAL_BODY_COLORS: Record<string, string> = {
   L: '#171717', L1: '#171717', L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: '#27834a',
+  /** 24 Vdc: 0 V preto, +24 V vermelho, PE verde. */
+  '0V': '#171717', '+24V': '#dc2626',
 }
+
+/** Etiqueta de borne de conjunto: condutor + sentido opcional (`+24V-IN`, `PE-OUT`, `L1`). */
+export const TERMINAL_CONDUCTOR_PATTERN = /^(\+24V|0V|L1|L2|L3|L|N|PE)(?:-(IN|OUT))?$/
 
 export function isTerminalAssemblyComponent(type: ComponentType): boolean {
   return TERMINAL_ASSEMBLY_TYPES.has(type)
 }
 
 export function terminalAssemblyConductors(type: ComponentType): string[] {
+  if (type.endsWith('24v')) return ['0V', '+24V', 'PE']
   return type.endsWith('1ph') ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
 }
 
