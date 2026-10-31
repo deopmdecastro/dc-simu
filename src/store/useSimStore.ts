@@ -3,7 +3,7 @@ import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
-import { upgradeNativeMotorMeter } from '../project/nativeMotorMeter'
+import { upgradeNativeMotorMeter, upgradeNativeMotorRings } from '../project/nativeMotorMeter'
 import { upgradeNativeNcSimInputs } from '../project/nativeSimInputs'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { syncDemoMode } from './demoMode'
@@ -2801,7 +2801,7 @@ export const useSimStore = create<Store>((set, get) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
-      const parsed = upgradeNativeNcSimInputs(upgradeNativeMotorMeter(original))
+      const parsed = upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original)))
       setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
@@ -2874,7 +2874,7 @@ export const useSimStore = create<Store>((set, get) => {
         dirty: parsed !== original || footprintUpgraded || componentMetadataUpgraded || snapDirty,
       })
       get().pushEvent('info', 'Projeto carregado de arquivo JSON.')
-      if (parsed !== original) get().pushEvent('info', 'Ligações do multímetro atualizadas com ponteiras duplas na entrada do motor. Guarde o projeto para conservar a atualização.')
+      if (parsed !== original) get().pushEvent('info', 'Projeto nativo atualizado. Guarde o projeto para conservar as alterações.')
     } catch (e) {
       get().pushEvent('error', 'Falha ao carregar o JSON: arquivo inválido.')
       console.error(e)

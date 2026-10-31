@@ -1,5 +1,6 @@
 import { createComponent, terminalByLabel } from '../electrical/factory'
 import type { ElectricalComponent, Wire } from '../types'
+import { isSharedFerruleCandidate, wireSideEndType } from '../electrical/sharedFerrules'
 import { componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 
 export const NATIVE_PARTIDA_ID = 'native-partida-direta-v5'
@@ -11,8 +12,8 @@ export function withMotorMeterFerrules(wires: Wire[], leads: Wire[]): Wire[] {
   const terminals = new Set(leads.map(wire => wire.toTerminalId))
   return wires.map(wire => {
     if (leads.some(lead => lead.id === wire.id)) return wire
-    const from = terminals.has(wire.fromTerminalId) && !wire.fromPoint
-    const to = terminals.has(wire.toTerminalId) && !wire.toPoint
+    const from = terminals.has(wire.fromTerminalId) && isSharedFerruleCandidate(wire.fromTerminalId, Boolean(wire.fromPoint), wireSideEndType(wire, 'from'))
+    const to = terminals.has(wire.toTerminalId) && isSharedFerruleCandidate(wire.toTerminalId, Boolean(wire.toPoint), wireSideEndType(wire, 'to'))
     return from || to ? { ...wire, ...(from ? { fromEndType: 'ferruleDouble' as const } : {}), ...(to ? { toEndType: 'ferruleDouble' as const } : {}) } : wire
   })
 }
@@ -54,4 +55,18 @@ export function upgradeNativeMotorMeter<T extends Record<string, any>>(content: 
   while (refs.has(`MM${index}`)) index++
   meter.ref = `MM${index}`
   return { ...content, components: [...content.components, meter], wires: [...withMotorMeterFerrules(content.wires, leads), ...leads], nativeFeatures: [...features, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE] }
+}
+
+/** Corrige apenas a regressão conhecida nos dois alimentadores originais: não
+ * recria cabos apagados nem altera ligações personalizadas ou outros projetos. */
+export const NATIVE_MOTOR_RING_FEATURE = 'motor-ring-lugs-v1'
+export function upgradeNativeMotorRings<T extends Record<string, any>>(content: T): T {
+  if (content.nativeId !== NATIVE_PARTIDA_ID || !Array.isArray(content.wires)) return content
+  const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
+  if (features.includes(NATIVE_MOTOR_RING_FEATURE)) return content
+  const affected = new Map([['native-wire-4', 'native-m1-U1'], ['native-wire-8', 'native-m1-V1']])
+  const wires = content.wires.map((wire: Wire) =>
+    affected.get(wire.id) === wire.toTerminalId && !wire.toPoint && wire.toEndType === 'ferruleDouble'
+      ? { ...wire, toEndType: 'ring' as const } : wire)
+  return { ...content, wires, nativeFeatures: [...features, NATIVE_MOTOR_RING_FEATURE] }
 }

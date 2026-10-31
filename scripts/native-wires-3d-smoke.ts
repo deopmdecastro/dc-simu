@@ -8,7 +8,7 @@ import { componentPanelXY } from '../src/three/panelLayout'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from '../src/three/panelBounds'
 import { DIN_RAIL_15X55 } from '../src/three/dinRailGeometry'
 import { PANEL_UNITS_PER_MM, isMountingRail } from '../src/three/modelPaths'
-import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D, worldToMotorCad, DOUBLE_FERRULE_COLLAR_MM, PROBE_EMBED_MM, ferrulePortOffsetMm } from '../src/three/wireGeometry3D'
+import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D, worldToMotorCad } from '../src/three/wireGeometry3D'
 import { MOTOR_BOX, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTerminalLayout'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 import { segmentEntersBox } from '../src/three/solidWireRouting'
@@ -49,9 +49,8 @@ for (const lead of built.wires.filter(w => w.id.startsWith('native-meter-'))) {
   check(`${lead.number}: curva contínua sem cotovelos agudos`, directions.slice(1).every((d, i) => d.angleTo(directions[i]) < Math.PI / 9))
   const feed = built.wires.find(w => w.id !== lead.id && w.toTerminalId === lead.toTerminalId)!
   const ferrule = coordinated.get(feed.id)!.starts[1]
-  const axis = new THREE.Vector3(...ferrule.axis)
-  const offset = new THREE.Vector3(...path.starts[1].origin).sub(new THREE.Vector3(...ferrule.origin))
-  check(`${lead.number}: sonda na segunda entrada da ponteira dupla`, ferrule.type === 'ferruleDouble' && Math.abs(offset.dot(axis) - (DOUBLE_FERRULE_COLLAR_MM + PROBE_EMBED_MM) * PANEL_UNITS_PER_MM) < 1e-8 && Math.abs(offset.clone().cross(axis).length() - Math.abs(ferrulePortOffsetMm(1, 2)) * PANEL_UNITS_PER_MM) < 1e-8)
+  const offset = new THREE.Vector3(...path.starts[1].origin).distanceTo(new THREE.Vector3(...ferrule.origin))
+  check(`${lead.number}: sonda toca no perno do olhal com porca`, ferrule.type === 'ring' && ferrule.studNut === true && offset < 0.005)
   check(`${lead.number}: alimentação separada da sonda`, new THREE.Vector3(...coordinated.get(feed.id)!.points.at(-1)!).distanceTo(new THREE.Vector3(...path.starts[1].origin)) > 0.037)
 }
 for (const wire of built.wires) {
@@ -122,6 +121,7 @@ const feedersThroughGland = motorFeeders.every((w) => {
 for (const wire of motorFeeders) {
   const path = coordinated.get(wire.id)!
   const end = path.starts[1]
+  check(`${wire.number}: olhal e porca no motor`, end.type === 'ring' && end.studNut === true)
   const last = new THREE.Vector3(...path.points[path.points.length - 2]).sub(new THREE.Vector3(...path.points[path.points.length - 1])).normalize()
   check(`${wire.number}: chegada axial ao borne do motor`, last.dot(new THREE.Vector3(...end.axis)) > 0.995)
   const fixed = path.motorRoute?.points ?? []

@@ -540,7 +540,7 @@ export function wireBodyPoints3D(
       : [point[0], point[1], Math.max(point[2], frontZ)] as V3)
 
   if (manual.length === 0) {
-    controls = coalesceShortJogs(controls, Math.max(outerMm * 2.4, 7) * U)
+    controls = removeWireBacktracks(coalesceShortJogs(controls, Math.max(outerMm * 2.4, 7) * U))
   }
 
   if (smooth && controls.length > 2) {
@@ -728,6 +728,27 @@ export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6):
   const radius = Math.max(outerMm * radiusFactor, 14) * U
   const out: V3[] = [points[0]]
   const last = points.length - 1
+  // Os dois arcos adjacentes partilham o mesmo segmento: os cortes nunca
+  // podem somar mais do que o seu comprimento, ou o fio inverte e faz um bico.
+  const cuts = points.map(() => 0)
+  for (let i = 1; i < last; i++) {
+    const before = v(points[i - 1]).sub(v(points[i]))
+    const after = v(points[i + 1]).sub(v(points[i]))
+    const lenBefore = before.length(), lenAfter = after.length()
+    if (lenBefore < 1e-6 || lenAfter < 1e-6) continue
+    const phi = before.angleTo(after)
+    if (phi > Math.PI - 0.02 || phi < 0.02) continue
+    cuts[i] = Math.min(radius / Math.tan(phi / 2), lenBefore * 0.9, lenAfter * 0.9)
+  }
+  for (let i = 1; i < last - 1; i++) {
+    const length = v(points[i]).distanceTo(v(points[i + 1]))
+    const sum = cuts[i] + cuts[i + 1]
+    if (sum > length * 0.98) {
+      const scale = length * 0.98 / sum
+      cuts[i] *= scale
+      cuts[i + 1] *= scale
+    }
+  }
   for (let index = 1; index < last; index += 1) {
     const prev = v(points[index - 1])
     const corner = v(points[index])
@@ -743,13 +764,7 @@ export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6):
     const phi = Math.acos(cosPhi)
     if (phi > Math.PI - 0.02) { out.push(arr(corner)); continue }
     const half = Math.max(0.08, phi / 2)
-    const wanted = radius / Math.tan(half)
-    // Cortes mais generosos junto aos bornes (extremos) e um pouco mais no meio.
-    const cut = Math.min(
-      wanted,
-      index === 1 ? lenPrev * 0.9 : lenPrev * 0.55,
-      index === last - 1 ? lenNext * 0.9 : lenNext * 0.55,
-    )
+    const cut = cuts[index]
     if (cut < 1e-4) { out.push(arr(corner)); continue }
     const start = corner.clone().addScaledVector(dirPrev, cut)
     const end = corner.clone().addScaledVector(dirNext, cut)
@@ -771,6 +786,34 @@ export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6):
   }
   out.push(points[last])
   return out
+}
+
+/** Remove voltas sobre o próprio segmento, tolerando apenas 0,01 mm de
+ * erro numérico; não arredonda nem encurta desvios reais do percurso. */
+export function removeWireBacktracks(points: V3[]): V3[] {
+  const out: V3[] = []
+  for (const point of points) {
+    while (out.length >= 2) {
+      const a = v(out[out.length - 2]), b = v(out[out.length - 1]), c = v(point)
+      const ab = b.clone().sub(a), bc = c.clone().sub(b)
+      if (ab.lengthSq() < 1e-14) { out.pop(); continue }
+      if (bc.lengthSq() < 1e-14) break
+      const perpendicular = ab.clone().cross(bc).length() / ab.length()
+      if (ab.dot(bc) >= 0 || perpendicular > 1e-4) break
+      out.pop()
+    }
+    if (!out.length || v(out[out.length - 1]).distanceToSquared(v(point)) > 1e-14) out.push(point)
+  }
+  return out
+}
+
+/** A parte do trajeto dentro do bucim é fixa e não pode ser alterada. */
+function removeBacktracksOutsideMotor(points: V3[], motorRoute?: WirePath3D['motorRoute']): V3[] {
+  if (!motorRoute?.points.length) return removeWireBacktracks(points)
+  const n = motorRoute.points.length
+  if (n >= points.length) return points
+  if (motorRoute.side === 'to') return [...removeWireBacktracks(points.slice(0, points.length - n + 1)), ...points.slice(points.length - n + 1)]
+  return [...points.slice(0, n - 1), ...removeWireBacktracks(points.slice(n - 1))]
 }
 
 export function keepInFrontOfPlate(points: V3[], outerMm: number, _manual = false): V3[] {
@@ -1237,7 +1280,7 @@ export function buildAllWirePaths3D(
     const manual = (e.wire.waypoints3D?.length ?? 0) > 0
     const fromGland = !manual && isMotorGlandEligible(e.from, endTypeOf(e.wire, 'from')) && !e.to.motorContext
     const toGland = !manual && isMotorGlandEligible(e.to, endTypeOf(e.wire, 'to')) && !e.from.motorContext
-    const pts = path.points.map((p) => new THREE.Vector3(p[0], p[1], p[2]))
+    const pts = removeBacktracksOutsideMotor(path.points, path.motorRoute).map((p) => new THREE.Vector3(p[0], p[1], p[2]))
     const fixedCount = path.motorRoute?.points.length ?? 0
     const pinPoints = (chain: THREE.Vector3[]) => {
       const count = chain.length, guard = Math.max(0.08, e.outerMm * 3 * U)
@@ -1361,7 +1404,7 @@ export function buildAllWirePaths3D(
 
   for (const item of builtPaths) {
     const cleanPoints = clearPathSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute)
-    result.set(item.entry.wire.id, { points: cleanPoints, starts: item.starts, motorRoute: item.motorRoute })
+    result.set(item.entry.wire.id, { points: removeBacktracksOutsideMotor(cleanPoints, item.motorRoute), starts: item.starts, motorRoute: item.motorRoute })
   }
   return result
 }

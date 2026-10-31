@@ -55,7 +55,7 @@ const v1 = {
   ...seed,
   nativeFeatures: [NATIVE_MOTOR_METER_FEATURE],
   wires: seed.wires.map((w: Wire) =>
-    (w.toTerminalId === 'native-m1-U1' || w.toTerminalId === 'native-m1-V1') && w.toEndType === 'ferruleDouble'
+    (w.toTerminalId === 'native-m1-U1' || w.toTerminalId === 'native-m1-V1') && w.toEndType === 'ring'
       ? { ...w, toEndType: 'ferrule', toEndColor: '#445566', waypoints3D: [{ x: 1, y: 2, z: 3 }] }
       : w,
   ),
@@ -78,15 +78,15 @@ store().loadJSON(JSON.stringify(v1))
 assert.ok(store().dirty, 'abrir a versão anterior assinala os colares por guardar')
 store().loadJSON(store().saveJSON())
 assert.equal(
-  store().wires.filter(w => (w.toTerminalId === 'native-m1-U1' || w.toTerminalId === 'native-m1-V1') && w.toEndType === 'ferruleDouble').length,
+  store().wires.filter(w => (w.toTerminalId === 'native-m1-U1' || w.toTerminalId === 'native-m1-V1') && w.toEndType === 'ring').length,
   2,
-  'bornes U1/V1 do motor mantêm ponteira dupla',
+  'bornes U1/V1 do motor mantêm olhais',
 )
 const doubleEndsCount = store().wires.reduce(
   (sum, w) => sum + (w.fromEndType === 'ferruleDouble' ? 1 : 0) + (w.toEndType === 'ferruleDouble' ? 1 : 0),
   0,
 )
-assert.equal(doubleEndsCount, 20, 'todos os 11 bornes partilhados recebem ponteira dupla automaticamente (20 pontas ferruleDouble)')
+assert.equal(doubleEndsCount, 18, 'os restantes bornes partilhados mantêm ponteiras duplas')
 // Verificação dinâmica: borne com 1 cabo (ferrule) passa automaticamente a ferruleDouble ao adicionar 2.º cabo e reverte ao remover
 const singleBefore = store().wires.filter(w => w.fromTerminalId === 'native-q0-2' || w.toTerminalId === 'native-q0-2')
 assert.equal(singleBefore.length, 1)
