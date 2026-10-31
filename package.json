@@ -40,6 +40,7 @@
     "test:grafcet-actions-ui": "node scripts/grafcet-actions-zoom-ui-smoke.mjs",
     "test:commands": "tsx scripts/commands-smoke.ts",
     "test:commands-ui": "node scripts/commands-ui-smoke.mjs",
+    "test:commands-tag-ui": "node scripts/commands-tag-ui-smoke.mjs",
     "test:commands-pages-ui": "node scripts/commands-pages-ui-smoke.mjs",
     "test:multimeter-selector-ui": "node scripts/multimeter-selector-ui-smoke.mjs",
     "test:commands-page-link-ui": "node scripts/commands-page-link-ui-smoke.mjs",

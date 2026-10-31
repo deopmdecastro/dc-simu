@@ -34,6 +34,8 @@ export interface CmdPart {
   rot: CmdRotation
   /** Referência do aparelho (IEC 81346): K1, S1, F7, M1… */
   tag: string
+  /** Formatação e posição da referência, relativas à origem do símbolo (em coordenadas do esquema). */
+  tagStyle?: { x?: number; y?: number; fontSize?: number; rotation?: number; color?: string }
   /** Variante gráfica opcional; não altera terminais nem comportamento elétrico. */
   symbolStyle?: 'qet'
   /** Marcação dos bornes, pela ordem de `CMD_PARTS[kind].terminals`. */

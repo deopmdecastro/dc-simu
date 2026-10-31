@@ -1,5 +1,5 @@
 // Símbolos IEC 60617 / ISO 1219 — desenhos DC-Simu e variantes QElectroTech atribuídas em docs/third-party/qelectrotech.
-import type { ReactNode } from 'react'
+import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import { CMD_PARTS, partBox, partTerminals, terminalAt, terminalLabel, type CmdKind, type CmdPart } from './model'
 
 const INK = '#0f172a'
@@ -315,8 +315,36 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
   }
 }
 
-/** Símbolo completo: geometria rodada + referência e marcação dos bornes sempre legíveis. */
-export function CmdSymbol({ part, state, selected, showTerminals = true }: { part: CmdPart; state?: CmdSymbolState; selected?: boolean; showTerminals?: boolean }) {
+/** Posição da referência, em relação à origem do símbolo; conectores de página conservam a posição original. */
+export function cmdTagPosition(part: CmdPart) {
+  const box = partBox(part)
+  const link = part.kind === 'pageRef' || part.kind === 'pageRefIn'
+  return {
+    x: part.tagStyle?.x ?? (link ? box.x - part.x + box.w / 2 : box.x - part.x - 8),
+    y: part.tagStyle?.y ?? (link ? box.y - part.y - 5 : box.y - part.y + 12),
+    anchor: link ? 'middle' as const : 'end' as const,
+  }
+}
+
+/** Limites aproximados da referência para ajustar a vista, incluindo rotação e tamanho. */
+export function cmdTagBounds(part: CmdPart) {
+  if (!part.tag || part.kind === 'node' || part.kind === 'supply') return null
+  const pos = cmdTagPosition(part)
+  const size = part.tagStyle?.fontSize ?? (pos.anchor === 'middle' ? 10.5 : 12)
+  const width = Math.max(size, part.tag.length * size * 0.8)
+  const left = pos.anchor === 'middle' ? -width / 2 : -width
+  const right = pos.anchor === 'middle' ? width / 2 : 0
+  const angle = (part.tagStyle?.rotation ?? 0) * Math.PI / 180
+  const cos = Math.cos(angle), sin = Math.sin(angle)
+  const points = [[left, -size], [right, -size], [left, size * 0.3], [right, size * 0.3]].map(([x, y]) => ({
+    x: part.x + pos.x + x * cos - y * sin, y: part.y + pos.y + x * sin + y * cos,
+  }))
+  const minX = Math.min(...points.map(p => p.x)), minY = Math.min(...points.map(p => p.y))
+  return { x: minX, y: minY, w: Math.max(...points.map(p => p.x)) - minX, h: Math.max(...points.map(p => p.y)) - minY }
+}
+
+/** Símbolo completo: geometria rodada, referência e marcação dos bornes. */
+export function CmdSymbol({ part, state, selected, showTerminals = true, onTagPointerDown }: { part: CmdPart; state?: CmdSymbolState; selected?: boolean; showTerminals?: boolean; onTagPointerDown?: (event: ReactPointerEvent<SVGTextElement>) => void }) {
   const box = partBox(part)
   const st = state ?? {}
   return (
@@ -345,11 +373,13 @@ export function CmdSymbol({ part, state, selected, showTerminals = true }: { par
         {symbolBody(part, st)}
       </g>
       {part.tag && part.kind !== 'node' && part.kind !== 'supply' && (() => {
-        // Conectores entre páginas: o nome da rede fica por cima da caixa (antes sobrepunha-se à seta).
         const link = part.kind === 'pageRef' || part.kind === 'pageRefIn'
-        const x = link ? box.x - part.x + box.w / 2 : 0
-        const y = link ? box.y - part.y - 5 : -8
-        return <text className={`dc-cmd-tag${link ? ' is-link' : ''}`} x={x} y={y} textAnchor="middle" fontSize={11} fontWeight={700} fill={INK} stroke="none">{part.tag}</text>
+        const { x, y, anchor } = cmdTagPosition(part)
+        const size = part.tagStyle?.fontSize ?? (link ? 10.5 : 12)
+        const rotation = part.tagStyle?.rotation ?? 0
+        return <text className={`dc-cmd-tag${link ? ' is-link' : ''}${onTagPointerDown ? ' is-draggable' : ''}`} data-cmd-tag={part.id}
+          x={x} y={y} textAnchor={anchor} transform={`rotate(${rotation} ${x} ${y})`}
+          style={{ fontSize: size, fill: part.tagStyle?.color ?? INK }} stroke="none" onPointerDown={onTagPointerDown}>{part.tag}</text>
       })()}
       {showTerminals && partTerminals(part).map((t, i) => {
         const at = terminalAt({ ...part, x: 0, y: 0 }, i)

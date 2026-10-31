@@ -6,7 +6,7 @@
  */
 import { useMemo, useState } from 'react'
 import { CMD_PALETTE, CMD_PARTS, type CmdKind, type CmdPart } from '../../commands/model'
-import { CmdSymbol, type CmdSymbolState } from '../../commands/symbols'
+import { CmdSymbol, cmdTagBounds, type CmdSymbolState } from '../../commands/symbols'
 import type { IecDef, IecSymbolDef, IecTerminalDef } from '../../catalog/types'
 import { newId } from '../../catalog/definition'
 import { Section, Field, Select, Text, Num, Empty, Check } from './ui'
@@ -75,9 +75,11 @@ function SymbolPreview({
   // Caixa de desenho centrada
   const box = custom?.box ?? CMD_PARTS[part.kind]?.box ?? { x: -20, y: -10, w: 40, h: 80 }
   const pad = 16
-  const vbX = box.x - pad
+  const tagBox = cmdTagBounds(part)
+  const left = Math.min(box.x, tagBox?.x ?? box.x)
+  const vbX = left - pad
   const vbY = box.y - pad
-  const vbW = box.w + pad * 2
+  const vbW = box.x + box.w - left + pad * 2
   const vbH = box.h + pad * 2
 
   return (

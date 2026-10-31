@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import { CMD_PALETTE, CMD_PARTS, type CmdKind } from '../../commands/model'
-import { CmdSymbol } from '../../commands/symbols'
+import { CmdSymbol, cmdTagBounds } from '../../commands/symbols'
 import type { IecSymbolDef } from '../../catalog/types'
 import { newId } from '../../catalog/definition'
 import { useEditorStore } from './editorStore'
@@ -17,10 +17,12 @@ function Thumb({ kind, tag }: { kind: CmdKind; tag?: string }) {
   )
   const box = CMD_PARTS[kind].box
   const pad = 10
+  const tagBox = cmdTagBounds(part)
+  const left = Math.min(box.x, tagBox?.x ?? box.x)
   return (
     <svg
       className="ce-iec-lib-svg"
-      viewBox={`${box.x - pad} ${box.y - pad} ${box.w + pad * 2} ${box.h + pad * 2}`}
+      viewBox={`${left - pad} ${box.y - pad} ${box.x + box.w - left + pad * 2} ${box.h + pad * 2}`}
       width="56"
       height="56"
       aria-hidden

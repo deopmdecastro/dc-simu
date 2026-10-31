@@ -20,7 +20,7 @@ import {
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
 import PageLinkDialog from './PageLinkDialog'
 import { emptyCmdRuntime, isClosed } from './engine'
-import { CmdSymbol, PHASE_COLORS, type CmdSymbolState } from './symbols'
+import { CmdSymbol, cmdTagPosition, cmdTagBounds, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
 import CommandsExamplesDialog from './CommandsExamplesDialog'
 import CommandsImportDialog from './CommandsImportDialog'
@@ -103,7 +103,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const [notice, setNotice] = useState<string | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasId = useId()
-  const gesture = useRef<{ kind: 'pan' | 'move' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number } | null>(null)
+  const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number } | null>(null)
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [pageLinkModal, setPageLinkModal] = useState<{ partId: string } | null>(null)
   const selectedPartIds = useCommandsUi((s) => s.selectedPartIds)
@@ -171,7 +171,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   useNonPassiveListener(viewportRef, 'wheel', wheel)
 
   const bounds = useMemo(() => {
-    const boxes = pageParts.map(partBox)
+    const boxes = pageParts.flatMap(p => [partBox(p), cmdTagBounds(p)].filter((b): b is NonNullable<typeof b> => !!b))
     if (!boxes.length) return { minX: 0, minY: 0, maxX: 800, maxY: 600 }
     return {
       minX: Math.min(...boxes.map((b) => b.x)) - 60, minY: Math.min(...boxes.map((b) => b.y)) - 60,
@@ -181,7 +181,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const fit = useCallback((d: CommandsDiagram = useSimStore.getState().commands) => {
     const el = viewportRef.current
     if (!el || !d.parts.length) { setView({ x: 60, y: 60, scale: 1 }); return }
-    const boxes = d.parts.map(partBox)
+    const boxes = d.parts.flatMap(p => [partBox(p), cmdTagBounds(p)].filter((b): b is NonNullable<typeof b> => !!b))
     const minX = Math.min(...boxes.map((b) => b.x)) - 40, minY = Math.min(...boxes.map((b) => b.y)) - 50
     const maxX = Math.max(...boxes.map((b) => b.x + b.w)) + 40, maxY = Math.max(...boxes.map((b) => b.y + b.h)) + 40
     const scale = Math.max(0.3, Math.min(1.6, Math.min(el.clientWidth / (maxX - minX), el.clientHeight / (maxY - minY))))
@@ -400,6 +400,18 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     }
     ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
   }
+  const onTagDown = (part: CmdPart, event: ReactPointerEvent<SVGTextElement>) => {
+    // Noutras ferramentas e durante a simulação mantém-se o comportamento do símbolo.
+    if (!editable || tool !== 'select' || placing || draft || event.button !== 0) return
+    event.stopPropagation()
+    select({ type: 'part', id: part.id })
+    const p = toWorld(event.clientX, event.clientY)
+    const tag = cmdTagPosition(part)
+    gesture.current = { kind: 'tag', startX: event.clientX, startY: event.clientY, partId: part.id,
+      offset: { x: p.x - (part.x + tag.x), y: p.y - (part.y + tag.y) } }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
   const onTermDown = (end: CmdEnd, event: ReactPointerEvent) => {
     if (!editable || event.button !== 0 || tool === 'pan' || tool === 'erase') return
     event.stopPropagation()
@@ -438,6 +450,15 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         })
       } else setPreview(null)
     }
+    if (g.kind === 'tag' && g.partId && g.offset) {
+      const part = stored.parts.find((q) => q.id === g.partId)
+      if (part) {
+        const x = Math.round(p.x - g.offset.x - part.x), y = Math.round(p.y - g.offset.y - part.y)
+        const initial = cmdTagPosition(part)
+        g.moved = x !== initial.x || y !== initial.y
+        setPreview(g.moved ? { ...stored, parts: stored.parts.map((q) => q.id === part.id ? { ...q, tagStyle: { ...q.tagStyle, x, y } } : q) } : null)
+      }
+    }
     if (g.kind === 'mid' && g.wireId) { g.moved = true; setPreview({ ...stored, wires: stored.wires.map((q) => (q.id === g.wireId ? { ...q, mid: snap(p.y) } : q)) }) }
     if (g.kind === 'wire' && draft) { setDraft({ ...draft, to: p }); setHoverTerm(terminalNear(p, draft.from)) }
   }
@@ -459,7 +480,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       else if (!additive) select(null)
       return
     }
-    if ((g.kind === 'move' || g.kind === 'mid') && preview && g.moved) commit(preview)
+    if ((g.kind === 'move' || g.kind === 'tag' || g.kind === 'mid') && preview && g.moved) commit(preview)
     else setPreview(null)
     if (g.kind === 'wire' && draft) {
       const p = toWorld(event.clientX, event.clientY)
@@ -667,7 +688,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                   }}
                   className={running && (MOMENTARY.includes(part.kind) || TOGGLES.includes(part.kind) || part.kind.startsWith('thermal')) ? 'dc-cmd-actuator' : undefined}
                 >
-                  <CmdSymbol part={part} state={stateOf(part)} selected={selectedPartIds.includes(part.id) || (selection?.type === 'part' && selection.id === part.id)} />
+                  <CmdSymbol part={part} state={stateOf(part)} selected={selectedPartIds.includes(part.id) || (selection?.type === 'part' && selection.id === part.id)} onTagPointerDown={(e) => onTagDown(part, e)} />
                 </g>
               ))}
               {editable && tool !== 'pan' && tool !== 'erase' && <g className={`dc-cmd-ports ${showPorts ? 'is-wiring' : ''}`}>{pageParts.flatMap((part) => partTerminals(part).map((_, i) => {

@@ -410,8 +410,8 @@
 .dc-cmd-symbol-sel-fill { fill: rgba(37, 99, 235, .05); stroke: none; }
 .dc-cmd-symbol-sel-handle { fill: #fff; stroke: #2563eb; stroke-width: 1.4px; vector-effect: non-scaling-stroke; }
 .dc-cmd-symbol.is-selected > g { stroke: #2563eb; }
-.dc-cmd-symbol.is-selected .dc-cmd-tag { fill: #1d4ed8; }
-.dc-cmd-symbol:not(.is-selected):hover .dc-cmd-tag { fill: #2563eb; }
+.dc-cmd-tag.is-draggable { cursor: grab; pointer-events: all; }
+.dc-cmd-tag.is-draggable:active { cursor: grabbing; }
 .dc-cmd-tag.is-link { font-size: 10.5px; letter-spacing: .02em; }
 
 /* Janela «Ligação entre páginas» */

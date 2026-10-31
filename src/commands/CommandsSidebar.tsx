@@ -219,6 +219,14 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
         )
       })()}
 {def.family === 'contact' && <p className="dc-cmd-muted">Comandado pelo aparelho <b>{part.tag || '—'}</b> (bobina, temporizador ou relé térmico com a mesma referência).</p>}
+      {part.tag && part.kind !== 'node' && part.kind !== 'supply' && <div className="dc-cmd-field">
+        <span>Formatação da referência</span>
+        <p className="dc-cmd-muted">Arraste a referência no esquema para a reposicionar.</p>
+        <label>Tamanho <input className="dc-input" type="number" min={6} max={72} step={1} aria-label="Tamanho da referência" value={part.tagStyle?.fontSize ?? (isPageLink(part.kind) ? 10.5 : 12)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, fontSize: Math.min(72, Math.max(6, n)) } }) }} /></label>
+        <label>Rotação (°) <input className="dc-input" type="number" step={1} aria-label="Rotação da referência" value={part.tagStyle?.rotation ?? 0} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, rotation: Math.max(-360, Math.min(360, n)) } }) }} /></label>
+        <label>Cor <input type="color" aria-label="Cor da referência" value={/^#[0-9a-f]{6}$/i.test(part.tagStyle?.color ?? '') ? part.tagStyle!.color : '#0f172a'} onChange={(e) => onChange({ tagStyle: { ...part.tagStyle, color: e.target.value } })} /></label>
+        <button type="button" className="dc-btn" onClick={() => onChange({ tagStyle: undefined })}>Repor referência</button>
+      </div>}
       {part.kind === 'supply' && <label className="dc-cmd-field"><span>Fases</span>
         <select className="dc-input" value={(part.lines ?? ['L1']).join(' ')} onChange={(e) => onChange({ lines: e.target.value.split(' ') })} aria-label="Fases da alimentação">
           {SUPPLY_PRESETS.map((p) => <option key={p.join(' ')} value={p.join(' ')}>{p.join(' · ')}</option>)}
