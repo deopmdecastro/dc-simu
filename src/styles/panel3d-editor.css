@@ -304,3 +304,18 @@
   color: var(--pn-ink-2, #3d4b5e);
   border-radius: var(--pn-radius, 8px);
 }
+
+/* Cursor do 3D Realista segue a ferramenta ativa.
+   Os componentes 3D definem cursores inline (grab/grabbing) ao passar o rato;
+   nas ferramentas que não sejam «Selecionar» a ferramenta vence (!important). */
+.panel3d-stage[data-edit-mode="connect"] canvas { cursor: crosshair !important; }
+.panel3d-stage[data-edit-mode="erase"] canvas { cursor: not-allowed !important; }
+.panel3d-stage[data-edit-mode="probe"] canvas { cursor: crosshair !important; }
+.panel3d-stage[data-edit-mode="pan"] canvas,
+.panel3d-stage[data-grid-drag="true"] canvas { cursor: grab !important; }
+.panel3d-stage[data-edit-mode="pan"] canvas:active,
+.panel3d-stage[data-grid-drag="true"] canvas:active { cursor: grabbing !important; }
+.panel3d-stage[data-placing="text"] canvas { cursor: text !important; }
+.panel3d-stage[data-placing="component"] canvas { cursor: copy !important; }
+/* Ferramenta «Selecionar»: cursor por omissão do canvas; os alvos 3D (grab/pointer) mantêm-se. */
+.panel3d-stage[data-edit-mode="navigate"][data-placing="none"] canvas { cursor: default; }
