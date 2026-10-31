@@ -3169,8 +3169,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
-      <Canvas frameloop={!stageVisible ? 'never' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect' && !marqueeDrag.current) selectComponents([]) }}>
-        <CameraProjectCapture camRef={cameraProjectRef} />
+      <Canvas
+        frameloop={!stageVisible ? 'never' : 'demand'}
+        shadows
+        dpr={[1, 1.5]}
+        gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }}
+        camera={{ position: [0.6, 2.4, 6.4], fov: 44 }}
+        onPointerMissed={() => { if (!demoMode && editMode !== 'connect' && !marqueeDrag.current) selectComponents([]) }}
         onCreated={({ gl }) => {
           gl.toneMapping = STUDIO_TONE_MAPPING
           gl.toneMappingExposure = STUDIO_EXPOSURE
@@ -3189,7 +3194,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               setSoftwareGl(true)
             }
           } catch { /* ignore */ }
-        }}>
+        }}
+      >
+        <CameraProjectCapture camRef={cameraProjectRef} />
         <StudioEnvironment />
         <SoftwareRunInvalidator active={softwareGl && stageVisible && (runState === 'running' || burstActive)} />
         <RunFrameBudget active={!softwareGl && stageVisible && runState === 'running'} burst={!softwareGl && stageVisible && burstActive} />
