@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasNote, CanvasText } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { useCommandsUi } from './commandsUi'
 import { CanvasNoteCard } from '../ui/CanvasNoteCard'
 import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_COMMANDS, fontStack, textCss } from '../ui/textStyle'
@@ -120,6 +121,7 @@ export function CommandsTextsLayer({
               if (readOnly || event.button !== 0) return
               event.stopPropagation()
               setSelectedId(item.id)
+              useCommandsUi.getState().select({ type: 'text', id: item.id })
               cleanup.current?.()
               dragged.current = false
               const start = toWorld(event.clientX, event.clientY)
@@ -147,6 +149,7 @@ export function CommandsTextsLayer({
               if (readOnly) return
               event.stopPropagation()
               setSelectedId(item.id)
+              useCommandsUi.getState().select({ type: 'text', id: item.id })
               setEditingId(item.id)
             }}
           >

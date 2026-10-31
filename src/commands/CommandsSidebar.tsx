@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import SidePanelHeader from '../components/SidePanelHeader'
 import { IconChevronDown, IconProjects, IconSearch } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
+import type { CanvasText } from '../types'
 import { CMD_PALETTE, CMD_PARTS, emptyCommands, partBox, partTerminals, type CmdKind, type CmdPart } from './model'
 import { symbolBody, cmdTagPreset } from './symbols'
 import { useCommandsUi } from './commandsUi'
@@ -72,6 +73,8 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
   const running = useCommandsUi((s) => s.rt.running)
   const diagram = useSimStore((s) => s.commands) ?? emptyCommands()
   const selectedPart = selection?.type === 'part' ? diagram.parts.find((p) => p.id === selection.id) : undefined
+  const freeTexts = useSimStore((s) => s.canvasTexts ?? [])
+  const selectedText = selection?.type === 'text' ? freeTexts.find((t) => t.id === selection.id) : undefined
 
   // Selecionar um símbolo no esquema mostra logo as suas propriedades (como no Esquema 3D).
   useEffect(() => { if (selection && selectedFrom === 'canvas') setTab('inspector') }, [selection?.id, selectedFrom])
@@ -106,7 +109,7 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
 
   return (
     <div className="pn-panel dc-cmd-sidebar shrink-0 flex flex-col h-full min-h-0" style={{ width }}>
-      <SidePanelHeader eyebrow={tab === 'library' ? 'COMANDOS' : 'SÍMBOLO'} title={tab === 'library' ? 'Símbolos IEC' : selectedPart ? `${CMD_PARTS[selectedPart.kind].label}${selectedPart.tag ? ` ${selectedPart.tag}` : ''}` : 'Propriedades'} side="left" onToggle={onCollapse} toggleLabel="Recolher biblioteca e inspetor" />
+      <SidePanelHeader eyebrow={tab === 'library' ? 'COMANDOS' : 'SÍMBOLO'} title={tab === 'library' ? 'Símbolos IEC' : selectedPart ? `${CMD_PARTS[selectedPart.kind].label}${selectedPart.tag ? ` ${selectedPart.tag}` : ''}` : selectedText ? 'Texto' : 'Propriedades'} side="left" onToggle={onCollapse} toggleLabel="Recolher biblioteca e inspetor" />
       <div className="pn-tabs flex items-end">
         <button type="button" onClick={() => setTab('library')} className={`dc-tab ${tab === 'library' ? 'dc-tab-active' : ''}`}>
           Biblioteca <span className="text-ink-300 font-normal">({total})</span>
@@ -157,6 +160,7 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
       ) : (
         <div className="dc-cmd-palette-body">
           {selectedPart ? <PartProperties part={selectedPart} disabled={running} />
+            : selection?.type === 'text' ? <TextProperties textId={selection.id} disabled={running} />
             : selection?.type === 'wire' ? <div className="dc-cmd-props"><p>Cabo selecionado. Arraste o troço do meio para o deslocar.</p><button type="button" className="dc-btn is-danger" disabled={running} onClick={removeSelected}>Apagar cabo</button></div>
             : <DiagramSummary />}
         </div>
@@ -269,6 +273,140 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
       <div className="dc-cmd-actions">
         <button type="button" className="dc-btn" onClick={rotateSelected}>Rodar 90°</button>
         <button type="button" className="dc-btn is-danger" onClick={removeSelected}>Apagar</button>
+      </div>
+    </fieldset>
+  )
+}
+
+/** Inspetor de texto livre: mesmo cartão de formatação da referência IEC. */
+function TextProperties({ textId, disabled }: { textId: string; disabled: boolean }) {
+  const text = useSimStore((s) => (s.canvasTexts ?? []).find((t) => t.id === textId))
+  if (!text) {
+    return (
+      <div className="dc-cmd-props">
+        <p className="dc-cmd-muted">Texto não encontrado.</p>
+      </div>
+    )
+  }
+  const update = (patch: Partial<CanvasText>) => useSimStore.getState().updateCanvasText(textId, patch)
+  return (
+    <fieldset className="dc-cmd-props" disabled={disabled}>
+      <p className="dc-cmd-muted">Texto livre no esquema. Clique e arraste para mover · duplo clique edita o conteúdo.</p>
+      <label className="dc-cmd-field">
+        <span>Conteúdo</span>
+        <textarea
+          className="dc-input"
+          rows={3}
+          value={text.text}
+          onChange={(e) => update({ text: e.target.value })}
+          aria-label="Conteúdo do texto"
+          style={{ cursor: 'text', resize: 'vertical' }}
+        />
+      </label>
+      <div className="dc-cmd-field">
+        <span>Formatação do texto</span>
+        <p className="dc-cmd-muted">Ajuste tamanho, rotação, cor e alinhamento. A barra flutuante no canvas oferece as mesmas opções.</p>
+        <label>
+          Tamanho
+          <input
+            className="dc-input"
+            type="number"
+            min={6}
+            max={72}
+            step={1}
+            aria-label="Tamanho do texto"
+            value={text.size ?? 14}
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              if (Number.isFinite(n)) update({ size: Math.min(72, Math.max(6, n)) })
+            }}
+          />
+        </label>
+        <label>
+          Rotação (°)
+          <input
+            className="dc-input"
+            type="number"
+            step={1}
+            aria-label="Rotação do texto"
+            value={text.rotation ?? 0}
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              if (Number.isFinite(n)) update({ rotation: Math.max(-360, Math.min(360, n)) })
+            }}
+          />
+        </label>
+        <label>
+          Cor
+          <input
+            type="color"
+            aria-label="Cor do texto"
+            value={/^#[0-9a-f]{6}$/i.test(text.color ?? '') ? (text.color as string) : '#1e293b'}
+            onChange={(e) => update({ color: e.target.value })}
+          />
+        </label>
+        <div className="dc-cmd-tag-presets" role="group" aria-label="Alinhamento e orientação">
+          <span className="dc-cmd-muted" style={{ display: 'block', marginBottom: 4 }}>Alinhamento</span>
+          <div className="dc-cmd-actions" style={{ flexWrap: 'wrap', gap: 4 }}>
+            {([['left', 'Esquerda'], ['center', 'Centro'], ['right', 'Direita']] as const).map(([align, label]) => (
+              <button
+                key={align}
+                type="button"
+                className={`dc-btn dc-btn-sm${(text.align ?? 'left') === align ? ' is-on' : ''}`}
+                title={`Alinhar à ${label.toLowerCase()}`}
+                onClick={() => update({ align })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="dc-cmd-actions" style={{ flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+            <button type="button" className="dc-btn dc-btn-sm" title="Texto horizontal (0°)" onClick={() => update({ rotation: 0 })}>
+              Horizontal
+            </button>
+            <button type="button" className="dc-btn dc-btn-sm" title="Texto vertical (90°)" onClick={() => update({ rotation: 90 })}>
+              Vertical
+            </button>
+          </div>
+        </div>
+        <div className="dc-cmd-actions" style={{ flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+          <button
+            type="button"
+            className={`dc-btn dc-btn-sm${text.bold ? ' is-on' : ''}`}
+            aria-pressed={!!text.bold}
+            onClick={() => update({ bold: !text.bold })}
+          >
+            Negrito
+          </button>
+          <button
+            type="button"
+            className={`dc-btn dc-btn-sm${text.italic ? ' is-on' : ''}`}
+            aria-pressed={!!text.italic}
+            onClick={() => update({ italic: !text.italic })}
+          >
+            Itálico
+          </button>
+          <button
+            type="button"
+            className={`dc-btn dc-btn-sm${text.underline ? ' is-on' : ''}`}
+            aria-pressed={!!text.underline}
+            onClick={() => update({ underline: !text.underline })}
+          >
+            Sublinhado
+          </button>
+        </div>
+      </div>
+      <div className="dc-cmd-actions">
+        <button
+          type="button"
+          className="dc-btn is-danger"
+          onClick={() => {
+            useSimStore.getState().removeCanvasText(textId)
+            useCommandsUi.getState().select(null)
+          }}
+        >
+          Apagar
+        </button>
       </div>
     </fieldset>
   )

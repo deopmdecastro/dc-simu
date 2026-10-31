@@ -320,6 +320,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       setPlacingText(false)
       setSelectedTextId(id)
       setEditingTextId(id)
+      useCommandsUi.getState().select({ type: 'text', id })
       notify('Texto colocado — duplo clique para editar')
       return
     }

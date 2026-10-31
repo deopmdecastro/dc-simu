@@ -467,3 +467,11 @@
   stroke-linejoin: round;
 }
 .dc-cmd-tag-presets .dc-btn-sm { height: 26px; padding: 0 8px; font-size: 11px; }
+
+/* Simulação: cursor em forma de dedo a apontar nos elementos operáveis */
+.is-running .dc-cmd-actuator,
+.is-running .dc-cmd-actuator .dc-cmd-symbol,
+.is-running .dc-cmd-canvas .dc-cmd-actuator { cursor: pointer !important; }
+.is-running .dc-cmd-canvas { cursor: default; }
+.is-running .dc-cmd-text-anchor { cursor: default; }
+.is-running .dc-cmd-tag { cursor: default; }
