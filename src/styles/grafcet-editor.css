@@ -2106,3 +2106,6 @@
 .grafcet-resize-handle.is-face:active { fill: rgba(37, 99, 235, 0.28); }
 .grafcet-resize-handle.is-corner { vector-effect: non-scaling-stroke; }
 .grafcet-resize-handle.is-corner:hover { fill: #dbeafe; }
+
+/* Nome e páginas dentro da coluna do canvas (ao lado da paleta, como no Esquema IEC). */
+.grafcet-canvas-col > .grafcet-pages { flex: none; border-top: 0; }
