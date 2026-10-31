@@ -34,7 +34,7 @@ export const IMPORTED_COMPONENTS: Record<ImportedComponentType, ImportedComponen
   buttonStart22: {name:'Botão START 22 mm · CAD por converter',manufacturer:'Não identificado',reference:'START BUTTON',category:'command',tag:'S',behavior:'button-no',terminals:[],state:{pressed:false,momentary:true},scope:'Aguarda exportação STEP/GLB do conjunto Inventor e confirmação do bloco de contactos.'},
   buttonStop22: {name:'Botão STOP 22 mm · CAD por converter',manufacturer:'Não identificado',reference:'STOP BUTTON',category:'command',tag:'S',behavior:'button-nc',terminals:[],state:{pressed:false,momentary:true},scope:'Aguarda exportação STEP/GLB do conjunto Inventor e confirmação do bloco de contactos.'},
   towerLightSb23011: {name:'Torre de sinalização SB2-3011 · 3 cores',manufacturer:'Não confirmado',reference:'SB2-3011',category:'signaling',tag:'H',behavior:'tower',terminals:[['R','io'],['Y','io'],['G','io'],['COM','coil-minus']],state:{red:false,yellow:false,green:false,on:false},scope:'Três módulos LED (vermelho, âmbar, verde) com fio comum: cada cor acende quando o seu fio e o comum estão alimentados. Ligação de torres de 4 fios; tensão e cores dos fios por confirmar na etiqueta.'},
-  photoSensorXukt1ksml2: {name:'Sensor fotoelétrico Telemecanique XUKT1KSML2 · reflex · 3 fios',manufacturer:'Telemecanique Sensors',reference:'XUKT1KSML2',category:'sensor',tag:'B',behavior:'photo',terminals:[['V+','power-in'],['0V','coil-minus'],['OUT','io']],state:{powered:false,triggered:false,type:'PNP',no:true,rangeM:1.5},scope:'Saída única PNP/NPN, NA/NF configurável, dependente da alimentação; sem temporização ou ótica física. Ligações representam os fios do cabo, não parafusos no corpo.',source:'https://downloads.telemecaniquesensors.com/dam/datasheets/en/XUKT1KSML2_EN.pdf'},
+  photoSensorXukt1ksml2: {name:'Sensor fotoelétrico Telemecanique XUKT1KSML2 · reflex · 3 fios',manufacturer:'Telemecanique Sensors',reference:'XUKT1KSML2',category:'sensor',tag:'B',behavior:'photo',terminals:[['COM','aux-no'],['NA','aux-no'],['NF','aux-nc']],state:{powered:true,triggered:false,type:'PNP',no:true,rangeM:1.5},scope:'Três cabos soltos COM / NA / NF (contacto de comutação). Em repouso COM–NF; ao detetar, COM–NA. Ligações representam os fios do cabo, não parafusos no corpo.',source:'https://downloads.telemecaniquesensors.com/dam/datasheets/en/XUKT1KSML2_EN.pdf'},
 }
 export const importedComponentInfo = (type: string): ImportedComponentInfo | undefined => Object.prototype.hasOwnProperty.call(IMPORTED_COMPONENTS, type) ? IMPORTED_COMPONENTS[type as ImportedComponentType] : undefined
 
@@ -140,7 +140,11 @@ export function importedBridges(component: ElectricalComponent): Array<[string,s
   if (info.behavior === 'contactor' && state.energized) pairs = info.poles ?? []
   if (info.behavior === 'actuator' && component.terminals.length) pairs = state.pressed ? [['11','14']] : [['11','12']]
   if (info.behavior === 'selector') pairs = state.position === -1 ? [['13','14']] : state.position === 1 ? [['23','24']] : []
-  if (info.behavior === 'photo' && ['PNP','NPN'].includes(state.type) && state.powered && (state.no !== false ? state.triggered : !state.triggered)) pairs = [[state.type === 'NPN' ? '0V' : 'V+', 'OUT']]
+  if (info.behavior === 'photo') {
+    // Contacto de comutação: repouso COM–NF; deteção COM–NA (ou invertido se no===false).
+    const active = state.no !== false ? !!state.triggered : !state.triggered
+    pairs = active ? [['COM', 'NA']] : [['COM', 'NF']]
+  }
   if (info.behavior === 'safety' && state.powered) pairs = [['A1','Y11'],['A1','Y21'], ...(state.energized && !state.tripped ? [['A1','14'],['A1','24']] as Pair[] : [])]
   return pairs.flatMap(([a,b]) => {
     const first=component.terminals.find(t=>t.label===a), second=component.terminals.find(t=>t.label===b)
@@ -153,7 +157,7 @@ export function updateImportedPower(component: ElectricalComponent, live: Set<st
   const info = importedComponentInfo(component.type)
   if (!info || !['photo','safety'].includes(info.behavior)) return
   const terminal = (label: string) => component.terminals.find(t => t.label === label)?.id
-  const labels = info.behavior === 'photo' ? ['V+','0V'] : ['A1','A2']
+  const labels = info.behavior === 'photo' ? [] : ['A1','A2']  // fotoelétrico com contactos secos: sem alimentação explícita nos fios COM/NA/NF
   const powered = labels.every(label => { const id = terminal(label); return !!id && live.has(id) })
   component.state.powered = powered
   if (info.behavior !== 'safety') return

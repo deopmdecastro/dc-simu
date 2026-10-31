@@ -591,31 +591,31 @@
   ],
   "photoSensorXukt1ksml2": [
     {
-      "label": "V+",
+      "label": "COM",
       "face": "left",
       "x": 0.000207,
-      "y": 0.935353,
-      "z": 0.209743,
+      "y": 0.95,
+      "z": 0.19,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"
     },
     {
-      "label": "0V",
+      "label": "NA",
       "face": "left",
       "x": 0.000207,
-      "y": 0.964085,
-      "z": 0.181011,
+      "y": 0.935,
+      "z": 0.21,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"
     },
     {
-      "label": "OUT",
+      "label": "NF",
       "face": "left",
       "x": 0.000207,
-      "y": 0.935353,
-      "z": 0.152279,
+      "y": 0.965,
+      "z": 0.17,
       "diameterMm": 1.5,
       "holeDepthMm": 1.0,
       "contact": "lead"

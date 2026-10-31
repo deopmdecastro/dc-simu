@@ -115,6 +115,16 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"G","face":"bottom","x":0.557143,"y":1.0,"z":0.500169,"diameterMm":2.0,"holeDepthMm":1.0,"contact":"lead"},
     {"label":"COM","face":"bottom","x":0.671429,"y":1.0,"z":0.500169,"diameterMm":2.0,"holeDepthMm":1.0,"contact":"lead"},
   ],
+  photoSensor: [
+    {"label":"COM","face":"left","x":0.0,"y":0.50,"z":0.20,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
+    {"label":"NA","face":"left","x":0.0,"y":0.55,"z":0.18,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
+    {"label":"NF","face":"left","x":0.0,"y":0.45,"z":0.16,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
+  ],
+  proximitySensor: [
+    {"label":"V+","face":"left","x":0.0,"y":0.55,"z":0.20,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
+    {"label":"0V","face":"left","x":0.0,"y":0.50,"z":0.18,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
+    {"label":"OUT","face":"left","x":0.0,"y":0.45,"z":0.16,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
+  ],
   breakerSteckSdC25: [
     {"label":"1","face":"top","x":0.501124,"y":0.011678,"z":0.367237,"diameterMm":11.3,"holeDepthMm":13.494},
     {"label":"2","face":"bottom","x":0.501124,"y":0.978464,"z":0.368237,"diameterMm":11.3,"holeDepthMm":13.494},

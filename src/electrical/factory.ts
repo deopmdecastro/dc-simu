@@ -383,19 +383,43 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   proximitySensor: {
     category: 'sensor', paletteName: 'Sensor indutivo PNP (M18)', group: 'Sensores', tag: 'B', w: 80, h: 110,
     terminals: [
-      T('V+', 'power-in', 0.2, 0, { color: '#92400e' }),
-      T('0V', 'coil-minus', 0.5, 0, { color: '#1d4ed8' }),
-      T('OUT', 'io', 0.8, 0, { color: '#111827' }),
+      T('V+', 'power-in', 0.2, 1, {
+        color: '#92400e', terminalType: 'tubular', contact: 'lead', diameter: 1.5,
+        position3D: { x: -0.25, y: 0.55, z: 0.2 },
+        socket3D: { diameterMm: 1.5, depthMm: 45, insetMm: 0, normal: [-1, 0, 0], position: { x: 0, y: 0.55, z: 0.2 } },
+      }),
+      T('0V', 'coil-minus', 0.5, 1, {
+        color: '#2563eb', terminalType: 'tubular', contact: 'lead', diameter: 1.5,
+        position3D: { x: -0.25, y: 0.5, z: 0.18 },
+        socket3D: { diameterMm: 1.5, depthMm: 45, insetMm: 0, normal: [-1, 0, 0], position: { x: 0, y: 0.5, z: 0.18 } },
+      }),
+      T('OUT', 'io', 0.8, 1, {
+        color: '#1e293b', terminalType: 'tubular', contact: 'lead', diameter: 1.5,
+        position3D: { x: -0.25, y: 0.45, z: 0.16 },
+        socket3D: { diameterMm: 1.5, depthMm: 45, insetMm: 0, normal: [-1, 0, 0], position: { x: 0, y: 0.45, z: 0.16 } },
+      }),
     ],
     defaultState: { triggered: false, sensingMm: 8, type: 'PNP', no: true },
   },
   photoSensor: {
     category: 'sensor', paletteName: 'Sensor fotoelétrico', group: 'Sensores', tag: 'B', w: 90, h: 110,
+    // Cabos soltos por omissão: COM / NA / NF (cores típicas do cabo multipolar).
     terminals: [
-      T('V+', 'power-in', 0.15, 0, { color: '#92400e' }),
-      T('0V', 'coil-minus', 0.4, 0, { color: '#1d4ed8' }),
-      T('NO', 'aux-no', 0.65, 0, { color: '#111827' }),
-      T('NC', 'aux-nc', 0.9, 0, { color: '#6b7280' }),
+      T('COM', 'aux-no', 0.2, 1, {
+        color: '#1e293b', terminalType: 'tubular', contact: 'lead', diameter: 1.5,
+        position3D: { x: -0.25, y: 0.5, z: 0.2 },
+        socket3D: { diameterMm: 1.5, depthMm: 45, insetMm: 0, normal: [-1, 0, 0], position: { x: 0, y: 0.5, z: 0.2 } },
+      }),
+      T('NA', 'aux-no', 0.5, 1, {
+        color: '#92400e', terminalType: 'tubular', contact: 'lead', diameter: 1.5,
+        position3D: { x: -0.25, y: 0.55, z: 0.18 },
+        socket3D: { diameterMm: 1.5, depthMm: 45, insetMm: 0, normal: [-1, 0, 0], position: { x: 0, y: 0.55, z: 0.18 } },
+      }),
+      T('NF', 'aux-nc', 0.8, 1, {
+        color: '#2563eb', terminalType: 'tubular', contact: 'lead', diameter: 1.5,
+        position3D: { x: -0.25, y: 0.45, z: 0.16 },
+        socket3D: { diameterMm: 1.5, depthMm: 45, insetMm: 0, normal: [-1, 0, 0], position: { x: 0, y: 0.45, z: 0.16 } },
+      }),
     ],
     defaultState: { triggered: false, rangeM: 3, mode: 'diffuse' },
   },
@@ -968,14 +992,34 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     changed = true
     return { ...terminal, label, ...(repairMeter ? { defId: label === 'COM' ? 'dm20-com' : 'dm20-volt' } : {}), position3D: target }
   })
-  // Torre: garantir COM e pigtails R/Y/G/COM se o projeto só tinha R/Y/G.
-  if ((c.type === 'towerLight' || c.type === 'towerLightSb23011') && spots) {
+  // Sensor fotoelétrico: migrar V+/0V/OUT ou NO/NC para COM/NA/NF com pigtails.
+  if (c.type === 'photoSensor' || c.type === 'photoSensorXukt1ksml2') {
+    const rename: Record<string, string> = { 'V+': 'NA', 'OUT': 'NA', 'NO': 'NA', '0V': 'NF', 'NC': 'NF', 'C': 'COM' }
+    for (let i = 0; i < terminals.length; i++) {
+      const t = terminals[i]
+      const next = rename[t.label]
+      if (!next || terminals.some((x) => x.label === next && x.id !== t.id)) continue
+      terminals[i] = { ...t, label: next }
+      changed = true
+    }
+  }
+
+    // Torre: garantir COM e pigtails R/Y/G/COM se o projeto só tinha R/Y/G.
+  if ((c.type === 'towerLight' || c.type === 'towerLightSb23011' || c.type === 'photoSensor' || c.type === 'photoSensorXukt1ksml2' || c.type === 'proximitySensor') && spots) {
     for (const spot of spots) {
       if (terminals.some((t) => t.label.toLocaleUpperCase() === spot.label.toLocaleUpperCase())) continue
       const tip = realTerminalPosition(c.type, spot)
       const root = leadRootPosition(c.type, spot)
       const leadColor = ({ R: '#dc2626', Y: '#eab308', G: '#16a34a', COM: '#1e293b' } as Record<string, string>)[spot.label]
-      const kind: TerminalKind = spot.label === 'COM' ? 'coil-minus' : 'io'
+      const kind: TerminalKind = spot.label === 'COM' || spot.label === '0V'
+        ? (spot.label === '0V' ? 'coil-minus' : 'aux-no')
+        : spot.label === 'NF' || spot.label === 'NC'
+          ? 'aux-nc'
+          : spot.label === 'V+' || spot.label === 'OUT'
+            ? (spot.label === 'V+' ? 'power-in' : 'io')
+            : spot.label === 'NA' || spot.label === 'NO'
+              ? 'aux-no'
+              : 'io'
       terminals.push(createTerminal(c.id, spot.label, kind, spot.x, spot.face === 'bottom' ? 1 : spot.y))
       const last = terminals[terminals.length - 1]
       Object.assign(last, {
@@ -1037,6 +1081,7 @@ function applyRealInterfaces() {
       const leadColor = ({
         R: '#dc2626', Y: '#eab308', G: '#16a34a', COM: '#1e293b',
         'V+': '#92400e', '0V': '#2563eb', OUT: '#111827',
+        NA: '#92400e', NF: '#2563eb', NO: '#92400e', NC: '#2563eb',
         // Cores típicas de cabo multipolar industrial (torres / sensores)
         BN: '#92400e', BU: '#2563eb', BK: '#1e293b', WH: '#f8fafc', GY: '#6b7280',
       } as Record<string, string>)[spot.label]
