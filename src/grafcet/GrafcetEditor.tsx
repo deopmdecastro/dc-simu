@@ -5927,8 +5927,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         )}
         </div>
 
-        {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}
-        {full && (
+        {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico)
+            Desktop: quando recolhido mostra CollapsedPanelRail (encolhe de verdade). Mobile: gaveta inferior com is-open. */}
+        {full && (propsOpen || propsAtBottom ? (
           <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''} ${propsTall ? 'is-tall' : ''} `}>
             <SidePanelHeader
               className="grafcet-properties-summary"
@@ -6624,7 +6625,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
             )}
 
           </aside>
-        )}
+        ) : (
+          <CollapsedPanelRail
+            className="grafcet-properties-restore"
+            label="Propriedades"
+            side="right"
+            icon={<IconLayers size={15} />}
+            onExpand={() => setPropsOpen(true)}
+          />
+        ))}
       </div>
 
       {!full && (

@@ -52,6 +52,8 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const [placingText, setPlacingText] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [examplesOpen, setExamplesOpen] = useState(false)
+  /** Utilizador escolheu começar com canvas vazio — esconde o overlay de boas-vindas. */
+  const [emptyDismissed, setEmptyDismissed] = useState(false)
   const canvasNotes = useSimStore((s) => s.canvasNotes)
   const canvasTexts = useSimStore((s) => s.canvasTexts)
   useEffect(() => {
@@ -200,7 +202,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const clearAll = async () => {
     if (!useSimStore.getState().commands.parts.length) return
     if (!(await uiConfirm('Apagar todos os símbolos e cabos? Pode desfazer com Ctrl+Z.', { title: 'Limpar esquema', confirmLabel: 'Limpar', danger: true }))) return
-    useCommandsUi.getState().stop(); commit(emptyCommands()); select(null)
+    useCommandsUi.getState().stop(); commit(emptyCommands()); select(null); setEmptyDismissed(false)
   }
   const focusSelection = () => {
     const sel = useCommandsUi.getState().selection
@@ -611,7 +613,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
               {placing && cursor && <g className="dc-cmd-ghost" pointerEvents="none"><CmdSymbol part={{ id: 'ghost', kind: placing, x: cursor.x, y: cursor.y, rot: 0, tag: defaultTag(diagram, placing), lines: placing === 'supply' ? ['L1', 'L2', 'L3'] : undefined }} showTerminals={false} /></g>}
             </g>
           </svg>
-          {!pageParts.length && (
+          {!pageParts.length && !emptyDismissed && (
             <div className="dc-cmd-empty" onPointerDown={(e) => e.stopPropagation()}>
               <span className="dc-cmd-empty-icon" aria-hidden="true"><IconCommands size={26} /></span>
               <strong>{pages.length > 1 ? 'Ainda não há símbolos nesta página' : 'Ainda não há símbolos'}</strong>
@@ -623,6 +625,8 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
                   type="button"
                   className="dc-btn dc-btn-primary dc-cmd-empty-main"
                   onClick={() => {
+                    // Canvas vazio pronto a usar: remove o overlay e deixa o diagrama utilizável.
+                    setEmptyDismissed(true)
                     try { window.dispatchEvent(new CustomEvent('dc-cmd-open-library')) } catch { /* ignore */ }
                     try { window.dispatchEvent(new CustomEvent('dcsimu:open-library')) } catch { /* ignore */ }
                   }}
