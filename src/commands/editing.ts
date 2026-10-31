@@ -39,6 +39,8 @@ export function addPart(kind: CmdKind, at: Pt): CmdPart {
   if (labels) part.labels = labels
   commitDiagram({ ...diagram, parts: [...diagram.parts, part] })
   useCommandsUi.getState().select({ type: 'part', id: part.id }, 'library')
+  // Só entra em «Recentes» o que foi mesmo colocado (escolher e cancelar não conta).
+  useCommandsUi.getState().markRecent(kind)
   return part
 }
 

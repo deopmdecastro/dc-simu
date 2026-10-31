@@ -173,6 +173,22 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     else if (name === 'focusSelection') focusSelection()
   }, [event?.n])
 
+  // Duplo clique na Biblioteca: insere no centro da vista, no primeiro sítio livre.
+  const quickAdd = useCommandsUi((s) => s.quickAdd)
+  useEffect(() => {
+    if (!quickAdd || !editable) return
+    const parts = useSimStore.getState().commands.parts
+    const centre = { x: snap((size.width / 2 - view.x) / view.scale), y: snap((size.height / 2 - view.y) / view.scale) }
+    const overlaps = (at: Pt) => {
+      const box = partBox({ id: 'probe', kind: quickAdd.kind, x: at.x, y: at.y, rot: 0, tag: '' })
+      return parts.some((p) => { const b = partBox(p); return box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y })
+    }
+    let at = centre
+    for (let i = 1; i < 40 && overlaps(at); i++) at = { x: centre.x + (i % 8) * CMD_GRID * 4, y: centre.y + Math.floor(i / 8) * CMD_GRID * 5 }
+    const part = addPart(quickAdd.kind, at)
+    notify(`${CMD_PARTS[part.kind].label}${part.tag ? ` ${part.tag}` : ''} inserido no centro da vista`)
+  }, [quickAdd?.n])
+
   // ---------------------------------------------------------------- acertos
   const terminalNear = (p: Pt, exclude?: CmdEnd): CmdEnd | null => {
     let best: CmdEnd | null = null, bestD = 10 / Math.min(1, view.scale)

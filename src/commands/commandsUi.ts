@@ -37,6 +37,17 @@ interface CommandsUi {
   /** Pedido para o canvas (ajustar, zoom, exemplos…): `n` muda a cada pedido. */
   event: { name: CmdUiEvent; n: number } | null
   emit: (name: CmdUiEvent) => void
+  /** Duplo clique na Biblioteca: o canvas insere o símbolo no centro da vista. */
+  quickAdd: { kind: CmdKind; n: number } | null
+  requestQuickAdd: (kind: CmdKind) => void
+  /** Símbolos colocados recentemente (o último primeiro), guardados neste navegador. */
+  recent: CmdKind[]
+  markRecent: (kind: CmdKind) => void
+}
+
+const RECENT_KEY = 'dcsimu:commands:library:recent'
+const readRecent = (): CmdKind[] => {
+  try { return (JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as CmdKind[]).slice(0, 8) } catch { return [] }
 }
 
 const diagram = () => useSimStore.getState().commands
@@ -69,6 +80,14 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   trip: (tag, value) => get().patchRt({ tripped: { ...get().rt.tripped, [tag]: value } }),
   event: null,
   emit: (name) => set({ event: { name, n: (get().event?.n ?? 0) + 1 } }),
+  quickAdd: null,
+  requestQuickAdd: (kind) => set({ placing: null, quickAdd: { kind, n: (get().quickAdd?.n ?? 0) + 1 } }),
+  recent: typeof localStorage === 'undefined' ? [] : readRecent(),
+  markRecent: (kind) => {
+    const next = [kind, ...get().recent.filter((k) => k !== kind)].slice(0, 8)
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)) } catch { /* armazenamento indisponível */ }
+    set({ recent: next })
+  },
 }))
 
 /** Símbolos que se operam com o rato durante a simulação. */
