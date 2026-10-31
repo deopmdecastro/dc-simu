@@ -560,10 +560,28 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   },
   towerLight: {
     category: 'signaling', paletteName: 'Torre de sinalização', group: 'Sinalização', tag: 'H', w: 70, h: 120,
+    // Cabos soltos (pigtails) por omissão — iguais à torre SB2-3011 (R/Y/G/COM).
     terminals: [
-      T('R', 'io', 0.2, 1, { color: '#ef4444' }),
-      T('Y', 'io', 0.5, 1, { color: '#eab308' }),
-      T('G', 'io', 0.8, 1, { color: '#22c55e' }),
+      T('R', 'io', 0.2, 1, {
+        color: '#dc2626', terminalType: 'tubular', contact: 'lead', diameter: 2,
+        position3D: { x: 0.33, y: -0.2, z: 0.5 },
+        socket3D: { diameterMm: 2, depthMm: 45, insetMm: 0, normal: [0, -1, 0], position: { x: 0.33, y: 0, z: 0.5 } },
+      }),
+      T('Y', 'io', 0.4, 1, {
+        color: '#eab308', terminalType: 'tubular', contact: 'lead', diameter: 2,
+        position3D: { x: 0.44, y: -0.2, z: 0.5 },
+        socket3D: { diameterMm: 2, depthMm: 45, insetMm: 0, normal: [0, -1, 0], position: { x: 0.44, y: 0, z: 0.5 } },
+      }),
+      T('G', 'io', 0.6, 1, {
+        color: '#16a34a', terminalType: 'tubular', contact: 'lead', diameter: 2,
+        position3D: { x: 0.56, y: -0.2, z: 0.5 },
+        socket3D: { diameterMm: 2, depthMm: 45, insetMm: 0, normal: [0, -1, 0], position: { x: 0.56, y: 0, z: 0.5 } },
+      }),
+      T('COM', 'coil-minus', 0.8, 1, {
+        color: '#1e293b', terminalType: 'tubular', contact: 'lead', diameter: 2,
+        position3D: { x: 0.67, y: -0.2, z: 0.5 },
+        socket3D: { diameterMm: 2, depthMm: 45, insetMm: 0, normal: [0, -1, 0], position: { x: 0.67, y: 0, z: 0.5 } },
+      }),
     ],
     defaultState: { red: false, yellow: false, green: false, on: false },
   },
@@ -912,7 +930,33 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     const spot = spots.find((item) => item.label.toLocaleUpperCase() === label.toLocaleUpperCase())
     const previous = LEGACY_REAL_TERMINALS[c.type]?.find((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
     const at = terminal.position3D
-    if (!spot || !at || terminal.pinned) return canonical
+    if (!spot || terminal.pinned) return canonical
+    // Projetos antigos sem pigtails: aplica contact:lead + cores + socket da ficha real.
+    if (spot.contact === 'lead' && terminal.contact !== 'lead') {
+      changed = true
+      const tip = realTerminalPosition(c.type, spot)
+      const root = leadRootPosition(c.type, spot)
+      const leadColor = ({
+        R: '#dc2626', Y: '#eab308', G: '#16a34a', COM: '#1e293b',
+        'V+': '#92400e', '0V': '#2563eb', OUT: '#111827',
+      } as Record<string, string>)[spot.label]
+      return {
+        ...canonical,
+        contact: 'lead',
+        terminalType: canonical.terminalType === 'screw' ? 'tubular' : canonical.terminalType,
+        color: leadColor ?? canonical.color,
+        position3D: tip,
+        diameter: spot.diameterMm ?? canonical.diameter,
+        socket3D: {
+          diameterMm: spot.diameterMm ?? 1.5,
+          depthMm: LEAD_PIGTAIL_LENGTH_MM,
+          insetMm: 0,
+          normal: FACE_OUTWARD_3D[spot.face],
+          position: root,
+        },
+      }
+    }
+    if (!at) return canonical
     const target = realTerminalPosition(c.type, spot)
     if (Math.hypot(at.x - target.x, at.y - target.y, at.z - target.z) < 1e-9) return canonical
     const legacy = legacyInsetIntoHole(c.type, previous ?? spot)
@@ -924,7 +968,35 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     changed = true
     return { ...terminal, label, ...(repairMeter ? { defId: label === 'COM' ? 'dm20-com' : 'dm20-volt' } : {}), position3D: target }
   })
-  // 3D-DATA-01: S52 do relé de segurança nascia com a posição 3D (x 0,3) como posição 2D, por cima de S12,
+  // Torre: garantir COM e pigtails R/Y/G/COM se o projeto só tinha R/Y/G.
+  if ((c.type === 'towerLight' || c.type === 'towerLightSb23011') && spots) {
+    for (const spot of spots) {
+      if (terminals.some((t) => t.label.toLocaleUpperCase() === spot.label.toLocaleUpperCase())) continue
+      const tip = realTerminalPosition(c.type, spot)
+      const root = leadRootPosition(c.type, spot)
+      const leadColor = ({ R: '#dc2626', Y: '#eab308', G: '#16a34a', COM: '#1e293b' } as Record<string, string>)[spot.label]
+      const kind: TerminalKind = spot.label === 'COM' ? 'coil-minus' : 'io'
+      terminals.push(createTerminal(c.id, spot.label, kind, spot.x, spot.face === 'bottom' ? 1 : spot.y))
+      const last = terminals[terminals.length - 1]
+      Object.assign(last, {
+        contact: 'lead' as const,
+        terminalType: 'tubular' as const,
+        color: leadColor ?? last.color,
+        position3D: tip,
+        diameter: spot.diameterMm ?? 2,
+        socket3D: {
+          diameterMm: spot.diameterMm ?? 1.5,
+          depthMm: LEAD_PIGTAIL_LENGTH_MM,
+          insetMm: 0,
+          normal: FACE_OUTWARD_3D[spot.face],
+          position: root,
+        },
+      })
+      changed = true
+    }
+  }
+
+    // 3D-DATA-01: S52 do relé de segurança nascia com a posição 3D (x 0,3) como posição 2D, por cima de S12,
   // e com o tipo «power-in». Projetos guardados com essa posição automática passam para a do modelo.
   if (c.type === 'safetyRelay') {
     const template = TEMPLATES.safetyRelay.terminals.find((item) => item.label === 'S52')
@@ -965,6 +1037,8 @@ function applyRealInterfaces() {
       const leadColor = ({
         R: '#dc2626', Y: '#eab308', G: '#16a34a', COM: '#1e293b',
         'V+': '#92400e', '0V': '#2563eb', OUT: '#111827',
+        // Cores típicas de cabo multipolar industrial (torres / sensores)
+        BN: '#92400e', BU: '#2563eb', BK: '#1e293b', WH: '#f8fafc', GY: '#6b7280',
       } as Record<string, string>)[spot.label]
       return T(existing?.label ?? spot.label, kind, existing?.x ?? spot.x, existing?.y ?? schematicY, {
         ...existing,

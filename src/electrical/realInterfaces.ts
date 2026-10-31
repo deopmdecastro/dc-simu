@@ -108,6 +108,13 @@ export interface RealControlSpot {
 
 export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
   ...importedTerminals as Partial<Record<ComponentType, RealTerminalSpot[]>>,
+  // Torre genérica: mesmos pigtails multi-cor da SB2-3011 (predefinição).
+  towerLight: [
+    {"label":"R","face":"bottom","x":0.328571,"y":1.0,"z":0.500169,"diameterMm":2.0,"holeDepthMm":1.0,"contact":"lead"},
+    {"label":"Y","face":"bottom","x":0.442857,"y":1.0,"z":0.500169,"diameterMm":2.0,"holeDepthMm":1.0,"contact":"lead"},
+    {"label":"G","face":"bottom","x":0.557143,"y":1.0,"z":0.500169,"diameterMm":2.0,"holeDepthMm":1.0,"contact":"lead"},
+    {"label":"COM","face":"bottom","x":0.671429,"y":1.0,"z":0.500169,"diameterMm":2.0,"holeDepthMm":1.0,"contact":"lead"},
+  ],
   breakerSteckSdC25: [
     {"label":"1","face":"top","x":0.501124,"y":0.011678,"z":0.367237,"diameterMm":11.3,"holeDepthMm":13.494},
     {"label":"2","face":"bottom","x":0.501124,"y":0.978464,"z":0.368237,"diameterMm":11.3,"holeDepthMm":13.494},
