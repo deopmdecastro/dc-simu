@@ -3,9 +3,10 @@ import { getComponentModelSpec, type ComponentModelSpec } from './modelPaths'
 import type { ComponentType } from '../types'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { buildMotorTerminalBox, MOTOR_FLOOR_Y, MOTOR_CAD } from './motorTerminalBox'
+import { motorVariantOf } from './motorTerminalLayout'
 
 /** CAD sem réguas completas: tampas funcionais com cavidades reais para cada ligação. */
-export const SOCKET_BLOCK_TYPES: ComponentType[] = ['safetyRelay', 'plcLsXbmDn32s', 'motor3ph']
+export const SOCKET_BLOCK_TYPES: ComponentType[] = ['safetyRelay', 'plcLsXbmDn32s', 'motor3ph', 'motor1ph']
 const CAP_MM = 6
 
 /** Recorta apenas os triângulos que atravessam a tampa, no referencial da malha.
@@ -61,7 +62,8 @@ export function addTerminalSocketBlocks(model: THREE.Group, spec: ComponentModel
   model.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(model, true)
   const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3())
-  if (type === 'motor3ph') {
+  const motorVariant = motorVariantOf(type)
+  if (motorVariant) {
     // Motor: retira a tampa da caixa de bornes e constrói o compartimento real
     // (paredes, fundo, placa isolante, bornes M4, PE e bucim) no sítio da caixa do CAD.
     const cut = box.min.y + (MOTOR_FLOOR_Y - MOTOR_CAD.minY) * units
@@ -75,7 +77,7 @@ export function addTerminalSocketBlocks(model: THREE.Group, spec: ComponentModel
       mesh.geometry = clipGeometry(mesh.geometry, [plane.clone().applyMatrix4(mesh.matrixWorld.clone().invert())])
       mesh.userData.generatedTerminalSocket = true
     })
-    model.add(buildMotorTerminalBox(box.min, units, body))
+    model.add(buildMotorTerminalBox(box.min, units, body, motorVariant))
     model.updateMatrixWorld(true)
     return
   }

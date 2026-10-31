@@ -92,7 +92,7 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
   const inner = cloneModelScene(source)
 
   // Mesmo acabamento do Painel 3D (antes: materiais em bruto do CAD, rugosidade 1 = gesso).
-  const motor = options.path === MODEL_PATHS.motorSewDrn80Mk4B3
+  const motor = options.path === MODEL_PATHS.motorSewDrn80Mk4B3 || options.path === MODEL_PATHS.motorSewDrn80Mk4B3Mono
   const emergency = options.path === MODEL_PATHS.emergencyButtonP20AKR ? 'emergencyButton'
     : options.path === MODEL_PATHS.emergencyButtonKeyP20ACR ? 'emergencyButtonKeyP20ACR' : null
   if (motor) applyEditorMotorTextures(inner)

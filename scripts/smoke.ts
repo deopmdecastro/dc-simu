@@ -23,7 +23,7 @@ import { runScan } from '../src/ladder/ladderEngine'
 import { applyKind } from '../src/ladder/ladderDnd'
 import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
 import type { CounterTable, AddressTable, TimerTable, EdgeTable } from '../src/ladder/ladderEngine'
-import { createComponent, terminalByLabel, TEMPLATES, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
+import { createComponent, terminalByLabel, TEMPLATES, upgradeLogoTerminals, upgradeMonoMotorTerminals, upgradeProauto24A } from '../src/electrical/factory'
 import { REAL_TERMINALS, realTerminalPosition } from '../src/electrical/realInterfaces'
 import { LEGACY_REAL_TERMINALS } from '../src/electrical/legacyRealInterfaces'
 import { upgradeRealInterfacePositions } from '../src/electrical/factory'
@@ -931,6 +931,35 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('LS XBM-DN32S é PLC programável com 16DI/16DO', isProgrammablePlc(ls) && plcIoCapacity(ls).inputs === 16 && plcIoCapacity(ls).outputs === 16)
   check('TS Adapter IE é acessório e não recebe programa Ladder', !isProgrammablePlc(createComponent('siemensTsAdapterIeBasic')))
 
+  // Motor monofásico: o mesmo DRN80 duplicado com a carcaça azul e a placa U1 Z1 / U2 Z2 + PE.
+  {
+    const glbChunks = (file: string) => {
+      const b = fs.readFileSync(file)
+      const len = b.readUInt32LE(12)
+      return { json: JSON.parse(b.subarray(20, 20 + len).toString('utf8')), bin: b.subarray(20 + len) }
+    }
+    const red = glbChunks('public/models/motores/DRN80MK4-B3.glb')
+    const blue = glbChunks('public/models/motores/DRN80MK4-B3-mono-azul.glb')
+    const monoSpec = getComponentModelSpec('motor1ph')
+    const paint = blue.json.materials.find((m: { name?: string }) => /azul/i.test(m.name ?? ''))
+    const [r, g, b] = paint?.pbrMetallicRoughness?.baseColorFactor ?? [1, 0, 0]
+    check('motor monofásico usa o GLB do DRN80 duplicado (mesma geometria e texturas)', monoSpec?.path === '/models/motores/DRN80MK4-B3-mono-azul.glb' && blue.bin.equals(red.bin) && blue.json.meshes.length === red.json.meshes.length)
+    check('motor monofásico: carcaça pintada de azul em vez do vermelho SEW', !!paint && b > r * 1.35 && b > g * 1.35 && !blue.json.materials.some((m: { name?: string }) => /vermelh/i.test(m.name ?? '')))
+    const mono = createComponent('motor1ph')
+    const labels = mono.terminals.map((t) => t.label).sort().join()
+    const spots = (REAL_TERMINALS.motor1ph ?? []).map((spot) => spot.label).sort().join()
+    check('motor monofásico tem bornes U1 U2 (principal), Z1 Z2 (auxiliar) e PE, com encaixes reais na caixa', labels === 'PE,U1,U2,Z1,Z2' && spots === labels)
+    const three = REAL_TERMINALS.motor3ph ?? []
+    const at = (list: typeof three, label: string) => list.find((spot) => spot.label === label)
+    const monoSpots = REAL_TERMINALS.motor1ph ?? []
+    check('placa monofásica usa os pernos da placa trifásica (U1/U2 nos de U1/W2, Z1/Z2 nos de W1/V2, PE no mesmo grampo)', ([['U1', 'U1'], ['U2', 'W2'], ['Z1', 'W1'], ['Z2', 'V2'], ['PE', 'PE']] as const).every(([m, t]) => {
+      const a = at(monoSpots, m), c = at(three, t)
+      return !!a && !!c && Math.abs(a.x - c.x) < 1e-9 && Math.abs(a.y - c.y) < 1e-9 && Math.abs(a.z - c.z) < 1e-9
+    }))
+    const legacy = { ...mono, terminals: mono.terminals.filter((t) => t.label === 'U1' || t.label === 'U2' || t.label === 'PE') }
+    const upgraded = upgradeMonoMotorTerminals(legacy)
+    check('projetos antigos ganham Z1/Z2 ao abrir, sem perder os bornes existentes', upgraded.terminals.map((t) => t.label).sort().join() === 'PE,U1,U2,Z1,Z2' && legacy.terminals.every((t) => upgraded.terminals.some((u) => u.id === t.id)))
+  }
   const motor = createComponent('motor3ph')
   const motorCad = getComponentModelSpec('motor3ph')
   check('SEW DRN80MK4/B3 usa o GLB real fora da calha DIN', motorCad?.path === '/models/motores/DRN80MK4-B3.glb' && motorCad.placement === 'machine' && motorCad.rotation.every((angle) => angle === 0))
@@ -978,9 +1007,9 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('demonstração de partida direta 3D usa sete componentes reais, incluindo H1 e H2', directStart3DTypes.length === 7 && directStart3DTypes.every((type) => hasComponent3DModel(type) && !!getComponentGlbSpec(type)))
 
   const beforeBlockedAdd = useSimStore.getState().components.length
-  const blockedId = useSimStore.getState().addComponent('motor1ph', 0, 0)
+  const blockedId = useSimStore.getState().addComponent('contactor', 0, 0)
   check('store impede inserção indireta de componente sem GLB', blockedId === null && useSimStore.getState().components.length === beforeBlockedAdd)
-  useSimStore.getState().setPlacingType('motor1ph')
+  useSimStore.getState().setPlacingType('contactor')
   useSimStore.getState().setDragType('buttonNO')
   check('estados de posicionamento e arraste não contornam o bloqueio', useSimStore.getState().placingType === null && useSimStore.getState().dragType === null)
 

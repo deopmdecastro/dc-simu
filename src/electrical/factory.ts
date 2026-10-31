@@ -591,11 +591,15 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     },
   },
   motor1ph: {
-    category: 'motor', paletteName: 'Motor monofásico · azul DC-Simu', group: 'Motores', tag: 'M', w: 120, h: 120,
+    category: 'motor', paletteName: 'Motor monofásico · azul DC-Simu', group: 'Motores', tag: 'M', w: 140, h: 120,
+    // O mesmo motor SEW DRN80 (GLB duplicado e pintado de azul) com a placa monofásica:
+    // U1-U2 enrolamento principal, Z1-Z2 enrolamento auxiliar de arranque (IEC 60034-8) e PE.
     terminals: [
       T('U1', 'power-in', 0.25, 0, { position3D: { x: 0.28, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
-      T('U2', 'coil-minus', 0.75, 0, { position3D: { x: 0.72, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
-      T('PE', 'earth', 0.5, 1, { position3D: { x: 0.5, y: 1, z: 0.52 }, terminalType: 'screw', diameter: 11 }),
+      T('Z1', 'power-in', 0.75, 0, { position3D: { x: 0.72, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
+      T('U2', 'coil-minus', 0.25, 1, { position3D: { x: 0.28, y: 1, z: 0.7 }, terminalType: 'screw', diameter: 11 }),
+      T('Z2', 'coil-minus', 0.75, 1, { position3D: { x: 0.72, y: 1, z: 0.7 }, terminalType: 'screw', diameter: 11 }),
+      T('PE', 'earth', 0.93, 0.5, { position3D: { x: 0.9, y: 1, z: 0.52 }, terminalType: 'screw', diameter: 11 }),
     ],
     // Adaptado do motor3ph SEW; cor azul característica DC-Simu para identificação visual no esquema e 3D.
     defaultState: {
@@ -1171,6 +1175,19 @@ export function createTerminal(componentId: string, label: string, kind: Termina
 }
 
 /** Atualiza projetos anteriores sem tocar nos IDs nem nos cabos existentes. */
+/** Motor monofásico de projetos anteriores (só U1 U2 PE): junta os bornes do enrolamento auxiliar Z1-Z2. */
+export function upgradeMonoMotorTerminals(c: ElectricalComponent): ElectricalComponent {
+  if (c.type !== 'motor1ph') return c
+  const template = TEMPLATES.motor1ph.terminals
+  const missing = template.filter((t) => !c.terminals.some((x) => x.label === t.label))
+  if (!missing.length) return c
+  return { ...c, terminals: [...c.terminals, ...missing.map((t): Terminal => ({
+    id: `${c.id}-${t.label}`, componentId: c.id, label: t.label, kind: t.kind,
+    terminalType: t.terminalType ?? KIND_TYPE[t.kind], color: t.color ?? KIND_COLOR[t.kind], x: t.x, y: t.y,
+    ...(t.position3D ? { position3D: { ...t.position3D } } : {}), energized: false,
+  }))] }
+}
+
 export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponent {
   if (c.type !== 'plcSiemensLogo1224RC') return c
   const extra: Terminal[] = []

@@ -45,10 +45,16 @@ function libraryMap(url: string, srgb: boolean, repeat: number): THREE.Texture {
   return texture
 }
 
+/** Vermelho industrial SEW-Eurodrive (RAL 3001/3002) e azul DC-Simu do motor monofásico. */
+const SEW_RED = '#b3191e'
+const MONO_BLUE = '#1f4fbf'
+
 function classifyMaterial(material: THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial): {
   entryId: string
   role: 'sew-paint' | 'dark-iron' | 'cast-iron' | 'machined-steel' | 'brass'
   keepColor: THREE.Color | null
+  /** Pintura da carcaça: vermelho SEW (trifásico) ou azul DC-Simu (monofásico). */
+  paint?: string
 } {
   const color = material.color
   const r = color.r
@@ -58,11 +64,14 @@ function classifyMaterial(material: THREE.MeshStandardMaterial | THREE.MeshPhysi
   const min = Math.min(r, g, b)
   // Vermelho SEW-Eurodrive (carcaça aletada pintada em esmalte industrial metálico)
   const isRedPaint = r > 0.4 && r > g * 1.35 && r > b * 1.35
+  // Azul do motor monofásico (DRN80MK4-B3-mono-azul.glb): mesma pintura, outra cor.
+  const isBluePaint = b > 0.4 && b > r * 1.35 && b > g * 1.35
   // Latão / bronze de pernos ou chapa
   const isBrass = !isRedPaint && r > 0.55 && g > 0.42 && b < 0.32 && r > b * 1.6
   const isDark = max < 0.24
   const isMetalGray = !isRedPaint && max - min < 0.14 && max >= 0.24 && max < 0.76
-  if (isRedPaint) return { entryId: 'pintura-industrial', role: 'sew-paint', keepColor: color.clone() }
+  if (isRedPaint) return { entryId: 'pintura-industrial', role: 'sew-paint', keepColor: color.clone(), paint: SEW_RED }
+  if (isBluePaint) return { entryId: 'pintura-industrial', role: 'sew-paint', keepColor: color.clone(), paint: MONO_BLUE }
   if (isBrass) return { entryId: 'latao', role: 'brass', keepColor: null }
   if (isDark) return { entryId: 'ferro-fundido', role: 'dark-iron', keepColor: null }
   if (isMetalGray) return { entryId: 'ferro-fundido', role: 'cast-iron', keepColor: null }
@@ -127,14 +136,14 @@ export function applyEditorMotorTextures(root: THREE.Object3D) {
       if (!(base instanceof THREE.MeshStandardMaterial) && !(base instanceof THREE.MeshPhysicalMaterial)) {
         return base
       }
-      const { entryId, role } = classifyMaterial(base)
+      const { entryId, role, paint } = classifyMaterial(base)
       const entry = textureLibraryEntry(entryId) ?? textureLibraryEntry('ferro-fundido')
       if (!entry) return base
 
       const material = role === 'sew-paint'
         ? new THREE.MeshPhysicalMaterial({
             name: base.name,
-            color: new THREE.Color('#b0181d'),
+            color: new THREE.Color(paint ?? SEW_RED),
             metalness: 0.46,
             roughness: 0.29,
             clearcoat: 0.42,
@@ -155,7 +164,7 @@ export function applyEditorMotorTextures(root: THREE.Object3D) {
 
       if (role === 'sew-paint') {
         // Vermelho industrial SEW-Eurodrive rico (RAL 3001/3002) com reflexo metálico nas alhetas
-        material.color.set('#b3191e')
+        material.color.set(paint ?? SEW_RED)
         material.metalness = 0.46
         material.roughness = 0.29
         material.envMapIntensity = 1.65

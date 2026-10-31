@@ -140,7 +140,7 @@ function normalizeObject(root: THREE.Object3D) {
 
 /** Acabamento igual ao do Painel 3D; resolve quando os mapas reais estão aplicados. */
 async function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentType, renderUnitsPerMm: number): Promise<void> {
-  if (type === 'motor3ph') {
+  if (type === 'motor3ph' || type === 'motor1ph') {
     applyEditorMotorTextures(root)
     // A capa só é tirada com a pintura e o aço já carregados (antes saía cinzenta).
     await waitMotorTextures()
@@ -177,7 +177,7 @@ function cleanupPreparedObject(turntable: THREE.Group, object: THREE.Object3D) {
 
 /** Ângulo de repouso (capa e 1.º fotograma): 3/4 de cima, lado direito à vista. */
 function restPose(type: ComponentType, pitchIndex = DEFAULT_PITCH_INDEX): [number, number] {
-  if (type === 'motor3ph') return [0.34, -0.58]
+  if (type === 'motor3ph' || type === 'motor1ph') return [0.34, -0.58]
   const placement = getComponentGlbSpec(type)?.placement
   // Botoneiras e sinaleiros vivem na porta: a face de comando tem de ficar bem de frente.
   if (placement === 'panel-front') return [pitchIndex === DEFAULT_PITCH_INDEX ? 0.2 : PITCH_ANGLES[pitchIndex] ?? 0, -0.42]

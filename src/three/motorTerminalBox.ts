@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import {
   MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_BOX, MOTOR_CAD, MOTOR_FLOOR_Y, MOTOR_GLAND, MOTOR_NUT_TOP, MOTOR_PE,
-  MOTOR_SOCKET_DEPTH, MOTOR_STUD, MOTOR_TERMINALS_MM, MOTOR_TERMINAL_ORDER, type MotorTerminalLabel,
+  MOTOR_SOCKET_DEPTH, MOTOR_STUD, motorTerminalOrder, motorTerminalsMm, type MotorVariant,
 } from './motorTerminalLayout'
 
 export { MOTOR_CAD, MOTOR_FLOOR_Y }
@@ -13,7 +13,8 @@ export { MOTOR_CAD, MOTOR_FLOOR_Y }
  * bucim M20. Coordenadas do CAD convertidas com `origin` (= mínimo do volume
  * ajustado) e `units` (unidades de cena por mm).
  */
-export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body: THREE.Material | null): THREE.Group {
+export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body: THREE.Material | null, variant: MotorVariant = 'three'): THREE.Group {
+  const terminalsMm = motorTerminalsMm(variant)
   const group = new THREE.Group()
   group.name = 'motor-terminal-box'
   group.userData.generatedTerminalSocket = true
@@ -117,7 +118,7 @@ export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body
     const screw = add(new THREE.Mesh(new THREE.CylinderGeometry(2.6 * units, 2.6 * units, 1.4 * units, 16), steel), 'placa-parafuso')
     screw.position.copy(at(MOTOR_BOARD.cx + dx * (MOTOR_BOARD.w / 2 - 6), MOTOR_BOARD_TOP + .7, MOTOR_BOARD.cz + MOTOR_BOARD.d / 2 - 5))
   }
-  const labels = boardLabelPlane(units)
+  const labels = boardLabelPlane(units, variant)
   if (labels) { labels.position.copy(at(MOTOR_BOARD.cx, MOTOR_BOARD_TOP + .05, MOTOR_BOARD.cz)); add(labels, 'placa-marcacao') }
 
   // Borne: anilha, perno M4 e porca-luva sextavada com furo Ø4,8.
@@ -134,14 +135,14 @@ export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body
   const peNut = nutShape(4.2)
   const washer = new THREE.CylinderGeometry(5 * units, 5 * units, MOTOR_STUD.washer * units, 24)
   const studTop = MOTOR_NUT_TOP - MOTOR_SOCKET_DEPTH
-  const terminal = (label: MotorTerminalLabel, seat: number, washerMaterial: THREE.Material, geometry: THREE.BufferGeometry) => {
-    const [x, , z] = MOTOR_TERMINALS_MM[label]
+  const terminal = (label: string, seat: number, washerMaterial: THREE.Material, geometry: THREE.BufferGeometry) => {
+    const [x, , z] = terminalsMm[label]
     add(new THREE.Mesh(washer, washerMaterial), `borne-${label}-anilha`).position.copy(at(x, seat + MOTOR_STUD.washer / 2, z))
     const stud = add(new THREE.Mesh(new THREE.CylinderGeometry(2 * units, 2 * units, (studTop - seat) * units, 16), steel), `borne-${label}-perno`)
     stud.position.copy(at(x, (seat + studTop) / 2, z))
     add(new THREE.Mesh(geometry, brass), `borne-${label}-porca`).position.copy(at(x, seat + MOTOR_STUD.washer, z))
   }
-  for (const label of MOTOR_TERMINAL_ORDER) if (label !== 'PE') terminal(label, MOTOR_BOARD_TOP, brass, studNut)
+  for (const label of motorTerminalOrder(variant)) if (label !== 'PE') terminal(label, MOTOR_BOARD_TOP, brass, studNut)
 
   // PE: pedestal ligado à carcaça, anilha verde/amarela, marcação de terra no fundo.
   const pedestal = add(new THREE.Mesh(new THREE.CylinderGeometry(MOTOR_PE.pedestal / 2 * units, MOTOR_PE.pedestal / 2 * units, (MOTOR_BOARD_TOP - MOTOR_FLOOR_Y) * units, 24), steel), 'borne-PE-base')
@@ -220,16 +221,17 @@ function canvasPlane(widthMm: number, depthMm: number, units: number, draw: (ctx
   return mesh
 }
 
-/** Marcação serigrafada da placa (U1 V1 W1 / W2 U2 V2), como nas placas reais. */
-function boardLabelPlane(units: number): THREE.Mesh | null {
+/** Marcação serigrafada da placa (U1 V1 W1 / W2 U2 V2, ou U1 Z1 / U2 Z2 no monofásico), como nas placas reais. */
+function boardLabelPlane(units: number, variant: MotorVariant = 'three'): THREE.Mesh | null {
+  const terminalsMm = motorTerminalsMm(variant)
   return canvasPlane(MOTOR_BOARD.w, MOTOR_BOARD.d, units, (ctx, px) => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     ctx.fillStyle = '#e7e2d6'
     ctx.font = `700 ${4.2 * px}px Inter, Arial, sans-serif`
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    for (const label of MOTOR_TERMINAL_ORDER) {
+    for (const label of motorTerminalOrder(variant)) {
       if (label === 'PE') continue
-      const [x, , z] = MOTOR_TERMINALS_MM[label]
+      const [x, , z] = terminalsMm[label]
       const u = (x - MOTOR_BOARD.cx + MOTOR_BOARD.w / 2) * px
       const back = label.endsWith('2')
       const v = (z - MOTOR_BOARD.cz + MOTOR_BOARD.d / 2 + (back ? -8.6 : 8.6)) * px

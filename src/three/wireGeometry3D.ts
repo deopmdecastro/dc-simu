@@ -179,7 +179,7 @@ export function wireEndpoint3D(
       portIndex: portInfo.portIndex,
       portCount: portInfo.portCount,
       sharedFollower: endKind === 'ferruleDouble' && portInfo.shared && !portInfo.isLeader,
-      motorContext: component.type === 'motor3ph' ? { component, pivot: arr(pivot), terminalLabel: terminal.label } : undefined,
+      motorContext: (component.type === 'motor3ph' || component.type === 'motor1ph') ? { component, pivot: arr(pivot), terminalLabel: terminal.label } : undefined,
     }
   }
   return null
@@ -279,7 +279,7 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
       new THREE.Vector3(pivot.x - half.x, pivot.y - half.y, pivot.z - half.z),
       new THREE.Vector3(pivot.x + half.x, pivot.y + half.y, pivot.z + half.z),
     )
-    if (component.type === 'motor3ph') {
+    if ((component.type === 'motor3ph' || component.type === 'motor1ph')) {
       const origin = motorCadToWorld(component, pivot, 0, 0, 0)
       const transform = new THREE.Matrix4().makeBasis(
         motorCadToWorld(component, pivot, 1, 0, 0).sub(origin),
@@ -843,6 +843,9 @@ function buildMotorGlandBody3D(
     U2: { idx: 2, dx: 2.6, dy: 2.6 },
     W1: { idx: 3, dx: 2.6, dy: -2.6 },
     V2: { idx: 3, dx: 2.6, dy: -2.6 },
+    // Monofásico: enrolamento auxiliar Z1-Z2 nas colunas da direita da mesma placa.
+    Z1: { idx: 3, dx: 2.6, dy: -2.6 },
+    Z2: { idx: 3, dx: 2.6, dy: -2.6 },
   }
   const { idx, dx, dy } = slotMap[label] ?? { idx: 1, dx: 0, dy: 0 }
   const cad = (cx: number, cy: number, cz: number): V3 => arr(motorCadToWorld(ctx.component, mPivot, cx, cy, cz))

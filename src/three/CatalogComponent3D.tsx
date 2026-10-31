@@ -65,7 +65,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   const [prepared, setPrepared] = useState<{ definition: ComponentDefinition; model: THREE.Object3D | null }>({ definition: version?.definition ?? EMPTY_DEFINITION, model: null })
   const { model, topY } = useMemo(() => {
     const object = cloneModelScene(scene)
-    if (builtin === 'motor3ph') {
+    if (builtin === 'motor3ph' || builtin === 'motor1ph') {
       applyEditorMotorTextures(object)
       object.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = mesh.receiveShadow = true })
     } else if (builtin === 'emergencyButton' || builtin === 'emergencyButtonKeyP20ACR') {

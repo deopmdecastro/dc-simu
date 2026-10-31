@@ -72,5 +72,5 @@ assert.equal(measureSeat(plain, [0, 0, 10], [0, 0, 1], 4).status, 'surface', 'fa
 assert.equal(measureSeat(plain, [0, 0, 6], [0, 0, 1], 4).status, 'buried', 'ponto atrás da face devia dar «buried»')
 assert.equal(measureSeat(plain, [80, 80, 10], [0, 0, 1], 4).status, 'floating', 'fora do modelo devia dar «floating»')
 
-assert.equal(seated, 194, 'Cobertura incompleta: 142 bornes anteriores, 20 encaixes calibrados e 32 parafusos medidos nos CAD importados')
+assert.equal(seated, 199, 'Cobertura incompleta: 142 bornes anteriores, 20 encaixes calibrados, 32 parafusos medidos nos CAD importados e os 5 do motor monofásico')
 console.log(`PASS — ${seated} bornes integrados confirmados dentro das cavidades; ${fixed} correções «boca → cavidade»; ${holesTested} bornes criados a partir de furos ficaram na cavidade`)

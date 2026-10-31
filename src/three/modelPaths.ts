@@ -28,6 +28,8 @@ export const MODEL_PATHS = {
   terminalPE: '/models/bornes-e-barras/terminal-pe.glb',
   dinRail15x55: '/models/bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb',
   motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
+  /** Duplicado do DRN80MK4-B3 com a carcaça azul (scripts/make-motor-mono-glb.mjs): motor monofásico. */
+  motorSewDrn80Mk4B3Mono: '/models/motores/DRN80MK4-B3-mono-azul.glb',
   /** Condensador genérico CBB65 (STEP Godrej → GLB). Valores de capacitância/tensão são atribuídos no estado. */
   capacitorRunGeneric: '/models/motores/capacitor-run-generic.glb',
   pilotLightAd22: '/models/sinalizacao/ad22-22ds-24v.glb',
@@ -177,7 +179,7 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   dinRail15x55: spec('dinRail15x55', MODEL_PATHS.dinRail15x55, [0, 0, 0], 'rail'),
 
   motor3ph: spec('motor3ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
-  motor1ph: spec('motor1ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
+  motor1ph: spec('motor1ph', MODEL_PATHS.motorSewDrn80Mk4B3Mono, [0, 0, 0], 'machine'),
   /** Condensador genérico (STEP → GLB). Capacitância/tensão editáveis no estado. */
   capacitorRun60uF: spec('capacitorRun60uF', MODEL_PATHS.capacitorRunGeneric, [0, 0, 0], 'machine'),
   pilotLightAd22: spec('pilotLightAd22', MODEL_PATHS.pilotLightAd22, [Math.PI / 2, 0, 0], 'panel-front'),

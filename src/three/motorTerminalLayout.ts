@@ -54,9 +54,30 @@ export const MOTOR_TERMINALS_MM: Record<MotorTerminalLabel, [number, number, num
 /** Ordem de leitura dos bornes (tabela de ligações). */
 export const MOTOR_TERMINAL_ORDER: MotorTerminalLabel[] = ['W2', 'U2', 'V2', 'U1', 'V1', 'W1', 'PE']
 
+/**
+ * Motor monofásico (mesma carcaça e caixa, pintura azul): enrolamento principal U1-U2 e
+ * auxiliar de arranque Z1-Z2 (IEC 60034-8), mais o PE. Usa as colunas das pontas da
+ * mesma placa isolante — fila de trás U2 Z2, fila da frente U1 Z1 — e o mesmo grampo PE.
+ */
+export type MonoMotorTerminalLabel = 'U1' | 'U2' | 'Z1' | 'Z2' | 'PE'
+export const MONO_MOTOR_TERMINALS_MM: Record<MonoMotorTerminalLabel, [number, number, number]> = {
+  U2: [COLS[0], MOTOR_NUT_TOP, MOTOR_ROW_Z.back],
+  Z2: [COLS[2], MOTOR_NUT_TOP, MOTOR_ROW_Z.back],
+  U1: [COLS[0], MOTOR_NUT_TOP, MOTOR_ROW_Z.front],
+  Z1: [COLS[2], MOTOR_NUT_TOP, MOTOR_ROW_Z.front],
+  PE: [MOTOR_PE.x, MOTOR_NUT_TOP, MOTOR_PE.z],
+}
+export const MONO_MOTOR_TERMINAL_ORDER: MonoMotorTerminalLabel[] = ['U2', 'Z2', 'U1', 'Z1', 'PE']
+
+/** Trifásico (U1 V1 W1 / W2 U2 V2) ou monofásico (U1 Z1 / U2 Z2). */
+export type MotorVariant = 'three' | 'mono'
+export const motorTerminalsMm = (variant: MotorVariant = 'three'): Record<string, [number, number, number]> => (variant === 'mono' ? MONO_MOTOR_TERMINALS_MM : MOTOR_TERMINALS_MM)
+export const motorTerminalOrder = (variant: MotorVariant = 'three'): string[] => (variant === 'mono' ? MONO_MOTOR_TERMINAL_ORDER : MOTOR_TERMINAL_ORDER)
+export const motorVariantOf = (type: string): MotorVariant | null => (type === 'motor3ph' ? 'three' : type === 'motor1ph' ? 'mono' : null)
+
 /** Frações do volume (convenção de `REAL_TERMINALS`: y = 0 no topo, z = 1 à frente). */
-export function motorTerminalFraction(label: MotorTerminalLabel): { x: number; y: number; z: number } {
-  const [x, y, z] = MOTOR_TERMINALS_MM[label]
+export function motorTerminalFraction(label: string, variant: MotorVariant = 'three'): { x: number; y: number; z: number } {
+  const [x, y, z] = motorTerminalsMm(variant)[label] ?? MOTOR_TERMINALS_MM.PE
   return {
     x: (x - MOTOR_CAD.minX) / MOTOR_SIZE.width,
     y: (MOTOR_CAD.maxY - y) / MOTOR_SIZE.height,

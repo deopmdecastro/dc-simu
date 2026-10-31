@@ -1437,8 +1437,10 @@ function Motor3D({ c, x, interactive = true }: { c: ElectricalComponent; x: numb
 }
 
 /** SEW-EURODRIVE DRN80MK4/B3 — CAD real com indicador funcional no eixo. */
+/** Motor SEW DRN80MK4/B3: trifásico vermelho (motor3ph) ou o mesmo modelo pintado de azul como monofásico (motor1ph). */
 function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalComponent; x: number; interactive?: boolean }) {
-  const spec = getComponentModelSpec('motor3ph')!
+  const mono = c.type === 'motor1ph'
+  const spec = getComponentModelSpec(mono ? 'motor1ph' : 'motor3ph')!
   const { scene } = useGLTF(spec.path)
   const shaftIndicator = useRef<THREE.Group>(null)
   const model = useMemo(() => {
@@ -1459,7 +1461,8 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
     {/* O CAD é normalizado pela altura; este deslocamento conserva o pivô no centro do motor. */}
     <group position={[0, -spec.targetHeight / 2, 0]}>
       <primitive object={model} />
-      <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} />
+      {/* Pontes Y/Δ só no trifásico; a placa monofásica (U1 Z1 / U2 Z2) não tem pontes. */}
+      {!mono && <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} />}
       {/* Pá de três pás no veio (Ø19, x = 241…264 mm do CAD): roda com a velocidade simulada.
           Mostrar/ocultar: olho «Pá do veio» nas propriedades (state.showFan). */}
       {c.state.showFan !== false && <group position={motorCadToCentered([MOTOR_FAN.hubX, 0, 0]).map((v) => v * PANEL_UNITS_PER_MM) as [number, number, number]}>
@@ -1470,7 +1473,7 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
       </group>
     </group>
     <Text position={[0, MOTOR_TARGET_HEIGHT / 2 + 0.17, 0]} fontSize={0.105} color="#24324a" anchorX="center">
-      {`${c.ref} · DRN80MK4/B3 ${running ? (direction === 'cw' ? '↻' : '↺') : '· parado'}`}
+      {`${c.ref} · ${mono ? 'DRN80 1~ azul' : 'DRN80MK4/B3'} ${running ? (direction === 'cw' ? '↻' : '↺') : '· parado'}`}
     </Text>
   </group>
 }
@@ -3190,7 +3193,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'motor3ph') {
             const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
-          } else if (c.type === 'motor1ph') content = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
+          } else if (c.type === 'motor1ph') {
+            const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+          }
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => setComponentState(c.id, { startPressed: pressed }))} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><DualPushButtonReal3D c={c} x={x}

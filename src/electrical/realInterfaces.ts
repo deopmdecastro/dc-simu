@@ -1,6 +1,6 @@
 import type { ComponentType } from '../types'
 import importedTerminals from '../data/imported-component-terminals.json'
-import { MOTOR_SOCKET_DEPTH, MOTOR_STUD, MOTOR_TERMINAL_ORDER, motorTerminalFraction } from '../three/motorTerminalLayout'
+import { MONO_MOTOR_TERMINAL_ORDER, MOTOR_SOCKET_DEPTH, MOTOR_STUD, MOTOR_TERMINAL_ORDER, motorTerminalFraction } from '../three/motorTerminalLayout'
 import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 
 /**
@@ -236,6 +236,8 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
   // Medido na caixa de bornes do CAD (ver three/motorTerminalLayout.ts): seis bornes M4
   // com porca-luva sobre a placa isolante e o PE num grampo próprio junto ao bucim.
   motor3ph: MOTOR_TERMINAL_ORDER.map((label) => ({ label, face: 'top' as const, ...motorTerminalFraction(label), diameterMm: label === 'PE' ? 4.2 : MOTOR_STUD.bore, holeDepthMm: MOTOR_SOCKET_DEPTH })),
+  // Monofásico azul: a mesma caixa e placa, bornes U1-U2 (principal), Z1-Z2 (auxiliar) e PE.
+  motor1ph: MONO_MOTOR_TERMINAL_ORDER.map((label) => ({ label, face: 'top' as const, ...motorTerminalFraction(label, 'mono'), diameterMm: label === 'PE' ? 4.2 : MOTOR_STUD.bore, holeDepthMm: MOTOR_SOCKET_DEPTH })),
   // Réguas no topo (L+, I) e na base (M, Q) ao longo da profundidade do corpo slim (trás → frente).
   plcLsXbmDn32s: [
     {"label":"L+","face":"top","x":0.5,"y":0,"z":0.04,"diameterMm":3,"holeDepthMm":5},
