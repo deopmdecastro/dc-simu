@@ -1477,3 +1477,55 @@
 .ce-iec-custom-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
 .ce-iec-term-row { align-items: center; }
 .ce-iec-term-row .ce-num { width: 64px; }
+
+/* —— Bibliotecas do editor: separador Bornes | Símbolos IEC —— */
+.ce-lib-tabs { margin: 0 10px 8px; flex-shrink: 0; }
+.ce-lib-body { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 12px; -webkit-overflow-scrolling: touch; }
+.ce-iec-symlib { display: flex; flex-direction: column; gap: 10px; }
+.ce-iec-symlib-toolbar { display: flex; flex-direction: column; gap: 6px; }
+.ce-iec-symlib-search {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 8px; height: 32px;
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+  border-radius: 8px; background: var(--dx-surface, #fff);
+  color: var(--dx-ink-4);
+}
+.ce-iec-symlib-search input {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent;
+  font: inherit; font-size: 12px; color: var(--dx-ink-2);
+}
+.ce-iec-symlib-family { height: 32px; font-size: 12px; }
+.ce-iec-symlib-current {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; border-radius: 8px;
+  background: var(--dx-brand-soft, #eef3ff);
+  border: 1px solid var(--dx-brand-line, #c0d4fc);
+}
+.ce-iec-symlib-current-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--dx-brand-700, #1d4ed8);
+}
+.ce-iec-symlib-section h4 {
+  margin: 4px 0 6px; font-size: 11px; font-weight: 700; color: var(--dx-ink-3);
+}
+.ce-iec-symlib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+.ce-iec-symlib-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 4px; border-radius: 8px;
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+  background: var(--dx-surface, #fff);
+}
+.ce-iec-symlib-tile.is-primary { border-color: var(--dx-brand, #2655e5); box-shadow: 0 0 0 1px var(--dx-brand-line, #c0d4fc); }
+.ce-iec-symlib-tile.is-related:not(.is-primary) { border-color: #86efac; }
+.ce-iec-symlib-svg { display: block; background: #fff; border-radius: 4px; }
+.ce-iec-symlib-name {
+  font-size: 10px; font-weight: 600; text-align: center; line-height: 1.2;
+  color: var(--dx-ink-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ce-iec-symlib-code { font-size: 9px; font-family: ui-monospace, monospace; color: var(--dx-ink-4); }
+.ce-iec-symlib-actions { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+.ce-iec-symlib-actions .ce-linkbtn.is-on { color: var(--dx-brand-700, #1d4ed8); font-weight: 700; }

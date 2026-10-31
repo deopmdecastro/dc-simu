@@ -331,10 +331,11 @@ export function IecTab() {
 
   return (
     <>
-      <Section title="Associação IEC" open>
+      <Section title="Associação IEC" open
+        actions={<button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => set({ libraryOpen: true })}>Biblioteca IEC</button>}>
         <p className="ce-hint">
           Liga este modelo 3D ao símbolo usado no <strong>Esquema IEC</strong> (IEC 60617 / 81346-2).
-          A associação aparece no inspetor do simulador e no diagnóstico.
+          A associação aparece no inspetor do simulador e no diagnóstico. Abra a biblioteca lateral para percorrer todos os símbolos.
         </p>
         <Field label="Símbolo principal">
           <Select value={primary} options={KIND_OPTIONS} onChange={setPrimary} />

@@ -23,6 +23,7 @@ import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } fro
 import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
 import { IecTab } from './tabsIec'
+import IecSymbolLibrary from './IecSymbolLibrary'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
 import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler, IconSave, IconHelp, IconCube, IconTools } from '../../ui/icons'
@@ -162,8 +163,8 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
 
   const groupTerminals = editing && <div className="dc-seg" role="group" aria-label="Bornes">
     <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} aria-pressed={libraryOpen}
-      title="Biblioteca de bornes e perfis de ligação" aria-label="Biblioteca de bornes">
-      <IconLayers size={13} /><span className="hidden xl:inline">Biblioteca de bornes</span><span className="xl:hidden">Bornes</span>
+      title="Bibliotecas: bornes e símbolos IEC" aria-label="Bibliotecas">
+      <IconLayers size={13} /><span className="hidden xl:inline">Bibliotecas</span><span className="xl:hidden">Libs</span>
     </button>
     {!compact && <button className="dc-tool-btn !px-2" disabled={terminalCount === 0} aria-pressed={allHidden}
       onClick={() => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden)}
@@ -251,7 +252,7 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
       ] as ToolMenuItem[],
     }, {
       id: 'terminals', title: 'Bornes', items: [
-        { id: 'library', label: 'Biblioteca de bornes', icon: <IconLayers size={14} />, pressed: libraryOpen, hint: 'Perfis e ligação dos bornes', onSelect: () => set({ libraryOpen: !libraryOpen }) },
+        { id: 'library', label: 'Bibliotecas', icon: <IconLayers size={14} />, pressed: libraryOpen, hint: 'Bornes e símbolos IEC 60617', onSelect: () => set({ libraryOpen: !libraryOpen }) },
         { id: 'hide-terminals', label: allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes', icon: allHidden ? <IconEye size={14} /> : <IconEyeOff size={14} />, kbd: 'H', disabled: terminalCount === 0, disabledReason: 'O modelo ainda não tem bornes', onSelect: () => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden) },
         ...FACES.map(([face, label]) => ({ id: `face-${face}`, label: `Ver ${label.toLowerCase()} e adicionar bornes`, icon: <IconPlus size={14} />, onSelect: () => chooseFace(face) } as ToolMenuItem)),
       ] as ToolMenuItem[],
@@ -381,14 +382,29 @@ function LibraryPanel() {
   const def = useEditorStore((s) => s.def)
   const meta = useEditorStore((s) => s.meta)
   const placingSpec = useEditorStore((s) => s.placingSpec)
+  const tab = useEditorStore((s) => s.tab)
   const set = useEditorStore((s) => s.set)
+  const [libTab, setLibTab] = useState<'terminals' | 'iec'>(() => (tab === 'iec' ? 'iec' : 'terminals'))
+  // Quando o utilizador abre a aba Símbolo IEC do inspetor, a biblioteca acompanha.
+  useEffect(() => { if (tab === 'iec') setLibTab('iec') }, [tab])
   const flash = (text: string) => window.dispatchEvent(new CustomEvent('ce-flash', { detail: text }))
-  return <aside className="ce-lib-panel" aria-label="Biblioteca de bornes">
-    <div className="ce-lib-head"><span>Biblioteca de bornes</span><button className="ce-icon" onClick={() => set({ libraryOpen: false })} title="Fechar" aria-label="Fechar"><IconClose size={13} /></button></div>
-    <TerminalLibrary mode="insert" canEdit suggestFor={meta.category} armedLabel={placingSpec?.label ?? null}
-      onInsert={(profile, params, replace) => { const n = applyProfile(profile, params, replace); flash(`${profile.name}: ${n} bornes adicionados — editáveis na lista à esquerda.`) }}
-      onArmChip={(spec: TerminalSpec) => set({ placing: true, placingSpec: spec, selection: null })}
-      currentSpecs={() => specsFromTerminals(def.terminals)} />
+  return <aside className="ce-lib-panel" aria-label="Bibliotecas do editor">
+    <div className="ce-lib-head">
+      <span>Bibliotecas</span>
+      <button className="ce-icon" onClick={() => set({ libraryOpen: false })} title="Fechar" aria-label="Fechar"><IconClose size={13} /></button>
+    </div>
+    <div className="ce-seg ce-lib-tabs" role="tablist" aria-label="Tipo de biblioteca">
+      <button type="button" role="tab" aria-selected={libTab === 'terminals'} className={libTab === 'terminals' ? 'is-on' : ''} onClick={() => setLibTab('terminals')}>Bornes</button>
+      <button type="button" role="tab" aria-selected={libTab === 'iec'} className={libTab === 'iec' ? 'is-on' : ''} onClick={() => setLibTab('iec')}>Símbolos IEC</button>
+    </div>
+    {libTab === 'terminals' ? (
+      <TerminalLibrary mode="insert" canEdit suggestFor={meta.category} armedLabel={placingSpec?.label ?? null}
+        onInsert={(profile, params, replace) => { const n = applyProfile(profile, params, replace); flash(`${profile.name}: ${n} bornes adicionados — editáveis na lista à esquerda.`) }}
+        onArmChip={(spec: TerminalSpec) => set({ placing: true, placingSpec: spec, selection: null })}
+        currentSpecs={() => specsFromTerminals(def.terminals)} />
+    ) : (
+      <div className="ce-lib-body"><IecSymbolLibrary /></div>
+    )}
   </aside>
 }
 
