@@ -446,3 +446,21 @@
 .dc-cmd-link-arrow { fill: none; stroke: #2563eb; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .dc-cmd-link-net { fill: #1d4ed8; font-size: 11px; font-weight: 750; }
 @media (max-width: 720px) { .dc-cmd-link-dialog .grafcet-property-grid { grid-template-columns: 1fr; } }
+
+/* Cursor por ferramenta (reforço) */
+.dc-cmd-canvas.is-tool-select { cursor: default; }
+.dc-cmd-canvas.is-tool-select .dc-cmd-tag.is-draggable { cursor: grab; }
+.dc-cmd-canvas.is-tool-probe { cursor: crosshair; }
+.dc-cmd-canvas.is-tool-wire { cursor: crosshair; }
+.dc-cmd-canvas.is-tool-erase { cursor: not-allowed; }
+.dc-cmd-canvas.is-tool-pan { cursor: grab; }
+.dc-cmd-canvas.is-tool-pan:active { cursor: grabbing; }
+
+/* Tag selecionada mais visível */
+.dc-cmd-symbol.is-selected .dc-cmd-tag {
+  paint-order: stroke fill;
+  stroke: #bfdbfe;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.dc-cmd-tag-presets .dc-btn-sm { height: 26px; padding: 0 8px; font-size: 11px; }

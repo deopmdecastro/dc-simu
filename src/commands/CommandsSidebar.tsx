@@ -5,7 +5,7 @@ import SidePanelHeader from '../components/SidePanelHeader'
 import { IconChevronDown, IconProjects, IconSearch } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import { CMD_PALETTE, CMD_PARTS, emptyCommands, partBox, partTerminals, type CmdKind, type CmdPart } from './model'
-import { symbolBody } from './symbols'
+import { symbolBody, cmdTagPreset } from './symbols'
 import { useCommandsUi } from './commandsUi'
 import { pageRefPeers, pagesOf, pageIdOf } from './pages'
 import { patchPart, removeSelected, rotateSelected } from './editing'
@@ -221,11 +221,26 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
 {def.family === 'contact' && <p className="dc-cmd-muted">Comandado pelo aparelho <b>{part.tag || '—'}</b> (bobina, temporizador ou relé térmico com a mesma referência).</p>}
       {part.tag && part.kind !== 'node' && part.kind !== 'supply' && <div className="dc-cmd-field">
         <span>Formatação da referência</span>
-        <p className="dc-cmd-muted">Arraste a referência no esquema para a reposicionar.</p>
+        <p className="dc-cmd-muted">Clique e arraste a referência no esquema para a mover. Duplo clique edita o nome.</p>
         <label>Tamanho <input className="dc-input" type="number" min={6} max={72} step={1} aria-label="Tamanho da referência" value={part.tagStyle?.fontSize ?? (isPageLink(part.kind) ? 10.5 : 12)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, fontSize: Math.min(72, Math.max(6, n)) } }) }} /></label>
         <label>Rotação (°) <input className="dc-input" type="number" step={1} aria-label="Rotação da referência" value={part.tagStyle?.rotation ?? 0} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, rotation: Math.max(-360, Math.min(360, n)) } }) }} /></label>
         <label>Cor <input type="color" aria-label="Cor da referência" value={/^#[0-9a-f]{6}$/i.test(part.tagStyle?.color ?? '') ? part.tagStyle!.color : '#0f172a'} onChange={(e) => onChange({ tagStyle: { ...part.tagStyle, color: e.target.value } })} /></label>
-        <button type="button" className="dc-btn" onClick={() => onChange({ tagStyle: undefined })}>Repor referência</button>
+        <div className="dc-cmd-tag-presets" role="group" aria-label="Posição da referência">
+          <span className="dc-cmd-muted" style={{ display: 'block', marginBottom: 4 }}>Posição</span>
+          <div className="dc-cmd-actions" style={{ flexWrap: 'wrap', gap: 4 }}>
+            {([['top', 'Topo'], ['bottom', 'Baixo'], ['left', 'Esquerda'], ['right', 'Direita']] as const).map(([side, label]) => (
+              <button key={side} type="button" className="dc-btn dc-btn-sm" title={`Colocar referência à ${label.toLowerCase()}`} onClick={() => {
+                const preset = cmdTagPreset(part, side)
+                onChange({ tagStyle: { ...part.tagStyle, x: preset.x, y: preset.y, rotation: preset.rotation ?? part.tagStyle?.rotation ?? 0 } })
+              }}>{label}</button>
+            ))}
+          </div>
+          <div className="dc-cmd-actions" style={{ flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+            <button type="button" className="dc-btn dc-btn-sm" title="Texto horizontal (0°)" onClick={() => onChange({ tagStyle: { ...part.tagStyle, rotation: 0 } })}>Horizontal</button>
+            <button type="button" className="dc-btn dc-btn-sm" title="Texto vertical (90°)" onClick={() => onChange({ tagStyle: { ...part.tagStyle, rotation: 90 } })}>Vertical</button>
+          </div>
+        </div>
+        <button type="button" className="dc-btn" style={{ marginTop: 6 }} onClick={() => onChange({ tagStyle: undefined })}>Repor referência</button>
       </div>}
       {part.kind === 'supply' && <label className="dc-cmd-field"><span>Fases</span>
         <select className="dc-input" value={(part.lines ?? ['L1']).join(' ')} onChange={(e) => onChange({ lines: e.target.value.split(' ') })} aria-label="Fases da alimentação">

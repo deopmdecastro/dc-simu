@@ -326,6 +326,20 @@ export function cmdTagPosition(part: CmdPart) {
   }
 }
 
+
+/** Predefinições de posição da referência relativamente à caixa do símbolo (coords locais). */
+export function cmdTagPreset(part: CmdPart, side: "top" | "bottom" | "left" | "right"): { x: number; y: number; rotation?: number } {
+  const box = partBox(part)
+  const local = { x: box.x - part.x, y: box.y - part.y, w: box.w, h: box.h }
+  const size = part.tagStyle?.fontSize ?? 12
+  switch (side) {
+    case "top": return { x: local.x + local.w / 2, y: local.y - 4, rotation: 0 }
+    case "bottom": return { x: local.x + local.w / 2, y: local.y + local.h + size * 0.85, rotation: 0 }
+    case "left": return { x: local.x - 6, y: local.y + local.h / 2 + size * 0.35, rotation: -90 }
+    case "right": return { x: local.x + local.w + 6, y: local.y + local.h / 2 + size * 0.35, rotation: 90 }
+  }
+}
+
 /** Limites aproximados da referência para ajustar a vista, incluindo rotação e tamanho. */
 export function cmdTagBounds(part: CmdPart) {
   if (!part.tag || part.kind === 'node' || part.kind === 'supply') return null
