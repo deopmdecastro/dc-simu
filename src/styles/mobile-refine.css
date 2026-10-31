@@ -309,13 +309,38 @@
   .dx-admin .cb-save-bar:not(.is-narrow) { max-width: 960px; margin-inline: auto; }
 }
 
-/* GRAFCET — «Componentes» recolhido: a mesma régua vertical dos outros painéis
-   (Ladder, Esquema, editor 3D), encostada à esquerda em toda a altura. Antes era um
-   botão quadrado flutuante sobre o diagrama. O corpo ganha 48 px de reserva à esquerda,
-   por isso o diagrama e a gaveta de propriedades não ficam tapados. */
+/* GRAFCET — «Componentes» recolhido: régua vertical à esquerda em toda a altura.
+   Reserva explícita no corpo + largura fixa na régua para o canvas, o estado vazio
+   e o painel de simulação não ficarem por baixo do trilho (captura 2026-10-31). */
 @media (max-width: 1199px) {
-  .grafcet-full .grafcet-designer-body:has(> .grafcet-toolbox-restore) { box-sizing: border-box; padding-left: 48px; }
-  .grafcet-full .grafcet-designer-body > .grafcet-toolbox-restore { position: absolute; inset: 0 auto 0 0; height: auto; }
+  .grafcet-full .grafcet-designer-body:has(> .grafcet-toolbox-restore) {
+    --grafcet-rail-w: 40px;
+    box-sizing: border-box;
+    padding-left: var(--grafcet-rail-w);
+  }
+  .grafcet-full .grafcet-designer-body > .grafcet-toolbox-restore.pn-collapsed-rail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--grafcet-rail-w, 40px);
+    min-width: var(--grafcet-rail-w, 40px);
+    max-width: var(--grafcet-rail-w, 40px);
+    height: auto;
+    z-index: 6;
+    box-sizing: border-box;
+  }
+  .grafcet-full .grafcet-canvas-col { min-width: 0; }
+  .grafcet-full .grafcet-empty {
+    width: min(400px, calc(100% - 28px));
+    max-width: calc(100% - 28px);
+    box-sizing: border-box;
+  }
+}
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
+  .grafcet-full .grafcet-designer-body:has(> .grafcet-toolbox-restore) {
+    --grafcet-rail-w: 36px;
+  }
 }
 
 /* ===== 2026-10-28: Vistas de simulação (GRAFCET / Ladder / 3D) — capturas Partida direta com selo =====
