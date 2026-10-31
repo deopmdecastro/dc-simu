@@ -38,6 +38,7 @@
     "test:grafcet-actions-ui": "node scripts/grafcet-actions-zoom-ui-smoke.mjs",
     "test:commands": "tsx scripts/commands-smoke.ts",
     "test:commands-ui": "node scripts/commands-ui-smoke.mjs",
+    "test:commands-pages-ui": "node scripts/commands-pages-ui-smoke.mjs",
     "test:ladder-rename": "tsx scripts/ladder-rename-smoke.ts",
     "test:project-names": "tsx scripts/project-names-smoke.ts",
     "test:style": "node scripts/no-accent-border.mjs",

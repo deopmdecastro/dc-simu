@@ -12,6 +12,7 @@ import { uiConfirm } from '../ui/dialogs'
 import { editorGridBackground } from '../ui/editorTheme'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { IconCommands, IconExample, IconImport, IconPlus, IconTemplates } from '../ui/icons'
+import { InlineName } from '../ui/InlineName'
 import {
   CMD_GRID, CMD_PARTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
   type CmdEnd, type CmdKind, type CmdPart, type CmdWire, type CommandsDiagram, type Pt,
@@ -479,11 +480,17 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     if (created) setActivePageId(created.id)
     notify(created ? `Página «${created.name}» criada` : 'Página criada')
   }
-  const onRenamePage = (id: string, current: string) => {
+  // Renomear no sítio (como no GRAFCET): Enter grava, Esc cancela, perder o foco grava.
+  const onRenamePage = (id: string, next: string) => {
     if (!editable) return
-    const name = window.prompt('Nome da página', current)
-    if (name == null) return
+    const name = next.trim()
+    const current = pagesOf(diagram).find((p) => p.id === id)?.name
+    if (!name || name === current) return
     commit(renamePage(diagram, id, name))
+  }
+  const onRenameDiagram = (next: string) => {
+    if (!editable || next === (diagram.name ?? '')) return
+    commit({ ...diagram, name: next || undefined })
   }
   const onRemovePage = (id: string) => {
     if (!editable) return
@@ -499,27 +506,48 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     <div className={`dc-cmd ${running ? 'is-running' : ''}`}>
       <div className="dc-cmd-main">
       <div className="dc-cmd-pages" role="tablist" aria-label="Páginas do esquema IEC">
+        <span className="grafcet-title-edit dc-cmd-title-edit">
+          {editable ? (
+            <InlineName
+              value={diagram.name ?? ''}
+              placeholder="Esquema sem nome"
+              label="Nome do esquema de comandos"
+              allowEmpty
+              maxLength={60}
+              dataAttr="cmd-diagram-name"
+              title="Clique para mudar o nome do esquema de comandos"
+              onCommit={onRenameDiagram}
+            />
+          ) : <span className={`dc-inline-name ${diagram.name ? '' : 'is-empty'}`}><span className="dc-inline-name-text">{diagram.name || 'Esquema sem nome'}</span></span>}
+        </span>
         <span className="dc-cmd-pages-label">Páginas</span>
         {pages.map((sh) => {
           const active = sh.id === pageId
           const count = partsOnPage(diagram, sh.id).length
           return (
             <span key={sh.id} className={`dc-cmd-page-chip ${active ? 'is-active' : ''}`}>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={active}
-                className="dc-cmd-page-name"
-                title={active ? 'Clique para renomear' : 'Abrir página'}
-                onClick={() => {
-                  if (active && editable) onRenamePage(sh.id, sh.name)
-                  else setActivePageId(sh.id)
-                }}
-                onDoubleClick={() => editable && onRenamePage(sh.id, sh.name)}
-              >
-                {sh.name}
-                <em>{count}</em>
-              </button>
+              {editable ? (
+                <InlineName
+                  role="tab"
+                  ariaSelected={active}
+                  value={sh.name}
+                  label="Nome da página"
+                  className="dc-cmd-page-name"
+                  editOnClick={active}
+                  onIdleClick={() => setActivePageId(sh.id)}
+                  showIcon={false}
+                  maxLength={40}
+                  dataAttr="cmd-page-name"
+                  title={`${sh.name} — ${count} símbolo(s). ${active ? 'Clique no nome para o mudar.' : 'Clique para abrir; duplo clique para mudar o nome.'}`}
+                  after={<em>{count}</em>}
+                  onCommit={(next) => onRenamePage(sh.id, next)}
+                />
+              ) : (
+                <button type="button" role="tab" aria-selected={active} className="dc-cmd-page-name" title={`${sh.name} — ${count} símbolo(s)`} onClick={() => setActivePageId(sh.id)}>
+                  {sh.name}
+                  <em>{count}</em>
+                </button>
+              )}
               {pages.length > 1 && editable && (
                 <button type="button" className="dc-cmd-page-del" aria-label={`Eliminar ${sh.name}`} title="Eliminar página (só se estiver vazia)" onClick={() => onRemovePage(sh.id)}>×</button>
               )}
@@ -528,7 +556,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         })}
         {editable && (
           <button type="button" className="dc-cmd-page-add" onClick={onAddPage} title="Nova página do esquema. Ligue a corrente entre páginas com o símbolo «Ligação entre páginas».">
-            + Nova página
+            <IconPlus size={12} />Nova página
           </button>
         )}
       </div>

@@ -318,3 +318,10 @@
   50% { opacity: 1; }
 }
 .dc-cmd-actuator { cursor: pointer; }
+
+/* Nome do esquema e das páginas editáveis no sítio (como no GRAFCET) */
+.dc-cmd-title-edit .dc-inline-name.is-empty .dc-inline-name-text { color: #8494ab; font-style: italic; font-weight: 600; }
+.dc-cmd-page-chip > .dc-inline-name { cursor: pointer; }
+.dc-cmd-page-chip.is-active > .dc-inline-name { cursor: text; }
+.dc-cmd-page-chip > .dc-inline-name-input { min-width: 90px; margin: 2px; padding: 3px 8px; border: 1px solid var(--dx-brand, #2655e5); border-radius: 6px; outline: none; font: inherit; font-size: 12px; font-weight: 600; color: #1d3fae; box-shadow: 0 0 0 2px rgba(38, 85, 229, .15); }
+.dc-cmd-page-add { display: inline-flex; align-items: center; gap: 5px; }
