@@ -61,17 +61,38 @@ export const FACE_INWARD: Record<RealTerminalSpot['face'], [number, number, numb
   right: [-1, 0, 0],
 }
 
-/** Ponto de ligação dentro do encaixe medido, na convenção 3D (Y=1 no topo). */
+/** Comprimento tipico do cabo solto (ponta livre) que sai do aparelho, em mm. */
+export const LEAD_PIGTAIL_LENGTH_MM = 45
+
+/** Ponto de ligação: dentro do encaixe (socket) ou na ponta do cabo solto (lead). */
 export function realTerminalPosition(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
   const size = getComponentPhysicalSizeMm(type)
-  const inset = size ? terminalInsetMm(spot) : 0
-  const [nx, ny, nz] = FACE_INWARD[spot.face]
   const clamp = (value: number) => Math.min(1, Math.max(0, value))
-  return {
-    x: clamp(spot.x + (size ? nx * inset / size.width : 0)),
-    y: 1 - clamp(spot.y + (size ? ny * inset / size.height : 0)),
-    z: clamp(spot.z + (size ? nz * inset / size.depth : 0)),
+  const [inx, iny, inz] = FACE_INWARD[spot.face]
+  // Saída do cabo: sentido oposto ao interior da face.
+  const ox = -inx, oy = -iny, oz = -inz
+  if (spot.contact === 'lead') {
+    // Ponta livre a LEAD_PIGTAIL_LENGTH_MM para fora do corpo — e aí que se liga o cabo.
+    const len = LEAD_PIGTAIL_LENGTH_MM
+    if (!size) return { x: clamp(spot.x), y: 1 - clamp(spot.y), z: clamp(spot.z) }
+    return {
+      x: clamp(spot.x + (ox * len) / size.width),
+      y: 1 - clamp(spot.y + (oy * len) / size.height),
+      z: clamp(spot.z + (oz * len) / size.depth),
+    }
   }
+  const inset = size ? terminalInsetMm(spot) : 0
+  return {
+    x: clamp(spot.x + (size ? inx * inset / size.width : 0)),
+    y: 1 - clamp(spot.y + (size ? iny * inset / size.height : 0)),
+    z: clamp(spot.z + (size ? inz * inset / size.depth : 0)),
+  }
+}
+
+/** Raiz do cabo no corpo (saída do aparelho), para desenhar o pigtail até à ponta. */
+export function leadRootPosition(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
+  const clamp = (value: number) => Math.min(1, Math.max(0, value))
+  return { x: clamp(spot.x), y: 1 - clamp(spot.y), z: clamp(spot.z) }
 }
 
 /** Peça do GLB que se mexe (manípulo, botão) e que deve ser operável por omissão. */

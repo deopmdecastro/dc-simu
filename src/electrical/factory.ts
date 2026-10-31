@@ -13,7 +13,7 @@
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { importedTemplates, upgradeImportedTerminals } from './importedComponents'
-import { FACE_INWARD, terminalInsetMm, realTerminalPosition, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
+import { FACE_INWARD, terminalInsetMm, realTerminalPosition, leadRootPosition, LEAD_PIGTAIL_LENGTH_MM, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
 import { LEGACY_REAL_TERMINALS } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
@@ -43,6 +43,8 @@ export interface TerminalTemplate {
   electricalClass?: import('../types').TerminalElectricalClass
   position3D?: { x: number; y: number; z: number }
   socket3D?: Terminal['socket3D']
+  /** lead = cabo solto com ponta livre; socket = furo/parafuso. */
+  contact?: 'socket' | 'pin' | 'lead' | 'surface'
   rules?: { polarity: string; direction: string; accepts: string }
   displayName?: string
 }
@@ -914,11 +916,30 @@ function applyRealInterfaces() {
         ?? (spot.face === 'top' ? 'power-in' : spot.face === 'bottom' ? 'power-out' : 'io')
       // O desenho 2D já está calibrado (ex.: parafusos do LOGO! sobre o PNG):
       // a interface real só manda na posição 3D, nunca na vista de esquema.
+      const tip = realTerminalPosition(type, spot)
+      const root = leadRootPosition(type, spot)
+      const [inx, iny, inz] = FACE_INWARD[spot.face]
+      const isLead = spot.contact === 'lead'
+      const leadColor = ({
+        R: '#dc2626', Y: '#eab308', G: '#16a34a', COM: '#1e293b',
+        'V+': '#92400e', '0V': '#2563eb', OUT: '#111827',
+      } as Record<string, string>)[spot.label]
       return T(existing?.label ?? spot.label, kind, existing?.x ?? spot.x, existing?.y ?? schematicY, {
         ...existing,
-        position3D: realTerminalPosition(type, spot),
+        position3D: tip,
         diameter: spot.diameterMm ?? existing?.diameter,
-        terminalType: existing?.terminalType ?? (spot.face === 'front' || spot.face === 'back' ? 'screw' : 'screw'),
+        terminalType: isLead ? 'tubular' : (existing?.terminalType ?? 'screw'),
+        contact: spot.contact ?? 'socket',
+        color: leadColor ?? existing?.color,
+        socket3D: isLead
+          ? {
+              diameterMm: spot.diameterMm ?? 1.5,
+              depthMm: LEAD_PIGTAIL_LENGTH_MM,
+              insetMm: 0,
+              normal: [-inx, -iny, -inz] as [number, number, number],
+              position: root,
+            }
+          : existing?.socket3D,
       })
     })
   }
@@ -1021,6 +1042,7 @@ export function createComponent(
     ...(t.electricalClass && t.electricalClass !== 'other' ? { electricalClass: t.electricalClass } : {}),
     ...(t.position3D ? { position3D: { ...t.position3D } } : {}),
     ...(t.socket3D ? { socket3D: { ...t.socket3D, normal: [...t.socket3D.normal], position: { ...t.socket3D.position } } } : {}),
+    ...(t.contact ? { contact: t.contact } : {}),
     ...(t.rules ? { catalogRules: { ...t.rules } } : {}),
     ...(t.displayName ? { displayName: t.displayName } : {}),
     ...(t.diameter ? { diameter: t.diameter } : {}),

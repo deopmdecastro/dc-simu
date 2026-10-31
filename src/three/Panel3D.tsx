@@ -54,6 +54,7 @@ import MotorShaftFan3D from './MotorShaftFan3D'
 import { MOTOR_FAN, motorCadToCentered } from './motorTerminalLayout'
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
+import LeadPigtails3D from './LeadPigtails3D'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
@@ -555,6 +556,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       <group rotation={rotation}>
         <group scale={[scale.x, scale.y, scale.z]}>
           <group ref={modelRef} position={[-sourcePivot[0], -sourcePivot[1], -sourcePivot[2]]}>{children}</group>
+          <LeadPigtails3D component={c} />
           {editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}</group>}
           {connectionMode && !editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} onPick={probing ? onTerminalPick : undefined} />)}</group>}
         </group>

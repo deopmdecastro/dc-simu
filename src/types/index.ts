@@ -186,6 +186,8 @@ export interface Terminal {
     normal: [number, number, number]
     position: { x: number; y: number; z: number }
   }
+  /** lead = cabo solto com ponta livre para ligar a bornes/pentes. */
+  contact?: 'socket' | 'pin' | 'lead' | 'surface'
   /** Diâmetro do borne no Esquema 2D (unidades do canvas). Omisso = tamanho padrão do símbolo. */
   diameter?: number
   /** Fixado pelo usuário — impede reposicionamento automático */

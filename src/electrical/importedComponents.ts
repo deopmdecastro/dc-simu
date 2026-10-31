@@ -2,7 +2,7 @@ import type { ComponentTemplate, TerminalTemplate } from './factory'
 import type { ComponentCategory, ElectricalComponent, Terminal, TerminalKind } from '../types'
 import type { ImportedComponentType } from '../types/imported'
 import type { ComponentType } from '../types'
-import { REAL_TERMINALS, realTerminalPosition } from './realInterfaces'
+import { REAL_TERMINALS, realTerminalPosition, leadRootPosition, LEAD_PIGTAIL_LENGTH_MM, FACE_INWARD } from './realInterfaces'
 
 type Pair = readonly [string, string]
 export type ImportedComponentInfo = {
@@ -89,7 +89,24 @@ export function upgradeImportedTerminals(component: ElectricalComponent, makeTer
   const generic = genericLayout(info)
   let changed = false
   const close = (a?: { x: number; y: number; z: number }, b?: { x: number; y: number; z: number }) => !!a && !!b && Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-6
-  const placed = (terminal: Terminal, spot: (typeof spots)[number]): Terminal => ({ ...terminal, position3D: realTerminalPosition(component.type, spot) })
+  const placed = (terminal: Terminal, spot: (typeof spots)[number]): Terminal => {
+    const tip = realTerminalPosition(component.type, spot)
+    if (spot.contact !== 'lead') return { ...terminal, position3D: tip, contact: spot.contact }
+    const [inx, iny, inz] = FACE_INWARD[spot.face]
+    return {
+      ...terminal,
+      position3D: tip,
+      contact: 'lead',
+      terminalType: terminal.terminalType === 'screw' ? 'tubular' : terminal.terminalType,
+      socket3D: {
+        diameterMm: spot.diameterMm ?? 1.5,
+        depthMm: LEAD_PIGTAIL_LENGTH_MM,
+        insetMm: 0,
+        normal: [-inx, -iny, -inz],
+        position: leadRootPosition(component.type, spot),
+      },
+    }
+  }
   const terminals = component.terminals.map((terminal) => {
     const spot = spots.find((item) => item.label === terminal.label)
     const old = generic.get(terminal.label)
