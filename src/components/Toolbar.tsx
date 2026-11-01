@@ -24,7 +24,6 @@ import LadderVariablesMenu from '../ladder/LadderVariablesMenu'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { useSplitView } from '../ui/splitViewStore'
 import { useCommandsUi, type CmdTool } from '../commands/commandsUi'
-import { stepCommands } from '../commands/engine'
 import { validateGrafcet } from '../grafcet/engine'
 import { ladderSyncStatus } from '../grafcet/ladderSync'
 import ComponentTableDialog from './ComponentTableDialog'
@@ -213,7 +212,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const play = isCmd ? cmdUi.start : plcPlay
   const pause = isCmd ? cmdUi.pause : plcPause
   const stop = isCmd ? cmdUi.stop : plcStop
-  const step = isCmd ? () => { if (!cmdUi.rt.running) { cmdUi.start(); useCommandsUi.getState().pause() } else useCommandsUi.setState({ rt: stepCommands(useSimStore.getState().commands, useCommandsUi.getState().rt, 100) }) } : plcStep
+  const step = isCmd ? () => { if (!cmdUi.rt.running) { cmdUi.start(); useCommandsUi.getState().pause() } else useCommandsUi.getState().tick(100, true) } : plcStep
   const reset = isCmd ? () => { cmdUi.stop(); useCommandsUi.getState().start() } : plcReset
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)

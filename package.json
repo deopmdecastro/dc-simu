@@ -116,7 +116,8 @@
     "audit:imported-terminals": "tsx scripts/audit-imported-terminals.ts",
     "test:editor-grid-background": "tsx scripts/editor-grid-background-smoke.ts",
     "test:right-dock-ui": "node scripts/right-dock-ui-smoke.mjs",
-    "test:native-iec": "tsx scripts/native-iec-smoke.ts"
+    "test:native-iec": "tsx scripts/native-iec-smoke.ts",
+    "test:commands-plc-link-ui": "node scripts/commands-plc-link-ui-smoke.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

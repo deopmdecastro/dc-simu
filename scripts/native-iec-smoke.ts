@@ -49,6 +49,19 @@ check(on.motors[motorId]?.mode === 'run', 'KM1 fecha os contactos de potência e
 check(run({ 'Q0.0': true, QM1: true }).motors[motorId]?.mode === 'stop', 'QM1 desligado corta o motor')
 check(!!run({ 'Q0.1': true }).lamps[h1Id], 'Q0.1 acende H1 (24 V da PS1)')
 
+// Ligação ao PLC: as saídas vêm do programa (rt.plc) e as entradas com tensão seguem para o PLC.
+const linked = (plc: Record<string, boolean>, pressed: Record<string, boolean> = {}) => {
+  let rt = { ...emptyCmdRuntime(), running: true, plc, pressed }
+  for (let i = 0; i < 3; i++) rt = stepCommands(diagram, rt, 100)
+  return rt
+}
+const rest = linked({})
+check(rest.plcInputs?.['I0.0'] === true && rest.plcInputs?.['I0.2'] === true && rest.plcInputs?.['I0.1'] === false, 'em repouso: EMERG e STOP (NF) dão sinal ao PLC, START não')
+check(linked({}, { 'B1.1': true }).plcInputs?.['I0.1'] === true, 'premir START (B1.1) dá sinal em I0.1')
+check(linked({}, { 'B1.2': true }).plcInputs?.['I0.2'] === false, 'premir STOP (B1.2) corta o sinal em I0.2')
+const byProgram = linked({ 'Q0.0': true, 'Q0.1': true })
+check(!!byProgram.coils.KM1 && byProgram.motors[motorId]?.mode === 'run' && !!byProgram.lamps[h1Id], 'Q0.0/Q0.1 ligadas pelo programa: KM1 arranca M1 e H1 acende')
+
 // Projeto nativo: semente com esquema IEC; migração uma só vez e sem apagar um esquema do utilizador.
 const content = nativePartidaDiretaContent() as Record<string, any>
 check(content.commands?.parts?.length === diagram.parts.length && (content.nativeFeatures as string[]).includes(NATIVE_IEC_FEATURE), 'a semente nativa traz o esquema IEC')

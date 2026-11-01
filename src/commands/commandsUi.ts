@@ -41,7 +41,8 @@ interface CommandsUi {
   start: () => void
   stop: () => void
   pause: () => void
-  tick: (dtMs: number) => void
+  /** Avança a simulação; `force` avança mesmo em pausa (botão «passo»). */
+  tick: (dtMs: number, force?: boolean) => void
   patchRt: (patch: Partial<CmdRuntime>) => void
   press: (tag: string, down: boolean) => void
   toggle: (tag: string) => void
@@ -66,6 +67,65 @@ const readRecent = (): CmdKind[] => {
 }
 
 const diagram = () => useSimStore.getState().commands
+
+// —— Ligação ao simulador do PLC ——————————————————————————————————————————————
+// Um esquema com entradas/saídas do PLC (plcIn/plcOut) corre com o programa do PLC: as saídas
+// Q seguem a tabela do simulador do PLC e as entradas I com tensão vão para o simulador de
+// sinais do PLC (ou para as entradas virtuais, num projeto sem PLC).
+const PLC_INPUT = /^[IE]\d+(\.\d+)?$/i
+/** Entradas escritas pelo esquema (com o valor anterior, a repor ao parar) e se fomos nós a arrancar o PLC. */
+const plcLink = { written: new Map<string, { plcId: string | null; address: string; previous: boolean | undefined }>(), startedPlc: false }
+const linkedToPlc = () => diagram().parts.some((p) => (p.kind === 'plcIn' || p.kind === 'plcOut') && !!p.tag)
+function plcOutputs(): Record<string, boolean> | undefined {
+  if (!linkedToPlc()) return undefined
+  const table = useSimStore.getState().runtime.table as Record<string, unknown>
+  const out: Record<string, boolean> = {}
+  for (const p of diagram().parts) if (p.kind === 'plcOut' && p.tag) out[p.tag] = !!table[p.tag]
+  return out
+}
+/** PLC do esquema com o borne `address` (o ativo primeiro); sem PLC, usam-se as entradas virtuais. */
+function plcFor(address: string) {
+  const sim = useSimStore.getState()
+  const plcs = sim.components.filter((c) => /plc/i.test(c.type) && c.terminals.some((t) => t.label === address))
+  return plcs.find((c) => c.id === sim.activePlcId) ?? plcs[0] ?? null
+}
+function pushPlcInputs(rt: CmdRuntime) {
+  for (const [address, on] of Object.entries(rt.plcInputs ?? {})) {
+    if (!PLC_INPUT.test(address)) continue
+    const sim = useSimStore.getState()
+    const plc = plcFor(address)
+    const key = (plc?.id ?? '') + ':' + address
+    const current = plc ? (plc.state.simInputs as Record<string, boolean> | undefined)?.[address] : sim.virtualInputs[address]
+    if (!plcLink.written.has(key)) plcLink.written.set(key, { plcId: plc?.id ?? null, address, previous: current })
+    if (current === on) continue
+    // Com PLC: o simulador de sinais do próprio PLC (NA soma ao cabo; NF fica em série com ele).
+    if (plc) sim.setPlcSimInput(plc.id, address, on)
+    else sim.setVirtualInput(address, on)
+  }
+}
+/** Passo do esquema com as saídas atuais do PLC; as entradas resultantes seguem para o PLC. */
+function stepLinked(rt: CmdRuntime, dtMs: number): CmdRuntime {
+  const next = stepCommands(diagram(), { ...rt, plc: plcOutputs() }, dtMs)
+  if (next.running) pushPlcInputs(next)
+  return next
+}
+function unlinkPlc() {
+  if (plcLink.written.size) {
+    const written = [...plcLink.written.values()]
+    plcLink.written = new Map()
+    useSimStore.setState((s) => ({
+      virtualInputs: Object.fromEntries(Object.entries(s.virtualInputs).filter(([address]) => !written.some((w) => !w.plcId && w.address === address))),
+      components: s.components.map((c) => {
+        const mine = written.filter((w) => w.plcId === c.id)
+        if (!mine.length) return c
+        const inputs = { ...(c.state.simInputs as Record<string, boolean> | undefined) }
+        for (const w of mine) { if (w.previous === undefined) delete inputs[w.address]; else inputs[w.address] = w.previous }
+        return { ...c, state: { ...c.state, simInputs: inputs } }
+      }),
+    }))
+  }
+  if (plcLink.startedPlc) { plcLink.startedPlc = false; useSimStore.getState().stop() }
+}
 
 export const useCommandsUi = create<CommandsUi>((set, get) => ({
   tool: 'select',
@@ -127,12 +187,14 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   start: () => {
     const { rt, paused } = get()
     if (rt.running && paused) { set({ paused: false }); return }
-    set({ selection: null, selectedPartIds: [], placing: null, paused: false, rt: stepCommands(diagram(), { ...emptyCmdRuntime(), running: true }, 0) })
+    // Com entradas/saídas do PLC no esquema, o programa do PLC corre ao mesmo tempo.
+    if (linkedToPlc() && useSimStore.getState().sim.runState !== 'running') { useSimStore.getState().play(); plcLink.startedPlc = true }
+    set({ selection: null, selectedPartIds: [], placing: null, paused: false, rt: stepLinked({ ...emptyCmdRuntime(), running: true }, 0) })
   },
-  stop: () => set({ rt: emptyCmdRuntime(), paused: false }),
+  stop: () => { unlinkPlc(); set({ rt: emptyCmdRuntime(), paused: false }) },
   pause: () => { if (get().rt.running) set({ paused: true }) },
-  tick: (dtMs) => { const { rt, paused } = get(); if (rt.running && !paused) set({ rt: stepCommands(diagram(), rt, dtMs) }) },
-  patchRt: (patch) => set({ rt: stepCommands(diagram(), { ...get().rt, ...patch }, 0) }),
+  tick: (dtMs, force) => { const { rt, paused } = get(); if (rt.running && (!paused || force)) set({ rt: stepLinked(rt, dtMs) }) },
+  patchRt: (patch) => set({ rt: stepLinked({ ...get().rt, ...patch }, 0) }),
   press: (tag, down) => get().patchRt({ pressed: { ...get().rt.pressed, [tag]: down } }),
   toggle: (tag) => get().patchRt({ toggled: { ...get().rt.toggled, [tag]: !get().rt.toggled[tag] } }),
   trip: (tag, value) => get().patchRt({ tripped: { ...get().rt.tripped, [tag]: value } }),

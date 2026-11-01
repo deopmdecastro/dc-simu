@@ -36,6 +36,10 @@ export interface CmdRuntime {
   /** Posição do êmbolo 0 = recolhido, 1 = avançado (cilindros). */
   actuators: Record<string, number>
   motors: Record<string, CmdMotorState>
+  /** Saídas do PLC lidas do simulador do PLC (Q0.0 → ligada), quando o esquema está ligado a ele. */
+  plc?: Record<string, boolean>
+  /** Entradas do PLC com tensão no esquema (I0.0 → true), a enviar ao simulador do PLC. */
+  plcInputs?: Record<string, boolean>
   fault?: string
 }
 
@@ -89,7 +93,8 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
     case 'pushNC': case 'limitNC': return !rt.pressed[part.tag]
     case 'emergency': return !rt.toggled[part.tag]
     case 'selector': return !!rt.toggled[part.tag]
-    case 'plcOut': return !!rt.coils[part.tag] || !!rt.toggled[part.tag]
+    // Saída do PLC: comandada pelo programa (simulador do PLC) ou à mão, com um clique.
+    case 'plcOut': return !!rt.coils[part.tag] || !!rt.toggled[part.tag] || !!rt.plc?.[part.tag]
     // Válvulas: posição 1 quando a bobina Y com o mesmo tag está sob tensão, ou toggle manual
     // Tratamento de ar: filtro, lubrificador e regulador deixam passar o caudal.
     case 'airFilter': case 'airLubricator': case 'airRegulator': return true
@@ -201,7 +206,7 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   const delays = Object.fromEntries(diagram.parts.filter((p) => p.kind === 'timerCoil').map((p) => [p.tag, p.delayMs ?? 3000]))
   const rt: CmdRuntime = { ...previous, delays, time: previous.time + Math.max(0, dtMs), coils: { ...previous.coils }, coilSince: { ...previous.coilSince }, fault: undefined }
   // Parada: tudo sem tensão; a falha que a parou continua visível até se voltar a arrancar.
-  if (!rt.running) return { ...rt, fault: previous.fault, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {} }
+  if (!rt.running) return { ...rt, fault: previous.fault, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {}, plcInputs: {} }
   const coilParts = diagram.parts.filter((p) => COIL_KINDS.has(p.kind))
   let solved = solve(diagram, rt)
   const seen = new Set<string>()
@@ -224,7 +229,7 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   }
   if (rt.fault) {
     // Um curto real queima os fusíveis: tudo fica sem tensão até corrigir e reiniciar.
-    return { ...rt, running: false, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {} }
+    return { ...rt, running: false, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {}, plcInputs: {} }
   }
 
   const live: Record<string, string> = {}
@@ -288,7 +293,10 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
       : motorState(m, solved, live)
   }
 
-  return { ...rt, coils, live, liveWires, lamps, loads, actuators, motors }
+  // Entradas do PLC: sinal presente quando há tensão entre os dois bornes da entrada.
+  const plcInputs: Record<string, boolean> = {}
+  for (const p of diagram.parts) if (p.kind === 'plcIn' && p.tag) plcInputs[p.tag] = plcInputs[p.tag] || powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
+  return { ...rt, coils, live, liveWires, lamps, loads, actuators, motors, plcInputs }
 }
 
 function motorState(m: CmdPart, s: Solved, live: Record<string, string>): CmdMotorState {

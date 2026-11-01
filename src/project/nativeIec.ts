@@ -6,8 +6,9 @@
  *    e saídas Q0.0 → bobina KM1 (230 V), Q0.1 → H1 e Q0.2 → H2 (24 V).
  * As duas páginas ligam-se pelos conectores X1 (fase) e X2 (neutro) depois de Q0.
  *
- * No simulador de comandos as saídas do LOGO! acionam-se com um clique (o programa corre
- * no simulador do PLC); a bobina KM1 fecha os contactos de potência com a mesma referência.
+ * Em RUN o esquema corre com o programa do LOGO!: as entradas I0.x com tensão chegam ao
+ * simulador do PLC e as saídas Q0.x seguem o programa; a bobina KM1 fecha os contactos de
+ * potência com a mesma referência.
  */
 import type { CmdKind, CmdPart, CommandsDiagram } from '../commands/model'
 import { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
@@ -99,7 +100,7 @@ export function buildNativeIecSchematic(): CommandsDiagram {
   const coil = part('coil', 860, 380, 'KM1')
   const kmN = part('pageRefIn', 860, 480, 'X2')
   wire(kmL, 0, q00, 0); wire(q00, 1, coil, 0); wire(coil, 1, kmN, 0)
-  text(60, 620, 'No simulador IEC as saídas Q0.x do LOGO! acionam-se com um clique; o programa corre no simulador do PLC.')
+  text(60, 620, 'Em RUN, as entradas I0.x e as saídas Q0.x seguem o programa do LOGO! (o simulador do PLC arranca com o esquema).')
   return diagram
 }
 

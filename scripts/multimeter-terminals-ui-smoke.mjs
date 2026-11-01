@@ -16,16 +16,34 @@ await context.route('**/*', (route) => {
 await context.route('**/__multimeter-fixture__', (route) => route.fulfill({ contentType:'text/html', body:'<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>' }))
 await context.addInitScript(() => {
   localStorage.setItem('dcsimu:workspace:view','schematic')
+  performance.setResourceTimingBufferSize(10000)
+  // O Vite serve módulos alterados com «?t=…»: importar sem esse sufixo criava outra instância
+  // da store e o painel 3D ficava vazio («scene» indefinido). Importa com o URL que a app usou.
+  globalThis.__dcAppImport = (path) => {
+    const hit = performance.getEntriesByType('resource').map((entry) => entry.name)
+      .filter((url) => { try { return new URL(url).pathname === path } catch { return false } }).pop()
+    return import(hit || path)
+  }
 })
 const page = await context.newPage()
 const errors = []
 page.on('pageerror',(error) => errors.push(error.message))
 const check = (ok,message) => { assert.ok(ok,message); console.log('PASS — '+message) }
 const state = (fn,arg) => page.evaluate(async ([source,arg]) => {
-  const { useSimStore } = await import('/src/store/useSimStore.ts')
+  const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
   return Function('store','arg','return ('+source+')(store,arg)')(useSimStore,arg)
 },[fn.toString(),arg])
 const capture = (name) => page.screenshot({ path:path.join(output,name+'.png') })
+// `page.waitForFunction` com predicado async resolve logo (a promessa é «verdadeira»): as esperas
+// não esperavam e a medição corria com a cena a meio. Espera ativa pelo resultado real.
+const waitUntil = async (fn, arg, { timeout = 30000 } = {}) => {
+  const end = Date.now() + timeout
+  for (;;) {
+    if (await page.evaluate(fn, arg).catch(() => false)) return true
+    if (Date.now() > end) throw new Error('Tempo esgotado à espera de: ' + fn.toString().slice(0, 160))
+    await page.waitForTimeout(250)
+  }
+}
 
 try {
   await fs.mkdir(output,{recursive:true})
@@ -39,10 +57,10 @@ try {
     const React=(await import(dep('react'))).default, ReactDOM=(await import(dep('react-dom_client'))).default
     const { BrowserRouter }=await import(dep('react-router-dom'))
     const { default:App }=await import('/src/App.tsx'), { default:DialogHost }=await import('/src/ui/dialogs.tsx')
-    const { useSimStore }=await import('/src/store/useSimStore.ts'), { usePlanStore }=await import('/src/saas/usePlan.ts')
-    const { createComponent }=await import('/src/electrical/factory.ts')
-    const { componentPanelXY }=await import('/src/three/panelLayout.ts')
-    const { terminalWorld3D }=await import('/src/three/terminal3D.ts')
+    const { useSimStore }=await globalThis.__dcAppImport('/src/store/useSimStore.ts'), { usePlanStore }=await globalThis.__dcAppImport('/src/saas/usePlan.ts')
+    const { createComponent }=await globalThis.__dcAppImport('/src/electrical/factory.ts')
+    const { componentPanelXY }=await globalThis.__dcAppImport('/src/three/panelLayout.ts')
+    const { terminalWorld3D }=await globalThis.__dcAppImport('/src/three/terminal3D.ts')
     const THREE=await import('/node_modules/.vite/deps/three.js')
     usePlanStore.getState().set({role:'admin',plan:null})
     useSimStore.getState().newProject()
@@ -60,7 +78,7 @@ try {
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(BrowserRouter,null,React.createElement(React.Fragment,null,React.createElement(App,{onBack:()=>{}}),React.createElement(DialogHost))))
   })
   await page.getByRole('button',{name:'Visualização 3D',exact:true}).click()
-  await page.waitForFunction(async()=> {
+  await waitUntil(async()=> {
     const source=await (await fetch('/src/three/Panel3D.tsx')).text()
     const module=source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1]
     const {_roots}=await import(module)
@@ -68,20 +86,21 @@ try {
   },null,{timeout:30000})
   // Compara o CAD realmente montado com o mesmo GLB centrado, no referencial dos
   // bornes. A geometria isolada já passava; o erro existia na montagem do painel.
-  const alignment=async()=>page.evaluate(async()=> {
+  const alignmentOnce=async()=>page.evaluate(async()=> {
     const source=await (await fetch('/src/three/Panel3D.tsx')).text()
     const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
     const THREE=await import('/node_modules/.vite/deps/three.js')
-    const {useSimStore}=await import('/src/store/useSimStore.ts')
-    const {getComponentModelSpec}=await import('/src/three/modelPaths.ts')
-    const {cloneModelScene,fitComponentModel}=await import('/src/three/modelFit.ts')
-    const {createGltfLoader}=await import('/src/three/gltfLoader.ts')
-    const {orientationRadians}=await import('/src/three/componentOrientation.ts')
-    const {terminalWorld3D}=await import('/src/three/terminal3D.ts')
+    const {useSimStore}=await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    const {getComponentModelSpec}=await globalThis.__dcAppImport('/src/three/modelPaths.ts')
+    const {cloneModelScene,fitComponentModel}=await globalThis.__dcAppImport('/src/three/modelFit.ts')
+    const {createGltfLoader}=await globalThis.__dcAppImport('/src/three/gltfLoader.ts')
+    const {orientationRadians}=await globalThis.__dcAppImport('/src/three/componentOrientation.ts')
+    const {terminalWorld3D}=await globalThis.__dcAppImport('/src/three/terminal3D.ts')
     const state=[..._roots.values()].map(root=>root.store.getState()).find(root=> {
       let connected=false; root.scene.traverse(node=>{if(node.userData.wireEndType)connected=true})
       return connected&&root.scene.getObjectByName('occurrence_of_Cube002_Material008_0')
     })
+    if(!state) return null
     const glass=state.scene.getObjectByName('occurrence_of_Cube002_Material008_0')
     state.scene.updateMatrixWorld(true)
     let instance=glass.parent
@@ -107,12 +126,16 @@ try {
     const actual=renderedMesh.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(renderedMesh.matrixWorld)
     return {errorMm:actual.distanceTo(expected)*100,connections:meter.terminals.map(t=>({id:t.id,position:terminalWorld3D(meter,t,pivot).toArray()})),wires:useSimStore.getState().wires.length}
   })
+  const alignment=async()=> {
+    for(let i=0;i<80;i++) { const report=await alignmentOnce(); if(report) return report; await page.waitForTimeout(250) }
+    throw new Error('Cena do multímetro sem cabos ligados')
+  }
   for(const [index,orientation] of [{x:0,y:-25,z:0},{x:18,y:35,z:12}].entries()) {
     await page.evaluate(async(orientation)=> {
-      const {useSimStore}=await import('/src/store/useSimStore.ts')
+      const {useSimStore}=await globalThis.__dcAppImport('/src/store/useSimStore.ts')
       useSimStore.setState(s=>({components:s.components.map(c=>({...c,viewOrientation:orientation}))}))
     },orientation)
-    await page.waitForFunction(async()=> {
+    await waitUntil(async()=> {
       const source=await(await fetch('/src/three/Panel3D.tsx')).text()
       const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
       return [..._roots.values()].some(root=> {
@@ -132,23 +155,25 @@ try {
   assert.deepEqual(after,before,'Guardar/reabrir preserva os bornes e as ligações')
   console.log('PASS — Guardar/reabrir preserva os bornes e as ligações')
   await page.evaluate(async()=> {
-    const {useSimStore}=await import('/src/store/useSimStore.ts')
-    const {nativePartidaDiretaContent}=await import('/src/project/nativeProjects.ts')
+    const {useSimStore}=await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    const {nativePartidaDiretaContent}=await globalThis.__dcAppImport('/src/project/nativeProjects.ts')
     useSimStore.getState().loadJSON(JSON.stringify(nativePartidaDiretaContent()))
   })
-  await page.waitForFunction(async()=> {
+  await waitUntil(async()=> {
     const source=await(await fetch('/src/three/Panel3D.tsx')).text()
     const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
     let probes=0,bananas=0,doubles=0,ports=0
     for(const root of _roots.values())root.store.getState().scene.traverse(node=>{if(node.userData.wireEndType==='probe')probes++;if(node.userData.wireEndType==='banana')bananas++;if(node.userData.wireEndType==='ferruleDouble')doubles++;if(node.userData.ferrulePort)ports++})
-    return probes===2&&bananas===2&&doubles===11&&ports===22
-  },null,{timeout:30000})
-  check(true,'Nativo renderiza duas fichas banana, duas sondas e onze ponteiras duplas com vinte e duas entradas')
+    globalThis.__mmCounts={probes,bananas,doubles,ports}
+    // Os bornes U1/V1 do motor usam olhal (b98ed91): ficam 9 ponteiras duplas (18 entradas) no quadro.
+    return probes===2&&bananas===2&&doubles===9&&ports===18
+  },null,{timeout:60000}).catch(async(error)=>{ console.log('CONTAGENS', JSON.stringify(await page.evaluate(()=>globalThis.__mmCounts))); throw error })
+  check(true,'Nativo renderiza duas fichas banana, duas sondas e nove ponteiras duplas com dezoito entradas')
   const seating = await page.evaluate(async()=> {
     const source=await(await fetch('/src/three/Panel3D.tsx')).text()
     const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
     const THREE=await import('/node_modules/.vite/deps/three.js')
-    const {useSimStore}=await import('/src/store/useSimStore.ts')
+    const {useSimStore}=await globalThis.__dcAppImport('/src/store/useSimStore.ts')
     const state=[..._roots.values()].map(root=>root.store.getState()).find(s=>{let found=false;s.scene.traverse(n=>{if(n.userData.wireId)found=true});return found})
     state.scene.updateMatrixWorld(true)
     const groups=new Map();state.scene.traverse(n=>{if(n.userData.wireId)groups.set(n.userData.wireId,n)})
@@ -182,7 +207,7 @@ try {
     }
     return {contacts,maxRadial,maxDepth}
   })
-  check(seating.contacts===22&&seating.maxRadial<0.01&&seating.maxDepth<1,`22 cabos/pontas alinhados com as bocas 3D (desvio lateral ${seating.maxRadial.toFixed(4)} mm)`)
+  check(seating.contacts===18&&seating.maxRadial<0.01&&seating.maxDepth<1,`18 cabos/pontas alinhados com as bocas 3D (desvio lateral ${seating.maxRadial.toFixed(4)} mm)`)
   const stopClean=await state(store=>{
     const s=store.getState()
     return s.sim.runState==='stopped' && s.grafcetRuntime.active.length===0 && s.components.every(c=>!c.state.lit&&!c.state.energized&&!c.state.running)
@@ -191,15 +216,15 @@ try {
   await page.keyboard.press('Home')
   await page.waitForTimeout(200)
   await page.evaluate(async()=> {
-    const {useSimStore}=await import('/src/store/useSimStore.ts')
+    const {useSimStore}=await globalThis.__dcAppImport('/src/store/useSimStore.ts')
     useSimStore.getState().play()
     useSimStore.getState().setComponentState('native-push',{startPressed:true})
   })
-  await page.waitForFunction(async()=> {
-    const {useSimStore}=await import('/src/store/useSimStore.ts')
+  await waitUntil(async()=> {
+    const {useSimStore}=await globalThis.__dcAppImport('/src/store/useSimStore.ts')
     const s=useSimStore.getState(),meter=s.components.find(c=>c.id==='native-mm1')
-    const {meterInputFor}=await import('/src/electrical/meterModel.ts')
-    const {DM20_DEFINITION}=await import('/src/three/MultimeterDm20Panel.tsx')
+    const {meterInputFor}=await globalThis.__dcAppImport('/src/electrical/meterModel.ts')
+    const {DM20_DEFINITION}=await globalThis.__dcAppImport('/src/three/MultimeterDm20Panel.tsx')
     return Math.abs(meterInputFor(DM20_DEFINITION,meter,s.components,s.wires,s.runtime.energizedTerminals,meter.state.catalogVars).vac-400)<0.01
   },null,{timeout:30000})
   check(true,'Multímetro renderizado mede 400 V na entrada do motor em RUN')
@@ -230,7 +255,7 @@ try {
     await page.evaluate(async(component)=> {
       const source=await(await fetch('/src/three/Panel3D.tsx')).text()
       const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
-      const {useSimStore}=await import('/src/store/useSimStore.ts')
+      const {useSimStore}=await globalThis.__dcAppImport('/src/store/useSimStore.ts')
       const wires=useSimStore.getState().wires
       const state=[..._roots.values()].map(root=>root.store.getState()).find(s=>{let found=false;s.scene.traverse(n=>{if(n.userData.wireId)found=true});return found})
       const points=[];state.scene.updateMatrixWorld(true)
