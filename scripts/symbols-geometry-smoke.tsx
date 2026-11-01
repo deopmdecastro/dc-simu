@@ -134,12 +134,12 @@ const meter = svgOf(part('ammeter'))
 assert.match(meter, /<circle cx="0" cy="30" r="12"/, 'amperímetro: círculo de medida')
 assert.match(meter, />A</, 'amperímetro: letra A')
 assert.match(svgOf(part('voltmeter')), />V</, 'voltímetro: letra V')
-assert.match(svgOf(part('currentTransformer')), /<rect x="-15" y="21" width="30" height="6"/, 'TA: duas barras do núcleo')
+assert.match(svgOf(part('currentTransformer')), /<circle cx="0" cy="30" r="9"/, 'TA: anel atravessado pelo condutor (IEC 60617-6)')
 assert.match(svgOf(part('overcurrentRelay')), />I&gt;</, 'relé de sobrecorrente: I>')
 assert.match(svgOf(part('undervoltageRelay')), />U&lt;</, 'relé de subtensão: U<')
 assert.match(svgOf(part('latchingRelay')), /<rect x="-13" y="18" width="8" height="24" fill="#0f172a"/, 'retenção: enrolamento escuro')
 assert.match(svgOf(part('timerOffCoil')), /<rect x="-13" y="34" width="9" height="8" fill="#0f172a"/, 'TOF: bloco do atraso')
-assert.match(svgOf(part('temperatureController')), />CT</, 'controlador: CT')
+assert.match(svgOf(part('temperatureController')), />θ</, 'controlador de temperatura: θ')
 assert.match(svgOf(part('siren')), /dc-cmd-buzz|M -12 24 L 4 24 L 12 15/, 'sirene: trombeta')
 for (const kind of ['ammeter', 'voltmeter', 'currentTransformer', 'siren', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'timerOffCoil', 'temperatureController', 'fuseDisconnector', 'pressureSwitch'] as CmdKind[]) {
   assert.ok(CMD_PARTS[kind], `${kind}: definição em falta`)
@@ -266,5 +266,58 @@ assert.equal(normalizeCommandsPages(JSON.parse(JSON.stringify({ parts: [part('me
 const inPalette = new Set(CMD_PALETTE.flatMap((g) => g.kinds))
 for (const kind of Object.keys(CMD_PARTS) as CmdKind[]) assert.ok(inPalette.has(kind), `${kind}: falta na paleta`)
 
+// 13. Contactos comandados (IEC 60617-7): órgão de comando à esquerda, ligado à lâmina por tracejado.
+const operated: Array<[CmdKind, RegExp, string]> = [
+  ['pushNO', /M -18 \S+ L -22 \S+ L -22/, 'botão: «[» de premir'],
+  ['emergency', /fill="#fecaca"/, 'emergência: cabeça em cogumelo'],
+  ['pullCord', /M -29 \S+ L -25 \S+ L -25/, 'emergência por cabo: «]» de puxar'],
+  ['selector', /M -26 \S+ L -22 \S+ L -22 \S+ L -18/, 'comutador: órgão rotativo'],
+  ['proximity', /Z" fill="#fff"/, 'proximidade: losango'],
+  ['pressureSwitch', />p</, 'pressostato: p'],
+  ['levelNO', /q 1\.75 -2 3\.5 0/, 'nível: boia e superfície do líquido'],
+  ['footNO', /M -28 \S+ L -19/, 'pedal'],
+  ['thermalNC', /h 3\.5 v -6 h 7 v 6 h 3\.5/, 'térmico: bimetal'],
+  ['timedNO', /A 6 6 0 0 0/, 'temporizado à operação: paraquedas'],
+  ['timedOffNO', /A 6 6 0 0 1/, 'temporizado à desoperação: paraquedas invertido'],
+]
+for (const [kind, mark, label] of operated) {
+  const markup = svgOf(part(kind))
+  assert.match(markup, mark, label)
+  if (kind !== 'limitNO') assert.match(markup, /stroke-dasharray="2\.6 2\.2"/, `${label}: ligação mecânica tracejada`)
+}
+assert.match(svgOf(part('limitNO')), /L -\S+ \S+ L -\S+ \S+ Z" fill="#fff"/, 'fim de curso: cunha na lâmina')
+for (const kind of ['timedOffNO', 'timedOffNC', 'pullCord', 'levelNO', 'levelNC', 'footNO', 'footNC'] as CmdKind[]) {
+  assert.ok(connects(svgOf(part(kind), { closed: true }), [0, 0], [0, 60]), `${kind}: fechado liga os bornes`)
+  assert.ok(!connects(svgOf(part(kind), { closed: false }), [0, 0], [0, 60]), `${kind}: aberto não parece ligado`)
+}
+assert.match(svgOf(part('contact3'), { closed: true }), /a 3\.4 3\.4 0 0 0 6\.8 0/, 'contactos principais: semicírculo da função de contactor')
+assert.match(svgOf(part('pushIllum')), /<circle cx="20" cy="30" r="8"/, 'botão luminoso: lâmpada entre X1 e X2')
+// Simulação: TOF mantém o NA fechado durante o atraso depois de a bobina desligar.
+{
+  const diagram = { parts: [
+    { id: 's', kind: 'supply' as CmdKind, x: 0, y: 0, rot: 0 as const, tag: '', lines: ['L1', 'N'] },
+    { id: 'b', kind: 'pushNO' as CmdKind, x: 0, y: 20, rot: 0 as const, tag: 'S1' },
+    { id: 'k', kind: 'timerOffCoil' as CmdKind, x: 0, y: 100, rot: 0 as const, tag: 'K1', delayMs: 1000 },
+    { id: 'c', kind: 'timedOffNO' as CmdKind, x: 80, y: 20, rot: 0 as const, tag: 'K1' },
+    { id: 'h', kind: 'lamp' as CmdKind, x: 80, y: 100, rot: 0 as const, tag: 'H1' },
+  ], wires: [
+    { id: 'w1', a: { part: 's', term: 0 }, b: { part: 'b', term: 0 } }, { id: 'w2', a: { part: 'b', term: 1 }, b: { part: 'k', term: 0 } },
+    { id: 'w3', a: { part: 'k', term: 1 }, b: { part: 's', term: 1 } }, { id: 'w4', a: { part: 's', term: 0 }, b: { part: 'c', term: 0 } },
+    { id: 'w5', a: { part: 'c', term: 1 }, b: { part: 'h', term: 0 } }, { id: 'w6', a: { part: 'h', term: 1 }, b: { part: 's', term: 1 } },
+  ] }
+  let rt = stepCommands(diagram, { ...emptyCmdRuntime(), running: true, pressed: { S1: true } }, 100)
+  assert.equal(rt.lamps.h, true, 'TOF: com a bobina ligada o contacto fecha logo')
+  rt = stepCommands(diagram, { ...rt, pressed: {} }, 100)
+  rt = stepCommands(diagram, rt, 500)
+  assert.equal(rt.lamps.h, true, 'TOF: meio segundo depois de largar, ainda fechado')
+  rt = stepCommands(diagram, rt, 600)
+  assert.equal(rt.lamps.h, false, 'TOF: passado o atraso abre')
+  const rtEmpty2 = emptyCmdRuntime()
+  assert.equal(isClosed(part('levelNO'), { ...rtEmpty2, pressed: { X1: true } }), true, 'boia NA fecha ao subir o nível')
+  assert.equal(isClosed(part('footNC'), { ...rtEmpty2, pressed: { X1: true } }), false, 'pedal NF abre ao pisar')
+  assert.equal(isClosed(part('pullCord'), { ...rtEmpty2, toggled: { X1: true } }), false, 'cabo puxado fica aberto (encravado)')
+}
+
 console.log('PASS — geometria dos símbolos: contactos ligam os bornes, resistência IEC, núcleo do transformador e três terras')
+console.log('PASS — contactos comandados IEC 60617-7: órgãos de comando com ligação mecânica, TOF, boia, pedal e cabo')
 console.log('PASS — IEC 60617: manobra (× / barra / barra + círculo), disparadores, instrumentos, conversores, trafos e motores com variantes')

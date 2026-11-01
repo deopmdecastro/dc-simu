@@ -23,6 +23,7 @@ export function defaultTag(diagram: CommandsDiagram, kind: CmdKind): string {
   const last = (kinds: CmdKind[], fallback: string) => [...diagram.parts].reverse().find((p) => kinds.includes(p.kind))?.tag || fallback
   if (kind === 'contact3' || kind === 'contactNO' || kind === 'contactNC') return last(['coil', 'timerCoil'], 'K1')
   if (kind === 'timedNO' || kind === 'timedNC') return last(['timerCoil'], 'K1')
+  if (kind === 'timedOffNO' || kind === 'timedOffNC') return last(['timerOffCoil'], 'K1')
   if (kind === 'thermalNC' || kind === 'thermalNO') return last(['thermal3'], 'F1')
   return nextTag(diagram, kind)
 }
@@ -35,7 +36,7 @@ export function addPart(kind: CmdKind, at: Pt, pageId?: string): CmdPart {
   const part: CmdPart = {
     id: nanoid(8), kind, x: snap(at.x), y: snap(at.y), rot: 0, tag, page,
     ...(kind === 'supply' ? { lines: ['L1', 'L2', 'L3'] } : {}),
-    ...(kind === 'timerCoil' ? { delayMs: 3000 } : {}),
+    ...(kind === 'timerCoil' || kind === 'timerOffCoil' ? { delayMs: 3000 } : {}),
     ...(kind === 'lamp' ? { color: 'green' as const } : {}),
   }
   const labels = auxLabels(diagram, kind, tag)

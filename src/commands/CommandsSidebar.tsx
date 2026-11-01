@@ -237,7 +237,7 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
           {SUPPLY_PRESETS.map((p) => <option key={p.join(' ')} value={p.join(' ')}>{p.join(' · ')}</option>)}
         </select>
       </label>}
-      {part.kind === 'timerCoil' && <label className="dc-cmd-field"><span>Atraso à operação (s)</span>
+      {(part.kind === 'timerCoil' || part.kind === 'timerOffCoil') && <label className="dc-cmd-field"><span>{part.kind === 'timerOffCoil' ? 'Atraso à desoperação (s)' : 'Atraso à operação (s)'}</span>
         <input className="dc-input" type="number" min={0.1} step={0.5} value={(part.delayMs ?? 3000) / 1000} onChange={(e) => onChange({ delayMs: Math.max(100, Math.round(Number(e.target.value) * 1000) || 100) })} aria-label="Atraso do temporizador em segundos" />
       </label>}
       {(['fuse', 'resistor', 'capacitor', 'diode'] as CmdKind[]).includes(part.kind) && <div className="dc-cmd-field">

@@ -22,8 +22,70 @@ export interface CmdSymbolState {
   load?: boolean
 }
 
+/** Contactos normalmente fechados (em repouso conduzem). */
+export const NC_KINDS = new Set<CmdKind>(['contactNC', 'pushNC', 'timedNC', 'timedOffNC', 'thermalNC', 'limitNC', 'emergency', 'pullCord', 'levelNC', 'footNC'])
+
+type Actuator = 'push' | 'mushroom' | 'pull' | 'turn' | 'position' | 'proximity' | 'pressure' | 'level' | 'foot' | 'thermal' | 'delayOn' | 'delayOff'
+/** Órgão de comando de cada contacto (IEC 60617-7), desenhado à esquerda da lâmina. */
+const ACTUATOR: Partial<Record<CmdKind, Actuator>> = {
+  pushNO: 'push', pushNC: 'push', pushIllum: 'push', emergency: 'mushroom', pullCord: 'pull', selector: 'turn',
+  limitNO: 'position', limitNC: 'position', proximity: 'proximity', pressureSwitch: 'pressure',
+  levelNO: 'level', levelNC: 'level', footNO: 'foot', footNC: 'foot', thermalNO: 'thermal', thermalNC: 'thermal',
+  timedNO: 'delayOn', timedNC: 'delayOn', timedOffNO: 'delayOff', timedOffNC: 'delayOff',
+}
+
+/**
+ * Órgão de comando centrado em (ax, ay), com a ligação mecânica tracejada até ao meio da
+ * lâmina (mx, my). Devolve só traços em `path`, para não contarem como condutores.
+ */
+function actuatorAt(actuator: Actuator, ax: number, ay: number, mx: number, my: number, tripped?: boolean): ReactNode {
+  const link = (fromX: number) => <path d={`M ${fromX} ${ay} L ${mx} ${my}`} strokeDasharray="2.6 2.2" strokeWidth={1.1} />
+  /** Trinco (encravamento) na ligação: mantém a posição até rearmar. */
+  const latch = <path d={`M ${ax + 7} ${ay - 3.5} L ${ax + 10} ${ay} L ${ax + 7} ${ay + 3.5}`} strokeWidth={1.1} />
+  switch (actuator) {
+    case 'push': return <>{link(ax)}<path d={`M ${ax + 4} ${ay - 7} L ${ax} ${ay - 7} L ${ax} ${ay + 7} L ${ax + 4} ${ay + 7}`} /></>
+    case 'mushroom': return <>
+      {link(ax)}{latch}
+      <path d={`M ${ax} ${ay - 7} L ${ax} ${ay + 7}`} />
+      <path d={`M ${ax} ${ay - 7} A 7 7 0 0 0 ${ax} ${ay + 7} Z`} fill="#fecaca" stroke="#b91c1c" />
+    </>
+    case 'pull': return <>{link(ax)}{latch}<path d={`M ${ax - 4} ${ay - 7} L ${ax} ${ay - 7} L ${ax} ${ay + 7} L ${ax - 4} ${ay + 7}`} /></>
+    case 'turn': return <>{link(ax)}<path d={`M ${ax - 4} ${ay - 7} L ${ax} ${ay - 7} L ${ax} ${ay + 7} L ${ax + 4} ${ay + 7}`} /></>
+    // Fim de curso: cunha (came) presa à própria lâmina.
+    case 'position': return <path d={`M ${mx} ${my} L ${mx - 8} ${my - 4.5} L ${mx - 8} ${my + 4.5} Z`} fill="#fff" />
+    case 'proximity': return <>{link(ax + 6)}<path d={`M ${ax} ${ay - 7} L ${ax + 6} ${ay} L ${ax} ${ay + 7} L ${ax - 6} ${ay} Z`} fill="#fff" /></>
+    case 'pressure': return <>
+      {link(ax + 6)}
+      <rect x={ax - 6} y={ay - 6} width={12} height={12} fill="#fff" />
+      <text x={ax} y={ay + 3.5} textAnchor="middle" fontSize={9} fontStyle="italic" fontWeight={700} fill={INK} stroke="none">p</text>
+    </>
+    case 'level': return <>
+      {link(ax + 4)}
+      <circle cx={ax} cy={ay} r={4} fill="#fff" />
+      <path d={`M ${ax - 7} ${ay + 8} q 1.75 -2 3.5 0 t 3.5 0 t 3.5 0 t 3.5 0`} strokeWidth={1.1} />
+    </>
+    case 'foot': return <>
+      {link(ax + 3)}
+      <path d={`M ${ax - 6} ${ay + 6} L ${ax + 3} ${ay - 3} M ${ax - 7} ${ay + 6} L ${ax + 4} ${ay + 6}`} />
+    </>
+    case 'thermal': return <>
+      {link(ax + 7)}
+      <path d={`M ${ax - 7} ${ay + 3} h 3.5 v -6 h 7 v 6 h 3.5`} stroke={tripped ? '#dc2626' : INK} />
+    </>
+    // Temporizados: «paraquedas». À operação, a copa afasta-se do contacto; à desoperação, vira-se para ele.
+    case 'delayOn': return <>
+      {link(ax + 5)}
+      <path d={`M ${ax - 2} ${ay - 6} A 6 6 0 0 0 ${ax - 2} ${ay + 6} M ${ax - 2} ${ay - 6} L ${ax + 5} ${ay} L ${ax - 2} ${ay + 6}`} />
+    </>
+    case 'delayOff': return <>
+      {link(ax + 4)}
+      <path d={`M ${ax + 4} ${ay - 6} A 6 6 0 0 1 ${ax + 4} ${ay + 6} M ${ax + 4} ${ay - 6} L ${ax - 3} ${ay} L ${ax + 4} ${ay + 6}`} />
+    </>
+  }
+}
+
 const contactBody = (kind: CmdKind, st: CmdSymbolState, active: string) => {
-  const nc = kind === 'contactNC' || kind === 'pushNC' || kind === 'timedNC' || kind === 'thermalNC' || kind === 'limitNC' || kind === 'emergency'
+  const nc = NC_KINDS.has(kind)
   // `st.closed` é o estado de CONDUÇÃO (vem de `isClosed`). Sem estado — miniaturas
   // da paleta — desenha-se o repouso: NF a conduzir, NA aberto.
   const closed = st.closed === undefined ? nc : !!st.closed
@@ -35,24 +97,17 @@ const contactBody = (kind: CmdKind, st: CmdSymbolState, active: string) => {
   const hook = nc ? 1 : closed ? -1 : 0
   const bladeEnd: [number, number] = closed ? [10 * hook, 18] : nc ? [12, 27] : [-11, 20]
   const live = closed && !st.idle
+  const actuator = ACTUATOR[kind]
+  const mx = bladeEnd[0] / 2, my = (42 + bladeEnd[1]) / 2
   return (
     <>
       <line x1={0} y1={0} x2={0} y2={18} />
       <line x1={0} y1={42} x2={0} y2={60} />
       {hook !== 0 && <line x1={0} y1={18} x2={10 * hook} y2={18} />}
       <line x1={0} y1={42} x2={bladeEnd[0]} y2={bladeEnd[1]} stroke={live ? active : INK} strokeWidth={live ? 2 : 1.6} />
-      {(kind === 'pushNO' || kind === 'pushNC' || kind === 'pushIllum') && <line x1={-8} y1={12} x2={8} y2={12} />}
-      {kind === 'emergency' && <circle cx={0} cy={10} r={7} fill="#fee2e2" stroke="#dc2626" />}
-      {kind === 'selector' && <path d="M -8 10 L 0 4 L 8 10" fill="none" />}
-      {(kind === 'limitNO' || kind === 'limitNC') && <path d="M -10 8 L 0 2 L 10 8" fill="none" />}
-      {kind === 'proximity' && <><circle cx={0} cy={10} r={6} fill="none" /><path d="M -4 10 h 8" /></>}
-      {(kind === 'timedNO' || kind === 'timedNC') && (
-        <>
-          <line x1={-18} y1={18} x2={-10} y2={42} /><line x1={-10} y1={18} x2={-18} y2={42} />
-          {st.progress !== undefined && st.energized && <rect x={-28} y={48} width={20 * Math.min(1, st.progress)} height={3} fill="#f59e0b" stroke="none" />}
-        </>
-      )}
-      {(kind === 'thermalNC' || kind === 'thermalNO') && st.tripped && <circle cx={8} cy={30} r={3} fill="#dc2626" stroke="none" />}
+      {actuator && actuatorAt(actuator, kind === 'emergency' || kind === 'pullCord' ? -25 : -22, my, mx, my, st.tripped)}
+      {(kind === 'timedNO' || kind === 'timedNC' || kind === 'timedOffNO' || kind === 'timedOffNC') && st.progress !== undefined && st.energized &&
+        <rect x={-28} y={48} width={20 * Math.min(1, st.progress)} height={3} fill="#f59e0b" stroke="none" />}
     </>
   )
 }
@@ -148,6 +203,7 @@ const threePole = (_kind: CmdKind, st: CmdSymbolState, active: string) => {
           <line x1={x} y1={42} x2={x} y2={60} />
           {/* Contactos de potência do contactor seguem o desenho do NA: gancho à esquerda a conduzir. */}
           {contactHook && <line x1={x} y1={18} x2={x - 10} y2={18} />}
+          <path d={`M ${x - 3.4} 18 a 3.4 3.4 0 0 0 6.8 0`} strokeWidth={1.2} />
           <line x1={x} y1={42} x2={x + (closed ? (contactHook ? -10 : 0) : 8)} y2={closed ? 18 : 25} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
         </g>
       ))}
@@ -277,6 +333,16 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         {currentMark(output, 15.5, 38)}
       </>
     }
+    case 'transformerCT': return <>
+      {/* Primário 1-2, secundário 3-5 com tomada média 4 (IEC 60617-6). */}
+      <line x1={0} y1={0} x2={0} y2={14} /><line x1={0} y1={46} x2={0} y2={60} />
+      <path d="M 0 14 a 6 4 0 0 1 0 8 a 6 4 0 0 1 0 8 a 6 4 0 0 1 0 8 a 6 4 0 0 1 0 8" fill="none" />
+      <line x1={13} y1={12} x2={13} y2={48} /><line x1={17} y1={12} x2={17} y2={48} />
+      <line x1={30} y1={0} x2={30} y2={14} /><line x1={30} y1={46} x2={30} y2={60} />
+      <path d="M 30 14 a 6 4 0 0 0 0 8 a 6 4 0 0 0 0 8 a 6 4 0 0 0 0 8 a 6 4 0 0 0 0 8" fill="none" />
+      <line x1={30} y1={30} x2={50} y2={30} />
+      <circle cx={30} cy={30} r={1.8} fill={INK} stroke="none" />
+    </>
     case 'autotransformer': return <>
       {/* Autotransformador: um só enrolamento, com a tomada intermédia ligada ao borne 3. */}
       <line x1={0} y1={0} x2={0} y2={12} /><line x1={0} y1={48} x2={0} y2={60} />
@@ -445,9 +511,9 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
     case 'currentTransformer': return <>
       {/* TA: o cabo principal atravessa o núcleo (duas barras). */}
       <line x1={0} y1={0} x2={0} y2={60} />
-      <rect x={-15} y={21} width={30} height={6} fill={INK} stroke="none" />
-      <rect x={-15} y={33} width={30} height={6} fill={INK} stroke="none" />
-      <text x={24} y={34} textAnchor="middle" fontSize={9} fill={INK} stroke="none">TA</text>
+      <circle cx={0} cy={30} r={9} fill="none" strokeWidth={1.8} />
+      <path d="M 9 30 L 18 30" strokeWidth={1.2} />
+      <text x={24} y={33.5} textAnchor="start" fontSize={9} fill={INK} stroke="none">TA</text>
     </>
     case 'overcurrentRelay': case 'undervoltageRelay': case 'overvoltageRelay': case 'shortCircuitRelay': {
       // Relés de medida: a caixa escreve a grandeza e o sentido (I>, U<, U>, I>>).
@@ -488,6 +554,7 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       const nc = part.kind === 'sensor3wNC'
       return <>
         {contactBody(nc ? 'contactNC' : 'contactNO', st, active)}
+        <path d={`M 10 30 L ${nc ? 6 : -5} 30`} strokeDasharray="2.6 2.2" strokeWidth={1.1} />
         <rect x={10} y={20} width={22} height={20} fill="#fff" />
         <text x={21} y={34} textAnchor="middle" fontSize={8} fontWeight={700} fill={INK} stroke="none">Fe</text>
         <path d="M 21 8 L 26 13 L 21 18 L 16 13 Z" fill="#fff" />
@@ -517,12 +584,10 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
     case 'temperatureController': return <>
       <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
       <rect x={-15} y={18} width={30} height={24} fill="#fff" />
-      <text x={0} y={33} textAnchor="middle" fontSize={10} fontWeight={700} fill={INK} stroke="none">CT</text>
+      <text x={0} y={34.5} textAnchor="middle" fontSize={13} fontWeight={700} fill={INK} stroke="none">θ</text>
     </>
     case 'pressureSwitch': return <>
-      {contactBody('limitNO', st, active)}
-      <circle cx={11} cy={10} r={6.5} fill="#fff" />
-      <text x={11} y={13} textAnchor="middle" fontSize={8} fontWeight={700} fill={INK} stroke="none">P</text>
+      {contactBody('pressureSwitch', st, active)}
     </>
     case 'siren': {
       // Sirene: trombeta com duas ondas de alarme.
@@ -664,7 +729,9 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
     case 'pushIllum':
       return <>
         {contactBody('pushNO', st, active)}
-        <circle cx={20} cy={30} r={6} fill={st.load ? '#fde68a' : '#fff'} stroke={INK} />
+        <line x1={20} y1={0} x2={20} y2={22} /><line x1={20} y1={38} x2={20} y2={60} />
+        <circle cx={20} cy={30} r={8} fill={st.load ? '#fde68a' : '#fff'} stroke={INK} />
+        <path d="M 14.3 24.3 L 25.7 35.7 M 25.7 24.3 L 14.3 35.7" strokeWidth={1.2} />
       </>
     default: {
       const kind = part.kind

@@ -24,6 +24,8 @@ export interface CmdRuntime {
   /** Bobinas sob tensão e instante em que ficaram. */
   coils: Record<string, boolean>
   coilSince: Record<string, number>
+  /** Instante em que cada bobina desligou (contactos temporizados à desoperação). */
+  coilOffSince?: Record<string, number>
   /** Atraso de cada temporizador (ms), por referência. */
   delays: Record<string, number>
   /** Bornes sob tensão (`parte:borne` → fase/polaridade). */
@@ -53,7 +55,7 @@ export interface CmdMotorState {
 }
 
 export const emptyCmdRuntime = (): CmdRuntime => ({
-  running: false, time: 0, pressed: {}, toggled: {}, tripped: {}, coils: {}, coilSince: {}, delays: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {},
+  running: false, time: 0, pressed: {}, toggled: {}, tripped: {}, coils: {}, coilSince: {}, coilOffSince: {}, delays: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {},
 })
 
 const key = (part: string, term: number) => `${part}:${term}`
@@ -65,6 +67,9 @@ const PHASES = ['L1', 'L2', 'L3']
 export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
   const on = !!rt.coils[part.tag]
   const timed = on && rt.time - (rt.coilSince[part.tag] ?? rt.time) >= (rt.delays?.[part.tag] ?? 3000)
+  // Atraso à desoperação: depois de a bobina desligar, o contacto mantém-se atuado durante o atraso.
+  const offAt = rt.coilOffSince?.[part.tag]
+  const held = on || (offAt !== undefined && rt.time - offAt < (rt.delays?.[part.tag] ?? 3000))
   switch (part.kind) {
     case 'fuse': case 'fuse3': case 'thermal3': case 'resistor': case 'capacitor': case 'throttle': case 'checkValve': return true
     // Seccionadora fusível: o fusível conduz; a lâmina é só de corte manual (ver `fuseDisconnector`).
@@ -87,6 +92,11 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
     case 'contactNC': return !on
     case 'timedNO': return timed
     case 'timedNC': return !timed
+    case 'timedOffNO': return held
+    case 'timedOffNC': return !held
+    case 'levelNO': case 'footNO': return !!rt.pressed[part.tag]
+    case 'levelNC': case 'footNC': return !rt.pressed[part.tag]
+    case 'pullCord': return !rt.toggled[part.tag]
     case 'thermalNC': return !rt.tripped[part.tag]
     case 'thermalNO': return !!rt.tripped[part.tag]
     case 'pushNO': case 'pushIllum': case 'limitNO': case 'proximity': return !!rt.pressed[part.tag]
@@ -203,8 +213,8 @@ const powered = (a?: Set<string>, b?: Set<string>) => {
 
 /** Avança a simulação `dtMs` e devolve o novo estado (não altera o anterior). */
 export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtMs: number): CmdRuntime {
-  const delays = Object.fromEntries(diagram.parts.filter((p) => p.kind === 'timerCoil').map((p) => [p.tag, p.delayMs ?? 3000]))
-  const rt: CmdRuntime = { ...previous, delays, time: previous.time + Math.max(0, dtMs), coils: { ...previous.coils }, coilSince: { ...previous.coilSince }, fault: undefined }
+  const delays = Object.fromEntries(diagram.parts.filter((p) => p.kind === 'timerCoil' || p.kind === 'timerOffCoil').map((p) => [p.tag, p.delayMs ?? 3000]))
+  const rt: CmdRuntime = { ...previous, delays, time: previous.time + Math.max(0, dtMs), coils: { ...previous.coils }, coilSince: { ...previous.coilSince }, coilOffSince: { ...previous.coilOffSince }, fault: undefined }
   // Parada: tudo sem tensão; a falha que a parou continua visível até se voltar a arrancar.
   if (!rt.running) return { ...rt, fault: previous.fault, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {}, plcInputs: {} }
   const coilParts = diagram.parts.filter((p) => COIL_KINDS.has(p.kind))
@@ -223,6 +233,8 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
     for (const tag of Object.keys(next)) {
       if (next[tag] && !rt.coils[tag]) rt.coilSince[tag] = rt.time
       if (!next[tag]) delete rt.coilSince[tag]
+      if (!next[tag] && rt.coils[tag]) rt.coilOffSince![tag] = rt.time
+      if (next[tag]) delete rt.coilOffSince![tag]
     }
     rt.coils = next
     solved = solve(diagram, rt)
