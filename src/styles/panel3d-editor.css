@@ -319,3 +319,9 @@
 .panel3d-stage[data-placing="component"] canvas { cursor: copy !important; }
 /* Ferramenta «Selecionar»: cursor por omissão do canvas; os alvos 3D (grab/pointer) mantêm-se. */
 .panel3d-stage[data-edit-mode="navigate"][data-placing="none"] canvas { cursor: default; }
+
+/* Simulação em RUN: o dedo 3D (SimFinger3D) faz de cursor sobre o painel. */
+.panel3d-stage[data-sim-finger="true"] canvas,
+.panel3d-stage[data-sim-finger="true"] canvas:hover {
+  cursor: none !important;
+}

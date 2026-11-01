@@ -9,7 +9,7 @@
 // fase nos motores e oscilações (circuitos que nunca estabilizam).
 // ============================================================================
 
-import { CMD_PARTS, MOTOR_KINDS, partTerminals, type CmdPart, type CommandsDiagram } from './model'
+import { CMD_PARTS, MOTOR_KINDS, partTerminals, variantOf, type CmdPart, type CommandsDiagram } from './model'
 
 export interface CmdRuntime {
   running: boolean
@@ -161,6 +161,21 @@ function solve(diagram: CommandsDiagram, rt: CmdRuntime): Solved {
       const root = nets.find(key(part.id, i))
       const set = potentials.get(root) ?? new Set<string>()
       set.add(t.label)
+      potentials.set(root, set)
+    })
+  }
+  // Conversores (fonte 24 V, inversor…): com tensão na entrada, a saída ganha a sua polaridade
+  // (L+/M em contínua, L1/N em alternada). Duas passagens para conversores em cascata.
+  for (let pass = 0; pass < 2; pass++) for (const part of diagram.parts) {
+    if (part.kind !== 'converter') continue
+    const at = (term: number) => potentials.get(nets.find(key(part.id, term)))
+    if (!powered(at(0), at(1))) continue
+    const variant = variantOf(part) ?? 'acdc'
+    const out = variant === 'acdc' || variant === 'dcdc' ? ['L+', 'M'] : ['L1', 'N']
+    out.forEach((label, i) => {
+      const root = nets.find(key(part.id, 2 + i))
+      const set = potentials.get(root) ?? new Set<string>()
+      set.add(label)
       potentials.set(root, set)
     })
   }

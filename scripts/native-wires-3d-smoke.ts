@@ -230,5 +230,35 @@ for (const pose of [
   }
   check('Curvas dos cabos nativos: sem cantos vivos nem bicos (todas as viragens ≤ 90°)', sharp.length === 0, sharp.join(' '))
 }
+// Cabos do motor desenhados com pontos 3D manuais também entram pelo bucim (e chegam ao borne sem bicos).
+{
+  const feeder = built.wires.find((w) => w.toTerminalId.startsWith(motor.id) && !w.id.startsWith('native-meter-') && w.kind === 'power')!
+  const fromComp = built.components.find((c) => c.terminals.some((t) => t.id === feeder.fromTerminalId))!
+  const start = new THREE.Vector3(...wireEndpoint3D(feeder, 'from', built.components, pivots)!.position)
+  // Pontos em espaço livre, à frente do quadro e do motor (dentro de sólidos o desvio afasta o cabo deles).
+  const manualWire = { ...feeder, waypoints3D: [{ x: start.x, y: start.y - 0.5, z: 1.0 }, { x: pivots[motor.id].x - 2.2, y: pivots[motor.id].y + 0.2, z: 1.6 }] }
+  const wires = built.wires.map((w) => (w.id === feeder.id ? manualWire : w))
+  const path = buildAllWirePaths3D(wires, built.components, pivots, obstacles).get(feeder.id)!
+  const viaGland = path.points.some((pt) => {
+    const cadPt = worldToMotorCad(motor, pivots[motor.id], new THREE.Vector3(...pt))
+    return cadPt.z >= 54 && cadPt.z <= 75 && Math.hypot(cadPt.x - MOTOR_GLAND.x, cadPt.y - MOTOR_GLAND.y) <= 6.5
+  })
+  check(`${feeder.number} com pontos manuais: entra no motor pelo bucim`, !!path.motorRoute && viaGland)
+  const passes = manualWire.waypoints3D.every((wp) => path.points.some((p) => new THREE.Vector3(...p).distanceTo(new THREE.Vector3(wp.x, wp.y, wp.z)) < 0.12))
+  check(`${feeder.number} com pontos manuais: o troço exterior segue os pontos desenhados`, passes)
+}
+// Dentro da caixa: curva contínua do bucim ao borne (sem «S» nem zigue-zague: viragens ≤ 35° entre segmentos ≥ 1 mm).
+{
+  const kinks: string[] = []
+  for (const wire of motorFeeders) {
+    const fixed = (coordinated.get(wire.id)?.motorRoute?.points ?? []).map((p) => new THREE.Vector3(...p))
+    const pts = fixed.filter((p, i) => i === 0 || p.distanceTo(fixed[i - 1]) >= 0.01)
+    for (let i = 1; i < pts.length - 2; i++) {
+      const a = pts[i].clone().sub(pts[i - 1]), b = pts[i + 1].clone().sub(pts[i])
+      if (a.angleTo(b) > Math.PI * 35 / 180) { kinks.push(`${wire.number}@${i}:${(a.angleTo(b) * 180 / Math.PI).toFixed(0)}°`); break }
+    }
+  }
+  check('Dentro da caixa de bornes: cabos em curva contínua do bucim ao borne', kinks.length === 0, kinks.join(' '))
+}
 if (failed) { console.log(`\n❌ ${failed} falha(s)`); process.exit(1) }
 console.log('\n✅ TODOS OS TESTES PASSARAM')

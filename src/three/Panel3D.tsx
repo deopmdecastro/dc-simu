@@ -51,10 +51,11 @@ import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
-import { MOTOR_FAN, motorCadToCentered } from './motorTerminalLayout'
+import { MOTOR_FAN, MOTOR_SIZE, motorCadToCentered } from './motorTerminalLayout'
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
 import LeadPigtails3D from './LeadPigtails3D'
+import SimFinger3D from './SimFinger3D'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
@@ -1544,7 +1545,9 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
         <mesh><boxGeometry args={[0.018, 0.1, 0.02]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
       </group>
     </group>
-    <Text position={[0, MOTOR_TARGET_HEIGHT / 2 + 0.17, 0]} fontSize={0.105} color="#24324a" anchorX="center">
+    {/* Etiqueta à frente da base, como uma chapa: por cima ficava à altura da caixa de bornes,
+        atravessava-a, tapava as pontas de prova e via-se espelhada de trás. */}
+    <Text position={[0, -MOTOR_TARGET_HEIGHT / 2 + 0.07, MOTOR_SIZE.depth / 2 * PANEL_UNITS_PER_MM + 0.04]} fontSize={0.085} color="#24324a" anchorX="center" anchorY="bottom">
       {`${c.ref} · ${mono ? 'DRN80 1~ azul' : 'DRN80MK4/B3'} ${running ? (direction === 'cw' ? '↻' : '↺') : '· parado'}`}
     </Text>
   </group>
@@ -3140,6 +3143,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        data-grid-drag={gridDragEnabled ? 'true' : 'false'}
        data-placing={placingText ? 'text' : placingType ? 'component' : 'none'}
        data-sim-locked={simLocked ? 'true' : 'false'}
+       data-sim-finger={canActuate && !demoMode ? 'true' : 'false'}
        data-operating={interactive ? 'true' : 'false'}
        data-component-editing={viewOrientationEditor ? 'true' : 'false'}
        aria-label="Visualização 3D do Esquema"
@@ -3272,6 +3276,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }}
       >
         <ModelsProgressReporter onChange={setModelsLoading} />
+        {/* Em RUN o cursor passa a ser um dedo 3D que prime os comandos. */}
+        <SimFinger3D active={canActuate && !demoMode} />
         <CameraProjectCapture camRef={cameraProjectRef} />
         <StudioEnvironment />
         <SoftwareRunInvalidator active={softwareGl && stageVisible && (runState === 'running' || burstActive)} />
