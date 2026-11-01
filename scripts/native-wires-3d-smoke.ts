@@ -216,5 +216,19 @@ for (const pose of [
   })
   check(`Motor ${JSON.stringify(pose)}: cabos visíveis e aproximação fora da carcaça`, built.wires.every(w => (paths.get(w.id)?.points.length ?? 0) > 1) && exteriorClear)
 }
+// Curvas: sem cantos vivos nem bicos (viragem > 90° entre segmentos de pelo menos 0,2 mm) em nenhum cabo nativo.
+{
+  const paths = buildAllWirePaths3D(built.wires, built.components, pivots, componentObstacles(built.components, pivots))
+  const sharp: string[] = []
+  for (const [id, p] of paths) {
+    const pts = p.points.map((q) => new THREE.Vector3(...q))
+    for (let i = 1; i < pts.length - 1; i++) {
+      const a = pts[i].clone().sub(pts[i - 1]), b = pts[i + 1].clone().sub(pts[i])
+      if (a.length() < 0.002 || b.length() < 0.002) continue
+      if (a.angleTo(b) > Math.PI / 2) { sharp.push(id + '@' + i + ':' + (a.angleTo(b) * 180 / Math.PI).toFixed(0) + '°'); break }
+    }
+  }
+  check('Curvas dos cabos nativos: sem cantos vivos nem bicos (todas as viragens ≤ 90°)', sharp.length === 0, sharp.join(' '))
+}
 if (failed) { console.log(`\n❌ ${failed} falha(s)`); process.exit(1) }
 console.log('\n✅ TODOS OS TESTES PASSARAM')

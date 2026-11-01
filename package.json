@@ -47,6 +47,8 @@
     "test:commands-pages-ui": "node scripts/commands-pages-ui-smoke.mjs",
     "test:multimeter-selector-ui": "node scripts/multimeter-selector-ui-smoke.mjs",
     "test:commands-page-link-ui": "node scripts/commands-page-link-ui-smoke.mjs",
+    "test:commands-select-texts-ui": "node scripts/commands-select-texts-ui-smoke.mjs",
+    "test:sim-select-3d-ui": "node scripts/sim-select-3d-ui-smoke.mjs",
     "test:ladder-rename": "tsx scripts/ladder-rename-smoke.ts",
     "test:project-names": "tsx scripts/project-names-smoke.ts",
     "test:style": "node scripts/no-accent-border.mjs",

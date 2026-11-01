@@ -52,6 +52,24 @@ export function patchPart(id: string, patch: Partial<CmdPart>) {
   commitDiagram({ ...diagram, parts: diagram.parts.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
 }
 
+/** Apaga a seleção de grupo: símbolos, títulos do esquema (um só passo de Desfazer) e textos livres. */
+export function removeSelectedGroup() {
+  const { selection, selectedPartIds, selectedTextIds, selectedLabelIds, select } = useCommandsUi.getState()
+  const parts = new Set(selectedPartIds.length ? selectedPartIds : selection?.type === 'part' ? [selection.id] : [])
+  const labels = new Set(selectedLabelIds)
+  if (parts.size || labels.size) {
+    const diagram = getDiagram()
+    commitDiagram({
+      ...diagram,
+      parts: diagram.parts.filter((p) => !parts.has(p.id)),
+      wires: diagram.wires.filter((w) => !parts.has(w.a.part) && !parts.has(w.b.part)),
+      texts: (diagram.texts ?? []).filter((t) => !labels.has(t.id)),
+    })
+  }
+  for (const id of selectedTextIds) useSimStore.getState().removeCanvasText(id)
+  select(null)
+}
+
 export function removeSelected() {
   const { selection, selectedPartIds, select } = useCommandsUi.getState()
   if (selectedPartIds.length > 1) {

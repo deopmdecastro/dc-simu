@@ -6,6 +6,8 @@ import { componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three
 export const NATIVE_PARTIDA_ID = 'native-partida-direta-v5'
 export const NATIVE_MOTOR_METER_FEATURE = 'motor-voltage-meter-v1'
 export const NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE = 'motor-meter-double-ferrule-v1'
+/** Curvas dos cabos 3D refeitas (arcos sem cantos vivos): repõe o traçado de origem dos cabos nativos. */
+export const NATIVE_WIRE_CURVES_FEATURE = 'wire-curves-v2'
 
 /** Só os cabos de alimentação que partilham o borne com as sondas recebem colar duplo. */
 export function withMotorMeterFerrules(wires: Wire[], leads: Wire[]): Wire[] {

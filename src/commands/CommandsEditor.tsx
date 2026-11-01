@@ -27,7 +27,7 @@ import CommandsExamplesDialog from './CommandsExamplesDialog'
 import CommandsImportDialog from './CommandsImportDialog'
 import type { CircuitImportResult } from './fluidSimCircuit'
 import { MOMENTARY, TOGGLES, useCommandsUi } from './commandsUi'
-import { addPart, commitDiagram, defaultTag, removeItem, removeSelected, rotateSelected } from './editing'
+import { addPart, commitDiagram, defaultTag, removeItem, removeSelected, rotateSelected, removeSelectedGroup } from './editing'
 import { CommandsNotesLayer, CommandsTextsLayer, CommandsTextToolbar, DEFAULT_TEXT_STYLE_COMMANDS } from './CommandsAnnotations'
 import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { NOTE_COLORS } from '../ui/textStyle'
@@ -35,6 +35,15 @@ import '../styles/commands.css'
 
 type View = { x: number; y: number; scale: number }
 const TICK_MS = 50
+
+/** Caixa aproximada de um texto livre (unidades do canvas). */
+const freeTextBox = (t: { x: number; y: number; text: string; size: number; width?: number }) => {
+  const lines = String(t.text || ' ').split('\n')
+  const w = t.width ?? Math.max(...lines.map((l) => l.length)) * t.size * 0.62
+  return { x: t.x, y: t.y, w: Math.max(t.size, w), h: lines.length * t.size * 1.3 }
+}
+/** Caixa aproximada de um título do esquema (texto SVG a 13 px, y = linha de base). */
+const labelBox = (t: { x: number; y: number; text: string }) => ({ x: t.x, y: t.y - 13, w: Math.max(13, t.text.length * 7.6), h: 17 })
 
 const distToSegment = (p: Pt, a: Pt, b: Pt) => {
   const dx = b.x - a.x, dy = b.y - a.y
@@ -104,12 +113,14 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const [notice, setNotice] = useState<string | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasId = useId()
-  const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number } | null>(null)
+  const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number; labelIds?: string[]; textOrigins?: Record<string, Pt> } | null>(null)
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [pageLinkModal, setPageLinkModal] = useState<{ partId: string } | null>(null)
   const [tagModal, setTagModal] = useState<{ partId: string } | null>(null)
   const selectedPartIds = useCommandsUi((s) => s.selectedPartIds)
   const selectParts = useCommandsUi((s) => s.selectParts)
+  const selectedTextIds = useCommandsUi((s) => s.selectedTextIds)
+  const selectedLabelIds = useCommandsUi((s) => s.selectedLabelIds)
   const running = rt.running
   const editable = !running && !demo
 
@@ -387,10 +398,12 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       select({ type: 'part', id: part.id })
       ids = [part.id]
     } else {
-      // Clique num elemento já selecionado: mantém o grupo para arrastar em conjunto.
-      select({ type: 'part', id: part.id })
+      // Clique num elemento já selecionado: mantém o grupo (símbolos e textos) para arrastar em conjunto.
       ids = selectedPartIds.length ? selectedPartIds : [part.id]
     }
+    const groupTexts = already && !additive ? useCommandsUi.getState().selectedTextIds : []
+    const groupLabels = already && !additive ? useCommandsUi.getState().selectedLabelIds : []
+    const textOrigins = Object.fromEntries(freeTexts.filter((t) => groupTexts.includes(t.id)).map((t) => [t.id, { x: t.x, y: t.y }]))
     const p = toWorld(event.clientX, event.clientY)
     gesture.current = {
       kind: 'move',
@@ -398,6 +411,8 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       startY: event.clientY,
       partId: part.id,
       partIds: ids,
+      labelIds: groupLabels,
+      textOrigins,
       origin: { x: part.x, y: part.y },
       offset: { x: p.x - part.x, y: p.y - part.y },
     }
@@ -445,11 +460,14 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       const x = snap(p.x - g.offset.x), y = snap(p.y - g.offset.y)
       const dx = x - g.origin.x, dy = y - g.origin.y
       const ids = new Set(g.partIds?.length ? g.partIds : [g.partId])
+      const labels = new Set(g.labelIds ?? [])
+      for (const [id, o] of Object.entries(g.textOrigins ?? {})) useSimStore.getState().updateCanvasText(id, { x: o.x + dx, y: o.y + dy })
       if (dx !== 0 || dy !== 0) {
         g.moved = true
         setPreview({
           ...stored,
           parts: stored.parts.map((q) => (ids.has(q.id) ? { ...q, x: snap(q.x + dx), y: snap(q.y + dy) } : q)),
+          texts: labels.size ? (stored.texts ?? []).map((t) => (labels.has(t.id) ? { ...t, x: t.x + dx, y: t.y + dy } : t)) : stored.texts,
         })
       } else setPreview(null)
     }
@@ -479,7 +497,10 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         return b.x + b.w >= x0 && b.x <= x1 && b.y + b.h >= y0 && b.y <= y1
       }).map((part) => part.id)
       const additive = event.shiftKey || event.ctrlKey || event.metaKey
-      if (hits.length) selectParts(hits, additive)
+      const inside = (b: { x: number; y: number; w: number; h: number }) => b.x + b.w >= x0 && b.x <= x1 && b.y + b.h >= y0 && b.y <= y1
+      const textHits = freeTexts.filter((t) => inside(freeTextBox(t))).map((t) => t.id)
+      const labelHits = pageTexts.filter((t) => inside(labelBox(t))).map((t) => t.id)
+      if (hits.length || textHits.length || labelHits.length) useCommandsUi.getState().selectGroup(hits, textHits, labelHits, additive)
       else if (!additive) select(null)
       return
     }
@@ -513,7 +534,14 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         return
       }
       if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); setMarquee(null); select(null); return }
+      // Ctrl+A: todos os símbolos, textos livres e títulos da página.
+      if (mod && e.key.toLowerCase() === 'a' && editable) {
+        e.preventDefault()
+        ui.selectGroup(pageParts.map((p) => p.id), freeTexts.map((t) => t.id), pageTexts.map((t) => t.id))
+        return
+      }
       if (mod || !editable) return
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (ui.selectedTextIds.length || ui.selectedLabelIds.length)) { e.preventDefault(); removeSelectedGroup(); setSelectedTextId(null); setEditingTextId(null); return }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedTextId) { e.preventDefault(); useSimStore.getState().removeCanvasText(selectedTextId); setSelectedTextId(null); setEditingTextId(null); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSelected(); return }
       const key = e.key.toLowerCase()
@@ -668,7 +696,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         >
           <svg className="dc-cmd-svg" width="100%" height="100%">
             <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
-              {pageTexts.map((t) => <text key={t.id} className="dc-cmd-text" x={t.x} y={t.y}>{t.text}</text>)}
+              {pageTexts.map((t) => <text key={t.id} className={`dc-cmd-text${selectedLabelIds.includes(t.id) ? ' is-selected' : ''}`} data-cmd-label={t.id} x={t.x} y={t.y}>{t.text}</text>)}
               {pageWires.map((w) => {
                 const pts = pointsOf(w)
                 if (pts.length < 2) return null
@@ -802,6 +830,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
             viewY={view.y}
             scale={view.scale}
             selectedId={selectedTextId}
+            groupIds={selectedTextIds}
             editingId={editingTextId}
             setSelectedId={setSelectedTextId}
             setEditingId={setEditingTextId}

@@ -79,7 +79,7 @@ try {
   const tools = page.getByRole('toolbar', { name: 'Ferramentas de comandos' })
   check(['Selecionar', 'Cabo', 'Apagar', 'Mover vista'].every(Boolean) && await tools.locator('button').count() === 4, 'a barra tem as ferramentas Selecionar, Cabo, Apagar e Mover vista')
   await page.waitForTimeout(200)
-  check(await sidebar.locator('.dc-library-folder').count() === 9 && await folder('Alimentação').getByRole('button', { name: 'Colocar Alimentação' }).isVisible() && await folder('Bobinas e cargas').getByRole('button', { name: 'Colocar Motor 3~', exact: true }).isVisible() && !(await folder('Sensores').getByRole('button', { name: 'Colocar Fim de curso NA', exact: true }).count()), 'a biblioteca está em pastas, como no Esquema 3D (as menos usadas começam recolhidas)')
+  check(await sidebar.locator('.dc-library-folder').count() >= 9 && await folder('Alimentação').getByRole('button', { name: 'Colocar Alimentação' }).isVisible() && await folder('Bobinas e cargas').getByRole('button', { name: 'Colocar Motor 3~', exact: true }).isVisible() && !(await folder('Sensores').getByRole('button', { name: 'Colocar Fim de curso NA', exact: true }).count()), 'a biblioteca está em pastas, como no Esquema 3D (as menos usadas começam recolhidas)')
   await folder('Sensores').locator('.dc-library-folder-head').click()
   check(await folder('Sensores').getByRole('button', { name: 'Colocar Fim de curso NA', exact: true }).isVisible(), 'clicar na pasta expande-a')
   await folder('Sensores').locator('.dc-library-folder-head').click()

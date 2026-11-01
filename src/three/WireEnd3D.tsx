@@ -109,7 +109,10 @@ export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: Wir
           <Cyl y={22 * U} length={3.5 * U} radius={6.5 * U} color={color} roughness={0.78} />
           <Cyl y={52 * U} length={56 * U} radius={4.2 * U} color={color} roughness={0.72} />
           {[34, 42, 50, 58, 66].map(y => <Cyl key={y} y={y * U} length={1.2 * U} radius={4.5 * U} color={color} roughness={0.88} />)}
-          <Cyl y={88 * U} length={12 * U} radius={2.4 * U} color={color} roughness={0.8} />
+          {/* Manga de alívio: entra 2 mm no punho (antes ficava um vão de 2 mm à vista) e afina até ao cabo. */}
+          <mesh position={[0, 87 * U, 0]} raycast={() => null}>
+            <cylinderGeometry args={[Math.max(R * 1.12, 1.6 * U), 3.4 * U, 14 * U, 20]} /><meshStandardMaterial color={color} roughness={0.8} />
+          </mesh>
         </>
       case 'heatShrink': {
         // Manga termoretrátil de emenda: cobre o troço descarnado por completo.

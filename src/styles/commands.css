@@ -528,3 +528,6 @@
 .dc-cmd-tag-colors button.is-on { outline: 2px solid #2563eb; outline-offset: 2px; }
 .dc-cmd-tag-colors input[type="color"] { width: 28px; height: 24px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; }
 .dc-cmd-tag-dialog .grafcet-property-chips button[aria-pressed="true"] { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
+
+/* Títulos do esquema na seleção de grupo (marquee / Ctrl+A), como os símbolos */
+.dc-cmd-text.is-selected { fill: #1d4ed8; paint-order: stroke; stroke: rgba(37, 99, 235, .16); stroke-width: 6px; stroke-linejoin: round; }

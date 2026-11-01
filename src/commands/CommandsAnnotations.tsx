@@ -85,6 +85,7 @@ export function CommandsTextsLayer({
   viewY,
   scale,
   selectedId,
+  groupIds = [],
   editingId,
   setSelectedId,
   setEditingId,
@@ -96,6 +97,8 @@ export function CommandsTextsLayer({
   viewY: number
   scale: number
   selectedId: string | null
+  /** Textos selecionados em grupo (marquee / Ctrl+A). */
+  groupIds?: string[]
   editingId: string | null
   setSelectedId: (id: string | null) => void
   setEditingId: (id: string | null) => void
@@ -109,7 +112,7 @@ export function CommandsTextsLayer({
   return (
     <div className="dc-cmd-texts-layer" aria-label="Textos livres do esquema">
       {texts.map((item) => {
-        const selected = selectedId === item.id
+        const selected = selectedId === item.id || groupIds.includes(item.id)
         const editing = editingId === item.id
         const sizePx = Math.max(10, item.size * scale)
         return (

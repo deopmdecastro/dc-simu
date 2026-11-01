@@ -916,9 +916,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const simLocked = simRunState === 'running' || simRunState === 'paused'
   const startDrag = (e: React.MouseEvent, c: ElectricalComponent) => {
     if (tool !== 'select') return
-    // Em RUN/PAUSA não se seleciona nem se move componentes: só intervenção em
-    // botões / liga-desliga (toggleField no double-click e handlers de START/STOP).
-    if (simLocked) return
+    // Em RUN/PAUSA seleciona-se (Inspetor), mas não se move: botões e liga-desliga
+    // continuam a atuar no clique (toggleField e handlers de START/STOP).
+    if (simLocked) {
+      e.stopPropagation()
+      const additive = e.shiftKey || e.ctrlKey || e.metaKey
+      if (additive && selectedIds.includes(c.id)) selectComponents(selectedIds.filter((id) => id !== c.id))
+      else selectComponents([c.id], additive)
+      return
+    }
     releaseTypingFocus()
     e.stopPropagation()
     const p = toCanvas(e.clientX, e.clientY)

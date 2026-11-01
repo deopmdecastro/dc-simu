@@ -32,4 +32,24 @@ assert.equal(upgradeNativeMotorRings({ ...original, nativeId: 'outro' }).wires, 
 const lead = seed.wires.find((w: Wire) => w.id === 'native-meter-red')
 const ring = seed.wires.find((w: Wire) => w.id === 'native-wire-4')
 assert.equal(withMotorMeterFerrules([ring, lead], [lead])[0].toEndType, 'ring')
-console.log('PASS — curvas sem retrocesso, olhais nativos e migração seletiva e idempotente')
+// Refresh das curvas do projeto nativo: dobras 3D antigas saem só dos cabos de origem intactos.
+{
+  const { refreshNativeWireCurves } = await import('../src/project/nativeWireCurves')
+  const { NATIVE_WIRE_CURVES_FEATURE } = await import('../src/project/nativeMotorMeter')
+  assert.ok(seed.nativeFeatures.includes(NATIVE_WIRE_CURVES_FEATURE), 'projetos nativos novos já nascem com as curvas atuais')
+  const old = structuredClone(seed)
+  old.nativeFeatures = old.nativeFeatures.filter((x: string) => x !== NATIVE_WIRE_CURVES_FEATURE)
+  const bent = old.wires.find((w: Wire) => w.id === 'native-wire-4')
+  bent.waypoints3D = [[1, 2, 3]]; bent.route = 'arc'
+  const moved = old.wires.find((w: Wire) => w.id === 'native-wire-8')
+  moved.waypoints3D = [[4, 5, 6]]; moved.toTerminalId = 'personalizado'
+  old.wires.push({ ...structuredClone(bent), id: 'meu-cabo', waypoints3D: [[7, 8, 9]] })
+  const fresh = refreshNativeWireCurves(old)
+  const after = (id: string) => fresh.wires.find((w: Wire) => w.id === id)
+  assert.ok(!after('native-wire-4').waypoints3D && after('native-wire-4').route === seed.wires.find((w: Wire) => w.id === 'native-wire-4').route, 'cabo nativo intacto perde as dobras 3D antigas e volta à curva de origem')
+  assert.deepEqual(after('native-wire-8').waypoints3D, [[4, 5, 6]], 'cabo com outra ponta (alterado pelo utilizador) mantém-se')
+  assert.deepEqual(after('meu-cabo').waypoints3D, [[7, 8, 9]], 'cabos criados pelo utilizador não são tocados')
+  assert.equal(refreshNativeWireCurves(fresh), fresh, 'refresh corre uma só vez')
+  assert.deepEqual(bent.waypoints3D, [[1, 2, 3]], 'não altera o objeto de origem')
+}
+console.log('PASS — curvas sem retrocesso, olhais nativos, migração seletiva e refresh das curvas nativas')

@@ -27,6 +27,12 @@ interface CommandsUi {
   select: (selection: CmdSelection, from?: 'canvas' | 'library') => void
   /** Substitui ou junta a multi-seleção de símbolos; define `selection` no primeiro id. */
   selectParts: (ids: string[], additive?: boolean, from?: 'canvas' | 'library') => void
+  /** Textos livres (ferramenta Texto) selecionados em grupo (marquee / Ctrl+A). */
+  selectedTextIds: string[]
+  /** Títulos do esquema (texts do diagrama, ex.: «Circuito de potência») selecionados em grupo. */
+  selectedLabelIds: string[]
+  /** Seleção de grupo: símbolos + textos + títulos (marquee, Ctrl+A). */
+  selectGroup: (parts: string[], texts: string[], labels: string[], additive?: boolean) => void
   placing: CmdKind | null
   setPlacing: (kind: CmdKind | null) => void
   rt: CmdRuntime
@@ -75,6 +81,26 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
     selection,
     selectedFrom: from,
     selectedPartIds: selection?.type === 'part' ? [selection.id] : [],
+    selectedTextIds: [],
+    selectedLabelIds: [],
+  }),
+  selectedTextIds: [],
+  selectedLabelIds: [],
+  selectGroup: (parts, texts, labels, additive = false) => set((state) => {
+    const merge = (current: string[], ids: string[]) => {
+      if (!additive) return [...new Set(ids)]
+      const next = new Set(current)
+      for (const id of ids) { if (next.has(id)) next.delete(id); else next.add(id) }
+      return [...next]
+    }
+    const partIds = merge(state.selectedPartIds, parts)
+    return {
+      selectedPartIds: partIds,
+      selectedTextIds: merge(state.selectedTextIds, texts),
+      selectedLabelIds: merge(state.selectedLabelIds, labels),
+      selection: partIds.length ? { type: 'part' as const, id: partIds[partIds.length - 1] } : null,
+      selectedFrom: 'canvas' as const,
+    }
   }),
   selectParts: (ids, additive = false, from = 'canvas') => set((state) => {
     const unique = [...new Set(ids.filter(Boolean))]
@@ -91,6 +117,7 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
       selectedPartIds: next,
       selection: next.length ? { type: 'part' as const, id: next[next.length - 1] } : null,
       selectedFrom: from,
+      ...(additive ? {} : { selectedTextIds: [], selectedLabelIds: [] }),
     }
   }),
   placing: null,
@@ -120,7 +147,7 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
     set({ recent: next })
   },
   activePageId: DEFAULT_PAGE_ID,
-  setActivePageId: (id) => set({ activePageId: id, selection: null, selectedPartIds: [] }),
+  setActivePageId: (id) => set({ activePageId: id, selection: null, selectedPartIds: [], selectedTextIds: [], selectedLabelIds: [] }),
 }))
 
 /** Símbolos que se operam com o rato durante a simulação. */

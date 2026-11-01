@@ -789,6 +789,42 @@ export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6):
   return out
 }
 
+/**
+ * Último passe do traçado: arredonda os cantos vivos que ficaram depois de contornar aparelhos,
+ * separar cabos ou alinhar a abordagem às ponteiras (o «V» junto aos terminais). Só toca em
+ * vértices que viram mais de ~17°; cada arco usa no máximo 45 % de cada segmento vizinho, por isso
+ * os extremos e o troço reto alinhado com a ponteira mantêm-se.
+ */
+export function smoothSharpCorners(points: V3[], outerMm: number, minTurn = 0.3): V3[] {
+  if (points.length < 3) return points
+  const radius = Math.max(outerMm * 4.5, 12) * U
+  const out: V3[] = [points[0]]
+  let changed = false
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = v(points[i - 1]), corner = v(points[i]), next = v(points[i + 1])
+    const a = prev.clone().sub(corner), b = next.clone().sub(corner)
+    const la = a.length(), lb = b.length()
+    // Segmentos abaixo de 0,4 mm: um arco aí não se vê e só gera ruído (mini-arcos dentro de arcos).
+    if (Math.min(la, lb) < 0.4 * U) { out.push(points[i]); continue }
+    const turn = Math.PI - a.angleTo(b)
+    if (turn < minTurn) { out.push(points[i]); continue }
+    const cut = Math.min(radius * Math.tan(turn / 2), la * 0.45, lb * 0.45)
+    if (cut < 1e-5) { out.push(points[i]); continue }
+    const start = corner.clone().addScaledVector(a.normalize(), cut)
+    const end = corner.clone().addScaledVector(b.normalize(), cut)
+    // Bézier quadrática com o canto como controlo: tangente contínua nos dois lados.
+    const steps = Math.max(6, Math.ceil(turn / 0.09))
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps
+      const p = start.clone().multiplyScalar((1 - t) * (1 - t)).addScaledVector(corner, 2 * (1 - t) * t).addScaledVector(end, t * t)
+      out.push(arr(p))
+    }
+    changed = true
+  }
+  out.push(points[points.length - 1])
+  return changed ? out : points
+}
+
 /** Remove voltas sobre o próprio segmento, tolerando apenas 0,01 mm de
  * erro numérico; não arredonda nem encurta desvios reais do percurso. */
 export function removeWireBacktracks(points: V3[]): V3[] {
@@ -806,6 +842,54 @@ export function removeWireBacktracks(points: V3[]): V3[] {
     if (!out.length || v(out[out.length - 1]).distanceToSquared(v(point)) > 1e-14) out.push(point)
   }
   return out
+}
+
+/** Arredonda só o troço exterior: o troço dentro do bucim (motorRoute) é fixo e conta-se pelo número de pontos. */
+function smoothOutsideMotor(points: V3[], outerMm: number, motorRoute?: WirePath3D['motorRoute']): V3[] {
+  const smooth = (pts: V3[], junctionAtEnd?: boolean) => {
+    const clean = dropMicroSegments(pts, junctionAtEnd)
+    const out = smoothSharpCorners(clean, outerMm)
+    return out === pts ? pts : keepInFrontOfPlate(out, outerMm)
+  }
+  if (!motorRoute?.points.length) return smooth(points)
+  const n = motorRoute.points.length
+  if (n >= points.length) return points
+  if (motorRoute.side === 'to') {
+    const outer = points.slice(0, points.length - n + 1)
+    const done = smooth(outer, true)
+    return done === outer ? points : [...done.slice(0, -1), ...points.slice(points.length - n)]
+  }
+  const outer = points.slice(n - 1)
+  const done = smooth(outer.slice().reverse(), true).reverse()
+  return done.length === outer.length && done.every((p, i) => p === outer[i]) ? points : [...points.slice(0, n - 1), ...done]
+}
+
+/**
+ * Tira pontos a menos de 0,1 mm do anterior (ruído numérico que torcia o tubo) e, quando o último ponto
+ * é a junção com o troço fixo do motor, os pontos a menos de 3 mm dela — o cabo passava 1 mm além da
+ * junção e voltava para trás (bico de ~170°). Extremos mantêm-se.
+ */
+function dropMicroSegments(points: V3[], junctionAtEnd = false): V3[] {
+  if (points.length < 3) return points
+  const min = 0.1 * U
+  const out: V3[] = [points[0]]
+  for (let i = 1; i < points.length - 1; i++) if (v(points[i]).distanceTo(v(out[out.length - 1])) > min) out.push(points[i])
+  const last = points[points.length - 1]
+  const guard = junctionAtEnd ? 3 * U : min
+  while (out.length > 1 && v(out[out.length - 1]).distanceTo(v(last)) < guard) out.pop()
+  out.push(last)
+  // Bicos curtos (viragem acima de 90° com um segmento abaixo de 3 mm — depois dos arcos, uma curva
+  // verdadeira vira menos de ~17° por vértice): retirar o vértice até não haver nenhum.
+  for (let changed = true, guardLoop = 0; changed && guardLoop < 8; guardLoop++) {
+    changed = false
+    for (let i = 1; i < out.length - 1; i++) {
+      const a = v(out[i]).sub(v(out[i - 1])), b = v(out[i + 1]).sub(v(out[i]))
+      const la = a.length(), lb = b.length()
+      if (la < 1e-9 || lb < 1e-9) continue
+      if (a.angleTo(b) > Math.PI / 2 && Math.min(la, lb) < 3 * U) { out.splice(i, 1); changed = true; i-- }
+    }
+  }
+  return out.length === points.length && out.every((p, i) => p === points[i]) ? points : out
 }
 
 /** A parte do trajeto dentro do bucim é fixa e não pode ser alterada. */
@@ -1007,7 +1091,8 @@ function buildMotorGlandBody3D(
   ]
   const deduped = rawControls.filter((pt, i) => i === 0 || v(pt).distanceTo(v(rawControls[i - 1])) > 1e-4)
   return {
-    points: keepInFrontOfPlate(roundCorners(deduped, outerMm, 3.6), outerMm),
+    // Arcos largos e, por fim, sem cantos vivos sobre a porca/ponteira (o cabo dobrava em «L» ao sair do borne).
+    points: keepInFrontOfPlate(smoothSharpCorners(dropMicroSegments(roundCorners(deduped, outerMm, 3.6)), outerMm, 0.25), outerMm),
     entry: entryLeft,
   }
 }
@@ -1444,7 +1529,11 @@ export function buildAllWirePaths3D(
 
   for (const item of builtPaths) {
     const cleanPoints = clearPathSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute)
-    result.set(item.entry.wire.id, { points: removeBacktracksOutsideMotor(cleanPoints, item.motorRoute), starts: item.starts, motorRoute: item.motorRoute })
+    const finalPoints = removeBacktracksOutsideMotor(cleanPoints, item.motorRoute)
+    // Cantos vivos que sobraram → arcos; se o arco tocar num aparelho, fica o traçado validado.
+    const smooth = smoothOutsideMotor(finalPoints, item.entry.outerMm, item.motorRoute)
+    const smoothSafe = smooth !== finalPoints && clearPathSolids(smooth, item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute) === smooth
+    result.set(item.entry.wire.id, { points: smoothSafe ? smooth : finalPoints, starts: item.starts, motorRoute: item.motorRoute })
   }
   return result
 }

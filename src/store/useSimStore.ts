@@ -4,6 +4,7 @@ import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
 import { upgradeNativeMotorMeter, upgradeNativeMotorRings } from '../project/nativeMotorMeter'
+import { refreshNativeWireCurves } from '../project/nativeWireCurves'
 import { upgradeNativeNcSimInputs } from '../project/nativeSimInputs'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { syncDemoMode } from './demoMode'
@@ -2811,7 +2812,7 @@ export const useSimStore = create<Store>((set, get) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
-      const parsed = upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original)))
+      const parsed = refreshNativeWireCurves(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original))))
       setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]

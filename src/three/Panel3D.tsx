@@ -2772,11 +2772,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (canActuate) {
       // Botões, cogumelo, START/STOP: atuam em STOP e em RUN.
       action()
-      // Em RUN/PAUSA não mexer na seleção; em STOP o dispositivo fica no Inspetor.
-      if (!simLocked) selectComponents([component.id])
-    } else if (!simLocked) {
-      selectComponents([component.id])
     }
+    // Também em RUN/PAUSA o aparelho clicado fica selecionado (Inspetor); só mover é que fica bloqueado.
+    if (!demoMode) selectComponents([component.id])
   }
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
@@ -2797,8 +2795,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       onSelect={(additive) => {
         if (tool === 'erase') { removePanelComponent(component.id); return }
         if (tool !== 'select') return
-        // Em RUN/PAUSA a seleção está bloqueada — só botões e liga/desliga respondem.
-        if (simLocked) return
+        // Em RUN/PAUSA seleciona-se (Inspetor, cabos, estado), mas não se move: `draggable` fica desligado.
+        if (demoMode) return
         // Ctrl/Shift + clique: seleção múltipla, como no esquema 2D e no Admin.
         const current = useSimStore.getState().selectedComponentIds
         if (additive && current.includes(component.id)) selectComponents(current.filter((id) => id !== component.id))
@@ -3326,14 +3324,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           if (isBreaker) content = <group onClick={(event) => {
             if (c.locked) return
             if (!canActuate) {
-              if (!simLocked && useSimStore.getState().tool === 'select') {
+              if (!demoMode && useSimStore.getState().tool === 'select') {
                 event.stopPropagation()
                 useSimStore.getState().selectComponents([c.id])
               }
               return
             }
             event.stopPropagation()
-            if (!simLocked) useSimStore.getState().selectComponents([c.id])
+            if (!demoMode) useSimStore.getState().selectComponents([c.id])
             const closed = !!c.state.closed && !c.state.tripped
             useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
           }}>{content}</group>
