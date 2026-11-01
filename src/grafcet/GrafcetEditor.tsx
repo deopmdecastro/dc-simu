@@ -5891,7 +5891,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         {full && !demoMode && (() => {
           const comment = selectedCommentId ? allComments.find((item) => item.id === selectedCommentId) : undefined
           if (!comment) return null
-          return <div className="grafcet-textbar-slot">
+          return <div className="grafcet-textbar-slot" onPointerDown={(event) => { if (!(event.target as HTMLElement).closest('input, select, textarea, [contenteditable]')) event.preventDefault() }}>
             <TextStyleBar style={commentStyle(comment)} unit="px"
               onChange={(patch) => patchComment(comment.id, styleToComment(patch))}
               onEdit={() => setEditingCommentId(comment.id)}

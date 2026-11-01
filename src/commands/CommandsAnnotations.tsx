@@ -98,7 +98,6 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
   const [draft, setDraft] = useState(item.text)
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null)
-  const lastTap = useRef(0)
   const sizePx = Math.max(10, item.size * scale)
   const fixedWidth = item.width == null ? undefined : Math.max(60, item.width * scale)
 
@@ -127,12 +126,6 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
     if (readOnly || editing || event.button !== 0) return
     event.stopPropagation()
     onSelect()
-    // Duplo toque (o duplo clique não é fiável no ecrã tátil).
-    if (event.pointerType === 'touch') {
-      const now = Date.now()
-      if (now - lastTap.current < 350) { lastTap.current = 0; onEdit(true); return }
-      lastTap.current = now
-    }
     const start = toWorld(event.clientX, event.clientY)
     drag.current = { dx: item.x - start.x, dy: item.y - start.y, sx: event.clientX, sy: event.clientY, moved: false }
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* noop */ }
@@ -149,7 +142,12 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
     const y = point.y + current.dy
     useSimStore.getState().updateCanvasText(item.id, event.altKey ? { x: Math.round(x), y: Math.round(y) } : { x: snap(x), y: snap(y) })
   }
-  const up = () => { drag.current = null }
+  // Um clique/toque sem arrastar seleciona (barra de formatação) e abre já a escrita no próprio sítio.
+  const up = () => {
+    const current = drag.current
+    drag.current = null
+    if (current && !current.moved && !readOnly) onEdit(true)
+  }
 
   const textStyle = { ...textCss(item, sizePx), fontFamily: fontStack(item.font), width: fixedWidth }
   return (
@@ -163,7 +161,7 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
       onPointerCancel={up}
       onDoubleClick={(event) => { if (readOnly) return; event.stopPropagation(); onSelect(); onEdit(true) }}
       onContextMenu={(event) => { if (readOnly) return; event.preventDefault(); event.stopPropagation(); onSelect() }}
-      title={readOnly ? item.text : 'Arraste para mover · duplo clique edita · Enter/F2 edita · Ctrl+B/I/U formata'}
+      title={readOnly ? item.text : 'Clique para escrever · arraste para mover · Ctrl+B/I/U formata'}
     >
       {editing ? (
         <textarea
@@ -246,7 +244,11 @@ export function CommandsTextToolbar({
   onEdit: () => void
 }) {
   return (
-    <div className="dc-cmd-text-toolbar">
+    <div
+      className="dc-cmd-text-toolbar"
+      // Tocar na barra não tira o foco ao texto: o estilo muda enquanto se escreve (campos e listas mantêm o seu foco).
+      onPointerDown={(event) => { if (!(event.target as HTMLElement).closest('input, select, textarea, [contenteditable]')) event.preventDefault() }}
+    >
       <TextStyleBar
         style={text}
         unit="px"

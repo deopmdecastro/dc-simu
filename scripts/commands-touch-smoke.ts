@@ -21,7 +21,7 @@ check(touchPan > 0 && marquee > touchPan, 'o toque decide-se antes do retângulo
 check(!/zoomdock/.test(editor) && !/zoomdock/.test(css), 'os botões flutuantes de zoom foram removidos (a pinça e o menu «Vista» chegam)')
 check(/\{phone && !demo && <CommandsSimDock onOpenGrafcet=\{onOpenGrafcet\} \/>\}/.test(editor) && /useNarrowMenu\(PHONE_TOUCH_QUERY\)/.test(editor), 'no telemóvel o painel lateral completo fica no painel inferior do canvas')
 const dock = read('src/commands/CommandsSimDock.tsx')
-check(/className=\{`gdock cmd-dock/.test(dock) && /<RightDockPanel mode="commands"/.test(dock) && /SimTransportControls/.test(dock), 'o painel inferior usa a casca do GRAFCET (gdock), o painel lateral completo (RightDockPanel) e o transporte')
+check(/grafcet-properties cmd-dock/.test(dock) && /<SidePanelHeader/.test(dock) && /side="bottom"/.test(dock) && /<RightDockPanel mode="commands"/.test(dock) && !/SimTransportControls/.test(dock), 'o painel inferior usa a gaveta do GRAFCET (grafcet-properties + SidePanelHeader) e o painel lateral completo (RightDockPanel); o transporte fica na barra de cima')
 check(!/<CommandsIoPanel/.test(dock), 'o painel inferior já não é só de entradas: não monta o CommandsIoPanel isolado')
 const app = read('src/App.tsx')
 check(/const phoneCommands = phone && mode === 'commands'/.test(app) && /!demo && !phoneCommands && mode !== 'monitor'/.test(app), 'no telemóvel o Esquema IEC não tem coluna/gaveta da direita: o mesmo painel não aparece duas vezes')

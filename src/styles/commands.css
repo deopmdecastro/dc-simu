@@ -187,8 +187,12 @@
 .dc-cmd-objects li { display: grid; grid-template-columns: 36px 1fr; align-items: start; gap: 6px; }
 .dc-cmd-objects li > div { display: flex; flex-wrap: wrap; gap: 4px; }
 .dc-cmd-objects b { padding-top: 3px; color: #0f172a; font-size: 12px; }
-.dc-cmd-object { padding: 3px 7px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #334155; font-size: 11px; cursor: pointer; }
+.dc-cmd-object { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 3px 9px 3px 4px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #334155; font-size: 11px; cursor: pointer; }
 .dc-cmd-object:hover { border-color: #93c5fd; background: #f8fbff; }
+.dc-cmd-object-icon { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 6px; background: #f1f5f9; }
+.dc-cmd-object-icon svg { display: block; }
+.dc-cmd-object.is-on .dc-cmd-object-icon { background: #dbeafe; }
+.dc-cmd-object-name { min-width: 0; }
 .dc-cmd-object.is-on { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
 
 /* «A posicionar…» por cima do fundo da biblioteca: não empurra os cartões (o duplo clique acerta sempre). */

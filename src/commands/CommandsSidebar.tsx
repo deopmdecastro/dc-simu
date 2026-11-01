@@ -6,14 +6,14 @@ import { IconChevronDown, IconProjects, IconSearch } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import type { CanvasText } from '../types'
 import { CMD_PALETTE, CMD_PARTS, CMD_VARIANTS, emptyCommands, partBox, partTerminals, variantOf, type CmdKind, type CmdPart } from './model'
-import { symbolBody, cmdTagPreset } from './symbols'
+import { cmdTagPreset } from './symbols'
+import SymbolThumb from './SymbolThumb'
 import { useCommandsUi } from './commandsUi'
 import { pageRefPeers, pagesOf, pageIdOf } from './pages'
 import { patchPart, removeSelected, rotateSelected } from './editing'
 import { devicesOf } from './engine'
 
 const SUPPLY_PRESETS = [['L1', 'L2', 'L3'], ['L1', 'L2', 'L3', 'N'], ['L1', 'L2', 'L3', 'N', 'PE'], ['L1', 'N'], ['L1'], ['L2'], ['L3'], ['N'], ['PE'], ['L+'], ['M']]
-const NC_AT_REST: CmdKind[] = ['contactNC', 'timedNC', 'thermalNC', 'pushNC', 'emergency']
 
 const FAVORITES_KEY = 'dcsimu:commands:library:favorites'
 const COLLAPSED_KEY = 'dcsimu:commands:library:collapsed'
@@ -23,21 +23,7 @@ const readKinds = (key: string): CmdKind[] => {
   try { return (JSON.parse(localStorage.getItem(key) ?? '[]') as string[]).filter((k): k is CmdKind => k in CMD_PARTS) } catch { return [] }
 }
 
-/** Miniatura do símbolo IEC (a mesma geometria do esquema, em repouso). */
-
 const isPageLink = (kind: string) => kind === 'pageRef' || kind === 'pageRefIn'
-function SymbolThumb({ kind }: { kind: CmdKind }) {
-  const lines = kind === 'supply' ? ['L1', 'L2', 'L3'] : undefined
-  const box = partBox({ id: 'pv', kind, x: 0, y: 0, rot: 0, tag: '', lines })
-  const side = Math.max(box.w, box.h) + 24
-  const cx = box.x + box.w / 2
-  // A alimentação tem as legendas L1 L2 L3 por cima do borne: sobe um pouco o centro.
-  const cy = box.y + box.h / 2 - (kind === 'supply' ? 4 : 0)
-  return <svg width={58} height={58} viewBox={`${cx - side / 2} ${cy - side / 2} ${side} ${side}`} aria-hidden="true">
-    <g fill="none" stroke="#1e293b" strokeWidth={Math.max(1.6, side / 52)} strokeLinecap="round" strokeLinejoin="round">{symbolBody({ kind, lines, color: 'green' }, { idle: true, closed: NC_AT_REST.includes(kind) })}</g>
-  </svg>
-}
-
 /** Cartão da biblioteca: igual ao do Esquema 3D (clique posiciona, duplo clique insere, arrastar, ★ favorito). */
 function SymbolTile({ kind, favorite, placing, disabled, onPick, onQuickAdd, onFavorite }: {
   kind: CmdKind; favorite: boolean; placing: boolean; disabled: boolean

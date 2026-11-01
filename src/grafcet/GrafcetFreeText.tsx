@@ -65,6 +65,8 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
     const current = drag.current
     drag.current = null
     if (current?.moved && live) onMove(Math.round(live.x), Math.round(live.y))
+    // Clique/toque sem arrastar: seleciona (barra de formatação) e abre já a escrita.
+    else if (current && !current.moved && interactive) onEdit(true)
     setLive(null)
   }
   const commit = () => {
@@ -101,7 +103,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
         fill={comment.color ?? '#334155'}
         style={{ userSelect: 'none' }}
       >
-        <title>{interactive ? 'Arraste para mover · duplo clique edita · botão direito: opções' : comment.text}</title>
+        <title>{interactive ? 'Arraste para mover · clique para escrever · botão direito: opções' : comment.text}</title>
         {box.lines.map((line, index) => <tspan key={index} x={shown.x} dy={index === 0 ? box.size * 0.92 : box.size * 1.22}>{line || ' '}</tspan>)}
       </text>}
   </g>

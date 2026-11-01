@@ -1,5 +1,6 @@
 // Lateral direita do simulador de comandos: Entradas/Saídas e Objetos.
 // Cards idênticos ao painel E/S virtual do Esquema 3D (vio-cell / vio-switch / vio-lamp).
+import SymbolThumb from './SymbolThumb'
 import { useMemo } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { CMD_PARTS, MOTOR_KINDS, emptyCommands, type CmdKind } from './model'
@@ -263,7 +264,8 @@ export function CommandsObjects() {
                     onClick={() => pick(p.id)}
                     title="Selecionar e centrar no esquema"
                   >
-                    {CMD_PARTS[p.kind].label}{p.labels?.length ? ` ${p.labels.join('-')}` : ''}
+                    <span className="dc-cmd-object-icon"><SymbolThumb kind={p.kind} lines={p.lines} size={30} /></span>
+                    <span className="dc-cmd-object-name">{CMD_PARTS[p.kind].label}{p.labels?.length ? ` ${p.labels.join('-')}` : ''}</span>
                   </button>
                 ))}
               </div>
@@ -282,7 +284,8 @@ export function CommandsObjects() {
                   className={`dc-cmd-object ${selection?.id === p.id ? 'is-on' : ''}`}
                   onClick={() => pick(p.id)}
                 >
-                  {(p.lines ?? ['L1']).join(' · ')}
+                  <span className="dc-cmd-object-icon"><SymbolThumb kind={p.kind} lines={p.lines} size={30} /></span>
+                  <span className="dc-cmd-object-name">{(p.lines ?? ['L1']).join(' · ')}</span>
                 </button>
               </li>
             ))}

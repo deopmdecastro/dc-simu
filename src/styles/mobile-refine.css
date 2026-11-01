@@ -486,16 +486,19 @@
   :root .dc-toolbar-shell.is-compact .dc-toolbar-main { gap: 4px !important; }
 }
 
-/* Painel lateral completo (GRAFCET, E/S, Objetos, Diagnóstico) no fundo do Esquema IEC (telemóvel). */
+/* Painel lateral completo (GRAFCET, E/S, Objetos, Diagnóstico) no fundo do Esquema IEC (telemóvel):
+   a mesma gaveta `grafcet-properties` do GRAFCET (cabeçalho SidePanelHeader, mosaicos, rolagem). */
 @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
-  .dc-cmd .cmd-dock { flex: 0 0 auto; }
-  .dc-cmd .cmd-dock.is-open { flex-basis: clamp(260px, 54dvh, 440px); }
-  /* O corpo é a coluna do painel lateral: separadores em cima, conteúdo do separador a rolar por baixo. */
-  .dc-cmd .cmd-dock .gdock-body.cmd-dock-body { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-  .dc-cmd .cmd-dock .gdock-body.cmd-dock-body > :not(.dc-dock-tabs) { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-  /* A régua recolhida do painel direito (36 px) fica por cima do canto: a barra reserva-lhe o espaço. */
-  .dc-cmd .cmd-dock .gdock-bar { padding-right: 42px; }
-  .dc-cmd .cmd-dock .gdock-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-  /* O estado e o transporte já estão na barra do painel. */
-  .dc-cmd .cmd-dock-body .sim-embed-bar { display: none; }
+  .dc-cmd .cmd-dock.grafcet-properties {
+    flex: 0 1 48%; width: 100%; min-width: 0; min-height: 0; max-height: 58%;
+    overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+    border-top: 1px solid #dce4ef; border-left: 0; padding: 12px 12px calc(12px + 56px + env(safe-area-inset-bottom, 0px));
+    gap: 10px;
+  }
+  .dc-cmd .cmd-dock.grafcet-properties:not(.is-open) { flex: 0 0 auto; max-height: none; overflow: hidden; gap: 0; padding-top: 4px; padding-bottom: 6px; }
+  .dc-cmd .cmd-dock.is-open > * { flex-shrink: 0; }
+  .dc-cmd .cmd-dock .grafcet-properties-summary { flex: none; min-height: 44px; }
+  /* O conteúdo do separador cresce com o painel (a rolagem é a da gaveta, como no GRAFCET). */
+  .dc-cmd .cmd-dock > .dc-dock-tabs { padding: 0 0 8px; border-bottom: 1px solid var(--pn-line-soft); }
+  .dc-cmd .cmd-dock .sim-embed-bar { display: none; }
 }
