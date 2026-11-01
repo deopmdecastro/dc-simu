@@ -1,7 +1,7 @@
 // Símbolos IEC 60617 / ISO 1219 — desenhos DC-Simu e variantes QElectroTech atribuídas em docs/third-party/qelectrotech.
 import { fontStack } from '../ui/textStyle'
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
-import { CMD_PARTS, partBox, partTerminals, terminalAt, terminalLabel, type CmdKind, type CmdPart } from './model'
+import { CMD_PARTS, partBox, partTerminals, terminalAt, terminalLabel, variantOf, type CmdKind, type CmdPart } from './model'
 
 const INK = '#0f172a'
 export const PHASE_COLORS: Record<string, string> = {
@@ -57,9 +57,89 @@ const contactBody = (kind: CmdKind, st: CmdSymbolState, active: string) => {
   )
 }
 
-const threePole = (kind: CmdKind, st: CmdSymbolState, active: string) => {
-  const closed = kind === 'thermal3' ? true : !!st.closed
-  const contactHook = closed && kind === 'contact3'
+type SwitchQualifier = 'breaker' | 'disconnector' | 'switchDisconnector'
+
+/** Qualificativo IEC 60617-7 no contacto fixo (x, 18): × disjuntor, barra seccionador,
+ *  barra + círculo interruptor-seccionador. Desenhado em `path` para não se confundir com condutores. */
+const qualifierAt = (x: number, q: SwitchQualifier) => q === 'breaker'
+  ? <path d={`M ${x - 3.5} 14.5 L ${x + 3.5} 21.5 M ${x + 3.5} 14.5 L ${x - 3.5} 21.5`} />
+  : <>
+    <path d={`M ${x - 4.5} 18 L ${x + 4.5} 18`} strokeWidth={2} />
+    {q === 'switchDisconnector' && <circle cx={x} cy={18} r={2.3} fill="#fff" />}
+  </>
+
+/** Ponta da lâmina: assente no contacto fixo quando fecha, afastada para a direita quando abre. */
+const bladeTip = (x: number, closed: boolean): [number, number] => (closed ? [x, 18] : [x + 9, 24])
+
+/**
+ * Aparelho de manobra IEC por pólos: borne fixo em cima, lâmina articulada no borne de baixo,
+ * qualificativo no contacto fixo e ligação mecânica tracejada entre lâminas (e disparadores).
+ * `fuseBlade`: a lâmina é o próprio fusível (seccionador / interruptor-seccionador fusível).
+ */
+function switchPoles(xs: number[], st: CmdSymbolState, q: SwitchQualifier, active: string, opts: { fuseBlade?: boolean; linkTo?: number } = {}) {
+  const closed = !!st.closed
+  const live = closed && !st.idle
+  const linkY = 31
+  const atLink = (x: number) => (closed ? x : x + 9 * (42 - linkY) / 18)
+  const last = xs[xs.length - 1]
+  return <>
+    {xs.map((x) => {
+      const [tx, ty] = bladeTip(x, closed)
+      const angle = Math.atan2(tx - x, 42 - ty) * 180 / Math.PI
+      return <g key={x}>
+        <line x1={x} y1={0} x2={x} y2={18} />
+        <line x1={x} y1={42} x2={x} y2={60} />
+        {qualifierAt(x, q)}
+        <line x1={x} y1={42} x2={tx} y2={ty} stroke={live ? active : INK} strokeWidth={live ? 2 : 1.6} />
+        {opts.fuseBlade && <rect x={x - 4} y={25} width={8} height={13} transform={`rotate(${angle} ${x} 42)`} stroke={live ? active : INK} />}
+      </g>
+    })}
+    {(xs.length > 1 || opts.linkTo !== undefined) && <path d={`M ${atLink(xs[0])} ${linkY} L ${opts.linkTo ?? atLink(last)} ${linkY}`} strokeDasharray="3 2.5" strokeWidth={1} />}
+  </>
+}
+
+/** Disparadores do disjuntor (IEC 60617-7): térmico (bimetal) em cima e magnético (I>) em baixo. */
+const releases = (ax: number, tripped?: boolean) => <>
+  <rect x={ax} y={14} width={16} height={16} fill="#fff" stroke={tripped ? '#dc2626' : INK} strokeWidth={1.3} />
+  <path d={`M ${ax + 2.5} 26 h 3.5 v -8 h 4 v 8 h 3.5`} fill="none" strokeWidth={1.3} stroke={tripped ? '#dc2626' : INK} />
+  <rect x={ax} y={30} width={16} height={16} fill="#fff" strokeWidth={1.3} />
+  <text x={ax + 8} y={41.5} textAnchor="middle" fontSize={8} fontWeight={700} fill={INK} stroke="none">{'I>'}</text>
+</>
+
+/** Corrente alternada (~) ou contínua (—) centrada em (cx, cy). */
+const currentMark = (kind: 'ac' | 'dc', cx: number, cy: number) => kind === 'ac'
+  ? <path d={`M ${cx - 5.5} ${cy} q 2.75 -4.5 5.5 0 t 5.5 0`} fill="none" />
+  : <path d={`M ${cx - 5.5} ${cy} L ${cx + 5.5} ${cy}`} />
+
+/** Marca de ligação do enrolamento: estrela (Y), triângulo (Δ) ou ziguezague (Z), centrada em (0, cy). */
+const windingMark = (letter: string, cy: number) => {
+  const l = letter.toLowerCase()
+  if (l === 'd') return <path d={`M -4.5 ${cy + 3.5} L 4.5 ${cy + 3.5} L 0 ${cy - 4} Z`} fill="none" strokeWidth={1.2} />
+  if (l === 'z') return <path d={`M -4 ${cy - 3.5} L 4 ${cy - 3.5} L -4 ${cy + 3.5} L 4 ${cy + 3.5}`} fill="none" strokeWidth={1.2} />
+  return <path d={`M -4 ${cy - 4} L 0 ${cy} L 4 ${cy - 4} M 0 ${cy} L 0 ${cy + 4.5}`} fill="none" strokeWidth={1.2} />
+}
+
+/** Motor (IEC 60617-6): círculo com M e o tipo de corrente; seta de rotação em marcha. */
+function motorBody(xs: number[], cx: number, cy: number, r: number, kindLabel: ReactNode, st: CmdSymbolState, active: string, extra?: ReactNode) {
+  const running = !!st.motor && st.motor.mode !== 'stop'
+  const top = (x: number) => cy - Math.sqrt(Math.max(0, r * r - (x - cx) ** 2))
+  return <>
+    {xs.map((x) => <line key={x} x1={x} y1={0} x2={x} y2={top(x)} />)}
+    <circle cx={cx} cy={cy} r={r} fill={running ? '#ecfdf5' : '#fff'} stroke={running ? active : INK} strokeWidth={running ? 2.2 : 1.6} />
+    {extra}
+    <text x={cx} y={cy - 2} textAnchor="middle" fontSize={15} fontWeight={700} fill={INK} stroke="none">M</text>
+    {kindLabel}
+    {running && <g className="dc-cmd-motor-spin" style={{ transformOrigin: `${cx}px ${cy}px`, animationDirection: st.motor!.dir === -1 ? 'reverse' : 'normal' }}>
+      <path d={`M ${cx} ${cy - r - 4} A ${r + 4} ${r + 4} 0 0 1 ${cx + r + 2} ${cy - 10}`} fill="none" stroke={active} strokeWidth={2} />
+      <path d={`M ${cx + r + 2} ${cy - 10} l -6 -1 l 3 -5 z`} fill={active} stroke="none" />
+    </g>}
+  </>
+}
+
+/** Contactos principais do contactor (3P): seguem o desenho do NA, com gancho à esquerda a conduzir. */
+const threePole = (_kind: CmdKind, st: CmdSymbolState, active: string) => {
+  const closed = !!st.closed
+  const contactHook = closed
   return (
     <>
       {[0, 20, 40].map((x) => (
@@ -71,15 +151,11 @@ const threePole = (kind: CmdKind, st: CmdSymbolState, active: string) => {
           <line x1={x} y1={42} x2={x + (closed ? (contactHook ? -10 : 0) : 8)} y2={closed ? 18 : 25} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
         </g>
       ))}
-      {kind === 'breaker3' || kind === 'breaker1' || kind === 'rcd' ? (
-        <rect x={-8} y={14} width={kind === 'rcd' ? 36 : 56} height={32} fill="none" strokeDasharray="3 2" strokeWidth={1} />
-      ) : null}
-      {(kind === 'disconnector3' || kind === 'mainSwitch') && <path d="M -6 8 L 46 8" strokeWidth={1.2} />}
     </>
   )
 }
 
-export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'symbolStyle' | 'groundVariant'>, st: CmdSymbolState = {}): ReactNode {
+export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'symbolStyle' | 'groundVariant' | 'variant'>, st: CmdSymbolState = {}): ReactNode {
   if (part.symbolStyle === 'qet') {
     // Geometria da coleção QElectroTech; transformações alinham os bornes em (0,0) e (0,60).
     switch (part.kind) {
@@ -149,13 +225,86 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       <rect x={x - 5.5} y={16} width={11} height={28} fill="#fff" />
       <line x1={x} y1={16} x2={x} y2={44} />
     </g>)}</>
-    case 'breaker1': {
-      const closed = !!st.closed
+    case 'breaker1': return switchPoles([0], st, 'breaker', active)
+    case 'breaker2': return switchPoles([0, 20], st, 'breaker', active)
+    case 'breaker3': return switchPoles([0, 20, 40], st, 'breaker', active)
+    case 'breakerTM1': return <>{switchPoles([0], st, 'breaker', active, { linkTo: 14 })}{releases(14, st.tripped)}</>
+    case 'motorBreaker3': return <>{switchPoles([0, 20, 40], st, 'breaker', active, { linkTo: 58 })}{releases(58, st.tripped)}</>
+    case 'disconnector1': return switchPoles([0], st, 'disconnector', active)
+    case 'disconnector2': return switchPoles([0, 20], st, 'disconnector', active)
+    case 'disconnector3': case 'mainSwitch': return <>
+      {switchPoles([0, 20, 40], st, 'disconnector', active)}
+      {/* Comando manual comum aos três pólos. */}
+      <path d="M -6 8 L 46 8" strokeWidth={1.2} />
+    </>
+    case 'switchDisconnector1': return switchPoles([0], st, 'switchDisconnector', active)
+    case 'switchDisconnector3': return switchPoles([0, 20, 40], st, 'switchDisconnector', active)
+    case 'fuseDisconnector3': return switchPoles([0, 20, 40], st, 'disconnector', active, { fuseBlade: true })
+    case 'fuseSwitchDisconnector3': return switchPoles([0, 20, 40], st, 'switchDisconnector', active, { fuseBlade: true })
+    case 'fuse2': return <>{[0, 20].map((x) => <g key={x}>
+      <line x1={x} y1={0} x2={x} y2={60} />
+      <rect x={x - 5.5} y={16} width={11} height={28} fill="#fff" />
+      <line x1={x} y1={16} x2={x} y2={44} />
+    </g>)}</>
+    case 'meter': {
+      // Instrumento indicador (IEC 60617-8): círculo com a grandeza.
+      const q = variantOf(part) ?? 'W'
       return <>
-        <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
-        <line x1={0} y1={18} x2={closed ? 0 : 8} y2={closed ? 30 : 24} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
-        <rect x={-10} y={14} width={20} height={32} fill="none" strokeDasharray="3 2" />
+        <line x1={0} y1={0} x2={0} y2={17} /><line x1={0} y1={43} x2={0} y2={60} />
+        <circle cx={0} cy={30} r={13} fill="#fff" />
+        <text x={0} y={q.length > 2 ? 33.5 : 34.5} textAnchor="middle" fontSize={q.length > 2 ? 9.5 : 12} fontWeight={700} fill={INK} stroke="none">{q}</text>
       </>
+    }
+    case 'energyMeter': {
+      // Instrumento integrador (IEC 60617-8): retângulo com a faixa superior.
+      const q = variantOf(part) ?? 'Wh'
+      return <>
+        <line x1={0} y1={0} x2={0} y2={16} /><line x1={0} y1={44} x2={0} y2={60} />
+        <rect x={-15} y={16} width={30} height={28} fill="#fff" />
+        <path d="M -15 23 L 15 23" />
+        <text x={0} y={37.5} textAnchor="middle" fontSize={q.length > 2 ? 9 : 11} fontWeight={700} fill={INK} stroke="none">{q}</text>
+      </>
+    }
+    case 'converter': {
+      // Conversor (IEC 60617-6): quadrado com diagonal; entrada em cima à esquerda, saída em baixo à direita.
+      const v = variantOf(part) ?? 'acdc'
+      const [input, output] = (v === 'acdc' ? ['ac', 'dc'] : v === 'dcac' ? ['dc', 'ac'] : v === 'dcdc' ? ['dc', 'dc'] : ['ac', 'ac']) as Array<'ac' | 'dc'>
+      return <>
+        {[0, 20].map((x) => <g key={x}><line x1={x} y1={0} x2={x} y2={14} /><line x1={x} y1={46} x2={x} y2={60} /></g>)}
+        <rect x={-4} y={14} width={28} height={32} fill="#fff" />
+        <path d="M -4 46 L 24 14" />
+        {currentMark(input, 4.5, 22.5)}
+        {currentMark(output, 15.5, 38)}
+      </>
+    }
+    case 'autotransformer': return <>
+      {/* Autotransformador: um só enrolamento, com a tomada intermédia ligada ao borne 3. */}
+      <line x1={0} y1={0} x2={0} y2={12} /><line x1={0} y1={48} x2={0} y2={60} />
+      <path d="M 0 12 a 6 4.5 0 0 0 0 9 a 6 4.5 0 0 0 0 9 a 6 4.5 0 0 0 0 9 a 6 4.5 0 0 0 0 9" fill="none" />
+      <line x1={0} y1={30} x2={20} y2={30} /><line x1={20} y1={30} x2={20} y2={60} />
+      <circle cx={0} cy={30} r={1.8} fill={INK} stroke="none" />
+    </>
+    case 'transformer3Line': {
+      // Transformador trifásico, representação unifilar: dois círculos e o grupo de ligações.
+      const group = variantOf(part) ?? 'Dyn11'
+      return <>
+        <line x1={0} y1={0} x2={0} y2={11} /><line x1={0} y1={49} x2={0} y2={60} />
+        <circle cx={0} cy={22} r={11} fill="none" />
+        <circle cx={0} cy={38} r={11} fill="none" />
+        {windingMark(group[0], 19)}
+        {windingMark(group[1], 41)}
+        <text x={14} y={33} fontSize={8} fontWeight={700} fill={INK} stroke="none">{group}</text>
+      </>
+    }
+    case 'motor1': return motorBody([0, 20], 10, 48, 22, <text x={10} y={61} textAnchor="middle" fontSize={10} fill={INK} stroke="none">1~</text>, st, active)
+    case 'motorDC': return motorBody([0, 20], 10, 48, 22, <path d="M 3 58 L 17 58" />, st, active)
+    case 'motorSlipRing': {
+      const bottom = (x: number) => 50 + Math.sqrt(24 * 24 - (x - 20) ** 2)
+      return motorBody([0, 20, 40], 20, 50, 24, <text x={20} y={63} textAnchor="middle" fontSize={10} fill={INK} stroke="none">3~</text>, st, active, <>
+        {/* Rotor bobinado: círculo interior e saída dos anéis K L M. */}
+        <circle cx={20} cy={50} r={18.5} fill="none" strokeWidth={1.2} />
+        {[0, 20, 40].map((x) => <line key={x} x1={x} y1={bottom(x)} x2={x} y2={100} />)}
+      </>)
     }
     case 'thermal3': return <>
       {[0, 20, 40].map((x) => <g key={x}>
@@ -165,8 +314,13 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       </g>)}
       <rect x={-8} y={18} width={56} height={24} fill="none" strokeDasharray="2 2" strokeWidth={1} />
     </>
-    case 'rcd': return threePole('rcd', st, active)
-    case 'contact3': case 'breaker3': case 'disconnector3': case 'mainSwitch': return threePole(part.kind, st, active)
+    case 'rcd': return <>
+      {/* Diferencial: disjuntor bipolar com o disparador de corrente diferencial (IΔ). */}
+      {switchPoles([0, 20], st, 'breaker', active, { linkTo: 34 })}
+      <rect x={34} y={22} width={18} height={18} fill="#fff" stroke={st.tripped ? '#dc2626' : INK} strokeWidth={1.3} />
+      <text x={43} y={34.5} textAnchor="middle" fontSize={8} fontWeight={700} fill={INK} stroke="none">IΔ</text>
+    </>
+    case 'contact3': return threePole(part.kind, st, active)
     case 'changeover': {
       const closed = !!st.closed
       return <>

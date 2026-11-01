@@ -9,9 +9,10 @@ import React from 'react'
 import assert from 'node:assert/strict'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { CmdSymbol, symbolBody } from '../src/commands/symbols'
-import { CMD_PARTS, terminalAt, type CmdKind, type CmdPart } from '../src/commands/model'
+import { CMD_PALETTE, CMD_PARTS, partTerminals, terminalAt, type CmdKind, type CmdPart } from '../src/commands/model'
 import { normalizeCommandsPages } from '../src/commands/pages'
-import { emptyCmdRuntime, isClosed } from '../src/commands/engine'
+import { emptyCmdRuntime, isClosed, stepCommands } from '../src/commands/engine'
+const terminalLabelsOf = (p: CmdPart) => partTerminals(p).map((t) => t.label)
 
 const svgOf = (part: CmdPart, st = {}) => renderToStaticMarkup(<svg><CmdSymbol part={part} state={st} showTerminals={false} /></svg>)
 
@@ -188,4 +189,82 @@ for (const kind of ['timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'la
   assert.ok(svgOf(part(kind)), `${kind}: desenho`)
 }
 
+// 9. Manobra IEC 60617-7: cada pólo liga topo e fundo fechado, não liga aberto, e leva o qualificativo da norma.
+const switching: Array<[CmdKind, 'breaker' | 'disconnector' | 'switchDisconnector']> = [
+  ['breaker1', 'breaker'], ['breaker2', 'breaker'], ['breaker3', 'breaker'], ['breakerTM1', 'breaker'], ['motorBreaker3', 'breaker'], ['rcd', 'breaker'],
+  ['disconnector1', 'disconnector'], ['disconnector2', 'disconnector'], ['disconnector3', 'disconnector'], ['mainSwitch', 'disconnector'], ['fuseDisconnector3', 'disconnector'],
+  ['switchDisconnector1', 'switchDisconnector'], ['switchDisconnector3', 'switchDisconnector'], ['fuseSwitchDisconnector3', 'switchDisconnector'],
+]
+for (const [kind, q] of switching) {
+  const closed = svgOf(part(kind), { closed: true })
+  const open = svgOf(part(kind), { closed: false })
+  CMD_PARTS[kind].poles.forEach((_, i) => {
+    const x = i * 20
+    assert.ok(connects(closed, [x, 0], [x, 60]), `${kind}: pólo ${i + 1} fechado liga topo ao fundo`)
+    assert.ok(!connects(open, [x, 0], [x, 60]), `${kind}: pólo ${i + 1} aberto não pode parecer ligado`)
+  })
+  if (q === 'breaker') assert.match(closed, /M -3\.5 14\.5 L 3\.5 21\.5/, `${kind}: × do disjuntor no contacto fixo`)
+  else assert.match(closed, /M -4\.5 18 L 4\.5 18/, `${kind}: barra do seccionador no contacto fixo`)
+  if (q === 'switchDisconnector') assert.match(closed, /<circle cx="0" cy="18" r="2.3"/, `${kind}: círculo do interruptor`)
+  if (q === 'breaker') assert.doesNotMatch(closed, /stroke-dasharray="3 2"/, `${kind}: já não usa a caixa tracejada antiga`)
+  const rt = emptyCmdRuntime()
+  assert.equal(isClosed(part(kind), rt), true, `${kind}: ligado por omissão`)
+  assert.equal(isClosed(part(kind), { ...rt, toggled: { X1: true } }), false, `${kind}: desliga com o clique`)
+}
+for (const kind of ['breakerTM1', 'motorBreaker3'] as CmdKind[]) {
+  const markup = svgOf(part(kind), { closed: true })
+  assert.match(markup, />I&gt;</, `${kind}: disparador magnético I>`)
+  assert.match(markup, /v -8 h 4 v 8/, `${kind}: disparador térmico (bimetal)`)
+  assert.equal(isClosed(part(kind), { ...emptyCmdRuntime(), tripped: { X1: true } }), false, `${kind}: disparado abre`)
+}
+assert.match(svgOf(part('rcd')), />IΔ</, 'diferencial: disparador IΔ')
+assert.match(svgOf(part('fuseDisconnector3'), { closed: true }), /<rect x="-4" y="25" width="8" height="13" transform="rotate\(0 0 42\)"/, 'seccionador fusível: a lâmina é o fusível')
+assert.ok(connects(svgOf(part('fuse2')), [20, 0], [20, 60]), 'fusíveis 2P conduzem nos dois pólos')
+
+// 10. Instrumentos, conversores, transformadores e motores com variante normalizada.
+const variants = (kind: CmdKind, values: string[]) => {
+  const marks = values.map((variant) => svgOf(part(kind, { variant })))
+  assert.equal(new Set(marks).size, values.length, `${kind}: cada variante tem desenho próprio`)
+  assert.equal(svgOf(part(kind)), marks[0], `${kind}: sem variante desenha a primeira`)
+  assert.equal(svgOf(part(kind, { variant: 'inexistente' })), marks[0], `${kind}: variante inválida cai na de omissão`)
+  return marks
+}
+const meters = variants('meter', ['W', 'var', 'Hz', 'cosφ', 'φ', 'n', 'θ', 'Ω'])
+assert.match(meters[0], /<circle cx="0" cy="30" r="13"/, 'instrumento indicador: círculo')
+assert.match(meters[2], />Hz</, 'frequencímetro: Hz')
+const energy = variants('energyMeter', ['Wh', 'varh', 'Ah', 'h'])
+assert.match(energy[0], /M -15 23 L 15 23/, 'contador de energia: faixa do instrumento integrador')
+variants('converter', ['acdc', 'dcac', 'dcdc', 'acac'])
+assert.match(svgOf(part('converter')), /M -4 46 L 24 14/, 'conversor: diagonal')
+assert.deepEqual(terminalLabelsOf(part('converter')), ['L', 'N', '+', '−'], 'retificador: L N → + −')
+assert.deepEqual(terminalLabelsOf(part('converter', { variant: 'dcac' })), ['+', '−', 'L', 'N'], 'inversor: + − → L N')
+const groups = variants('transformer3Line', ['Dyn11', 'Yy0', 'Yd11', 'Dd0', 'Yzn11'])
+assert.match(groups[0], />Dyn11</, 'trafo unifilar: grupo de ligações')
+assert.equal((groups[0].match(/<circle/g) ?? []).length, 2, 'trafo unifilar: dois círculos')
+assert.ok(connects(svgOf(part('autotransformer')), [0, 30], [20, 60]), 'autotransformador: tomada ligada ao borne 3')
+assert.match(svgOf(part('motor1')), />1~</, 'motor monofásico: 1~')
+assert.match(svgOf(part('motorDC')), /M 3 58 L 17 58/, 'motor DC: traço de contínua')
+assert.equal((svgOf(part('motorSlipRing')).match(/<circle/g) ?? []).length, 2, 'rotor bobinado: círculo interior')
+assert.equal(CMD_PARTS.motorSlipRing.terminals.length, 6, 'rotor bobinado: U1 V1 W1 + K L M')
+
+// 11. Simulação: motores 1~ e DC rodam com tensão entre bornes; rotor bobinado com as três fases.
+const runWith = (lines: string[], kind: CmdKind, terms: number) => {
+  const diagram = { parts: [
+    { id: 's', kind: 'supply' as CmdKind, x: 0, y: 0, rot: 0 as const, tag: '', lines },
+    { id: 'm', kind, x: 0, y: 100, rot: 0 as const, tag: 'M1' },
+  ], wires: Array.from({ length: terms }, (_, i) => ({ id: `w${i}`, a: { part: 's', term: i }, b: { part: 'm', term: i } })) }
+  return stepCommands(diagram, { ...emptyCmdRuntime(), running: true }, 100).motors.m
+}
+assert.equal(runWith(['L1', 'N'], 'motor1', 2).mode, 'run', 'motor 1~ roda entre fase e neutro')
+assert.equal(runWith(['L1', 'N'], 'motor1', 1).mode, 'stop', 'motor 1~ sem neutro fica parado')
+assert.equal(runWith(['L+', 'M'], 'motorDC', 2).mode, 'run', 'motor DC roda entre L+ e M')
+assert.equal(runWith(['L1', 'L2', 'L3'], 'motorSlipRing', 3).mode, 'run', 'rotor bobinado roda com as três fases')
+assert.equal(runWith(['L1', 'L2', 'L3'], 'motorSlipRing', 2).phaseLoss, true, 'rotor bobinado com falta de fase')
+
+// 12. A variante sobrevive ao JSON e todos os novos estão na paleta.
+assert.equal(normalizeCommandsPages(JSON.parse(JSON.stringify({ parts: [part('meter', { variant: 'Hz' })], wires: [] }))).parts[0].variant, 'Hz')
+const inPalette = new Set(CMD_PALETTE.flatMap((g) => g.kinds))
+for (const kind of Object.keys(CMD_PARTS) as CmdKind[]) assert.ok(inPalette.has(kind), `${kind}: falta na paleta`)
+
 console.log('PASS — geometria dos símbolos: contactos ligam os bornes, resistência IEC, núcleo do transformador e três terras')
+console.log('PASS — IEC 60617: manobra (× / barra / barra + círculo), disparadores, instrumentos, conversores, trafos e motores com variantes')

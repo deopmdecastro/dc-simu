@@ -5,7 +5,7 @@ import SidePanelHeader from '../components/SidePanelHeader'
 import { IconChevronDown, IconProjects, IconSearch } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import type { CanvasText } from '../types'
-import { CMD_PALETTE, CMD_PARTS, emptyCommands, partBox, partTerminals, type CmdKind, type CmdPart } from './model'
+import { CMD_PALETTE, CMD_PARTS, CMD_VARIANTS, emptyCommands, partBox, partTerminals, variantOf, type CmdKind, type CmdPart } from './model'
 import { symbolBody, cmdTagPreset } from './symbols'
 import { useCommandsUi } from './commandsUi'
 import { pageRefPeers, pagesOf, pageIdOf } from './pages'
@@ -269,6 +269,11 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
           <option value="earth">Terra</option>
           <option value="protective">Terra de proteção (hachurada)</option>
           <option value="signal">Terra de sinal (triângulo)</option>
+        </select>
+      </label>}
+      {CMD_VARIANTS[part.kind] && <label className="dc-cmd-field"><span>{CMD_VARIANTS[part.kind]!.label}</span>
+        <select className="dc-input" aria-label={CMD_VARIANTS[part.kind]!.label} value={variantOf(part)} onChange={(e) => onChange({ variant: e.target.value, labels: part.kind === 'converter' ? undefined : part.labels })}>
+          {CMD_VARIANTS[part.kind]!.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </label>}
       {part.kind === 'lamp' && <label className="dc-cmd-field"><span>Cor</span>

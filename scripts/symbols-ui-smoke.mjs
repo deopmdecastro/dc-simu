@@ -6,7 +6,7 @@ import { chromium } from 'playwright'
 const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.GRAFCET_TEST_OUTPUT
 if (output) await mkdir(output, { recursive: true })
-const browser = await chromium.launch({ args: ['--no-sandbox'] })
+const browser = await chromium.launch({ args: ['--no-sandbox'], ...(process.env.GRAFCET_TEST_EXECUTABLE ? { executablePath: process.env.GRAFCET_TEST_EXECUTABLE } : process.env.GRAFCET_TEST_CHANNEL ? { channel: process.env.GRAFCET_TEST_CHANNEL } : {}) })
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
@@ -74,6 +74,7 @@ try {
   d = await read()
   check(d.parts.map((p) => p.kind).join() === 'ground,resistor', `resistência colocada pela biblioteca (${d.parts.map((p) => p.kind).join()})`)
   await page.locator('[data-cmd-kind="resistor"]').click()
+  await sidebar.locator('.dc-tab', { hasText: 'Inspetor' }).click()
   const style = sidebar.getByRole('combobox', { name: 'Desenho do símbolo' })
   check((await style.locator('option').allTextContents()).join('|').includes('Zigzag ANSI'), 'o inspetor da resistência oferece «Zigzag ANSI» além do desenho IEC')
   const iec = await page.locator('[data-cmd-kind="resistor"]').innerHTML()
@@ -95,16 +96,25 @@ try {
   d = await read()
   check(d.parts.filter((p) => p.kind === 'ground').map((p) => p.groundVariant ?? 'earth').join() === 'earth,protective,signal', `três terras no esquema (${d.parts.filter((p) => p.kind === 'ground').map((p) => p.groundVariant ?? 'earth').join()})`)
   if (output) await page.locator('.dc-cmd-canvas').screenshot({ path: `${output}/simbolos-terra-resistencia.png` })
-  // Cadernos de 2026-11-01: a biblioteca cresce para 84 tipos e os novos entram na paleta.
+  // A biblioteca anuncia tantos símbolos quantos os tipos do modelo, e todos estão na paleta.
   const tabLabel = (await sidebar.locator('.dc-tab', { hasText: 'Biblioteca' }).textContent()) || ''
-  check(/84/.test(tabLabel), `a biblioteca anuncia 84 símbolos (${tabLabel.trim()})`)
   const palette = await page.evaluate(async () => {
     const m = await globalThis.__dcAppImport('/src/commands/model.ts')
     return { parts: Object.keys(m.CMD_PARTS).length, pal: m.CMD_PALETTE.flatMap((g) => g.kinds) }
   })
-  const novos = ['counter', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'mainSwitch', 'threePhaseTransformer', 'sensor3wNO', 'sensor3wNC', 'valve22', 'valve42', 'valve53c', 'valve53p', 'valve53e', 'airFilter', 'airLubricator', 'airRegulator', 'manometer', 'silencer', 'reservoir']
+  check(tabLabel.includes(String(palette.parts)), `a biblioteca anuncia ${palette.parts} símbolos (${tabLabel.trim()})`)
+  const novos = ['meter', 'energyMeter', 'converter', 'transformer3Line', 'motorBreaker3', 'switchDisconnector3', 'motor1', 'counter', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'mainSwitch', 'threePhaseTransformer', 'sensor3wNO', 'sensor3wNC', 'valve22', 'valve42', 'valve53c', 'valve53p', 'valve53e', 'airFilter', 'airLubricator', 'airRegulator', 'manometer', 'silencer', 'reservoir']
   check(novos.every((k) => palette.pal.includes(k)), `os ${novos.length} símbolos dos cadernos novos estão na paleta`)
   check(palette.parts === palette.pal.length, `todos os ${palette.parts} tipos aparecem na paleta (sem órfãos)`)
+  // Instrumento indicador IEC 60617-8: a grandeza escolhe-se no Inspetor e fica no componente.
+  await sidebar.locator('.dc-tab', { hasText: 'Biblioteca' }).click()
+  await put('Instrumento indicador', 260, 20)
+  await page.locator('[data-cmd-kind="meter"]').click()
+  await sidebar.locator('.dc-tab', { hasText: 'Inspetor' }).click()
+  const quantity = sidebar.getByRole('combobox', { name: 'Grandeza medida' })
+  await quantity.selectOption({ label: 'Hz — frequencímetro' })
+  d = await read()
+  check(d.parts.find((p) => p.kind === 'meter')?.variant === 'Hz' && /Hz/.test(await page.locator('[data-cmd-kind="meter"]').innerHTML()), 'o instrumento indicador muda para frequencímetro (Hz) pelo Inspetor')
   check(errors.length === 0, `sem erros JavaScript: ${errors.join(' | ')}`)
   console.log(`\n${checks} verificações de símbolos passaram`)
 } finally {

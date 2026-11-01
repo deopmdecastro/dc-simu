@@ -30,6 +30,14 @@ export type CmdKind =
   /** Pneumática / hidráulica (ISO 1219 — símbolos próprios DC-Simu). */
   | 'airSource' | 'exhaust' | 'valve32' | 'valve52' | 'cylSE' | 'cylDE' | 'throttle' | 'checkValve'
   | 'hydPump' | 'hydTank' | 'hydCyl'
+  /** IEC 60617-7: manobra e proteção com o qualificativo da norma no contacto fixo
+   *  (× disjuntor · barra seccionador · barra + círculo interruptor-seccionador). */
+  | 'fuse2' | 'breaker2' | 'breakerTM1' | 'motorBreaker3' | 'disconnector1' | 'disconnector2'
+  | 'switchDisconnector1' | 'switchDisconnector3' | 'fuseDisconnector3' | 'fuseSwitchDisconnector3'
+  /** IEC 60617-8: instrumento indicador e instrumento integrador (contador de energia). */
+  | 'meter' | 'energyMeter'
+  /** IEC 60617-6: conversores, autotransformador, transformador unifilar e motores. */
+  | 'converter' | 'autotransformer' | 'transformer3Line' | 'motor1' | 'motorDC' | 'motorSlipRing'
 
 export type CmdRotation = 0 | 90 | 180 | 270
 
@@ -48,6 +56,9 @@ export interface CmdPart {
   symbolStyle?: 'qet' | 'ansi'
   /** Terra: variante de desenho (as três mantêm o mesmo borne PE e a mesma simulação). */
   groundVariant?: 'earth' | 'protective' | 'signal'
+  /** Variante normalizada do símbolo (ver `CMD_VARIANTS`): grandeza do instrumento,
+   *  tipo de conversor ou grupo de ligações do transformador. */
+  variant?: string
   /** Marcação dos bornes, pela ordem de `CMD_PARTS[kind].terminals`. */
   labels?: string[]
   /** Temporizador: atraso à operação (ms). */
@@ -116,6 +127,8 @@ export interface CmdPartDef {
 }
 
 const pole = (x: number, top: string, bottom: string, h = 60) => [{ x, y: 0, label: top }, { x, y: h, label: bottom }]
+const twoPoles = () => [...pole(0, '1', '2'), ...pole(20, '3', '4')]
+const threePoles = () => [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')]
 
 export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   supply: { label: 'Alimentação', hint: 'Fases L1 L2 L3 / N / PE', family: 'source', prefix: '', terminals: [{ x: 0, y: 0, label: 'L1' }], poles: [], box: { x: -12, y: -26, w: 24, h: 30 } },
@@ -130,7 +143,7 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   breaker3: { label: 'Disjuntor-motor', hint: 'Q · manobra e proteção (clique para ligar/desligar)', family: 'protection', prefix: 'Q', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
   disconnector3: { label: 'Seccionador', hint: 'Q · corte geral manual', family: 'protection', prefix: 'Q', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
   thermal3: { label: 'Relé térmico', hint: 'F · elementos de aquecimento (potência)', family: 'protection', prefix: 'F', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
-  rcd: { label: 'Diferencial (RCD)', hint: 'Q · proteção diferencial', family: 'protection', prefix: 'Q', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4')], poles: [[0, 1], [2, 3]], box: { x: -10, y: 0, w: 40, h: 60 } },
+  rcd: { label: 'Diferencial (RCD)', hint: 'Q · proteção diferencial', family: 'protection', prefix: 'Q', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4')], poles: [[0, 1], [2, 3]], box: { x: -10, y: 0, w: 64, h: 60 } },
   contact3: { label: 'Contactos principais', hint: 'K · 1-2 3-4 5-6 do contactor', family: 'contact', prefix: 'K', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
   contactNO: { label: 'Contacto NA', hint: 'K · auxiliar normalmente aberto', family: 'contact', prefix: 'K', terminals: pole(0, '13', '14'), poles: [[0, 1]], box: { x: -14, y: 0, w: 28, h: 60 } },
   contactNC: { label: 'Contacto NF', hint: 'K · auxiliar normalmente fechado', family: 'contact', prefix: 'K', terminals: pole(0, '21', '22'), poles: [[0, 1]], box: { x: -14, y: 0, w: 28, h: 60 } },
@@ -203,17 +216,69 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   hydPump: { label: 'Bomba hidráulica', hint: 'Fonte de caudal hidráulico', family: 'hydraulic', prefix: 'M', terminals: [{ x: 0, y: 0, label: 'P' }, { x: 0, y: 40, label: 'T' }], poles: [], box: { x: -20, y: -8, w: 40, h: 56 } },
   hydTank: { label: 'Depósito', hint: 'Retorno / tanque', family: 'hydraulic', prefix: 'T', terminals: [{ x: 0, y: 0, label: 'T' }], poles: [], box: { x: -18, y: -4, w: 36, h: 28 } },
   hydCyl: { label: 'Cilindro hidráulico', hint: 'Atuador de duplo efeito', family: 'hydraulic', prefix: 'A', terminals: [{ x: 0, y: 10, label: 'A' }, { x: 0, y: 40, label: 'B' }], poles: [], box: { x: -4, y: -8, w: 90, h: 60 } },
+
+  fuse2: { label: 'Fusíveis 2P', hint: 'F · fase e neutro (ou L+ / M)', family: 'protection', prefix: 'F', terminals: twoPoles(), poles: [[0, 1], [2, 3]], box: { x: -10, y: 0, w: 40, h: 60 } },
+  breaker2: { label: 'Disjuntor 2P', hint: 'Q · bipolar (clique para ligar/desligar)', family: 'protection', prefix: 'Q', terminals: twoPoles(), poles: [[0, 1], [2, 3]], box: { x: -10, y: 0, w: 40, h: 60 } },
+  breakerTM1: { label: 'Disjuntor magnetotérmico', hint: 'Q · 1P com disparador térmico e magnético', family: 'protection', prefix: 'Q', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -10, y: 0, w: 42, h: 60 } },
+  motorBreaker3: { label: 'Disjuntor-motor 3P', hint: 'Q · manobra + disparadores térmico e magnético', family: 'protection', prefix: 'Q', terminals: threePoles(), poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 86, h: 60 } },
+  disconnector1: { label: 'Seccionador 1P', hint: 'Q · corte em vazio (barra no contacto fixo)', family: 'protection', prefix: 'Q', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -12, y: 0, w: 26, h: 60 } },
+  disconnector2: { label: 'Seccionador 2P', hint: 'Q · corte em vazio bipolar', family: 'protection', prefix: 'Q', terminals: twoPoles(), poles: [[0, 1], [2, 3]], box: { x: -10, y: 0, w: 42, h: 60 } },
+  switchDisconnector1: { label: 'Interruptor-seccionador 1P', hint: 'Q · corta em carga e secciona', family: 'protection', prefix: 'Q', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -12, y: 0, w: 26, h: 60 } },
+  switchDisconnector3: { label: 'Interruptor-seccionador 3P', hint: 'Q · corte geral em carga', family: 'protection', prefix: 'Q', terminals: threePoles(), poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 62, h: 60 } },
+  fuseDisconnector3: { label: 'Seccionador fusível 3P', hint: 'Q · a lâmina é o fusível (corte em vazio)', family: 'protection', prefix: 'Q', terminals: threePoles(), poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 62, h: 60 } },
+  fuseSwitchDisconnector3: { label: 'Interruptor-seccionador fusível 3P', hint: 'Q · a lâmina é o fusível (corte em carga)', family: 'protection', prefix: 'Q', terminals: threePoles(), poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 62, h: 60 } },
+  meter: { label: 'Instrumento indicador', hint: 'P · W, var, Hz, cos φ, φ, n, θ, Ω (escolha no Inspetor)', family: 'load', prefix: 'P', terminals: pole(0, '1', '2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  energyMeter: { label: 'Contador de energia', hint: 'P · instrumento integrador Wh, varh, Ah, h', family: 'load', prefix: 'P', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -18, y: 0, w: 36, h: 60 } },
+  converter: { label: 'Conversor', hint: 'T · retificador, inversor, DC/DC ou AC/AC', family: 'electronic', prefix: 'T', terminals: [{ x: 0, y: 0, label: 'L' }, { x: 20, y: 0, label: 'N' }, { x: 0, y: 60, label: '+' }, { x: 20, y: 60, label: '−' }], poles: [], box: { x: -8, y: 0, w: 36, h: 60 } },
+  autotransformer: { label: 'Autotransformador', hint: 'T · um só enrolamento com tomada', family: 'electronic', prefix: 'T', terminals: [{ x: 0, y: 0, label: '1' }, { x: 0, y: 60, label: '2' }, { x: 20, y: 60, label: '3' }], poles: [], box: { x: -12, y: 0, w: 38, h: 60 } },
+  transformer3Line: { label: 'Transformador 3~ (unifilar)', hint: 'T · dois círculos com o grupo de ligações (Dyn11…)', family: 'electronic', prefix: 'T', terminals: pole(0, '1', '2'), poles: [], box: { x: -14, y: 0, w: 46, h: 60 } },
+  motor1: { label: 'Motor 1~', hint: 'M · monofásico U1-U2', family: 'load', prefix: 'M', terminals: [{ x: 0, y: 0, label: 'U1' }, { x: 20, y: 0, label: 'U2' }], poles: [], box: { x: -14, y: 0, w: 48, h: 76 } },
+  motorDC: { label: 'Motor DC', hint: 'M · corrente contínua A1-A2', family: 'load', prefix: 'M', terminals: [{ x: 0, y: 0, label: 'A1' }, { x: 20, y: 0, label: 'A2' }], poles: [], box: { x: -14, y: 0, w: 48, h: 76 } },
+  motorSlipRing: { label: 'Motor de rotor bobinado', hint: 'M · 3~ com anéis K L M', family: 'load', prefix: 'M', terminals: [{ x: 0, y: 0, label: 'U1' }, { x: 20, y: 0, label: 'V1' }, { x: 40, y: 0, label: 'W1' }, { x: 0, y: 100, label: 'K' }, { x: 20, y: 100, label: 'L' }, { x: 40, y: 100, label: 'M' }], poles: [], box: { x: -8, y: 0, w: 56, h: 100 } },
+}
+
+/** Variantes normalizadas escolhidas no Inspetor (a primeira é a de omissão). */
+export const CMD_VARIANTS: Partial<Record<CmdKind, { label: string; options: Array<{ value: string; label: string }> }>> = {
+  meter: { label: 'Grandeza medida', options: [
+    { value: 'W', label: 'W — wattímetro' }, { value: 'var', label: 'var — varímetro' }, { value: 'Hz', label: 'Hz — frequencímetro' },
+    { value: 'cosφ', label: 'cos φ — fator de potência' }, { value: 'φ', label: 'φ — fasímetro' }, { value: 'n', label: 'n — taquímetro' },
+    { value: 'θ', label: 'θ — termómetro / pirómetro' }, { value: 'Ω', label: 'Ω — ohmímetro' },
+  ] },
+  energyMeter: { label: 'Grandeza integrada', options: [
+    { value: 'Wh', label: 'Wh — energia ativa' }, { value: 'varh', label: 'varh — energia reativa' }, { value: 'Ah', label: 'Ah — amperes-hora' }, { value: 'h', label: 'h — contador de horas' },
+  ] },
+  converter: { label: 'Tipo de conversor', options: [
+    { value: 'acdc', label: 'AC/DC — retificador' }, { value: 'dcac', label: 'DC/AC — inversor' }, { value: 'dcdc', label: 'DC/DC' }, { value: 'acac', label: 'AC/AC — variador de frequência' },
+  ] },
+  transformer3Line: { label: 'Grupo de ligações', options: [
+    { value: 'Dyn11', label: 'Dyn11 — triângulo / estrela com neutro' }, { value: 'Yy0', label: 'Yy0 — estrela / estrela' }, { value: 'Yd11', label: 'Yd11 — estrela / triângulo' },
+    { value: 'Dd0', label: 'Dd0 — triângulo / triângulo' }, { value: 'Yzn11', label: 'Yzn11 — estrela / ziguezague' },
+  ] },
+}
+
+/** Variante efetiva de um símbolo (a guardada, se for válida; senão a de omissão). */
+export function variantOf(part: Pick<CmdPart, 'kind' | 'variant'>): string | undefined {
+  const def = CMD_VARIANTS[part.kind]
+  if (!def) return undefined
+  return def.options.some((o) => o.value === part.variant) ? part.variant : def.options[0].value
+}
+
+/** Motores do esquema de comandos (estado de marcha em `rt.motors`). */
+export const MOTOR_KINDS: CmdKind[] = ['motor3', 'motor6', 'motor1', 'motorDC', 'motorSlipRing']
+
+const CONVERTER_LABELS: Record<string, string[]> = {
+  acdc: ['L', 'N', '+', '−'], dcac: ['+', '−', 'L', 'N'], dcdc: ['+', '−', '+', '−'], acac: ['L', 'N', 'L', 'N'],
 }
 
 export const CMD_PALETTE: Array<{ title: string; kinds: CmdKind[] }> = [
   { title: 'Alimentação', kinds: ['supply', 'node', 'ground', 'pageRef', 'pageRefIn'] },
-  { title: 'Proteção', kinds: ['fuse', 'fuse3', 'fuseDisconnector', 'breaker1', 'breaker3', 'disconnector3', 'thermal3', 'rcd', 'mainSwitch'] },
+  { title: 'Proteção', kinds: ['fuse', 'fuse2', 'fuse3', 'fuseDisconnector', 'fuseDisconnector3', 'fuseSwitchDisconnector3', 'breaker1', 'breakerTM1', 'breaker2', 'breaker3', 'motorBreaker3', 'disconnector1', 'disconnector2', 'disconnector3', 'switchDisconnector1', 'switchDisconnector3', 'thermal3', 'rcd', 'mainSwitch'] },
   { title: 'Contactos', kinds: ['contact3', 'contactNO', 'contactNC', 'changeover', 'timedNO', 'timedNC', 'thermalNC', 'thermalNO'] },
   { title: 'Comando', kinds: ['pushNO', 'pushNC', 'pushIllum', 'emergency', 'selector'] },
   { title: 'Sensores', kinds: ['limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'temperatureController', 'sensor3wNO', 'sensor3wNC'] },
-  { title: 'Instrumentos', kinds: ['ammeter', 'voltmeter', 'currentTransformer', 'counter'] },
-  { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'lamp', 'buzzer', 'siren', 'solenoid', 'heater', 'motor3', 'motor6'] },
-  { title: 'Eletrónica', kinds: ['diode', 'resistor', 'capacitor', 'transformer', 'threePhaseTransformer', 'rectifier', 'plcIn', 'plcOut'] },
+  { title: 'Instrumentos', kinds: ['ammeter', 'voltmeter', 'meter', 'energyMeter', 'currentTransformer', 'counter'] },
+  { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'lamp', 'buzzer', 'siren', 'solenoid', 'heater', 'motor3', 'motor6', 'motor1', 'motorDC', 'motorSlipRing'] },
+  { title: 'Eletrónica', kinds: ['diode', 'resistor', 'capacitor', 'transformer', 'autotransformer', 'threePhaseTransformer', 'transformer3Line', 'rectifier', 'converter', 'plcIn', 'plcOut'] },
   { title: 'Pneumática', kinds: ['airSource', 'exhaust', 'valve22', 'valve32', 'valve42', 'valve52', 'valve53c', 'valve53p', 'valve53e', 'cylSE', 'cylDE', 'throttle', 'checkValve', 'airFilter', 'airLubricator', 'airRegulator', 'manometer', 'silencer', 'reservoir'] },
   { title: 'Hidráulica', kinds: ['hydPump', 'hydTank', 'hydCyl'] },
 ]
@@ -226,8 +291,13 @@ const rotate = (p: Pt, rot: CmdRotation): Pt => {
 }
 
 /** Bornes do símbolo (com a alimentação a ter um borne por fase). */
-export function partTerminals(part: Pick<CmdPart, 'kind' | 'lines'>): Array<{ x: number; y: number; label: string }> {
+export function partTerminals(part: Pick<CmdPart, 'kind' | 'lines'> & { variant?: string }): Array<{ x: number; y: number; label: string }> {
   if (part.kind === 'supply') return (part.lines?.length ? part.lines : ['L1']).map((label, i) => ({ x: i * CMD_GRID, y: 0, label }))
+  if (part.kind === 'converter') {
+    // A marcação dos bornes acompanha o tipo de conversor (entrada em cima, saída em baixo).
+    const labels = CONVERTER_LABELS[variantOf(part) ?? 'acdc']
+    return CMD_PARTS.converter.terminals.map((t, i) => ({ ...t, label: labels[i] }))
+  }
   return CMD_PARTS[part.kind].terminals
 }
 

@@ -9,7 +9,7 @@
 // fase nos motores e oscilações (circuitos que nunca estabilizam).
 // ============================================================================
 
-import { CMD_PARTS, partTerminals, type CmdPart, type CommandsDiagram } from './model'
+import { CMD_PARTS, MOTOR_KINDS, partTerminals, type CmdPart, type CommandsDiagram } from './model'
 
 export interface CmdRuntime {
   running: boolean
@@ -73,8 +73,12 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
     // Pressostato: contacto NA fechado enquanto a pressão o actua (clicado em RUN).
     case 'pressureSwitch': return !!rt.pressed[part.tag]
     case 'diode': return true // modelo simplificado: conduz no sentido do esquema
-    case 'breaker1': case 'breaker3': case 'rcd': return !rt.toggled[part.tag] && !rt.tripped[part.tag]
-    case 'disconnector3': return !rt.toggled[part.tag]
+    case 'breaker1': case 'breaker3': case 'rcd':
+    case 'breaker2': case 'breakerTM1': case 'motorBreaker3': return !rt.toggled[part.tag] && !rt.tripped[part.tag]
+    case 'disconnector3': case 'disconnector1': case 'disconnector2': case 'switchDisconnector1': case 'switchDisconnector3':
+    case 'fuseDisconnector3': case 'fuseSwitchDisconnector3': return !rt.toggled[part.tag]
+    // Fusíveis e contador de energia ficam em série no circuito: conduzem sempre.
+    case 'fuse2': case 'energyMeter': return true
     case 'contact3': case 'contactNO': case 'changeover': return on
     case 'contactNC': return !on
     case 'timedNO': return timed
@@ -262,7 +266,12 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   }
 
   const motors: Record<string, CmdMotorState> = {}
-  for (const m of diagram.parts.filter((p) => p.kind === 'motor3' || p.kind === 'motor6')) motors[m.id] = motorState(m, solved, live)
+  for (const m of diagram.parts.filter((p) => MOTOR_KINDS.includes(p.kind))) {
+    // Monofásico e DC: rodam com tensão entre os dois bornes (fase-neutro, L+/M).
+    motors[m.id] = m.kind === 'motor1' || m.kind === 'motorDC'
+      ? (powered(potentialOf(solved, m.id, 0), potentialOf(solved, m.id, 1)) ? { mode: 'run', dir: 1 } : { mode: 'stop', dir: 1 })
+      : motorState(m, solved, live)
+  }
 
   return { ...rt, coils, live, liveWires, lamps, loads, actuators, motors }
 }
@@ -277,7 +286,8 @@ function motorState(m: CmdPart, s: Solved, live: Record<string, string>): CmdMot
     return (order[1] - order[0] + 3) % 3 === 1 ? 1 : -1
   }
   const allThree = present.length === 3 && new Set(present).size === 3
-  if (m.kind === 'motor3') return allThree ? { mode: 'run', dir: dirOf() } : { mode: 'stop', dir: 1, phaseLoss: true }
+  // Rotor bobinado: o estator U1 V1 W1 é o de um motor 3~ (os anéis K L M não alimentam).
+  if (m.kind === 'motor3' || m.kind === 'motorSlipRing') return allThree ? { mode: 'run', dir: dirOf() } : { mode: 'stop', dir: 1, phaseLoss: true }
   const net = (t: number) => s.nets.find(key(m.id, t))
   // Estrela: U2, V2 e W2 unidos (ponto de estrela). Triângulo: U1-W2, V1-U2, W1-V2.
   const star = net(3) === net(4) && net(4) === net(5)
