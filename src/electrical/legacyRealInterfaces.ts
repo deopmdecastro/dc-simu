@@ -7,6 +7,20 @@ export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSp
     {"label":"1","face":"top","x":0.5,"y":0.006,"z":0.389,"diameterMm":11.3,"holeDepthMm":4.5},
     {"label":"2","face":"bottom","x":0.5,"y":0.984,"z":0.39,"diameterMm":11.3,"holeDepthMm":5},
   ],
+  // 3RU1116 até esta versão: 1L1/3L2/5L3 na aresta de trás do topo (z = 9 mm, fora dos pinos)
+  // e 2T1/4T2/6T3 na frente, sobre o degrau do bloco inferior em vez da face de base.
+  thermalRelaySiemens3ru1116: [
+    {"label":"1L1","face":"top","x":0.158642,"y":0.000133,"z":0.124533,"diameterMm":2.0,"holeDepthMm":2.0,"contact":"pin"},
+    {"label":"3L2","face":"top","x":0.352748,"y":0.000133,"z":0.124533,"diameterMm":2.0,"holeDepthMm":2.0,"contact":"pin"},
+    {"label":"5L3","face":"top","x":0.533466,"y":0.000133,"z":0.124533,"diameterMm":2.0,"holeDepthMm":2.0,"contact":"pin"},
+    {"label":"95","face":"front","x":0.111789,"y":0.658257,"z":0.927079,"diameterMm":6.5,"holeDepthMm":12.7},
+    {"label":"96","face":"front","x":0.305895,"y":0.658257,"z":0.927079,"diameterMm":6.5,"holeDepthMm":12.7},
+    {"label":"97","face":"front","x":0.5,"y":0.658257,"z":0.927079,"diameterMm":6.5,"holeDepthMm":12.7},
+    {"label":"98","face":"front","x":0.694105,"y":0.658257,"z":0.927079,"diameterMm":6.5,"holeDepthMm":12.7},
+    {"label":"2T1","face":"front","x":0.131869,"y":0.835803,"z":0.651723,"diameterMm":6.5,"holeDepthMm":9.3},
+    {"label":"4T2","face":"front","x":0.404063,"y":0.835803,"z":0.651723,"diameterMm":6.5,"holeDepthMm":9.3},
+    {"label":"6T3","face":"front","x":0.674026,"y":0.835803,"z":0.651723,"diameterMm":6.5,"holeDepthMm":9.3},
+  ],
   motorBreakerPkzmC10: [
     {"label":"1","face":"top","x":0.19,"y":0.054,"z":0.497,"diameterMm":9,"holeDepthMm":10},
     {"label":"3","face":"top","x":0.5,"y":0.054,"z":0.497,"diameterMm":9,"holeDepthMm":10},

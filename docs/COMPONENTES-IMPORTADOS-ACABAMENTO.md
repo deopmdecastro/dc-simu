@@ -27,17 +27,33 @@ Incremento de 2026-10-30 sobre a integração dos 14 GLB descrita em
   com a fila genérica (bornes fixados à mão ficam) e acrescenta os fios que faltavam. `updateImportedLoads`
   acende cada cor da torre com o seu fio e o comum.
 
+## Comandos do 3RU1116 (STOP, RESET, TEST)
+
+- Zonas de clique em mm do GLB em `THERMAL_RELAY_CONTROLS` (`src/three/importedFinish.ts`): vermelho `cad_8_`
+  (STOP) em x −22…−14,2; azul `cad_9_` (RESET) em x −13,5…−1; cursor de ensaio (TEST) em x 5…15, y 52…63.
+  O corpo (fora destas caixas) continua a ser a manobra geral — o disparo manual.
+- `ImportedCadDevice` põe o grupo do comando **na posição do aparelho**: antes ficava na origem da cena e o
+  ponto do clique era convertido em coordenadas do mundo, pelo que nenhuma caixa era reconhecida e todos os
+  cliques no aparelho caíam no corpo.
+- `importedActuationPatch` recebe o comando: STOP e TEST são momentâneos (`stopPressed`/`testPressed`),
+  RESET só rearma (`tripped: false`) e o corpo inverte o disparo. Os três botões são mecânicos — funcionam
+  com a simulação parada; o corpo exige RUN/PAUSA, como os disjuntores.
+- `importedBridges`: disparado, STOP ou ensaio abrem 95–96; disparado ou ensaio fecham 97–98. As três fases
+  nunca são interrompidas.
+- `animateImportedRig` empurra o botão premido para dentro do corpo (2,8 mm) e, com o relé disparado, o RESET
+  fica saliente — é o que se vê no aparelho real.
+
 ## Bornes por modelo
 
 | Modelo | Posição | Fonte |
 | --- | --- | --- |
-| Siemens 3RU1116 | 1L1/3L2/5L3 nos três pinos esquerdos do topo; 95/96/97/98 na fila do meio da frente; 2T1/4T2/6T3 na fila de baixo | gravação no CAD |
+| Siemens 3RU1116 | 1L1/3L2/5L3 nas pontas dos três pinos esquerdos do topo; 2T1/4T2/6T3 nas cavidades da face de base (por baixo do bloco dos terminais); 95/96/97/98 e A2 na fila de parafusos da frente — A2 à direita do 98, como na etiqueta do aparelho | gravação no CAD; A2 confirmado na ficha Siemens 3RU1116-1AB0 |
 | Schneider XA2ED33 | 13/14 e 23/24 nos parafusos dos dois blocos traseiros | CAD + ficha Schneider |
 | WEG CWBC65 | 1L1/3L2/5L3/A1 na fila traseira do topo; 2T1/4T2/6T3/A2 por baixo das mesmas colunas | CAD (a saída inferior não está desenhada) |
 | WEG SPW12 | +, −, PE nas três entradas inferiores medidas | CAD; ordem dos rótulos por confirmar |
 | Siemens 3TK2840 | quatro filas de três parafusos (topo: A1 Y11 Y12 / Y21 Y22 Y20; base: Y33 Y34 14 / 24 A2) | rótulos do manual 3TK28; ordem física por confirmar na etiqueta |
 | Schneider GV2ME | 1/3/5 nas cavidades do topo; 2/4/6 na face inferior (o CAD não abre as entradas de baixo) | CAD |
-| Telemecanique XUKT1 | V+/0V/OUT na ponta do cabo | CAD + ficha |
+| Telemecanique XUKT1 | COM/NA/NF na ponta dos três cabos (contacto de comutação: repouso COM–NF, deteção COM–NA) | CAD + ficha Telemecanique |
 | EAO 61 | 11 (comum), 12 (repouso), 14 (chave rodada) nas três lâminas centrais | CAD; numeração IEC por confirmar |
 | Torre SB2-3011 | R/Y/G/COM pela base | torre de 4 fios típica; cores dos fios por confirmar |
 
@@ -45,8 +61,10 @@ Incremento de 2026-10-30 sobre a integração dos 14 GLB descrita em
 
 - `npm run test:terminal-geometry` — 34 modelos: 194 encaixes com cavidade medida por raios (32 novos nos CAD importados) e 20 pinos/fios/faces sem borne desenhado (`RealTerminalSpot.contact`).
 - `npm run test:terminal-seat` — 194 bornes assentes nas cavidades (furos de botões/rearme dos CAD importados não contam como bornes).
-- `npm run test:imported-components` — 137 verificações (lógica da chave e da torre, todos os bornes com posição
-  medida, criação no sítio medido, migração de projetos antigos).
+- `npm run test:imported-components` — 169 verificações: lógica da chave, da torre e do relé térmico (bornes
+  1L1/3L2/5L3 no topo, 2T1/4T2/6T3 na base, 95/96/97/98/A2 na frente; STOP/ensaio momentâneos; RESET só
+  rearma; corpo inverte o disparo; pontes 95–96/97–98), todos os bornes com posição medida, criação no sítio
+  medido e migração de projetos antigos.
 - `npm run test:imported-finish-ui` — 15 verificações: página isolada com os 14 GLB (materiais, pivôs, LED/lentes)
   e Painel 3D real com os tipos com mecânica, sem erros JavaScript.
 - Páginas de revisão: `scripts/imported-finish-audit.html` (repouso vs ativo), `scripts/imported-terminal-audit.html`

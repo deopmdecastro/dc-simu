@@ -2567,7 +2567,9 @@ console.log('\n— Tabela de sinais dinâmica —')
 
   const historical = measuredComponents.filter((component) => component.type !== 'multimeterDm20' && !!LEGACY_REAL_TERMINALS[component.type]).map((current) => {
     const old = { ...current, terminals: current.terminals.map((terminal) => {
-      const spot = LEGACY_REAL_TERMINALS[current.type]!.find((spot) => spot.label === terminal.label)!
+      // Bornes que não existiam na versão antiga (ex.: A2 do 3RU1116) ficam no sítio atual.
+      const spot = LEGACY_REAL_TERMINALS[current.type]!.find((spot) => spot.label === terminal.label)
+        ?? REAL_TERMINALS[current.type]!.find((spot) => spot.label === terminal.label)!
       return { ...terminal, position3D: realTerminalPosition(current.type, spot) }
     }) }
     return { current, old, migrated: upgradeRealInterfacePositions(old) }

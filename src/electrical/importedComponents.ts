@@ -22,7 +22,9 @@ export const IMPORTED_COMPONENTS: Record<ImportedComponentType, ImportedComponen
   fuseHolderSchneiderDf101v: { name: 'Porta-fusível Schneider DF101V · 1P · 10×38', manufacturer:'Schneider Electric', reference:'DF101V', category:'protection', tag:'FU', behavior:'fuse', terminals:[['1','power-in'],['2','power-out']], poles:[['1','2']], state:{closed:true,blown:false,inA:32}, scope:'Continuidade do fusível e seccionamento; sem curva tempo/corrente ou indicador néon.', source:'https://www.se.com/us/en/faqs/FA126621/' },
   fuseHolderSchneiderDf81n: { name: 'Porta-fusível Schneider DF81N · 1P+N', manufacturer:'Schneider Electric', reference:'DF81N', category:'protection', tag:'FU', behavior:'fuse', terminals:[['1','power-in'],['2','power-out'],['N1','neutral'],['N2','neutral']], poles:[['1','2']], neutral:[['N1','N2']], state:{closed:true,blown:false}, scope:'Continuidade do fusível e seccionamento do neutro; calibre do cartucho a definir.', source:'https://download.schneider-electric.com/files?p_Doc_Ref=9400HO1601&p_File_Ext=.PDF' },
   keyActuatorEao61: { name:'Comutador de chave EAO 61-2101.0/D · 2 posições com retorno', manufacturer:'EAO', reference:'61-2101.0/D', category:'command',tag:'S',behavior:'actuator',terminals:[['11','aux-no'],['12','aux-nc'],['14','aux-no']],state:{pressed:false,momentary:true},scope:'Atuador de chave com retorno e o elemento de comutação desenhado no CAD (três lâminas na traseira). Modelado como comutador 11–12 (repouso) / 11–14 (chave rodada); numeração IEC por confirmar na etiqueta do elemento.',source:'https://www.eao.com/api/action/component/datasheet?lang=en&objectID=61-2101.0%2FD'},
-  thermalRelaySiemens3ru1116: {name:'Relé térmico Siemens 3RU1116-1AB0 · 1,1–1,6 A',manufacturer:'Siemens',reference:'3RU1116-1AB0',category:'protection',tag:'RT',behavior:'thermal',terminals:[...powerTerminals,['95','aux-nc'],['96','aux-nc'],['97','aux-no'],['98','aux-no']],poles,state:{tripped:false,rangeA:'1,1–1,6 A',manual:true},scope:'O disparo comuta 95–96/97–98; os percursos de potência mantêm-se condutivos. Sem modelo térmico temporizado.',source:'https://sieportal.siemens.com/en-be/products-services/detail/3RU11161AB0'},
+  // A2 é o borne de passagem da bobina do contactor (manual Siemens 3RU2/3RB3): não
+  // comuta com o disparo, apenas passa a alimentação da bobina montada por baixo.
+  thermalRelaySiemens3ru1116: {name:'Relé térmico Siemens 3RU1116-1AB0 · 1,1–1,6 A',manufacturer:'Siemens',reference:'3RU1116-1AB0',category:'protection',tag:'RT',behavior:'thermal',terminals:[...powerTerminals,['95','aux-nc'],['96','aux-nc'],['97','aux-no'],['98','aux-no'],['A2','coil-minus']],poles,state:{tripped:false,stopPressed:false,testPressed:false,rangeA:'1,1–1,6 A',manual:true},scope:'1L1/3L2/5L3 nos pinos do topo, 2T1/4T2/6T3 na base, 95/96/97/98/A2 na frente. O disparo comuta 95–96/97–98 e os percursos de potência mantêm-se condutivos; STOP e ensaio (TEST) abrem 95–96 enquanto premidos e o ensaio fecha 97–98; RESET rearma. A2 é a passagem da bobina do contactor, sem contacto próprio. Sem modelo térmico temporizado.',source:'https://sieportal.siemens.com/en-be/products-services/detail/3RU11161AB0'},
   residualBreakerHagerCfc225p: {name:'Interruptor diferencial Hager CFC225P · 2P · 25 A · 300 mA',manufacturer:'Hager',reference:'CFC225P',category:'protection',tag:'QDR',behavior:'breaker',terminals:[['1','power-in'],['2','power-out'],['N1','neutral'],['N2','neutral']],poles:[['1','2'],['N1','N2']],state:{closed:false,tripped:false,inA:25,sensmA:300},scope:'Manobra e disparo manual dos dois polos; sem medição de corrente diferencial.',source:'https://assets.hager.com/step-content/P/PDS_156170925001PT/Document/std.lang.all/PDS_CFC225P_5001_pt-PT.pdf'},
   limitSwitchLongRoller: {name:'Fim de curso com haste longa e rolete · CAD por converter',manufacturer:'Não identificado',reference:'40.108',category:'command',tag:'SQ',behavior:'button-no',terminals:[],state:{pressed:false,momentary:true},scope:'Aguarda exportação STEP/GLB do SLDPRT e confirmação dos contactos.'},
   selectorSchneiderXa2ed33: {name:'Seletor Schneider Harmony XA2ED33 · 3 posições · 2NA',manufacturer:'Schneider Electric',reference:'XA2ED33',category:'command',tag:'S',behavior:'selector',terminals:[['13','aux-no'],['14','aux-no'],['23','aux-no'],['24','aux-no']],state:{position:0,maintain:true},scope:'Esquerda fecha 13–14; centro abre ambos; direita fecha 23–24. Posições mantidas.',source:'https://www.se.com/sg/en/product/XA2ED33/complete-selector-switch-harmony-xa2-plastic-black-22mm-3-positions-stay-put-2no/'},
@@ -38,11 +40,27 @@ export const IMPORTED_COMPONENTS: Record<ImportedComponentType, ImportedComponen
 }
 export const importedComponentInfo = (type: string): ImportedComponentInfo | undefined => Object.prototype.hasOwnProperty.call(IMPORTED_COMPONENTS, type) ? IMPORTED_COMPONENTS[type as ImportedComponentType] : undefined
 
+/**
+ * Botão físico premido num aparelho importado. O corpo do aparelho (`null`) continua a ser
+ * a manobra geral; os botões só existem onde o CAD os desenha (relé térmico Siemens).
+ */
+export type ImportedControl = 'reset' | 'stop' | 'test'
+
+/** Botões que se premem e voltam a si mesmos: agem enquanto o dedo está em cima. */
+export const IMPORTED_MOMENTARY_CONTROLS: ImportedControl[] = ['stop', 'test']
+
 /** Uma regra de manobra partilhada pelo Esquema e pelo Painel 3D. */
-export function importedActuationPatch(component: ElectricalComponent, pressed: boolean): Record<string, unknown> | null {
+export function importedActuationPatch(component: ElectricalComponent, pressed: boolean, control: ImportedControl | null = null): Record<string, unknown> | null {
   const info = importedComponentInfo(component.type)
   if (!info) return null
   if (info.behavior === 'actuator' || info.behavior.startsWith('button')) return { pressed }
+  // Relé térmico: cada botão faz o que faz no aparelho. O STOP e o ensaio (TEST) só estão
+  // ativos enquanto premiados; o RESET rearma e não arma.
+  if (info.behavior === 'thermal') {
+    if (control === 'reset') return pressed && component.state.tripped ? { tripped: false } : null
+    if (control === 'stop') return { stopPressed: pressed }
+    if (control === 'test') return { testPressed: pressed }
+  }
   if (!pressed) return null
   if (info.behavior === 'breaker' || info.behavior === 'fuse') return { closed: !component.state.closed || !!component.state.tripped, tripped: false }
   if (info.behavior === 'thermal') return { tripped: !component.state.tripped }
@@ -136,7 +154,12 @@ export function importedBridges(component: ElectricalComponent): Array<[string,s
   let pairs: Pair[] = []
   if (info.behavior === 'fuse' && state.closed) pairs = [...(!state.blown ? info.poles ?? [] : []), ...info.neutral ?? []]
   if (info.behavior === 'breaker' && state.closed && !state.tripped) pairs = info.poles ?? []
-  if (info.behavior === 'thermal') pairs = [...info.poles ?? [], state.tripped ? ['97','98'] : ['95','96']]
+  if (info.behavior === 'thermal') {
+    // 95–96 abre no disparo, no STOP e no ensaio (TEST); 97–98 fecha no disparo e no ensaio.
+    const openNc = !!state.tripped || !!state.stopPressed || !!state.testPressed
+    const closeNo = !!state.tripped || !!state.testPressed
+    pairs = [...info.poles ?? [], ...(openNc ? [] : [['95','96'] as Pair]), ...(closeNo ? [['97','98'] as Pair] : [])]
+  }
   if (info.behavior === 'contactor' && state.energized) pairs = info.poles ?? []
   if (info.behavior === 'actuator' && component.terminals.length) pairs = state.pressed ? [['11','14']] : [['11','12']]
   if (info.behavior === 'selector') pairs = state.position === -1 ? [['13','14']] : state.position === 1 ? [['23','24']] : []

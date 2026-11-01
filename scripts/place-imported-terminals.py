@@ -17,19 +17,23 @@ import pathlib
 
 # (rótulo, face, x, y, z, diâmetro, profundidade); o tipo de contacto vem de CONTACTS (por omissão: socket)
 PLACEMENTS = {
-    # Siemens 3RU1116-1AB0: pinos de encaixe no contactor (topo, três à esquerda);
-    # 95/96/97/98 na fila do meio da frente; 2T1/4T2/6T3 na fila de baixo.
+    # Siemens 3RU1116-1AB0: os cinco bornes principais estão nas duas faces de topo e
+    # de base — 1L1/3L2/5L3 nos pinos que sobem até y = 74,9 mm (z = 53 mm, eixo dos
+    # pinos medidos no CAD, não a aresta de trás); 2T1/4T2/6T3 nas aberturas da face
+    # inferior, por baixo do bloco branco (bloco 26,5–47,2 mm de profundidade, furos
+    # em z ≈ 31,5–35,5 mm). 95/96/97/98 e A2 ficam na frente, na fila de cinco tomadas.
     'thermalRelaySiemens3ru1116': [
-        ('1L1', 'top', -15.3, 74.9, 9.0, 2.0, 2.0),
-        ('3L2', 'top', -6.6, 74.9, 9.0, 2.0, 2.0),
-        ('5L3', 'top', 1.5, 74.9, 9.0, 2.0, 2.0),
+        ('1L1', 'top', -15.3, 74.9, 53.0, 2.0, 2.0),
+        ('3L2', 'top', -6.6, 74.9, 53.0, 2.0, 2.0),
+        ('5L3', 'top', 1.5, 74.9, 53.0, 2.0, 2.0),
         ('95', 'front', -17.4, 25.6, 67.0, 6.5, 12.7),
         ('96', 'front', -8.7, 25.6, 67.0, 6.5, 12.7),
         ('97', 'front', 0.0, 25.6, 67.0, 6.5, 12.7),
         ('98', 'front', 8.7, 25.6, 67.0, 6.5, 12.7),
-        ('2T1', 'front', -16.5, 12.3, 47.1, 6.5, 9.3),
-        ('4T2', 'front', -4.3, 12.3, 47.1, 6.5, 9.3),
-        ('6T3', 'front', 7.8, 12.3, 47.1, 6.5, 9.3),
+        ('A2', 'front', 17.4, 25.6, 67.0, 6.5, 12.7),
+        ('2T1', 'bottom', -16.5, 0.9, 33.5, 6.5, 9.3),
+        ('4T2', 'bottom', -4.3, 0.9, 33.5, 6.5, 9.3),
+        ('6T3', 'bottom', 7.8, 0.9, 33.5, 6.5, 9.3),
     ],
     # Schneider XA2ED33: dois blocos de contactos na traseira, parafusos em cima/baixo.
     'selectorSchneiderXa2ed33': [
@@ -80,10 +84,11 @@ PLACEMENTS = {
         ('6', 'bottom', 14.6, 0.0, 38.5, 11.0, 11.0),
     ],
     # Telemecanique XUKT1KSML2: os três fios saem da ponta do cabo (lado esquerdo).
+    # Nomes do contacto de comutação COM/NA/NF, como no modelo elétrico e no esquema.
     'photoSensorXukt1ksml2': [
-        ('V+', 'left', -16.9, 4.5, 14.6, 1.5, 1.0),
-        ('0V', 'left', -16.9, 2.5, 12.6, 1.5, 1.0),
-        ('OUT', 'left', -16.9, 4.5, 10.6, 1.5, 1.0),
+        ('COM', 'left', -16.9, 1.5, 2.5, 1.5, 1.0),
+        ('NA', 'left', -16.9, 2.5, 2.5, 1.5, 1.0),
+        ('NF', 'left', -16.9, 3.5, 2.5, 1.5, 1.0),
     ],
     # EAO 61: elemento de comutação na traseira — fila central de três lâminas.
     'keyActuatorEao61': [
@@ -105,7 +110,7 @@ PLACEMENTS = {
 CONTACTS = {
     'thermalRelaySiemens3ru1116': {'1L1': 'pin', '3L2': 'pin', '5L3': 'pin'},
     'keyActuatorEao61': {'11': 'pin', '12': 'pin', '14': 'pin'},
-    'photoSensorXukt1ksml2': {'V+': 'lead', '0V': 'lead', 'OUT': 'lead'},
+    'photoSensorXukt1ksml2': {'COM': 'lead', 'NA': 'lead', 'NF': 'lead'},
     'towerLightSb23011': {'R': 'lead', 'Y': 'lead', 'G': 'lead', 'COM': 'lead'},
     'contactorWegCwbc65': {'2T1': 'surface', '4T2': 'surface', '6T3': 'surface', 'A2': 'surface'},
     'motorBreakerSchneiderGv2me': {'2': 'surface', '4': 'surface', '6': 'surface'},

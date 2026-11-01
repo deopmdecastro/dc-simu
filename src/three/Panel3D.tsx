@@ -1,8 +1,8 @@
 import { isTabletDesktop } from '../ui/device'
 import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
-import { importedComponentInfo, importedActuationPatch } from '../electrical/importedComponents'
-import { animateImportedRig, paintImportedModel, rigImportedModel } from './importedFinish'
+import { importedComponentInfo, importedActuationPatch, type ImportedControl } from '../electrical/importedComponents'
+import { animateImportedRig, importedControlAt, importedPointMm, paintImportedModel, rigImportedModel } from './importedFinish'
 import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, Billboard, useGLTF, useProgress } from '@react-three/drei'
@@ -857,9 +857,9 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
 }
 
 /** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
-function CadComponentReal3D({ c, x, position, interactive = true, labelColor, labelText }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean; labelColor?: string; labelText?: string }) {
+function CadComponentReal3D({ c, x, position, interactive = true, labelColor, labelText, anchor }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean; labelColor?: string; labelText?: string; /** Apoio vertical: na calha assenta na base, solto fica centrado. */ anchor?: 'center' | 'bottom' }) {
   const spec = getComponentModelSpec(c.type)!
-  const centered = !!position
+  const centered = (anchor ?? (position ? 'center' : 'bottom')) === 'center'
   const { scene } = useGLTF(spec.path)
   const importedType = importedComponentInfo(c.type) ? c.type : null
   const { model, importedRig, lenses } = useMemo(() => {
@@ -992,25 +992,46 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
 }
 
 /** Manobra funcional dos novos CAD, partilhada com o Esquema. */
-function ImportedCadDevice({ c, x, position, interactive, labelColor }: { c: ElectricalComponent; x: number; position?: [number,number,number]; interactive: boolean; labelColor: string }) {
+function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor }: { c: ElectricalComponent; x: number; position?: [number,number,number]; /** Botões mecânicos ativos mesmo em STOP. */ mechanical: boolean; interactive: boolean; labelColor: string }) {
   const info = importedComponentInfo(c.type)!
+  const spec = getComponentModelSpec(c.type)!
   const simActive = useSimStore(s => s.sim.runState !== 'stopped')
+  // O ensaio (TEST) e o STOP atuam o contacto auxiliar enquanto premiados; o RESET rearma.
   const status = info.behavior === 'breaker' || info.behavior === 'fuse'
     ? c.state.tripped ? 'Disparado' : c.state.closed ? 'Fechado' : 'Aberto'
     : info.behavior === 'selector' ? c.state.position === -1 ? 'Esq.' : c.state.position === 1 ? 'Dir.' : '0'
-    : info.behavior === 'thermal' ? c.state.tripped ? 'Disparado' : 'Armado' : ''
-  const apply = (pressed: boolean) => {
-    if (!interactive || !simActive || useSimStore.getState().tool !== 'select') return
-    const patch = importedActuationPatch(c, pressed)
+    : info.behavior === 'thermal' ? c.state.tripped ? 'Disparado' : c.state.testPressed ? 'Ensaio' : c.state.stopPressed ? 'STOP' : 'Armado' : ''
+  const group = useRef<THREE.Group>(null)
+  /** Comando do aparelho sob o ponteiro; `null` no corpo (manobra geral). */
+  const controlAt = (event: { point: THREE.Vector3 }): ImportedControl | null => {
+    const node = group.current
+    if (!node) return null
+    const point = importedPointMm(node.worldToLocal(event.point.clone()), spec.physicalSizeMm, PANEL_UNITS_PER_MM, position ? 'center' : 'bottom')
+    return importedControlAt(c.type, point)
+  }
+  const apply = (pressed: boolean, control: ImportedControl | null = null) => {
+    if (useSimStore.getState().tool !== 'select') return
+    // Os botões de um relé térmico são mecânicos: funcionam também com a simulação parada.
+    // O corpo (disparo manual) continua a exigir RUN/PAUSA, como os disjuntores.
+    if (control ? !mechanical : !interactive) return
+    const patch = importedActuationPatch(c, pressed, control)
     if (patch) useSimStore.getState().setComponentState(c.id, patch)
   }
-  return <group onPointerDown={event => {
-    if (!interactive || !simActive || event.button !== 0) return
+  // O grupo do comando fica na posição do aparelho: sem isto o ponto do clique vinha
+  // em coordenadas do mundo e nenhuma zona de botão era reconhecida.
+  return <group ref={group} position={position ?? [x, RAIL_Y, 0]} onPointerDown={event => {
+    if (event.button !== 0) return
+    const control = controlAt(event)
+    if (control ? !mechanical : !interactive || !simActive) return
     event.stopPropagation()
     ;(event.target as Element | null)?.setPointerCapture?.(event.pointerId)
-    apply(true)
-  }} onPointerUp={event => { apply(false); (event.target as Element | null)?.releasePointerCapture?.(event.pointerId) }} onPointerCancel={() => apply(false)}>
-    <CadComponentReal3D c={c} x={x} position={position} interactive={interactive} labelColor={labelColor} labelText={status ? `${c.ref} · ${status}` : c.ref} />
+    apply(true, control)
+  }} onPointerUp={event => {
+    const control = controlAt(event)
+    apply(false, control)
+    ;(event.target as Element | null)?.releasePointerCapture?.(event.pointerId)
+  }} onPointerCancel={event => apply(false, controlAt(event))}>
+    <CadComponentReal3D c={c} x={x} position={[0, 0, 0]} anchor={position ? 'center' : 'bottom'} interactive={interactive} labelColor={labelColor} labelText={status ? `${c.ref} · ${status}` : c.ref} />
   </group>
 }
 
@@ -2400,6 +2421,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   // Em STOP mantém-se apenas seleção/edição (e visualização estática na demonstração).
   const canActuate = runState !== 'stopped' && (demoMode || tool === 'select') && !viewOrientationEditor
   const interactive = canActuate
+  // Comandos mecânicos dos CAD (botões do relé térmico): funcionam com a simulação parada,
+  // porque no aparelho real se premem para ensaiar o contacto auxiliar.
+  const mechanicalControls = (demoMode || tool === 'select') && !viewOrientationEditor
   const simLocked = demoMode || ((runState === 'running' || runState === 'paused') && !viewOrientationEditor)
 
   const probeA = useSimStore((state) => state.probeA)
@@ -3283,7 +3307,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           const x = positions[c.id].x
           let content: ReactNode
           if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
-          else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
+          else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} interactive={interactive && !c.locked} mechanical={mechanicalControls && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><Suspense fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><LogoSiemens1224RCMesh c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
@@ -3331,7 +3355,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           } else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) {
             const [px,py,pz] = frontPivot(c)
             const fallback = <Sensor3D c={c} x={x} onToggle={() => {}} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} position={[x+px,py,pz]} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} position={[x+px,py,pz]} interactive={interactive && !c.locked} mechanical={mechanicalControls && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'multimeterDm20') {
             // O CAD e os bornes usam o mesmo pivô central também fora da calha.
             // A antiga montagem pela base deslocava o corpo 40 mm em profundidade.

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { ImportedControl } from '../electrical/importedComponents'
 
 /**
  * Acabamento e mecânica dos CAD importados em 2026-10-30.
@@ -218,7 +219,11 @@ export function rigImportedModel(type: string, root: THREE.Object3D, parts: Part
   } else if (type === 'keyActuatorEao61') {
     pivotAround(root, parts.filter((p) => inside(p.center, { min: [-1.5, 9, 33], max: [1.5, 24, 76] }) && p.size.x <= 2.5).map((p) => p.mesh), new THREE.Vector3(0, 20, 50), 'key', rig)
   } else if (type === 'thermalRelaySiemens3ru1116') {
-    pivotAround(root, parts.filter((p) => sameColor(p.color, '#0000ff')).map((p) => p.mesh), new THREE.Vector3(-8, 40, 70), 'reset', rig)
+    // Três comandos no CAD: o STOP vermelho, o RESET azul (cruz) e o cursor de ensaio (TEST).
+    // O cursor de ensaio não é uma peça separada no GLB (faz parte da frente), por isso só tem
+    // zona de clique — ver `thermalRelayControlAt`.
+    pivotAround(root, parts.filter((p) => sameColor(p.color, '#ff0000')).map((p) => p.mesh), new THREE.Vector3(-18.1, 37.9, 63.5), 'stop', rig)
+    pivotAround(root, parts.filter((p) => sameColor(p.color, '#0000ff')).map((p) => p.mesh), new THREE.Vector3(-7.1, 37.9, 63.5), 'reset', rig)
   } else if (type === 'selectorSchneiderXa2ed33') {
     // O manípulo é a parte da frente que sai do aro: separa-se do sólido único e roda no eixo Z.
     const body = parts[0]?.mesh
@@ -266,17 +271,19 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     else if (item.role === 'button-on') target = rig.edges.pulseOn > 0 ? 1 : 0
     else if (item.role === 'button-off') target = rig.edges.pulseOff > 0 ? 1 : 0
     else if (item.role === 'key') target = state.pressed ? 1 : 0
-    else if (item.role === 'reset') target = state.tripped ? 1 : 0
+    // Relé térmico: STOP e RESET são botões de pressão (afundam e voltam) e o disparo deixa
+    // o RESET saliente, como no aparelho; o ensaio (TEST) não tem peça própria no CAD.
+    else if (item.role === 'stop') target = state.stopPressed ? 1 : 0
+    else if (item.role === 'reset') target = state.resetPressed ? 1 : 0
     else if (item.role === 'knob') target = typeof state.position === 'number' ? state.position : 0
-    const next = springTo(item.value, target, delta, item.role.startsWith('button') ? 30 : 14)
+    const next = springTo(item.value, target, delta, item.role.startsWith('button') || item.role === 'stop' || item.role === 'reset' ? 30 : 14)
     if (Math.abs(next - target) > 1e-4) moving = true
     item.value = Math.abs(next - target) < 1e-4 ? target : next
     const r = item.rest, p = item.restPos
     if (item.role === 'carrier') item.pivot.rotation.set(r.x + item.value * THREE.MathUtils.degToRad(24), r.y, r.z)
     else if (item.role === 'key') item.pivot.rotation.set(r.x, r.y, r.z - item.value * THREE.MathUtils.degToRad(60))
     else if (item.role === 'knob') item.pivot.rotation.set(r.x, r.y, r.z - (item.value - 1) * THREE.MathUtils.degToRad(45)) // CAD na posição direita
-    else if (item.role.startsWith('button')) item.pivot.position.set(p.x, p.y, p.z - item.value * .0028)
-    else if (item.role === 'reset') item.pivot.position.set(p.x, p.y, p.z + item.value * .003)
+    else if (item.role.startsWith('button') || item.role === 'stop' || item.role === 'reset') item.pivot.position.set(p.x, p.y, p.z - item.value * .0028 + (item.role === 'reset' && state.tripped ? .003 : 0))
   }
   for (const lamp of rig.lamps) {
     let on = false
@@ -304,4 +311,39 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     if (lamp.light) lamp.light.intensity = lamp.value * 1.1
   }
   return moving
+}
+
+// ------------------------------------------------------------------ comandos
+/**
+ * Zonas de clique dos comandos do relé térmico 3RU1116, em mm no referencial do GLB
+ * (x centrado, y desde a base, z desde a traseira). As caixas saem das peças medidas no
+ * CAD — `cad_8_` (STOP, vermelho), `cad_9_` (RESET, azul) — e do cursor de ensaio, que
+ * está gravado na frente ao lado da escala e não existe como peça própria.
+ */
+const THERMAL_RELAY_CONTROLS: Array<{ control: ImportedControl; min: [number, number, number]; max: [number, number, number] }> = [
+  { control: 'stop', min: [-22, 31, 62], max: [-14.2, 45, 73.5] },
+  { control: 'reset', min: [-13.5, 31, 62], max: [-1, 45, 73.5] },
+  { control: 'test', min: [5, 52, 62], max: [15, 63, 70] },
+]
+
+/** Comando sob um ponto do aparelho (mm do GLB); `null` = corpo, que continua a ser a manobra geral. */
+export function importedControlAt(type: string, pointMm: [number, number, number]): ImportedControl | null {
+  if (type !== 'thermalRelaySiemens3ru1116') return null
+  const [x, y, z] = pointMm
+  const hit = THERMAL_RELAY_CONTROLS.find((box) => x >= box.min[0] && x <= box.max[0] && y >= box.min[1] && y <= box.max[1] && z >= box.min[2] && z <= box.max[2])
+  return hit ? hit.control : null
+}
+
+/**
+ * Ponto do clique (unidades do painel, à saída do grupo do componente) em mm do GLB.
+ * O modelo é ajustado com a escala do painel e, na calha, apoiado na base; fora da calha
+ * fica centrado — daí o `anchor`. Vale para CAD sem espelho em profundidade (`flipDepth`),
+ * que é o caso do 3RU1116.
+ */
+export function importedPointMm(point: THREE.Vector3, sizeMm: { width: number; height: number; depth: number }, unitsPerMm: number, anchor: 'center' | 'bottom'): [number, number, number] {
+  return [
+    point.x / unitsPerMm,
+    point.y / unitsPerMm + (anchor === 'center' ? sizeMm.height / 2 : 0),
+    point.z / unitsPerMm + sizeMm.depth / 2,
+  ]
 }

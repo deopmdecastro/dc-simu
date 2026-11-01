@@ -9,6 +9,8 @@ import { createComponent, TEMPLATES, upgradeRealInterfacePositions } from '../sr
 import { REAL_TERMINALS, realTerminalPosition } from '../src/electrical/realInterfaces'
 import { internalBridges } from '../src/electrical/engine'
 import { importedActuationPatch, updateImportedLoads, updateImportedPower } from '../src/electrical/importedComponents'
+import { importedControlAt, importedPointMm } from '../src/three/importedFinish'
+import { PANEL_UNITS_PER_MM } from '../src/three/modelPaths'
 import { IMPORTED_COMPONENT_TYPES } from '../src/types/imported'
 import { canInsertComponent3D, getComponentGlbSpec } from '../src/three/modelPaths'
 import { useSimStore } from '../src/store/useSimStore'
@@ -37,18 +39,56 @@ const thermal=createComponent('thermalRelaySiemens3ru1116')
 thermal.state.tripped=true
 const thermalPairs=labels(thermal)
 check(thermalPairs.includes('1L1:2T1')&&thermalPairs.includes('97:98')&&!thermalPairs.includes('95:96'),'térmico disparado conserva potência e comuta os auxiliares')
+// 3RU1116: bornes nos sítios do aparelho — pinos no topo, blocos na base, auxiliares e A2 na frente.
+const thermalSpots=REAL_TERMINALS.thermalRelaySiemens3ru1116!
+const spotsOn=(face:string)=>thermalSpots.filter(s=>s.face===face).map(s=>s.label).sort()
+assert.deepEqual(spotsOn('top'),['1L1','3L2','5L3']);checks++
+assert.deepEqual(spotsOn('bottom'),['2T1','4T2','6T3']);checks++
+assert.deepEqual(spotsOn('front'),['95','96','97','98','A2']);checks++
+const thermalLabels=thermal.terminals.map(t=>t.label)
+check(thermalLabels.length===11&&thermalLabels.includes('A2'),'3RU1116: onze bornes, incluindo o A2 da bobina do contactor')
+const at=(label:string)=>thermal.terminals.find(t=>t.label===label)!.position3D!
+check(at('1L1').y>.95&&at('3L2').y>.95&&at('5L3').y>.95,'1L1/3L2/5L3 nos pinos do topo')
+check(at('2T1').y<.08&&at('4T2').y<.08&&at('6T3').y<.08,'2T1/4T2/6T3 na base, não na frente')
+check(at('A2').z>.85&&Math.abs(at('A2').y-at('95').y)<.01,'A2 na fila dos auxiliares, na frente')
+// Botões: RESET rearma, STOP e ensaio (TEST) são momentâneos e mexem nos auxiliares.
+thermal.state.tripped=true
+check(importedActuationPatch(thermal,true,'reset')?.tripped===false,'RESET rearma o térmico disparado')
+thermal.state.tripped=false
+check(importedActuationPatch(thermal,true,'reset')===null,'RESET sem disparo não arma nem dispara')
+thermal.state.stopPressed=true
+assert.deepEqual(labels(thermal),['1L1:2T1','3L2:4T2','5L3:6T3']);checks++
+thermal.state.stopPressed=false
+thermal.state.testPressed=true
+const tested=labels(thermal)
+check(tested.includes('97:98')&&!tested.includes('95:96'),'ensaio (TEST): abre 95–96 e fecha 97–98 enquanto premiado')
+thermal.state.testPressed=false
+check(labels(thermal).includes('95:96'),'ao largar o ensaio, 95–96 volta a fechar')
+check(importedActuationPatch(thermal,true,'stop')?.stopPressed===true&&importedActuationPatch(thermal,false,'stop')?.stopPressed===false,'STOP é momentâneo: fecha ao largar')
+check(importedActuationPatch(thermal,true,'test')?.testPressed===true&&importedActuationPatch(thermal,false,'test')?.testPressed===false,'ensaio é momentâneo: fecha ao largar')
+thermal.state.tripped=false
+check(importedActuationPatch(thermal,true)?.tripped===true,'corpo do aparelho continua a simular o disparo por sobrecarga')
+// Zonas de clique: cada botão no seu sítio; o resto do corpo não é botão.
+const controlAt=(x:number,y:number,z:number)=>importedControlAt('thermalRelaySiemens3ru1116',[x,y,z])
+check(controlAt(-18,38,71)==='stop'&&controlAt(-7,38,71)==='reset'&&controlAt(10,57,67)==='test','zonas de clique medidas: STOP, RESET e TEST')
+check(controlAt(0,20,70)===null&&controlAt(15,40,70)===null,'corpo e escala não são botões')
+const roundTrip=importedPointMm(new THREE.Vector3(0, 0, (72.27 / 2) * PANEL_UNITS_PER_MM), {width:44.821,height:74.91,depth:72.27}, PANEL_UNITS_PER_MM, 'bottom')
+check(Math.abs(roundTrip[1])<1e-9&&Math.abs(roundTrip[2]-72.27)<1e-6,'ponto do clique convertido para o referencial do GLB')
 const selector=createComponent('selectorSchneiderXa2ed33')
 for(const [position,expected] of [[-1,['13:14']],[0,[]],[1,['23:24']]] as const){selector.state.position=position;assert.deepEqual(labels(selector),expected);checks++}
 check(importedActuationPatch(selector,true)?.position===-1,'seletor mantém três posições distintas, sem fechar os dois contactos em conjunto')
+// Sensor fotoelétrico XUKT: contacto de comutação COM–NF em repouso e COM–NA na deteção
+// (modelo dos cabos COM/NA/NF, validado no commit 2a178f5). `no=false` inverte a lógica.
 const sensor=createComponent('photoSensorXukt1ksml2')
+assert.deepEqual(labels(sensor),['COM:NF']);checks++
 sensor.state.triggered=true
-check(labels(sensor).length===0,'sensor sem alimentação não cria uma saída')
-sensor.state.powered=true
-assert.deepEqual(labels(sensor),['OUT:V+']);checks++
-sensor.state.type='NPN';assert.deepEqual(labels(sensor),['0V:OUT']);checks++
-sensor.state.type='PNP';sensor.state.no=false
-check(labels(sensor).length===0,'sensor NF abre quando deteta o objeto')
-sensor.state.triggered=false;check(labels(sensor).length===1,'sensor NF fecha sem deteção quando alimentado')
+assert.deepEqual(labels(sensor),['COM:NA']);checks++
+sensor.state.no=false
+assert.deepEqual(labels(sensor),['COM:NF']);checks++
+sensor.state.triggered=false
+assert.deepEqual(labels(sensor),['COM:NA']);checks++
+sensor.state.no=true
+check(importedActuationPatch(sensor,true)?.triggered===true,'sensor: o toque inverte a deteção (com `no` reposto)')
 const safety=createComponent('safetyRelaySiemens3tk2840')
 const terminal=(label:string)=>safety.terminals.find(t=>t.label===label)!.id
 const graph=new Map<string,Set<string>>()
