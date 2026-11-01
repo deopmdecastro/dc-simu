@@ -21,4 +21,5 @@ check(/e\.key === 'Enter' \|\| e\.key === 'F2'/.test(editor) && /styleKey/.test(
 check(/\.dc-cmd-text-anchor\.is-selected \{[^}]*border-style: dashed/.test(css) && /outline: 2px solid #2563eb/.test(css), 'moldura tracejada azul e contorno de edição iguais aos do GRAFCET')
 check(/grafcet-textbar-slot/.test(layer) && !/onRotationChange/.test(layer), 'a barra de formatação do IEC usa o mesmo contentor e os mesmos controlos que a do GRAFCET')
 check(!/max-width: min\(320px/.test(css.slice(css.indexOf('.dc-cmd-text-anchor'), css.indexOf('.dc-cmd-text-toolbar') > 0 ? css.indexOf('.dc-cmd-text-toolbar') : undefined)), 'o texto do IEC não quebra linha sozinho (como no GRAFCET)')
+check(/legacyLegends/.test(editor) && /canvasTexts: \[\.\.\.state\.canvasTexts, \.\.\.moved\]/.test(editor) && /texts: \[\]/.test(editor), 'as legendas do esquema passam a textos livres (mesma edição do GRAFCET, sem janela «Editar texto»)')
 console.log(`\n${checks} verificações OK`)

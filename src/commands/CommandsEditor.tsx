@@ -96,6 +96,29 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
   )
   const selectedFreeText = freeTexts.find((t) => t.id === selectedTextId) ?? null
 
+  // As legendas do esquema (exemplos, projetos nativos, importações) passam a textos livres: assim têm a mesma
+  // edição, seleção e barra de formatação do GRAFCET (antes abriam uma janela «Editar texto» sem estilo).
+  const legacyLegends = diagram.texts?.length ?? 0
+  useEffect(() => {
+    if (demo || !legacyLegends) return
+    useSimStore.setState((state) => {
+      const stored = state.commands
+      if (!stored?.texts?.length) return {}
+      const first = pagesOf(stored)[0]?.id ?? DEFAULT_PAGE_ID
+      const taken = new Set(state.canvasTexts.map((t) => t.id))
+      const moved = stored.texts.map((t) => {
+        let id = `lg-${t.id}`
+        while (taken.has(id)) id += '_'
+        taken.add(id)
+        return {
+          id, view: 'commands' as const, text: t.text, x: t.x, y: t.y - 13, page: pageIdOf(t, first),
+          font: 'sans' as const, size: 13, color: '#334155', bold: true, align: 'left' as const, createdAt: new Date().toISOString(),
+        }
+      })
+      return { canvasTexts: [...state.canvasTexts, ...moved], commands: { ...stored, texts: [] }, dirty: true }
+    })
+  }, [demo, legacyLegends])
+
   const partById = useMemo(() => new Map(diagram.parts.map((p) => [p.id, p])), [diagram])
   // Sincronizar página ativa se a atual deixou de existir.
   useEffect(() => {
