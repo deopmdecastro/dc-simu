@@ -98,8 +98,10 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
   const [draft, setDraft] = useState(item.text)
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null)
-  const sizePx = Math.max(10, item.size * scale)
-  const fixedWidth = item.width == null ? undefined : Math.max(60, item.width * scale)
+  // O texto acompanha a escala do desenho (com zoom reduzido não fica preso num mínimo e não
+  // tapa os símbolos); só durante a edição fica com um tamanho mínimo legível.
+  const sizePx = editing ? Math.max(12, item.size * scale) : item.size * scale
+  const fixedWidth = item.width == null ? undefined : editing ? Math.max(60, item.width * scale) : item.width * scale
 
   useEffect(() => {
     if (!editing) return
