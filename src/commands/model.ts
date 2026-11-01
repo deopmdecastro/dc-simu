@@ -37,7 +37,9 @@ export interface CmdPart {
   /** Formatação e posição da referência, relativas à origem do símbolo (em coordenadas do esquema). */
   tagStyle?: { x?: number; y?: number; fontSize?: number; rotation?: number; color?: string; font?: 'sans' | 'serif' | 'mono' | 'rounded' | 'hand'; bold?: boolean; italic?: boolean; underline?: boolean }
   /** Variante gráfica opcional; não altera terminais nem comportamento elétrico. */
-  symbolStyle?: 'qet'
+  symbolStyle?: 'qet' | 'ansi'
+  /** Terra: variante de desenho (as três mantêm o mesmo borne PE e a mesma simulação). */
+  groundVariant?: 'earth' | 'protective' | 'signal'
   /** Marcação dos bornes, pela ordem de `CMD_PARTS[kind].terminals`. */
   labels?: string[]
   /** Temporizador: atraso à operação (ms). */

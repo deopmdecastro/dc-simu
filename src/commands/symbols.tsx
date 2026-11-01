@@ -23,16 +23,22 @@ export interface CmdSymbolState {
 }
 
 const contactBody = (kind: CmdKind, st: CmdSymbolState, active: string) => {
-  const closed = !!st.closed
   const nc = kind === 'contactNC' || kind === 'pushNC' || kind === 'timedNC' || kind === 'thermalNC' || kind === 'limitNC' || kind === 'emergency'
-  const open = nc ? closed : !closed
-  const y = open ? 22 : 30
-  const x2 = open ? 10 : 0
+  // `st.closed` é o estado de CONDUÇÃO (vem de `isClosed`). Sem estado — miniaturas
+  // da paleta — desenha-se o repouso: NF a conduzir, NA aberto.
+  const closed = st.closed === undefined ? nc : !!st.closed
+  const open = !closed
+  // Lâmina apoiada no borne inferior (0,42): a conduzir sobe até ao borne
+  // superior (0,18); aberta, roda para a direita e deixa um intervalo visível.
+  const bladeX = open ? 11 : 0
+  const bladeY = open ? 25 : 18
   return (
     <>
       <line x1={0} y1={0} x2={0} y2={18} />
       <line x1={0} y1={42} x2={0} y2={60} />
-      <line x1={0} y1={18} x2={x2} y2={y} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
+      <line x1={0} y1={42} x2={bladeX} y2={bladeY} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
+      {/* Contacto fixo do NF: pequena barra transversal — distingue NF de NA nos dois estados. */}
+      {nc && <line x1={-6} y1={18} x2={6} y2={18} />}
       {(kind === 'pushNO' || kind === 'pushNC' || kind === 'pushIllum') && <line x1={-8} y1={12} x2={8} y2={12} />}
       {kind === 'emergency' && <circle cx={0} cy={10} r={7} fill="#fee2e2" stroke="#dc2626" />}
       {kind === 'selector' && <path d="M -8 10 L 0 4 L 8 10" fill="none" />}
@@ -57,7 +63,7 @@ const threePole = (kind: CmdKind, st: CmdSymbolState, active: string) => {
         <g key={x}>
           <line x1={x} y1={0} x2={x} y2={18} />
           <line x1={x} y1={42} x2={x} y2={60} />
-          <line x1={x} y1={18} x2={x + (closed ? 0 : 8)} y2={closed ? 30 : 24} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
+          <line x1={x} y1={42} x2={x + (closed ? 0 : 8)} y2={closed ? 18 : 25} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
         </g>
       ))}
       {kind === 'breaker3' || kind === 'breaker1' || kind === 'rcd' ? (
@@ -68,7 +74,7 @@ const threePole = (kind: CmdKind, st: CmdSymbolState, active: string) => {
   )
 }
 
-export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'symbolStyle'>, st: CmdSymbolState = {}): ReactNode {
+export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'symbolStyle' | 'groundVariant'>, st: CmdSymbolState = {}): ReactNode {
   if (part.symbolStyle === 'qet') {
     // Geometria da coleção QElectroTech; transformações alinham os bornes em (0,0) e (0,60).
     switch (part.kind) {
@@ -89,12 +95,27 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       </g>)}</>
     }
     case 'node': return <circle cx={0} cy={0} r={3.4} fill={INK} stroke="none" />
-    case 'ground': return <>
-      <line x1={0} y1={0} x2={0} y2={8} />
-      <line x1={-10} y1={8} x2={10} y2={8} strokeWidth={2} />
-      <line x1={-6} y1={12} x2={6} y2={12} strokeWidth={1.6} />
-      <line x1={-3} y1={16} x2={3} y2={16} strokeWidth={1.2} />
-    </>
+    case 'ground': {
+      // Três variantes com o mesmo borne PE: barra (por omissão), hachurada e triângulo.
+      const variant = part.groundVariant ?? 'earth'
+      if (variant === 'protective') return <>
+        <line x1={0} y1={0} x2={0} y2={8} />
+        <line x1={-11} y1={8} x2={11} y2={8} strokeWidth={2} />
+        <line x1={-2} y1={9} x2={-8} y2={16} />
+        <line x1={3} y1={9} x2={-3} y2={16} />
+        <line x1={8} y1={9} x2={2} y2={16} />
+      </>
+      if (variant === 'signal') return <>
+        <line x1={0} y1={0} x2={0} y2={8} />
+        <path d="M -10 8 L 10 8 L 0 21 Z" fill="#fff" />
+      </>
+      return <>
+        <line x1={0} y1={0} x2={0} y2={8} />
+        <line x1={-10} y1={8} x2={10} y2={8} strokeWidth={2} />
+        <line x1={-6} y1={12} x2={6} y2={12} strokeWidth={1.6} />
+        <line x1={-3} y1={16} x2={3} y2={16} strokeWidth={1.2} />
+      </>
+    }
     case 'pageRef': {
       const live = !st.idle && st.energized
       const stroke = live ? active : INK
@@ -208,10 +229,17 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       <path d="M -10 22 L 10 22 L 0 38 Z" fill="#fff" />
       <line x1={-10} y1={38} x2={10} y2={38} strokeWidth={2} />
     </>
-    case 'resistor': return <>
-      <line x1={0} y1={0} x2={0} y2={12} /><line x1={0} y1={48} x2={0} y2={60} />
-      <path d="M 0 12 l 6 6 l -12 6 l 12 6 l -12 6 l 12 6 l -6 6" fill="none" />
-    </>
+    case 'resistor': {
+      // IEC 60617: retângulo. O zigzag ANSI continua disponível como variante explícita.
+      if (part.symbolStyle === 'ansi') return <>
+        <line x1={0} y1={0} x2={0} y2={12} /><line x1={0} y1={48} x2={0} y2={60} />
+        <path d="M 0 12 l 6 6 l -12 6 l 12 6 l -12 6 l 12 6 l -6 6" fill="none" />
+      </>
+      return <>
+        <line x1={0} y1={0} x2={0} y2={12} /><line x1={0} y1={48} x2={0} y2={60} />
+        <rect x={-7} y={12} width={14} height={36} fill="#fff" />
+      </>
+    }
     case 'capacitor': return <>
       <line x1={0} y1={0} x2={0} y2={24} /><line x1={0} y1={36} x2={0} y2={60} />
       <line x1={-12} y1={24} x2={12} y2={24} strokeWidth={2} />
@@ -222,6 +250,8 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       <line x1={30} y1={0} x2={30} y2={18} /><line x1={30} y1={42} x2={30} y2={60} />
       <path d="M -8 20 a 8 12 0 0 1 0 20" fill="none" /><path d="M 8 20 a 8 12 0 0 0 0 20" fill="none" />
       <path d="M 22 20 a 8 12 0 0 1 0 20" fill="none" /><path d="M 38 20 a 8 12 0 0 0 0 20" fill="none" />
+      {/* Núcleo: distingue o transformador de dois indutores acoplados. */}
+      <line x1={13} y1={19} x2={13} y2={41} /><line x1={17} y1={19} x2={17} y2={41} />
     </>
     case 'rectifier': return <>
       <rect x={0} y={8} width={40} height={44} fill="#fff" />

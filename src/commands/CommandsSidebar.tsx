@@ -256,12 +256,21 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
       </label>}
       {(['fuse', 'resistor', 'capacitor', 'diode'] as CmdKind[]).includes(part.kind) && <div className="dc-cmd-field">
         <label><span>Desenho do símbolo</span>
-          <select className="dc-input" aria-label="Desenho do símbolo" value={part.symbolStyle ?? 'native'} onChange={(e) => onChange({ symbolStyle: e.target.value === 'qet' ? 'qet' : undefined })}>
-            <option value="native">DC-Simu</option><option value="qet">QElectroTech (IEC)</option>
+          <select className="dc-input" aria-label="Desenho do símbolo" value={part.symbolStyle ?? 'native'} onChange={(e) => onChange({ symbolStyle: e.target.value === 'qet' ? 'qet' : e.target.value === 'ansi' ? 'ansi' : undefined })}>
+            <option value="native">DC-Simu (IEC)</option>
+            {part.kind === 'resistor' && <option value="ansi">Zigzag ANSI</option>}
+            <option value="qet">QElectroTech (IEC)</option>
           </select>
         </label>
         <p className="dc-cmd-muted">Variante gráfica adaptada de <a href="https://github.com/qelectrotech/qelectrotech-elements" target="_blank" rel="noreferrer">QElectroTech</a>, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">CC BY 3.0</a>. Bornes e simulação mantêm-se DC-Simu.</p>
       </div>}
+      {part.kind === 'ground' && <label className="dc-cmd-field"><span>Tipo de terra</span>
+        <select className="dc-input" aria-label="Tipo de terra" value={part.groundVariant ?? 'earth'} onChange={(e) => onChange({ groundVariant: e.target.value === 'protective' ? 'protective' : e.target.value === 'signal' ? 'signal' : undefined })}>
+          <option value="earth">Terra</option>
+          <option value="protective">Terra de proteção (hachurada)</option>
+          <option value="signal">Terra de sinal (triângulo)</option>
+        </select>
+      </label>}
       {part.kind === 'lamp' && <label className="dc-cmd-field"><span>Cor</span>
         <select className="dc-input" value={part.color ?? 'green'} onChange={(e) => onChange({ color: e.target.value as CmdPart['color'] })} aria-label="Cor do sinalizador">
           <option value="green">Verde (marcha)</option><option value="red">Vermelho (paragem/defeito)</option><option value="yellow">Amarelo (alerta)</option><option value="white">Branco</option><option value="blue">Azul</option>
