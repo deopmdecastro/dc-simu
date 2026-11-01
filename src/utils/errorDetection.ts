@@ -204,7 +204,9 @@ export function detectDiagnostics(
       const hit = termIndex.get(tid)
       if (!hit) continue
       const { component: c, terminal: term } = hit
-      const kind = w.kind ?? 'control'
+      // O verde-amarelo é a marca do condutor de proteção (IEC 60446): manda a cor, não um
+      // `kind` antigo gravado no projeto. Evita acusar de «fase/potência» um cabo PE.
+      const kind = w.color === 'green-yellow' ? 'earth' : (w.kind ?? 'control')
       // Neutro do cabo em borne que não é neutro/comum
       if (kind === 'neutral' && term.kind !== 'neutral' && term.kind !== 'coil-minus' && !/^N$|^COM$|^0V$|^M$/i.test(term.label)) {
         diags.push({
@@ -437,9 +439,12 @@ export function detectDiagnostics(
   })
 
   // 23. Cabos soltos em bornes de alimentação de fontes
+  // Só os bornes que alimentam o circuito: as entradas de rede, as saídas de tensão e o
+  // retorno. Contactos secos (RDY de uma fonte, sinalização) são opcionais e não se exigem.
+  const SUPPLY_TERMINAL = new Set(['power-in', 'power-out', 'coil-plus', 'coil-minus', 'neutral'])
   components.filter((c) => /powerSource|powerSupply/i.test(c.type)).forEach((c) => {
     c.terminals.forEach((t) => {
-      if (t.kind === 'earth') return
+      if (!SUPPLY_TERMINAL.has(t.kind)) return
       if (!isConnected(t.id)) {
         diags.push({ id: id(), level: 'warning', message: `AVISO: ${c.ref}:${t.label} sem cabo (fonte/alimentação).`, componentId: c.id })
       }

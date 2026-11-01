@@ -304,7 +304,13 @@ export function buildNativePartidaDireta(): Built {
   const add = (a: ElectricalComponent, al: string, b: ElectricalComponent, bl: string, color: WireColor, power = false) => {
     const next = wire(term(a, al), term(b, bl), color, `W${wires.length + 1}`)
     next.id = `native-wire-${wires.length + 1}`
-    if (power) {
+    if (color === 'green-yellow') {
+      // Verde-amarelo é condutor de proteção: tipo próprio, não «força» nem «comando».
+      // Com `power`/`control` o diagnóstico acusava — bem — fase/potência num borne PE.
+      next.kind = 'earth'
+      next.gauge = power ? '2.5mm²' : '1.5mm²'
+      next.flexibility = 'rigid'
+    } else if (power) {
       next.kind = 'power'
       next.gauge = '2.5mm²'
       next.flexibility = 'rigid'
@@ -350,17 +356,21 @@ export function buildNativePartidaDireta(): Built {
   add(emerg, '22', plc, 'I0.0', 'violet')
   add(push, '14', plc, 'I0.1', 'violet')
   add(push, '22', plc, 'I0.2', 'violet')
-  // +24 V nas saídas de relé em ponte: PS1.+V1 → Q0.0 → Q0.1 → Q0.2
-  add(psu, '+V1', plc, 'Q0.0', 'red')
-  add(plc, 'Q0.0', plc, 'Q0.1', 'red')
+  // +24 V nas saídas de relé dos sinalizadores (ponte local): PS1.+V1 → Q0.1 → Q0.2
+  add(psu, '+V1', plc, 'Q0.1', 'red')
   add(plc, 'Q0.1', plc, 'Q0.2', 'red')
+  // Bobina do contactor WEG CWC09 é AC (ficha 42 V 50 Hz): quem a comuta é o contacto de
+  // relé Q1 do LOGO!, alimentado pela fase do comando (Q0.2, 230 V AC) e fechado pelo neutro.
+  // Uma bobina AC pendurada no 0 V DC da PS1 era um erro elétrico — e o diagnóstico dizia-o.
+  add(control, '2', plc, 'Q0.0', 'black')
   add(plc, 'Q0.0·2', km, 'A1', 'orange')
   add(plc, 'Q0.1·2', green, 'X1', 'orange')
   add(plc, 'Q0.2·2', red, 'X1', 'orange')
-  // Retorno 0 V: H2 → H1 → PS1 e KM1.A2 → PS1
-  add(km, 'A2', psu, '-V2', 'blue')
+  // Retorno 0 V dos sinalizadores: H2 → H1 → PS1
   add(red, 'X2', green, 'X2', 'blue')
   add(green, 'X2', psu, '-V2', 'blue')
+  // Retorno da bobina: neutro do mesmo disjuntor que alimenta a fase do comando (Q0.4)
+  add(km, 'A2', control, '4', 'blue')
   const { meter, leads } = buildNativeMotorMeter(motor)
   wires.push(...leads)
   // Ordem visual: calha → força → comando → operadores → motor → multímetro

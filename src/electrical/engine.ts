@@ -40,6 +40,22 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   contactorWegCWC09: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
 }
 
+/** Polos de um aparelho (entrada↔saída), independentemente de estar aberto ou fechado.
+ *  A identidade de fase — «que fase é este condutor?» — é topologia de cablagem:
+ *  atravessa o contactor mesmo desligado. A energização, essa, continua a depender
+ *  do estado (ver `internalBridges`). */
+export function poleTerminalPairs(c: ElectricalComponent): Array<[string, string]> {
+  const pairs = POLE_PAIRS[c.type]
+  if (!pairs) return []
+  const out: Array<[string, string]> = []
+  for (const [a, b] of pairs) {
+    const ta = t(c, a)
+    const tb = t(c, b)
+    if (ta && tb) out.push([ta.id, tb.id])
+  }
+  return out
+}
+
 function t(c: ElectricalComponent, label: string) {
   return c.terminals.find((x) => x.label === label)
 }

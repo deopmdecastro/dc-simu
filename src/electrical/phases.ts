@@ -9,20 +9,33 @@
 // ============================================================================
 
 import type { ElectricalComponent, Wire } from '../types'
-import { internalBridges } from './engine'
+import { internalBridges, poleTerminalPairs } from './engine'
 
 export type PhaseTag = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'DC+'
 
 export function computePhaseLabels(components: ElectricalComponent[], wires: Wire[]): Map<string, PhaseTag> {
-  const adjacency = new Map<string, string[]>()
-  const addEdge = (a: string, b: string) => {
-    if (!adjacency.has(a)) adjacency.set(a, [])
-    if (!adjacency.has(b)) adjacency.set(b, [])
-    adjacency.get(a)!.push(b)
-    adjacency.get(b)!.push(a)
+  /** Grafo de identidade de fase. `topology` acrescenta os polos dos aparelhos mesmo abertos. */
+  const graph = (topology: boolean) => {
+    const adjacency = new Map<string, string[]>()
+    const addEdge = (a: string, b: string) => {
+      if (!adjacency.has(a)) adjacency.set(a, [])
+      if (!adjacency.has(b)) adjacency.set(b, [])
+      adjacency.get(a)!.push(b)
+      adjacency.get(b)!.push(a)
+    }
+    for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) addEdge(w.fromTerminalId, w.toTerminalId)
+    for (const c of components) {
+      for (const [a, b] of internalBridges(c)) addEdge(a, b)
+      if (topology) for (const [a, b] of poleTerminalPairs(c)) addEdge(a, b)
+    }
+    return adjacency
   }
-  for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) addEdge(w.fromTerminalId, w.toTerminalId)
-  for (const c of components) for (const [a, b] of internalBridges(c)) addEdge(a, b)
+  const adjacency = graph(false)
+  // Caminhos vivos primeiro. Só os bornes que ficaram sem identidade — porque o único caminho
+  // passa por um polo aberto — são resolvidos pela topologia. Assim «qual é a fase deste
+  // condutor» sobrevive a um contactor desligado, sem confundir as duas fases de um inversor
+  // (L1 pelo KM1 e L3 pelo KM2 chegam ao mesmo borne do motor).
+  const topology = graph(true)
 
   const labels = new Map<string, PhaseTag>()
   const queue: string[] = []
@@ -66,15 +79,22 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
     }
   }
 
-  while (queue.length) {
-    const cur = queue.shift()!
-    const tag = labels.get(cur)!
-    for (const nb of adjacency.get(cur) ?? []) {
-      if (!labels.has(nb)) {
-        labels.set(nb, tag)
-        queue.push(nb)
+  const spread = (adj: Map<string, string[]>) => {
+    while (queue.length) {
+      const cur = queue.shift()!
+      const tag = labels.get(cur)!
+      for (const nb of adj.get(cur) ?? []) {
+        if (!labels.has(nb)) {
+          labels.set(nb, tag)
+          queue.push(nb)
+        }
       }
     }
+  }
+  spread(adjacency)
+  if (labels.size < topology.size) {
+    for (const id of labels.keys()) queue.push(id)
+    spread(topology)
   }
   return labels
 }
