@@ -84,7 +84,7 @@ import {
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import { useNarrowMenu } from '../ui/toolbarKit'
-import { PHONE_TOUCH_QUERY } from '../ui/device'
+import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
 import SidePanelHeader from '../components/SidePanelHeader'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -557,6 +557,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
      painel de simulação (E/S + Sequência) deixa de existir para não duplicar o que os Sinais já mostram ao vivo.
      O botão «Simulação» da barra abre/fecha esse painel. */
   const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
+  const wideDesktop = useNarrowMenu(WIDE_DESKTOP_QUERY)
   const simVisible = useGrafcetUi((state) => state.simVisible)
   const [propsTall, setPropsTall] = useState(false)
   useEffect(() => {
@@ -5899,7 +5900,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               onDone={() => { setSelectedCommentId(null); setEditingCommentId(null) }} />
           </div>
         })()}
-        {full && !phone && !propsAtBottom && (
+        {full && !phone && !propsAtBottom && !wideDesktop && (
           <GrafcetSimDock
             extraBits={liveBitsAll}
             activeLabels={runtime.active.map((value) => {

@@ -18,6 +18,8 @@ import { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
 export const NATIVE_IEC_FEATURE = 'iec-schematic-v1'
 /** v2: relé térmico F1 e o LOGO! em bloco (substitui um esquema v1 que não tenha sido alterado). */
 export const NATIVE_IEC_V2_FEATURE = 'iec-schematic-v2'
+/** v3: LOGO! com o desenho da frente do aparelho (220 px); a folha de comando desce 60 px. */
+export const NATIVE_IEC_V3_FEATURE = 'iec-schematic-v3'
 const POWER_PAGE = 'page-1'
 const CONTROL_PAGE = 'page-2'
 
@@ -91,30 +93,30 @@ export function buildNativeIecSchematic(): CommandsDiagram {
     text(380 + i * 100 + 18, 250, label)
   })
   // 0 V (M): PS1 → M do LOGO! e retorno dos sinalizadores.
-  const minus = [node(120, 640), node(240, 640), node(420, 640), node(480, 640)]
+  const minus = [node(120, 700), node(240, 700), node(420, 700), node(480, 700)]
   wire(ps1, 3, minus[0], 0); chain(minus)
   wire(plc, 1, minus[1], 0, 306)
-  text(160, 660, '0 V (M)')
+  text(160, 720, '0 V (M)')
   // Saídas 24 V: comum de Q0.1/Q0.2 a partir do +24 V; Q0.1 → H1, Q0.2 → H2.
-  const common = node(460, 500)
-  wire(plus[5], 0, common, 0, 500)
-  wire(common, 0, plc, 14); wire(common, 0, plc, 12, 500)
-  const h1 = part('lamp', 420, 540, 'H1', { color: 'green' })
-  const h2 = part('lamp', 480, 540, 'H2', { color: 'red' })
-  wire(plc, 13, h1, 0, 520); wire(h1, 1, minus[2], 0)
-  wire(plc, 15, h2, 0, 520); wire(h2, 1, minus[3], 0)
-  text(400, 620, 'MARCHA'); text(470, 620, 'PARADO')
+  const common = node(460, 560)
+  wire(plus[5], 0, common, 0, 560)
+  wire(common, 0, plc, 14); wire(common, 0, plc, 12, 560)
+  const h1 = part('lamp', 420, 600, 'H1', { color: 'green' })
+  const h2 = part('lamp', 480, 600, 'H2', { color: 'red' })
+  wire(plc, 13, h1, 0, 580); wire(h1, 1, minus[2], 0)
+  wire(plc, 15, h2, 0, 580); wire(h2, 1, minus[3], 0)
+  text(352, 680, 'MARCHA'); text(492, 680, 'PARADO')
   // Saída Q0.0 (230 V AC): X1 → Q0.0 → 95-96 do F1 → bobina KM1 → X2.
-  const kmL = part('pageRefIn', 300, 540, 'X1')
-  wire(kmL, 0, plc, 10, 500)
-  const f1nc = part('thermalNC', 60, 560, 'F1')
-  wire(plc, 11, f1nc, 0, 520)
-  const coil = part('coil', 60, 660, 'KM1')
+  const kmL = part('pageRefIn', 300, 600, 'X1')
+  wire(kmL, 0, plc, 10, 560)
+  const f1nc = part('thermalNC', 60, 620, 'F1')
+  wire(plc, 11, f1nc, 0, 580)
+  const coil = part('coil', 60, 720, 'KM1')
   wire(f1nc, 1, coil, 0)
-  const kmN = part('pageRefIn', 60, 760, 'X2')
+  const kmN = part('pageRefIn', 60, 820, 'X2')
   wire(coil, 1, kmN, 0)
-  text(80, 540, '230 V AC')
-  text(60, 820, 'Em RUN, as entradas I0.x e as saídas Q0.x seguem o programa do LOGO! (o simulador do PLC arranca com o esquema).')
+  text(80, 600, '230 V AC')
+  text(60, 880, 'Em RUN, as entradas I0.x e as saídas Q0.x seguem o programa do LOGO! (o simulador do PLC arranca com o esquema).')
   return diagram
 }
 
@@ -127,13 +129,21 @@ function isUntouchedV1(commands: any): boolean {
     && commands.parts.some((p: any) => p.kind === 'plcOut') && !commands.parts.some((p: any) => p.kind === 'plcLogo')
 }
 
-/** Projetos nativos: recebem o esquema IEC uma vez; um v1 intacto passa ao v2. Nunca substitui um esquema do utilizador. */
+/** Esquema v2 gerado pela app (sem alterações): LOGO! de 160 px com H1 logo abaixo (420, 540). */
+function isUntouchedV2(commands: any): boolean {
+  if (!Array.isArray(commands?.parts) || commands.name !== 'Partida direta com emergência (LOGO!)') return false
+  const h1 = commands.parts.find((p: any) => p.kind === 'lamp' && p.tag === 'H1')
+  return commands.parts.length === 35 && commands.parts.every((p: any) => typeof p?.id === 'string' && p.id.startsWith('iec-'))
+    && commands.parts.some((p: any) => p.kind === 'plcLogo') && h1?.x === 420 && h1?.y === 540
+}
+
+/** Projetos nativos: recebem o esquema IEC uma vez; um v1/v2 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
 export function addNativeIecSchematic<T extends Record<string, any>>(content: T): T {
   if (content.nativeId !== NATIVE_PARTIDA_ID) return content
   const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
-  if (features.includes(NATIVE_IEC_V2_FEATURE)) return content
+  if (features.includes(NATIVE_IEC_V3_FEATURE)) return content
   const hasOwn = Array.isArray(content.commands?.parts) && content.commands.parts.length > 0
-  const replace = !hasOwn || isUntouchedV1(content.commands)
-  const marks = [...features, ...(features.includes(NATIVE_IEC_FEATURE) ? [] : [NATIVE_IEC_FEATURE]), NATIVE_IEC_V2_FEATURE]
+  const replace = !hasOwn || isUntouchedV1(content.commands) || isUntouchedV2(content.commands)
+  const marks = [...features, ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE].filter((f) => !features.includes(f)), NATIVE_IEC_V3_FEATURE]
   return { ...content, ...(replace ? { commands: buildNativeIecSchematic() } : {}), nativeFeatures: marks }
 }

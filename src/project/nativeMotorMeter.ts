@@ -12,6 +12,8 @@ export const NATIVE_WIRE_CURVES_FEATURE = 'wire-curves-v2'
 export const NATIVE_THERMAL_FEATURE = 'thermal-relay-v1'
 /** F1 encaixado por baixo do KM1 (sem os cabos KM1 → F1). */
 export const NATIVE_THERMAL_MOUNT_FEATURE = 'thermal-relay-mounted-v1'
+/** Bobina AC do KM1 comutada pela fase do comando (corrige a cablagem anterior a c3df70f). */
+export const NATIVE_COIL_AC_FEATURE = 'coil-ac-v1'
 
 /** Só os cabos de alimentação que partilham o borne com as sondas recebem colar duplo. */
 export function withMotorMeterFerrules(wires: Wire[], leads: Wire[]): Wire[] {

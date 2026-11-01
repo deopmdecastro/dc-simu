@@ -136,4 +136,35 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   check(addNativeIecSchematic(edited).commands.parts.length === 40, 'esquema IEC alterado pelo utilizador não é substituído')
 }
 
+// Esquema v2 intacto (LOGO! de 160 px, H1 em 420,540) passa ao v3; um v3 já presente não muda.
+{
+  const { NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE } = await import('../src/project/nativeIec')
+  const v2Parts = Array.from({ length: 35 }, (_, i) => ({ id: `iec-${i + 1}`, kind: i === 0 ? 'plcLogo' : i === 1 ? 'lamp' : 'node', tag: i === 1 ? 'H1' : '', x: i === 1 ? 420 : 0, y: i === 1 ? 540 : 0 }))
+  const v2 = { nativeId: NATIVE_PARTIDA_ID, nativeFeatures: [NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE], commands: { name: 'Partida direta com emergência (LOGO!)', parts: v2Parts, wires: [] } }
+  const up = addNativeIecSchematic(v2)
+  check(up.commands.parts.find((p: any) => p.tag === 'H1')?.y === 600 && up.nativeFeatures.includes(NATIVE_IEC_V3_FEATURE), 'esquema v2 intacto passa ao v3 (LOGO! com a frente do aparelho)')
+  const moved = { ...v2, commands: { ...v2.commands, parts: v2Parts.map((p) => (p.tag === 'H1' ? { ...p, x: 500 } : p)) } }
+  check(addNativeIecSchematic(moved).commands.parts.find((p: any) => p.tag === 'H1')?.x === 500, 'esquema v2 alterado pelo utilizador mantém-se')
+}
+
+// Bobina AC: projeto guardado antes de c3df70f (KM1:A2 → PS1:-V2 e Q0.0 alimentada a 24 V DC).
+{
+  const { fixNativeCoilWiring, NATIVE_COIL_AC_FEATURE } = await import('../src/project/nativeCoilFix')
+  const { schematicDiagnostics } = await import('../src/diagnostics/viewDiagnostics')
+  const seedContent = nativePartidaDiretaContent() as Record<string, any>
+  const old = structuredClone(seedContent)
+  old.nativeFeatures = old.nativeFeatures.filter((x: string) => x !== NATIVE_COIL_AC_FEATURE)
+  const find = (a: string, b: string) => old.wires.find((w: any) => w.fromTerminalId === a && w.toTerminalId === b)
+  Object.assign(find('native-f1-A2', 'native-q0-4'), { fromTerminalId: 'native-km1-A2', toTerminalId: 'native-psu--V2' })
+  Object.assign(find('native-psu-+V1', 'native-plc-Q0.1'), { toTerminalId: 'native-plc-Q0.0' })
+  Object.assign(find('native-q0-2', 'native-plc-Q0.0'), { fromTerminalId: 'native-plc-Q0.0', toTerminalId: 'native-plc-Q0.1' })
+  const before = schematicDiagnostics(old.components, old.wires, [], false)
+  check(before.some((d) => /KM1:A2 \(AC\) a PS1:-V2 \(DC\)/.test(d.message)), 'a cablagem antiga reproduz o erro «KM1:A2 (AC) a PS1:-V2 (DC)»')
+  const fixed = fixNativeCoilWiring(old)
+  const ends = (list: any[]) => list.map((w) => [w.fromTerminalId, w.toTerminalId].sort().join('>')).sort().join('|')
+  check(ends(fixed.wires) === ends(seedContent.wires), 'a migração repõe a cablagem atual (fase em Q0.0, retorno ao Q0:4 pela passagem A2 do F1)')
+  check(schematicDiagnostics(fixed.components, fixed.wires, [], false).length === 0, 'depois da migração o diagnóstico fica sem erros')
+  check(fixNativeCoilWiring({ ...seedContent, nativeFeatures: [] }).wires === seedContent.wires, 'um projeto já correto não é alterado')
+}
+
 console.log(`\n${checks} verificações do esquema IEC nativo passaram`)

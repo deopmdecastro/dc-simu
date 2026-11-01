@@ -1,7 +1,7 @@
 // Símbolos IEC 60617 / ISO 1219 — desenhos DC-Simu e variantes QElectroTech atribuídas em docs/third-party/qelectrotech.
 import { fontStack } from '../ui/textStyle'
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
-import { CMD_PARTS, partBox, partTerminals, terminalAt, terminalLabel, variantOf, type CmdKind, type CmdPart } from './model'
+import { CMD_PARTS, LOGO_INPUTS, partBox, partTerminals, terminalAt, terminalLabel, variantOf, type CmdKind, type CmdPart } from './model'
 
 const INK = '#0f172a'
 export const PHASE_COLORS: Record<string, string> = {
@@ -324,33 +324,55 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       </>
     }
     case 'plcLogo': {
-      // LOGO! 12/24RC em bloco (desenho DC-Simu): alimentação e entradas em cima, visor e teclas
-      // na frente e as quatro saídas a relé (contactos NA, IEC 60617) em baixo.
+      // LOGO! 12/24RC — frente do aparelho (desenho DC-Simu): faixa X10 com os bornes de entrada,
+      // visor e teclado ao centro e faixa X11 com as quatro saídas a relé (contacto 1-2 por saída).
       const on = !!(st.load && !st.idle)
       const outputs = st.outputs ?? [false, false, false, false]
+      const top = [['L+', 0], ['M', 20], ...LOGO_INPUTS.map((label, i) => [label, 60 + i * 20] as const)] as Array<readonly [string, number]>
       return <>
-        {[0, 20, 60, 80, 100, 120, 140, 160, 180, 200].map((x) => <line key={'t' + x} x1={x} y1={0} x2={x} y2={14} />)}
-        <rect x={-14} y={14} width={268} height={132} rx={6} fill="#f1f5f9" />
-        <path d="M -14 32 L 254 32" strokeWidth={1} />
-        <text x={-6} y={46} fontSize={8} fontWeight={800} letterSpacing={0.6} fill="#0f766e" stroke="none">SIEMENS</text>
-        <rect x={20} y={52} width={104} height={38} rx={3} fill={on ? '#d9f99d' : '#e2e8f0'} strokeWidth={1.2} />
-        <text x={72} y={75} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="ui-monospace, monospace" fill={on ? '#365314' : '#64748b'} stroke="none">{on ? 'RUN' : 'LOGO!'}</text>
-        {/* Teclas de cursor e ESC / OK. */}
-        <path d="M 162 56 l 5 6 h -10 z M 162 86 l 5 -6 h -10 z M 147 71 l 6 -5 v 10 z M 177 71 l -6 -5 v 10 z" fill="#94a3b8" strokeWidth={0.8} />
-        <rect x={190} y={56} width={22} height={11} rx={2} fill="#fff" strokeWidth={1} />
-        <text x={201} y={64.5} textAnchor="middle" fontSize={7} fill={INK} stroke="none">ESC</text>
-        <rect x={190} y={75} width={22} height={11} rx={2} fill="#fff" strokeWidth={1} />
-        <text x={201} y={83.5} textAnchor="middle" fontSize={7} fill={INK} stroke="none">OK</text>
-        <text x={20} y={106} fontSize={10} fontWeight={800} fill={INK} stroke="none">LOGO! 12/24RC</text>
-        <path d="M -14 112 L 254 112" strokeWidth={1} />
+        <rect x={-14} y={0} width={268} height={220} fill="#fbfcfd" strokeWidth={1.4} />
+        {/* X10: bornes de alimentação e entradas. */}
+        <path d="M -14 44 L 254 44 M -14 47 L 254 47" strokeWidth={0.9} />
+        {top.map(([label, x]) => <g key={'i' + label}>
+          <text x={x} y={12} textAnchor="middle" fontSize={6.6} fontWeight={700} fill={INK} stroke="none">{label}</text>
+          <line x1={x} y1={0} x2={x} y2={4} />
+          <circle cx={x} cy={28} r={7.5} fill="#fff" strokeWidth={1.1} />
+        </g>)}
+        <text x={250} y={58} textAnchor="end" fontSize={7} fontWeight={700} fill={INK} stroke="none">DC 24V  INPUT 8×DC</text>
+        <rect x={150} y={62} width={100} height={12} fill="none" strokeWidth={0.9} />
+        <path d="M -14 78 L 254 78" strokeWidth={0.9} />
+        {/* Centro: marca, visor (verde em RUN) e teclado. */}
+        <rect x={-6} y={84} width={50} height={13} fill="none" strokeWidth={0.9} />
+        <text x={19} y={93.6} textAnchor="middle" fontSize={8} fontWeight={800} letterSpacing={0.4} fill={INK} stroke="none">SIEMENS</text>
+        <text x={136} y={95} textAnchor="end" fontSize={14} fill="#334155" stroke="none">LOGO!</text>
+        <rect x={10} y={104} width={96} height={58} fill={on ? '#d9f99d' : '#fff'} strokeWidth={1.1} />
+        <text x={58} y={137} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="ui-monospace, monospace" fill={on ? '#365314' : '#94a3b8'} stroke="none">{on ? 'RUN' : 'STOP'}</text>
+        <path d="M 144 78 L 144 176" strokeWidth={0.9} />
+        <text x={250} y={96} textAnchor="end" fontSize={8} fontWeight={700} fill={INK} stroke="none">12/24RC</text>
+        {[[194, 100, 'M 0 4 L 4 -3 L -4 -3 Z', 180], [176, 118, 'M -4 0 L 3 -4 L 3 4 Z', 0], [212, 118, 'M 4 0 L -3 -4 L -3 4 Z', 0], [194, 136, 'M 0 4 L 4 -3 L -4 -3 Z', 0]].map(([x, y, d, r]) => <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+          <rect x={-7} y={-7} width={14} height={14} rx={1.5} fill="#fff" strokeWidth={0.9} />
+          <path d={d as string} transform={`rotate(${r})`} fill="none" strokeWidth={0.9} />
+        </g>)}
+        {[['ESC', 168], ['OK', 220]].map(([label, x]) => <g key={label as string}>
+          <rect x={(x as number) - 9} y={152} width={18} height={16} rx={1.5} fill="#fff" strokeWidth={0.9} />
+          <text x={x as number} y={163} textAnchor="middle" fontSize={6.5} fontWeight={700} fill={INK} stroke="none">{label}</text>
+        </g>)}
+        <path d="M -14 176 L 254 176 M -14 179 L 254 179" strokeWidth={0.9} />
+        <text x={-6} y={172} fontSize={6.8} fontWeight={700} fill={INK} stroke="none">OUTPUT 4×RELAY/10A</text>
+        <text x={-9} y={208} fontSize={7.5} fontWeight={700} fill={INK} stroke="none">X11</text>
+        {/* X11: saídas a relé — dois bornes por saída e o contacto NA entre eles (1-2). */}
         {outputs.map((closed, i) => {
           const a = 40 + i * 60, b = a + 20
           const live = closed && !st.idle
           return <g key={'q' + i}>
-            <line x1={a} y1={160} x2={a} y2={130} /><line x1={a} y1={130} x2={a + 4} y2={130} />
-            <line x1={b - 4} y1={130} x2={b} y2={130} /><line x1={b} y1={130} x2={b} y2={160} />
-            <line x1={a + 4} y1={130} x2={b - 4} y2={closed ? 130 : 123} stroke={live ? active : INK} strokeWidth={live ? 2 : 1.6} />
-            <text x={a + 10} y={121} textAnchor="middle" fontSize={7.5} fontWeight={700} fill={INK} stroke="none">{`Q0.${i}`}</text>
+            <text x={a + 10} y={190} textAnchor="middle" fontSize={7} fontWeight={700} fill={INK} stroke="none">{`Q0.${i}`}</text>
+            <circle cx={a} cy={200} r={6.5} fill="#fff" strokeWidth={1.1} />
+            <circle cx={b} cy={200} r={6.5} fill="#fff" strokeWidth={1.1} />
+            <line x1={a} y1={206.5} x2={a} y2={220} /><line x1={b} y1={206.5} x2={b} y2={220} />
+            <line x1={a} y1={213} x2={a + 4} y2={213} /><line x1={b - 4} y1={213} x2={b} y2={213} />
+            <line x1={a + 4} y1={213} x2={b - 4} y2={closed ? 213 : 207} stroke={live ? active : INK} strokeWidth={live ? 1.8 : 1.3} />
+            <text x={a - 8} y={216} textAnchor="middle" fontSize={6} fill={INK} stroke="none">1</text>
+            <text x={b + 8} y={216} textAnchor="middle" fontSize={6} fill={INK} stroke="none">2</text>
           </g>
         })}
       </>
@@ -858,7 +880,8 @@ export function CmdSymbol({ part, state, selected, showTerminals = true, onTagPo
           x={x} y={y} textAnchor={anchor} transform={`rotate(${rotation} ${x} ${y})`}
           style={{ fontSize: size, fill: part.tagStyle?.color ?? INK, ...(part.tagStyle?.font ? { fontFamily: fontStack(part.tagStyle.font) } : null), ...(part.tagStyle?.bold === false ? { fontWeight: 400 } : null), ...(part.tagStyle?.italic ? { fontStyle: 'italic' } : null), ...(part.tagStyle?.underline ? { textDecoration: 'underline' } : null) }} stroke="none" onPointerDown={onTagPointerDown}>{part.tag}</text>
       })()}
-      {showTerminals && partTerminals(part).map((t, i) => {
+      {/* O LOGO! escreve os nomes dos bornes no próprio desenho (faixas X10/X11). */}
+      {showTerminals && part.kind !== 'plcLogo' && partTerminals(part).map((t, i) => {
         const at = terminalAt({ ...part, x: 0, y: 0 }, i)
         const label = terminalLabel(part, i)
         if (!label) return null

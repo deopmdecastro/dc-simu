@@ -552,3 +552,9 @@
 .dc-cmd-tag-dialog .dc-cmd-tag-row .grafcet-property-chips { margin-top: 6px; }
 .dc-cmd-tag-preview { width: 100%; height: auto; min-height: 150px; max-height: 260px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
 .dc-cmd-tag-preview .dc-cmd-hover-halo, .dc-cmd-tag-preview .dc-cmd-symbol-hit { display: none; }
+
+/* Ligação entre páginas: renomear os pares e aviso de sentidos iguais. */
+.dc-cmd-link-rename { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 8px 10px; border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; color: #1e3a8a; font-size: 12px; cursor: pointer; }
+.dc-cmd-link-rename input { margin-top: 2px; accent-color: #2563eb; }
+.dc-cmd-link-mismatch { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 8px 10px; border: 1px solid #fde68a; border-radius: 8px; background: #fffbeb; color: #92400e; font-size: 12px; }
+.dc-cmd-link-mismatch .dc-btn { flex: none; }

@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react'
 import { nanoid } from 'nanoid'
 import PropertyDialog from '../ui/PropertyDialog'
+import Select from '../ui/Select'
 import { useSimStore } from '../store/useSimStore'
 import { emptyCommands, partBox, type CmdPart } from './model'
 import { commitDiagram } from './editing'
@@ -36,12 +37,18 @@ export default function PageLinkDialog({
   const [kind, setKind] = useState<CmdPart['kind']>(() => part?.kind ?? 'pageRef')
   const otherPages = pages.filter((p) => p.id !== currentPage)
   const net = cleanName(name)
+  const originalNet = cleanName(part?.tag ?? '')
+  /** Conectores ligados pelo nome original (mudam de nome com este, se o utilizador quiser). */
+  const originalPeers = useMemo(() => diagram.parts.filter((p) => isLink(p) && p.id !== partId && !!originalNet && cleanName(p.tag) === originalNet), [diagram, partId, originalNet])
+  const [renameAll, setRenameAll] = useState(true)
+  const [flipPeers, setFlipPeers] = useState(false)
+  const renaming = net !== originalNet && renameAll && originalPeers.length > 0
 
   /** Conectores com o mesmo nome noutras páginas (a ligação real). */
   const peers = useMemo(() => diagram.parts
-    .filter((p) => isLink(p) && p.id !== partId && cleanName(p.tag) === net)
+    .filter((p) => isLink(p) && p.id !== partId && (renaming ? originalPeers.includes(p) : cleanName(p.tag) === net))
     .map((p) => ({ part: p, page: pages.find((pg) => pg.id === pageIdOf(p, firstPage)) }))
-    .filter((p): p is { part: CmdPart; page: { id: string; name: string } } => !!p.page), [diagram, partId, net, pages, firstPage])
+    .filter((p): p is { part: CmdPart; page: { id: string; name: string } } => !!p.page), [diagram, partId, net, pages, firstPage, renaming, originalPeers])
   const remotePeers = peers.filter((p) => p.page.id !== currentPage)
   const samePagePeers = peers.filter((p) => p.page.id === currentPage)
   /** Nomes de rede já usados (sugestões). */
@@ -56,8 +63,16 @@ export default function PageLinkDialog({
   const nameError = !net ? 'Indique o nome da rede (ex.: X1, 24V, L1).' : ''
   const outgoing = kind === 'pageRef'
 
-  /** Grava o nome e o sentido deste conector (sem fechar). */
-  const withThis = (parts: CmdPart[]) => parts.map((p) => (p.id === part.id ? { ...p, tag: net, kind } : p))
+  /** Pares com o mesmo sentido (duas saídas ou duas entradas): a corrente passa, mas a leitura engana. */
+  const sameDirection = remotePeers.filter((p) => (flipPeers ? (p.part.kind === 'pageRef' ? 'pageRefIn' : 'pageRef') : p.part.kind) === kind)
+  /** Grava o nome e o sentido deste conector e, se pedido, renomeia/inverte os pares (sem fechar). */
+  const withThis = (parts: CmdPart[]) => parts.map((p) => {
+    if (p.id === part.id) return { ...p, tag: net, kind }
+    const peer = renaming && originalPeers.includes(p)
+    const flip = flipPeers && remotePeers.some((r) => r.part.id === p.id)
+    if (!peer && !flip) return p
+    return { ...p, ...(peer ? { tag: net } : {}), ...(flip ? { kind: p.kind === 'pageRef' ? 'pageRefIn' as const : 'pageRef' as const } : {}) }
+  })
 
   const save = () => {
     if (nameError) return
@@ -114,6 +129,13 @@ export default function PageLinkDialog({
             {nameError
               ? <p className="grafcet-field-error" role="alert">{nameError}</p>
               : <p id="cmd-link-name-help" className="grafcet-property-note">O mesmo nome nas duas páginas une a corrente — como um fio que continua noutra folha.</p>}
+            {net !== originalNet && originalPeers.length > 0 && (
+              <label className="dc-cmd-link-rename">
+                <input type="checkbox" checked={renameAll} onChange={(e) => setRenameAll(e.target.checked)} />
+                <span>Renomear também {originalPeers.length === 1 ? 'o conector ligado' : `os ${originalPeers.length} conectores ligados`} («{originalNet}» → «{net || '…'}»)</span>
+              </label>
+            )}
+            {net !== originalNet && originalPeers.length > 0 && !renameAll && <p className="grafcet-property-warning" role="status">Sem renomear os pares, esta ligação deixa de os alcançar.</p>}
             {!!knownNames.length && <div className="grafcet-property-chips" aria-label="Nomes já usados">{knownNames.slice(0, 8).map((n) => <button key={n} type="button" aria-pressed={n === net} onClick={() => setName(n)}>{n}</button>)}</div>}
           </div>
 
@@ -123,6 +145,13 @@ export default function PageLinkDialog({
               <button type="button" role="radio" aria-checked={outgoing} className={outgoing ? 'is-on' : ''} onClick={() => setKind('pageRef')}><b>Saída →</b><small>vai para outra página</small></button>
               <button type="button" role="radio" aria-checked={!outgoing} className={!outgoing ? 'is-on' : ''} onClick={() => setKind('pageRefIn')}><b>← Entrada</b><small>vem de outra página</small></button>
             </div>
+            {sameDirection.length > 0 && (
+              <div className="dc-cmd-link-mismatch" role="status">
+                <span>{outgoing ? 'O par também é uma saída' : 'O par também é uma entrada'} — num par, um conector sai e o outro entra.</span>
+                <button type="button" className="dc-btn" onClick={() => setFlipPeers((v) => !v)}>Inverter o par</button>
+              </div>
+            )}
+            {flipPeers && sameDirection.length === 0 && <p className="grafcet-property-note">O par será invertido ao guardar.</p>}
           </fieldset>
 
           <div className="grafcet-property-field">
@@ -144,10 +173,14 @@ export default function PageLinkDialog({
           <div className="grafcet-property-field dc-cmd-link-create">
             <label htmlFor="cmd-link-target">{targetPeer ? 'Abrir o par em' : 'Criar o par em'}</label>
             <div className="grafcet-var-row">
-              <select id="cmd-link-target" className="dc-input" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Página do conector par">
-                {otherPages.map((p) => <option key={p.id} value={p.id}>{p.name}{remotePeers.some((r) => r.page.id === p.id) ? ' · já ligada' : ''}</option>)}
+              <Select id="cmd-link-target" className="dc-input" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Página do conector par">
+                {otherPages.map((p) => {
+                  const here = remotePeers.filter((r) => r.page.id === p.id).length
+                  const parts = diagram.parts.filter((x) => pageIdOf(x, firstPage) === p.id).length
+                  return <option key={p.id} value={p.id}>{`${p.name} · ${here ? 'já ligada' : 'sem par'} · ${parts} símbolo${parts === 1 ? '' : 's'}`}</option>
+                })}
                 <option value={NEW_PAGE}>+ Nova página</option>
-              </select>
+              </Select>
               <button type="button" className="dc-btn dc-btn-primary" disabled={!!nameError} onClick={createPair}>
                 {targetPeer ? 'Abrir página' : target === NEW_PAGE ? 'Criar página e par' : 'Criar par e abrir'}
               </button>

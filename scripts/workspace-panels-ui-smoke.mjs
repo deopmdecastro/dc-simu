@@ -6,7 +6,7 @@ import { chromium } from 'playwright'
 const baseURL = process.env.WORKSPACE_PANELS_TEST_URL || process.env.EDITOR3D_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.WORKSPACE_PANELS_TEST_OUTPUT || path.resolve('../../../runtime/dcsimu-workspace-panels-ui')
 const browser = await chromium.launch(process.env.EDITOR3D_TEST_CHANNEL ? { channel:process.env.EDITOR3D_TEST_CHANNEL } : {})
-const context = await browser.newContext({ viewport:{ width:1440,height:1000 }, serviceWorkers:'block' })
+const context = await browser.newContext({ viewport:{ width:1100,height:1000 }, serviceWorkers:'block' })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
   const local = url.origin === new URL(baseURL).origin && !url.pathname.startsWith('/api/') && url.pathname !== '/version.json'
@@ -97,6 +97,10 @@ try {
   for(const width of [1440,1024,768,390,375]) {
     await page.setViewportSize({width,height:width<500?844:1000})
     await page.evaluate(async(clean)=>(await import('/src/ui/cleanMode.ts')).setCleanMode(clean),width<1200)
+    if (width>=1200) {
+      await page.waitForTimeout(250)
+      check(await page.locator('[data-grafcet-sim-dock]').count()===0 && await page.locator('[data-sim-toggle="grafcet"]').count()===0,`${width}px: no PC grande o GRAFCET não tem painel inferior nem botão de simulação`)
+    } else {
     await openSimulation()
     await page.waitForTimeout(150)
     const body=properties.locator('.gdock-body')
@@ -120,6 +124,7 @@ try {
     check(await page.locator('[data-sim-toggle="grafcet"]').getAttribute('aria-pressed')==='false',`${width}px: recolher E/S atualiza botão`)
     check(await state(store=>store.getState().sim.runState==='running'),`${width}px: recolher E/S preserva RUN`)
     await openSimulation()
+    }
     await view('Ladder')
     const ladder=page.locator('.ladder-bottom-panel')
     const sections=page.getByRole('combobox',{name:'Secção do estado do PLC'})

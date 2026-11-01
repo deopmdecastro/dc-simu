@@ -1,7 +1,7 @@
 import { ViewDiagnosticsTag, DiagnosticsTag } from '../diagnostics/DiagnosticsUi'
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from '../diagnostics/viewDiagnostics'
 import { uiConfirm } from '../ui/dialogs'
-import { PHONE_TOUCH_QUERY } from '../ui/device'
+import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
@@ -230,6 +230,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const grafcetMinimap = useGrafcetUi((state) => state.minimapOn)
   const grafcetStats = useGrafcetUi((state) => state.stats)
   const grafcetSimVisible = useGrafcetUi((state) => state.simVisible)
+  // No PC com ecrã grande o GRAFCET não tem painel inferior: o botão que o abre deixa de fazer sentido.
+  const grafcetDockHidden = useNarrowMenu(WIDE_DESKTOP_QUERY)
   const ladderSync = useGrafcetUi((state) => state.ladderSync)
   const grafcetAutoSync = useGrafcetUi((state) => state.autoSync)
   const showSimControls = true // Run/Pausa/Stop/Passo/Reiniciar em todas as vistas (GRAFCET incluído)
@@ -719,7 +721,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <>
             <span className="tb-sep" />
             {!demo && <button type="button" className={`dc-tool-btn grafcet-palette-tool !gap-1.5 ${grafcetPalette ? 'is-on' : ''}`} aria-pressed={grafcetPalette} aria-label="Componentes" onClick={() => useGrafcetUi.getState().emit('togglePalette')} title="Mostrar/ocultar os componentes (Ctrl+B)"><IconLayers size={13} /><span>Componentes</span></button>}
-            {!demo && <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />}
+            {!demo && !grafcetDockHidden && <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />}
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
               {(demo ? GRAFCET_TOOLS.filter((t) => t.id !== 'connect') : GRAFCET_TOOLS).map(({ id, label, icon: Icon, key, title }) => (

@@ -12,6 +12,9 @@
  *   isso nunca cai no layout de telemóvel (nem com o teclado aberto a encolher a altura).
  */
 export const TABLET_LAYOUT_WIDTH = 1280
+/** Ecrã grande de computador: o GRAFCET dispensa o painel inferior (a simulação está no painel lateral). */
+export const WIDE_DESKTOP_QUERY = '(min-width: 1200px) and (pointer: fine)'
+
 export const PHONE_TOUCH_QUERY = '(pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px)'
 
 export const isTabletDevice = (): boolean => {
