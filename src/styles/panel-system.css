@@ -43,14 +43,35 @@
 .pn-collapsed-rail:hover { color: var(--pn-brand-ink); background: var(--pn-bg-2); }
 .pn-collapsed-rail:focus-visible { outline: none; box-shadow: inset var(--pn-focus); z-index: 13; }
 .pn-collapsed-rail-icon { display: grid; place-items: center; width: 26px; height: 26px; flex: none; color: var(--pn-ink-3); }
-.pn-collapsed-rail-label { writing-mode: vertical-rl; transform: rotate(180deg); color: var(--pn-ink-2); font-size: 10px; line-height: 1.2; font-weight: 650; letter-spacing: .015em; }
-.pn-collapsed-rail-chevron { display: grid; place-items: center; width: 34px; height: 34px; flex: none; margin-top: 1px; border: 1px solid var(--pn-line); border-radius: 6px; background: var(--pn-bg); color: var(--pn-ink-3); }
+.pn-collapsed-rail-label {
+  flex: 0 1 auto; min-height: 0; max-height: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  writing-mode: vertical-rl; transform: rotate(180deg); color: var(--pn-ink-2); font-size: 10px; line-height: 1.2; font-weight: 650; letter-spacing: .015em;
+}
+.pn-collapsed-rail-chevron { display: grid; place-items: center; width: 34px; height: 34px; flex: none; margin-top: auto; border: 1px solid var(--pn-line); border-radius: 6px; background: var(--pn-bg); color: var(--pn-ink-3); }
 .pn-collapsed-rail:hover .pn-collapsed-rail-chevron { border-color: #b8c9e8; color: var(--pn-brand); background: #f7f9ff; }
 @media (prefers-reduced-motion: reduce) { .pn-collapsed-rail { transition: none; } }
+
+/* Painel direito do Esquema/IEC: a régua recolhida vive num contentor em COLUNA, por isso o
+   `flex: 0 0 48px` do desenho base (que é uma largura) esmagava-a para 48 px de altura e o
+   `overflow: hidden` cortava o nome do painel e o botão de reabrir. Em coluna a régua passa a
+   preencher a largura e a esticar em altura, igual à régua «Propriedades» do GRAFCET. */
+.mobile-grafcet-panel > .pn-shell-rail {
+  flex: 1 1 auto; width: 100%; min-width: 0; height: auto; max-height: none;
+  padding-block: 10px 12px;
+}
+.mobile-grafcet-panel > .pn-shell-rail .pn-collapsed-rail-label {
+  max-height: calc(100% - 92px); /* desconta ícone, botão e espaçamentos: o botão nunca desaparece */
+}
 @media (max-width: 1199px) {
   .mobile-grafcet-panel .pn-shell-rail { flex-basis: 36px; width: 36px; min-width: 36px; padding-right: 3px; padding-left: 3px; }
+  .mobile-grafcet-panel > .pn-shell-rail { flex-basis: auto; width: 100%; min-width: 0; }
   .mobile-grafcet-panel .pn-shell-rail .pn-collapsed-rail-icon { width: 24px; }
   .mobile-grafcet-panel .pn-shell-rail .pn-collapsed-rail-chevron { width: 28px; height: 32px; }
+  /* Entre 768 e 1199 px o painel direito é absoluto por cima do canvas: tem de ficar acima
+     das sobreposições locais do editor («A carregar…» do 3D, a z-50), senão a régua recolhida
+     não se vê nem se abre enquanto a vista carrega. */
+  .dc-workspace .mobile-grafcet-panel,
+  .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { z-index: 52; }
 }
 
 /* ===== Contentor ===== */

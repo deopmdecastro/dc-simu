@@ -1,8 +1,8 @@
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from './diagnostics/viewDiagnostics'
-import { CommandsDiagnosticsPanel, SchematicDiagnosticsPanel, ViewDiagnosticsTag } from './diagnostics/DiagnosticsUi'
+import { CommandsDiagnosticsPanel, SchematicDiagnosticsPanel } from './diagnostics/DiagnosticsUi'
 import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
-import { IconGrafcet, IconLayers, IconSchematic, IconWarning, IconXCircle } from './ui/icons'
+import { IconLayers, IconWarning, IconXCircle } from './ui/icons'
 import CollapsedPanelRail from './components/CollapsedPanelRail'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
@@ -12,6 +12,7 @@ import SplitViewDialog from './components/SplitViewDialog'
 import { useSplitView } from './ui/splitViewStore'
 import Sidebar from './components/Sidebar'
 import SidePanelHeader from './components/SidePanelHeader'
+import RightDockTabs, { type RightDockTab } from './components/RightDockTabs'
 import ProjectObjects from './components/ProjectObjects'
 import SimulationDock from './components/SimulationDock'
 import type { LadderSection } from './ladder/LadderSections'
@@ -38,6 +39,9 @@ import { useCommandsUi } from './commands/commandsUi'
 function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClose: () => void; side?: 'left' | 'right' }) {
   return <SidePanelHeader eyebrow={side === 'left' ? 'BIBLIOTECA' : 'PROJETO'} title={title} side={side} onToggle={onClose} toggleLabel={`Recolher ${title}`} />
 }
+
+/** Nome do painel direito (GRAFCET, sinais, objetos e diagnóstico) — o mesmo no cabeçalho aberto e na régua recolhida. */
+const RIGHT_DOCK_TITLE = 'GRAFCET, sinais, objetos e diagnóstico'
 
 export default function App({ onBack, demo = false, onEnterEditor }: { onBack: () => void; /** Modo demonstração (landing): vistas do editor com controlos de simulação apenas. */ demo?: boolean; /** CTA para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
   const projectKind = useSimStore((s) => s.projectKind)
@@ -80,7 +84,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   // laterais fixos como no desktop. Só telemóveis / ecrãs estreitos usam gavetas.
   const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse) and (max-height: 520px) and (max-width: 1100px)').matches)
   const [showLadder, setShowLadder] = useState(() => useSimUi.getState().schematic || !compactWorkspace())
-  const [rightTab, setRightTab] = useState<'grafcet' | 'signals' | 'objects' | 'diagnostics'>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
+  const [rightTab, setRightTab] = useState<RightDockTab>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
   const compact = compactWorkspace()
 
@@ -268,7 +272,10 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         onOpenGrafcet={() => { if (compact) setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
         onOpenObjects={() => { if (compact) setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
-        {(mode === 'schematic' || mode === 'commands') && !demo && (showLibrary || showLadder) && (
+        {/* Cortina só quando os painéis são gavetas (telemóvel). Em tablet/PC os painéis são
+            fixos: a cortina escurecia o canvas e ficava por cima da régua recolhida (z-index 30),
+            deixando o painel impossível de reabrir entre 768 e 1199 px. */}
+        {compact && (mode === 'schematic' || mode === 'commands') && !demo && (showLibrary || showLadder) && (
           <button
             type="button"
             className="dc-mobile-backdrop"
@@ -326,18 +333,15 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         {mode === 'schematic' && !demo && <ComponentEditorDock />}
         {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
+            id="dc-right-dock"
             className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
           >
             {showLadder ? (
               <>
-                <SheetHeader title="GRAFCET, sinais, objetos e diagnóstico" side="right" onClose={() => setShowLadder(false)} />
-                <div className="dc-dock-tabs" role="tablist" aria-label="Painel direito">
-                  <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')} aria-label="GRAFCET" title="GRAFCET"><IconGrafcet size={13} /><span>GRAFCET</span></button>
-                  <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')} aria-label="Entradas/Saídas" title="Entradas/Saídas"><IconSchematic size={13} /><span>E/S</span></button>
-                  <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')} aria-label="Objetos" title="Objetos"><IconLayers size={13} /><span>Objetos</span></button>
-                  <button role="tab" aria-selected={rightTab === 'diagnostics'} aria-label="Diagnóstico" className={`${rightTab === 'diagnostics' ? 'is-on' : ''} ${viewDiag && viewDiag.status !== 'ok' ? 'has-warning' : 'is-valid'}`.trim()} onClick={() => setRightTab('diagnostics')} data-dock-tab="diagnostics" title="Diagnóstico: erros e avisos desta vista"><span>Diagnóstico</span><ViewDiagnosticsTag view={mode === 'commands' ? 'commands' : 'schematic'} compact /></button>
-                </div>
+                <SheetHeader title={RIGHT_DOCK_TITLE} side="right" onClose={() => setShowLadder(false)} />
+                {/* Separadores iguais aos do inspetor GRAFCET: mosaicos com ícone + contagem e nome por baixo. */}
+                <RightDockTabs mode={mode === 'commands' ? 'commands' : 'schematic'} value={rightTab} onChange={setRightTab} />
                 <Suspense fallback={<RouteLoading label="A carregar o GRAFCET…" />}>
                   {rightTab === 'diagnostics'
                     ? (mode === 'commands' ? <CommandsDiagnosticsPanel /> : <SchematicDiagnosticsPanel />)
@@ -349,7 +353,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
                 </Suspense>
               </>
             ) : (
-              <CollapsedPanelRail className="pn-shell-rail" label="GRAFCET, sinais e objetos" side="right" icon={<IconLayers size={15} />} onExpand={() => { if (compact) setShowLibrary(false); setShowLadder(true) }} />
+              <CollapsedPanelRail className="pn-shell-rail" label={RIGHT_DOCK_TITLE} side="right" icon={<IconLayers size={15} />} controls="dc-right-dock" onExpand={() => { if (compact) setShowLibrary(false); setShowLadder(true) }} />
             )}
           </div>
         )}

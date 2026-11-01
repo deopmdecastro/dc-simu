@@ -261,8 +261,51 @@
 }
 
 /* ---------- 5. Painel do projeto no Esquema ---------- */
-.dc-dock-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.dc-dock-tabs button svg { flex: none; opacity: .85; }
+/*
+ * Separadores (GRAFCET · E/S · Objetos · Diagnóstico) com o MESMO desenho do
+ * inspetor do GRAFCET (`.grafcet-tabs`): quatro mosaicos iguais, ícone e
+ * contagem na 1.ª linha e o nome na 2.ª. Antes eram pastilhas baixas com o
+ * ícone ao lado do texto — no 3D e no IEC o painel parecia outro painel.
+ */
+.dc-dock-tabs {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;
+  padding: 8px 10px 9px; overflow: visible;
+  border-bottom: 1px solid var(--pn-line-soft); background: var(--pn-bg);
+}
+.dc-dock-tabs .dc-dock-tab {
+  position: relative; display: grid; grid-template-columns: auto auto; grid-template-rows: 18px auto;
+  justify-content: center; align-items: center; column-gap: 5px; row-gap: 3px;
+  min-width: 0; min-height: 50px; padding: 6px 4px;
+  border: 1px solid var(--pn-line-soft); border-radius: 9px; background: var(--pn-bg-2); color: var(--pn-ink-3);
+  font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+.dc-dock-tabs .dc-dock-tab:hover:not(.is-on) { background: #eef3fb; color: var(--pn-ink-2); }
+.dc-dock-tabs .dc-dock-tab.is-on { border-color: #bfd2fb; background: var(--pn-brand-soft); color: var(--pn-brand-ink); font-weight: 700; }
+.dc-dock-tabs .dc-dock-tab:focus-visible { outline: none; box-shadow: var(--pn-focus); }
+.dc-dock-tabs .dc-dock-tab-icon { grid-row: 1; grid-column: 1; justify-self: end; display: grid; place-items: center; opacity: .9; }
+.dc-dock-tabs .dc-dock-tab-icon svg { display: block; flex: none; }
+.dc-dock-tabs .dc-dock-tab-count {
+  grid-row: 1; grid-column: 2; justify-self: start; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 999px;
+  background: #e8edf5; color: var(--pn-ink-3);
+  font: 700 9.5px/16px ui-sans-serif, system-ui, sans-serif; font-style: normal; text-align: center;
+}
+.dc-dock-tabs .dc-dock-tab.is-on .dc-dock-tab-count { background: #dbeafe; color: var(--pn-brand-ink); }
+.dc-dock-tabs .dc-dock-tab-label {
+  grid-row: 2; grid-column: 1 / -1; justify-self: center; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; font-size: 10.5px; letter-spacing: -.01em;
+}
+/* Diagnóstico: a cor do ícone e da contagem avisa; o mosaico só ganha cor quando está ativo
+   (igual ao separador homónimo do GRAFCET). */
+.dc-dock-tabs .dc-dock-tab.is-valid .dc-dock-tab-icon { color: #16a34a; }
+.dc-dock-tabs .dc-dock-tab.has-warning .dc-dock-tab-icon { color: #d97706; }
+.dc-dock-tabs .dc-dock-tab.has-warning .dc-dock-tab-count { background: #fff0cf; color: #9a5b07; }
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
+  .dc-dock-tabs { padding: 8px 10px 10px; gap: 5px; }
+  .dc-dock-tabs .dc-dock-tab { min-height: 56px; padding: 7px 3px; }
+  .dc-dock-tabs .dc-dock-tab-label { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) { .dc-dock-tabs .dc-dock-tab { transition: none; } }
 .sim-embed-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
   padding: 10px var(--pn-pad); background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft);
