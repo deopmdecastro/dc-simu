@@ -14,8 +14,8 @@ export const NATIVE_THERMAL_FEATURE = 'thermal-relay-v1'
 export const NATIVE_THERMAL_MOUNT_FEATURE = 'thermal-relay-mounted-v1'
 /** Bobina AC do KM1 comutada pela fase do comando (corrige a cablagem anterior a c3df70f). */
 export const NATIVE_COIL_AC_FEATURE = 'coil-ac-v1'
-/** Sinal do relé térmico F1 no LOGO! (I0.3), H3 EMERGÊNCIA (Q0.3) e H2 PARADO laranja. */
-export const NATIVE_SIGNALS_FEATURE = 'signals-v1'
+/** Sinal do relé térmico F1 no LOGO! (I0.3), H3 EMERGÊNCIA (Q0.3) e H2 PARADO laranja (v2: cabo a cabo e programa efetivo do PLC). */
+export const NATIVE_SIGNALS_FEATURE = 'signals-v2'
 
 /** Só os cabos de alimentação que partilham o borne com as sondas recebem colar duplo. */
 export function withMotorMeterFerrules(wires: Wire[], leads: Wire[]): Wire[] {

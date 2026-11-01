@@ -107,7 +107,13 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   for (const w of old.wires) if (w.toTerminalId === 'native-f1-95') w.toTerminalId = 'native-km1-A1'
   ;[['native-wire-4', '2T1', 'U1'], ['native-wire-8', '4T2', 'V1'], ['native-wire-12', '6T3', 'W1']].forEach(([id, km, m]) => old.wires.push({ ...structuredClone(template), id, fromTerminalId: `native-km1-${km}`, toTerminalId: `native-m1-${m}` }))
   const upgraded = addNativeThermalRelay(old)
-  check(upgraded.components.find((c: any) => c.id === 'native-f1')?.mountedOn === 'native-km1' && upgraded.wires.length === seedContent.wires.length, 'projeto antigo intacto recebe o F1 encaixado e a cablagem nova')
+  // O 98 → I0.3 não vem com o F1: é da migração dos sinalizadores (cabo a cabo, ver nativeSignals).
+  check(upgraded.components.find((c: any) => c.id === 'native-f1')?.mountedOn === 'native-km1' && upgraded.wires.length === seedContent.wires.length - 1 && !upgraded.wires.some((w: any) => w.fromTerminalId === 'native-f1-98'), 'projeto antigo intacto recebe o F1 encaixado e a cablagem nova (sem o 98 → I0.3)')
+  {
+    const { addNativeSignals, NATIVE_SIGNALS_FEATURE } = await import('../src/project/nativeSignals')
+    const withSignals = addNativeSignals({ ...upgraded, nativeFeatures: upgraded.nativeFeatures.filter((x: string) => x !== NATIVE_SIGNALS_FEATURE) })
+    check(withSignals.wires.length === seedContent.wires.length && withSignals.wires.some((w: any) => w.fromTerminalId === 'native-f1-98' && w.toTerminalId === 'native-plc-I0.3'), 'depois, a migração dos sinalizadores liga o 98 → I0.3')
+  }
   check(upgraded.wires.every((w: any) => seedContent.wires.some((s: any) => s.id === w.id && s.fromTerminalId === w.fromTerminalId && s.toTerminalId === w.toTerminalId)), 'cablagem migrada igual à da semente')
   const touched = structuredClone(old)
   touched.wires.find((w: any) => w.toTerminalId === 'native-km1-A1').toTerminalId = 'native-km1-14'
@@ -258,7 +264,30 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   check(addNativeSignals(up) === up, 'migração dos sinais corre uma só vez')
   const busy = { ...old, wires: [...old.wires, { ...old.wires[0], id: 'meu', fromTerminalId: 'native-psu-+V1', toTerminalId: 'native-plc-I0.3' }] }
   const kept = addNativeSignals(busy)
-  check(!kept.wires.some((w: any) => w.fromTerminalId === 'native-f1-98') && kept.wires.length === busy.wires.length, 'migração: com I0.3 já usado pelo utilizador, os cabos novos não entram')
+  check(!kept.wires.some((w: any) => w.fromTerminalId === 'native-f1-98') && kept.wires.length === busy.wires.length + 4 && kept.wires.some((w: any) => w.fromTerminalId === 'native-plc-Q0.3·2' && w.toTerminalId === 'native-h3-X1'), 'migração: com I0.3 já usado pelo utilizador só o 98 → I0.3 fica de fora; o H3 é ligado')
+  // Projeto gravado com a v1 (tudo-ou-nada, só em ladder/tags): H3 sem cabos, só o 98 → I0.3 e tags efetivas
+  // (plcTags/plcPrograms) sem I0.3/Q0.3 — a v2 repara.
+  {
+    const { syncNativeLadder } = await import('../src/project/nativeLadderSync')
+    const { nativeProgramOf } = await import('../src/project/nativeProjects')
+    const fresh2 = nativePartidaDiretaContent() as any
+    const oldTags = fresh2.tags.filter((t: any) => t.address !== 'I0.3' && t.address !== 'Q0.3')
+    const userState = {
+      ...fresh2,
+      nativeFeatures: [...fresh2.nativeFeatures.filter((x: string) => x !== 'signals-v2' && x !== 'ladder-sync-v2'), 'signals-v1', 'ladder-sync-v1'],
+      wires: fresh2.wires.filter((w: any) => !newWire(w) || (w.fromTerminalId === 'native-f1-98' && w.toTerminalId === 'native-plc-I0.3')),
+      plcTags: { 'native-plc': oldTags },
+      plcPrograms: { 'native-plc': { rungs: [{ id: 'old-a', name: 'GRAFCET · Chamar Grafcet', branches: [], coils: [], enabled: true, comment: 'CALL' }, { id: 'old-b', name: 'GRAFCET · Chamar Outputs', branches: [], coils: [], enabled: true, comment: 'CALL' }], fc1: [], fc2: [] } },
+    }
+    const repaired = syncNativeLadder(addNativeSignals(userState))
+    const signal = repaired.wires.filter(newWire).map((w: any) => `${w.fromTerminalId}>${w.toTerminalId}`).sort().join(',')
+    check(signal === fresh2.wires.filter(newWire).map((w: any) => `${w.fromTerminalId}>${w.toTerminalId}`).sort().join(','), 'reparação v2: H3 ligado a Q0.3 e 97 aos +24 V (os 5 cabos de sinal)')
+    const eff = nativeProgramOf(repaired)
+    check(eff.tags.some((t: any) => t.address === 'I0.3' && t.name === 'F1') && eff.tags.some((t: any) => t.address === 'Q0.3' && t.name === 'H3'), 'reparação v2: variáveis I0.3 F1 e Q0.3 H3 nas tags efetivas do LOGO! (plcTags)')
+    const outputs = (repaired.projectFiles['native-plc'] as any[]).find((x) => x.name === 'Outputs [FC 2]')
+    check(JSON.stringify(outputs?.rungs ?? []).includes('Q0.3') && eff.rungs.every((r: any) => !r.comment), 'reparação v2: FC Outputs com a saída Q0.3 (H3) e Main refeito no programa efetivo (plcPrograms)')
+    check(schematicDiagnostics(repaired.components, repaired.wires, [], false).length === 0, 'reparação v2: quadro sem avisos')
+  }
   const myGrafcet = { ...old, grafcet: { ...oldGrafcet, transitions: oldGrafcet.transitions.map((t: any) => (t.id === 'native-t1' ? { ...t, condition: 'I0.1' } : t)) } }
   check(addNativeSignals(myGrafcet).grafcet.transitions.find((t: any) => t.id === 'native-t1').condition === 'I0.1', 'migração: GRAFCET alterado pelo utilizador mantém-se')
 }

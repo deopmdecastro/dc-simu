@@ -11,7 +11,7 @@
  */
 import type { ElectricalComponent, Wire } from '../types'
 import { NATIVE_PARTIDA_ID, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE } from './nativeMotorMeter'
-import { buildNativePartidaDireta, NATIVE_F1_ID, NATIVE_F1_MOUNT_WIRES } from './nativeProjects'
+import { buildNativePartidaDireta, isNativeSignalWire, NATIVE_F1_ID, NATIVE_F1_MOUNT_WIRES } from './nativeProjects'
 
 export { NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE }
 
@@ -52,7 +52,8 @@ export function addNativeThermalRelay<T extends Record<string, any>>(content: T)
     && is(coil.id, coil.fromTerminalId, 'native-km1-A1')
   if (!original) return done(content)
   const seedById = new Map(seed.wires.map((w) => [w.id, w]))
-  const added = seed.wires.filter((w) => w.fromTerminalId.startsWith(`${NATIVE_F1_ID}-`) && !wires.some((x) => x.id === w.id))
+  // Só os cabos do F1 de potência e do 95-96: o 97-98 → I0.3 é da migração dos sinalizadores (nativeSignals).
+  const added = seed.wires.filter((w) => w.fromTerminalId.startsWith(`${NATIVE_F1_ID}-`) && !isNativeSignalWire(w) && !wires.some((x) => x.id === w.id))
   const nextWires = [
     ...withReturn(wires.filter((w) => !NATIVE_F1_MOUNT_WIRES.includes(w.id))).map((w) => (w.id === coil.id ? structuredClone(seedById.get(w.id)!) : w)),
     ...added.map((w) => structuredClone(w)),

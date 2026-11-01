@@ -1898,8 +1898,9 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, ...
         <tubeGeometry args={[curve, Math.min(96, segments), Math.max(0.04, radius * 2.5), 8, false]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      {!from.sharedFollower && <WireEnd3D side="from" geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />}
-      {!to.sharedFollower && <WireEnd3D side="to" geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />}
+      {/* Clicar na terminação (pinça, ficha, ponteira) seleciona o cabo, como clicar no próprio cabo. */}
+      {!from.sharedFollower && <WireEnd3D side="from" geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
+      {!to.sharedFollower && <WireEnd3D side="to" geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
       {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         onSelect={handlers.onSelectWaypoint}

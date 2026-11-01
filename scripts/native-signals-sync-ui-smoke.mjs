@@ -119,7 +119,7 @@ try {
     const c = nativePartidaDiretaContent()
     const old = { 'native-fc-grafcet': 'FC1 [Grafcet]', 'native-fc-outputs': 'FC2 [Outputs]', 'native-ob100': 'OB100 [Complete restart]' }
     c.projectFiles['native-plc'] = c.projectFiles['native-plc'].map((file) => ({ ...file, name: old[file.id] }))
-    c.nativeFeatures = c.nativeFeatures.filter((x) => x !== 'ladder-sync-v1')
+    c.nativeFeatures = c.nativeFeatures.filter((x) => !x.startsWith('ladder-sync-'))
     useSimStore.getState().loadJSON(JSON.stringify(c))
   })
   await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: 'GRAFCET', exact: true }).click()
@@ -136,6 +136,32 @@ try {
   await page.waitForTimeout(1500)
   s = await snap()
   check(s.h2 && s.relays === '0010', `projeto antigo em RUN: o LOGO! fecha Q0.2 e acende o H2 — ${JSON.stringify(s)}`)
+  // Projeto gravado com a migração v1 (com falha): H3 sem cabos, só o 98 → I0.3 e tags do LOGO! (plcTags) sem I0.3/Q0.3.
+  await act('stop')
+  await page.evaluate(async () => {
+    const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    const { nativePartidaDiretaContent } = await globalThis.__dcAppImport('/src/project/nativeProjects.ts')
+    const c = nativePartidaDiretaContent()
+    const sig = (w) => ['native-f1-97', 'native-plc-Q0.3', 'native-plc-Q0.3·2'].includes(w.fromTerminalId) || ['native-f1-97', 'native-plc-Q0.3', 'native-plc-Q0.3·2'].includes(w.toTerminalId) || w.fromTerminalId.startsWith('native-h3-') || w.toTerminalId.startsWith('native-h3-')
+    c.wires = c.wires.filter((w) => !sig(w))
+    c.plcTags = { 'native-plc': c.tags.filter((t) => t.address !== 'I0.3' && t.address !== 'Q0.3') }
+    c.plcPrograms = { 'native-plc': { rungs: c.ladder.rungs, fc1: [], fc2: [] } }
+    c.nativeFeatures = [...c.nativeFeatures.filter((x) => x !== 'signals-v2' && x !== 'ladder-sync-v2'), 'signals-v1', 'ladder-sync-v1']
+    useSimStore.getState().loadJSON(JSON.stringify(c))
+  })
+  await page.waitForTimeout(800)
+  const repaired = await page.evaluate(async () => {
+    const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    const st = useSimStore.getState()
+    return { h3Wires: st.wires.filter((w) => w.fromTerminalId.startsWith('native-h3-') || w.toTerminalId.startsWith('native-h3-')).length, tags: st.tags.filter((t) => ['I0.3', 'Q0.3'].includes(t.address)).map((t) => t.address + '=' + t.name).sort().join(',') }
+  })
+  check(repaired.h3Wires === 2 && repaired.tags === 'I0.3=F1,Q0.3=H3', `projeto gravado com a v1: ao abrir, o H3 fica ligado e as variáveis I0.3 F1 / Q0.3 H3 aparecem no Ladder — ${JSON.stringify(repaired)}`)
+  await act('play')
+  await page.waitForTimeout(1200)
+  await act('setComponentState', 'native-emerg', { pressed: true })
+  await page.waitForTimeout(1200)
+  s = await snap()
+  check(s.h3 && s.relays === '0001', `projeto reparado: emergência acende o H3 no 3D — ${JSON.stringify(s)}`)
   check(errors.length === 0, `sem erros JavaScript (${errors.join(' | ') || 'nenhum'})`)
 } finally {
   await browser.close()

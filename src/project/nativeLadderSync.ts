@@ -7,14 +7,16 @@
  * Aqui o Ladder gerado é refeito a partir do GRAFCET do próprio projeto, com as convenções do gerador
  * («Grafcet [FC 1]», «Outputs [FC 2]», «Complete restart [OB 100]»). Só corre se o Main [OB1] tiver
  * apenas networks geradas («GRAFCET ·»): networks do utilizador nunca são tocadas.
+ * v2: lê e escreve o programa e as tags efetivos do LOGO! (`plcPrograms`/`plcTags` num projeto já gravado,
+ * que a app usa ao abrir); a v1 só escrevia em `ladder`/`tags` e num projeto gravado não tinha efeito.
  */
 import type { LadderRung } from '../types'
 import type { ProjectFile } from '../ladder/projectFiles'
 import { validateGrafcet, type GrafcetProgram } from '../grafcet/engine'
 import { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
-import { buildNativeWordProgram, NATIVE_PLC_ID } from './nativeProjects'
+import { buildNativeWordProgram, nativeProgramOf, NATIVE_PLC_ID, withNativeProgram } from './nativeProjects'
 
-export const NATIVE_LADDER_SYNC_FEATURE = 'ladder-sync-v1'
+export const NATIVE_LADDER_SYNC_FEATURE = 'ladder-sync-v2'
 
 /** Variáveis criadas pelo gerador (registo de etapa, memórias e bits de etapa): são refeitas. */
 const GENERATED_NAME = /^(G\d+|Evolucao_G0|Etapa_|Rec_T|Temp_T|Tempo_[DL]_|Mem_|Cont_)/
@@ -32,16 +34,15 @@ export function syncNativeLadder<T extends Record<string, any>>(content: T): T {
   if (features.includes(NATIVE_LADDER_SYNC_FEATURE)) return content
   const done = (next: Record<string, any>) => ({ ...next, nativeFeatures: [...features, NATIVE_LADDER_SYNC_FEATURE] }) as unknown as T
   const grafcet = content.grafcet as GrafcetProgram | undefined
-  const main: LadderRung[] = Array.isArray(content.ladder?.rungs) ? content.ladder.rungs : []
+  const effective = nativeProgramOf(content)
+  const main: LadderRung[] = effective.rungs
   const files: ProjectFile[] = Array.isArray(content.projectFiles?.[NATIVE_PLC_ID]) ? content.projectFiles[NATIVE_PLC_ID] : []
   const onlyGenerated = main.length > 0 && main.every((r) => typeof r?.name === 'string' && r.name.startsWith('GRAFCET ·'))
   if (!grafcet?.steps?.length || !onlyGenerated || validateGrafcet(grafcet).some((i) => i.level === 'error')) return done(content)
-  const tags = Array.isArray(content.tags) ? content.tags.filter((t: any) => !isGeneratedTag(t)) : []
+  const tags = effective.tags.filter((t: any) => !isGeneratedTag(t))
   const program = buildNativeWordProgram(grafcet, tags)
-  return done({
+  return done(withNativeProgram({
     ...content,
-    ladder: { ...(content.ladder ?? {}), rungs: program.mainRungs },
     projectFiles: { ...(content.projectFiles ?? {}), [NATIVE_PLC_ID]: [...files.filter((f) => !isGeneratedFile(f)), ...program.files] },
-    tags: program.tags,
-  })
+  }, { rungs: program.mainRungs, tags: program.tags }))
 }

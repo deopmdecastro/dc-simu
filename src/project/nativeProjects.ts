@@ -39,6 +39,35 @@ export const NATIVE_F1_MOUNT_WIRES = ['native-wire-4', 'native-wire-8', 'native-
 export const NATIVE_H3_ID = 'native-h3'
 /** Cor do H2 PARADO (laranja); antes era vermelho. */
 export const NATIVE_H2_COLOR = '#f97316'
+/** Bornes que só os cabos do sinal do F1 e do H3 usam (no quadro anterior estavam livres). */
+export const NATIVE_SIGNAL_TERMINALS = ['native-f1-97', 'native-f1-98', 'native-plc-I0.3', 'native-plc-Q0.3', 'native-plc-Q0.3·2', 'native-h3-X1', 'native-h3-X2']
+export const isNativeSignalWire = (w: Pick<Wire, 'fromTerminalId' | 'toTerminalId'>) =>
+  NATIVE_SIGNAL_TERMINALS.includes(w.fromTerminalId) || NATIVE_SIGNAL_TERMINALS.includes(w.toTerminalId)
+
+/**
+ * Programa e tags do LOGO! nativo tal como a app os abre: num projeto já gravado, `plcPrograms[PLC]`
+ * e `plcTags[PLC]` têm prioridade sobre `ladder`/`tags` (ver loadJSON). As migrações leem e escrevem aqui.
+ */
+export function nativeProgramOf(content: Record<string, any>): { rungs: LadderRung[]; tags: Built['tags'] } {
+  const program = content.plcPrograms?.[NATIVE_PLC_ID]
+  return {
+    rungs: Array.isArray(program?.rungs) ? program.rungs : Array.isArray(content.ladder?.rungs) ? content.ladder.rungs : [],
+    tags: Array.isArray(content.plcTags?.[NATIVE_PLC_ID]) ? content.plcTags[NATIVE_PLC_ID] : Array.isArray(content.tags) ? content.tags : [],
+  }
+}
+export function withNativeProgram<T extends Record<string, any>>(content: T, change: { rungs?: LadderRung[]; tags?: Built['tags'] }): T {
+  const next: Record<string, any> = { ...content }
+  if (change.rungs) {
+    next.ladder = { ...(content.ladder ?? {}), rungs: change.rungs }
+    if (content.plcPrograms?.[NATIVE_PLC_ID]) next.plcPrograms = { ...content.plcPrograms, [NATIVE_PLC_ID]: { ...content.plcPrograms[NATIVE_PLC_ID], rungs: change.rungs } }
+  }
+  if (change.tags) {
+    next.tags = change.tags
+    if (Array.isArray(content.plcTags?.[NATIVE_PLC_ID])) next.plcTags = { ...content.plcTags, [NATIVE_PLC_ID]: change.tags }
+  }
+  return next as T
+}
+
 /** Cabos do sinal do F1 (I0.3) e do H3 (Q0.3), pela ordem da semente. */
 export const NATIVE_SIGNAL_WIRES = (psu: ElectricalComponent, f1: ElectricalComponent, plc: ElectricalComponent, h3: ElectricalComponent, h2: ElectricalComponent): Array<[ElectricalComponent, string, ElectricalComponent, string, WireColor]> => [
   [psu, '+V2', f1, '97', 'red'],
@@ -428,7 +457,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, 'ladder-sync-v1'],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, 'ladder-sync-v2'],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

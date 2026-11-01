@@ -69,7 +69,7 @@ function Cyl({ y, length, radius, color, metalness = 0.15, roughness = 0.5, scal
  * ponteira dupla, pino, olhal, forquilha, faston, ponta estanhada ou ponta nua.
  * Referencial local: +Y = eixo (da ponta para o cabo), +Z = espessura dos terminais planos.
  */
-export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: WireEndGeometry; wireRadius: number; color: string; side?: 'from' | 'to' }) {
+export function WireEnd3D({ geometry, wireRadius, color, side, onSelect }: { geometry: WireEndGeometry; wireRadius: number; color: string; side?: 'from' | 'to'; onSelect?: () => void }) {
   const quaternion = useMemo(() => {
     const y = new THREE.Vector3(...geometry.axis).normalize()
     const z = new THREE.Vector3(...geometry.normal)
@@ -235,5 +235,18 @@ export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: Wir
     }
   })()
 
-  return <group position={geometry.origin} quaternion={quaternion} userData={{ noPick: true, wireEndType: geometry.type, wireEndSide: side }}>{body}</group>
+  // Volume de clique das pontas de medida (pinça da ponta de prova e ficha banana): as peças visíveis não
+  // respondem ao rato, por isso só o cabo selecionava o condutor. Só nestas terminações — nas ponteiras dos
+  // bornes um volume destes taparia o clique no borne (ex.: começar outro cabo no mesmo borne).
+  const grip = geometry.type === 'probe' || geometry.type === 'banana'
+  const hitLength = geometry.type === 'probe' ? 96 * U : 22 * U
+  const hitRadius = geometry.type === 'probe' ? 7.5 * U : 5.5 * U
+  return <group position={geometry.origin} quaternion={quaternion} userData={{ noPick: true, wireEndType: geometry.type, wireEndSide: side }}>
+    {body}
+    {onSelect && grip && <mesh position={[0, hitLength / 2, 0]} userData={{ wireHit: true, wireEndHit: side }}
+      onClick={(event) => { event.stopPropagation(); onSelect() }}>
+      <cylinderGeometry args={[hitRadius, hitRadius, hitLength, 12]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>}
+  </group>
 }
