@@ -539,3 +539,16 @@
 
 /* Títulos do esquema na seleção de grupo (marquee / Ctrl+A), como os símbolos */
 .dc-cmd-text.is-selected { fill: #1d4ed8; paint-order: stroke; stroke: rgba(37, 99, 235, .16); stroke-width: 6px; stroke-linejoin: round; }
+
+/* Diálogo do texto da referência: tipos de letra em cartões e pré-visualização com o símbolo real. */
+.dc-cmd-tag-fonts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.dc-cmd-tag-fonts button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 58px; padding: 6px 4px; border: 1px solid #d5deeb; border-radius: 10px; background: #fff; color: #0f172a; cursor: pointer; transition: border-color .12s, background .12s, box-shadow .12s; }
+.dc-cmd-tag-fonts button:hover { border-color: #93c5fd; background: #f8fbff; }
+.dc-cmd-tag-fonts button.is-on { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 1px #2563eb inset; }
+.dc-cmd-tag-fonts button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.dc-cmd-tag-font-sample { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; line-height: 1.1; }
+.dc-cmd-tag-font-name { color: #64748b; font-size: 10.5px; font-weight: 600; }
+.dc-cmd-tag-fonts button.is-on .dc-cmd-tag-font-name { color: #1d4ed8; }
+.dc-cmd-tag-dialog .dc-cmd-tag-row .grafcet-property-chips { margin-top: 6px; }
+.dc-cmd-tag-preview { width: 100%; height: auto; min-height: 150px; max-height: 260px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+.dc-cmd-tag-preview .dc-cmd-hover-halo, .dc-cmd-tag-preview .dc-cmd-symbol-hit { display: none; }

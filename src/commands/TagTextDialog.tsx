@@ -8,14 +8,15 @@ import PropertyDialog from '../ui/PropertyDialog'
 import { useSimStore } from '../store/useSimStore'
 import { TEXT_COLORS, TEXT_FONTS, fontStack } from '../ui/textStyle'
 import type { CanvasTextFont } from '../types'
-import { CMD_PARTS, emptyCommands, type CmdPart } from './model'
-import { cmdTagPreset } from './symbols'
+import { CMD_PARTS, emptyCommands, partBox, type CmdPart } from './model'
+import { CmdSymbol, cmdTagBounds, cmdTagPreset } from './symbols'
 import { commitDiagram } from './editing'
 
 type TagStyle = NonNullable<CmdPart['tagStyle']>
 const PRESETS: Array<{ side: 'top' | 'bottom' | 'left' | 'right'; label: string }> = [
   { side: 'top', label: 'Cima' }, { side: 'bottom', label: 'Baixo' }, { side: 'left', label: 'Esquerda' }, { side: 'right', label: 'Direita' },
 ]
+const QUICK_SIZES = [9, 10, 12, 14, 18, 24]
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const normalizeAngle = (value: number) => { const turn = ((value + 180) % 360 + 360) % 360 - 180; return turn === -180 ? 180 : turn }
 
@@ -37,6 +38,18 @@ export default function TagTextDialog({ partId, onClose }: { partId: string; onC
   const duplicate = !!name && diagram.parts.some((p) => p.id !== part.id && p.tag === name)
   const error = name ? '' : 'Indique a referência (ex.: K1, S2, Q1).'
   const label = CMD_PARTS[part.kind].label
+
+  // Caixa de visualização: símbolo + nome (com rotação), com margem; mínimo para símbolos pequenos.
+  const preview = (() => {
+    const p: CmdPart = { ...part, x: 0, y: 0, tag: name || '…', tagStyle: style }
+    const box = partBox(p)
+    const tb = cmdTagBounds(p)
+    const x0 = Math.min(box.x, tb?.x ?? box.x), y0 = Math.min(box.y, tb?.y ?? box.y)
+    const x1 = Math.max(box.x + box.w, tb ? tb.x + tb.w : -Infinity), y1 = Math.max(box.y + box.h, tb ? tb.y + tb.h : -Infinity)
+    const w = Math.max(120, x1 - x0 + 36), h = Math.max(90, y1 - y0 + 36)
+    const x = (x0 + x1) / 2 - w / 2, y = (y0 + y1) / 2 - h / 2
+    return { part: p, x, y, w, h, viewBox: `${x} ${y} ${w} ${h}` }
+  })()
 
   const save = () => {
     if (error) return
@@ -72,10 +85,17 @@ export default function TagTextDialog({ partId, onClose }: { partId: string; onC
           </div>
 
           <div className="grafcet-property-field">
-            <label htmlFor="cmd-tag-text-font">Tipo de letra</label>
-            <select id="cmd-tag-text-font" className="dc-input" value={style.font ?? 'sans'} onChange={(e) => patch({ font: e.target.value as CanvasTextFont })}>
-              {TEXT_FONTS.map((font) => <option key={font.id} value={font.id}>{font.label}</option>)}
-            </select>
+            <span className="grafcet-property-label" id="cmd-tag-text-font">Tipo de letra</span>
+            {/* Cartões com o próprio texto em cada letra: escolhe-se vendo o resultado. */}
+            <div className="dc-cmd-tag-fonts" role="radiogroup" aria-labelledby="cmd-tag-text-font">
+              {TEXT_FONTS.map((font) => {
+                const on = (style.font ?? 'sans') === font.id
+                return <button key={font.id} type="button" role="radio" aria-checked={on} className={on ? 'is-on' : ''} onClick={() => patch({ font: font.id as CanvasTextFont })} title={font.label}>
+                  <span className="dc-cmd-tag-font-sample" style={{ fontFamily: font.stack, fontWeight: bold ? 750 : 400, fontStyle: style.italic ? 'italic' : 'normal' }}>{name || 'Q1'}</span>
+                  <span className="dc-cmd-tag-font-name">{font.label}</span>
+                </button>
+              })}
+            </div>
           </div>
 
           <div className="dc-cmd-tag-row">
@@ -83,6 +103,9 @@ export default function TagTextDialog({ partId, onClose }: { partId: string; onC
               <label htmlFor="cmd-tag-text-size">Tamanho (px)</label>
               <input id="cmd-tag-text-size" className="dc-input" type="number" min={6} max={72} step={1} value={size}
                 onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) patch({ fontSize: clampNumber(n, 6, 72) }) }} />
+              <div className="grafcet-property-chips" aria-label="Tamanhos rápidos">
+                {QUICK_SIZES.map((px) => <button key={px} type="button" aria-pressed={size === px} onClick={() => patch({ fontSize: px })}>{px}</button>)}
+              </div>
             </div>
             <fieldset className="grafcet-property-section dc-cmd-tag-style">
               <legend>Estilo</legend>
@@ -133,12 +156,13 @@ export default function TagTextDialog({ partId, onClose }: { partId: string; onC
 
         <aside className="grafcet-property-preview dc-cmd-link-preview" aria-label="Pré-visualização do texto">
           <span className="grafcet-property-preview-label">Pré-visualização</span>
-          <svg viewBox="0 0 220 140" role="img" aria-label={`Texto ${name || '…'} a ${rotation} graus`}>
-            <rect x="8" y="8" width="204" height="124" rx="8" className="dc-cmd-link-sheet" />
-            <rect x="92" y="52" width="36" height="36" rx="3" className="dc-cmd-link-box" />
-            <text x="110" y="75" textAnchor="middle" className="dc-cmd-link-sheet-name">{label.slice(0, 5)}</text>
-            <text x="110" y="70" textAnchor="middle" transform={`rotate(${rotation} 110 70)`} stroke="none"
-              style={{ fontSize: clampNumber(size, 6, 40), fill: color, fontFamily: fontStack(style.font), fontWeight: bold ? 750 : 400, fontStyle: style.italic ? 'italic' : 'normal', textDecoration: style.underline ? 'underline' : 'none' }}>{name || '…'}</text>
+          {/* O próprio símbolo com o nome tal como fica no esquema (posição, tamanho, cor e rotação). */}
+          <svg className="dc-cmd-tag-preview" viewBox={preview.viewBox} role="img" aria-label={`${label} com o texto ${name || '…'} a ${rotation} graus`}>
+            <defs>
+              <pattern id="cmd-tag-preview-grid" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="0" cy="0" r="0.9" fill="#cbd5e1" /></pattern>
+            </defs>
+            <rect x={preview.x} y={preview.y} width={preview.w} height={preview.h} fill="url(#cmd-tag-preview-grid)" />
+            <CmdSymbol part={preview.part} state={{ idle: true }} />
           </svg>
           <p className="grafcet-property-preview-value">{name || '—'} · {size}px · {Math.round(rotation)}°</p>
         </aside>

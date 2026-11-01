@@ -61,6 +61,20 @@ try {
   assert.match(await label.getAttribute('style'), /rgb\(208, 32, 64\)/)
   await sidebar.getByRole('button', { name: 'Repor referência' }).click()
   assert.equal((await read()).parts[0].tagStyle, undefined)
+  // Diálogo «Editar texto» (duplo clique no nome): letras em cartões e pré-visualização com o símbolo real.
+  await label.dblclick()
+  const textDialog = page.getByRole('dialog')
+  await textDialog.getByRole('radiogroup', { name: 'Tipo de letra' }).waitFor()
+  assert.equal(await textDialog.getByRole('radio').count(), 5, 'cinco tipos de letra em cartões')
+  await textDialog.getByRole('radio', { name: 'Técnica' }).click()
+  assert.equal(await textDialog.getByRole('radio', { name: 'Técnica' }).getAttribute('aria-checked'), 'true')
+  const preview = textDialog.locator('svg.dc-cmd-tag-preview')
+  assert.equal(await preview.locator('[data-cmd-kind="fuse"]').count(), 1, 'pré-visualização com o símbolo real')
+  await textDialog.getByRole('button', { name: '18', exact: true }).click()
+  assert.match(await preview.locator('.dc-cmd-tag').getAttribute('style'), /18px/, 'tamanho rápido aplicado na pré-visualização')
+  await textDialog.getByRole('button', { name: 'Guardar', exact: true }).click()
+  const saved = (await read()).parts[0].tagStyle
+  assert.equal(saved.font, 'mono'); assert.equal(saved.fontSize, 18)
   assert.deepEqual(errors, [])
-  console.log('PASS — referência à esquerda, arrastar, propriedades, cor e reposição no editor')
+  console.log('PASS — referência à esquerda, arrastar, propriedades, cor e reposição no editor; diálogo com letras em cartões e símbolo real')
 } finally { await browser.close() }
