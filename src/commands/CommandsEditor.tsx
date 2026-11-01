@@ -35,7 +35,9 @@ import { addPart, commitDiagram, defaultTag, removeItem, removeSelected, rotateS
 import { CommandsNotesLayer, CommandsTextsLayer, CommandsTextToolbar, DEFAULT_TEXT_STYLE_COMMANDS } from './CommandsAnnotations'
 import { WIRE_COLOR_HEX } from '../admin/editor3d/wireStyle'
 import { WIRE_COLORS } from '../schematic/symbols'
-import { useCanvasAction, useSimUi } from '../ui/simUi'
+import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
+import ShortcutHelp from '../ui/ShortcutHelp'
+import { COMMANDS_SHORTCUTS } from '../ui/shortcutLists'
 import { NOTE_COLORS } from '../ui/textStyle'
 import '../styles/commands.css'
 
@@ -68,6 +70,9 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
   const [preview, setPreview] = useState<CommandsDiagram | null>(null)
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
+  // Ajuda de teclado: botão «Atalhos» da barra (igual às outras vistas) ou tecla ?.
+  const [helpOpen, setHelpOpen] = useState(false)
+  useShortcutsRequest('commands', () => setHelpOpen(true))
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [placingText, setPlacingText] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -640,6 +645,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
         if (undoKey === 'y' || e.shiftKey) useSimStore.getState().redo(); else useSimStore.getState().undo()
         return
       }
+      if (!mod && !e.altKey && e.key === '?') { e.preventDefault(); setHelpOpen(true); return }
       if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); setMarquee(null); select(null); return }
       // Texto livre selecionado: os mesmos atalhos do GRAFCET (Enter/F2 edita, Ctrl+B/I/U formata).
       if (selectedFreeText && editable) {
@@ -1011,6 +1017,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
         onClose={() => setExamplesOpen(false)}
         onLoad={(example) => applyExample(example)}
       />
+      <ShortcutHelp open={helpOpen} onClose={() => setHelpOpen(false)} editor="Esquema IEC" extra={[COMMANDS_SHORTCUTS]} />
     </div>
   )
 }

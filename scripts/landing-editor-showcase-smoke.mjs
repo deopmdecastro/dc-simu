@@ -42,12 +42,16 @@ assert('GRAFCET demo: «Ligar» inibido', bus.includes("isDemoMode() && tool ===
 const tb = read('src/components/Toolbar.tsx')
 assert('Toolbar aceita prop demo', tb.includes('demo?: boolean'))
 assert('Barra da demo minimalista: apenas Play/Pause + 3D/Ladder/GRAFCET (sem linha 2 nem pill)', tb.includes("demo && id === 'schematic' ? '3D' : label") && tb.includes('aria-label="Play"') && tb.includes('aria-label="Pause"') && /\{!demo && compactBar && <div ref=\{row2BarRef\}/.test(tb) && /\{!demo && !compactBar && <div ref=\{row2BarRef\}/.test(tb))
-assert('Ações de ficheiro fora da demo', tb.includes('{!demo && (\n        <div className="flex items-center gap-1.5 shrink-0">') || tb.includes('{!demo && <HistoryGroup'))
-assert('Histórico undo/redo fora da demo', /\{!demo && <HistoryGroup/.test(tb))
-assert('Nova network/bloco só no editor', tb.includes("{mode === 'ladder' && !demo && ("))
-assert('GRAFCET sem «connect»/edição na demo', tb.includes("GRAFCET_TOOLS.filter((t) => t.id !== 'connect')") && tb.includes('{!demo && !desktopGrafcetMenu && <button type="button" className="grafcet-toolbar-more'))
-assert('Esquema: grupo de ferramentas de edição completamente fora da demo', tb.includes("{isCanvas && !demo && (") && tb.includes("role=\"toolbar\" aria-label=\"Ferramentas de edição\""))
-assert('Caixa-preta fora da demo', /\{!demo && <button\n\s+onClick=\{\(\) => useSimStore\.getState\(\)\.toggleBlackBox\(\)\}/.test(tb))
+// 2.ª linha da barra: um só bloco, só fora da demonstração (organização comum a todas as vistas).
+const row2Start = tb.indexOf('{!demo && !compactBar && <div ref={row2BarRef}')
+const row2 = row2Start >= 0 ? tb.slice(row2Start, tb.indexOf('{componentTableOpen', row2Start)) : ''
+const outsideRow2 = row2Start >= 0 ? tb.slice(0, row2Start) + tb.slice(tb.indexOf('{componentTableOpen', row2Start)) : tb
+assert('Ações de ficheiro fora da demo', tb.includes('{!demo && (\n        <div className="flex items-center gap-1.5 shrink-0">') || row2.includes('<HistoryGroup'))
+assert('Histórico undo/redo fora da demo', row2.includes('<HistoryGroup') && !/<HistoryGroup[^\n]*\n/.test(outsideRow2.replace(/dc-toolbar-compact[\s\S]*?<\/div>\}/, '')))
+assert('Nova network/bloco só no editor', row2.includes('data-ladder-add-network') && row2.includes('data-ladder-add-block') && !outsideRow2.includes('data-ladder-add-network'))
+assert('GRAFCET sem «connect»/edição na demo', row2.includes("toolSeg('Ferramentas de seleção e navegação', GRAFCET_TOOLS") && tb.includes('{!demo && compactBar && <div ref={row2BarRef}'))
+assert('Esquema: grupo de ferramentas de edição completamente fora da demo', row2.includes("toolSeg('Ferramentas de edição', TOOLS") && !outsideRow2.includes("'Ferramentas de edição'"))
+assert('Caixa-preta fora da demo', row2.includes('toggleBlackBox()') && tb.includes('{!demo && compactBar && <div ref={row2BarRef}'))
 
 // ── App ─────────────────────────────────────────────────────────────────────
 const app = read('src/App.tsx')
@@ -65,7 +69,7 @@ assert('CSS de enquadre da demonstração', read('src/styles/dx-landing.css').in
 // ── Redução «só simular» (2026-10-28) ────────────────────────────────────────
 assert('Run/Pausa/Stop ficam; Passo e Reset fora da demo', tb.includes("{!demo && <button onClick={step}") && tb.includes("{!demo && <button onClick={reset}"))
 assert('Botão Clean fora da demo', tb.includes("{!demo && <button type=\"button\" className={`dc-tool-btn dc-clean-toggle"))
-assert('Atalhos fora da demo (esquema e grafcet)', tb.includes("{mode !== 'grafcet' && mode !== 'commands' && !demo && (") && tb.includes("{!demo && <ShortcutsButton scope=\"grafcet\""))
+assert('Atalhos fora da demo (todas as vistas)', row2.includes('<ShortcutsButton scope={mode}') && !outsideRow2.includes('<ShortcutsButton'))
 
 const store2 = read('src/store/useSimStore.ts')
 assert('Arrastar componentes bloqueado na demo (moveComponent)', store2.includes('moveComponent: (id, x, y, movingIds) => {\n    // Demonstração e simulação em curso: utilizadores não movem componentes.\n    if (get().demoMode) return'))
@@ -118,7 +122,7 @@ assert('GRAFCET demo: paleta Componentes fora', grafed.includes('{full && !demoM
 assert('GRAFCET demo: «Nova página» e apagar página fora', grafed.includes('{!demoMode && <button type="button" className="grafcet-page-add"') && grafed.includes('pageCharts.length > 1 && !demoMode && ('))
 assert('GRAFCET demo: «Editar propriedades» fora', grafed.includes('{!demoMode && <button') && grafed.includes('setEditingTransition(selectedTransition)'))
 assert('GRAFCET demo: dica do canvas orientada à visualização', grafed.includes("demoMode ? 'Selecione etapas e ligações"))
-assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', tb.includes('{!demo && !desktopGrafcetMenu && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">') && tb.includes('aria-label="Disposição">') && tb.includes('aria-label="Ficheiro">'))
+assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', row2.includes('<ToolMenu label="Mais GRAFCET"') && !outsideRow2.includes('Mais GRAFCET'))
 
 // Revisão: render leve, sem rotação automática e seleção possível durante o RUN
 assert('Painel 3D: sem amortecimento nem rotação automática', panel.includes('screenSpacePanning autoRotate={false} />') && !panel.includes('enableDamping dampingFactor'))

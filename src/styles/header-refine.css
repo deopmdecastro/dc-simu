@@ -140,11 +140,6 @@
 
 .account-bar .dx-logo { flex: 0 0 auto; }
 .account-bar .dx-logo-text { white-space: nowrap; }
-@media (min-width: 1101px) {
-  .dc-grafcet-toolbar > [aria-label="Ferramentas de seleção e navegação"] button > span { display: none; }
-  .dc-grafcet-toolbar > .tb-sep { display: none; }
-  .dc-grafcet-toolbar .grafcet-toolbar-secondary { gap: 6px !important; }
-}
 @media (min-width: 721px) and (max-width: 1000px) {
   .account-bar .account-action-text { display: none; }
   .account-bar .account-project-action { padding-inline: 8px; }
@@ -152,19 +147,8 @@
   .account-bar .dx-account-trigger-copy { display: none; }
   .account-bar .dx-account-trigger { width: var(--hdr-ctl); padding: 0; justify-content: center; }
 }
-@media (min-width: 1101px) {
-  .dc-toolbar-row2 [aria-label="Ferramentas de edição"] button > span,
-  .dc-toolbar-row2 [aria-label="Secções do editor Ladder"] button > span,
-  .dc-toolbar-row2 .dc-blackbox-toggle > span { display: none; }
-  .dc-toolbar-row2 .dc-blackbox-toggle { min-width: 30px; padding-inline: 8px; }
-}
+/* 2.ª linha: a mesma regra em todas as vistas — ícone + texto; só o modo denso (toolbar-spacing.css)
+   reduz os botões a ícone, e fá-lo em todas as vistas por igual. Não esconder textos por vista. */
 .dc-toolbar-shell:not(.is-compact) .dc-toolbar-row2 { gap: 6px; column-gap: 6px; }
 .dc-toolbar-shell:not(.is-compact) .dc-toolbar-row2 > .tb-sep { margin-inline: 0; }
-@media (min-width: 1280px) and (max-width: 1400px) {
-  .dc-grafcet-toolbar .grafcet-palette-tool > span,
-  .dc-grafcet-toolbar .grafcet-signals-tool > span,
-  .dc-grafcet-toolbar .dc-grafcet-tools-menu > span { display: none; }
-}
-/* Os separadores de grupos removidos não deixam espaço vazio na faixa. */
-.dc-grafcet-toolbar > .tb-sep { display: none; }
 .dc-grafcet-toolbar .tb-hint { display: none !important; }

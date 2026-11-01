@@ -23,3 +23,22 @@ export const SCHEMATIC_TOOL_SHORTCUTS: ShortcutHelpExtra = {
     { keys: '5', action: 'Mover a vista (ou botão do meio / Alt+arrastar)' },
   ],
 }
+
+/** Esquema IEC (CommandsEditor.tsx · teclado). */
+export const COMMANDS_SHORTCUTS: ShortcutHelpExtra = {
+  title: 'Esquema IEC',
+  items: [
+    { keys: '1 / V', action: 'Selecionar e arrastar símbolos' },
+    { keys: '2 / L', action: 'Cabo: ligar bornes' },
+    { keys: '4 / E', action: 'Apagar o símbolo ou cabo clicado' },
+    { keys: '5 / H', action: 'Mover a vista' },
+    { keys: 'R', action: 'Rodar o símbolo selecionado 90°' },
+    { keys: 'Del', action: 'Apagar a seleção' },
+    { keys: 'Ctrl+A', action: 'Selecionar tudo na página' },
+    { keys: 'Ctrl+Z / Ctrl+Y', action: 'Desfazer / refazer' },
+    { keys: 'Ctrl+0', action: 'Ajustar o esquema à janela' },
+    { keys: 'Enter / F2', action: 'Editar o texto livre selecionado' },
+    { keys: 'Esc', action: 'Cancelar e limpar a seleção' },
+    { keys: '?', action: 'Mostrar esta ajuda' },
+  ],
+}

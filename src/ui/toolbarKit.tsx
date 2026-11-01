@@ -55,8 +55,8 @@ export function HistoryGroup({ onUndo, onRedo, canUndo, canRedo, role = 'toolbar
 /** Botão «Atalhos» comum (abre a ajuda de teclado do editor). `scope` marca a vista para testes e para o pedido de atalhos. */
 export function ShortcutsButton({ onClick, scope, title = 'Atalhos de teclado (?)', className = '' }: { onClick: () => void; scope?: string; title?: string; className?: string }) {
   return (
-    <button type="button" className={`dc-tool-btn !px-2 shrink-0 ${className}`} data-shortcuts-button={scope} onClick={onClick} title={title} aria-label="Atalhos de teclado">
-      <IconHelp size={13} /><span className="hidden xl:inline">Atalhos</span>
+    <button type="button" className={`dc-tool-btn !gap-1.5 shrink-0 ${className}`} data-shortcuts-button={scope} onClick={onClick} title={title} aria-label="Atalhos de teclado">
+      <IconHelp size={13} /><span>Atalhos</span>
     </button>
   )
 }
