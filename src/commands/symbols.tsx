@@ -74,7 +74,7 @@ const threePole = (kind: CmdKind, st: CmdSymbolState, active: string) => {
       {kind === 'breaker3' || kind === 'breaker1' || kind === 'rcd' ? (
         <rect x={-8} y={14} width={kind === 'rcd' ? 36 : 56} height={32} fill="none" strokeDasharray="3 2" strokeWidth={1} />
       ) : null}
-      {(kind === 'disconnector3') && <path d="M -6 8 L 46 8" strokeWidth={1.2} />}
+      {(kind === 'disconnector3' || kind === 'mainSwitch') && <path d="M -6 8 L 46 8" strokeWidth={1.2} />}
     </>
   )
 }
@@ -166,7 +166,7 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       <rect x={-8} y={18} width={56} height={24} fill="none" strokeDasharray="2 2" strokeWidth={1} />
     </>
     case 'rcd': return threePole('rcd', st, active)
-    case 'contact3': case 'breaker3': case 'disconnector3': return threePole(part.kind, st, active)
+    case 'contact3': case 'breaker3': case 'disconnector3': case 'mainSwitch': return threePole(part.kind, st, active)
     case 'changeover': {
       const closed = !!st.closed
       return <>
@@ -295,12 +295,48 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       <rect x={-15} y={33} width={30} height={6} fill={INK} stroke="none" />
       <text x={24} y={34} textAnchor="middle" fontSize={9} fill={INK} stroke="none">TA</text>
     </>
-    case 'overcurrentRelay': case 'undervoltageRelay': {
-      const over = part.kind === 'overcurrentRelay'
+    case 'overcurrentRelay': case 'undervoltageRelay': case 'overvoltageRelay': case 'shortCircuitRelay': {
+      // Relés de medida: a caixa escreve a grandeza e o sentido (I>, U<, U>, I>>).
+      const mark = part.kind === 'overcurrentRelay' ? 'I>' : part.kind === 'undervoltageRelay' ? 'U<' : part.kind === 'overvoltageRelay' ? 'U>' : 'I>>'
       return <>
         <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
         <rect x={-13} y={18} width={26} height={24} fill={st.energized ? '#dcfce7' : '#fff'} stroke={st.energized ? active : INK} strokeWidth={st.energized ? 2 : 1.6} />
-        <text x={0} y={33} textAnchor="middle" fontSize={10} fontWeight={700} fill={INK} stroke="none">{over ? 'I>' : 'U<'}</text>
+        <text x={0} y={33} textAnchor="middle" fontSize={10} fontWeight={700} fill={INK} stroke="none">{mark}</text>
+      </>
+    }
+    case 'counter': return <>
+      {/* Contador de impulsos: caixa com os dígitos e o traço de pré-seleção. */}
+      <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+      <rect x={-15} y={18} width={30} height={24} fill={st.load ? '#dcfce7' : '#fff'} stroke={st.load ? active : INK} strokeWidth={st.load ? 2 : 1.6} />
+      <text x={0} y={31} textAnchor="middle" fontSize={11} fontWeight={700} fill={INK} stroke="none">0.0</text>
+      <line x1={-7} y1={37} x2={7} y2={37} strokeWidth={1} />
+    </>;
+    case 'slowRelay': return <>
+      {/* Bobina de operação lenta: semicírculo do atraso em série com o enrolamento. */}
+      <line x1={0} y1={0} x2={0} y2={12} />
+      <path d="M 0 12 a 6 6 0 0 1 0 12" fill="none" />
+      <line x1={0} y1={24} x2={0} y2={30} />
+      <rect x={-13} y={30} width={26} height={18} fill={st.energized ? '#dcfce7' : '#fff'} stroke={st.energized ? active : INK} strokeWidth={st.energized ? 2 : 1.6} />
+      <line x1={0} y1={48} x2={0} y2={60} />
+    </>;
+    case 'threePhaseTransformer': return <>
+      {/* Transformador trifásico: um enrolamento por fase e o núcleo comum entre fases. */}
+      {[0, 20, 40].map((x) => <g key={x}>
+        <line x1={x} y1={0} x2={x} y2={20} />
+        <path d={`M ${x} 20 a 7 10 0 1 1 0 20`} fill="none" />
+        <line x1={x} y1={40} x2={x} y2={60} />
+      </g>)}
+      <line x1={10} y1={16} x2={10} y2={44} /><line x1={13} y1={16} x2={13} y2={44} />
+      <line x1={30} y1={16} x2={30} y2={44} /><line x1={33} y1={16} x2={33} y2={44} />
+    </>;
+    case 'sensor3wNO': case 'sensor3wNC': {
+      // Sensor de 3 fios: contacto (NA/NF) + cabeça «Fe» + fio azul de 0 V.
+      const nc = part.kind === 'sensor3wNC'
+      return <>
+        {contactBody(nc ? 'contactNC' : 'contactNO', st, active)}
+        <rect x={10} y={20} width={22} height={20} fill="#fff" />
+        <text x={21} y={34} textAnchor="middle" fontSize={8} fontWeight={700} fill={INK} stroke="none">Fe</text>
+        <path d="M 21 8 L 26 13 L 21 18 L 16 13 Z" fill="#fff" />
       </>
     }
     case 'latchingRelay': return <>
@@ -345,6 +381,72 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         </g>}
       </>
     }
+    case 'valve22': {
+      const on = !!st.closed
+      return <>
+        <rect x={4} y={12} width={32} height={36} fill={on ? '#dcfce7' : '#fff'} stroke={INK} />
+        <line x1={0} y1={30} x2={4} y2={30} /><line x1={36} y1={30} x2={40} y2={30} />
+        <text x={20} y={25} textAnchor="middle" fontSize={8} fill={INK} stroke="none">2/2</text>
+        <line x1={12} y1={32} x2={28} y2={32} stroke={on ? active : '#cbd5e1'} strokeWidth={2} />
+        <circle cx={20} cy={40} r={2.6} fill={on ? active : '#cbd5e1'} stroke="none" />
+      </>
+    }
+    case 'valve42': return <>
+      <rect x={8} y={8} width={36} height={44} fill={st.closed ? '#dcfce7' : '#fff'} stroke={INK} />
+      <line x1={0} y1={30} x2={8} y2={30} />
+      <line x1={44} y1={0} x2={44} y2={8} /><line x1={44} y1={52} x2={44} y2={60} />
+      <line x1={44} y1={0} x2={50} y2={0} /><line x1={44} y1={60} x2={50} y2={60} />
+      <line x1={0} y1={60} x2={8} y2={52} />
+      <text x={26} y={34} textAnchor="middle" fontSize={8} fill={INK} stroke="none">4/2</text>
+      <circle cx={26} cy={22} r={3} fill={st.closed ? active : '#cbd5e1'} stroke="none" />
+    </>;
+    case 'valve53c': case 'valve53p': case 'valve53e': {
+      // Válvula 5/3: o centro diz o que acontece em repouso (fechado, pressurizado, escape).
+      const centre = part.kind === 'valve53c' ? 'C' : part.kind === 'valve53p' ? 'P' : 'E'
+      return <>
+        <rect x={8} y={8} width={36} height={44} fill={st.closed ? '#dcfce7' : '#fff'} stroke={INK} />
+        <line x1={0} y1={30} x2={8} y2={30} />
+        <line x1={44} y1={0} x2={44} y2={8} /><line x1={44} y1={52} x2={44} y2={60} />
+        <line x1={44} y1={0} x2={50} y2={0} /><line x1={44} y1={60} x2={50} y2={60} />
+        <line x1={0} y1={0} x2={8} y2={8} /><line x1={0} y1={60} x2={8} y2={52} />
+        <text x={26} y={28} textAnchor="middle" fontSize={8} fill={INK} stroke="none">5/3</text>
+        <text x={26} y={42} textAnchor="middle" fontSize={8} fontWeight={700} fill={INK} stroke="none">{centre}</text>
+      </>
+    }
+    case 'airFilter': case 'airLubricator': return <>
+      {/* Filtro/lubrificador: losango ISO 1219 com a marca de água (tracejado) ou óleo (cheio). */}
+      <line x1={0} y1={0} x2={0} y2={14} /><line x1={0} y1={46} x2={0} y2={60} />
+      <path d="M 0 14 L 14 30 L 0 46 L -14 30 Z" fill="#fff" />
+      {part.kind === 'airFilter'
+        ? <><line x1={-8} y1={30} x2={8} y2={30} strokeDasharray="3 2" /><path d="M 0 34 l 3 5 a 3 3 0 1 1 -6 0 z" fill={INK} stroke="none" /></>
+        : <><path d="M 0 22 l 3.5 5.5 a 3.5 3.5 0 1 1 -7 0 z" fill={INK} stroke="none" /><line x1={-8} y1={36} x2={8} y2={36} /></>}
+    </>;
+    case 'airRegulator': return <>
+      {/* Regulador: losango com a seta de redução e a mola de ajuste. */}
+      <line x1={0} y1={0} x2={0} y2={14} /><line x1={0} y1={46} x2={0} y2={60} />
+      <path d="M 0 14 L 14 30 L 0 46 L -14 30 Z" fill="#fff" />
+      <line x1={-7} y1={35} x2={5} y2={26} />
+      <path d="M 8 24 l -6 1 l 2 -5 z" fill={INK} stroke="none" />
+      <line x1={0} y1={14} x2={0} y2={20} strokeDasharray="2 2" />
+    </>;
+    case 'manometer': return <>
+      <line x1={0} y1={60} x2={0} y2={44} />
+      <circle cx={0} cy={28} r={14} fill="#fff" />
+      <line x1={0} y1={28} x2={7} y2={19} strokeWidth={2} />
+      <line x1={-9} y1={34} x2={-5} y2={32} strokeWidth={1} /><line x1={9} y1={34} x2={5} y2={32} strokeWidth={1} />
+      <line x1={0} y1={16} x2={0} y2={20} strokeWidth={1} />
+    </>;
+    case 'silencer': return <>
+      <line x1={0} y1={0} x2={0} y2={6} />
+      <path d="M -9 6 L 9 6 L 0 20 Z" fill="#fff" />
+      <line x1={-5} y1={13} x2={5} y2={13} strokeWidth={1} /><line x1={-3} y1={17} x2={3} y2={17} strokeWidth={1} />
+    </>;
+    case 'reservoir': return <>
+      <line x1={0} y1={0} x2={0} y2={10} />
+      <rect x={-16} y={10} width={32} height={30} rx={6} fill="#fff" />
+      <line x1={-10} y1={34} x2={10} y2={34} strokeWidth={1} />
+      <text x={0} y={28} textAnchor="middle" fontSize={9} fill={INK} stroke="none">P</text>
+    </>;
     case 'airSource': return <>
       <circle cx={0} cy={-8} r={10} fill="#e0f2fe" stroke="#0284c7" />
       <text x={0} y={-5} textAnchor="middle" fontSize={9} fontWeight={700} fill="#0369a1" stroke="none">P</text>
@@ -369,6 +471,7 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         <rect x={8} y={8} width={36} height={44} fill={on ? '#dcfce7' : '#fff'} stroke={INK} />
         <line x1={0} y1={30} x2={8} y2={30} />
         <line x1={44} y1={0} x2={44} y2={8} /><line x1={44} y1={52} x2={44} y2={60} />
+        <line x1={44} y1={0} x2={50} y2={0} /><line x1={44} y1={60} x2={50} y2={60} />
         <line x1={0} y1={0} x2={8} y2={8} /><line x1={0} y1={60} x2={8} y2={52} />
         <text x={26} y={34} textAnchor="middle" fontSize={8} fill={INK} stroke="none">{on ? '5/2' : '5/2'}</text>
         <circle cx={26} cy={22} r={3} fill={on ? active : '#cbd5e1'} stroke="none" />

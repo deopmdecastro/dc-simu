@@ -124,5 +124,5 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
 }))
 
 /** Símbolos que se operam com o rato durante a simulação. */
-export const MOMENTARY: CmdKind[] = ['pushNO', 'pushNC', 'pushIllum', 'limitNO', 'limitNC', 'proximity']
-export const TOGGLES: CmdKind[] = ['emergency', 'selector', 'breaker1', 'breaker3', 'disconnector3', 'rcd', 'valve32', 'valve52', 'plcOut']
+export const MOMENTARY: CmdKind[] = ['pushNO', 'pushNC', 'pushIllum', 'limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'sensor3wNO', 'sensor3wNC']
+export const TOGGLES: CmdKind[] = ['emergency', 'selector', 'breaker1', 'breaker3', 'disconnector3', 'mainSwitch', 'fuseDisconnector', 'rcd', 'valve32', 'valve52', 'valve22', 'valve42', 'valve53c', 'valve53p', 'valve53e', 'plcOut']

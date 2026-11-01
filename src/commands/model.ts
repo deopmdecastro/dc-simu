@@ -20,7 +20,10 @@ export type CmdKind =
   | 'diode' | 'resistor' | 'capacitor' | 'transformer' | 'rectifier'
   | 'plcIn' | 'plcOut'
   /** Medida e proteção de medida (folhas do utilizador, 2026-11-01). */
-  | 'ammeter' | 'voltmeter' | 'currentTransformer'
+  | 'ammeter' | 'voltmeter' | 'currentTransformer' | 'counter' | 'overvoltageRelay' | 'shortCircuitRelay'
+  | 'slowRelay' | 'mainSwitch' | 'threePhaseTransformer' | 'sensor3wNO' | 'sensor3wNC'
+  | 'valve22' | 'valve42' | 'valve53c' | 'valve53p' | 'valve53e'
+  | 'airFilter' | 'airLubricator' | 'airRegulator' | 'manometer' | 'silencer' | 'reservoir'
   /** Relés de medida e de tempo com desenho próprio. */
   | 'overcurrentRelay' | 'undervoltageRelay' | 'latchingRelay' | 'timerOffCoil'
   | 'fuseDisconnector' | 'temperatureController' | 'pressureSwitch' | 'siren'
@@ -155,6 +158,14 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   pressureSwitch: { label: 'Pressostato', hint: 'B · contacto NA actuado pela pressão', family: 'sensor', prefix: 'B', terminals: pole(0, '13', '14'), poles: [[0, 1]], box: { x: -18, y: 0, w: 40, h: 60 } },
   siren: { label: 'Sirene', hint: 'H · sinalização sonora de alarme', family: 'load', prefix: 'H', terminals: pole(0, 'X1', 'X2'), poles: [], box: { x: -16, y: 0, w: 34, h: 60 } },
   timerOffCoil: { label: 'Temporizador à desligar (TOF)', hint: 'K · mantém o contacto após a bobina desligar', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  counter: { label: 'Contador', hint: 'P · conta impulsos (pré-seleção)', family: 'load', prefix: 'P', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -16, y: 0, w: 32, h: 60 } },
+  overvoltageRelay: { label: 'Relé de sobretensão', hint: 'K · actua acima da tensão (U>)', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [[0, 1]], box: { x: -13, y: 18, w: 26, h: 24 } },
+  shortCircuitRelay: { label: 'Relé de curto-circuito', hint: 'K · actua com corrente muito alta (I>>)', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [[0, 1]], box: { x: -13, y: 18, w: 26, h: 24 } },
+  slowRelay: { label: 'Relé de operação lenta', hint: 'K · a bobina só actua ao fim de algum tempo', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [[0, 1]], box: { x: -13, y: 18, w: 26, h: 24 } },
+  mainSwitch: { label: 'Chave geral 3P', hint: 'Q · corte geral tripolar (clique para ligar/desligar)', family: 'protection', prefix: 'Q', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [[0, 1], [2, 3], [4, 5]], box: { x: -10, y: 0, w: 60, h: 60 } },
+  threePhaseTransformer: { label: 'Transformador trifásico', hint: 'T · potência 3~ (1-2 3-4 5-6)', family: 'electronic', prefix: 'T', terminals: [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')], poles: [], box: { x: -10, y: 0, w: 60, h: 60 } },
+  sensor3wNO: { label: 'Sensor 3 fios NA', hint: 'B · BR/BN/BK — PNP, liga ao detectar (Fe)', family: 'sensor', prefix: 'B', terminals: [{ x: 0, y: 0, label: 'BR' }, { x: 0, y: 60, label: 'BK' }, { x: 32, y: 30, label: 'BL' }], poles: [[0, 1]], box: { x: -16, y: 0, w: 52, h: 60 } },
+  sensor3wNC: { label: 'Sensor 3 fios NF', hint: 'B · BR/BN/BK — dark-on, desliga ao detectar (Fe)', family: 'sensor', prefix: 'B', terminals: [{ x: 0, y: 0, label: 'BR' }, { x: 0, y: 60, label: 'BK' }, { x: 32, y: 30, label: 'BL' }], poles: [[0, 1]], box: { x: -16, y: 0, w: 52, h: 60 } },
   coil: { label: 'Bobina', hint: 'K · A1-A2 do contactor/relé', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   timerCoil: { label: 'Temporizador', hint: 'K · bobina com atraso à operação', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   lamp: { label: 'Sinalizador', hint: 'H · lâmpada de indicação', family: 'load', prefix: 'H', terminals: pole(0, 'X1', 'X2'), poles: [], box: { x: -14, y: 0, w: 28, h: 60 } },
@@ -170,6 +181,17 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   rectifier: { label: 'Ponte retificadora', hint: 'V · AC→DC', family: 'electronic', prefix: 'V', terminals: [{ x: 0, y: 0, label: '~' }, { x: 40, y: 0, label: '~' }, { x: 0, y: 60, label: '+' }, { x: 40, y: 60, label: '−' }], poles: [], box: { x: -8, y: 0, w: 56, h: 60 } },
   plcIn: { label: 'Entrada PLC', hint: 'I · entrada digital', family: 'electronic', prefix: 'I', terminals: pole(0, '1', '2'), poles: [], box: { x: -18, y: 0, w: 36, h: 60 } },
   plcOut: { label: 'Saída PLC', hint: 'Q · saída digital (contacto)', family: 'electronic', prefix: 'Q', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -18, y: 0, w: 36, h: 60 } },
+  valve22: { label: 'Válvula 2/2', hint: 'Válvula 2 vias / 2 posições (corte)', family: 'pneumatic', prefix: 'V', terminals: [{ x: 0, y: 30, label: '1' }, { x: 40, y: 30, label: '2' }], poles: [[0, 1]], box: { x: -4, y: 4, w: 52, h: 52 } },
+  valve42: { label: 'Válvula 4/2', hint: 'Válvula 4 vias / 2 posições', family: 'pneumatic', prefix: 'V', terminals: [{ x: 0, y: 30, label: '1' }, { x: 50, y: 0, label: '4' }, { x: 50, y: 60, label: '2' }, { x: 0, y: 60, label: '3' }], poles: [[0, 1], [0, 2]], box: { x: -4, y: -4, w: 62, h: 68 } },
+  valve53c: { label: 'Válvula 5/3 centro fechado', hint: 'Centro fechado: saídas bloqueadas em repouso', family: 'pneumatic', prefix: 'V', terminals: [{ x: 0, y: 30, label: '1' }, { x: 50, y: 0, label: '4' }, { x: 50, y: 60, label: '2' }, { x: 0, y: 0, label: '5' }, { x: 0, y: 60, label: '3' }], poles: [[0, 1], [0, 2]], box: { x: -4, y: -4, w: 62, h: 68 } },
+  valve53p: { label: 'Válvula 5/3 centro pressurizado', hint: 'Centro pressurizado: 1 ligado a 2 e 4', family: 'pneumatic', prefix: 'V', terminals: [{ x: 0, y: 30, label: '1' }, { x: 50, y: 0, label: '4' }, { x: 50, y: 60, label: '2' }, { x: 0, y: 0, label: '5' }, { x: 0, y: 60, label: '3' }], poles: [[0, 1], [0, 2]], box: { x: -4, y: -4, w: 62, h: 68 } },
+  valve53e: { label: 'Válvula 5/3 centro escape', hint: 'Centro escape: 2 e 4 descarregam para 3/5', family: 'pneumatic', prefix: 'V', terminals: [{ x: 0, y: 30, label: '1' }, { x: 50, y: 0, label: '4' }, { x: 50, y: 60, label: '2' }, { x: 0, y: 0, label: '5' }, { x: 0, y: 60, label: '3' }], poles: [[0, 1], [0, 2]], box: { x: -4, y: -4, w: 62, h: 68 } },
+  airFilter: { label: 'Filtro de ar', hint: 'F · separa água e partículas', family: 'pneumatic', prefix: 'F', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -16, y: 12, w: 32, h: 42 } },
+  airLubricator: { label: 'Lubrificador', hint: 'L · adiciona óleo ao ar comprimido', family: 'pneumatic', prefix: 'L', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -16, y: 12, w: 32, h: 42 } },
+  airRegulator: { label: 'Regulador de pressão', hint: 'R · reduz e estabiliza a pressão', family: 'pneumatic', prefix: 'R', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -16, y: 12, w: 32, h: 42 } },
+  manometer: { label: 'Manómetro', hint: 'P · pressão do circuito', family: 'pneumatic', prefix: 'P', terminals: [{ x: 0, y: 60, label: '1' }], poles: [], box: { x: -14, y: 10, w: 28, h: 34 } },
+  silencer: { label: 'Silenciador', hint: 'Escape com abafador de ruído', family: 'pneumatic', prefix: '', terminals: [{ x: 0, y: 0, label: '1' }], poles: [], box: { x: -12, y: 0, w: 24, h: 24 } },
+  reservoir: { label: 'Reservatório', hint: 'Acumulador de ar comprimido', family: 'pneumatic', prefix: 'A', terminals: [{ x: 0, y: 0, label: '1' }], poles: [], box: { x: -18, y: 8, w: 36, h: 34 } },
   airSource: { label: 'Fonte de ar', hint: 'Pressão pneumática', family: 'pneumatic', prefix: 'P', terminals: [{ x: 0, y: 0, label: 'P' }], poles: [], box: { x: -16, y: -20, w: 32, h: 28 } },
   exhaust: { label: 'Escape', hint: 'Descarga para atmosfera', family: 'pneumatic', prefix: 'R', terminals: [{ x: 0, y: 0, label: 'R' }], poles: [], box: { x: -14, y: -4, w: 28, h: 24 } },
   valve32: { label: 'Válvula 3/2', hint: 'Válvula 3 vias / 2 posições', family: 'pneumatic', prefix: 'V', terminals: [{ x: 0, y: 30, label: '1' }, { x: 40, y: 0, label: '2' }, { x: 40, y: 60, label: '3' }], poles: [[0, 1]], box: { x: -4, y: -4, w: 52, h: 68 } },
@@ -185,14 +207,14 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
 
 export const CMD_PALETTE: Array<{ title: string; kinds: CmdKind[] }> = [
   { title: 'Alimentação', kinds: ['supply', 'node', 'ground', 'pageRef', 'pageRefIn'] },
-  { title: 'Proteção', kinds: ['fuse', 'fuse3', 'fuseDisconnector', 'breaker1', 'breaker3', 'disconnector3', 'thermal3', 'rcd'] },
+  { title: 'Proteção', kinds: ['fuse', 'fuse3', 'fuseDisconnector', 'breaker1', 'breaker3', 'disconnector3', 'thermal3', 'rcd', 'mainSwitch'] },
   { title: 'Contactos', kinds: ['contact3', 'contactNO', 'contactNC', 'changeover', 'timedNO', 'timedNC', 'thermalNC', 'thermalNO'] },
   { title: 'Comando', kinds: ['pushNO', 'pushNC', 'pushIllum', 'emergency', 'selector'] },
-  { title: 'Sensores', kinds: ['limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'temperatureController'] },
-  { title: 'Instrumentos', kinds: ['ammeter', 'voltmeter', 'currentTransformer'] },
-  { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'lamp', 'buzzer', 'siren', 'solenoid', 'heater', 'motor3', 'motor6'] },
-  { title: 'Eletrónica', kinds: ['diode', 'resistor', 'capacitor', 'transformer', 'rectifier', 'plcIn', 'plcOut'] },
-  { title: 'Pneumática', kinds: ['airSource', 'exhaust', 'valve32', 'valve52', 'cylSE', 'cylDE', 'throttle', 'checkValve'] },
+  { title: 'Sensores', kinds: ['limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'temperatureController', 'sensor3wNO', 'sensor3wNC'] },
+  { title: 'Instrumentos', kinds: ['ammeter', 'voltmeter', 'currentTransformer', 'counter'] },
+  { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'lamp', 'buzzer', 'siren', 'solenoid', 'heater', 'motor3', 'motor6'] },
+  { title: 'Eletrónica', kinds: ['diode', 'resistor', 'capacitor', 'transformer', 'threePhaseTransformer', 'rectifier', 'plcIn', 'plcOut'] },
+  { title: 'Pneumática', kinds: ['airSource', 'exhaust', 'valve22', 'valve32', 'valve42', 'valve52', 'valve53c', 'valve53p', 'valve53e', 'cylSE', 'cylDE', 'throttle', 'checkValve', 'airFilter', 'airLubricator', 'airRegulator', 'manometer', 'silencer', 'reservoir'] },
   { title: 'Hidráulica', kinds: ['hydPump', 'hydTank', 'hydCyl'] },
 ]
 

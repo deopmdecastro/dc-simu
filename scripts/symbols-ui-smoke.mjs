@@ -95,6 +95,16 @@ try {
   d = await read()
   check(d.parts.filter((p) => p.kind === 'ground').map((p) => p.groundVariant ?? 'earth').join() === 'earth,protective,signal', `três terras no esquema (${d.parts.filter((p) => p.kind === 'ground').map((p) => p.groundVariant ?? 'earth').join()})`)
   if (output) await page.locator('.dc-cmd-canvas').screenshot({ path: `${output}/simbolos-terra-resistencia.png` })
+  // Cadernos de 2026-11-01: a biblioteca cresce para 84 tipos e os novos entram na paleta.
+  const tabLabel = (await sidebar.locator('.dc-tab', { hasText: 'Biblioteca' }).textContent()) || ''
+  check(/84/.test(tabLabel), `a biblioteca anuncia 84 símbolos (${tabLabel.trim()})`)
+  const palette = await page.evaluate(async () => {
+    const m = await globalThis.__dcAppImport('/src/commands/model.ts')
+    return { parts: Object.keys(m.CMD_PARTS).length, pal: m.CMD_PALETTE.flatMap((g) => g.kinds) }
+  })
+  const novos = ['counter', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'mainSwitch', 'threePhaseTransformer', 'sensor3wNO', 'sensor3wNC', 'valve22', 'valve42', 'valve53c', 'valve53p', 'valve53e', 'airFilter', 'airLubricator', 'airRegulator', 'manometer', 'silencer', 'reservoir']
+  check(novos.every((k) => palette.pal.includes(k)), `os ${novos.length} símbolos dos cadernos novos estão na paleta`)
+  check(palette.parts === palette.pal.length, `todos os ${palette.parts} tipos aparecem na paleta (sem órfãos)`)
   check(errors.length === 0, `sem erros JavaScript: ${errors.join(' | ')}`)
   console.log(`\n${checks} verificações de símbolos passaram`)
 } finally {

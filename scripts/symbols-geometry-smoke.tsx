@@ -146,8 +146,37 @@ for (const kind of ['ammeter', 'voltmeter', 'currentTransformer', 'siren', 'over
   assert.deepEqual(terminalAt(part(kind), 1).y, 60, `${kind}: borne de baixo em y=60`)
 }
 
-// 8b. O desenho e a condução concordam: seccionadora conduz sempre; pressostato só quando actuado.
 const rtEmpty = emptyCmdRuntime()
+
+// 8a. Segundo bloco das folhas: contador, relés de medida/tempo, chave geral, trafo 3~ e sensores de 3 fios.
+assert.match(svgOf(part('counter')), />0\.0</, 'contador: dígitos')
+assert.match(svgOf(part('overvoltageRelay')), />U&gt;</, 'relé de sobretensão: U>')
+assert.match(svgOf(part('shortCircuitRelay')), />I&gt;&gt;</, 'relé de curto-circuito: I>>')
+assert.match(svgOf(part('slowRelay')), /a 6 6 0 0 1 0 12/, 'operação lenta: semicírculo do atraso')
+assert.match(svgOf(part('mainSwitch')), /M -6 8 L 46 8/, 'chave geral: barra mecânica dos 3 pólos')
+assert.equal(CMD_PARTS.mainSwitch.terminals.length, 6, 'chave geral: 6 bornes')
+assert.equal(CMD_PARTS.threePhaseTransformer.terminals.length, 6, 'trafo trifásico: 6 bornes')
+assert.match(svgOf(part('threePhaseTransformer')), /a 7 10 0 1 1 0 20/, 'trafo trifásico: enrolamento por fase')
+for (const kind of ['counter', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay'] as CmdKind[]) {
+  assert.ok(CMD_PARTS[kind], `${kind}: definição em falta`)
+  assert.deepEqual(terminalAt(part(kind), 0).y, 0, `${kind}: borne de cima em y=0`)
+  assert.deepEqual(terminalAt(part(kind), 1).y, 60, `${kind}: borne de baixo em y=60`)
+}
+// Sensores de 3 fios: BR/BK em série, BL ao lado, cabeça «Fe».
+for (const kind of ['sensor3wNO', 'sensor3wNC'] as CmdKind[]) {
+  assert.deepEqual(CMD_PARTS[kind].terminals.map((x) => x.label), ['BR', 'BK', 'BL'], `${kind}: cores dos fios`)
+  assert.match(svgOf(part(kind)), />Fe</, `${kind}: marca Fe`)
+  assert.ok(connects(svgOf(part(kind), { closed: true }), [0, 0], [0, 60]), `${kind}: conduz fechado`)
+  assert.ok(!connects(svgOf(part(kind), { closed: false }), [0, 0], [0, 60]), `${kind}: não conduz aberto`)
+}
+assert.equal(isClosed(part('sensor3wNO'), rtEmpty), false, 'sensor NA em repouso não conduz')
+assert.equal(isClosed(part('sensor3wNO'), { ...rtEmpty, pressed: { X1: true } }), true, 'sensor NA detecta conduz')
+assert.equal(isClosed(part('sensor3wNC'), rtEmpty), true, 'sensor NF em repouso conduz')
+assert.equal(isClosed(part('sensor3wNC'), { ...rtEmpty, pressed: { X1: true } }), false, 'sensor NF detecta abre')
+assert.equal(isClosed(part('mainSwitch'), rtEmpty), true, 'chave geral fecha')
+assert.equal(isClosed(part('mainSwitch'), { ...rtEmpty, toggled: { X1: true } }), false, 'chave geral desliga')
+
+// 8b. O desenho e a condução concordam: seccionadora conduz sempre; pressostato só quando actuado.
 assert.equal(isClosed(part('fuseDisconnector'), rtEmpty), true, 'seccionadora fusível conduz')
 assert.ok(connects(svgOf(part('fuseDisconnector')), [0, 0], [0, 60]))
 assert.equal(isClosed(part('pressureSwitch'), rtEmpty), false, 'pressostato em repouso não conduz')

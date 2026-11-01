@@ -54,7 +54,7 @@ export const emptyCmdRuntime = (): CmdRuntime => ({
 
 const key = (part: string, term: number) => `${part}:${term}`
 /** Elementos com bobina: ficam sob tensão pelos bornes A1-A2 e alimentam contactos com a mesma referência. */
-const COIL_KINDS = new Set<string>(['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay'])
+const COIL_KINDS = new Set<string>(['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay'])
 const PHASES = ['L1', 'L2', 'L3']
 
 /** O contacto/elemento está a conduzir? (estado real do aparelho com a mesma referência). */
@@ -64,7 +64,12 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
   switch (part.kind) {
     case 'fuse': case 'fuse3': case 'thermal3': case 'resistor': case 'capacitor': case 'throttle': case 'checkValve': return true
     // Seccionadora fusível: o fusível conduz; a lâmina é só de corte manual (ver `fuseDisconnector`).
-    case 'fuseDisconnector': return true
+    case 'fuseDisconnector': return !rt.toggled[part.tag]
+    // Chave geral tripolar: fecha com o clique (toque em RUN).
+    case 'mainSwitch': return !rt.toggled[part.tag]
+    // Sensores de 3 fios: NA liga ao detectar; NF desliga ao detectar.
+    case 'sensor3wNO': return !!rt.pressed[part.tag]
+    case 'sensor3wNC': return !rt.pressed[part.tag]
     // Pressostato: contacto NA fechado enquanto a pressão o actua (clicado em RUN).
     case 'pressureSwitch': return !!rt.pressed[part.tag]
     case 'diode': return true // modelo simplificado: conduz no sentido do esquema
@@ -82,7 +87,11 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
     case 'selector': return !!rt.toggled[part.tag]
     case 'plcOut': return !!rt.coils[part.tag] || !!rt.toggled[part.tag]
     // Válvulas: posição 1 quando a bobina Y com o mesmo tag está sob tensão, ou toggle manual
-    case 'valve32': case 'valve52': return !!rt.coils[part.tag] || !!rt.toggled[part.tag]
+    // Tratamento de ar: filtro, lubrificador e regulador deixam passar o caudal.
+    case 'airFilter': case 'airLubricator': case 'airRegulator': return true
+    case 'valve32': case 'valve52': case 'valve22': case 'valve42':
+    case 'valve53c': case 'valve53p': case 'valve53e':
+      return !!rt.coils[part.tag] || !!rt.toggled[part.tag]
     default: return false
   }
 }
@@ -210,7 +219,7 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   const lamps: Record<string, boolean> = {}
   for (const lamp of diagram.parts.filter((p) => p.kind === 'lamp')) lamps[lamp.id] = powered(potentialOf(solved, lamp.id, 0), potentialOf(solved, lamp.id, 1))
 
-  const loadKinds = new Set(['buzzer', 'siren', 'solenoid', 'heater', 'plcOut', 'pushIllum'])
+  const loadKinds = new Set(['buzzer', 'siren', 'solenoid', 'heater', 'plcOut', 'pushIllum', 'counter'])
   const loads: Record<string, boolean> = {}
   for (const p of diagram.parts) {
     if (!loadKinds.has(p.kind)) continue
