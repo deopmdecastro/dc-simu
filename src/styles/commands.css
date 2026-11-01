@@ -304,7 +304,6 @@
   pointer-events: auto;
   transform: translate(0, 0);
   cursor: move;
-  max-width: min(320px, 60vw);
   padding: 4px;
   margin: -4px;
   border: 1.5px solid transparent;
@@ -329,7 +328,6 @@
   display: block;
   box-sizing: content-box;
   min-width: 4ch;
-  max-width: min(320px, 60vw);
   margin: 0;
   padding: 0;
   border: 0;
@@ -341,14 +339,6 @@
   overflow: hidden;
   cursor: text;
   caret-color: #2563eb;
-}
-.dc-cmd-text-toolbar {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 12;
-  pointer-events: auto;
 }
 .dc-cmd-canvas.is-placing-text { cursor: text; }
 

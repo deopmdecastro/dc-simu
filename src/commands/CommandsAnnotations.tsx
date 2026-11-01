@@ -149,7 +149,7 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
     if (current && !current.moved && !readOnly) onEdit(true)
   }
 
-  const textStyle = { ...textCss(item, sizePx), fontFamily: fontStack(item.font), width: fixedWidth }
+  const textStyle = { ...textCss(item, sizePx), fontFamily: fontStack(item.font), width: fixedWidth, whiteSpace: fixedWidth ? 'pre-wrap' as const : 'pre' as const }
   return (
     <div
       className={`dc-cmd-text-anchor${selected ? ' is-selected' : ''}${editing ? ' is-editing' : ''}`}
@@ -169,6 +169,7 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
           className="dc-cmd-text-edit"
           value={draft}
           rows={1}
+          wrap={fixedWidth ? 'soft' : 'off'}
           spellCheck
           aria-label="Editar texto do esquema IEC"
           style={{ ...textStyle, width: fixedWidth ?? `${Math.max(4, ...draft.split('\n').map((line) => line.length + 1))}ch` }}
@@ -245,7 +246,7 @@ export function CommandsTextToolbar({
 }) {
   return (
     <div
-      className="dc-cmd-text-toolbar"
+      className="grafcet-textbar-slot"
       // Tocar na barra não tira o foco ao texto: o estilo muda enquanto se escreve (campos e listas mantêm o seu foco).
       onPointerDown={(event) => { if (!(event.target as HTMLElement).closest('input, select, textarea, [contenteditable]')) event.preventDefault() }}
     >
@@ -253,10 +254,6 @@ export function CommandsTextToolbar({
         style={text}
         unit="px"
         onChange={(patch) => useSimStore.getState().updateCanvasText(text.id, patch)}
-        rotation={text.rotation}
-        onRotationChange={(rotation) => useSimStore.getState().updateCanvasText(text.id, { rotation })}
-        width={text.width}
-        onWidthChange={(width) => useSimStore.getState().updateCanvasText(text.id, { width })}
         onDelete={() => {
           useSimStore.getState().removeCanvasText(text.id)
           onDone()

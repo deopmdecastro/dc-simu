@@ -496,6 +496,11 @@
     gap: 10px;
   }
   .dc-cmd .cmd-dock.grafcet-properties:not(.is-open) { flex: 0 0 auto; max-height: none; overflow: hidden; gap: 0; padding-top: 4px; padding-bottom: 6px; }
+  .dc-cmd .cmd-dock.grafcet-properties.is-open.is-tall { flex-basis: 72%; max-height: 84%; }
+  /* O conteúdo do separador ocupa a sua altura natural e a gaveta é que rola (antes `flex: 1` + `min-height: 0`
+     reduzia-o a 0 e cortava a lista — a «barra branca»). */
+  .dc-cmd .cmd-dock.is-open > :not(.grafcet-properties-summary):not(.dc-dock-tabs) { flex: 0 0 auto; min-height: auto; overflow: visible; }
+  .dc-cmd .cmd-dock.is-open .dc-cmd-io .schematic-sim-dock-body { flex: 0 0 auto; overflow: visible; }
   .dc-cmd .cmd-dock.is-open > * { flex-shrink: 0; }
   .dc-cmd .cmd-dock .grafcet-properties-summary { flex: none; min-height: 44px; }
   /* O conteúdo do separador cresce com o painel (a rolagem é a da gaveta, como no GRAFCET). */

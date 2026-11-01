@@ -19,4 +19,6 @@ check(/removeCanvasText\(item\.id\)/.test(layer) && /draft\.trim\(\)/.test(layer
 check(/el\.style\.height = `\$\{el\.scrollHeight\}px`/.test(layer), 'a caixa de edição cresce com o conteúdo')
 check(/e\.key === 'Enter' \|\| e\.key === 'F2'/.test(editor) && /styleKey/.test(editor), 'Enter/F2 editam e Ctrl+B/I/U formatam o texto selecionado')
 check(/\.dc-cmd-text-anchor\.is-selected \{[^}]*border-style: dashed/.test(css) && /outline: 2px solid #2563eb/.test(css), 'moldura tracejada azul e contorno de edição iguais aos do GRAFCET')
+check(/grafcet-textbar-slot/.test(layer) && !/onRotationChange/.test(layer), 'a barra de formatação do IEC usa o mesmo contentor e os mesmos controlos que a do GRAFCET')
+check(!/max-width: min\(320px/.test(css.slice(css.indexOf('.dc-cmd-text-anchor'), css.indexOf('.dc-cmd-text-toolbar') > 0 ? css.indexOf('.dc-cmd-text-toolbar') : undefined)), 'o texto do IEC não quebra linha sozinho (como no GRAFCET)')
 console.log(`\n${checks} verificações OK`)

@@ -22,6 +22,8 @@ check(!/zoomdock/.test(editor) && !/zoomdock/.test(css), 'os botões flutuantes 
 check(/\{phone && !demo && <CommandsSimDock onOpenGrafcet=\{onOpenGrafcet\} \/>\}/.test(editor) && /useNarrowMenu\(PHONE_TOUCH_QUERY\)/.test(editor), 'no telemóvel o painel lateral completo fica no painel inferior do canvas')
 const dock = read('src/commands/CommandsSimDock.tsx')
 check(/grafcet-properties cmd-dock/.test(dock) && /<SidePanelHeader/.test(dock) && /side="bottom"/.test(dock) && /<RightDockPanel mode="commands"/.test(dock) && !/SimTransportControls/.test(dock), 'o painel inferior usa a gaveta do GRAFCET (grafcet-properties + SidePanelHeader) e o painel lateral completo (RightDockPanel); o transporte fica na barra de cima')
+check(/grafcet-properties-tall/.test(dock) && /is-tall/.test(dock), 'o painel inferior do IEC tem o botão de ampliar do GRAFCET')
+check(/flex: 0 0 auto; min-height: auto; overflow: visible/.test(readFileSync(new URL('../src/styles/mobile-refine.css', import.meta.url), 'utf8')), 'o conteúdo do separador não é reduzido a 0 (lista cortada)')
 check(!/<CommandsIoPanel/.test(dock), 'o painel inferior já não é só de entradas: não monta o CommandsIoPanel isolado')
 const app = read('src/App.tsx')
 check(/const phoneCommands = phone && mode === 'commands'/.test(app) && /!demo && !phoneCommands && mode !== 'monitor'/.test(app), 'no telemóvel o Esquema IEC não tem coluna/gaveta da direita: o mesmo painel não aparece duas vezes')
