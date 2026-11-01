@@ -53,6 +53,8 @@ export const emptyCmdRuntime = (): CmdRuntime => ({
 })
 
 const key = (part: string, term: number) => `${part}:${term}`
+/** Elementos com bobina: ficam sob tensão pelos bornes A1-A2 e alimentam contactos com a mesma referência. */
+const COIL_KINDS = new Set<string>(['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay'])
 const PHASES = ['L1', 'L2', 'L3']
 
 /** O contacto/elemento está a conduzir? (estado real do aparelho com a mesma referência). */
@@ -61,6 +63,10 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
   const timed = on && rt.time - (rt.coilSince[part.tag] ?? rt.time) >= (rt.delays?.[part.tag] ?? 3000)
   switch (part.kind) {
     case 'fuse': case 'fuse3': case 'thermal3': case 'resistor': case 'capacitor': case 'throttle': case 'checkValve': return true
+    // Seccionadora fusível: o fusível conduz; a lâmina é só de corte manual (ver `fuseDisconnector`).
+    case 'fuseDisconnector': return true
+    // Pressostato: contacto NA fechado enquanto a pressão o actua (clicado em RUN).
+    case 'pressureSwitch': return !!rt.pressed[part.tag]
     case 'diode': return true // modelo simplificado: conduz no sentido do esquema
     case 'breaker1': case 'breaker3': case 'rcd': return !rt.toggled[part.tag] && !rt.tripped[part.tag]
     case 'disconnector3': return !rt.toggled[part.tag]
@@ -168,7 +174,7 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   const rt: CmdRuntime = { ...previous, delays, time: previous.time + Math.max(0, dtMs), coils: { ...previous.coils }, coilSince: { ...previous.coilSince }, fault: undefined }
   // Parada: tudo sem tensão; a falha que a parou continua visível até se voltar a arrancar.
   if (!rt.running) return { ...rt, fault: previous.fault, coils: {}, coilSince: {}, live: {}, liveWires: {}, lamps: {}, loads: {}, actuators: {}, motors: {} }
-  const coilParts = diagram.parts.filter((p) => p.kind === 'coil' || p.kind === 'timerCoil')
+  const coilParts = diagram.parts.filter((p) => COIL_KINDS.has(p.kind))
   let solved = solve(diagram, rt)
   const seen = new Set<string>()
   for (let round = 0; round < 40; round++) {
@@ -204,7 +210,7 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   const lamps: Record<string, boolean> = {}
   for (const lamp of diagram.parts.filter((p) => p.kind === 'lamp')) lamps[lamp.id] = powered(potentialOf(solved, lamp.id, 0), potentialOf(solved, lamp.id, 1))
 
-  const loadKinds = new Set(['buzzer', 'solenoid', 'heater', 'plcOut', 'pushIllum'])
+  const loadKinds = new Set(['buzzer', 'siren', 'solenoid', 'heater', 'plcOut', 'pushIllum'])
   const loads: Record<string, boolean> = {}
   for (const p of diagram.parts) {
     if (!loadKinds.has(p.kind)) continue

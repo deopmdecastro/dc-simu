@@ -11,6 +11,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { CmdSymbol, symbolBody } from '../src/commands/symbols'
 import { CMD_PARTS, terminalAt, type CmdKind, type CmdPart } from '../src/commands/model'
 import { normalizeCommandsPages } from '../src/commands/pages'
+import { emptyCmdRuntime, isClosed } from '../src/commands/engine'
 
 const svgOf = (part: CmdPart, st = {}) => renderToStaticMarkup(<svg><CmdSymbol part={part} state={st} showTerminals={false} /></svg>)
 
@@ -125,6 +126,37 @@ for (const kind of Object.keys(CMD_PARTS) as CmdKind[]) {
     assert.doesNotMatch(markup, /NaN|undefined/, `${kind}: coordenada inválida`)
   }
   assert.ok(symbolBody(part(kind)) !== undefined, `${kind}: symbolBody devolveu undefined`)
+}
+
+// 8. Símbolos das folhas de 2026-11-01: medida, relés de medida/tempo, seccionadora fusível e pressostato.
+const meter = svgOf(part('ammeter'))
+assert.match(meter, /<circle cx="0" cy="30" r="12"/, 'amperímetro: círculo de medida')
+assert.match(meter, />A</, 'amperímetro: letra A')
+assert.match(svgOf(part('voltmeter')), />V</, 'voltímetro: letra V')
+assert.match(svgOf(part('currentTransformer')), /<rect x="-15" y="21" width="30" height="6"/, 'TA: duas barras do núcleo')
+assert.match(svgOf(part('overcurrentRelay')), />I&gt;</, 'relé de sobrecorrente: I>')
+assert.match(svgOf(part('undervoltageRelay')), />U&lt;</, 'relé de subtensão: U<')
+assert.match(svgOf(part('latchingRelay')), /<rect x="-13" y="18" width="8" height="24" fill="#0f172a"/, 'retenção: enrolamento escuro')
+assert.match(svgOf(part('timerOffCoil')), /<rect x="-13" y="34" width="9" height="8" fill="#0f172a"/, 'TOF: bloco do atraso')
+assert.match(svgOf(part('temperatureController')), />CT</, 'controlador: CT')
+assert.match(svgOf(part('siren')), /dc-cmd-buzz|M -12 24 L 4 24 L 12 15/, 'sirene: trombeta')
+for (const kind of ['ammeter', 'voltmeter', 'currentTransformer', 'siren', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'timerOffCoil', 'temperatureController', 'fuseDisconnector', 'pressureSwitch'] as CmdKind[]) {
+  assert.ok(CMD_PARTS[kind], `${kind}: definição em falta`)
+  assert.deepEqual(terminalAt(part(kind), 0).y, 0, `${kind}: borne de cima em y=0`)
+  assert.deepEqual(terminalAt(part(kind), 1).y, 60, `${kind}: borne de baixo em y=60`)
+}
+
+// 8b. O desenho e a condução concordam: seccionadora conduz sempre; pressostato só quando actuado.
+const rtEmpty = emptyCmdRuntime()
+assert.equal(isClosed(part('fuseDisconnector'), rtEmpty), true, 'seccionadora fusível conduz')
+assert.ok(connects(svgOf(part('fuseDisconnector')), [0, 0], [0, 60]))
+assert.equal(isClosed(part('pressureSwitch'), rtEmpty), false, 'pressostato em repouso não conduz')
+assert.equal(isClosed(part('pressureSwitch'), { ...rtEmpty, pressed: { X1: true } }), true, 'pressostato actuado conduz')
+assert.ok(connects(svgOf(part('pressureSwitch'), { closed: true }), [0, 0], [0, 60]))
+assert.ok(!connects(svgOf(part('pressureSwitch'), { closed: false }), [0, 0], [0, 60]))
+// Bobinas novas entram na malha dos elementos com bobina (sobem a `rt.coils` pela referência).
+for (const kind of ['timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay'] as CmdKind[]) {
+  assert.ok(svgOf(part(kind)), `${kind}: desenho`)
 }
 
 console.log('PASS — geometria dos símbolos: contactos ligam os bornes, resistência IEC, núcleo do transformador e três terras')

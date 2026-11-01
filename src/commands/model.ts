@@ -19,6 +19,11 @@ export type CmdKind =
   | 'motor3' | 'motor6'
   | 'diode' | 'resistor' | 'capacitor' | 'transformer' | 'rectifier'
   | 'plcIn' | 'plcOut'
+  /** Medida e proteção de medida (folhas do utilizador, 2026-11-01). */
+  | 'ammeter' | 'voltmeter' | 'currentTransformer'
+  /** Relés de medida e de tempo com desenho próprio. */
+  | 'overcurrentRelay' | 'undervoltageRelay' | 'latchingRelay' | 'timerOffCoil'
+  | 'fuseDisconnector' | 'temperatureController' | 'pressureSwitch' | 'siren'
   /** Pneumática / hidráulica (ISO 1219 — símbolos próprios DC-Simu). */
   | 'airSource' | 'exhaust' | 'valve32' | 'valve52' | 'cylSE' | 'cylDE' | 'throttle' | 'checkValve'
   | 'hydPump' | 'hydTank' | 'hydCyl'
@@ -139,6 +144,17 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   limitNO: { label: 'Fim de curso NA', hint: 'S · actuado pela máquina', family: 'sensor', prefix: 'S', terminals: pole(0, '13', '14'), poles: [[0, 1]], box: { x: -16, y: 0, w: 32, h: 60 } },
   limitNC: { label: 'Fim de curso NF', hint: 'S · abre ao actuar', family: 'sensor', prefix: 'S', terminals: pole(0, '11', '12'), poles: [[0, 1]], box: { x: -16, y: 0, w: 32, h: 60 } },
   proximity: { label: 'Proximidade', hint: 'B · sensor indutivo/capacitivo (NA)', family: 'sensor', prefix: 'B', terminals: pole(0, '3', '4'), poles: [[0, 1]], box: { x: -16, y: 0, w: 32, h: 60 } },
+  ammeter: { label: 'Amperímetro', hint: 'P · leitura de corrente (símbolo de medida)', family: 'load', prefix: 'P', terminals: pole(0, '1', '2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  voltmeter: { label: 'Voltímetro', hint: 'P · leitura de tensão', family: 'load', prefix: 'P', terminals: pole(0, '1', '2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  currentTransformer: { label: 'Transformador de corrente', hint: 'T · TA de medida (duas barras = núcleo)', family: 'load', prefix: 'T', terminals: pole(0, 'P1', 'P2'), poles: [], box: { x: -18, y: 0, w: 46, h: 60 } },
+  overcurrentRelay: { label: 'Relé de sobrecorrente', hint: 'K · actua acima de um valor de I', family: 'protection', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  undervoltageRelay: { label: 'Relé de subtensão', hint: 'K · actua abaixo de um valor de U', family: 'protection', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  latchingRelay: { label: 'Relé de retenção', hint: 'K · mantém-se depois de a bobina desligar', family: 'protection', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  fuseDisconnector: { label: 'Seccionadora fusível', hint: 'Q · corte manual com fusível (conduz sempre)', family: 'protection', prefix: 'Q', terminals: pole(0, '1', '2'), poles: [[0, 1]], box: { x: -14, y: 0, w: 28, h: 60 } },
+  temperatureController: { label: 'Controlador de temperatura', hint: 'B · termostato / controlador (caixa CT)', family: 'sensor', prefix: 'B', terminals: pole(0, '1', '2'), poles: [], box: { x: -18, y: 0, w: 36, h: 60 } },
+  pressureSwitch: { label: 'Pressostato', hint: 'B · contacto NA actuado pela pressão', family: 'sensor', prefix: 'B', terminals: pole(0, '13', '14'), poles: [[0, 1]], box: { x: -18, y: 0, w: 40, h: 60 } },
+  siren: { label: 'Sirene', hint: 'H · sinalização sonora de alarme', family: 'load', prefix: 'H', terminals: pole(0, 'X1', 'X2'), poles: [], box: { x: -16, y: 0, w: 34, h: 60 } },
+  timerOffCoil: { label: 'Temporizador à desligar (TOF)', hint: 'K · mantém o contacto após a bobina desligar', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   coil: { label: 'Bobina', hint: 'K · A1-A2 do contactor/relé', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   timerCoil: { label: 'Temporizador', hint: 'K · bobina com atraso à operação', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   lamp: { label: 'Sinalizador', hint: 'H · lâmpada de indicação', family: 'load', prefix: 'H', terminals: pole(0, 'X1', 'X2'), poles: [], box: { x: -14, y: 0, w: 28, h: 60 } },
@@ -169,11 +185,12 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
 
 export const CMD_PALETTE: Array<{ title: string; kinds: CmdKind[] }> = [
   { title: 'Alimentação', kinds: ['supply', 'node', 'ground', 'pageRef', 'pageRefIn'] },
-  { title: 'Proteção', kinds: ['fuse', 'fuse3', 'breaker1', 'breaker3', 'disconnector3', 'thermal3', 'rcd'] },
+  { title: 'Proteção', kinds: ['fuse', 'fuse3', 'fuseDisconnector', 'breaker1', 'breaker3', 'disconnector3', 'thermal3', 'rcd'] },
   { title: 'Contactos', kinds: ['contact3', 'contactNO', 'contactNC', 'changeover', 'timedNO', 'timedNC', 'thermalNC', 'thermalNO'] },
   { title: 'Comando', kinds: ['pushNO', 'pushNC', 'pushIllum', 'emergency', 'selector'] },
-  { title: 'Sensores', kinds: ['limitNO', 'limitNC', 'proximity'] },
-  { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'lamp', 'buzzer', 'solenoid', 'heater', 'motor3', 'motor6'] },
+  { title: 'Sensores', kinds: ['limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'temperatureController'] },
+  { title: 'Instrumentos', kinds: ['ammeter', 'voltmeter', 'currentTransformer'] },
+  { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'lamp', 'buzzer', 'siren', 'solenoid', 'heater', 'motor3', 'motor6'] },
   { title: 'Eletrónica', kinds: ['diode', 'resistor', 'capacitor', 'transformer', 'rectifier', 'plcIn', 'plcOut'] },
   { title: 'Pneumática', kinds: ['airSource', 'exhaust', 'valve32', 'valve52', 'cylSE', 'cylDE', 'throttle', 'checkValve'] },
   { title: 'Hidráulica', kinds: ['hydPump', 'hydTank', 'hydCyl'] },

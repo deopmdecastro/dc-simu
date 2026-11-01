@@ -279,6 +279,72 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         <line x1={-6} y1={34} x2={closed ? 0 : 6} y2={closed ? 38 : 36} stroke={closed ? active : INK} />
       </>
     }
+    case 'ammeter': case 'voltmeter': {
+      // Medida (IEC 60617): círculo com a grandeza, atravessado pelo condutor.
+      const letter = part.kind === 'ammeter' ? 'A' : 'V'
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+        <circle cx={0} cy={30} r={12} fill="#fff" />
+        <text x={0} y={35} textAnchor="middle" fontSize={14} fontWeight={700} fill={INK} stroke="none">{letter}</text>
+      </>
+    }
+    case 'currentTransformer': return <>
+      {/* TA: o cabo principal atravessa o núcleo (duas barras). */}
+      <line x1={0} y1={0} x2={0} y2={60} />
+      <rect x={-15} y={21} width={30} height={6} fill={INK} stroke="none" />
+      <rect x={-15} y={33} width={30} height={6} fill={INK} stroke="none" />
+      <text x={24} y={34} textAnchor="middle" fontSize={9} fill={INK} stroke="none">TA</text>
+    </>
+    case 'overcurrentRelay': case 'undervoltageRelay': {
+      const over = part.kind === 'overcurrentRelay'
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+        <rect x={-13} y={18} width={26} height={24} fill={st.energized ? '#dcfce7' : '#fff'} stroke={st.energized ? active : INK} strokeWidth={st.energized ? 2 : 1.6} />
+        <text x={0} y={33} textAnchor="middle" fontSize={10} fontWeight={700} fill={INK} stroke="none">{over ? 'I>' : 'U<'}</text>
+      </>
+    }
+    case 'latchingRelay': return <>
+      {/* Retenção: metade do enrolamento escura + barra de remanência. */}
+      <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+      <rect x={-13} y={18} width={26} height={24} fill={st.energized ? '#dcfce7' : '#fff'} stroke={INK} />
+      <rect x={-13} y={18} width={8} height={24} fill={INK} stroke="none" />
+      <line x1={-5} y1={42} x2={11} y2={18} />
+    </>
+    case 'timerOffCoil': return <>
+      {/* TOF: bobina com o bloco do atraso à desligar. */}
+      <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+      <rect x={-13} y={18} width={26} height={24} fill={st.energized ? '#dcfce7' : '#fff'} stroke={st.energized ? active : INK} strokeWidth={st.energized ? 2 : 1.6} />
+      <rect x={-13} y={34} width={9} height={8} fill={INK} stroke="none" />
+    </>
+    case 'fuseDisconnector': return <>
+      {/* Seccionadora fusível: cartucho + lâmina de corte. */}
+      <line x1={0} y1={0} x2={0} y2={16} />
+      <rect x={-5} y={16} width={10} height={28} fill="#fff" />
+      <line x1={0} y1={16} x2={0} y2={44} />
+      <line x1={0} y1={44} x2={0} y2={60} />
+      <line x1={-10} y1={52} x2={10} y2={26} strokeWidth={2} />
+    </>
+    case 'temperatureController': return <>
+      <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+      <rect x={-15} y={18} width={30} height={24} fill="#fff" />
+      <text x={0} y={33} textAnchor="middle" fontSize={10} fontWeight={700} fill={INK} stroke="none">CT</text>
+    </>
+    case 'pressureSwitch': return <>
+      {contactBody('limitNO', st, active)}
+      <circle cx={11} cy={10} r={6.5} fill="#fff" />
+      <text x={11} y={13} textAnchor="middle" fontSize={8} fontWeight={700} fill={INK} stroke="none">P</text>
+    </>
+    case 'siren': {
+      // Sirene: trombeta com duas ondas de alarme.
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+        <path d="M -12 24 L 4 24 L 12 15 L 12 45 L 4 36 L -12 36 Z" fill={loadOn ? '#fef3c7' : '#fff'} stroke={loadOn ? '#d97706' : INK} />
+        {loadOn && <g className="dc-cmd-buzz">
+          <path d="M 14 22 q 7 8 0 16" fill="none" stroke="#d97706" />
+          <path d="M 19 17 q 12 13 0 26" fill="none" stroke="#d97706" opacity={0.6} />
+        </g>}
+      </>
+    }
     case 'airSource': return <>
       <circle cx={0} cy={-8} r={10} fill="#e0f2fe" stroke="#0284c7" />
       <text x={0} y={-5} textAnchor="middle" fontSize={9} fontWeight={700} fill="#0369a1" stroke="none">P</text>
