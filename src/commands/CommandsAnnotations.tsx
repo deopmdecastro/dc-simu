@@ -134,6 +134,8 @@ export function CommandsTextsLayer({
               const oy = item.y
               const move = (e: PointerEvent) => {
                 if (!dragged.current && Math.hypot(e.clientX - sx, e.clientY - sy) < 4) return
+                // Início do arrasto: um passo de Desfazer com a posição original.
+                if (!dragged.current) useSimStore.getState().commitHistory()
                 dragged.current = true
                 const point = toWorld(e.clientX, e.clientY)
                 useSimStore.getState().updateCanvasText(item.id, { x: ox + point.x - start.x, y: oy + point.y - start.y })

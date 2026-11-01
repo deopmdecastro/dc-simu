@@ -66,7 +66,8 @@ export function removeSelectedGroup() {
       texts: (diagram.texts ?? []).filter((t) => !labels.has(t.id)),
     })
   }
-  for (const id of selectedTextIds) useSimStore.getState().removeCanvasText(id)
+  // Um só passo de Desfazer: o primeiro texto só regista histórico se o esquema não o fez já.
+  selectedTextIds.forEach((id, i) => useSimStore.getState().removeCanvasText(id, i === 0 && !parts.size && !labels.size))
   select(null)
 }
 

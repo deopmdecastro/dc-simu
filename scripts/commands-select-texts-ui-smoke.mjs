@@ -75,6 +75,12 @@ try {
   const after = await run((s) => ({ label: s.getState().commands.texts[0], free: s.getState().canvasTexts.find((t) => t.view === 'commands') }))
   check(after.label.x !== before.label.x && after.free.x !== before.free.x, 'arrastar o grupo move também os títulos e o texto livre')
   check(Math.abs((after.label.x - before.label.x) - (after.free.x - before.free.x)) < 25, 'textos e títulos deslocam-se juntos, com o mesmo passo')
+  await page.keyboard.press('Control+z')
+  const undone = await run((s) => ({ label: s.getState().commands.texts[0], free: s.getState().canvasTexts.find((t) => t.view === 'commands') }))
+  check(undone.free.x === before.free.x && undone.free.y === before.free.y && undone.label.x === before.label.x, 'Ctrl+Z desfaz o arrasto do grupo num só passo, incluindo o texto livre')
+  await page.keyboard.press('Control+y')
+  const redone = await run((s) => s.getState().canvasTexts.find((t) => t.view === 'commands'))
+  check(redone.x === after.free.x && redone.y === after.free.y, 'Ctrl+Y volta a aplicar o arrasto do texto livre')
 
   // Del apaga o grupo inteiro; Ctrl+Z repõe símbolos e títulos num só passo.
   await page.keyboard.press('Control+a')
@@ -82,8 +88,16 @@ try {
   const gone = await run((s) => ({ parts: s.getState().commands.parts.length, labels: (s.getState().commands.texts ?? []).length, free: s.getState().canvasTexts.filter((t) => t.view === 'commands').length }))
   check(gone.parts === 0 && gone.labels === 0 && gone.free === 0, 'Del apaga símbolos, títulos e texto livre selecionados')
   await page.keyboard.press('Control+z')
-  const back = await run((s) => ({ parts: s.getState().commands.parts.length, labels: (s.getState().commands.texts ?? []).length }))
-  check(back.parts > 0 && back.labels === labels.length, 'Ctrl+Z repõe os símbolos e os títulos num só passo')
+  const back = await run((s) => ({ parts: s.getState().commands.parts.length, labels: (s.getState().commands.texts ?? []).length, free: s.getState().canvasTexts.filter((t) => t.view === 'commands').length }))
+  check(back.parts > 0 && back.labels === labels.length && back.free === 1, 'Ctrl+Z repõe símbolos, títulos e texto livre num só passo')
+
+  // Só o texto livre: apagar e desfazer.
+  await page.keyboard.press('Escape')
+  await page.locator('.dc-cmd-text-anchor').first().click()
+  await page.keyboard.press('Delete')
+  check(await run((s) => s.getState().canvasTexts.filter((t) => t.view === 'commands').length) === 0, 'Del apaga o texto livre selecionado sozinho')
+  await page.keyboard.press('Control+z')
+  check(await run((s) => s.getState().canvasTexts.some((t) => t.view === 'commands' && t.text === 'Nota da obra')), 'Ctrl+Z recupera o texto livre apagado')
 
   // Marquee só sobre um título: fica selecionado.
   await page.keyboard.press('Escape')

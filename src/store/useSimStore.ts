@@ -93,6 +93,8 @@ export interface Snapshot {
   projectFolderLabels?: Record<string, Partial<Record<ProjectFolder, string>>>
   /** Nome personalizado das funções fixas (FC1/FC2). */
   fcNames?: Partial<Record<'fc1' | 'fc2', string>>
+  /** Textos livres dos canvas (IEC, 3D…): criar, apagar ou mover um texto também se desfaz. */
+  canvasTexts?: CanvasText[]
 }
 
 interface PlcScanRuntime {
@@ -134,7 +136,8 @@ interface Store extends CircuitState {
   canvasTexts: CanvasText[]
   addCanvasText: (text: Omit<CanvasText, 'id' | 'createdAt'>) => string
   updateCanvasText: (id: string, patch: Partial<CanvasText>) => void
-  removeCanvasText: (id: string) => void
+  /** `history: false` quando o chamador já registou o passo de Desfazer (apagar em grupo). */
+  removeCanvasText: (id: string, history?: boolean) => void
   /** Incrementa a cada varredura publicada (`pushRuntime`). Substitui as cópias
    *  por tick das listas `components`/`wires`: quem apresenta estado elétrico em
    *  tempo real (LEDs, bornes energizados, monitores) subscreve este escalar em
@@ -571,6 +574,7 @@ function snapshot(state: Store): Snapshot {
     tags: state.tags, plcTags,
     projectFiles: state.projectFiles, hiddenProjectFolders: state.hiddenProjectFolders,
     projectFolderLabels: state.projectFolderLabels, fcNames: state.fcNames,
+    canvasTexts: state.canvasTexts,
   })) as Snapshot
 }
 
@@ -909,11 +913,16 @@ export const useSimStore = create<Store>((set, get) => {
   canvasTexts: [],
   addCanvasText: (text) => {
     const id = nanoid(10)
+    get().commitHistory()
     set((s) => ({ canvasTexts: [...s.canvasTexts, { ...text, id, createdAt: new Date().toISOString() }], dirty: true }))
     return id
   },
   updateCanvasText: (id, patch) => set((s) => ({ canvasTexts: s.canvasTexts.map((item) => item.id === id ? { ...item, ...patch } : item), dirty: true })),
-  removeCanvasText: (id) => set((s) => ({ canvasTexts: s.canvasTexts.filter((item) => item.id !== id), dirty: true })),
+  removeCanvasText: (id, history = true) => {
+    if (!get().canvasTexts.some((item) => item.id === id)) return
+    if (history) get().commitHistory()
+    set((s) => ({ canvasTexts: s.canvasTexts.filter((item) => item.id !== id), dirty: true }))
+  },
   runtime: EMPTY_RUNTIME(),
   showEmptyWelcome: true,
   dismissEmptyWelcome: () => set({ showEmptyWelcome: false }),
@@ -2583,6 +2592,7 @@ export const useSimStore = create<Store>((set, get) => {
       hiddenProjectFolders: prev.hiddenProjectFolders ?? s.hiddenProjectFolders,
       projectFolderLabels: prev.projectFolderLabels ?? s.projectFolderLabels,
       fcNames: prev.fcNames ?? s.fcNames,
+      canvasTexts: prev.canvasTexts ?? s.canvasTexts,
       history: s.history.slice(0, -1),
       future: [...s.future, snapshot(s)],
       dirty: true,
@@ -2609,6 +2619,7 @@ export const useSimStore = create<Store>((set, get) => {
       hiddenProjectFolders: next.hiddenProjectFolders ?? s.hiddenProjectFolders,
       projectFolderLabels: next.projectFolderLabels ?? s.projectFolderLabels,
       fcNames: next.fcNames ?? s.fcNames,
+      canvasTexts: next.canvasTexts ?? s.canvasTexts,
       future: s.future.slice(0, -1),
       history: [...s.history, snapshot(s)],
       dirty: true,

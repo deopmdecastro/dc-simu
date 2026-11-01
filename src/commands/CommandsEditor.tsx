@@ -504,8 +504,15 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       else if (!additive) select(null)
       return
     }
-    if ((g.kind === 'move' || g.kind === 'tag' || g.kind === 'mid') && preview && g.moved) commit(preview)
-    else setPreview(null)
+    if ((g.kind === 'move' || g.kind === 'tag' || g.kind === 'mid') && preview && g.moved) {
+      // Os textos livres do grupo moveram-se ao vivo: repõe-nos na origem para o passo de Desfazer
+      // guardar a posição inicial e aplica de novo a posição final no mesmo passo.
+      const st = useSimStore.getState()
+      const moved = Object.entries(g.textOrigins ?? {}).map(([id, o]) => ({ id, o, now: st.canvasTexts.find((t) => t.id === id) }))
+      for (const { id, o } of moved) st.updateCanvasText(id, { x: o.x, y: o.y })
+      commit(preview)
+      for (const { id, now } of moved) if (now) st.updateCanvasText(id, { x: now.x, y: now.y })
+    } else setPreview(null)
     if (g.kind === 'wire' && draft) {
       const p = toWorld(event.clientX, event.clientY)
       if (Math.hypot(event.clientX - g.startX, event.clientY - g.startY) > 4) {
