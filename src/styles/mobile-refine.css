@@ -448,27 +448,12 @@
 }
 
 /* ===== 9. Esquema IEC e barras no telemóvel (2026-11-01) =====
-   Zoom à mão, aviso de simulação curto, páginas numa só linha e barra sempre acima da régua lateral. */
-.dc-cmd .dc-cmd-zoomdock { display: none; }
+   Aviso de simulação curto, painel E/S no fundo, páginas numa só linha e barra sempre acima da régua lateral. */
 .dc-cmd .dc-cmd-hint-short { display: none; }
 @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
-  .dc-cmd .dc-cmd-zoomdock {
-    position: absolute; z-index: 7; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    display: inline-flex; align-items: stretch; border: 1px solid var(--pn-line, #d6dde8); border-radius: 12px;
-    background: color-mix(in srgb, #fff 94%, transparent); box-shadow: 0 4px 14px rgba(15, 23, 42, .16); overflow: hidden;
-    touch-action: manipulation;
-  }
-  .dc-cmd .dc-cmd-zoomdock button {
-    min-width: 44px; min-height: 44px; padding: 0 6px; border: 0; background: transparent; color: #1e293b;
-    font: inherit; font-size: 20px; font-weight: 600; line-height: 1; cursor: pointer;
-  }
-  .dc-cmd .dc-cmd-zoomdock button + button { border-left: 1px solid var(--pn-line-soft, #e3e9f4); }
-  .dc-cmd .dc-cmd-zoomdock button:disabled { color: #b4bfce; }
-  .dc-cmd .dc-cmd-zoomdock button:active:not(:disabled) { background: #eef2fb; }
-  .dc-cmd .dc-cmd-zoomdock .dc-cmd-zoomdock-fit { min-width: 58px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: #2854e8; }
   /* O aviso da simulação deixa o canto do zoom livre e cabe numa linha. */
   .dc-cmd .dc-cmd-hint {
-    left: 10px; right: auto; max-width: calc(100% - 20px - 170px); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    left: 10px; right: auto; max-width: calc(100% - 20px); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     padding: 4px 10px; font-size: 11px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .dc-cmd .dc-cmd-hint-long { display: none; }
@@ -499,4 +484,15 @@
   /* 5 vistas + 5 botões de execução cabem em 360–430 px sem espremer as vistas. */
   :root .dc-toolbar-shell.is-compact .dc-transport-tools > .dc-seg > button { min-width: 36px; padding-inline: 6px !important; }
   :root .dc-toolbar-shell.is-compact .dc-toolbar-main { gap: 4px !important; }
+}
+
+/* Painel de Entradas/Saídas no fundo do Esquema IEC (telemóvel), igual ao do GRAFCET. */
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
+  .dc-cmd .cmd-dock { flex: 0 0 auto; }
+  .dc-cmd .cmd-dock.is-open { flex-basis: clamp(210px, 42dvh, 360px); }
+  /* A régua recolhida do painel direito (36 px) fica por cima do canto: a barra reserva-lhe o espaço. */
+  .dc-cmd .cmd-dock .gdock-bar { padding-right: 42px; }
+  .dc-cmd .cmd-dock .gdock-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  /* O estado e o transporte já estão na barra do painel. */
+  .dc-cmd .cmd-dock-body .sim-embed-bar { display: none; }
 }

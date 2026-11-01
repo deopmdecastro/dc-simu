@@ -25,20 +25,15 @@ function shortKind(kinds: string[]): string {
     .join(' · ') || '—'
 }
 
-/** Painel E/S do esquema IEC — mesma casca e cards do E/S 3D. */
-export function CommandsIoPanel() {
+/** Estado e comandos de transporte da simulação do esquema IEC (partilhado pelo painel lateral e pelo painel inferior). */
+export function useCommandsTransport() {
   const diagram = useSimStore((s) => s.commands) ?? emptyCommands()
   const rt = useCommandsUi((s) => s.rt)
   const paused = useCommandsUi((s) => s.paused)
-  const { start, pause, stop, press, toggle, trip, tick } = useCommandsUi.getState()
-  const devices = useMemo(() => devicesOf(diagram), [diagram])
-  const inputs = devices.filter(({ kinds }) => has(kinds, [...MOMENTARY, ...TOGGLES]) || kinds.some((k) => k.startsWith('thermal')))
-  const outputs = devices.filter(({ kinds }) => has(kinds, ['coil', 'timerCoil', 'lamp', ...MOTOR_KINDS]))
+  const { start, pause, stop, tick } = useCommandsUi.getState()
   const empty = !diagram.parts.length
   const running = rt.running && !paused
   const stopped = !rt.running
-  const idle = stopped
-
   const onPlay = () => { if (!empty) start() }
   const onPause = () => pause()
   const onStop = () => stop()
@@ -49,6 +44,20 @@ export function CommandsIoPanel() {
     else if (paused) { useCommandsUi.setState({ paused: false }); tick(50); useCommandsUi.setState({ paused: true }) }
     else tick(50)
   }
+  return { rt, paused, empty, running, stopped, onPlay, onPause, onStop, onReset, onStep }
+}
+
+/** Painel E/S do esquema IEC — mesma casca e cards do E/S 3D. */
+export function CommandsIoPanel() {
+  const diagram = useSimStore((s) => s.commands) ?? emptyCommands()
+  const rt = useCommandsUi((s) => s.rt)
+  const paused = useCommandsUi((s) => s.paused)
+  const { press, toggle, trip } = useCommandsUi.getState()
+  const devices = useMemo(() => devicesOf(diagram), [diagram])
+  const inputs = devices.filter(({ kinds }) => has(kinds, [...MOMENTARY, ...TOGGLES]) || kinds.some((k) => k.startsWith('thermal')))
+  const outputs = devices.filter(({ kinds }) => has(kinds, ['coil', 'timerCoil', 'lamp', ...MOTOR_KINDS]))
+  const { empty, running, stopped, onPlay, onPause, onStop, onReset, onStep } = useCommandsTransport()
+  const idle = stopped
 
   const activeInputs = inputs.filter(({ tag, kinds }) => !!(rt.pressed[tag] || rt.toggled[tag] || rt.tripped[tag])).length
   const activeOutputs = outputs.filter(({ tag, kinds }) => {

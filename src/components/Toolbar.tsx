@@ -177,6 +177,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const cmdTool = useCommandsUi((s) => s.tool)
   const cmdGrid = useCommandsUi((s) => s.gridOn)
   const cmdZoom = useCommandsUi((s) => s.zoom)
+  const cmdDockOpen = useCommandsUi((s) => s.dockOpen)
   const cmdSelection = useCommandsUi((s) => s.selection)
   const cmdHasParts = useSimStore((s) => (s.commands?.parts.length ?? 0) > 0)
   const simRunState = isCmd ? (cmdRunning ? (cmdPaused ? 'paused' : 'running') : 'stopped') : plcRunState
@@ -628,8 +629,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
       {/* ============================ linha 2 — contextual à vista ativa (oculta na demonstração) */}
       {!demo && compactBar && <div ref={row2BarRef} className="dc-toolbar-row2 dc-toolbar-compact" aria-label="Ferramentas do projeto">
-        {mode !== 'monitor' && <SimToggleButton on={mode === 'grafcet' ? grafcetSimVisible : simPanelOn} scope={mode === 'commands' ? 'schematic' : mode}
-          onClick={() => mode === 'grafcet' ? useGrafcetUi.getState().toggleSim() : mode === 'schematic' || mode === 'commands' ? onToggleSchematicSim?.() : useSimUi.getState().toggleSimPanel('ladder')}
+        {mode !== 'monitor' && <SimToggleButton on={mode === 'grafcet' ? grafcetSimVisible : isCmd ? cmdDockOpen : simPanelOn} scope={mode === 'commands' ? 'schematic' : mode}
+          onClick={() => mode === 'grafcet' ? useGrafcetUi.getState().toggleSim() : isCmd ? useCommandsUi.getState().toggleDock() : mode === 'schematic' ? onToggleSchematicSim?.() : useSimUi.getState().toggleSimPanel('ladder')}
           title="Abrir controlos de simulação e entradas/saídas" />}
         <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
         {toolSections.length > 0 && <ToolMenu label="Ferramentas" icon={<IconTools size={15} />} sections={toolSections} className="dc-compact-menu" />}

@@ -7,16 +7,19 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerE
 import { nanoid } from 'nanoid'
 import { useSimStore } from '../store/useSimStore'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
+import { useNarrowMenu } from '../ui/toolbarKit'
+import { PHONE_TOUCH_QUERY } from '../ui/device'
+import CommandsSimDock from './CommandsSimDock'
 import { pinchPan, usePinchZoom } from '../ui/usePinchZoom'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
-import { uiConfirm } from '../ui/dialogs'
+import { uiConfirm, uiPrompt } from '../ui/dialogs'
 import { editorGridBackground } from '../ui/editorTheme'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { IconCommands, IconExample, IconImport, IconPlus, IconTemplates } from '../ui/icons'
 import { InlineName } from '../ui/InlineName'
 import {
   CMD_GRID, CMD_PARTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
-  type CmdEnd, type CmdKind, type CmdPart, type CmdWire, type CommandsDiagram, type Pt,
+  type CmdEnd, type CmdKind, type CmdPart, type CmdText, type CmdWire, type CommandsDiagram, type Pt,
 } from './model'
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
 import PageLinkDialog from './PageLinkDialog'
@@ -116,8 +119,10 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const [hoverTerm, setHoverTerm] = useState<CmdEnd | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
+  // Telemóvel: Entradas/Saídas no fundo, como no GRAFCET; no tablet/PC continuam no painel lateral.
+  const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
   const canvasId = useId()
-  const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee'; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number; labelIds?: string[]; textOrigins?: Record<string, Pt> } | null>(null)
+  const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee' | 'label'; labelId?: string; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number; labelIds?: string[]; textOrigins?: Record<string, Pt> } | null>(null)
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [pageLinkModal, setPageLinkModal] = useState<{ partId: string } | null>(null)
   const [tagModal, setTagModal] = useState<{ partId: string } | null>(null)
@@ -193,7 +198,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const pinchStart = useRef<View | null>(null)
   usePinchZoom(viewportRef, {
     swallowPointers: true,
-    ignoreSelector: '[role="scrollbar"], .dc-cmd-zoomdock',
+    ignoreSelector: '[role="scrollbar"]',
     onStart: () => { pinchStart.current = view; gesture.current = null; setPreview(null); setMarquee(null) },
     onChange: ({ ratio, center, startCenter }) => {
       const start = pinchStart.current
@@ -404,6 +409,33 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     // botão do meio ou (abaixo) Espaço+arrastar — senão mão e seleção parecem iguais.
     if (tool === 'pan') startPan(event)
   }
+  // Títulos do esquema (ex.: «Circuito de potência»): tocar/clicar seleciona, arrastar move, duplo toque edita.
+  const lastLabelTap = useRef<{ id: string; t: number }>({ id: '', t: 0 })
+  const editLabel = async (label: CmdText) => {
+    const next = await uiPrompt('Texto do título no esquema', label.text, { title: 'Editar texto', confirmLabel: 'Guardar' })
+    if (next == null) return
+    const text = next.trim()
+    if (!text || text === label.text) return
+    commit({ ...stored, texts: (stored.texts ?? []).map((q) => (q.id === label.id ? { ...q, text } : q)) })
+  }
+  const onLabelDown = (label: CmdText, event: ReactPointerEvent) => {
+    // Mão, colocar símbolo/texto ou cabo armado: o gesto é do fundo (mover a vista, colocar, ligar).
+    if (event.button !== 0 || tool === 'pan' || placing || placingText || draft) return
+    event.stopPropagation()
+    const ui = useCommandsUi.getState()
+    if (tool === 'erase' && editable) { ui.selectGroup([], [], [label.id]); removeSelectedGroup(); return }
+    const additive = event.shiftKey || event.ctrlKey || event.metaKey
+    if (additive || !ui.selectedLabelIds.includes(label.id) || ui.selectedLabelIds.length > 1) ui.selectGroup([], [], [label.id], additive)
+    const now = Date.now()
+    const again = lastLabelTap.current.id === label.id && now - lastLabelTap.current.t < 350
+    lastLabelTap.current = again ? { id: '', t: 0 } : { id: label.id, t: now }
+    if (!editable) return
+    if (again) { void editLabel(label); return }
+    if (tool !== 'select' || additive) return
+    const p = toWorld(event.clientX, event.clientY)
+    gesture.current = { kind: 'label', startX: event.clientX, startY: event.clientY, labelId: label.id, origin: { x: label.x, y: label.y }, offset: { x: p.x - label.x, y: p.y - label.y } }
+    ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
+  }
   const onPartDown = (part: CmdPart, event: ReactPointerEvent) => {
     if (event.button !== 0 || tool === 'pan') return
     event.stopPropagation()
@@ -509,6 +541,11 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         setPreview(g.moved ? { ...stored, parts: stored.parts.map((q) => q.id === part.id ? { ...q, tagStyle: { ...q.tagStyle, x, y } } : q) } : null)
       }
     }
+    if (g.kind === 'label' && g.labelId && g.offset && g.origin) {
+      const x = Math.round(p.x - g.offset.x), y = Math.round(p.y - g.offset.y)
+      g.moved = x !== g.origin.x || y !== g.origin.y
+      setPreview(g.moved ? { ...stored, texts: (stored.texts ?? []).map((q) => (q.id === g.labelId ? { ...q, x, y } : q)) } : null)
+    }
     if (g.kind === 'mid' && g.wireId) { g.moved = true; setPreview({ ...stored, wires: stored.wires.map((q) => (q.id === g.wireId ? { ...q, mid: snap(p.y) } : q)) }) }
     if (g.kind === 'wire' && draft) { setDraft({ ...draft, to: p }); setHoverTerm(terminalNear(p, draft.from)) }
   }
@@ -533,7 +570,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
       else if (!additive) select(null)
       return
     }
-    if ((g.kind === 'move' || g.kind === 'tag' || g.kind === 'mid') && preview && g.moved) {
+    if ((g.kind === 'move' || g.kind === 'tag' || g.kind === 'mid' || g.kind === 'label') && preview && g.moved) {
       // Os textos livres do grupo moveram-se ao vivo: repõe-nos na origem para o passo de Desfazer
       // guardar a posição inicial e aplica de novo a posição final no mesmo passo.
       const st = useSimStore.getState()
@@ -732,7 +769,13 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         >
           <svg className="dc-cmd-svg" width="100%" height="100%">
             <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
-              {pageTexts.map((t) => <text key={t.id} className={`dc-cmd-text${selectedLabelIds.includes(t.id) ? ' is-selected' : ''}`} data-cmd-label={t.id} x={t.x} y={t.y}>{t.text}</text>)}
+              {pageTexts.map((t) => {
+                const b = labelBox(t)
+                return <g key={t.id} className="dc-cmd-label" onPointerDown={(e) => onLabelDown(t, e)}>
+                  <rect x={b.x - 6} y={b.y - 6} width={b.w + 12} height={b.h + 12} fill="transparent" />
+                  <text className={`dc-cmd-text${selectedLabelIds.includes(t.id) ? ' is-selected' : ''}`} data-cmd-label={t.id} x={t.x} y={t.y}>{t.text}</text>
+                </g>
+              })}
               {pageWires.map((w) => {
                 const pts = pointsOf(w)
                 if (pts.length < 2) return null
@@ -881,17 +924,12 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
             />
           )}
           {running && <div className="dc-cmd-hint" role="status">{paused ? 'Simulação em pausa' : (<><span className="dc-cmd-hint-long">Simulação: prima os botões no esquema · clique no térmico para o disparar</span><span className="dc-cmd-hint-short">Toque nos botões · toque no térmico para disparar</span></>)}</div>}
-          {/* Zoom à mão no telemóvel: a pinça pede dois dedos, estes botões servem com um só. */}
-          <div className="dc-cmd-zoomdock" role="group" aria-label="Zoom do esquema" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
-            <button type="button" aria-label="Reduzir zoom" title="Reduzir zoom" onClick={() => zoomAt(1 / 1.25)} disabled={view.scale <= CMD_ZOOM_MIN + 0.001}>−</button>
-            <button type="button" className="dc-cmd-zoomdock-fit" aria-label="Enquadrar o esquema" title="Enquadrar o esquema" onClick={() => fit()}>{Math.round(view.scale * 100)}%</button>
-            <button type="button" aria-label="Aumentar zoom" title="Aumentar zoom" onClick={() => zoomAt(1.25)} disabled={view.scale >= CMD_ZOOM_MAX - 0.001}>+</button>
-          </div>
           <CanvasPanScrollbars label="Esquema de comandos" controlsId={canvasId}
             view={{ x: -view.x / view.scale, y: -view.y / view.scale, width: size.width / view.scale, height: size.height / view.scale }}
             bounds={bounds}
             onChange={({ x, y }) => setView((v) => ({ ...v, x: -x * v.scale, y: -y * v.scale }))} />
         </div>
+        {phone && !demo && <CommandsSimDock />}
       </div>
       <CommandsImportDialog
         open={importOpen}

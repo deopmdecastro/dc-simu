@@ -19,6 +19,9 @@ interface CommandsUi {
   /** Escala da vista (o canvas atualiza; a barra mostra e pede zoom por evento). */
   zoom: number
   setZoom: (zoom: number) => void
+  /** Painel inferior de Entradas/Saídas (telemóvel), aberto ou recolhido à barra. */
+  dockOpen: boolean
+  toggleDock: () => void
   selection: CmdSelection
   /** Todos os símbolos selecionados (marquee / Shift·Ctrl). */
   selectedPartIds: string[]
@@ -134,6 +137,8 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   toggleGrid: () => set({ gridOn: !get().gridOn }),
   zoom: 1,
   setZoom: (zoom) => set({ zoom }),
+  dockOpen: false,
+  toggleDock: () => set((state) => ({ dockOpen: !state.dockOpen })),
   selection: null,
   selectedPartIds: [],
   selectedFrom: 'canvas',
