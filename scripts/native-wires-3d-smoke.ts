@@ -12,6 +12,7 @@ import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentOb
 import { MOTOR_BOX, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTerminalLayout'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 import { segmentEntersBox } from '../src/three/solidWireRouting'
+import { mountDepthOffset } from '../src/three/thermalMount'
 
 let failed = 0
 const check = (name: string, ok: boolean, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} — ${name}${extra ? ` (${extra})` : ''}`); if (!ok) failed++ }
@@ -23,7 +24,7 @@ for (const c of built.components) {
   const { x, y } = componentPanelXY(c)
   if (isMountingRail(c.type)) pivots[c.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z)
   else if (!isPanelBound(c)) pivots[c.id] = new THREE.Vector3(x, y, c.type === 'motor3ph' || c.type === 'motor1ph' ? 0.7 : 0.4)
-  else pivots[c.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + componentHalfExtents(c).z)
+  else pivots[c.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + componentHalfExtents(c).z + mountDepthOffset(c, built.components))
 }
 const obstacles = componentObstacles(built.components, pivots)
 const motor = built.components.find((c) => c.type === 'motor3ph')!
@@ -260,5 +261,21 @@ for (const pose of [
   }
   check('Dentro da caixa de bornes: cabos em curva contínua do bucim ao borne', kinks.length === 0, kinks.join(' '))
 }
+// Bornes da frente do F1 (95/96/A2): o cabo recua para a calha logo abaixo do relé, em curva contínua,
+// em vez de descer à frente até à calha e dobrar 90° para trás (visto de frente parecia um «U»).
+{
+  const frontEnds = ['native-f1-95', 'native-f1-96', 'native-f1-A2']
+  const bad: string[] = []
+  for (const wire of built.wires.filter((w) => frontEnds.includes(w.fromTerminalId) || frontEnds.includes(w.toTerminalId))) {
+    const points = coordinated.get(wire.id)!.points
+    const pts = frontEnds.includes(wire.fromTerminalId) ? points : [...points].reverse()
+    const minY = Math.min(...pts.map((p) => p[1]))
+    const maxZ = Math.max(...pts.slice(0, Math.ceil(pts.length / 2)).map((p) => p[2]))
+    const atLane = pts.find((p) => p[1] <= minY + 0.005)!
+    if (maxZ - atLane[2] < 0.35) bad.push(`${wire.id} recua ${((maxZ - atLane[2]) * 100).toFixed(0)} mm`)
+  }
+  check('cabos dos bornes frontais do F1 chegam à calha já recuados (sem cotovelo à frente)', bad.length === 0, bad.join(', '))
+}
+
 if (failed) { console.log(`\n❌ ${failed} falha(s)`); process.exit(1) }
 console.log('\n✅ TODOS OS TESTES PASSARAM')

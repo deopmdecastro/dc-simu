@@ -36,6 +36,7 @@ import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './st
 import { applyEditorMotorTextures } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
+import { mountDepthOffset } from './thermalMount'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
 import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
@@ -2688,7 +2689,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     } else {
       // Assente na face da calha (mesma profundidade, esteja ou não fixo numa calha).
       const half = componentHalfExtents(component, orientationFor(component))
-      panelPivots[component.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + half.z)
+      panelPivots[component.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components))
     }
   }
   /** Só geometria/posições contam para sombras: RUN mexe estados, não posições. */

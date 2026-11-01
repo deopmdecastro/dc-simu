@@ -4,7 +4,12 @@
  */
 import assert from 'node:assert/strict'
 import { buildNativePartidaDireta } from '../src/project/nativeProjects'
-import { findMountTarget, mountBridges, mountPosition, syncMounted } from '../src/three/thermalMount'
+import * as THREE from 'three'
+import { findMountTarget, mountBridges, mountDepthOffset, mountPosition, syncMounted } from '../src/three/thermalMount'
+import { componentHalfExtents } from '../src/three/panelBounds'
+import { componentPanelXY } from '../src/three/panelLayout'
+import { terminalWorld3D } from '../src/three/terminal3D'
+import { PANEL_UNITS_PER_MM } from '../src/three/modelPaths'
 import { createComponent } from '../src/electrical/factory'
 import { schematicDiagnostics } from '../src/diagnostics/viewDiagnostics'
 
@@ -17,6 +22,19 @@ const f1 = seed.components.find((c) => c.id === 'native-f1')!
 const at = mountPosition(f1, km)!
 check(at.schematicX === f1.schematicX && at.schematicY === f1.schematicY, 'o F1 nativo está na posição de encaixe do KM1')
 check(f1.schematicY > km.schematicY && Math.abs((f1.schematicX + f1.w / 2) - (km.schematicX + km.w / 2)) < 6, 'o relé fica por baixo do contactor, centrado')
+
+// Pinos dentro do contactor: mesma profundidade dos bornes 2T1/4T2/6T3 e corpo encostado à base.
+{
+  const zOf = (c: typeof km) => componentHalfExtents(c).z + mountDepthOffset(c, seed.components)
+  const kmPivot = new THREE.Vector3(0, 0, zOf(km))
+  const f1Pivot = new THREE.Vector3(0, 0, zOf(f1))
+  const sockets = ['2T1', '4T2', '6T3'].map((l) => terminalWorld3D(km, km.terminals.find((t) => t.label === l)!, kmPivot).z)
+  const pins = ['1L1', '3L2', '5L3'].map((l) => terminalWorld3D(f1, f1.terminals.find((t) => t.label === l)!, f1Pivot).z)
+  check(sockets.every((z, i) => Math.abs(z - pins[i]) < 0.005), 'os pinos do F1 ficam à profundidade dos bornes do KM1 (não saem pela frente)')
+  const kmBottom = componentPanelXY(km).y - componentHalfExtents(km).y
+  const f1BodyTop = componentPanelXY(f1).y + componentHalfExtents(f1).y - 9.4 * PANEL_UNITS_PER_MM
+  check(Math.abs(kmBottom - f1BodyTop) < 0.012, `o corpo do F1 encosta à base do KM1, pinos inseridos (folga ${((f1BodyTop - kmBottom) / PANEL_UNITS_PER_MM).toFixed(1)} mm)`)
+}
 
 // Íman: perto encaixa; longe não.
 const loose = { ...f1, mountedOn: undefined, schematicX: f1.schematicX + 14, schematicY: f1.schematicY + 22 }

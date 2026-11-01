@@ -406,6 +406,29 @@ export type WireSlotOverride = {
 
 export type TrunkPlan = { laneA: number; laneB: number; riserX?: number; slot?: WireSlotOverride }
 
+/**
+ * Borne na face da frente (ou de trás) com a calha abaixo/acima do aparelho: o cabo desce à frente só
+ * até sair do aparelho e daí recua em diagonal até à calha, como um cabo real a entrar na canaleta.
+ * Sem isto, descia a direito à frente até à calha e dobrava 90° para trás (visto de frente, um «U»).
+ * Devolve o ponto onde começa a recuar, ou null se não se aplicar.
+ */
+function frontBackOff(end: V3, lead: V3 | null | undefined, laneY: number, x: number, zVert: number, outerMm: number, obstacles: WireObstacle[]): V3 | null {
+  if (!lead || Math.abs(lead[2]) < 0.7) return null
+  const near = 0.02
+  const own = obstacles
+    .filter((box) => !box.rail && !box.hard
+      && end[0] >= box.min.x - near && end[0] <= box.max.x + near
+      && end[1] >= box.min.y - near && end[1] <= box.max.y + near
+      && end[2] >= box.min.z - near && end[2] <= box.max.z + near)
+    .sort((p, q) => p.getSize(new THREE.Vector3()).lengthSq() - q.getSize(new THREE.Vector3()).lengthSq())[0]
+  if (!own) return null
+  // Fora da margem que `clearObstacles` dá aos aparelhos (meio diâmetro + 5,2 mm), com folga.
+  const clear = (outerMm / 2) * U + 0.052 + 0.02
+  const yClear = laneY < own.min.y - clear ? own.min.y - clear : laneY > own.max.y + clear ? own.max.y + clear : null
+  if (yClear === null || Math.abs(yClear - laneY) < 0.05) return null
+  return [x, yClear, zVert]
+}
+
 /** Coalesce micro-troços intermédios demasiado curtos para permitir curvas suaves sem dobras agudas. */
 function coalesceShortJogs(points: V3[], minLen: number): V3[] {
   if (points.length <= 3) return points
@@ -486,16 +509,18 @@ export function wireBodyPoints3D(
       const xA = exitA[0] + (slot?.xStepA ?? 0)
       const xB = exitB[0] + (slot?.xStepB ?? 0)
 
+      const backA = frontBackOff(a, leads.a, yA, xA, zVertA, outerMm, obstacles)
+      const backB = frontBackOff(b, leads.b, yB, xB, zVertB, outerMm, obstacles)
       const startChain: V3[] = [
         a,
         ...(v(exitA).distanceTo(v(a)) > 1e-4 ? [exitA] : []),
         ...(Math.abs(xA - exitA[0]) > 1e-4 || Math.abs(zVertA - exitA[2]) > 1e-4 ? [[xA, exitA[1], zVertA] as V3] : []),
-        [xA, yA, zVertA],
+        backA ?? [xA, yA, zVertA],
         [xA, yA, ductZA],
       ]
       const endChain: V3[] = [
         [xB, yB, ductZB],
-        [xB, yB, zVertB],
+        backB ?? [xB, yB, zVertB],
         ...(Math.abs(xB - exitB[0]) > 1e-4 || Math.abs(zVertB - exitB[2]) > 1e-4 ? [[xB, exitB[1], zVertB] as V3] : []),
         ...(v(exitB).distanceTo(v(b)) > 1e-4 ? [exitB] : []),
         b,

@@ -10,7 +10,8 @@ import * as THREE from 'three'
 import type { ElectricalComponent, Wire } from '../types'
 import { terminalWorld3D } from './terminal3D'
 import { componentPanelXY, panelToSchematicX, panelToSchematicY } from './panelLayout'
-import { SCHEMATIC_PX_PER_MM } from './modelPaths'
+import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
+import { componentHalfExtents } from './panelBounds'
 import { MOUNT_PAIRS, MOUNT_PASS_THROUGH } from '../electrical/mounts'
 
 export const isThermalRelay = (component: Pick<ElectricalComponent, 'type'>) => component.type.startsWith('thermalRelay')
@@ -19,6 +20,8 @@ export const isContactor = (component: Pick<ElectricalComponent, 'type'>) => com
 export { MOUNT_PAIRS, MOUNT_PASS_THROUGH }
 /** Distância (mm) do centro de encaixe em que o íman prende o relé ao contactor. */
 export const MOUNT_REACH_MM = 28
+/** Comprimento (mm, medido no GLB) dos pinos de encaixe acima do corpo do relé. */
+const MOUNT_PIN_LENGTH_MM: Record<string, number> = { thermalRelaySiemens3ru1116: 9.4 }
 
 function meanTerminal(component: ElectricalComponent, labels: string[], pivot: THREE.Vector3): THREE.Vector3 | null {
   const terminals = labels.map((label) => component.terminals.find((t) => t.label === label))
@@ -34,10 +37,28 @@ export function mountPosition(relay: ElectricalComponent, contactor: ElectricalC
   const out = meanTerminal(contactor, MOUNT_PAIRS.map(([, o]) => o), new THREE.Vector3(x, y, 0))
   const pins = meanTerminal(relay, MOUNT_PAIRS.map(([i]) => i), new THREE.Vector3(0, 0, 0))
   if (!out || !pins) return null
+  // Pinos totalmente inseridos: o corpo do relé encosta à base do contactor (sem pinos à vista).
+  const pinLength = MOUNT_PIN_LENGTH_MM[relay.type]
+  const tipY = pinLength === undefined ? out.y : y - componentHalfExtents(contactor).y + pinLength * PANEL_UNITS_PER_MM
   return {
     schematicX: Math.round(panelToSchematicX(out.x - pins.x) - relay.w / 2),
-    schematicY: Math.round(panelToSchematicY(out.y - pins.y) - relay.h / 2),
+    schematicY: Math.round(panelToSchematicY(tipY - pins.y) - relay.h / 2),
   }
+}
+
+/**
+ * Recuo em profundidade (unidades de cena) do relé encaixado em relação à posição normal na calha.
+ * Na calha, a traseira de cada aparelho assenta na mesma face; os pinos do 3RU ficam então mais à
+ * frente do que os bornes 2T1/4T2/6T3 do contactor (ex.: 53 mm vs 43 mm no CWC09) e saem por fora.
+ * O relé recua até os pinos ficarem à profundidade dos bornes onde entram.
+ */
+export function mountDepthOffset(relay: ElectricalComponent, components: ElectricalComponent[]): number {
+  if (!relay.mountedOn) return 0
+  const contactor = components.find((c) => c.id === relay.mountedOn)
+  if (!contactor) return 0
+  const out = meanTerminal(contactor, MOUNT_PAIRS.map(([, o]) => o), new THREE.Vector3(0, 0, componentHalfExtents(contactor).z))
+  const pins = meanTerminal(relay, MOUNT_PAIRS.map(([i]) => i), new THREE.Vector3(0, 0, componentHalfExtents(relay).z))
+  return out && pins ? out.z - pins.z : 0
 }
 
 /** Contactor livre mais próximo em que o relé (na posição atual) encaixa, ou null. */

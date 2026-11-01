@@ -2859,7 +2859,8 @@ export const useSimStore = create<Store>((set, get) => {
       const loadedWires = (parsed.wires ?? []) as Wire[]
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
       const snapDirty = alignedWires.some((wire, i) => wire !== loadedWires[i])
-      const cleanComponents = deenergizeComponents(loadedComponents)
+      // Relés encaixados seguem a geometria de encaixe atual (projetos guardados com a posição antiga).
+      const cleanComponents = deenergizeComponents(syncMounted(loadedComponents))
       const cleanWires = normalizeWires(alignedWires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)), cleanComponents)
       const plcIds = cleanComponents.filter(isProgrammablePlc).map((c) => c.id)
       const loadedActiveId = plcIds.includes(parsed.activePlcId) ? parsed.activePlcId : plcIds[0] ?? null
