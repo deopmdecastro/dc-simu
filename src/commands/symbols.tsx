@@ -27,18 +27,20 @@ const contactBody = (kind: CmdKind, st: CmdSymbolState, active: string) => {
   // `st.closed` é o estado de CONDUÇÃO (vem de `isClosed`). Sem estado — miniaturas
   // da paleta — desenha-se o repouso: NF a conduzir, NA aberto.
   const closed = st.closed === undefined ? nc : !!st.closed
-  const open = !closed
-  // Lâmina apoiada no borne inferior (0,42): a conduzir sobe até ao borne
-  // superior (0,18); aberta, roda para a direita e deixa um intervalo visível.
-  const bladeX = open ? 11 : 0
-  const bladeY = open ? 25 : 18
+  // Contacto fixo com gancho (IEC 60617): a linha desce do borne superior e vira
+  // para o lado em y=18. No NF o gancho é o contacto fixo e está sempre desenhado;
+  // no NA aparece quando conduz. A lâmina, apoiada no borne inferior (0,42), assenta
+  // na ponta do gancho a conduzir e afasta-se dele quando abre — é este desenho que
+  // distingue um contacto fechado de um simples troço de cabo.
+  const hook = nc ? 1 : closed ? -1 : 0
+  const bladeEnd: [number, number] = closed ? [10 * hook, 18] : nc ? [12, 27] : [-11, 20]
+  const live = closed && !st.idle
   return (
     <>
       <line x1={0} y1={0} x2={0} y2={18} />
       <line x1={0} y1={42} x2={0} y2={60} />
-      <line x1={0} y1={42} x2={bladeX} y2={bladeY} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
-      {/* Contacto fixo do NF: pequena barra transversal — distingue NF de NA nos dois estados. */}
-      {nc && <line x1={-6} y1={18} x2={6} y2={18} />}
+      {hook !== 0 && <line x1={0} y1={18} x2={10 * hook} y2={18} />}
+      <line x1={0} y1={42} x2={bladeEnd[0]} y2={bladeEnd[1]} stroke={live ? active : INK} strokeWidth={live ? 2 : 1.6} />
       {(kind === 'pushNO' || kind === 'pushNC' || kind === 'pushIllum') && <line x1={-8} y1={12} x2={8} y2={12} />}
       {kind === 'emergency' && <circle cx={0} cy={10} r={7} fill="#fee2e2" stroke="#dc2626" />}
       {kind === 'selector' && <path d="M -8 10 L 0 4 L 8 10" fill="none" />}
@@ -57,13 +59,16 @@ const contactBody = (kind: CmdKind, st: CmdSymbolState, active: string) => {
 
 const threePole = (kind: CmdKind, st: CmdSymbolState, active: string) => {
   const closed = kind === 'thermal3' ? true : !!st.closed
+  const contactHook = closed && kind === 'contact3'
   return (
     <>
       {[0, 20, 40].map((x) => (
         <g key={x}>
           <line x1={x} y1={0} x2={x} y2={18} />
           <line x1={x} y1={42} x2={x} y2={60} />
-          <line x1={x} y1={42} x2={x + (closed ? 0 : 8)} y2={closed ? 18 : 25} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
+          {/* Contactos de potência do contactor seguem o desenho do NA: gancho à esquerda a conduzir. */}
+          {contactHook && <line x1={x} y1={18} x2={x - 10} y2={18} />}
+          <line x1={x} y1={42} x2={x + (closed ? (contactHook ? -10 : 0) : 8)} y2={closed ? 18 : 25} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
         </g>
       ))}
       {kind === 'breaker3' || kind === 'breaker1' || kind === 'rcd' ? (
