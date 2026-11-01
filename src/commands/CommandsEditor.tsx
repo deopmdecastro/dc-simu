@@ -607,6 +607,12 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
         return
       }
       if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); setMarquee(null); select(null); return }
+      // Texto livre selecionado: os mesmos atalhos do GRAFCET (Enter/F2 edita, Ctrl+B/I/U formata).
+      if (selectedFreeText && editable) {
+        if (!mod && (e.key === 'Enter' || e.key === 'F2')) { e.preventDefault(); setEditingTextId(selectedFreeText.id); return }
+        const styleKey = e.key.toLowerCase() === 'b' ? 'bold' : e.key.toLowerCase() === 'i' ? 'italic' : e.key.toLowerCase() === 'u' ? 'underline' : null
+        if (mod && styleKey) { e.preventDefault(); useSimStore.getState().updateCanvasText(selectedFreeText.id, { [styleKey]: !selectedFreeText[styleKey] }); return }
+      }
       // Ctrl+A: todos os símbolos, textos livres e títulos da página.
       if (mod && e.key.toLowerCase() === 'a' && editable) {
         e.preventDefault()

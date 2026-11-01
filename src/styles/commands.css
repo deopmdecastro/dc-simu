@@ -293,36 +293,50 @@
   pointer-events: auto;
   transform: translate(-4px, -4px);
 }
+.dc-cmd-text-pos { position: absolute; pointer-events: none; }
+/* Texto livre: mesma moldura e edição do GRAFCET (canvas-annotations.css → .grafcet-free-text). */
 .dc-cmd-text-anchor {
+  position: relative;
+  pointer-events: auto;
   transform: translate(0, 0);
-  cursor: pointer;
+  cursor: move;
   max-width: min(320px, 60vw);
+  padding: 4px;
+  margin: -4px;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  touch-action: none;
 }
-.dc-cmd-text-anchor:active { cursor: grabbing; }
-.dc-cmd-text-anchor.is-selected .dc-cmd-text-body {
-  outline: 2px solid var(--dx-brand, #2655e5);
-  outline-offset: 2px;
-  border-radius: 2px;
+.dc-cmd-text-anchor:hover { background: rgba(37, 99, 235, .05); }
+.dc-cmd-text-anchor.is-selected {
+  border-color: #2563eb;
+  border-style: dashed;
+  background: rgba(37, 99, 235, .06);
 }
+.dc-cmd-text-anchor.is-editing { cursor: text; border-color: transparent; background: transparent; }
 .dc-cmd-text-body {
   white-space: pre-wrap;
   word-break: break-word;
-  padding: 1px 2px;
   min-width: 1em;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .dc-cmd-text-edit {
   display: block;
-  min-width: 120px;
-  min-height: 1.4em;
-  border: 1px solid var(--dx-brand, #2655e5);
-  border-radius: 4px;
-  padding: 2px 4px;
-  background: #fff;
-  resize: both;
-  font: inherit;
-  line-height: 1.2;
+  box-sizing: content-box;
+  min-width: 4ch;
+  max-width: min(320px, 60vw);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .92);
+  resize: none;
+  overflow: hidden;
   cursor: text;
-  caret-color: var(--dx-brand, #2655e5);
+  caret-color: #2563eb;
 }
 .dc-cmd-text-toolbar {
   position: absolute;
@@ -454,7 +468,7 @@
 .dc-cmd-canvas.is-tool-select { cursor: default; }
 .dc-cmd-canvas.is-tool-select .dc-cmd-symbol { cursor: move; }
 .dc-cmd-canvas.is-tool-select .dc-cmd-tag.is-draggable { cursor: grab; }
-.dc-cmd-canvas.is-tool-select .dc-cmd-text-anchor { cursor: pointer; }
+.dc-cmd-canvas.is-tool-select .dc-cmd-text-anchor { cursor: move; }
 .dc-cmd-canvas.is-tool-select .dc-cmd-port { cursor: crosshair; }
 
 .dc-cmd-canvas.is-tool-wire,
