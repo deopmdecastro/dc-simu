@@ -10,7 +10,10 @@ import { cmdTagPreset } from './symbols'
 import SymbolThumb from './SymbolThumb'
 import { useCommandsUi } from './commandsUi'
 import { pageRefPeers, pagesOf, pageIdOf } from './pages'
-import { patchPart, removeSelected, rotateSelected } from './editing'
+import { patchPart, patchWire, removeSelected, rotateSelected } from './editing'
+import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL } from '../admin/editor3d/wireStyle'
+import type { WireColor } from '../types'
+import { terminalLabel, type CmdWire } from './model'
 import { devicesOf } from './engine'
 
 const SUPPLY_PRESETS = [['L1', 'L2', 'L3'], ['L1', 'L2', 'L3', 'N'], ['L1', 'L2', 'L3', 'N', 'PE'], ['L1', 'N'], ['L1'], ['L2'], ['L3'], ['N'], ['PE'], ['L+'], ['M']]
@@ -61,6 +64,7 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
   const selectedPart = selection?.type === 'part' ? diagram.parts.find((p) => p.id === selection.id) : undefined
   const freeTexts = useSimStore((s) => s.canvasTexts ?? [])
   const selectedText = selection?.type === 'text' ? freeTexts.find((t) => t.id === selection.id) : undefined
+  const selectedWire = selection?.type === 'wire' ? diagram.wires.find((w) => w.id === selection.id) : undefined
 
   // Selecionar um símbolo no esquema mostra logo as suas propriedades (como no Esquema 3D).
   useEffect(() => { if (selection && selectedFrom === 'canvas') setTab('inspector') }, [selection?.id, selectedFrom])
@@ -95,7 +99,7 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
 
   return (
     <div className="pn-panel dc-cmd-sidebar shrink-0 flex flex-col h-full min-h-0" style={{ width }}>
-      <SidePanelHeader eyebrow={tab === 'library' ? 'COMANDOS' : 'SÍMBOLO'} title={tab === 'library' ? 'Símbolos IEC' : selectedPart ? `${CMD_PARTS[selectedPart.kind].label}${selectedPart.tag ? ` ${selectedPart.tag}` : ''}` : selectedText ? 'Texto' : 'Propriedades'} side="left" onToggle={onCollapse} toggleLabel="Recolher biblioteca e inspetor" />
+      <SidePanelHeader eyebrow={tab === 'library' ? 'COMANDOS' : 'SÍMBOLO'} title={tab === 'library' ? 'Símbolos IEC' : selectedPart ? `${CMD_PARTS[selectedPart.kind].label}${selectedPart.tag ? ` ${selectedPart.tag}` : ''}` : selectedWire ? 'Cabo IEC' : selectedText ? 'Texto' : 'Propriedades'} side="left" onToggle={onCollapse} toggleLabel="Recolher biblioteca e inspetor" />
       <div className="pn-tabs flex items-end">
         <button type="button" onClick={() => setTab('library')} className={`dc-tab ${tab === 'library' ? 'dc-tab-active' : ''}`}>
           Biblioteca <span className="text-ink-300 font-normal">({total})</span>
@@ -147,7 +151,7 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
         <div className="dc-cmd-palette-body">
           {selectedPart ? <PartProperties part={selectedPart} disabled={running} />
             : selection?.type === 'text' ? <TextProperties textId={selection.id} disabled={running} />
-            : selection?.type === 'wire' ? <div className="dc-cmd-props"><p>Cabo selecionado. Arraste o troço do meio para o deslocar.</p><button type="button" className="dc-btn is-danger" disabled={running} onClick={removeSelected}>Apagar cabo</button></div>
+            : selectedWire ? <WireProperties wire={selectedWire} disabled={running} />
             : <DiagramSummary />}
         </div>
       )}
@@ -264,7 +268,7 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
       </label>}
       {part.kind === 'lamp' && <label className="dc-cmd-field"><span>Cor</span>
         <select className="dc-input" value={part.color ?? 'green'} onChange={(e) => onChange({ color: e.target.value as CmdPart['color'] })} aria-label="Cor do sinalizador">
-          <option value="green">Verde (marcha)</option><option value="red">Vermelho (paragem/defeito)</option><option value="yellow">Amarelo (alerta)</option><option value="white">Branco</option><option value="blue">Azul</option>
+          <option value="green">Verde (marcha)</option><option value="red">Vermelho (paragem/defeito)</option><option value="yellow">Amarelo (alerta)</option><option value="orange">Laranja (parado)</option><option value="white">Branco</option><option value="blue">Azul</option>
         </select>
       </label>}
       {part.kind !== 'supply' && part.kind !== 'node' && !isPageLink(part.kind) && <div className="dc-cmd-field"><span>Marcação dos bornes</span>
@@ -409,5 +413,73 @@ function TextProperties({ textId, disabled }: { textId: string; disabled: boolea
         </button>
       </div>
     </fieldset>
+  )
+}
+
+
+const WIRE_COLOR_ORDER: WireColor[] = ['black', 'brown', 'grey', 'blue', 'lightblue', 'green-yellow', 'red', 'orange', 'violet', 'white']
+
+function WireProperties({ wire, disabled }: { wire: CmdWire; disabled: boolean }) {
+  const diagram = useSimStore((s) => s.commands) ?? emptyCommands()
+  const partA = diagram.parts.find((p) => p.id === wire.a.part)
+  const partB = diagram.parts.find((p) => p.id === wire.b.part)
+  const labelA = partA ? `${partA.tag || CMD_PARTS[partA.kind]?.label || 'Símbolo'}:${terminalLabel(partA, wire.a.term)}` : '?'
+  const labelB = partB ? `${partB.tag || CMD_PARTS[partB.kind]?.label || 'Símbolo'}:${terminalLabel(partB, wire.b.term)}` : '?'
+  const currentColor = wire.color as WireColor | undefined
+
+  return (
+    <div className="dc-cmd-props">
+      <div className="pn-group">
+        <label className="text-[11px] font-semibold text-ink-700">Ligação</label>
+        <p className="text-[12px] font-mono text-ink-600 bg-surface-sunken/60 px-2 py-1.5 rounded border border-line-soft">
+          {labelA} → {labelB}
+        </p>
+      </div>
+
+      <div className="pn-group">
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-semibold text-ink-700">Cor da linha / condutor</label>
+          <button
+            type="button"
+            className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold border ${!currentColor ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-line text-ink-400'}`}
+            disabled={disabled}
+            onClick={() => patchWire(wire.id, { color: undefined })}
+            title="Cor padrão / automática (IEC 60204-1)"
+          >
+            AUTO
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Cor do cabo IEC">
+          {WIRE_COLOR_ORDER.map((c) => {
+            const hex = WIRE_COLOR_HEX[c]
+            const active = currentColor === c
+            return (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={disabled}
+                className={`w-6 h-6 rounded-full border transition-all ${active ? 'scale-110 ring-2 ring-brand-500 ring-offset-1 border-white' : 'border-line hover:scale-105'}`}
+                style={{ background: c === 'green-yellow' ? 'repeating-linear-gradient(45deg,#84cc16 0 3px,#eab308 3px 6px)' : hex }}
+                title={WIRE_COLOR_LABEL[c]}
+                onClick={() => patchWire(wire.id, { color: c })}
+              />
+            )
+          })}
+        </div>
+        <p className="text-[10px] text-ink-400 mt-2">
+          {currentColor ? `Cor selecionada: ${WIRE_COLOR_LABEL[currentColor] ?? currentColor}.` : 'Cor automática pelo circuito (preto/cinza força, vermelho/azul comando, PE verde-amarelo).'}
+        </p>
+      </div>
+
+      <p className="dc-cmd-muted text-[11px]">
+        Arraste o troço do meio no esquema para deslocar a linha.
+      </p>
+
+      <button type="button" className="dc-btn is-danger w-full mt-2" disabled={disabled} onClick={removeSelected}>
+        Apagar cabo
+      </button>
+    </div>
   )
 }

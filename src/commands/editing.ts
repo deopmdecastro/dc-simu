@@ -1,7 +1,7 @@
 // Operações de edição do esquema de comandos (partilhadas pelo canvas, inspetor e barra).
 import { nanoid } from 'nanoid'
 import { useSimStore } from '../store/useSimStore'
-import { CMD_PARTS, emptyCommands, nextTag, snap, terminalLabel, type CmdKind, type CmdPart, type CmdRotation, type CommandsDiagram, type Pt } from './model'
+import { CMD_PARTS, emptyCommands, nextTag, snap, terminalLabel, type CmdKind, type CmdPart, type CmdRotation, type CmdWire, type CommandsDiagram, type Pt } from './model'
 import { useCommandsUi } from './commandsUi'
 import { DEFAULT_PAGE_ID, normalizeCommandsPages, pagesOf } from './pages'
 
@@ -46,6 +46,11 @@ export function addPart(kind: CmdKind, at: Pt, pageId?: string): CmdPart {
   // Só entra em «Recentes» o que foi mesmo colocado (escolher e cancelar não conta).
   useCommandsUi.getState().markRecent(kind)
   return part
+}
+
+export function patchWire(id: string, patch: Partial<CmdWire>) {
+  const diagram = getDiagram()
+  commitDiagram({ ...diagram, wires: diagram.wires.map((w) => (w.id === id ? { ...w, ...patch } : w)) })
 }
 
 export function patchPart(id: string, patch: Partial<CmdPart>) {

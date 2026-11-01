@@ -167,4 +167,84 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   check(fixNativeCoilWiring({ ...seedContent, nativeFeatures: [] }).wires === seedContent.wires, 'um projeto já correto não é alterado')
 }
 
+// Sinalização (signals-v1): F1 97-98 → I0.3, H3 EMERGÊNCIA em Q0.3, H2 laranja, voltímetro P1 e GRAFCET com o F1.
+{
+  const { evalCondition, actionsOfStep } = await import('../src/grafcet/engine')
+  const { addNativeSignals, NATIVE_SIGNALS_FEATURE } = await import('../src/project/nativeSignals')
+  const { schematicDiagnostics } = await import('../src/diagnostics/viewDiagnostics')
+  const { NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE } = await import('../src/project/nativeIec')
+  const { voltmeterReading } = await import('../src/commands/engine')
+  const seed = buildNativePartidaDireta()
+  const ends = (a: string, b: string) => seed.wires.some((w) => (w.fromTerminalId === a && w.toTerminalId === b) || (w.fromTerminalId === b && w.toTerminalId === a))
+  const color = (id: string) => seed.components.find((c) => c.id === id)?.state.color
+  check(ends('native-psu-+V2', 'native-f1-97') && ends('native-f1-98', 'native-plc-I0.3'), '3D: +24 V → 97-98 do F1 → I0.3 do LOGO!')
+  check(ends('native-plc-Q0.2', 'native-plc-Q0.3') && ends('native-plc-Q0.3·2', 'native-h3-X1') && ends('native-h3-X2', 'native-h2-X2'), '3D: Q0.3 → H3 e retorno pelo H2')
+  check(color('native-h1') === '#22c55e' && color('native-h2') === '#f97316' && color('native-h3') === '#ef4444', '3D: H1 verde (marcha), H2 laranja (parado), H3 vermelho (emergência)')
+  check(schematicDiagnostics(seed.components, seed.wires, [], false).length === 0, '3D: quadro com o sinal do F1 e o H3 sem avisos')
+  check(seed.tags.some((t) => t.address === 'I0.3' && t.name === 'F1') && seed.tags.some((t) => t.address === 'Q0.3' && t.name === 'H3'), 'tags I0.3 F1 e Q0.3 H3')
+
+  // GRAFCET: arranque só com F1 armado; disparo devolve a X0; H2/H3 em X0.
+  const g = seed.grafcet
+  const t1 = g.transitions.find((t) => t.id === 'native-t1')!.condition
+  const t2 = g.transitions.find((t) => t.id === 'native-t2')!.condition
+  const ok = { 'I0.0': true, 'I0.1': true, 'I0.2': true, 'I0.3': false }
+  check(evalCondition(t1, ok) && !evalCondition(t1, { ...ok, 'I0.3': true }), 'GRAFCET: START arranca só com o F1 armado (I0.3 = 0)')
+  check(evalCondition(t2, { ...ok, 'I0.3': true }) && !evalCondition(t2, ok), 'GRAFCET: o disparo do F1 (I0.3) devolve a X0 como a emergência e o STOP')
+  const x0 = actionsOfStep(g.steps.find((st) => st.id === 'native-s0')!)
+  const lit = (address: string, table: Record<string, boolean>) => x0.some((a) => a.address === address && evalCondition(a.condition || '1', table))
+  check(lit('Q0.2', ok) && !lit('Q0.3', ok), 'X0 sem falha: H2 PARADO (laranja) aceso, H3 apagado')
+  check(lit('Q0.3', { ...ok, 'I0.0': false }) && !lit('Q0.2', { ...ok, 'I0.0': false }), 'X0 com emergência premida: H3 EMERGÊNCIA aceso, H2 apagado')
+  check(lit('Q0.3', { ...ok, 'I0.3': true }) && !lit('Q0.2', { ...ok, 'I0.3': true }), 'X0 com o F1 disparado: H3 aceso, H2 apagado')
+
+  // IEC v4: F1 97-98 → I0.3, H3 em Q0.3, voltímetro nos 24 V.
+  const plcPart = diagram.parts.find((p) => p.kind === 'plcLogo')!
+  const f1no = diagram.parts.find((p) => p.kind === 'thermalNO' && p.tag === 'F1')
+  check(!!f1no && diagram.wires.some((w) => w.a.part === f1no.id && w.a.term === 1 && w.b.part === plcPart.id && w.b.term === 5), 'IEC: 97-98 do F1 ligado a I0.3')
+  const h3 = diagram.parts.find((p) => p.tag === 'H3')!
+  check(h3?.color === 'red' && diagram.parts.find((p) => p.tag === 'H2')?.color === 'orange', 'IEC: H3 vermelho e H2 laranja')
+  const tripRt = (() => { let rt = { ...emptyCmdRuntime(), running: true, tripped: { F1: true } }; for (let i = 0; i < 3; i++) rt = stepCommands(diagram, rt, 100); return rt })()
+  check(tripRt.plcInputs?.['I0.3'] === true && rest.plcInputs?.['I0.3'] === false, 'IEC: F1 disparado dá sinal em I0.3 (em repouso 0)')
+  check(!!linked({ 'Q0.3': true }).lamps[h3.id], 'IEC: Q0.3 acende H3')
+  const p1 = diagram.parts.find((p) => p.kind === 'voltmeter' && p.tag === 'P1')!
+  check(!!p1 && voltmeterReading(rest.live[`${p1.id}:0`], rest.live[`${p1.id}:1`]) === 24, 'IEC: voltímetro P1 lê 24 V entre L+ e M')
+  check(voltmeterReading('L1', 'N') === 230 && voltmeterReading('L1', 'L2') === 400 && voltmeterReading('L+', undefined) === 0, 'voltímetro: 230 V fase-neutro, 400 V entre fases, 0 V sem tensão')
+
+  // Migração do IEC: v3 intacto → v4; v3 alterado mantém-se.
+  const v3Parts = Array.from({ length: 35 }, (_, i) => ({ id: `iec-${i + 1}`, kind: i === 0 ? 'plcLogo' : i === 1 ? 'lamp' : 'node', tag: i === 1 ? 'H1' : '', x: i === 1 ? 420 : 0, y: i === 1 ? 600 : 0 }))
+  const v3 = { nativeId: NATIVE_PARTIDA_ID, nativeFeatures: [NATIVE_IEC_FEATURE, NATIVE_IEC_V3_FEATURE], commands: { name: 'Partida direta com emergência (LOGO!)', parts: v3Parts, wires: [] } }
+  const upV3 = addNativeIecSchematic(v3)
+  check(upV3.commands.parts.some((p: any) => p.tag === 'H3') && upV3.nativeFeatures.includes(NATIVE_IEC_V4_FEATURE), 'esquema v3 intacto passa ao v4 (F1 em I0.3, H3, voltímetro)')
+  const editedV3 = { ...v3, commands: { ...v3.commands, parts: [...v3Parts.slice(0, 34), { id: 'meu', kind: 'lamp' }] } }
+  check(!addNativeIecSchematic(editedV3).commands.parts.some((p: any) => p.tag === 'H3'), 'esquema v3 alterado pelo utilizador mantém-se')
+
+  // Migração do quadro/GRAFCET: um projeto anterior recebe tudo; com I0.3 ocupado não recebe os cabos.
+  const fresh = nativePartidaDiretaContent() as any
+  const newWire = (w: any) => ['native-f1-97', 'native-f1-98', 'native-plc-I0.3', 'native-plc-Q0.3', 'native-plc-Q0.3·2'].some((t) => w.fromTerminalId === t || w.toTerminalId === t)
+    || w.fromTerminalId.startsWith('native-h3-') || w.toTerminalId.startsWith('native-h3-')
+  const oldGrafcet = structuredClone(fresh.grafcet)
+  oldGrafcet.transitions.find((t: any) => t.id === 'native-t1').condition = 'I0.0*I0.2*I0.1'
+  oldGrafcet.transitions.find((t: any) => t.id === 'native-t2').condition = '!I0.0+!I0.2'
+  const s0 = oldGrafcet.steps.find((st: any) => st.id === 'native-s0')
+  s0.actions = [{ ...s0.actions[0], condition: '1' }]
+  const old = {
+    ...fresh,
+    nativeFeatures: fresh.nativeFeatures.filter((f: string) => f !== NATIVE_SIGNALS_FEATURE),
+    components: fresh.components.filter((c: any) => c.id !== 'native-h3').map((c: any) => (c.id === 'native-h2' ? { ...c, state: { ...c.state, color: '#ef4444' } } : c)),
+    wires: fresh.wires.filter((w: any) => !newWire(w)),
+    grafcet: oldGrafcet,
+    tags: fresh.tags.filter((t: any) => t.address !== 'I0.3' && t.address !== 'Q0.3'),
+  }
+  const up = addNativeSignals(old)
+  check(up.components.some((c: any) => c.id === 'native-h3') && up.components.find((c: any) => c.id === 'native-h2').state.color === '#f97316', 'migração: entra o H3 e o H2 passa a laranja')
+  check(fresh.wires.filter(newWire).every((w: any) => up.wires.some((x: any) => x.fromTerminalId === w.fromTerminalId && x.toTerminalId === w.toTerminalId)), 'migração: entram os cabos F1 → I0.3 e Q0.3 → H3')
+  check(up.grafcet.transitions.find((t: any) => t.id === 'native-t2').condition.includes('I0.3') && up.tags.some((t: any) => t.address === 'I0.3'), 'migração: GRAFCET, programa e tags com o F1 e o H3')
+  check(schematicDiagnostics(up.components, up.wires, [], false).length === 0, 'migração: quadro sem avisos')
+  check(addNativeSignals(up) === up, 'migração dos sinais corre uma só vez')
+  const busy = { ...old, wires: [...old.wires, { ...old.wires[0], id: 'meu', fromTerminalId: 'native-psu-+V1', toTerminalId: 'native-plc-I0.3' }] }
+  const kept = addNativeSignals(busy)
+  check(!kept.wires.some((w: any) => w.fromTerminalId === 'native-f1-98') && kept.wires.length === busy.wires.length, 'migração: com I0.3 já usado pelo utilizador, os cabos novos não entram')
+  const myGrafcet = { ...old, grafcet: { ...oldGrafcet, transitions: oldGrafcet.transitions.map((t: any) => (t.id === 'native-t1' ? { ...t, condition: 'I0.1' } : t)) } }
+  check(addNativeSignals(myGrafcet).grafcet.transitions.find((t: any) => t.id === 'native-t1').condition === 'I0.1', 'migração: GRAFCET alterado pelo utilizador mantém-se')
+}
+
 console.log(`\n${checks} verificações do esquema IEC nativo passaram`)

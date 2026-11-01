@@ -8,6 +8,8 @@
 // Os símbolos desenham-se na vertical (a corrente desce) e rodam de 90 em 90°.
 // ============================================================================
 
+import type { WireColor } from '../types'
+
 export const CMD_GRID = 20
 
 export type CmdKind =
@@ -68,7 +70,7 @@ export interface CmdPart {
   /** Temporizador: atraso à operação (ms). */
   delayMs?: number
   /** Sinalizador: cor. */
-  color?: 'green' | 'red' | 'yellow' | 'white' | 'blue'
+  color?: 'green' | 'red' | 'yellow' | 'orange' | 'white' | 'blue'
   /** Alimentação: fases/polaridades disponíveis, uma por borne (L1, L2, L3, N, PE, L+, M). */
   lines?: string[]
   /** Página do esquema (folha). Por omissão a primeira. */
@@ -85,6 +87,8 @@ export interface CmdWire {
   mid?: number
   /** Página do cabo (folha). Por omissão a dos bornes. */
   page?: string
+  /** Cor da linha (cor de condutor IEC 60204-1: 'black', 'red', 'blue', 'green-yellow'…); vazio = automática. */
+  color?: WireColor
 }
 
 export interface CmdText { id: string; x: number; y: number; text: string; page?: string }

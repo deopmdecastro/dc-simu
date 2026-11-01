@@ -24,7 +24,7 @@ import {
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
 import PageLinkDialog from './PageLinkDialog'
 import TagTextDialog from './TagTextDialog'
-import { emptyCmdRuntime, isClosed, logoOutputOn } from './engine'
+import { emptyCmdRuntime, isClosed, logoOutputOn, voltmeterReading } from './engine'
 import { CmdSymbol, cmdTagPosition, cmdTagBounds, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
 import CommandsExamplesDialog from './CommandsExamplesDialog'
@@ -33,6 +33,8 @@ import type { CircuitImportResult } from './fluidSimCircuit'
 import { MOMENTARY, TOGGLES, useCommandsUi } from './commandsUi'
 import { addPart, commitDiagram, defaultTag, removeItem, removeSelected, rotateSelected, removeSelectedGroup } from './editing'
 import { CommandsNotesLayer, CommandsTextsLayer, CommandsTextToolbar, DEFAULT_TEXT_STYLE_COMMANDS } from './CommandsAnnotations'
+import { WIRE_COLOR_HEX } from '../admin/editor3d/wireStyle'
+import { WIRE_COLORS } from '../schematic/symbols'
 import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { NOTE_COLORS } from '../ui/textStyle'
 import '../styles/commands.css'
@@ -184,6 +186,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       progress: part.kind === 'timerCoil' || part.kind === 'timedNO' || part.kind === 'timedNC' ? progress : undefined,
       tripped: !!rt.tripped[part.tag],
       outputs: part.kind === 'plcLogo' ? LOGO_OUTPUTS.map((address) => logoOutputOn(rt, address)) : undefined,
+      volts: part.kind === 'voltmeter' ? voltmeterReading(rt.live[`${part.id}:0`], rt.live[`${part.id}:1`]) : undefined,
     }
   }
 
@@ -346,10 +349,12 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
   }
 
   const connect = (a: CmdEnd, target: Pt): boolean => {
+    // Cor escolhida na barra para os novos cabos (null = automática).
+    const defaultWireColor = useCommandsUi.getState().wireColor
     const end = terminalNear(target, a)
     if (end) {
       if (diagram.wires.some((w) => (w.a.part === a.part && w.a.term === a.term && w.b.part === end.part && w.b.term === end.term) || (w.b.part === a.part && w.b.term === a.term && w.a.part === end.part && w.a.term === end.term))) { notify('Esses bornes já estão ligados'); return true }
-      commit({ ...diagram, wires: [...diagram.wires, { id: nanoid(8), a, b: end, page: pageId }] })
+      commit({ ...diagram, wires: [...diagram.wires, { id: nanoid(8), a, b: end, page: pageId, ...(defaultWireColor ? { color: defaultWireColor } : {}) }] })
       return true
     }
     // Largar sobre um cabo: cria um nó nesse ponto e divide o cabo em dois.
@@ -360,7 +365,12 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       commit({
         ...diagram,
         parts: [...diagram.parts, { ...node, page: pageId }],
-        wires: [...rest, { id: nanoid(8), a: hit.wire.a, b: { part: node.id, term: 0 } }, { id: nanoid(8), a: { part: node.id, term: 0 }, b: hit.wire.b }, { id: nanoid(8), a, b: { part: node.id, term: 0 } }],
+        wires: [
+          ...rest,
+          { id: nanoid(8), a: hit.wire.a, b: { part: node.id, term: 0 }, page: pageId, ...(hit.wire.color ? { color: hit.wire.color } : {}) },
+          { id: nanoid(8), a: { part: node.id, term: 0 }, b: hit.wire.b, page: pageId, ...(hit.wire.color ? { color: hit.wire.color } : {}) },
+          { id: nanoid(8), a, b: { part: node.id, term: 0 }, page: pageId, ...(defaultWireColor ?? hit.wire.color ? { color: defaultWireColor ?? hit.wire.color } : {}) },
+        ],
       })
       notify('Nó criado na ligação')
       return true
@@ -687,7 +697,11 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
 
   // ---------------------------------------------------------------- desenho
   const grid = CMD_GRID * view.scale
-  const wireColor = (w: CmdWire) => (running && rt.liveWires[w.id] ? PHASE_COLORS[rt.liveWires[w.id]] ?? '#dc2626' : '#475569')
+  const wireColor = (w: CmdWire) => {
+    if (running && rt.liveWires[w.id]) return PHASE_COLORS[rt.liveWires[w.id]] ?? '#dc2626'
+    if (w.color) return (WIRE_COLOR_HEX as Record<string, string>)[w.color] ?? (WIRE_COLORS as Record<string, string>)[w.color] ?? w.color
+    return '#475569'
+  }
   const showPorts = editable && (tool === 'wire' || !!draft)
   // Mesmo fundo de grelha dos outros editores (pontos ou linhas, como escolhido no projeto).
   const background = editorGridBackground({ enabled: gridOn, style: gridStyle === 'lines' ? 'lines' : 'dots', spacing: editorGridPitch(view.scale, CMD_GRID), x: view.x - 1, y: view.y - 1 })

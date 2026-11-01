@@ -6,6 +6,7 @@ import { emptyCmdRuntime, stepCommands, type CmdRuntime } from './engine'
 import { LOGO_OUTPUTS, type CmdKind } from './model'
 import { DEFAULT_PAGE_ID } from './pages'
 import type { RightDockTab } from '../components/RightDockTabs'
+import type { WireColor } from '../types'
 
 export type CmdTool = 'select' | 'wire' | 'erase' | 'pan'
 export type CmdSelection = { type: 'part' | 'wire' | 'text'; id: string } | null
@@ -15,6 +16,9 @@ export type CmdUiEvent = 'fit' | 'zoomIn' | 'zoomOut' | 'zoomReset' | 'examples'
 interface CommandsUi {
   tool: CmdTool
   setTool: (tool: CmdTool) => void
+  /** Cor ativa para novos cabos IEC (null = automático/omissão). */
+  wireColor: WireColor | null
+  setWireColor: (color: WireColor | null) => void
   gridOn: boolean
   toggleGrid: () => void
   /** Escala da vista (o canvas atualiza; a barra mostra e pede zoom por evento). */
@@ -138,6 +142,8 @@ function unlinkPlc() {
 export const useCommandsUi = create<CommandsUi>((set, get) => ({
   tool: 'select',
   setTool: (tool) => set({ tool, placing: null }),
+  wireColor: null,
+  setWireColor: (wireColor) => set({ wireColor }),
   gridOn: true,
   toggleGrid: () => set({ gridOn: !get().gridOn }),
   zoom: 1,

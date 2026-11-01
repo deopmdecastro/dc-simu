@@ -22,6 +22,8 @@ export interface CmdSymbolState {
   actuator?: number
   /** Carga sob tensão (buzzer, solenoide…). */
   load?: boolean
+  /** Voltímetro em RUN: tensão lida entre os bornes (V). */
+  volts?: number
 }
 
 /** Contactos normalmente fechados (em repouso conduzem). */
@@ -465,7 +467,7 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       </>
     }
     case 'lamp': {
-      const glow = st.lit ? (part.color === 'red' ? '#ef4444' : part.color === 'yellow' ? '#eab308' : part.color === 'blue' ? '#3b82f6' : part.color === 'white' ? '#f8fafc' : '#22c55e') : '#fff'
+      const glow = st.lit ? (part.color === 'red' ? '#ef4444' : part.color === 'yellow' ? '#eab308' : part.color === 'orange' ? '#f97316' : part.color === 'blue' ? '#3b82f6' : part.color === 'white' ? '#f8fafc' : '#22c55e') : '#fff'
       return <>
         <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
         {st.lit && <circle cx={0} cy={30} r={17} fill={glow} opacity={0.25} stroke="none" />}
@@ -561,10 +563,16 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
     case 'ammeter': case 'voltmeter': {
       // Medida (IEC 60617): círculo com a grandeza, atravessado pelo condutor.
       const letter = part.kind === 'ammeter' ? 'A' : 'V'
+      // Em RUN, o voltímetro mostra a leitura ao lado esquerdo (mostrador digital).
+      const reading = part.kind === 'voltmeter' && st.volts !== undefined
       return <>
         <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
-        <circle cx={0} cy={30} r={12} fill="#fff" />
+        <circle cx={0} cy={30} r={12} fill={reading && st.volts! > 0 ? '#ecfdf5' : '#fff'} stroke={reading && st.volts! > 0 ? active : INK} />
         <text x={0} y={35} textAnchor="middle" fontSize={14} fontWeight={700} fill={INK} stroke="none">{letter}</text>
+        {reading && <g data-voltmeter-reading={st.volts}>
+          <rect x={-60} y={22} width={44} height={16} rx={2} fill="#0f172a" stroke="none" />
+          <text x={-20} y={34} textAnchor="end" fontSize={11} fontWeight={700} fontFamily="ui-monospace, monospace" fill={st.volts! > 0 ? '#4ade80' : '#64748b'} stroke="none">{`${st.volts} V`}</text>
+        </g>}
       </>
     }
     case 'currentTransformer': return <>

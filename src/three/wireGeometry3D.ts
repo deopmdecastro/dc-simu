@@ -1245,8 +1245,11 @@ export function buildWirePath3D(
   const a = endHead(from, fromType, preliminary[Math.min(1, preliminary.length - 1)], outerMm)
   const b = endHead(to, toType, preliminary[Math.max(0, preliminary.length - 2)], outerMm)
   const body = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, effectivePlan)
-  const safe = finishWireBody(keepInFrontOfPlate(body, outerMm), wire, outerMm, obstacles,
+  const fronted = keepInFrontOfPlate(body, outerMm)
+  const finished = finishWireBody(fronted, wire, outerMm, obstacles,
     [{ componentId: from.componentId, axis: a.geometry.axis }, { componentId: to.componentId, axis: b.geometry.axis }])
+  // Sem desvio livre de sólidos (lista vazia): fica o traçado base, para o cabo nunca desaparecer.
+  const safe = finished.length > 1 ? finished : fronted
   // Ponta livre: forçar um troço reto curto no eixo da ponteira para o isolamento
   // encaixar no colar sem «flutuar» nem sair torto após o arredondamento.
   const aligned = alignFreeEndApproach(safe, from, a, to, b, outerMm)
@@ -1598,7 +1601,8 @@ export function buildAllWirePaths3D(
     for (const item of builtPaths) {
       const current = item.pts.map(arr)
       const safe = clearPathSolids(current, item.entry.outerMm, obstacles, item.exits, item.minZ, wireHash(item.entry.wire), item.motorRoute)
-      if (safe !== current) {
+      // Sem desvio livre (lista vazia): mantém o traçado atual — um cabo nunca desaparece.
+      if (safe !== current && safe.length > 1) {
         item.pts = safe.map(v)
         item.pinned = item.pinPoints(item.pts)
         anyCollision = true
@@ -1608,7 +1612,9 @@ export function buildAllWirePaths3D(
   }
 
   for (const item of builtPaths) {
-    const cleanPoints = clearPathSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute)
+    const front = keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm)
+    const cleared = clearPathSolids(front, item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute)
+    const cleanPoints = cleared.length > 1 ? cleared : front
     const finalPoints = removeBacktracksOutsideMotor(cleanPoints, item.motorRoute)
     // Cantos vivos que sobraram → arcos; se o arco tocar num aparelho, fica o traçado validado.
     const smooth = smoothOutsideMotor(finalPoints, item.entry.outerMm, item.motorRoute)

@@ -66,6 +66,20 @@ const PHASES = ['L1', 'L2', 'L3']
 /** Saída a relé `address` do LOGO! fechada: programa (rt.plc), bobina com a mesma referência ou clique. */
 export const logoOutputOn = (rt: Pick<CmdRuntime, 'plc' | 'toggled' | 'coils'>, address: string) => !!rt.plc?.[address] || !!rt.toggled[address] || !!rt.coils[address]
 
+/**
+ * Leitura do voltímetro (V) entre os potenciais dos seus dois bornes: 24 V entre L+ e M, 230 V entre
+ * fase e neutro, 400 V entre fases; 0 V no mesmo potencial ou com um borne sem tensão.
+ */
+export function voltmeterReading(a: string | undefined, b: string | undefined): number {
+  if (!a || !b || a === b) return 0
+  const pair = new Set([a, b])
+  if (pair.has('L+') && pair.has('M')) return 24
+  const phase = (p: string) => PHASES.includes(p)
+  if (phase(a) && phase(b)) return 400
+  if ((phase(a) && (b === 'N' || b === 'PEN' || b === 'PE')) || (phase(b) && (a === 'N' || a === 'PEN' || a === 'PE'))) return 230
+  return 0
+}
+
 /** O contacto/elemento está a conduzir? (estado real do aparelho com a mesma referência). */
 export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
   const on = !!rt.coils[part.tag]

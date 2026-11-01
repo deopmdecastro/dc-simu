@@ -8,6 +8,7 @@ import { refreshNativeWireCurves } from '../project/nativeWireCurves'
 import { addNativeIecSchematic } from '../project/nativeIec'
 import { addNativeThermalRelay } from '../project/nativeThermalRelay'
 import { fixNativeCoilWiring } from '../project/nativeCoilFix'
+import { addNativeSignals } from '../project/nativeSignals'
 import { upgradeNativeNcSimInputs } from '../project/nativeSimInputs'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { syncDemoMode } from './demoMode'
@@ -2841,7 +2842,7 @@ export const useSimStore = create<Store>((set, get) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
-      const parsed = addNativeIecSchematic(addNativeThermalRelay(fixNativeCoilWiring(refreshNativeWireCurves(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original)))))))
+      const parsed = addNativeIecSchematic(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(refreshNativeWireCurves(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original))))))))
       setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]

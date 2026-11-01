@@ -15,6 +15,7 @@ import { useSimStore } from '../store/useSimStore'
 import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
 import { GAUGES, WIRE_COLORS } from '../schematic/symbols'
+import { WIRE_COLOR_LABEL } from '../admin/editor3d/wireStyle'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import type { LadderSection } from '../ladder/LadderSections'
 import { useCleanMode } from '../ui/cleanMode'
@@ -175,6 +176,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const cmdRunning = useCommandsUi((s) => s.rt.running)
   const cmdPaused = useCommandsUi((s) => s.paused)
   const cmdTool = useCommandsUi((s) => s.tool)
+  const cmdWireColor = useCommandsUi((s) => s.wireColor)
   const cmdGrid = useCommandsUi((s) => s.gridOn)
   const cmdZoom = useCommandsUi((s) => s.zoom)
   const cmdDockOpen = useCommandsUi((s) => s.dockOpen)
@@ -673,6 +675,34 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               })}
             </div>
             <span className="tb-sep" />
+            {cmdTool === 'wire' && (
+              <>
+                <span className="tb-label">Novo cabo</span>
+                <div className="flex items-center gap-1 rounded-[6px] border border-line bg-white px-1.5 h-[28px] shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => useCommandsUi.getState().setWireColor(null)}
+                    className={`h-[18px] px-1.5 rounded-full text-[9.5px] font-bold border ${!cmdWireColor ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-line text-ink-400'}`}
+                    title="Cor automática pela função do cabo (IEC 60204-1)"
+                  >
+                    AUTO
+                  </button>
+                  {QUICK_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className={`tb-swatch ${cmdWireColor === c ? 'is-active' : ''}`}
+                      style={{ background: c === 'green-yellow' ? 'repeating-linear-gradient(45deg,#84cc16 0 4px,#eab308 4px 8px)' : WIRE_COLORS[c] }}
+                      title={`Cor dos novos cabos: ${WIRE_COLOR_LABEL[c]}`}
+                      aria-label={`Cor dos novos cabos: ${WIRE_COLOR_LABEL[c]}`}
+                      aria-pressed={cmdWireColor === c}
+                      onClick={() => useCommandsUi.getState().setWireColor(c)}
+                    />
+                  ))}
+                </div>
+                <span className="tb-sep" />
+              </>
+            )}
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdSelection?.type !== 'part' || cmdRunning} onClick={() => useCommandsUi.getState().emit('rotate')} title="Rodar o símbolo selecionado 90° [R]"><IconRotate size={13} /><span className="hidden lg:inline">Rodar</span></button>
             <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdSelection || cmdRunning} onClick={() => useCommandsUi.getState().emit('delete')} title="Apagar o símbolo ou cabo selecionado [Del]"><IconDelete size={13} /><span className="hidden lg:inline">Apagar</span></button>
             <span className="tb-sep" />
