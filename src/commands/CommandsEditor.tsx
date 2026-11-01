@@ -18,13 +18,13 @@ import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { IconCommands, IconExample, IconImport, IconPlus, IconTemplates } from '../ui/icons'
 import { InlineName } from '../ui/InlineName'
 import {
-  CMD_GRID, CMD_PARTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
+  CMD_GRID, CMD_PARTS, LOGO_OUTPUTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
   type CmdEnd, type CmdKind, type CmdPart, type CmdText, type CmdWire, type CommandsDiagram, type Pt,
 } from './model'
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
 import PageLinkDialog from './PageLinkDialog'
 import TagTextDialog from './TagTextDialog'
-import { emptyCmdRuntime, isClosed } from './engine'
+import { emptyCmdRuntime, isClosed, logoOutputOn } from './engine'
 import { CmdSymbol, cmdTagPosition, cmdTagBounds, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
 import CommandsExamplesDialog from './CommandsExamplesDialog'
@@ -183,6 +183,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       actuator: rt.actuators?.[part.id],
       progress: part.kind === 'timerCoil' || part.kind === 'timedNO' || part.kind === 'timedNC' ? progress : undefined,
       tripped: !!rt.tripped[part.tag],
+      outputs: part.kind === 'plcLogo' ? LOGO_OUTPUTS.map((address) => logoOutputOn(rt, address)) : undefined,
     }
   }
 

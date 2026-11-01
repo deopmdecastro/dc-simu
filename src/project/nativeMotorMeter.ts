@@ -8,6 +8,8 @@ export const NATIVE_MOTOR_METER_FEATURE = 'motor-voltage-meter-v1'
 export const NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE = 'motor-meter-double-ferrule-v1'
 /** Curvas dos cabos 3D refeitas (arcos sem cantos vivos): repõe o traçado de origem dos cabos nativos. */
 export const NATIVE_WIRE_CURVES_FEATURE = 'wire-curves-v2'
+/** Relé térmico F1 acrescentado ao nativo (ver `nativeThermalRelay.ts`). */
+export const NATIVE_THERMAL_FEATURE = 'thermal-relay-v1'
 
 /** Só os cabos de alimentação que partilham o borne com as sondas recebem colar duplo. */
 export function withMotorMeterFerrules(wires: Wire[], leads: Wire[]): Wire[] {

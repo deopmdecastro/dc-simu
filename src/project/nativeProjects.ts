@@ -23,14 +23,16 @@ import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
-import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE } from './nativeMotorMeter'
-import { buildNativeIecSchematic, NATIVE_IEC_FEATURE } from './nativeIec'
+import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE } from './nativeMotorMeter'
+import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE } from './nativeIec'
 import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { NATIVE_NC_SIM_FEATURE, withNativeNcSimInputs } from './nativeSimInputs'
 import { grafcetExampleContent, grafcetExamples } from './grafcetExamples'
 
 /** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
 const NATIVE_PLC_ID = 'native-plc'
+/** Relé térmico F1 (Siemens 3RU1116) entre KM1 e o motor. */
+export const NATIVE_F1_ID = 'native-f1'
 const NATIVE_FC_GRAFCET_ID = 'native-fc-grafcet'
 const NATIVE_FC_OUTPUTS_ID = 'native-fc-outputs'
 const NATIVE_OB100_ID = 'native-ob100'
@@ -282,6 +284,9 @@ export function buildNativePartidaDireta(): Built {
   const qm = place('motorBreakerPkzmC10', 'native-qm1', 'QM1', 'Disjuntor-motor PKZM', -1.35, RAIL_Y)
   qm.state.closed = true
   const km = place('contactorWegCWC09', 'native-km1', 'KM1', 'Contactor KM1', -0.45, RAIL_Y)
+  // Relé térmico Siemens 3RU1116 (1,1–1,6 A, adequado ao DRN80 0,55 kW ≈ 1,4 A) a seguir ao KM1:
+  // potência KM1 → F1 → M1 e o 95-96 em série com a bobina do KM1 (o disparo corta o contactor).
+  const f1 = place('thermalRelaySiemens3ru1116', NATIVE_F1_ID, 'F1', 'Relé térmico 3RU1116', 0.07, RAIL_Y)
   // —— Grupo comando (à direita, separado da força) ——
   const control = place('breaker2p', 'native-q0', 'Q0', 'Proteção do comando', 0.55, RAIL_Y)
   const psu = place('powerSupplyProauto24A', 'native-psu', 'PS1', 'Fonte 24 V', 1.25, RAIL_Y)
@@ -337,7 +342,7 @@ export function buildNativePartidaDireta(): Built {
     add(source, phase, main, input, color, true)
     add(main, output, qm, input, color, true)
     add(qm, output, km, poleIn, color, true)
-    add(km, poleOut, motor, motorIn, color, true)
+    add(km, poleOut, f1, poleIn, color, true)
   }
   // Alimentação do comando a partir de QG (1,5 mm²)
   add(main, '2', control, '1', 'black')
@@ -364,7 +369,7 @@ export function buildNativePartidaDireta(): Built {
   // relé Q1 do LOGO!, alimentado pela fase do comando (Q0.2, 230 V AC) e fechado pelo neutro.
   // Uma bobina AC pendurada no 0 V DC da PS1 era um erro elétrico — e o diagnóstico dizia-o.
   add(control, '2', plc, 'Q0.0', 'black')
-  add(plc, 'Q0.0·2', km, 'A1', 'orange')
+  add(plc, 'Q0.0·2', f1, '95', 'orange')
   add(plc, 'Q0.1·2', green, 'X1', 'orange')
   add(plc, 'Q0.2·2', red, 'X1', 'orange')
   // Retorno 0 V dos sinalizadores: H2 → H1 → PS1
@@ -372,10 +377,13 @@ export function buildNativePartidaDireta(): Built {
   add(green, 'X2', psu, '-V2', 'blue')
   // Retorno da bobina: neutro do mesmo disjuntor que alimenta a fase do comando (Q0.4)
   add(km, 'A2', control, '4', 'blue')
+  // Relé térmico: saídas para o motor e retorno do 95-96 para a bobina (acrescentados no fim).
+  for (const [output, motorIn, color] of [['2T1', 'U1', 'black'], ['4T2', 'V1', 'brown'], ['6T3', 'W1', 'grey']] as const) add(f1, output, motor, motorIn, color, true)
+  add(f1, '96', km, 'A1', 'orange')
   const { meter, leads } = buildNativeMotorMeter(motor)
   wires.push(...leads)
   // Ordem visual: calha → força → comando → operadores → motor → multímetro
-  const components = [rail, source, main, qm, km, control, psu, plc, emerg, push, green, red, motor, meter]
+  const components = [rail, source, main, qm, km, f1, control, psu, plc, emerg, push, green, red, motor, meter]
   const baseTags: Built['tags'] = [
     { id: 't1', address: 'I0.0', name: 'EMERG', dataType: 'Bool', comment: 'B0 cogumelo NF — 1 em repouso, 0 premido' },
     { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'B1 START (NA)' },
@@ -409,7 +417,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_THERMAL_FEATURE],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

@@ -9,7 +9,7 @@
 // fase nos motores e oscilações (circuitos que nunca estabilizam).
 // ============================================================================
 
-import { CMD_PARTS, MOTOR_KINDS, partTerminals, variantOf, type CmdPart, type CommandsDiagram } from './model'
+import { CMD_PARTS, LOGO_INPUTS, LOGO_OUTPUTS, MOTOR_KINDS, partTerminals, variantOf, type CmdPart, type CommandsDiagram } from './model'
 
 export interface CmdRuntime {
   running: boolean
@@ -62,6 +62,9 @@ const key = (part: string, term: number) => `${part}:${term}`
 /** Elementos com bobina: ficam sob tensão pelos bornes A1-A2 e alimentam contactos com a mesma referência. */
 const COIL_KINDS = new Set<string>(['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay'])
 const PHASES = ['L1', 'L2', 'L3']
+
+/** Saída a relé `address` do LOGO! fechada: programa (rt.plc), bobina com a mesma referência ou clique. */
+export const logoOutputOn = (rt: Pick<CmdRuntime, 'plc' | 'toggled' | 'coils'>, address: string) => !!rt.plc?.[address] || !!rt.toggled[address] || !!rt.coils[address]
 
 /** O contacto/elemento está a conduzir? (estado real do aparelho com a mesma referência). */
 export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
@@ -134,6 +137,11 @@ function solve(diagram: CommandsDiagram, rt: CmdRuntime): Solved {
     if (part.kind === 'changeover') {
       if (isClosed(part, rt)) nets.union(key(part.id, 0), key(part.id, 1))
       else nets.union(key(part.id, 0), key(part.id, 2))
+      continue
+    }
+    if (part.kind === 'plcLogo') {
+      // Cada saída a relé une os seus bornes 1-2 quando está ligada.
+      LOGO_OUTPUTS.forEach((address, i) => { if (logoOutputOn(rt, address)) nets.union(key(part.id, 10 + i * 2), key(part.id, 11 + i * 2)) })
       continue
     }
     if (part.kind === 'valve32') {
@@ -308,6 +316,11 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   // Entradas do PLC: sinal presente quando há tensão entre os dois bornes da entrada.
   const plcInputs: Record<string, boolean> = {}
   for (const p of diagram.parts) if (p.kind === 'plcIn' && p.tag) plcInputs[p.tag] = plcInputs[p.tag] || powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
+  // LOGO! em bloco: cada entrada tem sinal com tensão entre o seu borne e o M; o visor acende com L+/M.
+  for (const p of diagram.parts) if (p.kind === 'plcLogo') {
+    LOGO_INPUTS.forEach((address, i) => { plcInputs[address] = plcInputs[address] || powered(potentialOf(solved, p.id, 2 + i), potentialOf(solved, p.id, 1)) })
+    loads[p.id] = powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
+  }
   return { ...rt, coils, live, liveWires, lamps, loads, actuators, motors, plcInputs }
 }
 

@@ -14,6 +14,8 @@ export interface CmdSymbolState {
   lit?: boolean
   motor?: { mode: string; dir: 1 | -1; phaseLoss?: boolean }
   progress?: number
+  /** LOGO!: saídas a relé Q0.0…Q0.3 fechadas. */
+  outputs?: boolean[]
   tripped?: boolean
   idle?: boolean
   /** 0..1 posição do êmbolo (cilindros). */
@@ -319,6 +321,38 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         <rect x={-15} y={16} width={30} height={28} fill="#fff" />
         <path d="M -15 23 L 15 23" />
         <text x={0} y={37.5} textAnchor="middle" fontSize={q.length > 2 ? 9 : 11} fontWeight={700} fill={INK} stroke="none">{q}</text>
+      </>
+    }
+    case 'plcLogo': {
+      // LOGO! 12/24RC em bloco (desenho DC-Simu): alimentação e entradas em cima, visor e teclas
+      // na frente e as quatro saídas a relé (contactos NA, IEC 60617) em baixo.
+      const on = !!(st.load && !st.idle)
+      const outputs = st.outputs ?? [false, false, false, false]
+      return <>
+        {[0, 20, 60, 80, 100, 120, 140, 160, 180, 200].map((x) => <line key={'t' + x} x1={x} y1={0} x2={x} y2={14} />)}
+        <rect x={-14} y={14} width={268} height={132} rx={6} fill="#f1f5f9" />
+        <path d="M -14 32 L 254 32" strokeWidth={1} />
+        <text x={-6} y={46} fontSize={8} fontWeight={800} letterSpacing={0.6} fill="#0f766e" stroke="none">SIEMENS</text>
+        <rect x={20} y={52} width={104} height={38} rx={3} fill={on ? '#d9f99d' : '#e2e8f0'} strokeWidth={1.2} />
+        <text x={72} y={75} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="ui-monospace, monospace" fill={on ? '#365314' : '#64748b'} stroke="none">{on ? 'RUN' : 'LOGO!'}</text>
+        {/* Teclas de cursor e ESC / OK. */}
+        <path d="M 162 56 l 5 6 h -10 z M 162 86 l 5 -6 h -10 z M 147 71 l 6 -5 v 10 z M 177 71 l -6 -5 v 10 z" fill="#94a3b8" strokeWidth={0.8} />
+        <rect x={190} y={56} width={22} height={11} rx={2} fill="#fff" strokeWidth={1} />
+        <text x={201} y={64.5} textAnchor="middle" fontSize={7} fill={INK} stroke="none">ESC</text>
+        <rect x={190} y={75} width={22} height={11} rx={2} fill="#fff" strokeWidth={1} />
+        <text x={201} y={83.5} textAnchor="middle" fontSize={7} fill={INK} stroke="none">OK</text>
+        <text x={20} y={106} fontSize={10} fontWeight={800} fill={INK} stroke="none">LOGO! 12/24RC</text>
+        <path d="M -14 112 L 254 112" strokeWidth={1} />
+        {outputs.map((closed, i) => {
+          const a = 40 + i * 60, b = a + 20
+          const live = closed && !st.idle
+          return <g key={'q' + i}>
+            <line x1={a} y1={160} x2={a} y2={130} /><line x1={a} y1={130} x2={a + 4} y2={130} />
+            <line x1={b - 4} y1={130} x2={b} y2={130} /><line x1={b} y1={130} x2={b} y2={160} />
+            <line x1={a + 4} y1={130} x2={b - 4} y2={closed ? 130 : 123} stroke={live ? active : INK} strokeWidth={live ? 2 : 1.6} />
+            <text x={a + 10} y={121} textAnchor="middle" fontSize={7.5} fontWeight={700} fill={INK} stroke="none">{`Q0.${i}`}</text>
+          </g>
+        })}
       </>
     }
     case 'converter': {

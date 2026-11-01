@@ -89,6 +89,10 @@ export function commandsDiagnostics(diagram: CommandsDiagram, rt?: Pick<CmdRunti
       if (loose.length) add('error', `${name(part)}: ${loose.map((index) => termLabel(part, index)).join(', ')} sem ligação — não recebe corrente.`, part.id)
     } else if (loose.length === terms.length) {
       add('warning', `${name(part)} (${def.label}) não está ligado a nada.`, part.id)
+    } else if (part.kind === 'plcLogo') {
+      // CLP: entradas e saídas livres são normais; sem L+ ou M não arranca.
+      const power = loose.filter((index) => index < 2)
+      if (power.length) add('warning', `${name(part)}: alimentação ${power.map((index) => termLabel(part, index)).join(', ')} sem ligação.`, part.id)
     } else if (loose.length) {
       add('warning', `${name(part)}: borne ${loose.map((index) => termLabel(part, index)).join(', ')} sem ligação.`, part.id)
     }

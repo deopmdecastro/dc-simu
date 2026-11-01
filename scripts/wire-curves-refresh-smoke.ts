@@ -12,11 +12,16 @@ assert.deepEqual(clean, [[0,0,0],[0.5,0,0],[2,0,0]])
 assert.deepEqual(removeWireBacktracks([[0,0,0],[1,0,0],[0.5,0.01,0]]), [[0,0,0],[1,0,0],[0.5,0.01,0]], 'não atalhar desvios reais')
 
 const seed = nativePartidaDiretaContent() as any
-for (const id of ['native-wire-4','native-wire-8','native-wire-12','native-wire-18']) assert.equal(seed.wires.find((w: Wire) => w.id === id).toEndType, 'ring')
+// Cabos de força e PE do motor (vindos do relé térmico F1 e do XG): olhal sob a porca.
+const motorFeeders = seed.wires.filter((w: Wire) => ['native-m1-U1', 'native-m1-V1', 'native-m1-W1', 'native-m1-PE'].includes(w.toTerminalId) && !w.id.startsWith('native-meter-'))
+assert.equal(motorFeeders.length, 4)
+for (const w of motorFeeders) assert.equal(w.toEndType, 'ring')
+// Migração antiga dos olhais: projeto guardado antes do F1 (KM1 → motor nos cabos 4 e 8).
 const original = structuredClone(seed)
 original.nativeFeatures = original.nativeFeatures.filter((x: string) => x !== NATIVE_MOTOR_RING_FEATURE)
 const w4 = original.wires.find((w: Wire) => w.id === 'native-wire-4')
 const w8 = original.wires.find((w: Wire) => w.id === 'native-wire-8')
+w4.toTerminalId = 'native-m1-U1'; w8.toTerminalId = 'native-m1-V1'
 w4.toEndType = 'ferruleDouble'; w8.toEndType = 'ferruleDouble'
 const migrated = upgradeNativeMotorRings(original)
 assert.equal(migrated.wires.find((w: Wire) => w.id === w4.id).toEndType, 'ring')
@@ -30,7 +35,7 @@ assert.equal(kept.wires.find((w: Wire) => w.id === w4.id).toEndType, 'ferruleDou
 assert.ok(!kept.wires.find((w: Wire) => w.id === w8.id), 'não recria cabos eliminados')
 assert.equal(upgradeNativeMotorRings({ ...original, nativeId: 'outro' }).wires, original.wires)
 const lead = seed.wires.find((w: Wire) => w.id === 'native-meter-red')
-const ring = seed.wires.find((w: Wire) => w.id === 'native-wire-4')
+const ring = seed.wires.find((w: Wire) => w.toTerminalId === lead.toTerminalId && !w.id.startsWith('native-meter-'))
 assert.equal(withMotorMeterFerrules([ring, lead], [lead])[0].toEndType, 'ring')
 // Refresh das curvas do projeto nativo: dobras 3D antigas saem só dos cabos de origem intactos.
 {

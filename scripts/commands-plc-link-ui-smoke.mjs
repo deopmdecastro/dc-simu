@@ -59,7 +59,7 @@ try {
   })
   await page.keyboard.press('F6')
   await page.locator('.dc-cmd-canvas').waitFor({ timeout: 60000 })
-  check(await run((s) => s.getState().commands.parts.some((p) => p.kind === 'plcOut' && p.tag === 'Q0.0')), 'o projeto nativo abre o esquema IEC com as saídas do LOGO!')
+  check(await run((s) => s.getState().commands.parts.some((p) => p.kind === 'plcLogo')), 'o projeto nativo abre o esquema IEC com o LOGO! em bloco')
 
   const simBefore = await run((s) => JSON.stringify(s.getState().components.find((c) => c.id === 'native-plc').state.simInputs ?? {}))
   await run((s, ui) => ui.getState().start())
