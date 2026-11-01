@@ -24,7 +24,7 @@ import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp from '../ui/ShortcutHelp'
-import { EDITOR_THEME } from '../ui/editorTheme'
+import { EDITOR_GRID_DOT_RADIUS, EDITOR_THEME, editorGridPitch } from '../ui/editorTheme'
 import Panel3D from '../three/Panel3D'
 import PlanLocked from '../saas/PlanLocked'
 import { useCan } from '../saas/usePlan'
@@ -388,6 +388,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const zoom = useSimStore((s) => s.zoom)
   const panX = useSimStore((s) => s.panX)
   const panY = useSimStore((s) => s.panY)
+  const gridPitch = editorGridPitch(zoom, grid.size)
   const probeResult = useSimStore((s) => s.probeResult)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
   /** fantasma real do componente (clique-para-posicionar ou arraste da biblioteca) */
@@ -1449,17 +1450,18 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <pattern id="dc-grid-dots" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
-            <circle cx={1} cy={1} r={1} fill={EDITOR_THEME.dot} />
+          {/* Grelha em píxeis do ecrã (mesma regra de todos os canvas): ponto de 1 px, passo ≥ 16 px, alinhado ao íman. */}
+          <pattern id="dc-grid-dots" data-grid-step={grid.size} width={gridPitch} height={gridPitch} x={panX - 1} y={panY - 1} patternUnits="userSpaceOnUse">
+            <circle cx={1} cy={1} r={EDITOR_GRID_DOT_RADIUS} fill={EDITOR_THEME.dot} />
           </pattern>
-          <pattern id="dc-grid-lines" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
-            <path d={`M ${grid.size} 0 L 0 0 0 ${grid.size}`} fill="none" stroke={EDITOR_THEME.line} strokeWidth={1} />
+          <pattern id="dc-grid-lines" data-grid-step={grid.size} width={gridPitch} height={gridPitch} x={panX - 1} y={panY - 1} patternUnits="userSpaceOnUse">
+            <path d={`M ${gridPitch} 0.5 L 0.5 0.5 L 0.5 ${gridPitch}`} fill="none" stroke={EDITOR_THEME.line} strokeWidth={1} />
           </pattern>
         </defs>
 
         <rect width="100%" height="100%" fill={EDITOR_THEME.background} />
+        {grid.enabled && <rect width="100%" height="100%" fill={grid.style === 'dots' ? 'url(#dc-grid-dots)' : 'url(#dc-grid-lines)'} pointerEvents="none" />}
         <g transform={`translate(${panX},${panY}) scale(${zoom})`}>
-          {grid.enabled && <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill={grid.style === 'dots' ? 'url(#dc-grid-dots)' : 'url(#dc-grid-lines)'} />}
 
           {/* Pontas de trás: atrás de todos os componentes, independentemente
               da camada do corpo do cabo. */}

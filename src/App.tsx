@@ -1,7 +1,7 @@
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from './diagnostics/viewDiagnostics'
-import { CommandsDiagnosticsPanel, SchematicDiagnosticsPanel } from './diagnostics/DiagnosticsUi'
 import GrafcetStatusCard from './components/GrafcetStatusCard'
-import { isTabletDesktop } from './ui/device'
+import { PHONE_TOUCH_QUERY, isTabletDesktop } from './ui/device'
+import { useNarrowMenu } from './ui/toolbarKit'
 import { IconLayers, IconWarning, IconXCircle } from './ui/icons'
 import CollapsedPanelRail from './components/CollapsedPanelRail'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
@@ -12,9 +12,8 @@ import SplitViewDialog from './components/SplitViewDialog'
 import { useSplitView } from './ui/splitViewStore'
 import Sidebar from './components/Sidebar'
 import SidePanelHeader from './components/SidePanelHeader'
-import RightDockTabs, { type RightDockTab } from './components/RightDockTabs'
-import ProjectObjects from './components/ProjectObjects'
-import SimulationDock from './components/SimulationDock'
+import { type RightDockTab } from './components/RightDockTabs'
+import RightDockPanel, { RIGHT_DOCK_TITLE } from './components/RightDockPanel'
 import type { LadderSection } from './ladder/LadderSections'
 import { ComponentEditorDock } from './components/ComponentViewEditor'
 import RouteLoading from './ui/RouteLoading'
@@ -24,8 +23,6 @@ const LadderEditor = lazy(() => import('./ladder/LadderEditor'))
 const GrafcetEditor = lazy(() => import('./grafcet/GrafcetEditor'))
 const CommandsEditor = lazy(() => import('./commands/CommandsEditor'))
 const CommandsSidebar = lazy(() => import('./commands/CommandsSidebar'))
-const CommandsIoPanel = lazy(() => import('./commands/CommandsPanels').then((m) => ({ default: m.CommandsIoPanel })))
-const CommandsObjects = lazy(() => import('./commands/CommandsPanels').then((m) => ({ default: m.CommandsObjects })))
 const MonitorPanel = lazy(() => import('./components/MonitorPanel'))
 import PlanLocked from './saas/PlanLocked'
 import { useCan } from './saas/usePlan'
@@ -41,7 +38,6 @@ function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClos
 }
 
 /** Nome do painel direito (GRAFCET, sinais, objetos e diagnóstico) — o mesmo no cabeçalho aberto e na régua recolhida. */
-const RIGHT_DOCK_TITLE = 'GRAFCET, sinais, objetos e diagnóstico'
 
 export default function App({ onBack, demo = false, onEnterEditor }: { onBack: () => void; /** Modo demonstração (landing): vistas do editor com controlos de simulação apenas. */ demo?: boolean; /** CTA para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
   const projectKind = useSimStore((s) => s.projectKind)
@@ -87,6 +83,17 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const [rightTab, setRightTab] = useState<RightDockTab>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
   const compact = compactWorkspace()
+  // No telemóvel o Esquema IEC mostra o painel lateral completo no fundo (CommandsSimDock): não há coluna/gaveta
+  // da direita, para o mesmo painel não aparecer duas vezes.
+  const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
+  const phoneCommands = phone && mode === 'commands'
+  /** Abre o painel lateral completo no separador pedido: no fundo (IEC, telemóvel) ou na coluna/gaveta da direita. */
+  const openRightPanel = (tab: RightDockTab) => {
+    if (phoneCommands) { useCommandsUi.setState({ dockTab: tab, dockOpen: true }); return }
+    if (compact) setShowLibrary(false)
+    setRightTab(tab)
+    setShowLadder(true)
+  }
 
   // Reaplica o layout ao atravessar o breakpoint (ex.: redimensionar a janela
   // ou rodar o tablet), sem interferir nos painéis enquanto o modo não muda.
@@ -232,7 +239,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const simErrors = diagnostics.filter((d) => d.level === 'error').length
   /** Onde abrir o detalhe: painel lateral no 3D Realista/Esquema IEC, separador próprio no Ladder/GRAFCET, Monitor no resto. */
   const openDiagnostics = () => {
-    if (mode === 'schematic' || mode === 'commands') { if (compact) setShowLibrary(false); setRightTab('diagnostics'); setShowLadder(true) }
+    if (mode === 'schematic' || mode === 'commands') openRightPanel('diagnostics')
     else if (mode === 'ladder' || mode === 'grafcet') window.dispatchEvent(new CustomEvent('dcsimu:open-diagnostics', { detail: mode }))
     else setMode('monitor')
   }
@@ -240,15 +247,12 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   useEffect(() => {
     const open = (event: Event) => {
       const detail = (event as CustomEvent).detail
-      if (detail === 'schematic' || detail === 'commands') {
-        if (compact) setShowLibrary(false)
-        setRightTab('diagnostics')
-        setShowLadder(true)
-      }
+      if (detail === 'schematic' || detail === 'commands') openRightPanel('diagnostics')
     }
     window.addEventListener('dcsimu:open-diagnostics', open)
     return () => window.removeEventListener('dcsimu:open-diagnostics', open)
-  }, [compact])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact, phoneCommands])
   const hasErrorState = mode === 'commands' ? cmdFault : simErrors > 0 || Object.values(faults ?? {}).some(Boolean)
 
   // estados do PLC — STOP → READY → RUN → PAUSE → ERROR
@@ -269,8 +273,8 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           else { if (compact) setShowLibrary(false); setRightTab('signals'); setShowLadder(true) }
         }}
         onOpenLibrary={() => { if (compact) setShowLadder(false); setShowLibrary(true) }}
-        onOpenGrafcet={() => { if (compact) setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
-        onOpenObjects={() => { if (compact) setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
+        onOpenGrafcet={() => openRightPanel('grafcet')}
+        onOpenObjects={() => openRightPanel('objects')} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
         {/* Cortina só quando os painéis são gavetas (telemóvel). Em tablet/PC os painéis são
             fixos: a cortina escurecia o canvas e ficava por cima da régua recolhida (z-index 30),
@@ -325,13 +329,13 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             {mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
             {mode === 'ladder' && (canLadder || demo) && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
             {mode === 'grafcet' && (canGrafcet || demo) && <GrafcetEditor full={!demo} onOpenLadder={() => setMode('ladder')} />}
-            {mode === 'commands' && <CommandsEditor demo={demo} />}
+            {mode === 'commands' && <CommandsEditor demo={demo} onOpenGrafcet={views.includes('grafcet') ? () => setMode('grafcet') : undefined} />}
             {mode === 'monitor' && <MonitorPanel />}
           </Suspense>
           )}
         </div>
         {mode === 'schematic' && !demo && <ComponentEditorDock />}
-        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
+        {!demo && !phoneCommands && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
             id="dc-right-dock"
             className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
@@ -340,24 +344,14 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             {showLadder ? (
               <>
                 <SheetHeader title={RIGHT_DOCK_TITLE} side="right" onClose={() => setShowLadder(false)} />
-                {/* Separadores iguais aos do inspetor GRAFCET: mosaicos com ícone + contagem e nome por baixo. */}
-                <RightDockTabs mode={mode === 'commands' ? 'commands' : 'schematic'} value={rightTab} onChange={setRightTab} />
-                <Suspense fallback={<RouteLoading label="A carregar o GRAFCET…" />}>
-                  {rightTab === 'diagnostics'
-                    ? (mode === 'commands' ? <CommandsDiagnosticsPanel /> : <SchematicDiagnosticsPanel />)
-                    : rightTab === 'grafcet'
-                    ? <GrafcetEditor onOpenEditor={views.includes('grafcet') ? () => setMode('grafcet') : undefined} />
-                    : mode === 'commands'
-                      ? rightTab === 'signals' ? <CommandsIoPanel /> : <CommandsObjects />
-                      : rightTab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
-                </Suspense>
+                <RightDockPanel mode={mode === 'commands' ? 'commands' : 'schematic'} tab={rightTab} onTab={setRightTab} onOpenGrafcet={views.includes('grafcet') ? () => setMode('grafcet') : undefined} />
               </>
             ) : (
               <CollapsedPanelRail className="pn-shell-rail" label={RIGHT_DOCK_TITLE} side="right" icon={<IconLayers size={15} />} controls="dc-right-dock" onExpand={() => { if (compact) setShowLibrary(false); setShowLadder(true) }} />
             )}
           </div>
         )}
-        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
+        {!demo && !phoneCommands && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
           <div
             className="dc-resize-handle dc-resize-handle-left"
             onPointerDown={(e) => {

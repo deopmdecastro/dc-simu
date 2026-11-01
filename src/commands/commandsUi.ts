@@ -5,6 +5,7 @@ import { useSimStore } from '../store/useSimStore'
 import { emptyCmdRuntime, stepCommands, type CmdRuntime } from './engine'
 import type { CmdKind } from './model'
 import { DEFAULT_PAGE_ID } from './pages'
+import type { RightDockTab } from '../components/RightDockTabs'
 
 export type CmdTool = 'select' | 'wire' | 'erase' | 'pan'
 export type CmdSelection = { type: 'part' | 'wire' | 'text'; id: string } | null
@@ -22,6 +23,9 @@ interface CommandsUi {
   /** Painel inferior de Entradas/Saídas (telemóvel), aberto ou recolhido à barra. */
   dockOpen: boolean
   toggleDock: () => void
+  /** Separador ativo do painel lateral completo no painel inferior (telemóvel). */
+  dockTab: RightDockTab
+  setDockTab: (tab: RightDockTab) => void
   selection: CmdSelection
   /** Todos os símbolos selecionados (marquee / Shift·Ctrl). */
   selectedPartIds: string[]
@@ -139,6 +143,8 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   setZoom: (zoom) => set({ zoom }),
   dockOpen: false,
   toggleDock: () => set((state) => ({ dockOpen: !state.dockOpen })),
+  dockTab: 'signals',
+  setDockTab: (dockTab) => set({ dockTab }),
   selection: null,
   selectedPartIds: [],
   selectedFrom: 'canvas',

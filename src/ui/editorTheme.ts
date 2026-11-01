@@ -7,6 +7,23 @@
 /** Passo comum da grelha dos editores (px no Esquema/GRAFCET; mm no editor 3D). */
 export const EDITOR_GRID_STEP = 20
 
+/** Raio dos pontos da grelha e espessura das linhas: sempre em píxeis do ecrã, qualquer zoom ou dispositivo. */
+export const EDITOR_GRID_DOT_RADIUS = 1
+/** Distância mínima entre pontos no ecrã; abaixo disto o passo duplica (nunca se subdivide, para os pontos coincidirem com o íman). */
+export const EDITOR_GRID_MIN_PITCH = 16
+
+/**
+ * Passo visual da grelha, em píxeis do ecrã, para um dado zoom.
+ * É a ÚNICA regra usada por todos os canvas (Esquema, Esquema IEC, GRAFCET, Ladder, 3D e editor de componentes):
+ * com o mesmo zoom o passo é igual em todos, e a baixa ampliação (ex.: ecrã de telemóvel) nunca comprime os pontos
+ * até desaparecerem — o passo duplica até ≥ 16 px, mantendo cada ponto sobre um ponto do íman.
+ */
+export function editorGridPitch(scale = 1, step: number = EDITOR_GRID_STEP): number {
+  const base = Number.isFinite(step) && step > 0 ? step : EDITOR_GRID_STEP
+  const raw = base * (Number.isFinite(scale) && scale > 0 ? scale : 1)
+  return raw * 2 ** Math.max(0, Math.ceil(Math.log2(EDITOR_GRID_MIN_PITCH / raw)))
+}
+
 export const EDITOR_THEME = {
   /** Fundo da área de trabalho. */
   background: '#f7f9fc',

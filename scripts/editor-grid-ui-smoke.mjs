@@ -44,7 +44,7 @@ try {
   check(await page.locator('svg pattern#dc-grid-lines path').getAttribute('stroke') === '#e4eaf2', 'Esquema 2D usa a cor de linhas comum')
 
   await setGrid({ style: 'lines', enabled: true, size: 20 })
-  check(await page.locator('pattern#dc-grid-lines').evaluate((el) => Number(el.getAttribute('width')) === 20), 'passo padrão de 20 px preservado no Esquema')
+  check(await page.locator('pattern#dc-grid-lines').evaluate((el) => el.getAttribute('data-grid-step') === '20' && Number(el.getAttribute('width')) >= 16), 'passo padrão de 20 px preservado no Esquema (passo visual ≥ 16 px, em píxeis do ecrã)')
 
   await page.getByRole('tablist', { name: 'Vistas' }).getByRole('tab', { name: 'GRAFCET', exact: true }).click()
   const grafcetCanvas = page.locator('.grafcet-canvas')

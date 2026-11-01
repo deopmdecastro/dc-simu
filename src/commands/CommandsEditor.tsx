@@ -13,7 +13,7 @@ import CommandsSimDock from './CommandsSimDock'
 import { pinchPan, usePinchZoom } from '../ui/usePinchZoom'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
-import { editorGridBackground } from '../ui/editorTheme'
+import { editorGridBackground, editorGridPitch } from '../ui/editorTheme'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { IconCommands, IconExample, IconImport, IconPlus, IconTemplates } from '../ui/icons'
 import { InlineName } from '../ui/InlineName'
@@ -59,7 +59,7 @@ const distToSegment = (p: Pt, a: Pt, b: Pt) => {
   return { d: Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t)), q: { x: a.x + dx * t, y: a.y + dy * t } }
 }
 
-export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
+export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?: boolean; onOpenGrafcet?: () => void }) {
   const stored = useSimStore((s) => s.commands) ?? emptyCommands()
   const gridStyle = useSimStore((s) => s.grid.style)
   // Pré-visualização durante um gesto (mover/arrastar troço): só vai para o histórico ao largar.
@@ -660,7 +660,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const wireColor = (w: CmdWire) => (running && rt.liveWires[w.id] ? PHASE_COLORS[rt.liveWires[w.id]] ?? '#dc2626' : '#475569')
   const showPorts = editable && (tool === 'wire' || !!draft)
   // Mesmo fundo de grelha dos outros editores (pontos ou linhas, como escolhido no projeto).
-  const background = editorGridBackground({ enabled: gridOn, style: gridStyle === 'lines' ? 'lines' : 'dots', spacing: grid, x: view.x - 1, y: view.y - 1 })
+  const background = editorGridBackground({ enabled: gridOn, style: gridStyle === 'lines' ? 'lines' : 'dots', spacing: editorGridPitch(view.scale, CMD_GRID), x: view.x - 1, y: view.y - 1 })
 
   const onAddPage = () => {
     if (!editable) return
@@ -929,7 +929,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
             bounds={bounds}
             onChange={({ x, y }) => setView((v) => ({ ...v, x: -x * v.scale, y: -y * v.scale }))} />
         </div>
-        {phone && !demo && <CommandsSimDock />}
+        {phone && !demo && <CommandsSimDock onOpenGrafcet={onOpenGrafcet} />}
       </div>
       <CommandsImportDialog
         open={importOpen}

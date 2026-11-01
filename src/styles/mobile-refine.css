@@ -486,10 +486,13 @@
   :root .dc-toolbar-shell.is-compact .dc-toolbar-main { gap: 4px !important; }
 }
 
-/* Painel de Entradas/Saídas no fundo do Esquema IEC (telemóvel), igual ao do GRAFCET. */
+/* Painel lateral completo (GRAFCET, E/S, Objetos, Diagnóstico) no fundo do Esquema IEC (telemóvel). */
 @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   .dc-cmd .cmd-dock { flex: 0 0 auto; }
-  .dc-cmd .cmd-dock.is-open { flex-basis: clamp(210px, 42dvh, 360px); }
+  .dc-cmd .cmd-dock.is-open { flex-basis: clamp(260px, 54dvh, 440px); }
+  /* O corpo é a coluna do painel lateral: separadores em cima, conteúdo do separador a rolar por baixo. */
+  .dc-cmd .cmd-dock .gdock-body.cmd-dock-body { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .dc-cmd .cmd-dock .gdock-body.cmd-dock-body > :not(.dc-dock-tabs) { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
   /* A régua recolhida do painel direito (36 px) fica por cima do canto: a barra reserva-lhe o espaço. */
   .dc-cmd .cmd-dock .gdock-bar { padding-right: 42px; }
   .dc-cmd .cmd-dock .gdock-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }

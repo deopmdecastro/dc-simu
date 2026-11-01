@@ -84,6 +84,7 @@ import {
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import { useNarrowMenu } from '../ui/toolbarKit'
+import { PHONE_TOUCH_QUERY } from '../ui/device'
 import SidePanelHeader from '../components/SidePanelHeader'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -92,7 +93,7 @@ import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, align
 import { useEditorShortcuts } from '../ui/shortcuts'
 import { pinchPan, usePinchZoom } from '../ui/usePinchZoom'
 import { useGrafcetUi, type GrafcetBusAction } from './grafcetBus'
-import { editorGridBackground, EDITOR_THEME } from '../ui/editorTheme'
+import { editorGridBackground, editorGridPitch, EDITOR_THEME } from '../ui/editorTheme'
 import {
   GRID,
   SPINE_X,
@@ -552,7 +553,22 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const [propsOpen, setPropsOpen] = useState(false)
   /* Até 800 px o inspetor é uma gaveta no fundo (index.css): as setas apontam para cima/baixo, não para os lados. */
   const propsAtBottom = useNarrowMenu('(max-width: 800px)')
+  /* Telemóvel: o painel lateral completo (Etapas, Transições, Sinais, Diagnóstico) é o único painel em baixo; o
+     painel de simulação (E/S + Sequência) deixa de existir para não duplicar o que os Sinais já mostram ao vivo.
+     O botão «Simulação» da barra abre/fecha esse painel. */
+  const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
+  const simVisible = useGrafcetUi((state) => state.simVisible)
   const [propsTall, setPropsTall] = useState(false)
+  useEffect(() => {
+    if (!phone || !full) return
+    setPropsOpen((open) => (open === simVisible ? open : simVisible))
+    if (simVisible) setTab('signals')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone, simVisible])
+  useEffect(() => {
+    if (phone && full && useGrafcetUi.getState().simVisible !== propsOpen) useGrafcetUi.setState({ simVisible: propsOpen })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone, propsOpen])
   const propsFirstRun = useRef(true)
   useEffect(() => {
     if (propsFirstRun.current) { propsFirstRun.current = false; return }
@@ -2659,7 +2675,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     : Math.min(1, Math.max(0.25, (viewport.width - 28) / width))
   const scale = zoom ?? fit
   // Thin the visible grid by powers of two when zoomed out; snap geometry stays at GRID.
-  const gridSpacing = GRID * scale * 2 ** Math.max(0, Math.ceil(Math.log2(16 / (GRID * scale))))
+  const gridSpacing = editorGridPitch(scale, GRID)
   const position = pan ?? { x: (viewport.width - width * scale) / 2, y: full ? 38 : 22 }
   const clamp = (value: number) => Math.max(full ? 0.15 : 0.25, Math.min(GRAFCET_ZOOM_MAX, value))
 
@@ -5883,7 +5899,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               onDone={() => { setSelectedCommentId(null); setEditingCommentId(null) }} />
           </div>
         })()}
-        {full && (
+        {full && !phone && !propsAtBottom && (
           <GrafcetSimDock
             extraBits={liveBitsAll}
             activeLabels={runtime.active.map((value) => {
