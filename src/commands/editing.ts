@@ -7,6 +7,12 @@ import { DEFAULT_PAGE_ID, normalizeCommandsPages, pagesOf } from './pages'
 
 export const getDiagram = (): CommandsDiagram => useSimStore.getState().commands ?? emptyCommands()
 export const commitDiagram = (next: CommandsDiagram) => useSimStore.getState().setCommands(next, 'force')
+/** Substitui o esquema inteiro (importar, exemplo, limpar): os textos livres do IEC do esquema anterior
+ *  saem no mesmo passo de Desfazer (as legendas do esquema novo passam a textos livres ao abrir). */
+export const replaceDiagram = (next: CommandsDiagram) => {
+  commitDiagram(next)
+  useSimStore.setState((state) => ({ canvasTexts: (state.canvasTexts ?? []).filter((t) => t.view !== 'commands') }))
+}
 
 /** Marcação dos contactos auxiliares pela norma: o 1.º algarismo é o nº de ordem, o 2.º a função. */
 export function auxLabels(diagram: CommandsDiagram, kind: CmdKind, tag: string): string[] | undefined {

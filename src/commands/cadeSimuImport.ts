@@ -2,9 +2,10 @@
  * Importação de esquemas CADe SIMU (.cad).
  *
  * O formato .cad é proprietário e pouco documentado. Este leitor:
- *  1) tenta extrair texto legível (tags, legendas) e posições quando o ficheiro
- *     contém blocos ASCII embutidos;
- *  2) aceita um JSON intermédio exportado (ver docs/COMMANDS-IMPORT.md).
+ *  1) lê o formato de texto do CADe SIMU 3.x («CADe_SIMU*…», ver cadeSimuText.ts): símbolos,
+ *     bornes, cabos (ligações refeitas pela geometria) e textos;
+ *  2) aceita um JSON intermédio exportado (ver docs/COMMANDS-IMPORT.md);
+ *  3) em último caso, extrai as referências (tags) legíveis e dispõe-nas numa grelha.
  *
  * Não executa código do CADe SIMU. A conversão completa 1:1 de binários
  * opacos ainda é parcial — os avisos listam o que ficou por mapear.
@@ -12,6 +13,7 @@
 import type { CmdKind, CmdPart, CmdRotation, CommandsDiagram } from './model'
 import { DEFAULT_PAGE_ID } from './pages'
 import type { CircuitImportResult } from './fluidSimCircuit'
+import { CADE_TEXT_SIGNATURE, parseCadeSimuText } from './cadeSimuText'
 
 const fail = (message: string): never => { throw new Error(`CADe SIMU: ${message}`) }
 
@@ -80,9 +82,11 @@ export function parseCadeJson(raw: string): CircuitImportResult {
  * Tenta ler um .cad binário: extrai sequências ASCII (tags) e dispõe-nas numa
  * grelha legível para o utilizador completar as ligações.
  */
-export function parseCadeBinary(bytes: Uint8Array): CircuitImportResult {
-  // JSON embutido?
+export function parseCadeBinary(bytes: Uint8Array, fileName?: string): CircuitImportResult {
   const asText = new TextDecoder('latin1').decode(bytes)
+  // Formato de texto do CADe SIMU 3.x: leitura completa (símbolos, cabos e textos).
+  if (asText.startsWith(CADE_TEXT_SIGNATURE)) return parseCadeSimuText(asText, fileName)
+  // JSON embutido?
   const jsonStart = asText.indexOf('{')
   if (jsonStart >= 0 && asText.includes('"parts"')) {
     try { return parseCadeJson(asText.slice(jsonStart)) } catch { /* continua */ }
@@ -135,5 +139,5 @@ export async function importCadeSimuFile(file: File): Promise<CircuitImportResul
   if (name.endsWith('.json') || name.endsWith('.cad.json')) {
     return parseCadeJson(new TextDecoder('utf-8').decode(buffer))
   }
-  return parseCadeBinary(buffer)
+  return parseCadeBinary(buffer, file.name)
 }

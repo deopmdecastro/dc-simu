@@ -31,7 +31,7 @@ import CommandsExamplesDialog from './CommandsExamplesDialog'
 import CommandsImportDialog from './CommandsImportDialog'
 import type { CircuitImportResult } from './fluidSimCircuit'
 import { MOMENTARY, TOGGLES, useCommandsUi } from './commandsUi'
-import { addPart, commitDiagram, defaultTag, removeItem, removeSelected, rotateSelected, removeSelectedGroup } from './editing'
+import { addPart, commitDiagram, defaultTag, replaceDiagram, removeItem, removeSelected, rotateSelected, removeSelectedGroup } from './editing'
 import { CommandsNotesLayer, CommandsTextsLayer, CommandsTextToolbar, DEFAULT_TEXT_STYLE_COMMANDS } from './CommandsAnnotations'
 import { WIRE_COLOR_HEX } from '../admin/editor3d/wireStyle'
 import { WIRE_COLORS } from '../schematic/symbols'
@@ -270,7 +270,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
     if (!example) return
     useCommandsUi.getState().stop()
     const next = example.build()
-    commit(next)
+    setPreview(null); replaceDiagram(next)
     select(null)
     const firstPage = next.pages?.[0]?.id
     if (firstPage) setActivePageId(firstPage)
@@ -280,7 +280,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
   const clearAll = async () => {
     if (!useSimStore.getState().commands.parts.length) return
     if (!(await uiConfirm('Apagar todos os símbolos e cabos? Pode desfazer com Ctrl+Z.', { title: 'Limpar esquema', confirmLabel: 'Limpar', danger: true }))) return
-    useCommandsUi.getState().stop(); commit(emptyCommands()); select(null); setEmptyDismissed(false)
+    useCommandsUi.getState().stop(); setPreview(null); replaceDiagram(emptyCommands()); select(null); setEmptyDismissed(false)
   }
   const focusSelection = () => {
     const sel = useCommandsUi.getState().selection
@@ -987,7 +987,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
         onClose={() => setImportOpen(false)}
         onImported={(result: CircuitImportResult, source: string) => {
           useCommandsUi.getState().stop()
-          commit(result.diagram)
+          setPreview(null); replaceDiagram(result.diagram)
           select(null)
           const first = result.diagram.pages?.[0]?.id
           if (first) setActivePageId(first)

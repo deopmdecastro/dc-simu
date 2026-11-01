@@ -86,7 +86,7 @@ export default function CommandsImportDialog({
             (não GRAFCET; para GRAFCET use o editor GRAFCET → Importar).
           </p>
           <p className="text-[12.5px] leading-relaxed text-ink-500 m-0">
-            <strong>CADe SIMU</strong> — ficheiros <code>.cad</code> (leitura parcial das referências) ou
+            <strong>CADe SIMU</strong> — ficheiros <code>.cad</code> (símbolos, ligações e textos; os botões do painel de simulação do CADe ficam de fora — no DC-Simu clica-se no próprio símbolo) ou
             JSON intermédio (<code>dc-simu-cade-import</code>).
           </p>
         </fieldset>
