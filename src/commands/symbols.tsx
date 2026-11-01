@@ -378,7 +378,7 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         <path d={`M ${x} 22 v 4 h 5 v 8 h -5 v 4`} fill="none" stroke={st.tripped ? '#dc2626' : INK} />
         <line x1={x} y1={38} x2={x} y2={60} />
       </g>)}
-      <rect x={-8} y={18} width={56} height={24} fill="none" strokeDasharray="2 2" strokeWidth={1} />
+      <path d="M 5 30 L 52 30" strokeDasharray="2.6 2.2" strokeWidth={1.1} />
     </>
     case 'rcd': return <>
       {/* Diferencial: disjuntor bipolar com o disparador de corrente diferencial (IΔ). */}
@@ -390,10 +390,11 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
     case 'changeover': {
       const closed = !!st.closed
       return <>
+        {/* Comum 11 em cima; NA 14 com gancho à esquerda e NF 12 com gancho à direita (IEC 60617). */}
         <line x1={0} y1={0} x2={0} y2={18} />
-        <line x1={0} y1={42} x2={0} y2={60} />
-        <line x1={20} y1={42} x2={20} y2={60} />
-        <line x1={0} y1={18} x2={closed ? 0 : 20} y2={closed ? 42 : 42} stroke={closed && !st.idle ? active : INK} strokeWidth={1.8} />
+        <line x1={0} y1={42} x2={0} y2={60} /><line x1={0} y1={42} x2={-9} y2={42} />
+        <line x1={20} y1={42} x2={20} y2={60} /><line x1={20} y1={42} x2={11} y2={42} />
+        <line x1={0} y1={18} x2={closed ? -9 : 11} y2={42} stroke={!st.idle ? active : INK} strokeWidth={!st.idle ? 2 : 1.6} />
       </>
     }
     case 'coil': case 'timerCoil': {
@@ -418,7 +419,7 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
     }
     case 'buzzer': return <>
       <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
-      <path d="M -10 22 L 6 22 L 12 16 L 12 44 L 6 38 L -10 38 Z" fill={loadOn ? '#fef3c7' : '#fff'} stroke={loadOn ? '#d97706' : INK} />
+      <path d="M -13 36 A 13 13 0 0 1 13 36 Z" transform="translate(0 6)" fill={loadOn ? '#fef3c7' : '#fff'} stroke={loadOn ? '#d97706' : INK} />
       {loadOn && <g className="dc-cmd-buzz"><path d="M 14 24 q 6 6 0 12" fill="none" stroke="#d97706" /><path d="M 18 20 q 10 10 0 20" fill="none" stroke="#d97706" opacity={0.6} /></g>}
     </>
     case 'solenoid': return <>
@@ -471,10 +472,10 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       <line x1={-12} y1={36} x2={12} y2={36} strokeWidth={2} />
     </>
     case 'transformer': return <>
-      <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
-      <line x1={30} y1={0} x2={30} y2={18} /><line x1={30} y1={42} x2={30} y2={60} />
-      <path d="M -8 20 a 8 12 0 0 1 0 20" fill="none" /><path d="M 8 20 a 8 12 0 0 0 0 20" fill="none" />
-      <path d="M 22 20 a 8 12 0 0 1 0 20" fill="none" /><path d="M 38 20 a 8 12 0 0 0 0 20" fill="none" />
+      <line x1={0} y1={0} x2={0} y2={14} /><line x1={0} y1={46} x2={0} y2={60} />
+      <line x1={30} y1={0} x2={30} y2={14} /><line x1={30} y1={46} x2={30} y2={60} />
+      <path d="M 0 14 a 6 4 0 0 1 0 8 a 6 4 0 0 1 0 8 a 6 4 0 0 1 0 8 a 6 4 0 0 1 0 8" fill="none" />
+      <path d="M 30 14 a 6 4 0 0 0 0 8 a 6 4 0 0 0 0 8 a 6 4 0 0 0 0 8 a 6 4 0 0 0 0 8" fill="none" />
       {/* Núcleo: distingue o transformador de dois indutores acoplados. */}
       <line x1={13} y1={19} x2={13} y2={41} /><line x1={17} y1={19} x2={17} y2={41} />
     </>
@@ -482,8 +483,10 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
       <rect x={0} y={8} width={40} height={44} fill="#fff" />
       <line x1={0} y1={0} x2={0} y2={8} /><line x1={40} y1={0} x2={40} y2={8} />
       <line x1={0} y1={52} x2={0} y2={60} /><line x1={40} y1={52} x2={40} y2={60} />
-      <path d="M 8 18 L 20 30 L 8 42 Z" fill="none" /><line x1={20} y1={18} x2={20} y2={42} />
-      <path d="M 32 18 L 20 30 L 32 42 Z" fill="none" /><line x1={20} y1={18} x2={20} y2={42} opacity={0} />
+      <path d="M 13 21 L 13 39 L 26 30 Z" fill="#fff" /><path d="M 26 21 L 26 39" strokeWidth={2} />
+      <path d="M 4 15 q 2.5 -4 5 0 t 5 0 M 26 15 q 2.5 -4 5 0 t 5 0" fill="none" strokeWidth={1.1} />
+      <text x={7} y={49} textAnchor="middle" fontSize={9} fontWeight={700} fill={INK} stroke="none">+</text>
+      <text x={33} y={49} textAnchor="middle" fontSize={9} fontWeight={700} fill={INK} stroke="none">−</text>
     </>
     case 'plcIn': return <>
       <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
