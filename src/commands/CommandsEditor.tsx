@@ -7,6 +7,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerE
 import { nanoid } from 'nanoid'
 import { useSimStore } from '../store/useSimStore'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
+import { pinchPan, usePinchZoom } from '../ui/usePinchZoom'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { uiConfirm } from '../ui/dialogs'
 import { editorGridBackground } from '../ui/editorTheme'
@@ -35,6 +36,9 @@ import '../styles/commands.css'
 
 type View = { x: number; y: number; scale: number }
 const TICK_MS = 50
+/** Limites do zoom do esquema IEC: botões, roda do rato e pinça usam os mesmos. */
+export const CMD_ZOOM_MIN = 0.3
+export const CMD_ZOOM_MAX = 5
 
 /** Caixa aproximada de um texto livre (unidades do canvas). */
 const freeTextBox = (t: { x: number; y: number; text: string; size: number; width?: number }) => {
@@ -170,7 +174,7 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
   const zoomAt = useCallback((factor: number, px?: number, py?: number) => {
     setView((v) => {
       const cx = px ?? size.width / 2, cy = py ?? size.height / 2
-      const scale = Math.max(0.3, Math.min(3, v.scale * factor))
+      const scale = Math.max(CMD_ZOOM_MIN, Math.min(CMD_ZOOM_MAX, v.scale * factor))
       return { scale, x: cx - ((cx - v.x) / v.scale) * scale, y: cy - ((cy - v.y) / v.scale) * scale }
     })
   }, [size])
@@ -182,6 +186,24 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
     else zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top)
   }, [zoomAt])
   useNonPassiveListener(viewportRef, 'wheel', wheel)
+
+  // Pinça (telemóvel/tablet): o ponto sob os dedos acompanha-os e mover os dois dedos desloca a vista —
+  // o mesmo gesto do GRAFCET (`usePinchZoom`). O gesto de um dedo já iniciado (mover símbolo, cabo,
+  // arrastar a vista) é cancelado quando o segundo dedo toca.
+  const pinchStart = useRef<View | null>(null)
+  usePinchZoom(viewportRef, {
+    swallowPointers: true,
+    ignoreSelector: '[role="scrollbar"], .dc-cmd-zoomdock',
+    onStart: () => { pinchStart.current = view; gesture.current = null; setPreview(null); setMarquee(null) },
+    onChange: ({ ratio, center, startCenter }) => {
+      const start = pinchStart.current
+      if (!start) return
+      const scale = Math.max(CMD_ZOOM_MIN, Math.min(CMD_ZOOM_MAX, start.scale * ratio))
+      const pos = pinchPan({ x: start.x, y: start.y }, start.scale, scale, startCenter, center)
+      setView({ scale, x: pos.x, y: pos.y })
+    },
+    onEnd: () => { pinchStart.current = null },
+  })
 
   const bounds = useMemo(() => {
     const boxes = pageParts.flatMap(p => [partBox(p), cmdTagBounds(p)].filter((b): b is NonNullable<typeof b> => !!b))
@@ -360,6 +382,13 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
         }
         return
       }
+    }
+    // Toque no fundo vazio: um dedo move a vista (também em simulação e na demonstração, onde não há
+    // seleção). Com o dedo não há retângulo de seleção — esse fica para o rato e a caneta.
+    if (event.pointerType === 'touch') {
+      select(null)
+      startPan(event)
+      return
     }
     // Seleção por retângulo (marquee) na ferramenta Selecionar.
     if (tool === 'select' && editable) {
@@ -680,8 +709,8 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
           )
         })}
         {editable && (
-          <button type="button" className="dc-cmd-page-add" onClick={onAddPage} title="Nova página do esquema. Ligue a corrente entre páginas com o símbolo «Ligação entre páginas».">
-            <IconPlus size={12} />Nova página
+          <button type="button" className="dc-cmd-page-add" aria-label="Nova página" onClick={onAddPage} title="Nova página do esquema. Ligue a corrente entre páginas com o símbolo «Ligação entre páginas».">
+            <IconPlus size={12} /><span className="dc-cmd-page-add-label">Nova página</span>
           </button>
         )}
       </div>
@@ -851,7 +880,13 @@ export default function CommandsEditor({ demo = false }: { demo?: boolean }) {
               onEdit={() => setEditingTextId(selectedFreeText.id)}
             />
           )}
-          {running && <div className="dc-cmd-hint">{paused ? 'Simulação em pausa' : 'Simulação: prima os botões no esquema · clique no térmico para o disparar'}</div>}
+          {running && <div className="dc-cmd-hint" role="status">{paused ? 'Simulação em pausa' : (<><span className="dc-cmd-hint-long">Simulação: prima os botões no esquema · clique no térmico para o disparar</span><span className="dc-cmd-hint-short">Toque nos botões · toque no térmico para disparar</span></>)}</div>}
+          {/* Zoom à mão no telemóvel: a pinça pede dois dedos, estes botões servem com um só. */}
+          <div className="dc-cmd-zoomdock" role="group" aria-label="Zoom do esquema" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+            <button type="button" aria-label="Reduzir zoom" title="Reduzir zoom" onClick={() => zoomAt(1 / 1.25)} disabled={view.scale <= CMD_ZOOM_MIN + 0.001}>−</button>
+            <button type="button" className="dc-cmd-zoomdock-fit" aria-label="Enquadrar o esquema" title="Enquadrar o esquema" onClick={() => fit()}>{Math.round(view.scale * 100)}%</button>
+            <button type="button" aria-label="Aumentar zoom" title="Aumentar zoom" onClick={() => zoomAt(1.25)} disabled={view.scale >= CMD_ZOOM_MAX - 0.001}>+</button>
+          </div>
           <CanvasPanScrollbars label="Esquema de comandos" controlsId={canvasId}
             view={{ x: -view.x / view.scale, y: -view.y / view.scale, width: size.width / view.scale, height: size.height / view.scale }}
             bounds={bounds}
