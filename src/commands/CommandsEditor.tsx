@@ -24,7 +24,7 @@ import {
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
 import PageLinkDialog from './PageLinkDialog'
 import TagTextDialog from './TagTextDialog'
-import { emptyCmdRuntime, isClosed, logoOutputOn, voltmeterReading } from './engine'
+import { emptyCmdRuntime, isClosed, logoOutputOn, voltmeterIsDc, voltmeterReading } from './engine'
 import { CmdSymbol, cmdTagPosition, cmdTagBounds, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
 import CommandsExamplesDialog from './CommandsExamplesDialog'
@@ -192,6 +192,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       tripped: !!rt.tripped[part.tag],
       outputs: part.kind === 'plcLogo' ? LOGO_OUTPUTS.map((address) => logoOutputOn(rt, address)) : undefined,
       volts: part.kind === 'voltmeter' ? voltmeterReading(rt.live[`${part.id}:0`], rt.live[`${part.id}:1`]) : undefined,
+      voltsDc: part.kind === 'voltmeter' ? voltmeterIsDc(rt.live[`${part.id}:0`], rt.live[`${part.id}:1`]) : undefined,
     }
   }
 

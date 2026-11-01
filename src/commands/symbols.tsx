@@ -24,6 +24,8 @@ export interface CmdSymbolState {
   load?: boolean
   /** Voltímetro em RUN: tensão lida entre os bornes (V). */
   volts?: number
+  /** Voltímetro: leitura em contínua (L+/M) — senão alterna. */
+  voltsDc?: boolean
 }
 
 /** Contactos normalmente fechados (em repouso conduzem). */
@@ -563,15 +565,21 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
     case 'ammeter': case 'voltmeter': {
       // Medida (IEC 60617): círculo com a grandeza, atravessado pelo condutor.
       const letter = part.kind === 'ammeter' ? 'A' : 'V'
-      // Em RUN, o voltímetro mostra a leitura ao lado esquerdo (mostrador digital).
+      // Em RUN, o voltímetro mostra a leitura num visor ao lado (como o multímetro do quadro 3D):
+      // grandeza AC/DC em cima, valor em destaque; verde com tensão, cinzento a 0 V.
       const reading = part.kind === 'voltmeter' && st.volts !== undefined
+      const live = reading && st.volts! > 0
       return <>
         <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
-        <circle cx={0} cy={30} r={12} fill={reading && st.volts! > 0 ? '#ecfdf5' : '#fff'} stroke={reading && st.volts! > 0 ? active : INK} />
+        <circle cx={0} cy={30} r={12} fill={live ? '#ecfdf5' : '#fff'} stroke={live ? active : INK} />
         <text x={0} y={35} textAnchor="middle" fontSize={14} fontWeight={700} fill={INK} stroke="none">{letter}</text>
-        {reading && <g data-voltmeter-reading={st.volts}>
-          <rect x={-60} y={22} width={44} height={16} rx={2} fill="#0f172a" stroke="none" />
-          <text x={-20} y={34} textAnchor="end" fontSize={11} fontWeight={700} fontFamily="ui-monospace, monospace" fill={st.volts! > 0 ? '#4ade80' : '#64748b'} stroke="none">{`${st.volts} V`}</text>
+        {reading && <g data-voltmeter-reading={st.volts} data-voltmeter-kind={st.voltsDc ? 'dc' : 'ac'} stroke="none">
+          <line x1={12} y1={30} x2={18} y2={30} stroke={live ? active : '#94a3b8'} strokeWidth={1.2} />
+          <rect x={18} y={13} width={74} height={34} rx={5} fill="#0f172a" stroke={live ? '#22c55e' : '#475569'} strokeWidth={1.4} />
+          <rect x={22} y={17} width={66} height={26} rx={3} fill={live ? '#052e16' : '#111827'} />
+          <text x={26} y={25} fontSize={6.5} fontWeight={700} letterSpacing={0.4} fill={live ? '#86efac' : '#64748b'}>{st.voltsDc ? 'V DC' : 'V AC'}</text>
+          <text x={84} y={39} textAnchor="end" fontSize={15} fontWeight={700} fontFamily="ui-monospace, monospace" fill={live ? '#4ade80' : '#64748b'}>{st.volts}</text>
+          <text x={84} y={25} textAnchor="end" fontSize={6.5} fontWeight={700} fill={live ? '#86efac' : '#64748b'}>{st.voltsDc ? '⎓' : '~'}</text>
         </g>}
       </>
     }

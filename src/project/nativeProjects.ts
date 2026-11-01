@@ -9,15 +9,15 @@
 
 import { createComponent } from '../electrical/factory'
 import type { ElectricalComponent, Wire, WireColor } from '../types'
-import type { LadderRung } from '../types'
-import type { GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
+import type { LadderRung, LadderTag } from '../types'
+import { blockDisplayName } from '../ladder/blockCatalog'
+import { transitionsOf, type GrafcetProgram, type GrafcetStep, type GrafcetTransition } from '../grafcet/engine'
 import { autoLayout, SPINE_X, START_Y, STEP_H } from '../grafcet/layout'
 import {
   grafcetToLadderWord,
   WORD_FC_GRAFCET,
   WORD_FC_OUTPUTS,
   WORD_REGISTER_COMMENT,
-  WORD_REGISTER_NAME,
 } from '../grafcet/toLadderWord'
 import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
@@ -25,7 +25,7 @@ import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 import { mountPosition } from '../three/thermalMount'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_SIGNALS_FEATURE } from './nativeMotorMeter'
-import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE } from './nativeIec'
+import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE } from './nativeIec'
 import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { NATIVE_NC_SIM_FEATURE, withNativeNcSimInputs } from './nativeSimInputs'
 import { grafcetExampleContent, grafcetExamples } from './grafcetExamples'
@@ -174,61 +174,49 @@ export function buildNativeGrafcet(): GrafcetProgram {
 }
 
 /**
- * Ladder no método «registo de etapa» (complete restart + MOVE):
+ * Ladder no método «registo de etapa» (complete restart + MOVE), gerado exatamente como o
+ * «Gerar/Atualizar Ladder» do GRAFCET (ladderSync.ts · plan): mesmos nomes de blocos
+ * («Grafcet [FC 1]», «Outputs [FC 2]», «Complete restart [OB 100]») e as mesmas networks de CALL.
+ * Assim o GRAFCET reconhece o Ladder nativo como sincronizado e a atualização automática não o
+ * troca pelo método dos bits de etapa (o que deixava dois OB100 e as saídas do LOGO! paradas).
  *   OB100 Complete restart → MOVE etapa inicial → G0
  *   FC Grafcet             → transições com MOVE destino → G0
  *   FC Outputs             → comparações G0 == etapa → bobinas
  *   Main [OB1]             → CALL Grafcet; CALL Outputs
  */
 export function buildNativeWordProgram(grafcet: GrafcetProgram, baseTags: Built['tags']) {
-  const word = grafcetToLadderWord(grafcet, {
-    tags: baseTags.map((t) => ({ address: t.address, name: t.name })),
+  const full = { ...grafcet, transitions: transitionsOf(grafcet) }
+  const word = grafcetToLadderWord(full, {
+    reserved: baseTags.map((t) => t.address),
+    tags: baseTags as LadderTag[],
     name: grafcet.name,
   })
-  const mainRungs: LadderRung[] = [
-    {
-      id: 'native-main-call-grafcet',
-      name: 'GRAFCET · Chamar Grafcet',
-      comment: 'CALL FC Grafcet — avalia transições e MOVE em G0',
-      enabled: true,
-      branches: [{ id: 'native-main-b1', elements: [] }],
-      coils: [],
-      call: { targetId: NATIVE_FC_GRAFCET_ID },
-    },
-    {
-      id: 'native-main-call-outputs',
-      name: 'GRAFCET · Chamar Outputs',
-      comment: 'CALL FC Outputs — comanda KM1, H1, H2 e H3',
-      enabled: true,
-      branches: [{ id: 'native-main-b2', elements: [] }],
-      coils: [],
-      call: { targetId: NATIVE_FC_OUTPUTS_ID },
-    },
-  ]
+  const fcIds: Record<string, string> = { [WORD_FC_GRAFCET]: NATIVE_FC_GRAFCET_ID, [WORD_FC_OUTPUTS]: NATIVE_FC_OUTPUTS_ID }
+  const blocks = [{ label: WORD_FC_GRAFCET, rungs: word.grafcetRungs }, { label: WORD_FC_OUTPUTS, rungs: word.outputRungs }].filter((b) => b.rungs.length)
+  // Mesma forma (e ordem de campos) que o CALL criado pelo gerador do GRAFCET.
+  const mainRungs: LadderRung[] = blocks.map((b) => ({
+    id: `native-main-call-${b.label.toLowerCase()}`,
+    name: `GRAFCET · Chamar ${b.label}`,
+    branches: [{ id: `native-main-b-${b.label.toLowerCase()}`, elements: [] }],
+    coils: [],
+    enabled: true,
+    call: { targetId: fcIds[b.label] },
+  }))
   const now = new Date().toISOString()
   const files: ProjectFile[] = [
-    {
-      id: NATIVE_FC_GRAFCET_ID,
-      folder: 'programBlocks',
-      name: `FC1 [${WORD_FC_GRAFCET}]`,
+    ...blocks.map((b, i) => ({
+      id: fcIds[b.label],
+      folder: 'programBlocks' as const,
+      name: blockDisplayName('FC', b.label, i + 1),
       content: '',
-      rungs: word.grafcetRungs,
+      rungs: b.rungs,
       createdAt: now,
       updatedAt: now,
-    },
-    {
-      id: NATIVE_FC_OUTPUTS_ID,
-      folder: 'programBlocks',
-      name: `FC2 [${WORD_FC_OUTPUTS}]`,
-      content: '',
-      rungs: word.outputRungs,
-      createdAt: now,
-      updatedAt: now,
-    },
+    })),
     {
       id: NATIVE_OB100_ID,
       folder: 'programBlocks',
-      name: 'OB100 [Complete restart]',
+      name: blockDisplayName('OB', 'Complete restart', 100),
       content: '',
       rungs: word.startupRungs,
       exec: 'obStartup',
@@ -237,23 +225,14 @@ export function buildNativeWordProgram(grafcet: GrafcetProgram, baseTags: Built[
     },
   ]
   const tags = [...baseTags]
-  if (!tags.some((t) => t.address === word.word || t.name === WORD_REGISTER_NAME)) {
-    tags.push({
-      id: 't-g0',
-      address: word.word.startsWith('%') || /^[IMQ]W/i.test(word.word) ? word.word : 'MW0',
-      name: WORD_REGISTER_NAME,
-      dataType: 'Int',
-      comment: WORD_REGISTER_COMMENT,
-    })
-  }
   for (const t of word.tags) {
-    if (tags.some((x) => x.address === t.address || x.name === t.name)) continue
+    if (tags.some((x) => x.address.toUpperCase() === t.address.toUpperCase())) continue
     tags.push({
       id: `t-${t.address}`,
       address: t.address,
       name: t.name,
-      dataType: /^[IMQ]W|MW/i.test(t.address) ? 'Int' : 'Bool',
-      comment: t.comment || '',
+      dataType: /^%?(MW|[IQ]W)/i.test(t.address) ? 'Int' : 'Bool',
+      comment: t.comment || (/^%?MW/i.test(t.address) ? WORD_REGISTER_COMMENT : ''),
     })
   }
   return { mainRungs, files, tags, warnings: word.warnings }
@@ -449,7 +428,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, 'ladder-sync-v1'],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

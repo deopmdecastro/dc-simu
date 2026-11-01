@@ -21,7 +21,8 @@ const GENERATED_BIT_NAME = /^(Etapa_|Rec_T|Temp_T|Tempo_[DL]_|Mem_|Cont_|Evoluca
 const isMainRung = (r: LadderRung) => r.name.startsWith(MAIN_PREFIX)
 const isRestartRung = (r: LadderRung) => r.name.startsWith(RESTART_PREFIX)
 /** Memória/temporizador criado pelo gerador: é refeito a cada atualização. */
-const isGeneratedBit = (t: LadderTag) => /^[MT]\d{1,2}$/i.test(t.address.trim()) && GENERATED_BIT_NAME.test(t.name) && GENERATED_COMMENT.test(t.comment ?? '')
+/** Aceita o formato antigo (M1) e o byte.bit (M0.0) — a app converte o primeiro no segundo ao carregar. */
+const isGeneratedBit = (t: LadderTag) => /^([MT]\d{1,2}|M\d+\.[0-7])$/i.test(t.address.trim().replace(/^%/, '')) && GENERATED_BIT_NAME.test(t.name) && GENERATED_COMMENT.test(t.comment ?? '')
 
 /** Registos de etapa (G0, G1… = %MW) criados pelo método «registo de etapa»: refeitos a cada atualização. */
 const isGeneratedWord = (t: LadderTag) => /^MW\d+$/i.test(t.address.trim().replace(/^%/, '')) && /^G\d+$/.test(t.name) && t.comment === WORD_REGISTER_COMMENT

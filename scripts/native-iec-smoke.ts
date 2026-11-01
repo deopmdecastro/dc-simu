@@ -167,13 +167,13 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   check(fixNativeCoilWiring({ ...seedContent, nativeFeatures: [] }).wires === seedContent.wires, 'um projeto já correto não é alterado')
 }
 
-// Sinalização (signals-v1): F1 97-98 → I0.3, H3 EMERGÊNCIA em Q0.3, H2 laranja, voltímetro P1 e GRAFCET com o F1.
+// Sinalização (signals-v1): F1 97-98 → I0.3, H3 EMERGÊNCIA em Q0.3, H2 laranja, voltímetro MM1 no motor e GRAFCET com o F1.
 {
   const { evalCondition, actionsOfStep } = await import('../src/grafcet/engine')
   const { addNativeSignals, NATIVE_SIGNALS_FEATURE } = await import('../src/project/nativeSignals')
   const { schematicDiagnostics } = await import('../src/diagnostics/viewDiagnostics')
   const { NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE } = await import('../src/project/nativeIec')
-  const { voltmeterReading } = await import('../src/commands/engine')
+  const { voltmeterReading, voltmeterIsDc } = await import('../src/commands/engine')
   const seed = buildNativePartidaDireta()
   const ends = (a: string, b: string) => seed.wires.some((w) => (w.fromTerminalId === a && w.toTerminalId === b) || (w.fromTerminalId === b && w.toTerminalId === a))
   const color = (id: string) => seed.components.find((c) => c.id === id)?.state.color
@@ -205,8 +205,17 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   const tripRt = (() => { let rt = { ...emptyCmdRuntime(), running: true, tripped: { F1: true } }; for (let i = 0; i < 3; i++) rt = stepCommands(diagram, rt, 100); return rt })()
   check(tripRt.plcInputs?.['I0.3'] === true && rest.plcInputs?.['I0.3'] === false, 'IEC: F1 disparado dá sinal em I0.3 (em repouso 0)')
   check(!!linked({ 'Q0.3': true }).lamps[h3.id], 'IEC: Q0.3 acende H3')
-  const p1 = diagram.parts.find((p) => p.kind === 'voltmeter' && p.tag === 'P1')!
-  check(!!p1 && voltmeterReading(rest.live[`${p1.id}:0`], rest.live[`${p1.id}:1`]) === 24, 'IEC: voltímetro P1 lê 24 V entre L+ e M')
+  // Voltímetro MM1 no motor (U1–V1), sincronizado com o multímetro MM1 do quadro 3D.
+  const mm1 = diagram.parts.find((p) => p.kind === 'voltmeter' && p.tag === 'MM1')!
+  const meter3D = seed.components.find((c) => c.id === 'native-mm1')!
+  const leads3D = seed.wires.filter((w) => w.fromTerminalId.startsWith('native-mm1-')).map((w) => w.toTerminalId).sort().join(',')
+  check(!!mm1 && mm1.page === 'page-1' && meter3D.ref === 'MM1' && leads3D === 'native-m1-U1,native-m1-V1', 'IEC: voltímetro MM1 na página Potência, como o MM1 do 3D (U1–V1 do motor)')
+  check(!diagram.parts.some((p) => p.kind === 'voltmeter' && p.page === 'page-2'), 'IEC: sem voltímetro nos 24 V (passou para o motor)')
+  const reads = (rt: typeof rest) => ({ v: voltmeterReading(rt.live[`${mm1.id}:0`], rt.live[`${mm1.id}:1`]), dc: voltmeterIsDc(rt.live[`${mm1.id}:0`], rt.live[`${mm1.id}:1`]) })
+  const running = reads(run({ 'Q0.0': true }))
+  check(running.v === 400 && !running.dc, 'IEC: motor em marcha → MM1 lê 400 V AC (U1–V1)')
+  check(reads(run({})).v === 0, 'IEC: motor parado (KM1 aberto) → MM1 lê 0 V')
+  check(reads(run({ 'Q0.0': true, QM1: true })).v === 0, 'IEC: QM1 desligado → MM1 lê 0 V')
   check(voltmeterReading('L1', 'N') === 230 && voltmeterReading('L1', 'L2') === 400 && voltmeterReading('L+', undefined) === 0, 'voltímetro: 230 V fase-neutro, 400 V entre fases, 0 V sem tensão')
 
   // Migração do IEC: v3 intacto → v4; v3 alterado mantém-se.
@@ -216,6 +225,13 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   check(upV3.commands.parts.some((p: any) => p.tag === 'H3') && upV3.nativeFeatures.includes(NATIVE_IEC_V4_FEATURE), 'esquema v3 intacto passa ao v4 (F1 em I0.3, H3, voltímetro)')
   const editedV3 = { ...v3, commands: { ...v3.commands, parts: [...v3Parts.slice(0, 34), { id: 'meu', kind: 'lamp' }] } }
   check(!addNativeIecSchematic(editedV3).commands.parts.some((p: any) => p.tag === 'H3'), 'esquema v3 alterado pelo utilizador mantém-se')
+  // v4 intacto (voltímetro P1 nos 24 V) → v5 (MM1 no motor); v4 alterado mantém-se.
+  const { NATIVE_IEC_V5_FEATURE } = await import('../src/project/nativeIec')
+  const v4Parts = Array.from({ length: 42 }, (_, i) => ({ id: `iec-${i + 1}`, kind: i === 0 ? 'voltmeter' : 'node', tag: i === 0 ? 'P1' : '' }))
+  const v4 = { nativeId: NATIVE_PARTIDA_ID, nativeFeatures: [NATIVE_IEC_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE], commands: { name: 'Partida direta com emergência (LOGO!)', parts: v4Parts, wires: [] } }
+  const upV4 = addNativeIecSchematic(v4)
+  check(upV4.commands.parts.some((p: any) => p.tag === 'MM1') && !upV4.commands.parts.some((p: any) => p.tag === 'P1') && upV4.nativeFeatures.includes(NATIVE_IEC_V5_FEATURE), 'esquema v4 intacto passa ao v5 (voltímetro MM1 no motor)')
+  check(addNativeIecSchematic({ ...v4, commands: { ...v4.commands, parts: [...v4Parts, { id: 'meu', kind: 'lamp' }] } }).commands.parts.some((p: any) => p.tag === 'P1'), 'esquema v4 alterado pelo utilizador mantém-se')
 
   // Migração do quadro/GRAFCET: um projeto anterior recebe tudo; com I0.3 ocupado não recebe os cabos.
   const fresh = nativePartidaDiretaContent() as any
@@ -245,6 +261,36 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   check(!kept.wires.some((w: any) => w.fromTerminalId === 'native-f1-98') && kept.wires.length === busy.wires.length, 'migração: com I0.3 já usado pelo utilizador, os cabos novos não entram')
   const myGrafcet = { ...old, grafcet: { ...oldGrafcet, transitions: oldGrafcet.transitions.map((t: any) => (t.id === 'native-t1' ? { ...t, condition: 'I0.1' } : t)) } }
   check(addNativeSignals(myGrafcet).grafcet.transitions.find((t: any) => t.id === 'native-t1').condition === 'I0.1', 'migração: GRAFCET alterado pelo utilizador mantém-se')
+}
+
+// Ladder nativo com as convenções do gerador do GRAFCET (ladder-sync-v1).
+{
+  const { syncNativeLadder, NATIVE_LADDER_SYNC_FEATURE } = await import('../src/project/nativeLadderSync')
+  const fresh = nativePartidaDiretaContent() as any
+  const plcFiles = (c: any) => (c.projectFiles['native-plc'] as any[]).map((f) => f.name).sort().join(' | ')
+  check(plcFiles(fresh) === 'Complete restart [OB 100] | Grafcet [FC 1] | Outputs [FC 2]' && fresh.ladder.rungs.map((r: any) => r.name).join('|') === 'GRAFCET · Chamar Grafcet|GRAFCET · Chamar Outputs', 'semente: blocos com os nomes do gerador do GRAFCET e Main a chamar FC Grafcet/Outputs')
+  check(fresh.tags.filter((t: any) => /^M\d+$/.test(t.address)).length === 0, 'semente: memórias geradas em byte.bit (sem «M1» que a app converte ao abrir)')
+  const unmark = (c: any) => ({ ...c, nativeFeatures: c.nativeFeatures.filter((f: string) => f !== NATIVE_LADDER_SYNC_FEATURE) })
+  // 1) Nomes antigos do nativo (FC1 [Grafcet], OB100 [Complete restart]) e networks com comentário.
+  const oldNames: Record<string, string> = { 'native-fc-grafcet': 'FC1 [Grafcet]', 'native-fc-outputs': 'FC2 [Outputs]', 'native-ob100': 'OB100 [Complete restart]' }
+  const oldStyle = unmark({ ...fresh, projectFiles: { 'native-plc': fresh.projectFiles['native-plc'].map((f: any) => ({ ...f, name: oldNames[f.id] })) }, ladder: { rungs: fresh.ladder.rungs.map((r: any) => ({ ...r, comment: 'CALL' })) } })
+  const fixed = syncNativeLadder(oldStyle)
+  check(plcFiles(fixed) === plcFiles(fresh) && JSON.stringify(fixed.ladder.rungs.map((r: any) => r.name)) === JSON.stringify(fresh.ladder.rungs.map((r: any) => r.name)), 'migração: Ladder com os nomes antigos passa às convenções do gerador')
+  // 2) Já trocado pela atualização automática (bits de etapa) com um segundo OB100.
+  const broken = unmark({
+    ...fresh,
+    ladder: { rungs: [{ id: 'x', name: 'GRAFCET · T1: 0 → 1', branches: [], coils: [], enabled: true }] },
+    projectFiles: { 'native-plc': [...fresh.projectFiles['native-plc'].map((f: any) => ({ ...f, name: oldNames[f.id] })), { id: 'dup', folder: 'programBlocks', name: 'Complete restart [OB 100]', exec: 'obStartup', rungs: [{ id: 'y', name: 'Complete restart · Etapa inicial X0', branches: [], coils: [], enabled: true }] }, { id: 'meu', folder: 'programBlocks', name: 'Meu bloco [FC 9]', rungs: [] }] },
+    tags: [...fresh.tags, { id: 'tb', address: 'M0.1', name: 'Etapa_0', dataType: 'Bool', comment: 'Bit da etapa 0' }],
+  })
+  const repaired = syncNativeLadder(broken)
+  check(repaired.projectFiles['native-plc'].filter((f: any) => f.exec === 'obStartup').length === 1 && repaired.ladder.rungs.length === 2, 'migração: Ladder trocado pelos bits de etapa volta ao registo de etapa, com um só OB100')
+  check(repaired.projectFiles['native-plc'].some((f: any) => f.id === 'meu') && !repaired.tags.some((t: any) => t.name === 'Etapa_0'), 'migração: blocos do utilizador ficam; bits de etapa gerados saem')
+  // 3) Main com uma network do utilizador: nada muda.
+  const withUser = unmark({ ...oldStyle, ladder: { rungs: [...oldStyle.ladder.rungs, { id: 'u', name: 'A minha network', branches: [], coils: [], enabled: true }] } })
+  const kept = syncNativeLadder(withUser)
+  check(kept.ladder === withUser.ladder && kept.projectFiles === withUser.projectFiles, 'migração: Main com networks do utilizador não é tocado')
+  check(syncNativeLadder(fixed) === fixed, 'migração do Ladder corre uma só vez')
 }
 
 console.log(`\n${checks} verificações do esquema IEC nativo passaram`)

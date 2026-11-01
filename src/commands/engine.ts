@@ -70,6 +70,9 @@ export const logoOutputOn = (rt: Pick<CmdRuntime, 'plc' | 'toggled' | 'coils'>, 
  * Leitura do voltímetro (V) entre os potenciais dos seus dois bornes: 24 V entre L+ e M, 230 V entre
  * fase e neutro, 400 V entre fases; 0 V no mesmo potencial ou com um borne sem tensão.
  */
+/** Os dois bornes do voltímetro estão em L+ e M (tensão contínua)? */
+export const voltmeterIsDc = (a: string | undefined, b: string | undefined) => (a === 'L+' && b === 'M') || (a === 'M' && b === 'L+')
+
 export function voltmeterReading(a: string | undefined, b: string | undefined): number {
   if (!a || !b || a === b) return 0
   const pair = new Set([a, b])

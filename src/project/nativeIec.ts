@@ -2,11 +2,11 @@
  * Esquema IEC (simulador de comandos) do projeto nativo «Partida direta», com as mesmas
  * referências do quadro 3D:
  *  · Página «Potência»: XG → QG → QM1 → KM1 → F1 (relé térmico) → M1, PE ao motor e Q0 a
- *    alimentar o comando.
+ *    alimentar o comando; voltímetro MM1 entre U1 e V1 do motor (o mesmo multímetro MM1 do quadro 3D).
  *  · Página «Comando LOGO!»: PS1 (230 V AC → 24 V DC) e o LOGO! 12/24RC em bloco — entradas
  *    I0.0–I0.3 (B0, START, STOP e o 97-98 do F1, que fecha no disparo); saídas Q0.0 → 95-96 do F1
  *    → bobina KM1 (230 V), Q0.1 → H1 MARCHA (verde), Q0.2 → H2 PARADO (laranja) e Q0.3 → H3
- *    EMERGÊNCIA (vermelho), a 24 V; voltímetro P1 nos 24 V DC da PS1.
+ *    EMERGÊNCIA (vermelho), a 24 V.
  * As duas páginas ligam-se pelos conectores X1 (fase) e X2 (neutro) depois de Q0.
  *
  * Em RUN o esquema corre com o programa do LOGO!: as entradas com tensão chegam ao simulador do
@@ -23,6 +23,8 @@ export const NATIVE_IEC_V2_FEATURE = 'iec-schematic-v2'
 export const NATIVE_IEC_V3_FEATURE = 'iec-schematic-v3'
 /** v4: sinal do relé térmico (F1 97-98 → I0.3), H3 EMERGÊNCIA em Q0.3, H2 laranja e voltímetro P1 (24 V). */
 export const NATIVE_IEC_V4_FEATURE = 'iec-schematic-v4'
+/** v5: o voltímetro passa para o motor (MM1 entre U1 e V1, como o multímetro do quadro 3D). */
+export const NATIVE_IEC_V5_FEATURE = 'iec-schematic-v5'
 const POWER_PAGE = 'page-1'
 const CONTROL_PAGE = 'page-2'
 
@@ -60,8 +62,17 @@ export function buildNativeIecSchematic(): CommandsDiagram {
   for (let i = 0; i < 3; i++) wire(qm1, i * 2 + 1, km1, i * 2)
   const f1 = part('thermal3', 80, 380, 'F1')
   for (let i = 0; i < 3; i++) wire(km1, i * 2 + 1, f1, i * 2)
-  const m1 = part('motor3', 80, 500, 'M1')
-  for (let i = 0; i < 3; i++) wire(f1, i * 2 + 1, m1, i)
+  const m1 = part('motor3', 80, 520, 'M1')
+  // U1 e V1 com derivação para o voltímetro MM1 (tensão composta na entrada do motor, ≈ 400 V AC em marcha):
+  // cada derivação entra a direito no seu borne (U1 em cima, V1 em baixo), sem atravessar o símbolo.
+  const tapU = node(80, 455)
+  const tapV = node(100, 515)
+  wire(f1, 1, tapU, 0); wire(tapU, 0, m1, 0)
+  wire(f1, 3, tapV, 0); wire(tapV, 0, m1, 1)
+  wire(f1, 5, m1, 2)
+  const mm1 = part('voltmeter', 200, 455, 'MM1')
+  wire(tapU, 0, mm1, 0); wire(tapV, 0, mm1, 1)
+  text(214, 548, 'U1–V1 do motor')
   const pe = part('ground', 160, 540, 'PE', { groundVariant: 'protective' })
   wire(xg, 4, pe, 0)
   text(280, 120, 'Q0 · proteção do comando')
@@ -80,8 +91,8 @@ export function buildNativeIecSchematic(): CommandsDiagram {
   const ps1 = part('converter', 100, 120, 'PS1', { variant: 'acdc' })
   wire(inL, 0, ps1, 0); wire(inN, 0, ps1, 1, 100)
   const plc = part('plcLogo', 300, 320, 'PLC1')
-  // +24 V (L+): PS1 → L+ do LOGO!, botoeira, 97-98 do F1, comum das saídas Q0.1–Q0.3 e voltímetro.
-  const plus = [node(100, 200), node(300, 200), node(380, 200), node(480, 200), node(580, 200), node(680, 200), node(760, 200), node(840, 200)]
+  // +24 V (L+): PS1 → L+ do LOGO!, botoeira, 97-98 do F1 e comum das saídas Q0.1–Q0.3.
+  const plus = [node(100, 200), node(300, 200), node(380, 200), node(480, 200), node(580, 200), node(680, 200), node(760, 200)]
   wire(ps1, 2, plus[0], 0); chain(plus)
   wire(plus[1], 0, plc, 0)
   text(160, 192, '+24 V (L+)')
@@ -101,7 +112,7 @@ export function buildNativeIecSchematic(): CommandsDiagram {
   wire(f1no, 1, plc, 5, 316)
   text(698, 250, 'F1 DISP.')
   // 0 V (M): PS1 → M do LOGO! e retorno dos sinalizadores.
-  const minus = [node(120, 700), node(240, 700), node(420, 700), node(480, 700), node(540, 700), node(840, 700)]
+  const minus = [node(120, 700), node(240, 700), node(420, 700), node(480, 700), node(540, 700)]
   wire(ps1, 3, minus[0], 0); chain(minus)
   wire(plc, 1, minus[1], 0, 306)
   text(160, 720, '0 V (M)')
@@ -117,10 +128,6 @@ export function buildNativeIecSchematic(): CommandsDiagram {
   wire(plc, 15, h2, 0, 580); wire(h2, 1, minus[3], 0)
   wire(plc, 17, h3, 0, 580); wire(h3, 1, minus[4], 0)
   text(352, 680, 'MARCHA'); text(492, 680, 'PARADO'); text(552, 696, 'EMERG.')
-  // Voltímetro P1 nos 24 V DC da PS1 (em RUN mostra a leitura).
-  const p1 = part('voltmeter', 840, 420, 'P1')
-  wire(plus[7], 0, p1, 0); wire(p1, 1, minus[5], 0)
-  text(784, 470, '24 V DC')
   // Saída Q0.0 (230 V AC): X1 → Q0.0 → 95-96 do F1 → bobina KM1 → X2.
   const kmL = part('pageRefIn', 300, 600, 'X1')
   wire(kmL, 0, plc, 10, 560)
@@ -161,13 +168,20 @@ function isUntouchedV3(commands: any): boolean {
     && !commands.parts.some((p: any) => p.tag === 'H3' || p.kind === 'voltmeter')
 }
 
-/** Projetos nativos: recebem o esquema IEC uma vez; um v1/v2/v3 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
+/** Esquema v4 gerado pela app (sem alterações): voltímetro P1 nos 24 V da página de comando. */
+function isUntouchedV4(commands: any): boolean {
+  if (!Array.isArray(commands?.parts) || commands.name !== 'Partida direta com emergência (LOGO!)') return false
+  return commands.parts.length === 42 && commands.parts.every((p: any) => typeof p?.id === 'string' && p.id.startsWith('iec-'))
+    && commands.parts.some((p: any) => p.kind === 'voltmeter' && p.tag === 'P1') && !commands.parts.some((p: any) => p.tag === 'MM1')
+}
+
+/** Projetos nativos: recebem o esquema IEC uma vez; um v1…v4 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
 export function addNativeIecSchematic<T extends Record<string, any>>(content: T): T {
   if (content.nativeId !== NATIVE_PARTIDA_ID) return content
   const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
-  if (features.includes(NATIVE_IEC_V4_FEATURE)) return content
+  if (features.includes(NATIVE_IEC_V5_FEATURE)) return content
   const hasOwn = Array.isArray(content.commands?.parts) && content.commands.parts.length > 0
-  const replace = !hasOwn || isUntouchedV1(content.commands) || isUntouchedV2(content.commands) || isUntouchedV3(content.commands)
-  const marks = [...features, ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE].filter((f) => !features.includes(f)), NATIVE_IEC_V4_FEATURE]
+  const replace = !hasOwn || isUntouchedV1(content.commands) || isUntouchedV2(content.commands) || isUntouchedV3(content.commands) || isUntouchedV4(content.commands)
+  const marks = [...features, ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE].filter((f) => !features.includes(f)), NATIVE_IEC_V5_FEATURE]
   return { ...content, ...(replace ? { commands: buildNativeIecSchematic() } : {}), nativeFeatures: marks }
 }

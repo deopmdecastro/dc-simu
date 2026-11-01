@@ -236,8 +236,10 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
       const bit = normalizeBitAddress(`M${n}`)!
       if (used.has(bit)) continue
       used.add(bit)
-      tag(`M${n}`, name, comment)
-      return `M${n}`
+      // Endereço byte.bit (M0.0…): é o formato que a app mantém ao carregar projetos (migrateLegacyAddresses);
+      // com «M1» o Ladder gerado passava a «M0.0» ao reabrir e o GRAFCET via-o sempre desatualizado.
+      tag(bit, name, comment)
+      return bit
     }
     warnings.push(`Sem memórias M livres para «${name}».`)
     return ''
@@ -340,7 +342,7 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
     // Uma só evolução por ciclo, como o motor GRAFCET: sem isto, depois do MOVE de T1 a network de T2
     // já via a etapa nova e avançava no mesmo scan. O bit é reposto no início do FC Grafcet.
     let evolved = ''
-    for (let n = 1; n <= 99 && !evolved; n++) { const bit = normalizeBitAddress(`M${n}`)!; if (!used.has(bit)) { used.add(bit); evolved = `M${n}` } }
+    for (let n = 1; n <= 99 && !evolved; n++) { const bit = normalizeBitAddress(`M${n}`)!; if (!used.has(bit)) { used.add(bit); evolved = bit } }
     if (!evolved) warnings.push('Sem memórias M livres para limitar a uma evolução por ciclo.')
     else tag(evolved, WORD_EVOLVED_NAME, WORD_EVOLVED_COMMENT)
     const evolvedRungs = evolved && transitions.length
