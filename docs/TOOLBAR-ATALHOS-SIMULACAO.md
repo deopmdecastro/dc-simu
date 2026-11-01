@@ -45,6 +45,13 @@ Ferramentas específicas atuais: Ladder (Compilar, Bloco, Nova network, secçõe
 
 O botão «Atalhos» (`data-shortcuts-button="component"`, F1) passou do cabeçalho para o fim da barra secundária e usa o `ShortcutsButton` comum. «Editar/Simular» mantém-se como separadores de modo no cabeçalho.
 
+## Cursor da simulação 3D (2026-11-01)
+
+A visualização 3D mantém o cursor do sistema e os cursores da ferramenta/alvo em RUN, pausa e paragem. O componente `SimFinger3D`, o atributo `data-sim-finger` e a regra `cursor: none` foram removidos: não existe uma mão 3D a seguir o ponteiro nem uma sobreposição invisível a consumir eventos. As zonas de atuação dos equipamentos e os bloqueios de edição são os mesmos.
+
+- `npm run test:sim-cursor`: oito verificações à remoção e às ligações existentes, incluído em `test:ci`.
+- `npm run test:sim-select-3d-ui`: 17 verificações com o projeto nativo no browser; ausência do objeto `sim-finger`, cursor visível nos três estados, seleção de cabos/componentes, bloqueio de arrasto e ausência de exceções JavaScript.
+
 ## Espaçamento, cubo de vistas e painéis (2026-10-26)
 
 - `src/styles/toolbar-spacing.css`: grupos `dc-seg` com moldura e botões planos separados por 3 px; 10 px entre grupos; separadores com margem maior. Aplica-se a todas as barras.

@@ -9,6 +9,12 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Simulação 3D com cursor normal
+
+A mão/dedo 3D sobreposto foi removido da visualização 3D. RUN, pausa e paragem usam o cursor normal do sistema e os cursores das ferramentas/alvos; os comandos elétricos, as animações dos equipamentos e o bloqueio de edição não mudam. A geometria e os eventos do cursor antigo deixam de ser montados, em vez de ficarem apenas invisíveis.
+
+Verificação: `npm run test:sim-cursor` (8 verificações de integração do código) e `npm run test:sim-select-3d-ui` (17 verificações no browser, incluindo cena, cursor e seleção em RUN/PAUSA/STOP). O teste de browser usa um perfil isolado, bloqueia API, service workers e consulta de versão, e requer o Vite em execução.
+
 ## Importação de GRAFCET FluidSIM 4
 
 O editor GRAFCET aceita ficheiros `.ct` do FluidSIM 4, com leitura local de etapas, transições, ações contínuas/condicionadas e ligações. A confirmação mostra o resumo e os avisos antes de substituir o diagrama; a operação permite desfazer. Consulte [compatibilidade, limites e testes](docs/FLUIDSIM-IMPORT.md), incluindo referências a gráficos externos.

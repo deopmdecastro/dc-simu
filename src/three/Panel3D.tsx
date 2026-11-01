@@ -56,7 +56,6 @@ import { MOTOR_FAN, MOTOR_SIZE, motorCadToCentered } from './motorTerminalLayout
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
 import LeadPigtails3D from './LeadPigtails3D'
-import SimFinger3D from './SimFinger3D'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
@@ -3145,7 +3144,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        data-grid-drag={gridDragEnabled ? 'true' : 'false'}
        data-placing={placingText ? 'text' : placingType ? 'component' : 'none'}
        data-sim-locked={simLocked ? 'true' : 'false'}
-       data-sim-finger={canActuate && !demoMode ? 'true' : 'false'}
        data-operating={interactive ? 'true' : 'false'}
        data-component-editing={viewOrientationEditor ? 'true' : 'false'}
        aria-label="Visualização 3D do Esquema"
@@ -3278,8 +3276,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }}
       >
         <ModelsProgressReporter onChange={setModelsLoading} />
-        {/* Em RUN o cursor passa a ser um dedo 3D que prime os comandos. */}
-        <SimFinger3D active={canActuate && !demoMode} />
         <CameraProjectCapture camRef={cameraProjectRef} />
         <StudioEnvironment />
         <SoftwareRunInvalidator active={softwareGl && stageVisible && (runState === 'running' || burstActive)} />

@@ -3,17 +3,20 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 
-// Painel 3D em simulação (RUN): selecionar componentes e cabos continua possível; mover não (browser isolado, sem rede).
+// Painel 3D em simulação: selecionar componentes e cabos continua possível; mover não.
+// Sem dedo 3D nem cursor escondido em RUN/PAUSA/STOP (browser isolado, sem rede).
 const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.GRAFCET_TEST_OUTPUT
 if (output) await mkdir(output, { recursive: true })
 const browser = await chromium.launch(process.env.GRAFCET_TEST_EXECUTABLE
   ? { executablePath: process.env.GRAFCET_TEST_EXECUTABLE }
   : process.env.GRAFCET_TEST_CHANNEL ? { channel: process.env.GRAFCET_TEST_CHANNEL } : {})
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
-  return url.origin === new URL(baseURL).origin && !url.pathname.startsWith('/api/') ? route.continue() : route.abort()
+  // Sem consulta de versão: o index.html de reserva não pode provocar uma recarga a meio do teste.
+  const local = url.origin === new URL(baseURL).origin && !url.pathname.startsWith('/api/') && url.pathname !== '/version.json'
+  return local ? route.continue() : route.abort()
 })
 await context.addInitScript(() => {
   performance.setResourceTimingBufferSize(10000)
@@ -60,6 +63,24 @@ const screenOf = (matchSource) => page.evaluate(async (matchSource) => {
   }
   return null
 }, matchSource.toString())
+/** Verifica a cena real e o cursor efectivo, não apenas a ausência de código. */
+const checkSimulationSurface = async (label) => {
+  const canvas = page.locator('.panel3d-stage canvas').first()
+  const box = await canvas.boundingBox()
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.82)
+  await page.waitForTimeout(180)
+  const surface = await page.evaluate(async () => {
+    const panel = await (await fetch('/src/three/Panel3D.tsx')).text()
+    const { _roots } = await import(panel.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
+    let fingers = 0
+    for (const r of _roots.values()) r.store.getState().scene.traverse((node) => { if (node.name === 'sim-finger') fingers++ })
+    const canvas = document.querySelector('.panel3d-stage canvas')
+    return { fingers, cursor: getComputedStyle(canvas).cursor, inlineCursor: canvas.style.cursor, legacyAttribute: canvas.closest('.panel3d-stage').hasAttribute('data-sim-finger') }
+  })
+  check(surface.fingers === 0, `${label}: nenhum dedo/mão 3D montado na cena`)
+  check(surface.cursor !== 'none' && surface.inlineCursor !== 'none', `${label}: cursor normal visível (${surface.cursor})`)
+  check(!surface.legacyAttribute, `${label}: sem o atributo que escondia o cursor`)
+}
 try {
   await page.goto(baseURL + '/dashboard')
   await page.getByRole('button', { name: 'Novo projeto', exact: true }).click()
@@ -88,6 +109,7 @@ try {
   await store((s) => s.getState().play())
   await page.waitForTimeout(800)
   check(await store((s) => s.getState().sim.runState) === 'running', 'a simulação está em RUN')
+  await checkSimulationSurface('RUN')
 
   const wireAt = await screenOf((n) => !!n.userData?.wireHit && n.parent?.userData?.wireId === 'native-wire-3')
   if (!wireAt) throw new Error('cabo native-wire-3 não encontrado na cena')
@@ -131,9 +153,19 @@ try {
   const after = await store((s) => { const m = s.getState().components.find((c) => c.type === 'motor3ph'); return [m.schematicX, m.schematicY] })
   check(after[0] === before[0] && after[1] === before[1], 'em RUN, arrastar não move o componente (só seleção)')
   if (output) await page.screenshot({ path: path.join(output, 'sim-select-3d.png') })
+  await store((s) => s.getState().pause())
+  await page.waitForTimeout(250)
+  check(await store((s) => s.getState().sim.runState) === 'paused', 'a simulação passa a PAUSA')
+  await checkSimulationSurface('PAUSA')
   await store((s) => s.getState().stop())
+  await page.waitForTimeout(250)
+  check(await store((s) => s.getState().sim.runState) === 'stopped', 'a simulação passa a STOP')
+  await checkSimulationSurface('STOP')
   check(!errors.length, 'sem erros JavaScript: ' + errors.join(' | '))
-  console.log('\nseleção em simulação: OK')
+  console.log(`\n${checks} verificações OK — seleção e cursor em simulação`)
+} catch (error) {
+  if (output) await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true }).catch(() => {})
+  throw error
 } finally {
   await browser.close()
 }
