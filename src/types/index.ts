@@ -268,6 +268,8 @@ export interface ElectricalComponentBase {
   railId?: string
   /** Distância (mm) do início da calha ao bordo esquerdo do equipamento. */
   railOffsetMm?: number
+  /** Relé térmico encaixado por baixo deste contactor (id): pinos nos bornes 2T1/4T2/6T3, sem cabos. */
+  mountedOn?: string
   /** Canto superior-esquerdo no esquema 2D (unidades do canvas) */
   schematicX: number
   schematicY: number

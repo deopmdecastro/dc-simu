@@ -988,7 +988,8 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
     {/* Sem luz de ponto «energizado»: montar/desmontar luzes recompilava os shaders de toda a cena a cada
         comutação; o estado vê-se no rótulo, nos LEDs e na pose do aparelho. */}
-    <Label text={labelText ?? c.ref} position={[0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]} color={labelColor ?? (active ? '#4ade80' : '#e2e8f0')} />
+    {/* Relé encaixado por baixo do contactor: o nome vai para baixo (por cima ficava sobre o contactor). */}
+    <Label text={labelText ?? c.ref} position={c.mountedOn ? [0, spec.targetHeight * (centered ? -0.5 : 0) - 0.1, 0.22] : [0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]} color={labelColor ?? (active ? '#4ade80' : '#e2e8f0')} />
   </group>
 }
 

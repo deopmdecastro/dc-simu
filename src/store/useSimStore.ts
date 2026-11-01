@@ -66,6 +66,7 @@ import { canInsertComponent3D, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '.
 import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
+import { findMountTarget, isThermalRelay, syncMounted } from '../three/thermalMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, isIsometricMotorType, MOTOR_ISOMETRIC_ORIENTATION, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions, ZERO_COMPONENT_ORIENTATION } from '../three/componentOrientation'
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
@@ -1962,6 +1963,10 @@ export const useSimStore = create<Store>((set, get) => {
       for (const component of s.components) {
         if (component.railId && groupIds.has(component.railId)) groupIds.add(component.id)
       }
+      // O relé térmico encaixado acompanha o contactor (e o contactor que acompanha a calha).
+      for (const component of s.components) {
+        if (component.mountedOn && groupIds.has(component.mountedOn)) groupIds.add(component.id)
+      }
       const desiredDx = x - moved.schematicX
       const desiredDy = y - moved.schematicY
       let dx = desiredDx
@@ -2015,6 +2020,15 @@ export const useSimStore = create<Store>((set, get) => {
     let components = state.components
     for (const target of targets) {
       const current = components.find((c) => c.id === target.id)!
+      if (isThermalRelay(current)) {
+        const mount = findMountTarget(current, components)
+        if (mount) {
+          fixed++
+          components = components.map((c) => (c.id === current.id ? { ...c, schematicX: mount.schematicX, schematicY: mount.schematicY, mountedOn: mount.contactor.id, railId: undefined, railOffsetMm: undefined, panel3DPosition: undefined } : c))
+          continue
+        }
+        if (current.mountedOn) components = components.map((c) => (c.id === current.id ? { ...c, mountedOn: undefined } : c))
+      }
       const hit = rails.length ? snapToRail(current, rails, components) : null
       if (hit) fixed++
       const rail = hit ? rails.find((r) => r.id === hit.railId) : undefined
@@ -2026,7 +2040,8 @@ export const useSimStore = create<Store>((set, get) => {
         return { ...c, schematicX: hit.schematicX, schematicY: hit.schematicY, railId: hit.railId, railOffsetMm: hit.railOffsetMm, panel3DPosition: undefined, z }
       })
     }
-    set({ components, dirty: true })
+    // Contactores que mudaram de sítio levam os relés encaixados.
+    set({ components: syncMounted(components), dirty: true })
     return fixed
   },
 

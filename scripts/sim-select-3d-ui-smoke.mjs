@@ -89,8 +89,8 @@ try {
   await page.waitForTimeout(800)
   check(await store((s) => s.getState().sim.runState) === 'running', 'a simulação está em RUN')
 
-  const wireAt = await screenOf((n) => !!n.userData?.wireHit && n.parent?.userData?.wireId === 'native-wire-4')
-  if (!wireAt) throw new Error('cabo native-wire-4 não encontrado na cena')
+  const wireAt = await screenOf((n) => !!n.userData?.wireHit && n.parent?.userData?.wireId === 'native-wire-3')
+  if (!wireAt) throw new Error('cabo native-wire-3 não encontrado na cena')
   await page.mouse.click(wireAt.x, wireAt.y)
   await page.waitForTimeout(300)
   // Cabos sobrepostos: fica selecionado o que está à frente nesse ponto.

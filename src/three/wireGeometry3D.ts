@@ -886,13 +886,53 @@ function dropMicroSegments(points: V3[], junctionAtEnd = false): V3[] {
       const a = v(out[i]).sub(v(out[i - 1])), b = v(out[i + 1]).sub(v(out[i]))
       const la = a.length(), lb = b.length()
       if (la < 1e-9 || lb < 1e-9) continue
-      if (a.angleTo(b) > Math.PI / 2 && Math.min(la, lb) < 3 * U) { out.splice(i, 1); changed = true; i-- }
+      if (a.angleTo(b) > Math.PI / 2 && Math.min(la, lb) < 6 * U) { out.splice(i, 1); changed = true; i-- }
     }
   }
   return out.length === points.length && out.every((p, i) => p === points[i]) ? points : out
 }
 
 /** A parte do trajeto dentro do bucim é fixa e não pode ser alterada. */
+/**
+ * Junção troço exterior ↔ troço fixo do bucim: se o exterior passa além da entrada e volta para
+ * trás (bico acima de 90°), retira os últimos pontos exteriores até a viragem ficar suave.
+ */
+function smoothMotorJunction(points: V3[], motorRoute?: WirePath3D['motorRoute']): V3[] {
+  const n = motorRoute?.points.length ?? 0
+  if (!n || points.length < n + 2) return points
+  const out = motorRoute!.side === 'to' ? points.slice() : points.slice().reverse()
+  for (let guard = 0; guard < 6; guard++) {
+    const j = out.length - n
+    if (j < 2) break
+    const a = v(out[j]).sub(v(out[j - 1])), b = v(out[j + 1]).sub(v(out[j]))
+    if (a.length() < 1e-9 || b.length() < 1e-9 || a.angleTo(b) <= Math.PI / 2) break
+    out.splice(j - 1, 1)
+  }
+  if (out.length === points.length) return points
+  return motorRoute!.side === 'to' ? out : out.reverse()
+}
+
+/** Retira vértices em bico (viragem acima de 90°) do troço exterior; o troço fixo do bucim não muda. */
+function despikeOutsideMotor(points: V3[], motorRoute?: WirePath3D['motorRoute']): V3[] {
+  const n = motorRoute?.points.length ?? 0
+  const ordered = n && motorRoute!.side === 'from' ? points.slice().reverse() : points.slice()
+  const fixedFrom = n ? ordered.length - n : ordered.length - 1
+  let changed = false
+  for (let guard = 0; guard < 12; guard++) {
+    let removed = false
+    for (let i = 1; i < Math.min(fixedFrom + 1, ordered.length - 1); i++) {
+      if (i === fixedFrom && n) continue // o primeiro ponto do troço fixo fica
+      const a = v(ordered[i]).sub(v(ordered[i - 1])), b = v(ordered[i + 1]).sub(v(ordered[i]))
+      if (a.length() < 1e-9 || b.length() < 1e-9 || a.angleTo(b) <= Math.PI / 2) continue
+      ordered.splice(i, 1); removed = true; changed = true
+      break
+    }
+    if (!removed) break
+  }
+  if (!changed) return points
+  return n && motorRoute!.side === 'from' ? ordered.reverse() : ordered
+}
+
 function removeBacktracksOutsideMotor(points: V3[], motorRoute?: WirePath3D['motorRoute']): V3[] {
   if (!motorRoute?.points.length) return removeWireBacktracks(points)
   const n = motorRoute.points.length
@@ -1548,7 +1588,11 @@ export function buildAllWirePaths3D(
     // Cantos vivos que sobraram → arcos; se o arco tocar num aparelho, fica o traçado validado.
     const smooth = smoothOutsideMotor(finalPoints, item.entry.outerMm, item.motorRoute)
     const smoothSafe = smooth !== finalPoints && clearPathSolids(smooth, item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute) === smooth
-    result.set(item.entry.wire.id, { points: smoothSafe ? smooth : finalPoints, starts: item.starts, motorRoute: item.motorRoute })
+    const joined = smoothMotorJunction(smoothSafe ? smooth : finalPoints, item.motorRoute)
+    // Último passe: sem bicos no troço exterior, se continuar livre de sólidos.
+    const despiked = despikeOutsideMotor(joined, item.motorRoute)
+    const despikedSafe = despiked !== joined && clearPathSolids(despiked, item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute) === despiked
+    result.set(item.entry.wire.id, { points: despikedSafe ? despiked : joined, starts: item.starts, motorRoute: item.motorRoute })
   }
   return result
 }

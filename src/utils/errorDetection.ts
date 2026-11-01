@@ -2,11 +2,20 @@ import type { ElectricalComponent, Wire, SimulationDiagnostic, FaultState, Termi
 import { TEMPLATES } from '../electrical/factory'
 import { terminalClassesCompatible, terminalElectricalClassOf } from '../electrical/terminalClassification'
 import { computePhaseLabels, type PhaseTag } from '../electrical/phases'
+import { mountBridges, MOUNT_PASS_THROUGH } from '../three/thermalMount'
 
 const isSupport = (type: string) => /^dinRail|rail|busbar|barra|mountingPlate|cableDuct|calha/i.test(type)
 
 let counter = 0
 const id = () => `diag-${++counter}`
+
+/** Classe elétrica do borne; a passagem (A2) de um relé encaixado tem a do borne do contactor. */
+function mountedClassOf(component: ElectricalComponent, terminal: Terminal, components: ElectricalComponent[]) {
+  const pass = component.mountedOn ? MOUNT_PASS_THROUGH.find(([pin]) => pin === terminal.label) : undefined
+  const host = pass && components.find((c) => c.id === component.mountedOn)
+  const socket = host && host.terminals.find((t) => t.label === pass![1])
+  return host && socket ? terminalElectricalClassOf(host, socket) : terminalElectricalClassOf(component, terminal)
+}
 
 export function detectDiagnostics(
   components: ElectricalComponent[],
@@ -15,6 +24,9 @@ export function detectDiagnostics(
   faults?: FaultState,
 ): SimulationDiagnostic[] {
   const diags: SimulationDiagnostic[] = []
+  // Relé térmico encaixado no contactor: pinos e passagem A2 ligados por dentro (sem cabos).
+  const bridges = mountBridges(components)
+  const linked = bridges.length ? [...wires, ...bridges] : wires
 
   // 1. Contatores intertravados energizados ao mesmo tempo
   const contactors = components.filter((c) => c.type === 'contactor' || c.type === 'contactor4p')
@@ -118,6 +130,8 @@ export function detectDiagnostics(
       const b = components[j]
       // Calhas DIN e barras são suportes: os aparelhos ficam montados POR CIMA delas de propósito.
       if (isSupport(a.type) || isSupport(b.type)) continue
+      // Relé térmico encaixado por baixo do contactor: os pinos entram nos bornes de propósito.
+      if (a.mountedOn === b.id || b.mountedOn === a.id) continue
       const overlap =
         a.schematicX < b.schematicX + b.w &&
         a.schematicX + a.w > b.schematicX &&
@@ -159,7 +173,7 @@ export function detectDiagnostics(
   }
   const wireTouches = (w: Wire, terminalId: string) =>
     (!w.fromPoint && w.fromTerminalId === terminalId) || (!w.toPoint && w.toTerminalId === terminalId)
-  const isConnected = (terminalId: string) => wires.some((w) => wireTouches(w, terminalId))
+  const isConnected = (terminalId: string) => linked.some((w) => wireTouches(w, terminalId))
 
   // 13. Cabos soltos / ponta livre
   wires.forEach((w) => {
@@ -180,8 +194,8 @@ export function detectDiagnostics(
     const a = termIndex.get(w.fromTerminalId)
     const b = termIndex.get(w.toTerminalId)
     if (!a || !b) return
-    const ca = terminalElectricalClassOf(a.component, a.terminal)
-    const cb = terminalElectricalClassOf(b.component, b.terminal)
+    const ca = mountedClassOf(a.component, a.terminal, components)
+    const cb = mountedClassOf(b.component, b.terminal, components)
     if (!terminalClassesCompatible(ca, cb)) {
       diags.push({
         id: id(),
@@ -344,7 +358,7 @@ export function detectDiagnostics(
   })
 
   // 20. Fases invertidas / sequência incorrecta no motor trifásico
-  const phaseLabels = computePhaseLabels(components, wires)
+  const phaseLabels = computePhaseLabels(components, linked)
   const PHASE_ORDER: PhaseTag[] = ['L1', 'L2', 'L3']
   components.filter((c) => c.type === 'motor3ph').forEach((m) => {
     const u = m.terminals.find((t) => t.label === 'U1')

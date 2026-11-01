@@ -23,7 +23,8 @@ import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
-import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE } from './nativeMotorMeter'
+import { mountPosition } from '../three/thermalMount'
+import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE } from './nativeMotorMeter'
 import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE } from './nativeIec'
 import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { NATIVE_NC_SIM_FEATURE, withNativeNcSimInputs } from './nativeSimInputs'
@@ -31,8 +32,10 @@ import { grafcetExampleContent, grafcetExamples } from './grafcetExamples'
 
 /** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
 const NATIVE_PLC_ID = 'native-plc'
-/** Relé térmico F1 (Siemens 3RU1116) entre KM1 e o motor. */
+/** Relé térmico F1 (Siemens 3RU1116) encaixado por baixo do KM1. */
 export const NATIVE_F1_ID = 'native-f1'
+/** Cabos KM1 → F1 que o encaixe direto dispensa (os pinos do F1 entram nos bornes do KM1). */
+export const NATIVE_F1_MOUNT_WIRES = ['native-wire-4', 'native-wire-8', 'native-wire-12']
 const NATIVE_FC_GRAFCET_ID = 'native-fc-grafcet'
 const NATIVE_FC_OUTPUTS_ID = 'native-fc-outputs'
 const NATIVE_OB100_ID = 'native-ob100'
@@ -284,9 +287,11 @@ export function buildNativePartidaDireta(): Built {
   const qm = place('motorBreakerPkzmC10', 'native-qm1', 'QM1', 'Disjuntor-motor PKZM', -1.35, RAIL_Y)
   qm.state.closed = true
   const km = place('contactorWegCWC09', 'native-km1', 'KM1', 'Contactor KM1', -0.45, RAIL_Y)
-  // Relé térmico Siemens 3RU1116 (1,1–1,6 A, adequado ao DRN80 0,55 kW ≈ 1,4 A) a seguir ao KM1:
-  // potência KM1 → F1 → M1 e o 95-96 em série com a bobina do KM1 (o disparo corta o contactor).
-  const f1 = place('thermalRelaySiemens3ru1116', NATIVE_F1_ID, 'F1', 'Relé térmico 3RU1116', 0.07, RAIL_Y)
+  // Relé térmico Siemens 3RU1116 (1,1–1,6 A, adequado ao DRN80 0,55 kW ≈ 1,4 A) encaixado por baixo
+  // do KM1: os pinos 1L1/3L2/5L3 entram nos bornes 2T1/4T2/6T3 (sem cabos); F1 → M1 e o 95-96 em
+  // série com a bobina do KM1 (o disparo corta o contactor).
+  const f1 = place('thermalRelaySiemens3ru1116', NATIVE_F1_ID, 'F1', 'Relé térmico 3RU1116', -0.45, RAIL_Y - 0.8)
+  Object.assign(f1, mountPosition(f1, km) ?? {}, { mountedOn: km.id })
   // —— Grupo comando (à direita, separado da força) ——
   const control = place('breaker2p', 'native-q0', 'Q0', 'Proteção do comando', 0.55, RAIL_Y)
   const psu = place('powerSupplyProauto24A', 'native-psu', 'PS1', 'Fonte 24 V', 1.25, RAIL_Y)
@@ -376,7 +381,8 @@ export function buildNativePartidaDireta(): Built {
   add(red, 'X2', green, 'X2', 'blue')
   add(green, 'X2', psu, '-V2', 'blue')
   // Retorno da bobina: neutro do mesmo disjuntor que alimenta a fase do comando (Q0.4)
-  add(km, 'A2', control, '4', 'blue')
+  // Com o F1 encaixado, o A2 do KM1 fica tapado: liga-se pela passagem A2 do relé.
+  add(f1, 'A2', control, '4', 'blue')
   // Relé térmico: saídas para o motor e retorno do 95-96 para a bobina (acrescentados no fim).
   for (const [output, motorIn, color] of [['2T1', 'U1', 'black'], ['4T2', 'V1', 'brown'], ['6T3', 'W1', 'grey']] as const) add(f1, output, motor, motorIn, color, true)
   add(f1, '96', km, 'A1', 'orange')
@@ -394,6 +400,8 @@ export function buildNativePartidaDireta(): Built {
   ]
   const grafcet = buildNativeGrafcet()
   const wordProgram = buildNativeWordProgram(grafcet, baseTags)
+  // Encaixe direto: os cabos KM1 → F1 saem (os ids dos restantes mantêm-se).
+  wires = wires.filter((w) => !NATIVE_F1_MOUNT_WIRES.includes(w.id))
   wires = syncSharedTerminalFerrules(withMotorMeterFerrules(wires, leads))
   return {
     components,
@@ -417,7 +425,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_THERMAL_FEATURE],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

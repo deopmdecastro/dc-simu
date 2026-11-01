@@ -17,6 +17,7 @@
 
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
 import { importedBridges } from './importedComponents'
+import { mountTerminalPairs } from './mounts'
 
 export interface ContinuityResult {
   energizedTerminals: Set<string>
@@ -61,7 +62,13 @@ function t(c: ElectricalComponent, label: string) {
 }
 
 /** Pontes condutivas internas de um componente, dado o estado atual. */
+/** Ligações internas do aparelho e, se for um relé encaixado num contactor, as do encaixe. */
 export function internalBridges(c: ElectricalComponent): Array<[string, string]> {
+  const own = componentBridges(c)
+  return c.mountedOn ? [...own, ...mountTerminalPairs(c)] : own
+}
+
+function componentBridges(c: ElectricalComponent): Array<[string, string]> {
   const imported = importedBridges(c)
   if (imported) return imported
   const bridges: Array<[string, string]> = []

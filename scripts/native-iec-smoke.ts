@@ -84,7 +84,10 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
 {
   const seed = buildNativePartidaDireta()
   const ends = (from: string, to: string) => seed.wires.some((w) => w.fromTerminalId === from && w.toTerminalId === to)
-  check(['1L1', '3L2', '5L3'].every((t, i) => ends(`native-km1-${['2T1', '4T2', '6T3'][i]}`, `native-f1-${t}`)), '3D: KM1 2T1/4T2/6T3 → F1 1L1/3L2/5L3')
+  const f1 = seed.components.find((c) => c.id === 'native-f1')!
+  check(f1.mountedOn === 'native-km1' && !f1.railId, '3D: F1 encaixado por baixo do KM1 (fora da calha)')
+  check(!seed.wires.some((w) => w.fromTerminalId.startsWith('native-km1-') && w.toTerminalId.startsWith('native-f1-')), '3D: sem cabos KM1 → F1 (os pinos entram nos bornes 2T1/4T2/6T3)')
+  check(ends('native-f1-A2', 'native-q0-4'), '3D: retorno da bobina pela passagem A2 do F1')
   check(['U1', 'V1', 'W1'].every((t, i) => ends(`native-f1-${['2T1', '4T2', '6T3'][i]}`, `native-m1-${t}`)), '3D: F1 2T1/4T2/6T3 → motor U1/V1/W1')
   check(ends('native-plc-Q0.0·2', 'native-f1-95') && ends('native-f1-96', 'native-km1-A1'), '3D: Q0.0 → 95-96 do F1 → bobina KM1 (A1)')
 }
@@ -96,17 +99,30 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   const old = structuredClone(seedContent)
   old.nativeFeatures = old.nativeFeatures.filter((x: string) => x !== NATIVE_THERMAL_FEATURE)
   old.components = old.components.filter((c: any) => c.id !== 'native-f1')
+  old.nativeFeatures = old.nativeFeatures.filter((x: string) => !x.startsWith('thermal-relay'))
+  const template = old.wires.find((w: any) => w.id === 'native-wire-3')
+  const oldReturn = old.wires.find((w: any) => w.fromTerminalId === 'native-f1-A2')
+  oldReturn.fromTerminalId = 'native-km1-A2'
   old.wires = old.wires.filter((w: any) => !w.fromTerminalId.startsWith('native-f1-'))
-  const back: Record<string, string> = { 'native-f1-1L1': 'native-m1-U1', 'native-f1-3L2': 'native-m1-V1', 'native-f1-5L3': 'native-m1-W1', 'native-f1-95': 'native-km1-A1' }
-  for (const w of old.wires) if (back[w.toTerminalId]) w.toTerminalId = back[w.toTerminalId]
+  for (const w of old.wires) if (w.toTerminalId === 'native-f1-95') w.toTerminalId = 'native-km1-A1'
+  ;[['native-wire-4', '2T1', 'U1'], ['native-wire-8', '4T2', 'V1'], ['native-wire-12', '6T3', 'W1']].forEach(([id, km, m]) => old.wires.push({ ...structuredClone(template), id, fromTerminalId: `native-km1-${km}`, toTerminalId: `native-m1-${m}` }))
   const upgraded = addNativeThermalRelay(old)
-  check(upgraded.components.some((c: any) => c.id === 'native-f1') && upgraded.wires.length === seedContent.wires.length, 'projeto antigo intacto recebe o F1 e a cablagem nova')
+  check(upgraded.components.find((c: any) => c.id === 'native-f1')?.mountedOn === 'native-km1' && upgraded.wires.length === seedContent.wires.length, 'projeto antigo intacto recebe o F1 encaixado e a cablagem nova')
   check(upgraded.wires.every((w: any) => seedContent.wires.some((s: any) => s.id === w.id && s.fromTerminalId === w.fromTerminalId && s.toTerminalId === w.toTerminalId)), 'cablagem migrada igual à da semente')
   const touched = structuredClone(old)
-  touched.wires.find((w: any) => w.toTerminalId === 'native-km1-A1').toTerminalId = 'native-km1-A2'
+  touched.wires.find((w: any) => w.toTerminalId === 'native-km1-A1').toTerminalId = 'native-km1-14'
   const kept = addNativeThermalRelay(touched)
   check(!kept.components.some((c: any) => c.id === 'native-f1') && kept.nativeFeatures.includes(NATIVE_THERMAL_FEATURE), 'projeto com a cablagem alterada não é tocado (marca a migração como feita)')
   check(addNativeThermalRelay(upgraded) === upgraded, 'migração do F1 corre uma só vez')
+  // F1 na calha (versão anterior, com cabos KM1 → F1) passa a encaixado e os cabos saem.
+  const railed = structuredClone(seedContent)
+  railed.nativeFeatures = railed.nativeFeatures.filter((x: string) => x !== 'thermal-relay-mounted-v1')
+  const rf1 = railed.components.find((c: any) => c.id === 'native-f1'); delete rf1.mountedOn; rf1.railId = 'native-rail'
+  railed.wires.find((w: any) => w.fromTerminalId === 'native-f1-A2').fromTerminalId = 'native-km1-A2'
+  ;[['native-wire-4', '2T1', '1L1'], ['native-wire-8', '4T2', '3L2'], ['native-wire-12', '6T3', '5L3']].forEach(([id, km, f]) => railed.wires.push({ ...structuredClone(template), id, fromTerminalId: `native-km1-${km}`, toTerminalId: `native-f1-${f}` }))
+  const mounted = addNativeThermalRelay(railed)
+  check(mounted.components.find((c: any) => c.id === 'native-f1').mountedOn === 'native-km1' && !mounted.wires.some((w: any) => ['native-wire-4', 'native-wire-8', 'native-wire-12'].includes(w.id)), 'F1 na calha passa a encaixado no KM1 e os cabos KM1 → F1 saem')
+  check(mounted.wires.some((w: any) => w.fromTerminalId === 'native-f1-A2'), 'o retorno da bobina passa para a passagem A2 do F1')
 }
 
 // Esquema IEC v1 (entradas/saídas soltas) intacto passa ao v2; um esquema alterado mantém-se.

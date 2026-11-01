@@ -19,9 +19,11 @@ for (const w of motorFeeders) assert.equal(w.toEndType, 'ring')
 // Migração antiga dos olhais: projeto guardado antes do F1 (KM1 → motor nos cabos 4 e 8).
 const original = structuredClone(seed)
 original.nativeFeatures = original.nativeFeatures.filter((x: string) => x !== NATIVE_MOTOR_RING_FEATURE)
-const w4 = original.wires.find((w: Wire) => w.id === 'native-wire-4')
-const w8 = original.wires.find((w: Wire) => w.id === 'native-wire-8')
-w4.toTerminalId = 'native-m1-U1'; w8.toTerminalId = 'native-m1-V1'
+// (Com o F1 encaixado, a semente já não tem estes cabos: recriam-se como eram.)
+const template = original.wires.find((w: Wire) => w.id === 'native-wire-3')
+const w4 = { ...structuredClone(template), id: 'native-wire-4', fromTerminalId: 'native-km1-2T1', toTerminalId: 'native-m1-U1' }
+const w8 = { ...structuredClone(template), id: 'native-wire-8', fromTerminalId: 'native-km1-4T2', toTerminalId: 'native-m1-V1' }
+original.wires.push(w4, w8)
 w4.toEndType = 'ferruleDouble'; w8.toEndType = 'ferruleDouble'
 const migrated = upgradeNativeMotorRings(original)
 assert.equal(migrated.wires.find((w: Wire) => w.id === w4.id).toEndType, 'ring')
@@ -44,15 +46,15 @@ assert.equal(withMotorMeterFerrules([ring, lead], [lead])[0].toEndType, 'ring')
   assert.ok(seed.nativeFeatures.includes(NATIVE_WIRE_CURVES_FEATURE), 'projetos nativos novos já nascem com as curvas atuais')
   const old = structuredClone(seed)
   old.nativeFeatures = old.nativeFeatures.filter((x: string) => x !== NATIVE_WIRE_CURVES_FEATURE)
-  const bent = old.wires.find((w: Wire) => w.id === 'native-wire-4')
+  const bent = old.wires.find((w: Wire) => w.id === 'native-wire-3')
   bent.waypoints3D = [[1, 2, 3]]; bent.route = 'arc'
-  const moved = old.wires.find((w: Wire) => w.id === 'native-wire-8')
+  const moved = old.wires.find((w: Wire) => w.id === 'native-wire-7')
   moved.waypoints3D = [[4, 5, 6]]; moved.toTerminalId = 'personalizado'
   old.wires.push({ ...structuredClone(bent), id: 'meu-cabo', waypoints3D: [[7, 8, 9]] })
   const fresh = refreshNativeWireCurves(old)
   const after = (id: string) => fresh.wires.find((w: Wire) => w.id === id)
-  assert.ok(!after('native-wire-4').waypoints3D && after('native-wire-4').route === seed.wires.find((w: Wire) => w.id === 'native-wire-4').route, 'cabo nativo intacto perde as dobras 3D antigas e volta à curva de origem')
-  assert.deepEqual(after('native-wire-8').waypoints3D, [[4, 5, 6]], 'cabo com outra ponta (alterado pelo utilizador) mantém-se')
+  assert.ok(!after('native-wire-3').waypoints3D && after('native-wire-3').route === seed.wires.find((w: Wire) => w.id === 'native-wire-3').route, 'cabo nativo intacto perde as dobras 3D antigas e volta à curva de origem')
+  assert.deepEqual(after('native-wire-7').waypoints3D, [[4, 5, 6]], 'cabo com outra ponta (alterado pelo utilizador) mantém-se')
   assert.deepEqual(after('meu-cabo').waypoints3D, [[7, 8, 9]], 'cabos criados pelo utilizador não são tocados')
   assert.equal(refreshNativeWireCurves(fresh), fresh, 'refresh corre uma só vez')
   assert.deepEqual(bent.waypoints3D, [[1, 2, 3]], 'não altera o objeto de origem')
