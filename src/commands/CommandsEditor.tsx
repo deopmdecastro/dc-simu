@@ -4,6 +4,7 @@
 // barra de ferramentas partilham o estado em `useCommandsUi`; o esquema vive na store.
 // ============================================================================
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import type { CanvasText } from '../types'
 import { nanoid } from 'nanoid'
 import { useSimStore } from '../store/useSimStore'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
@@ -39,6 +40,7 @@ import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { COMMANDS_SHORTCUTS } from '../ui/shortcutLists'
 import { NOTE_COLORS } from '../ui/textStyle'
+import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
 import '../styles/commands.css'
 
 type View = { x: number; y: number; scale: number }
@@ -454,6 +456,57 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
     if (!text || text === label.text) return
     commit({ ...stored, texts: (stored.texts ?? []).map((q) => (q.id === label.id ? { ...q, text } : q)) })
   }
+  // —— Multi-seleção e grupos (Ctrl+G): símbolos, textos livres e títulos da página tratados por igual.
+  const selectionGroups = useSimStore((s) => s.selectionGroups)
+  /** Tudo o que está selecionado agora (símbolos, textos livres, títulos). */
+  const selectionNow = (): string[] => {
+    const ui = useCommandsUi.getState()
+    const single = selectedTextId && !ui.selectedTextIds.includes(selectedTextId) ? [selectedTextId] : []
+    return [...ui.selectedPartIds, ...ui.selectedTextIds, ...ui.selectedLabelIds, ...single]
+  }
+  /** Aplica uma seleção (ids mistos) repartindo-a por símbolos, textos livres e títulos. */
+  const applySelection = (ids: string[]) => {
+    const partSet = new Set(pageParts.map((p) => p.id)), textSet = new Set(freeTexts.map((t) => t.id)), labelSet = new Set(pageTexts.map((t) => t.id))
+    const sel = { parts: ids.filter((i) => partSet.has(i)), texts: ids.filter((i) => textSet.has(i)), labels: ids.filter((i) => labelSet.has(i)) }
+    useCommandsUi.getState().selectGroup(sel.parts, sel.texts, sel.labels)
+    setSelectedTextId(null)
+    return sel
+  }
+  const expandSel = (ids: string[]) => expandToGroups(selectionGroups, 'commands', ids)
+  /** Arrasto em conjunto a partir de qualquer elemento (símbolo, texto livre ou título). */
+  const startGroupMove = (event: ReactPointerEvent, anchor: Pt, sel: { parts: string[]; texts: string[]; labels: string[] }) => {
+    const p = toWorld(event.clientX, event.clientY)
+    gesture.current = {
+      kind: 'move', startX: event.clientX, startY: event.clientY,
+      partId: sel.parts[0], partIds: sel.parts, labelIds: sel.labels,
+      textOrigins: Object.fromEntries(freeTexts.filter((t) => sel.texts.includes(t.id)).map((t) => [t.id, { x: t.x, y: t.y }])),
+      origin: anchor, offset: { x: p.x - anchor.x, y: p.y - anchor.y },
+    }
+    ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
+  }
+  /**
+   * Clique num elemento: Ctrl/Shift liga/desliga-o (com o grupo); clique simples seleciona o grupo; se o
+   * elemento já está numa seleção de vários, mantém-na para arrastar tudo. Devolve a seleção a arrastar
+   * (null = só alternou com Ctrl/Shift).
+   */
+  const pickForDrag = (id: string, additive: boolean) => {
+    const current = selectionNow()
+    if (additive) { applySelection(toggleInSelection(selectionGroups, 'commands', current, id)); return null }
+    if (current.includes(id) && current.length > 1) return applySelection(current)
+    return applySelection(expandSel([id]))
+  }
+  /** Texto livre: Ctrl/Shift ou texto num grupo/multi-seleção → seleção e arrasto em conjunto. */
+  const onFreeTextGroupDown = (item: CanvasText, event: ReactPointerEvent<HTMLDivElement>): boolean => {
+    if (!editable || tool !== 'select' || placing || placingText || draft) return false
+    const additive = event.shiftKey || event.ctrlKey || event.metaKey
+    const current = selectionNow()
+    const inMulti = current.includes(item.id) && current.length > 1
+    const grouped = expandSel([item.id]).length > 1
+    if (!additive && !inMulti && !grouped) return false
+    const sel = pickForDrag(item.id, additive)
+    if (sel) startGroupMove(event, { x: item.x, y: item.y }, sel)
+    return true
+  }
   const onLabelDown = (label: CmdText, event: ReactPointerEvent) => {
     // Mão, colocar símbolo/texto ou cabo armado: o gesto é do fundo (mover a vista, colocar, ligar).
     if (event.button !== 0 || tool === 'pan' || placing || placingText || draft) return
@@ -461,6 +514,12 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
     const ui = useCommandsUi.getState()
     if (tool === 'erase' && editable) { ui.selectGroup([], [], [label.id]); removeSelectedGroup(); return }
     const additive = event.shiftKey || event.ctrlKey || event.metaKey
+    const current = selectionNow()
+    if (editable && tool === 'select' && (additive || (current.includes(label.id) && current.length > 1) || expandSel([label.id]).length > 1)) {
+      const sel = pickForDrag(label.id, additive)
+      if (sel) startGroupMove(event, { x: label.x, y: label.y }, sel)
+      return
+    }
     if (additive || !ui.selectedLabelIds.includes(label.id) || ui.selectedLabelIds.length > 1) ui.selectGroup([], [], [label.id], additive)
     const now = Date.now()
     const again = lastLabelTap.current.id === label.id && now - lastLabelTap.current.t < 350
@@ -486,34 +545,10 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
     if (tool === 'erase') { removeItem({ type: 'part', id: part.id }); select(null); return }
     if (placing) return
     const additive = event.shiftKey || event.ctrlKey || event.metaKey
-    const already = selectedPartIds.includes(part.id)
-    let ids = selectedPartIds
-    if (additive) {
-      selectParts([part.id], true)
-      ids = useCommandsUi.getState().selectedPartIds
-    } else if (!already) {
-      select({ type: 'part', id: part.id })
-      ids = [part.id]
-    } else {
-      // Clique num elemento já selecionado: mantém o grupo (símbolos e textos) para arrastar em conjunto.
-      ids = selectedPartIds.length ? selectedPartIds : [part.id]
-    }
-    const groupTexts = already && !additive ? useCommandsUi.getState().selectedTextIds : []
-    const groupLabels = already && !additive ? useCommandsUi.getState().selectedLabelIds : []
-    const textOrigins = Object.fromEntries(freeTexts.filter((t) => groupTexts.includes(t.id)).map((t) => [t.id, { x: t.x, y: t.y }]))
-    const p = toWorld(event.clientX, event.clientY)
-    gesture.current = {
-      kind: 'move',
-      startX: event.clientX,
-      startY: event.clientY,
-      partId: part.id,
-      partIds: ids,
-      labelIds: groupLabels,
-      textOrigins,
-      origin: { x: part.x, y: part.y },
-      offset: { x: p.x - part.x, y: p.y - part.y },
-    }
-    ;(event.currentTarget as Element).setPointerCapture?.(event.pointerId)
+    // Ctrl/Shift alterna o símbolo (e o seu grupo); clique simples seleciona o grupo ou mantém a seleção para arrastar tudo.
+    const sel = pickForDrag(part.id, additive)
+    if (!sel) return
+    startGroupMove(event, { x: part.x, y: part.y }, sel)
   }
   const onTagDown = (part: CmdPart, event: ReactPointerEvent<SVGTextElement>) => {
     // Noutras ferramentas e durante a simulação mantém-se o comportamento do símbolo.
@@ -553,13 +588,14 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       g.x1 = p.x; g.y1 = p.y
       setMarquee({ x0: g.x0, y0: g.y0, x1: p.x, y1: p.y })
     }
-    if (g.kind === 'move' && g.partId && g.offset && g.origin) {
+    if (g.kind === 'move' && g.offset && g.origin) {
       const x = snap(p.x - g.offset.x), y = snap(p.y - g.offset.y)
       const dx = x - g.origin.x, dy = y - g.origin.y
-      const ids = new Set(g.partIds?.length ? g.partIds : [g.partId])
+      const ids = new Set(g.partIds?.length ? g.partIds : g.partId ? [g.partId] : [])
       const labels = new Set(g.labelIds ?? [])
       for (const [id, o] of Object.entries(g.textOrigins ?? {})) useSimStore.getState().updateCanvasText(id, { x: o.x + dx, y: o.y + dy })
       if (dx !== 0 || dy !== 0) {
+        if (!g.moved && !ids.size && !labels.size) useSimStore.getState().commitHistory()
         g.moved = true
         setPreview({
           ...stored,
@@ -602,7 +638,11 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       const inside = (b: { x: number; y: number; w: number; h: number }) => b.x + b.w >= x0 && b.x <= x1 && b.y + b.h >= y0 && b.y <= y1
       const textHits = freeTexts.filter((t) => inside(freeTextBox(t))).map((t) => t.id)
       const labelHits = pageTexts.filter((t) => inside(labelBox(t))).map((t) => t.id)
-      if (hits.length || textHits.length || labelHits.length) useCommandsUi.getState().selectGroup(hits, textHits, labelHits, additive)
+      const found = expandSel([...hits, ...textHits, ...labelHits])
+      if (found.length) {
+        if (additive) applySelection([...new Set([...selectionNow(), ...found])])
+        else applySelection(found)
+      }
       else if (!additive) select(null)
       return
     }
@@ -649,6 +689,14 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
         if (!mod && (e.key === 'Enter' || e.key === 'F2')) { e.preventDefault(); setEditingTextId(selectedFreeText.id); return }
         const styleKey = e.key.toLowerCase() === 'b' ? 'bold' : e.key.toLowerCase() === 'i' ? 'italic' : e.key.toLowerCase() === 'u' ? 'underline' : null
         if (mod && styleKey) { e.preventDefault(); useSimStore.getState().updateCanvasText(selectedFreeText.id, { [styleKey]: !selectedFreeText[styleKey] }); return }
+      }
+      // Ctrl+G agrupa a seleção (símbolos, textos livres e títulos); Ctrl+Shift+G desagrupa.
+      if (mod && e.key.toLowerCase() === 'g' && editable) {
+        e.preventDefault()
+        const ids = selectionNow()
+        if (e.shiftKey) notify(useSimStore.getState().ungroupItems('commands', ids) ? 'Grupo desfeito' : 'A seleção não tem grupos')
+        else notify(useSimStore.getState().groupItems('commands', ids) ? `Agrupados ${expandSel(ids).length} elementos · Ctrl+Shift+G desagrupa` : 'Selecione pelo menos dois elementos para agrupar')
+        return
       }
       // Ctrl+A: todos os símbolos, textos livres e títulos da página.
       if (mod && e.key.toLowerCase() === 'a' && editable) {
@@ -962,6 +1010,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
             setEditingId={setEditingTextId}
             toWorld={toWorld}
             readOnly={!editable}
+            onGroupDown={onFreeTextGroupDown}
           />
           {selectedFreeText && editable && (
             <CommandsTextToolbar

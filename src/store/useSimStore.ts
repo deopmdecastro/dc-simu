@@ -3,6 +3,14 @@ import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
+import { groupIds, parseSelectionGroups, ungroupIds, type SelectionGroup, type SelectionGroupView } from '../ui/selectionGroups'
+
+/** Grupos antigos (Ctrl+G do Esquema 2D gravava `groupId` nos componentes) → grupos de seleção. */
+function legacyComponentGroups(components: Array<{ id: string; groupId?: string }>): SelectionGroup[] {
+  const byGroup = new Map<string, string[]>()
+  for (const c of components) if (c.groupId) byGroup.set(c.groupId, [...(byGroup.get(c.groupId) ?? []), c.id])
+  return [...byGroup].filter(([, members]) => members.length >= 2).map(([id, members]) => ({ id, view: 'schematic' as const, members }))
+}
 import { upgradeNativeMotorMeter, upgradeNativeMotorRings } from '../project/nativeMotorMeter'
 import { refreshNativeWireCurves } from '../project/nativeWireCurves'
 import { addNativeIecSchematic } from '../project/nativeIec'
@@ -103,6 +111,8 @@ export interface Snapshot {
   fcNames?: Partial<Record<'fc1' | 'fc2', string>>
   /** Textos livres dos canvas (IEC, 3D…): criar, apagar ou mover um texto também se desfaz. */
   canvasTexts?: CanvasText[]
+  /** Grupos de seleção dos editores (Ctrl+G / Ctrl+Shift+G). */
+  selectionGroups?: SelectionGroup[]
 }
 
 interface PlcScanRuntime {
@@ -146,6 +156,12 @@ interface Store extends CircuitState {
   updateCanvasText: (id: string, patch: Partial<CanvasText>) => void
   /** `history: false` quando o chamador já registou o passo de Desfazer (apagar em grupo). */
   removeCanvasText: (id: string, history?: boolean) => void
+  /** Grupos de seleção por vista (Esquema/3D, GRAFCET, IEC): clicar num membro seleciona o grupo. */
+  selectionGroups: SelectionGroup[]
+  /** Ctrl+G: agrupa os ids (≥ 2) da vista; devolve false se não havia o que agrupar. */
+  groupItems: (view: SelectionGroupView, ids: string[]) => boolean
+  /** Ctrl+Shift+G: desfaz os grupos de que algum id faz parte; devolve false se nenhum. */
+  ungroupItems: (view: SelectionGroupView, ids: string[]) => boolean
   /** Incrementa a cada varredura publicada (`pushRuntime`). Substitui as cópias
    *  por tick das listas `components`/`wires`: quem apresenta estado elétrico em
    *  tempo real (LEDs, bornes energizados, monitores) subscreve este escalar em
@@ -591,6 +607,7 @@ function snapshot(state: Store): Snapshot {
     projectFiles: state.projectFiles, hiddenProjectFolders: state.hiddenProjectFolders,
     projectFolderLabels: state.projectFolderLabels, fcNames: state.fcNames,
     canvasTexts: state.canvasTexts,
+    selectionGroups: state.selectionGroups,
   })) as Snapshot
 }
 
@@ -952,6 +969,21 @@ export const useSimStore = create<Store>((set, get) => {
     if (!get().canvasTexts.some((item) => item.id === id)) return
     if (history) get().commitHistory()
     set((s) => ({ canvasTexts: s.canvasTexts.filter((item) => item.id !== id), dirty: true }))
+  },
+  selectionGroups: [],
+  groupItems: (view, ids) => {
+    const next = groupIds(get().selectionGroups, view, ids, nanoid(8))
+    if (!next) return false
+    get().commitHistory()
+    set({ selectionGroups: next, dirty: true })
+    return true
+  },
+  ungroupItems: (view, ids) => {
+    const next = ungroupIds(get().selectionGroups, view, ids)
+    if (!next) return false
+    get().commitHistory()
+    set({ selectionGroups: next, dirty: true })
+    return true
   },
   runtime: EMPTY_RUNTIME(),
   showEmptyWelcome: true,
@@ -2200,22 +2232,11 @@ export const useSimStore = create<Store>((set, get) => {
   },
 
   /** Ctrl+G: junta os componentes selecionados num grupo. */
-  groupSelection: () => {
-    const { selectedComponentIds } = get()
-    if (selectedComponentIds.length < 2) return
-    get().commitHistory()
-    const groupId = `g_${Math.random().toString(36).slice(2, 10)}`
-    set((s) => ({ components: s.components.map((item) => (selectedComponentIds.includes(item.id) ? { ...item, groupId } : item)), dirty: true }))
-  },
+  // Mesmo mecanismo dos outros editores (grupos de seleção da vista «schematic», partilhada com o 3D).
+  groupSelection: () => { get().groupItems('schematic', get().selectedComponentIds) },
 
   /** Ctrl+Shift+G: desfaz o grupo dos componentes selecionados. */
-  ungroupSelection: () => {
-    const { selectedComponentIds, components } = get()
-    const groups = new Set(components.filter((item) => selectedComponentIds.includes(item.id) && item.groupId).map((item) => item.groupId))
-    if (!groups.size) return
-    get().commitHistory()
-    set((s) => ({ components: s.components.map((item) => (item.groupId && groups.has(item.groupId) ? { ...item, groupId: undefined } : item)), dirty: true }))
-  },
+  ungroupSelection: () => { get().ungroupItems('schematic', get().selectedComponentIds) },
 
   selectWire: (id) => {
     if (id && isSimEditLocked(get())) return
@@ -2655,6 +2676,7 @@ export const useSimStore = create<Store>((set, get) => {
       projectFolderLabels: prev.projectFolderLabels ?? s.projectFolderLabels,
       fcNames: prev.fcNames ?? s.fcNames,
       canvasTexts: prev.canvasTexts ?? s.canvasTexts,
+      selectionGroups: prev.selectionGroups ?? s.selectionGroups,
       history: s.history.slice(0, -1),
       future: [...s.future, snapshot(s)],
       dirty: true,
@@ -2682,6 +2704,7 @@ export const useSimStore = create<Store>((set, get) => {
       projectFolderLabels: next.projectFolderLabels ?? s.projectFolderLabels,
       fcNames: next.fcNames ?? s.fcNames,
       canvasTexts: next.canvasTexts ?? s.canvasTexts,
+      selectionGroups: next.selectionGroups ?? s.selectionGroups,
       future: s.future.slice(0, -1),
       history: [...s.history, snapshot(s)],
       dirty: true,
@@ -2876,6 +2899,7 @@ export const useSimStore = create<Store>((set, get) => {
         activeScenario: s.activeScenario,
         canvasNotes: s.canvasNotes,
         canvasTexts: s.canvasTexts,
+        selectionGroups: s.selectionGroups,
       },
       null,
       2,
@@ -2949,6 +2973,7 @@ export const useSimStore = create<Store>((set, get) => {
         activeSheetId: typeof parsed.activeSheetId === 'string' ? parsed.activeSheetId : 'sheet-1',
         canvasNotes: Array.isArray(parsed.canvasNotes) ? parsed.canvasNotes.filter((note: CanvasNote) => note && typeof note.id === 'string' && typeof note.text === 'string') : [],
         canvasTexts: Array.isArray(parsed.canvasTexts) ? parsed.canvasTexts.filter((item: CanvasText) => item && typeof item.id === 'string' && typeof item.text === 'string' && Number.isFinite(item.x) && Number.isFinite(item.y)) : [],
+        selectionGroups: parseSelectionGroups(parsed.selectionGroups).length ? parseSelectionGroups(parsed.selectionGroups) : legacyComponentGroups(sourceComponents),
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: EDITOR_THEME.background } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
@@ -2977,6 +3002,7 @@ export const useSimStore = create<Store>((set, get) => {
       activeSheetId: 'sheet-1',
       canvasNotes: [],
       canvasTexts: [],
+      selectionGroups: [],
       components: [],
       wires: [],
       showEmptyWelcome: true,

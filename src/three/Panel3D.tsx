@@ -26,7 +26,8 @@ import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoS
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
-import CanvasAnnotations3D from './CanvasAnnotations3D'
+import CanvasAnnotations3D, { type TextGroupHandlers } from './CanvasAnnotations3D'
+import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
 import PanelCanvasScrollbars, { type PanelScrollBridge } from './PanelCanvasScrollbars'
 import { cameraScrollMetrics, panCameraToScroll, type CameraScrollBounds } from './cameraScroll'
 import NeonCurrent3D from './NeonCurrent3D'
@@ -2622,6 +2623,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   /* Anotações: comentário em nota (abre já para escrever, sem caixa do sistema) e texto livre (clicar para colocar). */
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
+  /** Textos livres na seleção múltipla (com os componentes): Ctrl/Shift+clique, retângulo, Ctrl+A e grupos. */
+  const [groupTextIds, setGroupTextIds] = useState<string[]>([])
+  const [groupTextOffset, setGroupTextOffset] = useState<{ dx: number; dy: number } | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [placingText, setPlacingText] = useState(false)
   useEffect(() => {
@@ -2646,10 +2650,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const selectedText = canvasTexts.find((item) => item.id === selectedTextId) ?? null
   useEffect(() => {
-    if (!placingText && !selectedTextId) return
+    if (!placingText && !selectedTextId && !groupTextIds.length) return
     const onKey = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"],[role="scrollbar"]')) return
-      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setPlacingText(false); setSelectedTextId(null); return }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setPlacingText(false); setSelectedTextId(null); setGroupTextIds([]); useSimStore.getState().selectComponents([]); return }
+      if (groupTextIds.length && (event.key === 'Delete' || event.key === 'Backspace')) {
+        event.preventDefault(); event.stopImmediatePropagation()
+        deleteMixedSelection()
+        return
+      }
       if (selectedTextId && (event.key === 'Delete' || event.key === 'Backspace')) {
         event.preventDefault(); event.stopImmediatePropagation()
         removeCanvasText(selectedTextId); setSelectedTextId(null)
@@ -2664,7 +2673,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [placingText, selectedTextId, removeCanvasText, updateCanvasText])
+  }, [placingText, selectedTextId, groupTextIds, removeCanvasText, updateCanvasText])
   const cycleBackground = () => setBackgroundMode((current) => {
     const next = current === 'technical' ? 'white' : current === 'white' ? 'dark' : 'technical'
     try { localStorage.setItem('dc-simu:panel3d:background', next) } catch {}
@@ -2853,6 +2862,74 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   sceneCenterRef.current = sceneCenter
 
   // --- Edição direta no 3D: traduz X/Y do painel para o Esquema (com imã de calha) ---
+  // —— Seleção mista (componentes + textos livres) e grupos de seleção (Ctrl+G), iguais no 2D frontal e no 3D.
+  const selectionGroups = useSimStore((state) => state.selectionGroups)
+  const viewTextIds = () => new Set(useSimStore.getState().canvasTexts.filter((t) => t.view === annotationView).map((t) => t.id))
+  const mixedSelection = (): string[] => {
+    const comps = useSimStore.getState().selectedComponentIds
+    return [...comps, ...groupTextIds, ...(selectedTextId && !groupTextIds.includes(selectedTextId) ? [selectedTextId] : [])]
+  }
+  const applyMixedSelection = (ids: string[]) => {
+    const store = useSimStore.getState()
+    const compIds = new Set(store.components.map((c) => c.id))
+    const texts = viewTextIds()
+    store.selectComponents(ids.filter((id) => compIds.has(id) && !store.components.find((c) => c.id === id)?.locked))
+    const textIds = ids.filter((id) => texts.has(id))
+    setGroupTextIds(textIds.length + ids.filter((id) => compIds.has(id)).length >= 2 ? textIds : [])
+    setSelectedTextId(textIds.length === 1 && ids.length === 1 ? textIds[0] : null)
+  }
+  const expandSel = (ids: string[]) => expandToGroups(selectionGroups, 'schematic', ids)
+  const deleteMixedSelection = () => {
+    const store = useSimStore.getState()
+    const comps = store.selectedComponentIds.filter((id) => !store.components.find((item) => item.id === id)?.locked)
+    const texts = [...groupTextIds, ...(selectedTextId ? [selectedTextId] : [])]
+    if (comps.length) store.deleteComponents(comps)
+    texts.forEach((id, i) => store.removeCanvasText(id, i === 0 && !comps.length))
+    setGroupTextIds([]); setSelectedTextId(null)
+  }
+  /** Arrasto em conjunto (componentes + textos) com um deslocamento no plano do painel. */
+  const groupDragLast = useRef<{ dx: number; dy: number } | null>(null)
+  const groupDrag = useRef<{ comps: Record<string, { x: number; y: number }>; texts: Record<string, { x: number; y: number }> } | null>(null)
+  const beginGroupDrag = (compIds: string[], textIds: string[]) => {
+    const store = useSimStore.getState()
+    const comps: Record<string, { x: number; y: number }> = {}
+    for (const id of compIds) { beginPanelDrag(id); const pivot = panelPivots[id]; if (pivot) comps[id] = { x: pivot.x, y: pivot.y } }
+    if (!compIds.length) store.commitHistory()
+    const texts: Record<string, { x: number; y: number }> = {}
+    for (const t of store.canvasTexts) if (textIds.includes(t.id)) texts[t.id] = { x: t.x, y: t.y }
+    groupDrag.current = { comps, texts }
+  }
+  const moveGroupDrag = (dx: number, dy: number) => {
+    const g = groupDrag.current
+    if (!g) return
+    for (const [id, o] of Object.entries(g.comps)) dragPanelTo(id, { x: o.x + dx, y: o.y + dy })
+    setGroupTextOffset(Object.keys(g.texts).length ? { dx, dy } : null)
+  }
+  const endGroupDrag = (moved: boolean, dx: number, dy: number) => {
+    const g = groupDrag.current
+    groupDrag.current = null
+    setGroupTextOffset(null)
+    if (!g) return
+    for (const id of Object.keys(g.comps)) endPanelDrag(id)
+    if (moved) for (const [id, o] of Object.entries(g.texts)) useSimStore.getState().updateCanvasText(id, { x: o.x + dx, y: o.y + dy })
+  }
+  const textGroup: TextGroupHandlers = {
+    ids: groupTextIds,
+    offset: groupTextOffset,
+    onDown: (item, event) => {
+      if (demoMode || simLocked || tool !== 'select') return 'none'
+      if (event.ctrlKey || event.metaKey || event.shiftKey) { applyMixedSelection(toggleInSelection(selectionGroups, 'schematic', mixedSelection(), item.id)); return 'handled' }
+      const current = mixedSelection()
+      const members = current.includes(item.id) && current.length > 1 ? current : expandSel([item.id])
+      if (members.length < 2) return 'none'
+      applyMixedSelection(members)
+      const compIds = new Set(useSimStore.getState().components.map((c) => c.id))
+      beginGroupDrag(members.filter((id) => compIds.has(id)), members.filter((id) => !compIds.has(id)))
+      return 'drag'
+    },
+    onMove: moveGroupDrag,
+    onEnd: endGroupDrag,
+  }
   const beginPanelDrag = (id: string) => {
     const store = useSimStore.getState()
     store.commitHistory()
@@ -2925,37 +3002,35 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         if (tool === 'erase') { removePanelComponent(component.id); return }
         if (tool !== 'select') return
         if (demoMode) return
-        // Ctrl/Shift + clique: seleção múltipla, como no esquema 2D e no Admin.
-        const current = useSimStore.getState().selectedComponentIds
-        if (additive && current.includes(component.id)) selectComponents(current.filter((id) => id !== component.id))
-        else selectComponents([component.id], additive)
+        // Ctrl/Shift + clique: liga/desliga o componente (e o seu grupo) na seleção, que pode ter textos livres.
+        if (additive) { applyMixedSelection(toggleInSelection(selectionGroups, 'schematic', mixedSelection(), component.id)); return }
+        // Clique simples: seleciona o grupo (Ctrl+G) ou mantém a multi-seleção de que o componente faz parte.
+        const current = mixedSelection()
+        if (current.includes(component.id) && current.length > 1) return
+        applyMixedSelection(expandSel([component.id]))
       }}
       onMove={(position) => movePanelComponent(component, position)}
       onDragStart={() => {
-        const ids = selectedIds.includes(component.id) && selectedIds.length > 1 ? selectedIds : [component.id]
-        multiDragOrigins.current = {}
-        for (const id of ids) {
-          beginPanelDrag(id)
-          const pivot = panelPivots[id]
-          if (pivot) multiDragOrigins.current[id] = { x: pivot.x, y: pivot.y }
-        }
+        // O grupo do componente (Ctrl+G) ou a multi-seleção de que faz parte move-se inteiro, com os textos.
+        const current = mixedSelection()
+        const members = current.includes(component.id) && current.length > 1 ? current : expandSel([component.id])
+        if (members.length > 1 && !(current.includes(component.id) && current.length > 1)) applyMixedSelection(members)
+        const compIds = new Set(useSimStore.getState().components.map((c) => c.id))
+        const comps = members.filter((id) => compIds.has(id) && !useSimStore.getState().components.find((c) => c.id === id)?.locked)
+        beginGroupDrag(comps.length ? comps : [component.id], members.filter((id) => !compIds.has(id)))
+        const pivot = panelPivots[component.id]
+        multiDragOrigins.current = pivot ? { [component.id]: { x: pivot.x, y: pivot.y } } : {}
       }}
       onDragTo={(point) => {
         const origin = multiDragOrigins.current[component.id]
-        const ids = Object.keys(multiDragOrigins.current)
-        if (!origin || ids.length <= 1) {
-          dragPanelTo(component.id, point)
-          return
-        }
-        const dx = point.x - origin.x
-        const dy = point.y - origin.y
-        for (const id of ids) {
-          const o = multiDragOrigins.current[id]
-          if (o) dragPanelTo(id, { x: o.x + dx, y: o.y + dy })
-        }
+        if (!origin) { dragPanelTo(component.id, point); return }
+        moveGroupDrag(point.x - origin.x, point.y - origin.y)
+        groupDragLast.current = { dx: point.x - origin.x, dy: point.y - origin.y }
       }}
       onDragEnd={() => {
-        for (const id of Object.keys(multiDragOrigins.current)) endPanelDrag(id)
+        const last = groupDragLast.current
+        groupDragLast.current = null
+        endGroupDrag(!!last, last?.dx ?? 0, last?.dy ?? 0)
         multiDragOrigins.current = {}
       }}
       onTerminalPick={pickConnectionTerminal}
@@ -3244,13 +3319,24 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     remove: () => {
       const store = useSimStore.getState()
       if (store.selectedWireId) { store.deleteWire(store.selectedWireId); return }
-      const unlocked = store.selectedComponentIds.filter((id) => !store.components.find((item) => item.id === id)?.locked)
-      if (unlocked.length) store.deleteComponents(unlocked)
-      if (unlocked.length < store.selectedComponentIds.length) store.pushEvent('warning', 'Os componentes bloqueados foram mantidos.')
+      const locked = store.selectedComponentIds.some((id) => store.components.find((item) => item.id === id)?.locked)
+      deleteMixedSelection()
+      if (locked) store.pushEvent('warning', 'Os componentes bloqueados foram mantidos.')
+    },
+    selectAll: () => {
+      const store = useSimStore.getState()
+      applyMixedSelection([...store.components.filter((c) => !c.locked).map((c) => c.id), ...store.canvasTexts.filter((t) => t.view === annotationView).map((t) => t.id)])
     },
     duplicate: () => { const ids = useSimStore.getState().selectedComponentIds; if (ids.length) useSimStore.getState().duplicateComponents(ids) },
-    group: () => useSimStore.getState().groupSelection(),
-    ungroup: () => useSimStore.getState().ungroupSelection(),
+    group: () => {
+      const ids = mixedSelection()
+      const store = useSimStore.getState()
+      store.pushEvent('info', store.groupItems('schematic', ids) ? `Agrupados ${expandSel(ids).length} elementos · Ctrl+Shift+G desagrupa` : 'Selecione pelo menos dois elementos para agrupar')
+    },
+    ungroup: () => {
+      const store = useSimStore.getState()
+      store.pushEvent('info', store.ungroupItems('schematic', mixedSelection()) ? 'Grupo desfeito' : 'A seleção não tem grupos')
+    },
     copy: () => useSimStore.getState().copySelection(),
     paste: () => useSimStore.getState().pasteClipboard(),
     help: () => setShortcutHelpOpen((open) => !open),
@@ -3319,8 +3405,17 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
            const sy = rect.top + (-v.y * 0.5 + 0.5) * rect.height
            if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) hits.push(component.id)
          }
-         if (hits.length) selectComponents(hits, drag.additive)
-         else if (!drag.additive) selectComponents([])
+         for (const t of useSimStore.getState().canvasTexts) {
+           if (t.view !== annotationView) continue
+           const v = new THREE.Vector3(t.x, t.y, t.z ?? textPlaneZ).project(cam)
+           if (v.z < -1 || v.z > 1) continue
+           const sx = rect.left + (v.x * 0.5 + 0.5) * rect.width
+           const sy = rect.top + (-v.y * 0.5 + 0.5) * rect.height
+           if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) hits.push(t.id)
+         }
+         const found = expandSel(hits)
+         if (found.length) applyMixedSelection(drag.additive ? [...new Set([...mixedSelection(), ...found])] : found)
+         else if (!drag.additive) applyMixedSelection([])
        }}
      >
       {marquee3d && (
@@ -3428,7 +3523,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           openNoteId={openNoteId} setOpenNoteId={setOpenNoteId}
           selectedTextId={selectedTextId} setSelectedTextId={setSelectedTextId}
           editingTextId={editingTextId} setEditingTextId={setEditingTextId}
-          placingText={placingText} onPlaceText={placeText} />
+          placingText={placingText} onPlaceText={placeText} group={textGroup} />
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode

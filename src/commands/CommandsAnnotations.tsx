@@ -85,7 +85,7 @@ export function CommandsNotesLayer({
  * arrasto com ajuste à grelha (Alt = livre), duplo clique/duplo toque edita no próprio sítio (a caixa cresce com o
  * texto), Esc ou Ctrl+Enter confirmam e um texto vazio é apagado.
  */
-function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, onSelect, onEdit }: {
+function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, onSelect, onEdit, onGroupDown }: {
   item: CanvasText
   scale: number
   selected: boolean
@@ -94,6 +94,8 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
   toWorld: (clientX: number, clientY: number) => { x: number; y: number }
   onSelect: () => void
   onEdit: (editing: boolean) => void
+  /** Ctrl/Shift+clique ou texto de um grupo/multi-seleção: o editor trata (seleção e arrasto em conjunto). */
+  onGroupDown?: (item: CanvasText, event: React.PointerEvent<HTMLDivElement>) => boolean
 }) {
   const [draft, setDraft] = useState(item.text)
   const editorRef = useRef<HTMLTextAreaElement>(null)
@@ -127,6 +129,7 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
   const down = (event: React.PointerEvent<HTMLDivElement>) => {
     if (readOnly || editing || event.button !== 0) return
     event.stopPropagation()
+    if (onGroupDown?.(item, event)) return
     onSelect()
     const start = toWorld(event.clientX, event.clientY)
     drag.current = { dx: item.x - start.x, dy: item.y - start.y, sx: event.clientX, sy: event.clientY, moved: false }
@@ -202,6 +205,7 @@ export function CommandsTextsLayer({
   setEditingId,
   toWorld,
   readOnly,
+  onGroupDown,
 }: {
   texts: CanvasText[]
   viewX: number
@@ -215,6 +219,7 @@ export function CommandsTextsLayer({
   setEditingId: (id: string | null) => void
   toWorld: (clientX: number, clientY: number) => { x: number; y: number }
   readOnly: boolean
+  onGroupDown?: (item: CanvasText, event: React.PointerEvent<HTMLDivElement>) => boolean
 }) {
   if (!texts.length) return null
   return (
@@ -230,6 +235,7 @@ export function CommandsTextsLayer({
             toWorld={toWorld}
             onSelect={() => { setSelectedId(item.id); useCommandsUi.getState().select({ type: 'text', id: item.id }) }}
             onEdit={(on) => setEditingId(on ? item.id : null)}
+            onGroupDown={onGroupDown}
           />
         </div>
       ))}

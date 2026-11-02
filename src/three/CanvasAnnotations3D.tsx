@@ -70,6 +70,18 @@ function useDragOnPlane() {
 
 /* ----------------------------------------------------------- textos livres */
 
+/** Seleção múltipla e grupos (Ctrl+G) dos textos com os componentes, tratados pelo Panel3D. */
+export interface TextGroupHandlers {
+  /** Textos na multi-seleção (destaque). */
+  ids: string[]
+  /** Deslocamento ao vivo do grupo durante um arrasto (unidades do painel). */
+  offset: { dx: number; dy: number } | null
+  /** Clique: 'none' = comportamento normal; 'handled' = só seleção (Ctrl/Shift); 'drag' = arrastar o grupo. */
+  onDown: (item: CanvasText, event: ReactPointerEvent) => 'none' | 'handled' | 'drag'
+  onMove: (dx: number, dy: number) => void
+  onEnd: (moved: boolean, dx: number, dy: number) => void
+}
+
 function FreeText({ item, selected, editing, readOnly, onSelect, onEdit, onDragStart }: {
   item: CanvasText
   selected: boolean
@@ -106,7 +118,7 @@ function FreeText({ item, selected, editing, readOnly, onSelect, onEdit, onDragS
     contentEditable={editing}
     suppressContentEditableWarning
     spellCheck={editing}
-    onPointerDown={readOnly || editing ? (event) => event.stopPropagation() : (event) => { onSelect(); onDragStart(event) }}
+    onPointerDown={readOnly || editing ? (event) => event.stopPropagation() : (event) => { if (!(event.ctrlKey || event.metaKey || event.shiftKey)) onSelect(); onDragStart(event) }}
     onDoubleClick={readOnly ? undefined : (event) => { event.stopPropagation(); onEdit(true) }}
     onBlur={editing ? commit : undefined}
     onKeyDown={editing ? (event) => { event.stopPropagation(); if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) { event.preventDefault(); (event.currentTarget as HTMLDivElement).blur() } } : undefined}
@@ -116,7 +128,7 @@ function FreeText({ item, selected, editing, readOnly, onSelect, onEdit, onDragS
 
 /* ------------------------------------------------------------------ camada */
 
-export default function CanvasAnnotations3D({ view, readOnly, openNoteId, setOpenNoteId, selectedTextId, setSelectedTextId, editingTextId, setEditingTextId, placingText, onPlaceText, placeZ }: {
+export default function CanvasAnnotations3D({ view, readOnly, openNoteId, setOpenNoteId, selectedTextId, setSelectedTextId, editingTextId, setEditingTextId, placingText, onPlaceText, placeZ, group }: {
   view: CanvasNoteView
   readOnly: boolean
   openNoteId: string | null
@@ -128,6 +140,7 @@ export default function CanvasAnnotations3D({ view, readOnly, openNoteId, setOpe
   placingText: boolean
   onPlaceText: (point: V3) => void
   placeZ: number
+  group?: TextGroupHandlers
 }) {
   const notes = useSimStore((s) => s.canvasNotes)
   const texts = useSimStore((s) => s.canvasTexts)
@@ -153,15 +166,27 @@ export default function CanvasAnnotations3D({ view, readOnly, openNoteId, setOpe
     </mesh>}
 
     {texts.filter((item) => item.view === view).map((item) => {
-      const position = at(item.id, item.x, item.y, item.z ?? placeZ)
+      const inGroup = !!group?.ids.includes(item.id)
+      const base = at(item.id, item.x, item.y, item.z ?? placeZ)
+      const position: V3 = inGroup && group?.offset ? [base[0] + group.offset.dx, base[1] + group.offset.dy, base[2]] : base
       return <Html key={item.id} position={position} transform distanceFactor={TEXT_DISTANCE_FACTOR} zIndexRange={[24, 12]}>
-        <FreeText item={item} readOnly={readOnly} selected={selectedTextId === item.id} editing={editingTextId === item.id}
+        <FreeText item={item} readOnly={readOnly} selected={selectedTextId === item.id || inGroup} editing={editingTextId === item.id}
           onSelect={() => setSelectedTextId(item.id)}
           onEdit={(editing) => setEditingTextId(editing ? item.id : null)}
-          onDragStart={(event) => dragOnPlane(event, position, (point) => setLive({ id: item.id, point }), (point, moved) => {
-            setLive(null)
-            if (moved) updateText(item.id, { x: point[0], y: point[1], z: point[2] })
-          })} />
+          onDragStart={(event) => {
+            // Ctrl/Shift ou texto de um grupo/multi-seleção: o Panel3D seleciona e arrasta tudo de uma vez.
+            const mode = group?.onDown(item, event) ?? 'none'
+            if (mode === 'handled') { event.stopPropagation(); return }
+            if (mode === 'drag') {
+              const origin: V3 = [item.x, item.y, item.z ?? placeZ]
+              dragOnPlane(event, origin, (point) => group!.onMove(point[0] - origin[0], point[1] - origin[1]), (point, moved) => group!.onEnd(moved, point[0] - origin[0], point[1] - origin[1]))
+              return
+            }
+            dragOnPlane(event, position, (point) => setLive({ id: item.id, point }), (point, moved) => {
+              setLive(null)
+              if (moved) updateText(item.id, { x: point[0], y: point[1], z: point[2] })
+            })
+          }} />
       </Html>
     })}
 

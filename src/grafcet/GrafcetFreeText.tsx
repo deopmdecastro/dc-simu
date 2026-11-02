@@ -19,7 +19,7 @@ export function freeTextBox(comment: GrafcetComment) {
  * Texto livre do GRAFCET: arrasta-se com a ferramenta Selecionar, duplo clique edita
  * no próprio desenho (sem caixa do sistema) e a barra de formatação muda o estilo.
  */
-export default function GrafcetFreeText({ comment, selected, editing, interactive, toWorld, snap, onSelect, onEdit, onMove, onText, onContextMenu }: {
+export default function GrafcetFreeText({ comment, selected, editing, interactive, toWorld, snap, onSelect, onEdit, onMove, onText, onContextMenu, onGroupDown }: {
   comment: GrafcetComment
   selected: boolean
   editing: boolean
@@ -31,6 +31,8 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   onMove: (x: number, y: number) => void
   onText: (text: string) => void
   onContextMenu: (event: React.MouseEvent) => void
+  /** Ctrl/Shift+clique ou texto de um grupo/multi-seleção: o editor trata (seleção e arrasto em conjunto). */
+  onGroupDown?: (comment: GrafcetComment, event: ReactPointerEvent<SVGGElement>) => boolean
 }) {
   const [live, setLive] = useState<{ x: number; y: number } | null>(null)
   const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null)
@@ -48,6 +50,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   const down = (event: ReactPointerEvent<SVGGElement>) => {
     if (!interactive || editing || event.button !== 0) return
     event.stopPropagation()
+    if (onGroupDown?.(comment, event)) return
     onSelect()
     const point = toWorld(event.clientX, event.clientY)
     drag.current = { dx: comment.x - point.x, dy: comment.y - point.y, sx: event.clientX, sy: event.clientY, moved: false }

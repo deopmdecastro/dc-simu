@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerE
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { uiChoose, uiConfirm } from '../ui/dialogs'
+import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { allowedViews } from '../project/kind'
 import { isSmallScreen } from '../ui/cleanMode'
@@ -355,6 +356,8 @@ const GRAFCET_ZOOM_MAX = 5
 
 export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, onOpenLadder, lockedChartId }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void; /** Força uma página (chart) — usado na vista dividida. */ lockedChartId?: string }) {
   const demoMode = useSimStore((state) => state.demoMode)
+  /** Grupos de seleção (Ctrl+G): etapas e textos livres agrupados selecionam-se e movem-se juntos. */
+  const selectionGroups = useSimStore((state) => state.selectionGroups)
   // Na demonstração da landing o GRAFCET funciona exclusivamente em modo visualização/simulação (sem edição nem eliminação).
   const full = fullProp && !demoMode
   const program = useSimStore((state) => state.grafcet)
@@ -519,6 +522,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     moved: boolean
     /** Posições iniciais de todas as etapas do grupo (arrasto em grupo). */
     group?: Pos[]
+    /** Posições iniciais dos textos livres do grupo. */
+    comments?: Pos[]
   } | null>(null)
 
   // Seleção múltipla: `multi` guarda o grupo (≥ 2 etapas) e `selected` é sempre um dos membros.
@@ -619,13 +624,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     }
   }, [selected, steps, transitions])
 
-  // Mantém o grupo coerente: sem etapas apagadas e sempre com a seleção principal lá dentro.
+  // Mantém o grupo coerente: sem etapas/textos apagados e com a seleção principal lá dentro (a seleção
+  // mista etapas + textos livres pode não ter etapa principal quando só tem textos).
   useEffect(() => {
     if (!multi.length) return
-    const alive = multi.filter((value) => steps.some((step) => step.id === value))
-    if (alive.length < 2 || !selected || !alive.includes(selected)) setMulti([])
+    const alive = multi.filter((value) => steps.some((step) => step.id === value) || allComments.some((comment) => comment.id === value))
+    if (alive.length < 2 || (selected && !alive.includes(selected))) setMulti([])
     else if (alive.length !== multi.length) setMulti(alive)
-  }, [selected, steps, multi])
+  }, [selected, steps, multi, allComments])
 
   const notify = (text: string) => {
     window.clearTimeout(toastTimer.current)
@@ -1183,18 +1189,21 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }
 
   const requestDelete = async () => {
-    if (groupIds.length >= 2) {
+    if (multi.length >= 2 && (groupIds.length || groupCommentIds.length)) {
       const gone = new Set(groupIds)
+      const goneTexts = new Set(groupCommentIds)
       const linked = transitions.filter((t) => t.from.some((v) => gone.has(v)) || t.to.some((v) => gone.has(v))).length
-      if (await uiConfirm(`Eliminar ${groupIds.length} etapas${linked ? ` e ${linked} transição(ões) ligada(s)` : ''}?`)) {
+      const what = [gone.size ? `${gone.size} etapa(s)` : '', linked ? `${linked} transição(ões) ligada(s)` : '', goneTexts.size ? `${goneTexts.size} texto(s)` : ''].filter(Boolean).join(', ')
+      if (await uiConfirm(`Eliminar ${what}?`)) {
         save({
           steps: steps.filter((step) => !gone.has(step.id)),
           transitions: transitions.filter((t) => !t.from.some((v) => gone.has(v)) && !t.to.some((v) => gone.has(v))),
+          ...(goneTexts.size ? { comments: allComments.filter((c) => !goneTexts.has(c.id)) } : {}),
         })
         setMulti([])
         setSelected(null)
         setSelectedActionId(null)
-        notify(`${gone.size} etapas eliminadas · Ctrl+Z repõe`)
+        notify(`${what} eliminado(s) · Ctrl+Z repõe`)
       }
       return
     }
@@ -1296,15 +1305,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (e) e.stopPropagation()
     if (suppressClickRef.current) return // o clique que fecha um arrasto não muda a seleção
     if (full && e && (e.shiftKey || e.ctrlKey || e.metaKey)) {
-      // Shift/Ctrl+clique: liga/desliga a etapa no grupo.
-      const base = groupIds.length >= 2 ? groupIds : selected && !selectedActionId && stepById.has(selected) ? [selected] : []
-      const next = toggleId(base, step.id)
-      setMulti(next.length >= 2 ? next : [])
-      setSelected(next.length ? (next.includes(step.id) ? step.id : next[next.length - 1]) : null)
-      setSelectedActionId(null)
-      setTab('steps')
+      // Shift/Ctrl+clique: liga/desliga a etapa (e o seu grupo) na seleção, que pode ter textos livres.
+      setMultiSelection(toggleInSelection(selectionGroups, 'grafcet', selectionNow(), step.id))
       return
     }
+    const grouped = expandSel([step.id])
+    if (full && grouped.length >= 2) { setMultiSelection(grouped); return }
     if (full) {
       setMulti([])
       setSelected(step.id)
@@ -1560,6 +1566,23 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const stepById = new Map(allSteps.map((step) => [step.id, step]))
   /** Etapas do grupo selecionado (vazio quando há 0 ou 1 etapa selecionada). */
   const groupIds = multi.length >= 2 ? multi.filter((value) => stepById.has(value)) : []
+  const commentById = new Map(allComments.map((comment) => [comment.id, comment]))
+  /** Textos livres do grupo selecionado (multi-seleção com etapas e/ou textos). */
+  const groupCommentIds = multi.length >= 2 ? multi.filter((value) => commentById.has(value)) : []
+  /** Aplica uma seleção mista (etapas e textos livres): ≥ 2 elementos ficam em `multi`. */
+  const setMultiSelection = (ids: string[]) => {
+    const unique = [...new Set(ids)]
+    setMulti(unique.length >= 2 ? unique : [])
+    const firstStep = unique.find((value) => stepById.has(value)) ?? null
+    setSelected(firstStep)
+    setSelectedCommentId(unique.length === 1 && commentById.has(unique[0]) ? unique[0] : null)
+    setEditingCommentId(null)
+    setSelectedActionId(null)
+    if (firstStep) setTab('steps')
+  }
+  /** Seleção atual como lista de ids (grupo, ou a etapa/texto selecionado). */
+  const selectionNow = (): string[] => multi.length >= 2 ? multi : selected && !selectedActionId && stepById.has(selected) ? [selected] : selectedCommentId ? [selectedCommentId] : []
+  const expandSel = (ids: string[]) => expandToGroups(selectionGroups, 'grafcet', ids)
   const isPinned = (step?: GrafcetStep) => !!step && step.pinned === true && Number.isFinite(step.x) && Number.isFinite(step.y)
   /** Topo da etapa: posição manual (ou a do arrasto em curso) ou a do layout automático. */
   const stepY = (stepId: string) => {
@@ -2762,7 +2785,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           sx: event.clientX,
           sy: event.clientY,
           add,
-          base: add ? (groupIds.length >= 2 ? groupIds : selected && !selectedActionId && stepById.has(selected) ? [selected] : []) : [],
+          base: add ? selectionNow() : [],
           moved: false,
         }
         return
@@ -2781,11 +2804,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       setMarquee({ x0: mq.sx - box.left, y0: mq.sy - box.top, x1: event.clientX - box.left, y1: event.clientY - box.top })
       const a = clientToWorld(mq.sx, mq.sy)
       const b = clientToWorld(event.clientX, event.clientY)
-      const hit = stepsInRect(steps.map((step) => ({ id: step.id, x: stepX(step.id), y: stepY(step.id) })), rectFromPoints(a.x, a.y, b.x, b.y))
-      const next = unionIds(mq.base, hit)
-      setMulti(next.length >= 2 ? next : [])
-      setSelected(next[0] ?? null)
-      setSelectedActionId(null)
+      const rect = rectFromPoints(a.x, a.y, b.x, b.y)
+      const hit = stepsInRect(steps.map((step) => ({ id: step.id, x: stepX(step.id), y: stepY(step.id) })), rect)
+      const textHits = comments.filter((c) => c.x >= Math.min(rect.x0, rect.x1) && c.x <= Math.max(rect.x0, rect.x1) && c.y >= Math.min(rect.y0, rect.y1) && c.y <= Math.max(rect.y0, rect.y1)).map((c) => c.id)
+      setMultiSelection(unionIds(mq.base, expandSel([...hit, ...textHits])))
       return
     }
     if (!dragRef.current) return
@@ -2845,12 +2867,64 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     setGuides({ x: null, y: null })
   }
 
+  /**
+   * Texto livre: Ctrl/Shift+clique alterna-o (e o seu grupo) na seleção; um texto de um grupo ou de uma
+   * multi-seleção seleciona e arrasta tudo de uma vez (etapas e textos). Devolve false para o comportamento
+   * normal do texto (selecionar, escrever, arrastar sozinho).
+   */
+  const onCommentGroupDown = (comment: GrafcetComment, e: React.PointerEvent<SVGGElement>): boolean => {
+    if (!full || activeTool !== 'select' || isSpacePan) return false
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      setMultiSelection(toggleInSelection(selectionGroups, 'grafcet', selectionNow(), comment.id))
+      return true
+    }
+    const members = multi.length >= 2 && multi.includes(comment.id) ? multi : expandSel([comment.id])
+    if (members.length < 2) return false
+    setMultiSelection(members)
+    const stepsStart = members.filter((sid) => stepById.has(sid)).map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
+    const textsStart = members.filter((cid) => commentById.has(cid)).map((cid) => ({ id: cid, x: commentById.get(cid)!.x, y: commentById.get(cid)!.y }))
+    const sx = e.clientX, sy = e.clientY
+    let moved = false
+    let last = { dx: 0, dy: 0 }
+    const onMove = (ev: globalThis.PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return
+      moved = true
+      let dx = (ev.clientX - sx) / scale, dy = (ev.clientY - sy) / scale
+      if (snapOn && !ev.altKey) { dx = Math.round(dx / GRID) * GRID; dy = Math.round(dy / GRID) * GRID }
+      last = { dx: Math.round(dx), dy: Math.round(dy) }
+      setGroupOffset(last)
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      setGroupOffset(null)
+      if (!moved || (!last.dx && !last.dy)) return
+      suppressClickRef.current = true
+      window.setTimeout(() => { suppressClickRef.current = false }, 0)
+      const s0 = new Map(stepsStart.map((p) => [p.id, p]))
+      const t0 = new Map(textsStart.map((p) => [p.id, p]))
+      save({
+        steps: steps.map((s) => (s0.has(s.id) ? { ...s, x: s0.get(s.id)!.x + last.dx, y: s0.get(s.id)!.y + last.dy, pinned: true } : s)),
+        comments: allComments.map((c) => (t0.has(c.id) ? { ...c, x: t0.get(c.id)!.x + last.dx, y: t0.get(c.id)!.y + last.dy } : c)),
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return true
+  }
+
   const onStepPointerDown = (step: GrafcetStep, e: React.PointerEvent) => {
     if (!full || activeTool !== 'select' || isSpacePan) return // na ferramenta Ligar, a etapa não se arrasta
     if (e.button !== 0) return
     if ((e.target as Element).closest('.grafcet-node-handle, button')) return
     const modifier = e.shiftKey || e.ctrlKey || e.metaKey
-    const inGroup = groupIds.length >= 2 && groupIds.includes(step.id)
+    // Etapa de um grupo (Ctrl+G) ainda não selecionada: seleciona o grupo e arrasta-o inteiro.
+    const grouped = expandSel([step.id])
+    if (!modifier && grouped.length >= 2 && !(multi.length >= 2 && multi.includes(step.id))) setMultiSelection(grouped)
+    const members: string[] = multi.length >= 2 && multi.includes(step.id) ? multi : grouped.length >= 2 ? grouped : []
+    const inGroup = members.length >= 2
     // Com Shift/Ctrl só se arrasta o que já está selecionado; caso contrário o clique alterna a seleção.
     if (modifier && !inGroup && !(selected === step.id && !selectedActionId)) return
     e.stopPropagation()
@@ -2861,7 +2935,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       origX: stepX(step.id),
       origY: stepY(step.id),
       moved: false,
-      group: inGroup ? groupIds.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) })) : undefined,
+      group: inGroup ? members.filter((sid) => stepById.has(sid)).map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) })) : undefined,
+      comments: inGroup ? members.filter((cid) => commentById.has(cid)).map((cid) => ({ id: cid, x: commentById.get(cid)!.x, y: commentById.get(cid)!.y })) : undefined,
     }
     // Seleciona logo ao pressionar, para o painel já mostrar a etapa que se vai mover.
     if (!modifier) {
@@ -2941,7 +3016,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       const dx = final.x - drag.origX
       const dy = final.y - drag.origY
       const start = new Map(drag.group.map((p) => [p.id, p]))
-      save({ steps: steps.map((s) => (start.has(s.id) ? { ...s, x: start.get(s.id)!.x + dx, y: start.get(s.id)!.y + dy, pinned: true } : s)) })
+      const texts = new Map((drag.comments ?? []).map((p) => [p.id, p]))
+      save({
+        steps: steps.map((s) => (start.has(s.id) ? { ...s, x: start.get(s.id)!.x + dx, y: start.get(s.id)!.y + dy, pinned: true } : s)),
+        ...(texts.size ? { comments: allComments.map((c) => (texts.has(c.id) ? { ...c, x: Math.round(texts.get(c.id)!.x + dx), y: Math.round(texts.get(c.id)!.y + dy) } : c)) } : {}),
+      })
       return
     }
     // Largar a etapa junto a uma barra de transição solta liga-a (aproximação).
@@ -2987,15 +3066,19 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   /** Shift+setas movem a etapa selecionada um passo (grelha com íman, 4 px sem). */
   const nudgeSelection = (dx: number, dy: number, big: boolean) => {
-    if (!full || !selectedStep || selectedActionId) return
     const amount = (snapOn ? GRID : 4) * (big ? 5 : 1)
-    if (groupIds.length >= 2) {
+    if (full && multi.length >= 2) {
       const items = groupIds.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
       const delta = { dx: dx * amount, dy: dy * amount }
       const moved = new Map(items.map((p) => [p.id, p]))
-      save({ steps: steps.map((s) => (moved.has(s.id) ? { ...s, x: moved.get(s.id)!.x + delta.dx, y: moved.get(s.id)!.y + delta.dy, pinned: true } : s)) }, 'auto', 'grafcet:nudge:group')
+      const texts = new Set(groupCommentIds)
+      save({
+        steps: steps.map((s) => (moved.has(s.id) ? { ...s, x: moved.get(s.id)!.x + delta.dx, y: moved.get(s.id)!.y + delta.dy, pinned: true } : s)),
+        ...(texts.size ? { comments: allComments.map((c) => (texts.has(c.id) ? { ...c, x: c.x + delta.dx, y: c.y + delta.dy } : c)) } : {}),
+      }, 'auto', 'grafcet:nudge:group')
       return
     }
+    if (!full || !selectedStep || selectedActionId) return
     let x = stepX(selectedStep.id) + dx * amount
     let y = stepY(selectedStep.id) + dy * amount
     if (snapOn) {
@@ -3056,13 +3139,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }
 
   const selectAllSteps = () => {
-    if (!steps.length) return
-    const all = steps.map((s) => s.id)
-    setMulti(all.length >= 2 ? all : [])
-    setSelected(all[0])
-    setSelectedActionId(null)
-    setTab('steps')
-    notify(`${all.length} etapas selecionadas`)
+    if (!steps.length && !comments.length) return
+    const all = [...steps.map((s) => s.id), ...comments.map((c) => c.id)]
+    setMultiSelection(all)
+    notify(`${steps.length} etapas${comments.length ? ` e ${comments.length} textos` : ''} selecionados`)
   }
 
   /** Enquadra a seleção (ou o diagrama todo, se nada estiver selecionado) na janela. */
@@ -3330,6 +3410,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         duplicateSelected()
         return
       }
+      // Ctrl+G agrupa a seleção (etapas e textos livres); Ctrl+Shift+G desagrupa.
+      if (mod && lower === 'g') {
+        event.preventDefault()
+        const ids = selectionNow()
+        if (event.shiftKey) notify(useSimStore.getState().ungroupItems('grafcet', ids) ? 'Grupo desfeito' : 'A seleção não tem grupos')
+        else notify(useSimStore.getState().groupItems('grafcet', ids) ? `Agrupados ${expandSel(ids).length} elementos · Ctrl+Shift+G desagrupa` : 'Selecione pelo menos dois elementos para agrupar')
+        return
+      }
       if (mod && lower === 'a') {
         event.preventDefault()
         selectAllSteps()
@@ -3350,7 +3438,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         return
       }
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (selected || selectedActionId) {
+        if (selected || selectedActionId || multi.length >= 2) {
           event.preventDefault()
           requestDelete()
         }
@@ -4882,10 +4970,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 {comments.map((comment) => (
                   <GrafcetFreeText
                     key={comment.id}
-                    comment={comment}
+                    comment={groupOffset && groupCommentIds.includes(comment.id) ? { ...comment, x: comment.x + groupOffset.dx, y: comment.y + groupOffset.dy } : comment}
                     interactive={full && !demoMode && activeTool === 'select' && !isSpacePan}
-                    selected={selectedCommentId === comment.id}
+                    selected={selectedCommentId === comment.id || groupCommentIds.includes(comment.id)}
                     editing={editingCommentId === comment.id}
+                    onGroupDown={onCommentGroupDown}
                     toWorld={clientToWorld}
                     snap={(point, free) => (snapOn && !free ? { x: snapToGrid(point.x, SPINE_X), y: snapToGrid(point.y, START_Y) } : point)}
                     onSelect={() => { setSelectedCommentId(comment.id); setSelected(null); setSelectedActionId(null) }}
