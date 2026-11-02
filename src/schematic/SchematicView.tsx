@@ -622,6 +622,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     ungroup: () => useSimStore.getState().ungroupSelection(),
     selectAll: () => selectComponents(components.map((component) => component.id)),
     copy: () => useSimStore.getState().copySelection(),
+    cut: () => { const state = useSimStore.getState(); if (state.selectedComponentIds.length) { state.copySelection(); state.deleteSelection() } },
     paste: () => useSimStore.getState().pasteClipboard(),
     help: () => setShortcutHelpOpen((open) => !open),
     fitView: fitContent,

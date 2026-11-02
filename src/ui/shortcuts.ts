@@ -28,6 +28,8 @@ export interface EditorShortcutActions {
   copy?: () => void
   /** Ctrl+V */
   paste?: () => void
+  /** Ctrl+X */
+  cut?: () => void
   /** Ctrl+S */
   save?: () => void
   /** Setas: move a seleção. `big` = Shift (passo grande). */
@@ -55,6 +57,7 @@ export const SHORTCUT_HELP: Array<{ keys: string; action: string }> = [
   { keys: 'Ctrl+clique · Shift+clique', action: 'Seleção múltipla' },
   { keys: 'Ctrl+A', action: 'Selecionar tudo' },
   { keys: 'Ctrl+C · Ctrl+V', action: 'Copiar e colar' },
+  { keys: 'Ctrl+X', action: 'Cortar a seleção' },
   { keys: 'Ctrl+S', action: 'Guardar' },
   { keys: 'Setas', action: 'Mover a seleção (Shift = passo grande)' },
   { keys: 'Num Lock + 8 4 6 2', action: 'Mover a vista' },
@@ -91,6 +94,7 @@ export function runEditorShortcut(event: KeyboardEvent, actions: EditorShortcutA
   if (mod && lower === 'a') return done(actions.selectAll)
   if (mod && lower === 'c') return done(actions.copy)
   if (mod && lower === 'v') return done(actions.paste)
+  if (mod && lower === 'x') return done(actions.cut)
   if ((key === 'F1' || key === '?' || (mod && key === '/')) && actions.help) return done(actions.help)
 
   // Teclado numérico (com Num Lock ligado): move e enquadra a vista, como nos CAD.

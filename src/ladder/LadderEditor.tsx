@@ -1573,6 +1573,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const mainPaneRef = useRef<HTMLElement>(null)
   const duplicateRung = useSimStore((s) => s.duplicateRung)
   const moveRung = useSimStore((s) => s.moveRung)
+  const appendRungs = useSimStore((s) => s.appendRungs)
+  const deleteRung = useSimStore((s) => s.deleteRung)
+  const ladderClipboardRef = useRef<LadderRung | null>(null)
 
   const notify = useCallback((text: string) => {
     if (!useLadderPrefs.getState().showToasts) return
@@ -1801,6 +1804,25 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   useEditorShortcuts({
     undo: doUndo,
     redo: doRedo,
+    copy: () => {
+      const source = rungs.find((rung) => rung.id === activeId)
+      if (!source) return notify('Selecione uma network para copiar')
+      ladderClipboardRef.current = structuredClone(source)
+      notify('Network copiada · Ctrl+V cola noutra página')
+    },
+    cut: () => {
+      const source = rungs.find((rung) => rung.id === activeId)
+      if (!source) return notify('Selecione uma network para cortar')
+      ladderClipboardRef.current = structuredClone(source)
+      deleteRung(source.id)
+      notify('Network cortada · Ctrl+V cola noutra página')
+    },
+    paste: () => {
+      const source = ladderClipboardRef.current
+      if (!source || !isMainOpen) return notify(source ? 'Cole numa página Main do Ladder' : 'Nada para colar — copie uma network com Ctrl+C')
+      appendRungs([{ ...structuredClone(source), id: crypto.randomUUID(), name: `${source.name || 'Network'} (cópia)` }])
+      notify('Network colada · Ctrl+Z desfaz')
+    },
     zoomView: (factor) => setLadderZoom((value) => value * factor),
     fitView: () => setLadderZoom(1),
     panView: (dx, dy) => mainPaneRef.current?.scrollBy({ left: dx, top: dy, behavior: 'auto' }),

@@ -3709,6 +3709,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     {
       undo: doUndo,
       redo: doRedo,
+      copy: () => copySelection(),
+      cut: () => { if (copySelection()) void requestDelete() },
+      paste: () => pasteClipboard(),
       fitView: resetView,
       zoomView: (factor) => zoomAt(scale * factor, { x: viewport.width / 2, y: viewport.height / 2 }),
       panView: (dx, dy) => setPan({ x: position.x - dx, y: position.y - dy }),
