@@ -443,3 +443,33 @@
 .ladder-status-dot {
   box-shadow: 0 0 0 2px var(--pn-bg, #fff);
 }
+
+/* Paridade de cabeçalho com GRAFCET / IEC (SidePanelHeader + grafcet-properties) */
+.ladder-bottom-panel.grafcet-properties {
+  width: 100%;
+  border-left: 0;
+  padding: 0;
+  gap: 0;
+}
+.ladder-bottom-panel.grafcet-properties .grafcet-properties-summary {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--pn-line-soft, #e2e8f0);
+}
+.ladder-bottom-panel.grafcet-properties:not(.is-open) > :not(.grafcet-properties-summary) {
+  display: none;
+}
+.ladder-bottom-panel.grafcet-properties.is-collapsed,
+.ladder-bottom-panel.grafcet-properties:not(.is-open) {
+  flex-basis: 44px;
+  max-height: 44px;
+}
+.ladder-bottom-panel.grafcet-properties .ladder-bottom-tabs {
+  flex-shrink: 0;
+}
+.ladder-bottom-panel.grafcet-properties .ladder-status-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px 10px 12px;
+}

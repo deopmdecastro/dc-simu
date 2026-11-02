@@ -1431,6 +1431,16 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const breakHit = useSimStore((s) => s.ladderBreakHit)
   const canDebug = useCan('ladderDebug')
   const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint' | 'compile'>('io')
+  const statusTitle: Record<typeof statusTab, string> = {
+    io: 'Entradas/Saídas',
+    memory: 'Memórias',
+    timers: 'Temporizadores',
+    counters: 'Contadores',
+    force: 'Forçar',
+    debug: 'Depuração',
+    compile: 'Compilação',
+    lint: 'Verificação',
+  }
   // Etiqueta/barra de estado «erros · avisos» → abre a Verificação.
   useEffect(() => {
     const open = (event: Event) => { if ((event as CustomEvent).detail === 'ladder') { setStatusTab('lint'); setShowStatus(true) } }
@@ -2091,7 +2101,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             </div>
           </div>
         )}
-        <div className={`ladder-bottom-panel ${showStatus ? '' : 'is-collapsed'} ${resizingStatus ? 'is-resizing' : ''}`} style={showStatus ? { flexBasis: statusH } : undefined}>
+        <aside className={`ladder-bottom-panel grafcet-properties ${showStatus ? 'is-open' : 'is-collapsed'} ${resizingStatus ? 'is-resizing' : ''}`} style={showStatus ? { flexBasis: statusH } : undefined} aria-label="Estado do PLC">
           {showStatus && <div
             className="ladder-bottom-resizer" role="separator" aria-orientation="horizontal" tabIndex={0}
             aria-label="Redimensionar painel de estado (setas ↑ ↓, duplo clique repõe)" title="Arraste para redimensionar · duplo clique repõe"
@@ -2099,6 +2109,41 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             onDoubleClick={() => setStatusH(240)}
             onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); setStatusH((h) => clampStatusH(h + 24)) } else if (e.key === 'ArrowDown') { e.preventDefault(); setStatusH((h) => clampStatusH(h - 24)) } }}
           />}
+          <SidePanelHeader
+            className="grafcet-properties-summary"
+            eyebrow="LADDER"
+            title={statusTitle[statusTab]}
+            detail={running ? 'RUN' : paused ? 'PAUSA' : undefined}
+            side="bottom"
+            expanded={showStatus}
+            onToggle={() => setShowStatus((v) => !v)}
+            toggleTitle
+            toggleLabel={showStatus ? 'Recolher estado do PLC (Ctrl+J)' : 'Abrir estado do PLC (Ctrl+J)'}
+            actions={showStatus ? (
+              <div className="ladder-bottom-actions grafcet-selection-actions">
+                {(() => {
+                  const live = Object.entries(dbWords).filter(([key]) => /^MW\d+$/i.test(key)).sort(([a], [b]) => Number(a.slice(2)) - Number(b.slice(2)))
+                  const nameOf = (key: string) => tags.find((t) => t.address.toUpperCase() === key.toUpperCase() || t.address.toUpperCase() === `%${key.toUpperCase()}`)?.name
+                  return live.length ? (
+                    <span className="ladder-live-words" role="group" aria-label="Palavras de memória em tempo real">
+                      {live.slice(0, 4).map(([key, entry]) => (
+                        <button type="button" key={key} className={`ladder-live-word ${entry.value !== 0 && entry.value !== false ? 'is-nonzero' : ''}`} title={`${nameOf(key) ?? key} · %${key} = ${String(entry.value)} (${entry.type}) — abrir a aba Memórias`} aria-label={`${nameOf(key) ?? key}, %${key}, valor ${String(entry.value)}. Abrir a aba Memórias`} onClick={() => { setStatusTab('memory'); setShowStatus(true) }}>
+                          <b>{nameOf(key) ?? key}</b><small className="ladder-live-word-sub">%{key}</small><span className="ladder-live-word-value">{String(entry.value)}</span>
+                        </button>
+                      ))}
+                      {live.length > 4 && <em className="ladder-live-more">+{live.length - 4}</em>}
+                    </span>
+                  ) : null
+                })()}
+                {(running || paused) && <span className="ladder-scan-count" title="Ciclos de scan executados desde que a simulação arrancou">{scanCount.toLocaleString('pt-PT')} ciclos</span>}
+                <span className={`ladder-run-pill ${running ? 'is-running' : paused ? 'is-paused' : ''}`} role="status" title={running ? 'A simulação está a correr' : paused ? 'A simulação está em pausa' : 'Simulação parada — carregue em Run para arrancar'}><i /> <span className="ladder-run-pill-label">{running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Pronto'}</span></span>
+                <span className="ladder-actions-sep" aria-hidden="true" />
+                <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)"><IconReset size={11} /> <span className="ladder-btn-label">Repor memórias</span></button>
+              </div>
+            ) : undefined}
+          />
+          {showStatus && (
+            <>
           <div className="ladder-bottom-tabs">
             <label className="ladder-panel-picker"><span>Painel</span>
               <select aria-label="Secção do estado do PLC" value={statusTab} onChange={(event) => { setStatusTab(event.target.value as typeof statusTab); setShowStatus(true) }}>
@@ -2129,37 +2174,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               ))
             })()}
             </div>
-            <div className="ladder-bottom-actions">
-              {(() => {
-                // Valores vivos das palavras MW (ex.: o G0 de uma máquina de estados) — sem abrir a aba «Memórias».
-                const live = Object.entries(dbWords).filter(([key]) => /^MW\d+$/i.test(key)).sort(([a], [b]) => Number(a.slice(2)) - Number(b.slice(2)))
-                const nameOf = (key: string) => tags.find((t) => t.address.toUpperCase() === key.toUpperCase() || t.address.toUpperCase() === `%${key.toUpperCase()}`)?.name
-                return live.length ? (
-                  <span className="ladder-live-words" role="group" aria-label="Palavras de memória em tempo real">
-                    {live.slice(0, 4).map(([key, entry]) => (
-                      <button type="button" key={key} className={`ladder-live-word ${entry.value !== 0 && entry.value !== false ? 'is-nonzero' : ''}`} title={`${nameOf(key) ?? key} · %${key} = ${String(entry.value)} (${entry.type}) — abrir a aba Memórias`} aria-label={`${nameOf(key) ?? key}, %${key}, valor ${String(entry.value)}. Abrir a aba Memórias`} onClick={() => { setStatusTab('memory'); setShowStatus(true) }}>
-                        <b>{nameOf(key) ?? key}</b><small className="ladder-live-word-sub">%{key}</small><span className="ladder-live-word-value">{String(entry.value)}</span>
-                      </button>
-                    ))}
-                    {live.length > 4 && <em className="ladder-live-more">+{live.length - 4}</em>}
-                  </span>
-                ) : null
-              })()}
-              {(running || paused) && <span className="ladder-scan-count" title="Ciclos de scan executados desde que a simulação arrancou">{scanCount.toLocaleString('pt-PT')} ciclos</span>}
-              <span className={`ladder-run-pill ${running ? 'is-running' : paused ? 'is-paused' : ''}`} role="status" title={running ? 'A simulação está a correr' : paused ? 'A simulação está em pausa' : 'Simulação parada — carregue em Run para arrancar'}><i /> <span className="ladder-run-pill-label">{running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Pronto'}</span></span>
-              <span className="ladder-actions-sep" aria-hidden="true" />
-              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)"><IconReset size={11} /> <span className="ladder-btn-label">Repor memórias</span></button>
-              <button
-                className="ladder-bottom-toggle"
-                onClick={() => setShowStatus((v) => !v)}
-                aria-expanded={showStatus}
-                title={`${showStatus ? 'Esconder' : 'Mostrar'} painel de estado (Ctrl+J)`}
-              >
-                <IconChevronDown size={12} className={showStatus ? '' : 'is-flipped'} /> <span className="ladder-btn-label">{showStatus ? 'Esconder' : 'Mostrar'}</span>
-              </button>
-            </div>
           </div>
-          {showStatus && <div className="ladder-status-grid" role="tabpanel">
+          <div className="ladder-status-grid" role="tabpanel">
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
             {statusTab === 'io' && !!activePlc && <><PlcSignalPanel plcId={activePlc.id} compact /><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'force' && <ForcePanel />}
@@ -2210,8 +2226,10 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                 <span className="ladder-meter" role="progressbar" aria-label={`Progresso de ${address}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span>
               </div>
             }) : <span className="ladder-status-empty">Nenhum contador executado. Inicie a simulação (Run).</span>}</div>}
-          </div>}
-        </div>
+          </div>
+            </>
+          )}
+        </aside>
         </>}
       </main>
       {section === 'Projeto' && !demoMode && (showPalette ? (
