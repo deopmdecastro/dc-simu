@@ -490,17 +490,30 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     ] },
   ]
 
+  /*
+   * Reorganização 2026-11-02 (BrainNet Decision 2026-11-02-Reorganizacao-Barras-Ferramentas)
+   * ------------------------------------------------------------------
+   * Princípio: melhor organização, não mais botões. Reutilizar toolbarKit,
+   * ToolMenu e os estados is-tight / is-dense. Tablet continua com parity
+   * de layout de desktop (TABLET_LAYOUT_WIDTH); o excesso de informação
+   * é tratado por overflow content-based + labels que desaparecem em
+   * larguras intermédias e estados apertados. Ações principais (vistas,
+   * ferramentas de edição, transporte de simulação, histórico) permanecem
+   * visíveis; secundárias vão para menus ou perdem o texto.
+   * Consistência visual entre 3D / Ladder / GRAFCET / IEC via dc-seg,
+   * dc-tool-btn e tokens de toolbar-spacing.css.
+   */
   return (
     <div ref={shellRef} className={`dc-toolbar-shell shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20${compactBar && !demo ? ' is-compact' : ''}`}>
       {/* ============================ linha 1 — projeto · vistas · simulação */}
       <div ref={mainBarRef} className={`flex items-center gap-2 px-3 min-h-[46px] ${demo ? 'justify-between' : 'border-b border-line-soft'} dc-toolbar-main`}>
-        {/* arquivo — ações frequentes; na demonstração a barra fica só com Play/Pause + 3D/Ladder/GRAFCET */}
+        {/* Projeto: Novo / Abrir / Guardar / BOM / PDF — agrupados; em ecrã estreito viram ToolMenu */}
         {!demo && (
         <div className="dc-project-file-tools flex items-center gap-1.5 shrink-0">
           {narrowBar
             ? <ToolMenu label="Ficheiro" title="Ficheiro e exportação" icon={<IconOpen size={14} />} sections={fileSections} className="dc-file-menu" badge={dirty ? 1 : undefined} />
             : (
-          <div className="flex items-center gap-1.5 bg-surface-sunken border border-line rounded-lg p-1">
+          <div className="flex items-center gap-1.5 bg-surface-sunken border border-line rounded-lg p-1" role="group" aria-label="Projeto">
             <button onClick={createNewProject} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco" aria-label="Novo projeto">
               <IconPlus size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Novo</span>
             </button>
@@ -654,10 +667,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         <ToolMenu label="Mais" title="Opções do projeto e da vista" icon={<IconMore size={15} />} sections={compactMoreSections} className="dc-compact-menu dc-compact-more" align="end" />
       </div>}
       {/* 2.ª linha — mesma organização em todas as vistas (só aparecem os grupos que a vista tem):
-          Histórico │ Painéis │ Ferramentas │ Edição │ Anotações │ Extras da vista ··· Estado │ Navegação │ Atalhos │ Vista │ Caixa-preta.
-          Todos os botões levam ícone + texto. Quando a linha não cabe: is-tight deixa só ícones nos grupos
-          secundários e is-dense também nos principais (.tb-primary) — em todas as vistas por igual; o nome fica
-          no título e no nome acessível. */}
+          Agrupamento (2026-11-02): Histórico │ Painéis/Simulação │ Ferramentas de edição │
+          Anotações/Extras ··· Estado │ Navegação │ Atalhos │ Vista │ Caixa-preta.
+          is-tight → só ícones nos grupos secundários; is-dense → também nos principais (.tb-primary).
+          Em ≤1100 px + tight/dense os labels de texto desaparecem (tooltip e aria-label mantêm-se).
+          Tablet mantém layout de desktop; telemóvel usa compactBar + ToolMenus. */}
       {!demo && !compactBar && <div ref={row2BarRef} className={`dc-toolbar-row2 ${tightRow2 ? 'is-tight' : ''} ${denseRow2 ? 'is-dense' : ''} flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? 'dc-grafcet-toolbar' : ''}`}>
         <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
 

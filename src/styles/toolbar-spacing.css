@@ -250,3 +250,48 @@
 .dc-toolbar-row2.is-tight .dc-tool-btn:has(svg):not(.tb-primary *),
 .dc-toolbar-row2.is-tight .dc-seg > button:has(svg):not(.tb-primary *) { font-size: 0; gap: 0; padding-left: 7px; padding-right: 7px; }
 .dc-toolbar-row2.is-tight .dc-tool-btn:has(svg):not(.tb-primary *) kbd { display: none; }
+
+/* ---------------------------------------------------------------------------
+   Refinamento 2026-11-02 — hierarquia, tablet e alvos de toque
+   (alinhado a Design-Principles e pedido de reorganização das barras)
+--------------------------------------------------------------------------- */
+
+/* Alvos de toque um pouco maiores em ecrãs táteis / compactos, sem alterar desktop fino. */
+@media (pointer: coarse), (max-width: 900px) {
+  .dc-toolbar-row2 .dc-tool-btn,
+  .dc-toolbar-main .dc-tool-btn,
+  .ladder-editor-toolbar .dc-tool-btn,
+  .dc-grafcet-toolbar .dc-tool-btn,
+  .dc-seg > .dc-tool-btn {
+    min-height: 34px;
+    min-width: 34px;
+  }
+  .dc-toolbar-row2,
+  .dc-grafcet-toolbar,
+  .ladder-editor-toolbar {
+    min-height: 44px;
+    height: 44px;
+  }
+}
+
+/* Em larguras intermédias (tablet em janela estreita ou desktop estreito)
+   reforçar o comportamento is-tight/is-dense: labels de texto desaparecem
+   e o utilizador vê só ícones + tooltip. Reduz ruído visual sem esconder ações. */
+@media (max-width: 1100px) {
+  .dc-toolbar-row2.is-tight .dc-tool-btn > span:not([class*="icon"]):not(.sr-only),
+  .dc-toolbar-row2.is-dense .dc-tool-btn > span:not([class*="icon"]):not(.sr-only),
+  .dc-toolbar-main .dc-file-extra span:not(.sr-only) {
+    display: none;
+  }
+}
+
+/* Hierarquia: o grupo da ferramenta ativa e o transporte de simulação ganham um pouco mais de peso. */
+.tb-primary .dc-tool-active,
+.tb-primary .dc-tool-btn[aria-pressed="true"] {
+  font-weight: 700;
+}
+
+/* Separadores mais discretos para reduzir ruído visual. */
+.tb-sep {
+  opacity: 0.85;
+}
