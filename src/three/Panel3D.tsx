@@ -3,7 +3,6 @@ import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
 import { importedComponentInfo, type ImportedControl } from '../electrical/importedComponents'
 import { animateImportedRig, importedControlAt, importedPointMm, paintImportedModel, rigImportedModel } from './importedFinish'
-import { thermalResetAccepted, thermalResetTurn } from './thermalResetControl'
 import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, Billboard, useGLTF, useProgress } from '@react-three/drei'
@@ -1023,7 +1022,8 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
     gesture.current = null
     active.cleanup?.()
     if (active.control === 'reset') {
-      if (commit && thermalResetAccepted(active.turn)) apply(true, 'reset')
+      // Clique simples (como o disjuntor-motor): soltar o botão rearma, sem arrastar.
+      if (commit) apply(true, 'reset')
       setResetTurn(0)
     } else apply(false, active.control)
     const orbit = controls as unknown as { enabled?: boolean } | null
@@ -1049,28 +1049,27 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
     event.stopPropagation()
     const target = event.target as unknown as { setPointerCapture: (id: number) => void; releasePointerCapture: (id: number) => void }
     const orbit = controls as unknown as { enabled?: boolean } | null
-    gesture.current = { control, pointerId: event.pointerId, startX: event.nativeEvent.clientX, turn: 0, target, orbitEnabled: orbit?.enabled ?? true, eventsEnabled: events.enabled }
+    const active = { control, pointerId: event.pointerId, startX: event.nativeEvent.clientX, turn: 0, target, orbitEnabled: orbit?.enabled ?? true, eventsEnabled: events.enabled }
+    gesture.current = active
     target.setPointerCapture(event.pointerId)
     // O ponteiro já está capturado: durante o gesto não repetir raycasts contra
     // CAD/cabos a cada movimento. Em máquinas sem GPU isso bloqueava TEST/RESET/STOP.
-    if (control === 'reset' && orbit) orbit.enabled = false
-    events.enabled = false
-    if (control === 'reset') gl.domElement.style.cursor = 'ew-resize'
-    const move = (e: PointerEvent) => {
-      const active = gesture.current
-      if (!active || active.pointerId !== e.pointerId || active.control !== 'reset') return
-      active.turn = thermalResetTurn(e.clientX - active.startX)
-      setResetTurn(active.turn)
+    if (control === 'reset') {
+      // Clique: cursor de botão, sem gesto de arrasto horizontal.
+      gl.domElement.style.cursor = 'pointer'
+    } else {
+      events.enabled = false
     }
-    const up = (e: PointerEvent) => { if (gesture.current?.pointerId === e.pointerId) finishRef.current(true) }
-    const cancel = (e: PointerEvent) => { if (gesture.current?.pointerId === e.pointerId) finishRef.current(false) }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-    window.addEventListener('pointercancel', cancel)
-    gesture.current.cleanup = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-      window.removeEventListener('pointercancel', cancel)
+    const onUp = (e: PointerEvent) => {
+      if (!gesture.current || gesture.current.pointerId !== e.pointerId) return
+      finish(true)
+    }
+    const onCancel = () => finish(false)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    active.cleanup = () => {
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
     }
     if (control !== 'reset') apply(true, control)
   }} onPointerUp={event => {
