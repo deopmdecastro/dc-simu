@@ -566,7 +566,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   const instance = <group
     ref={rootRef}
     position={pivot}
-    userData={{ wireSurface: true }}
+    userData={{ wireSurface: true, componentId: c.id, isComponentRoot: true, excludeFromCover: !isPanelBound(c) }}
     onClick={(event) => { event.stopPropagation(); if (!connectionMode) onSelect(event.ctrlKey || event.metaKey || event.shiftKey) }}
     onPointerDown={startDrag}
     onPointerOver={() => { if (draggable) gl.domElement.style.cursor = 'grab' }}
@@ -2356,14 +2356,28 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
       const cx = (b.minX + b.maxX) / 2
       const cy = (b.minY + b.maxY) / 2
       const halfTan = Math.tan((fov * Math.PI) / 360)
-      const windowHeight = Math.max(b.maxY - b.minY, (b.maxX - b.minX) / target) * 1.1
-      const dist = windowHeight / fh / 2 / halfTan + 0.6
+      // Margem generosa na chapa para a capa não cortar bornes/etiquetas do painel.
+      const windowHeight = Math.max(b.maxY - b.minY, (b.maxX - b.minX) / target) * 1.18
+      const dist = windowHeight / fh / 2 / halfTan + 0.55
       const cam = new THREE.PerspectiveCamera(fov, aspect, 0.05, 400)
       cam.position.set(cx, cy, dist)
       cam.lookAt(cx, cy, 0)
       cam.updateMatrixWorld()
+      // Esconde overlays de edição, grelhas e componentes fora da chapa (ex.: motor
+      // à direita, que ficava cortado a meio no cartão do dashboard).
       const hidden: THREE.Object3D[] = []
-      scene.traverse((o) => { if (o.userData?.noSnapshot && o.visible) { o.visible = false; hidden.push(o) } })
+      scene.traverse((o) => {
+        if (!o.visible) return
+        if (o.userData?.noSnapshot || o.userData?.excludeFromCover) {
+          o.visible = false
+          hidden.push(o)
+          return
+        }
+        if ((o as THREE.GridHelper).isGridHelper || o.type === 'GridHelper' || o.type === 'AxesHelper') {
+          o.visible = false
+          hidden.push(o)
+        }
+      })
       try {
         gl.render(scene, cam)
         const sw = src.width * fw, sh = src.height * fh
@@ -2376,7 +2390,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
         ctx.fillStyle = bg
         ctx.fillRect(0, 0, out.width, out.height)
         ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, out.width, out.height)
-        return out.toDataURL('image/jpeg', 0.8)
+        return out.toDataURL('image/jpeg', 0.82)
       } finally {
         hidden.forEach((o) => { o.visible = true })
         invalidate()
