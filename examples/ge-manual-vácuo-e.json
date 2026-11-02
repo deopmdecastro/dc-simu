@@ -1,0 +1,213 @@
+{
+  "app": "dc-simu",
+  "version": 6,
+  "projectKind": "grafcet",
+  "unlockedViews": [],
+  "savedAt": "2026-11-02T22:08:54.187Z",
+  "components": [],
+  "wires": [],
+  "ladder": {
+    "rungs": []
+  },
+  "fcBlocks": {
+    "fc1": [],
+    "fc2": []
+  },
+  "fcAdded": {
+    "fc1": false,
+    "fc2": false
+  },
+  "activePlcId": null,
+  "plcPrograms": {},
+  "plcTags": {},
+  "projectFiles": {},
+  "hiddenProjectFolders": {},
+  "projectFolderLabels": {},
+  "fcNames": {},
+  "grafcet": {
+    "name": "GE - Manual - Vácuo E",
+    "steps": [
+      {
+        "id": "ge-step-0",
+        "name": "0",
+        "x": 420,
+        "y": 100,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "id": "ge-step-1",
+        "name": "1",
+        "x": 420,
+        "y": 280,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [
+          {
+            "id": "ge-action-1",
+            "x": 510,
+            "y": 280,
+            "w": 180,
+            "h": 54,
+            "dx": 70,
+            "dy": 0,
+            "kind": "N",
+            "type": "simple",
+            "address": "Y7_E+_Vacuo_On",
+            "variable": "Y7_E+_Vacuo_On",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": "Ação manual Y7_E+_Vacuo_On"
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "id": "ge-step-2",
+        "name": "2",
+        "x": 420,
+        "y": 460,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [
+          {
+            "id": "ge-action-2",
+            "x": 510,
+            "y": 460,
+            "w": 180,
+            "h": 54,
+            "dx": 70,
+            "dy": 0,
+            "kind": "N",
+            "type": "simple",
+            "address": "Y8_E-_Vacuo_Off",
+            "variable": "Y8_E-_Vacuo_Off",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": "Ação manual Y8_E-_Vacuo_Off"
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      }
+    ],
+    "transitions": [
+      {
+        "id": "ge-transition-1",
+        "name": "T0→1",
+        "x": 420,
+        "y": 190,
+        "from": [
+          "ge-step-0"
+        ],
+        "to": [
+          "ge-step-1"
+        ],
+        "condition": "Vacuo_OK",
+        "wireless": false,
+        "comparisons": [
+          {
+            "grafcet": "GE - Manual - Vácuo E",
+            "transition": "G0 <> X1",
+            "condition": "Vacuo_OK",
+            "note": "Referência manual IEC 60848"
+          }
+        ]
+      },
+      {
+        "id": "ge-transition-2",
+        "name": "T1→2",
+        "x": 420,
+        "y": 370,
+        "from": [
+          "ge-step-1"
+        ],
+        "to": [
+          "ge-step-2"
+        ],
+        "condition": "1",
+        "wireless": false,
+        "comparisons": [
+          {
+            "grafcet": "GE - Manual - Vácuo E",
+            "transition": "G0 <> X2",
+            "condition": "1",
+            "note": "Referência manual IEC 60848"
+          }
+        ]
+      },
+      {
+        "id": "ge-transition-3",
+        "name": "T2→0",
+        "x": 420,
+        "y": 550,
+        "from": [
+          "ge-step-2"
+        ],
+        "to": [
+          "ge-step-0"
+        ],
+        "condition": "1",
+        "wireless": false,
+        "comparisons": [
+          {
+            "grafcet": "GE - Manual - Vácuo E",
+            "transition": "G0 <> X0",
+            "condition": "1",
+            "note": "Referência manual IEC 60848"
+          }
+        ]
+      }
+    ],
+    "freeActions": [],
+    "importReview": {
+      "source": "manual-iec60848",
+      "warnings": []
+    }
+  },
+  "commands": {
+    "pages": [
+      {
+        "id": "page-1",
+        "name": "Página 1"
+      }
+    ],
+    "parts": [],
+    "texts": [],
+    "wires": []
+  },
+  "tags": [],
+  "virtualInputs": {},
+  "virtualInputModes": {},
+  "virtualInputCount": 8,
+  "virtualOutputCount": 8,
+  "virtualMemoryCount": 4,
+  "sheets": [
+    {
+      "id": "sheet-1",
+      "name": "Página 1"
+    }
+  ],
+  "activeSheetId": "sheet-1",
+  "grid": {
+    "size": 20,
+    "snap": true,
+    "style": "dots",
+    "enabled": true,
+    "background": "#f7f9fc"
+  },
+  "activeScenario": "custom",
+  "canvasNotes": [],
+  "canvasTexts": [],
+  "selectionGroups": []
+}

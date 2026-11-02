@@ -1,0 +1,215 @@
+{
+  "app": "dc-simu",
+  "version": 6,
+  "projectKind": "grafcet",
+  "unlockedViews": [],
+  "savedAt": "2026-11-02T22:08:54.187Z",
+  "components": [],
+  "wires": [],
+  "ladder": {
+    "rungs": []
+  },
+  "fcBlocks": {
+    "fc1": [],
+    "fc2": []
+  },
+  "fcAdded": {
+    "fc1": false,
+    "fc2": false
+  },
+  "activePlcId": null,
+  "plcPrograms": {},
+  "plcTags": {},
+  "projectFiles": {},
+  "hiddenProjectFolders": {},
+  "projectFolderLabels": {},
+  "fcNames": {},
+  "grafcet": {
+    "name": "GC - Manual - Cilindro C",
+    "steps": [
+      {
+        "id": "gc-step-0",
+        "name": "0",
+        "x": 420,
+        "y": 100,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "id": "gc-step-1",
+        "name": "1",
+        "x": 420,
+        "y": 280,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [
+          {
+            "id": "gc-action-1",
+            "x": 510,
+            "y": 280,
+            "w": 180,
+            "h": 54,
+            "dx": 70,
+            "dy": 0,
+            "kind": "N",
+            "type": "simple",
+            "address": "Y4_C+",
+            "variable": "Y4_C+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": "Ação manual Y4_C+"
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "id": "gc-step-2",
+        "name": "2",
+        "x": 420,
+        "y": 460,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [
+          {
+            "id": "gc-action-2",
+            "x": 510,
+            "y": 460,
+            "w": 180,
+            "h": 54,
+            "dx": 70,
+            "dy": 0,
+            "kind": "N",
+            "type": "simple",
+            "address": "Y4_C-",
+            "variable": "Y4_C-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": "Ação manual Y4_C-"
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      }
+    ],
+    "transitions": [
+      {
+        "id": "gc-transition-1",
+        "name": "T0→1",
+        "x": 420,
+        "y": 190,
+        "from": [
+          "gc-step-0"
+        ],
+        "to": [
+          "gc-step-1"
+        ],
+        "condition": "fc_c1",
+        "wireless": false,
+        "comparisons": [
+          {
+            "grafcet": "GC - Manual - Cilindro C",
+            "transition": "G0 <> X1",
+            "condition": "fc_c1",
+            "note": "Referência manual IEC 60848"
+          }
+        ]
+      },
+      {
+        "id": "gc-transition-2",
+        "name": "T1→2",
+        "x": 420,
+        "y": 370,
+        "from": [
+          "gc-step-1"
+        ],
+        "to": [
+          "gc-step-2"
+        ],
+        "condition": "fc_c0",
+        "wireless": false,
+        "comparisons": [
+          {
+            "grafcet": "GC - Manual - Cilindro C",
+            "transition": "G0 <> X2",
+            "condition": "fc_c0",
+            "note": "Referência manual IEC 60848"
+          }
+        ]
+      },
+      {
+        "id": "gc-transition-3",
+        "name": "T2→0",
+        "x": 420,
+        "y": 550,
+        "from": [
+          "gc-step-2"
+        ],
+        "to": [
+          "gc-step-0"
+        ],
+        "condition": "1",
+        "wireless": false,
+        "comparisons": [
+          {
+            "grafcet": "GC - Manual - Cilindro C",
+            "transition": "G0 <> X0",
+            "condition": "1",
+            "note": "Referência manual IEC 60848"
+          }
+        ]
+      }
+    ],
+    "freeActions": [],
+    "importReview": {
+      "source": "manual-iec60848",
+      "warnings": [
+        "O retorno C- não existe no projeto original; ação incluída para completar o manual."
+      ]
+    }
+  },
+  "commands": {
+    "pages": [
+      {
+        "id": "page-1",
+        "name": "Página 1"
+      }
+    ],
+    "parts": [],
+    "texts": [],
+    "wires": []
+  },
+  "tags": [],
+  "virtualInputs": {},
+  "virtualInputModes": {},
+  "virtualInputCount": 8,
+  "virtualOutputCount": 8,
+  "virtualMemoryCount": 4,
+  "sheets": [
+    {
+      "id": "sheet-1",
+      "name": "Página 1"
+    }
+  ],
+  "activeSheetId": "sheet-1",
+  "grid": {
+    "size": 20,
+    "snap": true,
+    "style": "dots",
+    "enabled": true,
+    "background": "#f7f9fc"
+  },
+  "activeScenario": "custom",
+  "canvasNotes": [],
+  "canvasTexts": [],
+  "selectionGroups": []
+}
