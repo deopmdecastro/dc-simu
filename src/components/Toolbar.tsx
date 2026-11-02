@@ -463,6 +463,30 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       {item.icon}<span>{item.id === 'add-text' ? 'Texto' : item.label}</span>
     </TbButton>)}
   </div>
+
+  /** Ações secundárias da vista — em is-tight passam a ToolMenu «Mais» para reduzir ruído. */
+  const viewExtraItems: ToolMenuSection['items'] = []
+  if (isCmd) {
+    viewExtraItems.push(
+      { id: 'examples', label: 'Exemplos IEC', hint: 'Abrir um esquema de exemplo (arranque, inversão, emergência…)', icon: <IconTemplates size={15} />, onSelect: () => useCommandsUi.getState().emit('examples'), disabled: cmdRunning },
+      { id: 'import', label: 'Importar', hint: 'FluidSIM (.ct) ou CADe SIMU (.cad)', icon: <IconImport size={15} />, onSelect: () => useCommandsUi.getState().emit('import'), disabled: cmdRunning },
+      { id: 'clear-cmd', label: 'Limpar esquema', hint: 'Apagar todo o esquema (pode desfazer)', icon: <IconErase size={15} />, onSelect: () => useCommandsUi.getState().emit('clear'), disabled: !cmdHasParts || cmdRunning },
+    )
+  }
+  if (mode === 'schematic') {
+    viewExtraItems.push(
+      { id: 'table', label: 'Tabela de componentes', hint: 'Criar e posicionar componentes por tabela ou Excel', icon: <IconGrid size={15} />, onSelect: () => setComponentTableOpen(true) },
+    )
+  }
+  if (mode === 'grafcet') {
+    viewExtraItems.push(
+      { id: 'variables', label: 'Variáveis / Sinais', hint: 'Declarar e organizar entradas, saídas e memórias', icon: <IconTag size={15} />, onSelect: () => useGrafcetUi.getState().emit('openSignals') },
+    )
+  }
+  const viewExtrasSections: ToolMenuSection[] = viewExtraItems.length
+    ? [{ id: 'view-extras', title: 'Extras da vista', items: viewExtraItems }]
+    : []
+
   const compactMoreSections: ToolMenuSection[] = [
     ...fileSections,
     // O Esquema IEC não tem modo nem velocidade de execução (estão escondidos também na barra completa).
@@ -856,9 +880,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   </>
                 )}
               </Dropdown>
-          <button type="button" className="dc-tool-btn !gap-1.5" onClick={() => setComponentTableOpen(true)} title="Criar e posicionar componentes por tabela ou Excel">
-            <IconGrid size={13} /><span>Tabela</span>
-          </button>
         </>}
         {/* componente selecionado: editar modelo e bornes */}
         {isCanvas && singleSelection && <>
@@ -875,21 +896,37 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </div>
         </>}
 
-        {/* ── Anotações: Comentário e Texto (iguais no 3D, GRAFCET e IEC) */}
+        {/* ── Anotações: Comentário e Texto (iguais no 3D, GRAFCET e IEC) — grupo primário */}
         {(isCanvas || isCmd || mode === 'grafcet') && <><span className="tb-sep" /><div className="tb-primary contents">{annotationTools}</div></>}
 
-        {/* ── Extras da vista */}
-        {isCmd && <>
-          <span className="tb-sep" />
-          <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo IEC (arranque, inversão, emergência, pneumática…)"><IconTemplates size={13} /><span>Exemplos</span></button>
-          <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('import')} title="Importar FluidSIM (.ct) ou CADe SIMU (.cad)"><IconImport size={13} /><span>Importar</span></button>
-          <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span>Limpar</span></button>
-        </>}
-        {mode === 'grafcet' && <>
-          <span className="tb-sep" />
-          <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>
-          <ToolMenu label="Mais GRAFCET" title="Sequência, modelos e ficheiros GRAFCET" icon={<IconMore size={14} />} sections={toolSections.slice(1).filter(section => section.id !== 'annotations')} className="dc-grafcet-tools-menu" />
-        </>}
+        {/* ── Extras da vista: botões em desktop largo; ToolMenu «Mais» quando is-tight (reduz ruído) */}
+        {viewExtraItems.length > 0 && (
+          tightRow2
+            ? <><span className="tb-sep" /><ToolMenu label="Mais" title="Extras da vista" icon={<IconMore size={14} />} sections={viewExtrasSections} className="dc-view-extras-menu" /></>
+            : (
+              <>
+                {isCmd && <>
+                  <span className="tb-sep" />
+                  <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo IEC (arranque, inversão, emergência, pneumática…)"><IconTemplates size={13} /><span>Exemplos</span></button>
+                  <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('import')} title="Importar FluidSIM (.ct) ou CADe SIMU (.cad)"><IconImport size={13} /><span>Importar</span></button>
+                  <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span>Limpar</span></button>
+                </>}
+                {mode === 'schematic' && <>
+                  <span className="tb-sep" />
+                  <button type="button" className="dc-tool-btn !gap-1.5" onClick={() => setComponentTableOpen(true)} title="Criar e posicionar componentes por tabela ou Excel">
+                    <IconGrid size={13} /><span>Tabela</span>
+                  </button>
+                </>}
+                {mode === 'grafcet' && <>
+                  <span className="tb-sep" />
+                  <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>
+                </>}
+              </>
+            )
+        )}
+        {mode === 'grafcet' && (
+          <><span className="tb-sep" /><ToolMenu label="Mais GRAFCET" title="Sequência, modelos e ficheiros GRAFCET" icon={<IconMore size={14} />} sections={toolSections.slice(1).filter(section => section.id !== 'annotations')} className="dc-grafcet-tools-menu" /></>
+        )}
         {mode === 'ladder' && <>
           <span className="tb-sep" />
           <LadderVariablesMenu onOpenTable={() => {
