@@ -31,6 +31,25 @@ const Section = ({ title, hint, children }: { title: string; hint?: string; chil
   </section>
 )
 
+type TitleField = [keyof PdfTitleBlock, string, string]
+const TITLE_GROUPS: Array<{ title: string; columns: 2 | 4; fields: TitleField[] }> = [
+  { title: 'Autoria', columns: 2, fields: [['company', 'Empresa / marca', 'Ex.: DC-Simu'], ['companyLine', 'Subtítulo da empresa', 'Ex.: Automação industrial'], ['author', 'Desenhado por', 'Nome'], ['role', 'Função', 'Ex.: Projetista']] },
+  { title: 'Projeto', columns: 2, fields: [['projectName', 'Projeto', 'Nome do projeto'], ['drawingTitle', 'Título do desenho', 'Ex.: Documentação do projeto'], ['client', 'Cliente', 'Opcional'], ['location', 'Local', 'Opcional']] },
+  { title: 'Folha', columns: 4, fields: [['sheetNumber', 'N.º da folha', '01'], ['revision', 'Revisão', '0'], ['date', 'Data', 'dd/mm/aaaa'], ['scale', 'Escala', '—'], ['discipline', 'Disciplina', 'Ex.: Automação'], ['notes', 'Notas', 'Opcional']] },
+]
+
+/** Miniatura A4 com a esquadria no rodapé, para escolher a orientação de relance. */
+const PageThumb = ({ orientation, titleBlock }: { orientation: PdfOrientation; titleBlock: boolean }) => {
+  const [w, h] = orientation === 'portrait' ? [26, 36] : [36, 26]
+  return (
+    <svg className="pdfx-orient-thumb" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+      <rect x={(40 - w) / 2} y={(40 - h) / 2} width={w} height={h} rx="2" fill="#fff" stroke="currentColor" strokeWidth="1.4" />
+      {[0, 1, 2].map((i) => <line key={i} x1={(40 - w) / 2 + 4} x2={(40 + w) / 2 - 4} y1={(40 - h) / 2 + 6 + i * 4} y2={(40 - h) / 2 + 6 + i * 4} stroke="currentColor" strokeOpacity=".35" strokeWidth="1.4" />)}
+      {titleBlock && <rect x={(40 - w) / 2 + 3} y={(40 + h) / 2 - 8} width={w - 6} height="5" rx="1" fill="currentColor" fillOpacity=".55" />}
+    </svg>
+  )
+}
+
 export default function ExportPdfDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [opts, setOpts] = useState<PdfExportOptions | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -74,6 +93,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
 
   if (!open || !opts) return null
 
+  const tb = opts.titleBlock
   const toggle = (key: 'cover' | 'info' | 'tags' | 'schematic' | 'grafcet') => setOpts({ ...opts, [key]: !opts[key] })
 
   const toggleChart = (id: string) => {
@@ -113,6 +133,14 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
     (opts.schematic && !schematicEmpty ? 1 : 0) +
     (opts.grafcet && !grafcetEmpty ? Math.max(1, opts.grafcetCharts.length || charts.length) : 0) +
     blocks.reduce((n, b) => { const k = (opts.ladder[b.id] ?? []).length; return n + (k ? Math.ceil(k / 4) : 0) }, 0)
+
+  // Resumo do que entra no documento, para o rodapé.
+  const included = [
+    opts.cover && 'Capa', opts.info && 'Informações', opts.tags && !tagsEmpty && 'Tags',
+    opts.schematic && !schematicEmpty && 'Esquema', opts.grafcet && !grafcetEmpty && 'GRAFCET',
+    networksPicked > 0 && `${networksPicked}/${networksTotal} networks`,
+  ].filter(Boolean) as string[]
+  const footerHint = nothing ? 'Escolhe pelo menos um conteúdo para exportar' : `${included.join(' · ')} · A4 ${opts.orientation === 'portrait' ? 'vertical' : 'horizontal'}`
 
   const preset = (kind: 'all' | 'ladder' | 'none') => {
     const ladder: Record<string, number[]> = {}
@@ -161,7 +189,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
       title="Exportar para PDF" subtitle="Escolhe os conteúdos — o documento usa o desenho real do editor"
       onClose={onClose} onSave={() => void run()}
       saveLabel={busy ? 'A gerar…' : 'Exportar PDF'} saveDisabled={busy || nothing}
-      closeLabel="Fechar" footerHint={`${networksPicked}/${networksTotal} networks de ladder · ≈ ${pageEstimate} pág.`} saveShortcutLabel="exportar"
+      closeLabel="Fechar" footerHint={footerHint} saveShortcutLabel="exportar"
       className="pdf-export-dialog is-wide"
     >
       <div className="pdf-export-body">
@@ -173,57 +201,8 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
           <button type="button" onClick={() => preset('none')}>Nada</button>
           <span className="pdfx-pages" title="Estimativa — o número final depende do tamanho dos diagramas">≈ {pageEstimate} página{pageEstimate === 1 ? '' : 's'}</span>
         </div>
-        <Section title="Orientação da folha" hint="A4 vertical ou horizontal">
-          <div className="pdfx-orient" role="radiogroup" aria-label="Orientação">
-            <label className={`pdfx-orient-opt ${opts.orientation === 'portrait' ? 'is-on' : ''}`}>
-              <input type="radio" name="pdf-orient" checked={opts.orientation === 'portrait'} onChange={() => setOpts({ ...opts, orientation: 'portrait' })} />
-              <span className="pdfx-orient-ico" aria-hidden="true">▯</span>
-              <span>Vertical <em>(retrato)</em></span>
-            </label>
-            <label className={`pdfx-orient-opt ${opts.orientation === 'landscape' ? 'is-on' : ''}`}>
-              <input type="radio" name="pdf-orient" checked={opts.orientation === 'landscape'} onChange={() => setOpts({ ...opts, orientation: 'landscape' })} />
-              <span className="pdfx-orient-ico is-land" aria-hidden="true">▭</span>
-              <span>Horizontal <em>(paisagem)</em></span>
-            </label>
-          </div>
-        </Section>
-        <Section title="Esquadria" hint="Bloco de legenda no rodapé de cada página">
-          <label className="pdfx-tb-enable">
-            <input type="checkbox" checked={opts.titleBlock.enabled} onChange={() => setOpts({ ...opts, titleBlock: { ...opts.titleBlock, enabled: !opts.titleBlock.enabled } })} />
-            <span>Incluir esquadria personalizada</span>
-          </label>
-          {opts.titleBlock.enabled && (
-            <div className="pdfx-tb-grid">
-              {([
-                ['company', 'Empresa / marca'],
-                ['companyLine', 'Subtítulo da empresa'],
-                ['author', 'Autor / desenhado por'],
-                ['role', 'Função'],
-                ['client', 'Cliente'],
-                ['location', 'Local'],
-                ['projectName', 'Projeto'],
-                ['drawingTitle', 'Título do desenho'],
-                ['discipline', 'Disciplina'],
-                ['sheetNumber', 'N.º da folha'],
-                ['scale', 'Escala'],
-                ['revision', 'Revisão'],
-                ['date', 'Data'],
-                ['notes', 'Notas'],
-              ] as Array<[keyof PdfTitleBlock, string]>).map(([key, label]) => (
-                <label key={key} className="pdfx-tb-field">
-                  <span>{label}</span>
-                  <input
-                    type="text"
-                    value={String(opts.titleBlock[key] ?? '')}
-                    onChange={(e) => setOpts({ ...opts, titleBlock: { ...opts.titleBlock, [key]: e.target.value } })}
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-        </Section>
         <div className="pdf-export-grid">
-          <Section title="Documento" hint="Estrutura e dados do projeto">
+          <Section title="Documento" hint="Capa e dados do projeto">
             <label><input type="checkbox" checked={opts.cover} onChange={() => toggle('cover')} /> <span>Capa com a marca DC-Simu e estatísticas</span></label>
             <label><input type="checkbox" checked={opts.info} onChange={() => toggle('info')} /> <span>Informações do projeto</span></label>
             <label className={tagsEmpty ? 'is-empty' : ''} title={tagsEmpty ? 'Sem tags — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.tags && !tagsEmpty} disabled={tagsEmpty} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({tagsEmpty ? 'vazia — omitida' : state.tags.length})</em></span></label>
@@ -294,6 +273,42 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
               )
             })}
           </ul>
+        </Section>
+        <Section title="Folha e esquadria" hint="Formato A4 e bloco de legenda de cada página">
+          <div className="pdfx-orient" role="radiogroup" aria-label="Orientação">
+            {([['portrait', 'Vertical', 'retrato · 210 × 297 mm'], ['landscape', 'Horizontal', 'paisagem · 297 × 210 mm']] as Array<[PdfOrientation, string, string]>).map(([value, label, detail]) => (
+              <label key={value} className={`pdfx-orient-opt ${opts.orientation === value ? 'is-on' : ''}`}>
+                <input type="radio" name="pdf-orient" checked={opts.orientation === value} onChange={() => setOpts({ ...opts, orientation: value })} />
+                <PageThumb orientation={value} titleBlock={opts.titleBlock.enabled} />
+                <span className="pdfx-orient-text"><strong>{label}</strong><small>{detail}</small></span>
+              </label>
+            ))}
+          </div>
+          <label className="pdfx-tb-enable">
+            <input type="checkbox" checked={opts.titleBlock.enabled} onChange={() => setOpts({ ...opts, titleBlock: { ...opts.titleBlock, enabled: !opts.titleBlock.enabled } })} />
+            <span><strong>Incluir esquadria</strong><small>{opts.titleBlock.enabled ? 'Aparece no rodapé de todas as páginas.' : 'Sem esquadria: só o nome do projeto e o número da página no rodapé.'}</small></span>
+          </label>
+          {opts.titleBlock.enabled && <>
+            <div className="pdfx-tb-preview" aria-label="Pré-visualização da esquadria">
+              <div><b>{tb.company || 'Empresa'}</b><small>{tb.companyLine}</small></div>
+              <div><small>{[tb.client, tb.location].filter(Boolean).join(' · ') || 'Cliente · Local'}</small><b>{tb.projectName || 'Projeto'}</b><small>{tb.drawingTitle}</small></div>
+              <div className="pdfx-tb-preview-meta"><span>Folha <b>{tb.sheetNumber || '—'}</b></span><span>Rev. <b>{tb.revision || '—'}</b></span><span>Data <b>{tb.date || '—'}</b></span><span>Esc. <b>{tb.scale || '—'}</b></span></div>
+            </div>
+            {TITLE_GROUPS.map((group) => (
+              <fieldset key={group.title} className="pdfx-tb-group">
+                <legend>{group.title}</legend>
+                <div className={`pdfx-tb-grid is-${group.columns}`}>
+                  {group.fields.map(([key, label, placeholder]) => (
+                    <label key={key} className={`pdfx-tb-field${key === 'notes' ? ' is-wide' : ''}`}>
+                      <span>{label}</span>
+                      <input type="text" value={String(tb[key] ?? '')} placeholder={placeholder}
+                        onChange={(e) => setOpts({ ...opts, titleBlock: { ...opts.titleBlock, [key]: e.target.value } })} />
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          </>}
         </Section>
         {busy && <p className="pdf-export-notice is-busy" role="status"><span className="pdfx-spinner" aria-hidden="true" /> A desenhar networks e diagramas do editor… pode demorar alguns segundos.</p>}
         {!busy && notice && <p className={`pdf-export-notice ${/^Falha/.test(notice) ? 'is-error' : 'is-ok'}`} role="status">{notice}</p>}
