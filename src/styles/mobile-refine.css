@@ -507,3 +507,24 @@
   .dc-cmd .cmd-dock > .dc-dock-tabs { padding: 0 0 8px; border-bottom: 1px solid var(--pn-line-soft); }
   .dc-cmd .cmd-dock .sim-embed-bar { display: none; }
 }
+
+/* Painel lateral completo no fundo do 3D Realista (telemóvel) — mesma gaveta que IEC/GRAFCET. */
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
+  .schematic-sim-dock-phone.grafcet-properties {
+    flex: 0 1 48%; width: 100%; min-width: 0; min-height: 0; max-height: 58%;
+    overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+    border-top: 1px solid #dce4ef; border-left: 0; padding: 12px 12px calc(12px + 56px + env(safe-area-inset-bottom, 0px));
+    gap: 10px;
+  }
+  .schematic-sim-dock-phone.grafcet-properties:not(.is-open) {
+    flex: 0 0 auto; max-height: none; overflow: hidden; gap: 0; padding-top: 4px; padding-bottom: 6px;
+  }
+  .schematic-sim-dock-phone.grafcet-properties.is-open.is-tall { flex-basis: 72%; max-height: 84%; }
+  .schematic-sim-dock-phone.is-open > :not(.grafcet-properties-summary):not(.dc-dock-tabs) {
+    flex: 0 0 auto; min-height: auto; overflow: visible;
+  }
+  .schematic-sim-dock-phone.is-open > * { flex-shrink: 0; }
+  .schematic-sim-dock-phone .grafcet-properties-summary { flex: none; min-height: 44px; }
+  .schematic-sim-dock-phone > .dc-dock-tabs { padding: 0 0 8px; border-bottom: 1px solid var(--pn-line-soft); }
+  .schematic-sim-dock-phone .sim-embed-bar { display: none; }
+}

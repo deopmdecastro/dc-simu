@@ -14,6 +14,7 @@ import Sidebar from './components/Sidebar'
 import SidePanelHeader from './components/SidePanelHeader'
 import { type RightDockTab } from './components/RightDockTabs'
 import RightDockPanel, { RIGHT_DOCK_TITLE } from './components/RightDockPanel'
+import SchematicSimDock from './components/SchematicSimDock'
 import type { LadderSection } from './ladder/LadderSections'
 import { ComponentEditorDock } from './components/ComponentViewEditor'
 import RouteLoading from './ui/RouteLoading'
@@ -89,13 +90,22 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const [rightTab, setRightTab] = useState<RightDockTab>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
   const compact = compactWorkspace()
-  // No telemóvel o Esquema IEC mostra o painel lateral completo no fundo (CommandsSimDock): não há coluna/gaveta
-  // da direita, para o mesmo painel não aparecer duas vezes.
+  // No telemóvel o Esquema IEC e o 3D mostram o painel lateral completo no fundo
+  // (CommandsSimDock / SchematicSimDock): não há coluna/gaveta da direita, para o
+  // mesmo painel não aparecer duas vezes.
   const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
   const phoneCommands = phone && mode === 'commands'
-  /** Abre o painel lateral completo no separador pedido: no fundo (IEC, telemóvel) ou na coluna/gaveta da direita. */
+  const phoneSchematic = phone && mode === 'schematic'
+  const phoneBottomDock = phoneCommands || phoneSchematic
+  /** Abre o painel lateral completo no separador pedido: no fundo (IEC/3D, telemóvel) ou na coluna/gaveta da direita. */
   const openRightPanel = (tab: RightDockTab) => {
     if (phoneCommands) { useCommandsUi.setState({ dockTab: tab, dockOpen: true }); return }
+    if (phoneSchematic) {
+      if (compact) setShowLibrary(false)
+      setRightTab(tab)
+      setShowLadder(true)
+      return
+    }
     if (compact) setShowLibrary(false)
     setRightTab(tab)
     setShowLadder(true)
@@ -258,7 +268,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
     window.addEventListener('dcsimu:open-diagnostics', open)
     return () => window.removeEventListener('dcsimu:open-diagnostics', open)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, phoneCommands])
+  }, [compact, phoneBottomDock])
   const hasErrorState = mode === 'commands' ? cmdFault : simErrors > 0 || Object.values(faults ?? {}).some(Boolean)
 
   // estados do PLC — STOP → READY → RUN → PAUSE → ERROR
@@ -285,7 +295,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         {/* Cortina só quando os painéis são gavetas (telemóvel). Em tablet/PC os painéis são
             fixos: a cortina escurecia o canvas e ficava por cima da régua recolhida (z-index 30),
             deixando o painel impossível de reabrir entre 768 e 1199 px. */}
-        {compact && (mode === 'schematic' || mode === 'commands') && !demo && (showLibrary || showLadder) && (
+        {compact && (mode === 'schematic' || mode === 'commands') && !demo && (showLibrary || (showLadder && !phoneSchematic)) && (
           <button
             type="button"
             className="dc-mobile-backdrop"
@@ -339,9 +349,19 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             {mode === 'monitor' && <MonitorPanel />}
           </Suspense>
           )}
+          {/* Telemóvel 3D: painel completo em baixo (paridade IEC/GRAFCET), dentro da coluna do canvas. */}
+          {phoneSchematic && !demo && !editingComponent && (
+            <SchematicSimDock
+              open={showLadder}
+              onToggle={() => setShowLadder((v) => !v)}
+              tab={rightTab}
+              onTab={setRightTab}
+              onOpenGrafcet={views.includes('grafcet') ? () => setMode('grafcet') : undefined}
+            />
+          )}
         </div>
         {mode === 'schematic' && !demo && <ComponentEditorDock />}
-        {!demo && !phoneCommands && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
+        {!demo && !phoneBottomDock && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
             id="dc-right-dock"
             className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
@@ -357,7 +377,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             )}
           </div>
         )}
-        {!demo && !phoneCommands && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
+        {!demo && !phoneBottomDock && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
           <div
             className="dc-resize-handle dc-resize-handle-left"
             onPointerDown={(e) => {
