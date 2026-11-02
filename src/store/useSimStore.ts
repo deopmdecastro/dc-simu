@@ -12,7 +12,7 @@ import { fixNativeCoilWiring } from '../project/nativeCoilFix'
 import { addNativeSignals } from '../project/nativeSignals'
 import { syncNativeLadder } from '../project/nativeLadderSync'
 import { upgradeNativeNcSimInputs } from '../project/nativeSimInputs'
-import { normalizeKind, type ProjectKind } from '../project/kind'
+import { normalizeKind, normalizeUnlockedViews, type ProjectKind, type WorkspaceView } from '../project/kind'
 import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
 import { emptyCommands, type CommandsDiagram } from '../commands/model'
@@ -203,6 +203,9 @@ interface Store extends CircuitState {
   projectRevision: number
   projectKind: ProjectKind
   setProjectKind: (kind: ProjectKind) => void
+  /** Vistas extra desbloqueadas num projeto especializado (ex.: só 3D + Ladder). */
+  unlockedViews: WorkspaceView[]
+  unlockProjectView: (view: WorkspaceView) => void
   /** Entradas virtuais (I1…): usadas quando o projeto não tem PLC físico no esquema. */
   virtualInputs: Record<string, boolean>
   virtualInputCount: number
@@ -1070,6 +1073,7 @@ export const useSimStore = create<Store>((set, get) => {
   nativeFeatures: [],
   projectRevision: 0,
   projectKind: 'all' as ProjectKind,
+  unlockedViews: [] as WorkspaceView[],
   virtualInputs: {},
   sheets: [{ id: 'sheet-1', name: 'Página 1' }],
   activeSheetId: 'sheet-1',
@@ -1237,6 +1241,11 @@ export const useSimStore = create<Store>((set, get) => {
     recomputeIfPaused()
   },
   setProjectKind: (kind) => set({ projectKind: normalizeKind(kind), dirty: true }),
+  unlockProjectView: (view) => set((s) => {
+    if (view === 'monitor') return s
+    if (s.unlockedViews.includes(view)) return s
+    return { unlockedViews: [...s.unlockedViews, view], dirty: true }
+  }),
   _intervalId: null,
 
   // ---------------------------------------------------------------- simulação
@@ -2822,6 +2831,7 @@ export const useSimStore = create<Store>((set, get) => {
         app: 'dc-simu',
         version: 6,
         projectKind: s.projectKind,
+        unlockedViews: s.unlockedViews,
         savedAt: new Date().toISOString(),
         ...(s.nativeId ? { nativeId: s.nativeId } : {}),
         ...(s.nativeId ? { nativeFeatures: s.nativeFeatures } : {}),
@@ -2889,6 +2899,7 @@ export const useSimStore = create<Store>((set, get) => {
       set({
         projectRevision: get().projectRevision + 1,
         projectKind: normalizeKind(parsed.projectKind),
+        unlockedViews: normalizeUnlockedViews(parsed.unlockedViews),
         nativeId: typeof parsed.nativeId === 'string' ? parsed.nativeId : null,
         nativeFeatures: Array.isArray(parsed.nativeFeatures) ? parsed.nativeFeatures.filter((v: unknown) => typeof v === 'string') : [],
         // Estado das entradas virtuais guardado no ficheiro (já migrado para byte.bit):
@@ -2982,6 +2993,7 @@ export const useSimStore = create<Store>((set, get) => {
       virtualInputs: {},
       virtualInputModes: {},
       projectKind: normalizeKind(kind),
+      unlockedViews: [],
     })
     get().pushEvent('info', 'Novo projeto em branco criado.')
   },

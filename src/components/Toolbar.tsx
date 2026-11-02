@@ -1,7 +1,8 @@
 import { ViewDiagnosticsTag, DiagnosticsTag } from '../diagnostics/DiagnosticsUi'
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from '../diagnostics/viewDiagnostics'
-import { uiConfirm, uiChoose } from '../ui/dialogs'
+import { uiAlert, uiConfirm, uiChoose } from '../ui/dialogs'
 import { listSimModules, moduleOfView, scopeNeedsCommands, scopeNeedsPanel } from '../ui/simScope'
+import { ADDABLE_MODULES, allowedViews, type WorkspaceView } from '../project/kind'
 import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
@@ -322,6 +323,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const reset = isCmd ? () => { cmdUi.stop(); useCommandsUi.getState().start() } : plcReset
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)
+  const unlockedViews = useSimStore((state) => state.unlockedViews)
+  const unlockProjectView = useSimStore((state) => state.unlockProjectView)
   const viewLocked = useSimStore((state) => state.viewLocked)
   const ladderRungs = useSimStore((state) => state.ladder.rungs)
   const ladderTags = useSimStore((state) => state.tags)
@@ -432,12 +435,38 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const tightRow2 = useOverflowCompact(shellRef, '.dc-toolbar-row2', !compactBar && !demo, [mode])
   const denseRaw = useOverflowCompact(shellRef, '.dc-toolbar-row2', !compactBar && !demo && tightRow2, [mode, 'dense'])
   const denseRow2 = tightRow2 && denseRaw
+  const addProjectModule = async () => {
+    const hasLadder = (useSimStore.getState().ladder.rungs?.length ?? 0) > 0
+    const current = allowedViews(projectKind, hasLadder, unlockedViews)
+    const missing = ADDABLE_MODULES.filter((m) => !current.includes(m.id))
+    if (!missing.length) {
+      await uiAlert('Este projeto já tem todos os módulos (3D, Ladder, GRAFCET e IEC).', { title: 'Módulos do projeto' })
+      return
+    }
+    const choice = await uiChoose(
+      'Escolha um módulo para abrir neste projeto. Fica guardado e disponível nas vistas.',
+      missing.map((m) => ({
+        id: m.id,
+        title: m.title,
+        description: m.detail,
+        detail: 'Adiciona a vista ao projeto atual',
+      })),
+      { title: 'Adicionar módulo', confirmLabel: 'Adicionar', defaultId: missing[0].id },
+    )
+    if (!choice) return
+    unlockProjectView(choice as WorkspaceView)
+    if (choice === 'schematic' || choice === 'ladder' || choice === 'grafcet' || choice === 'commands') {
+      setMode(choice)
+    }
+  }
+
   const fileSections: ToolMenuSection[] = [{
     id: 'file', title: 'Projeto',
     items: [
       { id: 'new', label: 'Novo projeto', hint: 'Volta aos projetos para criar um em branco', icon: <IconPlus size={15} />, onSelect: createNewProject },
       { id: 'open', label: 'Abrir ficheiro', hint: 'Escolhe um projeto .json do dispositivo', icon: <IconOpen size={15} />, onSelect: () => fileRef.current?.click() },
       { id: 'save', label: 'Guardar em ficheiro', hint: dirty ? 'Há alterações por guardar' : 'Descarrega o projeto em .json', icon: <IconSave size={15} />, onSelect: download, primary: dirty },
+      { id: 'add-module', label: 'Adicionar módulo…', hint: 'Abrir 3D, Ladder, GRAFCET ou IEC neste projeto', icon: <IconPlus size={15} />, onSelect: () => void addProjectModule() },
     ],
   }, {
     id: 'export', title: 'Exportar',

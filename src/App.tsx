@@ -41,6 +41,7 @@ function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClos
 
 export default function App({ onBack, demo = false, onEnterEditor }: { onBack: () => void; /** Modo demonstração (landing): vistas do editor com controlos de simulação apenas. */ demo?: boolean; /** CTA para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
   const projectKind = useSimStore((s) => s.projectKind)
+  const unlockedViews = useSimStore((s) => s.unlockedViews)
   const canLadder = useCan('ladder')
   const canGrafcet = useCan('grafcet')
   const ladderRungs = useSimStore((s) => s.ladder.rungs)
@@ -48,7 +49,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   // Um projeto só GRAFCET ganha o editor Ladder quando tem Ladder gerado
   // (gravado no projeto, logo mantém-se ao guardar e reabrir).
   const hasLadderProgram = useMemo(() => hasGeneratedLadder(), [ladderRungs, projectFiles])
-  const viewsAll = allowedViews(projectKind, hasLadderProgram)
+  const viewsAll = allowedViews(projectKind, hasLadderProgram, unlockedViews)
   // Demonstração: apenas as vistas de projeto (o Monitor de diagnóstico fica para o editor completo).
   const views = demo ? viewsAll.filter((v) => v !== 'monitor') : viewsAll
   const splitEnabled = useSplitView((s) => s.enabled)
@@ -56,20 +57,25 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const splitRight = useSplitView((s) => s.right)
   const splitOrientation = useSplitView((s) => s.orientation)
   const [mode, setModeRaw] = useState<ViewMode>(() => {
-    const kind = useSimStore.getState().projectKind
+    const st = useSimStore.getState()
+    const kind = st.projectKind
+    const unlocked = st.unlockedViews
     const hasLadder = hasGeneratedLadder()
-    if (demo) return coerceView('schematic', kind, hasLadder)
+    if (demo) return coerceView('schematic', kind, hasLadder, unlocked)
     try {
       const saved = localStorage.getItem('dcsimu:workspace:view') as ViewMode | 'panel3d' | null
       // O antigo "Painel 3D" passou a ser a Visualização 3D do Esquema.
-      if (saved === 'panel3d') { localStorage.setItem('dc-simu:schematic-canvas-mode:v1', '3d'); return coerceView('schematic', kind, hasLadder) }
-      return saved && ['schematic', 'ladder', 'grafcet', 'commands', 'monitor'].includes(saved) ? coerceView(saved, kind, hasLadder) : defaultView(kind)
+      if (saved === 'panel3d') { localStorage.setItem('dc-simu:schematic-canvas-mode:v1', '3d'); return coerceView('schematic', kind, hasLadder, unlocked) }
+      return saved && ['schematic', 'ladder', 'grafcet', 'commands', 'monitor'].includes(saved) ? coerceView(saved as ViewMode, kind, hasLadder, unlocked) : defaultView(kind)
     } catch { return defaultView(kind) }
   })
   // Só vistas permitidas pelo tipo de projeto (Tudo / Ladder / GRAFCET) — mais o
   // Ladder gerado a partir do GRAFCET. Lê o estado fresco: a geração pode acabar de correr.
-  const setMode = (next: ViewMode) => setModeRaw(coerceView(next, useSimStore.getState().projectKind, hasGeneratedLadder()))
-  useEffect(() => { setModeRaw((current) => coerceView(current, projectKind, hasLadderProgram)) }, [projectKind, hasLadderProgram])
+  const setMode = (next: ViewMode) => {
+    const st = useSimStore.getState()
+    setModeRaw(coerceView(next, st.projectKind, hasGeneratedLadder(), st.unlockedViews))
+  }
+  useEffect(() => { setModeRaw((current) => coerceView(current, projectKind, hasLadderProgram, unlockedViews)) }, [projectKind, hasLadderProgram, unlockedViews])
   const [ladderSection, setLadderSection] = useState<LadderSection>(() => {
     try {
       const saved = localStorage.getItem('dcsimu:workspace:ladder-section') as LadderSection | null
