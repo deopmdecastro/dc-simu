@@ -51,7 +51,8 @@ export default function ActionSymbol({
 }: ActionSymbolProps) {
   const { conditional, allocation, qualifier } = shape
   const marker = allocation === 'activation' || allocation === 'deactivation' || allocation === 'event'
-  const textX = qualifier ? x + qualifierW + 10 : x + (marker ? 18 : 12)
+  // Padding interno generoso para a descrição não colar nas arestas nem no qualificador.
+  const textX = qualifier ? x + qualifierW + 12 : x + (marker ? 20 : 14)
   const midY = y + h / 2
   const ax = x + 6
   const head = Math.min(5, h / 6)
@@ -59,8 +60,12 @@ export default function ActionSymbol({
     <g>
       {conditional && (
         <g>
-          <path d={`M ${x + 16} ${y} V ${y - (mini ? 6 : 10)} H ${x + (mini ? 40 : 85)}`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
-          {!mini && <text x={x + 20} y={y - 13} fill="#2563eb" fontSize="10" fontWeight="700">{renderConditionTspans((condition || '1').length > 17 ? `${(condition || '1').slice(0, 16)}…` : condition || '1')}</text>}
+          <path d={`M ${x + 16} ${y} V ${y - (mini ? 8 : 14)} H ${x + (mini ? 40 : 90)}`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
+          {!mini && (
+            <text x={x + 22} y={y - 16} fill="#2563eb" fontSize="10.5" fontWeight="700" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="3.5" strokeLinejoin="round">
+              {renderConditionTspans((condition || '1').length > 18 ? `${(condition || '1').slice(0, 17)}…` : condition || '1')}
+            </text>
+          )}
         </g>
       )}
       <rect className="grafcet-action-box" x={x} y={y} width={w} height={h} rx="2.5" fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeDasharray={dashed ? '6 3' : undefined} />
@@ -95,9 +100,9 @@ export default function ActionSymbol({
       )}
       {allocation === 'event' && <path d={`M ${x} ${midY - 6} L ${x + 9} ${midY} L ${x} ${midY + 6} Z`} fill={stroke} />}
       {!mini && (
-        <text x={textX} y={subLabel ? midY - 6 : midY} dominantBaseline="central" fill={textColor} fontSize="12" fontWeight="650" fontFamily={subLabel ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}>
+        <text x={textX} y={subLabel ? midY - 6.5 : midY} dominantBaseline="central" fill={textColor} fontSize="12" fontWeight="650" fontFamily={subLabel ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}>
           {label}
-          {subLabel ? <tspan x={textX} y={midY + 8} fill="#64748b" fontSize="9.5" fontWeight="500" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{subLabel}</tspan> : null}
+          {subLabel ? <tspan x={textX} y={midY + 8.5} fill="#64748b" fontSize="9.5" fontWeight="500" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{subLabel}</tspan> : null}
         </text>
       )}
     </g>

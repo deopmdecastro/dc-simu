@@ -4,6 +4,9 @@ export type ActionBox = { x: number; y: number; w: number; h: number; offset: bo
 type Point = { x: number; y: number }
 type Size = { w: number; h: number }
 
+/** Espaço entre caixas de ação adjacentes (descrições legíveis, sem caixas coladas). */
+export const ACTION_BOX_GAP = 8
+
 /** Resolve cadeias dentro da etapa, tolerando referências ausentes e ciclos em ficheiros importados. */
 export function attachedActionBoxes(
   actions: GrafcetAction[], step: Point & Size, layout: 'row' | 'column',
@@ -28,8 +31,8 @@ export function attachedActionBoxes(
   const clearSlot = (box: Point & Size, axis: 'x' | 'y') => {
     let hits: ActionBox[]
     while ((hits = [...out.values()].filter(other => overlaps(box, other))).length) {
-      if (axis === 'x') box.x = Math.max(...hits.map(other => other.x + other.w))
-      else box.y = Math.max(...hits.map(other => other.y + other.h + 8))
+      if (axis === 'x') box.x = Math.max(...hits.map(other => other.x + other.w + ACTION_BOX_GAP))
+      else box.y = Math.max(...hits.map(other => other.y + other.h + ACTION_BOX_GAP))
     }
     return box
   }
@@ -42,7 +45,7 @@ export function attachedActionBoxes(
     for (const child of actions.filter(a => parents.get(a.id) === parent.id)) {
       const size = sizeOf(child)
       const pos = livePosition(child)
-      const box = pos ? { ...size, ...pos } : clearSlot({ ...size, x: previous.x + previous.w, y: previous.y + (previous.h - size.h) / 2 }, 'x')
+      const box = pos ? { ...size, ...pos } : clearSlot({ ...size, x: previous.x + previous.w + ACTION_BOX_GAP, y: previous.y + (previous.h - size.h) / 2 }, 'x')
       out.set(child.id, { ...box, offset: false, flowIndex: -1, afterActionId: parent.id })
       childrenOf(child)
       previous = out.get(child.id)!
@@ -58,8 +61,8 @@ export function attachedActionBoxes(
     const box = pos ? { ...size, ...pos } : clearSlot({ ...size, x: layout === 'row' ? rowX : baseX, y: layout === 'row' ? step.y + (step.h - size.h) / 2 : colY }, layout === 'row' ? 'x' : 'y')
     out.set(action.id, { ...box, offset: false, flowIndex: flowIndex++ })
     childrenOf(action)
-    rowX = Math.max(...[...out.values()].map(b => b.x + b.w), box.x + box.w)
-    colY = Math.max(...[...out.values()].map(b => b.y + b.h + 8), box.y + box.h + 8)
+    rowX = Math.max(...[...out.values()].map(b => b.x + b.w + ACTION_BOX_GAP), box.x + box.w + ACTION_BOX_GAP)
+    colY = Math.max(...[...out.values()].map(b => b.y + b.h + ACTION_BOX_GAP), box.y + box.h + ACTION_BOX_GAP)
   }
   return out
 }
