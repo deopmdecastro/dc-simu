@@ -139,22 +139,24 @@ const ACTION_W = 140
 const ACTION_H = 30
 const ACTION_QUALIFIER_W = 32
 /** Passo vertical entre ações empilhadas (caixa + respiro para descrição legível). */
-const ACTION_PITCH = 42
+const ACTION_PITCH = 50
 const ACTION_FREE_W = ACTION_W
 const ACTION_FREE_H = ACTION_H
 /** Espaço horizontal entre caixas de ação lado a lado (evita descrições coladas). */
-const ACTION_GAP = 8
+const ACTION_GAP = 14
 /** Distância do eixo da etapa à caixa da ação anexada (a coluna de ações acompanha a etapa). */
 const ACTION_OFFSET_X = ACTION_X - SPINE_X
 /** Desvio vertical da 1.ª ação: o seu centro fica alinhado com a ligação que sai da etapa (linha reta). */
 const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 /** Distância do barramento vertical de ligação à caixa da ação. */
-const ACTION_BUS_GAP = 24
-/** Deslocamento da condição em relação à barra da transição (legibilidade). */
-const CONDITION_OFFSET_X = 20
+const ACTION_BUS_GAP = 30
+/** Deslocamento horizontal da condição em relação à barra da transição (legibilidade). */
+const CONDITION_OFFSET_X = 30
+/** Deslocamento vertical da condição relativamente à barra (evita colar no traço IEC). */
+const CONDITION_OFFSET_Y = 7
 /** Deslocamento do comentário da etapa em relação ao bordo direito da caixa. */
-const STEP_CAPTION_OFFSET_X = 16
-const STEP_CAPTION_OFFSET_Y = -12
+const STEP_CAPTION_OFFSET_X = 22
+const STEP_CAPTION_OFFSET_Y = -18
 
 /** Disposição das ações de uma etapa: em linha (lado a lado, por omissão) ou empilhadas na vertical. */
 type ActionLayout = 'row' | 'column'
@@ -175,7 +177,7 @@ const actionLabel = (action: GrafcetAction) => action.displayDescription && acti
   : action.variable || action.address || 'ação'
 const diagramCondition = (condition: string) => <>
   <title>{condition}</title>
-  <tspan fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="5" strokeLinejoin="round">
+  <tspan fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="6" strokeLinejoin="round">
     {renderConditionTspans(condition === '1' ? '=1' : diagramLabel(condition || '1', 40))}
   </tspan>
 </>
@@ -4042,11 +4044,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         )}
 
                         {/* Identificador e condição normalizados IEC — espaço generoso para legibilidade */}
-                        <text x={ftx - 18} y={fty + 3.5} textAnchor="end" fill={freeSelected ? '#2563eb' : '#b45309'} fontSize="10.5" fontWeight="700">
+                        <text x={ftx - 22} y={fty + 4} textAnchor="end" fill={freeSelected ? '#2563eb' : '#b45309'} fontSize="10.5" fontWeight="700">
                           {transition.name || `T${transitionIndex + 1}`}
                         </text>
-                        <g transform={`translate(${ftx + CONDITION_OFFSET_X}, ${fty + 4})`}>
-                          <text fill={barColor} fontSize="12" fontWeight="600">
+                        <g transform={`translate(${ftx + CONDITION_OFFSET_X}, ${fty + CONDITION_OFFSET_Y})`}>
+                          <text fill={barColor} fontSize="12.5" fontWeight="600" letterSpacing="0.02em">
                             {diagramCondition(transition.condition)}
                           </text>
                         </g>
@@ -4230,7 +4232,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         <text x={refX - 18} y={refBarY + 3} textAnchor="end" fill={selectedLink ? '#2563eb' : enabled ? '#16a34a' : '#64748b'} fontSize="10.5" fontWeight="700">
                           {transition.name || `T${transitionIndex + 1}`}
                         </text>
-                        <g transform={`translate(${refX + CONDITION_OFFSET_X}, ${refBarY + 4})`}>
+                        <g transform={`translate(${refX + CONDITION_OFFSET_X}, ${refBarY + CONDITION_OFFSET_Y})`}>
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                             {diagramCondition(transition.condition)}
                           </text>
@@ -4412,7 +4414,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         </text>
 
                         {/* Texto da condição formatada com suporte a barra superior / NOT */}
-                        <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + 4})`}>
+                        <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                             {diagramCondition(transition.condition)}
                           </text>
@@ -4632,7 +4634,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         </text>
 
                         {/* Texto da condição formatada */}
-                        <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + 4})`}>
+                        <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                             {diagramCondition(transition.condition)}
                           </text>
@@ -4734,7 +4736,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           <text x={tx - 18} y={ty + 3.5} textAnchor="end" fill={selectedLink ? '#2563eb' : enabled ? '#16a34a' : '#64748b'} fontSize="10.5" fontWeight="700">
                             {transition.name || `T${transitionIndex + 1}`}
                           </text>
-                          <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + 4})`}>
+                          <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                               {diagramCondition(transition.condition)}
                             </text>
@@ -4803,7 +4805,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       </text>
 
                       {/* Texto da condição formatada com suporte a barra superior (overbar) */}
-                      <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + 4})`}>
+                      <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                         <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                           {diagramCondition(transition.condition)}
                         </text>
@@ -5051,7 +5053,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                       {/* Captions occupy the right lane, clear of the incoming flow — espaçamento generoso. */}
                       {comment && (
-                        <text className="grafcet-step-caption" x={SR + STEP_CAPTION_OFFSET_X} y={y + STEP_CAPTION_OFFSET_Y} fill="#475569" fontSize="11.5" fontWeight="600" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="5.5" strokeLinejoin="round">
+                        <text className="grafcet-step-caption" x={SR + STEP_CAPTION_OFFSET_X} y={y + STEP_CAPTION_OFFSET_Y} fill="#475569" fontSize="12" fontWeight="600" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="6" strokeLinejoin="round">
                           {diagramLabel(comment, 28)}
                         </text>
                       )}

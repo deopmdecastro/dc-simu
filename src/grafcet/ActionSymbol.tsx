@@ -52,7 +52,7 @@ export default function ActionSymbol({
   const { conditional, allocation, qualifier } = shape
   const marker = allocation === 'activation' || allocation === 'deactivation' || allocation === 'event'
   // Padding interno generoso para a descrição não colar nas arestas nem no qualificador.
-  const textX = qualifier ? x + qualifierW + 12 : x + (marker ? 20 : 14)
+  const textX = qualifier ? x + qualifierW + 14 : x + (marker ? 22 : 16)
   const midY = y + h / 2
   const ax = x + 6
   const head = Math.min(5, h / 6)
@@ -60,9 +60,9 @@ export default function ActionSymbol({
     <g>
       {conditional && (
         <g>
-          <path d={`M ${x + 16} ${y} V ${y - (mini ? 8 : 14)} H ${x + (mini ? 40 : 90)}`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
+          <path d={`M ${x + 16} ${y} V ${y - (mini ? 10 : 18)} H ${x + (mini ? 40 : 96)}`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
           {!mini && (
-            <text x={x + 22} y={y - 16} fill="#2563eb" fontSize="10.5" fontWeight="700" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="3.5" strokeLinejoin="round">
+            <text x={x + 22} y={y - 20} fill="#2563eb" fontSize="11" fontWeight="700" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="4" strokeLinejoin="round">
               {renderConditionTspans((condition || '1').length > 18 ? `${(condition || '1').slice(0, 17)}…` : condition || '1')}
             </text>
           )}
