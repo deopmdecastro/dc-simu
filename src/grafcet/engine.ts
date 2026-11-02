@@ -82,6 +82,13 @@ export type GrafcetBranchType =
   | 'and-convergence'
 
 /** Uma transição pode ter várias origens (convergência AND/OR) e vários destinos (divergência AND/OR). */
+export interface GrafcetTransitionComparison {
+  grafcet: string
+  transition: string
+  condition?: string
+  note?: string
+}
+
 export interface GrafcetTransition {
   id: string
   from: string[]
@@ -92,6 +99,8 @@ export interface GrafcetTransition {
   description?: string
   displayDescription?: boolean
   targetInfo?: string
+  /** Referências a transições equivalentes noutros GRAFCETs, sem alterar a execução local. */
+  comparisons?: GrafcetTransitionComparison[]
   x?: number
   y?: number
   branchType?: GrafcetBranchType

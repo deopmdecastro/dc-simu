@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { stepNumberOf, validCondition, type GrafcetTransition, type GrafcetStep } from './engine'
+import { stepNumberOf, validCondition, type GrafcetTransition, type GrafcetStep, type GrafcetTransitionComparison } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
 import ConditionEditor from './ConditionEditor'
 import type { GrafcetSignalSuggestion } from './signals'
@@ -24,6 +24,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   const [description, setDescription] = useState('')
   const [displayDescription, setDisplayDescription] = useState(false)
   const [targetInfo, setTargetInfo] = useState('')
+  const [comparisons, setComparisons] = useState<GrafcetTransitionComparison[]>([])
   const [from, setFrom] = useState<string[]>([])
   const [to, setTo] = useState<string[]>([])
   const [wireless, setWireless] = useState(false)
@@ -49,6 +50,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     setDescription(transition.description ?? transition.comment ?? '')
     setDisplayDescription(!!transition.displayDescription)
     setTargetInfo(transition.targetInfo ?? '')
+    setComparisons((transition.comparisons ?? []).map((item) => ({ grafcet: item.grafcet ?? '', transition: item.transition ?? '', condition: item.condition ?? '', note: item.note ?? '' })))
     setFrom([...transition.from])
     setTo([...transition.to])
     setWireless(!!transition.wireless)
@@ -65,7 +67,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   const save = () => {
     setSubmitted(true)
     if (conditionError) { document.getElementById('trans-condition-input')?.focus(); return }
-    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), wireless, source: source && !from.length, from: [...from], to: [...to] })
+    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), comparisons: comparisons.map((item) => ({ grafcet: item.grafcet.trim(), transition: item.transition.trim(), condition: item.condition?.trim(), note: item.note?.trim() })).filter((item) => item.grafcet || item.transition || item.condition || item.note), wireless, source: source && !from.length, from: [...from], to: [...to] })
     onClose()
   }
   /** Número que o diagrama mostra (o mesmo de X<n> e do «Ligar nº»). */
@@ -85,6 +87,8 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     return `Etapa ${point.number}${point.name ? ` · ${point.name}` : ''}`
   }
   const directCycle = from.filter((id) => to.includes(id))
+  const updateComparison = (index: number, patch: Partial<GrafcetTransitionComparison>) => setComparisons((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item))
+  const toggleComparison = () => setComparisons((current) => current.length ? current.slice(0, -1) : [{ grafcet: '', transition: '', condition: '', note: '' }])
   const toggle = (side: 'from' | 'to', id: string) => {
     const update = (current: string[]) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
     if (side === 'from') setFrom(update)
@@ -225,6 +229,16 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
           {!!directCycle.length && <p className="grafcet-property-warning" role="status">Ciclo direto: {directCycle.map((id) => labelOf(id)).join(', ')} {directCycle.length === 1 ? 'é origem e destino' : 'são origem e destino'} ao mesmo tempo — enquanto a condição for verdadeira a transição dispara continuamente, sem esperar noutra etapa.</p>}
           </section>
           {((!from.length && !source) || !to.length) && <p className="grafcet-property-warning" role="status">{source && !from.length ? 'Transição-fonte sem destino: escolha a etapa a ativar.' : <>Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Use «Adicionar etapa», marque «Usar como transição-fonte» se não tiver origem de propósito, ou guarde o rascunho e complete depois.</>}</p>}
+          <section className="grafcet-transition-comparisons" aria-label="Transições comparativas">
+            <div className="grafcet-connections-heading"><h3>Comparar com outros GRAFCETs <span className="grafcet-optional">opcional</span></h3><p>Registe transições equivalentes de outros diagramas para revisão e rastreabilidade. A comparação é documental e não altera a simulação deste GRAFCET.</p></div>
+            {comparisons.map((item, index) => <div className="grafcet-transition-comparison" key={index}>
+              <div className="grafcet-property-field"><label htmlFor={`trans-compare-grafcet-${index}`}>GRAFCET</label><input id={`trans-compare-grafcet-${index}`} className="dc-input" value={item.grafcet} onChange={(event) => updateComparison(index, { grafcet: event.target.value })} placeholder="Ex.: GRAFCET de segurança" /></div>
+              <div className="grafcet-property-field"><label htmlFor={`trans-compare-transition-${index}`}>Transição</label><input id={`trans-compare-transition-${index}`} className="dc-input" value={item.transition} onChange={(event) => updateComparison(index, { transition: event.target.value })} placeholder="Ex.: T12 ou X4 → T12" /></div>
+              <div className="grafcet-property-field"><label htmlFor={`trans-compare-condition-${index}`}>Condição equivalente</label><input id={`trans-compare-condition-${index}`} className="dc-input" value={item.condition ?? ''} onChange={(event) => updateComparison(index, { condition: event.target.value })} placeholder="Ex.: /Emerg_NF * X4" /></div>
+              <div className="grafcet-property-field"><label htmlFor={`trans-compare-note-${index}`}>Nota</label><input id={`trans-compare-note-${index}`} className="dc-input" value={item.note ?? ''} onChange={(event) => updateComparison(index, { note: event.target.value })} placeholder="Diferença ou observação" /></div>
+            </div>)}
+            <button type="button" className="dc-btn" onClick={toggleComparison}>{comparisons.length ? 'Remover comparação' : 'Adicionar comparação'}</button>
+          </section>
           <details className="grafcet-context-help grafcet-dialog-annotations" open={annotationsOpen} onToggle={(event) => setAnnotationsOpen(event.currentTarget.open)}><summary><IconChevronRight size={11} />Descrição e referência visual <span>opcional</span></summary><div>
             <div className="grafcet-property-field"><label htmlFor="trans-desc-input">Descrição</label><textarea id="trans-desc-input" className="dc-input" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Cilindro A no fim de curso" /><label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(event) => setDisplayDescription(event.target.checked)} /><span>Mostrar a descrição em vez da expressão no diagrama</span></label></div>
             <div className="grafcet-property-field"><label htmlFor="trans-reference-input">Referência visual</label><input id="trans-reference-input" className="dc-input" value={targetInfo} onChange={(event) => setTargetInfo(event.target.value)} placeholder="Ex.: Continuação na folha 2" /><p className="grafcet-property-note">Anotação do diagrama. Os destinos são definidos nas ligações acima.</p></div>
