@@ -1820,11 +1820,13 @@ function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D
   return geom
 }
 
-function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, ...handlers }: {
+function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, simLocked = false, ...handlers }: {
   pivots: Record<string, THREE.Vector3>
   editMode: Panel3DEditMode
   selectedWireId: string | null
   onRoutingLoadingChange: (loading: boolean) => void
+  /** DC-ADR-071: RUN/PAUSA — o cabo não se seleciona nem se edita. */
+  simLocked?: boolean
 } & WireEditHandlers) {
   const wires = useSimStore((s) => s.wires)
   const runState = useSimStore((s) => s.sim.runState)
@@ -1978,7 +1980,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, ...
         onClick={(event) => { event.stopPropagation(); handlers.onSelectWire(wire.id) }}
         onDoubleClick={(event) => {
           event.stopPropagation()
-          if (editMode !== 'navigate' && editMode !== 'connect') return
+          if (simLocked || (editMode !== 'navigate' && editMode !== 'connect')) return
           const hit: V3 = [event.point.x, event.point.y, event.point.z]
           const onCable = closestPointOnPolyline(points, hit)
           handlers.onInsertWaypoint(wire.id, waypointInsertIndex(chain, onCable), toSpatial(onCable))
@@ -2891,15 +2893,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const activateComponent = (component: ElectricalComponent, action: () => void) => {
     const currentTool = useSimStore.getState().tool
-    if (currentTool === 'erase') { removePanelComponent(component.id); return }
+    if (currentTool === 'erase') { if (!simLocked) removePanelComponent(component.id); return }
     if (currentTool !== 'select') return
     if (component.locked) return
     if (canActuate) {
-      // Botões, cogumelo, START/STOP: atuam em STOP e em RUN.
+      // Botões, cogumelo, START/STOP: atuam em STOP e em RUN/PAUSA (DC-ADR-071).
       action()
     }
-    // Também em RUN/PAUSA o aparelho clicado fica selecionado (Inspetor); só mover é que fica bloqueado.
-    if (!demoMode) selectComponents([component.id])
+    // Em STOP o aparelho clicado fica selecionado (Inspetor). Em RUN/PAUSA só atua: não se seleciona nem se move.
+    if (!demoMode && !simLocked) selectComponents([component.id])
   }
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
@@ -2918,9 +2920,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       probing={tool === 'probe'}
       connectionStartId={tool === 'probe' ? probeA : draft && 'terminalId' in draft.from ? draft.from.terminalId : null}
       onSelect={(additive) => {
+        // DC-ADR-071: em RUN/PAUSA nada se seleciona nem apaga; os botões atuam pelo próprio `onPress`.
+        if (simLocked) return
         if (tool === 'erase') { removePanelComponent(component.id); return }
         if (tool !== 'select') return
-        // Em RUN/PAUSA seleciona-se (Inspetor, cabos, estado), mas não se move: `draggable` fica desligado.
         if (demoMode) return
         // Ctrl/Shift + clique: seleção múltipla, como no esquema 2D e no Admin.
         const current = useSimStore.getState().selectedComponentIds
@@ -3421,7 +3424,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }} />}
 
         {plateBounds && <MountingPlate bounds={plateBounds} />}
-        <CanvasAnnotations3D view={annotationView} readOnly={demoMode} placeZ={textPlaneZ}
+        <CanvasAnnotations3D view={annotationView} readOnly={demoMode || simLocked} placeZ={textPlaneZ}
           openNoteId={openNoteId} setOpenNoteId={setOpenNoteId}
           selectedTextId={selectedTextId} setSelectedTextId={setSelectedTextId}
           editingTextId={editingTextId} setEditingTextId={setEditingTextId}
@@ -3456,7 +3459,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               return
             }
             event.stopPropagation()
-            if (!demoMode) useSimStore.getState().selectComponents([c.id])
+            if (!demoMode && !simLocked) useSimStore.getState().selectComponents([c.id])
             const closed = !!c.state.closed && !c.state.tripped
             useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
           }}>{content}</group>
@@ -3519,11 +3522,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onRoutingLoadingChange={setRoutingLoading}
           pivots={panelPivots}
           editMode={editMode}
-          selectedWireId={demoMode ? null : selectedWireId}
-          activeWaypointIndex={demoMode ? null : activeWaypointIndex}
-          activeEnd={demoMode ? null : activeEnd}
-          moveAll={demoMode ? false : moveAllWire}
-          onSelectWire={(wireId) => { if (demoMode) return; if (tool === 'erase') { deleteWire(wireId); return }; if (tool !== 'select' && tool !== 'wire') return; if (draftRef.current || reconnect) return; selectWire(wireId); setActiveWaypointIndex(null); setActiveEnd(null); setMoveAllWire(false) }}
+          simLocked={simLocked}
+          selectedWireId={demoMode || simLocked ? null : selectedWireId}
+          activeWaypointIndex={demoMode || simLocked ? null : activeWaypointIndex}
+          activeEnd={demoMode || simLocked ? null : activeEnd}
+          moveAll={demoMode || simLocked ? false : moveAllWire}
+          onSelectWire={(wireId) => { if (demoMode || simLocked) return; if (tool === 'erase') { deleteWire(wireId); return }; if (tool !== 'select' && tool !== 'wire') return; if (draftRef.current || reconnect) return; selectWire(wireId); setActiveWaypointIndex(null); setActiveEnd(null); setMoveAllWire(false) }}
           onSelectWaypoint={(index) => { setActiveWaypointIndex(index); setActiveEnd(null) }}
           onMoveWaypoint={moveWireWaypoint}
           onRemoveWaypoint={removeWireWaypointAt}
@@ -3534,7 +3538,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           terminals={drawTerminals}
         />
         <WireDrawController
-          active={!demoMode && (editMode === 'connect' || reconnect !== null)}
+          active={!demoMode && !simLocked && (editMode === 'connect' || reconnect !== null)}
           draft={draft}
           getDraft={() => draftRef.current}
           terminals={drawTerminals}
@@ -3563,7 +3567,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
 
       <PanelCanvasScrollbars bridge={cameraScrollBridge} controlsId={stageId} disabled={viewLocked} label={frontEdit ? 'Esquema 3D frontal' : 'Visualização 3D'} />
 
-      {!demoMode && selectedText && <div className="canvas-textbar-slot">
+      {!demoMode && !simLocked && selectedText && <div className="canvas-textbar-slot">
         <TextStyleBar style={selectedText} unit="mm"
           onChange={(patch) => updateCanvasText(selectedText.id, patch)}
           onEdit={() => setEditingTextId(selectedText.id)}

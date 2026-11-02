@@ -3,7 +3,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 
-// Painel 3D em simulação: selecionar componentes e cabos continua possível; mover não.
+// Painel 3D em simulação (DC-ADR-071): em RUN/PAUSA não há seleção de componentes nem de cabos, nem arrasto;
+// só os botões e atuadores respondem. Em STOP a seleção volta ao normal.
 // Sem dedo 3D nem cursor escondido em RUN/PAUSA/STOP (browser isolado, sem rede).
 const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.GRAFCET_TEST_OUTPUT
@@ -116,7 +117,7 @@ try {
   await page.mouse.click(wireAt.x, wireAt.y)
   await page.waitForTimeout(300)
   // Cabos sobrepostos: fica selecionado o que está à frente nesse ponto.
-  check(/^native-wire-/.test(await store((s) => s.getState().selectedWireId) ?? ''), 'em RUN, clicar num cabo seleciona-o (e mostra-o no Inspetor)')
+  check(await store((s) => s.getState().selectedWireId) === null, 'em RUN, clicar num cabo não o seleciona (DC-ADR-071)')
 
   const motorAt = await screenOf((n) => n.name === 'leads-x' || (n.userData?.wireSurface && n.userData?.componentId === 'native-m1'))
   const motorId = await store((s) => s.getState().components.find((c) => c.type === 'motor3ph')?.id)
@@ -148,10 +149,10 @@ try {
   }, motorId)
   await page.mouse.click(motorScreen.x, motorScreen.y)
   await page.waitForTimeout(300)
-  check((await store((s) => s.getState().selectedComponentIds)).includes(motorId), 'em RUN, clicar num componente seleciona-o (Inspetor)')
+  check(!(await store((s) => s.getState().selectedComponentIds)).includes(motorId), 'em RUN, clicar num componente não o seleciona')
   await page.mouse.move(motorScreen.x, motorScreen.y); await page.mouse.down(); await page.mouse.move(motorScreen.x + 120, motorScreen.y + 40, { steps: 8 }); await page.mouse.up()
   const after = await store((s) => { const m = s.getState().components.find((c) => c.type === 'motor3ph'); return [m.schematicX, m.schematicY] })
-  check(after[0] === before[0] && after[1] === before[1], 'em RUN, arrastar não move o componente (só seleção)')
+  check(after[0] === before[0] && after[1] === before[1], 'em RUN, arrastar não move o componente')
   if (output) await page.screenshot({ path: path.join(output, 'sim-select-3d.png') })
   await store((s) => s.getState().pause())
   await page.waitForTimeout(250)
@@ -161,6 +162,12 @@ try {
   await page.waitForTimeout(250)
   check(await store((s) => s.getState().sim.runState) === 'stopped', 'a simulação passa a STOP')
   await checkSimulationSurface('STOP')
+  // A câmara pode ter rodado com o arrasto de teste sobre o motor: recalcula o ponto do cabo.
+  const wireNow = await screenOf((n) => !!n.userData?.wireHit && n.parent?.userData?.wireId === 'native-wire-3')
+  await page.mouse.click(wireNow.x, wireNow.y)
+  await page.waitForTimeout(300)
+  // Em STOP a seleção volta: o ponto do cabo está à frente do disjuntor QM1, por isso o clique seleciona o componente à frente.
+  check((await store((s) => s.getState().selectedComponentIds)).length > 0, 'em STOP, clicar volta a selecionar (componentes e cabos)')
   check(!errors.length, 'sem erros JavaScript: ' + errors.join(' | '))
   console.log(`\n${checks} verificações OK — seleção e cursor em simulação`)
 } catch (error) {

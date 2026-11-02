@@ -895,6 +895,9 @@ const normalizeWires = (wires: Wire[], components: ElectricalComponent[] = []) =
   return syncLeadCableHeatShrink(afterFerrule, byTerm)
 }
 
+/** DC-ADR-071: em RUN ou PAUSA não há seleção nem edição de componentes, cabos ou textos; só os comandos atuam. */
+export const isSimEditLocked = (state: { sim: { runState: string } }) => state.sim.runState === 'running' || state.sim.runState === 'paused'
+
 export const useSimStore = create<Store>((set, get) => {
   /** Reavalia um scan apenas quando a simulação já foi iniciada (pausa ou passo a passo; nunca em STOP puro). */
   const recomputeIfPaused = () => {
@@ -2181,7 +2184,8 @@ export const useSimStore = create<Store>((set, get) => {
     reorderSelection(get, set, where, ids)
   },
 
-  selectComponents: (ids, additive = false) =>
+  selectComponents: (ids, additive = false) => {
+    if (isSimEditLocked(get()) && ids.length) return
     set((s) => {
       // Selecionar um componente agrupado traz consigo todo o grupo.
       const groups = new Set(ids.map((id) => s.components.find((item) => item.id === id)?.groupId).filter(Boolean) as string[])
@@ -2192,7 +2196,8 @@ export const useSimStore = create<Store>((set, get) => {
       selectedTerminalId: null,
       viewOrientationEditor: s.viewOrientationEditor && !ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
       }
-    }),
+    })
+  },
 
   /** Ctrl+G: junta os componentes selecionados num grupo. */
   groupSelection: () => {
@@ -2212,7 +2217,10 @@ export const useSimStore = create<Store>((set, get) => {
     set((s) => ({ components: s.components.map((item) => (item.groupId && groups.has(item.groupId) ? { ...item, groupId: undefined } : item)), dirty: true }))
   },
 
-  selectWire: (id) => set({ selectedWireId: id, selectedComponentIds: [], selectedTerminalId: null, viewOrientationEditor: null }),
+  selectWire: (id) => {
+    if (id && isSimEditLocked(get())) return
+    set({ selectedWireId: id, selectedComponentIds: [], selectedTerminalId: null, viewOrientationEditor: null })
+  },
   selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedComponentIds: [], viewOrientationEditor: null }),
 
   addTerminal: (componentId) => {
@@ -3151,6 +3159,13 @@ setGrafcetNumericReader((operand) => {
 // (entradas, SAÍDAS, memórias, T, C). Espera que o utilizador pare de escrever e ignora
 // endereços incompletos, para não deixar «Q0.» ou «Q0.1» intermédios na tabela.
 let tagSyncTimer: ReturnType<typeof setTimeout> | undefined
+// DC-ADR-071: ao entrar em RUN/PAUSA (Play, Passo) a seleção anterior é largada; o Inspetor fica vazio.
+useSimStore.subscribe((state, prev) => {
+  if (isSimEditLocked(state) && !isSimEditLocked(prev) && (state.selectedComponentIds.length || state.selectedWireId || state.selectedTerminalId)) {
+    useSimStore.setState({ selectedComponentIds: [], selectedWireId: null, selectedTerminalId: null, viewOrientationEditor: null })
+  }
+})
+
 useSimStore.subscribe((state, prev) => {
   if (state.ladder === prev.ladder && state.fcBlocks === prev.fcBlocks) return
   if (tagSyncTimer) clearTimeout(tagSyncTimer)

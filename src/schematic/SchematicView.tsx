@@ -917,13 +917,11 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const simLocked = simRunState === 'running' || simRunState === 'paused'
   const startDrag = (e: React.MouseEvent, c: ElectricalComponent) => {
     if (tool !== 'select') return
-    // Em RUN/PAUSA seleciona-se (Inspetor), mas não se move: botões e liga-desliga
+    // Em RUN/PAUSA não se seleciona nem se move (DC-ADR-071): botões e liga-desliga
     // continuam a atuar no clique (toggleField e handlers de START/STOP).
     if (simLocked) {
+      // DC-ADR-071: em RUN/PAUSA não há seleção nem arrasto; o clique já foi tratado pelo botão/atuador.
       e.stopPropagation()
-      const additive = e.shiftKey || e.ctrlKey || e.metaKey
-      if (additive && selectedIds.includes(c.id)) selectComponents(selectedIds.filter((id) => id !== c.id))
-      else selectComponents([c.id], additive)
       return
     }
     releaseTypingFocus()
@@ -975,6 +973,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   const onTerminalDown = (e: React.MouseEvent, terminalId: string) => {
     e.stopPropagation()
+    // DC-ADR-071: em RUN/PAUSA o borne não se seleciona, liga nem apaga; a sonda continua a medir.
+    if (simLocked && tool !== 'probe') return
     if (tool === 'wire') {
       if (e.button !== 0) return
       // Shift+clique acumula bornes numa cadeia para ligação inteligente:
@@ -1123,6 +1123,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const addPoint = (e: React.MouseEvent) => {
       // duplo clique no cabo = adiciona um ponto de curva arrastável
       e.stopPropagation()
+      if (simLocked) return
       const point = toCanvas(e.clientX, e.clientY)
       const p = { x: snap(point.x), y: snap(point.y) }
       commitHistory()
@@ -1154,7 +1155,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           strokeLinejoin="round"
           style={{ cursor: tool === 'erase' ? 'not-allowed' : tool === 'pan' ? 'grab' : tool === 'wire' ? 'crosshair' : 'pointer' }}
           onMouseDown={(e) => {
-            if (tool === 'pan' || e.button !== 0 || tool === 'wire') return
+            // DC-ADR-071: em RUN/PAUSA o cabo não se seleciona nem apaga (o fundo continua a deixar mover a vista).
+            if (tool === 'pan' || e.button !== 0 || tool === 'wire' || simLocked) return
             releaseTypingFocus()
             e.stopPropagation()
             if (tool === 'erase') {
@@ -1197,12 +1199,14 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               style={{ cursor: 'grab' }}
               onMouseDown={(e) => {
                 e.stopPropagation()
+                if (simLocked) return
                 commitHistory()
                 setWireDrag({ wireId: w.id, mode: 'waypoint', index: i })
               }}
               onDoubleClick={(e) => {
                 // duplo clique no ponto = remove
                 e.stopPropagation()
+                if (simLocked) return
                 commitHistory()
                 const next = (w.waypoints ?? []).filter((_, j) => j !== i)
                 updateWire(w.id, { waypoints: next.length ? next : undefined })
@@ -1222,6 +1226,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             style={{ cursor: handle.mode === 'curve' ? 'grab' : 'ew-resize' }}
             onMouseDown={(e) => {
               e.stopPropagation()
+              if (simLocked) return
               commitHistory()
               setWireDrag({ wireId: w.id, mode: handle.mode })
             }}
@@ -1317,7 +1322,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           <>
             <DinRail2D c={c} />
             <rect x={0} y={-4} width={c.w} height={c.h + 8} fill="transparent" />
-            {selected && !c.locked && c.rotation === 0 && !c.mirrored && (['left', 'right'] as const).map((side) => (
+            {selected && !simLocked && !c.locked && c.rotation === 0 && !c.mirrored && (['left', 'right'] as const).map((side) => (
               <g key={side} style={{ cursor: 'ew-resize' }}
                 onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); commitHistory(); setRailResize({ id: c.id, side }) }}>
                 <rect x={(side === 'left' ? 0 : c.w) - 7} y={-3} width={14} height={c.h + 6} fill="transparent" />
@@ -1549,7 +1554,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           )}
 
           {/* Arrastar uma ponta já ligada para outro borne mantém o mesmo cabo. */}
-          {tool === 'select' && selectedWireId && (() => {
+          {tool === 'select' && !simLocked && selectedWireId && (() => {
             const w = wires.find((item) => item.id === selectedWireId)
             if (!w) return null
             return (['from', 'to'] as const).map((side) => {

@@ -52,6 +52,7 @@
     "test:commands-select-texts-ui": "node scripts/commands-select-texts-ui-smoke.mjs",
     "test:sim-cursor": "tsx scripts/sim-cursor-smoke.ts",
     "test:sim-select-3d-ui": "node scripts/sim-select-3d-ui-smoke.mjs",
+    "test:sim-edit-lock": "tsx scripts/sim-edit-lock-smoke.ts",
     "test:ladder-rename": "tsx scripts/ladder-rename-smoke.ts",
     "test:project-names": "tsx scripts/project-names-smoke.ts",
     "test:style": "node scripts/no-accent-border.mjs",
