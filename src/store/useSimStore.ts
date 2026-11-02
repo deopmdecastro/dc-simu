@@ -657,11 +657,15 @@ function runOneTick(state: Store, dtMs: number) {
   for (const plc of plcTargets) {
     const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {}, edges: {} }
     const table = prior.table
-    // Os Siemens S7 também declaram L+/M (contactos 1 e 18 do conector frontal):
-    // sem isto o módulo nunca ficava alimentado e as lâmpadas nunca acendiam.
-    // A CPU 315-2 DP não tem E/S a bordo — o programa corre, a alimentação
-    // acende o DC5V, mas não há bits de entrada para ler dos cabos.
-    const logo = SIEMENS_S7_TYPES.includes(plc.type) ? logoElectricalInputs(plc, components, wires) : null
+    // LOGO! e Siemens S7 declaram L+/M: a alimentação DC decide se o módulo
+    // está powered e se os contactos de relé / saídas podem fechar no grafo.
+    // Sem isto o LOGO! ficava com state.powered=false (valor de fábrica) e as
+    // pontes Qx↔Qx·2 nunca fechavam — a simulação do nativo «Partida direta»
+    // deixava de energizar KM1, H1/H2 e o motor. A CPU 315-2 DP não tem E/S a
+    // bordo: o programa corre e a alimentação acende o DC5V, mas não há bits
+    // de entrada para ler dos cabos.
+    const needsDcSupply = plc.type === 'plcSiemensLogo1224RC' || SIEMENS_S7_TYPES.includes(plc.type)
+    const logo = needsDcSupply ? logoElectricalInputs(plc, components, wires) : null
     const runtimeOnly = plc.type === 'plcSiemensS7300Cpu315'
     const powered = logo?.powered ?? true
     if (logo) plc.state.powered = powered
