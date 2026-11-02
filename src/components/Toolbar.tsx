@@ -1,6 +1,7 @@
 import { ViewDiagnosticsTag, DiagnosticsTag } from '../diagnostics/DiagnosticsUi'
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from '../diagnostics/viewDiagnostics'
 import { uiConfirm, uiChoose } from '../ui/dialogs'
+import { listSimModules, moduleOfView, scopeNeedsCommands, scopeNeedsPanel } from '../ui/simScope'
 import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
@@ -216,46 +217,106 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const pause = isCmd ? cmdUi.pause : plcPause
   const stop = isCmd ? cmdUi.stop : plcStop
   const componentsForSim = useSimStore((s) => s.components)
-  const activePlcId = useSimStore((s) => s.activePlcId)
   const setSimPlcScope = useSimStore((s) => s.setSimPlcScope)
-  /** Play com escolha de âmbito quando existem 2+ PLCs no esquema. */
+  /**
+   * Play: se o projeto tem 2+ simuladores com conteúdo (3D, Ladder, GRAFCET, IEC),
+   * pergunta se corre todos ou só o da vista atual. Depois, se houver 2+ PLCs e o
+   * motor PLC for arrancar, pergunta o âmbito dos controladores.
+   */
   const requestPlay = async () => {
-    if (isCmd) {
-      play()
+    const st = useSimStore.getState()
+    if (st.sim.runState === 'running' && !isCmd) return
+    if (isCmd && useCommandsUi.getState().rt.running && !useCommandsUi.getState().paused) return
+
+    const modules = listSimModules({
+      components: st.components,
+      ladderRungs: st.ladder.rungs,
+      plcPrograms: st.plcPrograms,
+      projectFiles: st.projectFiles,
+      grafcet: st.grafcet,
+      commands: st.commands,
+    })
+    // Projeto vazio: mantém o Play directo da vista.
+    if (modules.length === 0) {
+      if (isCmd) useCommandsUi.getState().start({ withPlc: false })
+      else useSimStore.getState().play()
       return
     }
-    const plcs = componentsForSim.filter(isProgrammablePlc)
-    if (plcs.length >= 2 && useSimStore.getState().sim.runState === 'stopped') {
-      const activeId = activePlcId && plcs.some((p) => p.id === activePlcId) ? activePlcId : plcs[0].id
-      const active = plcs.find((p) => p.id === activeId) ?? plcs[0]
-      const activeName = active.ref || active.label || active.type
+    const currentModule = moduleOfView(mode)
+    let scope: 'all' | typeof currentModule = 'all'
+
+    if (modules.length >= 2) {
+      const current = modules.find((m) => m.id === currentModule) ?? modules[0]
       const choice = await uiChoose(
-        `Este esquema tem ${plcs.length} PLCs. Que programas devem entrar em RUN?`,
+        'Este projeto tem vários simuladores. O que deseja colocar em RUN?',
         [
           {
             id: 'all',
             title: 'Simular todos',
-            description: 'Todos os PLCs do quadro executam em paralelo.',
-            detail: plcs.map((p) => p.ref || p.label || p.type).join(' · '),
-            badge: `${plcs.length} PLCs`,
+            description: 'Arranca todos os simuladores com conteúdo neste projeto.',
+            detail: modules.map((m) => m.title).join(' · '),
+            badge: `${modules.length} simuladores`,
           },
           {
-            id: 'active',
-            title: 'Só este PLC',
-            description: `Apenas o programa ativo (${activeName}) entra em RUN.`,
-            detail: 'Os outros controladores ficam parados nesta sessão de simulação.',
-            badge: activeName,
+            id: current.id,
+            title: `Só ${current.title}`,
+            description: `Apenas o simulador da vista atual (${current.title}).`,
+            detail: current.description,
+            badge: 'Vista atual',
           },
         ],
         { title: 'Âmbito da simulação', confirmLabel: 'Iniciar', defaultId: 'all' },
       )
       if (!choice) return
-      setSimPlcScope(choice === 'active' ? 'active' : 'all')
-      queueMicrotask(() => useSimStore.getState().play())
-      return
+      scope = choice === 'all' ? 'all' : current.id
     }
-    setSimPlcScope('all')
-    play()
+
+    // Âmbito multi-PLC (só quando o motor PLC vai arrancar).
+    if (scopeNeedsPanel(scope)) {
+      const plcs = componentsForSim.filter(isProgrammablePlc)
+      if (plcs.length >= 2 && st.sim.runState === 'stopped') {
+        const activeId = st.activePlcId && plcs.some((p) => p.id === st.activePlcId) ? st.activePlcId : plcs[0].id
+        const active = plcs.find((p) => p.id === activeId) ?? plcs[0]
+        const activeName = active.ref || active.label || active.type
+        const plcChoice = await uiChoose(
+          `Este esquema tem ${plcs.length} PLCs. Que programas devem entrar em RUN?`,
+          [
+            {
+              id: 'all',
+              title: 'Todos os PLCs',
+              description: 'Todos os controladores do quadro executam em paralelo.',
+              detail: plcs.map((p) => p.ref || p.label || p.type).join(' · '),
+              badge: `${plcs.length} PLCs`,
+            },
+            {
+              id: 'active',
+              title: 'Só o PLC ativo',
+              description: `Apenas o programa ativo (${activeName}).`,
+              detail: 'Os outros controladores ficam parados nesta sessão.',
+              badge: activeName,
+            },
+          ],
+          { title: 'PLCs na simulação', confirmLabel: 'Continuar', defaultId: 'all' },
+        )
+        if (!plcChoice) return
+        setSimPlcScope(plcChoice === 'active' ? 'active' : 'all')
+      } else {
+        setSimPlcScope('all')
+      }
+    }
+
+    const runPanel = scopeNeedsPanel(scope) && modules.some((m) => m.id !== 'commands')
+    const runCommands = scopeNeedsCommands(scope) && modules.some((m) => m.id === 'commands')
+
+    queueMicrotask(() => {
+      if (runPanel && useSimStore.getState().sim.runState !== 'running') {
+        useSimStore.getState().play()
+      }
+      if (runCommands) {
+        // Se o painel já arrancou, o IEC não precisa de voltar a chamar play().
+        useCommandsUi.getState().start({ withPlc: !runPanel })
+      }
+    })
   }
   const step = isCmd ? () => { if (!cmdUi.rt.running) { cmdUi.start(); useCommandsUi.getState().pause() } else useCommandsUi.getState().tick(100, true) } : plcStep
   const reset = isCmd ? () => { cmdUi.stop(); useCommandsUi.getState().start() } : plcReset

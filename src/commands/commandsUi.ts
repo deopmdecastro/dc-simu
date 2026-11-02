@@ -50,7 +50,7 @@ interface CommandsUi {
   rt: CmdRuntime
   /** Pausa: o tempo simulado para, mas o estado elétrico mantém-se. */
   paused: boolean
-  start: () => void
+  start: (opts?: { withPlc?: boolean }) => void
   stop: () => void
   pause: () => void
   /** Avança a simulação; `force` avança mesmo em pausa (botão «passo»). */
@@ -205,11 +205,15 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   setPlacing: (placing) => set({ placing, tool: 'select' }),
   rt: emptyCmdRuntime(),
   paused: false,
-  start: () => {
+  start: (opts?: { withPlc?: boolean }) => {
     const { rt, paused } = get()
     if (rt.running && paused) { set({ paused: false }); return }
-    // Com entradas/saídas do PLC no esquema, o programa do PLC corre ao mesmo tempo.
-    if (linkedToPlc() && useSimStore.getState().sim.runState !== 'running') { useSimStore.getState().play(); plcLink.startedPlc = true }
+    // withPlc: false = só o esquema IEC (pedido no diálogo de âmbito do Play).
+    const wantPlc = opts?.withPlc !== false
+    if (wantPlc && linkedToPlc() && useSimStore.getState().sim.runState !== 'running') {
+      useSimStore.getState().play()
+      plcLink.startedPlc = true
+    }
     set({ selection: null, selectedPartIds: [], placing: null, paused: false, rt: stepLinked({ ...emptyCmdRuntime(), running: true }, 0) })
   },
   stop: () => { unlinkPlc(); set({ rt: emptyCmdRuntime(), paused: false }) },
