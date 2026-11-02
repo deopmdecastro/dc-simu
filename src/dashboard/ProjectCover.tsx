@@ -59,15 +59,19 @@ function useInView<T extends Element>() {
 
 const wireColor = (c?: string) => (c && (c.startsWith('#') ? c : WIRE_COLORS[c])) || '#64748b'
 
-/** Cover do projeto: composição do esquema com as peças reais, calhas, fios e bornes. */
+/** Cover do projeto: foto 3D real do simulador (JPEG leve) quando existe; senão composição
+ *  do esquema / diagrama Ladder·GRAFCET. A foto evita carregar dezenas de miniaturas GLB. */
 export default function ProjectCover({ preview, large = false }: { preview?: ProjectPreviewData; large?: boolean }) {
   const comps = preview?.components ?? []
   const [hostRef, inView] = useInView<HTMLDivElement>()
-  const images = useCoverImages(comps, inView)
+  // Capa fotográfica 3D (JPEG do Panel3D) ou SVG de fluxo — prioridade sobre o esquema 2D.
+  const photo = preview?.cover ?? preview?.flow
+  // Só gera imagens ortográficas dos componentes quando NÃO há foto (poupa cache e GPU).
+  const images = useCoverImages(comps, inView && !photo)
   const clipId = `cv${useId().replace(/:/g, '')}`
 
   const geom = useMemo(() => {
-    if (!comps.length) return null
+    if (!comps.length || photo) return null
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     const focus = comps.filter((c) => !/rail/i.test(c.t))
     for (const c of focus.length ? focus : comps) {
@@ -80,16 +84,12 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
     const span = Math.max(maxX - minX, maxY - minY, 80)
     const pad = Math.max(28, span * 0.07)
     return { minX, minY, maxX, maxY, span, pad }
-  }, [comps])
+  }, [comps, photo])
 
-  const photo = preview?.cover ?? preview?.flow
-  const hasWirePreview = (preview?.wires?.length ?? 0) > 0 && (preview?.components?.length ?? 0) > 0
-  // Preferir o diagrama com cabos: a foto 3D por vezes é capturada antes do encaminhamento
-  // dos fios e a capa do nativo ficava «limpa» sem cabos.
-  if (photo && !hasWirePreview) {
+  if (photo) {
     return (
       <div className={`dx-cover dx-cover-real${large ? ' is-large' : ''}`} ref={hostRef} aria-hidden="true">
-        <img src={photo} alt="" className="dx-cover-photo" draggable={false} />
+        <img src={photo} alt="" className="dx-cover-photo" draggable={false} loading="lazy" decoding="async" />
       </div>
     )
   }

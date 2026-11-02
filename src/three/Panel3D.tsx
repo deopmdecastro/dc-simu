@@ -2419,7 +2419,8 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
       try {
         gl.render(scene, cam)
         const sw = src.width * fw, sh = src.height * fh
-        const scale = Math.min(1, 800 / sw)
+        // ≤640 px e JPEG 0,72: capa legível no cartão sem inflar o JSON nem a memória.
+        const scale = Math.min(1, 640 / sw)
         const out = document.createElement('canvas')
         out.width = Math.max(1, Math.round(sw * scale))
         out.height = Math.max(1, Math.round(sh * scale))
@@ -2428,7 +2429,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
         ctx.fillStyle = bg
         ctx.fillRect(0, 0, out.width, out.height)
         ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, out.width, out.height)
-        return out.toDataURL('image/jpeg', 0.82)
+        return out.toDataURL('image/jpeg', 0.72)
       } finally {
         scaled.forEach(({ obj, sx, sy, sz }) => obj.scale.set(sx, sy, sz))
         hidden.forEach((o) => { o.visible = true })

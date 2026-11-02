@@ -8,7 +8,8 @@ let lastCover: string | null = null
 /** True quando o encaminhamento 3D dos cabos já produziu malhas (ou não há cabos). */
 let wiresReady = true
 
-export const COVER_MAX_CHARS = 420_000
+/** JPEG 640×@0,72 ≈ 40–120 KiB em base64; teto evita projetos com capas gigantes. */
+export const COVER_MAX_CHARS = 280_000
 
 export function registerCoverCapture(fn: Capture | null) {
   capture = fn

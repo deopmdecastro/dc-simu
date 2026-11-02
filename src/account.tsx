@@ -137,12 +137,14 @@ export default function Account() {
     setMessage(message === '[object Object]' ? 'Não foi possível concluir o pedido. Tente novamente.' : message)
   }
 
-  /** Cover real: cena 3D no projeto completo; diagrama Ladder/GRAFCET nos outros tipos. */
+  /** Cover real: cena 3D no projeto completo/esquema; diagrama Ladder/GRAFCET nos outros tipos. */
   async function resolveCover(name?: string): Promise<string | undefined> {
     const s = useSimStore.getState()
-    const flowKind = s.projectKind !== 'all'
-    const scene = flowKind ? null : captureCover()
-    if (scene) return scene
+    const wants3d = s.projectKind === 'all' || s.projectKind === 'schematic' || !s.projectKind
+    if (wants3d) {
+      const scene = captureCover()
+      if (scene) return scene
+    }
     try {
       const flow = await flowCoverDataUrl({ kind: s.projectKind, rungs: s.ladder.rungs, grafcet: s.grafcet, name })
       if (flow) { setStoredCover(flow); return flow }
