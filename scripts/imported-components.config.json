@@ -151,5 +151,32 @@
       0
     ],
     "placement": "machine"
+  },
+  {
+    "type": "plcSiemensS71500Di32",
+    "rotation": [
+      90,
+      0,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "plcSiemensS71500Cpu1511c",
+    "rotation": [
+      90,
+      0,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "plcSiemensS7300Cpu315",
+    "rotation": [
+      90,
+      0,
+      0
+    ],
+    "placement": "din-rail"
   }
 ]

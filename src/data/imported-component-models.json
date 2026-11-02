@@ -342,7 +342,7 @@
       "type": "safetyRelaySiemens3tk2840",
       "archive": "safetyrelay_siemens_sirius_3tk2840-1.snapshot.4.zip",
       "archiveSha256": "2b1aaf727835ef095dcbcd6326a492eb4d6a18337a3bbcf03e56aa39c16d0ccc",
-      "member": "SafetyRelay_SIRIUS_3TK2840/Relé_Emergência_SIRIUS_3TK2840_STEP.step",
+      "member": "SafetyRelay_SIRIUS_3TK2840/Rel\u00e9_Emerg\u00eancia_SIRIUS_3TK2840_STEP.step",
       "sourceSha256": "8e5ca9f80e5e3f5736beac54d372650c72a6a6de7392b861f6899c67c051216d",
       "format": "STEP"
     },
@@ -374,7 +374,7 @@
       "type": "motorBreakerSchneiderGv2me",
       "archive": "schneidereletricmotorcircuitbreaker_gv2me-1.snapshot.5.zip",
       "archiveSha256": "906365774ea99bc37e32ac9d5cb548416af521fa3e4d635416f9a889aa601fde",
-      "member": "MotorCircuitBreakerGV2ME_SchneiderEletric®.stp",
+      "member": "MotorCircuitBreakerGV2ME_SchneiderEletric\u00ae.stp",
       "sourceSha256": "846ebde235472cbb1397c6912049d070ea98770e5318439661f42bde1641983e",
       "format": "STEP"
     },
@@ -446,5 +446,101 @@
     "triangles": 7004,
     "bytes": 235460,
     "glbSha256": "e1e82b2761b55de01c5e11a04f8b37bfbbff6e5ca1ac1570f94b29a7a8099f3c"
+  },
+  {
+    "type": "plcSiemensS71500Di32",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      90,
+      0,
+      0
+    ],
+    "path": "/models/importados/plcSiemensS71500Di32.glb",
+    "physicalSizeMm": {
+      "width": 46.992,
+      "height": 131.702,
+      "depth": 147
+    },
+    "source": {
+      "type": "plcSiemensS71500Di32",
+      "archive": "194719891-659-6es75211bl000ab0.zip",
+      "archiveSha256": "83d65075bd19ce1c9669cf5588bb3becf426590ee842dca9ad29f53d4782c840",
+      "member": "6es75211bl000ab0.stp",
+      "sourceSha256": "8d6ddbf335176af7e282dc05f5e855a30a3f2337fe706ed6273076b399b54337",
+      "format": "STEP"
+    },
+    "meshes": 76,
+    "triangles": 57935,
+    "bytes": 2143740,
+    "glbSha256": "bc55ab432c6b31a862bdaa3e7a9d04806fe7896c03a69844c03b11dbb6035176"
+  },
+  {
+    "type": "plcSiemensS71500Cpu1511c",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      90,
+      0,
+      0
+    ],
+    "path": "/models/importados/plcSiemensS71500Cpu1511c.glb",
+    "physicalSizeMm": {
+      "width": 84.9,
+      "height": 129.253,
+      "depth": 147
+    },
+    "source": {
+      "type": "plcSiemensS71500Cpu1511c",
+      "archive": "plc-s7-1500-model-6es7511-1ck00-0ab0-1.snapshot.1.zip",
+      "archiveSha256": "b370301ec32f1856783d98e42c835fc5356cbf7b53ac35681ddc65d29bc84896",
+      "member": "6es75111ck000ab0.stp",
+      "sourceSha256": "220cc6b3ac56de5e3551aeb72636d63aaab2e97ab30432657bdceeedcf8a1ca2",
+      "format": "STEP"
+    },
+    "meshes": 213,
+    "triangles": 104011,
+    "bytes": 3951792,
+    "glbSha256": "0a142a2d76e27200399ed11bc83576718fbc590c3b411351afc4b5be6f04e2a2"
+  },
+  {
+    "type": "plcSiemensS7300Cpu315",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      90,
+      0,
+      0
+    ],
+    "path": "/models/importados/plcSiemensS7300Cpu315.glb",
+    "physicalSizeMm": {
+      "width": 40,
+      "height": 122.101,
+      "depth": 125.035
+    },
+    "source": {
+      "type": "plcSiemensS7300Cpu315",
+      "archive": "siemens-simatic-s7-300-cpu315-2dp-1.snapshot.5.zip",
+      "archiveSha256": "4f68d418947bba6a4b41dc83b23eccb1f823d45d7e1becdfe7e3bf49e6eba4ee",
+      "member": "SIMATIC S7 300 CPU315/STEP_IGS_Other/ASSEM_SIMATIC S7 300 CPU315.STEP",
+      "sourceSha256": "2d5b00f3dcf4f5f10cf59c940e76e9d62c2050309ff5424525d4741120c01876",
+      "format": "STEP"
+    },
+    "meshes": 18,
+    "triangles": 90223,
+    "bytes": 3178036,
+    "glbSha256": "aa727fc7a5b0d3b25b89399e461c559b00e55bf479e3d72d4d17cf1a4f61dd5d"
   }
 ]

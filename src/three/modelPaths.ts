@@ -19,6 +19,12 @@ export const MODEL_PATHS = {
   dualPushButtonNpb22D11: '/models/comando/nhd-npb22-d11.glb',
   safetyRelayMsr127Tp: '/models/reles/allen-bradley-msr127tp.glb',
   plcLsXbmDn32s: '/models/controladores/ls-xbm-dn32s.glb',
+  /** Siemens SIMATIC S7-1500 DI 32×24 V DC · 6ES7521-1BL00-0AB0 (STEP TraceParts → GLB). */
+  plcSiemensS71500Di32: '/models/controladores/siemens-s7-1500-di32-6es7521.glb',
+  /** Siemens SIMATIC S7-1500 CPU 1511C-1 PN · 6ES7511-1CK00-0AB0. */
+  plcSiemensS71500Cpu1511c: '/models/controladores/siemens-s7-1500-cpu1511c-6es7511.glb',
+  /** Siemens SIMATIC S7-300 CPU 315-2 DP. */
+  plcSiemensS7300Cpu315: '/models/controladores/siemens-s7-300-cpu315-2dp.glb',
   siemensTsAdapterIeBasic: '/models/controladores/siemens-ts-adapter-ie-basic.glb',
   phoenixTerminalPti6: '/models/bornes-e-barras/phoenix-pti6-3213972.glb',
   terminalSet1ph: '/models/bornes-e-barras/conjunto-bornes-monofasico.glb',
@@ -80,6 +86,10 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   safetyRelay: { width: 22.65, height: 99.1, depth: 112.73 },
   /** Medido no CAD já de frente: corpo slim de 30,2 mm, 97,5 mm de altura e 82 mm de profundidade (com os ganchos da calha). */
   plcLsXbmDn32s: { width: 30.2, height: 97.49, depth: 82.03 },
+  /** Medido no STEP TraceParts após rotação base (frente em +Z). */
+  plcSiemensS71500Di32: { width: 46.99, height: 131.7, depth: 147 },
+  plcSiemensS71500Cpu1511c: { width: 84.9, height: 129.25, depth: 147 },
+  plcSiemensS7300Cpu315: { width: 40, height: 122.1, depth: 125.04 },
   siemensTsAdapterIeBasic: { width: 30, height: 105.58, depth: 75.1 },
   terminalPhoenixPti6: { width: 8.15, height: 66.02, depth: 48.5 },
   terminalSet1ph: { width: 24.45, height: 66.02, depth: 48.5 },
@@ -173,6 +183,9 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
    * Equivale a Ry(−90°)·Rx(+90°), escrito em ângulos de Euler XYZ.
    */
   plcLsXbmDn32s: spec('plcLsXbmDn32s', MODEL_PATHS.plcLsXbmDn32s, [Math.PI / 2, 0, Math.PI / 2], 'din-rail'),
+  plcSiemensS71500Di32: spec('plcSiemensS71500Di32', MODEL_PATHS.plcSiemensS71500Di32, [Math.PI / 2, 0, 0], 'din-rail'),
+  plcSiemensS71500Cpu1511c: spec('plcSiemensS71500Cpu1511c', MODEL_PATHS.plcSiemensS71500Cpu1511c, [Math.PI / 2, 0, 0], 'din-rail'),
+  plcSiemensS7300Cpu315: spec('plcSiemensS7300Cpu315', MODEL_PATHS.plcSiemensS7300Cpu315, [Math.PI / 2, 0, 0], 'din-rail'),
   siemensTsAdapterIeBasic: spec('siemensTsAdapterIeBasic', MODEL_PATHS.siemensTsAdapterIeBasic, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalPhoenixPti6: spec('terminalPhoenixPti6', MODEL_PATHS.phoenixTerminalPti6, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalSet1ph: spec('terminalSet1ph', MODEL_PATHS.terminalSet1ph, [0, 0, 0], 'din-rail'),

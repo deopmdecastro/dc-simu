@@ -203,6 +203,49 @@ function plcLsXbmDn32sTerminals(): TerminalTemplate[] {
   return list
 }
 
+/**
+ * S7-1500 DI 32×24 V DC (6ES7521-1BL00-0AB0): 32 entradas em grupos de 8,
+ * alimentação 24 V e comum M. Filas frontais aproximadas (frente do módulo).
+ */
+function plcS71500Di32Terminals(): TerminalTemplate[] {
+  const list: TerminalTemplate[] = [
+    T('L+', 'power-in', 0.08, 0, { terminalType: 'screw', color: '#ef4444' }),
+    T('M', 'neutral', 0.18, 0, { terminalType: 'screw', color: '#3b82f6' }),
+  ]
+  for (let i = 0; i < 32; i++) {
+    const byte = Math.floor(i / 8)
+    const bit = i % 8
+    const col = i % 8
+    const row = Math.floor(i / 8)
+    list.push(T(`I${byte}.${bit}`, 'io', 0.28 + col * (0.68 / 7), row < 2 ? 0.15 + row * 0.2 : 0.55 + (row - 2) * 0.2, { terminalType: 'screw' }))
+  }
+  return list
+}
+
+/** CPU 1511C-1 PN: 16 DI + 16 DO integrados + L+/M (front connectors). */
+function plcS71500Cpu1511cTerminals(): TerminalTemplate[] {
+  const list: TerminalTemplate[] = [
+    T('L+', 'power-in', 0.12, 0, { terminalType: 'screw', color: '#ef4444' }),
+    T('M', 'neutral', 0.22, 0, { terminalType: 'screw', color: '#3b82f6' }),
+    T('PN', 'io', 0.88, 0, { terminalType: 'plug', color: '#22c55e' }),
+  ]
+  for (let i = 0; i < 16; i++) {
+    list.push(T(`I${Math.floor(i / 8)}.${i % 8}`, 'io', 0.08 + (i % 8) * (0.84 / 7), i < 8 ? 0.35 : 0.5, { terminalType: 'screw' }))
+    list.push(T(`Q${Math.floor(i / 8)}.${i % 8}`, 'io', 0.08 + (i % 8) * (0.84 / 7), i < 8 ? 0.7 : 0.85, { terminalType: 'screw' }))
+  }
+  return list
+}
+
+/** CPU 315-2 DP: alimentação 24 V e interfaces (MPI/DP) — sem E/S digitais a bordo. */
+function plcS7300Cpu315Terminals(): TerminalTemplate[] {
+  return [
+    T('L+', 'power-in', 0.2, 1, { terminalType: 'screw', color: '#ef4444' }),
+    T('M', 'neutral', 0.4, 1, { terminalType: 'screw', color: '#3b82f6' }),
+    T('MPI', 'io', 0.65, 1, { terminalType: 'plug', color: '#94a3b8' }),
+    T('DP', 'io', 0.85, 1, { terminalType: 'plug', color: '#a855f7' }),
+  ]
+}
+
 export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   ...importedTemplates(),
   // ---------------- Proteção ----------------
@@ -718,6 +761,56 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       supply: '24 V DC',
       outputType: '16 transistor NPN (sink)',
       programCapacity: '10 ksteps',
+    },
+  },
+  plcSiemensS71500Di32: {
+    category: 'controller', paletteName: 'Siemens S7-1500 DI 32×24 V · 6ES7521-1BL00-0AB0', group: 'Controladores', tag: 'DI', w: 320, h: 220,
+    terminals: plcS71500Di32Terminals(),
+    defaultState: {
+      powered: false,
+      inputs: {},
+      outputs: {},
+      memories: {},
+      supply: '24 V DC',
+      channels: 32,
+      reference: '6ES7521-1BL00-0AB0',
+      ledSF: false,
+      ledDIAG: false,
+    },
+  },
+  plcSiemensS71500Cpu1511c: {
+    category: 'controller', paletteName: 'Siemens S7-1500 CPU 1511C-1 PN · 6ES7511-1CK00-0AB0', group: 'Controladores', tag: 'PLC', w: 380, h: 240,
+    terminals: plcS71500Cpu1511cTerminals(),
+    defaultState: {
+      powered: false,
+      inputs: {},
+      outputs: Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`Q${Math.floor(i / 8)}.${i % 8}`, false])),
+      memories: {},
+      supply: '24 V DC',
+      reference: '6ES7511-1CK00-0AB0',
+      ledRUN: false,
+      ledERROR: false,
+      ledMAINT: false,
+      displayOn: false,
+    },
+  },
+  plcSiemensS7300Cpu315: {
+    category: 'controller', paletteName: 'Siemens S7-300 CPU 315-2 DP', group: 'Controladores', tag: 'PLC', w: 280, h: 220,
+    terminals: plcS7300Cpu315Terminals(),
+    defaultState: {
+      powered: false,
+      inputs: {},
+      outputs: {},
+      memories: {},
+      supply: '24 V DC',
+      reference: 'CPU 315-2 DP',
+      mode: 'STOP',
+      ledSF: false,
+      ledBATF: false,
+      ledDC5V: false,
+      ledFRCE: false,
+      ledRUN: false,
+      ledSTOP: true,
     },
   },
   siemensTsAdapterIeBasic: {

@@ -94,6 +94,9 @@ export type ComponentType =
   | 'plcCompact'
   | 'plcSiemensLogo1224RC'
   | 'plcLsXbmDn32s'
+  | 'plcSiemensS71500Di32'
+  | 'plcSiemensS71500Cpu1511c'
+  | 'plcSiemensS7300Cpu315'
   | 'siemensTsAdapterIeBasic'
   | 'hmi'
   // --- Bornes, barras e fontes -----------------------------------------

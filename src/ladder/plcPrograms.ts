@@ -11,6 +11,7 @@ export type PlcProgram = {
 
 export const isProgrammablePlc = (c: ElectricalComponent) =>
   c.type === 'plcLogo' || c.type === 'plcCompact' || c.type === 'plcSiemensLogo1224RC' || c.type === 'plcLsXbmDn32s'
+  || c.type === 'plcSiemensS71500Cpu1511c' || c.type === 'plcSiemensS7300Cpu315'
 
 export const blankPlcProgram = (): PlcProgram => ({ rungs: [], fc1: [], fc2: [] })
 
