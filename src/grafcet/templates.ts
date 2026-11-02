@@ -525,6 +525,9 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
         ],
         comments: [
           { id: uid(), text: 'Partida Direta - KM1', x: 100, y: 35, fontSize: 15, fontWeight: '700' },
+          { id: uid(), text: 'Entradas: B_Start (NA) · B_Stop_NF (NF) — Saídas: KM1 · L_Verde · L_Amarela', x: 100, y: 55, fontSize: 11, fontWeight: '500', color: '#334155' },
+          { id: uid(), text: 'T1: Start + Stop libertado → marcha · T2: Stop premido → parado', x: 100, y: 72, fontSize: 11, fontWeight: '500', color: '#475569' },
+          { id: uid(), text: 'X0 parado (L_Verde) · X1 marcha (KM1 + L_Amarela)', x: 280, y: 160, fontSize: 11, fontWeight: '500', color: '#475569' },
         ],
       }
     })(),

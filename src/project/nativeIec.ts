@@ -52,6 +52,11 @@ export function buildNativeIecSchematic(): CommandsDiagram {
 
   // —— Potência (400 V 3~ + N + PE) ——
   text(60, 0, 'Circuito de potência — XG 400 V 3~ / N / PE')
+  text(420, 40, 'Cadeia: XG → QG → QM1 → KM1 → F1 → M1')
+  text(420, 58, 'KM1 fecha a potência quando Q0.0')
+  text(420, 74, 'energiza a bobina (via 95-96 do F1)')
+  text(420, 100, 'F1 (térmico): 95-96 NF em série com a bobina;')
+  text(420, 116, '97-98 NA → I0.3 (sinal de disparo ao LOGO!)')
   const xg = part('supply', 80, 40, '', { lines: ['L1', 'L2', 'L3', 'N', 'PE'] })
   const qg = part('breaker3', 80, 60, 'QG')
   for (let i = 0; i < 3; i++) wire(xg, i, qg, i * 2)
@@ -139,6 +144,21 @@ export function buildNativeIecSchematic(): CommandsDiagram {
   wire(coil, 1, kmN, 0)
   text(80, 600, '230 V AC')
   text(60, 880, 'Em RUN, as entradas I0.x e as saídas Q0.x seguem o programa do LOGO! (o simulador do PLC arranca com o esquema).')
+  // Legenda de tags (entradas / saídas) — igual ao espírito dos comentários do GRAFCET.
+  text(700, 40, 'Tags de entrada')
+  text(700, 58, 'I0.0  EMERG  B0 cogumelo NF')
+  text(700, 74, 'I0.1  START  B1.1 NA')
+  text(700, 90, 'I0.2  STOP   B1.2 NF')
+  text(700, 106, 'I0.3  F1     97-98 NA (disparo)')
+  text(700, 140, 'Tags de saída')
+  text(700, 158, 'Q0.0  KM1   bobina contactor')
+  text(700, 174, 'Q0.1  H1    MARCHA (verde)')
+  text(700, 190, 'Q0.2  H2    PARADO (laranja)')
+  text(700, 206, 'Q0.3  H3    EMERGÊNCIA (vermelho)')
+  text(700, 240, 'Funcionamento')
+  text(700, 258, 'START + EMERG OK + STOP OK + F1 armado → marcha')
+  text(700, 274, 'STOP, emergência ou F1 → reset a parado')
+  text(700, 290, 'H2 aceso em parado sem falha; H3 em emergência/F1')
   return diagram
 }
 

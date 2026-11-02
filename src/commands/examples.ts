@@ -42,6 +42,7 @@ function builder(name: string, pages?: Array<{ id: string; name: string }>) {
 export function directStartExample(): CommandsDiagram {
   const b = builder('Arranque direto')
   b.text(60, 0, 'Circuito de potência')
+  b.text(60, 16, 'Q1 → K1 → F1 → M1')
   const net = b.part('supply', 80, 40, '', { lines: ['L1', 'L2', 'L3'] })
   const q1 = b.part('breaker3', 80, 60, 'Q1')
   const k1 = b.part('contact3', 80, 160, 'K1')
@@ -52,6 +53,8 @@ export function directStartExample(): CommandsDiagram {
   for (let i = 0; i < 3; i++) b.wire(f1, i * 2 + 1, m1, i)
 
   b.text(300, 0, 'Circuito de comando')
+  b.text(300, 16, 'S1 STOP (NF) · S2 START (NA) · selo K1 · H1 marcha')
+  b.text(300, 32, 'F1 (NC) em série: disparo térmico corta a bobina')
   const l1 = b.part('supply', 320, 40, '', { lines: ['L1'] })
   const f2 = b.part('fuse', 320, 60, 'F2')
   const f1nc = b.part('thermalNC', 320, 140, 'F1')
@@ -74,6 +77,7 @@ export function directStartExample(): CommandsDiagram {
   const bottom = [b.node(320, 620), b.node(400, 620), b.node(480, 620)]
   b.wire(coil, 1, bottom[0], 0); b.wire(h1, 1, bottom[2], 0)
   b.wire(n, 0, bottom[0], 0); b.wire(bottom[0], 0, bottom[1], 0); b.wire(bottom[1], 0, bottom[2], 0)
+  b.text(60, 640, 'Tags: S1=STOP · S2=START · K1=contactor · F1=térmico · H1=lâmpada marcha')
   return b.diagram
 }
 
@@ -192,6 +196,7 @@ export function reversingStartExample(): CommandsDiagram {
 export function emergencyStopExample(): CommandsDiagram {
   const b = builder('Paragem de emergência')
   b.text(40, 0, 'Potência')
+  b.text(40, 16, 'Q1 → K1 → F1 → M1')
   const net = b.part('supply', 60, 40, '', { lines: ['L1', 'L2', 'L3'] })
   const q1 = b.part('breaker3', 60, 60, 'Q1')
   const k1 = b.part('contact3', 60, 160, 'K1')
@@ -202,6 +207,8 @@ export function emergencyStopExample(): CommandsDiagram {
   for (let i = 0; i < 3; i++) b.wire(f1, i * 2 + 1, m1, i)
 
   b.text(300, 0, 'Comando com emergência')
+  b.text(300, 16, 'S0 cogumelo NF · S1 STOP · S2 START · selo K1')
+  b.text(300, 32, 'H1 marcha (verde) · H0 emergência (vermelho, a montante do S0)')
   const l1 = b.part('supply', 320, 40, '', { lines: ['L1'] })
   const fuse = b.part('fuse', 320, 60, 'F2')
   const em = b.part('emergency', 320, 140, 'S0')
@@ -224,6 +231,7 @@ export function emergencyStopExample(): CommandsDiagram {
   const b0 = b.node(320, 600), b1 = b.node(400, 600), b2 = b.node(480, 600)
   b.wire(coil, 1, b0, 0); b.wire(hRun, 1, b1, 0); b.wire(hEm, 1, b2, 0)
   b.wire(n, 0, b0, 0); b.wire(b0, 0, b1, 0); b.wire(b1, 0, b2, 0)
+  b.text(40, 620, 'Tags: S0=EMERG · S1=STOP · S2=START · K1=contactor · F1=térmico · H1=marcha · H0=emergência')
   return b.diagram
 }
 
