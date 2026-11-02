@@ -44,7 +44,7 @@ import { componentOrientationOf, orientationRadians } from './componentOrientati
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalMarkerRadius, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { floorGridVisible, wireEnergyEffectVisible } from './panel3DEditing'
-import { registerCoverCapture } from './coverCapture'
+import { registerCoverCapture, setCoverWiresReady } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
 import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
@@ -1846,6 +1846,10 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, ...
     () => createWireRoutingJob(wires, components, pivots),
   )
   useEffect(() => { onRoutingLoadingChange(!coordinatedPaths && !routingError) }, [coordinatedPaths, routingError, onRoutingLoadingChange])
+  useEffect(() => {
+    // Capa do dashboard: só capturar cena 3D quando os cabos já têm traçado (ou não há cabos).
+    setCoverWiresReady(wires.length === 0 || !!coordinatedPaths || !!routingError)
+  }, [wires.length, coordinatedPaths, routingError])
   const blockedNotice = useRef('')
   useEffect(() => {
     if (!coordinatedPaths) return
@@ -2384,6 +2388,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
       // Esconde overlays de edição, grelhas e componentes fora da chapa (ex.: motor
       // à direita, que ficava cortado a meio no cartão do dashboard).
       const hidden: THREE.Object3D[] = []
+      const scaled: Array<{ obj: THREE.Object3D; sx: number; sy: number; sz: number }> = []
       scene.traverse((o) => {
         if (!o.visible) return
         if (o.userData?.noSnapshot || o.userData?.excludeFromCover) {
@@ -2394,6 +2399,21 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
         if (o.type === 'GridHelper' || o.type === 'AxesHelper') {
           o.visible = false
           hidden.push(o)
+          return
+        }
+        // Cabos na capa: ligeiramente mais grossos para não desaparecerem no JPEG reduzido.
+        const mesh = o as THREE.Mesh
+        if (mesh.isMesh) {
+          let node: THREE.Object3D | null = o
+          let isWire = false
+          while (node) {
+            if (node.userData?.wireId) { isWire = true; break }
+            node = node.parent
+          }
+          if (isWire) {
+            scaled.push({ obj: o, sx: o.scale.x, sy: o.scale.y, sz: o.scale.z })
+            o.scale.set(o.scale.x * 1.55, o.scale.y * 1.55, o.scale.z * 1.55)
+          }
         }
       })
       try {
@@ -2410,6 +2430,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
         ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, out.width, out.height)
         return out.toDataURL('image/jpeg', 0.82)
       } finally {
+        scaled.forEach(({ obj, sx, sy, sz }) => obj.scale.set(sx, sy, sz))
         hidden.forEach((o) => { o.visible = true })
         invalidate()
       }

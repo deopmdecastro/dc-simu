@@ -5,11 +5,21 @@ type Capture = () => string | null
 
 let capture: Capture | null = null
 let lastCover: string | null = null
+/** True quando o encaminhamento 3D dos cabos já produziu malhas (ou não há cabos). */
+let wiresReady = true
 
 export const COVER_MAX_CHARS = 420_000
 
 export function registerCoverCapture(fn: Capture | null) {
   capture = fn
+}
+
+export function setCoverWiresReady(ready: boolean) {
+  wiresReady = ready
+}
+
+export function areCoverWiresReady() {
+  return wiresReady
 }
 
 /** Cover guardado no projeto aberto (vem do conteúdo, ou da última captura). */
@@ -24,6 +34,8 @@ export function hasStoredCover() {
 /** Tenta capturar agora; se a cena 3D não estiver montada, devolve o último cover conhecido. */
 export function captureCover(): string | null {
   try {
+    // Sem cabos prontos, não sobrescrever um cover anterior com uma cena «vazia» de fios.
+    if (!wiresReady && lastCover) return lastCover
     const url = capture?.()
     if (url && url.length <= COVER_MAX_CHARS) lastCover = url
   } catch {

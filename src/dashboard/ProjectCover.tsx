@@ -83,7 +83,10 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
   }, [comps])
 
   const photo = preview?.cover ?? preview?.flow
-  if (photo) {
+  const hasWirePreview = (preview?.wires?.length ?? 0) > 0 && (preview?.components?.length ?? 0) > 0
+  // Preferir o diagrama com cabos: a foto 3D por vezes é capturada antes do encaminhamento
+  // dos fios e a capa do nativo ficava «limpa» sem cabos.
+  if (photo && !hasWirePreview) {
     return (
       <div className={`dx-cover dx-cover-real${large ? ' is-large' : ''}`} ref={hostRef} aria-hidden="true">
         <img src={photo} alt="" className="dx-cover-photo" draggable={false} />
