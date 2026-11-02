@@ -1,0 +1,254 @@
+{
+  "app": "dc-simu",
+  "version": 6,
+  "projectKind": "grafcet",
+  "unlockedViews": [],
+  "savedAt": "2026-11-02T22:08:54.187Z",
+  "components": [],
+  "wires": [],
+  "ladder": {
+    "rungs": []
+  },
+  "fcBlocks": {
+    "fc1": [],
+    "fc2": []
+  },
+  "fcAdded": {
+    "fc1": false,
+    "fc2": false
+  },
+  "activePlcId": null,
+  "plcPrograms": {},
+  "plcTags": {},
+  "projectFiles": {},
+  "hiddenProjectFolders": {},
+  "projectFolderLabels": {},
+  "fcNames": {},
+  "grafcet": {
+    "name": "G3 - Manual - Cilindro A",
+    "steps": [
+      {
+        "id": "g3-step-141",
+        "name": "141",
+        "x": 300,
+        "y": 120,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "id": "g3-step-143",
+        "name": "143",
+        "x": 300,
+        "y": 300,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [
+          {
+            "id": "g3-action-143",
+            "x": 370,
+            "y": 300,
+            "w": 150,
+            "h": 54,
+            "dx": 70,
+            "dy": 0,
+            "kind": "N",
+            "type": "simple",
+            "address": "Y0_A+",
+            "variable": "Y0_A+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "id": "g3-step-147",
+        "name": "147",
+        "x": 300,
+        "y": 500,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [
+          {
+            "id": "g3-action-147",
+            "x": 370,
+            "y": 500,
+            "w": 150,
+            "h": 54,
+            "dx": 70,
+            "dy": 0,
+            "kind": "N",
+            "type": "simple",
+            "address": "Y1_A-",
+            "variable": "Y1_A-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "id": "g3-step-149",
+        "name": "149",
+        "x": 760,
+        "y": 300,
+        "w": 54,
+        "h": 54,
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      }
+    ],
+    "transitions": [
+      {
+        "id": "g3-transition-1",
+        "name": "T141→143",
+        "x": 300,
+        "y": 230,
+        "from": [
+          "g3-step-141"
+        ],
+        "to": [
+          "g3-step-143"
+        ],
+        "condition": "G0X4 * bp_Avança_A+",
+        "wireless": false
+      },
+      {
+        "id": "g3-transition-2",
+        "name": "T143→147",
+        "x": 300,
+        "y": 420,
+        "from": [
+          "g3-step-143"
+        ],
+        "to": [
+          "g3-step-147"
+        ],
+        "condition": "fc_a1 * bp_Avança_A+",
+        "wireless": false
+      },
+      {
+        "id": "g3-transition-3",
+        "name": "T147→141",
+        "x": 300,
+        "y": 620,
+        "from": [
+          "g3-step-147"
+        ],
+        "to": [
+          "g3-step-141"
+        ],
+        "condition": "fc_a0 * bp_Avança_A+ * G0<>X4",
+        "wireless": true,
+        "comparisons": [
+          {
+            "grafcet": "G3 - Manual - Cilindro A",
+            "transition": "G0 <> X4",
+            "condition": "fc_a0 * bp_Avança_A+ * G0<>X4",
+            "note": "Referência IEC 60848"
+          }
+        ]
+      },
+      {
+        "id": "g3-transition-4",
+        "name": "T141→149",
+        "x": 760,
+        "y": 210,
+        "from": [
+          "g3-step-141"
+        ],
+        "to": [
+          "g3-step-149"
+        ],
+        "condition": "G0X9",
+        "wireless": false,
+        "comparisons": [
+          {
+            "grafcet": "G3 - Manual - Cilindro A",
+            "transition": "G0X9",
+            "condition": "G0X9",
+            "note": "Referência IEC 60848"
+          }
+        ]
+      },
+      {
+        "id": "g3-transition-5",
+        "name": "T149→141",
+        "x": 760,
+        "y": 420,
+        "from": [
+          "g3-step-149"
+        ],
+        "to": [
+          "g3-step-141"
+        ],
+        "condition": "G0X9",
+        "wireless": true,
+        "comparisons": [
+          {
+            "grafcet": "G3 - Manual - Cilindro A",
+            "transition": "G0X9",
+            "condition": "G0X9",
+            "note": "Referência IEC 60848"
+          }
+        ]
+      }
+    ],
+    "freeActions": [],
+    "importReview": {
+      "source": "manual-iec60848",
+      "warnings": []
+    }
+  },
+  "commands": {
+    "pages": [
+      {
+        "id": "page-1",
+        "name": "Página 1"
+      }
+    ],
+    "parts": [],
+    "texts": [],
+    "wires": []
+  },
+  "tags": [],
+  "virtualInputs": {},
+  "virtualInputModes": {},
+  "virtualInputCount": 8,
+  "virtualOutputCount": 8,
+  "virtualMemoryCount": 4,
+  "sheets": [
+    {
+      "id": "sheet-1",
+      "name": "Página 1"
+    }
+  ],
+  "activeSheetId": "sheet-1",
+  "grid": {
+    "size": 20,
+    "snap": true,
+    "style": "dots",
+    "enabled": true,
+    "background": "#f7f9fc"
+  },
+  "activeScenario": "custom",
+  "canvasNotes": [],
+  "canvasTexts": [],
+  "selectionGroups": []
+}
