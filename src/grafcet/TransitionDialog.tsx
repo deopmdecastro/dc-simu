@@ -30,13 +30,12 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   const [wireless, setWireless] = useState(false)
   const [source, setSource] = useState(false)
   const [stateStep, setStateStep] = useState('')
-  const [stateActive, setStateActive] = useState<'inactive' | 'active'>('inactive')
+  const [stateActive, setStateActive] = useState<'inactive' | 'active'>('active')
   const [submitted, setSubmitted] = useState(false)
   // Seletor de etapas (um por lado): texto escrito, lista aberta e opção realçada.
   const [pickQuery, setPickQuery] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [pickOpen, setPickOpen] = useState<'from' | 'to' | null>(null)
   const [pickIndex, setPickIndex] = useState(0)
-  const [stateOpen, setStateOpen] = useState(false)
   const [quickMsg, setQuickMsg] = useState('')
   const [annotationsOpen, setAnnotationsOpen] = useState(false)
 
@@ -56,8 +55,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     setWireless(!!transition.wireless)
     setSource(!!transition.source && !transition.from.length)
     setStateStep('')
-    setStateActive('inactive')
-    setStateOpen(/G\d+\s*(<=>|==|=|<>)\s*X\d+/i.test(transition.condition ?? ''))
+    setStateActive('active')
     setQuickMsg('')
     setAnnotationsOpen(!!transition.description || !!transition.comment || !!transition.targetInfo || !!transition.displayDescription)
   }, [transition, transitionIndex, open])
@@ -119,29 +117,59 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     const choice = options[Math.min(pickIndex, options.length - 1)]
     if (choice) pickStep(side, choice.step.id)
   }
-  /** Condições de estado de etapa já na receptividade: G0 <> X9 (X9 inativa), G0 <=> X9 (X9 ativa). */
-  const STATE_TERM = /G\d+\s*(<=>|==|=|<>)\s*X(\d+)/gi
-  const stateTerms = [...condition.matchAll(STATE_TERM)].map((match) => ({ text: match[0], step: match[2], active: match[1] !== '<>' }))
-  const stepExists = (number: string) => availableSteps.some((step, index) => stepNumberOf(step, index) === number)
-  /** Junta «G0 <> Xn» à condição com E (os OU existentes ficam entre parênteses). */
+  /** Referências ao estado de etapas já na receptividade, com a posição exata para editar:
+   *  G0 <> X9 (inativa), G0 <=> X9 / G0X9 / X9 (ativa) e as negações /X9, NOT G0X9. */
+  const STATE_TERM = /(?<![A-Za-z0-9_)/])(\/\s*|NOT\s+)?(?:G(\d+)\s*(<=>|==|=|<>)\s*X(\d+)|G(\d+)X(\d+)|X(\d+))(?![A-Za-z0-9_(])/gi
+  const stateTerms = [...condition.matchAll(STATE_TERM)].map((match) => {
+    const negated = !!match[1]
+    const graph = match[2] ?? match[5] ?? ''
+    const step = match[4] ?? match[6] ?? match[7]
+    const positive = match[3] ? match[3] !== '<>' : true
+    return { text: match[0], at: match.index ?? 0, graph, step, active: negated ? !positive : positive, implicit: !match[3] }
+  })
+  type StateTerm = (typeof stateTerms)[number]
+  const stepIdByNumber = (number: string) => availableSteps.find((step, index) => stepNumberOf(step, index) === number)?.id
+  const stepExists = (number: string) => !!stepIdByNumber(number)
+  const stepLabelByNumber = (number: string) => { const id = stepIdByNumber(number); return id ? labelOf(id) : `Etapa ${number}` }
+  const stateText = (graph: string, step: string, active: boolean) => `G${graph || '0'} ${active ? '<=>' : '<>'} X${step}`
+  const stateNumber = foldText(stateStep.trim()).replace(/^x/, '')
+  /** Junta «G0 <=> Xn» / «G0 <> Xn» à condição com E (os OU existentes ficam entre parênteses). */
   const addStateTerm = () => {
-    const number = foldText(stateStep.trim()).replace(/^x/, '')
-    if (!/^\d+$/.test(number)) { setQuickMsg('Indique o número da etapa (ex.: 9).'); return }
-    const term = `G0 ${stateActive === 'inactive' ? '<>' : '<=>'} X${number}`
+    if (!/^\d+$/.test(stateNumber)) { setQuickMsg('Indique o número da etapa (ex.: 9).'); return }
+    const term = stateText('0', stateNumber, stateActive === 'active')
     const current = condition.trim()
     const next = !current || current === '1' ? term : `${/\+|\bOR\b/i.test(current) ? `(${current})` : current} * ${term}`
     setCondition(next)
     setStateStep('')
-    setQuickMsg(`${term} junto à condição${stepExists(number) ? '' : ` — atenção: não existe a Etapa ${number} neste GRAFCET`} — guarde para aplicar.`)
+    setQuickMsg(`${term} junto à condição${stepExists(stateNumber) ? '' : ` — atenção: não existe a Etapa ${stateNumber} neste GRAFCET`} — guarde para aplicar.`)
   }
   /** Retira um termo de estado e o operador E que o ligava. */
-  const removeStateTerm = (text: string) => {
-    const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    let next = condition.replace(new RegExp(`\\s*\\*\\s*${escaped}`), '')
-    if (next === condition) next = condition.replace(new RegExp(`${escaped}\\s*\\*\\s*`), '')
-    if (next === condition) next = condition.replace(text, '')
-    next = next.trim().replace(/^\((.*)\)$/, (whole, inner: string) => (/[()]/.test(inner) ? whole : inner)) || '1'
-    setCondition(next)
+  const withoutTerm = (term: StateTerm) => {
+    const before = condition.slice(0, term.at)
+    const after = condition.slice(term.at + term.text.length)
+    let next: string
+    if (/\*\s*$/.test(before)) next = before.replace(/\s*\*\s*$/, '') + after
+    else if (/^\s*\*/.test(after)) next = before + after.replace(/^\s*\*\s*/, '')
+    else next = before + after
+    return next.trim().replace(/^\((.*)\)$/, (whole, inner: string) => (/[()]/.test(inner) ? whole : inner)) || '1'
+  }
+  const removeStateTerm = (term: StateTerm) => {
+    setCondition(withoutTerm(term))
+    setQuickMsg(`${term.text.trim()} retirado da condição — guarde para aplicar.`)
+  }
+  /** Troca ativa/inativa, escrevendo a forma explícita G0 <=> Xn / G0 <> Xn. */
+  const setTermState = (term: StateTerm, active: boolean) => {
+    if (term.active === active && !term.implicit) return
+    setCondition(condition.slice(0, term.at) + stateText(term.graph, term.step, active) + condition.slice(term.at + term.text.length))
+  }
+  /** A etapa consultada passa a origem: sai da condição e entra nas origens (será desativada ao disparar). */
+  const promoteTerm = (term: StateTerm) => {
+    const id = stepIdByNumber(term.step)
+    if (!id) return
+    setCondition(withoutTerm(term))
+    if (!from.includes(id)) setFrom((current) => [...current, id])
+    setSource(false)
+    setQuickMsg(`${labelOf(id)} passou a origem: será desativada quando a transição disparar — guarde para aplicar.`)
   }
   const renderConnections = (side: 'from' | 'to', ids: string[]) => {
     const isFrom = side === 'from'
@@ -193,24 +221,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
         </ul>}
       </div>}
       {isFrom && !ids.length && !source && <button type="button" className="grafcet-link-source-offer" onClick={() => setSource(true)}>Sem origem de propósito? <b>Usar como transição-fonte</b></button>}
-      {sourceMode && <p className="grafcet-property-note">Dispara em qualquer situação quando a condição é verdadeira (ex.: emergência). Para a limitar, use «Depende do estado de outra etapa».</p>}
-      {isFrom && <details className="grafcet-state-conditions" data-property-save-ignore open={stateOpen} onToggle={(event) => setStateOpen(event.currentTarget.open)} role="group" aria-label="Condições de estado de etapa">
-        <summary><IconChevronRight size={10} />Estado de outra etapa <code>G0 &lt;&gt; X9</code> / <code>G0 &lt;=&gt; X9</code>{stateTerms.length ? <span className="grafcet-link-count">{stateTerms.length}</span> : null}</summary>
-        {!!stateTerms.length && <div className="grafcet-link-chips" aria-label="Condições de estado na receptividade">
-          {stateTerms.map((term, index) => <span key={`${term.text}:${index}`} className={`grafcet-link-chip grafcet-state-chip${term.active ? ' is-active' : ''}`} title={term.text}>X{term.step} {term.active ? 'ativa' : 'inativa'}<button type="button" onClick={() => removeStateTerm(term.text)} aria-label={`Retirar ${term.text} da condição`}>×</button></span>)}
-        </div>}
-        <p className="grafcet-property-note grafcet-state-conditions-help">Use <code>G0 &lt;&gt; X9</code> quando a Etapa 9 estiver <b>inativa</b>; use <code>G0 &lt;=&gt; X9</code> quando estiver <b>ativa</b>. O botão «Juntar» acrescenta a expressão à condição com E (<code>*</code>).</p>
-        <div className="grafcet-state-conditions-row">
-          <input className="dc-input" inputMode="numeric" list="trans-state-steps" placeholder="Nº da etapa" value={stateStep} onChange={(event) => setStateStep(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addStateTerm() } }} aria-label="Número da etapa para a condição de estado" />
-          <datalist id="trans-state-steps">{availableSteps.map((step, index) => <option key={step.id} value={stepNumberOf(step, index)}>{step.name}</option>)}</datalist>
-          <div className="grafcet-state-toggle" role="radiogroup" aria-label="Estado da etapa">
-            <button type="button" role="radio" aria-checked={stateActive === 'inactive'} className={stateActive === 'inactive' ? 'is-on' : ''} onClick={() => setStateActive('inactive')} title="Insere G0 <> Xn: a etapa deve estar inativa">inativa</button>
-            <button type="button" role="radio" aria-checked={stateActive === 'active'} className={stateActive === 'active' ? 'is-on' : ''} onClick={() => setStateActive('active')} title="Insere G0 <=> Xn: a etapa deve estar ativa">ativa</button>
-          </div>
-          <button type="button" className="dc-btn" onClick={addStateTerm} disabled={!stateStep.trim()}>Juntar</button>
-        </div>
-        <p className="grafcet-property-note">Junta <code>{`G0 ${stateActive === 'inactive' ? '<>' : '<=>'} X${foldText(stateStep.trim()).replace(/^x/, '') || 'n'}`}</code> à condição, com E.</p>
-      </details>}
+      {sourceMode && <p className="grafcet-property-note">Dispara em qualquer situação quando a condição é verdadeira (ex.: emergência). Para a limitar, use «Estado de outras etapas» abaixo.</p>}
     </fieldset>
   )}
   return (
@@ -226,10 +237,40 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
             <label className="grafcet-property-checkbox"><input type="checkbox" checked={wireless} onChange={(event) => setWireless(event.target.checked)} /><span>Ligação por referência <small>sem linha; mostra o nº da etapa nas pontas</small></span></label>
             <button type="button" className="dc-btn grafcet-connections-swap" onClick={() => { setFrom([...to]); setTo([...from]); setSource(false) }} disabled={!from.length && !to.length} title="Troca origens e destinos"><IconSwap size={12} /> Inverter</button>
           </div>
+          <section className="grafcet-state-conditions" data-property-save-ignore role="group" aria-label="Condições de estado de etapa">
+            <div className="grafcet-connections-heading"><h3>Estado de outras etapas {stateTerms.length ? <span className="grafcet-link-count">{stateTerms.length}</span> : <span className="grafcet-optional">opcional</span>}</h3><p>A etapa é <b>só consultada</b> e fica como está. Uma <b>origem</b>, pelo contrário, é desativada quando a transição dispara.</p></div>
+            {!!stateTerms.length && <ul className="grafcet-state-list" aria-label="Condições de estado na receptividade">
+              {stateTerms.map((term, index) => {
+                const id = stepIdByNumber(term.step)
+                const canPromote = !!id && term.active && !from.includes(id)
+                return <li key={`${term.at}:${index}`} className={`grafcet-state-item${term.active ? ' is-active' : ''}${id ? '' : ' is-missing'}`}>
+                  <span className="grafcet-state-item-text"><b>{stepLabelByNumber(term.step)}</b> <span>tem de estar <b>{term.active ? 'ativa' : 'inativa'}</b></span> <code title={term.implicit ? `${term.text.trim()} é lido como ${stateText(term.graph, term.step, term.active)}` : undefined}>{term.text.trim()}</code>{!id && <small>não existe neste GRAFCET</small>}{id && from.includes(id) && <small>também é origem — redundante</small>}</span>
+                  <span className="grafcet-state-toggle" role="radiogroup" aria-label={`Estado exigido para X${term.step}`}>
+                    <button type="button" role="radio" aria-checked={term.active} className={term.active ? 'is-on' : ''} onClick={() => setTermState(term, true)}>ativa</button>
+                    <button type="button" role="radio" aria-checked={!term.active} className={!term.active ? 'is-on' : ''} onClick={() => setTermState(term, false)}>inativa</button>
+                  </span>
+                  {canPromote && <button type="button" className="dc-btn grafcet-state-promote" onClick={() => promoteTerm(term)} title="Retira da condição e junta às origens: a etapa será desativada ao disparar">Usar como origem</button>}
+                  <button type="button" className="grafcet-state-remove" onClick={() => removeStateTerm(term)} aria-label={`Retirar ${term.text.trim()} da condição`} title="Retirar da condição">×</button>
+                </li>
+              })}
+            </ul>}
+            <div className="grafcet-state-conditions-row">
+              <span className="grafcet-state-sentence">Só disparar se a etapa</span>
+              <input className="dc-input" inputMode="numeric" list="trans-state-steps" placeholder="nº (ex.: 9)" value={stateStep} onChange={(event) => setStateStep(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); addStateTerm() } }} aria-label="Número da etapa para a condição de estado" />
+              <datalist id="trans-state-steps">{availableSteps.map((step, index) => <option key={step.id} value={stepNumberOf(step, index)}>{step.name}</option>)}</datalist>
+              <span className="grafcet-state-sentence">estiver</span>
+              <div className="grafcet-state-toggle" role="radiogroup" aria-label="Estado da etapa">
+                <button type="button" role="radio" aria-checked={stateActive === 'active'} className={stateActive === 'active' ? 'is-on' : ''} onClick={() => setStateActive('active')} title="Insere G0 <=> Xn: a etapa deve estar ativa">ativa</button>
+                <button type="button" role="radio" aria-checked={stateActive === 'inactive'} className={stateActive === 'inactive' ? 'is-on' : ''} onClick={() => setStateActive('inactive')} title="Insere G0 <> Xn: a etapa deve estar inativa">inativa</button>
+              </div>
+              <button type="button" className="dc-btn grafcet-state-add" onClick={addStateTerm} disabled={!stateStep.trim()}>Adicionar à condição</button>
+            </div>
+            <p className="grafcet-property-note">Acrescenta <code>{`* ${stateText('0', stateNumber || 'n', stateActive === 'active')}`}</code>{/^\d+$/.test(stateNumber) && <> — {stepLabelByNumber(stateNumber)} {stateActive === 'active' ? 'ativa' : 'inativa'}{stepExists(stateNumber) ? '' : ' (não existe neste GRAFCET)'}</>}. <code>G0X9</code> e <code>X9</code> também significam «ativa».</p>
+          </section>
           {quickMsg && <p className="grafcet-property-note" role="status">{quickMsg}</p>}
           {!!directCycle.length && <p className="grafcet-property-warning" role="status">Ciclo direto: {directCycle.map((id) => labelOf(id)).join(', ')} {directCycle.length === 1 ? 'é origem e destino' : 'são origem e destino'} ao mesmo tempo — enquanto a condição for verdadeira a transição dispara continuamente, sem esperar noutra etapa.</p>}
           </section>
-          {((!from.length && !source) || !to.length) && <p className="grafcet-property-warning" role="status">{source && !from.length ? 'Transição-fonte sem destino: escolha a etapa a ativar.' : <>Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Use «Adicionar etapa», marque «Usar como transição-fonte» se não tiver origem de propósito, ou guarde o rascunho e complete depois.</>}</p>}
+          {((!from.length && !source) || !to.length) && <p className="grafcet-property-warning" role="status">{source && !from.length ? 'Transição-fonte sem destino: escolha a etapa a ativar.' : <>Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Use «Adicionar etapa», marque «Usar como transição-fonte» se não tiver origem de propósito, ou guarde o rascunho e complete depois.</>}{!from.length && !source && stateTerms.some((term) => term.active && stepExists(term.step)) && <> A condição consulta {stateTerms.filter((term) => term.active && stepExists(term.step)).map((term) => `X${term.step}`).join(', ')}: se essa etapa deve ser desativada ao disparar, use «Usar como origem» em «Estado de outras etapas».</>}</p>}
           <section className="grafcet-transition-comparisons" aria-label="Transições comparativas">
             <div className="grafcet-connections-heading"><h3>Comparar com outros GRAFCETs <span className="grafcet-optional">opcional</span></h3><p>Registe transições equivalentes de outros diagramas para revisão e rastreabilidade. A comparação é documental e não altera a simulação deste GRAFCET.</p></div>
             {comparisons.map((item, index) => <div className="grafcet-transition-comparison" key={index}>
@@ -244,12 +285,13 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
             <div className="grafcet-property-field"><label htmlFor="trans-desc-input">Descrição</label><textarea id="trans-desc-input" className="dc-input" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Cilindro A no fim de curso" /><label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(event) => setDisplayDescription(event.target.checked)} /><span>Mostrar a descrição em vez da expressão no diagrama</span></label></div>
             <div className="grafcet-property-field"><label htmlFor="trans-reference-input">Referência visual</label><input id="trans-reference-input" className="dc-input" value={targetInfo} onChange={(event) => setTargetInfo(event.target.value)} placeholder="Ex.: Continuação na folha 2" /><p className="grafcet-property-note">Anotação do diagrama. Os destinos são definidos nas ligações acima.</p></div>
           </div></details>
-          <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Ajuda sobre transições</summary><div><p>A condição é uma expressão booleana: <code>I1 * /I2</code> exige I1 ativa e I2 inativa. Use AND (*), OR (+), NOT (/), flancos e parênteses.</p><p><code>X10</code> consulta a etapa com o número 10 no diagrama. <code>T(2s)</code> verifica dois segundos de atividade das origens.</p><p>Várias origens sincronizam ramos: todas precisam de estar ativas. Com a condição verdadeira, a transição ativa todos os destinos (AND). Pode guardar uma transição solta e completá-la no diagrama.</p><p>Uma <b>transição-fonte</b> não tem etapa de origem: está sempre validada e dispara quando a condição é verdadeira. Para estados, use o bloco «Estado de outra etapa»: <code>G0 &lt;&gt; X9</code> significa X9 inativa e <code>G0 &lt;=&gt; X9</code> significa X9 ativa. Não escreva <code>G0X9</code> sem operador, porque fica ambíguo e não é uma condição booleana válida.</p></div></details>
+          <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Ajuda sobre transições</summary><div><p>A condição é uma expressão booleana: <code>I1 * /I2</code> exige I1 ativa e I2 inativa. Use AND (*), OR (+), NOT (/), flancos e parênteses.</p><p><code>X10</code> consulta a etapa com o número 10 no diagrama. <code>T(2s)</code> verifica dois segundos de atividade das origens.</p><p>Várias origens sincronizam ramos: todas precisam de estar ativas. Com a condição verdadeira, a transição ativa todos os destinos (AND). Pode guardar uma transição solta e completá-la no diagrama.</p><p>Uma <b>transição-fonte</b> não tem etapa de origem: está sempre validada e dispara quando a condição é verdadeira. Para consultar outras etapas sem as desativar, use «Estado de outras etapas»: <code>G0 &lt;=&gt; X9</code> (ou <code>G0X9</code>, <code>X9</code>) significa Etapa 9 ativa; <code>G0 &lt;&gt; X9</code> (ou <code>/X9</code>) significa inativa. Se a etapa deve ser desativada quando a transição dispara, junte-a às origens.</p></div></details>
         </section>
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span className="grafcet-preview-live">Ao editar</span></div>
           <div className="grafcet-transition-map" aria-label="Resumo das ligações da transição">
-            <span className="grafcet-map-label">ORIGENS · TODAS ATIVAS</span><div className="grafcet-map-steps">{from.length ? from.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : source ? <span className="is-source">Transição-fonte · sempre validada</span> : <em>Sem origem</em>}{stateTerms.map((term, index) => <span key={`s:${term.text}:${index}`} className="is-state">X{term.step} {term.active ? 'ativa' : 'inativa'}</span>)}</div>
+            <span className="grafcet-map-label">ORIGENS · TODAS ATIVAS</span><div className="grafcet-map-steps">{from.length ? from.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : source ? <span className="is-source">Transição-fonte · sempre validada</span> : <em>Sem origem</em>}</div>
+            {!!stateTerms.length && <><span className="grafcet-map-label">SE · ESTADO CONSULTADO</span><div className="grafcet-map-steps">{stateTerms.map((term, index) => <span key={`s:${term.at}:${index}`} className="is-state">X{term.step} {term.active ? 'ativa' : 'inativa'}</span>)}</div></>}
             <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>
             <div className="grafcet-map-transition"><strong>{name || `T${transitionIndex + 1}`}</strong><code>{displayDescription && description ? description : condition || 'Condição por definir'}</code><span className={validCondition(condition) ? 'is-valid' : 'is-incomplete'}>{validCondition(condition) ? <IconCheck size={11} /> : <IconWarning size={11} />}{validCondition(condition) ? 'Sintaxe válida' : 'Expressão incompleta'}</span></div>
             <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>

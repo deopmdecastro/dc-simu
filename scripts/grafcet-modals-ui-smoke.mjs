@@ -118,7 +118,7 @@ try {
   const transition = (await readProgram()).transitions[0]
   check(transition.from.includes('ux-step-3') && transition.to.includes('ux-step-7') && transition.targetInfo === 'Referência de teste', 'guardar preserva origens, destinos e anotação')
 
-  // Transição-fonte (sem origem, ex.: emergência) e condições de estado G0 <> Xn nas origens.
+  // Transição-fonte (sem origem, ex.: emergência) e condições de estado G0 <> Xn em secção própria.
   const setTransition = (patch) => page.evaluate(async (patch) => {
     const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
     const program = useSimStore.getState().grafcet
@@ -131,17 +131,24 @@ try {
   await origins.getByRole('button', { name: /Usar como transição-fonte/ }).click()
   check(await dialog().getByText(/Transição solta/).count() === 0 && await origins.getByRole('combobox', { name: 'Adicionar etapa de origem' }).count() === 0, 'transição-fonte: sem aviso de solta e sem seletor de etapas de origem')
   check(await dialog().locator('.grafcet-map-steps .is-source').isVisible(), 'a pré-visualização mostra «Transição-fonte · sempre validada»')
-  const stateBlock = origins.getByRole('group', { name: 'Condições de estado de etapa' })
-  await stateBlock.getByText('Depende do estado de outra etapa').click()
+  const stateBlock = dialog().getByRole('group', { name: 'Condições de estado de etapa' })
+  const builderState = stateBlock.getByRole('radiogroup', { name: 'Estado da etapa' })
+  check(await stateBlock.isVisible() && await origins.getByRole('group', { name: 'Condições de estado de etapa' }).count() === 0, 'o estado de outras etapas tem secção própria, fora da coluna das origens')
   await stateBlock.getByRole('combobox', { name: 'Número da etapa para a condição de estado' }).fill('5')
-  await stateBlock.getByRole('button', { name: 'Juntar', exact: true }).click()
-  check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <> X5', 'Juntar acrescenta G0 <> X5 (X5 inativa) à condição com E')
-  check(await stateBlock.getByText('X5 inativa').isVisible(), 'a condição de estado aparece como pílula nas origens')
+  await builderState.getByRole('radio', { name: 'inativa', exact: true }).click()
+  await stateBlock.getByRole('button', { name: 'Adicionar à condição', exact: true }).click()
+  check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <> X5', 'Adicionar acrescenta G0 <> X5 (X5 inativa) à condição com E')
+  check(await stateBlock.getByText(/tem de estar\s*inativa/).isVisible(), 'a condição de estado aparece como frase legível')
   await stateBlock.getByRole('button', { name: 'Retirar G0 <> X5 da condição' }).click()
-  check(await page.locator('#trans-condition-input').inputValue() === '/I7', 'retirar a pílula devolve a condição anterior')
+  check(await page.locator('#trans-condition-input').inputValue() === '/I7', 'retirar o termo devolve a condição anterior')
+  await page.locator('#trans-condition-input').fill('/I7 * G0X5')
+  check(await stateBlock.getByText(/tem de estar\s*ativa/).isVisible(), 'G0X5 escrito à mão é reconhecido como etapa ativa')
+  await stateBlock.getByRole('radiogroup', { name: 'Estado exigido para X5' }).getByRole('radio', { name: 'inativa', exact: true }).click()
+  check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <> X5', 'trocar para inativa reescreve G0X5 como G0 <> X5')
+  await stateBlock.getByRole('button', { name: 'Retirar G0 <> X5 da condição' }).click()
   await stateBlock.getByRole('combobox', { name: 'Número da etapa para a condição de estado' }).fill('X6')
-  await stateBlock.getByRole('radio', { name: 'ativa', exact: true }).click()
-  await stateBlock.getByRole('button', { name: 'Juntar', exact: true }).click()
+  await builderState.getByRole('radio', { name: 'ativa', exact: true }).click()
+  await stateBlock.getByRole('button', { name: 'Adicionar à condição', exact: true }).click()
   check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <=> X6', 'estado «ativa» escreve G0 <=> X6')
   await capture('desktop-transition-source')
   await save()

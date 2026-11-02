@@ -188,3 +188,28 @@
   .grafcet-link-flow { grid-template-columns: minmax(0, 1fr); }
   .grafcet-link-flow-arrow { margin: 0 auto; transform: none; }
 }
+
+/* ===== Estado de outras etapas: secção de largura total, frase guiada e termos editáveis ===== */
+.grafcet-transition-dialog .grafcet-state-conditions { margin-top: 10px; border-style: solid; border-color: #dbe4f0; background: #fbfcfe; }
+.grafcet-transition-dialog .grafcet-state-conditions .grafcet-connections-heading { margin-bottom: 2px; }
+.grafcet-transition-dialog .grafcet-state-conditions .grafcet-connections-heading h3 { display: flex; align-items: center; gap: 6px; }
+.grafcet-transition-dialog .grafcet-state-conditions .grafcet-link-count { margin-left: 0; }
+.grafcet-state-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.grafcet-state-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; border: 1px solid #f5c46b; border-left-width: 3px; border-radius: 8px; background: #fff8eb; }
+.grafcet-state-item.is-active { border-color: #86d0a6; background: #effaf4; }
+.grafcet-state-item.is-missing { border-color: #f1a7a7; background: #fff5f5; }
+.grafcet-state-item-text { flex: 1 1 180px; min-width: 0; color: #334155; font-size: 11.5px; line-height: 1.5; }
+.grafcet-state-item-text > b { color: #1e3a5f; }
+.grafcet-state-item-text code { margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: rgba(15, 23, 42, .06); color: #475569; font-size: 10.5px; }
+.grafcet-state-item-text small { display: block; color: #b45309; font-size: 10.5px; }
+.grafcet-state-item.is-missing .grafcet-state-item-text small { color: #b91c1c; }
+.grafcet-state-promote { height: 26px; font-size: 11px; }
+.grafcet-state-remove { display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 50%; background: transparent; color: #64748b; font-size: 15px; line-height: 1; cursor: pointer; }
+.grafcet-state-remove:hover { background: rgba(15, 23, 42, .08); color: #0f172a; }
+.grafcet-state-sentence { color: #334155; font-size: 11.5px; white-space: nowrap; }
+.grafcet-transition-dialog .grafcet-state-conditions-row .dc-input { flex: 0 1 110px; min-width: 90px; }
+.grafcet-state-add { border-color: #bfd3fb !important; background: #eff6ff !important; color: #1d4ed8 !important; font-weight: 650; }
+.grafcet-state-add:disabled { opacity: .55; }
+@media (max-width: 560px) {
+  .grafcet-transition-dialog .grafcet-state-conditions-row .dc-input { flex: 1 1 100%; }
+}
