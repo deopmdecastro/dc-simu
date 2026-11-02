@@ -1049,7 +1049,10 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
     event.stopPropagation()
     const target = event.target as unknown as { setPointerCapture: (id: number) => void; releasePointerCapture: (id: number) => void }
     const orbit = controls as unknown as { enabled?: boolean } | null
-    const active = { control, pointerId: event.pointerId, startX: event.nativeEvent.clientX, turn: 0, target, orbitEnabled: orbit?.enabled ?? true, eventsEnabled: events.enabled }
+    const active: NonNullable<typeof gesture.current> = {
+      control, pointerId: event.pointerId, startX: event.nativeEvent.clientX, turn: 0, target,
+      orbitEnabled: orbit?.enabled ?? true, eventsEnabled: events.enabled,
+    }
     gesture.current = active
     target.setPointerCapture(event.pointerId)
     // O ponteiro já está capturado: durante o gesto não repetir raycasts contra
