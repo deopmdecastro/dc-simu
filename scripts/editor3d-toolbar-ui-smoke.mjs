@@ -13,6 +13,9 @@ await context.route('**/*', (route) => {
   return local ? route.continue() : route.abort()
 })
 await context.addInitScript(() => {
+  // O Vite em desenvolvimento carrega centenas de módulos: sem isto o registo de recursos (250 por
+  // omissão) enche e a medição do enquadramento deixa de encontrar o módulo do react-three-fiber.
+  performance.setResourceTimingBufferSize(5000)
   localStorage.removeItem('dcsimu:supabase:config:v1')
   localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
 })

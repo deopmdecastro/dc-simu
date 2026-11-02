@@ -4,3 +4,5 @@ dist
 data
 *.local
 public/models/componentes novos
+# Rascunhos, logs e evidências locais (ignorados pelo Git): nunca entram na imagem.
+runtime
