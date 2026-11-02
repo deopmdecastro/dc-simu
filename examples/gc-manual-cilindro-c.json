@@ -113,16 +113,17 @@
         "to": [
           "gc-step-1"
         ],
-        "condition": "fc_c1",
+        "condition": "T(2s) * fc_c1",
         "wireless": false,
         "comparisons": [
           {
             "grafcet": "GC - Manual - Cilindro C",
             "transition": "G0 <> X1",
-            "condition": "fc_c1",
-            "note": "Referência manual IEC 60848"
+            "condition": "T(2s) * fc_c1",
+            "note": "Transição temporizada IEC 60848: 2 s + confirmação fc_c1"
           }
-        ]
+        ],
+        "description": "Transição temporizada: aguarda 2 s e confirma fc_c1."
       },
       {
         "id": "gc-transition-2",
@@ -173,7 +174,8 @@
     "importReview": {
       "source": "manual-iec60848",
       "warnings": [
-        "O retorno C- não existe no projeto original; ação incluída para completar o manual."
+        "O retorno C- não existe no projeto original; ação incluída para completar o manual.",
+        "A transição T0→1 é temporizada a 2 s e requer fc_c1; ajustar T(2s) na propriedade da transição se necessário."
       ]
     }
   },
