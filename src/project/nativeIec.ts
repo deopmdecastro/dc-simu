@@ -25,6 +25,8 @@ export const NATIVE_IEC_V3_FEATURE = 'iec-schematic-v3'
 export const NATIVE_IEC_V4_FEATURE = 'iec-schematic-v4'
 /** v5: o voltímetro passa para o motor (MM1 entre U1 e V1, como o multímetro do quadro 3D). */
 export const NATIVE_IEC_V5_FEATURE = 'iec-schematic-v5'
+/** v6: textos de legenda (tags E/S e funcionamento) nas páginas Potência e Comando. */
+export const NATIVE_IEC_V6_FEATURE = 'iec-schematic-v6'
 const POWER_PAGE = 'page-1'
 const CONTROL_PAGE = 'page-2'
 
@@ -195,13 +197,26 @@ function isUntouchedV4(commands: any): boolean {
     && commands.parts.some((p: any) => p.kind === 'voltmeter' && p.tag === 'P1') && !commands.parts.some((p: any) => p.tag === 'MM1')
 }
 
-/** Projetos nativos: recebem o esquema IEC uma vez; um v1…v4 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
+/** Projetos nativos: recebem o esquema IEC uma vez; um v1…v5 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
 export function addNativeIecSchematic<T extends Record<string, any>>(content: T): T {
   if (content.nativeId !== NATIVE_PARTIDA_ID) return content
   const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
-  if (features.includes(NATIVE_IEC_V5_FEATURE)) return content
+  if (features.includes(NATIVE_IEC_V6_FEATURE)) return content
   const hasOwn = Array.isArray(content.commands?.parts) && content.commands.parts.length > 0
-  const replace = !hasOwn || isUntouchedV1(content.commands) || isUntouchedV2(content.commands) || isUntouchedV3(content.commands) || isUntouchedV4(content.commands)
-  const marks = [...features, ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE].filter((f) => !features.includes(f)), NATIVE_IEC_V5_FEATURE]
-  return { ...content, ...(replace ? { commands: buildNativeIecSchematic() } : {}), nativeFeatures: marks }
+  const untouched =
+    !hasOwn
+    || isUntouchedV1(content.commands)
+    || isUntouchedV2(content.commands)
+    || isUntouchedV3(content.commands)
+    || isUntouchedV4(content.commands)
+    // v5 intacto (só ids iec-* e voltímetro MM1): pode receber a legenda v6.
+    || (features.includes(NATIVE_IEC_V5_FEATURE) && Array.isArray(content.commands?.parts)
+      && content.commands.parts.every((p: any) => typeof p?.id === 'string' && p.id.startsWith('iec-')))
+  const marks = [
+    ...features,
+    ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE]
+      .filter((f) => !features.includes(f)),
+    NATIVE_IEC_V6_FEATURE,
+  ]
+  return { ...content, ...(untouched ? { commands: buildNativeIecSchematic() } : {}), nativeFeatures: marks }
 }

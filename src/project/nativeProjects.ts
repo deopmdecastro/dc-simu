@@ -25,7 +25,7 @@ import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 import { mountPosition } from '../three/thermalMount'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_SIGNALS_FEATURE } from './nativeMotorMeter'
-import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE } from './nativeIec'
+import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE } from './nativeIec'
 import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { NATIVE_NC_SIM_FEATURE, withNativeNcSimInputs } from './nativeSimInputs'
 import { grafcetExampleContent, grafcetExamples } from './grafcetExamples'
@@ -83,6 +83,8 @@ const NATIVE_OB100_ID = 'native-ob100'
 /** Identificador estável — não muda entre deploys. */
 export { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
 export const NATIVE_PARTIDA_NAME = 'Partida direta com emergência (nativo)'
+/** Comentários e textos livres (GRAFCET + canvas 3D) com tags de E/S e funcionamento. */
+export const NATIVE_ANNOTATIONS_FEATURE = 'native-annotations-v1'
 
 const ADMIN_OWNER = 'dcsimu-admin'
 
@@ -511,7 +513,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, 'ladder-sync-v2'],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_ANNOTATIONS_FEATURE, 'ladder-sync-v2'],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,
@@ -631,6 +633,39 @@ export type NativeProjectSeed = {
 }
 
 /** Semente a inserir no backend local se ainda não existir. */
+
+/**
+ * Projetos nativos sem a feature de anotações: recebem comentários GRAFCET,
+ * canvasNotes e canvasTexts explicativos (tags E/S e funcionamento).
+ * Não sobrescreve notas/textos que o utilizador já tenha criado.
+ */
+export function addNativeAnnotations<T extends Record<string, any>>(content: T): T {
+  if (content.nativeId !== NATIVE_PARTIDA_ID) return content
+  const features: string[] = Array.isArray(content.nativeFeatures)
+    ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string')
+    : []
+  if (features.includes(NATIVE_ANNOTATIONS_FEATURE)) return content
+  const fresh = nativePartidaDiretaContent()
+  const hasUserNotes = Array.isArray(content.canvasNotes) && content.canvasNotes.length > 0
+  const hasUserTexts = Array.isArray(content.canvasTexts) && content.canvasTexts.length > 0
+  const grafcet = content.grafcet && typeof content.grafcet === 'object'
+    ? {
+        ...content.grafcet,
+        // Só preenche comentários se ainda não existirem (ou só o título antigo).
+        comments:
+          Array.isArray(content.grafcet.comments) && content.grafcet.comments.length > 1
+            ? content.grafcet.comments
+            : (fresh.grafcet as any)?.comments ?? content.grafcet.comments,
+      }
+    : fresh.grafcet
+  return {
+    ...content,
+    grafcet,
+    ...(hasUserNotes ? {} : { canvasNotes: fresh.canvasNotes }),
+    ...(hasUserTexts ? {} : { canvasTexts: fresh.canvasTexts }),
+    nativeFeatures: [...features, NATIVE_ANNOTATIONS_FEATURE],
+  }
+}
 
 /** Nomes simbólicos alinhados com as tags do projeto nativo (para a landing). */
 export const NATIVE_DEMO_NAMES: Record<string, string> = {
