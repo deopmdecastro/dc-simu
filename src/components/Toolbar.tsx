@@ -184,7 +184,14 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const cmdDockOpen = useCommandsUi((s) => s.dockOpen)
   const cmdSelection = useCommandsUi((s) => s.selection)
   const cmdHasParts = useSimStore((s) => (s.commands?.parts.length ?? 0) > 0)
-  const simRunState = isCmd ? (cmdRunning ? (cmdPaused ? 'paused' : 'running') : 'stopped') : plcRunState
+  // Estado combinado dos dois motores (PLC/3D/Ladder/GRAFCET + IEC): a barra
+  // reflecte RUN se qualquer simulador estiver a correr, para Stop/Pausa
+  // funcionarem ao alternar de vista após «Simular todos».
+  const cmdState = cmdRunning ? (cmdPaused ? 'paused' : 'running') : 'stopped'
+  const simRunState: 'running' | 'paused' | 'stopped' =
+    cmdState === 'running' || plcRunState === 'running' ? 'running'
+      : cmdState === 'paused' || plcRunState === 'paused' ? 'paused'
+        : 'stopped'
   const simMode = useSimStore((s) => s.sim.mode)
   const simSpeed = useSimStore((s) => s.sim.speed)
   const simBlackBox = useSimStore((s) => s.sim.blackBox)
@@ -329,7 +336,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     })
   }
   const step = isCmd ? () => { if (!cmdUi.rt.running) { cmdUi.start(); useCommandsUi.getState().pause() } else useCommandsUi.getState().tick(100, true) } : plcStep
-  const reset = isCmd ? () => { cmdUi.stop(); useCommandsUi.getState().start() } : plcReset
+  // Reinicia os dois motores: «Simular todos» não pode deixar o IEC a meio depois de um Reset no 3D.
+  const reset = () => {
+    useCommandsUi.getState().stop()
+    plcReset()
+  }
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)
   const unlockedViews = useSimStore((state) => state.unlockedViews)

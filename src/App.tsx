@@ -142,11 +142,15 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const plcRunState = useSimStore((s) => s.sim.runState)
-  // Na vista Comandos a barra de estado mostra a simulação do esquema de comandos.
+  // Estado combinado: RUN se PLC ou IEC estiverem a correr (simulação «para todos»).
   const cmdRunning = useCommandsUi((s) => s.rt.running)
   const cmdPaused = useCommandsUi((s) => s.paused)
   const cmdFault = useCommandsUi((s) => !!s.rt.fault)
-  const runState = mode === 'commands' ? (cmdRunning ? (cmdPaused ? 'paused' : 'running') : 'stopped') : plcRunState
+  const cmdState = cmdRunning ? (cmdPaused ? 'paused' : 'running') : 'stopped'
+  const runState: 'running' | 'paused' | 'stopped' =
+    cmdState === 'running' || plcRunState === 'running' ? 'running'
+      : cmdState === 'paused' || plcRunState === 'paused' ? 'paused'
+        : 'stopped'
   const faults = useSimStore((s) => s.sim.faults)
   const currentProjectName = useSimStore((s) => s.currentProjectName)
   const dirty = useSimStore((s) => s.dirty)
