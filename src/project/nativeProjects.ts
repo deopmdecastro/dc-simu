@@ -672,54 +672,27 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
       ]
       return panel
     })(),
-    canvasTexts: [
-      {
-        id: 'native-txt3d-title',
-        view: '3d',
-        text: 'Partida direta com emergência',
-        x: -2.8,
-        y: 2.35,
-        z: 0.35,
-        font: 'sans',
-        size: 18,
-        color: '#0f172a',
-        bold: true,
-      },
-      {
-        id: 'native-txt3d-force',
-        view: '3d',
-        text: 'Força: XG → QG → QM1 → KM1 → F1 → M1',
-        x: -2.8,
-        y: 2.15,
-        z: 0.35,
-        font: 'sans',
-        size: 12,
-        color: '#334155',
-      },
-      {
-        id: 'native-txtsch-title',
-        view: 'schematic',
-        text: 'Partida direta com emergência',
-        x: -2.8,
-        y: 2.35,
-        z: 0.35,
-        font: 'sans',
-        size: 18,
-        color: '#0f172a',
-        bold: true,
-      },
-      {
-        id: 'native-txtsch-force',
-        view: 'schematic',
-        text: 'Força: XG → QG → QM1 → KM1 → F1 → M1',
-        x: -2.8,
-        y: 2.15,
-        z: 0.35,
-        font: 'sans',
-        size: 12,
-        color: '#334155',
-      },
-    ],
+    canvasTexts: (() => {
+      const at = new Date().toISOString()
+      const text = (
+        id: string,
+        view: '3d' | 'schematic',
+        value: string,
+        x: number,
+        y: number,
+        size: number,
+        bold?: boolean,
+      ) => ({
+        id, view, text: value, x, y, z: 0.35, font: 'sans' as const, size,
+        color: bold ? '#0f172a' : '#334155', bold: !!bold, createdAt: at,
+      })
+      return [
+        text('native-txt3d-title', '3d', 'Partida direta com emergência', -2.8, 2.35, 18, true),
+        text('native-txt3d-force', '3d', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -2.8, 2.15, 12),
+        text('native-txtsch-title', 'schematic', 'Partida direta com emergência', -2.8, 2.35, 18, true),
+        text('native-txtsch-force', 'schematic', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -2.8, 2.15, 12),
+      ]
+    })(),
     virtualInputs: {},
     virtualInputModes: {},
     virtualInputCount: 8,

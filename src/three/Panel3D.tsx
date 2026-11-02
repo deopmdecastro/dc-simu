@@ -2373,7 +2373,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
           hidden.push(o)
           return
         }
-        if ((o as THREE.GridHelper).isGridHelper || o.type === 'GridHelper' || o.type === 'AxesHelper') {
+        if (o.type === 'GridHelper' || o.type === 'AxesHelper') {
           o.visible = false
           hidden.push(o)
         }
