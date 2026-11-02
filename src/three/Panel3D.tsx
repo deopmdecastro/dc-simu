@@ -1005,7 +1005,17 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
     : info.behavior === 'selector' ? c.state.position === -1 ? 'Esq.' : c.state.position === 1 ? 'Dir.' : '0'
     : info.behavior === 'thermal' ? c.state.testPressed ? 'Ensaio · disparado' : c.state.tripped ? 'Disparado · RESET' : c.state.stopPressed ? 'STOP' : 'Armado' : ''
   const group = useRef<THREE.Group>(null)
-  const gesture = useRef<{ control: ImportedControl | null; pointerId: number; startX: number; turn: number; target: { releasePointerCapture: (id: number) => void }; orbitEnabled: boolean; eventsEnabled?: boolean; cleanup?: () => void } | null>(null)
+  type ImportedGesture = {
+    control: ImportedControl | null
+    pointerId: number
+    startX: number
+    turn: number
+    target: { releasePointerCapture: (id: number) => void }
+    orbitEnabled: boolean
+    eventsEnabled?: boolean
+    cleanup?: () => void
+  }
+  const gesture = useRef<ImportedGesture | null>(null)
   const controlAt = (event: { point: THREE.Vector3 }): ImportedControl | null => {
     const node = group.current
     if (!node) return null
@@ -1049,9 +1059,15 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
     event.stopPropagation()
     const target = event.target as unknown as { setPointerCapture: (id: number) => void; releasePointerCapture: (id: number) => void }
     const orbit = controls as unknown as { enabled?: boolean } | null
-    const active: NonNullable<typeof gesture.current> = {
-      control, pointerId: event.pointerId, startX: event.nativeEvent.clientX, turn: 0, target,
-      orbitEnabled: orbit?.enabled ?? true, eventsEnabled: events.enabled,
+    const active: ImportedGesture = {
+      control,
+      pointerId: event.pointerId,
+      startX: event.nativeEvent.clientX,
+      turn: 0,
+      target,
+      orbitEnabled: orbit?.enabled ?? true,
+      eventsEnabled: events.enabled,
+      cleanup: undefined,
     }
     gesture.current = active
     target.setPointerCapture(event.pointerId)
