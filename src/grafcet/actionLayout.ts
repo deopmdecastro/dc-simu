@@ -5,7 +5,7 @@ type Point = { x: number; y: number }
 type Size = { w: number; h: number }
 
 /** Espaço entre caixas de ação adjacentes (descrições legíveis, sem caixas coladas). */
-export const ACTION_BOX_GAP = 8
+export const ACTION_BOX_GAP = 14
 
 /** Resolve cadeias dentro da etapa, tolerando referências ausentes e ciclos em ficheiros importados. */
 export function attachedActionBoxes(

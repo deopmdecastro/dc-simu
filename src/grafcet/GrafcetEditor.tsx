@@ -134,29 +134,29 @@ type ValidationIssue = GrafcetIssue
 const GRAFCET_MIME = 'application/x-dcsimu-grafcet'
 
 // Geometria das ações no diagrama (caixa IEC junto à etapa / solta)
-const ACTION_X = SPINE_X + 80
+const ACTION_X = SPINE_X + 110
 const ACTION_W = 140
 const ACTION_H = 30
 const ACTION_QUALIFIER_W = 32
 /** Passo vertical entre ações empilhadas (caixa + respiro para descrição legível). */
-const ACTION_PITCH = 50
+const ACTION_PITCH = 56
 const ACTION_FREE_W = ACTION_W
 const ACTION_FREE_H = ACTION_H
 /** Espaço horizontal entre caixas de ação lado a lado (evita descrições coladas). */
-const ACTION_GAP = 14
+const ACTION_GAP = 18
 /** Distância do eixo da etapa à caixa da ação anexada (a coluna de ações acompanha a etapa). */
 const ACTION_OFFSET_X = ACTION_X - SPINE_X
 /** Desvio vertical da 1.ª ação: o seu centro fica alinhado com a ligação que sai da etapa (linha reta). */
 const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 /** Distância do barramento vertical de ligação à caixa da ação. */
-const ACTION_BUS_GAP = 30
+const ACTION_BUS_GAP = 40
 /** Deslocamento horizontal da condição em relação à barra da transição (legibilidade). */
-const CONDITION_OFFSET_X = 30
+const CONDITION_OFFSET_X = 38
 /** Deslocamento vertical da condição relativamente à barra (evita colar no traço IEC). */
-const CONDITION_OFFSET_Y = 7
+const CONDITION_OFFSET_Y = 10
 /** Deslocamento do comentário da etapa em relação ao bordo direito da caixa. */
-const STEP_CAPTION_OFFSET_X = 22
-const STEP_CAPTION_OFFSET_Y = -18
+const STEP_CAPTION_OFFSET_X = 30
+const STEP_CAPTION_OFFSET_Y = -26
 
 /** Disposição das ações de uma etapa: em linha (lado a lado, por omissão) ou empilhadas na vertical. */
 type ActionLayout = 'row' | 'column'
@@ -1955,7 +1955,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const branchPointOf = (tid: string): Point => {
     const transition = transitions.find((item) => item.id === tid)
     const source = transition?.from.find(existsStep)
-    return source ? { x: stepX(source), y: stepY(source) + stepHOf(source) + 24 } : { x: SPINE_X, y: cursorY }
+    return source ? { x: stepX(source), y: stepY(source) + stepHOf(source) + 34 } : { x: SPINE_X, y: cursorY }
   }
   /** Posição de cada face (esquerda, direita, topo, base) de uma ação solta onde nasce/termina um fio. */
   const actionPortAt = (pos: { x: number; y: number }, side: 'l' | 'r' | 't' | 'b', size: { w: number; h: number } = { w: ACTION_FREE_W, h: ACTION_FREE_H }): { x: number; y: number } => {
