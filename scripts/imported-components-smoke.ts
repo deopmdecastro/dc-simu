@@ -65,9 +65,18 @@ check(tested.includes('97:98')&&!tested.includes('95:96'),'ensaio (TEST): abre 9
 thermal.state.testPressed=false
 check(labels(thermal).includes('95:96'),'ao largar o ensaio, 95–96 volta a fechar')
 check(importedActuationPatch(thermal,true,'stop')?.stopPressed===true&&importedActuationPatch(thermal,false,'stop')?.stopPressed===false,'STOP é momentâneo: fecha ao largar')
-check(importedActuationPatch(thermal,true,'test')?.testPressed===true&&importedActuationPatch(thermal,false,'test')?.testPressed===false,'ensaio é momentâneo: fecha ao largar')
+check(importedActuationPatch(thermal,true,'test')?.testPressed===true&&importedActuationPatch(thermal,true,'test')?.tripped===true,'TEST simula disparo real e retido')
+check(importedActuationPatch(thermal,false,'test')?.testPressed===false&&!('tripped' in importedActuationPatch(thermal,false,'test')!),'largar TEST liberta o cursor sem rearma')
 thermal.state.tripped=false
-check(importedActuationPatch(thermal,true)?.tripped===true,'corpo do aparelho continua a simular o disparo por sobrecarga')
+check(importedActuationPatch(thermal,true)?.tripped===true,'corpo do aparelho simula o disparo por sobrecarga')
+thermal.state.tripped=true
+check(importedActuationPatch(thermal,true)===null,'segundo clique no corpo não substitui RESET')
+thermal.state.testPressed=true
+check(importedActuationPatch(thermal,true,'reset')===null,'RESET não rearma enquanto TEST estiver premido')
+thermal.state.testPressed=false;thermal.state.stopPressed=true
+check(importedActuationPatch(thermal,true,'reset')===null,'RESET não rearma enquanto STOP estiver premido')
+thermal.state.stopPressed=false
+check(importedActuationPatch(thermal,true,'reset')?.tripped===false,'RESET rearma depois de libertar TEST e STOP')
 // Zonas de clique: cada botão no seu sítio; o resto do corpo não é botão.
 const controlAt=(x:number,y:number,z:number)=>importedControlAt('thermalRelaySiemens3ru1116',[x,y,z])
 check(controlAt(-18,38,71)==='stop'&&controlAt(-7,38,71)==='reset'&&controlAt(10,57,67)==='test','zonas de clique medidas: STOP, RESET e TEST')

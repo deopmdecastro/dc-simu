@@ -1,8 +1,9 @@
 import { isTabletDesktop } from '../ui/device'
 import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
-import { importedComponentInfo, importedActuationPatch, type ImportedControl } from '../electrical/importedComponents'
+import { importedComponentInfo, type ImportedControl } from '../electrical/importedComponents'
 import { animateImportedRig, importedControlAt, importedPointMm, paintImportedModel, rigImportedModel } from './importedFinish'
+import { thermalResetAccepted, thermalResetTurn } from './thermalResetControl'
 import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, Billboard, useGLTF, useProgress } from '@react-three/drei'
@@ -858,7 +859,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
 }
 
 /** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
-function CadComponentReal3D({ c, x, position, interactive = true, labelColor, labelText, anchor }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean; labelColor?: string; labelText?: string; /** Apoio vertical: na calha assenta na base, solto fica centrado. */ anchor?: 'center' | 'bottom' }) {
+function CadComponentReal3D({ c, x, position, interactive = true, labelColor, labelText, anchor, resetTurn = 0 }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean; labelColor?: string; labelText?: string; /** Apoio vertical: na calha assenta na base, solto fica centrado. */ anchor?: 'center' | 'bottom'; resetTurn?: number }) {
   const spec = getComponentModelSpec(c.type)!
   const centered = (anchor ?? (position ? 'center' : 'bottom')) === 'center'
   const { scene } = useGLTF(spec.path)
@@ -902,7 +903,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   const invalidateFrame = useThree((three) => three.invalidate)
   useFrame((_, delta) => {
     if (!importedRig || !importedType) return
-    if (animateImportedRig(importedRig, importedType, c.state, useSimStore.getState().sim.runState !== 'stopped', Math.min(delta, 1 / 20))) invalidateFrame()
+    if (animateImportedRig(importedRig, importedType, { ...c.state, resetTurn }, useSimStore.getState().sim.runState !== 'stopped', Math.min(delta, 1 / 20))) invalidateFrame()
   })
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const active = simActive && !!(c.state.energized || c.state.powered)
@@ -993,18 +994,19 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   </group>
 }
 
-/** Manobra funcional dos novos CAD, partilhada com o Esquema. */
+/** Manobra funcional dos CAD importados; o estado elétrico é partilhado com o inspetor. */
 function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor }: { c: ElectricalComponent; x: number; position?: [number,number,number]; /** Botões mecânicos ativos mesmo em STOP. */ mechanical: boolean; interactive: boolean; labelColor: string }) {
   const info = importedComponentInfo(c.type)!
   const spec = getComponentModelSpec(c.type)!
   const simActive = useSimStore(s => s.sim.runState !== 'stopped')
-  // O ensaio (TEST) e o STOP atuam o contacto auxiliar enquanto premiados; o RESET rearma.
+  const { gl, controls, events } = useThree()
+  const [resetTurn, setResetTurn] = useState(0)
   const status = info.behavior === 'breaker' || info.behavior === 'fuse'
     ? c.state.tripped ? 'Disparado' : c.state.closed ? 'Fechado' : 'Aberto'
     : info.behavior === 'selector' ? c.state.position === -1 ? 'Esq.' : c.state.position === 1 ? 'Dir.' : '0'
-    : info.behavior === 'thermal' ? c.state.tripped ? 'Disparado' : c.state.testPressed ? 'Ensaio' : c.state.stopPressed ? 'STOP' : 'Armado' : ''
+    : info.behavior === 'thermal' ? c.state.testPressed ? 'Ensaio · disparado' : c.state.tripped ? 'Disparado · RESET' : c.state.stopPressed ? 'STOP' : 'Armado' : ''
   const group = useRef<THREE.Group>(null)
-  /** Comando do aparelho sob o ponteiro; `null` no corpo (manobra geral). */
+  const gesture = useRef<{ control: ImportedControl | null; pointerId: number; startX: number; turn: number; target: { releasePointerCapture: (id: number) => void }; orbitEnabled: boolean; eventsEnabled?: boolean; cleanup?: () => void } | null>(null)
   const controlAt = (event: { point: THREE.Vector3 }): ImportedControl | null => {
     const node = group.current
     if (!node) return null
@@ -1012,28 +1014,71 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
     return importedControlAt(c.type, point)
   }
   const apply = (pressed: boolean, control: ImportedControl | null = null) => {
-    if (useSimStore.getState().tool !== 'select') return
-    // Os botões de um relé térmico são mecânicos: funcionam também com a simulação parada.
-    // O corpo (disparo manual) continua a exigir RUN/PAUSA, como os disjuntores.
-    if (control ? !mechanical : !interactive) return
-    const patch = importedActuationPatch(c, pressed, control)
-    if (patch) useSimStore.getState().setComponentState(c.id, patch)
+    if (useSimStore.getState().tool !== 'select' || (control ? !mechanical : !interactive)) return
+    useSimStore.getState().actuateImported(c.id, pressed, control)
   }
-  // O grupo do comando fica na posição do aparelho: sem isto o ponto do clique vinha
-  // em coordenadas do mundo e nenhuma zona de botão era reconhecida.
+  const finish = (commit: boolean) => {
+    const active = gesture.current
+    if (!active) return
+    gesture.current = null
+    active.cleanup?.()
+    if (active.control === 'reset') {
+      if (commit && thermalResetAccepted(active.turn)) apply(true, 'reset')
+      setResetTurn(0)
+    } else apply(false, active.control)
+    const orbit = controls as unknown as { enabled?: boolean } | null
+    if (orbit && active.orbitEnabled !== undefined) orbit.enabled = active.orbitEnabled
+    if (active.eventsEnabled !== undefined) events.enabled = active.eventsEnabled
+    gl.domElement.style.cursor = ''
+    try { active.target.releasePointerCapture(active.pointerId) } catch { /* já libertada pelo browser */ }
+  }
+  const finishRef = useRef(finish)
+  finishRef.current = finish
+  useEffect(() => () => finishRef.current(false), [])
+  useEffect(() => { if (!mechanical && !interactive) finishRef.current(false) }, [mechanical, interactive])
+  // A libertação fora do modelo, perda de captura ou mudança de janela não deixa TEST preso.
+  useEffect(() => {
+    const cancel = () => finishRef.current(false)
+    window.addEventListener('blur', cancel)
+    return () => window.removeEventListener('blur', cancel)
+  }, [])
   return <group ref={group} position={position ?? [x, RAIL_Y, 0]} onPointerDown={event => {
-    if (event.button !== 0) return
+    if (event.button !== 0 || gesture.current) return
     const control = controlAt(event)
     if (control ? !mechanical : !interactive || !simActive) return
     event.stopPropagation()
-    ;(event.target as Element | null)?.setPointerCapture?.(event.pointerId)
-    apply(true, control)
+    const target = event.target as unknown as { setPointerCapture: (id: number) => void; releasePointerCapture: (id: number) => void }
+    const orbit = controls as unknown as { enabled?: boolean } | null
+    gesture.current = { control, pointerId: event.pointerId, startX: event.nativeEvent.clientX, turn: 0, target, orbitEnabled: orbit?.enabled ?? true, eventsEnabled: events.enabled }
+    target.setPointerCapture(event.pointerId)
+    // O ponteiro já está capturado: durante o gesto não repetir raycasts contra
+    // CAD/cabos a cada movimento. Em máquinas sem GPU isso bloqueava TEST/RESET/STOP.
+    if (control === 'reset' && orbit) orbit.enabled = false
+    events.enabled = false
+    if (control === 'reset') gl.domElement.style.cursor = 'ew-resize'
+    const move = (e: PointerEvent) => {
+      const active = gesture.current
+      if (!active || active.pointerId !== e.pointerId || active.control !== 'reset') return
+      active.turn = thermalResetTurn(e.clientX - active.startX)
+      setResetTurn(active.turn)
+    }
+    const up = (e: PointerEvent) => { if (gesture.current?.pointerId === e.pointerId) finishRef.current(true) }
+    const cancel = (e: PointerEvent) => { if (gesture.current?.pointerId === e.pointerId) finishRef.current(false) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+    gesture.current.cleanup = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+    }
+    if (control !== 'reset') apply(true, control)
   }} onPointerUp={event => {
-    const control = controlAt(event)
-    apply(false, control)
-    ;(event.target as Element | null)?.releasePointerCapture?.(event.pointerId)
-  }} onPointerCancel={event => apply(false, controlAt(event))}>
-    <CadComponentReal3D c={c} x={x} position={[0, 0, 0]} anchor={position ? 'center' : 'bottom'} interactive={interactive} labelColor={labelColor} labelText={status ? `${c.ref} · ${status}` : c.ref} />
+    if (gesture.current?.pointerId !== event.pointerId) return
+    event.stopPropagation()
+    finish(true)
+  }} onPointerCancel={() => finish(false)}>
+    <CadComponentReal3D c={c} x={x} position={[0, 0, 0]} anchor={position ? 'center' : 'bottom'} interactive={interactive} labelColor={labelColor} labelText={status ? `${c.ref} · ${status}` : c.ref} resetTurn={resetTurn} />
   </group>
 }
 

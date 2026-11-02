@@ -35,13 +35,18 @@ Incremento de 2026-10-30 sobre a integração dos 14 GLB descrita em
 - `ImportedCadDevice` põe o grupo do comando **na posição do aparelho**: antes ficava na origem da cena e o
   ponto do clique era convertido em coordenadas do mundo, pelo que nenhuma caixa era reconhecida e todos os
   cliques no aparelho caíam no corpo.
-- `importedActuationPatch` recebe o comando: STOP e TEST são momentâneos (`stopPressed`/`testPressed`),
-  RESET só rearma (`tripped: false`) e o corpo inverte o disparo. Os três botões são mecânicos — funcionam
-  com a simulação parada; o corpo exige RUN/PAUSA, como os disjuntores.
+- `importedActuationPatch` recebe o comando: STOP é momentâneo (`stopPressed`); TEST simula um disparo
+  retido (`testPressed` + `tripped`) e, ao largar, liberta apenas o cursor de ensaio, mantendo a proteção
+  aberta até RESET. RESET só rearma um disparo existente depois de libertar TEST/STOP (`tripped: false`)
+  e nunca liga o motor. O corpo injeta uma falha; não substitui o RESET. Os três botões são mecânicos —
+  funcionam com a simulação parada; o corpo exige RUN/PAUSA, como os disjuntores.
 - `importedBridges`: disparado, STOP ou ensaio abrem 95–96; disparado ou ensaio fecham 97–98. As três fases
   nunca são interrompidas.
-- `animateImportedRig` empurra o botão premido para dentro do corpo (2,8 mm) e, com o relé disparado, o RESET
-  fica saliente — é o que se vê no aparelho real.
+- `animateImportedRig` empurra STOP 2,8 mm para dentro do corpo. O RESET azul usa a cruz existente como
+  manípulo rotativo didático: arrasto horizontal até ±35°, retorno por mola e rearme apenas no fim de um
+  gesto aceite. Isto não altera a seleção física M/A do aparelho real nem ativa rearranque automático.
+- No projeto nativo, F1/97–98 chega a I0.3 e o GRAFCET regressa a X0; depois de RESET é necessária uma nova
+  ordem START. O espelho IEC usa `thermalSync` para projetar o mesmo disparo/rearme sem duplicar o estado.
 
 ## Bornes por modelo
 

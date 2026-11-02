@@ -7,6 +7,7 @@ import { LOGO_OUTPUTS, type CmdKind } from './model'
 import { DEFAULT_PAGE_ID } from './pages'
 import type { RightDockTab } from '../components/RightDockTabs'
 import type { WireColor } from '../types'
+import { linkedThermalComponent, linkedThermalTrips } from './thermalSync'
 
 export type CmdTool = 'select' | 'wire' | 'erase' | 'pan'
 export type CmdSelection = { type: 'part' | 'wire' | 'text'; id: string } | null
@@ -117,7 +118,9 @@ function pushPlcInputs(rt: CmdRuntime) {
 }
 /** Passo do esquema com as saídas atuais do PLC; as entradas resultantes seguem para o PLC. */
 function stepLinked(rt: CmdRuntime, dtMs: number): CmdRuntime {
-  const next = stepCommands(diagram(), { ...rt, plc: plcOutputs() }, dtMs)
+  const sim = useSimStore.getState()
+  const linked = linkedThermalTrips(sim.components, sim.commands, sim.nativeId)
+  const next = stepCommands(diagram(), { ...rt, plc: plcOutputs(), tripped: { ...rt.tripped, ...linked } }, dtMs)
   if (next.running) pushPlcInputs(next)
   return next
 }
@@ -215,7 +218,15 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
   patchRt: (patch) => set({ rt: stepLinked({ ...get().rt, ...patch }, 0) }),
   press: (tag, down) => get().patchRt({ pressed: { ...get().rt.pressed, [tag]: down } }),
   toggle: (tag) => get().patchRt({ toggled: { ...get().rt.toggled, [tag]: !get().rt.toggled[tag] } }),
-  trip: (tag, value) => get().patchRt({ tripped: { ...get().rt.tripped, [tag]: value } }),
+  trip: (tag, value) => {
+    const sim = useSimStore.getState()
+    const linked = linkedThermalComponent(sim.components, sim.commands, sim.nativeId, tag)
+    if (linked) {
+      // O símbolo IEC não pode contornar TEST retido: rearmar usa o mesmo contrato do RESET.
+      sim.actuateImported(linked.id, true, value ? null : 'reset')
+      get().patchRt({})
+    } else get().patchRt({ tripped: { ...get().rt.tripped, [tag]: value } })
+  },
   event: null,
   emit: (name) => set({ event: { name, n: (get().event?.n ?? 0) + 1 } }),
   quickAdd: null,

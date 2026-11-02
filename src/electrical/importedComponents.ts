@@ -24,7 +24,7 @@ export const IMPORTED_COMPONENTS: Record<ImportedComponentType, ImportedComponen
   keyActuatorEao61: { name:'Comutador de chave EAO 61-2101.0/D · 2 posições com retorno', manufacturer:'EAO', reference:'61-2101.0/D', category:'command',tag:'S',behavior:'actuator',terminals:[['11','aux-no'],['12','aux-nc'],['14','aux-no']],state:{pressed:false,momentary:true},scope:'Atuador de chave com retorno e o elemento de comutação desenhado no CAD (três lâminas na traseira). Modelado como comutador 11–12 (repouso) / 11–14 (chave rodada); numeração IEC por confirmar na etiqueta do elemento.',source:'https://www.eao.com/api/action/component/datasheet?lang=en&objectID=61-2101.0%2FD'},
   // A2 é o borne de passagem da bobina do contactor (manual Siemens 3RU2/3RB3): não
   // comuta com o disparo, apenas passa a alimentação da bobina montada por baixo.
-  thermalRelaySiemens3ru1116: {name:'Relé térmico Siemens 3RU1116-1AB0 · 1,1–1,6 A',manufacturer:'Siemens',reference:'3RU1116-1AB0',category:'protection',tag:'RT',behavior:'thermal',terminals:[...powerTerminals,['95','aux-nc'],['96','aux-nc'],['97','aux-no'],['98','aux-no'],['A2','coil-minus']],poles,state:{tripped:false,stopPressed:false,testPressed:false,rangeA:'1,1–1,6 A',manual:true},scope:'1L1/3L2/5L3 nos pinos do topo, 2T1/4T2/6T3 na base, 95/96/97/98/A2 na frente. O disparo comuta 95–96/97–98 e os percursos de potência mantêm-se condutivos; STOP e ensaio (TEST) abrem 95–96 enquanto premidos e o ensaio fecha 97–98; RESET rearma. A2 é a passagem da bobina do contactor, sem contacto próprio. Sem modelo térmico temporizado.',source:'https://sieportal.siemens.com/en-be/products-services/detail/3RU11161AB0'},
+  thermalRelaySiemens3ru1116: {name:'Relé térmico Siemens 3RU1116-1AB0 · 1,1–1,6 A',manufacturer:'Siemens',reference:'3RU1116-1AB0',category:'protection',tag:'RT',behavior:'thermal',terminals:[...powerTerminals,['95','aux-nc'],['96','aux-nc'],['97','aux-no'],['98','aux-no'],['A2','coil-minus']],poles,state:{tripped:false,stopPressed:false,testPressed:false,rangeA:'1,1–1,6 A',manual:true},scope:'1L1/3L2/5L3 nos pinos do topo, 2T1/4T2/6T3 na base, 95/96/97/98/A2 na frente. O disparo comuta 95–96/97–98 e os percursos de potência mantêm-se condutivos. STOP é momentâneo; TEST simula um disparo retido e, ao largar, mantém a proteção aberta até RESET. RESET roda à esquerda/direita nesta simulação didática (no aparelho físico rearma por pressão; pressão+rotação seleciona M/A). Não seleciona modo automático nem liga o motor. A2 é a passagem da bobina do contactor, sem contacto próprio. Sem curva térmica temporizada nem certificação funcional.',source:'https://sieportal.siemens.com/en-be/products-services/detail/3RU11161AB0'},
   residualBreakerHagerCfc225p: {name:'Interruptor diferencial Hager CFC225P · 2P · 25 A · 300 mA',manufacturer:'Hager',reference:'CFC225P',category:'protection',tag:'QDR',behavior:'breaker',terminals:[['1','power-in'],['2','power-out'],['N1','neutral'],['N2','neutral']],poles:[['1','2'],['N1','N2']],state:{closed:false,tripped:false,inA:25,sensmA:300},scope:'Manobra e disparo manual dos dois polos; sem medição de corrente diferencial.',source:'https://assets.hager.com/step-content/P/PDS_156170925001PT/Document/std.lang.all/PDS_CFC225P_5001_pt-PT.pdf'},
   limitSwitchLongRoller: {name:'Fim de curso com haste longa e rolete · CAD por converter',manufacturer:'Não identificado',reference:'40.108',category:'command',tag:'SQ',behavior:'button-no',terminals:[],state:{pressed:false,momentary:true},scope:'Aguarda exportação STEP/GLB do SLDPRT e confirmação dos contactos.'},
   selectorSchneiderXa2ed33: {name:'Seletor Schneider Harmony XA2ED33 · 3 posições · 2NA',manufacturer:'Schneider Electric',reference:'XA2ED33',category:'command',tag:'S',behavior:'selector',terminals:[['13','aux-no'],['14','aux-no'],['23','aux-no'],['24','aux-no']],state:{position:0,maintain:true},scope:'Esquerda fecha 13–14; centro abre ambos; direita fecha 23–24. Posições mantidas.',source:'https://www.se.com/sg/en/product/XA2ED33/complete-selector-switch-harmony-xa2-plastic-black-22mm-3-positions-stay-put-2no/'},
@@ -54,16 +54,18 @@ export function importedActuationPatch(component: ElectricalComponent, pressed: 
   const info = importedComponentInfo(component.type)
   if (!info) return null
   if (info.behavior === 'actuator' || info.behavior.startsWith('button')) return { pressed }
-  // Relé térmico: cada botão faz o que faz no aparelho. O STOP e o ensaio (TEST) só estão
-  // ativos enquanto premiados; o RESET rearma e não arma.
+  // Relé térmico em modo manual (contrato didático DC-TEST-RESET-01): TEST simula um
+  // disparo real e retido. Largar o cursor liberta testPressed, mas NÃO rearma a proteção.
+  // STOP continua momentâneo. RESET só atua depois de libertar TEST/STOP e nunca liga KM1.
   if (info.behavior === 'thermal') {
-    if (control === 'reset') return pressed && component.state.tripped ? { tripped: false } : null
+    if (control === 'reset') return pressed && component.state.tripped && !component.state.testPressed && !component.state.stopPressed ? { tripped: false } : null
     if (control === 'stop') return { stopPressed: pressed }
-    if (control === 'test') return { testPressed: pressed }
+    if (control === 'test') return pressed ? { testPressed: true, tripped: true } : { testPressed: false }
   }
   if (!pressed) return null
   if (info.behavior === 'breaker' || info.behavior === 'fuse') return { closed: !component.state.closed || !!component.state.tripped, tripped: false }
-  if (info.behavior === 'thermal') return { tripped: !component.state.tripped }
+  // O corpo injeta uma falha; retirar o disparo pertence ao RESET, não a um segundo clique.
+  if (info.behavior === 'thermal') return component.state.tripped ? null : { tripped: true }
   if (info.behavior === 'selector') return { position: component.state.position === -1 ? 0 : component.state.position === 0 ? 1 : -1 }
   if (info.behavior === 'photo') return { triggered: !component.state.triggered }
   if (info.behavior === 'safety') return { resetRequested: true }

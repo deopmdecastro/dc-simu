@@ -7,6 +7,7 @@ import { useCatalogStore } from '../catalog/registry'
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { parseCatalogType } from '../catalog/types'
 import PlcSignalPanel from './PlcSignalPanel'
+import ThermalRelayControls from './ThermalRelayControls'
 import { isProgrammablePlc } from '../ladder/plcPrograms'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -644,9 +645,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-plc-sim-group><summary>Simular sinais (entradas)</summary><div className="dc-inspector-group-body"><PlcSignalPanel plcId={selectedComponent.id} compact /></div></details>}
               {/* estado rápido conforme o tipo */}
               <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body dc-inspector-state-list">
+                {importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && <ThermalRelayControls component={selectedComponent} />}
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
                   if (isMountingRail(selectedComponent.type) && k === 'lengthMm') return null
                   if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes') return null
+                  // Não oferecer checkboxes que contornem a retenção de TEST ou o modo manual.
+                  if (importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && ['testPressed', 'stopPressed', 'tripped', 'manual'].includes(k)) return null
                   if (typeof v === 'boolean') {
                     return (
                       <label key={k} className="dc-inspector-state-row is-toggle">

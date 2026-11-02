@@ -6,6 +6,8 @@
 import { readFileSync } from 'node:fs'
 import { nativePartidaDiretaContent } from '../src/project/nativeProjects'
 import { useSimStore } from '../src/store/useSimStore'
+import { linkedThermalTrips } from '../src/commands/thermalSync'
+import { emptyCmdRuntime, stepCommands } from '../src/commands/engine'
 
 let failed = 0
 const check = (name: string, ok: boolean, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} — ${name}${extra ? ` (${extra})` : ''}`); if (!ok) failed++ }
@@ -31,6 +33,41 @@ comp('B1').state.stopPressed = true; run(3)
 comp('B1').state.stopPressed = false; run(10)
 check('STOP: KM1 abre, H2 acende, H1 apaga', comp('KM1').state.energized === false && comp('H2').state.on === true && comp('H1').state.on === false)
 check('STOP: motor pára', comp('M1').state.running === false && comp('M1').state.rpmVisual < 0.05)
+
+// TEST do F1: contacto NC abre, NA fecha; o PLC perde a marcha e acende a falha real.
+comp('B1').state.startPressed = true; run(3); comp('B1').state.startPressed = false; run(10)
+check('TEST: preparação com motor em marcha', comp('M1').state.running === true && comp('H1').state.on === true)
+useSimStore.getState().actuateImported(comp('F1').id, true, 'test'); run(10)
+check('TEST premido: KM1/M1 param, H1 verde apaga e H3 vermelho acende', !comp('KM1').state.energized && !comp('M1').state.running && !comp('H1').state.on && comp('H3').state.on === true)
+check('TEST premido: I0.3 recebe 97–98 e GRAFCET regressa a X0', useSimStore.getState().runtime.table['I0.3'] === true && useSimStore.getState().grafcetRuntime.active.includes('native-s0'))
+useSimStore.getState().actuateImported(comp('F1').id, false, 'test'); run(10)
+check('Largar TEST mantém disparo e falha, sem rearranque', comp('F1').state.tripped === true && !comp('F1').state.testPressed && !comp('M1').state.running && comp('H3').state.on === true)
+comp('B1').state.startPressed = true; run(5); comp('B1').state.startPressed = false; run(5)
+check('START com F1 disparado continua bloqueado', !comp('M1').state.running && !comp('H1').state.on)
+useSimStore.getState().actuateImported(comp('F1').id, true, 'reset'); run(10)
+check('RESET rearma sem ligar motor: H3 apaga e H2 parado acende', !comp('F1').state.tripped && !comp('M1').state.running && !comp('H3').state.on && comp('H2').state.on === true)
+comp('B1').state.startPressed = true; run(3); comp('B1').state.startPressed = false; run(10)
+check('Nova ordem START depois de RESET volta a ligar o motor', comp('M1').state.running === true && comp('H1').state.on === true)
+// O IEC nativo usa o mesmo disparo, não uma cópia independente do estado do F1.
+{
+  const state = useSimStore.getState()
+  const linked = linkedThermalTrips(state.components, state.commands, state.nativeId)
+  check('IEC: F1 do quadro projeta o estado armado no símbolo F1', linked.F1 === false)
+  useSimStore.getState().actuateImported(comp('F1').id, true, 'test'); run(5)
+  const st = useSimStore.getState()
+  const rt = stepCommands(st.commands, { ...emptyCmdRuntime(), running: true, tripped: linkedThermalTrips(st.components, st.commands, st.nativeId) }, 50)
+  const motor = st.commands.parts.find(p => p.kind === 'motor3')!
+  check('IEC: TEST do F1 abre o comando e para o motor', !rt.coils.KM1 && rt.motors[motor.id]?.mode !== 'run' && rt.plcInputs?.['I0.3'] === true)
+  useSimStore.getState().actuateImported(comp('F1').id, false, 'test')
+  useSimStore.getState().actuateImported(comp('F1').id, true, 'reset'); run(5)
+}
+// STOP de simulação liberta dedos, mas não apaga uma proteção mecânica disparada.
+useSimStore.getState().actuateImported(comp('F1').id, true, 'test')
+useSimStore.getState().stop()
+check('STOP da simulação mantém o disparo do F1', comp('F1').state.tripped === true)
+useSimStore.getState().loadJSON(useSimStore.getState().saveJSON())
+check('Guardar/reabrir mantém disparo e liberta TEST', comp('F1').state.tripped === true && !comp('F1').state.testPressed)
+useSimStore.getState().actuateImported(comp('F1').id, true, 'reset')
 
 const panel = readFileSync(new URL('../src/three/Panel3D.tsx', import.meta.url), 'utf8')
 check('Simulador abre em vista frontal e apenas M1 usa orientação isométrica',

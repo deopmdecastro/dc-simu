@@ -271,10 +271,11 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     else if (item.role === 'button-on') target = rig.edges.pulseOn > 0 ? 1 : 0
     else if (item.role === 'button-off') target = rig.edges.pulseOff > 0 ? 1 : 0
     else if (item.role === 'key') target = state.pressed ? 1 : 0
-    // Relé térmico: STOP e RESET são botões de pressão (afundam e voltam) e o disparo deixa
-    // o RESET saliente, como no aparelho; o ensaio (TEST) não tem peça própria no CAD.
+    // STOP mantém o curso axial. RESET usa a cruz azul existente como manípulo rotativo
+    // didático (−1…1); ao largar, a mola regressa a zero. Não muda a seleção física M/A.
+    // TEST não tem peça própria no CAD: atua o cursor de ensaio já gravado na frente.
     else if (item.role === 'stop') target = state.stopPressed ? 1 : 0
-    else if (item.role === 'reset') target = state.resetPressed ? 1 : 0
+    else if (item.role === 'reset') target = typeof state.resetTurn === 'number' && Number.isFinite(state.resetTurn) ? Math.max(-1, Math.min(1, state.resetTurn)) : 0
     else if (item.role === 'knob') target = typeof state.position === 'number' ? state.position : 0
     const next = springTo(item.value, target, delta, item.role.startsWith('button') || item.role === 'stop' || item.role === 'reset' ? 30 : 14)
     if (Math.abs(next - target) > 1e-4) moving = true
@@ -283,7 +284,10 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     if (item.role === 'carrier') item.pivot.rotation.set(r.x + item.value * THREE.MathUtils.degToRad(24), r.y, r.z)
     else if (item.role === 'key') item.pivot.rotation.set(r.x, r.y, r.z - item.value * THREE.MathUtils.degToRad(60))
     else if (item.role === 'knob') item.pivot.rotation.set(r.x, r.y, r.z - (item.value - 1) * THREE.MathUtils.degToRad(45)) // CAD na posição direita
-    else if (item.role.startsWith('button') || item.role === 'stop' || item.role === 'reset') item.pivot.position.set(p.x, p.y, p.z - item.value * .0028 + (item.role === 'reset' && state.tripped ? .003 : 0))
+    else if (item.role === 'reset') {
+      item.pivot.rotation.set(r.x, r.y, r.z - item.value * THREE.MathUtils.degToRad(35))
+      item.pivot.position.set(p.x, p.y, p.z + (state.tripped ? .003 : 0))
+    } else if (item.role.startsWith('button') || item.role === 'stop') item.pivot.position.set(p.x, p.y, p.z - item.value * .0028)
   }
   for (const lamp of rig.lamps) {
     let on = false

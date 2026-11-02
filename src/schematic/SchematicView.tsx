@@ -1,5 +1,5 @@
 import { useCanvasAction, useSimUi } from '../ui/simUi'
-import { importedComponentInfo, importedActuationPatch } from '../electrical/importedComponents'
+import { importedComponentInfo } from '../electrical/importedComponents'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { useShallow } from 'zustand/react/shallow'
@@ -953,8 +953,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const toggleField = (c: ElectricalComponent, down: boolean) => {
     if (useSimStore.getState().sim.runState === 'stopped') return
     if (importedComponentInfo(c.type)) {
-      const patch = importedActuationPatch(c, down)
-      if (patch) useSimStore.getState().setComponentState(c.id, patch)
+      useSimStore.getState().actuateImported(c.id, down)
       return
     }
     if (isToggleBreaker(c)) {

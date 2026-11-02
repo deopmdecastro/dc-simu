@@ -49,7 +49,7 @@ import { syncLeadCableHeatShrink, syncSharedTerminalFerrules } from '../electric
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
-import { importedComponentInfo, updateImportedLoads, updateImportedPower } from '../electrical/importedComponents'
+import { importedActuationPatch, importedComponentInfo, updateImportedLoads, updateImportedPower } from '../electrical/importedComponents'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -301,6 +301,8 @@ interface Store extends CircuitState {
   // --- acionamento de campo ---
   pressButton: (componentId: string, pressed: boolean) => void
   setComponentState: (componentId: string, patch: Record<string, any>) => void
+  /** Manobra comum dos CAD: TEST/STOP/RESET têm a mesma semântica em todas as vistas. */
+  actuateImported: (componentId: string, pressed: boolean, control?: import('../electrical/importedComponents').ImportedControl | null) => void
   toggleTerminal: (terminalId: string) => void
 
   // --- edição (editor completo) ---
@@ -826,9 +828,10 @@ export type VirtualInputMode = 'latch' | 'push' | 'nc'
 function deenergizeComponents(components: ElectricalComponent[]): ElectricalComponent[] {
   return components.map((component) => {
     const nextState = { ...component.state }
-    for (const key of ['energized', 'running', 'done', 'powered', 'powerReady', 'startPressed', 'stopPressed']) {
+    for (const key of ['energized', 'running', 'done', 'powered', 'powerReady', 'startPressed', 'stopPressed', 'testPressed']) {
       if (key in nextState) nextState[key] = false
     }
+    // O disparo mecânico sobrevive a STOP/reabrir; só RESET (ou Reiniciar tudo) o limpa.
     if (
       component.type === 'ledGreen' ||
       component.type === 'ledRed' ||
@@ -1313,7 +1316,7 @@ export const useSimStore = create<Store>((set, get) => {
     const state = get()
     const components = state.components.map((component) => {
       const nextState = { ...component.state }
-      for (const key of ['energized', 'pressed', 'startPressed', 'stopPressed', 'running', 'done', 'powered', 'powerReady', 'triggered', 'tripped']) {
+      for (const key of ['energized', 'pressed', 'startPressed', 'stopPressed', 'testPressed', 'running', 'done', 'powered', 'powerReady', 'triggered', 'tripped']) {
         if (key in nextState) nextState[key] = false
       }
       for (const key of ['elapsedMs', 'rpmVisual', 'reading', 'count', 'frequencyHz']) {
@@ -1415,6 +1418,12 @@ export const useSimStore = create<Store>((set, get) => {
       return { components: [...s.components], dirty: true }
     })
     recomputeIfActive()
+  },
+  actuateImported: (componentId, pressed, control = null) => {
+    const component = get().components.find((c) => c.id === componentId)
+    if (!component) return
+    const patch = importedActuationPatch(component, pressed, control)
+    if (patch && Object.entries(patch).some(([key, value]) => component.state[key] !== value)) get().setComponentState(componentId, patch)
   },
 
   toggleTerminal: (terminalId) => {
