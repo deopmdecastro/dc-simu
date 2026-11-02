@@ -90,7 +90,7 @@ try {
 
   // 1) Esquema: Atalhos, Simulação e folhas com nome editável no sítio
   await openView('3D Realista')
-  await expectShortcuts('schematic', /Esquema 2D|Esquema 3D/)
+  await expectShortcuts('schematic', /Esquema 2D|Esquema 3D|3D Realista/)
   const schemSim = page.locator('[data-sim-toggle="schematic"]')
   check(await schemSim.count() === 1, 'Botão «Simulação» no Esquema')
   await schemSim.click()
@@ -122,7 +122,7 @@ try {
   await page.waitForTimeout(1200)
   check(await signals.count() === 1, 'Entradas/Saídas mantém-se no painel do projeto em 3D')
   await capture('esquema3d-simulacao')
-  await expectShortcuts('schematic', /Esquema 3D|Esquema 2D/)
+  await expectShortcuts('schematic', /Esquema 3D|Esquema 2D|3D Realista/)
   await schemSim.click()
   await signals.waitFor({ state: 'detached', timeout: 8000 })
   check(await schemSim.getAttribute('aria-pressed') === 'false', '«Simulação» recolhe o painel direito e desativa o botão')

@@ -79,6 +79,7 @@ import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, ru
 import type { ControlDef } from '../src/catalog/types'
 import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
 import { dinFerruleColor, FERRULE_SWATCHES } from '../src/schematic/wireEndColor'
+import { alignOffsets, type AlignBox } from '../src/ui/alignItems'
 import { clampBar, divergencePoint, expandPolyline, joinBends, nearestOnPolyline, pointOnPolyline, routeViaBar } from '../src/grafcet/links'
 
 let failures = 0
@@ -2628,6 +2629,17 @@ console.log('\n— Tabela de sinais dinâmica —')
   check('GRAFCET: largar a ponta sobre outra linha da mesma etapa cria o nó na coluna do destino, sem ir e voltar', hit.point.y === 252 && JSON.stringify(joined) === JSON.stringify([{ x: 200, y: 252 }, { x: 605, y: 252 }]) && isOrthogonal(route))
   check('GRAFCET: o nó de derivação é o ponto onde a ligação deixa a outra linha', JSON.stringify(divergencePoint(route, shared)) === JSON.stringify({ x: 605, y: 252 }) && divergencePoint([{ x: 0, y: 0 }, { x: 0, y: 50 }], [{ x: 0, y: 0 }, { x: 40, y: 0 }]) === null)
   check('GRAFCET: a barra não sobe acima da etapa de origem', clampBar({ x: 151, y: 300 }, { x: 200, y: 120 }).y >= 340)
+}
+
+// Alinhar/distribuir a seleção (3D, GRAFCET e IEC usam o mesmo cálculo).
+{
+  const boxes: AlignBox[] = [{ id: 'a', x0: 10, y0: 0, x1: 30, y1: 10 }, { id: 'b', x0: 50, y0: 20, x1: 60, y1: 50 }, { id: 'c', x0: 200, y0: 5, x1: 240, y1: 15 }]
+  const after = (action: Parameters<typeof alignOffsets>[1], yUp = false) => { const d = alignOffsets(boxes, action, yUp); return boxes.map((b) => { const o = d.get(b.id) ?? { dx: 0, dy: 0 }; return { ...b, x0: b.x0 + o.dx, x1: b.x1 + o.dx, y0: b.y0 + o.dy, y1: b.y1 + o.dy } }) }
+  check('Alinhar: esquerda, direita e centro horizontal igualam a margem/eixo e não mexem no Y', after('left').every((b) => b.x0 === 10) && after('right').every((b) => b.x1 === 240) && after('hcenter').every((b) => (b.x0 + b.x1) / 2 === 125) && after('left').every((b, i) => b.y0 === boxes[i].y0))
+  check('Alinhar: topo e base respeitam o eixo Y do editor (Y para baixo no 2D, para cima no 3D)', after('top').every((b) => b.y0 === 0) && after('bottom').every((b) => b.y1 === 50) && after('top', true).every((b) => b.y1 === 50) && after('bottom', true).every((b) => b.y0 === 0))
+  const dist = after('distH').sort((p, q) => p.x0 - q.x0)
+  check('Distribuir: espaços iguais entre vizinhos, extremos no lugar', dist[0].x0 === 10 && dist[2].x1 === 240 && Math.abs((dist[1].x0 - dist[0].x1) - (dist[2].x0 - dist[1].x1)) < 1e-9)
+  check('Alinhar: só devolve o que muda; distribuir pede 3 elementos', alignOffsets(boxes, 'left').has('a') === false && alignOffsets(boxes.slice(0, 2), 'distV').size === 0 && alignOffsets(boxes.slice(0, 1), 'left').size === 0)
 }
 
 // Ponteiras: código de cores DIN 46228-4 pela secção do cabo.

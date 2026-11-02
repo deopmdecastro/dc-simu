@@ -113,6 +113,7 @@ function FreeText({ item, selected, editing, readOnly, onSelect, onEdit, onDragS
   const shift = item.align === 'center' ? '-50%' : item.align === 'right' ? '-100%' : '0'
   return <div
     ref={ref}
+    data-ctext={item.id}
     className={`ctext${selected ? ' is-selected' : ''}${editing ? ' is-editing' : ''}`}
     style={{ ...textCss(item, item.size * PX_PER_MM), transform: `translate(${shift}, 0)`, padding: item.background ? `${0.2 * item.size * PX_PER_MM}px ${0.35 * item.size * PX_PER_MM}px` : undefined, borderRadius: item.background ? 0.25 * item.size * PX_PER_MM : undefined }}
     contentEditable={editing}

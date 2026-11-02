@@ -7,6 +7,7 @@ import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { uiChoose, uiConfirm } from '../ui/dialogs'
 import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
+import { alignMessage, alignOffsets, domWorldBox, useAlignAction, type AlignBox } from '../ui/alignItems'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { allowedViews } from '../project/kind'
 import { isSmallScreen } from '../ui/cleanMode'
@@ -3110,6 +3111,30 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (groupIds.length < 3) return notify('Distribuir precisa de, pelo menos, 3 etapas')
     applyPositions(distributePositions(groupPositions(), axis), axis === 'h' ? 'Distribuídas na horizontal · Ctrl+Z desfaz' : 'Distribuídas na vertical · Ctrl+Z desfaz')
   }
+
+  /** Alinhar/distribuir pela barra: etapas (caixa) e textos livres (medidos no desenho), num só passo. */
+  useAlignAction('grafcet', (action) => {
+    if (!full || demoMode) return
+    const boxes: AlignBox[] = []
+    for (const id of selectionNow()) {
+      if (stepById.has(id)) {
+        const size = stepSizeOf(id)
+        const x = stepX(id), y = stepY(id)
+        boxes.push({ id, x0: x - size.w / 2, y0: y, x1: x + size.w / 2, y1: y + size.h })
+      } else if (commentById.has(id)) {
+        const measured = domWorldBox(id, viewportRef.current?.querySelector(`[data-grafcet-text="${CSS.escape(id)}"]`), clientToWorld)
+        if (measured) boxes.push(measured)
+      }
+    }
+    const offsets = alignOffsets(boxes, action)
+    notify(alignMessage(action, boxes.length, offsets.size))
+    if (!offsets.size) return
+    const movesComments = allComments.some((c) => offsets.has(c.id))
+    save({
+      steps: steps.map((s) => { const d = offsets.get(s.id); return d ? { ...s, x: Math.round(stepX(s.id) + d.dx), y: Math.round(stepY(s.id) + d.dy), pinned: true } : s }),
+      ...(movesComments ? { comments: allComments.map((c) => { const d = offsets.get(c.id); return d ? { ...c, x: Math.round(c.x + d.dx), y: Math.round(c.y + d.dy) } : c }) } : {}),
+    })
+  })
 
   /** Ids das etapas a copiar: o grupo, ou a etapa selecionada. */
   const copyableIds = () => (groupIds.length >= 2 ? groupIds : selectedStep && !selectedActionId ? [selectedStep.id] : [])

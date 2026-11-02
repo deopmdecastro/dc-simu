@@ -41,6 +41,7 @@ import ShortcutHelp from '../ui/ShortcutHelp'
 import { COMMANDS_SHORTCUTS } from '../ui/shortcutLists'
 import { NOTE_COLORS } from '../ui/textStyle'
 import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
+import { alignMessage, alignOffsets, domWorldBox, useAlignAction, type AlignBox } from '../ui/alignItems'
 import '../styles/commands.css'
 
 type View = { x: number; y: number; scale: number }
@@ -744,6 +745,40 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       setSelectedTextId(null)
       setOpenNoteId(null)
     }
+  })
+
+  // Alinhar/distribuir a seleção (símbolos, títulos e textos livres) — um só passo de Desfazer.
+  useAlignAction('commands', (action) => {
+    if (!editable) return
+    const ids = selectionNow()
+    const host = viewportRef.current
+    const boxes: AlignBox[] = []
+    for (const id of ids) {
+      const part = pageParts.find((p) => p.id === id)
+      if (part) { const b = partBox(part); boxes.push({ id, x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h }); continue }
+      const label = pageTexts.find((t) => t.id === id)
+      if (label) {
+        const measured = domWorldBox(id, host?.querySelector(`[data-cmd-label="${CSS.escape(id)}"]`), toWorld)
+        const b = labelBox(label)
+        boxes.push(measured ?? { id, x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h })
+        continue
+      }
+      const measured = domWorldBox(id, host?.querySelector(`[data-cmd-text="${CSS.escape(id)}"]`), toWorld)
+      if (measured) boxes.push(measured)
+    }
+    const offsets = alignOffsets(boxes, action)
+    notify(alignMessage(action, boxes.length, offsets.size))
+    if (!offsets.size) return
+    const st = useSimStore.getState()
+    const movesDiagram = [...offsets.keys()].some((id) => pageParts.some((p) => p.id === id) || pageTexts.some((t) => t.id === id))
+    if (movesDiagram) {
+      commit({
+        ...stored,
+        parts: stored.parts.map((q) => { const d = offsets.get(q.id); return d ? { ...q, x: Math.round(q.x + d.dx), y: Math.round(q.y + d.dy) } : q }),
+        texts: (stored.texts ?? []).map((t) => { const d = offsets.get(t.id); return d ? { ...t, x: Math.round(t.x + d.dx), y: Math.round(t.y + d.dy) } : t }),
+      })
+    } else st.commitHistory()
+    for (const t of freeTexts) { const d = offsets.get(t.id); if (d) st.updateCanvasText(t.id, { x: Math.round(t.x + d.dx), y: Math.round(t.y + d.dy) }) }
   })
 
   // ---------------------------------------------------------------- desenho

@@ -28,6 +28,7 @@ import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterial
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
 import CanvasAnnotations3D, { type TextGroupHandlers } from './CanvasAnnotations3D'
 import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
+import { alignMessage, alignOffsets, useAlignAction, type AlignBox } from '../ui/alignItems'
 import PanelCanvasScrollbars, { type PanelScrollBridge } from './PanelCanvasScrollbars'
 import { cameraScrollMetrics, panCameraToScroll, type CameraScrollBounds } from './cameraScroll'
 import NeonCurrent3D from './NeonCurrent3D'
@@ -2508,6 +2509,13 @@ function PlacementPlane({ onPlace, step, size = 80 }: { onPlace: (x: number, y: 
 }
 
 /** Visualização 3D do Esquema: mesmo projeto, à escala real, em sintonia com o Esquema 2D. */
+/** Dá ao Panel3D (fora do Canvas) a câmara e o canvas, para medir textos HTML no plano do painel. */
+function CameraRelay({ target }: { target: MutableRefObject<{ camera: THREE.Camera; el: HTMLElement } | null> }) {
+  const { camera, gl } = useThree()
+  target.current = { camera, el: gl.domElement }
+  return null
+}
+
 export default function Panel3D({ initialCamera = null, onInitialCameraUsed, frontEdit = false }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void; /** Edição frontal: mesma cena 3D, vista frontal por prioridade e grelha por pontos do Esquema. */ frontEdit?: boolean } = {}) {
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
   /** Telemóvel: a explicação da ferramenta fica a um toque (o cartão ocupava um quarto do ecrã). */
@@ -2968,6 +2976,56 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (component.locked) { store.pushEvent('warning', `${component.ref} está bloqueado. Desbloqueie-o no Inspetor para o eliminar.`); return }
     store.deleteComponents([id])
   }
+  // Alinhar/distribuir a seleção (componentes e textos) no plano do painel — Y cresce para cima.
+  const cameraRelay = useRef<{ camera: THREE.Camera; el: HTMLElement } | null>(null)
+  /** Caixa de um texto HTML no plano do painel: projeta a âncora e converte os píxeis do texto em unidades. */
+  const textPanelBox = (id: string, x: number, y: number, z: number): AlignBox | null => {
+    const relay = cameraRelay.current
+    const el = relay?.el.parentElement?.parentElement?.querySelector(`[data-ctext="${CSS.escape(id)}"]`) ?? document.querySelector(`[data-ctext="${CSS.escape(id)}"]`)
+    if (!relay || !el) return null
+    const canvas = relay.el.getBoundingClientRect()
+    const toScreen = (vx: number, vy: number) => {
+      const p = new THREE.Vector3(vx, vy, z).project(relay.camera)
+      return { x: canvas.left + (p.x + 1) / 2 * canvas.width, y: canvas.top + (1 - p.y) / 2 * canvas.height }
+    }
+    const anchor = toScreen(x, y)
+    const ppuX = Math.abs(toScreen(x + 1, y).x - anchor.x)
+    const ppuY = Math.abs(toScreen(x, y + 1).y - anchor.y)
+    if (!ppuX || !ppuY) return null
+    const r = el.getBoundingClientRect()
+    return { id, x0: x + (r.left - anchor.x) / ppuX, x1: x + (r.right - anchor.x) / ppuX, y0: y + (anchor.y - r.bottom) / ppuY, y1: y + (anchor.y - r.top) / ppuY }
+  }
+  useAlignAction('schematic', (action) => {
+    if (simLocked || demoMode) return
+    const store = useSimStore.getState()
+    const boxes: AlignBox[] = []
+    for (const id of mixedSelection()) {
+      const component = store.components.find((c) => c.id === id)
+      if (component) {
+        const pivot = panelPivots[id]
+        if (!pivot || component.locked) continue
+        const half = componentHalfExtents(component, orientationFor(component))
+        boxes.push({ id, x0: pivot.x - half.x, x1: pivot.x + half.x, y0: pivot.y - half.y, y1: pivot.y + half.y })
+        continue
+      }
+      const text = store.canvasTexts.find((t) => t.id === id && t.view === annotationView)
+      const box = text ? textPanelBox(id, text.x, text.y, text.z ?? textPlaneZ) : null
+      if (box) boxes.push(box)
+    }
+    const offsets = alignOffsets(boxes, action, true)
+    store.pushEvent('info', alignMessage(action, boxes.length, offsets.size))
+    if (!offsets.size) return
+    store.commitHistory()
+    const compIds = [...offsets.keys()].filter((id) => store.components.some((c) => c.id === id))
+    if (compIds.length) {
+      // Como no arrasto: larga a calha, move e deixa o imã voltar a fixar no fim.
+      useSimStore.setState((state) => ({ components: state.components.map((item) => (compIds.includes(item.id) && item.railId ? { ...item, railId: undefined, railOffsetMm: undefined } : item)) }))
+      for (const id of compIds) { const p = panelPivots[id]; const d = offsets.get(id)!; dragPanelTo(id, { x: p.x + d.dx, y: p.y + d.dy }) }
+      if (store.grid.railMagnet !== false) store.snapToRails(compIds, false)
+      store.step()
+    }
+    for (const t of store.canvasTexts) { const d = offsets.get(t.id); if (d) store.updateCanvasText(t.id, { x: t.x + d.dx, y: t.y + d.dy }) }
+  })
   const activateComponent = (component: ElectricalComponent, action: () => void) => {
     const currentTool = useSimStore.getState().tool
     if (currentTool === 'erase') { if (!simLocked) removePanelComponent(component.id); return }
@@ -3519,6 +3577,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }} />}
 
         {plateBounds && <MountingPlate bounds={plateBounds} />}
+        <CameraRelay target={cameraRelay} />
         <CanvasAnnotations3D view={annotationView} readOnly={demoMode || simLocked} placeZ={textPlaneZ}
           openNoteId={openNoteId} setOpenNoteId={setOpenNoteId}
           selectedTextId={selectedTextId} setSelectedTextId={setSelectedTextId}

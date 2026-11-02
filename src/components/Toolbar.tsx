@@ -6,6 +6,7 @@ import { ADDABLE_MODULES, allowedViews, type WorkspaceView } from '../project/ki
 import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
+import { ALIGN_ACTIONS, requestAlign, type AlignAction } from '../ui/alignItems'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
 import Select from '../ui/Select'
@@ -611,6 +612,21 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'add-text', label: 'Texto livre', hint: 'Clique no desenho para colocar texto · Esc cancela', icon: <IconText size={13} />, pressed: textPlacement, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('addText') : requestCanvasAction('addText') },
   ]
   if (mode === 'schematic' || mode === 'grafcet' || mode === 'commands') toolSections.push({ id: 'annotations', title: 'Anotações', items: annotationItems })
+  // Alinhar/distribuir a seleção múltipla (textos e elementos): igual no 3D, GRAFCET e IEC.
+  const alignView = mode === 'schematic' || mode === 'grafcet' || mode === 'commands' ? mode : null
+  const ALIGN_ICONS: Record<AlignAction, ReactNode> = {
+    left: <IconAlignLeft size={13} />, hcenter: <IconAlignCenterH size={13} />, right: <IconAlignRight size={13} />,
+    top: <IconAlignTop size={13} />, vcenter: <IconAlignCenterV size={13} />, bottom: <IconAlignBottom size={13} />,
+    distH: <IconDistH size={13} />, distV: <IconDistV size={13} />,
+  }
+  const alignItemsFor = (ids: AlignAction[]) => ALIGN_ACTIONS.filter((a) => ids.includes(a.id)).map((a) => ({
+    id: `align-${a.id}`, label: a.label, hint: a.hint, icon: ALIGN_ICONS[a.id], onSelect: () => { if (alignView) requestAlign(alignView, a.id) },
+  }))
+  const alignSections: ToolMenuSection[] = [
+    { id: 'align', title: 'Alinhar (seleção com 2 ou mais)', items: alignItemsFor(['left', 'hcenter', 'right', 'top', 'vcenter', 'bottom']) },
+    { id: 'distribute', title: 'Distribuir (3 ou mais)', items: alignItemsFor(['distH', 'distV']) },
+  ]
+  if (alignView) toolSections.push({ id: 'align-tools', title: 'Alinhar e distribuir', items: alignSections.flatMap((section) => section.items) })
   const annotationTools = <div className="dc-seg" role="group" aria-label="Anotações">
     {annotationItems.map(item => <TbButton key={item.id} aria-label={item.label} title={item.hint} onClick={item.onSelect} pressed={item.pressed} className={`dc-tool-btn !gap-1.5${item.pressed ? ' dc-tool-active' : ''}`}>
       {item.icon}<span>{item.id === 'add-text' ? 'Texto' : item.label}</span>
@@ -1050,7 +1066,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         </>}
 
         {/* ── Anotações: Comentário e Texto (iguais no 3D, GRAFCET e IEC) — grupo primário */}
-        {(isCanvas || isCmd || mode === 'grafcet') && <><span className="tb-sep" /><div className="tb-primary contents">{annotationTools}</div></>}
+        {(isCanvas || isCmd || mode === 'grafcet') && <><span className="tb-sep" /><div className="tb-primary contents">{annotationTools}</div>
+          <ToolMenu label="Alinhar" title="Alinhar e distribuir a seleção" icon={<IconAlignLeft size={13} />} sections={alignSections} className="dc-align-menu" /></>}
 
         {/* ── Extras da vista: botões em desktop largo; ToolMenu «Mais» quando is-tight (reduz ruído) */}
         {viewExtraItems.length > 0 && (
