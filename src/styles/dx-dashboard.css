@@ -555,6 +555,37 @@
   flex-direction: column;
   gap: var(--dx-3);
 }
+.dx-dialog-create {
+  max-width: 560px;
+  padding: 28px;
+}
+.dx-dialog-create > .dx-empty-ic {
+  background: color-mix(in srgb, var(--dx-brand, #2563eb) 10%, var(--dx-surface));
+  color: var(--dx-brand, #2563eb);
+}
+.dx-dialog-create h2 {
+  font-size: 22px;
+  margin-top: 14px;
+}
+.dx-dialog-create > p {
+  max-width: 480px;
+  margin-bottom: 20px;
+}
+.dx-dialog-create .dx-dialog-kind-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.dx-dialog-create .dx-kind {
+  min-height: 82px;
+  padding: 12px 14px;
+}
+.dx-dialog-create .dx-kind.is-on {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dx-brand, #2563eb) 18%, transparent);
+}
+@media (max-width: 620px) {
+  .dx-dialog-create { padding: 22px 18px; }
+  .dx-dialog-create .dx-dialog-kind-list { grid-template-columns: 1fr; }
+}
 .dx-dialog-actions {
   display: flex;
   justify-content: flex-end;

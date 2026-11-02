@@ -669,7 +669,7 @@ export default function Dashboard({
             if (e.target === e.currentTarget && !saving) closeModal()
           }}
         >
-          <div ref={dialogRef} className="dx-dialog" role="dialog" aria-modal="true" aria-labelledby="dx-dialog-title" aria-describedby="dx-dialog-description">
+          <div ref={dialogRef} className={`dx-dialog ${modal.type === 'create' ? 'dx-dialog-create' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dx-dialog-title" aria-describedby="dx-dialog-description">
             <button className="dx-btn dx-btn-ghost dx-btn-sm dx-dialog-close" aria-label="Fechar" disabled={saving} onClick={closeModal}>
               ×
             </button>
@@ -700,8 +700,8 @@ export default function Dashboard({
               </label>
               {modal.type === 'create' && (
                 <fieldset className="dx-field" style={{ border: 0, padding: 0, margin: '12px 0 0' }}>
-                  <legend className="dx-label">Tipo de projeto</legend>
-                  <div role="radiogroup" aria-label="Tipo de projeto" className="dx-dialog-kind-list">
+                  <legend className="dx-label">Como quer começar?</legend>
+                  <div role="radiogroup" aria-label="Como quer começar" className="dx-dialog-kind-list">
                     {PROJECT_KINDS.map((k) => (
                       <label key={k.id} className={`dx-kind ${kind === k.id ? 'is-on' : ''}`}>
                         <input type="radio" name="project-kind" value={k.id} checked={kind === k.id} onChange={() => setKind(k.id)} />
