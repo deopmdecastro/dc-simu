@@ -18,7 +18,7 @@ import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { IconCommands, IconExample, IconImport, IconPlus, IconTemplates } from '../ui/icons'
 import { InlineName } from '../ui/InlineName'
 import {
-  CMD_GRID, CMD_PARTS, LOGO_OUTPUTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
+  CMD_GRID, CMD_PARTS, LOGO_OUTPUTS, S71500_CPU_OUTPUTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
   type CmdEnd, type CmdKind, type CmdPart, type CmdText, type CmdWire, type CommandsDiagram, type Pt,
 } from './model'
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
@@ -184,7 +184,9 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       actuator: rt.actuators?.[part.id],
       progress: part.kind === 'timerCoil' || part.kind === 'timedNO' || part.kind === 'timedNC' ? progress : undefined,
       tripped: !!rt.tripped[part.tag],
-      outputs: part.kind === 'plcLogo' ? LOGO_OUTPUTS.map((address) => logoOutputOn(rt, address)) : undefined,
+      outputs: part.kind === 'plcLogo' ? LOGO_OUTPUTS.map((address) => logoOutputOn(rt, address))
+        : part.kind === 'plcS71500Cpu1511c' ? S71500_CPU_OUTPUTS.map((address) => logoOutputOn(rt, address))
+          : undefined,
       volts: part.kind === 'voltmeter' ? voltmeterReading(rt.live[`${part.id}:0`], rt.live[`${part.id}:1`]) : undefined,
       voltsDc: part.kind === 'voltmeter' ? voltmeterIsDc(rt.live[`${part.id}:0`], rt.live[`${part.id}:1`]) : undefined,
     }

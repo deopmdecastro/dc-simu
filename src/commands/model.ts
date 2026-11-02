@@ -44,6 +44,12 @@ export type CmdKind =
   | 'timedOffNO' | 'timedOffNC' | 'pullCord' | 'levelNO' | 'levelNC' | 'footNO' | 'footNC' | 'transformerCT'
   /** CLP Siemens LOGO! 12/24RC em bloco: alimentação, 8 entradas e 4 saídas a relé. */
   | 'plcLogo'
+  /** Siemens S7-1500 DI 32×24 V · 6ES7521-1BL00-0AB0 (só entradas). */
+  | 'plcS71500Di32'
+  /** Siemens S7-1500 CPU 1511C-1 PN · 6ES7511-1CK00-0AB0 (16DI/16DO). */
+  | 'plcS71500Cpu1511c'
+  /** Siemens S7-300 CPU 315-2 DP (alimentação + MPI/DP). */
+  | 'plcS7300Cpu315'
 
 export type CmdRotation = 0 | 90 | 180 | 270
 
@@ -138,10 +144,37 @@ const pole = (x: number, top: string, bottom: string, h = 60) => [{ x, y: 0, lab
 /** LOGO! 12/24RC: L+ M I0.0…I0.7 em cima; saídas a relé Q0.0…Q0.3 (bornes 1-2) em baixo. */
 export const LOGO_INPUTS = ['I0.0', 'I0.1', 'I0.2', 'I0.3', 'I0.4', 'I0.5', 'I0.6', 'I0.7']
 export const LOGO_OUTPUTS = ['Q0.0', 'Q0.1', 'Q0.2', 'Q0.3']
+/** S7-1500 DI 32×24 V: 32 entradas digitais I0.0…I3.7. */
+export const S71500_DI32_INPUTS = Array.from({ length: 32 }, (_, i) => `I${Math.floor(i / 8)}.${i % 8}`)
+/** S7-1500 CPU 1511C: 16 DI + 16 DO integrados. */
+export const S71500_CPU_INPUTS = Array.from({ length: 16 }, (_, i) => `I${Math.floor(i / 8)}.${i % 8}`)
+export const S71500_CPU_OUTPUTS = Array.from({ length: 16 }, (_, i) => `Q${Math.floor(i / 8)}.${i % 8}`)
 const LOGO_TERMINALS = [
   { x: 0, y: 0, label: 'L+' }, { x: 20, y: 0, label: 'M' },
   ...LOGO_INPUTS.map((label, i) => ({ x: 60 + i * 20, y: 0, label })),
   ...LOGO_OUTPUTS.flatMap((_, i) => [{ x: 40 + i * 60, y: 220, label: '1' }, { x: 60 + i * 60, y: 220, label: '2' }]),
+]
+/** DI 32: L+ M em cima + 32 entradas em 4 filas (8 por byte). */
+const S71500_DI32_TERMINALS = [
+  { x: 0, y: 0, label: 'L+' }, { x: 20, y: 0, label: 'M' },
+  ...S71500_DI32_INPUTS.map((label, i) => ({
+    x: 40 + (i % 8) * 28,
+    y: 40 + Math.floor(i / 8) * 36,
+    label,
+  })),
+]
+/** CPU 1511C: L+ M PN · 16I em cima · 16Q (pares 1-2) em baixo. */
+const S71500_CPU_TERMINALS = [
+  { x: 0, y: 0, label: 'L+' }, { x: 24, y: 0, label: 'M' }, { x: 48, y: 0, label: 'PN' },
+  ...S71500_CPU_INPUTS.map((label, i) => ({ x: 20 + (i % 8) * 36, y: 36 + Math.floor(i / 8) * 28, label })),
+  ...S71500_CPU_OUTPUTS.flatMap((_, i) => [
+    { x: 16 + (i % 8) * 36, y: 200 + Math.floor(i / 8) * 28, label: '1' },
+    { x: 28 + (i % 8) * 36, y: 200 + Math.floor(i / 8) * 28, label: '2' },
+  ]),
+]
+const S7300_CPU_TERMINALS = [
+  { x: 20, y: 160, label: 'L+' }, { x: 50, y: 160, label: 'M' },
+  { x: 90, y: 160, label: 'MPI' }, { x: 130, y: 160, label: 'DP' },
 ]
 const twoPoles = () => [...pole(0, '1', '2'), ...pole(20, '3', '4')]
 const threePoles = () => [...pole(0, '1', '2'), ...pole(20, '3', '4'), ...pole(40, '5', '6')]
@@ -259,6 +292,24 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   footNC: { label: 'Pedal NF', hint: 'S · interruptor de pé (abre ao pisar)', family: 'button', prefix: 'S', terminals: pole(0, '11', '12'), poles: [[0, 1]], box: { x: -32, y: 0, w: 46, h: 60 } },
   transformerCT: { label: 'Transformador com tomada central', hint: 'T · secundário 3-4-5 com ponto médio (ex.: 2 × 12 V)', family: 'electronic', prefix: 'T', terminals: [...pole(0, '1', '2'), { x: 30, y: 0, label: '3' }, { x: 50, y: 30, label: '4' }, { x: 30, y: 60, label: '5' }], poles: [], box: { x: -10, y: 0, w: 66, h: 60 } },
   plcLogo: { label: 'LOGO! 12/24RC (CLP)', hint: 'K · L+ M, entradas I0.0–I0.7 e saídas a relé Q0.0–Q0.3 (segue o programa do PLC)', family: 'electronic', prefix: 'K', terminals: LOGO_TERMINALS, poles: [], box: { x: -16, y: 0, w: 272, h: 220 } },
+  plcS71500Di32: {
+    label: 'S7-1500 DI 32×24 V',
+    hint: 'DI · 6ES7521-1BL00-0AB0 · L+ M e 32 entradas I0.0–I3.7 (módulo de entradas)',
+    family: 'electronic', prefix: 'DI', terminals: S71500_DI32_TERMINALS, poles: [],
+    box: { x: -16, y: -8, w: 280, h: 200 },
+  },
+  plcS71500Cpu1511c: {
+    label: 'S7-1500 CPU 1511C-1 PN',
+    hint: 'K · 6ES7511-1CK00-0AB0 · L+ M PN, 16DI e 16DO (segue o programa do PLC)',
+    family: 'electronic', prefix: 'K', terminals: S71500_CPU_TERMINALS, poles: [],
+    box: { x: -16, y: -8, w: 320, h: 250 },
+  },
+  plcS7300Cpu315: {
+    label: 'S7-300 CPU 315-2 DP',
+    hint: 'K · L+ M, interfaces MPI e DP (CPU sem E/S a bordo)',
+    family: 'electronic', prefix: 'K', terminals: S7300_CPU_TERMINALS, poles: [],
+    box: { x: -10, y: -8, w: 160, h: 180 },
+  },
   motorSlipRing: { label: 'Motor de rotor bobinado', hint: 'M · 3~ com anéis K L M', family: 'load', prefix: 'M', terminals: [{ x: 0, y: 0, label: 'U1' }, { x: 20, y: 0, label: 'V1' }, { x: 40, y: 0, label: 'W1' }, { x: 0, y: 100, label: 'K' }, { x: 20, y: 100, label: 'L' }, { x: 40, y: 100, label: 'M' }], poles: [], box: { x: -8, y: 0, w: 56, h: 100 } },
 }
 
@@ -303,7 +354,7 @@ export const CMD_PALETTE: Array<{ title: string; kinds: CmdKind[] }> = [
   { title: 'Sensores', kinds: ['limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'levelNO', 'levelNC', 'temperatureController', 'sensor3wNO', 'sensor3wNC'] },
   { title: 'Instrumentos', kinds: ['ammeter', 'voltmeter', 'meter', 'energyMeter', 'currentTransformer', 'counter'] },
   { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'lamp', 'buzzer', 'siren', 'solenoid', 'heater', 'motor3', 'motor6', 'motor1', 'motorDC', 'motorSlipRing'] },
-  { title: 'Eletrónica', kinds: ['diode', 'resistor', 'capacitor', 'transformer', 'transformerCT', 'autotransformer', 'threePhaseTransformer', 'transformer3Line', 'rectifier', 'converter', 'plcLogo', 'plcIn', 'plcOut'] },
+  { title: 'Eletrónica', kinds: ['diode', 'resistor', 'capacitor', 'transformer', 'transformerCT', 'autotransformer', 'threePhaseTransformer', 'transformer3Line', 'rectifier', 'converter', 'plcLogo', 'plcS71500Di32', 'plcS71500Cpu1511c', 'plcS7300Cpu315', 'plcIn', 'plcOut'] },
   { title: 'Pneumática', kinds: ['airSource', 'exhaust', 'valve22', 'valve32', 'valve42', 'valve52', 'valve53c', 'valve53p', 'valve53e', 'cylSE', 'cylDE', 'throttle', 'checkValve', 'airFilter', 'airLubricator', 'airRegulator', 'manometer', 'silencer', 'reservoir'] },
   { title: 'Hidráulica', kinds: ['hydPump', 'hydTank', 'hydCyl'] },
 ]

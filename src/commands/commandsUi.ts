@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import { useSimStore } from '../store/useSimStore'
 import { emptyCmdRuntime, stepCommands, type CmdRuntime } from './engine'
-import { LOGO_OUTPUTS, type CmdKind } from './model'
+import { LOGO_OUTPUTS, S71500_CPU_OUTPUTS, type CmdKind } from './model'
 import { DEFAULT_PAGE_ID } from './pages'
 import type { RightDockTab } from '../components/RightDockTabs'
 import type { WireColor } from '../types'
@@ -87,13 +87,15 @@ const diagram = () => useSimStore.getState().commands
 const PLC_INPUT = /^[IE]\d+(\.\d+)?$/i
 /** Entradas escritas pelo esquema (com o valor anterior, a repor ao parar) e se fomos nós a arrancar o PLC. */
 const plcLink = { written: new Map<string, { plcId: string | null; address: string; previous: boolean | undefined }>(), startedPlc: false }
-const linkedToPlc = () => diagram().parts.some((p) => p.kind === 'plcLogo' || ((p.kind === 'plcIn' || p.kind === 'plcOut') && !!p.tag))
+const PLC_BLOCK_KINDS = new Set(['plcLogo', 'plcS71500Di32', 'plcS71500Cpu1511c', 'plcS7300Cpu315'])
+const linkedToPlc = () => diagram().parts.some((p) => PLC_BLOCK_KINDS.has(p.kind) || ((p.kind === 'plcIn' || p.kind === 'plcOut') && !!p.tag))
 function plcOutputs(): Record<string, boolean> | undefined {
   if (!linkedToPlc()) return undefined
   const table = useSimStore.getState().runtime.table as Record<string, unknown>
   const out: Record<string, boolean> = {}
   for (const p of diagram().parts) if (p.kind === 'plcOut' && p.tag) out[p.tag] = !!table[p.tag]
   if (diagram().parts.some((p) => p.kind === 'plcLogo')) for (const address of LOGO_OUTPUTS) out[address] = !!table[address]
+  if (diagram().parts.some((p) => p.kind === 'plcS71500Cpu1511c')) for (const address of S71500_CPU_OUTPUTS) out[address] = !!table[address]
   return out
 }
 /** PLC do esquema com o borne `address` (o ativo primeiro); sem PLC, usam-se as entradas virtuais. */

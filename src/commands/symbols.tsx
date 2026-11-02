@@ -381,6 +381,100 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         })}
       </>
     }
+    case 'plcS71500Di32': {
+      // Módulo DI 32×24 V — caixa com L+/M e 32 entradas (4 grupos de 8).
+      const on = !!(st.load && !st.idle)
+      return <>
+        <rect x={-14} y={-6} width={276} height={196} fill="#fbfcfd" strokeWidth={1.4} />
+        <text x={8} y={12} fontSize={8} fontWeight={800} fill={INK} stroke="none">SIEMENS</text>
+        <text x={250} y={12} textAnchor="end" fontSize={9} fontWeight={700} fill="#334155" stroke="none">DI 32×24V</text>
+        <text x={250} y={24} textAnchor="end" fontSize={6.5} fill="#64748b" stroke="none">6ES7521-1BL00-0AB0</text>
+        <circle cx={0} cy={0} r={5} fill="#fff" strokeWidth={1} /><text x={0} y={-8} textAnchor="middle" fontSize={6} fontWeight={700} fill={INK} stroke="none">L+</text>
+        <circle cx={20} cy={0} r={5} fill="#fff" strokeWidth={1} /><text x={20} y={-8} textAnchor="middle" fontSize={6} fontWeight={700} fill={INK} stroke="none">M</text>
+        <rect x={200} y={4} width={44} height={16} fill={on ? '#d9f99d' : '#fff'} strokeWidth={0.9} />
+        <text x={222} y={15} textAnchor="middle" fontSize={7} fontWeight={700} fill={on ? '#365314' : '#94a3b8'} stroke="none">{on ? 'ON' : 'OFF'}</text>
+        {Array.from({ length: 32 }, (_, i) => {
+          const x = 40 + (i % 8) * 28, y = 40 + Math.floor(i / 8) * 36
+          const label = `I${Math.floor(i / 8)}.${i % 8}`
+          return <g key={label}>
+            <text x={x} y={y - 8} textAnchor="middle" fontSize={5.5} fontWeight={700} fill={INK} stroke="none">{label}</text>
+            <circle cx={x} cy={y} r={5.5} fill="#fff" strokeWidth={1} />
+          </g>
+        })}
+      </>
+    }
+    case 'plcS71500Cpu1511c': {
+      // CPU 1511C-1 PN — visor, 16 entradas e 16 saídas (pares 1-2).
+      const on = !!(st.load && !st.idle)
+      const outputs = st.outputs ?? Array(16).fill(false)
+      return <>
+        <rect x={-14} y={-6} width={316} height={246} fill="#fbfcfd" strokeWidth={1.4} />
+        <text x={8} y={10} fontSize={8} fontWeight={800} fill={INK} stroke="none">SIEMENS</text>
+        <text x={290} y={10} textAnchor="end" fontSize={9} fontWeight={700} fill="#334155" stroke="none">CPU 1511C</text>
+        <text x={290} y={22} textAnchor="end" fontSize={6} fill="#64748b" stroke="none">6ES7511-1CK00-0AB0</text>
+        {[['L+', 0], ['M', 24], ['PN', 48]].map(([label, x]) => <g key={label as string}>
+          <text x={x as number} y={-8} textAnchor="middle" fontSize={6} fontWeight={700} fill={INK} stroke="none">{label}</text>
+          <circle cx={x as number} cy={0} r={5} fill="#fff" strokeWidth={1} />
+        </g>)}
+        <rect x={200} y={28} width={80} height={36} fill={on ? '#d9f99d' : '#fff'} strokeWidth={1.1} />
+        <text x={240} y={50} textAnchor="middle" fontSize={10} fontWeight={700} fontFamily="ui-monospace, monospace" fill={on ? '#365314' : '#94a3b8'} stroke="none">{on ? 'RUN' : 'STOP'}</text>
+        <path d="M -14 92 L 300 92" strokeWidth={0.8} />
+        <text x={0} y={88} fontSize={6.5} fontWeight={700} fill={INK} stroke="none">INPUT 16×DC</text>
+        {Array.from({ length: 16 }, (_, i) => {
+          const x = 20 + (i % 8) * 36, y = 36 + Math.floor(i / 8) * 28
+          const label = `I${Math.floor(i / 8)}.${i % 8}`
+          return <g key={label}>
+            <text x={x} y={y - 7} textAnchor="middle" fontSize={5.5} fontWeight={700} fill={INK} stroke="none">{label}</text>
+            <circle cx={x} cy={y} r={5} fill="#fff" strokeWidth={1} />
+          </g>
+        })}
+        <path d="M -14 188 L 300 188" strokeWidth={0.8} />
+        <text x={0} y={184} fontSize={6.5} fontWeight={700} fill={INK} stroke="none">OUTPUT 16×</text>
+        {outputs.map((closed, i) => {
+          const row = Math.floor(i / 8), col = i % 8
+          const a = 16 + col * 36, b = a + 12, y = 200 + row * 28
+          const live = closed && !st.idle
+          return <g key={'q' + i}>
+            <text x={a + 6} y={y - 8} textAnchor="middle" fontSize={5.5} fontWeight={700} fill={INK} stroke="none">{`Q${Math.floor(i / 8)}.${i % 8}`}</text>
+            <circle cx={a} cy={y} r={4.5} fill="#fff" strokeWidth={1} />
+            <circle cx={b} cy={y} r={4.5} fill="#fff" strokeWidth={1} />
+            <line x1={a} y1={y + 4.5} x2={a} y2={y + 10} /><line x1={b} y1={y + 4.5} x2={b} y2={y + 10} />
+            <line x1={a} y1={y + 8} x2={b} y2={closed ? y + 8 : y + 4} stroke={live ? active : INK} strokeWidth={live ? 1.6 : 1.1} />
+          </g>
+        })}
+      </>
+    }
+    case 'plcS7300Cpu315': {
+      // CPU 315-2 DP — painel frontal com LEDs e interfaces MPI/DP.
+      const on = !!(st.load && !st.idle)
+      const leds = [
+        { label: 'SF', on: !!st.tripped, color: '#ef4444' },
+        { label: 'BATF', on: false, color: '#f59e0b' },
+        { label: 'DC5V', on, color: '#22c55e' },
+        { label: 'FRCE', on: false, color: '#3b82f6' },
+        { label: 'RUN', on, color: '#22c55e' },
+        { label: 'STOP', on: !on, color: '#f97316' },
+      ]
+      return <>
+        <rect x={-8} y={-6} width={156} height={176} fill="#fbfcfd" strokeWidth={1.4} />
+        <text x={8} y={12} fontSize={8} fontWeight={800} fill={INK} stroke="none">SIEMENS</text>
+        <text x={140} y={12} textAnchor="end" fontSize={8} fontWeight={700} fill="#334155" stroke="none">CPU 315-2 DP</text>
+        <rect x={20} y={28} width={100} height={28} fill={on ? '#d9f99d' : '#fff'} strokeWidth={1} />
+        <text x={70} y={46} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="ui-monospace, monospace" fill={on ? '#365314' : '#94a3b8'} stroke="none">{on ? 'RUN' : 'STOP'}</text>
+        {leds.map((led, i) => {
+          const x = 16 + (i % 3) * 42, y = 72 + Math.floor(i / 3) * 28
+          return <g key={led.label}>
+            <circle cx={x} cy={y} r={6} fill={led.on ? led.color : '#fff'} strokeWidth={1} opacity={led.on ? 1 : 0.9} />
+            <text x={x + 12} y={y + 3} fontSize={7} fontWeight={700} fill={INK} stroke="none">{led.label}</text>
+          </g>
+        })}
+        <path d="M -8 130 L 146 130" strokeWidth={0.8} />
+        {[['L+', 20], ['M', 50], ['MPI', 90], ['DP', 130]].map(([label, x]) => <g key={label as string}>
+          <text x={x as number} y={148} textAnchor="middle" fontSize={6.5} fontWeight={700} fill={INK} stroke="none">{label}</text>
+          <circle cx={x as number} cy={160} r={5.5} fill="#fff" strokeWidth={1} />
+        </g>)}
+      </>
+    }
     case 'converter': {
       // Conversor (IEC 60617-6): quadrado com diagonal; entrada em cima à esquerda, saída em baixo à direita.
       const v = variantOf(part) ?? 'acdc'
@@ -897,7 +991,7 @@ export function CmdSymbol({ part, state, selected, showTerminals = true, onTagPo
           style={{ fontSize: size, fill: part.tagStyle?.color ?? INK, ...(part.tagStyle?.font ? { fontFamily: fontStack(part.tagStyle.font) } : null), ...(part.tagStyle?.bold === false ? { fontWeight: 400 } : null), ...(part.tagStyle?.italic ? { fontStyle: 'italic' } : null), ...(part.tagStyle?.underline ? { textDecoration: 'underline' } : null) }} stroke="none" onPointerDown={onTagPointerDown}>{part.tag}</text>
       })()}
       {/* O LOGO! escreve os nomes dos bornes no próprio desenho (faixas X10/X11). */}
-      {showTerminals && part.kind !== 'plcLogo' && partTerminals(part).map((t, i) => {
+      {showTerminals && part.kind !== 'plcLogo' && part.kind !== 'plcS71500Di32' && part.kind !== 'plcS71500Cpu1511c' && part.kind !== 'plcS7300Cpu315' && partTerminals(part).map((t, i) => {
         const at = terminalAt({ ...part, x: 0, y: 0 }, i)
         const label = terminalLabel(part, i)
         if (!label) return null

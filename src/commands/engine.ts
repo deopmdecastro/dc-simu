@@ -9,7 +9,7 @@
 // fase nos motores e oscilações (circuitos que nunca estabilizam).
 // ============================================================================
 
-import { CMD_PARTS, LOGO_INPUTS, LOGO_OUTPUTS, MOTOR_KINDS, partTerminals, variantOf, type CmdPart, type CommandsDiagram } from './model'
+import { CMD_PARTS, LOGO_INPUTS, LOGO_OUTPUTS, MOTOR_KINDS, S71500_CPU_INPUTS, S71500_CPU_OUTPUTS, S71500_DI32_INPUTS, partTerminals, variantOf, type CmdPart, type CommandsDiagram } from './model'
 
 export interface CmdRuntime {
   running: boolean
@@ -159,6 +159,13 @@ function solve(diagram: CommandsDiagram, rt: CmdRuntime): Solved {
     if (part.kind === 'plcLogo') {
       // Cada saída a relé une os seus bornes 1-2 quando está ligada.
       LOGO_OUTPUTS.forEach((address, i) => { if (logoOutputOn(rt, address)) nets.union(key(part.id, 10 + i * 2), key(part.id, 11 + i * 2)) })
+      continue
+    }
+    if (part.kind === 'plcS71500Cpu1511c') {
+      // Terminais: 0 L+ · 1 M · 2 PN · 3..18 entradas · 19..50 pares de saída.
+      S71500_CPU_OUTPUTS.forEach((address, i) => {
+        if (logoOutputOn(rt, address)) nets.union(key(part.id, 19 + i * 2), key(part.id, 20 + i * 2))
+      })
       continue
     }
     if (part.kind === 'valve32') {
@@ -336,6 +343,20 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   // LOGO! em bloco: cada entrada tem sinal com tensão entre o seu borne e o M; o visor acende com L+/M.
   for (const p of diagram.parts) if (p.kind === 'plcLogo') {
     LOGO_INPUTS.forEach((address, i) => { plcInputs[address] = plcInputs[address] || powered(potentialOf(solved, p.id, 2 + i), potentialOf(solved, p.id, 1)) })
+    loads[p.id] = powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
+  }
+  // S7-1500 DI 32: entradas a partir do índice 2 (após L+/M).
+  for (const p of diagram.parts) if (p.kind === 'plcS71500Di32') {
+    S71500_DI32_INPUTS.forEach((address, i) => { plcInputs[address] = plcInputs[address] || powered(potentialOf(solved, p.id, 2 + i), potentialOf(solved, p.id, 1)) })
+    loads[p.id] = powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
+  }
+  // S7-1500 CPU 1511C: entradas a partir do índice 3 (após L+/M/PN).
+  for (const p of diagram.parts) if (p.kind === 'plcS71500Cpu1511c') {
+    S71500_CPU_INPUTS.forEach((address, i) => { plcInputs[address] = plcInputs[address] || powered(potentialOf(solved, p.id, 3 + i), potentialOf(solved, p.id, 1)) })
+    loads[p.id] = powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
+  }
+  // S7-300 CPU 315: só alimentação (visor/LEDs); sem E/S digitais a bordo.
+  for (const p of diagram.parts) if (p.kind === 'plcS7300Cpu315') {
     loads[p.id] = powered(potentialOf(solved, p.id, 0), potentialOf(solved, p.id, 1))
   }
   return { ...rt, coils, live, liveWires, lamps, loads, actuators, motors, plcInputs }
