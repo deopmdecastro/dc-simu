@@ -1,12 +1,11 @@
 /**
  * Miniaturas da biblioteca de componentes.
  *
- * A biblioteca usa imagens estáticas (WebP/PNG em /component-covers ou cache
- * IndexedDB) — sem WebGL por cartão. Se não houver capa estática, cai na
- * miniatura procedimental leve (PNG transparente gerado uma vez em memória).
+ * Ordem: ficheiro estático → IndexedDB → captura única do GLB real (WebP) →
+ * miniatura procedimental. A grelha nunca mantém WebGL por cartão.
  *
- * O turntable interativo (InteractiveComponentThumb) continua a poder gerar
- * fotogramas a pedido, mas não é usado na grelha da biblioteca.
+ * O turntable interativo (InteractiveComponentThumb) gera fotogramas a pedido
+ * quando o utilizador explora o modelo; não é usado na lista da biblioteca.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { defaultComponentTurntablePitch, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'

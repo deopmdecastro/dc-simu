@@ -4,19 +4,21 @@
  * A biblioteca mostra imagens (WebP/PNG) em vez de manter contextos WebGL por cartão.
  * Ordem de resolução:
  *  1. Ficheiro em /component-covers/{type}.webp|.png (pré-gerado, sem fundo)
- *  2. Cache IndexedDB (última capa já gerada neste dispositivo)
- *  3. null → o chamador usa a miniatura procedimental leve
+ *  2. Cache IndexedDB (capa GLB já gerada neste dispositivo)
+ *  3. Captura única do GLB real (estúdio 3/4, WebP transparente) → IDB
+ *  4. null → miniatura procedimental leve (só tipos sem modelo)
  *
- * Para publicar capas fiéis ao GLB: renderizar offline e colocar em
- * public/component-covers/{ComponentType}.webp
+ * Preferência: o GLB real, uma vez, em imagem leve — sem WebGL por cartão na grelha.
  */
 import type { ComponentType } from '../types'
+import { getComponentCoverImage } from './componentTurntable'
+import { hasComponent3DVisual } from './modelPaths'
 
 const IDB_NAME = 'dc-simu-covers'
 const IDB_STORE = 'covers'
 const IDB_VERSION = 1
 /** Prefixo de versão: mudar quando o enquadramento/estilo das capas mudar. */
-const COVER_KEY_PREFIX = 'v1:'
+const COVER_KEY_PREFIX = 'v3-glb:'
 
 const staticProbe = new Map<string, Promise<string | null>>()
 const memory = new Map<string, string>()
@@ -106,9 +108,26 @@ export async function findStaticCover(type: ComponentType | string): Promise<str
   return null
 }
 
+/** Converte blob: para data: para poder guardar no IndexedDB entre sessões. */
+async function toPersistableUrl(url: string): Promise<string> {
+  if (!url || url.startsWith('data:')) return url
+  if (!url.startsWith('blob:')) return url
+  try {
+    const blob = await fetch(url).then((r) => r.blob())
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return url
+  }
+}
+
 /**
- * Resolve a capa a mostrar na biblioteca: estático → IndexedDB → null.
- * Não dispara WebGL.
+ * Resolve a capa a mostrar na biblioteca: estático → IndexedDB → GLB real → null.
+ * A captura GLB corre uma vez por tipo e fica em cache (memória + IDB).
  */
 export async function resolveLibraryCover(type: ComponentType | string): Promise<string | null> {
   const key = COVER_KEY_PREFIX + String(type)
@@ -125,6 +144,25 @@ export async function resolveLibraryCover(type: ComponentType | string): Promise
   if (stored) {
     memory.set(key, stored)
     return stored
+  }
+
+  // Modelo real: uma fotografia de produto a partir do GLB (WebP transparente).
+  if (hasComponent3DVisual(type as ComponentType)) {
+    try {
+      const captured = await getComponentCoverImage(type as ComponentType)
+      const persistable = await toPersistableUrl(captured)
+      if (persistable && persistable.length > 32) {
+        memory.set(key, persistable)
+        void idbSet(key, persistable)
+        return persistable
+      }
+      if (captured) {
+        memory.set(key, captured)
+        return captured
+      }
+    } catch {
+      // Sem GLB carregável → cai no procedimental no ComponentThumb.
+    }
   }
   return null
 }

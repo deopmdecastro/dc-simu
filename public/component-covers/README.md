@@ -1,3 +1,9 @@
-# Capas estáticas da biblioteca 3D (WebP ou PNG, fundo transparente).
-# Nome = ComponentType, ex.: contactorWegCWC09.webp
-# A biblioteca usa estas imagens em vez de WebGL por cartão.
+# Capas da biblioteca (opcional)
+
+Coloque aqui imagens pré-geradas por tipo de componente:
+
+- `{ComponentType}.webp` (preferido) ou `{ComponentType}.png`
+- Fundo transparente, ~192–256 px
+- Vista de produto a 3/4, alinhada com o Painel 3D
+
+Se o ficheiro não existir, a app captura o GLB real uma vez e guarda no IndexedDB.
