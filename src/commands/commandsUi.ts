@@ -248,3 +248,14 @@ export const useCommandsUi = create<CommandsUi>((set, get) => ({
 /** Símbolos que se operam com o rato durante a simulação. */
 export const MOMENTARY: CmdKind[] = ['pushNO', 'pushNC', 'pushIllum', 'limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'sensor3wNO', 'sensor3wNC', 'levelNO', 'levelNC', 'footNO', 'footNC']
 export const TOGGLES: CmdKind[] = ['emergency', 'pullCord', 'selector', 'breaker1', 'breaker2', 'breakerTM1', 'breaker3', 'motorBreaker3', 'disconnector1', 'disconnector2', 'disconnector3', 'switchDisconnector1', 'switchDisconnector3', 'fuseDisconnector3', 'fuseSwitchDisconnector3', 'mainSwitch', 'fuseDisconnector', 'rcd', 'valve32', 'valve52', 'valve22', 'valve42', 'valve53c', 'valve53p', 'valve53e', 'plcOut']
+
+/** Passo do motor IEC em todas as vistas (não só enquanto o CommandsEditor está montado).
+ *  Assim o «Simular todos» continua a avançar o esquema de comandos ao alternar 3D ↔ IEC ↔ Ladder.
+ *  Antes, sair do IEC fazia `stop()` no unmount e matava a simulação. */
+const CMD_TICK_MS = 50
+if (typeof window !== 'undefined') {
+  window.setInterval(() => {
+    const { rt, paused } = useCommandsUi.getState()
+    if (rt.running && !paused) useCommandsUi.getState().tick(CMD_TICK_MS)
+  }, CMD_TICK_MS)
+}

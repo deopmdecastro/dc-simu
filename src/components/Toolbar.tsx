@@ -215,8 +215,17 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   })))
   const cmdUi = useCommandsUi.getState()
   const play = isCmd ? cmdUi.start : plcPlay
-  const pause = isCmd ? cmdUi.pause : plcPause
-  const stop = isCmd ? cmdUi.stop : plcStop
+  // Pausa os dois motores quando ambos estão a correr (simulação «para todos»).
+  const pause = () => {
+    if (useCommandsUi.getState().rt.running) useCommandsUi.getState().pause()
+    if (useSimStore.getState().sim.runState === 'running') plcPause()
+  }
+  // Stop pára sempre PLC e IEC: ao alternar de vista o utilizador espera que
+  // «Parar» encerre a simulação completa, não só o motor da vista atual.
+  const stop = () => {
+    useCommandsUi.getState().stop()
+    useSimStore.getState().stop()
+  }
   const componentsForSim = useSimStore((s) => s.components)
   const setSimPlcScope = useSimStore((s) => s.setSimPlcScope)
   /**

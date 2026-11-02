@@ -42,7 +42,6 @@ import { NOTE_COLORS } from '../ui/textStyle'
 import '../styles/commands.css'
 
 type View = { x: number; y: number; scale: number }
-const TICK_MS = 50
 /** Limites do zoom do esquema IEC: botões, roda do rato e pinça usam os mesmos. */
 export const CMD_ZOOM_MIN = 0.3
 export const CMD_ZOOM_MAX = 5
@@ -167,14 +166,9 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
   const commit = (next: CommandsDiagram) => { setPreview(null); commitDiagram(next) }
 
   // ---------------------------------------------------------------- simulação
-  useEffect(() => {
-    if (!running || paused) return
-    const timer = window.setInterval(() => useCommandsUi.getState().tick(TICK_MS), TICK_MS)
-    return () => window.clearInterval(timer)
-  }, [running, paused])
+  // O tick do IEC corre em `commandsUi` (global): sair da vista não para a simulação
+  // nem interrompe o «Simular todos» quando se alterna 3D ↔ IEC ↔ Ladder.
   useEffect(() => { if (rt.fault) notify(rt.fault) }, [rt.fault, notify])
-  // Sair da vista não deixa a simulação a correr às escondidas.
-  useEffect(() => () => useCommandsUi.getState().stop(), [])
 
   const stateOf = (part: CmdPart): CmdSymbolState => {
     if (!running) return { closed: isClosed(part, emptyCmdRuntime()), idle: true }
