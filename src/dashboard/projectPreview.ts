@@ -138,7 +138,10 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
   const rungs = isObj(data.ladder) && Array.isArray(data.ladder.rungs) ? (data.ladder.rungs as LadderRung[]) : []
   const kind = data.projectKind === 'ladder' || data.projectKind === 'grafcet' || data.projectKind === 'commands' || data.projectKind === 'schematic' ? data.projectKind : 'all'
   const cover = previewCoverOf(data)
-  return { components, wires, cover, flow: cover || kind === 'all' || kind === 'commands' ? undefined : flowPreviewOf(kind, rungs, data.grafcet), kind, stats: { components: rawList.length, wires: rawWires.length, rungs: rungs.length } }
+  const flow = cover || kind === 'all' || kind === 'commands' || kind === 'schematic'
+    ? undefined
+    : flowPreviewOf(kind as 'ladder' | 'grafcet', rungs, data.grafcet)
+  return { components, wires, cover, flow, kind, stats: { components: rawList.length, wires: rawWires.length, rungs: rungs.length } }
 }
 
 /** Projetos GRAFCET/Ladder sem cover guardado (ex.: exemplos semeados, nunca abertos):

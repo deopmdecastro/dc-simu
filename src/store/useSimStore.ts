@@ -1242,8 +1242,7 @@ export const useSimStore = create<Store>((set, get) => {
   },
   setProjectKind: (kind) => set({ projectKind: normalizeKind(kind), dirty: true }),
   unlockProjectView: (view) => set((s) => {
-    if (view === 'monitor') return s
-    if (s.unlockedViews.includes(view)) return s
+    if (view === 'monitor' || s.unlockedViews.includes(view)) return {}
     return { unlockedViews: [...s.unlockedViews, view], dirty: true }
   }),
   _intervalId: null,

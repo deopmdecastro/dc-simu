@@ -4,7 +4,7 @@
  */
 import type { CommandsDiagram } from '../commands/model'
 import type { GrafcetProgram } from '../grafcet/engine'
-import type { LadderRung, LadderTag } from '../types'
+import type { LadderRung } from '../types'
 import type { ElectricalComponent } from '../types'
 import type { PlcProgram } from '../ladder/plcPrograms'
 
