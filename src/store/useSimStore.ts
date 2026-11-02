@@ -286,6 +286,9 @@ interface Store extends CircuitState {
   pasteClipboard: () => void
 
   // --- ciclo de simulação ---
+  /** RUN: todos os PLCs do esquema, ou só o PLC ativo (programa em edição). */
+  simPlcScope: 'all' | 'active'
+  setSimPlcScope: (scope: 'all' | 'active') => void
   play: () => void
   pause: () => void
   stop: () => void
@@ -644,7 +647,10 @@ function runOneTick(state: Store, dtMs: number) {
     state.runtime.rungTrace = trace
     state.runtime.rungSkipped = Object.fromEntries(scan.skipped.map((id) => [id, true]))
   }
-  for (const plc of plcs) {
+  const plcTargets = state.simPlcScope === 'active' && selectedId
+    ? plcs.filter((plc) => plc.id === selectedId)
+    : plcs
+  for (const plc of plcTargets) {
     const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {}, edges: {} }
     const table = prior.table
     const logo = plc.type === 'plcSiemensLogo1224RC' || plc.type === 'plcLsXbmDn32s'
@@ -939,6 +945,8 @@ export const useSimStore = create<Store>((set, get) => {
   fcBlocks: { fc1: [], fc2: [] },
   fcAdded: { fc1: false, fc2: false },
   activePlcId: null,
+  simPlcScope: 'all',
+  setSimPlcScope: (scope) => set({ simPlcScope: scope }),
   plcPrograms: {},
   plcTags: {},
   projectFiles: {},

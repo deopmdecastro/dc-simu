@@ -1,6 +1,6 @@
 import { ViewDiagnosticsTag, DiagnosticsTag } from '../diagnostics/DiagnosticsUi'
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from '../diagnostics/viewDiagnostics'
-import { uiConfirm } from '../ui/dialogs'
+import { uiConfirm, uiChoose } from '../ui/dialogs'
 import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
@@ -12,6 +12,7 @@ import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState, type React
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { useSimStore } from '../store/useSimStore'
+import { isProgrammablePlc } from '../ladder/plcPrograms'
 import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
 import { GAUGES, WIRE_COLORS } from '../schematic/symbols'
@@ -214,6 +215,48 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const play = isCmd ? cmdUi.start : plcPlay
   const pause = isCmd ? cmdUi.pause : plcPause
   const stop = isCmd ? cmdUi.stop : plcStop
+  const componentsForSim = useSimStore((s) => s.components)
+  const activePlcId = useSimStore((s) => s.activePlcId)
+  const setSimPlcScope = useSimStore((s) => s.setSimPlcScope)
+  /** Play com escolha de âmbito quando existem 2+ PLCs no esquema. */
+  const requestPlay = async () => {
+    if (isCmd) {
+      play()
+      return
+    }
+    const plcs = componentsForSim.filter(isProgrammablePlc)
+    if (plcs.length >= 2 && useSimStore.getState().sim.runState === 'stopped') {
+      const activeId = activePlcId && plcs.some((p) => p.id === activePlcId) ? activePlcId : plcs[0].id
+      const active = plcs.find((p) => p.id === activeId) ?? plcs[0]
+      const activeName = active.ref || active.label || active.type
+      const choice = await uiChoose(
+        `Este esquema tem ${plcs.length} PLCs. Que programas devem entrar em RUN?`,
+        [
+          {
+            id: 'all',
+            title: 'Simular todos',
+            description: 'Todos os PLCs do quadro executam em paralelo.',
+            detail: plcs.map((p) => p.ref || p.label || p.type).join(' · '),
+            badge: `${plcs.length} PLCs`,
+          },
+          {
+            id: 'active',
+            title: 'Só este PLC',
+            description: `Apenas o programa ativo (${activeName}) entra em RUN.`,
+            detail: 'Os outros controladores ficam parados nesta sessão de simulação.',
+            badge: activeName,
+          },
+        ],
+        { title: 'Âmbito da simulação', confirmLabel: 'Iniciar', defaultId: 'all' },
+      )
+      if (!choice) return
+      setSimPlcScope(choice === 'active' ? 'active' : 'all')
+      queueMicrotask(() => useSimStore.getState().play())
+      return
+    }
+    setSimPlcScope('all')
+    play()
+  }
   const step = isCmd ? () => { if (!cmdUi.rt.running) { cmdUi.start(); useCommandsUi.getState().pause() } else useCommandsUi.getState().tick(100, true) } : plcStep
   const reset = isCmd ? () => { cmdUi.stop(); useCommandsUi.getState().start() } : plcReset
   const grafcet = useSimStore((state) => state.grafcet)
@@ -612,7 +655,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <>
           <div className="dc-seg" role="toolbar" aria-label="Controle de simulação">
             <button
-              onClick={play}
+              onClick={() => void requestPlay()}
               disabled={simRunState === 'running'}
               className={`dc-tool-btn !font-semibold ${simRunState === 'running' ? '' : '!text-state-run'}`}
               title="Iniciar simulação (RUN)"
