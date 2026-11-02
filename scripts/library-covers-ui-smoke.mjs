@@ -21,6 +21,16 @@ try {
     localStorage.removeItem('dcsimu:supabase:config:v1')
     // IndexedDB limpo: sem capas antigas capturadas no dispositivo.
     try { indexedDB.deleteDatabase('dc-simu-covers') } catch { /* noop */ }
+    // Recentes com o contator WEG (o caso da caixa genérica antes da capa real).
+    localStorage.setItem('dcsimu:library:recent:v1', JSON.stringify(['contactorWegCWC09']))
+    // Regista qualquer miniatura genérica (PNG desenhado à mão) que chegue a aparecer, mesmo por instantes.
+    window.__genericThumbs = []
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const nodes = record.type === 'attributes' ? [record.target] : [...record.addedNodes].flatMap((n) => (n.nodeType === 1 ? [n, ...n.querySelectorAll('img')] : []))
+        for (const node of nodes) if (node.tagName === 'IMG' && (node.getAttribute('src') || '').startsWith('data:image/png') && node.closest('aside, .dc-library-section, .dc-library-recent')) window.__genericThumbs.push(node.closest('[title]')?.getAttribute('title') ?? '?')
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['src'] })
   })
   const page = await context.newPage()
   const errors = []
@@ -60,6 +70,10 @@ try {
   check(coverFailures.length === 0, `sem pedidos de capa falhados (${coverFailures.length})`)
   check(coverRequests.filter((p) => p.endsWith('manifest.json')).length <= 1, 'o índice das capas é pedido uma só vez')
   void list
+  const generic = await page.evaluate(() => window.__genericThumbs)
+  check(generic.length === 0, `nenhuma miniatura genérica mostrada antes da capa real (${generic.length ? [...new Set(generic)].slice(0, 4).join(' | ') : 'nenhuma'})`)
+  const states = await page.evaluate(() => [...document.querySelectorAll('[data-thumb-state]')].map((n) => n.getAttribute('data-thumb-state')))
+  check(states.every((state) => state === 'sem-modelo') && states.length >= 1, `tipos sem GLB ficam com o espaço vazio, sem modelo genérico (${states.length})`)
   // Esquema 2D e capas de projeto: a vista frontal pré-gerada substitui a captura do GLB.
   const frontTypes = ['powerSupplyProauto24A', 'breaker2p', 'terminalSet3ph']
   const fronts = await page.evaluate(async (types) => {

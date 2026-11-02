@@ -8,7 +8,7 @@
  *     é descarregado para mostrar a biblioteca
  *  2. Cache IndexedDB (capa GLB já gerada neste dispositivo)
  *  3. Captura única do GLB real (estúdio 3/4, WebP transparente) → IDB
- *  4. null → miniatura procedimental leve (só tipos sem modelo)
+ *  4. null → espaço vazio no cartão (só tipos sem modelo; sem miniatura genérica)
  *
  * Preferência: o GLB real, uma vez, em imagem leve — sem WebGL por cartão na grelha.
  */
@@ -172,7 +172,7 @@ export async function resolveLibraryCover(type: ComponentType | string): Promise
         return captured
       }
     } catch {
-      // Sem GLB carregável → cai no procedimental no ComponentThumb.
+      // Sem GLB carregável → o ComponentThumb mostra o espaço vazio (sem miniatura genérica).
     }
   }
   return null
