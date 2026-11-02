@@ -33,6 +33,7 @@ import type {
 } from '../types'
 import { getDefaultComponent3DPresentation, getDefaultComponentOrientation, getDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { getComponentModelSpec, getComponentPhysicalSizeMm, getSchematicPhysicalFootprint } from '../three/modelPaths'
+import { S7_FRONT_FACE, SIEMENS_S7_TYPES, s71500Cpu1511cTerminalRows, s71500Di32TerminalRows, s7300Cpu315TerminalRows } from './siemensPlc'
 
 export interface TerminalTemplate {
   label: string
@@ -52,6 +53,14 @@ export interface TerminalTemplate {
   contact?: 'socket' | 'pin' | 'lead' | 'surface'
   rules?: { polarity: string; direction: string; accepts: string }
   displayName?: string
+  /** Grupo funcional do borne (ex.: conector frontal «X10», «X11»). */
+  row?: string
+  /**
+   * Face do aparelho por onde o cabo entra. Existe para os PLC Siemens S7, cuja
+   * frente tem os bornes na face lateral do CAD (`left`) mas o cabo sai pela
+   * frente do módulo — a posição 3D manda no ponto, esta face manda na direção.
+   */
+  face?: Terminal['face']
 }
 
 export interface ComponentTemplate {
@@ -204,46 +213,55 @@ function plcLsXbmDn32sTerminals(): TerminalTemplate[] {
 }
 
 /**
- * S7-1500 DI 32×24 V DC (6ES7521-1BL00-0AB0): 32 entradas em grupos de 8,
- * alimentação 24 V e comum M. Filas frontais aproximadas (frente do módulo).
+ * Bornes de um PLC Siemens S7. As tabelas de `siemensPlc.ts` contam as filas **do
+ * topo para a base** (como se lê no CAD); o `position3D` do inspetor conta a altura
+ * **da base para o topo**. A conversão fica aqui, num sítio só.
+ */
+const s7Terminals = (
+  rows: Array<{ label: string; x: number; y: number }>,
+  kindOf: (label: string) => TerminalKind,
+  extraOf: (label: string) => Partial<TerminalTemplate>,
+): TerminalTemplate[] => rows.map((row) => T(row.label, kindOf(row.label), row.x, 1 - row.y, {
+  terminalType: 'plug',
+  face: S7_FRONT_FACE,
+  ...extraOf(row.label),
+}))
+
+/**
+ * S7-1500 DI 32×24 V DC (6ES7521-1BL00-0AB0): 32 entradas nos conectores frontais
+ * X10 (I0.x, I1.x) e X11 (I2.x, I3.x), com L+/M na fila de cima.
  */
 function plcS71500Di32Terminals(): TerminalTemplate[] {
-  const list: TerminalTemplate[] = [
-    T('L+', 'power-in', 0.08, 0, { terminalType: 'screw', color: '#ef4444' }),
-    T('M', 'neutral', 0.18, 0, { terminalType: 'screw', color: '#3b82f6' }),
-  ]
-  for (let i = 0; i < 32; i++) {
-    const byte = Math.floor(i / 8)
-    const bit = i % 8
-    const col = i % 8
-    const row = Math.floor(i / 8)
-    list.push(T(`I${byte}.${bit}`, 'io', 0.28 + col * (0.68 / 7), row < 2 ? 0.15 + row * 0.2 : 0.55 + (row - 2) * 0.2, { terminalType: 'screw' }))
-  }
-  return list
+  return s7Terminals(s71500Di32TerminalRows(),
+    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => ({
+      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : '#a855f7',
+      row: label === 'L+' ? 'X10' : label === 'M' ? 'X11' : label.startsWith('I0') || label.startsWith('I1') ? 'X10' : 'X11',
+    }))
 }
 
-/** CPU 1511C-1 PN: 16 DI + 16 DO integrados + L+/M (front connectors). */
+/** CPU 1511C-1 PN: 16 DI (X10) + 16 DQ (X11) nos conectores frontais, L+/M em cima e o port PROFINET em baixo. */
 function plcS71500Cpu1511cTerminals(): TerminalTemplate[] {
-  const list: TerminalTemplate[] = [
-    T('L+', 'power-in', 0.12, 0, { terminalType: 'screw', color: '#ef4444' }),
-    T('M', 'neutral', 0.22, 0, { terminalType: 'screw', color: '#3b82f6' }),
-    T('PN', 'io', 0.88, 0, { terminalType: 'plug', color: '#22c55e' }),
-  ]
-  for (let i = 0; i < 16; i++) {
-    list.push(T(`I${Math.floor(i / 8)}.${i % 8}`, 'io', 0.08 + (i % 8) * (0.84 / 7), i < 8 ? 0.35 : 0.5, { terminalType: 'screw' }))
-    list.push(T(`Q${Math.floor(i / 8)}.${i % 8}`, 'io', 0.08 + (i % 8) * (0.84 / 7), i < 8 ? 0.7 : 0.85, { terminalType: 'screw' }))
-  }
-  return list
+  return s7Terminals(s71500Cpu1511cTerminalRows(),
+    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : label.startsWith('Q') ? 'power-out' : 'io',
+    (label) => ({
+      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : label === 'PN' ? '#22c55e' : label.startsWith('Q') ? '#f87171' : '#a855f7',
+      row: label === 'PN' ? 'X1' : label === 'M' || label.startsWith('Q') ? 'X11' : 'X10',
+    }))
 }
 
-/** CPU 315-2 DP: alimentação 24 V e interfaces (MPI/DP) — sem E/S digitais a bordo. */
+/**
+ * CPU 315-2 DP: alimentação 24 V e interfaces (MPI/DP) — sem E/S digitais a bordo.
+ * Ficam na metade inferior da frente, por baixo da tampa do compartimento.
+ */
 function plcS7300Cpu315Terminals(): TerminalTemplate[] {
-  return [
-    T('L+', 'power-in', 0.2, 1, { terminalType: 'screw', color: '#ef4444' }),
-    T('M', 'neutral', 0.4, 1, { terminalType: 'screw', color: '#3b82f6' }),
-    T('MPI', 'io', 0.65, 1, { terminalType: 'plug', color: '#94a3b8' }),
-    T('DP', 'io', 0.85, 1, { terminalType: 'plug', color: '#a855f7' }),
-  ]
+  return s7Terminals(s7300Cpu315TerminalRows(),
+    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => ({
+      terminalType: label === 'L+' || label === 'M' ? 'screw' : 'plug',
+      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : '#94a3b8',
+      row: 'frente',
+    }))
 }
 
 export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
@@ -1283,11 +1301,23 @@ export function calibrateModelTerminalTemplates(): void {
     // Estes modelos têm geometria dedicada calibrada por parafuso no Esquema;
     // não substituir essa calibração fina por projeção genérica.
     const dedicatedGeometry = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A'].includes(type)
+    // Os Siemens S7 mediram-se nos conectores frontais do CAD (`siemensPlc.ts`):
+    // a projeção genérica punha-os nas faces superior/inferior, onde o módulo não
+    // tem bornes. Ficam com a posição e a face próprias.
+    const measuredFront = SIEMENS_S7_TYPES.includes(type)
     for (const terminal of template.terminals) {
       // A tipologia explícita evita que um modelo publicado dependa do
       // fallback visual. Perfis especiais já definidos nunca são substituídos.
       terminal.terminalType ??= 'screw'
       terminal.diameter ??= terminal.terminalType === 'plug' || terminal.terminalType === 'conical' ? 12 : terminal.terminalType === 'bar' ? 10 : 9
+      if (measuredFront) {
+        // Frente do módulo: o cabo sai por +Z e o borne fica na profundidade da frente.
+        // Os pinos dos conectores estão a 0,02–0,03 das bordas: o limite tem de ser largo.
+        terminal.position3D ??= { x: Math.max(0.02, Math.min(0.98, terminal.x)), y: Math.max(0.02, Math.min(0.98, terminal.y)), z: 1 }
+        terminal.face ??= S7_FRONT_FACE
+        terminal.contact ??= 'pin'
+        continue
+      }
       if (dedicatedGeometry || terminal.position3D) continue
       const x = Math.max(0.025, Math.min(0.975, terminal.x))
       const screenY = Math.max(0.025, Math.min(0.975, terminal.y))
@@ -1337,6 +1367,8 @@ export function createComponent(
     ...(t.rules ? { catalogRules: { ...t.rules } } : {}),
     ...(t.displayName ? { displayName: t.displayName } : {}),
     ...(t.diameter ? { diameter: t.diameter } : {}),
+    ...(t.face ? { face: t.face } : {}),
+    ...(t.row ? { row: t.row } : {}),
     energized: false,
   }))
   const presentation3D = getDefaultComponent3DPresentation(type)

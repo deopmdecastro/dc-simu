@@ -36,6 +36,7 @@ import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './st
 import { applyEditorMotorTextures } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
+import { hasPlcLamps, lampScenePosition, plcLamps } from './plcStatusLights'
 import { mountDepthOffset } from './thermalMount'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
@@ -827,21 +828,41 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   </group>
 }
 
-/** Indicadores de estado para equipamentos GLB integrados que possuem sinalização frontal. */
-function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: number }) {
+/**
+ * Indicadores de estado para equipamentos GLB integrados que possuem sinalização
+ * frontal. A posição vem do CAD (`plcStatusLights.ts`): nos Siemens S7 as lâmpadas
+ * estão no canto da frente do aparelho e não numa coluna genérica ao centro.
+ */
+function EquipmentStatusLights({ c, height, centered }: { c: ElectricalComponent; height: number; centered: boolean }) {
   const runState = useSimStore((s) => s.sim.runState)
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
+  const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
+  const powered = runState !== 'stopped' && !!c.state.powered
+  const comm = runState === 'running' && !error && scanCount % 6 < 2
+  const siemens = hasPlcLamps(c.type)
+  if (siemens) {
+    // Lâmpadas nos sítios medidos do CAD (S7-1500: RUN/ERROR/MAINT; S7-300: SF…STOP).
+    const lamps = plcLamps(c.type, { runState, powered, error })
+    return <group>{lamps.map((lamp) => {
+      const position = lampScenePosition(c, lamp.at, centered ? 'center' : 'bottom')
+      const radius = (lamp.sizeMm * PANEL_UNITS_PER_MM) / 2
+      return <group key={lamp.name} position={position}>
+        <mesh raycast={() => null}>
+          <circleGeometry args={[radius, 14]} />
+          <meshStandardMaterial color={lamp.on ? lamp.color : '#334155'} emissive={lamp.on ? lamp.color : '#000'} emissiveIntensity={lamp.on ? 2.4 : 0} toneMapped={!lamp.on} />
+        </mesh>
+        <GlowHalo color={lamp.color} on={lamp.on} radius={radius} kind="led" position={[0, 0, 0.002]} />
+      </group>
+    })}</group>
+  }
   const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
   const safety = c.type === 'safetyRelay'
   // Disjuntores não têm LEDs reais: o estado vê-se na posição do manípulo, não em luzes inventadas.
   if (!plc && !safety) return null
-  const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
-  const powered = runState !== 'stopped' && !!c.state.powered
   const run = powered && runState === 'running' && !error
-  const comm = plc && run && scanCount % 6 < 2
   const lights = plc
-    ? [{ c: '#22c55e', on: run }, { c: '#ef4444', on: error }, { c: '#38bdf8', on: comm }]
+    ? [{ c: '#22c55e', on: run }, { c: '#ef4444', on: error }, { c: '#38bdf8', on: comm && powered }]
     : safety
       ? [{ c: '#22c55e', on: powered && !error }, { c: '#ef4444', on: error }]
       : []
@@ -985,7 +1006,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     {/* Torre: halo contido + luz de ponto no centro de cada lente (por dentro), a lente fica translúcida e emissiva quando acesa. */}
     {lenses.map((lens) => <GlowHalo key={lens.role} color={lens.color} on={simActive && !!c.state[lens.role]} radius={lens.radius} kind="lens" position={lens.center} />)}
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
-    <EquipmentStatusLights c={c} height={spec.targetHeight} />
+    <EquipmentStatusLights c={c} height={spec.targetHeight} centered={centered} />
     {/* Sem luz de ponto «energizado»: montar/desmontar luzes recompilava os shaders de toda a cena a cada
         comutação; o estado vê-se no rótulo, nos LEDs e na pose do aparelho. */}
     {/* Relé encaixado por baixo do contactor: o nome vai para baixo (por cima ficava sobre o contactor). */}

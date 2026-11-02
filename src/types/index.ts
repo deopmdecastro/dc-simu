@@ -194,6 +194,14 @@ export interface Terminal {
   }
   /** lead = cabo solto com ponta livre para ligar a bornes/pentes. */
   contact?: 'socket' | 'pin' | 'lead' | 'surface'
+  /**
+   * Face do aparelho por onde o cabo entra (topo/base/frente/trás/lados). Omisso =
+   * derivada da posição 3D. Os PLC Siemens S7 têm os bornes na face lateral do CAD
+   * e o cabo sai pela frente — é o único caso em que a face não sai da geometria.
+   */
+  face?: 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom'
+  /** Grupo funcional do borne no aparelho (ex.: conector frontal «X10», «X11», «X1»). */
+  row?: string
   /** Diâmetro do borne no Esquema 2D (unidades do canvas). Omisso = tamanho padrão do símbolo. */
   diameter?: number
   /** Fixado pelo usuário — impede reposicionamento automático */

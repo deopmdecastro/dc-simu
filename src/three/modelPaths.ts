@@ -1,6 +1,7 @@
 import type { ComponentType } from '../types'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
 import importedModels from '../data/imported-component-models.json'
+import { S71500_CPU_WIDTH_MM, S71500_DEPTH_MM, S71500_DI32_WIDTH_MM, S71500_HEIGHT_MM, S7300_CPU_DEPTH_MM, S7300_CPU_HEIGHT_MM, S7300_CPU_WIDTH_MM } from '../electrical/siemensPlc'
 
 export const MODEL_PATHS = {
   plcSiemensLogo1224RC: '/models/controladores/logo-siemens-1224rc.glb',
@@ -86,10 +87,15 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   safetyRelay: { width: 22.65, height: 99.1, depth: 112.73 },
   /** Medido no CAD já de frente: corpo slim de 30,2 mm, 97,5 mm de altura e 82 mm de profundidade (com os ganchos da calha). */
   plcLsXbmDn32s: { width: 30.2, height: 97.49, depth: 82.03 },
-  /** Medido no STEP TraceParts após rotação base (frente em +Z). */
-  plcSiemensS71500Di32: { width: 46.99, height: 131.7, depth: 147 },
-  plcSiemensS71500Cpu1511c: { width: 84.9, height: 129.25, depth: 147 },
-  plcSiemensS7300Cpu315: { width: 40, height: 122.1, depth: 125.04 },
+  /**
+   * S7-1500 medidos no STEP TraceParts já na pose de montagem (frente em +Z):
+   * a altura é o comprimento do perfil na calha (147 mm) e a profundidade é a
+   * medida da frente à traseira. Antes estavam trocadas, porque a rotação base
+   * era `Rx(+90)` e punha o comprimento para cima.
+   */
+  plcSiemensS71500Di32: { width: S71500_DI32_WIDTH_MM, height: S71500_HEIGHT_MM, depth: S71500_DEPTH_MM },
+  plcSiemensS71500Cpu1511c: { width: S71500_CPU_WIDTH_MM, height: S71500_HEIGHT_MM, depth: S71500_DEPTH_MM },
+  plcSiemensS7300Cpu315: { width: S7300_CPU_WIDTH_MM, height: S7300_CPU_HEIGHT_MM, depth: S7300_CPU_DEPTH_MM },
   siemensTsAdapterIeBasic: { width: 30, height: 105.58, depth: 75.1 },
   terminalPhoenixPti6: { width: 8.15, height: 66.02, depth: 48.5 },
   terminalSet1ph: { width: 24.45, height: 66.02, depth: 48.5 },
@@ -183,9 +189,17 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
    * Equivale a Ry(−90°)·Rx(+90°), escrito em ângulos de Euler XYZ.
    */
   plcLsXbmDn32s: spec('plcLsXbmDn32s', MODEL_PATHS.plcLsXbmDn32s, [Math.PI / 2, 0, Math.PI / 2], 'din-rail'),
-  plcSiemensS71500Di32: spec('plcSiemensS71500Di32', MODEL_PATHS.plcSiemensS71500Di32, [Math.PI / 2, 0, 0], 'din-rail'),
-  plcSiemensS71500Cpu1511c: spec('plcSiemensS71500Cpu1511c', MODEL_PATHS.plcSiemensS71500Cpu1511c, [Math.PI / 2, 0, 0], 'din-rail'),
-  plcSiemensS7300Cpu315: spec('plcSiemensS7300Cpu315', MODEL_PATHS.plcSiemensS7300Cpu315, [Math.PI / 2, 0, 0], 'din-rail'),
+  /*
+   * S7-1500 (DI 32 e CPU 1511C): o CAD traz o topo em +Z e a frente em −Y, com os
+   * bornes em −X e o perfil de calha em +X. `Rx(−90)` põe o topo em +Y, a frente em
+   * +Z, os bornes em −X e o perfil em −Z (encostado à chapa). A antiga `Rx(+90)`
+   * deixava o módulo deitado de costas, com o comprimento na vertical.
+   */
+  plcSiemensS71500Di32: spec('plcSiemensS71500Di32', MODEL_PATHS.plcSiemensS71500Di32, [-Math.PI / 2, 0, 0], 'din-rail'),
+  plcSiemensS71500Cpu1511c: spec('plcSiemensS71500Cpu1511c', MODEL_PATHS.plcSiemensS71500Cpu1511c, [-Math.PI / 2, 0, 0], 'din-rail'),
+  // S7-300 CPU 315-2 DP: o CAD já vem de face (topo +Y, frente +Z, perfil de calha em −Z).
+  // Rodá-lo em X deitava-o de costas e virava as aberturas de ventilação para cima.
+  plcSiemensS7300Cpu315: spec('plcSiemensS7300Cpu315', MODEL_PATHS.plcSiemensS7300Cpu315, [0, 0, 0], 'din-rail'),
   siemensTsAdapterIeBasic: spec('siemensTsAdapterIeBasic', MODEL_PATHS.siemensTsAdapterIeBasic, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalPhoenixPti6: spec('terminalPhoenixPti6', MODEL_PATHS.phoenixTerminalPti6, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalSet1ph: spec('terminalSet1ph', MODEL_PATHS.terminalSet1ph, [0, 0, 0], 'din-rail'),

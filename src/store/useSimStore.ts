@@ -46,6 +46,7 @@ import type {
   CanvasText,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
+import { SIEMENS_S7_TYPES } from '../electrical/siemensPlc'
 import { syncLeadCableHeatShrink, syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
@@ -656,12 +657,15 @@ function runOneTick(state: Store, dtMs: number) {
   for (const plc of plcTargets) {
     const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {}, edges: {} }
     const table = prior.table
-    const logo = plc.type === 'plcSiemensLogo1224RC' || plc.type === 'plcLsXbmDn32s'
-      ? logoElectricalInputs(plc, components, wires)
-      : null
+    // Os Siemens S7 também declaram L+/M (contactos 1 e 18 do conector frontal):
+    // sem isto o módulo nunca ficava alimentado e as lâmpadas nunca acendiam.
+    // A CPU 315-2 DP não tem E/S a bordo — o programa corre, a alimentação
+    // acende o DC5V, mas não há bits de entrada para ler dos cabos.
+    const logo = SIEMENS_S7_TYPES.includes(plc.type) ? logoElectricalInputs(plc, components, wires) : null
+    const runtimeOnly = plc.type === 'plcSiemensS7300Cpu315'
     const powered = logo?.powered ?? true
     if (logo) plc.state.powered = powered
-    for (const t of plc.terminals) {
+    if (!runtimeOnly) for (const t of plc.terminals) {
       if (/^I\d+\.\d+$/.test(t.label)) table[t.label] = logo
         ? powered && logo.positive.has(t.id)
         : pass1.energizedTerminals.has(t.id)

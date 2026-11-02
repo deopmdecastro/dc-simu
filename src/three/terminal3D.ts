@@ -166,7 +166,11 @@ export function terminalNormalWorld3D(component: ElectricalComponent, terminal: 
   const normals = { front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0] } as const
   const socket = terminal.socket3D
   const atCatalogSocket = socket && Math.hypot(p.x - socket.position.x, p.y - socket.position.y, p.z - socket.position.z) <= 1e-3
-  const normal = atCatalogSocket ? new THREE.Vector3(...socket.normal).normalize()
+  // Face declarada no catálogo: manda sobre a geometria. Os PLC Siemens S7 têm o
+  // encaixe na lateral do CAD e o cabo sai pela frente do módulo — a posição 3D
+  // continua a ser a do encaixe, só a direção do cabo é que vem daqui.
+  const normal = terminal.face && terminal.socket3D == null ? new THREE.Vector3(...normals[terminal.face]).normalize()
+    : atCatalogSocket ? new THREE.Vector3(...socket.normal).normalize()
     : atMeasuredSocket && spot ? new THREE.Vector3(...normals[spot.face]) : faces.sort((a, b) => a[0] - b[0])[0][1].clone()
   const [x, y, z] = orientationRadians(componentOrientationOf(component))
   normal.applyEuler(new THREE.Euler(x, y, z, 'XYZ'))

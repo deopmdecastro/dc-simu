@@ -90,6 +90,7 @@
     "test:emergency-actuator": "tsx scripts/emergency-actuator-smoke.ts",
     "test:emergency-button-ui": "node scripts/emergency-button-ui-smoke.mjs",
     "test:plc-signals": "tsx scripts/plc-signal-sim-smoke.ts",
+    "test:siemens-plc": "tsx scripts/siemens-plc-smoke.ts",
     "test:ladder-auto-network": "tsx scripts/ladder-auto-network-smoke.ts",
     "test:plc-signals-ui": "node scripts/plc-signals-sync-ui-smoke.mjs",
     "test:toolbar-ui": "node scripts/toolbar-shortcuts-sim-ui-smoke.mjs",
