@@ -1,20 +1,16 @@
 /**
- * Miniaturas 3D reais da biblioteca de componentes.
+ * Miniaturas da biblioteca de componentes.
  *
- * Em vez de ícones genéricos, cada item da biblioteca mostra uma miniatura
- * renderizada a partir de um modelo 3D simplificado (mesma família visual do
- * Painel 3D), gerado uma única vez por tipo e guardado em cache como PNG.
+ * A biblioteca usa imagens estáticas (WebP/PNG em /component-covers ou cache
+ * IndexedDB) — sem WebGL por cartão. Se não houver capa estática, cai na
+ * miniatura procedimental leve (PNG transparente gerado uma vez em memória).
  *
- * Importante: os GLB interativos usam uma fila de renderizadores temporários
- * (em vez de um <Canvas> por item) para nunca manter vários contextos WebGL
- * vivos ao mesmo tempo no Safari móvel. Cada faixa é capturada como WebP,
- * guardada em cache e o respetivo contexto é libertado imediatamente.
+ * O turntable interativo (InteractiveComponentThumb) continua a poder gerar
+ * fotogramas a pedido, mas não é usado na grelha da biblioteca.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { getCad3DImage } from '../schematic/cad3DImage'
-import { getComponentGlbSpec } from './modelPaths'
-import { isTerminalAssemblyComponent } from './terminalAssembly'
-import { defaultComponentTurntablePitch, getComponentCoverImage, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'
+import { defaultComponentTurntablePitch, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'
+import { resolveLibraryCover } from './componentCoverAssets'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -354,54 +350,59 @@ export function getComponentThumbnail(type: ComponentType): string {
 }
 
 /**
- * Capa do elemento: fotografia de produto a 3/4 do GLB real (mesmo acabamento e estúdio do
- * Painel 3D). Antes era a vista frontal ortográfica com os materiais em bruto do CAD —
- * plana, «fosca», e errada em alguns casos (cabeça do botão de emergência cinzenta,
- * calha DIN reduzida a uma linha, sinaleiro reduzido a um disco).
+ * Capa do cartão da biblioteca: imagem estática (ou cache) — sem WebGL.
+ * Preferência: /component-covers/{type}.webp|.png → IndexedDB → PNG procedimental.
  */
 export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?: number }) {
-  const hasGlb = !!getComponentGlbSpec(type)
-  const assemblyOnly = !hasGlb && isTerminalAssemblyComponent(type)
+  const procedural = useMemo(() => getComponentThumbnail(type), [type])
   const [coverSrc, setCoverSrc] = useState<string | null>(null)
-  const fallback = useMemo(() => (hasGlb || assemblyOnly ? '' : getComponentThumbnail(type)), [assemblyOnly, hasGlb, type])
-  // A geração da capa (render WebGL por modelo) só dispara quando o cartão está
-  // prestes a aparecer — de outro modo a biblioteca gerava as ~70 capas no
-  // arranque e bloqueava o editor durante segundos.
   const holderRef = useRef<HTMLDivElement | null>(null)
   const [inView, setInView] = useState(false)
+
   useEffect(() => {
-    if ((!hasGlb && !assemblyOnly) || inView) return
+    if (inView) return
     const node = holderRef.current
     if (!node || typeof IntersectionObserver === 'undefined') { setInView(true); return }
     const io = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) { setInView(true); io.disconnect() }
-    }, { rootMargin: '480px' })
+    }, { rootMargin: '240px' })
     io.observe(node)
     return () => io.disconnect()
-  }, [assemblyOnly, hasGlb, inView])
+  }, [inView])
+
   useEffect(() => {
-    if (!hasGlb && !assemblyOnly) return
     if (!inView) return
     let active = true
-    setCoverSrc(null)
-    const request = hasGlb ? getComponentCoverImage(type) : getCad3DImage(type)
-    request.then((image) => { if (active) setCoverSrc(image) }).catch(() => {
-      // Sem GLB (rede/PWA fria): fica a forma procedimental.
-      if (active) setCoverSrc(getComponentThumbnail(type))
+    resolveLibraryCover(type).then((url) => {
+      if (!active) return
+      setCoverSrc(url)
     })
     return () => { active = false }
-  }, [assemblyOnly, hasGlb, inView, type])
-  const src = hasGlb || assemblyOnly ? coverSrc : fallback
-  if (!src) return <div ref={holderRef} style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken dc-thumb-loading" role="img" aria-label="A preparar a capa" />
+  }, [inView, type])
+
+  // Procedimental imediato (barato); se houver estático/IDB, substitui quando chegar.
+  const src = coverSrc || procedural
+  if (!src) {
+    return (
+      <div
+        ref={holderRef}
+        style={{ width: size, height: size }}
+        className="shrink-0 rounded-[4px] bg-surface-sunken dc-thumb-loading"
+        role="img"
+        aria-label="A preparar a capa"
+      />
+    )
+  }
   return (
     <img
+      ref={holderRef as never}
       src={src}
       width={size}
       height={size}
       alt=""
       aria-hidden="true"
       draggable={false}
-      className="shrink-0 rounded-[4px] bg-white border border-line-soft"
+      className="shrink-0 rounded-[4px] bg-transparent"
       style={{ width: size, height: size, objectFit: 'contain' }}
     />
   )
