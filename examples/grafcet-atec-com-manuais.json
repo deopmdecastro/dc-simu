@@ -1,0 +1,2875 @@
+{
+  "app": "dc-simu",
+  "version": 6,
+  "projectKind": "grafcet",
+  "unlockedViews": [],
+  "savedAt": "2026-11-02T23:30:00.000Z",
+  "components": [],
+  "wires": [],
+  "ladder": {
+    "rungs": []
+  },
+  "fcBlocks": {
+    "fc1": [],
+    "fc2": []
+  },
+  "fcAdded": {
+    "fc1": false,
+    "fc2": false
+  },
+  "activePlcId": null,
+  "plcPrograms": {},
+  "plcTags": {},
+  "projectFiles": {},
+  "hiddenProjectFolders": {},
+  "projectFolderLabels": {},
+  "fcNames": {},
+  "grafcet": {
+    "name": "Grafcet ATEC",
+    "steps": [
+      {
+        "h": 54,
+        "w": 54,
+        "x": 200,
+        "y": 170,
+        "id": "fs4-step-0",
+        "name": "1",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 263,
+            "y": 170,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-7",
+            "kind": "N",
+            "type": "simple",
+            "address": "L_Verde",
+            "variable": "L_Verde",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 200,
+        "y": 359,
+        "id": "fs4-step-12",
+        "name": "5",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54.087890625,
+            "w": 107.115234375,
+            "x": 263.4423828125,
+            "y": 358.912109375,
+            "dx": 63.4423828125,
+            "dy": -0.087890625,
+            "id": "fs4-action-19",
+            "kind": "N",
+            "type": "simple",
+            "address": "L_Verde",
+            "variable": "L_Verde",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          },
+          {
+            "h": 54.087890625,
+            "w": 108.17578125,
+            "id": "fs4-action-24",
+            "kind": "N",
+            "type": "conditional",
+            "address": "L_Amarela",
+            "variable": "L_Amarela",
+            "condition": "1HZ",
+            "allocation": "continuous",
+            "description": "",
+            "afterActionId": "fs4-action-19"
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 200,
+        "y": 494,
+        "id": "fs4-step-29",
+        "name": "6",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 53.173828125,
+            "w": 107.4111328125,
+            "x": 272.29443359375,
+            "y": 494.826171875,
+            "dx": 72.29443359375,
+            "dy": 0.826171875,
+            "id": "fs4-action-38",
+            "kind": "N",
+            "type": "conditional",
+            "address": "L_Verde",
+            "variable": "L_Verde",
+            "condition": "/1Hz",
+            "allocation": "continuous",
+            "description": ""
+          },
+          {
+            "h": 53.173828125,
+            "w": 126.5537109375,
+            "id": "fs4-action-43",
+            "kind": "N",
+            "type": "conditional",
+            "address": "L_Amarelo",
+            "variable": "L_Amarelo",
+            "condition": "1HZ",
+            "allocation": "continuous",
+            "description": "",
+            "afterActionId": "fs4-action-38"
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 605,
+        "y": 368,
+        "id": "fs4-step-50",
+        "name": "4",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 686,
+            "y": 368,
+            "dx": 81,
+            "dy": 0,
+            "id": "fs4-action-57",
+            "kind": "N",
+            "type": "conditional",
+            "address": "L_Amarela",
+            "variable": "L_Amarela",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 956,
+        "y": 350,
+        "id": "fs4-step-69",
+        "name": "3",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54.087890625,
+            "w": 108.17578125,
+            "x": 1036.912109375,
+            "y": 349.912109375,
+            "dx": 80.912109375,
+            "dy": -0.087890625,
+            "id": "fs4-action-76",
+            "kind": "N",
+            "type": "conditional",
+            "address": "L_Amarela",
+            "variable": "L_Amarela",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 200,
+        "y": 773,
+        "id": "fs4-step-90",
+        "name": "9",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54.087890625,
+            "w": 108.17578125,
+            "x": 271.912109375,
+            "y": 772.912109375,
+            "dx": 71.912109375,
+            "dy": -0.087890625,
+            "id": "fs4-action-97",
+            "kind": "N",
+            "type": "conditional",
+            "address": "L_Vermelha",
+            "variable": "L_Vermelha",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 125,
+        "id": "fs4-step-108",
+        "name": "11",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 233,
+        "id": "fs4-step-120",
+        "name": "15",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 1424,
+            "y": 233,
+            "dx": 72,
+            "dy": 0,
+            "id": "fs4-action-115",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y0_A+",
+            "variable": "Y0_A+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 368,
+        "id": "fs4-step-132",
+        "name": "20",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54.087890625,
+            "w": 107.115234375,
+            "x": 1415.4423828125,
+            "y": 367.912109375,
+            "dx": 63.4423828125,
+            "dy": -0.087890625,
+            "id": "fs4-action-127",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y2_B+",
+            "variable": "Y2_B+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 476,
+        "id": "fs4-step-139",
+        "name": "25",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54.087890625,
+            "w": 143.173828125,
+            "x": 1414.970703125,
+            "y": 475.654296875,
+            "dx": 62.970703125,
+            "dy": -0.345703125,
+            "id": "fs4-action-146",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y7_E+_Vacuo_On",
+            "variable": "Y7_E+_Vacuo_On",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 611,
+        "id": "fs4-step-151",
+        "name": "30",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 53.173828125,
+            "w": 107.4111328125,
+            "x": 1415.29443359375,
+            "y": 611.826171875,
+            "dx": 63.29443359375,
+            "dy": 0.826171875,
+            "id": "fs4-action-158",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y3_B-",
+            "variable": "Y3_B-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 719,
+        "id": "fs4-step-163",
+        "name": "35",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54.087890625,
+            "w": 107.115234375,
+            "x": 1415.4423828125,
+            "y": 718.912109375,
+            "dx": 63.4423828125,
+            "dy": -0.087890625,
+            "id": "fs4-action-170",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y1_A-",
+            "variable": "Y1_A-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 854,
+        "id": "fs4-step-175",
+        "name": "40",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 53.173828125,
+            "w": 107.4111328125,
+            "x": 1415.29443359375,
+            "y": 854.826171875,
+            "dx": 63.29443359375,
+            "dy": 0.826171875,
+            "id": "fs4-action-182",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y2_B+",
+            "variable": "Y2_B+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 962,
+        "id": "fs4-step-187",
+        "name": "45",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54.087890625,
+            "w": 143.173828125,
+            "x": 1414.970703125,
+            "y": 961.384765625,
+            "dx": 62.970703125,
+            "dy": -0.615234375,
+            "id": "fs4-action-194",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y8_E-_Vacuo_Off",
+            "variable": "Y8_E-_Vacuo_Off",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 1097,
+        "id": "fs4-step-199",
+        "name": "50",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 53.173828125,
+            "w": 107.4111328125,
+            "x": 1415.29443359375,
+            "y": 1097.826171875,
+            "dx": 63.29443359375,
+            "dy": 0.826171875,
+            "id": "fs4-action-206",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y3_B-",
+            "variable": "Y3_B-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 1277,
+        "id": "fs4-step-211",
+        "name": "55",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 53.173828125,
+            "w": 107.4111328125,
+            "x": 1415.29443359375,
+            "y": 1277.826171875,
+            "dx": 63.29443359375,
+            "dy": 0.826171875,
+            "id": "fs4-action-218",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y4_C+",
+            "variable": "Y4_C+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 1385,
+        "id": "fs4-step-223",
+        "name": "60",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 72,
+            "x": 1415,
+            "y": 1385,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-272",
+            "kind": "N",
+            "type": "simple",
+            "address": "C-",
+            "variable": "C-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1802,
+        "y": 1259,
+        "id": "fs4-step-230",
+        "name": "65",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 53.173828125,
+            "w": 107.4111328125,
+            "x": 1865.29443359375,
+            "y": 1259.826171875,
+            "dx": 63.29443359375,
+            "dy": 0.826171875,
+            "id": "fs4-action-237",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y5_D+",
+            "variable": "Y5_D+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 53.02734375,
+        "w": 53.02734375,
+        "x": 1802,
+        "y": 1367,
+        "id": "fs4-step-242",
+        "name": "70",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 53.173828125,
+            "w": 107.4111328125,
+            "x": 1865.29443359375,
+            "y": 1367.826171875,
+            "dx": 63.29443359375,
+            "dy": 0.826171875,
+            "id": "fs4-action-249",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y6_D-",
+            "variable": "Y6_D-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1352,
+        "y": 1538,
+        "id": "fs4-step-261",
+        "name": "75",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1721,
+        "y": 791,
+        "id": "fs4-step-278",
+        "name": "79",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2864,
+        "y": 440,
+        "id": "fs4-step-291",
+        "name": "139",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 170,
+        "id": "fs4-step-303",
+        "name": "81",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 278,
+        "id": "fs4-step-315",
+        "name": "85",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 278,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-310",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y6_D-",
+            "variable": "Y6_D-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 386,
+        "id": "fs4-step-354",
+        "name": "90",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 386,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-334",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y4_C+",
+            "variable": "Y4_C+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 602,
+        "id": "fs4-step-358",
+        "name": "100",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 602,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-324",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y3_B-",
+            "variable": "Y3_B-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 710,
+        "id": "fs4-step-362",
+        "name": "105",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 710,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-329",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y1_A-",
+            "variable": "Y1_A-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 818,
+        "id": "fs4-step-366",
+        "name": "110",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 818,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-339",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y2_B+",
+            "variable": "Y2_B+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 926,
+        "id": "fs4-step-370",
+        "name": "115",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 162,
+            "x": 2261,
+            "y": 926,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-319",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y8_E-_Vacuo_Off",
+            "variable": "Y8_E-_Vacuo_Off",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 1034,
+        "id": "fs4-step-374",
+        "name": "120",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 1034,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-349",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y3_B-",
+            "variable": "Y3_B-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 1358,
+        "id": "fs4-step-378",
+        "name": "135",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 1142,
+        "id": "fs4-step-407",
+        "name": "125",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 1142,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-344",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y4_C+",
+            "variable": "Y4_C+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 494,
+        "id": "fs4-step-411",
+        "name": "95",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2270,
+            "y": 494,
+            "dx": 72,
+            "dy": 0,
+            "id": "fs4-action-415",
+            "kind": "N",
+            "type": "simple",
+            "address": "C-",
+            "variable": "C-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2198,
+        "y": 1250,
+        "id": "fs4-step-423",
+        "name": "130",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2261,
+            "y": 1250,
+            "dx": 63,
+            "dy": 0,
+            "id": "fs4-action-430",
+            "kind": "N",
+            "type": "simple",
+            "address": "C-",
+            "variable": "C-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 200,
+        "y": 1930,
+        "id": "man-G3-step-141",
+        "name": "141",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 200,
+        "y": 2110,
+        "id": "man-G3-step-143",
+        "name": "143",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 263,
+            "y": 2110,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G3-action-143",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y0_A+",
+            "variable": "Y0_A+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 200,
+        "y": 2330,
+        "id": "man-G3-step-147",
+        "name": "147",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 263,
+            "y": 2330,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G3-action-147",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y1_A-",
+            "variable": "Y1_A-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 760,
+        "y": 2110,
+        "id": "man-G3-step-149",
+        "name": "149",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1100,
+        "y": 1930,
+        "id": "man-G4-step-151",
+        "name": "151",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1100,
+        "y": 2110,
+        "id": "man-G4-step-153",
+        "name": "153",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 1163,
+            "y": 2110,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G4-action-153",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y2_B+",
+            "variable": "Y2_B+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1100,
+        "y": 2330,
+        "id": "man-G4-step-157",
+        "name": "157",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 1163,
+            "y": 2330,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G4-action-157",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y3_B-",
+            "variable": "Y3_B-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 1660,
+        "y": 2110,
+        "id": "man-G4-step-159",
+        "name": "159",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2000,
+        "y": 1930,
+        "id": "man-G5-step-161",
+        "name": "161",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2000,
+        "y": 2110,
+        "id": "man-G5-step-163",
+        "name": "163",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2063,
+            "y": 2110,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G5-action-163",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y4_C+",
+            "variable": "Y4_C+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2000,
+        "y": 2330,
+        "id": "man-G5-step-167",
+        "name": "167",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2063,
+            "y": 2330,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G5-action-167",
+            "kind": "N",
+            "type": "simple",
+            "address": "C-",
+            "variable": "C-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2560,
+        "y": 2110,
+        "id": "man-G5-step-169",
+        "name": "169",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2900,
+        "y": 1930,
+        "id": "man-G6-step-171",
+        "name": "171",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2900,
+        "y": 2110,
+        "id": "man-G6-step-173",
+        "name": "173",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2963,
+            "y": 2110,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G6-action-173",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y5_D+",
+            "variable": "Y5_D+",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 2900,
+        "y": 2330,
+        "id": "man-G6-step-177",
+        "name": "177",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 108,
+            "x": 2963,
+            "y": 2330,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G6-action-177",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y6_D-",
+            "variable": "Y6_D-",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 3460,
+        "y": 2110,
+        "id": "man-G6-step-179",
+        "name": "179",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 3800,
+        "y": 1930,
+        "id": "man-G7-step-181",
+        "name": "181",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": true,
+        "stepType": "initial",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 3800,
+        "y": 2110,
+        "id": "man-G7-step-183",
+        "name": "183",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 126,
+            "x": 3863,
+            "y": 2110,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G7-action-183",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y7_E+_Vacuo_On",
+            "variable": "Y7_E+_Vacuo_On",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 3800,
+        "y": 2330,
+        "id": "man-G7-step-187",
+        "name": "187",
+        "action": "",
+        "pinned": true,
+        "actions": [
+          {
+            "h": 54,
+            "w": 144,
+            "x": 3863,
+            "y": 2330,
+            "dx": 63,
+            "dy": 0,
+            "id": "man-G7-action-187",
+            "kind": "N",
+            "type": "simple",
+            "address": "Y8_E-_Vacuo_Off",
+            "variable": "Y8_E-_Vacuo_Off",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": ""
+          }
+        ],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      },
+      {
+        "h": 54,
+        "w": 54,
+        "x": 4360,
+        "y": 2110,
+        "id": "man-G7-step-189",
+        "name": "189",
+        "action": "",
+        "pinned": true,
+        "actions": [],
+        "initial": false,
+        "stepType": "simple",
+        "condition": ""
+      }
+    ],
+    "comments": [
+      {
+        "x": 382,
+        "y": 173,
+        "id": "fs4-text-36",
+        "text": "Maquina Parada",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 163,
+        "y": 57,
+        "id": "fs4-text-37",
+        "text": "G0 - Grafcet Controlo",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 407,
+        "y": 412,
+        "id": "fs4-text-48",
+        "text": "Maquina Auto",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 427,
+        "y": 591,
+        "id": "fs4-text-49",
+        "text": "Maquina A Terminar Ciclo",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 751,
+        "y": 455,
+        "id": "fs4-text-88",
+        "text": "Maquina Manual",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 1111,
+        "y": 421,
+        "id": "fs4-text-89",
+        "text": "Maquina Reset",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 410,
+        "y": 783,
+        "id": "fs4-text-105",
+        "text": "Maquina em Emergencia",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 164,
+        "y": 650,
+        "id": "fs4-text-106",
+        "text": "G0 <> X9",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 1289,
+        "y": 24,
+        "id": "fs4-text-107",
+        "text": "G1 - Grafcet Funcionamento",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 1393,
+        "y": 1550,
+        "id": "fs4-text-277",
+        "text": "Fim do Ciclo",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 1768,
+        "y": 806,
+        "id": "fs4-text-288",
+        "text": "Maquina em Emergencia",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 1668,
+        "y": 662,
+        "id": "fs4-text-289",
+        "text": "G1 <> X79",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 2185,
+        "y": 37,
+        "id": "fs4-text-290",
+        "text": "G2 - Grafcet Reset",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 2937,
+        "y": 451,
+        "id": "fs4-text-301",
+        "text": "Maquina em Reset",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 2805,
+        "y": 307,
+        "id": "fs4-text-302",
+        "text": "G2 <> X139",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 2238,
+        "y": 1364,
+        "id": "fs4-text-385",
+        "text": "\"Fim do Reset\"",
+        "fontSize": 19,
+        "fontWeight": "700"
+      },
+      {
+        "x": 160,
+        "y": 1820,
+        "id": "man-G3-title",
+        "text": "G3 - Manual - Cilindro A",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 680,
+        "y": 1940,
+        "id": "man-G3-emg-note",
+        "text": "G3 <> X149",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 1060,
+        "y": 1820,
+        "id": "man-G4-title",
+        "text": "G4 - Manual - Cilindro B",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 1580,
+        "y": 1940,
+        "id": "man-G4-emg-note",
+        "text": "G4 <> X159",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 1960,
+        "y": 1820,
+        "id": "man-G5-title",
+        "text": "G5 - Manual - Cilindro C",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 2480,
+        "y": 1940,
+        "id": "man-G5-emg-note",
+        "text": "G5 <> X169",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 2860,
+        "y": 1820,
+        "id": "man-G6-title",
+        "text": "G6 - Manual - Cilindro D",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 3380,
+        "y": 1940,
+        "id": "man-G6-emg-note",
+        "text": "G6 <> X179",
+        "fontSize": 16,
+        "fontWeight": "400"
+      },
+      {
+        "x": 3760,
+        "y": 1820,
+        "id": "man-G7-title",
+        "text": "G7 - Manual - Vácuo E",
+        "fontSize": 21,
+        "fontWeight": "700"
+      },
+      {
+        "x": 4280,
+        "y": 1940,
+        "id": "man-G7-emg-note",
+        "text": "G7 <> X189",
+        "fontSize": 16,
+        "fontWeight": "400"
+      }
+    ],
+    "linkBars": {
+      "fs4-transition-62": {
+        "x": 605,
+        "y": 317
+      },
+      "fs4-transition-246": {
+        "x": 1802,
+        "y": 1474
+      }
+    },
+    "linkBends": {
+      "fs4-transition-62": [
+        {
+          "x": 200,
+          "y": 250
+        },
+        {
+          "x": 605,
+          "y": 250
+        }
+      ],
+      "man-G3-t3": [
+        {
+          "x": 200,
+          "y": 2200
+        },
+        {
+          "x": 500,
+          "y": 2200
+        }
+      ],
+      "man-G4-t3": [
+        {
+          "x": 1100,
+          "y": 2200
+        },
+        {
+          "x": 1400,
+          "y": 2200
+        }
+      ],
+      "man-G5-t3": [
+        {
+          "x": 2000,
+          "y": 2200
+        },
+        {
+          "x": 2300,
+          "y": 2200
+        }
+      ],
+      "man-G6-t3": [
+        {
+          "x": 2900,
+          "y": 2200
+        },
+        {
+          "x": 3200,
+          "y": 2200
+        }
+      ],
+      "man-G7-t3": [
+        {
+          "x": 3800,
+          "y": 2200
+        },
+        {
+          "x": 4100,
+          "y": 2200
+        }
+      ]
+    },
+    "freeActions": [],
+    "transitions": [
+      {
+        "x": 200,
+        "y": 296,
+        "id": "fs4-transition-4",
+        "to": [
+          "fs4-step-12"
+        ],
+        "from": [
+          "fs4-step-0"
+        ],
+        "name": "T1",
+        "wireless": false,
+        "condition": "B_Start * B_Stop_NF * fc_a0 * fc_b0 * /In_Man"
+      },
+      {
+        "x": 200,
+        "y": 440,
+        "id": "fs4-transition-16",
+        "to": [
+          "fs4-step-29"
+        ],
+        "from": [
+          "fs4-step-12"
+        ],
+        "name": "T2",
+        "wireless": false,
+        "condition": "/B_Stop_NF + G1X75"
+      },
+      {
+        "x": 200,
+        "y": 575,
+        "id": "fs4-transition-33",
+        "to": [
+          "fs4-step-0"
+        ],
+        "from": [
+          "fs4-step-29"
+        ],
+        "name": "T3",
+        "source": false,
+        "comment": "",
+        "wireless": true,
+        "condition": "G1X11",
+        "targetInfo": "1",
+        "description": "",
+        "displayDescription": false
+      },
+      {
+        "x": 605,
+        "y": 449,
+        "id": "fs4-transition-54",
+        "to": [
+          "fs4-step-0"
+        ],
+        "from": [
+          "fs4-step-50"
+        ],
+        "name": "T4",
+        "wireless": true,
+        "condition": "/In_Man",
+        "targetInfo": "1"
+      },
+      {
+        "x": 605,
+        "y": 314,
+        "id": "fs4-transition-62",
+        "to": [
+          "fs4-step-50"
+        ],
+        "from": [
+          "fs4-step-0"
+        ],
+        "name": "T5",
+        "wireless": false,
+        "condition": "B_Stop_NF * In_Man"
+      },
+      {
+        "x": 956,
+        "y": 431,
+        "id": "fs4-transition-73",
+        "to": [
+          "fs4-step-0"
+        ],
+        "from": [
+          "fs4-step-69"
+        ],
+        "name": "T6",
+        "wireless": true,
+        "condition": "G2X135",
+        "targetInfo": "1"
+      },
+      {
+        "x": 956,
+        "y": 296,
+        "id": "fs4-transition-81",
+        "to": [
+          "fs4-step-69"
+        ],
+        "from": [
+          "fs4-step-0"
+        ],
+        "name": "T7",
+        "wireless": false,
+        "condition": "B_Reset * B_Stop_NF"
+      },
+      {
+        "x": 200,
+        "y": 854,
+        "id": "fs4-transition-94",
+        "to": [
+          "fs4-step-0"
+        ],
+        "from": [
+          "fs4-step-90"
+        ],
+        "name": "T8",
+        "wireless": true,
+        "condition": "Emerg_NF",
+        "targetInfo": "1"
+      },
+      {
+        "x": 200,
+        "y": 719,
+        "id": "fs4-transition-102",
+        "to": [
+          "fs4-step-90"
+        ],
+        "from": [],
+        "name": "T9",
+        "source": true,
+        "comment": "",
+        "wireless": true,
+        "condition": "/Emerg_NF",
+        "targetInfo": "",
+        "comparisons": [
+          {
+            "note": "",
+            "grafcet": "",
+            "condition": "",
+            "transition": "G0 <> X9"
+          }
+        ],
+        "description": "",
+        "displayDescription": false
+      },
+      {
+        "x": 1352,
+        "y": 206,
+        "id": "fs4-transition-112",
+        "to": [
+          "fs4-step-120"
+        ],
+        "from": [
+          "fs4-step-108"
+        ],
+        "name": "T10",
+        "wireless": false,
+        "condition": "G0X5"
+      },
+      {
+        "x": 1352,
+        "y": 314,
+        "id": "fs4-transition-124",
+        "to": [
+          "fs4-step-132"
+        ],
+        "from": [
+          "fs4-step-120"
+        ],
+        "name": "T11",
+        "wireless": false,
+        "condition": "fc_a1"
+      },
+      {
+        "x": 1352,
+        "y": 449,
+        "id": "fs4-transition-136",
+        "to": [
+          "fs4-step-139"
+        ],
+        "from": [
+          "fs4-step-132"
+        ],
+        "name": "T12",
+        "wireless": false,
+        "condition": "fc_b1"
+      },
+      {
+        "x": 1352,
+        "y": 557,
+        "id": "fs4-transition-143",
+        "to": [
+          "fs4-step-151"
+        ],
+        "from": [
+          "fs4-step-139"
+        ],
+        "name": "T13",
+        "wireless": false,
+        "condition": "1s/X25"
+      },
+      {
+        "x": 1352,
+        "y": 692,
+        "id": "fs4-transition-155",
+        "to": [
+          "fs4-step-163"
+        ],
+        "from": [
+          "fs4-step-151"
+        ],
+        "name": "T14",
+        "wireless": false,
+        "condition": "fc_b0"
+      },
+      {
+        "x": 1352,
+        "y": 800,
+        "id": "fs4-transition-167",
+        "to": [
+          "fs4-step-175"
+        ],
+        "from": [
+          "fs4-step-163"
+        ],
+        "name": "T15",
+        "wireless": false,
+        "condition": "fc_a0"
+      },
+      {
+        "x": 1352,
+        "y": 935,
+        "id": "fs4-transition-179",
+        "to": [
+          "fs4-step-187"
+        ],
+        "from": [
+          "fs4-step-175"
+        ],
+        "name": "T16",
+        "wireless": false,
+        "condition": "fc_b1"
+      },
+      {
+        "x": 1352,
+        "y": 1043,
+        "id": "fs4-transition-191",
+        "to": [
+          "fs4-step-199"
+        ],
+        "from": [
+          "fs4-step-187"
+        ],
+        "name": "T17",
+        "wireless": false,
+        "condition": "1s/X45"
+      },
+      {
+        "x": 1352,
+        "y": 1232,
+        "id": "fs4-transition-203",
+        "to": [
+          "fs4-step-211"
+        ],
+        "from": [
+          "fs4-step-199"
+        ],
+        "name": "T18",
+        "wireless": false,
+        "condition": "fc_b0 * /S_Rolamento"
+      },
+      {
+        "x": 1352,
+        "y": 1358,
+        "id": "fs4-transition-215",
+        "to": [
+          "fs4-step-223"
+        ],
+        "from": [
+          "fs4-step-211"
+        ],
+        "name": "T19",
+        "wireless": false,
+        "condition": "1s/X55"
+      },
+      {
+        "x": 1352,
+        "y": 1466,
+        "id": "fs4-transition-227",
+        "to": [
+          "fs4-step-261"
+        ],
+        "from": [
+          "fs4-step-223"
+        ],
+        "name": "T20",
+        "wireless": false,
+        "condition": "1s/X60"
+      },
+      {
+        "x": 1802,
+        "y": 1340,
+        "id": "fs4-transition-234",
+        "to": [
+          "fs4-step-242"
+        ],
+        "from": [
+          "fs4-step-230"
+        ],
+        "name": "T21",
+        "wireless": false,
+        "condition": "1s/X65"
+      },
+      {
+        "x": 1802,
+        "y": 1448,
+        "id": "fs4-transition-246",
+        "to": [
+          "fs4-step-261"
+        ],
+        "from": [
+          "fs4-step-242"
+        ],
+        "name": "T22",
+        "wireless": false,
+        "condition": "1s/X70"
+      },
+      {
+        "x": 1802,
+        "y": 1232,
+        "id": "fs4-transition-254",
+        "to": [
+          "fs4-step-230"
+        ],
+        "from": [
+          "fs4-step-199"
+        ],
+        "name": "T23",
+        "wireless": false,
+        "condition": "fc_b0 * S_Rolamento"
+      },
+      {
+        "x": 1352,
+        "y": 1619,
+        "id": "fs4-transition-265",
+        "to": [
+          "fs4-step-108"
+        ],
+        "from": [
+          "fs4-step-261"
+        ],
+        "name": "T24",
+        "wireless": true,
+        "condition": "G0 <> X5",
+        "targetInfo": "11"
+      },
+      {
+        "x": 1721,
+        "y": 872,
+        "id": "fs4-transition-282",
+        "to": [
+          "fs4-step-108"
+        ],
+        "from": [
+          "fs4-step-278"
+        ],
+        "name": "T25",
+        "wireless": true,
+        "condition": "Emerg_NF",
+        "targetInfo": "11"
+      },
+      {
+        "x": 1721,
+        "y": 737,
+        "id": "fs4-transition-285",
+        "to": [
+          "fs4-step-278"
+        ],
+        "from": [],
+        "name": "T26",
+        "wireless": false,
+        "condition": "G0X9",
+        "source": true
+      },
+      {
+        "x": 2864,
+        "y": 521,
+        "id": "fs4-transition-295",
+        "to": [
+          "fs4-step-108"
+        ],
+        "from": [
+          "fs4-step-291"
+        ],
+        "name": "T27",
+        "wireless": true,
+        "condition": "Emerg_NF",
+        "targetInfo": "11"
+      },
+      {
+        "x": 2864,
+        "y": 386,
+        "id": "fs4-transition-298",
+        "to": [
+          "fs4-step-291"
+        ],
+        "from": [],
+        "name": "T28",
+        "wireless": false,
+        "condition": "G0X9",
+        "source": true
+      },
+      {
+        "x": 2198,
+        "y": 251,
+        "id": "fs4-transition-307",
+        "to": [
+          "fs4-step-315"
+        ],
+        "from": [
+          "fs4-step-303"
+        ],
+        "name": "T29",
+        "wireless": false,
+        "condition": "G0X3"
+      },
+      {
+        "x": 2198,
+        "y": 1439,
+        "id": "fs4-transition-382",
+        "to": [
+          "fs4-step-303"
+        ],
+        "from": [
+          "fs4-step-378"
+        ],
+        "name": "T30",
+        "wireless": true,
+        "condition": "G0X1",
+        "targetInfo": "81"
+      },
+      {
+        "x": 2198,
+        "y": 359,
+        "id": "fs4-transition-386",
+        "to": [
+          "fs4-step-354"
+        ],
+        "from": [
+          "fs4-step-315"
+        ],
+        "name": "T31",
+        "wireless": false,
+        "condition": "10s/X85"
+      },
+      {
+        "x": 2198,
+        "y": 791,
+        "id": "fs4-transition-389",
+        "to": [
+          "fs4-step-366"
+        ],
+        "from": [
+          "fs4-step-362"
+        ],
+        "name": "T32",
+        "wireless": false,
+        "condition": "fc_a0",
+        "description": "",
+        "comment": "",
+        "displayDescription": false,
+        "targetInfo": "",
+        "comparisons": [],
+        "source": false
+      },
+      {
+        "x": 2198,
+        "y": 467,
+        "id": "fs4-transition-392",
+        "to": [
+          "fs4-step-411"
+        ],
+        "from": [
+          "fs4-step-354"
+        ],
+        "name": "T33",
+        "wireless": false,
+        "condition": "5s/X90"
+      },
+      {
+        "x": 2198,
+        "y": 683,
+        "id": "fs4-transition-395",
+        "to": [
+          "fs4-step-362"
+        ],
+        "from": [
+          "fs4-step-358"
+        ],
+        "name": "T34",
+        "wireless": false,
+        "condition": "fc_b0",
+        "description": "",
+        "comment": "",
+        "displayDescription": false,
+        "targetInfo": "",
+        "comparisons": [],
+        "source": false
+      },
+      {
+        "x": 2198,
+        "y": 899,
+        "id": "fs4-transition-398",
+        "to": [
+          "fs4-step-370"
+        ],
+        "from": [
+          "fs4-step-366"
+        ],
+        "name": "T35",
+        "wireless": false,
+        "condition": "fc_b1",
+        "description": "",
+        "comment": "",
+        "displayDescription": false,
+        "targetInfo": "",
+        "comparisons": [],
+        "source": false
+      },
+      {
+        "x": 2198,
+        "y": 1007,
+        "id": "fs4-transition-401",
+        "to": [
+          "fs4-step-374"
+        ],
+        "from": [
+          "fs4-step-370"
+        ],
+        "name": "T36",
+        "wireless": false,
+        "condition": "20s/X15"
+      },
+      {
+        "x": 2198,
+        "y": 1115,
+        "id": "fs4-transition-404",
+        "to": [
+          "fs4-step-407"
+        ],
+        "from": [
+          "fs4-step-374"
+        ],
+        "name": "T37",
+        "wireless": false,
+        "condition": "fc_b0",
+        "description": "",
+        "comment": "",
+        "displayDescription": false,
+        "targetInfo": "",
+        "comparisons": [],
+        "source": false
+      },
+      {
+        "x": 2198,
+        "y": 575,
+        "id": "fs4-transition-420",
+        "to": [
+          "fs4-step-358"
+        ],
+        "from": [
+          "fs4-step-411"
+        ],
+        "name": "T38",
+        "wireless": false,
+        "condition": "5s/X95"
+      },
+      {
+        "x": 2198,
+        "y": 1223,
+        "id": "fs4-transition-427",
+        "to": [
+          "fs4-step-423"
+        ],
+        "from": [
+          "fs4-step-407"
+        ],
+        "name": "T39",
+        "wireless": false,
+        "condition": "5s/X125"
+      },
+      {
+        "x": 2198,
+        "y": 1331,
+        "id": "fs4-transition-435",
+        "to": [
+          "fs4-step-378"
+        ],
+        "from": [
+          "fs4-step-423"
+        ],
+        "name": "T40",
+        "wireless": false,
+        "condition": "5s/X130"
+      },
+      {
+        "id": "5c4f047e-5242-432a-b19c-24aee7c089a5",
+        "from": [],
+        "to": [],
+        "condition": "1",
+        "x": 240,
+        "y": 5980,
+        "branchType": "and-divergence"
+      },
+      {
+        "x": 200,
+        "y": 2030,
+        "id": "man-G3-t1",
+        "to": [
+          "man-G3-step-143"
+        ],
+        "from": [
+          "man-G3-step-141"
+        ],
+        "name": "T1",
+        "wireless": false,
+        "condition": "G0X4 * bp_Avanca_A+",
+        "description": "Modo manual (X4) e botão de avanço A"
+      },
+      {
+        "x": 200,
+        "y": 2250,
+        "id": "man-G3-t2",
+        "to": [
+          "man-G3-step-147"
+        ],
+        "from": [
+          "man-G3-step-143"
+        ],
+        "name": "T2",
+        "wireless": false,
+        "condition": "fc_a1 * bp_Avanca_A+",
+        "description": "A avançado e novo toque no botão: recua"
+      },
+      {
+        "x": 500,
+        "y": 2250,
+        "id": "man-G3-t3",
+        "to": [
+          "man-G3-step-141"
+        ],
+        "from": [
+          "man-G3-step-143"
+        ],
+        "name": "T3",
+        "wireless": true,
+        "condition": "G0<>X4",
+        "targetInfo": "141",
+        "description": "Saída do modo manual"
+      },
+      {
+        "x": 200,
+        "y": 2440,
+        "id": "man-G3-t4",
+        "to": [
+          "man-G3-step-141"
+        ],
+        "from": [
+          "man-G3-step-147"
+        ],
+        "name": "T4",
+        "wireless": true,
+        "condition": "fc_a0 * bp_Avanca_A+ + G0<>X4",
+        "targetInfo": "141",
+        "description": "A recuado e botão, ou saída do modo manual"
+      },
+      {
+        "x": 760,
+        "y": 2020,
+        "id": "man-G3-t5",
+        "to": [
+          "man-G3-step-149"
+        ],
+        "from": [],
+        "name": "T5",
+        "wireless": false,
+        "condition": "G0X9",
+        "source": true,
+        "description": "Emergência (X9 do G0 ativa)"
+      },
+      {
+        "x": 760,
+        "y": 2230,
+        "id": "man-G3-t6",
+        "to": [
+          "man-G3-step-141"
+        ],
+        "from": [
+          "man-G3-step-149"
+        ],
+        "name": "T6",
+        "wireless": true,
+        "condition": "/G0X9",
+        "targetInfo": "141",
+        "description": "Fim da emergência"
+      },
+      {
+        "x": 1100,
+        "y": 2030,
+        "id": "man-G4-t1",
+        "to": [
+          "man-G4-step-153"
+        ],
+        "from": [
+          "man-G4-step-151"
+        ],
+        "name": "T1",
+        "wireless": false,
+        "condition": "G0X4 * bp_Avanca_B+",
+        "description": "Modo manual (X4) e botão de avanço B"
+      },
+      {
+        "x": 1100,
+        "y": 2250,
+        "id": "man-G4-t2",
+        "to": [
+          "man-G4-step-157"
+        ],
+        "from": [
+          "man-G4-step-153"
+        ],
+        "name": "T2",
+        "wireless": false,
+        "condition": "fc_b1 * bp_Avanca_B+",
+        "description": "B avançado e novo toque no botão: recua"
+      },
+      {
+        "x": 1400,
+        "y": 2250,
+        "id": "man-G4-t3",
+        "to": [
+          "man-G4-step-151"
+        ],
+        "from": [
+          "man-G4-step-153"
+        ],
+        "name": "T3",
+        "wireless": true,
+        "condition": "G0<>X4",
+        "targetInfo": "151",
+        "description": "Saída do modo manual"
+      },
+      {
+        "x": 1100,
+        "y": 2440,
+        "id": "man-G4-t4",
+        "to": [
+          "man-G4-step-151"
+        ],
+        "from": [
+          "man-G4-step-157"
+        ],
+        "name": "T4",
+        "wireless": true,
+        "condition": "fc_b0 * bp_Avanca_B+ + G0<>X4",
+        "targetInfo": "151",
+        "description": "B recuado e botão, ou saída do modo manual"
+      },
+      {
+        "x": 1660,
+        "y": 2020,
+        "id": "man-G4-t5",
+        "to": [
+          "man-G4-step-159"
+        ],
+        "from": [],
+        "name": "T5",
+        "wireless": false,
+        "condition": "G0X9",
+        "source": true,
+        "description": "Emergência (X9 do G0 ativa)"
+      },
+      {
+        "x": 1660,
+        "y": 2230,
+        "id": "man-G4-t6",
+        "to": [
+          "man-G4-step-151"
+        ],
+        "from": [
+          "man-G4-step-159"
+        ],
+        "name": "T6",
+        "wireless": true,
+        "condition": "/G0X9",
+        "targetInfo": "151",
+        "description": "Fim da emergência"
+      },
+      {
+        "x": 2000,
+        "y": 2030,
+        "id": "man-G5-t1",
+        "to": [
+          "man-G5-step-163"
+        ],
+        "from": [
+          "man-G5-step-161"
+        ],
+        "name": "T1",
+        "wireless": false,
+        "condition": "G0X4 * bp_Avanca_C+",
+        "description": "Modo manual (X4) e botão de avanço C"
+      },
+      {
+        "x": 2000,
+        "y": 2250,
+        "id": "man-G5-t2",
+        "to": [
+          "man-G5-step-167"
+        ],
+        "from": [
+          "man-G5-step-163"
+        ],
+        "name": "T2",
+        "wireless": false,
+        "condition": "T(2s) * fc_c1 * bp_Avanca_C+",
+        "description": "C avançado e novo toque no botão: recua"
+      },
+      {
+        "x": 2300,
+        "y": 2250,
+        "id": "man-G5-t3",
+        "to": [
+          "man-G5-step-161"
+        ],
+        "from": [
+          "man-G5-step-163"
+        ],
+        "name": "T3",
+        "wireless": true,
+        "condition": "G0<>X4",
+        "targetInfo": "161",
+        "description": "Saída do modo manual"
+      },
+      {
+        "x": 2000,
+        "y": 2440,
+        "id": "man-G5-t4",
+        "to": [
+          "man-G5-step-161"
+        ],
+        "from": [
+          "man-G5-step-167"
+        ],
+        "name": "T4",
+        "wireless": true,
+        "condition": "fc_c0 * bp_Avanca_C+ + G0<>X4",
+        "targetInfo": "161",
+        "description": "C recuado e botão, ou saída do modo manual"
+      },
+      {
+        "x": 2560,
+        "y": 2020,
+        "id": "man-G5-t5",
+        "to": [
+          "man-G5-step-169"
+        ],
+        "from": [],
+        "name": "T5",
+        "wireless": false,
+        "condition": "G0X9",
+        "source": true,
+        "description": "Emergência (X9 do G0 ativa)"
+      },
+      {
+        "x": 2560,
+        "y": 2230,
+        "id": "man-G5-t6",
+        "to": [
+          "man-G5-step-161"
+        ],
+        "from": [
+          "man-G5-step-169"
+        ],
+        "name": "T6",
+        "wireless": true,
+        "condition": "/G0X9",
+        "targetInfo": "161",
+        "description": "Fim da emergência"
+      },
+      {
+        "x": 2900,
+        "y": 2030,
+        "id": "man-G6-t1",
+        "to": [
+          "man-G6-step-173"
+        ],
+        "from": [
+          "man-G6-step-171"
+        ],
+        "name": "T1",
+        "wireless": false,
+        "condition": "G0X4 * bp_Avanca_D+",
+        "description": "Modo manual (X4) e botão de avanço D"
+      },
+      {
+        "x": 2900,
+        "y": 2250,
+        "id": "man-G6-t2",
+        "to": [
+          "man-G6-step-177"
+        ],
+        "from": [
+          "man-G6-step-173"
+        ],
+        "name": "T2",
+        "wireless": false,
+        "condition": "fc_d1 * bp_Avanca_D+",
+        "description": "D avançado e novo toque no botão: recua"
+      },
+      {
+        "x": 3200,
+        "y": 2250,
+        "id": "man-G6-t3",
+        "to": [
+          "man-G6-step-171"
+        ],
+        "from": [
+          "man-G6-step-173"
+        ],
+        "name": "T3",
+        "wireless": true,
+        "condition": "G0<>X4",
+        "targetInfo": "171",
+        "description": "Saída do modo manual"
+      },
+      {
+        "x": 2900,
+        "y": 2440,
+        "id": "man-G6-t4",
+        "to": [
+          "man-G6-step-171"
+        ],
+        "from": [
+          "man-G6-step-177"
+        ],
+        "name": "T4",
+        "wireless": true,
+        "condition": "fc_d0 * bp_Avanca_D+ + G0<>X4",
+        "targetInfo": "171",
+        "description": "D recuado e botão, ou saída do modo manual"
+      },
+      {
+        "x": 3460,
+        "y": 2020,
+        "id": "man-G6-t5",
+        "to": [
+          "man-G6-step-179"
+        ],
+        "from": [],
+        "name": "T5",
+        "wireless": false,
+        "condition": "G0X9",
+        "source": true,
+        "description": "Emergência (X9 do G0 ativa)"
+      },
+      {
+        "x": 3460,
+        "y": 2230,
+        "id": "man-G6-t6",
+        "to": [
+          "man-G6-step-171"
+        ],
+        "from": [
+          "man-G6-step-179"
+        ],
+        "name": "T6",
+        "wireless": true,
+        "condition": "/G0X9",
+        "targetInfo": "171",
+        "description": "Fim da emergência"
+      },
+      {
+        "x": 3800,
+        "y": 2030,
+        "id": "man-G7-t1",
+        "to": [
+          "man-G7-step-183"
+        ],
+        "from": [
+          "man-G7-step-181"
+        ],
+        "name": "T1",
+        "wireless": false,
+        "condition": "G0X4 * bp_Avanca_E+",
+        "description": "Modo manual (X4) e botão de avanço E"
+      },
+      {
+        "x": 3800,
+        "y": 2250,
+        "id": "man-G7-t2",
+        "to": [
+          "man-G7-step-187"
+        ],
+        "from": [
+          "man-G7-step-183"
+        ],
+        "name": "T2",
+        "wireless": false,
+        "condition": "Vacuo_OK * bp_Avanca_E+",
+        "description": "E avançado e novo toque no botão: recua"
+      },
+      {
+        "x": 4100,
+        "y": 2250,
+        "id": "man-G7-t3",
+        "to": [
+          "man-G7-step-181"
+        ],
+        "from": [
+          "man-G7-step-183"
+        ],
+        "name": "T3",
+        "wireless": true,
+        "condition": "G0<>X4",
+        "targetInfo": "181",
+        "description": "Saída do modo manual"
+      },
+      {
+        "x": 3800,
+        "y": 2440,
+        "id": "man-G7-t4",
+        "to": [
+          "man-G7-step-181"
+        ],
+        "from": [
+          "man-G7-step-187"
+        ],
+        "name": "T4",
+        "wireless": true,
+        "condition": "/Vacuo_OK * bp_Avanca_E+ + G0<>X4",
+        "targetInfo": "181",
+        "description": "E recuado e botão, ou saída do modo manual"
+      },
+      {
+        "x": 4360,
+        "y": 2020,
+        "id": "man-G7-t5",
+        "to": [
+          "man-G7-step-189"
+        ],
+        "from": [],
+        "name": "T5",
+        "wireless": false,
+        "condition": "G0X9",
+        "source": true,
+        "description": "Emergência (X9 do G0 ativa)"
+      },
+      {
+        "x": 4360,
+        "y": 2230,
+        "id": "man-G7-t6",
+        "to": [
+          "man-G7-step-181"
+        ],
+        "from": [
+          "man-G7-step-189"
+        ],
+        "name": "T6",
+        "wireless": true,
+        "condition": "/G0X9",
+        "targetInfo": "181",
+        "description": "Fim da emergência"
+      }
+    ],
+    "importReview": {
+      "source": "fluidsim4",
+      "warnings": [
+        "a transição 9 tem ligações incompletas ou uma sincronização ainda não suportada.",
+        "a transição 26 tem ligações incompletas ou uma sincronização ainda não suportada.",
+        "a transição 28 tem ligações incompletas ou uma sincronização ainda não suportada.",
+        "GRAFCET 1 tem 3 etapas iniciais; confirme se a ativação simultânea corresponde ao original.",
+        "A ação L_Amarela ficou solta: não tem ligação a uma etapa.",
+        "A ação L_Amarelo ficou solta: não tem ligação a uma etapa.",
+        "ação memorizada, de evento ou de forçagem ainda não suportada.",
+        "A ação L_Amarela foi importada como contínua; o qualificador original (0x3840) precisa de revisão.",
+        "ação memorizada, de evento ou de forçagem ainda não suportada.",
+        "A ação L_Amarela foi importada como contínua; o qualificador original (0x3840) precisa de revisão.",
+        "ação memorizada, de evento ou de forçagem ainda não suportada.",
+        "A ação L_Vermelha foi importada como contínua; o qualificador original (0x3840) precisa de revisão.",
+        "variável de ação inválida: Y7_E+_Vacuo_On.",
+        "variável de ação inválida: Y8_E-_Vacuo_Off.",
+        "variável de ação inválida: Y8_E-_Vacuo_Off.",
+        "Manuais G3–G7 (cilindros A–E) juntados: confirme fc_c0/fc_c1, fc_d0/fc_d1 e Vacuo_OK com os sinais reais."
+      ]
+    }
+  },
+  "commands": {
+    "pages": [
+      {
+        "id": "page-1",
+        "name": "Página 1"
+      }
+    ],
+    "parts": [],
+    "texts": [],
+    "wires": []
+  },
+  "tags": [],
+  "virtualInputs": {},
+  "virtualInputModes": {},
+  "virtualInputCount": 8,
+  "virtualOutputCount": 8,
+  "virtualMemoryCount": 4,
+  "sheets": [
+    {
+      "id": "sheet-1",
+      "name": "Página 1"
+    }
+  ],
+  "activeSheetId": "sheet-1",
+  "grid": {
+    "size": 20,
+    "snap": true,
+    "style": "dots",
+    "enabled": true,
+    "background": "#f7f9fc"
+  },
+  "activeScenario": "custom",
+  "canvasNotes": [],
+  "canvasTexts": [],
+  "selectionGroups": []
+}

@@ -368,8 +368,13 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   const read = (table: Record<string, boolean> | undefined, token: string) => {
     const raw = token.trim().replace(/^%/, '')
     const canonical = bitOf(raw)
-    return !!(table?.[canonical] ?? table?.[canonical.toUpperCase()] ?? table?.[canonical.toLowerCase()]
-      ?? table?.[raw] ?? table?.[raw.toUpperCase()] ?? table?.[raw.toLowerCase()])
+    const direct = table?.[canonical] ?? table?.[canonical.toUpperCase()] ?? table?.[canonical.toLowerCase()]
+      ?? table?.[raw] ?? table?.[raw.toUpperCase()] ?? table?.[raw.toLowerCase()]
+    if (direct !== undefined || !table) return !!direct
+    // Nomes com maiúsculas e minúsculas (bp_Avanca_A+): o token chega em maiúsculas.
+    const upper = raw.toUpperCase()
+    const key = Object.keys(table).find((name) => name.toUpperCase() === upper)
+    return key ? !!table[key] : false
   }
   const readBit = (t: string) => read(ctx.table, t)
   const readPrev = (t: string) => read(ctx.prev, t)
@@ -377,8 +382,9 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   if (!src) return null
   if (DISALLOWED_VARS.has(src.toUpperCase())) return null
 
-  // Rejeita sintaxes incorretas explícitas de operadores duplos ou inválidos
-  if (/&&|\|\||\^\s*&|\^\s*\||\\\s*&|\\\s*\||\*\s*\*|\+\s*\+/.test(src)) return null
+  // Rejeita sintaxes incorretas explícitas de operadores duplos ou inválidos. «bp_A+ + c» é válido:
+  // o primeiro + pertence ao nome (sufixo) e o segundo, separado por espaço, é o OU.
+  if (/&&|\|\||\^\s*&|\^\s*\||\\\s*&|\\\s*\||\*\s*\*|(?<![A-Za-z0-9_])\+\s*\+|[A-Za-z0-9_]\+\+/.test(src)) return null
 
   const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*(?:<=>|==|=|<>)\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?`, 'gi')
 

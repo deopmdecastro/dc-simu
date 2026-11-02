@@ -2645,6 +2645,8 @@ console.log('\n— Tabela de sinais dinâmica —')
 // Ponteiras: código de cores DIN 46228-4 pela secção do cabo.
 check('Ponteiras DIN 46228-4: 0,5 branco · 1 vermelho · 1,5 preto · 2,5 azul · 6 amarelo', dinFerruleColor('0.5mm²')?.name === 'branco' && dinFerruleColor('1mm²')?.name === 'vermelho' && dinFerruleColor('1.5mm²')?.hex === '#111827' && dinFerruleColor('2,5 mm²')?.name === 'azul' && dinFerruleColor(6)?.name === 'amarelo')
 check('Ponteiras DIN 46228-4: secção fora da tabela não inventa cor; cores rápidas sem repetidos', dinFerruleColor('0.3mm²') === null && new Set(FERRULE_SWATCHES.map((swatch) => swatch.hex)).size === FERRULE_SWATCHES.length)
+check('GRAFCET: variável terminada em + seguida de OU («bp_A+ + G0<>X4») é válida; «a + + b» e «a++b» continuam inválidas', validCondition('fc_a0 * bp_Avanca_A+ + G0<>X4') && !validCondition('a + + b') && !validCondition('a++b'))
+check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos da tabela', evalCondition('fc_a0 * bp_Avanca_A+ + G0<>X4', { fc_a0: true, 'bp_Avanca_A+': true }, { activeStepNames: new Set(['4']) }) && !evalCondition('bp_Avanca_A+', { 'bp_Avanca_A+': false }))
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)
