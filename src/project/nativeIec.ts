@@ -27,6 +27,8 @@ export const NATIVE_IEC_V4_FEATURE = 'iec-schematic-v4'
 export const NATIVE_IEC_V5_FEATURE = 'iec-schematic-v5'
 /** v6: textos de legenda (tags E/S e funcionamento) nas páginas Potência e Comando. */
 export const NATIVE_IEC_V6_FEATURE = 'iec-schematic-v6'
+/** v7: legenda de potência reorganizada (sem sobrepor Q0). */
+export const NATIVE_IEC_V7_FEATURE = 'iec-schematic-v7'
 const POWER_PAGE = 'page-1'
 const CONTROL_PAGE = 'page-2'
 
@@ -54,11 +56,14 @@ export function buildNativeIecSchematic(): CommandsDiagram {
 
   // —— Potência (400 V 3~ + N + PE) ——
   text(60, 0, 'Circuito de potência — XG 400 V 3~ / N / PE')
-  text(420, 40, 'Cadeia: XG → QG → QM1 → KM1 → F1 → M1')
-  text(420, 58, 'KM1 fecha a potência quando Q0.0')
-  text(420, 74, 'energiza a bobina (via 95-96 do F1)')
-  text(420, 100, 'F1 (térmico): 95-96 NF em série com a bobina;')
-  text(420, 116, '97-98 NA → I0.3 (sinal de disparo ao LOGO!)')
+  // Legenda à direita, afastada da cadeia e de Q0
+  text(520, 40, 'Cadeia de força')
+  text(520, 58, 'XG → QG → QM1 → KM1 → F1 → M1')
+  text(520, 82, 'KM1 fecha a potência quando Q0.0')
+  text(520, 98, 'energiza a bobina (via 95-96 do F1)')
+  text(520, 122, 'F1 (térmico)')
+  text(520, 138, '95-96 NF em série com a bobina')
+  text(520, 154, '97-98 NA → I0.3 (disparo ao LOGO!)')
   const xg = part('supply', 80, 40, '', { lines: ['L1', 'L2', 'L3', 'N', 'PE'] })
   const qg = part('breaker3', 80, 60, 'QG')
   for (let i = 0; i < 3; i++) wire(xg, i, qg, i * 2)
@@ -197,26 +202,26 @@ function isUntouchedV4(commands: any): boolean {
     && commands.parts.some((p: any) => p.kind === 'voltmeter' && p.tag === 'P1') && !commands.parts.some((p: any) => p.tag === 'MM1')
 }
 
-/** Projetos nativos: recebem o esquema IEC uma vez; um v1…v5 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
+/** Projetos nativos: recebem o esquema IEC uma vez; um v1…v6 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
 export function addNativeIecSchematic<T extends Record<string, any>>(content: T): T {
   if (content.nativeId !== NATIVE_PARTIDA_ID) return content
   const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
-  if (features.includes(NATIVE_IEC_V6_FEATURE)) return content
+  if (features.includes(NATIVE_IEC_V7_FEATURE)) return content
   const hasOwn = Array.isArray(content.commands?.parts) && content.commands.parts.length > 0
+  const onlyGeneratedParts = Array.isArray(content.commands?.parts)
+    && content.commands.parts.every((p: any) => typeof p?.id === 'string' && p.id.startsWith('iec-'))
   const untouched =
     !hasOwn
     || isUntouchedV1(content.commands)
     || isUntouchedV2(content.commands)
     || isUntouchedV3(content.commands)
     || isUntouchedV4(content.commands)
-    // v5 intacto (só ids iec-* e voltímetro MM1): pode receber a legenda v6.
-    || (features.includes(NATIVE_IEC_V5_FEATURE) && Array.isArray(content.commands?.parts)
-      && content.commands.parts.every((p: any) => typeof p?.id === 'string' && p.id.startsWith('iec-')))
+    || onlyGeneratedParts
   const marks = [
     ...features,
-    ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE]
+    ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE]
       .filter((f) => !features.includes(f)),
-    NATIVE_IEC_V6_FEATURE,
+    NATIVE_IEC_V7_FEATURE,
   ]
   return { ...content, ...(untouched ? { commands: buildNativeIecSchematic() } : {}), nativeFeatures: marks }
 }

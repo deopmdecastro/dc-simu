@@ -25,7 +25,7 @@ import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 import { mountPosition } from '../three/thermalMount'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_SIGNALS_FEATURE } from './nativeMotorMeter'
-import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE } from './nativeIec'
+import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_IEC_V7_FEATURE } from './nativeIec'
 import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { NATIVE_NC_SIM_FEATURE, withNativeNcSimInputs } from './nativeSimInputs'
 import { grafcetExampleContent, grafcetExamples } from './grafcetExamples'
@@ -84,7 +84,8 @@ const NATIVE_OB100_ID = 'native-ob100'
 export { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
 export const NATIVE_PARTIDA_NAME = 'Partida direta com emergência (nativo)'
 /** Comentários e textos livres (GRAFCET + canvas 3D) com tags de E/S e funcionamento. */
-export const NATIVE_ANNOTATIONS_FEATURE = 'native-annotations-v1'
+/** v2: posições organizadas + notas em schematic/3d/grafcet/commands. */
+export const NATIVE_ANNOTATIONS_FEATURE = 'native-annotations-v2'
 
 const ADMIN_OWNER = 'dcsimu-admin'
 
@@ -192,66 +193,72 @@ export function buildNativeGrafcet(): GrafcetProgram {
       y: index === 0 ? START_Y + STEP_H + 28 : START_Y + STEP_H + 28 + 140,
     })),
     comments: [
+      // Título acima da sequência (à esquerda, sem cruzar as caixas de ação)
       {
-        id: nanoid(6),
+        id: 'native-gc-title',
         text: 'Partida direta com selo + cogumelo (B0) — reset completo',
         x: 40,
-        y: 24,
+        y: 28,
         fontSize: 14,
         fontWeight: '700',
+        color: '#0f172a',
+      },
+      // Bloco de legenda à direita da sequência (fora das ações H2/H3/KM1/H1)
+      {
+        id: 'native-gc-cycle',
+        text: 'Ciclo: START → marcha (KM1+H1) → STOP / emergência / F1 → parado.',
+        x: 420,
+        y: 70,
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#0f172a',
       },
       {
-        id: nanoid(6),
-        text: 'Entradas (LOGO!):  I0.0 EMERG (B0 NF) · I0.1 START (B1 NA) · I0.2 STOP (B1 NF) · I0.3 F1 disparado (97-98 NA)',
-        x: 40,
-        y: 48,
+        id: 'native-gc-in',
+        text: 'Entradas: I0.0 EMERG (B0 NF) · I0.1 START · I0.2 STOP (NF) · I0.3 F1 (97-98 NA)',
+        x: 420,
+        y: 94,
         fontSize: 11,
-        fontWeight: '500',
         color: '#334155',
       },
       {
-        id: nanoid(6),
-        text: 'Saídas:  Q0.0 KM1 · Q0.1 H1 MARCHA (verde) · Q0.2 H2 PARADO (laranja) · Q0.3 H3 EMERGÊNCIA (vermelho)',
-        x: 40,
-        y: 68,
+        id: 'native-gc-out',
+        text: 'Saídas: Q0.0 KM1 · Q0.1 H1 MARCHA · Q0.2 H2 PARADO · Q0.3 H3 EMERGÊNCIA',
+        x: 420,
+        y: 114,
         fontSize: 11,
-        fontWeight: '500',
         color: '#334155',
       },
       {
-        id: nanoid(6),
-        text: 'X0 — motor parado: H2 aceso se emergência OK e F1 armado; H3 aceso se emergência premida ou F1 disparado',
-        x: 280,
-        y: 120,
+        id: 'native-gc-x0',
+        text: 'X0 parado: H2 se emergência OK e F1 armado; H3 se emergência ou F1',
+        x: 420,
+        y: 146,
         fontSize: 11,
-        fontWeight: '500',
         color: '#475569',
       },
       {
-        id: nanoid(6),
-        text: 'T1 — arranque: emergência libertada · STOP libertado · F1 armado · START premido',
-        x: 280,
-        y: 200,
+        id: 'native-gc-t1',
+        text: 'T1 arranque: EMERG OK · STOP OK · F1 armado · START',
+        x: 420,
+        y: 166,
         fontSize: 11,
-        fontWeight: '500',
         color: '#475569',
       },
       {
-        id: nanoid(6),
-        text: 'X1 — marcha: KM1 e H1 ativos; selo lógico no PLC mantém a etapa até paragem',
-        x: 280,
-        y: 280,
+        id: 'native-gc-x1',
+        text: 'X1 marcha: KM1 e H1 ativos até paragem',
+        x: 420,
+        y: 186,
         fontSize: 11,
-        fontWeight: '500',
         color: '#475569',
       },
       {
-        id: nanoid(6),
-        text: 'T2 — reset completo: emergência, STOP ou disparo do F1 devolve sempre a X0',
-        x: 280,
-        y: 360,
+        id: 'native-gc-t2',
+        text: 'T2 reset: emergência, STOP ou F1 → sempre X0',
+        x: 420,
+        y: 206,
         fontSize: 11,
-        fontWeight: '500',
         color: '#475569',
       },
     ],
@@ -603,7 +610,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_ANNOTATIONS_FEATURE, 'ladder-sync-v3'],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_IEC_V7_FEATURE, NATIVE_ANNOTATIONS_FEATURE, 'ladder-sync-v3'],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,
@@ -624,81 +631,92 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     // Esquema IEC (simulador de comandos) com as referências do quadro 3D.
     commands: buildNativeIecSchematic(),
     tags: built.tags,
-    // Comentários e textos livres no canvas 3D / esquemático (explicam tags e funcionamento).
-    canvasNotes: [
-      {
-        id: 'native-note-func',
-        text: 'Funcionamento',
-        view: 'schematic',
-        x: 40,
-        y: 20,
-        color: 'blue',
-        messages: [{
-          id: 'm1',
-          text: 'Partida direta com selo e paragem de emergência (cogumelo B0). Arranque com START (B1), paragem com STOP ou emergência. O relé térmico F1 (97-98) também devolve o sistema a parado e acende H3.',
-          createdAt: new Date().toISOString(),
-        }],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'native-note-inputs',
-        text: 'Entradas (I)',
-        view: 'schematic',
-        x: 40,
-        y: 160,
-        color: 'green',
-        messages: [{
-          id: 'm1',
-          text: 'I0.0 EMERG — B0 cogumelo NF (1 em repouso, 0 premido)\nI0.1 START — B1 botão NA\nI0.2 STOP — B1 botão NF (1 em repouso)\nI0.3 F1 — contacto 97-98 NA do relé térmico (1 = disparado)',
-          createdAt: new Date().toISOString(),
-        }],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'native-note-outputs',
-        text: 'Saídas (Q)',
-        view: 'schematic',
-        x: 40,
-        y: 320,
-        color: 'orange',
-        messages: [{
-          id: 'm1',
-          text: 'Q0.0 KM1 — bobina do contactor (potência ao motor)\nQ0.1 H1 — lâmpada MARCHA (verde)\nQ0.2 H2 — lâmpada PARADO (laranja)\nQ0.3 H3 — lâmpada EMERGÊNCIA / falha F1 (vermelha)',
-          createdAt: new Date().toISOString(),
-        }],
-        createdAt: new Date().toISOString(),
-      },
-    ],
+    // Notas adesivas e textos livres: schematic/3d (coords do painel em m), grafcet e commands.
+    canvasNotes: (() => {
+      const at = new Date().toISOString()
+      const msg = (id: string, text: string) => ({ id, text, author: 'DC-SIMU', createdAt: at })
+      const note = (
+        id: string,
+        title: string,
+        view: 'schematic' | '3d' | 'grafcet' | 'commands',
+        x: number,
+        y: number,
+        color: string,
+        body: string,
+        z?: number,
+      ) => ({
+        id, text: title, view, x, y, z, color,
+        messages: [msg(`${id}-m0`, body)],
+        createdAt: at,
+      })
+      // Posições 3D/esquemático: à direita do quadro (x≈2.8…3.2, y≈2.1…1.4).
+      const panel = [
+        note('native-n3d-func', 'Como testar', '3d', 2.85, 2.15, '#fde68a',
+          '1) EMERG e STOP libertados, F1 armado.\n2) Premir START → KM1 + H1 (marcha).\n3) STOP, emergência ou disparo F1 → volta a parado (H2 ou H3).', 0.35),
+        note('native-n3d-io', 'Tags E/S', '3d', 2.85, 1.55, '#93c5fd',
+          'I0.0 EMERG (B0 NF) · I0.1 START · I0.2 STOP (NF) · I0.3 F1\nQ0.0 KM1 · Q0.1 H1 MARCHA · Q0.2 H2 PARADO · Q0.3 H3 EMERGÊNCIA', 0.35),
+        note('native-nsch-func', 'Como testar', 'schematic', 2.85, 2.15, '#fde68a',
+          '1) EMERG e STOP libertados, F1 armado.\n2) Premir START → KM1 + H1 (marcha).\n3) STOP, emergência ou disparo F1 → volta a parado (H2 ou H3).', 0.35),
+        note('native-nsch-io', 'Tags E/S', 'schematic', 2.85, 1.55, '#93c5fd',
+          'I0.0 EMERG (B0 NF) · I0.1 START · I0.2 STOP (NF) · I0.3 F1\nQ0.0 KM1 · Q0.1 H1 MARCHA · Q0.2 H2 PARADO · Q0.3 H3 EMERGÊNCIA', 0.35),
+        // GRAFCET (px do diagrama, à direita da sequência)
+        note('native-ng-test', 'Como testar', 'grafcet', 420, 280, '#fde68a',
+          'Repouso: I0.0=1, I0.2=1, I0.3=0.\nPremir START (I0.1) → etapa 1 (KM1+H1).\nSTOP ou emergência ou F1 → etapa 0.'),
+        note('native-ng-io', 'Tags E/S', 'grafcet', 420, 380, '#93c5fd',
+          'Entradas: I0.0 EMERG · I0.1 START · I0.2 STOP · I0.3 F1\nSaídas: Q0.0 KM1 · Q0.1 H1 · Q0.2 H2 · Q0.3 H3'),
+        // IEC / commands (coords do desenho IEC, página Comando)
+        note('native-niec-test', 'Como testar', 'commands', 820, 320, '#fde68a',
+          'Em RUN: entradas I0.x e saídas Q0.x seguem o LOGO!.\nSTART + EMERG OK + STOP OK + F1 armado → marcha.\nSTOP, emergência ou F1 → reset a parado.', undefined),
+        note('native-niec-io', 'Tags E/S', 'commands', 820, 420, '#86efac',
+          'I0.0 EMERG B0 NF · I0.1 START · I0.2 STOP NF · I0.3 F1 97-98\nQ0.0 KM1 · Q0.1 H1 · Q0.2 H2 · Q0.3 H3', undefined),
+      ]
+      return panel
+    })(),
     canvasTexts: [
       {
-        id: 'native-txt-title',
-        view: 'schematic',
-        text: 'Partida direta com emergência — quadro nativo',
-        x: 200,
-        y: 8,
+        id: 'native-txt3d-title',
+        view: '3d',
+        text: 'Partida direta com emergência',
+        x: -2.8,
+        y: 2.35,
+        z: 0.35,
         font: 'sans',
-        size: 5.5,
+        size: 18,
         color: '#0f172a',
         bold: true,
       },
       {
-        id: 'native-txt-force',
-        view: 'schematic',
+        id: 'native-txt3d-force',
+        view: '3d',
         text: 'Força: XG → QG → QM1 → KM1 → F1 → M1',
-        x: 200,
-        y: 28,
+        x: -2.8,
+        y: 2.15,
+        z: 0.35,
         font: 'sans',
-        size: 3.8,
+        size: 12,
         color: '#334155',
       },
       {
-        id: 'native-txt-cmd',
+        id: 'native-txtsch-title',
         view: 'schematic',
-        text: 'Comando: Q0 → PS1 24 V → LOGO! · B0/B1 · H1/H2/H3',
-        x: 200,
-        y: 42,
+        text: 'Partida direta com emergência',
+        x: -2.8,
+        y: 2.35,
+        z: 0.35,
         font: 'sans',
-        size: 3.8,
+        size: 18,
+        color: '#0f172a',
+        bold: true,
+      },
+      {
+        id: 'native-txtsch-force',
+        view: 'schematic',
+        text: 'Força: XG → QG → QM1 → KM1 → F1 → M1',
+        x: -2.8,
+        y: 2.15,
+        z: 0.35,
+        font: 'sans',
+        size: 12,
         color: '#334155',
       },
     ],
@@ -725,9 +743,9 @@ export type NativeProjectSeed = {
 /** Semente a inserir no backend local se ainda não existir. */
 
 /**
- * Projetos nativos sem a feature de anotações: recebem comentários GRAFCET,
- * canvasNotes e canvasTexts explicativos (tags E/S e funcionamento).
- * Não sobrescreve notas/textos que o utilizador já tenha criado.
+ * Projetos nativos sem native-annotations-v2: recebem comentários GRAFCET organizados,
+ * canvasNotes (schematic/3d/grafcet/commands) e canvasTexts no painel.
+ * Substitui só ids `native-*`; preserva notas/textos criados pelo utilizador.
  */
 export function addNativeAnnotations<T extends Record<string, any>>(content: T): T {
   if (content.nativeId !== NATIVE_PARTIDA_ID) return content
@@ -736,24 +754,29 @@ export function addNativeAnnotations<T extends Record<string, any>>(content: T):
     : []
   if (features.includes(NATIVE_ANNOTATIONS_FEATURE)) return content
   const fresh = nativePartidaDiretaContent()
-  const hasUserNotes = Array.isArray(content.canvasNotes) && content.canvasNotes.length > 0
-  const hasUserTexts = Array.isArray(content.canvasTexts) && content.canvasTexts.length > 0
+  const isNativeId = (id: unknown) => typeof id === 'string' && id.startsWith('native-')
+  const userNotes = Array.isArray(content.canvasNotes)
+    ? content.canvasNotes.filter((n: any) => n && !isNativeId(n.id))
+    : []
+  const userTexts = Array.isArray(content.canvasTexts)
+    ? content.canvasTexts.filter((t: any) => t && !isNativeId(t.id))
+    : []
   const grafcet = content.grafcet && typeof content.grafcet === 'object'
     ? {
         ...content.grafcet,
-        // Só preenche comentários se ainda não existirem (ou só o título antigo).
-        comments:
-          Array.isArray(content.grafcet.comments) && content.grafcet.comments.length > 1
-            ? content.grafcet.comments
-            : (fresh.grafcet as any)?.comments ?? content.grafcet.comments,
+        // Substitui comentários gerados (ids native-gc-* ou o título antigo único).
+        comments: (fresh.grafcet as any)?.comments ?? content.grafcet.comments,
       }
     : fresh.grafcet
   return {
     ...content,
     grafcet,
-    ...(hasUserNotes ? {} : { canvasNotes: fresh.canvasNotes }),
-    ...(hasUserTexts ? {} : { canvasTexts: fresh.canvasTexts }),
-    nativeFeatures: [...features, NATIVE_ANNOTATIONS_FEATURE],
+    canvasNotes: [...userNotes, ...((fresh.canvasNotes as any[]) ?? [])],
+    canvasTexts: [...userTexts, ...((fresh.canvasTexts as any[]) ?? [])],
+    nativeFeatures: [
+      ...features.filter((f) => f !== 'native-annotations-v1'),
+      NATIVE_ANNOTATIONS_FEATURE,
+    ],
   }
 }
 
