@@ -280,88 +280,18 @@ export function buildNativeGrafcet(): GrafcetProgram {
  * Enriquece títulos e comentários das networks geradas pelo método «registo de etapa»
  * com a semântica do projeto nativo (EMERG, START, STOP, F1, KM1, H1/H2/H3).
  */
+/**
+ * Comentários explicativos nas networks nativas (tags E/S e funcionamento). Os títulos ficam os do
+ * gerador do GRAFCET («GRAFCET · Chamar Grafcet», «T1: 0 → 1», «Complete restart · …»): é por eles que o
+ * GRAFCET reconhece o Ladder como gerado e sincronizado — com títulos próprios via-o como «sem Ladder»
+ * e um «Gerar Ladder» duplicava os blocos. A comparação de sincronização ignora os comentários.
+ */
 function annotateNativeRungs(rungs: LadderRung[]): LadderRung[] {
-  return rungs.map((r) => {
-    const name = r.name ?? ''
-    const comment = r.comment ?? ''
-    // Transições T1 / T2
-    if (/^T1\b/.test(name) || /0\s*→\s*1/.test(name)) {
-      return {
-        ...r,
-        name: 'T1 · Arranque (X0 → X1)',
-        comment: 'Condição: EMERG OK (I0.0) · STOP OK (I0.2) · F1 armado (!I0.3) · START (I0.1). MOVE 1 → G0.',
-      }
-    }
-    if (/^T2\b/.test(name) || /1\s*→\s*0/.test(name)) {
-      return {
-        ...r,
-        name: 'T2 · Reset completo (X1 → X0)',
-        comment: 'Condição: emergência (!I0.0) OU STOP (!I0.2) OU F1 disparado (I0.3). MOVE 0 → G0.',
-      }
-    }
-    // Saídas
-    if (/\bKM1\b/i.test(name) || /\bQ0\.0\b/i.test(name)) {
-      return {
-        ...r,
-        name: 'Q0.0 · KM1 contactor',
-        comment: 'Bobina do contactor de potência. Ativa enquanto G0 == 1 (etapa Marcha).',
-      }
-    }
-    if (/\bH1\b/i.test(name) || /\bQ0\.1\b/i.test(name) || /MARCHA/i.test(name)) {
-      return {
-        ...r,
-        name: 'Q0.1 · H1 MARCHA (verde)',
-        comment: 'Lâmpada de marcha. Ativa enquanto G0 == 1 (etapa Marcha).',
-      }
-    }
-    if (/\bH2\b/i.test(name) || /\bQ0\.2\b/i.test(name) || /PARADO/i.test(name)) {
-      return {
-        ...r,
-        name: 'Q0.2 · H2 PARADO (laranja)',
-        comment: 'Lâmpada de parado. Ativa em G0 == 0 com EMERG OK e F1 armado (I0.0 * !I0.3).',
-      }
-    }
-    if (/\bH3\b/i.test(name) || /\bQ0\.3\b/i.test(name) || /EMERG/i.test(name)) {
-      return {
-        ...r,
-        name: 'Q0.3 · H3 EMERGÊNCIA (vermelho)',
-        comment: 'Lâmpada de emergência/falha. Ativa em G0 == 0 com emergência premida ou F1 disparado (!I0.0 + I0.3).',
-      }
-    }
-    // OB100 / complete restart
-    if (/Complete restart|Etapa inicial|Iniciar/i.test(name)) {
-      return {
-        ...r,
-        name: name.includes('Iniciar') ? name : 'OB100 · Etapa inicial (G0 = 0)',
-        comment: comment || 'Complete restart: coloca o registo de etapa G0 na etapa inicial (X0 = parado).',
-      }
-    }
-    // CALL na Main
-    if (/Chamar|CALL/i.test(name)) {
-      const isOut = /Outputs|Saídas/i.test(name)
-      return {
-        ...r,
-        name: isOut ? 'Main · CALL Outputs (saídas)' : 'Main · CALL Grafcet (transições)',
-        comment: isOut
-          ? 'Chama o FC Outputs: compara G0 com cada etapa e ativa as bobinas Q0.x.'
-          : 'Chama o FC Grafcet: avalia transições T1/T2 e atualiza o registo G0.',
-      }
-    }
-    // Ciclo / evolução
-    if (/[Cc]iclo|evolução|repor/i.test(name)) {
-      return {
-        ...r,
-        name: 'Ciclo · repor evolução',
-        comment: 'Garante uma só evolução de etapa por ciclo de scan (método registo de etapa).',
-      }
-    }
-    // Se já tinha comentário útil, mantém; senão acrescenta contexto genérico.
-    if (!comment && name) {
-      return { ...r, comment: `Network do GRAFCET nativo «Partida direta com emergência»: ${name}` }
-    }
-    return r
-  })
+  // Os comentários vêm do próprio gerador (descrições das transições e ações do GRAFCET nativo): assim o
+  // Ladder continua igual ao que o GRAFCET gera e fica reconhecido como sincronizado.
+  return rungs
 }
+
 
 export function buildNativeWordProgram(grafcet: GrafcetProgram, baseTags: Built['tags']) {
   const full = { ...grafcet, transitions: transitionsOf(grafcet) }
@@ -610,7 +540,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_IEC_V7_FEATURE, NATIVE_ANNOTATIONS_FEATURE, 'ladder-sync-v3'],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_NC_SIM_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_SIGNALS_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_IEC_V7_FEATURE, NATIVE_ANNOTATIONS_FEATURE, 'ladder-sync-v4'],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

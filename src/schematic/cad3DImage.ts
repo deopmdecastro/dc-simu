@@ -7,6 +7,7 @@ import { isTerminalAssemblyComponent, terminalAssemblyLayout, tintTerminalBodyMa
 import { captureOrthographicModelImage, captureOrthographicObjectImage } from './orthographicModelImage'
 import { finishCadMaterial } from '../three/catalogMaterials'
 import { applyCadSurfaceTextures } from '../three/cadSurface'
+import { findStaticFrontImage } from '../three/staticComponentImages'
 
 const imagePromises = new Map<ComponentType, Promise<string>>()
 let terminalSource: Promise<THREE.Object3D> | undefined
@@ -42,22 +43,33 @@ async function captureTerminalAssemblyImage(type: ComponentType): Promise<string
   return captureOrthographicObjectImage(assembly, [-0.12, Math.PI / 12, 0])
 }
 
-/** Vista frontal ortográfica produzida a partir da mesma base usada no Painel 3D. */
+/**
+ * Vista frontal ortográfica produzida a partir da mesma base usada no Painel 3D.
+ * Usa primeiro a imagem pré-gerada (public/component-covers/front, WebP sem fundo); só sem ela
+ * descarrega o GLB e captura no browser.
+ */
 export function getCad3DImage(type: ComponentType): Promise<string> {
   const cached = imagePromises.get(type)
   if (cached) return cached
   const spec = getComponentModelSpec(type)
   if (!spec && !isTerminalAssemblyComponent(type)) return Promise.reject(new Error(`Sem modelo CAD para ${type}`))
 
-  const promise = (isTerminalAssemblyComponent(type) && !spec ? captureTerminalAssemblyImage(type) : captureOrthographicModelImage({
-    path: spec!.path,
-    rotation: spec!.rotation,
-    flipDepth: spec!.flipDepth,
-    physicalSizeMm: spec!.physicalSizeMm,
-  })).catch((error) => {
+  const promise = findStaticFrontImage(type).then((image) => image ?? captureCad3DImage(type)).catch((error) => {
     imagePromises.delete(type)
     throw error
   })
   imagePromises.set(type, promise)
   return promise
+}
+
+/** Captura em tempo real a partir do GLB (também usada pelo gerador das imagens pré-geradas). */
+export function captureCad3DImage(type: ComponentType): Promise<string> {
+  const spec = getComponentModelSpec(type)
+  if (!spec && !isTerminalAssemblyComponent(type)) return Promise.reject(new Error(`Sem modelo CAD para ${type}`))
+  return isTerminalAssemblyComponent(type) && !spec ? captureTerminalAssemblyImage(type) : captureOrthographicModelImage({
+    path: spec!.path,
+    rotation: spec!.rotation,
+    flipDepth: spec!.flipDepth,
+    physicalSizeMm: spec!.physicalSizeMm,
+  })
 }

@@ -146,7 +146,7 @@ try {
     c.wires = c.wires.filter((w) => !sig(w))
     c.plcTags = { 'native-plc': c.tags.filter((t) => t.address !== 'I0.3' && t.address !== 'Q0.3') }
     c.plcPrograms = { 'native-plc': { rungs: c.ladder.rungs, fc1: [], fc2: [] } }
-    c.nativeFeatures = [...c.nativeFeatures.filter((x) => x !== 'signals-v2' && x !== 'ladder-sync-v2'), 'signals-v1', 'ladder-sync-v1']
+    c.nativeFeatures = [...c.nativeFeatures.filter((x) => x !== 'signals-v2' && !x.startsWith('ladder-sync-')), 'signals-v1', 'ladder-sync-v1']
     useSimStore.getState().loadJSON(JSON.stringify(c))
   })
   await page.waitForTimeout(800)

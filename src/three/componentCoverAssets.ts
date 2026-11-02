@@ -3,7 +3,9 @@
  *
  * A biblioteca mostra imagens (WebP/PNG) em vez de manter contextos WebGL por cartão.
  * Ordem de resolução:
- *  1. Ficheiro em /component-covers/{type}.webp|.png (pré-gerado, sem fundo)
+ *  1. Capa pré-gerada a partir do GLB (scripts/build-component-covers.mjs → /component-covers/{type}.webp,
+ *     WebP sem fundo, ~5 KiB) indicada no manifest.json — um só pedido para saber o que existe; nenhum GLB
+ *     é descarregado para mostrar a biblioteca
  *  2. Cache IndexedDB (capa GLB já gerada neste dispositivo)
  *  3. Captura única do GLB real (estúdio 3/4, WebP transparente) → IDB
  *  4. null → miniatura procedimental leve (só tipos sem modelo)
@@ -13,6 +15,7 @@
 import type { ComponentType } from '../types'
 import { getComponentCoverImage } from './componentTurntable'
 import { hasComponent3DVisual } from './modelPaths'
+import { componentImageManifest, componentImageUrl } from './staticComponentImages'
 
 const IDB_NAME = 'dc-simu-covers'
 const IDB_STORE = 'covers'
@@ -99,8 +102,16 @@ function probeUrl(url: string): Promise<string | null> {
   return pending
 }
 
-/** Devolve a primeira URL estática que existe, ou null. */
+/**
+ * Devolve a capa estática do tipo, ou null. Com índice, só os tipos listados têm capa (sem pedidos
+ * falhados por tipo); a versão do índice evita mostrar uma capa antiga em cache depois de regenerar.
+ */
 export async function findStaticCover(type: ComponentType | string): Promise<string | null> {
+  const index = await componentImageManifest()
+  if (index) {
+    const file = index.types[String(type)]
+    return file ? componentImageUrl(file, index.version) : null
+  }
   for (const url of staticCoverCandidates(type)) {
     const hit = await probeUrl(url)
     if (hit) return hit

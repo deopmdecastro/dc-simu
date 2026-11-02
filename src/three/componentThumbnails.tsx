@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { defaultComponentTurntablePitch, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'
-import { resolveLibraryCover } from './componentCoverAssets'
+import { findStaticCover, resolveLibraryCover } from './componentCoverAssets'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -427,11 +427,13 @@ export function InteractiveComponentThumb({ type, size = 112 }: { type: Componen
   const requestRef = useRef(0)
   const pointer = useRef({ id: -1, x: 0, y: 0, yaw: 0, pitch: defaultPitch })
 
-  // 1.º fotograma leve: 1 render único por cartão (sem bloquear a página com 12 capturas).
+  // 1.º fotograma: a capa pré-gerada (imagem de ~5 KiB, sem descarregar o GLB); só sem capa é que se
+  // desenha o modelo. A rotação completa (GLB) só se gera quando o utilizador interage.
   useEffect(() => {
     let alive = true
     setFailed(false)
-    void getComponentTurntableHero(type, defaultPitch)
+    void findStaticCover(type)
+      .then((cover) => cover ?? getComponentTurntableHero(type, defaultPitch))
       .then((src) => {
         if (!alive) return
         setHeroSrc(src)

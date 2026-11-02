@@ -44,7 +44,7 @@ import { BUILTIN_ORIGIN_PREFIX, builtinComponents, builtinTypeOf } from '../src/
 import { evaluateWire, wireChain, wireCurve } from '../src/admin/editor3d/wirePath'
 import { cableOuterDiameterMm, styleFor, DEFAULT_WIRE_DEFAULTS } from '../src/admin/editor3d/wireStyle'
 import { useSimStore } from '../src/store/useSimStore'
-import { BREAKER_HANDLE_RIG, getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
+import { BREAKER_HANDLE_RIG, getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel, hasComponent3DVisual } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { component3DDimensions, component3DScaleOf, terminalFaceCreationPosition, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
 import { BUILTIN_PROFILES, SUGGESTED_PROFILES, defaultParams, specsFromTerminals } from '../src/catalog/terminalProfiles'
@@ -1025,8 +1025,17 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 43 componentes com GLB real (25 anteriores, 16 novos e os 2 conjuntos 24 V) (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 43 && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 46 componentes com GLB real (25 anteriores, 16 novos, os 2 conjuntos 24 V e os 3 PLC Siemens S7) (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 46 && ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315'].every((t) => availableTypes.includes(t)) && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
+  // Capas pré-geradas (scripts/build-component-covers.mjs): a biblioteca mostra imagens sem descarregar os GLB.
+  {
+    const covers = JSON.parse(fs.readFileSync('public/component-covers/manifest.json', 'utf8')) as { types: Record<string, string>; front: Record<string, string> }
+    const visual = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DVisual)
+    const missing = visual.filter((type) => !covers.types[type] || !fs.existsSync(`public/component-covers/${covers.types[type]}`))
+    check('capas WebP pré-geradas para todos os componentes com 3D (node scripts/build-component-covers.mjs)', missing.length === 0, missing.length ? `sem capa: ${missing.join(', ')}` : '')
+    const missingFront = visual.filter((type) => !covers.front?.[type] || !fs.existsSync(`public/component-covers/${covers.front[type]}`))
+    check('vistas frontais WebP pré-geradas para o Esquema 2D de todos os componentes com 3D', missingFront.length === 0, missingFront.length ? `sem vista frontal: ${missingFront.join(', ')}` : '')
+  }
   check('componentes sem GLB permanecem bloqueados', ['contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
   // Os Easy9 foram gerados dos STEP já de pé (topo em +Y, frente em +Z): sem rotação nem espelho.

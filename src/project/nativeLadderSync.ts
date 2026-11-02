@@ -17,7 +17,8 @@ import { validateGrafcet, type GrafcetProgram } from '../grafcet/engine'
 import { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
 import { buildNativeWordProgram, nativeProgramOf, NATIVE_PLC_ID, withNativeProgram } from './nativeProjects'
 
-export const NATIVE_LADDER_SYNC_FEATURE = 'ladder-sync-v3'
+/** v4: repõe os títulos do gerador nas networks (a v3 trocava-os e o GRAFCET deixava de reconhecer o Ladder). */
+export const NATIVE_LADDER_SYNC_FEATURE = 'ladder-sync-v4'
 
 /** Variáveis criadas pelo gerador (registo de etapa, memórias e bits de etapa): são refeitas. */
 const GENERATED_NAME = /^(G\d+|Evolucao_G0|Etapa_|Rec_T|Temp_T|Tempo_[DL]_|Mem_|Cont_)/

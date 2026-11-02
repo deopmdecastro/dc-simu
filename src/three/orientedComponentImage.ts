@@ -18,7 +18,8 @@ export function getOrientedComponentImage(
   const existing = cache.get(key)
   if (existing) return existing
 
-  if (isTerminalAssemblyComponent(type)) {
+  // Orientação original: a mesma vista frontal do Esquema 2D (pré-gerada, sem descarregar o GLB).
+  if (isTerminalAssemblyComponent(type) || (!orientation.x && !orientation.y && !orientation.z)) {
     const composite = getCad3DImage(type)
     cache.set(key, composite)
     return composite

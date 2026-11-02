@@ -202,21 +202,30 @@ function isUntouchedV4(commands: any): boolean {
     && commands.parts.some((p: any) => p.kind === 'voltmeter' && p.tag === 'P1') && !commands.parts.some((p: any) => p.tag === 'MM1')
 }
 
+/** Símbolos e cabos iguais aos da semente atual (as legendas passam a textos livres ao abrir, por isso não contam). */
+function isUntouchedCurrent(commands: any): boolean {
+  if (!Array.isArray(commands?.parts) || !Array.isArray(commands?.wires)) return false
+  const fresh = buildNativeIecSchematic()
+  const norm = (list: unknown[]) => JSON.stringify(list.map((item) => JSON.parse(JSON.stringify(item))).sort((a: any, b: any) => String(a.id).localeCompare(String(b.id))))
+  return norm(commands.parts) === norm(fresh.parts) && norm(commands.wires) === norm(fresh.wires)
+}
+
 /** Projetos nativos: recebem o esquema IEC uma vez; um v1…v6 intacto passa à versão atual. Nunca substitui um esquema do utilizador. */
 export function addNativeIecSchematic<T extends Record<string, any>>(content: T): T {
   if (content.nativeId !== NATIVE_PARTIDA_ID) return content
   const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
   if (features.includes(NATIVE_IEC_V7_FEATURE)) return content
   const hasOwn = Array.isArray(content.commands?.parts) && content.commands.parts.length > 0
-  const onlyGeneratedParts = Array.isArray(content.commands?.parts)
-    && content.commands.parts.every((p: any) => typeof p?.id === 'string' && p.id.startsWith('iec-'))
+  // v5/v6 intacto: símbolos e cabos exatamente iguais aos da semente atual (só faltam as legendas novas).
+  // Comparar só os ids («iec-…») substituía também esquemas com símbolos movidos pelo utilizador.
+  const sameAsCurrent = isUntouchedCurrent(content.commands)
   const untouched =
     !hasOwn
     || isUntouchedV1(content.commands)
     || isUntouchedV2(content.commands)
     || isUntouchedV3(content.commands)
     || isUntouchedV4(content.commands)
-    || onlyGeneratedParts
+    || sameAsCurrent
   const marks = [
     ...features,
     ...[NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE]

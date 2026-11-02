@@ -274,7 +274,7 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
     const oldTags = fresh2.tags.filter((t: any) => t.address !== 'I0.3' && t.address !== 'Q0.3')
     const userState = {
       ...fresh2,
-      nativeFeatures: [...fresh2.nativeFeatures.filter((x: string) => x !== 'signals-v2' && x !== 'ladder-sync-v2'), 'signals-v1', 'ladder-sync-v1'],
+      nativeFeatures: [...fresh2.nativeFeatures.filter((x: string) => x !== 'signals-v2' && !x.startsWith('ladder-sync-')), 'signals-v1', 'ladder-sync-v1'],
       wires: fresh2.wires.filter((w: any) => !newWire(w) || (w.fromTerminalId === 'native-f1-98' && w.toTerminalId === 'native-plc-I0.3')),
       plcTags: { 'native-plc': oldTags },
       plcPrograms: { 'native-plc': { rungs: [{ id: 'old-a', name: 'GRAFCET · Chamar Grafcet', branches: [], coils: [], enabled: true, comment: 'CALL' }, { id: 'old-b', name: 'GRAFCET · Chamar Outputs', branches: [], coils: [], enabled: true, comment: 'CALL' }], fc1: [], fc2: [] } },

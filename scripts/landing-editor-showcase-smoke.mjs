@@ -84,7 +84,7 @@ assert('GRAFCET: CTA «Abrir editor» escondido na demo', grafed.includes('{!dem
 assert('GRAFCET: diálogos de edição (etapa/ação/transição) travados na demo', grafed.includes('disabled: demoMode || !target') && grafed.includes('if (!demoMode) setEditingStep'))
 
 const app2 = read('src/App.tsx')
-assert('App: biblioteca lateral e rail fora da demo', app2.includes("(showLibrary || showLadder) && (") && app2.includes('showLibrary && !demo'))
+assert('App: biblioteca lateral e rail fora da demo', app2.includes('showLibrary && !demo && (') && app2.includes('!showLibrary && !demo && <CollapsedPanelRail'))
 assert('App: canvas sem biblioteca lateral na demo', app2.includes('libraryCollapsed={demo || !showLibrary}'))
 
 const css = read('src/styles/dx-landing.css')

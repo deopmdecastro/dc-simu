@@ -98,7 +98,8 @@ export default defineConfig({
         // Precache só da aplicação (shell). Modelos GLB, PDFs e texturas pesam ~38 MB: ficam fora do
         // precache (a primeira visita deixa de descarregar tudo) e entram em cache ao primeiro uso.
         globPatterns: ['**/*.{js,css,html,svg,png,webp,woff}'],
-        globIgnores: ['models/**', 'datasheets/**', 'textures/**', '**/*.glb', '**/*.pdf'],
+        // As vistas frontais pré-geradas (component-covers/front) só fazem falta com componentes no ecrã.
+        globIgnores: ['models/**', 'datasheets/**', 'textures/**', 'component-covers/front/**', '**/*.glb', '**/*.pdf'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
@@ -111,6 +112,16 @@ export default defineConfig({
             options: {
               cacheName: 'dcsimu-models-v1',
               expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // O ?v= do manifest muda a cada geração: CacheFirst nunca mostra uma imagem antiga.
+            urlPattern: ({ url }) => url.pathname.startsWith('/component-covers/front/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'dcsimu-component-fronts-v1',
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 60 },
               cacheableResponse: { statuses: [200] },
             },
           },

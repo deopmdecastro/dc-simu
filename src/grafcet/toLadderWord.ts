@@ -316,13 +316,13 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
   const stepsText = (ids: string[]) => ids.map((id) => numberOf.get(id)).join('+')
 
   // ── Ações: contínuas (FC Outputs) e memorizadas (S/R na ativação da etapa) ────
-  type Act = { step: GrafcetStep; condition: string; raw: string; kind: string }
+  type Act = { step: GrafcetStep; condition: string; raw: string; kind: string; description?: string }
   const byOutput = new Map<string, Act[]>()
   steps.forEach((s) => actionsOfStep(s).forEach((a) => {
     const target = actionTarget(a)
     if (!target) return
     const key = foldText(target)
-    byOutput.set(key, [...(byOutput.get(key) ?? []), { step: s, condition: a.condition || '1', raw: target, kind: kindOf(a) }])
+    byOutput.set(key, [...(byOutput.get(key) ?? []), { step: s, condition: a.condition || '1', raw: target, kind: kindOf(a), description: a.description?.trim() || undefined }])
   }))
   /** Saídas com S/R: endereço onde o valor memorizado é escrito (a própria saída, ou uma memória se também tiver N). */
   const storedTarget = new Map<string, string>()
@@ -355,7 +355,7 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
       return rung(`T${k + 1}: ${numberOf.get(t.from[0])} → ${numberOf.get(t.to[0])}`, branches ?? [[stateIs(t.from[0])]], {
         ...(evolved ? { coils: [coil(evolved, 'SET')] } : {}),
         move: { source: numberOf.get(t.to[0]) ?? '0', target: word },
-        comment: withName(`Receptividade: ${t.condition || '1'}`),
+        comment: withName(`Receptividade: ${t.condition || '1'}${t.description?.trim() ? ` — ${t.description.trim()}` : ''}`),
         enabled: !!branches && branches.length > 0,
       })
     })
@@ -417,7 +417,10 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
     const branches = continuous.flatMap((x) => branchesFor(x.condition, x.step.id, `Ação ${raw} (etapa ${numberOf.get(x.step.id)})`) ?? [])
     if (stored && stored !== address) branches.push([contact(stored)])
     const stepsN = [...new Set(continuous.map((x) => numberOf.get(x.step.id)))].join(', ')
-    outputRungs.push(rung(`${raw}`, branches, { coils: [coil(address)], comment: withName(`Ativa nas etapas ${stepsN}${stored && stored !== address ? ` ou memorizada em ${stored}` : ''}`), enabled: branches.length > 0 }))
+    // A descrição da ação (ex.: «H2 PARADO») e a sua condição explicam a saída na própria network.
+    const what = [...new Set(continuous.map((x) => x.description).filter(Boolean))].join(' / ')
+    const when = [...new Set(continuous.map((x) => x.condition).filter((c) => c && c !== '1'))].join(' | ')
+    outputRungs.push(rung(`${raw}`, branches, { coils: [coil(address)], comment: withName(`${what ? `${what}: ` : ''}Ativa nas etapas ${stepsN}${when ? ` com ${when}` : ''}${stored && stored !== address ? ` ou memorizada em ${stored}` : ''}`), enabled: branches.length > 0 }))
   }
 
   // Comentários das entradas novas: onde são usadas.
