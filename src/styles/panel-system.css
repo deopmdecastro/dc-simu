@@ -67,9 +67,9 @@
   .mobile-grafcet-panel > .pn-shell-rail { flex-basis: auto; width: 100%; min-width: 0; }
   .mobile-grafcet-panel .pn-shell-rail .pn-collapsed-rail-icon { width: 24px; }
   .mobile-grafcet-panel .pn-shell-rail .pn-collapsed-rail-chevron { width: 28px; height: 32px; }
-  /* Entre 768 e 1199 px o painel direito é absoluto por cima do canvas: tem de ficar acima
-     das sobreposições locais do editor («A carregar…» do 3D, a z-50), senão a régua recolhida
-     não se vê nem se abre enquanto a vista carrega. */
+}
+/* Telemóvel: gaveta absoluta por cima do canvas — z-index acima de «A carregar…» do 3D. */
+@media (max-width: 767px) {
   .dc-workspace .mobile-grafcet-panel,
   .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { z-index: 52; }
 }

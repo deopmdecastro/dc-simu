@@ -327,6 +327,8 @@
 }
 .grafcet-canvas.is-palette-drop { outline:2px dashed #2563eb; outline-offset:-5px; background-color:#f0f6ff; }
 .schematic-stage svg, .grafcet-canvas, .panel3d-stage canvas { touch-action: none; }
+/* Tablet/PC (768+): painéis em fluxo, cantos retos — paridade com secretária (Design-Principles).
+   Só o telemóvel (≤767) usa gaveta sobreposta; radius 0 (sem arredondamento). */
 @media (max-width: 1199px) {
   .dc-toolbar-main { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 48px; scrollbar-width: thin; }
   .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { right:43px; }
@@ -334,12 +336,22 @@
   .panel3d-stage .vcube-floating:not(.vcube-shifted) { right:43px; }
   .panel3d-stage .component-view-editor { right:43px; width:min(372px,calc(100% - 55px)); max-width:calc(100% - 55px); }
   .dc-views-container { order: initial; flex-basis: auto; flex-shrink: 0; }
+  footer > span:nth-child(2), footer > span:nth-child(3), footer > span:nth-child(4) { display: none; }
+}
+@media (max-width: 767px) {
   .dc-workspace .dc-resize-handle { display: none; }
   .dc-mobile-backdrop { position:absolute; inset:0; z-index:30; display:block; background:rgba(15,23,42,.26); backdrop-filter:blur(1px); }
-  .dc-workspace .mobile-library-panel { position: absolute; z-index: 40; border-top-right-radius: 20px; border-bottom-right-radius: 20px; top: 0; bottom: 0; left: 0; width: min(90vw, 360px) !important; background: white; box-shadow: 5px 0 20px #14234a30; }
-  .dc-workspace .mobile-grafcet-panel { position: absolute; z-index: 40; top: 0; bottom: 0; right: 0; width: min(92vw, 380px) !important; min-width: 0 !important; max-width: 92vw; overflow: hidden auto; border-top-left-radius: 20px; border-bottom-left-radius: 20px; box-shadow: -5px 0 20px #14234a30; }
+  .dc-workspace .mobile-library-panel {
+    position: absolute; z-index: 40; top: 0; bottom: 0; left: 0;
+    width: min(90vw, 360px) !important; background: white;
+    border-radius: 0; box-shadow: 5px 0 20px #14234a30;
+  }
+  .dc-workspace .mobile-grafcet-panel {
+    position: absolute; z-index: 40; top: 0; bottom: 0; right: 0;
+    width: min(92vw, 380px) !important; min-width: 0 !important; max-width: 92vw;
+    overflow: hidden auto; border-radius: 0; box-shadow: -5px 0 20px #14234a30;
+  }
   .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { width: 36px !important; z-index: 10; border-radius: 0; box-shadow: none; }
-  footer > span:nth-child(2), footer > span:nth-child(3), footer > span:nth-child(4) { display: none; }
 }
 .grafcet-title { min-width:150px; }
 .grafcet-title strong { display:block; }
@@ -462,7 +474,7 @@
   .grafcet-entity-list { max-height:150px; }
   .grafcet-shortcuts-dialog .lk-groups { grid-template-columns:1fr; }
 }
-@media (max-width: 1199px) {
+@media (max-width: 767px) {
   .dc-workspace .mobile-library-panel, .dc-workspace .mobile-grafcet-panel:not(.mobile-grafcet-closed) { box-shadow:0 0 0 100vmax #0f172a33, 0 16px 40px #0f172a40; }
 }
 
