@@ -44,6 +44,44 @@ export function setSfxEnabled(on: boolean): void {
   if (!on) stopMotorHum()
 }
 
+
+let silentEl: HTMLAudioElement | null = null
+/** WAV mudo de 0,1 s (44,1 kHz, 8 bits) em data URI — mantém a sessão de áudio ativa no iOS. */
+function silentWavUri(): string {
+  const n = 4410
+  const b = new Uint8Array(44 + n)
+  const w32 = (o: number, v: number) => { b[o] = v & 255; b[o + 1] = (v >> 8) & 255; b[o + 2] = (v >> 16) & 255; b[o + 3] = (v >> 24) & 255 }
+  const w16 = (o: number, v: number) => { b[o] = v & 255; b[o + 1] = (v >> 8) & 255 }
+  b.set([82, 73, 70, 70], 0); w32(4, 36 + n); b.set([87, 65, 86, 69, 102, 109, 116, 32], 8)
+  w32(16, 16); w16(20, 1); w16(22, 1); w32(24, 44100); w32(28, 44100); w16(32, 1); w16(34, 8)
+  b.set([100, 97, 116, 97], 36); w32(40, n); b.fill(128, 44)
+  let bin = ''
+  b.forEach((v) => { bin += String.fromCharCode(v) })
+  return 'data:audio/wav;base64,' + btoa(bin)
+}
+
+/**
+ * iOS trata o Web Audio como som «de ambiente»: fica mudo com o interruptor de silêncio ligado
+ * (ou sem som no Safari). Passar a sessão para «playback» (Safari 16.4+) ou reproduzir um
+ * <audio> mudo em ciclo (versões antigas) faz os efeitos saírem pelo altifalante.
+ */
+function routeAudioToPlayback(): void {
+  try {
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession
+    if (session && session.type !== 'playback') session.type = 'playback'
+  } catch { /* não suportado */ }
+  try {
+    if (!silentEl) {
+      silentEl = document.createElement('audio')
+      silentEl.src = silentWavUri()
+      silentEl.loop = true
+      silentEl.setAttribute('playsinline', '')
+      silentEl.volume = 0.01
+    }
+    if (silentEl.paused) void silentEl.play().catch(() => undefined)
+  } catch { /* ignore */ }
+}
+
 function ensureCtx(): AudioContext | null {
   try {
     if (!ctx) {
@@ -51,7 +89,7 @@ function ensureCtx(): AudioContext | null {
       if (!Ctor) return null
       ctx = new Ctor()
     }
-    if (ctx.state === 'suspended') void ctx.resume()
+    if (ctx.state !== 'running') void ctx.resume().catch(() => undefined)
     return ctx
   } catch {
     return null
@@ -62,7 +100,8 @@ function ensureCtx(): AudioContext | null {
 export function unlockAudio(): void {
   const audio = ensureCtx()
   if (!audio) return
-  if (audio.state === 'suspended') void audio.resume().catch(() => undefined)
+  if (audio.state !== 'running') void audio.resume().catch(() => undefined)
+  routeAudioToPlayback()
   // Tom silencioso de 1 amostra para “acordar” alguns browsers móveis.
   if (!unlockBound) {
     try {
@@ -89,11 +128,16 @@ export function installAudioUnlockListeners(): () => void {
   }
   window.addEventListener('pointerdown', unlock, { passive: true })
   window.addEventListener('touchstart', unlock, { passive: true })
+  // No iOS só `touchend`/`click` contam como gesto que autoriza o áudio.
+  window.addEventListener('touchend', unlock, { passive: true })
+  window.addEventListener('click', unlock, { passive: true })
   window.addEventListener('keydown', unlock, { passive: true })
   document.addEventListener('visibilitychange', resumeOnReturn)
   return () => {
     window.removeEventListener('pointerdown', unlock)
     window.removeEventListener('touchstart', unlock)
+    window.removeEventListener('touchend', unlock)
+    window.removeEventListener('click', unlock)
     window.removeEventListener('keydown', unlock)
     document.removeEventListener('visibilitychange', resumeOnReturn)
     mobileUnlockBound = false
@@ -234,12 +278,12 @@ export function setMotorHum(on: boolean, intensity = 0.7): void {
       motorOsc2.start()
     }
     const t = audio.currentTime
-    // Fundamental ~48–95 Hz + harmónico; volume até ~0.14 (audível sem saturar).
-    const level = 0.035 + motorIntensity * 0.11
-    const freq = 48 + motorIntensity * 47
+    // Fundamental ~110–180 Hz (os altifalantes de telemóvel cortam abaixo de ~150 Hz, por isso os harmónicos passam o filtro); volume até ~0.14 (audível sem saturar).
+    const level = 0.05 + motorIntensity * 0.12
+    const freq = 110 + motorIntensity * 70
     motorOsc.frequency.setTargetAtTime(freq, t, 0.12)
     motorOsc2!.frequency.setTargetAtTime(freq * 2.02, t, 0.12)
-    motorFilter!.frequency.setTargetAtTime(320 + motorIntensity * 420, t, 0.18)
+    motorFilter!.frequency.setTargetAtTime(900 + motorIntensity * 900, t, 0.18)
     motorGain!.gain.setTargetAtTime(level, t, 0.1)
   } catch {
     stopMotorHum()

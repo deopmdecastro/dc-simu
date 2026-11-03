@@ -569,7 +569,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   const instance = <group
     ref={rootRef}
     position={pivot}
-    userData={{ wireSurface: true, componentId: c.id, isComponentRoot: true, excludeFromCover: !isPanelBound(c) }}
+    userData={{ wireSurface: true, componentId: c.id, isComponentRoot: true }}
     onClick={(event) => { event.stopPropagation(); if (!connectionMode) onSelect(event.ctrlKey || event.metaKey || event.shiftKey) }}
     onPointerDown={startDrag}
     onPointerOver={() => { if (draggable) gl.domElement.style.cursor = 'grab' }}
@@ -2405,19 +2405,12 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
       const target = 1.6
       const fh = Math.min(1, aspect / target)
       const fw = Math.min(1, (fh * target) / aspect)
-      const cx = (b.minX + b.maxX) / 2
-      const cy = (b.minY + b.maxY) / 2
-      const halfTan = Math.tan((fov * Math.PI) / 360)
-      // Margem generosa na chapa para a capa não cortar bornes/etiquetas do painel.
-      const windowHeight = Math.max(b.maxY - b.minY, (b.maxX - b.minX) / target) * 1.18
-      const dist = windowHeight / fh / 2 / halfTan + 0.55
-      const cam = new THREE.PerspectiveCamera(fov, aspect, 0.05, 400)
-      cam.position.set(cx, cy, dist)
-      cam.lookAt(cx, cy, 0)
-      cam.updateMatrixWorld()
       // Esconde overlays de edição, grelhas e componentes fora da chapa (ex.: motor
       // à direita, que ficava cortado a meio no cartão do dashboard).
       const hidden: THREE.Object3D[] = []
+      // Enquadramento = tudo o que o projeto mostra (chapa, aparelhos fora dela como o motor e o
+      // multímetro, e os cabos inteiros), para a capa ser fiel ao que se vê no editor.
+      const box = new THREE.Box3(new THREE.Vector3(b.minX, b.minY, -0.5), new THREE.Vector3(b.maxX, b.maxY, 0.5))
       const scaled: Array<{ obj: THREE.Object3D; sx: number; sy: number; sz: number }> = []
       scene.traverse((o) => {
         if (!o.visible) return
@@ -2432,6 +2425,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
           return
         }
         // Cabos na capa: ligeiramente mais grossos para não desaparecerem no JPEG reduzido.
+        if (o.userData?.isComponentRoot) box.union(new THREE.Box3().setFromObject(o))
         const mesh = o as THREE.Mesh
         if (mesh.isMesh) {
           let node: THREE.Object3D | null = o
@@ -2441,12 +2435,23 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
             node = node.parent
           }
           if (isWire) {
+            box.expandByObject(o)
             scaled.push({ obj: o, sx: o.scale.x, sy: o.scale.y, sz: o.scale.z })
-            o.scale.set(o.scale.x * 1.55, o.scale.y * 1.55, o.scale.z * 1.55)
+            o.scale.set(o.scale.x * 1.2, o.scale.y * 1.2, o.scale.z * 1.2)
           }
         }
       })
       try {
+        // Janela 16:10 centrada no conjunto, com margem para não cortar bornes, etiquetas nem cabos.
+        const size = box.getSize(new THREE.Vector3())
+        const center = box.getCenter(new THREE.Vector3())
+        const halfTan = Math.tan((fov * Math.PI) / 360)
+        const windowHeight = Math.max(size.y, size.x / target) * 1.1
+        const dist = windowHeight / fh / 2 / halfTan + box.max.z + 0.1
+        const cam = new THREE.PerspectiveCamera(fov, aspect, 0.05, 400)
+        cam.position.set(center.x, center.y, dist)
+        cam.lookAt(center.x, center.y, 0)
+        cam.updateMatrixWorld()
         gl.render(scene, cam)
         const sw = src.width * fw, sh = src.height * fh
         // ≤640 px e JPEG 0,72: capa legível no cartão sem inflar o JSON nem a memória.
