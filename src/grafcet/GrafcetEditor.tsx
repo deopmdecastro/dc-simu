@@ -3430,14 +3430,23 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   const finishImportReview = async () => {
     const previous = useSimStore.getState().grafcet
-    const candidate = { ...previous, importReview: undefined }
+    // Textos livres do tipo «G0 <> X9» são legendas de guarda já representadas na transição.
+    // Ao concluir a revisão, remove-os para não poluir o desenho (o utilizador já tem a condição real).
+    const isGuardLabel = (value: string) => /^G\d+\s*(?:<>|<=>|==|=)\s*X\d+$/i.test(value.trim())
+    const comments = (previous.comments ?? []).filter((comment) => !isGuardLabel(comment.text || ''))
+    const removedGuards = (previous.comments?.length ?? 0) - comments.length
+    const candidate = { ...previous, importReview: undefined, comments }
     const pending = validateGrafcet(candidate).filter(issue => issue.level === 'error' || issue.id.endsWith(':dup'))
     if (pending.length) {
       await uiConfirm(`Corrija os pontos indicados antes de concluir a revisão:\n\n${pending.map(issue => issue.message).join('\n')}`, { title: 'Revisão da importação', confirmLabel: 'Voltar ao desenho', cancelLabel: 'Fechar' })
       return
     }
-    if (await uiConfirm('Confirma que reviu as referências entre gráficos, as condições e os qualificadores das ações? O GRAFCET passa a poder ser simulado e convertido em Ladder.', { title: 'Concluir revisão', confirmLabel: 'Concluir revisão', cancelLabel: 'Continuar a rever' }) && useSimStore.getState().grafcet === previous) {
+    const confirmMsg = removedGuards
+      ? `Confirma que reviu as referências entre gráficos, as condições e os qualificadores das ações?\n\nSerão removidos ${removedGuards} texto(s) livre(s) do tipo «G… <> X…» (já estão nas condições das transições). O GRAFCET passa a poder ser simulado e convertido em Ladder.`
+      : 'Confirma que reviu as referências entre gráficos, as condições e os qualificadores das ações? O GRAFCET passa a poder ser simulado e convertido em Ladder.'
+    if (await uiConfirm(confirmMsg, { title: 'Concluir revisão', confirmLabel: 'Concluir revisão', cancelLabel: 'Continuar a rever' }) && useSimStore.getState().grafcet === previous) {
       setGrafcet(candidate, 'force', 'grafcet:import-review')
+      if (removedGuards) notify(`${removedGuards} legenda(s) de guarda removida(s) do desenho`)
     }
   }
 
