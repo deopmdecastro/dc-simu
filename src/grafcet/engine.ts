@@ -367,8 +367,20 @@ function titleAt(titles: GraphTitle[], x: number, y: number): GraphTitle | undef
   return best
 }
 
+/** Cache por programa: o agrupamento só muda quando mudam as etapas, os textos ou as páginas
+ *  (o editor e a simulação criam objetos novos a cada alteração). */
+const stepGraphCache = new WeakMap<GrafcetProgram, { steps: GrafcetStep[]; comments?: GrafcetComment[]; charts?: GrafcetChart[]; map: Map<string, number> }>()
+
 /** Número do GRAFCET de cada etapa: pelo título `G<n> - …` da sua página ou, sem títulos, pela página. */
 export function stepGraphNumbers(program: GrafcetProgram): Map<string, number> {
+  const cached = stepGraphCache.get(program)
+  if (cached && cached.steps === program.steps && cached.comments === program.comments && cached.charts === program.charts) return cached.map
+  const map = computeStepGraphNumbers(program)
+  stepGraphCache.set(program, { steps: program.steps, comments: program.comments, charts: program.charts, map })
+  return map
+}
+
+function computeStepGraphNumbers(program: GrafcetProgram): Map<string, number> {
   const charts = program.charts ?? []
   const firstChart = charts[0]?.id ?? ''
   const titles = graphTitles(program)
@@ -831,6 +843,8 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
 
   const simTimeMs = (runtime.simTimeMs ?? 0) + dtMs
 
+  // Estado das etapas por GRAFCET no início do ciclo: igual para todas as transições.
+  const graphNumbersNow = graphStepNumbers(program, current)
   for (const transition of transitionsOf(program)) {
     const sourceTransition = !!transition.source && !transition.from.length
     if ((!transition.from.length && !sourceTransition) || !transition.to.length ||
@@ -846,7 +860,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       elapsedMs: sourceElapsed(transition, elapsed),
       stepElapsed: elapsed,
       stepElapsedByName,
-      ...stepNumberContext(steps, current, elapsed, graphStepNumbers(program, current)),
+      ...stepNumberContext(steps, current, elapsed, graphNumbersNow),
       simTimeMs,
     }
 
@@ -991,6 +1005,8 @@ export interface GrafcetIssue { id: string; message: string; level: GrafcetIssue
 
 /** Validação estrutural do programa: erros impedem a execução correta; avisos apontam más práticas. */
 export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
+  let knownCache: Record<string, Set<string>> | null = null
+  const knownStepsByGraph = () => (knownCache ??= graphStepNumbers(program).known)
   const steps = program.steps
   const transitions = transitionsOf(program)
   const issues: GrafcetIssue[] = []
@@ -1028,7 +1044,7 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     } else if (transition.guard?.trim() && !validCondition(transition.guard)) {
       issues.push({ id: `${transition.id}:guard`, level: 'error', message: `Condição de estado inválida em ${name}: «${transition.guard}».`, entityId: transition.id, tab: 'transitions' })
     } else {
-      const knownByGraph = graphStepNumbers(program).known
+      const knownByGraph = knownStepsByGraph()
       const existsHere = (num: string) => steps.some((s, i) => stepNumberOf(s, i) === num || s.name.trim() === num)
       // G<n>X<m> é lido na página n; sem página correspondente vale a numeração global.
       const missing = stepStateReferences(receptivityOf(transition)).filter((reference) => {

@@ -271,7 +271,8 @@ export function parseFluidSim4Text(text: string, mode: FluidSimImportMode = 'str
     // (entrada de emergência/reset). Não gerar aviso de «ligações incompletas» nesses casos.
     const isSourceStyle = !link.from.length && link.to.length === 1
     const isSinkStyle = link.from.length === 1 && !link.to.length
-    if (!isSourceStyle && !isSinkStyle && (link.from.length !== 1 || link.to.length !== 1)) {
+    // No modo estrito uma transição sem destino não pode ser importada como transição local.
+    if (!isSourceStyle && !(drawing && isSinkStyle) && (link.from.length !== 1 || link.to.length !== 1)) {
       review(`a transição ${links.indexOf(link) + 1} tem ligações incompletas ou uma sincronização ainda não suportada.`)
     }
     if (link.from.length === 1 && link.to.length === 1) joinSteps(link.from[0].index, link.to[0].index)

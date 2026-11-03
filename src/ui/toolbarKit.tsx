@@ -366,7 +366,7 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
 
 /* ---------------------------------------------------------------------------
    Controlo de transporte da simulação (Run / Pausa / Passo / Stop / Reiniciar)
-   Usado pelo SimulationDock (Esquema), GrafcetSimBar e, no futuro, Ladder.
+   Usado pelo SimulationDock (Esquema) e, no futuro, Ladder.
    --------------------------------------------------------------------------- */
 
 export type SimTransportProps = {

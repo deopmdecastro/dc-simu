@@ -21,11 +21,11 @@ export const MODEL_PATHS = {
   safetyRelayMsr127Tp: '/models/reles/allen-bradley-msr127tp.glb',
   plcLsXbmDn32s: '/models/controladores/ls-xbm-dn32s.glb',
   /** Siemens SIMATIC S7-1500 DI 32×24 V DC · 6ES7521-1BL00-0AB0 (STEP TraceParts → GLB). */
-  plcSiemensS71500Di32: '/models/controladores/siemens-s7-1500-di32-6es7521.glb',
+  plcSiemensS71500Di32: '/models/importados/plcSiemensS71500Di32.glb',
   /** Siemens SIMATIC S7-1500 CPU 1511C-1 PN · 6ES7511-1CK00-0AB0. */
-  plcSiemensS71500Cpu1511c: '/models/controladores/siemens-s7-1500-cpu1511c-6es7511.glb',
+  plcSiemensS71500Cpu1511c: '/models/importados/plcSiemensS71500Cpu1511c.glb',
   /** Siemens SIMATIC S7-300 CPU 315-2 DP. */
-  plcSiemensS7300Cpu315: '/models/controladores/siemens-s7-300-cpu315-2dp.glb',
+  plcSiemensS7300Cpu315: '/models/importados/plcSiemensS7300Cpu315.glb',
   siemensTsAdapterIeBasic: '/models/controladores/siemens-ts-adapter-ie-basic.glb',
   phoenixTerminalPti6: '/models/bornes-e-barras/phoenix-pti6-3213972.glb',
   terminalSet1ph: '/models/bornes-e-barras/conjunto-bornes-monofasico.glb',

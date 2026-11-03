@@ -9,7 +9,7 @@ Revisão remota inicial em 18/10/2026. A integração existia na interface, mas 
 - `main` atualizado por fast-forward para `00789fc`, igual a `origin/main` (232 commits recebidos).
 - O trabalho local anterior foi preservado no stash `bb34e2c`, com a mensagem `codex: backup local antes do pull n8n 2026-10-18`.
 - O stash não foi reaplicado: contém versões antigas de muitos ficheiros também alterados no remoto, além dos ajustes locais de ambiente Supabase. O ficheiro `.env`, ignorado pelo Git, permaneceu no disco.
-- O checkout usa sparse-checkout para excluir apenas dois ZIPs com `:` no nome, incompatíveis com Windows: as cópias de `ImageToStl.com_EC+1+12DC:1A+S-R+Electronic+circuit+breaker.glb.zip` em `public/models/acionamentos` e `dist/models/acionamentos`. Os ficheiros continuam no histórico remoto.
+- O checkout usava sparse-checkout para excluir ZIPs com `:` no nome, incompatíveis com Windows (`ImageToStl.com_EC+1+12DC:1A+S-R+Electronic+circuit+breaker.glb.zip`). Desde a auditoria de 03/11/2026 esses ZIPs de origem CAD (sem uso na aplicação) foram retirados de `public/`; continuam apenas no histórico, e o sparse-checkout deixou de ser necessário.
 
 ## O que o código fazia na revisão inicial (18/10/2026)
 
