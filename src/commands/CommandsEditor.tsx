@@ -38,6 +38,7 @@ import { WIRE_COLOR_HEX } from '../admin/editor3d/wireStyle'
 import { WIRE_COLORS } from '../schematic/symbols'
 import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
+import VariableTableOverlay from '../ui/VariableTableOverlay'
 import { COMMANDS_SHORTCUTS } from '../ui/shortcutLists'
 import { NOTE_COLORS } from '../ui/textStyle'
 import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
@@ -69,6 +70,12 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
   const stored = useSimStore((s) => s.commands) ?? emptyCommands()
   const gridStyle = useSimStore((s) => s.grid.style)
   // Pré-visualização durante um gesto (mover/arrastar troço): só vai para o histórico ao largar.
+  const [varTableOpen, setVarTableOpen] = useState(() => {
+    try { return localStorage.getItem('dcsimu:iec:var-table') === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('dcsimu:iec:var-table', varTableOpen ? '1' : '0') } catch { /* private */ }
+  }, [varTableOpen])
   const [preview, setPreview] = useState<CommandsDiagram | null>(null)
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
@@ -876,11 +883,21 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
           )
         })}
         {editable && (
-          <button type="button" className="dc-cmd-page-add" aria-label="Nova página" onClick={onAddPage} title="Nova página do esquema. Ligue a corrente entre páginas com o símbolo «Ligação entre páginas».">
-            <IconPlus size={12} /><span className="dc-cmd-page-add-label">Nova página</span>
-          </button>
+          <>
+            <button type="button" className="dc-cmd-page-add" aria-label="Nova página" onClick={onAddPage} title="Nova página do esquema. Ligue a corrente entre páginas com o símbolo «Ligação entre páginas».">
+              <IconPlus size={12} /><span className="dc-cmd-page-add-label">Nova página</span>
+            </button>
+            <button type="button" className="dc-cmd-page-add var-table-toggle" aria-pressed={varTableOpen} aria-label="Tabela de variáveis" title="Abrir tabela de variáveis flutuante" onClick={() => setVarTableOpen((v) => !v)}>
+              <IconTag size={12} /><span className="dc-cmd-page-add-label">Variáveis</span>
+            </button>
+          </>
         )}
       </div>
+        <VariableTableOverlay
+          open={varTableOpen}
+          onClose={() => setVarTableOpen(false)}
+          scope="iec"
+        />
         <div
           id={canvasId}
           ref={viewportRef}
