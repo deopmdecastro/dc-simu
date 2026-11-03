@@ -1,0 +1,181 @@
+/* Tabela de variáveis flutuante sobre o canvas (GRAFCET / Esquema IEC) */
+.vto-panel {
+  position: absolute;
+  z-index: 24;
+  width: min(420px, calc(100% - 24px));
+  max-height: min(520px, calc(100% - 48px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #c9d5e8;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  backdrop-filter: blur(8px);
+  color: #1e293b;
+  font-size: 12px;
+  overflow: hidden;
+  touch-action: none;
+}
+.vto-panel.is-collapsed { max-height: none; width: min(280px, calc(100% - 24px)); }
+.vto-panel.is-live { border-color: #86efac; }
+
+.vto-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #f8fafc, #eef2f7);
+  border-bottom: 1px solid #e2e8f0;
+  cursor: grab;
+  user-select: none;
+}
+.vto-header:active { cursor: grabbing; }
+.vto-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+}
+.vto-title strong { font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vto-title em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #64748b;
+}
+.vto-title em.is-on { background: #dcfce7; color: #166534; }
+.vto-header-actions { display: inline-flex; gap: 4px; flex-shrink: 0; }
+.vto-icon-btn {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #d0d7e2; border-radius: 7px;
+  background: #fff; color: #475569; cursor: pointer;
+}
+.vto-icon-btn:hover { border-color: #2563eb; color: #2563eb; }
+
+.vto-toolbar {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid #eef2f7;
+}
+.vto-filters { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.vto-filters button {
+  min-width: 28px; height: 26px; padding: 0 7px;
+  border: 1px solid #d6dde8; border-radius: 6px;
+  background: #fff; color: #475569; font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.vto-filters button.is-active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+.vto-search {
+  flex: 1 1 120px; min-width: 0; height: 28px;
+  padding: 0 8px; border: 1px solid #d0d7e2; border-radius: 7px;
+  background: #fff; font: inherit;
+}
+.vto-search:focus { outline: 2px solid #2563eb; outline-offset: 0; }
+
+.vto-table-wrap {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 80px;
+  max-height: 320px;
+  -webkit-overflow-scrolling: touch;
+}
+.vto-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.vto-table th, .vto-table td {
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1px solid #eef2f7;
+  vertical-align: middle;
+}
+.vto-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: #f8fafc;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: #64748b;
+}
+.vto-col-live { width: 44px; text-align: center !important; }
+.vto-table tr.is-active { background: #f0fdf4; }
+.vto-tag {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 999px;
+  border: 1px solid #cbd5e1; background: #f1f5f9;
+}
+.vto-tag i {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #94a3b8;
+}
+.vto-tag.is-on {
+  border-color: #16a34a; background: #dcfce7;
+}
+.vto-tag.is-on i {
+  background: #16a34a;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.vto-input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+.vto-input:hover, .vto-input:focus {
+  border-color: #cbd5e1;
+  background: #fff;
+}
+.vto-input:focus { outline: 2px solid #2563eb; outline-offset: 0; }
+.vto-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 600; }
+.vto-empty { text-align: center; color: #94a3b8; padding: 18px 10px !important; font-size: 12px; }
+
+.vto-footer {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid #eef2f7;
+  background: #fafbfc;
+}
+.vto-add { display: inline-flex; gap: 4px; }
+.vto-add-btn {
+  display: inline-flex; align-items: center; gap: 3px;
+  height: 28px; padding: 0 8px;
+  border: 1px solid #c9d8f4; border-radius: 7px;
+  background: #fff; color: #1d4ed8; font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.vto-add-btn:hover { background: #eff6ff; }
+.vto-import { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+
+@media (max-width: 743px) {
+  .vto-panel {
+    width: min(100% - 16px, 400px);
+    max-height: min(48vh, 420px);
+    border-radius: 10px;
+  }
+  .vto-table th:nth-child(4), .vto-table td:nth-child(4) { display: none; }
+  .vto-header { padding: 10px; }
+  .vto-icon-btn { width: 36px; height: 36px; }
+  .vto-filters button, .vto-add-btn { min-height: 36px; }
+}
+
+
+/* Contentores dos editores: a tabela é position:absolute relativamente a estes. */
+.grafcet-canvas-col,
+.dc-cmd-main {
+  position: relative;
+}
+.dc-cmd-page-add.var-table-toggle[aria-pressed="true"] {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
