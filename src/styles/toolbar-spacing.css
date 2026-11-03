@@ -427,3 +427,83 @@ html[data-tablet="true"] .dc-toolbar-main .dc-transport-tools {
   flex: none;
   margin-inline-start: 0;
 }
+
+/* ---------------------------------------------------------------------------
+   2026-11-03 — «Dois canvas» sempre visível no tablet + gaps de barra em todas as telas
+   (reaproveita as classes da 1.ª linha: .dc-project-file-tools, .dc-views-container,
+   .dc-transport-tools; ver Task-2026-11-03-Tablet-Dois-Canvas-Icones-Gaps no cofre)
+--------------------------------------------------------------------------- */
+
+/* Tokens de respiração: entre botões do mesmo grupo e entre grupos. Um só sítio para todas as barras. */
+:root { --tb-gap-item: 8px; --tb-gap-group: 16px; --tb-edge: 16px; }
+@media (max-width: 1100px) { :root { --tb-gap-item: 7px; --tb-gap-group: 14px; --tb-edge: 14px; } }
+@media (max-width: 700px)  { :root { --tb-gap-item: 6px; --tb-gap-group: 12px; --tb-edge: 12px; } }
+
+:root { --toolbar-gap: var(--tb-gap-group); --toolbar-seg-gap: var(--tb-gap-item); }
+
+/* Entre grupos / módulos (linha 1, linha 2, Ladder, GRAFCET). */
+.dc-toolbar-main,
+.dc-toolbar-row2,
+.ladder-editor-toolbar,
+.dc-grafcet-toolbar { gap: var(--tb-gap-group); column-gap: var(--tb-gap-group); }
+.dc-toolbar-shell .dc-toolbar-main,
+.dc-toolbar-shell .dc-toolbar-row2,
+.ladder-editor-toolbar,
+.dc-grafcet-toolbar {
+  padding-inline: max(var(--tb-edge), env(safe-area-inset-left, 0px)) max(var(--tb-edge), env(safe-area-inset-right, 0px)) !important;
+}
+/* Quando a 1.ª linha quebra (janela < 1100 px) as linhas também respiram na vertical. */
+.dc-toolbar-main { row-gap: 8px; }
+
+/* Entre botões do mesmo grupo. */
+.dc-seg { gap: var(--tb-gap-item); }
+.dc-project-file-tools,
+.dc-transport-tools { gap: var(--tb-gap-item); }
+.dc-project-file-tools > [role="group"] { gap: var(--tb-gap-item); padding: 5px; }
+.dc-project-file-tools > [role="group"] > button { padding-inline: 10px; }
+.dc-views-container [role="tablist"] { gap: var(--tb-gap-item); padding: 5px; }
+.dc-views-container > [role="tablist"] + button { margin-left: calc(var(--tb-gap-item) + 2px); }
+.dc-tool-inline { gap: var(--tb-gap-item); }
+.sim-transport { gap: var(--tb-gap-item); }
+.tb-sep { margin-inline: calc(var(--tb-gap-item) / 2); }
+
+/* Tablet: módulos (vistas) e Projeto só com ícone; o nome fica no título e no aria-label.
+   Os botões ficam com alvo de toque de 38 px e o grupo das vistas nunca é encolhido nem
+   deslizado por dentro — assim «Dois canvas» deixa de ficar escondido. */
+html[data-tablet="true"] .dc-toolbar-main .dc-views-container {
+  flex: 1 0 auto;
+  min-width: max-content;
+  overflow: visible !important;
+  justify-content: center;
+}
+html[data-tablet="true"] .dc-views-container [role="tablist"] { flex: none; }
+html[data-tablet="true"] .dc-views-container [role="tab"] {
+  height: 38px;
+  min-width: 42px;
+  justify-content: center;
+  padding-inline: 10px !important;
+  gap: 0;
+}
+html[data-tablet="true"] .dc-views-container .dc-view-label,
+html[data-tablet="true"] .dc-views-container [role="tab"] > span:not(.dc-diag-tag):not([class*="diag"]) { display: none !important; }
+html[data-tablet="true"] .dc-views-container > button[aria-pressed] {
+  flex: none;
+  height: 38px;
+  min-width: 42px;
+  justify-content: center;
+  padding-inline: 10px;
+}
+html[data-tablet="true"] .dc-views-container > button[aria-pressed] > span[class*="lg:inline"] { display: none !important; }
+
+html[data-tablet="true"] .dc-project-file-tools button {
+  min-width: 38px;
+  min-height: 38px;
+  justify-content: center;
+}
+html[data-tablet="true"] .dc-project-file-tools button > span[class*="xl:inline"] { display: none !important; }
+
+/* Cartão do simulador (transporte + estado): só ícones nos botões, o selo de estado mantém o texto. */
+html[data-tablet="true"] .dc-transport-tools { flex: none; }
+html[data-tablet="true"] .dc-transport-tools button > span[class*="lg:inline"],
+html[data-tablet="true"] .dc-transport-tools button > span[class*="sm:inline"] { display: none !important; }
+html[data-tablet="true"] .dc-transport-tools .dc-seg { padding: 4px; }
