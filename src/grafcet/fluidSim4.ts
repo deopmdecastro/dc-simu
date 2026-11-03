@@ -398,9 +398,12 @@ export function parseFluidSim4Text(text: string, mode: FluidSimImportMode = 'str
     if (!actionFlags.includes(flags)) review('ação memorizada, de evento ou de forçagem ainda não suportada.')
     if (o.props.get('ACTION')?.trim() || o.props.get('ACTION_SUB_GRAPH')?.trim() || o.props.get('ACTION_STEPS')?.trim()) review('ação memorizada, de evento ou de forçagem ainda não suportada.')
     const original = (o.props.get('VAR') || o.props.get('ACTION_DESCR') || '').trim()
-    const variable = drawing ? original : normalizeFluidSimVariable(original)
+    // Sempre normalizar para o motor (mesmo em modo desenho): «Y7_E+_Vacuo_On»
+    // tem «+» no meio e falha validGrafcetVariable; o normalizador preserva só o
+    // sufixo pneumático final e troca o resto de caracteres especiais por «_».
+    const variable = normalizeFluidSimVariable(original)
     if (!validGrafcetVariable(variable)) review(`variável de ação inválida: ${original || '(vazia)'}.`)
-    if (variable !== original.replace(/^%/, '')) warnings.push(`A variável de ação «${original}» foi convertida para «${variable}» (formato aceite pelo simulador).`)
+    if (original && variable !== original.replace(/^%/, '')) warnings.push(`A variável de ação «${original}» foi convertida para «${variable}» (formato aceite pelo simulador).`)
     const conditional = !!(flags & 0x40)
     const group = find(port(index, 4))
     const owners = nativeSteps.filter(s => find(port(s.index, 3)) === group)
