@@ -321,3 +321,64 @@
 .dc-toolbar-shell .dc-toolbar-row2 {
   padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)) !important;
 }
+
+/* tablet toolbar modules 2026-11-03 — mais espaço entre módulos, sem scroll visível */
+html[data-tablet="true"] .dc-toolbar-main,
+html[data-tablet="true"] .dc-toolbar-row2,
+html[data-tablet="true"] .dc-grafcet-toolbar {
+  gap: 14px !important;
+  column-gap: 14px !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+html[data-tablet="true"] .dc-toolbar-main::-webkit-scrollbar,
+html[data-tablet="true"] .dc-toolbar-row2::-webkit-scrollbar,
+html[data-tablet="true"] .dc-grafcet-toolbar::-webkit-scrollbar {
+  display: none !important;
+  height: 0 !important;
+  width: 0 !important;
+}
+html[data-tablet="true"] .dc-toolbar-main > *,
+html[data-tablet="true"] .dc-toolbar-row2 > * {
+  margin-inline: 1px;
+}
+html[data-tablet="true"] .dc-seg {
+  gap: 4px;
+  padding: 4px;
+}
+html[data-tablet="true"] .dc-project-file-tools,
+html[data-tablet="true"] .dc-views-container,
+html[data-tablet="true"] .dc-transport-tools {
+  gap: 10px;
+}
+html[data-tablet="true"] .dc-views-container {
+  overflow-x: visible !important;
+  scrollbar-width: none !important;
+}
+html[data-tablet="true"] .dc-views-container::-webkit-scrollbar {
+  display: none !important;
+  height: 0 !important;
+}
+html[data-tablet="true"] .dc-toolbar-main .dc-tool-btn,
+html[data-tablet="true"] .dc-toolbar-row2 .dc-tool-btn {
+  margin-inline: 1px;
+}
+/* PC estreito / janela <1200: também esconder barra entre módulos de vistas */
+.dc-toolbar-main,
+.dc-toolbar-row2 {
+  scrollbar-width: none;
+}
+.dc-toolbar-main::-webkit-scrollbar,
+.dc-toolbar-row2::-webkit-scrollbar {
+  display: none;
+  height: 0;
+}
+.toolbar-scroll {
+  scrollbar-width: none !important;
+}
+.toolbar-scroll::-webkit-scrollbar {
+  display: none !important;
+  height: 0 !important;
+}

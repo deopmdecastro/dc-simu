@@ -1804,8 +1804,13 @@ button:disabled { cursor:not-allowed; }
 ::selection { background:#bfdbfe; color:#162d52; }
 .dc-workspace { background:#f5f7fb; }
 .dc-toolbar-main { background:linear-gradient(180deg,#fff 0%,#f8faff 100%); }
-.dc-views-container { overflow-x:auto; scrollbar-width:thin; }
-.dc-views-container [role='tablist'] { flex-shrink:0; }
+.dc-views-container { overflow-x: visible; scrollbar-width: none; }
+.dc-views-container [role='tablist'] { flex-shrink: 0; display: inline-flex; gap: 4px; }
+/* Só em ecrãs muito estreitos (telemóvel) o seletor de vistas pode rolar — sem barra visível. */
+@media (max-width: 767px) {
+  .dc-views-container { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .dc-views-container::-webkit-scrollbar { display: none; height: 0; }
+}
 .dc-dock-close { position:absolute; z-index:10; top:5px; right:5px; width:23px; height:23px; border-radius:6px; background:#fff; color:#5f6b78; border:1px solid #dfe4e9; box-shadow:0 1px 3px #10161d0f; transition:all .12s ease; }
 .dc-dock-close:hover,.dc-dock-collapse:hover { color:#1a44c8; background:#edf2fe; border-color:#c9d8fb; }
 .dc-dock-collapse { align-self:flex-end; flex:none; width:28px; height:27px; border-radius:0 0 0 8px; background:#f5f7f9; color:#5f6b78; transition:all .12s ease; }
