@@ -6115,9 +6115,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           return <div className="grafcet-textbar-slot" onPointerDown={(event) => { if (!(event.target as HTMLElement).closest('input, select, textarea, [contenteditable]')) event.preventDefault() }}>
             <TextStyleBar style={commentStyle(comment)} unit="px"
               onChange={(patch) => patchComment(comment.id, styleToComment(patch))}
-              onEdit={() => setEditingCommentId(comment.id)}
+              onEdit={() => (phone ? setTextDialogId(comment.id) : setEditingCommentId(comment.id))}
               onDelete={() => removeComment(comment.id)}
-              onDone={() => { setSelectedCommentId(null); setEditingCommentId(null) }} />
+              onDone={() => { setSelectedCommentId(null); setEditingCommentId(null); setTextDialogId(null) }} />
           </div>
         })()}
         {full && !phone && !propsAtBottom && !wideDesktop && (
