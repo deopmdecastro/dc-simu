@@ -570,11 +570,11 @@ export function wireBodyPoints3D(
   }
 
   if (smooth && controls.length > 2) {
-    const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.5)
-    return keepInFrontOfPlate(curve.getPoints(Math.max(32, controls.length * 16)).map(arr), outerMm)
+    const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.28)
+    return keepInFrontOfPlate(curve.getPoints(Math.max(64, controls.length * 28)).map(arr), outerMm)
   }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
-  const radiusFactor = wire.flexibility === 'flexible' ? 10.5 : 8.2
+  const radiusFactor = wire.flexibility === 'flexible' ? 13.5 : 10.0
   return keepInFrontOfPlate(roundCorners(controls, outerMm, radiusFactor), outerMm)
 }
 
@@ -820,7 +820,7 @@ export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6):
  * vértices que viram mais de ~17°; cada arco usa no máximo 45 % de cada segmento vizinho, por isso
  * os extremos e o troço reto alinhado com a ponteira mantêm-se.
  */
-export function smoothSharpCorners(points: V3[], outerMm: number, minTurn = 0.3): V3[] {
+export function smoothSharpCorners(points: V3[], outerMm: number, minTurn = 0.22): V3[] {
   if (points.length < 3) return points
   const radius = Math.max(outerMm * 4.5, 12) * U
   const out: V3[] = [points[0]]
@@ -838,7 +838,7 @@ export function smoothSharpCorners(points: V3[], outerMm: number, minTurn = 0.3)
     const start = corner.clone().addScaledVector(a.normalize(), cut)
     const end = corner.clone().addScaledVector(b.normalize(), cut)
     // Bézier quadrática com o canto como controlo: tangente contínua nos dois lados.
-    const steps = Math.max(6, Math.ceil(turn / 0.09))
+    const steps = Math.max(8, Math.ceil(turn / 0.07))
     for (let k = 0; k <= steps; k++) {
       const t = k / steps
       const p = start.clone().multiplyScalar((1 - t) * (1 - t)).addScaledVector(corner, 2 * (1 - t) * t).addScaledVector(end, t * t)

@@ -1701,7 +1701,7 @@ function DragHandle3D({ position, onPress, onLive, onCommit, snap, onDoubleClick
     let last: V3 = position
     if (controls) controls.enabled = false
     const move = (e: PointerEvent) => {
-      if (!moved && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return
+      if (!moved && Math.hypot(e.clientX - startX, e.clientY - startY) < 2.5) return
       moved = true
       const hit = hitAt(e.clientX, e.clientY)
       if (!hit) return
@@ -1732,8 +1732,8 @@ function DragHandle3D({ position, onPress, onLive, onCommit, snap, onDoubleClick
     onClick={(event) => event.stopPropagation()}
     onDoubleClick={onDoubleClick ? (event) => { event.stopPropagation(); onDoubleClick() } : undefined}>
     {children}
-    {/* área de captura generosa, invisível */}
-    <mesh><sphereGeometry args={[0.12, 12, 12]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+    {/* área de captura generosa (tablet/toque), invisível */}
+    <mesh><sphereGeometry args={[0.22, 12, 12]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
   </group>
 }
 
@@ -1747,7 +1747,7 @@ function EditableWireWaypoint3D({ point, index, active, onSelect, onLive, onComm
   onRemove: (index: number) => void
 }) {
   return <DragHandle3D position={point} onPress={() => onSelect(index)} onLive={(next) => onLive(index, next)} onCommit={(next) => onCommit(index, next)} onDoubleClick={() => onRemove(index)}>
-    <mesh renderOrder={32}><sphereGeometry args={[active ? 0.075 : 0.058, 18, 18]} /><meshStandardMaterial color={active ? '#2563eb' : '#ffffff'} emissive={active ? '#1d4ed8' : '#64748b'} emissiveIntensity={active ? 0.65 : 0.18} depthTest={false} /></mesh>
+    <mesh renderOrder={32}><sphereGeometry args={[active ? 0.095 : 0.072, 18, 18]} /><meshStandardMaterial color={active ? '#2563eb' : '#ffffff'} emissive={active ? '#1d4ed8' : '#64748b'} emissiveIntensity={active ? 0.75 : 0.28} depthTest={false} /></mesh>
     <Text position={[0, 0.1, 0]} fontSize={0.052} color="#1e3a8a" anchorX="center" anchorY="bottom" depthOffset={-4} raycast={() => null}>{index + 1}</Text>
   </DragHandle3D>
 }
@@ -1766,7 +1766,7 @@ function EditableWireEnd3D({ side, point, free, active, label, onSelect, onLive,
   /** Pinça/sonda do multímetro: pega maior e mais visível para arrastar. */
   probe?: boolean
 }) {
-  const size = probe ? (active ? 0.12 : 0.095) : (active ? 0.085 : 0.065)
+  const size = probe ? (active ? 0.13 : 0.105) : (active ? 0.1 : 0.078)
   return <DragHandle3D position={point} onPress={() => onSelect(side)} onLive={(next) => onLive(side, next)} onCommit={(next) => onCommit(side, next)} snap={snap}>
     <mesh renderOrder={33}><octahedronGeometry args={[size, 0]} /><meshStandardMaterial color={active ? '#f59e0b' : free ? '#16a34a' : probe ? '#38bdf8' : '#ffffff'} emissive={active ? '#b45309' : free ? '#15803d' : probe ? '#0284c7' : '#475569'} emissiveIntensity={active ? 0.7 : probe ? 0.45 : 0.3} depthTest={false} /></mesh>
     <Text position={[0, probe ? 0.14 : 0.12, 0]} fontSize={probe ? 0.06 : 0.055} color="#7c2d12" anchorX="center" anchorY="bottom" depthOffset={-4} raycast={() => null}>{label}</Text>
@@ -1989,7 +1989,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
           const onCable = closestPointOnPolyline(points, hit)
           handlers.onInsertWaypoint(wire.id, waypointInsertIndex(chain, onCable), toSpatial(onCable))
         }}>
-        <tubeGeometry args={[curve, Math.min(96, segments), Math.max(0.04, radius * 2.5), 8, false]} />
+        <tubeGeometry args={[curve, Math.min(128, segments), Math.max(0.055, radius * 4.2), 8, false]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
       {/* Clicar na terminação (pinça, ficha, ponteira) seleciona o cabo, como clicar no próprio cabo. */}
