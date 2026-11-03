@@ -16,7 +16,7 @@ import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
 import { editorGridBackground, editorGridPitch } from '../ui/editorTheme'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
-import { IconCommands, IconExample, IconImport, IconPlus, IconTemplates } from '../ui/icons'
+import { IconCommands, IconExample, IconImport, IconPlus, IconTag, IconTemplates } from '../ui/icons'
 import { InlineName } from '../ui/InlineName'
 import {
   CMD_GRID, CMD_PARTS, LOGO_OUTPUTS, S71500_CPU_OUTPUTS, emptyCommands, partBox, partTerminals, snap, terminalAt, terminalLabel, wirePoints,
