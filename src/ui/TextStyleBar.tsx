@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { CanvasTextStyle } from '../types'
 import { IconBold, IconChevronDown, IconClose, IconDelete, IconItalic, IconAlignLeft, IconAlignRight, IconTextCenter, IconUnderline, IconText, IconCheck } from './icons'
 import { TEXT_COLORS, TEXT_FONTS, fontStack } from './textStyle'
+import { useNarrowMenu } from './toolbarKit'
+import { PHONE_TOUCH_QUERY } from './device'
 
 /**
  * Barra de formatação dos textos livres (Esquema/3D e GRAFCET), ao estilo dos
@@ -28,6 +30,9 @@ export default function TextStyleBar({ style, unit, onChange, onDelete, onDone, 
   const [rotationDraft, setRotationDraft] = useState(String(Math.round(rotation ?? 0)))
   const [widthDraft, setWidthDraft] = useState(width == null ? '' : String(width))
   const ref = useRef<HTMLDivElement>(null)
+  // Telemóvel: uma só linha (Editar · Formatar · Apagar · Concluir) para não tapar o texto selecionado; a formatação abre a pedido.
+  const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
+  const [formatOpen, setFormatOpen] = useState(false)
   const steps = unit === 'mm' ? [4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 50, 64, 80, 100] : [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 36, 48]
   const min = steps[0], max = steps[steps.length - 1]
   const bump = (direction: 1 | -1) => {
@@ -50,12 +55,23 @@ export default function TextStyleBar({ style, unit, onChange, onDelete, onDone, 
   const hasLayout = !!(onRotationChange || onWidthChange)
   const closePopovers = () => { setFontsOpen(false); setColorsOpen(false); setLayoutOpen(false) }
 
+  if (phone && !formatOpen) {
+    return <div ref={ref} className="txb is-compact" role="toolbar" aria-label="Texto selecionado" onPointerDown={(event) => event.stopPropagation()}>
+      {onEdit && <button type="button" className="txb-text-btn is-primary" onClick={onEdit}><IconText size={14} /><span>Editar texto</span></button>}
+      <button type="button" className="txb-text-btn" onClick={() => setFormatOpen(true)} aria-label="Formatar texto"><span>Formatar</span><IconChevronDown size={10} /></button>
+      <button type="button" className="txb-icon is-danger" onClick={onDelete} aria-label="Eliminar texto"><IconDelete size={14} /></button>
+      <button type="button" className="txb-icon" onClick={onDone} aria-label="Concluir"><IconClose size={14} /></button>
+    </div>
+  }
+
   return <div ref={ref} className="txb" role="toolbar" aria-label="Formatação e propriedades do texto" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => {
     if (event.key !== 'Escape') return
     if (fontsOpen || colorsOpen || layoutOpen) closePopovers()
     else onDone()
   }}>
-    <span className="txb-badge" aria-hidden="true"><IconText size={12} /></span>
+    {phone
+      ? <button type="button" className="txb-badge" onClick={() => setFormatOpen(false)} aria-label="Recolher formatação" title="Recolher"><IconText size={12} /></button>
+      : <span className="txb-badge" aria-hidden="true"><IconText size={12} /></span>}
     <div className="txb-pop-wrap">
       <button type="button" className="txb-font" aria-haspopup="listbox" aria-expanded={fontsOpen} onClick={() => { setFontsOpen((open) => !open); setColorsOpen(false); setLayoutOpen(false) }} style={{ fontFamily: font.stack }} title="Tipo de letra">
         {font.label}<IconChevronDown size={10} />

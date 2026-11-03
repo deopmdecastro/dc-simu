@@ -528,3 +528,9 @@
   .schematic-sim-dock-phone > .dc-dock-tabs { padding: 0 0 8px; border-bottom: 1px solid var(--pn-line-soft); }
   .schematic-sim-dock-phone .sim-embed-bar { display: none; }
 }
+
+/* Telemóvel (toque): zonas de toque maiores nas ligações do GRAFCET e sem dicas de teclado nos diálogos */
+@media (pointer: coarse) and (max-width: 743px) {
+  .grafcet-canvas .grafcet-graph-link path[stroke="transparent"] { stroke-width: 30px; }
+  .grafcet-property-footer-hint { display: none; }
+}

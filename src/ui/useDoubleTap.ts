@@ -19,7 +19,7 @@ export interface DoubleTapOptions {
   slop?: number
 }
 
-export const DOUBLE_TAP_INTERVAL = 350
+export const DOUBLE_TAP_INTERVAL = 450
 export const DOUBLE_TAP_SLOP = 12
 
 /**
@@ -30,13 +30,15 @@ export function bindDoubleTap(el: HTMLElement, getOptions: () => DoubleTapOption
   const down = new Map<number, { x: number; y: number; t: number; key: string | null }>()
   let last: { key: string; x: number; y: number; t: number } | null = null
   let multi = false
-  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+  const fallback = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+  // Hora real do toque (não a de execução do handler): num diagrama grande o 1.º toque faz render e atrasa o 2.º handler.
+  const clock = (e: PointerEvent) => (Number.isFinite(e.timeStamp) && e.timeStamp > 0 ? e.timeStamp : fallback())
 
   const onDown = (e: PointerEvent) => {
     if (e.pointerType === 'mouse') return
     if (down.size >= 1) multi = true // 2.º dedo: é pinça, não toque
     const target = e.target instanceof Element ? e.target : null
-    down.set(e.pointerId, { x: e.clientX, y: e.clientY, t: clock(), key: target ? getOptions().resolve(target) : null })
+    down.set(e.pointerId, { x: e.clientX, y: e.clientY, t: clock(e), key: target ? getOptions().resolve(target) : null })
   }
   const onUp = (e: PointerEvent) => {
     const start = down.get(e.pointerId)
@@ -47,7 +49,7 @@ export function bindDoubleTap(el: HTMLElement, getOptions: () => DoubleTapOption
     const interval = opts.interval ?? DOUBLE_TAP_INTERVAL
     const wasMulti = multi
     if (!down.size) multi = false
-    const now = clock()
+    const now = clock(e)
     const clean = !wasMulti && Math.hypot(e.clientX - start.x, e.clientY - start.y) <= slop && now - start.t < 500
     if (!clean || !start.key) { last = null; return }
     if (last && last.key === start.key && now - last.t <= interval && Math.hypot(e.clientX - last.x, e.clientY - last.y) <= slop * 3) {

@@ -199,3 +199,13 @@
 
 .grafcet-notes-layer { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
 .grafcet-note-anchor { position: absolute; pointer-events: auto; }
+
+/* Telemóvel: barra do texto numa só linha, alvos de 40 px, sem tapar o canvas */
+.txb.is-compact { flex-wrap: nowrap; gap: 6px; padding: 4px; }
+.txb.is-compact button { height: 40px; min-width: 40px; font-size: 13px; }
+.txb.is-compact .txb-text-btn.is-primary { background: var(--pn-brand, #2655e5); color: #fff; }
+.txb.is-compact .txb-text-btn.is-primary:hover:not(:disabled) { background: var(--pn-brand, #2655e5); color: #fff; }
+@media (pointer: coarse) and (max-width: 743px) {
+  .grafcet-textbar-slot { top: 6px; left: 6px; right: 6px; }
+  .txb:not(.is-compact) button { height: 38px; min-width: 38px; }
+}

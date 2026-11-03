@@ -8,7 +8,7 @@ const g = globalThis as any
 g.window = dom.window; g.Element = dom.window.Element
 g.PointerEvent = class extends dom.window.Event {
   pointerId: number; pointerType: string; clientX: number; clientY: number
-  constructor(t: string, i: any = {}) { super(t, { bubbles: !!i.bubbles, cancelable: true }); this.pointerId = i.pointerId; this.pointerType = i.pointerType; this.clientX = i.clientX ?? 0; this.clientY = i.clientY ?? 0 }
+  constructor(t: string, i: any = {}) { super(t, { bubbles: !!i.bubbles, cancelable: true }); Object.defineProperty(this, 'timeStamp', { value: i.timeStamp ?? now }); this.pointerId = i.pointerId; this.pointerType = i.pointerType; this.clientX = i.clientX ?? 0; this.clientY = i.clientY ?? 0 }
 }
 let now = 1000
 g.performance = { now: () => now }
@@ -29,7 +29,7 @@ bindDoubleTap(c as any, () => ({
   onDoubleTap: (k) => fired.push(k),
 }))
 
-const ptr = (type: string, el: Element, id = 1, x = 100, y = 100, pointerType = 'touch') => el.dispatchEvent(new g.PointerEvent(type, { pointerId: id, pointerType, clientX: x, clientY: y, bubbles: true }))
+const ptr = (type: string, el: Element, id = 1, x = 100, y = 100, pointerType = 'touch', timeStamp?: number) => el.dispatchEvent(new g.PointerEvent(type, { pointerId: id, pointerType, clientX: x, clientY: y, bubbles: true, timeStamp }))
 const tap = (el: Element, dt = 0, x = 100, y = 100, id = 1, pointerType = 'touch') => { now += dt; ptr('pointerdown', el, id, x, y, pointerType); now += 60; ptr('pointerup', el, id, x, y, pointerType) }
 const reset = () => { fired.length = 0; now += 2000 }
 
@@ -52,6 +52,12 @@ reset()
 // Arrasto: o 1.º «toque» moveu-se 40 px → é arrasto, não toque.
 ptr('pointerdown', $('box'), 1, 100, 100); now += 80; ptr('pointerup', $('box'), 1, 140, 100)
 tap($('box'), 100); check(fired.length === 0, 'um arrasto seguido de um toque não abre a modal')
+reset()
+
+// Render lento do 1.º toque: os handlers correm 800 ms depois, mas o toque real foi há 150 ms → conta.
+{ const t0 = now + 5000; ptr('pointerdown', $('box'), 1, 100, 100, 'touch', t0); ptr('pointerup', $('box'), 1, 100, 100, 'touch', t0 + 60)
+  ptr('pointerdown', $('box'), 1, 100, 100, 'touch', t0 + 210); now += 800; ptr('pointerup', $('box'), 1, 100, 100, 'touch', t0 + 270)
+  check(fired.join() === 'step:S1', 'handlers atrasados por render pesado não anulam o duplo toque (usa a hora real do toque)') }
 reset()
 
 tap($('empty')); tap($('empty'), 100); check(fired.length === 0, 'fundo/elementos sem chave não abrem nada')
