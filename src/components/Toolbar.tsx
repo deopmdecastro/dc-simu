@@ -39,7 +39,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconUnlock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconDelete, IconRotate, IconMore, IconText, IconNote, IconCompare,
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconDelete, IconRotate, IconMore, IconText, IconNote, IconCompare, IconSwap,
 } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
@@ -605,6 +605,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     ...(ladderSync !== 'none' ? [{ id: 'auto-sync', label: 'Sincronização automática', icon: <IconLink size={15} />, pressed: grafcetAutoSync, onSelect: () => useGrafcetUi.getState().toggleAutoSync() }] : []),
     { id: 'export-svg', label: 'Exportar SVG', icon: <IconDownload size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportSvg') },
     { id: 'export-grafcet', label: 'Exportar GRAFCET JSON', icon: <IconDownload size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportJson') },
+    { id: 'text-guards', label: 'Textos → condições', hint: 'Converte «G4 <> X159» em condição da transição', icon: <IconSwap size={15} />, onSelect: () => useGrafcetUi.getState().emit('convertTextGuards') },
     { id: 'import-grafcet', label: 'Importar GRAFCET', hint: 'FluidSIM 4 (.ct), JSON ou .grafcet', icon: <IconImport size={15} />, onSelect: () => useGrafcetUi.getState().emit('importJson') },
   ] }] : []
   const annotationItems = [

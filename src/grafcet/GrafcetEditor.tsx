@@ -38,6 +38,8 @@ import {
 import StepDialog from './StepDialog'
 import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
+import TextGuardsDialog from './TextGuardsDialog'
+import { applyTextGuards, removeTextGuardComments, scanTextGuards } from './textGuards'
 import ImportReviewBanner from './ImportReviewBanner'
 import HintCard, { Keys } from './HintCard'
 import ConditionEditor from './ConditionEditor'
@@ -419,6 +421,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const [signalsOpen, setSignalsOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [textGuardsOpen, setTextGuardsOpen] = useState(false)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const openLadderTimer = useRef<number | undefined>(undefined)
@@ -3724,6 +3727,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         case 'importJson':
           setImportOpen(true)
           break
+        case 'convertTextGuards':
+          setTextGuardsOpen(true)
+          break
         case 'restart':
           useSimStore.getState().restartGrafcet()
           notify('Sequência reiniciada nas etapas iniciais')
@@ -6916,6 +6922,23 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           else patchFreeAction(editingAction.action, patch, 'force')
         }}
         onClose={() => setEditingAction(null)}
+      />
+
+      <TextGuardsDialog
+        open={textGuardsOpen}
+        program={program}
+        onApply={() => {
+          const { matches } = scanTextGuards(program)
+          const pending = matches.filter((match) => !match.applied)
+          setGrafcet(applyTextGuards(program, pending), 'force', 'grafcet:text-guards:apply')
+          notify(`${pending.length} condição(ões) aplicada(s) — confira antes de remover os textos`)
+        }}
+        onRemove={(ids) => {
+          setGrafcet(removeTextGuardComments(program, ids), 'force', 'grafcet:text-guards:remove')
+          notify(`${ids.length} texto(s) removido(s)`)
+          setTextGuardsOpen(false)
+        }}
+        onClose={() => setTextGuardsOpen(false)}
       />
 
       <GrafcetShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />

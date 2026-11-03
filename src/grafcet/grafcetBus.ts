@@ -35,6 +35,7 @@ export type GrafcetBusAction =
   | 'exportSvg'
   | 'exportJson'
   | 'importJson'
+  | 'convertTextGuards'
   | 'restart'
   | 'zoomIn'
   | 'zoomOut'
