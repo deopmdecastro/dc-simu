@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { loadModelMm } from './detect-interfaces'
+import { getComponentModelSpec } from '../src/three/modelPaths'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
 import { importedComponentInfo } from '../src/electrical/importedComponents'
 import { createComponent, terminalByLabel } from '../src/electrical/factory'
@@ -17,6 +18,8 @@ const terminal = (id: string, position: Vec3, normal: Vec3, diameterMm: number, 
 
 let seated = 0, holesTested = 0, fixed = 0
 for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
+  // Tipos desenhados por código (torre genérica, sensores) não têm CAD: nada a medir.
+  if (!getComponentModelSpec(type)) { console.log(`PASS — ${type}: procedural, sem CAD a verificar`); continue }
   const model = await loadModelMm(type)
   assert.ok(model, `${type}: GLB em falta`)
   const { root, box } = model
@@ -72,5 +75,5 @@ assert.equal(measureSeat(plain, [0, 0, 10], [0, 0, 1], 4).status, 'surface', 'fa
 assert.equal(measureSeat(plain, [0, 0, 6], [0, 0, 1], 4).status, 'buried', 'ponto atrás da face devia dar «buried»')
 assert.equal(measureSeat(plain, [80, 80, 10], [0, 0, 1], 4).status, 'floating', 'fora do modelo devia dar «floating»')
 
-assert.equal(seated, 199, 'Cobertura incompleta: 142 bornes anteriores, 20 encaixes calibrados, 32 parafusos medidos nos CAD importados e os 5 do motor monofásico')
+assert.equal(seated, 200, 'Cobertura incompleta: 142 bornes anteriores, 20 encaixes calibrados, 33 parafusos medidos nos CAD importados (inclui a passagem A2 do relé térmico 3RU1116) e os 5 do motor monofásico')
 console.log(`PASS — ${seated} bornes integrados confirmados dentro das cavidades; ${fixed} correções «boca → cavidade»; ${holesTested} bornes criados a partir de furos ficaram na cavidade`)

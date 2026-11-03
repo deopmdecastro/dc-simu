@@ -86,24 +86,36 @@ const doubleEndsCount = store().wires.reduce(
   (sum, w) => sum + (w.fromEndType === 'ferruleDouble' ? 1 : 0) + (w.toEndType === 'ferruleDouble' ? 1 : 0),
   0,
 )
-assert.equal(doubleEndsCount, 18, 'os restantes bornes partilhados mantêm ponteiras duplas')
+// Regra: cada ponta num borne partilhado por 2+ cabos leva ponteira dupla, exceto U1/V1 do motor
+// (olhais dos alimentadores e pontas do multímetro). Calculado, para não depender do número de pontes.
+const endsPerTerminal = new Map<string, number>()
+for (const w of store().wires) for (const t of [w.fromTerminalId, w.toTerminalId]) if (t) endsPerTerminal.set(t, (endsPerTerminal.get(t) ?? 0) + 1)
+const expectedDouble = [...endsPerTerminal].filter(([t, n]) => n >= 2 && t !== 'native-m1-U1' && t !== 'native-m1-V1').reduce((sum, [, n]) => sum + n, 0)
+assert.ok(expectedDouble >= 18, 'o projeto nativo tem bornes partilhados')
+assert.equal(doubleEndsCount, expectedDouble, 'os restantes bornes partilhados mantêm ponteiras duplas')
 // Verificação dinâmica: borne com 1 cabo (ferrule) passa automaticamente a ferruleDouble ao adicionar 2.º cabo e reverte ao remover
-const singleBefore = store().wires.filter(w => w.fromTerminalId === 'native-q0-2' || w.toTerminalId === 'native-q0-2')
+// O borne escolhe-se pela regra (um só cabo, ponteira simples), não por um id fixo que muda com as pontes do circuito.
+const endTypeAt = (w: Wire, terminal: string) => (w.fromTerminalId === terminal ? w.fromEndType : w.toEndType)
+const single = [...endsPerTerminal].filter(([t, n]) => n === 1 && t !== 'native-h2-X1')
+  .map(([t]) => t).sort()
+  .find((t) => { const w = store().wires.find((x) => x.fromTerminalId === t || x.toTerminalId === t)!; return endTypeAt(w, t) === 'ferrule' })!
+assert.ok(single, 'existe um borne com um só cabo e ponteira simples')
+const singleBefore = store().wires.filter(w => w.fromTerminalId === single || w.toTerminalId === single)
 assert.equal(singleBefore.length, 1)
-assert.equal(singleBefore[0].fromTerminalId === 'native-q0-2' ? singleBefore[0].fromEndType : singleBefore[0].toEndType, 'ferrule')
+assert.equal(singleBefore[0].fromTerminalId === single ? singleBefore[0].fromEndType : singleBefore[0].toEndType, 'ferrule')
 const beforeIds = new Set(store().wires.map(w => w.id))
-store().addWire('native-q0-2', 'native-h2-X1')
+store().addWire(single, 'native-h2-X1')
 const addedWire = store().wires.find(w => !beforeIds.has(w.id))
-assert.ok(addedWire, 'adiciona segundo cabo no borne Q0.2')
-const sharedNow = store().wires.filter(w => w.fromTerminalId === 'native-q0-2' || w.toTerminalId === 'native-q0-2')
+assert.ok(addedWire, 'adiciona segundo cabo no borne com um só cabo')
+const sharedNow = store().wires.filter(w => w.fromTerminalId === single || w.toTerminalId === single)
 assert.equal(sharedNow.length, 2)
 for (const w of sharedNow) {
-  assert.equal(w.fromTerminalId === 'native-q0-2' ? w.fromEndType : w.toEndType, 'ferruleDouble', 'borne com 2 cabos vira ponteira dupla')
+  assert.equal(w.fromTerminalId === single ? w.fromEndType : w.toEndType, 'ferruleDouble', 'borne com 2 cabos vira ponteira dupla')
 }
 store().deleteWire(addedWire!.id)
-const reverted = store().wires.filter(w => w.fromTerminalId === 'native-q0-2' || w.toTerminalId === 'native-q0-2')
+const reverted = store().wires.filter(w => w.fromTerminalId === single || w.toTerminalId === single)
 assert.equal(reverted.length, 1)
-assert.equal(reverted[0].fromTerminalId === 'native-q0-2' ? reverted[0].fromEndType : reverted[0].toEndType, 'ferrule', 'ao remover 2.º cabo volta a ponteira simples')
+assert.equal(reverted[0].fromTerminalId === single ? reverted[0].fromEndType : reverted[0].toEndType, 'ferrule', 'ao remover 2.º cabo volta a ponteira simples')
 console.log('PASS — Ponteiras duplas universais: migração v1, conversão automática 1↔2 cabos e guardar/reabrir')
 
 // Reproduz o cabo que regressava pelo próprio corpo, incluindo waypoints manuais.

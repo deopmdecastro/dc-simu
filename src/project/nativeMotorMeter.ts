@@ -74,9 +74,11 @@ export function upgradeNativeMotorRings<T extends Record<string, any>>(content: 
   if (content.nativeId !== NATIVE_PARTIDA_ID || !Array.isArray(content.wires)) return content
   const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
   if (features.includes(NATIVE_MOTOR_RING_FEATURE)) return content
-  const affected = new Map([['native-wire-4', 'native-m1-U1'], ['native-wire-8', 'native-m1-V1']])
+  // Alimentadores do motor em U1/V1, identificados pelo borne de destino (os ids mudaram quando o
+  // relé térmico F1 passou a alimentar o motor); as pontas do multímetro não são alimentadores.
+  const motorFeeds = new Set(['native-m1-U1', 'native-m1-V1'])
   const wires = content.wires.map((wire: Wire) =>
-    affected.get(wire.id) === wire.toTerminalId && !wire.toPoint && wire.toEndType === 'ferruleDouble'
+    motorFeeds.has(wire.toTerminalId) && !wire.id.startsWith('native-meter-') && !wire.toPoint && wire.toEndType === 'ferruleDouble'
       ? { ...wire, toEndType: 'ring' as const } : wire)
   return { ...content, wires, nativeFeatures: [...features, NATIVE_MOTOR_RING_FEATURE] }
 }

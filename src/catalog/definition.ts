@@ -517,14 +517,17 @@ export function runtimeSpec(def: ComponentDefinition, box: THREE.Box3): RuntimeS
   const width = Math.max(1, size.x), height = Math.max(1, size.y), depth = Math.max(1, size.z)
   const clamp = (value: number) => Math.min(1, Math.max(0, value))
   const terminals = def.terminals.map((terminal): RuntimeTerminal => {
-    const nx = clamp((terminal.position[0] - box.min.x) / width)
-    const ny = clamp((terminal.position[1] - box.min.y) / height)
-    const nz = clamp((terminal.position[2] - box.min.z) / depth)
+    const rx = (terminal.position[0] - box.min.x) / width
+    const ry = (terminal.position[1] - box.min.y) / height
+    const rz = (terminal.position[2] - box.min.z) / depth
+    const nx = clamp(rx), ny = clamp(ry), nz = clamp(rz)
     const [fx, fy, fz] = terminal.normal
     const axis = Math.abs(fx) >= Math.abs(fy) && Math.abs(fx) >= Math.abs(fz) ? 'x' : Math.abs(fy) >= Math.abs(fz) ? 'y' : 'z'
-    const position3D = { x: nx, y: ny, z: nz }
+    // Ponta de fio fora do corpo (cabos soltos de sensores e torres): conserva a posição real em 3D.
+    const outside = [rx, ry, rz].some((value) => value < -1e-6 || value > 1 + 1e-6)
+    const position3D = outside ? { x: rx, y: ry, z: rz } : { x: nx, y: ny, z: nz }
     // Encaixes medidos conservam o recuo físico; bornes genéricos continuam na face.
-    if (!(terminal.socketDepthMm && terminal.socketInsetMm)) {
+    if (!outside && !(terminal.socketDepthMm && terminal.socketInsetMm)) {
       if (axis === 'x') position3D.x = fx >= 0 ? 1 : 0
       else if (axis === 'y') position3D.y = fy >= 0 ? 1 : 0
       else position3D.z = fz >= 0 ? 1 : 0

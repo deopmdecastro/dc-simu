@@ -83,7 +83,10 @@ globalThis.fetch = async (input, init) => {
 }
 try {
   let terminals = 0
+  // Tipos desenhados por código (torre genérica, sensores genéricos) não têm CAD para o editor importar.
+  const procedural = (Object.keys(REAL_TERMINALS) as ComponentType[]).filter((type) => !getComponentModelSpec(type))
   for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
+    if (procedural.includes(type)) continue
     const { def: draft, meta, usedModel } = await buildBuiltinDraft(type)
     const cache = new Map<string, THREE.Object3D>()
     await loadGlbAssets(draft, cache)
@@ -117,7 +120,7 @@ try {
       }
     })
   }
-  assert.equal(terminals, Object.values(REAL_TERMINALS).reduce((sum, spots) => sum + (spots?.length ?? 0), 0), 'Todos os bornes medidos passam pelo editor')
+  assert.equal(terminals, Object.entries(REAL_TERMINALS).reduce((sum, [type, spots]) => sum + (procedural.includes(type as ComponentType) ? 0 : spots?.length ?? 0), 0), 'Todos os bornes medidos passam pelo editor')
   const fresh = (await buildBuiltinDraft('terminalPhoenixPti6')).def
   const assetId = fresh.parts[0].asset!, old = structuredClone(fresh)
   delete old.assets[assetId].builtinType

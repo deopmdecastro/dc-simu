@@ -114,7 +114,8 @@ try {
   const inspector = page.getByRole('complementary', { name: 'Inspetor', exact: true })
   const stageWidthBeforeInspectorCollapse = (await page.locator('.ce-stage').boundingBox()).width
   await inspector.getByRole('button', { name: 'Recolher inspetor' }).click()
-  await page.waitForTimeout(220)
+  // A hierarquia (reaberta acima) e o inspetor animam em simultâneo: espera-se que a largura assente.
+  await page.waitForFunction((before) => (document.querySelector('.ce-stage')?.getBoundingClientRect().width ?? 0) > before, stageWidthBeforeInspectorCollapse, { timeout: 3000 }).catch(() => {})
   check(await page.locator('.ce-body').evaluate((element) => element.classList.contains('is-right-collapsed')), 'Inspetor pode ser recolhido independentemente')
   check((await page.locator('.ce-stage').boundingBox()).width > stageWidthBeforeInspectorCollapse, 'Recolher o inspetor também liberta espaço para o canvas')
   check(await page.evaluate(() => JSON.parse(localStorage.getItem('dcsimu:ce:panels')).collapsedRight === true), 'Preferência de recolha do inspetor fica guardada')
@@ -199,15 +200,17 @@ try {
     }
     // O menu «Mais» reúne todas as ações que não cabem na barra: em ecrãs largos
     // é o «Organizar»; no telemóvel inclui também formas, manipulador e vista.
-    const organization = width > 1024
+    // O tablet usa o layout do PC (barra completa com «Organizar»); só o telemóvel junta tudo em «Mais».
+    const compactBar = await page.getByRole('button', { name: 'Mais', exact: true }).isVisible()
+    const organization = !compactBar
       ? page.getByRole('button', { name: 'Organizar', exact: true })
       : page.getByRole('button', { name: 'Mais', exact: true })
     await organization.click()
-    const menu = width > 1024
+    const menu = !compactBar
       ? page.getByRole('dialog', { name: 'Organizar', exact: true })
       : page.getByRole('menu', { name: 'Ferramentas e opções' })
-    check(await menu.evaluate((el) => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight }), 'Menu ' + (width > 1024 ? 'Organizar' : 'Mais') + ' cabe no ecrã a ' + width + ' px')
-    if (width <= 1024) {
+    check(await menu.evaluate((el) => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight }), 'Menu ' + (!compactBar ? 'Organizar' : 'Mais') + ' cabe no ecrã a ' + width + ' px')
+    if (compactBar) {
       check(await menu.locator('[data-tm-item^="shape-"]').count() >= 6, 'Menu «Mais» oferece as seis formas do modelo a ' + width + ' px')
       check(await menu.locator('[data-tm-item="delete"]').count() === 1, 'Menu «Mais» inclui a eliminação da seleção a ' + width + ' px')
     }
@@ -229,7 +232,14 @@ try {
     const steps = [1, 2].map((n) => ({ id: 's' + n, name: String(n), initial: n === 1, stepType: n === 1 ? 'initial' : 'simple', action: '', actions: [], condition: '1', x: 150, y: n * 160, pinned: true }))
     useSimStore.getState().setGrafcet({ name: 'Fixture entradas', steps, transitions: [{ id: 't1', from: ['s1'], to: ['s2'], condition: 'I1', name: '' }] }, 'force')
   })
-  await page.getByRole('tab', { name: /^Simulador/ }).first().click()
+  // O painel de simulação do GRAFCET (E/S + Sequência) só existe abaixo de 1200 px desde 01/11.
+  await page.setViewportSize({ width: 1100, height: 860 })
+  await page.locator('[data-grafcet-sim-dock]').waitFor()
+  const collapseToolbox = page.getByRole('button', { name: /^Recolher ferramentas/ })
+  if (await collapseToolbox.count() && await collapseToolbox.first().isVisible()) await collapseToolbox.first().click()
+  await page.getByRole('tab', { name: /^Sequência/ }).first().click()
+  const customInputs = page.locator('.gsim-custom-inputs > summary')
+  if (await customInputs.count()) await customInputs.first().click()
   await page.locator('.gsim-input-main').first().waitFor()
   check(await page.locator('.gsim-input-main').first().evaluate((el) => {
     const button = el.querySelector('.gsim-actuator').getBoundingClientRect(), input = el.querySelector('input').getBoundingClientRect()

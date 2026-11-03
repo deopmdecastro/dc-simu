@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { attachedActionBoxes, cloneActions } from '../src/grafcet/actionLayout'
+import { ACTION_BOX_GAP, attachedActionBoxes, cloneActions } from '../src/grafcet/actionLayout'
 import { cloneSubDiagram } from '../src/grafcet/selection'
 import { readGrafcetFile } from '../src/grafcet/importFile'
 import type { GrafcetAction, GrafcetStep } from '../src/grafcet/engine'
@@ -13,15 +13,15 @@ const layout = (actions: GrafcetAction[], mode: 'row' | 'column' = 'row') => att
 const imported = action('green', { dx: 80, dy: 20, w: 90, h: 40 })
 const yellow = action('yellow', { afterActionId: 'green', w: 120, h: 30 })
 let boxes = layout([imported, yellow])
-check(boxes.get('yellow')!.x === boxes.get('green')!.x + 90 && boxes.get('yellow')!.y + 15 === boxes.get('green')!.y + 20, 'ação ligada encaixa após a caixa importada, alinhando centros e respeitando medidas')
+check(boxes.get('yellow')!.x === boxes.get('green')!.x + 90 + ACTION_BOX_GAP && boxes.get('yellow')!.y + 15 === boxes.get('green')!.y + 20, 'ação ligada encaixa após a caixa importada, alinhando centros e respeitando medidas')
 boxes = layout([{ ...imported, dx: 130, dy: 80, w: 180 }, yellow])
-check(boxes.get('yellow')!.x === 490 && boxes.get('yellow')!.y === 185, 'a cadeia acompanha deslocamento e redimensionamento da ação anterior')
+check(boxes.get('yellow')!.x === 490 + ACTION_BOX_GAP && boxes.get('yellow')!.y === 185, 'a cadeia acompanha deslocamento e redimensionamento da ação anterior')
 boxes = layout([yellow, imported, action('third', { afterActionId: 'yellow' })])
-check(boxes.get('third')!.x === boxes.get('yellow')!.x + 120, 'cadeias de três ações funcionam independentemente da ordem no ficheiro')
+check(boxes.get('third')!.x === boxes.get('yellow')!.x + 120 + ACTION_BOX_GAP, 'cadeias de três ações funcionam independentemente da ordem no ficheiro')
 boxes = layout([imported, action('normal')])
 check(boxes.get('normal')!.x >= boxes.get('green')!.x + 90, 'uma posição automática não cobre uma caixa importada')
 boxes = layout([action('a'), action('b')], 'column')
-check(boxes.get('b')!.y === boxes.get('a')!.y + 38 && boxes.get('a')!.x === boxes.get('b')!.x, 'a disposição em coluna mantém espaçamento e alinhamento')
+check(boxes.get('b')!.y === boxes.get('a')!.y + 30 + ACTION_BOX_GAP && boxes.get('a')!.x === boxes.get('b')!.x, 'a disposição em coluna mantém espaçamento e alinhamento')
 boxes = layout([action('a', { afterActionId: 'b' }), action('b', { afterActionId: 'a' }), action('c', { afterActionId: 'missing' })])
 check(boxes.size === 3 && [...boxes.values()].every(b => Number.isFinite(b.x) && Number.isFinite(b.y)), 'ciclos e referências ausentes não bloqueiam o editor nem escondem ações')
 let next = 0

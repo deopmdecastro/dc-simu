@@ -48,8 +48,12 @@ const messages = (list: ReturnType<typeof diag>) => list.map((d) => d.message).j
   const { components, wires } = build()
   const km = components.find((c) => c.ref === 'KM1')!
   const a2 = km.terminals.find((t) => t.label === 'A2')!
-  const w = wires.find((x) => x.fromTerminalId === a2.id || x.toTerminalId === a2.id)!
-  const other = w.fromTerminalId === a2.id ? w.toTerminalId : w.fromTerminalId
+  // Com o relé térmico F1 encaixado no contactor, o A2 do KM1 fica tapado e liga-se pela passagem A2 do F1.
+  const f1 = components.find((c) => c.ref === 'F1')
+  const coilReturn = [a2.id, f1?.terminals.find((t) => t.label === 'A2')?.id].filter((id): id is string => !!id)
+  const w = wires.find((x) => coilReturn.includes(x.fromTerminalId) || coilReturn.includes(x.toTerminalId))
+  assert.ok(w, 'A2 do KM1 tem de ter retorno (direto ou pela passagem A2 do F1)')
+  const other = coilReturn.includes(w.fromTerminalId) ? w.toTerminalId : w.fromTerminalId
   const psu = components.find((c) => c.ref === 'PS1')!
   assert.ok(!psu.terminals.some((t) => t.id === other), 'A2 do KM1 não pode regressar ao 0 V DC da fonte')
 }
@@ -64,12 +68,19 @@ const messages = (list: ReturnType<typeof diag>) => list.map((d) => d.message).j
   const seq = ['U1', 'V1', 'W1'].map((l) => labels.get(m1.terminals.find((t) => t.label === l)!.id))
   assert.deepEqual(seq, ['L1', 'L2', 'L3'], `fases do motor com KM1 aberto: ${seq.join('-')}`)
 
-  // Trocar os dois condutores nas saídas do contactor (V1↔W1): a sequência de fases
-  // tem de acompanhar a cablagem — é isso que dá o sentido de rotação invertido.
-  const l2 = wires.find((w) => w.number === 'W8')
-  const l3 = wires.find((w) => w.number === 'W12')
-  assert.ok(l2 && l3, 'cabos de potência do contactor esperados')
-  ;[l2!.toTerminalId, l3!.toTerminalId] = [l3!.toTerminalId, l2!.toTerminalId]
+  // Trocar os dois condutores que chegam ao motor (V1↔W1): a sequência de fases tem de
+  // acompanhar a cablagem — é isso que dá o sentido de rotação invertido. Procura-se pelos
+  // bornes do motor (não pelo número do cabo, que muda quando o circuito é reorganizado).
+  const motorEnd = (label: string) => {
+    const id = m1.terminals.find((t) => t.label === label)!.id
+    return { id, wire: wires.find((w) => w.fromTerminalId === id || w.toTerminalId === id) }
+  }
+  const v1 = motorEnd('V1')
+  const w1 = motorEnd('W1')
+  assert.ok(v1.wire && w1.wire, 'cabos de potência do motor esperados (V1 e W1)')
+  const moveEnd = (wire: Wire, from: string, to: string) => { if (wire.fromTerminalId === from) wire.fromTerminalId = to; else wire.toTerminalId = to }
+  moveEnd(v1.wire, v1.id, w1.id)
+  moveEnd(w1.wire, w1.id, v1.id)
   const swapped = computePhaseLabels(components, wires)
   const seq2 = ['U1', 'V1', 'W1'].map((l) => swapped.get(m1.terminals.find((t) => t.label === l)!.id))
   assert.deepEqual(seq2, ['L1', 'L3', 'L2'], `fases com L2/L3 trocados: ${seq2.join('-')}`)
@@ -82,7 +93,12 @@ const messages = (list: ReturnType<typeof diag>) => list.map((d) => d.message).j
   const minus = psu.terminals.find((t) => t.label === '-V2')!
   const km = components.find((c) => c.ref === 'KM1')!
   const a2 = km.terminals.find((t) => t.label === 'A2')!
-  wires.find((w) => w.fromTerminalId === a2.id || w.toTerminalId === a2.id)!.toTerminalId = minus.id
+  // Retorno da bobina: direto no KM1 ou pela passagem A2 do F1 encaixado.
+  const f1 = components.find((c) => c.ref === 'F1')
+  const coilReturn = [a2.id, f1?.terminals.find((t) => t.label === 'A2')?.id].filter((id): id is string => !!id)
+  const back = wires.find((w) => coilReturn.includes(w.fromTerminalId) || coilReturn.includes(w.toTerminalId))!
+  if (coilReturn.includes(back.fromTerminalId)) back.toTerminalId = minus.id
+  else back.fromTerminalId = minus.id
   const list = diag(components, wires)
   assert.ok(level(list, 'error').some((d) => /classes incompatíveis/.test(d.message)), `esperava erro AC↔DC, veio: ${messages(list)}`)
 }

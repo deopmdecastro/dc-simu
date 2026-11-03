@@ -61,3 +61,10 @@ jobs:
       - run: npm run test:ui-extra
         env:
           GRAFCET_TEST_URL: http://127.0.0.1:5175
+      # Testes de navegador que estavam no test:ci (o job core não tem navegador nem servidor).
+      - run: npm run test:commands-symbols-ui
+        env:
+          GRAFCET_TEST_URL: http://127.0.0.1:5175
+      - run: npm run test:right-dock-ui
+        env:
+          RIGHT_DOCK_TEST_URL: http://127.0.0.1:5175

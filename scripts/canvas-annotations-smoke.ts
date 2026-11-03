@@ -5,6 +5,9 @@ import { nativePartidaDiretaContent } from '../src/project/nativeProjects'
 // Dados sintéticos: verifica a persistência do projeto, sem serviços externos.
 const store = () => useSimStore.getState()
 store().loadJSON(JSON.stringify(nativePartidaDiretaContent()))
+// O projeto nativo já traz notas e textos explicativos: as verificações seguem a nota e o texto de teste pelo id.
+const nativeNotes = store().canvasNotes.length
+const nativeTexts = store().canvasTexts.length
 store().addCanvasNote({ view: '3d', text: 'Verificar ligação', x: 1, y: 2, z: 0.3 })
 const noteId = store().canvasNotes.at(-1)!.id
 store().updateCanvasNote(noteId, {
@@ -25,15 +28,16 @@ assert.deepEqual(store().canvasTexts, expectedTexts, 'posição e formatação d
 store().removeCanvasNote(noteId)
 store().removeCanvasText(textId)
 store().loadJSON(store().saveJSON())
-assert.equal(store().canvasNotes.length, 0, 'a remoção da nota é persistida')
-assert.equal(store().canvasTexts.length, 0, 'a remoção do texto é persistida')
+assert.ok(!store().canvasNotes.some((note) => note.id === noteId) && store().canvasNotes.length === nativeNotes, 'a remoção da nota é persistida')
+assert.ok(!store().canvasTexts.some((text) => text.id === textId) && store().canvasTexts.length === nativeTexts, 'a remoção do texto é persistida')
 
 const legacy = JSON.parse(saved)
 delete legacy.canvasTexts
-delete legacy.canvasNotes[0].messages
-delete legacy.canvasNotes[0].resolved
+const legacyNote = legacy.canvasNotes.find((note: { id: string }) => note.id === noteId)
+delete legacyNote.messages
+delete legacyNote.resolved
 store().loadJSON(JSON.stringify(legacy))
-assert.equal(store().canvasNotes[0].text, 'Verificar ligação', 'notas antigas mantêm o texto')
+assert.equal(store().canvasNotes.find((note) => note.id === noteId)?.text, 'Verificar ligação', 'notas antigas mantêm o texto')
 assert.deepEqual(store().canvasTexts, [], 'projetos antigos sem textos continuam válidos')
 store().addCanvasNote({ view: 'grafcet', chart: 'chart-synthetic', text: 'Nota da folha', x: 140, y: 220, messages: [{ id: 'msg-grafcet', text: 'Verificar transição', createdAt: '2026-10-29T00:00:00Z' }] })
 const grafcetNote = structuredClone(store().canvasNotes[store().canvasNotes.length - 1])
