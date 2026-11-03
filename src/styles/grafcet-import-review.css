@@ -1,0 +1,42 @@
+/* Revisão da importação GRAFCET: barra compacta + detalhes em duas colunas */
+.grafcet-review { flex: none; border-bottom: 1px solid #f1d9a6; background: #fffbf2; color: #3b2f17; font-size: 12px; }
+.grafcet-review.is-ready { border-bottom-color: #bfe3cc; background: #f4fbf6; color: #1f3b2a; }
+.grafcet-review-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 44px; padding: 6px 14px; }
+.grafcet-review-icon { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 8px; background: #fde8bd; color: #a16207; }
+.grafcet-review.is-ready .grafcet-review-icon { background: #d5f0de; color: #15803d; }
+.grafcet-review-text { display: grid; gap: 1px; flex: 1 1 260px; min-width: 0; }
+.grafcet-review-text strong { color: #1e2b44; font-size: 12.5px; font-weight: 650; }
+.grafcet-review-text span { color: #6b5a33; font-size: 11.5px; }
+.grafcet-review.is-ready .grafcet-review-text span { color: #3f6b4f; }
+.grafcet-review-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.grafcet-review-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border: 1px solid #e8d3a5; border-radius: 999px; background: #fff; color: #6b5a33; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.grafcet-review-chip.is-error { border-color: #f5b8b8; background: #fff1f1; color: #b42318; }
+.grafcet-review-chip.is-ok { border-color: #a7dcb8; background: #ecfaf1; color: #15803d; }
+.grafcet-review-toggle { display: inline-flex; align-items: center; gap: 6px; height: 30px; }
+.grafcet-review-toggle svg { transition: transform .15s; }
+.grafcet-review-toggle svg.is-open { transform: rotate(180deg); }
+.grafcet-review-finish { height: 30px; font-weight: 650; }
+.grafcet-review-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; max-height: 240px; overflow: auto; padding: 2px 14px 12px 52px; }
+.grafcet-review-col { min-width: 0; padding: 10px 12px; border: 1px solid #ecdfc2; border-radius: 10px; background: #fff; }
+.grafcet-review.is-ready .grafcet-review-col { border-color: #d3eadb; }
+.grafcet-review-col h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 0 0 6px; color: #1e2b44; font-size: 11.5px; font-weight: 700; }
+.grafcet-review-col h4 small { color: #8a94a6; font-size: 10.5px; font-weight: 400; }
+.grafcet-review-col ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.grafcet-review-col li { color: #475569; font-size: 11.5px; line-height: 1.45; }
+.grafcet-review-col li em { color: #a16207; font-style: normal; font-weight: 700; }
+.grafcet-review-col li button { display: flex; align-items: flex-start; gap: 7px; width: 100%; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: #7f1d1d; font: inherit; text-align: left; cursor: pointer; }
+.grafcet-review-col li button:hover:not(:disabled) { background: #fff1f1; }
+.grafcet-review-col li button:disabled { cursor: default; }
+.grafcet-review-col li button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+.grafcet-review-dot { flex: none; width: 6px; height: 6px; margin-top: 6px; border-radius: 50%; background: #dc2626; }
+.grafcet-review-group + .grafcet-review-group { margin-top: 8px; }
+.grafcet-review-group > b { display: block; margin-bottom: 2px; color: #6b5a33; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; }
+.grafcet-review-group li { position: relative; padding-left: 12px; }
+.grafcet-review-group li::before { content: ''; position: absolute; left: 2px; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: #d6b56d; }
+.grafcet-review-empty { display: flex; align-items: center; gap: 6px; margin: 0; color: #15803d; font-size: 11.5px; }
+@media (max-width: 640px) {
+  .grafcet-review-bar { padding: 8px 10px; }
+  .grafcet-review-details { padding: 2px 10px 10px; }
+  .grafcet-review-toggle, .grafcet-review-finish { flex: 1 1 auto; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) { .grafcet-review-toggle svg { transition: none; } }

@@ -300,7 +300,7 @@ try {
     const drawing = process.env.GRAFCET_FLUIDSIM_MODE === 'drawing'
     await chooseImportFile({ name: path.basename(process.env.GRAFCET_FLUIDSIM_SAMPLE), mimeType: 'application/octet-stream', buffer: sample }, drawing ? 'drawing' : 'strict')
     await page.getByRole('alertdialog', { name: 'Importar GRAFCET' }).waitFor()
-    check((await page.getByRole('alertdialog').textContent()).includes(`${expectedSteps} etapas`), 'a confirmação do CT real apresenta as etapas recuperadas')
+    check(new RegExp(`${expectedSteps}\\s*etapas`, 'i').test(await page.getByRole('alertdialog').textContent()), 'a confirmação do CT real apresenta as etapas recuperadas')
     await page.getByRole('button', { name: 'Importar', exact: true }).click()
     await page.waitForFunction((count) => document.querySelectorAll('.grafcet-graph-node').length === count, expectedSteps)
     program = await read()
@@ -319,12 +319,10 @@ try {
       check((await read()).comments.find(c => c.id === first.id).text === first.text + ' (revisto)', 'o texto importado pode ser editado no próprio GRAFCET')
       await undo()
       check((await read()).comments.find(c => c.id === first.id).text === first.text, 'Desfazer repõe o texto original')
-      await page.locator('summary').filter({ hasText: 'Desenho importado para revisão' }).click()
-      await page.getByRole('button', { name: 'Concluir revisão', exact: true }).click()
-      const review = page.getByRole('alertdialog', { name: 'Revisão da importação' })
-      await review.waitFor()
-      check((await review.textContent()).includes('Corrija os pontos indicados'), 'a conclusão da revisão identifica os pontos ainda por corrigir')
-      await review.getByRole('button', { name: 'Voltar ao desenho', exact: true }).click()
+      const reviewBar = page.getByRole('region', { name: 'Revisão da importação' })
+      check(await reviewBar.getByText(/erros? por corrigir/).isVisible() && await reviewBar.getByRole('button', { name: 'Concluir revisão', exact: true }).count() === 0, 'com erros por corrigir, a barra de revisão não propõe concluir')
+      await reviewBar.getByRole('button', { name: 'Corrigir erros', exact: true }).click()
+      check(await reviewBar.locator('#grafcet-review-details li button').count() > 0, 'a barra de revisão lista os pontos ainda por corrigir')
       check(!!(await read()).importReview, 'o exemplo incompleto mantém-se como rascunho após a revisão')
       program = await read()
       if (output) await writeFile(path.join(output, 'Grafcet-ATEC.grafcet'), JSON.stringify(program, null, 2))
@@ -334,7 +332,6 @@ try {
       await page.waitForFunction(count => document.querySelectorAll('.grafcet-pan-layer > svg [data-grafcet-text]').length === count, expectedTexts)
       const reopened = await read()
       check(JSON.stringify(reopened.comments) === JSON.stringify(program.comments) && !!reopened.importReview, 'reabrir o .grafcet mantém todos os textos e a revisão pendente')
-      await page.locator('summary').filter({ hasText: 'Desenho importado para revisão' }).click()
     }
     if (output) await page.screenshot({ path: path.join(output, 'fluidsim-import-canvas.png') })
   }

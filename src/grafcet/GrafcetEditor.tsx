@@ -37,6 +37,7 @@ import {
 import StepDialog from './StepDialog'
 import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
+import ImportReviewBanner from './ImportReviewBanner'
 import ConditionEditor from './ConditionEditor'
 import SignalTableDialog from './SignalTableDialog'
 import { grafcetSignals, insertCondition, signalAddressesInCondition, signalUsage, undeclaredSignals, type SignalArea } from './signals'
@@ -3771,12 +3772,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   return (
     <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
-      {program.importReview && full && <details className="shrink-0 border-b border-line-soft bg-surface px-3 py-2 text-xs">
-        <summary className="cursor-pointer font-semibold">Desenho importado para revisão · simulação e Ladder bloqueados</summary>
-        <p className="my-2">As etapas, transições e textos são editáveis. Complete as ligações e reveja as referências antes de concluir.</p>
-        <ul className="list-disc pl-5 max-h-32 overflow-auto">{program.importReview.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
-        <button type="button" className="dc-btn mt-2" onClick={() => { void finishImportReview() }}>Concluir revisão</button>
-      </details>}
+      {program.importReview && full && <ImportReviewBanner warnings={program.importReview.warnings} blockers={issues.filter((issue) => issue.id !== 'import-review' && (issue.level === 'error' || issue.id.endsWith(':dup')))} onSelectIssue={selectIssue} onFinish={() => { void finishImportReview() }} />}
       <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
       <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
 
