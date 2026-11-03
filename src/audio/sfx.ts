@@ -18,6 +18,7 @@ let lastClickAt = 0
 let motorWanted = false
 let motorIntensity = 0
 let unlockBound = false
+let mobileUnlockBound = false
 
 function readEnabled(): boolean {
   try {
@@ -61,7 +62,7 @@ function ensureCtx(): AudioContext | null {
 export function unlockAudio(): void {
   const audio = ensureCtx()
   if (!audio) return
-  if (audio.state === 'suspended') void audio.resume()
+  if (audio.state === 'suspended') void audio.resume().catch(() => undefined)
   // Tom silencioso de 1 amostra para “acordar” alguns browsers móveis.
   if (!unlockBound) {
     try {
@@ -72,6 +73,30 @@ export function unlockAudio(): void {
       src.start(0)
       unlockBound = true
     } catch { /* ignore */ }
+  }
+}
+
+/**
+ * Regista os gestos que os browsers móveis aceitam como autorização de áudio.
+ * O listener é instalado uma vez e não interfere com os handlers da UI.
+ */
+export function installAudioUnlockListeners(): () => void {
+  if (typeof window === 'undefined' || mobileUnlockBound) return () => undefined
+  mobileUnlockBound = true
+  const unlock = () => unlockAudio()
+  const resumeOnReturn = () => {
+    if (document.visibilityState === 'visible') unlockAudio()
+  }
+  window.addEventListener('pointerdown', unlock, { passive: true })
+  window.addEventListener('touchstart', unlock, { passive: true })
+  window.addEventListener('keydown', unlock, { passive: true })
+  document.addEventListener('visibilitychange', resumeOnReturn)
+  return () => {
+    window.removeEventListener('pointerdown', unlock)
+    window.removeEventListener('touchstart', unlock)
+    window.removeEventListener('keydown', unlock)
+    document.removeEventListener('visibilitychange', resumeOnReturn)
+    mobileUnlockBound = false
   }
 }
 

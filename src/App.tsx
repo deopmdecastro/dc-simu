@@ -32,6 +32,7 @@ import { allowedViews, coerceView, defaultView } from './project/kind'
 import { hasGeneratedLadder } from './grafcet/ladderSync'
 import { useSimUi } from './ui/simUi'
 import { useCommandsUi } from './commands/commandsUi'
+import { installAudioUnlockListeners } from './audio/sfx'
 
 /** Cabeçalho das folhas em ecrã inteiro (só aparece em telemóveis): título + botão «Fechar» bem visível. */
 function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClose: () => void; side?: 'left' | 'right' }) {
@@ -41,6 +42,7 @@ function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClos
 /** Nome do painel direito (GRAFCET, sinais, objetos e diagnóstico) — o mesmo no cabeçalho aberto e na régua recolhida. */
 
 export default function App({ onBack, demo = false, onEnterEditor }: { onBack: () => void; /** Modo demonstração (landing): vistas do editor com controlos de simulação apenas. */ demo?: boolean; /** CTA para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
+  useEffect(() => installAudioUnlockListeners(), [])
   const projectKind = useSimStore((s) => s.projectKind)
   const unlockedViews = useSimStore((s) => s.unlockedViews)
   const canLadder = useCan('ladder')
