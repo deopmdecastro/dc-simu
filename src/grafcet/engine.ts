@@ -227,8 +227,24 @@ export const validGrafcetVariable = (v: string): boolean => {
   if (!s || DISALLOWED_VARS.has(s.toUpperCase())) return false
   if (/^[IQM]\d{1,2}$/i.test(s)) return true
   if (/^%?[IQM][XBWDL]?\d+(?:\.\d+)?$/i.test(s)) return true
-  if (/^[A-Za-z_][A-Za-z0-9_]*(\+|-)?$/i.test(s)) return true
+  // Aceita identificadores industriais com «+»/«-» (pneumática) em qualquer posição
+  // após o primeiro carácter, além do sufixo final clássico (Y0_A+, Y7_E+_Vacuo_On).
+  if (/^[A-Za-z_][A-Za-z0-9_+-]*$/i.test(s)) return true
   return false
+}
+
+/** Sanitiza um nome de ação/variável para o formato aceite pelo motor e pelo parser de condições.
+ *  Preserva um único «+» ou «-» final (notação pneumática) e substitui os restantes caracteres
+ *  especiais (incluindo «+»/«-» no meio) por «_». */
+export function sanitizeActionVariable(value: string): string {
+  const text = value.trim().replace(/^%/, '')
+  if (!text) return text
+  const suffix = /[+-]$/.test(text) ? text.slice(-1) : ''
+  let name = suffix ? text.slice(0, -1) : text
+  name = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '')
+  if (!name) name = 'V'
+  if (!/^[A-Za-z]/.test(name)) name = `V${name}`
+  return name + suffix
 }
 
 export const ACTION_KINDS: Array<{ id: GrafcetActionKind; label: string; hint: string; timed: boolean }> = [
@@ -605,7 +621,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   // o primeiro + pertence ao nome (sufixo) e o segundo, separado por espaço, é o OU.
   if (/&&|\|\||\^\s*&|\^\s*\||\\\s*&|\\\s*\||\*\s*\*|(?<![A-Za-z0-9_])\+\s*\+|[A-Za-z0-9_]\+\+/.test(src)) return null
 
-  const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*(?:<=>|==|=|<>)\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?`, 'gi')
+  const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*(?:<=>|==|=|<>)\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_+-]*`, 'gi')
 
   const rawTokens = src.match(regex)
   if (!rawTokens) return null
@@ -990,7 +1006,13 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
 
   transitions.forEach((transition, index) => {
     const name = transition.name || `T${index + 1}`
-    if (transition.source && !transition.from.length && !transition.to.length) {
+    const emptyPorts = !transition.from.length && !transition.to.length
+    // Transição vazia (ex.: and-divergence colocada sem portos) — aviso, não bloqueia a revisão.
+    if (emptyPorts && !transition.source) {
+      issues.push({ id: `${transition.id}:empty`, level: 'warning', message: `${name} não tem origem nem destino — pode eliminá-la se for um residual da importação.`, entityId: transition.id, tab: 'transitions' })
+      return
+    }
+    if (transition.source && emptyPorts) {
       issues.push({ id: `${transition.id}:links`, level: 'error', message: `${name} é uma transição-fonte sem destino.`, entityId: transition.id, tab: 'transitions' })
     } else if ((!transition.from.length && !transition.source) || !transition.to.length) {
       issues.push({ id: `${transition.id}:links`, level: 'error', message: `${name} precisa de origem e destino.`, entityId: transition.id, tab: 'transitions' })
