@@ -13,7 +13,8 @@
  */
 export const TABLET_LAYOUT_WIDTH = 1280
 /** Ecrã grande de computador: o GRAFCET dispensa o painel inferior (a simulação está no painel lateral). */
-export const WIDE_DESKTOP_QUERY = '(min-width: 1200px) and (pointer: fine)'
+/** Ecrã largo (PC ou tablet com layout ≥1280): sem painel GRAFCET em baixo — simulação no inspetor lateral. */
+export const WIDE_DESKTOP_QUERY = '(min-width: 1200px)'
 
 export const PHONE_TOUCH_QUERY = '(pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px)'
 

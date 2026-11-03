@@ -697,7 +697,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   return (
     <div ref={shellRef} className={`dc-toolbar-shell shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20${compactBar && !demo ? ' is-compact' : ''}`}>
       {/* ============================ linha 1 — projeto · vistas · simulação */}
-      <div ref={mainBarRef} className={`flex items-center gap-2 px-3 min-h-[46px] ${demo ? 'justify-between' : 'border-b border-line-soft'} dc-toolbar-main`}>
+      <div ref={mainBarRef} className={`flex items-center gap-2.5 px-4 min-h-[46px] ${demo ? 'justify-between' : 'border-b border-line-soft'} dc-toolbar-main`}>
         {/* Projeto: Novo / Abrir / Guardar / BOM / PDF — agrupados; em ecrã estreito viram ToolMenu */}
         {!demo && (
         <div className="dc-project-file-tools flex items-center gap-1.5 shrink-0">
@@ -863,7 +863,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           is-tight → só ícones nos grupos secundários; is-dense → também nos principais (.tb-primary).
           Em ≤1100 px + tight/dense os labels de texto desaparecem (tooltip e aria-label mantêm-se).
           Tablet mantém layout de desktop; telemóvel usa compactBar + ToolMenus. */}
-      {!demo && !compactBar && <div ref={row2BarRef} className={`dc-toolbar-row2 ${tightRow2 ? 'is-tight' : ''} ${denseRow2 ? 'is-dense' : ''} flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? 'dc-grafcet-toolbar' : ''}`}>
+      {!demo && !compactBar && <div ref={row2BarRef} className={`dc-toolbar-row2 ${tightRow2 ? 'is-tight' : ''} ${denseRow2 ? 'is-dense' : ''} flex items-center gap-2 px-4 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? 'dc-grafcet-toolbar' : ''}`}>
         <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
 
         {/* Telemóvel: os painéis de ecrã inteiro vêm a seguir ao histórico. */}
@@ -878,7 +878,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <span className="tb-sep" />
           <div className="tb-primary contents">
           {mode === 'grafcet'
-            ? !grafcetDockHidden && <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />
+            ? <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />
             : <SimToggleButton on={simPanelOn} scope={mode === 'commands' ? 'schematic' : mode} onClick={() => mode === 'ladder' ? useSimUi.getState().toggleSimPanel('ladder') : onToggleSchematicSim?.()}
                 title={mode === 'ladder'
                   ? (simPanelOn ? 'Fechar a simulação (E/S, sinais do PLC, memórias, compilação)' : 'Abrir a simulação: pode acionar entradas e dispositivos; Run inicia a execução contínua')

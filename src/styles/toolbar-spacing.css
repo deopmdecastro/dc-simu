@@ -300,3 +300,24 @@
 .dc-tool-inline { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .dc-tool-inline .dc-tool-btn > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .dc-tool-inline .dc-tool-btn { padding-left: 7px; padding-right: 7px; }
+
+/* edge inset toolbar 2026-11-03 — mais ar entre botões e o limite da barra */
+.dc-toolbar-main,
+.dc-toolbar-row2,
+.ladder-editor-toolbar,
+.dc-grafcet-toolbar {
+  padding-inline: 14px !important;
+  column-gap: 12px;
+  gap: 12px;
+}
+.dc-toolbar-main .dc-seg,
+.dc-toolbar-row2 .dc-seg,
+.dc-grafcet-toolbar .dc-seg {
+  margin-inline: 2px;
+}
+.dc-toolbar-shell .dc-toolbar-main {
+  padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)) !important;
+}
+.dc-toolbar-shell .dc-toolbar-row2 {
+  padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)) !important;
+}

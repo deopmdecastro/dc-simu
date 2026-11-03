@@ -6139,7 +6139,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               onDone={() => { setSelectedCommentId(null); setEditingCommentId(null); setTextDialogId(null) }} />
           </div>
         })()}
-        {full && !phone && !propsAtBottom && !wideDesktop && (
+        {/* Sem painel inferior GRAFCET (PC/tablet = inspetor lateral; telemóvel = gaveta). */}
+        {false && full && !phone && !propsAtBottom && !wideDesktop && (
           <GrafcetSimDock
             extraBits={liveBitsAll}
             activeLabels={runtime.active.map((value) => {
