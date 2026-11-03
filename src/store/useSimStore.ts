@@ -60,6 +60,7 @@ import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRIC
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { importedActuationPatch, importedComponentInfo, updateImportedLoads, updateImportedPower } from '../electrical/importedComponents'
+import { playClick, syncMotorHumFromComponents, silenceAll } from '../audio/sfx'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -844,6 +845,8 @@ function runOneTick(state: Store, dtMs: number) {
   state.sim.diagnostics = detectDiagnostics(components, wires, pass3.energizedTerminals, sim.faults)
   state.sim.measurements = buildMeasurements(components, wires, pass3.energizedTerminals)
   state.sim.scanCount += 1
+  // Feedback sonoro do motor (zumbido enquanto algum eixo corre).
+  syncMotorHumFromComponents(components)
 }
 
 /** Cor sugerida por função do cabo (usada na cor automática). */
@@ -1359,6 +1362,7 @@ export const useSimStore = create<Store>((set, get) => {
   stop: () => {
     const iv = get()._intervalId
     if (iv) window.clearInterval(iv)
+    silenceAll()
     set((s) => ({
       components: deenergizeComponents(s.components),
       wires: s.wires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)),
@@ -1455,54 +1459,76 @@ export const useSimStore = create<Store>((set, get) => {
   // ------------------------------------------------------------- acionamento
   pressButton: (componentId, pressed) => {
     if (get().sim.runState === 'stopped') return
+    let changed = false
     set((s) => {
       const c = s.components.find((x) => x.id === componentId)
       if (c) {
         // Cogumelos de emergência permanecem acionados ao largar. Um novo
         // clique representa o giro/chave de rearme; botoeiras comuns continuam
         // momentâneas e seguem diretamente o estado do ponteiro.
+        const before = !!c.state.pressed
         if (c.state.latched) {
           if (pressed) c.state.pressed = !c.state.pressed
         } else c.state.pressed = pressed
+        changed = before !== !!c.state.pressed
       }
       return { components: [...s.components], dirty: true }
     })
+    if (changed) playClick('button')
     recomputeIfActive()
   },
 
   setComponentState: (componentId, patch) => {
     get().commitHistory()
+    let sfx: 'breaker' | 'button' | 'selector' | 'thermal' | null = null
     set((s) => {
       const c = s.components.find((x) => x.id === componentId)
-      if (c) c.state = { ...c.state, ...patch }
+      if (c) {
+        const info = importedComponentInfo(c.type)
+        if (typeof patch.closed === 'boolean' && patch.closed !== c.state.closed) sfx = 'breaker'
+        else if (typeof patch.position === 'number' && patch.position !== c.state.position) sfx = 'selector'
+        else if (typeof patch.testPressed === 'boolean' && patch.testPressed !== c.state.testPressed && patch.testPressed) sfx = 'thermal'
+        else if (typeof patch.tripped === 'boolean' && patch.tripped !== c.state.tripped) sfx = 'thermal'
+        else if (typeof patch.stopPressed === 'boolean' && patch.stopPressed !== c.state.stopPressed && patch.stopPressed) sfx = info?.behavior === 'thermal' ? 'thermal' : 'button'
+        else if (typeof patch.pressed === 'boolean' && patch.pressed !== c.state.pressed) sfx = 'button'
+        else if (typeof patch.startPressed === 'boolean' && patch.startPressed !== c.state.startPressed && patch.startPressed) sfx = 'button'
+        c.state = { ...c.state, ...patch }
+      }
       return { components: [...s.components], dirty: true }
     })
+    if (sfx) playClick(sfx)
     recomputeIfActive()
   },
   actuateImported: (componentId, pressed, control = null) => {
     const component = get().components.find((c) => c.id === componentId)
     if (!component) return
     const patch = importedActuationPatch(component, pressed, control)
+    // O som fica a cargo de setComponentState (evita clique duplicado).
     if (patch && Object.entries(patch).some(([key, value]) => component.state[key] !== value)) get().setComponentState(componentId, patch)
   },
 
   toggleTerminal: (terminalId) => {
     if (get().sim.runState === 'stopped') return
+    let sfx: 'breaker' | 'thermal' | null = null
     set((s) => {
       for (const c of s.components) {
         const t = c.terminals.find((x) => x.id === terminalId)
         if (t) {
           if (c.type === 'breaker1p' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'motorBreakerPkzmC10' || c.type === 'residualBreaker') {
             c.state.closed = !c.state.closed
+            sfx = 'breaker'
           } else if (c.type === 'fuse' || c.type === 'fuseHolder') {
             c.state.blown = !c.state.blown
+            sfx = 'breaker'
           } else if (c.type === 'thermalRelay') {
             c.state.tripped = !c.state.tripped
+            sfx = 'thermal'
           }
         }
       }
       return { components: [...s.components], dirty: true }
     })
+    if (sfx) playClick(sfx)
     recomputeIfActive()
   },
 
