@@ -11,11 +11,13 @@ const CLICK_COOLDOWN_MS = 40
 
 let ctx: AudioContext | null = null
 let motorOsc: OscillatorNode | null = null
+let motorOsc2: OscillatorNode | null = null
 let motorGain: GainNode | null = null
 let motorFilter: BiquadFilterNode | null = null
 let lastClickAt = 0
 let motorWanted = false
 let motorIntensity = 0
+let unlockBound = false
 
 function readEnabled(): boolean {
   try {
@@ -55,12 +57,31 @@ function ensureCtx(): AudioContext | null {
   }
 }
 
+/** Desbloqueia o AudioContext após gesto do utilizador (necessário no Chrome/Safari). */
+export function unlockAudio(): void {
+  const audio = ensureCtx()
+  if (!audio) return
+  if (audio.state === 'suspended') void audio.resume()
+  // Tom silencioso de 1 amostra para “acordar” alguns browsers móveis.
+  if (!unlockBound) {
+    try {
+      const buf = audio.createBuffer(1, 1, audio.sampleRate)
+      const src = audio.createBufferSource()
+      src.buffer = buf
+      src.connect(audio.destination)
+      src.start(0)
+      unlockBound = true
+    } catch { /* ignore */ }
+  }
+}
+
 /** Clique / clack de manobra. `kind` muda o timbre. */
 export function playClick(kind: ClickKind = 'button'): void {
   if (!enabled) return
   const now = performance.now()
   if (now - lastClickAt < CLICK_COOLDOWN_MS) return
   lastClickAt = now
+  unlockAudio()
   const audio = ensureCtx()
   if (!audio) return
   try {
@@ -74,7 +95,6 @@ export function playClick(kind: ClickKind = 'button'): void {
     gain.connect(audio.destination)
 
     if (kind === 'breaker') {
-      // Clack mecânico mais grave (disjuntor / seccionador).
       osc.type = 'square'
       osc.frequency.setValueAtTime(180, t0)
       osc.frequency.exponentialRampToValueAtTime(90, t0 + 0.06)
@@ -108,7 +128,6 @@ export function playClick(kind: ClickKind = 'button'): void {
       osc.start(t0)
       osc.stop(t0 + 0.06)
     } else {
-      // Botão de comando: clique curto e limpo.
       osc.type = 'sine'
       osc.frequency.setValueAtTime(880, t0)
       osc.frequency.exponentialRampToValueAtTime(420, t0 + 0.03)
@@ -137,10 +156,13 @@ function stopMotorHum(): void {
   try {
     motorOsc?.stop()
     motorOsc?.disconnect()
+    motorOsc2?.stop()
+    motorOsc2?.disconnect()
     motorGain?.disconnect()
     motorFilter?.disconnect()
   } catch { /* ignore */ }
   motorOsc = null
+  motorOsc2 = null
   motorGain = null
   motorFilter = null
   motorWanted = false
@@ -148,8 +170,8 @@ function stopMotorHum(): void {
 }
 
 /**
- * Zumbido contínuo do motor. `on` liga/desliga; `intensity` 0..1 (rpmVisual).
- * Um único oscilador partilhado — vários motores em marcha reforçam a intensidade.
+ * Zumbido contínuo do motor (dois parciais + filtro).
+ * `intensity` 0..1 segue rpmVisual; volume audível em marcha.
  */
 export function setMotorHum(on: boolean, intensity = 0.7): void {
   if (!enabled) {
@@ -158,55 +180,70 @@ export function setMotorHum(on: boolean, intensity = 0.7): void {
   }
   motorWanted = on
   motorIntensity = Math.max(0, Math.min(1, intensity))
-  if (!on) {
+  if (!on || motorIntensity < 0.03) {
     stopMotorHum()
     return
   }
+  unlockAudio()
   const audio = ensureCtx()
   if (!audio) return
   try {
-    if (!motorOsc) {
-      motorOsc = audio.createOscillator()
+    if (!motorOsc || !motorGain || !motorFilter) {
+      stopMotorHum()
       motorGain = audio.createGain()
       motorFilter = audio.createBiquadFilter()
+      motorOsc = audio.createOscillator()
+      motorOsc2 = audio.createOscillator()
       motorOsc.type = 'sawtooth'
+      motorOsc2.type = 'triangle'
       motorFilter.type = 'lowpass'
-      motorFilter.frequency.value = 280
-      motorFilter.Q.value = 0.6
+      motorFilter.Q.value = 0.85
       motorOsc.connect(motorFilter)
+      motorOsc2.connect(motorFilter)
       motorFilter.connect(motorGain)
       motorGain.connect(audio.destination)
       motorGain.gain.value = 0.0001
-      motorOsc.frequency.value = 48
+      motorOsc.frequency.value = 55
+      motorOsc2.frequency.value = 110
       motorOsc.start()
+      motorOsc2.start()
     }
     const t = audio.currentTime
-    const level = 0.012 + motorIntensity * 0.028
-    const freq = 42 + motorIntensity * 28
-    motorOsc.frequency.setTargetAtTime(freq, t, 0.15)
-    motorFilter!.frequency.setTargetAtTime(220 + motorIntensity * 160, t, 0.2)
-    motorGain!.gain.setTargetAtTime(level, t, 0.12)
+    // Fundamental ~48–95 Hz + harmónico; volume até ~0.14 (audível sem saturar).
+    const level = 0.035 + motorIntensity * 0.11
+    const freq = 48 + motorIntensity * 47
+    motorOsc.frequency.setTargetAtTime(freq, t, 0.12)
+    motorOsc2!.frequency.setTargetAtTime(freq * 2.02, t, 0.12)
+    motorFilter!.frequency.setTargetAtTime(320 + motorIntensity * 420, t, 0.18)
+    motorGain!.gain.setTargetAtTime(level, t, 0.1)
   } catch {
     stopMotorHum()
   }
 }
 
-/** Atualiza o zumbido a partir da lista de componentes (chamar após recompute). */
+/** Atualiza o zumbido a partir da lista de componentes (chamar após cada scan). */
 export function syncMotorHumFromComponents(
   components: Array<{ type: string; state: Record<string, unknown> }>,
 ): void {
   let best = 0
   for (const c of components) {
     if (c.type !== 'motor3ph' && c.type !== 'motor1ph') continue
-    if (!c.state.running) continue
-    const rpm = Number(c.state.rpmVisual ?? 0.75)
-    best = Math.max(best, Number.isFinite(rpm) ? rpm : 0.75)
+    const running = !!c.state.running
+    const rpm = Number(c.state.rpmVisual ?? 0)
+    if (running) {
+      // Em marcha: usar rpmVisual, com mínimo para o zumbido ser ouvido logo no arranque.
+      const level = Number.isFinite(rpm) && rpm > 0.05 ? rpm : 0.55
+      best = Math.max(best, level)
+    } else if (Number.isFinite(rpm) && rpm > 0.08) {
+      // Desaceleração: ainda ouve-se enquanto o eixo “roda” visualmente.
+      best = Math.max(best, rpm * 0.7)
+    }
   }
-  if (best > 0.02) setMotorHum(true, best)
+  if (best > 0.04) setMotorHum(true, best)
   else setMotorHum(false)
 }
 
-/** Desliga tudo (mudança de projeto, unmount). */
+/** Desliga tudo (STOP, mudança de projeto). */
 export function silenceAll(): void {
   stopMotorHum()
 }

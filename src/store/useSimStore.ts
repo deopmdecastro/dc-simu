@@ -60,7 +60,7 @@ import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRIC
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { importedActuationPatch, importedComponentInfo, updateImportedLoads, updateImportedPower } from '../electrical/importedComponents'
-import { playClick, syncMotorHumFromComponents, silenceAll } from '../audio/sfx'
+import { playClick, syncMotorHumFromComponents, silenceAll, unlockAudio } from '../audio/sfx'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -1349,6 +1349,8 @@ export const useSimStore = create<Store>((set, get) => {
     const interval = get().sim.mode === 'turbo' ? 30 : 100
     const iv = window.setInterval(tickCycle, interval)
     set((s) => ({ sim: { ...s.sim, runState: 'running' }, _intervalId: iv, ladderBreakHit: null }))
+    // Desbloqueia Web Audio no mesmo gesto do RUN (obrigatório no browser).
+    unlockAudio()
     // Executa imediatamente o 1.º scan ao clicar Start (sem atraso inicial).
     tickCycle()
   },
