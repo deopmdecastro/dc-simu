@@ -46,7 +46,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   const editingBox = editing ? freeTextBox({ ...shown, text: draft }) : null
   const box = editingBox ?? freeTextBox(shown)
   const anchor = comment.align === 'center' ? 'middle' : comment.align === 'right' ? 'end' : 'start'
-  const pad = Math.max(3, box.size * 0.3)
+  const pad = Math.max(touchEdit ? 12 : 3, box.size * (touchEdit ? 0.55 : 0.3))
   const bold = Number(comment.fontWeight ?? 600) >= 600
 
   const down = (event: ReactPointerEvent<SVGGElement>) => {
@@ -61,7 +61,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   const move = (event: ReactPointerEvent<SVGGElement>) => {
     const current = drag.current
     if (!current) return
-    if (!current.moved && Math.hypot(event.clientX - current.sx, event.clientY - current.sy) < 3) return
+    if (!current.moved && Math.hypot(event.clientX - current.sx, event.clientY - current.sy) < (touchEdit ? 8 : 3)) return
     current.moved = true
     const point = toWorld(event.clientX, event.clientY)
     setLive(snap({ x: point.x + current.dx, y: point.y + current.dy }, event.altKey))
