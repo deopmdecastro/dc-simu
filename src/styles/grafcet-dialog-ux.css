@@ -392,3 +392,10 @@
 .grafcet-text-guards-arrow { color: #7a889d; }
 .grafcet-text-guards-state { grid-column: 1 / -1; justify-self: end; font-size: 10.5px; font-weight: 600; color: #8a5a07; }
 .grafcet-text-guards-list li.is-applied .grafcet-text-guards-state { color: #166534; }
+
+/* Edição de texto livre (telemóvel) */
+.grafcet-free-text-body { display: grid; gap: 8px; }
+.grafcet-free-text-body label { font-size: 12px; font-weight: 600; color: var(--dx-text-muted, #64748b); }
+.grafcet-free-text-body textarea { width: 100%; box-sizing: border-box; min-height: 96px; padding: 10px 12px; border: 1px solid var(--dx-border, #cbd5e1); border-radius: 8px; background: var(--dx-surface, #fff); color: inherit; font-family: inherit; line-height: 1.35; resize: vertical; }
+.grafcet-free-text-body textarea:focus { outline: 2px solid var(--dx-accent, #2563eb); outline-offset: 1px; }
+.grafcet-free-text-delete { justify-self: start; color: #dc2626; }

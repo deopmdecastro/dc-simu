@@ -39,6 +39,7 @@ import StepDialog from './StepDialog'
 import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
 import TextGuardsDialog from './TextGuardsDialog'
+import FreeTextDialog from './FreeTextDialog'
 import { applyTextGuards, removeTextGuardComments, scanTextGuards } from './textGuards'
 import ImportReviewBanner from './ImportReviewBanner'
 import HintCard, { Keys } from './HintCard'
@@ -851,6 +852,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   /* Texto livre: criado no sítio (sem caixa do sistema), já selecionado e em edição. */
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null)
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  /** Telemóvel: o texto livre edita-se num diálogo (o teclado não abre de forma fiável na caixa do desenho). */
+  const [textDialogId, setTextDialogId] = useState<string | null>(null)
   const [placingText, setPlacingText] = useState(false)
   useEffect(() => {
     if (!full) return
@@ -4399,9 +4402,16 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       const target = stepById.get(stepId)
                       return target ? `X${getStepDisplayInfo(target, steps.indexOf(target)).stepNumber}` : 'X?'
                     }
-                    const refX = stepX(sources[0])
+                    const refSrcX = stepX(sources[0])
                     const refTop = stepY(sources[0]) + stepHOf(sources[0])
-                    const refBarY = refTop + 34
+                    // Seleção OU (IEC 60848): se a etapa tem outra saída, a transição por referência
+                    // ramifica para o lado (ponto + linha horizontal) em vez de ficar em série por baixo da irmã.
+                    const refSiblings = transitions.filter((o) => o.from.includes(sources[0]) && o.id !== transition.id)
+                    const refOrBranch = sources.length === 1 && refSiblings.length > 0
+                    const refRank = transitions.filter((o) => o.wireless && o.from.length === 1 && o.from[0] === sources[0]).findIndex((o) => o.id === transition.id)
+                    const refX = refOrBranch ? (Math.abs((transition.x ?? refSrcX) - refSrcX) >= 80 ? (transition.x ?? refSrcX) : refSrcX + 260 + Math.max(0, refRank) * 220) : refSrcX
+                    const refJunctionY = refTop + 28
+                    const refBarY = refOrBranch ? refTop + 78 : refTop + 34
                     transitionAnchors.set(transition.id, { x: refX, y: refBarY })
                     const outRefs = targets.map(refOf).join(' ')
                     const inRefs = sources.map(refOf).join(' ')
@@ -4417,7 +4427,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1} (por referência, sem linha): ${transition.condition}`}
                       >
-                        <path d={`M ${refX} ${refTop} V ${refBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} />
+                        <path d={refOrBranch ? `M ${refSrcX} ${refTop} V ${refJunctionY} H ${refX} V ${refBarY}` : `M ${refX} ${refTop} V ${refBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} />
+                        {refOrBranch && <circle cx={refSrcX} cy={refJunctionY} r="3.6" fill={linkColor} data-or-branch="true" />}
                         <path d={`M ${refX} ${refBarY} V ${refBarY + 24}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
                         <line x1={refX - 14} y1={refBarY} x2={refX + 14} y2={refBarY} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
                         <text x={refX - 18} y={refBarY + 3} textAnchor="end" fill={selectedLink ? '#2563eb' : enabled ? '#16a34a' : '#64748b'} fontSize="10.5" fontWeight="700">
@@ -5080,13 +5091,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     key={comment.id}
                     comment={groupOffset && groupCommentIds.includes(comment.id) ? { ...comment, x: comment.x + groupOffset.dx, y: comment.y + groupOffset.dy } : comment}
                     interactive={full && !demoMode && activeTool === 'select' && !isSpacePan}
+                    touchEdit={phone}
                     selected={selectedCommentId === comment.id || groupCommentIds.includes(comment.id)}
                     editing={editingCommentId === comment.id}
                     onGroupDown={onCommentGroupDown}
                     toWorld={clientToWorld}
                     snap={(point, free) => (snapOn && !free ? { x: snapToGrid(point.x, SPINE_X), y: snapToGrid(point.y, START_Y) } : point)}
                     onSelect={() => { setSelectedCommentId(comment.id); setSelected(null); setSelectedActionId(null) }}
-                    onEdit={(editing) => setEditingCommentId(editing ? comment.id : null)}
+                    onEdit={(editing) => (phone && editing ? setTextDialogId(comment.id) : setEditingCommentId(editing ? comment.id : null))}
                     onMove={(x, y) => patchComment(comment.id, { x, y }, 'move')}
                     onText={(text) => (text.trim() ? patchComment(comment.id, { text }, 'text') : removeComment(comment.id))}
                     onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); setSelectedCommentId(comment.id) }}
@@ -6922,6 +6934,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           else patchFreeAction(editingAction.action, patch, 'force')
         }}
         onClose={() => setEditingAction(null)}
+      />
+
+      <FreeTextDialog
+        open={!!textDialogId && comments.some((item) => item.id === textDialogId)}
+        text={comments.find((item) => item.id === textDialogId)?.text ?? ''}
+        onSave={(text) => { if (textDialogId) patchComment(textDialogId, { text }, 'text'); setTextDialogId(null) }}
+        onDelete={() => { if (textDialogId) removeComment(textDialogId); setTextDialogId(null) }}
+        onClose={() => setTextDialogId(null)}
       />
 
       <TextGuardsDialog

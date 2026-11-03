@@ -19,11 +19,13 @@ export function freeTextBox(comment: GrafcetComment) {
  * Texto livre do GRAFCET: arrasta-se com a ferramenta Selecionar, duplo clique edita
  * no próprio desenho (sem caixa do sistema) e a barra de formatação muda o estilo.
  */
-export default function GrafcetFreeText({ comment, selected, editing, interactive, toWorld, snap, onSelect, onEdit, onMove, onText, onContextMenu, onGroupDown }: {
+export default function GrafcetFreeText({ comment, selected, editing, interactive, touchEdit, toWorld, snap, onSelect, onEdit, onMove, onText, onContextMenu, onGroupDown }: {
   comment: GrafcetComment
   selected: boolean
   editing: boolean
   interactive: boolean
+  /** Telemóvel: 1.º toque seleciona, toque num texto já selecionado (ou duplo toque) pede a edição. */
+  touchEdit?: boolean
   toWorld: (clientX: number, clientY: number) => { x: number; y: number }
   snap: (point: { x: number; y: number }, free: boolean) => { x: number; y: number }
   onSelect: () => void
@@ -35,7 +37,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   onGroupDown?: (comment: GrafcetComment, event: ReactPointerEvent<SVGGElement>) => boolean
 }) {
   const [live, setLive] = useState<{ x: number; y: number } | null>(null)
-  const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null)
+  const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean; wasSelected: boolean } | null>(null)
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const [draft, setDraft] = useState(comment.text)
   useEffect(() => { if (editing) { setDraft(comment.text); window.requestAnimationFrame(() => { editorRef.current?.focus(); editorRef.current?.select() }) } }, [editing])
@@ -53,7 +55,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
     if (onGroupDown?.(comment, event)) return
     onSelect()
     const point = toWorld(event.clientX, event.clientY)
-    drag.current = { dx: comment.x - point.x, dy: comment.y - point.y, sx: event.clientX, sy: event.clientY, moved: false }
+    drag.current = { dx: comment.x - point.x, dy: comment.y - point.y, sx: event.clientX, sy: event.clientY, moved: false, wasSelected: selected }
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* noop */ }
   }
   const move = (event: ReactPointerEvent<SVGGElement>) => {
@@ -69,7 +71,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
     drag.current = null
     if (current?.moved && live) onMove(Math.round(live.x), Math.round(live.y))
     // Clique/toque sem arrastar: seleciona (barra de formatação) e abre já a escrita.
-    else if (current && !current.moved && interactive) onEdit(true)
+    else if (current && !current.moved && interactive && (!touchEdit || current.wasSelected)) onEdit(true)
     setLive(null)
   }
   const commit = () => {
