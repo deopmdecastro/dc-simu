@@ -26,6 +26,9 @@ export async function readGrafcetFile(file: Pick<File, 'name' | 'size' | 'arrayB
   if (!/\.(json|grafcet)$/i.test(file.name)) throw new Error('Formato não suportado. Use .ct do FluidSIM 4, .json ou .grafcet.')
   let value: unknown
   try { value = JSON.parse(new TextDecoder().decode(bytes)) } catch { throw new Error('O ficheiro JSON não é válido.') }
+  // Um projeto completo do DC-Simu (.json exportado/guardado) traz o GRAFCET em `grafcet`: usa-se esse programa.
+  const embedded = (value as { grafcet?: unknown } | null)?.grafcet
+  if (value && typeof value === 'object' && !Array.isArray((value as GrafcetProgram).steps) && embedded && typeof embedded === 'object' && Array.isArray((embedded as GrafcetProgram).steps)) value = embedded
   if (!value || typeof value !== 'object' || !Array.isArray((value as GrafcetProgram).steps)) throw new Error('Ficheiro inválido: faltam as etapas GRAFCET.')
   const program = value as GrafcetProgram
   if (program.importReview !== undefined && (!program.importReview || typeof program.importReview !== 'object' || program.importReview.source !== 'fluidsim4' || !Array.isArray(program.importReview.warnings) || program.importReview.warnings.length > 10000 || program.importReview.warnings.some(warning => typeof warning !== 'string'))) throw new Error('Ficheiro inválido: revisão da importação incorreta.')
