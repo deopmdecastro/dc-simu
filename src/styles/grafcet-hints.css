@@ -1,0 +1,18 @@
+/* Cartões de ajuda dos painéis GRAFCET (dicas ocultáveis) */
+.grafcet-hint-card { display: grid; gap: 8px; margin: 10px 0 0; padding: 10px 12px; border: 1px solid #e3e9f3; border-radius: 10px; background: #f8fafd; color: #526681; font-size: 11px; line-height: 1.5; }
+.grafcet-hint-card.is-collapsed { gap: 4px; padding: 8px 12px; }
+.grafcet-hint-lead { margin: 0; color: #334760; font-size: 11.5px; }
+.grafcet-hint-tips { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.grafcet-hint-tips li { position: relative; padding-left: 12px; }
+.grafcet-hint-tips li::before { content: ''; position: absolute; left: 1px; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: #9bb0cf; }
+.grafcet-hint-tips b { color: #334760; font-weight: 650; }
+.grafcet-hint-keys { display: inline-flex; gap: 2px; margin: 0 1px; vertical-align: 1px; }
+.grafcet-hint-keys kbd { display: inline-block; min-width: 16px; padding: 0 4px; border: 1px solid #d3dceb; border-bottom-width: 2px; border-radius: 4px; background: #fff; color: #334760; font: 600 10px/15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-align: center; }
+.grafcet-hint-toggle { justify-self: start; display: inline-flex; align-items: center; gap: 5px; height: 22px; margin: 0 0 0 -6px; padding: 0 6px; border: 0; border-radius: 6px; background: transparent; color: #2655e5; font: inherit; font-size: 10.5px; font-weight: 600; cursor: pointer; }
+.grafcet-hint-toggle:hover { background: #eaf0ff; }
+.grafcet-hint-toggle:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+.grafcet-hint-toggle svg:last-child { transition: transform .15s; }
+.grafcet-hint-toggle svg.is-open { transform: rotate(180deg); }
+/* No rodapé da caixa de componentes o cartão ocupa a faixa inteira, sem moldura própria. */
+.grafcet-toolbox .grafcet-hint-card.grafcet-toolbox-tip { margin: 0; border: 0; border-top: 1px solid #e5eaf3; border-radius: 0; }
+@media (prefers-reduced-motion: reduce) { .grafcet-hint-toggle svg:last-child { transition: none; } }

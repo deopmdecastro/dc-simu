@@ -38,6 +38,7 @@ import StepDialog from './StepDialog'
 import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
 import ImportReviewBanner from './ImportReviewBanner'
+import HintCard, { Keys } from './HintCard'
 import ConditionEditor from './ConditionEditor'
 import SignalTableDialog from './SignalTableDialog'
 import { grafcetSignals, insertCondition, signalAddressesInCondition, signalUsage, undeclaredSignals, type SignalArea } from './signals'
@@ -3859,7 +3860,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   <div className="grafcet-toolbox-empty">Nenhum componente encontrado.</div>
                 )}
               </div>
-              <p className="grafcet-toolbox-tip">Clique ou arraste componentes para a tela. Etapas nascem sem transição; transições e ações soltas ligam-se por arrasto ou com a ferramenta Ligar [L]. Para selecionar várias etapas, arraste um retângulo no fundo (Shift/Ctrl+clique também soma); Ctrl+C/V copia e cola, Ctrl+A seleciona tudo, Del apaga.</p>
+              <HintCard className="grafcet-toolbox-tip" lead="Clique ou arraste um componente para a tela." tips={[
+                <>Etapas nascem soltas: ligue transições e ações arrastando ou com <b>Ligar</b> <Keys>L</Keys>.</>,
+                <>Várias etapas: arraste um retângulo no fundo ou use <Keys>Shift</Keys>/<Keys>Ctrl</Keys>+clique.</>,
+                <><Keys>Ctrl+C</Keys> <Keys>Ctrl+V</Keys> copia e cola · <Keys>Ctrl+A</Keys> seleciona tudo · <Keys>Del</Keys> apaga.</>,
+              ]} />
             </aside>
           ) : (
             <CollapsedPanelRail className="grafcet-toolbox-restore" label="Componentes" side="left" icon={<IconLayers size={15} />} onExpand={() => setShowPalette(true)} />
@@ -6300,12 +6305,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     )
                   }
                   return (
-                    <p className="grafcet-hint">
-                      Selecione um elemento no diagrama ou na lista para editar. Para vários, arraste um retângulo no
-                      fundo da tela (ou Shift/Ctrl+clique) — depois arraste qualquer etapa para mover todas, Ctrl+C/V
-                      copia e cola com ligações, Ctrl+A seleciona tudo, Del apaga. Elementos soltos (transições e ações)
-                      ligam-se por arrasto ou com a ferramenta Ligar [L].
-                    </p>
+                    <HintCard lead={<><b>Nada selecionado.</b> Selecione um elemento no diagrama ou na lista para o editar.</>} tips={[
+                      <>Vários: arraste um retângulo no fundo ou <Keys>Shift</Keys>/<Keys>Ctrl</Keys>+clique; depois arraste uma etapa para mover todas.</>,
+                      <><Keys>Ctrl+C</Keys> <Keys>Ctrl+V</Keys> copia e cola com ligações · <Keys>Ctrl+A</Keys> tudo · <Keys>Del</Keys> apaga.</>,
+                      <>Transições e ações soltas ligam-se por arrasto ou com <b>Ligar</b> <Keys>L</Keys>.</>,
+                    ]} />
                   )
                 })()}
 
@@ -6561,11 +6565,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
             {/* ABA TRANSIÇÕES */}
             {tab === 'transitions' && (
               <>
-                <p className="grafcet-hint">
-                  Tecla <b>T</b> cria uma transição <b>solta</b>: arraste a barra sobre uma etapa (metade de cima = origem, de baixo = destino) ou
-                  use a ferramenta <b>Ligar [L]</b> e una etapas por linha. A origem → vários destinos cria divergência AND; várias origens → um
-                  destino cria convergência AND.
-                </p>
                 <div className="grafcet-entity-list">
                   {filteredTransitions.map((transition) => {
                     const index = transitions.indexOf(transition)
@@ -6614,7 +6613,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 </div>
 
                 {!selectedTransition && (
-                  <p className="grafcet-hint">Selecione uma transição no diagrama ou na lista para definir condição e ligações.</p>
+                  <HintCard lead="Selecione uma transição no diagrama ou na lista para definir a condição e as ligações." tips={[
+                    <><Keys>T</Keys> cria uma transição <b>solta</b>: largue a barra sobre uma etapa (metade de cima = origem, de baixo = destino) ou use <b>Ligar</b> <Keys>L</Keys>.</>,
+                    <>Uma origem → vários destinos cria divergência AND; várias origens → um destino, convergência AND.</>,
+                    <>Duplo clique numa transição abre as propriedades completas.</>,
+                    <>Uma transição sem origem pode ser <b>transição-fonte</b> (ex.: emergência).</>,
+                    <>Para consultar outra etapa sem a desativar, use <b>G0X9</b> (ativa) ou <b>G0 &lt;&gt; X9</b> (inativa) na condição.</>,
+                  ]} />
                 )}
 
                 {selectedTransition && (
