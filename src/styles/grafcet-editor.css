@@ -2117,3 +2117,7 @@
 
 /* Nome e páginas dentro da coluna do canvas (ao lado da paleta, como no Esquema IEC). */
 .grafcet-canvas-col > .grafcet-pages { flex: none; border-top: 0; }
+
+/* Condição de estado da origem (guard): por baixo da condição, ou por cima da transição-fonte */
+.grafcet-guard-label { fill: #64748b; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.grafcet-guard-label.is-source { fill: #1e3a5f; }

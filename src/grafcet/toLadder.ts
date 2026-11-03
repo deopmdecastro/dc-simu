@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { LadderBranch, LadderCoilEl, LadderContact, LadderContactType, LadderRung, LadderTimer } from '../types'
-import { COMPARE_TOKEN, actionsOfStep, normalizeActionVariable, parseCompareToken, parseDuration, parseIecTimer, stepNumberOf, stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetStep } from './engine'
+import { COMPARE_TOKEN, actionsOfStep, normalizeActionVariable, parseCompareToken, parseDuration, parseIecTimer, stepNumberOf, stripGrafcetPrefix, transitionsOf, receptivityOf, type GrafcetProgram, type GrafcetStep } from './engine'
 import type { LadderCompareOp } from '../types'
 
 /** Árvore booleana de uma condição GRAFCET. */
@@ -170,7 +170,8 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
   const label = (options.name ?? program.name ?? '').trim()
   const withName = (text: string) => (label ? `${label}: ${text}` : text)
   const steps = program.steps
-  const transitions = transitionsOf(program)
+  // A condição de estado da origem (guard) entra na receptividade convertida, como no motor.
+  const transitions = transitionsOf(program).map((t) => (t.guard?.trim() ? { ...t, condition: receptivityOf(t) } : t))
   const used = new Set<string>([...reserved].map((a) => a.toUpperCase()))
   for (const step of steps) for (const a of actionsOfStep(step)) {
     const addr = normalizeActionVariable(a.address || a.variable || '').toUpperCase()

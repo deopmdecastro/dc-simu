@@ -111,6 +111,20 @@ export interface GrafcetTransition {
   /** Transição-fonte (IEC 60848): sem etapa de origem, está sempre validada e dispara
    *  quando a receptividade é verdadeira (ex.: emergência → etapa de paragem). */
   source?: boolean
+  /** Condição de estado da origem (ex.: `G3 <> X149`): estado de etapas deste ou de outro GRAFCET
+   *  que a transição exige além da receptividade. É desenhada por cima da transição — numa
+   *  transição-fonte evita, por exemplo, re-disparar enquanto a etapa de destino está ativa. */
+  guard?: string
+}
+
+/** Receptividade completa avaliada pelo motor: condição E condição de estado da origem. */
+export function receptivityOf(transition: Pick<GrafcetTransition, 'condition' | 'guard'>): string {
+  const condition = (transition.condition ?? '').trim()
+  const guard = (transition.guard ?? '').trim()
+  if (!guard) return condition
+  if (!condition || condition === '1') return guard
+  const wrap = (text: string) => (/\+|\bOR\b/i.test(text) ? `(${text})` : text)
+  return `${wrap(condition)} * ${wrap(guard)}`
 }
 
 /** Texto livre do GRAFCET (legendas, títulos, notas de projeto). */
@@ -744,7 +758,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       simTimeMs,
     }
 
-    if (!evalCondition(transition.condition, snapshot, condContext)) continue
+    if (!evalCondition(receptivityOf(transition), snapshot, condContext)) continue
 
     transition.from.forEach((id) => { next.delete(id); consumed.add(id) })
     transition.to.forEach((id) => { next.add(id); elapsed[id] = 0; entered.add(id) })
@@ -832,7 +846,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
  * em vez de `evalCondition(cond, table)` para nunca contradizer a simulação. */
 export function transitionReceptivity(program: GrafcetProgram, runtime: GrafcetRuntime, table: Record<string, boolean>, transition: GrafcetTransition): boolean {
   if (program.importReview) return false
-  if (!validCondition(transition.condition)) return false
+  if (!validCondition(receptivityOf(transition))) return false
   const steps = program.steps
   const active = new Set(runtime.active.filter((id) => steps.some((step) => step.id === id)))
   const elapsed = runtime.elapsed ?? {}
@@ -844,7 +858,7 @@ export function transitionReceptivity(program: GrafcetProgram, runtime: GrafcetR
     stepElapsedByName[step.name.trim()] = elapsed[step.id] ?? 0
   })
   const activeIndexes = new Set(steps.map((step, index) => (active.has(step.id) ? index : -1)).filter((n) => n >= 0))
-  return evalCondition(transition.condition, table, {
+  return evalCondition(receptivityOf(transition), table, {
     table,
     prev: runtime.prev,
     activeIndexes,
@@ -913,11 +927,13 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     }
     if (!validCondition(transition.condition)) {
       issues.push({ id: `${transition.id}:condition`, level: 'error', message: `Condição inválida em ${name}: «${transition.condition || 'vazia'}».`, entityId: transition.id, tab: 'transitions' })
+    } else if (transition.guard?.trim() && !validCondition(transition.guard)) {
+      issues.push({ id: `${transition.id}:guard`, level: 'error', message: `Condição de estado inválida em ${name}: «${transition.guard}».`, entityId: transition.id, tab: 'transitions' })
     } else {
       const knownByGraph = graphStepNumbers(program).known
       const existsHere = (num: string) => steps.some((s, i) => stepNumberOf(s, i) === num || s.name.trim() === num)
       // G<n>X<m> é lido na página n; sem página correspondente vale a numeração global.
-      const missing = stepStateReferences(transition.condition).filter((reference) => {
+      const missing = stepStateReferences(receptivityOf(transition)).filter((reference) => {
         const scoped = reference.graph !== null ? knownByGraph[reference.graph] : undefined
         if (scoped?.size) return !scoped.has(reference.step) && !existsHere(reference.step)
         return !existsHere(reference.step) && Number(reference.step) >= steps.length

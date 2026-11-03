@@ -9,14 +9,14 @@ import {
   type GrafcetStep,
   type GrafcetTransition,
   type GrafcetTransitionComparison,
-  type StepStateReference,
+  receptivityOf,
 } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
 import Select from '../ui/Select'
 import ConditionEditor from './ConditionEditor'
 import type { GrafcetSignalSuggestion } from './signals'
 import { foldText } from '../utils/text'
-import { IconArrowDown, IconCheck, IconChevronRight, IconClose, IconCompare, IconEye, IconGrafcet, IconLink, IconPlus, IconSearch, IconStep, IconSwap, IconWarning } from '../ui/icons'
+import { IconArrowDown, IconCheck, IconChevronRight, IconClose, IconCompare, IconGrafcet, IconLink, IconPlus, IconSearch, IconSwap, IconWarning } from '../ui/icons'
 import '../styles/grafcet-dialog-ux.css'
 
 interface TransitionDialogProps {
@@ -37,8 +37,8 @@ interface TransitionDialogProps {
   onHelp?: () => void
 }
 
-/** Referência ao estado de uma etapa: `G0 <=> X9`, `G1 <> X11`, `X9`, `/X9`. */
-type StateTerm = StepStateReference
+/** Uma linha «Só se»: etapa `step` do GRAFCET `graph` tem de estar ativa/inativa. */
+interface GuardRow { graph: number; step: string; active: boolean }
 
 export default function TransitionDialog({
   open,
@@ -62,12 +62,8 @@ export default function TransitionDialog({
   const [to, setTo] = useState<string[]>([])
   const [wireless, setWireless] = useState(false)
   const [source, setSource] = useState(false)
-  // Construtor de dependências de estado (mesmo GRAFCET ou outro).
-  const [stateGraph, setStateGraph] = useState('G0')
-  const [stateStep, setStateStep] = useState('')
-  const [stateActive, setStateActive] = useState<'inactive' | 'active'>('active')
-  const [stateOpen, setStateOpen] = useState(false)
-  const [stateIndex, setStateIndex] = useState(0)
+  // Condição de estado da origem: «Só se» a etapa n do GRAFCET Gk estiver ativa/inativa.
+  const [guardRows, setGuardRows] = useState<GuardRow[]>([])
   const [submitted, setSubmitted] = useState(false)
   // Seletor de etapas (um por lado): texto escrito, lista aberta e opção realçada.
   const [pickQuery, setPickQuery] = useState<{ from: string; to: string }>({ from: '', to: '' })
@@ -92,10 +88,7 @@ export default function TransitionDialog({
     setTo([...transition.to])
     setWireless(!!transition.wireless)
     setSource(!!transition.source && !transition.from.length)
-    setStateGraph(graphKey(graphNumber))
-    setStateStep('')
-    setStateActive('active')
-    setStateOpen(false)
+    setGuardRows(stepStateReferences(transition.guard ?? '').map((term) => ({ graph: term.graph === null ? 0 : Number(term.graph), step: term.step, active: term.active })))
     setQuickMsg('')
     setAnnotationsOpen(!!transition.description || !!transition.comment || !!transition.targetInfo || !!transition.displayDescription)
     setComparisonsOpen(!!transition.comparisons?.length)
@@ -112,7 +105,7 @@ export default function TransitionDialog({
   const save = () => {
     setSubmitted(true)
     if (conditionError) { document.getElementById('trans-condition-input')?.focus(); return }
-    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), comparisons: comparisons.map((item) => ({ grafcet: item.grafcet.trim(), transition: item.transition.trim(), condition: item.condition?.trim(), note: item.note?.trim() })).filter((item) => item.grafcet || item.transition || item.condition || item.note), wireless, source: source && !from.length, from: [...from], to: [...to] })
+    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), comparisons: comparisons.map((item) => ({ grafcet: item.grafcet.trim(), transition: item.transition.trim(), condition: item.condition?.trim(), note: item.note?.trim() })).filter((item) => item.grafcet || item.transition || item.condition || item.note), wireless, source: source && !from.length, guard: guardText || undefined, from: [...from], to: [...to] })
     onClose()
   }
   /** Índice global de uma etapa (a base do número mostrado no diagrama e em X<n>). */
@@ -170,69 +163,54 @@ export default function TransitionDialog({
     if (choice) pickStep(side, choice.step.id)
   }
 
-  /* ── Dependências do estado de etapas ─────────────────────────────────────
-     A leitura da expressão é a mesma do motor (`stepStateReferences`), por isso
-     cada termo escrito à mão aparece aqui e pode ser alterado sem reescrever. */
-  const stateTerms: StateTerm[] = stepStateReferences(condition)
-  const graphOfTerm = (term: StateTerm) => programGraphs.find((graph) => graph.key === graphKey(term.graph === null ? 0 : Number(term.graph)))
-  const stepOfTerm = (term: StateTerm) => graphOfTerm(term)?.steps.find((step) => numberOf(step) === term.step)
-  const stepIdByNumber = (number: string) => availableSteps.find((step) => numberOf(step) === number)?.id
-  const stepExists = (number: string) => !!stepIdByNumber(number)
-  const stepLabelByNumber = (number: string) => { const id = stepIdByNumber(number); return id ? labelOf(id) : `Etapa ${number}` }
-  const selectedGraph = programGraphs.find((graph) => graph.key === stateGraph) ?? programGraphs[0]
-  const selectedGraphSteps = selectedGraph?.steps ?? []
-  const stateNumber = foldText(stateStep.trim()).replace(/^x/, '')
-  const stateStepChoices = (() => {
-    const query = foldText(stateStep.trim()).replace(/^x(?=\d)/, '')
-    const all = selectedGraphSteps.map((step) => ({ step, point: pointOf(step) }))
-    if (!query) return all
-    const hits = all.filter(({ step, point }) => foldText(`${point.number} etapa ${point.number} ${step.name} ${step.description ?? ''} ${step.comment ?? ''}`).includes(query))
-    return [...hits.filter(({ point }) => foldText(point.number) === query), ...hits.filter(({ point }) => foldText(point.number) !== query)]
-  })()
-  const stateChoice = stateStep.trim() ? stateStepChoices[Math.min(stateIndex, Math.max(0, stateStepChoices.length - 1))] : undefined
-  const otherGraphCount = programGraphs.filter((graph) => graph.number !== 0 && graph.steps.length).length
-  /** Junta «G1 <=> X11» à condição com E (os OU existentes ficam entre parênteses). */
-  const addStateTerm = () => {
-    const number = (stateChoice?.step ? numberOf(stateChoice.step) : stateNumber) || stateNumber
-    if (!/^[0-9]+[a-zA-Z]?$/.test(number)) { setQuickMsg('Indique o número da etapa (ex.: 9).'); return }
-    const term = stepReferenceText(String(selectedGraph?.number ?? 0), number, stateActive === 'active')
-    const current = condition.trim()
-    const next = !current || current === '1' ? term : `${/\+|\bOR\b/i.test(current) ? `(${current})` : current} * ${term}`
-    setCondition(next)
-    setStateStep('')
-    setStateOpen(false)
-    const where = (selectedGraph?.number ?? 0) === 0 ? 'neste GRAFCET' : `na página ${selectedGraph?.label ?? stateGraph}`
-    const missing = !(selectedGraph?.steps ?? []).some((step) => numberOf(step) === number)
-    setQuickMsg(`${term} junto à condição — ${missing ? `atenção: não existe a Etapa ${number} ${where}` : `Etapa ${number} ${where}`}. Guarde para aplicar.`)
+  /* ── Condição de estado da origem («Só se») ──────────────────────────────
+     Cada linha é uma etapa de qualquer GRAFCET (página) e o estado exigido. O texto
+     guardado é o do motor (`G3 <> X149`) e é desenhado por cima da transição. */
+  const guardText = guardRows.filter((row) => row.step).map((row) => stepReferenceText(row.graph, row.step, row.active)).join(' * ')
+  const graphByNumber = (number: number) => programGraphs.find((graph) => graph.number === number)
+  /** «G3 · Manual A» — sem repetir o prefixo quando o título da página já o traz. */
+  const graphOptionLabel = (graph: GrafcetGraph) => {
+    const label = graph.label.replace(new RegExp(`^${graph.key}\\s*[·:\\-]?\\s*`, 'i'), '').trim()
+    return `${graph.key} · ${graph.number === graphNumber ? `${label || 'este'} (este)` : label || graph.key}`
   }
-  /** Retira um termo de estado e o operador E que o ligava. */
-  const withoutTerm = (term: StateTerm) => {
-    const before = condition.slice(0, term.at)
-    const after = condition.slice(term.at + term.text.length)
-    let next: string
-    if (/\*\s*$/.test(before)) next = before.replace(/\s*\*\s*$/, '') + after
-    else if (/^\s*\*/.test(after)) next = before + after.replace(/^\s*\*\s*/, '')
-    else next = before + after
-    return next.trim().replace(/^\((.*)\)$/, (whole, inner: string) => (/[()]/.test(inner) ? whole : inner)) || '1'
-  }
-  const removeStateTerm = (term: StateTerm) => {
-    setCondition(withoutTerm(term))
-    setQuickMsg(`${term.text.trim()} retirado da condição — guarde para aplicar.`)
-  }
-  /** Troca ativa/inativa, escrevendo a forma explícita G0 <=> Xn / G0 <> Xn. */
-  const setTermState = (term: StateTerm, active: boolean) => {
-    if (term.active === active && !term.implicit) return
-    setCondition(condition.slice(0, term.at) + stepReferenceText(term.graph ?? 0, term.step, active) + condition.slice(term.at + term.text.length))
-  }
-  /** A etapa consultada passa a origem: sai da condição e entra nas origens (será desativada ao disparar). */
-  const promoteTerm = (term: StateTerm) => {
-    const id = stepIdByNumber(term.step)
-    if (!id || !linkSteps.some((step) => step.id === id)) return
-    setCondition(withoutTerm(term))
-    if (!from.includes(id)) setFrom((current) => [...current, id])
-    setSource(false)
-    setQuickMsg(`${labelOf(id)} passou a origem: será desativada quando a transição disparar — guarde para aplicar.`)
-  }
+  const graphOfStepId = (id: string) => programGraphs.find((graph) => graph.steps.some((step) => step.id === id))
+  const updateGuard = (index: number, patch: Partial<GuardRow>) => setGuardRows((rows) => rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)))
+  const removeGuard = (index: number) => setGuardRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index))
+  const addGuard = (row?: GuardRow) => setGuardRows((rows) => [...rows, row ?? { graph: graphNumber, step: '', active: true }])
+  /** Transição-fonte com um destino: o habitual é só disparar se essa etapa ainda estiver inativa. */
+  const sourceTarget = source && !from.length && to.length === 1 ? availableSteps.find((step) => step.id === to[0]) : undefined
+  const suggestion: GuardRow | null = sourceTarget && !guardRows.length ? { graph: graphOfStepId(sourceTarget.id)?.number ?? graphNumber, step: numberOf(sourceTarget), active: false } : null
+  const guardExternal = guardRows.filter((row) => row.step && row.graph !== graphNumber).length
+  const renderGuard = () => (
+    <div className="grafcet-guard" role="group" aria-label="Condição de estado da origem" data-property-save-ignore>
+      <div className="grafcet-guard-head"><b>Só se</b><small>etapas de qualquer GRAFCET · aparece por cima da transição</small></div>
+      {guardRows.map((row, index) => {
+        const graph = graphByNumber(row.graph) ?? programGraphs[0]
+        return (
+          <div className="grafcet-guard-row" key={index}>
+            <Select className="grafcet-guard-graph" value={graph ? graph.key : 'G0'} aria-label={`GRAFCET da condição ${index + 1}`}
+              onChange={(event) => updateGuard(index, { graph: programGraphs.find((item) => item.key === event.target.value)?.number ?? 0, step: '' })}>
+              {programGraphs.map((item) => <option key={item.key} value={item.key}>{graphOptionLabel(item)}</option>)}
+            </Select>
+            <Select className="grafcet-guard-step" value={row.step} aria-label={`Etapa da condição ${index + 1}`} onChange={(event) => updateGuard(index, { step: event.target.value })}>
+              <option value="">Etapa…</option>
+              {(graph?.steps ?? []).map((step) => { const point = pointOf(step); return <option key={step.id} value={point.number}>X{point.number}{point.name ? ` · ${point.name}` : ''}</option> })}
+            </Select>
+            <span className="grafcet-state-toggle" role="radiogroup" aria-label={`Estado exigido na condição ${index + 1}`}>
+              <button type="button" role="radio" aria-checked={row.active} className={row.active ? 'is-on' : ''} onClick={() => updateGuard(index, { active: true })}>ativa</button>
+              <button type="button" role="radio" aria-checked={!row.active} className={!row.active ? 'is-on' : ''} onClick={() => updateGuard(index, { active: false })}>inativa</button>
+            </span>
+            <button type="button" className="grafcet-state-remove" onClick={() => removeGuard(index)} aria-label={`Retirar condição ${index + 1}`} title="Retirar"><IconClose size={12} /></button>
+          </div>
+        )
+      })}
+      <div className="grafcet-guard-actions">
+        <button type="button" className="grafcet-guard-add" onClick={() => addGuard()}><IconPlus size={11} /> Estado de etapa</button>
+        {suggestion && <button type="button" className="grafcet-guard-suggest" onClick={() => addGuard(suggestion)} title="Evita voltar a disparar enquanto a etapa de destino está ativa">Sugestão: <code>{stepReferenceText(suggestion.graph, suggestion.step, false)}</code></button>}
+      </div>
+      {guardText && <p className="grafcet-guard-preview">Receptividade completa: <code>{receptivityOf({ condition, guard: guardText })}</code></p>}
+    </div>
+  )
   const renderConnections = (side: 'from' | 'to', ids: string[]) => {
     const isFrom = side === 'from'
     const listId = `trans-pick-${side}`
@@ -283,13 +261,13 @@ export default function TransitionDialog({
         </ul>}
       </div>}
       {isFrom && !ids.length && !source && <button type="button" className="grafcet-link-source-offer" onClick={() => setSource(true)}>Sem origem de propósito? <b>Usar como transição-fonte</b></button>}
-      {sourceMode && <p className="grafcet-property-note">Dispara em qualquer situação quando a condição é verdadeira (ex.: emergência). Para a limitar, use «Depende do estado de outras etapas» abaixo.</p>}
+      {sourceMode && <p className="grafcet-property-note">Sem etapa de origem: dispara quando a condição é verdadeira (ex.: emergência).</p>}
+      {isFrom && renderGuard()}
     </fieldset>
   )}
-  const stateCount = stateTerms.length
-  const externalCount = stateTerms.filter((term) => (term.graph !== null && Number(term.graph) !== 0) || (graphOfTerm(term)?.number ?? 0) !== 0).length
+  const externalCount = guardExternal
   return (
-    <PropertyDialog open={open} id="trans-dialog" className="grafcet-compact-dialog grafcet-transition-dialog" title="Propriedades da transição" subtitle="Receptividade, ligações e dependências de etapas deste ou de outro GRAFCET." onSave={save} onClose={onClose}>
+    <PropertyDialog open={open} id="trans-dialog" className="grafcet-compact-dialog grafcet-transition-dialog" title="Propriedades da transição" subtitle="Condição, etapas de origem e destino, e estado de etapas de qualquer GRAFCET." onSave={save} onClose={onClose}>
       <div className="grafcet-property-grid">
         <section className="grafcet-property-fields" aria-label="Definições da transição">
           <div className="grafcet-transition-identity">
@@ -307,87 +285,9 @@ export default function TransitionDialog({
             </div>
           </section>
 
-          <section className="grafcet-state-conditions" data-property-save-ignore role="group" aria-label="Dependências do estado de etapas">
-            <div className="grafcet-connections-heading">
-              <h3><IconEye size={13} /> Depende do estado de etapas {stateCount ? <span className="grafcet-link-count">{stateCount}</span> : <span className="grafcet-optional">opcional</span>}</h3>
-              <p>Consulta etapas <b>deste</b> ou de <b>outro GRAFCET</b> sem as desativar.</p>
-            </div>
-            {!!stateCount && <ul className="grafcet-state-list" aria-label="Dependências de estado na receptividade">
-              {stateTerms.map((term, index) => {
-                const graph = graphOfTerm(term)
-                const step = stepOfTerm(term)
-                const isOther = !!graph && graph.number !== 0
-                const id = step?.id
-                const canPromote = !!id && term.active && !from.includes(id) && linkSteps.some((item) => item.id === id)
-                return <li key={`${term.at}:${index}`} className={`grafcet-state-item${term.active ? ' is-active' : ''}${step ? '' : ' is-missing'}${isOther ? ' is-external' : ''}`}>
-                  <span className={`grafcet-state-scope${isOther ? ' is-external' : ''}`} title={graph ? `${graph.key} · ${graph.label}` : undefined}>{graph ? graph.key : 'G0'}{isOther && <small>outro GRAFCET</small>}</span>
-                  <span className="grafcet-state-item-text">
-                    <b>{step ? labelOf(step.id) : `Etapa ${term.step}`}</b>
-                    <span> tem de estar <b>{term.active ? 'ativa' : 'inativa'}</b></span>
-                    <code title={term.implicit ? `${term.text.trim()} é lido como ${stepReferenceText(term.graph ?? 0, term.step, term.active)}` : undefined}>{term.text.trim()}</code>
-                    {!step && <small>não existe {isOther && graph ? `na página ${graph.label}` : 'neste GRAFCET'}</small>}
-                    {!!id && !isOther && from.includes(id) && <small>também é origem — redundante</small>}
-                  </span>
-                  <span className="grafcet-state-toggle" role="radiogroup" aria-label={`Estado exigido para ${graph ? graph.key : 'G0'} X${term.step}`}>
-                    <button type="button" role="radio" aria-checked={term.active} className={term.active ? 'is-on' : ''} onClick={() => setTermState(term, true)}>ativa</button>
-                    <button type="button" role="radio" aria-checked={!term.active} className={!term.active ? 'is-on' : ''} onClick={() => setTermState(term, false)}>inativa</button>
-                  </span>
-                  {canPromote && <button type="button" className="dc-btn grafcet-state-promote" onClick={() => promoteTerm(term)} title="Passa esta etapa a origem: fica desativada quando a transição disparar">Usar como origem</button>}
-                  <button type="button" className="grafcet-state-remove" onClick={() => removeStateTerm(term)} aria-label={`Retirar ${term.text.trim()} da condição`} title="Retirar da condição"><IconClose size={12} /></button>
-                </li>
-              })}
-            </ul>}
-            <div className="grafcet-state-builder">
-              <div className="grafcet-state-builder-row">
-                <span className="grafcet-state-sentence"><IconStep size={12} /> Etapa</span>
-                <Select className="grafcet-state-graph" value={stateGraph} onChange={(event) => { setStateGraph(event.target.value); setStateStep(''); setStateIndex(0) }} aria-label="GRAFCET da etapa consultada">
-                  {programGraphs.map((graph) => <option key={graph.key} value={graph.key}>{graph.key} · {graph.number === graphNumber ? 'este' : graph.label}</option>)}
-                </Select>
-                <div className="grafcet-state-step-picker">
-                  <IconSearch size={12} />
-                  <input
-                    className="dc-input" role="combobox" aria-expanded={stateOpen} aria-controls="trans-state-choices" aria-autocomplete="list"
-                    aria-activedescendant={stateOpen && stateStepChoices.length ? `trans-state-choices-${Math.min(stateIndex, stateStepChoices.length - 1)}` : undefined}
-                    placeholder="nº/nome" value={stateStep} aria-label="Etapa a consultar"
-                    onFocus={() => { setStateOpen(true); setStateIndex(0) }}
-                    onBlur={() => window.setTimeout(() => setStateOpen(false), 120)}
-                    onChange={(event) => { setStateStep(event.target.value); setStateOpen(true); setStateIndex(0) }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); const current = ((stateOpen) && stateStepChoices.length) ? stateStepChoices[Math.min(stateIndex, stateStepChoices.length - 1)].step : null; if (current) setStateStep(numberOf(current)); else addStateTerm() }
-                      else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                        event.preventDefault()
-                        setStateOpen(true)
-                        const count = stateStepChoices.length
-                        setStateIndex((value) => (count ? (value + (event.key === 'ArrowDown' ? 1 : -1) + count) % count : 0))
-                      } else if (event.key === 'Escape' && stateOpen) { event.preventDefault(); event.stopPropagation(); setStateOpen(false) }
-                    }}
-                  />
-                  {stateOpen && <ul id="trans-state-choices" className="grafcet-link-options" role="listbox" aria-label="Etapas do GRAFCET escolhido">
-                    {stateStepChoices.map(({ step, point }, index) => <li key={step.id} id={`trans-state-choices-${index}`} role="option" aria-selected={foldText(numberOf(step)) === foldText(stateStep)} className={index === Math.min(stateIndex, Math.max(0, stateStepChoices.length - 1)) ? 'is-active' : ''}
-                      onMouseDown={(event) => { event.preventDefault(); setStateStep(point.number); setStateOpen(false) }} onMouseEnter={() => setStateIndex(index)}>
-                      <span className="grafcet-link-option-text"><b>Etapa {point.number}</b>{point.name && <span> · {point.name}</span>}{(step.description || step.comment) && <small>{step.description || step.comment}</small>}</span>
-                      {step.initial && <em>inicial</em>}
-                    </li>)}
-                    {!stateStepChoices.length && <li className="is-empty" aria-disabled="true">{selectedGraphSteps.length ? 'Nenhuma etapa corresponde.' : 'Esta página ainda não tem etapas.'}</li>}
-                  </ul>}
-                </div>
-                <div className="grafcet-state-toggle" role="radiogroup" aria-label="Estado da etapa consultada">
-                  <button type="button" role="radio" aria-checked={stateActive === 'active'} className={stateActive === 'active' ? 'is-on' : ''} onClick={() => setStateActive('active')} title="Insere G0 <=> Xn: a etapa deve estar ativa">ativa</button>
-                  <button type="button" role="radio" aria-checked={stateActive === 'inactive'} className={stateActive === 'inactive' ? 'is-on' : ''} onClick={() => setStateActive('inactive')} title="Insere G0 <> Xn: a etapa deve estar inativa">inativa</button>
-                </div>
-                <button type="button" className="dc-btn grafcet-state-add" onClick={addStateTerm} disabled={!stateStep.trim() && !stateNumber} aria-label="Adicionar à condição" title="Acrescenta a etapa e o estado à condição, com E"><IconPlus size={12} /> Adicionar</button>
-              </div>
-              <p className="grafcet-property-note grafcet-state-builder-note">
-                Acrescenta <code>{`* ${stepReferenceText(selectedGraph?.number ?? 0, stateNumber || (stateChoice ? numberOf(stateChoice.step) : 'n'), stateActive === 'active')}`}</code>
-                {stateChoice && <span> — {pointOf(stateChoice.step).name || `Etapa ${pointOf(stateChoice.step).number}`}</span>}
-                {(selectedGraph?.number ?? 0) !== 0 && <span> · <b>outro GRAFCET</b></span>}
-                {!otherGraphCount && <span> · só existe este GRAFCET (use «Nova página» para ter um G1)</span>}
-              </p>
-            </div>
-          </section>
           {quickMsg && <p className="grafcet-property-note grafcet-transition-status" role="status">{quickMsg}</p>}
           {!!directCycle.length && <p className="grafcet-property-warning" role="status">Ciclo direto: {directCycle.map((id) => labelOf(id)).join(', ')} {directCycle.length === 1 ? 'é origem e destino' : 'são origem e destino'} ao mesmo tempo — enquanto a condição for verdadeira a transição dispara continuamente, sem esperar noutra etapa.</p>}
-          {((!from.length && !source) || !to.length) && <p className="grafcet-property-warning" role="status">{source && !from.length ? 'Transição-fonte sem destino: escolha a etapa a ativar.' : <>Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Use «Adicionar etapa», marque «Usar como transição-fonte» se não tiver origem de propósito, ou guarde o rascunho e complete depois.</>}{!from.length && !source && stateTerms.some((term) => term.active && stepExists(term.step)) && <> A condição consulta {stateTerms.filter((term) => term.active && stepExists(term.step)).map((term) => `X${term.step}`).join(', ')}: se essa etapa deve ser desativada ao disparar, use «Usar como origem».</>}</p>}
+          {((!from.length && !source) || !to.length) && <p className="grafcet-property-warning" role="status">{source && !from.length ? 'Transição-fonte sem destino: escolha a etapa a ativar.' : <>Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Use «Adicionar etapa», marque «Usar como transição-fonte» se não tiver origem de propósito, ou guarde o rascunho e complete depois.</>}</p>}
 
           <details className="grafcet-transition-comparisons" open={comparisonsOpen} onToggle={(event) => setComparisonsOpen(event.currentTarget.open)}>
             <summary><IconCompare size={13} /> Equivalências documentais <span className="grafcet-optional">{comparisons.length ? `${comparisons.length} registada${comparisons.length === 1 ? '' : 's'}` : 'nenhuma'}</span><IconChevronRight size={11} /></summary>
@@ -413,17 +313,13 @@ export default function TransitionDialog({
             <div className="grafcet-property-field"><label htmlFor="trans-desc-input">Descrição</label><textarea id="trans-desc-input" className="dc-input" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Cilindro A no fim de curso" /><label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(event) => setDisplayDescription(event.target.checked)} /><span>Mostrar a descrição em vez da expressão no diagrama</span></label></div>
             <div className="grafcet-property-field"><label htmlFor="trans-reference-input">Referência visual</label><input id="trans-reference-input" className="dc-input" value={targetInfo} onChange={(event) => setTargetInfo(event.target.value)} placeholder="Ex.: Continuação na folha 2" /><p className="grafcet-property-note">Anotação do diagrama. Os destinos são definidos nas ligações acima.</p></div>
           </div></details>
-          <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Ajuda sobre transições</summary><div><p>A condição é uma expressão booleana: <code>I1 * /I2</code> exige I1 ativa e I2 inativa. Use AND (*), OR (+), NOT (/), flancos e parênteses.</p><p><code>X10</code> consulta a etapa com o número 10 no diagrama. <code>T(2s)</code> verifica dois segundos de atividade das origens.</p><p><b>Etapas de outro GRAFCET:</b> <code>G1 &lt;=&gt; X11</code> exige a etapa 11 da página G1 ativa; <code>G1 &lt;&gt; X11</code> exige-a inativa. G0 é a primeira página (este GRAFCET quando só há uma), G1 a segunda, e assim por diante. As páginas correm em simultâneo e partilham sinais, por isso a dependência entre elas é avaliada no mesmo ciclo.</p><p>Várias origens sincronizam ramos: todas precisam de estar ativas. Com a condição verdadeira, a transição ativa todos os destinos (AND). Pode guardar uma transição solta e completá-la no diagrama.</p><p>Uma <b>transição-fonte</b> não tem etapa de origem: está sempre validada e dispara quando a condição é verdadeira. Para consultar outras etapas sem as desativar, use «Depende do estado de etapas».</p></div></details>
+          <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Ajuda sobre transições</summary><div><p>A condição é uma expressão booleana: <code>I1 * /I2</code> exige I1 ativa e I2 inativa. Use AND (*), OR (+), NOT (/), flancos e parênteses.</p><p><code>X10</code> consulta a etapa com o número 10 no diagrama. <code>T(2s)</code> verifica dois segundos de atividade das origens.</p><p><b>Etapas de outro GRAFCET:</b> <code>G1 &lt;=&gt; X11</code> exige a etapa 11 da página G1 ativa; <code>G1 &lt;&gt; X11</code> exige-a inativa. G0 é a primeira página (este GRAFCET quando só há uma), G1 a segunda, e assim por diante. As páginas correm em simultâneo e partilham sinais, por isso a dependência entre elas é avaliada no mesmo ciclo.</p><p>Várias origens sincronizam ramos: todas precisam de estar ativas. Com a condição verdadeira, a transição ativa todos os destinos (AND). Pode guardar uma transição solta e completá-la no diagrama.</p><p>Uma <b>transição-fonte</b> não tem etapa de origem: está sempre validada e dispara quando a condição é verdadeira. Para só disparar com outra etapa ativa ou inativa (deste ou de outro GRAFCET), use «Só se» nas origens.</p></div></details>
         </section>
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span className="grafcet-preview-live">Ao editar</span></div>
           <div className="grafcet-transition-map" aria-label="Resumo das ligações da transição">
             <span className="grafcet-map-label">ORIGENS · TODAS ATIVAS</span><div className="grafcet-map-steps">{from.length ? from.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : source ? <span className="is-source">Transição-fonte · sempre validada</span> : <em>Sem origem</em>}</div>
-            {!!stateCount && <><span className="grafcet-map-label">SE · ETAPAS CONSULTADAS</span><div className="grafcet-map-steps">{stateTerms.map((term, index) => {
-              const graph = graphOfTerm(term)
-              const isOther = !!graph && graph.number !== 0
-              return <span key={`s:${term.at}:${index}`} className={`is-state${isOther ? ' is-external' : ''}`}>{isOther ? `${graph!.key} · ` : ''}X{term.step} {term.active ? 'ativa' : 'inativa'}</span>
-            })}</div></>}
+            {!!guardText && <><span className="grafcet-map-label">SÓ SE</span><div className="grafcet-map-steps">{guardRows.filter((row) => row.step).map((row, index) => <span key={`g:${index}`} className={`is-state${row.graph !== graphNumber ? ' is-external' : ''}`}>{stepReferenceText(row.graph, row.step, row.active)}</span>)}</div></>}
             <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>
             <div className="grafcet-map-transition"><strong>{name || `T${transitionIndex + 1}`}</strong><code>{displayDescription && description ? description : condition || 'Condição por definir'}</code><span className={validCondition(condition) ? 'is-valid' : 'is-incomplete'}>{validCondition(condition) ? <IconCheck size={11} /> : <IconWarning size={11} />}{validCondition(condition) ? 'Sintaxe válida' : 'Expressão incompleta'}</span></div>
             <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>

@@ -1530,7 +1530,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const choose = (ids: string[], stepId: string) =>
     ids.includes(stepId) ? ids.filter((value) => value !== stepId) : [...ids, stepId]
 
-  const issues: ValidationIssue[] = validateGrafcet({ ...program, transitions })
+  // Valida o programa inteiro (as páginas partilham etapas e referências) e mostra no Diagnóstico
+  // só o que pertence à página aberta; a revisão da importação usa a lista completa.
+  const programIssues: ValidationIssue[] = validateGrafcet({ ...program, transitions: allTransitions })
+  const pageEntityIds = new Set([...steps.map((step) => step.id), ...transitions.map((transition) => transition.id)])
+  const issues: ValidationIssue[] = firstChartId ? programIssues.filter((issue) => !issue.entityId || pageEntityIds.has(issue.entityId)) : programIssues
   // Barra de estado «erros · avisos» → separador Diagnóstico (só no editor completo).
   useEffect(() => {
     if (!full) return
@@ -1538,7 +1542,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     window.addEventListener('dcsimu:open-diagnostics', open)
     return () => window.removeEventListener('dcsimu:open-diagnostics', open)
   }, [full])
-  const errorCount = issues.filter((issue) => issue.level === 'error').length
+  const errorCount = programIssues.filter((issue) => issue.level === 'error').length
 
   const selectIssue = (issue: ValidationIssue) => {
     setTab(issue.tab)
@@ -3773,7 +3777,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   return (
     <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
-      {program.importReview && full && <ImportReviewBanner warnings={program.importReview.warnings} blockers={issues.filter((issue) => issue.id !== 'import-review' && (issue.level === 'error' || issue.id.endsWith(':dup')))} onSelectIssue={selectIssue} onFinish={() => { void finishImportReview() }} />}
+      {program.importReview && full && <ImportReviewBanner warnings={program.importReview.warnings} blockers={programIssues.filter((issue) => issue.id !== 'import-review' && (issue.level === 'error' || issue.id.endsWith(':dup')))} onSelectIssue={selectIssue} onFinish={() => { void finishImportReview() }} />}
       <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
       <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
 
@@ -4050,7 +4054,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     transitionAnchors.set(transition.id, { x: ftx, y: fty })
                     const freeSelected = isTransitionSelected(transition.id)
                     const freeHovered = hoveredTransitionId === transition.id
-                    const barColor = freeSelected ? '#2563eb' : freeHovered ? '#b45309' : '#d97706'
+                    // Transição-fonte (sem origem de propósito): desenho normal, sem estado «por ligar».
+                    const isSource = !!transition.source && !transition.from.length
+                    const sourceDone = isSource && !!targets.length
+                    const barColor = freeSelected ? '#2563eb' : sourceDone ? (freeHovered ? '#1e3a5f' : '#526883') : freeHovered ? '#b45309' : '#d97706'
                     const armedFromThis = wireDraft?.start.kind === 'trans-out' && wireDraft.start.id === transition.id
                     const targetThis = wireHover?.kind === 'trans-in' && wireHover.id === transition.id
                     // Fios reais dos lados já ligados (curvas suaves até à barra).
@@ -4116,7 +4123,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
                         aria-keyshortcuts="L"
-                        aria-label={transition.source && !transition.from.length ? `Transição-fonte T${transitionIndex + 1}: ${transition.condition}. Sem etapa de origem; dispara quando a condição é verdadeira.` : `Transição T${transitionIndex + 1} por ligar: ${transition.condition}. Arraste-a sobre uma etapa ou use Ligar, tecla L.`}
+                        aria-label={transition.source && !transition.from.length ? `Transição-fonte T${transitionIndex + 1}: ${transition.condition}${transition.guard?.trim() ? `, só se ${transition.guard.trim()}` : ''}. Sem etapa de origem; dispara quando a condição é verdadeira.` : `Transição T${transitionIndex + 1} por ligar: ${transition.condition}. Arraste-a sobre uma etapa ou use Ligar, tecla L.`}
                       >
                         <title>{transition.source && !transition.from.length ? `Transição-fonte T${transitionIndex + 1} · sem etapa de origem, sempre validada` : `Transição T${transitionIndex + 1} por ligar · arraste sobre uma etapa ou use a ferramenta Ligar [L]`}</title>
                         {/* halo de agarre generoso para rato e toque */}
@@ -4125,8 +4132,19 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         {srcWires}
                         {dstWires}
 
+                        {/* Transição-fonte: traço curto com círculo aberto e, por cima, a condição de estado da origem */}
+                        {isSource && (
+                          <>
+                            <line x1={ftx} y1={fty - 26} x2={ftx} y2={fty - 1} stroke={barColor} strokeWidth="2" />
+                            <circle cx={ftx} cy={fty - 30} r="4" fill="#ffffff" stroke={barColor} strokeWidth="1.8" />
+                            {transition.guard?.trim() && (
+                              <text className="grafcet-guard-label is-source" x={ftx} y={fty - 44} textAnchor="middle" fontSize="13" fontWeight="600">{transition.guard.trim()}</text>
+                            )}
+                          </>
+                        )}
+
                         {/* Stub de origem por ligar (cima) com porto de entrada */}
-                        {!sources.length && (
+                        {!sources.length && !isSource && (
                           <>
                             <line x1={ftx} y1={fty - 30} x2={ftx} y2={fty - 8} stroke="#d97706" strokeWidth="2" strokeDasharray="4 4" />
                             <circle
@@ -4164,16 +4182,17 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         )}
 
                         {/* Identificador e condição normalizados IEC — espaço generoso para legibilidade */}
-                        <text x={ftx - 22} y={fty + 4} textAnchor="end" fill={freeSelected ? '#2563eb' : '#b45309'} fontSize="10.5" fontWeight="700">
+                        <text x={ftx - 22} y={fty + 4} textAnchor="end" fill={freeSelected ? '#2563eb' : sourceDone ? '#334b6e' : '#b45309'} fontSize="10.5" fontWeight="700">
                           {transition.name || `T${transitionIndex + 1}`}
                         </text>
                         <g transform={`translate(${ftx + CONDITION_OFFSET_X}, ${fty + CONDITION_OFFSET_Y})`}>
                           <text fill={barColor} fontSize="12.5" fontWeight="600" letterSpacing="0.02em">
                             {diagramCondition(transition.condition)}
                           </text>
+                          {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
 
-                        {full && (
+                        {full && !sourceDone && (
                           <g className="grafcet-detached-status" pointerEvents="none">
                             <rect x={ftx - 34} y={fty - 51} width="68" height="15" rx="4" />
                             <text x={ftx} y={fty - 40} textAnchor="middle">POR LIGAR</text>
@@ -4181,7 +4200,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         )}
 
                         {/* A dica surge apenas durante foco/hover para não competir com o diagrama. */}
-                        {full && (freeHovered || freeSelected || focusedTransitionId === transition.id) && !wireDraft && (
+                        {full && !sourceDone && (freeHovered || freeSelected || focusedTransitionId === transition.id) && !wireDraft && (
                           <text className="grafcet-detached-hint" x={ftx} y={fty + 47} textAnchor="middle" pointerEvents="none">
                             arraste sobre etapa · Ligar [L]
                           </text>
@@ -4356,6 +4375,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                             {diagramCondition(transition.condition)}
                           </text>
+                          {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
                         <text x={refX + 10} y={refBarY + 20} fill={selectedLink ? '#2563eb' : '#64748b'} fontSize="10.5" fontWeight="600">
                           {`→ ${outRefs}`}
@@ -4538,6 +4558,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                             {diagramCondition(transition.condition)}
                           </text>
+                          {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
 
                         {/* Indicador pulsante quando receptiva (pronta a disparar) */}
@@ -4758,6 +4779,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                             {diagramCondition(transition.condition)}
                           </text>
+                          {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
 
                         {/* Indicador pulsante quando receptiva */}
@@ -4860,6 +4882,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                               {diagramCondition(transition.condition)}
                             </text>
+                            {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                           </g>
                           {enabled && (
                             <circle cx={tx} cy={ty} r="7" fill="none" stroke="#22c55e" strokeWidth="2">
@@ -4929,6 +4952,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
                           {diagramCondition(transition.condition)}
                         </text>
+                        {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                       </g>
 
                       {(hasAndConvergence || hasAndDivergence) && (
