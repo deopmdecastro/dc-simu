@@ -30,6 +30,7 @@ export type GrafcetBusAction =
   | 'addJoin'
   | 'openTemplates'
   | 'openSignals'
+  | 'toggleVarTable'
   | 'togglePalette'
   | 'generateLadder'
   | 'exportSvg'
