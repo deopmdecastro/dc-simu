@@ -98,6 +98,7 @@ import GrafcetContextMenu, { type ContextMenuItem } from './GrafcetContextMenu'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView, type Pos, type AlignMode, type DistributeAxis, type SubDiagram } from './selection'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import { pinchPan, usePinchZoom } from '../ui/usePinchZoom'
+import { useDoubleTap } from '../ui/useDoubleTap'
 import { useGrafcetUi, type GrafcetBusAction } from './grafcetBus'
 import { editorGridBackground, editorGridPitch, EDITOR_THEME } from '../ui/editorTheme'
 import {
@@ -237,13 +238,19 @@ const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: st
 const RESIZE_CURSOR: Record<ResizeHandle, string> = { n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize', ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize' }
 const ALL_RESIZE_HANDLES: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
+/** Distância mínima (px) para um toque virar arrasto: o dedo treme mais do que o rato, e um toque não pode mover nada. */
+const dragSlop = (e: { pointerType?: string }): number => (e.pointerType === 'touch' ? 9 : 4)
+const isCoarsePointer = (): boolean => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+
 /**
  * Puxadores de tamanho: as faces (faixas invisíveis ao longo de cada lado) mudam uma dimensão;
  * os cantos (quadrados visíveis) mudam as duas na mesma proporção.
  */
 function ResizeHandles({ x, y, w, h, handles, onStart }: { x: number; y: number; w: number; h: number; handles: ResizeHandle[]; onStart: (handle: ResizeHandle, e: React.PointerEvent) => void }) {
-  const t = 6
-  const c = 8
+  // Em ecrãs táteis as faces e os cantos são maiores para o dedo acertar (no rato mantêm-se discretos).
+  const coarse = isCoarsePointer()
+  const t = coarse ? 14 : 6
+  const c = coarse ? 16 : 8
   const rectFor = (hd: ResizeHandle) => {
     if (hd === 'n') return { x: x + c / 2, y: y - t / 2, width: Math.max(0, w - c), height: t }
     if (hd === 's') return { x: x + c / 2, y: y + h - t / 2, width: Math.max(0, w - c), height: t }
@@ -2445,7 +2452,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const rawDx = e.clientX - drag.startX
     const rawDy = e.clientY - drag.startY
     if (!drag.moved) {
-      if (Math.hypot(rawDx, rawDy) < 4) return
+      if (Math.hypot(rawDx, rawDy) < dragSlop(e)) return
       drag.moved = true
       if (zoom === null) setZoom(scale)
       if (pan === null) setPan(position)
@@ -2537,7 +2544,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const rawDx = e.clientX - drag.startX
     const rawDy = e.clientY - drag.startY
     if (!drag.moved) {
-      if (Math.hypot(rawDx, rawDy) < 4) return
+      if (Math.hypot(rawDx, rawDy) < dragSlop(e)) return
       drag.moved = true
       if (zoom === null) setZoom(scale)
       if (pan === null) setPan(position)
@@ -2752,6 +2759,44 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     setPan(null)
   }
 
+  // Duplo toque (telemóvel/tablet) abre a modal de configuração do elemento, como o duplo clique no PC.
+  // Só com a ferramenta Selecionar; na ferramenta Ligar os toques servem para ligar.
+  useDoubleTap(viewportRef, {
+    enabled: full && steps.length > 0,
+    resolve: (target) => {
+      if (target.closest('.grafcet-node-handle, button, [role="scrollbar"], .grafcet-textbar-slot')) return null
+      const action = target.closest('[data-action-id]')?.getAttribute('data-action-id')
+      if (action) return `action:${action}`
+      const step = target.closest('[data-step-id]')?.getAttribute('data-step-id')
+      if (step) return `step:${step}`
+      const trans = target.closest('[data-transition-id]')?.getAttribute('data-transition-id')
+      return trans ? `transition:${trans}` : null
+    },
+    onDoubleTap: (key) => {
+      if (activeTool !== 'select' || isModalOpen()) return
+      const [kind, ...rest] = key.split(':')
+      const id = rest.join(':')
+      // Adia a abertura: o `click` sintético do 2.º toque não pode cair no fundo da modal e fechá-la.
+      window.setTimeout(() => openEditorFor(kind, id), 80)
+    },
+  })
+  const openEditorFor = (kind: string, id: string) => {
+    if (kind === 'action') {
+      const free = freeActions.find((a) => a.id === id)
+      if (free) return setEditingAction({ step: null, action: free })
+      for (const st of steps) {
+        const act = actionsOf(st).find((a) => a.id === id)
+        if (act) return setEditingAction({ step: st, action: act })
+      }
+    } else if (kind === 'step') {
+      const st = stepById.get(id)
+      if (st) setEditingStep(st)
+    } else if (kind === 'transition') {
+      const tr = transitions.find((t) => t.id === id)
+      if (tr) setEditingTransition(tr)
+    }
+  }
+
   const onPreviewWheel = (event: WheelEvent) => {
     if (!steps.length) return
     event.preventDefault()
@@ -2897,7 +2942,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     let moved = false
     let last = { dx: 0, dy: 0 }
     const onMove = (ev: globalThis.PointerEvent) => {
-      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < dragSlop(ev)) return
       moved = true
       let dx = (ev.clientX - sx) / scale, dy = (ev.clientY - sy) / scale
       if (snapOn && !ev.altKey) { dx = Math.round(dx / GRID) * GRID; dy = Math.round(dy / GRID) * GRID }
@@ -2967,7 +3012,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const rawDx = e.clientX - drag.startX
     const rawDy = e.clientY - drag.startY
     if (!drag.moved) {
-      if (Math.hypot(rawDx, rawDy) < 4) return
+      if (Math.hypot(rawDx, rawDy) < dragSlop(e)) return
       drag.moved = true
       // Congela a vista (o "ajustar" automático depende da largura, que pode crescer ao arrastar).
       if (zoom === null) setZoom(scale)
@@ -4093,6 +4138,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     return (
                       <g
                         key={transition.id}
+                        data-transition-id={transition.id}
                         className={`${full ? 'grafcet-graph-link' : ''} grafcect-free ${freeSelected ? 'is-selected' : ''}${transition.source && !transition.from.length ? ' is-source' : ''}`}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -4307,7 +4353,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         key={transition.id}
                         transform={loopShift ? `translate(${loopShift}, 0)` : undefined}
                         onClick={onSelectThisTransition}
-                        onDoubleClick={onTransDoubleClick}
+                        data-transition-id={transition.id} onDoubleClick={onTransDoubleClick}
                         onMouseEnter={() => hoverElement('transition', transition.id)}
                         onMouseLeave={() => hoverElement('transition', null)}
                         className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
@@ -4357,7 +4403,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       <g
                         key={transition.id}
                         onClick={onSelectThisTransition}
-                        onDoubleClick={onTransDoubleClick}
+                        data-transition-id={transition.id} onDoubleClick={onTransDoubleClick}
                         onMouseEnter={() => hoverElement('transition', transition.id)}
                         onMouseLeave={() => hoverElement('transition', null)}
                         className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
@@ -4470,7 +4516,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       <g
                         key={transition.id}
                         onClick={onSelectThisTransition}
-                        onDoubleClick={onTransDoubleClick}
+                        data-transition-id={transition.id} onDoubleClick={onTransDoubleClick}
                         onMouseEnter={() => hoverElement('transition', transition.id)}
                         onMouseLeave={() => hoverElement('transition', null)}
                         className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
@@ -4681,7 +4727,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       <g
                         key={transition.id}
                         onClick={onSelectThisTransition}
-                        onDoubleClick={onTransDoubleClick}
+                        data-transition-id={transition.id} onDoubleClick={onTransDoubleClick}
                         onMouseEnter={() => hoverElement('transition', transition.id)}
                         onMouseLeave={() => hoverElement('transition', null)}
                         className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
@@ -4845,7 +4891,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     <g
                       key={transition.id}
                       onClick={onSelectThisTransition}
-                      onDoubleClick={onTransDoubleClick}
+                      data-transition-id={transition.id} onDoubleClick={onTransDoubleClick}
                       onMouseEnter={() => hoverElement('transition', transition.id)}
                       onMouseLeave={() => hoverElement('transition', null)}
                       className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
