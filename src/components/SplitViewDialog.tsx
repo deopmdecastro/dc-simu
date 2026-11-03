@@ -9,7 +9,7 @@ import type { ViewMode } from './Toolbar'
 import { useSplitView, type SplitPane } from '../ui/splitViewStore'
 import { IconCompare, IconGrafcet, IconLadder, IconCube, IconCommands, IconMonitor } from '../ui/icons'
 
-const VIEW_META: Record<ViewMode, { label: string; icon: typeof IconSchematic }> = {
+const VIEW_META: Record<ViewMode, { label: string; icon: typeof IconCube }> = {
   schematic: { label: '3D Realista', icon: IconCube },
   ladder: { label: 'Ladder', icon: IconLadder },
   grafcet: { label: 'GRAFCET', icon: IconGrafcet },
