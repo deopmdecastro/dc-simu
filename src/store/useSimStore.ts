@@ -2939,7 +2939,7 @@ export const useSimStore = create<Store>((set, get) => {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
       const parsed = addNativeAnnotations(addNativeIecSchematic(syncNativeLadder(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(refreshNativeWireCurves(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original))))))))))
-      setStoredCover(parsed?.cover)
+      setStoredCover(parsed?.cover, parsed?.coverVersion)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
       const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeMonoMotorTerminals).map(upgradeProauto24A).map(upgradeTerminalAssemblyPositions).map(upgradeRealInterfacePositions).map(upgradeProtectionTerminalPositions).map(upgradePhysicalFootprint).map(upgradeLsXbmFront)

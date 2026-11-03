@@ -25,6 +25,7 @@
     "test:native-sim": "tsx scripts/native-sim-smoke.ts",
     "test:native-wires-3d": "tsx scripts/native-wires-3d-smoke.ts",
     "test:wire-routing-ui": "node scripts/wire-routing-ui-smoke.mjs",
+    "test:cover-version": "tsx scripts/cover-version-smoke.ts",
     "test:wire-curves-refresh": "tsx scripts/wire-curves-refresh-smoke.ts",
     "test:lead-pigtails": "tsx scripts/lead-pigtails-smoke.ts",
     "test:ladder-math": "tsx scripts/ladder-math-smoke.ts",

@@ -8,7 +8,7 @@ import RouteLoading from './ui/RouteLoading'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import type { User, Project, Invite } from './dashboard/Dashboard'
 import { setViewer } from './auth/viewer'
-import { canCaptureCover, captureCover, hasStoredCover, setStoredCover } from './three/coverCapture'
+import { COVER_VERSION, canCaptureFreshCover, captureCover, hasStoredCover, setStoredCover, storedCoverVersion } from './three/coverCapture'
 import { flowCoverDataUrl } from './dashboard/flowCover'
 import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
@@ -147,7 +147,7 @@ export default function Account() {
     }
     try {
       const flow = await flowCoverDataUrl({ kind: s.projectKind, rungs: s.ladder.rungs, grafcet: s.grafcet, name })
-      if (flow) { setStoredCover(flow); return flow }
+      if (flow) { setStoredCover(flow, COVER_VERSION); return flow }
     } catch { /* a miniatura é opcional */ }
     return captureCover() ?? undefined
   }
@@ -158,7 +158,7 @@ export default function Account() {
     const cover = await resolveCover(entry.name)
     const response = await api<{ revision: number }>('/projects/' + entry.id, 'PUT', {
       revision: entry.revision,
-      content: { ...JSON.parse(useSimStore.getState().saveJSON()), cover },
+      content: { ...JSON.parse(useSimStore.getState().saveJSON()), cover, coverVersion: cover ? storedCoverVersion() : undefined },
     })
     const updated = { ...entry, revision: response.revision }
     openRef.current = updated
@@ -280,7 +280,8 @@ export default function Account() {
     // Projetos antigos sem miniatura: captura a cena 3D e guarda-a antes de sair.
     const snap = useSimStore.getState()
     const hasFlow = snap.projectKind !== 'all' ? snap.ladder.rungs.length > 0 || snap.grafcet.steps.length > 0 : false
-    if (!snap.dirty && openRef.current && !hasStoredCover() && ((canCaptureCover() && snap.components.length) || hasFlow)) {
+    // Capa em falta ou de uma versão antiga do enquadramento: recaptura (só com a cena montada e os cabos prontos).
+    if (!snap.dirty && openRef.current && !hasStoredCover() && ((canCaptureFreshCover() && snap.components.length) || hasFlow)) {
       try {
         await persistOpenProject(false)
       } catch { /* a miniatura é opcional */ }
