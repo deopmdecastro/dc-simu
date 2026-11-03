@@ -24,7 +24,12 @@ export const isTabletDevice = (): boolean => {
   return coarse && Math.min(screen.width, screen.height) >= 480
 }
 
-export const isPhoneTouch = (): boolean => typeof window !== 'undefined' && !!window.matchMedia?.(PHONE_TOUCH_QUERY).matches
+export const isPhoneTouch = (): boolean => {
+  if (typeof window === 'undefined') return false
+  // Tablet usa sempre layout de PC — nunca gavetas, barra compacta nem dock inferior.
+  if (isTabletDevice()) return false
+  return !!window.matchMedia?.(PHONE_TOUCH_QUERY).matches
+}
 
 /** Layout de secretária: qualquer tablet, ou janelas a partir de 900 px. */
 export const isTabletDesktop = (): boolean => {

@@ -1,6 +1,6 @@
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from './diagnostics/viewDiagnostics'
 import GrafcetStatusCard from './components/GrafcetStatusCard'
-import { PHONE_TOUCH_QUERY, isTabletDesktop } from './ui/device'
+import { PHONE_TOUCH_QUERY, isTabletDesktop, isPhoneTouch } from './ui/device'
 import { useNarrowMenu } from './ui/toolbarKit'
 import { IconLayers, IconWarning, IconXCircle } from './ui/icons'
 import CollapsedPanelRail from './components/CollapsedPanelRail'
@@ -93,7 +93,8 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   // No telemóvel o Esquema IEC e o 3D mostram o painel lateral completo no fundo
   // (CommandsSimDock / SchematicSimDock): não há coluna/gaveta da direita, para o
   // mesmo painel não aparecer duas vezes.
-  const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
+  const phoneQuery = useNarrowMenu(PHONE_TOUCH_QUERY)
+  const phone = phoneQuery && isPhoneTouch()
   const phoneCommands = phone && mode === 'commands'
   const phoneSchematic = phone && mode === 'schematic'
   const phoneBottomDock = phoneCommands || phoneSchematic

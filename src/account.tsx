@@ -373,12 +373,12 @@ export default function Account() {
   if (page === 'editor' && open) return <>
     <EditorTopbar projectName={open.name} dirty={editorDirty} message={message}
       onRename={open.role === 'editor' ? undefined : (name) => void renameProject(name)} actions={<>
-      <button className="account-project-action" onClick={() => void leave()} title="Voltar aos projetos"><IconArrowLeft size={12} /> <span className="account-action-text">Projetos</span></button>
+      <button type="button" className="account-project-action" onClick={() => void leave()} title="Voltar aos projetos" aria-label="Voltar aos projetos"><IconArrowLeft size={15} /><span className="account-action-text">Projetos</span></button>
       {/* No telemóvel o rótulo «Comentários» roubava a largura do nome do
           projeto: fica só o ícone (com o número) e o nome aparece no title. */}
-      <button className={`account-project-action account-comments-action ${commentsOpen ? 'is-active' : ''}`} onClick={() => setCommentsOpen(!commentsOpen)} aria-pressed={commentsOpen}
+      <button type="button" className={`account-project-action account-comments-action ${commentsOpen ? 'is-active' : ''}`} onClick={() => setCommentsOpen(!commentsOpen)} aria-pressed={commentsOpen}
         aria-label={`Comentários do projeto${commentCount ? ` (${commentCount})` : ''}`} title="Comentários do projeto (proprietário e editores)">
-        <IconComment size={12} /> <span className="account-action-text">Comentários</span>{commentCount ? <span className="account-action-count">{commentCount}</span> : null}
+        <IconComment size={15} /><span className="account-action-text">Comentários</span>{commentCount ? <span className="account-action-count">{commentCount}</span> : null}
       </button>
       <button className="account-project-action account-save-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)" aria-label="Guardar projeto"><IconSave size={14} /><span className="account-action-text">Guardar</span></button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}

@@ -22,11 +22,20 @@
 .account-bar .account-project-action {
   box-sizing: border-box;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: var(--hdr-ctl); min-width: var(--hdr-ctl); width: var(--hdr-ctl);
-  line-height: 1; border-radius: 10px; aspect-ratio: 1;
+  height: var(--hdr-ctl); min-height: var(--hdr-ctl); min-width: var(--hdr-ctl);
+  padding: 0 10px; line-height: 1; border-radius: 8px;
+  font: 650 12.5px/1 var(--dx-font, Inter, system-ui, sans-serif); color: var(--dx-ink-2, #3d4b5e);
+  background: var(--dx-surface, #fff); border: 1px solid var(--dx-line, #d3dbe5);
+  cursor: pointer; white-space: nowrap;
 }
+.account-bar .account-project-action:hover { color: var(--dx-brand-700, #1e42d3); border-color: var(--dx-brand-soft, #cfe0ff); background: var(--dx-brand-soft, #eef4ff); }
+.account-bar .account-project-action.is-active { color: var(--dx-brand-700, #1e42d3); border-color: var(--dx-brand, #2655e5); background: var(--dx-brand-soft, #eef4ff); }
 .account-bar .account-project-action svg { flex: 0 0 auto; }
-.account-bar .account-project-action.dx-bar-primary { width: auto; min-width: var(--hdr-ctl); aspect-ratio: auto; padding-inline: 12px; }
+.account-bar .account-project-action.dx-bar-primary {
+  width: auto; min-width: var(--hdr-ctl); padding-inline: 12px;
+  color: #fff; background: var(--dx-brand, #2655e5); border-color: var(--dx-brand-700, #1e42d3);
+}
+.account-bar .account-project-action.dx-bar-primary:hover { filter: brightness(1.05); color: #fff; }
 .account-bar .dx-account-controls { gap: var(--hdr-gap); }
 .account-bar .dx-account-icon,
 .account-bar .dx-account-trigger { box-sizing: border-box; height: var(--hdr-ctl); min-width: var(--hdr-ctl); }
@@ -155,9 +164,13 @@
 
 .account-bar .dx-logo { flex: 0 0 auto; }
 .account-bar .dx-logo-text { white-space: nowrap; }
-@media (min-width: 721px) and (max-width: 1000px) {
+@media (min-width: 721px) and (max-width: 1100px) {
+  /* Ícone só: evita «ProjeComentá» cortado; dica e aria-label mantêm o nome. */
   .account-bar .account-action-text { display: none; }
-  .account-bar .account-project-action { padding-inline: 8px; }
+  .account-bar .account-project-action:not(.dx-bar-primary) {
+    width: var(--hdr-ctl); min-width: var(--hdr-ctl); padding: 0 !important;
+  }
+  .account-bar .account-save-action.dx-bar-primary { padding-inline: 12px; }
   .account-bar .dx-bar-msg, .account-bar .dx-project-context small { display: none; }
   .account-bar .dx-account-trigger-copy { display: none; }
   .account-bar .dx-account-trigger { width: var(--hdr-ctl); padding: 0; justify-content: center; }

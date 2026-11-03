@@ -3,7 +3,7 @@ import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, us
 import { uiAlert, uiConfirm, uiChoose } from '../ui/dialogs'
 import { listSimModules, moduleOfView, scopeNeedsCommands, scopeNeedsPanel } from '../ui/simScope'
 import { ADDABLE_MODULES, allowedViews, type WorkspaceView } from '../project/kind'
-import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
+import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY, isPhoneTouch, isTabletDevice } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, ToolInlineItems, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import { ALIGN_ACTIONS, requestAlign, type AlignAction } from '../ui/alignItems'
@@ -446,9 +446,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const narrowBar = useNarrowMenu()
   // Barra completa em PC e tablet (o tablet recebe o layout de PC via meta viewport);
   // só o telemóvel usa menus «Mais». Se a janela for estreita, a barra completa desliza na horizontal.
-  const compactQuery = useNarrowMenu(`(max-width: 743px), ${PHONE_TOUCH_QUERY}`)
+  const compactQuery = useNarrowMenu(PHONE_TOUCH_QUERY)
   const shellRef = useRef<HTMLDivElement>(null)
-  const compactBar = compactQuery
+  const compactBar = compactQuery && isPhoneTouch() && !isTabletDevice()
   // PC e tablet: quando a 2.ª linha não cabe, os botões com ícone ficam só com o ícone (o nome fica no título e
   // no nome acessível) — todas as ferramentas continuam à vista, sem deslizar nem menus «Mais».
   // Dois níveis, iguais em todas as vistas: «apertado» deixa só ícones nos grupos secundários (edição,
