@@ -295,3 +295,8 @@
 .tb-sep {
   opacity: 0.85;
 }
+
+/* Ações em linha (ToolInlineItems): só ícone, com o nome na dica e no nome acessível. */
+.dc-tool-inline { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.dc-tool-inline .dc-tool-btn > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dc-tool-inline .dc-tool-btn { padding-left: 7px; padding-right: 7px; }

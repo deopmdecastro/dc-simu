@@ -4,7 +4,7 @@ import { uiAlert, uiConfirm, uiChoose } from '../ui/dialogs'
 import { listSimModules, moduleOfView, scopeNeedsCommands, scopeNeedsPanel } from '../ui/simScope'
 import { ADDABLE_MODULES, allowedViews, type WorkspaceView } from '../project/kind'
 import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
-import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
+import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, ToolInlineItems, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import { ALIGN_ACTIONS, requestAlign, type AlignAction } from '../ui/alignItems'
 import ShortcutHelp from '../ui/ShortcutHelp'
@@ -39,7 +39,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconUnlock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconDelete, IconRotate, IconMore, IconText, IconNote, IconCompare, IconSwap,
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconCommands, IconDelete, IconRotate, IconMore, IconImage, IconText, IconNote, IconCompare, IconSwap,
 } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
@@ -598,15 +598,15 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'variables', label: 'Tabela de variáveis', icon: <IconTag size={15} />, onSelect: () => { setLadderSection('Projeto'); useLadderUi.getState().emit('openVariables') } },
     ...(ladderGrafcetStatus !== 'none' ? [{ id: 'open-grafcet', label: 'Abrir GRAFCET', icon: <IconGrafcet size={15} />, onSelect: () => setMode('grafcet') }] : []),
   ] }] : mode === 'grafcet' ? [{ title: 'Ferramentas GRAFCET', items: GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => ({ id, label, hint: title, icon: <Icon size={15} />, kbd: key, pressed: grafcetTool === id, onSelect: () => useGrafcetUi.getState().setTool(id) })) }, { title: 'Sequência', items: [
-    { id: 'templates', label: 'Modelos GRAFCET', icon: <IconTemplates size={15} />, onSelect: () => useGrafcetUi.getState().emit('openTemplates') },
-    { id: 'auto-layout', label: 'Organizar diagrama', icon: <IconOrganize size={15} />, onSelect: () => useGrafcetUi.getState().emit('autoLayout') },
-    { id: 'restart-sequence', label: 'Reiniciar sequência', hint: 'Volta às etapas iniciais', icon: <IconRotate size={15} />, onSelect: () => useGrafcetUi.getState().emit('restart') },
-    ...(canGenerateLadder ? [{ id: 'generate-ladder', label: ladderSync === 'none' ? 'Gerar Ladder' : 'Atualizar Ladder', icon: <IconLadder size={15} />, onSelect: () => useGrafcetUi.getState().emit('generateLadder') }] : []),
-    ...(ladderSync !== 'none' ? [{ id: 'auto-sync', label: 'Sincronização automática', icon: <IconLink size={15} />, pressed: grafcetAutoSync, onSelect: () => useGrafcetUi.getState().toggleAutoSync() }] : []),
-    { id: 'export-svg', label: 'Exportar SVG', icon: <IconDownload size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportSvg') },
-    { id: 'export-grafcet', label: 'Exportar GRAFCET JSON', icon: <IconDownload size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportJson') },
-    { id: 'text-guards', label: 'Textos → condições', hint: 'Converte «G4 <> X159» em condição da transição', icon: <IconSwap size={15} />, onSelect: () => useGrafcetUi.getState().emit('convertTextGuards') },
-    { id: 'import-grafcet', label: 'Importar GRAFCET', hint: 'FluidSIM 4 (.ct), JSON ou .grafcet', icon: <IconImport size={15} />, onSelect: () => useGrafcetUi.getState().emit('importJson') },
+    { id: 'templates', label: 'Modelos GRAFCET', shortLabel: 'Modelos', icon: <IconTemplates size={15} />, onSelect: () => useGrafcetUi.getState().emit('openTemplates') },
+    { id: 'auto-layout', label: 'Organizar diagrama', shortLabel: 'Organizar', icon: <IconOrganize size={15} />, onSelect: () => useGrafcetUi.getState().emit('autoLayout') },
+    { id: 'restart-sequence', label: 'Reiniciar sequência', shortLabel: 'Reiniciar', hint: 'Volta às etapas iniciais', icon: <IconRotate size={15} />, onSelect: () => useGrafcetUi.getState().emit('restart') },
+    ...(canGenerateLadder ? [{ id: 'generate-ladder', label: ladderSync === 'none' ? 'Gerar Ladder' : 'Atualizar Ladder', shortLabel: 'Ladder', icon: <IconLadder size={15} />, onSelect: () => useGrafcetUi.getState().emit('generateLadder') }] : []),
+    ...(ladderSync !== 'none' ? [{ id: 'auto-sync', label: 'Sincronização automática', shortLabel: 'Sincronizar', icon: <IconLink size={15} />, pressed: grafcetAutoSync, onSelect: () => useGrafcetUi.getState().toggleAutoSync() }] : []),
+    { id: 'export-svg', label: 'Exportar SVG', shortLabel: 'SVG', hint: 'Desenho vetorial do GRAFCET', icon: <IconImage size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportSvg') },
+    { id: 'export-grafcet', label: 'Exportar GRAFCET JSON', shortLabel: 'JSON', hint: 'Ficheiro para reabrir ou partilhar', icon: <IconFile size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportJson') },
+    { id: 'text-guards', label: 'Textos → condições', shortLabel: 'Textos → cond.', hint: 'Converte «G4 <> X159» em condição da transição', icon: <IconSwap size={15} />, onSelect: () => useGrafcetUi.getState().emit('convertTextGuards') },
+    { id: 'import-grafcet', label: 'Importar GRAFCET', shortLabel: 'Importar', hint: 'FluidSIM 4 (.ct), JSON ou .grafcet', icon: <IconImport size={15} />, onSelect: () => useGrafcetUi.getState().emit('importJson') },
   ] }] : []
   const annotationItems = [
     { id: 'add-note', label: 'Comentário', hint: 'Criar uma nota com conversa no desenho', icon: <IconNote size={13} />, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('addNote') : requestCanvasAction('addNote') },
@@ -653,9 +653,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       { id: 'variables', label: 'Variáveis / Sinais', hint: 'Declarar e organizar entradas, saídas e memórias', icon: <IconTag size={15} />, onSelect: () => useGrafcetUi.getState().emit('openSignals') },
     )
   }
-  const viewExtrasSections: ToolMenuSection[] = viewExtraItems.length
-    ? [{ id: 'view-extras', title: 'Extras da vista', items: viewExtraItems }]
-    : []
 
   const compactMoreSections: ToolMenuSection[] = [
     ...fileSections,
@@ -1070,11 +1067,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {(isCanvas || isCmd || mode === 'grafcet') && <><span className="tb-sep" /><div className="tb-primary contents">{annotationTools}</div>
           <ToolMenu label="Alinhar" title="Alinhar e distribuir a seleção" icon={<IconAlignLeft size={13} />} sections={alignSections} className="dc-align-menu" /></>}
 
-        {/* ── Extras da vista: botões em desktop largo; ToolMenu «Mais» quando is-tight (reduz ruído) */}
+        {/* ── Extras da vista: sempre botões no PC e no tablet; em barra apertada ficam só os ícones */}
         {viewExtraItems.length > 0 && (
-          tightRow2
-            ? <><span className="tb-sep" /><ToolMenu label="Mais" title="Extras da vista" icon={<IconMore size={14} />} sections={viewExtrasSections} className="dc-view-extras-menu" /></>
-            : (
+          (
               <>
                 {isCmd && <>
                   <span className="tb-sep" />
@@ -1095,8 +1090,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               </>
             )
         )}
+        {/* ── Sequência, modelos e ficheiros GRAFCET: à vista no PC e no tablet (sem menu «Mais») */}
         {mode === 'grafcet' && (
-          <><span className="tb-sep" /><ToolMenu label="Mais GRAFCET" title="Sequência, modelos e ficheiros GRAFCET" icon={<IconMore size={14} />} sections={toolSections.slice(1).filter(section => section.id !== 'annotations')} className="dc-grafcet-tools-menu" /></>
+          <><span className="tb-sep" /><ToolInlineItems label="Sequência, modelos e ficheiros GRAFCET" sections={toolSections.slice(1).filter(section => section.id !== 'annotations' && section.id !== 'align-tools')} className="dc-grafcet-tools-inline" /></>
         )}
         {mode === 'ladder' && <>
           <span className="tb-sep" />

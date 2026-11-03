@@ -148,10 +148,8 @@ try {
   check((await read()).parts.find((p) => p.kind === 'coil') && await page.locator(`[data-cmd-part="${k1}"] .dc-cmd-symbol-sel`).count() === 1, 'em Objetos, clicar num aparelho seleciona-o no esquema')
   await rightTabs.getByRole('tab', { name: 'Entradas/Saídas' }).click()
 
-  // Com a 2.ª linha apertada, os extras da vista (Exemplos, Importar, Limpar) ficam no menu «Mais».
-  const examples = page.getByRole('button', { name: 'Exemplos' })
-  if (await examples.isVisible().catch(() => false)) await examples.click()
-  else { await page.locator('.dc-view-extras-menu').first().click(); await page.getByRole('menuitem', { name: /Exemplos/ }).click() }
+  // Extras da vista (Exemplos, Importar, Limpar): botões à vista no PC e no tablet, sem menu «Mais».
+  await page.getByRole('button', { name: 'Exemplos', exact: true }).click()
   const exampleCard = page.locator('.gtpl-card', { has: page.locator('strong', { hasText: /^Arranque estrela-triângulo$/ }) })
   await exampleCard.getByRole('button', { name: 'Carregar', exact: true }).click()
   await exampleCard.getByRole('button', { name: 'Substituir', exact: true }).click()

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type React from 'react'
 import type { ReactNode } from 'react'
@@ -150,12 +150,42 @@ export interface ToolMenuItem {
   primary?: boolean
   /** Marca de perigo (eliminar, repor…). */
   danger?: boolean
+  /** Texto curto para o botão na barra (PC/tablet); o nome completo fica na dica. */
+  shortLabel?: string
 }
 
 export interface ToolMenuSection {
   id?: string
   title: string
   items: ToolMenuItem[]
+}
+
+/** As mesmas secções de um ToolMenu, mas à vista na barra (PC e tablet): um botão por ação, com
+ *  separador entre secções. Em barra apertada (`is-tight`) ficam só os ícones; o nome completo, a
+ *  explicação e o atalho estão sempre na dica e no nome acessível. */
+export function ToolInlineItems({ sections, label, className = '' }: { sections: ToolMenuSection[]; label: string; className?: string }) {
+  const visible = sections.filter((section) => section.items.length)
+  if (!visible.length) return null
+  return (
+    <div className={`dc-tool-inline ${className}`.trim()} role="group" aria-label={label}>
+      {visible.map((section, index) => (
+        <Fragment key={section.id ?? section.title}>
+          {index > 0 && <span className="tb-sep" aria-hidden="true" />}
+          {section.items.map((item) => {
+            const detail = item.disabled ? item.disabledReason : item.hint
+            const tip = [item.label, detail, item.kbd ? `(${item.kbd})` : ''].filter(Boolean).join(' — ')
+            return (
+              <button key={item.id} type="button" className={`dc-tool-btn !gap-1.5${item.pressed ? ' is-on' : ''}${item.danger ? ' is-danger' : ''}`}
+                aria-pressed={item.pressed === undefined ? undefined : item.pressed} aria-label={item.label}
+                disabled={item.disabled} onClick={item.onSelect} title={tip} data-tool-id={item.id}>
+                {item.icon}<span>{item.shortLabel ?? item.label}</span>
+              </button>
+            )
+          })}
+        </Fragment>
+      ))}
+    </div>
+  )
 }
 
 /** Ecrã estreito / telemóvel: o menu passa a folha inferior. Exportado para os painéis que também trocam de controlo a 720 px. */

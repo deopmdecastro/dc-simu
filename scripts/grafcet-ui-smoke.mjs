@@ -77,7 +77,8 @@ try {
   await create.getByRole('radio', { name: /^GRAFCET / }).check()
   await create.getByRole('button', { name: 'Criar projeto', exact: true }).click()
   await page.locator('.grafcet-canvas').waitFor()
-  const importFromEmptyCard = page.getByRole('button', { name: 'Importar GRAFCET', exact: true })
+  // O botão do cartão vazio (a barra tem também «Importar GRAFCET», com data-tool-id).
+  const importFromEmptyCard = page.getByRole('button', { name: 'Importar GRAFCET', exact: true }).and(page.locator(':not([data-tool-id])'))
   check(await importFromEmptyCard.isVisible(), 'cartão do GRAFCET novo oferece importação')
   await page.setViewportSize({ width: 390, height: 844 })
   const emptyActionGaps = await Promise.all([

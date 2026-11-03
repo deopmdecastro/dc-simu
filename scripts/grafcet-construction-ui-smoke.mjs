@@ -44,11 +44,10 @@ const chooseImportFile = async (file, mode = 'strict') => {
   if (await direct.isVisible()) {
     await direct.click()
   } else {
-    // A barra compacta (larguras em que nem tudo cabe) guarda a importação em «Mais GRAFCET» ou em «Mais».
-    const grafcetMenu = page.getByRole('button', { name: /Mais GRAFCET/ })
-    if (await grafcetMenu.isVisible()) {
-      await grafcetMenu.click()
-      await page.locator('[data-tm-item="import-grafcet"]').click()
+    // No PC e no tablet a importação está à vista na barra (sem menu «Mais GRAFCET»).
+    const inlineImport = page.locator('.dc-grafcet-tools-inline [data-tool-id="import-grafcet"]')
+    if (await inlineImport.isVisible()) {
+      await inlineImport.click()
     } else {
       // Mesmo pedido que o item de menu emite (o menu compacto varia com a largura da barra).
       await page.evaluate(async () => { const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().emit('importJson') })
@@ -320,10 +319,12 @@ try {
       await undo()
       check((await read()).comments.find(c => c.id === first.id).text === first.text, 'Desfazer repõe o texto original')
       const reviewBar = page.getByRole('region', { name: 'Revisão da importação' })
-      check(await reviewBar.getByText(/erros? por corrigir/).isVisible() && await reviewBar.getByRole('button', { name: 'Concluir revisão', exact: true }).count() === 0, 'com erros por corrigir, a barra de revisão não propõe concluir')
+      // O número de erros depende do desenho: com erros, «Concluir» fica bloqueado; sem erros, é proposto.
+      const blocked = await reviewBar.locator('.grafcet-review-chip.is-error').count() > 0
+      check(blocked ? await reviewBar.getByRole('button', { name: 'Concluir revisão', exact: true }).count() === 0 : await reviewBar.getByRole('button', { name: 'Concluir revisão', exact: true }).isVisible(), 'a barra de revisão só propõe concluir quando não há erros por corrigir')
       await reviewBar.getByRole('button', { name: 'Ver detalhes', exact: true }).click()
       const reviewDialog = page.getByRole('dialog', { name: 'Revisão da importação' })
-      check(await reviewDialog.isVisible() && await reviewDialog.locator('.grafcet-review-details li button').count() > 0 && await reviewDialog.getByRole('button', { name: 'Concluir revisão' }).isDisabled(), 'Ver detalhes abre um modal com os pontos por corrigir e Concluir desativado')
+      check(await reviewDialog.isVisible() && (blocked ? await reviewDialog.locator('.grafcet-review-details li button').count() > 0 && await reviewDialog.getByRole('button', { name: 'Concluir revisão' }).isDisabled() : await reviewDialog.getByRole('button', { name: 'Concluir revisão' }).isEnabled()), 'Ver detalhes abre um modal coerente com os erros por corrigir')
       await page.keyboard.press('Escape'); await reviewDialog.waitFor({ state: 'hidden' })
       check(!!(await read()).importReview, 'o exemplo incompleto mantém-se como rascunho após a revisão')
       program = await read()

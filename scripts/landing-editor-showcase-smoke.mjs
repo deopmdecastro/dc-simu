@@ -122,7 +122,7 @@ assert('GRAFCET demo: paleta Componentes fora', grafed.includes('{full && !demoM
 assert('GRAFCET demo: «Nova página» e apagar página fora', grafed.includes('{!demoMode && <button type="button" className="grafcet-page-add"') && grafed.includes('pageCharts.length > 1 && !demoMode && ('))
 assert('GRAFCET demo: «Editar propriedades» fora', grafed.includes('{!demoMode && <button') && grafed.includes('setEditingTransition(selectedTransition)'))
 assert('GRAFCET demo: dica do canvas orientada à visualização', grafed.includes("demoMode ? 'Selecione etapas e ligações"))
-assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', row2.includes('<ToolMenu label="Mais GRAFCET"') && !outsideRow2.includes('Mais GRAFCET'))
+assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', row2.includes('<ToolInlineItems label="Sequência, modelos e ficheiros GRAFCET"') && !outsideRow2.includes('Sequência, modelos e ficheiros GRAFCET'))
 
 // Revisão: render leve, sem rotação automática e seleção possível durante o RUN
 assert('Painel 3D: sem amortecimento nem rotação automática', panel.includes('screenSpacePanning autoRotate={false} />') && !panel.includes('enableDamping dampingFactor'))
