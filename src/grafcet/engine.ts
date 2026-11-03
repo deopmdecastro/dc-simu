@@ -320,9 +320,73 @@ export interface GrafcetGraph {
 
 export const graphKey = (number: number): string => `G${number}`
 
-/** Páginas do programa como grafos numerados. Sem páginas, o programa inteiro é G0. */
+/** Título de GRAFCET desenhado como texto: «G3 - Manual - Cilindro A», «G0: Controlo», «G1 · Ciclo». */
+const GRAPH_TITLE = /^\s*G(\d+)\s*[-–—:·]\s*(\S.*)$/
+
+interface GraphTitle { number: number; label: string; x: number; y: number; chart: string }
+
+/** Títulos `G<n> - …` por página: vários GRAFCETs podem partilhar a mesma página. */
+function graphTitles(program: GrafcetProgram): GraphTitle[] {
+  const firstChart = program.charts?.[0]?.id ?? ''
+  return (program.comments ?? []).flatMap((comment) => {
+    const match = (comment.text ?? '').split('\n')[0].match(GRAPH_TITLE)
+    return match ? [{ number: Number(match[1]), label: match[2].trim(), x: comment.x, y: comment.y, chart: comment.chart ?? firstChart }] : []
+  })
+}
+
+/** Título que «governa» um ponto: o mais próximo acima e à esquerda (com folga), na mesma página. */
+function titleAt(titles: GraphTitle[], x: number, y: number): GraphTitle | undefined {
+  let best: GraphTitle | undefined
+  let score = Infinity
+  for (const title of titles) {
+    if (title.y > y + 8 || title.x > x + 80) continue
+    const distance = (x - title.x) + (y - title.y)
+    if (distance < score) { best = title; score = distance }
+  }
+  // Etapa acima/à esquerda de todos os títulos: fica no título mais próximo.
+  if (!best) for (const title of titles) {
+    const distance = Math.hypot(x - title.x, y - title.y)
+    if (distance < score) { best = title; score = distance }
+  }
+  return best
+}
+
+/** Número do GRAFCET de cada etapa: pelo título `G<n> - …` da sua página ou, sem títulos, pela página. */
+export function stepGraphNumbers(program: GrafcetProgram): Map<string, number> {
+  const charts = program.charts ?? []
+  const firstChart = charts[0]?.id ?? ''
+  const titles = graphTitles(program)
+  const result = new Map<string, number>()
+  for (const step of program.steps) {
+    const chart = step.chart ?? firstChart
+    const onPage = titles.filter((title) => title.chart === chart)
+    const title = onPage.length ? titleAt(onPage, step.x ?? 0, step.y ?? 0) : undefined
+    result.set(step.id, title ? title.number : Math.max(0, charts.findIndex((item) => item.id === chart)))
+  }
+  return result
+}
+
+/** GRAFCETs do programa: os títulos `G<n> - …` (mesmo vários na mesma página) e, sem títulos, as
+ *  páginas (G0 a primeira, G1 a segunda…). Sem páginas nem títulos, o programa inteiro é G0. */
 export function grafcetGraphs(program: GrafcetProgram): GrafcetGraph[] {
   const charts = program.charts ?? []
+  const titles = graphTitles(program)
+  if (titles.length) {
+    const numbers = stepGraphNumbers(program)
+    const byNumber = new Map<number, GrafcetGraph>()
+    for (const title of titles) {
+      if (!byNumber.has(title.number)) byNumber.set(title.number, { number: title.number, key: graphKey(title.number), chartId: title.chart || undefined, label: title.label, steps: [] })
+    }
+    for (const step of program.steps) {
+      const number = numbers.get(step.id) ?? 0
+      if (!byNumber.has(number)) {
+        const chart = charts[number]
+        byNumber.set(number, { number, key: graphKey(number), chartId: chart?.id, label: (chart?.title || chart?.name || `GRAFCET ${number}`).trim(), steps: [] })
+      }
+      byNumber.get(number)!.steps.push(step)
+    }
+    return [...byNumber.values()].sort((left, right) => left.number - right.number)
+  }
   if (!charts.length) {
     return [{ number: 0, key: 'G0', label: (program.name ?? '').trim() || 'GRAFCET', steps: program.steps }]
   }
@@ -336,15 +400,27 @@ export function grafcetGraphs(program: GrafcetProgram): GrafcetGraph[] {
   }))
 }
 
+/** GRAFCET de uma transição: o das suas etapas ou, se ainda não tem nenhuma, o do título mais próximo. */
+export function graphNumberOfTransition(program: GrafcetProgram, transition: GrafcetTransition): number {
+  const numbers = stepGraphNumbers(program)
+  for (const id of [...transition.from, ...transition.to]) {
+    const number = numbers.get(id)
+    if (number !== undefined) return number
+  }
+  const charts = program.charts ?? []
+  const chart = transition.chart ?? charts[0]?.id ?? ''
+  const onPage = graphTitles(program).filter((title) => title.chart === chart)
+  const title = onPage.length ? titleAt(onPage, transition.x ?? 0, transition.y ?? 0) : undefined
+  return title ? title.number : Math.max(0, charts.findIndex((item) => item.id === chart))
+}
+
 /** Índice global de cada etapa (a base do número mostrado em X<n>). */
 const globalStepIndex = (program: GrafcetProgram): Map<string, number> =>
   new Map(program.steps.map((step, index) => [step.id, index]))
 
-/** Número do grafo a que uma etapa pertence (0 quando não há páginas). */
+/** Número do grafo a que uma etapa pertence (título `G<n> - …` ou página; 0 sem nenhum). */
 export function graphNumberOfStep(program: GrafcetProgram, step: GrafcetStep): number {
-  const charts = program.charts ?? []
-  if (!charts.length) return 0
-  return Math.max(0, charts.findIndex((chart) => chart.id === (step.chart ?? charts[0].id)))
+  return stepGraphNumbers(program).get(step.id) ?? 0
 }
 
 /** Números de etapa existentes e ativos, por grafo («0», «1»…). */

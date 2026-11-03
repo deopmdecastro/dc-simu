@@ -9,7 +9,7 @@ import { detectGrafcetIo, inputsInCondition, symbolsInCondition } from '../src/g
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
 import { GRAFCET_TEMPLATES } from '../src/grafcet/templates'
-import { stepNumberOf, stripGrafcetPrefix, normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity, grafcetGraphs, stepStateReferences, graphStepNumbers, receptivityOf } from '../src/grafcet/engine'
+import { stepNumberOf, stripGrafcetPrefix, normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity, grafcetGraphs, stepStateReferences, graphStepNumbers, receptivityOf, graphNumberOfTransition } from '../src/grafcet/engine'
 import ActionSymbol, { actionShape } from '../src/grafcet/ActionSymbol'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -2652,6 +2652,19 @@ check('Ponteiras DIN 46228-4: secção fora da tabela não inventa cor; cores r�
   for (let k = 0; k < 4; k++) grt = scanGrafcet(guarded, grt, { I1: true }, 100)
   check('GRAFCET: receptivityOf junta a condição e o estado da origem', receptivityOf({ condition: 'I1', guard: 'G0 <> X2' }) === 'I1 * G0 <> X2' && receptivityOf({ condition: '1', guard: 'G0 <> X2' }) === 'G0 <> X2' && receptivityOf({ condition: 'a + b', guard: 'G1X3' }) === '(a + b) * G1X3')
   check('GRAFCET: transição-fonte com «Só se» a etapa de destino inativa dispara uma única vez', grt.active.includes('s2') && grt.fired === 1 && validateGrafcet(guarded).every((issue: any) => issue.level !== 'error'))
+}
+{
+  // Vários GRAFCETs na mesma página, identificados pelos títulos «G<n> - …».
+  const onePage = {
+    comments: [{ id: 'c0', text: 'G0 - Controlo', x: 160, y: 50 }, { id: 'c3', text: 'G3 - Manual - Cilindro A', x: 160, y: 1800 }, { id: 'n', text: 'G0 <> X9', x: 160, y: 600 }],
+    steps: [{ id: 'a', name: '4', initial: true, x: 200, y: 170, action: '', condition: '' }, { id: 'b', name: '149', x: 760, y: 2100, action: '', condition: '' }],
+    transitions: [{ id: 't', from: [], to: ['b'], condition: 'G0X4', source: true, guard: 'G3 <> X149', x: 760, y: 2010 }],
+  } as any
+  const titled = grafcetGraphs(onePage)
+  check('GRAFCET: títulos «G<n> - …» na mesma página definem G0 e G3 (o texto «G0 <> X9» não é título)', titled.map((graph: any) => `${graph.key}:${graph.steps.map((step: any) => step.name).join('+')}`).join(' ') === 'G0:4 G3:149' && graphNumberOfTransition(onePage, onePage.transitions[0]) === 3)
+  let ort = emptyGrafcetRuntime()
+  for (let k = 0; k < 3; k++) ort = scanGrafcet(onePage, ort, {}, 100)
+  check('GRAFCET: G0X4 e G3 <> X149 resolvem-se pelos títulos na mesma página', ort.active.includes('b') && ort.fired === 1)
 }
 check('GRAFCET: variável terminada em + seguida de OU («bp_A+ + G0<>X4») é válida; «a + + b» e «a++b» continuam inválidas', validCondition('fc_a0 * bp_Avanca_A+ + G0<>X4') && !validCondition('a + + b') && !validCondition('a++b'))
 check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos da tabela', evalCondition('fc_a0 * bp_Avanca_A+ + G0<>X4', { fc_a0: true, 'bp_Avanca_A+': true }, { activeStepNames: new Set(['4']) }) && !evalCondition('bp_Avanca_A+', { 'bp_Avanca_A+': false }))
