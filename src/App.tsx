@@ -86,9 +86,19 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   // Paridade tablet↔desktop: tablets (≥900 px ou landscape ≥768) usam painéis
   // laterais fixos como no desktop. Só telemóveis / ecrãs estreitos usam gavetas.
   const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse) and (max-height: 520px) and (max-width: 1100px)').matches)
-  const [showLadder, setShowLadder] = useState(() => useSimUi.getState().schematic || !compactWorkspace())
+  /** Vista 3D do Esquema: painéis laterais começam sempre recolhidos (mais canvas). */
+  const isSchematic3dPref = () => {
+    try { return localStorage.getItem('dc-simu:schematic-canvas-mode:v1') === '3d' } catch { return false }
+  }
+  const [showLadder, setShowLadder] = useState(() => {
+    if (isSchematic3dPref()) return false
+    return useSimUi.getState().schematic || !compactWorkspace()
+  })
   const [rightTab, setRightTab] = useState<RightDockTab>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
-  const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
+  const [showLibrary, setShowLibrary] = useState(() => {
+    if (isSchematic3dPref()) return false
+    return !compactWorkspace()
+  })
   const compact = compactWorkspace()
   // No telemóvel o Esquema IEC e o 3D mostram o painel lateral completo no fundo
   // (CommandsSimDock / SchematicSimDock): não há coluna/gaveta da direita, para o
@@ -114,18 +124,43 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
 
   // Reaplica o layout ao atravessar o breakpoint (ex.: redimensionar a janela
   // ou rodar o tablet), sem interferir nos painéis enquanto o modo não muda.
+  // Em 3D os painéis ficam recolhidos por omissão (não reabrir no resize).
   useEffect(() => {
     let compact = compactWorkspace()
     const onResize = () => {
       const nextCompact = compactWorkspace()
       if (nextCompact === compact) return
       compact = nextCompact
+      if (isSchematic3dPref()) {
+        setShowLibrary(false)
+        setShowLadder(false)
+        return
+      }
       setShowLibrary(!nextCompact)
       setShowLadder(!nextCompact)
     }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+  // Ao passar a Visualização 3D, recolher Biblioteca e painel direito.
+  useEffect(() => {
+    const onMode = (event: Event) => {
+      const mode = (event as CustomEvent<{ mode?: string }>).detail?.mode
+      if (mode === '3d') {
+        setShowLibrary(false)
+        setShowLadder(false)
+      }
+    }
+    window.addEventListener('dc-simu:schematic-canvas-mode', onMode as EventListener)
+    return () => window.removeEventListener('dc-simu:schematic-canvas-mode', onMode as EventListener)
+  }, [])
+  // Entrar na vista Esquema com preferência 3D → painéis recolhidos.
+  useEffect(() => {
+    if (mode === 'schematic' && isSchematic3dPref()) {
+      setShowLibrary(false)
+      setShowLadder(false)
+    }
+  }, [mode])
   const [panelSizes, setPanelSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('dcsimu:workspace:panels') ?? '{}')

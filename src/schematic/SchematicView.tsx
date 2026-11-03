@@ -54,15 +54,19 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const effectiveCanvasMode: SchematicCanvasMode = demoMode ? '3d' : canvasMode
   // Vista pedida no cubo do Esquema 2D: abre a Visualização 3D já nessa orientação.
   const [pendingCamera, setPendingCamera] = useState<ViewCubeRequest | null>(null)
+  const notifyCanvasMode = useCallback((mode: SchematicCanvasMode) => {
+    try { localStorage.setItem(SCHEMATIC_CANVAS_MODE_KEY, mode) } catch { /* preferência apenas visual */ }
+    try { window.dispatchEvent(new CustomEvent('dc-simu:schematic-canvas-mode', { detail: { mode } })) } catch { /* ignore */ }
+  }, [])
   const open3DView = useCallback((request: ViewCubeRequest) => {
     setPendingCamera(request)
     setCanvasMode('3d')
-    try { localStorage.setItem(SCHEMATIC_CANVAS_MODE_KEY, '3d') } catch { /* preferência apenas visual */ }
-  }, [])
+    notifyCanvasMode('3d')
+  }, [notifyCanvasMode])
   const chooseMode = useCallback((mode: SchematicCanvasMode) => {
     setCanvasMode(mode)
-    try { localStorage.setItem(SCHEMATIC_CANVAS_MODE_KEY, mode) } catch { /* preferência apenas visual */ }
-  }, [])
+    notifyCanvasMode(mode)
+  }, [notifyCanvasMode])
 
   // A inserção por clique depende de coordenadas do desenho. Se o utilizador
   // escolher um item na Biblioteca durante a inspeção 3D, volta ao Canvas 2D
