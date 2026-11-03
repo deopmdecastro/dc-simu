@@ -109,6 +109,14 @@ try {
   await importDialog.waitFor({ state: 'hidden' })
   await page.getByRole('button', { name: 'Abrir exemplo de 3 etapas', exact: true }).click()
   await page.locator('.grafcet-graph-node').nth(2).waitFor()
+  // Desde 01/11 o painel de simulação inferior (E/S + Sequência) só existe abaixo de 1200 px;
+  // no ecrã largo o estado ao vivo está nos Sinais. Verifica-se numa largura de portátil.
+  await page.setViewportSize({ width: 1100, height: 860 })
+  await page.locator('[data-grafcet-sim-dock]').waitFor()
+  // Nesta largura a paleta «Componentes» é uma gaveta por cima do painel: recolhe-se primeiro.
+  const collapseToolbox = page.getByRole('button', { name: /^Recolher ferramentas/ })
+  if (await collapseToolbox.count() && await collapseToolbox.first().isVisible()) await collapseToolbox.first().click()
+  check(await page.locator('[data-grafcet-sim-dock]').count() === 1, 'abaixo de 1200 px o GRAFCET tem o painel de simulação inferior')
   await page.getByRole('tab', { name: /^Sequência/ }).click()
   await page.locator('.gsim-custom-inputs > summary').click()
   const simulator = page.locator('.gdock')
@@ -127,6 +135,9 @@ try {
   await inputSwitch.click()
   check(await inputSwitch.getAttribute('aria-checked') === 'true' && await inputCards.first().evaluate((el) => el.classList.contains('is-on')), 'entrada continua a alternar com estado visual explícito')
   await inputSwitch.click()
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.locator('[data-grafcet-sim-dock]').waitFor({ state: 'detached' })
+  check(await page.locator('[data-grafcet-sim-dock]').count() === 0, 'no ecrã largo (≥ 1200 px) o painel de simulação inferior não é mostrado')
   await page.getByRole('tab', { name: /^Transições/ }).click()
   await page.getByRole('button', { name: /Selecionar transição T1/ }).click()
   const transitionInspector = page.locator('.grafcet-transition-inspector')
