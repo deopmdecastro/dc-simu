@@ -1,6 +1,7 @@
 /** Diálogo «Importar esquema» — FluidSIM 4 (.ct) e CADe SIMU (.cad / JSON). */
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import PropertyDialog from '../ui/PropertyDialog'
+import { IconFileUpload, IconImport } from '../ui/icons'
 import { importFluidSimCircuitFile, type CircuitImportResult } from './fluidSimCircuit'
 import { importCadeSimuFile } from './cadeSimuImport'
 
@@ -70,7 +71,7 @@ export default function CommandsImportDialog({
       id="commands-import-dialog"
       className="grafcet-compact-dialog grafcet-import-dialog"
       title="Importar esquema IEC"
-      subtitle="FluidSIM 4 (.ct) ou CADe SIMU (.cad / JSON)"
+      subtitle="Escolha um ficheiro ou arraste-o para a zona abaixo."
       eyebrow="ESQUEMA IEC · IMPORTAÇÃO"
       hideSave
       closeLabel="Cancelar"
@@ -79,32 +80,36 @@ export default function CommandsImportDialog({
       onSave={() => undefined}
     >
       <div className="grafcet-import-body">
-        <fieldset className="grid gap-2 text-sm">
-          <legend className="font-semibold mb-1">Origem</legend>
-          <p className="text-[12.5px] leading-relaxed text-ink-500 m-0">
-            <strong>FluidSIM 4</strong> — ficheiros <code>.ct</code> de circuitos elétricos ou pneumáticos
-            (não GRAFCET; para GRAFCET use o editor GRAFCET → Importar).
-          </p>
-          <p className="text-[12.5px] leading-relaxed text-ink-500 m-0">
-            <strong>CADe SIMU</strong> — ficheiros <code>.cad</code> (símbolos, ligações e textos; os botões do painel de simulação do CADe ficam de fora — no DC-Simu clica-se no próprio símbolo) ou
-            JSON intermédio (<code>dc-simu-cade-import</code>).
-          </p>
-        </fieldset>
         <input ref={inputRef} type="file" hidden accept={ACCEPT} onChange={onInput} disabled={busy} />
         <section
-          className={`grafcet-import-dropzone ${dragging ? 'is-dragging' : ''}`}
-          onDragEnter={(e) => { e.preventDefault(); setDragging(true) }}
-          onDragOver={(e) => e.preventDefault()}
-          onDragLeave={() => setDragging(false)}
+          className={`grafcet-import-dropzone${dragging ? ' is-dragging' : ''}`}
+          aria-label="Zona para largar ficheiro de esquema IEC"
+          onDragEnter={(event) => { event.preventDefault(); setDragging(true) }}
+          onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setDragging(true) }}
+          onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false) }}
           onDrop={onDrop}
         >
-          <p>Arraste o ficheiro para aqui</p>
-          <button type="button" className="dc-btn dc-btn-primary" disabled={busy} onClick={() => inputRef.current?.click()}>
-            {busy ? 'A importar…' : 'Escolher ficheiro'}
+          <span className="grafcet-import-drop-icon" aria-hidden="true"><IconFileUpload size={26} /></span>
+          <strong>Arraste e solte o ficheiro aqui</strong>
+          <span>ou</span>
+          <button type="button" className="dc-btn dc-btn-primary" data-initial-focus disabled={busy} onClick={() => inputRef.current?.click()}>
+            <IconImport size={15} />{busy ? 'A importar…' : 'Escolher ficheiro'}
           </button>
-          <small>.ct · .cad · .json</small>
+          <small>É importado um ficheiro de cada vez</small>
         </section>
+
         {error && <p className="grafcet-import-error" role="alert">{error}</p>}
+
+        <section className="grafcet-import-formats" aria-labelledby="commands-import-formats-title">
+          <h3 id="commands-import-formats-title">Formatos aceites</h3>
+          <div className="grafcet-import-format-list">
+            <article><code>.ct</code><div><strong>FluidSIM 4</strong><span>Circuitos elétricos ou pneumáticos (não GRAFCET; para GRAFCET use o editor GRAFCET → Importar).</span></div></article>
+            <article><code>.cad</code><div><strong>CADe SIMU</strong><span>Símbolos, ligações e textos; os botões do painel de simulação do CADe ficam de fora — no DC-Simu clica-se no próprio símbolo.</span></div></article>
+            <article><code>.json</code><div><strong>JSON intermédio</strong><span>Formato <code>dc-simu-cade-import</code>.</span></div></article>
+          </div>
+        </section>
+
+        <p className="grafcet-import-note">A importação substitui todo o esquema IEC do projeto atual, mas pode ser desfeita.</p>
       </div>
     </PropertyDialog>
   )
