@@ -1,20 +1,25 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { parseFluidSimCircuitText, circuitTextFromCt } from '../src/commands/fluidSimCircuit'
 import { parseCadeJson, parseCadeBinary } from '../src/commands/cadeSimuImport'
 
 let n = 0
 const pass = (label: string) => { n++; console.log(`PASS — ${label}`) }
 
-// FluidSIM elect sample
-const ct = new Uint8Array(readFileSync('/tmp/festo-ct/elect_02.ct'))
-const text = circuitTextFromCt(ct)
-assert.ok(text.includes('lampe') || text.includes('magnet') || text.includes('pol'), 'texto CT com símbolos elétricos')
-pass('FluidSIM CT expandido com símbolos de circuito')
+// FluidSIM elect: amostra real (protegida por direitos, não versionada) só quando indicada.
+const ctSample = process.env.FLUIDSIM_CT_SAMPLE
+if (ctSample && existsSync(ctSample)) {
+  const ct = new Uint8Array(readFileSync(ctSample))
+  const text = circuitTextFromCt(ct)
+  assert.ok(text.includes('lampe') || text.includes('magnet') || text.includes('pol'), 'texto CT com símbolos elétricos')
+  pass('FluidSIM CT expandido com símbolos de circuito')
 
-const result = parseFluidSimCircuitText(text)
-assert.ok(result.stats.symbols >= 3, `símbolos >= 3 (foi ${result.stats.symbols})`)
-pass(`FluidSIM circuito → ${result.stats.symbols} símbolos, ${result.stats.wires} cabos`)
+  const result = parseFluidSimCircuitText(text)
+  assert.ok(result.stats.symbols >= 3, `símbolos >= 3 (foi ${result.stats.symbols})`)
+  pass(`FluidSIM circuito → ${result.stats.symbols} símbolos, ${result.stats.wires} cabos`)
+} else {
+  console.log('SKIP — amostra FluidSIM elect: defina FLUIDSIM_CT_SAMPLE=<ficheiro .ct> para a incluir')
+}
 
 // CADe JSON
 const json = parseCadeJson(JSON.stringify({

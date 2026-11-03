@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { loadModelMm } from './detect-interfaces'
+import { getComponentModelSpec } from '../src/three/modelPaths'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
 import { createComponent, terminalByLabel } from '../src/electrical/factory'
 import { terminalMarkerRadius, terminalNormalWorld3D } from '../src/three/terminal3D'
@@ -10,7 +11,11 @@ import '../src/catalog/holeDetect'
 // Mede o CAD realmente renderizado; não compara o resultado com a própria tabela.
 let count = 0
 let contacts = 0
+const procedural: ComponentType[] = []
 for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
+  // Tipos desenhados por código (ex.: torre genérica) não têm CAD para medir; um GLB declarado
+  // mas ausente continua a ser erro.
+  if (!getComponentModelSpec(type)) { procedural.push(type); continue }
   const model = await loadModelMm(type)
   assert.ok(model, `${type}: GLB em falta`)
   const { root, box, phys } = model
@@ -74,7 +79,7 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   }
   console.log(`PASS — ${type}: ${component.terminals.length} ligações no interior dos encaixes`)
 }
-const total = Object.values(REAL_TERMINALS).reduce((sum, spots) => sum + (spots?.length ?? 0), 0)
+const total = Object.entries(REAL_TERMINALS).reduce((sum, [type, spots]) => sum + (procedural.includes(type as ComponentType) ? 0 : spots?.length ?? 0), 0)
 assert.equal(count + contacts, total, 'Cobertura incompleta: todas as ligações medidas têm de ser verificadas')
 assert.ok(count >= 162 + 20, 'Encaixes com cavidade: os 162 anteriores e os novos parafusos dos CAD importados')
-console.log(`PASS — ${Object.keys(REAL_TERMINALS).length} modelos, ${count} encaixes com cavidade e ${contacts} pinos/fios: profundidade, marcadores e escala física`)
+console.log(`PASS — ${Object.keys(REAL_TERMINALS).length - procedural.length} modelos CAD (+${procedural.length} procedurais: ${procedural.join(', ')}), ${count} encaixes com cavidade e ${contacts} pinos/fios: profundidade, marcadores e escala física`)
