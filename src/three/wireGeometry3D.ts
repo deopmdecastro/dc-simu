@@ -304,6 +304,72 @@ const segmentHitsBox = (from: THREE.Vector3, to: THREE.Vector3, box: THREE.Box3)
   return segmentEntersBox(arr(from), arr(to), box)
 }
 
+
+/** Quebra segmentos diagonais em troços eixo-alinhados (X / Y / Z), evitando cabos «a atravessar» aparelhos em linha reta. */
+function orthogonalizeSegments(points: V3[], preferYFirst = true): V3[] {
+  if (points.length < 2) return points
+  const out: V3[] = [[...points[0]] as V3]
+  for (let i = 1; i < points.length; i++) {
+    const prev = out[out.length - 1]
+    const next = points[i]
+    const dx = Math.abs(next[0] - prev[0])
+    const dy = Math.abs(next[1] - prev[1])
+    const dz = Math.abs(next[2] - prev[2])
+    const active = (dx > 1e-4 ? 1 : 0) + (dy > 1e-4 ? 1 : 0) + (dz > 1e-4 ? 1 : 0)
+    if (active <= 1) {
+      if (v(prev).distanceToSquared(v(next)) > 1e-12) out.push([...next] as V3)
+      continue
+    }
+    let cur: V3 = [...prev]
+    // 1) Aprofundar / trazer ao plano de calha (Z)  2) Corredor (Y)  3) Avanço (X)
+    if (dz > 1e-4) {
+      cur = [cur[0], cur[1], next[2]]
+      out.push(cur)
+    }
+    if (preferYFirst) {
+      if (Math.abs(next[1] - cur[1]) > 1e-4) {
+        cur = [cur[0], next[1], cur[2]]
+        out.push(cur)
+      }
+      if (Math.abs(next[0] - cur[0]) > 1e-4) {
+        cur = [next[0], cur[1], cur[2]]
+        out.push(cur)
+      }
+    } else {
+      if (Math.abs(next[0] - cur[0]) > 1e-4) {
+        cur = [next[0], cur[1], cur[2]]
+        out.push(cur)
+      }
+      if (Math.abs(next[1] - cur[1]) > 1e-4) {
+        cur = [cur[0], next[1], cur[2]]
+        out.push(cur)
+      }
+    }
+    if (v(cur).distanceToSquared(v(next)) > 1e-12) out.push([...next] as V3)
+  }
+  return out
+}
+
+/** Se o traçado colapsou a uma reta (2 pontos), força um U por baixo — nunca diagonal longa. */
+function ensureDetoured(points: V3[], outerMm: number): V3[] {
+  if (points.length >= 3) return points
+  if (points.length < 2) return points
+  const a = points[0]
+  const b = points[points.length - 1]
+  const span = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+  if (span < 0.12) return points
+  const frontZ = wireFrontLimit(outerMm) + 0.05
+  const midY = Math.min(a[1], b[1]) - Math.max(0.28, Math.abs(a[1] - b[1]) * 0.15 + 0.22)
+  return [
+    a,
+    [a[0], a[1], Math.max(a[2], frontZ)] as V3,
+    [a[0], midY, frontZ] as V3,
+    [b[0], midY, frontZ] as V3,
+    [b[0], b[1], Math.max(b[2], frontZ)] as V3,
+    b,
+  ]
+}
+
 export function clearObstacles(controls: V3[], outerMm: number, obstacles: WireObstacle[]): V3[] {
   if (controls.length < 2) return controls
   const out = controls.map((point) => [...point] as V3)
@@ -480,7 +546,7 @@ export function wireBodyPoints3D(
     controls = [a, b]
     smooth = false
   } else {
-    const drop = -0.55 - Math.min(0.7, Math.abs(a[0] - b[0]) * 0.04)
+    const drop = -0.82 - Math.min(0.85, Math.abs(a[0] - b[0]) * 0.05)
     let channelY = THREE.MathUtils.lerp(a[1], b[1], Math.max(0, Math.min(1, wire.bend ?? 0.5))) + drop
     if (trunkY !== undefined) channelY = trunkY + trunkSpread(wire)
 
@@ -571,12 +637,22 @@ export function wireBodyPoints3D(
     controls = removeWireBacktracks(coalesceShortJogs(controls, Math.max(outerMm * 2.4, 7) * U))
   }
 
+  // Ortogonalizar e impedir diagonais longas (comum quando o path colapsa a 2 pontos).
+  if (manual.length === 0 && wire.route !== 'arc' && wire.route !== 'direct') {
+    controls = orthogonalizeSegments(controls, true)
+    controls = ensureDetoured(controls, outerMm)
+    controls = removeWireBacktracks(controls)
+  }
+
   if (smooth && controls.length > 2) {
-    const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.28)
+    const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.22)
     return keepInFrontOfPlate(curve.getPoints(Math.max(64, controls.length * 28)).map(arr), outerMm)
   }
+  if (controls.length <= 2) {
+    controls = ensureDetoured(controls, outerMm)
+  }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
-  const radiusFactor = wire.flexibility === 'flexible' ? 15.0 : 11.5
+  const radiusFactor = wire.flexibility === 'flexible' ? 15.0 : 12.5
   return keepInFrontOfPlate(roundCorners(controls, outerMm, radiusFactor), outerMm)
 }
 

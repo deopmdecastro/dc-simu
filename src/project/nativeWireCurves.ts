@@ -26,6 +26,10 @@ export function refreshNativeWireCurves<T extends Record<string, any>>(content: 
       if (value === undefined) delete next[key]
       else next[key] = structuredClone(value)
     }
+    // Forçar manhattan + sem dobras 3D antigas: o 3D recalcula corredores limpos.
+    next.route = 'manhattan'
+    next.bend = 0.15
+    delete next.waypoints3D
     return next as unknown as Wire
   })
   return { ...content, wires, nativeFeatures: [...features, NATIVE_WIRE_CURVES_FEATURE] }

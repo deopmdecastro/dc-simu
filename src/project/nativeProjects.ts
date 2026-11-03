@@ -442,6 +442,8 @@ export function buildNativePartidaDireta(): Built {
     // Preferir saída/chegada pela face traseira (calha / canaletas) para não cobrir a frente dos aparelhos.
     next.fromEndLayer = 'back'
     next.toEndLayer = 'back'
+    next.route = 'manhattan'
+    next.bend = 0.15
     // Bornes do motor: olhal sob a porca (não ponteira tubular).
     if (a.type === 'motor3ph') next.fromEndType = 'ring'
     if (b.type === 'motor3ph') next.toEndType = 'ring'
