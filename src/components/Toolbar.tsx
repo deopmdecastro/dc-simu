@@ -67,7 +67,7 @@ const TOOLS: Array<{ id: EditorTool; label: string; icon: typeof IconCursor; hin
 ]
 
 const VIEWS: Array<{ id: ViewMode; label: string; icon: typeof IconSchematic; key: string }> = [
-  { id: 'schematic', label: '3D Realista', icon: IconSchematic, key: 'F1' },
+  { id: 'schematic', label: '3D Realista', icon: IconCube, key: 'F1' },
   { id: 'ladder', label: 'Ladder', icon: IconLadder, key: 'F2' },
   { id: 'grafcet', label: 'GRAFCET', icon: IconGrafcet, key: 'F5' },
   { id: 'commands', label: 'Esquema IEC', icon: IconCommands, key: 'F6' },

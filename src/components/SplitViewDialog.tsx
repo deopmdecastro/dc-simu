@@ -7,10 +7,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ViewMode } from './Toolbar'
 import { useSplitView, type SplitPane } from '../ui/splitViewStore'
-import { IconCompare, IconGrafcet, IconLadder, IconSchematic, IconCommands, IconMonitor } from '../ui/icons'
+import { IconCompare, IconGrafcet, IconLadder, IconCube, IconCommands, IconMonitor } from '../ui/icons'
 
 const VIEW_META: Record<ViewMode, { label: string; icon: typeof IconSchematic }> = {
-  schematic: { label: '3D Realista', icon: IconSchematic },
+  schematic: { label: '3D Realista', icon: IconCube },
   ladder: { label: 'Ladder', icon: IconLadder },
   grafcet: { label: 'GRAFCET', icon: IconGrafcet },
   commands: { label: 'Esquema IEC', icon: IconCommands },
