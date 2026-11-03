@@ -247,6 +247,10 @@ export interface ConditionContext {
   knownStepNumbers?: Set<string>
   activeStepNumbers?: Set<string>
   stepElapsedByNumber?: Record<string, number>
+  /** O mesmo, mas por página/GRAFCET: chave «0» (G0), «1» (G1)… Permite que
+   *  `G1 <=> X11` leia a etapa 11 da página G1 em vez da numeração global. */
+  knownStepNumbersByGraph?: Record<string, Set<string>>
+  activeStepNumbersByGraph?: Record<string, Set<string>>
   simTimeMs?: number
 }
 
@@ -285,7 +289,78 @@ export function stripGrafcetPrefix(expression: string): string {
   return expression.replace(/(?<![A-Za-z0-9_])G\d+\s*(?:<=>|=>|<=|=|:|\.|-)?\s*(?=X\d)/gi, '')
 }
 
-function stepNumberContext(steps: readonly GrafcetStep[], active: ReadonlySet<string>, elapsed: Record<string, number>) {
+/** Um GRAFCET do projeto: a 1.ª página é **G0** (o grafo principal) e as seguintes
+ *  são G1, G2… — a mesma numeração que as receptividades usam em `G1 <=> X11`.
+ *  As páginas partilham o motor e a numeração global das etapas, por isso uma
+ *  transição de uma página pode depender do estado de uma etapa de outra. */
+export interface GrafcetGraph {
+  /** Número usado nas referências: 0, 1, 2… */
+  number: number
+  /** «G0», «G1»… */
+  key: string
+  chartId?: string
+  /** Nome legível: a página («Página 2», «Manual Cilindro A») ou o nome do programa. */
+  label: string
+  steps: GrafcetStep[]
+}
+
+export const graphKey = (number: number): string => `G${number}`
+
+/** Páginas do programa como grafos numerados. Sem páginas, o programa inteiro é G0. */
+export function grafcetGraphs(program: GrafcetProgram): GrafcetGraph[] {
+  const charts = program.charts ?? []
+  if (!charts.length) {
+    return [{ number: 0, key: 'G0', label: (program.name ?? '').trim() || 'GRAFCET', steps: program.steps }]
+  }
+  const first = charts[0].id
+  return charts.map((chart, index) => ({
+    number: index,
+    key: graphKey(index),
+    chartId: chart.id,
+    label: (chart.title || chart.name || `Página ${index + 1}`).trim(),
+    steps: program.steps.filter((step) => (step.chart ?? first) === chart.id),
+  }))
+}
+
+/** Índice global de cada etapa (a base do número mostrado em X<n>). */
+const globalStepIndex = (program: GrafcetProgram): Map<string, number> =>
+  new Map(program.steps.map((step, index) => [step.id, index]))
+
+/** Número do grafo a que uma etapa pertence (0 quando não há páginas). */
+export function graphNumberOfStep(program: GrafcetProgram, step: GrafcetStep): number {
+  const charts = program.charts ?? []
+  if (!charts.length) return 0
+  return Math.max(0, charts.findIndex((chart) => chart.id === (step.chart ?? charts[0].id)))
+}
+
+/** Números de etapa existentes e ativos, por grafo («0», «1»…). */
+export function graphStepNumbers(program: GrafcetProgram, active?: ReadonlySet<string>): { known: Record<string, Set<string>>; active: Record<string, Set<string>> } {
+  const index = globalStepIndex(program)
+  const known: Record<string, Set<string>> = {}
+  const activeNumbers: Record<string, Set<string>> = {}
+  for (const graph of grafcetGraphs(program)) {
+    const key = String(graph.number)
+    known[key] = new Set<string>()
+    activeNumbers[key] = new Set<string>()
+    for (const step of graph.steps) {
+      const number = stepNumberOf(step, index.get(step.id) ?? 0)
+      known[key].add(number)
+      if (active?.has(step.id)) activeNumbers[key].add(number)
+    }
+  }
+  return { known, active: activeNumbers }
+}
+
+/** Prefixos aceites antes de X<n>: G1X11, G1 <=> X11, G1:X11, G1.X11, G1=X11, G1=>X11.
+ *  As formas com separador são normalizadas para `G<n>X<m>` antes da análise. */
+const normalizeGraphReferences = (expression: string): string =>
+  expression
+    .replace(/\bG(\d+)\s*(?:=>|<=|:|\s*\.)\s*(?=X\d)/gi, 'G$1')
+    .replace(/(?<![A-Za-z0-9_])G(\d+)\s*-\s*(?=X\d)/gi, 'G$1')
+    // 5s/G2X4: o temporizador por etapa lê a etapa pelo número (não distingue páginas).
+    .replace(/(\d+(?:\.\d+)?(?:MS|S)?)\s*\/\s*G\d+\s*(?:<=>|==|=|<>)?\s*(?=X\d)/gi, '$1/')
+
+function stepNumberContext(steps: readonly GrafcetStep[], active: ReadonlySet<string>, elapsed: Record<string, number>, graphs?: { known: Record<string, Set<string>>; active: Record<string, Set<string>> }) {
   const knownStepNumbers = new Set<string>()
   const activeStepNumbers = new Set<string>()
   const stepElapsedByNumber: Record<string, number> = {}
@@ -294,13 +369,27 @@ function stepNumberContext(steps: readonly GrafcetStep[], active: ReadonlySet<st
     knownStepNumbers.add(number)
     if (active.has(step.id)) { activeStepNumbers.add(number); stepElapsedByNumber[number] = elapsed[step.id] ?? 0 }
   })
-  return { knownStepNumbers, activeStepNumbers, stepElapsedByNumber }
+  return {
+    knownStepNumbers,
+    activeStepNumbers,
+    stepElapsedByNumber,
+    ...(graphs ? { knownStepNumbersByGraph: graphs.known, activeStepNumbersByGraph: graphs.active } : {}),
+  }
 }
 
 /** X<n> ativo: pelo número desenhado; se nenhuma etapa tiver esse número, pelo índice ou nome (projetos antigos). */
 function stepIsActive(num: string, ctx: ConditionContext): boolean {
   if (ctx.knownStepNumbers?.has(num)) return !!ctx.activeStepNumbers?.has(num)
   return !!(ctx.activeIndexes?.has(Number(num)) || ctx.activeStepNames?.has(num))
+}
+
+/** G<n>X<m> ativo: lê a etapa m **na página n**. Se a página existir mas não tiver
+ *  essa etapa (diagramas importados, numeração global), cai para a leitura global —
+ *  é o comportamento dos projetos anteriores e mantém as importações FluidSIM válidas. */
+function graphStepIsActive(graph: string, num: string, ctx: ConditionContext): boolean {
+  const known = ctx.knownStepNumbersByGraph?.[graph]
+  if (known?.size && known.has(num)) return !!ctx.activeStepNumbersByGraph?.[graph]?.has(num)
+  return stepIsActive(num, ctx)
 }
 
 /** Análise de duração: T(5s), T(500ms), 10s, 500ms, 2.5s */
@@ -360,6 +449,45 @@ export function referencedSteps(expression: string): number[] {
   }).filter((n) => !isNaN(n))
 }
 
+/** Uma referência ao estado de uma etapa dentro de uma receptividade:
+ *  `G0 <=> X9`, `G1X11`, `G1 <> X5`, `X9`, `/X9`, `NOT G0X9`, `G1:X11`.
+ *  A mesma leitura serve a avaliação (`parseCondition`), a validação do programa e
+ *  a modal de transição — não há duas interpretações da mesma expressão. */
+export interface StepStateReference {
+  /** texto exato na expressão (com espaços, como foi escrito) */
+  text: string
+  /** posição do início na expressão */
+  at: number
+  /** página/GRAFCET referido («0», «1»…); null quando a expressão não traz prefixo G */
+  graph: string | null
+  step: string
+  /** true = a etapa tem de estar ativa; false = tem de estar inativa */
+  active: boolean
+  /** true quando o prefixo não tem operador explícito (G0X9, G1:X11) */
+  implicit: boolean
+}
+
+const STEP_STATE_TERM = /(?<![A-Za-z0-9_)/])(\/\s*|NOT\s+)?(?:G(\d+)\s*(<=>|==|=|<>|=>|<=|:|\.)?\s*X(\d+)|X(\d+))(?![A-Za-z0-9_(])/gi
+
+export function stepStateReferences(expression: string): StepStateReference[] {
+  return [...expression.matchAll(STEP_STATE_TERM)].map((match) => {
+    const negated = !!match[1]
+    const graph = match[2] ?? null
+    const operator = (match[3] ?? '').toLowerCase()
+    const step = match[4] ?? match[5] ?? ''
+    const positive = operator === '<>' ? false : true
+    const explicitState = operator === '<=>' || operator === '==' || operator === '=' || operator === '<>'
+    return { text: match[0], at: match.index ?? 0, graph, step, active: negated ? !positive : positive, implicit: !explicitState }
+  })
+}
+
+/** Grafo a que uma referência pertence (0 quando não tem prefixo). */
+export const referenceGraphNumber = (reference: StepStateReference): number => reference.graph === null ? 0 : Number(reference.graph)
+
+/** Texto canónico de uma referência: `G1 <=> X11` (ativa) ou `G1 <> X11` (inativa). */
+export const stepReferenceText = (graph: string | number | null, step: string, active: boolean): string =>
+  `G${graph ?? 0} ${active ? '<=>' : '<>'} X${step}`
+
 function parseCondition(expression: string, ctx: ConditionContext): boolean | null {
   // Leitura canónica da tabela: aceita bits antigos (I3) e novos (I0.2).
   // Projetos já migrados usam a chave canónica; fixtures, integrações e sessões
@@ -378,7 +506,8 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   }
   const readBit = (t: string) => read(ctx.table, t)
   const readPrev = (t: string) => read(ctx.prev, t)
-  const src = stripGrafcetPrefix(expression).trim()
+  // O prefixo G<n> fica na expressão: é a página (GRAFCET) onde a etapa é lida.
+  const src = normalizeGraphReferences(expression).trim()
   if (!src) return null
   if (DISALLOWED_VARS.has(src.toUpperCase())) return null
 
@@ -430,10 +559,10 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
     // No simulador atual há um único GRAFCET em execução. O prefixo G<n>
     // mantém a compatibilidade gráfica de importação e consulta o estado X<n>
     // local; <> é a negação explícita dessa etapa (não uma leitura de outro PLC).
-    const grafcetCompare = token.match(/^G\d+\s*(<=>|==|=|<>)\s*X(\d+)$/i)
+    const grafcetCompare = token.match(/^G(\d+)\s*(<=>|==|=|<>)\s*X(\d+)$/i)
     if (grafcetCompare) {
-      const active = stepIsActive(grafcetCompare[2], ctx)
-      return grafcetCompare[1] === '<>' ? !active : active
+      const active = graphStepIsActive(grafcetCompare[1], grafcetCompare[3], ctx)
+      return grafcetCompare[2] === '<>' ? !active : active
     }
     if (token.startsWith('T(')) {
       const ms = parseDuration(token)
@@ -460,11 +589,8 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
       const num = Number(token.slice(1))
       return stepIsActive(String(num), ctx) || !!ctx.activeStepIds?.has(token)
     }
-    const gStep = token.match(/^G\d+X(\d+)$/i) || token.match(/^G\d+\s*<=>\s*X(\d+)$/i)
-    if (gStep) {
-      const num = Number(gStep[1])
-      return stepIsActive(String(num), ctx)
-    }
+    const gStep = token.match(/^G(\d+)\s*(<=>)?\s*X(\d+)$/i)
+    if (gStep) return graphStepIsActive(gStep[1], gStep[3], ctx)
     if (validBit(token) || validGrafcetVariable(token)) {
       return readBit(token)
     }
@@ -614,7 +740,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       elapsedMs: sourceElapsed(transition, elapsed),
       stepElapsed: elapsed,
       stepElapsedByName,
-      ...stepNumberContext(steps, current, elapsed),
+      ...stepNumberContext(steps, current, elapsed, graphStepNumbers(program, current)),
       simTimeMs,
     }
 
@@ -647,7 +773,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       if (kind === 'DA') {
         // Pulso ao desativar: a etapa saiu da situação ativa nesta varredura.
         if (consumed.has(a.stepId) && !next.has(a.stepId)) {
-          const exitContext: ConditionContext = { table: snapshot, prev, activeIndexes: nextIndexes, activeStepNames: nextStepNames, activeStepIds: next, elapsedMs: elapsed[a.stepId] ?? 0, stepElapsed: elapsed, stepElapsedByName, ...stepNumberContext(steps, next, elapsed), simTimeMs }
+          const exitContext: ConditionContext = { table: snapshot, prev, activeIndexes: nextIndexes, activeStepNames: nextStepNames, activeStepIds: next, elapsedMs: elapsed[a.stepId] ?? 0, stepElapsed: elapsed, stepElapsedByName, ...stepNumberContext(steps, next, elapsed, graphStepNumbers(program, next)), simTimeMs }
           if (evalCondition(a.condition || '1', snapshot, exitContext)) continuous = true
         }
         continue
@@ -662,7 +788,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
         elapsedMs: elapsed[a.stepId] ?? 0,
         stepElapsed: elapsed,
         stepElapsedByName,
-        ...stepNumberContext(steps, next, elapsed),
+        ...stepNumberContext(steps, next, elapsed, graphStepNumbers(program, next)),
         simTimeMs,
       }
       const holds = evalCondition(a.condition || '1', snapshot, actionContext)
@@ -727,7 +853,7 @@ export function transitionReceptivity(program: GrafcetProgram, runtime: GrafcetR
     elapsedMs: transition.from.length ? sourceElapsed(transition, elapsed) : 0,
     stepElapsed: elapsed,
     stepElapsedByName,
-    ...stepNumberContext(steps, active, elapsed),
+    ...stepNumberContext(steps, active, elapsed, graphStepNumbers(program, active)),
     simTimeMs: runtime.simTimeMs ?? 0,
   })
 }
@@ -788,9 +914,18 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     if (!validCondition(transition.condition)) {
       issues.push({ id: `${transition.id}:condition`, level: 'error', message: `Condição inválida em ${name}: «${transition.condition || 'vazia'}».`, entityId: transition.id, tab: 'transitions' })
     } else {
-      const bad = referencedSteps(transition.condition).filter((n) => !steps.some((s, i) => stepNumberOf(s, i) === String(n) || s.name.trim() === String(n)) && n >= steps.length)
-      if (bad.length) {
-        issues.push({ id: `${transition.id}:x`, level: 'error', message: `${name} usa X${bad[0]}, mas essa etapa não existe.`, entityId: transition.id, tab: 'transitions' })
+      const knownByGraph = graphStepNumbers(program).known
+      const existsHere = (num: string) => steps.some((s, i) => stepNumberOf(s, i) === num || s.name.trim() === num)
+      // G<n>X<m> é lido na página n; sem página correspondente vale a numeração global.
+      const missing = stepStateReferences(transition.condition).filter((reference) => {
+        const scoped = reference.graph !== null ? knownByGraph[reference.graph] : undefined
+        if (scoped?.size) return !scoped.has(reference.step) && !existsHere(reference.step)
+        return !existsHere(reference.step) && Number(reference.step) >= steps.length
+      })
+      if (missing.length) {
+        const first = missing[0]
+        const where = first.graph !== null && knownByGraph[first.graph]?.size ? ` na página G${first.graph}` : ''
+        issues.push({ id: `${transition.id}:x`, level: 'error', message: `${name} usa X${first.step}${where}, mas essa etapa não existe.`, entityId: transition.id, tab: 'transitions' })
       }
       if (/^\s*1\s*$/.test(transition.condition)) {
         issues.push({ id: `${transition.id}:always`, level: 'warning', message: `${name} tem receptividade «1»: dispara logo que as origens ficam ativas.`, entityId: transition.id, tab: 'transitions' })

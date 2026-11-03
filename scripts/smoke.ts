@@ -9,7 +9,7 @@ import { detectGrafcetIo, inputsInCondition, symbolsInCondition } from '../src/g
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
 import { GRAFCET_TEMPLATES } from '../src/grafcet/templates'
-import { stepNumberOf, stripGrafcetPrefix, normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
+import { stepNumberOf, stripGrafcetPrefix, normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity, grafcetGraphs, stepStateReferences, graphStepNumbers } from '../src/grafcet/engine'
 import ActionSymbol, { actionShape } from '../src/grafcet/ActionSymbol'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -2647,6 +2647,37 @@ check('Ponteiras DIN 46228-4: 0,5 branco · 1 vermelho · 1,5 preto · 2,5 azul 
 check('Ponteiras DIN 46228-4: secção fora da tabela não inventa cor; cores rápidas sem repetidos', dinFerruleColor('0.3mm²') === null && new Set(FERRULE_SWATCHES.map((swatch) => swatch.hex)).size === FERRULE_SWATCHES.length)
 check('GRAFCET: variável terminada em + seguida de OU («bp_A+ + G0<>X4») é válida; «a + + b» e «a++b» continuam inválidas', validCondition('fc_a0 * bp_Avanca_A+ + G0<>X4') && !validCondition('a + + b') && !validCondition('a++b'))
 check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos da tabela', evalCondition('fc_a0 * bp_Avanca_A+ + G0<>X4', { fc_a0: true, 'bp_Avanca_A+': true }, { activeStepNames: new Set(['4']) }) && !evalCondition('bp_Avanca_A+', { 'bp_Avanca_A+': false }))
+
+// GRAFCET com páginas: G0 é a primeira página, G1, G2… as seguintes, e uma
+// receptividade pode depender do estado de uma etapa de outro GRAFCET.
+{
+  const pages = [
+    { id: 'pg1', name: 'Página 1', title: 'Comando geral' },
+    { id: 'pg2', name: 'Página 2', title: 'Manual Cilindro A' },
+  ]
+  const steps = [
+    { id: 'p1-1', name: '1', initial: true, action: 'Q1', condition: '1', chart: 'pg1' },
+    { id: 'p1-5', name: '5', initial: false, action: '', condition: '1', chart: 'pg1' },
+    { id: 'p2-11', name: '11', initial: true, action: '', condition: '1', chart: 'pg2' },
+  ]
+  const program = { name: 'Duas páginas', charts: pages, steps, transitions: [{ id: 'tx', from: ['p1-1'], to: ['p1-5'], condition: 'G1 <=> X11' }] } as never as Parameters<typeof scanGrafcet>[0]
+  const graphs = grafcetGraphs(program)
+  check('GRAFCET: as páginas numeram-se G0, G1… e cada uma tem as suas etapas', graphs.length === 2 && graphs[0].key === 'G0' && graphs[0].steps.length === 2 && graphs[1].key === 'G1' && graphs[1].steps[0].id === 'p2-11')
+  const numbers = graphStepNumbers(program, new Set(['p1-5', 'p2-11']))
+  check('GRAFCET: os números de etapa são contados por página', numbers.known['1'].has('11') && !numbers.known['0'].has('11') && numbers.active['1'].has('11') && numbers.active['0'].has('5'))
+  const runtime = scanGrafcet(program, emptyGrafcetRuntime(), {})
+  check('GRAFCET: «G1 <=> X11» dispara a transição com a etapa 11 da outra página ativa', runtime.active.includes('p1-5'))
+  const blocked = scanGrafcet(program, { ...emptyGrafcetRuntime(), active: ['p1-1'] }, {})
+  check('GRAFCET: «G1 <=> X11» com a etapa 11 da outra página inativa não dispara', blocked.active.includes('p1-1') && !blocked.active.includes('p1-5'))
+  const inverse = { ...program, transitions: [{ id: 'tx', from: ['p1-1'], to: ['p1-5'], condition: 'G1 <> X11' }] }
+  const negated = scanGrafcet(inverse, { ...emptyGrafcetRuntime(), active: ['p1-1'] }, {})
+  check('GRAFCET: «G1 <> X11» dispara quando a etapa 11 da outra página está inativa', negated.active.includes('p1-5'))
+  const refs = stepStateReferences('G1 <=> X11 * G0 <> X5 * /X9 * G2:X7')
+  check('GRAFCET: as referências de estado guardam a página, a etapa e se deve estar ativa', refs.length === 4 && refs[0].graph === '1' && refs[0].step === '11' && refs[0].active && !refs[1].active && refs[2].graph === null && refs[3].graph === '2' && refs[3].implicit)
+  // Compatibilidade: um projeto sem páginas continua a ler G2X135 pela numeração global.
+  const flat = { steps: [{ id: 'f1', name: '1', initial: true, action: '', condition: '1' }, { id: 'f135', name: '135', initial: false, action: '', condition: '1' }], transitions: [] }
+  check('GRAFCET: projeto sem páginas mantém G2X135 como a etapa 135 global', validCondition('G2X135') && grafcetGraphs(flat as never).length === 1 && evalCondition('G2X135', {}, { knownStepNumbers: new Set(['1', '135']), activeStepNumbers: new Set(['135']) }))
+}
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

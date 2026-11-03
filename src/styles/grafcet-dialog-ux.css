@@ -57,8 +57,8 @@
 .grafcet-action-dialog .grafcet-qualifier-hint { min-height: 16px; font-size: 10px; }
 
 /* Listas lado a lado para distinguir a origem do destino sem percorrer o formulário. */
-.grafcet-transition-dialog { width: min(910px, 100%); }
-.grafcet-transition-dialog .grafcet-property-grid { grid-template-columns: minmax(0, 1fr) 190px; gap: 18px; }
+.grafcet-transition-dialog { width: min(980px, 100%); }
+.grafcet-transition-dialog .grafcet-property-grid { grid-template-columns: minmax(0, 1fr) 230px; gap: 18px; padding: 16px 20px; }
 .grafcet-transition-dialog .grafcet-transition-connections { gap: 7px; padding-top: 10px; }
 .grafcet-transition-dialog .grafcet-connection-editors { gap: 12px; }
 .grafcet-transition-dialog .grafcet-connection-selector { gap: 5px; }
@@ -195,8 +195,8 @@
 .grafcet-transition-dialog .grafcet-state-conditions .grafcet-connections-heading h3 { display: flex; align-items: center; gap: 6px; }
 .grafcet-transition-dialog .grafcet-state-conditions .grafcet-link-count { margin-left: 0; }
 .grafcet-state-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
-.grafcet-state-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; border: 1px solid #f5c46b; border-left-width: 3px; border-radius: 8px; background: #fff8eb; }
-.grafcet-state-item.is-active { border-color: #86d0a6; background: #effaf4; }
+.grafcet-state-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid #e6c07a; border-radius: 8px; background: #fff8eb; }
+.grafcet-state-item.is-active { border-color: #7cc9a0; background: #effaf4; }
 .grafcet-state-item.is-missing { border-color: #f1a7a7; background: #fff5f5; }
 .grafcet-state-item-text { flex: 1 1 180px; min-width: 0; color: #334155; font-size: 11.5px; line-height: 1.5; }
 .grafcet-state-item-text > b { color: #1e3a5f; }
@@ -213,3 +213,147 @@
 @media (max-width: 560px) {
   .grafcet-transition-dialog .grafcet-state-conditions-row .dc-input { flex: 1 1 100%; }
 }
+
+/* ===== Modal de transição: identidade + receptividade na mesma linha, para a
+   configuração essencial caber sem deslocar o formulário. ================== */
+.grafcet-transition-dialog .grafcet-transition-identity {
+  display: grid;
+  grid-template-columns: minmax(96px, 132px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.grafcet-transition-dialog .grafcet-transition-name .dc-input { font-weight: 650; }
+.grafcet-transition-dialog .grafcet-transition-condition { min-width: 0; }
+.grafcet-transition-dialog .grafcet-transition-condition .grafcet-condition-editor { display: grid; gap: 6px; }
+.grafcet-connections-graph {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid #cfdaed;
+  border-radius: 999px;
+  background: #f4f8ff;
+  color: #35507a;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: .02em;
+}
+
+/* ===== Depende do estado de etapas: construtor guiado (GRAFCET → etapa → estado) ===== */
+.grafcet-state-builder { display: grid; gap: 5px; padding-top: 2px; }
+.grafcet-state-builder-note { margin: 0; }
+.grafcet-state-graph { min-width: 150px; }
+.grafcet-state-builder-row {
+  display: grid;
+  grid-template-columns: auto minmax(150px, max-content) minmax(96px, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+.grafcet-state-builder-row .grafcet-state-sentence { display: inline-flex; align-items: center; gap: 4px; color: #334155; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.grafcet-state-builder-row .grafcet-state-sentence svg { color: #64748b; }
+.grafcet-state-step-picker { position: relative; display: flex; align-items: center; min-width: 0; }
+.grafcet-state-step-picker > svg { position: absolute; left: 9px; color: #94a3b8; pointer-events: none; }
+.grafcet-state-step-picker > .dc-input { width: 100%; height: 30px; padding-left: 26px; }
+.grafcet-transition-dialog .grafcet-state-add { display: inline-flex; align-items: center; gap: 4px; height: 30px; white-space: nowrap; }
+.grafcet-state-scope {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  min-width: 40px;
+  padding: 2px 6px;
+  border: 1px solid #cfdaed;
+  border-radius: 6px;
+  background: #fff;
+  color: #35507a;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.grafcet-state-scope small { color: #64748b; font-size: 8px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; }
+.grafcet-state-item.is-external { border-style: dashed; }
+.grafcet-state-scope.is-external { border-style: dashed; border-color: #9aa8d8; background: #f5f7ff; color: #3b4a94; }
+.grafcet-map-steps > span.is-state.is-external { border-style: dashed; border-color: #b9a7e0; background: #f7f4ff; color: #5b3f9e; }
+
+/* ===== Equivalências documentais: uma linha compacta por referência ===== */
+.grafcet-transition-dialog .grafcet-transition-comparisons {
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+.grafcet-transition-dialog .grafcet-transition-comparisons > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  color: #1e3a5f;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+.grafcet-transition-dialog .grafcet-transition-comparisons > summary::-webkit-details-marker { display: none; }
+.grafcet-transition-dialog .grafcet-transition-comparisons > summary > svg:last-child { margin-left: auto; color: #64748b; transition: transform .12s; }
+.grafcet-transition-dialog .grafcet-transition-comparisons[open] > summary > svg:last-child { transform: rotate(90deg); }
+.grafcet-transition-dialog .grafcet-transition-comparisons > summary:hover { background: #f4f8ff; border-radius: 8px; }
+.grafcet-transition-comparisons-body { display: grid; gap: 8px; padding: 0 10px 10px; }
+.grafcet-transition-comparisons-body > .grafcet-property-note { margin: 0; }
+.grafcet-comparison-card { display: grid; gap: 5px; padding: 7px 8px 8px; border: 1px solid #e2e9f3; border-radius: 7px; background: #fff; }
+.grafcet-comparison-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.grafcet-comparison-head > span { color: #64748b; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.grafcet-comparison-remove { display: grid; place-items: center; width: 20px; height: 20px; border: 0; border-radius: 50%; background: transparent; color: #64748b; cursor: pointer; }
+.grafcet-comparison-remove:hover { background: #fdeaea; color: #b42318; }
+.grafcet-comparison-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px; }
+.grafcet-comparison-field { display: grid; gap: 2px; min-width: 0; }
+.grafcet-comparison-field > span { color: #61718a; font-size: 9.5px; font-weight: 600; }
+.grafcet-transition-dialog .grafcet-comparison-field .dc-input { height: 28px; min-height: 28px; padding: 3px 8px; font-size: 12px; }
+.grafcet-comparison-add { justify-self: start; display: inline-flex; align-items: center; gap: 4px; height: 28px; }
+.grafcet-comparison-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  border: 1px dashed #c7d4e6;
+  border-radius: 7px;
+  background: #fff;
+  color: #35507a;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.grafcet-comparison-empty:hover { border-color: #92b0ef; background: #f4f8ff; color: #2455d8; }
+
+/* ===== Pré-visualização: sinaliza dependências externas e equivalências ===== */
+.grafcet-preview-external {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 6px;
+  padding: 5px 7px;
+  border: 1px dashed #b9c8e4;
+  border-radius: 6px;
+  background: #f5f7ff;
+  color: #3b4a94;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+.grafcet-preview-external.is-doc { border-color: #d8d2ea; background: #faf8ff; color: #5b4a86; }
+.grafcet-transition-status { margin: -4px 0 0; }
+
+@media (max-width: 760px) {
+  .grafcet-transition-dialog .grafcet-transition-identity { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .grafcet-state-builder-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .grafcet-state-builder-row .grafcet-state-sentence { grid-column: 1 / -1; }
+  .grafcet-state-step-picker { grid-column: 1 / -1; }
+  .grafcet-transition-dialog .grafcet-state-add { grid-column: 1 / -1; justify-content: center; }
+  .grafcet-comparison-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Densidade da modal de transição: a configuração essencial e as secções
+   opcionais cabem num ecrã de 900 px sem esconder o que é preciso decidir. */
+.grafcet-transition-dialog .grafcet-property-fields { gap: 12px; }
+.grafcet-transition-dialog .grafcet-link-side { padding: 8px; gap: 6px; }
+.grafcet-transition-dialog .grafcet-link-options-row { margin-top: 8px; padding-top: 7px; }
+.grafcet-transition-dialog .grafcet-state-conditions { margin-top: 6px; padding: 8px; }
+.grafcet-transition-dialog .grafcet-state-item { padding: 5px 6px 5px 8px; }

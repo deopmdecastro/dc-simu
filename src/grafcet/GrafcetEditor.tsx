@@ -21,6 +21,7 @@ import {
   evalCondition,
   transitionReceptivity,
   transitionsOf,
+  grafcetGraphs,
   validateGrafcet,
   validCondition,
   type GrafcetAction,
@@ -375,6 +376,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   //  numeração global das etapas — é assim que comunicam (ex.: X7 noutra página,
   //  ligações «sem fio» X, sinais S/Q/I/MW e ações S/R).
   const pageCharts = program.charts ?? []
+  /** Página (GRAFCET) de uma transição: 0 = primeira página, 1 = segunda… */
+  const graphNumberFor = (chartId?: string) => Math.max(0, pageCharts.findIndex((chart) => chart.id === (chartId ?? pageCharts[0]?.id)))
   const firstChartId = pageCharts[0]?.id
   const activeChart = lockedChartId && pageCharts.some((c) => c.id === lockedChartId)
     ? lockedChartId
@@ -6818,6 +6821,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         transition={editingTransition}
         transitionIndex={editingTransition ? transitions.findIndex((transition) => transition.id === editingTransition.id) : 0}
         availableSteps={program.steps}
+        linkableSteps={steps}
+        graphs={grafcetGraphs(program)}
+        graphNumber={editingTransition ? graphNumberFor(editingTransition.chart) : 0}
         signals={signalSuggestions}
         onSave={(patch) => {
           if (editingTransition) updateTransition(editingTransition.id, patch, 'force')

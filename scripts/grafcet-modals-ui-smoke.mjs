@@ -131,10 +131,13 @@ try {
   await origins.getByRole('button', { name: /Usar como transição-fonte/ }).click()
   check(await dialog().getByText(/Transição solta/).count() === 0 && await origins.getByRole('combobox', { name: 'Adicionar etapa de origem' }).count() === 0, 'transição-fonte: sem aviso de solta e sem seletor de etapas de origem')
   check(await dialog().locator('.grafcet-map-steps .is-source').isVisible(), 'a pré-visualização mostra «Transição-fonte · sempre validada»')
-  const stateBlock = dialog().getByRole('group', { name: 'Condições de estado de etapa' })
-  const builderState = stateBlock.getByRole('radiogroup', { name: 'Estado da etapa' })
-  check(await stateBlock.isVisible() && await origins.getByRole('group', { name: 'Condições de estado de etapa' }).count() === 0, 'o estado de outras etapas tem secção própria, fora da coluna das origens')
-  await stateBlock.getByRole('combobox', { name: 'Número da etapa para a condição de estado' }).fill('5')
+  const stateBlock = dialog().getByRole('group', { name: 'Dependências do estado de etapas' })
+  const builderState = stateBlock.getByRole('radiogroup', { name: 'Estado da etapa consultada' })
+  const stepPicker = stateBlock.getByRole('combobox', { name: 'Etapa a consultar' })
+  const graphPicker = stateBlock.getByRole('button', { name: 'GRAFCET da etapa consultada' })
+  check(await stateBlock.isVisible() && await origins.getByRole('group', { name: 'Dependências do estado de etapas' }).count() === 0, 'as dependências de estado têm secção própria, fora da coluna das origens')
+  check(await graphPicker.isVisible(), 'o construtor começa pelo GRAFCET da etapa consultada')
+  await stepPicker.fill('5')
   await builderState.getByRole('radio', { name: 'inativa', exact: true }).click()
   await stateBlock.getByRole('button', { name: 'Adicionar à condição', exact: true }).click()
   check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <> X5', 'Adicionar acrescenta G0 <> X5 (X5 inativa) à condição com E')
@@ -143,10 +146,10 @@ try {
   check(await page.locator('#trans-condition-input').inputValue() === '/I7', 'retirar o termo devolve a condição anterior')
   await page.locator('#trans-condition-input').fill('/I7 * G0X5')
   check(await stateBlock.getByText(/tem de estar\s*ativa/).isVisible(), 'G0X5 escrito à mão é reconhecido como etapa ativa')
-  await stateBlock.getByRole('radiogroup', { name: 'Estado exigido para X5' }).getByRole('radio', { name: 'inativa', exact: true }).click()
+  await stateBlock.getByRole('radiogroup', { name: 'Estado exigido para G0 X5' }).getByRole('radio', { name: 'inativa', exact: true }).click()
   check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <> X5', 'trocar para inativa reescreve G0X5 como G0 <> X5')
   await stateBlock.getByRole('button', { name: 'Retirar G0 <> X5 da condição' }).click()
-  await stateBlock.getByRole('combobox', { name: 'Número da etapa para a condição de estado' }).fill('X6')
+  await stepPicker.fill('X6')
   await builderState.getByRole('radio', { name: 'ativa', exact: true }).click()
   await stateBlock.getByRole('button', { name: 'Adicionar à condição', exact: true }).click()
   check(await page.locator('#trans-condition-input').inputValue() === '/I7 * G0 <=> X6', 'estado «ativa» escreve G0 <=> X6')
@@ -157,6 +160,46 @@ try {
   const sourceTransition = (await readProgram()).transitions[0]
   check(sourceTransition.source === true && !sourceTransition.from.length && sourceTransition.condition === '/I7 * G0 <=> X6', 'guardar conserva a transição-fonte e a condição de estado')
   await setTransition({ ...transition, source: false })
+
+  // Dependência de uma etapa de OUTRO GRAFCET (página G1) com o construtor guiado.
+  await page.evaluate(async () => {
+    const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+    const program = useSimStore.getState().grafcet
+    const charts = [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' }, { id: 'chart-p2', name: 'Página 2', title: 'Manual Cilindro A' }]
+    // As etapas existentes ficam na 1.ª página (sem `chart` = Página 1); a etapa 11 é da Página 2.
+    const steps = [
+      ...program.steps,
+      { id: 'ux-step-11', name: '11', initial: true, stepType: 'initial', action: '', condition: '1', actions: [], x: 151, y: 80, pinned: true, chart: 'chart-p2', description: 'Recuo do cilindro A' },
+    ]
+    useSimStore.getState().setGrafcet({ ...program, charts, activeChart: 'chart-p1', steps }, 'force')
+  })
+  await page.waitForTimeout(150)
+  await openTransition()
+  await page.locator('#trans-condition-input').waitFor()
+  const graphSelect = dialog().getByRole('button', { name: 'GRAFCET da etapa consultada' })
+  const graphStepPicker = dialog().getByRole('combobox', { name: 'Etapa a consultar' })
+  await graphSelect.click()
+  const graphOptions = page.getByRole('listbox').getByRole('option')
+  check(await graphOptions.count() === 2 && /G1 ·/.test(await graphOptions.nth(1).innerText()), 'o construtor lista as páginas como G0 e G1')
+  await page.getByRole('option', { name: /G1 · Manual Cilindro A/ }).click()
+  await graphStepPicker.click()
+  check(await page.getByRole('option', { name: /Etapa 11/ }).count() === 1 && await page.getByRole('option', { name: /Etapa 1 ·/ }).count() === 0, 'a lista de etapas mostra só as etapas da página G1')
+  await page.getByRole('option', { name: /Etapa 11/ }).click()
+  await dialog().getByRole('group', { name: 'Dependências do estado de etapas' }).getByRole('button', { name: 'Adicionar à condição', exact: true }).click()
+  const withGraph = await page.locator('#trans-condition-input').inputValue()
+  check(/G1 <=> X11$/.test(withGraph), 'adicionar uma etapa de outro GRAFCET escreve G1 <=> X11 na condição')
+  const graphTerm = dialog().getByRole('group', { name: 'Dependências do estado de etapas' }).locator('.grafcet-state-item').first()
+  check(await graphTerm.locator('.grafcet-state-scope.is-external').isVisible() && /outro GRAFCET/i.test(await graphTerm.innerText()), 'o termo de outro GRAFCET fica identificado como «outro GRAFCET»')
+  check(await dialog().locator('.grafcet-map-steps .is-state.is-external').isVisible(), 'a pré-visualização mostra a dependência externa (G1 · X11 ativa)')
+  check(await dialog().getByText(/1 dependência de outro GRAFCET/).isVisible(), 'a pré-visualização conta as dependências de outros GRAFCETs')
+  await graphTerm.getByRole('radio', { name: 'inativa', exact: true }).click()
+  check(/G1 <> X11$/.test(await page.locator('#trans-condition-input').inputValue()), 'trocar para inativa reescreve a referência externa como G1 <> X11')
+  check(await dialog().getByRole('group', { name: 'Origens', exact: true }).getByRole('button', { name: 'Retirar Etapa 11' }).count() === 0, 'as origens continuam limitadas às etapas desta página')
+  await capture('desktop-transition-graphs')
+  await save()
+  await dialog().waitFor({ state: 'hidden' })
+  const graphTransition = (await readProgram()).transitions[0]
+  check(/G1 <> X11$/.test(graphTransition.condition), 'guardar conserva a dependência de outro GRAFCET na condição')
 
   await openAction()
   await page.locator('#action-var-input').waitFor()
@@ -171,7 +214,8 @@ try {
   await capture('desktop-action')
   await page.keyboard.press('Control+Enter')
   await dialog().waitFor({ state: 'hidden' })
-  check((await readProgram()).steps[0].actions[0].timeMs === 250, 'atalho de guardar conserva a duração fracionária')
+  // Procurar a etapa por id: as páginas podem reordenar a lista ao gravar uma etapa.
+  check((await readProgram()).steps.find((step) => step.id === 'ux-step-1').actions[0].timeMs === 250, 'atalho de guardar conserva a duração fracionária')
 
   await page.setViewportSize({ width: 1024, height: 768 })
   await closeToolboxIfOpen()

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { validCondition, type GrafcetStep } from './engine'
+import { stepNumberOf, validCondition, type GrafcetStep } from './engine'
 import { matchSignals, signalAddressesInCondition, signalSearchText, tokenAtCursor, type GrafcetSignalSuggestion } from './signals'
 import { declareSignals } from './declareSignals'
 import { foldText } from '../utils/text'
@@ -56,7 +56,11 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
   const suggestions = useMemo(() => {
     const entries = new Map<string, Suggestion>()
     for (const signal of signals) entries.set(signal.address, { value: signal.address, label: signal.name, comment: signal.comment, search: signalSearchText(signal), category: signal.area === 'I' ? 'inputs' : signal.area === 'Q' ? 'outputs' : 'memory', source: 'table' })
-    availableSteps.forEach((step, index) => entries.set(`X${index}`, { value: `X${index}`, label: `Etapa ${index} · ${step.name || index}`, comment: '', search: `X${index} ${step.name}`, category: 'steps', source: 'expression' }))
+    // O número mostrado no diagrama (e usado em X<n>) não é a posição na lista.
+    availableSteps.forEach((step, index) => {
+      const number = stepNumberOf(step, index)
+      entries.set(`X${number}`, { value: `X${number}`, label: `Etapa ${number}${step.name && step.name.trim() !== number ? ` · ${step.name}` : ''}`, comment: '', search: `X${number} ${step.name}`, category: 'steps', source: 'expression' })
+    })
     for (const seconds of [1, 2, 5]) entries.set(`T(${seconds}s)`, { value: `T(${seconds}s)`, label: `${seconds} s de atividade`, comment: '', search: `${seconds} s tempo`, category: 'timers', source: 'expression' })
     for (const token of ['1', '0', '1HZ', '0.5HZ', '2HZ']) entries.set(token, { value: token, label: token === '1' ? 'Sempre verdadeira' : token === '0' ? 'Sempre falsa' : 'Frequência de simulação', comment: '', search: token, category: 'resources', source: 'expression' })
     return [...entries.values()]
