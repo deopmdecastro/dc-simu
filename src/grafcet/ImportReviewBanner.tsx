@@ -1,9 +1,10 @@
 /** Barra «Revisão da importação» no topo do editor GRAFCET: mostra o que ainda bloqueia
  *  (erros do Diagnóstico, em direto) separado das notas do importador (fixas, agrupadas e sem
- *  repetições), e só propõe «Concluir revisão» quando não há nada por corrigir. */
+ *  repetições) num modal, e só permite «Concluir revisão» quando não há nada por corrigir. */
 import { useState } from 'react'
 import type { GrafcetIssue as ValidationIssue } from './engine'
-import { IconCheck, IconChevronDown, IconWarning } from '../ui/icons'
+import { IconCheck, IconWarning } from '../ui/icons'
+import PropertyDialog from '../ui/PropertyDialog'
 import '../styles/grafcet-import-review.css'
 
 const GROUPS: Array<{ id: string; label: string; test: RegExp }> = [
@@ -51,22 +52,25 @@ export default function ImportReviewBanner({ warnings, blockers, onSelectIssue, 
           <span className={`grafcet-review-chip ${ready ? 'is-ok' : 'is-error'}`}>{ready ? 'Sem erros' : `${blockers.length} ${blockers.length === 1 ? 'erro' : 'erros'} por corrigir`}</span>
           {noteCount > 0 && <span className="grafcet-review-chip">{noteCount} {noteCount === 1 ? 'nota' : 'notas'} da importação</span>}
         </span>
-        <button type="button" className="dc-btn grafcet-review-toggle" aria-expanded={open} aria-controls="grafcet-review-details" onClick={() => setOpen(!open)}>
-          {open ? 'Ocultar' : 'Ver detalhes'}<IconChevronDown size={11} className={open ? 'is-open' : ''} />
-        </button>
-        {ready
-          ? <button type="button" className="dc-btn dc-btn-primary grafcet-review-finish" onClick={onFinish}>Concluir revisão</button>
-          : !open && <button type="button" className="dc-btn grafcet-review-finish" onClick={() => setOpen(true)} title="Mostra os erros que impedem concluir">Corrigir erros</button>}
+        <button type="button" className="dc-btn grafcet-review-toggle" aria-haspopup="dialog" onClick={() => setOpen(true)}>Ver detalhes</button>
+        {ready && <button type="button" className="dc-btn dc-btn-primary grafcet-review-finish" onClick={onFinish}>Concluir revisão</button>}
       </div>
-      {open && (
-        <div id="grafcet-review-details" className="grafcet-review-details">
+      <PropertyDialog
+        open={open} id="grafcet-review-dialog" className="grafcet-review-dialog is-wide" eyebrow="GRAFCET · Importação"
+        title="Revisão da importação"
+        subtitle={ready ? 'Nada bloqueia a conclusão. Confirme as notas e conclua para simular e gerar Ladder.' : 'Corrija os erros para poder concluir. Clique num erro para o selecionar no desenho.'}
+        onClose={() => setOpen(false)} onSave={() => { setOpen(false); onFinish() }}
+        saveLabel="Concluir revisão" saveDisabled={!ready} closeLabel="Fechar" saveShortcutLabel="concluir"
+        footerHint={ready ? 'Pronto a concluir' : `${blockers.length} ${blockers.length === 1 ? 'erro' : 'erros'} por corrigir`}
+      >
+        <div className="grafcet-review-details">
           <div className="grafcet-review-col">
             <h4>Por corrigir <small>atualiza enquanto edita</small></h4>
             {ready
               ? <p className="grafcet-review-empty"><IconCheck size={12} /> Nada bloqueia a conclusão.</p>
               : <ul>{blockers.map((issue) => (
                 <li key={issue.id}>
-                  <button type="button" onClick={() => onSelectIssue(issue)} disabled={!issue.entityId} title={issue.entityId ? 'Selecionar no desenho' : undefined}>
+                  <button type="button" onClick={() => { setOpen(false); onSelectIssue(issue) }} disabled={!issue.entityId} title={issue.entityId ? 'Fechar e selecionar no desenho' : undefined}>
                     <span className="grafcet-review-dot" aria-hidden="true" />{issue.message}
                   </button>
                 </li>
@@ -84,7 +88,7 @@ export default function ImportReviewBanner({ warnings, blockers, onSelectIssue, 
             </div>
           )}
         </div>
-      )}
+      </PropertyDialog>
     </section>
   )
 }
