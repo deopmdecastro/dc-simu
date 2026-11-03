@@ -639,9 +639,7 @@ export function wireBodyPoints3D(
 
   // Ortogonalizar e impedir diagonais longas (comum quando o path colapsa a 2 pontos).
   if (manual.length === 0 && wire.route !== 'arc' && wire.route !== 'direct') {
-    controls = orthogonalizeSegments(controls, true)
     controls = ensureDetoured(controls, outerMm)
-    controls = removeWireBacktracks(controls)
   }
 
   if (smooth && controls.length > 2) {
@@ -652,7 +650,7 @@ export function wireBodyPoints3D(
     controls = ensureDetoured(controls, outerMm)
   }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
-  const radiusFactor = wire.flexibility === 'flexible' ? 15.0 : 12.5
+  const radiusFactor = wire.flexibility === 'flexible' ? 10.5 : 8.2
   return keepInFrontOfPlate(roundCorners(controls, outerMm, radiusFactor), outerMm)
 }
 

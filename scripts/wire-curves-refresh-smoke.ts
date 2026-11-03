@@ -51,11 +51,14 @@ assert.equal(withMotorMeterFerrules([ring, lead], [lead])[0].toEndType, 'ring')
   const moved = old.wires.find((w: Wire) => w.id === 'native-wire-7')
   moved.waypoints3D = [[4, 5, 6]]; moved.toTerminalId = 'personalizado'
   old.wires.push({ ...structuredClone(bent), id: 'meu-cabo', waypoints3D: [[7, 8, 9]] })
+  old.cover = 'data:image/jpeg;base64,AAAA'
   const fresh = refreshNativeWireCurves(old)
   const after = (id: string) => fresh.wires.find((w: Wire) => w.id === id)
   assert.ok(!after('native-wire-3').waypoints3D && after('native-wire-3').route === seed.wires.find((w: Wire) => w.id === 'native-wire-3').route, 'cabo nativo intacto perde as dobras 3D antigas e volta à curva de origem')
   assert.deepEqual(after('native-wire-7').waypoints3D, [[4, 5, 6]], 'cabo com outra ponta (alterado pelo utilizador) mantém-se')
   assert.deepEqual(after('meu-cabo').waypoints3D, [[7, 8, 9]], 'cabos criados pelo utilizador não são tocados')
+  assert.ok(!('cover' in fresh), 'a capa antiga (cabos desatualizados) sai para ser recapturada ao guardar')
+  assert.equal(old.cover, 'data:image/jpeg;base64,AAAA', 'não altera o objeto de origem (capa)')
   assert.equal(refreshNativeWireCurves(fresh), fresh, 'refresh corre uma só vez')
   assert.deepEqual(bent.waypoints3D, [[1, 2, 3]], 'não altera o objeto de origem')
 }

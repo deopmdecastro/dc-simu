@@ -5,6 +5,8 @@
  * (`waypoints3D`) e o tipo de curva do próprio cabo. Para os cabos de origem que mantêm as duas
  * pontas da semente, repõe o traçado de origem (sem dobras 3D) — passam a usar as curvas novas.
  * Cabos alterados (outra ponta) ou criados pelo utilizador não são tocados. Corre uma só vez.
+ * A capa guardada (miniatura 3D) deixa de refletir os cabos antigos: é retirada para o editor
+ * capturar uma nova ao guardar/sair (`captureCover`), em vez de manter a imagem desatualizada.
  */
 import type { Wire } from '../types'
 import { NATIVE_PARTIDA_ID, NATIVE_WIRE_CURVES_FEATURE } from './nativeMotorMeter'
@@ -32,5 +34,6 @@ export function refreshNativeWireCurves<T extends Record<string, any>>(content: 
     delete next.waypoints3D
     return next as unknown as Wire
   })
-  return { ...content, wires, nativeFeatures: [...features, NATIVE_WIRE_CURVES_FEATURE] }
+  const { cover: _staleCover, ...rest } = content
+  return { ...rest, wires, nativeFeatures: [...features, NATIVE_WIRE_CURVES_FEATURE] } as unknown as T
 }

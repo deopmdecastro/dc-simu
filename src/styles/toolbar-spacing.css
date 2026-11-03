@@ -382,3 +382,43 @@ html[data-tablet="true"] .dc-toolbar-row2 .dc-tool-btn {
   display: none !important;
   height: 0 !important;
 }
+
+/* ---------------------------------------------------------------------------
+   Tablet — organização das barras (2026-11-03, 2.ª passagem)
+   O tablet usa o layout do PC; o que muda é o toque: alvos maiores, deslize só na
+   horizontal sem arrastar a página, sinal de que a linha continua à direita e o
+   transporte de simulação sempre à vista (nunca desliza para fora do ecrã).
+--------------------------------------------------------------------------- */
+html[data-tablet="true"] .dc-toolbar-main,
+html[data-tablet="true"] .dc-toolbar-row2,
+html[data-tablet="true"] .dc-grafcet-toolbar {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scroll-padding-inline: 14px;
+}
+/* alvos de toque de 38 px (a linha mantém os 44 px) */
+html[data-tablet="true"] .dc-toolbar-main .dc-tool-btn,
+html[data-tablet="true"] .dc-toolbar-row2 .dc-tool-btn,
+html[data-tablet="true"] .dc-grafcet-toolbar .dc-tool-btn,
+html[data-tablet="true"] .dc-seg > .dc-tool-btn {
+  min-height: 38px;
+  min-width: 38px;
+}
+/* 2.ª linha: esbatido à direita só quando há conteúdo para além do ecrã (a folga de 36 px
+   absorve o esbatido quando tudo cabe) */
+html[data-tablet="true"] .dc-toolbar-row2,
+html[data-tablet="true"] .dc-grafcet-toolbar {
+  padding-inline-end: 36px !important;
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+/* 1.ª linha: Run/Pausa/Stop/Passo/Reiniciar fixos à direita, por cima do que desliza */
+html[data-tablet="true"] .dc-toolbar-main .dc-transport-tools {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  margin-inline-start: auto;
+  padding-inline-start: 10px;
+  background: linear-gradient(to right, rgba(246, 248, 251, 0), #f6f8fb 10px);
+}
