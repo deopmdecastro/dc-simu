@@ -1,5 +1,4 @@
-/** Animação opcional do botão RESET (ângulo visual).
- *  O rearme em si é por clique — ver ImportedCadDevice em Panel3D. */
+/** Gesto didático do RESET azul: arrastar para qualquer lado, sem alterar o modo M/A. */
 export const THERMAL_RESET_DRAG_PX = 28
 export const THERMAL_RESET_MAX_DEG = 35
 export const THERMAL_RESET_THRESHOLD = 0.6
