@@ -179,3 +179,22 @@
   background: #eff6ff;
   color: #1d4ed8;
 }
+
+.vto-notice {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #1e3a5f;
+  background: #eff6ff;
+  border-bottom: 1px solid #dbeafe;
+}
+.vto-add-btn.vto-detect {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+.vto-add-btn.vto-detect:hover {
+  background: #dcfce7;
+  border-color: #16a34a;
+}
