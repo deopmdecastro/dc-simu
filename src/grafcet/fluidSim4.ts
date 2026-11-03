@@ -267,7 +267,13 @@ export function parseFluidSim4Text(text: string, mode: FluidSimImportMode = 'str
       }
       link.to = [target]
     }
-    if (link.from.length !== 1 || link.to.length !== 1) review(`a transição ${links.indexOf(link) + 1} tem ligações incompletas ou uma sincronização ainda não suportada.`)
+    // Transição-fonte (só destino) ou sumidouro (só origem) são padrões FluidSIM legítimos
+    // (entrada de emergência/reset). Não gerar aviso de «ligações incompletas» nesses casos.
+    const isSourceStyle = !link.from.length && link.to.length === 1
+    const isSinkStyle = link.from.length === 1 && !link.to.length
+    if (!isSourceStyle && !isSinkStyle && (link.from.length !== 1 || link.to.length !== 1)) {
+      review(`a transição ${links.indexOf(link) + 1} tem ligações incompletas ou uma sincronização ainda não suportada.`)
+    }
     if (link.from.length === 1 && link.to.length === 1) joinSteps(link.from[0].index, link.to[0].index)
   }
   const chartGroups = (drawing ? [0] : [...new Set(nativeSteps.map(({ index }) => stepRoot(index)))]).map(root => {
@@ -325,7 +331,19 @@ export function parseFluidSim4Text(text: string, mode: FluidSimImportMode = 'str
     transitionOrdinals.set(chart, ordinal)
     const position = point(o, chart)
     if (drawing) position.y += (o.box[3] - o.box[1]) * 0.75 / 1024
-    return { id: `fs4-transition-${index}`, name: `T${ordinal}`, from: from.map(s => stepByIndex.get(s.index)!.id), to: to.map(s => stepByIndex.get(s.index)!.id), condition: condition(o.props.get('COND'), `T${ordinal}`), wireless: !!link, ...(link ? { targetInfo: link } : {}), ...(multiChart ? { chart } : {}), ...position }
+    const isSource = from.length === 0 && to.length >= 1
+    return {
+      id: `fs4-transition-${index}`,
+      name: `T${ordinal}`,
+      from: from.map(s => stepByIndex.get(s.index)!.id),
+      to: to.map(s => stepByIndex.get(s.index)!.id),
+      condition: condition(o.props.get('COND'), `T${ordinal}`),
+      wireless: !!link || isSource,
+      ...(isSource ? { source: true as const } : {}),
+      ...(link ? { targetInfo: link } : {}),
+      ...(multiChart ? { chart } : {}),
+      ...position,
+    }
   })
   // Percurso desenhado no FluidSIM para os retornos (etapa de destino acima da origem):
   // os registos L de cada ligação dão os cotovelos, que passam a pontos de quebra.
@@ -434,10 +452,14 @@ export function parseFluidSim4Text(text: string, mode: FluidSimImportMode = 'str
   const stepBoxes = nativeSteps.map(s => s.o.box)
   const margin = 65536
   const area = { x0: Math.min(...stepBoxes.map(b => b[0])) - margin, y0: Math.min(...stepBoxes.map(b => b[1])) - margin, x1: Math.max(...rects.map(r => r.o.box[2])) + margin, y1: Math.max(...rects.map(r => r.o.box[3])) + margin }
+  // Rótulos do tipo «G0 <> X9» junto a transições-fonte são a legenda da guarda;
+  // a condição já vive na transição — não duplicar como texto livre no canvas.
+  const isGuardLabel = (value: string) => /^G\d+\s*(?:<>|<=>|==|=)\s*X\d+$/i.test(value.trim())
   objects.forEach((o, index) => {
     if (o.kind !== 'text') return
     const value = o.props.get('text')?.trim()
     if (!value) return
+    if (isGuardLabel(value)) return
     const [x0, y0, x1, y1] = o.box
     if (!drawing && (x1 < area.x0 || x0 > area.x1 || y1 < area.y0 || y0 > area.y1)) { ignored.set('text', (ignored.get('text') ?? 0) + 1); return }
     const at = point(o, multiChart ? charts[0].id : undefined)
