@@ -325,9 +325,10 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
  * está gravado na frente ao lado da escala e não existe como peça própria.
  */
 const THERMAL_RELAY_CONTROLS: Array<{ control: ImportedControl; min: [number, number, number]; max: [number, number, number] }> = [
-  { control: 'stop', min: [-22, 31, 62], max: [-14.2, 45, 73.5] },
-  { control: 'reset', min: [-13.5, 31, 62], max: [-1, 45, 73.5] },
-  { control: 'test', min: [5, 52, 62], max: [15, 63, 70] },
+  // Zonas alargadas para toque e clique preciso no GLB 3RU1116 (STOP vermelho, RESET azul, TEST de ensaio).
+  { control: 'stop', min: [-24, 28, 58], max: [-12, 48, 76] },
+  { control: 'reset', min: [-14, 28, 58], max: [1, 48, 76] },
+  { control: 'test', min: [2, 48, 55], max: [18, 68, 75] },
 ]
 
 /** Comando sob um ponto do aparelho (mm do GLB); `null` = corpo, que continua a ser a manobra geral. */
