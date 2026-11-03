@@ -386,8 +386,10 @@ const wireHash = (wire: Wire): number => {
   return h
 }
 
-const trunkSpread = (wire: Wire): number => ((wireHash(wire) % 9) - 4) * 0.018
-const trunkLayer = (wire: Wire): number => Math.floor(wireHash(wire) / 9) % 3
+/** Afastamento lateral entre cabos paralelos no mesmo corredor (maior = menos sobreposição visual). */
+const trunkSpread = (wire: Wire): number => ((wireHash(wire) % 11) - 5) * 0.034
+/** Camadas em profundidade (Z) para cabos que partilham o mesmo plano. */
+const trunkLayer = (wire: Wire): number => Math.floor(wireHash(wire) / 11) % 4
 
 export type WireLeads = { a?: V3 | null; b?: V3 | null }
 
@@ -488,7 +490,7 @@ export function wireBodyPoints3D(
       controls = [a, mid, b]
     } else if (plan) {
       const slot = plan.slot
-      const fallbackLayerZ = trunkY !== undefined ? trunkLayer(wire) * (outerMm * 0.01 * 1.45) : 0
+      const fallbackLayerZ = trunkY !== undefined ? trunkLayer(wire) * (outerMm * 0.01 * 2.1) : 0
       const ductZA = slot?.ductZA ?? (frontZ + 0.018 + fallbackLayerZ)
       const ductZB = slot?.ductZB ?? (frontZ + 0.018 + fallbackLayerZ)
       const yA = plan.laneA + (slot?.yOffsetA ?? trunkSpread(wire))
@@ -503,7 +505,7 @@ export function wireBodyPoints3D(
         : b
 
       // Plano vertical frontal (sempre à frente de todas as camadas horizontais das calhas, evitando cruzamentos X vs Y).
-      const baseVertZ = Math.max(ductZA, ductZB) + 0.052
+      const baseVertZ = Math.max(ductZA, ductZB) + 0.072
       const zVertA = Math.max(exitA[2], slot?.vertZA ?? baseVertZ)
       const zVertB = Math.max(exitB[2], slot?.vertZB ?? baseVertZ)
       const xA = exitA[0] + (slot?.xStepA ?? 0)
@@ -546,7 +548,7 @@ export function wireBodyPoints3D(
         ]
       }
     } else {
-      const fallbackLayerZ = trunkY !== undefined ? trunkLayer(wire) * (outerMm * 0.01 * 1.45) : 0
+      const fallbackLayerZ = trunkY !== undefined ? trunkLayer(wire) * (outerMm * 0.01 * 2.1) : 0
       const ductZ = frontZ + 0.018 + fallbackLayerZ
       const zA = Math.max(a[2], ductZ + 0.048)
       const zB = Math.max(b[2], ductZ + 0.048)
@@ -574,7 +576,7 @@ export function wireBodyPoints3D(
     return keepInFrontOfPlate(curve.getPoints(Math.max(64, controls.length * 28)).map(arr), outerMm)
   }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
-  const radiusFactor = wire.flexibility === 'flexible' ? 13.5 : 10.0
+  const radiusFactor = wire.flexibility === 'flexible' ? 15.0 : 11.5
   return keepInFrontOfPlate(roundCorners(controls, outerMm, radiusFactor), outerMm)
 }
 

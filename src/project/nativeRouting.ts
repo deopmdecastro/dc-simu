@@ -21,11 +21,11 @@ type Pt = { x: number; y: number }
 type Rect = { x0: number; y0: number; x1: number; y1: number }
 
 /** Margem de segurança em volta de cada dispositivo (px do esquema 2D). */
-const MARGIN = 26
+const MARGIN = 28
 /** Afastamento entre cabos que partilham a mesma faixa (px). */
-const LANE_SPREAD = 18
+const LANE_SPREAD = 22
 /** Número de faixas candidatas em cada direção. */
-const LANE_TRIES = 7
+const LANE_TRIES = 9
 
 function rects(components: ElectricalComponent[], exclude: Set<string>): Rect[] {
   return components
@@ -122,7 +122,20 @@ export function planNativeWirePaths(components: ElectricalComponent[], wires: Wi
     return { a, b }
   }
 
-  for (const w of wires) {
+  // Agrupar por tipo de cabo (power / control / signal) e comprimento → faixas mais ordenadas.
+  const kindRank = (w: Wire) => (w.kind === 'power' ? 0 : w.kind === 'neutral' ? 1 : w.kind === 'earth' ? 2 : w.kind === 'control' ? 3 : 4)
+  const orderedWires = [...wires].sort((w1, w2) => {
+    const k = kindRank(w1) - kindRank(w2)
+    if (k) return k
+    const a1 = pos.get(w1.fromTerminalId), b1 = pos.get(w1.toTerminalId)
+    const a2 = pos.get(w2.fromTerminalId), b2 = pos.get(w2.toTerminalId)
+    if (!a1 || !b1 || !a2 || !b2) return w1.id.localeCompare(w2.id)
+    const len1 = Math.abs(a1.x - b1.x) + Math.abs(a1.y - b1.y)
+    const len2 = Math.abs(a2.x - b2.x) + Math.abs(a2.y - b2.y)
+    return len1 - len2 || w1.id.localeCompare(w2.id)
+  })
+
+  for (const w of orderedWires) {
     const a = pos.get(w.fromTerminalId)
     const b = pos.get(w.toTerminalId)
     const { a: ca, b: cb } = terminalCompIds(w)
