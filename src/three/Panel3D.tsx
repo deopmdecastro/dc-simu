@@ -1990,7 +1990,9 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
           const onCable = closestPointOnPolyline(points, hit)
           handlers.onInsertWaypoint(wire.id, waypointInsertIndex(chain, onCable), toSpatial(onCable))
         }}>
-        <tubeGeometry args={[curve, Math.min(128, segments), Math.max(0.055, radius * 4.2), 8, false]} />
+        {/* O volume invisível serve só para picking: manter poucos segmentos evita que uma seleção
+            reconstrua dezenas de tubos densos, sem reduzir a qualidade do cabo visível. */}
+        <tubeGeometry args={[curve, Math.min(48, Math.max(16, Math.round(segments * 0.4))), Math.max(0.055, radius * 4.2), 6, false]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
       {/* Clicar na terminação (pinça, ficha, ponteira) seleciona o cabo, como clicar no próprio cabo. */}

@@ -158,11 +158,12 @@ export function planNativeWirePaths(components: ElectricalComponent[], wires: Wi
 
     type Cand = { pts: Pt[]; laneKey: string; hits: number; len: number }
     const cands: Cand[] = []
-    for (const laneX of lanes([midXBase, q1X, q3X, ...edgeX], laneUse.size % 3)) {
+    const laneSpreadIndex = laneUse.size % 3
+    for (const laneX of lanes([midXBase, q1X, q3X, ...edgeX], laneSpreadIndex)) {
       const pts = hvh(a, b, laneX)
       cands.push({ pts, laneKey: `h:${Math.round(laneX)}`, hits: pathHits(pts, obstacles), len: pathLen(pts) })
     }
-    for (const laneY of lanes([midYBase, q1Y, q3Y, ...edgeY], laneUse.size % 3)) {
+    for (const laneY of lanes([midYBase, q1Y, q3Y, ...edgeY], laneSpreadIndex)) {
       const pts = vhv(a, b, laneY)
       cands.push({ pts, laneKey: `v:${Math.round(laneY)}`, hits: pathHits(pts, obstacles), len: pathLen(pts) })
     }
