@@ -1,4 +1,5 @@
 import type { LadderDataType, LadderTag } from '../types'
+import { bitAddressOrder, normalizeBitAddress } from '../ladder/addresses'
 import { defaultDataTypeFor } from '../ladder/ladderEngine'
 import { foldText } from '../utils/text'
 import { extractTable, headerKey, type ImportIssue, type RawSheet, type SheetData, type TableColumnSpec } from './sheetIO'
@@ -11,7 +12,8 @@ export const TAG_AREA_LABEL: Record<TagPrefix, string> = { I: 'Entrada', Q: 'Sa�
 export const TAG_DATA_TYPES: LadderDataType[] = ['Bool', 'Time', 'Int', 'Real']
 
 export const TAG_SHEET_NAME = 'Tags'
-export const TAG_ADDRESS_PATTERN = /^[IQMTC]\d{1,3}$/
+/** Forma aceite: Siemens byte.bit (I0.0, Q1.5, M0.3) ou legado (I1…I99, Q1…, M1…) e T/C numéricos. */
+export const TAG_ADDRESS_PATTERN = /^(?:[IQM]\d{1,4}\.[0-7]|[IQMTC]\d{1,3})$/i
 
 const TAG_COLUMNS: Record<'address' | 'name' | 'dataType' | 'comment', TableColumnSpec> = {
   address: { aliases: ['endereco', 'address', 'addr', 'operando', 'enderecologico', 'logicaladdress'], required: true },
@@ -27,18 +29,27 @@ const DATA_TYPE_ALIASES: Record<string, LadderDataType> = {
   real: 'Real', float: 'Real', decimal: 'Real',
 }
 
-export const canonicalAddress = (text: string) => text.trim().replace(/^%/, '').replace(/\s+/g, '').toUpperCase()
+export const canonicalAddress = (text: string) => {
+  const raw = text.trim().replace(/^%/, '').replace(/\s+/g, '').toUpperCase()
+  // I/Q/M → forma canónica Siemens (I3 → I0.2; I0.0 mantém-se).
+  return normalizeBitAddress(raw) ?? raw
+}
 export const tagPrefixOf = (address: string): TagPrefix | null => {
   const prefix = canonicalAddress(address)[0] as TagPrefix | undefined
   return prefix && TAG_PREFIXES.includes(prefix) ? prefix : null
 }
-const addressNumber = (address: string) => Number(address.slice(1)) || 0
+const addressSortKey = (address: string) => {
+  const a = canonicalAddress(address)
+  const bit = bitAddressOrder(a)
+  if (Number.isFinite(bit) && !Number.isNaN(bit)) return bit
+  return Number(a.replace(/^\D+/, '')) || 0
+}
 
-/** Ordem de apresentação: área (I, Q, M, T, C) e depois o número do endereço. */
+/** Ordem de apresentação: área (I, Q, M, T, C) e depois o número do endereço / bit. */
 export const compareTags = (a: Pick<LadderTag, 'address'>, b: Pick<LadderTag, 'address'>) => {
   const pa = TAG_PREFIXES.indexOf(tagPrefixOf(a.address) ?? 'C') + (tagPrefixOf(a.address) ? 0 : 99)
   const pb = TAG_PREFIXES.indexOf(tagPrefixOf(b.address) ?? 'C') + (tagPrefixOf(b.address) ? 0 : 99)
-  return pa - pb || addressNumber(canonicalAddress(a.address)) - addressNumber(canonicalAddress(b.address))
+  return pa - pb || addressSortKey(a.address) - addressSortKey(b.address)
 }
 
 const HEADERS = ['Área', 'Endereço', 'Nome', 'Tipo', 'Comentário']
@@ -52,7 +63,7 @@ export function tagsToSheet(tags: readonly LadderTag[]): SheetData {
 }
 
 const INFO_ROWS: string[][] = [
-  ['Endereço', 'I1…I99 (entradas), Q1…Q99 (saídas), M1…M99 (memórias), T1… (temporizadores), C1… (contadores). O prefixo % é aceite e ignorado.'],
+  ['Endereço', 'Siemens byte.bit: I0.0…I0.7, I1.0…, Q0.0…, M0.0…. Também legado I1…I99, Q1…, M1…. Temporizadores T1… e contadores C1…. O prefixo % é aceite e ignorado.'],
   ['Nome', 'Nome simbólico (opcional). Se estiver vazio mantém-se o nome atual ou usa-se o próprio endereço.'],
   ['Tipo', 'Bool, Time, Int ou Real. Se estiver vazio usa-se o tipo habitual do endereço (I/Q/M → Bool, T → Time, C → Int).'],
   ['Comentário', 'Texto livre (opcional).'],
@@ -65,12 +76,16 @@ export function tagInfoSheet(): SheetData {
 }
 
 export function tagTemplateSheets(): SheetData[] {
-  const example: Array<[TagPrefix, number, string, string]> = [
-    ['I', 1, 'Botao_Start', 'Botão de arranque (NA)'], ['I', 2, 'Botao_Stop', 'Botão de paragem (NF)'], ['I', 3, 'Termico_OK', 'Contacto auxiliar do relé térmico'],
-    ['Q', 1, 'Contactor_KM1', 'Bobina do contactor principal'], ['Q', 2, 'Sinal_Marcha', 'Lâmpada de marcha'],
-    ['M', 1, 'Memoria_Marcha', 'Auto-retenção'], ['T', 1, 'Atraso_Arranque', 'Temporizador TON'],
+  const example: Array<[string, string, string]> = [
+    ['I0.0', 'Botao_Start', 'Botão de arranque (NA)'],
+    ['I0.1', 'Botao_Stop', 'Botão de paragem (NF)'],
+    ['I0.2', 'Termico_OK', 'Contacto auxiliar do relé térmico'],
+    ['Q0.0', 'Contactor_KM1', 'Bobina do contactor principal'],
+    ['Q0.1', 'Sinal_Marcha', 'Lâmpada de marcha'],
+    ['M0.0', 'Memoria_Marcha', 'Auto-retenção'],
+    ['T1', 'Atraso_Arranque', 'Temporizador TON'],
   ]
-  const tags: LadderTag[] = example.map(([prefix, number, name, comment]) => ({ id: `${prefix}${number}`, address: `${prefix}${number}`, name, comment, dataType: defaultDataTypeFor(`${prefix}${number}`) }))
+  const tags: LadderTag[] = example.map(([address, name, comment]) => ({ id: address, address, name, comment, dataType: defaultDataTypeFor(address) }))
   return [tagsToSheet(tags), tagInfoSheet()]
 }
 
@@ -96,7 +111,7 @@ export function parseTagSheets(sheets: RawSheet[], options: ParseTagOptions = {}
     const address = canonicalAddress(cells.address)
     if (!address) continue
     if (!TAG_ADDRESS_PATTERN.test(address)) {
-      issues.push({ sheet, row, level: 'error', message: `Endereço «${cells.address}» inválido. Use I, Q, M, T ou C seguido de um número (ex.: I1).` })
+      issues.push({ sheet, row, level: 'error', message: `Endereço «${cells.address}» inválido. Use formato Siemens (I0.0, Q0.1, M1.3) ou legado (I1, Q2, M3); T/C com número (T1, C1).` })
       continue
     }
     const typeText = headerKey(cells.dataType)
