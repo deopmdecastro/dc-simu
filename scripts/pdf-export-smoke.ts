@@ -44,9 +44,26 @@ const main = async () => {
   ok('esquema sem 3D é reportado em skippedImages', full.skippedImages.some((s) => s.startsWith('Esquema')))
   ok('pelo menos 5 páginas', full.pages >= 5)
 
-  const min = await generateProjectPdf(src, { cover: true, info: false, tags: false, schematic: false, grafcet: false, ladder: { main: [1] }, grafcetCharts: [] }, null)
+  const min = await generateProjectPdf(src, { cover: true, info: false, tags: false, schematic: false, iec: false, iecPages: [], grafcet: false, ladder: { main: [1] }, grafcetCharts: [] }, null)
   ok('seleção parcial: só capa + Main (1 network)', min.sections.length === 2 && min.sections.includes('Ladder — Main [OB1]'))
   ok('FC1 fora da seleção não aparece', !min.sections.some((s) => s.includes('FC1')))
+
+  // ---- Esquema IEC: folhas com conteúdo entram, vazias não
+  const withIec: PdfProjectSource = { ...src, components: [], wires: [], iec: [{ id: 'page-1', name: 'Potência', parts: 12 }, { id: 'page-2', name: 'Vazia', parts: 0 }] }
+  const iecOpts = defaultPdfOptions(withIec)
+  const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  let asked: string[] = []
+  const iec = await generateProjectPdf(withIec, { ...iecOpts, ladder: {} }, null, {
+    captureIec: async (ids) => { asked = ids; return [{ pageId: 'page-1', name: 'Potência', png: tinyPng, w: 400, h: 300 }] },
+  })
+  ok('IEC: só a folha com símbolos é pedida', asked.join(',') === 'page-1')
+  ok('IEC: secção «Esquema IEC — Potência» no PDF mesmo sem componentes 3D', iec.sections.includes('Esquema IEC — Potência') && !iec.sections.some((x) => x.includes('Vazia')))
+  const noIec = await generateProjectPdf(withIec, { ...iecOpts, iec: false, ladder: {} }, null)
+  ok('IEC desligado => sem secção IEC', !noIec.sections.some((x) => x.startsWith('Esquema IEC')))
+  const only = await generateProjectPdf({ ...withIec, iec: [{ id: 'page-1', name: 'Potência', parts: 3 }, { id: 'page-2', name: 'Comando', parts: 5 }] }, { ...iecOpts, iecPages: ['page-2'], ladder: {} }, null, {
+    captureIec: async (ids) => ids.map((id) => ({ pageId: id, name: 'Comando', png: tinyPng, w: 300, h: 200 })),
+  })
+  ok('IEC: escolha de folhas respeitada', only.sections.includes('Esquema IEC — Comando') && !only.sections.includes('Esquema IEC — Potência'))
 
   console.log(`[pdf-export] OK — ${checks} verificações`)
 }

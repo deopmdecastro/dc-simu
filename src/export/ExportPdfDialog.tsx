@@ -10,7 +10,8 @@ import {
   collectLadderBlocks, defaultPdfOptions, generateProjectPdf,
   type PdfExportOptions, type PdfLadderBlock, type PdfOrientation, type PdfTitleBlock,
 } from './pdfExport'
-import { captureGrafcetChart, captureLadderRungs } from './realCapture'
+import { captureGrafcetChart, captureIecPages, captureLadderRungs } from './realCapture'
+import { pagesOf, partsOnPage } from '../commands/pages'
 
 const saveBlob = (blob: Blob, name: string) => {
   const url = URL.createObjectURL(blob)
@@ -20,6 +21,10 @@ const saveBlob = (blob: Blob, name: string) => {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+/** Folhas do Esquema IEC e n.º de símbolos de cada uma. */
+const iecSheetsOf = (diagram: ReturnType<typeof useSimStore.getState>['commands']) =>
+  pagesOf(diagram).map((p) => ({ id: p.id, name: p.name, parts: partsOnPage(diagram, p.id).length }))
 
 const fileSlugOf = (name: string | null) =>
   (name ?? 'projeto').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'projeto'
@@ -70,6 +75,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
       tags: s.tags,
       components: s.components,
       wires: s.wires,
+      iec: iecSheetsOf(s.commands),
     }))
     setExpanded(null)
     setNotice('')
@@ -94,7 +100,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
   if (!open || !opts) return null
 
   const tb = opts.titleBlock
-  const toggle = (key: 'cover' | 'info' | 'tags' | 'schematic' | 'grafcet') => setOpts({ ...opts, [key]: !opts[key] })
+  const toggle = (key: 'cover' | 'info' | 'tags' | 'schematic' | 'iec' | 'grafcet') => setOpts({ ...opts, [key]: !opts[key] })
 
   const toggleChart = (id: string) => {
     const cur = opts.grafcetCharts.length ? opts.grafcetCharts : charts.map((c) => c.id)
@@ -116,6 +122,15 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
     setBlockRungs(block, [...cur])
   }
 
+  const iecSheets = iecSheetsOf(state.commands).filter((p) => p.parts > 0)
+  const iecEmpty = iecSheets.length === 0
+  const iecPicks = opts.iecPages.length ? opts.iecPages : iecSheets.map((p) => p.id)
+  const iecPicked = (id: string) => iecPicks.includes(id)
+  const toggleIecPage = (id: string) => {
+    const next = iecPicked(id) ? iecPicks.filter((x) => x !== id) : [...iecPicks, id]
+    setOpts({ ...opts, iecPages: next.length === iecSheets.length ? [] : next })
+  }
+  const iecCount = opts.iec && !iecEmpty ? iecPicks.filter((id) => iecSheets.some((p) => p.id === id)).length : 0
   const schematicEmpty = state.components.length === 0
   const grafcetEmpty = state.grafcet.steps.length === 0
   const tagsEmpty = state.tags.length === 0
@@ -124,20 +139,20 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
   const networksTotal = blocks.reduce((n, b) => n + b.rungs.length, 0)
   // Só conta o que realmente entra no PDF (áreas vazias são omitidas).
   const nothing =
-    !opts.cover && !opts.info && !(opts.tags && !tagsEmpty) && !(opts.schematic && !schematicEmpty) && !(opts.grafcet && !grafcetEmpty) && networksPicked === 0
+    !opts.cover && !opts.info && !(opts.tags && !tagsEmpty) && !(opts.schematic && !schematicEmpty) && iecCount === 0 && !(opts.grafcet && !grafcetEmpty) && networksPicked === 0
 
 
   // Estimativa de páginas: capa/info/tags/esquema/GRAFCET = 1 cada; ladder ≈ 4 networks por página.
   const pageEstimate =
     (opts.cover ? 1 : 0) + (opts.info ? 1 : 0) + (opts.tags && !tagsEmpty ? Math.ceil(state.tags.length / 40) : 0) +
-    (opts.schematic && !schematicEmpty ? 1 : 0) +
+    (opts.schematic && !schematicEmpty ? 1 : 0) + iecCount +
     (opts.grafcet && !grafcetEmpty ? Math.max(1, opts.grafcetCharts.length || charts.length) : 0) +
     blocks.reduce((n, b) => { const k = (opts.ladder[b.id] ?? []).length; return n + (k ? Math.ceil(k / 4) : 0) }, 0)
 
   // Resumo do que entra no documento, para o rodapé.
   const included = [
     opts.cover && 'Capa', opts.info && 'Informações', opts.tags && !tagsEmpty && 'Tags',
-    opts.schematic && !schematicEmpty && 'Esquema', opts.grafcet && !grafcetEmpty && 'GRAFCET',
+    opts.schematic && !schematicEmpty && 'Esquema 3D', iecCount > 0 && `IEC (${iecCount})`, opts.grafcet && !grafcetEmpty && 'GRAFCET',
     networksPicked > 0 && `${networksPicked}/${networksTotal} networks`,
   ].filter(Boolean) as string[]
   const footerHint = nothing ? 'Escolhe pelo menos um conteúdo para exportar' : `${included.join(' · ')} · A4 ${opts.orientation === 'portrait' ? 'vertical' : 'horizontal'}`
@@ -148,7 +163,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
     setOpts({
       ...opts, ladder,
       cover: kind === 'all', info: kind === 'all', tags: kind === 'all',
-      schematic: kind === 'all', grafcet: kind === 'all',
+      schematic: kind === 'all', iec: kind === 'all', grafcet: kind === 'all',
     })
   }
 
@@ -168,7 +183,8 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
         tags: s.tags,
         components: s.components,
         wires: s.wires,
-      }, opts, null, { captureLadder: captureLadderRungs, captureGrafcet: captureGrafcetChart })
+        iec: iecSheetsOf(s.commands),
+      }, opts, null, { captureLadder: captureLadderRungs, captureGrafcet: captureGrafcetChart, captureIec: captureIecPages })
       saveBlob(result.blob, `dc-simu-${fileSlugOf(s.currentProjectName)}.pdf`)
       setNotice(
         result.skippedImages.length
@@ -208,7 +224,18 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
             <label className={tagsEmpty ? 'is-empty' : ''} title={tagsEmpty ? 'Sem tags — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.tags && !tagsEmpty} disabled={tagsEmpty} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({tagsEmpty ? 'vazia — omitida' : state.tags.length})</em></span></label>
           </Section>
           <Section title="Diagramas" hint="Capturados tal como estão no editor">
-            <label className={schematicEmpty ? 'is-empty' : ''} title={schematicEmpty ? 'Sem componentes no esquema — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.schematic && !schematicEmpty} disabled={schematicEmpty} onChange={() => toggle('schematic')} /> <span>Esquema elétrico — vista 3D atual <em>({schematicEmpty ? 'vazio — omitido' : `${state.components.length} componentes`})</em></span></label>
+            <label className={schematicEmpty ? 'is-empty' : ''} title={schematicEmpty ? 'Sem componentes no esquema — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.schematic && !schematicEmpty} disabled={schematicEmpty} onChange={() => toggle('schematic')} /> <span>Esquema 3D — vista atual <em>({schematicEmpty ? 'vazio — omitido' : `${state.components.length} componentes`})</em></span></label>
+            <label className={iecEmpty ? 'is-empty' : ''} title={iecEmpty ? 'Sem símbolos no Esquema IEC — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.iec && !iecEmpty} disabled={iecEmpty} onChange={() => toggle('iec')} /> <span>Esquema IEC <em>({iecEmpty ? 'vazio — omitido' : `${iecSheets.length} folha${iecSheets.length === 1 ? '' : 's'}`})</em></span></label>
+            {iecSheets.length > 1 && opts.iec && (
+              <div className="pdf-export-sub">
+                Folhas:
+                {iecSheets.map((p) => (
+                  <label key={p.id} className={`pdf-export-chip ${iecPicked(p.id) ? 'is-on' : ''}`}>
+                    <input type="checkbox" checked={iecPicked(p.id)} onChange={() => toggleIecPage(p.id)} /> {p.name}
+                  </label>
+                ))}
+              </div>
+            )}
             <label className={grafcetEmpty ? 'is-empty' : ''} title={grafcetEmpty ? 'Sem etapas GRAFCET — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.grafcet && !grafcetEmpty} disabled={grafcetEmpty} onChange={() => toggle('grafcet')} /> <span><strong>GRAFCET</strong> <em>({grafcetEmpty ? 'vazio — omitido' : `${state.grafcet.steps.length} etapas`})</em></span></label>
             {charts.length > 1 && opts.grafcet && (
               <div className="pdf-export-sub">

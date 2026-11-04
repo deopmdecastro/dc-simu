@@ -9,6 +9,8 @@ import NetworkDiagram from '../ladder/NetworkDiagram'
 import GrafcetEditor from '../grafcet/GrafcetEditor'
 import { useSimStore } from '../store/useSimStore'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
+import IecPageStatic, { iecPageBounds, iecPageTexts } from './IecPageStatic'
+import { pagesOf } from '../commands/pages'
 
 const STYLE_PROPS = [
   'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
@@ -172,6 +174,32 @@ export async function captureGrafcetChart(chartId: string | null): Promise<Captu
     if (chartId && prevChart !== chartId) simState.setGrafcet({ ...useSimStore.getState().grafcet, activeChart: prevChart }, 'skip', 'grafcet:export-pdf')
     if (prevZoom !== 1) useGrafcetUi.getState().setZoom(prevZoom)
   }
+}
+
+export interface CapturedIecPage { pageId: string; name: string; png: string; w: number; h: number }
+
+/** Folhas do Esquema IEC (com conteúdo) desenhadas com os símbolos reais do editor IEC. */
+export async function captureIecPages(pageIds: string[]): Promise<CapturedIecPage[]> {
+  const { commands: diagram, canvasTexts } = useSimStore.getState()
+  const pages = pagesOf(diagram)
+  const out: CapturedIecPage[] = []
+  for (const page of pages.filter((p) => pageIds.includes(p.id))) {
+    const free = iecPageTexts(canvasTexts, page.id, pages[0].id)
+    const box = iecPageBounds(diagram, page.id, free)
+    if (!box) continue
+    const png = await withHiddenMount(createElement(IecPageStatic, { diagram, pageId: page.id, free }), async (host) => {
+      const svg = host.querySelector<SVGSVGElement>('svg.iec-pdf-svg')
+      if (!svg) return null
+      const clone = cloneWithStyles(svg)
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.removeAttribute('style')
+      // Folhas grandes: limita a resolução final a ~4000 px no maior lado.
+      const scale = Math.max(1, Math.min(2, 4000 / Math.max(box.w, box.h)))
+      return svgToPngDataUrl(new XMLSerializer().serializeToString(clone), box.w, box.h, scale)
+    })
+    if (png) out.push({ pageId: page.id, name: page.name, png, w: box.w, h: box.h })
+  }
+  return out
 }
 
 export const canRealCapture = () => typeof document !== 'undefined' && typeof requestAnimationFrame !== 'undefined'

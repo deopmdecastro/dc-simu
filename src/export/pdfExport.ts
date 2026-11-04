@@ -55,6 +55,10 @@ export interface PdfExportOptions {
   info: boolean
   tags: boolean
   schematic: boolean
+  /** Esquema IEC (folhas com conteúdo). */
+  iec: boolean
+  /** ids das folhas IEC a incluir; vazio = todas */
+  iecPages: string[]
   grafcet: boolean
   /** blocos de ladder a incluir: id do bloco → índices de networks incluídas */
   ladder: Record<string, number[]>
@@ -78,6 +82,8 @@ export interface PdfProjectSource {
   tags: Array<{ name: string; address: string; dataType?: string; comment?: string }>
   components: Array<{ id: string; type: string; name?: string }>
   wires: Array<unknown>
+  /** Folhas do Esquema IEC com o n.º de símbolos de cada uma. */
+  iec?: Array<{ id: string; name: string; parts: number }>
 }
 
 /** Todos os blocos de ladder disponíveis para escolha no diálogo de exportação. */
@@ -102,7 +108,7 @@ export function defaultPdfOptions(src: PdfProjectSource): PdfExportOptions {
   const pad = (n: number) => String(n).padStart(2, '0')
   const date = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
   return {
-    cover: true, info: true, tags: true, schematic: true, grafcet: true, ladder, grafcetCharts: [],
+    cover: true, info: true, tags: true, schematic: true, iec: true, iecPages: [], grafcet: true, ladder, grafcetCharts: [],
     orientation: 'portrait',
     titleBlock: {
       enabled: true,
@@ -180,23 +186,24 @@ function drawLogo(doc: jsPDF, x: number, y: number, size: number, onBrand = true
 }
 
 function header(doc: jsPDF, section: string, projectName: string) {
+  // Faixa fina (22 pt) com o símbolo pequeno — antes ocupava 30 pt com o logótipo a dominar.
   doc.setFillColor(BRAND)
-  doc.rect(0, 0, PAGE_W, 30, 'F')
-  drawLogo(doc, MARGIN, 5, 20)
+  doc.rect(0, 0, PAGE_W, 22, 'F')
+  drawLogo(doc, MARGIN, 4, 14)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
+  doc.setFontSize(8.5)
   doc.setTextColor('#ffffff')
-  doc.text('DC-Simu · Simulador de Automação Industrial', MARGIN + 27, 19)
+  doc.text('DC-Simu', MARGIN + 19, 14.5)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.text(section, PAGE_W - MARGIN, 19, { align: 'right' })
+  doc.setFontSize(8)
+  doc.text(section, PAGE_W - MARGIN, 14.5, { align: 'right' })
   doc.setTextColor(INK)
-  doc.setFontSize(15)
+  doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.text(projectName, MARGIN, 56)
+  doc.text(doc.splitTextToSize(projectName || 'Projeto', CONTENT_W)[0], MARGIN, 50)
   doc.setDrawColor('#d7deeb')
   doc.setLineWidth(0.8)
-  doc.line(MARGIN, 64, PAGE_W - MARGIN, 64)
+  doc.line(MARGIN, 60, PAGE_W - MARGIN, 60)
 }
 
 function drawTitleBlock(doc: jsPDF, tb: PdfTitleBlock, pageIndex: number, pageCount: number) {
@@ -245,7 +252,8 @@ function drawTitleBlock(doc: jsPDF, tb: PdfTitleBlock, pageIndex: number, pageCo
   doc.text(sub.slice(0, 2), x0 + 4, y0 + 28)
   if (tb.author || tb.role) {
     doc.setTextColor(INK); doc.setFontSize(7)
-    doc.text([tb.author, tb.role].filter(Boolean).join(' · '), x0 + 4, y0 + h - 8)
+    const who = doc.splitTextToSize([tb.author, tb.role].filter(Boolean).join(' · '), c1 - 8).slice(0, 2)
+    doc.text(who, x0 + 4, y0 + h - 6 - (who.length - 1) * 8)
   }
 
   // Projeto / cliente / local
@@ -290,75 +298,75 @@ function footers(doc: jsPDF, projectName: string, titleBlock?: PdfTitleBlock) {
 
 
 function coverPage(doc: jsPDF, src: PdfProjectSource, contents: string[]) {
-  // banda superior da marca
+  // Faixa da marca compacta (78 pt): símbolo 34 pt + nome; antes 150 pt com símbolo de 64 pt.
   doc.setFillColor(BRAND)
-  doc.rect(0, 0, PAGE_W, 150, 'F')
-  drawLogo(doc, MARGIN, 42, 64)
+  doc.rect(0, 0, PAGE_W, 78, 'F')
+  drawLogo(doc, MARGIN, 22, 34)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor('#ffffff')
-  doc.setFontSize(26)
-  doc.text('DC-Simu', MARGIN + 80, 76)
-  doc.setFontSize(12)
+  doc.setFontSize(18)
+  doc.text('DC-Simu', MARGIN + 44, 42)
+  doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
-  doc.text('Simulador de Automação Industrial — Documentação do Projeto', MARGIN + 80, 96)
+  doc.text('Simulador de Automação Industrial · Documentação do projeto', MARGIN + 44, 57)
 
   doc.setTextColor(INK)
-  doc.setFontSize(30)
+  doc.setFontSize(26)
   doc.setFont('helvetica', 'bold')
-  doc.text(src.projectName || 'Projeto sem nome', MARGIN, 220)
-
+  const titleLines = doc.splitTextToSize(src.projectName || 'Projeto sem nome', CONTENT_W).slice(0, 2)
+  doc.text(titleLines, MARGIN, 140)
+  const afterTitle = 140 + (titleLines.length - 1) * 30
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(11)
+  doc.setFontSize(10)
   doc.setTextColor(MUTED)
-  doc.text(`Exportado a ${shortDate()}`, MARGIN, 244)
+  doc.text(`Exportado a ${shortDate()}`, MARGIN, afterTitle + 22)
 
   const blocks = collectLadderBlocks(src)
   const networks = blocks.reduce((n, b) => n + b.rungs.length, 0)
-  const steps = src.grafcet?.steps?.length ?? 0
-  const transitions = src.grafcet?.transitions?.length ?? 0
+  const iecParts = (src.iec ?? []).reduce((n, p) => n + p.parts, 0)
   const stats: Array<[string, string]> = [
-    ['Componentes no esquema', String(src.components.length)],
+    ['Componentes 3D', String(src.components.length)],
     ['Fios', String(src.wires.length)],
-    ['Blocos de ladder', String(blocks.length)],
-    ['Networks de ladder', String(networks)],
-    ['Etapas GRAFCET', String(steps)],
-    ['Transições GRAFCET', String(transitions)],
+    ['Símbolos IEC', String(iecParts)],
     ['Tags', String(src.tags.length)],
+    ['Networks de ladder', String(networks)],
+    ['Etapas GRAFCET', String(src.grafcet?.steps?.length ?? 0)],
+    ['Transições GRAFCET', String(src.grafcet?.transitions?.length ?? 0)],
     ['Páginas GRAFCET', String(src.grafcet?.charts?.length || 1)],
   ]
-  let y = 300
-  doc.setFontSize(11)
-  for (const [k, v] of stats) {
-    doc.setTextColor(MUTED)
-    doc.setFont('helvetica', 'normal')
-    doc.text(k, MARGIN, y)
-    doc.setTextColor(INK)
-    doc.setFont('helvetica', 'bold')
-    doc.text(v, MARGIN + 200, y)
-    y += 22
-  }
+  // Cartões 4 × 2
+  const gap = 10
+  const cols = 4
+  const cw = (CONTENT_W - gap * (cols - 1)) / cols
+  const ch = 50
+  const top = afterTitle + 52
+  stats.forEach(([label, value], i) => {
+    const x = MARGIN + (i % cols) * (cw + gap)
+    const y = top + Math.floor(i / cols) * (ch + gap)
+    doc.setFillColor('#f4f7fd'); doc.setDrawColor('#d7deeb'); doc.setLineWidth(0.6)
+    doc.roundedRect(x, y, cw, ch, 5, 5, 'FD')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(BRAND)
+    doc.text(value, x + 10, y + 24)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(MUTED)
+    doc.text(doc.splitTextToSize(label, cw - 16)[0], x + 10, y + 39)
+  })
 
-  doc.setDrawColor('#d7deeb')
-  doc.setLineWidth(0.8)
-  doc.line(MARGIN, y + 10, PAGE_W - MARGIN, y + 10)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.setTextColor(MUTED)
-  doc.text('Documento gerado automaticamente pela plataforma DC-Simu.', MARGIN, y + 32)
-  doc.text('Inclui os conteúdos escolhidos no diálogo de exportação.', MARGIN, y + 46)
-
+  let cy = top + (ch + gap) * 2 + 26
   if (contents.length) {
-    let cy = y + 86
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(INK)
     doc.text('Conteúdo deste documento', MARGIN, cy)
-    cy += 18
+    doc.setDrawColor('#d7deeb'); doc.setLineWidth(0.8); doc.line(MARGIN, cy + 6, PAGE_W - MARGIN, cy + 6)
+    cy += 24
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK)
-    for (const item of contents.slice(0, Math.max(0, Math.floor((footerSafeY() - 30 - cy) / 15)))) {
+    for (const item of contents.slice(0, Math.max(0, Math.floor((footerSafeY() - 28 - cy) / 16)))) {
       doc.setFillColor(BRAND); doc.circle(MARGIN + 3, cy - 3, 1.8, 'F')
       doc.text(item, MARGIN + 14, cy)
-      cy += 15
+      cy += 16
     }
   }
+  // Nota discreta sempre acima da esquadria (antes sobrepunha-se a ela).
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(MUTED)
+  doc.text('Documento gerado automaticamente pela plataforma DC-Simu.', MARGIN, footerSafeY() - 4)
 }
 
 function infoPage(doc: jsPDF, src: PdfProjectSource) {
@@ -431,6 +439,8 @@ export interface PdfCaptureHooks {
   captureLadder?: (picks: Array<{ rung: LadderRung; rungIndex: number }>) => Promise<Array<{ rungIndex: number; png: string; w: number; h: number }>>
   /** Por página do GRAFCET (null = programa sem páginas): PNG 2× recortado ao conteúdo. */
   captureGrafcet?: (chartId: string | null) => Promise<{ png: string; w: number; h: number } | null>
+  /** Folhas do Esquema IEC pedidas (ids): PNG do desenho real, só das que têm conteúdo. */
+  captureIec?: (pageIds: string[]) => Promise<Array<{ pageId: string; name: string; png: string; w: number; h: number }>>
 }
 
 export interface PdfExportResult {
@@ -453,12 +463,16 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
   let first = true
   const newPage = () => { if (first) first = false; else doc.addPage() }
 
+  const iecAll = src.iec ?? []
+  const iecPicked = opts.iec ? iecAll.filter((pg) => pg.parts > 0 && (!opts.iecPages.length || opts.iecPages.includes(pg.id))) : []
+
   if (opts.cover) {
     const blocksPlan = collectLadderBlocks(src).filter((b) => (opts.ladder[b.id] ?? []).length > 0)
     const contents = [
       opts.info && 'Informações do projeto',
       opts.tags && src.tags.length > 0 && `Tabela de tags (${src.tags.length})`,
-      opts.schematic && src.components.length > 0 && 'Esquema elétrico',
+      opts.schematic && src.components.length > 0 && 'Esquema elétrico (3D)',
+      ...iecPicked.map((pg) => `Esquema IEC — ${pg.name} (${pg.parts} símbolos)`),
       opts.grafcet && (src.grafcet?.steps?.length ?? 0) > 0 && `GRAFCET (${src.grafcet.steps.length} etapas)`,
       ...blocksPlan.map((b) => `Ladder — ${b.title} (${(opts.ladder[b.id] ?? []).length} networks)`),
     ].filter(Boolean) as string[]
@@ -482,6 +496,41 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
       doc.setTextColor(INK)
       sections.push('Esquema elétrico')
     } else skippedImages.push('Esquema elétrico (sem vista 3D disponível — abra o projeto no editor 3D)')
+  }
+
+  if (opts.iec && iecPicked.length) {
+    let caps: Array<{ pageId: string; name: string; png: string; w: number; h: number }> = []
+    if (hooks.captureIec) {
+      try { caps = await hooks.captureIec(iecPicked.map((pg) => pg.id)) } catch { caps = [] }
+    }
+    const byId = new Map(caps.map((c) => [c.pageId, c]))
+    for (const pg of iecPicked) {
+      const cap = byId.get(pg.id)
+      const title = `Esquema IEC — ${pg.name}`
+      newPage(); header(doc, 'Esquema IEC', src.projectName)
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
+      doc.text(title, MARGIN, 80)
+      doc.setTextColor(INK)
+      if (cap) {
+        // Cabe na área livre mantendo a proporção; centrada na moldura.
+        const maxW = CONTENT_W, maxH = footerSafeY() - 150
+        const k = Math.min(maxW / cap.w, maxH / cap.h)
+        const w = cap.w * k, h = cap.h * k
+        doc.setDrawColor('#d7deeb'); doc.setLineWidth(0.8)
+        doc.roundedRect(MARGIN, 92, maxW, h + 2, 6, 6)
+        doc.addImage(cap.png, 'PNG', MARGIN + (maxW - w) / 2, 93, w, h)
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(MUTED)
+        doc.text(`${pg.parts} símbolos · desenho real do editor IEC (em repouso)`, MARGIN, 92 + h + 16)
+        doc.setTextColor(INK)
+        sections.push(title)
+      } else {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(MUTED)
+        doc.text(`Desenho indisponível neste contexto — ${pg.parts} símbolos.`, MARGIN, 100)
+        doc.setTextColor(INK)
+        skippedImages.push(title)
+        sections.push(title)
+      }
+    }
   }
 
   if (opts.grafcet && src.grafcet?.steps?.length) {
