@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import type React from 'react'
 import type { ReactNode } from 'react'
 import Select from './Select'
-import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset, IconSignals } from './icons'
+import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset, IconSignals, IconCheck } from './icons'
 
 /**
  * Elementos comuns das barras de ferramentas: Esquema/Painel 3D, GRAFCET, Ladder
@@ -152,6 +152,12 @@ export interface ToolMenuItem {
   danger?: boolean
   /** Texto curto para o botão na barra (PC/tablet); o nome completo fica na dica. */
   shortLabel?: string
+  /** Opção de uma escolha curta (velocidade, passo da malha…): na folha do telemóvel os itens seguidos com o
+   *  mesmo `group` viram uma linha de botões (chips) com o nome do grupo por cima, em vez de uma lista longa. */
+  chip?: boolean
+  group?: string
+  /** Texto do chip (por omissão, `shortLabel` ou `label`). */
+  chipLabel?: string
 }
 
 export interface ToolMenuSection {
@@ -274,6 +280,38 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
   const items = useMemo(() => sections.flatMap((section) => section.items), [sections])
   const enabled = items.filter((item) => !item.disabled)
 
+  // Folha no telemóvel: o fundo não rola por baixo enquanto está aberta.
+  useEffect(() => {
+    if (!open || !narrow) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = previous }
+  }, [open, narrow])
+
+  // Arrastar a pega ou o título para baixo fecha a folha (gesto natural no telemóvel).
+  const drag = useRef<{ y: number; dy: number; t: number; id: number } | null>(null)
+  const onDragStart = (event: React.PointerEvent<HTMLElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return
+    drag.current = { y: event.clientY, dy: 0, t: event.timeStamp, id: event.pointerId }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    if (popup.current) popup.current.style.transition = 'none'
+  }
+  const onDragMove = (event: React.PointerEvent<HTMLElement>) => {
+    const d = drag.current
+    if (!d || d.id !== event.pointerId) return
+    d.dy = Math.max(0, event.clientY - d.y)
+    if (popup.current) popup.current.style.transform = `translateY(${d.dy}px)`
+  }
+  const onDragEnd = (event: React.PointerEvent<HTMLElement>) => {
+    const d = drag.current
+    if (!d || d.id !== event.pointerId) return
+    drag.current = null
+    const speed = d.dy / Math.max(1, event.timeStamp - d.t)
+    const el = popup.current
+    if (d.dy > 90 || (d.dy > 24 && speed > 0.5)) { setOpen(false); button.current?.focus(); return }
+    if (el) { el.style.transition = 'transform .16s ease-out'; el.style.transform = ''; window.setTimeout(() => { el.style.transition = '' }, 180) }
+  }
+
   useEffect(() => {
     if (!open) return
     const focusFirst = () => popup.current?.querySelector<HTMLButtonElement>('button[data-tm-item]:not(:disabled)')?.focus()
@@ -345,14 +383,45 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
       title={item.disabled ? item.disabledReason ?? item.hint ?? item.label : item.hint ?? item.label}
       onClick={() => { setOpen(false); button.current?.focus(); item.onSelect() }}
     >
-      <span className="tm-item-icon" aria-hidden>{Icon}</span>
+      <span className={`tm-item-icon${Icon ? '' : ' is-empty'}`} aria-hidden>{Icon}</span>
       <span className="tm-item-text">
         <strong>{item.label}</strong>
         {(item.disabled && item.disabledReason) || item.hint ? <small>{item.disabled ? item.disabledReason : item.hint}</small> : null}
       </span>
-      {item.pressed && <span className="tm-item-dot" aria-hidden />}
+      {item.pressed && (narrow ? <IconCheck size={15} className="tm-item-check" aria-hidden /> : <span className="tm-item-dot" aria-hidden />)}
       {item.kbd && <kbd>{item.kbd}</kbd>}
     </button>
+  }
+
+  const renderChip = (item: ToolMenuItem) => <button
+    key={item.id}
+    type="button"
+    data-tm-item={item.id}
+    role="menuitemradio"
+    aria-checked={!!item.pressed}
+    className={`tm-chip${item.pressed ? ' is-on' : ''}`}
+    disabled={item.disabled}
+    title={item.hint ?? item.label}
+    aria-label={item.label}
+    onClick={() => { setOpen(false); button.current?.focus(); item.onSelect() }}
+  >{item.chipLabel ?? item.shortLabel ?? item.label}</button>
+
+  /** Na folha, itens `chip` seguidos com o mesmo grupo formam uma linha de botões com o nome do grupo por cima. */
+  const renderSheetItems = (list: ToolMenuItem[]) => {
+    const out: ReactNode[] = []
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i]
+      if (!item.chip) { out.push(renderItem(item)); continue }
+      const group = item.group ?? ''
+      const run: ToolMenuItem[] = []
+      while (i < list.length && list[i].chip && (list[i].group ?? '') === group) run.push(list[i++])
+      i--
+      out.push(<div className="tm-chip-group" key={`chips-${run[0].id}`} role="menu" aria-label={group || undefined}>
+        {group && <span className="tm-chip-label">{group}</span>}
+        <div className="tm-chips">{run.map(renderChip)}</div>
+      </div>)
+    }
+    return out
   }
 
   return <>
@@ -371,12 +440,14 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
     {open && createPortal(narrow
       ? <div className="tm-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}>
           <div ref={popup} className="tm-panel is-sheet" role="menu" aria-label={title ?? label} onKeyDown={onItemKey}>
-            <span className="tm-grab" aria-hidden />
-            <header className="tm-head"><strong>{title ?? label}</strong><button type="button" className="tm-close" onClick={() => { setOpen(false); button.current?.focus() }} aria-label="Fechar menu">×</button></header>
+            <div className="tm-drag" onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}>
+              <span className="tm-grab" aria-hidden />
+              <header className="tm-head"><strong>{title ?? label}</strong><button type="button" className="tm-close" onClick={() => { setOpen(false); button.current?.focus() }} aria-label="Fechar menu">×</button></header>
+            </div>
             <div className="tm-body">
               {sections.filter((section) => section.items.length > 0).map((section) => <section className="tm-section" key={section.id ?? section.title}>
                 <h3>{section.title}</h3>
-                {section.items.map(renderItem)}
+                <div className="tm-group">{renderSheetItems(section.items)}</div>
               </section>)}
             </div>
           </div>

@@ -659,12 +659,12 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     // O Esquema IEC não tem modo nem velocidade de execução (estão escondidos também na barra completa).
     ...(isCmd ? [] : [{ title: 'Execução', items: [
       ...(['realtime', 'turbo', 'step'] as const).map((value, index) => ({ id: `mode-${value}`, label: ['Tempo real', 'Turbo', 'Passo a passo'][index], icon: <IconPlay size={15} />, pressed: simMode === value, onSelect: () => setSimMode(value) })),
-      ...[0.25, 0.5, 1, 2, 4, 10].map((value) => ({ id: `speed-${value}`, label: `Velocidade ${value}×`, pressed: simSpeed === value, onSelect: () => setSpeed(value) })),
+      ...[0.25, 0.5, 1, 2, 4, 10].map((value) => ({ id: `speed-${value}`, label: `Velocidade ${value}×`, chip: true, group: 'Velocidade', chipLabel: `${value}×`, pressed: simSpeed === value, onSelect: () => setSpeed(value) })),
     ] }]),
     { title: 'Vista', items: [
       ...(viewControls?.grid ? [{ id: 'grid', label: 'Mostrar malha', icon: <IconGrid size={15} />, pressed: viewControls.grid.on, onSelect: viewControls.grid.toggle }] : []),
       ...(viewControls?.snap ? [{ id: 'snap', label: 'Encaixar na malha', icon: <IconMagnet size={15} />, pressed: viewControls.snap.on, onSelect: viewControls.snap.toggle }] : []),
-      ...(viewControls?.step ? viewControls.step.options.map((value) => ({ id: `grid-${value}`, label: `Passo da malha: ${value} px`, pressed: viewControls.step!.value === value, onSelect: () => viewControls.step!.onChange(value) })) : []),
+      ...(viewControls?.step ? viewControls.step.options.map((value) => ({ id: `grid-${value}`, label: `Passo da malha: ${value} px`, chip: true, group: 'Passo da malha', chipLabel: `${value} px`, pressed: viewControls.step!.value === value, onSelect: () => viewControls.step!.onChange(value) })) : []),
       ...(viewControls?.zoom ? [
         { id: 'zoom-out', label: 'Reduzir zoom', icon: <IconZoomOut size={15} />, onSelect: viewControls.zoom.onOut },
         { id: 'zoom-reset', label: `Zoom ${viewControls.zoom.percent}% · repor`, icon: <IconFocus size={15} />, onSelect: viewControls.zoom.onReset },
