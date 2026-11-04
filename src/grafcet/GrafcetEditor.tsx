@@ -166,7 +166,7 @@ const ACTION_BUS_GAP = 40
 /** Deslocamento horizontal da condição em relação à barra da transição (legibilidade). */
 const CONDITION_OFFSET_X = 38
 /** Deslocamento vertical da condição relativamente à barra: negativo = acima do traço (gap legível). */
-const CONDITION_OFFSET_Y = -16
+const CONDITION_OFFSET_Y = -22
 /** Deslocamento do comentário da etapa em relação ao bordo direito da caixa. */
 const STEP_CAPTION_OFFSET_X = 30
 const STEP_CAPTION_OFFSET_Y = -26
@@ -197,7 +197,7 @@ const diagramCondition = (condition: string) => {
       fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
       paintOrder="stroke fill"
       stroke="#f8fafc"
-      strokeWidth="3.5"
+      strokeWidth="2.5"
       strokeLinejoin="round"
       dominantBaseline="alphabetic"
     >

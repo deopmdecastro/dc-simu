@@ -60,10 +60,21 @@ export default function ActionSymbol({
     <g>
       {conditional && (
         <g>
-          <path d={`M ${x + 16} ${y} V ${y - (mini ? 10 : 18)} H ${x + (mini ? 40 : 96)}`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
+          {/* Traço IEC da condição: sobe e segue à direita; o rótulo fica acima com gap claro. */}
+          <path d={`M ${x + 16} ${y} V ${y - (mini ? 14 : 30)} H ${x + (mini ? 44 : 110)}`} fill="none" stroke={stroke} strokeWidth={strokeWidth} />
           {!mini && (
-            <text x={x + 22} y={y - 20} fill="#2563eb" fontSize="11" fontWeight="700" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="4" strokeLinejoin="round">
-              {renderConditionTspans((condition || '1').length > 18 ? `${(condition || '1').slice(0, 17)}…` : condition || '1')}
+            <text
+              x={x + 22}
+              y={y - 36}
+              fill="#2563eb"
+              fontSize="11"
+              fontWeight="700"
+              paintOrder="stroke fill"
+              stroke="#f8fafc"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            >
+              {renderConditionTspans(condition || '1')}
             </text>
           )}
         </g>
