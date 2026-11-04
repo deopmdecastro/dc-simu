@@ -87,8 +87,18 @@ const mountedRailHeightMm = (component: ElectricalComponent, components: Electri
 /** Material da calha DIN: zinco real (textura) tingido pelo acabamento escolhido. */
 function railMaterial(finishId: unknown) {
   const finish = DIN_RAIL_FINISHES[typeof finishId === 'string' ? finishId : ''] ?? DIN_RAIL_FINISHES['Aço galvanizado']
-  const zinc = galvanizedSteel([1, 1])
-  return new THREE.MeshStandardMaterial({ color: finish.color, map: zinc.map, bumpMap: zinc.bump, bumpScale: 0.15, roughnessMap: zinc.rough, metalness: finish.metalness, roughness: finish.roughness, name: 'din-rail-finish' })
+  const zinc = galvanizedSteel([2, 2])
+  return new THREE.MeshStandardMaterial({
+    color: finish.color,
+    map: zinc.map,
+    bumpMap: zinc.bump,
+    bumpScale: 0.35,
+    roughnessMap: zinc.rough,
+    metalness: finish.metalness,
+    roughness: finish.roughness,
+    envMapIntensity: 1.15,
+    name: 'din-rail-finish',
+  })
 }
 
 const MOTOR_TARGET_HEIGHT = getComponentModelSpec('motor3ph')!.targetHeight

@@ -2,7 +2,7 @@ import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
-import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileOf } from '../three/dinRailGeometry'
+import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileIdOf, dinRailProfileOf } from '../three/dinRailGeometry'
 import { CABLE_DUCT_DEFAULT_COLOR, ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
@@ -144,18 +144,23 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
 
 /** Perfil, acabamento e furação da calha DIN (o comprimento continua no bloco da calha). */
 export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
-  const profileId = DIN_RAIL_PROFILE_IDS.find((id) => DIN_RAIL_PROFILES[id] === dinRailProfileOf(c.state)) ?? DIN_RAIL_PROFILE_IDS[0]
+  const profileId = dinRailProfileIdOf(c.state)
+  const profile = dinRailProfileOf(c.state)
   const finish = typeof c.state.finish === 'string' && DIN_RAIL_FINISH_IDS.includes(c.state.finish) ? c.state.finish : DIN_RAIL_FINISH_IDS[0]
   const setProfile = (id: string) => {
-    const profile = DIN_RAIL_PROFILES[id]
-    const h = Math.round(profile.width * SCHEMATIC_PX_PER_MM)
+    const next = DIN_RAIL_PROFILES[id]
+    const h = Math.round(next.width * SCHEMATIC_PX_PER_MM)
     useSimStore.getState().updateComponentRaw(c.id, { h, schematicY: Math.round(c.schematicY + (c.h - h) / 2), state: { ...c.state, profile: id } })
   }
   return <div className="dc-acc">
     <div className="dc-acc-row">
-      <span>Perfil</span>
+      <span>Perfil EN 60715</span>
       <div className="dc-acc-seg" role="group" aria-label="Perfil da calha DIN">
-        {DIN_RAIL_PROFILE_IDS.map((id) => <button key={id} type="button" aria-pressed={profileId === id} className={profileId === id ? 'is-on' : ''} onClick={() => setProfile(id)}>{id.replace(' mm', '')}</button>)}
+        {DIN_RAIL_PROFILE_IDS.map((id) => (
+          <button key={id} type="button" aria-pressed={profileId === id} className={profileId === id ? 'is-on' : ''}
+            title={id === '15×5,5 mm' ? 'G-rail miniatura' : id === '35×7,5 mm' ? 'TS35 padrão modular' : 'TS35 alta — aparelhos pesados'}
+            onClick={() => setProfile(id)}>{id.replace(' mm', '')}</button>
+        ))}
       </div>
     </div>
     <label className="dc-acc-row"><span>Acabamento</span>
@@ -166,6 +171,11 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
     <label className="dc-acc-row"><span>Perfurada</span>
       <input type="checkbox" checked={c.state.perforated !== false} onChange={(e) => useSimStore.getState().setComponentState(c.id, { perforated: e.target.checked })} />
     </label>
+    <small className="text-ink-400">
+      Face de encaixe {profile.width} mm · altura {String(profile.height).replace('.', ',')} mm ·
+      {c.state.perforated === false ? ' sem furos' : ` furos oblongos (passo ${profile.slotPitch} mm)`}.
+      Aceita disjuntores, contactores, bornes e relés com encaixe DIN.
+    </small>
   </div>
 }
 

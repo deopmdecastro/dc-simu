@@ -610,7 +610,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     <button className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromRail(attached.map((item) => item.id))}>Soltar todos</button>
                   </div>
                   <small className="text-ink-400">{attached.length ? `${attached.length} equipamento(s) fixo(s): ${attached.map((item) => item.ref).join(', ')}. ` : 'Sem equipamentos fixos. '}Arraste as pontas da calha no Esquema 2D para alterar o comprimento.</small>
-                  <small className="text-ink-400">Perfil {dinRailProfileOf(selectedComponent.state).width} × {String(dinRailProfileOf(selectedComponent.state).height).replace('.', ',')} mm · {selectedComponent.state.perforated === false ? 'sem furos' : `${railSlotCount(length, dinRailProfileOf(selectedComponent.state))} furos oblongos (passo ${DIN_RAIL_15X55.slotPitch} mm)`} · {DIN_RAIL_15X55.minLengthMm}–{DIN_RAIL_15X55.maxLengthMm} mm</small>
+                  <small className="text-ink-400">Perfil {dinRailProfileOf(selectedComponent.state).width} × {String(dinRailProfileOf(selectedComponent.state).height).replace('.', ',')} mm · {selectedComponent.state.perforated === false ? 'sem furos' : `${railSlotCount(length, dinRailProfileOf(selectedComponent.state))} furos oblongos (passo ${dinRailProfileOf(selectedComponent.state).slotPitch} mm)`} · {DIN_RAIL_15X55.minLengthMm}–{DIN_RAIL_15X55.maxLengthMm} mm</small>
                 </div>
               })()}
 

@@ -884,9 +884,14 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { bridged: true },
   },
   dinRail15x55: {
-    category: 'terminal', paletteName: 'Calha DIN perfurada 15×5,5 mm (galvanizada) · 1 m', group: 'Bornes e barras', tag: 'TR', w: 1500, h: 23,
+    category: 'terminal',
+    paletteName: 'Calha DIN perfurada TS35 / G-rail (EN 60715) · textura real',
+    group: 'Quadros e calhas',
+    tag: 'TR',
+    w: 1500,
+    h: 53, // footprint 2D para TS35 (35 mm × SCHEMATIC_PX_PER_MM ≈ 52,5)
     terminals: [],
-    defaultState: { lengthMm: 1000, profile: '15×5,5 mm', finish: 'Aço galvanizado', perforated: true },
+    defaultState: { lengthMm: 1000, profile: '35×7,5 mm', finish: 'Aço galvanizado', perforated: true },
   },
   panelEnclosure: {
     category: 'terminal', paletteName: 'Quadro metálico com porta (IP66) · chapa de montagem', group: 'Quadros e calhas', tag: 'QE', w: 900, h: 1200,

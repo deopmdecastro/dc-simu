@@ -109,8 +109,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   powerSource3ph: { width: 40.75, height: 66.02, depth: 48.5 },
   powerSource24v: { width: 24.45, height: 66.02, depth: 48.5 },
   terminalPE: { width: 5.15, height: 48.6, depth: 35.25 },
-  /** 1 m por omissão; o comprimento real vem de `state.lengthMm`. */
-  dinRail15x55: { width: 1000, height: 15, depth: 5.5 },
+  /** 1 m por omissão; perfil e comprimento reais vêm de `state.profile` / `state.lengthMm` (TS35×7,5 por defeito). */
+  dinRail15x55: { width: 1000, height: 35, depth: 7.5 },
   /** Miniatura (porta fechada: 250 mm de corpo + porta e fechos); o tamanho real vem de `state.widthMm/heightMm/depthMm`. */
   panelEnclosure: { width: 600, height: 800, depth: 282 },
   /** Tamanho por omissão; o real vem de `state.lengthMm/widthMm/heightMm`. */
