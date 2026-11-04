@@ -36,6 +36,7 @@ import {
   type GrafcetProgram,
   type GrafcetComment,
 } from './engine'
+import { writeGrafcetCrossClipboard, readGrafcetCrossClipboard, hasCrossClipboard } from '../clipboard/crossProjectClipboard'
 import StepDialog from './StepDialog'
 import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
@@ -3210,14 +3211,35 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const copySelection = (silent = false) => {
     const ids = copyableIds()
     if (!ids.length) return false
-    clipboardRef.current = { ids, steps, transitions, pos: new Map(ids.map((sid) => [sid, { x: stepX(sid), y: stepY(sid) }])), pastes: 0 }
-    if (!silent) notify(ids.length === 1 ? 'Etapa copiada · Ctrl+V cola' : `${ids.length} etapas copiadas · Ctrl+V cola`)
+    const pos = new Map(ids.map((sid) => [sid, { x: stepX(sid), y: stepY(sid) }]))
+    clipboardRef.current = { ids, steps, transitions, pos, pastes: 0 }
+    writeGrafcetCrossClipboard({
+      stepIds: ids,
+      steps,
+      transitions,
+      positions: ids.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) })),
+      sourceProject: useSimStore.getState().currentProjectName,
+    })
+    if (!silent) notify(ids.length === 1 ? 'Etapa copiada · Ctrl+V cola (também noutro projeto)' : `${ids.length} etapas copiadas · Ctrl+V cola (também noutro projeto)`)
     return true
   }
 
   const pasteClipboard = () => {
-    const clip = clipboardRef.current
-    if (!clip) return notify('Nada para colar — copie etapas com Ctrl+C')
+    let clip = clipboardRef.current
+    if (!clip) {
+      const cross = readGrafcetCrossClipboard()
+      if (cross && cross.stepIds.length) {
+        clip = {
+          ids: cross.stepIds,
+          steps: cross.steps as GrafcetStep[],
+          transitions: cross.transitions as GrafcetTransition[],
+          pos: new Map(cross.positions.map((p) => [p.id, { x: p.x, y: p.y }])),
+          pastes: 0,
+        }
+        clipboardRef.current = clip
+      }
+    }
+    if (!clip) return notify('Nada para colar — copie etapas com Ctrl+C (funciona entre projetos)')
     clip.pastes += 1
     const shift = GRID * 3 * clip.pastes
     const copy: SubDiagram = cloneSubDiagram(clip.steps, clip.transitions, clip.ids, (sid) => clip.pos.get(sid) ?? { x: SPINE_X, y: START_Y }, { dx: shift, dy: shift }, id)
@@ -3336,7 +3358,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       { label: 'Nova ação solta aqui', onSelect: () => addFreeAction(false, place()) },
       { label: 'Novo texto aqui', onSelect: () => addComment(place()) },
       sep,
-      { label: 'Colar', hint: 'Ctrl+V', disabled: !clipboardRef.current, onSelect: pasteClipboard },
+      { label: 'Colar', hint: 'Ctrl+V', disabled: !clipboardRef.current && !hasCrossClipboard('grafcet'), onSelect: pasteClipboard },
       { label: 'Selecionar tudo', hint: 'Ctrl+A', disabled: !steps.length, onSelect: selectAllSteps },
       sep,
       { label: 'Ajustar vista ao diagrama', hint: 'Ctrl+0', onSelect: resetView },

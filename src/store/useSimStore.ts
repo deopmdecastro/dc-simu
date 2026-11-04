@@ -76,6 +76,7 @@ import { plcIoCapacity } from '../ladder/plcIo'
 import { withEmptyNetworkBelow } from '../ladder/autoNetwork'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
+import { writeElectricalCrossClipboard, readElectricalCrossClipboard } from '../clipboard/crossProjectClipboard'
 import { canInsertComponent3D, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
@@ -3227,26 +3228,47 @@ export const useSimStore = create<Store>((set, get) => {
 
   // ------------------------------------------------------- copiar / colar
   copySelection: () => {
-    const { components, wires, selectedComponentIds } = get()
+    const { components, wires, selectedComponentIds, currentProjectName } = get()
     if (!selectedComponentIds.length) return
     const selSet = new Set(selectedComponentIds)
     const comps = components.filter((c) => selSet.has(c.id))
     if (!comps.length) return
     const terminalIds = new Set(comps.flatMap((c) => c.terminals.map((t) => t.id)))
     const relevantWires = wires.filter((w) => terminalIds.has(w.fromTerminalId) && terminalIds.has(w.toTerminalId))
-    set({
-      clipboard: {
-        components: JSON.parse(JSON.stringify(comps)),
-        wires: JSON.parse(JSON.stringify(relevantWires)),
-        ladder: [],
-      },
+    const snapshot = {
+      components: JSON.parse(JSON.stringify(comps)),
+      wires: JSON.parse(JSON.stringify(relevantWires)),
+      ladder: [] as [],
+    }
+    set({ clipboard: snapshot })
+    // Persistente entre projetos (e entre recargas) no mesmo navegador.
+    writeElectricalCrossClipboard({
+      components: snapshot.components,
+      wires: snapshot.wires,
+      ladder: snapshot.ladder,
+      sourceProject: currentProjectName,
     })
-    get().pushEvent('info', `${comps.length} componente(s) copiado(s)${relevantWires.length ? ` (+ ${relevantWires.length} cabo(s) internos)` : ''}.`)
+    get().pushEvent('info', `${comps.length} componente(s) copiado(s)${relevantWires.length ? ` (+ ${relevantWires.length} cabo(s) internos)` : ''} — pode colar noutro projeto (Ctrl+V).`)
   },
 
   pasteClipboard: () => {
-    const clip = get().clipboard
-    if (!clip || !clip.components.length) return
+    // Preferir clipboard em memória; se vazio (ex.: após mudar de projeto), ler o persistente.
+    let clip = get().clipboard
+    if (!clip || !clip.components.length) {
+      const cross = readElectricalCrossClipboard()
+      if (cross && cross.components.length) {
+        clip = {
+          components: cross.components as ElectricalComponent[],
+          wires: (cross.wires ?? []) as Wire[],
+          ladder: [],
+        }
+        set({ clipboard: clip })
+      }
+    }
+    if (!clip || !clip.components.length) {
+      get().pushEvent('info', 'Nada para colar — copie componentes com Ctrl+C (também funciona entre projetos).')
+      return
+    }
     get().commitHistory()
 
     const terminalMap = new Map<string, string>()
