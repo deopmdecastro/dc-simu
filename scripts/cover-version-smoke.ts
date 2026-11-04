@@ -1,9 +1,10 @@
 /** Capa do projeto: versão do enquadramento, capa antiga recapturada e captura só com cabos prontos. */
 import assert from 'node:assert/strict'
 import {
-  COVER_VERSION, captureCover, canCaptureFreshCover, hasStaleCover, hasStoredCover, registerCoverCapture,
+  COVER_VERSION, captureCover, canCaptureFreshCover, coverForExport, hasStaleCover, hasStoredCover, registerCoverCapture,
   setCoverWiresReady, setStoredCover, storedCoverVersion,
 } from '../src/three/coverCapture'
+import { previewCoverForKind } from '../src/dashboard/projectPreview'
 
 const jpeg = (tag: string) => `data:image/jpeg;base64,${tag}`
 
@@ -43,5 +44,23 @@ assert.equal(hasStoredCover(), true)
 registerCoverCapture(null)
 assert.equal(canCaptureFreshCover(), false)
 assert.equal(captureCover(), jpeg('FRESH'))
+
+assert.equal(coverForExport(), jpeg('FRESH'), 'PDF aceita a capa da versão atual')
+
+// PDF sem cena montada nunca usa uma capa antiga (podia não ter cabos).
+setStoredCover(jpeg('OLD'), COVER_VERSION - 1)
+assert.equal(coverForExport(), null)
+registerCoverCapture(() => jpeg('FRESH2'))
+setCoverWiresReady(false)
+assert.equal(coverForExport(), null, 'cabos por traçar: nem captura nem capa antiga')
+setCoverWiresReady(true)
+assert.equal(coverForExport(), jpeg('FRESH2'))
+registerCoverCapture(null)
+
+// Dashboard: capa 3D antiga dá lugar ao esquema desenhado; Ladder/GRAFCET mantêm a sua.
+assert.equal(previewCoverForKind({ cover: jpeg('A') }, 'all'), undefined)
+assert.equal(previewCoverForKind({ cover: jpeg('A'), coverVersion: COVER_VERSION - 1 }, 'schematic'), undefined)
+assert.equal(previewCoverForKind({ cover: jpeg('A'), coverVersion: COVER_VERSION }, 'all'), jpeg('A'))
+assert.equal(previewCoverForKind({ cover: jpeg('A') }, 'grafcet'), jpeg('A'))
 
 console.log('cover-version: ok')

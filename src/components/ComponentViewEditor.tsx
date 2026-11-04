@@ -1,3 +1,4 @@
+import { downloadBlob } from '../utils/downloadBlob'
 import { uiConfirm } from '../ui/dialogs'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -168,12 +169,7 @@ function ComponentVersionsEditor({
       },
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `${component.ref.replace(/[^a-z0-9_-]+/gi, '-')}-v${payload.revision.version}.dcsimu-component.json`
-    anchor.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, `${component.ref.replace(/[^a-z0-9_-]+/gi, '-')}-v${payload.revision.version}.dcsimu-component.json`)
   }
   return <div className="component-versions-editor">
     <section className="component-version-current">

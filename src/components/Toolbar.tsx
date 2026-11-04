@@ -1,3 +1,4 @@
+import { downloadBlob } from '../utils/downloadBlob'
 import { ViewDiagnosticsTag, DiagnosticsTag } from '../diagnostics/DiagnosticsUi'
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from '../diagnostics/viewDiagnostics'
 import { uiAlert, uiConfirm, uiChoose } from '../ui/dialogs'
@@ -415,13 +416,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const createNewProject = onBack
 
   const saveBlob = (content: string, type: string, name: string) => {
-    const blob = new Blob([content], { type })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = name
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(new Blob([content], { type }), name)
   }
   const fileSlug = (currentProjectName ?? 'projeto').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'projeto'
   const downloadBOM = () => saveBlob('\uFEFF' + bomToCSV(buildBOM(components), wires), 'text/csv;charset=utf-8', `dc-simu-${fileSlug}-bom.csv`)

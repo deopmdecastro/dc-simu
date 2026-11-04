@@ -81,6 +81,7 @@ import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, r
 import { dinFerruleColor, FERRULE_SWATCHES } from '../src/schematic/wireEndColor'
 import { alignOffsets, type AlignBox } from '../src/ui/alignItems'
 import { clampBar, divergencePoint, expandPolyline, joinBends, nearestOnPolyline, pointOnPolyline, routeViaBar } from '../src/grafcet/links'
+import { COVER_VERSION } from '../src/three/coverCapture'
 
 let failures = 0
 function check(name: string, cond: boolean, extra = '') {
@@ -1822,7 +1823,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
 {
   const jpg = 'data:image/jpeg;base64,/9j/AAAA'
-  check('cover: miniatura JPEG guardada passa para o preview', buildProjectPreview({ components: [], wires: [], cover: jpg }).cover === jpg)
+  check('cover: miniatura JPEG da versão atual passa para o preview', buildProjectPreview({ components: [], wires: [], cover: jpg, coverVersion: COVER_VERSION }).cover === jpg)
+  check('cover: capa 3D sem versão/antiga é ignorada (o dashboard desenha o esquema com os cabos)', buildProjectPreview({ components: [], wires: [], cover: jpg }).cover === undefined)
   check('cover: ignora conteúdo que não é JPEG data URL', buildProjectPreview({ components: [], wires: [], cover: 'http://x/y.jpg' }).cover === undefined && buildProjectPreview({ components: [] }).cover === undefined)
 }
 

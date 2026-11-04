@@ -69,12 +69,12 @@ function CoreMesh({ core }: { core: Core }) {
     const r = core.radius
     return { center, quaternion, length, rMid: r * 1.35, rEnd: r * 1.08 }
   }, [core])
-  return <group userData={{ noSnapshot: true }}>
+  return <group>
     <mesh geometry={insulation} castShadow>
       <meshStandardMaterial color={core.color} roughness={0.5} metalness={0.04} envMapIntensity={0.9} />
     </mesh>
     {shrink && (
-      <group position={shrink.center} quaternion={shrink.quaternion} userData={{ noSnapshot: true }}>
+      <group position={shrink.center} quaternion={shrink.quaternion}>
         <mesh castShadow>
           <cylinderGeometry args={[shrink.rMid, shrink.rMid * 0.98, shrink.length * 0.7, 14]} />
           <meshStandardMaterial color="#1a1f27" roughness={0.72} metalness={0.04} />
@@ -94,7 +94,7 @@ function CoreMesh({ core }: { core: Core }) {
       <meshStandardMaterial color={COPPER} roughness={0.32} metalness={0.85} envMapIntensity={1.2} />
     </mesh>
     {tipShrink && (
-      <group position={tipShrink.center} quaternion={tipShrink.quaternion} userData={{ noSnapshot: true }}>
+      <group position={tipShrink.center} quaternion={tipShrink.quaternion}>
         <mesh castShadow>
           <cylinderGeometry args={[tipShrink.rMid, tipShrink.rMid, tipShrink.length * 0.75, 14]} />
           <meshStandardMaterial color="#1a1f27" roughness={0.72} metalness={0.04} />
@@ -117,7 +117,7 @@ function TowerCableEntry3D({ component }: { component: ElectricalComponent }) {
   const entry = towerCableEntry(component)
   if (!entry) return null
   const { center, coverWidth, coverDepth, coverThickness, glandRadius } = entry
-  return <group position={center} name="tower-cable-entry" userData={{ noSnapshot: true }}>
+  return <group position={center} name="tower-cable-entry">
     <mesh position={[0, -coverThickness / 2, 0]} castShadow>
       <boxGeometry args={[coverWidth, coverThickness, coverDepth]} />
       <meshStandardMaterial color="#30363d" metalness={0.45} roughness={0.52} />
@@ -149,7 +149,7 @@ export default function LeadPigtails3D({ component }: { component: ElectricalCom
 
   if (!layout) return null
   return (
-    <group name={`leads-${component.id}`} userData={{ noSnapshot: true }}>
+    <group name={`leads-${component.id}`}>
       <TowerCableEntry3D component={component} />
       {layout.sheath && <>
         <mesh geometry={layout.sheath.geometry} castShadow>

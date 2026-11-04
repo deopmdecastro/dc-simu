@@ -18,7 +18,7 @@ import type { LadderRung } from '../types'
 import type { GrafcetProgram, GrafcetChart } from '../grafcet/engine'
 import type { ProjectFile } from '../ladder/projectFiles'
 import { ladderCoverSvg, grafcetCoverSvg, svgToJpegDataUrl } from '../dashboard/flowCover'
-import { captureCover } from '../three/coverCapture'
+import { coverForExport } from '../three/coverCapture'
 
 // ---------- modelo de seleção ----------
 
@@ -467,7 +467,7 @@ export interface PdfExportResult {
 
 /**
  * Gera o PDF do projeto conforme a seleção do utilizador.
- * `schematicImage` é opcional: quando omisso tenta-se `captureCover()` (vista 3D real).
+ * `schematicImage` é opcional: quando omisso usa-se `coverForExport()` (vista 3D real, nunca uma capa antiga).
  */
 export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportOptions, schematicImage?: string | null, hooks: PdfCaptureHooks = {}): Promise<PdfExportResult> {
   applyPageLayout(opts.orientation ?? 'portrait', !!opts.titleBlock?.enabled)
@@ -499,17 +499,19 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
     // Sem componentes a captura seria uma grelha vazia: não gasta uma página.
     skippedImages.push('Esquema elétrico (o projeto não tem componentes no esquema)')
   } else if (opts.schematic) {
-    const shot = schematicImage ?? (canRaster() ? captureCover() : null)
+    const shot = schematicImage ?? (canRaster() ? coverForExport() : null)
     if (shot) {
       newPage(); header(doc, 'Esquema elétrico (vista 3D)', src.projectName)
-      // a captura da cena 3D é 4:3 ou 16:9 conforme a câmara; caixa de segurança generosa
-      const w = CONTENT_W; const h = Math.min(560, w * 0.66)
-      doc.addImage(shot, 'JPEG', MARGIN, 100, w, h)
+      // Mantém a proporção da captura (capa 16:10) dentro da caixa disponível.
+      const props = doc.getImageProperties(shot)
+      const ratio = props.width > 0 && props.height > 0 ? props.height / props.width : 0.625
+      const h = Math.min(560, CONTENT_W * ratio); const w = h / ratio
+      doc.addImage(shot, 'JPEG', MARGIN + (CONTENT_W - w) / 2, 100, w, h)
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(MUTED)
       doc.text('Vista do quadro/circuito tal como está montado no editor DC-Simu.', MARGIN, 100 + h + 12)
       doc.setTextColor(INK)
       sections.push('Esquema elétrico')
-    } else skippedImages.push('Esquema elétrico (sem vista 3D disponível — abra o projeto no editor 3D)')
+    } else skippedImages.push('Esquema elétrico (sem vista 3D disponível — abra a Visualização 3D e aguarde os cabos antes de exportar)')
   }
 
   if (opts.iec && iecPicked.length) {

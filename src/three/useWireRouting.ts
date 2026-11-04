@@ -67,6 +67,8 @@ export function useWireRouting(key: string, job: () => WireRoutingJob) {
 
   return {
     paths,
+    /** True quando `paths` corresponde à chave atual (não é o último traçado de outra configuração). */
+    current: result?.key === key && !!result.paths,
     error,
     loading,
     retry: () => setAttempt((value) => value + 1),

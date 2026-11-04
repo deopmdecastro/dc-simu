@@ -13,15 +13,8 @@ import {
 import { captureGrafcetChart, captureIecPages, captureLadderRungs } from './realCapture'
 import { pagesOf, partsOnPage } from '../commands/pages'
 import { getViewer } from '../auth/viewer'
+import { downloadBlob } from '../utils/downloadBlob'
 
-const saveBlob = (blob: Blob, name: string) => {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
-}
 
 /** Folhas do Esquema IEC e n.º de símbolos de cada uma. */
 const iecSheetsOf = (diagram: ReturnType<typeof useSimStore.getState>['commands']) =>
@@ -214,7 +207,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
         wires: s.wires,
         iec: iecSheetsOf(s.commands),
       }, opts, null, { captureLadder: captureLadderRungs, captureGrafcet: captureGrafcetChart, captureIec: captureIecPages })
-      saveBlob(result.blob, `dc-simu-${fileSlugOf(s.currentProjectName)}.pdf`)
+      downloadBlob(result.blob, `dc-simu-${fileSlugOf(s.currentProjectName)}.pdf`)
       setNotice(
         result.skippedImages.length
           ? `PDF gerado (${result.pages} páginas). Nota: ${result.skippedImages.join('; ')}.`

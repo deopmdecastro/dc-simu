@@ -8,7 +8,8 @@ let lastCover: string | null = null
 /** Versão do algoritmo que produziu `lastCover` (0 = capa antiga, sem versão guardada). */
 let lastVersion = 0
 /** Sobe sempre que o enquadramento da capa muda: as capas guardadas com outra versão são recapturadas. */
-export const COVER_VERSION = 2
+// v3: capas tiradas com o cálculo dos cabos em erro/desatualizado ou sem os cabos soltos saíam sem cabos.
+export const COVER_VERSION = 3 // servidor Node: mesmo limiar em server/index.mjs
 /** True quando o encaminhamento 3D dos cabos já produziu malhas (ou não há cabos). */
 let wiresReady = true
 
@@ -64,6 +65,13 @@ export function captureCover(): string | null {
     // a captura nunca pode impedir o guardar
   }
   return lastCover
+}
+
+/** Imagem 3D para documentos (PDF): captura nova quando a cena está pronta; senão só uma capa
+ *  guardada com o enquadramento atual — nunca uma capa antiga, que pode não ter os cabos. */
+export function coverForExport(): string | null {
+  if (canCaptureFreshCover()) return captureCover()
+  return hasStoredCover() ? lastCover : null
 }
 
 export function canCaptureCover() {

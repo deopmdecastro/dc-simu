@@ -1,3 +1,4 @@
+import { downloadBlob } from '../utils/downloadBlob'
 import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
 import { TEMPLATES } from '../electrical/factory'
@@ -132,10 +133,7 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
     const header = ['tipo', 'nome', 'grupo', 'estado', 'motivo', 'plano_minimo', 'modelo3d', 'escala_real', 'fichas_aprovadas', 'modelos_comunidade', 'em_revisao']
     const lines = rows.map((row) => [row.type, row.label, row.group, COMPONENT_STATUS_LABEL[row.status].toLowerCase(), row.setting?.note ?? '', row.minPlan ?? '', row.official3d ? 'sim' : 'não', row.sized ? 'sim' : 'não', row.datasheets, row.models, row.pending].map(cell).join(','))
     const blob = new Blob(['\uFEFF' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url; link.download = `dc-simu-componentes-${new Date().toISOString().slice(0, 10)}.csv`; link.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, `dc-simu-componentes-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   // Propostas de componentes que ainda não existem no simulador.

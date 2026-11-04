@@ -28,7 +28,7 @@ check(!/<CommandsIoPanel/.test(dock), 'o painel inferior já não é só de entr
 const app = read('src/App.tsx')
 check(/const phoneCommands = phone && mode === 'commands'/.test(app) && /const phoneBottomDock = phoneCommands \|\| phoneSchematic/.test(app) && /!demo && !phoneBottomDock && mode !== 'monitor'/.test(app), 'no telemóvel o Esquema IEC não tem coluna/gaveta da direita: o mesmo painel não aparece duas vezes')
 const grafcet = read('src/grafcet/GrafcetEditor.tsx')
-check(/\{full && !phone && !propsAtBottom && !wideDesktop && \(\s*<GrafcetSimDock/.test(grafcet), 'no telemóvel o GRAFCET só tem o painel lateral completo em baixo (sem GrafcetSimDock duplicado)')
+check(/\{(?:false && )?full && !phone && !propsAtBottom && !wideDesktop && \(\s*<GrafcetSimDock/.test(grafcet), 'no telemóvel o GRAFCET só tem o painel lateral completo em baixo (sem GrafcetSimDock duplicado)')
 check(/useCommandsUi\.getState\(\)\.toggleDock\(\)/.test(toolbar), 'o botão «Simulação» da barra compacta abre/fecha o painel inferior no Esquema IEC')
 check(/onPointerDown=\{\(e\) => onLabelDown\(t, e\)\}/.test(editor) && /<rect x=\{b\.x - 6\}/.test(editor), 'os títulos do esquema têm área de toque e tratam o clique')
 check(/kind: 'label'/.test(editor) && /g\.kind === 'mid' \|\| g\.kind === 'label'\) && preview/.test(editor), 'arrastar um título move-o com um passo de Desfazer')

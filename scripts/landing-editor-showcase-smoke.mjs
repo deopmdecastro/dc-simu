@@ -110,7 +110,7 @@ const wg3d = read('src/three/wireGeometry3D.ts')
 assert('Cabos 3D correm em calhas entre as filas de equipamentos', wg3d.includes('export function trunkLaneHints') && wg3d.includes('trunkY !== undefined'))
 
 const nproj = read('src/project/nativeProjects.ts')
-assert('Cabos 3D: 9 faixas + 3 camadas de profundidade por calha', wg3d.includes('trunkLayer') && wg3d.includes('% 9) - 4'))
+assert('Cabos 3D: 11 faixas + 4 camadas de profundidade por calha', wg3d.includes('trunkLayer') && wg3d.includes('% 11) - 5') && wg3d.includes('/ 11) % 4'))
 assert('Projeto nativo: routing cozido sem atravessar equipamentos', nproj.includes("import { bakeNativeRouting } from './nativeRouting'") && nproj.includes('wires: bakeNativeRouting(components, wires)'))
 
 // Demo simplificada ao essencial (revisão 2: «ambiente de visualização»)

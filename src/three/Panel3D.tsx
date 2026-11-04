@@ -1868,16 +1868,17 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     w.toPoint3D ? `${w.toPoint3D.x},${w.toPoint3D.y},${w.toPoint3D.z}` : '',
     (w.waypoints3D ?? []).map((p) => `${p.x},${p.y},${p.z}`).join(';'),
   ].join(':')).join('||'), [wires])
-  const { paths: coordinatedPaths, error: routingError, retry: retryRouting, loading: routingBusy } = useWireRouting(
+  const { paths: coordinatedPaths, current: routingCurrent, error: routingError, retry: retryRouting, loading: routingBusy } = useWireRouting(
     `${wiresGeoKey}#${obstaclesKey}`,
     () => createWireRoutingJob(wires, components, pivots),
   )
   // Overlay só na 1.ª carga dos cabos — seleção/cliques não disparam «A carregar…».
   useEffect(() => { onRoutingLoadingChange(routingBusy) }, [routingBusy, onRoutingLoadingChange])
   useEffect(() => {
-    // Capa do dashboard: só capturar cena 3D quando os cabos já têm traçado (ou não há cabos).
-    setCoverWiresReady(wires.length === 0 || !!coordinatedPaths || !!routingError)
-  }, [wires.length, coordinatedPaths, routingError])
+    // Capa do dashboard/PDF: só capturar com os modelos carregados e o traçado da configuração atual.
+    // Falha no cálculo ou traçado antigo nunca contam como prontos (a capa sairia sem cabos).
+    setCoverWiresReady(!modelsLoading && (wires.length === 0 || (!!coordinatedPaths && routingCurrent)))
+  }, [wires.length, coordinatedPaths, routingCurrent, modelsLoading])
   const blockedNotice = useRef('')
   useEffect(() => {
     if (!coordinatedPaths) return

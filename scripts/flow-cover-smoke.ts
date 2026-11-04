@@ -2,6 +2,7 @@ import { ladderCoverSvg, grafcetCoverSvg, flowCoverSvg } from '../src/dashboard/
 import { buildProjectPreview, isEmptyPreview } from '../src/dashboard/projectPreview'
 import { grafcetExampleContent, grafcetExamples } from '../src/project/grafcetExamples'
 import { nativePartidaDiretaContent } from '../src/project/nativeProjects'
+import { COVER_VERSION } from '../src/three/coverCapture'
 let failed = 0
 const check = (name: string, ok: boolean) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}`); if (!ok) failed++ }
 const rung: any = { id: 'r', name: 'R1', enabled: true, branches: [{ id: 'b', elements: [{ kind: 'contact', id: 'c', address: 'I0.0', contactType: 'NO' }] }], coils: [{ kind: 'coil', id: 'q', address: 'Q0.0', coilType: 'COIL' }] }
@@ -23,6 +24,7 @@ const native = nativePartidaDiretaContent() as Record<string, unknown> & { compo
 const nativePreview = buildProjectPreview(native)
 check('nativo sem cover: esquema real (componentes e cabos do projeto)', nativePreview.components.length === native.components.length && nativePreview.stats?.wires === native.wires.length && !nativePreview.flow)
 const photo = 'data:image/jpeg;base64,' + 'A'.repeat(64)
-check('cover 3D guardado prevalece sobre o desenho', buildProjectPreview({ ...native, cover: photo }).cover === photo)
+check('cover 3D guardado (versão atual) prevalece sobre o desenho', buildProjectPreview({ ...native, cover: photo, coverVersion: COVER_VERSION }).cover === photo)
+check('cover 3D antigo dá lugar ao desenho com os cabos', buildProjectPreview({ ...native, cover: photo }).cover === undefined)
 check('GRAFCET com cover guardado não gera desenho', !buildProjectPreview({ ...grafcetExampleContent(grafcetExamples()[0]), cover: photo }).flow)
 process.exit(failed ? 1 : 0)

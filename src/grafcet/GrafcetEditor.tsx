@@ -1,3 +1,4 @@
+import { downloadBlob } from '../utils/downloadBlob'
 import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
@@ -3375,25 +3376,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     clone.setAttribute('height', String(height))
     const serializer = new XMLSerializer()
     const svgStr = serializer.serializeToString(clone)
-    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `grafcet-${Date.now()}.svg`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' }), `grafcet-${Date.now()}.svg`)
     notify('Diagrama exportado em SVG')
   }
 
   const exportJson = () => {
     const data = JSON.stringify({ ...program, transitions }, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${(program.name ?? '').trim().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'grafcet-project'}-${Date.now()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(new Blob([data], { type: 'application/json' }), `${(program.name ?? '').trim().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'grafcet-project'}-${Date.now()}.json`)
     notify('Projeto GRAFCET exportado')
   }
 
