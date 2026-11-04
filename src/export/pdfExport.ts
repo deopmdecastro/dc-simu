@@ -387,10 +387,20 @@ function infoPage(doc: jsPDF, src: PdfProjectSource) {
   header(doc, 'Informações do projeto', src.projectName)
   let y = 92
   const line = (k: string, v: string) => {
+    const value = v.trim() || '—'
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(MUTED)
+    const lines = doc.splitTextToSize(value, CONTENT_W - 180) as string[]
+    const lineHeight = 13
+    const rowHeight = Math.max(24, lines.length * lineHeight + 10)
+    if (y + rowHeight > footerSafeY() - 12) {
+      doc.addPage()
+      header(doc, 'Informações do projeto', src.projectName)
+      y = 92
+    }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(INK); doc.text(k, MARGIN, y)
     doc.setFont('helvetica', 'normal'); doc.setTextColor(MUTED)
-    doc.text(doc.splitTextToSize(v, CONTENT_W - 180), MARGIN + 180, y)
-    y += 20 + (doc.getTextDimensions(v).h > 12 ? 10 : 0)
+    doc.text(lines, MARGIN + 180, y)
+    y += rowHeight
   }
   line('Projeto', src.projectName || '—')
   line('Data de exportação', shortDate())

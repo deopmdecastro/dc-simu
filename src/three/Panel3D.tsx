@@ -2437,7 +2437,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
           if (isWire) {
             box.expandByObject(o)
             scaled.push({ obj: o, sx: o.scale.x, sy: o.scale.y, sz: o.scale.z })
-            o.scale.set(o.scale.x * 1.2, o.scale.y * 1.2, o.scale.z * 1.2)
+            o.scale.set(o.scale.x * 1.45, o.scale.y * 1.45, o.scale.z * 1.45)
           }
         }
       })
@@ -2454,8 +2454,8 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
         cam.updateMatrixWorld()
         gl.render(scene, cam)
         const sw = src.width * fw, sh = src.height * fh
-        // ≤640 px e JPEG 0,72: capa legível no cartão sem inflar o JSON nem a memória.
-        const scale = Math.min(1, 640 / sw)
+        // Maior resolução e qualidade: preserva linhas finas dos cabos na capa e no PDF.
+        const scale = Math.min(1, 900 / sw)
         const out = document.createElement('canvas')
         out.width = Math.max(1, Math.round(sw * scale))
         out.height = Math.max(1, Math.round(sh * scale))
@@ -2464,7 +2464,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
         ctx.fillStyle = bg
         ctx.fillRect(0, 0, out.width, out.height)
         ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, out.width, out.height)
-        return out.toDataURL('image/jpeg', 0.72)
+        return out.toDataURL('image/jpeg', 0.84)
       } finally {
         scaled.forEach(({ obj, sx, sy, sz }) => obj.scale.set(sx, sy, sz))
         hidden.forEach((o) => { o.visible = true })
