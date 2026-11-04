@@ -69,4 +69,20 @@ check('tamanho acessório espiral', (() => {
   check('enclosureId atribuível', km.enclosureId === qe.id)
 }
 
+
+// --- Quadro e calha: corpos sólidos (obstáculos 3D) ---
+{
+  const qe = createComponent('panelEnclosure', 0, 0)
+  const ct = createComponent('cableDuct', 100, 0)
+  const piv = {
+    [qe.id]: new THREE.Vector3(0, 0, 0),
+    [ct.id]: new THREE.Vector3(2, 0, 0.3),
+  }
+  const boxes = componentObstacles([qe, ct], piv)
+  const wallCount = boxes.filter((b) => b.componentId === qe.id && b.hard).length
+  check('quadro gera paredes sólidas (hard)', wallCount >= 5)
+  const duct = boxes.find((b) => b.componentId === ct.id)
+  check('calha técnica é obstáculo hard (não rail)', !!duct && duct.hard === true && !duct.rail)
+}
+
 console.log(`wire-isolation-markers-lace-smoke: ${n} verificações OK`)

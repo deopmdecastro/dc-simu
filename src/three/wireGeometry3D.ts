@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { ElectricalComponent, SpatialPoint3D, Wire, WireColor, WireEndType } from '../types'
 import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM, isMountingRail } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from './panelBounds'
+import { enclosureDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, isCableDuctType, isEnclosureType, isSpiralWrapType } from './enclosureParts'
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
@@ -270,13 +271,58 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
 
 export type WireObstacle = THREE.Box3 & { hard?: boolean; rail?: boolean; componentId?: string }
 
+/**
+ * Paredes sólidas do quadro (cascas finas): o interior fica livre para cabos e
+ * aparelhos; as chapas (fundo, laterais, topo, base e porta fechada) bloqueiam.
+ */
+function enclosureWallObstacles(component: ElectricalComponent, pivot: THREE.Vector3): WireObstacle[] {
+  const d = enclosureDimsOf(component.state)
+  const sheet = ENCLOSURE.sheet * U
+  const halfW = (d.widthMm * U) / 2
+  const halfH = (d.heightMm * U) / 2
+  const depth = d.depthMm * U
+  // Pivô do quadro: centro do armário; face da chapa de montagem alinhada ao painel.
+  // Referencial local: X largura, Y altura, Z profundidade (0 = parede do fundo no corpo).
+  const plateFrontLocalZ = ENCLOSURE_PLATE_FRONT_MM * U
+  const backZ = pivot.z - plateFrontLocalZ
+  const frontZ = backZ + depth
+  const cx = pivot.x
+  const cy = pivot.y
+  const walls: Array<[number, number, number, number, number, number]> = [
+    // fundo (back)
+    [cx - halfW, cx + halfW, cy - halfH, cy + halfH, backZ, backZ + sheet],
+    // laterais
+    [cx - halfW, cx - halfW + sheet, cy - halfH, cy + halfH, backZ, frontZ],
+    [cx + halfW - sheet, cx + halfW, cy - halfH, cy + halfH, backZ, frontZ],
+    // topo e base
+    [cx - halfW, cx + halfW, cy + halfH - sheet, cy + halfH, backZ, frontZ],
+    [cx - halfW, cx + halfW, cy - halfH, cy - halfH + sheet, backZ, frontZ],
+  ]
+  // Porta fechada = parede frontal sólida (quando aberta, os cabos saem pela frente).
+  if (component.state.doorOpen === false) {
+    walls.push([cx - halfW, cx + halfW, cy - halfH, cy + halfH, frontZ - sheet, frontZ])
+  }
+  return walls.map(([minX, maxX, minY, maxY, minZ, maxZ]) => {
+    const box: WireObstacle = new THREE.Box3(
+      new THREE.Vector3(minX, minY, minZ),
+      new THREE.Vector3(maxX, maxY, maxZ),
+    )
+    box.componentId = component.id
+    box.hard = true
+    return box
+  })
+}
+
 export function componentObstacles(components: ElectricalComponent[], pivots: Record<string, THREE.Vector3>): WireObstacle[] {
   const boxes: WireObstacle[] = []
   for (const component of components) {
     const pivot = pivots[component.id]
     if (!pivot) continue
-    // O quadro envolve tudo: as paredes não são obstáculo para os cabos interiores.
-    if (component.type === 'panelEnclosure') continue
+    // Quadro: cascas sólidas (paredes); o volume interior continua livre.
+    if (isEnclosureType(component.type)) {
+      boxes.push(...enclosureWallObstacles(component, pivot))
+      continue
+    }
     const half = componentHalfExtents(component)
     let box: WireObstacle = new THREE.Box3(
       new THREE.Vector3(pivot.x - half.x, pivot.y - half.y, pivot.z - half.z),
@@ -292,8 +338,10 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
       box = new OrientedWireBox(new THREE.Box3(new THREE.Vector3(MOTOR_CAD.minX, MOTOR_CAD.minY, MOTOR_CAD.minZ), new THREE.Vector3(MOTOR_CAD.maxX, MOTOR_CAD.maxY, MOTOR_CAD.maxZ)), transform)
     }
     box.componentId = component.id
-    // Calhas DIN e calhas técnicas: os cabos passam por cima/por dentro.
-    if (isMountingRail(component.type) || component.type === 'cableDuct') box.rail = true
+    // Calha DIN: os cabos passam por cima (perfil aberto). Calha técnica e espiral
+    // são corpos sólidos — os cabos contornam, não atravessam o PVC.
+    if (isMountingRail(component.type)) box.rail = true
+    if (isCableDuctType(component.type) || isSpiralWrapType(component.type)) box.hard = true
     if (!isPanelBound(component)) box.hard = true
     boxes.push(box)
   }

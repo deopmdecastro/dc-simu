@@ -22,8 +22,21 @@ export function componentBounds2D(component: ElectricalComponent, x = component.
 }
 
 function isIntentionalMountingOverlap(a: ElectricalComponent, b: ElectricalComponent): boolean {
-  // O quadro contém tudo; calhas técnicas encontram-se em T/cruz nos cantos.
-  if (a.type === 'panelEnclosure' || b.type === 'panelEnclosure') return true
+  // Quadro no Esquema 2D: a moldura desenha o armário; o interior é a chapa de
+  // montagem — aparelhos, calhas e acessórios podem sobrepor o footprint do quadro
+  // quando estão associados (`enclosureId`) ou são suporte mecânico. O volume 3D
+  // das paredes continua sólido (obstáculos em wireGeometry3D).
+  if (a.type === 'panelEnclosure' || b.type === 'panelEnclosure') {
+    const enclosure = a.type === 'panelEnclosure' ? a : b
+    const other = a.type === 'panelEnclosure' ? b : a
+    if (other.type === 'panelEnclosure') return true
+    if (other.enclosureId === enclosure.id) return true
+    if (other.type === 'cableDuct' || other.type === 'spiralWrap' || isDinRail(other)) return true
+    // Compatibilidade: projetos sem enclosureId ainda montam aparelhos «dentro» do desenho.
+    return true
+  }
+  // Calhas técnicas: encontros em T/cruz nos cantos; o corpo da calha é sólido
+  // face a aparelhos (não atravessam o PVC).
   if (a.type === 'cableDuct' && b.type === 'cableDuct') return true
   // Só equipamentos próprios para calha DIN podem sobrepor o seu suporte; duas
   // calhas e componentes de montagem em chapa continuam a ser objetos físicos.
