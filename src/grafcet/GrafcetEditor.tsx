@@ -6190,7 +6190,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
             onChange={({ x, y }) => { setZoom(scale); setPan({ x: -x * scale, y: -y * scale }) }} />}
 
           {/* Minimapa: visão geral clicável/arrastável do diagrama */}
-          {full && minimapOn && steps.length > 0 && !wireDraft && !diagramFitsView && (
+          {full && minimapOn && steps.length > 0 && !wireDraft && (
             <GrafcetMinimap
               width={width}
               height={height}

@@ -85,7 +85,7 @@ export function useShortcutsRequest(view: ShortcutView, open: () => void) {
    Enquadrar a vista e a seleção viviam em botões flutuantes sobre o canvas.
    Passaram para a barra: a barra pede, o editor montado executa.
 */
-export type CanvasAction = 'fit' | 'focusSelection' | 'addNote' | 'addText'
+export type CanvasAction = 'fit' | 'focusSelection' | 'addNote' | 'addText' | 'toggleMinimap'
 
 const CANVAS_EVENT = 'dcsimu:canvas-action'
 

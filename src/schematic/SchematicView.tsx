@@ -23,6 +23,7 @@ import { wireEndScale, wireStrokeWidth } from './wireMetrics'
 import { wireGeometry, wireGeometryForWire, pointAtFraction, tangentAtFraction, subpathBetween, type Pt } from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
+import EditorMinimap from '../ui/EditorMinimap'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { EDITOR_GRID_DOT_RADIUS, EDITOR_THEME, editorGridPitch } from '../ui/editorTheme'
 import Panel3D from '../three/Panel3D'
@@ -435,6 +436,13 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   })))
 
   const svgRef = useRef<SVGSVGElement>(null)
+
+  const [minimapOn, setMinimapOn] = useState(() => {
+    try { return localStorage.getItem('dcsimu:schematic:minimap') !== '0' } catch { return true }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('dcsimu:schematic:minimap', minimapOn ? '1' : '0') } catch { /* private */ }
+  }, [minimapOn])
   const pinchRef = useRef<{ distance: number; zoom: number; worldX: number; worldY: number } | null>(null)
   const [drag, setDrag] = useState<{ ids: string[]; startX: number; startY: number; orig: Record<string, { x: number; y: number }>; committed?: boolean } | null>(null)
   const [wireFrom, setWireFrom] = useState<string | null>(null)
@@ -494,6 +502,40 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     }
   }
 
+
+  const contentBounds = useMemo(() => {
+    const points: Pt[] = []
+    components.forEach((component) => {
+      points.push(
+        { x: component.schematicX, y: component.schematicY },
+        { x: component.schematicX + component.w, y: component.schematicY + component.h },
+      )
+    })
+    wires.forEach((wire) => {
+      if (wire.fromPoint) points.push(wire.fromPoint)
+      if (wire.toPoint) points.push(wire.toPoint)
+      points.push(...(wire.waypoints ?? []))
+    })
+    if (!points.length) return { x: 0, y: 0, w: 800, h: 600 }
+    const minX = Math.min(...points.map((point) => point.x)) - 40
+    const minY = Math.min(...points.map((point) => point.y)) - 40
+    const maxX = Math.max(...points.map((point) => point.x)) + 40
+    const maxY = Math.max(...points.map((point) => point.y)) + 40
+    return { x: minX, y: minY, w: Math.max(120, maxX - minX), h: Math.max(90, maxY - minY) }
+  }, [components, wires])
+
+  const viewportSize = useMemo(() => {
+    const svg = svgRef.current
+    const vw = svg?.clientWidth || 800
+    const vh = svg?.clientHeight || 600
+    return {
+      x: -panX / zoom,
+      y: -panY / zoom,
+      w: vw / zoom,
+      h: vh / zoom,
+    }
+  }, [panX, panY, zoom, components.length, wires.length])
+
   /** Enquadra todo o conteúdo sem alterar posições, ligações ou dados elétricos. */
   const fitContent = useCallback(() => {
     const svg = svgRef.current
@@ -540,7 +582,10 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       : tool === 'erase' ? 'Apagar: clique no que quer remover · Ctrl+Z desfaz'
       : 'Mover vista: arraste o desenho')
   }, [gridDragEnabled, tool, setCanvasHint])
-  useCanvasAction((action) => { if (action === 'fit') fitContent() })
+  useCanvasAction((action) => {
+    if (action === 'fit') fitContent()
+    if (action === 'toggleMinimap') setMinimapOn((value) => !value)
+  })
 
   // ---------------------------------------------------------------- teclado
   useEffect(() => {
@@ -1660,6 +1705,25 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
            )}
          </g>
       </svg>
+      {minimapOn && components.length + wires.length > 0 && !isTilted && (
+        <EditorMinimap
+          width={contentBounds.w}
+          height={contentBounds.h}
+          originX={contentBounds.x}
+          originY={contentBounds.y}
+          sourceSvgRef={svgRef}
+          view={viewportSize}
+          stripViewTransform
+          title="Esquema IEC"
+          className="schematic-minimap"
+          onNavigate={(wx, wy) => {
+            const svg = svgRef.current
+            if (!svg) return
+            setPan(svg.clientWidth / 2 - wx * zoom, svg.clientHeight / 2 - wy * zoom)
+          }}
+        />
+      )}
+
 
       {/* banner do modo de posicionamento */}
       {placingType && (
