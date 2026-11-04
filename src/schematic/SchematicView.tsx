@@ -449,7 +449,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [freeStart, setFreeStart] = useState<Pt | null>(null)
   const [activeWireId, setActiveWireId] = useState<string | null>(null)
   const [draftPoints, setDraftPoints] = useState<Pt[]>([])
-  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number; additive: boolean } | null>(null)
   const [panning, setPanning] = useState<{ sx: number; sy: number; px: number; py: number } | null>(null)
   const [hoverTerminal, setHoverTerminal] = useState<string | null>(null)
   /** cadeia de bornes selecionados com shift+clique (ligação inteligente) */
@@ -576,7 +576,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   useEffect(() => {
     setCanvasHint(gridDragEnabled ? 'Arrastar malha: o desenho desloca-se sem mudar a ferramenta'
-      : tool === 'select' ? 'Selecionar: arraste para mover · shift+clique seleciona vários'
+      : tool === 'select' ? 'Selecionar: arraste para mover · Ctrl/Shift+clique adiciona · laço com Ctrl acumula'
       : tool === 'wire' ? 'Cabo: cada clique prolonga o traço · Esc termina · shift+clique liga em cadeia'
       : tool === 'probe' ? 'Sonda: escolha os dois bornes para medir'
       : tool === 'erase' ? 'Apagar: clique no que quer remover · Ctrl+Z desfaz'
@@ -723,8 +723,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     if (e.button === 2 && tool === 'wire') return
     if (tool === 'select' && simRunState === 'stopped') {
       const p = toCanvas(e.clientX, e.clientY)
-      setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
-      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) selectComponents([])
+      const additiveMarquee = e.shiftKey || e.ctrlKey || e.metaKey
+      setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y, additive: additiveMarquee })
+      if (!additiveMarquee) selectComponents([])
     }
     if (tool === 'wire' && e.button === 0 && simRunState === 'stopped') {
       const p = toCanvas(e.clientX, e.clientY)
@@ -889,8 +890,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       const x1 = Math.max(marquee.x0, marquee.x1)
       const y0 = Math.min(marquee.y0, marquee.y1)
       const y1 = Math.max(marquee.y0, marquee.y1)
-      const hit = components.filter((c) => c.schematicX < x1 && c.schematicX + c.w > x0 && c.schematicY < y1 && c.schematicY + c.h > y0)
-      if (hit.length) selectComponents(hit.map((c) => c.id))
+      const hit = components.filter((comp) => comp.schematicX < x1 && comp.schematicX + comp.w > x0 && comp.schematicY < y1 && comp.schematicY + comp.h > y0)
+      if (hit.length) selectComponents(hit.map((comp) => comp.id), marquee.additive)
+      else if (!marquee.additive && Math.hypot(marquee.x1 - marquee.x0, marquee.y1 - marquee.y0) > 2) selectComponents([])
     }
     if (railResize) setRailResize(null)
     if (drag?.committed && grid.railMagnet !== false) {
@@ -961,11 +963,21 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     releaseTypingFocus()
     e.stopPropagation()
     const p = toCanvas(e.clientX, e.clientY)
-    // Ctrl ou Shift + clique acrescenta à seleção (igual em todos os editores).
+    // Ctrl / Cmd / Shift + clique: acrescenta ou retira da seleção (sem iniciar arrasto).
     const additive = e.shiftKey || e.ctrlKey || e.metaKey
-    const ids = selectedIds.includes(c.id) ? selectedIds : [c.id]
-    if (!selectedIds.includes(c.id)) selectComponents(ids, additive)
-    else if (additive) { selectComponents(selectedIds.filter((id) => id !== c.id)); return }
+    if (additive) {
+      if (selectedIds.includes(c.id)) {
+        selectComponents(selectedIds.filter((id) => id !== c.id))
+      } else {
+        selectComponents([c.id], true)
+      }
+      return
+    }
+    // Clique simples: seleciona só este (ou mantém o grupo se já fazia parte) e prepara arrasto.
+    const ids = selectedIds.includes(c.id) && selectedIds.length > 1 ? selectedIds : [c.id]
+    if (!(selectedIds.length === 1 && selectedIds[0] === c.id)) {
+      selectComponents(ids)
+    }
     const orig: Record<string, { x: number; y: number }> = {}
     for (const id of ids) {
       const comp = components.find((x) => x.id === id)
