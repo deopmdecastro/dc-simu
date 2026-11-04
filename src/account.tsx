@@ -41,7 +41,17 @@ async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
 
 export default function Account() {
   const [user, setUser] = useState<User | null>(null)
-  useEffect(() => { setViewer(user ? { id: user.id, name: user.name || user.email } : null) }, [user])
+  useEffect(() => {
+    setViewer(user ? {
+      id: user.id,
+      name: user.name || user.email,
+      jobTitle: user.jobTitle,
+      institution: user.institution,
+      institutionKind: user.institutionKind,
+      customLogo: user.customLogo,
+      plan: user.plan ?? null,
+    } : null)
+  }, [user])
   const [ready, setReady] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -66,7 +76,16 @@ export default function Account() {
   const [commentCount, setCommentCount] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    name: '',
+    jobTitle: '',
+    institution: '',
+    institutionKind: '' as '' | 'school' | 'work' | 'own',
+    confirmPassword: '',
+  })
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const editorDirty = useSimStore((state) => state.dirty)
   const diagnostics = useSimStore((state) => state.sim.diagnostics)
   const notificationErrors = diagnostics.filter((entry) => entry.level === 'error').length
@@ -200,11 +219,33 @@ export default function Account() {
     setBusy(true)
     setMessage('')
     try {
-      const response = await api<{ user: User }>('/login', 'POST', form)
-      setUser(response.user)
-      setPage('dashboard')
-      setForm({ email: '', password: '' })
-      await refresh()
+      if (authMode === 'register') {
+        if (form.password !== form.confirmPassword) throw new Error('As palavras-passe não coincidem.')
+        if (form.password.length < 8) throw new Error('A palavra-passe deve ter pelo menos 8 caracteres.')
+        if (!form.name.trim() || form.name.trim().length < 2) throw new Error('Indique o seu nome (mínimo 2 caracteres).')
+        if (!form.jobTitle.trim()) throw new Error('Indique a sua função ou cargo.')
+        if (!form.institutionKind) throw new Error('Escolha o tipo de instituição.')
+        if (!form.institution.trim()) throw new Error('Indique a instituição (escola, empresa ou projeto).')
+        const response = await api<{ user: User }>('/register', 'POST', {
+          email: form.email.trim(),
+          password: form.password,
+          name: form.name.trim(),
+          jobTitle: form.jobTitle.trim(),
+          institution: form.institution.trim(),
+          institutionKind: form.institutionKind,
+        })
+        setUser(response.user)
+        setPage('dashboard')
+        setForm({ email: '', password: '', name: '', jobTitle: '', institution: '', institutionKind: '', confirmPassword: '' })
+        setMessage('Conta criada. Bem-vindo ao DC-Simu.')
+        await refresh()
+      } else {
+        const response = await api<{ user: User }>('/login', 'POST', { email: form.email, password: form.password })
+        setUser(response.user)
+        setPage('dashboard')
+        setForm({ email: '', password: '', name: '', jobTitle: '', institution: '', institutionKind: '', confirmPassword: '' })
+        await refresh()
+      }
     } catch (value) {
       error(value)
     } finally {
@@ -402,7 +443,7 @@ export default function Account() {
       onProjects={() => setPage('dashboard')} onAdmin={() => setPage('admin')}
       onContribute={() => setPage('contribute')} onAccount={() => void openAccount()} onInvites={() => void openInvitations()}
       onLogout={() => void logout()} />}
-    {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} />}
+    {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} mode={authMode} setMode={setAuthMode} />}
     {page === 'admin' && user?.role === 'admin' && <Suspense fallback={<RouteLoading label={loadingLabel} />}><AdminPanel currentUser={user} invites={invites} onLogout={() => void logout()} onBack={() => setPage('dashboard')} /></Suspense>}
     {page === 'contribute' && user && <Suspense fallback={<RouteLoading label={loadingLabel} />}><ContributorPanel user={user} onBack={() => setPage('dashboard')} /></Suspense>}
     {page === 'account' && user && <Suspense fallback={<RouteLoading label={loadingLabel} />}><AccountPage user={user} ownedProjects={projects.filter((project) => project.role === 'owner').length} onUser={setUser} onBack={() => setPage('dashboard')} /></Suspense>}
@@ -423,7 +464,169 @@ function pageLoadingLabel(page: AppPage): string {
   }
 }
 
-function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHome }: {
+function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHome, mode, setMode }: {
+  form: {
+    email: string
+    password: string
+    name: string
+    jobTitle: string
+    institution: string
+    institutionKind: '' | 'school' | 'work' | 'own'
+    confirmPassword: string
+  }
+  setForm: (form: {
+    email: string
+    password: string
+    name: string
+    jobTitle: string
+    institution: string
+    institutionKind: '' | 'school' | 'work' | 'own'
+    confirmPassword: string
+  }) => void
+  busy: boolean
+  message: string
+  clearMessage: () => void
+  onSubmit: (event: React.FormEvent) => void
+  onHome: () => void
+  mode: 'login' | 'register'
+  setMode: (mode: 'login' | 'register') => void
+}) {
+  const [show, setShow] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const canFocus = typeof window !== 'undefined' && window.matchMedia('(hover:hover)').matches
+  const isRegister = mode === 'register'
+
+  const strength = (() => {
+    const p = form.password
+    if (!p) return 0
+    let s = 0
+    if (p.length >= 8) s++
+    if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++
+    if (/\d/.test(p) || /[^A-Za-z0-9]/.test(p)) s++
+    return s
+  })()
+  const strengthLabel = strength === 0 ? '' : strength === 1 ? 'Fraca' : strength === 2 ? 'Média' : 'Forte'
+
+  const institutionPlaceholder =
+    form.institutionKind === 'school' ? 'Ex.: Escola Secundária / ISEL'
+    : form.institutionKind === 'work' ? 'Ex.: Empresa de automação'
+    : form.institutionKind === 'own' ? 'Ex.: Projeto pessoal / portfolio'
+    : 'Nome da escola, empresa ou projeto'
+
+  return <div className="dx dx-auth">
+    <aside className="dx-auth-side">
+      <button className="dx-auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo /></button>
+      <div className="dx-auth-pitch">
+        <h2>{isRegister ? <>Crie a sua conta<br /><em>e comece a simular.</em></> : <>Retome o trabalho<br /><em>onde o deixou.</em></>}</h2>
+        <p>{isRegister
+          ? 'Indique a função e a instituição — a esquadria dos PDFs preenche-se automaticamente. Pode alterar estes dados a qualquer momento na conta.'
+          : 'O esquema, a lógica Ladder e o painel 3D ficam guardados neste navegador ou na nuvem, conforme a configuração.'}</p>
+        <ul>
+          <li style={{ '--i': 0 } as React.CSSProperties}><i aria-hidden><IconSchematic size={16} /></i>Esquema elétrico com bornes e cabos reais</li>
+          <li style={{ '--i': 1 } as React.CSSProperties}><i aria-hidden><IconLadder size={16} /></i>Ladder com simulação do scan do PLC</li>
+          <li style={{ '--i': 2 } as React.CSSProperties}><i aria-hidden><IconCube size={16} /></i>Visualização 3D sincronizada com o projeto</li>
+          <li style={{ '--i': 3 } as React.CSSProperties}><i aria-hidden><IconProjects size={16} /></i>Projetos, partilha e esquadria com os seus dados</li>
+        </ul>
+      </div>
+      <div className="dx-auth-status"><span className="dx-auth-run"><IconLock size={14} />Dados de perfil editáveis na área da conta.</span></div>
+    </aside>
+    <section className="dx-auth-main"><div className="dx-auth-panel">
+      <div className="dx-auth-mobile">
+        <button onClick={onHome} aria-label="Voltar ao início"><Logo /></button>
+        <button onClick={onHome}><IconArrowLeft size={12} /> Início</button>
+      </div>
+      <button className="dx-auth-back" onClick={onHome}><IconArrowLeft size={12} /> Voltar ao início</button>
+      <span className="dx-over"><i />A sua área de trabalho</span>
+      <h1>{isRegister ? 'Criar conta' : 'Bem-vindo de volta'}</h1>
+      <p className="dx-auth-sub">{isRegister
+        ? 'Preencha os dados. Função e instituição alimentam a esquadria dos desenhos.'
+        : 'Entre com o e-mail e a palavra-passe da sua conta.'}</p>
+
+      <div className="dx-auth-tabs" role="tablist" aria-label="Modo de acesso">
+        <button type="button" role="tab" aria-selected={!isRegister} className={!isRegister ? 'is-active' : ''} onClick={() => { clearMessage(); setMode('login') }}>Entrar</button>
+        <button type="button" role="tab" aria-selected={isRegister} className={isRegister ? 'is-active' : ''} onClick={() => { clearMessage(); setMode('register') }}>Criar conta</button>
+      </div>
+
+      {message && <div className="dx-alert" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso"><IconClose size={11} /></button></div>}
+      <form onSubmit={onSubmit} noValidate={false}>
+        {isRegister && (
+          <label className="dx-field"><span className="dx-label">Nome</span>
+            <input className="dx-input" required type="text" autoComplete="name" placeholder="O seu nome" maxLength={80}
+              value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+          </label>
+        )}
+        <label className="dx-field"><span className="dx-label">Email</span>
+          <input className="dx-input" required type="email" autoFocus={canFocus && !isRegister} autoComplete="username" placeholder="nome@empresa.pt"
+            value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+        </label>
+        <label className="dx-field"><span className="dx-label">Palavra-passe</span>
+          <div className="dx-auth-pw">
+            <input className="dx-input" required type={show ? 'text' : 'password'} autoComplete={isRegister ? 'new-password' : 'current-password'}
+              placeholder={isRegister ? 'Mínimo 8 caracteres' : 'A sua palavra-passe'}
+              value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+            <button type="button" onClick={() => setShow(!show)} aria-pressed={show}>{show ? 'Ocultar' : 'Mostrar'}</button>
+          </div>
+          {isRegister && form.password && (
+            <div className={`dx-auth-meter s${strength}`} aria-live="polite">
+              <div><i /><i /><i /></div>
+              <small>Força: {strengthLabel}</small>
+            </div>
+          )}
+        </label>
+        {isRegister && (
+          <>
+            <label className="dx-field"><span className="dx-label">Confirmar palavra-passe</span>
+              <div className="dx-auth-pw">
+                <input className="dx-input" required type={showConfirm ? 'text' : 'password'} autoComplete="new-password"
+                  placeholder="Repita a palavra-passe" value={form.confirmPassword}
+                  onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })} />
+                <button type="button" onClick={() => setShowConfirm(!showConfirm)} aria-pressed={showConfirm}>{showConfirm ? 'Ocultar' : 'Mostrar'}</button>
+              </div>
+            </label>
+            <label className="dx-field"><span className="dx-label">Função ou cargo</span>
+              <input className="dx-input" required type="text" maxLength={80} placeholder="Ex.: Projetista, Formador, Estudante"
+                value={form.jobTitle} onChange={(event) => setForm({ ...form, jobTitle: event.target.value })} />
+              <small className="dx-field-hint">Aparece na esquadria dos PDFs como «Função».</small>
+            </label>
+            <fieldset className="dx-field dx-auth-kind">
+              <legend className="dx-label">Instituição</legend>
+              <div className="dx-auth-kind-options" role="radiogroup" aria-label="Tipo de instituição">
+                {([
+                  ['school', 'Escola'],
+                  ['work', 'Trabalho'],
+                  ['own', 'Projeto próprio'],
+                ] as const).map(([value, label]) => (
+                  <label key={value} className={form.institutionKind === value ? 'is-active' : ''}>
+                    <input type="radio" name="institutionKind" value={value} checked={form.institutionKind === value}
+                      onChange={() => setForm({ ...form, institutionKind: value })} required />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+              <input className="dx-input" required type="text" maxLength={120} placeholder={institutionPlaceholder}
+                value={form.institution} onChange={(event) => setForm({ ...form, institution: event.target.value })}
+                style={{ marginTop: 10 }} />
+              <small className="dx-field-hint">Preenche o campo «Empresa / marca» na esquadria. Pode mudar depois na conta.</small>
+            </fieldset>
+          </>
+        )}
+        <button className="dx-btn dx-btn-primary dx-btn-lg" style={{ width: '100%' }} disabled={busy}>
+          {busy
+            ? <><span className="dx-spin" aria-hidden />Aguarde…</>
+            : isRegister
+              ? <>Criar conta<IconArrowRight size={16} className="dx-arrow" /></>
+              : <>Entrar<IconArrowRight size={16} className="dx-arrow" /></>}
+        </button>
+      </form>
+      <p className="dx-auth-switch">
+        {isRegister
+          ? <>Já tem conta? <button type="button" onClick={() => { clearMessage(); setMode('login') }}>Entrar</button></>
+          : <>Ainda não tem conta? <button type="button" onClick={() => { clearMessage(); setMode('register') }}>Criar conta</button></>}
+      </p>
+    </div></section>
+  </div>
+}
+: {
   form: { email: string; password: string }
   setForm: (form: { email: string; password: string }) => void
   busy: boolean

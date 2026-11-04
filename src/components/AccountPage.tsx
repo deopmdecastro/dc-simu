@@ -40,18 +40,35 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
   const [email, setEmail] = useState(user.email)
   const [currentPassword, setCurrentPassword] = useState('')
   const [avatar, setAvatar] = useState<string | null>(user.avatar ?? null)
-  const [busy, setBusy] = useState<'profile' | 'avatar' | null>(null)
+  const [jobTitle, setJobTitle] = useState(user.jobTitle ?? '')
+  const [institution, setInstitution] = useState(user.institution ?? '')
+  const [institutionKind, setInstitutionKind] = useState<'school' | 'work' | 'own' | ''>(user.institutionKind ?? '')
+  const [customLogo, setCustomLogo] = useState<string | null>(user.customLogo ?? null)
+  const [busy, setBusy] = useState<'profile' | 'avatar' | 'logo' | null>(null)
+  const logoRef = useRef<HTMLInputElement>(null)
   const [profileNotice, setProfileNotice] = useState<Notice | null>(null)
   const [avatarNotice, setAvatarNotice] = useState<Notice | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { setName(user.name); setEmail(user.email); setAvatar(user.avatar ?? null) }, [user.name, user.email, user.avatar])
+  useEffect(() => {
+    setName(user.name)
+    setEmail(user.email)
+    setAvatar(user.avatar ?? null)
+    setJobTitle(user.jobTitle ?? '')
+    setInstitution(user.institution ?? '')
+    setInstitutionKind(user.institutionKind ?? '')
+    setCustomLogo(user.customLogo ?? null)
+  }, [user.name, user.email, user.avatar, user.jobTitle, user.institution, user.institutionKind, user.customLogo])
 
   const emailChanged = email.trim().toLowerCase() !== user.email.toLowerCase()
   const nameChanged = name.trim() !== user.name
+  const jobChanged = jobTitle.trim() !== (user.jobTitle ?? '')
+  const institutionChanged = institution.trim() !== (user.institution ?? '')
+  const kindChanged = (institutionKind || null) !== (user.institutionKind ?? null)
   const needsPassword = emailChanged && backend === 'server'
-  const dirty = nameChanged || emailChanged
+  const dirty = nameChanged || emailChanged || jobChanged || institutionChanged || kindChanged
+  const canCustomLogo = user.role === 'admin' || (user.plan != null && user.plan !== 'free')
   const planNote = useMemo(() => user.role === 'admin'
     ? 'As contas de administrador não têm plano: gerem os planos dos outros utilizadores na Administração.'
     : null, [user.role])
@@ -64,6 +81,9 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
       const body: Record<string, unknown> = {}
       if (nameChanged) body.name = name.trim()
       if (emailChanged) { body.email = email.trim(); if (needsPassword) body.currentPassword = currentPassword }
+      if (jobChanged) body.jobTitle = jobTitle.trim() || null
+      if (institutionChanged) body.institution = institution.trim() || null
+      if (kindChanged) body.institutionKind = institutionKind || null
       const result = await accountApi<{ user: User; emailPending?: boolean }>('/account/profile', 'PATCH', body)
       onUser({ ...user, ...result.user })
       setCurrentPassword('')
@@ -127,13 +147,29 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
           {fixedLocal && <small className="acp-hint">As contas locais são fixas: o e-mail só muda com o servidor ou o Supabase ligados.</small>}
           {backend === 'supabase' && emailChanged && <small className="acp-hint">O Supabase envia uma ligação de confirmação para o novo e-mail.</small>}
         </label>
+        <label className="acp-field"><span>Função ou cargo</span>
+          <input className="dx-input" type="text" value={jobTitle} maxLength={80} placeholder="Ex.: Projetista, Formador, Estudante" onChange={(event) => setJobTitle(event.target.value)} />
+          <small className="acp-hint">Usado na esquadria dos PDFs («Função»).</small>
+        </label>
+        <label className="acp-field"><span>Tipo de instituição</span>
+          <select className="dx-input" value={institutionKind} onChange={(event) => setInstitutionKind(event.target.value as 'school' | 'work' | 'own' | '')}>
+            <option value="">— escolher —</option>
+            <option value="school">Escola</option>
+            <option value="work">Trabalho</option>
+            <option value="own">Projeto próprio</option>
+          </select>
+        </label>
+        <label className="acp-field"><span>Instituição</span>
+          <input className="dx-input" type="text" value={institution} maxLength={120} placeholder="Nome da escola, empresa ou projeto" onChange={(event) => setInstitution(event.target.value)} />
+          <small className="acp-hint">Preenche «Empresa / marca» na esquadria.</small>
+        </label>
         {needsPassword && <label className="acp-field"><span>Palavra-passe atual</span>
           <input className="dx-input" type="password" value={currentPassword} required maxLength={200} autoComplete="current-password" onChange={(event) => setCurrentPassword(event.target.value)} />
           <small className="acp-hint">Obrigatória para mudar o e-mail, que é a credencial de acesso.</small>
         </label>}
         <div className="acp-actions">
           <button type="submit" className="dx-btn dx-btn-primary" disabled={!dirty || busy !== null}>{busy === 'profile' ? 'A guardar…' : 'Guardar alterações'}</button>
-          {dirty && <button type="button" className="dx-btn dx-btn-ghost" onClick={() => { setName(user.name); setEmail(user.email); setCurrentPassword('') }}>Repor</button>}
+          {dirty && <button type="button" className="dx-btn dx-btn-ghost" onClick={() => { setName(user.name); setEmail(user.email); setCurrentPassword(''); setJobTitle(user.jobTitle ?? ''); setInstitution(user.institution ?? ''); setInstitutionKind(user.institutionKind ?? '') }}>Repor</button>}
         </div>
         {profileNotice && <p className={`acp-notice ${profileNotice.kind === 'error' ? 'is-error' : ''}`} role={profileNotice.kind === 'error' ? 'alert' : 'status'}>{profileNotice.text}</p>}
       </form>
@@ -145,6 +181,48 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
           <button type="button" className="dx-btn dx-btn-secondary" disabled={fixedLocal} onClick={() => setShowPassword(true)}><IconKey size={13} />Alterar palavra-passe</button>
         </div>
         {fixedLocal && <small className="acp-hint">Requer o servidor ou o Supabase ligados.</small>}
+      </section>
+
+      <section className="acp-card" aria-labelledby="acp-logo-h">
+        <h2 id="acp-logo-h"><IconIdCard size={14} />Logótipo da esquadria</h2>
+        <p className="acp-text">Nos planos pagos pode substituir o símbolo DC-Simu pelo logótipo da sua instituição na esquadria dos PDFs.</p>
+        {!canCustomLogo && <small className="acp-hint">Disponível nos planos Pro, Escola e Empresa.</small>}
+        {canCustomLogo && (
+          <div className="acp-actions" style={{ alignItems: 'center', gap: 12 }}>
+            {customLogo
+              ? <img src={customLogo} alt="Logótipo atual" width={48} height={48} style={{ borderRadius: 8, objectFit: 'contain', border: '1px solid var(--dx-line)' }} />
+              : <span className="acp-hint">Sem logótipo personalizado — usa o símbolo DC-Simu.</span>}
+            <input ref={logoRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ''
+              if (!file) return
+              setBusy('logo'); setProfileNotice(null)
+              try {
+                const dataUrl = await resizeAvatar(file, 96, 12_000)
+                const result = await accountApi<{ user: User }>('/account/profile', 'PATCH', { customLogo: dataUrl })
+                setCustomLogo(result.user.customLogo ?? dataUrl)
+                onUser({ ...user, ...result.user })
+                setProfileNotice({ kind: 'ok', text: 'Logótipo da esquadria atualizado.' })
+              } catch (error) {
+                setProfileNotice({ kind: 'error', text: error instanceof Error ? error.message : 'Não foi possível guardar o logótipo.' })
+              } finally { setBusy(null) }
+            }} />
+            <button type="button" className="dx-btn dx-btn-secondary" disabled={busy !== null} onClick={() => logoRef.current?.click()}>
+              {busy === 'logo' ? 'A carregar…' : customLogo ? 'Substituir logótipo' : 'Carregar logótipo'}
+            </button>
+            {customLogo && <button type="button" className="dx-btn dx-btn-ghost" disabled={busy !== null} onClick={async () => {
+              setBusy('logo'); setProfileNotice(null)
+              try {
+                const result = await accountApi<{ user: User }>('/account/profile', 'PATCH', { customLogo: null })
+                setCustomLogo(null)
+                onUser({ ...user, ...result.user, customLogo: null })
+                setProfileNotice({ kind: 'ok', text: 'Logótipo personalizado removido.' })
+              } catch (error) {
+                setProfileNotice({ kind: 'error', text: error instanceof Error ? error.message : 'Não foi possível remover o logótipo.' })
+              } finally { setBusy(null) }
+            }}>Remover</button>}
+          </div>
+        )}
       </section>
 
       <section className="acp-card acp-plan" aria-labelledby="acp-plan-h">

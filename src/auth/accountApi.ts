@@ -265,10 +265,14 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   // 1. Registo de nova conta
   if (url === '/register') {
     if (isSupabaseConfigured()) {
-      const payload = (body ?? {}) as { email?: string; password?: string; name?: string }
+      const payload = (body ?? {}) as { email?: string; password?: string; name?: string; jobTitle?: string; institution?: string; institutionKind?: 'school' | 'work' | 'own' }
       if (payload.email && payload.password) {
         mode = 'supabase'
-        return (await supabaseRegister(payload.email, payload.password, payload.name || 'Utilizador')) as T
+        return (await supabaseRegister(payload.email, payload.password, payload.name || 'Utilizador', {
+          jobTitle: payload.jobTitle,
+          institution: payload.institution,
+          institutionKind: payload.institutionKind,
+        })) as T
       }
     }
     if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
@@ -443,7 +447,15 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   if (url === '/account/profile' && verb === 'PATCH') {
     if (mode === 'server') return serverApi<T>(url, verb, body)
     if (mode === 'supabase') {
-      const result = await supabaseUpdateProfile((body ?? {}) as { name?: string; email?: string; avatar?: string | null })
+      const result = await supabaseUpdateProfile((body ?? {}) as {
+        name?: string
+        email?: string
+        avatar?: string | null
+        jobTitle?: string | null
+        institution?: string | null
+        institutionKind?: 'school' | 'work' | 'own' | null
+        customLogo?: string | null
+      })
       return { user: result.user, emailPending: result.emailPending } as T
     }
     return localApi<T>(url, verb, body)

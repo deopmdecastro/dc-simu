@@ -682,6 +682,8 @@ export interface CanvasNote {
   messages?: CanvasNoteMessage[]
   resolved?: boolean
   createdAt: string
+  /** Imagem anexada à nota (data URL JPEG/PNG). */
+  image?: string | null
 }
 
 /** Família tipográfica dos textos livres (mapeada para pilhas de fontes do sistema/app). */

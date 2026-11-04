@@ -83,8 +83,24 @@ export async function supabaseChangePassword(password: string): Promise<void> {
   if (error) throw new Error(error.message || 'Não foi possível alterar a palavra-passe no Supabase.')
 }
 
+function userFromAuth(authUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }, role: User['role']): User {
+  const metadata = authUser.user_metadata ?? {}
+  const kind = metadata.institutionKind
+  return {
+    id: authUser.id,
+    email: authUser.email ?? '',
+    name: (metadata.name as string) || authUser.email?.split('@')[0] || 'Utilizador',
+    role,
+    avatar: typeof metadata.avatar === 'string' ? metadata.avatar : null,
+    jobTitle: typeof metadata.jobTitle === 'string' ? metadata.jobTitle : null,
+    institution: typeof metadata.institution === 'string' ? metadata.institution : null,
+    institutionKind: kind === 'school' || kind === 'work' || kind === 'own' ? kind : null,
+    customLogo: typeof metadata.customLogo === 'string' ? metadata.customLogo : null,
+  }
+}
+
 /** Atualiza nome, avatar e/ou e-mail da conta Supabase. O e-mail novo pode exigir confirmação por ligação. */
-export async function supabaseUpdateProfile(change: { name?: string; email?: string; avatar?: string | null }): Promise<{ user: User; emailPending: boolean }> {
+export async function supabaseUpdateProfile(change: { name?: string; email?: string; avatar?: string | null; jobTitle?: string | null; institution?: string | null; institutionKind?: 'school' | 'work' | 'own' | null; customLogo?: string | null }): Promise<{ user: User; emailPending: boolean }> {
   const client = clientOrThrow()
   const { data: current } = await client.auth.getUser()
   if (!current.user) throw new Error('Inicie sessão')
@@ -95,19 +111,20 @@ export async function supabaseUpdateProfile(change: { name?: string; email?: str
     if (change.avatar !== null && (!/^data:image\/(png|jpe?g|webp);base64,/.test(change.avatar) || change.avatar.length > 12_000)) throw new Error('Imagem demasiado grande para o Supabase (máx. 12 KB; use a fotografia reduzida pela aplicação).')
     data.avatar = change.avatar
   }
+  if (change.jobTitle !== undefined) data.jobTitle = change.jobTitle
+  if (change.institution !== undefined) data.institution = change.institution
+  if (change.institutionKind !== undefined) data.institutionKind = change.institutionKind
+  if (change.customLogo !== undefined) {
+    if (change.customLogo !== null && (!/^data:image\/(png|jpe?g|webp);base64,/.test(change.customLogo) || change.customLogo.length > 12_000)) throw new Error('Logótipo demasiado grande para o Supabase (máx. 12 KB).')
+    data.customLogo = change.customLogo
+  }
   const emailChanged = !!change.email && change.email !== current.user.email
   const { data: updated, error } = await client.auth.updateUser({ ...(emailChanged ? { email: change.email } : {}), ...(Object.keys(data).length ? { data } : {}) })
   if (error || !updated.user) throw new Error(error?.message || 'Não foi possível atualizar a conta no Supabase.')
   const metadata = updated.user.user_metadata ?? {}
   return {
     emailPending: emailChanged && updated.user.email !== change.email,
-    user: {
-      id: updated.user.id,
-      email: updated.user.email ?? '',
-      name: (metadata.name as string) || updated.user.email?.split('@')[0] || 'Utilizador',
-      role: await resolveRole(updated.user.id),
-      avatar: typeof metadata.avatar === 'string' ? metadata.avatar : null,
-    },
+    user: userFromAuth(updated.user, await resolveRole(updated.user.id)),
   }
 }
 
@@ -120,19 +137,11 @@ export async function supabaseLogin(email: string, password: string): Promise<{ 
     throw new Error(error?.message || 'Falha ao autenticar no Supabase.')
   }
 
-  const metadata = data.user.user_metadata ?? {}
   const role = await resolveRole(data.user.id)
-  const name = (metadata.name as string) || data.user.email?.split('@')[0] || 'Utilizador'
   void touchLogin()
 
   return {
-    user: {
-      id: data.user.id,
-      email: data.user.email ?? '',
-      name,
-      role,
-      avatar: typeof metadata.avatar === 'string' ? metadata.avatar : null,
-    },
+    user: userFromAuth(data.user, role),
   }
 }
 
@@ -161,14 +170,14 @@ export async function supabaseEnsureAccount(email: string, password: string, nam
 }
 
 /** Registo de nova conta no Supabase */
-export async function supabaseRegister(email: string, password: string, name: string): Promise<{ user: User }> {
+export async function supabaseRegister(email: string, password: string, name: string, extra?: { jobTitle?: string; institution?: string; institutionKind?: 'school' | 'work' | 'own' }): Promise<{ user: User }> {
   const client = clientOrThrow()
 
   const { data, error } = await client.auth.signUp({
     email,
     password,
     options: {
-      data: { name },
+      data: { name, ...(extra?.jobTitle ? { jobTitle: extra.jobTitle } : {}), ...(extra?.institution ? { institution: extra.institution } : {}), ...(extra?.institutionKind ? { institutionKind: extra.institutionKind } : {}) },
     },
   })
 
@@ -177,12 +186,7 @@ export async function supabaseRegister(email: string, password: string, name: st
   }
 
   return {
-    user: {
-      id: data.user.id,
-      email: data.user.email ?? '',
-      name,
-      role: 'user',
-    },
+    user: userFromAuth(data.user, 'user'),
   }
 }
 

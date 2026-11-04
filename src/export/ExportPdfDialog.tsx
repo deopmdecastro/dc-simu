@@ -12,6 +12,7 @@ import {
 } from './pdfExport'
 import { captureGrafcetChart, captureIecPages, captureLadderRungs } from './realCapture'
 import { pagesOf, partsOnPage } from '../commands/pages'
+import { getViewer } from '../auth/viewer'
 
 const saveBlob = (blob: Blob, name: string) => {
   const url = URL.createObjectURL(blob)
@@ -70,7 +71,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
   // Fonte atual do projeto: lida na abertura (o diálogo não acompanha edições a meio).
   if (open && !opts) {
     const s = useSimStore.getState()
-    setOpts(defaultPdfOptions({
+    const base = defaultPdfOptions({
       projectName: s.currentProjectName ?? 'Projeto sem nome',
       ladder: s.ladder.rungs,
       fcBlocks: s.fcBlocks,
@@ -82,7 +83,27 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
       components: s.components,
       wires: s.wires,
       iec: iecSheetsOf(s.commands),
-    }))
+    })
+    const viewer = getViewer()
+    const company = (viewer.institution || '').trim()
+    const author = (viewer.name || '').trim()
+    const role = (viewer.jobTitle || '').trim()
+    setOpts({
+      ...base,
+      titleBlock: {
+        ...base.titleBlock,
+        company: company || base.titleBlock.company,
+        companyLine: company
+          ? (viewer.institutionKind === 'school' ? 'Instituição de ensino'
+            : viewer.institutionKind === 'work' ? 'Empresa'
+            : viewer.institutionKind === 'own' ? 'Projeto próprio'
+            : base.titleBlock.companyLine)
+          : base.titleBlock.companyLine,
+        author: author || base.titleBlock.author,
+        role: role || base.titleBlock.role,
+        customLogo: viewer.customLogo || null,
+      },
+    })
     setExpanded(null)
     setTbOpen(false)
     setNotice('')

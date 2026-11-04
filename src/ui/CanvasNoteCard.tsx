@@ -69,6 +69,22 @@ export function CanvasNoteCard({ note, open, readOnly, onToggle, onDragStart, wa
           onChange={(event) => setTitle(event.target.value)} onBlur={commitTitle} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commitTitle(); draftRef.current?.focus() } }} aria-label="Título do comentário" />
         {!readOnly && <>
           <button type="button" className="cnote-icon" aria-pressed={palette} onClick={() => setPalette((value) => !value)} title="Cor da nota" aria-label="Cor da nota"><IconPalette size={12} /></button>
+          <label className="cnote-icon" title="Anexar imagem" aria-label="Anexar imagem" style={{ cursor: 'pointer', display: 'inline-grid', placeItems: 'center' }}>
+            <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ''
+              if (!file || !file.type.startsWith('image/')) return
+              if (file.size > 2 * 1024 * 1024) { await uiConfirm('A imagem deve ter no máximo 2 MB.'); return }
+              const reader = new FileReader()
+              reader.onload = () => {
+                const dataUrl = String(reader.result || '')
+                if (!dataUrl.startsWith('data:image/')) return
+                update(note.id, { image: dataUrl })
+              }
+              reader.readAsDataURL(file)
+            }} />
+            <span aria-hidden style={{ fontSize: 11, fontWeight: 700 }}>IMG</span>
+          </label>
           <button type="button" className={`cnote-icon${note.resolved ? ' is-on' : ''}`} aria-pressed={!!note.resolved} onClick={() => update(note.id, { resolved: !note.resolved })} title={note.resolved ? 'Reabrir' : 'Marcar como resolvido'} aria-label={note.resolved ? 'Reabrir' : 'Marcar como resolvido'}><IconCheck size={12} /></button>
           <button type="button" className="cnote-icon is-danger" onClick={() => void destroy()} title="Eliminar comentário" aria-label="Eliminar comentário"><IconDelete size={12} /></button>
         </>}
@@ -92,6 +108,10 @@ export function CanvasNoteCard({ note, open, readOnly, onToggle, onDragStart, wa
           </li>
         })}
       </ol>
+      {note.image && <div className="cnote-image">
+        <img src={note.image} alt="Imagem anexada" />
+        {!readOnly && <button type="button" className="cnote-icon is-danger" title="Remover imagem" aria-label="Remover imagem" onClick={() => update(note.id, { image: null })}><IconDelete size={12} /></button>}
+      </div>}
       {!readOnly && <form className="cnote-compose" onSubmit={(event) => { event.preventDefault(); send() }}>
         <textarea ref={draftRef} value={draft} rows={2} maxLength={1000} placeholder={messages.length ? 'Responder… (Ctrl+Enter)' : 'Mensagem… (Ctrl+Enter)'}
           onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); send() } }} aria-label="Nova mensagem" />

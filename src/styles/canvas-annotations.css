@@ -209,3 +209,28 @@
   .grafcet-textbar-slot { top: 6px; left: 6px; right: 6px; }
   .txb:not(.is-compact) button { height: 38px; min-width: 38px; }
 }
+
+
+/* Imagem anexada a uma nota do canvas */
+.cnote-image {
+  position: relative;
+  margin: 6px 10px 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+  background: #0f172a0a;
+}
+.cnote-image img {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  background: #fff;
+}
+.cnote-image .cnote-icon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}

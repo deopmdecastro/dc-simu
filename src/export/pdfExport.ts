@@ -36,6 +36,8 @@ export interface PdfTitleBlock {
   enabled: boolean
   /** Mostra o símbolo DC-Simu na célula da empresa. */
   logo: boolean
+  /** Logótipo personalizado (data URL). Tem prioridade sobre o símbolo DC-Simu quando presente. */
+  customLogo?: string | null
   company: string
   companyLine: string
   author: string
@@ -250,7 +252,13 @@ function drawTitleBlock(doc: jsPDF, tb: PdfTitleBlock, pageIndex: number, pageCo
   // Empresa
   const showLogo = tb.logo !== false
   const textX = x0 + (showLogo ? 31 : 4)
-  if (showLogo) drawLogo(doc, x0 + 5, y0 + 4, 22, false)
+  if (showLogo) {
+    if (tb.customLogo) {
+      try { doc.addImage(tb.customLogo, 'JPEG', x0 + 5, y0 + 4, 22, 22) } catch { drawLogo(doc, x0 + 5, y0 + 4, 22, false) }
+    } else {
+      drawLogo(doc, x0 + 5, y0 + 4, 22, false)
+    }
+  }
   doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
   doc.text(doc.splitTextToSize(tb.company || 'DC-Simu', c1 - (textX - x0) - 4).slice(0, 1), textX, y0 + 19)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(MUTED)

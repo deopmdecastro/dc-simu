@@ -1546,6 +1546,103 @@ button.dx-notification-item:hover {
   font-size: 11.5px;
   color: var(--dx-ink-3);
 }
+
+.dx-auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0 0 var(--dx-4);
+  padding: 4px;
+  border-radius: var(--dx-r);
+  background: var(--dx-bg-sunken);
+  border: 1px solid var(--dx-line-soft);
+}
+.dx-auth-tabs button {
+  border: 0;
+  border-radius: var(--dx-r-sm);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--dx-ink-3);
+  transition: background var(--dx-fast), color var(--dx-fast), box-shadow var(--dx-fast);
+}
+.dx-auth-tabs button.is-active {
+  background: var(--dx-surface);
+  color: var(--dx-brand);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.dx-auth-tabs button:hover:not(.is-active) {
+  color: var(--dx-ink-2);
+}
+.dx-auth-kind {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.dx-auth-kind legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+.dx-auth-kind-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.dx-auth-kind-options label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border-radius: var(--dx-r-sm);
+  border: 1px solid var(--dx-line);
+  background: var(--dx-surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dx-ink-2);
+  cursor: pointer;
+  transition: border-color var(--dx-fast), background var(--dx-fast), color var(--dx-fast);
+}
+.dx-auth-kind-options label input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.dx-auth-kind-options label.is-active {
+  border-color: var(--dx-brand);
+  background: var(--dx-brand-soft);
+  color: var(--dx-brand);
+}
+.dx-auth-kind-options label:hover {
+  border-color: var(--dx-brand-line);
+}
+.dx-field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--dx-ink-3);
+  line-height: 1.4;
+}
+.dx-auth-switch button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  color: var(--dx-brand);
+}
+.dx-auth-switch button:hover {
+  text-decoration: underline;
+}
+@media (max-width: 720px) {
+  .dx-auth-kind-options {
+    grid-template-columns: 1fr;
+  }
+}
 .dx-auth-switch {
   margin: var(--dx-5) 0 0;
   text-align: center;

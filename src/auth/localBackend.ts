@@ -79,7 +79,14 @@ function contributionCount() {
 const LOCAL_ONLY = 'Esta operação só está disponível quando a aplicação corre com o servidor (Docker/SQLite). Sem servidor existem apenas as duas contas fixas.'
 
 const PROFILE_KEY = 'dcsimu:account:profile:v1'
-type LocalProfile = { name?: string; avatar?: string | null }
+type LocalProfile = {
+  name?: string
+  avatar?: string | null
+  jobTitle?: string | null
+  institution?: string | null
+  institutionKind?: 'school' | 'work' | 'own' | null
+  customLogo?: string | null
+}
 
 function readProfiles(): Record<string, LocalProfile> {
   try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}') as Record<string, LocalProfile> } catch { return {} }
@@ -97,6 +104,22 @@ export function updateLocalProfile(userId: string, change: LocalProfile): User {
     next.name = name
   }
   if (change.avatar !== undefined) next.avatar = change.avatar
+  if (change.jobTitle !== undefined) {
+    const job = (change.jobTitle ?? '').trim().replace(/\s+/g, ' ')
+    if (job.length > 80) throw new Error('A função deve ter no máximo 80 caracteres')
+    next.jobTitle = job || null
+  }
+  if (change.institution !== undefined) {
+    const inst = (change.institution ?? '').trim().replace(/\s+/g, ' ')
+    if (inst.length > 120) throw new Error('A instituição deve ter no máximo 120 caracteres')
+    next.institution = inst || null
+  }
+  if (change.institutionKind !== undefined) {
+    const kind = change.institutionKind
+    if (kind !== null && kind !== 'school' && kind !== 'work' && kind !== 'own') throw new Error('Tipo de instituição inválido')
+    next.institutionKind = kind
+  }
+  if (change.customLogo !== undefined) next.customLogo = change.customLogo
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify({ ...all, [userId]: next })) } catch { throw new Error('Não foi possível guardar neste navegador. Verifique o espaço disponível.') }
   return publicUser(account)
 }
@@ -104,7 +127,19 @@ export function updateLocalProfile(userId: string, change: LocalProfile): User {
 function publicUser(account: Account): User {
   const record = localPlanRecord(account.id)
   const profile = readProfiles()[account.id] ?? {}
-  return { id: account.id, name: profile.name || account.name, email: account.email, role: account.role, avatar: profile.avatar ?? null, plan: record.plan, planExpiresAt: record.planExpiresAt }
+  return {
+    id: account.id,
+    name: profile.name || account.name,
+    email: account.email,
+    role: account.role,
+    avatar: profile.avatar ?? null,
+    plan: record.plan,
+    planExpiresAt: record.planExpiresAt,
+    jobTitle: profile.jobTitle ?? null,
+    institution: profile.institution ?? null,
+    institutionKind: profile.institutionKind ?? null,
+    customLogo: profile.customLogo ?? null,
+  }
 }
 
 function accountById(id: string) {
@@ -384,9 +419,24 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (url === '/me' && verb === 'GET') return { user: requireSession() } as T
   if (url === '/account/profile' && verb === 'PATCH') {
     const current = requireSession()
-    const change = (body ?? {}) as { name?: string; email?: string; avatar?: string | null }
+    const change = (body ?? {}) as {
+      name?: string
+      email?: string
+      avatar?: string | null
+      jobTitle?: string | null
+      institution?: string | null
+      institutionKind?: 'school' | 'work' | 'own' | null
+      customLogo?: string | null
+    }
     if (change.email !== undefined && change.email.trim().toLowerCase() !== current.email) throw new Error('As contas locais são fixas: o e-mail só muda com o servidor ou o Supabase ligados.')
-    const user = updateLocalProfile(current.id, { name: change.name, avatar: change.avatar })
+    const user = updateLocalProfile(current.id, {
+      name: change.name,
+      avatar: change.avatar,
+      jobTitle: change.jobTitle,
+      institution: change.institution,
+      institutionKind: change.institutionKind,
+      customLogo: change.customLogo,
+    })
     recordLocalAudit(user, 'user.profile.self', { type: 'user', id: user.id, label: user.email }, 'Atualizou o perfil local')
     return { user } as T
   }
