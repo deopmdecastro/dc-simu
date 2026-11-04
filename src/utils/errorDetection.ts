@@ -4,7 +4,7 @@ import { terminalClassesCompatible, terminalElectricalClassOf } from '../electri
 import { computePhaseLabels, type PhaseTag } from '../electrical/phases'
 import { mountBridges, MOUNT_PASS_THROUGH } from '../three/thermalMount'
 
-const isSupport = (type: string) => /^dinRail|rail|busbar|barra|mountingPlate|cableDuct|calha/i.test(type)
+const isSupport = (type: string) => /^dinRail|rail|busbar|barra|mountingPlate|cableDuct|calha|panelEnclosure/i.test(type)
 
 let counter = 0
 const id = () => `diag-${++counter}`

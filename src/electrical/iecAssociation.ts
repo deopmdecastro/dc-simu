@@ -113,6 +113,8 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   terminalPhoenixPti6: { primary: 'node', iec60617: '60617-3', refLetter: 'X' },
   terminalPE: { primary: 'node', iec60617: '60617-3 / 03-01-01', refLetter: 'X', note: 'Borne PE' },
   dinRail15x55: { iec60617: 'perfil DIN (não é símbolo de circuito)', refLetter: '', note: 'Elemento mecânico de montagem' },
+  panelEnclosure: { iec60617: 'invólucro (IEC 61439 / EN 62208, não é símbolo de circuito)', refLetter: '', note: 'Quadro metálico com porta e chapa de montagem' },
+  cableDuct: { iec60617: 'calha técnica (não é símbolo de circuito)', refLetter: '', note: 'Canal de cablagem com tampa' },
   busbarPhase: { primary: 'node', iec60617: '60617-3 / barramento', refLetter: 'X' },
   busbarNeutral: { primary: 'node', iec60617: '60617-3', refLetter: 'N' },
   earthBar: { primary: 'node', iec60617: '60617-2 / 02-15-03', refLetter: 'PE' },

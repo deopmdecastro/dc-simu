@@ -22,6 +22,9 @@ export function componentBounds2D(component: ElectricalComponent, x = component.
 }
 
 function isIntentionalMountingOverlap(a: ElectricalComponent, b: ElectricalComponent): boolean {
+  // O quadro contém tudo; calhas técnicas encontram-se em T/cruz nos cantos.
+  if (a.type === 'panelEnclosure' || b.type === 'panelEnclosure') return true
+  if (a.type === 'cableDuct' && b.type === 'cableDuct') return true
   // Só equipamentos próprios para calha DIN podem sobrepor o seu suporte; duas
   // calhas e componentes de montagem em chapa continuam a ser objetos físicos.
   if (isDinRail(a) !== isDinRail(b)) {

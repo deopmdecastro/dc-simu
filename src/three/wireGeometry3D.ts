@@ -275,6 +275,8 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
   for (const component of components) {
     const pivot = pivots[component.id]
     if (!pivot) continue
+    // O quadro envolve tudo: as paredes não são obstáculo para os cabos interiores.
+    if (component.type === 'panelEnclosure') continue
     const half = componentHalfExtents(component)
     let box: WireObstacle = new THREE.Box3(
       new THREE.Vector3(pivot.x - half.x, pivot.y - half.y, pivot.z - half.z),
@@ -290,7 +292,8 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
       box = new OrientedWireBox(new THREE.Box3(new THREE.Vector3(MOTOR_CAD.minX, MOTOR_CAD.minY, MOTOR_CAD.minZ), new THREE.Vector3(MOTOR_CAD.maxX, MOTOR_CAD.maxY, MOTOR_CAD.maxZ)), transform)
     }
     box.componentId = component.id
-    if (isMountingRail(component.type)) box.rail = true
+    // Calhas DIN e calhas técnicas: os cabos passam por cima/por dentro.
+    if (isMountingRail(component.type) || component.type === 'cableDuct') box.rail = true
     if (!isPanelBound(component)) box.hard = true
     boxes.push(box)
   }

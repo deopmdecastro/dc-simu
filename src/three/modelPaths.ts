@@ -36,6 +36,9 @@ export const MODEL_PATHS = {
   powerSource24v: '/models/bornes-e-barras/conjunto-bornes-24v.glb',
   terminalPE: '/models/bornes-e-barras/terminal-pe.glb',
   dinRail15x55: '/models/bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb',
+  /** Pré-visualização (miniatura) — no Painel 3D o quadro e a calha técnica são paramétricos (scripts/build-enclosure-glb.ts). */
+  panelEnclosure: '/models/quadros/quadro-metalico-600x800x250.glb',
+  cableDuct: '/models/quadros/calha-tecnica-40x60-600.glb',
   motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
   /** Duplicado do DRN80MK4-B3 com a carcaça azul (scripts/make-motor-mono-glb.mjs): motor monofásico. */
   motorSewDrn80Mk4B3Mono: '/models/motores/DRN80MK4-B3-mono-azul.glb',
@@ -46,7 +49,8 @@ export const MODEL_PATHS = {
 } as const
 
 /** `rail`: a própria calha — não é montada numa calha, monta-se diretamente na chapa. */
-export type ComponentPlacement = 'din-rail' | 'panel-front' | 'machine' | 'rail'
+/** `accessory`: quadro e calha técnica — peças mecânicas paramétricas, sem bornes. */
+export type ComponentPlacement = 'din-rail' | 'panel-front' | 'machine' | 'rail' | 'accessory'
 
 export interface PhysicalSizeMm {
   /** Dimensões da apresentação frontal padrão, depois de aplicada a rotação base. */
@@ -107,6 +111,10 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   terminalPE: { width: 5.15, height: 48.6, depth: 35.25 },
   /** 1 m por omissão; o comprimento real vem de `state.lengthMm`. */
   dinRail15x55: { width: 1000, height: 15, depth: 5.5 },
+  /** Miniatura (porta fechada: 250 mm de corpo + porta e fechos); o tamanho real vem de `state.widthMm/heightMm/depthMm`. */
+  panelEnclosure: { width: 600, height: 800, depth: 282 },
+  /** Tamanho por omissão; o real vem de `state.lengthMm/widthMm/heightMm`. */
+  cableDuct: { width: 600, height: 40, depth: 62 },
   motor3ph: { width: 264, height: 208, depth: 156 },
   /** Mesmo envelope do SEW DRN80 — variante monofásica azul DC-Simu. */
   motor1ph: { width: 264, height: 208, depth: 156 },
@@ -210,6 +218,8 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   powerSource24v: spec('powerSource24v', MODEL_PATHS.powerSource24v, [0, 0, 0], 'din-rail'),
   terminalPE: spec('terminalPE', MODEL_PATHS.terminalPE, [Math.PI / 2, 0, 0], 'din-rail'),
   dinRail15x55: spec('dinRail15x55', MODEL_PATHS.dinRail15x55, [0, 0, 0], 'rail'),
+  panelEnclosure: spec('panelEnclosure', MODEL_PATHS.panelEnclosure, [0, 0, 0], 'accessory'),
+  cableDuct: spec('cableDuct', MODEL_PATHS.cableDuct, [0, 0, 0], 'accessory'),
 
   motor3ph: spec('motor3ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
   motor1ph: spec('motor1ph', MODEL_PATHS.motorSewDrn80Mk4B3Mono, [0, 0, 0], 'machine'),

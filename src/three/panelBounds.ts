@@ -31,6 +31,8 @@ export function panelLimits(plateWidth: number): PanelLimits {
 
 /** Máquinas externas (motores) não vivem dentro do painel. */
 export function isPanelBound(component: ElectricalComponent): boolean {
+  // O quadro envolve a chapa: não conta para o tamanho da chapa nem é um obstáculo nela.
+  if (component.type === 'panelEnclosure') return false
   return getComponentModelSpec(component.type)?.placement !== 'machine'
     && component.type !== 'motor3ph' && component.type !== 'motor1ph'
 }

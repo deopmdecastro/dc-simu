@@ -212,3 +212,59 @@ export function cableSheath(repeat: [number, number] = [40, 1]): MapSet {
   cache.set(key, set)
   return set
 }
+
+/** Pintura epóxi-poliéster texturada (casca de laranja) dos armários: base neutra, a cor vem do material. */
+export function powderCoat(repeat: [number, number] = [1, 1]): MapSet {
+  const key = `powder-${repeat.join('x')}`
+  const hit = cache.get(key)
+  if (hit) return hit
+  const size = 256
+  const base = canvas(size), bump = canvas(size), rough = canvas(size)
+  const b = base.getContext('2d')!, u = bump.getContext('2d')!, r = rough.getContext('2d')!
+  const rand = rng(91)
+  b.fillStyle = '#f4f4f2'; b.fillRect(0, 0, size, size)
+  u.fillStyle = '#808080'; u.fillRect(0, 0, size, size)
+  r.fillStyle = '#9a9a9a'; r.fillRect(0, 0, size, size)
+  // casca de laranja: muitas gotas suaves sobrepostas, repetidas nas bordas para o padrão não ter costura
+  for (let i = 0; i < 2600; i++) {
+    const x = rand() * size, y = rand() * size, rad = 1.5 + rand() * 4.5
+    const light = rand() > 0.5
+    for (const [ox, oy] of [[0, 0], [size, 0], [-size, 0], [0, size], [0, -size]]) {
+      const g = u.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, rad)
+      g.addColorStop(0, light ? 'rgba(200,200,200,0.35)' : 'rgba(60,60,60,0.35)')
+      g.addColorStop(1, 'rgba(128,128,128,0)')
+      u.fillStyle = g; u.beginPath(); u.arc(x + ox, y + oy, rad, 0, Math.PI * 2); u.fill()
+    }
+  }
+  noiseLayer(b, size, 6, 92)
+  noiseLayer(r, size, 18, 93)
+  const set = { map: toTexture(base, repeat, true), bump: toTexture(bump, repeat), rough: toTexture(rough, repeat) }
+  cache.set(key, set)
+  return set
+}
+
+/** PVC rígido fosco (calhas técnicas): grão fino e leves marcas de extrusão no comprimento. */
+export function pvcMatte(repeat: [number, number] = [1, 1]): MapSet {
+  const key = `pvc-${repeat.join('x')}`
+  const hit = cache.get(key)
+  if (hit) return hit
+  const size = 256
+  const base = canvas(size), bump = canvas(size), rough = canvas(size)
+  const b = base.getContext('2d')!, u = bump.getContext('2d')!, r = rough.getContext('2d')!
+  const rand = rng(57)
+  b.fillStyle = '#f2f2f0'; b.fillRect(0, 0, size, size)
+  u.fillStyle = '#808080'; u.fillRect(0, 0, size, size)
+  r.fillStyle = '#b4b4b4'; r.fillRect(0, 0, size, size)
+  for (let i = 0; i < 160; i++) {
+    const y = rand() * size
+    u.strokeStyle = rand() > 0.5 ? 'rgba(150,150,150,0.25)' : 'rgba(105,105,105,0.25)'
+    u.lineWidth = 0.6 + rand()
+    u.beginPath(); u.moveTo(0, y); u.lineTo(size, y); u.stroke()
+  }
+  noiseLayer(b, size, 5, 58)
+  noiseLayer(u, size, 22, 59)
+  noiseLayer(r, size, 14, 60)
+  const set = { map: toTexture(base, repeat, true), bump: toTexture(bump, repeat), rough: toTexture(rough, repeat) }
+  cache.set(key, set)
+  return set
+}

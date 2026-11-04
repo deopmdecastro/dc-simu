@@ -585,7 +585,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   const physical = getComponentPhysicalSizeMm(type) ?? { width: Math.max(8, Math.round(tpl.w / 1.5)), height: Math.max(8, Math.round(tpl.h / 1.5)), depth: 45 }
   const base = defaultDefinition()
   const material = defaultMaterial('Plástico', '#cbd5e1')
-  const def: ComponentDefinition = { ...base, mount: spec?.placement === 'rail' ? 'din-rail' : spec?.placement && spec.placement !== 'din-rail' ? spec.placement : MOUNT[tpl.category] ?? 'din-rail', materials: [material], parts: [], terminals: [], assets: {} }
+  const def: ComponentDefinition = { ...base, mount: spec?.placement === 'rail' ? 'din-rail' : spec?.placement === 'accessory' ? 'machine' : spec?.placement && spec.placement !== 'din-rail' ? spec.placement : MOUNT[tpl.category] ?? 'din-rail', materials: [material], parts: [], terminals: [], assets: {} }
   const cache: GlbCache = new Map()
   let usedModel = false
   let usedComposite = false

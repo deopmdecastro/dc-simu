@@ -888,6 +888,16 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [],
     defaultState: { lengthMm: 1000, profile: '15×5,5 mm', finish: 'Aço galvanizado', perforated: true },
   },
+  panelEnclosure: {
+    category: 'terminal', paletteName: 'Quadro metálico com porta (IP66) · chapa de montagem', group: 'Quadros e calhas', tag: 'QE', w: 900, h: 1200,
+    terminals: [],
+    defaultState: { widthMm: 600, heightMm: 800, depthMm: 250, doorOpen: true, hingeSide: 'left', plateFinish: 'Aço galvanizado' },
+  },
+  cableDuct: {
+    category: 'terminal', paletteName: 'Calha técnica ranhurada com tampa (PVC)', group: 'Quadros e calhas', tag: 'CT', w: 900, h: 60,
+    terminals: [],
+    defaultState: { lengthMm: 600, widthMm: 40, heightMm: 60, coverOn: true },
+  },
   busbarPhase: {
     category: 'terminal', paletteName: 'Barramento de fases L1/L2/L3', group: 'Bornes e barras', tag: 'BL', w: 220, h: 50,
     terminals: [

@@ -27,7 +27,9 @@ import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireE
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
 import { canInsertComponent3D, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
-import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
+import { clampRailLengthMm, DIN_RAIL_15X55, dinRailProfileOf, railSlotCount } from '../three/dinRailGeometry'
+import { CableDuctControls, DinRailProfileControls, EnclosureControls, PANEL_ACCESSORY_STATE_KEYS, RAIL_PROFILE_STATE_KEYS } from './PanelAccessoryControls'
+import { isPanelAccessoryType } from '../three/enclosureParts'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
@@ -587,6 +589,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 const attached = components.filter((item) => item.railId === selectedComponent.id)
                 const magnet = grid.railMagnet !== false
                 return <div className="dc-rail-length">
+                  <DinRailProfileControls c={selectedComponent} />
                   <label className={label}>Comprimento da calha (mm)</label>
                   <div className="dc-rail-length-row">
                     <input type="number" className="dc-input" min={DIN_RAIL_15X55.minLengthMm} max={DIN_RAIL_15X55.maxLengthMm} step={5} value={length} onChange={(e) => setLength(Number(e.target.value))} />
@@ -607,9 +610,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     <button className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromRail(attached.map((item) => item.id))}>Soltar todos</button>
                   </div>
                   <small className="text-ink-400">{attached.length ? `${attached.length} equipamento(s) fixo(s): ${attached.map((item) => item.ref).join(', ')}. ` : 'Sem equipamentos fixos. '}Arraste as pontas da calha no Esquema 2D para alterar o comprimento.</small>
-                  <small className="text-ink-400">Perfil 15 × 5,5 mm · {railSlotCount(length)} furos oblongos (passo {DIN_RAIL_15X55.slotPitch} mm) · {DIN_RAIL_15X55.minLengthMm}–{DIN_RAIL_15X55.maxLengthMm} mm</small>
+                  <small className="text-ink-400">Perfil {dinRailProfileOf(selectedComponent.state).width} × {String(dinRailProfileOf(selectedComponent.state).height).replace('.', ',')} mm · {selectedComponent.state.perforated === false ? 'sem furos' : `${railSlotCount(length, dinRailProfileOf(selectedComponent.state))} furos oblongos (passo ${DIN_RAIL_15X55.slotPitch} mm)`} · {DIN_RAIL_15X55.minLengthMm}–{DIN_RAIL_15X55.maxLengthMm} mm</small>
                 </div>
               })()}
+
+              {selectedComponent.type === 'panelEnclosure' && <EnclosureControls c={selectedComponent} />}
+              {selectedComponent.type === 'cableDuct' && <CableDuctControls c={selectedComponent} />}
 
               {isRailMountable(selectedComponent) && (() => {
                 const rail = components.find((item) => item.id === selectedComponent.railId)
@@ -647,7 +653,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body dc-inspector-state-list">
                 {importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && <ThermalRelayControls component={selectedComponent} />}
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
-                  if (isMountingRail(selectedComponent.type) && k === 'lengthMm') return null
+                  if (isMountingRail(selectedComponent.type) && (k === 'lengthMm' || RAIL_PROFILE_STATE_KEYS.has(k))) return null
+                  if (isPanelAccessoryType(selectedComponent.type) && PANEL_ACCESSORY_STATE_KEYS.has(k)) return null
                   if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes') return null
                   // Não oferecer checkboxes que contornem a retenção de TEST ou o modo manual.
                   if (importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && ['testPressed', 'stopPressed', 'tripped', 'manual'].includes(k)) return null

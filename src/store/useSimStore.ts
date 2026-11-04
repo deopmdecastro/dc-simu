@@ -88,6 +88,7 @@ import { componentPositionIsFree, nearestFreeComponentPosition, resolveComponent
 import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
 import { setStoredCover } from '../three/coverCapture'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, nextComponentHistory, previousComponentRevision, upgradeComponentEditorMetadata } from '../three/componentRevisions'
+import { isPanelAccessoryType } from '../three/enclosureParts'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -2034,6 +2035,8 @@ export const useSimStore = create<Store>((set, get) => {
         delete safePatch.h
         delete safePatch.rotation
         if (isDinRail(current) && (patch.w !== undefined || patch.schematicX !== undefined)) delete safePatch.state
+        // Quadro/calha técnica: as medidas (mm) só mudam com o footprint, nunca uma sem a outra.
+        if (isPanelAccessoryType(current.type) && (patch.w !== undefined || patch.h !== undefined)) delete safePatch.state
         get().pushEvent('warning', `${current.ref} manteve a geometria anterior para não entrar noutro componente.`)
       }
     }

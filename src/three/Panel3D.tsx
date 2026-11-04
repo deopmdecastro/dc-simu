@@ -41,7 +41,10 @@ import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDi
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { hasPlcLamps, lampScenePosition, plcLamps } from './plcStatusLights'
 import { mountDepthOffset } from './thermalMount'
-import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
+import { buildDinRailGroup, clampRailLengthMm, DIN_RAIL_15X55, DIN_RAIL_FINISHES, dinRailProfileOf } from './dinRailGeometry'
+import { applyWorldUv, ENCLOSURE_PLATE_FRONT_MM, isPanelAccessoryType } from './enclosureParts'
+import { CableDuct3D, Enclosure3D } from './PanelAccessories3D'
+import { galvanizedSteel } from './proceduralTextures'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
 import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
@@ -71,7 +74,22 @@ const PANEL_FLOOR_Y = -2.6
 /** Margem (1 = 100 mm) da chapa à volta do equipamento. */
 const PLATE_MARGIN = 0.6
 /** A calha assenta na chapa (mesma cota para todas as calhas). */
-const RAIL_FLUSH_Z = PLATE_Z + PLATE_THICKNESS / 2 + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM
+/** Face da chapa de montagem: plano onde assentam calhas DIN, calhas técnicas e a chapa do quadro. */
+const PLATE_FRONT_Z = PLATE_Z + PLATE_THICKNESS / 2
+/** Centro (Z) de uma calha DIN conforme o perfil (15 × 5,5, 35 × 7,5 ou 35 × 15). */
+const railCenterZ = (rail: ElectricalComponent) => PLATE_FRONT_Z + (dinRailProfileOf(rail.state).height / 2) * PANEL_UNITS_PER_MM
+/** Altura (mm) da calha onde o aparelho está fixo — os aparelhos assentam na face do perfil. */
+const mountedRailHeightMm = (component: ElectricalComponent, components: ElectricalComponent[]) => {
+  const rail = component.railId ? components.find((item) => item.id === component.railId && isMountingRail(item.type)) : undefined
+  return rail ? dinRailProfileOf(rail.state).height : DIN_RAIL_15X55.height
+}
+
+/** Material da calha DIN: zinco real (textura) tingido pelo acabamento escolhido. */
+function railMaterial(finishId: unknown) {
+  const finish = DIN_RAIL_FINISHES[typeof finishId === 'string' ? finishId : ''] ?? DIN_RAIL_FINISHES['Aço galvanizado']
+  const zinc = galvanizedSteel([1, 1])
+  return new THREE.MeshStandardMaterial({ color: finish.color, map: zinc.map, bumpMap: zinc.bump, bumpScale: 0.15, roughnessMap: zinc.rough, metalness: finish.metalness, roughness: finish.roughness, name: 'din-rail-finish' })
+}
 
 const MOTOR_TARGET_HEIGHT = getComponentModelSpec('motor3ph')!.targetHeight
 const MOTOR_SCALE_RATIO = MOTOR_TARGET_HEIGHT / 1.04
@@ -120,12 +138,24 @@ function MountingPlate({ bounds }: { bounds: PlateBounds }) {
 /** Calha DIN perfurada 15 × 5,5 mm com comprimento editável (furos regenerados, nunca esticados). */
 function MountingRail3D({ c, position, lengthOverrideMm, labelText }: { c?: ElectricalComponent; position: [number, number, number]; lengthOverrideMm?: number; labelText?: string }) {
   const lengthMm = clampRailLengthMm(lengthOverrideMm ?? c?.state.lengthMm)
+  const profile = dinRailProfileOf(c?.state)
+  const perforated = c?.state.perforated !== false
+  const finish = c?.state.finish
+  const material = useMemo(() => railMaterial(finish), [finish])
+  useEffect(() => () => material.dispose(), [material])
   const group = useMemo(() => {
-    const material = createGalvanizedMaterial()
-    const rail = buildDinRailGroup(lengthMm, 0.01, material)
-    rail.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) { mesh.castShadow = true; mesh.receiveShadow = true } })
+    const rail = buildDinRailGroup(lengthMm, 0.01, material, profile, perforated)
+    rail.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.castShadow = true; mesh.receiveShadow = true
+      // UV à escala real (posição da peça incluída): o zinco não estica com o comprimento.
+      mesh.geometry.translate(mesh.position.x, mesh.position.y, mesh.position.z)
+      mesh.position.set(0, 0, 0)
+      applyWorldUv(mesh.geometry, 0.01, 60)
+    })
     return rail
-  }, [lengthMm])
+  }, [lengthMm, material, profile, perforated])
   useEffect(() => () => {
     group.traverse((node) => {
       const mesh = node as THREE.Mesh
@@ -133,10 +163,10 @@ function MountingRail3D({ c, position, lengthOverrideMm, labelText }: { c?: Elec
       mesh.geometry.dispose()
     })
   }, [group])
-  const baseCenterZ = (DIN_RAIL_15X55.height / 2) * 0.01
+  const baseCenterZ = (profile.height / 2) * 0.01
   return <group position={position}>
     <group position={[0, 0, -baseCenterZ]}><primitive object={group} /></group>
-    <Label text={labelText ?? `${c?.ref ?? 'TR'} · ${Math.round(lengthMm)} mm`} position={[0, DIN_RAIL_15X55.width * 0.01 * 0.5 + 0.1, baseCenterZ + 0.02]} size={0.065} color="#475569" />
+    <Label text={labelText ?? `${c?.ref ?? 'TR'} · ${Math.round(lengthMm)} mm · ${profile.width}×${String(profile.height).replace('.', ',')}`} position={[0, profile.width * 0.01 * 0.5 + 0.1, baseCenterZ + 0.02]} size={0.065} color="#475569" />
   </group>
 }
 
@@ -2798,7 +2828,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }, [components])
 
   const railComponents = components.filter((c) => positions[c.id])
-  const offRail = components.filter((c) => !positions[c.id] && !isMountingRail(c.type))
+  const offRail = components.filter((c) => !positions[c.id] && !isMountingRail(c.type) && !isPanelAccessoryType(c.type))
+  const accessories = components.filter((c) => isPanelAccessoryType(c.type))
+  const hasEnclosure = accessories.some((c) => c.type === 'panelEnclosure')
 
   const frontPivot = (component: ElectricalComponent): [number, number, number] => {
     if (component.type === 'motor3ph' || component.type === 'motor1ph') return [0, MOTOR_CENTER_Y, 0.7]
@@ -2818,8 +2850,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     return [component.id, railPosition
       ? new THREE.Vector3(railPosition.x, railPosition.y, 0)
       : isMountingRail(component.type)
-        ? new THREE.Vector3(0, 0, RAIL_FLUSH_Z)
-        : new THREE.Vector3(...frontPivot(component))]
+        ? new THREE.Vector3(0, 0, railCenterZ(component))
+        : isPanelAccessoryType(component.type)
+          ? new THREE.Vector3(0, 0, 0)
+          : new THREE.Vector3(...frontPivot(component))]
   }))
 
   // Posição 3D = posição no Esquema à escala real (1 mm = 0,01 unidades). O Esquema
@@ -2828,13 +2862,20 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   for (const component of components) {
     const { x, y } = componentPanelXY(component)
     if (isMountingRail(component.type)) {
-      panelPivots[component.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z)
+      panelPivots[component.id] = new THREE.Vector3(x, y, railCenterZ(component))
+    } else if (component.type === 'panelEnclosure') {
+      // Pivô no centro do armário; a face da chapa de montagem do quadro coincide com a da chapa do painel.
+      const half = componentHalfExtents(component, orientationFor(component))
+      panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + half.z)
+    } else if (component.type === 'cableDuct') {
+      const half = componentHalfExtents(component, orientationFor(component))
+      panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z + half.z)
     } else if (!isPanelBound(component)) {
       panelPivots[component.id] = new THREE.Vector3(x, y, frontPivot(component)[2])
     } else {
       // Assente na face da calha (mesma profundidade, esteja ou não fixo numa calha).
       const half = componentHalfExtents(component, orientationFor(component))
-      panelPivots[component.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components))
+      panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z + mountedRailHeightMm(component, components) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components))
     }
   }
   /** Só geometria/posições contam para sombras: RUN mexe estados, não posições. */
@@ -2868,6 +2909,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }
     : null
   const contentBounds = Number.isFinite(sceneBounds.all.minX) ? sceneBounds.all : null
+  // Câmara de sombras à medida da cena (por omissão cobre só ±5 u): um quadro grande ficava meio sombreado.
+  const shadowExtent = contentBounds
+    ? Math.min(16, Math.max(5, Math.ceil(Math.max(Math.abs(contentBounds.minX), Math.abs(contentBounds.maxX), Math.abs(contentBounds.minY), Math.abs(contentBounds.maxY)) + 1.5)))
+    : 5
   const sceneCenter: [number, number, number] = contentBounds
     ? [(contentBounds.minX + contentBounds.maxX) / 2, (contentBounds.minY + contentBounds.maxY) / 2, 0.3]
     : [0, 0, 0.3]
@@ -3568,7 +3613,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
         <hemisphereLight args={['#f8fafc', '#3b4350', 0.38]} />
-        <directionalLight position={[-3.2, 7.5, 6.2]} intensity={1.25} color="#fff7ee" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003} />
+        <directionalLight key={`sun-${shadowExtent}`} position={[-3.2, 7.5, 6.2]} intensity={1.25} color="#fff7ee" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003}
+          shadow-camera-left={-shadowExtent} shadow-camera-right={shadowExtent} shadow-camera-top={shadowExtent} shadow-camera-bottom={-shadowExtent} />
         <directionalLight position={[5.8, 3.2, 2.4]} intensity={0.45} color="#e8f0ff" />
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
@@ -3582,7 +3628,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           selectComponents(id ? [id] : [])
         }} />}
 
-        {plateBounds && <MountingPlate bounds={plateBounds} />}
+        {/* Com quadro, a chapa é a do próprio armário (mesmo plano). */}
+        {plateBounds && !hasEnclosure && <MountingPlate bounds={plateBounds} />}
         <CameraRelay target={cameraRelay} />
         <CanvasAnnotations3D view={annotationView} readOnly={demoMode || simLocked} placeZ={textPlaneZ}
           openNoteId={openNoteId} setOpenNoteId={setOpenNoteId}
@@ -3629,6 +3676,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {mountingRails.map((c) => {
           const base = basePivots[c.id]
           return wrapOriented(c, <MountingRail3D c={c} position={[base.x, base.y, base.z]} />)
+        })}
+
+        {accessories.map((c) => {
+          const plateFrontZ = PLATE_FRONT_Z - panelPivots[c.id].z
+          const label = <Label text={c.ref} position={[0, 0, 0]} size={0.075} color="#475569" />
+          return wrapOriented(c, c.type === 'panelEnclosure'
+            ? <Enclosure3D c={c} interactive={mechanicalControls} plateFrontZ={plateFrontZ} label={label} />
+            : <CableDuct3D c={c} plateFrontZ={plateFrontZ} label={label} />)
         })}
 
         {offRail.map((c) => {

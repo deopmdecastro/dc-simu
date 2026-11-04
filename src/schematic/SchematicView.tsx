@@ -32,6 +32,8 @@ import SelectionBar from '../components/SelectionBar'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 import { InlineName } from '../ui/InlineName'
+import { CableDuct2D, Enclosure2D } from './PanelAccessories2D'
+import { isPanelAccessoryType } from '../three/enclosureParts'
 
 const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
 type SchematicCanvasMode = '2d' | '3d'
@@ -332,7 +334,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     })
     return () => { active = false }
   }, [hasLogo])
-  const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'dinRail15x55']
+  const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'dinRail15x55', 'panelEnclosure', 'cableDuct']
   const cadTypesKey = [...new Set([...components.map((c) => c.type), ...(ghostType ? [ghostType] : [])].filter((type) => hasComponent3DVisual(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
   useEffect(() => {
     const types = cadTypesKey ? cadTypesKey.split('|') as ComponentType[] : []
@@ -350,7 +352,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     return () => { active = false }
   }, [cadTypesKey])
   const orientedRequests = components.flatMap((component) => {
-    if (!hasComponent3DVisual(component.type) || component.type === 'dinRail15x55') return []
+    if (!hasComponent3DVisual(component.type) || component.type === 'dinRail15x55' || isPanelAccessoryType(component.type)) return []
     const orientation = viewOrientationEditor?.componentId === component.id ? viewOrientationEditor.draft : componentOrientationOf(component)
     return isOriginalComponentOrientation(orientation) ? [] : [{ id: component.id, type: component.type, orientation }]
   })
@@ -1062,7 +1064,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         }
         const preferFront = ((w.fromEndLayer ?? 'back') === 'front') || ((w.toEndLayer ?? 'back') === 'front')
         for (const c of displayComponents) {
-          if (connected.has(c.id)) continue
+          // Quadro e calha técnica não escondem cabos: ficam sempre atrás deles.
+          if (connected.has(c.id) || isPanelAccessoryType(c.type)) continue
           const cb = { left: c.schematicX, right: c.schematicX + c.w, top: c.schematicY, bottom: c.schematicY + c.h }
           const crosses = bounds.left < cb.right && bounds.right > cb.left && bounds.top < cb.bottom && bounds.bottom > cb.top
           if (!crosses) continue
@@ -1075,7 +1078,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     }
     const entries: (DrawEntry & { z: number; idx: number })[] = []
     wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: wireZ.get(w.id) ?? w.z ?? 0, idx: i }))
-    displayComponents.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: c.z ?? 0, idx: i + wires.length }))
+    // O quadro desenha-se primeiro (fundo de tudo), depois as calhas técnicas.
+    const backZ = (c: ElectricalComponent) => c.type === 'panelEnclosure' ? -1e6 : c.type === 'cableDuct' ? -1e5 : c.z ?? 0
+    displayComponents.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: backZ(c), idx: i + wires.length }))
     entries.sort((a, b) => a.z - b.z || a.idx - b.idx)
     return entries
   }, [wires, displayComponents, terminalIndex])
@@ -1323,7 +1328,12 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         filter={selected ? 'url(#dc-select-glow)' : undefined}
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? (drag ? 'grabbing' : 'grab') : 'inherit', opacity: c.locked ? 0.85 : undefined }}
       >
-        {c.type === 'dinRail15x55' ? (
+        {c.type === 'panelEnclosure' ? <Enclosure2D c={c} />
+        : c.type === 'cableDuct' ? <>
+            <CableDuct2D c={c} />
+            <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+          </>
+        : c.type === 'dinRail15x55' ? (
           <>
             <DinRail2D c={c} />
             <rect x={0} y={-4} width={c.w} height={c.h + 8} fill="transparent" />
