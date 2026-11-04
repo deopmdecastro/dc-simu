@@ -3235,10 +3235,10 @@ export const useSimStore = create<Store>((set, get) => {
     if (!comps.length) return
     const terminalIds = new Set(comps.flatMap((c) => c.terminals.map((t) => t.id)))
     const relevantWires = wires.filter((w) => terminalIds.has(w.fromTerminalId) && terminalIds.has(w.toTerminalId))
-    const snapshot = {
+    const snapshot: Snapshot = {
       components: JSON.parse(JSON.stringify(comps)),
       wires: JSON.parse(JSON.stringify(relevantWires)),
-      ladder: [] as [],
+      ladder: [],
     }
     set({ clipboard: snapshot })
     // Persistente entre projetos (e entre recargas) no mesmo navegador.
@@ -3260,7 +3260,7 @@ export const useSimStore = create<Store>((set, get) => {
         clip = {
           components: cross.components as ElectricalComponent[],
           wires: (cross.wires ?? []) as Wire[],
-          ladder: [],
+          ladder: [] as LadderRung[],
         }
         set({ clipboard: clip })
       }
