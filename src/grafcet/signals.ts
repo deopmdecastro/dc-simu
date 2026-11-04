@@ -1,6 +1,6 @@
 import type { LadderTag } from '../types'
 import { normalizeBitAddress } from '../ladder/addresses'
-import { actionsOfStep, normalizeActionVariable, stripGrafcetPrefix, transitionsOf, type GrafcetProgram } from './engine'
+import { actionsOfStep, normalizeActionVariable, stripGrafcetPrefix, transitionsOf, type GrafcetAction, type GrafcetProgram } from './engine'
 import { isSymbolicSignalName, symbolWordsInCondition } from './inputDetect'
 import { foldText } from '../utils/text'
 
@@ -15,7 +15,8 @@ export interface GrafcetSignalSuggestion {
 export const canonicalSignalAddress = (address: string) => normalizeBitAddress(address) ?? address.trim().toUpperCase()
 export const isSignalAddress = (address: string) => !!normalizeBitAddress(address.trim())
 
-/** Tags are documentation: always insert the address, never a descriptive name. */
+/** Sinais Bool I/Q/M da tabela. Numa condição o sinal escreve-se pelo nome (se for utilizável) ou pelo endereço:
+ *  ver `signalReference`. O endereço continua a ser a chave executável. */
 export function grafcetSignals(tags: readonly LadderTag[]): GrafcetSignalSuggestion[] {
   const found = new Map<string, GrafcetSignalSuggestion>()
   for (const tag of tags) {
@@ -24,6 +25,62 @@ export function grafcetSignals(tags: readonly LadderTag[]): GrafcetSignalSuggest
     found.set(address, { address, name: tag.name, comment: tag.comment ?? '', area: address[0] as SignalArea })
   }
   return [...found.values()]
+}
+
+// ---------------------------------------------------------------------------
+// Nome da variável nas condições (DC-ADR-090): «Sensor_A» em vez de «I0.1»
+// ---------------------------------------------------------------------------
+
+const RESERVED_CONDITION_WORDS = new Set(['AND', 'OR', 'NOT', 'TRUE', 'FALSE', 'T', 'HZ', 'MS', 'S'])
+
+/** Nome que o analisador de condições lê como um único operando: começa por letra, só letras/algarismos/«_»,
+ *  não é palavra reservada, endereço (I0.1, MW1, T1), etapa (X5, G1X5) nem operando numérico.
+ *  Nomes com espaços ou acentos («Partida geral») ficam como documentação e usam o endereço. */
+export function isUsableSignalName(name: string): boolean {
+  const word = name.trim()
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(word)) return false
+  const upper = word.toUpperCase()
+  if (RESERVED_CONDITION_WORDS.has(upper)) return false
+  if (/^[IQM]\d{1,4}$/.test(upper) || /^MW\d{1,4}$/.test(upper) || /^[TC]\d{1,3}$/.test(upper)) return false
+  if (/^(?:G\d+)?X\d+$/.test(upper)) return false
+  return true
+}
+
+/** Nome (em maiúsculas) → endereço, só para nomes utilizáveis e sem repetição: um nome repetido é ambíguo e fica de fora. */
+export function signalAliasMap(tags: readonly LadderTag[]): Map<string, string> {
+  const found = new Map<string, string | null>()
+  for (const tag of tags) {
+    if (tag.dataType !== 'Bool') continue
+    const address = canonicalSignalAddress(tag.address)
+    if (!isSignalAddress(address) || !isUsableSignalName(tag.name)) continue
+    const key = tag.name.trim().toUpperCase()
+    found.set(key, found.has(key) && found.get(key) !== address ? null : address)
+  }
+  return new Map([...found].filter((entry): entry is [string, string] => !!entry[1]))
+}
+
+/** O que se escreve na condição para este sinal: o nome da variável quando é utilizável e único; senão o endereço. */
+export function signalReference(signal: Pick<GrafcetSignalSuggestion, 'address' | 'name'>, aliases: ReadonlyMap<string, string>): string {
+  const name = signal.name.trim()
+  return name && aliases.get(name.toUpperCase()) === signal.address ? name : signal.address
+}
+
+/** Troca os nomes de variáveis da tabela pelos endereços numa expressão. Não mexe em Xn, T(…), comparações nem em nomes com «+»/«-» colado. */
+export function resolveSignalNames(expression: string, aliases: ReadonlyMap<string, string>): string {
+  if (!expression || !aliases.size) return expression
+  return expression.replace(/(?<![A-Za-z0-9_%.])[A-Za-z][A-Za-z0-9_]*(?![A-Za-z0-9_+\-])/g, (word) => aliases.get(word.toUpperCase()) ?? word)
+}
+
+/** Cópia do programa com os nomes das condições substituídos pelos endereços (para Ladder e outras conversões). */
+export function resolveProgramSignalNames(program: GrafcetProgram, aliases: ReadonlyMap<string, string>): GrafcetProgram {
+  if (!aliases.size) return program
+  const action = (item: GrafcetAction): GrafcetAction => (item.condition ? { ...item, condition: resolveSignalNames(item.condition, aliases) } : item)
+  return {
+    ...program,
+    steps: program.steps.map((step) => ({ ...step, condition: resolveSignalNames(step.condition, aliases), ...(step.actions ? { actions: step.actions.map(action) } : {}) })),
+    ...(program.freeActions ? { freeActions: program.freeActions.map(action) } : {}),
+    ...(program.transitions ? { transitions: program.transitions.map((transition) => ({ ...transition, condition: resolveSignalNames(transition.condition ?? '', aliases), ...(transition.guard ? { guard: resolveSignalNames(transition.guard, aliases) } : {}) })) } : {}),
+  }
 }
 
 export const signalSearchText = (signal: GrafcetSignalSuggestion) => foldText(`${signal.address} ${signal.name} ${signal.comment}`)
@@ -41,8 +98,8 @@ export function nextDeclaredTagAddress(prefix: 'I' | 'Q' | 'M' | 'T' | 'C', tags
 }
 
 /** Explicit bit tokens only: no aliases, timers, Xn, frequencies or factory I/O. */
-export function signalAddressesInCondition(expression: string): string[] {
-  return [...new Set([...expression.matchAll(/(?<![A-Za-z0-9_%.])([IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2})(?![A-Za-z0-9_.])/gi)].map((match) => normalizeBitAddress(match[1]) ?? match[1].toUpperCase()))]
+export function signalAddressesInCondition(expression: string, aliases?: ReadonlyMap<string, string>): string[] {
+  return [...new Set([...(aliases ? resolveSignalNames(expression, aliases) : expression).matchAll(/(?<![A-Za-z0-9_%.])([IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2})(?![A-Za-z0-9_.])/gi)].map((match) => normalizeBitAddress(match[1]) ?? match[1].toUpperCase()))]
 }
 
 export function detectGrafcetSignals(program: GrafcetProgram): string[] {
@@ -150,18 +207,18 @@ const bump = (map: Map<string, SignalUsage>, address: string, key: keyof SignalU
 }
 
 /** Conta onde cada endereço I/Q/M é usado no programa (cada elemento conta uma vez por endereço). */
-export function signalUsage(program: GrafcetProgram): Map<string, SignalUsage> {
+export function signalUsage(program: GrafcetProgram, aliases?: ReadonlyMap<string, string>): Map<string, SignalUsage> {
   const usage = new Map<string, SignalUsage>()
   const countAction = (action: { address?: string; variable?: string; condition?: string }) => {
     const own = new Set<string>()
     const address = canonicalSignalAddress(action.address || action.variable || '')
     if (isSignalAddress(address)) own.add(address)
-    signalAddressesInCondition(action.condition ?? '').forEach((bit) => own.add(bit))
+    signalAddressesInCondition(action.condition ?? '', aliases).forEach((bit) => own.add(bit))
     own.forEach((bit) => bump(usage, bit, 'actions'))
   }
   program.steps.forEach((step) => actionsOfStep(step).forEach(countAction))
   ;(program.freeActions ?? []).forEach(countAction)
-  transitionsOf(program).forEach((transition) => signalAddressesInCondition(stripGrafcetPrefix(transition.condition ?? '')).forEach((bit) => bump(usage, bit, 'transitions')))
+  transitionsOf(program).forEach((transition) => signalAddressesInCondition(stripGrafcetPrefix(transition.condition ?? ''), aliases).forEach((bit) => bump(usage, bit, 'transitions')))
   return usage
 }
 

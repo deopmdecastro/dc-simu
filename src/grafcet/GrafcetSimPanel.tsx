@@ -5,6 +5,7 @@ import { SimulationSignals } from '../components/SimulationDock'
 import { isProgrammablePlc } from '../ladder/plcPrograms'
 import { transitionReceptivity, transitionsOf, type GrafcetProgram, type GrafcetRuntime } from './engine'
 import { detectGrafcetIo, type DetectedTransition } from './inputDetect'
+import { signalAliasMap } from './signals'
 
 /** Campo de texto que só grava ao sair (blur) ou com Enter; Esc repõe o valor anterior. */
 function InlineName({
@@ -105,7 +106,8 @@ export default function GrafcetSimPanel({
   const hasPlc = useSimStore((s) => s.components.some(isProgrammablePlc))
   const stopped = runState === 'stopped'
 
-  const detection = useMemo(() => detectGrafcetIo(program, stepLabel), [program, stepLabel])
+  const aliases = useMemo(() => signalAliasMap(tags), [tags])
+  const detection = useMemo(() => detectGrafcetIo(program, stepLabel, aliases), [program, stepLabel, aliases])
   const supplementalInputs = detection.inputs.filter((input) => !hasPlc || input.symbol)
 
   // Garante que todas as entradas usadas nas condições existem no painel.

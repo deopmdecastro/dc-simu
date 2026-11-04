@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { stepNumberOf, validCondition, type GrafcetStep } from './engine'
-import { matchSignals, signalAddressesInCondition, signalSearchText, tokenAtCursor, type GrafcetSignalSuggestion } from './signals'
+import { matchSignals, signalAddressesInCondition, signalAliasMap, signalReference, signalSearchText, tokenAtCursor, type GrafcetSignalSuggestion } from './signals'
 import { declareSignals } from './declareSignals'
 import { foldText } from '../utils/text'
 import { IconArrowDown, IconArrowUp, IconCheck, IconChevronRight, IconClose, IconWarning } from '../ui/icons'
 
 type Category = 'all' | 'inputs' | 'outputs' | 'memory' | 'steps' | 'timers' | 'resources'
-interface Suggestion { value: string; label: string; comment: string; search: string; category: Exclude<Category, 'all'>; source: 'table' | 'expression' }
+interface Suggestion { value: string; label: string; comment: string; search: string; category: Exclude<Category, 'all'>; source: 'table' | 'expression'; /** endereço do sinal da tabela (value é o nome quando este é utilizável) */ address?: string }
 interface ConditionEditorProps {
   id: string
   value: string
@@ -53,9 +53,11 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
   useEffect(() => { if (pickerOpen) searchRef.current?.focus() }, [pickerOpen])
   useEffect(() => { if (!active) setPickerOpen(false) }, [active])
 
+  const aliases = useMemo(() => signalAliasMap(signals.map((signal) => ({ id: signal.address, address: signal.address, name: signal.name, comment: signal.comment, dataType: 'Bool' as const }))), [signals])
   const suggestions = useMemo(() => {
     const entries = new Map<string, Suggestion>()
-    for (const signal of signals) entries.set(signal.address, { value: signal.address, label: signal.name, comment: signal.comment, search: signalSearchText(signal), category: signal.area === 'I' ? 'inputs' : signal.area === 'Q' ? 'outputs' : 'memory', source: 'table' })
+    // O que se insere é o nome da variável (Sensor_A) quando é utilizável e único; senão o endereço (I0.1).
+    for (const signal of signals) entries.set(signal.address, { value: signalReference(signal, aliases), address: signal.address, label: signal.name, comment: signal.comment, search: signalSearchText(signal), category: signal.area === 'I' ? 'inputs' : signal.area === 'Q' ? 'outputs' : 'memory', source: 'table' })
     // O número mostrado no diagrama (e usado em X<n>) não é a posição na lista.
     availableSteps.forEach((step, index) => {
       const number = stepNumberOf(step, index)
@@ -64,16 +66,16 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
     for (const seconds of [1, 2, 5]) entries.set(`T(${seconds}s)`, { value: `T(${seconds}s)`, label: `${seconds} s de atividade`, comment: '', search: `${seconds} s tempo`, category: 'timers', source: 'expression' })
     for (const token of ['1', '0', '1HZ', '0.5HZ', '2HZ']) entries.set(token, { value: token, label: token === '1' ? 'Sempre verdadeira' : token === '0' ? 'Sempre falsa' : 'Frequência de simulação', comment: '', search: token, category: 'resources', source: 'expression' })
     return [...entries.values()]
-  }, [signals, availableSteps])
+  }, [signals, availableSteps, aliases])
   const token = typeaheadOpen && active ? tokenAtCursor(value, cursor) : null
   const typeaheadItems = useMemo(() => {
     if (!token) return []
     const pool = suggestions
       .filter((item) => item.category === 'inputs' || item.category === 'outputs' || item.category === 'memory' || item.category === 'steps')
-      .map((item) => ({ address: item.value, name: item.label, comment: item.comment, area: item.category === 'steps' ? ('X' as const) : item.category === 'inputs' ? ('I' as const) : item.category === 'outputs' ? ('Q' as const) : ('M' as const), item }))
+      .map((item) => ({ address: item.address ?? item.value, insert: item.value, name: item.label, comment: item.comment, area: item.category === 'steps' ? ('X' as const) : item.category === 'inputs' ? ('I' as const) : item.category === 'outputs' ? ('Q' as const) : ('M' as const), item }))
     const found = matchSignals(pool, token.text, 7)
     // Já escrito por completo e sem alternativas: não há nada a sugerir.
-    if (found.length === 1 && found[0].address.toUpperCase() === token.text.toUpperCase()) return []
+    if (found.length === 1 && (found[0].insert.toUpperCase() === token.text.toUpperCase() || found[0].address.toUpperCase() === token.text.toUpperCase())) return []
     return found
   }, [token?.text, token?.start, suggestions])
   const typeaheadActive = Math.min(typeaheadIndex, Math.max(0, typeaheadItems.length - 1))
@@ -167,7 +169,7 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
           } else if ((event.key === 'Enter' || event.key === 'Tab') && !event.shiftKey) {
             event.preventDefault()
             event.stopPropagation()
-            acceptTypeahead(typeaheadItems[typeaheadActive].address)
+            acceptTypeahead(typeaheadItems[typeaheadActive].insert)
           } else if (event.key === 'Escape') {
             event.preventDefault()
             event.stopPropagation()
@@ -184,8 +186,8 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
         onBlur={() => { setTypeaheadOpen(false) }} placeholder="Ex.: G0 <> X9 * (I1 + /I2) — escreva para sugestões" autoComplete="off" spellCheck={false} aria-invalid={!!error} aria-describedby={`${id}-status${error ? ` ${errorId}` : ''}`} />
       {typeaheadItems.length > 0 && <ul className="grafcet-typeahead" id={`${id}-typeahead`} role="listbox" aria-label="Sugestões da tabela de sinais">
         {typeaheadItems.map((entry, index) => <li key={entry.address} id={typeaheadOptionId(index)} role="option" aria-selected={index === typeaheadActive} className={index === typeaheadActive ? 'is-active' : ''}
-          onMouseDown={(event) => { event.preventDefault(); acceptTypeahead(entry.address) }} onMouseEnter={() => setTypeaheadIndex(index)}>
-          <code>{entry.address}</code><span>{entry.name && <b>{entry.name}</b>}{entry.comment && <small>{entry.comment}</small>}</span><em className={`is-${entry.area}`}>{entry.area === 'X' ? 'etapa' : entry.area === 'I' ? 'entrada' : entry.area === 'Q' ? 'saída' : 'memória'}</em>
+          onMouseDown={(event) => { event.preventDefault(); acceptTypeahead(entry.insert) }} onMouseEnter={() => setTypeaheadIndex(index)}>
+          <code>{entry.insert}</code><span>{entry.insert !== entry.address && <b>{entry.address}</b>}{entry.insert === entry.address && entry.name && <b>{entry.name}</b>}{entry.comment && <small>{entry.comment}</small>}</span><em className={`is-${entry.area}`}>{entry.area === 'X' ? 'etapa' : entry.area === 'I' ? 'entrada' : entry.area === 'Q' ? 'saída' : 'memória'}</em>
         </li>)}
         <li className="grafcet-typeahead-hint" aria-hidden="true"><IconArrowUp size={9} /><IconArrowDown size={9} /> navegar · Enter/Tab inserir · Esc fechar</li>
       </ul>}
@@ -207,9 +209,9 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
         <div className="grafcet-condition-categories" role="group" aria-label="Categorias de variáveis">{CATEGORIES.map(([id, label]) => <button key={id} type="button" aria-pressed={category === id} onClick={() => setCategory(id)}>{label}</button>)}</div>
         <div className="grafcet-condition-results" role="group" aria-label="Variáveis disponíveis">{(['table', 'expression'] as const).map((source) => {
           const rows = filtered.filter((item) => item.source === source)
-          return rows.length ? <section key={source}><h4>{source === 'table' ? 'Sinais da tabela' : 'Recursos da expressão'}</h4>{rows.map((item) => <button type="button" key={item.value} data-variable-token={item.value} onClick={() => insert(item.value, true)}><code>{item.value}</code><span>{item.label && <b>{item.label}</b>}{item.comment && <small>{item.comment}</small>}</span></button>)}</section> : null
+          return rows.length ? <section key={source}><h4>{source === 'table' ? 'Sinais da tabela' : 'Recursos da expressão'}</h4>{rows.map((item) => <button type="button" key={item.value} data-variable-token={item.value} onClick={() => insert(item.value, true)}><code>{item.value}</code><span>{item.address && item.address !== item.value ? <b>{item.address}</b> : item.label && <b>{item.label}</b>}{item.comment && <small>{item.comment}</small>}</span></button>)}</section> : null
         })}{!filtered.length && <p>Nenhum sinal corresponde à pesquisa. Pode declarar sinais em «Variáveis» ou escrever o endereço manualmente.</p>}</div>
-        <p className="grafcet-property-note">Exemplos: <code>G0 &lt;&gt; X9</code> (X9 inativa), <code>/1Hz</code> (relógio negado), <code>MW1 &gt;= 5</code> e <code>I1 * (I2 + /I3)</code>. G0 consulta o GRAFCET atual; referências importadas a outros gráficos ficam assinaladas para revisão. T(…) usa o tempo da etapa da ação ou das origens.</p>
+        <p className="grafcet-property-note">Escolher uma variável insere o <b>nome</b> (ex.: <code>Sensor_A</code>), igual ao endereço da tabela; nomes com espaços ou acentos usam o endereço. Exemplos: <code>G0 &lt;&gt; X9</code> (X9 inativa), <code>/1Hz</code> (relógio negado), <code>MW1 &gt;= 5</code> e <code>I1 * (I2 + /I3)</code>. G0 consulta o GRAFCET atual; referências importadas a outros gráficos ficam assinaladas para revisão. T(…) usa o tempo da etapa da ação ou das origens.</p>
       </div>}
       <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Modelos de condição</summary><div><p>Substituir toda a expressão por:</p><div className="grafcet-property-chips" role="group" aria-label="Substituir condição por modelo">{['1', 'T(1s)', 'T(2s)', 'T(5s)'].map((preset) => <button key={preset} type="button" onClick={() => replace(preset)} title={`Substituir toda a condição por ${preset}`}>{preset}</button>)}</div></div></details>
     </div>

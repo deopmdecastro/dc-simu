@@ -6,6 +6,7 @@ import { blockDisplayName, suggestNumber } from '../ladder/blockCatalog'
 import type { ProjectFile } from '../ladder/projectFiles'
 import { transitionsOf, validateGrafcet, type GrafcetProgram } from './engine'
 import { grafcetToLadder, type LadderFromGrafcet } from './toLadder'
+import { resolveProgramSignalNames, signalAliasMap } from './signals'
 import { WORD_FC_GRAFCET, WORD_FC_OUTPUTS, WORD_REGISTER_COMMENT, grafcetToLadderWord, wordMethodBlocker } from './toLadderWord'
 
 export type LadderSyncStatus = 'none' | 'synced' | 'stale' | 'blocked'
@@ -93,7 +94,7 @@ function plan(program: GrafcetProgram, requested?: LadderMethod): Plan {
     const blocks = [{ label: WORD_FC_GRAFCET, rungs: word.grafcetRungs }, { label: WORD_FC_OUTPUTS, rungs: word.outputRungs }].filter((b) => b.rungs.length)
     const call = (label: string): LadderRung => ({ id: nanoid(6), name: `${MAIN_PREFIX} Chamar ${label}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true, call: { targetId: label } })
     result = { rungs: blocks.map((b) => call(b.label)), startupRungs: word.startupRungs, stepBits: {}, tags: word.tags, warnings: word.warnings, method: 'word', blocks }
-  } else result = { ...grafcetToLadder(full, reserved, { startupBlock: true, existingTags: generatedBits, name: program.name }), method: 'bit', fallbackReason: blocker }
+  } else result = { ...grafcetToLadder(resolveProgramSignalNames(full, signalAliasMap(state.tags)), reserved, { startupBlock: true, existingTags: generatedBits, name: program.name }), method: 'bit', fallbackReason: blocker }
   return { result, keptRestart, restartFileId: restartFile?.id ?? null, baseTags }
 }
 

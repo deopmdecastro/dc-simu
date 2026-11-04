@@ -35,6 +35,7 @@
     "test:component-validate": "tsx scripts/component-validate-smoke.ts",
     "test:diagnostics": "tsx scripts/diagnostics-smoke.ts",
     "test:grafcet-signals": "tsx scripts/grafcet-signals-smoke.ts",
+    "test:grafcet-signal-names": "tsx scripts/grafcet-signal-names-smoke.ts",
     "test:grafcet-ladder-sync": "tsx scripts/grafcet-ladder-sync-smoke.ts",
     "test:grafcet-ladder-word": "tsx scripts/grafcet-ladder-word-smoke.ts",
     "test:grafcet-links": "tsx scripts/grafcet-links-smoke.ts && tsx scripts/grafcet-action-layout-smoke.ts",

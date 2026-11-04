@@ -66,6 +66,8 @@ export interface DetectedTransition {
   inputs: string[]
   /** variáveis simbólicas usadas na condição */
   symbols: string[]
+  /** endereços (I0.1) das variáveis da tabela usadas pelo nome na condição */
+  tableSignals: string[]
 }
 
 export interface DetectedInput {
@@ -93,7 +95,7 @@ export function autoTransitionName(transition: GrafcetTransition, index: number,
 }
 
 /** Analisa o programa GRAFCET: lista as transições, dá-lhes um nome sugerido e descobre que entradas cada uma usa. */
-export function detectGrafcetIo(program: GrafcetProgram, stepLabel: (id: string) => string): DetectionResult {
+export function detectGrafcetIo(program: GrafcetProgram, stepLabel: (id: string) => string, aliases?: ReadonlyMap<string, string>): DetectionResult {
   const list = transitionsOf(program)
   const transitions: DetectedTransition[] = list.map((transition, index) => {
     const name = (transition.name ?? '').trim()
@@ -107,8 +109,10 @@ export function detectGrafcetIo(program: GrafcetProgram, stepLabel: (id: string)
       from: transition.from,
       to: transition.to,
       condition: transition.condition ?? '',
+      // Nome da tabela (Sensor_A) = endereço (I0.1): é a entrada real que se liga, não uma variável simbólica à parte.
       inputs: inputsInCondition(transition.condition ?? ''),
-      symbols: symbolsInCondition(transition.condition ?? ''),
+      symbols: symbolsInCondition(transition.condition ?? '').filter((symbol) => !aliases?.has(symbol)),
+      tableSignals: [...new Set(symbolsInCondition(transition.condition ?? '').map((symbol) => aliases?.get(symbol)).filter((address): address is string => !!address))],
     }
   })
 
@@ -119,15 +123,15 @@ export function detectGrafcetIo(program: GrafcetProgram, stepLabel: (id: string)
     byInput.set(address, entry)
   }
   for (const t of transitions) {
-    for (const address of t.inputs) register(address, false, t)
+    for (const address of [...t.inputs, ...t.tableSignals]) register(address, false, t)
     for (const symbol of t.symbols) register(symbol, true, t)
   }
   // Endereços I primeiro (por número), depois as variáveis simbólicas por ordem alfabética.
-  const inputs = [...byInput.values()].sort((a, b) => Number(a.symbol) - Number(b.symbol) || (a.symbol ? a.address.localeCompare(b.address) : Number(a.address.slice(1)) - Number(b.address.slice(1))))
+  const inputs = [...byInput.values()].sort((a, b) => Number(a.symbol) - Number(b.symbol) || (a.symbol ? a.address.localeCompare(b.address) : a.address.localeCompare(b.address, 'en', { numeric: true })))
   return {
     transitions,
     inputs,
-    maxInput: inputs.reduce((max, input) => (input.symbol ? max : Math.max(max, Number(input.address.slice(1)))), 0),
+    maxInput: inputs.reduce((max, input) => (input.symbol || !/^I\d+$/.test(input.address) ? max : Math.max(max, Number(input.address.slice(1)))), 0),
     unnamed: transitions.filter((t) => !t.name).length,
   }
 }

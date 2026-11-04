@@ -288,6 +288,10 @@ export interface ConditionContext {
  *  Mantém as mesmas regras de `getStepDisplayInfo` (editor), para X<n> referir sempre a etapa desenhada. */
 /** Comparações numéricas nas condições: MW1>=5, C1==3, T1>2000, MW1<>MW2 (operadores como no Ladder). */
 export const COMPARE_TOKEN = String.raw`(?:MW\d{1,4}|[TC]\d{1,3})\s*(?:==|<>|>=|<=|>|<)\s*(?:[+-]?\d+(?:\.\d+)?|MW\d{1,4}|[TC]\d{1,3})`
+/** Resolve o nome de uma variável da tabela (Start, Sensor_A) para o seu endereço (I0.1).
+ *  O simulador regista-o com as tags do PLC ativo: numa condição, o nome e o endereço são a mesma coisa. */
+let signalAliasResolver: ((nameUpper: string) => string | undefined) | null = null
+export const setGrafcetSignalAliasResolver = (resolver: ((nameUpper: string) => string | undefined) | null) => { signalAliasResolver = resolver }
 let numericReader: ((operand: string) => number | undefined) | null = null
 /** O simulador regista aqui a leitura de MWn / Cn / Tn (valores em tempo de execução). */
 export const setGrafcetNumericReader = (reader: ((operand: string) => number | undefined) | null) => { numericReader = reader }
@@ -611,7 +615,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   // Projetos já migrados usam a chave canónica; fixtures, integrações e sessões
   // ainda em memória podem expor apenas o alias legado, por isso ele é o fallback.
   const bitOf = (t: string) => normalizeBitAddress(t) ?? t
-  const read = (table: Record<string, boolean> | undefined, token: string) => {
+  const read = (table: Record<string, boolean> | undefined, token: string, aliased = false): boolean => {
     const raw = token.trim().replace(/^%/, '')
     const canonical = bitOf(raw)
     const direct = table?.[canonical] ?? table?.[canonical.toUpperCase()] ?? table?.[canonical.toLowerCase()]
@@ -620,7 +624,10 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
     // Nomes com maiúsculas e minúsculas (bp_Avanca_A+): o token chega em maiúsculas.
     const upper = raw.toUpperCase()
     const key = Object.keys(table).find((name) => name.toUpperCase() === upper)
-    return key ? !!table[key] : false
+    if (key) return !!table[key]
+    // Nome da tabela de variáveis (Start → I0.1): lê o estado do endereço. Um nível só.
+    const target = aliased ? undefined : signalAliasResolver?.(upper)
+    return target ? read(table, target, true) : false
   }
   const readBit = (t: string) => read(ctx.table, t)
   const readPrev = (t: string) => read(ctx.prev, t)

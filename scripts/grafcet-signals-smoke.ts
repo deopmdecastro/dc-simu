@@ -13,7 +13,7 @@ const tags = [tag('i', 'I0.0', 'Partida geral'), tag('q', ' q2 ', 'Motor princip
 const suggestions = grafcetSignals(tags)
 check(suggestions.length === 3, 'sugestões incluem apenas bits I/Q/M únicos')
 check(suggestions.find((item) => item.name === 'Motor principal')?.address === 'Q0.1', 'nome humano conserva endereço canónico executável')
-check(!suggestions.some((item) => item.address === 'Partida geral'), 'nomes de documentação não viram aliases executáveis')
+check(!suggestions.some((item) => item.address === 'Partida geral'), 'a sugestão guarda sempre o endereço; o nome só serve na condição se for utilizável (ver grafcet-signal-names-smoke)')
 check(signalSearchText(suggestions.find((item) => item.address === 'M0.0')!).includes('permissao'), 'pesquisa normaliza acentos e inclui o nome')
 check(signalSearchText(suggestions[0]).includes('operador'), 'comentário faz parte da pesquisa do sinal')
 check(nextDeclaredTagAddress('I', []) === 'I0.0', "declarações começam em I0.0, independentemente do runtime")

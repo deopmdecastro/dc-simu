@@ -48,7 +48,7 @@ import HintCard, { Keys } from './HintCard'
 import ConditionEditor from './ConditionEditor'
 import SignalTableDialog from './SignalTableDialog'
 import VariableTableOverlay from '../ui/VariableTableOverlay'
-import { grafcetSignals, insertCondition, signalAddressesInCondition, signalUsage, undeclaredSignals, type SignalArea } from './signals'
+import { grafcetSignals, insertCondition, signalAddressesInCondition, signalAliasMap, signalReference, signalUsage, undeclaredSignals, type SignalArea } from './signals'
 import SignalsPanel, { type SignalsContext } from './SignalsPanel'
 import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans } from './grafcetRender'
@@ -3886,7 +3886,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const signalSuggestions = useMemo(() => grafcetSignals(tags), [tags])
   const actionSignals = signalSuggestions.filter((signal) => signal.area !== 'I')
   // Uso e declaração dos sinais: recalculados sempre que o programa ou a tabela mudam.
-  const usageBySignal = useMemo(() => signalUsage(program), [program])
+  const signalAliases = useMemo(() => signalAliasMap(tags), [tags])
+  const usageBySignal = useMemo(() => signalUsage(program, signalAliases), [program, signalAliases])
   const undeclared = useMemo(() => undeclaredSignals(program, tags), [program, tags])
   const selectedFreeAction = !selectedStep ? freeActions.find((action) => action.id === selectedActionId) ?? null : null
 
@@ -3903,9 +3904,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   const applySignal = (address: string, area: SignalArea) => {
     if (selectedTransition) {
-      if (signalAddressesInCondition(selectedTransition.condition).includes(address)) return notify(`${address} já está na condição`)
-      updateTransition(selectedTransition.id, { condition: insertCondition(selectedTransition.condition, address) }, 'force')
-      return notify(`${address} acrescentado à condição`)
+      if (signalAddressesInCondition(selectedTransition.condition, signalAliases).includes(address)) return notify(`${address} já está na condição`)
+      // A condição fica com o nome da variável (Sensor_A) quando é utilizável; senão com o endereço.
+      const reference = signalReference({ address, name: signalSuggestions.find((signal) => signal.address === address)?.name ?? '' }, signalAliases)
+      updateTransition(selectedTransition.id, { condition: insertCondition(selectedTransition.condition, reference) }, 'force')
+      return notify(`${reference} acrescentado à condição`)
     }
     if (area === 'I') return notify('As entradas usam-se em condições: selecione uma transição')
     if (selectedStep && selectedAction) {

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
-import { nextDeclaredTagAddress } from '../grafcet/signals'
+import { nextDeclaredTagAddress, signalAliasMap } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
 import { groupIds, parseSelectionGroups, ungroupIds, type SelectionGroup, type SelectionGroupView } from '../ui/selectionGroups'
@@ -25,7 +25,7 @@ import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
 import { emptyCommands, type CommandsDiagram } from '../commands/model'
 import { normalizeCommandsPages } from '../commands/pages'
-import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, setGrafcetNumericReader, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
+import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, setGrafcetNumericReader, setGrafcetSignalAliasResolver, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
 import type {
   CircuitState,
@@ -3377,6 +3377,15 @@ export { nextAddress }
 setGrafcetNumericReader((operand) => {
   const { runtime } = useSimStore.getState()
   return readOperand(operand, { db: runtime.db, timers: runtime.timers, counters: runtime.counters })
+})
+
+// Nas condições do GRAFCET o nome da variável (Sensor_A) vale como o endereço (I0.1) da tabela do PLC ativo.
+// O mapa só é refeito quando a tabela muda (o scan chama isto muitas vezes por ciclo).
+let signalAliasCache: { tags: LadderTag[]; map: Map<string, string> } | null = null
+setGrafcetSignalAliasResolver((nameUpper) => {
+  const { tags } = useSimStore.getState()
+  if (signalAliasCache?.tags !== tags) signalAliasCache = { tags, map: signalAliasMap(tags) }
+  return signalAliasCache.map.get(nameUpper)
 })
 
 // Tags automáticas: quando o programa muda (contacto, bobina, MOVE…), cria as tags em falta

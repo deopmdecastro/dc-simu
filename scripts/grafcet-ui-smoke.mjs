@@ -285,7 +285,7 @@ try {
   await dialog().getByRole('textbox', { name: 'Pesquisar variável', exact: true }).fill('Partida geral')
   await page.keyboard.press('Enter')
   check(await page.locator('#action-cond-input').inputValue() === 'I0.0', 'primeira variável substitui a condição inicial 1')
-  check(await page.locator('#action-cond-input').inputValue() !== 'Partida geral', 'pesquisar pelo nome insere o endereço executável')
+  check(await page.locator('#action-cond-input').inputValue() !== 'Partida geral', 'pesquisar por um nome com espaços («Partida geral») insere o endereço executável')
   check(await dialog().isVisible(), 'Enter na pesquisa insere variável sem guardar a ação')
   const actionConditionInput = page.locator('#action-cond-input')
   await actionConditionInput.fill('I0.0 * I0.1')
