@@ -4,7 +4,7 @@ import type { CanvasNote } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { getViewer } from '../auth/viewer'
 import { uiConfirm } from './dialogs'
-import { IconCheck, IconClose, IconDelete, IconNote, IconPalette, IconSend } from './icons'
+import { IconCheck, IconClose, IconDelete, IconImage, IconNote, IconPalette, IconSend } from './icons'
 import { NOTE_COLORS, initialsOf, noteTheme, shortWhen } from './textStyle'
 export function CanvasNoteCard({ note, open, readOnly, onToggle, onDragStart, wasDragged }: {
   note: CanvasNote
@@ -69,7 +69,7 @@ export function CanvasNoteCard({ note, open, readOnly, onToggle, onDragStart, wa
           onChange={(event) => setTitle(event.target.value)} onBlur={commitTitle} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commitTitle(); draftRef.current?.focus() } }} aria-label="Título do comentário" />
         {!readOnly && <>
           <button type="button" className="cnote-icon" aria-pressed={palette} onClick={() => setPalette((value) => !value)} title="Cor da nota" aria-label="Cor da nota"><IconPalette size={12} /></button>
-          <label className="cnote-icon" title="Anexar imagem" aria-label="Anexar imagem" style={{ cursor: 'pointer', display: 'inline-grid', placeItems: 'center' }}>
+          <label className="cnote-icon cnote-image-action" title="Adicionar imagem ao canvas" aria-label="Adicionar imagem ao canvas" style={{ cursor: 'pointer', display: 'inline-grid', placeItems: 'center' }}>
             <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (event) => {
               const file = event.target.files?.[0]
               event.target.value = ''
@@ -83,7 +83,7 @@ export function CanvasNoteCard({ note, open, readOnly, onToggle, onDragStart, wa
               }
               reader.readAsDataURL(file)
             }} />
-            <span aria-hidden style={{ fontSize: 11, fontWeight: 700 }}>IMG</span>
+            <IconImage size={12} /><span className="cnote-image-label">Imagem</span>
           </label>
           <button type="button" className={`cnote-icon${note.resolved ? ' is-on' : ''}`} aria-pressed={!!note.resolved} onClick={() => update(note.id, { resolved: !note.resolved })} title={note.resolved ? 'Reabrir' : 'Marcar como resolvido'} aria-label={note.resolved ? 'Reabrir' : 'Marcar como resolvido'}><IconCheck size={12} /></button>
           <button type="button" className="cnote-icon is-danger" onClick={() => void destroy()} title="Eliminar comentário" aria-label="Eliminar comentário"><IconDelete size={12} /></button>

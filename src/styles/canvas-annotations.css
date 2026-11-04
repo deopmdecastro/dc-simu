@@ -62,6 +62,8 @@
 .cnote-icon.is-on { color: #15803d; }
 .cnote-icon.is-danger:hover { color: #b91c1c; }
 .cnote-icon:focus-visible { outline: 2px solid var(--note-edge); outline-offset: 1px; }
+.cnote-image-action { gap: 4px; width: auto; min-width: 30px; padding: 0 7px; }
+.cnote-image-label { font-size: 10px; font-weight: 700; line-height: 1; }
 .cnote-colors { display: flex; gap: 6px; padding: 0 12px 10px; }
 .cnote-colors button { width: 24px; height: 24px; border: 2px solid; border-radius: 7px; cursor: pointer; }
 .cnote-colors button[aria-checked="true"] { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--note-ink); }

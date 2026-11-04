@@ -27,6 +27,29 @@ async function resizeAvatar(file: File, px: number, maxChars: number): Promise<s
   throw new Error('Não foi possível reduzir a imagem o suficiente. Escolha outra.')
 }
 
+/** Reduz o logótipo sem o deformar nem o cortar: a esquadria aceita marcas horizontais e verticais. */
+async function resizeLogo(file: File, maxWidth: number, maxHeight: number, maxChars: number): Promise<string> {
+  if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) throw new Error('Use uma imagem PNG, JPEG ou WebP.')
+  if (file.size > 8 * 1024 * 1024) throw new Error('A imagem é demasiado grande (máx. 8 MB).')
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, maxWidth / bitmap.width, maxHeight / bitmap.height)
+  const width = Math.max(1, Math.round(bitmap.width * scale))
+  const height = Math.max(1, Math.round(bitmap.height * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width; canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('O navegador não consegue processar a imagem.')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, width, height)
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close?.()
+  for (const quality of [0.9, 0.78, 0.64, 0.5]) {
+    const url = canvas.toDataURL('image/jpeg', quality)
+    if (url.length < maxChars) return url
+  }
+  throw new Error('Não foi possível reduzir o logótipo o suficiente. Escolha outra.')
+}
+
 /** Gestão da conta do criador: perfil, avatar, palavra-passe e plano (ACCOUNT-PAGE-01). */
 export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
   user: User
@@ -198,7 +221,7 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
               if (!file) return
               setBusy('logo'); setProfileNotice(null)
               try {
-                const dataUrl = await resizeAvatar(file, 96, 12_000)
+                const dataUrl = await resizeLogo(file, 320, 120, 12_000)
                 const result = await accountApi<{ user: User }>('/account/profile', 'PATCH', { customLogo: dataUrl })
                 setCustomLogo(result.user.customLogo ?? dataUrl)
                 onUser({ ...user, ...result.user })
