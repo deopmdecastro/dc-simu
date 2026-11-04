@@ -406,6 +406,10 @@ interface Store extends CircuitState {
   assignToEnclosure: (ids: string[], enclosureId: string) => void
   /** Remove a associação a quadro (mantém a posição atual). */
   detachFromEnclosure: (ids: string[]) => void
+  /** Monta aparelhos na face do quadro (porta/laterais) — parte visível fora, bornes dentro. */
+  mountOnPanel: (ids: string[], enclosureId: string, face?: import('../types').EnclosureFace) => void
+  updatePanelMount: (ids: string[], patch: Partial<import('../types').PanelMount>) => void
+  unmountFromPanel: (ids: string[]) => void
   rotateComponent: (id: string) => void
   mirrorComponent: (id: string) => void
   toggleLock: (id: string) => void
@@ -2082,6 +2086,10 @@ export const useSimStore = create<Store>((set, get) => {
       for (const component of s.components) {
         if (component.enclosureId && groupIds.has(component.enclosureId)) groupIds.add(component.id)
       }
+      // Aparelhos montados na face do quadro (porta/laterais) movem-se com o quadro.
+      for (const component of s.components) {
+        if (component.panelMount?.enclosureId && groupIds.has(component.panelMount.enclosureId)) groupIds.add(component.id)
+      }
       // O relé térmico encaixado acompanha o contactor (e o contactor que acompanha a calha).
       for (const component of s.components) {
         if (component.mountedOn && groupIds.has(component.mountedOn)) groupIds.add(component.id)
@@ -2210,7 +2218,7 @@ export const useSimStore = create<Store>((set, get) => {
     }
     get().commitHistory()
     set((s) => ({
-      components: s.components.map((c) => (ids.includes(c.id) && c.id !== enclosureId ? { ...c, enclosureId } : c)),
+      components: s.components.map((c) => (ids.includes(c.id) && c.id !== enclosureId ? { ...c, enclosureId, panelMount: undefined } : c)),
       dirty: true,
     }))
   },
@@ -2219,6 +2227,30 @@ export const useSimStore = create<Store>((set, get) => {
     get().commitHistory()
     set((s) => ({
       components: s.components.map((c) => (ids.includes(c.id) && c.enclosureId ? { ...c, enclosureId: undefined } : c)),
+      dirty: true,
+    }))
+  },
+
+  mountOnPanel: (ids, enclosureId, face = 'door') => {
+    const enclosure = get().components.find((c) => c.id === enclosureId && c.type === 'panelEnclosure')
+    if (!enclosure) { get().pushEvent('warning', 'Quadro não encontrado.'); return }
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => (ids.includes(c.id) && c.id !== enclosureId ? { ...c, panelMount: { enclosureId, face, offsetXmm: c.panelMount?.offsetXmm, offsetYmm: c.panelMount?.offsetYmm, cutoutMm: c.panelMount?.cutoutMm ?? 22 }, enclosureId: undefined } : c)),
+      dirty: true,
+    }))
+  },
+  updatePanelMount: (ids, patch) => {
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => (ids.includes(c.id) && c.panelMount ? { ...c, panelMount: { ...c.panelMount!, ...patch } as import('../types').PanelMount } : c)),
+      dirty: true,
+    }))
+  },
+  unmountFromPanel: (ids) => {
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => (ids.includes(c.id) && c.panelMount ? { ...c, panelMount: undefined } : c)),
       dirty: true,
     }))
   },
@@ -2274,6 +2306,7 @@ export const useSimStore = create<Store>((set, get) => {
         let next = c
         if (c.railId && ids.includes(c.railId)) next = { ...next, railId: undefined, railOffsetMm: undefined }
         if (c.enclosureId && ids.includes(c.enclosureId)) next = { ...next, enclosureId: undefined }
+        if (c.panelMount?.enclosureId && ids.includes(c.panelMount.enclosureId)) next = { ...next, panelMount: undefined }
         return next
       }), wires, selectedComponentIds: [], dirty: true,
         viewOrientationEditor: s.viewOrientationEditor && ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,

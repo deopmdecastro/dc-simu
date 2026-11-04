@@ -257,6 +257,16 @@ export interface ComponentEditorSnapshot {
   bodyColor?: string
 }
 
+/** Face do quadro onde o aparelho é montado (parte visível fora). */
+export type EnclosureFace = 'inside' | 'door' | 'doorOuter' | 'left' | 'right' | 'top' | 'bottom'
+export interface PanelMount {
+  enclosureId: string
+  face: EnclosureFace
+  offsetXmm?: number
+  offsetYmm?: number
+  cutoutMm?: number
+}
+
 /** Revisão recuperável criada sempre que o utilizador aplica alterações. */
 export interface ComponentEditorRevision extends ComponentEditorSnapshot {
   version: number
@@ -284,6 +294,8 @@ export interface ElectricalComponentBase {
   railOffsetMm?: number
   /** Quadro metálico (`panelEnclosure`) em que este equipamento está montado (chapa / interior). */
   enclosureId?: string
+  /** Montagem em face do quadro (porta/laterais) — lente/botão fora, bornes dentro. */
+  panelMount?: PanelMount
   /** Relé térmico encaixado por baixo deste contactor (id): pinos nos bornes 2T1/4T2/6T3, sem cabos. */
   mountedOn?: string
   /** Canto superior-esquerdo no esquema 2D (unidades do canvas) */

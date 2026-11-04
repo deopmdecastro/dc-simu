@@ -636,7 +636,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
               {selectedComponent.type !== 'panelEnclosure' && (() => {
                 const enclosures = components.filter((item) => item.type === 'panelEnclosure')
-                if (!enclosures.length && !selectedComponent.enclosureId) return null
+                if (!enclosures.length && !selectedComponent.enclosureId && !selectedComponent.panelMount) return null
                 const parent = components.find((item) => item.id === selectedComponent.enclosureId)
                 return <div className="dc-rail-length">
                   <label className={label}>Dentro do quadro</label>
@@ -647,7 +647,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                       onChange={(e) => {
                         const id = e.target.value
                         if (!id) useSimStore.getState().detachFromEnclosure([selectedComponent.id])
-                        else useSimStore.getState().assignToEnclosure([selectedComponent.id], id)
+                        else {
+                          // Se estava na face, solta da face ao passar para dentro
+                          if (selectedComponent.panelMount) useSimStore.getState().unmountFromPanel([selectedComponent.id])
+                          useSimStore.getState().assignToEnclosure([selectedComponent.id], id)
+                        }
                       }}
                       aria-label="Quadro em que este componente está montado"
                     >
@@ -657,6 +661,45 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     {parent && <button className="dc-btn" onClick={() => useSimStore.getState().detachFromEnclosure([selectedComponent.id])}>Soltar</button>}
                   </div>
                   <small className="text-ink-400">{parent ? `Acompanha o quadro ${parent.ref} ao mover.` : 'Não está associado a nenhum quadro.'}</small>
+                </div>
+              })()}
+
+              {selectedComponent.type !== 'panelEnclosure' && (() => {
+                const enclosures = components.filter((item) => item.type === 'panelEnclosure')
+                if (!enclosures.length) return null
+                const pm = selectedComponent.panelMount
+                const parent = pm ? components.find((item) => item.id === pm.enclosureId) : null
+                const faces: Array<{id: import('../types').EnclosureFace,label:string}> = [
+                  {id:'door',label:'Porta (fora)'},{id:'doorOuter',label:'Porta exterior'},{id:'left',label:'Lateral esq.'},{id:'right',label:'Lateral dir.'},{id:'top',label:'Topo'},{id:'inside',label:'Face interior'},
+                ]
+                return <div className="dc-rail-length">
+                  <label className={label}>Na face do quadro (visível fora)</label>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <select className="dc-input" value={pm?.enclosureId ?? ''} onChange={(e)=>{
+                      const id=e.target.value
+                      if(!id) useSimStore.getState().unmountFromPanel([selectedComponent.id])
+                      else useSimStore.getState().mountOnPanel([selectedComponent.id], id, pm?.face ?? 'door')
+                    }}>
+                      <option value="">— nenhum —</option>
+                      {enclosures.map((enc)=><option key={enc.id} value={enc.id}>{enc.ref || enc.label || enc.id}</option>)}
+                    </select>
+                    {pm && <select className="dc-input" value={pm.face} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {face: e.target.value as import('../types').EnclosureFace})}>
+                      {faces.map((f)=><option key={f.id} value={f.id}>{f.label}</option>)}
+                    </select>}
+                    {pm && <button className="dc-btn" onClick={()=> useSimStore.getState().unmountFromPanel([selectedComponent.id])}>Soltar face</button>}
+                  </div>
+                  {pm && <div className="flex flex-wrap items-center gap-1 mt-1">
+                    <label className="text-[10px] text-ink-600">Ø furo
+                      <input type="number" className="dc-input w-16 ml-1" min={8} max={60} step={1} value={pm.cutoutMm ?? 22} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {cutoutMm: Math.max(8,Math.min(60,Number(e.target.value)))})}/>
+                    </label>
+                    <label className="text-[10px] text-ink-600">X
+                      <input type="number" className="dc-input w-14 ml-1" step={5} value={pm.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {offsetXmm: Number(e.target.value)})}/>
+                    </label>
+                    <label className="text-[10px] text-ink-600">Y
+                      <input type="number" className="dc-input w-14 ml-1" step={5} value={pm.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {offsetYmm: Number(e.target.value)})}/>
+                    </label>
+                  </div>}
+                  <small className="text-ink-400">{parent ? `Lente/botão fora em ${parent.ref} (${pm?.face}); bornes dentro.` : 'Para luzes/botões na porta/lateral — parte fora visível, ligação dentro.'}</small>
                 </div>
               })()}
 
