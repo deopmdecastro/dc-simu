@@ -9,7 +9,7 @@ import { parse, toDnf, type GeneratedTag, type Literal, type Node } from './toLa
 
 /**
  * Método «registo de etapa»: cada sequência do GRAFCET vive numa palavra de memória (G0 = %MW0,
- * G1, G2…) que guarda o número da sua etapa ativa (−1 = sequência parada). Uma etapa inicial abre
+ * G1, G2…) que guarda o número da sua etapa ativa (0 = sequência parada). Uma etapa inicial abre
  * uma sequência; cada ramo extra de uma divergência E abre outra, que acaba na convergência E.
  *
  * Sequência única, sem ações memorizadas (o caso habitual):
@@ -21,10 +21,10 @@ import { parse, toDnf, type GeneratedTag, type Literal, type Node } from './toLa
  * Várias sequências (paralelo E, vários GRAFCET) ou ações S/R — em duas fases, como o motor GRAFCET:
  *   FC Grafcet  : TON das etapas
  *                 1) [Gx == origem]… [receptividade] [/Rec de transições anteriores em conflito] → ( Rec_Tk )
- *                 2) [Rec_Tk] → MOVE −1 → Gx (sequências que terminam numa convergência)
+ *                 2) [Rec_Tk] → MOVE 0 → Gx (sequências que terminam numa convergência)
  *                    [Rec_Tk] → MOVE destino → Gy (uma network por etapa ativada)
  *                    [Rec_Tk] [condição] → (S)/(R) (ações memorizadas da etapa ativada; o R tem prioridade)
- *   OB100       : MOVE etapa inicial (ou −1) → cada Gx; S/R das etapas iniciais
+ *   OB100       : MOVE etapa inicial (ou 0) → cada Gx; S/R das etapas iniciais
  *
  * Uma referência Xn é a comparação [Gx == n]; uma temporização t/Xn é um TON ativado por [Gx == n].
  * `wordMethodBlocker` diz porquê um GRAFCET não cabe no método.
@@ -38,7 +38,14 @@ export const WORD_EVOLVED_NAME = 'Evolucao_G0'
 export const WORD_EVOLVED_COMMENT = 'Evolução do GRAFCET neste ciclo (uma transposição por scan)'
 export const WORD_FC_OUTPUTS = 'Outputs'
 /** Valor de um registo cuja sequência não tem etapa ativa. */
-export const WORD_IDLE = '-1'
+export const WORD_IDLE = '0'
+
+/** Fonte de MOVE: só números ≥ 0 (0 = sequência inativa). Nunca gera valores negativos. */
+export function wordMoveSource(value: string | number | null | undefined): string {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0) return WORD_IDLE
+  return String(Math.trunc(n))
+}
 /** Nome do registo da sequência `lane` (G0, G1…). */
 export const wordRegisterName = (lane: number) => `G${lane}`
 const MAX_LANES = 16
@@ -354,7 +361,7 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
       const branches = raw && evolved ? raw.map((b) => [...b, contact(evolved, 'NC')]) : raw
       return rung(`T${k + 1}: ${numberOf.get(t.from[0])} → ${numberOf.get(t.to[0])}`, branches ?? [[stateIs(t.from[0])]], {
         ...(evolved ? { coils: [coil(evolved, 'SET')] } : {}),
-        move: { source: numberOf.get(t.to[0]) ?? '0', target: word },
+        move: { source: wordMoveSource(numberOf.get(t.to[0]) ?? '0'), target: word },
         comment: withName(`Receptividade: ${t.condition || '1'}${t.description?.trim() ? ` — ${t.description.trim()}` : ''}`),
         enabled: !!branches && branches.length > 0,
       })
@@ -380,11 +387,11 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
       const targetLanes = new Set(t.to.map((id) => laneOf.get(id)))
       for (const lane of new Set(t.from.map((id) => laneOf.get(id) ?? 0))) {
         if (targetLanes.has(lane)) continue
-        idleRungs.push(rung(`T${k + 1}: ${wordRegisterName(lane)} parado`, [[contact(rec[k])]], { move: { source: WORD_IDLE, target: words[lane] }, comment: withName(`A sequência ${wordRegisterName(lane)} termina na convergência de T${k + 1}`) }))
+        idleRungs.push(rung(`T${k + 1}: ${wordRegisterName(lane)} parado`, [[contact(rec[k])]], { move: { source: wordMoveSource(WORD_IDLE), target: words[lane] }, comment: withName(`A sequência ${wordRegisterName(lane)} termina na convergência de T${k + 1}`) }))
       }
       for (const id of t.to) {
         const lane = laneOf.get(id) ?? 0
-        activateRungs.push(rung(`T${k + 1}: ativa X${numberOf.get(id)}`, [[contact(rec[k])]], { move: { source: numberOf.get(id) ?? '0', target: words[lane] }, comment: withName(`${wordRegisterName(lane)} = ${numberOf.get(id)}`) }))
+        activateRungs.push(rung(`T${k + 1}: ativa X${numberOf.get(id)}`, [[contact(rec[k])]], { move: { source: wordMoveSource(numberOf.get(id) ?? '0'), target: words[lane] }, comment: withName(`${wordRegisterName(lane)} = ${numberOf.get(id)}`) }))
       }
     })
     // Ações memorizadas: só no ciclo em que a etapa é ativada; o RESET vem depois (tem prioridade).
@@ -428,14 +435,14 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
 
   // OB100: cada registo arranca na sua etapa inicial (ou parado); palavras das comparações a 0; S/R das iniciais.
   const startupRungs: LadderRung[] = []
-  for (const w of [...compareWords].sort()) startupRungs.push(rung(`Complete restart · Iniciar ${w}`, [[]], { move: { source: '0', target: w }, comment: withName(`Inicia ${w} a 0 para as comparações do GRAFCET`) }))
+  for (const w of [...compareWords].sort()) startupRungs.push(rung(`Complete restart · Iniciar ${w}`, [[]], { move: { source: wordMoveSource('0'), target: w }, comment: withName(`Inicia ${w} a 0 para as comparações do GRAFCET`) }))
   const initials = steps.filter(isInitialStep)
   if (!initials.length) warnings.push('Não há etapa inicial: o Ladder não arranca.')
   words.forEach((address, lane) => {
     const initial = initials.find((s) => laneOf.get(s.id) === lane)
-    const value = initial ? numberOf.get(initial.id) ?? '0' : WORD_IDLE
+    const value = wordMoveSource(initial ? numberOf.get(initial.id) ?? '0' : WORD_IDLE)
     const name = words.length === 1 ? 'Complete restart · Etapa inicial' : `Complete restart · ${wordRegisterName(lane)} ${initial ? `= ${value}` : 'parado'}`
-    startupRungs.push(rung(name, [[]], { move: { source: value, target: address }, comment: withName(initial ? `${address} = ${value} (etapa inicial do GRAFCET)` : `${address} = ${WORD_IDLE} (sequência sem etapa ativa no arranque)`) }))
+    startupRungs.push(rung(name, [[]], { move: { source: wordMoveSource(value), target: address }, comment: withName(initial ? `${address} = ${value} (etapa inicial do GRAFCET)` : `${address} = ${WORD_IDLE} (sequência sem etapa ativa no arranque)`) }))
   })
   for (const kind of ['S', 'R'] as const) for (const [key, list] of byOutput) {
     const target = storedTarget.get(key)
