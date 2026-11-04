@@ -898,6 +898,11 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [],
     defaultState: { lengthMm: 600, widthMm: 40, heightMm: 60, coverOn: true },
   },
+  spiralWrap: {
+    category: 'terminal', paletteName: 'Espiral de proteção de cabos (PVC)', group: 'Quadros e calhas', tag: 'ESP', w: 400, h: 40,
+    terminals: [],
+    defaultState: { lengthMm: 300, innerDiaMm: 10, pitchMm: 8, color: '#0a0a0a' },
+  },
   busbarPhase: {
     category: 'terminal', paletteName: 'Barramento de fases L1/L2/L3', group: 'Bornes e barras', tag: 'BL', w: 220, h: 50,
     terminals: [

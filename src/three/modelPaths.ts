@@ -115,6 +115,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   panelEnclosure: { width: 600, height: 800, depth: 282 },
   /** Tamanho por omissão; o real vem de `state.lengthMm/widthMm/heightMm`. */
   cableDuct: { width: 600, height: 40, depth: 62 },
+  /** Espiral de proteção; tamanho real de `state.lengthMm/innerDiaMm`. */
+  spiralWrap: { width: 300, height: 14, depth: 14 },
   motor3ph: { width: 264, height: 208, depth: 156 },
   /** Mesmo envelope do SEW DRN80 — variante monofásica azul DC-Simu. */
   motor1ph: { width: 264, height: 208, depth: 156 },

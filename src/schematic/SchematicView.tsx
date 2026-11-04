@@ -32,7 +32,7 @@ import SelectionBar from '../components/SelectionBar'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 import { InlineName } from '../ui/InlineName'
-import { CableDuct2D, Enclosure2D } from './PanelAccessories2D'
+import { CableDuct2D, Enclosure2D, SpiralWrap2D } from './PanelAccessories2D'
 import { isPanelAccessoryType } from '../three/enclosureParts'
 
 const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
@@ -334,7 +334,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     })
     return () => { active = false }
   }, [hasLogo])
-  const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'dinRail15x55', 'panelEnclosure', 'cableDuct']
+  const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'dinRail15x55', 'panelEnclosure', 'cableDuct', 'spiralWrap']
   const cadTypesKey = [...new Set([...components.map((c) => c.type), ...(ghostType ? [ghostType] : [])].filter((type) => hasComponent3DVisual(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
   useEffect(() => {
     const types = cadTypesKey ? cadTypesKey.split('|') as ComponentType[] : []
@@ -1079,7 +1079,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const entries: (DrawEntry & { z: number; idx: number })[] = []
     wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: wireZ.get(w.id) ?? w.z ?? 0, idx: i }))
     // O quadro desenha-se primeiro (fundo de tudo), depois as calhas técnicas.
-    const backZ = (c: ElectricalComponent) => c.type === 'panelEnclosure' ? -1e6 : c.type === 'cableDuct' ? -1e5 : c.z ?? 0
+    const backZ = (c: ElectricalComponent) => c.type === 'panelEnclosure' ? -1e6 : c.type === 'cableDuct' || c.type === 'spiralWrap' ? -1e5 : c.z ?? 0
     displayComponents.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: backZ(c), idx: i + wires.length }))
     entries.sort((a, b) => a.z - b.z || a.idx - b.idx)
     return entries
@@ -1331,6 +1331,10 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         {c.type === 'panelEnclosure' ? <Enclosure2D c={c} />
         : c.type === 'cableDuct' ? <>
             <CableDuct2D c={c} />
+            <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+          </>
+        : c.type === 'spiralWrap' ? <>
+            <SpiralWrap2D c={c} />
             <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
           </>
         : c.type === 'dinRail15x55' ? (

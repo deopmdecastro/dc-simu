@@ -28,7 +28,7 @@ import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
 import { canInsertComponent3D, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
 import { clampRailLengthMm, DIN_RAIL_15X55, dinRailProfileOf, railSlotCount } from '../three/dinRailGeometry'
-import { CableDuctControls, DinRailProfileControls, EnclosureControls, PANEL_ACCESSORY_STATE_KEYS, RAIL_PROFILE_STATE_KEYS } from './PanelAccessoryControls'
+import { CableDuctControls, DinRailProfileControls, EnclosureControls, SpiralWrapControls, PANEL_ACCESSORY_STATE_KEYS, RAIL_PROFILE_STATE_KEYS } from './PanelAccessoryControls'
 import { isPanelAccessoryType } from '../three/enclosureParts'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
@@ -616,6 +616,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
               {selectedComponent.type === 'panelEnclosure' && <EnclosureControls c={selectedComponent} />}
               {selectedComponent.type === 'cableDuct' && <CableDuctControls c={selectedComponent} />}
+              {selectedComponent.type === 'spiralWrap' && <SpiralWrapControls c={selectedComponent} />}
 
               {isRailMountable(selectedComponent) && (() => {
                 const rail = components.find((item) => item.id === selectedComponent.railId)
@@ -629,6 +630,32 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     }}>Centrar e fixar</button>
                     {rail && <button className="dc-btn" onClick={() => useSimStore.getState().detachFromRail([selectedComponent.id])}>Soltar</button>}
                   </div>
+                </div>
+              })()}
+
+              {selectedComponent.type !== 'panelEnclosure' && (() => {
+                const enclosures = components.filter((item) => item.type === 'panelEnclosure')
+                if (!enclosures.length && !selectedComponent.enclosureId) return null
+                const parent = components.find((item) => item.id === selectedComponent.enclosureId)
+                return <div className="dc-rail-length">
+                  <label className={label}>Dentro do quadro</label>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <select
+                      className="dc-input"
+                      value={selectedComponent.enclosureId ?? ''}
+                      onChange={(e) => {
+                        const id = e.target.value
+                        if (!id) useSimStore.getState().detachFromEnclosure([selectedComponent.id])
+                        else useSimStore.getState().assignToEnclosure([selectedComponent.id], id)
+                      }}
+                      aria-label="Quadro em que este componente está montado"
+                    >
+                      <option value="">— nenhum —</option>
+                      {enclosures.map((enc) => <option key={enc.id} value={enc.id}>{enc.ref || enc.label || enc.id}</option>)}
+                    </select>
+                    {parent && <button className="dc-btn" onClick={() => useSimStore.getState().detachFromEnclosure([selectedComponent.id])}>Soltar</button>}
+                  </div>
+                  <small className="text-ink-400">{parent ? `Acompanha o quadro ${parent.ref} ao mover.` : 'Não está associado a nenhum quadro.'}</small>
                 </div>
               })()}
 
@@ -1040,6 +1067,96 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   onChange={(e) => patchSelectedWire({ lengthMm: Number(e.target.value) })}
                 />
               </label>
+
+              <div className="dc-card p-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className={label + ' !mb-0'}>Isolamento (capa)</label>
+                  <button type="button" className="dc-btn" title="Adiciona uma secção de isolamento a 25–75% do cabo"
+                    onClick={() => {
+                      const list = [...(selectedWire.isolation ?? [])]
+                      list.push({ start: 0.25, end: 0.75, color: '#1e293b' })
+                      patchSelectedWire({ isolation: list })
+                    }}>+ Secção</button>
+                </div>
+                {(selectedWire.isolation ?? []).length === 0 && <small className="text-ink-400">Sem secções de isolamento. Use «+ Secção» para marcar onde a capa começa e termina.</small>}
+                {(selectedWire.isolation ?? []).map((seg, i) => (
+                  <div key={i} className="rounded border border-line p-1.5 space-y-1">
+                    <div className="flex items-center gap-1 text-[11px]">
+                      <span>Início</span>
+                      <input type="number" className="dc-input" min={0} max={1} step={0.05} value={seg.start}
+                        onChange={(e) => {
+                          const list = [...(selectedWire.isolation ?? [])]
+                          list[i] = { ...list[i], start: Math.max(0, Math.min(1, Number(e.target.value))) }
+                          patchSelectedWire({ isolation: list })
+                        }} />
+                      <span>Fim</span>
+                      <input type="number" className="dc-input" min={0} max={1} step={0.05} value={seg.end}
+                        onChange={(e) => {
+                          const list = [...(selectedWire.isolation ?? [])]
+                          list[i] = { ...list[i], end: Math.max(0, Math.min(1, Number(e.target.value))) }
+                          patchSelectedWire({ isolation: list })
+                        }} />
+                      <input type="color" className="w-8 h-7 rounded border border-line cursor-pointer" value={seg.color}
+                        onChange={(e) => {
+                          const list = [...(selectedWire.isolation ?? [])]
+                          list[i] = { ...list[i], color: e.target.value }
+                          patchSelectedWire({ isolation: list })
+                        }} />
+                      <button type="button" className="dc-btn text-red-600" onClick={() => {
+                        const list = (selectedWire.isolation ?? []).filter((_, j) => j !== i)
+                        patchSelectedWire({ isolation: list.length ? list : undefined })
+                      }}>×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="dc-card p-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className={label + ' !mb-0'}>Marcadores / tags</label>
+                  <button type="button" className="dc-btn" title="Adiciona um marcador a meio do cabo"
+                    onClick={() => {
+                      const list = [...(selectedWire.markers ?? [])]
+                      const n = String((list.length % 10))
+                      list.push({ t: 0.5, text: n, color: '#0a0a0a', bg: '#fbbf24' })
+                      patchSelectedWire({ markers: list })
+                    }}>+ Marcador</button>
+                </div>
+                {(selectedWire.markers ?? []).length === 0 && <small className="text-ink-400">Sem marcadores. Use «+ Marcador» para anéis numerados ou etiquetas no cabo.</small>}
+                {(selectedWire.markers ?? []).map((m, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-1 text-[11px]">
+                    <span>Pos.</span>
+                    <input type="number" className="dc-input w-14" min={0} max={1} step={0.05} value={m.t}
+                      onChange={(e) => {
+                        const list = [...(selectedWire.markers ?? [])]
+                        list[i] = { ...list[i], t: Math.max(0, Math.min(1, Number(e.target.value))) }
+                        patchSelectedWire({ markers: list })
+                      }} />
+                    <input className="dc-input w-16" value={m.text} placeholder="Nº"
+                      onChange={(e) => {
+                        const list = [...(selectedWire.markers ?? [])]
+                        list[i] = { ...list[i], text: e.target.value }
+                        patchSelectedWire({ markers: list })
+                      }} />
+                    <input type="color" title="Cor do texto" className="w-7 h-7 rounded border border-line cursor-pointer" value={m.color}
+                      onChange={(e) => {
+                        const list = [...(selectedWire.markers ?? [])]
+                        list[i] = { ...list[i], color: e.target.value }
+                        patchSelectedWire({ markers: list })
+                      }} />
+                    <input type="color" title="Fundo do marcador" className="w-7 h-7 rounded border border-line cursor-pointer" value={m.bg ?? '#fbbf24'}
+                      onChange={(e) => {
+                        const list = [...(selectedWire.markers ?? [])]
+                        list[i] = { ...list[i], bg: e.target.value }
+                        patchSelectedWire({ markers: list })
+                      }} />
+                    <button type="button" className="dc-btn text-red-600" onClick={() => {
+                      const list = (selectedWire.markers ?? []).filter((_, j) => j !== i)
+                      patchSelectedWire({ markers: list.length ? list : undefined })
+                    }}>×</button>
+                  </div>
+                ))}
+              </div>
 
               <button className="dc-btn-danger dc-btn w-full" onClick={() => useSimStore.getState().deleteWire(selectedWire.id)}>
                 <IconDelete size={12} /> Eliminar cabo

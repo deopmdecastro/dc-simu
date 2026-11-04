@@ -1,12 +1,12 @@
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
-import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf } from '../three/enclosureParts'
+import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
 import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileOf } from '../three/dinRailGeometry'
 import { CABLE_DUCT_DEFAULT_COLOR, ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
-export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn'])
+export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color'])
 export const RAIL_PROFILE_STATE_KEYS = new Set(['profile', 'finish', 'perforated'])
 
 const ENCLOSURE_PRESETS: Array<[number, number, number]> = [[300, 400, 200], [400, 500, 200], [500, 700, 250], [600, 800, 250], [800, 1000, 300], [1000, 1200, 300]]
@@ -58,6 +58,10 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
   const open = c.state.doorOpen !== false
   const set = (patch: Record<string, unknown>) => useSimStore.getState().setComponentState(c.id, patch)
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : ENCLOSURE_DEFAULT_COLOR
+  const components = useSimStore((s) => s.components)
+  const selectedIds = useSimStore((s) => s.selectedComponentIds)
+  const attached = components.filter((item) => item.enclosureId === c.id)
+  const selectionToAssign = selectedIds.filter((id) => id !== c.id && !components.find((item) => item.id === id)?.enclosureId)
   return <div className="dc-acc">
     <div className="dc-acc-head">
       <b>Quadro {d.widthMm} × {d.heightMm} × {d.depthMm} mm</b>
@@ -82,6 +86,23 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       </select>
     </label>
     <div className="dc-acc-row"><span>Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(value) => useSimStore.getState().updateComponent(c.id, { bodyColor: value })} /></div>
+    <div className="dc-acc-head" style={{ marginTop: 8 }}>
+      <b>Aparelhos dentro</b>
+    </div>
+    <div className="flex flex-wrap gap-1">
+      <button type="button" className="dc-btn" disabled={!selectionToAssign.length} title="Marca os componentes selecionados (exceto este quadro) como estando dentro deste quadro — passam a mover-se com ele"
+        onClick={() => useSimStore.getState().assignToEnclosure(selectionToAssign, c.id)}>
+        Marcar seleção como dentro ({selectionToAssign.length})
+      </button>
+      <button type="button" className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromEnclosure(attached.map((item) => item.id))}>
+        Soltar todos
+      </button>
+    </div>
+    <small className="text-ink-400">
+      {attached.length
+        ? `${attached.length} dentro: ${attached.map((item) => item.ref).join(', ')}. Ao mover o quadro, estes aparelhos acompanham.`
+        : 'Nenhum aparelho marcado como dentro. Selecione componentes e use «Marcar seleção como dentro».'}
+    </small>
     <small className="text-ink-400">Clique na porta no 3D para a abrir ou fechar. Os aparelhos e as calhas ficam dentro do quadro, sobre a chapa de montagem.</small>
   </div>
 }
@@ -145,5 +166,37 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
     <label className="dc-acc-row"><span>Perfurada</span>
       <input type="checkbox" checked={c.state.perforated !== false} onChange={(e) => useSimStore.getState().setComponentState(c.id, { perforated: e.target.checked })} />
     </label>
+  </div>
+}
+
+export function SpiralWrapControls({ c }: { c: ElectricalComponent }) {
+  const d = spiralWrapDimsOf(c.state)
+  const set = (patch: Record<string, unknown>) => {
+    const next = { ...c.state, ...patch }
+    const dims = spiralWrapDimsOf(next)
+    const w = Math.max(4, Math.round(dims.lengthMm * SCHEMATIC_PX_PER_MM))
+    const h = Math.max(8, Math.round((dims.innerDiaMm + 4) * SCHEMATIC_PX_PER_MM))
+    useSimStore.getState().updateComponent(c.id, {
+      w, h,
+      schematicX: Math.round(c.schematicX + (c.w - w) / 2),
+      schematicY: Math.round(c.schematicY + (c.h - h) / 2),
+      state: next,
+      bodyColor: typeof next.color === 'string' ? next.color : c.bodyColor,
+    })
+  }
+  return <div className="dc-acc">
+    <div className="dc-acc-head"><b>Espiral Ø{d.innerDiaMm} · {d.lengthMm} mm</b></div>
+    <MmField label="Comprimento" value={d.lengthMm} min={50} max={2000} step={10} onChange={(mm) => set({ lengthMm: mm })} />
+    <MmField label="Diâmetro interior" value={d.innerDiaMm} min={4} max={40} step={1} onChange={(mm) => set({ innerDiaMm: mm })} />
+    <MmField label="Passo" value={d.pitchMm} min={4} max={30} step={1} onChange={(mm) => set({ pitchMm: mm })} />
+    <div className="dc-acc-row"><span>Cor</span>
+      <Swatches options={[
+        { name: 'Preto', value: '#0a0a0a' },
+        { name: 'Cinzento', value: '#4b5563' },
+        { name: 'Branco', value: '#e5e7eb' },
+        { name: 'Azul', value: '#1d4ed8' },
+      ]} value={typeof c.state.color === 'string' ? c.state.color : '#0a0a0a'} onPick={(value) => set({ color: value })} />
+    </div>
+    <small className="text-ink-400">Proteção em espiral para cabos em dobras (portas, botões, luzes). Envolve o cabo sem o cortar.</small>
   </div>
 }

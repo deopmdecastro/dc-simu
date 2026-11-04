@@ -106,6 +106,7 @@ export type ComponentType =
   | 'dinRail15x55'
   | 'panelEnclosure'
   | 'cableDuct'
+  | 'spiralWrap'
   | 'busbarPhase'
   | 'busbarNeutral'
   | 'earthBar'
@@ -281,6 +282,8 @@ export interface ElectricalComponentBase {
   railId?: string
   /** Distância (mm) do início da calha ao bordo esquerdo do equipamento. */
   railOffsetMm?: number
+  /** Quadro metálico (`panelEnclosure`) em que este equipamento está montado (chapa / interior). */
+  enclosureId?: string
   /** Relé térmico encaixado por baixo deste contactor (id): pinos nos bornes 2T1/4T2/6T3, sem cabos. */
   mountedOn?: string
   /** Canto superior-esquerdo no esquema 2D (unidades do canvas) */
@@ -442,6 +445,19 @@ export interface Wire {
   number?: string
   label?: string
   lengthMm?: number
+  /**
+   * Secções de isolamento (capa) ao longo do cabo: start/end em 0..1 (fração do
+   * comprimento), cor da capa. Útil para representar isolamentos parcial ou
+   * mangas em troços específicos.
+   */
+  isolation?: Array<{ start: number; end: number; color: string }>
+  /**
+   * Marcadores / tags no cabo (anéis numerados, etiquetas): posição t em 0..1,
+   * texto (número ou etiqueta) e cor do marcador.
+   */
+  markers?: Array<{ t: number; text: string; color: string; bg?: string }>
+  /** Identificador de chicote/bundle quando o cabo está filaçado com outros. */
+  bundleId?: string
   energized: boolean
   /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
    *  componentes compartilham o mesmo espaço de camadas. */

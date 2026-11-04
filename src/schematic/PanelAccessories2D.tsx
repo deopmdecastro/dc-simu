@@ -1,4 +1,4 @@
-import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf } from '../three/enclosureParts'
+import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { ElectricalComponent } from '../types'
 
@@ -60,5 +60,29 @@ export function CableDuct2D({ c }: { c: ElectricalComponent }) {
       <line x1={0} y1={H - 2.2} x2={L} y2={H - 2.2} stroke="#8a8e89" strokeWidth={1} />
     </>}
     <text x={L / 2} y={H + 13} textAnchor="middle" fontSize={10} fill="#475569">{c.ref} · {d.lengthMm} mm · {d.widthMm}×{d.heightMm}{coverOn ? '' : ' · sem tampa'}</text>
+  </g>
+}
+
+/** Espiral de proteção: representação esquemática em vista frontal (hélice simplificada). */
+export function SpiralWrap2D({ c }: { c: ElectricalComponent }) {
+  const d = spiralWrapDimsOf(c.state)
+  const L = c.w
+  const H = Math.max(c.h, 12)
+  const color = typeof c.state.color === 'string' ? c.state.color : '#0a0a0a'
+  const pitchPx = Math.max(4, (d.pitchMm / Math.max(1, d.lengthMm)) * L)
+  const n = Math.max(3, Math.floor(L / pitchPx))
+  const r = H * 0.38
+  const cy = H / 2
+  const path: string[] = []
+  for (let i = 0; i <= n * 4; i++) {
+    const t = i / (n * 4)
+    const x = t * L
+    const y = cy + Math.sin(t * n * Math.PI * 2) * r
+    path.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`)
+  }
+  return <g pointerEvents="none" data-spiral-wrap>
+    <rect x={0} y={0} width={L} height={H} rx={H / 2} fill="#1a1a1a" stroke="#333" strokeWidth={0.6} opacity={0.35} />
+    <path d={path.join(' ')} fill="none" stroke={color} strokeWidth={Math.max(2, H * 0.28)} strokeLinecap="round" />
+    <text x={L / 2} y={H + 13} textAnchor="middle" fontSize={10} fill="#475569">{c.ref} · Ø{d.innerDiaMm} · {d.lengthMm} mm</text>
   </g>
 }

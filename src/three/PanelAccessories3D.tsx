@@ -132,3 +132,32 @@ export function CableDuct3D({ c, plateFrontZ, label }: { c: ElectricalComponent;
     <group position={[0, dims.widthMm * U / 2 + 0.08, dims.heightMm * U + 0.02]}>{label}</group>
   </group>
 }
+
+/** Espiral de proteção: tubo helicoidal simples (PVC preto). */
+export function SpiralWrap3D({ c, plateFrontZ, label }: { c: ElectricalComponent; plateFrontZ: number; label?: ReactNode }) {
+  const lengthMm = typeof c.state.lengthMm === 'number' ? c.state.lengthMm : 300
+  const innerDiaMm = typeof c.state.innerDiaMm === 'number' ? c.state.innerDiaMm : 10
+  const pitchMm = typeof c.state.pitchMm === 'number' ? c.state.pitchMm : 8
+  const color = typeof c.state.color === 'string' ? c.state.color : (c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : '#0a0a0a')
+  const geo = useMemo(() => {
+    const turns = Math.max(2, lengthMm / pitchMm)
+    const path = new THREE.CurvePath<THREE.Vector3>()
+    const pts: THREE.Vector3[] = []
+    const steps = Math.max(24, Math.ceil(turns * 16))
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      const angle = t * turns * Math.PI * 2
+      const r = (innerDiaMm / 2 + 1.2) * U
+      pts.push(new THREE.Vector3((t - 0.5) * lengthMm * U, Math.cos(angle) * r, Math.sin(angle) * r))
+    }
+    for (let i = 0; i < pts.length - 1; i++) path.add(new THREE.LineCurve3(pts[i], pts[i + 1]))
+    return new THREE.TubeGeometry(path as unknown as THREE.Curve<THREE.Vector3>, steps, 1.4 * U, 6, false)
+  }, [lengthMm, innerDiaMm, pitchMm])
+  useEffect(() => () => geo.dispose(), [geo])
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.05, envMapIntensity: 0.6 }), [color])
+  useEffect(() => () => mat.dispose(), [mat])
+  return <group position={[0, 0, plateFrontZ + (innerDiaMm / 2 + 2) * U]}>
+    <mesh geometry={geo} material={mat} castShadow receiveShadow />
+    <group position={[0, (innerDiaMm / 2 + 4) * U, 0]}>{label}</group>
+  </group>
+}

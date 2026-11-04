@@ -399,6 +399,10 @@ interface Store extends CircuitState {
   snapToRails: (ids?: string[], commit?: boolean) => number
   /** Solta equipamentos da calha (mantém a posição atual). */
   detachFromRail: (ids: string[]) => void
+  /** Associa componentes a um quadro (`panelEnclosure`). */
+  assignToEnclosure: (ids: string[], enclosureId: string) => void
+  /** Remove a associação a quadro (mantém a posição atual). */
+  detachFromEnclosure: (ids: string[]) => void
   rotateComponent: (id: string) => void
   mirrorComponent: (id: string) => void
   toggleLock: (id: string) => void
@@ -2066,6 +2070,10 @@ export const useSimStore = create<Store>((set, get) => {
       for (const component of s.components) {
         if (component.railId && groupIds.has(component.railId)) groupIds.add(component.id)
       }
+      // O quadro e os aparelhos marcados como «dentro» movem-se juntos.
+      for (const component of s.components) {
+        if (component.enclosureId && groupIds.has(component.enclosureId)) groupIds.add(component.id)
+      }
       // O relé térmico encaixado acompanha o contactor (e o contactor que acompanha a calha).
       for (const component of s.components) {
         if (component.mountedOn && groupIds.has(component.mountedOn)) groupIds.add(component.id)
@@ -2156,6 +2164,27 @@ export const useSimStore = create<Store>((set, get) => {
     }))
   },
 
+  assignToEnclosure: (ids, enclosureId) => {
+    const enclosure = get().components.find((c) => c.id === enclosureId && c.type === 'panelEnclosure')
+    if (!enclosure) {
+      get().pushEvent('warning', 'Quadro não encontrado.')
+      return
+    }
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => (ids.includes(c.id) && c.id !== enclosureId ? { ...c, enclosureId } : c)),
+      dirty: true,
+    }))
+  },
+
+  detachFromEnclosure: (ids) => {
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => (ids.includes(c.id) && c.enclosureId ? { ...c, enclosureId: undefined } : c)),
+      dirty: true,
+    }))
+  },
+
   rotateComponent: (id) => {
     const current = get().components.find((component) => component.id === id)
     if (!current) return
@@ -2203,7 +2232,12 @@ export const useSimStore = create<Store>((set, get) => {
       const keptTags = Object.fromEntries(Object.entries(tags).filter(([id]) => living.some((p) => p.id === id)))
       const nextId = living.some((p) => p.id === s.activePlcId) ? s.activePlcId : living[0]?.id ?? null
       const nextProgram = nextId && nextId !== s.activePlcId ? keptPrograms[nextId] ?? blankPlcProgram() : null
-      return { components: remaining.map((c) => (c.railId && ids.includes(c.railId) ? { ...c, railId: undefined, railOffsetMm: undefined } : c)), wires, selectedComponentIds: [], dirty: true,
+      return { components: remaining.map((c) => {
+        let next = c
+        if (c.railId && ids.includes(c.railId)) next = { ...next, railId: undefined, railOffsetMm: undefined }
+        if (c.enclosureId && ids.includes(c.enclosureId)) next = { ...next, enclosureId: undefined }
+        return next
+      }), wires, selectedComponentIds: [], dirty: true,
         viewOrientationEditor: s.viewOrientationEditor && ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
         activePlcId: nextId, plcPrograms: keptPrograms, plcTags: keptTags,
         projectFiles: Object.fromEntries(Object.entries(s.projectFiles).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),

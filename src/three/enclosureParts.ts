@@ -45,10 +45,12 @@ export const CABLE_DUCT = {
 
 export const ENCLOSURE_TYPE = 'panelEnclosure'
 export const CABLE_DUCT_TYPE = 'cableDuct'
+export const SPIRAL_WRAP_TYPE = 'spiralWrap'
 export const isEnclosureType = (type: string): boolean => type === ENCLOSURE_TYPE
 export const isCableDuctType = (type: string): boolean => type === CABLE_DUCT_TYPE
+export const isSpiralWrapType = (type: string): boolean => type === SPIRAL_WRAP_TYPE
 /** Peças mecânicas do quadro (não são aparelhos: sem bornes, fora do encaminhamento dos cabos). */
-export const isPanelAccessoryType = (type: string): boolean => isEnclosureType(type) || isCableDuctType(type)
+export const isPanelAccessoryType = (type: string): boolean => isEnclosureType(type) || isCableDuctType(type) || isSpiralWrapType(type)
 
 const clamp = (value: unknown, min: number, max: number, fallback: number) => {
   const n = typeof value === 'number' && Number.isFinite(value) ? value : Number(value)
@@ -74,10 +76,24 @@ export function cableDuctDimsOf(state: Record<string, unknown> | undefined): Cab
   }
 }
 
+export interface SpiralWrapDims { lengthMm: number; innerDiaMm: number; pitchMm: number }
+export function spiralWrapDimsOf(state: Record<string, unknown> | undefined): SpiralWrapDims {
+  return {
+    lengthMm: clamp(state?.lengthMm, 50, 2000, 300),
+    innerDiaMm: clamp(state?.innerDiaMm, 4, 40, 10),
+    pitchMm: clamp(state?.pitchMm, 4, 30, 8),
+  }
+}
+
 /** Tamanho real (mm) ocupado pela peça: X × Y no plano do painel, Z = profundidade. */
 export function panelAccessorySizeMm(type: string, state: Record<string, unknown> | undefined): { x: number; y: number; z: number } | null {
   if (isEnclosureType(type)) { const d = enclosureDimsOf(state); return { x: d.widthMm, y: d.heightMm, z: d.depthMm } }
   if (isCableDuctType(type)) { const d = cableDuctDimsOf(state); return { x: d.lengthMm, y: d.widthMm, z: d.heightMm + 2 } }
+  if (isSpiralWrapType(type)) {
+    const d = spiralWrapDimsOf(state)
+    const outer = d.innerDiaMm + 4
+    return { x: d.lengthMm, y: outer, z: outer }
+  }
   return null
 }
 
