@@ -1051,7 +1051,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         if (p.y < top) top = p.y
         if (p.y > bottom) bottom = p.y
       }
-      const pad = wireStrokeWidth(w.gauge) * 0.5 + 1
+      const pad = wireStrokeWidth(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed }) * 0.5 + 1
       return { left: left - pad, right: right + pad, top: top - pad, bottom: bottom + pad }
     }
     const wireZ = new Map<string, number>()
@@ -1127,7 +1127,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const flexible = w.flexibility === 'flexible'
     const selected = selectedWireId === w.id || selectedWireIds.includes(w.id)
     const { d, handle } = display.geometry
-    const width = wireStrokeWidth(w.gauge)
+    const width = wireStrokeWidth(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed })
     const cap = 'square'
     const join = 'miter'
     const showEnergyFlow = wireEnergyEffectVisible(simRunState, w.energized)
@@ -1156,6 +1156,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         {/* O acabamento do fio é igual para rígido e flexível. */}
         <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
         {showEnergyFlow && <path d={d} fill="none" stroke="#ffffff" strokeWidth={Math.max(1.1, width * 0.36)} strokeDasharray="3 14" className="dc-flow" strokeLinecap="round" pointerEvents="none" opacity={0.76} />}
+
+        {/* Capa exterior global (cabo isolado / multicore) */}
+        {w.sheathed && (
+          <g pointerEvents="none">
+            <path d={d} fill="none" stroke="#0f172a" strokeOpacity={0.28} strokeWidth={width + 2.8} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={d} fill="none" stroke={w.sheathColor ?? '#0f172a'} strokeWidth={width + 1.6} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.12} strokeWidth={Math.max(0.8, (width + 1.6) * 0.2)} strokeLinecap="butt" />
+          </g>
+        )}
         {/* Capas de isolamento (secções coloridas mais grossas sobre o condutor) */}
         {(w.isolation ?? []).map((seg, i) => {
           const iso = subpathBetween(display.geometry.pts, seg.start, seg.end)
@@ -1165,6 +1174,19 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             <path d={iso} fill="none" stroke="#0f172a" strokeOpacity={0.25} strokeWidth={isoW + 1.2} strokeLinecap="round" strokeLinejoin="round" />
             <path d={iso} fill="none" stroke={seg.color} strokeWidth={isoW} strokeLinecap="round" strokeLinejoin="round" />
             <path d={iso} fill="none" stroke="#ffffff" strokeOpacity={0.18} strokeWidth={Math.max(0.8, isoW * 0.22)} strokeLinecap="butt" />
+          </g>
+        })}
+
+        {/* Espirais de proteção (capa em hélice sobre o troço do cabo) */}
+        {(w.spirals ?? []).map((seg, i) => {
+          const sp = subpathBetween(display.geometry.pts, seg.start, seg.end)
+          if (!sp) return null
+          const spW = width + 5.5
+          const col = seg.color ?? "#0a0a0a"
+          return <g key={`spiral-${i}`} pointerEvents="none">
+            <path d={sp} fill="none" stroke="#0f172a" strokeOpacity={0.3} strokeWidth={spW + 1.5} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={sp} fill="none" stroke={col} strokeWidth={spW} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2.5 1.8" />
+            <path d={sp} fill="none" stroke="#ffffff" strokeOpacity={0.12} strokeWidth={Math.max(1, spW * 0.2)} strokeLinecap="butt" />
           </g>
         })}
         {/* Marcadores / tags (anéis numerados ao longo do cabo) */}
@@ -1282,7 +1304,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const display = wireDisplay(w)
     if (!display) return []
     const color = WIRE_COLORS[w.color] ?? '#94a3b8'
-    const width = wireStrokeWidth(w.gauge)
+    const width = wireStrokeWidth(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed })
     return (['from', 'to'] as const).map((side) => {
       const endLayer = (side === 'from' ? w.fromEndLayer : w.toEndLayer) ?? 'back'
       if (endLayer !== layer) return null
@@ -1527,7 +1549,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               const point = side === 'from' ? d.a : d.b
               if (!lead) return null
               return <path key={`${w.id}-${side}-insert`} d={`M ${lead.x},${lead.y} L ${point.x},${point.y}`}
-                fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={wireStrokeWidth(w.gauge)} pointerEvents="none" />
+                fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={wireStrokeWidth(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed })} pointerEvents="none" />
             })
           })}
           {displayComponents.flatMap((c) => c.terminals.filter((t) => wires.some((w) => (!w.fromPoint && w.fromTerminalId === t.id) || (!w.toPoint && w.toTerminalId === t.id))).map((t) => {

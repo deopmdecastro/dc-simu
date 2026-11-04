@@ -1,6 +1,6 @@
 import type { WireColor, WireDefaults, WireEndType, WireFlexibility } from '../types'
 import { ConductorIcon, WIRE_END_OPTIONS, WireEndIcon } from '../schematic/wireEnds'
-import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL, WIRE_GAUGES } from '../admin/editor3d/wireStyle'
+import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL, WIRE_GAUGES, CABLE_PRESETS, applyCablePreset, matchCablePreset } from '../admin/editor3d/wireStyle'
 
 /**
  * Opções dos cabos novos (cor, secção, condutor e terminação das pontas) num
@@ -35,6 +35,64 @@ export function WireOptionsFields({ value, onChange, compact = false }: {
   const selectedEnd = WIRE_END_OPTIONS.find((option) => option.id === value.endType)
 
   return <div className={`wo-fields${compact ? ' is-compact' : ''}`}>
+    <div className="wo-group">
+      <div className="wo-label"><span>Tipo de cabo</span><em>{matchCablePreset(value) === 'custom' ? 'Personalizado' : (CABLE_PRESETS.find(p => p.id === matchCablePreset(value))?.label ?? '')}</em></div>
+      <div className="wo-presets" role="radiogroup" aria-label="Tipo de cabo">
+        {CABLE_PRESETS.map((preset) => {
+          const on = matchCablePreset(value) === preset.id
+          return <button
+            key={preset.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            aria-label={preset.label}
+            title={`${preset.label} — ${preset.hint}`}
+            className={`wo-preset${on ? ' is-on' : ''}`}
+            onClick={() => onChange(applyCablePreset(preset))}
+          >
+            <strong>{preset.label}</strong>
+            <small>{preset.hint}</small>
+          </button>
+        })}
+      </div>
+    </div>
+
+    <div className="wo-group">
+      <div className="wo-label"><span>Condutores / capa</span></div>
+      <div className="wo-row">
+        <label className="wo-inline">
+          <span>Nº</span>
+          <select
+            className="wo-select"
+            value={value.conductorCount ?? 1}
+            onChange={(e) => onChange({ conductorCount: Number(e.target.value) })}
+            aria-label="Número de condutores"
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
+          </select>
+        </label>
+        <button
+          type="button"
+          className={`wo-choice wo-sheath${value.sheathed ? ' is-on' : ''}`}
+          aria-pressed={!!value.sheathed}
+          onClick={() => onChange({ sheathed: !value.sheathed, sheathColor: !value.sheathed ? (value.sheathColor ?? '#0f172a') : value.sheathColor })}
+          title="Capa exterior (isolamento global do cabo)"
+        >
+          <strong>{value.sheathed ? 'Isolado' : 'Sem capa'}</strong>
+          <small>{value.sheathed ? 'Com capa exterior' : 'Só isolação individual'}</small>
+        </button>
+        {value.sheathed && (
+          <input
+            type="color"
+            className="wo-sheath-color"
+            value={value.sheathColor ?? '#0f172a'}
+            title="Cor da capa"
+            onChange={(e) => onChange({ sheathColor: e.target.value })}
+          />
+        )}
+      </div>
+    </div>
+
     <div className="wo-group wo-colors">
       <div className="wo-label">
         <span>Cor do cabo</span>

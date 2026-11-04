@@ -1868,7 +1868,7 @@ export const useSimStore = create<Store>((set, get) => {
     else if (saveAsDefault) get().pushEvent('info', `Apresentação atual de ${component.ref} guardada como padrão para novas instâncias.`)
     if (removedWireCount > 0) get().pushEvent('warning', `${removedWireCount} cabo(s) ligado(s) a bornes removidos foram eliminados em segurança.`)
   },
-  wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule' },
+  wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule', conductorCount: 1, sheathed: false },
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
   addComponent: (type, x, y) => {
@@ -2457,6 +2457,9 @@ export const useSimStore = create<Store>((set, get) => {
       bend: 0.5,
       curveOffset: 0,
       number: `W${get().wires.length + 1}`,
+      conductorCount: defs.conductorCount ?? 1,
+      sheathed: defs.sheathed ?? false,
+      sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
       energized: false,
     }
     // heurística: cabo entre polos de força = 'power'; entre N/PE = neutral/earth
@@ -2497,7 +2500,11 @@ export const useSimStore = create<Store>((set, get) => {
       color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
       endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
       fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
-      number: `W${get().wires.length + 1}`, energized: false,
+      number: `W${get().wires.length + 1}`,
+      conductorCount: defs.conductorCount ?? 1,
+      sheathed: defs.sheathed ?? false,
+      sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
+      energized: false,
     }
     set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo livre ${wire.number} criado (sem continuidade elétrica até ligar ambas as pontas).`)
@@ -2536,7 +2543,11 @@ export const useSimStore = create<Store>((set, get) => {
       color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
       endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
       fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
-      number: `W${get().wires.length + 1}`, energized: false,
+      number: `W${get().wires.length + 1}`,
+      conductorCount: defs.conductorCount ?? 1,
+      sheathed: defs.sheathed ?? false,
+      sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
+      energized: false,
     }
     set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo livre ${wire.number} desenhado no 3D (sem continuidade elétrica até ligar ambas as pontas).`)

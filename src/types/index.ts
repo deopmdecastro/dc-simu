@@ -389,6 +389,12 @@ export interface WireDefaults {
   gauge: string
   flexibility: WireFlexibility
   endType: WireEndType
+  /** Número de condutores no cabo (1 = fio simples; 2+ = multicore). */
+  conductorCount?: number
+  /** Tem capa exterior (isolamento global) além da isolação individual dos fios. */
+  sheathed?: boolean
+  /** Cor da capa exterior (hex), p.ex. preto PVC. Só relevante se sheathed. */
+  sheathColor?: string
 }
 
 export interface Wire {
@@ -451,6 +457,13 @@ export interface Wire {
    * mangas em troços específicos.
    */
   isolation?: Array<{ start: number; end: number; color: string }>
+  /**
+   * Secções de espiral de proteção (spiral wrap) ao longo do cabo: start/end em
+   * 0..1 (fração do comprimento). Cor por omissão preto PVC; pitch e Ø interior
+   * opcionais. Não é um elemento do catálogo — aplica-se diretamente ao cabo
+   * selecionado (igual ao isolamento).
+   */
+  spirals?: Array<{ start: number; end: number; color?: string; pitchMm?: number; innerDiaMm?: number }>
   /**
    * Marcadores / tags no cabo (anéis numerados, etiquetas): posição t em 0..1,
    * texto (número ou etiqueta) e cor do marcador.

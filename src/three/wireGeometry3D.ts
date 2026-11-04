@@ -27,12 +27,15 @@ export const WIRE_3D_COLORS: Record<WireColor, string> = {
 }
 
 /** Diâmetro exterior aproximado do cabo isolado a partir da secção do condutor. */
-export function cableOuterDiameterMm(gauge: string): number {
+export function cableOuterDiameterMm(gauge: string, opts?: { conductorCount?: number; sheathed?: boolean }): number {
   const area = Number.parseFloat(gauge.replace(',', '.'))
   if (!Number.isFinite(area) || area <= 0) return 2.8
   const conductorDiameter = Math.sqrt((4 * area) / Math.PI)
   const insulationPerSide = area <= 1.5 ? 0.7 : area <= 4 ? 0.85 : 1.05
-  return Math.max(1.8, (conductorDiameter + insulationPerSide * 2) * 0.88)
+  const n = Math.max(1, opts?.conductorCount ?? 1)
+  const pack = n <= 1 ? 1 : Math.sqrt(n) * 0.85
+  const jacket = opts?.sheathed ? (n <= 1 ? 0.55 : 0.85) : 0
+  return Math.max(1.8, (conductorDiameter * pack + insulationPerSide * 2 + jacket) * 0.88)
 }
 
 /** Altura onde pontas livres desenhadas só no Esquema ficam no 3D (à frente da calha DIN). */

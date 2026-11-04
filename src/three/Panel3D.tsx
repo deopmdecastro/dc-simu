@@ -1988,7 +1988,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const { path, curve, segments, points } = cachedWireGeometry(wire, from, to, obstacles, prebuilt)
     if (points.length < 2) return null
     const selected = wire.id === selectedWireId
-    const outerDiameterMm = cableOuterDiameterMm(wire.gauge)
+    const outerDiameterMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
     const flowing = wireEnergyEffectVisible(runState, wire.energized)
     const wireColor = WIRE_3D_COLORS[wire.color]
@@ -2039,6 +2039,16 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
       {/* Clicar na terminação (pinça, ficha, ponteira) seleciona o cabo, como clicar no próprio cabo. */}
       {!from.sharedFollower && <WireEnd3D side="from" geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
       {!to.sharedFollower && <WireEnd3D side="to" geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
+
+      {/* Capa exterior global (cabo isolado / multicore) */}
+      {wire.sheathed && (() => {
+        const sheathRadius = radius * 1.35 + 0.005
+        const col = wire.sheathColor ?? '#0f172a'
+        return <mesh key="sheath" castShadow receiveShadow renderOrder={19} raycast={() => null}>
+          <tubeGeometry args={[curve, segments, sheathRadius, 12, false]} />
+          <meshPhysicalMaterial color={col} roughness={0.6} metalness={0.04} clearcoat={0.18} clearcoatRoughness={0.55} envMapIntensity={0.75} />
+        </mesh>
+      })()}
       {/* Capas de isolamento 3D: tubo mais grosso na secção [start, end] */}
       {(wire.isolation ?? []).map((seg, i) => {
         const a = Math.max(0, Math.min(1, Math.min(seg.start, seg.end)))
@@ -2057,6 +2067,28 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
         return <mesh key={`iso-${i}`} castShadow receiveShadow renderOrder={20} raycast={() => null}>
           <tubeGeometry args={[isoCurve as unknown as THREE.Curve<THREE.Vector3>, steps, isoRadius, 10, false]} />
           <meshPhysicalMaterial color={seg.color} roughness={0.55} metalness={0.02} clearcoat={0.2} clearcoatRoughness={0.5} envMapIntensity={0.8} />
+        </mesh>
+      })}
+
+      {/* Espirais de proteção 3D: tubo com padrão helicoidal (aprox. via tubo mais grosso + cor) */}
+      {(wire.spirals ?? []).map((seg, i) => {
+        const a = Math.max(0, Math.min(1, Math.min(seg.start, seg.end)))
+        const b = Math.max(0, Math.min(1, Math.max(seg.start, seg.end)))
+        if (b - a < 0.02) return null
+        const spCurve = new THREE.CurvePath<THREE.Vector3>()
+        const steps = Math.max(10, Math.ceil(segments * (b - a)))
+        const pts: THREE.Vector3[] = []
+        for (let s = 0; s <= steps; s++) {
+          const t = a + (b - a) * (s / steps)
+          const p = curve.getPointAt(Math.max(0, Math.min(1, t)))
+          pts.push(p)
+        }
+        for (let s = 0; s < pts.length - 1; s++) spCurve.add(new THREE.LineCurve3(pts[s], pts[s + 1]))
+        const spRadius = radius * 1.85 + 0.006
+        const col = seg.color ?? "#0a0a0a"
+        return <mesh key={`spiral-${i}`} castShadow receiveShadow renderOrder={21} raycast={() => null}>
+          <tubeGeometry args={[spCurve as unknown as THREE.Curve<THREE.Vector3>, steps, spRadius, 12, false]} />
+          <meshPhysicalMaterial color={col} roughness={0.65} metalness={0.05} clearcoat={0.15} clearcoatRoughness={0.6} envMapIntensity={0.7} />
         </mesh>
       })}
       {/* Marcadores 3D: anéis coloridos com etiqueta */}
@@ -3604,7 +3636,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       {selectedWire && !demoMode && wireActionSlot && createPortal(<div className="panel3d-wire-actions-panel" role="region" aria-label="Traçado do cabo no esquema 3D">
         <div className="panel3d-wire-actions-head">
           <strong>{selectedWire.number || 'Cabo'}</strong>
-          <small>{selectedWire.gauge} · Ø {cableOuterDiameterMm(selectedWire.gauge).toFixed(1)} mm{selectedWirePath ? ` · ≈ ${wireLengthMm(selectedWirePath)} mm` : ''}</small>
+          <small>{selectedWire.gauge} · Ø {cableOuterDiameterMm(selectedWire.gauge, { conductorCount: selectedWire.conductorCount, sheathed: selectedWire.sheathed }).toFixed(1)} mm{selectedWirePath ? ` · ≈ ${wireLengthMm(selectedWirePath)} mm` : ''}</small>
           <i className={wireEditDirty ? 'is-dirty' : ''}>{wireEditDirty ? 'Alterado' : 'Sincronizado'}</i>
         </div>
         <div className="panel3d-wire-actions">
@@ -3808,7 +3840,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           draft={draft}
           getDraft={() => draftRef.current}
           terminals={drawTerminals}
-          wireRadius={(cableOuterDiameterMm(wireDefaults.gauge) * PANEL_UNITS_PER_MM) / 2}
+          wireRadius={(cableOuterDiameterMm(wireDefaults.gauge, { conductorCount: wireDefaults.conductorCount, sheathed: wireDefaults.sheathed }) * PANEL_UNITS_PER_MM) / 2}
           wireColor={WIRE_3D_COLORS[wireDefaults.autoColor ? 'red' : wireDefaults.color]}
           smooth={wireDefaults.flexibility === 'flexible'}
           reconnecting={reconnect !== null}

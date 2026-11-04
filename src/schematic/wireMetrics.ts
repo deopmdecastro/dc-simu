@@ -47,10 +47,14 @@ const MAX_GAUGE = 16
  * da secção (diâmetro físico) e satura nos extremos para o traçado continuar
  * legível junto à grelha e aos componentes.
  */
-export function wireStrokeWidth(gauge: string | undefined): number {
+export function wireStrokeWidth(gauge: string | undefined, opts?: { conductorCount?: number; sheathed?: boolean }): number {
   const mm = Math.min(MAX_GAUGE, Math.max(MIN_GAUGE, gaugeMm(gauge)))
   const t = (Math.sqrt(mm) - Math.sqrt(MIN_GAUGE)) / (Math.sqrt(MAX_GAUGE) - Math.sqrt(MIN_GAUGE))
-  return Math.round((MIN_WIDTH + t * (MAX_WIDTH - MIN_WIDTH)) * 100) / 100
+  let w = MIN_WIDTH + t * (MAX_WIDTH - MIN_WIDTH)
+  const n = Math.max(1, opts?.conductorCount ?? 1)
+  if (n > 1) w *= 1 + Math.min(0.55, (Math.sqrt(n) - 1) * 0.35)
+  if (opts?.sheathed) w += 1.2
+  return Math.round(Math.min(MAX_WIDTH + 2.5, w) * 100) / 100
 }
 
 /**

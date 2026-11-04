@@ -34,6 +34,7 @@ import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
 import { WireOptionsFields } from '../ui/WireOptions'
+import { CABLE_PRESETS, applyCablePreset, matchCablePreset } from '../admin/editor3d/wireStyle'
 import { setWireActionSlot } from '../ui/wireActionSlot'
 import { allLightSwatches, swatchBackground, useLightColorLibrary } from '../catalog/lightColorLibrary'
 
@@ -911,6 +912,64 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <div className="text-[10px] text-ink-400 mt-1">
                   Atual: <span className="font-mono font-semibold" style={{ color: WIRE_COLORS[selectedWire.color] }}>{selectedWire.color}</span>
                   {' '}— a cor é aplicada de imediato no esquema.
+                </div>
+              </div>
+
+
+              <div className="dc-card p-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className={label + ' !mb-0'}>Tipo de cabo</label>
+                  <span className="text-[10px] text-ink-400">{matchCablePreset(selectedWire) === 'custom' ? 'Personalizado' : (CABLE_PRESETS.find(p => p.id === matchCablePreset(selectedWire))?.label ?? '')}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {CABLE_PRESETS.map((preset) => {
+                    const on = matchCablePreset(selectedWire) === preset.id
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        title={`${preset.label} — ${preset.hint}`}
+                        onClick={() => patchSelectedWire(applyCablePreset(preset))}
+                        className={`flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors ${
+                          on ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-line bg-white hover:border-line-strong hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="text-[11px] font-semibold text-ink-900">{preset.label}</span>
+                        <span className="text-[9px] text-ink-400 leading-tight">{preset.hint}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
+                    Nº
+                    <select
+                      className="dc-select"
+                      value={selectedWire.conductorCount ?? 1}
+                      onChange={(e) => patchSelectedWire({ conductorCount: Number(e.target.value) })}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className={`dc-btn ${selectedWire.sheathed ? '!border-brand-500 !bg-brand-50' : ''}`}
+                    onClick={() => patchSelectedWire({
+                      sheathed: !selectedWire.sheathed,
+                      sheathColor: !selectedWire.sheathed ? (selectedWire.sheathColor ?? '#0f172a') : selectedWire.sheathColor,
+                    })}
+                  >
+                    {selectedWire.sheathed ? 'Isolado (capa)' : 'Sem capa'}
+                  </button>
+                  {selectedWire.sheathed && (
+                    <input
+                      type="color"
+                      className="h-7 w-8 rounded border border-line cursor-pointer"
+                      value={selectedWire.sheathColor ?? '#0f172a'}
+                      onChange={(e) => patchSelectedWire({ sheathColor: e.target.value })}
+                      title="Cor da capa exterior"
+                    />
+                  )}
                 </div>
               </div>
 
