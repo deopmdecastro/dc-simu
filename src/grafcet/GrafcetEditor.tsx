@@ -3559,33 +3559,32 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         notify('Vista ajustada')
         return
       }
-      if (event.shiftKey && !mod && !event.altKey && selectedStep && !selectedActionId) {
+      // Setas: movem a seleção (etapa/grupo). Alt+setas navegam entre etapas.
+      {
         const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key as string]
-        if (dir) {
-          event.preventDefault()
-          nudgeSelection(dir[0], dir[1], false)
-          return
+        if (dir && !mod) {
+          const canNudge = (groupIds.length >= 1 || (selectedStep && !selectedActionId)) && !event.altKey
+          if (canNudge) {
+            event.preventDefault()
+            nudgeSelection(dir[0], dir[1], event.shiftKey)
+            return
+          }
+          if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            event.preventDefault()
+            if (!steps.length) return
+            const currentIdx = steps.findIndex((s) => s.id === selected)
+            if (event.key === 'ArrowDown') {
+              const nextIdx = currentIdx === -1 ? 0 : Math.min(steps.length - 1, currentIdx + 1)
+              setSelected(steps[nextIdx].id)
+            } else {
+              const prevIdx = currentIdx === -1 ? steps.length - 1 : Math.max(0, currentIdx - 1)
+              setSelected(steps[prevIdx].id)
+            }
+            setSelectedActionId(null)
+            setTab('steps')
+            return
+          }
         }
-      }
-      if (event.key === 'ArrowDown') {
-        event.preventDefault()
-        if (!steps.length) return
-        const currentIdx = steps.findIndex((s) => s.id === selected)
-        const nextIdx = currentIdx === -1 ? 0 : Math.min(steps.length - 1, currentIdx + 1)
-        setSelected(steps[nextIdx].id)
-        setSelectedActionId(null)
-        setTab('steps')
-        return
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault()
-        if (!steps.length) return
-        const currentIdx = steps.findIndex((s) => s.id === selected)
-        const prevIdx = currentIdx === -1 ? steps.length - 1 : Math.max(0, currentIdx - 1)
-        setSelected(steps[prevIdx].id)
-        setSelectedActionId(null)
-        setTab('steps')
-        return
       }
       if (event.key === 'Enter') {
         if (selectedStep && selectedActionId) {

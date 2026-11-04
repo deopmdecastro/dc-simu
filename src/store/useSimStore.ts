@@ -394,6 +394,8 @@ interface Store extends CircuitState {
   /** Como `updateComponent`, sem histórico (arrasto contínuo). */
   updateComponentRaw: (id: string, patch: Partial<ElectricalComponent>) => void
   moveComponent: (id: string, x: number, y: number, movingIds?: string[]) => void
+  /** Move a seleção com as setas (dx/dy em px do esquema; components + pontas livres de cabos). */
+  nudgeSelection: (dx: number, dy: number) => void
   /** Comprimento da calha DIN (mm): mantém Esquema 2D, Painel 3D e equipamentos fixos coerentes. */
   setRailLength: (id: string, lengthMm: number, anchor?: 'left' | 'right', commit?: boolean) => void
   /** Imã: centra na calha mais próxima e fixa. Sem `ids` aplica a todos os equipamentos de calha. Devolve quantos ficaram fixos. */
@@ -2111,6 +2113,36 @@ export const useSimStore = create<Store>((set, get) => {
         dirty: true,
       }
     })
+  },
+
+  nudgeSelection: (dx, dy) => {
+    if (!dx && !dy) return
+    if (get().demoMode) return
+    const run = get().sim.runState
+    if (run === 'running' || run === 'paused') return
+    const { selectedComponentIds, selectedWireId, selectedWireIds, components, wires } = get()
+    const movingIds = selectedComponentIds.filter((id) => !components.find((component) => component.id === id)?.locked)
+    if (movingIds.length) {
+      const anchor = components.find((component) => component.id === movingIds[0])
+      if (!anchor) return
+      get().commitHistory()
+      get().moveComponent(anchor.id, anchor.schematicX + dx, anchor.schematicY + dy, movingIds)
+      return
+    }
+    const wireIds = selectedWireIds?.length ? selectedWireIds : (selectedWireId ? [selectedWireId] : [])
+    if (!wireIds.length) return
+    const shift = (point?: { x: number; y: number }) => (point ? { x: point.x + dx, y: point.y + dy } : undefined)
+    let moved = false
+    get().commitHistory()
+    for (const wid of wireIds) {
+      const wire = wires.find((item) => item.id === wid)
+      if (!wire) continue
+      const patch: Partial<typeof wire> = {}
+      if (wire.fromPoint) { patch.fromPoint = shift(wire.fromPoint); patch.fromPoint3D = undefined; moved = true }
+      if (wire.toPoint) { patch.toPoint = shift(wire.toPoint); patch.toPoint3D = undefined; moved = true }
+      if (wire.waypoints?.length) { patch.waypoints = wire.waypoints.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy })); moved = true }
+      if (Object.keys(patch).length) get().updateWire(wid, patch)
+    }
   },
 
   setRailLength: (id, lengthMm, anchor = 'left', commit = true) => {

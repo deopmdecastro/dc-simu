@@ -638,26 +638,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     nudge: (dirX, dirY, big) => {
       // Setas movem a seleção: 1 px, ou o passo da malha com Shift.
       const step = big ? grid.size : 1
-      const dx = dirX * step, dy = dirY * step
-      if (selectedIds.length) {
-        const movingIds = selectedIds.filter((id) => !components.find((component) => component.id === id)?.locked)
-        const anchorPart = components.find((component) => component.id === movingIds[0])
-        if (!anchorPart) return
-        commitHistory()
-        moveComponent(anchorPart.id, anchorPart.schematicX + dx, anchorPart.schematicY + dy, movingIds)
-        return
-      }
-      // No cabo movem-se os pontos livres: pontas soltas e vértices do traçado.
-      // As pontas ligadas a bornes continuam agarradas ao componente.
-      const wire = selectedWireId ? wires.find((item) => item.id === selectedWireId) : undefined
-      if (!wire) return
-      const shift = (point?: { x: number; y: number }) => (point ? { x: point.x + dx, y: point.y + dy } : undefined)
-      commitHistory()
-      updateWire(wire.id, {
-        ...(wire.fromPoint ? { fromPoint: shift(wire.fromPoint), fromPoint3D: undefined } : {}),
-        ...(wire.toPoint ? { toPoint: shift(wire.toPoint), toPoint3D: undefined } : {}),
-        ...(wire.waypoints?.length ? { waypoints: wire.waypoints.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy })) } : {}),
-      })
+      useSimStore.getState().nudgeSelection(dirX * step, dirY * step)
     },
   }, { enabled: !shortcutHelpOpen })
 

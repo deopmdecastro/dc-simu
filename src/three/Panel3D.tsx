@@ -3518,6 +3518,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       applyMixedSelection([...store.components.filter((c) => !c.locked).map((c) => c.id), ...store.canvasTexts.filter((t) => t.view === annotationView).map((t) => t.id)])
     },
     duplicate: () => { const ids = useSimStore.getState().selectedComponentIds; if (ids.length) useSimStore.getState().duplicateComponents(ids) },
+    nudge: (dirX, dirY, big) => {
+      const grid = useSimStore.getState().grid
+      const step = big ? (grid?.size ?? 10) : 1
+      // Mesmo modelo do Esquema 2D: schematicX/Y e o 3D acompanham.
+      useSimStore.getState().nudgeSelection(dirX * step, dirY * step)
+    },
     group: () => {
       const ids = mixedSelection()
       const store = useSimStore.getState()
