@@ -6978,6 +6978,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           notify(`${ids.length} texto(s) removido(s)`)
           setTextGuardsOpen(false)
         }}
+        onLocate={(transitionId) => {
+          const target = allTransitions.find((transition) => transition.id === transitionId)
+          if (target?.chart && target.chart !== activeChart) switchPage(target.chart)
+          setSelected(transitionId)
+          setTab('transitions')
+          setTextGuardsOpen(false)
+        }}
         onClose={() => setTextGuardsOpen(false)}
       />
 
