@@ -88,7 +88,7 @@ check(files().some((f) => /^Grafcet \[FC/.test(f.name)) && state().tags.some((t)
 {
   const grafcetFile = files().find((f) => /^Grafcet \[FC/.test(f.name))!
   const g1 = state().tags.find((t) => t.name === 'G1')!.address
-  check(grafcetFile.rungs!.some((r) => r.move?.target === g1 && r.move.source === '-1'), 'a convergência E para a sequência G1 (MOVE −1)')
+  check(grafcetFile.rungs!.some((r) => r.move?.target === g1 && r.move.source === '0'), 'a convergência E para a sequência G1 (MOVE 0)')
   const tbl: Record<string, boolean> = {}
   const pdb: DbTable = {}
   const pedges: Record<string, boolean> = {}
@@ -96,11 +96,11 @@ check(files().some((f) => /^Grafcet \[FC/.test(f.name)) && state().tags.some((t)
   const scanPar = (inputs: Record<string, boolean>) => { Object.assign(tbl, inputs); runScan({ rungs: state().ladder.rungs }, tbl, {}, {}, 10, callableBlocks(files()), [], pdb, pedges) }
   const regs = () => [pdb[state().tags.find((t) => t.name === 'G0')!.address]?.value, pdb[g1]?.value].join(',')
   scanPar({ 'I0.0': false, 'I0.1': false })
-  check(regs() === '0,-1', 'arranque: G0 = 0 e G1 parado (−1)')
+  check(regs() === '0,0', 'arranque: G0 = 0 e G1 parado (0)')
   scanPar({ 'I0.0': true })
   check(regs() === '1,2' && tbl['Q0.0'] && tbl['Q0.1'], 'Start: as etapas 1 e 2 ficam ativas ao mesmo tempo (Q0.0 e Q0.1)')
   scanPar({ 'I0.0': false, 'I0.1': true })
-  check(regs() === '0,-1' && !tbl['Q0.0'] && !tbl['Q0.1'], 'Stop: a convergência volta à etapa 0 e para G1')
+  check(regs() === '0,0' && !tbl['Q0.0'] && !tbl['Q0.1'], 'Stop: a convergência volta à etapa 0 e para G1')
 }
 
 // Método escolhido pelo utilizador: bits numa sequência que cabe no MOVE; fica até se pedir outro.
@@ -141,6 +141,16 @@ for (const example of [basicExample, normalExample, advancedExample]) {
   runScan({ rungs: ladder.startupRungs }, lTable, lTimers, {}, 100, {}, [], lDb, lEdges)
   const rungs = [...ladder.grafcetRungs, ...ladder.outputRungs]
   const numberOf = new Map(program.steps.map((s, i) => [s.id, Number(stepNumberOf(s, i))]))
+  // Para WORD_IDLE = 0, o valor 0 é ambíguo: é etapa 0 ativa (G0) ou sequência parada (G1/G2...).
+  // Filtrar por lane: só conta como ativa se o número pertence às etapas dessa lane.
+  const lanesInfo = stepLanes(program)
+  const laneSteps = new Map<number, Set<number>>()
+  for (const s of program.steps) {
+    const lane = lanesInfo.laneOf.get(s.id) ?? 0
+    const num = Number(stepNumberOf(s, program.steps.indexOf(s)))
+    if (!laneSteps.has(lane)) laneSteps.set(lane, new Set())
+    laneSteps.get(lane)!.add(num)
+  }
   let seed = 7
   let mismatches = 0
   const visited = new Set<number>()
@@ -154,7 +164,13 @@ for (const example of [basicExample, normalExample, advancedExample]) {
       runScan({ rungs }, lTable, lTimers, {}, 100, {}, [], lDb, lEdges)
     }
     const gStep = rt.active.map((id) => numberOf.get(id)!).sort((a, b) => a - b).join(',')
-    const lActive = ladder.words.map((w) => Number(lDb[w]?.value)).filter((v) => v >= 0).sort((a, b) => a - b)
+    const lActive = ladder.words
+      .map((w, idx) => Number(lDb[w]?.value))
+      .filter((v, idx) => {
+        const set = laneSteps.get(idx)
+        return set ? set.has(v) : v >= 0
+      })
+      .sort((a, b) => a - b)
     const lStep = lActive.join(',')
     lActive.forEach((v) => visited.add(v))
     if (gStep !== lStep || outputs.some((q) => !!gTable[q] !== !!lTable[q])) {
