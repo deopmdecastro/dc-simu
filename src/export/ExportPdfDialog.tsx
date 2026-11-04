@@ -43,6 +43,11 @@ const TITLE_GROUPS: Array<{ title: string; columns: 2 | 4; fields: TitleField[] 
   { title: 'Folha', columns: 4, fields: [['sheetNumber', 'N.º da folha', '01'], ['revision', 'Revisão', '0'], ['date', 'Data', 'dd/mm/aaaa'], ['scale', 'Escala', '—'], ['discipline', 'Disciplina', 'Ex.: Automação'], ['notes', 'Notas', 'Opcional']] },
 ]
 
+/** Símbolo DC-Simu (o mesmo desenhado no PDF). */
+const LogoMark = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" className="pdfx-logo"><rect x="3" y="3" width="58" height="58" rx="14" fill="#2655e5" /><path d="M35 10 17 35h12l-3 19 21-29H34z" fill="#fff" stroke="#fff" strokeLinejoin="round" strokeWidth="2" /></svg>
+)
+
 /** Miniatura A4 com a esquadria no rodapé, para escolher a orientação de relance. */
 const PageThumb = ({ orientation, titleBlock }: { orientation: PdfOrientation; titleBlock: boolean }) => {
   const [w, h] = orientation === 'portrait' ? [26, 36] : [36, 26]
@@ -59,6 +64,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
   const [opts, setOpts] = useState<PdfExportOptions | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [tbOpen, setTbOpen] = useState(false)
   const [notice, setNotice] = useState('')
 
   // Fonte atual do projeto: lida na abertura (o diálogo não acompanha edições a meio).
@@ -78,6 +84,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
       iec: iecSheetsOf(s.commands),
     }))
     setExpanded(null)
+    setTbOpen(false)
     setNotice('')
   }
   if (!open && opts) { setOpts(null); setBusy(false) }
@@ -134,6 +141,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
   const schematicEmpty = state.components.length === 0
   const grafcetEmpty = state.grafcet.steps.length === 0
   const tagsEmpty = state.tags.length === 0
+  const omittedDiagrams = [schematicEmpty && 'Esquema 3D', iecEmpty && 'Esquema IEC', grafcetEmpty && 'GRAFCET'].filter(Boolean) as string[]
 
   const networksPicked = Object.values(opts.ladder).reduce((n, v) => n + v.length, 0)
   const networksTotal = blocks.reduce((n, b) => n + b.rungs.length, 0)
@@ -209,23 +217,27 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
       className="pdf-export-dialog is-wide"
     >
       <div className="pdf-export-body">
-        <div className="pdfx-toolbar" role="group" aria-label="Seleção rápida">
-          <span className="pdfx-brand" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="14" fill="#2655e5" /><path d="M35 10 17 35h12l-3 19 21-29H34z" fill="#fff" stroke="#fff" strokeLinejoin="round" strokeWidth="2" /></svg></span>
-          <span className="pdfx-toolbar-label">Seleção rápida</span>
-          <button type="button" onClick={() => preset('all')}>Tudo</button>
-          <button type="button" onClick={() => preset('ladder')} disabled={networksTotal === 0} title={networksTotal === 0 ? 'Este projeto ainda não tem networks de ladder' : undefined}>Só ladder</button>
-          <button type="button" onClick={() => preset('none')}>Nada</button>
-          <span className="pdfx-pages" title="Estimativa — o número final depende do tamanho dos diagramas">≈ {pageEstimate} página{pageEstimate === 1 ? '' : 's'}</span>
+        <div className="pdfx-summary" role="group" aria-label="Resumo e seleção rápida">
+          <div className="pdfx-summary-main">
+            <span className="pdfx-summary-pages" title="Estimativa — o número final depende do tamanho dos diagramas"><b>≈ {pageEstimate}</b> página{pageEstimate === 1 ? '' : 's'}</span>
+            <span className="pdfx-summary-list">{nothing ? 'Nada selecionado' : included.join(' · ')}</span>
+          </div>
+          <div className="pdfx-seg" role="group" aria-label="Seleção rápida">
+            <button type="button" onClick={() => preset('all')}>Tudo</button>
+            <button type="button" onClick={() => preset('ladder')} disabled={networksTotal === 0} title={networksTotal === 0 ? 'Este projeto ainda não tem networks de ladder' : undefined}>Só ladder</button>
+            <button type="button" onClick={() => preset('none')}>Nada</button>
+          </div>
         </div>
         <div className="pdf-export-grid">
           <Section title="Documento" hint="Capa e dados do projeto">
             <label><input type="checkbox" checked={opts.cover} onChange={() => toggle('cover')} /> <span>Capa com a marca DC-Simu e estatísticas</span></label>
             <label><input type="checkbox" checked={opts.info} onChange={() => toggle('info')} /> <span>Informações do projeto</span></label>
-            <label className={tagsEmpty ? 'is-empty' : ''} title={tagsEmpty ? 'Sem tags — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.tags && !tagsEmpty} disabled={tagsEmpty} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({tagsEmpty ? 'vazia — omitida' : state.tags.length})</em></span></label>
+            {!tagsEmpty && <label><input type="checkbox" checked={opts.tags} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({state.tags.length})</em></span></label>}
+            {tagsEmpty && <p className="pdfx-omitted">Sem conteúdo, omitido: <b>Tabela de tags</b></p>}
           </Section>
           <Section title="Diagramas" hint="Capturados tal como estão no editor">
-            <label className={schematicEmpty ? 'is-empty' : ''} title={schematicEmpty ? 'Sem componentes no esquema — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.schematic && !schematicEmpty} disabled={schematicEmpty} onChange={() => toggle('schematic')} /> <span>Esquema 3D — vista atual <em>({schematicEmpty ? 'vazio — omitido' : `${state.components.length} componentes`})</em></span></label>
-            <label className={iecEmpty ? 'is-empty' : ''} title={iecEmpty ? 'Sem símbolos no Esquema IEC — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.iec && !iecEmpty} disabled={iecEmpty} onChange={() => toggle('iec')} /> <span>Esquema IEC <em>({iecEmpty ? 'vazio — omitido' : `${iecSheets.length} folha${iecSheets.length === 1 ? '' : 's'}`})</em></span></label>
+            {!schematicEmpty && <label><input type="checkbox" checked={opts.schematic} onChange={() => toggle('schematic')} /> <span>Esquema 3D — vista atual <em>({state.components.length} componentes)</em></span></label>}
+            {!iecEmpty && <label><input type="checkbox" checked={opts.iec} onChange={() => toggle('iec')} /> <span>Esquema IEC <em>({iecSheets.length} folha{iecSheets.length === 1 ? '' : 's'})</em></span></label>}
             {iecSheets.length > 1 && opts.iec && (
               <div className="pdf-export-sub">
                 Folhas:
@@ -236,8 +248,8 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
                 ))}
               </div>
             )}
-            <label className={grafcetEmpty ? 'is-empty' : ''} title={grafcetEmpty ? 'Sem etapas GRAFCET — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.grafcet && !grafcetEmpty} disabled={grafcetEmpty} onChange={() => toggle('grafcet')} /> <span><strong>GRAFCET</strong> <em>({grafcetEmpty ? 'vazio — omitido' : `${state.grafcet.steps.length} etapas`})</em></span></label>
-            {charts.length > 1 && opts.grafcet && (
+            {!grafcetEmpty && <label><input type="checkbox" checked={opts.grafcet} onChange={() => toggle('grafcet')} /> <span>GRAFCET <em>({state.grafcet.steps.length} etapas)</em></span></label>}
+            {charts.length > 1 && opts.grafcet && !grafcetEmpty && (
               <div className="pdf-export-sub">
                 Páginas:
                 {charts.map((c) => (
@@ -247,6 +259,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
                 ))}
               </div>
             )}
+            {omittedDiagrams.length > 0 && <p className="pdfx-omitted">Sem conteúdo, omitido: <b>{omittedDiagrams.join(' · ')}</b></p>}
           </Section>
         </div>
         <Section title="Ladder" hint={networksTotal ? `${blocks.length} bloco(s) · escolhe blocos e networks` : 'sem networks'}>
@@ -317,10 +330,19 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
           </label>
           {opts.titleBlock.enabled && <>
             <div className="pdfx-tb-preview" aria-label="Pré-visualização da esquadria">
-              <div><b>{tb.company || 'Empresa'}</b><small>{tb.companyLine}</small></div>
+              <div className="pdfx-tb-company">{tb.logo && <LogoMark size={26} />}<span><b>{tb.company || 'Empresa'}</b><small>{tb.companyLine}</small></span></div>
               <div><small>{[tb.client, tb.location].filter(Boolean).join(' · ') || 'Cliente · Local'}</small><b>{tb.projectName || 'Projeto'}</b><small>{tb.drawingTitle}</small></div>
               <div className="pdfx-tb-preview-meta"><span>Folha <b>{tb.sheetNumber || '—'}</b></span><span>Rev. <b>{tb.revision || '—'}</b></span><span>Data <b>{tb.date || '—'}</b></span><span>Esc. <b>{tb.scale || '—'}</b></span></div>
             </div>
+            <label className="pdfx-tb-enable pdfx-tb-logo">
+              <input type="checkbox" checked={opts.titleBlock.logo} onChange={() => setOpts({ ...opts, titleBlock: { ...opts.titleBlock, logo: !opts.titleBlock.logo } })} />
+              <span><strong>Logótipo na esquadria</strong><small>Símbolo DC-Simu ao lado do nome da empresa.</small></span>
+            </label>
+            <button type="button" className="pdfx-tb-toggle" onClick={() => setTbOpen(!tbOpen)} aria-expanded={tbOpen}>
+              {tbOpen ? 'Esconder campos da esquadria' : 'Editar campos da esquadria'}
+              <IconChevronDown size={10} className={`pdf-export-chevron ${tbOpen ? 'is-open' : ''}`} />
+            </button>
+            {tbOpen && <div className="pdfx-tb-fields">
             {TITLE_GROUPS.map((group) => (
               <fieldset key={group.title} className="pdfx-tb-group">
                 <legend>{group.title}</legend>
@@ -335,6 +357,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
                 </div>
               </fieldset>
             ))}
+            </div>}
           </>}
         </Section>
         {busy && <p className="pdf-export-notice is-busy" role="status"><span className="pdfx-spinner" aria-hidden="true" /> A desenhar networks e diagramas do editor… pode demorar alguns segundos.</p>}

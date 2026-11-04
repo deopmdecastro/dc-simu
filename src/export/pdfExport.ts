@@ -34,6 +34,8 @@ export type PdfOrientation = 'portrait' | 'landscape'
 /** Campos da esquadria (bloco de legenda no canto da folha). */
 export interface PdfTitleBlock {
   enabled: boolean
+  /** Mostra o símbolo DC-Simu na célula da empresa. */
+  logo: boolean
   company: string
   companyLine: string
   author: string
@@ -112,6 +114,7 @@ export function defaultPdfOptions(src: PdfProjectSource): PdfExportOptions {
     orientation: 'portrait',
     titleBlock: {
       enabled: true,
+      logo: true,
       company: 'DC-Simu',
       companyLine: 'Simulador de Automação Industrial',
       author: '',
@@ -241,15 +244,18 @@ function drawTitleBlock(doc: jsPDF, tb: PdfTitleBlock, pageIndex: number, pageCo
     doc.text(label, x + 3, y + 7)
     doc.setFont('helvetica', 'bold'); doc.setFontSize(valueSize); doc.setTextColor(INK)
     const lines = doc.splitTextToSize((value || '—').trim() || '—', maxW - 6)
-    doc.text(lines.slice(0, 2), x + 3, y + 16)
+    doc.text(lines.slice(0, 2), x + 3, y + (valueSize > 10 ? 20 : 16))
   }
 
   // Empresa
+  const showLogo = tb.logo !== false
+  const textX = x0 + (showLogo ? 31 : 4)
+  if (showLogo) drawLogo(doc, x0 + 5, y0 + 4, 22, false)
   doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
-  doc.text(tb.company || 'DC-Simu', x0 + 4, y0 + 16)
+  doc.text(doc.splitTextToSize(tb.company || 'DC-Simu', c1 - (textX - x0) - 4).slice(0, 1), textX, y0 + 19)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(MUTED)
   const sub = doc.splitTextToSize(tb.companyLine || '', c1 - 8)
-  doc.text(sub.slice(0, 2), x0 + 4, y0 + 28)
+  doc.text(sub.slice(0, 2), x0 + 4, y0 + 36)
   if (tb.author || tb.role) {
     doc.setTextColor(INK); doc.setFontSize(7)
     const who = doc.splitTextToSize([tb.author, tb.role].filter(Boolean).join(' · '), c1 - 8).slice(0, 2)
