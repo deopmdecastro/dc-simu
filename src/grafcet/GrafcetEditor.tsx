@@ -165,8 +165,8 @@ const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 const ACTION_BUS_GAP = 40
 /** Deslocamento horizontal da condição em relação à barra da transição (legibilidade). */
 const CONDITION_OFFSET_X = 38
-/** Deslocamento vertical da condição relativamente à barra (evita colar no traço IEC). */
-const CONDITION_OFFSET_Y = 10
+/** Deslocamento vertical da condição relativamente à barra (gap legível face ao traço IEC). */
+const CONDITION_OFFSET_Y = 18
 /** Deslocamento do comentário da etapa em relação ao bordo direito da caixa. */
 const STEP_CAPTION_OFFSET_X = 30
 const STEP_CAPTION_OFFSET_Y = -26
@@ -188,12 +188,15 @@ const diagramLabel = (value: string, limit: number) => value.length > limit ? `$
 const actionLabel = (action: GrafcetAction) => action.displayDescription && action.description
   ? action.description
   : action.variable || action.address || 'ação'
-const diagramCondition = (condition: string) => <>
-  <title>{condition}</title>
-  <tspan fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="6" strokeLinejoin="round">
-    {renderConditionTspans(condition === '1' ? '=1' : diagramLabel(condition || '1', 40))}
-  </tspan>
-</>
+const diagramCondition = (condition: string) => {
+  const text = condition === '1' ? '=1' : (condition || '1')
+  return <>
+    <title>{text}</title>
+    <tspan fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="6" strokeLinejoin="round">
+      {renderConditionTspans(text)}
+    </tspan>
+  </>
+}
 
 /**
  * Ligação ortogonal etapa → ação com cantos arredondados:
