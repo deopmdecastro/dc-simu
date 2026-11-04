@@ -32,6 +32,13 @@ const AdminPanel = lazy(() => import('./admin/AdminPanel'))
 const ContributorPanel = lazy(() => import('./contrib/ContributorPanel'))
 const AccountPage = lazy(() => import('./components/AccountPage'))
 
+/** Guarda automático: espera após a última alteração antes de gravar. */
+const AUTOSAVE_DELAY_MS = 12_000
+/** Logout por inatividade (ms). */
+const IDLE_LOGOUT_MS = 30 * 60_000
+/** Aviso antes do logout automático. */
+const IDLE_WARN_MS = 27 * 60_000
+
 type Open = { id: string; name: string; revision: number; role?: 'owner' | 'editor' }
 
 /** Usa SQLite quando disponível e armazenamento local no deploy estático. */
@@ -370,14 +377,25 @@ export default function Account() {
     }
   }
 
-  async function logout() {
-    if (page === 'editor' && useSimStore.getState().dirty && !(await uiConfirm('Existem alterações não guardadas. Sair da conta?', {
+  async function logout(options?: { force?: boolean; reason?: string }) {
+    const force = options?.force === true
+    if (!force && page === 'editor' && useSimStore.getState().dirty && !(await uiConfirm('Existem alterações não guardadas. Sair da conta?', {
       title: 'Sair da conta',
       confirmLabel: 'Sair',
       cancelLabel: 'Cancelar',
       danger: true,
     }))) return
     try {
+      // Em logout forçado (inatividade), tenta preservar o trabalho antes de sair.
+      if (force && page === 'editor') {
+        try {
+          const state = useSimStore.getState()
+          if (state.dirty) {
+            saveAutosave(state.saveJSON())
+            if (openRef.current) await persistOpenProject(false)
+          }
+        } catch { /* best-effort */ }
+      }
       useSimStore.getState().stop()
       await api('/logout', 'POST')
       useSimStore.getState().newProject()
@@ -388,7 +406,7 @@ export default function Account() {
       setInvites([])
       setLoaded(false)
       setPage('landing')
-      setMessage('')
+      setMessage(options?.reason ?? '')
     } catch (value) {
       error(value)
     }
@@ -409,6 +427,93 @@ export default function Account() {
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
   }, [page])
+
+  // —— Guardar automático: rascunho local + projeto na conta após pausa de edição ——
+  useEffect(() => {
+    if (page !== 'editor') return
+    let timer: number | undefined
+    let saving = false
+    const run = async () => {
+      if (saving) return
+      const state = useSimStore.getState()
+      if (!state.dirty) return
+      saving = true
+      try {
+        saveAutosave(state.saveJSON())
+        if (openRef.current) {
+          await persistOpenProject(false)
+          setMessage('Guardado automaticamente')
+        }
+      } catch (value) {
+        // Mantém dirty; nova tentativa na próxima alteração / timer.
+        console.warn('[autosave]', value)
+      } finally {
+        saving = false
+      }
+    }
+    const schedule = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => { void run() }, AUTOSAVE_DELAY_MS)
+    }
+    if (useSimStore.getState().dirty) schedule()
+    const unsub = useSimStore.subscribe(() => {
+      if (useSimStore.getState().dirty) schedule()
+    })
+    return () => {
+      unsub()
+      window.clearTimeout(timer)
+    }
+  }, [page, openId])
+
+  // —— Logout automático por inatividade ——
+  useEffect(() => {
+    if (!user) return
+    let lastActivity = Date.now()
+    let warned = false
+    let loggingOut = false
+    const bump = () => {
+      lastActivity = Date.now()
+      warned = false
+    }
+    // mousemove/touchmove com throttle leve via timestamp no handler
+    let lastMove = 0
+    const onMove = () => {
+      const now = Date.now()
+      if (now - lastMove < 2_000) return
+      lastMove = now
+      bump()
+    }
+    const events: Array<[string, EventListenerOrEventListenerObject]> = [
+      ['pointerdown', bump],
+      ['keydown', bump],
+      ['scroll', bump],
+      ['touchstart', bump],
+      ['mousemove', onMove],
+      ['wheel', onMove],
+    ]
+    for (const [name, fn] of events) window.addEventListener(name, fn, { passive: true })
+    const onVis = () => { if (document.visibilityState === 'visible') bump() }
+    document.addEventListener('visibilitychange', onVis)
+    const tick = window.setInterval(() => {
+      if (loggingOut) return
+      const idle = Date.now() - lastActivity
+      if (idle >= IDLE_LOGOUT_MS) {
+        loggingOut = true
+        void logout({ force: true, reason: 'Sessão terminada por inatividade. O trabalho foi guardado automaticamente quando possível.' })
+        return
+      }
+      if (idle >= IDLE_WARN_MS && !warned) {
+        warned = true
+        const mins = Math.max(1, Math.ceil((IDLE_LOGOUT_MS - idle) / 60_000))
+        setMessage(`Sessão a expirar por inatividade em ~${mins} min. Mexa no rato ou teclado para manter a sessão.`)
+      }
+    }, 15_000)
+    return () => {
+      for (const [name, fn] of events) window.removeEventListener(name, fn)
+      document.removeEventListener('visibilitychange', onVis)
+      window.clearInterval(tick)
+    }
+  }, [user])
 
   // Capa 3D em falta ou antiga: assim que a cena e os cabos ficam prontos, recaptura e grava
   // sozinha (só sem alterações por guardar, para não gravar trabalho do utilizador sem pedir).
