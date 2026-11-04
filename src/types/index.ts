@@ -471,6 +471,12 @@ export interface Wire {
   markers?: Array<{ t: number; text: string; color: string; bg?: string }>
   /** Identificador de chicote/bundle quando o cabo está filaçado com outros. */
   bundleId?: string
+  /** Número de condutores (1 = fio simples; 2+ = cabo multicore). */
+  conductorCount?: number
+  /** Capa exterior global (PVC/borracha) além da isolação individual. */
+  sheathed?: boolean
+  /** Cor da capa exterior (hex). */
+  sheathColor?: string
   energized: boolean
   /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
    *  componentes compartilham o mesmo espaço de camadas. */
