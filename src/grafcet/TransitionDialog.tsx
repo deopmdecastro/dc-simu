@@ -87,7 +87,7 @@ export default function TransitionDialog({
     setFrom([...transition.from])
     setTo([...transition.to])
     setWireless(!!transition.wireless)
-    setSource(!!transition.source && !transition.from.length)
+    setSource((!!transition.source || !!transition.guard) && !transition.from.length)
     setGuardRows(stepStateReferences(transition.guard ?? '').map((term) => ({ graph: term.graph === null ? 0 : Number(term.graph), step: term.step, active: term.active })))
     setQuickMsg('')
     setAnnotationsOpen(!!transition.description || !!transition.comment || !!transition.targetInfo || !!transition.displayDescription)
@@ -105,7 +105,7 @@ export default function TransitionDialog({
   const save = () => {
     setSubmitted(true)
     if (conditionError) { document.getElementById('trans-condition-input')?.focus(); return }
-    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), comparisons: comparisons.map((item) => ({ grafcet: item.grafcet.trim(), transition: item.transition.trim(), condition: item.condition?.trim(), note: item.note?.trim() })).filter((item) => item.grafcet || item.transition || item.condition || item.note), wireless, source: source && !from.length, guard: guardText || undefined, from: [...from], to: [...to] })
+    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), comparisons: comparisons.map((item) => ({ grafcet: item.grafcet.trim(), transition: item.transition.trim(), condition: item.condition?.trim(), note: item.note?.trim() })).filter((item) => item.grafcet || item.transition || item.condition || item.note), wireless, source: !from.length && (source || !!guardText), guard: guardText || undefined, from: [...from], to: [...to] })
     onClose()
   }
   /** Índice global de uma etapa (a base do número mostrado no diagrama e em X<n>). */
@@ -167,6 +167,8 @@ export default function TransitionDialog({
      Cada linha é uma etapa de qualquer GRAFCET (página) e o estado exigido. O texto
      guardado é o do motor (`G3 <> X149`) e é desenhado por cima da transição. */
   const guardText = guardRows.filter((row) => row.step).map((row) => stepReferenceText(row.graph, row.step, row.active)).join(' * ')
+  /** Sem etapas de origem: «Só se» de outro GRAFCET implica transição-fonte (não fica «Sem origem»). */
+  const isSourceTransition = !from.length && (source || !!guardText)
   const graphByNumber = (number: number) => programGraphs.find((graph) => graph.number === number)
   /** «G3 · Manual A» — sem repetir o prefixo quando o título da página já o traz. */
   const graphOptionLabel = (graph: GrafcetGraph) => {
@@ -174,9 +176,16 @@ export default function TransitionDialog({
     return `${graph.key} · ${graph.number === graphNumber ? `${label || 'este'} (este)` : label || graph.key}`
   }
   const graphOfStepId = (id: string) => programGraphs.find((graph) => graph.steps.some((step) => step.id === id))
-  const updateGuard = (index: number, patch: Partial<GuardRow>) => setGuardRows((rows) => rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)))
+  const updateGuard = (index: number, patch: Partial<GuardRow>) => {
+    setGuardRows((rows) => rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)))
+    // Preencher um «Só se» sem origens locais → transição-fonte (ex.: G0 <> X9).
+    if (patch.step && !from.length) setSource(true)
+  }
   const removeGuard = (index: number) => setGuardRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index))
-  const addGuard = (row?: GuardRow) => setGuardRows((rows) => [...rows, row ?? { graph: graphNumber, step: '', active: true }])
+  const addGuard = (row?: GuardRow) => {
+    setGuardRows((rows) => [...rows, row ?? { graph: graphNumber, step: '', active: true }])
+    if (!from.length && row?.step) setSource(true)
+  }
   /** Transição-fonte com um destino: o habitual é só disparar se essa etapa ainda estiver inativa. */
   const sourceTarget = source && !from.length && to.length === 1 ? availableSteps.find((step) => step.id === to[0]) : undefined
   const suggestion: GuardRow | null = sourceTarget && !guardRows.length ? { graph: graphOfStepId(sourceTarget.id)?.number ?? graphNumber, step: numberOf(sourceTarget), active: false } : null
@@ -216,7 +225,7 @@ export default function TransitionDialog({
     const listId = `trans-pick-${side}`
     const options = pickOpen === side ? pickOptions(side) : []
     const active = Math.min(pickIndex, Math.max(options.length - 1, 0))
-    const sourceMode = isFrom && source && !ids.length
+    const sourceMode = isFrom && isSourceTransition && !ids.length
     const missing = new Set(ids.filter((id) => !availableSteps.some((step) => step.id === id)))
     return (
     <fieldset className={`grafcet-link-side is-${side}`} aria-label={isFrom ? 'Origens' : 'Destinos'}>
@@ -260,8 +269,8 @@ export default function TransitionDialog({
           {!options.length && <li className="is-empty" aria-disabled="true">{linkSteps.length ? 'Nenhuma etapa corresponde.' : 'Ainda não existem etapas nesta página.'}</li>}
         </ul>}
       </div>}
-      {isFrom && !ids.length && !source && <button type="button" className="grafcet-link-source-offer" onClick={() => setSource(true)}>Sem origem de propósito? <b>Usar como transição-fonte</b></button>}
-      {sourceMode && <p className="grafcet-property-note">Sem etapa de origem: dispara quando a condição é verdadeira (ex.: emergência).</p>}
+      {isFrom && !ids.length && !isSourceTransition && <button type="button" className="grafcet-link-source-offer" onClick={() => setSource(true)}>Sem origem de propósito? <b>Usar como transição-fonte</b></button>}
+      {sourceMode && <p className="grafcet-property-note">{guardText ? <>Transição-fonte: dispara quando a condição e o «Só se» (<code>{guardText}</code>) forem verdadeiros.</> : <>Sem etapa de origem: dispara quando a condição é verdadeira (ex.: emergência).</>}</p>}
       {isFrom && renderGuard()}
     </fieldset>
   )}
@@ -287,7 +296,7 @@ export default function TransitionDialog({
 
           {quickMsg && <p className="grafcet-property-note grafcet-transition-status" role="status">{quickMsg}</p>}
           {!!directCycle.length && <p className="grafcet-property-warning" role="status">Ciclo direto: {directCycle.map((id) => labelOf(id)).join(', ')} {directCycle.length === 1 ? 'é origem e destino' : 'são origem e destino'} ao mesmo tempo — enquanto a condição for verdadeira a transição dispara continuamente, sem esperar noutra etapa.</p>}
-          {((!from.length && !source) || !to.length) && <p className="grafcet-property-warning" role="status">{source && !from.length ? 'Transição-fonte sem destino: escolha a etapa a ativar.' : <>Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Use «Adicionar etapa», marque «Usar como transição-fonte» se não tiver origem de propósito, ou guarde o rascunho e complete depois.</>}</p>}
+          {((!from.length && !isSourceTransition) || !to.length) && <p className="grafcet-property-warning" role="status">{isSourceTransition && !from.length ? 'Transição-fonte sem destino: escolha a etapa a ativar.' : <>Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Use «Adicionar etapa», marque «Usar como transição-fonte» se não tiver origem de propósito, ou guarde o rascunho e complete depois.</>}</p>}
 
           <details className="grafcet-transition-comparisons" open={comparisonsOpen} onToggle={(event) => setComparisonsOpen(event.currentTarget.open)}>
             <summary><IconCompare size={13} /> Equivalências documentais <span className="grafcet-optional">{comparisons.length ? `${comparisons.length} registada${comparisons.length === 1 ? '' : 's'}` : 'nenhuma'}</span><IconChevronRight size={11} /></summary>
@@ -318,7 +327,7 @@ export default function TransitionDialog({
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span className="grafcet-preview-live">Ao editar</span></div>
           <div className="grafcet-transition-map" aria-label="Resumo das ligações da transição">
-            <span className="grafcet-map-label">ORIGENS · TODAS ATIVAS</span><div className="grafcet-map-steps">{from.length ? from.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : source ? <span className="is-source">Transição-fonte · sempre validada</span> : <em>Sem origem</em>}</div>
+            <span className="grafcet-map-label">ORIGENS · TODAS ATIVAS</span><div className="grafcet-map-steps">{from.length ? from.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : isSourceTransition ? <span className="is-source">{guardText ? 'Transição-fonte · Só se' : 'Transição-fonte · sempre validada'}</span> : <em>Sem origem</em>}</div>
             {!!guardText && <><span className="grafcet-map-label">SÓ SE</span><div className="grafcet-map-steps">{guardRows.filter((row) => row.step).map((row, index) => <span key={`g:${index}`} className={`is-state${row.graph !== graphNumber ? ' is-external' : ''}`}>{stepReferenceText(row.graph, row.step, row.active)}</span>)}</div></>}
             <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>
             <div className="grafcet-map-transition"><strong>{name || `T${transitionIndex + 1}`}</strong><code>{displayDescription && description ? description : condition || 'Condição por definir'}</code><span className={validCondition(condition) ? 'is-valid' : 'is-incomplete'}>{validCondition(condition) ? <IconCheck size={11} /> : <IconWarning size={11} />}{validCondition(condition) ? 'Sintaxe válida' : 'Expressão incompleta'}</span></div>
