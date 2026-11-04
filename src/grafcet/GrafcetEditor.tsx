@@ -165,8 +165,8 @@ const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 const ACTION_BUS_GAP = 40
 /** Deslocamento horizontal da condição em relação à barra da transição (legibilidade). */
 const CONDITION_OFFSET_X = 38
-/** Deslocamento vertical da condição relativamente à barra (gap legível face ao traço IEC). */
-const CONDITION_OFFSET_Y = 18
+/** Deslocamento vertical da condição relativamente à barra: negativo = acima do traço (gap legível). */
+const CONDITION_OFFSET_Y = -16
 /** Deslocamento do comentário da etapa em relação ao bordo direito da caixa. */
 const STEP_CAPTION_OFFSET_X = 30
 const STEP_CAPTION_OFFSET_Y = -26
@@ -190,9 +190,17 @@ const actionLabel = (action: GrafcetAction) => action.displayDescription && acti
   : action.variable || action.address || 'ação'
 const diagramCondition = (condition: string) => {
   const text = condition === '1' ? '=1' : (condition || '1')
+  // Halo fino + baseline acima da barra: evita o rótulo (ex. 1HZ) colar ou atravessar o traço IEC.
   return <>
     <title>{text}</title>
-    <tspan fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="6" strokeLinejoin="round">
+    <tspan
+      fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+      paintOrder="stroke fill"
+      stroke="#f8fafc"
+      strokeWidth="3.5"
+      strokeLinejoin="round"
+      dominantBaseline="alphabetic"
+    >
       {renderConditionTspans(text)}
     </tspan>
   </>
