@@ -1874,7 +1874,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const state = segDragRef.current
     if (!state || state.tid !== tid) return
     const w = clientToWorld(e.clientX, e.clientY)
-    if (!state.moved && Math.hypot(w.x - state.startX, w.y - state.startY) < 5 / scale) return
+    if (!state.moved && Math.hypot(w.x - state.startX, w.y - state.startY) < 3 / Math.max(scale, 0.25)) return
     state.moved = true
     const { drag } = state
     const at = drag.base[drag.leg][drag.axis]
@@ -1899,16 +1899,24 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const barPointOf = (tid: string, points: Point[]): Point | null => {
     if (barDragLive?.tid === tid) return barDragLive.routed ? clampBar(barDragLive.source, barDragLive.bar) : barDragLive.bar
     const stored = program.linkBars?.[tid]
-    return stored && pointOnPolyline(points, stored) ? stored : null
+    if (!stored) return null
+    // Aceita a posição guardada mesmo que o percurso tenha sido simplificado
+    // (tolerância antiga de 1.5 px fazia a barra «saltar» de volta ao sítio automático).
+    if (pointOnPolyline(points, stored, 28)) return stored
+    return stored
   }
   /** Agarrar a barra (ou a sua área de toque) move a transição livremente; as linhas não se soltam. */
   /** `routed`: ligação direta/retorno — o percurso é refeito pela barra; sem isso (caso geral) as linhas já seguem o ponto. */
   const startBarDrag = (tid: string, source: Point, target: Point, bar: Point, e: React.PointerEvent, routed = true) => {
-    if (!full || activeTool !== 'select' || isSpacePan || e.button !== 0 || running) return
+    // Ferramenta ligar/apagar não arrasta; Select e clique na barra sim.
+    if (!full || isSpacePan || e.button !== 0 || running) return
+    if (activeTool !== 'select' && activeTool !== 'pan') return
     e.stopPropagation()
+    e.preventDefault()
     const point = clientToWorld(e.clientX, e.clientY)
     setSelected(tid)
     setSelectedActionId(null)
+    setMulti([])
     setTab('transitions')
     barDragRef.current = { tid, source, target, startX: point.x, startY: point.y, offX: bar.x - point.x, offY: bar.y - point.y, moved: false, bar, routed }
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* captura indisponível */ }
@@ -4624,12 +4632,16 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     const midY = roomForOr && orDivergent ? sBottom + 26 : roomForOr && orConvergent ? tTop - 26 : Math.round((sBottom + tTop) / 2)
                     // Pontos de quebra (duplo clique na linha): o percurso passa por eles, com ângulos retos.
                     const bends = bendsOf(transition.id)
-                    const linkPoints: Point[] = [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
-                    const linkPath = bends.length ? routeThrough(linkPoints) : routeVertical(sourceX, sBottom, targetX, tTop, midY)
-                    const barMid = bends.length ? polylineMidpoint(linkPoints) : null
-                    const barFree = barPointOf(transition.id, linkPoints)
+                    const linkPointsBase: Point[] = [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
+                    const barMid = bends.length ? polylineMidpoint(linkPointsBase) : null
+                    const barFree = barPointOf(transition.id, linkPointsBase)
+                    // Com barra deslocada pelo utilizador, o percurso passa sempre por ela.
+                    const linkPoints: Point[] = barFree
+                      ? (() => { const via = routeViaBar({ x: sourceX, y: sBottom }, barFree, { x: targetX, y: tTop }); return [{ x: sourceX, y: sBottom }, ...interiorBends(via), { x: targetX, y: tTop }] })()
+                      : linkPointsBase
+                    const linkPath = barFree || bends.length ? routeThrough(linkPoints) : routeVertical(sourceX, sBottom, targetX, tTop, midY)
                     // Se as etapas não estão alinhadas, a ligação faz um "Z" e a barra fica no troço final.
-                    const barOnFirstLeg = !barMid && roomForOr && orConvergent
+                    const barOnFirstLeg = !barMid && !barFree && roomForOr && orConvergent
                     const tx = barFree?.x ?? barMid?.x ?? (barOnFirstLeg ? sourceX : targetX)
                     const ty = barFree?.y ?? barMid?.y ?? (barOnFirstLeg ? Math.round((sBottom + midY) / 2) : bent || (roomForOr && orDivergent) ? Math.round((midY + tTop) / 2) : midY)
                     transitionAnchors.set(transition.id, { x: tx, y: ty })
@@ -4689,7 +4701,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         {full && void barHitLayer.push(<rect
                           key={`hit-${transition.id}`}
                           className="grafcet-transition-bar-hit" data-transition-id={transition.id} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
-                          x={tx - 22} y={ty - 9} width="44" height="18" fill="transparent"
+                          x={tx - 32} y={ty - 14} width="64" height="28" fill="transparent"
                           onPointerDown={(e) => startBarDrag(transition.id, { x: sourceX, y: sBottom }, { x: targetX, y: tTop }, { x: tx, y: ty }, e)}
                           onPointerMove={(e) => moveBar(transition.id, e)}
                           onPointerUp={(e) => finishBar(transition.id, e)}
@@ -4825,15 +4837,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     ]
                     // Usa o trilho automático como geometria inicial da edição. Ao arrastar uma perna,
                     // preserva os restantes cotovelos em vez de colapsar o retorno numa ligação direta.
-                    const linkPoints: Point[] = bends.length
+                    const linkPointsBase: Point[] = bends.length
                       ? [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
                       : autoReturnPoints
+                    const firstLegDown = bends.length > 0 && bends[0].x === sourceX && bends[0].y >= sBottom + 36
+                    const barMid = bends.length && !firstLegDown ? polylineMidpoint(linkPointsBase) : null
+                    const barFree = barPointOf(transition.id, linkPointsBase)
+                    const linkPoints: Point[] = barFree
+                      ? (() => { const via = routeViaBar({ x: sourceX, y: sBottom }, barFree, { x: targetX, y: tTop }); return [{ x: sourceX, y: sBottom }, ...interiorBends(via), { x: targetX, y: tTop }] })()
+                      : linkPointsBase
                     const returnPath = routeThrough(linkPoints)
                     // IEC 60848 / FluidSIM: a transição de um retorno fica logo abaixo da etapa de origem.
                     // Com cotovelos, mantém-se aí enquanto a primeira perna descer a direito da etapa.
-                    const firstLegDown = bends.length > 0 && bends[0].x === sourceX && bends[0].y >= sBottom + 36
-                    const barMid = bends.length && !firstLegDown ? polylineMidpoint(linkPoints) : null
-                    const barFree = barPointOf(transition.id, linkPoints)
                     const tx = barFree?.x ?? barMid?.x ?? sourceX
                     const ty = barFree?.y ?? barMid?.y ?? sBottom + 24
                     // Seta de subida no troço vertical ascendente mais longo (o «barramento» do retorno).
@@ -4910,7 +4925,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         {full && void barHitLayer.push(<rect
                           key={`hit-${transition.id}`}
                           className="grafcet-transition-bar-hit" data-transition-id={transition.id} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
-                          x={tx - 22} y={ty - 9} width="44" height="18" fill="transparent"
+                          x={tx - 32} y={ty - 14} width="64" height="28" fill="transparent"
                           onPointerDown={(e) => startBarDrag(transition.id, { x: sourceX, y: sBottom }, { x: targetX, y: tTop }, { x: tx, y: ty }, e)}
                           onPointerMove={(e) => moveBar(transition.id, e)}
                           onPointerUp={(e) => finishBar(transition.id, e)}
@@ -5088,7 +5103,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {full && void barHitLayer.push(<rect
                         key={`hit-${transition.id}`}
                         className="grafcet-transition-bar-hit" data-transition-id={transition.id} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
-                        x={tx - 22} y={ty - 9} width="44" height="18" fill="transparent"
+                        x={tx - 32} y={ty - 14} width="64" height="28" fill="transparent"
                         onPointerDown={(e) => startBarDrag(transition.id, { x: tx, y: -1e6 }, { x: tx, y: 1e6 }, { x: tx, y: ty }, e, false)}
                         onPointerMove={(e) => moveBar(transition.id, e)}
                         onPointerUp={(e) => finishBar(transition.id, e)}
