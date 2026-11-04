@@ -1,0 +1,37 @@
+/* Painéis de baixo no telefone: o cabeçalho (SidePanelHeader) fica fixo e opaco no topo da folha.
+   Antes, a folha tinha 12 px de padding por cima e dos lados do cabeçalho; ao dar scroll, a lista
+   passava (e via-se) nessas faixas e o cabeçalho parecia «solto». Agora a folha não tem padding
+   em cima, o cabeçalho ocupa a largura toda (margem negativa = padding lateral) e tem fundo sólido.
+   Vale para: Esquema IEC, 3D Realista, GRAFCET (e Ladder, que já não tem padding).
+   Um novo painel de baixo entra nestas listas; não se escrevem regras de cabeçalho por painel. */
+:root { --bs-pad: 12px; }
+
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
+  :root .dc-cmd .cmd-dock.grafcet-properties.is-open,
+  :root .schematic-sim-dock-phone.grafcet-properties.is-open { padding-top: 0; }
+  :root .dc-cmd .cmd-dock.grafcet-properties > .dc-side-panel-head,
+  :root .schematic-sim-dock-phone.grafcet-properties > .dc-side-panel-head {
+    position: sticky; top: 0; z-index: 8;
+    margin-inline: calc(var(--bs-pad) * -1); padding-inline: var(--bs-pad);
+    background: var(--pn-bg, #fff); box-shadow: 0 -1px 0 var(--pn-bg, #fff);
+  }
+  /* Recolhido: sem cabeçalho a colar nada, só a barra fina. */
+  :root .dc-cmd .cmd-dock.grafcet-properties:not(.is-open) > .dc-side-panel-head,
+  :root .schematic-sim-dock-phone.grafcet-properties:not(.is-open) > .dc-side-panel-head { margin-inline: 0; padding-inline: 0; }
+}
+
+@media (max-width: 800px) {
+  :root .grafcet-full .grafcet-properties.is-open { padding-top: 0; }
+  /* A pega da folha passa a ser um bloco normal acima do cabeçalho (antes: margem negativa dentro do padding). */
+  :root .grafcet-full .grafcet-properties.is-open::before { margin: 6px auto 4px; }
+  :root .grafcet-full .grafcet-properties.is-open > .dc-side-panel-head {
+    position: sticky; top: 0; z-index: 8;
+    margin-inline: calc(var(--bs-pad) * -1); padding-inline: var(--bs-pad);
+    background: var(--pn-bg, #fff); box-shadow: 0 -1px 0 var(--pn-bg, #fff);
+  }
+}
+
+/* Ladder (sem padding na folha): só garante o fundo sólido e a camada acima do conteúdo. */
+@media (max-width: 800px) {
+  :root .ladder-bottom-panel.grafcet-properties > .dc-side-panel-head { position: sticky; top: 0; z-index: 8; background: var(--pn-bg, #fff); }
+}
