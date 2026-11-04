@@ -428,6 +428,8 @@ export default function Account() {
     return () => window.removeEventListener('keydown', handle)
   }, [page])
 
+  const openId = open?.id
+
   // —— Guardar automático: rascunho local + projeto na conta após pausa de edição ——
   useEffect(() => {
     if (page !== 'editor') return
@@ -517,7 +519,7 @@ export default function Account() {
 
   // Capa 3D em falta ou antiga: assim que a cena e os cabos ficam prontos, recaptura e grava
   // sozinha (só sem alterações por guardar, para não gravar trabalho do utilizador sem pedir).
-  const openId = open?.id
+  
   useEffect(() => {
     if (page !== 'editor' || !openId) return
     let stable = 0
