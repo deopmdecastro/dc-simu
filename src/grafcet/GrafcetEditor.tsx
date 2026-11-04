@@ -1843,14 +1843,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
    * `rendered` é o percurso ortogonal que está desenhado neste momento.
    */
   const startSegmentDrag = (tid: string, rendered: Point[], e: React.PointerEvent) => {
-    if (!full || activeTool !== 'select' || isSpacePan || e.button !== 0 || running) return
+    if (!full || activeTool !== 'select' || isSpacePan || e.button !== 0) return
     e.stopPropagation()
+    // Sempre seleciona a transição no pointerdown (mesmo em RUN — o arrasto de dobra só se !running).
+    setSelected(tid)
+    setSelectedActionId(null)
+    setMulti([])
+    setSelectedCommentId(null)
+    setTab('transitions')
+    if (running) return
     const point = clientToWorld(e.clientX, e.clientY)
     const path = simplifyOrthogonal(expandPolyline(rendered))
     const drag = beginSegmentDrag(path, nearestLeg(path, point))
-    setSelected(tid)
-    setSelectedActionId(null)
-    setTab('transitions')
     if (!drag) return
     segDragRef.current = { tid, drag, startX: point.x, startY: point.y, moved: false, points: drag.base }
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* captura indisponível */ }
@@ -2453,6 +2457,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     transDragRef.current = { transId: t.id, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y, moved: false }
     setSelected(t.id)
     setSelectedActionId(null)
+    setMulti([])
+    setSelectedCommentId(null)
     setTab('transitions')
     try {
       ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
@@ -3134,12 +3140,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     notify('Diagrama organizado · Ctrl+Z repõe')
   }
 
-  /** Shift+setas movem a etapa selecionada um passo (grelha com íman, 4 px sem). */
+  /** Setas movem a seleção: etapas, grupo, transição, texto livre ou ação solta. */
   const nudgeSelection = (dx: number, dy: number, big: boolean) => {
+    if (!full) return
     const amount = (snapOn ? GRID : 4) * (big ? 5 : 1)
-    if (full && multi.length >= 2) {
+    const delta = { dx: dx * amount, dy: dy * amount }
+    if (multi.length >= 2) {
       const items = groupIds.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
-      const delta = { dx: dx * amount, dy: dy * amount }
       const moved = new Map(items.map((p) => [p.id, p]))
       const texts = new Set(groupCommentIds)
       save({
@@ -3148,9 +3155,57 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       }, 'auto', 'grafcet:nudge:group')
       return
     }
-    if (!full || !selectedStep || selectedActionId) return
-    let x = stepX(selectedStep.id) + dx * amount
-    let y = stepY(selectedStep.id) + dy * amount
+    // Texto livre selecionado
+    if (selectedCommentId) {
+      const item = allComments.find((comment) => comment.id === selectedCommentId)
+      if (!item) return
+      let x = item.x + delta.dx
+      let y = item.y + delta.dy
+      if (snapOn) {
+        x = snapToGrid(x, SPINE_X)
+        y = snapToGrid(y, START_Y)
+      }
+      patchComment(selectedCommentId, { x: Math.round(x), y: Math.round(y) })
+      return
+    }
+    // Ação solta selecionada
+    const freeAct = selectedActionId ? freeActions.find((a) => a.id === selectedActionId) : null
+    if (freeAct) {
+      const pos = actionXY(freeAct)
+      let x = pos.x + delta.dx
+      let y = pos.y + delta.dy
+      if (snapOn) {
+        x = snapToGrid(x, SPINE_X)
+        y = snapToGrid(y, START_Y)
+      }
+      patchFreeAction(freeAct, { x: Math.round(x), y: Math.round(y) }, 'auto')
+      return
+    }
+    // Transição selecionada
+    if (selectedTransition) {
+      if (isFreeTransition(selectedTransition)) {
+        const pos = transXY(selectedTransition)
+        let x = pos.x + delta.dx
+        let y = pos.y + delta.dy
+        if (snapOn) {
+          x = snapToGrid(x, SPINE_X)
+          y = snapToGrid(y, START_Y)
+        }
+        updateTransition(selectedTransition.id, { x: Math.round(x), y: Math.round(y) }, 'auto')
+        return
+      }
+      // Ligada: move etapas de origem e destino em bloco (a barra acompanha)
+      const stepIds = [...new Set([...selectedTransition.from, ...selectedTransition.to])].filter((id) => stepById.has(id))
+      if (!stepIds.length) return
+      const moved = new Map(stepIds.map((sid) => [sid, { x: stepX(sid) + delta.dx, y: stepY(sid) + delta.dy }]))
+      save({
+        steps: steps.map((s) => (moved.has(s.id) ? { ...s, x: Math.round(moved.get(s.id)!.x), y: Math.round(moved.get(s.id)!.y), pinned: true } : s)),
+      }, 'auto', `grafcet:nudge:trans:${selectedTransition.id}`)
+      return
+    }
+    if (!selectedStep || selectedActionId) return
+    let x = stepX(selectedStep.id) + delta.dx
+    let y = stepY(selectedStep.id) + delta.dy
     if (snapOn) {
       x = snapToGrid(x, SPINE_X)
       y = snapToGrid(y, START_Y)
@@ -3559,11 +3614,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         notify('Vista ajustada')
         return
       }
-      // Setas: movem a seleção (etapa/grupo). Alt+setas navegam entre etapas.
+      // Setas: movem a seleção (etapa, transição, texto, ação, grupo). Alt+setas navegam entre etapas.
       {
         const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key as string]
         if (dir && !mod) {
-          const canNudge = (groupIds.length >= 1 || (selectedStep && !selectedActionId)) && !event.altKey
+          const freeActSelected = !!(selectedActionId && freeActions.some((a) => a.id === selectedActionId))
+          const canNudge = !event.altKey && (
+            groupIds.length >= 1
+            || (selectedStep && !selectedActionId)
+            || !!selectedTransition
+            || !!selectedCommentId
+            || freeActSelected
+          )
           if (canNudge) {
             event.preventDefault()
             nudgeSelection(dir[0], dir[1], event.shiftKey)
@@ -4183,6 +4245,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           if (full) {
                             setSelected(transition.id)
                             setSelectedActionId(null)
+                            setMulti([])
+                            setSelectedCommentId(null)
                             setTab('transitions')
                           }
                         }}
@@ -4366,6 +4430,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     if (full) {
                       setSelected(transition.id)
                       setSelectedActionId(null)
+                      setMulti([])
+                      setSelectedCommentId(null)
                       setTab('transitions')
                       if (running && sources.every((value) => runtime.active.includes(value))) {
                         useSimStore.getState().fireGrafcetTransition(transition.id)
@@ -4582,7 +4648,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           d={linkPath}
                           fill="none"
                           stroke="transparent"
-                          strokeWidth="18"
+                          strokeWidth="22"
                           onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
                           onPointerDown={(e) => startSegmentDrag(transition.id, bends.length ? linkPoints : bent ? [{ x: sourceX, y: sBottom }, { x: sourceX, y: midY }, { x: targetX, y: midY }, { x: targetX, y: tTop }] : linkPoints, e)}
                           onPointerMove={(e) => moveSegment(transition.id, e)}
@@ -4793,7 +4859,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           d={returnPath}
                           fill="none"
                           stroke="transparent"
-                          strokeWidth="18"
+                          strokeWidth="22"
                           onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
                           onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e)}
                           onPointerMove={(e) => moveSegment(transition.id, e)}
