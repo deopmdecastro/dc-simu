@@ -9,6 +9,7 @@ export default function SelectionBar() {
   const demoMode = useSimStore((s) => s.demoMode)
   const ids = useSimStore((s) => s.selectedComponentIds)
   const wireId = useSimStore((s) => s.selectedWireId)
+  const wireIds = useSimStore((s) => s.selectedWireIds)
   const terminalId = useSimStore((s) => s.selectedTerminalId)
   const locked = useSimStore((s) => s.components.some((c) => ids.includes(c.id) && c.locked))
   const rotate = useSimStore((s) => s.rotateComponents)
@@ -18,9 +19,14 @@ export default function SelectionBar() {
   const selectComponents = useSimStore((s) => s.selectComponents)
   const selectWire = useSimStore((s) => s.selectWire)
   const selectTerminal = useSimStore((s) => s.selectTerminal)
+  const laceWires = useSimStore((s) => s.laceWires)
+  const unlaceWires = useSimStore((s) => s.unlaceWires)
   const reorder = useSimStore((s) => s.reorderComponents)
   const openEditor = useSimStore((s) => s.openViewOrientationEditor)
   const first = useSimStore((s) => s.components.find((c) => c.id === ids[0]))
+  const multiWires = wireIds.length > 1 ? wireIds : (wireId ? [wireId] : [])
+  const wires = useSimStore((s) => s.wires)
+  const anyBundled = multiWires.some((id) => wires.find((w) => w.id === id)?.bundleId)
 
   const hasComponents = ids.length > 0
   if (demoMode || (!hasComponents && !wireId && !terminalId)) return null
@@ -28,7 +34,7 @@ export default function SelectionBar() {
   // Mostra a referência real do componente em vez de «Objeto».
   const label = hasComponents
     ? (ids.length > 1 ? `${ids.length} objetos` : first?.ref || 'Objeto')
-    : wireId ? 'Cabo' : 'Borne'
+    : multiWires.length > 1 ? `${multiWires.length} cabos` : wireId ? 'Cabo' : 'Borne'
   const clear = () => { selectComponents([]); selectWire(null); selectTerminal(null) }
 
   return (
@@ -42,6 +48,10 @@ export default function SelectionBar() {
         <button type="button" onClick={() => reorder(ids, 'back')} title="Enviar para trás (Ctrl+[)" aria-label="Enviar para trás"><IconChevronDown size={15} /></button>
         {ids.length === 1 && <button type="button" className={locked ? 'is-on' : ''} onClick={() => toggleLock(ids[0])} title={locked ? 'Desbloquear' : 'Bloquear posição'} aria-label="Bloquear" aria-pressed={locked}><IconLock size={15} /></button>}
         {ids.length === 1 && <button type="button" onClick={() => openEditor(ids[0])} title="Editar apresentação do componente" aria-label="Editar componente"><IconTools size={15} /></button>}
+      </>}
+      {!hasComponents && multiWires.length > 0 && <>
+        <button type="button" onClick={() => laceWires(multiWires)} title="Filaçar cabos selecionados (chicote)" aria-label="Filaçar" disabled={multiWires.length < 2}>Filaçar</button>
+        <button type="button" onClick={() => unlaceWires(multiWires)} title="Desfazer chicote" aria-label="Desfilaçar" disabled={!anyBundled}>Desfilaçar</button>
       </>}
       <button type="button" className="is-danger" onClick={remove} title="Apagar (Del)" aria-label="Apagar"><IconDelete size={15} /></button>
       <button type="button" onClick={clear} title="Limpar seleção (Esc)" aria-label="Limpar seleção"><IconClose size={14} /></button>

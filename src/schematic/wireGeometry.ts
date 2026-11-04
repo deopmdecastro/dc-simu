@@ -99,3 +99,70 @@ export function wireGeometryForWire(w: Pick<Wire, 'route' | 'bend' | 'curveOffse
   return wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0, points)
 }
 
+
+/** Comprimento acumulado de uma polilinha. */
+export function polylineLength(pts: Pt[]): number {
+  let len = 0
+  for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)
+  return len
+}
+
+/** Ponto a uma fração t ∈ [0,1] ao longo da polilinha. */
+export function pointAtFraction(pts: Pt[], t: number): Pt {
+  if (pts.length === 0) return { x: 0, y: 0 }
+  if (pts.length === 1) return pts[0]
+  const total = polylineLength(pts)
+  if (total < 1e-6) return pts[0]
+  let target = Math.max(0, Math.min(1, t)) * total
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)
+    if (target <= seg || i === pts.length - 1) {
+      const u = seg > 1e-6 ? target / seg : 0
+      return {
+        x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
+        y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u,
+      }
+    }
+    target -= seg
+  }
+  return pts[pts.length - 1]
+}
+
+/** Direção (unitária) no ponto t ao longo da polilinha. */
+export function tangentAtFraction(pts: Pt[], t: number): Pt {
+  if (pts.length < 2) return { x: 1, y: 0 }
+  const total = polylineLength(pts)
+  if (total < 1e-6) return { x: 1, y: 0 }
+  let target = Math.max(0, Math.min(1, t)) * total
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i - 1].x
+    const dy = pts[i].y - pts[i - 1].y
+    const seg = Math.hypot(dx, dy)
+    if (target <= seg || i === pts.length - 1) {
+      if (seg < 1e-6) continue
+      return { x: dx / seg, y: dy / seg }
+    }
+    target -= seg
+  }
+  const last = pts[pts.length - 1], prev = pts[pts.length - 2]
+  const dx = last.x - prev.x, dy = last.y - prev.y
+  const len = Math.hypot(dx, dy) || 1
+  return { x: dx / len, y: dy / len }
+}
+
+/**
+ * Subcaminho SVG entre duas frações [start, end] ao longo da polilinha de
+ * controlo (aproximação linear; suficiente para capas e marcadores).
+ */
+export function subpathBetween(pts: Pt[], start: number, end: number, samples = 24): string {
+  const a = Math.max(0, Math.min(1, Math.min(start, end)))
+  const b = Math.max(0, Math.min(1, Math.max(start, end)))
+  if (b - a < 1e-4 || pts.length < 2) return ''
+  const n = Math.max(2, Math.ceil(samples * (b - a)))
+  const parts: string[] = []
+  for (let i = 0; i <= n; i++) {
+    const p = pointAtFraction(pts, a + (b - a) * (i / n))
+    parts.push(`${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+  }
+  return parts.join(' ')
+}

@@ -25,7 +25,7 @@ check('quadro: medidas por omissão 600×800×250', JSON.stringify(enclosureDims
 check('quadro: medidas limitadas', enclosureDimsOf({ widthMm: 5, heightMm: 99999, depthMm: 'x' }).widthMm === ENCLOSURE.minWidthMm && enclosureDimsOf({ heightMm: 99999 }).heightMm === ENCLOSURE.maxHeightMm)
 check('calha técnica: medidas limitadas', cableDuctDimsOf({ lengthMm: 1 }).lengthMm === CABLE_DUCT.minLengthMm && cableDuctDimsOf({}).widthMm === 40)
 check('tamanho real vem do estado', JSON.stringify(panelAccessorySizeMm('panelEnclosure', { widthMm: 400, heightMm: 500, depthMm: 200 })) === JSON.stringify({ x: 400, y: 500, z: 200 }))
-check('só o quadro e a calha técnica são acessórios', isPanelAccessoryType('panelEnclosure') && isPanelAccessoryType('cableDuct') && !isPanelAccessoryType('dinRail15x55'))
+check('quadro, calha técnica e espiral são acessórios', isPanelAccessoryType('panelEnclosure') && isPanelAccessoryType('cableDuct') && isPanelAccessoryType('spiralWrap') && !isPanelAccessoryType('dinRail15x55'))
 
 // Quadro: corpo dentro das medidas, porta fechada à frente, dobradiças e fechos.
 {

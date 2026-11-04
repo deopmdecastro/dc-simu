@@ -746,6 +746,8 @@ export interface CircuitState {
   activeScenario: string
   selectedComponentIds: string[]
   selectedWireId: string | null
+  /** Seleção múltipla de cabos (filaçar, apagar em grupo); `selectedWireId` é o primário do inspetor. */
+  selectedWireIds: string[]
   selectedTerminalId: string | null
   tool: EditorTool
   grid: GridSettings

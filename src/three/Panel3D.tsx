@@ -2029,6 +2029,45 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
       {/* Clicar na terminação (pinça, ficha, ponteira) seleciona o cabo, como clicar no próprio cabo. */}
       {!from.sharedFollower && <WireEnd3D side="from" geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
       {!to.sharedFollower && <WireEnd3D side="to" geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
+      {/* Capas de isolamento 3D: tubo mais grosso na secção [start, end] */}
+      {(wire.isolation ?? []).map((seg, i) => {
+        const a = Math.max(0, Math.min(1, Math.min(seg.start, seg.end)))
+        const b = Math.max(0, Math.min(1, Math.max(seg.start, seg.end)))
+        if (b - a < 0.02) return null
+        const isoCurve = new THREE.CurvePath<THREE.Vector3>()
+        const steps = Math.max(8, Math.ceil(segments * (b - a)))
+        const pts: THREE.Vector3[] = []
+        for (let s = 0; s <= steps; s++) {
+          const t = a + (b - a) * (s / steps)
+          const p = curve.getPointAt(Math.max(0, Math.min(1, t)))
+          pts.push(p)
+        }
+        for (let s = 0; s < pts.length - 1; s++) isoCurve.add(new THREE.LineCurve3(pts[s], pts[s + 1]))
+        const isoRadius = radius * 1.55 + 0.004
+        return <mesh key={`iso-${i}`} castShadow receiveShadow renderOrder={20} raycast={() => null}>
+          <tubeGeometry args={[isoCurve as unknown as THREE.Curve<THREE.Vector3>, steps, isoRadius, 10, false]} />
+          <meshPhysicalMaterial color={seg.color} roughness={0.55} metalness={0.02} clearcoat={0.2} clearcoatRoughness={0.5} envMapIntensity={0.8} />
+        </mesh>
+      })}
+      {/* Marcadores 3D: anéis coloridos com etiqueta */}
+      {(wire.markers ?? []).map((m, i) => {
+        const t = Math.max(0.02, Math.min(0.98, m.t))
+        const p = curve.getPointAt(t)
+        const tan = curve.getTangentAt(t).normalize()
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan)
+        const ringR = radius * 1.9 + 0.006
+        const bg = m.bg ?? '#fbbf24'
+        return <group key={`mk-${i}`} position={p} quaternion={quat} userData={{ noPick: true }}>
+          <mesh castShadow raycast={() => null}>
+            <torusGeometry args={[ringR, radius * 0.55, 8, 16]} />
+            <meshStandardMaterial color={bg} roughness={0.4} metalness={0.1} />
+          </mesh>
+          <mesh position={[0, 0, ringR + 0.02]} raycast={() => null}>
+            <planeGeometry args={[Math.max(0.06, 0.018 * Math.max(1, m.text.length)), 0.04]} />
+            <meshBasicMaterial color={bg} />
+          </mesh>
+        </group>
+      })}
       {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         onSelect={handlers.onSelectWaypoint}

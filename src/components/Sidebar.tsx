@@ -845,12 +845,29 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           {selectedWire && (
             <section className="dc-wire-inspector space-y-2.5">
               <header className="dc-wire-inspector-head flex items-center justify-between sticky top-0 bg-surface-panel py-1 z-10 border-b border-line">
-                <span className="font-semibold text-ink-900">Cabo {selectedWire.number ?? selectedWire.id}</span>
+                <span className="font-semibold text-ink-900">
+                  Cabo {selectedWire.number ?? selectedWire.id}
+                  {useSimStore.getState().selectedWireIds.length > 1 ? ` · +${useSimStore.getState().selectedWireIds.length - 1}` : ''}
+                </span>
                 <span className={`dc-chip ${selectedWire.energized ? '!border-amber-300 !bg-amber-50 !text-energy-deep' : ''}`}>
                   <span className={`inline-block h-1.5 w-1.5 rounded-full ${selectedWire.energized ? 'bg-energy' : 'bg-ink-300'}`} />
                   {selectedWire.energized ? 'ENERGIZADO' : 'SEM TENSÃO'}
                 </span>
               </header>
+              <div className="dc-card p-2 space-y-1.5">
+                <label className={label + ' !mb-0'}>Chicote / filaçar</label>
+                <div className="flex flex-wrap gap-1">
+                  <button type="button" className="dc-btn" title="Filaça os cabos selecionados (Shift+clique para multi-seleção)"
+                    onClick={() => useSimStore.getState().laceWires()}>Filaçar seleção</button>
+                  <button type="button" className="dc-btn" disabled={!selectedWire.bundleId}
+                    onClick={() => useSimStore.getState().unlaceWires()}>Desfilaçar</button>
+                </div>
+                <small className="text-ink-400">
+                  {selectedWire.bundleId
+                    ? `Neste chicote: ${wires.filter((w) => w.bundleId === selectedWire.bundleId).length} cabo(s) · id ${selectedWire.bundleId}`
+                    : 'Shift+clique noutros cabos e use «Filaçar seleção» para criar um chicote.'}
+                </small>
+              </div>
 
               {/* Traçado 3D: o painel 3D monta aqui as ações (pontos, mover, religar). */}
               <div ref={setWireActionSlot} className="dc-wire-3d-actions" data-slot="wire-3d" />

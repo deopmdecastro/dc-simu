@@ -20,7 +20,7 @@ import DinRail2D from './DinRail2D'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireEndScale, wireStrokeWidth } from './wireMetrics'
-import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
+import { wireGeometry, wireGeometryForWire, pointAtFraction, tangentAtFraction, subpathBetween, type Pt } from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp from '../ui/ShortcutHelp'
@@ -387,6 +387,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const simRunState = useSimStore((s) => s.sim.runState)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const selectedWireId = useSimStore((s) => s.selectedWireId)
+  const selectedWireIds = useSimStore((s) => s.selectedWireIds)
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const tool = useSimStore((s) => s.tool)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
@@ -1124,7 +1125,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const { a, b } = display
     const col = WIRE_COLORS[w.color] ?? '#94a3b8'
     const flexible = w.flexibility === 'flexible'
-    const selected = selectedWireId === w.id
+    const selected = selectedWireId === w.id || selectedWireIds.includes(w.id)
     const { d, handle } = display.geometry
     const width = wireStrokeWidth(w.gauge)
     const cap = 'square'
@@ -1155,6 +1156,29 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         {/* O acabamento do fio é igual para rígido e flexível. */}
         <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
         {showEnergyFlow && <path d={d} fill="none" stroke="#ffffff" strokeWidth={Math.max(1.1, width * 0.36)} strokeDasharray="3 14" className="dc-flow" strokeLinecap="round" pointerEvents="none" opacity={0.76} />}
+        {/* Capas de isolamento (secções coloridas mais grossas sobre o condutor) */}
+        {(w.isolation ?? []).map((seg, i) => {
+          const iso = subpathBetween(display.geometry.pts, seg.start, seg.end)
+          if (!iso) return null
+          const isoW = width + 3.2
+          return <g key={`iso-${i}`} pointerEvents="none">
+            <path d={iso} fill="none" stroke="#0f172a" strokeOpacity={0.25} strokeWidth={isoW + 1.2} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={iso} fill="none" stroke={seg.color} strokeWidth={isoW} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={iso} fill="none" stroke="#ffffff" strokeOpacity={0.18} strokeWidth={Math.max(0.8, isoW * 0.22)} strokeLinecap="butt" />
+          </g>
+        })}
+        {/* Marcadores / tags (anéis numerados ao longo do cabo) */}
+        {(w.markers ?? []).map((m, i) => {
+          const p = pointAtFraction(display.geometry.pts, m.t)
+          const tan = tangentAtFraction(display.geometry.pts, m.t)
+          const angle = Math.atan2(tan.y, tan.x) * 180 / Math.PI
+          const bg = m.bg ?? '#fbbf24'
+          const r = Math.max(7, width * 1.6 + 4)
+          return <g key={`mk-${i}`} pointerEvents="none" transform={`translate(${p.x},${p.y}) rotate(${angle})`}>
+            <rect x={-r * 0.85} y={-r * 0.7} width={r * 1.7} height={r * 1.4} rx={2.2} fill={bg} stroke="#1e293b" strokeWidth={0.8} />
+            <text textAnchor="middle" dominantBaseline="central" fontSize={Math.max(8, r * 0.95)} fontWeight={700} fill={m.color} style={{ fontFamily: 'ui-monospace, monospace' }}>{m.text}</text>
+          </g>
+        })}
         {/* área de clique larga (clique seleciona · duplo clique adiciona ponto de curva) */}
         <path
           d={d}
@@ -1173,7 +1197,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               useSimStore.getState().deleteWire(w.id)
               return
             }
-            selectWire(w.id)
+            selectWire(w.id, e.shiftKey || e.ctrlKey || e.metaKey)
           }}
           onDoubleClick={addPoint}
         >

@@ -415,7 +415,11 @@ interface Store extends CircuitState {
   rotateComponents: (ids: string[], deltaDeg: number) => void
   /** Ordem de desenho no Esquema: trazer para a frente / enviar para trás. */
   reorderComponents: (ids: string[], where: 'front' | 'back' | 'forward' | 'backward') => void
-  selectWire: (id: string | null) => void
+  selectWire: (id: string | null, additive?: boolean) => void
+  /** Filaça (agrupa em chicote) os cabos indicados; partilham `bundleId`. */
+  laceWires: (ids?: string[]) => void
+  /** Remove o chicote dos cabos (ou de todos os do mesmo bundle). */
+  unlaceWires: (ids?: string[]) => void
   selectTerminal: (id: string | null) => void
   addTerminal: (componentId: string) => void
   updateTerminal: (terminalId: string, patch: Partial<Terminal>) => void
@@ -954,6 +958,7 @@ export const useSimStore = create<Store>((set, get) => {
   activeScenario: 'custom',
   selectedComponentIds: [],
   selectedWireId: null,
+  selectedWireIds: [] as string[],
   selectedTerminalId: null,
   tool: 'select',
   grid: { enabled: true, size: EDITOR_THEME.step, snap: true, style: 'dots', background: EDITOR_THEME.background },
@@ -2290,6 +2295,7 @@ export const useSimStore = create<Store>((set, get) => {
       return {
       selectedComponentIds: additive ? [...new Set([...s.selectedComponentIds, ...expanded])] : expanded,
       selectedWireId: null,
+      selectedWireIds: [],
       selectedTerminalId: null,
       viewOrientationEditor: s.viewOrientationEditor && !ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
       }
@@ -2303,11 +2309,73 @@ export const useSimStore = create<Store>((set, get) => {
   /** Ctrl+Shift+G: desfaz o grupo dos componentes selecionados. */
   ungroupSelection: () => { get().ungroupItems('schematic', get().selectedComponentIds) },
 
-  selectWire: (id) => {
+  selectWire: (id, additive = false) => {
     if (id && isSimEditLocked(get())) return
-    set({ selectedWireId: id, selectedComponentIds: [], selectedTerminalId: null, viewOrientationEditor: null })
+    if (!id) {
+      set({ selectedWireId: null, selectedWireIds: [], selectedComponentIds: [], selectedTerminalId: null, viewOrientationEditor: null })
+      return
+    }
+    set((s) => {
+      let ids: string[]
+      if (additive) {
+        const setIds = new Set(s.selectedWireIds.length ? s.selectedWireIds : (s.selectedWireId ? [s.selectedWireId] : []))
+        if (setIds.has(id)) setIds.delete(id)
+        else setIds.add(id)
+        ids = [...setIds]
+      } else {
+        ids = [id]
+      }
+      return {
+        selectedWireId: ids.includes(id) ? id : (ids[0] ?? null),
+        selectedWireIds: ids,
+        selectedComponentIds: [],
+        selectedTerminalId: null,
+        viewOrientationEditor: null,
+      }
+    })
   },
-  selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedComponentIds: [], viewOrientationEditor: null }),
+
+  laceWires: (ids) => {
+    if (isSimEditLocked(get())) return
+    const state = get()
+    const target = ids?.length
+      ? ids
+      : (state.selectedWireIds.length ? state.selectedWireIds : (state.selectedWireId ? [state.selectedWireId] : []))
+    if (target.length < 2) {
+      state.pushEvent('info', 'Selecione pelo menos dois cabos (Shift+clique) para filaçar.')
+      return
+    }
+    const existing = state.wires.find((w) => target.includes(w.id) && w.bundleId)?.bundleId
+    const bundleId = existing ?? `bundle-${nanoid(8)}`
+    state.commitHistory()
+    set((s) => ({
+      wires: s.wires.map((w) => (target.includes(w.id) ? { ...w, bundleId } : w)),
+      dirty: true,
+    }))
+    get().pushEvent('info', `${target.length} cabos filaçados no chicote ${bundleId}.`)
+  },
+
+  unlaceWires: (ids) => {
+    if (isSimEditLocked(get())) return
+    const state = get()
+    const target = ids?.length
+      ? ids
+      : (state.selectedWireIds.length ? state.selectedWireIds : (state.selectedWireId ? [state.selectedWireId] : []))
+    if (!target.length) return
+    const bundleIds = new Set(state.wires.filter((w) => target.includes(w.id) && w.bundleId).map((w) => w.bundleId!))
+    if (!bundleIds.size) {
+      state.pushEvent('info', 'Os cabos selecionados não estão filaçados.')
+      return
+    }
+    state.commitHistory()
+    set((s) => ({
+      wires: s.wires.map((w) => (w.bundleId && bundleIds.has(w.bundleId) ? { ...w, bundleId: undefined } : w)),
+      dirty: true,
+    }))
+    get().pushEvent('info', 'Chicote desfeito.')
+  },
+
+  selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedWireIds: [], selectedComponentIds: [], viewOrientationEditor: null }),
 
   addTerminal: (componentId) => {
     get().commitHistory()
