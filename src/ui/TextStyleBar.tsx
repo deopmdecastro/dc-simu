@@ -6,16 +6,19 @@ import { useNarrowMenu } from './toolbarKit'
 import { PHONE_TOUCH_QUERY } from './device'
 
 /**
- * Barra de formatação dos textos livres (Esquema/3D e GRAFCET), ao estilo dos
- * editores de design: tipo de letra, tamanho, cor, negrito/itálico/sublinhado,
- * alinhamento e fundo. Fica fixa no topo do canvas enquanto o texto está selecionado.
+ * Barra de formatação dos textos livres (Esquema/3D e GRAFCET): tipo de letra,
+ * tamanho, cor, negrito/itálico/sublinhado, alinhamento e fundo.
+ * Preferência: flutuar por cima do texto selecionado; Confirmar / Anular fecham.
  */
-export default function TextStyleBar({ style, unit, onChange, onDelete, onDone, onEdit, rotation, width, onRotationChange, onWidthChange }: {
+export default function TextStyleBar({ style, unit, onChange, onDelete, onDone, onCancel, onEdit, rotation, width, onRotationChange, onWidthChange }: {
   style: CanvasTextStyle
   unit: 'mm' | 'px'
   onChange: (patch: Partial<CanvasTextStyle>) => void
   onDelete: () => void
+  /** Confirma e fecha (Enter / botão Confirmar). */
   onDone: () => void
+  /** Anula a edição do texto e fecha (Esc / botão Anular). Se omitido, usa onDone. */
+  onCancel?: () => void
   /** Opções de transformação disponíveis apenas nos textos posicionados. */
   rotation?: number
   width?: number
@@ -60,14 +63,21 @@ export default function TextStyleBar({ style, unit, onChange, onDelete, onDone, 
       {onEdit && <button type="button" className="txb-text-btn is-primary" onClick={onEdit}><IconText size={14} /><span>Editar texto</span></button>}
       <button type="button" className="txb-text-btn" onClick={() => setFormatOpen(true)} aria-label="Formatar texto"><span>Formatar</span><IconChevronDown size={10} /></button>
       <button type="button" className="txb-icon is-danger" onClick={onDelete} aria-label="Eliminar texto"><IconDelete size={14} /></button>
-      <button type="button" className="txb-icon" onClick={onDone} aria-label="Concluir"><IconClose size={14} /></button>
+      <button type="button" className="txb-text-btn" onClick={onCancel ?? onDone} aria-label="Anular"><IconClose size={14} /><span>Anular</span></button>
+      <button type="button" className="txb-text-btn is-primary" onClick={onDone} aria-label="Confirmar"><IconCheck size={14} /><span>OK</span></button>
     </div>
   }
 
   return <div ref={ref} className="txb" role="toolbar" aria-label="Formatação e propriedades do texto" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => {
-    if (event.key !== 'Escape') return
-    if (fontsOpen || colorsOpen || layoutOpen) closePopovers()
-    else onDone()
+    if (event.key === 'Escape') {
+      if (fontsOpen || colorsOpen || layoutOpen) closePopovers()
+      else (onCancel ?? onDone)()
+      return
+    }
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault()
+      onDone()
+    }
   }}>
     {phone
       ? <button type="button" className="txb-badge" onClick={() => setFormatOpen(false)} aria-label="Recolher formatação" title="Recolher"><IconText size={12} /></button>
@@ -173,6 +183,7 @@ export default function TextStyleBar({ style, unit, onChange, onDelete, onDone, 
     <span className="txb-spacer" />
     {onEdit && <button type="button" className="txb-text-btn" onClick={onEdit} title="Editar o texto (duplo clique)"><IconText size={12} /><span>Editar texto</span></button>}
     <button type="button" className="txb-icon is-danger" onClick={onDelete} title="Eliminar texto (Delete)" aria-label="Eliminar texto"><IconDelete size={12} /></button>
-    <button type="button" className="txb-icon" onClick={onDone} title="Concluir (Esc)" aria-label="Concluir"><IconClose size={12} /></button>
+    <button type="button" className="txb-text-btn" onClick={onCancel ?? onDone} title="Anular (Esc)" aria-label="Anular"><IconClose size={12} /><span>Anular</span></button>
+    <button type="button" className="txb-text-btn is-primary" onClick={onDone} title="Confirmar (Enter)" aria-label="Confirmar"><IconCheck size={12} /><span>Confirmar</span></button>
   </div>
 }

@@ -39,8 +39,25 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   const [live, setLive] = useState<{ x: number; y: number } | null>(null)
   const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean; wasSelected: boolean } | null>(null)
   const editorRef = useRef<HTMLTextAreaElement>(null)
+  const discardRef = useRef(false)
   const [draft, setDraft] = useState(comment.text)
-  useEffect(() => { if (editing) { setDraft(comment.text); window.requestAnimationFrame(() => { editorRef.current?.focus(); editorRef.current?.select() }) } }, [editing])
+  useEffect(() => { if (editing) { setDraft(comment.text); discardRef.current = false; window.requestAnimationFrame(() => { editorRef.current?.focus(); editorRef.current?.select() }) } }, [editing])
+  useEffect(() => {
+    if (!editing) return
+    const onCancel = () => {
+      discardRef.current = true
+      setDraft(comment.text)
+      editorRef.current?.blur()
+      onEdit(false)
+    }
+    const onConfirm = () => { editorRef.current?.blur() }
+    window.addEventListener('dcsimu:text-cancel', onCancel)
+    window.addEventListener('dcsimu:text-confirm', onConfirm)
+    return () => {
+      window.removeEventListener('dcsimu:text-cancel', onCancel)
+      window.removeEventListener('dcsimu:text-confirm', onConfirm)
+    }
+  }, [editing, comment.text, onEdit])
 
   const shown = live ? { ...comment, x: live.x, y: live.y } : comment
   const editingBox = editing ? freeTextBox({ ...shown, text: draft }) : null
@@ -75,8 +92,10 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
     setLive(null)
   }
   const commit = () => {
+    const discard = discardRef.current
+    discardRef.current = false
     onEdit(false)
-    if (draft !== comment.text) onText(draft)
+    if (!discard && draft !== comment.text) onText(draft)
   }
 
   return <g className={`grafcet-free-text${selected ? ' is-selected' : ''}`} data-grafcet-text={comment.id}
@@ -92,7 +111,20 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onPointerDown={(event) => event.stopPropagation()}
-        onKeyDown={(event) => { event.stopPropagation(); if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) { event.preventDefault(); event.currentTarget.blur() } }}
+        onKeyDown={(event) => {
+          event.stopPropagation()
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            discardRef.current = true
+            setDraft(comment.text)
+            event.currentTarget.blur()
+            return
+          }
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault()
+            event.currentTarget.blur()
+          }
+        }}
         aria-label="Editar texto do GRAFCET" />
     </foreignObject>
       : <text

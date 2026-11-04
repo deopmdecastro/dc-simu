@@ -6218,12 +6218,35 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         {full && !demoMode && (() => {
           const comment = selectedCommentId ? allComments.find((item) => item.id === selectedCommentId) : undefined
           if (!comment) return null
-          return <div className="grafcet-textbar-slot" onPointerDown={(event) => { if (!(event.target as HTMLElement).closest('input, select, textarea, [contenteditable]')) event.preventDefault() }}>
+          const box = freeTextBox(comment)
+          // Posição no ecrã relativamente ao viewport do diagrama (scale + pan).
+          const screenX = box.left * scale + position.x + (box.width * scale) / 2
+          const screenY = box.top * scale + position.y
+          const barTop = Math.max(8, screenY - 56)
+          const barLeft = Math.max(12, Math.min(screenX, (viewport.width || 800) - 12))
+          const confirmText = () => {
+            window.dispatchEvent(new Event('dcsimu:text-confirm'))
+            setEditingCommentId(null)
+            setSelectedCommentId(null)
+            setTextDialogId(null)
+          }
+          const cancelText = () => {
+            window.dispatchEvent(new Event('dcsimu:text-cancel'))
+            setEditingCommentId(null)
+            setSelectedCommentId(null)
+            setTextDialogId(null)
+          }
+          return <div
+            className="grafcet-textbar-slot is-anchored"
+            style={{ left: barLeft, top: barTop, right: 'auto', transform: 'translateX(-50%)' }}
+            onPointerDown={(event) => { if (!(event.target as HTMLElement).closest('input, select, textarea, [contenteditable]')) event.preventDefault() }}
+          >
             <TextStyleBar style={commentStyle(comment)} unit="px"
               onChange={(patch) => patchComment(comment.id, styleToComment(patch))}
               onEdit={() => (phone ? setTextDialogId(comment.id) : setEditingCommentId(comment.id))}
               onDelete={() => removeComment(comment.id)}
-              onDone={() => { setSelectedCommentId(null); setEditingCommentId(null); setTextDialogId(null) }} />
+              onCancel={cancelText}
+              onDone={confirmText} />
           </div>
         })()}
         {/* Sem painel inferior GRAFCET (PC/tablet = inspetor lateral; telemóvel = gaveta). */}
