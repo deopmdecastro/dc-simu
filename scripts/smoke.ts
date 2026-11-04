@@ -1823,8 +1823,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
 {
   const jpg = 'data:image/jpeg;base64,/9j/AAAA'
-  check('cover: miniatura JPEG da versão atual passa para o preview', buildProjectPreview({ components: [], wires: [], cover: jpg, coverVersion: COVER_VERSION }).cover === jpg)
-  check('cover: capa 3D sem versão/antiga é ignorada (o dashboard desenha o esquema com os cabos)', buildProjectPreview({ components: [], wires: [], cover: jpg }).cover === undefined)
+  check('cover: miniatura JPEG guardada passa para o preview (qualquer versão)', buildProjectPreview({ components: [], wires: [], cover: jpg }).cover === jpg && buildProjectPreview({ components: [], wires: [], cover: jpg, coverVersion: COVER_VERSION }).cover === jpg)
   check('cover: ignora conteúdo que não é JPEG data URL', buildProjectPreview({ components: [], wires: [], cover: 'http://x/y.jpg' }).cover === undefined && buildProjectPreview({ components: [] }).cover === undefined)
 }
 

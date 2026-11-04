@@ -2412,7 +2412,6 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
       // Enquadramento = tudo o que o projeto mostra (chapa, aparelhos fora dela como o motor e o
       // multímetro, e os cabos inteiros), para a capa ser fiel ao que se vê no editor.
       const box = new THREE.Box3(new THREE.Vector3(b.minX, b.minY, -0.5), new THREE.Vector3(b.maxX, b.maxY, 0.5))
-      const scaled: Array<{ obj: THREE.Object3D; sx: number; sy: number; sz: number }> = []
       scene.traverse((o) => {
         if (!o.visible) return
         if (o.userData?.noSnapshot || o.userData?.excludeFromCover) {
@@ -2425,7 +2424,6 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
           hidden.push(o)
           return
         }
-        // Cabos na capa: ligeiramente mais grossos para não desaparecerem no JPEG reduzido.
         if (o.userData?.isComponentRoot) box.union(new THREE.Box3().setFromObject(o))
         const mesh = o as THREE.Mesh
         if (mesh.isMesh) {
@@ -2435,11 +2433,9 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
             if (node.userData?.wireId) { isWire = true; break }
             node = node.parent
           }
-          if (isWire) {
-            box.expandByObject(o)
-            scaled.push({ obj: o, sx: o.scale.x, sy: o.scale.y, sz: o.scale.z })
-            o.scale.set(o.scale.x * 1.2, o.scale.y * 1.2, o.scale.z * 1.2)
-          }
+          // Os tubos dos cabos têm a geometria em coordenadas do mundo: escalar a malha deslocava-os
+          // para fora dos bornes (e os do multímetro para fora do quadro). Só entram no enquadramento.
+          if (isWire) box.expandByObject(o)
         }
       })
       try {
@@ -2467,7 +2463,6 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
         ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, out.width, out.height)
         return out.toDataURL('image/jpeg', 0.72)
       } finally {
-        scaled.forEach(({ obj, sx, sy, sz }) => obj.scale.set(sx, sy, sz))
         hidden.forEach((o) => { o.visible = true })
         invalidate()
       }

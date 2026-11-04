@@ -410,6 +410,28 @@ export default function Account() {
     return () => window.removeEventListener('keydown', handle)
   }, [page])
 
+  // Capa 3D em falta ou antiga: assim que a cena e os cabos ficam prontos, recaptura e grava
+  // sozinha (só sem alterações por guardar, para não gravar trabalho do utilizador sem pedir).
+  const openId = open?.id
+  useEffect(() => {
+    if (page !== 'editor' || !openId) return
+    let stable = 0
+    let busy = false
+    const timer = window.setInterval(() => {
+      const s = useSimStore.getState()
+      const wants3d = s.projectKind === 'all' || s.projectKind === 'schematic' || !s.projectKind
+      if (hasStoredCover() || !wants3d || !s.components.length) { window.clearInterval(timer); return }
+      // Duas leituras seguidas prontas: os cabos já foram desenhados num frame.
+      stable = canCaptureFreshCover() && !s.dirty ? stable + 1 : 0
+      if (stable < 2 || busy || openRef.current?.id !== openId) return
+      busy = true
+      persistOpenProject(false)
+        .catch(() => { /* a capa é opcional; tenta-se de novo ao guardar/sair */ })
+        .finally(() => { window.clearInterval(timer) })
+    }, 1200)
+    return () => window.clearInterval(timer)
+  }, [page, openId])
+
   if (!ready) return <RouteLoading label={loadingLabel} />
 
   if (page === 'editor' && open) return <>

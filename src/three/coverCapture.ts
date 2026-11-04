@@ -9,7 +9,8 @@ let lastCover: string | null = null
 let lastVersion = 0
 /** Sobe sempre que o enquadramento da capa muda: as capas guardadas com outra versão são recapturadas. */
 // v3: capas tiradas com o cálculo dos cabos em erro/desatualizado ou sem os cabos soltos saíam sem cabos.
-export const COVER_VERSION = 3 // servidor Node: mesmo limiar em server/index.mjs
+// v4: os cabos eram escalados na captura e saíam deslocados dos bornes (e cortados à direita).
+export const COVER_VERSION = 4
 /** True quando o encaminhamento 3D dos cabos já produziu malhas (ou não há cabos). */
 let wiresReady = true
 

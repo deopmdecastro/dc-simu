@@ -1,4 +1,3 @@
-import { COVER_VERSION } from '../three/coverCapture'
 import { flowCoverSvg } from './flowCover'
 import type { GrafcetProgram } from '../grafcet/engine'
 import type { LadderRung } from '../types'
@@ -39,15 +38,6 @@ export type ProjectPreviewData = {
 export function previewCoverOf(data: unknown): string | undefined {
   const value = (data as { cover?: unknown } | null)?.cover
   return typeof value === 'string' && value.startsWith('data:image/jpeg;base64,') && value.length <= 420_000 ? value : undefined
-}
-
-/** Capa guardada utilizável: Ladder/GRAFCET aceitam qualquer versão; a cena 3D só a versão atual
- *  (capas anteriores podiam ter saído sem cabos — até nova captura desenha-se o esquema). */
-export function previewCoverForKind(data: unknown, kind: string): string | undefined {
-  const cover = previewCoverOf(data)
-  if (!cover || kind === 'ladder' || kind === 'grafcet') return cover
-  const version = (data as { coverVersion?: unknown } | null)?.coverVersion
-  return typeof version === 'number' && version >= COVER_VERSION ? cover : undefined
 }
 
 /** Identifica o projeto nativo (id estável ou nome com «(nativo)»). */
@@ -147,7 +137,8 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
 
   const rungs = isObj(data.ladder) && Array.isArray(data.ladder.rungs) ? (data.ladder.rungs as LadderRung[]) : []
   const kind = data.projectKind === 'ladder' || data.projectKind === 'grafcet' || data.projectKind === 'commands' || data.projectKind === 'schematic' ? data.projectKind : 'all'
-  const cover = previewCoverForKind(data, kind)
+  // A capa 3D real prevalece sempre; uma capa antiga é recapturada ao abrir o projeto no editor 3D.
+  const cover = previewCoverOf(data)
   const flow = cover || kind === 'all' || kind === 'commands' || kind === 'schematic'
     ? undefined
     : flowPreviewOf(kind as 'ladder' | 'grafcet', rungs, data.grafcet)

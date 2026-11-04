@@ -254,9 +254,7 @@ function buildPreview(content){
   const a=at.get(w.fromTerminalId)||(w.fromPoint&&[w.fromPoint.x,w.fromPoint.y]),b=at.get(w.toTerminalId)||(w.toPoint&&[w.toPoint.x,w.toPoint.y])
   return a&&b?{a:[Math.round(a[0]),Math.round(a[1])],b:[Math.round(b[0]),Math.round(b[1])],c:typeof w.color==='string'?w.color.slice(0,16):undefined}:null
  }).filter(Boolean)
- // Capas 3D anteriores à v3 podiam sair sem cabos: o dashboard desenha o esquema até nova captura.
- const sceneKind=data?.projectKind!=='ladder'&&data?.projectKind!=='grafcet'
- const cover=typeof data?.cover==='string'&&data.cover.startsWith('data:image/jpeg;base64,')&&data.cover.length<=420000&&(!sceneKind||(typeof data?.coverVersion==='number'&&data.coverVersion>=3))?data.cover:undefined
+ const cover=typeof data?.cover==='string'&&data.cover.startsWith('data:image/jpeg;base64,')&&data.cover.length<=420000?data.cover:undefined
  return {components,wires,cover,kind:data?.projectKind==='ladder'||data?.projectKind==='grafcet'?data.projectKind:'all',stats:{components:Array.isArray(data?.components)?data.components.length:0,wires:Array.isArray(data?.wires)?data.wires.length:0,rungs:Array.isArray(data?.ladder?.rungs)?data.ladder.rungs.length:0}}
 }
 app.get('/api/projects',auth,(req,res)=>{

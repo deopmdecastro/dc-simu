@@ -24,7 +24,6 @@ const native = nativePartidaDiretaContent() as Record<string, unknown> & { compo
 const nativePreview = buildProjectPreview(native)
 check('nativo sem cover: esquema real (componentes e cabos do projeto)', nativePreview.components.length === native.components.length && nativePreview.stats?.wires === native.wires.length && !nativePreview.flow)
 const photo = 'data:image/jpeg;base64,' + 'A'.repeat(64)
-check('cover 3D guardado (versão atual) prevalece sobre o desenho', buildProjectPreview({ ...native, cover: photo, coverVersion: COVER_VERSION }).cover === photo)
-check('cover 3D antigo dá lugar ao desenho com os cabos', buildProjectPreview({ ...native, cover: photo }).cover === undefined)
+check('cover 3D guardado prevalece sobre o desenho (mesmo antigo, até ser recapturado)', buildProjectPreview({ ...native, cover: photo }).cover === photo && buildProjectPreview({ ...native, cover: photo, coverVersion: COVER_VERSION }).cover === photo)
 check('GRAFCET com cover guardado não gera desenho', !buildProjectPreview({ ...grafcetExampleContent(grafcetExamples()[0]), cover: photo }).flow)
 process.exit(failed ? 1 : 0)
