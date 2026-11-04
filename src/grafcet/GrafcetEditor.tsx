@@ -6211,7 +6211,19 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 setZoom(scale)
                 setPan({ x: viewport.width / 2 - wx * scale, y: viewport.height / 2 - wy * scale })
               }}
+              onHide={() => setMinimapOn(false)}
             />
+          )}
+          {full && !minimapOn && steps.length > 0 && !wireDraft && (
+            <button
+              type="button"
+              className="editor-minimap-show"
+              aria-label="Mostrar minimapa"
+              title="Mostrar minimapa"
+              onClick={() => setMinimapOn(true)}
+            >
+              Minimapa
+            </button>
           )}
 
         </div>

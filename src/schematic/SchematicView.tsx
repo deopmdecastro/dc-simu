@@ -1728,12 +1728,24 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           stripViewTransform
           title="Esquema IEC"
           className="schematic-minimap"
+          onHide={() => setMinimapOn(false)}
           onNavigate={(wx, wy) => {
             const svg = svgRef.current
             if (!svg) return
             setPan(svg.clientWidth / 2 - wx * zoom, svg.clientHeight / 2 - wy * zoom)
           }}
         />
+      )}
+      {!minimapOn && components.length + wires.length > 0 && !isTilted && (
+        <button
+          type="button"
+          className="editor-minimap-show"
+          aria-label="Mostrar minimapa"
+          title="Mostrar minimapa"
+          onClick={() => setMinimapOn(true)}
+        >
+          Minimapa
+        </button>
       )}
 
 

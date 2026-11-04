@@ -21,6 +21,8 @@ export interface EditorMinimapProps {
    * (Esquema IEC guarda pan/zoom no SVG; o minimapa precisa de coordenadas nativas).
    */
   stripViewTransform?: boolean
+  /** Esconde o minimapa (botão no canto da barra). */
+  onHide?: () => void
 }
 
 const MAX_W = 248
@@ -44,6 +46,7 @@ export default function EditorMinimap({
   className = '',
   stripSelectors = DEFAULT_STRIP,
   stripViewTransform = false,
+  onHide,
 }: EditorMinimapProps) {
   const ref = useRef<SVGSVGElement>(null)
   const graphicRef = useRef<SVGGElement>(null)
@@ -183,16 +186,32 @@ export default function EditorMinimap({
         <span className="editor-minimap-label" title={`${Math.round(contentW)} × ${Math.round(contentH)}`}>
           Vista · {Number.isFinite(visiblePct) ? `${visiblePct}%` : '—'}
         </span>
-        <button
-          ref={expandButtonRef}
-          type="button"
-          className="editor-minimap-expand"
-          aria-label={`Ampliar pré-visualização: ${title}`}
-          title={`Ampliar pré-visualização: ${title}`}
-          onClick={() => setExpanded(true)}
-        >
-          Ampliar
-        </button>
+        <div className="editor-minimap-actions">
+          <button
+            ref={expandButtonRef}
+            type="button"
+            className="editor-minimap-expand"
+            aria-label={`Ampliar pré-visualização: ${title}`}
+            title={`Ampliar pré-visualização: ${title}`}
+            onClick={() => setExpanded(true)}
+          >
+            Ampliar
+          </button>
+          {onHide && (
+            <button
+              type="button"
+              className="editor-minimap-hide"
+              aria-label="Esconder minimapa"
+              title="Esconder minimapa"
+              onClick={(event) => {
+                event.stopPropagation()
+                onHide()
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
       <svg
         ref={ref}
