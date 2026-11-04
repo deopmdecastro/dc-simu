@@ -434,3 +434,27 @@
 .grafcet-free-text-body textarea { width: 100%; box-sizing: border-box; min-height: 96px; padding: 10px 12px; border: 1px solid var(--dx-border, #cbd5e1); border-radius: 8px; background: var(--dx-surface, #fff); color: inherit; font-family: inherit; line-height: 1.35; resize: vertical; }
 .grafcet-free-text-body textarea:focus { outline: 2px solid var(--dx-accent, #2563eb); outline-offset: 1px; }
 .grafcet-free-text-delete { justify-self: start; color: #dc2626; }
+
+/* Textos → condições: escolha por linha, grupos por GRAFCET e opção de manter textos */
+.grafcet-text-guards-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.grafcet-text-guards-all, .grafcet-text-guards-keep { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.grafcet-text-guards-all span { color: #1e3a5f; font-size: 12px; font-weight: 600; }
+.grafcet-text-guards-bar .grafcet-text-guards-counts { display: inline-flex; }
+.grafcet-text-guards-groups { display: grid; gap: 10px; max-height: min(48vh, 380px); overflow: auto; padding-right: 2px; }
+.grafcet-text-guards-group h4 { display: flex; align-items: baseline; gap: 6px; margin: 0 0 5px; color: #1e3a5f; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; }
+.grafcet-text-guards-group h4 small { color: #7a889d; font-weight: 500; letter-spacing: 0; }
+.grafcet-text-guards-groups .grafcet-text-guards-list { max-height: none; overflow: visible; }
+.grafcet-text-guards-groups .grafcet-text-guards-list li { grid-template-columns: auto minmax(84px, auto) auto minmax(0, 1fr) auto auto; }
+.grafcet-text-guards-list li.is-off { opacity: .55; }
+.grafcet-text-guards-list li input[type="checkbox"], .grafcet-text-guards-all input, .grafcet-text-guards-keep input { width: 15px; height: 15px; margin: 0; accent-color: #2563eb; flex: none; }
+.grafcet-text-guards-target > span b { color: #1e3a5f; }
+.grafcet-text-guards-target small code { display: inline; padding: 0 3px; border-radius: 3px; background: #eef2f7; }
+.grafcet-text-guards-keep { align-items: flex-start; padding: 9px 11px; border: 1px solid #e3e9f3; border-radius: 9px; background: #f8fafd; }
+.grafcet-text-guards-keep input { margin-top: 2px; }
+.grafcet-text-guards-keep span { display: grid; gap: 1px; }
+.grafcet-text-guards-keep b { color: #1e3a5f; font-size: 12px; }
+.grafcet-text-guards-keep small { color: #7a889d; font-size: 11px; }
+@media (max-width: 560px) {
+  .grafcet-text-guards-groups .grafcet-text-guards-list li { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+  .grafcet-text-guards-groups .grafcet-text-guards-target { grid-column: 2 / -1; grid-row: 2; }
+}

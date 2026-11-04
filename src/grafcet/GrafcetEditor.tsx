@@ -6967,16 +6967,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       <TextGuardsDialog
         open={textGuardsOpen}
         program={program}
-        onApply={() => {
-          const { matches } = scanTextGuards(program)
-          const pending = matches.filter((match) => !match.applied)
-          setGrafcet(applyTextGuards(program, pending), 'force', 'grafcet:text-guards:apply')
-          notify(`${pending.length} condição(ões) aplicada(s) — confira antes de remover os textos`)
-        }}
-        onRemove={(ids) => {
-          setGrafcet(removeTextGuardComments(program, ids), 'force', 'grafcet:text-guards:remove')
-          notify(`${ids.length} texto(s) removido(s)`)
-          setTextGuardsOpen(false)
+        onConvert={(commentIds, keepTexts) => {
+          const chosen = scanTextGuards(program).matches.filter((match) => commentIds.includes(match.commentId))
+          const toApply = chosen.filter((match) => !match.applied)
+          // Uma só alteração do programa: um Ctrl+Z desfaz a conversão inteira.
+          let next = toApply.length ? applyTextGuards(program, toApply) : program
+          if (!keepTexts) next = removeTextGuardComments(next, chosen.map((match) => match.commentId))
+          setGrafcet(next, 'force', 'grafcet:text-guards')
+          if (keepTexts) notify(`${toApply.length} condição(ões) aplicada(s); os textos ficaram no desenho para conferir`)
+          else { notify(`${chosen.length} texto(s) convertido(s) em condição «Só se»`); setTextGuardsOpen(false) }
         }}
         onLocate={(transitionId) => {
           const target = allTransitions.find((transition) => transition.id === transitionId)
