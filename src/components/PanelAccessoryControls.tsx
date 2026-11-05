@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { fitDuctResize } from '../schematic/ductResize'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
@@ -63,6 +64,17 @@ function resize(c: ElectricalComponent, wMm: number, hMm: number, state: Record<
     schematicY: ny,
     state: { ...c.state, ...state },
   })
+}
+
+let lastDuctWarn = 0
+/** Calha técnica: aplica comprimento/largura até onde cabe (aparelhos e parede do quadro) e diz porquê quando limita. */
+function resizeDuct(c: ElectricalComponent, lengthMm: number, widthMm: number, state: Record<string, unknown>) {
+  const st = useSimStore.getState()
+  const fit = fitDuctResize(c, st.components, lengthMm, widthMm)
+  const warn = (msg: string) => { const now = Date.now(); if (now - lastDuctWarn > 1500) { lastDuctWarn = now; st.pushEvent('warning', msg) } }
+  if (!fit) { warn(`${c.ref}: sem espaço para ${widthMm} mm de largura — afaste os aparelhos vizinhos.`); return }
+  st.updateComponent(c.id, { w: fit.w, h: fit.h, schematicX: fit.schematicX, schematicY: fit.schematicY, state: { ...c.state, ...state, lengthMm: fit.lengthMm, widthMm: fit.widthMm } })
+  if (fit.limited) warn(`${c.ref} limitada a ${fit.lengthMm} mm: encosta noutro aparelho ou na parede do quadro.`)
 }
 
 function MmField({ label, value, min, max, step = 10, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (mm: number) => void }) {
@@ -258,7 +270,7 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
   const coverOn = c.state.coverOn !== false
   const vertical = Math.round(((c.rotation ?? 0) % 180) / 90) % 2 === 1
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : CABLE_DUCT_DEFAULT_COLOR
-  const setLength = (v: number) => { resize(c, v, d.widthMm, { lengthMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} comprimento ${v} mm${vertical ? ' — vertical (Y)' : ''}.`) }
+  const setLength = (v: number) => resizeDuct(c, v, d.widthMm, {})
   const setHeight = (v: number) => { useSimStore.getState().setComponentState(c.id, { heightMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} altura ${v} mm — veja no 3D a parede subir.`) }
   return <div className="dc-acc space-y-3">
     {/* Cabeçalho compacto com estado */}
@@ -276,14 +288,14 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</div>
       <div className="dc-acc-measure">
         <div className="dc-acc-measure-head"><span>Comprimento</span><span className="dc-acc-unit"><DraftNumber label="Comprimento" value={d.lengthMm} min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} onCommit={setLength} /> mm</span></div>
-        <input type="range" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} aria-label="Comprimento" onChange={(e) => resize(c, Number(e.target.value), d.widthMm, { lengthMm: Number(e.target.value) })} />
+        <input type="range" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} aria-label="Comprimento" onChange={(e) => resizeDuct(c, Number(e.target.value), d.widthMm, {})} />
       </div>
       <div className="flex flex-wrap gap-1.5" aria-label="Comprimentos comuns">
-        {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resize(c, mm, d.widthMm, { lengthMm: mm })}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
+        {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resizeDuct(c, mm, d.widthMm, {})}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
       </div>
       <div className="dc-acc-measure">
         <div className="dc-acc-measure-head"><span>Largura <small>(pegada)</small></span>
-          <select className="dc-input dc-acc-select" aria-label="Largura (mm)" value={d.widthMm} onChange={(e) => resize(c, d.lengthMm, Number(e.target.value), { widthMm: Number(e.target.value) })}>
+          <select className="dc-input dc-acc-select" aria-label="Largura (mm)" value={d.widthMm} onChange={(e) => resizeDuct(c, d.lengthMm, Number(e.target.value), {})}>
             {[...new Set([...CABLE_DUCT.widthsMm, d.widthMm])].sort((x, y) => x - y).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
           </select>
         </div>
