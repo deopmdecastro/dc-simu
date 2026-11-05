@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { fitDuctResize } from '../schematic/ductResize'
+import { fitDuctResize, fitDuctSideResize } from '../schematic/ductResize'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
@@ -75,6 +75,34 @@ function resizeDuct(c: ElectricalComponent, lengthMm: number, widthMm: number, s
   if (!fit) { warn(`${c.ref}: sem espaço para ${widthMm} mm de largura — afaste os aparelhos vizinhos.`); return }
   st.updateComponent(c.id, { w: fit.w, h: fit.h, schematicX: fit.schematicX, schematicY: fit.schematicY, state: { ...c.state, ...state, lengthMm: fit.lengthMm, widthMm: fit.widthMm } })
   if (fit.limited) warn(`${c.ref} limitada a ${fit.lengthMm} mm: encosta noutro aparelho ou na parede do quadro.`)
+}
+
+/** Aumenta/reduz a calha por uma só ponta (a oposta não se mexe); limita-se onde encosta noutro aparelho. */
+function resizeDuctSide(c: ElectricalComponent, side: 'left' | 'right', lengthMm: number) {
+  const st = useSimStore.getState()
+  const fresh = st.components.find((x) => x.id === c.id) ?? c
+  const fit = fitDuctSideResize(fresh, st.components, side, lengthMm, CABLE_DUCT.minLengthMm, CABLE_DUCT.maxLengthMm)
+  if (!fit) {
+    const cur = Math.round(fresh.w / SCHEMATIC_PX_PER_MM)
+    if (lengthMm > cur) { const now = Date.now(); if (now - lastDuctWarn > 1500) { lastDuctWarn = now; st.pushEvent('warning', `${fresh.ref}: sem espaço do lado ${side === 'left' ? 'esquerdo' : 'direito'} — encosta noutro aparelho ou na parede do quadro.`) } }
+    return
+  }
+  st.updateComponent(fresh.id, { w: fit.w, h: fit.h, schematicX: fit.schematicX, schematicY: fit.schematicY, state: { ...fresh.state, lengthMm: fit.lengthMm, widthMm: fit.widthMm } })
+  if (fit.limited) { const now = Date.now(); if (now - lastDuctWarn > 1500) { lastDuctWarn = now; st.pushEvent('warning', `${fresh.ref} limitada a ${fit.lengthMm} mm deste lado: encosta noutro aparelho ou na parede do quadro.`) } }
+}
+
+/** Barra de tamanho de uma ponta da calha: slider + passos de ±10/50 mm. */
+function DuctSideBar({ c, side, lengthMm }: { c: ElectricalComponent; side: 'left' | 'right'; lengthMm: number }) {
+  const label = side === 'left' ? 'Lado esquerdo' : 'Lado direito'
+  const arrow = side === 'left' ? '◀' : '▶'
+  const step = (delta: number) => resizeDuctSide(c, side, lengthMm + delta)
+  return <div className="dc-acc-measure" data-duct-side={side}>
+    <div className="dc-acc-measure-head"><span>{arrow} {label} <small>(ponta {side === 'left' ? 'esq.' : 'dir.'})</small></span><span className="dc-acc-unit">{lengthMm} mm</span></div>
+    <input type="range" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={lengthMm} aria-label={`${label}: aumentar ou reduzir a calha`} onChange={(e) => resizeDuctSide(c, side, Number(e.target.value))} />
+    <div className="flex flex-wrap gap-1.5">
+      {[-50, -10, 10, 50].map((d) => <button key={d} type="button" className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50" aria-label={`${d > 0 ? 'Aumentar' : 'Reduzir'} ${Math.abs(d)} mm do ${label.toLowerCase()}`} onClick={() => step(d)}>{d > 0 ? '+' : '−'}{Math.abs(d)} mm</button>)}
+    </div>
+  </div>
 }
 
 function MmField({ label, value, min, max, step = 10, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (mm: number) => void }) {
@@ -293,6 +321,9 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
       <div className="flex flex-wrap gap-1.5" aria-label="Comprimentos comuns">
         {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resizeDuct(c, mm, d.widthMm, {})}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
       </div>
+      <div className="text-[11px] text-slate-500 leading-snug">Cada barra mexe só na sua ponta; a outra fica no sítio. Também pode arrastar as pegas azuis nas pontas, no Esquema.</div>
+      <DuctSideBar c={c} side="left" lengthMm={d.lengthMm} />
+      <DuctSideBar c={c} side="right" lengthMm={d.lengthMm} />
       <div className="dc-acc-measure">
         <div className="dc-acc-measure-head"><span>Largura <small>(pegada)</small></span>
           <select className="dc-input dc-acc-select" aria-label="Largura (mm)" value={d.widthMm} onChange={(e) => resizeDuct(c, d.lengthMm, Number(e.target.value), {})}>

@@ -1,3 +1,5 @@
+import { ductLengthFromPointer, fitDuctSideResize } from './ductResize'
+import { ductJunctionOpenings } from './ductJunctions'
 import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { importedComponentInfo } from '../electrical/importedComponents'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -34,7 +36,7 @@ import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 import { InlineName } from '../ui/InlineName'
 import { CableDuct2D, Enclosure2D, SpiralWrap2D } from './PanelAccessories2D'
-import { isPanelAccessoryType } from '../three/enclosureParts'
+import { CABLE_DUCT, isPanelAccessoryType } from '../three/enclosureParts'
 
 const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
 type SchematicCanvasMode = '2d' | '3d'
@@ -457,6 +459,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   /** arraste do ponto de dobra/curva/waypoint de um cabo diretamente no esquema */
   const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number; originalTerminalId?: string; start?: Pt } | null>(null)
   const [railResize, setRailResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
+  const [ductResize, setDuctResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
   const [terminalViewDrag, setTerminalViewDrag] = useState<{ componentId: string; terminalId: string } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
   // As dicas do canvas vivem na barra de ferramentas (DC-ADR-059).
@@ -786,6 +789,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       useSimStore.getState().setRailLength(rail.id, mm, railResize.side === 'right' ? 'left' : 'right', false)
       return
     }
+    if (ductResize) {
+      const duct = components.find((item) => item.id === ductResize.id)
+      if (!duct) return
+      // A ponta arrastada segue o rato ao longo do eixo da calha; a oposta não sai do sítio. Passo 5 mm (Alt = livre).
+      const mm = ductLengthFromPointer(duct, ductResize.side, p, !e.altKey)
+      const fit = fitDuctSideResize(duct, components, ductResize.side, mm, CABLE_DUCT.minLengthMm, CABLE_DUCT.maxLengthMm)
+      if (fit) useSimStore.getState().updateComponentRaw(duct.id, { w: fit.w, h: fit.h, schematicX: fit.schematicX, schematicY: fit.schematicY, state: { ...duct.state, lengthMm: fit.lengthMm, widthMm: fit.widthMm } })
+      return
+    }
     if (terminalViewDrag) {
       const component = components.find((item) => item.id === terminalViewDrag.componentId)
       if (!component) return
@@ -900,6 +912,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       else if (!marquee.additive && Math.hypot(marquee.x1 - marquee.x0, marquee.y1 - marquee.y0) > 2) selectComponents([])
     }
     if (railResize) setRailResize(null)
+    if (ductResize) setDuctResize(null)
     if (drag?.committed && grid.railMagnet !== false) {
       const moved = drag.ids.filter((id) => { const item = components.find((c) => c.id === id); return !(item?.railId && drag.ids.includes(item.railId)) })
       useSimStore.getState().snapToRails(moved)
@@ -1419,8 +1432,17 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       >
         {c.type === 'panelEnclosure' ? <Enclosure2D c={c} />
         : c.type === 'cableDuct' ? <>
-            <CableDuct2D c={c} />
+            <CableDuct2D c={c} openings={ductJunctionOpenings(c, components)} />
             <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+            {/* Barras de tamanho: esquerda e direita aumentam/reduzem cada uma a sua ponta; a oposta fica fixa. */}
+            {selected && !simLocked && !c.locked && !c.mirrored && (['left', 'right'] as const).map((side) => (
+              <g key={side} data-duct-handle={side} style={{ cursor: 'ew-resize' }}
+                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); commitHistory(); setDuctResize({ id: c.id, side }) }}>
+                <rect x={(side === 'left' ? 0 : c.w) - 10} y={-4} width={20} height={c.h + 8} fill="transparent" />
+                <rect x={(side === 'left' ? 0 : c.w) - 3.5} y={c.h / 2 - 11} width={7} height={22} rx={3.5} fill="#2f6bff" stroke="white" strokeWidth={1.2} />
+                <title>{side === 'left' ? 'Arraste a ponta esquerda: aumenta/reduz a calha deste lado' : 'Arraste a ponta direita: aumenta/reduz a calha deste lado'} (passos de 5 mm · Alt = livre)</title>
+              </g>
+            ))}
           </>
         : c.type === 'spiralWrap' ? <>
             <SpiralWrap2D c={c} />

@@ -46,6 +46,7 @@ import { mountDepthOffset } from './thermalMount'
 import { buildDinRailGroup, clampRailLengthMm, DIN_RAIL_15X55, DIN_RAIL_FINISHES, dinRailProfileOf } from './dinRailGeometry'
 import { applyWorldUv, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, isPanelAccessoryType } from './enclosureParts'
 import { CableDuct3D, Enclosure3D, SpiralWrap3D } from './PanelAccessories3D'
+import { ductJunctionOpenings } from '../schematic/ductJunctions'
 import { galvanizedSteel } from './proceduralTextures'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
 import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
@@ -3909,7 +3910,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             ? <Enclosure3D c={c} interactive={mechanicalControls} plateFrontZ={plateFrontZ} label={label} />
             : c.type === 'spiralWrap'
               ? <SpiralWrap3D c={c} plateFrontZ={plateFrontZ} label={label} />
-              : <CableDuct3D c={c} plateFrontZ={plateFrontZ} label={label} />)
+              : <CableDuct3D c={c} plateFrontZ={plateFrontZ} label={label} openings={ductJunctionOpenings(c, components)} />)
         })}
 
         {offRail.map((c) => {

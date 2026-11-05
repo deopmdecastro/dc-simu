@@ -1,3 +1,4 @@
+import { inOpening, type DuctOpening } from './ductJunctions'
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { ElectricalComponent } from '../types'
@@ -69,7 +70,7 @@ export function Enclosure2D({ c }: { c: ElectricalComponent }) {
 }
 
 /** Calha técnica em vista frontal: com tampa (superfície lisa) ou aberta (dedos e fundo à vista). */
-export function CableDuct2D({ c }: { c: ElectricalComponent }) {
+export function CableDuct2D({ c, openings = [] }: { c: ElectricalComponent; openings?: DuctOpening[] }) {
   const px = SCHEMATIC_PX_PER_MM
   const d = cableDuctDimsOf(c.state)
   const L = c.w, H = c.h
@@ -83,15 +84,21 @@ export function CableDuct2D({ c }: { c: ElectricalComponent }) {
     <rect x={0} y={0} width={L} height={H} rx={1.5} fill={coverOn ? '#b3b6b1' : '#8e928d'} stroke="#6f746e" strokeWidth={0.8} />
     {!coverOn && Array.from({ length: n }).flatMap((_, i) => {
       const x = start + i * pitch - (pitch - slot) / 2
+      const mm0 = (x - L / 2) / px, mm1 = (x + pitch - slot - L / 2) / px
       return [
-        <rect key={`t${i}`} x={x} y={0} width={pitch - slot} height={finger} fill="#a9aca8" />,
-        <rect key={`b${i}`} x={x} y={H - finger} width={pitch - slot} height={finger} fill="#a9aca8" />,
+        inOpening(openings, 'top', mm0, mm1) ? null : <rect key={`t${i}`} x={x} y={0} width={pitch - slot} height={finger} fill="#a9aca8" />,
+        inOpening(openings, 'bottom', mm0, mm1) ? null : <rect key={`b${i}`} x={x} y={H - finger} width={pitch - slot} height={finger} fill="#a9aca8" />,
       ]
     })}
     {coverOn && <>
       <line x1={0} y1={2.2} x2={L} y2={2.2} stroke="#d7dad5" strokeWidth={1} />
       <line x1={0} y1={H - 2.2} x2={L} y2={H - 2.2} stroke="#8a8e89" strokeWidth={1} />
     </>}
+    {/* Passagem de cabos: a parede abre-se onde outra calha desemboca ou atravessa. */}
+    {openings.map((o, i) => {
+      const x = L / 2 + Math.min(o.from, o.to) * px, w = Math.abs(o.to - o.from) * px
+      return <rect key={`op${i}`} data-duct-opening x={x} y={o.side === 'top' ? -0.6 : H - 3.4} width={w} height={4} fill={coverOn ? '#b3b6b1' : '#8e928d'} />
+    })}
     <text x={L / 2} y={H + 13} textAnchor="middle" fontSize={10} fill="#475569">{c.ref} · {d.lengthMm} mm · {d.widthMm}×{d.heightMm}{coverOn ? '' : ' · sem tampa'}</text>
   </g>
 }

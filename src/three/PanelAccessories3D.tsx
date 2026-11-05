@@ -3,6 +3,7 @@
  * no Painel 3D. Geometria paramétrica (`enclosureParts.ts`) e texturas reais geradas em canvas
  * (pintura epóxi texturada, zinco galvanizado, PVC fosco), com UV à escala real.
  */
+import { ductOpeningsKey, type DuctOpening } from '../schematic/ductJunctions'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { EquipmentDecal3D } from './EquipmentDecal3D'
@@ -132,7 +133,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
 }
 
 /** Calha técnica: base assente na chapa (`plateFrontZ`, relativo ao pivô); X = comprimento, Y = largura. */
-export function CableDuct3D({ c, plateFrontZ, label }: { c: ElectricalComponent; plateFrontZ: number; label?: ReactNode }) {
+export function CableDuct3D({ c, plateFrontZ, label, openings = [] }: { c: ElectricalComponent; plateFrontZ: number; label?: ReactNode; openings?: DuctOpening[] }) {
   const dims = cableDuctDimsOf(c.state)
   const coverOn = c.state.coverOn !== false
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : CABLE_DUCT_DEFAULT_COLOR
@@ -142,9 +143,10 @@ export function CableDuct3D({ c, plateFrontZ, label }: { c: ElectricalComponent;
     return { body: make(color), cover: make(new THREE.Color(color).offsetHSL(0, 0, 0.03).getStyle()) }
   }, [color])
   useEffect(() => () => { materials.body.dispose(); materials.cover.dispose() }, [materials])
-  const group = useMemo(() => buildCableDuct(dims, U, materials, coverOn),
+  const openingsKey = ductOpeningsKey(openings)
+  const group = useMemo(() => buildCableDuct(dims, U, materials, coverOn, openings),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dims.lengthMm, dims.widthMm, dims.heightMm, coverOn, materials])
+    [dims.lengthMm, dims.widthMm, dims.heightMm, coverOn, materials, openingsKey])
   useEffect(() => () => disposeTree(group), [group])
   return <group position={[0, 0, plateFrontZ]}>
     <primitive object={group} />

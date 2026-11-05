@@ -1,3 +1,4 @@
+import { closedSpans, inOpening, type DuctOpening } from '../schematic/ductJunctions'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
@@ -270,7 +271,7 @@ export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMa
 export interface CableDuctMaterials { body: THREE.Material; cover: THREE.Material }
 
 /** Calha técnica ranhurada (dedos destacáveis) com tampa de encaixe. Base em z = 0. */
-export function buildCableDuct(dims: CableDuctDims, unit: number, m: CableDuctMaterials, coverOn = true): THREE.Group {
+export function buildCableDuct(dims: CableDuctDims, unit: number, m: CableDuctMaterials, coverOn = true, openings: DuctOpening[] = []): THREE.Group {
   const { lengthMm: L, widthMm: W, heightMm: H } = dims
   const c = CABLE_DUCT
   const group = new THREE.Group(); group.name = 'cable-duct'
@@ -282,9 +283,14 @@ export function buildCableDuct(dims: CableDuctDims, unit: number, m: CableDuctMa
   const parts: THREE.BufferGeometry[] = [boxGeo(unit, L, W, c.base, 0, 0, c.base / 2)]
   for (const sy of [-1, 1]) {
     const y = sy * (W / 2 - c.wall / 2)
-    parts.push(boxGeo(unit, L, c.wall, strip, 0, y, c.base + strip / 2))
+    // 3D tem y para cima, o Esquema para baixo: lado +y aqui = `top` no Esquema.
+    const side = sy === 1 ? 'top' : 'bottom'
+    // fita lateral em troços: onde outra calha desemboca/atravessa a parede abre-se (passagem de cabos)
+    for (const [a, b] of closedSpans(L, openings, side)) parts.push(boxGeo(unit, b - a, c.wall, strip, (a + b) / 2, y, c.base + strip / 2))
     for (let i = 0; i < n; i++) {
       const x = start + i * c.pitch
+      // dedos (pinos) que cairiam na passagem partem-se
+      if (inOpening(openings, side, x - fingerW / 2, x + fingerW / 2)) continue
       parts.push(boxGeo(unit, fingerW, c.wall, fingerH, x, y, c.base + strip + fingerH / 2))
       // patilha de encaixe da tampa, virada para dentro
       parts.push(boxGeo(unit, fingerW, 2.2, 1.6, x, y - sy * 1.4, H - 0.8))
@@ -293,11 +299,11 @@ export function buildCableDuct(dims: CableDuctDims, unit: number, m: CableDuctMa
   group.add(mergedMesh(parts, m.body, unit, 'cable-duct-body', 120))
   if (coverOn) {
     const skirt = 7
-    group.add(mergedMesh([
-      boxGeo(unit, L, W + 1.6, 1.8, 0, 0, H + 0.9),
-      boxGeo(unit, L, 1.2, skirt, 0, W / 2 + 0.2, H - skirt / 2 + 1.8),
-      boxGeo(unit, L, 1.2, skirt, 0, -(W / 2 + 0.2), H - skirt / 2 + 1.8),
-    ], m.cover, unit, 'cable-duct-cover', 120))
+    const lid: THREE.BufferGeometry[] = [boxGeo(unit, L, W + 1.6, 1.8, 0, 0, H + 0.9)]
+    for (const sy of [-1, 1]) {
+      for (const [a, b] of closedSpans(L, openings, sy === 1 ? 'top' : 'bottom')) lid.push(boxGeo(unit, b - a, 1.2, skirt, (a + b) / 2, sy * (W / 2 + 0.2), H - skirt / 2 + 1.8))
+    }
+    group.add(mergedMesh(lid, m.cover, unit, 'cable-duct-cover', 120))
   }
   return group
 }
