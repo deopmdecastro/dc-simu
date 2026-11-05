@@ -3091,6 +3091,29 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       panelPivots[component.id] = new THREE.Vector3(px, py, PLATE_FRONT_Z + mountedRailHeightMm(component, components) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components))
     }
   }
+  // Réguas de bornes (`state.stripId`): no 3D encostam pelo corpo real, qualquer que seja o passo do Esquema
+  // (o símbolo 2D tem 76 px por borne, o corpo físico só 8,15 mm). O primeiro fica no sítio e os outros seguem-no.
+  {
+    const strips = new Map<string, ElectricalComponent[]>()
+    for (const c of components) {
+      const sid = c.state?.stripId
+      if (typeof sid !== 'string' || !panelPivots[c.id] || c.panelMount) continue
+      const list = strips.get(sid) ?? []
+      list.push(c)
+      strips.set(sid, list)
+    }
+    for (const members of strips.values()) {
+      if (members.length < 2) continue
+      members.sort((a, b) => a.schematicX - b.schematicX)
+      const lead = members[0]
+      let edge = panelPivots[lead.id].x + componentHalfExtents(lead, baseOrientationFor(lead)).x
+      for (const m of members.slice(1)) {
+        const hx = componentHalfExtents(m, baseOrientationFor(m)).x
+        panelPivots[m.id].x = edge + hx
+        edge += hx * 2
+      }
+    }
+  }
   for (const component of components) {
     const motion = doorMountMotion(component, components, PLATE_FRONT_Z)
     if (motion) panelPivots[component.id].sub(motion.hinge).applyAxisAngle(new THREE.Vector3(0, 1, 0), motion.angle).add(motion.hinge)

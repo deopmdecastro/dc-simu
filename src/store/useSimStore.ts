@@ -2799,14 +2799,18 @@ export const useSimStore = create<Store>((set, get) => {
       cursor += comp.w + gap
     }
     const cloneIds = clones.map((c) => c.id)
+    // Todos partilham a régua (`stripId`): o 3D encosta-os pelo corpo real e o grupo move-os juntos.
+    const stripId = nanoid(6)
+    for (const c of clones) c.state = { ...c.state, stripId }
     set((s) => ({
-      components: [...s.components.map((c) => (c.id === base.id && plan.baseRef !== base.ref ? { ...c, ref: plan.baseRef } : c)), ...clones],
+      components: [...s.components.map((c) => (c.id === base.id ? { ...c, ref: plan.baseRef, state: { ...c.state, stripId } } : c)), ...clones],
       selectedComponentIds: [base.id, ...cloneIds],
+      selectionGroups: groupIds(s.selectionGroups, 'schematic', [base.id, ...cloneIds], nanoid(8)) ?? s.selectionGroups,
       dirty: true,
     }))
     // Na calha DIN: encaixa os clones à calha do borne de origem (offset e altura certos, sem passar para o 3D solto).
     if (base.railId) get().snapToRails(cloneIds)
-    get().pushEvent('info', `Régua criada: ${describeTerminalStripRefs(plan, 6)} · ${n} bornes${base.railId ? ' na mesma calha' : ''}.`)
+    get().pushEvent('info', `Régua criada e agrupada: ${describeTerminalStripRefs(plan, 6)} · ${n} bornes encostados${base.railId ? ' na mesma calha' : ''}. Ctrl+Shift+G desagrupa.`)
     recomputeIfActive()
   },
 

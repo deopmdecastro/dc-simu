@@ -38,6 +38,10 @@ const setup = (extra: Parameters<typeof createComponent>[0][] = []) => {
   check('mesma folha e mesma linha', strip.every((c) => c.sheet === 'sheet-b' && c.schematicY === 300))
   check('refs únicas', new Set(all.map((c) => c.ref)).size === all.length)
   check('seleção = a régua toda', useSimStore.getState().selectedComponentIds.length === 5)
+  const st = useSimStore.getState()
+  const g = st.selectionGroups.find((x) => x.view === 'schematic' && strip.every((c) => x.members.includes(c.id)))
+  check('a régua fica agrupada (um grupo com os 5)', !!g && g.members.length === 5)
+  check('todos partilham o mesmo stripId (o 3D encosta-os pelo corpo real)', new Set(strip.map((c) => c.state.stripId)).size === 1 && typeof strip[0].state.stripId === 'string')
 }
 {
   const base = setup()
