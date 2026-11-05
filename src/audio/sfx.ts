@@ -12,11 +12,14 @@ const CLICK_COOLDOWN_MS = 40
 let ctx: AudioContext | null = null
 let motorOsc: OscillatorNode | null = null
 let motorOsc2: OscillatorNode | null = null
+let motorOsc3: OscillatorNode | null = null
 let motorGain: GainNode | null = null
 let motorFilter: BiquadFilterNode | null = null
 let lastClickAt = 0
 let motorWanted = false
 let motorIntensity = 0
+let motorLfo: OscillatorNode | null = null
+let motorLfoGain: GainNode | null = null
 let unlockBound = false
 let mobileUnlockBound = false
 
@@ -227,11 +230,19 @@ function stopMotorHum(): void {
     motorOsc?.disconnect()
     motorOsc2?.stop()
     motorOsc2?.disconnect()
+    motorOsc3?.stop()
+    motorOsc3?.disconnect()
+    motorLfo?.stop()
+    motorLfo?.disconnect()
+    motorLfoGain?.disconnect()
     motorGain?.disconnect()
     motorFilter?.disconnect()
   } catch { /* ignore */ }
   motorOsc = null
   motorOsc2 = null
+  motorOsc3 = null
+  motorLfo = null
+  motorLfoGain = null
   motorGain = null
   motorFilter = null
   motorWanted = false
@@ -239,8 +250,9 @@ function stopMotorHum(): void {
 }
 
 /**
- * Zumbido contínuo do motor (dois parciais + filtro).
- * `intensity` 0..1 segue rpmVisual; volume audível em marcha.
+ * Zumbido contínuo do motor — hum realista DRN80 (50Hz rede + 24Hz mecânica).
+ * `intensity` 0..1 segue rpmVisual; volume e frequência sincronizados com rotação visual.
+ * Três parciais + LFO de amplitude (batimento do rotor) para sincronia com as pás.
  */
 export function setMotorHum(on: boolean, intensity = 0.7): void {
   if (!enabled) {
@@ -263,33 +275,55 @@ export function setMotorHum(on: boolean, intensity = 0.7): void {
       motorFilter = audio.createBiquadFilter()
       motorOsc = audio.createOscillator()
       motorOsc2 = audio.createOscillator()
+      motorOsc3 = audio.createOscillator()
+      motorLfo = audio.createOscillator()
+      motorLfoGain = audio.createGain()
       motorOsc.type = 'sawtooth'
-      motorOsc2.type = 'triangle'
+      motorOsc2.type = 'square'
+      motorOsc3.type = 'triangle'
+      motorLfo.type = 'sine'
       motorFilter.type = 'lowpass'
-      motorFilter.Q.value = 0.85
+      motorFilter.Q.value = 0.9
+      // LFO modula amplitude para batimento do rotor (24Hz mecânica)
+      motorLfo.frequency.value = 8
+      motorLfoGain.gain.value = 0.08
+      motorLfo.connect(motorLfoGain)
+      motorLfoGain.connect(motorGain.gain)
       motorOsc.connect(motorFilter)
       motorOsc2.connect(motorFilter)
+      motorOsc3.connect(motorFilter)
       motorFilter.connect(motorGain)
       motorGain.connect(audio.destination)
       motorGain.gain.value = 0.0001
-      motorOsc.frequency.value = 55
-      motorOsc2.frequency.value = 110
+      motorOsc.frequency.value = 85
+      motorOsc2.frequency.value = 170
+      motorOsc3.frequency.value = 255
       motorOsc.start()
       motorOsc2.start()
+      motorOsc3.start()
+      motorLfo.start()
     }
     const t = audio.currentTime
-    // Fundamental ~110–180 Hz (os altifalantes de telemóvel cortam abaixo de ~150 Hz, por isso os harmónicos passam o filtro); volume até ~0.14 (audível sem saturar).
-    const level = 0.05 + motorIntensity * 0.12
-    const freq = 110 + motorIntensity * 70
-    motorOsc.frequency.setTargetAtTime(freq, t, 0.12)
-    motorOsc2!.frequency.setTargetAtTime(freq * 2.02, t, 0.12)
-    motorFilter!.frequency.setTargetAtTime(900 + motorIntensity * 900, t, 0.18)
-    motorGain!.gain.setTargetAtTime(level, t, 0.1)
+    // DRN80: 50Hz rede → 100Hz magnético (2º harmónico), 24Hz mecânico (1435rpm/60)
+    // rpmVisual 0..1 mapeia para 60..120Hz fundamental (audível em telemóvel, sem sub-grave perdido)
+    const level = 0.03 + Math.pow(motorIntensity, 1.4) * 0.14 // curva logarítmica, mais realista
+    const baseFreq = 72 + motorIntensity * 52 // 72→124Hz (50Hz rede + escorregamento)
+    const mechFreq = 8 + motorIntensity * 18 // 8→26Hz para LFO (batimento do rotor)
+    motorOsc!.frequency.setTargetAtTime(baseFreq, t, 0.14)
+    motorOsc2!.frequency.setTargetAtTime(baseFreq * 2.01, t, 0.14) // leve desafinação = batimento
+    motorOsc3!.frequency.setTargetAtTime(baseFreq * 3.02, t, 0.14)
+    motorFilter!.frequency.setTargetAtTime(750 + motorIntensity * 1100, t, 0.2)
+    motorLfo!.frequency.setTargetAtTime(mechFreq, t, 0.25)
+    motorLfoGain!.gain.setTargetAtTime(0.04 + motorIntensity * 0.09, t, 0.2)
+    // Volume sincronizado com vibração visual: modulação suave com rpm
+    motorGain.gain.setTargetAtTime(level, t, 0.12)
+    // Arranque: clique de contactor já feito em syncMotorHumFromComponents
   } catch {
     stopMotorHum()
   }
 }
 
+let prevMotorRunning = false
 /** Atualiza o zumbido a partir da lista de componentes (chamar após cada scan). */
 export function syncMotorHumFromComponents(
   components: Array<{ type: string; state: Record<string, unknown> }>,
@@ -308,6 +342,12 @@ export function syncMotorHumFromComponents(
       best = Math.max(best, rpm * 0.7)
     }
   }
+  const nowRunning = best > 0.04
+  if (nowRunning && !prevMotorRunning) {
+    // Transiente de arranque: clique do contactor + impulso sonoro
+    try { playClick('breaker') } catch {}
+  }
+  prevMotorRunning = nowRunning
   if (best > 0.04) setMotorHum(true, best)
   else setMotorHum(false)
 }

@@ -834,18 +834,53 @@ function runOneTick(state: Store, dtMs: number) {
       c.state.tripped = thermalTripped
       c.state.running = live && !thermalTripped && !sim.faults.phaseLoss
       if (c.state.running) {
-        c.state.direction = dir === 'unknown' ? 'cw' : dir
-        c.state.rpmVisual = Math.min(1, c.state.rpmVisual + dtMs / 800)
+        const wantedDir = dir === 'unknown' ? 'cw' : dir
+        // Inversão exige desacelerar até quase parar antes de trocar de sentido
+        if (c.state.direction !== 'stopped' && c.state.direction !== wantedDir && (c.state.rpmVisual ?? 0) > 0.08) {
+          // Desaceleração rápida para inversão
+          c.state.rpmVisual = Math.max(0, c.state.rpmVisual - dtMs / 600)
+          // mantém direção antiga até parar
+        } else {
+          c.state.direction = wantedDir
+          // Arranque com inércia exponencial + leve sobre-impulso de binário
+          const prev = c.state.rpmVisual ?? 0
+          const tau = prev < 0.15 ? 320 : prev < 0.6 ? 420 : 650 // ms - arranque mais rápido, depois mais suave
+          c.state.rpmVisual = prev + (1 - prev) * (dtMs / tau)
+          if (c.state.rpmVisual > 0.98) c.state.rpmVisual = 0.98 + (c.state.rpmVisual - 0.98) * 0.4 // saturação suave
+          c.state.rpmVisual = Math.min(1, c.state.rpmVisual)
+        }
       } else {
-        c.state.direction = 'stopped'
-        c.state.rpmVisual = Math.max(0, c.state.rpmVisual - dtMs / 500)
+        // Desaceleração com inércia (coasting) - mais longa que o arranque
+        const prev = c.state.rpmVisual ?? 0
+        if (prev > 0.02) {
+          const tau = 750 // ms - inércia ao desligar
+          c.state.rpmVisual = Math.max(0, prev + (0 - prev) * (dtMs / tau))
+          // mantém último sentido até parar quase totalmente
+          if (c.state.rpmVisual < 0.03) c.state.direction = 'stopped'
+        } else {
+          c.state.rpmVisual = 0
+          c.state.direction = 'stopped'
+        }
       }
     }
     if (c.type === 'motor1ph') {
       const live = isLoadPowered(c, pass3.energizedTerminals, 'U1', 'U2')
       c.state.running = live && !sim.faults.phaseLoss
-      c.state.direction = c.state.running ? 'cw' : 'stopped'
-      c.state.rpmVisual = c.state.running ? Math.min(1, c.state.rpmVisual + dtMs / 800) : Math.max(0, c.state.rpmVisual - dtMs / 500)
+      if (c.state.running) {
+        const prev = c.state.rpmVisual ?? 0
+        const tau = prev < 0.15 ? 340 : 500
+        c.state.rpmVisual = Math.min(1, prev + (1 - prev) * (dtMs / tau))
+        c.state.direction = 'cw'
+      } else {
+        const prev = c.state.rpmVisual ?? 0
+        if (prev > 0.02) {
+          c.state.rpmVisual = Math.max(0, prev + (0 - prev) * (dtMs / 750))
+          if (c.state.rpmVisual < 0.03) c.state.direction = 'stopped'
+        } else {
+          c.state.rpmVisual = 0
+          c.state.direction = 'stopped'
+        }
+      }
     }
   }
 

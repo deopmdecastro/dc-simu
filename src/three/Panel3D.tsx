@@ -1652,16 +1652,36 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
   }, [scene, spec])
   const running = !!c.state.running
   const direction = c.state.direction
+  const bodyRef = useRef<THREE.Group>(null)
+  const vibeTime = useRef(0)
   useFrame((_, delta) => {
     const rpmVisual = Number(c.state.rpmVisual ?? 0)
-    if (!shaftIndicator.current || rpmVisual <= 0) return
-    const speed = (direction === 'ccw' ? -1 : 1) * rpmVisual * 9
-    shaftIndicator.current.rotation.x += speed * delta
+    if (shaftIndicator.current && rpmVisual > 0) {
+      const speed = (direction === 'ccw' ? -1 : 1) * rpmVisual * 9.4
+      shaftIndicator.current.rotation.x += speed * delta
+    }
+    if (bodyRef.current) {
+      vibeTime.current += delta
+      if (running && rpmVisual > 0.1) {
+        // Vibração realista: baixa frequência (desequilíbrio do rotor 24Hz) + alta (60Hz magnética)
+        const amp = Math.min(0.006, rpmVisual * 0.0045) // até 4.5mm em escala real
+        const low = Math.sin(vibeTime.current * 24 * rpmVisual) * amp
+        const high = Math.sin(vibeTime.current * 62) * amp * 0.35
+        bodyRef.current.position.x = low * 0.3
+        bodyRef.current.position.y = (low + high) * 0.5
+        bodyRef.current.rotation.z = (running ? Math.sin(vibeTime.current * 28 * rpmVisual) * 0.003 : 0)
+      } else {
+        // Retorno suave ao repouso
+        bodyRef.current.position.x = THREE.MathUtils.lerp(bodyRef.current.position.x, 0, delta * 8)
+        bodyRef.current.position.y = THREE.MathUtils.lerp(bodyRef.current.position.y, 0, delta * 8)
+        bodyRef.current.rotation.z = THREE.MathUtils.lerp(bodyRef.current.rotation.z, 0, delta * 8)
+      }
+    }
   })
   const markerColor = running ? '#22c55e' : '#64748b'
   return <group position={[x, MOTOR_CENTER_Y, 0.7]}>
-    {/* O CAD é normalizado pela altura; este deslocamento conserva o pivô no centro do motor. */}
-    <group position={[0, -spec.targetHeight / 2, 0]}>
+    {/* Vibração do corpo + normalização CAD */}
+    <group ref={bodyRef} position={[0, -spec.targetHeight / 2, 0]}>
       <primitive object={model} />
       {/* Pontes Y/Δ só no trifásico; a placa monofásica (U1 Z1 / U2 Z2) não tem pontes. */}
       {!mono && <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} />}

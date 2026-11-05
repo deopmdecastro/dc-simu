@@ -54,14 +54,55 @@ export default function MotorShaftFan3D({
   )
 
   // O veio do motor é paralelo a X: todo o conjunto roda em torno de X.
+  // Física melhorada: inércia visual + vibração + blur progressivo sincronizado com som
+  const timeRef = useRef(0)
   useFrame((_, delta) => {
+    timeRef.current += delta
     const rpm = Number(component.state.rpmVisual ?? 0)
     const direction = component.state.direction === 'ccw' ? -1 : 1
-    if (spinner.current && rpm > 0) spinner.current.rotation.x += direction * rpm * 9 * delta
+    const running = !!component.state.running
+    if (spinner.current) {
+      if (rpm > 0.001) {
+        // Velocidade realista: 1435rpm = 150 rad/s; escala visual /16 ≈9.4 rad/s a rpm=1
+        // Adiciona ripple de binário no arranque (0.15-0.4) e vibração de alta freq
+        let speed = rpm * 9.4
+        if (rpm > 0.02 && rpm < 0.45) {
+          // Cintilação de escorregamento no arranque - motor ainda não sincronizou
+          speed *= 1 + 0.18 * Math.sin(timeRef.current * 18) * (0.45 - rpm)
+        }
+        if (running && rpm > 0.7) {
+          // Micro-vibração de desequilíbrio a alta rotação
+          speed *= 1 + 0.02 * Math.sin(timeRef.current * 32)
+        }
+        spinner.current.rotation.x += direction * speed * delta
+        // Vibração axial do veio (wobble) quando em carga
+        const wobble = running ? Math.min(0.004, rpm * 0.003) * Math.sin(timeRef.current * 55) : 0
+        spinner.current.position.y = wobble
+        spinner.current.position.z = wobble * 0.6
+      }
+      // Esconder/mostrar com fade: pás visíveis a baixa rpm, blur domina a alta
+      const bladesOpacity = THREE.MathUtils.clamp(1 - (rpm - 0.35) * 1.8, 0.08, 1)
+      spinner.current.traverse((obj) => {
+        const mesh = obj as THREE.Mesh
+        if (mesh.isMesh && mesh.material && (mesh.material as THREE.MeshStandardMaterial).color) {
+          const mat = mesh.material as THREE.MeshStandardMaterial
+          // só mexe nas pás (cor #1d4ed8 ou laranja), não no cubo cinzento
+          if (mat.color.getHexString() === '1d4ed8' || mat.color.getHexString() === 'f59e0b') {
+            mat.transparent = true
+            mat.opacity = bladesOpacity
+          }
+        }
+      })
+    }
     if (blur.current) {
       const material = blur.current.material as THREE.MeshStandardMaterial
-      material.opacity = THREE.MathUtils.clamp((rpm - 0.55) * 0.5, 0, 0.22)
-      blur.current.visible = material.opacity > 0.01
+      // Blur progressivo: começa a 0.28, satura a 0.38, com pulsar sincronizado ao som
+      const base = THREE.MathUtils.clamp((rpm - 0.28) * 0.9, 0, 0.38)
+      const pulse = running && rpm > 0.5 ? 0.03 * Math.sin(timeRef.current * 14) : 0
+      material.opacity = THREE.MathUtils.clamp(base + pulse, 0, 0.42)
+      blur.current.visible = material.opacity > 0.008
+      // Rotação do disco de blur para evitar estroboscopia (metade da velocidade das pás)
+      if (rpm > 0.3) blur.current.rotation.x += direction * rpm * 4.5 * delta
     }
   })
 
