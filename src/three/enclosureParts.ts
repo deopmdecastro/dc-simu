@@ -35,8 +35,8 @@ export const ENCLOSURE_PLATE_FRONT_MM = ENCLOSURE.sheet + ENCLOSURE.standoff + E
 export const CABLE_DUCT = {
   minLengthMm: 50, maxLengthMm: 3000,
   defaultLengthMm: 600, defaultWidthMm: 40, defaultHeightMm: 60,
-  widthsMm: [25, 40, 60, 80, 100] as number[],
-  heightsMm: [40, 60, 80, 100] as number[],
+  widthsMm: [25, 40, 60, 80, 100, 120, 150] as number[],
+  heightsMm: [25, 40, 60, 80, 100, 120, 150] as number[],
   wall: 1.8,
   base: 2,
   slot: 4.5,

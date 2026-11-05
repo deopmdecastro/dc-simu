@@ -3008,10 +3008,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       for (const enc of accessories.filter((a) => a.type === 'panelEnclosure')) {
         const ed = enclosureDimsOf(enc.state)
         const ex = componentPanelXY(enc).x, ey = componentPanelXY(enc).y
-        const outerHalfW = (ed.widthMm * U) / 2, outerHalfH = (ed.heightMm * U) / 2
+        const outerHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2, outerHalfH = (ed.heightMm * PANEL_UNITS_PER_MM) / 2
         if (Math.abs(px - ex) <= outerHalfW + half.x + 0.02 && Math.abs(py - ey) <= outerHalfH + half.y + 0.02) {
-          const innerHalfW = outerHalfW - ENCLOSURE.sheet * U - 0.04 - half.x
-          const innerHalfH = outerHalfH - ENCLOSURE.sheet * U - 0.04 - half.y
+          const innerHalfW = outerHalfW - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.04 - half.x
+          const innerHalfH = outerHalfH - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.04 - half.y
           const minX = ex - Math.max(0, innerHalfW), maxX = ex + Math.max(0, innerHalfW)
           const minY = ey - Math.max(0, innerHalfH), maxY = ey + Math.max(0, innerHalfH)
           px = Math.max(minX, Math.min(maxX, px))
@@ -3045,8 +3045,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         if (enc) {
           const ed = enclosureDimsOf(enc.state)
           const ex = componentPanelXY(enc).x, ey = componentPanelXY(enc).y
-          const innerHalfW = (ed.widthMm * U) / 2 - ENCLOSURE.sheet * U - 0.06 - half.x
-          const innerHalfH = (ed.heightMm * U) / 2 - ENCLOSURE.sheet * U - 0.06 - half.y
+          const innerHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2 - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.06 - half.x
+          const innerHalfH = (ed.heightMm * PANEL_UNITS_PER_MM) / 2 - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.06 - half.y
           const minX = ex - Math.max(0, innerHalfW), maxX = ex + Math.max(0, innerHalfW)
           const minY = ey - Math.max(0, innerHalfH), maxY = ey + Math.max(0, innerHalfH)
           if (px < minX) px = minX

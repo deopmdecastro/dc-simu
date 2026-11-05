@@ -240,15 +240,19 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
         {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resize(c, mm, d.widthMm, { lengthMm: mm })}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span>
+        <label className="space-y-1"><span className="text-xs text-slate-600">Largura <span className="text-[10px] text-slate-400">(pegada)</span></span>
           <select className="dc-input w-full h-8 text-sm" value={d.widthMm} onChange={(e) => resize(c, d.lengthMm, Number(e.target.value), { widthMm: Number(e.target.value) })}>
             {[...new Set([...CABLE_DUCT.widthsMm, d.widthMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
           </select>
         </label>
-        <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span>
-          <select className="dc-input w-full h-8 text-sm" value={d.heightMm} onChange={(e) => useSimStore.getState().setComponentState(c.id, { heightMm: Number(e.target.value) })}>
-            {[...new Set([...CABLE_DUCT.heightsMm, d.heightMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
-          </select>
+        <label className="space-y-1"><span className="text-xs text-slate-600">Altura <span className="text-[10px] text-slate-400">(parede Z)</span></span>
+          <div className="flex gap-1">
+            <select className="dc-input flex-1 h-8 text-sm" value={d.heightMm} onChange={(e) => { const v = Number(e.target.value); useSimStore.getState().setComponentState(c.id, { heightMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} altura ${v} mm — veja no 3D a parede subir.`) }}>
+              {[...new Set([...CABLE_DUCT.heightsMm, d.heightMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
+            </select>
+            <input type="number" className="dc-input w-16 h-8 text-sm text-center" min={15} max={150} step={5} value={d.heightMm} onChange={(e)=> { const v=Math.max(15, Math.min(150, Math.round(Number(e.target.value)||60))); useSimStore.getState().setComponentState(c.id, {heightMm:v}) }} />
+          </div>
+          <input type="range" className="w-full accent-slate-700 h-1" min={15} max={150} step={5} value={d.heightMm} onChange={(e)=> useSimStore.getState().setComponentState(c.id, {heightMm: Number(e.target.value)})} />
         </label>
       </div>
     </div>
