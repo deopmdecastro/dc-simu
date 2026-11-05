@@ -290,6 +290,18 @@ export interface ComponentDecal {
   imageUrl?: string // data URL ou URL externa para decal de imagem (tampa do quadro)
 }
 
+export type EnclosureHoleFace = 'door' | 'doorOuter' | 'left' | 'right' | 'top' | 'bottom' | 'back'
+export interface EnclosureHole {
+  id: string
+  face: EnclosureHoleFace
+  offsetXmm: number
+  offsetYmm: number
+  diameterMm: number
+  /** Se preenchido, indica o que está montado: bucim ou aparelho */
+  glandType?: 'M16' | 'M20' | 'M25' | 'M32' | 'M40' | '22mm' | '30mm'
+  occupiedBy?: string // componentId do aparelho montado
+}
+
 /** Revisão recuperável criada sempre que o utilizador aplica alterações. */
 export interface ComponentEditorRevision extends ComponentEditorSnapshot {
   version: number

@@ -388,6 +388,7 @@ interface Store extends CircuitState {
   wireDefaults: WireDefaults
   setWireDefaults: (patch: Partial<WireDefaults>) => void
   addComponent: (type: ComponentType, x: number, y: number) => string | null
+  addMountedDevice: (type: ComponentType, enclosureId: string, face: import('../types').EnclosureHoleFace, offsetXmm: number, offsetYmm: number, cutoutMm: number) => string | null
   /** Aplica uma tabela de componentes validada (Excel / tabela 3D): cria e atualiza, nunca apaga. */
   applyComponentPlan: (items: PlannedComponent[]) => { created: number; updated: number }
   duplicateComponents: (ids: string[]) => void
@@ -419,6 +420,9 @@ interface Store extends CircuitState {
   addDecal: (componentId: string, decal: Partial<import('../types').ComponentDecal> & { kind?: import('../types').DecalKind; text?: string }) => void
   updateDecal: (componentId: string, decalId: string, patch: Partial<import('../types').ComponentDecal>) => void
   removeDecal: (componentId: string, decalId: string) => void
+  addPanelHole: (enclosureId: string, hole: Partial<import('../types').EnclosureHole>) => void
+  updatePanelHole: (enclosureId: string, holeId: string, patch: Partial<import('../types').EnclosureHole>) => void
+  removePanelHole: (enclosureId: string, holeId: string) => void
   rotateComponent: (id: string) => void
   mirrorComponent: (id: string) => void
   toggleLock: (id: string) => void
@@ -1948,6 +1952,26 @@ export const useSimStore = create<Store>((set, get) => {
     recomputeIfActive()
     return comp.id
   },
+  addMountedDevice: (type, enclosureId, face, offsetXmm, offsetYmm, cutoutMm) => {
+    if (get().demoMode) return null
+    if (!canInsertComponent3D(type)) {
+      get().pushEvent('warning', `Sem modelo 3D para ${type}.`)
+      return null
+    }
+    get().commitHistory()
+    const comp = createComponent(type, undefined, undefined, get().components.length, 0, 0)
+    comp.ref = nextRef(get().components, type)
+    comp.z = nextTopZ(get().components, get().wires)
+    comp.sheet = get().activeSheetId
+    comp.panelMount = { enclosureId, face: face as any, offsetXmm, offsetYmm, cutoutMm }
+    // posição esquemática aproximada (para seleção), mas o pivot 3D vem do panelMount
+    const enc = get().components.find((e) => e.id === enclosureId)
+    if (enc) { comp.schematicX = enc.schematicX + enc.w / 2 - comp.w / 2 + offsetXmm * SCHEMATIC_PX_PER_MM; comp.schematicY = enc.schematicY + enc.h / 2 - comp.h / 2 - offsetYmm * SCHEMATIC_PX_PER_MM }
+    set((s) => ({ components: [...s.components, comp], selectedComponentIds: [comp.id], dirty: true }))
+    get().pushEvent('info', `${comp.ref} montado na face ${face} Ø${cutoutMm}mm.`)
+    recomputeIfActive()
+    return comp.id
+  },
 
   applyComponentPlan: (items) => {
     if (!items.length) return { created: 0, updated: 0 }
@@ -2389,6 +2413,35 @@ export const useSimStore = create<Store>((set, get) => {
       components: s.components.map((c) => (c.id === componentId ? { ...c, decals: (c.decals ?? []).filter((d) => d.id !== decalId) } : c)),
       dirty: true,
     }))
+  },
+  addPanelHole: (enclosureId, hole) => {
+    const target = get().components.find((c) => c.id === enclosureId)
+    if (!target || target.type !== 'panelEnclosure') return
+    get().commitHistory()
+    const id = hole.id ?? `hole-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,5)}`
+    const next: import('../types').EnclosureHole = {
+      id,
+      face: (hole.face as any) ?? 'bottom',
+      offsetXmm: hole.offsetXmm ?? 0,
+      offsetYmm: hole.offsetYmm ?? 0,
+      diameterMm: hole.diameterMm ?? 20,
+      glandType: hole.glandType,
+      occupiedBy: hole.occupiedBy,
+    }
+    const holes = [...((target.state as any).holes ?? []), next]
+    set((s) => ({ components: s.components.map((c) => c.id === enclosureId ? { ...c, state: { ...c.state, holes } } : c), dirty: true }))
+  },
+  updatePanelHole: (enclosureId, holeId, patch) => {
+    get().commitHistory()
+    set((s) => ({ components: s.components.map((c) => {
+      if (c.id !== enclosureId) return c
+      const holes = ((c.state as any).holes ?? []).map((h: any) => h.id === holeId ? { ...h, ...patch } : h)
+      return { ...c, state: { ...c.state, holes } }
+    }), dirty: true }))
+  },
+  removePanelHole: (enclosureId, holeId) => {
+    get().commitHistory()
+    set((s) => ({ components: s.components.map((c) => c.id === enclosureId ? { ...c, state: { ...c.state, holes: ((c.state as any).holes ?? []).filter((h: any) => h.id !== holeId) } } : c), dirty: true }))
   },
 
   rotateComponent: (id) => {

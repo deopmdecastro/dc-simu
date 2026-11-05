@@ -46,6 +46,21 @@ export function Enclosure2D({ c }: { c: ElectricalComponent }) {
           <text x={cx} y={cy - cutout / 2 - 4} textAnchor="middle" fontSize={7} fill="#334155">{m.ref} · {face}</text>
         </g>
       })}
+      {/* Furos livres / com bucim — mostra o furo real na face escolhida */}
+      {((c.state as any).holes ?? []).map((h: any) => {
+        const offX = (h.offsetXmm ?? 0) * px
+        const offY = (h.offsetYmm ?? 0) * px
+        const dia = (h.diameterMm ?? 20) * px
+        const cx = W / 2 + offX
+        const cy = H / 2 - offY
+        const isGland = !!h.glandType && h.glandType !== 'none'
+        const glandLabel = h.glandType && h.glandType !== 'none' ? h.glandType : 'furo'
+        return <g key={`hole-${h.id}`} pointerEvents="none">
+          <circle cx={cx} cy={cy} r={dia / 2} fill={isGland ? '#374151' : '#0f172a'} stroke={isGland ? '#9ca3af' : '#f8fafc'} strokeWidth={1.1} opacity={0.95} />
+          {isGland && <circle cx={cx} cy={cy} r={Math.max(1.5, dia / 2 - 2)} fill="none" stroke="#d1d5db" strokeWidth={0.7} />}
+          <text x={cx} y={cy + dia / 2 + 7} textAnchor="middle" fontSize={6} fill="#64748b">{h.face} Ø{h.diameterMm} {glandLabel}</text>
+        </g>
+      })}
       <text x={W / 2} y={H + 16} textAnchor="middle" fontSize={11} fill="#475569">{c.ref} · {d.widthMm}×{d.heightMm}×{d.depthMm} mm · porta {open ? 'aberta' : 'fechada'}</text>
     </g>
     {/* moldura: área de clique/arrasto do quadro */}

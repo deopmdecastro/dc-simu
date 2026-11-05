@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
@@ -93,6 +94,11 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
     resize(c, w, h, { widthMm: w, heightMm: h })
     useSimStore.getState().pushEvent('info', `Quadro ajustado para ${w}×${h} mm.`)
   }
+  const holes: import('../types').EnclosureHole[] = (c.state as any).holes ?? []
+  const [holeFace, setHoleFace] = useState<import('../types').EnclosureHoleFace>('bottom')
+  const [holeDia, setHoleDia] = useState<number>(20)
+  const [holeOx, setHoleOx] = useState<number>(0)
+  const [holeOy, setHoleOy] = useState<number>(0)
   return <div className="dc-acc space-y-3">
     {/* Cabeçalho com estado porta */}
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 flex items-center gap-3">
@@ -146,6 +152,50 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
             <input type="number" className="dc-input w-12 h-7 text-xs" title="Y mm" placeholder="Y" value={de.offsetYmm??0} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetYmm: Number(e.target.value)})} />
             <button type="button" className="dc-btn text-red-600 px-1.5 py-1" onClick={()=> useSimStore.getState().removeDecal(c.id, de.id)}>✕</button>
           </div>
+        </div>)}
+      </div>}
+    </div>
+
+    {/* Furos no quadro — escolher face e diâmetro */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Furos no quadro</div>
+      <p className="text-[11px] text-slate-400">Escolha a face e o diâmetro, faça o furo e depois coloque bucim ou aparelho.</p>
+      <div className="flex flex-wrap gap-1">
+        {(['door','top','bottom','left','right','back'] as const).map((fid) => {
+          const icons: Record<string,string> = {door:'🚪', top:'⬆️', bottom:'⬇️', left:'⬅️', right:'➡️', back:'⊡'}
+          const labels: Record<string,string> = {door:'Porta', top:'Topo', bottom:'Fundo', left:'Esq.', right:'Dir.', back:'Traseira'}
+          return <button key={fid} type="button" className={`rounded-full border px-2.5 py-1 text-xs ${holeFace===fid?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><span>{icons[fid]}</span> <span className="ml-1">{labels[fid]}</span></button>
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-600">Ø</span>
+        <div className="flex flex-wrap gap-1">
+          {[{label:'M16',mm:16},{label:'M20',mm:20},{label:'M25',mm:25},{label:'M32',mm:32},{label:'M40',mm:40},{label:'22mm',mm:22},{label:'30mm',mm:30}].map((p)=> <button key={p.label} type="button" className={`rounded-full border px-2 py-1 text-xs ${holeDia===p.mm?'bg-slate-800 text-white border-slate-800':'bg-white border-slate-200 text-slate-600'}`} onClick={()=> setHoleDia(p.mm)}>{p.label} <span className="opacity-60">{p.mm}mm</span></button>)}
+        </div>
+        <input type="number" className="dc-input w-16 h-7 text-xs" min={6} max={80} value={holeDia} onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
+        <span className="text-xs text-slate-400">mm</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1 text-xs">X <input type="number" className="dc-input w-14 h-7 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
+        <label className="flex items-center gap-1 text-xs">Y <input type="number" className="dc-input w-14 h-7 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
+        <span className="text-[11px] text-slate-400">mm do centro</span>
+        <button type="button" className="ml-auto dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs" onClick={()=> useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy })}>＋ Fazer furo</button>
+      </div>
+      {holes.length===0 ? <p className="text-[11px] text-slate-400 border border-dashed border-slate-200 rounded p-2 text-center">Nenhum furo. Os furos ficam sólidos — cabos e aparelhos passam por aqui.</p>
+      : <div className="space-y-1.5 max-h-44 overflow-auto pr-1">
+        {holes.map((h)=> <div key={h.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 p-1.5">
+          <div className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold">{h.diameterMm}Ø</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium">{h.face} • Ø{h.diameterMm}mm <span className="text-[10px] text-slate-500">({h.offsetXmm},{h.offsetYmm})</span></div>
+            <div className="text-[10px] text-slate-500">{h.glandType ? `Bucim ${h.glandType}` : (h as any).occupiedBy ? `Aparelho ${(h as any).occupiedBy.slice(0,6)}` : 'vazio — escolha bucim ou aparelho'}</div>
+          </div>
+          <select className="dc-input h-7 text-xs w-24" value={(h as any).glandType ?? ''} onChange={(e)=> useSimStore.getState().updatePanelHole(c.id, h.id, { glandType: e.target.value as any })}>
+            <option value="">— bucim —</option><option value="M16">M16</option><option value="M20">M20</option><option value="M25">M25</option><option value="M32">M32</option><option value="M40">M40</option><option value="none">sem bucim</option>
+          </select>
+          <select className="dc-input h-7 text-xs w-28" defaultValue="" onChange={(e)=> { const v=e.target.value; if(!v) return; const nid = useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm); if(nid) useSimStore.getState().updatePanelHole(c.id, h.id, { occupiedBy: nid }); e.target.value='' }}>
+            <option value="">＋ aparelho</option><option value="buttonNO">Botão NA</option><option value="buttonNC">Botão NF</option><option value="selector2">Chave 2 pos</option><option value="pilotLightAd22">Luz piloto</option><option value="emergencyButton">Emergência</option>
+          </select>
+          <button type="button" className="dc-btn text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)}>✕</button>
         </div>)}
       </div>}
     </div>
