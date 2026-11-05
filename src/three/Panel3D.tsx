@@ -3003,21 +3003,61 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }
       }
     }
+    // Helper: se o ponto cai dentro da projeção XY de algum quadro, não deixa atravessar a chapa/paredes — prende dentro do volume útil.
+    const clampInsideAnyEnclosure = (px: number, py: number, half: { x: number; y: number }) => {
+      for (const enc of accessories.filter((a) => a.type === 'panelEnclosure')) {
+        const ed = enclosureDimsOf(enc.state)
+        const ex = componentPanelXY(enc).x, ey = componentPanelXY(enc).y
+        const outerHalfW = (ed.widthMm * U) / 2, outerHalfH = (ed.heightMm * U) / 2
+        if (Math.abs(px - ex) <= outerHalfW + half.x + 0.02 && Math.abs(py - ey) <= outerHalfH + half.y + 0.02) {
+          const innerHalfW = outerHalfW - ENCLOSURE.sheet * U - 0.04 - half.x
+          const innerHalfH = outerHalfH - ENCLOSURE.sheet * U - 0.04 - half.y
+          const minX = ex - Math.max(0, innerHalfW), maxX = ex + Math.max(0, innerHalfW)
+          const minY = ey - Math.max(0, innerHalfH), maxY = ey + Math.max(0, innerHalfH)
+          px = Math.max(minX, Math.min(maxX, px))
+          py = Math.max(minY, Math.min(maxY, py))
+        }
+      }
+      return [px, py] as const
+    }
     if (isMountingRail(component.type)) {
-      panelPivots[component.id] = new THREE.Vector3(x, y, railCenterZ(component))
+      const half = componentHalfExtents(component, baseOrientationFor(component))
+      let px = x, py = y
+      ;[px, py] = clampInsideAnyEnclosure(px, py, half)
+      panelPivots[component.id] = new THREE.Vector3(px, py, railCenterZ(component))
     } else if (component.type === 'panelEnclosure') {
       // Pivô no centro do armário; a face da chapa de montagem do quadro coincide com a da chapa do painel.
       const half = componentHalfExtents(component, baseOrientationFor(component))
       panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + half.z)
     } else if (component.type === 'cableDuct' || component.type === 'spiralWrap') {
       const half = componentHalfExtents(component, baseOrientationFor(component))
-      panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z + half.z)
+      let px = x, py = y
+      ;[px, py] = clampInsideAnyEnclosure(px, py, half)
+      panelPivots[component.id] = new THREE.Vector3(px, py, PLATE_FRONT_Z + half.z)
     } else if (!isPanelBound(component)) {
       panelPivots[component.id] = new THREE.Vector3(x, y, frontPivot(component)[2])
     } else {
       // Assente na face da calha (mesma profundidade, esteja ou não fixo numa calha).
       const half = componentHalfExtents(component, baseOrientationFor(component))
-      panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z + mountedRailHeightMm(component, components) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components))
+      let px = x, py = y
+      if (component.enclosureId) {
+        const enc = components.find((e) => e.id === component.enclosureId && e.type === 'panelEnclosure')
+        if (enc) {
+          const ed = enclosureDimsOf(enc.state)
+          const ex = componentPanelXY(enc).x, ey = componentPanelXY(enc).y
+          const innerHalfW = (ed.widthMm * U) / 2 - ENCLOSURE.sheet * U - 0.06 - half.x
+          const innerHalfH = (ed.heightMm * U) / 2 - ENCLOSURE.sheet * U - 0.06 - half.y
+          const minX = ex - Math.max(0, innerHalfW), maxX = ex + Math.max(0, innerHalfW)
+          const minY = ey - Math.max(0, innerHalfH), maxY = ey + Math.max(0, innerHalfH)
+          if (px < minX) px = minX
+          if (px > maxX) px = maxX
+          if (py < minY) py = minY
+          if (py > maxY) py = maxY
+        }
+      } else {
+        ;[px, py] = clampInsideAnyEnclosure(px, py, half)
+      }
+      panelPivots[component.id] = new THREE.Vector3(px, py, PLATE_FRONT_Z + mountedRailHeightMm(component, components) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components))
     }
   }
   for (const component of components) {
