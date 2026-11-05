@@ -61,6 +61,23 @@
   .dc-workspace .mobile-library-panel, .dc-workspace .mobile-grafcet-panel, .grafcet-toolbox, .ladder-project-pane, .ladder-palette { animation: none !important; }
 }
 
+/* Tablet: painel não pode ficar em 300 px quando o inspetor tem 2 colunas (CT, calha, etc.) */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .dc-workspace .mobile-library-panel {
+    width: clamp(300px, 36vw, 390px) !important;
+    min-width: 300px;
+    max-width: min(390px, 44vw);
+  }
+  /* o conteúdo da coluna tem de poder encolher; senão o flex corta à direita */
+  .pn-panel, .dc-inspector-scroll, .pn-body, .dc-library-scroll {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  .dc-inspector-scroll, .pn-body {
+    overscroll-behavior: contain;
+  }
+}
+
 /* Tablet e PC: painéis laterais sem arredondamento (paridade secretária). */
 @media (min-width: 768px) {
   .dc-workspace .mobile-library-panel,
