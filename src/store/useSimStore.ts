@@ -2129,7 +2129,7 @@ export const useSimStore = create<Store>((set, get) => {
   duplicateCanvasNotes: (ids) => {
     if (get().demoMode || !ids.length) return
     get().commitHistory()
-    set((s) => ({ canvasNotes: [...s.canvasNotes, ...s.canvasNotes.filter((n) => ids.includes(n.id)).map((n) => ({ ...n, id: `cn_${nanoid(8)}`, x: n.x + 0.35, y: n.y - 0.18, messages: [...n.messages] }))], dirty: true }))
+    set((s) => ({ canvasNotes: [...s.canvasNotes, ...s.canvasNotes.filter((n) => ids.includes(n.id)).map((n) => ({ ...n, id: `cn_${nanoid(8)}`, x: n.x + 0.35, y: n.y - 0.18, messages: [...(n.messages ?? [])] }))], dirty: true }))
     recomputeIfActive()
   },
 

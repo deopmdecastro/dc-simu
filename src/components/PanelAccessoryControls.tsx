@@ -29,10 +29,37 @@ const DUCT_COLORS = [
 function resize(c: ElectricalComponent, wMm: number, hMm: number, state: Record<string, unknown>) {
   const w = Math.max(4, Math.round(wMm * SCHEMATIC_PX_PER_MM))
   const h = Math.max(4, Math.round(hMm * SCHEMATIC_PX_PER_MM))
+  let nx = Math.round(c.schematicX + (c.w - w) / 2)
+  let ny = Math.round(c.schematicY + (c.h - h) / 2)
+  // Se a calha/quadro está dentro de um quadro QE1, não deixa o footprint sair da moldura — ajusta o centro para caber.
+  try {
+    const all = useSimStore.getState().components
+    const enclosures = all.filter((e) => e.type === 'panelEnclosure')
+    // Considera a rotação da calha para o AABB no esquema (vertical = w/h trocados)
+    const isVerticalDuct = c.type === 'cableDuct' && Math.round(((c.rotation ?? 0) % 180) / 90) % 2 === 1
+    const effW = isVerticalDuct ? h : w
+    const effH = isVerticalDuct ? w : h
+    for (const enc of enclosures) {
+      const insideX = Math.abs(c.schematicX + c.w / 2 - (enc.schematicX + enc.w / 2)) < enc.w / 2 + c.w / 2
+      const insideY = Math.abs(c.schematicY + c.h / 2 - (enc.schematicY + enc.h / 2)) < enc.h / 2 + c.h / 2
+      if (!insideX || !insideY) continue
+      const margin = 8 // px — flange 18mm ≈ 27px, deixa folga visual
+      const minX = enc.schematicX + margin, maxX = enc.schematicX + enc.w - effW - margin
+      const minY = enc.schematicY + margin, maxY = enc.schematicY + enc.h - effH - margin
+      if (maxX >= minX) nx = Math.max(minX, Math.min(maxX, nx))
+      if (maxY >= minY) ny = Math.max(minY, Math.min(maxY, ny))
+      // Também limita o tamanho se a calha for maior que o interior
+      if (effW > enc.w - margin * 2 || effH > enc.h - margin * 2) {
+        // não impede o aumento, mas avisa
+        useSimStore.getState().pushEvent('warning', `${c.ref} maior que o interior do ${enc.ref} — parte ficará encostada à parede.`)
+      }
+      break
+    }
+  } catch { /* fora do store em testes */ }
   useSimStore.getState().updateComponent(c.id, {
     w, h,
-    schematicX: Math.round(c.schematicX + (c.w - w) / 2),
-    schematicY: Math.round(c.schematicY + (c.h - h) / 2),
+    schematicX: nx,
+    schematicY: ny,
     state: { ...c.state, ...state },
   })
 }
@@ -232,8 +259,8 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</div>
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-600 w-20 shrink-0">Comprimento</span>
-        <input type="number" className="dc-input w-20 h-8 text-center text-sm" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => { const v=Math.max(CABLE_DUCT.minLengthMm, Math.min(CABLE_DUCT.maxLengthMm, Math.round(Number(e.target.value)||0))); if(v) resize(c, v, d.widthMm, { lengthMm: v }) }} />
-        <input type="range" className="flex-1 accent-slate-700" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => resize(c, Number(e.target.value), d.widthMm, { lengthMm: Number(e.target.value) })} />
+        <input type="number" className="dc-input w-20 h-8 text-center text-sm" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => { const v=Math.max(CABLE_DUCT.minLengthMm, Math.min(CABLE_DUCT.maxLengthMm, Math.round(Number(e.target.value)||0))); if(!v) return; resize(c, v, d.widthMm, { lengthMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} comprimento ${v} mm${vertical?' — vertical (Y)':''}.`) }} />
+        <input type="range" className="flex-1 accent-slate-700" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => { const v=Number(e.target.value); resize(c, v, d.widthMm, { lengthMm: v }) }} />
         <span className="text-xs text-slate-400 w-8">mm</span>
       </div>
       <div className="flex flex-wrap gap-1.5" aria-label="Comprimentos comuns">
