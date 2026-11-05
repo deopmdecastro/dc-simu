@@ -67,7 +67,7 @@ export function buildNativeEstrelaTriangulo(): {
   }
   const f1 = createComponent('thermalRelay', 'F1', 'Térmico 7,5A'); (f1.state as any).currentA = 7.5
   ;(f1 as any).mountedOn = km1.id
-  const m1 = createComponent('motor3ph', 'M1', 'Motor 4kW 400V'); (m1.state as any).motorConnection='star'
+  const m1 = createComponent('motor3ph', 'M1', 'Motor 4kW 400V'); (m1.state as any).motorConnection='star'; m1.w = 140; m1.h = 90
 
   // ── Comando 24V + LOGO ──
   const qf1 = createComponent('breaker1p', 'QF1', 'Monofásico comando 6A'); (qf1.state as any).inA = 6; (qf1.state as any).curve='C'
@@ -135,18 +135,18 @@ export function buildNativeEstrelaTriangulo(): {
   }
   // Topo: força bem distribuída (6 aparelhos em 820 mm → ~120 mm passo)
   row(rail, 180, [[xg,-340],[q0,-230],[qm,-120],[km1,-10],[km2,110],[km3,230]])
-  // F1 encaixa mesmo por baixo do KM1 (mesma coluna, sem rail próprio)
-  place(f1, -10, 118); f1.mountedOn = km1.id; (f1 as any).railId = undefined
+  // F1 encaixa mesmo por baixo do KM1 (mesma coluna, sem rail próprio) — afastado para não sobrepor o LOGO!
+  place(f1, -10, 135); f1.mountedOn = km1.id; (f1 as any).railId = undefined
   // Meio: comando + distribuição
-  row(rail2, 20, [[qf1,-340],[qf2,-280],[ps,-150],[plc,40],[xb1,160],[xb2,250],[xb3,340]])
+  row(rail2, 20, [[qf1,-340],[qf2,-280],[ps,-150],[plc,80],[xb1,180],[xb2,250],[xb3,340]])
   // Base: régua de bornes compacta (11 bornes em 820 mm → ~70 mm passo, sem sobrepor)
   row(rail3, -170, [[x4_1,-340],[x4_2,-270],[x4_3,-200],[x4_4,-130],[x4_5,-60],
     [x5_1,40],[x5_2,110],[x5_3,180],[x5_4,250],[x5_5,320],[x5_6,390]])
-  place(m1, 380, -50)
-  // Porta: zona dedicada mas próxima (base 1350 em vez de 1700 → -350 px, fios encurtam 50%)
+  place(m1, -60, 0)
+  // Porta: zona dedicada mas próxima (base 1480 = +120 px para não sobrepor KM3 à direita)
   for (const [c, x, y] of [[h1,-160,80],[h2,0,80],[h3,160,80],[s1Btn,-160,-20],
     [s0Btn,0,-20],[sel,160,-20],[emer,0,-120]] as Array<[ElectricalComponent,number,number]>) {
-    c.schematicX = 1380 + (x + 160) * 1.05
+    c.schematicX = 1500 + (x + 160) * 1.05
     c.schematicY = y == 80 ? 300 : y == -20 ? 410 : 520
     c.panelMount = { enclosureId: qe.id, face:'doorOuter', offsetXmm:x, offsetYmm:y, cutoutMm:22 }
   }

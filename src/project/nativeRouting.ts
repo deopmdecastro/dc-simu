@@ -16,6 +16,8 @@
 
 import type { ElectricalComponent, Terminal, Wire } from '../types'
 import { terminalPos } from '../schematic/symbols'
+import { isPanelAccessoryType } from '../three/enclosureParts'
+import { isDinRail } from '../three/railMount'
 
 type Pt = { x: number; y: number }
 type Rect = { x0: number; y0: number; x1: number; y1: number }
@@ -140,7 +142,7 @@ export function planNativeWirePaths(components: ElectricalComponent[], wires: Wi
     const b = pos.get(w.toTerminalId)
     const { a: ca, b: cb } = terminalCompIds(w)
     if (!a || !b || !ca || !cb) continue
-    const obstacles = rects(components.filter((c) => c.type !== 'dinRail15x55'), new Set([ca.id, cb.id]))
+    const obstacles = rects(components.filter((c) => !isDinRail(c) && !isPanelAccessoryType(c.type)), new Set([ca.id, cb.id]))
 
     // Faixas base: a meio, a 25/75%, e NOS CANALHAS LIVRES junto às arestas dos
     // equipamentos (é aqui que os cabos sobem/descem sem atravessar nada).
@@ -214,7 +216,7 @@ export function bakeNativeRouting(components: ElectricalComponent[], wires: Wire
 /** Verificação usada nos testes: true sse o traçado não atravessa nenhum equipamento (margem reduzida p/ tolerância). */
 export function nativeWireCrossesFree(components: ElectricalComponent[], wires: Wire[]): string[] {
   const bad: string[] = []
-  const boxes = components.filter((c) => c.type !== 'dinRail15x55')
+  const boxes = components.filter((c) => !isDinRail(c) && !isPanelAccessoryType(c.type))
   for (const w of wires) {
     const ca = boxes.find((c) => c.terminals.some((t) => t.id === w.fromTerminalId))
     const cb = boxes.find((c) => c.terminals.some((t) => t.id === w.toTerminalId))

@@ -1,5 +1,7 @@
 import type { ElectricalComponent } from '../types'
 import { isDinRail, isRailMountable } from '../three/railMount'
+import { ENCLOSURE } from '../three/enclosureParts'
+import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 
 /** Folga visual mínima entre equipamentos no Esquema (px do canvas). */
 export const COMPONENT_COLLISION_GAP = 4
@@ -31,8 +33,22 @@ function isIntentionalMountingOverlap(a: ElectricalComponent, b: ElectricalCompo
     const other = a.type === 'panelEnclosure' ? b : a
     if (other.type === 'panelEnclosure') return true
     if (other.enclosureId === enclosure.id) return true
-    if (other.type === 'cableDuct' || other.type === 'spiralWrap' || isDinRail(other)) return true
-    // Compatibilidade: projetos sem enclosureId ainda montam aparelhos «dentro» do desenho.
+    // Quadro é sólido: só permite sobreposição quando o outro está totalmente
+    // dentro do interior útil (dentro das paredes). Caso contrário bloqueia para
+    // não deixar calhas/aparelhos atravessarem a chapa como se não fosse sólido.
+    const encBounds = componentBounds2D(enclosure)
+    const otherBounds = componentBounds2D(other)
+    const inset = (ENCLOSURE.flange + ENCLOSURE.sheet) * SCHEMATIC_PX_PER_MM
+    const inside = otherBounds.left >= encBounds.left + inset - COMPONENT_COLLISION_GAP
+      && otherBounds.right <= encBounds.right - inset + COMPONENT_COLLISION_GAP
+      && otherBounds.top >= encBounds.top + inset - COMPONENT_COLLISION_GAP
+      && otherBounds.bottom <= encBounds.bottom - inset + COMPONENT_COLLISION_GAP
+    if (inside) return true
+    // Fora mas sem sobrepor? Não há colisão. A atravessar a parede? Bloqueia.
+    const overlaps = boundsOverlap(encBounds, otherBounds, 0)
+    if (overlaps) return false
+    // Compatibilidade: projetos antigos sem enclosureId mas desenhados dentro
+    // do quadro — se não há sobreposição, não bloqueia.
     return true
   }
   // Calhas técnicas: encontros em T/cruz nos cantos; o corpo da calha é sólido
