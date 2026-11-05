@@ -9,6 +9,7 @@ export default function TerminalStripControls({ c }: { c: ElectricalComponent })
   const poleCount = Math.max(1, Math.min(48, Math.floor(Number(c.state.poleCount ?? 1)) || 1))
   const [draft, setDraft] = useState(String(poleCount))
   const [stripCount, setStripCount] = useState(String(Math.max(2, poleCount)))
+  const [hierarchical, setHierarchical] = useState(false)
   useEffect(() => setDraft(String(poleCount)), [poleCount, c.id])
   const draftN = useMemo(() => clampPoleCount(draft), [draft])
   const hasChange = draftN !== poleCount
@@ -66,20 +67,28 @@ export default function TerminalStripControls({ c }: { c: ElectricalComponent })
         Este <b>{c.ref}</b> tem <b>{poleCount}× PTI 6</b>: {76 * poleCount}×118px · {(8.15 * poleCount).toFixed(2)} mm · bornes 1…{poleCount * 2} (1-2 = pólo 1). Alarga no esquema e no 3D.
       </small>
       <div className="pt-1 border-t border-amber-200/60 space-y-1">
-        <label className={label + ' !mb-0'}>Gerar régua X1…Xn (componentes soltos)</label>
+        <label className={label + ' !mb-0'}>Gerar régua X1…Xn (componentes soltos) — um ao lado do outro</label>
         <div className="flex items-center gap-2">
           <input type="number" min={2} max={48} step={1} className="dc-input w-20" value={stripCount} onChange={(e) => setStripCount(e.target.value)} />
           <button
             className="dc-btn"
             onClick={() => {
               const n = Math.max(2, Math.min(48, Math.floor(Number(stripCount)) || 2))
-              useSimStore.getState().createTerminalStrip(c.id, n)
+              useSimStore.getState().createTerminalStrip(c.id, n, { hierarchical })
             }}
           >
-            ＋ Criar X1…Xn
+            ＋ Criar {hierarchical ? `${c.ref}.0…` : 'X1…Xn'}
           </button>
         </div>
-        <small className="text-ink-400">Cria {stripCount} bornes soltos (X1, X2…) na mesma calha DIN — útil quando cada potencial precisa de TAG próprio no esquema. Use «Centrar e fixar» na calha TR para alinhar.</small>
+        <label className="flex items-center gap-1.5 text-[11px] text-ink-600">
+          <input type="checkbox" checked={hierarchical} onChange={(e) => setHierarchical(e.target.checked)} />
+          Numeração hierárquica <span className="font-mono text-amber-700">{c.ref}.0, {c.ref}.1, {c.ref}.2…</span> (pente)
+        </label>
+        <small className="text-ink-400">
+          {hierarchical
+            ? `Cria ${stripCount} bornes lado a lado como ${c.ref}.0…${c.ref}.${Math.max(0, Number(stripCount) - 1)} na mesma calha — ideal para foto (QG1 → régua X).`
+            : `Cria ${stripCount} bornes soltos (X1, X2…) na mesma calha DIN — cada um com TAG próprio. Use «Centrar e fixar» na calha TR para encostar (0 px).`}
+        </small>
       </div>
     </div>
   )

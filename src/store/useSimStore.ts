@@ -447,8 +447,8 @@ interface Store extends CircuitState {
   deleteTerminal: (terminalId: string) => void
   /** Régua PTI6: define N pólos (1..48) — regenera bornes 1..2N e footprint. */
   setTerminalPoleCount: (componentId: string, poleCount: number) => void
-  /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). */
-  createTerminalStrip: (componentId: string, count: number) => void
+  /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). Se hierarchical, usa X1.0, X1.1… */
+  createTerminalStrip: (componentId: string, count: number, opts?: { hierarchical?: boolean }) => void
   addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor, waypoints?: Array<{ x: number; y: number }>) => void
   /** Cabo desenhado no Painel 3D: cada ponta é um borne ou um ponto livre no espaço; devolve o id do cabo. */
   addWire3D: (from: WireEnd3D, to: WireEnd3D, waypoints3D?: SpatialPoint3D[]) => string | null
@@ -2731,23 +2731,55 @@ export const useSimStore = create<Store>((set, get) => {
     }
   },
 
-  createTerminalStrip: (componentId, count) => {
+  createTerminalStrip: (componentId, count, opts) => {
     const base = get().components.find((x) => x.id === componentId)
     if (!base || base.type !== 'terminalPhoenixPti6') return
     const n = Math.max(1, Math.min(48, Math.floor(Number(count)) || 1))
     if (n <= 1) { get().pushEvent('info', 'Defina pelo menos 2 bornes para gerar a régua X1…Xn.'); return }
     get().commitHistory()
     const all = get().components
-    // posicionamento: tenta colocar à direita do base, com passo de 8.15mm (≈76px/12px? usa w do base)
-    const stepPx = base.w // cada borne já tem largura de 1 pólo; clones terão mesma largura
+    const hierarchical = !!opts?.hierarchical
+    // posicionamento: tenta colocar à direita do base, com passo de 8.15mm
+    const stepPx = base.w
     let nextX = base.schematicX + stepPx + 4
     const newComponents: import('../types').ElectricalComponent[] = []
+    // hierárquico: base vira .0 e criamos .1..N-1 — todos um ao lado do outro
+    let baseRefForHier = base.ref
+    if (hierarchical) {
+      const m = baseRefForHier.match(/^(.+?)(?:\.\d+)?$/)
+      const prefix = m ? m[1] : baseRefForHier
+      // renomeia base para .0 se ainda não tem sufixo hierárquico e não colide
+      if (!/\.\d+$/.test(base.ref)) {
+        const firstRef = `${prefix}.0`
+        const collision = all.some((c) => c.id !== base.id && c.ref === firstRef)
+        if (!collision) {
+          set((s) => ({ components: s.components.map((c) => c.id === base.id ? { ...c, ref: firstRef } : c), dirty: true }))
+          // atualiza ref local para gerar restantes como .1, .2…
+          baseRefForHier = prefix
+          // recarrega all com ref atualizado para next iterações (evita duplicar .0)
+          // o próprio base já está com .0, os clones começam em .1
+        } else {
+          baseRefForHier = prefix
+        }
+      } else {
+        const prefix2 = base.ref.replace(/\.\d+$/, '')
+        baseRefForHier = prefix2
+      }
+    }
     for (let i = 1; i < n; i++) {
-      const ref = nextRef([...all, ...newComponents], base.type)
-      // tenta avançar até achar posição livre; desloca em X
+      let ref: string
+      if (hierarchical) {
+        const m = baseRefForHier.match(/^(.+?)(?:\.\d+)?$/)
+        const prefix = m ? m[1] : baseRefForHier
+        ref = `${prefix}.${i}`
+        let dup = 1
+        const existingRefs = new Set([...all, ...newComponents].map((c) => c.ref))
+        while (existingRefs.has(ref)) { ref = `${prefix}.${i}_${dup++}` }
+      } else {
+        ref = nextRef([...all, ...newComponents], base.type)
+      }
       let x = nextX + i * 4
       let y = base.schematicY
-      // evita sobreposição simples
       let tries = 0
       while (tries < 24) {
         const occupied = [...all, ...newComponents].some((c) => Math.abs(c.schematicX - x) < 8 && Math.abs(c.schematicY - y) < 8)
@@ -2760,8 +2792,10 @@ export const useSimStore = create<Store>((set, get) => {
       newComponents.push(comp)
       nextX += stepPx + 4
     }
+    // se hierárquico, o base já foi renomeado — recarrega ref atualizado para mensagem
+    const finalBaseRef = hierarchical ? (get().components.find((c) => c.id === base.id)?.ref ?? base.ref) : base.ref
     set((s) => ({ components: [...s.components, ...newComponents], selectedComponentIds: [base.id, ...newComponents.map((c) => c.id)], dirty: true }))
-    get().pushEvent('info', `Régua criada: ${[base.ref, ...newComponents.map((c) => c.ref)].join(', ')} · ${n} bornes na mesma calha. Arraste-os ou use «Centrar e fixar» na calha TR.`)
+    get().pushEvent('info', `Régua criada: ${[finalBaseRef, ...newComponents.map((c) => c.ref)].join(', ')} · ${n} bornes na mesma calha. Arraste-os ou use «Centrar e fixar» na calha TR.`)
     recomputeIfActive()
   },
 
