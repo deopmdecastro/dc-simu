@@ -128,6 +128,9 @@ function wire(from: string, to: string, color: WireColor, number: string): Wire 
   }
 }
 
+import { nativeEstrelaTrianguloContent, NATIVE_ESTRELA_ID, NATIVE_ESTRELA_NAME } from './nativeEstrelaTriangulo'
+export { NATIVE_ESTRELA_ID, NATIVE_ESTRELA_NAME } from './nativeEstrelaTriangulo'
+
 export function buildNativeGrafcet(): GrafcetProgram {
   const s0 = 'native-s0'
   const s1 = 'native-s1'
@@ -736,6 +739,16 @@ export function nativeProjectSeeds(): NativeProjectSeed[] {
       revision: 0,
       updatedAt: new Date().toISOString(),
       nativeId: NATIVE_PARTIDA_ID,
+    },
+    {
+      id: NATIVE_ESTRELA_ID,
+      name: NATIVE_ESTRELA_NAME,
+      ownerId: ADMIN_OWNER,
+      memberIds: [],
+      content: nativeEstrelaTrianguloContent(),
+      revision: 0,
+      updatedAt: new Date().toISOString(),
+      nativeId: NATIVE_ESTRELA_ID,
     },
     ...examples,
   ]

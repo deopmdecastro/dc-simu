@@ -8,9 +8,11 @@ import {
   canUse, componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, limitFor, limitMessage,
   sanitizeComponentChange, upgradeMessage,
 } from '../saas/platformCore.mjs'
-import { nativeProjectSeeds, NATIVE_PARTIDA_ID } from '../project/nativeProjects'
+import { nativeProjectSeeds, NATIVE_PARTIDA_ID, NATIVE_ESTRELA_ID } from '../project/nativeProjects'
 import { nativeLandingPayload } from '../project/landingPublish'
 
+const NATIVE_IDS = [NATIVE_PARTIDA_ID, NATIVE_ESTRELA_ID] as const
+const isNativeId = (id: string) => (NATIVE_IDS as readonly string[]).includes(id)
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'
 
@@ -323,7 +325,7 @@ function previewFor(project: StoredProject): ProjectPreviewData {
     let content = project.content
     // Nativo: se não há geometria útil para a capa, usar sempre a semente embutida
     // (evita cartão vazio quando o conteúdo guardado está incompleto ou legado).
-    if (project.id === NATIVE_PARTIDA_ID) {
+    if (isNativeId(project.id)) {
       const seed = nativeProjectSeeds().find((item) => item.id === project.id)
       if (seed) {
         const fromStored = contentHasComponents(content) ? buildProjectPreview(content) : null
@@ -382,10 +384,10 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (url === '/landing/published' && verb === 'GET') {
     const data = readData()
     const publishedId = data.publishedProjectId
-    if (!publishedId || publishedId === NATIVE_PARTIDA_ID) {
+    if (!publishedId || isNativeId(publishedId)) {
       const fallback = nativeLandingPayload()
-      // Se o nativo existir na store, usa o conteúdo guardado (edições do admin).
-      const native = data.projects.find((project) => project.id === NATIVE_PARTIDA_ID)
+      const targetId = publishedId && isNativeId(publishedId) ? publishedId : NATIVE_PARTIDA_ID
+      const native = data.projects.find((project) => project.id === targetId)
       if (native && native.content && typeof native.content === 'object') {
         return {
           projectId: native.id,
@@ -409,7 +411,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
       owner: accountById(project.ownerId)?.email || 'desconhecido',
       revision: project.revision,
       updatedAt: project.updatedAt,
-      isNative: project.id === NATIVE_PARTIDA_ID,
+      isNative: isNativeId(project.id),
       content: (project.content && typeof project.content === 'object' ? project.content : {}) as Record<string, unknown>,
     } as T
   }
@@ -515,7 +517,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     const project = accessibleProject(data, parts[1], user.id)
     if (project.ownerId !== user.id) throw new Error('Apenas o proprietário pode eliminar')
     // Projetos nativos: em vez de apagar, repõe o conteúdo de fábrica.
-    if (project.id === NATIVE_PARTIDA_ID) {
+    if (isNativeId(project.id)) {
       const seed = nativeProjectSeeds().find((item) => item.id === project.id)
       if (seed) {
         project.content = seed.content
@@ -674,7 +676,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     const project = data.projects.find((entry) => entry.id === id)
     return {
       projectId: id,
-      name: project?.name ?? (id === NATIVE_PARTIDA_ID ? 'Partida direta (nativo)' : id),
+      name: project?.name ?? (isNativeId(id) ? 'Partida direta (nativo)' : id),
       owner: project ? (accountById(project.ownerId)?.email || '') : 'admin@dcsimu.local',
     } as T
   }
@@ -700,7 +702,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
       projectId: project.id,
       name: project.name,
       owner: accountById(project.ownerId)?.email || '',
-      isNative: project.id === NATIVE_PARTIDA_ID,
+      isNative: isNativeId(project.id),
     } as T
   }
 
