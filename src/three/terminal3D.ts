@@ -94,6 +94,12 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
     const profile = dinRailProfileOf(component.state)
     return { x: clampRailLengthMm(component.state.lengthMm) * PANEL_UNITS_PER_MM, y: profile.width * PANEL_UNITS_PER_MM, z: profile.height * PANEL_UNITS_PER_MM }
   }
+  // PTI6 régua variável: largura física = 8.15mm × N
+  if (component.type === 'terminalPhoenixPti6' && typeof component.state.poleCount === 'number' && Number(component.state.poleCount) > 1) {
+    const n = Math.max(1, Math.min(48, Math.floor(Number(component.state.poleCount)) || 1))
+    const base = getComponentModelSpec(component.type)?.physicalSizeMm
+    if (base) return { x: base.width * n * PANEL_UNITS_PER_MM, y: base.height * PANEL_UNITS_PER_MM, z: base.depth * PANEL_UNITS_PER_MM }
+  }
   const physical = getComponentModelSpec(component.type)?.physicalSizeMm
   if (physical) return {
     x: physical.width * PANEL_UNITS_PER_MM,
