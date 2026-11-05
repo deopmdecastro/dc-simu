@@ -268,7 +268,7 @@ export interface PanelMount {
 }
 
 /** Etiqueta/decalque realista colado na face de um aparelho ou porta (raio, logotipo, texto). */
-export type DecalKind = 'text' | 'warning' | 'logo' | 'symbol'
+export type DecalKind = 'text' | 'warning' | 'logo' | 'symbol' | 'image'
 export type DecalFace = EnclosureFace | 'front'
 export interface ComponentDecal {
   id: string
@@ -287,6 +287,7 @@ export interface ComponentDecal {
   color?: string
   fontSizeMm?: number
   border?: boolean
+  imageUrl?: string // data URL ou URL externa para decal de imagem (tampa do quadro)
 }
 
 /** Revisão recuperável criada sempre que o utilizador aplica alterações. */

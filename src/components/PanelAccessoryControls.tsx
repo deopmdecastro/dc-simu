@@ -62,48 +62,102 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const attached = components.filter((item) => item.enclosureId === c.id)
   const selectionToAssign = selectedIds.filter((id) => id !== c.id && !components.find((item) => item.id === id)?.enclosureId)
-  return <div className="dc-acc">
-    <div className="dc-acc-head">
-      <b>Quadro {d.widthMm} × {d.heightMm} × {d.depthMm} mm</b>
-      <button type="button" className="dc-btn dc-btn-primary" onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
-    </div>
-    <MmField label="Largura" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} onChange={(mm) => resize(c, mm, d.heightMm, { widthMm: mm })} />
-    <MmField label="Altura" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} onChange={(mm) => resize(c, d.widthMm, mm, { heightMm: mm })} />
-    <MmField label="Profundidade" value={d.depthMm} min={ENCLOSURE.minDepthMm} max={ENCLOSURE.maxDepthMm} onChange={(mm) => set({ depthMm: mm })} />
-    <div className="dc-acc-presets" aria-label="Medidas comerciais">
-      {ENCLOSURE_PRESETS.map(([w, h, dp]) => <button key={`${w}x${h}`} type="button" className={`dc-btn${d.widthMm === w && d.heightMm === h && d.depthMm === dp ? ' dc-btn-primary' : ''}`}
-        onClick={() => resize(c, w, h, { widthMm: w, heightMm: h, depthMm: dp })}>{w}×{h}×{dp}</button>)}
-    </div>
-    <div className="dc-acc-row">
-      <span>Dobradiças</span>
-      <div className="dc-acc-seg" role="group" aria-label="Lado das dobradiças">
-        {(['left', 'right'] as const).map((side) => <button key={side} type="button" aria-pressed={hinge === side} className={hinge === side ? 'is-on' : ''} onClick={() => set({ hingeSide: side })}>{side === 'left' ? 'Esquerda' : 'Direita'}</button>)}
+  const imageDecals = (c.decals ?? []).filter((de) => de.kind === 'image')
+  const handleImageUpload = (files: FileList | null) => {
+    if (!files?.length) return
+    const file = files[0]
+    if (!file.type.startsWith('image/')) { useSimStore.getState().pushEvent('warning', 'Ficheiro não é imagem. Use PNG/JPG/WebP.'); return }
+    if (file.size > 4_000_000) { useSimStore.getState().pushEvent('warning', 'Imagem muito grande (>4 MB). Comprima antes.'); return }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const url = String(reader.result ?? '')
+      if (!url.startsWith('data:')) return
+      // cria decal na porta, centrado, 60% da porta
+      const w = Math.round(d.widthMm * 0.62)
+      const h = Math.round(w * 0.45)
+      useSimStore.getState().addDecal(c.id, { kind: 'image' as any, face: 'door', offsetXmm: 0, offsetYmm: 0, widthMm: w, heightMm: h, imageUrl: url, border: false } as any)
+      useSimStore.getState().pushEvent('info', `Imagem "${file.name}" adicionada à tampa.`)
+    }
+    reader.readAsDataURL(file)
+  }
+  const fitToContent = () => {
+    const inside = components.filter((it) => it.enclosureId === c.id || Math.abs(it.schematicX - c.schematicX) < c.w && Math.abs(it.schematicY - c.schematicY) < c.h)
+    if (!inside.length) { useSimStore.getState().pushEvent('info', 'Nenhum aparelho dentro para ajustar.'); return }
+    const pad = 60
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const it of inside) { minX = Math.min(minX, it.schematicX); maxX = Math.max(maxX, it.schematicX + it.w); minY = Math.min(minY, it.schematicY); maxY = Math.max(maxY, it.schematicY + it.h) }
+    const needW = Math.ceil((maxX - minX + pad * 2) / SCHEMATIC_PX_PER_MM)
+    const needH = Math.ceil((maxY - minY + pad * 2) / SCHEMATIC_PX_PER_MM)
+    const w = Math.max(ENCLOSURE.minWidthMm, Math.min(ENCLOSURE.maxWidthMm, needW))
+    const h = Math.max(ENCLOSURE.minHeightMm, Math.min(ENCLOSURE.maxHeightMm, needH))
+    resize(c, w, h, { widthMm: w, heightMm: h })
+    useSimStore.getState().pushEvent('info', `Quadro ajustado para ${w}×${h} mm.`)
+  }
+  return <div className="dc-acc space-y-3">
+    {/* Cabeçalho com estado porta */}
+    <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Quadro metálico</div>
+        <div className="text-[13px] font-bold text-slate-800">{d.widthMm} × {d.heightMm} × {d.depthMm} mm <span className={`ml-1.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${open ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>{open ? 'porta aberta' : 'porta fechada'}</span></div>
       </div>
+      <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm ${open ? 'bg-white border-slate-300 text-slate-700' : 'bg-slate-800 border-slate-800 text-white'}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
     </div>
-    <label className="dc-acc-row"><span>Chapa de montagem</span>
-      <select className="dc-input" value={typeof c.state.plateFinish === 'string' ? c.state.plateFinish : 'Aço galvanizado'} onChange={(e) => set({ plateFinish: e.target.value })}>
-        {ENCLOSURE_PLATE_FINISH_IDS.map((id) => <option key={id} value={id}>{id}</option>)}
-      </select>
-    </label>
-    <div className="dc-acc-row"><span>Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(value) => useSimStore.getState().updateComponent(c.id, { bodyColor: value })} /></div>
-    <div className="dc-acc-head" style={{ marginTop: 8 }}>
-      <b>Aparelhos dentro</b>
+
+    {/* Medidas — prática */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+      <div className="flex items-center justify-between"><span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</span><button type="button" className="text-[11px] font-medium text-blue-600 hover:underline" onClick={fitToContent}>↔ Ajustar ao conteúdo</button></div>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} onChange={(e)=> resize(c, Math.max(ENCLOSURE.minWidthMm, Math.min(ENCLOSURE.maxWidthMm, Number(e.target.value)||0)), d.heightMm, {widthMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
+        <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} step={10} onChange={(e)=> resize(c, d.widthMm, Math.max(ENCLOSURE.minHeightMm, Math.min(ENCLOSURE.maxHeightMm, Number(e.target.value)||0)), {heightMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
+        <label className="space-y-1"><span className="text-xs text-slate-600">Prof.</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.depthMm} min={ENCLOSURE.minDepthMm} max={ENCLOSURE.maxDepthMm} step={10} onChange={(e)=> set({depthMm: Math.max(ENCLOSURE.minDepthMm, Math.min(ENCLOSURE.maxDepthMm, Number(e.target.value)||0))})} /><span className="text-xs text-slate-400">mm</span></div></label>
+      </div>
+      <input type="range" className="w-full accent-slate-700" min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} value={d.widthMm} onChange={(e)=> resize(c, Number(e.target.value), d.heightMm, {widthMm: Number(e.target.value)})} />
+      <div className="grid grid-cols-3 gap-1.5">
+        {ENCLOSURE_PRESETS.map(([w,h,dp])=> <button key={`${w}x${h}`} type="button" className={`rounded-lg border p-2 text-center transition ${d.widthMm===w&&d.heightMm===h ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}><div className="text-xs font-bold">{w}×{h}</div><div className="text-[10px] opacity-60">{dp} prof.</div></button>)}
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-slate-600">Dobradiças</span>
+        <div className="dc-acc-seg ml-auto" role="group"><button type="button" aria-pressed={hinge==='left'} className={hinge==='left'?'is-on':''} onClick={()=> set({hingeSide:'left'})}>Esq.</button><button type="button" aria-pressed={hinge==='right'} className={hinge==='right'?'is-on':''} onClick={()=> set({hingeSide:'right'})}>Dir.</button></div>
+        <span className="text-slate-600 ml-2">Chapa</span>
+        <select className="dc-input h-7 text-xs" value={typeof c.state.plateFinish==='string'?c.state.plateFinish:'Aço galvanizado'} onChange={(e)=> set({plateFinish:e.target.value})}>{ENCLOSURE_PLATE_FINISH_IDS.map(id=> <option key={id} value={id}>{id}</option>)}</select>
+      </div>
+      <div className="flex items-center gap-2"><span className="text-xs text-slate-600">Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(v)=> useSimStore.getState().updateComponent(c.id,{bodyColor:v})} /></div>
     </div>
-    <div className="flex flex-wrap gap-1">
-      <button type="button" className="dc-btn" disabled={!selectionToAssign.length} title="Marca os componentes selecionados (exceto este quadro) como estando dentro deste quadro — passam a mover-se com ele"
-        onClick={() => useSimStore.getState().assignToEnclosure(selectionToAssign, c.id)}>
-        Marcar seleção como dentro ({selectionToAssign.length})
-      </button>
-      <button type="button" className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromEnclosure(attached.map((item) => item.id))}>
-        Soltar todos
-      </button>
+
+    {/* Imagem da tampa */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tampa do quadro — imagem</div>
+      <label className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 px-3 py-3 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition">
+        <span className="text-xs font-medium text-slate-700">📷 Carregar imagem (PNG/JPG)</span>
+        <input type="file" accept="image/*" className="hidden" onChange={(e)=> handleImageUpload(e.target.files)} />
+      </label>
+      {imageDecals.length===0 ? <p className="text-[11px] text-slate-400">A imagem fica na porta (face <code>door</code>), move-se com o quadro. Use X/Y e tamanho nos controlos abaixo.</p>
+      : <div className="space-y-1.5">
+        {imageDecals.map((de)=> <div key={de.id} className="flex items-center gap-2 rounded border border-slate-200 p-1.5 bg-slate-50">
+          {de.imageUrl && <img src={de.imageUrl} alt={de.text ?? 'tampa'} className="w-10 h-10 rounded object-cover border border-slate-200" />}
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium truncate">{de.text ?? 'Imagem tampa'}</div>
+            <div className="text-[10px] text-slate-500">{de.widthMm}×{de.heightMm} mm • {de.offsetXmm??0},{de.offsetYmm??0} mm</div>
+          </div>
+          <div className="flex items-center gap-1">
+            <input type="number" className="dc-input w-14 h-7 text-xs" title="Largura mm" value={de.widthMm??30} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {widthMm: Number(e.target.value)})} />
+            <input type="number" className="dc-input w-14 h-7 text-xs" title="Altura mm" value={de.heightMm??30} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {heightMm: Number(e.target.value)})} />
+            <input type="number" className="dc-input w-12 h-7 text-xs" title="X mm" placeholder="X" value={de.offsetXmm??0} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetXmm: Number(e.target.value)})} />
+            <input type="number" className="dc-input w-12 h-7 text-xs" title="Y mm" placeholder="Y" value={de.offsetYmm??0} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetYmm: Number(e.target.value)})} />
+            <button type="button" className="dc-btn text-red-600 px-1.5 py-1" onClick={()=> useSimStore.getState().removeDecal(c.id, de.id)}>✕</button>
+          </div>
+        </div>)}
+      </div>}
     </div>
-    <small className="text-ink-400">
-      {attached.length
-        ? `${attached.length} dentro: ${attached.map((item) => item.ref).join(', ')}. Ao mover o quadro, estes aparelhos acompanham.`
-        : 'Nenhum aparelho marcado como dentro. Selecione componentes e use «Marcar seleção como dentro».'}
-    </small>
-    <small className="text-ink-400">Clique na porta no 3D para a abrir ou fechar. Os aparelhos e as calhas ficam dentro do quadro, sobre a chapa de montagem.</small>
+
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Aparelhos dentro</div>
+      <div className="flex flex-wrap gap-1">
+        <button type="button" className="dc-btn" disabled={!selectionToAssign.length} onClick={() => useSimStore.getState().assignToEnclosure(selectionToAssign, c.id)}>Marcar seleção como dentro ({selectionToAssign.length})</button>
+        <button type="button" className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromEnclosure(attached.map((item) => item.id))}>Soltar todos</button>
+      </div>
+      <small className="text-ink-400">{attached.length ? `${attached.length} dentro: ${attached.map((item) => item.ref).join(', ')}.` : 'Nenhum aparelho dentro. Selecione e marque.'} Clique na porta no 3D para abrir/fechar.</small>
+    </div>
   </div>
 }
 

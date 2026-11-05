@@ -9,7 +9,25 @@ type Decal = NonNullable<ElectricalComponent['decals']>[number]
 export function EquipmentDecal3D({ decal: d }: { decal: Decal }) {
   const width = d.widthMm ?? 30
   const height = d.heightMm ?? 15
+  const imageTexture = useMemo(() => {
+    if (d.kind !== 'image' || !d.imageUrl) return null
+    const loader = new THREE.TextureLoader()
+    const tex = loader.load(d.imageUrl)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.anisotropy = 4
+    return tex
+  }, [d.kind, d.imageUrl])
   const texture = useMemo(() => {
+    if (d.kind === 'image' && d.imageUrl) {
+      // placeholder — será substituído por imageTexture quando carregar
+      const canvas = document.createElement('canvas')
+      canvas.width = 64; canvas.height = 64
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = '#e2e8f0'; ctx.fillRect(0,0,64,64)
+      const map = new THREE.CanvasTexture(canvas)
+      map.colorSpace = THREE.SRGBColorSpace
+      return map
+    }
     const canvas = document.createElement('canvas')
     canvas.width = 1024
     canvas.height = Math.max(64, Math.round(1024 * height / width))
@@ -38,8 +56,10 @@ export function EquipmentDecal3D({ decal: d }: { decal: Decal }) {
     return map
   }, [d, width, height])
   useEffect(() => () => texture.dispose(), [texture])
+  useEffect(() => () => { if (imageTexture) imageTexture.dispose() }, [imageTexture])
+  const activeTexture = d.kind === 'image' && imageTexture ? imageTexture : texture
   return <mesh raycast={() => {}}>
     <planeGeometry args={[width * PANEL_UNITS_PER_MM, height * PANEL_UNITS_PER_MM]} />
-    <meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-1} />
+    <meshBasicMaterial map={activeTexture} toneMapped={false} polygonOffset polygonOffsetFactor={-1} transparent={d.kind === 'image'} />
   </mesh>
 }

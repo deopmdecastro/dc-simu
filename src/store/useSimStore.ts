@@ -2369,6 +2369,7 @@ export const useSimStore = create<Store>((set, get) => {
       color: decal.color ?? '#0f172a',
       fontSizeMm: decal.fontSizeMm ?? 4,
       border: decal.border ?? true,
+      imageUrl: (decal as any).imageUrl,
     }
     set((s) => ({
       components: s.components.map((c) => (c.id === componentId ? { ...c, decals: [...(c.decals ?? []), next] } : c)),

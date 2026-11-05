@@ -1508,6 +1508,12 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           const iconTxt = d.icon ? (iconMap[d.icon] ?? d.icon) : ''
           const bg = d.background ?? '#facc15'
           const fg = d.color ?? '#0f172a'
+          if (d.kind === 'image' && (d as any).imageUrl) {
+            return <g key={d.id} transform={`translate(${cx},${cy}) rotate(${d.rotationDeg ?? 0})`}>
+              <image href={(d as any).imageUrl} x={-dw / 2} y={-dh / 2} width={dw} height={dh} preserveAspectRatio="xMidYMid meet" />
+              {d.border && <rect x={-dw / 2} y={-dh / 2} width={dw} height={dh} rx={Math.min(3, dh * 0.25)} fill="none" stroke={fg} strokeWidth={0.9} />}
+            </g>
+          }
           return <g key={d.id} transform={`translate(${cx},${cy}) rotate(${d.rotationDeg ?? 0})`}>
             <rect x={-dw / 2} y={-dh / 2} width={dw} height={dh} rx={Math.min(3, dh * 0.25)} fill={bg} stroke={d.border ? fg : 'none'} strokeWidth={d.border ? 0.9 : 0} />
             {d.kind === 'warning' && <path d={`M 0 ${-dh * 0.35} L ${dw * 0.28} ${dh * 0.25} L ${-dw * 0.28} ${dh * 0.25} Z`} fill={fg} opacity={0.95} />}
