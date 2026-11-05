@@ -107,35 +107,48 @@ export function buildNativeEstrelaTriangulo(): {
   const emer = createComponent('emergencyButton', 'B0', 'Emergência NF')
   const sel = createComponent('selector2', 'S3', 'Auto/Manual')
 
-  // Posições em mm relativas ao quadro, com o footprint à escala de 1,5 px/mm.
+  // Layout: ocupa os 600 mm de altura do QE1 sem deixar topo vazio,
+  // com as 3 calhas distribuídas e as calhas a cobrir os feixes.
   const place = (c: ElectricalComponent, x: number, y: number) => {
     c.schematicX = 1000 + x * SCHEMATIC_PX_PER_MM - c.w / 2
     c.schematicY = 700 - y * SCHEMATIC_PX_PER_MM - c.h / 2
   }
   place(qe, 0, 0)
-  rail.w = 650 * SCHEMATIC_PX_PER_MM; place(rail, 0, 135)
+  // 3 calhas: topo (força), meio (comando), base (bornes) — preenchem o quadro
+  rail.w = 620 * SCHEMATIC_PX_PER_MM; place(rail, 0, 180)
   const rail2 = createComponent('dinRail15x55', 'R2', 'Calha DIN comando')
   const rail3 = createComponent('dinRail15x55', 'R3', 'Calha DIN bornes')
-  for (const r of [rail2, rail3]) { r.state.lengthMm = 650; r.w = rail.w }
-  place(rail2, 0, -65); place(rail3, 0, -220)
-  ductH.w = 650 * SCHEMATIC_PX_PER_MM; ductH.h = 40 * SCHEMATIC_PX_PER_MM
-  place(ductH, 0, 250)
-  ductV.rotation = 90; ductV.w = 380 * SCHEMATIC_PX_PER_MM; ductV.h = 25 * SCHEMATIC_PX_PER_MM
-  place(ductV, 360, 0); place(esp, -340, -100)
+  for (const r of [rail2, rail3]) { r.state.lengthMm = 620; r.w = rail.w }
+  place(rail2, 0, 20); place(rail3, 0, -170)
+  // Calhas: H topo, H meia, V lateral — todas com tampa e dentro do quadro
+  ductH.w = 620 * SCHEMATIC_PX_PER_MM; ductH.h = 32 * SCHEMATIC_PX_PER_MM
+  place(ductH, 0, 245)
+  const ductM = createComponent('cableDuct', 'D3', 'Calha 40×60 M'); ductM.w = ductH.w; ductM.h = ductH.h; (ductM.state as any)={ lengthMm:620, widthMm:40, heightMm:60, coverOn:true }
+  place(ductM, 0, 95)
+  ductV.rotation = 90; ductV.w = 520 * SCHEMATIC_PX_PER_MM; ductV.h = 28 * SCHEMATIC_PX_PER_MM
+  place(ductV, 330, 15)
+  const ductV2 = createComponent('cableDuct', 'D4', 'Calha 25×60 V2'); ductV2.rotation = 90; ductV2.w = ductV.w; ductV2.h = ductV.h; (ductV2.state as any)={ lengthMm:520, widthMm:25, heightMm:60, coverOn:true }
+  place(ductV2, -330, 15)
+  place(esp, -340, -80)
   const row = (r: ElectricalComponent, y: number, items: Array<[ElectricalComponent, number]>) => {
-    for (const [c, x] of items) { place(c, x, y); c.railId = r.id }
+    for (const [c, x] of items) { place(c, x, y); (c as any).railId = r.id; c.mountedOn = undefined }
   }
-  row(rail, 135, [[xg,-310],[q0,-230],[qm,-150],[km1,-40],[km2,100],[km3,230]])
-  row(rail2, -65, [[qf1,-300],[qf2,-250],[ps,-150],[plc,30],[xb1,170],[xb2,250],[xb3,310]])
-  row(rail3, -220, [[x4_1,-290],[x4_2,-250],[x4_3,-210],[x4_4,-170],[x4_5,-130],
-    [x5_1,-30],[x5_2,10],[x5_3,50],[x5_4,90],[x5_5,130],[x5_6,170]])
-  place(m1, 620, -50)
-  for (const [c, x, y] of [[h1,-180,20],[h2,0,20],[h3,180,20],[s1Btn,-180,-80],
-    [s0Btn,0,-80],[sel,180,-80],[emer,-180,-170]] as Array<[ElectricalComponent,number,number]>) {
-    // No esquema, a porta tem uma zona própria ao lado da chapa.
-    c.schematicX = 1700 + (x + 180) * 1.1
-    c.schematicY = y == 20 ? 300 : y == -80 ? 420 : 540
-    c.panelMount = { enclosureId: qe.id, face:'door', offsetXmm:x, offsetYmm:y, cutoutMm:22 }
+  // Topo: força bem distribuída (6 aparelhos em 620 mm → 100 mm passo)
+  row(rail, 180, [[xg,-260],[q0,-180],[qm,-100],[km1,-10],[km2,95],[km3,200]])
+  // F1 encaixa mesmo por baixo do KM1 (mesma coluna, sem rail próprio)
+  place(f1, -10, 118); f1.mountedOn = km1.id; (f1 as any).railId = undefined
+  // Meio: comando + distribuição
+  row(rail2, 20, [[qf1,-260],[qf2,-210],[ps,-110],[plc,80],[xb1,190],[xb2,260],[xb3,320]])
+  // Base: régua de bornes compacta (11 bornes em 620 mm → 56 mm passo, sem sobrepor)
+  row(rail3, -170, [[x4_1,-250],[x4_2,-200],[x4_3,-150],[x4_4,-100],[x4_5,-50],
+    [x5_1,40],[x5_2,90],[x5_3,140],[x5_4,190],[x5_5,240],[x5_6,290]])
+  place(m1, 580, -40)
+  // Porta: zona dedicada mas próxima (base 1350 em vez de 1700 → -350 px, fios encurtam 50%)
+  for (const [c, x, y] of [[h1,-160,80],[h2,0,80],[h3,160,80],[s1Btn,-160,-20],
+    [s0Btn,0,-20],[sel,160,-20],[emer,0,-120]] as Array<[ElectricalComponent,number,number]>) {
+    c.schematicX = 1380 + (x + 160) * 1.05
+    c.schematicY = y == 80 ? 300 : y == -20 ? 410 : 520
+    c.panelMount = { enclosureId: qe.id, face:'doorOuter', offsetXmm:x, offsetYmm:y, cutoutMm:22 }
   }
 
   // ── Etiquetas equipamentos (decals) ──
@@ -163,8 +176,12 @@ export function buildNativeEstrelaTriangulo(): {
   emer.decals=[{ id:'db0', kind:'text', face:'front', text:'B0 EMERG', background:'#dc2626', color:'#fff', widthMm:28, heightMm:8, offsetYmm:16 }]
   sel.decals=[{ id:'ds3', kind:'text', face:'front', text:'S3 AUTO/MAN', background:'#1e293b', color:'#fff', widthMm:32, heightMm:8, offsetYmm:14 }]
 
+  // F1 fica encaixado sob KM1
+  f1.mountedOn = km1.id
+  // Garante que as calhas ficam por trás dos aparelhos no 3D/esquema
+  for (const d of [ductH, ductM, ductV, ductV2]) (d as any).zIndex = -1
   const components: ElectricalComponent[] = [
-    qe, rail, rail2, rail3, ductH, ductV, esp,
+    qe, rail, rail2, rail3, ductH, ductM, ductV, ductV2, esp,
     xg,q0,qm,km1,f1,km2,km3,m1,
     qf1,qf2,ps,plc,
     xb1,xb2,xb3,
