@@ -489,6 +489,8 @@ export interface Wire {
   sheathed?: boolean
   /** Cor da capa exterior (hex). */
   sheathColor?: string
+  /** Cores por veia quando multicore (ex.: ['#2563eb','#92400e','#22c55e']). Fallback = cor do cabo. */
+  conductorColors?: string[]
   energized: boolean
   /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
    *  componentes compartilham o mesmo espaço de camadas. */

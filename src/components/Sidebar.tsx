@@ -1014,6 +1014,25 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     />
                   )}
                 </div>
+                {(selectedWire.conductorCount ?? 1) > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-ink-500">Veias:</span>
+                    {Array.from({ length: selectedWire.conductorCount ?? 1 }).map((_, idx) => {
+                      const palette = ['#3b82f6', '#92400e', '#84cc16', '#1f2937', '#f59e0b', '#94a3b8', '#ffffff']
+                      const col = selectedWire.conductorColors?.[idx] ?? palette[idx % palette.length]
+                      return <input key={idx} type="color" className="h-7 w-7 rounded border border-line cursor-pointer" value={col}
+                        title={`Cor da veia ${idx + 1}`}
+                        onChange={(e) => {
+                          const list = [...(selectedWire.conductorColors ?? [])]
+                          // preenche palette gaps
+                          for (let i = 0; i < (selectedWire.conductorCount ?? 1); i++) if (!list[i]) list[i] = palette[i % palette.length]
+                          list[idx] = e.target.value
+                          patchSelectedWire({ conductorColors: list })
+                        }} />
+                    })}
+                    <button type="button" className="dc-btn text-[10px] px-1.5" title="Repor cores por omissão da paleta" onClick={() => patchSelectedWire({ conductorColors: undefined })}>Repor</button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

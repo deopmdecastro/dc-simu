@@ -1,6 +1,7 @@
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { ElectricalComponent } from '../types'
+import { useSimStore } from '../store/useSimStore'
 
 /**
  * Quadro metálico e calha técnica em vista frontal no Esquema (1 mm = 1,5 px), vetoriais:
@@ -20,6 +21,8 @@ export function Enclosure2D({ c }: { c: ElectricalComponent }) {
   const hingeYs = d.heightMm > 1000 ? [0.15, 0.5, 0.85] : [0.15, 0.85]
   const lockX = hingeRight ? f * 0.6 : W - f * 0.6
   const lockYs = d.heightMm < 500 ? [0.5] : [0.2, 0.8]
+  const components = useSimStore((s) => s.components)
+  const mounted = components.filter((comp) => comp.panelMount?.enclosureId === c.id)
   return <g data-enclosure>
     <g pointerEvents="none">
       <rect x={0} y={0} width={W} height={H} rx={3} fill="#d6d8d2" stroke="#7d827b" strokeWidth={1.2} />
@@ -28,6 +31,21 @@ export function Enclosure2D({ c }: { c: ElectricalComponent }) {
       {hingeYs.map((t) => <rect key={t} x={hx - 4} y={H * t - 14} width={8} height={28} rx={2} fill="#aeb4bb" stroke="#6b7280" strokeWidth={0.6} />)}
       {lockYs.map((t) => <circle key={t} cx={lockX} cy={H * t} r={6} fill="#3a3f47" stroke="#c4c9d0" strokeWidth={1.4} />)}
       {open && <path d={hingeRight ? `M ${W} ${H * 0.04} q ${Math.min(80, W * 0.25)} ${H * 0.02} ${Math.min(110, W * 0.32)} ${H * 0.1}` : `M 0 ${H * 0.04} q ${-Math.min(80, W * 0.25)} ${H * 0.02} ${-Math.min(110, W * 0.32)} ${H * 0.1}`} fill="none" stroke="#64748b" strokeWidth={1} strokeDasharray="5 4" />}
+      {/* Furos de aparelhos montados na face (porta/laterais) */}
+      {mounted.map((m) => {
+        const offX = (m.panelMount?.offsetXmm ?? 0) * px
+        const offY = (m.panelMount?.offsetYmm ?? 0) * px
+        const cutout = (m.panelMount?.cutoutMm ?? 22) * px
+        const cx = W / 2 + offX
+        const cy = H / 2 - offY
+        const face = m.panelMount?.face ?? 'door'
+        const stroke = face === 'inside' ? '#94a3b8' : face === 'door' ? '#0ea5e9' : face === 'doorOuter' ? '#f59e0b' : '#64748b'
+        return <g key={`cutout-${m.id}`} pointerEvents="none">
+          <circle cx={cx} cy={cy} r={cutout / 2} fill="#0f172a" stroke={stroke} strokeWidth={1.2} strokeDasharray={face === 'inside' ? '3 2' : undefined} opacity={0.9} />
+          <circle cx={cx} cy={cy} r={Math.max(2, cutout / 2 - 1.5)} fill="none" stroke="white" strokeWidth={0.7} opacity={0.5} />
+          <text x={cx} y={cy - cutout / 2 - 4} textAnchor="middle" fontSize={7} fill="#334155">{m.ref} · {face}</text>
+        </g>
+      })}
       <text x={W / 2} y={H + 16} textAnchor="middle" fontSize={11} fill="#475569">{c.ref} · {d.widthMm}×{d.heightMm}×{d.depthMm} mm · porta {open ? 'aberta' : 'fechada'}</text>
     </g>
     {/* moldura: área de clique/arrasto do quadro */}

@@ -42,7 +42,7 @@ import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } 
 import { hasPlcLamps, lampScenePosition, plcLamps } from './plcStatusLights'
 import { mountDepthOffset } from './thermalMount'
 import { buildDinRailGroup, clampRailLengthMm, DIN_RAIL_15X55, DIN_RAIL_FINISHES, dinRailProfileOf } from './dinRailGeometry'
-import { applyWorldUv, ENCLOSURE_PLATE_FRONT_MM, isPanelAccessoryType } from './enclosureParts'
+import { applyWorldUv, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, isPanelAccessoryType } from './enclosureParts'
 import { CableDuct3D, Enclosure3D, SpiralWrap3D } from './PanelAccessories3D'
 import { galvanizedSteel } from './proceduralTextures'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
@@ -2942,6 +2942,44 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const panelPivots: Record<string, THREE.Vector3> = {}
   for (const component of components) {
     const { x, y } = componentPanelXY(component)
+    if (component.panelMount?.enclosureId) {
+      const enclosure = components.find((e) => e.id === component.panelMount!.enclosureId && e.type === 'panelEnclosure')
+      if (enclosure) {
+        const enc = componentPanelXY(enclosure)
+        const dims = enclosureDimsOf(enclosure.state)
+        const offX = (component.panelMount.offsetXmm ?? 0) * PANEL_UNITS_PER_MM
+        const offY = (component.panelMount.offsetYmm ?? 0) * PANEL_UNITS_PER_MM
+        const half = componentHalfExtents(component, orientationFor(component))
+        const baseZ = PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM
+        const face = component.panelMount.face
+        if (face === 'door' || face === 'doorOuter') {
+          const doorFrontZ = baseZ + dims.depthMm * PANEL_UNITS_PER_MM + 22 * PANEL_UNITS_PER_MM
+          // Porta fecha a Z≈doorFront; componentes na porta acompanham X/Y do quadro + offsets
+          panelPivots[component.id] = new THREE.Vector3(enc.x + offX, enc.y + offY, doorFrontZ + half.z)
+          continue
+        } else if (face === 'left') {
+          const wallX = enc.x - (dims.widthMm * PANEL_UNITS_PER_MM) / 2 - ENCLOSURE.sheet * PANEL_UNITS_PER_MM
+          panelPivots[component.id] = new THREE.Vector3(wallX - half.x, enc.y + offY, baseZ + (dims.depthMm * PANEL_UNITS_PER_MM) / 2)
+          continue
+        } else if (face === 'right') {
+          const wallX = enc.x + (dims.widthMm * PANEL_UNITS_PER_MM) / 2 + ENCLOSURE.sheet * PANEL_UNITS_PER_MM
+          panelPivots[component.id] = new THREE.Vector3(wallX + half.x, enc.y + offY, baseZ + (dims.depthMm * PANEL_UNITS_PER_MM) / 2)
+          continue
+        } else if (face === 'top') {
+          const wallY = enc.y + (dims.heightMm * PANEL_UNITS_PER_MM) / 2 + ENCLOSURE.sheet * PANEL_UNITS_PER_MM
+          panelPivots[component.id] = new THREE.Vector3(enc.x + offX, wallY + half.y, baseZ + (dims.depthMm * PANEL_UNITS_PER_MM) / 2)
+          continue
+        } else if (face === 'bottom') {
+          const wallY = enc.y - (dims.heightMm * PANEL_UNITS_PER_MM) / 2 - ENCLOSURE.sheet * PANEL_UNITS_PER_MM
+          panelPivots[component.id] = new THREE.Vector3(enc.x + offX, wallY - half.y, baseZ + (dims.depthMm * PANEL_UNITS_PER_MM) / 2)
+          continue
+        } else {
+          // inside — na chapa, ligeiramente à frente da placa do quadro
+          panelPivots[component.id] = new THREE.Vector3(enc.x + offX, enc.y + offY, PLATE_FRONT_Z + half.z)
+          continue
+        }
+      }
+    }
     if (isMountingRail(component.type)) {
       panelPivots[component.id] = new THREE.Vector3(x, y, railCenterZ(component))
     } else if (component.type === 'panelEnclosure') {

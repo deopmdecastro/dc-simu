@@ -33,7 +33,7 @@ export interface WireStyle {
   endB: WireEndType
 }
 /** Valores usados nos cabos novos (como a ferramenta Cabo do simulador). */
-export interface WireDefaults { autoColor: boolean; color: WireColor; gauge: string; flexibility: WireFlexibility; endType: WireEndType; conductorCount?: number; sheathed?: boolean; sheathColor?: string }
+export interface WireDefaults { autoColor: boolean; color: WireColor; gauge: string; flexibility: WireFlexibility; endType: WireEndType; conductorCount?: number; sheathed?: boolean; sheathColor?: string; conductorColors?: string[] }
 export const DEFAULT_WIRE_DEFAULTS: WireDefaults = { autoColor: true, color: 'red', gauge: '1.5mm²', flexibility: 'flexible', endType: 'ferrule', conductorCount: 1, sheathed: false }
 
 /** Função sugerida a partir dos dois bornes (mesma heurística do simulador). */

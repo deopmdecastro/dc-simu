@@ -2526,6 +2526,7 @@ export const useSimStore = create<Store>((set, get) => {
       conductorCount: defs.conductorCount ?? 1,
       sheathed: defs.sheathed ?? false,
       sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
+      conductorColors: (defs as any).conductorColors,
       energized: false,
     }
     // heurística: cabo entre polos de força = 'power'; entre N/PE = neutral/earth
@@ -2570,6 +2571,7 @@ export const useSimStore = create<Store>((set, get) => {
       conductorCount: defs.conductorCount ?? 1,
       sheathed: defs.sheathed ?? false,
       sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
+      conductorColors: (defs as any).conductorColors,
       energized: false,
     }
     set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
@@ -2613,6 +2615,7 @@ export const useSimStore = create<Store>((set, get) => {
       conductorCount: defs.conductorCount ?? 1,
       sheathed: defs.sheathed ?? false,
       sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
+      conductorColors: (defs as any).conductorColors,
       energized: false,
     }
     set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
