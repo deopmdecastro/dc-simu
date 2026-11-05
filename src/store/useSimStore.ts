@@ -68,7 +68,7 @@ import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type 
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
-import { pti6SchematicFootprint, pti6TerminalTemplates } from '../electrical/pti6Strip'
+import { describeTerminalStripRefs, planTerminalStripRefs, pti6SchematicFootprint, pti6TerminalTemplates, TERMINAL_STRIP_GAP_PX } from '../electrical/pti6Strip'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, fcPresentOf, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
@@ -2735,67 +2735,42 @@ export const useSimStore = create<Store>((set, get) => {
     const base = get().components.find((x) => x.id === componentId)
     if (!base || base.type !== 'terminalPhoenixPti6') return
     const n = Math.max(1, Math.min(48, Math.floor(Number(count)) || 1))
-    if (n <= 1) { get().pushEvent('info', 'Defina pelo menos 2 bornes para gerar a régua X1…Xn.'); return }
+    if (n <= 1) { get().pushEvent('info', 'Defina pelo menos 2 bornes para gerar a régua.'); return }
     get().commitHistory()
-    const all = get().components
     const hierarchical = !!opts?.hierarchical
-    // posicionamento: tenta colocar à direita do base, com passo de 8.15mm
-    const stepPx = base.w
-    let nextX = base.schematicX + stepPx + 4
-    const newComponents: import('../types').ElectricalComponent[] = []
-    // hierárquico: base vira .0 e criamos .1..N-1 — todos um ao lado do outro
-    let baseRefForHier = base.ref
-    if (hierarchical) {
-      const m = baseRefForHier.match(/^(.+?)(?:\.\d+)?$/)
-      const prefix = m ? m[1] : baseRefForHier
-      // renomeia base para .0 se ainda não tem sufixo hierárquico e não colide
-      if (!/\.\d+$/.test(base.ref)) {
-        const firstRef = `${prefix}.0`
-        const collision = all.some((c) => c.id !== base.id && c.ref === firstRef)
-        if (!collision) {
-          set((s) => ({ components: s.components.map((c) => c.id === base.id ? { ...c, ref: firstRef } : c), dirty: true }))
-          // atualiza ref local para gerar restantes como .1, .2…
-          baseRefForHier = prefix
-          // recarrega all com ref atualizado para next iterações (evita duplicar .0)
-          // o próprio base já está com .0, os clones começam em .1
-        } else {
-          baseRefForHier = prefix
-        }
-      } else {
-        const prefix2 = base.ref.replace(/\.\d+$/, '')
-        baseRefForHier = prefix2
+    const others = get().components.filter((c) => c.id !== base.id)
+    const plan = planTerminalStripRefs(others.map((c) => c.ref), base.ref, n, hierarchical)
+    // Posição: um a seguir ao outro, com passo igual à largura de um borne (os clones têm 1 pólo) e sem sobrepor outros aparelhos da mesma linha.
+    const gap = hierarchical ? TERMINAL_STRIP_GAP_PX.hierarchical : TERMINAL_STRIP_GAP_PX.loose
+    const sameSheet = (c: import('../types').ElectricalComponent) => c.sheet === base.sheet
+    const clones: import('../types').ElectricalComponent[] = []
+    let cursor = base.schematicX + base.w + gap
+    for (const ref of plan.refs) {
+      const comp = createComponent(base.type, ref, base.label, 0, cursor, base.schematicY, { ...base.state, poleCount: 1 })
+      for (let guard = 0; guard < 64; guard++) {
+        const hit = others.find((o) => sameSheet(o) && o.type !== 'panelEnclosure' && o.type !== 'dinRail15x55' && o.schematicX < cursor + comp.w && o.schematicX + o.w > cursor && o.schematicY < base.schematicY + comp.h && o.schematicY + o.h > base.schematicY)
+        if (!hit) break
+        cursor = hit.schematicX + hit.w + gap
       }
+      comp.schematicX = cursor
+      comp.sheet = base.sheet
+      comp.z = base.z
+      comp.bodyColor = base.bodyColor
+      comp.railId = base.railId
+      comp.railOffsetMm = base.railOffsetMm
+      comp.enclosureId = base.enclosureId
+      clones.push(comp)
+      cursor += comp.w + gap
     }
-    for (let i = 1; i < n; i++) {
-      let ref: string
-      if (hierarchical) {
-        const m = baseRefForHier.match(/^(.+?)(?:\.\d+)?$/)
-        const prefix = m ? m[1] : baseRefForHier
-        ref = `${prefix}.${i}`
-        let dup = 1
-        const existingRefs = new Set([...all, ...newComponents].map((c) => c.ref))
-        while (existingRefs.has(ref)) { ref = `${prefix}.${i}_${dup++}` }
-      } else {
-        ref = nextRef([...all, ...newComponents], base.type)
-      }
-      let x = nextX + i * 4
-      let y = base.schematicY
-      let tries = 0
-      while (tries < 24) {
-        const occupied = [...all, ...newComponents].some((c) => Math.abs(c.schematicX - x) < 8 && Math.abs(c.schematicY - y) < 8)
-        if (!occupied) break
-        x += stepPx + 6; tries++
-      }
-      const comp = createComponent(base.type, ref, base.label, 0, x, y, { ...base.state, poleCount: 1 })
-      ;(comp as any).railId = (base as any).railId
-      ;(comp as any).enclosureId = (base as any).enclosureId
-      newComponents.push(comp)
-      nextX += stepPx + 4
-    }
-    // se hierárquico, o base já foi renomeado — recarrega ref atualizado para mensagem
-    const finalBaseRef = hierarchical ? (get().components.find((c) => c.id === base.id)?.ref ?? base.ref) : base.ref
-    set((s) => ({ components: [...s.components, ...newComponents], selectedComponentIds: [base.id, ...newComponents.map((c) => c.id)], dirty: true }))
-    get().pushEvent('info', `Régua criada: ${[finalBaseRef, ...newComponents.map((c) => c.ref)].join(', ')} · ${n} bornes na mesma calha. Arraste-os ou use «Centrar e fixar» na calha TR.`)
+    const cloneIds = clones.map((c) => c.id)
+    set((s) => ({
+      components: [...s.components.map((c) => (c.id === base.id && plan.baseRef !== base.ref ? { ...c, ref: plan.baseRef } : c)), ...clones],
+      selectedComponentIds: [base.id, ...cloneIds],
+      dirty: true,
+    }))
+    // Na calha DIN: encaixa os clones à calha do borne de origem (offset e altura certos, sem passar para o 3D solto).
+    if (base.railId) get().snapToRails(cloneIds)
+    get().pushEvent('info', `Régua criada: ${describeTerminalStripRefs(plan, 6)} · ${n} bornes${base.railId ? ' na mesma calha' : ''}.`)
     recomputeIfActive()
   },
 

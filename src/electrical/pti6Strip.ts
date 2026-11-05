@@ -71,3 +71,46 @@ export function getPti6DynamicPhysicalSizeMm(type: string, poleCount?: number) {
   }
   return base
 }
+
+/** Passo do pente no esquema: bornes hierárquicos encostam (como na calha); soltos deixam uma folga para a TAG. */
+export const TERMINAL_STRIP_GAP_PX = { hierarchical: 0, loose: 4 } as const
+
+export interface TerminalStripPlan {
+  /** TAG do borne de origem depois de gerar a régua (X1 → X1.0 quando hierárquico e livre). */
+  baseRef: string
+  /** TAGs dos clones, por ordem (count − 1 entradas). */
+  refs: string[]
+}
+
+/**
+ * Planeia as TAGs de uma régua de `count` bornes a partir de `baseRef`.
+ * Hierárquico: prefixo.N consecutivo, a continuar a série se o borne já é X1.3 e a saltar índices ocupados
+ * (nunca gera «X1.1_1»). Solto: o próximo número livre da família (X1, X2 → X3…).
+ */
+export function planTerminalStripRefs(otherRefs: Iterable<string>, baseRef: string, count: number, hierarchical: boolean): TerminalStripPlan {
+  const used = new Set(otherRefs)
+  const total = Math.max(1, Math.floor(count))
+  const refs: string[] = []
+  if (hierarchical) {
+    const m = baseRef.match(/^(.*?)\.(\d+)$/)
+    const prefix = m ? m[1] : baseRef
+    let idx = m ? Number(m[2]) + 1 : 1
+    let outBase = baseRef
+    if (!m && !used.has(`${prefix}.0`)) outBase = `${prefix}.0`
+    while (refs.length < total - 1) { const r = `${prefix}.${idx++}`; if (!used.has(r) && r !== outBase) refs.push(r) }
+    return { baseRef: outBase, refs }
+  }
+  const tag = baseRef.replace(/\.\d+$/, '').replace(/\d+$/, '') || 'X'
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`^${escaped}(\\d+)$`)
+  let max = 0
+  for (const r of [...used, baseRef]) { const mm = re.exec(r); if (mm) max = Math.max(max, Number(mm[1])) }
+  while (refs.length < total - 1) refs.push(`${tag}${++max}`)
+  return { baseRef, refs }
+}
+
+/** Pré-visualização das TAGs para o inspetor (primeiras/últimas, com reticências). */
+export function describeTerminalStripRefs(plan: TerminalStripPlan, max = 5): string {
+  const all = [plan.baseRef, ...plan.refs]
+  return all.length <= max ? all.join(', ') : `${all.slice(0, max - 2).join(', ')} … ${all[all.length - 1]}`
+}

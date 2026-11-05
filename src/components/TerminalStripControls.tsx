@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
-import { clampPoleCount } from '../electrical/pti6Strip'
+import { clampPoleCount, describeTerminalStripRefs, planTerminalStripRefs } from '../electrical/pti6Strip'
 
 const label = 'dc-field-label'
 
@@ -10,9 +10,13 @@ export default function TerminalStripControls({ c }: { c: ElectricalComponent })
   const [draft, setDraft] = useState(String(poleCount))
   const [stripCount, setStripCount] = useState(String(Math.max(2, poleCount)))
   const [hierarchical, setHierarchical] = useState(false)
+  const components = useSimStore((s) => s.components)
   useEffect(() => setDraft(String(poleCount)), [poleCount, c.id])
   const draftN = useMemo(() => clampPoleCount(draft), [draft])
   const hasChange = draftN !== poleCount
+  const stripN = Math.max(2, Math.min(48, Math.floor(Number(stripCount)) || 2))
+  const plan = useMemo(() => planTerminalStripRefs(components.filter((x) => x.id !== c.id).map((x) => x.ref), c.ref, stripN, hierarchical), [components, c.id, c.ref, stripN, hierarchical])
+  const createStrip = () => useSimStore.getState().createTerminalStrip(c.id, stripN, { hierarchical })
 
   const applyPoles = () => {
     const n = clampPoleCount(draft)
@@ -66,28 +70,26 @@ export default function TerminalStripControls({ c }: { c: ElectricalComponent })
       <small className="text-ink-500">
         Este <b>{c.ref}</b> tem <b>{poleCount}× PTI 6</b>: {76 * poleCount}×118px · {(8.15 * poleCount).toFixed(2)} mm · bornes 1…{poleCount * 2} (1-2 = pólo 1). Alarga no esquema e no 3D.
       </small>
-      <div className="pt-1 border-t border-amber-200/60 space-y-1">
-        <label className={label + ' !mb-0'}>Gerar régua X1…Xn (componentes soltos) — um ao lado do outro</label>
-        <div className="flex items-center gap-2">
-          <input type="number" min={2} max={48} step={1} className="dc-input w-20" value={stripCount} onChange={(e) => setStripCount(e.target.value)} />
-          <button
-            className="dc-btn"
-            onClick={() => {
-              const n = Math.max(2, Math.min(48, Math.floor(Number(stripCount)) || 2))
-              useSimStore.getState().createTerminalStrip(c.id, n, { hierarchical })
-            }}
-          >
-            ＋ Criar {hierarchical ? `${c.ref}.0…` : 'X1…Xn'}
-          </button>
+      <div className="pt-1 border-t border-amber-200/60 space-y-2">
+        <label className={label + ' !mb-0'}>Criar vários bornes lado a lado</label>
+        <div className="dc-acc-seg" role="group" aria-label="Numeração da régua">
+          <button type="button" aria-pressed={!hierarchical} className={!hierarchical ? 'is-on' : ''} onClick={() => setHierarchical(false)}>X1, X2, X3…</button>
+          <button type="button" aria-pressed={hierarchical} className={hierarchical ? 'is-on' : ''} onClick={() => setHierarchical(true)}>X1.0, X1.1…</button>
         </div>
-        <label className="flex items-center gap-1.5 text-[11px] text-ink-600">
-          <input type="checkbox" checked={hierarchical} onChange={(e) => setHierarchical(e.target.checked)} />
-          Numeração hierárquica <span className="font-mono text-amber-700">{c.ref}.0, {c.ref}.1, {c.ref}.2…</span> (pente)
-        </label>
+        <div className="flex items-center gap-2">
+          <input type="text" inputMode="numeric" enterKeyHint="done" aria-label="Número de bornes a criar" className="dc-input w-20 text-center" value={stripCount}
+            onFocus={(e) => e.currentTarget.select()} onChange={(e) => setStripCount(e.target.value.replace(/[^\d]/g, '').slice(0, 2))}
+            onBlur={() => setStripCount(String(stripN))} onKeyDown={(e) => { if (e.key === 'Enter') createStrip() }} />
+          <button type="button" className="dc-btn dc-btn-primary ml-auto" onClick={createStrip}>＋ Criar {stripN} bornes</button>
+        </div>
+        <div className="flex flex-wrap gap-1" aria-label="Quantidades comuns">
+          {[2, 4, 6, 8, 12, 16].map((n) => <button key={n} type="button" className={`dc-btn !h-6 ${stripN === n ? '!border-amber-500 !bg-amber-100' : ''}`} onClick={() => setStripCount(String(n))}>{n}</button>)}
+        </div>
+        <div className="rounded border border-amber-200 bg-white/70 px-2 py-1 text-[11px] font-mono text-amber-800 break-words" aria-live="polite">{describeTerminalStripRefs(plan, 6)}</div>
         <small className="text-ink-400">
           {hierarchical
-            ? `Cria ${stripCount} bornes lado a lado como ${c.ref}.0…${c.ref}.${Math.max(0, Number(stripCount) - 1)} na mesma calha — ideal para foto (QG1 → régua X).`
-            : `Cria ${stripCount} bornes soltos (X1, X2…) na mesma calha DIN — cada um com TAG próprio. Use «Centrar e fixar» na calha TR para encostar (0 px).`}
+            ? `Um ao lado do outro, encostados como numa calha, a continuar a série de ${plan.baseRef.replace(/\.\d+$/, '')}. O borne selecionado ${plan.baseRef !== c.ref ? `passa a ${plan.baseRef}` : 'mantém a TAG'}.`
+            : 'Bornes soltos com TAG própria (próximo número livre). Se o borne está numa calha DIN, os novos encaixam na mesma calha.'}
         </small>
       </div>
     </div>
