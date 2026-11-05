@@ -47,7 +47,7 @@
     "test:commands": "tsx scripts/commands-smoke.ts",
     "test:commands-symbols": "tsx scripts/symbols-geometry-smoke.tsx",
     "test:commands-symbols-ui": "node scripts/symbols-ui-smoke.mjs",
-    "test:native-diagnostics": "tsx scripts/native-diagnostics-smoke.ts",
+    "test:native-diagnostics": "tsx scripts/native-diagnostics-smoke.ts && tsx scripts/native-estrela-smoke.ts",
     "test:commands-ui": "node scripts/commands-ui-smoke.mjs",
     "test:commands-tag-ui": "node scripts/commands-tag-ui-smoke.mjs",
     "test:commands-pages-ui": "node scripts/commands-pages-ui-smoke.mjs",

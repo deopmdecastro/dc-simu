@@ -8,8 +8,11 @@ import { nanoid } from 'nanoid'
 import { autoLayout, SPINE_X } from '../grafcet/layout'
 import type { GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
 import { bakeNativeRouting } from './nativeRouting'
+import { syncMounted } from '../three/thermalMount'
+import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 
 export const NATIVE_ESTRELA_ID = 'native-estrela-triangulo-v1'
+export const NATIVE_ESTRELA_FEATURE = 'estrela-triangulo-v3-layout-circuit'
 export const NATIVE_ESTRELA_NAME = 'Estrela-Triângulo com LOGO! (QE1)'
 
 function tid(c: ElectricalComponent, label: string): string {
@@ -20,7 +23,7 @@ function tid(c: ElectricalComponent, label: string): string {
 function mkWire(from: string, to: string, color: WireColor, num: string, gauge = '1.5mm²'): Wire {
   return {
     id: nanoid(8), fromTerminalId: from, toTerminalId: to, color, gauge,
-    kind: (color === 'red' || color === 'black' || color === 'brown') ? 'power' as const : 'control' as const,
+    kind: color === 'green-yellow' ? 'earth' : (color === 'red' || color === 'black' || color === 'brown') ? 'power' as const : 'control' as const,
     flexibility: 'flexible' as const, endType: 'ferrule' as const, fromEndType: 'ferrule' as const, toEndType: 'ferrule' as const,
     fromEndLayer: 'back' as const, toEndLayer: 'back' as const,
     route: 'orthogonal' as const, bend: 0.5, curveOffset: 0, number: num, energized: false,
@@ -35,10 +38,10 @@ export function buildNativeEstrelaTriangulo(): {
 } {
   // ── Quadro ──
   const qe = createComponent('panelEnclosure', 'QE1', 'Quadro Estrela-Triângulo')
-  qe.w = 800/1.5; qe.h = 600/1.5
+  qe.w = 800*SCHEMATIC_PX_PER_MM; qe.h = 600*SCHEMATIC_PX_PER_MM
   qe.state = { ...(qe.state as any), widthMm: 800, heightMm: 600, depthMm: 250, hingeSide: 'right', doorOpen: false, bodyColor: '#cfd1cb', plateColor: '#e5e7eb' }
   qe.decals = [
-    { id:'dec-qe1-warn', kind:'warning', face:'door', offsetXmm:0, offsetYmm:110, widthMm:120, heightMm:28, text:' PERIGO 400V ', icon:'bolt', background:'#facc15', color:'#0f172a', border:true },
+    { id:'dec-qe1-warn', kind:'warning', face:'door', offsetXmm:0, offsetYmm:160, widthMm:120, heightMm:28, text:' PERIGO 400V ', icon:'bolt', background:'#facc15', color:'#0f172a', border:true },
     { id:'dec-qe1-ce', kind:'logo', face:'door', offsetXmm:0, offsetYmm:-250, widthMm:48, heightMm:20, text:'CE 0081', background:'#22c55e', color:'#fff', border:false },
     { id:'dec-qe1-id', kind:'text', face:'door', offsetXmm:-280, offsetYmm:-250, widthMm:90, heightMm:16, text:'QE1 400V/16A', background:'#0f172a', color:'#fff' },
     { id:'dec-qe1-doc', kind:'text', face:'door', offsetXmm:260, offsetYmm:-250, widthMm:70, heightMm:16, text:'IP65 IK08', background:'#334155', color:'#fff' },
@@ -57,22 +60,20 @@ export function buildNativeEstrelaTriangulo(): {
   const km1 = createComponent('contactor', 'KM1', 'Linha')
   const km2 = createComponent('contactor', 'KM2', 'Triângulo')
   const km3 = createComponent('contactor', 'KM3', 'Estrela')
+  km2.state.interlockWith = km3.id; km3.state.interlockWith = km2.id
+  for (const c of [km1, km2, km3]) {
+    c.label += ' · bobina 230 V AC'
+    for (const t of c.terminals) if (t.label === 'A1' || t.label === 'A2') t.electricalClass = 'ac'
+  }
   const f1 = createComponent('thermalRelay', 'F1', 'Térmico 7,5A'); (f1.state as any).currentA = 7.5
   ;(f1 as any).mountedOn = km1.id
   const m1 = createComponent('motor3ph', 'M1', 'Motor 4kW 400V'); (m1.state as any).motorConnection='star'
 
   // ── Comando 24V + LOGO ──
   const qf1 = createComponent('breaker1p', 'QF1', 'Monofásico comando 6A'); (qf1.state as any).inA = 6; (qf1.state as any).curve='C'
-  const qf2 = createComponent('breaker1p', 'QF2', 'Reserva tomada 10A'); (qf2.state as any).inA = 10
+  const qf2 = createComponent('breaker1p', 'QF2', 'Comando contactores 2A'); (qf2.state as any).inA = 2
   const ps = createComponent('powerSupplyProauto24A', 'G1', 'Fonte 24V 5A / 120W')
   const plc = createComponent('plcSiemensLogo1224RC', 'A1', 'LOGO! 12/24RCE')
-  // LOGO! nativo só tem Q0.0..Q0.3 (4 relés); acrescentamos Q0.4/Q0.5 virtuais para os sinaleiros extra
-  for (const lbl of ['Q0.4','Q0.5']) {
-    const base = plc.terminals.find(t=>t.label==='Q0.3')!
-    plc.terminals.push({ id:`${plc.id}-${lbl}`, componentId: plc.id, label: lbl, kind:'io' as any, terminalType:'screw' as any, color:'#f59e0b', x: 0.16 + 4*0.24 + (lbl==='Q0.5'?0.24:0), y:1, energized:false } as any)
-    plc.terminals.push({ id:`${plc.id}-${lbl}·2`, componentId: plc.id, label:`${lbl}·2`, kind:'io' as any, terminalType:'screw' as any, color:'#f59e0b', x: 0.21 + 4*0.24 + (lbl==='Q0.5'?0.24:0), y:1, energized:false } as any)
-  }
-
   // ── Régua de bornes ──
   const xb1 = createComponent('terminalSet3ph', 'X1', 'Borne força L1/L2/L3')
   const xb2 = createComponent('terminalSet3ph', 'X2', 'Borne motor U/V/W')
@@ -93,36 +94,49 @@ export function buildNativeEstrelaTriangulo(): {
   const x5_2 = mkBorne('X5:2', 'Q0.1 KM2 Δ')
   const x5_3 = mkBorne('X5:3', 'Q0.2 KM3 Y')
   const x5_4 = mkBorne('X5:4', 'Q0.3 H1')
-  const x5_5 = mkBorne('X5:5', 'Q0.4 H3')
-  const x5_6 = mkBorne('X5:6', 'M H2 falha')
+  const x5_5 = mkBorne('X5:5', 'KM3 13-14 H3')
+  const x5_6 = mkBorne('X5:6', 'F1 97-98 H2 falha')
 
   // ── Operadores porta (panelMount Ø22) ──
   const h1 = createComponent('pilotLightAd22', 'H1', 'Marcha verde')
   const h2 = createComponent('pilotLightAd22', 'H2', 'Falha vermelho')
   const h3 = createComponent('pilotLightAd22', 'H3', 'Estrela laranja')
+  h1.state.color = '#22c55e'; h2.state.color = '#ef4444'; h3.state.color = '#f59e0b'
   const s1Btn = createComponent('buttonNO', 'S1', 'START verde')
   const s0Btn = createComponent('buttonNC', 'S0', 'STOP vermelho')
   const emer = createComponent('emergencyButton', 'B0', 'Emergência NF')
   const sel = createComponent('selector2', 'S3', 'Auto/Manual')
 
-  // Posicionamento no esquema (evitar sobreposição, grelha limpa)
-  qe.schematicX=80; qe.schematicY=80
-  rail.schematicX=110; rail.schematicY=260
-  ductH.schematicX=110; ductH.schematicY=190
-  ductV.schematicX=640; ductV.schematicY=190
-  esp.schematicX=340; esp.schematicY=760
-  xg.schematicX=120; xg.schematicY=340; q0.schematicX=250; q0.schematicY=340; qm.schematicX=380; qm.schematicY=340
-  km1.schematicX=500; km1.schematicY=320; f1.schematicX=500; f1.schematicY=400
-  km2.schematicX=500; km2.schematicY=500; km3.schematicX=380; km3.schematicY=500; m1.schematicX=660; m1.schematicY=480
-  qf1.schematicX=120; qf1.schematicY=560; qf2.schematicX=200; qf2.schematicY=560; ps.schematicX=310; ps.schematicY=560; plc.schematicX=500; plc.schematicY=600
-  xb1.schematicX=120; xb1.schematicY=470; xb2.schematicX=660; xb2.schematicY=400; xb3.schematicX=120; xb3.schematicY=680
-  // Régua X4/X5 encostada à calha, por baixo do PLC
-  x4_1.schematicX=120; x4_1.schematicY=740; x4_2.schematicX=200; x4_2.schematicY=740; x4_3.schematicX=280; x4_3.schematicY=740; x4_4.schematicX=360; x4_4.schematicY=740; x4_5.schematicX=440; x4_5.schematicY=740
-  x5_1.schematicX=120; x5_1.schematicY=790; x5_2.schematicX=200; x5_2.schematicY=790; x5_3.schematicX=280; x5_3.schematicY=790; x5_4.schematicX=360; x5_4.schematicY=790; x5_5.schematicX=440; x5_5.schematicY=790; x5_6.schematicX=520; x5_6.schematicY=790
-  h1.schematicX=500; h1.schematicY=120; h2.schematicX=560; h2.schematicY=120; h3.schematicX=620; h3.schematicY=120
-  s1Btn.schematicX=500; s1Btn.schematicY=200; s0Btn.schematicX=560; s0Btn.schematicY=200; emer.schematicX=620; emer.schematicY=200; sel.schematicX=680; sel.schematicY=200
-
-  for (const c of [h1,h2,h3,s1Btn,s0Btn,emer,sel]) (c as any).panelMount = { enclosureId: qe.id, face:'door', offsetXmm:0, offsetYmm:0, cutoutMm:22 }
+  // Posições em mm relativas ao quadro, com o footprint à escala de 1,5 px/mm.
+  const place = (c: ElectricalComponent, x: number, y: number) => {
+    c.schematicX = 1000 + x * SCHEMATIC_PX_PER_MM - c.w / 2
+    c.schematicY = 700 - y * SCHEMATIC_PX_PER_MM - c.h / 2
+  }
+  place(qe, 0, 0)
+  rail.w = 650 * SCHEMATIC_PX_PER_MM; place(rail, 0, 135)
+  const rail2 = createComponent('dinRail15x55', 'R2', 'Calha DIN comando')
+  const rail3 = createComponent('dinRail15x55', 'R3', 'Calha DIN bornes')
+  for (const r of [rail2, rail3]) { r.state.lengthMm = 650; r.w = rail.w }
+  place(rail2, 0, -65); place(rail3, 0, -220)
+  ductH.w = 650 * SCHEMATIC_PX_PER_MM; ductH.h = 40 * SCHEMATIC_PX_PER_MM
+  place(ductH, 0, 250)
+  ductV.rotation = 90; ductV.w = 380 * SCHEMATIC_PX_PER_MM; ductV.h = 25 * SCHEMATIC_PX_PER_MM
+  place(ductV, 360, 0); place(esp, -340, -100)
+  const row = (r: ElectricalComponent, y: number, items: Array<[ElectricalComponent, number]>) => {
+    for (const [c, x] of items) { place(c, x, y); c.railId = r.id }
+  }
+  row(rail, 135, [[xg,-310],[q0,-230],[qm,-150],[km1,-40],[km2,100],[km3,230]])
+  row(rail2, -65, [[qf1,-300],[qf2,-250],[ps,-150],[plc,30],[xb1,170],[xb2,250],[xb3,310]])
+  row(rail3, -220, [[x4_1,-290],[x4_2,-250],[x4_3,-210],[x4_4,-170],[x4_5,-130],
+    [x5_1,-30],[x5_2,10],[x5_3,50],[x5_4,90],[x5_5,130],[x5_6,170]])
+  place(m1, 620, -50)
+  for (const [c, x, y] of [[h1,-180,20],[h2,0,20],[h3,180,20],[s1Btn,-180,-80],
+    [s0Btn,0,-80],[sel,180,-80],[emer,-180,-170]] as Array<[ElectricalComponent,number,number]>) {
+    // No esquema, a porta tem uma zona própria ao lado da chapa.
+    c.schematicX = 1700 + (x + 180) * 1.1
+    c.schematicY = y == 20 ? 300 : y == -80 ? 420 : 540
+    c.panelMount = { enclosureId: qe.id, face:'door', offsetXmm:x, offsetYmm:y, cutoutMm:22 }
+  }
 
   // ── Etiquetas equipamentos (decals) ──
   km1.decals=[{ id:'dkm1', kind:'text', face:'front', text:'KM1 LINHA', background:'#0f172a', color:'#fff', widthMm:32, heightMm:10, offsetYmm:18 }]
@@ -131,7 +145,7 @@ export function buildNativeEstrelaTriangulo(): {
   q0.decals=[{ id:'dq0', kind:'symbol', face:'front', text:'Q0 25A C', icon:'bolt', background:'#facc15', color:'#0f172a', widthMm:26, heightMm:12 }]
   qm.decals=[{ id:'dqm1', kind:'text', face:'front', text:'QM1 6,3-10A', background:'#dc2626', color:'#fff', widthMm:34, heightMm:10, offsetYmm:18 }]
   qf1.decals=[{ id:'dqf1', kind:'symbol', face:'front', text:'QF1 6A', icon:'bolt', background:'#0ea5e9', color:'#fff', widthMm:20, heightMm:10 }]
-  qf2.decals=[{ id:'dqf2', kind:'symbol', face:'front', text:'QF2 10A', icon:'bolt', background:'#64748b', color:'#fff', widthMm:20, heightMm:10 }]
+  qf2.decals=[{ id:'dqf2', kind:'symbol', face:'front', text:'QF2 2A', icon:'bolt', background:'#64748b', color:'#fff', widthMm:20, heightMm:10 }]
   ps.decals=[{ id:'dps1', kind:'text', face:'front', text:'G1 24V 5A', background:'#0f172a', color:'#fff', widthMm:30, heightMm:10, offsetYmm:22 }]
   plc.decals=[{ id:'dplc1', kind:'text', face:'front', text:'A1 LOGO!', background:'#0e7490', color:'#fff', widthMm:30, heightMm:10, offsetYmm:20 }]
   xb1.decals=[{ id:'dxb1', kind:'text', face:'front', text:'X1 FORÇA', background:'#f8fafc', color:'#0f172a', widthMm:28, heightMm:8, offsetYmm:12 }]
@@ -150,7 +164,7 @@ export function buildNativeEstrelaTriangulo(): {
   sel.decals=[{ id:'ds3', kind:'text', face:'front', text:'S3 AUTO/MAN', background:'#1e293b', color:'#fff', widthMm:32, heightMm:8, offsetYmm:14 }]
 
   const components: ElectricalComponent[] = [
-    qe, rail, ductH, ductV, esp,
+    qe, rail, rail2, rail3, ductH, ductV, esp,
     xg,q0,qm,km1,f1,km2,km3,m1,
     qf1,qf2,ps,plc,
     xb1,xb2,xb3,
@@ -165,7 +179,7 @@ export function buildNativeEstrelaTriangulo(): {
   }
 
   // Força: Rede → Q0 → QM1 → KM1 → F1 → KM2 (filaça dentro da calha = filaça/ferrule com numeração)
-  add(xg,'L1',q0,'1','black','W01','4mm²'); add(xg,'L2',q0,'3','black','W02','4mm²'); add(xg,'L3',q0,'5','black','W03','4mm²')
+  add(xb1,'L1-OUT',q0,'1','black','W01','4mm²'); add(xb1,'L2-OUT',q0,'3','black','W02','4mm²'); add(xb1,'L3-OUT',q0,'5','black','W03','4mm²')
   add(q0,'2',qm,'1','black','W04','4mm²'); add(q0,'4',qm,'3','black','W05','4mm²'); add(q0,'6',qm,'5','black','W06','4mm²')
   add(qm,'2',km1,'1L1','black','W07','4mm²'); add(qm,'4',km1,'3L2','black','W08','4mm²'); add(qm,'6',km1,'5L3','black','W09','4mm²')
   add(km1,'2T1',f1,'1L1','black','W10','2.5mm²'); add(km1,'4T2',f1,'3L2','black','W11','2.5mm²'); add(km1,'6T3',f1,'5L3','black','W12','2.5mm²')
@@ -173,14 +187,20 @@ export function buildNativeEstrelaTriangulo(): {
 
   // Motor — troço externo com espiral + bucim M20 (isolation+spiral só fora)
   for (const [fl, ml, num] of [['2T1','U1','W20'],['4T2','V1','W21'],['6T3','W1','W22']] as const) {
-    const w2 = mkWire(tid(km2, fl), tid(m1, ml), 'black', num, '2.5mm²')
+    const w2 = mkWire(tid(xb2, ({'2T1':'L1-OUT','4T2':'L2-OUT','6T3':'L3-OUT'} as const)[fl]), tid(m1, ml), 'black', num, '2.5mm²')
     ;(w2 as any).isolation=[{ start:0.45, end:1.0, color:'#1e293b' }]
     ;(w2 as any).spirals=[{ start:0.5, end:0.85, color:'#0a0a0a', pitchMm:8, innerDiaMm:10 }]
     ;(w2 as any).grommet = 'M20'
     wires.push(w2)
   }
-  add(km3,'2T1',m1,'W2','black','W23','2.5mm²'); add(km3,'4T2',m1,'U2','black','W24','2.5mm²'); add(km3,'6T3',m1,'V2','black','W25','2.5mm²')
-  add(km3,'1L1',km3,'3L2','black','W26','1.5mm²'); add(km3,'3L2',km3,'5L3','black','W27','1.5mm²')
+  // Linha → U1/V1/W1; triângulo → W2/U2/V2; estrela fecha o ponto comum.
+  for (const [phase, out, end, n] of [['L1','2T1','W2',0],['L2','4T2','U2',1],['L3','6T3','V2',2]] as const) {
+    add(xg,phase,xb1,`${phase}-IN`,'black',`W${90+n}`,'4mm²')
+    add(f1,out,xb2,`${phase}-IN`,'black',`W${93+n}`,'2.5mm²')
+    add(km2,out,m1,end,'black',`W${96+n}`,'2.5mm²')
+    add(km3,out,m1,end,'black',`W${23+n}`,'2.5mm²')
+  }
+  add(km3,'1L1',km3,'3L2','black','W26','2.5mm²'); add(km3,'3L2',km3,'5L3','black','W27','2.5mm²')
 
   // Comando monofásico: QF1 corta fase → Fonte
   add(q0,'2',qf1,'1','brown','W30','1.5mm²')
@@ -190,7 +210,12 @@ export function buildNativeEstrelaTriangulo(): {
   // Fonte → X3 distribuição 24V
   add(ps,'+V1', xb3,'+24V-IN','red','W35','1.5mm²'); add(ps,'+V2', xb3,'+24V-IN','red','W36','1.5mm²')
   add(ps,'-V1', xb3,'0V-IN','lightblue','W37','1.5mm²'); add(ps,'-V2', xb3,'0V-IN','lightblue','W38','1.5mm²')
-  add(xb3,'+24V-OUT',qf2,'1','red','W39','1.5mm²')
+  add(q0,'2',qf2,'1','brown','W39','1.5mm²')
+  add(qf2,'2',f1,'95','brown','W45')
+  add(xb3,'+24V-OUT',plc,'L+','red','W46')
+  add(xb3,'0V-OUT',plc,'M','lightblue','W47')
+  for (const q of ['Q0.0','Q0.1','Q0.2']) add(f1,'96',plc,`${q}·2`,'brown',`W48-${q}`)
+  add(xb3,'+24V-OUT',plc,'Q0.3·2','red','W49')
 
   // ── E/S via bornes X4/X5 (não direto ao PLC) ──
   // +24V comum (X3 +24V-OUT) → botões porta + F1 97
@@ -225,16 +250,19 @@ export function buildNativeEstrelaTriangulo(): {
     }
     wires.push(wB)
   }
-  doorOut('Q0.0', x5_1, km1,'A1', 'W60','W61','red')
-  doorOut('Q0.1', x5_2, km2,'A1', 'W62','W63','red')
-  doorOut('Q0.2', x5_3, km3,'A1', 'W64','W65','red')
+  doorOut('Q0.0', x5_1, km1,'A1', 'W60','W61','brown')
+  doorOut('Q0.1', x5_2, km2,'A1', 'W62','W63','brown')
+  doorOut('Q0.2', x5_3, km3,'A1', 'W64','W65','brown')
   doorOut('Q0.3', x5_4, h1,'X1', 'W66','W67','green')
-  doorOut('Q0.4', x5_5, h2,'X1', 'W68','W69','red')
-  doorOut('Q0.5', x5_6, h3,'X1', 'W70','W71','orange')
+  add(xb3,'+24V-OUT',km3,'13','red','W68')
+  add(km3,'14',x5_5,'1','orange','W69')
+  add(x5_5,'2',h3,'X1','orange','W70')
+  add(f1,'98',x5_6,'1','red','W71')
+  add(x5_6,'2',h2,'X1','red','W78')
   // Retornos 0V / A2 bobinas (via X3 0V)
-  add(km1,'A2', xb3,'0V-IN','lightblue','W72','1.0mm²')
-  add(km2,'A2', xb3,'0V-IN','lightblue','W73','1.0mm²')
-  add(km3,'A2', xb3,'0V-IN','lightblue','W74','1.0mm²')
+  add(km1,'A2', xg,'N','lightblue','W72','1.0mm²')
+  add(km2,'A2', xg,'N','lightblue','W73','1.0mm²')
+  add(km3,'A2', xg,'N','lightblue','W74','1.0mm²')
   add(h1,'X2', xb3,'0V-IN','lightblue','W75','1.0mm²')
   add(h2,'X2', xb3,'0V-IN','lightblue','W76','1.0mm²')
   add(h3,'X2', xb3,'0V-IN','lightblue','W77','1.0mm²')
@@ -249,14 +277,12 @@ export function buildNativeEstrelaTriangulo(): {
     { id:'tQ01', address:'Q0.1', name:'KM2', dataType:'Bool', comment:'Contactor triângulo via X5:2 ← Q0.1' },
     { id:'tQ02', address:'Q0.2', name:'KM3', dataType:'Bool', comment:'Contactor estrela via X5:3 ← Q0.2' },
     { id:'tQ03', address:'Q0.3', name:'H1', dataType:'Bool', comment:'H1 marcha verde via X5:4 ← Q0.3 + espiral porta' },
-    { id:'tQ04', address:'Q0.4', name:'H3', dataType:'Bool', comment:'H3 estrela laranja via X5:5 ← Q0.4 + espiral porta' },
-    { id:'tQ05', address:'Q0.5', name:'H2', dataType:'Bool', comment:'H2 falha via X5:6 ← Q0.5 + espiral porta' },
   ]
 
   // PE
   add(xb1,'PE-IN', xg,'PE','green-yellow','W80','2.5mm²')
   add(xb2,'PE-IN', m1,'PE','green-yellow','W81','2.5mm²')
-  add(xg,'PE', xb1,'PE-OUT','green-yellow','W82','2.5mm²')
+  add(xb1,'PE-OUT', xb2,'PE-IN','green-yellow','W82','2.5mm²')
   add(ps,'PE', xb3,'PE-IN','green-yellow','W83','1.5mm²')
 
   // Filaças / marcação cabos: todos os fios dentro da calha levam filaça dupla
@@ -272,18 +298,18 @@ export function buildNativeEstrelaTriangulo(): {
   // ── Grafcet 4 etapas ──
   const gs0='gs0', gs10='gs10', gs11='gs11', gs12='gs12'
   const steps: GrafcetStep[] = [
-    { id:gs0, name:'0', initial:true, stepType:'initial', action:'', condition:'', description:'Repouso', actions:[{ id:nanoid(6), address:'Q0.2', variable:'H2', description:'H2 PARADO', condition:'1', kind:'N', displayDescription:true }]},
-    { id:gs10, name:'10', initial:false, stepType:'simple', action:'', condition:'', description:'Estrela', actions:[{ id:nanoid(6), address:'Q0.0', variable:'KM1', description:'KM1 Linha', condition:'1', kind:'N', displayDescription:true },{ id:nanoid(6), address:'Q0.2', variable:'KM3', description:'KM3 Estrela', condition:'1', kind:'N', displayDescription:true },{ id:nanoid(6), address:'Q0.4', variable:'H3', description:'H3 Estrela', condition:'1', kind:'N', displayDescription:true }]},
+    { id:gs0, name:'0', initial:true, stepType:'initial', action:'', condition:'', description:'Repouso', actions:[]},
+    { id:gs10, name:'10', initial:false, stepType:'simple', action:'', condition:'', description:'Estrela', actions:[{ id:nanoid(6), address:'Q0.0', variable:'KM1', description:'KM1 Linha', condition:'1', kind:'N', displayDescription:true },{ id:nanoid(6), address:'Q0.2', variable:'KM3', description:'KM3 Estrela', condition:'1', kind:'N', displayDescription:true }]},
     { id:gs11, name:'11', initial:false, stepType:'simple', action:'', condition:'', description:'Triângulo', actions:[{ id:nanoid(6), address:'Q0.0', variable:'KM1', description:'KM1', condition:'1', kind:'N', displayDescription:true },{ id:nanoid(6), address:'Q0.1', variable:'KM2', description:'KM2 Δ', condition:'1', kind:'N', displayDescription:true },{ id:nanoid(6), address:'Q0.3', variable:'H1', description:'H1 Marcha', condition:'1', kind:'N', displayDescription:true }]},
-    { id:gs12, name:'12', initial:false, stepType:'simple', action:'', condition:'', description:'Falha', actions:[{ id:nanoid(6), address:'Q0.5', variable:'H2', description:'H2 Falha', condition:'1', kind:'N', displayDescription:true }]},
+    { id:gs12, name:'12', initial:false, stepType:'simple', action:'', condition:'', description:'Falha', actions:[]},
   ]
   const transitions: GrafcetTransition[] = [
-    { id:'t10', name:'T10', from:[gs0], to:[gs10], condition:'I0.0*!I0.2*!I0.4*I0.3', description:'START X4:1 + AUTO X4:4' },
+    { id:'t10', name:'T10', from:[gs0], to:[gs10], condition:'I0.0*I0.1*I0.2*!I0.4*I0.3', description:'START X4:1 + AUTO X4:4' },
     { id:'t11', name:'T11', from:[gs10], to:[gs11], condition:'5s/X10', description:'5s em estrela → triângulo' },
-    { id:'t12', name:'T12', from:[gs11], to:[gs0], condition:'!I0.1+I0.2+I0.4', description:'STOP X4:2 / Emerg X4:3 / F1 X4:5 → repouso' },
+    { id:'t12', name:'T12', from:[gs11], to:[gs0], condition:'!I0.1+!I0.2+I0.4', description:'STOP X4:2 / Emerg X4:3 / F1 X4:5 → repouso' },
     { id:'t13', name:'T13', from:[gs0], to:[gs12], condition:'I0.4', description:'Térmico F1 via X4:5' },
     { id:'t14', name:'T14', from:[gs12], to:[gs0], condition:'!I0.4', description:'Rearme térmico' },
-    { id:'t15', name:'T15', from:[gs10], to:[gs0], condition:'I0.2+I0.4', description:'Emerg/térmico em estrela → repouso' },
+    { id:'t15', name:'T15', from:[gs10], to:[gs0], condition:'!I0.1+!I0.2+I0.4', description:'Emerg/térmico em estrela → repouso' },
   ]
   const pos = autoLayout(steps, transitions)
   const grafcet: GrafcetProgram = {
@@ -292,25 +318,26 @@ export function buildNativeEstrelaTriangulo(): {
     transitions: transitions.map((tr,i)=>({ ...tr, x: SPINE_X, y: 90 + i*110 })),
     comments:[
       { id:'c-title', text:'Estrela-Triângulo 4kW — QE1 (E/S via X4/X5 + espiral porta)', x:40, y:24, fontSize:15, fontWeight:'700', color:'#0f172a' },
-      { id:'c-desc', text:'Entradas X4:1..5 → I1..I5 | Saídas Q1..Q6 → X5:1..6 → KM/H | Espiral ESP1 porta | Filaças W01-W38 na calha', x:420, y:80, fontSize:11, color:'#334155' },
+      { id:'c-desc', text:'Entradas X4:1..5 → I1..I5 | Saídas Q1..Q4 → X5:1..4 | H3 via KM3 | H2 via F1 | Espiral ESP1 porta | Filaças W01-W38 na calha', x:420, y:80, fontSize:11, color:'#334155' },
     ]
   }
 
-  return { components: components as any, wires: bakeNativeRouting(components as any, wires as any), grafcet, tags }
+  const mounted = syncMounted(components)
+  return { components: mounted, wires: bakeNativeRouting(mounted.filter(c => !['panelEnclosure','cableDuct','spiralWrap','dinRail15x55'].includes(c.type)), wires), grafcet, tags }
 }
 
 export function nativeEstrelaTrianguloContent(): Record<string, unknown> {
   const built = buildNativeEstrelaTriangulo()
   return {
     app:'dc-simu', version:6, projectKind:'all', nativeId: NATIVE_ESTRELA_ID,
-    nativeFeatures:['estrela-triangulo-v2-borne-espiral-filaça'],
+    nativeFeatures:['estrela-triangulo-v2-borne-espiral-filaça', NATIVE_ESTRELA_FEATURE],
     savedAt: new Date().toISOString(),
     components: built.components, wires: built.wires, ladder:{ rungs:[] }, grafcet: built.grafcet, tags: built.tags,
     projectFiles:{}, hiddenProjectFolders:{}, projectFolderLabels:{}, fcBlocks:{ fc1:[], fc2:[] }, fcAdded:{ fc1:false, fc2:false },
-    activePlcId:'native-plc-estrela', plcPrograms:{}, plcTags:{}, commands:{ pages:[{id:'page-1',name:'Página 1'}], parts:[], texts:[], wires:[] },
+    activePlcId:built.components.find(c => c.ref === 'A1')!.id, plcPrograms:{}, plcTags:{}, commands:{ pages:[{id:'page-1',name:'Página 1'}], parts:[], texts:[], wires:[] },
     canvasNotes: (()=>{ const at=new Date().toISOString(); const msg=(id:string,t:string)=>({id,text:t,author:'DC-SIMU',createdAt:at}); return [
-      { id:'n-estrela-func', text:'Como testar', view:'3d', x:2.9, y:2.2, z:0.35, color:'#fde68a', messages:[msg('n-estrela-func-m0','1) QE1 fechado, EMERG OK, F1 armado.\n2) S3 AUTO + START (X4:1) → estrela 5s H3 (X5:5) → triângulo H1 (X5:4).\n3) STOP X4:2 / B0 X4:3 / F1 X4:5 → repouso H2.\nE/S sempre via bornes X4/X5; porta via espiral ESP1.')], createdAt:at },
-      { id:'n-estrela-bornes', text:'Bornes', view:'3d', x:2.9, y:1.6, z:0.35, color:'#93c5fd', messages:[msg('n-estrela-bornes-m0','X1 Força | X2 Motor | X3 24V\nX4:1..5 entradas → I1..I5\nX5:1..6 saídas Q1..Q6 → KM/H\nFilaças W01-W38 na calha D1/D2')], createdAt:at },
+      { id:'n-estrela-func', text:'Como testar', view:'3d', x:2.9, y:2.2, z:0.35, color:'#fde68a', messages:[msg('n-estrela-func-m0','1) QE1 fechado, EMERG OK, F1 armado.\n2) S3 AUTO + START (X4:1) → estrela 5s H3 (X5:5) → triângulo H1 (X5:4).\n3) STOP X4:2 / B0 X4:3 / F1 X4:5 → repouso. H2 indica disparo térmico.\nE/S sempre via bornes X4/X5; porta via espiral ESP1.')], createdAt:at },
+      { id:'n-estrela-bornes', text:'Bornes', view:'3d', x:2.9, y:1.6, z:0.35, color:'#93c5fd', messages:[msg('n-estrela-bornes-m0','X1 Força | X2 Motor | X3 24V\nX4:1..5 entradas → I1..I5\nX5:1..4 saídas Q1..Q4 → KM/H1; X5:5 H3 via KM3; X5:6 H2 via F1\nFilaças W01-W38 na calha D1/D2')], createdAt:at },
     ]})(),
     canvasTexts:[
       { id:'txt-estrela', view:'3d', text:'QE1 — Estrela-Triângulo 4kW (X4/X5 + ESP1)', x:-2.8, y:2.35, z:0.35, font:'sans', size:16, color:'#0f172a', bold:true, createdAt:new Date().toISOString() },

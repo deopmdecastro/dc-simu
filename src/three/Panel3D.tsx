@@ -1,3 +1,5 @@
+import { doorMountMotion, doorMountedComponent } from './doorMount'
+import { EquipmentDecal3D } from './EquipmentDecal3D'
 import { isTabletDesktop } from '../ui/device'
 import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
@@ -1904,7 +1906,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     viewOrientation: editor.draft,
     terminals: editor.terminals,
     view3DScale: editor.scale3D,
-  } : component), [storedComponents, editor])
+  } : component).map(c => doorMountedComponent(c, storedComponents)), [storedComponents, editor])
   // Enquanto modelos GLB ainda estão a carregar (Suspense/useProgress), não mostrar
   // o overlay de cálculo de cabos — evita tela de processamento sobre cena incompleta.
   const { active: modelsLoading } = useProgress()
@@ -2943,9 +2945,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     return [0, RAIL_Y + 1.05, 0.4]
   }
   const front = useMemo(() => Object.fromEntries(offRail.map((component) => [component.id, 0])) as Record<string, number>, [offRail])
-  const orientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
+  const baseOrientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
     ? viewOrientationEditor.draft
     : componentOrientationOf(component)
+  const orientationFor = (component: ElectricalComponent) => componentOrientationOf(doorMountedComponent({ ...component, viewOrientation: baseOrientationFor(component) }, components))
   const basePivots: Record<string, THREE.Vector3> = Object.fromEntries(components.map((component) => {
     const railPosition = positions[component.id]
     return [component.id, railPosition
@@ -2969,7 +2972,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         const dims = enclosureDimsOf(enclosure.state)
         const offX = (component.panelMount.offsetXmm ?? 0) * PANEL_UNITS_PER_MM
         const offY = (component.panelMount.offsetYmm ?? 0) * PANEL_UNITS_PER_MM
-        const half = componentHalfExtents(component, orientationFor(component))
+        const half = componentHalfExtents(component, baseOrientationFor(component))
         const baseZ = PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM
         const face = component.panelMount.face
         if (face === 'door' || face === 'doorOuter') {
@@ -3004,18 +3007,22 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       panelPivots[component.id] = new THREE.Vector3(x, y, railCenterZ(component))
     } else if (component.type === 'panelEnclosure') {
       // Pivô no centro do armário; a face da chapa de montagem do quadro coincide com a da chapa do painel.
-      const half = componentHalfExtents(component, orientationFor(component))
+      const half = componentHalfExtents(component, baseOrientationFor(component))
       panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + half.z)
     } else if (component.type === 'cableDuct' || component.type === 'spiralWrap') {
-      const half = componentHalfExtents(component, orientationFor(component))
+      const half = componentHalfExtents(component, baseOrientationFor(component))
       panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z + half.z)
     } else if (!isPanelBound(component)) {
       panelPivots[component.id] = new THREE.Vector3(x, y, frontPivot(component)[2])
     } else {
       // Assente na face da calha (mesma profundidade, esteja ou não fixo numa calha).
-      const half = componentHalfExtents(component, orientationFor(component))
+      const half = componentHalfExtents(component, baseOrientationFor(component))
       panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z + mountedRailHeightMm(component, components) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components))
     }
+  }
+  for (const component of components) {
+    const motion = doorMountMotion(component, components, PLATE_FRONT_Z)
+    if (motion) panelPivots[component.id].sub(motion.hinge).applyAxisAngle(new THREE.Vector3(0, 1, 0), motion.angle).add(motion.hinge)
   }
   /** Só geometria/posições contam para sombras: RUN mexe estados, não posições. */
   const shadowWatch = useMemo(() => {
@@ -3340,8 +3347,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     store.pushEvent('info', 'Edição 3D do cabo cancelada; os valores anteriores foram repostos.')
   }
   const wireEnds = (wire: Wire) => {
-    const from = wireEndpoint3D(wire, 'from', components, panelPivots, wires)
-    const to = wireEndpoint3D(wire, 'to', components, panelPivots, wires)
+    const mounted = components.map(c => doorMountedComponent(c, components))
+    const from = wireEndpoint3D(wire, 'from', mounted, panelPivots, wires)
+    const to = wireEndpoint3D(wire, 'to', mounted, panelPivots, wires)
     return from && to ? { from, to } : null
   }
   const selectedWirePath = (() => {
@@ -3457,7 +3465,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const pivot = panelPivots[component.id]
     if (!pivot) return []
     return component.terminals.map((terminal) => {
-      const world = terminalWorld3D(component, terminal, pivot)
+      const world = terminalWorld3D(doorMountedComponent(component, components), terminal, pivot)
       return { id: terminal.id, position: [world.x, world.y, world.z] as V3, label: terminal.label, ref: component.ref, color: terminal.color }
     })
   })
@@ -3921,54 +3929,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           {components.filter((c) => (c.decals ?? []).length && c.type !== 'panelEnclosure').map((c) => {
             const pivot = panelPivots[c.id]
             if (!pivot) return null
-            const half = componentHalfExtents(c, orientationFor(c))
-            return <group key={`decals-${c.id}`}>
-              {(c.decals ?? []).map((d) => {
-                const offX = (d.offsetXmm ?? 0) * PANEL_UNITS_PER_MM
-                const offY = (d.offsetYmm ?? 0) * PANEL_UNITS_PER_MM
-                const wMm = d.widthMm ?? 30
-                const hMm = d.heightMm ?? 15
-                let pos = new THREE.Vector3(pivot.x + offX, pivot.y + offY, pivot.z + half.z + 0.02)
-                let rotY = 0
-                if (d.face && d.face !== 'front' && c.panelMount?.enclosureId) {
-                  const enc = components.find((e) => e.id === c.panelMount!.enclosureId)
-                  if (enc) {
-                    const ed = enclosureDimsOf(enc.state)
-                    const open = enc.state.doorOpen !== false
-                    if (open && (c.panelMount.face === 'door' || c.panelMount.face === 'doorOuter')) {
-                      const encCenter = componentPanelXY(enc)
-                      const baseZ = PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM
-                      const side = enclosureHingeOf(enc.state) === 'right' ? 1 : -1
-                      const hingeX = encCenter.x + side * (ed.widthMm / 2 + 3) * PANEL_UNITS_PER_MM
-                      const hingeZ = baseZ + (ed.depthMm + 6) * PANEL_UNITS_PER_MM
-                      const hinge = new THREE.Vector3(hingeX, encCenter.y, hingeZ)
-                      const rel = pos.clone().sub(hinge)
-                      const rad = THREE.MathUtils.degToRad(ENCLOSURE.openDeg * (side === 1 ? 1 : -1))
-                      rel.applyAxisAngle(new THREE.Vector3(0, 1, 0), rad)
-                      pos = hinge.clone().add(rel)
-                      rotY = rad
-                    }
-                  }
-                }
-                const bg = d.background ?? '#ffffff'
-                const fg = d.color ?? '#0f172a'
-                const iconMap2: Record<string, string> = { bolt: '⚡', danger: '☠', ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
-                const iconTxt2 = d.icon ? (iconMap2[d.icon] ?? d.icon) : ''
-                return <group key={d.id} position={pos} rotation={[0, rotY, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}>
-                  <Html center transform distanceFactor={6} sprite={false} style={{ pointerEvents: 'none' }}>
-                    <div style={{
-                      background: bg, color: fg, border: d.border !== false ? `1.4px solid ${fg}` : 'none',
-                      width: `${wMm * 3.2}px`, height: `${hMm * 3.2}px`, borderRadius: `${Math.min(4, hMm * 0.22 * 3.2)}px`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                      fontWeight: d.kind === 'logo' ? 800 : 700, fontSize: `${Math.max(8, hMm * 0.38 * 3.2)}px`,
-                      letterSpacing: d.kind === 'logo' ? '0.6px' : undefined, padding: '2px 5px',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.35)', whiteSpace: 'nowrap', fontFamily: 'system-ui, sans-serif'
-                    }}>
-                      {iconTxt2 && <span>{iconTxt2}</span>}<span>{d.text ?? ''}</span>
-                    </div>
-                  </Html>
-                </group>
-              })}
+            const half = componentHalfExtents(c, baseOrientationFor(c))
+            return <group key={`decals-${c.id}`} position={pivot} rotation={orientationRadians(orientationFor(c))}>
+              {(c.decals ?? []).map((d) => <group key={d.id}
+                position={[(d.offsetXmm ?? 0) * PANEL_UNITS_PER_MM, (d.offsetYmm ?? 0) * PANEL_UNITS_PER_MM, half.z + 0.02]}
+                rotation={[0, 0, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}>
+                <EquipmentDecal3D decal={d} />
+              </group>)}
             </group>
           })}
         </group>
