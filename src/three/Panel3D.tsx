@@ -1353,6 +1353,36 @@ function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return <group position={[x, RAIL_Y + 0.48, 0.12]}><primitive object={model} /></group>
 }
 
+/** PTI6 multi-pólo: N blocos lado a lado (escala real 8,15 mm/pólo) */
+function Pti6Strip3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const n = Math.max(1, Math.min(48, Math.floor(Number((c.state as any).poleCount ?? 1)) || 1))
+  const spec = getComponentModelSpec('terminalPhoenixPti6')!
+  const { scene } = useGLTF(spec.path)
+  const model = useMemo(() => {
+    const obj = cloneModelScene(scene)
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material)
+        ? mesh.material.map((m) => finishCadMaterial(m, { envMapIntensity: 1.2 }))
+        : finishCadMaterial(mesh.material, { envMapIntensity: 1.2 })
+      mesh.castShadow = mesh.receiveShadow = true
+    })
+    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    void applyCadSurfaceTextures(fitted)
+    return fitted
+  }, [scene, spec])
+  const step = 8.15 * PANEL_UNITS_PER_MM // largura física por pólo
+  return (
+    <group position={[x, RAIL_Y + 0.48, 0.12]}>
+      {Array.from({ length: n }).map((_, i) => {
+        const offset = (i - (n - 1) / 2) * step
+        return <primitive key={i} object={model.clone()} position={[offset, 0, 0]} />
+      })}
+    </group>
+  )
+}
+
 function PLCBox3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return (
     <group position={[x, RAIL_Y + 0.46, 0]}>
@@ -3843,6 +3873,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CadComponentReal3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
+          else if ((c as any).type === 'terminalPhoenixPti6' && Number((c as any).state?.poleCount ?? 1) > 1) content = <Pti6Strip3D c={c} x={x} />
           else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} interactive={interactive && !c.locked} />

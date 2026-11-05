@@ -876,7 +876,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('1', 'io', 0.5, 0, { terminalType: 'spring', color: '#f59e0b' }),
       T('2', 'io', 0.5, 1, { terminalType: 'spring', color: '#f59e0b' }),
     ],
-    defaultState: { bridged: true, connection: 'Push-in', sectionMm2: 6, maxSectionMm2: 10, nominalA: 41, nominalV: 800, article: '3213972' },
+    defaultState: { bridged: true, connection: 'Push-in', sectionMm2: 6, maxSectionMm2: 10, nominalA: 41, nominalV: 800, article: '3213972', poleCount: 1 },
   },
   terminalPE: {
     category: 'terminal', paletteName: 'Borne de terra (verde/amarelo)', group: 'Bornes e barras', tag: 'XPE', w: 70, h: 50,
@@ -1368,9 +1368,22 @@ export function createComponent(
   stateOverride: Record<string, any> = {},
 ): ElectricalComponent {
   const tpl = TEMPLATES[type]
-  const footprint = getSchematicPhysicalFootprint(type) ?? { w: tpl.w, h: tpl.h }
+  // PTI6 régua variável: footprint depende de poleCount (76px por pólo)
+  let footprint = getSchematicPhysicalFootprint(type) ?? { w: tpl.w, h: tpl.h }
+  if (type === 'terminalPhoenixPti6' && typeof stateOverride.poleCount === 'number') {
+    const n = Math.max(1, Math.min(48, Math.floor(Number(stateOverride.poleCount)) || 1))
+    footprint = { w: 76 * n, h: tpl.h }
+  }
   const compId = nanoid(8)
-  const terminals: Terminal[] = tpl.terminals.map((t) => ({
+  // PTI6 multi-pólo: gerar 2*N bornes dinamicamente em vez do template fixo 1-2
+  let srcTemplates: TerminalTemplate[] = tpl.terminals
+  if (type === 'terminalPhoenixPti6' && typeof stateOverride.poleCount === 'number' && Number(stateOverride.poleCount) > 1) {
+    try {
+      const { pti6TerminalTemplates } = require('./pti6Strip') as typeof import('./pti6Strip')
+      srcTemplates = pti6TerminalTemplates(Number(stateOverride.poleCount))
+    } catch { /* fallback mantém 2 bornes */ }
+  }
+  const terminals: Terminal[] = srcTemplates.map((t) => ({
     id: `${compId}-${t.label}`,
     componentId: compId,
     label: t.label,

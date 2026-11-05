@@ -444,6 +444,10 @@ interface Store extends CircuitState {
   addTerminal: (componentId: string) => void
   updateTerminal: (terminalId: string, patch: Partial<Terminal>) => void
   deleteTerminal: (terminalId: string) => void
+  /** Régua PTI6: define N pólos (1..48) — regenera bornes 1..2N e footprint. */
+  setTerminalPoleCount: (componentId: string, poleCount: number) => void
+  /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). */
+  createTerminalStrip: (componentId: string, count: number) => void
   addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor, waypoints?: Array<{ x: number; y: number }>) => void
   /** Cabo desenhado no Painel 3D: cada ponta é um borne ou um ponto livre no espaço; devolve o id do cabo. */
   addWire3D: (from: WireEnd3D, to: WireEnd3D, waypoints3D?: SpatialPoint3D[]) => string | null
@@ -2666,6 +2670,113 @@ export const useSimStore = create<Store>((set, get) => {
       selectedTerminalId: null,
       dirty: true,
     }))
+    recomputeIfActive()
+  },
+
+  setTerminalPoleCount: (componentId, poleCount) => {
+    const c = get().components.find((x) => x.id === componentId)
+    if (!c || c.type !== 'terminalPhoenixPti6') return
+    const n = Math.max(1, Math.min(48, Math.floor(Number(poleCount)) || 1))
+    if ((c.state.poleCount ?? 1) === n && c.terminals.length === n * 2) return
+    get().commitHistory()
+    // gera novos templates e preserva cabos onde o rótulo coincide
+    let templates: import('../electrical/factory').TerminalTemplate[] = []
+    try {
+      const { pti6TerminalTemplates, pti6SchematicFootprint } = require('../electrical/pti6Strip') as typeof import('../electrical/pti6Strip')
+      templates = pti6TerminalTemplates(n)
+      const fp = pti6SchematicFootprint(n)
+      const oldByLabel = new Map(c.terminals.map((t) => [t.label, t]))
+      const newTerminals: import('../types').Terminal[] = templates.map((t) => {
+        const existing = oldByLabel.get(t.label)
+        if (existing) return { ...existing, x: t.x, y: t.y, position3D: t.position3D as any, socket3D: (t as any).socket3D, terminalType: t.terminalType as any, color: t.color as any, diameter: (t as any).diameter }
+        return {
+          id: `${c.id}-${t.label}`,
+          componentId: c.id,
+          label: t.label,
+          kind: t.kind as any,
+          terminalType: (t.terminalType as any) ?? 'spring',
+          color: (t.color as any) ?? '#f59e0b',
+          x: t.x, y: t.y,
+          ...(t.position3D ? { position3D: { ...t.position3D } as any } : {}),
+          ...((t as any).socket3D ? { socket3D: { ...(t as any).socket3D, normal: [...(t as any).socket3D.normal], position: { ...(t as any).socket3D.position } } } : {}),
+          ...(t.diameter ? { diameter: t.diameter } : {}),
+          energized: false,
+        }
+      })
+      const keptLabels = new Set(templates.map((t) => t.label))
+      const keptTerminalIds = new Set(newTerminals.map((t) => t.id))
+      // ids antigos que mudam de label são descartados; recria o set de wires válidos
+      const validIds = new Set([...keptTerminalIds, ...[...oldByLabel.values()].filter((old) => keptLabels.has(old.label)).map((old) => old.id)])
+      // na prática usamos só os novos ids: cabos de bornes removidos são limpos
+      const survivingTerminalIds = new Set(newTerminals.map((t) => t.id))
+      // mapear cabos antigos: se o borne antigo tinha mesmo rótulo, reatribui id para o novo borne com mesmo rótulo
+      const labelToNewId = new Map(newTerminals.map((t) => [t.label, t.id]))
+      const migratedWires = get().wires.map((w) => {
+        const fromOld = c.terminals.find((t) => t.id === w.fromTerminalId)
+        const toOld = c.terminals.find((t) => t.id === w.toTerminalId)
+        let fromId = w.fromTerminalId, toId = w.toTerminalId
+        if (fromOld && labelToNewId.has(fromOld.label)) fromId = labelToNewId.get(fromOld.label)!
+        if (toOld && labelToNewId.has(toOld.label)) toId = labelToNewId.get(toOld.label)!
+        return { ...w, fromTerminalId: fromId, toTerminalId: toId }
+      })
+      // filtra cabos que ficaram pendurados nos bornes removidos
+      const filteredWires = migratedWires.filter((w) => {
+        const fromRemoved = c.terminals.some((t) => t.id === w.fromTerminalId) && !keptLabels.has(c.terminals.find((t) => t.id === w.fromTerminalId)!.label)
+        const toRemoved = c.terminals.some((t) => t.id === w.toTerminalId) && !keptLabels.has(c.terminals.find((t) => t.id === w.toTerminalId)!.label)
+        // cabos que ainda apontam para ids antigos não migrados
+        if (fromRemoved || toRemoved) return false
+        // depois da migração, ambos os ids devem existir (ou ser pontas livres)
+        return true
+      })
+      // segunda passagem: garante que só permanecem cabos cujas pontas existem no novo conjunto ou noutros componentes
+      const allTerminalIds = new Set([...get().components.flatMap((comp) => comp.id === c.id ? newTerminals.map((t) => t.id) : comp.terminals.map((t) => t.id))])
+      const finalWires = filteredWires.filter((w) => (!w.fromTerminalId || allTerminalIds.has(w.fromTerminalId) || w.fromPoint) && (!w.toTerminalId || allTerminalIds.has(w.toTerminalId) || w.toPoint))
+
+      set((s) => ({
+        components: s.components.map((comp) => comp.id === c.id ? { ...comp, w: fp.w, h: fp.h, terminals: newTerminals, state: { ...comp.state, poleCount: n } } : comp),
+        wires: normalizeWires(finalWires as any, s.components),
+        dirty: true,
+      }))
+      get().pushEvent('info', `${c.ref}: régua atualizada para ${n} pólo(s) · ${n * 2} bornes.`)
+      recomputeIfActive()
+    } catch (e) {
+      get().pushEvent('warning', `Falha ao atualizar pólos: ${String(e)}`)
+    }
+  },
+
+  createTerminalStrip: (componentId, count) => {
+    const base = get().components.find((x) => x.id === componentId)
+    if (!base || base.type !== 'terminalPhoenixPti6') return
+    const n = Math.max(1, Math.min(48, Math.floor(Number(count)) || 1))
+    if (n <= 1) { get().pushEvent('info', 'Defina pelo menos 2 bornes para gerar a régua X1…Xn.'); return }
+    get().commitHistory()
+    // base já conta como 1; criar n-1 clones ao lado na mesma calha
+    const { createComponent, nextRef } = require('../electrical/factory') as typeof import('../electrical/factory')
+    const all = get().components
+    // posicionamento: tenta colocar à direita do base, com passo de 8.15mm (≈76px/12px? usa w do base)
+    const stepPx = base.w // cada borne já tem largura de 1 pólo; clones terão mesma largura
+    let nextX = base.schematicX + stepPx + 4
+    const newComponents: import('../types').ElectricalComponent[] = []
+    for (let i = 1; i < n; i++) {
+      const ref = nextRef([...all, ...newComponents], base.type)
+      // tenta avançar até achar posição livre; desloca em X
+      let x = nextX + i * 4
+      let y = base.schematicY
+      // evita sobreposição simples
+      let tries = 0
+      while (tries < 24) {
+        const occupied = [...all, ...newComponents].some((c) => Math.abs(c.schematicX - x) < 8 && Math.abs(c.schematicY - y) < 8)
+        if (!occupied) break
+        x += stepPx + 6; tries++
+      }
+      const comp = createComponent(base.type, ref, base.label, 0, x, y, { ...base.state, poleCount: 1 })
+      ;(comp as any).railId = (base as any).railId
+      ;(comp as any).enclosureId = (base as any).enclosureId
+      newComponents.push(comp)
+      nextX += stepPx + 4
+    }
+    set((s) => ({ components: [...s.components, ...newComponents], selectedComponentIds: [base.id, ...newComponents.map((c) => c.id)], dirty: true }))
+    get().pushEvent('info', `Régua criada: ${[base.ref, ...newComponents.map((c) => c.ref)].join(', ')} · ${n} bornes na mesma calha. Arraste-os ou use «Centrar e fixar» na calha TR.`)
     recomputeIfActive()
   },
 
