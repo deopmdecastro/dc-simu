@@ -2,9 +2,10 @@
 // Cada bloco tem 2 bornes (1/2) em ponte interna; N blocos = 2*N terminais.
 // Largura física: 8.15mm por bloco; footprint esquema: base 76px por bloco.
 import type { TerminalTemplate } from './factory'
-import { KIND_COLOR } from './factory'
 import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 import { REAL_TERMINALS } from './realInterfaces'
+
+const KIND_COLOR_FALLBACK: Record<string, string> = { io: '#f59e0b', 'power-in': '#ef4444', 'power-out': '#f87171' }
 
 export const PTI6_BASE_WIDTH_MM = 8.15
 export const PTI6_BASE_SCHEMATIC_W = 76
@@ -31,7 +32,7 @@ function T(label: string, kind: any, x: number, y: number, extra: Partial<Termin
   return {
     label, kind, x, y,
     terminalType: (extra.terminalType as any) ?? (KIND_TYPE_LOCAL[kind] as any) ?? 'spring',
-    color: (extra.color as any) ?? (KIND_COLOR as any)[kind] ?? '#f59e0b',
+    color: (extra.color as any) ?? (KIND_COLOR_FALLBACK as any)[kind] ?? '#f59e0b',
     ...extra,
   } as TerminalTemplate
 }

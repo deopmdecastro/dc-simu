@@ -23,6 +23,7 @@ import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { terminalAssemblyConductors, TERMINAL_CONDUCTOR_PATTERN } from '../three/terminalAssembly'
 import { nanoid } from 'nanoid'
+import { pti6TerminalTemplates } from './pti6Strip'
 import type {
   ElectricalComponent,
   ComponentType,
@@ -1378,10 +1379,7 @@ export function createComponent(
   // PTI6 multi-pólo: gerar 2*N bornes dinamicamente em vez do template fixo 1-2
   let srcTemplates: TerminalTemplate[] = tpl.terminals
   if (type === 'terminalPhoenixPti6' && typeof stateOverride.poleCount === 'number' && Number(stateOverride.poleCount) > 1) {
-    try {
-      const { pti6TerminalTemplates } = require('./pti6Strip') as typeof import('./pti6Strip')
-      srcTemplates = pti6TerminalTemplates(Number(stateOverride.poleCount))
-    } catch { /* fallback mantém 2 bornes */ }
+    srcTemplates = pti6TerminalTemplates(Number(stateOverride.poleCount))
   }
   const terminals: Terminal[] = srcTemplates.map((t) => ({
     id: `${compId}-${t.label}`,
