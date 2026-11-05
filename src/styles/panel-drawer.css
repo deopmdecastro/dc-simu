@@ -61,20 +61,34 @@
   .dc-workspace .mobile-library-panel, .dc-workspace .mobile-grafcet-panel, .grafcet-toolbox, .ladder-project-pane, .ladder-palette { animation: none !important; }
 }
 
-/* Tablet: painel não pode ficar em 300 px quando o inspetor tem 2 colunas (CT, calha, etc.) */
-@media (min-width: 768px) and (max-width: 1199px) {
+/* Painel do inspetor tem grids de 2 colunas (X/Y, L×A, CT...) que cortam quando o painel é < 340px.
+   Em tablet e portátil o utilizador mantém os 2 painéis abertos — o painel não pode ficar a 280px. */
+@media (min-width: 768px) {
   .dc-workspace .mobile-library-panel {
-    width: clamp(300px, 36vw, 390px) !important;
-    min-width: 300px;
-    max-width: min(390px, 44vw);
+    width: clamp(340px, 29vw, 420px) !important;
+    min-width: 340px;
+    max-width: 420px;
+    flex-shrink: 0;
   }
-  /* o conteúdo da coluna tem de poder encolher; senão o flex corta à direita */
+  /* o flex corta à direita se o filho não puder encolher; o inspetor tem de poder rolar no eixo X */
   .pn-panel, .dc-inspector-scroll, .pn-body, .dc-library-scroll {
     min-width: 0;
-    overflow-x: hidden;
   }
-  .dc-inspector-scroll, .pn-body {
+  .dc-inspector-scroll {
+    overflow-x: auto;
+    overflow-y: auto;
     overscroll-behavior: contain;
+    /* evita que inputs de 2 colunas forcem overflow: empilham em tablet */
+  }
+}
+/* Em ecrãs ≤ 1100px de largura útil o grid de 2 colunas do inspetor empilha para não cortar */
+@media (max-width: 1200px) {
+  .dc-inspector-group-body.grid-cols-2,
+  .dc-inspector-group-body .grid.grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+  .dc-inspector-group-body .grid.grid-cols-2 > * {
+    min-width: 0;
   }
 }
 
