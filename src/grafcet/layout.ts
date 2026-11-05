@@ -79,10 +79,83 @@ export function findFreeSlot(
   return { x: cx, y }
 }
 
+/** Componente conexo via arestas não-dirigidas (um Grafcet independente). */
+function connectedComponents(steps: GrafcetStep[], next: Map<string, string[]>): string[][] {
+  const ids = steps.map((s) => s.id)
+  const adj = new Map<string, Set<string>>()
+  ids.forEach((id) => adj.set(id, new Set()))
+  for (const [from, tos] of next) for (const to of tos) { adj.get(from)!.add(to); adj.get(to)!.add(from) }
+  const visited = new Set<string>()
+  const comps: string[][] = []
+  for (const id of ids) if (!visited.has(id)) {
+    const q = [id]; visited.add(id); const comp: string[] = []
+    while (q.length) { const cur = q.shift()!; comp.push(cur); for (const nb of adj.get(cur) ?? []) if (!visited.has(nb)) { visited.add(nb); q.push(nb) } }
+    comps.push(comp)
+  }
+  return comps
+}
+
+/** Layout de um único Grafcet conexo (camadas + colunas) — extraído para reuso por componente. */
+function layoutSingleComponent(
+  compSteps: GrafcetStep[],
+  transitions: GrafcetTransition[],
+  nextGlobal: Map<string, string[]>,
+  order: Map<string, number>
+): Map<string, { x: number; y: number }> {
+  const ids = new Set(compSteps.map((s) => s.id))
+  const next = new Map<string, string[]>()
+  const prev = new Map<string, string[]>()
+  compSteps.forEach((s) => { next.set(s.id, []); prev.set(s.id, []) })
+  for (const t of transitions) for (const from of t.from) if (ids.has(from)) for (const to of t.to) if (ids.has(to) && to !== from) next.get(from)!.push(to)
+
+  const isInitial = (s: GrafcetStep) => s.initial || s.stepType === 'initial' || s.stepType === 'initial-enclosing'
+  const hasIncoming = new Set<string>(); next.forEach((tos) => tos.forEach((to) => hasIncoming.add(to)))
+  let roots = compSteps.filter(isInitial).map((s) => s.id)
+  if (!roots.length) roots = compSteps.filter((s) => !hasIncoming.has(s.id)).map((s) => s.id)
+  if (!roots.length) roots = [compSteps[0].id]
+
+  const state = new Map<string, 0 | 1 | 2>(); const back = new Set<string>()
+  const visit = (id: string) => { state.set(id, 1); for (const to of next.get(id) ?? []) { const st = state.get(to) ?? 0; if (st === 1) back.add(`${id}>${to}`); else if (st === 0) visit(to) }; state.set(id, 2) }
+  roots.forEach((r) => { if (!state.get(r)) visit(r) }); compSteps.forEach((s) => { if (!state.get(s.id)) visit(s.id) })
+
+  const forward = new Map<string, string[]>(); compSteps.forEach((s) => forward.set(s.id, []))
+  next.forEach((tos, from) => tos.forEach((to) => { if (!back.has(`${from}>${to}`)) { forward.get(from)!.push(to); prev.get(to)!.push(from) } }))
+
+  const level = new Map<string, number>(); compSteps.forEach((s) => level.set(s.id, 0))
+  const indeg = new Map<string, number>(); compSteps.forEach((s) => indeg.set(s.id, prev.get(s.id)!.length))
+  const queue = compSteps.filter((s) => indeg.get(s.id) === 0).map((s) => s.id)
+  while (queue.length) { const id = queue.shift()!; for (const to of forward.get(id) ?? []) { level.set(to, Math.max(level.get(to) ?? 0, (level.get(id) ?? 0) + 1)); indeg.set(to, (indeg.get(to) ?? 1) -1); if (indeg.get(to) === 0) queue.push(to) } }
+
+  // Emergência / source: etapas não-iniciais sem entrada devem ir para o fundo, não para o topo
+  const maxLv0 = Math.max(0, ...compSteps.map((s) => level.get(s.id) ?? 0))
+  for (const s of compSteps) if (!isInitial(s) && (prev.get(s.id)!.length === 0) && !hasIncoming.has(s.id)) {
+    const cur = level.get(s.id) ?? 0
+    if (cur < maxLv0) level.set(s.id, maxLv0 + 1)
+  }
+
+  const maxLevel = Math.max(...compSteps.map((s) => level.get(s.id) ?? 0))
+  const column = new Map<string, number>(); const levelTop: number[] = []; let cursor = 0
+  for (let lv = 0; lv <= maxLevel; lv++) {
+    const row = compSteps.filter((s) => (level.get(s.id) ?? 0) === lv)
+    levelTop[lv] = cursor
+    if (!row.length) { cursor += stepPitch(0); continue }
+    const desired = new Map<string, number>()
+    row.forEach((s) => { const parents = prev.get(s.id)!.filter((p) => column.has(p)); desired.set(s.id, parents.length ? parents.reduce((sum, p) => sum + column.get(p)!, 0) / parents.length : 0) })
+    row.sort((a, b) => desired.get(a.id)! - desired.get(b.id)! || order.get(a.id)! - order.get(b.id)!)
+    let last = -Infinity; row.forEach((s) => { const col = Math.max(Math.round(desired.get(s.id)!), last + 1); column.set(s.id, col); last = col })
+    cursor += Math.max(...row.map((s) => stepPitch(actionsOfStep(s).length)))
+  }
+  const result = new Map<string, { x: number; y: number }>()
+  compSteps.forEach((s) => { const lv = level.get(s.id) ?? 0; result.set(s.id, { x: (column.get(s.id) ?? 0) * COLUMN_WIDTH, y: levelTop[lv] ?? 0 }) })
+  return result
+}
+
 /**
  * Layout em camadas para "Organizar": a profundidade de cada etapa é o caminho mais
  * longo a partir das etapas iniciais (ignorando arestas de retorno) e as etapas da
  * mesma camada (ramos simultâneos / alternativos) ficam em colunas lado a lado.
+ * Multi-Grafcet (ATEC): cada componente conexo é desenhado isolado e depois ladrilhado
+ * em grelha — evita que G0/G1/G2/manutenção se sobreponham.
  */
 export function autoLayout(
   steps: GrafcetStep[],
@@ -94,104 +167,57 @@ export function autoLayout(
   const ids = new Set(steps.map((s) => s.id))
   const order = new Map(steps.map((s, i) => [s.id, i]))
   const next = new Map<string, string[]>()
-  const prev = new Map<string, string[]>()
-  steps.forEach((s) => {
-    next.set(s.id, [])
-    prev.set(s.id, [])
-  })
-  for (const t of transitions) {
-    for (const from of t.from) {
-      if (!ids.has(from)) continue
-      for (const to of t.to) {
-        if (!ids.has(to) || to === from) continue
-        next.get(from)!.push(to)
-      }
-    }
+  steps.forEach((s) => next.set(s.id, []))
+  for (const t of transitions) for (const from of t.from) if (ids.has(from)) for (const to of t.to) if (ids.has(to) && to !== from) next.get(from)!.push(to)
+
+  const comps = connectedComponents(steps, next)
+  // Um só Grafcet → layout clássico sem ladrilhamento (mantém comportamento para prensa/portão)
+  if (comps.length === 1) {
+    const single = layoutSingleComponent(steps, transitions, next, order)
+    for (const [id, pos] of single) result.set(id, { x: SPINE_X + pos.x, y: START_Y + pos.y })
+    return result
   }
 
-  const isInitial = (s: GrafcetStep) => s.initial || s.stepType === 'initial' || s.stepType === 'initial-enclosing'
-  const hasIncoming = new Set<string>()
-  next.forEach((targets) => targets.forEach((t) => hasIncoming.add(t)))
-  let roots = steps.filter(isInitial).map((s) => s.id)
-  if (!roots.length) roots = steps.filter((s) => !hasIncoming.has(s.id)).map((s) => s.id)
-  if (!roots.length) roots = [steps[0].id]
+  // Ordena componentes como no ATEC: pelo menor nome numérico (1,11,81,141…) — estável e fiel ao manual
+  const stepById = new Map(steps.map((s) => [s.id, s]))
+  const compInfos = comps.map((ids) => {
+    const compSteps = ids.map((id) => stepById.get(id)!).filter(Boolean)
+    const minName = Math.min(...compSteps.map((s) => { const n = parseInt(s.name, 10); return Number.isFinite(n) ? n : 9999 }))
+    return { ids, compSteps, minName }
+  }).sort((a, b) => a.minName - b.minName || order.get(a.ids[0])! - order.get(b.ids[0])!)
 
-  // DFS para marcar arestas de retorno (ciclos) e obter uma ordenação topológica.
-  const state = new Map<string, 0 | 1 | 2>()
-  const back = new Set<string>()
-  const visit = (id: string) => {
-    state.set(id, 1)
-    for (const to of next.get(id) ?? []) {
-      const st = state.get(to) ?? 0
-      if (st === 1) back.add(`${id}>${to}`)
-      else if (st === 0) visit(to)
+  // Ladrilhamento em grelha — fiel ao ATEC: 3 Grafcets principais em cima (G0/G1/G2),
+  // 5 manuais em baixo (G3-G7). Genérico: grandes (>5 etapas) em cima com 3 colunas,
+  // pequenos (≤5) em baixo com 5 colunas. Evita sobreposição e replica o manual.
+  const GAP_X = 420, GAP_Y = 320
+  const LARGE_THRESH = 5
+  const largeInfos = compInfos.filter((c) => c.compSteps.length > LARGE_THRESH)
+  const smallInfos = compInfos.filter((c) => c.compSteps.length <= LARGE_THRESH)
+  const groups: Array<{ infos: typeof compInfos; maxCols: number }> = []
+  if (largeInfos.length) groups.push({ infos: largeInfos, maxCols: 3 })
+  if (smallInfos.length) groups.push({ infos: smallInfos, maxCols: 5 })
+  if (!groups.length) groups.push({ infos: compInfos, maxCols: 3 })
+
+  let cursorY = 0
+  for (const group of groups) {
+    let col = 0, rowH = 0, cursorX = 0
+    let groupStartY = cursorY
+    let groupRowH = 0
+    for (let idx = 0; idx < group.infos.length; idx++) {
+      const { compSteps } = group.infos[idx]
+      const local = layoutSingleComponent(compSteps, transitions, next, order)
+      const xs = [...local.values()].map((p) => p.x), ys = [...local.values()].map((p) => p.y)
+      const compW = (xs.length ? Math.max(...xs) - Math.min(...xs) : 0) + COLUMN_WIDTH
+      const compH = (ys.length ? Math.max(...ys) - Math.min(...ys) : 0) + 180
+      if (col >= group.maxCols) { col = 0; cursorX = 0; cursorY += rowH + GAP_Y; groupRowH += rowH + GAP_Y; rowH = 0 }
+      const offsetX = cursorX, offsetY = cursorY
+      for (const [id, pos] of local) result.set(id, { x: SPINE_X + offsetX + pos.x, y: START_Y + offsetY + pos.y })
+      cursorX += compW + GAP_X
+      rowH = Math.max(rowH, compH)
+      col++
     }
-    state.set(id, 2)
+    cursorY += rowH + GAP_Y
   }
-  roots.forEach((r) => {
-    if (!state.get(r)) visit(r)
-  })
-  steps.forEach((s) => {
-    if (!state.get(s.id)) visit(s.id)
-  })
-
-  const forward = new Map<string, string[]>()
-  steps.forEach((s) => forward.set(s.id, []))
-  next.forEach((targets, from) =>
-    targets.forEach((to) => {
-      if (!back.has(`${from}>${to}`)) {
-        forward.get(from)!.push(to)
-        prev.get(to)!.push(from)
-      }
-    })
-  )
-
-  // Camada = caminho mais longo desde uma raiz (relaxamento sobre o DAG).
-  const level = new Map<string, number>()
-  steps.forEach((s) => level.set(s.id, 0))
-  const indeg = new Map<string, number>()
-  steps.forEach((s) => indeg.set(s.id, prev.get(s.id)!.length))
-  const queue = steps.filter((s) => indeg.get(s.id) === 0).map((s) => s.id)
-  while (queue.length) {
-    const id = queue.shift()!
-    for (const to of forward.get(id) ?? []) {
-      level.set(to, Math.max(level.get(to) ?? 0, (level.get(id) ?? 0) + 1))
-      indeg.set(to, (indeg.get(to) ?? 1) - 1)
-      if (indeg.get(to) === 0) queue.push(to)
-    }
-  }
-
-  const maxLevel = Math.max(...steps.map((s) => level.get(s.id) ?? 0))
-  const column = new Map<string, number>()
-  const levelTop: number[] = []
-  let cursor = START_Y
-
-  for (let lv = 0; lv <= maxLevel; lv++) {
-    const row = steps.filter((s) => (level.get(s.id) ?? 0) === lv)
-    levelTop[lv] = cursor
-    if (!row.length) {
-      cursor += stepPitch(0)
-      continue
-    }
-    const desired = new Map<string, number>()
-    row.forEach((s) => {
-      const parents = prev.get(s.id)!.filter((p) => column.has(p))
-      desired.set(s.id, parents.length ? parents.reduce((sum, p) => sum + column.get(p)!, 0) / parents.length : 0)
-    })
-    row.sort((a, b) => desired.get(a.id)! - desired.get(b.id)! || order.get(a.id)! - order.get(b.id)!)
-    let last = -Infinity
-    row.forEach((s) => {
-      const col = Math.max(Math.round(desired.get(s.id)!), last + 1)
-      column.set(s.id, col)
-      last = col
-    })
-    cursor += Math.max(...row.map((s) => stepPitch(actionsOfStep(s).length)))
-  }
-
-  steps.forEach((s) => {
-    const lv = level.get(s.id) ?? 0
-    result.set(s.id, { x: SPINE_X + (column.get(s.id) ?? 0) * COLUMN_WIDTH, y: levelTop[lv] ?? START_Y })
-  })
   return result
 }
 
