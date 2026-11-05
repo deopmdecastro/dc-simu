@@ -112,33 +112,58 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
   const coverOn = c.state.coverOn !== false
   const vertical = Math.round(((c.rotation ?? 0) % 180) / 90) % 2 === 1
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : CABLE_DUCT_DEFAULT_COLOR
-  return <div className="dc-acc">
-    <div className="dc-acc-head">
-      <b>Calha {d.widthMm} × {d.heightMm} mm · {d.lengthMm} mm</b>
-      <button type="button" className="dc-btn dc-btn-primary" onClick={() => useSimStore.getState().setComponentState(c.id, { coverOn: !coverOn })}>{coverOn ? 'Tirar tampa' : 'Pôr tampa'}</button>
+  return <div className="dc-acc space-y-3">
+    {/* Cabeçalho compacto com estado */}
+    <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Calha técnica PVC</div>
+        <div className="text-[13px] font-bold text-slate-800 leading-none mt-0.5">{d.widthMm} × {d.heightMm} mm · {d.lengthMm} mm <span className={`ml-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${coverOn ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{coverOn ? '● com tampa' : '○ sem tampa'}</span></div>
+        <div className="text-[11px] text-slate-500 mt-1">Ranhurada • na chapa • sólida — cabos por dentro</div>
+      </div>
+      <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${coverOn ? 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`} onClick={() => useSimStore.getState().setComponentState(c.id, { coverOn: !coverOn })} title={coverOn ? 'Mostra ranhuras e fundo' : 'Mostra tampa lisa'}>{coverOn ? 'Tirar tampa' : 'Pôr tampa'}</button>
     </div>
-    <MmField label="Comprimento" value={d.lengthMm} min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} onChange={(mm) => resize(c, mm, d.widthMm, { lengthMm: mm })} />
-    <div className="dc-acc-presets" aria-label="Comprimentos comuns">
-      {[300, 600, 1000, 2000].map((mm) => <button key={mm} type="button" className={`dc-btn${d.lengthMm === mm ? ' dc-btn-primary' : ''}`} onClick={() => resize(c, mm, d.widthMm, { lengthMm: mm })}>{mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
-    </div>
-    <label className="dc-acc-row"><span>Largura</span>
-      <select className="dc-input" value={d.widthMm} onChange={(e) => resize(c, d.lengthMm, Number(e.target.value), { widthMm: Number(e.target.value) })}>
-        {[...new Set([...CABLE_DUCT.widthsMm, d.widthMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
-      </select>
-    </label>
-    <label className="dc-acc-row"><span>Altura</span>
-      <select className="dc-input" value={d.heightMm} onChange={(e) => useSimStore.getState().setComponentState(c.id, { heightMm: Number(e.target.value) })}>
-        {[...new Set([...CABLE_DUCT.heightsMm, d.heightMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
-      </select>
-    </label>
-    <div className="dc-acc-row">
-      <span>Orientação</span>
-      <div className="dc-acc-seg" role="group" aria-label="Orientação da calha">
-        <button type="button" aria-pressed={!vertical} className={!vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 0 })}>Horizontal</button>
-        <button type="button" aria-pressed={vertical} className={vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 90 })}>Vertical</button>
+
+    {/* 1 · Medidas — uma card */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-600 w-20 shrink-0">Comprimento</span>
+        <input type="number" className="dc-input w-20 h-8 text-center text-sm" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => { const v=Math.max(CABLE_DUCT.minLengthMm, Math.min(CABLE_DUCT.maxLengthMm, Math.round(Number(e.target.value)||0))); if(v) resize(c, v, d.widthMm, { lengthMm: v }) }} />
+        <input type="range" className="flex-1 accent-slate-700" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => resize(c, Number(e.target.value), d.widthMm, { lengthMm: Number(e.target.value) })} />
+        <span className="text-xs text-slate-400 w-8">mm</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5" aria-label="Comprimentos comuns">
+        {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resize(c, mm, d.widthMm, { lengthMm: mm })}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span>
+          <select className="dc-input w-full h-8 text-sm" value={d.widthMm} onChange={(e) => resize(c, d.lengthMm, Number(e.target.value), { widthMm: Number(e.target.value) })}>
+            {[...new Set([...CABLE_DUCT.widthsMm, d.widthMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
+          </select>
+        </label>
+        <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span>
+          <select className="dc-input w-full h-8 text-sm" value={d.heightMm} onChange={(e) => useSimStore.getState().setComponentState(c.id, { heightMm: Number(e.target.value) })}>
+            {[...new Set([...CABLE_DUCT.heightsMm, d.heightMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
+          </select>
+        </label>
       </div>
     </div>
-    <div className="dc-acc-row"><span>Cor</span><Swatches options={DUCT_COLORS} value={color} onPick={(value) => useSimStore.getState().updateComponent(c.id, { bodyColor: value })} /></div>
+
+    {/* 2 · Posicionamento */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between">
+      <span className="text-xs text-slate-600">Orientação</span>
+      <div className="dc-acc-seg" role="group" aria-label="Orientação da calha">
+        <button type="button" aria-pressed={!vertical} className={!vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 0 })}>— Horizontal</button>
+        <button type="button" aria-pressed={vertical} className={vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 90 })}>↕ Vertical</button>
+      </div>
+    </div>
+
+    {/* 3 · Aparência */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Aparência</div>
+      <div className="flex items-center justify-between"><span className="text-xs text-slate-600">Cor</span><Swatches options={DUCT_COLORS} value={color} onPick={(value) => useSimStore.getState().updateComponent(c.id, { bodyColor: value })} /></div>
+      <p className="text-[11px] text-slate-400 leading-snug">PVC cinzento-pedra padrão. A calha é sólida no 3D (cabos contornam por fora); no esquema os cabos passam por dentro da calha.</p>
+    </div>
   </div>
 }
 

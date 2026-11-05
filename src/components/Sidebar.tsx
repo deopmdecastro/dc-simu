@@ -664,7 +664,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 </div>
               })()}
 
-              {selectedComponent.type !== 'panelEnclosure' && (() => {
+              {selectedComponent.type !== 'panelEnclosure' && !isPanelAccessoryType(selectedComponent.type) && (() => {
                 const enclosures = components.filter((item) => item.type === 'panelEnclosure')
                 if (!enclosures.length) return null
                 const pm = selectedComponent.panelMount
@@ -703,8 +703,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 </div>
               })()}
 
-              {/* Etiquetas realistas na face */}
-              <div className="dc-rail-length">
+              {/* Etiquetas realistas na face — só para aparelhos, não para calhas/quadro */}
+              {!isPanelAccessoryType(selectedComponent.type) && <div className="dc-rail-length">
                 <div className="flex items-center justify-between gap-2">
                 <label className={label + ' !mb-0'}>Etiquetas na face (realistas)</label>
                 <span className="text-[10px] text-ink-400">{(selectedComponent.decals ?? []).length} etiqueta(s)</span>
@@ -746,8 +746,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   </div>
                 ))}
                 <small className="text-ink-400">Etiquetas movem-se com o aparelho/quadro. Use X/Y (mm) para posicionar na face (contator, porta, disjuntor).</small>
-              </div>
-
+              </div>}
               <div className="flex flex-wrap gap-1">
                 <button className="dc-btn" onClick={() => useSimStore.getState().rotateComponent(selectedComponent.id)}><IconRotate size={12} /> Girar 90°</button>
                 <button className="dc-btn" onClick={() => useSimStore.getState().mirrorComponent(selectedComponent.id)}>Espelhar</button>
