@@ -6,6 +6,14 @@ import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 /** Folga visual mínima entre equipamentos no Esquema (px do canvas). */
 export const COMPONENT_COLLISION_GAP = 4
 
+function isFlushTerminalType(type: string): boolean {
+  return type === 'terminalPhoenixPti6' || type === 'terminalBlock' || type === 'terminalPE'
+}
+function effectiveGap(a: ElectricalComponent, b: ElectricalComponent, gap: number): number {
+  if (gap !== COMPONENT_COLLISION_GAP) return gap
+  return isFlushTerminalType(a.type) && isFlushTerminalType(b.type) ? 0 : gap
+}
+
 export interface ComponentBounds2D {
   left: number
   right: number
@@ -69,7 +77,7 @@ export function boundsOverlap(a: ComponentBounds2D, b: ComponentBounds2D, gap = 
 
 export function componentsOverlap2D(a: ElectricalComponent, b: ElectricalComponent, gap = COMPONENT_COLLISION_GAP): boolean {
   if (a.id === b.id || isIntentionalMountingOverlap(a, b)) return false
-  return boundsOverlap(componentBounds2D(a), componentBounds2D(b), gap)
+  return boundsOverlap(componentBounds2D(a), componentBounds2D(b), effectiveGap(a, b, gap))
 }
 
 function obstaclesFor(component: ElectricalComponent, all: ElectricalComponent[], ignoreIds: ReadonlySet<string>) {
@@ -85,7 +93,7 @@ export function componentPositionIsFree(
   gap = COMPONENT_COLLISION_GAP,
 ): boolean {
   const candidate = componentBounds2D(component, x, y)
-  return obstaclesFor(component, all, ignoreIds).every((other) => !boundsOverlap(candidate, componentBounds2D(other), gap))
+  return obstaclesFor(component, all, ignoreIds).every((other) => !boundsOverlap(candidate, componentBounds2D(other), effectiveGap(component, other, gap)))
 }
 
 function orthogonalOverlap(a0: number, a1: number, b0: number, b1: number, gap: number) {
@@ -105,18 +113,19 @@ function sweepAxis(
   const start = componentBounds2D(component, x, y)
   let allowed = delta
   for (const other of obstacles) {
+    const g = effectiveGap(component, other, gap)
     const obstacle = componentBounds2D(other)
     // Projetos antigos podem já conter sobreposições: nunca os aprisionar;
     // permite-se sair, mas não criar uma nova interseção.
-    if (boundsOverlap(start, obstacle, gap)) continue
+    if (boundsOverlap(start, obstacle, g)) continue
     const orthogonal = axis === 'x'
-      ? orthogonalOverlap(start.top, start.bottom, obstacle.top, obstacle.bottom, gap)
-      : orthogonalOverlap(start.left, start.right, obstacle.left, obstacle.right, gap)
+      ? orthogonalOverlap(start.top, start.bottom, obstacle.top, obstacle.bottom, g)
+      : orthogonalOverlap(start.left, start.right, obstacle.left, obstacle.right, g)
     if (!orthogonal) continue
-    if (axis === 'x' && delta > 0 && start.right <= obstacle.left) allowed = Math.min(allowed, obstacle.left - gap - start.right)
-    if (axis === 'x' && delta < 0 && start.left >= obstacle.right) allowed = Math.max(allowed, obstacle.right + gap - start.left)
-    if (axis === 'y' && delta > 0 && start.bottom <= obstacle.top) allowed = Math.min(allowed, obstacle.top - gap - start.bottom)
-    if (axis === 'y' && delta < 0 && start.top >= obstacle.bottom) allowed = Math.max(allowed, obstacle.bottom + gap - start.top)
+    if (axis === 'x' && delta > 0 && start.right <= obstacle.left) allowed = Math.min(allowed, obstacle.left - g - start.right)
+    if (axis === 'x' && delta < 0 && start.left >= obstacle.right) allowed = Math.max(allowed, obstacle.right + g - start.left)
+    if (axis === 'y' && delta > 0 && start.bottom <= obstacle.top) allowed = Math.min(allowed, obstacle.top - g - start.bottom)
+    if (axis === 'y' && delta < 0 && start.top >= obstacle.bottom) allowed = Math.max(allowed, obstacle.bottom + g - start.top)
   }
   return axis === 'x' ? { x: x + allowed, y } : { x, y: y + allowed }
 }

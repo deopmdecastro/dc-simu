@@ -34,6 +34,14 @@ export function railSpanMm(component: ElectricalComponent): number {
   return (quarter ? component.h : component.w) / SCHEMATIC_PX_PER_MM
 }
 
+function isFlushTerminal(type: string): boolean {
+  return type === 'terminalPhoenixPti6' || type === 'terminalBlock' || type === 'terminalPE'
+}
+
+function railGap(a: ElectricalComponent, b: ElectricalComponent): number {
+  return isFlushTerminal(a.type) && isFlushTerminal(b.type) ? 0 : 4
+}
+
 function extents(component: ElectricalComponent) {
   const quarter = Math.round(((component.rotation ?? 0) % 180) / 90) % 2 === 1
   return { ex: (quarter ? component.h : component.w) / 2, ey: (quarter ? component.w : component.h) / 2 }
@@ -102,22 +110,22 @@ export function snapToRail(
 
   // 2) imã às pontas e aos vizinhos já fixos nesta calha. Quando a
   // posição pedida está ocupada, usa a vaga mais próxima em vez de sobrepor.
-  const gap = 4
   const neighbours = all
     .filter((other) => other.id !== component.id && other.railId === rail.id)
     .map((other) => {
       const o = extents(other)
       const start = other.schematicX + other.w / 2 - o.ex
-      return { start, end: start + o.ex * 2 }
+      const gap = railGap(component, other)
+      return { start, end: start + o.ex * 2, gap }
     })
   const isFree = (candidate: number) => candidate >= railLeft - 0.01
     && candidate <= Math.max(railLeft, maxLeft) + 0.01
-    && neighbours.every((item) => candidate + span + gap <= item.start || candidate >= item.end + gap)
+    && neighbours.every((item) => candidate + span + item.gap <= item.start || candidate >= item.end + item.gap)
   const magneticCandidates: number[] = [railLeft, maxLeft]
   const allCandidates: number[] = [left, railLeft, maxLeft]
   for (const item of neighbours) {
-    magneticCandidates.push(item.start - span - gap, item.end + gap)
-    allCandidates.push(item.start - span - gap, item.end + gap)
+    magneticCandidates.push(item.start - span - item.gap, item.end + item.gap)
+    allCandidates.push(item.start - span - item.gap, item.end + item.gap)
   }
   let nearestMagnet: number | null = null
   for (const candidate of magneticCandidates) {
@@ -155,7 +163,6 @@ export function reflowRailChildren(rail: ElectricalComponent, components: Electr
   const patches = new Map<string, Pick<ElectricalComponent, 'schematicX' | 'railOffsetMm'>>()
   const railLeft = rail.schematicX
   const railRight = rail.schematicX + rail.w
-  const gap = 4
   const children = components
     .filter((component) => component.railId === rail.id)
     .map((component) => {
@@ -166,18 +173,25 @@ export function reflowRailChildren(rail: ElectricalComponent, components: Electr
     })
     .sort((a, b) => a.left - b.left)
 
+  const gapBetween = (a: ElectricalComponent, b: ElectricalComponent) => railGap(a, b)
   // Empurra para a direita e, se necessário, recompõe a partir da extremidade
   // direita. O comprimento mínimo é garantido pela store.
   let cursor = railLeft
-  for (const child of children) {
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i]
     child.left = Math.max(child.left, cursor)
+    const next = children[i + 1]
+    const gap = next ? gapBetween(child.component, next.component) : 4
     cursor = child.left + child.span + gap
   }
-  if (children.length && cursor - gap > railRight) {
+  const lastGap = children.length >= 2 ? gapBetween(children[children.length - 2].component, children[children.length - 1].component) : 4
+  if (children.length && cursor - lastGap > railRight) {
     cursor = railRight
     for (let index = children.length - 1; index >= 0; index -= 1) {
       const child = children[index]
       child.left = Math.min(child.left, cursor - child.span)
+      const prev = children[index - 1]
+      const gap = prev ? gapBetween(prev.component, child.component) : 4
       cursor = child.left - gap
     }
   }
