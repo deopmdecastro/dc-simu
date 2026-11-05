@@ -3195,3 +3195,135 @@ button.dc-diag-tag:focus-visible { outline: 2px solid #2563eb; outline-offset: 1
   .pdf-export-body .pdfx-seg button { flex: 1; }
   .pdf-export-body .pdfx-tb-toggle { align-self: stretch; }
 }
+
+/* ------------------------------------------------------------------
+   Inspetor de acessórios de painel (quadro, calha, espiral) — .dc-acc
+   Melhoria de espaçamento, grelha estável e alvos de toque.
+   ------------------------------------------------------------------ */
+.dc-acc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+.dc-acc > * { min-width: 0; }
+.dc-acc-head {
+  font-size: 12px;
+  font-weight: 650;
+  color: #1e2b44;
+  letter-spacing: 0.01em;
+}
+.dc-acc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 32px;
+}
+.dc-acc-row > span:first-child {
+  flex: none;
+  font-size: 12px;
+  color: #475569;
+  font-weight: 500;
+}
+.dc-acc-measure {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.dc-acc-measure-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #334155;
+  font-weight: 500;
+}
+.dc-acc-measure-head small {
+  font-weight: 400;
+  color: #94a3b8;
+  margin-left: 4px;
+}
+.dc-acc-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+  font-size: 12px;
+}
+.dc-acc-field {
+  display: grid;
+  gap: 4px;
+}
+.dc-acc-field > span {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+.dc-acc-num {
+  width: 4.5rem;
+  text-align: center;
+}
+.dc-acc-select {
+  min-width: 0;
+  max-width: 7rem;
+  height: 28px;
+  font-size: 12px;
+}
+.dc-acc-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dc-acc-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+.dc-acc-swatch:hover { border-color: #94a3b8; }
+.dc-acc-swatch.is-on {
+  border-color: #1e293b;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1e293b;
+}
+.dc-acc-seg {
+  display: inline-flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.dc-acc-seg button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-right: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.dc-acc-seg button:last-child { border-right: none; }
+.dc-acc-seg button:hover { background: #f1f5f9; color: #334155; }
+.dc-acc-seg button.is-on {
+  background: #1e293b;
+  color: #fff;
+}
+.dc-acc-seg button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+  z-index: 1;
+}
+/* Toque: alvos maiores */
+@media (pointer: coarse) {
+  .dc-acc-seg button { min-height: 36px; padding: 0 12px; }
+  .dc-acc-swatch { width: 28px; height: 28px; }
+  .dc-acc-num, .dc-acc-select { min-height: 36px; }
+  .dc-acc-measure-head { min-height: 32px; }
+}

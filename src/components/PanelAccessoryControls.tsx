@@ -6,6 +6,18 @@ import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
 import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileIdOf, dinRailProfileOf } from '../three/dinRailGeometry'
 import { CABLE_DUCT_DEFAULT_COLOR, ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconArrowUp,
+  IconArrowDown,
+  IconCamera,
+  IconClose,
+  IconDelete,
+  IconDistH,
+  IconImage,
+  IconLayers,
+} from '../ui/icons'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
 export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color'])
@@ -94,10 +106,10 @@ function resizeDuctSide(c: ElectricalComponent, side: 'left' | 'right', lengthMm
 /** Barra de tamanho de uma ponta da calha: slider + passos de ±10/50 mm. */
 function DuctSideBar({ c, side, lengthMm }: { c: ElectricalComponent; side: 'left' | 'right'; lengthMm: number }) {
   const label = side === 'left' ? 'Lado esquerdo' : 'Lado direito'
-  const arrow = side === 'left' ? '◀' : '▶'
+  const ArrowIcon = side === 'left' ? IconArrowLeft : IconArrowRight
   const step = (delta: number) => resizeDuctSide(c, side, lengthMm + delta)
   return <div className="dc-acc-measure" data-duct-side={side}>
-    <div className="dc-acc-measure-head"><span>{arrow} {label} <small>(ponta {side === 'left' ? 'esq.' : 'dir.'})</small></span><span className="dc-acc-unit">{lengthMm} mm</span></div>
+    <div className="dc-acc-measure-head"><span className="inline-flex items-center gap-1.5"><ArrowIcon size={12} /> {label} <small>(ponta {side === 'left' ? 'esq.' : 'dir.'})</small></span><span className="dc-acc-unit">{lengthMm} mm</span></div>
     <input type="range" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={lengthMm} aria-label={`${label}: aumentar ou reduzir a calha`} onChange={(e) => resizeDuctSide(c, side, Number(e.target.value))} />
     <div className="flex flex-wrap gap-1.5">
       {[-50, -10, 10, 50].map((d) => <button key={d} type="button" className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50" aria-label={`${d > 0 ? 'Aumentar' : 'Reduzir'} ${Math.abs(d)} mm do ${label.toLowerCase()}`} onClick={() => step(d)}>{d > 0 ? '+' : '−'}{Math.abs(d)} mm</button>)}
@@ -193,7 +205,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
 
     {/* Medidas — prática */}
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
-      <div className="flex items-center justify-between"><span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</span><button type="button" className="text-[11px] font-medium text-blue-600 hover:underline" onClick={fitToContent}>↔ Ajustar ao conteúdo</button></div>
+      <div className="flex items-center justify-between"><span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</span><button type="button" className="text-[11px] font-medium text-blue-600 hover:underline" onClick={fitToContent}><IconDistH size={12} className="inline mr-1" />Ajustar ao conteúdo</button></div>
       <div className="grid grid-cols-3 gap-2">
         <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} onChange={(e)=> resize(c, Math.max(ENCLOSURE.minWidthMm, Math.min(ENCLOSURE.maxWidthMm, Number(e.target.value)||0)), d.heightMm, {widthMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
         <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} step={10} onChange={(e)=> resize(c, d.widthMm, Math.max(ENCLOSURE.minHeightMm, Math.min(ENCLOSURE.maxHeightMm, Number(e.target.value)||0)), {heightMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
@@ -216,7 +228,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tampa do quadro — imagem</div>
       <label className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 px-3 py-3 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition">
-        <span className="text-xs font-medium text-slate-700">📷 Carregar imagem (PNG/JPG)</span>
+        <span className="text-xs font-medium text-slate-700 inline-flex items-center gap-1.5"><IconCamera size={14} /> Carregar imagem (PNG/JPG)</span>
         <input type="file" accept="image/*" className="hidden" onChange={(e)=> handleImageUpload(e.target.files)} />
       </label>
       {imageDecals.length===0 ? <p className="text-[11px] text-slate-400">A imagem fica na porta (face <code>door</code>), move-se com o quadro. Use X/Y e tamanho nos controlos abaixo.</p>
@@ -232,7 +244,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
             <input type="number" className="dc-input w-14 h-7 text-xs" title="Altura mm" value={de.heightMm??30} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {heightMm: Number(e.target.value)})} />
             <input type="number" className="dc-input w-12 h-7 text-xs" title="X mm" placeholder="X" value={de.offsetXmm??0} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetXmm: Number(e.target.value)})} />
             <input type="number" className="dc-input w-12 h-7 text-xs" title="Y mm" placeholder="Y" value={de.offsetYmm??0} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetYmm: Number(e.target.value)})} />
-            <button type="button" className="dc-btn text-red-600 px-1.5 py-1" onClick={()=> useSimStore.getState().removeDecal(c.id, de.id)}>✕</button>
+            <button type="button" className="dc-btn text-red-600 px-1.5 py-1" onClick={()=> useSimStore.getState().removeDecal(c.id, de.id)} aria-label="Remover imagem"><IconClose size={12} /></button>
           </div>
         </div>)}
       </div>}
@@ -244,9 +256,9 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       <p className="text-[11px] text-slate-400">Escolha a face e o diâmetro, faça o furo e depois coloque bucim ou aparelho.</p>
       <div className="flex flex-wrap gap-1">
         {(['door','top','bottom','left','right','back'] as const).map((fid) => {
-          const icons: Record<string,string> = {door:'🚪', top:'⬆️', bottom:'⬇️', left:'⬅️', right:'➡️', back:'⊡'}
+          const FaceIcon = {door: IconImage, top: IconArrowUp, bottom: IconArrowDown, left: IconArrowLeft, right: IconArrowRight, back: IconLayers}[fid] ?? IconImage
           const labels: Record<string,string> = {door:'Porta', top:'Topo', bottom:'Fundo', left:'Esq.', right:'Dir.', back:'Traseira'}
-          return <button key={fid} type="button" className={`rounded-full border px-2.5 py-1 text-xs ${holeFace===fid?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><span>{icons[fid]}</span> <span className="ml-1">{labels[fid]}</span></button>
+          return <button key={fid} type="button" className={`rounded-full border px-2.5 py-1 text-xs inline-flex items-center gap-1.5 ${holeFace===fid?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><FaceIcon size={12} /> <span>{labels[fid]}</span></button>
         })}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -277,7 +289,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
           <select className="dc-input h-7 text-xs w-28" defaultValue="" onChange={(e)=> { const v=e.target.value; if(!v) return; const nid = useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm); if(nid) useSimStore.getState().updatePanelHole(c.id, h.id, { occupiedBy: nid }); e.target.value='' }}>
             <option value="">＋ aparelho</option><option value="buttonNO">Botão NA</option><option value="buttonNC">Botão NF</option><option value="selector2">Chave 2 pos</option><option value="pilotLightAd22">Luz piloto</option><option value="emergencyButton">Emergência</option>
           </select>
-          <button type="button" className="dc-btn text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)}>✕</button>
+          <button type="button" className="dc-btn text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)} aria-label="Remover furo"><IconClose size={12} /></button>
         </div>)}
       </div>}
     </div>
@@ -347,8 +359,8 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2" data-duct-extend>
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Juntar outra calha</div>
       <div className="grid grid-cols-2 gap-1.5">
-        {([['left', '◀ Prolongar à esquerda'], ['right', 'Prolongar à direita ▶'], ['top', '▲ Ramal para cima'], ['bottom', '▼ Ramal para baixo']] as const).map(([slot, text]) =>
-          <button key={slot} type="button" className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50" onClick={() => useSimStore.getState().addDuctAdjacent(c.id, slot)}>{text}</button>)}
+        {([['left', 'Prolongar à esquerda', IconArrowLeft], ['right', 'Prolongar à direita', IconArrowRight], ['top', 'Ramal para cima', IconArrowUp], ['bottom', 'Ramal para baixo', IconArrowDown]] as const).map(([slot, text, Icon]) =>
+          <button key={slot} type="button" className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 inline-flex items-center justify-center gap-1.5" onClick={() => useSimStore.getState().addDuctAdjacent(c.id, slot)}><Icon size={12} /> {text}</button>)}
       </div>
       <p className="text-[11px] text-slate-400 leading-snug">A nova calha fica encostada, com a mesma largura, altura e cor. Nas junções a parede abre-se para os cabos. Também encaixa sozinha se a largar perto de uma calha.</p>
     </div>
@@ -358,7 +370,7 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
       <span className="text-xs text-slate-600">Orientação</span>
       <div className="dc-acc-seg" role="group" aria-label="Orientação da calha">
         <button type="button" aria-pressed={!vertical} className={!vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 0 })}>— Horizontal</button>
-        <button type="button" aria-pressed={vertical} className={vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 90 })}>↕ Vertical</button>
+        <button type="button" aria-pressed={vertical} className={vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 90 })}><IconArrowUp size={11} className="inline mr-0.5" /><IconArrowDown size={11} className="inline mr-1" />Vertical</button>
       </div>
     </div>
 
