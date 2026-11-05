@@ -32,6 +32,7 @@ import { CableDuctControls, DinRailProfileControls, EnclosureControls, SpiralWra
 import { isPanelAccessoryType } from '../three/enclosureParts'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
+import TerminalStripControls from './TerminalStripControls'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
 import { WireOptionsFields } from '../ui/WireOptions'
 import { CABLE_PRESETS, applyCablePreset, matchCablePreset } from '../admin/editor3d/wireStyle'
@@ -618,6 +619,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               {selectedComponent.type === 'panelEnclosure' && <EnclosureControls c={selectedComponent} />}
               {selectedComponent.type === 'cableDuct' && <CableDuctControls c={selectedComponent} />}
               {selectedComponent.type === 'spiralWrap' && <SpiralWrapControls c={selectedComponent} />}
+
+              {/* Régua PTI6 — N pólos num único componente + botão para criar X1..Xn */}
+              {selectedComponent.type === 'terminalPhoenixPti6' && <TerminalStripControls c={selectedComponent} />}
 
               {isRailMountable(selectedComponent) && (() => {
                 const rail = components.find((item) => item.id === selectedComponent.railId)
