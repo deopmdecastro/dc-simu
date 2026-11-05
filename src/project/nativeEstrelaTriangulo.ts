@@ -1,6 +1,6 @@
 /**
  * Projeto nativo #2 — Estrela-Triângulo com LOGO! (QE1) — v2
- * 800×600×250, calhas, bornes de passagem p/ E/S, espiral porta, filaças, etiquetas
+ * 1000×700×250, calhas, motor dentro, bornes de passagem p/ E/S, espiral porta, filaças, etiquetas
  */
 import { createComponent } from '../electrical/factory'
 import type { ElectricalComponent, Wire, WireColor } from '../types'
@@ -38,8 +38,8 @@ export function buildNativeEstrelaTriangulo(): {
 } {
   // ── Quadro ──
   const qe = createComponent('panelEnclosure', 'QE1', 'Quadro Estrela-Triângulo')
-  qe.w = 800*SCHEMATIC_PX_PER_MM; qe.h = 600*SCHEMATIC_PX_PER_MM
-  qe.state = { ...(qe.state as any), widthMm: 800, heightMm: 600, depthMm: 250, hingeSide: 'right', doorOpen: false, bodyColor: '#cfd1cb', plateColor: '#e5e7eb' }
+  qe.w = 1000*SCHEMATIC_PX_PER_MM; qe.h = 700*SCHEMATIC_PX_PER_MM
+  qe.state = { ...(qe.state as any), widthMm: 1000, heightMm: 700, depthMm: 250, hingeSide: 'right', doorOpen: false, bodyColor: '#cfd1cb', plateColor: '#e5e7eb' }
   qe.decals = [
     { id:'dec-qe1-warn', kind:'warning', face:'door', offsetXmm:0, offsetYmm:160, widthMm:120, heightMm:28, text:' PERIGO 400V ', icon:'bolt', background:'#facc15', color:'#0f172a', border:true },
     { id:'dec-qe1-ce', kind:'logo', face:'door', offsetXmm:0, offsetYmm:-250, widthMm:48, heightMm:20, text:'CE 0081', background:'#22c55e', color:'#fff', border:false },
@@ -47,9 +47,9 @@ export function buildNativeEstrelaTriangulo(): {
     { id:'dec-qe1-doc', kind:'text', face:'door', offsetXmm:260, offsetYmm:-250, widthMm:70, heightMm:16, text:'IP65 IK08', background:'#334155', color:'#fff' },
   ]
 
-  const rail = createComponent('dinRail15x55', 'R1', 'Calha DIN'); (rail.state as any).lengthMm = 650
-  const ductH = createComponent('cableDuct', 'D1', 'Calha 40×60 H'); ductH.w=650/1.5; ductH.h=25; (ductH.state as any)={ lengthMm:650, widthMm:40, heightMm:60, coverOn:true }
-  const ductV = createComponent('cableDuct', 'D2', 'Calha 25×60 V'); ductV.w=22; ductV.h=380/1.5; (ductV.state as any)={ lengthMm:380, widthMm:25, heightMm:60, coverOn:true }
+  const rail = createComponent('dinRail15x55', 'R1', 'Calha DIN'); (rail.state as any).lengthMm = 820
+  const ductH = createComponent('cableDuct', 'D1', 'Calha 40×60 H'); ductH.w=820/1.5; ductH.h=25; (ductH.state as any)={ lengthMm:820, widthMm:40, heightMm:60, coverOn:true }
+  const ductV = createComponent('cableDuct', 'D2', 'Calha 25×60 V'); ductV.w=22; ductV.h=480/1.5; (ductV.state as any)={ lengthMm:480, widthMm:25, heightMm:60, coverOn:true }
   // Espiral porta (proteção cabo porta)
   const esp = createComponent('spiralWrap', 'ESP1', 'Espiral porta Ø16'); (esp.state as any)={ lengthMm: 320, innerDiaMm: 16, pitchMm: 8, color:'#0a0a0a' }
 
@@ -115,34 +115,34 @@ export function buildNativeEstrelaTriangulo(): {
   }
   place(qe, 0, 0)
   // 3 calhas: topo (força), meio (comando), base (bornes) — preenchem o quadro
-  rail.w = 620 * SCHEMATIC_PX_PER_MM; place(rail, 0, 180)
+  rail.w = 820 * SCHEMATIC_PX_PER_MM; place(rail, 0, 180)
   const rail2 = createComponent('dinRail15x55', 'R2', 'Calha DIN comando')
   const rail3 = createComponent('dinRail15x55', 'R3', 'Calha DIN bornes')
-  for (const r of [rail2, rail3]) { r.state.lengthMm = 620; r.w = rail.w }
+  for (const r of [rail2, rail3]) { r.state.lengthMm = 820; r.w = rail.w }
   place(rail2, 0, 20); place(rail3, 0, -170)
   // Calhas: H topo, H meia, V lateral — todas com tampa e dentro do quadro
-  ductH.w = 620 * SCHEMATIC_PX_PER_MM; ductH.h = 32 * SCHEMATIC_PX_PER_MM
+  ductH.w = 820 * SCHEMATIC_PX_PER_MM; ductH.h = 32 * SCHEMATIC_PX_PER_MM
   place(ductH, 0, 245)
-  const ductM = createComponent('cableDuct', 'D3', 'Calha 40×60 M'); ductM.w = ductH.w; ductM.h = ductH.h; (ductM.state as any)={ lengthMm:620, widthMm:40, heightMm:60, coverOn:true }
+  const ductM = createComponent('cableDuct', 'D3', 'Calha 40×60 M'); ductM.w = ductH.w; ductM.h = ductH.h; (ductM.state as any)={ lengthMm:820, widthMm:40, heightMm:60, coverOn:true }
   place(ductM, 0, 95)
-  ductV.rotation = 90; ductV.w = 520 * SCHEMATIC_PX_PER_MM; ductV.h = 28 * SCHEMATIC_PX_PER_MM
-  place(ductV, 330, 15)
-  const ductV2 = createComponent('cableDuct', 'D4', 'Calha 25×60 V2'); ductV2.rotation = 90; ductV2.w = ductV.w; ductV2.h = ductV.h; (ductV2.state as any)={ lengthMm:520, widthMm:25, heightMm:60, coverOn:true }
-  place(ductV2, -330, 15)
-  place(esp, -340, -80)
+  ductV.rotation = 90; ductV.w = 580 * SCHEMATIC_PX_PER_MM; ductV.h = 28 * SCHEMATIC_PX_PER_MM
+  place(ductV, 420, 15)
+  const ductV2 = createComponent('cableDuct', 'D4', 'Calha 25×60 V2'); ductV2.rotation = 90; ductV2.w = ductV.w; ductV2.h = ductV.h; (ductV2.state as any)={ lengthMm:580, widthMm:25, heightMm:60, coverOn:true }
+  place(ductV2, -420, 15)
+  place(esp, -430, -80)
   const row = (r: ElectricalComponent, y: number, items: Array<[ElectricalComponent, number]>) => {
     for (const [c, x] of items) { place(c, x, y); (c as any).railId = r.id; c.mountedOn = undefined }
   }
-  // Topo: força bem distribuída (6 aparelhos em 620 mm → 100 mm passo)
-  row(rail, 180, [[xg,-260],[q0,-180],[qm,-100],[km1,-10],[km2,95],[km3,200]])
+  // Topo: força bem distribuída (6 aparelhos em 820 mm → ~120 mm passo)
+  row(rail, 180, [[xg,-340],[q0,-230],[qm,-120],[km1,-10],[km2,110],[km3,230]])
   // F1 encaixa mesmo por baixo do KM1 (mesma coluna, sem rail próprio)
   place(f1, -10, 118); f1.mountedOn = km1.id; (f1 as any).railId = undefined
   // Meio: comando + distribuição
-  row(rail2, 20, [[qf1,-260],[qf2,-210],[ps,-110],[plc,80],[xb1,190],[xb2,260],[xb3,320]])
-  // Base: régua de bornes compacta (11 bornes em 620 mm → 56 mm passo, sem sobrepor)
-  row(rail3, -170, [[x4_1,-250],[x4_2,-200],[x4_3,-150],[x4_4,-100],[x4_5,-50],
-    [x5_1,40],[x5_2,90],[x5_3,140],[x5_4,190],[x5_5,240],[x5_6,290]])
-  place(m1, 580, -40)
+  row(rail2, 20, [[qf1,-340],[qf2,-280],[ps,-150],[plc,40],[xb1,160],[xb2,250],[xb3,340]])
+  // Base: régua de bornes compacta (11 bornes em 820 mm → ~70 mm passo, sem sobrepor)
+  row(rail3, -170, [[x4_1,-340],[x4_2,-270],[x4_3,-200],[x4_4,-130],[x4_5,-60],
+    [x5_1,40],[x5_2,110],[x5_3,180],[x5_4,250],[x5_5,320],[x5_6,390]])
+  place(m1, 380, -50)
   // Porta: zona dedicada mas próxima (base 1350 em vez de 1700 → -350 px, fios encurtam 50%)
   for (const [c, x, y] of [[h1,-160,80],[h2,0,80],[h3,160,80],[s1Btn,-160,-20],
     [s0Btn,0,-20],[sel,160,-20],[emer,0,-120]] as Array<[ElectricalComponent,number,number]>) {
