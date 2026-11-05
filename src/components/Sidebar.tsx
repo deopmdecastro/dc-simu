@@ -1232,6 +1232,69 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
               <div className="dc-card p-2 space-y-2">
                 <div className="flex items-center justify-between gap-2">
+                  <label className={label + ' !mb-0'}>Espiral de proteção</label>
+                  <button type="button" className="dc-btn" title="Adiciona uma espiral de 25–75% do cabo"
+                    onClick={() => {
+                      const list = [...(selectedWire.spirals ?? [])]
+                      list.push({ start: 0.25, end: 0.75, color: '#0a0a0a', pitchMm: 8, innerDiaMm: 10 })
+                      patchSelectedWire({ spirals: list })
+                    }}>+ Espiral</button>
+                </div>
+                {(selectedWire.spirals ?? []).length === 0 && <small className="text-ink-400">Sem espirais. Use «+ Espiral» para proteger o cabo em dobras (porta/botões).</small>}
+                {(selectedWire.spirals ?? []).map((seg, i) => (
+                  <div key={i} className="rounded border border-line p-1.5 space-y-1">
+                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                      <span>Início</span>
+                      <input type="number" className="dc-input w-14" min={0} max={1} step={0.05} value={seg.start}
+                        onChange={(e) => {
+                          const list = [...(selectedWire.spirals ?? [])]
+                          list[i] = { ...list[i], start: Math.max(0, Math.min(1, Number(e.target.value))) }
+                          patchSelectedWire({ spirals: list })
+                        }} />
+                      <span>Fim</span>
+                      <input type="number" className="dc-input w-14" min={0} max={1} step={0.05} value={seg.end}
+                        onChange={(e) => {
+                          const list = [...(selectedWire.spirals ?? [])]
+                          list[i] = { ...list[i], end: Math.max(0, Math.min(1, Number(e.target.value))) }
+                          patchSelectedWire({ spirals: list })
+                        }} />
+                      <input type="color" className="w-8 h-7 rounded border border-line cursor-pointer" value={seg.color ?? '#0a0a0a'} title="Cor da espiral"
+                        onChange={(e) => {
+                          const list = [...(selectedWire.spirals ?? [])]
+                          list[i] = { ...list[i], color: e.target.value }
+                          patchSelectedWire({ spirals: list })
+                        }} />
+                      <button type="button" className="dc-btn text-red-600" onClick={() => {
+                        const list = (selectedWire.spirals ?? []).filter((_, j) => j !== i)
+                        patchSelectedWire({ spirals: list.length ? list : undefined })
+                      }}>×</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                      <label className="flex items-center gap-1">Passo
+                        <input type="number" className="dc-input w-14" min={4} max={30} step={1} value={seg.pitchMm ?? 8}
+                          onChange={(e) => {
+                            const list = [...(selectedWire.spirals ?? [])]
+                            list[i] = { ...list[i], pitchMm: Math.max(4, Math.min(30, Number(e.target.value))) }
+                            patchSelectedWire({ spirals: list })
+                          }} />
+                        <span className="text-[10px] text-ink-400">mm</span>
+                      </label>
+                      <label className="flex items-center gap-1">Ø int.
+                        <input type="number" className="dc-input w-14" min={4} max={40} step={1} value={seg.innerDiaMm ?? 10}
+                          onChange={(e) => {
+                            const list = [...(selectedWire.spirals ?? [])]
+                            list[i] = { ...list[i], innerDiaMm: Math.max(4, Math.min(40, Number(e.target.value))) }
+                            patchSelectedWire({ spirals: list })
+                          }} />
+                        <span className="text-[10px] text-ink-400">mm</span>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="dc-card p-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
                   <label className={label + ' !mb-0'}>Marcadores / tags</label>
                   <button type="button" className="dc-btn" title="Adiciona um marcador a meio do cabo"
                     onClick={() => {
