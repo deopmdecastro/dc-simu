@@ -410,6 +410,10 @@ interface Store extends CircuitState {
   mountOnPanel: (ids: string[], enclosureId: string, face?: import('../types').EnclosureFace) => void
   updatePanelMount: (ids: string[], patch: Partial<import('../types').PanelMount>) => void
   unmountFromPanel: (ids: string[]) => void
+  /** Etiquetas realistas na face (raio, logotipo, texto) — movem-se com o hospedeiro */
+  addDecal: (componentId: string, decal: Partial<import('../types').ComponentDecal> & { kind?: import('../types').DecalKind; text?: string }) => void
+  updateDecal: (componentId: string, decalId: string, patch: Partial<import('../types').ComponentDecal>) => void
+  removeDecal: (componentId: string, decalId: string) => void
   rotateComponent: (id: string) => void
   mirrorComponent: (id: string) => void
   toggleLock: (id: string) => void
@@ -2251,6 +2255,46 @@ export const useSimStore = create<Store>((set, get) => {
     get().commitHistory()
     set((s) => ({
       components: s.components.map((c) => (ids.includes(c.id) && c.panelMount ? { ...c, panelMount: undefined } : c)),
+      dirty: true,
+    }))
+  },
+  addDecal: (componentId, decal) => {
+    const target = get().components.find((c) => c.id === componentId)
+    if (!target) return
+    get().commitHistory()
+    const id = decal.id ?? `decal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
+    const next: import('../types').ComponentDecal = {
+      id,
+      kind: decal.kind ?? 'text',
+      face: decal.face ?? 'front',
+      offsetXmm: decal.offsetXmm ?? 0,
+      offsetYmm: decal.offsetYmm ?? 0,
+      widthMm: decal.widthMm ?? 30,
+      heightMm: decal.heightMm ?? 15,
+      rotationDeg: decal.rotationDeg ?? 0,
+      text: decal.text ?? 'Q1',
+      icon: decal.icon,
+      background: decal.background ?? '#facc15',
+      color: decal.color ?? '#0f172a',
+      fontSizeMm: decal.fontSizeMm ?? 4,
+      border: decal.border ?? true,
+    }
+    set((s) => ({
+      components: s.components.map((c) => (c.id === componentId ? { ...c, decals: [...(c.decals ?? []), next] } : c)),
+      dirty: true,
+    }))
+  },
+  updateDecal: (componentId, decalId, patch) => {
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => (c.id === componentId && c.decals?.some((d) => d.id === decalId) ? { ...c, decals: c.decals!.map((d) => (d.id === decalId ? { ...d, ...patch } : d)) } : c)),
+      dirty: true,
+    }))
+  },
+  removeDecal: (componentId, decalId) => {
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => (c.id === componentId ? { ...c, decals: (c.decals ?? []).filter((d) => d.id !== decalId) } : c)),
       dirty: true,
     }))
   },

@@ -703,6 +703,51 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 </div>
               })()}
 
+              {/* Etiquetas realistas na face */}
+              <div className="dc-rail-length">
+                <div className="flex items-center justify-between gap-2">
+                <label className={label + ' !mb-0'}>Etiquetas na face (realistas)</label>
+                <span className="text-[10px] text-ink-400">{(selectedComponent.decals ?? []).length} etiqueta(s)</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  <button type="button" className="dc-btn" title="Etiqueta de texto simples" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'text', text: selectedComponent.ref || 'Q1', background:'#ffffff', color:'#0f172a', widthMm:28, heightMm:10 })}>+ Texto</button>
+                  <button type="button" className="dc-btn" style={{background:'#facc15'}} title="Aviso triângulo amarelo com raio" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'warning', text:'PERIGO', icon:'bolt', background:'#facc15', color:'#0f172a', widthMm:36, heightMm:18, face:'front' })}>⚡ Aviso</button>
+                  <button type="button" className="dc-btn" style={{background:'#22c55e',color:'white'}} title="Etiqueta CE verde" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text:'CE', background:'#22c55e', color:'white', widthMm:22, heightMm:14 })}>CE</button>
+                  <button type="button" className="dc-btn" style={{background:'#0ea5e9',color:'white'}} title="Símbolo raio dentro de triângulo" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'symbol', icon:'bolt', text:'400V', background:'#fef3c7', color:'#92400e', widthMm:30, heightMm:14 })}>⚡ 400V</button>
+                  <button type="button" className="dc-btn" title="Logotipo / marca" onClick={()=> {const m=prompt('Marca/logotipo (ex: WEG, SIEMENS, SCHNEIDER)','WEG'); if(m) useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text:m.toUpperCase(), background:'#0f172a', color:'white', widthMm:32, heightMm:10 })}}>Logo</button>
+                </div>
+                {(selectedComponent.decals ?? []).map((d)=>(
+                  <div key={d.id} className="rounded border border-line p-1.5 space-y-1 bg-slate-50/50">
+                    <div className="flex items-center gap-1">
+                      <select className="dc-input w-20" value={d.kind} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {kind: e.target.value as any})}>
+                        <option value="text">Texto</option><option value="warning">Aviso</option><option value="symbol">Símbolo</option><option value="logo">Logo</option>
+                      </select>
+                      <input className="dc-input flex-1" value={d.text ?? ''} placeholder="Texto" onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {text:e.target.value})} />
+                      <button type="button" className="dc-btn text-red-600" onClick={()=> useSimStore.getState().removeDecal(selectedComponent.id, d.id)}>×</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                      <span>Ícone</span>
+                      <select className="dc-input w-20" value={d.icon ?? ''} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {icon: e.target.value || undefined})}>
+                        <option value="">—</option><option value="bolt">⚡ raio</option><option value="danger">☠ perigo</option><option value="ce">CE</option><option value="wago">WAGO</option><option value="siemens">Siemens</option>
+                      </select>
+                      <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.background ?? '#facc15'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {background:e.target.value})} title="Fundo" />
+                      <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.color ?? '#0f172a'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {color:e.target.value})} title="Texto" />
+                      <label className="flex items-center gap-1">L <input type="number" className="dc-input w-12" min={6} max={120} step={2} value={d.widthMm ?? 30} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {widthMm: Number(e.target.value)})} /></label>
+                      <label className="flex items-center gap-1">A <input type="number" className="dc-input w-12" min={6} max={80} step={2} value={d.heightMm ?? 15} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {heightMm: Number(e.target.value)})} /></label>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                      <label className="flex items-center gap-1">X <input type="number" className="dc-input w-14" step={2} value={d.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetXmm: Number(e.target.value)})} /></label>
+                      <label className="flex items-center gap-1">Y <input type="number" className="dc-input w-14" step={2} value={d.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetYmm: Number(e.target.value)})} /></label>
+                      <label className="flex items-center gap-1">↻ <input type="number" className="dc-input w-12" step={15} value={d.rotationDeg ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {rotationDeg: Number(e.target.value)})} /></label>
+                      <select className="dc-input w-20" value={d.face ?? 'front'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {face: e.target.value as any})}>
+                        <option value="front">Frente</option><option value="door">Porta</option><option value="inside">Interior</option><option value="left">Esq.</option><option value="right">Dir.</option><option value="top">Topo</option><option value="bottom">Base</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+                <small className="text-ink-400">Etiquetas movem-se com o aparelho/quadro. Use X/Y (mm) para posicionar na face (contator, porta, disjuntor).</small>
+              </div>
+
               <div className="flex flex-wrap gap-1">
                 <button className="dc-btn" onClick={() => useSimStore.getState().rotateComponent(selectedComponent.id)}><IconRotate size={12} /> Girar 90°</button>
                 <button className="dc-btn" onClick={() => useSimStore.getState().mirrorComponent(selectedComponent.id)}>Espelhar</button>

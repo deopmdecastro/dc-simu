@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
@@ -102,12 +103,48 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
     event.stopPropagation()
     useSimStore.getState().setComponentState(c.id, { doorOpen: !open })
   }
+  const decalsDoorRef = useRef<THREE.Group>(null)
+  useFrame(() => {
+    if (decalsDoorRef.current) decalsDoorRef.current.rotation.y = parts.door.rotation.y
+  })
 
   return <group position={[0, 0, plateFrontZ - ENCLOSURE_PLATE_FRONT_MM * U]}>
     <primitive object={parts.body} />
     <primitive object={parts.door} onClick={toggleDoor}
       onPointerOver={() => { if (interactive && !c.locked) document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { document.body.style.cursor = '' }} />
+    {/* Decalques na porta — rodam com a porta (mesmo hinge/angle) */}
+    <group ref={decalsDoorRef} position={parts.hinge}>
+      {(c.decals ?? []).filter((d) => d.face === 'door' || d.face === 'doorOuter' || d.face === 'front').map((d) => {
+        const offX = (d.offsetXmm ?? 0) * U
+        const offY = (d.offsetYmm ?? 0) * U
+        const side = hinge === 'right' ? 1 : -1
+        const dir = -side
+        const cx = dir * (dims.widthMm / 2 + 3) * U
+        const skinZ = (ENCLOSURE.doorReturn - 4) * U
+        const wMm = d.widthMm ?? 30
+        const hMm = d.heightMm ?? 15
+        const bg = d.background ?? '#facc15'
+        const fg = d.color ?? '#0f172a'
+        const iconMap: Record<string, string> = { bolt: '⚡', danger: '☠', ce: 'CE', wago: 'WAGO', siemens: 'SIEMENS' }
+        const iconTxt = d.icon ? (iconMap[d.icon] ?? d.icon) : ''
+        return <group key={d.id} position={[cx + offX, offY, skinZ + 0.015]} rotation={[0, 0, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}>
+          <Html center transform distanceFactor={6} sprite={false} style={{ pointerEvents: 'none' }}>
+            <div style={{
+              background: bg, color: fg, border: d.border !== false ? `1.5px solid ${fg}` : 'none',
+              width: `${wMm * 3.2}px`, height: `${hMm * 3.2}px`, borderRadius: `${Math.min(4, hMm * 0.25 * 3.2)}px`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px',
+              fontWeight: d.kind === 'logo' ? 800 : 700, fontSize: `${Math.max(8, hMm * 0.42 * 3.2)}px`,
+              letterSpacing: d.kind === 'logo' ? '0.5px' : undefined, padding: '2px 4px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)', whiteSpace: 'nowrap',
+              fontFamily: 'system-ui, sans-serif'
+            }}>
+              {iconTxt && <span>{iconTxt}</span>}<span>{d.text ?? ''}</span>
+            </div>
+          </Html>
+        </group>
+      })}
+    </group>
     <group position={[0, dims.heightMm * U / 2 + 0.12, dims.depthMm * U]}>{label}</group>
   </group>
 }

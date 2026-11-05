@@ -42,7 +42,7 @@ import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } 
 import { hasPlcLamps, lampScenePosition, plcLamps } from './plcStatusLights'
 import { mountDepthOffset } from './thermalMount'
 import { buildDinRailGroup, clampRailLengthMm, DIN_RAIL_15X55, DIN_RAIL_FINISHES, dinRailProfileOf } from './dinRailGeometry'
-import { applyWorldUv, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, isPanelAccessoryType } from './enclosureParts'
+import { applyWorldUv, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, isPanelAccessoryType } from './enclosureParts'
 import { CableDuct3D, Enclosure3D, SpiralWrap3D } from './PanelAccessories3D'
 import { galvanizedSteel } from './proceduralTextures'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
@@ -3896,6 +3896,62 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onReconnectPick={pickConnectionTerminal}
         />
 
+        {/* Etiquetas realistas em aparelhos — movem-se com o hospedeiro (contator, disjuntor) */}
+        <group>
+          {components.filter((c) => (c.decals ?? []).length && c.type !== 'panelEnclosure').map((c) => {
+            const pivot = panelPivots[c.id]
+            if (!pivot) return null
+            const half = componentHalfExtents(c, orientationFor(c))
+            return <group key={`decals-${c.id}`}>
+              {(c.decals ?? []).map((d) => {
+                const offX = (d.offsetXmm ?? 0) * PANEL_UNITS_PER_MM
+                const offY = (d.offsetYmm ?? 0) * PANEL_UNITS_PER_MM
+                const wMm = d.widthMm ?? 30
+                const hMm = d.heightMm ?? 15
+                let pos = new THREE.Vector3(pivot.x + offX, pivot.y + offY, pivot.z + half.z + 0.02)
+                let rotY = 0
+                if (d.face && d.face !== 'front' && c.panelMount?.enclosureId) {
+                  const enc = components.find((e) => e.id === c.panelMount!.enclosureId)
+                  if (enc) {
+                    const ed = enclosureDimsOf(enc.state)
+                    const open = enc.state.doorOpen !== false
+                    if (open && (c.panelMount.face === 'door' || c.panelMount.face === 'doorOuter')) {
+                      const encCenter = componentPanelXY(enc)
+                      const baseZ = PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM
+                      const side = enclosureHingeOf(enc.state) === 'right' ? 1 : -1
+                      const hingeX = encCenter.x + side * (ed.widthMm / 2 + 3) * PANEL_UNITS_PER_MM
+                      const hingeZ = baseZ + (ed.depthMm + 6) * PANEL_UNITS_PER_MM
+                      const hinge = new THREE.Vector3(hingeX, encCenter.y, hingeZ)
+                      const rel = pos.clone().sub(hinge)
+                      const rad = THREE.MathUtils.degToRad(ENCLOSURE.openDeg * (side === 1 ? 1 : -1))
+                      rel.applyAxisAngle(new THREE.Vector3(0, 1, 0), rad)
+                      pos = hinge.clone().add(rel)
+                      rotY = rad
+                    }
+                  }
+                }
+                const bg = d.background ?? '#ffffff'
+                const fg = d.color ?? '#0f172a'
+                const iconMap2: Record<string, string> = { bolt: '⚡', danger: '☠', ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
+                const iconTxt2 = d.icon ? (iconMap2[d.icon] ?? d.icon) : ''
+                return <group key={d.id} position={pos} rotation={[0, rotY, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}>
+                  <Html center transform distanceFactor={6} sprite={false} style={{ pointerEvents: 'none' }}>
+                    <div style={{
+                      background: bg, color: fg, border: d.border !== false ? `1.4px solid ${fg}` : 'none',
+                      width: `${wMm * 3.2}px`, height: `${hMm * 3.2}px`, borderRadius: `${Math.min(4, hMm * 0.22 * 3.2)}px`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                      fontWeight: d.kind === 'logo' ? 800 : 700, fontSize: `${Math.max(8, hMm * 0.38 * 3.2)}px`,
+                      letterSpacing: d.kind === 'logo' ? '0.6px' : undefined, padding: '2px 5px',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.35)', whiteSpace: 'nowrap', fontFamily: 'system-ui, sans-serif'
+                    }}>
+                      {iconTxt2 && <span>{iconTxt2}</span>}<span>{d.text ?? ''}</span>
+                    </div>
+                  </Html>
+                </group>
+              })}
+            </group>
+          })}
+        </group>
         <PanelCameraRig command={cameraCommand} railWidth={sceneWidth}
           onStats={stats => setCameraStats(previous => previous.zoom === stats.zoom && Math.abs(previous.yaw - stats.yaw) < 0.001 && Math.abs(previous.pitch - stats.pitch) < 0.001 ? previous : stats)}
           scrollBridge={cameraScrollBridge} scrollBounds={contentBounds ?? { minX: -2, maxX: 2, minY: -2, maxY: 2, minZ: -0.2, maxZ: 0.6 }}

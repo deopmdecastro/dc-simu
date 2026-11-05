@@ -1491,6 +1491,24 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           </g>
         ) : <SymbolGlyph c={c} selected={selected} />}
         {c.locked && <g transform={`translate(${bounds.x + bounds.w - 17},${bounds.y + 3})`} color="#b45309"><IconLock size={11} /></g>}
+        {(c.decals ?? []).map((d) => {
+          const px = SCHEMATIC_PX_PER_MM
+          const dw = (d.widthMm ?? 30) * px
+          const dh = (d.heightMm ?? 15) * px
+          const ox = (d.offsetXmm ?? 0) * px
+          const oy = -(d.offsetYmm ?? 0) * px
+          const cx = c.w / 2 + ox
+          const cy = c.h / 2 + oy
+          const iconMap: Record<string, string> = { bolt: '⚡', danger: '☠', ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
+          const iconTxt = d.icon ? (iconMap[d.icon] ?? d.icon) : ''
+          const bg = d.background ?? '#facc15'
+          const fg = d.color ?? '#0f172a'
+          return <g key={d.id} transform={`translate(${cx},${cy}) rotate(${d.rotationDeg ?? 0})`}>
+            <rect x={-dw / 2} y={-dh / 2} width={dw} height={dh} rx={Math.min(3, dh * 0.25)} fill={bg} stroke={d.border ? fg : 'none'} strokeWidth={d.border ? 0.9 : 0} />
+            {d.kind === 'warning' && <path d={`M 0 ${-dh * 0.35} L ${dw * 0.28} ${dh * 0.25} L ${-dw * 0.28} ${dh * 0.25} Z`} fill={fg} opacity={0.95} />}
+            <text x={0} y={d.kind === 'warning' ? dh * 0.38 : 0} textAnchor="middle" dominantBaseline="middle" fontSize={Math.max(6, dh * 0.42)} fill={fg} fontWeight={d.kind === 'logo' ? 800 : 700} letterSpacing={d.kind === 'logo' ? 0.5 : 0}>{iconTxt ? `${iconTxt} ` : ''}{d.text ?? ''}</text>
+          </g>
+        })}
       </g>
     )
   }

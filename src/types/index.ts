@@ -267,6 +267,28 @@ export interface PanelMount {
   cutoutMm?: number
 }
 
+/** Etiqueta/decalque realista colado na face de um aparelho ou porta (raio, logotipo, texto). */
+export type DecalKind = 'text' | 'warning' | 'logo' | 'symbol'
+export type DecalFace = EnclosureFace | 'front'
+export interface ComponentDecal {
+  id: string
+  kind: DecalKind
+  face: DecalFace
+  /** Offset (mm) a partir do centro do hospedeiro, no plano da face */
+  offsetXmm?: number
+  offsetYmm?: number
+  widthMm?: number
+  heightMm?: number
+  rotationDeg?: number
+  /** Conteúdo */
+  text?: string
+  icon?: string // ex: 'bolt' | 'danger' | 'ce' | 'wago' | 'siemens'
+  background?: string
+  color?: string
+  fontSizeMm?: number
+  border?: boolean
+}
+
 /** Revisão recuperável criada sempre que o utilizador aplica alterações. */
 export interface ComponentEditorRevision extends ComponentEditorSnapshot {
   version: number
@@ -296,6 +318,8 @@ export interface ElectricalComponentBase {
   enclosureId?: string
   /** Montagem em face do quadro (porta/laterais) — lente/botão fora, bornes dentro. */
   panelMount?: PanelMount
+  /** Etiquetas/decalques na face (raio, logotipo, texto). Movem-se com o hospedeiro. */
+  decals?: ComponentDecal[]
   /** Relé térmico encaixado por baixo deste contactor (id): pinos nos bornes 2T1/4T2/6T3, sem cabos. */
   mountedOn?: string
   /** Canto superior-esquerdo no esquema 2D (unidades do canvas) */
