@@ -391,6 +391,10 @@ interface Store extends CircuitState {
   /** Aplica uma tabela de componentes validada (Excel / tabela 3D): cria e atualiza, nunca apaga. */
   applyComponentPlan: (items: PlannedComponent[]) => { created: number; updated: number }
   duplicateComponents: (ids: string[]) => void
+  duplicateWires: (ids: string[]) => void
+  duplicateCanvasTexts: (ids: string[]) => void
+  duplicateCanvasNotes: (ids: string[]) => void
+  duplicateSelection: () => void
   updateComponent: (id: string, patch: Partial<ElectricalComponent>) => void
   /** Como `updateComponent`, sem histórico (arrasto contínuo). */
   updateComponentRaw: (id: string, patch: Partial<ElectricalComponent>) => void
@@ -2063,6 +2067,57 @@ export const useSimStore = create<Store>((set, get) => {
       return { components: [...s.components, ...clones], selectedComponentIds: clones.map((c) => c.id), dirty: true }
     })
     recomputeIfActive()
+  },
+
+  duplicateWires: (ids) => {
+    if (get().demoMode) return
+    if (!ids.length) return
+    get().commitHistory()
+    set((s) => {
+      const topZ = nextTopZ(s.components, s.wires)
+      const clones = ids.flatMap((id) => {
+        const wire = s.wires.find((w) => w.id === id)
+        if (!wire) return []
+        const clone = {
+          ...wire,
+          id: `wire_${nanoid(8)}`,
+          number: wire.number ? `${wire.number}'` : undefined,
+          fromTerminalId: wire.fromTerminalId,
+          toTerminalId: wire.toTerminalId,
+          fromPoint: wire.fromPoint ? { x: wire.fromPoint.x + 20, y: wire.fromPoint.y + 20 } : undefined,
+          toPoint: wire.toPoint ? { x: wire.toPoint.x + 20, y: wire.toPoint.y + 20 } : undefined,
+          z: topZ,
+        }
+        return [clone]
+      })
+      return { wires: [...s.wires, ...clones], selectedWireIds: clones.map((c) => c.id), selectedComponentIds: [], selectedWireId: null, dirty: true }
+    })
+    recomputeIfActive()
+  },
+
+  duplicateCanvasTexts: (ids) => {
+    if (get().demoMode || !ids.length) return
+    get().commitHistory()
+    set((s) => ({ canvasTexts: [...s.canvasTexts, ...s.canvasTexts.filter((t) => ids.includes(t.id)).map((t) => ({ ...t, id: `ct_${nanoid(8)}`, x: t.x + 0.35, y: t.y - 0.18 }))], dirty: true }))
+    recomputeIfActive()
+  },
+
+  duplicateCanvasNotes: (ids) => {
+    if (get().demoMode || !ids.length) return
+    get().commitHistory()
+    set((s) => ({ canvasNotes: [...s.canvasNotes, ...s.canvasNotes.filter((n) => ids.includes(n.id)).map((n) => ({ ...n, id: `cn_${nanoid(8)}`, x: n.x + 0.35, y: n.y - 0.18, messages: [...n.messages] }))], dirty: true }))
+    recomputeIfActive()
+  },
+
+  duplicateSelection: () => {
+    const s = get()
+    if (s.selectedComponentIds.length) s.duplicateComponents(s.selectedComponentIds)
+    else {
+      const ids = s.selectedWireIds?.length ? s.selectedWireIds : (s.selectedWireId ? [s.selectedWireId] : [])
+      if (ids.length) s.duplicateWires(ids)
+      else if ((s as { selectedCanvasTextIds?: string[] }).selectedCanvasTextIds?.length) s.duplicateCanvasTexts((s as { selectedCanvasTextIds?: string[] }).selectedCanvasTextIds!)
+      else if ((s as { selectedCanvasNoteIds?: string[] }).selectedCanvasNoteIds?.length) s.duplicateCanvasNotes((s as { selectedCanvasNoteIds?: string[] }).selectedCanvasNoteIds!)
+    }
   },
 
   updateComponent: (id, patch) => {

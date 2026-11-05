@@ -608,8 +608,13 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       if (isTypingTarget(e.target)) return
       if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r' && selectedIds.length === 1) {
         rotateComponent(selectedIds[0])
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'd' && selectedIds.length) {
-        duplicateComponents(selectedIds)
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'd' && (selectedIds.length || selectedWireId || selectedWireIds.length)) {
+        e.preventDefault()
+        if (selectedIds.length) duplicateComponents(selectedIds)
+        else {
+          const ids = selectedWireIds.length ? selectedWireIds : (selectedWireId ? [selectedWireId] : [])
+          if (ids.length) useSimStore.getState().duplicateWires(ids)
+        }
       } else if (e.ctrlKey && e.key === ']') {
         e.preventDefault()
         if (e.shiftKey) bringSelectionToFront()

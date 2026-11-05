@@ -14,6 +14,8 @@ export default function SelectionBar() {
   const locked = useSimStore((s) => s.components.some((c) => ids.includes(c.id) && c.locked))
   const rotate = useSimStore((s) => s.rotateComponents)
   const duplicate = useSimStore((s) => s.duplicateComponents)
+  const duplicateWires = useSimStore((s) => s.duplicateWires)
+  const duplicateSelection = useSimStore((s) => s.duplicateSelection)
   const toggleLock = useSimStore((s) => s.toggleLock)
   const remove = useSimStore((s) => s.deleteSelection)
   const selectComponents = useSimStore((s) => s.selectComponents)
@@ -50,6 +52,7 @@ export default function SelectionBar() {
         {ids.length === 1 && <button type="button" onClick={() => openEditor(ids[0])} title="Editar apresentação do componente" aria-label="Editar componente"><IconTools size={15} /></button>}
       </>}
       {!hasComponents && multiWires.length > 0 && <>
+        <button type="button" onClick={() => duplicateWires(multiWires)} title="Duplicar cabos (Ctrl+D)" aria-label="Duplicar cabos"><IconCopy size={15} /></button>
         <button type="button" onClick={() => laceWires(multiWires)} title="Filaçar cabos selecionados (chicote)" aria-label="Filaçar" disabled={multiWires.length < 2}>Filaçar</button>
         <button type="button" onClick={() => unlaceWires(multiWires)} title="Desfazer chicote" aria-label="Desfilaçar" disabled={!anyBundled}>Desfilaçar</button>
       </>}
