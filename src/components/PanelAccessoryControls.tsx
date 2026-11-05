@@ -44,10 +44,11 @@ function resize(c: ElectricalComponent, wMm: number, hMm: number, state: Record<
       const insideY = Math.abs(c.schematicY + c.h / 2 - (enc.schematicY + enc.h / 2)) < enc.h / 2 + c.h / 2
       if (!insideX || !insideY) continue
       const margin = 8 // px — flange 18mm ≈ 27px, deixa folga visual
-      const minX = enc.schematicX + margin, maxX = enc.schematicX + enc.w - effW - margin
-      const minY = enc.schematicY + margin, maxY = enc.schematicY + enc.h - effH - margin
-      if (maxX >= minX) nx = Math.max(minX, Math.min(maxX, nx))
-      if (maxY >= minY) ny = Math.max(minY, Math.min(maxY, ny))
+      // O footprint roda em torno do centro: o limite aplica-se ao centro com o AABB já rodado (vertical = w/h trocados)
+      const cxMin = enc.schematicX + margin + effW / 2, cxMax = enc.schematicX + enc.w - margin - effW / 2
+      const cyMin = enc.schematicY + margin + effH / 2, cyMax = enc.schematicY + enc.h - margin - effH / 2
+      if (cxMax >= cxMin) nx = Math.round(Math.max(cxMin, Math.min(cxMax, nx + w / 2)) - w / 2)
+      if (cyMax >= cyMin) ny = Math.round(Math.max(cyMin, Math.min(cyMax, ny + h / 2)) - h / 2)
       // Também limita o tamanho se a calha for maior que o interior
       if (effW > enc.w - margin * 2 || effH > enc.h - margin * 2) {
         // não impede o aumento, mas avisa
@@ -71,6 +72,20 @@ function MmField({ label, value, min, max, step = 10, onChange }: { label: strin
     <input type="number" className="dc-input" min={min} max={max} step={step} value={value} onChange={(e) => commit(Number(e.target.value))} aria-label={`${label} (mm)`} />
     <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => commit(Number(e.target.value))} aria-label={label} />
   </div>
+}
+
+/** Campo numérico que deixa escrever (rascunho) e só aplica ao sair ou com Enter — sem saltar para o mínimo a meio da escrita. */
+function DraftNumber({ value, min, max, step = 1, onCommit, label, className = '' }: { value: number; min: number; max: number; step?: number; onCommit: (v: number) => void; label: string; className?: string }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const commit = () => {
+    if (draft === null) return
+    const n = Number(draft.replace(',', '.'))
+    setDraft(null)
+    if (draft.trim() !== '' && Number.isFinite(n)) { const v = Math.max(min, Math.min(max, Math.round(n))); if (v !== value) onCommit(v) }
+  }
+  return <input type="text" inputMode="numeric" enterKeyHint="done" className={`dc-input dc-acc-num ${className}`} value={draft ?? String(value)} aria-label={`${label} (mm)`}
+    onFocus={(e) => e.currentTarget.select()} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur() } }} />
 }
 
 function Swatches({ options, value, onPick }: { options: Array<{ name: string; value: string }>; value: string; onPick: (color: string) => void }) {
@@ -243,6 +258,8 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
   const coverOn = c.state.coverOn !== false
   const vertical = Math.round(((c.rotation ?? 0) % 180) / 90) % 2 === 1
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : CABLE_DUCT_DEFAULT_COLOR
+  const setLength = (v: number) => { resize(c, v, d.widthMm, { lengthMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} comprimento ${v} mm${vertical ? ' — vertical (Y)' : ''}.`) }
+  const setHeight = (v: number) => { useSimStore.getState().setComponentState(c.id, { heightMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} altura ${v} mm — veja no 3D a parede subir.`) }
   return <div className="dc-acc space-y-3">
     {/* Cabeçalho compacto com estado */}
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 flex items-center gap-3">
@@ -257,30 +274,29 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
     {/* 1 · Medidas — uma card */}
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-600 w-20 shrink-0">Comprimento</span>
-        <input type="number" className="dc-input w-20 h-8 text-center text-sm" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => { const v=Math.max(CABLE_DUCT.minLengthMm, Math.min(CABLE_DUCT.maxLengthMm, Math.round(Number(e.target.value)||0))); if(!v) return; resize(c, v, d.widthMm, { lengthMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} comprimento ${v} mm${vertical?' — vertical (Y)':''}.`) }} />
-        <input type="range" className="flex-1 accent-slate-700" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} onChange={(e) => { const v=Number(e.target.value); resize(c, v, d.widthMm, { lengthMm: v }) }} />
-        <span className="text-xs text-slate-400 w-8">mm</span>
+      <div className="dc-acc-measure">
+        <div className="dc-acc-measure-head"><span>Comprimento</span><span className="dc-acc-unit"><DraftNumber label="Comprimento" value={d.lengthMm} min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} onCommit={setLength} /> mm</span></div>
+        <input type="range" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} aria-label="Comprimento" onChange={(e) => resize(c, Number(e.target.value), d.widthMm, { lengthMm: Number(e.target.value) })} />
       </div>
       <div className="flex flex-wrap gap-1.5" aria-label="Comprimentos comuns">
         {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resize(c, mm, d.widthMm, { lengthMm: mm })}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="space-y-1"><span className="text-xs text-slate-600">Largura <span className="text-[10px] text-slate-400">(pegada)</span></span>
-          <select className="dc-input w-full h-8 text-sm" value={d.widthMm} onChange={(e) => resize(c, d.lengthMm, Number(e.target.value), { widthMm: Number(e.target.value) })}>
-            {[...new Set([...CABLE_DUCT.widthsMm, d.widthMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
+      <div className="dc-acc-measure">
+        <div className="dc-acc-measure-head"><span>Largura <small>(pegada)</small></span>
+          <select className="dc-input dc-acc-select" aria-label="Largura (mm)" value={d.widthMm} onChange={(e) => resize(c, d.lengthMm, Number(e.target.value), { widthMm: Number(e.target.value) })}>
+            {[...new Set([...CABLE_DUCT.widthsMm, d.widthMm])].sort((x, y) => x - y).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
           </select>
-        </label>
-        <label className="space-y-1"><span className="text-xs text-slate-600">Altura <span className="text-[10px] text-slate-400">(parede Z)</span></span>
-          <div className="flex gap-1">
-            <select className="dc-input flex-1 h-8 text-sm" value={d.heightMm} onChange={(e) => { const v = Number(e.target.value); useSimStore.getState().setComponentState(c.id, { heightMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} altura ${v} mm — veja no 3D a parede subir.`) }}>
-              {[...new Set([...CABLE_DUCT.heightsMm, d.heightMm])].sort((a, b) => a - b).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
+        </div>
+      </div>
+      <div className="dc-acc-measure">
+        <div className="dc-acc-measure-head"><span>Altura <small>(parede Z)</small></span>
+          <span className="dc-acc-unit">
+            <select className="dc-input dc-acc-select" aria-label="Altura (mm)" value={d.heightMm} onChange={(e) => setHeight(Number(e.target.value))}>
+              {[...new Set([...CABLE_DUCT.heightsMm, d.heightMm])].sort((x, y) => x - y).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
             </select>
-            <input type="number" className="dc-input w-16 h-8 text-sm text-center" min={15} max={150} step={5} value={d.heightMm} onChange={(e)=> { const v=Math.max(15, Math.min(150, Math.round(Number(e.target.value)||60))); useSimStore.getState().setComponentState(c.id, {heightMm:v}) }} />
-          </div>
-          <input type="range" className="w-full accent-slate-700 h-1" min={15} max={150} step={5} value={d.heightMm} onChange={(e)=> useSimStore.getState().setComponentState(c.id, {heightMm: Number(e.target.value)})} />
-        </label>
+          </span>
+        </div>
+        <input type="range" min={15} max={150} step={5} value={d.heightMm} aria-label="Altura" onChange={(e) => useSimStore.getState().setComponentState(c.id, { heightMm: Number(e.target.value) })} />
       </div>
     </div>
 

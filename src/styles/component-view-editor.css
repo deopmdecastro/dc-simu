@@ -504,7 +504,7 @@ button.vcube-heading:hover { background:#f0f5fc; }
 @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) { .vcube-corner { width:20px; height:20px; } }
 
 /* Quadro, calha técnica e perfil DIN: medidas, presets e acabamentos no inspetor. */
-.dc-acc { display: grid; gap: 7px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+.dc-acc { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; min-width: 0; max-width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
 .dc-acc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .dc-acc-head b { color: #1e293b; font-size: 12px; }
 .dc-acc-field { display: grid; grid-template-columns: 82px 72px minmax(0, 1fr); align-items: center; gap: 6px; font-size: 11.5px; color: #475569; }
@@ -520,3 +520,16 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .dc-acc-swatches { display: flex; gap: 5px; }
 .dc-acc-swatch { width: 20px; height: 20px; border: 1px solid #94a3b8; border-radius: 50%; cursor: pointer; }
 .dc-acc-swatch.is-on { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+/* Inspetor de calha/quadro: nada pode ser mais largo que o painel (tablet estreito, gaveta de 340 px) */
+.dc-acc > * { min-width: 0; }
+.dc-acc input, .dc-acc select { max-width: 100%; min-width: 0; }
+.dc-acc input[type="range"] { width: 100%; }
+.dc-acc-measure { display: grid; gap: 6px; min-width: 0; }
+.dc-acc-measure-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; font-size: 12px; color: #475569; }
+.dc-acc-measure-head small { font-size: 10px; color: #94a3b8; }
+.dc-acc-unit { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 12px; color: #94a3b8; }
+.dc-acc-num { width: 84px; height: 34px; text-align: center; font-size: 14px; }
+.dc-acc-select { width: auto; min-width: 96px; height: 34px; font-size: 13px; }
+.dc-acc-swatches { flex-wrap: wrap; }
+@media (pointer: coarse) { .dc-acc input[type="range"] { min-height: 28px; touch-action: pan-y; } .dc-acc-swatch { width: 26px; height: 26px; } }

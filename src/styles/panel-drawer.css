@@ -108,3 +108,8 @@
     border-left: 1px solid var(--pn-line, #d3dbe5);
   }
 }
+
+/* Inspetor: o cartão do componente fica fixo sem deixar o conteúdo aparecer na folga do topo, e nada ultrapassa a largura do painel. */
+.dc-inspector-scroll { overflow-x: hidden; }
+.dc-inspector-scroll > * { min-width: 0; max-width: 100%; }
+.dc-inspector-scroll > .dc-inspector-hero { box-shadow: 0 -12px 0 0 #f8fafd, 0 3px 10px #243b6316; }
