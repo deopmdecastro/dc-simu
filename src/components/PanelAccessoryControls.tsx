@@ -343,6 +343,16 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
       </div>
     </div>
 
+    {/* Criar a partir desta calha: prolonga ou ramifica já encaixada, com as mesmas medidas e cor */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2" data-duct-extend>
+      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Juntar outra calha</div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {([['left', '◀ Prolongar à esquerda'], ['right', 'Prolongar à direita ▶'], ['top', '▲ Ramal para cima'], ['bottom', '▼ Ramal para baixo']] as const).map(([slot, text]) =>
+          <button key={slot} type="button" className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50" onClick={() => useSimStore.getState().addDuctAdjacent(c.id, slot)}>{text}</button>)}
+      </div>
+      <p className="text-[11px] text-slate-400 leading-snug">A nova calha fica encostada, com a mesma largura, altura e cor. Nas junções a parede abre-se para os cabos. Também encaixa sozinha se a largar perto de uma calha.</p>
+    </div>
+
     {/* 2 · Posicionamento */}
     <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between">
       <span className="text-xs text-slate-600">Orientação</span>

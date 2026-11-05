@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createComponent } from '../src/electrical/factory'
 import { fitDuctResize, fitDuctSideResize, ductEnds, ductLengthFromPointer } from '../src/schematic/ductResize'
 import { ductJunctionOpenings, closedSpans } from '../src/schematic/ductJunctions'
+import { adjacentDuctPlacement, slotForPoint, snapNewDuct } from '../src/schematic/ductPlacement'
 import { SCHEMATIC_PX_PER_MM } from '../src/three/modelPaths'
 import { componentPositionIsFree } from '../src/schematic/componentCollision'
 
@@ -73,5 +74,29 @@ for (const rotation of [0, 90, 180, 270]) {
   const spans = closedSpans(600, op, 'top')
   check('a fita fica em dois troços com vão no meio', spans.length === 2 && spans[0][1] <= op[0].from + 0.01 && spans[1][0] >= op[0].to - 0.01)
   check('o lado de baixo fica inteiro', closedSpans(600, op, 'bottom').length === 1)
+}
+// Criação: prolongar, ramificar e encaixar ao largar perto.
+for (const rotation of [0, 90]) {
+  const host = mk(600, 400, 400); host.rotation = rotation
+  const mkFrom = (slot: 'left' | 'right' | 'top' | 'bottom') => {
+    const p = adjacentDuctPlacement(host, slot, 300)
+    return { ...mk(300), w: p.w, h: p.h, rotation: p.rotation, schematicX: p.schematicX, schematicY: p.schematicY }
+  }
+  const r = mkFrom('right'), l = mkFrom('left')
+  const he = ductEnds(host)
+  check(`prolongar à direita ${rotation}°: encosta na ponta direita`, Math.hypot(ductEnds(r).left.x - he.right.x, ductEnds(r).left.y - he.right.y) <= 1.5 && r.rotation === rotation)
+  check(`prolongar à esquerda ${rotation}°: encosta na ponta esquerda`, Math.hypot(ductEnds(l).right.x - he.left.x, ductEnds(l).right.y - he.left.y) <= 1.5)
+  const t = mkFrom('top'), b = mkFrom('bottom')
+  check(`ramal ${rotation}°: perpendicular e abre a parede de cada lado`, t.rotation === (rotation + 90) % 360 && ductJunctionOpenings(host, [host, t]).some((o) => o.side === 'top') && ductJunctionOpenings(host, [host, b]).some((o) => o.side === 'bottom'))
+}
+{
+  const host = mk(600, 400, 400)
+  const draft = mk(600)
+  const cx = host.schematicX + host.w + 20, cy = host.schematicY + host.h / 2
+  check('cursor além da ponta direita → prolonga', slotForPoint(host, cx, cy) === 'right')
+  check('cursor abaixo da parede → ramal para baixo', slotForPoint(host, host.schematicX + host.w / 2, host.schematicY + host.h + 10) === 'bottom')
+  const s = snapNewDuct({ x: cx, y: cy }, [host], draft)
+  check('largar perto encaixa e herda a largura', s !== null && s.slot === 'right' && s.placement.widthMm === 40)
+  check('largar longe não encaixa', snapNewDuct({ x: cx + 5000, y: cy + 5000 }, [host], draft) === null)
 }
 console.log(`duct-resize-smoke: ${n} verificações OK`)

@@ -1,3 +1,4 @@
+import { adjacentDuctPlacement, snapNewDuct, type DuctPlacement } from '../schematic/ductPlacement'
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress, signalAliasMap } from '../grafcet/signals'
@@ -389,6 +390,8 @@ interface Store extends CircuitState {
   wireDefaults: WireDefaults
   setWireDefaults: (patch: Partial<WireDefaults>) => void
   addComponent: (type: ComponentType, x: number, y: number) => string | null
+  /** Calha técnica nova encostada à existente: prolonga pela ponta (`left`/`right`) ou ramifica em T (`top`/`bottom`). */
+  addDuctAdjacent: (id: string, slot: import('../schematic/ductPlacement').DuctSlot, lengthMm?: number) => string | null
   addMountedDevice: (type: ComponentType, enclosureId: string, face: import('../types').EnclosureHoleFace, offsetXmm: number, offsetYmm: number, cutoutMm: number) => string | null
   /** Aplica uma tabela de componentes validada (Excel / tabela 3D): cria e atualiza, nunca apaga. */
   applyComponentPlan: (items: PlannedComponent[]) => { created: number; updated: number }
@@ -986,6 +989,14 @@ const normalizeWires = (wires: Wire[], components: ElectricalComponent[] = []) =
 
 /** DC-ADR-071: em RUN ou PAUSA não há seleção nem edição de componentes, cabos ou textos; só os comandos atuam. */
 export const isSimEditLocked = (state: { sim: { runState: string } }) => state.sim.runState === 'running' || state.sim.runState === 'paused'
+
+/** Aplica medidas, rotação e cor de uma calha técnica nova (herdadas da vizinha). */
+function applyDuctPlacement(comp: ElectricalComponent, p: DuctPlacement) {
+  comp.w = p.w; comp.h = p.h; comp.rotation = p.rotation
+  comp.schematicX = p.schematicX; comp.schematicY = p.schematicY
+  comp.state = { ...comp.state, lengthMm: p.lengthMm, widthMm: p.widthMm, heightMm: p.heightMm, coverOn: p.coverOn }
+  if (p.bodyColor) comp.bodyColor = p.bodyColor
+}
 
 export const useSimStore = create<Store>((set, get) => {
   /** Reavalia um scan apenas quando a simulação já foi iniciada (pausa ou passo a passo; nunca em STOP puro). */
@@ -1939,7 +1950,10 @@ export const useSimStore = create<Store>((set, get) => {
     }
     get().commitHistory()
     const comp = createComponent(type, undefined, undefined, get().components.length, x, y)
-    const free = nearestFreeComponentPosition(comp, x, y, get().components)
+    // Calha técnica largada junto a outra: encaixa (prolonga ou ramifica em T) e herda medidas e cor.
+    const snap = type === 'cableDuct' ? snapNewDuct({ x, y }, get().components, comp) : null
+    const free = snap ? { x: snap.placement.schematicX, y: snap.placement.schematicY, displaced: false } : nearestFreeComponentPosition(comp, x, y, get().components)
+    if (snap) applyDuctPlacement(comp, snap.placement)
     comp.schematicX = free.x
     comp.schematicY = free.y
     comp.ref = nextRef(get().components, type)
@@ -1953,7 +1967,29 @@ export const useSimStore = create<Store>((set, get) => {
     }))
     get().pushEvent('info', `Componente ${comp.ref} (${comp.label}) adicionado ao esquema.`)
     if (free.displaced) get().pushEvent('warning', `${comp.ref} foi colocado na posição livre mais próxima para evitar sobreposição.`)
+    if (snap) get().pushEvent('info', `${comp.ref} encaixada em ${snap.hostRef}: ${snap.slot === 'left' || snap.slot === 'right' ? 'prolonga a calha' : 'ramal em T'} (mesma largura, altura e cor).`)
     if (get().grid.railMagnet !== false) get().snapToRails([comp.id])
+    recomputeIfActive()
+    return comp.id
+  },
+  addDuctAdjacent: (id, slot, lengthMm) => {
+    if (get().demoMode) return null
+    const host = get().components.find((c) => c.id === id && c.type === 'cableDuct')
+    if (!host) return null
+    const placement = adjacentDuctPlacement(host, slot, lengthMm)
+    const comp = createComponent('cableDuct', undefined, undefined, get().components.length, placement.schematicX, placement.schematicY)
+    applyDuctPlacement(comp, placement)
+    if (!componentPositionIsFree(comp, comp.schematicX, comp.schematicY, get().components, new Set([comp.id]))) {
+      get().pushEvent('warning', `${host.ref}: sem espaço para ${slot === 'left' ? 'prolongar à esquerda' : slot === 'right' ? 'prolongar à direita' : 'ramificar'} — afaste os aparelhos vizinhos.`)
+      return null
+    }
+    get().commitHistory()
+    comp.ref = nextRef(get().components, 'cableDuct')
+    comp.z = nextTopZ(get().components, get().wires)
+    comp.sheet = host.sheet ?? get().activeSheetId
+    if (host.enclosureId) comp.enclosureId = host.enclosureId
+    set((s) => ({ components: [...s.components, comp], selectedComponentIds: [comp.id], selectedWireId: null, dirty: true }))
+    get().pushEvent('info', `${comp.ref} ${slot === 'left' || slot === 'right' ? 'prolonga' : 'ramifica de'} ${host.ref} (${placement.lengthMm} mm).`)
     recomputeIfActive()
     return comp.id
   },
