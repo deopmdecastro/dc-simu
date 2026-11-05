@@ -68,6 +68,7 @@ import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type 
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
+import { pti6SchematicFootprint, pti6TerminalTemplates } from '../electrical/pti6Strip'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, fcPresentOf, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
@@ -2682,7 +2683,6 @@ export const useSimStore = create<Store>((set, get) => {
     // gera novos templates e preserva cabos onde o rótulo coincide
     let templates: import('../electrical/factory').TerminalTemplate[] = []
     try {
-      const { pti6TerminalTemplates, pti6SchematicFootprint } = require('../electrical/pti6Strip') as typeof import('../electrical/pti6Strip')
       templates = pti6TerminalTemplates(n)
       const fp = pti6SchematicFootprint(n)
       const oldByLabel = new Map(c.terminals.map((t) => [t.label, t]))
@@ -2704,39 +2704,26 @@ export const useSimStore = create<Store>((set, get) => {
         }
       })
       const keptLabels = new Set(templates.map((t) => t.label))
-      const keptTerminalIds = new Set(newTerminals.map((t) => t.id))
-      // ids antigos que mudam de label são descartados; recria o set de wires válidos
-      const validIds = new Set([...keptTerminalIds, ...[...oldByLabel.values()].filter((old) => keptLabels.has(old.label)).map((old) => old.id)])
-      // na prática usamos só os novos ids: cabos de bornes removidos são limpos
-      const survivingTerminalIds = new Set(newTerminals.map((t) => t.id))
-      // mapear cabos antigos: se o borne antigo tinha mesmo rótulo, reatribui id para o novo borne com mesmo rótulo
       const labelToNewId = new Map(newTerminals.map((t) => [t.label, t.id]))
-      const migratedWires = get().wires.map((w) => {
+      // wires whose endpoint label is no longer present are removed; others are remapped to new id
+      const migratedWires = get().wires.flatMap((w) => {
         const fromOld = c.terminals.find((t) => t.id === w.fromTerminalId)
         const toOld = c.terminals.find((t) => t.id === w.toTerminalId)
+        if (fromOld && !keptLabels.has(fromOld.label)) return []
+        if (toOld && !keptLabels.has(toOld.label)) return []
         let fromId = w.fromTerminalId, toId = w.toTerminalId
         if (fromOld && labelToNewId.has(fromOld.label)) fromId = labelToNewId.get(fromOld.label)!
         if (toOld && labelToNewId.has(toOld.label)) toId = labelToNewId.get(toOld.label)!
-        return { ...w, fromTerminalId: fromId, toTerminalId: toId }
+        return [{ ...w, fromTerminalId: fromId, toTerminalId: toId }]
       })
-      // filtra cabos que ficaram pendurados nos bornes removidos
-      const filteredWires = migratedWires.filter((w) => {
-        const fromRemoved = c.terminals.some((t) => t.id === w.fromTerminalId) && !keptLabels.has(c.terminals.find((t) => t.id === w.fromTerminalId)!.label)
-        const toRemoved = c.terminals.some((t) => t.id === w.toTerminalId) && !keptLabels.has(c.terminals.find((t) => t.id === w.toTerminalId)!.label)
-        // cabos que ainda apontam para ids antigos não migrados
-        if (fromRemoved || toRemoved) return false
-        // depois da migração, ambos os ids devem existir (ou ser pontas livres)
-        return true
-      })
-      // segunda passagem: garante que só permanecem cabos cujas pontas existem no novo conjunto ou noutros componentes
-      const allTerminalIds = new Set([...get().components.flatMap((comp) => comp.id === c.id ? newTerminals.map((t) => t.id) : comp.terminals.map((t) => t.id))])
-      const finalWires = filteredWires.filter((w) => (!w.fromTerminalId || allTerminalIds.has(w.fromTerminalId) || w.fromPoint) && (!w.toTerminalId || allTerminalIds.has(w.toTerminalId) || w.toPoint))
-
-      set((s) => ({
-        components: s.components.map((comp) => comp.id === c.id ? { ...comp, w: fp.w, h: fp.h, terminals: newTerminals, state: { ...comp.state, poleCount: n } } : comp),
-        wires: normalizeWires(finalWires as any, s.components),
+      const nextComponents = get().components.map((comp) => comp.id === c.id ? { ...comp, w: fp.w, h: fp.h, terminals: newTerminals, state: { ...comp.state, poleCount: n } } : comp)
+      const allTerminalIds = new Set(nextComponents.flatMap((comp) => comp.terminals.map((t) => t.id)))
+      const finalWires = migratedWires.filter((w) => (!w.fromTerminalId || allTerminalIds.has(w.fromTerminalId) || (w as any).fromPoint) && (!w.toTerminalId || allTerminalIds.has(w.toTerminalId) || (w as any).toPoint))
+      set({
+        components: nextComponents,
+        wires: finalWires as any,
         dirty: true,
-      }))
+      })
       get().pushEvent('info', `${c.ref}: régua atualizada para ${n} pólo(s) · ${n * 2} bornes.`)
       recomputeIfActive()
     } catch (e) {
@@ -2750,8 +2737,6 @@ export const useSimStore = create<Store>((set, get) => {
     const n = Math.max(1, Math.min(48, Math.floor(Number(count)) || 1))
     if (n <= 1) { get().pushEvent('info', 'Defina pelo menos 2 bornes para gerar a régua X1…Xn.'); return }
     get().commitHistory()
-    // base já conta como 1; criar n-1 clones ao lado na mesma calha
-    const { createComponent, nextRef } = require('../electrical/factory') as typeof import('../electrical/factory')
     const all = get().components
     // posicionamento: tenta colocar à direita do base, com passo de 8.15mm (≈76px/12px? usa w do base)
     const stepPx = base.w // cada borne já tem largura de 1 pólo; clones terão mesma largura
