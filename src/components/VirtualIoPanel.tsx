@@ -11,6 +11,8 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
   const outputCount = useSimStore((s) => s.virtualOutputCount)
   const memoryCount = useSimStore((s) => s.virtualMemoryCount)
   const table = useSimStore((s) => s.runtime.table)
+  // simTick: bits Q/M mudam por mutação; força re-render a cada varredura (1HZ, etc.).
+  useSimStore((s) => s.simTick)
   const tags = useSimStore((s) => s.tags)
   const setCount = useSimStore((s) => s.setVirtualInputCount)
   const setOutputCount = useSimStore((s) => s.setVirtualOutputCount)

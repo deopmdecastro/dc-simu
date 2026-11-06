@@ -95,6 +95,7 @@ export default function GrafcetSimPanel({
   stepDescription: (stepId: string) => string
 }) {
   const table = useSimStore((s) => s.runtime.table)
+  useSimStore((s) => s.simTick)
   const tags = useSimStore((s) => s.tags)
   const modes = useSimStore((s) => s.virtualInputModes)
   const virtualInputs = useSimStore((s) => s.virtualInputs)

@@ -28,6 +28,7 @@ export default function GrafcetSimDock({ extraBits, activeLabels, sequence }: {
   const toggle = useGrafcetUi((s) => s.toggleSim)
   const sim = useSimStore((s) => s.sim)
   const table = useSimStore((s) => s.runtime.table)
+  useSimStore((s) => s.simTick)
   const { play, pause, stop, step, reset } = useSimStore.getState()
   const [tab, setTabRaw] = useState<DockTab>(readTab)
   const setTab = (next: DockTab) => { setTabRaw(next); try { localStorage.setItem(TAB_KEY, next) } catch { /* navegação privada */ } }

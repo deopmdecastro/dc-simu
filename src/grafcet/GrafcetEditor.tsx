@@ -394,6 +394,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const program = useSimStore((state) => state.grafcet)
   const runtime = useSimStore((state) => state.grafcetRuntime)
   const table = useSimStore((state) => state.runtime.table)
+  // simTick: a tabela é mutada in-place; sem este escalar as ações 1HZ/2HZ não repintam.
+  useSimStore((state) => state.simTick)
   const tags = useSimStore((state) => state.tags)
   const setGrafcet = useSimStore((state) => state.setGrafcet)
   const sharedGridStyle = useSimStore((state) => state.grid.style)
