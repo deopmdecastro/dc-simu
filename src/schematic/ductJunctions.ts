@@ -10,8 +10,11 @@ import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 export interface DuctOpening { side: 'top' | 'bottom'; from: number; to: number }
 
 /** Folga (px) com que uma calha encostada conta como junção. */
-const TOUCH_PX = 6
+const TOUCH_PX = 10
+/** Abertura mínima (mm) para valer a pena partir pinos. */
 const MIN_OPENING_MM = 8
+/** Extra em cada lado da interseção (mm) para limpar bem os dedos/pinos à volta da passagem. */
+const OPENING_MARGIN_MM = 6
 
 /**
  * Onde as calhas perpendiculares se encontram com a parede de `c` (T, L e cruz). Calhas paralelas
@@ -40,8 +43,16 @@ export function ductJunctionOpenings(c: ElectricalComponent, all: ElectricalComp
       const wall = side === 'top' ? -c.h / 2 : c.h / 2
       if (y0 - TOUCH_PX <= wall && wall <= y1 + TOUCH_PX) {
         // espelhar inverte o sentido do eixo local
-        const f = (c.mirrored ? -to : from) / SCHEMATIC_PX_PER_MM, t = (c.mirrored ? -from : to) / SCHEMATIC_PX_PER_MM
-        out.push({ side, from: f, to: t })
+        // alarga um pouco para limpar os pinos (dedos) junto à interseção
+        let f = (c.mirrored ? -to : from) / SCHEMATIC_PX_PER_MM
+        let t = (c.mirrored ? -from : to) / SCHEMATIC_PX_PER_MM
+        if (f > t) f, t = t, f
+        f -= OPENING_MARGIN_MM
+        t += OPENING_MARGIN_MM
+        const halfMm = half / SCHEMATIC_PX_PER_MM
+        f = Math.max(-halfMm, f)
+        t = Math.min(halfMm, t)
+        if (t - f >= MIN_OPENING_MM) out.push({ side, from: f, to: t })
       }
     }
   }

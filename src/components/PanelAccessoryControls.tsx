@@ -17,6 +17,7 @@ import {
   IconDistH,
   IconImage,
   IconLayers,
+  IconPlus,
 } from '../ui/icons'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
@@ -273,9 +274,9 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         <label className="flex items-center gap-1 text-xs">X <input type="number" className="dc-input w-14 h-7 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
         <label className="flex items-center gap-1 text-xs">Y <input type="number" className="dc-input w-14 h-7 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
         <span className="text-[11px] text-slate-400">mm do centro</span>
-        <button type="button" className="ml-auto dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs" onClick={()=> useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy })}>＋ Fazer furo</button>
+        <button type="button" onClick={()=> useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy })} className="ml-auto dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs inline-flex items-center gap-1.5"><IconPlus size={12} /> Fazer furo</button>
       </div>
-      {holes.length===0 ? <p className="text-[11px] text-slate-400 border border-dashed border-slate-200 rounded p-2 text-center">Nenhum furo. Os furos ficam sólidos — cabos e aparelhos passam por aqui.</p>
+      {holes.length===0 ? <p className="text-[11px] text-slate-400 border border-dashed border-slate-200 rounded p-2 text-center">Nenhum furo. Os furos aparecem no Esquema e no 3D; depois pode pôr bucim ou aparelho.</p>
       : <div className="space-y-1.5 max-h-44 overflow-auto pr-1">
         {holes.map((h)=> <div key={h.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 p-1.5">
           <div className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold">{h.diameterMm}Ø</div>

@@ -128,6 +128,59 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
         </group>
       })}
     </group>
+    {/* Furos do inspetor: indicação visual na face (disco escuro + anel de bucim se houver) */}
+    {((c.state as any).holes as import('../types').EnclosureHole[] | undefined ?? []).map((h) => {
+      const dia = Math.max(8, h.diameterMm ?? 20) * U
+      const ox = (h.offsetXmm ?? 0) * U
+      const oy = (h.offsetYmm ?? 0) * U
+      const isGland = !!h.glandType && h.glandType !== 'none'
+      const face = h.face ?? 'bottom'
+      // Posição e orientação por face (referencial do corpo do quadro)
+      let pos: [number, number, number] = [ox, oy, dims.depthMm * U]
+      let rot: [number, number, number] = [0, 0, 0]
+      const halfW = dims.widthMm * U / 2
+      const halfH = dims.heightMm * U / 2
+      const D = dims.depthMm * U
+      if (face === 'door' || face === 'doorOuter' || face === 'front') {
+        // na porta: aproximamos à face exterior quando fechada; o grupo da porta já roda
+        pos = [ox, oy, D + 0.02]
+      } else if (face === 'back') {
+        pos = [ox, oy, 0.02]
+        rot = [0, Math.PI, 0]
+      } else if (face === 'top') {
+        pos = [ox, halfH - 0.02, D / 2 + oy]
+        rot = [-Math.PI / 2, 0, 0]
+      } else if (face === 'bottom') {
+        pos = [ox, -halfH + 0.02, D / 2 + oy]
+        rot = [Math.PI / 2, 0, 0]
+      } else if (face === 'left') {
+        pos = [-halfW + 0.02, oy, D / 2 + ox]
+        rot = [0, -Math.PI / 2, 0]
+      } else if (face === 'right') {
+        pos = [halfW - 0.02, oy, D / 2 + ox]
+        rot = [0, Math.PI / 2, 0]
+      }
+      return (
+        <group key={h.id} position={pos} rotation={rot}>
+          <mesh>
+            <circleGeometry args={[dia / 2, 28]} />
+            <meshStandardMaterial color={isGland ? '#2f3540' : '#0f172a'} roughness={0.85} metalness={0.1} side={THREE.DoubleSide} />
+          </mesh>
+          {isGland && (
+            <mesh position={[0, 0, 0.008]}>
+              <ringGeometry args={[dia / 2 * 0.55, dia / 2 * 0.95, 28]} />
+              <meshStandardMaterial color="#9ca3af" metalness={0.6} roughness={0.35} side={THREE.DoubleSide} />
+            </mesh>
+          )}
+          {isGland && (
+            <mesh position={[0, 0, -0.04]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[dia / 2 * 0.42, dia / 2 * 0.48, 0.08, 20]} />
+              <meshStandardMaterial color="#6b7280" metalness={0.55} roughness={0.4} />
+            </mesh>
+          )}
+        </group>
+      )
+    })}
     <group position={[0, dims.heightMm * U / 2 + 0.12, dims.depthMm * U]}>{label}</group>
   </group>
 }
