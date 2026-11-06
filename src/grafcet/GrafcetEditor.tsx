@@ -149,16 +149,16 @@ type ValidationIssue = GrafcetIssue
 const GRAFCET_MIME = 'application/x-dcsimu-grafcet'
 
 // Geometria das ações no diagrama (caixa IEC junto à etapa / solta)
-const ACTION_X = SPINE_X + 110
+const ACTION_X = SPINE_X + 130
 const ACTION_W = 140
 const ACTION_H = 30
 const ACTION_QUALIFIER_W = 32
 /** Passo vertical entre ações empilhadas (caixa + respiro para descrição legível). */
-const ACTION_PITCH = 56
+const ACTION_PITCH = 64
 const ACTION_FREE_W = ACTION_W
 const ACTION_FREE_H = ACTION_H
 /** Espaço horizontal entre caixas de ação lado a lado (evita descrições coladas). */
-const ACTION_GAP = 18
+const ACTION_GAP = 24
 /** Distância do eixo da etapa à caixa da ação anexada (a coluna de ações acompanha a etapa). */
 const ACTION_OFFSET_X = ACTION_X - SPINE_X
 /** Desvio vertical da 1.ª ação: o seu centro fica alinhado com a ligação que sai da etapa (linha reta). */
@@ -166,9 +166,9 @@ const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 /** Distância do barramento vertical de ligação à caixa da ação. */
 const ACTION_BUS_GAP = 40
 /** Deslocamento horizontal da condição em relação à barra da transição (legibilidade). */
-const CONDITION_OFFSET_X = 38
+const CONDITION_OFFSET_X = 44
 /** Deslocamento vertical da condição relativamente à barra: negativo = acima do traço (gap legível). */
-const CONDITION_OFFSET_Y = -22
+const CONDITION_OFFSET_Y = -28
 /** Deslocamento do comentário da etapa em relação ao bordo direito da caixa. */
 const STEP_CAPTION_OFFSET_X = 30
 const STEP_CAPTION_OFFSET_Y = -26
@@ -190,6 +190,10 @@ const diagramLabel = (value: string, limit: number) => value.length > limit ? `$
 const actionLabel = (action: GrafcetAction) => action.displayDescription && action.description
   ? action.description
   : action.variable || action.address || 'ação'
+/** false = ocultar rótulo no desenho (a condição continua a ser avaliada). */
+const showsCondition = (transition: { displayCondition?: boolean; condition?: string }) =>
+  transition.displayCondition !== false
+
 const diagramCondition = (condition: string) => {
   const text = condition === '1' ? '=1' : (condition || '1')
   // Halo fino + baseline acima da barra: evita o rótulo (ex. 1HZ) colar ou atravessar o traço IEC.
@@ -4357,7 +4361,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         </text>
                         <g transform={`translate(${ftx + CONDITION_OFFSET_X}, ${fty + CONDITION_OFFSET_Y})`}>
                           <text fill={barColor} fontSize="12.5" fontWeight="600" letterSpacing="0.02em">
-                            {diagramCondition(transition.condition)}
+                            {showsCondition(transition) ? diagramCondition(transition.condition) : null}
                           </text>
                           {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
@@ -4491,7 +4495,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         <path d={path} fill="none" stroke="transparent" strokeWidth="16" />
                         <line x1="50" y1={y + 83} x2="74" y2={y + 83} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
                         <text x={74 + CONDITION_OFFSET_X - 12} y={y + 87} fill={linkColor} fontSize="12" fontWeight="600">
-                          {diagramCondition(transition.condition)}
+                          {showsCondition(transition) ? diagramCondition(transition.condition) : null}
                         </text>
                         {full && (isTransHovered || selectedLink) && (
                           <g
@@ -4552,10 +4556,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           {transition.name || `T${transitionIndex + 1}`}
                         </text>
                         <g transform={`translate(${refX + CONDITION_OFFSET_X}, ${refBarY + CONDITION_OFFSET_Y})`}>
-                          <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                            {diagramCondition(transition.condition)}
-                          </text>
-                          {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
+                          {showsCondition(transition) && (
+                            <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
+                              {diagramCondition(transition.condition)}
+                            </text>
+                          )}
+                          {showsCondition(transition) && transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
                         <text x={refX + 10} y={refBarY + 20} fill={selectedLink ? '#2563eb' : '#64748b'} fontSize="10.5" fontWeight="600">
                           {`→ ${outRefs}`}
@@ -4739,10 +4745,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                         {/* Texto da condição formatada com suporte a barra superior / NOT */}
                         <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
-                          <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                            {diagramCondition(transition.condition)}
-                          </text>
-                          {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
+                          {showsCondition(transition) && (
+                            <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
+                              {diagramCondition(transition.condition)}
+                            </text>
+                          )}
+                          {showsCondition(transition) && transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
 
                         {/* Indicador pulsante quando receptiva (pronta a disparar) */}
@@ -4963,10 +4971,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                         {/* Texto da condição formatada */}
                         <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
-                          <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                            {diagramCondition(transition.condition)}
-                          </text>
-                          {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
+                          {showsCondition(transition) && (
+                            <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
+                              {diagramCondition(transition.condition)}
+                            </text>
+                          )}
+                          {showsCondition(transition) && transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
 
                         {/* Indicador pulsante quando receptiva */}
@@ -5067,7 +5077,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           </text>
                           <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                              {diagramCondition(transition.condition)}
+                              {showsCondition(transition) ? diagramCondition(transition.condition) : null}
                             </text>
                             {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                           </g>
@@ -5137,7 +5147,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {/* Texto da condição formatada com suporte a barra superior (overbar) */}
                       <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                         <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                          {diagramCondition(transition.condition)}
+                          {showsCondition(transition) ? diagramCondition(transition.condition) : null}
                         </text>
                         {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                       </g>

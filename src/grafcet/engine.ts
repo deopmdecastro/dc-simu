@@ -107,6 +107,9 @@ export interface GrafcetTransition {
   /** Ligação por referência (IEC 60848): a linha entre etapas não é desenhada;
    *  cada ponta mostra o número da etapa do outro lado (ex.: X141). */
   wireless?: boolean
+  /** Se false, a receptividade não é desenhada no diagrama (continua a ser avaliada).
+   *  Útil em abortos/wireless densos para não sobrepor condições a etapas e ações. */
+  displayCondition?: boolean
   chart?: string
   /** Transição-fonte (IEC 60848): sem etapa de origem, está sempre validada e dispara
    *  quando a receptividade é verdadeira (ex.: emergência → etapa de paragem). */

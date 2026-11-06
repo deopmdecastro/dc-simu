@@ -11,12 +11,12 @@ export const GRID = EDITOR_GRID_STEP
 export const MIN_X = 110
 export const MIN_Y = 48
 /** Distância entre colunas de ramos paralelos no "Organizar". */
-export const COLUMN_WIDTH = 280
+export const COLUMN_WIDTH = 340
 /** Altura da caixa da etapa. */
 export const STEP_H = 54
 
 /** Distância vertical entre duas etapas consecutivas na coluna, conforme o nº de ações. */
-export const stepPitch = (actionCount: number) => Math.max(172, actionCount * 44 + 108)
+export const stepPitch = (actionCount: number) => Math.max(200, actionCount * 52 + 120)
 
 /** Encaixa `value` na grelha cuja origem é `origin`. */
 export const snapToGrid = (value: number, origin: number, grid = GRID) => Math.round((value - origin) / grid) * grid + origin

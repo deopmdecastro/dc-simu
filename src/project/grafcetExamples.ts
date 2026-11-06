@@ -421,28 +421,31 @@ function estampagem(): GrafcetExample {
   ]
   const auto: GrafcetTransition[] = [
     link(g2, 'T1', [a20], [a21], free, 'Rampas livres', { guard: 'G0 <=> X1' }),
-    // guard G0 <> X6: em pausa o ciclo congela (incl. temporizações)
-    link(g2, 'T2', [a21], [a22], 'Peca_Presente', 'Peça no alimentador', { guard: 'G0 <> X6' }),
-    link(g2, 'T3', [a22], [a23], 'Tipo_Preta + Tipo_Branca + Tipo_Metal', 'Tipo detetado', { guard: 'G0 <> X6' }),
-    link(g2, 'T4', [a23], [a24], 'Pos_Estampa * Tipo_Preta', 'Posição estampa · Preta', { guard: 'G0 <> X6' }),
-    link(g2, 'T5', [a23], [a25], 'Pos_Estampa * Tipo_Branca', 'Posição estampa · Branca', { guard: 'G0 <> X6' }),
-    link(g2, 'T6', [a23], [a26], 'Pos_Estampa * Tipo_Metal', 'Posição estampa · Metálica', { guard: 'G0 <> X6' }),
-    link(g2, 'T7', [a24], [a27], '5s/X24', 'Preta: 5 s', { guard: 'G0 <> X6' }),
-    link(g2, 'T8', [a25], [a27], '6s/X25', 'Branca: 6 s', { guard: 'G0 <> X6' }),
-    link(g2, 'T9', [a26], [a27], '8s/X26', 'Metálica: 8 s', { guard: 'G0 <> X6' }),
-    link(g2, 'T10', [a27], [a28], 'Pos_Deposito * Tipo_Preta', 'Depósito · Preta', { guard: 'G0 <> X6' }),
-    link(g2, 'T11', [a27], [a29], 'Pos_Deposito * Tipo_Branca', 'Depósito · Branca', { guard: 'G0 <> X6' }),
-    link(g2, 'T12', [a27], [a30], 'Pos_Deposito * Tipo_Metal', 'Depósito · Metálica', { guard: 'G0 <> X6' }),
-    link(g2, 'T13', [a28], [a31], 'FC_Gaveta_Preta', 'Gaveta Preta recuada', { guard: 'G0 <> X6' }),
-    link(g2, 'T14', [a29], [a31], 'FC_Gaveta_Branca', 'Gaveta Branca recuada', { guard: 'G0 <> X6' }),
-    link(g2, 'T15', [a30], [a31], 'FC_Gaveta_Metal', 'Gaveta Metálica recuada', { guard: 'G0 <> X6' }),
-    link(g2, 'T16', [a31], [a20], 'FC_Origem', 'Origem', { ...ref(a20), guard: 'G0 <> X6' }),
+    // * (G0 <> X6) na receptividade: em pausa o ciclo congela (um só rótulo, sem guard extra)
+    link(g2, 'T2', [a21], [a22], 'Peca_Presente * (G0 <> X6)', 'Peça no alimentador'),
+    link(g2, 'T3', [a22], [a23], '(Tipo_Preta + Tipo_Branca + Tipo_Metal) * (G0 <> X6)', 'Tipo detetado'),
+    link(g2, 'T4', [a23], [a24], 'Pos_Estampa * Tipo_Preta * (G0 <> X6)', 'Posição estampa · Preta'),
+    link(g2, 'T5', [a23], [a25], 'Pos_Estampa * Tipo_Branca * (G0 <> X6)', 'Posição estampa · Branca'),
+    link(g2, 'T6', [a23], [a26], 'Pos_Estampa * Tipo_Metal * (G0 <> X6)', 'Posição estampa · Metálica'),
+    link(g2, 'T7', [a24], [a27], '5s/X24 * (G0 <> X6)', 'Preta: 5 s'),
+    link(g2, 'T8', [a25], [a27], '6s/X25 * (G0 <> X6)', 'Branca: 6 s'),
+    link(g2, 'T9', [a26], [a27], '8s/X26 * (G0 <> X6)', 'Metálica: 8 s'),
+    link(g2, 'T10', [a27], [a28], 'Pos_Deposito * Tipo_Preta * (G0 <> X6)', 'Depósito · Preta'),
+    link(g2, 'T11', [a27], [a29], 'Pos_Deposito * Tipo_Branca * (G0 <> X6)', 'Depósito · Branca'),
+    link(g2, 'T12', [a27], [a30], 'Pos_Deposito * Tipo_Metal * (G0 <> X6)', 'Depósito · Metálica'),
+    link(g2, 'T13', [a28], [a31], 'FC_Gaveta_Preta * (G0 <> X6)', 'Gaveta Preta recuada'),
+    link(g2, 'T14', [a29], [a31], 'FC_Gaveta_Branca * (G0 <> X6)', 'Gaveta Branca recuada'),
+    link(g2, 'T15', [a30], [a31], 'FC_Gaveta_Metal * (G0 <> X6)', 'Gaveta Metálica recuada'),
+    link(g2, 'T16', [a31], [a20], 'FC_Origem * (G0 <> X6)', 'Origem', ref(a20)),
     // a terminar ciclo (G0 em X2): ainda sem peça no alimentador, não há ciclo para acabar
     link(g2, 'T17', [a21], [a20], 'G0 <=> X2 * !Peca_Presente', 'Sem peça: nada a terminar', ref(a20)),
     // Congelar em pausa (G0 X6): transições de processo não disparam
     // Abortos: G0 fora de Auto (1), a terminar (2) e Pausa (6) — STOP/manual/reset/emergência
     ...[a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31].map((from, index) =>
-      link(g2, `A${index + 1}`, [from], [a20], 'G0 <> X1 * G0 <> X2 * G0 <> X6', 'Abortar (G0 fora do automático/pausa)', ref(a20))),
+      link(g2, `A${index + 1}`, [from], [a20], 'G0 <> X1 * G0 <> X2 * G0 <> X6', 'Abortar', {
+        ...ref(a20),
+        displayCondition: false, // evita sobrepor condições longas às etapas/ações
+      })),
   ]
   const reset: GrafcetTransition[] = [
     link(g3, 'T1', [r40], [r41], 'G0 <=> X4', 'G0 pediu reset'),
@@ -498,21 +501,22 @@ function estampagem(): GrafcetExample {
 
   // Layout local por página (origem comum ~x150,y70) — já não lado a lado no mesmo canvas.
   const localPos: Record<string, [number, number]> = {
-    // G0 Controlo — ≥320 px entre modos; X6 pausa à direita do Auto
-    0: [400, 60],
-    1: [80, 300], 3: [420, 300], 4: [760, 300],
-    2: [80, 560], 6: [420, 560],
-    5: [420, 820],
+    // G0 Controlo — ≥340 px entre modos com ações
+    0: [480, 60],
+    1: [80, 320], 3: [460, 320], 4: [840, 320],
+    2: [80, 600], 6: [460, 600],
+    5: [460, 900],
     // G16 Reset rampas
     80: [300, 80],
     // G1 Emergência
     10: [300, 70], 11: [300, 280],
     // G2 Automático
-    20: [400, 60], 21: [400, 230], 22: [400, 400], 23: [400, 570],
-    24: [100, 780], 25: [400, 780], 26: [700, 780],
-    27: [400, 1000],
-    28: [100, 1220], 29: [400, 1220], 30: [700, 1220],
-    31: [400, 1460],
+    // Ramos com ≥320 px entre eixos + folga vertical para caixas de ação em coluna
+    20: [480, 60], 21: [480, 250], 22: [480, 440], 23: [480, 640],
+    24: [100, 900], 25: [480, 900], 26: [860, 900],
+    27: [480, 1160],
+    28: [100, 1420], 29: [480, 1420], 30: [860, 1420],
+    31: [480, 1720],
     // G3 Reset
     40: [300, 70], 41: [300, 230], 42: [300, 390], 43: [300, 550], 44: [300, 730], 45: [300, 1020],
   }
@@ -544,7 +548,7 @@ function estampagem(): GrafcetExample {
 
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v17',
+    nativeId: 'grafcet-estampagem-industrial-v18',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (uma página por GRAFCET: controlo, emergência, automático, reset e manuais)',
