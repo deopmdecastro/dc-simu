@@ -65,9 +65,10 @@
    Em tablet e portátil o utilizador mantém os 2 painéis abertos — o painel não pode ficar a 280px. */
 @media (min-width: 768px) {
   .dc-workspace .mobile-library-panel {
-    width: clamp(340px, 29vw, 420px) !important;
+    /* A largura vem do contentor em App (preferência guardada e puxador de arrasto).
+       A biblioteca/inspetor ocupa 100% desse espaço, sem uma segunda largura fixa. */
     min-width: 340px;
-    max-width: 420px;
+    max-width: 460px;
     flex-shrink: 0;
   }
   /* o flex corta à direita se o filho não puder encolher; o inspetor tem de poder rolar no eixo X */
@@ -100,9 +101,6 @@
     border-radius: 0 !important;
     position: relative;
     box-shadow: none;
-  }
-  .dc-workspace .mobile-library-panel {
-    border-right: 1px solid var(--pn-line, #d3dbe5);
   }
   .dc-workspace .mobile-grafcet-panel:not(.mobile-grafcet-closed) {
     border-left: 1px solid var(--pn-line, #d3dbe5);

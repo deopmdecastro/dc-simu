@@ -166,8 +166,8 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const [panelSizes, setPanelSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('dcsimu:workspace:panels') ?? '{}')
-      return { sidebar: Math.min(460, Math.max(220, Number(saved.sidebar) || 300)), ladder: Math.min(720, Math.max(320, Number(saved.ladder) || 380)) }
-    } catch { return { sidebar: 300, ladder: 380 } }
+      return { sidebar: Math.min(460, Math.max(340, Number(saved.sidebar) || 340)), ladder: Math.min(720, Math.max(320, Number(saved.ladder) || 380)) }
+    } catch { return { sidebar: 340, ladder: 380 } }
   })
   useEffect(() => {
     try { localStorage.setItem('dcsimu:workspace:panels', JSON.stringify(panelSizes)) } catch { /* navegação privada */ }
@@ -270,7 +270,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
     const onMove = (e: PointerEvent) => {
       const delta = e.clientX - resizing.startX
       if (resizing.target === 'sidebar') {
-        setPanelSizes((current) => ({ ...current, sidebar: Math.min(460, Math.max(220, resizing.startSize + delta)) }))
+        setPanelSizes((current) => ({ ...current, sidebar: Math.min(460, Math.max(340, resizing.startSize + delta)) }))
       } else {
         setPanelSizes((current) => ({ ...current, ladder: Math.min(720, Math.max(320, resizing.startSize - delta)) }))
       }
@@ -349,8 +349,8 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           <>
             <div className="mobile-library-panel relative shrink-0 flex flex-col" style={compact ? undefined : { width: panelSizes.sidebar }}>
               {mode === 'commands'
-                ? <Suspense fallback={<RouteLoading label="A carregar a biblioteca…" />}><CommandsSidebar width={compact ? '100%' : panelSizes.sidebar} onCollapse={() => setShowLibrary(false)} /></Suspense>
-                : <Sidebar width={compact ? '100%' : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />}
+                ? <Suspense fallback={<RouteLoading label="A carregar a biblioteca…" />}><CommandsSidebar width="100%" onCollapse={() => setShowLibrary(false)} /></Suspense>
+                : <Sidebar width="100%" quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />}
             </div>
             <div
               className="dc-resize-handle"
