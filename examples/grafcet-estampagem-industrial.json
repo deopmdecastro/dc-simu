@@ -1161,7 +1161,7 @@
         "to": [
           "est-s0"
         ],
-        "condition": "G3 <=> X42",
+        "condition": "G3 <=> X45",
         "description": "G3 terminou o reset",
         "displayDescription": false,
         "wireless": true,
@@ -2687,5 +2687,5 @@
   "grid": true,
   "activeScenario": null,
   "commands": [],
-  "nativeId": "grafcet-estampagem-industrial-v10"
+  "nativeId": "grafcet-estampagem-industrial-v11"
 }

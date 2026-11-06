@@ -295,7 +295,7 @@ function estampagem(): GrafcetExample {
   const p = 'est'
   // Quatro GRAFCETs de funcionamento (G0 controlo, G1 emergência, G2 automático, G3 reset) + um GRAFCET MANUAL por atuador
   // (G4–G10: cilindros, motor e retorno) e por lâmpada (G11–G15), como no exemplo ATEC de referência. Etapas com numeração
-  // própria por GRAFCET (G0: 0–5 · G1: 10–11 · G2: 20–31 · G3: 40–42 · manuais: 50–63 e 70–79, par = repouso, ímpar = ligado)
+  // própria por GRAFCET (G0: 0–5 · G1: 10–11 · G2: 20–31 · G3: 40–45 reset completo · manuais: 50–63 e 70–79, par = repouso, ímpar = ligado)
   // e receptividades com o NOME das tags (B_Start, Emergencia, Man_Estampa…), nunca o endereço. A hierarquia é a da IEC 60848: o G0 comanda os outros por comparações de estado (`G0 <=> X1`).
 
   // ---- G0 · Controlo (modos de marcha)
@@ -324,15 +324,20 @@ function estampagem(): GrafcetExample {
   const a29 = step(p, '29', 'Depositar Branca', [['N', 'Q0.2', 'Gaveta_Branca', 'Depositar Branca'], ['S', 'M0.2', 'Cnt_Branca', 'Inc. contador Branca']])
   const a30 = step(p, '30', 'Depositar Metálica', [['N', 'Q0.3', 'Gaveta_Metal', 'Depositar Metálica'], ['S', 'M0.3', 'Cnt_Metal', 'Inc. contador Metal']])
   const a31 = step(p, '31', 'Retorno à origem', [['N', 'Q0.5', 'Retorno', 'Retorno origem']])
-  // ---- G3 · Reset
+  // ---- G3 · Reset completo (etapa a etapa: gavetas → estampa/alimentador → retorno → zerar)
   const r40 = initial(p, '40', 'Reset em repouso', [])
-  const r41 = step(p, '41', 'A repor a origem', [
-    ['N', 'Q0.5', 'Retorno', 'Retorno origem'],
+  const r41 = step(p, '41', 'Recolher gavetas', [])
+  const r42 = step(p, '42', 'Recolher estampa e alimentador', [])
+  const r43 = step(p, '43', 'Retorno do transportador', [['N', 'Q0.5', 'Retorno', 'Retorno origem']])
+  const r44 = step(p, '44', 'Zerar contadores e flags', [
     ['R', 'M0.1', 'Cnt_Preta', 'Zerar contador Preta'],
     ['R', 'M0.2', 'Cnt_Branca', 'Zerar contador Branca'],
     ['R', 'M0.3', 'Cnt_Metal', 'Zerar contador Metal'],
+    ['R', 'M0.4', 'Rampa_Preta_Cheia', 'Limpar rampa Preta'],
+    ['R', 'M0.5', 'Rampa_Branca_Cheia', 'Limpar rampa Branca'],
+    ['R', 'M0.6', 'Rampa_Metal_Cheia', 'Limpar rampa Metal'],
   ])
-  const r42 = step(p, '42', 'Fim do reset', [])
+  const r45 = step(p, '45', 'Fim do reset', [])
   // ---- G4…G15 · Manual: um GRAFCET por atuador e por lâmpada. Toque no botão Man_* liga (G0 em X3), novo toque desliga.
   // Estampa e gavetas só ligam na posição certa e desligam se a perderem. Sair do manual (G0 ≠ X3, inclui emergência) desliga tudo.
   const manualDevices: ManualDevice[] = [
@@ -374,7 +379,7 @@ function estampagem(): GrafcetExample {
     link(g0, 'T4', [c1], [c2], '!Modo_Auto', 'Sair do automático: acabar o ciclo'),
     link(g0, 'T5', [c2], [c0], 'G2 <=> X20', 'G2 já em repouso', ref(c0)),
     link(g0, 'T6', [c3], [c0], '!Modo_Manual', 'Modo manual desligado', ref(c0)),
-    link(g0, 'T7', [c4], [c0], 'G3 <=> X42', 'G3 terminou o reset', ref(c0)),
+    link(g0, 'T7', [c4], [c0], 'G3 <=> X45', 'G3 terminou o reset', ref(c0)),
     link(g0, 'T8', [c5], [c4], 'G1 <=> X10', 'Rearmada → reset', ref(c4)),
   ]
   const safety: GrafcetTransition[] = [
@@ -406,8 +411,11 @@ function estampagem(): GrafcetExample {
   ]
   const reset: GrafcetTransition[] = [
     link(g3, 'T1', [r40], [r41], 'G0 <=> X4', 'G0 pediu reset'),
-    link(g3, 'T2', [r41], [r42], 'FC_Origem', 'Na origem'),
-    link(g3, 'T3', [r42], [r40], 'G0 <> X4', 'G0 saiu do reset', ref(r40)),
+    link(g3, 'T2', [r41], [r42], 'FC_Gaveta_Preta * FC_Gaveta_Branca * FC_Gaveta_Metal', 'Gavetas recolhidas'),
+    link(g3, 'T3', [r42], [r43], '1s/X42', 'Estampa e alimentador em repouso'),
+    link(g3, 'T4', [r43], [r44], 'FC_Origem', 'Transportador na origem'),
+    link(g3, 'T5', [r44], [r45], '1', 'Contadores e flags zerados'),
+    link(g3, 'T6', [r45], [r40], 'G0 <> X4', 'G0 saiu do reset', ref(r40)),
   ]
   const manual: GrafcetTransition[] = manualDevices.flatMap((device, index) => {
     const { off, on } = manualSteps[index]
@@ -432,7 +440,7 @@ function estampagem(): GrafcetExample {
   })
 
   const layout = placed(
-    [c0, c1, c2, c3, c4, c5, e10, e11, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, r40, r41, r42, ...manualSteps.flatMap((item) => [item.off, item.on])],
+    [c0, c1, c2, c3, c4, c5, e10, e11, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, r40, r41, r42, r43, r44, r45, ...manualSteps.flatMap((item) => [item.off, item.on])],
     transitions,
     {
       0: [330, 110], 1: [130, 290], 3: [330, 290], 4: [530, 290], 2: [130, 470], 5: [330, 470],
@@ -440,19 +448,19 @@ function estampagem(): GrafcetExample {
       20: [1330, 110], 21: [1330, 250], 22: [1330, 390], 23: [1330, 530],
       24: [1170, 690], 25: [1330, 690], 26: [1490, 690], 27: [1330, 850],
       28: [1170, 1010], 29: [1330, 1010], 30: [1490, 1010], 31: [1330, 1170],
-      40: [1900, 110], 41: [1900, 270], 42: [1900, 430],
+      40: [1900, 110], 41: [1900, 250], 42: [1900, 390], 43: [1900, 530], 44: [1900, 670], 45: [1900, 810],
       ...manualPositions,
     },
   )
   const notesX = 2250
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v10',
+    nativeId: 'grafcet-estampagem-industrial-v11',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (controlo, emergência, automático, reset e um manual por atuador e por lâmpada)',
     description:
-      'Estrutura hierárquica ATEC: G0 Controlo comanda os modos, G1 Emergência, G2 Automático (ciclo com tempos 5/6/8 s), G3 Reset e G4–G15 Manual (um GRAFCET por cilindro, motor e lâmpada: toque liga, novo toque desliga). Receptividades com o nome das tags e comparações entre GRAFCETs (G0 <=> X1).',
+      'Estrutura hierárquica ATEC: G0 Controlo comanda os modos, G1 Emergência, G2 Automático (ciclo com tempos 5/6/8 s), G3 Reset completo etapa a etapa (gavetas → estampa/alimentador → retorno → zerar contadores/flags) e G4–G15 Manual (um GRAFCET por cilindro, motor e lâmpada: toque liga, novo toque desliga). Receptividades com o nome das tags e comparações entre GRAFCETs (G0 <=> X1).',
     program: {
       name: 'Estampagem Industrial (ATEC)',
       steps: layout.steps,
@@ -538,7 +546,7 @@ function estampagem(): GrafcetExample {
         'Com o G0 parado, ligue Modo_Manual (desligue Modo_Auto): G0 → X3. Cada atuador e cada lâmpada tem o seu GRAFCET (G4–G15) e o seu botão Man_*.',
         'Um toque em Man_* liga (etapa ímpar: 51, 53…); novo toque desliga. Sair do manual ou emergência desliga tudo.',
         'Estampa e gavetas só ligam com Pos_Estampa / Pos_Deposito ativos e desligam se a posição se perder (intertravamento).',
-        'B_Reset com o G0 parado: G0 → X4, o G3 repõe a origem (Retorno + zera contadores) até FC_Origem.',
+        'B_Reset com o G0 parado: G0 → X4; o G3 faz reset completo: (41) espera gavetas recolhidas (FC_Gaveta_*), (42) 1 s para estampa/alimentador, (43) Retorno até FC_Origem, (44) zera contadores e flags de rampa, (45) fim.',
         'Endereços no formato byte.bit: C1_FC_8…15 da tabela física = I1.0…I1.7; botões manuais I2.0…I3.3; lâmpadas Q1.0…Q1.3.',
       ]),
       note(`${p}-n-safety`, 'Emergência', notesX, layout.minY + 520, '#fecaca', [
