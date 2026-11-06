@@ -3,7 +3,7 @@ import { autoLayout } from '../grafcet/layout'
 import type { CanvasNote } from '../types'
 
 /**
- * Três exemplos GRAFCET funcionais (básico, normal, avançado), com tabela de sinais, textos no desenho
+ * Exemplos GRAFCET funcionais (básico, normal, avançado + Estampagem ATEC), com tabela de sinais, textos no desenho
  * e comentários (notas com conversa) a explicar como testar. São projetos só GRAFCET semeados no painel
  * (como o projeto nativo) e também aparecem nos «Modelos GRAFCET».
  *
@@ -27,6 +27,10 @@ export interface GrafcetExample {
   restInputs: Record<string, boolean>
   /** Tipo de cada entrada no painel de simulação: botão (push), NF (nc) ou interruptor (latch, omissão). */
   inputModes: Record<string, 'push' | 'nc' | 'latch'>
+  /** Contagens do painel virtual (omissão: 8/8/4). */
+  virtualInputCount?: number
+  virtualOutputCount?: number
+  virtualMemoryCount?: number
 }
 
 type Act = [kind: GrafcetAction['kind'], address: string, variable: string, label?: string, extra?: Partial<GrafcetAction>]
@@ -282,28 +286,177 @@ function enchimento(): GrafcetExample {
   }
 }
 
+
+/* ------------------------------------------------------------------------------------------------
+ * 4) AVANÇADO — Estampagem Industrial (ATEC): tipos de peça, tempos, rampas e segurança
+ * ---------------------------------------------------------------------------------------------- */
+function estampagem(): GrafcetExample {
+  const p = 'est'
+  const s0 = initial(p, '0', 'Pronto — espera START', [['N', 'Q0.7', 'L_Verde', 'Pronto']])
+  const s1 = step(p, '1', 'Alimentar peça', [['N', 'Q0.0', 'Cil_Alimenta', 'Alimentar peça']])
+  const s2 = step(p, '2', 'Deteção do tipo', [['N', 'M0.0', 'Detetar', 'Deteção tipo']])
+  const s3 = step(p, '3', 'Transportar → estampa', [['N', 'Q0.4', 'Motor_Rotativo', 'Transportar → estampa']])
+  const s4p = step(p, '4P', 'Estampar Preta 5 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Preta 5s']])
+  const s4b = step(p, '4B', 'Estampar Branca 6 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Branca 6s']])
+  const s4m = step(p, '4M', 'Estampar Metálica 8 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Metálica 8s']])
+  const s5 = step(p, '5', 'Transportar → depósito', [['N', 'Q0.4', 'Motor_Rotativo', 'Transportar → depósito']])
+  const s6p = step(p, '6P', 'Depositar Preta', [
+    ['N', 'Q0.1', 'Gaveta_Preta', 'Depositar Preta'],
+    ['S', 'M0.1', 'Cnt_Preta', 'Inc. contador Preta'],
+  ])
+  const s6b = step(p, '6B', 'Depositar Branca', [
+    ['N', 'Q0.2', 'Gaveta_Branca', 'Depositar Branca'],
+    ['S', 'M0.2', 'Cnt_Branca', 'Inc. contador Branca'],
+  ])
+  const s6m = step(p, '6M', 'Depositar Metálica', [
+    ['N', 'Q0.3', 'Gaveta_Metal', 'Depositar Metálica'],
+    ['S', 'M0.3', 'Cnt_Metal', 'Inc. contador Metal'],
+  ])
+  const s7 = step(p, '7', 'Retorno à origem', [['N', 'Q0.5', 'Retorno', 'Retorno origem']])
+  const s10 = initial(p, '10', 'Segurança OK', [])
+  const s11 = step(p, '11', 'Emergência', [
+    ['N', 'Q0.8', 'L_Alarme', 'Alarme emergência', { type: 'conditional', condition: '2HZ' }],
+    ['N', 'Q0.11', 'L_Vermelha', 'Luz vermelha emergência'],
+  ])
+  const transitions = [
+    link(p, 'T01', [s0], [s1], 'I0.0*I0.13*I0.15*X10*!M0.4*!M0.5*!M0.6', 'START + modo automático + emergência OK + rampas livres'),
+    link(p, 'T12', [s1], [s2], 'I0.1', 'Peça presente / FC alimentador'),
+    link(p, 'T23', [s2], [s3], 'I0.2|I0.3|I0.4', 'Tipo detetado (Preta | Branca | Metálica)'),
+    link(p, 'T3P', [s3], [s4p], 'I0.5*I0.2', 'Posição estampa + Preta'),
+    link(p, 'T3B', [s3], [s4b], 'I0.5*I0.3', 'Posição estampa + Branca'),
+    link(p, 'T3M', [s3], [s4m], 'I0.5*I0.4', 'Posição estampa + Metálica'),
+    link(p, 'T4P5', [s4p], [s5], '5s/X4P', 'Tempo estampagem Preta 5 s'),
+    link(p, 'T4B5', [s4b], [s5], '6s/X4B', 'Tempo estampagem Branca 6 s'),
+    link(p, 'T4M5', [s4m], [s5], '8s/X4M', 'Tempo estampagem Metálica 8 s'),
+    link(p, 'T5P', [s5], [s6p], 'I0.6*I0.2', 'Posição depósito + Preta'),
+    link(p, 'T5B', [s5], [s6b], 'I0.6*I0.3', 'Posição depósito + Branca'),
+    link(p, 'T5M', [s5], [s6m], 'I0.6*I0.4', 'Posição depósito + Metálica'),
+    link(p, 'T6P7', [s6p], [s7], 'I0.7', 'Peça depositada (FC gaveta Preta)'),
+    link(p, 'T6B7', [s6b], [s7], 'I0.8', 'Peça depositada (FC gaveta Branca)'),
+    link(p, 'T6M7', [s6m], [s7], 'I0.9', 'Peça depositada (FC gaveta Metal)'),
+    link(p, 'T70', [s7], [s0], 'I0.10', 'Retorno concluído (origem)', { targetInfo: '0' }),
+    link(p, 'T10-11', [s10], [s11], '!I0.15', 'Emergência premida'),
+    link(p, 'T11-10', [s11], [s10], 'I0.15*I0.14', 'Emergência libertada + rearme', { targetInfo: '10' }),
+  ]
+  const layout = placed(
+    [s0, s1, s2, s3, s4p, s4b, s4m, s5, s6p, s6b, s6m, s7, s10, s11],
+    transitions,
+    {
+      0: [280, 80], 1: [280, 220], 2: [280, 360], 3: [280, 500],
+      '4P': [120, 660], '4B': [280, 660], '4M': [440, 660],
+      5: [280, 820],
+      '6P': [120, 960], '6B': [280, 960], '6M': [440, 960],
+      7: [280, 1100],
+      10: [700, 80], 11: [700, 220],
+    },
+  )
+  const right = layout.maxX + 280
+  return {
+    id: 'grafcet-estampagem-industrial',
+    nativeId: 'grafcet-estampagem-industrial-v8',
+    level: 'avançado',
+    name: 'Estampagem Industrial — ATEC',
+    title: 'Estampagem industrial (tipos de peça, tempos 5/6/8 s, rampas e segurança)',
+    description:
+      'Ciclo automático ATEC: alimentar, detetar tipo (preta/branca/metálica), transportar, estampar com tempo por tipo, depositar na rampa (máx. 2 peças) e retornar. GRAFCET de segurança separado para emergência. Alinhado ao guião e à tabela I/O do PLC.',
+    program: {
+      name: 'Estampagem Industrial — Automático (ATEC)',
+      steps: layout.steps,
+      transitions,
+      comments: [
+        text(`${p}-c-title`, 'Estampagem Industrial — ATEC (automático)', layout.minX - 40, layout.minY - 46, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', right, layout.minY, { color: '#7c3aed', fontWeight: '600' }),
+        text(`${p}-c-ramp`, 'Rampas: M0.4–M0.6 cheias bloqueiam START; reset independente no HMI.', right, layout.minY + 22, { color: '#b45309' }),
+        text(`${p}-c-mode`, 'T0→1 exige I0.13 (modo AUTO) e I0.15 (emergência libertada) e X10.', right, layout.minY + 44, { color: '#334155' }),
+        text(`${p}-c-io`, 'I0.0 START · I0.1 peça · I0.2/3/4 tipo · I0.5 pos.estampa · I0.6 pos.depósito', right, layout.minY + 70, { font: 'mono', fontSize: 11, color: '#475569' }),
+        text(`${p}-c-out`, 'Q0.0 alimenta · Q0.1–3 gavetas · Q0.4 motor · Q0.5 retorno · Q0.6 estampa · Q0.7–11 lâmpadas', right, layout.minY + 90, { font: 'mono', fontSize: 11, color: '#475569' }),
+        text(`${p}-c-safety-title`, 'GRAFCET de segurança', 640, layout.minY - 46, { fontSize: 13, fontWeight: '700', color: '#b91c1c' }),
+      ],
+    },
+    tags: [
+      tag('I0.0', 'START', 'Botão Iniciar ciclo (HMI). Física: C1_FC_0 → %I0.0'),
+      tag('I0.1', 'Peca_Presente', 'Sensor peça no alimentador. Física: C1_FC_1 → %I0.1'),
+      tag('I0.2', 'Tipo_Preta', 'Deteção peça plástica preta. Física: C1_FC_2 → %I0.2'),
+      tag('I0.3', 'Tipo_Branca', 'Deteção peça plástica branca. Física: C1_FC_3 → %I0.3'),
+      tag('I0.4', 'Tipo_Metal', 'Deteção peça metálica. Física: C1_FC_4 → %I0.4'),
+      tag('I0.5', 'Pos_Estampa', 'Transportador na posição de estampagem. Física: C1_FC_5 → %I0.5'),
+      tag('I0.6', 'Pos_Deposito', 'Transportador na posição de depósito. Física: C1_FC_6 → %I0.6'),
+      tag('I0.7', 'FC_Gaveta_Preta', 'Fim de curso gaveta / rampa preta. Física: C1_FC_7 → %I0.7'),
+      tag('I0.8', 'FC_Gaveta_Branca', 'Fim de curso gaveta / rampa branca. Física: C1_FC_8 → %I0.8'),
+      tag('I0.9', 'FC_Gaveta_Metal', 'Fim de curso gaveta / rampa metálica. Física: C1_FC_9 → %I0.9'),
+      tag('I0.10', 'FC_Origem', 'Transportador / braço na origem. Física: C1_FC_10 → %I0.10'),
+      tag('I0.12', 'Modo_Manual', 'Seleção modo MANUAL (HMI). Física: C1_FC_12 → %I0.12'),
+      tag('I0.13', 'Modo_Auto', 'Seleção modo AUTOMÁTICO (HMI). Física: C1_FC_13 → %I0.13'),
+      tag('I0.14', 'Rearme', 'Botão rearme segurança. Física: C1_FC_14 → %I0.14'),
+      tag('I0.15', 'Emergencia', 'Botão emergência NC (1 = libertada). Física: C1_FC_15 → %I0.15'),
+      tag('Q0.0', 'Cil_Alimenta', 'Cilindro alimentador +. Física: %Q0.0'),
+      tag('Q0.1', 'Gaveta_Preta', 'Atuador depósito / rampa preta (lógico)'),
+      tag('Q0.2', 'Gaveta_Branca', 'Atuador depósito / rampa branca (lógico)'),
+      tag('Q0.3', 'Gaveta_Metal', 'Atuador depósito / rampa metálica (lógico)'),
+      tag('Q0.4', 'Motor_Rotativo', 'Motor do transportador rotativo'),
+      tag('Q0.5', 'Retorno', 'Comando retorno à origem'),
+      tag('Q0.6', 'Cil_Estampa', 'Cilindro de estampagem +. Física tabela: %Q0.8'),
+      tag('Q0.7', 'L_Verde', 'Lâmpada verde — Pronto'),
+      tag('Q0.8', 'L_Alarme', 'Lâmpada alarme / emergência'),
+      tag('Q0.9', 'L_Azul', 'Lâmpada azul — modo MANUAL'),
+      tag('Q0.10', 'L_Branca', 'Lâmpada branca — modo AUTOMÁTICO'),
+      tag('Q0.11', 'L_Vermelha', 'Lâmpada vermelha — emergência'),
+      tag('M0.0', 'Detetar', 'Memória fase de deteção'),
+      tag('M0.1', 'Cnt_Preta', 'Impulso contagem peça preta'),
+      tag('M0.2', 'Cnt_Branca', 'Impulso contagem peça branca'),
+      tag('M0.3', 'Cnt_Metal', 'Impulso contagem peça metálica'),
+      tag('M0.4', 'Rampa_Preta_Cheia', 'Rampa preta com 2 peças — bloqueia START'),
+      tag('M0.5', 'Rampa_Branca_Cheia', 'Rampa branca com 2 peças — bloqueia START'),
+      tag('M0.6', 'Rampa_Metal_Cheia', 'Rampa metálica com 2 peças — bloqueia START'),
+    ],
+    notes: [
+      note(`${p}-n-test`, 'Como testar (ciclo único)', right, layout.minY + 200, '#bfdbfe', [
+        'I0.15 ligado (emergência libertada) e I0.13 (modo AUTOMÁTICO). Impulso em I0.0 (START).',
+        'Ligue I0.1 (peça) → deteção. Escolha o tipo: I0.2 Preta / I0.3 Branca / I0.4 Metal.',
+        'I0.5 (posição estampa) → estampagem 5/6/8 s. Depois I0.6 + o mesmo tipo → deposita e conta.',
+        'FC da gaveta (I0.7/8/9) → retorno. I0.10 (origem) → volta à etapa 0.',
+      ]),
+      note(`${p}-n-safety`, 'Emergência e rampas', right, layout.minY + 480, '#fecaca', [
+        'Desligue I0.15: o GRAFCET de segurança passa à etapa 11; alarme a 2 Hz e luz vermelha.',
+        'Rearme: ligue I0.15 e dê impulso em I0.14 para voltar à etapa 10.',
+        'M0.4 / M0.5 / M0.6 = rampa cheia (2 peças). Enquanto algum estiver a 1, o START fica bloqueado.',
+      ]),
+      note(`${p}-n-guia`, 'Guião ATEC', right, layout.minY + 720, '#fef3c7', [
+        'HMI: modos Manual e Automático; Iniciar / Parar / Pausar; feedback de sensores e atuadores.',
+        'Registo de peças processadas (M0.1–M0.3 ou contadores reais) e reset independente de cada rampa.',
+        'I/O físico: entradas C1_FC_0…15; saídas alimenta, braço, gaveta e estampa conforme tabela do PLC.',
+      ]),
+    ],
+    restInputs: { 'I0.15': true, 'I0.13': true },
+    inputModes: { 'I0.0': 'push', 'I0.14': 'push', 'I0.15': 'nc', 'I0.12': 'latch', 'I0.13': 'latch' },
+    virtualInputCount: 16,
+    virtualOutputCount: 16,
+    virtualMemoryCount: 8,
+  }
+}
+
 export function grafcetExamples(): GrafcetExample[] {
-  return [prensa(), portao(), enchimento()]
+  return [prensa(), portao(), enchimento(), estampagem()]
 }
 
 /** Conteúdo de projeto (o mesmo formato que «Guardar») de um exemplo GRAFCET. */
 export function grafcetExampleContent(example: GrafcetExample): Record<string, unknown> {
   return {
     app: 'dc-simu',
-    version: 6,
+    version: 7,
     projectKind: 'grafcet',
     nativeId: example.nativeId,
-    savedAt: '2026-10-30T10:00:00.000Z',
+    savedAt: '2026-11-06T00:00:00.000Z',
     components: [],
     wires: [],
     ladder: { rungs: [] },
     grafcet: example.program,
     tags: example.tags,
-    canvasNotes: example.notes.map((item) => ({ ...item, createdAt: '2026-10-30T10:00:00.000Z' })),
+    canvasNotes: example.notes.map((item) => ({ ...item, createdAt: '2026-11-06T00:00:00.000Z' })),
     virtualInputs: example.restInputs,
     virtualInputModes: example.inputModes,
-    virtualInputCount: 8,
-    virtualOutputCount: 8,
-    virtualMemoryCount: 4,
+    virtualInputCount: example.virtualInputCount ?? 8,
+    virtualOutputCount: example.virtualOutputCount ?? 8,
+    virtualMemoryCount: example.virtualMemoryCount ?? 4,
   }
 }
