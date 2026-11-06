@@ -568,10 +568,10 @@
         "stepType": "initial",
         "action": "",
         "condition": "",
-        "description": "Manual inativo",
+        "description": "Alimentador — repouso",
         "actions": [],
-        "x": 1900,
-        "y": 800,
+        "x": 160,
+        "y": 1420,
         "pinned": true
       },
       {
@@ -581,72 +581,416 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Manual ativo",
+        "description": "Alimentador — ligado",
         "actions": [
           {
             "id": "est-s51-a0",
             "address": "Q0.0",
             "variable": "Cil_Alimenta",
-            "description": "Alimentador",
-            "condition": "Man_Alimenta",
+            "description": "Alimentador (manual)",
+            "condition": "1",
             "kind": "N",
-            "displayDescription": true,
-            "type": "conditional"
-          },
-          {
-            "id": "est-s51-a1",
-            "address": "Q0.4",
-            "variable": "Motor_Rotativo",
-            "description": "Transportador",
-            "condition": "Man_Transporte",
-            "kind": "N",
-            "displayDescription": true,
-            "type": "conditional"
-          },
-          {
-            "id": "est-s51-a2",
-            "address": "Q0.6",
-            "variable": "Cil_Estampa",
-            "description": "Estampa (só na posição)",
-            "condition": "Man_Estampa * Pos_Estampa",
-            "kind": "N",
-            "displayDescription": true,
-            "type": "conditional"
-          },
-          {
-            "id": "est-s51-a3",
-            "address": "Q0.1",
-            "variable": "Gaveta_Preta",
-            "description": "Gaveta Preta (só na posição)",
-            "condition": "Man_Gaveta_Preta * Pos_Deposito",
-            "kind": "N",
-            "displayDescription": true,
-            "type": "conditional"
-          },
-          {
-            "id": "est-s51-a4",
-            "address": "Q0.2",
-            "variable": "Gaveta_Branca",
-            "description": "Gaveta Branca (só na posição)",
-            "condition": "Man_Gaveta_Branca * Pos_Deposito",
-            "kind": "N",
-            "displayDescription": true,
-            "type": "conditional"
-          },
-          {
-            "id": "est-s51-a5",
-            "address": "Q0.3",
-            "variable": "Gaveta_Metal",
-            "description": "Gaveta Metálica (só na posição)",
-            "condition": "Man_Gaveta_Metal * Pos_Deposito",
-            "kind": "N",
-            "displayDescription": true,
-            "type": "conditional"
+            "displayDescription": true
           }
         ],
-        "actionLayout": "column",
-        "x": 1900,
-        "y": 960,
+        "x": 160,
+        "y": 1590,
+        "pinned": true
+      },
+      {
+        "id": "est-s52",
+        "name": "52",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Transportador rotativo — repouso",
+        "actions": [],
+        "x": 460,
+        "y": 1420,
+        "pinned": true
+      },
+      {
+        "id": "est-s53",
+        "name": "53",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Transportador rotativo — ligado",
+        "actions": [
+          {
+            "id": "est-s53-a0",
+            "address": "Q0.4",
+            "variable": "Motor_Rotativo",
+            "description": "Transportador rotativo (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 460,
+        "y": 1590,
+        "pinned": true
+      },
+      {
+        "id": "est-s54",
+        "name": "54",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Cilindro de estampa — repouso",
+        "actions": [],
+        "x": 760,
+        "y": 1420,
+        "pinned": true
+      },
+      {
+        "id": "est-s55",
+        "name": "55",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Cilindro de estampa — ligado",
+        "actions": [
+          {
+            "id": "est-s55-a0",
+            "address": "Q0.6",
+            "variable": "Cil_Estampa",
+            "description": "Cilindro de estampa (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 760,
+        "y": 1590,
+        "pinned": true
+      },
+      {
+        "id": "est-s56",
+        "name": "56",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Gaveta Preta — repouso",
+        "actions": [],
+        "x": 1060,
+        "y": 1420,
+        "pinned": true
+      },
+      {
+        "id": "est-s57",
+        "name": "57",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Gaveta Preta — ligado",
+        "actions": [
+          {
+            "id": "est-s57-a0",
+            "address": "Q0.1",
+            "variable": "Gaveta_Preta",
+            "description": "Gaveta Preta (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 1060,
+        "y": 1590,
+        "pinned": true
+      },
+      {
+        "id": "est-s58",
+        "name": "58",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Gaveta Branca — repouso",
+        "actions": [],
+        "x": 1360,
+        "y": 1420,
+        "pinned": true
+      },
+      {
+        "id": "est-s59",
+        "name": "59",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Gaveta Branca — ligado",
+        "actions": [
+          {
+            "id": "est-s59-a0",
+            "address": "Q0.2",
+            "variable": "Gaveta_Branca",
+            "description": "Gaveta Branca (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 1360,
+        "y": 1590,
+        "pinned": true
+      },
+      {
+        "id": "est-s60",
+        "name": "60",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Gaveta Metálica — repouso",
+        "actions": [],
+        "x": 1660,
+        "y": 1420,
+        "pinned": true
+      },
+      {
+        "id": "est-s61",
+        "name": "61",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Gaveta Metálica — ligado",
+        "actions": [
+          {
+            "id": "est-s61-a0",
+            "address": "Q0.3",
+            "variable": "Gaveta_Metal",
+            "description": "Gaveta Metálica (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 1660,
+        "y": 1590,
+        "pinned": true
+      },
+      {
+        "id": "est-s62",
+        "name": "62",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Retorno à origem — repouso",
+        "actions": [],
+        "x": 1960,
+        "y": 1420,
+        "pinned": true
+      },
+      {
+        "id": "est-s63",
+        "name": "63",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Retorno à origem — ligado",
+        "actions": [
+          {
+            "id": "est-s63-a0",
+            "address": "Q0.5",
+            "variable": "Retorno",
+            "description": "Retorno à origem (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 1960,
+        "y": 1590,
+        "pinned": true
+      },
+      {
+        "id": "est-s70",
+        "name": "70",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada verde — repouso",
+        "actions": [],
+        "x": 160,
+        "y": 1860,
+        "pinned": true
+      },
+      {
+        "id": "est-s71",
+        "name": "71",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada verde — ligado",
+        "actions": [
+          {
+            "id": "est-s71-a0",
+            "address": "Q0.7",
+            "variable": "L_Verde",
+            "description": "Lâmpada verde (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 160,
+        "y": 2030,
+        "pinned": true
+      },
+      {
+        "id": "est-s72",
+        "name": "72",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada de alarme — repouso",
+        "actions": [],
+        "x": 460,
+        "y": 1860,
+        "pinned": true
+      },
+      {
+        "id": "est-s73",
+        "name": "73",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada de alarme — ligado",
+        "actions": [
+          {
+            "id": "est-s73-a0",
+            "address": "Q1.0",
+            "variable": "L_Alarme",
+            "description": "Lâmpada de alarme (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 460,
+        "y": 2030,
+        "pinned": true
+      },
+      {
+        "id": "est-s74",
+        "name": "74",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada azul — repouso",
+        "actions": [],
+        "x": 760,
+        "y": 1860,
+        "pinned": true
+      },
+      {
+        "id": "est-s75",
+        "name": "75",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada azul — ligado",
+        "actions": [
+          {
+            "id": "est-s75-a0",
+            "address": "Q1.1",
+            "variable": "L_Azul",
+            "description": "Lâmpada azul (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 760,
+        "y": 2030,
+        "pinned": true
+      },
+      {
+        "id": "est-s76",
+        "name": "76",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada branca — repouso",
+        "actions": [],
+        "x": 1060,
+        "y": 1860,
+        "pinned": true
+      },
+      {
+        "id": "est-s77",
+        "name": "77",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada branca — ligado",
+        "actions": [
+          {
+            "id": "est-s77-a0",
+            "address": "Q1.2",
+            "variable": "L_Branca",
+            "description": "Lâmpada branca (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 1060,
+        "y": 2030,
+        "pinned": true
+      },
+      {
+        "id": "est-s78",
+        "name": "78",
+        "initial": true,
+        "stepType": "initial",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada vermelha — repouso",
+        "actions": [],
+        "x": 1360,
+        "y": 1860,
+        "pinned": true
+      },
+      {
+        "id": "est-s79",
+        "name": "79",
+        "initial": false,
+        "stepType": "simple",
+        "action": "",
+        "condition": "",
+        "description": "Lâmpada vermelha — ligado",
+        "actions": [
+          {
+            "id": "est-s79-a0",
+            "address": "Q1.3",
+            "variable": "L_Vermelha",
+            "description": "Lâmpada vermelha (manual)",
+            "condition": "1",
+            "kind": "N",
+            "displayDescription": true
+          }
+        ],
+        "x": 1360,
+        "y": 2030,
         "pinned": true
       }
     ],
@@ -1307,9 +1651,10 @@
         "to": [
           "est-s51"
         ],
-        "condition": "G0 <=> X3",
-        "description": "G0 em manual",
-        "displayDescription": true
+        "condition": "^Man_Alimenta",
+        "description": "Toque em Man_Alimenta: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
       },
       {
         "id": "est-g4-t2",
@@ -1320,11 +1665,330 @@
         "to": [
           "est-s50"
         ],
-        "condition": "G0 <> X3",
-        "description": "G0 saiu do manual",
+        "condition": "^Man_Alimenta + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
         "wireless": true,
         "targetInfo": "50"
+      },
+      {
+        "id": "est-g5-t1",
+        "name": "T1",
+        "from": [
+          "est-s52"
+        ],
+        "to": [
+          "est-s53"
+        ],
+        "condition": "^Man_Transporte",
+        "description": "Toque em Man_Transporte: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g5-t2",
+        "name": "T2",
+        "from": [
+          "est-s53"
+        ],
+        "to": [
+          "est-s52"
+        ],
+        "condition": "^Man_Transporte + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "52"
+      },
+      {
+        "id": "est-g6-t1",
+        "name": "T1",
+        "from": [
+          "est-s54"
+        ],
+        "to": [
+          "est-s55"
+        ],
+        "condition": "^Man_Estampa * Pos_Estampa",
+        "description": "Toque em Man_Estampa com Pos_Estampa: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g6-t2",
+        "name": "T2",
+        "from": [
+          "est-s55"
+        ],
+        "to": [
+          "est-s54"
+        ],
+        "condition": "^Man_Estampa + G0 <> X3 + !Pos_Estampa",
+        "description": "Novo toque, saída do manual ou Pos_Estampa perdido: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "54"
+      },
+      {
+        "id": "est-g7-t1",
+        "name": "T1",
+        "from": [
+          "est-s56"
+        ],
+        "to": [
+          "est-s57"
+        ],
+        "condition": "^Man_Gaveta_Preta * Pos_Deposito",
+        "description": "Toque em Man_Gaveta_Preta com Pos_Deposito: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g7-t2",
+        "name": "T2",
+        "from": [
+          "est-s57"
+        ],
+        "to": [
+          "est-s56"
+        ],
+        "condition": "^Man_Gaveta_Preta + G0 <> X3 + !Pos_Deposito",
+        "description": "Novo toque, saída do manual ou Pos_Deposito perdido: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "56"
+      },
+      {
+        "id": "est-g8-t1",
+        "name": "T1",
+        "from": [
+          "est-s58"
+        ],
+        "to": [
+          "est-s59"
+        ],
+        "condition": "^Man_Gaveta_Branca * Pos_Deposito",
+        "description": "Toque em Man_Gaveta_Branca com Pos_Deposito: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g8-t2",
+        "name": "T2",
+        "from": [
+          "est-s59"
+        ],
+        "to": [
+          "est-s58"
+        ],
+        "condition": "^Man_Gaveta_Branca + G0 <> X3 + !Pos_Deposito",
+        "description": "Novo toque, saída do manual ou Pos_Deposito perdido: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "58"
+      },
+      {
+        "id": "est-g9-t1",
+        "name": "T1",
+        "from": [
+          "est-s60"
+        ],
+        "to": [
+          "est-s61"
+        ],
+        "condition": "^Man_Gaveta_Metal * Pos_Deposito",
+        "description": "Toque em Man_Gaveta_Metal com Pos_Deposito: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g9-t2",
+        "name": "T2",
+        "from": [
+          "est-s61"
+        ],
+        "to": [
+          "est-s60"
+        ],
+        "condition": "^Man_Gaveta_Metal + G0 <> X3 + !Pos_Deposito",
+        "description": "Novo toque, saída do manual ou Pos_Deposito perdido: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "60"
+      },
+      {
+        "id": "est-g10-t1",
+        "name": "T1",
+        "from": [
+          "est-s62"
+        ],
+        "to": [
+          "est-s63"
+        ],
+        "condition": "^Man_Retorno",
+        "description": "Toque em Man_Retorno: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g10-t2",
+        "name": "T2",
+        "from": [
+          "est-s63"
+        ],
+        "to": [
+          "est-s62"
+        ],
+        "condition": "^Man_Retorno + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "62"
+      },
+      {
+        "id": "est-g11-t1",
+        "name": "T1",
+        "from": [
+          "est-s70"
+        ],
+        "to": [
+          "est-s71"
+        ],
+        "condition": "^Man_L_Verde",
+        "description": "Toque em Man_L_Verde: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g11-t2",
+        "name": "T2",
+        "from": [
+          "est-s71"
+        ],
+        "to": [
+          "est-s70"
+        ],
+        "condition": "^Man_L_Verde + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "70"
+      },
+      {
+        "id": "est-g12-t1",
+        "name": "T1",
+        "from": [
+          "est-s72"
+        ],
+        "to": [
+          "est-s73"
+        ],
+        "condition": "^Man_L_Alarme",
+        "description": "Toque em Man_L_Alarme: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g12-t2",
+        "name": "T2",
+        "from": [
+          "est-s73"
+        ],
+        "to": [
+          "est-s72"
+        ],
+        "condition": "^Man_L_Alarme + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "72"
+      },
+      {
+        "id": "est-g13-t1",
+        "name": "T1",
+        "from": [
+          "est-s74"
+        ],
+        "to": [
+          "est-s75"
+        ],
+        "condition": "^Man_L_Azul",
+        "description": "Toque em Man_L_Azul: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g13-t2",
+        "name": "T2",
+        "from": [
+          "est-s75"
+        ],
+        "to": [
+          "est-s74"
+        ],
+        "condition": "^Man_L_Azul + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "74"
+      },
+      {
+        "id": "est-g14-t1",
+        "name": "T1",
+        "from": [
+          "est-s76"
+        ],
+        "to": [
+          "est-s77"
+        ],
+        "condition": "^Man_L_Branca",
+        "description": "Toque em Man_L_Branca: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g14-t2",
+        "name": "T2",
+        "from": [
+          "est-s77"
+        ],
+        "to": [
+          "est-s76"
+        ],
+        "condition": "^Man_L_Branca + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "76"
+      },
+      {
+        "id": "est-g15-t1",
+        "name": "T1",
+        "from": [
+          "est-s78"
+        ],
+        "to": [
+          "est-s79"
+        ],
+        "condition": "^Man_L_Vermelha",
+        "description": "Toque em Man_L_Vermelha: liga",
+        "displayDescription": true,
+        "guard": "G0 <=> X3"
+      },
+      {
+        "id": "est-g15-t2",
+        "name": "T2",
+        "from": [
+          "est-s79"
+        ],
+        "to": [
+          "est-s78"
+        ],
+        "condition": "^Man_L_Vermelha + G0 <> X3",
+        "description": "Novo toque, saída do manual: desliga",
+        "displayDescription": false,
+        "wireless": true,
+        "targetInfo": "78"
       }
     ],
     "comments": [
@@ -1365,11 +2029,128 @@
         "color": "#0f172a"
       },
       {
+        "id": "est-c-manual",
+        "text": "Manual — um GRAFCET por cilindro, motor e lâmpada (G0 em X3: toque liga, novo toque desliga)",
+        "x": 90,
+        "y": 1330,
+        "fontSize": 18,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-manual-lamps",
+        "text": "Manual — lâmpadas (teste individual)",
+        "x": 90,
+        "y": 1770,
+        "fontSize": 18,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
         "id": "est-c-g4",
-        "text": "G4 - Manual",
-        "x": 1860,
-        "y": 744,
-        "fontSize": 16,
+        "text": "G4 - Cilindro · Alimentador",
+        "x": 120,
+        "y": 1358,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g5",
+        "text": "G5 - Motor · Transportador rotativo",
+        "x": 420,
+        "y": 1358,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g6",
+        "text": "G6 - Cilindro · Cilindro de estampa",
+        "x": 720,
+        "y": 1358,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g7",
+        "text": "G7 - Cilindro · Gaveta Preta",
+        "x": 1020,
+        "y": 1358,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g8",
+        "text": "G8 - Cilindro · Gaveta Branca",
+        "x": 1320,
+        "y": 1358,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g9",
+        "text": "G9 - Cilindro · Gaveta Metálica",
+        "x": 1620,
+        "y": 1358,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g10",
+        "text": "G10 - Motor · Retorno à origem",
+        "x": 1920,
+        "y": 1358,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g11",
+        "text": "G11 - Lâmpada · Lâmpada verde",
+        "x": 120,
+        "y": 1798,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g12",
+        "text": "G12 - Lâmpada · Lâmpada de alarme",
+        "x": 420,
+        "y": 1798,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g13",
+        "text": "G13 - Lâmpada · Lâmpada azul",
+        "x": 720,
+        "y": 1798,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g14",
+        "text": "G14 - Lâmpada · Lâmpada branca",
+        "x": 1020,
+        "y": 1798,
+        "fontSize": 14,
+        "fontWeight": "700",
+        "color": "#0f172a"
+      },
+      {
+        "id": "est-c-g15",
+        "text": "G15 - Lâmpada · Lâmpada vermelha",
+        "x": 1320,
+        "y": 1798,
+        "fontSize": 14,
         "fontWeight": "700",
         "color": "#0f172a"
       },
@@ -1424,7 +2205,7 @@
       },
       {
         "id": "est-c-hier",
-        "text": "G2, G3 e G4 só correm com o G0 no estado certo (X1/X2 · X4 · X3); a emergência (G1 X11) leva o G0 a X5 e aborta o G2.",
+        "text": "G2, G3 e os manuais G4–G15 só correm com o G0 no estado certo (X1/X2 · X4 · X3); a emergência (G1 X11) leva o G0 a X5, aborta o G2 e desliga os manuais.",
         "x": 90,
         "y": 560,
         "fontSize": 12,
@@ -1558,7 +2339,7 @@
       "address": "I2.0",
       "name": "Man_Alimenta",
       "dataType": "Bool",
-      "comment": "Manual (HMI): alimentador"
+      "comment": "Manual (HMI): alimentador — toque liga, novo toque desliga"
     },
     {
       "id": "tag-I2.1",
@@ -1594,6 +2375,48 @@
       "name": "Man_Gaveta_Metal",
       "dataType": "Bool",
       "comment": "Manual (HMI): gaveta metálica"
+    },
+    {
+      "id": "tag-I2.6",
+      "address": "I2.6",
+      "name": "Man_Retorno",
+      "dataType": "Bool",
+      "comment": "Manual (HMI): retorno à origem"
+    },
+    {
+      "id": "tag-I2.7",
+      "address": "I2.7",
+      "name": "Man_L_Verde",
+      "dataType": "Bool",
+      "comment": "Manual (HMI): teste lâmpada verde"
+    },
+    {
+      "id": "tag-I3.0",
+      "address": "I3.0",
+      "name": "Man_L_Alarme",
+      "dataType": "Bool",
+      "comment": "Manual (HMI): teste lâmpada de alarme"
+    },
+    {
+      "id": "tag-I3.1",
+      "address": "I3.1",
+      "name": "Man_L_Azul",
+      "dataType": "Bool",
+      "comment": "Manual (HMI): teste lâmpada azul"
+    },
+    {
+      "id": "tag-I3.2",
+      "address": "I3.2",
+      "name": "Man_L_Branca",
+      "dataType": "Bool",
+      "comment": "Manual (HMI): teste lâmpada branca"
+    },
+    {
+      "id": "tag-I3.3",
+      "address": "I3.3",
+      "name": "Man_L_Vermelha",
+      "dataType": "Bool",
+      "comment": "Manual (HMI): teste lâmpada vermelha"
     },
     {
       "id": "tag-Q0.0",
@@ -1745,9 +2568,15 @@
     "I2.2": "push",
     "I2.3": "push",
     "I2.4": "push",
-    "I2.5": "push"
+    "I2.5": "push",
+    "I2.6": "push",
+    "I2.7": "push",
+    "I3.0": "push",
+    "I3.1": "push",
+    "I3.2": "push",
+    "I3.3": "push"
   },
-  "virtualInputCount": 24,
+  "virtualInputCount": 32,
   "virtualOutputCount": 16,
   "virtualMemoryCount": 8,
   "canvasNotes": [
@@ -1791,30 +2620,36 @@
       "text": "Como testar — manual e reset",
       "view": "grafcet",
       "x": 2250,
-      "y": 350,
+      "y": 360,
       "color": "#bbf7d0",
       "messages": [
         {
           "id": "est-n-manual-m0",
-          "text": "Com o G0 parado, ligue Modo_Manual (desligue Modo_Auto): G0 → X3, o G4 → X51 e cada botão Man_* aciona o seu atuador.",
+          "text": "Com o G0 parado, ligue Modo_Manual (desligue Modo_Auto): G0 → X3. Cada atuador e cada lâmpada tem o seu GRAFCET (G4–G15) e o seu botão Man_*.",
           "author": "DC-SIMU",
           "createdAt": "2026-10-30T10:00:00.000Z"
         },
         {
           "id": "est-n-manual-m1",
-          "text": "Estampa e gavetas só atuam com Pos_Estampa / Pos_Deposito ativos (intertravamento).",
+          "text": "Um toque em Man_* liga (etapa ímpar: 51, 53…); novo toque desliga. Sair do manual ou emergência desliga tudo.",
           "author": "DC-SIMU",
           "createdAt": "2026-10-30T10:00:00.000Z"
         },
         {
           "id": "est-n-manual-m2",
-          "text": "B_Reset com o G0 parado: G0 → X4, o G3 repõe a origem (Retorno + zera contadores) até FC_Origem.",
+          "text": "Estampa e gavetas só ligam com Pos_Estampa / Pos_Deposito ativos e desligam se a posição se perder (intertravamento).",
           "author": "DC-SIMU",
           "createdAt": "2026-10-30T10:00:00.000Z"
         },
         {
           "id": "est-n-manual-m3",
-          "text": "Endereços no formato byte.bit: C1_FC_8…15 da tabela física = I1.0…I1.7; manuais I2.0…I2.5; lâmpadas Q1.0…Q1.3.",
+          "text": "B_Reset com o G0 parado: G0 → X4, o G3 repõe a origem (Retorno + zera contadores) até FC_Origem.",
+          "author": "DC-SIMU",
+          "createdAt": "2026-10-30T10:00:00.000Z"
+        },
+        {
+          "id": "est-n-manual-m4",
+          "text": "Endereços no formato byte.bit: C1_FC_8…15 da tabela física = I1.0…I1.7; botões manuais I2.0…I3.3; lâmpadas Q1.0…Q1.3.",
           "author": "DC-SIMU",
           "createdAt": "2026-10-30T10:00:00.000Z"
         }
@@ -1826,7 +2661,7 @@
       "text": "Emergência",
       "view": "grafcet",
       "x": 2250,
-      "y": 590,
+      "y": 630,
       "color": "#fecaca",
       "messages": [
         {
@@ -1852,5 +2687,5 @@
   "grid": true,
   "activeScenario": null,
   "commands": [],
-  "nativeId": "grafcet-estampagem-industrial-v9"
+  "nativeId": "grafcet-estampagem-industrial-v10"
 }
