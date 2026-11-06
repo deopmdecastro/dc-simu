@@ -310,7 +310,7 @@ function estampagem(): GrafcetExample {
   const e11 = step(p, '11', 'Emergência', [
     ['N', 'Q1.0', 'L_Alarme', 'Alarme a 2 Hz', { type: 'conditional', condition: '2HZ' }],
     ['N', 'Q1.3', 'L_Vermelha', 'Luz vermelha emergência'],
-  ])
+  ], { actionLayout: 'column' })
   // ---- G2 · Automático (ciclo de estampagem)
   const a20 = initial(p, '20', 'Pronto — espera peça', [['N', 'Q0.7', 'L_Verde', 'Pronto']])
   const a21 = step(p, '21', 'Alimentar peça', [['N', 'Q0.0', 'Cil_Alimenta', 'Alimentar peça']])
@@ -461,16 +461,19 @@ function estampagem(): GrafcetExample {
 
   // Layout local por página (origem comum ~x150,y70) — já não lado a lado no mesmo canvas.
   const localPos: Record<string, [number, number]> = {
-    // G0 Controlo
-    0: [300, 70], 1: [100, 280], 3: [300, 280], 4: [500, 280], 2: [100, 500], 5: [300, 720],
+    // G0 Controlo — ≥320 px entre modos para caixas de ação (~140 px) não cobrirem etapas
+    0: [400, 60],
+    1: [80, 300], 3: [420, 300], 4: [760, 300],
+    2: [80, 560],
+    5: [420, 820],
     // G1 Emergência
     10: [300, 70], 11: [300, 280],
     // G2 Automático
-    20: [300, 70], 21: [300, 230], 22: [300, 390], 23: [300, 550],
-    24: [100, 740], 25: [300, 740], 26: [500, 740],
-    27: [300, 940],
-    28: [100, 1140], 29: [300, 1140], 30: [500, 1140],
-    31: [300, 1360],
+    20: [400, 60], 21: [400, 230], 22: [400, 400], 23: [400, 570],
+    24: [100, 780], 25: [400, 780], 26: [700, 780],
+    27: [400, 1000],
+    28: [100, 1220], 29: [400, 1220], 30: [700, 1220],
+    31: [400, 1460],
     // G3 Reset
     40: [300, 70], 41: [300, 230], 42: [300, 390], 43: [300, 550], 44: [300, 730], 45: [300, 1020],
   }
@@ -501,7 +504,7 @@ function estampagem(): GrafcetExample {
 
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v15',
+    nativeId: 'grafcet-estampagem-industrial-v16',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (uma página por GRAFCET: controlo, emergência, automático, reset e manuais)',

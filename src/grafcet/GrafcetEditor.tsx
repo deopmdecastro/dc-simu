@@ -5706,7 +5706,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         const actionH = box.h
                         const actionY = dragOverride ? dragOverride.y : box.y
                         const renderX = dragOverride ? dragOverride.x : box.x
-                        const actionOn = !dragOverride && !!table[action.address]
+                        const actionOn = !dragOverride && runtime.active.includes(step.id) && !!table[action.address]
                         const isThisActionSelected = isActionSelected(action.id)
                         const isThisActionHovered = hoveredActionId === action.id
                         const kind = action.kind ?? 'N'
@@ -6338,7 +6338,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 : selectedTransition
                 ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
                 : 'Propriedades'}
-              detail={running || runtime.active.length ? `${running ? 'RUN' : 'STOP'}${runtime.active.length ? ` · ativa${runtime.active.length > 1 ? 's' : ''}: ${runtime.active.map((value) => { const index = steps.findIndex((step) => step.id === value); return index < 0 ? '?' : `X${getStepDisplayInfo(steps[index], index).stepNumber}` }).join(', ')}` : ''}` : undefined}
+              detail={running || runtime.active.length ? `${running ? 'RUN' : 'STOP'}${runtime.active.length ? ` · ativa${runtime.active.length > 1 ? 's' : ''}: ${runtime.active.map((value) => { const index = program.steps.findIndex((step) => step.id === value); return index < 0 ? '?' : `X${getStepDisplayInfo(program.steps[index], index).stepNumber}` }).join(', ')}` : ''}` : undefined}
               side={propsAtBottom ? 'bottom' : 'right'}
               expanded={propsOpen}
               onToggle={() => setPropsOpen((value) => !value)}
@@ -7056,8 +7056,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
             {runtime.active.length
               ? `Etapas ativas: ${runtime.active
                   .map((value) => {
-                    const step = steps.find((s) => s.id === value)
-                    return step ? getStepDisplayInfo(step, steps.indexOf(step)).stepNumber : '?'
+                    const index = program.steps.findIndex((s) => s.id === value)
+                    return index < 0 ? '?' : getStepDisplayInfo(program.steps[index], index).stepNumber
                   })
                   .join(', ')}`
               : 'Nenhuma etapa ativa'}
