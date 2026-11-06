@@ -288,93 +288,164 @@ function enchimento(): GrafcetExample {
 
 
 /* ------------------------------------------------------------------------------------------------
- * 4) AVANÇADO — Estampagem Industrial (ATEC): tipos de peça, tempos, rampas e segurança
+ * 4) AVANÇADO — Estampagem Industrial (ATEC): 5 GRAFCETs (controlo, emergência, automático, reset, manual)
  * ---------------------------------------------------------------------------------------------- */
 function estampagem(): GrafcetExample {
   const p = 'est'
-  const s0 = initial(p, '0', 'Pronto — espera START', [['N', 'Q0.7', 'L_Verde', 'Pronto']])
-  const s1 = step(p, '1', 'Alimentar peça', [['N', 'Q0.0', 'Cil_Alimenta', 'Alimentar peça']])
-  const s2 = step(p, '2', 'Deteção do tipo', [['N', 'M0.0', 'Detetar', 'Deteção tipo']])
-  const s3 = step(p, '3', 'Transportar → estampa', [['N', 'Q0.4', 'Motor_Rotativo', 'Transportar → estampa']])
-  const s4p = step(p, '4P', 'Estampar Preta 5 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Preta 5s']])
-  const s4b = step(p, '4B', 'Estampar Branca 6 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Branca 6s']])
-  const s4m = step(p, '4M', 'Estampar Metálica 8 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Metálica 8s']])
-  const s5 = step(p, '5', 'Transportar → depósito', [['N', 'Q0.4', 'Motor_Rotativo', 'Transportar → depósito']])
-  const s6p = step(p, '6P', 'Depositar Preta', [
-    ['N', 'Q0.1', 'Gaveta_Preta', 'Depositar Preta'],
-    ['S', 'M0.1', 'Cnt_Preta', 'Inc. contador Preta'],
+  // Cinco GRAFCETs na mesma página, cada um com o seu título «G<n> - …». As etapas têm numeração própria por GRAFCET
+  // (G0: 0–5 · G1: 10–11 · G2: 20–31 · G3: 40–42 · G4: 50–51) e as receptividades usam o NOME das tags (B_Start, Emergencia…),
+  // nunca o endereço. A hierarquia é a da IEC 60848: o G0 comanda os outros por comparações de estado (`G0 <=> X1`).
+
+  // ---- G0 · Controlo (modos de marcha)
+  const c0 = initial(p, '0', 'Máquina parada', [])
+  const c1 = step(p, '1', 'Modo automático', [['N', 'Q1.2', 'L_Branca', 'Lâmpada branca — AUTO']])
+  const c2 = step(p, '2', 'A terminar ciclo', [['N', 'Q1.2', 'L_Branca', 'AUTO a piscar', { type: 'conditional', condition: '1HZ' }]])
+  const c3 = step(p, '3', 'Modo manual', [['N', 'Q1.1', 'L_Azul', 'Lâmpada azul — MANUAL']])
+  const c4 = step(p, '4', 'Máquina em reset', [])
+  const c5 = step(p, '5', 'Máquina em emergência', [])
+  // ---- G1 · Emergência
+  const e10 = initial(p, '10', 'Segurança OK', [])
+  const e11 = step(p, '11', 'Emergência', [
+    ['N', 'Q1.0', 'L_Alarme', 'Alarme a 2 Hz', { type: 'conditional', condition: '2HZ' }],
+    ['N', 'Q1.3', 'L_Vermelha', 'Luz vermelha emergência'],
   ])
-  const s6b = step(p, '6B', 'Depositar Branca', [
-    ['N', 'Q0.2', 'Gaveta_Branca', 'Depositar Branca'],
-    ['S', 'M0.2', 'Cnt_Branca', 'Inc. contador Branca'],
+  // ---- G2 · Automático (ciclo de estampagem)
+  const a20 = initial(p, '20', 'Pronto — espera peça', [['N', 'Q0.7', 'L_Verde', 'Pronto']])
+  const a21 = step(p, '21', 'Alimentar peça', [['N', 'Q0.0', 'Cil_Alimenta', 'Alimentar peça']])
+  const a22 = step(p, '22', 'Deteção do tipo', [['N', 'M0.0', 'Detetar', 'Deteção tipo']])
+  const a23 = step(p, '23', 'Transportar → estampa', [['N', 'Q0.4', 'Motor_Rotativo', 'Transportar → estampa']])
+  const a24 = step(p, '24', 'Estampar Preta 5 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Preta 5s']])
+  const a25 = step(p, '25', 'Estampar Branca 6 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Branca 6s']])
+  const a26 = step(p, '26', 'Estampar Metálica 8 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Metálica 8s']])
+  const a27 = step(p, '27', 'Transportar → depósito', [['N', 'Q0.4', 'Motor_Rotativo', 'Transportar → depósito']])
+  const a28 = step(p, '28', 'Depositar Preta', [['N', 'Q0.1', 'Gaveta_Preta', 'Depositar Preta'], ['S', 'M0.1', 'Cnt_Preta', 'Inc. contador Preta']])
+  const a29 = step(p, '29', 'Depositar Branca', [['N', 'Q0.2', 'Gaveta_Branca', 'Depositar Branca'], ['S', 'M0.2', 'Cnt_Branca', 'Inc. contador Branca']])
+  const a30 = step(p, '30', 'Depositar Metálica', [['N', 'Q0.3', 'Gaveta_Metal', 'Depositar Metálica'], ['S', 'M0.3', 'Cnt_Metal', 'Inc. contador Metal']])
+  const a31 = step(p, '31', 'Retorno à origem', [['N', 'Q0.5', 'Retorno', 'Retorno origem']])
+  // ---- G3 · Reset
+  const r40 = initial(p, '40', 'Reset em repouso', [])
+  const r41 = step(p, '41', 'A repor a origem', [
+    ['N', 'Q0.5', 'Retorno', 'Retorno origem'],
+    ['R', 'M0.1', 'Cnt_Preta', 'Zerar contador Preta'],
+    ['R', 'M0.2', 'Cnt_Branca', 'Zerar contador Branca'],
+    ['R', 'M0.3', 'Cnt_Metal', 'Zerar contador Metal'],
   ])
-  const s6m = step(p, '6M', 'Depositar Metálica', [
-    ['N', 'Q0.3', 'Gaveta_Metal', 'Depositar Metálica'],
-    ['S', 'M0.3', 'Cnt_Metal', 'Inc. contador Metal'],
-  ])
-  const s7 = step(p, '7', 'Retorno à origem', [['N', 'Q0.5', 'Retorno', 'Retorno origem']])
-  const s10 = initial(p, '10', 'Segurança OK', [])
-  const s11 = step(p, '11', 'Emergência', [
-    ['N', 'Q0.8', 'L_Alarme', 'Alarme emergência', { type: 'conditional', condition: '2HZ' }],
-    ['N', 'Q0.11', 'L_Vermelha', 'Luz vermelha emergência'],
-  ])
-  const transitions = [
-    link(p, 'T01', [s0], [s1], 'I0.0*I0.13*I0.15*X10*!M0.4*!M0.5*!M0.6', 'START + modo automático + emergência OK + rampas livres'),
-    link(p, 'T12', [s1], [s2], 'I0.1', 'Peça presente / FC alimentador'),
-    link(p, 'T23', [s2], [s3], 'I0.2|I0.3|I0.4', 'Tipo detetado (Preta | Branca | Metálica)'),
-    link(p, 'T3P', [s3], [s4p], 'I0.5*I0.2', 'Posição estampa + Preta'),
-    link(p, 'T3B', [s3], [s4b], 'I0.5*I0.3', 'Posição estampa + Branca'),
-    link(p, 'T3M', [s3], [s4m], 'I0.5*I0.4', 'Posição estampa + Metálica'),
-    link(p, 'T4P5', [s4p], [s5], '5s/X4P', 'Tempo estampagem Preta 5 s'),
-    link(p, 'T4B5', [s4b], [s5], '6s/X4B', 'Tempo estampagem Branca 6 s'),
-    link(p, 'T4M5', [s4m], [s5], '8s/X4M', 'Tempo estampagem Metálica 8 s'),
-    link(p, 'T5P', [s5], [s6p], 'I0.6*I0.2', 'Posição depósito + Preta'),
-    link(p, 'T5B', [s5], [s6b], 'I0.6*I0.3', 'Posição depósito + Branca'),
-    link(p, 'T5M', [s5], [s6m], 'I0.6*I0.4', 'Posição depósito + Metálica'),
-    link(p, 'T6P7', [s6p], [s7], 'I0.7', 'Peça depositada (FC gaveta Preta)'),
-    link(p, 'T6B7', [s6b], [s7], 'I0.8', 'Peça depositada (FC gaveta Branca)'),
-    link(p, 'T6M7', [s6m], [s7], 'I0.9', 'Peça depositada (FC gaveta Metal)'),
-    link(p, 'T70', [s7], [s0], 'I0.10', 'Retorno concluído (origem)', { targetInfo: '0' }),
-    link(p, 'T10-11', [s10], [s11], '!I0.15', 'Emergência premida'),
-    link(p, 'T11-10', [s11], [s10], 'I0.15*I0.14', 'Emergência libertada + rearme', { targetInfo: '10' }),
+  const r42 = step(p, '42', 'Fim do reset', [])
+  // ---- G4 · Manual (cada atuador pelo seu botão, com intertravamento de posição)
+  const m50 = initial(p, '50', 'Manual inativo', [])
+  const m51 = step(p, '51', 'Manual ativo', [
+    ['N', 'Q0.0', 'Cil_Alimenta', 'Alimentador', { type: 'conditional', condition: 'Man_Alimenta' }],
+    ['N', 'Q0.4', 'Motor_Rotativo', 'Transportador', { type: 'conditional', condition: 'Man_Transporte' }],
+    ['N', 'Q0.6', 'Cil_Estampa', 'Estampa (só na posição)', { type: 'conditional', condition: 'Man_Estampa * Pos_Estampa' }],
+    ['N', 'Q0.1', 'Gaveta_Preta', 'Gaveta Preta (só na posição)', { type: 'conditional', condition: 'Man_Gaveta_Preta * Pos_Deposito' }],
+    ['N', 'Q0.2', 'Gaveta_Branca', 'Gaveta Branca (só na posição)', { type: 'conditional', condition: 'Man_Gaveta_Branca * Pos_Deposito' }],
+    ['N', 'Q0.3', 'Gaveta_Metal', 'Gaveta Metálica (só na posição)', { type: 'conditional', condition: 'Man_Gaveta_Metal * Pos_Deposito' }],
+  ], { actionLayout: 'column' })
+
+  const quiet = { displayDescription: false } as const
+  // Ligações por referência (sem linha desenhada): voltas ao repouso, emergência e abortos entre GRAFCETs.
+  const ref = (to: GrafcetStep): Partial<GrafcetTransition> => ({ wireless: true, targetInfo: to.name, ...quiet })
+  const free = '!Rampa_Preta_Cheia * !Rampa_Branca_Cheia * !Rampa_Metal_Cheia'
+  const g0 = `${p}-g0`, g1 = `${p}-g1`, g2 = `${p}-g2`, g3 = `${p}-g3`, g4 = `${p}-g4`
+
+  const control: GrafcetTransition[] = [
+    // emergência tem prioridade (vem primeiro): qualquer estado do G0 passa à 5 quando o G1 está em emergência
+    link(g0, 'E0', [c0], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
+    link(g0, 'E1', [c1], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
+    link(g0, 'E2', [c2], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
+    link(g0, 'E3', [c3], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
+    link(g0, 'E4', [c4], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
+    link(g0, 'T1', [c0], [c1], 'B_Start * Modo_Auto * Emergencia', 'START em modo automático'),
+    link(g0, 'T2', [c0], [c3], 'Modo_Manual * Emergencia', 'Seleção do modo manual'),
+    link(g0, 'T3', [c0], [c4], 'B_Reset * Emergencia', 'Pedido de reset'),
+    link(g0, 'T4', [c1], [c2], '!Modo_Auto', 'Sair do automático: acabar o ciclo'),
+    link(g0, 'T5', [c2], [c0], 'G2 <=> X20', 'G2 já em repouso', ref(c0)),
+    link(g0, 'T6', [c3], [c0], '!Modo_Manual', 'Modo manual desligado', ref(c0)),
+    link(g0, 'T7', [c4], [c0], 'G3 <=> X42', 'G3 terminou o reset', ref(c0)),
+    link(g0, 'T8', [c5], [c4], 'G1 <=> X10', 'Rearmada → reset', ref(c4)),
   ]
+  const safety: GrafcetTransition[] = [
+    link(g1, 'T1', [e10], [e11], '!Emergencia', 'Emergência premida'),
+    link(g1, 'T2', [e11], [e10], 'Emergencia * Rearme', 'Libertada + rearme', ref(e10)),
+  ]
+  const auto: GrafcetTransition[] = [
+    link(g2, 'T1', [a20], [a21], free, 'Rampas livres', { guard: 'G0 <=> X1' }),
+    link(g2, 'T2', [a21], [a22], 'Peca_Presente', 'Peça no alimentador'),
+    link(g2, 'T3', [a22], [a23], 'Tipo_Preta + Tipo_Branca + Tipo_Metal', 'Tipo detetado'),
+    link(g2, 'T4', [a23], [a24], 'Pos_Estampa * Tipo_Preta', 'Posição estampa · Preta'),
+    link(g2, 'T5', [a23], [a25], 'Pos_Estampa * Tipo_Branca', 'Posição estampa · Branca'),
+    link(g2, 'T6', [a23], [a26], 'Pos_Estampa * Tipo_Metal', 'Posição estampa · Metálica'),
+    link(g2, 'T7', [a24], [a27], '5s/X24', 'Preta: 5 s'),
+    link(g2, 'T8', [a25], [a27], '6s/X25', 'Branca: 6 s'),
+    link(g2, 'T9', [a26], [a27], '8s/X26', 'Metálica: 8 s'),
+    link(g2, 'T10', [a27], [a28], 'Pos_Deposito * Tipo_Preta', 'Depósito · Preta'),
+    link(g2, 'T11', [a27], [a29], 'Pos_Deposito * Tipo_Branca', 'Depósito · Branca'),
+    link(g2, 'T12', [a27], [a30], 'Pos_Deposito * Tipo_Metal', 'Depósito · Metálica'),
+    link(g2, 'T13', [a28], [a31], 'FC_Gaveta_Preta', 'Gaveta Preta recuada'),
+    link(g2, 'T14', [a29], [a31], 'FC_Gaveta_Branca', 'Gaveta Branca recuada'),
+    link(g2, 'T15', [a30], [a31], 'FC_Gaveta_Metal', 'Gaveta Metálica recuada'),
+    link(g2, 'T16', [a31], [a20], 'FC_Origem', 'Origem', ref(a20)),
+    // a terminar ciclo (G0 em X2): ainda sem peça no alimentador, não há ciclo para acabar
+    link(g2, 'T17', [a21], [a20], 'G0 <=> X2 * !Peca_Presente', 'Sem peça: nada a terminar', ref(a20)),
+    // abortos: o G2 só corre com o G0 em automático (1) ou a terminar ciclo (2)
+    ...[a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31].map((from, index) =>
+      link(g2, `A${index + 1}`, [from], [a20], 'G0 <> X1 * G0 <> X2', 'Abortar (G0 fora do automático)', ref(a20))),
+  ]
+  const reset: GrafcetTransition[] = [
+    link(g3, 'T1', [r40], [r41], 'G0 <=> X4', 'G0 pediu reset'),
+    link(g3, 'T2', [r41], [r42], 'FC_Origem', 'Na origem'),
+    link(g3, 'T3', [r42], [r40], 'G0 <> X4', 'G0 saiu do reset', ref(r40)),
+  ]
+  const manual: GrafcetTransition[] = [
+    link(g4, 'T1', [m50], [m51], 'G0 <=> X3', 'G0 em manual'),
+    link(g4, 'T2', [m51], [m50], 'G0 <> X3', 'G0 saiu do manual', ref(m50)),
+  ]
+  const transitions = [...control, ...safety, ...auto, ...reset, ...manual]
+
   const layout = placed(
-    [s0, s1, s2, s3, s4p, s4b, s4m, s5, s6p, s6b, s6m, s7, s10, s11],
+    [c0, c1, c2, c3, c4, c5, e10, e11, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, r40, r41, r42, m50, m51],
     transitions,
     {
-      0: [280, 80], 1: [280, 220], 2: [280, 360], 3: [280, 500],
-      '4P': [120, 660], '4B': [280, 660], '4M': [440, 660],
-      5: [280, 820],
-      '6P': [120, 960], '6B': [280, 960], '6M': [440, 960],
-      7: [280, 1100],
-      10: [700, 80], 11: [700, 220],
+      0: [330, 110], 1: [130, 290], 3: [330, 290], 4: [530, 290], 2: [130, 470], 5: [330, 470],
+      10: [830, 110], 11: [830, 290],
+      20: [1330, 110], 21: [1330, 250], 22: [1330, 390], 23: [1330, 530],
+      24: [1170, 690], 25: [1330, 690], 26: [1490, 690], 27: [1330, 850],
+      28: [1170, 1010], 29: [1330, 1010], 30: [1490, 1010], 31: [1330, 1170],
+      40: [1900, 110], 41: [1900, 270], 42: [1900, 430],
+      50: [1900, 800], 51: [1900, 960],
     },
   )
-  const right = layout.maxX + 280
+  const notesX = 2250
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v8',
+    nativeId: 'grafcet-estampagem-industrial-v9',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
-    title: 'Estampagem industrial (tipos de peça, tempos 5/6/8 s, rampas e segurança)',
+    title: 'Estampagem industrial (5 GRAFCETs: controlo, emergência, automático, reset e manual)',
     description:
-      'Ciclo automático ATEC: alimentar, detetar tipo (preta/branca/metálica), transportar, estampar com tempo por tipo, depositar na rampa (máx. 2 peças) e retornar. GRAFCET de segurança separado para emergência. Alinhado ao guião e à tabela I/O do PLC.',
+      'Estrutura hierárquica ATEC: G0 Controlo comanda os modos, G1 Emergência, G2 Automático (ciclo com tempos 5/6/8 s), G3 Reset e G4 Manual. Receptividades com o nome das tags e comparações entre GRAFCETs (G0 <=> X1).',
     program: {
-      name: 'Estampagem Industrial — Automático (ATEC)',
+      name: 'Estampagem Industrial (ATEC)',
       steps: layout.steps,
       transitions,
       comments: [
-        text(`${p}-c-title`, 'Estampagem Industrial — ATEC (automático)', layout.minX - 40, layout.minY - 46, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', right, layout.minY, { color: '#7c3aed', fontWeight: '600' }),
-        text(`${p}-c-ramp`, 'Rampas: M0.4–M0.6 cheias bloqueiam START; reset independente no HMI.', right, layout.minY + 22, { color: '#b45309' }),
-        text(`${p}-c-mode`, 'T0→1 exige I0.13 (modo AUTO) e I0.15 (emergência libertada) e X10.', right, layout.minY + 44, { color: '#334155' }),
-        text(`${p}-c-io`, 'I0.0 START · I0.1 peça · I0.2/3/4 tipo · I0.5 pos.estampa · I0.6 pos.depósito', right, layout.minY + 70, { font: 'mono', fontSize: 11, color: '#475569' }),
-        text(`${p}-c-out`, 'Q0.0 alimenta · Q0.1–3 gavetas · Q0.4 motor · Q0.5 retorno · Q0.6 estampa · Q0.7–11 lâmpadas', right, layout.minY + 90, { font: 'mono', fontSize: 11, color: '#475569' }),
-        text(`${p}-c-safety-title`, 'GRAFCET de segurança', 640, layout.minY - 46, { fontSize: 13, fontWeight: '700', color: '#b91c1c' }),
+        text(`${p}-c-g0`, 'G0 - Controlo', 90, 54, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g1`, 'G1 - Emergência', 790, 54, { fontSize: 16, fontWeight: '700', color: '#b91c1c' }),
+        text(`${p}-c-g2`, 'G2 - Automático', 1100, 54, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g3`, 'G3 - Reset', 1860, 54, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g4`, 'G4 - Manual', 1860, 744, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-t0`, 'Máquina parada', 400, 110, { color: '#475569' }),
+        text(`${p}-c-t1`, 'Auto', 200, 290, { color: '#475569' }),
+        text(`${p}-c-t3`, 'Manual', 400, 290, { color: '#475569' }),
+        text(`${p}-c-t4`, 'Reset', 600, 290, { color: '#475569' }),
+        text(`${p}-c-t5`, 'Emergência', 400, 470, { color: '#b91c1c' }),
+        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', 1180, 1250, { color: '#7c3aed', fontWeight: '600' }),
+        text(`${p}-c-hier`, 'G2, G3 e G4 só correm com o G0 no estado certo (X1/X2 · X4 · X3); a emergência (G1 X11) leva o G0 a X5 e aborta o G2.', 90, 560, { color: '#334155' }),
+        text(`${p}-c-ramp`, 'Rampas: Rampa_*_Cheia (M0.4–M0.6) bloqueiam o arranque de cada ciclo do G2.', 90, 584, { color: '#b45309' }),
       ],
     },
     tags: [
-      tag('I0.0', 'START', 'Botão Iniciar ciclo (HMI). Física: C1_FC_0 → %I0.0'),
+      tag('I0.0', 'B_Start', 'Botão Iniciar ciclo (HMI). Física: C1_FC_0 → %I0.0'),
       tag('I0.1', 'Peca_Presente', 'Sensor peça no alimentador. Física: C1_FC_1 → %I0.1'),
       tag('I0.2', 'Tipo_Preta', 'Deteção peça plástica preta. Física: C1_FC_2 → %I0.2'),
       tag('I0.3', 'Tipo_Branca', 'Deteção peça plástica branca. Física: C1_FC_3 → %I0.3'),
@@ -382,13 +453,20 @@ function estampagem(): GrafcetExample {
       tag('I0.5', 'Pos_Estampa', 'Transportador na posição de estampagem. Física: C1_FC_5 → %I0.5'),
       tag('I0.6', 'Pos_Deposito', 'Transportador na posição de depósito. Física: C1_FC_6 → %I0.6'),
       tag('I0.7', 'FC_Gaveta_Preta', 'Fim de curso gaveta / rampa preta. Física: C1_FC_7 → %I0.7'),
-      tag('I0.8', 'FC_Gaveta_Branca', 'Fim de curso gaveta / rampa branca. Física: C1_FC_8 → %I0.8'),
-      tag('I0.9', 'FC_Gaveta_Metal', 'Fim de curso gaveta / rampa metálica. Física: C1_FC_9 → %I0.9'),
-      tag('I0.10', 'FC_Origem', 'Transportador / braço na origem. Física: C1_FC_10 → %I0.10'),
-      tag('I0.12', 'Modo_Manual', 'Seleção modo MANUAL (HMI). Física: C1_FC_12 → %I0.12'),
-      tag('I0.13', 'Modo_Auto', 'Seleção modo AUTOMÁTICO (HMI). Física: C1_FC_13 → %I0.13'),
-      tag('I0.14', 'Rearme', 'Botão rearme segurança. Física: C1_FC_14 → %I0.14'),
-      tag('I0.15', 'Emergencia', 'Botão emergência NC (1 = libertada). Física: C1_FC_15 → %I0.15'),
+      tag('I1.0', 'FC_Gaveta_Branca', 'Fim de curso gaveta / rampa branca. Física: C1_FC_8 → %I0.8'),
+      tag('I1.1', 'FC_Gaveta_Metal', 'Fim de curso gaveta / rampa metálica. Física: C1_FC_9 → %I0.9'),
+      tag('I1.2', 'FC_Origem', 'Transportador / braço na origem. Física: C1_FC_10 → %I0.10'),
+      tag('I1.3', 'B_Reset', 'Botão de reset (HMI). Física: C1_FC_11 → %I0.11'),
+      tag('I1.4', 'Modo_Manual', 'Seleção modo MANUAL (HMI). Física: C1_FC_12 → %I0.12'),
+      tag('I1.5', 'Modo_Auto', 'Seleção modo AUTOMÁTICO (HMI). Física: C1_FC_13 → %I0.13'),
+      tag('I1.6', 'Rearme', 'Botão rearme segurança. Física: C1_FC_14 → %I0.14'),
+      tag('I1.7', 'Emergencia', 'Botão emergência NC (1 = libertada). Física: C1_FC_15 → %I0.15'),
+      tag('I2.0', 'Man_Alimenta', 'Manual (HMI): alimentador'),
+      tag('I2.1', 'Man_Transporte', 'Manual (HMI): transportador rotativo'),
+      tag('I2.2', 'Man_Estampa', 'Manual (HMI): cilindro de estampagem'),
+      tag('I2.3', 'Man_Gaveta_Preta', 'Manual (HMI): gaveta preta'),
+      tag('I2.4', 'Man_Gaveta_Branca', 'Manual (HMI): gaveta branca'),
+      tag('I2.5', 'Man_Gaveta_Metal', 'Manual (HMI): gaveta metálica'),
       tag('Q0.0', 'Cil_Alimenta', 'Cilindro alimentador +. Física: %Q0.0'),
       tag('Q0.1', 'Gaveta_Preta', 'Atuador depósito / rampa preta (lógico)'),
       tag('Q0.2', 'Gaveta_Branca', 'Atuador depósito / rampa branca (lógico)'),
@@ -397,39 +475,42 @@ function estampagem(): GrafcetExample {
       tag('Q0.5', 'Retorno', 'Comando retorno à origem'),
       tag('Q0.6', 'Cil_Estampa', 'Cilindro de estampagem +. Física tabela: %Q0.8'),
       tag('Q0.7', 'L_Verde', 'Lâmpada verde — Pronto'),
-      tag('Q0.8', 'L_Alarme', 'Lâmpada alarme / emergência'),
-      tag('Q0.9', 'L_Azul', 'Lâmpada azul — modo MANUAL'),
-      tag('Q0.10', 'L_Branca', 'Lâmpada branca — modo AUTOMÁTICO'),
-      tag('Q0.11', 'L_Vermelha', 'Lâmpada vermelha — emergência'),
+      tag('Q1.0', 'L_Alarme', 'Lâmpada alarme / emergência'),
+      tag('Q1.1', 'L_Azul', 'Lâmpada azul — modo MANUAL'),
+      tag('Q1.2', 'L_Branca', 'Lâmpada branca — modo AUTOMÁTICO'),
+      tag('Q1.3', 'L_Vermelha', 'Lâmpada vermelha — emergência'),
       tag('M0.0', 'Detetar', 'Memória fase de deteção'),
       tag('M0.1', 'Cnt_Preta', 'Impulso contagem peça preta'),
       tag('M0.2', 'Cnt_Branca', 'Impulso contagem peça branca'),
       tag('M0.3', 'Cnt_Metal', 'Impulso contagem peça metálica'),
-      tag('M0.4', 'Rampa_Preta_Cheia', 'Rampa preta com 2 peças — bloqueia START'),
-      tag('M0.5', 'Rampa_Branca_Cheia', 'Rampa branca com 2 peças — bloqueia START'),
-      tag('M0.6', 'Rampa_Metal_Cheia', 'Rampa metálica com 2 peças — bloqueia START'),
+      tag('M0.4', 'Rampa_Preta_Cheia', 'Rampa preta com 2 peças — bloqueia o ciclo'),
+      tag('M0.5', 'Rampa_Branca_Cheia', 'Rampa branca com 2 peças — bloqueia o ciclo'),
+      tag('M0.6', 'Rampa_Metal_Cheia', 'Rampa metálica com 2 peças — bloqueia o ciclo'),
     ],
     notes: [
-      note(`${p}-n-test`, 'Como testar (ciclo único)', right, layout.minY + 200, '#bfdbfe', [
-        'I0.15 ligado (emergência libertada) e I0.13 (modo AUTOMÁTICO). Impulso em I0.0 (START).',
-        'Ligue I0.1 (peça) → deteção. Escolha o tipo: I0.2 Preta / I0.3 Branca / I0.4 Metal.',
-        'I0.5 (posição estampa) → estampagem 5/6/8 s. Depois I0.6 + o mesmo tipo → deposita e conta.',
-        'FC da gaveta (I0.7/8/9) → retorno. I0.10 (origem) → volta à etapa 0.',
+      note(`${p}-n-auto`, 'Como testar — automático', notesX, layout.minY, '#bfdbfe', [
+        'Emergencia e Modo_Auto ligados (já no arranque). Impulso em B_Start: G0 passa a X1 e o G2 arranca.',
+        'Peca_Presente → deteção. Escolha o tipo: Tipo_Preta / Tipo_Branca / Tipo_Metal e mantenha-o durante o ciclo.',
+        'Pos_Estampa → estampagem 5/6/8 s. Depois Pos_Deposito → gaveta e contagem; FC_Gaveta_* e FC_Origem fecham o ciclo.',
+        'Desligar Modo_Auto: o G0 vai a X2 (a terminar ciclo) e só volta à paragem quando o G2 chega ao repouso.',
       ]),
-      note(`${p}-n-safety`, 'Emergência e rampas', right, layout.minY + 480, '#fecaca', [
-        'Desligue I0.15: o GRAFCET de segurança passa à etapa 11; alarme a 2 Hz e luz vermelha.',
-        'Rearme: ligue I0.15 e dê impulso em I0.14 para voltar à etapa 10.',
-        'M0.4 / M0.5 / M0.6 = rampa cheia (2 peças). Enquanto algum estiver a 1, o START fica bloqueado.',
+      note(`${p}-n-manual`, 'Como testar — manual e reset', notesX, layout.minY + 240, '#bbf7d0', [
+        'Com o G0 parado, ligue Modo_Manual (desligue Modo_Auto): G0 → X3, o G4 → X51 e cada botão Man_* aciona o seu atuador.',
+        'Estampa e gavetas só atuam com Pos_Estampa / Pos_Deposito ativos (intertravamento).',
+        'B_Reset com o G0 parado: G0 → X4, o G3 repõe a origem (Retorno + zera contadores) até FC_Origem.',
+        'Endereços no formato byte.bit: C1_FC_8…15 da tabela física = I1.0…I1.7; manuais I2.0…I2.5; lâmpadas Q1.0…Q1.3.',
       ]),
-      note(`${p}-n-guia`, 'Guião ATEC', right, layout.minY + 720, '#fef3c7', [
-        'HMI: modos Manual e Automático; Iniciar / Parar / Pausar; feedback de sensores e atuadores.',
-        'Registo de peças processadas (M0.1–M0.3 ou contadores reais) e reset independente de cada rampa.',
-        'I/O físico: entradas C1_FC_0…15; saídas alimenta, braço, gaveta e estampa conforme tabela do PLC.',
+      note(`${p}-n-safety`, 'Emergência', notesX, layout.minY + 480, '#fecaca', [
+        'Desligue Emergencia: o G1 passa a X11 (alarme a 2 Hz + luz vermelha), o G0 vai a X5 e o G2/G4 abortam.',
+        'Para sair: ligue Emergencia e dê impulso em Rearme → G1 X10 → G0 faz reset automático (X4) → paragem.',
       ]),
     ],
-    restInputs: { 'I0.15': true, 'I0.13': true },
-    inputModes: { 'I0.0': 'push', 'I0.14': 'push', 'I0.15': 'nc', 'I0.12': 'latch', 'I0.13': 'latch' },
-    virtualInputCount: 16,
+    restInputs: { 'I1.7': true, 'I1.5': true },
+    inputModes: {
+      'I0.0': 'push', 'I1.3': 'push', 'I1.6': 'push', 'I1.7': 'nc', 'I1.4': 'latch', 'I1.5': 'latch',
+      'I2.0': 'push', 'I2.1': 'push', 'I2.2': 'push', 'I2.3': 'push', 'I2.4': 'push', 'I2.5': 'push',
+    },
+    virtualInputCount: 24,
     virtualOutputCount: 16,
     virtualMemoryCount: 8,
   }
