@@ -23,7 +23,15 @@ export const stepPitch = (actionCount: number) => Math.max(200, actionCount * 52
 /** Envolvente real das ações: inclui tamanhos, disposição e afastamentos manuais. */
 export function stepFootprint(step: GrafcetStep) {
   const size = stepSize(step)
-  const boxes = [...attachedActionBoxes(actionsOfStep(step), { x: 0, y: 0, ...size }, step.actionLayout ?? 'row', actionSize).values()]
+  const actions = actionsOfStep(step)
+  const placed = attachedActionBoxes(actions, { x: 0, y: 0, ...size }, step.actionLayout ?? 'row', actionSize)
+  const boxes = [...placed.values()]
+  // A condição IEC é desenhada por cima da caixa: também ocupa espaço no layout.
+  const labels = actions.filter(a => a.type === 'conditional' || a.condition && a.condition !== '1').map(a => {
+    const box = placed.get(a.id)!
+    return { x: box.x, y: box.y - 48, w: Math.max(box.w, 22 + a.condition.length * 6.5), h: 48 }
+  })
+  boxes.push(...labels.map(b => ({ ...b, offset: false, flowIndex: -1 })))
   const left = Math.min(-size.w / 2, ...boxes.map(b => b.x))
   const right = Math.max(size.w / 2, ...boxes.map(b => b.x + b.w))
   const top = Math.min(0, ...boxes.map(b => b.y))
@@ -33,7 +41,7 @@ export function stepFootprint(step: GrafcetStep) {
 
 function layoutFootprint(step: GrafcetStep, transitions: GrafcetTransition[]) {
   const bounds = stepFootprint(step)
-  const source = { x: 0, bottom: stepSize(step).h, right: bounds.right }
+  const source = { x: 0, bottom: bounds.bottom, right: bounds.right }
   for (const t of transitions.filter(t => t.wireless && t.from[0] === step.id)) {
     const slot = referenceSlot({ ...t, x: undefined }, transitions, source)
     bounds.right = Math.max(bounds.right, slot.x + referenceLabelWidth(t))
@@ -124,7 +132,8 @@ function layoutSingleComponent(
   compSteps: GrafcetStep[],
   transitions: GrafcetTransition[],
   nextGlobal: Map<string, string[]>,
-  order: Map<string, number>
+  order: Map<string, number>,
+  compact = false,
 ): Map<string, { x: number; y: number }> {
   const ids = new Set(compSteps.map((s) => s.id))
   const next = new Map<string, string[]>()
@@ -177,7 +186,7 @@ function layoutSingleComponent(
     row.forEach(s => column.set(s.id, column.get(s.id)! + shift))
     const minTop = Math.min(0, ...row.map(s => footprints.get(s.id)!.top))
     levelTop[lv] -= minTop
-    cursor = levelTop[lv] + Math.max(200, ...row.map(s => footprints.get(s.id)!.bottom + 146))
+    cursor = levelTop[lv] + Math.max(compact ? 176 : 200, ...row.map(s => footprints.get(s.id)!.bottom + (compact ? 100 : 146)))
   }
   const result = new Map<string, { x: number; y: number }>()
   const minLeft = Math.min(...compSteps.map(s => (column.get(s.id) ?? 0) * columnWidth + footprints.get(s.id)!.left))
@@ -195,7 +204,8 @@ function layoutSingleComponent(
  */
 export function autoLayout(
   steps: GrafcetStep[],
-  transitions: GrafcetTransition[]
+  transitions: GrafcetTransition[],
+  compact = false,
 ): Map<string, { x: number; y: number }> {
   const result = new Map<string, { x: number; y: number }>()
   if (!steps.length) return result
@@ -209,7 +219,7 @@ export function autoLayout(
   const comps = connectedComponents(steps, next)
   // Um só Grafcet → layout clássico sem ladrilhamento (mantém comportamento para prensa/portão)
   if (comps.length === 1) {
-    const single = layoutSingleComponent(steps, transitions, next, order)
+    const single = layoutSingleComponent(steps, transitions, next, order, compact)
     for (const [id, pos] of single) result.set(id, { x: SPINE_X + pos.x, y: START_Y + pos.y })
     return result
   }
@@ -241,7 +251,7 @@ export function autoLayout(
     let groupRowH = 0
     for (let idx = 0; idx < group.infos.length; idx++) {
       const { compSteps } = group.infos[idx]
-      const local = layoutSingleComponent(compSteps, transitions, next, order)
+      const local = layoutSingleComponent(compSteps, transitions, next, order, compact)
       const xs = [...local.values()].map((p) => p.x), ys = [...local.values()].map((p) => p.y)
       const compW = Math.max(...compSteps.map(s => local.get(s.id)!.x + layoutFootprint(s, transitions).right))
       const compH = Math.max(...compSteps.map(s => local.get(s.id)!.y + layoutFootprint(s, transitions).bottom)) + 180

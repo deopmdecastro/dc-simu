@@ -123,6 +123,55 @@ for (const chart of example.program.charts!) {
 }
 const exported = JSON.parse(readFileSync('examples/grafcet-estampagem-industrial.json', 'utf8'))
 {
+  // O estilo é uma operação visual: mantém ações, qualificadores, condições e destinos.
+  const p = structuredClone(example.program)
+  const before = structuredClone(p)
+  const next = organizeGrafcetPage(p, 'est-g2', 'classic')
+  const logic = (program: GrafcetProgram) => ({
+    steps: program.steps.map(({ x, y, w, h, pinned, actionLayout, actions, ...step }) => ({
+      ...step, actions: actions?.map(({ x, y, w, h, dx, dy, afterActionId, ...a }) => a),
+    })),
+    transitions: transitionsOf(program).map(({ x, y, wireless, ...t }) => t),
+  })
+  assert.deepEqual(logic(next), logic(before)); checks++
+  assert.deepEqual(p, before); checks++
+  assert.deepEqual(organizeGrafcetPage(next, 'est-g2', 'classic'), next); checks++
+  assert.deepEqual(next.steps.filter(s => s.chart !== 'est-g2'), before.steps.filter(s => s.chart !== 'est-g2')); checks++
+  assert.deepEqual(next.comments, before.comments); checks++
+  for (const s of next.steps.filter(s => s.chart === 'est-g2')) {
+    const actions = s.actions ?? []
+    ok(actions.every(a => a.dx! >= 48 && a.w === actions[0]?.w), `${s.name}: bloco de ações alinhado à direita`)
+    const extents = actions.map(a => {
+      const conditional = a.type === 'conditional' || a.condition !== '1'
+      return { x: a.dx!, y: a.dy! - (conditional ? 48 : 0), w: Math.max(a.w!, 22 + a.condition.length * 6.5), h: a.h! + (conditional ? 48 : 0) }
+    })
+    ok(extents.every((a, index) => extents.slice(index + 1).every(b => a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y)), `${s.name}: condições e caixas sem sobreposição`)
+  }
+  const back = next.transitions!.find(t => t.id === 'est-g2-t16')!
+  const rail = next.linkBends![back.id]
+  ok(!back.wireless && Math.min(...rail.map(p => p.x)) < Math.min(...next.steps.filter(s => s.chart === 'est-g2').map(s => s.x!)), 'ciclo fecha pela esquerda de todos os ramos')
+  const manual = organizeGrafcetPage(before, 'est-g4', 'classic')
+  const manualSteps = manual.steps.filter(s => s.chart === 'est-g4')
+  ok(manualSteps[0].x === manualSteps[1].x && manualSteps[0].y! < manualSteps[1].y!, 'manual conserva uma única espinha vertical')
+  const allClassic = example.program.charts!.reduce((program, chart) => organizeGrafcetPage(program, chart.id, 'classic'), structuredClone(example.program))
+  for (const s of allClassic.steps.filter(s => s.actions?.length)) {
+    const extents = s.actions!.map(a => {
+      const conditional = a.type === 'conditional' || a.condition !== '1'
+      return { x: a.dx!, y: a.dy! - (conditional ? 48 : 0), w: Math.max(a.w!, 22 + a.condition.length * 6.5), h: a.h! + (conditional ? 48 : 0) }
+    })
+    ok(extents.every((a, index) => extents.slice(index + 1).every(b => a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y)), `${s.chart} · ${s.name}: ações condicionais organizadas sem sobreposição`)
+  }
+  const rampReset = allClassic.steps.find(s => s.id === 'est-s81')!
+  const resetGroups = [...new Set(rampReset.actions!.map(a => a.condition))].map(condition => rampReset.actions!.filter(a => a.condition === condition))
+  ok(resetGroups.length === 3 && resetGroups.every(group => group.length === 2 && group[0].dy === group[1].dy && group[0].dx! < group[1].dx!) && new Set(resetGroups.map(group => group[0].dy)).size === 3, 'G16 agrupa lado a lado as duas ações de cada rampa e separa as três condições')
+  useSimStore.setState({ grafcet: before, history: [], future: [], demoMode: false })
+  useSimStore.getState().setGrafcet(next, 'force', 'grafcet:organize')
+  useSimStore.getState().undo()
+  assert.deepEqual(JSON.parse(JSON.stringify(useSimStore.getState().grafcet)), JSON.parse(JSON.stringify(before))); checks++
+  useSimStore.getState().redo()
+  assert.deepEqual(JSON.parse(JSON.stringify(useSimStore.getState().grafcet)), JSON.parse(JSON.stringify(next))); checks++
+}
+{
   const legacy: GrafcetProgram = { steps: [
     { id: 'old-0', name: '0', initial: true, action: 'Q0.0', condition: 'I0.0' },
     { id: 'old-1', name: '1', initial: false, action: 'Q0.1', condition: '!I0.0' },

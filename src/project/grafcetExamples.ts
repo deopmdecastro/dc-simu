@@ -373,7 +373,7 @@ function estampagem(): GrafcetExample {
   const manualSteps = manualDevices.map((device) => ({
     device,
     off: initial(p, String(device.first), `${device.title} — repouso`, []),
-    on: step(p, String(device.first + 1), `${device.title} — ligado`, [['N', device.address, device.out, `${device.title} (manual)`]]),
+    on: step(p, String(device.first + 1), '', [['N', device.address, device.out, device.title]]),
   }))
 
   // G16 · Reset independente das rampas (guião ATEC: reset por rampa)
@@ -528,14 +528,14 @@ function estampagem(): GrafcetExample {
     steps: stepped, transitions: transitioned, comments: pageComments,
   }
   // O nativo usa o mesmo organizador do editor: tamanhos reais, ramos centrados e margens comuns.
-  for (const chart of chartMeta) program = organizeGrafcetPage(program, chart.id)
+  for (const chart of chartMeta) program = organizeGrafcetPage(program, chart.id, 'classic')
   const chartBottom = (chart: string) => Math.max(0, ...program.steps.filter(s => s.chart === chart).map(s => s.y! + stepFootprint(s).bottom))
   const chartRight = (chart: string) => Math.max(0, ...program.steps.filter(s => s.chart === chart).map(s => s.x! + stepFootprint(s).right))
   program.comments = [...pageComments, ...pageExtras.map(c => ({ ...c, y: chartBottom(c.chart!) + 150 }))]
 
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v19',
+    nativeId: 'grafcet-estampagem-industrial-v22',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (uma página por GRAFCET: controlo, emergência, automático, reset e manuais)',

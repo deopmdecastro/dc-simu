@@ -2,10 +2,11 @@
   "app": "dc-simu",
   "version": 7,
   "projectKind": "grafcet",
-  "unlockedViews": [],
+  "nativeId": "grafcet-estampagem-industrial-v22",
   "savedAt": "2026-11-06T00:00:00.000Z",
   "components": [],
   "wires": [],
+  "unlockedViews": [],
   "ladder": {
     "rungs": []
   },
@@ -125,7 +126,10 @@
         "description": "Máquina parada",
         "actions": [],
         "chart": "est-g0",
-        "x": 1180,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 1206.5,
         "y": 78,
         "pinned": true
       },
@@ -145,12 +149,19 @@
             "description": "Lâmpada branca — AUTO",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g0",
-        "x": 488,
-        "y": 396,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 491.5,
+        "y": 344,
         "pinned": true
       },
       {
@@ -170,12 +181,19 @@
             "condition": "1HZ",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g0",
-        "x": 142,
-        "y": 770,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 134,
+        "y": 666,
         "pinned": true
       },
       {
@@ -194,12 +212,19 @@
             "description": "Lâmpada azul — MANUAL",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g0",
-        "x": 1180,
-        "y": 396,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 1206.5,
+        "y": 344,
         "pinned": true
       },
       {
@@ -212,8 +237,11 @@
         "description": "Máquina em reset",
         "actions": [],
         "chart": "est-g0",
-        "x": 1872,
-        "y": 396,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 1921.5,
+        "y": 344,
         "pinned": true
       },
       {
@@ -226,8 +254,11 @@
         "description": "Máquina em emergência",
         "actions": [],
         "chart": "est-g0",
-        "x": 1180,
-        "y": 1200,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 1206.5,
+        "y": 1078,
         "pinned": true
       },
       {
@@ -247,12 +278,19 @@
             "condition": "2HZ",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g0",
-        "x": 834,
-        "y": 770,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 849,
+        "y": 666,
         "pinned": true
       },
       {
@@ -265,6 +303,9 @@
         "description": "Segurança OK",
         "actions": [],
         "chart": "est-g1",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -286,7 +327,11 @@
             "condition": "2HZ",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 225,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           },
           {
             "id": "est-s11-a1",
@@ -295,13 +340,19 @@
             "description": "Luz vermelha emergência",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 225,
+            "h": 34,
+            "dx": 48,
+            "dy": 95
           }
         ],
         "actionLayout": "column",
         "chart": "est-g1",
+        "w": 48,
+        "h": 48,
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -320,11 +371,18 @@
             "description": "Pronto",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g2",
-        "x": 932,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 959.5,
         "y": 78,
         "pinned": true
       },
@@ -345,12 +403,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g2",
-        "x": 932,
-        "y": 278,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 959.5,
+        "y": 254,
         "pinned": true
       },
       {
@@ -369,12 +434,19 @@
             "description": "Deteção tipo",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g2",
-        "x": 932,
-        "y": 652,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 959.5,
+        "y": 610,
         "pinned": true
       },
       {
@@ -394,12 +466,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g2",
-        "x": 932,
-        "y": 970,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 959.5,
+        "y": 876,
         "pinned": true
       },
       {
@@ -419,12 +498,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g2",
-        "x": 142,
-        "y": 1288,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 134,
+        "y": 1176,
         "pinned": true
       },
       {
@@ -444,12 +530,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g2",
-        "x": 932,
-        "y": 1288,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 959.5,
+        "y": 1176,
         "pinned": true
       },
       {
@@ -469,12 +562,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 204,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g2",
-        "x": 1722,
-        "y": 1288,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 1785,
+        "y": 1176,
         "pinned": true
       },
       {
@@ -494,12 +594,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 218,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g2",
-        "x": 932,
-        "y": 1606,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 959.5,
+        "y": 1476,
         "pinned": true
       },
       {
@@ -519,7 +626,11 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           },
           {
             "id": "est-s28-a1",
@@ -529,7 +640,11 @@
             "condition": "!Cnt_Preta * !Rampa_Preta_Cheia",
             "kind": "S",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 136
           },
           {
             "id": "est-s28-a2",
@@ -539,13 +654,19 @@
             "condition": "Cnt_Preta",
             "kind": "S",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 224
           }
         ],
         "actionLayout": "column",
         "chart": "est-g2",
-        "x": 142,
-        "y": 1924,
+        "w": 48,
+        "h": 48,
+        "x": 134,
+        "y": 1776,
         "pinned": true
       },
       {
@@ -565,7 +686,11 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 218,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           },
           {
             "id": "est-s29-a1",
@@ -575,7 +700,11 @@
             "condition": "!Cnt_Branca * !Rampa_Branca_Cheia",
             "kind": "S",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 218,
+            "h": 34,
+            "dx": 48,
+            "dy": 136
           },
           {
             "id": "est-s29-a2",
@@ -585,13 +714,19 @@
             "condition": "Cnt_Branca",
             "kind": "S",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 218,
+            "h": 34,
+            "dx": 48,
+            "dy": 224
           }
         ],
         "actionLayout": "column",
         "chart": "est-g2",
-        "x": 932,
-        "y": 1924,
+        "w": 48,
+        "h": 48,
+        "x": 959.5,
+        "y": 1776,
         "pinned": true
       },
       {
@@ -611,7 +746,11 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 232,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           },
           {
             "id": "est-s30-a1",
@@ -621,7 +760,11 @@
             "condition": "!Cnt_Metal * !Rampa_Metal_Cheia",
             "kind": "S",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 232,
+            "h": 34,
+            "dx": 48,
+            "dy": 136
           },
           {
             "id": "est-s30-a2",
@@ -631,13 +774,19 @@
             "condition": "Cnt_Metal",
             "kind": "S",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 232,
+            "h": 34,
+            "dx": 48,
+            "dy": 224
           }
         ],
         "actionLayout": "column",
         "chart": "est-g2",
-        "x": 1722,
-        "y": 1924,
+        "w": 48,
+        "h": 48,
+        "x": 1785,
+        "y": 1776,
         "pinned": true
       },
       {
@@ -657,12 +806,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g2",
-        "x": 932,
-        "y": 2242,
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
+        "x": 959.5,
+        "y": 2252,
         "pinned": true
       },
       {
@@ -675,6 +831,9 @@
         "description": "Reset em repouso",
         "actions": [],
         "chart": "est-g3",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -689,8 +848,11 @@
         "description": "Recolher gavetas",
         "actions": [],
         "chart": "est-g3",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -703,8 +865,11 @@
         "description": "Recolher estampa e alimentador",
         "actions": [],
         "chart": "est-g3",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 596,
+        "y": 520,
         "pinned": true
       },
       {
@@ -724,12 +889,19 @@
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g3",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 914,
+        "y": 786,
         "pinned": true
       },
       {
@@ -748,7 +920,11 @@
             "description": "Zerar contador Preta",
             "condition": "1",
             "kind": "R",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           },
           {
             "id": "est-s44-a1",
@@ -757,7 +933,11 @@
             "description": "Zerar contador Branca",
             "condition": "1",
             "kind": "R",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 95
           },
           {
             "id": "est-s44-a2",
@@ -766,7 +946,11 @@
             "description": "Zerar contador Metal",
             "condition": "1",
             "kind": "R",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 183
           },
           {
             "id": "est-s44-a3",
@@ -775,7 +959,11 @@
             "description": "Limpar rampa Preta",
             "condition": "1",
             "kind": "R",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 271
           },
           {
             "id": "est-s44-a4",
@@ -784,7 +972,11 @@
             "description": "Limpar rampa Branca",
             "condition": "1",
             "kind": "R",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 359
           },
           {
             "id": "est-s44-a5",
@@ -793,13 +985,19 @@
             "description": "Limpar rampa Metal",
             "condition": "1",
             "kind": "R",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 211,
+            "h": 34,
+            "dx": 48,
+            "dy": 447
           }
         ],
         "actionLayout": "column",
         "chart": "est-g3",
+        "w": 48,
+        "h": 48,
         "x": 151,
-        "y": 1232,
+        "y": 1086,
         "pinned": true
       },
       {
@@ -812,8 +1010,11 @@
         "description": "Fim do reset",
         "actions": [],
         "chart": "est-g3",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 1670,
+        "y": 1785,
         "pinned": true
       },
       {
@@ -826,6 +1027,9 @@
         "description": "Esperar pedido de reset da rampa",
         "actions": [],
         "chart": "est-g16",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -847,7 +1051,11 @@
             "condition": "Reset_Rampa_Preta",
             "kind": "R",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 204,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           },
           {
             "id": "est-s81-a1",
@@ -857,7 +1065,11 @@
             "condition": "Reset_Rampa_Preta",
             "kind": "R",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 204,
+            "h": 34,
+            "dx": 276,
+            "dy": 48
           },
           {
             "id": "est-s81-a2",
@@ -867,7 +1079,11 @@
             "condition": "Reset_Rampa_Branca",
             "kind": "R",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 204,
+            "h": 34,
+            "dx": 48,
+            "dy": 136
           },
           {
             "id": "est-s81-a3",
@@ -877,7 +1093,11 @@
             "condition": "Reset_Rampa_Branca",
             "kind": "R",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 204,
+            "h": 34,
+            "dx": 276,
+            "dy": 136
           },
           {
             "id": "est-s81-a4",
@@ -887,7 +1107,11 @@
             "condition": "Reset_Rampa_Metal",
             "kind": "R",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 204,
+            "h": 34,
+            "dx": 48,
+            "dy": 224
           },
           {
             "id": "est-s81-a5",
@@ -897,13 +1121,19 @@
             "condition": "Reset_Rampa_Metal",
             "kind": "R",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 204,
+            "h": 34,
+            "dx": 276,
+            "dy": 224
           }
         ],
         "actionLayout": "column",
         "chart": "est-g16",
+        "w": 48,
+        "h": 48,
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -916,6 +1146,9 @@
         "description": "Alimentador — repouso",
         "actions": [],
         "chart": "est-g4",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -927,22 +1160,29 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Alimentador — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s51-a0",
             "address": "Q0.0",
             "variable": "Cil_Alimenta",
-            "description": "Alimentador (manual)",
+            "description": "Alimentador",
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g4",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -955,6 +1195,9 @@
         "description": "Transportador rotativo — repouso",
         "actions": [],
         "chart": "est-g5",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -966,22 +1209,29 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Transportador rotativo — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s53-a0",
             "address": "Q0.4",
             "variable": "Motor_Rotativo",
-            "description": "Transportador rotativo (manual)",
+            "description": "Transportador rotativo",
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 218,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g5",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -994,6 +1244,9 @@
         "description": "Cilindro de estampa — repouso",
         "actions": [],
         "chart": "est-g6",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1005,22 +1258,29 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Cilindro de estampa — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s55-a0",
             "address": "Q0.6",
             "variable": "Cil_Estampa",
-            "description": "Cilindro de estampa (manual)",
+            "description": "Cilindro de estampa",
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 197,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g6",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1033,6 +1293,9 @@
         "description": "Gaveta Preta — repouso",
         "actions": [],
         "chart": "est-g7",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1044,22 +1307,29 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Gaveta Preta — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s57-a0",
             "address": "Q0.1",
             "variable": "Gaveta_Preta",
-            "description": "Gaveta Preta (manual)",
+            "description": "Gaveta Preta",
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g7",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1072,6 +1342,9 @@
         "description": "Gaveta Branca — repouso",
         "actions": [],
         "chart": "est-g8",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1083,22 +1356,29 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Gaveta Branca — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s59-a0",
             "address": "Q0.2",
             "variable": "Gaveta_Branca",
-            "description": "Gaveta Branca (manual)",
+            "description": "Gaveta Branca",
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g8",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1111,6 +1391,9 @@
         "description": "Gaveta Metálica — repouso",
         "actions": [],
         "chart": "est-g9",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1122,22 +1405,29 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Gaveta Metálica — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s61-a0",
             "address": "Q0.3",
             "variable": "Gaveta_Metal",
-            "description": "Gaveta Metálica (manual)",
+            "description": "Gaveta Metálica",
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g9",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1150,6 +1440,9 @@
         "description": "Retorno à origem — repouso",
         "actions": [],
         "chart": "est-g10",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1161,22 +1454,29 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Retorno à origem — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s63-a0",
             "address": "Q0.5",
             "variable": "Retorno",
-            "description": "Retorno à origem (manual)",
+            "description": "Retorno à origem",
             "condition": "(1) * Emergencia * (G1 <=> X10)",
             "kind": "N",
             "displayDescription": true,
-            "type": "conditional"
+            "type": "conditional",
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 48
           }
         ],
         "chart": "est-g10",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1189,6 +1489,9 @@
         "description": "Lâmpada verde — repouso",
         "actions": [],
         "chart": "est-g11",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1200,21 +1503,28 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Lâmpada verde — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s71-a0",
             "address": "Q0.7",
             "variable": "L_Verde",
-            "description": "Lâmpada verde (manual)",
+            "description": "Lâmpada verde",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g11",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1227,6 +1537,9 @@
         "description": "Lâmpada de alarme — repouso",
         "actions": [],
         "chart": "est-g12",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1238,21 +1551,28 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Lâmpada de alarme — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s73-a0",
             "address": "Q1.0",
             "variable": "L_Alarme",
-            "description": "Lâmpada de alarme (manual)",
+            "description": "Lâmpada de alarme",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g12",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1265,6 +1585,9 @@
         "description": "Lâmpada azul — repouso",
         "actions": [],
         "chart": "est-g13",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1276,21 +1599,28 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Lâmpada azul — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s75-a0",
             "address": "Q1.1",
             "variable": "L_Azul",
-            "description": "Lâmpada azul (manual)",
+            "description": "Lâmpada azul",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g13",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1303,6 +1633,9 @@
         "description": "Lâmpada branca — repouso",
         "actions": [],
         "chart": "est-g14",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1314,21 +1647,28 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Lâmpada branca — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s77-a0",
             "address": "Q1.2",
             "variable": "L_Branca",
-            "description": "Lâmpada branca (manual)",
+            "description": "Lâmpada branca",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g14",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       },
       {
@@ -1341,6 +1681,9 @@
         "description": "Lâmpada vermelha — repouso",
         "actions": [],
         "chart": "est-g15",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
         "y": 78,
         "pinned": true
@@ -1352,21 +1695,28 @@
         "stepType": "simple",
         "action": "",
         "condition": "",
-        "description": "Lâmpada vermelha — ligado",
+        "description": "",
         "actions": [
           {
             "id": "est-s79-a0",
             "address": "Q1.3",
             "variable": "L_Vermelha",
-            "description": "Lâmpada vermelha (manual)",
+            "description": "Lâmpada vermelha",
             "condition": "1",
             "kind": "N",
-            "displayDescription": true
+            "displayDescription": true,
+            "w": 190,
+            "h": 34,
+            "dx": 48,
+            "dy": 7
           }
         ],
         "chart": "est-g15",
+        "w": 48,
+        "h": 48,
+        "actionLayout": "column",
         "x": 151,
-        "y": 278,
+        "y": 254,
         "pinned": true
       }
     ],
@@ -1689,7 +2039,7 @@
         "condition": "Emergencia * Rearme",
         "description": "Libertada + rearme",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "10",
         "chart": "est-g1"
       },
@@ -1916,7 +2266,7 @@
         "condition": "FC_Origem * (G0 <> X6)",
         "description": "Origem",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "20",
         "chart": "est-g2"
       },
@@ -2273,7 +2623,7 @@
         "condition": "G0 <> X4",
         "description": "G0 saiu do reset",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "40",
         "chart": "est-g3"
       },
@@ -2304,7 +2654,7 @@
         "condition": "^Man_Alimenta + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "50",
         "chart": "est-g4"
       },
@@ -2335,7 +2685,7 @@
         "condition": "^Man_Transporte + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "52",
         "chart": "est-g5"
       },
@@ -2366,7 +2716,7 @@
         "condition": "^Man_Estampa + G0 <> X3 + !Pos_Estampa",
         "description": "Novo toque, saída do manual ou Pos_Estampa perdido: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "54",
         "chart": "est-g6"
       },
@@ -2397,7 +2747,7 @@
         "condition": "^Man_Gaveta_Preta + G0 <> X3 + !Pos_Deposito",
         "description": "Novo toque, saída do manual ou Pos_Deposito perdido: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "56",
         "chart": "est-g7"
       },
@@ -2428,7 +2778,7 @@
         "condition": "^Man_Gaveta_Branca + G0 <> X3 + !Pos_Deposito",
         "description": "Novo toque, saída do manual ou Pos_Deposito perdido: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "58",
         "chart": "est-g8"
       },
@@ -2459,7 +2809,7 @@
         "condition": "^Man_Gaveta_Metal + G0 <> X3 + !Pos_Deposito",
         "description": "Novo toque, saída do manual ou Pos_Deposito perdido: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "60",
         "chart": "est-g9"
       },
@@ -2490,7 +2840,7 @@
         "condition": "^Man_Retorno + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "62",
         "chart": "est-g10"
       },
@@ -2521,7 +2871,7 @@
         "condition": "^Man_L_Verde + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "70",
         "chart": "est-g11"
       },
@@ -2552,7 +2902,7 @@
         "condition": "^Man_L_Alarme + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "72",
         "chart": "est-g12"
       },
@@ -2583,7 +2933,7 @@
         "condition": "^Man_L_Azul + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "74",
         "chart": "est-g13"
       },
@@ -2614,7 +2964,7 @@
         "condition": "^Man_L_Branca + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "76",
         "chart": "est-g14"
       },
@@ -2645,7 +2995,7 @@
         "condition": "^Man_L_Vermelha + G0 <> X3",
         "description": "Novo toque, saída do manual: desliga",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "78",
         "chart": "est-g15"
       },
@@ -2675,7 +3025,7 @@
         "condition": "1",
         "description": "Voltar a esperar",
         "displayDescription": false,
-        "wireless": true,
+        "wireless": false,
         "targetInfo": "80",
         "chart": "est-g16"
       }
@@ -2855,7 +3205,7 @@
         "id": "est-c-g0-hint",
         "text": "Auto (X1) · Pausa (X6) · Terminar ciclo (X2) · Manual (X3) · Reset (X4) · Emergência (X5) · STOP (B_Stop)",
         "x": 60,
-        "y": 1404,
+        "y": 1276,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g0"
@@ -2864,7 +3214,7 @@
         "id": "est-c-g16-hint",
         "text": "Impulso em Reset_Rampa_*: limpa Cnt e flag de cheia dessa rampa (independente do reset máquina).",
         "x": 60,
-        "y": 720,
+        "y": 662,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g16"
@@ -2873,7 +3223,7 @@
         "id": "est-c-g2-times",
         "text": "Tempos: Preta 5 s · Branca 6 s · Metálica 8 s",
         "x": 60,
-        "y": 2446,
+        "y": 2484,
         "fontSize": 12,
         "color": "#7c3aed",
         "fontWeight": "600",
@@ -2883,12 +3233,320 @@
         "id": "est-c-g3-hint",
         "text": "Sequência: gavetas → estampa/alimentador → retorno → zerar → fim",
         "x": 60,
-        "y": 1874,
+        "y": 1983,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g3"
       }
-    ]
+    ],
+    "linkBends": {
+      "est-g0-t10": [
+        {
+          "x": 849,
+          "y": 784
+        },
+        {
+          "x": 38,
+          "y": 784
+        },
+        {
+          "x": 38,
+          "y": 316
+        },
+        {
+          "x": 491.5,
+          "y": 316
+        }
+      ],
+      "est-g1-t2": [
+        {
+          "x": 151,
+          "y": 419
+        },
+        {
+          "x": 55,
+          "y": 419
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g2-t16": [
+        {
+          "x": 959.5,
+          "y": 2370
+        },
+        {
+          "x": 38,
+          "y": 2370
+        },
+        {
+          "x": 38,
+          "y": 50
+        },
+        {
+          "x": 959.5,
+          "y": 50
+        }
+      ],
+      "est-g3-t6": [
+        {
+          "x": 151,
+          "y": 1881
+        },
+        {
+          "x": 55,
+          "y": 1881
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g4-t2": [
+        {
+          "x": 151,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g5-t2": [
+        {
+          "x": 151,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g6-t2": [
+        {
+          "x": 151,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g7-t2": [
+        {
+          "x": 151,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g8-t2": [
+        {
+          "x": 151,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g9-t2": [
+        {
+          "x": 151,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g10-t2": [
+        {
+          "x": 151,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 372
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g11-t2": [
+        {
+          "x": 151,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g12-t2": [
+        {
+          "x": 151,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g13-t2": [
+        {
+          "x": 151,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g14-t2": [
+        {
+          "x": 151,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g15-t2": [
+        {
+          "x": 151,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 350
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ],
+      "est-g16-t2": [
+        {
+          "x": 151,
+          "y": 548
+        },
+        {
+          "x": 55,
+          "y": 548
+        },
+        {
+          "x": 55,
+          "y": 50
+        },
+        {
+          "x": 151,
+          "y": 50
+        }
+      ]
+    }
   },
   "tags": [
     {
@@ -3256,44 +3914,12 @@
       "comment": "Rampa metálica com 2 peças — bloqueia o ciclo"
     }
   ],
-  "virtualInputs": {
-    "I1.7": true,
-    "I1.5": true
-  },
-  "virtualInputModes": {
-    "I0.0": "push",
-    "I1.3": "push",
-    "I1.6": "push",
-    "I1.7": "nc",
-    "I1.4": "latch",
-    "I1.5": "latch",
-    "I2.0": "push",
-    "I2.1": "push",
-    "I2.2": "push",
-    "I2.3": "push",
-    "I2.4": "push",
-    "I2.5": "push",
-    "I2.6": "push",
-    "I2.7": "push",
-    "I3.0": "push",
-    "I3.1": "push",
-    "I3.2": "push",
-    "I3.3": "push",
-    "I3.4": "latch",
-    "I3.5": "push",
-    "I3.6": "push",
-    "I3.7": "push",
-    "I4.0": "push"
-  },
-  "virtualInputCount": 40,
-  "virtualOutputCount": 16,
-  "virtualMemoryCount": 8,
   "canvasNotes": [
     {
       "id": "est-n-auto",
       "text": "Como testar — automático",
       "view": "grafcet",
-      "x": 2224,
+      "x": 2265.5,
       "y": 70,
       "color": "#bfdbfe",
       "messages": [
@@ -3335,7 +3961,7 @@
       "id": "est-n-manual",
       "text": "Como testar — manual e reset",
       "view": "grafcet",
-      "x": 699,
+      "x": 742.5,
       "y": 70,
       "color": "#bbf7d0",
       "messages": [
@@ -3365,7 +3991,7 @@
       "id": "est-n-safety",
       "text": "Emergência",
       "view": "grafcet",
-      "x": 699,
+      "x": 744,
       "y": 70,
       "color": "#fecaca",
       "messages": [
@@ -3386,12 +4012,36 @@
       "createdAt": "2026-11-06T00:00:00.000Z"
     }
   ],
-  "canvasTexts": [],
-  "selectionGroups": [],
-  "sheets": [],
-  "activeSheetId": null,
-  "grid": true,
-  "activeScenario": null,
-  "commands": [],
-  "nativeId": "grafcet-estampagem-industrial-v19"
+  "virtualInputs": {
+    "I1.7": true,
+    "I1.5": true
+  },
+  "virtualInputModes": {
+    "I0.0": "push",
+    "I1.3": "push",
+    "I1.6": "push",
+    "I1.7": "nc",
+    "I1.4": "latch",
+    "I1.5": "latch",
+    "I2.0": "push",
+    "I2.1": "push",
+    "I2.2": "push",
+    "I2.3": "push",
+    "I2.4": "push",
+    "I2.5": "push",
+    "I2.6": "push",
+    "I2.7": "push",
+    "I3.0": "push",
+    "I3.1": "push",
+    "I3.2": "push",
+    "I3.3": "push",
+    "I3.4": "latch",
+    "I3.5": "push",
+    "I3.6": "push",
+    "I3.7": "push",
+    "I4.0": "push"
+  },
+  "virtualInputCount": 40,
+  "virtualOutputCount": 16,
+  "virtualMemoryCount": 8
 }

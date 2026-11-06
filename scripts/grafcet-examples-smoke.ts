@@ -135,6 +135,8 @@ for (const example of [basic, normal, advanced, estampagem]) {
   const outputs = new Set(estampagem.program.steps.flatMap((s) => (s.actions ?? []).map((a) => a.address)).filter((a) => a.startsWith('Q')))
   const manualOutputs = new Set(estampagem.program.steps.filter((s) => Number(s.name) >= 50 && Number(s.name) < 80).flatMap((s) => (s.actions ?? []).map((a) => a.address)))
   ok([...outputs].every((address) => manualOutputs.has(address)) && manualOutputs.size === 12, 'estampagem: todas as saídas Q (cilindros, motores e lâmpadas) têm o seu manual')
+  const manualOnSteps = estampagem.program.steps.filter((s) => Number(s.name) >= 51 && Number(s.name) < 80 && Number(s.name) % 2 === 1)
+  ok(manualOnSteps.length === 12 && manualOnSteps.every((s) => s.description === '' && s.actions?.length === 1 && !!s.actions[0].description && !s.actions[0].description.includes('(manual)')), 'estampagem: etapas manuais ativas evitam legenda redundante e identificam a ação')
   ok(['Man_Alimenta', 'Man_Transporte', 'Man_Estampa', 'Man_Gaveta_Preta', 'Man_Gaveta_Branca', 'Man_Gaveta_Metal', 'Man_Retorno', 'Man_L_Verde', 'Man_L_Alarme', 'Man_L_Azul', 'Man_L_Branca', 'Man_L_Vermelha'].every((n) => estampagem.tags.some((t) => t.name === n)), 'estampagem: um botão Man_* por atuador e lâmpada')
   const transitions = estampagem.program.transitions ?? []
   ok(transitions.every((t) => !/(^|[^A-Za-z0-9_])[IQM]\d{1,2}\.\d(?![0-9])/.test(`${t.condition} ${t.guard ?? ''}`)), 'estampagem: nenhuma transição usa endereços — só nomes de tags')

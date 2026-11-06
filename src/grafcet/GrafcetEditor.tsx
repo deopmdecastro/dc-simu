@@ -1730,9 +1730,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   })
   const referencePosition = (t: GrafcetTransition) => {
     const source = stepById.get(t.from[0])!
-    const right = Math.max(stepX(source.id) + stepSizeOf(source.id).w / 2, ...[...attachedBoxes(source).values()].map(b => b.x + b.w))
+    const boxes = [...attachedBoxes(source).values()]
+    const right = Math.max(stepX(source.id) + stepSizeOf(source.id).w / 2, ...boxes.map(b => b.x + b.w))
+    const bottom = Math.max(stepY(source.id) + stepHOf(source.id), ...boxes.map(b => b.y + b.h))
     const manual = barDragLive?.tid === t.id ? barDragLive.bar : program.linkBars?.[t.id]
-    return referenceSlot(t, transitions, { x: stepX(source.id), bottom: stepY(source.id) + stepHOf(source.id), right }, manual)
+    return referenceSlot(t, transitions, { x: stepX(source.id), bottom, right }, manual)
   }
   transitions.filter(t => t.wireless && !isFreeTransition(t)).forEach(t => {
     const at = referencePosition(t)
@@ -3194,9 +3196,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const organizeLayout = () => {
     if (useSimStore.getState().sim.runState !== 'stopped') return notify('Pare a simulação antes de organizar a página')
     if (!steps.length) return notify('Sem etapas para organizar')
-    setGrafcet(organizeGrafcetPage(program, activeChart), 'force', 'grafcet:organize')
+    setGrafcet(organizeGrafcetPage(program, activeChart, 'classic'), 'force', 'grafcet:organize')
     resetView()
-    notify('Página organizada: etapas, ações e ligações · Ctrl+Z repõe')
+    notify('Página organizada no estilo clássico: ações à direita e retornos à esquerda · Ctrl+Z repõe')
   }
 
   /** Setas movem a seleção: etapas, grupo, transição, texto livre ou ação solta. */
@@ -4692,7 +4694,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     const orDivergent = transitions.some((o) => o.id !== transition.id && !o.wireless && o.from.length === 1 && o.from[0] === sourceStep.id && o.to.length === 1 && o.to[0] !== targetStep.id)
                     const orConvergent = !orDivergent && transitions.some((o) => o.id !== transition.id && !o.wireless && o.to.length === 1 && o.to[0] === targetStep.id && o.from.length === 1 && o.from[0] !== sourceStep.id)
                     const roomForOr = tTop - sBottom >= 70
-                    const midY = roomForOr && orDivergent ? sBottom + 26 : roomForOr && orConvergent ? tTop - 26 : Math.round((sBottom + tTop) / 2)
+                    const actionBottom = Math.max(sBottom, ...[...attachedBoxes(sourceStep).values()].map(b => b.y + b.h))
+                    const splitY = Math.min(tTop - 70, actionBottom + 26)
+                    const midY = roomForOr && orDivergent ? Math.max(sBottom + 26, splitY) : roomForOr && orConvergent ? tTop - 26 : Math.round((sBottom + tTop) / 2)
                     // Pontos de quebra (duplo clique na linha): o percurso passa por eles, com ângulos retos.
                     const bends = bendsOf(transition.id)
                     const linkPointsBase: Point[] = [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
@@ -4915,7 +4919,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     // IEC 60848 / FluidSIM: a transição de um retorno fica logo abaixo da etapa de origem.
                     // Com cotovelos, mantém-se aí enquanto a primeira perna descer a direito da etapa.
                     const tx = barFree?.x ?? barMid?.x ?? sourceX
-                    const ty = barFree?.y ?? barMid?.y ?? sBottom + 24
+                    const ty = barFree?.y ?? barMid?.y ?? (firstLegDown ? bends[0].y - 24 : sBottom + 24)
                     // Seta de subida no troço vertical ascendente mais longo (o «barramento» do retorno).
                     const upLeg = linkPoints.slice(1).map((p, i) => ({ a: linkPoints[i], b: p }))
                       .filter(({ a, b }) => a.x === b.x && b.y < a.y - 40)
