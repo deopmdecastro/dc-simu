@@ -731,7 +731,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     if (e.button === 2 && tool === 'wire') return
     if (tool === 'select' && simRunState === 'stopped') {
       const p = toCanvas(e.clientX, e.clientY)
-      const additiveMarquee = e.shiftKey || e.ctrlKey || e.metaKey
+      const additiveMarquee = e.shiftKey || e.ctrlKey || e.metaKey || useSimStore.getState().multiSelectMode
       setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y, additive: additiveMarquee })
       if (!additiveMarquee) selectComponents([])
     }
@@ -982,7 +982,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     e.stopPropagation()
     const p = toCanvas(e.clientX, e.clientY)
     // Ctrl / Cmd / Shift + clique: acrescenta ou retira da seleção (sem iniciar arrasto).
-    const additive = e.shiftKey || e.ctrlKey || e.metaKey
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey || useSimStore.getState().multiSelectMode
     if (additive) {
       if (selectedIds.includes(c.id)) {
         selectComponents(selectedIds.filter((id) => id !== c.id))
@@ -1275,7 +1275,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               useSimStore.getState().deleteWire(w.id)
               return
             }
-            selectWire(w.id, e.shiftKey || e.ctrlKey || e.metaKey)
+            selectWire(w.id, e.shiftKey || e.ctrlKey || e.metaKey || useSimStore.getState().multiSelectMode)
           }}
           onDoubleClick={addPoint}
         >

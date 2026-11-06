@@ -613,7 +613,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     ref={rootRef}
     position={pivot}
     userData={{ wireSurface: true, componentId: c.id, isComponentRoot: true }}
-    onClick={(event) => { event.stopPropagation(); if (!connectionMode) onSelect(event.ctrlKey || event.metaKey || event.shiftKey) }}
+    onClick={(event) => { event.stopPropagation(); if (!connectionMode) onSelect(event.ctrlKey || event.metaKey || event.shiftKey || useSimStore.getState().multiSelectMode) }}
     onPointerDown={startDrag}
     onPointerOver={() => { if (draggable) gl.domElement.style.cursor = 'grab' }}
     onPointerOut={() => { if (!dragRef.current) gl.domElement.style.cursor = '' }}
@@ -3327,7 +3327,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       action()
     }
     // Em STOP o aparelho clicado fica selecionado (Inspetor). Em RUN/PAUSA só atua: não se seleciona nem se move.
-    if (!demoMode && !simLocked) selectComponents([component.id])
+    if (!demoMode && !simLocked) selectComponents([component.id], useSimStore.getState().multiSelectMode)
   }
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
@@ -3992,7 +3992,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           activeWaypointIndex={demoMode || simLocked ? null : activeWaypointIndex}
           activeEnd={demoMode || simLocked ? null : activeEnd}
           moveAll={demoMode || simLocked ? false : moveAllWire}
-          onSelectWire={(wireId) => { if (demoMode || simLocked) return; if (tool === 'erase') { deleteWire(wireId); return }; if (tool !== 'select' && tool !== 'wire') return; if (draftRef.current || reconnect) return; selectWire(wireId); setActiveWaypointIndex(null); setActiveEnd(null); setMoveAllWire(false) }}
+          onSelectWire={(wireId) => { if (demoMode || simLocked) return; if (tool === 'erase') { deleteWire(wireId); return }; if (tool !== 'select' && tool !== 'wire') return; if (draftRef.current || reconnect) return; selectWire(wireId, useSimStore.getState().multiSelectMode); setActiveWaypointIndex(null); setActiveEnd(null); setMoveAllWire(false) }}
           onSelectWaypoint={(index) => { setActiveWaypointIndex(index); setActiveEnd(null) }}
           onMoveWaypoint={moveWireWaypoint}
           onRemoveWaypoint={removeWireWaypointAt}

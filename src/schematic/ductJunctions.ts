@@ -46,7 +46,7 @@ export function ductJunctionOpenings(c: ElectricalComponent, all: ElectricalComp
         // alarga um pouco para limpar os pinos (dedos) junto à interseção
         let f = (c.mirrored ? -to : from) / SCHEMATIC_PX_PER_MM
         let t = (c.mirrored ? -from : to) / SCHEMATIC_PX_PER_MM
-        if (f > t) f, t = t, f
+        if (f > t) { const tmp = f; f = t; t = tmp }
         f -= OPENING_MARGIN_MM
         t += OPENING_MARGIN_MM
         const halfMm = half / SCHEMATIC_PX_PER_MM

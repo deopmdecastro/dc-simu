@@ -435,6 +435,10 @@ interface Store extends CircuitState {
   groupSelection: () => void
   ungroupSelection: () => void
   selectComponents: (ids: string[], additive?: boolean) => void
+  /** Quando ativo, cliques em componentes/cabos acumulam na seleção (como Shift). */
+  multiSelectMode: boolean
+  setMultiSelectMode: (on: boolean) => void
+  toggleMultiSelectMode: () => void
   /** Roda os componentes indicados (graus, múltiplos de 90). */
   rotateComponents: (ids: string[], deltaDeg: number) => void
   /** Ordem de desenho no Esquema: trazer para a frente / enviar para trás. */
@@ -1031,6 +1035,9 @@ export const useSimStore = create<Store>((set, get) => {
   selectedWireId: null,
   selectedWireIds: [] as string[],
   selectedTerminalId: null,
+  multiSelectMode: false,
+  setMultiSelectMode: (on) => set({ multiSelectMode: !!on }),
+  toggleMultiSelectMode: () => set((s) => ({ multiSelectMode: !s.multiSelectMode })),
   tool: 'select',
   grid: { enabled: true, size: EDITOR_THEME.step, snap: true, style: 'dots', background: EDITOR_THEME.background },
   zoom: 1,

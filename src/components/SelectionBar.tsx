@@ -1,9 +1,10 @@
 import { useSimStore } from '../store/useSimStore'
-import { IconChevronDown, IconChevronUp, IconClose, IconCopy, IconDelete, IconLock, IconRotate, IconTools } from '../ui/icons'
+import { IconChevronDown, IconChevronUp, IconClose, IconCopy, IconDelete, IconLock, IconRotate, IconTools, IconLayers } from '../ui/icons'
 
 /**
  * Barra contextual flutuante: aparece quando há um objeto selecionado e dá acesso
  * direto (toque ou rato) a apagar, rodar, duplicar, bloquear e limpar a seleção.
+ * Inclui atalho para modo de seleção múltipla (equivalente a manter Shift).
  */
 export default function SelectionBar() {
   const demoMode = useSimStore((s) => s.demoMode)
@@ -11,11 +12,12 @@ export default function SelectionBar() {
   const wireId = useSimStore((s) => s.selectedWireId)
   const wireIds = useSimStore((s) => s.selectedWireIds)
   const terminalId = useSimStore((s) => s.selectedTerminalId)
+  const multiSelectMode = useSimStore((s) => s.multiSelectMode)
+  const toggleMultiSelectMode = useSimStore((s) => s.toggleMultiSelectMode)
   const locked = useSimStore((s) => s.components.some((c) => ids.includes(c.id) && c.locked))
   const rotate = useSimStore((s) => s.rotateComponents)
   const duplicate = useSimStore((s) => s.duplicateComponents)
   const duplicateWires = useSimStore((s) => s.duplicateWires)
-  const duplicateSelection = useSimStore((s) => s.duplicateSelection)
   const toggleLock = useSimStore((s) => s.toggleLock)
   const remove = useSimStore((s) => s.deleteSelection)
   const selectComponents = useSimStore((s) => s.selectComponents)
@@ -33,7 +35,6 @@ export default function SelectionBar() {
   const hasComponents = ids.length > 0
   if (demoMode || (!hasComponents && !wireId && !terminalId)) return null
 
-  // Mostra a referência real do componente em vez de «Objeto».
   const label = hasComponents
     ? (ids.length > 1 ? `${ids.length} objetos` : first?.ref || 'Objeto')
     : multiWires.length > 1 ? `${multiWires.length} cabos` : wireId ? 'Cabo' : 'Borne'
@@ -42,6 +43,17 @@ export default function SelectionBar() {
   return (
     <div className="dc-selection-bar" role="toolbar" aria-label={`Ações para ${label.toLowerCase()} selecionado`} onPointerDown={(e) => e.stopPropagation()}>
       <span className="dc-selection-label">{label}</span>
+      <button
+        type="button"
+        className={multiSelectMode ? 'is-on' : ''}
+        onClick={() => toggleMultiSelectMode()}
+        title={multiSelectMode ? 'Seleção múltipla ativa — clique noutros objetos para juntar (Shift também serve)' : 'Ativar seleção múltipla — clique noutros objetos para juntar à seleção'}
+        aria-label="Seleção múltipla"
+        aria-pressed={multiSelectMode}
+      >
+        <IconLayers size={15} />
+        <span className="dc-selection-multi-label">{multiSelectMode ? 'Multi' : 'Multi'}</span>
+      </button>
       {hasComponents && <>
         <button type="button" onClick={() => rotate(ids, -90)} title="Rodar 90° para a esquerda (Shift+R)" aria-label="Rodar para a esquerda" disabled={locked}><IconRotate size={15} className="flip-x" /></button>
         <button type="button" onClick={() => rotate(ids, 90)} title="Rodar 90° (R)" aria-label="Rodar 90 graus" disabled={locked}><IconRotate size={15} /></button>

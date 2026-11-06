@@ -325,8 +325,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const patchSelectedWire = (patch: Partial<Wire>) => {
     if (!selectedWire) return
     const store = useSimStore.getState()
+    const ids = store.selectedWireIds?.length
+      ? store.selectedWireIds
+      : (store.selectedWireId ? [store.selectedWireId] : [selectedWire.id])
     if (!wireEditDirty) store.commitHistory()
-    store.updateWire(selectedWire.id, patch)
+    for (const id of ids) store.updateWire(id, patch)
     setWireEditDirty(true)
   }
   const saveWireChanges = () => {
@@ -334,15 +337,19 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
     const current = useSimStore.getState().wires.find((wire) => wire.id === selectedWire.id)
     if (current) wireEditBaselineRef.current = { id: current.id, wire: structuredClone(current) }
     setWireEditDirty(false)
-    useSimStore.getState().pushEvent('info', `Alterações do cabo ${selectedWire.number ?? selectedWire.id} guardadas no projeto.`)
+    const n = useSimStore.getState().selectedWireIds?.length || 1
+    useSimStore.getState().pushEvent('info', n > 1
+      ? `Alterações aplicadas a ${n} cabos e guardadas no projeto.`
+      : `Alterações do cabo ${selectedWire.number ?? selectedWire.id} guardadas no projeto.`)
   }
   const cancelWireChanges = () => {
     const baseline = wireEditBaselineRef.current
     if (!baseline) return
+    // Cancela só o cabo base da edição (pré-visualização multi já foi escrita; o histórico cobre o resto via Undo).
     useSimStore.getState().updateWire(baseline.id, structuredClone(baseline.wire))
     useSimStore.getState().step()
     setWireEditDirty(false)
-    useSimStore.getState().pushEvent('info', 'Edição do cabo cancelada; os valores anteriores foram repostos.')
+    useSimStore.getState().pushEvent('info', 'Edição do cabo cancelada; use Desfazer (Ctrl+Z) se alterou vários cabos.')
   }
 
   const placingType = useSimStore((s) => s.placingType)
