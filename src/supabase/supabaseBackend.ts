@@ -234,6 +234,26 @@ export async function supabaseGetProjects(): Promise<Project[]> {
         return content?.nativeId === seed.nativeId
       })
       if (exists) continue
+      // Exemplos GRAFCET: uma versão nova da semente (…-v8 → …-v9) atualiza a cópia existente em vez de criar outra ao lado.
+      const family = seed.nativeId.replace(/-v\d+$/, '-v')
+      const older = seed.id.startsWith('grafcet-')
+        ? rows.find((row) => {
+          const content = row.content && typeof row.content === 'object' ? (row.content as Record<string, unknown>) : null
+          return row.owner_id === user.id && typeof content?.nativeId === 'string' && content.nativeId.startsWith(family)
+        })
+        : undefined
+      if (older) {
+        const { data: updated, error: errUpdate } = await client
+          .from('projects')
+          .update({ name: seed.name, content: seed.content, updated_at: new Date().toISOString() })
+          .eq('id', older.id)
+          .eq('owner_id', user.id)
+          .select('id, name, revision, updated_at, content, owner_id')
+          .single()
+        if (!errUpdate && updated) rows[rows.indexOf(older)] = updated
+        else if (errUpdate) console.error('[native-seed] Falha ao atualizar projeto nativo:', errUpdate.message)
+        continue
+      }
       const { data: created, error: errSeed } = await client
         .from('projects')
         .insert({ name: seed.name, owner_id: user.id, content: seed.content, revision: 0, updated_at: seed.updatedAt })
