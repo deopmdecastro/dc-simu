@@ -429,72 +429,91 @@ function estampagem(): GrafcetExample {
   })
   const transitions = [...control, ...safety, ...auto, ...reset, ...manual]
 
-  // Grelha dos manuais por baixo do G2 (etapa 31 em y 1500): atuadores y 1860, lâmpadas y 2300.
-  const manualPositions: Record<string, [number, number]> = {}
-  manualDevices.forEach((device, index) => {
-    const lamp = device.kind === 'Lâmpada'
-    const col = lamp ? index - 7 : index
-    const x = 160 + col * 320, y = lamp ? 2300 : 1860
-    manualPositions[String(device.first)] = [x, y]
-    manualPositions[String(device.first + 1)] = [x, y + 190]
+  // ---- Páginas: um GRAFCET por chart (IEC 60848). Todas correm em simultâneo.
+  const chartMeta: Array<{ id: string; name: string; title: string }> = [
+    { id: `${p}-g0`, name: 'G0 Controlo', title: 'G0 - Controlo' },
+    { id: `${p}-g1`, name: 'G1 Emergência', title: 'G1 - Emergência' },
+    { id: `${p}-g2`, name: 'G2 Automático', title: 'G2 - Automático' },
+    { id: `${p}-g3`, name: 'G3 Reset', title: 'G3 - Reset' },
+    ...manualDevices.map((device, index) => ({
+      id: `${p}-g${index + 4}`,
+      name: `G${index + 4} ${device.title}`,
+      title: `G${index + 4} - ${device.kind} · ${device.title}`,
+    })),
+  ]
+  const chartByStepName = (name: string): string => {
+    const n = Number(name)
+    if (n <= 5) return `${p}-g0`
+    if (n <= 11) return `${p}-g1`
+    if (n <= 31) return `${p}-g2`
+    if (n <= 45) return `${p}-g3`
+    if (n >= 70) return `${p}-g${11 + Math.floor((n - 70) / 2)}`
+    if (n >= 50) return `${p}-g${4 + Math.floor((n - 50) / 2)}`
+    return `${p}-g0`
+  }
+  // Atribuir página a cada etapa e transição (ligações cross-page continuam wireless).
+  const allRawSteps = [c0, c1, c2, c3, c4, c5, e10, e11, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, r40, r41, r42, r43, r44, r45, ...manualSteps.flatMap((item) => [item.off, item.on])]
+  const stepped = allRawSteps.map((s) => ({ ...s, chart: chartByStepName(s.name) }))
+  const transitioned = transitions.map((t) => {
+    const fromStep = stepped.find((s) => s.id === t.from[0])
+    return { ...t, chart: fromStep?.chart ?? `${p}-g0` }
   })
 
-  const layout = placed(
-    [c0, c1, c2, c3, c4, c5, e10, e11, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, r40, r41, r42, r43, r44, r45, ...manualSteps.flatMap((item) => [item.off, item.on])],
-    transitions,
-    {
-      // G0 Controlo — etapas de modo bem espaçadas (≥340 px); emergência abaixo, centrada
-      0: [420, 60],
-      1: [80, 300], 3: [420, 300], 4: [760, 300],
-      2: [80, 560],
-      5: [420, 800],
-      // G1 Emergência — ~400 px após o modo Reset do G0
-      10: [1300, 60], 11: [1300, 320],
-      // G2 Automático
-      20: [2000, 60], 21: [2000, 240], 22: [2000, 420], 23: [2000, 600],
-      24: [1680, 820], 25: [2000, 820], 26: [2320, 820],
-      27: [2000, 1040],
-      28: [1680, 1260], 29: [2000, 1260], 30: [2320, 1260],
-      31: [2000, 1500],
-      // G3 Reset
-      40: [2900, 60], 41: [2900, 240], 42: [2900, 420], 43: [2900, 600],
-      44: [2900, 800], 45: [2900, 1140],
-      ...manualPositions,
-    },
-  )
-  const notesX = 3400
+  // Layout local por página (origem comum ~x150,y70) — já não lado a lado no mesmo canvas.
+  const localPos: Record<string, [number, number]> = {
+    // G0 Controlo
+    0: [300, 70], 1: [100, 280], 3: [300, 280], 4: [500, 280], 2: [100, 500], 5: [300, 720],
+    // G1 Emergência
+    10: [300, 70], 11: [300, 280],
+    // G2 Automático
+    20: [300, 70], 21: [300, 230], 22: [300, 390], 23: [300, 550],
+    24: [100, 740], 25: [300, 740], 26: [500, 740],
+    27: [300, 940],
+    28: [100, 1140], 29: [300, 1140], 30: [500, 1140],
+    31: [300, 1360],
+    // G3 Reset
+    40: [300, 70], 41: [300, 230], 42: [300, 390], 43: [300, 550], 44: [300, 730], 45: [300, 1020],
+  }
+  manualDevices.forEach((device) => {
+    localPos[String(device.first)] = [300, 70]
+    localPos[String(device.first + 1)] = [300, 260]
+  })
+
+  const layout = placed(stepped, transitioned, localPos)
+  // Garantir chart após placed (placed não remove chart)
+  layout.steps = layout.steps.map((s) => ({ ...s, chart: s.chart ?? chartByStepName(s.name) }))
+
+  const pageComments = chartMeta.map((c, index) => {
+    const isManual = index >= 4
+    return text(`${p}-c-${c.id}`, c.title, 60, 24, {
+      fontSize: isManual ? 15 : 16,
+      fontWeight: '700',
+      color: c.id.endsWith('-g1') ? '#b91c1c' : '#0f172a',
+      chart: c.id,
+    })
+  })
+  // Notas auxiliares só nas páginas principais
+  const pageExtras = [
+    text(`${p}-c-g0-hint`, 'Modos: Auto (X1) · Manual (X3) · Reset (X4) · Emergência (X5)', 60, 900, { fontSize: 11, color: '#475569', chart: `${p}-g0` }),
+    text(`${p}-c-g2-times`, 'Tempos: Preta 5 s · Branca 6 s · Metálica 8 s', 60, 1500, { fontSize: 12, color: '#7c3aed', fontWeight: '600', chart: `${p}-g2` }),
+    text(`${p}-c-g3-hint`, 'Sequência: gavetas → estampa/alimentador → retorno → zerar → fim', 60, 1160, { fontSize: 11, color: '#475569', chart: `${p}-g3` }),
+  ]
+
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v14',
+    nativeId: 'grafcet-estampagem-industrial-v15',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
-    title: 'Estampagem industrial (controlo, emergência, automático, reset e um manual por atuador e por lâmpada)',
+    title: 'Estampagem industrial (uma página por GRAFCET: controlo, emergência, automático, reset e manuais)',
     description:
-      'Estrutura hierárquica ATEC: G0 Controlo comanda os modos, G1 Emergência, G2 Automático (ciclo com tempos 5/6/8 s), G3 Reset completo etapa a etapa (gavetas → estampa/alimentador → retorno → zerar contadores/flags) e G4–G15 Manual (um GRAFCET por cilindro, motor e lâmpada: toque liga, novo toque desliga). Receptividades com o nome das tags e comparações entre GRAFCETs (G0 <=> X1).',
+      'Estrutura hierárquica ATEC em páginas separadas: G0 Controlo, G1 Emergência, G2 Automático, G3 Reset completo e G4–G15 Manual (um por atuador/lâmpada). Receptividades com nomes de tags e comparações entre GRAFCETs (G0 <=> X1).',
     program: {
       name: 'Estampagem Industrial (ATEC)',
+      charts: chartMeta,
+      activeChart: `${p}-g0`,
       steps: layout.steps,
-      transitions,
-      comments: [
-        text(`${p}-c-g0`, 'G0 - Controlo', 60, 20, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-g1`, 'G1 - Emergência', 1250, 20, { fontSize: 16, fontWeight: '700', color: '#b91c1c' }),
-        text(`${p}-c-g2`, 'G2 - Automático', 1850, 20, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-g3`, 'G3 - Reset', 2850, 20, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-manual`, 'Manual — um GRAFCET por cilindro, motor e lâmpada (G0 em X3: toque liga, novo toque desliga)', 90, 1780, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-manual-lamps`, 'Manual — lâmpadas (teste individual)', 90, 2220, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
-        ...manualDevices.map((device, index) => {
-          const [x, y] = manualPositions[String(device.first)]
-          return text(`${p}-c-g${index + 4}`, `G${index + 4} - ${device.kind} · ${device.title}`, x - 40, y - 62, { fontSize: 14, fontWeight: '700', color: '#0f172a' })
-        }),
-        text(`${p}-c-t0`, 'Máquina parada', 500, 55, { color: '#475569' }),
-        text(`${p}-c-t1`, 'Auto', 140, 275, { color: '#475569' }),
-        text(`${p}-c-t3`, 'Manual', 480, 275, { color: '#475569' }),
-        text(`${p}-c-t4`, 'Reset', 820, 275, { color: '#475569' }),
-        text(`${p}-c-t5`, 'Emergência', 480, 780, { color: '#b91c1c' }),
-        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', 1800, 1660, { color: '#7c3aed', fontWeight: '600' }),
-        text(`${p}-c-hier`, 'G2, G3 e os manuais G4–G15 só correm com o G0 no estado certo (X1/X2 · X4 · X3); a emergência (G1 X11) leva o G0 a X5, aborta o G2 e desliga os manuais.', 60, 980, { color: '#334155' }),
-        text(`${p}-c-ramp`, 'Rampas: Rampa_*_Cheia (M0.4–M0.6) bloqueiam o arranque de cada ciclo do G2.', 60, 1010, { color: '#b45309' }),
-      ],
+      transitions: transitioned,
+      comments: [...pageComments, ...pageExtras],
     },
     tags: [
       tag('I0.0', 'B_Start', 'Botão Iniciar ciclo (HMI). Física: C1_FC_0 → %I0.0'),
@@ -546,23 +565,22 @@ function estampagem(): GrafcetExample {
       tag('M0.6', 'Rampa_Metal_Cheia', 'Rampa metálica com 2 peças — bloqueia o ciclo'),
     ],
     notes: [
-      note(`${p}-n-auto`, 'Como testar — automático', notesX, layout.minY, '#bfdbfe', [
+      { ...note(`${p}-n-auto`, 'Como testar — automático', 520, 70, '#bfdbfe', [
         'Emergencia e Modo_Auto ligados (já no arranque). Impulso em B_Start: G0 passa a X1 e o G2 arranca.',
         'Peca_Presente → deteção. Escolha o tipo: Tipo_Preta / Tipo_Branca / Tipo_Metal e mantenha-o durante o ciclo.',
         'Pos_Estampa → estampagem 5/6/8 s. Depois Pos_Deposito → gaveta e contagem; FC_Gaveta_* e FC_Origem fecham o ciclo.',
         'Desligar Modo_Auto: o G0 vai a X2 (a terminar ciclo) e só volta à paragem quando o G2 chega ao repouso.',
-      ]),
-      note(`${p}-n-manual`, 'Como testar — manual e reset', notesX, layout.minY + 250, '#bbf7d0', [
-        'Com o G0 parado, ligue Modo_Manual (desligue Modo_Auto): G0 → X3. Cada atuador e cada lâmpada tem o seu GRAFCET (G4–G15) e o seu botão Man_*.',
-        'Um toque em Man_* liga (etapa ímpar: 51, 53…); novo toque desliga. Sair do manual ou emergência desliga tudo.',
-        'Estampa e gavetas só ligam com Pos_Estampa / Pos_Deposito ativos e desligam se a posição se perder (intertravamento).',
-        'B_Reset com o G0 parado: G0 → X4; o G3 faz reset completo: (41) espera gavetas recolhidas (FC_Gaveta_*), (42) 1 s para estampa/alimentador, (43) Retorno até FC_Origem, (44) zera contadores e flags de rampa, (45) fim.',
-        'Endereços no formato byte.bit: C1_FC_8…15 da tabela física = I1.0…I1.7; botões manuais I2.0…I3.3; lâmpadas Q1.0…Q1.3.',
-      ]),
-      note(`${p}-n-safety`, 'Emergência', notesX, layout.minY + 520, '#fecaca', [
-        'Desligue Emergencia: o G1 passa a X11 (alarme a 2 Hz + luz vermelha), o G0 vai a X5 e o G2/G4 abortam.',
-        'Para sair: ligue Emergencia e dê impulso em Rearme → G1 X10 → G0 faz reset automático (X4) → paragem.',
-      ]),
+        'Use as abas Páginas para ver cada GRAFCET (G0…G15) em ecrã próprio.',
+      ]), chart: `${p}-g0` },
+      { ...note(`${p}-n-manual`, 'Como testar — manual e reset', 520, 70, '#bbf7d0', [
+        'Com o G0 parado, ligue Modo_Manual: G0 → X3. Cada atuador/lâmpada tem a sua página (G4–G15) e o botão Man_*.',
+        'Um toque em Man_* liga (etapa ímpar); novo toque desliga. Sair do manual ou emergência desliga tudo.',
+        'B_Reset com G0 parado: página G3 corre o reset completo etapa a etapa até X45.',
+      ]), chart: `${p}-g3` },
+      { ...note(`${p}-n-safety`, 'Emergência', 520, 70, '#fecaca', [
+        'Desligue Emergencia: G1 → X11 (alarme 2 Hz + luz vermelha), G0 → X5 e o automático/manuais abortam.',
+        'Para sair: ligue Emergencia + impulso em Rearme → G1 X10 → G0 faz reset (X4) → paragem.',
+      ]), chart: `${p}-g1` },
     ],
     restInputs: { 'I1.7': true, 'I1.5': true },
     inputModes: {
