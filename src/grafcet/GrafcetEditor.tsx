@@ -54,6 +54,7 @@ import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
 import GrafcetSimDock from './GrafcetSimDock'
+import GrafcetIoPanel from './GrafcetIoPanel'
 import GrafcetFreeText, { freeTextBox } from './GrafcetFreeText'
 import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_GRAFCET } from '../ui/textStyle'
@@ -91,6 +92,7 @@ import {
   IconGrafcet,
   IconBranch,
   IconTag,
+  IconSignals,
   IconWarning,
   IconCheckCircle,
 } from '../ui/icons'
@@ -616,7 +618,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   useEffect(() => {
     if (!phone || !full) return
     setPropsOpen((open) => (open === simVisible ? open : simVisible))
-    if (simVisible) setTab('signals')
+    if (simVisible) setTab('io')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone, simVisible])
   useEffect(() => {
@@ -647,11 +649,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   useEffect(() => {
     if (full) useGrafcetUi.getState().setPaletteOpen(showPalette)
   }, [showPalette, full])
-  useEffect(() => {
-    // O simulador saiu do inspetor para o painel inferior (GrafcetSimDock).
-    if (tab === 'io') setTab('steps')
-  }, [tab])
-
   useEffect(() => () => { window.clearTimeout(toastTimer.current); window.clearTimeout(openLadderTimer.current) }, [])
 
   useEffect(() => {
@@ -3929,6 +3926,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }
 
   const liveBitsAll = [...new Set(steps.flatMap((step) => actionsOf(step).map((action) => action.address.trim().toUpperCase())))]
+  const activeBitCount = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
   const liveBits = Object.entries(table)
     .filter(([key, value]) => /^[QM]/.test(key) && value)
     .map(([key]) => key)
@@ -6364,6 +6362,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               <button role="tab" aria-selected={tab === 'transitions'} className={tab === 'transitions' ? 'is-active' : ''} onClick={() => setTab('transitions')}>
                 <IconBranch size={14} className="grafcet-tab-icon" /><span className="grafcet-tab-label">Transições</span> <em>{transitions.length}</em>
               </button>
+              <button role="tab" aria-selected={tab === 'io'} className={tab === 'io' ? 'is-active' : ''} onClick={() => setTab('io')}
+                title="Simular as entradas (INT / NO / NC) e ver as saídas Q e M — os mesmos cartões do Ladder e do Esquema IEC">
+                <IconSignals size={14} className="grafcet-tab-icon" /><span className="grafcet-tab-label">E/S</span> <em className={activeBitCount ? 'is-live' : ''}>{activeBitCount}</em>
+              </button>
               <button
                 role="tab"
                 aria-selected={tab === 'signals'}
@@ -6969,6 +6971,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   </div>
                 )}
               </>
+            )}
+
+            {/* ABA E/S: cartões de entradas (INT/NO/NC) e saídas, iguais aos do Ladder e do IEC */}
+            {tab === 'io' && (
+              <GrafcetIoPanel
+                program={program}
+                stepLabel={(stepId) => {
+                  const index = steps.findIndex((step) => step.id === stepId)
+                  return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
+                }}
+                extraBits={liveBitsAll}
+              />
             )}
 
             {/* ABA SIMULADOR */}
