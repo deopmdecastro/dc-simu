@@ -1,9 +1,9 @@
 {
   "app": "dc-simu",
-  "version": 6,
+  "version": 7,
   "projectKind": "grafcet",
   "unlockedViews": [],
-  "savedAt": "2026-11-05T22:40:00.000Z",
+  "savedAt": "2026-11-06T00:35:38.000Z",
   "components": [],
   "wires": [],
   "ladder": {
@@ -25,7 +25,7 @@
   "projectFolderLabels": {},
   "fcNames": {},
   "grafcet": {
-    "name": "Estampagem Industrial — Automático",
+    "name": "Estampagem Industrial — Automático (ATEC)",
     "steps": [
       {
         "id": "est-s0",
@@ -471,6 +471,22 @@
             "condition": "2HZ",
             "allocation": "continuous",
             "description": "Alarme emergência"
+          },
+          {
+            "id": "est-a11-red",
+            "x": 780,
+            "y": 300,
+            "w": 160,
+            "h": 54,
+            "dx": 80,
+            "dy": 80,
+            "kind": "N",
+            "type": "simple",
+            "address": "Q0.11",
+            "variable": "L_Vermelha",
+            "condition": "1",
+            "allocation": "continuous",
+            "description": "Luz vermelha emergência"
           }
         ]
       }
@@ -487,9 +503,9 @@
         "to": [
           "est-s1"
         ],
-        "condition": "I0.0 * X10 * !M0.4 * !M0.5 * !M0.6",
+        "condition": "I0.0 * I0.13 * I0.15 * X10 * !M0.4 * !M0.5 * !M0.6",
         "wireless": false,
-        "description": "START + segurança OK + rampas não cheias"
+        "description": "START + modo automático + emergência OK + rampas não cheias + segurança OK"
       },
       {
         "id": "est-t12",
@@ -758,212 +774,257 @@
       "address": "I0.0",
       "name": "START",
       "dataType": "Bool",
-      "comment": "Botão Iniciar ciclo (HMI / consola)"
+      "comment": "Botão Iniciar ciclo (HMI / consola). Física: C1_FC_0 → %I0.0"
     },
     {
       "id": "tag-i01",
       "address": "I0.1",
       "name": "Peca_Presente",
       "dataType": "Bool",
-      "comment": "Sensor peça no alimentador"
+      "comment": "Sensor peça no alimentador / FC alimentador. Física: C1_FC_1 → %I0.1"
     },
     {
       "id": "tag-i02",
       "address": "I0.2",
       "name": "Tipo_Preta",
       "dataType": "Bool",
-      "comment": "Deteção peça plástica preta"
+      "comment": "Deteção peça plástica preta (sensor cor / B11). Física: C1_FC_2 → %I0.2"
     },
     {
       "id": "tag-i03",
       "address": "I0.3",
       "name": "Tipo_Branca",
       "dataType": "Bool",
-      "comment": "Deteção peça plástica branca"
+      "comment": "Deteção peça plástica branca. Física: C1_FC_3 → %I0.3"
     },
     {
       "id": "tag-i04",
       "address": "I0.4",
       "name": "Tipo_Metal",
       "dataType": "Bool",
-      "comment": "Deteção peça metálica"
+      "comment": "Deteção peça metálica. Física: C1_FC_4 → %I0.4"
     },
     {
       "id": "tag-i05",
       "address": "I0.5",
       "name": "Pos_Estampa",
       "dataType": "Bool",
-      "comment": "Transportador na posição de estampagem"
+      "comment": "Transportador / braço na posição de estampagem (S0_Estampa). Física: C1_FC_5 → %I0.5"
     },
     {
       "id": "tag-i06",
       "address": "I0.6",
       "name": "Pos_Deposito",
       "dataType": "Bool",
-      "comment": "Transportador na posição de depósito"
+      "comment": "Transportador na posição de depósito. Física: C1_FC_6 → %I0.6"
     },
     {
       "id": "tag-i07",
       "address": "I0.7",
       "name": "FC_Gaveta_Preta",
       "dataType": "Bool",
-      "comment": "Fim de curso gaveta / rampa preta"
+      "comment": "Fim de curso gaveta / rampa preta. Física: C1_FC_7 → %I0.7"
     },
     {
       "id": "tag-i08",
       "address": "I0.8",
       "name": "FC_Gaveta_Branca",
       "dataType": "Bool",
-      "comment": "Fim de curso gaveta / rampa branca"
+      "comment": "Fim de curso gaveta / rampa branca. Física: C1_FC_8 → %I0.8"
     },
     {
       "id": "tag-i09",
       "address": "I0.9",
       "name": "FC_Gaveta_Metal",
       "dataType": "Bool",
-      "comment": "Fim de curso gaveta / rampa metálica"
+      "comment": "Fim de curso gaveta / rampa metálica. Física: C1_FC_9 → %I0.9"
     },
     {
       "id": "tag-i10",
       "address": "I0.10",
       "name": "FC_Origem",
       "dataType": "Bool",
-      "comment": "Transportador / braço na origem"
+      "comment": "Transportador / braço na origem (S_Tras / origem). Física: C1_FC_10 → %I0.10"
+    },
+    {
+      "id": "tag-i11",
+      "address": "I0.11",
+      "name": "S11_Frente",
+      "dataType": "Bool",
+      "comment": "Sensor frente (reserva / braço). Física: C1_FC_11 → %I0.11"
+    },
+    {
+      "id": "tag-i12",
+      "address": "I0.12",
+      "name": "Modo_Manual",
+      "dataType": "Bool",
+      "comment": "Seleção modo MANUAL (HMI / S_Man). Física: C1_FC_12 → %I0.12"
+    },
+    {
+      "id": "tag-i13",
+      "address": "I0.13",
+      "name": "Modo_Auto",
+      "dataType": "Bool",
+      "comment": "Seleção modo AUTOMÁTICO (HMI / S_Auto). Física: C1_FC_13 → %I0.13"
     },
     {
       "id": "tag-i14",
       "address": "I0.14",
       "name": "Rearme",
       "dataType": "Bool",
-      "comment": "Botão rearme segurança"
+      "comment": "Botão rearme segurança (contacto rearme circuito). Física: C1_FC_14 → %I0.14"
     },
     {
       "id": "tag-i15",
       "address": "I0.15",
       "name": "Emergencia",
       "dataType": "Bool",
-      "comment": "Botão emergência (NC)"
+      "comment": "Botão emergência NC (1=libertada). Física: C1_FC_15 → %I0.15"
     },
     {
       "id": "tag-q00",
       "address": "Q0.0",
       "name": "Cil_Alimenta",
       "dataType": "Bool",
-      "comment": "Cilindro alimentador +"
+      "comment": "Cilindro alimentador +. Física tabela: %Q0.0 Y0 Cil. Alimenta +"
     },
     {
       "id": "tag-q01",
       "address": "Q0.1",
       "name": "Gaveta_Preta",
       "dataType": "Bool",
-      "comment": "Atuador depósito / rampa preta"
+      "comment": "Atuador depósito / rampa preta (lógico). Física possível: %Q0.6 Gaveta Avança"
     },
     {
       "id": "tag-q02",
       "address": "Q0.2",
       "name": "Gaveta_Branca",
       "dataType": "Bool",
-      "comment": "Atuador depósito / rampa branca"
+      "comment": "Atuador depósito / rampa branca (lógico). Física: braço / gaveta conforme esquema"
     },
     {
       "id": "tag-q03",
       "address": "Q0.3",
       "name": "Gaveta_Metal",
       "dataType": "Bool",
-      "comment": "Atuador depósito / rampa metálica"
+      "comment": "Atuador depósito / rampa metálica (lógico)"
     },
     {
       "id": "tag-q04",
       "address": "Q0.4",
       "name": "Motor_Rotativo",
       "dataType": "Bool",
-      "comment": "Motor do transportador rotativo"
+      "comment": "Motor transportador rotativo (via K1/K2 + step-down ~3,5 V)"
     },
     {
       "id": "tag-q05",
       "address": "Q0.5",
       "name": "Retorno",
       "dataType": "Bool",
-      "comment": "Comando retorno à origem"
+      "comment": "Comando retorno à origem (braço / transportador)"
     },
     {
       "id": "tag-q06",
       "address": "Q0.6",
       "name": "Cil_Estampa",
       "dataType": "Bool",
-      "comment": "Cilindro de estampagem +"
+      "comment": "Cilindro de estampagem +. Física tabela: %Q0.8 Cil. Estampa +"
     },
     {
       "id": "tag-q07",
       "address": "Q0.7",
       "name": "L_Verde",
       "dataType": "Bool",
-      "comment": "Lâmpada verde — Pronto"
+      "comment": "Lâmpada verde — Pronto / ciclo OK (LED verde no quadro)"
     },
     {
       "id": "tag-q08",
       "address": "Q0.8",
       "name": "L_Alarme",
       "dataType": "Bool",
-      "comment": "Lâmpada alarme / emergência"
+      "comment": "Lâmpada alarme / emergência (pisca 2 Hz na etapa 11)"
+    },
+    {
+      "id": "tag-q09",
+      "address": "Q0.9",
+      "name": "L_Azul",
+      "dataType": "Bool",
+      "comment": "Lâmpada azul — modo MANUAL"
+    },
+    {
+      "id": "tag-q10",
+      "address": "Q0.10",
+      "name": "L_Branca",
+      "dataType": "Bool",
+      "comment": "Lâmpada branca — modo AUTOMÁTICO"
+    },
+    {
+      "id": "tag-q11",
+      "address": "Q0.11",
+      "name": "L_Vermelha",
+      "dataType": "Bool",
+      "comment": "Lâmpada vermelha — emergência / falta"
     },
     {
       "id": "tag-m00",
       "address": "M0.0",
       "name": "Detetar",
       "dataType": "Bool",
-      "comment": "Memória fase de deteção"
+      "comment": "Memória fase de deteção do tipo de peça"
     },
     {
       "id": "tag-m01",
       "address": "M0.1",
       "name": "Cnt_Preta",
       "dataType": "Bool",
-      "comment": "Contador lógico peça preta (usar com contador real)"
+      "comment": "Impulso contagem peça preta (ligar a contador real no PLC/HMI)"
     },
     {
       "id": "tag-m02",
       "address": "M0.2",
       "name": "Cnt_Branca",
       "dataType": "Bool",
-      "comment": "Contador lógico peça branca"
+      "comment": "Impulso contagem peça branca"
     },
     {
       "id": "tag-m03",
       "address": "M0.3",
       "name": "Cnt_Metal",
       "dataType": "Bool",
-      "comment": "Contador lógico peça metálica"
+      "comment": "Impulso contagem peça metálica"
     },
     {
       "id": "tag-m04",
       "address": "M0.4",
       "name": "Rampa_Preta_Cheia",
       "dataType": "Bool",
-      "comment": "Rampa preta com 2 peças"
+      "comment": "Rampa preta com 2 peças — bloqueia START (reset independente no HMI)"
     },
     {
       "id": "tag-m05",
       "address": "M0.5",
       "name": "Rampa_Branca_Cheia",
       "dataType": "Bool",
-      "comment": "Rampa branca com 2 peças"
+      "comment": "Rampa branca com 2 peças — bloqueia START"
     },
     {
       "id": "tag-m06",
       "address": "M0.6",
       "name": "Rampa_Metal_Cheia",
       "dataType": "Bool",
-      "comment": "Rampa metálica com 2 peças"
+      "comment": "Rampa metálica com 2 peças — bloqueia START"
     }
   ],
   "virtualInputs": {
-    "I0.15": true
+    "I0.15": true,
+    "I0.13": true
   },
   "virtualInputModes": {
     "I0.0": "push",
     "I0.14": "push",
-    "I0.15": "nc"
+    "I0.15": "nc",
+    "I0.12": "latch",
+    "I0.13": "latch"
   },
   "virtualInputCount": 16,
   "virtualOutputCount": 16,
@@ -973,34 +1034,45 @@
       "id": "note-como-testar",
       "x": 900,
       "y": 80,
-      "w": 320,
-      "h": 280,
+      "w": 340,
+      "h": 300,
       "color": "#bfdbfe",
-      "title": "Como testar (ciclo único)",
-      "body": "1. I0.15 ligado (emergência libertada).\n2. Impulso em I0.0 (START).\n3. Ligue I0.1 (peça presente) → avança para deteção.\n4. Ligue um tipo: I0.2 Preta / I0.3 Branca / I0.4 Metal.\n5. I0.5 (posição estampa) → entra na etapa de estampagem com o tempo correto (5/6/8 s).\n6. I0.6 (posição depósito) + o mesmo tipo → deposita e incrementa contador.\n7. FC da gaveta (I0.7/8/9) → retorno.\n8. I0.10 (origem) → volta à etapa 0.",
-      "createdAt": "2026-11-05T22:40:00.000Z"
+      "title": "Como testar (ciclo único automático)",
+      "body": "1. I0.15 ligado (emergência libertada — NC).\n2. I0.13 ligado (modo AUTOMÁTICO).\n3. Impulso em I0.0 (START).\n4. Ligue I0.1 (peça presente) → deteção.\n5. Tipo: I0.2 Preta / I0.3 Branca / I0.4 Metal.\n6. I0.5 (posição estampa) → estampagem 5/6/8 s.\n7. I0.6 (depósito) + mesmo tipo → deposita e conta.\n8. FC gaveta I0.7/8/9 → retorno.\n9. I0.10 (origem) → volta à etapa 0.\n\nEmergência: desligue I0.15 → etapas 10→11; rearme I0.15 + impulso I0.14.",
+      "createdAt": "2026-11-06T00:00:00.000Z"
     },
     {
-      "id": "note-rampas",
+      "id": "note-guião",
       "x": 900,
       "y": 400,
-      "w": 320,
-      "h": 180,
+      "w": 340,
+      "h": 220,
       "color": "#fef3c7",
-      "title": "Rampas (máx. 2 peças)",
-      "body": "M0.4 / M0.5 / M0.6 representam rampa cheia.\nNo HMI deve existir Reset independente de cada rampa (R M0.4, R M0.5, R M0.6).\nEnquanto qualquer rampa estiver cheia o START fica bloqueado (condição da T0→1).",
-      "createdAt": "2026-11-05T22:40:00.000Z"
+      "title": "Guião ATEC — requisitos",
+      "body": "Processo: alimentador → deteção tipo → transporte → estampagem (Preta 5 s, Branca 6 s, Metálica 8 s) → depósito na rampa.\nMáx. 2 peças por rampa (M0.4–M0.6); reset independente no HMI.\nHMI: modos Manual e Automático; Iniciar / Parar / Pausar; feedback sensores/atuadores; registo de peças processadas.\nFonte: Estampagem_Guião_1185 v2 + Tabela IN_OUT PLC.",
+      "createdAt": "2026-11-06T00:00:00.000Z"
     },
     {
-      "id": "note-hmi",
+      "id": "note-io-fisico",
       "x": 900,
-      "y": 620,
-      "w": 320,
-      "h": 200,
+      "y": 640,
+      "w": 340,
+      "h": 260,
       "color": "#e9d5ff",
-      "title": "HMI — modos",
-      "body": "Este GRAFCET cobre o modo Automático.\n• START / STOP / PAUSE: via I0.0 e memórias de pausa (a adicionar se necessário).\n• Feedback de todos os sensores e atuadores: tabela de tags.\n• Contagem de peças: M0.1–M0.3 (ou contadores reais no PLC).\n• Reset de rampas independente: botões HMI que fazem R nos M0.4–M0.6.",
-      "createdAt": "2026-11-05T22:40:00.000Z"
+      "title": "I/O físico (tabela PLC)",
+      "body": "Entradas: C1_FC_0…15 → %I0.0…%I0.15.\nSaídas físicas (tabela):\n• %Q0.0 / %Q0.1 — Cil. Alimenta +\n• %Q0.2 — Braço Central Desce −\n• %Q0.3 — Braço Central Sobe +\n• %Q0.6 — Gaveta Avança (peça fora estampa)\n• %Q0.7 — Gaveta Recua (peça na estampa)\n• %Q0.8 — Cil. Estampa +\nO GRAFCET usa endereços lógicos de processo (3 rampas). No comissionamento real, mapear Q lógicos → válvulas/relés do quadro RS403/409.",
+      "createdAt": "2026-11-06T00:00:00.000Z"
+    },
+    {
+      "id": "note-pneumatica",
+      "x": 900,
+      "y": 920,
+      "w": 340,
+      "h": 160,
+      "color": "#d1fae5",
+      "title": "Pneumática e potência",
+      "body": "Esquemas pneumáticos: AS-i / válvulas 1V1–3V3, cilindros 1A1–3A1 (guião Fig. 9–10).\nPotência: disjuntor, fonte 230 Vac→24 Vdc, emergência + rearme (relé segurança PNOZ).\nMotor rotativo: contactores K1/K2, step-down ~±3,5 V + potenciómetro.",
+      "createdAt": "2026-11-06T00:00:00.000Z"
     }
   ],
   "canvasTexts": [],
@@ -1009,5 +1081,6 @@
   "activeSheetId": null,
   "grid": true,
   "activeScenario": null,
-  "commands": []
+  "commands": [],
+  "nativeId": "grafcet-estampagem-industrial-v8"
 }
