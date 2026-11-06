@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, expandPolyline, interiorBends, nearestLeg, polylineMidpoint, routeThrough, simplifyOrthogonal } from '../src/grafcet/links'
 import { emptyGrafcetRuntime, scanGrafcet, stepNumberOf, validateGrafcet, type GrafcetProgram } from '../src/grafcet/engine'
 import { useSimStore } from '../src/store/useSimStore'
+import { referenceSlot } from '../src/grafcet/referenceLayout'
+import { organizeGrafcetPage } from '../src/grafcet/organize'
 
 let checks = 0
 const check = (condition: unknown, message: string) => { assert.ok(condition, message); checks++; console.log(`PASS — ${message}`) }
@@ -80,6 +82,34 @@ state().loadJSON(saved)
 check(state().grafcet.transitions?.[0]?.wireless === true, '«sem linha» é guardada no projeto')
 assert.deepEqual(state().grafcet.linkBends?.t0, [{ x: 320, y: 240 }])
 check(true, 'pontos de quebra sobrevivem a guardar/abrir')
+
+// Barras por referência: posição manual nos dois eixos, histórico e persistência.
+const beforeMove = structuredClone(state().grafcet)
+const moved = { ...beforeMove, linkBars: { t0: { x: 191, y: 234 } } }
+const source = { x: 151, bottom: 154, right: 183 }
+const manualSlot = referenceSlot(moved.transitions![0], moved.transitions!, source, moved.linkBars.t0)
+check(manualSlot.x === 191 && manualSlot.y === 234 && manualSlot.branched, 'referência sem irmãs aceita arrasto horizontal inferior a 80 px e vertical')
+const vertical = referenceSlot(moved.transitions![0], moved.transitions!, source, { x: 151, y: 300 })
+check(vertical.x === 151 && vertical.y === 300 && !vertical.branched, 'arrasto só vertical mantém a referência na espinha')
+const oldSlot = referenceSlot(beforeMove.transitions![0], beforeMove.transitions!, source)
+check(oldSlot.x === 151 && oldSlot.y === 188, 'sem posição manual mantém a disposição automática anterior')
+state().setGrafcet(moved, 'force', 'grafcet:bar:t0')
+state().undo()
+assert.deepEqual(state().grafcet, beforeMove)
+check(true, 'desfazer repõe a posição automática da referência')
+state().redo()
+assert.deepEqual(state().grafcet, moved)
+check(true, 'refazer repõe a posição arrastada da referência')
+const movedSaved = state().saveJSON()
+state().newProject('grafcet')
+state().loadJSON(movedSaved)
+assert.deepEqual(state().grafcet.linkBars?.t0, moved.linkBars.t0)
+assert.deepEqual(state().grafcet.transitions, beforeMove.transitions)
+check(true, 'guardar e reabrir preserva a posição, as origens, os destinos e a receptividade')
+const movedTable = { 'I0.0': true }
+const afterMoveRuntime = scanGrafcet(state().grafcet, emptyGrafcetRuntime(), movedTable)
+check(afterMoveRuntime.active.includes('s1'), 'a referência arrastada continua a disparar a mesma sequência')
+check(!organizeGrafcetPage(state().grafcet).linkBars?.t0, 'Organizar repõe a disposição automática da referência')
 
 // Projetos antigos (sem estes campos) continuam válidos.
 const legacy = state().grafcet

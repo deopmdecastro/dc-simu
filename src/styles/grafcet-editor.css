@@ -2022,12 +2022,12 @@
 .grafcet-page-add { display:inline-flex; align-items:center; gap:5px; border: 1px dashed #b9c6d9; border-radius: 8px; background: none; color: #567; font-size: 11px; padding: 4px 10px; cursor: pointer; }
 .grafcet-page-add:hover { border-color: #2655e5; color: #1d3fae; background: #f2f6ff; }
 .grafcet-page-picker { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.grafcet-page-picker select { max-width: 290px; min-width: 100px; min-height: 34px; border: 1px solid #d5deeb; border-radius: 6px; background: #fff; color: #243f73; font-size: 11px; padding: 4px 24px 4px 8px; }
+.grafcet-page-picker .dcx-select { max-width: 290px; min-width: 100px; min-height: 34px; font-size: 11px; }
 .grafcet-page-chip.is-in-picker { display: none; }
 .grafcet-page-mobile-delete { display: none; }
 @media (min-width: 768px) and (max-width: 1200px) {
   .grafcet-pages > .grafcet-page-picker { flex: 1 1 0%; }
-  .grafcet-page-picker select { width: 100%; max-width: 250px; }
+  .grafcet-page-picker .dcx-select { width: 100%; max-width: 250px; }
   .grafcet-pages > .grafcet-title-edit { max-width: 160px; overflow: hidden; }
   .grafcet-pages > .grafcet-page-chip { display: none; }
 }
@@ -2035,7 +2035,7 @@
   .grafcet-pages { flex-wrap: nowrap; min-width: 0; gap: 4px; padding: 5px 6px; }
   .grafcet-pages > .grafcet-title-edit, .grafcet-pages .grafcet-page-chip, .grafcet-pages-label { display: none; }
   .grafcet-pages > .grafcet-page-picker { flex: 1 1 0%; }
-  .grafcet-page-picker select { width: 100%; max-width: none; min-height: 40px; }
+  .grafcet-page-picker .dcx-select { width: 100%; max-width: none; min-height: 40px; }
   .grafcet-pages > .grafcet-page-add { min-width: 40px; min-height: 40px; justify-content: center; padding: 4px 6px; font-size: 10px; }
   .grafcet-page-add-text { display: none; }
   .grafcet-pages > .grafcet-page-mobile-delete { display: inline-flex; }

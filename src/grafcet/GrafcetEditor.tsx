@@ -4,6 +4,7 @@ import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
 import { attachedActionBoxes, cloneActions, type ActionBox } from './actionLayout'
 import { organizeGrafcetPage } from './organize'
+import Select from '../ui/Select'
 import { referenceLabelWidth, referenceSlot } from './referenceLayout'
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent } from 'react'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
@@ -540,7 +541,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const segDragRef = useRef<{ tid: string; drag: SegmentDrag; startX: number; startY: number; moved: boolean; points: Point[] } | null>(null)
   // Arrasto livre da barra de uma transição ligada: as linhas seguem-na (percurso refeito pela barra).
   const [barDragLive, setBarDragLive] = useState<{ tid: string; source: Point; target: Point; bar: Point; routed: boolean } | null>(null)
-  const barDragRef = useRef<{ tid: string; source: Point; target: Point; startX: number; startY: number; offX: number; offY: number; moved: boolean; bar: Point; routed: boolean } | null>(null)
+  const barDragRef = useRef<{ tid: string; source: Point; target: Point; startX: number; startY: number; offX: number; offY: number; moved: boolean; bar: Point; routed: boolean; autoZoom: boolean; autoPan: boolean } | null>(null)
   const transDragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
   /** Etapa candidata a receber a transição solta que está a ser arrastada. */
   const [transDropStep, setTransDropStep] = useState<string | null>(null)
@@ -1730,7 +1731,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const referencePosition = (t: GrafcetTransition) => {
     const source = stepById.get(t.from[0])!
     const right = Math.max(stepX(source.id) + stepSizeOf(source.id).w / 2, ...[...attachedBoxes(source).values()].map(b => b.x + b.w))
-    return referenceSlot(t, transitions, { x: stepX(source.id), bottom: stepY(source.id) + stepHOf(source.id), right })
+    const manual = barDragLive?.tid === t.id ? barDragLive.bar : program.linkBars?.[t.id]
+    return referenceSlot(t, transitions, { x: stepX(source.id), bottom: stepY(source.id) + stepHOf(source.id), right }, manual)
   }
   transitions.filter(t => t.wireless && !isFreeTransition(t)).forEach(t => {
     const at = referencePosition(t)
@@ -1784,6 +1786,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   })
   freeActions.forEach(action => { const at = actionXY(action); includeScrollPoint(at.x, at.y) })
   transitions.filter(isFreeTransition).forEach(transition => { const at = transXY(transition); includeScrollPoint(at.x - 30, at.y - 30) })
+  transitions.filter(t => t.wireless && !isFreeTransition(t)).forEach(t => { const at = referencePosition(t); includeScrollPoint(at.x - 40, at.y - 30) })
   comments.forEach(comment => { const box = freeTextBox(comment); includeScrollPoint(box.left, box.top) })
   visibleLinkBends.forEach(points => points.forEach(point => includeScrollPoint(point.x, point.y)))
 
@@ -1922,7 +1925,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     commitBends(tid, interiorBends(state.points))
     suppressClickRef.current = true
   }
-  const cancelBendDrag = () => { bendDragRef.current = null; segDragRef.current = null; barDragRef.current = null; setBendDragLive(null); setSegDragLive(null); setBarDragLive(null) }
+  const cancelBendDrag = () => {
+    if (barDragRef.current?.autoZoom) setZoom(null)
+    if (barDragRef.current?.autoPan) setPan(null)
+    bendDragRef.current = null; segDragRef.current = null; barDragRef.current = null
+    setBendDragLive(null); setSegDragLive(null); setBarDragLive(null)
+  }
   /** Posição da barra: a do arrasto em curso, ou a guardada enquanto continuar sobre o percurso desenhado. */
   const barPointOf = (tid: string, points: Point[]): Point | null => {
     if (barDragLive?.tid === tid) return barDragLive.routed ? clampBar(barDragLive.source, barDragLive.bar) : barDragLive.bar
@@ -1942,18 +1950,22 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     e.stopPropagation()
     e.preventDefault()
     const point = clientToWorld(e.clientX, e.clientY)
+    // Selecionar pode abrir o inspetor e reduzir o canvas. Fixar a vista antes disso
+    // evita que um pequeno toque seja interpretado como um grande deslocamento.
+    if (zoom === null) setZoom(scale)
+    if (pan === null) setPan(position)
     setSelected(tid)
     setSelectedActionId(null)
     setMulti([])
     setTab('transitions')
-    barDragRef.current = { tid, source, target, startX: point.x, startY: point.y, offX: bar.x - point.x, offY: bar.y - point.y, moved: false, bar, routed }
+    barDragRef.current = { tid, source, target, startX: point.x, startY: point.y, offX: bar.x - point.x, offY: bar.y - point.y, moved: false, bar, routed, autoZoom: zoom === null, autoPan: pan === null }
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* captura indisponível */ }
   }
   const moveBar = (tid: string, e: React.PointerEvent) => {
     const state = barDragRef.current
     if (!state || state.tid !== tid) return
     const w = clientToWorld(e.clientX, e.clientY)
-    if (!state.moved && Math.hypot(w.x - state.startX, w.y - state.startY) < 5 / scale) return
+    if (!state.moved && Math.hypot(w.x - state.startX, w.y - state.startY) < dragSlop(e) / scale) return
     state.moved = true
     const raw = { x: w.x + state.offX, y: w.y + state.offY }
     const bar = snapOn && !e.altKey ? { x: snapToGrid(raw.x, SPINE_X), y: snapToGrid(raw.y, START_Y) } : { x: Math.round(raw.x), y: Math.round(raw.y) }
@@ -1966,7 +1978,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     barDragRef.current = null
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
     setBarDragLive(null)
-    if (!state.moved) return
+    if (!state.moved) {
+      if (state.autoZoom) setZoom(null)
+      if (state.autoPan) setPan(null)
+      return
+    }
     if (!state.routed) {
       save({ linkBars: { ...(program.linkBars ?? {}), [tid]: state.bar } }, 'force', `grafcet:bar:${tid}`)
       suppressClickRef.current = true
@@ -3161,18 +3177,19 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   // Esc cancela o arrastamento em curso sem guardar (etapa, transição solta ou ação).
   useEffect(() => {
-    if (!dragPos && !transDragPos && !actionDragPos) return
+    if (!dragPos && !transDragPos && !actionDragPos && !barDragLive) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
         resetStepDrag()
         resetTransDrag()
         resetActionDrag()
+        cancelBendDrag()
       }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [dragPos !== null, transDragPos !== null, actionDragPos !== null])
+  }, [dragPos !== null, transDragPos !== null, actionDragPos !== null, barDragLive !== null])
 
   const organizeLayout = () => {
     if (useSimStore.getState().sim.runState !== 'stopped') return notify('Pare a simulação antes de organizar a página')
@@ -4081,14 +4098,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 onCommit={(next) => save({ name: next }, 'force', 'grafcet:name')}
               />
             </span>
-            <label className="grafcet-page-picker">
+            <div className="grafcet-page-picker">
               <span className="grafcet-pages-label">Páginas</span>
-              <select aria-label="Abrir página do GRAFCET" value={pageActive ?? 'chart-p1'} onChange={e => switchPage(e.target.value)}>
+              <Select aria-label="Abrir página do GRAFCET" value={pageActive ?? 'chart-p1'} onChange={e => switchPage(e.target.value)}>
                 {(pageCharts.length ? pageCharts : [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' }]).map((chart, index) => (
                   <option key={chart.id} value={chart.id}>{`${/^G\d+\b/.test(chart.title || chart.name) ? '' : `G${index} · `}${chart.title || chart.name} · ${allSteps.filter(s => (s.chart ?? firstChartId) === chart.id || !firstChartId).length} etapas`}</option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </div>
             {!demoMode && pageCharts.length > 0 && <button type="button" className="grafcet-page-rename grafcet-page-add" onClick={() => void renameActivePage()} title="Renomear a página atual" aria-label="Renomear página"><IconEdit size={13} /></button>}
             {!demoMode && pageCharts.length > 1 && <button type="button" className="grafcet-page-mobile-delete grafcet-page-add" onClick={() => void deletePage(activeChart!)} title="Eliminar a página atual" aria-label="Eliminar página atual"><IconDelete size={13} /></button>}
             {(pageCharts.length ? pageCharts : [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' } as GrafcetChart]).map((chart) => {
@@ -4557,6 +4574,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     // Seleção OU (IEC 60848): se a etapa tem outra saída, a transição por referência
                     // ramifica para o lado (ponto + linha horizontal) em vez de ficar em série por baixo da irmã.
                     const { branched: refOrBranch, x: refX, y: refBarY, junctionY: refJunctionY } = referencePosition(transition)
+                    const dragReference = (e: React.PointerEvent) => startBarDrag(transition.id, { x: refSrcX, y: refTop }, { x: refX, y: refBarY + 24 }, { x: refX, y: refBarY }, e, false)
                     transitionAnchors.set(transition.id, { x: refX, y: refBarY })
                     const outRefs = targets.map(refOf).join(' ')
                     return (
@@ -4574,7 +4592,17 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         <path d={refOrBranch ? `M ${refSrcX} ${refTop} V ${refJunctionY} H ${refX} V ${refBarY}` : `M ${refX} ${refTop} V ${refBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} />
                         {refOrBranch && <circle cx={refSrcX} cy={refJunctionY} r="3.6" fill={linkColor} data-or-branch="true" />}
                         <path d={`M ${refX} ${refBarY} V ${refBarY + 24}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
-                        <line x1={refX - 14} y1={refBarY} x2={refX + 14} y2={refBarY} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
+                        <line className="grafcet-transition-bar" x1={refX - 14} y1={refBarY} x2={refX + 14} y2={refBarY} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3}
+                          onPointerDown={dragReference} onPointerMove={e => moveBar(transition.id, e)} onPointerUp={e => finishBar(transition.id, e)} onPointerCancel={cancelBendDrag}
+                          style={{ cursor: 'move', touchAction: 'none', pointerEvents: 'stroke' }} />
+                        {full && void barHitLayer.push(<rect
+                          key={`hit-${transition.id}`} className="grafcet-transition-bar-hit" data-transition-id={transition.id}
+                          onClick={onSelectThisTransition}
+                          x={refX - 32} y={refBarY - 12} width="64" height="24" fill="transparent"
+                          onPointerDown={dragReference} onPointerMove={e => moveBar(transition.id, e)} onPointerUp={e => finishBar(transition.id, e)} onPointerCancel={cancelBendDrag}
+                          onDoubleClick={onTransDoubleClick} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
+                          style={{ cursor: 'move', touchAction: 'none' }}
+                        ><title>Arraste para mover a transição por referência · as ligações acompanham (Alt: sem grelha)</title></rect>)}
                         <text x={refX - 18} y={refBarY + 3} textAnchor="end" fill={selectedLink ? '#2563eb' : enabled ? '#16a34a' : '#64748b'} fontSize="10.5" fontWeight="700">
                           {transition.name || `T${transitionIndex + 1}`}
                         </text>
@@ -4627,8 +4655,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                               role="button"
                               aria-label="Configurar transição"
                             >
-                              <circle cx={refX + 11} cy={refBarY - 13} r="7" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                              <path d={`M ${refX + 9} ${refBarY - 11} L ${refX + 13} ${refBarY - 15}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+                              <circle cx={refX + 28} cy={refBarY - 20} r="7" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
+                              <path d={`M ${refX + 26} ${refBarY - 18} L ${refX + 30} ${refBarY - 22}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
                             </g>
                             {transitions.length > 1 && (
                               <g
@@ -4641,8 +4669,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                                 role="button"
                                 aria-label="Eliminar transição"
                               >
-                                <circle cx={refX - 18} cy={refBarY - 12} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
-                                <path d={`M ${refX - 20.5} ${refBarY - 14.5} L ${refX - 15.5} ${refBarY - 9.5} M ${refX - 15.5} ${refBarY - 14.5} L ${refX - 20.5} ${refBarY - 9.5}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" />
+                                <circle cx={refX - 28} cy={refBarY - 20} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                                <path d={`M ${refX - 30.5} ${refBarY - 22.5} L ${refX - 25.5} ${refBarY - 17.5} M ${refX - 25.5} ${refBarY - 22.5} L ${refX - 30.5} ${refBarY - 17.5}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" />
                               </g>
                             )}
                           </>
@@ -4735,7 +4763,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         />
                         {full && void barHitLayer.push(<rect
                           key={`hit-${transition.id}`}
-                          className="grafcet-transition-bar-hit" data-transition-id={transition.id} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
+                          className="grafcet-transition-bar-hit" data-transition-id={transition.id} onClick={onSelectThisTransition} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
                           x={tx - 32} y={ty - 14} width="64" height="28" fill="transparent"
                           onPointerDown={(e) => startBarDrag(transition.id, { x: sourceX, y: sBottom }, { x: targetX, y: tTop }, { x: tx, y: ty }, e)}
                           onPointerMove={(e) => moveBar(transition.id, e)}
@@ -4961,7 +4989,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         />
                         {full && void barHitLayer.push(<rect
                           key={`hit-${transition.id}`}
-                          className="grafcet-transition-bar-hit" data-transition-id={transition.id} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
+                          className="grafcet-transition-bar-hit" data-transition-id={transition.id} onClick={onSelectThisTransition} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
                           x={tx - 32} y={ty - 14} width="64" height="28" fill="transparent"
                           onPointerDown={(e) => startBarDrag(transition.id, { x: sourceX, y: sBottom }, { x: targetX, y: tTop }, { x: tx, y: ty }, e)}
                           onPointerMove={(e) => moveBar(transition.id, e)}
@@ -5141,7 +5169,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       <line className="grafcet-transition-bar" x1={tx - 12} y1={ty} x2={tx + 12} y2={ty} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
                       {full && void barHitLayer.push(<rect
                         key={`hit-${transition.id}`}
-                        className="grafcet-transition-bar-hit" data-transition-id={transition.id} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
+                      className="grafcet-transition-bar-hit" data-transition-id={transition.id} onClick={onSelectThisTransition} onDoubleClick={(e) => { e.stopPropagation(); setEditingTransition(transition) }} onMouseEnter={() => hoverElement('transition', transition.id)} onMouseLeave={() => hoverElement('transition', null)}
                         x={tx - 32} y={ty - 14} width="64" height="28" fill="transparent"
                         onPointerDown={(e) => startBarDrag(transition.id, { x: tx, y: -1e6 }, { x: tx, y: 1e6 }, { x: tx, y: ty }, e, false)}
                         onPointerMove={(e) => moveBar(transition.id, e)}
