@@ -3,10 +3,12 @@ import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
 import { attachedActionBoxes, cloneActions, type ActionBox } from './actionLayout'
+import { organizeGrafcetPage } from './organize'
+import { referenceLabelWidth, referenceSlot } from './referenceLayout'
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent } from 'react'
 import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
-import { uiChoose, uiConfirm } from '../ui/dialogs'
+import { uiChoose, uiConfirm, uiPrompt } from '../ui/dialogs'
 import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
 import { alignMessage, alignOffsets, domWorldBox, useAlignAction, type AlignBox } from '../ui/alignItems'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
@@ -64,6 +66,7 @@ import { applyLadderFromGrafcet, describeLadderDiff, diffGeneratedLadder, genera
 import {
   IconChevronLeft,
   IconCopy,
+  IconEdit,
   IconCursor,
   IconDelete,
   IconHand,
@@ -115,7 +118,6 @@ import {
   START_Y,
   STEP_H,
   alignToOthers,
-  autoLayout,
   clampPosition,
   snapToGrid,
   stepPitch,
@@ -755,6 +757,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const switchPage = (id: string) => {
     setSelected(null)
     setMulti([])
+    setSelectedCommentId(null)
+    setSelectedActionId(null)
+    setEditingCommentId(null)
+    setZoom(null)
+    setPan(null)
     setGrafcet({ ...program, activeChart: id }, 'skip', 'grafcet:pages:switch')
   }
   const renamePage = (id: string, next: string) => {
@@ -763,6 +770,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (!name || (chart && name === (chart.title || chart.name))) return
     const base = pageCharts.length ? pageCharts : [{ id, name: 'Página 1', title: 'Página 1' } as GrafcetChart]
     save({ charts: base.map((c) => (c.id === id ? { ...c, name, title: name } : c)) }, 'force', 'grafcet:pages:rename')
+  }
+  const renameActivePage = async () => {
+    const chart = pageCharts.find(c => c.id === activeChart)
+    if (!chart) return
+    const name = await uiPrompt('Nome da página do GRAFCET', chart.title || chart.name, { title: 'Renomear página', confirmLabel: 'Guardar' })
+    if (name !== null) renamePage(chart.id, name)
   }
   const deletePage = async (id: string) => {
     const chartSteps = allSteps.filter((s) => chartOf(s) === id)
@@ -1714,6 +1727,16 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     maxRight = Math.max(maxRight, p.x + 220)
     maxBottom = Math.max(maxBottom, p.y + 70)
   })
+  const referencePosition = (t: GrafcetTransition) => {
+    const source = stepById.get(t.from[0])!
+    const right = Math.max(stepX(source.id) + stepSizeOf(source.id).w / 2, ...[...attachedBoxes(source).values()].map(b => b.x + b.w))
+    return referenceSlot(t, transitions, { x: stepX(source.id), bottom: stepY(source.id) + stepHOf(source.id), right })
+  }
+  transitions.filter(t => t.wireless && !isFreeTransition(t)).forEach(t => {
+    const at = referencePosition(t)
+    maxRight = Math.max(maxRight, at.x + referenceLabelWidth(t))
+    maxBottom = Math.max(maxBottom, at.y + 60)
+  })
 
   /** Posição do canto superior esquerdo de uma ação solta (guardada ou em arrasto). */
   const actionXY = (a: GrafcetAction): { x: number; y: number } => {
@@ -1742,7 +1765,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     maxBottom = Math.max(maxBottom, c.y + (c.fontSize ?? 13) + 20)
   })
   // Os pontos de quebra das linhas (laços de retorno, desvios) também contam para a área do diagrama.
-  Object.values(program.linkBends ?? {}).forEach((points) => points.forEach((point) => {
+  const visibleTransitionIds = new Set(transitions.map(t => t.id))
+  const visibleLinkBends = Object.entries(program.linkBends ?? {}).filter(([id]) => visibleTransitionIds.has(id)).map(([, points]) => points)
+  visibleLinkBends.forEach((points) => points.forEach((point) => {
     maxRight = Math.max(maxRight, point.x + 40)
     maxBottom = Math.max(maxBottom, point.y + 40)
   }))
@@ -1760,7 +1785,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   freeActions.forEach(action => { const at = actionXY(action); includeScrollPoint(at.x, at.y) })
   transitions.filter(isFreeTransition).forEach(transition => { const at = transXY(transition); includeScrollPoint(at.x - 30, at.y - 30) })
   comments.forEach(comment => { const box = freeTextBox(comment); includeScrollPoint(box.left, box.top) })
-  Object.values(program.linkBends ?? {}).forEach(points => points.forEach(point => includeScrollPoint(point.x, point.y)))
+  visibleLinkBends.forEach(points => points.forEach(point => includeScrollPoint(point.x, point.y)))
 
   /** Coordenadas do diagrama a partir de um ponto do cliente (rato/toque). */
   const clientToWorld = (cx: number, cy: number) => {
@@ -3150,16 +3175,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }, [dragPos !== null, transDragPos !== null, actionDragPos !== null])
 
   const organizeLayout = () => {
+    if (useSimStore.getState().sim.runState !== 'stopped') return notify('Pare a simulação antes de organizar a página')
     if (!steps.length) return notify('Sem etapas para organizar')
-    const layout = autoLayout(steps, transitions)
-    save({
-      steps: steps.map((step) => {
-        const point = layout.get(step.id)
-        return point ? { ...step, x: point.x, y: point.y, pinned: true } : step
-      }),
-    })
+    setGrafcet(organizeGrafcetPage(program, activeChart), 'force', 'grafcet:organize')
     resetView()
-    notify('Diagrama organizado · Ctrl+Z repõe')
+    notify('Página organizada: etapas, ações e ligações · Ctrl+Z repõe')
   }
 
   /** Setas movem a seleção: etapas, grupo, transição, texto livre ou ação solta. */
@@ -4061,12 +4081,21 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 onCommit={(next) => save({ name: next }, 'force', 'grafcet:name')}
               />
             </span>
-            <span className="grafcet-pages-label">Páginas</span>
+            <label className="grafcet-page-picker">
+              <span className="grafcet-pages-label">Páginas</span>
+              <select aria-label="Abrir página do GRAFCET" value={pageActive ?? 'chart-p1'} onChange={e => switchPage(e.target.value)}>
+                {(pageCharts.length ? pageCharts : [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' }]).map((chart, index) => (
+                  <option key={chart.id} value={chart.id}>{`${/^G\d+\b/.test(chart.title || chart.name) ? '' : `G${index} · `}${chart.title || chart.name} · ${allSteps.filter(s => (s.chart ?? firstChartId) === chart.id || !firstChartId).length} etapas`}</option>
+                ))}
+              </select>
+            </label>
+            {!demoMode && pageCharts.length > 0 && <button type="button" className="grafcet-page-rename grafcet-page-add" onClick={() => void renameActivePage()} title="Renomear a página atual" aria-label="Renomear página"><IconEdit size={13} /></button>}
+            {!demoMode && pageCharts.length > 1 && <button type="button" className="grafcet-page-mobile-delete grafcet-page-add" onClick={() => void deletePage(activeChart!)} title="Eliminar a página atual" aria-label="Eliminar página atual"><IconDelete size={13} /></button>}
             {(pageCharts.length ? pageCharts : [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' } as GrafcetChart]).map((chart) => {
               const isActive = chart.id === (pageActive ?? chart.id)
               const count = allSteps.filter((s) => (s.chart ?? (pageCharts[0]?.id ?? 'chart-p1')) === chart.id).length
               return (
-                <span key={chart.id} className={`grafcet-page-chip ${isActive ? 'is-active' : ''}`}>
+                <span key={chart.id} className={`grafcet-page-chip ${isActive ? 'is-active' : ''} ${pageCharts.length > 5 && !isActive ? 'is-in-picker' : ''}`}>
                   <InlineName
                     role="tab"
                     ariaSelected={isActive}
@@ -4086,8 +4115,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 </span>
               )
             })}
-            {!demoMode && <button type="button" className="grafcet-page-add" onClick={addPage} title="Nova página (chart). Ex.: um GRAFCET por estação, a comunicarem por sinais e referências X."><IconPlus size={12} />Nova página</button>}
-            {!demoMode && <button type="button" className={`grafcet-page-add${varTableOpen ? ' is-active' : ''}`} aria-pressed={varTableOpen} onClick={() => setVarTableOpen((v) => !v)} title="Tabela de variáveis flutuante no canvas (editar, importar Excel, estado ao vivo)"><IconTag size={12} />Variáveis</button>}
+            {!demoMode && <button type="button" className="grafcet-page-add" onClick={addPage} aria-label="Nova página" title="Nova página (chart). Ex.: um GRAFCET por estação, a comunicarem por sinais e referências X."><IconPlus size={12} /><span className="grafcet-page-add-text">Nova página</span></button>}
+            {!demoMode && <button type="button" className={`grafcet-page-add${varTableOpen ? ' is-active' : ''}`} aria-label="Variáveis" aria-pressed={varTableOpen} onClick={() => setVarTableOpen((v) => !v)} title="Tabela de variáveis flutuante no canvas (editar, importar Excel, estado ao vivo)"><IconTag size={12} /><span className="grafcet-page-add-text">Variáveis</span></button>}
           </div>
         )}
         <div
@@ -4527,15 +4556,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     const refTop = stepY(sources[0]) + stepHOf(sources[0])
                     // Seleção OU (IEC 60848): se a etapa tem outra saída, a transição por referência
                     // ramifica para o lado (ponto + linha horizontal) em vez de ficar em série por baixo da irmã.
-                    const refSiblings = transitions.filter((o) => o.from.includes(sources[0]) && o.id !== transition.id)
-                    const refOrBranch = sources.length === 1 && refSiblings.length > 0
-                    const refRank = transitions.filter((o) => o.wireless && o.from.length === 1 && o.from[0] === sources[0]).findIndex((o) => o.id === transition.id)
-                    const refX = refOrBranch ? (Math.abs((transition.x ?? refSrcX) - refSrcX) >= 80 ? (transition.x ?? refSrcX) : refSrcX + 260 + Math.max(0, refRank) * 220) : refSrcX
-                    const refJunctionY = refTop + 28
-                    const refBarY = refOrBranch ? refTop + 78 : refTop + 34
+                    const { branched: refOrBranch, x: refX, y: refBarY, junctionY: refJunctionY } = referencePosition(transition)
                     transitionAnchors.set(transition.id, { x: refX, y: refBarY })
                     const outRefs = targets.map(refOf).join(' ')
-                    const inRefs = sources.map(refOf).join(' ')
                     return (
                       <g
                         key={transition.id}
@@ -4579,12 +4602,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         })}
                         {/* Destinos: referência acima da etapa, seta a entrar por cima */}
                         {targets.map((tid) => {
+                          const incoming = transitions.filter(t => t.wireless && t.to.includes(tid))
+                          if (incoming[0]?.id !== transition.id) return null
+                          const inRefs = [...new Set(incoming.flatMap(t => t.from).map(refOf))].join(', ')
                           const x = stepX(tid)
                           const y = stepY(tid)
                           return (
                             <g key={`ref-dst-${tid}`}>
                               <path d={`M ${x} ${y - 28} V ${y - 3}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
-                              <text x={x + 10} y={y - 14} fill="#64748b" fontSize="10.5" fontWeight="600">{`${inRefs} →`}</text>
+                              <text x={x - 10} y={y - 14} textAnchor="end" fill="#64748b" fontSize="10.5" fontWeight="600">{`${inRefs} →`}</text>
                             </g>
                           )
                         })}

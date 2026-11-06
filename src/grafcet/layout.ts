@@ -1,5 +1,7 @@
 import { actionsOfStep, type GrafcetStep, type GrafcetTransition } from './engine'
 import { EDITOR_GRID_STEP } from '../ui/editorTheme'
+import { attachedActionBoxes } from './actionLayout'
+import { referenceLabelWidth, referenceSlot } from './referenceLayout'
 
 /** Coluna central (eixo vertical) das etapas no layout automático. */
 export const SPINE_X = 151
@@ -17,6 +19,28 @@ export const STEP_H = 54
 
 /** Distância vertical entre duas etapas consecutivas na coluna, conforme o nº de ações. */
 export const stepPitch = (actionCount: number) => Math.max(200, actionCount * 52 + 120)
+
+/** Envolvente real das ações: inclui tamanhos, disposição e afastamentos manuais. */
+export function stepFootprint(step: GrafcetStep) {
+  const size = stepSize(step)
+  const boxes = [...attachedActionBoxes(actionsOfStep(step), { x: 0, y: 0, ...size }, step.actionLayout ?? 'row', actionSize).values()]
+  const left = Math.min(-size.w / 2, ...boxes.map(b => b.x))
+  const right = Math.max(size.w / 2, ...boxes.map(b => b.x + b.w))
+  const top = Math.min(0, ...boxes.map(b => b.y))
+  const bottom = Math.max(size.h, ...boxes.map(b => b.y + b.h))
+  return { left, right, top, bottom }
+}
+
+function layoutFootprint(step: GrafcetStep, transitions: GrafcetTransition[]) {
+  const bounds = stepFootprint(step)
+  const source = { x: 0, bottom: stepSize(step).h, right: bounds.right }
+  for (const t of transitions.filter(t => t.wireless && t.from[0] === step.id)) {
+    const slot = referenceSlot({ ...t, x: undefined }, transitions, source)
+    bounds.right = Math.max(bounds.right, slot.x + referenceLabelWidth(t))
+    bounds.bottom = Math.max(bounds.bottom, slot.y + 40)
+  }
+  return bounds
+}
 
 /** Encaixa `value` na grelha cuja origem é `origin`. */
 export const snapToGrid = (value: number, origin: number, grid = GRID) => Math.round((value - origin) / grid) * grid + origin
@@ -106,7 +130,10 @@ function layoutSingleComponent(
   const next = new Map<string, string[]>()
   const prev = new Map<string, string[]>()
   compSteps.forEach((s) => { next.set(s.id, []); prev.set(s.id, []) })
-  for (const t of transitions) for (const from of t.from) if (ids.has(from)) for (const to of t.to) if (ids.has(to) && to !== from) next.get(from)!.push(to)
+  // Referências não deformam o fluxo desenhado; num diagrama inteiramente por referência,
+  // a própria sequência continua a determinar as camadas.
+  const drawnFlow = transitions.some(t => !t.wireless && t.from.some(id => ids.has(id)) && t.to.some(id => ids.has(id)))
+  for (const t of transitions.filter(t => !t.wireless || !drawnFlow)) for (const from of t.from) if (ids.has(from)) for (const to of t.to) if (ids.has(to) && to !== from && !next.get(from)!.includes(to)) next.get(from)!.push(to)
 
   const isInitial = (s: GrafcetStep) => s.initial || s.stepType === 'initial' || s.stepType === 'initial-enclosing'
   const hasIncoming = new Set<string>(); next.forEach((tos) => tos.forEach((to) => hasIncoming.add(to)))
@@ -134,6 +161,8 @@ function layoutSingleComponent(
   }
 
   const maxLevel = Math.max(...compSteps.map((s) => level.get(s.id) ?? 0))
+  const footprints = new Map(compSteps.map(s => [s.id, layoutFootprint(s, transitions)]))
+  const columnWidth = Math.max(COLUMN_WIDTH, ...compSteps.map(s => { const b = footprints.get(s.id)!; return b.right - b.left + 220 }))
   const column = new Map<string, number>(); const levelTop: number[] = []; let cursor = 0
   for (let lv = 0; lv <= maxLevel; lv++) {
     const row = compSteps.filter((s) => (level.get(s.id) ?? 0) === lv)
@@ -142,11 +171,18 @@ function layoutSingleComponent(
     const desired = new Map<string, number>()
     row.forEach((s) => { const parents = prev.get(s.id)!.filter((p) => column.has(p)); desired.set(s.id, parents.length ? parents.reduce((sum, p) => sum + column.get(p)!, 0) / parents.length : 0) })
     row.sort((a, b) => desired.get(a.id)! - desired.get(b.id)! || order.get(a.id)! - order.get(b.id)!)
-    let last = -Infinity; row.forEach((s) => { const col = Math.max(Math.round(desired.get(s.id)!), last + 1); column.set(s.id, col); last = col })
-    cursor += Math.max(...row.map((s) => stepPitch(actionsOfStep(s).length)))
+    let last = -Infinity; row.forEach((s) => { const col = Math.max(desired.get(s.id)!, last + 1); column.set(s.id, col); last = col })
+    // Centrar divergências e convergências, sem acumular deriva para a direita.
+    const shift = row.reduce((sum, s) => sum + desired.get(s.id)! - column.get(s.id)!, 0) / row.length
+    row.forEach(s => column.set(s.id, column.get(s.id)! + shift))
+    const minTop = Math.min(0, ...row.map(s => footprints.get(s.id)!.top))
+    levelTop[lv] -= minTop
+    cursor = levelTop[lv] + Math.max(200, ...row.map(s => footprints.get(s.id)!.bottom + 146))
   }
   const result = new Map<string, { x: number; y: number }>()
-  compSteps.forEach((s) => { const lv = level.get(s.id) ?? 0; result.set(s.id, { x: (column.get(s.id) ?? 0) * COLUMN_WIDTH, y: levelTop[lv] ?? 0 }) })
+  const minLeft = Math.min(...compSteps.map(s => (column.get(s.id) ?? 0) * columnWidth + footprints.get(s.id)!.left))
+  const shiftX = Math.max(0, MIN_X - SPINE_X - minLeft)
+  compSteps.forEach((s) => { const lv = level.get(s.id) ?? 0; result.set(s.id, { x: (column.get(s.id) ?? 0) * columnWidth + shiftX, y: levelTop[lv] ?? 0 }) })
   return result
 }
 
@@ -207,8 +243,8 @@ export function autoLayout(
       const { compSteps } = group.infos[idx]
       const local = layoutSingleComponent(compSteps, transitions, next, order)
       const xs = [...local.values()].map((p) => p.x), ys = [...local.values()].map((p) => p.y)
-      const compW = (xs.length ? Math.max(...xs) - Math.min(...xs) : 0) + COLUMN_WIDTH
-      const compH = (ys.length ? Math.max(...ys) - Math.min(...ys) : 0) + 180
+      const compW = Math.max(...compSteps.map(s => local.get(s.id)!.x + layoutFootprint(s, transitions).right))
+      const compH = Math.max(...compSteps.map(s => local.get(s.id)!.y + layoutFootprint(s, transitions).bottom)) + 180
       if (col >= group.maxCols) { col = 0; cursorX = 0; cursorY += rowH + GAP_Y; groupRowH += rowH + GAP_Y; rowH = 0 }
       const offsetX = cursorX, offsetY = cursorY
       for (const [id, pos] of local) result.set(id, { x: SPINE_X + offsetX + pos.x, y: START_Y + offsetY + pos.y })

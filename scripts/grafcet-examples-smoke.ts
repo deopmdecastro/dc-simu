@@ -21,7 +21,7 @@ class Run {
   /** Etapas ativas dos GRAFCETs de funcionamento (G0–G3, numeração < 50). */
   core() { return this.active().split(',').filter((n) => Number(n) < 50).join(',') }
   /** Etapas ativas dos GRAFCETs manuais (G4–G15, numeração ≥ 50). */
-  manual() { return this.active().split(',').filter((n) => Number(n) >= 50).join(',') }
+  manual() { return this.active().split(',').filter((n) => Number(n) >= 50 && Number(n) < 80).join(',') }
 }
 
 const [basic, normal, advanced, estampagem] = grafcetExamples()
@@ -30,7 +30,7 @@ ok(grafcetExamples().length === 4 && basic.level === 'básico' && normal.level =
 for (const example of [basic, normal, advanced, estampagem]) {
   const issues = validateGrafcet(example.program)
   // A Estampagem partilha saídas entre GRAFCETs exclusivos pela hierarquia do G0 (auto/reset/manual): o aviso estático «várias etapas» é esperado e verificado à parte.
-  const relevant = example === estampagem ? issues.filter((issue) => !/^(addr|drive):/.test(issue.id)) : issues
+  const relevant = example === estampagem ? issues.filter((issue) => !/^(addr|drive):/.test(issue.id) && !['est-g3-t5:always', 'est-g16-t2:always'].includes(issue.id)) : issues
   ok(relevant.length === 0, `${example === estampagem ? 'estampagem' : example.level}: GRAFCET sem erros nem avisos no Diagnóstico${relevant.length ? ' — ' + JSON.stringify(relevant) : ''}`)
   ok((example.program.transitions ?? []).every((t) => validCondition(t.condition)), `${example.level}: todas as receptividades são válidas`)
   ok((example.program.comments ?? []).length >= 3, `${example.level}: tem textos no desenho`)
@@ -127,13 +127,13 @@ for (const example of [basic, normal, advanced, estampagem]) {
   const aliases = signalAliasMap(estampagem.tags.map((t) => ({ ...t, dataType: 'Bool' as const })) as never)
   setGrafcetSignalAliasResolver((name) => aliases.get(name))
   const graphs = grafcetGraphs(estampagem.program)
-  ok(graphs.map((g) => g.key).join(',') === Array.from({ length: 16 }, (_, i) => `G${i}`).join(','), 'estampagem: 16 GRAFCETs (G0 controlo, G1 emergência, G2 automático, G3 reset, G4–G15 manuais)')
-  ok(graphs.map((g) => g.steps.length).join(',') === '6,2,12,3,' + Array(12).fill(2).join(','), 'estampagem: etapas por GRAFCET (6, 2, 12, 3 e 2 em cada manual)')
+  ok(graphs.map((g) => g.key).join(',') === Array.from({ length: 17 }, (_, i) => `G${i}`).join(','), 'estampagem: 17 GRAFCETs (controlo, segurança, automático, reset, 12 manuais e reset rampas)')
+  ok(graphs.map((g) => g.steps.length).join(',') === '7,2,12,6,' + Array(13).fill(2).join(','), 'estampagem: etapas por GRAFCET (inclui pausa e reset completo)')
   const titles = (estampagem.program.comments ?? []).map((c) => c.text)
   ok(['Alimentador', 'Transportador rotativo', 'Cilindro de estampa', 'Gaveta Preta', 'Gaveta Branca', 'Gaveta Metálica', 'Retorno à origem', 'Lâmpada verde', 'Lâmpada de alarme', 'Lâmpada azul', 'Lâmpada branca', 'Lâmpada vermelha']
     .every((name) => titles.some((t) => /^G\d+ - (Cilindro|Motor|Lâmpada) · /.test(t) && t.endsWith(name))), 'estampagem: um título «G<n> - …» por cada atuador e lâmpada')
   const outputs = new Set(estampagem.program.steps.flatMap((s) => (s.actions ?? []).map((a) => a.address)).filter((a) => a.startsWith('Q')))
-  const manualOutputs = new Set(estampagem.program.steps.filter((s) => Number(s.name) >= 50).flatMap((s) => (s.actions ?? []).map((a) => a.address)))
+  const manualOutputs = new Set(estampagem.program.steps.filter((s) => Number(s.name) >= 50 && Number(s.name) < 80).flatMap((s) => (s.actions ?? []).map((a) => a.address)))
   ok([...outputs].every((address) => manualOutputs.has(address)) && manualOutputs.size === 12, 'estampagem: todas as saídas Q (cilindros, motores e lâmpadas) têm o seu manual')
   ok(['Man_Alimenta', 'Man_Transporte', 'Man_Estampa', 'Man_Gaveta_Preta', 'Man_Gaveta_Branca', 'Man_Gaveta_Metal', 'Man_Retorno', 'Man_L_Verde', 'Man_L_Alarme', 'Man_L_Azul', 'Man_L_Branca', 'Man_L_Vermelha'].every((n) => estampagem.tags.some((t) => t.name === n)), 'estampagem: um botão Man_* por atuador e lâmpada')
   const transitions = estampagem.program.transitions ?? []
@@ -146,7 +146,7 @@ for (const example of [basic, normal, advanced, estampagem]) {
   ok(!unknown.length, `estampagem: todos os nomes usados existem na tabela de variáveis${unknown.length ? ' — ' + unknown.join(',') : ''}`)
   ok(estampagem.tags.every((t) => isUsableSignalName(t.name)), 'estampagem: todos os nomes de tags são utilizáveis nas condições')
   const issues = validateGrafcet(estampagem.program)
-  ok(issues.every((issue) => issue.level === 'warning' && /^(addr|drive):Q\d\.\d+$/.test(issue.id)), 'estampagem: Diagnóstico só tem avisos de saídas partilhadas entre GRAFCETs exclusivos (auto/reset/manual)')
+  ok(issues.every((issue) => issue.level === 'warning' && (/^(addr|drive):[QM]\d\.\d+$/.test(issue.id) || ['est-g3-t5:always', 'est-g16-t2:always'].includes(issue.id))), 'estampagem: só avisos conhecidos de saídas partilhadas e avanços incondicionais de reset')
 
   const r = new Run(estampagem).scan()
   ok(r.core() === '0,10,20,40', 'estampagem: cada GRAFCET arranca na sua etapa inicial (0, 10, 20, 40) e cada manual no repouso')
@@ -229,7 +229,7 @@ for (const example of [basic, normal, advanced, estampagem]) {
   ok(r.on('Q0.4'), 'estampagem: manual ligado antes da emergência')
   r.set({ 'I1.7': false }); r.scan(500)
   ok(r.core().startsWith('5,11') && !r.on('Q0.4') && r.manual() === '50,52,54,56,58,60,62,70,72,74,76,78', 'estampagem: emergência em manual desliga o atuador e repõe o manual')
-  r.set({ 'I1.7': true, 'I1.4': false }); r.pulse('I1.6'); r.set({ 'I1.2': true }); r.scan(800); r.set({ 'I1.2': false }); r.scan(300)
+  r.set({ 'I1.7': true, 'I1.4': false, 'I0.7': true, 'I1.0': true, 'I1.1': true }); r.pulse('I1.6'); r.set({ 'I1.2': true }); r.scan(2200); r.set({ 'I1.2': false }); r.scan(300)
   ok(r.core() === '0,10,20,40', 'estampagem: rearme + reset → paragem')
   // emergência e reset
   r.set({ 'I1.5': true }); r.pulse('I0.0'); r.scan(300)
@@ -239,7 +239,8 @@ for (const example of [basic, normal, advanced, estampagem]) {
   r.set({ 'I1.7': true }); r.scan(300)
   ok(r.core().startsWith('5,11'), 'estampagem: libertar a emergência não chega — falta o rearme')
   r.pulse('I1.6'); r.scan(500)
-  ok(r.core() === '4,10,20,41' && r.on('Q0.5'), 'estampagem: rearme → G1 X10, G0 X4 e o G3 repõe a origem')
+  r.scan(1200)
+  ok(r.core() === '4,10,20,43' && r.on('Q0.5'), 'estampagem: rearme → G1 X10, G0 X4 e o G3 repõe a origem após recolher gavetas e estampa')
   r.set({ 'I1.2': true }); r.scan(600)
   ok(r.core() === '0,10,20,40', 'estampagem: origem → fim do reset → G0 em paragem')
   setGrafcetSignalAliasResolver(() => undefined)

@@ -107,7 +107,7 @@
     "test:motor-ui": "node scripts/motor-fan-textures-ui-smoke.mjs",
     "test:motion": "tsx scripts/motion-smoke.ts",
     "test:glow": "tsx scripts/glow-smoke.ts",
-    "test:grafcet-examples": "tsx scripts/grafcet-examples-smoke.ts",
+    "test:grafcet-examples": "tsx scripts/grafcet-examples-smoke.ts && tsx scripts/grafcet-organization-smoke.ts",
     "test:view-diagnostics": "tsx scripts/view-diagnostics-smoke.ts",
     "test:breaker-cut": "tsx scripts/breaker-cut-smoke.ts",
     "test:excel": "tsx scripts/excel-smoke.ts",

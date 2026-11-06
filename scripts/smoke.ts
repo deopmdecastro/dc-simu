@@ -2310,7 +2310,10 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('organizar: salto não coloca o destino acima das etapas intermédias', skip.get('c')!.y > skip.get('b')!.y)
 
   check('organizar: programa vazio devolve vazio', autoLayout([], []).size === 0)
-  check('organizar: mais ações aumentam a altura da linha', autoLayout([st('a', { initial: true, actions: [1, 2, 3, 4].map((n) => ({ id: String(n), address: 'Q' + n, condition: '1' })) }), st('b')] as any, [tr('t', ['a'], ['b'])] as any).get('b')!.y === START_Y + stepPitch(4))
+  const actionRow = st('a', { initial: true, actions: [1, 2, 3, 4].map((n) => ({ id: String(n), address: 'Q' + n, condition: '1' })) })
+  const rowHeight = autoLayout([actionRow, st('b')] as any, [tr('t', ['a'], ['b'])] as any).get('b')!.y
+  const columnHeight = autoLayout([{ ...actionRow, actionLayout: 'column' }, st('b')] as any, [tr('t', ['a'], ['b'])] as any).get('b')!.y
+  check('organizar: ações em coluna reservam mais altura que as mesmas ações em linha', rowHeight === START_Y + stepPitch(0) && columnHeight > rowHeight)
 }
 
 // ---- GRAFCET: deteção automática de entradas e nomes de transições ----
