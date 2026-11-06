@@ -373,9 +373,9 @@ function estampagem(): GrafcetExample {
     link(g0, 'E2', [c2], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
     link(g0, 'E3', [c3], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
     link(g0, 'E4', [c4], [c5], 'G1 <=> X11', 'Emergência', ref(c5)),
-    link(g0, 'T1', [c0], [c1], 'B_Start * Modo_Auto * Emergencia', 'START em modo automático'),
-    link(g0, 'T2', [c0], [c3], 'Modo_Manual * Emergencia', 'Seleção do modo manual'),
-    link(g0, 'T3', [c0], [c4], 'B_Reset * Emergencia', 'Pedido de reset'),
+    link(g0, 'T1', [c0], [c1], 'B_Start * Modo_Auto * Emergencia', '→ Auto'),
+    link(g0, 'T2', [c0], [c3], 'Modo_Manual * Emergencia', '→ Manual'),
+    link(g0, 'T3', [c0], [c4], 'B_Reset * Emergencia', '→ Reset'),
     link(g0, 'T4', [c1], [c2], '!Modo_Auto', 'Sair do automático: acabar o ciclo'),
     link(g0, 'T5', [c2], [c0], 'G2 <=> X20', 'G2 já em repouso', ref(c0)),
     link(g0, 'T6', [c3], [c0], '!Modo_Manual', 'Modo manual desligado', ref(c0)),
@@ -429,12 +429,12 @@ function estampagem(): GrafcetExample {
   })
   const transitions = [...control, ...safety, ...auto, ...reset, ...manual]
 
-  // Grelha dos manuais por baixo do G2 (etapa 31 em y 1520): atuadores y 1880, lâmpadas y 2320.
+  // Grelha dos manuais por baixo do G2 (etapa 31 em y 1500): atuadores y 1860, lâmpadas y 2300.
   const manualPositions: Record<string, [number, number]> = {}
   manualDevices.forEach((device, index) => {
     const lamp = device.kind === 'Lâmpada'
     const col = lamp ? index - 7 : index
-    const x = 160 + col * 320, y = lamp ? 2320 : 1880
+    const x = 160 + col * 320, y = lamp ? 2300 : 1860
     manualPositions[String(device.first)] = [x, y]
     manualPositions[String(device.first + 1)] = [x, y + 190]
   })
@@ -443,26 +443,29 @@ function estampagem(): GrafcetExample {
     [c0, c1, c2, c3, c4, c5, e10, e11, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, r40, r41, r42, r43, r44, r45, ...manualSteps.flatMap((item) => [item.off, item.on])],
     transitions,
     {
-      // G0 Controlo — bloco autónomo à esquerda (largura ~500)
-      0: [380, 80], 1: [140, 300], 3: [380, 300], 4: [620, 300], 2: [140, 540], 5: [380, 540],
-      // G1 Emergência — afastado do G0 (~400 px de vão)
-      10: [1100, 80], 11: [1100, 320],
-      // G2 Automático — spine + ramos ≥300 px; começa ~450 px à direita do G1
-      20: [1800, 80], 21: [1800, 260], 22: [1800, 440], 23: [1800, 620],
-      24: [1480, 840], 25: [1800, 840], 26: [2120, 840],
-      27: [1800, 1060],
-      28: [1480, 1280], 29: [1800, 1280], 30: [2120, 1280],
-      31: [1800, 1520],
-      // G3 Reset — à direita do G2 (vão livre para ações do ramo Metal)
-      40: [2650, 80], 41: [2650, 260], 42: [2650, 440], 43: [2650, 620],
-      44: [2650, 820], 45: [2650, 1160],
+      // G0 Controlo — etapas de modo bem espaçadas (≥340 px); emergência abaixo, centrada
+      0: [420, 60],
+      1: [80, 300], 3: [420, 300], 4: [760, 300],
+      2: [80, 560],
+      5: [420, 800],
+      // G1 Emergência — ~400 px após o modo Reset do G0
+      10: [1300, 60], 11: [1300, 320],
+      // G2 Automático
+      20: [2000, 60], 21: [2000, 240], 22: [2000, 420], 23: [2000, 600],
+      24: [1680, 820], 25: [2000, 820], 26: [2320, 820],
+      27: [2000, 1040],
+      28: [1680, 1260], 29: [2000, 1260], 30: [2320, 1260],
+      31: [2000, 1500],
+      // G3 Reset
+      40: [2900, 60], 41: [2900, 240], 42: [2900, 420], 43: [2900, 600],
+      44: [2900, 800], 45: [2900, 1140],
       ...manualPositions,
     },
   )
-  const notesX = 3100
+  const notesX = 3400
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v13',
+    nativeId: 'grafcet-estampagem-industrial-v14',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (controlo, emergência, automático, reset e um manual por atuador e por lâmpada)',
@@ -473,24 +476,24 @@ function estampagem(): GrafcetExample {
       steps: layout.steps,
       transitions,
       comments: [
-        text(`${p}-c-g0`, 'G0 - Controlo', 90, 30, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-g1`, 'G1 - Emergência', 1050, 30, { fontSize: 16, fontWeight: '700', color: '#b91c1c' }),
-        text(`${p}-c-g2`, 'G2 - Automático', 1650, 30, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-g3`, 'G3 - Reset', 2600, 30, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g0`, 'G0 - Controlo', 60, 20, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g1`, 'G1 - Emergência', 1250, 20, { fontSize: 16, fontWeight: '700', color: '#b91c1c' }),
+        text(`${p}-c-g2`, 'G2 - Automático', 1850, 20, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g3`, 'G3 - Reset', 2850, 20, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
         text(`${p}-c-manual`, 'Manual — um GRAFCET por cilindro, motor e lâmpada (G0 em X3: toque liga, novo toque desliga)', 90, 1780, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
         text(`${p}-c-manual-lamps`, 'Manual — lâmpadas (teste individual)', 90, 2220, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
         ...manualDevices.map((device, index) => {
           const [x, y] = manualPositions[String(device.first)]
           return text(`${p}-c-g${index + 4}`, `G${index + 4} - ${device.kind} · ${device.title}`, x - 40, y - 62, { fontSize: 14, fontWeight: '700', color: '#0f172a' })
         }),
-        text(`${p}-c-t0`, 'Máquina parada', 450, 80, { color: '#475569' }),
-        text(`${p}-c-t1`, 'Auto', 200, 300, { color: '#475569' }),
-        text(`${p}-c-t3`, 'Manual', 450, 300, { color: '#475569' }),
-        text(`${p}-c-t4`, 'Reset', 690, 300, { color: '#475569' }),
-        text(`${p}-c-t5`, 'Emergência', 450, 540, { color: '#b91c1c' }),
-        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', 1600, 1680, { color: '#7c3aed', fontWeight: '600' }),
-        text(`${p}-c-hier`, 'G2, G3 e os manuais G4–G15 só correm com o G0 no estado certo (X1/X2 · X4 · X3); a emergência (G1 X11) leva o G0 a X5, aborta o G2 e desliga os manuais.', 90, 680, { color: '#334155' }),
-        text(`${p}-c-ramp`, 'Rampas: Rampa_*_Cheia (M0.4–M0.6) bloqueiam o arranque de cada ciclo do G2.', 90, 710, { color: '#b45309' }),
+        text(`${p}-c-t0`, 'Máquina parada', 500, 55, { color: '#475569' }),
+        text(`${p}-c-t1`, 'Auto', 140, 275, { color: '#475569' }),
+        text(`${p}-c-t3`, 'Manual', 480, 275, { color: '#475569' }),
+        text(`${p}-c-t4`, 'Reset', 820, 275, { color: '#475569' }),
+        text(`${p}-c-t5`, 'Emergência', 480, 780, { color: '#b91c1c' }),
+        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', 1800, 1660, { color: '#7c3aed', fontWeight: '600' }),
+        text(`${p}-c-hier`, 'G2, G3 e os manuais G4–G15 só correm com o G0 no estado certo (X1/X2 · X4 · X3); a emergência (G1 X11) leva o G0 a X5, aborta o G2 e desliga os manuais.', 60, 980, { color: '#334155' }),
+        text(`${p}-c-ramp`, 'Rampas: Rampa_*_Cheia (M0.4–M0.6) bloqueiam o arranque de cada ciclo do G2.', 60, 1010, { color: '#b45309' }),
       ],
     },
     tags: [
