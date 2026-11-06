@@ -38,7 +38,7 @@ check('quadro, calha técnica e espiral são acessórios', isPanelAccessoryType(
     return Math.abs(box(plate).max.z - ENCLOSURE_PLATE_FRONT_MM) < 0.01
   })())
   const required = ['enclosure-back', 'enclosure-shell', 'enclosure-mounting-plate', 'enclosure-gland', 'enclosure-standoffs', 'enclosure-hinge-body']
-  check('corpo: fundo, carcaça, chapa, fundo de bucins, espaçadores e dobradiças', required.every((name) => names(parts.body).includes(name)))
+  check('corpo: fundo, carcaça, chapa, fundo de bucins, espaçadores e dobradiças', required.every((name) => !!parts.body.getObjectByName(name)))
   check('porta: painel, junta, fechos e dobradiças', ['enclosure-door-panel', 'enclosure-gasket', 'enclosure-lock-bezel', 'enclosure-lock-insert', 'enclosure-hinge-door'].every((name) => names(parts.door).includes(name)))
   const closed = box(parts.door)
   check('porta fechada cobre a frente do quadro', closed.min.z >= 245 && closed.max.x - closed.min.x >= 600)

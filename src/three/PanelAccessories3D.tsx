@@ -13,6 +13,7 @@ import { useSimStore } from '../store/useSimStore'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import { buildCableDuct, buildEnclosure, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf } from './enclosureParts'
 import { galvanizedSteel, powderCoat, pvcMatte } from './proceduralTextures'
+import { applyEnclosureVisibility, enclosureFaceVisible, hiddenEnclosureFaces } from './enclosureVisibility'
 
 const U = PANEL_UNITS_PER_MM
 
@@ -47,7 +48,7 @@ const PASS_THROUGH = new Set(['enclosure-back', 'enclosure-mounting-plate', 'enc
 
 /** Quadro: a face da chapa de montagem coincide com o plano da chapa do painel (`plateFrontZ`, relativo ao pivô). */
 export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: ElectricalComponent; interactive: boolean; plateFrontZ: number; label?: ReactNode }) {
-  const { invalidate } = useThree()
+  const { invalidate, gl } = useThree()
   const dims = enclosureDimsOf(c.state)
   const hinge = enclosureHingeOf(c.state)
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : ENCLOSURE_DEFAULT_COLOR
@@ -81,6 +82,14 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dims.widthMm, dims.heightMm, dims.depthMm, hinge, materials])
   useEffect(() => () => { disposeTree(parts.body); disposeTree(parts.door) }, [parts])
+  const visibilityKey = hiddenEnclosureFaces(c.state).join('|')
+  useEffect(() => {
+    applyEnclosureVisibility(parts, c.state)
+    gl.shadowMap.needsUpdate = true
+    invalidate()
+    // A visibilidade não reconstrói malhas nem altera o estado físico.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parts, visibilityKey, invalidate, gl])
 
   // Porta: amortecimento crítico até ao ângulo pedido (abre/fecha como uma porta real, sem saltos).
   const open = c.state.doorOpen !== false
@@ -115,7 +124,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
       onPointerOver={() => { if (interactive && !c.locked) document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { document.body.style.cursor = '' }} />
     {/* Decalques na porta — rodam com a porta (mesmo hinge/angle) */}
-    <group ref={decalsDoorRef} position={parts.hinge}>
+    <group ref={decalsDoorRef} position={parts.hinge} visible={enclosureFaceVisible(c.state, 'door')}>
       {(c.decals ?? []).filter((d) => d.face === 'door' || d.face === 'doorOuter' || d.face === 'front').map((d) => {
         const offX = (d.offsetXmm ?? 0) * U
         const offY = (d.offsetYmm ?? 0) * U
@@ -129,11 +138,11 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
       })}
     </group>
     {/* Furos do inspetor: indicação visual na face (disco escuro + anel de bucim se houver) */}
-    {((c.state as any).holes as import('../types').EnclosureHole[] | undefined ?? []).map((h) => {
+    {((c.state as any).holes as import('../types').EnclosureHole[] | undefined ?? []).filter(h => enclosureFaceVisible(c.state, h.face === 'doorOuter' ? 'door' : h.face ?? 'bottom')).map((h) => {
       const dia = Math.max(8, h.diameterMm ?? 20) * U
       const ox = (h.offsetXmm ?? 0) * U
       const oy = (h.offsetYmm ?? 0) * U
-      const isGland = !!h.glandType && h.glandType !== 'none'
+      const isGland = !!h.glandType
       const face = h.face ?? 'bottom'
       // Posição e orientação por face (referencial do corpo do quadro)
       let pos: [number, number, number] = [ox, oy, dims.depthMm * U]
@@ -141,7 +150,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
       const halfW = dims.widthMm * U / 2
       const halfH = dims.heightMm * U / 2
       const D = dims.depthMm * U
-      if (face === 'door' || face === 'doorOuter' || face === 'front') {
+      if (face === 'door' || face === 'doorOuter') {
         // na porta: aproximamos à face exterior quando fechada; o grupo da porta já roda
         pos = [ox, oy, D + 0.02]
       } else if (face === 'back') {

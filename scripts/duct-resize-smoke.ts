@@ -6,6 +6,7 @@ import { ductJunctionOpenings, closedSpans } from '../src/schematic/ductJunction
 import { adjacentDuctPlacement, slotForPoint, snapNewDuct } from '../src/schematic/ductPlacement'
 import { SCHEMATIC_PX_PER_MM } from '../src/three/modelPaths'
 import { componentPositionIsFree } from '../src/schematic/componentCollision'
+import { useSimStore } from '../src/store/useSimStore'
 
 let n = 0
 const check = (name: string, ok: boolean) => { assert.ok(ok, name); n++ }
@@ -98,5 +99,35 @@ for (const rotation of [0, 90]) {
   const s = snapNewDuct({ x: cx, y: cy }, [host], draft)
   check('largar perto encaixa e herda a largura', s !== null && s.slot === 'right' && s.placement.widthMm === 40)
   check('largar longe não encaixa', snapNewDuct({ x: cx + 5000, y: cy + 5000 }, [host], draft) === null)
+}
+// Fluxo real dos botões do inspetor: a segunda peça cabe parcialmente no quadro.
+{
+  const enclosure = createComponent('panelEnclosure', 'QE1', undefined, 0, 0, 0, { widthMm:800, heightMm:1000 })
+  enclosure.w = 1200; enclosure.h = 1500
+  const host = mk(400, 100, 300); host.enclosureId = enclosure.id; host.bodyColor = '#4f7fbf'
+  useSimStore.getState().loadJSON(JSON.stringify({app:'dc-simu',version:6,projectKind:'all',components:[enclosure,host],wires:[]}))
+  const id = useSimStore.getState().addDuctAdjacent(host.id,'right')
+  const added = useSimStore.getState().components.find(c=>c.id===id)!
+  check('botão prolongar: cria o maior troço que cabe em vez de recusar 400 mm', !!added && added.state.lengthMm >= 50 && added.state.lengthMm < 400)
+  check('troço novo herda largura, altura, cor, quadro e seleção', added.h===host.h && added.state.widthMm===40 && added.state.heightMm===60 && added.bodyColor===host.bodyColor && added.enclosureId===enclosure.id && useSimStore.getState().selectedComponentIds[0]===id)
+  check('prolongamento mantém o encosto real', Math.abs(ductEnds(added).left.x-ductEnds(host).right.x)<=1)
+  check('repetir o botão na origem não sobrepõe um troço duplicado', useSimStore.getState().addDuctAdjacent(host.id,'right')===null && useSimStore.getState().components.length===3)
+  useSimStore.getState().undo()
+  check('desfazer remove só a calha criada', useSimStore.getState().components.length===2)
+  useSimStore.getState().redo()
+  check('refazer recupera a calha e o comprimento ajustado', useSimStore.getState().components.find(c=>c.id===id)?.state.lengthMm===added.state.lengthMm)
+  const saved=useSimStore.getState().saveJSON(); useSimStore.getState().loadJSON(saved)
+  check('guardar/reabrir preserva a junção', useSimStore.getState().components.find(c=>c.id===id)?.schematicX===added.schematicX)
+  const count=useSimStore.getState().components.length, history=useSimStore.getState().history.length
+  check('sem 50 mm livres não cria peça fora do quadro', useSimStore.getState().addDuctAdjacent(id!,'right')===null && useSimStore.getState().components.length===count && useSimStore.getState().history.length===history)
+}
+// Quatro botões, calha rodada e abertura da parede na junção, pelo store real.
+for(const rotation of [0,90,180,270]) for(const slot of ['left','right','top','bottom'] as const) {
+  const host=mk(400,700,700); host.rotation=rotation
+  useSimStore.getState().loadJSON(JSON.stringify({app:'dc-simu',version:6,projectKind:'all',components:[host],wires:[]}))
+  const id=useSimStore.getState().addDuctAdjacent(host.id,slot,180)
+  const all=useSimStore.getState().components, added=all.find(c=>c.id===id)!
+  check(`botão ${slot} ${rotation}° cria 180 mm`, !!added && added.state.lengthMm===180)
+  if(slot==='top'||slot==='bottom') check(`ramal ${slot} ${rotation}° abre a parede real`,ductJunctionOpenings(host,all).length>0)
 }
 console.log(`duct-resize-smoke: ${n} verificações OK`)

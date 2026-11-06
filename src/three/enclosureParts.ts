@@ -177,7 +177,7 @@ export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMa
   // Corpo: fundo, laterais, teto/base e moldura frontal (aba dobrada).
   // Fundo à parte: não apanha cliques (o clique chega à chapa e aos aparelhos).
   body.add(mergedMesh([boxGeo(unit, W, H, s, 0, 0, s / 2)], m.body, unit, 'enclosure-back'))
-  const shell = [
+  const shellParts = [
     boxGeo(unit, s, H, D, -(W / 2 - s / 2), 0, D / 2),
     boxGeo(unit, s, H, D, W / 2 - s / 2, 0, D / 2),
     boxGeo(unit, W - 2 * s, s, D, 0, H / 2 - s / 2, D / 2),
@@ -192,15 +192,21 @@ export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMa
     boxGeo(unit, s, H - 2 * f, 12, -(W / 2 - f + s / 2), 0, D - s - 6),
     boxGeo(unit, s, H - 2 * f, 12, W / 2 - f + s / 2, 0, D - s - 6),
   ]
-  body.add(mergedMesh(shell, m.body, unit, 'enclosure-shell'))
+  const shell = new THREE.Group(); shell.name = 'enclosure-shell'
+  // Uma malha por face: ocultar uma chapa não apaga as outras nem a estrutura guardada.
+  for (const [name, indices] of [
+    ['left', [0, 6, 10]], ['right', [1, 7, 11]], ['top', [2, 4, 8]], ['bottom', [3, 5, 9]],
+  ] as const) shell.add(mergedMesh(indices.map(i => shellParts[i]), m.body, unit, `enclosure-${name}`))
+  body.add(shell)
 
   // Fundo de bucins (chapa amovível na base).
   const glandW = Math.max(40, W - 2 * s - 40), glandD = Math.max(40, D - 50)
   body.add(mergedMesh([
     boxGeo(unit, glandW, 2, glandD, 0, -(H / 2 - s - 1), D / 2 - 5),
-    // suportes de fixação à parede (por trás, dentro do contorno)
-    ...[-1, 1].flatMap((sx) => [-1, 1].map((sy) => boxGeo(unit, 30, 18, 2, sx * (W / 2 - 40), sy * (H / 2 - 30), -1))),
   ], m.dark, unit, 'enclosure-gland'))
+  // Suportes no fundo separados da chapa inferior de bucins.
+  body.add(mergedMesh([-1, 1].flatMap((sx) => [-1, 1].map((sy) =>
+    boxGeo(unit, 30, 18, 2, sx * (W / 2 - 40), sy * (H / 2 - 30), -1))), m.dark, unit, 'enclosure-wall-brackets'))
 
   // Chapa de montagem com abas dobradas para trás, sobre 4 espaçadores.
   const margin = Math.min(30, W * 0.06, H * 0.06)
@@ -265,6 +271,10 @@ export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMa
   body.add(mergedMesh(hingeYs.map((y) => boxGeo(unit, 8, 52, 12, hx - side * 2, y, D + 1)), m.metal, unit, 'enclosure-hinge-body', 60))
 
   door.position.copy(hinge)
+  // O otimizador não pode fundir peças que os olhos ocultam/restauram individualmente.
+  for (const root of [body, door]) root.traverse(node => {
+    if ((node as THREE.Mesh).isMesh) node.userData.enclosurePart = true
+  })
   return { body, door, hinge, openSign: side === 1 ? 1 : -1 }
 }
 

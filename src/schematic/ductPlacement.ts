@@ -1,7 +1,7 @@
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
-import { cableDuctDimsOf } from '../three/enclosureParts'
-import { componentPositionIsFree } from './componentCollision'
+import { CABLE_DUCT, cableDuctDimsOf } from '../three/enclosureParts'
+import { boundsOverlap, componentBounds2D, componentPositionIsFree } from './componentCollision'
 
 export type DuctSlot = 'left' | 'right' | 'top' | 'bottom'
 
@@ -19,7 +19,8 @@ export interface DuctPlacement {
  */
 export function adjacentDuctPlacement(c: ElectricalComponent, slot: DuctSlot, lengthMm?: number): DuctPlacement {
   const d = cableDuctDimsOf(c.state)
-  const len = Math.max(50, Math.round(lengthMm ?? (slot === 'left' || slot === 'right' ? d.lengthMm : Math.min(d.lengthMm, 400))))
+  const requested = Number.isFinite(lengthMm) ? lengthMm! : (slot === 'left' || slot === 'right' ? d.lengthMm : Math.min(d.lengthMm, 400))
+  const len = Math.max(CABLE_DUCT.minLengthMm, Math.min(CABLE_DUCT.maxLengthMm, Math.round(requested)))
   const w = Math.round(len * SCHEMATIC_PX_PER_MM), h = c.h
   const a = ((c.rotation ?? 0) * Math.PI) / 180
   const ux = Math.cos(a), uy = Math.sin(a), vx = -Math.sin(a), vy = Math.cos(a)
@@ -39,6 +40,23 @@ export function adjacentDuctPlacement(c: ElectricalComponent, slot: DuctSlot, le
     lengthMm: len, widthMm: d.widthMm, heightMm: d.heightMm, coverOn: c.state.coverOn !== false,
     bodyColor: c.bodyColor,
   }
+}
+
+/** Mantém o encosto e procura o maior comprimento que cabe, em passos de 1 mm. */
+export function fitAdjacentDuct(c: ElectricalComponent, slot: DuctSlot, all: ElectricalComponent[], draft: ElectricalComponent, lengthMm?: number): DuctPlacement | null {
+  const requested = adjacentDuctPlacement(c, slot, lengthMm).lengthMm
+  for (let mm = requested; mm >= CABLE_DUCT.minLengthMm; mm--) {
+    const placement = adjacentDuctPlacement(c, slot, mm)
+    // A associação ao quadro não dispensa verificar as paredes durante a inserção.
+    const probe = { ...draft, ...placement, enclosureId: undefined }
+    // Cruzamentos em T são permitidos; duplicados sobrepostos do mesmo troço não.
+    const duplicate = all.some(other => other.id !== c.id && other.id !== draft.id && other.type === 'cableDuct'
+      && Math.abs(Math.cos(((other.rotation ?? 0) - placement.rotation) * Math.PI / 180)) > 0.99
+      && boundsOverlap(componentBounds2D(probe), componentBounds2D(other), 0))
+    if (duplicate) continue
+    if (componentPositionIsFree(probe, probe.schematicX, probe.schematicY, all, new Set([draft.id]))) return placement
+  }
+  return null
 }
 
 /** Escolhe o encosto pela posição do cursor no referencial da calha: além de uma ponta prolonga, ao lado da parede ramifica. */
@@ -72,8 +90,7 @@ export function snapNewDuct(cursor: { x: number; y: number }, all: ElectricalCom
   const host = nearestDuct(cursor.x, cursor.y, all)
   if (!host) return null
   const slot = slotForPoint(host, cursor.x, cursor.y)
-  const placement = adjacentDuctPlacement(host, slot)
-  const probe = { ...draft, w: placement.w, h: placement.h, rotation: placement.rotation, schematicX: placement.schematicX, schematicY: placement.schematicY }
-  if (!componentPositionIsFree(probe, probe.schematicX, probe.schematicY, all, new Set([draft.id]))) return null
+  const placement = fitAdjacentDuct(host, slot, all, draft)
+  if (!placement) return null
   return { placement, slot, hostRef: host.ref }
 }

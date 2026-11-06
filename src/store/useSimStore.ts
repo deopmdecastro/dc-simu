@@ -1,4 +1,4 @@
-import { adjacentDuctPlacement, snapNewDuct, type DuctPlacement } from '../schematic/ductPlacement'
+import { adjacentDuctPlacement, fitAdjacentDuct, snapNewDuct, type DuctPlacement } from '../schematic/ductPlacement'
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress, signalAliasMap } from '../grafcet/signals'
@@ -1980,23 +1980,24 @@ export const useSimStore = create<Store>((set, get) => {
     return comp.id
   },
   addDuctAdjacent: (id, slot, lengthMm) => {
-    if (get().demoMode) return null
+    if (get().demoMode || isSimEditLocked(get())) return null
     const host = get().components.find((c) => c.id === id && c.type === 'cableDuct')
-    if (!host) return null
-    const placement = adjacentDuctPlacement(host, slot, lengthMm)
-    const comp = createComponent('cableDuct', undefined, undefined, get().components.length, placement.schematicX, placement.schematicY)
-    applyDuctPlacement(comp, placement)
-    if (!componentPositionIsFree(comp, comp.schematicX, comp.schematicY, get().components, new Set([comp.id]))) {
+    if (!host || host.locked) return null
+    const requested = adjacentDuctPlacement(host, slot, lengthMm)
+    const comp = createComponent('cableDuct', undefined, undefined, get().components.length, requested.schematicX, requested.schematicY)
+    const placement = fitAdjacentDuct(host, slot, get().components, comp, lengthMm)
+    if (!placement) {
       get().pushEvent('warning', `${host.ref}: sem espaço para ${slot === 'left' ? 'prolongar à esquerda' : slot === 'right' ? 'prolongar à direita' : 'ramificar'} — afaste os aparelhos vizinhos.`)
       return null
     }
+    applyDuctPlacement(comp, placement)
     get().commitHistory()
     comp.ref = nextRef(get().components, 'cableDuct')
     comp.z = nextTopZ(get().components, get().wires)
     comp.sheet = host.sheet ?? get().activeSheetId
     if (host.enclosureId) comp.enclosureId = host.enclosureId
     set((s) => ({ components: [...s.components, comp], selectedComponentIds: [comp.id], selectedWireId: null, dirty: true }))
-    get().pushEvent('info', `${comp.ref} ${slot === 'left' || slot === 'right' ? 'prolonga' : 'ramifica de'} ${host.ref} (${placement.lengthMm} mm).`)
+    get().pushEvent('info', `${comp.ref} ${slot === 'left' || slot === 'right' ? 'prolonga' : 'ramifica de'} ${host.ref} (${placement.lengthMm} mm).${placement.lengthMm < requested.lengthMm ? ' Comprimento ajustado ao espaço disponível.' : ''}`)
     recomputeIfActive()
     return comp.id
   },

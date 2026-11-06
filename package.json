@@ -28,7 +28,7 @@
     "test:cover-version": "tsx scripts/cover-version-smoke.ts",
     "test:panel-accessories": "tsx scripts/panel-accessories-smoke.ts",
     "test:terminal-strip": "tsx scripts/terminal-strip-smoke.ts",
-    "test:duct-resize": "tsx scripts/duct-resize-smoke.ts",
+    "test:duct-resize": "tsx scripts/duct-resize-smoke.ts && tsx scripts/enclosure-visibility-smoke.ts",
     "build:enclosure-glb": "tsx scripts/build-enclosure-glb.ts",
     "test:wire-curves-refresh": "tsx scripts/wire-curves-refresh-smoke.ts",
     "test:lead-pigtails": "tsx scripts/lead-pigtails-smoke.ts",

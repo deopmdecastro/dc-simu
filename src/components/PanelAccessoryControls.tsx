@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { fitDuctResize, fitDuctSideResize } from '../schematic/ductResize'
+import type { DuctSlot } from '../schematic/ductPlacement'
+import { ENCLOSURE_FACES, hiddenEnclosureFaces } from '../three/enclosureVisibility'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
@@ -18,10 +20,12 @@ import {
   IconImage,
   IconLayers,
   IconPlus,
+  IconEye,
+  IconEyeOff,
 } from '../ui/icons'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
-export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color'])
+export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color', 'editorHiddenFaces'])
 export const RAIL_PROFILE_STATE_KEYS = new Set(['profile', 'finish', 'perforated'])
 
 const ENCLOSURE_PRESETS: Array<[number, number, number]> = [[300, 400, 200], [400, 500, 200], [500, 700, 250], [600, 800, 250], [800, 1000, 300], [1000, 1200, 300]]
@@ -152,6 +156,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
   const d = enclosureDimsOf(c.state)
   const hinge = enclosureHingeOf(c.state)
   const open = c.state.doorOpen !== false
+  const hiddenFaces = hiddenEnclosureFaces(c.state)
   const set = (patch: Record<string, unknown>) => useSimStore.getState().setComponentState(c.id, patch)
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : ENCLOSURE_DEFAULT_COLOR
   const components = useSimStore((s) => s.components)
@@ -202,6 +207,26 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         <div className="text-[13px] font-bold text-slate-800">{d.widthMm} × {d.heightMm} × {d.depthMm} mm <span className={`ml-1.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${open ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>{open ? 'porta aberta' : 'porta fechada'}</span></div>
       </div>
       <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm ${open ? 'bg-white border-slate-300 text-slate-700' : 'bg-slate-800 border-slate-800 text-white'}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
+    </div>
+
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2" data-enclosure-visibility>
+      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Visibilidade para edição 3D</div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {ENCLOSURE_FACES.map(([face, label]) => {
+          const visible = !hiddenFaces.includes(face)
+          const Eye = visible ? IconEye : IconEyeOff
+          return <button key={face} type="button" aria-pressed={visible} aria-label={`${visible ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`}
+            className={`dc-btn justify-start min-h-9 h-auto px-2 py-1.5 ${visible ? '' : 'bg-slate-100 text-slate-500'}`}
+            onClick={() => set({ editorHiddenFaces: visible ? [...hiddenFaces, face] : hiddenFaces.filter(f => f !== face) })}>
+            <Eye size={14} className="shrink-0" /><span className="min-w-0 whitespace-normal text-left leading-tight">{label}</span>
+          </button>
+        })}
+      </div>
+      <button type="button" className="dc-btn w-full justify-center" onClick={() => set({ editorHiddenFaces: hiddenFaces.length === ENCLOSURE_FACES.length ? [] : ENCLOSURE_FACES.map(([face]) => face) })}>
+        {hiddenFaces.length === ENCLOSURE_FACES.length ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+        {hiddenFaces.length === ENCLOSURE_FACES.length ? 'Mostrar todas as chapas' : 'Ocultar todas as chapas'}
+      </button>
+      <p className="text-[11px] text-slate-400 leading-snug">Os olhos ocultam só as chapas. Aparelhos, cabos e ligações permanecem no sítio; abrir a porta é uma ação separada.</p>
     </div>
 
     {/* Medidas — prática */}
@@ -307,12 +332,29 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
 }
 
 export function CableDuctControls({ c }: { c: ElectricalComponent }) {
+  const [newLength, setNewLength] = useState<number | null>(null)
+  const [joinFeedback, setJoinFeedback] = useState('')
+  const [createdDuctId, setCreatedDuctId] = useState<string | null>(null)
+  const runState = useSimStore(s => s.sim.runState)
+  const demo = useSimStore(s => s.demoMode)
   const d = cableDuctDimsOf(c.state)
   const coverOn = c.state.coverOn !== false
   const vertical = Math.round(((c.rotation ?? 0) % 180) / 90) % 2 === 1
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : CABLE_DUCT_DEFAULT_COLOR
   const setLength = (v: number) => resizeDuct(c, v, d.widthMm, {})
   const setHeight = (v: number) => { useSimStore.getState().setComponentState(c.id, { heightMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} altura ${v} mm — veja no 3D a parede subir.`) }
+  const join = (slot: DuctSlot) => {
+    const st = useSimStore.getState()
+    const id = st.addDuctAdjacent(c.id, slot, newLength ?? d.lengthMm)
+    const added = id && useSimStore.getState().components.find(item => item.id === id)
+    if (added) {
+      // Mantém a origem no inspetor para acrescentar outros ramais e ler o resultado.
+      useSimStore.getState().selectComponents([c.id])
+      setCreatedDuctId(added.id)
+    } else setCreatedDuctId(null)
+    setJoinFeedback(added ? `${added.ref} criada com ${added.state.lengthMm} mm.${added.state.lengthMm < (newLength ?? d.lengthMm) ? ' Ajustada ao espaço disponível.' : ''}`
+      : 'Sem espaço para uma calha de pelo menos 50 mm neste lado. Reduza o comprimento ou afaste os aparelhos.')
+  }
   return <div className="dc-acc space-y-3">
     {/* Cabeçalho compacto com estado */}
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 flex items-center gap-3">
@@ -359,10 +401,26 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
     {/* Criar a partir desta calha: prolonga ou ramifica já encaixada, com as mesmas medidas e cor */}
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2" data-duct-extend>
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Juntar outra calha</div>
+      <label className="flex items-center justify-between gap-2 text-xs text-slate-600">Comprimento pedido
+        <span className="inline-flex items-center gap-1"><DraftNumber label="Comprimento da nova calha" value={newLength ?? d.lengthMm} min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} onCommit={setNewLength} />mm</span>
+      </label>
       <div className="grid grid-cols-2 gap-1.5">
-        {([['left', 'Prolongar à esquerda', IconArrowLeft], ['right', 'Prolongar à direita', IconArrowRight], ['top', 'Ramal para cima', IconArrowUp], ['bottom', 'Ramal para baixo', IconArrowDown]] as const).map(([slot, text, Icon]) =>
-          <button key={slot} type="button" className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 inline-flex items-center justify-center gap-1.5" onClick={() => useSimStore.getState().addDuctAdjacent(c.id, slot)}><Icon size={12} /> {text}</button>)}
+        {(['left', 'right', 'top', 'bottom'] as const).map(slot => {
+          const angle = (c.rotation ?? 0) * Math.PI / 180
+          const end = slot === 'left' || slot === 'right'
+          const sign = slot === 'left' || slot === 'top' ? -1 : 1
+          const dx = sign * (end ? Math.cos(angle) : -Math.sin(angle)), dy = sign * (end ? Math.sin(angle) : Math.cos(angle))
+          const horizontal = Math.abs(dx) > Math.abs(dy)
+          const Icon = horizontal ? (dx < 0 ? IconArrowLeft : IconArrowRight) : (dy < 0 ? IconArrowUp : IconArrowDown)
+          const direction = horizontal ? (dx < 0 ? 'à esquerda' : 'à direita') : (dy < 0 ? 'para cima' : 'para baixo')
+          const text = `${end ? 'Prolongar' : 'Ramal'} ${direction}`
+          return <button key={slot} type="button" disabled={!!c.locked || demo || runState === 'running' || runState === 'paused'}
+            title={c.locked ? 'Desbloqueie a calha para juntar outra.' : runState === 'running' || runState === 'paused' ? 'Pare a simulação para alterar a montagem.' : demo ? 'Abra um projeto editável para juntar calhas.' : 'Cria uma calha encostada e ajusta o comprimento ao espaço disponível.'}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 inline-flex items-center justify-center gap-1.5" onClick={() => join(slot)}><Icon size={12} /> {text}</button>
+        })}
       </div>
+      {joinFeedback && <p role="status" className="text-[11px] text-slate-600 leading-snug">{joinFeedback}</p>}
+      {createdDuctId && <button type="button" className="dc-btn w-full justify-center" onClick={() => useSimStore.getState().selectComponents([createdDuctId])}>Editar a nova calha</button>}
       <p className="text-[11px] text-slate-400 leading-snug">A nova calha fica encostada, com a mesma largura, altura e cor. Nas junções a parede abre-se para os cabos. Também encaixa sozinha se a largar perto de uma calha.</p>
     </div>
 
