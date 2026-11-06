@@ -320,9 +320,9 @@ function estampagem(): GrafcetExample {
   const a25 = step(p, '25', 'Estampar Branca 6 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Branca 6s']])
   const a26 = step(p, '26', 'Estampar Metálica 8 s', [['N', 'Q0.6', 'Cil_Estampa', 'Estampar Metálica 8s']])
   const a27 = step(p, '27', 'Transportar → depósito', [['N', 'Q0.4', 'Motor_Rotativo', 'Transportar → depósito']])
-  const a28 = step(p, '28', 'Depositar Preta', [['N', 'Q0.1', 'Gaveta_Preta', 'Depositar Preta'], ['S', 'M0.1', 'Cnt_Preta', 'Inc. contador Preta']])
-  const a29 = step(p, '29', 'Depositar Branca', [['N', 'Q0.2', 'Gaveta_Branca', 'Depositar Branca'], ['S', 'M0.2', 'Cnt_Branca', 'Inc. contador Branca']])
-  const a30 = step(p, '30', 'Depositar Metálica', [['N', 'Q0.3', 'Gaveta_Metal', 'Depositar Metálica'], ['S', 'M0.3', 'Cnt_Metal', 'Inc. contador Metal']])
+  const a28 = step(p, '28', 'Depositar Preta', [['N', 'Q0.1', 'Gaveta_Preta', 'Depositar Preta'], ['S', 'M0.1', 'Cnt_Preta', 'Inc. contador Preta']], { actionLayout: 'column' })
+  const a29 = step(p, '29', 'Depositar Branca', [['N', 'Q0.2', 'Gaveta_Branca', 'Depositar Branca'], ['S', 'M0.2', 'Cnt_Branca', 'Inc. contador Branca']], { actionLayout: 'column' })
+  const a30 = step(p, '30', 'Depositar Metálica', [['N', 'Q0.3', 'Gaveta_Metal', 'Depositar Metálica'], ['S', 'M0.3', 'Cnt_Metal', 'Inc. contador Metal']], { actionLayout: 'column' })
   const a31 = step(p, '31', 'Retorno à origem', [['N', 'Q0.5', 'Retorno', 'Retorno origem']])
   // ---- G3 · Reset completo (etapa a etapa: gavetas → estampa/alimentador → retorno → zerar)
   const r40 = initial(p, '40', 'Reset em repouso', [])
@@ -336,7 +336,7 @@ function estampagem(): GrafcetExample {
     ['R', 'M0.4', 'Rampa_Preta_Cheia', 'Limpar rampa Preta'],
     ['R', 'M0.5', 'Rampa_Branca_Cheia', 'Limpar rampa Branca'],
     ['R', 'M0.6', 'Rampa_Metal_Cheia', 'Limpar rampa Metal'],
-  ])
+  ], { actionLayout: 'column' })
   const r45 = step(p, '45', 'Fim do reset', [])
   // ---- G4…G15 · Manual: um GRAFCET por atuador e por lâmpada. Toque no botão Man_* liga (G0 em X3), novo toque desliga.
   // Estampa e gavetas só ligam na posição certa e desligam se a perderem. Sair do manual (G0 ≠ X3, inclui emergência) desliga tudo.
@@ -429,33 +429,41 @@ function estampagem(): GrafcetExample {
   })
   const transitions = [...control, ...safety, ...auto, ...reset, ...manual]
 
-  // Grelha dos manuais por baixo dos quatro GRAFCETs: 7 colunas para cilindros/motores (y 1420) e 5 para as lâmpadas (y 1860).
+  // Grelha dos manuais por baixo do G2 (etapa 31 em y 1400): 7 colunas cilindros/motores (y 1680) e 5 lâmpadas (y 2120).
   const manualPositions: Record<string, [number, number]> = {}
   manualDevices.forEach((device, index) => {
     const lamp = device.kind === 'Lâmpada'
     const col = lamp ? index - 7 : index
-    const x = 160 + col * 300, y = lamp ? 1860 : 1420
+    const x = 160 + col * 300, y = lamp ? 2120 : 1680
     manualPositions[String(device.first)] = [x, y]
-    manualPositions[String(device.first + 1)] = [x, y + 170]
+    manualPositions[String(device.first + 1)] = [x, y + 180]
   })
 
   const layout = placed(
     [c0, c1, c2, c3, c4, c5, e10, e11, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, r40, r41, r42, r43, r44, r45, ...manualSteps.flatMap((item) => [item.off, item.on])],
     transitions,
     {
-      0: [330, 110], 1: [130, 290], 3: [330, 290], 4: [530, 290], 2: [130, 470], 5: [330, 470],
-      10: [830, 110], 11: [830, 290],
-      20: [1330, 110], 21: [1330, 250], 22: [1330, 390], 23: [1330, 530],
-      24: [1170, 690], 25: [1330, 690], 26: [1490, 690], 27: [1330, 850],
-      28: [1170, 1010], 29: [1330, 1010], 30: [1490, 1010], 31: [1330, 1170],
-      40: [1900, 110], 41: [1900, 250], 42: [1900, 390], 43: [1900, 530], 44: [1900, 670], 45: [1900, 810],
+      // G0 Controlo — colunas mais separadas para etiquetas e T1–T3 legíveis
+      0: [340, 100], 1: [120, 280], 3: [340, 280], 4: [560, 280], 2: [120, 480], 5: [340, 480],
+      // G1 Emergência
+      10: [860, 100], 11: [860, 300],
+      // G2 Automático — spine + ramos Preta/Branca/Metal com ≥280 px entre colunas
+      // (caixas de ação ~140 px à direita; 160 px de espaçamento antigo sobrepunha etapas)
+      20: [1340, 100], 21: [1340, 260], 22: [1340, 420], 23: [1340, 580],
+      24: [1060, 780], 25: [1340, 780], 26: [1620, 780],
+      27: [1340, 980],
+      28: [1060, 1180], 29: [1340, 1180], 30: [1620, 1180],
+      31: [1340, 1400],
+      // G3 Reset — coluna única; X44 em actionLayout column (6× R) precisa de mais altura
+      40: [2000, 100], 41: [2000, 260], 42: [2000, 420], 43: [2000, 580],
+      44: [2000, 760], 45: [2000, 1080],
       ...manualPositions,
     },
   )
-  const notesX = 2250
+  const notesX = 2400
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v11',
+    nativeId: 'grafcet-estampagem-industrial-v12',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (controlo, emergência, automático, reset e um manual por atuador e por lâmpada)',
@@ -466,22 +474,22 @@ function estampagem(): GrafcetExample {
       steps: layout.steps,
       transitions,
       comments: [
-        text(`${p}-c-g0`, 'G0 - Controlo', 90, 54, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-g1`, 'G1 - Emergência', 790, 54, { fontSize: 16, fontWeight: '700', color: '#b91c1c' }),
-        text(`${p}-c-g2`, 'G2 - Automático', 1100, 54, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-g3`, 'G3 - Reset', 1860, 54, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-manual`, 'Manual — um GRAFCET por cilindro, motor e lâmpada (G0 em X3: toque liga, novo toque desliga)', 90, 1330, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
-        text(`${p}-c-manual-lamps`, 'Manual — lâmpadas (teste individual)', 90, 1770, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g0`, 'G0 - Controlo', 90, 40, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g1`, 'G1 - Emergência', 820, 40, { fontSize: 16, fontWeight: '700', color: '#b91c1c' }),
+        text(`${p}-c-g2`, 'G2 - Automático', 1200, 40, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-g3`, 'G3 - Reset', 1960, 40, { fontSize: 16, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-manual`, 'Manual — um GRAFCET por cilindro, motor e lâmpada (G0 em X3: toque liga, novo toque desliga)', 90, 1580, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
+        text(`${p}-c-manual-lamps`, 'Manual — lâmpadas (teste individual)', 90, 2020, { fontSize: 18, fontWeight: '700', color: '#0f172a' }),
         ...manualDevices.map((device, index) => {
           const [x, y] = manualPositions[String(device.first)]
           return text(`${p}-c-g${index + 4}`, `G${index + 4} - ${device.kind} · ${device.title}`, x - 40, y - 62, { fontSize: 14, fontWeight: '700', color: '#0f172a' })
         }),
-        text(`${p}-c-t0`, 'Máquina parada', 400, 110, { color: '#475569' }),
-        text(`${p}-c-t1`, 'Auto', 200, 290, { color: '#475569' }),
-        text(`${p}-c-t3`, 'Manual', 400, 290, { color: '#475569' }),
-        text(`${p}-c-t4`, 'Reset', 600, 290, { color: '#475569' }),
-        text(`${p}-c-t5`, 'Emergência', 400, 470, { color: '#b91c1c' }),
-        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', 1180, 1250, { color: '#7c3aed', fontWeight: '600' }),
+        text(`${p}-c-t0`, 'Máquina parada', 410, 100, { color: '#475569' }),
+        text(`${p}-c-t1`, 'Auto', 190, 280, { color: '#475569' }),
+        text(`${p}-c-t3`, 'Manual', 410, 280, { color: '#475569' }),
+        text(`${p}-c-t4`, 'Reset', 630, 280, { color: '#475569' }),
+        text(`${p}-c-t5`, 'Emergência', 410, 480, { color: '#b91c1c' }),
+        text(`${p}-c-times`, 'Tempos de estampagem: Preta 5 s · Branca 6 s · Metálica 8 s', 1180, 1520, { color: '#7c3aed', fontWeight: '600' }),
         text(`${p}-c-hier`, 'G2, G3 e os manuais G4–G15 só correm com o G0 no estado certo (X1/X2 · X4 · X3); a emergência (G1 X11) leva o G0 a X5, aborta o G2 e desliga os manuais.', 90, 560, { color: '#334155' }),
         text(`${p}-c-ramp`, 'Rampas: Rampa_*_Cheia (M0.4–M0.6) bloqueiam o arranque de cada ciclo do G2.', 90, 584, { color: '#b45309' }),
       ],
