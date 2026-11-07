@@ -3105,8 +3105,9 @@ button.dc-diag-tag:focus-visible { outline: 2px solid #2563eb; outline-offset: 1
 .dc-dock-tabs button .dc-diag-tag { margin-left: 2px; }
 /* O desenho dos separadores do painel direito (mosaicos iguais aos do inspetor GRAFCET)
    vive em src/styles/sim-dock-refine.css §5, que carrega depois deste ficheiro. */
-/* Selo no canto do ícone da vista (barra «Vistas»): não ocupa largura. */
-.dc-diag-tag.is-badge { position:absolute; top:-3px; right:-3px; height:14px; min-width:14px; padding:0 3px; justify-content:center; font-size:8.5px; border-width:1.5px; border-color:#fff; box-shadow:0 1px 2px rgba(15,23,42,.18); }
+/* Selo no separador da vista: participa no fluxo para reservar largura e não sair do botão. */
+.dc-diag-tag.is-badge { position:static; height:14px; min-width:14px; padding:0 3px; justify-content:center; font-size:8.5px; border-width:1.5px; border-color:#fff; box-shadow:0 1px 2px rgba(15,23,42,.18); }
+.dc-view-tab > .dc-diag-tag.is-badge { margin-left:2px; }
 .dc-diag-tag.is-badge.is-ok { background:#16a34a; color:#fff; }
 .dc-diag-tag.is-badge.is-warning { background:#f59e0b; color:#fff; }
 .dc-diag-tag.is-badge.is-error { background:#dc2626; color:#fff; }

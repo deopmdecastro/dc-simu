@@ -392,7 +392,7 @@ interface Store extends CircuitState {
   addComponent: (type: ComponentType, x: number, y: number) => string | null
   /** Calha técnica nova encostada à existente: prolonga pela ponta (`left`/`right`) ou ramifica em T (`top`/`bottom`). */
   addDuctAdjacent: (id: string, slot: import('../schematic/ductPlacement').DuctSlot, lengthMm?: number) => string | null
-  addMountedDevice: (type: ComponentType, enclosureId: string, face: import('../types').EnclosureHoleFace, offsetXmm: number, offsetYmm: number, cutoutMm: number) => string | null
+  addMountedDevice: (type: ComponentType, enclosureId: string, face: import('../types').EnclosureHoleFace, offsetXmm: number, offsetYmm: number, cutoutMm: number, holeId?: string) => string | null
   /** Aplica uma tabela de componentes validada (Excel / tabela 3D): cria e atualiza, nunca apaga. */
   applyComponentPlan: (items: PlannedComponent[]) => { created: number; updated: number }
   duplicateComponents: (ids: string[]) => void
@@ -2001,10 +2001,18 @@ export const useSimStore = create<Store>((set, get) => {
     recomputeIfActive()
     return comp.id
   },
-  addMountedDevice: (type, enclosureId, face, offsetXmm, offsetYmm, cutoutMm) => {
+  addMountedDevice: (type, enclosureId, face, offsetXmm, offsetYmm, cutoutMm, holeId) => {
     if (get().demoMode) return null
     if (!canInsertComponent3D(type)) {
       get().pushEvent('warning', `Sem modelo 3D para ${type}.`)
+      return null
+    }
+    const enclosure = get().components.find((item) => item.id === enclosureId)
+    const holes: import('../types').EnclosureHole[] = (enclosure?.state as any)?.holes ?? []
+    const matchingHole = (holeId ? holes.find((hole) => hole.id === holeId) : undefined)
+      ?? holes.find((hole) => hole.face === face && hole.offsetXmm === offsetXmm && hole.offsetYmm === offsetYmm)
+    if (matchingHole?.occupiedBy) {
+      get().pushEvent('warning', `O furo ${matchingHole.id} já tem um aparelho montado.`)
       return null
     }
     get().commitHistory()
@@ -2014,9 +2022,21 @@ export const useSimStore = create<Store>((set, get) => {
     comp.sheet = get().activeSheetId
     comp.panelMount = { enclosureId, face: face as any, offsetXmm, offsetYmm, cutoutMm }
     // posição esquemática aproximada (para seleção), mas o pivot 3D vem do panelMount
-    const enc = get().components.find((e) => e.id === enclosureId)
-    if (enc) { comp.schematicX = enc.schematicX + enc.w / 2 - comp.w / 2 + offsetXmm * SCHEMATIC_PX_PER_MM; comp.schematicY = enc.schematicY + enc.h / 2 - comp.h / 2 - offsetYmm * SCHEMATIC_PX_PER_MM }
-    set((s) => ({ components: [...s.components, comp], selectedComponentIds: [comp.id], dirty: true }))
+    if (enclosure) { comp.schematicX = enclosure.schematicX + enclosure.w / 2 - comp.w / 2 + offsetXmm * SCHEMATIC_PX_PER_MM; comp.schematicY = enclosure.schematicY + enclosure.h / 2 - comp.h / 2 - offsetYmm * SCHEMATIC_PX_PER_MM }
+    set((s) => ({
+      components: [
+        ...s.components.map((item) => item.id === enclosureId && matchingHole ? {
+          ...item,
+          state: {
+            ...item.state,
+            holes: ((item.state as any).holes ?? []).map((hole: import('../types').EnclosureHole) => hole.id === matchingHole.id ? { ...hole, occupiedBy: comp.id } : hole),
+          },
+        } : item),
+        comp,
+      ],
+      selectedComponentIds: [comp.id],
+      dirty: true,
+    }))
     get().pushEvent('info', `${comp.ref} montado na face ${face} Ø${cutoutMm}mm.`)
     recomputeIfActive()
     return comp.id

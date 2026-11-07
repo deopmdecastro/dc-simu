@@ -298,7 +298,7 @@ export interface EnclosureHole {
   offsetYmm: number
   diameterMm: number
   /** Se preenchido, indica o que está montado: bucim ou aparelho */
-  glandType?: 'M16' | 'M20' | 'M25' | 'M32' | 'M40' | '22mm' | '30mm'
+  glandType?: 'M16' | 'M20' | 'M25' | 'M32' | 'M40' | '22mm' | '30mm' | 'none'
   occupiedBy?: string // componentId do aparelho montado
 }
 

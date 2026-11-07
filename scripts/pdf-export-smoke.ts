@@ -48,6 +48,22 @@ const main = async () => {
   ok('seleção parcial: só capa + Main (1 network)', min.sections.length === 2 && min.sections.includes('Ladder — Main [OB1]'))
   ok('FC1 fora da seleção não aparece', !min.sections.some((s) => s.includes('FC1')))
 
+  const longProjectName = `PROJECT_INFO_START ${'Longa descrição de projeto industrial '.repeat(180)} PROJECT_INFO_END`
+  const longInfo = await generateProjectPdf({
+    ...src,
+    projectName: longProjectName,
+    components: Array.from({ length: 180 }, (_, i) => ({ id: `c${i}`, type: `COMPONENT_${String(i).padStart(3, '0')}` })),
+    grafcet: { ...src.grafcet, name: `GRAFCET_INFO_START ${'Sequência de produção automatizada '.repeat(80)} GRAFCET_INFO_END` },
+  }, {
+    cover: false, info: true, tags: false, schematic: false, iec: false, iecPages: [],
+    grafcet: false, ladder: {}, grafcetCharts: [], orientation: 'portrait',
+    titleBlock: { ...opts.titleBlock, enabled: true },
+  }, null)
+  const longPdfText = await longInfo.blob.text()
+  ok('metadados extensos criam páginas adicionais em vez de ultrapassar o rodapé', longInfo.pages >= 3)
+  ok('o início e o fim dos metadados longos permanecem no PDF', longPdfText.includes('PROJECT_INFO_START') && longPdfText.includes('PROJECT_INFO_END'))
+  ok('linhas de metadados posteriores continuam presentes após a paginação', longPdfText.includes('GRAFCET_INFO_START') && longPdfText.includes('GRAFCET_INFO_END') && longPdfText.includes('COMPONENT_179'))
+
   // ---- Esquema IEC: folhas com conteúdo entram, vazias não
   const withIec: PdfProjectSource = { ...src, components: [], wires: [], iec: [{ id: 'page-1', name: 'Potência', parts: 12 }, { id: 'page-2', name: 'Vazia', parts: 0 }] }
   const iecOpts = defaultPdfOptions(withIec)

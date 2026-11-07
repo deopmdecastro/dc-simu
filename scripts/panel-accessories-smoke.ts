@@ -70,7 +70,7 @@ check('quadro, calha técnica e espiral são acessórios', isPanelAccessoryType(
     const b = box(buildDinRailGroup(500, 1, mat, profile))
     check(`perfil ${id}: largura e altura reais`, Math.abs(b.max.y - b.min.y - profile.width) <= profile.thickness + 0.01 && Math.abs(b.max.z - b.min.z - profile.height) < 0.01)
   }
-  check('perfil guardado no estado', dinRailProfileOf({ profile: '35×15 mm' }).height === 15 && dinRailProfileOf({ profile: '?' }).height === 5.5)
+  check('perfil guardado no estado', dinRailProfileOf({ profile: '35×15 mm' }).height === 15 && dinRailProfileOf({ profile: '?' }).height === 7.5)
   check('furos dependem do passo do perfil', railSlotCount(500, DIN_RAIL_PROFILES['35×7,5 mm']) === 20)
   const plain = buildDinRailGroup(500, 1, mat, DIN_RAIL_PROFILES['35×7,5 mm'], false)
   const perforated = buildDinRailGroup(500, 1, mat, DIN_RAIL_PROFILES['35×7,5 mm'], true)

@@ -16,7 +16,7 @@ export function diagText(summary: DiagSummary): string {
  * Etiqueta de estado (como a do separador Diagnóstico do GRAFCET): ✓ verde quando está tudo OK,
  * ! âmbar com o n.º de avisos, ✖ vermelho com o n.º de erros. `compact` mostra só o ícone e o número.
  */
-export function DiagnosticsTag({ summary, compact = false, badge = false, onClick, label }: { summary: DiagSummary; compact?: boolean; /** Selo no canto do ícone (não ocupa largura). */ badge?: boolean; onClick?: () => void; label?: string }) {
+export function DiagnosticsTag({ summary, compact = false, badge = false, onClick, label }: { summary: DiagSummary; compact?: boolean; /** Selo compacto no separador; reserva espaço para não cobrir o conteúdo. */ badge?: boolean; onClick?: () => void; label?: string }) {
   const Icon = summary.status === 'error' ? IconXCircle : summary.status === 'warning' ? IconWarning : IconCheckCircle
   const count = summary.status === 'error' ? summary.errors : summary.status === 'warning' ? summary.warnings : 0
   const text = diagText(summary)

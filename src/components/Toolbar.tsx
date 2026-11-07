@@ -738,7 +738,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   aria-label={displayLabel}
                   aria-selected={mode === id}
                   onClick={() => setMode(id)}
-                  className={`relative inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3.5' : 'px-3 2xl:px-4'} whitespace-nowrap rounded-[6px] text-xs font-semibold transition-all ${
+                  className={`dc-view-tab relative inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3.5' : 'px-3 2xl:px-4'} whitespace-nowrap rounded-[6px] text-xs font-semibold transition-all ${
                     mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
                   }`}
                   title={`${displayLabel} [${key} · Ctrl+${visibleViews.findIndex((v) => v.id === id) + 1}]`}

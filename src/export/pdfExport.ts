@@ -386,11 +386,60 @@ function coverPage(doc: jsPDF, src: PdfProjectSource, contents: string[]) {
 function infoPage(doc: jsPDF, src: PdfProjectSource) {
   header(doc, 'Informações do projeto', src.projectName)
   let y = 92
+  const startY = y
+  const bottomY = footerSafeY() - 8
+  const valueX = MARGIN + 180
+  const valueW = CONTENT_W - 180
+  const rowGap = 8
+  const nextPage = () => {
+    doc.addPage()
+    header(doc, 'Informações do projeto', src.projectName)
+    y = startY
+  }
   const line = (k: string, v: string) => {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(INK); doc.text(k, MARGIN, y)
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(MUTED)
-    doc.text(doc.splitTextToSize(v, CONTENT_W - 180), MARGIN + 180, y)
-    y += 20 + (doc.getTextDimensions(v).h > 12 ? 10 : 0)
+    const lines = doc.splitTextToSize(v || '—', valueW) as string[]
+    let offset = 0
+    let firstChunk = true
+
+    while (offset < lines.length) {
+      const label = firstChunk ? k : `${k} (continuação)`
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10)
+      const labelHeight = doc.getTextDimensions(label).h
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
+      const availableH = bottomY - y - rowGap
+      const remainingLines = lines.slice(offset)
+      const fullHeight = Math.max(labelHeight, doc.getLineHeight() * remainingLines.length)
+      const freshPageHeight = bottomY - startY - rowGap
+
+      if (firstChunk && y > startY && fullHeight > availableH && fullHeight <= freshPageHeight) {
+        nextPage()
+        continue
+      }
+
+      let end = offset
+      let rowHeight = 0
+      while (end < lines.length) {
+        const height = Math.max(labelHeight, doc.getLineHeight() * (end - offset + 1))
+        if (height > availableH) break
+        rowHeight = height
+        end += 1
+      }
+
+      if (end === offset) {
+        nextPage()
+        continue
+      }
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(INK)
+      doc.text(label, MARGIN, y)
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(MUTED)
+      doc.text(lines.slice(offset, end), valueX, y)
+      y += rowHeight + rowGap
+      offset = end
+      firstChunk = false
+
+      if (offset < lines.length) nextPage()
+    }
   }
   line('Projeto', src.projectName || '—')
   line('Data de exportação', shortDate())

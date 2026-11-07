@@ -29,6 +29,9 @@ async function open(vp, url) {
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto(baseURL + url)
+  if (new URL(page.url()).pathname === '/login') {
+    throw new Error('Editor bloqueado por /login; a validação de vistas requer uma sessão autorizada.')
+  }
   await page.waitForFunction(() => !document.body.innerText.includes('A carregar'), null, { timeout: 120000 })
   await page.waitForTimeout(1500)
   return { context, page, errors }
@@ -70,7 +73,8 @@ try {
     } else check(layout.width === vp.width, `${vp.name}: PC com a largura real`)
     check(await page.locator('.dc-mobile-backdrop:visible, .grafcet-toolbox-backdrop:visible').count() === 0, `${vp.name}: painéis laterais fixos (sem gaveta)`)
     for (const view of ['3D Realista', 'Ladder', 'GRAFCET']) {
-      const tab = page.locator('.dc-toolbar-shell button').filter({ hasText: new RegExp('^\\s*' + view) }).first()
+      // Os rótulos podem estar ocultos no modo compacto; os separadores mantêm aria-label.
+      const tab = page.getByRole('tab', { name: view }).first()
       await tab.click()
       await page.waitForTimeout(1800)
       const compactMenus = await page.locator('.dc-toolbar-shell.is-compact, .dc-toolbar-compact, .dc-compact-menu').count()

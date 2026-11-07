@@ -46,6 +46,20 @@ function disposeTree(root: THREE.Object3D) {
 /** Superfícies que não devem apanhar cliques (o clique atravessa para os aparelhos e para a chapa). */
 const PASS_THROUGH = new Set(['enclosure-back', 'enclosure-mounting-plate', 'enclosure-standoffs', 'enclosure-gland'])
 
+export function EnclosureHoleGland3D({ diameter, glandType }: { diameter: number; glandType?: string }) {
+  if (!glandType || glandType === 'none') return null
+  return <>
+    <mesh position={[0, 0, 0.008]}>
+      <ringGeometry args={[diameter / 2 * 0.55, diameter / 2 * 0.95, 28]} />
+      <meshStandardMaterial color="#9ca3af" metalness={0.6} roughness={0.35} side={THREE.DoubleSide} />
+    </mesh>
+    <mesh position={[0, 0, -0.04]} rotation={[Math.PI / 2, 0, 0]}>
+      <cylinderGeometry args={[diameter / 2 * 0.42, diameter / 2 * 0.48, 0.08, 20]} />
+      <meshStandardMaterial color="#6b7280" metalness={0.55} roughness={0.4} />
+    </mesh>
+  </>
+}
+
 /** Quadro: a face da chapa de montagem coincide com o plano da chapa do painel (`plateFrontZ`, relativo ao pivô). */
 export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: ElectricalComponent; interactive: boolean; plateFrontZ: number; label?: ReactNode }) {
   const { invalidate, gl } = useThree()
@@ -142,7 +156,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
       const dia = Math.max(8, h.diameterMm ?? 20) * U
       const ox = (h.offsetXmm ?? 0) * U
       const oy = (h.offsetYmm ?? 0) * U
-      const isGland = !!h.glandType
+      const isGland = !!h.glandType && h.glandType !== 'none'
       const face = h.face ?? 'bottom'
       // Posição e orientação por face (referencial do corpo do quadro)
       let pos: [number, number, number] = [ox, oy, dims.depthMm * U]
@@ -175,18 +189,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
             <circleGeometry args={[dia / 2, 28]} />
             <meshStandardMaterial color={isGland ? '#2f3540' : '#0f172a'} roughness={0.85} metalness={0.1} side={THREE.DoubleSide} />
           </mesh>
-          {isGland && (
-            <mesh position={[0, 0, 0.008]}>
-              <ringGeometry args={[dia / 2 * 0.55, dia / 2 * 0.95, 28]} />
-              <meshStandardMaterial color="#9ca3af" metalness={0.6} roughness={0.35} side={THREE.DoubleSide} />
-            </mesh>
-          )}
-          {isGland && (
-            <mesh position={[0, 0, -0.04]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[dia / 2 * 0.42, dia / 2 * 0.48, 0.08, 20]} />
-              <meshStandardMaterial color="#6b7280" metalness={0.55} roughness={0.4} />
-            </mesh>
-          )}
+          <EnclosureHoleGland3D diameter={dia} glandType={h.glandType} />
         </group>
       )
     })}

@@ -153,6 +153,52 @@ function Swatches({ options, value, onPick }: { options: Array<{ name: string; v
   </div>
 }
 
+export function fitEnclosureToContent(c: ElectricalComponent) {
+  const st = useSimStore.getState()
+  const enclosure = st.components.find((item) => item.id === c.id) ?? c
+  const encRight = enclosure.schematicX + enclosure.w
+  const encBottom = enclosure.schematicY + enclosure.h
+  const inside = st.components.filter((item) => {
+    if (item.id === enclosure.id) return false
+    if (item.enclosureId === enclosure.id) return true
+    return item.schematicX >= enclosure.schematicX
+      && item.schematicY >= enclosure.schematicY
+      && item.schematicX + item.w <= encRight
+      && item.schematicY + item.h <= encBottom
+  })
+  if (!inside.length) return 'empty'
+  const pad = 60
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const item of inside) {
+    minX = Math.min(minX, item.schematicX)
+    maxX = Math.max(maxX, item.schematicX + item.w)
+    minY = Math.min(minY, item.schematicY)
+    maxY = Math.max(maxY, item.schematicY + item.h)
+  }
+  const needW = Math.ceil((maxX - minX + pad * 2) / SCHEMATIC_PX_PER_MM)
+  const needH = Math.ceil((maxY - minY + pad * 2) / SCHEMATIC_PX_PER_MM)
+  const w = Math.max(ENCLOSURE.minWidthMm, Math.min(ENCLOSURE.maxWidthMm, needW))
+  const h = Math.max(ENCLOSURE.minHeightMm, Math.min(ENCLOSURE.maxHeightMm, needH))
+  const footprintW = Math.round(w * SCHEMATIC_PX_PER_MM)
+  const footprintH = Math.round(h * SCHEMATIC_PX_PER_MM)
+  const x = Math.round((minX + maxX - footprintW) / 2)
+  const y = Math.round((minY + maxY - footprintH) / 2)
+  const limited = minX < x + pad || minY < y + pad || maxX > x + footprintW - pad || maxY > y + footprintH - pad
+  st.updateComponent(enclosure.id, {
+    w: footprintW,
+    h: footprintH,
+    schematicX: x,
+    schematicY: y,
+    state: { ...enclosure.state, widthMm: w, heightMm: h },
+  })
+  if (limited) {
+    st.pushEvent('warning', `O conteúdo excede o limite máximo do quadro (${w}×${h} mm); alguns itens podem ficar fora.`)
+    return 'limited'
+  }
+  st.pushEvent('info', `Quadro ajustado para ${w}×${h} mm.`)
+  return 'fit'
+}
+
 export function EnclosureControls({ c }: { c: ElectricalComponent }) {
   const d = enclosureDimsOf(c.state)
   const hinge = enclosureHingeOf(c.state)
@@ -183,24 +229,18 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
     }
     reader.readAsDataURL(file)
   }
-  const fitToContent = () => {
-    const inside = components.filter((it) => it.enclosureId === c.id || Math.abs(it.schematicX - c.schematicX) < c.w && Math.abs(it.schematicY - c.schematicY) < c.h)
-    if (!inside.length) { useSimStore.getState().pushEvent('info', 'Nenhum aparelho dentro para ajustar.'); return }
-    const pad = 60
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    for (const it of inside) { minX = Math.min(minX, it.schematicX); maxX = Math.max(maxX, it.schematicX + it.w); minY = Math.min(minY, it.schematicY); maxY = Math.max(maxY, it.schematicY + it.h) }
-    const needW = Math.ceil((maxX - minX + pad * 2) / SCHEMATIC_PX_PER_MM)
-    const needH = Math.ceil((maxY - minY + pad * 2) / SCHEMATIC_PX_PER_MM)
-    const w = Math.max(ENCLOSURE.minWidthMm, Math.min(ENCLOSURE.maxWidthMm, needW))
-    const h = Math.max(ENCLOSURE.minHeightMm, Math.min(ENCLOSURE.maxHeightMm, needH))
-    resize(c, w, h, { widthMm: w, heightMm: h })
-    useSimStore.getState().pushEvent('info', `Quadro ajustado para ${w}×${h} mm.`)
-  }
   const holes: import('../types').EnclosureHole[] = (c.state as any).holes ?? []
   const [holeFace, setHoleFace] = useState<import('../types').EnclosureHoleFace>('bottom')
   const [holeDia, setHoleDia] = useState<number>(20)
   const [holeOx, setHoleOx] = useState<number>(0)
   const [holeOy, setHoleOy] = useState<number>(0)
+  const [fitFeedback, setFitFeedback] = useState('')
+  const fitToContent = () => {
+    const result = fitEnclosureToContent(c)
+    if (result === 'empty') setFitFeedback('Não há equipamentos dentro do quadro para ajustar.')
+    else if (result === 'limited') setFitFeedback('O conteúdo excede a dimensão máxima; alguns itens podem ficar fora do quadro.')
+    else setFitFeedback('')
+  }
   return <div className="dc-acc space-y-3">
     {/* Cabeçalho com estado porta */}
     <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 flex items-center gap-3">
@@ -211,39 +251,16 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm ${open ? 'bg-white border-slate-300 text-slate-700' : 'bg-slate-800 border-slate-800 text-white'}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
     </div>
 
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2" data-enclosure-visibility>
-      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Visibilidade para edição 3D</div>
-      <button type="button" aria-pressed={exteriorHidden} title="Oculta ou mostra a porta, laterais, topo e base; preserva o fundo e a chapa de montagem" className="dc-btn w-full justify-center border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => set({ editorHiddenFaces: toggleEnclosureExteriorVisibility(c.state) })}>
-        {exteriorHidden ? <IconEye size={14} /> : <IconEyeOff size={14} />}
-        {exteriorHidden ? 'Mostrar exteriores' : 'Ocultar exteriores'}
-      </button>
-      <div className="grid grid-cols-2 gap-1.5">
-        {ENCLOSURE_FACES.map(([face, label]) => {
-          const visible = !hiddenFaces.includes(face)
-          const Eye = visible ? IconEye : IconEyeOff
-          return <button key={face} type="button" aria-pressed={visible} aria-label={`${visible ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`}
-            className={`dc-btn justify-start min-h-9 h-auto px-2 py-1.5 ${visible ? '' : 'bg-slate-100 text-slate-500'}`}
-            onClick={() => set({ editorHiddenFaces: visible ? [...hiddenFaces, face] : hiddenFaces.filter(f => f !== face) })}>
-            <Eye size={14} className="shrink-0" /><span className="min-w-0 whitespace-normal text-left leading-tight">{label}</span>
-          </button>
-        })}
-      </div>
-      <button type="button" className="dc-btn w-full justify-center" onClick={() => set({ editorHiddenFaces: hiddenFaces.length === ENCLOSURE_FACES.length ? [] : ENCLOSURE_FACES.map(([face]) => face) })}>
-        {hiddenFaces.length === ENCLOSURE_FACES.length ? <IconEye size={14} /> : <IconEyeOff size={14} />}
-        {hiddenFaces.length === ENCLOSURE_FACES.length ? 'Mostrar todas as chapas' : 'Ocultar todas as chapas'}
-      </button>
-      <p className="text-[11px] text-slate-400 leading-snug">O atalho oculta a porta, laterais, topo e base, mantendo o fundo e a chapa de montagem. Aparelhos, cabos e ligações permanecem no sítio; abrir a porta é uma ação separada.</p>
-    </div>
-
     {/* Medidas — prática */}
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
-      <div className="flex items-center justify-between"><span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</span><button type="button" className="text-[11px] font-medium text-blue-600 hover:underline" onClick={fitToContent}><IconDistH size={12} className="inline mr-1" />Ajustar ao conteúdo</button></div>
+      <div className="flex items-center justify-between"><span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</span><button type="button" className="min-h-[38px] text-[11px] font-medium text-blue-600 hover:underline" onClick={fitToContent}><IconDistH size={12} className="inline mr-1" />Ajustar ao conteúdo</button></div>
+      <p role="status" aria-live="polite" data-enclosure-fit-feedback className={fitFeedback ? 'text-[11px] text-amber-800 leading-snug' : 'sr-only'}>{fitFeedback}</p>
       <div className="grid grid-cols-3 gap-2">
         <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} onChange={(e)=> resize(c, Math.max(ENCLOSURE.minWidthMm, Math.min(ENCLOSURE.maxWidthMm, Number(e.target.value)||0)), d.heightMm, {widthMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
         <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} step={10} onChange={(e)=> resize(c, d.widthMm, Math.max(ENCLOSURE.minHeightMm, Math.min(ENCLOSURE.maxHeightMm, Number(e.target.value)||0)), {heightMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
         <label className="space-y-1"><span className="text-xs text-slate-600">Prof.</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.depthMm} min={ENCLOSURE.minDepthMm} max={ENCLOSURE.maxDepthMm} step={10} onChange={(e)=> set({depthMm: Math.max(ENCLOSURE.minDepthMm, Math.min(ENCLOSURE.maxDepthMm, Number(e.target.value)||0))})} /><span className="text-xs text-slate-400">mm</span></div></label>
       </div>
-      <input type="range" className="w-full accent-slate-700" min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} value={d.widthMm} onChange={(e)=> resize(c, Number(e.target.value), d.heightMm, {widthMm: Number(e.target.value)})} />
+      <input type="range" className="w-full accent-slate-700 min-h-[38px]" aria-label="Largura do quadro (mm)" min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} value={d.widthMm} onChange={(e)=> resize(c, Number(e.target.value), d.heightMm, {widthMm: Number(e.target.value)})} />
       <div className="grid grid-cols-3 gap-1.5">
         {ENCLOSURE_PRESETS.map(([w,h,dp])=> <button key={`${w}x${h}`} type="button" className={`rounded-lg border p-2 text-center transition ${d.widthMm===w&&d.heightMm===h ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}><div className="text-xs font-bold">{w}×{h}</div><div className="text-[10px] opacity-60">{dp} prof.</div></button>)}
       </div>
@@ -256,9 +273,41 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       <div className="flex items-center gap-2"><span className="text-xs text-slate-600">Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(v)=> useSimStore.getState().updateComponent(c.id,{bodyColor:v})} /></div>
     </div>
 
+    <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-2" data-enclosure-exterior-toggle>
+      <button type="button" aria-pressed={exteriorHidden} aria-label={exteriorHidden ? 'Mostrar exteriores do quadro' : 'Ocultar exteriores do quadro'} title="Oculta ou mostra a porta, laterais, topo e base; preserva o fundo e a chapa de montagem" className="dc-btn w-full justify-center border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => set({ editorHiddenFaces: toggleEnclosureExteriorVisibility(c.state) })}>
+        {exteriorHidden ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+        {exteriorHidden ? 'Mostrar exteriores' : 'Ocultar exteriores'}
+      </button>
+    </div>
+
+    <details className="dc-inspector-group" data-enclosure-visibility>
+      <summary>Visibilidade das chapas <span className="dc-inspector-count">{hiddenFaces.length}/{ENCLOSURE_FACES.length} ocultas</span></summary>
+      <div className="dc-inspector-group-body">
+        <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Visibilidade para edição 3D</div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {ENCLOSURE_FACES.map(([face, label]) => {
+            const visible = !hiddenFaces.includes(face)
+            const Eye = visible ? IconEye : IconEyeOff
+            return <button key={face} type="button" aria-pressed={visible} aria-label={`${visible ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`}
+              className={`dc-btn justify-start min-h-9 h-auto px-2 py-1.5 ${visible ? '' : 'bg-slate-100 text-slate-500'}`}
+              onClick={() => set({ editorHiddenFaces: visible ? [...hiddenFaces, face] : hiddenFaces.filter(f => f !== face) })}>
+              <Eye size={14} className="shrink-0" /><span className="min-w-0 whitespace-normal text-left leading-tight">{label}</span>
+            </button>
+          })}
+        </div>
+        <button type="button" aria-pressed={hiddenFaces.length === ENCLOSURE_FACES.length} aria-label={hiddenFaces.length === ENCLOSURE_FACES.length ? 'Mostrar todas as chapas' : 'Ocultar todas as chapas'} className="dc-btn w-full justify-center" onClick={() => set({ editorHiddenFaces: hiddenFaces.length === ENCLOSURE_FACES.length ? [] : ENCLOSURE_FACES.map(([face]) => face) })}>
+          {hiddenFaces.length === ENCLOSURE_FACES.length ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+          {hiddenFaces.length === ENCLOSURE_FACES.length ? 'Mostrar todas as chapas' : 'Ocultar todas as chapas'}
+        </button>
+        <p className="text-[11px] text-slate-400 leading-snug">O atalho oculta a porta, laterais, topo e base, mantendo o fundo e a chapa de montagem. Aparelhos, cabos e ligações permanecem no sítio; abrir a porta é uma ação separada.</p>
+      </div>
+    </details>
+
     {/* Imagem da tampa */}
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tampa do quadro — imagem</div>
+    <details className="dc-inspector-group">
+      <summary>Imagem da tampa</summary>
+      <div className="dc-inspector-group-body">
+          <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tampa do quadro — imagem</div>
       <label className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 px-3 py-3 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition">
         <span className="text-xs font-medium text-slate-700 inline-flex items-center gap-1.5"><IconCamera size={14} /> Carregar imagem (PNG/JPG)</span>
         <input type="file" accept="image/*" className="hidden" onChange={(e)=> handleImageUpload(e.target.files)} />
@@ -280,60 +329,73 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
           </div>
         </div>)}
       </div>}
-    </div>
+      </div>
+    </details>
 
     {/* Furos no quadro — escolher face e diâmetro */}
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+    <details className="dc-inspector-group">
+      <summary>Furos no quadro <span className="dc-inspector-count">{holes.length}</span></summary>
+      <div className="dc-inspector-group-body">
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Furos no quadro</div>
       <p className="text-[11px] text-slate-400">Escolha a face e o diâmetro, faça o furo e depois coloque bucim ou aparelho.</p>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Face do furo">
         {(['door','top','bottom','left','right','back'] as const).map((fid) => {
           const FaceIcon = {door: IconImage, top: IconArrowUp, bottom: IconArrowDown, left: IconArrowLeft, right: IconArrowRight, back: IconLayers}[fid] ?? IconImage
           const labels: Record<string,string> = {door:'Porta', top:'Topo', bottom:'Fundo', left:'Esq.', right:'Dir.', back:'Traseira'}
-          return <button key={fid} type="button" className={`rounded-full border px-2.5 py-1 text-xs inline-flex items-center gap-1.5 ${holeFace===fid?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><FaceIcon size={12} /> <span>{labels[fid]}</span></button>
+          return <button key={fid} type="button" aria-pressed={holeFace===fid} className={`min-h-[34px] rounded-full border px-2.5 py-1 text-xs inline-flex items-center gap-1.5 ${holeFace===fid?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><FaceIcon size={12} /> <span>{labels[fid]}</span></button>
         })}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Diâmetro do furo">
         <span className="text-xs text-slate-600">Ø</span>
         <div className="flex flex-wrap gap-1">
-          {[{label:'M16',mm:16},{label:'M20',mm:20},{label:'M25',mm:25},{label:'M32',mm:32},{label:'M40',mm:40},{label:'22mm',mm:22},{label:'30mm',mm:30}].map((p)=> <button key={p.label} type="button" className={`rounded-full border px-2 py-1 text-xs ${holeDia===p.mm?'bg-slate-800 text-white border-slate-800':'bg-white border-slate-200 text-slate-600'}`} onClick={()=> setHoleDia(p.mm)}>{p.label} <span className="opacity-60">{p.mm}mm</span></button>)}
+          {[{label:'M16',mm:16},{label:'M20',mm:20},{label:'M25',mm:25},{label:'M32',mm:32},{label:'M40',mm:40},{label:'22mm',mm:22},{label:'30mm',mm:30}].map((p)=> <button key={p.label} type="button" aria-pressed={holeDia===p.mm} className={`min-h-[34px] rounded-full border px-2 py-1 text-xs ${holeDia===p.mm?'bg-slate-800 text-white border-slate-800':'bg-white border-slate-200 text-slate-600'}`} onClick={()=> setHoleDia(p.mm)}>{p.label} <span className="opacity-60">{p.mm}mm</span></button>)}
         </div>
-        <input type="number" className="dc-input w-16 h-7 text-xs" min={6} max={80} value={holeDia} onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
+        <input type="number" className="dc-input w-16 h-9 text-xs" min={6} max={80} value={holeDia} aria-label="Diâmetro do furo (mm)" onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
         <span className="text-xs text-slate-400">mm</span>
       </div>
       <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1 text-xs">X <input type="number" className="dc-input w-14 h-7 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
-        <label className="flex items-center gap-1 text-xs">Y <input type="number" className="dc-input w-14 h-7 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
+        <label className="flex items-center gap-1 text-xs">X <input type="number" className="dc-input w-14 h-9 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
+        <label className="flex items-center gap-1 text-xs">Y <input type="number" className="dc-input w-14 h-9 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
         <span className="text-[11px] text-slate-400">mm do centro</span>
-        <button type="button" onClick={()=> useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy })} className="ml-auto dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs inline-flex items-center gap-1.5"><IconPlus size={12} /> Fazer furo</button>
+        <button type="button" onClick={()=> useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy })} className="ml-auto min-h-[38px] dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs inline-flex items-center gap-1.5"><IconPlus size={12} /> Fazer furo</button>
       </div>
       {holes.length===0 ? <p className="text-[11px] text-slate-400 border border-dashed border-slate-200 rounded p-2 text-center">Nenhum furo. Os furos aparecem no Esquema e no 3D; depois pode pôr bucim ou aparelho.</p>
       : <div className="space-y-1.5 max-h-44 overflow-auto pr-1">
-        {holes.map((h)=> <div key={h.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 p-1.5">
+        {holes.map((h)=> {
+          const occupiedBy = typeof h.occupiedBy === 'string' ? h.occupiedBy : ''
+          const hasGland = !!h.glandType && h.glandType !== 'none'
+          return <div key={h.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 p-1.5">
           <div className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold">{h.diameterMm}Ø</div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium">{h.face} • Ø{h.diameterMm}mm <span className="text-[10px] text-slate-500">({h.offsetXmm},{h.offsetYmm})</span></div>
-            <div className="text-[10px] text-slate-500">{h.glandType ? `Bucim ${h.glandType}` : (h as any).occupiedBy ? `Aparelho ${(h as any).occupiedBy.slice(0,6)}` : 'vazio — escolha bucim ou aparelho'}</div>
+            <div className="text-[10px] text-slate-500">{hasGland ? `Bucim ${h.glandType}` : occupiedBy ? `Aparelho ${occupiedBy.slice(0,6)}` : 'vazio — escolha bucim ou aparelho'}</div>
           </div>
-          <Select className="dc-input h-7 text-xs w-24" aria-label={`Bucim do furo ${h.id}`} value={(h as any).glandType ?? ''} onChange={(e)=> useSimStore.getState().updatePanelHole(c.id, h.id, { glandType: e.target.value as any })}>
+          <Select className="dc-input h-9 text-xs w-24" aria-label={`Bucim do furo ${h.id}`} value={(h as any).glandType ?? ''} onChange={(e)=> useSimStore.getState().updatePanelHole(c.id, h.id, { glandType: e.target.value as any })}>
             <option value="">— bucim —</option><option value="M16">M16</option><option value="M20">M20</option><option value="M25">M25</option><option value="M32">M32</option><option value="M40">M40</option><option value="none">sem bucim</option>
           </Select>
-          <Select className="dc-input h-7 text-xs w-28" aria-label={`Adicionar aparelho ao furo ${h.id}`} defaultValue="" resetOnSelect onChange={(e)=> { const v=e.target.value; if(!v) return; const nid = useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm); if(nid) useSimStore.getState().updatePanelHole(c.id, h.id, { occupiedBy: nid }) }}>
-            <option value="">＋ aparelho</option><option value="buttonNO">Botão NA</option><option value="buttonNC">Botão NF</option><option value="selector2">Chave 2 pos</option><option value="pilotLightAd22">Luz piloto</option><option value="emergencyButton">Emergência</option>
+          <Select className="dc-input h-9 text-xs w-28" aria-label={`Adicionar aparelho ao furo ${h.id}`} disabled={!!occupiedBy} title={occupiedBy ? 'Este furo já tem um aparelho montado.' : undefined} defaultValue="" resetOnSelect onChange={(e)=> { const v=e.target.value; if(!v || occupiedBy) return; useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm, h.id) }}>
+            <option value="">{occupiedBy ? 'Aparelho montado' : '＋ aparelho'}</option><option value="buttonNO">Botão NA</option><option value="buttonNC">Botão NF</option><option value="selector2">Chave 2 pos</option><option value="pilotLightAd22">Luz piloto</option><option value="emergencyButton">Emergência</option>
           </Select>
-          <button type="button" className="dc-btn text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)} aria-label="Remover furo"><IconClose size={12} /></button>
-        </div>)}
+          <button type="button" className="dc-btn min-h-[34px] min-w-[34px] justify-center text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)} aria-label="Remover furo"><IconClose size={12} /></button>
+          </div>
+        })}
       </div>}
-    </div>
-
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Aparelhos dentro</div>
-      <div className="flex flex-wrap gap-1">
-        <button type="button" className="dc-btn" disabled={!selectionToAssign.length} onClick={() => useSimStore.getState().assignToEnclosure(selectionToAssign, c.id)}>Marcar seleção como dentro ({selectionToAssign.length})</button>
-        <button type="button" className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromEnclosure(attached.map((item) => item.id))}>Soltar todos</button>
       </div>
-      <small className="text-ink-400">{attached.length ? `${attached.length} dentro: ${attached.map((item) => item.ref).join(', ')}.` : 'Nenhum aparelho dentro. Selecione e marque.'} Clique na porta no 3D para abrir/fechar.</small>
-    </div>
+    </details>
+
+    <details className="dc-inspector-group">
+      <summary>Aparelhos internos <span className="dc-inspector-count">{attached.length}</span></summary>
+      <div className="dc-inspector-group-body">
+        <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+          <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Aparelhos dentro</div>
+          <div className="flex flex-wrap gap-1">
+            <button type="button" className="dc-btn" disabled={!selectionToAssign.length} onClick={() => useSimStore.getState().assignToEnclosure(selectionToAssign, c.id)}>Marcar seleção como dentro ({selectionToAssign.length})</button>
+            <button type="button" className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromEnclosure(attached.map((item) => item.id))}>Soltar todos</button>
+          </div>
+          <small className="text-ink-400">{attached.length ? `${attached.length} dentro: ${attached.map((item) => item.ref).join(', ')}.` : 'Nenhum aparelho dentro. Selecione e marque.'} Clique na porta no 3D para abrir/fechar.</small>
+        </div>
+      </div>
+    </details>
   </div>
 }
 
