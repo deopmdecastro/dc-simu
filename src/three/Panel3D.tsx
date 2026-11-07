@@ -38,7 +38,7 @@ import NeonCurrent3D from './NeonCurrent3D'
 import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_3D, NOTE_COLORS } from '../ui/textStyle'
 import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
-import { applyEditorMotorTextures } from './motorEditorTextures'
+import { applyEditorMotorTextures, onMotorTexturesReady } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { hasPlcLamps, lampScenePosition, plcLamps } from './plcStatusLights'
@@ -62,6 +62,7 @@ import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
+import { updateMotorBodyMotion } from './motorBodyMotion'
 import { MOTOR_FAN, MOTOR_SIZE, motorCadToCentered } from './motorTerminalLayout'
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
@@ -1695,27 +1696,14 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
     }
     if (bodyRef.current) {
       vibeTime.current += delta
-      if (running && rpmVisual > 0.1) {
-        // Vibração realista: baixa frequência (desequilíbrio do rotor 24Hz) + alta (60Hz magnética)
-        const amp = Math.min(0.006, rpmVisual * 0.0045) // até 4.5mm em escala real
-        const low = Math.sin(vibeTime.current * 24 * rpmVisual) * amp
-        const high = Math.sin(vibeTime.current * 62) * amp * 0.35
-        bodyRef.current.position.x = low * 0.3
-        bodyRef.current.position.y = (low + high) * 0.5
-        bodyRef.current.rotation.z = (running ? Math.sin(vibeTime.current * 28 * rpmVisual) * 0.003 : 0)
-      } else {
-        // Retorno suave ao repouso
-        bodyRef.current.position.x = THREE.MathUtils.lerp(bodyRef.current.position.x, 0, delta * 8)
-        bodyRef.current.position.y = THREE.MathUtils.lerp(bodyRef.current.position.y, 0, delta * 8)
-        bodyRef.current.rotation.z = THREE.MathUtils.lerp(bodyRef.current.rotation.z, 0, delta * 8)
-      }
+      updateMotorBodyMotion(bodyRef.current, -spec.targetHeight / 2, running, rpmVisual, vibeTime.current, delta)
     }
   })
   const markerColor = running ? '#22c55e' : '#64748b'
   return <group position={[x, MOTOR_CENTER_Y, 0.7]}>
     {/* Vibração do corpo + normalização CAD */}
-    <group ref={bodyRef} position={[0, -spec.targetHeight / 2, 0]}>
-      <primitive object={model} />
+    <group ref={bodyRef} name={`motor-body-${c.id}`} position={[0, -spec.targetHeight / 2, 0]}>
+      <primitive object={model} name={`motor-model-${c.id}`} />
       {/* Pontes Y/Δ só no trifásico; a placa monofásica (U1 Z1 / U2 Z2) não tem pontes. */}
       {!mono && <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} />}
       {/* Pá de três pás no veio (Ø19, x = 241…264 mm do CAD): roda com a velocidade simulada.
@@ -2200,12 +2188,15 @@ function StudioEnvironment() {
     scene.environment = getStudioEnvironment(gl)
     if ('environmentIntensity' in scene) (scene as THREE.Scene & { environmentIntensity: number }).environmentIntensity = 1
     invalidate()
-    const stop = onCadTexturesReady(() => {
+    const refreshTextures = () => {
       gl.shadowMap.needsUpdate = true
       invalidate()
-    })
+    }
+    const stop = onCadTexturesReady(refreshTextures)
+    const stopMotor = onMotorTexturesReady(refreshTextures)
     return () => {
       stop()
+      stopMotor()
       if (scene.environment !== prevEnv) scene.environment = prevEnv
     }
   }, [gl, scene, invalidate])

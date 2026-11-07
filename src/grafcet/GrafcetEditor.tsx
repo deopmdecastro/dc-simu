@@ -168,10 +168,10 @@ const ACTION_OFFSET_X = ACTION_X - SPINE_X
 const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 /** Distância do barramento vertical de ligação à caixa da ação. */
 const ACTION_BUS_GAP = 40
-/** Deslocamento horizontal da condição em relação à barra da transição (legibilidade). */
-const CONDITION_OFFSET_X = 44
-/** Deslocamento vertical da condição relativamente à barra: negativo = acima do traço (gap legível). */
-const CONDITION_OFFSET_Y = -28
+/** Condição à direita da barra, com uma pequena folga após o traço IEC. */
+const CONDITION_OFFSET_X = 26
+/** O centro do texto fica à altura da barra, incluindo depois de arrastar a transição. */
+const CONDITION_OFFSET_Y = 0
 /** Deslocamento do comentário da etapa em relação ao bordo direito da caixa. */
 const STEP_CAPTION_OFFSET_X = 30
 const STEP_CAPTION_OFFSET_Y = -26
@@ -199,7 +199,7 @@ const showsCondition = (transition: { displayCondition?: boolean; condition?: st
 
 const diagramCondition = (condition: string) => {
   const text = condition === '1' ? '=1' : (condition || '1')
-  // Halo fino + baseline acima da barra: evita o rótulo (ex. 1HZ) colar ou atravessar o traço IEC.
+  // O halo mantém a leitura; a baseline central alinha o texto com a barra IEC.
   return <>
     <title>{text}</title>
     <tspan
@@ -208,7 +208,7 @@ const diagramCondition = (condition: string) => {
       stroke="#f8fafc"
       strokeWidth="2.5"
       strokeLinejoin="round"
-      dominantBaseline="alphabetic"
+      dominantBaseline="central"
     >
       {renderConditionTspans(text)}
     </tspan>
@@ -4542,7 +4542,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         <path d={path} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
                         <path d={path} fill="none" stroke="transparent" strokeWidth="16" />
                         <line x1="50" y1={y + 83} x2="74" y2={y + 83} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
-                        <text x={74 + CONDITION_OFFSET_X - 12} y={y + 87} fill={linkColor} fontSize="12" fontWeight="600">
+                        <text x={62 + CONDITION_OFFSET_X} y={y + 83 + CONDITION_OFFSET_Y} fill={linkColor} fontSize="12" fontWeight="600">
                           {showsCondition(transition) ? diagramCondition(transition.condition) : null}
                         </text>
                         {full && (isTransHovered || selectedLink) && (
@@ -4616,7 +4616,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           )}
                           {showsCondition(transition) && transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
-                        <text x={refX + 10} y={refBarY + 20} fill={selectedLink ? '#2563eb' : '#64748b'} fontSize="10.5" fontWeight="600">
+                        <text x={refX + 10} y={refBarY + (showsCondition(transition) && transition.guard?.trim() ? 36 : 20)} fill={selectedLink ? '#2563eb' : '#64748b'} fontSize="10.5" fontWeight="600">
                           {`→ ${outRefs}`}
                         </text>
                         {/* Origens adicionais: seta curta com a referência dos destinos */}

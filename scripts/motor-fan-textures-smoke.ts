@@ -16,6 +16,14 @@ import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_BOX, MOTOR_GLAND, MOTOR_NUT_TOP, MOTOR_TERMINALS_MM, motorBridges, motorCadToCentered, motorTerminalFraction, MOTOR_CAD, MOTOR_FAN } from '../src/three/motorTerminalLayout'
 import { buildMotorTerminalBox } from '../src/three/motorTerminalBox'
 import { TEXTURE_LIBRARY } from '../src/three/textureLibrary'
+import { createGltfLoader } from '../src/three/gltfLoader'
+import { cloneModelScene, fitComponentModel } from '../src/three/modelFit'
+import { getComponentModelSpec, PANEL_UNITS_PER_MM } from '../src/three/modelPaths'
+import { updateMotorBodyMotion } from '../src/three/motorBodyMotion'
+import { motorCadToWorld } from '../src/three/wireGeometry3D'
+import { componentOrientationOf, orientationRadians } from '../src/three/componentOrientation'
+import { component3DScaleOf, schematicRotationRadians } from '../src/three/terminal3D'
+import { buildNativePartidaDireta } from '../src/project/nativeProjects'
 import type { ComponentDefinition } from '../src/catalog/types'
 
 let checks = 0
@@ -31,6 +39,66 @@ globalThis.fetch = async (input, init) => {
 }
 
 try {
+  for (const type of ['motor3ph', 'motor1ph'] as const) {
+    await check(`${type}: CAD real e bucim alinhados com os cabos no primeiro frame, RUN/STOP e após pausas longas`, async () => {
+      const spec = getComponentModelSpec(type)!
+      const bytes = await (await fetch(spec.path)).arrayBuffer()
+      const gltf = await createGltfLoader().parseAsync(bytes, '')
+      const native = buildNativePartidaDireta().components.find(c => c.type === 'motor3ph')!
+      for (const pose of [
+        {},
+        { viewOrientation: { x: 0, y: 0, z: 0 } },
+        { viewOrientation: { x: 28, y: -60, z: 17 }, rotation: 90, mirrored: true, view3DScale: { x: 1.3, y: .8, z: 1.1 } },
+      ]) {
+        const c = { ...native, type, ...pose }
+        const pivot = new THREE.Vector3(3.7, -3.55, .7)
+        const root = new THREE.Group()
+        root.position.copy(pivot)
+        root.rotation.z = schematicRotationRadians(c)
+        root.scale.x = c.mirrored ? -1 : 1
+        const oriented = new THREE.Group()
+        oriented.rotation.set(...orientationRadians(componentOrientationOf(c)))
+        const scale = component3DScaleOf(c)
+        oriented.scale.set(scale.x, scale.y, scale.z)
+        root.add(oriented)
+        const body = new THREE.Group()
+        const restY = -spec.targetHeight / 2
+        body.position.y = restY
+        oriented.add(body)
+        const model = fitComponentModel(cloneModelScene(gltf.scene), spec, PANEL_UNITS_PER_MM, 'bottom')
+        body.add(model)
+        const glandParts = [
+          ['bucim-aro-interior', MOTOR_BOX.z1 - MOTOR_BOX.wall - .4],
+          ['bucim-porca', MOTOR_BOX.z1 + 6.4],
+          ['bucim-cupula', MOTOR_BOX.z1 + 12.5],
+        ] as const
+        const error = () => {
+          root.updateMatrixWorld(true)
+          return Math.max(...glandParts.map(([name, z]) => {
+            const mesh = model.getObjectByName(name)
+            assert.ok(mesh instanceof THREE.Mesh, `peça física em falta: ${name}`)
+            return mesh.getWorldPosition(new THREE.Vector3()).distanceTo(motorCadToWorld(c, pivot, MOTOR_GLAND.x, MOTOR_GLAND.y, z))
+          }))
+        }
+        // Antes, lerp(y, 0, delta * 8) deslocava o CAD para fora da cena neste primeiro frame.
+        for (const delta of [0, 1 / 60, .5, 30, 300]) {
+          updateMotorBodyMotion(body, restY, false, 0, 0, delta)
+          assert.ok(error() < 1e-8, `CAD/cabos desalinhados no repouso: ${error()}`)
+        }
+        let elapsed = 0
+        for (const delta of [1 / 60, .5, 30, 300]) {
+          elapsed += delta
+          updateMotorBodyMotion(body, restY, true, 1, elapsed, delta)
+          assert.ok(error() < .02, `vibração deslocou a caixa: ${error()}`)
+        }
+        const beforeStop = error()
+        updateMotorBodyMotion(body, restY, false, 0, elapsed, 1 / 60)
+        assert.ok(error() <= beforeStop + 1e-8, 'paragem afasta a caixa da posição base')
+        updateMotorBodyMotion(body, restY, false, 0, elapsed, 30)
+        assert.ok(error() < 1e-8, 'pausa longa faz a carcaça saltar ou deixa o bucim desalinhado')
+      }
+    })
+  }
   await check('Bornes U1…W2 e PE dentro da caixa real do CAD (não no centro do motor)', () => {
     for (const [label, [x, y, z]] of Object.entries(MOTOR_TERMINALS_MM)) {
       assert.ok(x > MOTOR_BOX.x0 + MOTOR_BOX.wall && x < MOTOR_BOX.x1 - MOTOR_BOX.wall, label + ' x')

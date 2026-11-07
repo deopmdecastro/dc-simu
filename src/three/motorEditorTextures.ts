@@ -7,6 +7,13 @@ const textureLoader = new THREE.TextureLoader()
 const mapCache = new Map<string, THREE.Texture>()
 const pendingMaterials = new Set<THREE.Material>()
 const pendingLoads = new Set<Promise<void>>()
+const readyListeners = new Set<() => void>()
+
+/** Atualiza também os Canvas a pedido quando chega um mapa assíncrono. */
+export function onMotorTexturesReady(listener: () => void): () => void {
+  readyListeners.add(listener)
+  return () => { readyListeners.delete(listener) }
+}
 
 /** Resolve quando todos os mapas do motor já pedidos estão carregados (para as capturas). */
 export function waitMotorTextures(): Promise<void> {
@@ -27,6 +34,7 @@ function libraryMap(url: string, srgb: boolean, repeat: number): THREE.Texture {
         loaded.needsUpdate = true
         loaded.userData.ready = true
         for (const mat of pendingMaterials) mat.needsUpdate = true
+        for (const listener of readyListeners) listener()
         settle()
       },
       undefined,
