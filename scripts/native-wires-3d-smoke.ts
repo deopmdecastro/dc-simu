@@ -48,6 +48,18 @@ for (const lead of built.wires.filter(w => w.id.startsWith('native-meter-'))) {
   const directions = points.slice(1).map((p, i) => p.clone().sub(points[i]).normalize())
   check(`${lead.number}: cabo sai axialmente da ficha e do punho`, directions[0].dot(new THREE.Vector3(...path.starts[0].axis)) > 0.995 && directions.at(-1)!.clone().negate().dot(new THREE.Vector3(...path.starts[1].axis)) > 0.995)
   check(`${lead.number}: curva contínua sem cotovelos agudos`, directions.slice(1).every((d, i) => d.angleTo(directions[i]) < Math.PI / 9))
+  const from = wireEndpoint3D(lead, 'from', built.components, pivots, built.wires)!
+  const to = wireEndpoint3D(lead, 'to', built.components, pivots, built.wires)!
+  const standalonePath = buildWirePath3D(lead, from, to, obstacles)
+  const standalone = standalonePath.points.map(p => new THREE.Vector3(...p))
+  const standaloneDirections = standalone.slice(1).map((p, i) => p.clone().sub(standalone[i]).normalize())
+  const joinIndex = standalonePath.motorRoute?.side === 'to'
+    ? standalone.length - standalonePath.motorRoute.points.length
+    : standalonePath.motorRoute?.points.length ?? -1
+  const joinAngle = joinIndex > 0 && joinIndex < standaloneDirections.length
+    ? standaloneDirections[joinIndex].angleTo(standaloneDirections[joinIndex - 1])
+    : Infinity
+  check(`${lead.number}: junção do bucim suave também no traçado individual`, joinAngle < Math.PI / 9)
   const feed = built.wires.find(w => w.id !== lead.id && w.toTerminalId === lead.toTerminalId)!
   const ferrule = coordinated.get(feed.id)!.starts[1]
   const offset = new THREE.Vector3(...path.starts[1].origin).distanceTo(new THREE.Vector3(...ferrule.origin))
@@ -73,12 +85,9 @@ for (const wire of built.wires) {
     if (s.origin[2] < plateFront - 1e-6 || tipZ < plateFront - 1e-6) ferruleBehindPlate++
   }
   const endsOnMotor = [wire.fromTerminalId, wire.toTerminalId].some((id) => id.startsWith(motor.id))
-  const isProbeLead = wire.id.startsWith('native-meter-')
-  const motorEnds = [from, to].filter((_, i) => (i === 0 ? wire.fromTerminalId : wire.toTerminalId).startsWith(motor.id)).map((e) => new THREE.Vector3(...e.position))
   const inner = motorBox.clone().expandByScalar(-0.02)
   const inMotorAllowedCorridor = (p: THREE.Vector3) => {
     if (!endsOnMotor) return false
-    if (isProbeLead) return motorEnds.some((e) => e.distanceTo(p) < 0.6)
     const cadPt = worldToMotorCad(motor, pivots[motor.id], p)
     // À frente da caixa/motor (aproximação exterior ao bucim)
     if (cadPt.z >= 72.5) return true
@@ -112,6 +121,8 @@ for (const wire of built.wires) {
   if (hit) { crossing++; offenders.push(`${wire.number} ${wire.fromTerminalId}->${wire.toTerminalId}`) }
 }
 const motorFeeders = built.wires.filter((w) => [w.fromTerminalId, w.toTerminalId].some((id) => id.startsWith(motor.id)) && !w.id.startsWith('native-meter-'))
+const motorGlandWires = built.wires.filter((w) => [w.fromTerminalId, w.toTerminalId].some((id, index) =>
+  id.startsWith(motor.id) && (index === 0 ? w.fromEndType : w.toEndType) !== 'banana'))
 const feedersThroughGland = motorFeeders.every((w) => {
   const pts = coordinated.get(w.id)?.points ?? []
   return pts.some((pt) => {
@@ -119,6 +130,25 @@ const feedersThroughGland = motorFeeders.every((w) => {
     return cadPt.z >= 54 && cadPt.z <= 75 && Math.hypot(cadPt.x - MOTOR_GLAND.x, cadPt.y - MOTOR_GLAND.y) <= 6.5
   })
 })
+const allMotorWiresThroughGland = motorGlandWires.every((w) => {
+  const pts = coordinated.get(w.id)?.points ?? []
+  return pts.some((pt) => {
+    const cadPt = worldToMotorCad(motor, pivots[motor.id], new THREE.Vector3(...pt))
+    return cadPt.z >= 54 && cadPt.z <= 75 && Math.hypot(cadPt.x - MOTOR_GLAND.x, cadPt.y - MOTOR_GLAND.y) <= 6.5
+  })
+})
+const glandChannels = motorGlandWires.map((wire) => {
+  const pts = coordinated.get(wire.id)?.points ?? []
+  return pts.map((pt) => worldToMotorCad(motor, pivots[motor.id], new THREE.Vector3(...pt)))
+    .filter((point) => point.z >= 54 && point.z <= 75 && Math.hypot(point.x - MOTOR_GLAND.x, point.y - MOTOR_GLAND.y) <= 6.5)
+    .sort((a, b) => Math.abs(a.z - (MOTOR_BOX.z1 - MOTOR_BOX.wall / 2)) - Math.abs(b.z - (MOTOR_BOX.z1 - MOTOR_BOX.wall / 2)))[0]
+})
+let minGlandChannelSpacing = Infinity
+for (let i = 0; i < glandChannels.length; i++) {
+  for (let j = i + 1; j < glandChannels.length; j++) {
+    if (glandChannels[i] && glandChannels[j]) minGlandChannelSpacing = Math.min(minGlandChannelSpacing, Math.hypot(glandChannels[i].x - glandChannels[j].x, glandChannels[i].y - glandChannels[j].y))
+  }
+}
 for (const wire of motorFeeders) {
   const path = coordinated.get(wire.id)!
   const end = path.starts[1]
@@ -132,6 +162,7 @@ for (const wire of motorFeeders) {
 }
 check('Nenhum cabo 3D passa pela carcaça do motor (nem cabos alheios à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
 check('Todos os 4 cabos de força/PE entram no motor pelo bucim M20 (MOTOR_GLAND)', motorFeeders.length === 4 && feedersThroughGland)
+check('Cabos do multímetro também entram pelo bucim M20 em canais separados das fases', motorGlandWires.length === 6 && allMotorWiresThroughGland && glandChannels.every(Boolean) && minGlandChannelSpacing >= 3.5 && ['native-meter-red', 'native-meter-black'].every((id) => (coordinated.get(id)?.motorRoute?.points.length ?? 0) > 2), `separação mínima ${minGlandChannelSpacing.toFixed(1)} mm`)
 check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
 check('Nenhuma ponteira/terminal atravessa a chapa do painel', ferruleBehindPlate === 0)
 check('Todos os cabos contornam os outros aparelhos e a calha com a sua espessura física', solidOffenders.length === 0, solidOffenders.join(', '))
@@ -210,7 +241,7 @@ for (const pose of [
   motor.viewOrientation = pose.orientation; motor.mirrored = pose.mirrored; motor.view3DScale = pose.scale
   const boxes = componentObstacles(built.components, pivots), own = boxes.find(b => b.componentId === motor.id)!
   const paths = buildAllWirePaths3D(built.wires, built.components, pivots, boxes)
-  const exteriorClear = motorFeeders.every(wire => {
+  const exteriorClear = motorGlandWires.every(wire => {
     const path = paths.get(wire.id)!, fixed = path.motorRoute?.points.length ?? 0
     const outer = path.points.slice(0, path.points.length - fixed + 1)
     return fixed > 2 && !outer.some((p, i) => i > 0 && segmentEntersBox(outer[i - 1], p, own))

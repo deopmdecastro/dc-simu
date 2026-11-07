@@ -81,8 +81,8 @@ export type WireEndpoint3D = {
   portCount?: number
   /** Verdadeiro nas pontas secundárias que reutilizam o colar físico 3D do condutor líder. */
   sharedFollower?: boolean
-  /** Contexto geométrico para encaminhar cabos de potência pelo bucim M20 do motor. */
-  motorContext?: { component: ElectricalComponent; pivot: V3; terminalLabel: string }
+  /** Contexto geométrico para encaminhar cabos do motor pelo bucim M20. */
+  motorContext?: { component: ElectricalComponent; pivot: V3; terminalLabel: string; endType: WireEndType }
 }
 
 /** Converte coordenadas CAD (mm) do motor SEW para coordenadas mundiais do Painel 3D. */
@@ -183,7 +183,9 @@ export function wireEndpoint3D(
       portIndex: portInfo.portIndex,
       portCount: portInfo.portCount,
       sharedFollower: endKind === 'ferruleDouble' && portInfo.shared && !portInfo.isLeader,
-      motorContext: (component.type === 'motor3ph' || component.type === 'motor1ph') ? { component, pivot: arr(pivot), terminalLabel: terminal.label } : undefined,
+      motorContext: (component.type === 'motor3ph' || component.type === 'motor1ph')
+        ? { component, pivot: arr(pivot), terminalLabel: terminal.label, endType: endKind }
+        : undefined,
     }
   }
   return null
@@ -1096,6 +1098,37 @@ function removeBacktracksOutsideMotor(points: V3[], motorRoute?: WirePath3D['mot
   return [...points.slice(0, n - 1), ...removeWireBacktracks(points.slice(n - 1))]
 }
 
+function smoothMotorRouteJoin(points: V3[], motorRoute: NonNullable<WirePath3D['motorRoute']>): { points: V3[]; motorRoute: NonNullable<WirePath3D['motorRoute']> } {
+  const reversed = motorRoute.side === 'from'
+  const ordered = reversed ? points.slice().reverse() : points.slice()
+  const n = motorRoute.points.length
+  const join = ordered.length - n
+  if (join < 2) return { points, motorRoute }
+
+  let start = join - 1
+  while (start > 1 && v(ordered[join]).distanceTo(v(ordered[start])) < 0.08) start--
+  let end = join
+  while (end < ordered.length - 2 && v(ordered[end]).distanceTo(v(ordered[join])) < 0.08) end++
+  if (v(ordered[join]).distanceTo(v(ordered[start])) < 0.04 || v(ordered[end]).distanceTo(v(ordered[join])) < 0.04) return { points, motorRoute }
+
+  const startDirection = v(ordered[start]).sub(v(ordered[start - 1])).normalize()
+  const endDirection = v(ordered[end]).sub(v(ordered[end - 1])).normalize()
+  const span = v(ordered[end]).distanceTo(v(ordered[start]))
+  const reach = Math.min(0.04, span * 0.25)
+  const curve = new THREE.CubicBezierCurve3(
+    v(ordered[start]),
+    v(ordered[start]).addScaledVector(startDirection, reach),
+    v(ordered[end]).addScaledVector(endDirection, -reach),
+    v(ordered[end]),
+  ).getPoints(18).map(arr)
+  const smoothed = [...ordered.slice(0, start), ...curve, ...ordered.slice(end + 1)]
+  const routePoints = smoothed.slice(start)
+  return {
+    points: reversed ? smoothed.reverse() : smoothed,
+    motorRoute: { side: motorRoute.side, points: reversed ? routePoints.reverse() : routePoints },
+  }
+}
+
 export function keepInFrontOfPlate(points: V3[], outerMm: number, _manual = false): V3[] {
   if (points.length === 0) return points
   const limit = wireFrontLimit(outerMm)
@@ -1146,11 +1179,11 @@ function finishWireBody(
 }
 
 function isMotorGlandEligible(end: WireEndpoint3D, endType: WireEndType): boolean {
-  return Boolean(end.motorContext && endType !== 'probe' && endType !== 'banana')
+  return Boolean(end.motorContext && endType !== 'banana')
 }
 
 /**
- * Encaminha um cabo de alimentação/terra do quadro até ao borne do motor SEW
+ * Encaminha um cabo do quadro até ao borne do motor SEW
  * entrando axialmente pelo bucim M20 frontal (`MOTOR_GLAND`) da caixa de ligação.
  */
 function buildMotorGlandBody3D(
@@ -1165,7 +1198,8 @@ function buildMotorGlandBody3D(
   /** Pontos 3D desenhados pelo utilizador (do quadro para o motor): substituem o troço exterior automático. */
   manual: V3[] = [],
 ): { points: V3[]; entry: V3 } {
-  const ctx = motorEnd.motorContext!
+  const ctx = motorEnd.motorContext
+  if (!ctx) throw new Error('Motor gland routing requires motor context')
   const mPivot = v(ctx.pivot)
   const label = ctx.terminalLabel.toUpperCase()
   const slotMap: Record<string, { idx: number; dx: number; dy: number }> = {
@@ -1180,7 +1214,12 @@ function buildMotorGlandBody3D(
     Z1: { idx: 3, dx: 2.6, dy: -2.6 },
     Z2: { idx: 3, dx: 2.6, dy: -2.6 },
   }
-  const { idx, dx, dy } = slotMap[label] ?? { idx: 1, dx: 0, dy: 0 }
+  const probeSlotMap: Record<string, { idx: number; dx: number; dy: number }> = {
+    U1: { idx: 4, dx: 0, dy: -5.8 },
+    V1: { idx: 5, dx: 5.8, dy: 0 },
+  }
+  const slot = ctx.endType === 'probe' ? probeSlotMap[label] ?? slotMap[label] : slotMap[label]
+  const { idx, dx, dy } = slot ?? { idx: 1, dx: 0, dy: 0 }
   const cad = (cx: number, cy: number, cz: number): V3 => arr(motorCadToWorld(ctx.component, mPivot, cx, cy, cz))
   const headCad = worldToMotorCad(ctx.component, mPivot, v(motorHead))
 
@@ -1241,9 +1280,8 @@ function buildMotorGlandBody3D(
     )
   }
 
-  // Entrada pelo furo real do bucim M20. O troço exterior contorna o motor
-  // pela esquerda e pela frente (z > carcaça) e só então segue o eixo do furo;
-  // cada cabo tem o seu quadrante no furo (±2,6 mm) para não se sobreporem.
+  // Entrada pelo furo real do bucim M20. Os quatro cabos de potência ocupam os
+  // quadrantes; as sondas usam canais próprios no bordo do furo.
   const gx = MOTOR_GLAND.x + dx
   const gy = MOTOR_GLAND.y + dy
   const boxZ1 = MOTOR_BOX.z1
@@ -1265,18 +1303,20 @@ function buildMotorGlandBody3D(
   // (o olhal fica alto, junto ao bucim) e U1/W2 por baixo dele; V1/U2 sobem mais do que W1/V2.
   const innerStart = label === 'U1' || label === 'W2' ? cad(gx, gy, boxZ1 - wall - 3) : glandInside
   const LIFT_MM: Record<string, number> = { U1: 4, W2: 4, V1: 9, U2: 9, W1: 1, V2: 1, Z1: 1, Z2: 1, PE: 0 }
-  const lift = (LIFT_MM[label] ?? 3) * U
+  const lift = (ctx.endType === 'probe' ? 0 : LIFT_MM[label] ?? 3) * U
   const motorUp = v(cad(gx, gy + 1, 0)).sub(v(cad(gx, gy, 0))).normalize()
+  const motorRight = v(cad(gx + 1, gy, 0)).sub(v(cad(gx, gy, 0))).normalize()
   const inward = v(glandInside).sub(v(glandThru)).normalize()
+  const probeRouteOffset = ctx.endType === 'probe' ? (label === 'U1' ? -10 : label === 'V1' ? 12 : 0) * U : 0
   const p0 = v(innerStart)
   const p3 = v(approach)
   const reach = p0.distanceTo(p3) * 0.42
   const innerBoxPoints: V3[] = new THREE.CubicBezierCurve3(
     p0,
-    p0.clone().addScaledVector(inward, reach).addScaledVector(motorUp, lift),
+    p0.clone().addScaledVector(inward, reach).addScaledVector(motorUp, lift).addScaledVector(motorRight, probeRouteOffset),
     p3.clone().addScaledVector(v(motorAxis), reach).addScaledVector(motorUp, lift),
     p3,
-  ).getPoints(12).slice(1, -1).map(arr)
+  ).getPoints(ctx.endType === 'probe' ? 28 : 12).slice(1, -1).map(arr)
 
   // Com pontos manuais, o cabo segue-os e, depois do último, vai à frente do bucim e entra
   // pelo furo: ligar um cabo ao motor passa sempre pelo bucim, desenhado à mão ou não.
@@ -1289,9 +1329,24 @@ function buildMotorGlandBody3D(
       entryLeft,
       frontSweep,
     ]
+  const probeTransition: V3[] = []
+  if (ctx.endType === 'probe') {
+    const previous = [...outerControls].reverse().find((point) => v(point).distanceTo(v(frontSweep)) > 1e-4)
+    const startDirection = previous
+      ? v(frontSweep).sub(v(previous)).normalize()
+      : v(glandOutside).sub(v(frontSweep)).normalize()
+    const endDirection = v(glandMouth).sub(v(glandOutside)).normalize()
+    const reach = Math.min(12 * U, v(frontSweep).distanceTo(v(glandOutside)) * 0.3)
+    probeTransition.push(...new THREE.CubicBezierCurve3(
+      v(frontSweep),
+      v(frontSweep).addScaledVector(startDirection, reach),
+      v(glandOutside).addScaledVector(endDirection, -reach),
+      v(glandOutside),
+    ).getPoints(18).slice(1).map(arr))
+  }
   const rawControls: V3[] = [
     ...outerControls,
-    glandOutside,
+    ...(ctx.endType === 'probe' ? probeTransition : [glandOutside]),
     glandMouth,
     glandThru,
     innerStart,
@@ -1303,7 +1358,7 @@ function buildMotorGlandBody3D(
   return {
     // Arcos largos e, por fim, sem cantos vivos sobre a porca/ponteira (o cabo dobrava em «L» ao sair do borne).
     points: keepInFrontOfPlate(smoothSharpCorners(dropMicroSegments(roundCorners(deduped, outerMm, 3.6)), outerMm, 0.25), outerMm),
-    entry: manual.length ? frontSweep : entryLeft,
+    entry: ctx.endType === 'probe' || manual.length ? frontSweep : entryLeft,
   }
 }
 
@@ -1366,7 +1421,11 @@ export function buildWirePath3D(
         { componentId: from.componentId, axis: a.geometry.axis, glandBypass: fromMotorGland },
         { componentId: to.componentId, axis: b.geometry.axis, glandBypass: toMotorGland },
       ], wireFrontLimit(outerMm), wireHash(wire), motorRoute)
-    return { points: safe, starts: [a.geometry, b.geometry], motorRoute }
+    const hasProbeEnd = fromType === 'probe' || toType === 'probe'
+    const smoothedJoin = hasProbeEnd && !slotOverride
+      ? smoothMotorRouteJoin(safe, motorRoute)
+      : { points: safe, motorRoute }
+    return { points: smoothedJoin.points, starts: [a.geometry, b.geometry], motorRoute: smoothedJoin.motorRoute }
   }
 
   const { trunkHint, plan } = computeBasePlan(wire, from, to, outerMm, obstacles)
@@ -1753,7 +1812,10 @@ export function buildAllWirePaths3D(
     // Último passe: sem bicos no troço exterior, se continuar livre de sólidos.
     const despiked = despikeOutsideMotor(joined, item.motorRoute)
     const despikedSafe = despiked !== joined && clearPathSolids(despiked, item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute) === despiked
-    result.set(item.entry.wire.id, { points: despikedSafe ? despiked : joined, starts: item.starts, motorRoute: item.motorRoute })
+    const finalBody = despikedSafe ? despiked : joined
+    const hasProbeEnd = endTypeOf(item.entry.wire, 'from') === 'probe' || endTypeOf(item.entry.wire, 'to') === 'probe'
+    const smoothedJoin = hasProbeEnd && item.motorRoute ? smoothMotorRouteJoin(finalBody, item.motorRoute) : { points: finalBody, motorRoute: item.motorRoute }
+    result.set(item.entry.wire.id, { points: smoothedJoin.points, starts: item.starts, motorRoute: smoothedJoin.motorRoute })
   }
   return result
 }
