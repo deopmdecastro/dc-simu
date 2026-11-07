@@ -187,15 +187,35 @@ export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body
   ), 'bucim-aro-interior')
   innerRing.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 - w - 0.4))
   // Porca sextavada exterior.
-  const glandNut = add(new THREE.Mesh(
-    new THREE.CylinderGeometry((MOTOR_GLAND.diameter / 2 + 2.8) * units, (MOTOR_GLAND.diameter / 2 + 2.8) * units, 3.2 * units, 6),
-    black,
-  ), 'bucim-porca')
-  glandNut.rotation.x = Math.PI / 2
-  glandNut.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 + 8))
+  const glandNutShape = new THREE.Shape()
+  const glandNutRadius = MOTOR_GLAND.diameter / 2 + 2.8
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.PI / 6 + i * Math.PI / 3
+    const x = glandNutRadius * Math.cos(angle), y = glandNutRadius * Math.sin(angle)
+    if (i === 0) glandNutShape.moveTo(x, y)
+    else glandNutShape.lineTo(x, y)
+  }
+  glandNutShape.closePath()
+  const glandNutBore = new THREE.Path()
+  glandNutBore.absarc(0, 0, glandRi / units, 0, Math.PI * 2, true)
+  glandNutShape.holes.push(glandNutBore)
+  const glandNutGeometry = new THREE.ExtrudeGeometry(glandNutShape, { depth: 3.2, bevelEnabled: false })
+  glandNutGeometry.scale(units, units, units)
+  const glandNut = add(new THREE.Mesh(glandNutGeometry, black), 'bucim-porca')
+  glandNut.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 + 6.4))
   // Cúpula / prensa-cabos.
+  const capHalfLength = 5.5 / 2
+  const capInnerRadius = glandRi / units
+  const capGeometry = new THREE.LatheGeometry([
+    new THREE.Vector2(capInnerRadius, -capHalfLength),
+    new THREE.Vector2(10, -capHalfLength),
+    new THREE.Vector2(9, capHalfLength),
+    new THREE.Vector2(capInnerRadius, capHalfLength),
+    new THREE.Vector2(capInnerRadius, -capHalfLength),
+  ], 24)
+  capGeometry.scale(units, units, units)
   const cap = add(new THREE.Mesh(
-    new THREE.CylinderGeometry(7.0 * units, 8.0 * units, 5.5 * units, 24),
+    capGeometry,
     black,
   ), 'bucim-cupula')
   cap.rotation.x = Math.PI / 2

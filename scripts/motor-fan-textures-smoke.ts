@@ -13,7 +13,7 @@ import { buildBuiltinDraft, upgradeBuiltinDraft } from '../src/admin/editor3d/bu
 import { applyLibraryTexture } from '../src/admin/editor3d/tabs1'
 import { ComponentRig, spinRate } from '../src/catalog/componentRig'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
-import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_BOX, MOTOR_NUT_TOP, MOTOR_TERMINALS_MM, motorBridges, motorCadToCentered, motorTerminalFraction, MOTOR_CAD, MOTOR_FAN } from '../src/three/motorTerminalLayout'
+import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_BOX, MOTOR_GLAND, MOTOR_NUT_TOP, MOTOR_TERMINALS_MM, motorBridges, motorCadToCentered, motorTerminalFraction, MOTOR_CAD, MOTOR_FAN } from '../src/three/motorTerminalLayout'
 import { buildMotorTerminalBox } from '../src/three/motorTerminalBox'
 import { TEXTURE_LIBRARY } from '../src/three/textureLibrary'
 import type { ComponentDefinition } from '../src/catalog/types'
@@ -66,6 +66,25 @@ try {
     for (const name of ['caixa-paredes', 'caixa-fundo', 'borne-U1-porca', 'borne-V2-porca', 'borne-PE-anilha']) assert.ok([...names].some((n) => n.startsWith(name)), name + ' em falta: ' + [...names].join(', '))
     assert.ok([...names].some((n) => n.includes('bucim')), 'bucim')
     assert.ok(MOTOR_NUT_TOP < MOTOR_BOX.top - 4)
+  })
+  await check('Porca e cúpula do bucim deixam passagem livre para os quatro cabos', () => {
+    const group = buildMotorTerminalBox(new THREE.Vector3(), 1, new THREE.MeshStandardMaterial())
+    group.updateMatrixWorld(true)
+    const glandParts = ['bucim-porca', 'bucim-cupula'].map((name) => {
+      const mesh = group.getObjectByName(name)
+      assert.ok(mesh instanceof THREE.Mesh, name + ' em falta')
+      return mesh
+    })
+    const raycaster = new THREE.Raycaster()
+    for (const [dx, dy] of [[-2.6, 2.6], [-2.6, -2.6], [2.6, 2.6], [2.6, -2.6]]) {
+      raycaster.set(
+        new THREE.Vector3(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, MOTOR_BOX.z1 + 40),
+        new THREE.Vector3(0, 0, -1),
+      )
+      for (const part of glandParts) {
+        assert.equal(raycaster.intersectObject(part, false).length, 0, `${part.name} bloqueia o quadrante ${dx},${dy}`)
+      }
+    }
   })
   await check('spinRate: $rpm 0…1 com sentido, inverter, variáveis booleanas e numéricas', () => {
     assert.equal(spinRate({ axis: 'x', turnsPerSecond: 2, source: '$rpm' }, { $rpm: .5, $dir: 'cw' }), 1)
