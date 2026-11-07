@@ -1,5 +1,5 @@
 import { useSimStore } from '../store/useSimStore'
-import { IconChevronDown, IconChevronUp, IconClose, IconCopy, IconDelete, IconLock, IconRotate, IconTools, IconLayers } from '../ui/icons'
+import { IconChevronDown, IconChevronUp, IconClose, IconCopy, IconDelete, IconLock, IconUnlock, IconOrganize, IconRotate, IconTools, IconLayers } from '../ui/icons'
 
 /**
  * Barra contextual flutuante: aparece quando há um objeto selecionado e dá acesso
@@ -30,6 +30,9 @@ export default function SelectionBar() {
   const first = useSimStore((s) => s.components.find((c) => c.id === ids[0]))
   const multiWires = wireIds.length > 1 ? wireIds : (wireId ? [wireId] : [])
   const wires = useSimStore((s) => s.wires)
+  const selectedWires = wires.filter(w => multiWires.includes(w.id))
+  const allWiresLocked = selectedWires.length > 0 && selectedWires.every(w => w.locked)
+  const anyWireLocked = selectedWires.some(w => w.locked)
   const anyBundled = multiWires.some((id) => wires.find((w) => w.id === id)?.bundleId)
 
   const hasComponents = ids.length > 0
@@ -65,10 +68,12 @@ export default function SelectionBar() {
       </>}
       {!hasComponents && multiWires.length > 0 && <>
         <button type="button" onClick={() => duplicateWires(multiWires)} title="Duplicar cabos (Ctrl+D)" aria-label="Duplicar cabos"><IconCopy size={15} /></button>
-        <button type="button" onClick={() => laceWires(multiWires)} title="Filaçar cabos selecionados (chicote)" aria-label="Filaçar" disabled={multiWires.length < 2}>Filaçar</button>
-        <button type="button" onClick={() => unlaceWires(multiWires)} title="Desfazer chicote" aria-label="Desfilaçar" disabled={!anyBundled}>Desfilaçar</button>
+        <button type="button" onClick={() => useSimStore.getState().organizeWires(multiWires)} title="Organizar cabos selecionados no Esquema e 3D (Ctrl+Z desfaz)" aria-label="Organizar cabos selecionados" disabled={allWiresLocked}><IconOrganize size={15} /></button>
+        <button type="button" className={allWiresLocked ? 'is-on' : ''} aria-pressed={allWiresLocked} aria-label={allWiresLocked ? 'Desbloquear cabos selecionados' : 'Bloquear cabos selecionados'} title={allWiresLocked ? 'Desbloquear cabos selecionados' : 'Bloquear cabos selecionados'} onClick={() => useSimStore.getState().setWiresLocked(!allWiresLocked, multiWires)}>{allWiresLocked ? <IconUnlock size={15} /> : <IconLock size={15} />}</button>
+        <button type="button" onClick={() => laceWires(multiWires)} title="Filaçar cabos selecionados (chicote)" aria-label="Filaçar" disabled={multiWires.length < 2 || anyWireLocked}>Filaçar</button>
+        <button type="button" onClick={() => unlaceWires(multiWires)} title="Desfazer chicote" aria-label="Desfilaçar" disabled={!anyBundled || anyWireLocked}>Desfilaçar</button>
       </>}
-      <button type="button" className="is-danger" onClick={remove} title="Apagar (Del)" aria-label="Apagar"><IconDelete size={15} /></button>
+      <button type="button" className="is-danger" onClick={remove} title="Apagar (Del)" aria-label="Apagar" disabled={!hasComponents && allWiresLocked}><IconDelete size={15} /></button>
       <button type="button" onClick={clear} title="Limpar seleção (Esc)" aria-label="Limpar seleção"><IconClose size={14} /></button>
     </div>
   )

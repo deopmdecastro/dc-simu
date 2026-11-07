@@ -14,6 +14,7 @@ function legacyComponentGroups(components: Array<{ id: string; groupId?: string 
 }
 import { upgradeNativeMotorMeter, upgradeNativeMotorRings } from '../project/nativeMotorMeter'
 import { refreshNativeWireCurves } from '../project/nativeWireCurves'
+import { planNativeWirePaths } from '../project/nativeRouting'
 import { addNativeIecSchematic } from '../project/nativeIec'
 import { addNativeAnnotations } from '../project/nativeProjects'
 import { addNativeThermalRelay } from '../project/nativeThermalRelay'
@@ -461,13 +462,14 @@ interface Store extends CircuitState {
   addWire3D: (from: WireEnd3D, to: WireEnd3D, waypoints3D?: SpatialPoint3D[]) => string | null
   addFreeWire: (from: { terminalId?: string; point?: { x: number; y: number } }, to: { terminalId?: string; point?: { x: number; y: number } }, waypoints?: Array<{ x: number; y: number }>) => void
   updateWire: (id: string, patch: Partial<Wire>) => void
+  setWiresLocked: (locked: boolean, ids?: string[]) => void
   deleteWire: (id: string) => void
   deleteSelection: () => void
   /** Liga em cadeia (t1→t2→t3…) uma lista de bornes selecionados, criando os cabos e
    * já organizando o roteamento entre eles para não se sobreporem. */
   connectChain: (terminalIds: string[]) => void
-  /** Reorganiza automaticamente o roteamento/dobra dos cabos (todos, ou apenas os
-   * indicados) para reduzir sobreposição — agrupa cabos por canal e distribui a dobra. */
+  /** Recalcula percursos no Esquema e 3D (todos ou os indicados), preservando
+   * cabos bloqueados e ligações elétricas. */
   organizeWires: (wireIds?: string[]) => void
   /** Numera os cabos automaticamente. 'missing' numera só os sem identificação
    * (continuando a sequência existente); 'all' renumera tudo de W1 em diante. */
@@ -983,7 +985,7 @@ function deenergizeComponents(components: ElectricalComponent[]): ElectricalComp
 
 
 const normalizeWires = (wires: Wire[], components: ElectricalComponent[] = []) => {
-  const afterFerrule = syncSharedTerminalFerrules(wires)
+  const afterFerrule = syncSharedTerminalFerrules(wires.map(w => w.locked === undefined ? w : { ...w, locked: w.locked === true }))
   const byTerm = new Map<string, string>()
   for (const c of components) {
     for (const term of c.terminals ?? []) byTerm.set(term.id, c.type)
@@ -2660,13 +2662,14 @@ export const useSimStore = create<Store>((set, get) => {
   },
 
   laceWires: (ids) => {
-    if (isSimEditLocked(get())) return
+    if (get().demoMode || isSimEditLocked(get())) return
     const state = get()
-    const target = ids?.length
+    const selection = ids?.length
       ? ids
       : (state.selectedWireIds.length ? state.selectedWireIds : (state.selectedWireId ? [state.selectedWireId] : []))
+    const target = selection.filter(id => state.wires.some(w => w.id === id && !w.locked))
     if (target.length < 2) {
-      state.pushEvent('info', 'Selecione pelo menos dois cabos (Shift+clique) para filaçar.')
+      state.pushEvent('info', 'Selecione pelo menos dois cabos desbloqueados (Shift+clique) para filaçar.')
       return
     }
     const existing = state.wires.find((w) => target.includes(w.id) && w.bundleId)?.bundleId
@@ -2680,20 +2683,20 @@ export const useSimStore = create<Store>((set, get) => {
   },
 
   unlaceWires: (ids) => {
-    if (isSimEditLocked(get())) return
+    if (get().demoMode || isSimEditLocked(get())) return
     const state = get()
     const target = ids?.length
       ? ids
       : (state.selectedWireIds.length ? state.selectedWireIds : (state.selectedWireId ? [state.selectedWireId] : []))
     if (!target.length) return
-    const bundleIds = new Set(state.wires.filter((w) => target.includes(w.id) && w.bundleId).map((w) => w.bundleId!))
+    const bundleIds = new Set(state.wires.filter((w) => !w.locked && target.includes(w.id) && w.bundleId).map((w) => w.bundleId!))
     if (!bundleIds.size) {
       state.pushEvent('info', 'Os cabos selecionados não estão filaçados.')
       return
     }
     state.commitHistory()
     set((s) => ({
-      wires: s.wires.map((w) => (w.bundleId && bundleIds.has(w.bundleId) ? { ...w, bundleId: undefined } : w)),
+      wires: s.wires.map((w) => (!w.locked && w.bundleId && bundleIds.has(w.bundleId) ? { ...w, bundleId: undefined } : w)),
       dirty: true,
     }))
     get().pushEvent('info', 'Chicote desfeito.')
@@ -2988,6 +2991,7 @@ export const useSimStore = create<Store>((set, get) => {
 
   updateWire: (id, patch) => {
     if (get().demoMode) return
+    if (get().wires.find(w => w.id === id)?.locked) return
     set((s) => {
       const updated = s.wires.map((w) => (w.id === id ? { ...w, ...patch } : w))
       const needsSync = 'fromTerminalId' in patch || 'toTerminalId' in patch
@@ -2997,6 +3001,10 @@ export const useSimStore = create<Store>((set, get) => {
 
   deleteWire: (id) => {
     if (get().demoMode) return
+    if (get().wires.find(w => w.id === id)?.locked) {
+      get().pushEvent('warning', 'Cabo bloqueado. Desbloqueie-o no Inspetor para o eliminar.')
+      return
+    }
     const run = get().sim.runState
     if (run === 'running' || run === 'paused') {
       get().pushEvent('warning', 'Não é possível apagar cabos enquanto a simulação está a correr ou em pausa.')
@@ -3019,56 +3027,36 @@ export const useSimStore = create<Store>((set, get) => {
     get().pushEvent('info', `Ligação inteligente: ${ids.length} bornes conectados em cadeia (${created.length} cabo(s)).`)
   },
 
+  setWiresLocked: (locked, ids) => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const target = new Set(state.wires.filter(w => (!ids || ids.includes(w.id)) && !!w.locked !== locked).map(w => w.id))
+    if (!target.size) return
+    state.commitHistory()
+    set({ wires: state.wires.map(w => target.has(w.id) ? { ...w, locked } : w), dirty: true })
+    state.pushEvent('info', `${target.size} cabo(s) ${locked ? 'bloqueados' : 'desbloqueados'}.`)
+  },
+
   organizeWires: (wireIds) => {
-    get().commitHistory()
-    const { components, wires } = get()
-    const posOf = (tid: string) => {
-      for (const c of components) {
-        const t = c.terminals.find((x) => x.id === tid)
-        if (t) return terminalPos(c, t)
-      }
-      return null
-    }
-    const target = wireIds && wireIds.length ? wires.filter((w) => wireIds.includes(w.id)) : wires
-    // agrupa cabos que compartilham o mesmo "canal" (mesma faixa horizontal/vertical
-    // aproximada entre os pontos médios) para distribuir a dobra e evitar sobreposição.
-    const groups = new Map<string, { id: string; horizontal: boolean }[]>()
-    for (const w of target) {
-      const a = posOf(w.fromTerminalId)
-      const b = posOf(w.toTerminalId)
-      if (!a || !b) continue
-      const dx = Math.abs(b.x - a.x)
-      const dy = Math.abs(b.y - a.y)
-      const horizontal = dx >= dy
-      const channel = horizontal ? Math.round((a.y + b.y) / 2 / 24) : Math.round((a.x + b.x) / 2 / 24)
-      const key = `${horizontal ? 'h' : 'v'}:${channel}`
-      const arr = groups.get(key) ?? []
-      arr.push({ id: w.id, horizontal })
-      groups.set(key, arr)
-    }
-    const patches: Record<string, Partial<Wire>> = {}
-    for (const arr of groups.values()) {
-      const n = arr.length
-      arr.forEach((entry, i) => {
-        // espalha as dobras entre 0.2 e 0.8 quando há mais de um cabo no mesmo canal,
-        // senão usa 0.5 (dobra central); mantém roteamento ortogonal/manhattan conforme
-        // a orientação predominante do cabo para evitar diagonais cruzadas.
-        const bend = n === 1 ? 0.5 : 0.2 + (0.6 * i) / (n - 1)
-        patches[entry.id] = { bend, route: entry.horizontal ? 'orthogonal' : 'manhattan', curveOffset: 0, waypoints: undefined }
-      })
-    }
-    set((s) => ({
-      wires: s.wires.map((w) => (patches[w.id] ? { ...w, ...patches[w.id] } : w)),
-      dirty: true,
-    }))
-    get().pushEvent('info', `Cabos organizados automaticamente (${Object.keys(patches).length}).`)
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const target = new Set(state.wires.filter(w => !w.locked && (!wireIds || wireIds.includes(w.id))).map(w => w.id))
+    if (!target.size) { state.pushEvent('info', 'Não há cabos desbloqueados para organizar.'); return }
+    const plans = planNativeWirePaths(state.components, state.wires)
+    state.commitHistory()
+    set({ wires: state.wires.map(w => target.has(w.id) ? {
+      ...w, route: plans.get(w.id)?.route ?? 'manhattan', bend: plans.get(w.id)?.bend ?? 0.5,
+      curveOffset: 0, waypoints: plans.get(w.id)?.waypoints, waypoints3D: undefined,
+    } : w), dirty: true })
+    state.pushEvent('info', `${target.size} cabo(s) organizados no Esquema e 3D. Cabos bloqueados mantidos · Ctrl+Z desfaz.`)
   },
 
   autoNumberWires: (mode = 'missing') => {
-    if (!get().wires.length) return
+    if (get().demoMode || isSimEditLocked(get()) || !get().wires.some(w => !w.locked && (mode === 'all' || !w.number))) return
     get().commitHistory()
     set((s) => {
       let n = 0
+      const reserved = new Set(s.wires.filter(w => w.locked).map(w => w.number))
       if (mode === 'missing') {
         const used = s.wires
           .map((w) => (w.number ? /^W(\d+)$/.exec(w.number) : null))
@@ -3078,8 +3066,8 @@ export const useSimStore = create<Store>((set, get) => {
       }
       return {
         wires: s.wires.map((w) => {
-          if (mode === 'missing' && w.number) return w
-          n += 1
+          if (w.locked || mode === 'missing' && w.number) return w
+          do { n += 1 } while (reserved.has(`W${n}`))
           return { ...w, number: `W${n}` }
         }),
         dirty: true,

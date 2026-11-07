@@ -2045,7 +2045,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
     const flowing = wireEnergyEffectVisible(runState, wire.energized)
     const wireColor = WIRE_3D_COLORS[wire.color]
-    const editing = selected && (editMode === 'navigate' || editMode === 'connect')
+    const editing = selected && !wire.locked && (editMode === 'navigate' || editMode === 'connect')
     const manual = wire.waypoints3D ?? []
     const chain = [from.position, ...manual.map(fromSpatial), to.position]
     const label = (side: 'from' | 'to') => {
@@ -2079,7 +2079,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
         onClick={(event) => { event.stopPropagation(); handlers.onSelectWire(wire.id) }}
         onDoubleClick={(event) => {
           event.stopPropagation()
-          if (simLocked || (editMode !== 'navigate' && editMode !== 'connect')) return
+          if (simLocked || wire.locked || (editMode !== 'navigate' && editMode !== 'connect')) return
           const hit: V3 = [event.point.x, event.point.y, event.point.z]
           const onCable = closestPointOnPolyline(points, hit)
           handlers.onInsertWaypoint(wire.id, waypointInsertIndex(chain, onCable), toSpatial(onCable))
@@ -3389,7 +3389,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   useEffect(() => {
     wireEditBaselineRef.current = selectedWire ? { id: selectedWire.id, wire: structuredClone(selectedWire) } : null
     setWireEditDirty(false)
-  }, [selectedWire?.id])
+    if (selectedWire?.locked) { setMoveAllWire(false); setActiveWaypointIndex(null); setActiveEnd(null); setReconnect(null) }
+  }, [selectedWire?.id, selectedWire?.locked])
   // A esfera contém os volumes reais, incluindo rotação/escala e seleção múltipla.
   const selectionBox = new THREE.Box3()
   for (const component of components.filter((item) => selectedIds.includes(item.id))) {

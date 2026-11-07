@@ -1320,9 +1320,20 @@ function buildMotorGlandBody3D(
 
   // Com pontos manuais, o cabo segue-os e, depois do último, vai à frente do bucim e entra
   // pelo furo: ligar um cabo ao motor passa sempre pelo bucim, desenhado à mão ou não.
+  const probeExterior = ctx.endType === 'probe' && !manual.length
+    ? (() => {
+      // Uma sonda é um cabo de ensaio entre o aparelho e o motor. Não pertence
+      // às calhas do quadro, mesmo quando o seu destino usa o mesmo bucim.
+      const reach = Math.max(0.35, v(panelHead).distanceTo(v(frontSweep)) * 0.42)
+      const entryAxis = v(glandOutside).sub(v(frontSweep)).normalize()
+      return new THREE.CubicBezierCurve3(
+        v(panelHead), v(panelHead).addScaledVector(v(panelAxis), reach),
+        v(frontSweep).addScaledVector(entryAxis, -reach), v(frontSweep),
+      ).getPoints(96).map(arr)
+    })() : undefined
   const outerControls: V3[] = manual.length
     ? [panelHead, ...manual, frontSweep]
-    : [
+    : probeExterior ?? [
       ...panelChain,
       [panelRightX, bottomDuctY, ductZ],
       [entryLeft[0], bottomDuctY, Math.max(ductZ, (ductZ + entryLeft[2]) * 0.5)],

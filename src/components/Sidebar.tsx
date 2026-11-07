@@ -33,7 +33,7 @@ import { isPanelAccessoryType } from '../three/enclosureParts'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 import TerminalStripControls from './TerminalStripControls'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
 import { WireOptionsFields } from '../ui/WireOptions'
 import { CABLE_PRESETS, applyCablePreset, matchCablePreset } from '../admin/editor3d/wireStyle'
 import { setWireActionSlot } from '../ui/wireActionSlot'
@@ -304,6 +304,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
+  const wireEditingStopped = useSimStore(s => s.sim.runState === 'stopped')
   const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
   const wireToTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.toTerminalId) : undefined
   const wireFromOwner = wireFromTerminal ? components.find((component) => component.id === wireFromTerminal.componentId) : undefined
@@ -320,10 +321,10 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   useEffect(() => {
     wireEditBaselineRef.current = selectedWire ? { id: selectedWire.id, wire: structuredClone(selectedWire) } : null
     setWireEditDirty(false)
-  }, [selectedWire?.id])
+  }, [selectedWire?.id, selectedWire?.locked])
 
   const patchSelectedWire = (patch: Partial<Wire>) => {
-    if (!selectedWire) return
+    if (!selectedWire || selectedWire.locked) return
     const store = useSimStore.getState()
     const ids = store.selectedWireIds?.length
       ? store.selectedWireIds
@@ -953,6 +954,17 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   {selectedWire.energized ? 'ENERGIZADO' : 'SEM TENSÃO'}
                 </span>
               </header>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Organização e bloqueio do cabo">
+                <button type="button" className="dc-btn" disabled={!!selectedWire.locked || !wireEditingStopped}
+                  title="Recalcula o percurso nas duas vistas; Ctrl+Z desfaz"
+                  onClick={() => useSimStore.getState().organizeWires([selectedWire.id])}>Organizar cabo</button>
+                <button type="button" className="dc-btn" aria-pressed={!!selectedWire.locked} disabled={!wireEditingStopped}
+                  onClick={() => useSimStore.getState().setWiresLocked(!selectedWire.locked, [selectedWire.id])}>
+                  {selectedWire.locked ? <IconUnlock size={12} /> : <IconLock size={12} />}{selectedWire.locked ? 'Desbloquear cabo' : 'Bloquear cabo'}
+                </button>
+              </div>
+              {selectedWire.locked && <p className="text-[10px] text-ink-500">Cabo bloqueado: edição e eliminação desativadas. As pontas acompanham os equipamentos.</p>}
+              <fieldset disabled={!!selectedWire.locked} className="space-y-2.5 min-w-0" style={{ border: 0, margin: 0, padding: 0 }}>
               <div className="dc-card p-2 space-y-1.5">
                 <label className={label + ' !mb-0'}>Chicote / filaçar</label>
                 <div className="flex flex-wrap gap-1">
@@ -1417,6 +1429,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <button className="dc-btn-danger dc-btn w-full" onClick={() => useSimStore.getState().deleteWire(selectedWire.id)}>
                 <IconDelete size={12} /> Eliminar cabo
               </button>
+              </fieldset>
             </section>
           )}
 

@@ -225,6 +225,28 @@ check('Bornes superiores de XG saem para cima sem dobrar pela frente do bloco', 
 const clampedManual = keepInFrontOfPlate([[0, 0, -0.5], [1, -1, -0.8], [2, 0, -0.4]], 3.2, true)
 check('Waypoints manuais também respeitam a face frontal da chapa', clampedManual.every((p) => p[2] > plateFront))
 const motorOrient = componentOrientationOf(motor)
+{
+  // Regressão da vista frontal: baixar o motor deixava as sondas dar a volta
+  // pela margem esquerda do quadro, como se fossem alimentadores na calha.
+  const movedMotor = { ...motor, schematicY: motor.schematicY + 330 }
+  const components = built.components.map(c => c.id === motor.id ? movedMotor : c)
+  const center = componentPanelXY(movedMotor)
+  const movedPivots = { ...pivots, [motor.id]: new THREE.Vector3(center.x, center.y, pivots[motor.id].z) }
+  const boxes = componentObstacles(components, movedPivots)
+  const paths = buildAllWirePaths3D(built.wires, components, movedPivots, boxes)
+  for (const lead of built.wires.filter(w => w.id.startsWith('native-meter-'))) {
+    const from = wireEndpoint3D(lead, 'from', components, movedPivots, built.wires)!
+    const to = wireEndpoint3D(lead, 'to', components, movedPivots, built.wires)!
+    for (const [name, path] of [['individual', buildWirePath3D(lead, from, to, boxes)], ['coordenado', paths.get(lead.id)!]] as const) {
+      const pts = path.points.map(p => new THREE.Vector3(...p))
+      const left = Math.min(from.position[0], to.position[0]) - 0.75
+      check(`${lead.number} ${name}: motor deslocado não leva sonda de volta ao quadro`, pts.every(p => p.x >= left))
+      const length = pts.slice(1).reduce((sum, p, i) => sum + p.distanceTo(pts[i]), 0)
+      check(`${lead.number} ${name}: percurso limitado à ligação aparelho–motor`, length < pts[0].distanceTo(pts.at(-1)!) * 3)
+      check(`${lead.number} ${name}: mantém entrada pelo bucim`, (path.motorRoute?.points.length ?? 0) > 20)
+    }
+  }
+}
 const nonMotorsFront = built.components
   .filter((c) => c.type !== 'motor3ph' && c.type !== 'motor1ph')
   .every((c) => {

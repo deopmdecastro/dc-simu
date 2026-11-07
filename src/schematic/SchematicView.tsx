@@ -1190,7 +1190,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const addPoint = (e: React.MouseEvent) => {
       // duplo clique no cabo = adiciona um ponto de curva arrastável
       e.stopPropagation()
-      if (simLocked) return
+      if (simLocked || w.locked) return
       const point = toCanvas(e.clientX, e.clientY)
       const p = { x: snap(point.x), y: snap(point.y) }
       commitHistory()
@@ -1279,12 +1279,13 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           }}
           onDoubleClick={addPoint}
         >
-          <title>{`Cabo ${w.number ?? ''} · ${w.gauge} · ${flexible ? 'flexível' : 'rígido'} · ${w.color} — clique = editar · duplo clique = adicionar ponto de curva`}</title>
+          <title>{`Cabo ${w.number ?? ''} · ${w.gauge} · ${flexible ? 'flexível' : 'rígido'} · ${w.color} — ${w.locked ? 'bloqueado · clique para consultar ou desbloquear' : 'clique = editar · duplo clique = adicionar ponto de curva'}`}</title>
         </path>
         <circle cx={a.x} cy={a.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
         <circle cx={b.x} cy={b.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
         {w.fromPoint && <WireNetFlag x={a.x} y={a.y} col={col} net={w.netFrom} selected={selected}
           onEdit={() => {
+            if (w.locked) return
             const name = window.prompt('Etiqueta de rede nesta ponta solta (ex.: L1, N, 24V). O mesmo nome noutra folha/página fica ligado a este ponto. Vazio remove.', w.netFrom ?? '')
             if (name === null) return
             commitHistory()
@@ -1292,13 +1293,14 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           }} />}
         {w.toPoint && <WireNetFlag x={b.x} y={b.y} col={col} net={w.netTo} selected={selected}
           onEdit={() => {
+            if (w.locked) return
             const name = window.prompt('Etiqueta de rede nesta ponta solta (ex.: L1, N, 24V). O mesmo nome noutra folha/página fica ligado a este ponto. Vazio remove.', w.netTo ?? '')
             if (name === null) return
             commitHistory()
             updateWire(w.id, { netTo: name.trim().toUpperCase() || undefined })
           }} />}
         {/* pontos de curva do cabo — visíveis quando selecionado */}
-        {selected &&
+        {selected && !w.locked &&
           (w.waypoints ?? []).map((wp, i) => (
             <circle
               key={`${w.id}-wp-${i}`}
@@ -1327,7 +1329,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               <title>Arraste para mover · duplo clique remove o ponto</title>
             </circle>
           ))}
-        {selected && handle && (
+        {selected && !w.locked && handle && (
           <circle
             cx={handle.x}
             cy={handle.y}
@@ -1710,7 +1712,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           {/* Arrastar uma ponta já ligada para outro borne mantém o mesmo cabo. */}
           {tool === 'select' && !simLocked && selectedWireId && (() => {
             const w = wires.find((item) => item.id === selectedWireId)
-            if (!w) return null
+            if (!w || w.locked) return null
             return (['from', 'to'] as const).map((side) => {
               const point = side === 'from' ? (w.fromPoint ?? terminalIndex.get(w.fromTerminalId)) : (w.toPoint ?? terminalIndex.get(w.toTerminalId))
               if (!point) return null

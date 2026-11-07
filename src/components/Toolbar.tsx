@@ -576,7 +576,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       ...ALIGN_BUTTONS.map(({ edge, icon: Icon, hint }) => ({ id: edge, label: hint, icon: <Icon size={15} />, disabled: sel < 2, disabledReason: 'Selecione pelo menos dois componentes', onSelect: () => alignSelection(edge) })),
       { id: 'distribute-h', label: 'Distribuir na horizontal', disabled: sel < 3, disabledReason: 'Selecione pelo menos três componentes', onSelect: () => distributeSelection('horizontal') },
       { id: 'distribute-v', label: 'Distribuir na vertical', disabled: sel < 3, disabledReason: 'Selecione pelo menos três componentes', onSelect: () => distributeSelection('vertical') },
-      { id: 'organize-wires', label: 'Organizar cabos', icon: <IconOrganize size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => organizeWires() },
+      { id: 'organize-wires', label: 'Organizar cabos', hint: 'Recalcula Esquema e 3D; mantém cabos bloqueados. Ctrl+Z desfaz', icon: <IconOrganize size={15} />, disabled: !wires.some(w => !w.locked) || plcRunState !== 'stopped', disabledReason: 'Pare a simulação e desbloqueie os cabos a organizar', onSelect: () => organizeWires() },
+      { id: 'lock-wires', label: wires.length && wires.every(w => w.locked) ? 'Desbloquear cabos' : 'Bloquear cabos', icon: <IconLock size={15} />, pressed: !!wires.length && wires.every(w => w.locked), disabled: !wires.length || plcRunState !== 'stopped', disabledReason: 'Pare a simulação e ligue os componentes', onSelect: () => useSimStore.getState().setWiresLocked(!wires.every(w => w.locked)) },
       { id: 'number-wires', label: 'Numerar cabos sem número', icon: <IconTag size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => autoNumberWires('missing') },
       { id: 'renumber-wires', label: 'Renumerar todos os cabos', icon: <IconTag size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => autoNumberWires('all') },
       { id: 'grid-drag', label: 'Arrastar malha', icon: <IconHand size={15} />, pressed: gridDragEnabled, onSelect: () => setGridDragEnabled(!gridDragEnabled) },
@@ -1033,8 +1034,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                       <IconDistV size={13} /> Distribuir na vertical <kbd>3+</kbd>
                     </button>
                     <div className="my-1 h-px bg-line-soft" />
-                    <button className="tb-menu-item" disabled={!wires.length} onClick={() => { organizeWires(); close() }}>
+                    <button className="tb-menu-item" disabled={!wires.some(w => !w.locked) || plcRunState !== 'stopped'} onClick={() => { organizeWires(); close() }}>
                       <IconOrganize size={13} /> Reorganizar roteamento dos cabos
+                    </button>
+                    <button className="tb-menu-item" disabled={!wires.length || plcRunState !== 'stopped'} onClick={() => { useSimStore.getState().setWiresLocked(!wires.every(w => w.locked)); close() }}>
+                      <IconLock size={13} /> {wires.length && wires.every(w => w.locked) ? 'Desbloquear cabos' : 'Bloquear cabos'}
                     </button>
                     <button className="tb-menu-item" disabled={!wires.length} onClick={() => { autoNumberWires('missing'); close() }}>
                       <IconTag size={13} /> Numerar cabos sem número

@@ -448,6 +448,8 @@ export interface WireDefaults {
 
 export interface Wire {
   id: string
+  /** Impede edição direta e eliminação do cabo; as pontas acompanham os componentes. */
+  locked?: boolean
   fromTerminalId: string
   toTerminalId: string
   /** Ponta livre desenhada no esquema (sem borne); não conduz corrente até ser ligada. */
