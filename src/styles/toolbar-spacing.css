@@ -488,7 +488,8 @@ html[data-tablet="true"] .dc-views-container .dc-view-label,
 html[data-tablet="true"] .dc-views-container [role="tab"] > span:not(.dc-diag-tag):not([class*="diag"]) { display: none !important; }
 html[data-tablet="true"] .dc-views-container > button[aria-pressed] {
   flex: none;
-  height: 38px;
+  height: auto;
+  min-height: 38px;
   min-width: 42px;
   justify-content: center;
   padding-inline: 10px;
@@ -507,3 +508,17 @@ html[data-tablet="true"] .dc-transport-tools { flex: none; }
 html[data-tablet="true"] .dc-transport-tools button > span[class*="lg:inline"],
 html[data-tablet="true"] .dc-transport-tools button > span[class*="sm:inline"] { display: none !important; }
 html[data-tablet="true"] .dc-transport-tools .dc-seg { padding: 4px; }
+
+/* ---------------------------------------------------------------------------
+   2026-11-07 — «Dois canvas» alinhado com o grupo das vistas
+   O grupo das vistas tem padding + borda (≈ 42 px; ≈ 50 px no tablet) e o botão tinha altura fixa
+   (30/38 px) num contentor sem align-items: ficava colado ao topo, mais baixo/curto que o grupo.
+   Agora o botão estica à altura do grupo (mesmo topo, mesma base) em PC e tablet.
+   Ver Task-2026-11-07-Dois-Canvas-Alinhamento no cofre.
+--------------------------------------------------------------------------- */
+.dc-views-container > .dc-split-toggle,
+.dc-views-container > [role="tablist"] + button[aria-pressed] {
+  align-self: stretch;
+  height: auto;
+  box-sizing: border-box;
+}
