@@ -535,7 +535,7 @@ function estampagem(): GrafcetExample {
 
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v22',
+    nativeId: 'grafcet-estampagem-industrial-v23',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (uma página por GRAFCET: controlo, emergência, automático, reset e manuais)',

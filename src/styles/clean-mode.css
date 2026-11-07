@@ -228,7 +228,7 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 .grafcet-simbar-buttons button.is-reset { color: #55627a; }
 .grafcet-simbar-buttons button:disabled { opacity: .38; cursor: not-allowed; transform: none; box-shadow: none; }
 .grafcet-simbar-opts { display: grid; grid-template-columns: 1fr 84px; gap: 8px; }
-.grafcet-simbar-opts .dc-select, .grafcet-simbar-opts select { width: 100%; min-height: 36px; border-radius: 9px; font-size: 12px; font-weight: 600; }
+.grafcet-simbar-opts .dc-select, .grafcet-simbar-opts .dcx-select { width: 100%; min-height: 36px; border-radius: 9px; font-size: 12px; font-weight: 600; }
 @media (max-width: 800px) {
   /* o botão flutuante sobre o diagrama sai: «Componentes» vive na barra de ferramentas */
   .grafcet-full .grafcet-toolbox-restore { display: none; }

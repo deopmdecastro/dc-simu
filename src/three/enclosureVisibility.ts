@@ -6,11 +6,20 @@ export const ENCLOSURE_FACES = [
   ['top', 'Topo'], ['bottom', 'Base'], ['back', 'Fundo'], ['plate', 'Chapa de montagem'],
 ] as const
 export type EnclosureFace = (typeof ENCLOSURE_FACES)[number][0]
+export const ENCLOSURE_EXTERIOR_FACES: readonly EnclosureFace[] = ['door', 'left', 'right', 'top', 'bottom']
 const faces = new Set<string>(ENCLOSURE_FACES.map(([face]) => face))
 
 export function hiddenEnclosureFaces(state: Record<string, unknown>): EnclosureFace[] {
   return Array.isArray(state.editorHiddenFaces)
     ? [...new Set(state.editorHiddenFaces.filter((face): face is EnclosureFace => typeof face === 'string' && faces.has(face)))] : []
+}
+
+export function toggleEnclosureExteriorVisibility(state: Record<string, unknown>): EnclosureFace[] {
+  const hidden = hiddenEnclosureFaces(state)
+  const allExteriorHidden = ENCLOSURE_EXTERIOR_FACES.every(face => hidden.includes(face))
+  return allExteriorHidden
+    ? hidden.filter(face => !ENCLOSURE_EXTERIOR_FACES.includes(face))
+    : [...hidden, ...ENCLOSURE_EXTERIOR_FACES.filter(face => !hidden.includes(face))]
 }
 
 export const enclosureFaceVisible = (state: Record<string, unknown>, face: EnclosureFace): boolean => !hiddenEnclosureFaces(state).includes(face)

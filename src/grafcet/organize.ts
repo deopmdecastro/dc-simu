@@ -9,9 +9,11 @@ export function organizeGrafcetPage(program: GrafcetProgram, chartId = program.a
   const pageSteps = program.steps.filter(here).map(s => {
     if (!classic) return s
     const actions = s.actions?.map(({ x, y, dx, dy, afterActionId, ...action }) => {
+      const conditional = action.type === 'conditional' || !!action.condition && action.condition !== '1'
+      const conditionWidth = conditional ? action.condition.length * 7 + 34 : 190
       return {
         ...action,
-        w: Math.min(360, Math.max(190, (action.displayDescription ? action.description || action.variable || action.address : action.variable || action.address).length * 7 + 64)),
+        w: Math.min(360, Math.max(conditionWidth, (action.displayDescription ? action.description || action.variable || action.address : action.variable || action.address).length * 7 + 64)),
         h: 34,
       }
     })
@@ -26,7 +28,7 @@ export function organizeGrafcetPage(program: GrafcetProgram, chartId = program.a
       const column = columns.get(key) ?? 0
       columns.set(key, column + 1)
       return {
-        ...action, w: width, dx: 48 + column * (width + 24), dy: (conditional ? 48 : 7) + row * 88,
+        ...action, w: width, dx: 48 + column * (width + 24), dy: (conditional ? 80 : 7) + row * 112,
       }
     })
     // Caixas compactas e alinhadas; os campos de execução das ações ficam intactos.

@@ -31,6 +31,7 @@ type SelectProps = {
   name?: string
   required?: boolean
   autoFocus?: boolean
+  resetOnSelect?: boolean
   'aria-label'?: string
 }
 
@@ -53,7 +54,7 @@ function collect(children: ReactNode, group: string | undefined, out: Item[]) {
   })
 }
 
-export default function Select({ value, defaultValue, onChange, children, className = '', style, disabled = false, title, id, name, autoFocus, ...rest }: SelectProps) {
+export default function Select({ value, defaultValue, onChange, children, className = '', style, disabled = false, title, id, name, required, autoFocus, resetOnSelect = false, ...rest }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [internal, setInternal] = useState(String(defaultValue ?? ''))
   const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
@@ -102,7 +103,7 @@ export default function Select({ value, defaultValue, onChange, children, classN
 
   const pick = (item: Item) => {
     if (item.disabled) return
-    if (value === undefined) setInternal(item.value)
+    if (value === undefined) setInternal(resetOnSelect ? String(defaultValue ?? '') : item.value)
     setOpen(false)
     onChange?.({ target: { value: item.value }, currentTarget: { value: item.value } })
   }
@@ -118,6 +119,7 @@ export default function Select({ value, defaultValue, onChange, children, classN
         name={name}
         disabled={disabled}
         autoFocus={autoFocus}
+        aria-required={required || undefined}
         title={title}
         aria-label={rest['aria-label']}
         aria-haspopup="listbox"

@@ -1,6 +1,7 @@
 import { useSimStore } from '../store/useSimStore'
 import { BREAK_MODE_LABEL, formatTraceValue, type LadderBreakMode } from './ladderDebug'
 import type { LadderRung } from '../types'
+import Select from '../ui/Select'
 
 /**
  * Separador «Depuração» do Ladder (LADDER-SIM-02): passo a passo por ciclo de scan,
@@ -54,9 +55,9 @@ export default function LadderDebugPanel({ rungs }: { rungs: LadderRung[] }) {
           {bpList.length ? bpList.map(([id, mode]) => (
             <div className="ladder-debug-bp" key={id}>
               <button type="button" className="ladder-debug-link" onClick={() => document.getElementById(`rung-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>{nameOf(id)}</button>
-              <select aria-label={`Condição do ponto de paragem da ${nameOf(id)}`} value={mode} onChange={(e) => setBreakpoint(id, e.target.value as LadderBreakMode)}>
+              <Select className="ladder-debug-select" aria-label={`Condição do ponto de paragem da ${nameOf(id)}`} value={mode} onChange={(e) => setBreakpoint(id, e.target.value as LadderBreakMode)}>
                 {(Object.keys(BREAK_MODE_LABEL) as LadderBreakMode[]).map((m) => <option key={m} value={m}>{BREAK_MODE_LABEL[m]}</option>)}
-              </select>
+              </Select>
               <button type="button" className="ladder-debug-link is-danger" onClick={() => setBreakpoint(id, null)} aria-label={`Remover o ponto de paragem da ${nameOf(id)}`}>×</button>
             </div>
           )) : <span className="ladder-status-empty">Sem pontos de paragem. Use o botão ● no cabeçalho de uma network.</span>}

@@ -5,6 +5,7 @@ import { accountApi, activeAccountBackend } from '../auth/accountApi'
 import AccountPlanCard from '../saas/AccountPlanCard'
 import ChangePasswordModal from './ChangePasswordModal'
 import { IconArrowLeft, IconCamera, IconCard, IconDelete, IconIdCard, IconKey, IconMail, IconShield } from '../ui/icons'
+import Select from '../ui/Select'
 
 type Notice = { kind: 'ok' | 'error'; text: string }
 
@@ -152,12 +153,12 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
           <small className="acp-hint">Usado na esquadria dos PDFs («Função»).</small>
         </label>
         <label className="acp-field"><span>Tipo de instituição</span>
-          <select className="dx-input" value={institutionKind} onChange={(event) => setInstitutionKind(event.target.value as 'school' | 'work' | 'own' | '')}>
+          <Select className="dx-input" value={institutionKind} onChange={(event) => setInstitutionKind(event.target.value as 'school' | 'work' | 'own' | '')}>
             <option value="">— escolher —</option>
             <option value="school">Escola</option>
             <option value="work">Trabalho</option>
             <option value="own">Projeto próprio</option>
-          </select>
+          </Select>
         </label>
         <label className="acp-field"><span>Instituição</span>
           <input className="dx-input" type="text" value={institution} maxLength={120} placeholder="Nome da escola, empresa ou projeto" onChange={(event) => setInstitution(event.target.value)} />

@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { createComponent } from '../src/electrical/factory'
 import { useSimStore } from '../src/store/useSimStore'
 import { buildEnclosure } from '../src/three/enclosureParts'
-import { ENCLOSURE_FACES, applyEnclosureVisibility, hiddenEnclosureFaces } from '../src/three/enclosureVisibility'
+import { ENCLOSURE_EXTERIOR_FACES, ENCLOSURE_FACES, applyEnclosureVisibility, hiddenEnclosureFaces, toggleEnclosureExteriorVisibility } from '../src/three/enclosureVisibility'
 import { componentObstacles } from '../src/three/wireGeometry3D'
 import { mergeStaticMeshes } from '../src/three/staticMerge'
 
@@ -41,6 +41,13 @@ for(const root of [parts.body,parts.door]) root.traverse(node=>{
 assert.ok(doorHits()>0)
 assert.deepEqual(hiddenEnclosureFaces({editorHiddenFaces:['door','door','invalid',7]}),['door'])
 
+const initiallyHidden={editorHiddenFaces:['back','plate']}
+assert.deepEqual(ENCLOSURE_EXTERIOR_FACES,['door','left','right','top','bottom'],'atalho abrange apenas as faces exteriores frontais')
+const exteriorHidden=toggleEnclosureExteriorVisibility(initiallyHidden)
+assert.deepEqual(exteriorHidden,['back','plate',...ENCLOSURE_EXTERIOR_FACES],'ocultar exteriores mantém as escolhas das faces traseiras')
+assert.deepEqual(toggleEnclosureExteriorVisibility({editorHiddenFaces:exteriorHidden}),['back','plate'],'restaurar exteriores não reexibe faces ocultas individualmente')
+assert.deepEqual(toggleEnclosureExteriorVisibility({editorHiddenFaces:['door','back']}),['door','back','left','right','top','bottom'],'ocultar conclui a lista-alvo sem alterar outras escolhas')
+
 const enclosure=createComponent('panelEnclosure','QE1',undefined,0,0,0)
 enclosure.state.doorOpen=false
 useSimStore.getState().loadJSON(JSON.stringify({app:'dc-simu',version:6,projectKind:'all',components:[enclosure],wires:[]}))
@@ -56,4 +63,4 @@ const pivot={ [enclosure.id]:new THREE.Vector3(0,0,1) }
 const shown=componentObstacles([{...enclosure,state:{...enclosure.state,editorHiddenFaces:[]}}],pivot)
 const hidden=componentObstacles([{...enclosure,state:{...enclosure.state,editorHiddenFaces:['door','left','top']}}],pivot)
 assert.deepEqual(hidden.map(b=>[b.min.toArray(),b.max.toArray()]),shown.map(b=>[b.min.toArray(),b.max.toArray()]),'ocultar chapas não muda obstáculos físicos nem permite cabos pela parede')
-console.log('PASS — olhos do quadro: faces independentes, cliques, restaurar, desfazer/refazer, persistência e física preservada')
+console.log('PASS — visibilidade do quadro: faces independentes, atalho de exteriores, cliques, desfazer/refazer, persistência e física preservada')

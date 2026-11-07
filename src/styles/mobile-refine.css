@@ -400,6 +400,7 @@
     border-radius: 10px;
   }
   .grafcet-simbar-opts .dc-select,
+  .grafcet-simbar-opts .dcx-select,
   .schematic-sim-dock .dc-select {
     min-height: 40px;
     font-size: 13px;

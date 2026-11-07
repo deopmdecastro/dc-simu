@@ -47,12 +47,12 @@
 .panel3d-edit-context strong { color:#1e3a8a; font-size:9px; }
 .panel3d-edit-context span { font-size:9px; }
 .panel3d-edit-context button,
-.panel3d-edit-context select { flex:0 0 auto; min-height:24px; padding:2px 7px; border:1px solid var(--dx-line-strong); border-radius:5px; color:#40516a; background:#fff; font:700 8px var(--dx-font,ui-sans-serif,sans-serif); }
+.panel3d-edit-context .dcx-select { flex:0 0 auto; min-height:24px; padding:2px 7px; border-color:var(--dx-line-strong); border-radius:5px; color:#40516a; background:#fff; font:700 8px var(--dx-font,ui-sans-serif,sans-serif); }
 .panel3d-edit-context button:hover:not(:disabled) { border-color:#7da2f5; color:#1d4ed8; background:var(--dx-brand-soft); }
 .panel3d-edit-context button:disabled { opacity:.45; }
 .panel3d-edit-context button.is-danger { color:#b91c1c; }
 .panel3d-edit-context label { display:flex; align-items:center; gap:4px; color:#718096; font-size:8px; }
-.panel3d-edit-context label select { max-width:88px; }
+.panel3d-edit-context label .dcx-select { max-width:88px; }
 .panel3d-model-badge { position:absolute; z-index:11; top:12px; left:12px; display:flex; max-width:260px; flex-direction:column; gap:1px; padding:7px 10px; border:1px solid var(--dx-line-strong); border-radius:8px; color:#334155; background:#fffffff0; box-shadow:0 4px 14px #243b6320; backdrop-filter:blur(8px); pointer-events:none; }
 .panel3d-model-badge span { display:flex; align-items:center; gap:5px; color:var(--dx-ink-3); font:800 7px ui-monospace,monospace; letter-spacing:.08em; }
 .panel3d-model-badge span i { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px #dcfce7; }

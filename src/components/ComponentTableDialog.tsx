@@ -10,6 +10,7 @@ import {
   parseComponentSheets, planComponentRows, reduceToChanges, type ComponentRow, type ParsedComponentRow,
 } from '../excel/componentSheet'
 import type { ImportIssue, RawSheet } from '../excel/sheetIO'
+import Select from '../ui/Select'
 
 type DraftRow = ComponentRow & { key: string; fromProject: boolean }
 
@@ -101,15 +102,15 @@ export default function ComponentTableDialog({ onClose }: { onClose: () => void 
                     <tr key={row.key} className={invalid ? 'is-invalid' : row.fromProject ? undefined : 'is-new'}>
                       <td><input className="dc-input is-ref" value={row.ref} onChange={(event) => patch(row.key, { ref: event.target.value })} placeholder="auto" aria-label={`Ref da linha ${index + 1}`} /></td>
                       <td>{row.fromProject ? <span title={row.type}>{componentTypeName(row.type)}</span> : (
-                        <select className="dc-input" value={row.type} onChange={(event) => patch(row.key, { type: event.target.value as ComponentRow['type'] })} aria-label={`Tipo da linha ${index + 1}`}>
+                        <Select className="dc-input" value={row.type} onChange={(event) => patch(row.key, { type: event.target.value as ComponentRow['type'] })} aria-label={`Tipo da linha ${index + 1}`}>
                           <option value="">Escolha o tipo…</option>
                           {groups.map((group) => <optgroup key={group} label={group}>{typeOptions.filter((option) => option.group === group).map((option) => <option key={option.type} value={option.type}>{option.name}</option>)}</optgroup>)}
-                        </select>
+                        </Select>
                       )}</td>
                       <td><input className="dc-input" value={row.label} onChange={(event) => patch(row.key, { label: event.target.value })} aria-label={`Nome da linha ${index + 1}`} /></td>
                       <td><input className="dc-input is-num" inputMode="decimal" value={row.xMm ?? ''} onChange={(event) => patch(row.key, { xMm: numberValue(event.target.value) })} aria-label={`X da linha ${index + 1}`} placeholder="livre" /></td>
                       <td><input className="dc-input is-num" inputMode="decimal" value={row.yMm ?? ''} onChange={(event) => patch(row.key, { yMm: numberValue(event.target.value) })} aria-label={`Y da linha ${index + 1}`} placeholder="livre" /></td>
-                      <td><select className="dc-input is-narrow" value={row.rotation ?? 0} onChange={(event) => patch(row.key, { rotation: Number(event.target.value) })} aria-label={`Rotação da linha ${index + 1}`}>{ROTATIONS.map((angle) => <option key={angle} value={angle}>{angle}°</option>)}</select></td>
+                      <td><Select className="dc-input is-narrow" value={row.rotation ?? 0} onChange={(event) => patch(row.key, { rotation: Number(event.target.value) })} aria-label={`Rotação da linha ${index + 1}`}>{ROTATIONS.map((angle) => <option key={angle} value={angle}>{angle}°</option>)}</Select></td>
                       <td className="text-center"><input type="checkbox" checked={!!row.mirrored} onChange={(event) => patch(row.key, { mirrored: event.target.checked })} aria-label={`Espelhado, linha ${index + 1}`} /></td>
                       <td className="text-center"><input type="checkbox" checked={!!row.locked} onChange={(event) => patch(row.key, { locked: event.target.checked })} aria-label={`Bloqueado, linha ${index + 1}`} /></td>
                       <td><input className="dc-input is-ref" list="component-table-rails" value={row.rail} onChange={(event) => patch(row.key, { rail: event.target.value })} aria-label={`Calha da linha ${index + 1}`} /></td>

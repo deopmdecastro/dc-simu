@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { fitDuctResize, fitDuctSideResize } from '../schematic/ductResize'
 import type { DuctSlot } from '../schematic/ductPlacement'
-import { ENCLOSURE_FACES, hiddenEnclosureFaces } from '../three/enclosureVisibility'
+import { ENCLOSURE_EXTERIOR_FACES, ENCLOSURE_FACES, hiddenEnclosureFaces, toggleEnclosureExteriorVisibility } from '../three/enclosureVisibility'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
 import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileIdOf, dinRailProfileOf } from '../three/dinRailGeometry'
 import { CABLE_DUCT_DEFAULT_COLOR, ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
+import Select from '../ui/Select'
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -157,6 +158,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
   const hinge = enclosureHingeOf(c.state)
   const open = c.state.doorOpen !== false
   const hiddenFaces = hiddenEnclosureFaces(c.state)
+  const exteriorHidden = ENCLOSURE_EXTERIOR_FACES.every(face => hiddenFaces.includes(face))
   const set = (patch: Record<string, unknown>) => useSimStore.getState().setComponentState(c.id, patch)
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : ENCLOSURE_DEFAULT_COLOR
   const components = useSimStore((s) => s.components)
@@ -211,6 +213,10 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
 
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2" data-enclosure-visibility>
       <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Visibilidade para edição 3D</div>
+      <button type="button" aria-pressed={exteriorHidden} title="Oculta ou mostra a porta, laterais, topo e base; preserva o fundo e a chapa de montagem" className="dc-btn w-full justify-center border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => set({ editorHiddenFaces: toggleEnclosureExteriorVisibility(c.state) })}>
+        {exteriorHidden ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+        {exteriorHidden ? 'Mostrar exteriores' : 'Ocultar exteriores'}
+      </button>
       <div className="grid grid-cols-2 gap-1.5">
         {ENCLOSURE_FACES.map(([face, label]) => {
           const visible = !hiddenFaces.includes(face)
@@ -226,7 +232,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         {hiddenFaces.length === ENCLOSURE_FACES.length ? <IconEye size={14} /> : <IconEyeOff size={14} />}
         {hiddenFaces.length === ENCLOSURE_FACES.length ? 'Mostrar todas as chapas' : 'Ocultar todas as chapas'}
       </button>
-      <p className="text-[11px] text-slate-400 leading-snug">Os olhos ocultam só as chapas. Aparelhos, cabos e ligações permanecem no sítio; abrir a porta é uma ação separada.</p>
+      <p className="text-[11px] text-slate-400 leading-snug">O atalho oculta a porta, laterais, topo e base, mantendo o fundo e a chapa de montagem. Aparelhos, cabos e ligações permanecem no sítio; abrir a porta é uma ação separada.</p>
     </div>
 
     {/* Medidas — prática */}
@@ -245,7 +251,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         <span className="text-slate-600">Dobradiças</span>
         <div className="dc-acc-seg ml-auto" role="group"><button type="button" aria-pressed={hinge==='left'} className={hinge==='left'?'is-on':''} onClick={()=> set({hingeSide:'left'})}>Esq.</button><button type="button" aria-pressed={hinge==='right'} className={hinge==='right'?'is-on':''} onClick={()=> set({hingeSide:'right'})}>Dir.</button></div>
         <span className="text-slate-600 ml-2">Chapa</span>
-        <select className="dc-input h-7 text-xs" value={typeof c.state.plateFinish==='string'?c.state.plateFinish:'Aço galvanizado'} onChange={(e)=> set({plateFinish:e.target.value})}>{ENCLOSURE_PLATE_FINISH_IDS.map(id=> <option key={id} value={id}>{id}</option>)}</select>
+        <Select className="dc-input h-7 text-xs" aria-label="Acabamento da chapa" value={typeof c.state.plateFinish==='string'?c.state.plateFinish:'Aço galvanizado'} onChange={(e)=> set({plateFinish:e.target.value})}>{ENCLOSURE_PLATE_FINISH_IDS.map(id=> <option key={id} value={id}>{id}</option>)}</Select>
       </div>
       <div className="flex items-center gap-2"><span className="text-xs text-slate-600">Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(v)=> useSimStore.getState().updateComponent(c.id,{bodyColor:v})} /></div>
     </div>
@@ -309,12 +315,12 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
             <div className="text-xs font-medium">{h.face} • Ø{h.diameterMm}mm <span className="text-[10px] text-slate-500">({h.offsetXmm},{h.offsetYmm})</span></div>
             <div className="text-[10px] text-slate-500">{h.glandType ? `Bucim ${h.glandType}` : (h as any).occupiedBy ? `Aparelho ${(h as any).occupiedBy.slice(0,6)}` : 'vazio — escolha bucim ou aparelho'}</div>
           </div>
-          <select className="dc-input h-7 text-xs w-24" value={(h as any).glandType ?? ''} onChange={(e)=> useSimStore.getState().updatePanelHole(c.id, h.id, { glandType: e.target.value as any })}>
+          <Select className="dc-input h-7 text-xs w-24" aria-label={`Bucim do furo ${h.id}`} value={(h as any).glandType ?? ''} onChange={(e)=> useSimStore.getState().updatePanelHole(c.id, h.id, { glandType: e.target.value as any })}>
             <option value="">— bucim —</option><option value="M16">M16</option><option value="M20">M20</option><option value="M25">M25</option><option value="M32">M32</option><option value="M40">M40</option><option value="none">sem bucim</option>
-          </select>
-          <select className="dc-input h-7 text-xs w-28" defaultValue="" onChange={(e)=> { const v=e.target.value; if(!v) return; const nid = useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm); if(nid) useSimStore.getState().updatePanelHole(c.id, h.id, { occupiedBy: nid }); e.target.value='' }}>
+          </Select>
+          <Select className="dc-input h-7 text-xs w-28" aria-label={`Adicionar aparelho ao furo ${h.id}`} defaultValue="" resetOnSelect onChange={(e)=> { const v=e.target.value; if(!v) return; const nid = useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm); if(nid) useSimStore.getState().updatePanelHole(c.id, h.id, { occupiedBy: nid }) }}>
             <option value="">＋ aparelho</option><option value="buttonNO">Botão NA</option><option value="buttonNC">Botão NF</option><option value="selector2">Chave 2 pos</option><option value="pilotLightAd22">Luz piloto</option><option value="emergencyButton">Emergência</option>
-          </select>
+          </Select>
           <button type="button" className="dc-btn text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)} aria-label="Remover furo"><IconClose size={12} /></button>
         </div>)}
       </div>}
@@ -381,17 +387,17 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
       <DuctSideBar c={c} side="right" lengthMm={d.lengthMm} />
       <div className="dc-acc-measure">
         <div className="dc-acc-measure-head"><span>Largura <small>(pegada)</small></span>
-          <select className="dc-input dc-acc-select" aria-label="Largura (mm)" value={d.widthMm} onChange={(e) => resizeDuct(c, d.lengthMm, Number(e.target.value), {})}>
+          <Select className="dc-input dc-acc-select" aria-label="Largura (mm)" value={d.widthMm} onChange={(e) => resizeDuct(c, d.lengthMm, Number(e.target.value), {})}>
             {[...new Set([...CABLE_DUCT.widthsMm, d.widthMm])].sort((x, y) => x - y).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
-          </select>
+          </Select>
         </div>
       </div>
       <div className="dc-acc-measure">
         <div className="dc-acc-measure-head"><span>Altura <small>(parede Z)</small></span>
           <span className="dc-acc-unit">
-            <select className="dc-input dc-acc-select" aria-label="Altura (mm)" value={d.heightMm} onChange={(e) => setHeight(Number(e.target.value))}>
+            <Select className="dc-input dc-acc-select" aria-label="Altura (mm)" value={d.heightMm} onChange={(e) => setHeight(Number(e.target.value))}>
               {[...new Set([...CABLE_DUCT.heightsMm, d.heightMm])].sort((x, y) => x - y).map((mm) => <option key={mm} value={mm}>{mm} mm</option>)}
-            </select>
+            </Select>
           </span>
         </div>
         <input type="range" min={15} max={150} step={5} value={d.heightMm} aria-label="Altura" onChange={(e) => useSimStore.getState().setComponentState(c.id, { heightMm: Number(e.target.value) })} />
@@ -464,9 +470,9 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
       </div>
     </div>
     <label className="dc-acc-row"><span>Acabamento</span>
-      <select className="dc-input" value={finish} onChange={(e) => useSimStore.getState().setComponentState(c.id, { finish: e.target.value })}>
+      <Select className="dc-input" aria-label="Acabamento da calha DIN" value={finish} onChange={(e) => useSimStore.getState().setComponentState(c.id, { finish: e.target.value })}>
         {DIN_RAIL_FINISH_IDS.map((id) => <option key={id} value={id}>{id}</option>)}
-      </select>
+      </Select>
     </label>
     <label className="dc-acc-row"><span>Perfurada</span>
       <input type="checkbox" checked={c.state.perforated !== false} onChange={(e) => useSimStore.getState().setComponentState(c.id, { perforated: e.target.checked })} />

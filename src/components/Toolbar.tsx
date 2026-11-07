@@ -756,7 +756,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button
               type="button"
               onClick={() => (splitEnabled ? disableSplit() : openSplitDialog())}
-              className={`ml-1.5 inline-flex items-center gap-1.5 h-[34px] px-2.5 rounded-lg border text-xs font-semibold transition-all ${
+              className={`ml-1.5 inline-flex items-center gap-1.5 h-[30px] px-2.5 rounded-lg border text-xs font-semibold transition-all ${
                 splitEnabled
                   ? 'border-brand-600 bg-brand-600 text-white shadow-md'
                   : 'border-line bg-surface-sunken text-ink-600 hover:text-ink-900 hover:bg-white'

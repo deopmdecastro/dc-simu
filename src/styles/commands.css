@@ -445,7 +445,7 @@
 .dc-cmd-link-dot.is-out { background: #2563eb; }
 .dc-cmd-link-dot.is-in { background: #16a34a; }
 .dc-cmd-link-create .grafcet-var-row { display: flex; gap: 6px; }
-.dc-cmd-link-create select { flex: 1; min-width: 0; }
+.dc-cmd-link-create .dcx-select { flex: 1; min-width: 0; }
 .dc-cmd-link-create .dc-btn { flex: none; white-space: nowrap; }
 .dc-cmd-link-preview svg { width: 100%; height: auto; }
 .dc-cmd-link-sheet { fill: #fff; stroke: #cbd5e1; stroke-width: 1.2; }

@@ -160,10 +160,12 @@ const exported = JSON.parse(readFileSync('examples/grafcet-estampagem-industrial
       return { x: a.dx!, y: a.dy! - (conditional ? 48 : 0), w: Math.max(a.w!, 22 + a.condition.length * 6.5), h: a.h! + (conditional ? 48 : 0) }
     })
     ok(extents.every((a, index) => extents.slice(index + 1).every(b => a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y)), `${s.chart} · ${s.name}: ações condicionais organizadas sem sobreposição`)
+    ok(s.actions!.filter(a => a.type === 'conditional' || a.condition !== '1').every(a => a.w! >= a.condition.length * 7 + 34), `${s.chart} · ${s.name}: largura das caixas acomoda as receptividades`)
+    ok(!s.description || s.actions!.filter(a => a.type === 'conditional' || a.condition !== '1').every(a => a.dy! >= 80), `${s.chart} · ${s.name}: receptividades afastadas da legenda da etapa`)
   }
   const rampReset = allClassic.steps.find(s => s.id === 'est-s81')!
   const resetGroups = [...new Set(rampReset.actions!.map(a => a.condition))].map(condition => rampReset.actions!.filter(a => a.condition === condition))
-  ok(resetGroups.length === 3 && resetGroups.every(group => group.length === 2 && group[0].dy === group[1].dy && group[0].dx! < group[1].dx!) && new Set(resetGroups.map(group => group[0].dy)).size === 3, 'G16 agrupa lado a lado as duas ações de cada rampa e separa as três condições')
+  ok(resetGroups.length === 3 && resetGroups.every(group => group.length === 2 && group[0].dy === group[1].dy && group[0].dx! < group[1].dx!) && new Set(resetGroups.map(group => group[0].dy)).size === 3 && resetGroups.map(group => group[0].dy).every((dy, index, rows) => !index || dy! - rows[index - 1]! >= 104), 'G16 agrupa lado a lado as duas ações de cada rampa e separa as três condições')
   useSimStore.setState({ grafcet: before, history: [], future: [], demoMode: false })
   useSimStore.getState().setGrafcet(next, 'force', 'grafcet:organize')
   useSimStore.getState().undo()

@@ -652,7 +652,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 return <div className="dc-rail-length">
                   <label className={label}>Dentro do quadro</label>
                   <div className="flex flex-wrap items-center gap-1">
-                    <select
+                    <Select
                       className="dc-input"
                       value={selectedComponent.enclosureId ?? ''}
                       onChange={(e) => {
@@ -668,7 +668,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     >
                       <option value="">— nenhum —</option>
                       {enclosures.map((enc) => <option key={enc.id} value={enc.id}>{enc.ref || enc.label || enc.id}</option>)}
-                    </select>
+                    </Select>
                     {parent && <button className="dc-btn" onClick={() => useSimStore.getState().detachFromEnclosure([selectedComponent.id])}>Soltar</button>}
                   </div>
                   <small className="text-ink-400">{parent ? `Acompanha o quadro ${parent.ref} ao mover.` : 'Não está associado a nenhum quadro.'}</small>
@@ -686,17 +686,17 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 return <div className="dc-rail-length">
                   <label className={label}>Na face do quadro (visível fora)</label>
                   <div className="flex flex-wrap items-center gap-1">
-                    <select className="dc-input" value={pm?.enclosureId ?? ''} onChange={(e)=>{
+                    <Select className="dc-input" value={pm?.enclosureId ?? ''} onChange={(e)=>{
                       const id=e.target.value
                       if(!id) useSimStore.getState().unmountFromPanel([selectedComponent.id])
                       else useSimStore.getState().mountOnPanel([selectedComponent.id], id, pm?.face ?? 'door')
                     }}>
                       <option value="">— nenhum —</option>
                       {enclosures.map((enc)=><option key={enc.id} value={enc.id}>{enc.ref || enc.label || enc.id}</option>)}
-                    </select>
-                    {pm && <select className="dc-input" value={pm.face} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {face: e.target.value as import('../types').EnclosureFace})}>
+                    </Select>
+                    {pm && <Select className="dc-input" value={pm.face} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {face: e.target.value as import('../types').EnclosureFace})}>
                       {faces.map((f)=><option key={f.id} value={f.id}>{f.label}</option>)}
-                    </select>}
+                    </Select>}
                     {pm && <button className="dc-btn" onClick={()=> useSimStore.getState().unmountFromPanel([selectedComponent.id])}>Soltar face</button>}
                   </div>
                   {pm && <div className="flex flex-wrap items-center gap-1 mt-1">
@@ -730,17 +730,17 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 {(selectedComponent.decals ?? []).map((d)=>(
                   <div key={d.id} className="rounded border border-line p-1.5 space-y-1 bg-slate-50/50">
                     <div className="flex items-center gap-1">
-                      <select className="dc-input w-20" value={d.kind} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {kind: e.target.value as any})}>
+                      <Select className="dc-input w-20" value={d.kind} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {kind: e.target.value as any})}>
                         <option value="text">Texto</option><option value="warning">Aviso</option><option value="symbol">Símbolo</option><option value="logo">Logo</option>
-                      </select>
+                      </Select>
                       <input className="dc-input flex-1" value={d.text ?? ''} placeholder="Texto" onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {text:e.target.value})} />
                       <button type="button" className="dc-btn text-red-600" onClick={()=> useSimStore.getState().removeDecal(selectedComponent.id, d.id)}>×</button>
                     </div>
                     <div className="flex flex-wrap items-center gap-1 text-[11px]">
                       <span>Ícone</span>
-                      <select className="dc-input w-20" value={d.icon ?? ''} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {icon: e.target.value || undefined})}>
+                      <Select className="dc-input w-20" value={d.icon ?? ''} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {icon: e.target.value || undefined})}>
                         <option value="">—</option><option value="bolt">⚡ raio</option><option value="danger">☠ perigo</option><option value="ce">CE</option><option value="wago">WAGO</option><option value="siemens">Siemens</option>
-                      </select>
+                      </Select>
                       <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.background ?? '#facc15'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {background:e.target.value})} title="Fundo" />
                       <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.color ?? '#0f172a'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {color:e.target.value})} title="Texto" />
                       <label className="flex items-center gap-1">L <input type="number" className="dc-input w-12" min={6} max={120} step={2} value={d.widthMm ?? 30} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {widthMm: Number(e.target.value)})} /></label>
@@ -750,9 +750,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                       <label className="flex items-center gap-1">X <input type="number" className="dc-input w-14" step={2} value={d.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetXmm: Number(e.target.value)})} /></label>
                       <label className="flex items-center gap-1">Y <input type="number" className="dc-input w-14" step={2} value={d.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetYmm: Number(e.target.value)})} /></label>
                       <label className="flex items-center gap-1">↻ <input type="number" className="dc-input w-12" step={15} value={d.rotationDeg ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {rotationDeg: Number(e.target.value)})} /></label>
-                      <select className="dc-input w-20" value={d.face ?? 'front'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {face: e.target.value as any})}>
+                      <Select className="dc-input w-20" value={d.face ?? 'front'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {face: e.target.value as any})}>
                         <option value="front">Frente</option><option value="door">Porta</option><option value="inside">Interior</option><option value="left">Esq.</option><option value="right">Dir.</option><option value="top">Topo</option><option value="bottom">Base</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
                 ))}
@@ -1041,13 +1041,13 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
                     Nº
-                    <select
+                    <Select
                       className="dc-select"
                       value={selectedWire.conductorCount ?? 1}
                       onChange={(e) => patchSelectedWire({ conductorCount: Number(e.target.value) })}
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
-                    </select>
+                    </Select>
                   </label>
                   <button
                     type="button"

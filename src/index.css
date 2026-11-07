@@ -1798,7 +1798,7 @@ input[type='color'] {
 
 /* UX transversal: foco, ergonomia, navegação e espaços de trabalho */
 :root { color-scheme: light; }
-button, select { cursor:pointer; }
+button, .dcx-select { cursor:pointer; }
 button:disabled { cursor:not-allowed; }
 :where(button, a, input, select, textarea, [role='button']):focus-visible { outline:2px solid #2563eb; outline-offset:2px; position:relative; z-index:2; }
 ::selection { background:#bfdbfe; color:#162d52; }
@@ -2221,7 +2221,7 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
   .tree-call-insert:hover { background: #dbe7ff; }
   @media (pointer: coarse) { .tree-call-insert { opacity: 1; } }
   .ladder-pane-heading-actions { display: inline-flex; align-items: center; gap: 4px; }
-  .ladder-pane-heading-actions select {
+  .ladder-pane-heading-actions .dcx-select {
     max-width: 78px;
     height: 24px;
     border: 1px solid #d9e0ea;
@@ -2316,8 +2316,8 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
   .ladder-dialog-grid label > span,
   .ladder-dialog-full-label > span { color: #526078; font-size: 10px; font-weight: 700; }
   .ladder-dialog-grid input,
-  .ladder-dialog-grid select,
-  .ladder-dialog-full-label select {
+  .ladder-dialog-grid .dcx-select,
+  .ladder-dialog-full-label .dcx-select {
     width: 100%;
     height: 34px;
     min-width: 0;
@@ -2330,8 +2330,8 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
     font-size: 11px;
   }
   .ladder-dialog-grid input:focus,
-  .ladder-dialog-grid select:focus,
-  .ladder-dialog-full-label select:focus { border-color: #2f6fe4; box-shadow: 0 0 0 3px rgba(47,111,228,.12); }
+  .ladder-dialog-grid .dcx-select:focus,
+  .ladder-dialog-full-label .dcx-select:focus { border-color: #2f6fe4; box-shadow: 0 0 0 3px rgba(47,111,228,.12); }
   .ladder-choice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
   .ladder-choice-grid.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ladder-choice-grid button {

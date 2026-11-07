@@ -13,6 +13,7 @@ import { pageRefPeers, pagesOf, pageIdOf } from './pages'
 import { patchPart, patchWire, removeSelected, rotateSelected } from './editing'
 import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL } from '../admin/editor3d/wireStyle'
 import type { WireColor } from '../types'
+import Select from '../ui/Select'
 import { terminalLabel, type CmdWire } from './model'
 import { devicesOf } from './engine'
 
@@ -237,39 +238,39 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
         <button type="button" className="dc-btn" style={{ marginTop: 6 }} onClick={() => onChange({ tagStyle: undefined })}>Repor referência</button>
       </div>}
       {part.kind === 'supply' && <label className="dc-cmd-field"><span>Fases</span>
-        <select className="dc-input" value={(part.lines ?? ['L1']).join(' ')} onChange={(e) => onChange({ lines: e.target.value.split(' ') })} aria-label="Fases da alimentação">
+        <Select className="dc-input" value={(part.lines ?? ['L1']).join(' ')} onChange={(e) => onChange({ lines: e.target.value.split(' ') })} aria-label="Fases da alimentação">
           {SUPPLY_PRESETS.map((p) => <option key={p.join(' ')} value={p.join(' ')}>{p.join(' · ')}</option>)}
-        </select>
+        </Select>
       </label>}
       {(part.kind === 'timerCoil' || part.kind === 'timerOffCoil') && <label className="dc-cmd-field"><span>{part.kind === 'timerOffCoil' ? 'Atraso à desoperação (s)' : 'Atraso à operação (s)'}</span>
         <input className="dc-input" type="number" min={0.1} step={0.5} value={(part.delayMs ?? 3000) / 1000} onChange={(e) => onChange({ delayMs: Math.max(100, Math.round(Number(e.target.value) * 1000) || 100) })} aria-label="Atraso do temporizador em segundos" />
       </label>}
       {(['fuse', 'resistor', 'capacitor', 'diode'] as CmdKind[]).includes(part.kind) && <div className="dc-cmd-field">
         <label><span>Desenho do símbolo</span>
-          <select className="dc-input" aria-label="Desenho do símbolo" value={part.symbolStyle ?? 'native'} onChange={(e) => onChange({ symbolStyle: e.target.value === 'qet' ? 'qet' : e.target.value === 'ansi' ? 'ansi' : undefined })}>
+          <Select className="dc-input" aria-label="Desenho do símbolo" value={part.symbolStyle ?? 'native'} onChange={(e) => onChange({ symbolStyle: e.target.value === 'qet' ? 'qet' : e.target.value === 'ansi' ? 'ansi' : undefined })}>
             <option value="native">DC-Simu (IEC)</option>
             {part.kind === 'resistor' && <option value="ansi">Zigzag ANSI</option>}
             <option value="qet">QElectroTech (IEC)</option>
-          </select>
+          </Select>
         </label>
         <p className="dc-cmd-muted">Variante gráfica adaptada de <a href="https://github.com/qelectrotech/qelectrotech-elements" target="_blank" rel="noreferrer">QElectroTech</a>, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">CC BY 3.0</a>. Bornes e simulação mantêm-se DC-Simu.</p>
       </div>}
       {part.kind === 'ground' && <label className="dc-cmd-field"><span>Tipo de terra</span>
-        <select className="dc-input" aria-label="Tipo de terra" value={part.groundVariant ?? 'earth'} onChange={(e) => onChange({ groundVariant: e.target.value === 'protective' ? 'protective' : e.target.value === 'signal' ? 'signal' : undefined })}>
+        <Select className="dc-input" aria-label="Tipo de terra" value={part.groundVariant ?? 'earth'} onChange={(e) => onChange({ groundVariant: e.target.value === 'protective' ? 'protective' : e.target.value === 'signal' ? 'signal' : undefined })}>
           <option value="earth">Terra</option>
           <option value="protective">Terra de proteção (hachurada)</option>
           <option value="signal">Terra de sinal (triângulo)</option>
-        </select>
+        </Select>
       </label>}
       {CMD_VARIANTS[part.kind] && <label className="dc-cmd-field"><span>{CMD_VARIANTS[part.kind]!.label}</span>
-        <select className="dc-input" aria-label={CMD_VARIANTS[part.kind]!.label} value={variantOf(part)} onChange={(e) => onChange({ variant: e.target.value, labels: part.kind === 'converter' ? undefined : part.labels })}>
+        <Select className="dc-input" aria-label={CMD_VARIANTS[part.kind]!.label} value={variantOf(part)} onChange={(e) => onChange({ variant: e.target.value, labels: part.kind === 'converter' ? undefined : part.labels })}>
           {CMD_VARIANTS[part.kind]!.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        </Select>
       </label>}
       {part.kind === 'lamp' && <label className="dc-cmd-field"><span>Cor</span>
-        <select className="dc-input" value={part.color ?? 'green'} onChange={(e) => onChange({ color: e.target.value as CmdPart['color'] })} aria-label="Cor do sinalizador">
+        <Select className="dc-input" value={part.color ?? 'green'} onChange={(e) => onChange({ color: e.target.value as CmdPart['color'] })} aria-label="Cor do sinalizador">
           <option value="green">Verde (marcha)</option><option value="red">Vermelho (paragem/defeito)</option><option value="yellow">Amarelo (alerta)</option><option value="orange">Laranja (parado)</option><option value="white">Branco</option><option value="blue">Azul</option>
-        </select>
+        </Select>
       </label>}
       {part.kind !== 'supply' && part.kind !== 'node' && !isPageLink(part.kind) && <div className="dc-cmd-field"><span>Marcação dos bornes</span>
         <div className="dc-cmd-terms">{terms.map((t, i) => <input key={i} className="dc-input" value={part.labels?.[i] ?? t.label} onChange={(e) => { const labels = terms.map((x, j) => part.labels?.[j] ?? x.label); labels[i] = e.target.value; onChange({ labels }) }} aria-label={`Borne ${i + 1}`} />)}</div>

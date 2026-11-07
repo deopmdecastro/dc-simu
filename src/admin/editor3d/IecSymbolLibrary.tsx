@@ -9,6 +9,7 @@ import type { IecSymbolDef } from '../../catalog/types'
 import { newId } from '../../catalog/definition'
 import { useEditorStore } from './editorStore'
 import { IconCheck, IconCopy, IconPlus, IconSearch } from '../../ui/icons'
+import Select from '../../ui/Select'
 
 function Thumb({ kind, tag }: { kind: CmdKind; tag?: string }) {
   const part = useMemo(
@@ -115,7 +116,7 @@ export default function IecSymbolLibrary() {
             aria-label="Procurar símbolo IEC"
           />
         </label>
-        <select
+        <Select
           className="dx-input ce-iec-symlib-family"
           value={family}
           onChange={(e) => setFamily(e.target.value)}
@@ -127,7 +128,7 @@ export default function IecSymbolLibrary() {
               {g.title}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {primary ? (

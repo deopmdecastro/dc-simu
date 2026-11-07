@@ -2,7 +2,7 @@
   "app": "dc-simu",
   "version": 7,
   "projectKind": "grafcet",
-  "nativeId": "grafcet-estampagem-industrial-v22",
+  "nativeId": "grafcet-estampagem-industrial-v23",
   "savedAt": "2026-11-06T00:00:00.000Z",
   "components": [],
   "wires": [],
@@ -185,7 +185,7 @@
             "w": 190,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g0",
@@ -258,7 +258,7 @@
         "h": 48,
         "actionLayout": "column",
         "x": 1206.5,
-        "y": 1078,
+        "y": 1110,
         "pinned": true
       },
       {
@@ -282,7 +282,7 @@
             "w": 190,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g0",
@@ -331,7 +331,7 @@
             "w": 225,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           },
           {
             "id": "est-s11-a1",
@@ -344,7 +344,7 @@
             "w": 225,
             "h": 34,
             "dx": 48,
-            "dy": 95
+            "dy": 119
           }
         ],
         "actionLayout": "column",
@@ -382,7 +382,7 @@
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 959.5,
+        "x": 987,
         "y": 78,
         "pinned": true
       },
@@ -404,17 +404,17 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g2",
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 959.5,
+        "x": 987,
         "y": 254,
         "pinned": true
       },
@@ -445,8 +445,8 @@
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 959.5,
-        "y": 610,
+        "x": 987,
+        "y": 642,
         "pinned": true
       },
       {
@@ -467,18 +467,18 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 211,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g2",
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 959.5,
-        "y": 876,
+        "x": 987,
+        "y": 908,
         "pinned": true
       },
       {
@@ -499,10 +499,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g2",
@@ -510,7 +510,7 @@
         "h": 48,
         "actionLayout": "column",
         "x": 134,
-        "y": 1176,
+        "y": 1240,
         "pinned": true
       },
       {
@@ -531,18 +531,18 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g2",
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 959.5,
-        "y": 1176,
+        "x": 987,
+        "y": 1240,
         "pinned": true
       },
       {
@@ -563,18 +563,18 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 204,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g2",
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 1785,
-        "y": 1176,
+        "x": 1840,
+        "y": 1240,
         "pinned": true
       },
       {
@@ -595,18 +595,18 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 218,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g2",
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 959.5,
-        "y": 1476,
+        "x": 987,
+        "y": 1572,
         "pinned": true
       },
       {
@@ -627,10 +627,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 211,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           },
           {
             "id": "est-s28-a1",
@@ -641,10 +641,10 @@
             "kind": "S",
             "displayDescription": true,
             "type": "conditional",
-            "w": 211,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 136
+            "dy": 192
           },
           {
             "id": "est-s28-a2",
@@ -655,10 +655,10 @@
             "kind": "S",
             "displayDescription": true,
             "type": "conditional",
-            "w": 211,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 224
+            "dy": 304
           }
         ],
         "actionLayout": "column",
@@ -666,7 +666,7 @@
         "w": 48,
         "h": 48,
         "x": 134,
-        "y": 1776,
+        "y": 1904,
         "pinned": true
       },
       {
@@ -687,10 +687,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 218,
+            "w": 265,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           },
           {
             "id": "est-s29-a1",
@@ -701,10 +701,10 @@
             "kind": "S",
             "displayDescription": true,
             "type": "conditional",
-            "w": 218,
+            "w": 265,
             "h": 34,
             "dx": 48,
-            "dy": 136
+            "dy": 192
           },
           {
             "id": "est-s29-a2",
@@ -715,18 +715,18 @@
             "kind": "S",
             "displayDescription": true,
             "type": "conditional",
-            "w": 218,
+            "w": 265,
             "h": 34,
             "dx": 48,
-            "dy": 224
+            "dy": 304
           }
         ],
         "actionLayout": "column",
         "chart": "est-g2",
         "w": 48,
         "h": 48,
-        "x": 959.5,
-        "y": 1776,
+        "x": 987,
+        "y": 1904,
         "pinned": true
       },
       {
@@ -747,10 +747,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 232,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           },
           {
             "id": "est-s30-a1",
@@ -761,10 +761,10 @@
             "kind": "S",
             "displayDescription": true,
             "type": "conditional",
-            "w": 232,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 136
+            "dy": 192
           },
           {
             "id": "est-s30-a2",
@@ -775,18 +775,18 @@
             "kind": "S",
             "displayDescription": true,
             "type": "conditional",
-            "w": 232,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 224
+            "dy": 304
           }
         ],
         "actionLayout": "column",
         "chart": "est-g2",
         "w": 48,
         "h": 48,
-        "x": 1785,
-        "y": 1776,
+        "x": 1840,
+        "y": 1904,
         "pinned": true
       },
       {
@@ -807,18 +807,18 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g2",
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 959.5,
-        "y": 2252,
+        "x": 987,
+        "y": 2460,
         "pinned": true
       },
       {
@@ -890,10 +890,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g3",
@@ -937,7 +937,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 95
+            "dy": 119
           },
           {
             "id": "est-s44-a2",
@@ -950,7 +950,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 183
+            "dy": 231
           },
           {
             "id": "est-s44-a3",
@@ -963,7 +963,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 271
+            "dy": 343
           },
           {
             "id": "est-s44-a4",
@@ -976,7 +976,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 359
+            "dy": 455
           },
           {
             "id": "est-s44-a5",
@@ -989,7 +989,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 447
+            "dy": 567
           }
         ],
         "actionLayout": "column",
@@ -997,7 +997,7 @@
         "w": 48,
         "h": 48,
         "x": 151,
-        "y": 1086,
+        "y": 1118,
         "pinned": true
       },
       {
@@ -1014,7 +1014,7 @@
         "h": 48,
         "actionLayout": "column",
         "x": 151,
-        "y": 1785,
+        "y": 1937,
         "pinned": true
       },
       {
@@ -1055,7 +1055,7 @@
             "w": 204,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           },
           {
             "id": "est-s81-a1",
@@ -1069,7 +1069,7 @@
             "w": 204,
             "h": 34,
             "dx": 276,
-            "dy": 48
+            "dy": 80
           },
           {
             "id": "est-s81-a2",
@@ -1083,7 +1083,7 @@
             "w": 204,
             "h": 34,
             "dx": 48,
-            "dy": 136
+            "dy": 192
           },
           {
             "id": "est-s81-a3",
@@ -1097,7 +1097,7 @@
             "w": 204,
             "h": 34,
             "dx": 276,
-            "dy": 136
+            "dy": 192
           },
           {
             "id": "est-s81-a4",
@@ -1111,7 +1111,7 @@
             "w": 204,
             "h": 34,
             "dx": 48,
-            "dy": 224
+            "dy": 304
           },
           {
             "id": "est-s81-a5",
@@ -1125,7 +1125,7 @@
             "w": 204,
             "h": 34,
             "dx": 276,
-            "dy": 224
+            "dy": 304
           }
         ],
         "actionLayout": "column",
@@ -1171,10 +1171,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g4",
@@ -1220,10 +1220,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 218,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g5",
@@ -1269,10 +1269,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 197,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g6",
@@ -1318,10 +1318,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g7",
@@ -1367,10 +1367,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g8",
@@ -1416,10 +1416,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g9",
@@ -1465,10 +1465,10 @@
             "kind": "N",
             "displayDescription": true,
             "type": "conditional",
-            "w": 190,
+            "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 48
+            "dy": 80
           }
         ],
         "chart": "est-g10",
@@ -3205,7 +3205,7 @@
         "id": "est-c-g0-hint",
         "text": "Auto (X1) · Pausa (X6) · Terminar ciclo (X2) · Manual (X3) · Reset (X4) · Emergência (X5) · STOP (B_Stop)",
         "x": 60,
-        "y": 1276,
+        "y": 1308,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g0"
@@ -3214,7 +3214,7 @@
         "id": "est-c-g16-hint",
         "text": "Impulso em Reset_Rampa_*: limpa Cnt e flag de cheia dessa rampa (independente do reset máquina).",
         "x": 60,
-        "y": 662,
+        "y": 742,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g16"
@@ -3223,7 +3223,7 @@
         "id": "est-c-g2-times",
         "text": "Tempos: Preta 5 s · Branca 6 s · Metálica 8 s",
         "x": 60,
-        "y": 2484,
+        "y": 2724,
         "fontSize": 12,
         "color": "#7c3aed",
         "fontWeight": "600",
@@ -3233,7 +3233,7 @@
         "id": "est-c-g3-hint",
         "text": "Sequência: gavetas → estampa/alimentador → retorno → zerar → fim",
         "x": 60,
-        "y": 1983,
+        "y": 2135,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g3"
@@ -3243,11 +3243,11 @@
       "est-g0-t10": [
         {
           "x": 849,
-          "y": 784
+          "y": 816
         },
         {
           "x": 38,
-          "y": 784
+          "y": 816
         },
         {
           "x": 38,
@@ -3261,11 +3261,11 @@
       "est-g1-t2": [
         {
           "x": 151,
-          "y": 419
+          "y": 443
         },
         {
           "x": 55,
-          "y": 419
+          "y": 443
         },
         {
           "x": 55,
@@ -3278,30 +3278,30 @@
       ],
       "est-g2-t16": [
         {
-          "x": 959.5,
-          "y": 2370
+          "x": 987,
+          "y": 2610
         },
         {
           "x": 38,
-          "y": 2370
+          "y": 2610
         },
         {
           "x": 38,
           "y": 50
         },
         {
-          "x": 959.5,
+          "x": 987,
           "y": 50
         }
       ],
       "est-g3-t6": [
         {
           "x": 151,
-          "y": 1881
+          "y": 2033
         },
         {
           "x": 55,
-          "y": 1881
+          "y": 2033
         },
         {
           "x": 55,
@@ -3315,11 +3315,11 @@
       "est-g4-t2": [
         {
           "x": 151,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
@@ -3333,11 +3333,11 @@
       "est-g5-t2": [
         {
           "x": 151,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
@@ -3351,11 +3351,11 @@
       "est-g6-t2": [
         {
           "x": 151,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
@@ -3369,11 +3369,11 @@
       "est-g7-t2": [
         {
           "x": 151,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
@@ -3387,11 +3387,11 @@
       "est-g8-t2": [
         {
           "x": 151,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
@@ -3405,11 +3405,11 @@
       "est-g9-t2": [
         {
           "x": 151,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
@@ -3423,11 +3423,11 @@
       "est-g10-t2": [
         {
           "x": 151,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
-          "y": 372
+          "y": 404
         },
         {
           "x": 55,
@@ -3531,11 +3531,11 @@
       "est-g16-t2": [
         {
           "x": 151,
-          "y": 548
+          "y": 628
         },
         {
           "x": 55,
-          "y": 548
+          "y": 628
         },
         {
           "x": 55,

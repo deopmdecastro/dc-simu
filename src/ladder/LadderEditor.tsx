@@ -2168,12 +2168,12 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             <>
           <div className="ladder-bottom-tabs">
             <label className="ladder-panel-picker"><span>Painel</span>
-              <select aria-label="Secção do estado do PLC" value={statusTab} onChange={(event) => { setStatusTab(event.target.value as typeof statusTab); setShowStatus(true) }}>
+              <Select className="ladder-panel-select" aria-label="Secção do estado do PLC" value={statusTab} onChange={(event) => { setStatusTab(event.target.value as typeof statusTab); setShowStatus(true) }}>
                 <option value="io">Entradas/Saídas</option><option value="memory">Memórias</option>
                 <option value="timers">Temporizadores</option><option value="counters">Contadores</option>
                 <option value="force">Forçar</option><option value="debug">Depuração</option>
                 <option value="compile">Compilação</option><option value="lint">Verificação</option>
-              </select>
+              </Select>
             </label>
             <div className="ladder-bottom-tablist" role="tablist" aria-label="Estado do PLC">
             {(() => {

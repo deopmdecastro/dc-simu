@@ -1,6 +1,7 @@
 import type { WireColor, WireDefaults, WireEndType, WireFlexibility } from '../types'
 import { ConductorIcon, WIRE_END_OPTIONS, WireEndIcon } from '../schematic/wireEnds'
 import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL, WIRE_GAUGES, CABLE_PRESETS, applyCablePreset, matchCablePreset } from '../admin/editor3d/wireStyle'
+import Select from './Select'
 
 /**
  * Opções dos cabos novos (cor, secção, condutor e terminação das pontas) num
@@ -62,14 +63,14 @@ export function WireOptionsFields({ value, onChange, compact = false }: {
       <div className="wo-row">
         <label className="wo-inline">
           <span>Nº</span>
-          <select
+          <Select
             className="wo-select"
             value={value.conductorCount ?? 1}
             onChange={(e) => onChange({ conductorCount: Number(e.target.value) })}
             aria-label="Número de condutores"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
-          </select>
+          </Select>
         </label>
         <button
           type="button"

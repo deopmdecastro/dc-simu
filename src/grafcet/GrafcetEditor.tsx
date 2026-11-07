@@ -6560,7 +6560,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                         <div className="grafcet-field" style={{ marginTop: '10px' }}>
                           <label><strong>Associar a uma etapa:</strong></label>
-                          <select
+                          <Select
                             className="dc-input"
                             style={{ marginTop: '4px' }}
                             onChange={(e) => {
@@ -6577,7 +6577,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                                 </option>
                               )
                             })}
-                          </select>
+                          </Select>
                         </div>
 
                         <label style={{ marginTop: '10px' }}>
@@ -6762,7 +6762,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             setSelectedActionId(action.id)
                           }}
                         >
-                          <select
+                          <Select
                             className="dc-input grafcet-action-kind"
                             aria-label={`Tipo da ação ${actionIndex + 1}`}
                             title={ACTION_KINDS.find((k) => k.id === kind)?.hint}
@@ -6774,7 +6774,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                                 {k.label}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                           <input
                             className="dc-input grafcet-action-address"
                             list="grafcet-action-addresses"
