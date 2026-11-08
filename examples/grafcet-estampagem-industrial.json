@@ -2,13 +2,136 @@
   "app": "dc-simu",
   "version": 7,
   "projectKind": "grafcet",
-  "nativeId": "grafcet-estampagem-industrial-v23",
+  "nativeId": "grafcet-estampagem-industrial-v24",
   "savedAt": "2026-11-06T00:00:00.000Z",
   "components": [],
   "wires": [],
-  "unlockedViews": [],
+  "unlockedViews": [
+    "ladder"
+  ],
   "ladder": {
-    "rungs": []
+    "rungs": [
+      {
+        "id": "estamp-mv-preta",
+        "name": "MOVE · tempo da peça Preta",
+        "enabled": true,
+        "comment": "Tipo_Preta → Tempo_Estampagem_s = 5 s",
+        "branches": [
+          {
+            "id": "estamp-mv-preta-b",
+            "elements": [
+              {
+                "kind": "contact",
+                "id": "estamp-mv-preta-c",
+                "address": "I0.2",
+                "contactType": "NO"
+              }
+            ]
+          }
+        ],
+        "coils": [],
+        "move": {
+          "source": "5",
+          "target": "MW100"
+        }
+      },
+      {
+        "id": "estamp-mv-branca",
+        "name": "MOVE · tempo da peça Branca",
+        "enabled": true,
+        "comment": "Tipo_Branca → Tempo_Estampagem_s = 6 s",
+        "branches": [
+          {
+            "id": "estamp-mv-branca-b",
+            "elements": [
+              {
+                "kind": "contact",
+                "id": "estamp-mv-branca-c",
+                "address": "I0.3",
+                "contactType": "NO"
+              }
+            ]
+          }
+        ],
+        "coils": [],
+        "move": {
+          "source": "6",
+          "target": "MW100"
+        }
+      },
+      {
+        "id": "estamp-mv-metal",
+        "name": "MOVE · tempo da peça Metálica",
+        "enabled": true,
+        "comment": "Tipo_Metal → Tempo_Estampagem_s = 8 s",
+        "branches": [
+          {
+            "id": "estamp-mv-metal-b",
+            "elements": [
+              {
+                "kind": "contact",
+                "id": "estamp-mv-metal-c",
+                "address": "I0.4",
+                "contactType": "NO"
+              }
+            ]
+          }
+        ],
+        "coils": [],
+        "move": {
+          "source": "8",
+          "target": "MW100"
+        }
+      },
+      {
+        "id": "estamp-mv-ultimo",
+        "name": "MOVE · guardar tempo da última peça",
+        "enabled": true,
+        "comment": "Pos_Deposito → Ultimo_Tempo_s = Tempo_Estampagem_s",
+        "branches": [
+          {
+            "id": "estamp-mv-ultimo-b",
+            "elements": [
+              {
+                "kind": "contact",
+                "id": "estamp-mv-ultimo-c",
+                "address": "I0.6",
+                "contactType": "NO"
+              }
+            ]
+          }
+        ],
+        "coils": [],
+        "move": {
+          "source": "MW100",
+          "target": "MW102"
+        }
+      },
+      {
+        "id": "estamp-mv-reset",
+        "name": "MOVE · limpar tempos no reset",
+        "enabled": true,
+        "comment": "B_Reset → Tempo_Estampagem_s = 0",
+        "branches": [
+          {
+            "id": "estamp-mv-reset-b",
+            "elements": [
+              {
+                "kind": "contact",
+                "id": "estamp-mv-reset-c",
+                "address": "I1.3",
+                "contactType": "NO"
+              }
+            ]
+          }
+        ],
+        "coils": [],
+        "move": {
+          "source": "0",
+          "target": "MW100"
+        }
+      }
+    ]
   },
   "fcBlocks": {
     "fc1": [],
@@ -3912,6 +4035,20 @@
       "name": "Rampa_Metal_Cheia",
       "dataType": "Bool",
       "comment": "Rampa metálica com 2 peças — bloqueia o ciclo"
+    },
+    {
+      "id": "tag-MW100",
+      "address": "MW100",
+      "name": "Tempo_Estampagem_s",
+      "dataType": "Int",
+      "comment": "MOVE: tempo de estampagem da peça detetada (Preta 5 · Branca 6 · Metálica 8 s)"
+    },
+    {
+      "id": "tag-MW102",
+      "address": "MW102",
+      "name": "Ultimo_Tempo_s",
+      "dataType": "Int",
+      "comment": "MOVE: tempo da última peça depositada (cópia de MW100 em Pos_Deposito)"
     }
   ],
   "canvasNotes": [

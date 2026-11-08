@@ -1,7 +1,8 @@
 import type { GrafcetAction, GrafcetComment, GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
 import { autoLayout, stepFootprint } from '../grafcet/layout'
 import { organizeGrafcetPage } from '../grafcet/organize'
-import type { CanvasNote } from '../types'
+import type { CanvasNote, LadderRung } from '../types'
+import type { WorkspaceView } from './kind'
 
 /**
  * Exemplos GRAFCET funcionais (básico, normal, avançado + Estampagem ATEC), com tabela de sinais, textos no desenho
@@ -12,7 +13,7 @@ import type { CanvasNote } from '../types'
  * os nomes e as condições continuam válidas no Ladder gerado. IDs estáveis: os testes seguem-nos.
  */
 
-export type ExampleTag = { id: string; address: string; name: string; dataType: 'Bool'; comment: string }
+export type ExampleTag = { id: string; address: string; name: string; dataType: 'Bool' | 'Int'; comment: string }
 export interface GrafcetExample {
   id: string
   /** Marca do projeto semeado (muda quando o exemplo muda: o painel repõe a versão nova). */
@@ -32,6 +33,10 @@ export interface GrafcetExample {
   virtualInputCount?: number
   virtualOutputCount?: number
   virtualMemoryCount?: number
+  /** Networks Ladder do OB1 que acompanham o exemplo (ex.: MOVE de tempos/receitas). */
+  ladderRungs?: LadderRung[]
+  /** Módulos extra abertos no projeto GRAFCET (ex.: 'ladder' para editar o OB1). */
+  unlockedViews?: WorkspaceView[]
 }
 
 type ManualDevice = { title: string; kind: 'Cilindro' | 'Motor' | 'Lâmpada'; address: string; out: string; button: string; first: number; position?: string }
@@ -87,6 +92,15 @@ function note(id: string, title: string, x: number, y: number, color: string, me
 }
 
 const tag = (address: string, name: string, comment: string): ExampleTag => ({ id: `tag-${address}`, address, name, dataType: 'Bool', comment })
+const wordTag = (address: string, name: string, comment: string): ExampleTag => ({ id: `tag-${address}`, address, name, dataType: 'Int', comment })
+
+/** Network com um contacto NA e um bloco MOVE (copia `source` para `target` enquanto o contacto conduz). */
+const moveRung = (id: string, name: string, contact: string, source: string, target: string, comment: string): LadderRung => ({
+  id, name, enabled: true, comment,
+  branches: [{ id: `${id}-b`, elements: [{ kind: 'contact', id: `${id}-c`, address: contact, contactType: 'NO' }] }],
+  coils: [],
+  move: { source, target },
+})
 
 /* ------------------------------------------------------------------------------------------------
  * 1) BÁSICO — Prensa pneumática: sequência linear com temporização
@@ -535,7 +549,7 @@ function estampagem(): GrafcetExample {
 
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v23',
+    nativeId: 'grafcet-estampagem-industrial-v24',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (uma página por GRAFCET: controlo, emergência, automático, reset e manuais)',
@@ -595,6 +609,17 @@ function estampagem(): GrafcetExample {
       tag('M0.4', 'Rampa_Preta_Cheia', 'Rampa preta com 2 peças — bloqueia o ciclo'),
       tag('M0.5', 'Rampa_Branca_Cheia', 'Rampa branca com 2 peças — bloqueia o ciclo'),
       tag('M0.6', 'Rampa_Metal_Cheia', 'Rampa metálica com 2 peças — bloqueia o ciclo'),
+      wordTag('MW100', 'Tempo_Estampagem_s', 'MOVE: tempo de estampagem da peça detetada (Preta 5 · Branca 6 · Metálica 8 s)'),
+      wordTag('MW102', 'Ultimo_Tempo_s', 'MOVE: tempo da última peça depositada (cópia de MW100 em Pos_Deposito)'),
+    ],
+    // OB1 em Ladder ao lado do GRAFCET: receita de tempos com MOVE (guião ATEC — tabela de tempos).
+    unlockedViews: ['ladder'],
+    ladderRungs: [
+      moveRung('estamp-mv-preta', 'MOVE · tempo da peça Preta', 'I0.2', '5', 'MW100', 'Tipo_Preta → Tempo_Estampagem_s = 5 s'),
+      moveRung('estamp-mv-branca', 'MOVE · tempo da peça Branca', 'I0.3', '6', 'MW100', 'Tipo_Branca → Tempo_Estampagem_s = 6 s'),
+      moveRung('estamp-mv-metal', 'MOVE · tempo da peça Metálica', 'I0.4', '8', 'MW100', 'Tipo_Metal → Tempo_Estampagem_s = 8 s'),
+      moveRung('estamp-mv-ultimo', 'MOVE · guardar tempo da última peça', 'I0.6', 'MW100', 'MW102', 'Pos_Deposito → Ultimo_Tempo_s = Tempo_Estampagem_s'),
+      moveRung('estamp-mv-reset', 'MOVE · limpar tempos no reset', 'I1.3', '0', 'MW100', 'B_Reset → Tempo_Estampagem_s = 0'),
     ],
     notes: [
       { ...note(`${p}-n-auto`, 'Como testar — automático', chartRight(`${p}-g0`) + 320, 70, '#bfdbfe', [
@@ -641,7 +666,8 @@ export function grafcetExampleContent(example: GrafcetExample): Record<string, u
     savedAt: '2026-11-06T00:00:00.000Z',
     components: [],
     wires: [],
-    ladder: { rungs: [] },
+    ladder: { rungs: example.ladderRungs ?? [] },
+    ...(example.unlockedViews?.length ? { unlockedViews: example.unlockedViews } : {}),
     grafcet: example.program,
     tags: example.tags,
     canvasNotes: example.notes.map((item) => ({ ...item, createdAt: '2026-11-06T00:00:00.000Z' })),
