@@ -213,6 +213,13 @@ for (const example of [basicExample, normalExample, advancedExample, stamping]) 
   }
 }
 setGrafcetSignalAliasResolver(() => undefined)
+{
+  // O editor gera o Ladder (e exporta) com todas as páginas — não só as transições da página aberta.
+  const editor = (await import('node:fs')).readFileSync('src/grafcet/GrafcetEditor.tsx', 'utf8')
+  const generate = editor.slice(editor.indexOf('const generateLadder = async'), editor.indexOf('const generateLadder = async') + 900)
+  check(/const full = \{ \.\.\.program, transitions: allTransitions \}/.test(generate), 'Gerar Ladder usa as transições de todas as páginas (antes: só a página aberta)')
+  check(/JSON\.stringify\(\{ \.\.\.program, transitions: allTransitions \}/.test(editor), 'exportar GRAFCET (JSON) inclui todas as páginas')
+}
 
 // Condições de estado de etapa importadas: G0 <> X9 (X9 inativa), G0 <=> X9 e G0X9 (X9 ativa).
 {

@@ -1047,7 +1047,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (!steps.length) return notify('Crie primeiro as etapas do GRAFCET')
     if (errorCount) return notify('Corrija os erros do GRAFCET antes de gerar o Ladder')
     const updating = hasGeneratedLadder()
-    const full = { ...program, transitions }
+    // Todas as páginas: `transitions` é só a página aberta — o Ladder (e a contagem de sequências) precisa do GRAFCET inteiro.
+    const full = { ...program, transitions: allTransitions }
     // Escolha do método: registo de etapa (MOVE) ou bits de etapa (SET/RESET), com o que cada um gera.
     const options = ladderMethodOptions(full)
     const current = generatedLadderMethod()
@@ -3519,7 +3520,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }
 
   const exportJson = () => {
-    const data = JSON.stringify({ ...program, transitions }, null, 2)
+    // Exporta o GRAFCET inteiro (todas as páginas), não só as transições da página aberta.
+    const data = JSON.stringify({ ...program, transitions: allTransitions }, null, 2)
     downloadBlob(new Blob([data], { type: 'application/json' }), `${(program.name ?? '').trim().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'grafcet-project'}-${Date.now()}.json`)
     notify('Projeto GRAFCET exportado')
   }
