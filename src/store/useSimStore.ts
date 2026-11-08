@@ -81,7 +81,7 @@ import { withEmptyNetworkBelow } from '../ladder/autoNetwork'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { writeElectricalCrossClipboard, readElectricalCrossClipboard } from '../clipboard/crossProjectClipboard'
-import { canInsertComponent3D, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { canInsertComponent3D, getComponentModelSpec, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
@@ -1002,6 +1002,60 @@ function applyDuctPlacement(comp: ElectricalComponent, p: DuctPlacement) {
   comp.schematicX = p.schematicX; comp.schematicY = p.schematicY
   comp.state = { ...comp.state, lengthMm: p.lengthMm, widthMm: p.widthMm, heightMm: p.heightMm, coverOn: p.coverOn }
   if (p.bodyColor) comp.bodyColor = p.bodyColor
+}
+
+/**
+ * Conteúdo de um quadro durante um arrasto: tudo o que está inteiramente dentro do contorno no
+ * início do arrasto (aparelhos, calhas, calhas técnicas). Fixado por sessão de arrasto para o quadro
+ * não «apanhar» aparelhos por onde passa. Motores e aparelhos de máquina ficam de fora.
+ */
+let enclosureDragSession: { ids: string; members: string[]; at: number } | null = null
+function enclosureContents(enclosure: ElectricalComponent, components: ElectricalComponent[]): string[] {
+  const right = enclosure.schematicX + enclosure.w, bottom = enclosure.schematicY + enclosure.h
+  return components.filter((c) => c.id !== enclosure.id && c.type !== 'panelEnclosure'
+    && getComponentModelSpec(c.type)?.placement !== 'machine'
+    && c.schematicX >= enclosure.schematicX && c.schematicY >= enclosure.schematicY
+    && c.schematicX + c.w <= right && c.schematicY + c.h <= bottom).map((c) => c.id)
+}
+function enclosureDragMembers(enclosures: ElectricalComponent[], components: ElectricalComponent[]): string[] {
+  const ids = enclosures.map((e) => e.id).sort().join('|')
+  const now = Date.now()
+  // Um arrasto envia movimentos seguidos; uma pausa > 600 ms começa uma sessão nova.
+  if (!enclosureDragSession || enclosureDragSession.ids !== ids || now - enclosureDragSession.at > 600) {
+    enclosureDragSession = { ids, members: enclosures.flatMap((e) => enclosureContents(e, components)), at: now }
+  }
+  enclosureDragSession.at = now
+  return enclosureDragSession.members
+}
+
+/** Cabos cujas pontas pertencem todas ao grupo movido: os pontos de passagem (2D e 3D) acompanham. */
+function shiftGroupWires(wires: Wire[], components: ElectricalComponent[], groupIds: Set<string>, dx: number, dy: number): Wire[] | null {
+  const owner = new Map<string, string>()
+  for (const c of components) for (const t of c.terminals) owner.set(t.id, c.id)
+  const inGroup = (terminalId: string | undefined, point: unknown) => terminalId ? groupIds.has(owner.get(terminalId) ?? '') : !!point
+  const ux = dx * PANEL_UNITS_PER_MM / SCHEMATIC_PX_PER_MM
+  const uy = -dy * PANEL_UNITS_PER_MM / SCHEMATIC_PX_PER_MM
+  let changed = false
+  const next = wires.map((w) => {
+    const fromIn = inGroup(w.fromTerminalId, w.fromPoint ?? w.fromPoint3D)
+    const toIn = inGroup(w.toTerminalId, w.toPoint ?? w.toPoint3D)
+    // Pelo menos uma ponta num borne do grupo e nenhuma num borne de fora.
+    if (!fromIn || !toIn || (!w.fromTerminalId && !w.toTerminalId)) return w
+    if (!w.waypoints?.length && !w.waypoints3D?.length && !w.fromPoint && !w.toPoint && !w.fromPoint3D && !w.toPoint3D) return w
+    changed = true
+    const p2 = <T extends { x: number; y: number }>(p: T): T => ({ ...p, x: p.x + dx, y: p.y + dy })
+    const p3 = <T extends { x: number; y: number; z: number }>(p: T): T => ({ ...p, x: p.x + ux, y: p.y + uy })
+    return {
+      ...w,
+      ...(w.waypoints ? { waypoints: w.waypoints.map(p2) } : {}),
+      ...(w.waypoints3D ? { waypoints3D: w.waypoints3D.map(p3) } : {}),
+      ...(w.fromPoint ? { fromPoint: p2(w.fromPoint) } : {}),
+      ...(w.toPoint ? { toPoint: p2(w.toPoint) } : {}),
+      ...(w.fromPoint3D ? { fromPoint3D: p3(w.fromPoint3D) } : {}),
+      ...(w.toPoint3D ? { toPoint3D: p3(w.toPoint3D) } : {}),
+    }
+  })
+  return changed ? next : null
 }
 
 export const useSimStore = create<Store>((set, get) => {
@@ -2268,6 +2322,9 @@ export const useSimStore = create<Store>((set, get) => {
       const moved = s.components.find((component) => component.id === id)
       if (!moved) return {}
       const groupIds = new Set(movingIds?.length ? movingIds : [id])
+      // Quadro: leva consigo o que está dentro do contorno (calhas, aparelhos, calhas técnicas).
+      const enclosures = s.components.filter((component) => component.type === 'panelEnclosure' && groupIds.has(component.id))
+      if (enclosures.length) for (const member of enclosureDragMembers(enclosures, s.components)) groupIds.add(member)
       // A calha e os seus equipamentos são um grupo físico durante o arrasto.
       for (const component of s.components) {
         if (component.railId && groupIds.has(component.railId)) groupIds.add(component.id)
@@ -2302,12 +2359,14 @@ export const useSimStore = create<Store>((set, get) => {
         dy = constrain(dy, resolved.y - component.schematicY)
       }
       if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return {}
+      const wires = enclosures.length ? shiftGroupWires(s.wires, s.components, groupIds, dx, dy) : null
       return {
         components: s.components.map((component) => groupIds.has(component.id) ? {
           ...component,
           schematicX: component.schematicX + dx,
           schematicY: component.schematicY + dy,
         } : component),
+        ...(wires ? { wires } : {}),
         dirty: true,
       }
     })
