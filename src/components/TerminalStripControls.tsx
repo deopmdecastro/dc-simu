@@ -34,6 +34,7 @@ export default function TerminalStripControls({ c }: { c: ElectricalComponent })
           max={48}
           step={1}
           className="dc-input w-20"
+          aria-label="Número de pólos"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') applyPoles() }}

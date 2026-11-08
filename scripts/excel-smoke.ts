@@ -12,7 +12,8 @@ const tag = (address: string, name = address, dataType: LadderTag['dataType'] = 
 // --- Tags: ida e volta pelo .xlsx ------------------------------------------------------
 const tags = [tag('Q2', 'Lampada'), tag('I1', 'Start', 'Bool', 'Botão NA'), tag('T1', 'Atraso', 'Time'), tag('M10')]
 const roundTrip = parseTagSheets(await readWorkbookBuffer(await buildWorkbookBuffer([tagsToSheet(tags)])))
-assert.deepEqual(roundTrip.tags.map((t) => t.address), ['I1', 'Q2', 'M10', 'T1'], 'ordem I, Q, M, T')
+// Endereços antigos (I1, Q2, M10) migram para o formato Siemens byte.bit (562f677).
+assert.deepEqual(roundTrip.tags.map((t) => t.address), ['I0.0', 'Q0.1', 'M1.1', 'T1'], 'ordem I, Q, M, T')
 assert.equal(roundTrip.tags[0].comment, 'Botão NA')
 assert.equal(roundTrip.tags[3].dataType, 'Time')
 assert.equal(roundTrip.issues.filter((i) => i.level === 'error').length, 0)
@@ -24,7 +25,7 @@ assert.ok(template.issues.every((i) => i.level !== 'error'))
 
 // --- Tags: cabeçalhos alternativos, %, minúsculas, vírgulas e erros ------------------------
 const messy = parseTagSheets([{ name: 'Folha1', rows: [['título solto'], ['Operando', 'Symbol', 'Data Type', 'Descrição'], ['%i1', 'Start', 'bool', 'x'], ['q 3', 'Motor', 'inteiro', ''], ['X9', 'mau', '', ''], ['I1', 'Start2', 'Real', ''], ['', '', '', '']] }])
-assert.deepEqual(messy.tags.map((t) => t.address), ['I1', 'Q3'])
+assert.deepEqual(messy.tags.map((t) => t.address), ['I0.0', 'Q0.2'])
 assert.equal(messy.tags[0].name, 'Start2', 'a última linha repetida prevalece')
 assert.equal(messy.tags[1].dataType, 'Int')
 assert.ok(messy.issues.some((i) => i.level === 'error' && i.row === 5), 'endereço inválido assinalado na linha 5')
@@ -32,21 +33,21 @@ assert.ok(messy.issues.some((i) => /repetido/.test(i.message)))
 assert.equal(parseTagSheets([{ name: 'X', rows: [['a', 'b'], ['1', '2']] }]).issues.some((i) => i.level === 'error'), true)
 
 // --- Tags: restrição do GRAFCET (só bits I/Q/M) ------------------------------------------
-const restricted = parseTagSheets([{ name: 'S', rows: [['Endereço', 'Tipo'], ['I1', 'Bool'], ['T1', 'Time'], ['M5', 'Int'], ['Q100', '']] }], { restrict: (t) => (t.dataType === 'Bool' && /^[IQM]\d{1,2}$/.test(t.address) ? null : 'fora do âmbito') })
-assert.deepEqual(restricted.tags.map((t) => t.address), ['I1'])
+const restricted = parseTagSheets([{ name: 'S', rows: [['Endereço', 'Tipo'], ['I0.0', 'Bool'], ['T1', 'Time'], ['M0.4', 'Int'], ['Q12.3', '']] }], { restrict: (t) => (t.dataType === 'Bool' && /^[IQM]\d\.[0-7]$/.test(t.address) ? null : 'fora do âmbito') })
+assert.deepEqual(restricted.tags.map((t) => t.address), ['I0.0'])
 
 // --- Tags: juntar vs substituir -----------------------------------------------------------
-const current = [tag('I1', 'Antigo', 'Bool', 'nota'), tag('Q1'), tag('T1', 'Tempo', 'Time')]
-const incoming = parseTagSheets([{ name: 'S', rows: [['Endereço', 'Nome', 'Comentário'], ['I1', 'Novo', ''], ['I2', 'Dois', 'c']] }]).tags
+const current = [tag('I0.0', 'Antigo', 'Bool', 'nota'), tag('Q0.0'), tag('T1', 'Tempo', 'Time')]
+const incoming = parseTagSheets([{ name: 'S', rows: [['Endereço', 'Nome', 'Comentário'], ['I0.0', 'Novo', ''], ['I0.1', 'Dois', 'c']] }]).tags
 const merged = mergeTags(current, incoming, 'merge', id)
 assert.deepEqual([merged.added, merged.updated, merged.removed], [1, 1, 0])
-assert.equal(merged.tags.find((t) => t.address === 'I1')!.id, 't-I1', 'mantém o id ao atualizar')
-assert.equal(merged.tags.find((t) => t.address === 'I1')!.comment, 'nota', 'comentário vazio não apaga o existente')
+assert.equal(merged.tags.find((t) => t.address === 'I0.0')!.id, 't-I0.0', 'mantém o id ao atualizar')
+assert.equal(merged.tags.find((t) => t.address === 'I0.0')!.comment, 'nota', 'comentário vazio não apaga o existente')
 assert.equal(merged.tags.length, 4)
 const replaced = mergeTags(current, incoming, 'replace', id)
-assert.deepEqual(replaced.tags.map((t) => t.address), ['I1', 'I2'])
+assert.deepEqual(replaced.tags.map((t) => t.address), ['I0.0', 'I0.1'])
 assert.equal(replaced.removed, 2)
-assert.deepEqual([...current].sort(compareTags).map((t) => t.address), ['I1', 'Q1', 'T1'])
+assert.deepEqual([...current].sort(compareTags).map((t) => t.address), ['I0.0', 'Q0.0', 'T1'])
 assert.equal(mergeTags(current, parseTagSheets(await readWorkbookBuffer(await buildWorkbookBuffer([tagsToSheet(current)]))).tags, 'merge', id).updated, 0, 'reimportar sem editar não altera nada')
 
 // --- Componentes -----------------------------------------------------------------------------

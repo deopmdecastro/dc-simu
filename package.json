@@ -28,6 +28,7 @@
     "test:wire-routing-ui": "node scripts/wire-routing-ui-smoke.mjs",
     "test:cover-version": "tsx scripts/cover-version-smoke.ts",
     "test:panel-accessories": "tsx scripts/panel-accessories-smoke.ts",
+    "test:inspector-ui": "node scripts/inspector-sweep-ui.mjs",
     "test:enclosure-controls-layout": "tsx scripts/enclosure-controls-layout-smoke.tsx",
     "test:enclosure-inspector": "tsx scripts/enclosure-inspector-regressions-smoke.tsx",
     "test:terminal-strip": "tsx scripts/terminal-strip-smoke.ts",
@@ -154,7 +155,7 @@
     "test:library-covers-ui": "node scripts/library-covers-ui-smoke.mjs",
     "test:native-signals-sync-ui": "node scripts/native-signals-sync-ui-smoke.mjs",
     "test:selection-groups-ui": "node scripts/selection-groups-ui-smoke.mjs",
-    "test:ui-extra": "npm run -s test:cade-simu-import-ui && npm run -s test:commands-text-zoom-ui && npm run -s test:commands-wire-color-ui && npm run -s test:meter-probe-select-ui && npm run -s test:native-diagnostics-ui && npm run -s test:toolbar-row2-ui && npm run -s test:align-ui && npm run -s test:library-covers-ui && npm run -s test:native-signals-sync-ui && npm run -s test:selection-groups-ui"
+    "test:ui-extra": "npm run -s test:cade-simu-import-ui && npm run -s test:commands-text-zoom-ui && npm run -s test:commands-wire-color-ui && npm run -s test:meter-probe-select-ui && npm run -s test:native-diagnostics-ui && npm run -s test:toolbar-row2-ui && npm run -s test:align-ui && npm run -s test:library-covers-ui && npm run -s test:native-signals-sync-ui && npm run -s test:selection-groups-ui && npm run -s test:inspector-ui"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

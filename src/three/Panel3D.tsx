@@ -117,8 +117,24 @@ const terminalMarkerScale = (terminal: { diameter?: number }): number =>
   typeof terminal.diameter === 'number' && terminal.diameter > 0 ? Math.max(0.35, Math.min(2.6, terminal.diameter / 9)) : 1
 
 /** Reporta o estado de carregamento dos GLB (drei useProgress) para o overlay de página. */
+/**
+ * Carregamento dos GLB sem atualizar estado a meio de outra renderização: o `useGLTF` arranca o
+ * carregamento durante a renderização do aparelho e o `useProgress` notificava logo os subscritores
+ * (aviso do React «Cannot update a component while rendering a different component»).
+ */
+function useModelsLoading() {
+  const [active, setActive] = useState(() => useProgress.getState().active)
+  useEffect(() => {
+    let alive = true
+    const unsubscribe = useProgress.subscribe((state) => { queueMicrotask(() => { if (alive) setActive(state.active) }) })
+    setActive(useProgress.getState().active)
+    return () => { alive = false; unsubscribe() }
+  }, [])
+  return active
+}
+
 function ModelsProgressReporter({ onChange }: { onChange: (active: boolean) => void }) {
-  const { active } = useProgress()
+  const active = useModelsLoading()
   useEffect(() => { onChange(active) }, [active, onChange])
   return null
 }
@@ -1666,7 +1682,8 @@ function Motor3D({ c, x, interactive = true }: { c: ElectricalComponent; x: numb
         <meshStandardMaterial color="#4b5563" />
       </mesh>
       <Text position={[0, 0.72, 0]} fontSize={0.12} color="#e5e7eb" anchorX="center">
-        {`${c.ref} ${running ? (dir === 'cw' ? '(horário ↻)' : '(anti-horário ↺)') : '(parado)'}`}
+        {/* Sem setas ↻/↺: não existem na fonte do texto 3D e o troika ia buscá-las à CDN (falha offline). */}
+        {`${c.ref} ${running ? (dir === 'cw' ? '(horário)' : '(anti-horário)') : '(parado)'}`}
       </Text>
     </group>
   )
@@ -1718,7 +1735,7 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
     {/* Etiqueta à frente da base, como uma chapa: por cima ficava à altura da caixa de bornes,
         atravessava-a, tapava as pontas de prova e via-se espelhada de trás. */}
     <Text position={[0, -MOTOR_TARGET_HEIGHT / 2 + 0.07, MOTOR_SIZE.depth / 2 * PANEL_UNITS_PER_MM + 0.04]} fontSize={0.085} color="#24324a" anchorX="center" anchorY="bottom">
-      {`${c.ref} · ${mono ? 'DRN80 1~ azul' : 'DRN80MK4/B3'} ${running ? (direction === 'cw' ? '↻' : '↺') : '· parado'}`}
+      {`${c.ref} · ${mono ? 'DRN80 1~ azul' : 'DRN80MK4/B3'} · ${running ? (direction === 'cw' ? 'horário' : 'anti-horário') : 'parado'}`}
     </Text>
   </group>
 }
@@ -1928,7 +1945,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
   } : component).map(c => doorMountedComponent(c, storedComponents)), [storedComponents, editor])
   // Enquanto modelos GLB ainda estão a carregar (Suspense/useProgress), não mostrar
   // o overlay de cálculo de cabos — evita tela de processamento sobre cena incompleta.
-  const { active: modelsLoading } = useProgress()
+  const modelsLoading = useModelsLoading()
 
   // sólidos a contornar: os cabos passam à frente dos componentes, nunca por dentro.
   // A chave posicional mantém as caixas estáveis durante os ticks da simulação

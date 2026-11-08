@@ -40,8 +40,9 @@ const assert = (note: string, cond: boolean, detalhe = '') => {
 // ── 1. Projeto nativo íntegro ────────────────────────────────────────────────
 const allSeeds = nativeProjectSeeds()
 // Além do projeto nativo, o painel semeia os três exemplos GRAFCET (projetos só GRAFCET).
+// Projetos semeados: a partida direta (o da demonstração) vem primeiro; IDs estáveis e únicos.
 const seeds = allSeeds.filter((seed) => !seed.id.startsWith('grafcet-exemplo-'))
-assert('Seed único nativo com ID estável', seeds.length === 1 && seeds[0].id === NATIVE_PARTIDA_ID, seeds[0]?.id)
+assert('Seed nativo da partida direta primeiro, com ID estável', seeds[0]?.id === NATIVE_PARTIDA_ID && new Set(seeds.map((seed) => seed.id)).size === seeds.length, seeds.map((seed) => seed.id).join(', '))
 assert('Nome apresenta (nativo)', seeds[0].name === NATIVE_PARTIDA_NAME, seeds[0]?.name)
 assert('Exemplos GRAFCET semeados (básico, normal, avançado)', allSeeds.filter((seed) => seed.id.startsWith('grafcet-exemplo-')).length === 3)
 

@@ -32,7 +32,11 @@ check('START: motor roda em sentido horário', comp('M1').state.running === true
 comp('B1').state.stopPressed = true; run(3)
 comp('B1').state.stopPressed = false; run(10)
 check('STOP: KM1 abre, H2 acende, H1 apaga', comp('KM1').state.energized === false && comp('H2').state.on === true && comp('H1').state.on === false)
-check('STOP: motor pára', comp('M1').state.running === false && comp('M1').state.rpmVisual < 0.05)
+// Desaceleração com inércia (4d49858): sem tensão já, abranda e pára alguns ciclos depois.
+const coasting = comp('M1').state.rpmVisual
+check('STOP: motor sem tensão abranda por inércia', comp('M1').state.running === false && coasting < 0.5)
+run(40)
+check('STOP: motor pára', comp('M1').state.running === false && comp('M1').state.rpmVisual < 0.05 && comp('M1').state.rpmVisual < coasting)
 
 // TEST do F1: contacto NC abre, NA fecha; o PLC perde a marcha e acende a falha real.
 comp('B1').state.startPressed = true; run(3); comp('B1').state.startPressed = false; run(10)

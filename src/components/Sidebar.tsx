@@ -86,6 +86,30 @@ const EXTRA_STATE_LABELS: Record<string, string> = {
   hold: 'Manter leitura', backlight: 'Iluminação do visor', relative: 'Modo relativo', selector: 'Posição do seletor',
   rampMs: 'Tempo de rampa (ms)', primaryV: 'Tensão primária (V)', secondaryV: 'Tensão secundária (V)',
   nominalV: 'Tensão nominal (V)', outV: 'Tensão de saída (V)', amp: 'Corrente de saída (A)',
+  // Proteção e manobra
+  testPressed: 'Botão TEST', manual: 'Rearme manual', ue: 'Tensão de emprego Ue', icn: 'Poder de corte Icn', norm: 'Norma',
+  magnetic: 'Disparo magnético (A)', upKv: 'Nível de proteção Up (kV)', currentPct: 'Corrente (% da regulação)', rangeInA: 'Regulação (A)',
+  ie: 'Corrente de emprego Ie (A)', coil: 'Bobina', dualChannel: 'Dois canais', supply: 'Alimentação', reset: 'Rearme',
+  safetyCategory: 'Categoria de segurança', bypass: 'Contactor de bypass',
+  // Sinalização e sensores
+  red: 'Lâmpada vermelha', yellow: 'Lâmpada amarela', green: 'Lâmpada verde', db: 'Nível sonoro (dB)',
+  rangeM: 'Alcance (m)', actuator: 'Atuador', sensingMm: 'Distância de deteção (mm)', mode: 'Modo',
+  bar: 'Pressão de ajuste (bar)', celsius: 'Temperatura de ajuste (°C)', level: 'Nível',
+  // Temporizadores e contadores
+  done: 'Concluído', offDelay: 'Atraso à desoperação', starDone: 'Estrela concluída', deltaDone: 'Triângulo ativo',
+  transitionMs: 'Tempo de transição (ms)', count: 'Contagem', preset: 'Valor de pré-seleção',
+  // Motores, condensadores, variadores, fontes e medida
+  capacitanceUf: 'Capacidade (µF)', tolerancePct: 'Tolerância (%)', voltageVac: 'Tensão (V CA)', temperatureClass: 'Classe de temperatura',
+  presetHz: 'Frequência definida (Hz)', rampUpMs: 'Rampa de aceleração (ms)', va: 'Potência (VA)', rippleMv: 'Ondulação (mV)',
+  reading: 'Leitura', scaleInA: 'Escala (A)',
+  // Controladores
+  outputType: 'Tipo de saídas', programCapacity: 'Capacidade de programa', channels: 'Canais', reference: 'Referência',
+  ledSF: 'LED SF (falha)', ledDIAG: 'LED DIAG', ledRUN: 'LED RUN', ledERROR: 'LED ERROR', ledMAINT: 'LED MAINT', displayOn: 'Visor ligado',
+  ledBATF: 'LED BATF (bateria)', ledDC5V: 'LED 5 V DC', ledFRCE: 'LED FRCE (forçado)', ledSTOP: 'LED STOP',
+  ethernetMbps: 'Ethernet (Mbit/s)', service: 'Serviço', screen: 'Ecrã',
+  // Bornes e barras
+  bridged: 'Pontes ligadas', connection: 'Ligação', sectionMm2: 'Secção nominal (mm²)', maxSectionMm2: 'Secção máxima (mm²)',
+  nominalA: 'Corrente nominal (A)', article: 'Artigo', poleCount: 'Número de pólos', source: 'Fonte de alimentação',
 }
 const stateLabel = (key: string) => STATE_LABELS[key] ?? EXTRA_STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
 
