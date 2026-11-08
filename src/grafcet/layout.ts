@@ -39,7 +39,8 @@ export function stepFootprint(step: GrafcetStep) {
   return { left, right, top, bottom }
 }
 
-function layoutFootprint(step: GrafcetStep, transitions: GrafcetTransition[]) {
+/** Contorno de uma etapa com ações e transições de referência (renvoi) penduradas. */
+export function layoutFootprint(step: GrafcetStep, transitions: GrafcetTransition[]) {
   const bounds = stepFootprint(step)
   const source = { x: 0, bottom: bounds.bottom, right: bounds.right }
   for (const t of transitions.filter(t => t.wireless && t.from[0] === step.id)) {
@@ -162,12 +163,11 @@ function layoutSingleComponent(
   const queue = compSteps.filter((s) => indeg.get(s.id) === 0).map((s) => s.id)
   while (queue.length) { const id = queue.shift()!; for (const to of forward.get(id) ?? []) { level.set(to, Math.max(level.get(to) ?? 0, (level.get(id) ?? 0) + 1)); indeg.set(to, (indeg.get(to) ?? 1) -1); if (indeg.get(to) === 0) queue.push(to) } }
 
-  // Emergência / source: etapas não-iniciais sem entrada devem ir para o fundo, não para o topo
-  const maxLv0 = Math.max(0, ...compSteps.map((s) => level.get(s.id) ?? 0))
-  for (const s of compSteps) if (!isInitial(s) && (prev.get(s.id)!.length === 0) && !hasIncoming.has(s.id)) {
-    const cur = level.get(s.id) ?? 0
-    if (cur < maxLv0) level.set(s.id, maxLv0 + 1)
-  }
+  // Emergência / etapas só alcançadas por referência: ficam ao lado, no topo, numa coluna à direita
+  // de todo o fluxo desenhado (antes iam para o fundo e deixavam um vazio enorme na página).
+  const aside = compSteps.filter((s) => !isInitial(s) && prev.get(s.id)!.length === 0 && !hasIncoming.has(s.id) && compSteps.length > 1).map((s) => s.id)
+  const asideSet = new Set(aside)
+  for (const id of aside) level.set(id, 0)
 
   const maxLevel = Math.max(...compSteps.map((s) => level.get(s.id) ?? 0))
   const footprints = new Map(compSteps.map(s => [s.id, layoutFootprint(s, transitions)]))
@@ -187,6 +187,10 @@ function layoutSingleComponent(
     const minTop = Math.min(0, ...row.map(s => footprints.get(s.id)!.top))
     levelTop[lv] -= minTop
     cursor = levelTop[lv] + Math.max(compact ? 176 : 200, ...row.map(s => footprints.get(s.id)!.bottom + (compact ? 100 : 146)))
+  }
+  if (aside.length && aside.length < compSteps.length) {
+    const flowRight = Math.max(...compSteps.filter((s) => !asideSet.has(s.id)).map((s) => column.get(s.id) ?? 0))
+    aside.forEach((id, index) => column.set(id, flowRight + 1 + index))
   }
   const result = new Map<string, { x: number; y: number }>()
   const minLeft = Math.min(...compSteps.map(s => (column.get(s.id) ?? 0) * columnWidth + footprints.get(s.id)!.left))
@@ -240,8 +244,13 @@ export function autoLayout(
   const largeInfos = compInfos.filter((c) => c.compSteps.length > LARGE_THRESH)
   const smallInfos = compInfos.filter((c) => c.compSteps.length <= LARGE_THRESH)
   const groups: Array<{ infos: typeof compInfos; maxCols: number }> = []
-  if (largeInfos.length) groups.push({ infos: largeInfos, maxCols: 3 })
-  if (smallInfos.length) groups.push({ infos: smallInfos, maxCols: 5 })
+  // Um só Grafcet grande com poucas etapas soltas (ex.: emergência ligada só por referências):
+  // as soltas ficam ao lado, na mesma fila, em vez de isoladas muito abaixo.
+  if (largeInfos.length === 1 && smallInfos.length && smallInfos.length <= 3) groups.push({ infos: [...largeInfos, ...smallInfos], maxCols: 1 + smallInfos.length })
+  else {
+    if (largeInfos.length) groups.push({ infos: largeInfos, maxCols: 3 })
+    if (smallInfos.length) groups.push({ infos: smallInfos, maxCols: 5 })
+  }
   if (!groups.length) groups.push({ infos: compInfos, maxCols: 3 })
 
   let cursorY = 0

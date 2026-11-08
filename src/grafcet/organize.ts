@@ -18,17 +18,23 @@ export function organizeGrafcetPage(program: GrafcetProgram, chartId = program.a
       }
     })
     const width = Math.max(190, ...actions?.map(a => a.w) ?? [])
-    const rows = new Map<string, number>()
+    // Filas: ações simples empilham-se juntas (42 px); só uma condição precisa de espaço para o
+    // seu texto por cima. Antes cada ação ocupava 112 px e as etapas com várias ações cresciam muito.
+    const rowY = new Map<string, number>()
     const columns = new Map<string, number>()
+    let cursor = 7
     const laidOutActions = actions?.map((action, index) => {
       const conditional = action.type === 'conditional' || !!action.condition && action.condition !== '1'
       const key = conditional ? `condition:${action.condition}` : `action:${index}`
-      if (!rows.has(key)) rows.set(key, rows.size)
-      const row = rows.get(key)!
+      if (!rowY.has(key)) {
+        const y = conditional ? Math.max(cursor, 7) + 73 : cursor
+        rowY.set(key, y)
+        cursor = y + 34 + (conditional ? 32 : 8)
+      }
       const column = columns.get(key) ?? 0
       columns.set(key, column + 1)
       return {
-        ...action, w: width, dx: 48 + column * (width + 24), dy: (conditional ? 80 : 7) + row * 112,
+        ...action, w: width, dx: 48 + column * (width + 24), dy: rowY.get(key)!,
       }
     })
     // Caixas compactas e alinhadas; os campos de execução das ações ficam intactos.

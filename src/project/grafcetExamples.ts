@@ -1,5 +1,5 @@
 import type { GrafcetAction, GrafcetComment, GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
-import { autoLayout, stepFootprint } from '../grafcet/layout'
+import { autoLayout, layoutFootprint, stepFootprint } from '../grafcet/layout'
 import { organizeGrafcetPage } from '../grafcet/organize'
 import type { CanvasNote, LadderRung } from '../types'
 import type { WorkspaceView } from './kind'
@@ -535,6 +535,9 @@ function estampagem(): GrafcetExample {
     text(`${p}-c-g16-hint`, 'Impulso em Reset_Rampa_*: limpa Cnt e flag de cheia dessa rampa (independente do reset máquina).', 60, 420, { fontSize: 11, color: '#475569', chart: `${p}-g16` }),
     text(`${p}-c-g2-times`, 'Tempos: Preta 5 s · Branca 6 s · Metálica 8 s', 60, 1500, { fontSize: 12, color: '#7c3aed', fontWeight: '600', chart: `${p}-g2` }),
     text(`${p}-c-g3-hint`, 'Sequência: gavetas → estampa/alimentador → retorno → zerar → fim', 60, 1160, { fontSize: 11, color: '#475569', chart: `${p}-g3` }),
+    // Abortos desenhados sem condição (seriam textos longos repetidos em cada etapa): legenda única.
+    text(`${p}-c-g2-aborts`, 'Abortos A1–A11 → X20: G0 fora de Auto (X1), Terminar ciclo (X2) e Pausa (X6) — STOP, manual, reset ou emergência', 60, 1540, { fontSize: 11, color: '#b45309', chart: `${p}-g2` }),
+    text(`${p}-c-g3-aborts`, 'Abortos A1–A4 → X40: G0 sai do reset (G0 <> X4) — o reset é interrompido', 60, 1200, { fontSize: 11, color: '#b45309', chart: `${p}-g3` }),
   ]
 
   let program: GrafcetProgram = {
@@ -543,13 +546,20 @@ function estampagem(): GrafcetExample {
   }
   // O nativo usa o mesmo organizador do editor: tamanhos reais, ramos centrados e margens comuns.
   for (const chart of chartMeta) program = organizeGrafcetPage(program, chart.id, 'classic')
-  const chartBottom = (chart: string) => Math.max(0, ...program.steps.filter(s => s.chart === chart).map(s => s.y! + stepFootprint(s).bottom))
+  // Inclui as transições de referência penduradas por baixo das etapas (as notas não as tapam).
+  const chartBottom = (chart: string) => Math.max(0, ...program.steps.filter(s => s.chart === chart).map(s => s.y! + layoutFootprint(s, program.transitions ?? []).bottom))
   const chartRight = (chart: string) => Math.max(0, ...program.steps.filter(s => s.chart === chart).map(s => s.x! + stepFootprint(s).right))
-  program.comments = [...pageComments, ...pageExtras.map(c => ({ ...c, y: chartBottom(c.chart!) + 150 }))]
+  // Várias notas na mesma página empilham-se (antes ficavam à mesma altura, sobrepostas).
+  const extraRow = new Map<string, number>()
+  program.comments = [...pageComments, ...pageExtras.map(c => {
+    const row = extraRow.get(c.chart!) ?? 0
+    extraRow.set(c.chart!, row + 1)
+    return { ...c, y: chartBottom(c.chart!) + 150 + row * 30 }
+  })]
 
   return {
     id: 'grafcet-estampagem-industrial',
-    nativeId: 'grafcet-estampagem-industrial-v24',
+    nativeId: 'grafcet-estampagem-industrial-v25',
     level: 'avançado',
     name: 'Estampagem Industrial — ATEC',
     title: 'Estampagem industrial (uma página por GRAFCET: controlo, emergência, automático, reset e manuais)',

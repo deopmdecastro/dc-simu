@@ -9,7 +9,7 @@ const check = (name: string, ok: boolean, extra = '') => { assert.ok(ok, `${name
 
 const example = grafcetExamples().find((e) => e.id === 'grafcet-estampagem-industrial')!
 const content = grafcetExampleContent(example) as Record<string, any>
-check('semente nova (v24) para atualizar a cópia guardada', example.nativeId.endsWith('-v24'))
+check('semente nova (v25) para atualizar a cópia guardada', example.nativeId.endsWith('-v25'))
 check('projeto continua do tipo GRAFCET', content.projectKind === 'grafcet')
 check('Ladder desbloqueado no projeto', Array.isArray(content.unlockedViews) && content.unlockedViews.includes('ladder'))
 check('vistas: GRAFCET + Ladder (+ monitor)', ['grafcet', 'ladder', 'monitor'].every((v) => allowedViews('grafcet', false, content.unlockedViews).includes(v as any)))

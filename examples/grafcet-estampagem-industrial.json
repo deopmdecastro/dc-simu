@@ -2,7 +2,7 @@
   "app": "dc-simu",
   "version": 7,
   "projectKind": "grafcet",
-  "nativeId": "grafcet-estampagem-industrial-v24",
+  "nativeId": "grafcet-estampagem-industrial-v25",
   "savedAt": "2026-11-06T00:00:00.000Z",
   "components": [],
   "wires": [],
@@ -380,8 +380,8 @@
         "w": 48,
         "h": 48,
         "actionLayout": "column",
-        "x": 1206.5,
-        "y": 1110,
+        "x": 2636.5,
+        "y": 78,
         "pinned": true
       },
       {
@@ -467,7 +467,7 @@
             "w": 225,
             "h": 34,
             "dx": 48,
-            "dy": 119
+            "dy": 146
           }
         ],
         "actionLayout": "column",
@@ -767,7 +767,7 @@
             "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 192
+            "dy": 219
           },
           {
             "id": "est-s28-a2",
@@ -781,7 +781,7 @@
             "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 304
+            "dy": 358
           }
         ],
         "actionLayout": "column",
@@ -827,7 +827,7 @@
             "w": 265,
             "h": 34,
             "dx": 48,
-            "dy": 192
+            "dy": 219
           },
           {
             "id": "est-s29-a2",
@@ -841,7 +841,7 @@
             "w": 265,
             "h": 34,
             "dx": 48,
-            "dy": 304
+            "dy": 358
           }
         ],
         "actionLayout": "column",
@@ -887,7 +887,7 @@
             "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 192
+            "dy": 219
           },
           {
             "id": "est-s30-a2",
@@ -901,7 +901,7 @@
             "w": 251,
             "h": 34,
             "dx": 48,
-            "dy": 304
+            "dy": 358
           }
         ],
         "actionLayout": "column",
@@ -941,7 +941,7 @@
         "h": 48,
         "actionLayout": "column",
         "x": 987,
-        "y": 2460,
+        "y": 2514,
         "pinned": true
       },
       {
@@ -1060,7 +1060,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 119
+            "dy": 49
           },
           {
             "id": "est-s44-a2",
@@ -1073,7 +1073,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 231
+            "dy": 91
           },
           {
             "id": "est-s44-a3",
@@ -1086,7 +1086,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 343
+            "dy": 133
           },
           {
             "id": "est-s44-a4",
@@ -1099,7 +1099,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 455
+            "dy": 175
           },
           {
             "id": "est-s44-a5",
@@ -1112,7 +1112,7 @@
             "w": 211,
             "h": 34,
             "dx": 48,
-            "dy": 567
+            "dy": 217
           }
         ],
         "actionLayout": "column",
@@ -1137,7 +1137,7 @@
         "h": 48,
         "actionLayout": "column",
         "x": 151,
-        "y": 1937,
+        "y": 1587,
         "pinned": true
       },
       {
@@ -1206,7 +1206,7 @@
             "w": 204,
             "h": 34,
             "dx": 48,
-            "dy": 192
+            "dy": 219
           },
           {
             "id": "est-s81-a3",
@@ -1220,7 +1220,7 @@
             "w": 204,
             "h": 34,
             "dx": 276,
-            "dy": 192
+            "dy": 219
           },
           {
             "id": "est-s81-a4",
@@ -1234,7 +1234,7 @@
             "w": 204,
             "h": 34,
             "dx": 48,
-            "dy": 304
+            "dy": 358
           },
           {
             "id": "est-s81-a5",
@@ -1248,7 +1248,7 @@
             "w": 204,
             "h": 34,
             "dx": 276,
-            "dy": 304
+            "dy": 358
           }
         ],
         "actionLayout": "column",
@@ -3328,7 +3328,7 @@
         "id": "est-c-g0-hint",
         "text": "Auto (X1) · Pausa (X6) · Terminar ciclo (X2) · Manual (X3) · Reset (X4) · Emergência (X5) · STOP (B_Stop)",
         "x": 60,
-        "y": 1308,
+        "y": 1160,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g0"
@@ -3337,7 +3337,7 @@
         "id": "est-c-g16-hint",
         "text": "Impulso em Reset_Rampa_*: limpa Cnt e flag de cheia dessa rampa (independente do reset máquina).",
         "x": 60,
-        "y": 742,
+        "y": 796,
         "fontSize": 11,
         "color": "#475569",
         "chart": "est-g16"
@@ -3346,7 +3346,7 @@
         "id": "est-c-g2-times",
         "text": "Tempos: Preta 5 s · Branca 6 s · Metálica 8 s",
         "x": 60,
-        "y": 2724,
+        "y": 2896,
         "fontSize": 12,
         "color": "#7c3aed",
         "fontWeight": "600",
@@ -3356,9 +3356,27 @@
         "id": "est-c-g3-hint",
         "text": "Sequência: gavetas → estampa/alimentador → retorno → zerar → fim",
         "x": 60,
-        "y": 2135,
+        "y": 1785,
         "fontSize": 11,
         "color": "#475569",
+        "chart": "est-g3"
+      },
+      {
+        "id": "est-c-g2-aborts",
+        "text": "Abortos A1–A11 → X20: G0 fora de Auto (X1), Terminar ciclo (X2) e Pausa (X6) — STOP, manual, reset ou emergência",
+        "x": 60,
+        "y": 2926,
+        "fontSize": 11,
+        "color": "#b45309",
+        "chart": "est-g2"
+      },
+      {
+        "id": "est-c-g3-aborts",
+        "text": "Abortos A1–A4 → X40: G0 sai do reset (G0 <> X4) — o reset é interrompido",
+        "x": 60,
+        "y": 1815,
+        "fontSize": 11,
+        "color": "#b45309",
         "chart": "est-g3"
       }
     ],
@@ -3384,11 +3402,11 @@
       "est-g1-t2": [
         {
           "x": 151,
-          "y": 443
+          "y": 470
         },
         {
           "x": 55,
-          "y": 443
+          "y": 470
         },
         {
           "x": 55,
@@ -3402,11 +3420,11 @@
       "est-g2-t16": [
         {
           "x": 987,
-          "y": 2610
+          "y": 2664
         },
         {
           "x": 38,
-          "y": 2610
+          "y": 2664
         },
         {
           "x": 38,
@@ -3420,11 +3438,11 @@
       "est-g3-t6": [
         {
           "x": 151,
-          "y": 2033
+          "y": 1683
         },
         {
           "x": 55,
-          "y": 2033
+          "y": 1683
         },
         {
           "x": 55,
@@ -3654,11 +3672,11 @@
       "est-g16-t2": [
         {
           "x": 151,
-          "y": 628
+          "y": 682
         },
         {
           "x": 55,
-          "y": 628
+          "y": 682
         },
         {
           "x": 55,
