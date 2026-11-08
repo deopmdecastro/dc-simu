@@ -159,6 +159,26 @@ export function keepWireOutsideSolids(points: Point[], outerMm: number, obstacle
     return clearWithSockets(result,solids,exits,pad) ? result : []
   }
   if (pathEntersBoxes(middle, boxes)) {
+    // Uma curva junto a um borne pode tocar num único volume. Reparar apenas
+    // esse intervalo conserva o corredor planeado e os pontos do utilizador;
+    // substituir o percurso inteiro criava diagonais longas por cima do painel.
+    const repaired: Point[] = [middle[0]]
+    let possible = true
+    for (let i = 1; i < middle.length; i++) {
+      const start = repaired[repaired.length - 1]
+      if (!boxes.some(box => segmentEntersBox(start, middle[i], box))) {
+        repaired.push(middle[i])
+        continue
+      }
+      while (i < middle.length - 1 && boxes.some(box => box.containsPoint(vec(middle[i])))) i++
+      const local = routeOutside(start, middle[i], boxes, minZ, track)
+      if (!local.length) { possible = false; break }
+      repaired.push(...local.slice(1))
+    }
+    if (possible) {
+      const result = finish(repaired)
+      if (result.length) return result
+    }
     const detour = routeOutside(a, b, boxes, minZ, track)
     if (!detour.length) return []
     return finish(detour)

@@ -148,6 +148,16 @@ const out = keepWireOutsideSolids([[-2,0,0.5],[0,0,0.5],[2,0,0.5]],3,[thin],[{ax
 assert.ok(out.length>=2&&!pathEntersBoxes(out,[thin.clone().expandByScalar(cableOuterDiameterMm('1.5mm²')*0.005)]),'waypoint dentro de outro aparelho é contornado')
 console.log('PASS — Corpo sólido: três tipos de traçado, três orientações, pontos manuais e elemento fino')
 
+const localObstacle = new THREE.Box3(new THREE.Vector3(-2.1, -.5, 0), new THREE.Vector3(-1.9, .5, 1))
+const planned: Array<[number, number, number]> = [[-4, 0, .5], [-2, 0, .5], [0, 0, .5], [0, 3, .5], [4, 3, .5], [4, 0, .5]]
+const repaired = keepWireOutsideSolids(planned, 3, [localObstacle], [{ axis: [1, 0, 0] }, { axis: [-1, 0, 0] }], -.18)
+assert.ok(repaired.length && !pathEntersBoxes(repaired, [localObstacle.clone().expandByScalar(.04)]), 'desvio local mantém a espessura do cabo fora do aparelho')
+for (const waypoint of planned.slice(2)) {
+  assert.ok(repaired.some(point => point.every((n, axis) => Math.abs(n - waypoint[axis]) < 1e-8)), 'colisão local preserva os pontos seguros do restante percurso')
+}
+assert.deepEqual(planned[1], [-2, 0, .5], 'reparar não altera os pontos de origem')
+console.log('PASS — Colisão local mantém o corredor e os pontos manuais seguros do restante cabo')
+
 const rotated = new OrientedWireBox(new THREE.Box3(new THREE.Vector3(-1,-0.1,-0.1), new THREE.Vector3(1,0.1,0.1)), new THREE.Matrix4().makeRotationZ(Math.PI / 4))
 assert.equal(segmentEntersBox([-0.7,0.6,0],[0.7,0.6,0],rotated), true, 'segmento que atravessa o corpo orientado é bloqueado')
 assert.equal(segmentEntersBox([-0.7,0.6,0],[-0.5,0.6,0],rotated), false, 'canto vazio da caixa mundial não bloqueia um cabo')

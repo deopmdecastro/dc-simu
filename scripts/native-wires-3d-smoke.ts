@@ -167,6 +167,16 @@ check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindP
 check('Nenhuma ponteira/terminal atravessa a chapa do painel', ferruleBehindPlate === 0)
 check('Todos os cabos contornam os outros aparelhos e a calha com a sua espessura física', solidOffenders.length === 0, solidOffenders.join(', '))
 
+for (const wire of built.wires) {
+  const lamps = built.components.filter(c => c.type === 'pilotLightAd22'
+    && c.terminals.some(t => t.id === wire.fromTerminalId || t.id === wire.toTerminalId))
+  if (!lamps.length) continue
+  const top = Math.max(...lamps.map(c => obstacles.find(box => box.componentId === c.id)!.max.y))
+  const points = coordinated.get(wire.id)!.points
+  check(`${wire.number}: sinalização segue pelo corredor inferior, sem laços acima das lâmpadas`,
+    points.every(point => point[1] <= top + .05))
+}
+
 function segDist3D(p1: THREE.Vector3, q1: THREE.Vector3, p2: THREE.Vector3, q2: THREE.Vector3) {
   const u = new THREE.Vector3().subVectors(q1, p1)
   const v = new THREE.Vector3().subVectors(q2, p2)

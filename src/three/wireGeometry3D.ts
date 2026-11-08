@@ -246,7 +246,8 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
       // Borne traseiro junto à chapa (botoneiras/sinalizadores): saída ortogonal limpa sem sobrepor bornes superior/inferior do mesmo bloco.
       axis = Math.abs(dir.x) > Math.abs(dir.y) * 1.8 && Math.abs(dir.x) > 0.1
         ? new THREE.Vector3(Math.sign(dir.x), 0, 0)
-        : new THREE.Vector3(0, endpoint.localY !== undefined ? (endpoint.localY >= 0.5 ? 1 : -1) : (dir.y > 0.25 ? 1 : -1), 0)
+        : new THREE.Vector3(0, endpoint.localY !== undefined && endpoint.localY >= 0.56 ? 1
+          : endpoint.localY !== undefined && endpoint.localY <= 0.44 ? -1 : (dir.y > 0 ? 1 : -1), 0)
     } else axis = normal.clone()
   }
   const thick = normal && flat ? normal.clone() : new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z)
@@ -741,7 +742,9 @@ function terminalVerticalBias(end: WireEndpoint3D): -1 | 0 | 1 {
   const nz = end.normal?.[2] ?? 0
   if (ny > 0.45) return 1
   if (ny < -0.45) return -1
-  if (nz < -0.35) return 0
+  // Comandos montados na porta: os cabos traseiros descem para o corredor
+  // entre filas, em vez de contornarem a fila inteira por cima das lâmpadas.
+  if (nz < -0.35) return -1
   if (end.localY !== undefined) {
     if (end.localY >= 0.56) return 1
     if (end.localY <= 0.44) return -1
