@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid'
 import type { LadderCoilEl, LadderContact, LadderContactType, LadderRung, LadderTimer } from '../types'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { foldText } from '../utils/text'
-import { COMPARE_TOKEN, actionsOfStep, normalizeActionVariable, parseCompareToken, parseIecTimer, stepNumberOf, stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetStep } from './engine'
+import { COMPARE_TOKEN, actionsOfStep, normalizeActionVariable, parseCompareToken, parseIecTimer, receptivityOf, stepGraphNumbers, stepNumberOf, stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetStep } from './engine'
 import { symbolWordsInCondition } from './inputDetect'
 import { nextDeclaredTagAddress } from './signals'
 import { parse, toDnf, type GeneratedTag, type Literal, type Node } from './toLadder'
@@ -37,6 +37,9 @@ export const WORD_FC_GRAFCET = 'Grafcet'
 export const WORD_EVOLVED_NAME = 'Evolucao_G0'
 export const WORD_EVOLVED_COMMENT = 'Evolução do GRAFCET neste ciclo (uma transposição por scan)'
 export const WORD_FC_OUTPUTS = 'Outputs'
+/** Transições com a receptividade completa: condição E guarda «Só se» (como no motor e no método por bits). */
+const receptiveTransitions = (program: GrafcetProgram) => transitionsOf(program).map((t) => (t.guard?.trim() ? { ...t, condition: receptivityOf(t) } : t))
+
 /** Valor de um registo cuja sequência não tem etapa ativa. */
 export const WORD_IDLE = '0'
 
@@ -48,7 +51,8 @@ export function wordMoveSource(value: string | number | null | undefined): strin
 }
 /** Nome do registo da sequência `lane` (G0, G1…). */
 export const wordRegisterName = (lane: number) => `G${lane}`
-const MAX_LANES = 16
+/** Um registo MW por sequência: 32 cobre projetos com uma página por cilindro/lâmpada (ex.: estampagem G0–G16). */
+const MAX_LANES = 32
 
 export interface WordLadder {
   /** Registo da primeira sequência (G0). */
@@ -88,14 +92,19 @@ const iecStepNumber = (key: string) => { const step = parseIecTimer(key)?.step; 
  * seguinte fica na sequência da 1.ª origem. Etapas sem caminho a partir de uma inicial ficam numa
  * sequência própria, parada no arranque.
  */
-export function stepLanes(program: GrafcetProgram): { laneOf: Map<string, number>; count: number; issue: string | null } {
+export function stepLanes(program: GrafcetProgram): { laneOf: Map<string, number>; count: number; issue: string | null; names: string[] } {
   const steps = program.steps
   const transitions = transitionsOf(program)
   const laneOf = new Map<string, number>()
+  // As sequências seguem a ordem das páginas (G0, G1…): o registo Gn fica com o estado da página Gn.
+  const graphOf = stepGraphNumbers(program)
+  const page = (s: GrafcetStep) => graphOf.get(s.id) ?? 0
+  const byPage = (list: GrafcetStep[]) => list.map((s, i) => ({ s, i })).sort((a, b) => page(a.s) - page(b.s) || a.i - b.i).map(({ s }) => s)
+  const seedPage: number[] = []
   let count = 0
   const queue: string[] = []
-  const open = (id: string) => { laneOf.set(id, count++); queue.push(id) }
-  for (const seed of [...steps.filter(isInitialStep), ...steps.filter((s) => !isInitialStep(s))]) {
+  const open = (id: string) => { const s = steps.find((item) => item.id === id); seedPage[count] = s ? page(s) : 0; laneOf.set(id, count++); queue.push(id) }
+  for (const seed of [...byPage(steps.filter(isInitialStep)), ...byPage(steps.filter((s) => !isInitialStep(s)))]) {
     if (laneOf.has(seed.id)) continue
     open(seed.id)
     while (queue.length) {
@@ -118,7 +127,10 @@ export function stepLanes(program: GrafcetProgram): { laneOf: Map<string, number
   else for (const t of transitions) {
     if (!distinct(t.to) || !distinct(t.from)) { issue = 'etapas em paralelo partilham a mesma sequência (estrutura de divergências/convergências não suportada)'; break }
   }
-  return { laneOf, count, issue }
+  // Uma sequência por página: o registo usa o número da página (G4 = página G4), mesmo com saltos na numeração.
+  const onePerPage = count > 1 && new Set(seedPage).size === count
+  const names = Array.from({ length: Math.max(count, 1) }, (_, lane) => (onePerPage ? wordRegisterName(seedPage[lane]) : wordRegisterName(lane)))
+  return { laneOf, count, issue, names }
 }
 
 /** `null` se o GRAFCET cabe no método do registo de etapa; senão, o motivo (texto curto para o aviso). */
@@ -143,7 +155,7 @@ export function wordMethodBlocker(program: GrafcetProgram): string | null {
     }
     return null
   }
-  for (const t of transitionsOf(program)) {
+  for (const t of receptiveTransitions(program)) {
     // Transição-fonte (source): sem origem, sempre validada — só a receptividade decide.
     if ((!t.from.length && !t.source) || !t.to.length || !t.from.every((id) => ids.has(id)) || !t.to.every((id) => ids.has(id))) return 'há transições sem etapa de origem ou destino'
     const tree = parse(t.condition || '1')
@@ -169,10 +181,11 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
   const label = (options.name ?? program.name ?? '').trim()
   const withName = (text: string) => (label ? `${label}: ${text}` : text)
   const steps = program.steps
-  const transitions = transitionsOf(program)
+  const transitions = receptiveTransitions(program)
   const numberOf = new Map(steps.map((s, i) => [s.id, String(Number(stepNumberOf(s, i)))]))
   const known = options.tags ?? []
-  const { laneOf, count: laneCount } = stepLanes(program)
+  const { laneOf, count: laneCount, names: laneNames } = stepLanes(program)
+  const laneName = (lane: number) => laneNames[lane] ?? wordRegisterName(lane)
   const laneOfNumber = new Map(steps.map((s) => [numberOf.get(s.id)!, laneOf.get(s.id) ?? 0]))
   const hasStored = steps.some((s) => actionsOfStep(s).some((a) => STORED.has(kindOf(a)) && actionTarget(a)))
   // Caso habitual: uma sequência, transições simples e só ações contínuas.
@@ -195,7 +208,7 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
   const tag = (address: string, name: string, comment: string) => { if (!tags.some((t) => t.address === address)) tags.push({ address, name, comment }) }
   const words: string[] = []
   for (let lane = 0; lane < Math.max(laneCount, 1); lane++) {
-    const name = wordRegisterName(lane)
+    const name = laneName(lane)
     const existing = known.find((t) => foldText(t.name.trim()) === foldText(name) && /^MW\d+$/i.test(t.address.trim().replace(/^%/, '')))
     let address = existing ? existing.address.trim().replace(/^%/, '').toUpperCase() : ''
     if (!address || words.includes(address)) { let n = 0; while (used.has(`MW${n}`)) n++; address = `MW${n}` }
@@ -387,11 +400,11 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
       const targetLanes = new Set(t.to.map((id) => laneOf.get(id)))
       for (const lane of new Set(t.from.map((id) => laneOf.get(id) ?? 0))) {
         if (targetLanes.has(lane)) continue
-        idleRungs.push(rung(`T${k + 1}: ${wordRegisterName(lane)} parado`, [[contact(rec[k])]], { move: { source: wordMoveSource(WORD_IDLE), target: words[lane] }, comment: withName(`A sequência ${wordRegisterName(lane)} termina na convergência de T${k + 1}`) }))
+        idleRungs.push(rung(`T${k + 1}: ${laneName(lane)} parado`, [[contact(rec[k])]], { move: { source: wordMoveSource(WORD_IDLE), target: words[lane] }, comment: withName(`A sequência ${laneName(lane)} termina na convergência de T${k + 1}`) }))
       }
       for (const id of t.to) {
         const lane = laneOf.get(id) ?? 0
-        activateRungs.push(rung(`T${k + 1}: ativa X${numberOf.get(id)}`, [[contact(rec[k])]], { move: { source: wordMoveSource(numberOf.get(id) ?? '0'), target: words[lane] }, comment: withName(`${wordRegisterName(lane)} = ${numberOf.get(id)}`) }))
+        activateRungs.push(rung(`T${k + 1}: ativa X${numberOf.get(id)}`, [[contact(rec[k])]], { move: { source: wordMoveSource(numberOf.get(id) ?? '0'), target: words[lane] }, comment: withName(`${laneName(lane)} = ${numberOf.get(id)}`) }))
       }
     })
     // Ações memorizadas: só no ciclo em que a etapa é ativada; o RESET vem depois (tem prioridade).
@@ -441,7 +454,7 @@ export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadder
   words.forEach((address, lane) => {
     const initial = initials.find((s) => laneOf.get(s.id) === lane)
     const value = wordMoveSource(initial ? numberOf.get(initial.id) ?? '0' : WORD_IDLE)
-    const name = words.length === 1 ? 'Complete restart · Etapa inicial' : `Complete restart · ${wordRegisterName(lane)} ${initial ? `= ${value}` : 'parado'}`
+    const name = words.length === 1 ? 'Complete restart · Etapa inicial' : `Complete restart · ${laneName(lane)} ${initial ? `= ${value}` : 'parado'}`
     startupRungs.push(rung(name, [[]], { move: { source: wordMoveSource(value), target: address }, comment: withName(initial ? `${address} = ${value} (etapa inicial do GRAFCET)` : `${address} = ${WORD_IDLE} (sequência sem etapa ativa no arranque)`) }))
   })
   for (const kind of ['S', 'R'] as const) for (const [key, list] of byOutput) {

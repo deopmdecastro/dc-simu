@@ -3,7 +3,8 @@ import { useSimStore } from '../src/store/useSimStore'
 import { applyLadderFromGrafcet, generatedLadderMethod, hasGeneratedLadder, ladderMethodOptions, ladderSyncStatus } from '../src/grafcet/ladderSync'
 import { grafcetToLadderWord, stepLanes, wordMethodBlocker } from '../src/grafcet/toLadderWord'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
-import { emptyGrafcetRuntime, scanGrafcet, stepNumberOf, transitionsOf, validateGrafcet } from '../src/grafcet/engine'
+import { emptyGrafcetRuntime, scanGrafcet, setGrafcetSignalAliasResolver, stepNumberOf, transitionsOf, validateGrafcet } from '../src/grafcet/engine'
+import { signalAliasMap } from '../src/grafcet/signals'
 import { grafcetExamples } from '../src/project/grafcetExamples'
 import type { GrafcetProgram } from '../src/grafcet/engine'
 import { runScan } from '../src/ladder/ladderEngine'
@@ -122,7 +123,11 @@ check(ladderMethodOptions(parallel).word.available === true && ladderMethodOptio
 const [basicExample, normalExample, advancedExample] = grafcetExamples()
 const advancedBits = grafcetToLadder({ ...advancedExample.program, transitions: transitionsOf(advancedExample.program) }, [], { startupBlock: true })
 check(advancedBits.warnings.length === 0 && advancedBits.rungs.some((r) => /Relógio 2 Hz/.test(r.name) && r.timer?.timerType === 'TON'), `exemplo avançado: bits de etapa sem avisos, com a intermitência 2HZ num relógio de dois TON${advancedBits.warnings.length ? ' — ' + advancedBits.warnings.join('; ') : ''}`)
-for (const example of [basicExample, normalExample, advancedExample]) {
+// Estampagem (ATEC): 17 GRAFCET (G0–G16), nomes simbólicos e guardas «Só se» (ex.: T1 da G2 só com G0 em X1).
+const stamping = grafcetExamples().find((e) => e.id === 'grafcet-estampagem-industrial')!
+for (const example of [basicExample, normalExample, advancedExample, stamping]) {
+  const aliases = signalAliasMap(example.tags)
+  setGrafcetSignalAliasResolver((name) => aliases.get(name))
   const program = { ...example.program, transitions: transitionsOf(example.program) }
   check(wordMethodBlocker(program) === null, `${example.level}: cabe no registo de etapa (MOVE)`)
   const ladder = grafcetToLadderWord(program, { tags: example.tags, name: program.name })
@@ -131,7 +136,8 @@ for (const example of [basicExample, normalExample, advancedExample]) {
   // Saídas intermitentes (1HZ): o relógio do Ladder corre livre (fase própria); verificadas à parte.
   const blinking = new Set(program.steps.flatMap((s) => (s.actions ?? []).filter((a) => /HZ/i.test(a.condition ?? '')).map((a) => a.address)))
   const outputs = [...new Set(program.steps.flatMap((s) => (s.actions ?? []).map((a) => a.address)))].filter((a): a is string => !!a && !blinking.has(a))
-  const inputs = [...new Set([...Object.keys(example.restInputs), ...program.transitions.flatMap((t) => t.condition.match(/I\d+\.[0-7]/g) ?? [])])]
+  // Entradas por endereço nas condições e as declaradas nas tags (condições com nomes simbólicos).
+  const inputs = [...new Set([...Object.keys(example.restInputs), ...program.transitions.flatMap((t) => t.condition.match(/I\d+\.[0-7]/g) ?? []), ...example.tags.map((t) => t.address).filter((a) => /^I\d+\.[0-7]$/.test(a))])]
   const gTable: Record<string, boolean> = { ...example.restInputs }
   let rt = emptyGrafcetRuntime()
   const lTable: Record<string, boolean> = { ...example.restInputs }
@@ -179,11 +185,19 @@ for (const example of [basicExample, normalExample, advancedExample]) {
     }
   }
   check(mismatches === 0, `${example.level}: Ladder MOVE evolui como o GRAFCET em 1200 patamares de entradas (3 sementes) (${mismatches} divergências)`)
-  check(visited.size === program.steps.length, `${example.level}: a sequência passou por todas as ${program.steps.length} etapas (${[...visited].sort((a, b) => a - b).join(', ')})`)
+  if (example === stamping) {
+    check(visited.size >= 40, `estampagem: entradas aleatórias percorreram ${visited.size} das ${program.steps.length} etapas`)
+    check(ladder.words.length === 17 && stepLanes(program).names.join(',') === Array.from({ length: 17 }, (_, i) => `G${i}`).join(','), 'estampagem: 17 registos, cada Gn com o estado da página Gn')
+    check(ladder.tags.some((t) => t.name === 'G16') && ladder.startupRungs.some((r) => /Complete restart · G16 = 80/.test(r.name)), 'estampagem: registo G16 arranca na etapa inicial 80 (reset das rampas)')
+  } else check(visited.size === program.steps.length, `${example.level}: a sequência passou por todas as ${program.steps.length} etapas (${[...visited].sort((a, b) => a - b).join(', ')})`)
   for (const q of blinking) {
-    const owner = program.steps.find((s) => (s.actions ?? []).some((a) => a.address === q))!
-    const hz = parseFloat((owner.actions ?? []).find((a) => a.address === q)!.condition!)
+    // A etapa da ação intermitente (a mesma saída pode estar fixa noutra etapa, ex.: AUTO em X1 e a piscar em X2).
+    const blinks = (a: { address?: string; condition?: string }) => a.address === q && /HZ/i.test(a.condition ?? '')
+    const owner = program.steps.find((s) => (s.actions ?? []).some(blinks))!
+    const hz = parseFloat((owner.actions ?? []).find(blinks)!.condition!)
     const ownerWord = ladder.words[stepLanes(program).laneOf.get(owner.id) ?? 0]
+    // Repor todas as sequências no arranque: outra sequência ativa (ex.: manual da mesma lâmpada) não pode segurar a saída.
+    runScan({ rungs: ladder.startupRungs }, lTable, lTimers, {}, 100, {}, [], lDb, lEdges)
     lDb[ownerWord] = { type: 'INT', value: Number(stepNumberOf(owner, program.steps.indexOf(owner))) }
     // Mantém a etapa (entradas que não a fazem evoluir não interessam aqui): força G0 antes de cada scan.
     let toggles = 0
@@ -198,6 +212,7 @@ for (const example of [basicExample, normalExample, advancedExample]) {
     check(toggles >= expected * 0.8 && toggles <= expected, `${example.level}: ${q} pisca a ${hz} Hz no Ladder (${toggles} mudanças em 10 s)`)
   }
 }
+setGrafcetSignalAliasResolver(() => undefined)
 
 // Condições de estado de etapa importadas: G0 <> X9 (X9 inativa), G0 <=> X9 e G0X9 (X9 ativa).
 {
