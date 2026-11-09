@@ -25,7 +25,7 @@ class Run {
 }
 
 const [basic, normal, advanced, estampagem] = grafcetExamples()
-ok(grafcetExamples().length === 4 && basic.level === 'básico' && normal.level === 'normal' && advanced.level === 'avançado' && estampagem.level === 'avançado', 'quatro exemplos: básico, normal, avançado e Estampagem ATEC')
+ok(grafcetExamples().length === 5 && grafcetExamples()[4].id === 'grafcet-estampagem-guiao-1185' && basic.level === 'básico' && normal.level === 'normal' && advanced.level === 'avançado' && estampagem.level === 'avançado', 'cinco exemplos: básico, normal, avançado, Estampagem ATEC e guião 1185 — os quatro primeiros ATEC')
 
 for (const example of [basic, normal, advanced, estampagem]) {
   const issues = validateGrafcet(example.program)

@@ -662,8 +662,323 @@ function estampagem(): GrafcetExample {
   }
 }
 
+/* ------------------------------------------------------------------------------------------------
+ * 5) AVANÇADO — Estampagem, guião ATEC 1185: projeto feito de raiz com as entradas/saídas reais do guião
+ *    (figuras 15 e 16) e cinco GRAFCETs: G0 Controlo, G1 Emergência, G2 Funcionamento, G3 Reset e G4 Manual.
+ * ---------------------------------------------------------------------------------------------- */
+function estampagemGuiao(): GrafcetExample {
+  const p = 'eg'
+  const g0 = `${p}-g0`, g1 = `${p}-g1`, g2 = `${p}-g2`, g3 = `${p}-g3`, g4 = `${p}-g4`
+  const cond = (condition: string): Partial<GrafcetAction> => ({ type: 'conditional', condition })
+  const full = 'Rampa_Preta_Cheia + Rampa_Branca_Cheia + Rampa_Metal_Cheia'
+  // Saídas (endereços do guião). Cil1/2/3 e ventosa com válvula biestável (dois comandos); Cil4 (estampa) monoestável.
+  const Q = {
+    cil1Av: ['Q4.0', 'Cil1_Avanco'], cil1Rec: ['Q4.1', 'Cil1_Recuo'],
+    cil2Rec: ['Q4.2', 'Cil2_Recuo'], cil2Av: ['Q4.4', 'Cil2_Avanco'],
+    ventOn: ['Q4.5', 'Ventosa_On'], ventOff: ['Q4.6', 'Ventosa_Off'],
+    cil3Rec: ['Q4.7', 'Cil3_Recuo'], cil3Av: ['Q5.0', 'Cil3_Avanco'], cil4Av: ['Q5.1', 'Cil4_Avanco'],
+    m1Esq: ['Q5.2', 'M1_Esquerda'], m1Dir: ['Q5.3', 'M1_Direita'],
+    amarelo: ['Q5.4', 'LED_Amarelo'], verde: ['Q5.5', 'LED_Verde'], vermelho: ['Q5.6', 'LED_Vermelho'],
+  } as const
+  type Out = keyof typeof Q
+  const n = (out: Out, label?: string, extra?: Partial<GrafcetAction>): Act => ['N', Q[out][0], Q[out][1], label, extra]
+  const notPaused = cond('G0 <> X5') // em pausa o motor para (o ciclo congela)
+
+  // ---- G0 · Controlo (modos de marcha)
+  const c0 = initial(p, '0', 'Máquina por referenciar', [n('amarelo', 'Pede reset', cond('1HZ'))])
+  const c1 = step(p, '1', 'Reset da máquina', [n('amarelo', 'Reset em curso', cond('2HZ'))])
+  const c2 = step(p, '2', 'Pronta — parada', [
+    n('amarelo', 'Pronta'),
+    n('vermelho', 'Rampa cheia', cond(`(${full}) * 1HZ`)),
+  ], { actionLayout: 'column' })
+  const c3 = step(p, '3', 'Automático em marcha', [n('verde', 'Em marcha')])
+  const c4 = step(p, '4', 'A terminar o ciclo', [n('verde', 'A terminar', cond('1HZ'))])
+  const c5 = step(p, '5', 'Pausa', [n('verde', 'Em pausa', cond('2HZ'))])
+  const c6 = step(p, '6', 'Modo manual', [n('amarelo', 'Manual'), n('verde', 'Manual')], { actionLayout: 'column' })
+  const c7 = step(p, '7', 'Emergência', [])
+  // ---- G1 · Emergência (o relé de segurança corta as saídas; o PLC só acompanha o estado)
+  const e10 = initial(p, '10', 'Segurança OK', [])
+  const e11 = step(p, '11', 'Emergência ativa', [n('vermelho', 'Emergência')])
+  // ---- G2 · Funcionamento (ciclo automático)
+  const a20 = initial(p, '20', 'Espera na posição inicial', [])
+  const a21 = step(p, '21', 'Alimentar peça', [n('cil1Av')])
+  const a22 = step(p, '22', 'Identificar a peça', [])
+  const a23 = step(p, '23', 'Peça metálica', [['S', 'M0.2', 'Peca_Metal', 'Peca_Metal']])
+  const a24 = step(p, '24', 'Peça branca', [['S', 'M0.1', 'Peca_Branca', 'Peca_Branca']])
+  const a25 = step(p, '25', 'Peça preta', [['S', 'M0.0', 'Peca_Preta', 'Peca_Preta']])
+  const a26 = step(p, '26', 'Recuar o alimentador', [n('cil1Rec')])
+  const a27 = step(p, '27', 'Descer a ventosa', [n('cil2Av')])
+  const a28 = step(p, '28', 'Pegar na peça', [n('ventOn')])
+  const a29 = step(p, '29', 'Subir com a peça', [n('cil2Rec')])
+  const a30 = step(p, '30', 'Rodar para a estampagem', [n('m1Dir', 'M1 → estampagem', notPaused)])
+  const a31 = step(p, '31', 'Descer a ventosa', [n('cil2Av')])
+  const a32 = step(p, '32', 'Largar a peça', [n('ventOff')])
+  const a33 = step(p, '33', 'Subir a ventosa', [n('cil2Rec')])
+  const a34 = step(p, '34', 'Posicionar a peça (Cil3)', [n('cil3Av')])
+  const a35 = step(p, '35', 'Estampar 5 / 6 / 8 s', [n('cil4Av')])
+  const a36 = step(p, '36', 'Recuar o Cil3', [n('cil3Rec')])
+  const a37 = step(p, '37', 'Descer a ventosa', [n('cil2Av')])
+  const a38 = step(p, '38', 'Pegar na peça estampada', [n('ventOn')])
+  const a39 = step(p, '39', 'Subir com a peça', [n('cil2Rec')])
+  const a40 = step(p, '40', 'Rodar para a saída', [n('m1Esq', 'M1 → alimentador', notPaused)])
+  // Contagem por tipo (2 peças = rampa cheia). As ações S só são avaliadas ao ativar a etapa.
+  const a41 = step(p, '41', 'Largar a peça na rampa', [
+    n('ventOff'),
+    ['S', 'M0.3', 'Cnt_Preta', '1.ª preta', cond('Peca_Preta * !Cnt_Preta')],
+    ['S', 'M0.6', 'Rampa_Preta_Cheia', 'Rampa preta cheia', cond('Peca_Preta * Cnt_Preta')],
+    ['S', 'M0.4', 'Cnt_Branca', '1.ª branca', cond('Peca_Branca * !Cnt_Branca')],
+    ['S', 'M0.7', 'Rampa_Branca_Cheia', 'Rampa branca cheia', cond('Peca_Branca * Cnt_Branca')],
+    ['S', 'M0.5', 'Cnt_Metal', '1.ª metálica', cond('Peca_Metal * !Cnt_Metal')],
+    ['S', 'M1.0', 'Rampa_Metal_Cheia', 'Rampa metálica cheia', cond('Peca_Metal * Cnt_Metal')],
+  ], { actionLayout: 'column' })
+  const a42 = step(p, '42', 'Fim do ciclo', [
+    ['R', 'M0.0', 'Peca_Preta', 'Peca_Preta'], ['R', 'M0.1', 'Peca_Branca', 'Peca_Branca'], ['R', 'M0.2', 'Peca_Metal', 'Peca_Metal'],
+  ], { actionLayout: 'column' })
+  // ---- G3 · Reset (referenciação da máquina + esvaziar rampas)
+  const r50 = initial(p, '50', 'Reset em repouso', [])
+  const r51 = step(p, '51', 'Subir e soltar a ventosa', [n('cil2Rec'), n('ventOff')], { actionLayout: 'column' })
+  const r52 = step(p, '52', 'Recuar os cilindros', [n('cil1Rec'), n('cil3Rec')], { actionLayout: 'column' })
+  const r53 = step(p, '53', 'Rodar para o alimentador', [n('m1Esq', 'M1 → alimentador')])
+  const r54 = step(p, '54', 'Limpar as memórias de peça', [
+    ['R', 'M0.0', 'Peca_Preta', 'Peca_Preta'], ['R', 'M0.1', 'Peca_Branca', 'Peca_Branca'], ['R', 'M0.2', 'Peca_Metal', 'Peca_Metal'],
+  ], { actionLayout: 'column' })
+  const r55 = step(p, '55', 'Reset concluído', [])
+  const r56 = step(p, '56', 'Esvaziar as rampas', [
+    ['R', 'M0.3', 'Cnt_Preta', 'Cnt_Preta'], ['R', 'M0.6', 'Rampa_Preta_Cheia', 'Rampa_Preta_Cheia'],
+    ['R', 'M0.4', 'Cnt_Branca', 'Cnt_Branca'], ['R', 'M0.7', 'Rampa_Branca_Cheia', 'Rampa_Branca_Cheia'],
+    ['R', 'M0.5', 'Cnt_Metal', 'Cnt_Metal'], ['R', 'M1.0', 'Rampa_Metal_Cheia', 'Rampa_Metal_Cheia'],
+  ], { actionLayout: 'column' })
+  // ---- G4 · Manual (comandos do HMI com encravamentos)
+  const m60 = initial(p, '60', 'Manual inativo', [])
+  const m61 = step(p, '61', 'Comandos manuais (HMI)', [
+    n('cil1Av', 'Cil1 +', cond('Man_Cil1_Av * !Man_Cil1_Rec')),
+    n('cil1Rec', 'Cil1 −', cond('Man_Cil1_Rec * !Man_Cil1_Av')),
+    n('cil2Av', 'Cil2 + (desce)', cond('Man_Cil2_Av * !Man_Cil2_Rec')),
+    n('cil2Rec', 'Cil2 − (sobe)', cond('Man_Cil2_Rec * !Man_Cil2_Av')),
+    n('ventOn', 'Ventosa ON', cond('Man_Ventosa_On * !Man_Ventosa_Off')),
+    n('ventOff', 'Ventosa OFF', cond('Man_Ventosa_Off * !Man_Ventosa_On')),
+    n('cil3Av', 'Cil3 +', cond('Man_Cil3_Av * !Man_Cil3_Rec')),
+    n('cil3Rec', 'Cil3 −', cond('Man_Cil3_Rec * !Man_Cil3_Av')),
+    n('cil4Av', 'Cil4 + (estampa)', cond('Man_Cil4')),
+    n('m1Esq', 'M1 esquerda', cond('Man_M1_Esq * !Man_M1_Dir * C2_Recuado * !FC_Alimentador')),
+    n('m1Dir', 'M1 direita', cond('Man_M1_Dir * !Man_M1_Esq * C2_Recuado * !FC_Estampagem')),
+  ], { actionLayout: 'column' })
+
+  const quiet = { displayDescription: false } as const
+  const ref = (to: GrafcetStep): Partial<GrafcetTransition> => ({ wireless: true, targetInfo: to.name, ...quiet })
+  const P = ' * (G0 <> X5)' // pausa: o ciclo congela na etapa em que está
+
+  const control: GrafcetTransition[] = [
+    ...[c0, c1, c2, c3, c4, c5, c6].map((from) => link(g0, `E${from.name}`, [from], [c7], 'G1 <=> X11', 'Emergência', ref(c7))),
+    link(g0, 'T1', [c0], [c1], 'B_Reset * (G1 <=> X10)', 'Reset'),
+    link(g0, 'T2', [c1], [c2], 'G3 <=> X55', 'G3 concluiu o reset'),
+    link(g0, 'T3', [c2], [c3], `B_Start * B_Stop * Sel_Auto * !(${full})`, 'Start em automático, rampas livres'),
+    link(g0, 'T4', [c2], [c6], '!Sel_Auto', 'Seletor em manual'),
+    link(g0, 'T5', [c3], [c4], `!B_Stop + !Sel_Auto + ${full}`, 'Stop, seletor ou rampa cheia'),
+    link(g0, 'T6', [c4], [c2], 'G2 <=> X20', 'Ciclo terminado', ref(c2)),
+    link(g0, 'T7', [c3], [c5], 'B_Pausa', 'Pausa'),
+    link(g0, 'T8', [c5], [c3], '!B_Pausa * B_Stop', 'Retomar', ref(c3)),
+    link(g0, 'T9', [c5], [c4], '!B_Stop', 'Stop em pausa: acabar o ciclo', ref(c4)),
+    link(g0, 'T10', [c6], [c0], 'Sel_Auto', 'Saiu do manual: referenciar', ref(c0)),
+    link(g0, 'T11', [c7], [c0], 'G1 <=> X10', 'Segurança reposta', ref(c0)),
+  ]
+  const safety: GrafcetTransition[] = [
+    link(g1, 'T1', [e10], [e11], '!Seguranca_OK', 'Emergência premida'),
+    link(g1, 'T2', [e11], [e10], 'Seguranca_OK', 'Rearme no relé de segurança (S6)', ref(e10)),
+  ]
+  const auto: GrafcetTransition[] = [
+    link(g2, 'T1', [a20], [a21], 'G0 <=> X3 * C1_Recuado * C2_Recuado * C3_Recuado * C4_Recuado * FC_Alimentador', 'Automático e posição inicial'),
+    link(g2, 'T2', [a21], [a22], 'C1_Avancado' + P, 'Peça alimentada'),
+    link(g2, 'T3', [a22], [a23], 'Sensor_Metal' + P, 'Indutivo: metálica'),
+    link(g2, 'T4', [a22], [a24], '!Sensor_Metal * Sensor_Cor' + P, 'Ótico: branca'),
+    link(g2, 'T5', [a22], [a25], '!Sensor_Metal * !Sensor_Cor * 1s/X22' + P, '1 s sem deteção: preta'),
+    link(g2, 'T6', [a23], [a26], '1', 'Tipo memorizado'),
+    link(g2, 'T7', [a24], [a26], '1', 'Tipo memorizado'),
+    link(g2, 'T8', [a25], [a26], '1', 'Tipo memorizado'),
+    link(g2, 'T9', [a26], [a27], 'C1_Recuado * FC_Alimentador' + P, 'Alimentador recuado'),
+    link(g2, 'T10', [a27], [a28], 'C2_Avancado' + P, 'Ventosa em baixo'),
+    link(g2, 'T11', [a28], [a29], '1s/X28' + P, 'Vácuo 1 s'),
+    link(g2, 'T12', [a29], [a30], 'C2_Recuado' + P, 'Ventosa em cima'),
+    link(g2, 'T13', [a30], [a31], 'FC_Estampagem' + P, 'Na estampagem'),
+    link(g2, 'T14', [a31], [a32], 'C2_Avancado' + P, 'Ventosa em baixo'),
+    link(g2, 'T15', [a32], [a33], '1s/X32' + P, 'Peça largada'),
+    link(g2, 'T16', [a33], [a34], 'C2_Recuado' + P, 'Ventosa em cima'),
+    link(g2, 'T17', [a34], [a35], 'C3_Avancado' + P, 'Peça sob a estampa'),
+    link(g2, 'T18', [a35], [a36], 'C4_Avancado * Peca_Preta * 5s/X35' + P, 'Preta: 5 s'),
+    link(g2, 'T19', [a35], [a36], 'C4_Avancado * Peca_Branca * 6s/X35' + P, 'Branca: 6 s'),
+    link(g2, 'T20', [a35], [a36], 'C4_Avancado * Peca_Metal * 8s/X35' + P, 'Metálica: 8 s'),
+    link(g2, 'T21', [a36], [a37], 'C3_Recuado * C4_Recuado' + P, 'Cil3 e estampa recuados'),
+    link(g2, 'T22', [a37], [a38], 'C2_Avancado' + P, 'Ventosa em baixo'),
+    link(g2, 'T23', [a38], [a39], '1s/X38' + P, 'Vácuo 1 s'),
+    link(g2, 'T24', [a39], [a40], 'C2_Recuado' + P, 'Ventosa em cima'),
+    link(g2, 'T25', [a40], [a41], 'FC_Alimentador' + P, 'Na saída'),
+    link(g2, 'T26', [a41], [a42], '1s/X41' + P, 'Peça largada e contada'),
+    link(g2, 'T27', [a42], [a20], '1', 'Novo ciclo', ref(a20)),
+    // Abortos: o G0 saiu de marcha, terminar ciclo e pausa (emergência, reset, manual).
+    ...[a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42].map((from, index) =>
+      link(g2, `A${index + 1}`, [from], [a20], 'G0 <> X3 * G0 <> X4 * G0 <> X5', 'Abortar', { ...ref(a20), displayCondition: false })),
+  ]
+  const reset: GrafcetTransition[] = [
+    link(g3, 'T1', [r50], [r51], 'G0 <=> X1', 'G0 pediu reset'),
+    link(g3, 'T2', [r51], [r52], 'C2_Recuado', 'Ventosa em cima'),
+    link(g3, 'T3', [r52], [r53], 'C1_Recuado * C3_Recuado * C4_Recuado', 'Cilindros recuados'),
+    link(g3, 'T4', [r53], [r54], 'FC_Alimentador', 'Braço no alimentador'),
+    link(g3, 'T5', [r54], [r55], '1', 'Memórias limpas'),
+    link(g3, 'T6', [r55], [r50], 'G0 <> X1', 'G0 saiu do reset', ref(r50)),
+    link(g3, 'T7', [r50], [r56], 'Reset_Rampas * (G0 <=> X0 + G0 <=> X2)', 'Reset das rampas (máquina parada)'),
+    link(g3, 'T8', [r56], [r50], '!Reset_Rampas', 'Rampas vazias', ref(r50)),
+    ...[r51, r52, r53, r54].map((from, index) => link(g3, `A${index + 1}`, [from], [r50], 'G0 <> X1', 'Interromper', { ...ref(r50), displayCondition: false })),
+  ]
+  const manual: GrafcetTransition[] = [
+    link(g4, 'T1', [m60], [m61], 'G0 <=> X6', 'G0 em manual'),
+    link(g4, 'T2', [m61], [m60], 'G0 <> X6', 'G0 saiu do manual', ref(m60)),
+  ]
+
+  const chartMeta: Array<{ id: string; name: string; title: string }> = [
+    { id: g0, name: 'G0 Controlo', title: 'G0 - Controlo' },
+    { id: g1, name: 'G1 Emergência', title: 'G1 - Emergência' },
+    { id: g2, name: 'G2 Funcionamento', title: 'G2 - Funcionamento' },
+    { id: g3, name: 'G3 Reset', title: 'G3 - Reset' },
+    { id: g4, name: 'G4 Manual', title: 'G4 - Manual' },
+  ]
+  const pages: Array<[string, GrafcetStep[], GrafcetTransition[]]> = [
+    [g0, [c0, c1, c2, c3, c4, c5, c6, c7], control],
+    [g1, [e10, e11], safety],
+    [g2, [a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42], auto],
+    [g3, [r50, r51, r52, r53, r54, r55, r56], reset],
+    [g4, [m60, m61], manual],
+  ]
+  const comments = chartMeta.map((c) => text(`${p}-c-${c.id}`, c.title, 60, 24, {
+    fontSize: 16, fontWeight: '700', color: c.id === g1 ? '#b91c1c' : '#0f172a', chart: c.id,
+  }))
+  const extras = [
+    text(`${p}-c-g0-hint`, 'Por referenciar (X0) · Reset (X1) · Parada (X2) · Auto (X3) · A terminar (X4) · Pausa (X5) · Manual (X6) · Emergência (X7)', 60, 0, { fontSize: 11, color: '#475569', chart: g0 }),
+    text(`${p}-c-g2-times`, 'Estampagem: Preta 5 s · Branca 6 s · Metálica 8 s · rampa cheia com 2 peças', 60, 0, { fontSize: 12, color: '#7c3aed', fontWeight: '600', chart: g2 }),
+    text(`${p}-c-g2-aborts`, 'Abortos A1–A22 → X20: G0 fora de Auto (X3), A terminar (X4) e Pausa (X5)', 60, 0, { fontSize: 11, color: '#b45309', chart: g2 }),
+    text(`${p}-c-g3-aborts`, 'Abortos A1–A4 → X50: G0 saiu do reset (emergência)', 60, 0, { fontSize: 11, color: '#b45309', chart: g3 }),
+    text(`${p}-c-g4-hint`, 'Botões Man_* do HMI: só atuam com o G0 em manual (X6). M1 só roda com a ventosa em cima.', 60, 0, { fontSize: 11, color: '#475569', chart: g4 }),
+  ]
+
+  let program: GrafcetProgram = {
+    name: 'Estampagem — guião ATEC 1185', charts: chartMeta, activeChart: g0,
+    steps: pages.flatMap(([chart, steps]) => steps.map((s) => ({ ...s, chart }))),
+    transitions: pages.flatMap(([chart, , transitions]) => transitions.map((t) => ({ ...t, chart }))),
+    comments,
+  }
+  for (const chart of chartMeta) program = organizeGrafcetPage(program, chart.id, 'classic')
+  const chartBottom = (chart: string) => Math.max(0, ...program.steps.filter((s) => s.chart === chart).map((s) => s.y! + layoutFootprint(s, program.transitions ?? []).bottom))
+  const chartRight = (chart: string) => Math.max(0, ...program.steps.filter((s) => s.chart === chart).map((s) => s.x! + stepFootprint(s).right))
+  const row = new Map<string, number>()
+  program.comments = [...comments, ...extras.map((c) => {
+    const index = row.get(c.chart!) ?? 0
+    row.set(c.chart!, index + 1)
+    return { ...c, y: chartBottom(c.chart!) + 150 + index * 30 }
+  })]
+
+  const push = (addresses: string[]) => Object.fromEntries(addresses.map((a) => [a, 'push' as const]))
+  return {
+    id: 'grafcet-estampagem-guiao-1185',
+    nativeId: 'grafcet-estampagem-guiao-1185-v1',
+    level: 'avançado',
+    name: 'Estampagem — Guião ATEC 1185',
+    title: 'Estampagem (guião 1185): G0 Controlo, G1 Emergência, G2 Funcionamento, G3 Reset e G4 Manual',
+    description:
+      'Feito de raiz com as entradas/saídas do guião: alimentador, braço rotativo com ventosa, estampa 5/6/8 s por tipo de peça, rampas cheias com 2 peças, reset e comandos manuais.',
+    program,
+    tags: [
+      tag('I0.0', 'C1_Recuado', 'Cil1 (alimentador) traseiro'),
+      tag('I0.1', 'C1_Avancado', 'Cil1 (alimentador) frontal'),
+      tag('I0.2', 'C3_Avancado', 'Cil3 frontal'),
+      tag('I0.3', 'C3_Recuado', 'Cil3 traseiro'),
+      tag('I0.4', 'C4_Recuado', 'Cil4 (estampa) traseiro'),
+      tag('I0.5', 'C4_Avancado', 'Cil4 (estampa) frontal'),
+      tag('I0.6', 'Sensor_Cor', 'B11 sensor ótico de cor (1 = peça branca)'),
+      tag('I0.7', 'FC_Estampagem', 'Fim de curso: braço na estampagem'),
+      tag('I1.0', 'FC_Alimentador', 'Fim de curso: braço no alimentador'),
+      tag('I1.1', 'Sensor_Metal', 'Sensor indutivo (1 = peça metálica)'),
+      tag('I1.2', 'C2_Avancado', 'Cil2 (ventosa) frontal — em baixo'),
+      tag('I1.3', 'C2_Recuado', 'Cil2 (ventosa) traseiro — em cima'),
+      tag('I1.4', 'B_Start', 'Botão Start'),
+      tag('I1.5', 'B_Stop', 'Botão Stop NF (1 = não premido)'),
+      tag('I1.6', 'Sel_Auto', 'Seletor Manual/Automático (1 = automático)'),
+      tag('I1.7', 'Seguranca_OK', 'Contacto do relé de segurança (1 = rearmado). Não consta da tabela do guião: ligar à entrada livre'),
+      tag('I2.0', 'B_Reset', 'HMI: reset da máquina'),
+      tag('I2.1', 'B_Pausa', 'HMI: pausa (interruptor)'),
+      tag('I2.2', 'Reset_Rampas', 'HMI: esvaziar rampas (contadores)'),
+      tag('I2.3', 'Man_Cil1_Av', 'HMI manual: Cil1 +'),
+      tag('I2.4', 'Man_Cil1_Rec', 'HMI manual: Cil1 −'),
+      tag('I2.5', 'Man_Cil2_Av', 'HMI manual: Cil2 + (desce)'),
+      tag('I2.6', 'Man_Cil2_Rec', 'HMI manual: Cil2 − (sobe)'),
+      tag('I2.7', 'Man_Ventosa_On', 'HMI manual: ventosa ON'),
+      tag('I3.0', 'Man_Ventosa_Off', 'HMI manual: ventosa OFF'),
+      tag('I3.1', 'Man_Cil3_Av', 'HMI manual: Cil3 +'),
+      tag('I3.2', 'Man_Cil3_Rec', 'HMI manual: Cil3 −'),
+      tag('I3.3', 'Man_Cil4', 'HMI manual: estampa (Cil4 +)'),
+      tag('I3.4', 'Man_M1_Esq', 'HMI manual: M1 para a esquerda'),
+      tag('I3.5', 'Man_M1_Dir', 'HMI manual: M1 para a direita'),
+      tag('Q4.0', 'Cil1_Avanco', 'Y6 — Cil1 avanço'),
+      tag('Q4.1', 'Cil1_Recuo', 'Y7 — Cil1 recuo'),
+      tag('Q4.2', 'Cil2_Recuo', 'Y5 — Cil2 recuo (ventosa sobe)'),
+      tag('Q4.4', 'Cil2_Avanco', 'Y4 — Cil2 avanço (ventosa desce)'),
+      tag('Q4.5', 'Ventosa_On', 'Y8 — ventosa (vácuo ON)'),
+      tag('Q4.6', 'Ventosa_Off', 'Y9 — ventosa (vácuo OFF)'),
+      tag('Q4.7', 'Cil3_Recuo', 'Y2 — Cil3 recuo'),
+      tag('Q5.0', 'Cil3_Avanco', 'Y1 — Cil3 avanço'),
+      tag('Q5.1', 'Cil4_Avanco', 'Y3 — Cil4 (estampa) avanço, monoestável'),
+      tag('Q5.2', 'M1_Esquerda', 'K1 — motor M1 para a esquerda (→ alimentador)'),
+      tag('Q5.3', 'M1_Direita', 'K2 — motor M1 para a direita (→ estampagem)'),
+      tag('Q5.4', 'LED_Amarelo', 'LED amarelo'),
+      tag('Q5.5', 'LED_Verde', 'LED verde'),
+      tag('Q5.6', 'LED_Vermelho', 'LED vermelho'),
+      tag('M0.0', 'Peca_Preta', 'Peça em curso: preta'),
+      tag('M0.1', 'Peca_Branca', 'Peça em curso: branca'),
+      tag('M0.2', 'Peca_Metal', 'Peça em curso: metálica'),
+      tag('M0.3', 'Cnt_Preta', '1 peça preta na rampa'),
+      tag('M0.4', 'Cnt_Branca', '1 peça branca na rampa'),
+      tag('M0.5', 'Cnt_Metal', '1 peça metálica na rampa'),
+      tag('M0.6', 'Rampa_Preta_Cheia', 'Rampa preta com 2 peças'),
+      tag('M0.7', 'Rampa_Branca_Cheia', 'Rampa branca com 2 peças'),
+      tag('M1.0', 'Rampa_Metal_Cheia', 'Rampa metálica com 2 peças'),
+      wordTag('MW100', 'Tempo_Estampagem_s', 'MOVE: tempo da peça em curso (Preta 5 · Branca 6 · Metálica 8 s)'),
+    ],
+    unlockedViews: ['ladder'],
+    ladderRungs: [
+      moveRung('eg-mv-preta', 'MOVE · tempo da peça preta', 'M0.0', '5', 'MW100', 'Peca_Preta → Tempo_Estampagem_s = 5 s'),
+      moveRung('eg-mv-branca', 'MOVE · tempo da peça branca', 'M0.1', '6', 'MW100', 'Peca_Branca → Tempo_Estampagem_s = 6 s'),
+      moveRung('eg-mv-metal', 'MOVE · tempo da peça metálica', 'M0.2', '8', 'MW100', 'Peca_Metal → Tempo_Estampagem_s = 8 s'),
+      moveRung('eg-mv-reset', 'MOVE · limpar no reset', 'I2.0', '0', 'MW100', 'B_Reset → Tempo_Estampagem_s = 0'),
+    ],
+    notes: [
+      { ...note(`${p}-n-auto`, 'Como testar — automático', chartRight(g0) + 320, 70, '#bfdbfe', [
+        'No arranque a segurança está OK e os cilindros recuados. Impulso em B_Reset: o G3 referencia a máquina e o G0 fica parado (X2).',
+        'B_Start com Sel_Auto ligado: G0 → X3 e o G2 alimenta uma peça. Ligue C1_Avancado e escolha o tipo com Sensor_Metal ou Sensor_Cor (nenhum = preta).',
+        'Siga os fins de curso de cada etapa (C1, C2, FC_Estampagem, C3, C4, FC_Alimentador). A estampa dura 5, 6 ou 8 s conforme o tipo.',
+        'B_Stop (NF) acaba o ciclo e para. B_Pausa congela o ciclo e para o M1. À 2.ª peça de um tipo a rampa fica cheia: o ciclo acaba e o LED vermelho pisca.',
+      ]), chart: g0 },
+      { ...note(`${p}-n-safety`, 'Emergência e reset', chartRight(g1) + 320, 70, '#fecaca', [
+        'Desligue Seguranca_OK: G1 → X11 (LED vermelho) e G0 → X7; o ciclo, o reset e o manual abortam.',
+        'Ligue de novo Seguranca_OK (rearme S6 no relé): G0 volta a X0 e pede reset (LED amarelo a piscar).',
+        'Reset_Rampas com a máquina parada esvazia os contadores das três rampas (G3, etapa 56).',
+      ]), chart: g1 },
+      { ...note(`${p}-n-manual`, 'Como testar — manual', chartRight(g4) + 320, 70, '#bbf7d0', [
+        'Com a máquina parada (X2), desligue Sel_Auto: G0 → X6 e o G4 ativa os botões Man_* do HMI.',
+        'Cada botão comanda a saída enquanto premido; os pares avanço/recuo não atuam juntos. M1 só roda com a ventosa em cima e para no fim de curso.',
+        'Ao voltar a automático o G0 passa a X0: é preciso novo reset.',
+      ]), chart: g4 },
+    ],
+    restInputs: { 'I0.0': true, 'I0.3': true, 'I0.4': true, 'I1.0': true, 'I1.3': true, 'I1.5': true, 'I1.6': true, 'I1.7': true },
+    inputModes: {
+      'I1.4': 'push', 'I1.5': 'nc', 'I2.0': 'push', 'I2.2': 'push',
+      ...push(['I2.3', 'I2.4', 'I2.5', 'I2.6', 'I2.7', 'I3.0', 'I3.1', 'I3.2', 'I3.3', 'I3.4', 'I3.5']),
+    },
+    virtualInputCount: 32,
+    virtualOutputCount: 16,
+    virtualMemoryCount: 16,
+  }
+}
+
 export function grafcetExamples(): GrafcetExample[] {
-  return [prensa(), portao(), enchimento(), estampagem()]
+  return [prensa(), portao(), enchimento(), estampagem(), estampagemGuiao()]
 }
 
 /** Conteúdo de projeto (o mesmo formato que «Guardar») de um exemplo GRAFCET. */
