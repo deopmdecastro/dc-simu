@@ -22,7 +22,6 @@ import { fixNativeCoilWiring } from '../project/nativeCoilFix'
 import { addNativeSignals } from '../project/nativeSignals'
 import { syncNativeLadder } from '../project/nativeLadderSync'
 import { upgradeNativeNcSimInputs } from '../project/nativeSimInputs'
-import { upgradeNativeEstrela } from '../project/nativeEstrelaUpgrade'
 import { normalizeKind, normalizeUnlockedViews, type ProjectKind, type WorkspaceView } from '../project/kind'
 import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
@@ -3551,7 +3550,7 @@ export const useSimStore = create<Store>((set, get) => {
   loadJSON: (json) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
-      const original = migrateLegacyAddresses(upgradeNativeEstrela(JSON.parse(json))) as Record<string, any>
+      const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
       const parsed = addNativeAnnotations(addNativeIecSchematic(syncNativeLadder(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(refreshNativeWireCurves(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original))))))))))
       setStoredCover(parsed?.cover, parsed?.coverVersion)
       get().stop()

@@ -8,10 +8,10 @@ import {
   canUse, componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, limitFor, limitMessage,
   sanitizeComponentChange, upgradeMessage,
 } from '../saas/platformCore.mjs'
-import { nativeProjectSeeds, NATIVE_PARTIDA_ID, NATIVE_ESTRELA_ID } from '../project/nativeProjects'
+import { nativeProjectSeeds, NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID } from '../project/nativeProjects'
 import { nativeLandingPayload } from '../project/landingPublish'
 
-const NATIVE_IDS = [NATIVE_PARTIDA_ID, NATIVE_ESTRELA_ID] as const
+const NATIVE_IDS = [NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID] as const
 const isNativeId = (id: string) => (NATIVE_IDS as readonly string[]).includes(id)
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'
@@ -198,7 +198,8 @@ function ensureNativeProjects(data: LocalData): LocalData {
   const seeds = nativeProjectSeeds()
   let changed = false
   // Remove sementes antigas quando existe a versão atual (v4 — grupos força/comando).
-  const legacyIds = ['native-partida-direta-v1', 'native-partida-direta-v2', 'native-partida-direta-v3', 'native-partida-direta-v4']
+  // Inclui o estrela-triângulo antigo (substituído pelo nativo com KS1).
+  const legacyIds = ['native-estrela-triangulo-v1', 'native-partida-direta-v1', 'native-partida-direta-v2', 'native-partida-direta-v3', 'native-partida-direta-v4']
   const before = data.projects.length
   data.projects = data.projects.filter((project) => !legacyIds.includes(project.id))
   if (data.projects.length !== before) changed = true
