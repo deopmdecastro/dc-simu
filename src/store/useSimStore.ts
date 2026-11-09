@@ -667,6 +667,20 @@ const EMPTY_RUNTIME = (): RuntimeExtras => ({
   energizedWires: new Set(),
 })
 
+/** Há caminho condutor entre dois bornes (grafo da continuidade)? */
+function pathBetween(adjacency: Map<string, Set<string>>, from: string, to: string): boolean {
+  if (from === to) return true
+  const seen = new Set([from]); const queue = [from]
+  while (queue.length) {
+    const id = queue.shift()!
+    for (const next of adjacency.get(id) ?? []) {
+      if (next === to) return true
+      if (!seen.has(next)) { seen.add(next); queue.push(next) }
+    }
+  }
+  return false
+}
+
 function runOneTick(state: Store, dtMs: number) {
   const { components, wires, ladder, sim } = state
   // Atualizar acessórios DC que têm alimentação física, antes do grafo do scan.
@@ -852,7 +866,13 @@ function runOneTick(state: Store, dtMs: number) {
       const u1 = terminalByLabel(c, 'U1')
       const v1 = terminalByLabel(c, 'V1')
       const w1 = terminalByLabel(c, 'W1')
-      const bridged = c.state.motorConnection == null || c.state.motorConnection === 'star' || c.state.motorConnection === 'delta'
+      // Caixa sem pontes (arranque estrela-triângulo): os enrolamentos fecham por fora — estrela quando
+      // W2/U2/V2 estão ligados entre si (ex.: KM3), triângulo quando os três estão sob tensão (ex.: KM2).
+      const boxBridged = c.state.motorConnection == null || c.state.motorConnection === 'star' || c.state.motorConnection === 'delta'
+      const ends = ['W2', 'U2', 'V2'].map((label) => terminalByLabel(c, label)?.id)
+      const externalStar = ends.every(Boolean) && pathBetween(pass3.reachable, ends[0]!, ends[1]!) && pathBetween(pass3.reachable, ends[1]!, ends[2]!)
+      const externalDelta = ends.every((id) => !!id && pass3.energizedTerminals.has(id))
+      const bridged = boxBridged || (c.state.motorConnection === 'none' && (externalStar || externalDelta))
       const live = !!(bridged && u1 && v1 && w1 && pass3.energizedTerminals.has(u1.id) && pass3.energizedTerminals.has(v1.id) && pass3.energizedTerminals.has(w1.id))
       c.state.tripped = thermalTripped
       c.state.running = live && !thermalTripped && !sim.faults.phaseLoss
