@@ -89,7 +89,8 @@ export default function EditorMinimap({
           node.removeAttribute('tabindex')
           node.removeAttribute('role')
           Array.from(node.attributes)
-            .filter((attribute) => attribute.name.startsWith('aria-'))
+            // data-*-id identifica o elemento real do diagrama: a cópia não pode responder por ele.
+            .filter((attribute) => attribute.name.startsWith('aria-') || /^data-(?:.+-id|grafcet-text)$/.test(attribute.name))
             .forEach((attribute) => node.removeAttribute(attribute.name))
         })
 
