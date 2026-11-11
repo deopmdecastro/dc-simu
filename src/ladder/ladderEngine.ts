@@ -77,13 +77,9 @@ export function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTabl
 }
 
 function evalRung(rung: LadderRung, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
-  // um rung sem contatos (branches vazias) é considerado "sempre verdadeiro"
-  // apenas quando explicitamente montado assim pelo usuário com 1 branch vazia
-  if (!rung.enabled) return false
   if (rung.branches.length === 0) return false
-  const anyEmpty = rung.branches.some((b) => b.elements.length === 0)
-  if (anyEmpty) return true
   // Avalia todos os ramos (sem curto-circuito) para manter os flancos P/N coerentes.
+  // Um ramo vazio conduz sempre (evalBranch devolve true), mas os outros continuam a ser lidos.
   const results = rung.branches.map((b) => evalBranch(b, table, db, edges, timers, counters))
   return results.some(Boolean)
 }
@@ -176,6 +172,12 @@ export function runScan(
       rungPowered[rung.id] = false
       skipped.push(rung.id)
       options.trace?.push({ rungId: rung.id, index: i, powered: false, skipped: true, writes: {} })
+      continue
+    }
+    if (!rung.enabled) {
+      // Network desativada não é executada: não pode escrever false por cima de outra network nem repor temporizadores.
+      rungPowered[rung.id] = false
+      options.trace?.push({ rungId: rung.id, index: i, powered: false, skipped: false, writes: {} })
       continue
     }
     const powered = evalRung(rung, table, db, edges, timers, counters)
@@ -334,7 +336,7 @@ export function runScan(
     // O forçar vale também para as escritas deste rung: os seguintes já leem o valor imposto.
     applyForces(table, forces)
     let jumpedTo: string | undefined
-    if (rung.jump && rung.enabled) {
+    if (rung.jump) {
       const fire = rung.jump.mode === 'JMPN' ? !powered : powered
       const target = labelAt.get(rung.jump.label.trim().toUpperCase())
       if (fire && target !== undefined && target > i) { jumpTo = target; jumpedTo = rung.jump.label.trim() }
@@ -405,6 +407,7 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
       for (const el of branch.elements) {
         if (el.contactType !== 'NOT' && el.address) set.add(el.address.toUpperCase())
         if (el.contactType === 'XOR' && el.xorAddress) set.add(el.xorAddress.toUpperCase())
+        if (el.contactType === 'CMP' && el.compareValue) set.add(el.compareValue.trim().replace(/^%/, '').toUpperCase())
       }
     }
     for (const coil of rung.coils) { set.add(coil.address.toUpperCase()); if (coil.resetAddress) set.add(coil.resetAddress.toUpperCase()) }
@@ -419,8 +422,6 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
       if (rung.counter.downAddress) set.add(rung.counter.downAddress.toUpperCase())
     }
   }
-  return [...set].sort((a, b) => {
-    if (a[0] !== b[0]) return a[0].localeCompare(b[0])
-    return Number(a.slice(1)) - Number(b.slice(1))
-  })
+  // Ordem natural: MW1 não é um número depois do prefixo, e NaN tornava a ordenação inconsistente.
+  return [...set].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
 }

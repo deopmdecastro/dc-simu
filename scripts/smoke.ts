@@ -19,7 +19,7 @@ import ActionSymbol, { actionShape } from '../src/grafcet/ActionSymbol'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario } from '../src/simulation/scenarios'
 import { computeContinuity, internalBridges, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../src/electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/phases'
-import { runScan } from '../src/ladder/ladderEngine'
+import { collectUsedAddresses, runScan } from '../src/ladder/ladderEngine'
 import { applyKind } from '../src/ladder/ladderDnd'
 import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
 import type { CounterTable, AddressTable, TimerTable, EdgeTable } from '../src/ladder/ladderEngine'
@@ -707,6 +707,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const disabled = { ...created, enabled: false, move: { source: 'I1', target: 'Q1' } }
   runScan({ rungs: [disabled] }, table, {}, {}, 100)
   check('MOVE desativado não escreve saídas', !table.Q1)
+  const always = { branches: [{ id: 'always-on', elements: [] }] }
+  const writer: LadderRung = { id: 'writer', name: 'Liga', enabled: true, ...always, coils: [{ kind: 'coil', id: 'c-on', address: 'Q2', coilType: 'COIL' }] }
+  const offCopy: LadderRung = { id: 'off-copy', name: 'Desativada', enabled: false, ...always, coils: [{ kind: 'coil', id: 'c-off', address: 'Q2', coilType: 'COIL' }] }
+  const coilTable: Record<string, boolean> = { Q2: false }
+  const disabledResult = runScan({ rungs: [writer, offCopy] }, coilTable, {}, {}, 100)
+  check('network desativada não apaga a bobina escrita por outra', coilTable.Q2 && disabledResult.rungPowered['off-copy'] === false)
+  const heldTimers = { T1: { elapsedMs: 400, presetMs: 1000, done: false, running: true } }
+  runScan({ rungs: [{ id: 'off-timer', name: 'T', enabled: false, ...always, coils: [], timer: { kind: 'timer', id: 't', address: 'T1', timerType: 'TON', presetMs: 1000 } }] }, {}, heldTimers, {}, 100)
+  check('network desativada não repõe o temporizador', heldTimers.T1.elapsedMs === 400)
+  const edgeRung: LadderRung = { id: 'edge-par', name: 'Flanco', enabled: true, coils: [], branches: [{ id: 'empty', elements: [] }, { id: 'edge', elements: [{ kind: 'contact', id: 'p1', address: 'I2', contactType: 'RISING' }] }] }
+  const edgeMemory: Record<string, boolean> = {}
+  runScan({ rungs: [edgeRung] }, { I2: true }, {}, {}, 100, {}, [], {}, edgeMemory)
+  check('ramo vazio em paralelo não congela a memória de flanco', edgeMemory.p1 === true)
+  const cmpUsed = collectUsedAddresses({ rungs: [{ id: 'cmp', name: 'CMP', enabled: true, coils: [], branches: [{ id: 'b', elements: [{ kind: 'contact', id: 'k', address: 'MW1', contactType: 'CMP', compareOp: '>', compareValue: 'c2' }] }] }] })
+  check('tags incluem o 2.º operando do comparador', cmpUsed.includes('MW1') && cmpUsed.includes('C2'))
   const readOnly = { ...created, move: { source: '1', target: 'I1' } }
   table.I1 = false
   runScan({ rungs: [readOnly] }, table, {}, {}, 100)
