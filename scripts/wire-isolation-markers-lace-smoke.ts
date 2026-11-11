@@ -1,5 +1,7 @@
 /** Isolamento, marcadores, filaçar e espiral de proteção. */
 import assert from 'node:assert/strict'
+import * as THREE from 'three'
+import { componentObstacles } from '../src/three/wireGeometry3D'
 import {
   isPanelAccessoryType, isSpiralWrapType, panelAccessorySizeMm, spiralWrapDimsOf, SPIRAL_WRAP_TYPE,
 } from '../src/three/enclosureParts'
