@@ -717,7 +717,19 @@ export function nativeDemoTable(plcRunning: boolean, motorOn: boolean): Record<s
   }
 }
 
+let seedCache: NativeProjectSeed[] | null = null
+
+/**
+ * Sementes dos projetos nativos. Construir o traçado dos cabos é caro e o backend local
+ * pede as sementes em cada operação: calcula-se uma vez por sessão e devolve-se uma cópia,
+ * para que nenhum chamador altere a semente guardada.
+ */
 export function nativeProjectSeeds(): NativeProjectSeed[] {
+  seedCache ??= buildNativeProjectSeeds()
+  return structuredClone(seedCache)
+}
+
+function buildNativeProjectSeeds(): NativeProjectSeed[] {
   // Exemplos GRAFCET (básico, normal, avançado): projetos só GRAFCET, funcionais, com sinais, textos e comentários.
   const examples: NativeProjectSeed[] = grafcetExamples().map((example) => ({
     id: example.id,

@@ -59,6 +59,18 @@ function pathHits(pts: Pt[], obstacles: Rect[]): number {
   return hits
 }
 
+/** Como `pathHits`, mas para assim que ultrapassa `limit`: esse candidato já não pode ganhar. */
+function pathHitsUpTo(pts: Pt[], obstacles: Rect[], limit: number): number {
+  let hits = 0
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p = pts[i]
+    const q = pts[i + 1]
+    for (const r of obstacles) if (segHitsRect(p, q, r)) { hits++; break }
+    if (hits > limit) return hits
+  }
+  return hits
+}
+
 function pathLen(pts: Pt[]): number {
   let len = 0
   for (let i = 0; i < pts.length - 1; i++) len += Math.abs(pts[i + 1].x - pts[i].x) + Math.abs(pts[i + 1].y - pts[i].y)
@@ -158,27 +170,6 @@ export function planNativeWirePaths(components: ElectricalComponent[], wires: Wi
     const q1Y = a.y + (b.y - a.y) * 0.25
     const q3Y = a.y + (b.y - a.y) * 0.75
 
-    type Cand = { pts: Pt[]; laneKey: string; hits: number; len: number }
-    const cands: Cand[] = []
-    const laneSpreadIndex = laneUse.size % 3
-    for (const laneX of lanes([midXBase, q1X, q3X, ...edgeX], laneSpreadIndex)) {
-      const pts = hvh(a, b, laneX)
-      cands.push({ pts, laneKey: `h:${Math.round(laneX)}`, hits: pathHits(pts, obstacles), len: pathLen(pts) })
-    }
-    for (const laneY of lanes([midYBase, q1Y, q3Y, ...edgeY], laneSpreadIndex)) {
-      const pts = vhv(a, b, laneY)
-      cands.push({ pts, laneKey: `v:${Math.round(laneY)}`, hits: pathHits(pts, obstacles), len: pathLen(pts) })
-    }
-    // Rumo «canto-alto»: sobe por X, corre em Y entre linhas de equipamentos.
-    for (const laneX of lanes([midXBase, ...edgeX], 0)) {
-      for (const laneY of lanes([midYBase, ...edgeY], 0)) {
-        const pts = hvhvh(a, b, laneX, laneY)
-        cands.push({ pts, laneKey: `x:${Math.round(laneX)}:${Math.round(laneY)}`, hits: pathHits(pts, obstacles), len: pathLen(pts) + 40 })
-      }
-    }
-
-    const ok = cands.filter((c) => c.hits === 0 && c.laneKey.split(':')[1] !== undefined)
-    const pool = (ok.length ? ok : cands)
     // Preferir: 1) zero atravessamentos 2) faixa menos usada 3) traçado que sobe/desce
     // nos corredores entre grupos (menos «pela frente» dos aparelhos) 4) mais curto.
     // Penaliza caminhos cujo primeiro/último segmento horizontal corta a caixa dos extremos
@@ -189,18 +180,39 @@ export function planNativeWirePaths(components: ElectricalComponent[], wires: Wi
       if (pts.length >= 2 && Math.abs(pts[pts.length - 1].y - pts[pts.length - 2].y) < 1 && Math.abs(pts[pts.length - 1].x - pts[pts.length - 2].x) > 8) p += 12
       return p
     }
-    pool.sort((c1, c2) =>
-      c1.hits - c2.hits ||
-      (laneUse.get(c1.laneKey) ?? 0) - (laneUse.get(c2.laneKey) ?? 0) ||
-      (c1.len + frontPenalty(c1.pts)) - (c2.len + frontPenalty(c2.pts)),
-    )
-    const chosen = pool[0]
-    laneUse.set(chosen.laneKey, (laneUse.get(chosen.laneKey) ?? 0) + 1)
+
+    // Passagem única: guarda só o melhor candidato (em empate fica o primeiro, como numa ordenação estável).
+    // Num quadro grande há centenas de milhares de candidatos por cabo; ordená-los bloqueava a página.
+    let chosen: { pts: Pt[]; laneKey: string; hits: number; use: number; score: number } | null = null
+    const consider = (pts: Pt[], laneKey: string, extraLen: number) => {
+      const limit = chosen ? chosen.hits : Infinity
+      const hits = pathHitsUpTo(pts, obstacles, limit)
+      if (hits > limit) return
+      const use = laneUse.get(laneKey) ?? 0
+      const score = pathLen(pts) + extraLen + frontPenalty(pts)
+      if (!chosen || hits < chosen.hits || (hits === chosen.hits && (use < chosen.use || (use === chosen.use && score < chosen.score)))) {
+        chosen = { pts, laneKey, hits, use, score }
+      }
+    }
+    const laneSpreadIndex = laneUse.size % 3
+    for (const laneX of lanes([midXBase, q1X, q3X, ...edgeX], laneSpreadIndex)) consider(hvh(a, b, laneX), `h:${Math.round(laneX)}`, 0)
+    for (const laneY of lanes([midYBase, q1Y, q3Y, ...edgeY], laneSpreadIndex)) consider(vhv(a, b, laneY), `v:${Math.round(laneY)}`, 0)
+    // Rumo «canto-alto»: sobe por X, corre em Y entre linhas de equipamentos.
+    // Repetir a mesma faixa gera um candidato igual, que nunca ganha ao primeiro.
+    const cornerX = [...new Set(lanes([midXBase, ...edgeX], 0))]
+    const cornerY = [...new Set(lanes([midYBase, ...edgeY], 0))]
+    for (const laneX of cornerX) {
+      for (const laneY of cornerY) consider(hvhvh(a, b, laneX, laneY), `x:${Math.round(laneX)}:${Math.round(laneY)}`, 40)
+    }
+
+    if (!chosen) continue
+    const best: { pts: Pt[]; laneKey: string } = chosen
+    laneUse.set(best.laneKey, (laneUse.get(best.laneKey) ?? 0) + 1)
 
     // Waypoints cozidos: só os pontos intermédios; os extremos ficam nos bornes.
     plans.set(w.id, {
-      waypoints: chosen.pts.slice(1, -1),
-      route: chosen.pts.length === 4 && chosen.pts[1].y === a.y ? 'orthogonal' : 'manhattan',
+      waypoints: best.pts.slice(1, -1),
+      route: best.pts.length === 4 && best.pts[1].y === a.y ? 'orthogonal' : 'manhattan',
       bend: 0.5,
     })
   }
