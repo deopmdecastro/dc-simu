@@ -44,6 +44,8 @@ app.use((_req, res, next) => {
   next()
 })
 app.use(express.json({ limit: '8mb' }))
+// No Express 5 um pedido sem corpo deixa req.body indefinido: as rotas validam campos, não a sua existência.
+app.use((req, _res, next) => { if (req.body === undefined) req.body = {}; next() })
 const id = () => randomBytes(16).toString('hex')
 const hash = s => createHash('sha256').update(s).digest('hex')
 const pwd = p => { const salt = randomBytes(16).toString('hex'); return salt + ':' + scryptSync(p, salt, 64).toString('hex') }
@@ -92,8 +94,8 @@ const seedFixedAccounts = db.transaction(() => {
   for (const account of initialAccounts) {
     const existing = db.prepare('SELECT id FROM users WHERE email=?').get(account.email)
     if (existing) {
-      // Nunca reponha a palavra-passe a cada arranque: Admin pode alterá-la sem ser revertida.
-      db.prepare('UPDATE users SET name=?,role=?,active=1,created_at=COALESCE(created_at,?) WHERE id=?').run(account.name,account.role,new Date().toISOString(),existing.id)
+      // Nunca reponha a palavra-passe nem o nome a cada arranque: o titular pode alterá-los sem serem revertidos.
+      db.prepare('UPDATE users SET role=?,active=1,created_at=COALESCE(created_at,?) WHERE id=?').run(account.role,new Date().toISOString(),existing.id)
     } else {
       if (!strongInitialPassword(account.password)) throw new Error(`Defina ${account.role === 'admin' ? 'ADMIN_INITIAL_PASSWORD' : 'USER_INITIAL_PASSWORD'} (mínimo 16 caracteres, maiúsculas, minúsculas e números) antes da primeira inicialização.`)
       db.prepare('INSERT INTO users(id,email,name,password,role,active,created_at) VALUES (?,?,?,?,?,1,?)').run(id(),account.email,account.name,pwd(account.password),account.role,new Date().toISOString())
@@ -187,6 +189,8 @@ app.patch('/api/account/profile', auth, (req, res) => {
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
     if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail(res, 400, 'Indique um e-mail válido')
     if (email !== current.email) {
+      // As contas fixas são identificadas pelo e-mail no arranque: mudá-lo impediria o servidor de as reencontrar.
+      if (fixedAccounts.some(account => account.email === current.email)) return fail(res, 403, 'O e-mail das contas fixas não pode ser alterado.')
       // Mudar o e-mail muda a credencial de acesso: exige a palavra-passe atual.
       if (typeof body.currentPassword !== 'string' || body.currentPassword.length > 200 || !verify(body.currentPassword, current.password)) return fail(res, 401, 'Confirme a palavra-passe atual para mudar o e-mail')
       if (db.prepare('SELECT 1 FROM users WHERE email=? AND id<>?').get(email, current.id)) return fail(res, 409, 'Esse e-mail já está em uso')
@@ -285,7 +289,8 @@ app.put('/api/projects/:id',auth,project,(req,res)=>{
   return res.json({id:req.project.id,name,revision:req.project.revision})
  }
  const content=JSON.stringify(req.body.content), revision=req.body.revision
- if (!content||content.length>7_000_000)return fail(res,413,'Projeto demasiado grande')
+ if (!content)return fail(res,400,'Conteúdo do projeto obrigatório')
+ if (content.length>7_000_000)return fail(res,413,'Projeto demasiado grande')
  if (!Number.isInteger(revision))return fail(res,400,'Revisão obrigatória')
  const result=db.prepare('UPDATE projects SET content=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?').run(content,new Date().toISOString(),req.project.id,revision)
  if (!result.changes)return fail(res,409,'Este projeto foi alterado noutro separador ou por outro membro. Reabra-o antes de guardar.')
@@ -507,7 +512,28 @@ app.use('/api',(req,res)=>fail(res,404,'Endpoint não encontrado'))
 const root=resolve('dist')
 app.use(express.static(root,{setHeaders:(res,file)=>{
  if(/(?:index\.html|sw\.js|version\.json)$/.test(file))res.setHeader('Cache-Control','no-cache, no-store, must-revalidate')
- else if(file.includes('/assets/'))res.setHeader('Cache-Control','public, max-age=31536000, immutable')
+ else if(/[\\/]assets[\\/]/.test(file))res.setHeader('Cache-Control','public, max-age=31536000, immutable')
 }}))
+// Um ficheiro de build em falta não pode responder com o index.html: o navegador guardaria HTML no lugar do módulo.
+app.get('/assets/{*path}',(_req,res)=>res.status(404).type('text/plain').send('Not found'))
 app.get('/{*path}',(_req,res)=>{res.setHeader('Cache-Control','no-cache, no-store, must-revalidate');res.sendFile(resolve(root,'index.html'))})
-app.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>console.log('DC-SIMU API ready'))
+// Erros do corpo do pedido (JSON inválido, tamanho) e exceções das rotas: a API responde sempre em JSON, sem pilha de chamadas.
+app.use((error,req,res,next)=>{
+ if(res.headersSent||!req.path.startsWith('/api'))return next(error)
+ const status=Number(error?.status||error?.statusCode)||500
+ if(status>=500)console.error('api',req.method,req.path,error)
+ fail(res,status,error?.type==='entity.parse.failed'?'O corpo do pedido não é JSON válido':error?.type==='entity.too.large'?'Pedido demasiado grande':status>=500?'Erro interno do servidor':'Pedido inválido')
+})
+const httpServer=app.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>console.log('DC-SIMU API ready'))
+// Paragem limpa (docker stop): termina os pedidos em curso e fecha o SQLite em vez de esperar pelo SIGKILL.
+let stopping=false
+const shutdown=()=>{
+ if(stopping)return
+ stopping=true
+ const close=()=>{try{db.close()}catch(error){console.error('shutdown',error)}process.exit(0)}
+ httpServer.close(close)
+ httpServer.closeIdleConnections?.()
+ setTimeout(close,5000).unref()
+}
+process.on('SIGTERM',shutdown)
+process.on('SIGINT',shutdown)

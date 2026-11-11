@@ -39,14 +39,23 @@ const execArgv = process.env.SERVER_NODE_ARGS ? process.env.SERVER_NODE_ARGS.spl
   legacy.prepare('INSERT INTO users VALUES (?,?,?,?)').run('legacy-admin', 'admin@dcsimu.local', 'Admin anterior', adminSalt + ':' + scryptSync('ExistingAdmin2026!Private', adminSalt, 64).toString('hex'))
   legacy.close()
 }
-const child = spawn(process.execPath, [...execArgv, 'server/index.mjs'], { env: {
+const startServer = (extraEnv = {}) => spawn(process.execPath, [...execArgv, 'server/index.mjs'], { env: {
   ...process.env,
   PORT: String(port), DATA_DIR: dataDir,
   ADMIN_INITIAL_PASSWORD: 'AdminSeed2026!Secure', USER_INITIAL_PASSWORD: 'UserSeed2026!Secure',
   SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: '', VITE_SUPABASE_ANON_KEY: '', SUPABASE_SERVICE_ROLE_KEY: 'service-role-secret-test', SUPABASE_SECRET_KEY: 'secret-key-test',
   N8N_URL: `http://127.0.0.1:${n8nPort}`, N8N_API_KEY: 'server-only-test-key', N8N_WORKFLOW_ID: 'workflow_test', N8N_WEBHOOK_URL: `http://127.0.0.1:${n8nPort}/webhook/configured`,
   VITE_N8N_API_KEY: 'must-not-be-used',
+  ...extraEnv,
 }, stdio: ['ignore', 'pipe', 'inherit'] })
+let child = startServer()
+// No Windows o SQLite só solta os ficheiros depois de o processo terminar.
+const stopServer = async () => {
+  const exited = child.exitCode !== null || child.signalCode !== null ? Promise.resolve() : new Promise((resolve) => child.once('exit', resolve))
+  child.kill()
+  await exited
+}
+const waitForServer = async () => { for (let i = 0; i < 100; i++) { try { await fetch(`http://127.0.0.1:${port}/api/me`); return true } catch { await new Promise(r => setTimeout(r, 100)) } } return false }
 let failures = 0, passed = 0
 const check = (name, ok, extra = '') => { if (ok) { passed++; console.log('PASS', name) } else { failures++; console.log('FAIL', name, extra) } }
 
@@ -63,7 +72,7 @@ class Client {
 }
 
 try {
-  for (let i = 0; i < 100; i++) { try { await fetch(`http://127.0.0.1:${port}/api/me`); break } catch { await new Promise(r => setTimeout(r, 100)) } }
+  await waitForServer()
   const admin = new Client(), user = new Client(), other = new Client()
   const configResponse = await fetch(`http://127.0.0.1:${port}/api/supabase/config`)
   const publicConfig = await configResponse.json()
@@ -100,11 +109,29 @@ try {
     check('perfil: avatar que não é imagem raster é recusado', (await user.call('PATCH', '/account/profile', { avatar: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' })).status === 400 && (await user.call('PATCH', '/account/profile', { avatar: 'https://exemplo.pt/a.png' })).status === 400)
     check('perfil: avatar removido volta a null', (await user.call('PATCH', '/account/profile', { avatar: null })).status === 200 && (await user.call('GET', '/me')).data.user.avatar === null)
     check('perfil: e-mail inválido é recusado', (await user.call('PATCH', '/account/profile', { email: 'sem-arroba' })).status === 400)
-    check('perfil: mudar e-mail exige a palavra-passe atual', (await user.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt' })).status === 401 && (await user.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt', currentPassword: 'errada' })).status === 401)
-    check('perfil: e-mail já em uso é recusado', (await user.call('PATCH', '/account/profile', { email: 'admin@dcsimu.local', currentPassword: pass })).status === 409)
-    check('perfil: e-mail muda com a palavra-passe e o login segue o novo', (await user.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt', currentPassword: pass })).status === 200 && (await new Client().login('novo@exemplo.pt', pass)).status === 200 && (await new Client().login('user@dcsimu.local', pass)).status === 401)
-    check('perfil: e-mail volta ao original (testes seguintes)', (await user.call('PATCH', '/account/profile', { email: 'user@dcsimu.local', currentPassword: pass })).status === 200 && (await new Client().login('user@dcsimu.local', pass)).status === 200)
+    check('perfil: conta fixa não muda de e-mail', (await user.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt', currentPassword: pass })).status === 403 && (await new Client().login('user@dcsimu.local', pass)).status === 200)
+    const movablePass = 'MovableAcct2026!Secure', movable = new Client()
+    const movableAccount = await admin.call('POST', '/admin/users', { name: 'Conta Movel', email: 'movel@exemplo.pt', password: movablePass })
+    check('perfil: conta normal criada', movableAccount.status === 201 && (await movable.login('movel@exemplo.pt', movablePass)).status === 200)
+    check('perfil: mudar e-mail exige a palavra-passe atual', (await movable.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt' })).status === 401 && (await movable.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt', currentPassword: 'errada' })).status === 401)
+    check('perfil: e-mail já em uso é recusado', (await movable.call('PATCH', '/account/profile', { email: 'admin@dcsimu.local', currentPassword: movablePass })).status === 409)
+    check('perfil: e-mail muda com a palavra-passe e o login segue o novo', (await movable.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt', currentPassword: movablePass })).status === 200 && (await new Client().login('novo@exemplo.pt', movablePass)).status === 200 && (await new Client().login('movel@exemplo.pt', movablePass)).status === 401)
+    await admin.call('DELETE', `/admin/users/${movableAccount.data.id}?force=1`)
     check('perfil: sem sessão é recusado', (await new Client().call('PATCH', '/account/profile', { name: 'Intruso' })).status === 401)
+  }
+  {
+    // Corpo do pedido: a API responde sempre em JSON e nunca com 500 por falta de corpo.
+    const rawPost = (path, init) => fetch(`http://127.0.0.1:${port}/api${path}`, { method: 'POST', ...init, headers: { ...(init?.headers ?? {}), Cookie: user.cookie } })
+    const malformed = await rawPost('/login', { headers: { 'Content-Type': 'application/json' }, body: '{"email":' })
+    const malformedBody = await malformed.text()
+    check('corpo: JSON inválido devolve 400 em JSON sem pilha', malformed.status === 400 && malformed.headers.get('content-type')?.includes('application/json') && !malformedBody.includes(' at ') && JSON.parse(malformedBody).error === 'O corpo do pedido não é JSON válido')
+    const tooLarge = await rawPost('/login', { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'x'.repeat(9 * 1024 * 1024) }) })
+    check('corpo: excesso de tamanho devolve 413 em JSON', tooLarge.status === 413 && (await tooLarge.json()).error === 'Pedido demasiado grande')
+    check('corpo: criar projeto sem corpo devolve 400', (await rawPost('/projects')).status === 400)
+    check('corpo: convite sem corpo não devolve 500', (await (async () => { const created = await user.call('POST', '/projects', { name: 'Sem corpo', content: {} }); const res = await rawPost(`/projects/${created.data.id}/invitations`); await user.call('DELETE', `/projects/${created.data.id}`); return res })()).status !== 500)
+    const emptyContent = await user.call('POST', '/projects', { name: 'Sem conteudo', content: {} })
+    check('corpo: guardar sem conteúdo devolve 400', (await user.call('PUT', `/projects/${emptyContent.data.id}`, { revision: 0 })).status === 400)
+    await user.call('DELETE', `/projects/${emptyContent.data.id}`)
   }
   {
     const profile = { name: 'Meu perfil', category: 'Proteção', description: 'teste', specs: [{ label: '1', name: 'Entrada', fn: 'L', kind: 'power-in', polarity: 'ac', electricalClass: 'ac', direction: 'in', terminalType: 'screw', color: '#92400e', face: 'top' }] }
@@ -337,13 +364,26 @@ try {
     // eliminar conta com comentários não falha (FK em cascata)
     check('saas: eliminar conta com comentários', (await admin.call('DELETE', `/admin/users/${rui.id}?force=1`)).status === 200)
   }
+  {
+    // Reinício sobre os mesmos dados e sem senhas iniciais: é o estado normal de produção.
+    const nameBefore = 'Nome Persistente'
+    check('reinício: nome da conta fixa alterado antes de parar', (await user.call('PATCH', '/account/profile', { name: nameBefore })).status === 200)
+    await stopServer()
+    child = startServer({ ADMIN_INITIAL_PASSWORD: '', USER_INITIAL_PASSWORD: '' })
+    check('reinício: servidor arranca sem senhas iniciais', await waitForServer())
+    const after = new Client()
+    check('reinício: conta fixa continua a entrar', (await after.login('user@dcsimu.local', 'UserRotated2026!Secure')).status === 200)
+    check('reinício: nome alterado da conta fixa mantém-se', (await after.call('GET', '/me')).data.user?.name === nameBefore)
+    const missingAsset = await fetch(`http://127.0.0.1:${port}/assets/nao-existe-abc123.js`)
+    check('recurso de build em falta devolve 404, não o index.html', missingAsset.status === 404 && !(await missingAsset.text()).includes('<html'))
+  }
 } catch (error) {
   failures++
   console.log('FAIL exceção', error)
 } finally {
-  child.kill()
+  await stopServer()
   await new Promise((resolve) => n8nMock.close(resolve))
-  rmSync(dataDir, { recursive: true, force: true })
+  rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
 }
 console.log(`\n${passed} passaram, ${failures} falharam`)
 process.exit(failures ? 1 : 0)

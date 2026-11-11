@@ -9,4 +9,4 @@ RUN APP_BUILD_COMMIT="$APP_BUILD_COMMIT" npm run build
 LABEL org.opencontainers.image.revision=$APP_BUILD_COMMIT
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "server/index.mjs"]

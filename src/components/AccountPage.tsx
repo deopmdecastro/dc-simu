@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { User } from '../dashboard/Dashboard'
 import Avatar from '../ui/Avatar'
 import { accountApi, activeAccountBackend } from '../auth/accountApi'
+import { isFixedAccount } from '../auth/localBackend'
 import AccountPlanCard from '../saas/AccountPlanCard'
 import ChangePasswordModal from './ChangePasswordModal'
 import { IconArrowLeft, IconCamera, IconCard, IconDelete, IconIdCard, IconKey, IconMail, IconShield } from '../ui/icons'
@@ -37,6 +38,7 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
 }) {
   const backend = activeAccountBackend()
   const fixedLocal = backend === 'local'
+  const emailLocked = fixedLocal || (backend === 'server' && isFixedAccount(user))
   const [name, setName] = useState(user.name)
   const [email, setEmail] = useState(user.email)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -144,8 +146,9 @@ export default function AccountPage({ user, ownedProjects, onUser, onBack }: {
           <input className="dx-input" value={name} maxLength={80} minLength={2} required autoComplete="name" onChange={(event) => setName(event.target.value)} />
         </label>
         <label className="acp-field"><span><IconMail size={12} />E-mail</span>
-          <input className="dx-input" type="email" value={email} maxLength={254} required autoComplete="email" disabled={fixedLocal} onChange={(event) => setEmail(event.target.value)} />
+          <input className="dx-input" type="email" value={email} maxLength={254} required autoComplete="email" disabled={emailLocked} onChange={(event) => setEmail(event.target.value)} />
           {fixedLocal && <small className="acp-hint">As contas locais são fixas: o e-mail só muda com o servidor ou o Supabase ligados.</small>}
+          {!fixedLocal && emailLocked && <small className="acp-hint">Esta é uma conta fixa do servidor: o e-mail não pode ser alterado.</small>}
           {backend === 'supabase' && emailChanged && <small className="acp-hint">O Supabase envia uma ligação de confirmação para o novo e-mail.</small>}
         </label>
         <label className="acp-field"><span>Função ou cargo</span>
