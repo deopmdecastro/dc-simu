@@ -695,10 +695,10 @@ function estampagemGuiao(): GrafcetExample {
   const c4 = step(p, '4', 'A terminar o ciclo', [n('verde', 'A terminar', cond('1HZ'))])
   const c5 = step(p, '5', 'Pausa', [n('verde', 'Em pausa', cond('2HZ'))])
   const c6 = step(p, '6', 'Modo manual', [n('amarelo', 'Manual'), n('verde', 'Manual')], { actionLayout: 'column' })
-  const c7 = step(p, '7', 'Emergência', [])
+  const c7 = step(p, '7', 'Emergência', [n('vermelho', 'Emergência')])
   // ---- G1 · Emergência (o relé de segurança corta as saídas; o PLC só acompanha o estado)
   const e10 = initial(p, '10', 'Segurança OK', [])
-  const e11 = step(p, '11', 'Emergência ativa', [n('vermelho', 'Emergência')])
+  const e11 = step(p, '11', 'Emergência ativa', [])
   // ---- G2 · Funcionamento (ciclo automático)
   const a20 = initial(p, '20', 'Espera na posição inicial', [])
   const a21 = step(p, '21', 'Alimentar peça', [n('cil1Av')])
@@ -804,16 +804,15 @@ function estampagemGuiao(): GrafcetExample {
     link(g2, 'T15', [a32], [a33], '1s/X32' + P, 'Peça largada'),
     link(g2, 'T16', [a33], [a34], 'C2_Recuado' + P, 'Ventosa em cima'),
     link(g2, 'T17', [a34], [a35], 'C3_Avancado' + P, 'Peça sob a estampa'),
-    link(g2, 'T18', [a35], [a36], 'C4_Avancado * Peca_Preta * 5s/X35' + P, 'Preta: 5 s'),
-    link(g2, 'T19', [a35], [a36], 'C4_Avancado * Peca_Branca * 6s/X35' + P, 'Branca: 6 s'),
-    link(g2, 'T20', [a35], [a36], 'C4_Avancado * Peca_Metal * 8s/X35' + P, 'Metálica: 8 s'),
-    link(g2, 'T21', [a36], [a37], 'C3_Recuado * C4_Recuado' + P, 'Cil3 e estampa recuados'),
-    link(g2, 'T22', [a37], [a38], 'C2_Avancado' + P, 'Ventosa em baixo'),
-    link(g2, 'T23', [a38], [a39], '1s/X38' + P, 'Vácuo 1 s'),
-    link(g2, 'T24', [a39], [a40], 'C2_Recuado' + P, 'Ventosa em cima'),
-    link(g2, 'T25', [a40], [a41], 'FC_Alimentador' + P, 'Na saída'),
-    link(g2, 'T26', [a41], [a42], '1s/X41' + P, 'Peça largada e contada'),
-    link(g2, 'T27', [a42], [a20], '1', 'Novo ciclo', ref(a20)),
+    // Uma só receptividade com o tempo de cada tipo: três transições entre as mesmas etapas ficavam sobrepostas no desenho.
+    link(g2, 'T18', [a35], [a36], 'C4_Avancado * (Peca_Preta * 5s/X35 + Peca_Branca * 6s/X35 + Peca_Metal * 8s/X35)' + P, 'Preta 5 s · Branca 6 s · Metálica 8 s'),
+    link(g2, 'T19', [a36], [a37], 'C3_Recuado * C4_Recuado' + P, 'Cil3 e estampa recuados'),
+    link(g2, 'T20', [a37], [a38], 'C2_Avancado' + P, 'Ventosa em baixo'),
+    link(g2, 'T21', [a38], [a39], '1s/X38' + P, 'Vácuo 1 s'),
+    link(g2, 'T22', [a39], [a40], 'C2_Recuado' + P, 'Ventosa em cima'),
+    link(g2, 'T23', [a40], [a41], 'FC_Alimentador' + P, 'Na saída'),
+    link(g2, 'T24', [a41], [a42], '1s/X41' + P, 'Peça largada e contada'),
+    link(g2, 'T25', [a42], [a20], '1', 'Novo ciclo', ref(a20)),
     // Abortos: o G0 saiu de marcha, terminar ciclo e pausa (emergência, reset, manual).
     ...[a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42].map((from, index) =>
       link(g2, `A${index + 1}`, [from], [a20], 'G0 <> X3 * G0 <> X4 * G0 <> X5', 'Abortar', { ...ref(a20), displayCondition: false })),
@@ -878,7 +877,7 @@ function estampagemGuiao(): GrafcetExample {
   const push = (addresses: string[]) => Object.fromEntries(addresses.map((a) => [a, 'push' as const]))
   return {
     id: 'grafcet-estampagem-guiao-1185',
-    nativeId: 'grafcet-estampagem-guiao-1185-v1',
+    nativeId: 'grafcet-estampagem-guiao-1185-v2',
     level: 'avançado',
     name: 'Estampagem — Guião ATEC 1185',
     title: 'Estampagem (guião 1185): G0 Controlo, G1 Emergência, G2 Funcionamento, G3 Reset e G4 Manual',

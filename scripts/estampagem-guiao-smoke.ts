@@ -17,7 +17,7 @@ setGrafcetSignalAliasResolver((name) => aliases.get(name))
 
 // ---- Estrutura
 ok((program.charts ?? []).map((c) => c.name).join('|') === 'G0 Controlo|G1 Emergência|G2 Funcionamento|G3 Reset|G4 Manual', 'cinco GRAFCETs pela ordem pedida')
-const issues = validateGrafcet(program).filter((i) => !/^(addr|drive):/.test(i.id) && !/:always$/.test(i.id))
+const issues = validateGrafcet(program)
 ok(issues.length === 0, 'sem erros no Diagnóstico: ' + JSON.stringify(issues))
 ok(program.transitions!.every((t) => validCondition(t.condition)), 'receptividades válidas')
 const used = new Set(program.steps.flatMap((s) => s.actions ?? []).map((a) => a.address))

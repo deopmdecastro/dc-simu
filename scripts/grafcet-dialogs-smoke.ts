@@ -81,7 +81,17 @@ const conflict: GrafcetProgram = {
   steps: [{ ...step('a', '0'), initial: true, actions: [{ id: 'a1', address: 'Q1', condition: '1', kind: 'N' }] }, { ...step('b', '1'), actions: [{ id: 'a2', address: 'Q1', condition: '1', kind: 'N' }] }],
   transitions: [{ id: 't0', from: ['a'], to: ['b'], condition: '1' }],
 }
-ok('N duplicado na mesma saída avisa', validateGrafcet(conflict).some((issue) => issue.id === 'addr:Q1'))
+ok('N na mesma saída em etapas exclusivas (OU) não avisa', !validateGrafcet(conflict).some((issue) => /^(addr|drive):Q1$/.test(issue.id)))
+const parallel: GrafcetProgram = {
+  steps: [{ ...step('a', '0'), initial: true }, { ...step('b', '1'), actions: [{ id: 'a2', address: 'Q1', condition: '1', kind: 'N' }] }, { ...step('c', '2'), actions: [{ id: 'a3', address: 'Q1', condition: '1', kind: 'N' }] }],
+  transitions: [{ id: 't0', from: ['a'], to: ['b', 'c'], condition: 'I1' }, { id: 't1', from: ['b', 'c'], to: ['a'], condition: 'I2' }],
+}
+ok('N na mesma saída em ramos paralelos avisa', validateGrafcet(parallel).some((issue) => issue.id === 'drive:Q1'))
+ok('S e N na mesma saída avisa', validateGrafcet({ ...conflict, steps: conflict.steps.map((s, i) => i === 0 ? { ...s, actions: [{ id: 'a1', address: 'Q1', condition: '1', kind: 'S' as const }] } : s) }).some((issue) => issue.id === 'addr:Q1'))
+ok('duas transições entre as mesmas etapas avisam (sobrepostas)', validateGrafcet({ ...conflict, transitions: [...conflict.transitions!, { id: 't1', from: ['a'], to: ['b'], condition: 'I2' }] }).some((issue) => issue.id === 't0:parallel'))
+ok('transições para etapas diferentes não avisam como sobrepostas', !validateGrafcet(parallel).some((issue) => issue.id.endsWith(':parallel')))
+ok('«1» depois de etapa com ação N avisa', validateGrafcet(conflict).some((issue) => issue.id === 't0:always'))
+ok('«1» depois de etapa só com S/R não avisa', !validateGrafcet({ ...conflict, steps: conflict.steps.map((s, i) => i === 0 ? { ...s, actions: [{ id: 'a1', address: 'M1', condition: '1', kind: 'S' as const }] } : s) }).some((issue) => issue.id === 't0:always'))
 ok('set/reset na mesma saída é idiomático e não avisa', !validateGrafcet({ steps: [{ ...step('a', '0'), initial: true, actions: [{ id: 'a1', address: 'Q1', condition: '1', kind: 'S' }] }, { ...step('b', '1'), actions: [{ id: 'a2', address: 'Q1', condition: '1', kind: 'R' }] }], transitions: [] }).some((issue) => issue.id.startsWith('addr:')))
 
 ok('ciclo direto (origem = destino) avisa', validateGrafcet({ steps: [step('a', '0', true)], transitions: [{ id: 't0', from: ['a'], to: ['a'], condition: 'I1' }] }).some((issue) => issue.id === 't0:selfloop'))

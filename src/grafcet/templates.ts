@@ -109,6 +109,8 @@ const IEC_TEMPLATES: GrafcetTemplateInfo[] = (() => {
       link('T3', [o1], [o3], 'I0.3'), link('T4', [o2], [o4], 'I0.4'),
       { ...link('T5', [o3], [o5], 'I0.5'), branchType: 'or-convergence' },
       { ...link('T6', [o4], [o5], 'I0.6'), branchType: 'or-convergence' },
+      // Fecha o ciclo: sem esta transição a sequência ficava bloqueada em E5.
+      { ...link('T7', [o5], [o0], 'I0.7'), targetInfo: 'E0' },
     ],
     comments: [],
   }
@@ -440,7 +442,7 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
     description: 'Sequência de reposição dos atuadores D, C, B, A e desativação do vácuo.',
     program: (() => {
       const s81 = uid(), s85 = uid(), s90 = uid(), s95 = uid(), s100 = uid(), s105 = uid()
-      const s110 = uid(), s115 = uid(), s120 = uid(), s125 = uid(), s135a = uid(), s135b = uid()
+      const s110 = uid(), s115 = uid(), s120 = uid(), s125 = uid(), s130 = uid(), s135 = uid()
 
       const steps: GrafcetStep[] = [
         { id: s81, name: '81', initial: true, stepType: 'initial', action: '', condition: '', x: 100, y: 60, chart: 'G2' },
@@ -453,8 +455,8 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
         { id: s115, name: '115', initial: false, stepType: 'simple', action: '', condition: '', x: 100, y: 615, chart: 'G2', actions: [{ id: uid(), address: 'Y8_E-_VACUO_OFF', variable: 'Y8_E-_VACUO_OFF', description: 'Y8_E-_VACUO_OFF', condition: '1', kind: 'N', displayDescription: true }] },
         { id: s120, name: '120', initial: false, stepType: 'simple', action: '', condition: '', x: 100, y: 695, chart: 'G2', actions: [{ id: uid(), address: 'Y3_B-', variable: 'Y3_B-', description: 'Y3_B-', condition: '1', kind: 'N', displayDescription: true }] },
         { id: s125, name: '125', initial: false, stepType: 'simple', action: '', condition: '', x: 100, y: 775, chart: 'G2', actions: [{ id: uid(), address: 'Y4_C+', variable: 'Y4_C+', description: 'Y4_C+', condition: '1', kind: 'N', displayDescription: true }] },
-        { id: s135a, name: '135', initial: false, stepType: 'simple', action: '', condition: '', x: 100, y: 855, chart: 'G2', actions: [{ id: uid(), address: 'C-', variable: 'C-', description: 'C-', condition: '1', kind: 'N', displayDescription: true }] },
-        { id: s135b, name: '135', initial: false, stepType: 'simple', action: '', condition: '', description: 'Fim do Reset', x: 100, y: 935, chart: 'G2' },
+        { id: s130, name: '130', initial: false, stepType: 'simple', action: '', condition: '', x: 100, y: 855, chart: 'G2', actions: [{ id: uid(), address: 'C-', variable: 'C-', description: 'C-', condition: '1', kind: 'N', displayDescription: true }] },
+        { id: s135, name: '135', initial: false, stepType: 'simple', action: '', condition: '', description: 'Fim do Reset', x: 100, y: 935, chart: 'G2' },
       ]
 
       const transitions: GrafcetTransition[] = [
@@ -465,11 +467,11 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
         { id: uid(), from: [s100], to: [s105], condition: 'b0', x: 100, y: 420, chart: 'G2' },
         { id: uid(), from: [s105], to: [s110], condition: 'a0', x: 100, y: 500, chart: 'G2' },
         { id: uid(), from: [s110], to: [s115], condition: 'b1', x: 100, y: 580, chart: 'G2' },
-        { id: uid(), from: [s115], to: [s120], condition: '20s/X15', x: 100, y: 660, chart: 'G2' },
+        { id: uid(), from: [s115], to: [s120], condition: '20s/X115', x: 100, y: 660, chart: 'G2' },
         { id: uid(), from: [s120], to: [s125], condition: 'b0', x: 100, y: 740, chart: 'G2' },
-        { id: uid(), from: [s125], to: [s135a], condition: '5s/X125', x: 100, y: 820, chart: 'G2' },
-        { id: uid(), from: [s135a], to: [s135b], condition: '5s/X135', x: 100, y: 900, chart: 'G2' },
-        { id: uid(), from: [s135b], to: [s81], condition: 'G0X1', targetInfo: '51', x: 100, y: 980, chart: 'G2' },
+        { id: uid(), from: [s125], to: [s130], condition: '5s/X125', x: 100, y: 820, chart: 'G2' },
+        { id: uid(), from: [s130], to: [s135], condition: '5s/X130', x: 100, y: 900, chart: 'G2' },
+        { id: uid(), from: [s135], to: [s81], condition: 'G0X1', targetInfo: '81', x: 100, y: 980, chart: 'G2' },
       ]
 
       const comments: GrafcetComment[] = [

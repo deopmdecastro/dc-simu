@@ -148,7 +148,7 @@ export default function ActionDialog({ open, action, signals = [], availableStep
             <p className="grafcet-property-note">
               {!variable.trim() ? 'Pode escrever só o número: «1» cria a ação Q1, mesmo sem estar ligada a uma etapa.' : !variableInTable ? 'Variável manual. Adicione-a em «Variáveis» para a encontrar nas sugestões.' : `Saída «${variableInTable.name || variableInTable.address}» encontrada na tabela de variáveis.`}
             </p>
-            {!!peers.length && <p className="grafcet-property-warning" role="status">«{resolved}» também é comandada por {peers.length === 1 ? 'outra ação' : 'outras ações'}: {peers.map((peer) => peerLabel(peer)).join(', ')}. Dois comandos à mesma saída brigam entre si — a maioria dos quadros só pode ter um.</p>}
+            {!!peers.length && <p className="grafcet-property-warning" role="status">«{resolved}» também é comandada por {peers.length === 1 ? 'outra ação' : 'outras ações'}: {peers.map((peer) => peerLabel(peer)).join(', ')}. Com ações N a saída liga quando qualquer uma destas etapas está ativa (OU); evite misturar S/R com N na mesma saída.</p>}
           </div>
 
           <div className="grafcet-step-block">

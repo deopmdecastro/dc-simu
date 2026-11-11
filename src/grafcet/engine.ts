@@ -1065,10 +1065,21 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
       if (missing.length) {
         const first = missing[0]
         const where = first.graph !== null && knownByGraph[first.graph]?.size ? ` na página G${first.graph}` : ''
-        issues.push({ id: `${transition.id}:x`, level: 'error', message: `${name} usa X${first.step}${where}, mas essa etapa não existe.`, entityId: transition.id, tab: 'transitions' })
+        const noPage = first.graph !== null && !knownByGraph[first.graph]?.size && (program.charts?.length ?? 0) > 0
+        const message = first.graph !== null && !knownByGraph[first.graph]?.size
+          ? `${name} usa G${first.graph}X${first.step}, mas ${noPage ? `não há página G${first.graph} neste projeto` : `o GRAFCET G${first.graph} não existe aqui`} — junte esse GRAFCET (ex.: pelos Modelos) ou corrija a referência.`
+          : `${name} usa X${first.step}${where}, mas essa etapa não existe.`
+        issues.push({ id: `${transition.id}:x`, level: 'error', message, entityId: transition.id, tab: 'transitions' })
       }
-      if (/^\s*1\s*$/.test(transition.condition)) {
-        issues.push({ id: `${transition.id}:always`, level: 'warning', message: `${name} tem receptividade «1»: dispara logo que as origens ficam ativas.`, entityId: transition.id, tab: 'transitions' })
+      // «1» é normal depois de etapas vazias ou só com ações na ativação (S/R/↑): avisa só quando a origem tem
+      // ações contínuas, que durariam um único ciclo.
+      // Numa convergência E as origens esperam umas pelas outras: «1» é a sincronização normal.
+      const brief = transition.from.length === 1 && transition.from.some((id) => {
+        const source = steps.find((s) => s.id === id)
+        return !!source && actionsOfStep(source).some((a) => !['S', 'R', 'A', 'DA', 'EV'].includes(a.kind ?? 'N'))
+      })
+      if (/^\s*1\s*$/.test(transition.condition) && brief) {
+        issues.push({ id: `${transition.id}:always`, level: 'warning', message: `${name} tem receptividade «1»: as ações contínuas da etapa de origem só duram um ciclo.`, entityId: transition.id, tab: 'transitions' })
       }
     }
   })
@@ -1164,8 +1175,21 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     })
   })
 
-  // Dois comandos à mesma saída brigam entre si. A única combinação idiomática é
-  // set/reset (S num sítio e R noutro); qualquer N/C/D/L/A/DA repetido é suspeito.
+  // Transições com as mesmas origens e destinos desenham-se umas por cima das outras (receptividades ilegíveis).
+  const pairs = new Map<string, string[]>()
+  transitions.forEach((t, index) => {
+    if (!t.from.length || !t.to.length || t.wireless) return
+    const key = `${[...t.from].sort().join(',')}>${[...t.to].sort().join(',')}`
+    pairs.set(key, [...(pairs.get(key) ?? []), t.name || `T${index + 1}`])
+  })
+  for (const [key, names] of pairs) {
+    if (names.length < 2) continue
+    const first = transitions.find((t) => `${[...t.from].sort().join(',')}>${[...t.to].sort().join(',')}` === key && !t.wireless)
+    issues.push({ id: `${first?.id ?? key}:parallel`, level: 'warning', message: `${names.join(', ')} ligam as mesmas etapas e ficam sobrepostas no desenho — junte-as numa só receptividade com OU (+).`, entityId: first?.id, tab: 'transitions' })
+  }
+
+  // Comandos repetidos na mesma saída. Ações contínuas (N) em várias etapas fazem um OU (IEC 60848) e são normais;
+  // o conflito real é misturar ações memorizadas (S/R) com contínuas/forçagens (C), que se sobrepõem entre si.
   const addressRefs = new Map<string, Array<{ action: GrafcetAction; where: string; entityId?: string }>>()
   const collectAddress = (action: GrafcetAction, where: string, entityId?: string) => {
     const address = normAddress(action.address || action.variable || '')
@@ -1177,8 +1201,11 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
   for (const [address, refs] of addressRefs) {
     if (refs.length < 2) continue
     const kinds = [...new Set(refs.map((ref) => ref.action.kind ?? 'N'))]
-    if (kinds.every((kind) => kind === 'S' || kind === 'R')) continue // set/reset é o idioma normal
-    issues.push({ id: `addr:${address}`, level: 'warning', message: `A saída ${address} é comandada em ${refs.map((ref) => ref.where).join(', ')} (${kinds.join('/')}) — dois comandos à mesma saída brigam entre si.`, entityId: refs[1].entityId, tab: 'steps' })
+    const stored = kinds.some((kind) => kind === 'S' || kind === 'R')
+    const assigned = kinds.some((kind) => kind !== 'S' && kind !== 'R' && kind !== 'EV')
+    const forced = refs.filter((ref) => ref.action.kind === 'C').length > 1
+    if (!(stored && assigned) && !forced) continue // set/reset, ou só contínuas (OU — avaliado em «drive»)
+    issues.push({ id: `addr:${address}`, level: 'warning', message: `A saída ${address} é comandada em ${refs.map((ref) => ref.where).join(', ')} (${kinds.join('/')}) — ${forced ? 'duas forçagens (C) à mesma saída contradizem-se' : 'ações memorizadas (S/R) e contínuas na mesma saída sobrepõem-se'}.`, entityId: refs[1].entityId, tab: 'steps' })
   }
 
   // Alcançabilidade a partir das etapas iniciais.
@@ -1232,8 +1259,24 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
       drivers.set(addr, [...(drivers.get(addr) ?? []), step.id])
     }
   }))
+  // Etapas do mesmo GRAFCET sem divergências em E são exclusivas. GRAFCETs diferentes contam como coordenados quando
+  // a saída da etapa inicial depende do estado de outro GRAFCET (ex.: «G0 <=> X3»): a hierarquia torna-os exclusivos.
+  const graphOf = stepGraphNumbers(program)
+  const parallelGraphs = new Set(transitions.filter((t) => t.to.length > 1).map((t) => graphOf.get(t.from[0] ?? t.to[0]) ?? 0))
+  const initialIds = new Set(steps.filter((s) => s.initial || s.stepType === 'initial' || s.stepType === 'initial-enclosing').map((s) => s.id))
+  const coordinated = new Set<number>()
+  for (const t of transitions) {
+    if (!t.from.some((id) => initialIds.has(id))) continue
+    const own = graphOf.get(t.from[0]) ?? 0
+    if (stepStateReferences(`${t.condition ?? ''} ${t.guard ?? ''}`).some((reference) => reference.graph !== null && Number(reference.graph) !== own)) coordinated.add(own)
+  }
+  const mayOverlap = (ids: string[]) => {
+    const graphs = [...new Set(ids.map((id) => graphOf.get(id) ?? 0))]
+    if (graphs.length === 1) return parallelGraphs.has(graphs[0])
+    return graphs.filter((graph) => !coordinated.has(graph)).length > 1 || graphs.some((graph) => parallelGraphs.has(graph))
+  }
   for (const [address, list] of drivers) {
-    if (new Set(list).size > 1) {
+    if (new Set(list).size > 1 && mayOverlap([...new Set(list)])) {
       issues.push({ id: `drive:${address}`, level: 'warning', message: `${address} é comandada por ${new Set(list).size} etapas — confirme que não estão ativas em simultâneo.`, entityId: list[0], tab: 'steps' })
     }
   }
