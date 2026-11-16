@@ -70,6 +70,7 @@ import LeadPigtails3D from './LeadPigtails3D'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
+import { bundleLacingTies } from './bundleLacing'
 import { useWireRouting } from './useWireRouting'
 import { createWireRoutingJob } from './wireRoutingJob'
 import RouteLoading from '../ui/RouteLoading'
@@ -2201,7 +2202,40 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
         onLive={(next) => setDrag(next ? { wireId: wire.id, kind: 'all', point: next, origin: baseCentroid } : null)}
         onCommit={(next) => handlers.onMoveAll(wire.id, { x: next[0] - baseCentroid[0], y: next[1] - baseCentroid[1], z: next[2] - baseCentroid[2] })} />}
     </group>
-  })}</group>
+  })}
+    <BundleTies3D wires={wires} paths={coordinatedPaths} />
+  </group>
+}
+
+/** Abraçadeiras de filaçar: uma por local onde os cabos do mesmo chicote correm juntos (ver `bundleLacing.ts`). */
+function BundleTies3D({ wires, paths }: { wires: Wire[]; paths: Map<string, WirePath3D> | null | undefined }) {
+  const ties = useMemo(() => {
+    if (!paths || !wires.some((w) => w.bundleId)) return []
+    const radii = new Map<string, { points: [number, number, number][]; radius: number }>()
+    for (const w of wires) {
+      const path = paths.get(w.id)
+      if (!path || !w.bundleId) continue
+      radii.set(w.id, { points: path.points as [number, number, number][], radius: (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed }) * PANEL_UNITS_PER_MM) / 2 })
+    }
+    return bundleLacingTies(wires, radii)
+  }, [wires, paths])
+  if (!ties.length) return null
+  const up = new THREE.Vector3(0, 0, 1)
+  return <group userData={{ noPick: true }}>
+    {ties.map((tie, i) => {
+      const quat = new THREE.Quaternion().setFromUnitVectors(up, new THREE.Vector3(...tie.axis))
+      return <group key={`tie-${tie.bundleId}-${i}`} position={tie.position} quaternion={quat} userData={{ noPick: true }}>
+        <mesh raycast={() => null} castShadow>
+          <torusGeometry args={[tie.radius, 0.0085, 8, 24]} />
+          <meshStandardMaterial color="#e8e6df" roughness={0.55} metalness={0} />
+        </mesh>
+        <mesh raycast={() => null} position={[tie.radius + 0.006, 0, 0]}>
+          <boxGeometry args={[0.03, 0.02, 0.022]} />
+          <meshStandardMaterial color="#e8e6df" roughness={0.55} metalness={0} />
+        </mesh>
+      </group>
+    })}
+  </group>
 }
 
 /* -------------------------------------------------------------------- cena */

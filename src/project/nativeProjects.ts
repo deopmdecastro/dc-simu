@@ -23,6 +23,7 @@ import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
+import { lacePairBundles } from '../three/bundleLacing'
 import { mountPosition } from '../three/thermalMount'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_SIGNALS_FEATURE } from './nativeMotorMeter'
 import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_IEC_V7_FEATURE } from './nativeIec'
@@ -523,6 +524,8 @@ export function buildNativePartidaDireta(): Built {
   // Encaixe direto: os cabos KM1 → F1 saem (os ids dos restantes mantêm-se).
   wires = wires.filter((w) => !NATIVE_F1_MOUNT_WIRES.includes(w.id))
   wires = syncSharedTerminalFerrules(withMotorMeterFerrules(wires, leads))
+  // Filaçar: os cabos que ligam o mesmo par de aparelhos (L1/L2/L3, 24 V, entradas, sinalização) formam um chicote.
+  wires = lacePairBundles(components, wires, { prefix: 'chicote', skip: (w) => w.id.startsWith('native-meter-') })
   return {
     components,
     // Traçado cozido na semente: cada cabo contorna os equipamentos e aplica
