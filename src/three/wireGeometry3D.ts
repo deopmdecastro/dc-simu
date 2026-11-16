@@ -603,7 +603,11 @@ export function wireBodyPoints3D(
     controls = [a, b]
     smooth = false
   } else {
-    const drop = -0.82 - Math.min(0.85, Math.abs(a[0] - b[0]) * 0.05)
+    // Ligação curta (ponte entre bornes vizinhos): U compacto, proporcional ao cabo, em vez dos 82 mm dos percursos longos.
+    const shortLink = v(a).distanceTo(v(b)) < 0.6
+    const drop = shortLink
+      ? -Math.max(0.28, leadStep * 2.4)
+      : -0.82 - Math.min(0.85, Math.abs(a[0] - b[0]) * 0.05)
     let channelY = THREE.MathUtils.lerp(a[1], b[1], Math.max(0, Math.min(1, wire.bend ?? 0.5))) + drop
     if (trunkY !== undefined) channelY = trunkY + trunkSpread(wire)
 
@@ -836,6 +840,9 @@ function computeBasePlan(
   outerMm: number,
   obstacles: WireObstacle[],
 ): { trunkHint?: number; plan?: TrunkPlan } {
+  // Ponte no mesmo aparelho (ex.: Q0.1 → Q0.2 do PLC, 13 → 21 da botoneira): é um jumper curto entre bornes
+  // vizinhos. Sem tronco nem subida ao corredor de cabos, para não desenhar um laço de 10× a distância.
+  if (from.componentId === to.componentId && from.position.some((n, i) => Number.isFinite(n) && Number.isFinite(to.position[i]))) return {}
   const solidObstacles = obstacles.filter((box) => !box.rail)
   if (wire.waypoints3D?.length || solidObstacles.length === 0 || wire.route === 'direct' || wire.route === 'arc') {
     return {}
