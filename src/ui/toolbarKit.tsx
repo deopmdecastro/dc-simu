@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type React from 'react'
 import type { ReactNode } from 'react'
 import Select from './Select'
+import { isTabletDevice } from './device'
 import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset, IconSignals, IconCheck } from './icons'
 
 /**
@@ -274,9 +275,11 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
   trigger?: (state: { open: boolean }) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const [, setTick] = useState(0)
   const button = useRef<HTMLButtonElement>(null)
   const popup = useRef<HTMLDivElement>(null)
   const narrow = useNarrowMenu()
+  const tablet = isTabletDevice()
   const items = useMemo(() => sections.flatMap((section) => section.items), [sections])
   const enabled = items.filter((item) => !item.disabled)
 
@@ -314,7 +317,7 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
 
   useEffect(() => {
     if (!open) return
-    const focusFirst = () => popup.current?.querySelector<HTMLButtonElement>('button[data-tm-item]:not(:disabled)')?.focus()
+    const focusFirst = () => popup.current?.querySelector<HTMLButtonElement>('button[data-tm-item]:not(:disabled)')?.focus({ preventScroll: true })
     const timer = window.setTimeout(focusFirst, 30)
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node
@@ -325,7 +328,10 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false); button.current?.focus() }
       if (event.key === 'Tab') setOpen(false)
     }
-    const onResize = () => setOpen(false)
+    // Tablet: a barra do Safari, o zoom e a escala do viewport disparam `resize` sem mudar a largura —
+    // fechar aí fazia o menu desaparecer logo após abrir. Só fecha se a largura mudar; senão, reposiciona.
+    const startWidth = window.innerWidth
+    const onResize = () => { if (Math.abs(window.innerWidth - startWidth) > 1) setOpen(false); else setTick((n) => n + 1) }
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey, true)
     window.addEventListener('resize', onResize)
@@ -356,14 +362,18 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
      escolhe o lado com mais folga e limita a altura (o corpo do menu desliza). */
   const place = () => {
     if (!rect) return {}
-    const width = 268
+    const vv = window.visualViewport
+    const viewW = Math.min(window.innerWidth, vv?.width ? vv.width / (vv.scale || 1) + (vv.offsetLeft || 0) : window.innerWidth)
+    const viewH = Math.min(window.innerHeight, vv?.height ? vv.height + (vv.offsetTop || 0) : window.innerHeight)
+    const width = tablet ? 320 : 268
     const left = align === 'end' ? rect.right - width : rect.left
-    const below = window.innerHeight - rect.bottom - 12
+    const below = viewH - rect.bottom - 12
     const above = rect.top - 12
-    const maxHeight = Math.max(180, Math.min(440, Math.max(below, above)))
+    const cap = tablet ? 560 : 440
+    const maxHeight = Math.max(180, Math.min(cap, Math.max(below, above)))
     const top = below >= Math.min(240, maxHeight) ? rect.bottom + 6 : Math.max(8, rect.top - maxHeight - 6)
     return {
-      left: Math.max(8, Math.min(window.innerWidth - width - 8, left)),
+      left: Math.max(8, Math.min(viewW - width - 8, left)),
       top,
       width,
       maxHeight,
@@ -452,7 +462,7 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
             </div>
           </div>
         </div>
-      : <div ref={popup} className="tm-panel" role="menu" aria-label={title ?? label} style={place()} onKeyDown={onItemKey}>
+      : <div ref={popup} className={`tm-panel${tablet ? ' is-tablet' : ''}`} role="menu" aria-label={title ?? label} style={place()} onKeyDown={onItemKey}>
           <strong className="tm-title">{title ?? label}</strong>
           <div className="tm-body">
             {sections.filter((section) => section.items.length > 0).map((section) => <section className="tm-section" key={section.id ?? section.title}>
