@@ -14,6 +14,7 @@ import { MOTOR_BOX, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTermina
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 import { segmentEntersBox } from '../src/three/solidWireRouting'
 import { bundleLacingTies, lacePairBundles, TIE_REACH } from '../src/three/bundleLacing'
+import { useSimStore } from '../src/store/useSimStore'
 import { mountDepthOffset } from '../src/three/thermalMount'
 
 let failed = 0
@@ -56,5 +57,14 @@ const locked = built.wires.map((w, i) => ({ ...w, bundleId: undefined, locked: i
 const relaced = lacePairBundles(built.components, locked)
 check('Cabo bloqueado não é filaçado', !relaced[0].bundleId)
 check('Cabos já filaçados mantêm o chicote', lacePairBundles(built.components, built.wires, { skip: (w) => w.id.startsWith('native-meter-') }).every((w, i) => w.bundleId === built.wires[i].bundleId))
+
+// Ação do menu «Filaçar por aparelhos»: filaça, respeita bloqueio e o Ctrl+Z repõe
+useSimStore.setState({ demoMode: false, history: [], future: [], components: built.components, wires: built.wires.map((w, i) => ({ ...w, bundleId: undefined, locked: i === 0 })) })
+useSimStore.getState().lacePairWires()
+const afterLace = useSimStore.getState().wires
+check('Menu filaça cabos por aparelhos', afterLace.some((w) => w.bundleId))
+check('Menu não filaça cabo bloqueado nem sondas', !afterLace[0].bundleId && afterLace.filter((w) => w.id.startsWith('native-meter-')).every((w) => !w.bundleId))
+useSimStore.getState().undo()
+check('Ctrl+Z desfaz o filaçamento', useSimStore.getState().wires.every((w) => !w.bundleId))
 console.log(failed ? `\n${failed} falhas` : '\nFilaçamento: todas as verificações passaram')
 process.exit(failed ? 1 : 0)

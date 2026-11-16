@@ -212,13 +212,13 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const {
     play: plcPlay, pause: plcPause, stop: plcStop, reset: plcReset, setSpeed, setSimMode,
     step: plcStep, saveJSON, loadJSON, setTool, setGrid, setZoom,
-    undo, redo, organizeWires,
+    undo, redo, organizeWires, lacePairWires,
     alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName,
     setWireDefaults, setGridDragEnabled,
   } = useSimStore(useShallow((s) => ({
     play: s.play, pause: s.pause, stop: s.stop, reset: s.reset, setSpeed: s.setSpeed, setSimMode: s.setMode,
     step: s.step, saveJSON: s.saveJSON, loadJSON: s.loadJSON, setTool: s.setTool, setGrid: s.setGrid, setZoom: s.setZoom,
-    undo: s.undo, redo: s.redo, organizeWires: s.organizeWires,
+    undo: s.undo, redo: s.redo, organizeWires: s.organizeWires, lacePairWires: s.lacePairWires,
     alignSelection: s.alignSelection, distributeSelection: s.distributeSelection, autoNumberWires: s.autoNumberWires, setCurrentProjectName: s.setCurrentProjectName,
     setWireDefaults: s.setWireDefaults, setGridDragEnabled: s.setGridDragEnabled,
   })))
@@ -577,6 +577,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       { id: 'distribute-h', label: 'Distribuir na horizontal', disabled: sel < 3, disabledReason: 'Selecione pelo menos três componentes', onSelect: () => distributeSelection('horizontal') },
       { id: 'distribute-v', label: 'Distribuir na vertical', disabled: sel < 3, disabledReason: 'Selecione pelo menos três componentes', onSelect: () => distributeSelection('vertical') },
       { id: 'organize-wires', label: 'Organizar cabos', hint: 'Recalcula Esquema e 3D; mantém cabos bloqueados. Ctrl+Z desfaz', icon: <IconOrganize size={15} />, disabled: !wires.some(w => !w.locked) || plcRunState !== 'stopped', disabledReason: 'Pare a simulação e desbloqueie os cabos a organizar', onSelect: () => organizeWires() },
+      { id: 'lace-wires', label: 'Filaçar por aparelhos', hint: 'Agrupa em chicote os cabos entre os mesmos dois aparelhos; mostra abraçadeiras no 3D. Ctrl+Z desfaz', icon: <IconLink size={15} />, disabled: wires.filter(w => !w.locked && !w.bundleId).length < 2 || plcRunState !== 'stopped', disabledReason: wires.filter(w => !w.locked && !w.bundleId).length < 2 ? 'Precisa de 2+ cabos desbloqueados sem chicote' : 'Pare a simulação para filaçar', onSelect: lacePairWires },
       { id: 'lock-wires', label: wires.length && wires.every(w => w.locked) ? 'Desbloquear cabos' : 'Bloquear cabos', icon: <IconLock size={15} />, pressed: !!wires.length && wires.every(w => w.locked), disabled: !wires.length || plcRunState !== 'stopped', disabledReason: 'Pare a simulação e ligue os componentes', onSelect: () => useSimStore.getState().setWiresLocked(!wires.every(w => w.locked)) },
       { id: 'number-wires', label: 'Numerar cabos sem número', icon: <IconTag size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => autoNumberWires('missing') },
       { id: 'renumber-wires', label: 'Renumerar todos os cabos', icon: <IconTag size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => autoNumberWires('all') },
@@ -1036,6 +1037,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                     <div className="my-1 h-px bg-line-soft" />
                     <button className="tb-menu-item" disabled={!wires.some(w => !w.locked) || plcRunState !== 'stopped'} onClick={() => { organizeWires(); close() }}>
                       <IconOrganize size={13} /> Reorganizar roteamento dos cabos
+                    </button>
+                    <button className="tb-menu-item" disabled={wires.filter(w => !w.locked && !w.bundleId).length < 2 || plcRunState !== 'stopped'} onClick={() => { lacePairWires(); close() }}>
+                      <IconLink size={13} /> Filaçar por aparelhos
                     </button>
                     <button className="tb-menu-item" disabled={!wires.length || plcRunState !== 'stopped'} onClick={() => { useSimStore.getState().setWiresLocked(!wires.every(w => w.locked)); close() }}>
                       <IconLock size={13} /> {wires.length && wires.every(w => w.locked) ? 'Desbloquear cabos' : 'Bloquear cabos'}

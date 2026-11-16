@@ -15,6 +15,7 @@ function legacyComponentGroups(components: Array<{ id: string; groupId?: string 
 import { upgradeNativeMotorMeter, upgradeNativeMotorRings } from '../project/nativeMotorMeter'
 import { refreshNativeWireCurves } from '../project/nativeWireCurves'
 import { planNativeWirePaths } from '../project/nativeRouting'
+import { lacePairBundles } from '../three/bundleLacing'
 import { addNativeIecSchematic } from '../project/nativeIec'
 import { addNativeAnnotations } from '../project/nativeProjects'
 import { addNativeThermalRelay } from '../project/nativeThermalRelay'
@@ -446,6 +447,8 @@ interface Store extends CircuitState {
   selectWire: (id: string | null, additive?: boolean) => void
   /** Filaça (agrupa em chicote) os cabos indicados; partilham `bundleId`. */
   laceWires: (ids?: string[]) => void
+  /** Filaça por aparelhos: os cabos desbloqueados que ligam o mesmo par de aparelhos (2+) passam a um chicote. */
+  lacePairWires: () => void
   /** Remove o chicote dos cabos (ou de todos os do mesmo bundle). */
   unlaceWires: (ids?: string[]) => void
   selectTerminal: (id: string | null) => void
@@ -2758,6 +2761,17 @@ export const useSimStore = create<Store>((set, get) => {
       dirty: true,
     }))
     get().pushEvent('info', `${target.length} cabos filaçados no chicote ${bundleId}.`)
+  },
+
+  lacePairWires: () => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const next = lacePairBundles(state.components, state.wires, { skip: (w) => (w.endType === 'probe' || w.fromEndType === 'probe' || w.toEndType === 'probe') })
+    const changed = next.filter((w, i) => w.bundleId !== state.wires[i].bundleId)
+    if (!changed.length) { state.pushEvent('info', 'Não há cabos por filaçar: precisa de 2+ cabos desbloqueados entre os mesmos dois aparelhos.'); return }
+    state.commitHistory()
+    set({ wires: next, dirty: true })
+    state.pushEvent('info', `${changed.length} cabos filaçados em ${new Set(changed.map((w) => w.bundleId)).size} chicote(s) · Ctrl+Z desfaz.`)
   },
 
   unlaceWires: (ids) => {
