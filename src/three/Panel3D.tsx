@@ -5,7 +5,7 @@ import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
 import { importedComponentInfo, type ImportedControl } from '../electrical/importedComponents'
 import { animateImportedRig, importedControlAt, importedPointMm, paintImportedModel, rigImportedModel } from './importedFinish'
-import { thermalResetAccepted, thermalResetTurn } from './thermalResetControl'
+import { THERMAL_RESET_TURN_EVENT, THERMAL_RESET_TURN_MS, thermalResetAccepted, thermalResetTurn } from './thermalResetControl'
 import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, Billboard, useGLTF, useProgress } from '@react-three/drei'
@@ -1129,6 +1129,20 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
   finishRef.current = finish
   useEffect(() => () => finishRef.current(false), [])
   useEffect(() => { if (!mechanical && !interactive) finishRef.current(false) }, [mechanical, interactive])
+  // Rearme pelos botões do inspetor: o botão azul roda para o lado pedido e volta ao repouso.
+  useEffect(() => {
+    if (c.type !== 'thermalRelaySiemens3ru1116') return
+    let timer = 0
+    const onTurn = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string; direction?: 'left' | 'right' }>).detail
+      if (!detail || detail.id !== c.id || gesture.current) return
+      setResetTurn(detail.direction === 'left' ? -1 : 1)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setResetTurn(0), THERMAL_RESET_TURN_MS)
+    }
+    window.addEventListener(THERMAL_RESET_TURN_EVENT, onTurn)
+    return () => { window.removeEventListener(THERMAL_RESET_TURN_EVENT, onTurn); window.clearTimeout(timer) }
+  }, [c.id, c.type])
   // A libertação fora do modelo, perda de captura ou mudança de janela não deixa TEST preso.
   useEffect(() => {
     const cancel = () => finishRef.current(false)

@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { createComponent } from '../src/electrical/factory'
 import { importedActuationPatch } from '../src/electrical/importedComponents'
 import { animateImportedRig, paintImportedModel, rigImportedModel } from '../src/three/importedFinish'
-import { THERMAL_RESET_MAX_DEG, thermalResetAccepted, thermalResetTurn } from '../src/three/thermalResetControl'
+import { THERMAL_RESET_MAX_DEG, thermalResetAccepted, thermalResetDirection, thermalResetTurn } from '../src/three/thermalResetControl'
 import { linkedThermalComponent, linkedThermalTrips } from '../src/commands/thermalSync'
 import { buildNativePartidaDireta, nativePartidaDiretaContent } from '../src/project/nativeProjects'
 
@@ -53,4 +53,7 @@ check(linkedThermalComponent(seed.components, diagram, null, 'F1') === undefined
 check(linkedThermalTrips(seed.components, diagram, content.nativeId as string).F1 === false, 'Projeção IEC começa armada')
 seed.components.find(x => x.id === 'native-f1')!.state.tripped = true
 check(linkedThermalTrips(seed.components, diagram, content.nativeId as string).F1 === true, 'Projeção IEC acompanha o disparo do 3D')
+check(thermalResetDirection(thermalResetTurn(30)) === 'right', 'RESET roda para a direita ao arrastar à direita')
+check(thermalResetDirection(thermalResetTurn(-30)) === 'left', 'RESET roda para a esquerda ao arrastar à esquerda')
+check(thermalResetDirection(thermalResetTurn(5)) === null, 'Rotação curta não rearma (nenhum sentido)')
 console.log(`\n${checks} verificações TEST/RESET passaram`)

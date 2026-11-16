@@ -4,7 +4,7 @@
    em cima, o cabeçalho ocupa a largura toda (margem negativa = padding lateral) e tem fundo sólido.
    Vale para: Esquema IEC, 3D Realista, GRAFCET (e Ladder, que já não tem padding).
    Um novo painel de baixo entra nestas listas; não se escrevem regras de cabeçalho por painel. */
-:root { --bs-pad: 12px; }
+:root { --bs-pad: 12px; --bs-head-h: 58px; }
 
 @media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
   :root .dc-cmd .cmd-dock.grafcet-properties.is-open,
@@ -34,4 +34,31 @@
 /* Ladder (sem padding na folha): só garante o fundo sólido e a camada acima do conteúdo. */
 @media (max-width: 800px) {
   :root .ladder-bottom-panel.grafcet-properties > .dc-side-panel-head { position: sticky; top: 0; z-index: 8; background: var(--pn-bg, #fff); }
+}
+
+/* ===== Separadores fixos sob o cabeçalho (2026-11-16) =====
+   Antes só o cabeçalho ficava fixo; os separadores (GRAFCET · E/S · Objetos · Diagnóstico / Etapas · Transições…)
+   rolavam com a lista e o utilizador perdia a navegação a meio do conteúdo. Agora ficam colados ao cabeçalho
+   (altura certa: --bs-head-h), opacos e de lado a lado, e mais baixos (44 px em vez de 50 px) para devolver
+   altura útil à lista. Aplica-se aos mesmos painéis de baixo e às mesmas condições das regras acima. */
+@media (pointer: coarse) and (max-width: 743px), (pointer: coarse) and (max-height: 520px) and (max-width: 1100px) {
+  :root .dc-cmd .cmd-dock.grafcet-properties.is-open > .dc-side-panel-head,
+  :root .schematic-sim-dock-phone.grafcet-properties.is-open > .dc-side-panel-head { min-height: var(--bs-head-h); box-sizing: border-box; }
+  :root .dc-cmd .cmd-dock.grafcet-properties.is-open > .dc-dock-tabs,
+  :root .schematic-sim-dock-phone.grafcet-properties.is-open > .dc-dock-tabs {
+    position: sticky; top: var(--bs-head-h); z-index: 7;
+    margin-inline: calc(var(--bs-pad) * -1); padding: 6px var(--bs-pad) 7px;
+    background: var(--pn-bg, #fff);
+  }
+  :root .dc-cmd .cmd-dock.grafcet-properties.is-open > .dc-dock-tabs .dc-dock-tab,
+  :root .schematic-sim-dock-phone.grafcet-properties.is-open > .dc-dock-tabs .dc-dock-tab { min-height: 44px; }
+}
+
+@media (max-width: 800px) {
+  :root .grafcet-full .grafcet-properties.is-open > .dc-side-panel-head { min-height: var(--bs-head-h); box-sizing: border-box; }
+  :root .grafcet-full .grafcet-properties.is-open > .grafcet-tabs {
+    position: sticky; top: var(--bs-head-h); z-index: 7;
+    margin-inline: calc(var(--bs-pad) * -1); padding: 6px var(--bs-pad) 7px;
+    background: var(--pn-bg, #fff); border-bottom: 1px solid var(--pn-line-soft, #e5e9ef);
+  }
 }
