@@ -92,7 +92,7 @@ import {
   type WirePath3D,
   type WireObstacle,
 } from './wireGeometry3D'
-import { bundleLacingTies } from './bundleLacing'
+import { bundleLacingTies, convexBeltOfCircles, type BundleTieCircle } from './bundleLacing'
 import { useWireRouting } from './useWireRouting'
 import { createWireRoutingJob } from './wireRoutingJob'
 import RouteLoading from '../ui/RouteLoading'
@@ -2283,33 +2283,94 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
   </group>
 }
 
-/** Constrói a fita plana em estádio (cápsula) de uma abraçadeira PA66 ajustada à secção real do feixe. */
-function buildStadiumStrapGeometry(halfW: number, halfH: number, thick = 0.0095, width = 0.032): THREE.BufferGeometry {
-  const hw = Math.max(0.012, halfW)
-  const hh = Math.max(0.011, Math.min(hw, halfH))
-  const flat = Math.max(0, hw - hh)
-  const stadiumPts = (r: number, segs = 12): THREE.Vector2[] => {
-    const pts: THREE.Vector2[] = []
+/**
+ * Constrói a fita tensionada de uma abraçadeira industrial PA66 (tipo T30R, 3,2 mm × 1,05 mm)
+ * seguindo o fecho convexo exato dos condutores abraçados (`circles`), com compressão realista
+ * contra o isolamento PVC (zero folga de ar entre a fita e os cabos) e cabeça de fecho encostada.
+ */
+function buildTensionedStrapGeometry(
+  circles: ReadonlyArray<BundleTieCircle> | undefined,
+  halfW: number,
+  halfH: number,
+  thick = 0.0102,
+  width = 0.031,
+): { geo: THREE.BufferGeometry; headX: number; headY: number; headRotZ: number } {
+  let inner: Array<[number, number]> = circles && circles.length >= 2
+    ? convexBeltOfCircles(circles, 0.0009, 20)
+    : []
+
+  if (inner.length < 6) {
+    const hw = Math.max(0.012, halfW - 0.0008)
+    const hh = Math.max(0.011, Math.min(hw, halfH - 0.0008))
+    const flat = Math.max(0, hw - hh)
+    const segs = 12
+    inner = []
     for (let i = 0; i <= segs; i++) {
       const a = -Math.PI / 2 + (Math.PI * i) / segs
-      pts.push(new THREE.Vector2(flat + Math.cos(a) * r, Math.sin(a) * r))
+      inner.push([flat + Math.cos(a) * hh, Math.sin(a) * hh])
     }
     for (let i = 0; i <= segs; i++) {
       const a = Math.PI / 2 + (Math.PI * i) / segs
-      pts.push(new THREE.Vector2(-flat + Math.cos(a) * r, Math.sin(a) * r))
+      inner.push([-flat + Math.cos(a) * hh, Math.sin(a) * hh])
     }
-    return pts
   }
-  const shape = new THREE.Shape(stadiumPts(hh + thick))
-  const hole = new THREE.Path(stadiumPts(hh).reverse())
-  shape.holes.push(hole)
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false, curveSegments: 12 })
-  geo.translate(0, 0, -width * 0.5)
+
+  const n = inner.length
+  const outer: Array<[number, number]> = new Array(n)
+  let bestIdx = 0
+  let bestScore = -Infinity
+  const normals: Array<[number, number]> = new Array(n)
+
+  for (let i = 0; i < n; i++) {
+    const prev = inner[(i - 1 + n) % n]
+    const curr = inner[i]
+    const next = inner[(i + 1) % n]
+    // Contorno CCW → normal exterior à direita da aresta: (dy, -dx).
+    const e1x = curr[0] - prev[0], e1y = curr[1] - prev[1]
+    const l1 = Math.hypot(e1x, e1y) || 1
+    const n1x = e1y / l1, n1y = -e1x / l1
+    const e2x = next[0] - curr[0], e2y = next[1] - curr[1]
+    const l2 = Math.hypot(e2x, e2y) || 1
+    const n2x = e2y / l2, n2y = -e2x / l2
+    let nx = n1x + n2x, ny = n1y + n2y
+    const nl = Math.hypot(nx, ny)
+    if (nl > 1e-6) { nx /= nl; ny /= nl } else { nx = n1x; ny = n1y }
+    const miter = 1 / Math.max(0.72, nx * n1x + ny * n1y)
+    normals[i] = [nx, ny]
+    const ox = curr[0] + nx * thick * miter
+    const oy = curr[1] + ny * thick * miter
+    outer[i] = [ox, oy]
+    // Assenta o fecho no bordo superior/direito acessível (sem tapar o centro do feixe).
+    const score = ox * 0.88 + oy * 0.48
+    if (score > bestScore) { bestScore = score; bestIdx = i }
+  }
+
+  const shape = new THREE.Shape(outer.map(([x, y]) => new THREE.Vector2(x, y)))
+  const holePts = [...inner].reverse().map(([x, y]) => new THREE.Vector2(x, y))
+  shape.holes.push(new THREE.Path(holePts))
+  const bevelT = 0.0014
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(0.01, width - bevelT * 2),
+    bevelEnabled: true,
+    bevelThickness: bevelT,
+    bevelSize: 0.001,
+    bevelSegments: 1,
+    curveSegments: 1,
+  })
+  geo.translate(0, 0, -(width - bevelT * 2) * 0.5)
   geo.computeVertexNormals()
-  return geo
+
+  const [bx, by] = outer[bestIdx]
+  const [bnx, bny] = normals[bestIdx]
+  return {
+    geo,
+    headX: bx + bnx * 0.0055,
+    headY: by + bny * 0.0055,
+    headRotZ: Math.atan2(bny, bnx),
+  }
 }
 
-/** Abraçadeiras de filaçar (PA66): fita plana em cápsula ajustada ao feixe + cabeça de fecho realista. */
+/** Abraçadeiras de filaçar (PA66): fita tensionada no fecho convexo dos cabos + cabeça com lingueta e corte rente. */
 function BundleTies3D({ wires, paths, components, obstacles }: {
   wires: Wire[]
   paths: Map<string, WirePath3D> | null | undefined
@@ -2350,21 +2411,33 @@ function BundleTies3D({ wires, paths, components, obstacles }: {
       rVec.crossVectors(uVec, aVec).normalize()
       const basis = new THREE.Matrix4().makeBasis(rVec, uVec, aVec)
       const quat = new THREE.Quaternion().setFromRotationMatrix(basis)
-      const thick = 0.0095
-      const width = 0.032
+      const thick = 0.0102
+      const width = 0.031
       const pos: [number, number, number] = [tie.position[0], tie.position[1], tie.position[2]]
-      // Garante que a fita nunca toca atrás da face frontal da chapa quando assente no painel.
-      const minStrapZ = pos[2] - Math.abs(rVec.z) * (tie.halfWidth + thick) - Math.abs(uVec.z) * (tie.halfHeight + thick)
-      if (pos[2] >= PLATE_FRONT_Z && minStrapZ < PLATE_FRONT_Z + 0.002) {
-        pos[2] += (PLATE_FRONT_Z + 0.002) - minStrapZ
+      const strap = buildTensionedStrapGeometry(tie.circles, tie.halfWidth, tie.halfHeight, thick, width)
+      // Achata apenas vértices exteriores traseiros que rocem na chapa, sem deslocar a fita da frente dos cabos.
+      if (pos[2] >= PLATE_FRONT_Z - 0.005) {
+        const attr = strap.geo.getAttribute('position') as THREE.BufferAttribute
+        const minWorldZ = PLATE_FRONT_Z + 0.0012
+        const vTmp = new THREE.Vector3()
+        const invQ = quat.clone().invert()
+        let touched = false
+        for (let vi = 0; vi < attr.count; vi++) {
+          vTmp.set(attr.getX(vi), attr.getY(vi), attr.getZ(vi)).applyQuaternion(quat)
+          const wz = pos[2] + vTmp.z
+          if (wz < minWorldZ) {
+            vTmp.z = minWorldZ - pos[2]
+            vTmp.applyQuaternion(invQ)
+            attr.setXYZ(vi, vTmp.x, vTmp.y, vTmp.z)
+            touched = true
+          }
+        }
+        if (touched) {
+          attr.needsUpdate = true
+          strap.geo.computeVertexNormals()
+        }
       }
-      return {
-        tie,
-        pos,
-        quat,
-        thick,
-        geo: buildStadiumStrapGeometry(tie.halfWidth, tie.halfHeight, thick, width),
-      }
+      return { tie, pos, quat, ...strap }
     })
   }, [wires, paths, closedDucts])
 
@@ -2372,23 +2445,24 @@ function BundleTies3D({ wires, paths, components, obstacles }: {
 
   if (!built.length) return null
   return <group userData={{ noPick: true }}>
-    {built.map(({ tie, pos, quat, thick, geo }, i) => {
-      // Poliamida natural marfim em feixes pretos (alto contraste); poliamida preta acetinada em feixes coloridos.
-      const strapColor = tie.darkBundle ? '#ebe6d8' : '#1b222c'
-      const pawlColor = tie.darkBundle ? '#475569' : '#64748b'
-      const headX = tie.halfWidth + thick + 0.011
+    {built.map(({ tie, pos, quat, geo, headX, headY, headRotZ }, i) => {
+      // Poliamida PA66 preta carbono acetinada (alta nitidez industrial); marfim natural em feixes 100% escuros.
+      const strapColor = tie.darkBundle ? '#eae4d5' : '#141920'
+      const pawlColor = tie.darkBundle ? '#475569' : '#4b5563'
       return <group key={`tie-${tie.bundleId}-${i}`} position={pos} quaternion={quat} userData={{ noPick: true }}>
         <mesh geometry={geo} raycast={() => null} castShadow receiveShadow>
-          <meshPhysicalMaterial color={strapColor} roughness={0.38} metalness={0.04} clearcoat={0.25} clearcoatRoughness={0.4} />
+          <meshPhysicalMaterial color={strapColor} roughness={0.34} metalness={0.05} clearcoat={0.32} clearcoatRoughness={0.36} />
         </mesh>
-        <mesh raycast={() => null} castShadow position={[headX, 0, 0]}>
-          <boxGeometry args={[0.028, 0.028, 0.038]} />
-          <meshPhysicalMaterial color={strapColor} roughness={0.38} metalness={0.04} clearcoat={0.25} clearcoatRoughness={0.4} />
-        </mesh>
-        <mesh raycast={() => null} position={[headX + 0.004, 0, 0]}>
-          <boxGeometry args={[0.022, 0.012, 0.04]} />
-          <meshStandardMaterial color={pawlColor} roughness={0.45} metalness={0.25} />
-        </mesh>
+        <group position={[headX, headY, 0]} rotation={[0, 0, headRotZ]}>
+          <mesh raycast={() => null} castShadow receiveShadow>
+            <boxGeometry args={[0.017, 0.024, 0.035]} />
+            <meshPhysicalMaterial color={strapColor} roughness={0.34} metalness={0.05} clearcoat={0.32} clearcoatRoughness={0.36} />
+          </mesh>
+          <mesh raycast={() => null} position={[0.0065, 0, 0]}>
+            <boxGeometry args={[0.007, 0.013, 0.025]} />
+            <meshStandardMaterial color={pawlColor} roughness={0.42} metalness={0.32} />
+          </mesh>
+        </group>
       </group>
     })}
   </group>

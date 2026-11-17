@@ -8,6 +8,8 @@ import type { ElectricalComponent, Wire } from '../types'
 type V3 = [number, number, number]
 type V2 = { x: number; y: number }
 
+export type BundleTieCircle = { u: number; v: number; r: number }
+
 export type BundleTie = {
   bundleId: string
   position: V3
@@ -24,6 +26,8 @@ export type BundleTie = {
   /** Raio envolvente (`max(halfWidth, halfHeight)`), mantido para compatibilidade. */
   radius: number
   wireIds: string[]
+  /** Secção transversal exata dos condutores abraçados em coordenadas locais `(right, up)`. */
+  circles?: BundleTieCircle[]
   /** Verdadeiro se todos os cabos abraçados forem escuros (ajusta contraste visual). */
   darkBundle?: boolean
 }
@@ -43,16 +47,262 @@ export type BundleTie2D = {
 
 export type BundlePath2D = { points: V2[]; halfWidth: number }
 
-/** Passo regular entre abraçadeiras no 3D (56 mm). */
-export const TIE_SPACING = 0.56
+/** Passo regular entre abraçadeiras no 3D (52 mm — padrão de quadro industrial). */
+export const TIE_SPACING = 0.52
 /** Alcance máximo para procurar condutores vizinhos no mesmo chicote (22 mm). */
 export const TIE_REACH = 0.22
-/** Folga máxima superfície-a-superfície entre condutores adjacentes na mesma abraçadeira (12 mm). */
-export const TIE_MAX_GAP = 0.12
-/** Margem mínima à ponta do cabo (26 mm), fora de ponteiras/terminais. */
-export const TIE_END_MARGIN = 0.26
-/** Largura máxima de uma abraçadeira (diâmetro envolvente < 68 mm → raio < 0.34). */
-const MAX_TIE_HALF_WIDTH = 0.32
+/** Folga máxima superfície-a-superfície entre condutores na mesma abraçadeira (3,6 mm — só feixes apertados). */
+export const TIE_MAX_GAP = 0.036
+/** Margem mínima à ponta do cabo (28 mm), fora de ponteiras e do leque de derivação. */
+export const TIE_END_MARGIN = 0.28
+/** Largura máxima de uma abraçadeira (diâmetro envolvente < 52 mm → meia-largura < 0,26). */
+const MAX_TIE_HALF_WIDTH = 0.26
+
+/**
+ * Empacota `items` numa roseta circular/hexagonal compacta (cabos encostados isolamento-a-isolamento,
+ * como quando apertados por uma abraçadeira PA66), respeitando a posição relativa de entrada `(prefU, prefV)`
+ * para evitar cruzamentos/tranças desnecessárias.
+ */
+export function packBundleRosette(
+  items: ReadonlyArray<{ r: number; prefU: number; prefV: number }>,
+  surfaceGap = 0.0005,
+  vFloor?: number,
+): Array<{ u: number; v: number }> {
+  const n = items.length
+  if (n === 0) return []
+  if (n === 1) {
+    const v0 = vFloor !== undefined ? Math.max(0, vFloor + items[0].r) : 0
+    return [{ u: 0, v: v0 }]
+  }
+
+  let meanU = 0, meanV = 0
+  for (const it of items) { meanU += it.prefU; meanV += it.prefV }
+  meanU /= n; meanV /= n
+  const rel = items.map((it, idx) => ({
+    idx,
+    r: it.r,
+    du: it.prefU - meanU,
+    dv: it.prefV - meanV,
+    dist: Math.hypot(it.prefU - meanU, it.prefV - meanV),
+  }))
+
+  // Para 2 condutores: encostados diretamente segundo o seu eixo natural (preserva a ordem exata).
+  if (n === 2) {
+    const a = rel[0], b = rel[1]
+    let dx = b.du - a.du, dy = b.dv - a.dv
+    const dl = Math.hypot(dx, dy)
+    if (dl > 1e-5) { dx /= dl; dy /= dl } else { dx = 1; dy = 0 }
+    // Em feixes sobre superfície (vFloor definido), prefere assentar lado a lado em `u` para máxima firmeza.
+    if (vFloor !== undefined && Math.abs(dy) > 0.65) {
+      dx = dx >= 0 ? 1 : -1
+      dy = 0
+    }
+    const sep = a.r + b.r + surfaceGap
+    const wA = b.r / (a.r + b.r)
+    const wB = a.r / (a.r + b.r)
+    let ua = -dx * sep * wA, va = -dy * sep * wA
+    let ub = dx * sep * wB, vb = dy * sep * wB
+    if (vFloor !== undefined) {
+      const lift = Math.max(0, (vFloor + a.r) - va, (vFloor + b.r) - vb)
+      va += lift; vb += lift
+    }
+    return [{ u: ua, v: va }, { u: ub, v: vb }]
+  }
+
+  // Ordem determinística: condutor mais central primeiro (núcleo da roseta), restantes em redor.
+  const order = [...rel].sort((a, b) => (a.dist - b.dist) || (b.r - a.r) || (a.idx - b.idx))
+  const placed: Array<{ idx: number; u: number; v: number; r: number }> = []
+
+  const fits = (u: number, v: number, r: number): boolean => {
+    if (vFloor !== undefined && v - r < vFloor - 1e-5) return false
+    for (const p of placed) {
+      const minD = p.r + r + surfaceGap - 1e-5
+      const du = u - p.u, dv = v - p.v
+      if (du * du + dv * dv < minD * minD) return false
+    }
+    return true
+  }
+
+  // 1.º condutor no centro
+  const first = order[0]
+  placed.push({
+    idx: first.idx,
+    u: 0,
+    v: vFloor !== undefined ? Math.max(0, vFloor + first.r) : 0,
+    r: first.r,
+  })
+
+  // 2.º condutor encostado ao 1.º na direção preferencial
+  const second = order[1]
+  {
+    let dx = second.du - first.du, dy = second.dv - first.dv
+    const dl = Math.hypot(dx, dy)
+    if (dl > 1e-5) { dx /= dl; dy /= dl } else { dx = 1; dy = 0 }
+    const d01 = first.r + second.r + surfaceGap
+    let u1 = placed[0].u + dx * d01
+    let v1 = placed[0].v + dy * d01
+    if (vFloor !== undefined && v1 - second.r < vFloor) {
+      const targetV = vFloor + second.r
+      const dv = targetV - placed[0].v
+      const rem = Math.max(0, d01 * d01 - dv * dv)
+      u1 = placed[0].u + (dx >= 0 ? 1 : -1) * Math.sqrt(rem)
+      v1 = targetV
+    }
+    placed.push({ idx: second.idx, u: u1, v: v1, r: second.r })
+  }
+
+  // Condutores 3..N: encaixa no alvéolo tangente mais compacto e próximo da sua direção de chegada!
+  for (let k = 2; k < order.length; k++) {
+    const cur = order[k]
+    const pLen = Math.hypot(cur.du, cur.dv)
+    const wantScale = cur.r * 2.1
+    const wantU = pLen > 1e-5 ? (cur.du / pLen) * wantScale : 0
+    const wantV = (vFloor !== undefined ? placed[0].v : 0) + (pLen > 1e-5 ? (cur.dv / pLen) * wantScale : 0)
+
+    const cands: Array<[number, number]> = []
+    // Interseções tangentes exatas a cada par de círculos já colocados (empacotamento hexagonal denso).
+    for (let i = 0; i < placed.length; i++) {
+      const A = placed[i]
+      const rA = A.r + cur.r + surfaceGap
+      for (let j = i + 1; j < placed.length; j++) {
+        const B = placed[j]
+        const rB = B.r + cur.r + surfaceGap
+        const dx = B.u - A.u, dy = B.v - A.v
+        const d = Math.hypot(dx, dy)
+        if (d < 1e-7 || d > rA + rB - 1e-7 || d < Math.abs(rA - rB) + 1e-7) continue
+        const aDist = (rA * rA - rB * rB + d * d) / (2 * d)
+        const hSq = Math.max(0, rA * rA - aDist * aDist)
+        const h = Math.sqrt(hSq)
+        const mx = A.u + (aDist * dx) / d
+        const my = A.v + (aDist * dy) / d
+        const px = (-dy * h) / d
+        const py = (dx * h) / d
+        cands.push([mx + px, my + py], [mx - px, my - py])
+      }
+      // Se houver piso (vFloor), testa também posições tangentes a `A` e pousadas no piso.
+      if (vFloor !== undefined) {
+        const tv = vFloor + cur.r
+        const dv = tv - A.v
+        if (Math.abs(dv) < rA) {
+          const hu = Math.sqrt(Math.max(0, rA * rA - dv * dv))
+          cands.push([A.u + hu, tv], [A.u - hu, tv])
+        }
+      }
+    }
+    // Fallback angular se nenhum par tangente for admissível.
+    if (cands.length === 0) {
+      for (const A of placed) {
+        const rA = A.r + cur.r + surfaceGap
+        for (let s = 0; s < 16; s++) {
+          const ang = (Math.PI * 2 * s) / 16
+          cands.push([A.u + Math.cos(ang) * rA, A.v + Math.sin(ang) * rA])
+        }
+      }
+    }
+
+    let bestU = 0, bestV = 0, bestScore = Infinity
+    for (const [cu, cv] of cands) {
+      if (!fits(cu, cv, cur.r)) continue
+      // Raio envolvente da roseta com este candidato (favorece feixes redondos e apertados!).
+      let cx = cu, cy = cv
+      for (const p of placed) { cx += p.u; cy += p.v }
+      cx /= placed.length + 1
+      cy /= placed.length + 1
+      let envR = Math.hypot(cu - cx, cv - cy) + cur.r
+      for (const p of placed) envR = Math.max(envR, Math.hypot(p.u - cx, p.v - cy) + p.r)
+      const distCenter = Math.hypot(cu - placed[0].u, cv - placed[0].v)
+      const distPref = Math.hypot(cu - wantU, cv - wantV)
+      // Ligeira preferência por camadas baixas quando encostado à chapa (não empilhar torre alta em Z).
+      const floorPenalty = vFloor !== undefined ? Math.max(0, cv - (vFloor + cur.r * 3.2)) * 0.65 : 0
+      const score = envR * 1.35 + distCenter * 0.55 + distPref * 0.42 + floorPenalty
+      if (score < bestScore) {
+        bestScore = score
+        bestU = cu
+        bestV = cv
+      }
+    }
+    if (!Number.isFinite(bestScore)) {
+      const A = placed[placed.length - 1]
+      const rA = A.r + cur.r + surfaceGap
+      for (let s = 0; s < 24; s++) {
+        const ang = (Math.PI * 2 * s) / 24
+        const cu = A.u + Math.cos(ang) * rA
+        const cv = A.v + Math.sin(ang) * rA
+        if (fits(cu, cv, cur.r)) { bestU = cu; bestV = cv; break }
+      }
+    }
+    placed.push({ idx: cur.idx, u: bestU, v: bestV, r: cur.r })
+  }
+
+  // Recentra o centróide ponderado em (0, 0), preservando `vFloor` se existir.
+  let sumW = 0, cu = 0, cv = 0
+  for (const p of placed) {
+    const w = p.r * p.r
+    sumW += w
+    cu += p.u * w
+    cv += p.v * w
+  }
+  if (sumW > 1e-9) { cu /= sumW; cv /= sumW }
+  for (const p of placed) { p.u -= cu; p.v -= cv }
+  if (vFloor !== undefined) {
+    let lift = 0
+    for (const p of placed) lift = Math.max(lift, (vFloor + p.r) - p.v)
+    if (lift > 0) for (const p of placed) p.v += lift
+  }
+
+  const out = new Array<{ u: number; v: number }>(n)
+  for (const p of placed) out[p.idx] = { u: p.u, v: p.v }
+  return out
+}
+
+/**
+ * Calcula o contorno interior exato (fecho convexo CCW) de uma fita de abraçadeira PA66
+ * tensionada em torno da secção real dos condutores `circles` (sem folgas de ar).
+ * `radialInset` positivo comprime ligeiramente a fita contra o isolamento PVC (efeito de aperto real).
+ */
+export function convexBeltOfCircles(
+  circles: ReadonlyArray<BundleTieCircle>,
+  radialInset = 0.0007,
+  samplesPerCircle = 20,
+): Array<[number, number]> {
+  if (!circles.length) return []
+  const pts: Array<[number, number]> = []
+  for (const c of circles) {
+    const r = Math.max(0.007, c.r - radialInset)
+    for (let i = 0; i < samplesPerCircle; i++) {
+      const a = (Math.PI * 2 * i) / samplesPerCircle
+      pts.push([c.u + Math.cos(a) * r, c.v + Math.sin(a) * r])
+    }
+  }
+  pts.sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]))
+  const cross2 = (o: [number, number], a: [number, number], b: [number, number]) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+  const lower: Array<[number, number]> = []
+  for (const p of pts) {
+    while (lower.length >= 2 && cross2(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop()
+    lower.push(p)
+  }
+  const upper: Array<[number, number]> = []
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i]
+    while (upper.length >= 2 && cross2(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop()
+    upper.push(p)
+  }
+  lower.pop()
+  upper.pop()
+  const hull = [...lower, ...upper]
+  // Remove vértices quase coincidentes para normais perfeitamente limpas.
+  const clean: Array<[number, number]> = []
+  for (const p of hull) {
+    if (!clean.length || Math.hypot(p[0] - clean[clean.length - 1][0], p[1] - clean[clean.length - 1][1]) > 0.0008) {
+      clean.push(p)
+    }
+  }
+  if (clean.length > 2 && Math.hypot(clean[0][0] - clean[clean.length - 1][0], clean[0][1] - clean[clean.length - 1][1]) <= 0.0008) {
+    clean.pop()
+  }
+  return clean
+}
 
 const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
@@ -139,9 +389,12 @@ function sampleAlong(m: PolyMeasure, step: number): Sample[] {
     if (span < 0.06) continue
     const count = Math.max(1, Math.floor(span / step) + 1)
     if (count === 1) {
-      const mid = (a + b) * 0.5
-      const at = pointDirAt(m, mid)
-      out.push({ p: at.p, dir: at.dir, s: mid })
+      const probes = span >= 0.22 ? [0.5, 0.66, 0.34] : [0.5]
+      for (const f of probes) {
+        const s = a + span * f
+        const at = pointDirAt(m, s)
+        out.push({ p: at.p, dir: at.dir, s })
+      }
     } else {
       const usable = Math.min(span, (count - 1) * step)
       const start = (a + b - usable) * 0.5
@@ -212,9 +465,9 @@ export function bundleLacingTies(wires: Wire[], paths: Map<string, BundlePath>):
   for (const [id, bp] of paths) measured.set(id, measure(bp.points))
 
   const ties: BundleTie[] = []
+  const allPlaced: Array<{ bundleId: string; pos: V3; axis: V3; radius: number }> = []
   for (const [bundleId, members] of groups) {
     if (members.length < 2) continue
-    const placed: Array<{ pos: V3; axis: V3 }> = []
     const ordered = [...members].sort((a, b) => (measured.get(b.id)!.total - measured.get(a.id)!.total) || a.id.localeCompare(b.id))
     for (const lead of ordered) {
       const leadPath = paths.get(lead.id)!
@@ -227,17 +480,18 @@ export function bundleLacingTies(wires: Wire[], paths: Map<string, BundlePath>):
           if (other.id === lead.id) continue
           const path = paths.get(other.id)!
           const om = measured.get(other.id)!
-          const hit = sliceNearPlane(om, sample.p, sample.dir, TIE_REACH * 1.45)
+          const hit = sliceNearPlane(om, sample.p, sample.dir, TIE_REACH)
           if (!hit) continue
-          const endM = Math.min(TIE_END_MARGIN * 0.75, om.total * 0.16)
+          const endM = Math.min(TIE_END_MARGIN * 0.85, om.total * 0.18)
           if (hit.s < endM || hit.s > om.total - endM) continue
-          if (Math.abs(dot(hit.dir, sample.dir)) < 0.92) continue
-          if (!isStraightAt(om, hit.s, 0.055)) continue
+          // Exige paralelismo rigoroso: nunca abraça condutores ainda a abrir em leque!
+          if (Math.abs(dot(hit.dir, sample.dir)) < 0.96) continue
+          if (!isStraightAt(om, hit.s, 0.05)) continue
           candidates.push({ id: other.id, p: hit.p, r: path.radius, dir: hit.dir })
         }
         if (candidates.length < 2) continue
 
-        // Agrupa apenas os condutores genuinamente encostados ao condutor-guia (sem abraçar ar vazio).
+        // Agrupa APENAS condutores genuinamente apertados/encostados entre si (zero ar vazio na filaça!).
         const cluster = [candidates[0]]
         const used = new Set<number>([0])
         let grew = true
@@ -273,33 +527,34 @@ export function bundleLacingTies(wires: Wire[], paths: Map<string, BundlePath>):
         const [bU, bV] = orthonormalBasis(axis)
 
         let cxx = 0, cxy = 0, cyy = 0
-        const coords = cluster.map((n) => {
+        for (const n of cluster) {
           const d = sub(n.p, mean)
           const x = dot(d, bU), y = dot(d, bV)
           cxx += x * x; cxy += x * y; cyy += y * y
-          return { x, y, r: n.r }
-        })
+        }
         const theta = 0.5 * Math.atan2(2 * cxy, cxx - cyy)
         const ct = Math.cos(theta), st = Math.sin(theta)
         let right: V3 = norm(add(scale(bU, ct), scale(bV, st)))
         let up: V3 = norm(cross(axis, right))
-        // Estabiliza o sentido de `up` para a frente (+Z) para o fecho da abraçadeira ficar coerente.
-        if (up[2] < -0.05) {
+        // Estabiliza o sentido de `up` para a frente (+Z) ou para cima (+Y) para fechos alinhados e limpos.
+        const orientScore = up[2] * 1.2 + up[1] * 0.4
+        if (orientScore < -0.02) {
           right = scale(right, -1)
           up = scale(up, -1)
         }
 
         let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity
-        for (let i = 0; i < coords.length; i++) {
-          const d = sub(cluster[i].p, mean)
-          const u = dot(d, right), v = dot(d, up), r = cluster[i].r
+        for (const n of cluster) {
+          const d = sub(n.p, mean)
+          const u = dot(d, right), v = dot(d, up), r = n.r
           if (u - r < minU) minU = u - r
           if (u + r > maxU) maxU = u + r
           if (v - r < minV) minV = v - r
           if (v + r > maxV) maxV = v + r
         }
-        let halfWidth = (maxU - minU) * 0.5 + 0.0025
-        let halfHeight = (maxV - minV) * 0.5 + 0.0025
+        // Ajuste justo (sem folga artificial): a fita comprime diretamente o isolamento PVC.
+        let halfWidth = (maxU - minU) * 0.5
+        let halfHeight = (maxV - minV) * 0.5
         let midU = (minU + maxU) * 0.5
         let midV = (minV + maxV) * 0.5
         if (halfHeight > halfWidth) {
@@ -310,24 +565,58 @@ export function bundleLacingTies(wires: Wire[], paths: Map<string, BundlePath>):
           ;[midU, midV] = [midV, -midU]
         }
         if (halfWidth > MAX_TIE_HALF_WIDTH) continue
+        // Rejeita feixes demasiado espalhados para o n.º de cabos (evita abraçadeiras frouxas).
+        const sumDiam = cluster.reduce((acc, c) => acc + c.r * 2, 0)
+        if (halfWidth * 2 > sumDiam * 1.18 + 0.012) continue
 
         const centre: V3 = add(mean, add(scale(right, midU), scale(up, midV)))
+        const radius = Math.max(halfWidth, halfHeight)
         const minSpacing = TIE_SPACING * 0.58
-        if (placed.some((prev) => {
+
+        // Nunca deixa uma abraçadeira engolir um cabo estranho (de outro chicote ou solto)!
+        const clusterIds = new Set(cluster.map((c) => c.id))
+        let trapsForeign = false
+        for (const [otherId, otherM] of measured) {
+          if (clusterIds.has(otherId)) continue
+          const fHit = sliceNearPlane(otherM, centre, axis, radius + 0.02)
+          if (!fHit) continue
+          const fd = sub(fHit.p, centre)
+          const fu = Math.abs(dot(fd, right))
+          const fv = Math.abs(dot(fd, up))
+          const fr = paths.get(otherId)?.radius ?? 0.014
+          if (fu < halfWidth + fr * 0.35 && fv < halfHeight + fr * 0.35) {
+            trapsForeign = true
+            break
+          }
+        }
+        if (trapsForeign) continue
+
+        const collidesExisting = allPlaced.some((prev) => {
           const d = sub(centre, prev.pos)
           const dist = len(d)
-          if (dist >= minSpacing) return false
-          // Permite duas abraçadeiras em sub-feixes paralelos bem separados transversalmente.
+          if (prev.bundleId === bundleId) {
+            if (dist >= minSpacing) return false
+            const axial = Math.abs(dot(d, axis))
+            const perp = Math.sqrt(Math.max(0, dist * dist - axial * axial))
+            return perp < Math.max(0.11, (radius + prev.radius) * 1.9)
+          }
+          // Entre chicotes diferentes: impede abraçadeiras de se tocarem ou cruzarem em «X».
           const axial = Math.abs(dot(d, axis))
+          if (axial > 0.065) return false
           const perp = Math.sqrt(Math.max(0, dist * dist - axial * axial))
-          return perp < Math.max(0.14, halfWidth * 2.2)
-        })) continue
+          return perp < radius + prev.radius + 0.036
+        })
+        if (collidesExisting) continue
 
-        placed.push({ pos: centre, axis })
-        const radius = Math.max(halfWidth, halfHeight)
+        const circles: BundleTieCircle[] = cluster.map((n) => {
+          const d = sub(n.p, centre)
+          return { u: dot(d, right), v: dot(d, up), r: n.r }
+        })
+
+        allPlaced.push({ bundleId, pos: centre, axis, radius })
         const wireIds = cluster.map((n) => n.id)
         const darkBundle = wireIds.every((id) => DARK_WIRE_COLORS.has(colorById.get(id) ?? ''))
-        ties.push({ bundleId, position: centre, axis, right, up, halfWidth, halfHeight, radius, wireIds, darkBundle })
+        ties.push({ bundleId, position: centre, axis, right, up, halfWidth, halfHeight, radius, wireIds, circles, darkBundle })
       }
     }
   }

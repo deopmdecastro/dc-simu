@@ -10,6 +10,7 @@ import { MOTOR_BOX, MOTOR_CAD, MOTOR_GLAND, MOTOR_SIZE } from './motorTerminalLa
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { sharedFerrulePort } from '../electrical/sharedFerrules'
 import { isWireOutsideSolids, keepWireOutsideSolids, segmentEntersBox, OrientedWireBox, type EnclosureWallKind } from './solidWireRouting'
+import { packBundleRosette, TIE_SPACING } from './bundleLacing'
 
 /**
  * Geometria física dos cabos no Painel 3D: extremidades (bornes ou pontas livres),
@@ -49,7 +50,7 @@ export const DOUBLE_FERRULE_PORT_MM = 2.4
 export const FERRULE_COLLAR_MM = 6
 export const DOUBLE_FERRULE_COLLAR_MM = 7
 export const PROBE_EMBED_MM = 2
-export const ferrulePortOffsetMm = (index: number, count: number) => (index - (count - 1) / 2) * DOUBLE_FERRULE_PORT_MM * 1.55
+export const ferrulePortOffsetMm = (index: number, count: number) => (index - (count - 1) / 2) * DOUBLE_FERRULE_PORT_MM * 1.28
 /** Eixo lateral comum ao desenho do colar e às suas duas entradas. */
 function doubleFerruleSide(axis: THREE.Vector3): THREE.Vector3 {
   const normal = new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z)
@@ -1470,7 +1471,7 @@ function despikeOutsideMotor(points: V3[], motorRoute?: WirePath3D['motorRoute']
   const ordered = n && motorRoute!.side === 'from' ? points.slice().reverse() : points.slice()
   const fixedFrom = n ? ordered.length - n : ordered.length - 1
   let changed = false
-  for (let guard = 0; guard < 12; guard++) {
+  for (let guard = 0; guard < 48; guard++) {
     let removed = false
     for (let i = 1; i < Math.min(fixedFrom + 1, ordered.length - 1); i++) {
       if (i === fixedFrom && n) continue // o primeiro ponto do troço fixo fica
@@ -1793,8 +1794,8 @@ function buildMotorGlandBody3D(
   const gy = MOTOR_GLAND.y + dy
   const boxZ1 = MOTOR_BOX.z1
   const wall = MOTOR_BOX.wall
-  const frontStep = ctx.endType === 'probe' ? (rawIdx - 3) * 6 : (harnessIdx % 4) * 5.2 + Math.floor(harnessIdx / 4) * 4.5
-  const frontClear = MOTOR_CAD.maxZ + 22 + frontStep
+  const frontStep = ctx.endType === 'probe' ? (rawIdx - 3) * 6 : (harnessIdx % 4) * 3.4 + Math.floor(harnessIdx / 4) * 4.5
+  const frontClear = MOTOR_CAD.maxZ + (ctx.endType === 'probe' ? 22 : 29) + frontStep
   const entryLeft = cad(-38, gy, frontClear)
   const frontSweep = cad(gx, gy, frontClear)
   const glandOutside = cad(gx, gy, boxZ1 + 14)
@@ -1876,10 +1877,13 @@ function buildMotorGlandBody3D(
       const softBoxes = panelAllBoxes.filter((b) => !b.rail)
       const railBoxes = panelAllBoxes.filter((b) => b.rail)
       const railFrontZ = railBoxes.length > 0 ? Math.max(...railBoxes.map((b) => b.max.z)) + (outerMm / 2) * U + 0.042 : frontZ + 0.08
-      const bundlePitchY = 0.038
-      const bottomDuctY = (softBoxes.length > 0 ? Math.min(...softBoxes.map((b) => b.min.y)) : Math.min(panelHead[1], 0)) - 0.14 - harnessIdx * bundlePitchY
-      // Camada Z uniforme e próxima para todo o chicote do motor → abraçadeiras PA66 justas em todo o corredor inferior!
-      const ductZ = Math.max(frontZ + 0.032, 0.02) + (harnessIdx % 2) * 0.012
+      // Secção hexagonal/2×2 compacta (condutores encostados isolamento-a-isolamento → filaças PA66 super apertadas!).
+      const touchPitch = Math.max(0.032, outerMm * U + 0.0012)
+      const hCol = Math.floor(harnessIdx / 2)
+      const hLay = harnessIdx % 2
+      const bottomDuctY = (softBoxes.length > 0 ? Math.min(...softBoxes.map((b) => b.min.y)) : Math.min(panelHead[1], 0))
+        - 0.14 - hCol * touchPitch - hLay * touchPitch * 0.25
+      const ductZ = Math.max(frontZ + 0.028, 0.018) + hLay * (touchPitch * 0.92)
       const panelChain: V3[] = [panelHead]
       if (v(exitPanel).distanceTo(v(panelHead)) > 1e-4) panelChain.push(exitPanel)
 
@@ -2392,73 +2396,105 @@ export function buildAllWirePaths3D(
       continue
     }
 
-    // Painel aberto: fita plana por chicote (passo 3,7 mm dentro do mesmo chicote; separação 8,5 mm entre chicotes distintos).
+    // Painel aberto: cada chicote (`bundleId`) é apertado numa roseta hexagonal compacta
+    // (condutores encostados isolamento-a-isolamento a ~3,05 mm; separação limpa de 7,8 mm entre chicotes distintos).
     const spanMinX = Math.min(...spans.map((s) => s.minX)) - 0.12
     const spanMaxX = Math.max(...spans.map((s) => s.maxX)) + 0.12
     const localSoft = softBoxes.filter((b) => b.max.x >= spanMinX && b.min.x <= spanMaxX)
     const belowBoxes = localSoft.filter((b) => b.max.y < laneVal + 0.02)
     const aboveBoxes = localSoft.filter((b) => b.min.y > laneVal - 0.02)
-    const yFloor = belowBoxes.length > 0 ? Math.max(...belowBoxes.map((b) => b.max.y)) + 0.085 : laneVal - 0.24
-    const yCeil = aboveBoxes.length > 0 ? Math.min(...aboveBoxes.map((b) => b.min.y)) - 0.085 : laneVal + 0.24
+    const yFloor = belowBoxes.length > 0 ? Math.max(...belowBoxes.map((b) => b.max.y)) + 0.088 : laneVal - 0.25
+    const yCeil = aboveBoxes.length > 0 ? Math.min(...aboveBoxes.map((b) => b.min.y)) - 0.088 : laneVal + 0.25
     const safeCenter = yCeil > yFloor ? (yFloor + yCeil) * 0.5 : laneVal
     const availSpan = Math.max(0.06, yCeil - yFloor)
 
-    // Calcula posições Y agrupadas por chicote (cada chicote numa única camada Z limpa → filaças perfeitas!).
-    const rawY: number[] = [0]
-    for (let i = 1; i < trackEnds.length; i++) {
-      const sameBundle = !trackEnds[i].bundleKey.startsWith('~solo~') && trackEnds[i].bundleKey === trackEnds[i - 1].bundleKey
-      rawY.push(rawY[i - 1] + (sameBundle ? 0.038 : 0.072))
+    // Diâmetro médio por pista para empacotamento sem folga de ar dentro de cada chicote.
+    const trackOuterMm = new Array<number>(trackEnds.length).fill(2.9)
+    for (const sp of spans) {
+      const ti = assignedTrack.get(sp)
+      if (ti !== undefined) trackOuterMm[ti] = Math.max(trackOuterMm[ti], sp.outerMm)
     }
-    const totalRaw = rawY[rawY.length - 1] || 0
-    // Se exceder a altura livre do corredor, reparte em 2 camadas Z mantendo cada chicote coeso na mesma camada!
-    const useTwoLayers = totalRaw > availSpan && trackEnds.length > 5
-    const trackPos: Array<{ yOff: number; zLayer: number }> = []
-    if (!useTwoLayers) {
-      const scaleY = totalRaw > availSpan && totalRaw > 1e-6 ? availSpan / totalRaw : 1
-      const midRaw = (totalRaw * scaleY) * 0.5
-      for (let i = 0; i < trackEnds.length; i++) {
-        trackPos.push({ yOff: safeCenter + rawY[i] * scaleY - midRaw - laneVal, zLayer: 0 })
+
+    type TrackCluster = { bundleKey: string; indices: number[]; pitch: number; localY: number[]; localZ: number[]; widthY: number }
+    const clusters: TrackCluster[] = []
+    for (let i = 0; i < trackEnds.length; i++) {
+      const bk = trackEnds[i].bundleKey
+      const prev = clusters[clusters.length - 1]
+      if (prev && !bk.startsWith('~solo~') && prev.bundleKey === bk) {
+        prev.indices.push(i)
+      } else {
+        clusters.push({ bundleKey: bk, indices: [i], pitch: 0.031, localY: [], localZ: [], widthY: 0 })
       }
-    } else {
-      // Atribui chicotes inteiros à camada 0 ou 1 de forma equilibrada.
-      const bundleLayer = new Map<string, number>()
-      const layerY: [number[], number[]] = [[], []]
-      const layerPrev: [string, string] = ['', '']
-      const layerIndices: [number[], number[]] = [[], []]
-      for (let i = 0; i < trackEnds.length; i++) {
-        const bk = trackEnds[i].bundleKey
-        let lay = bundleLayer.get(bk)
-        if (lay === undefined) {
-          const last0 = layerY[0].length > 0 ? layerY[0][layerY[0].length - 1] : 0
-          const last1 = layerY[1].length > 0 ? layerY[1][layerY[1].length - 1] : 0
-          lay = last0 <= last1 ? 0 : 1
-          if (!bk.startsWith('~solo~')) bundleLayer.set(bk, lay)
+    }
+    for (const cl of clusters) {
+      const k = cl.indices.length
+      const maxOuter = Math.max(...cl.indices.map((idx) => trackOuterMm[idx]))
+      const p = Math.max(0.0295, maxOuter * U + 0.0012)
+      cl.pitch = p
+      if (k === 1) {
+        cl.localY = [0]
+        cl.localZ = [0]
+        cl.widthY = p
+      } else if (k === 2) {
+        cl.localY = [-0.5 * p, 0.5 * p]
+        cl.localZ = [0, 0]
+        cl.widthY = 2 * p
+      } else {
+        // Favo hexagonal de 2 camadas: base encostada + topo encaixado nos vales a 0,866·p!
+        const bot = Math.ceil(k / 2)
+        const top = k - bot
+        for (let b = 0; b < bot; b++) {
+          cl.localY.push((b - (bot - 1) * 0.5) * p)
+          cl.localZ.push(0)
         }
-        const prevList = layerY[lay]
-        if (prevList.length === 0) prevList.push(0)
-        else {
-          const same = !bk.startsWith('~solo~') && bk === layerPrev[lay]
-          prevList.push(prevList[prevList.length - 1] + (same ? 0.039 : 0.068))
+        for (let t = 0; t < top; t++) {
+          const sameParity = top === bot
+          const shift = sameParity ? 0.25 * p : 0
+          cl.localY.push((t - (top - 1) * 0.5) * p + shift)
+          cl.localZ.push(p * (sameParity ? 0.96 : 0.875))
         }
-        layerPrev[lay] = bk
-        layerIndices[lay].push(i)
+        cl.widthY = Math.max(bot, top + (top === bot ? 0.25 : 0)) * p
       }
-      for (const lay of [0, 1] as const) {
-        const ys = layerY[lay]
-        const spanL = ys.length > 0 ? ys[ys.length - 1] : 0
-        const sc = spanL > availSpan && spanL > 1e-6 ? availSpan / spanL : 1
-        const midL = (spanL * sc) * 0.5
-        layerIndices[lay].forEach((trackIdx, k) => {
-          trackPos[trackIdx] = { yOff: safeCenter + ys[k] * sc - midL - laneVal, zLayer: lay }
-        })
+    }
+
+    const interBundleGap = 0.056
+    const clusterCenters: number[] = []
+    let cursor = 0
+    for (let ci = 0; ci < clusters.length; ci++) {
+      const cl = clusters[ci]
+      if (ci === 0) {
+        clusterCenters.push(0)
+        cursor = cl.widthY * 0.5
+      } else {
+        const c = cursor + interBundleGap + cl.widthY * 0.5
+        clusterCenters.push(c)
+        cursor = c + cl.widthY * 0.5
       }
+    }
+    const minEdge = clusters.length > 0 ? clusterCenters[0] - clusters[0].widthY * 0.5 : 0
+    const maxEdge = clusters.length > 0 ? cursor : 0
+    const totalSpan = Math.max(0, maxEdge - minEdge)
+    const centerShift = totalSpan > availSpan && clusterCenters.length > 1
+      ? Math.max(0.55, availSpan / totalSpan)
+      : 1
+    const midCenter = ((minEdge + maxEdge) * 0.5) * centerShift
+
+    const trackPos: Array<{ yOff: number; zOff: number }> = new Array(trackEnds.length)
+    for (let ci = 0; ci < clusters.length; ci++) {
+      const cl = clusters[ci]
+      const baseY = safeCenter + clusterCenters[ci] * centerShift - midCenter - laneVal
+      // Se ainda exceder um corredor muito estreito, alterna chicotes pares/ímpares em Z sem desfazer a roseta!
+      const extraZ = totalSpan * centerShift > availSpan + 0.03 && (ci % 2 === 1) ? 0.058 : 0
+      cl.indices.forEach((trackIdx, m) => {
+        trackPos[trackIdx] = { yOff: baseY + cl.localY[m], zOff: cl.localZ[m] + extraZ }
+      })
     }
 
     for (const sp of spans) {
       const t = assignedTrack.get(sp) ?? 0
-      const tp = trackPos[t] ?? { yOff: 0, zLayer: 0 }
+      const tp = trackPos[t] ?? { yOff: 0, zOff: 0 }
       const frontZ = wireFrontLimit(sp.outerMm)
-      const ductZ = frontZ + 0.020 + tp.zLayer * 0.044
+      const ductZ = frontZ + 0.018 + tp.zOff
       globalMaxOpenDuctZ = Math.max(globalMaxOpenDuctZ, ductZ)
       const s = slots.get(sp.wireId)!
       if (sp.side === 'A') {
@@ -2470,7 +2506,7 @@ export function buildAllWirePaths3D(
     }
   }
 
-  // 2) Colunas verticais entre calhas (risers e calhas verticais CT5/CT2): agrupa por `bundleId` com passo justo!
+  // 2) Colunas verticais entre calhas (risers e calhas verticais CT5/CT2): agrupa por `bundleId` em feixe compacto!
   const byRiser = new Map<string, { inDuct: boolean; riserX: number; list: Entry[] }>()
   for (const e of entries) {
     if (e.basePlan?.riserX === undefined) continue
@@ -2498,19 +2534,41 @@ export function buildAllWirePaths3D(
         s.riserZ = wireFrontLimit(e.outerMm) + 0.145 + (layer % 5) * 0.038
       })
     } else {
-      // Passagem vertical em painel aberto (ex.: ponte trifásica QG→QM1, QM1→KM1): 3 fases lado a lado num único plano!
-      const singleLayer = list.length <= 4
+      // Passagem vertical em painel aberto: cada chicote em feixe encostado (ponte trifásica lado a lado justo ou favo)!
+      const groups: Entry[][] = []
+      for (const e of list) {
+        const prev = groups[groups.length - 1]
+        if (prev && e.wire.bundleId && prev[0].wire.bundleId === e.wire.bundleId) prev.push(e)
+        else groups.push([e])
+      }
+      const xVals: number[] = []
+      const zVals: number[] = []
+      let curX = 0
+      groups.forEach((grp, gi) => {
+        const p = Math.max(0.0305, Math.max(...grp.map((e) => e.outerMm)) * U + 0.0014)
+        const k = grp.length
+        const bot = k <= 3 ? k : Math.ceil(k / 2)
+        const top = k - bot
+        const wX = bot * p
+        const cX = gi === 0 ? 0 : curX + 0.052 + wX * 0.5
+        curX = gi === 0 ? wX * 0.5 : cX + wX * 0.5
+        grp.forEach((_, m) => {
+          if (m < bot) {
+            xVals.push(cX + (m - (bot - 1) * 0.5) * p)
+            zVals.push(0)
+          } else {
+            const ti = m - bot
+            const shift = top === bot ? 0.25 * p : 0
+            xVals.push(cX + (ti - (top - 1) * 0.5) * p + shift)
+            zVals.push(p * 0.88)
+          }
+        })
+      })
+      const midX = xVals.length > 0 ? (Math.min(...xVals) + Math.max(...xVals)) * 0.5 : 0
       list.forEach((e, idx) => {
         const s = slots.get(e.wire.id)!
-        if (singleLayer) {
-          s.riserXOffset = (idx - (list.length - 1) * 0.5) * 0.038
-          s.riserZ = globalMaxOpenDuctZ + 0.048
-        } else {
-          const row = Math.floor(idx / 2)
-          const layer = idx % 2
-          s.riserXOffset = (row - (Math.ceil(list.length / 2) - 1) * 0.5) * 0.040
-          s.riserZ = globalMaxOpenDuctZ + 0.048 + layer * 0.040
-        }
+        s.riserXOffset = xVals[idx] - midX
+        s.riserZ = globalMaxOpenDuctZ + 0.044 + zVals[idx]
       })
     }
   }
@@ -2549,6 +2607,53 @@ export function buildAllWirePaths3D(
   }
 
   // 4) Construir os traçados suaves iniciais com os canais atribuídos.
+  const smooth01 = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t))
+  const ductBoxes = obstacles.filter((b) => b.duct)
+  const inAnyDuct = (p: THREE.Vector3) =>
+    ductBoxes.some((d) =>
+      p.x >= d.min.x - 0.01 && p.x <= d.max.x + 0.01
+      && p.y >= d.min.y - 0.01 && p.y <= d.max.y + 0.01
+      && p.z >= d.min.z - 0.02 && p.z <= d.max.z + 0.02)
+
+  const subdivideExterior = (raw: THREE.Vector3[], fromGland: boolean, toGland: boolean, fixedCount: number, guard: number, maxSeg = 0.085): THREE.Vector3[] => {
+    if (raw.length < 2) return raw
+    const lo = fromGland ? Math.max(0, Math.min(raw.length - 1, fixedCount - 1)) : 0
+    const hi = toGland ? Math.max(lo, raw.length - fixedCount) : raw.length - 1
+    const rawCum = [0]
+    for (let i = 1; i < raw.length; i++) rawCum.push(rawCum[i - 1] + raw[i].distanceTo(raw[i - 1]))
+    const sStart = rawCum[lo]
+    const sEnd = rawCum[hi]
+    const out: THREE.Vector3[] = []
+    for (let i = 0; i < raw.length - 1; i++) {
+      const a = raw[i], b = raw[i + 1]
+      out.push(a.clone())
+      if (i >= lo && i < hi) {
+        const len = rawCum[i + 1] - rawCum[i]
+        // Só subdivide troços retos longos fora das ponteiras (mantém as pontas 100% axiais e o cálculo ultrarrápido!).
+        const segMid = (rawCum[i] + rawCum[i + 1]) * 0.5
+        const outsideStub = (i > lo || len > guard * 1.35) && (i < hi - 1 || len > guard * 1.35)
+        if (outsideStub && len > maxSeg * 1.25 && (segMid > sStart + guard * 0.6 || len > 0.24) && (segMid < sEnd - guard * 0.6 || len > 0.24)) {
+          const steps = Math.min(64, Math.ceil(len / maxSeg))
+          for (let s = 1; s < steps; s++) {
+            const sPt = rawCum[i] + len * (s / steps)
+            // Nunca coloca vértices extra nos primeiros/últimos 11 mm junto à ponteira!
+            if (!fromGland && sPt < sStart + guard * 0.92) continue
+            if (!toGland && sPt > sEnd - guard * 0.92) continue
+            out.push(a.clone().lerp(b, s / steps))
+          }
+        }
+      }
+    }
+    out.push(raw[raw.length - 1].clone())
+    return out
+  }
+
+  const measureArc = (chain: THREE.Vector3[]) => {
+    const cum = new Array<number>(chain.length).fill(0)
+    for (let i = 1; i < chain.length; i++) cum[i] = cum[i - 1] + chain[i].distanceTo(chain[i - 1])
+    return cum
+  }
+
   const builtPaths = entries.map((e) => {
     const path = buildWirePath3D(e.wire, e.from, e.to, obstacles, slots.get(e.wire.id))
     const fromGland = isMotorGlandEligible(e.from, endTypeOf(e.wire, 'from')) && !e.to.motorContext
@@ -2560,14 +2665,23 @@ export function buildAllWirePaths3D(
       : undefined
     const doorEncA = e.from.doorContext?.enclosureId
     const doorEncB = e.to.doorContext?.enclosureId
-    const pts = removeBacktracksOutsideMotor(path.points, path.motorRoute).map((p) => new THREE.Vector3(p[0], p[1], p[2]))
+    const basePts = removeBacktracksOutsideMotor(path.points, path.motorRoute).map((p) => new THREE.Vector3(p[0], p[1], p[2]))
     const fixedCount = path.motorRoute?.points.length ?? 0
+    const hasManual = Boolean(e.wire.waypoints3D && e.wire.waypoints3D.length > 0)
+    const guard = Math.max(0.11, e.outerMm * 3.8 * U)
+    const pts = e.wire.bundleId && !fProbe && !hasManual
+      ? subdivideExterior(basePts, fromGland, toGland, fixedCount, guard, 0.105)
+      : basePts
     const pinPoints = (chain: THREE.Vector3[]) => {
-      const count = chain.length, guard = Math.max(0.08, e.outerMm * 3 * U)
-      const distances = [0]
-      for (let i = 1; i < count; i++) distances.push(distances[i - 1] + chain[i].distanceTo(chain[i - 1]))
+      const count = chain.length
+      const distances = measureArc(chain)
       const total = distances[count - 1] ?? 0
-      return chain.map((_, idx) => idx <= 1 || idx >= count - 2 || distances[idx] <= guard || total - distances[idx] <= guard || (fromGland && idx < fixedCount) || (toGland && idx >= count - fixedCount))
+      return chain.map((_, idx) =>
+        idx <= 1 || idx >= count - 2
+        || distances[idx] <= guard
+        || total - distances[idx] <= guard
+        || (fromGland && idx < fixedCount)
+        || (toGland && idx >= count - fixedCount))
     }
     const pinned = pinPoints(pts)
     const encA = !e.from.doorContext ? enclosureContainingPoint(e.from.position, enclosures, e.from.enclosureId) : undefined
@@ -2579,6 +2693,12 @@ export function buildAllWirePaths3D(
       pts,
       pinned,
       pinPoints,
+      guard,
+      fromGland,
+      toGland,
+      fixedCount,
+      fProbe,
+      hasManual,
       motorRoute: path.motorRoute,
       clampEnc,
       exits: [
@@ -2589,23 +2709,441 @@ export function buildAllWirePaths3D(
     }
   })
 
-  // 5) Relaxação geométrica 3D cápsula-a-cápsula: garante zero penetrações cabo-dentro-de-cabo.
-  const kernel = [0.22, 0.52, 0.82, 1.0, 0.82, 0.52, 0.22]
-  const kHalf = 3
-  const maxPasses = 24
+  const checkPathClear = (pts: V3[], outerMm: number, exits: Parameters<typeof keepWireOutsideSolids>[3], motorRoute?: WirePath3D['motorRoute']) => {
+    if (!motorRoute) return isWireOutsideSolids(pts, outerMm, obstacles, exits)
+    const count = motorRoute.points.length
+    const cut = motorRoute.side === 'to' ? Math.max(1, pts.length - count) : Math.min(pts.length - 2, count - 1)
+    const sub = motorRoute.side === 'to' ? pts.slice(0, cut + 1) : pts.slice(cut)
+    return isWireOutsideSolids(sub, outerMm, obstacles, exits)
+  }
+
+  // 4.5) Aperto físico dos chicotes filaçados (`bundleId`): puxa e encosta os condutores paralelos de cada
+  // chicote numa roseta circular/hexagonal compacta (com transição C² suave desde os bornes e ligeira cintura
+  // de compressão nas estações de abraçadeira PA66), como num quadro industrial filaçado real.
+  {
+    type CinchMember = {
+      item: typeof builtPaths[number]
+      orig: THREE.Vector3[]
+      cum: number[]
+      tang: THREE.Vector3[]
+      extLo: number
+      extHi: number
+      sLo: number
+      sHi: number
+      guardLo: number
+      guardHi: number
+      rampLo: number
+      rampHi: number
+      sumTarget: THREE.Vector3[]
+      sumWeight: number[]
+    }
+
+    const byBundle = new Map<string, CinchMember[]>()
+    for (const item of builtPaths) {
+      const bid = item.entry.wire.bundleId
+      if (!bid || item.fProbe || item.hasManual || item.pts.length < 4) continue
+      const orig = item.pts.map((p) => p.clone())
+      const cum = measureArc(orig)
+      const extLo = item.fromGland ? Math.min(orig.length - 2, Math.max(0, item.fixedCount - 1)) : 0
+      const extHi = item.toGland ? Math.max(extLo + 1, orig.length - item.fixedCount) : orig.length - 1
+      const sLo = cum[extLo]
+      const sHi = cum[extHi]
+      if (sHi - sLo < 0.42) continue
+      const tang = orig.map((_, k) => {
+        const a = orig[Math.max(extLo, k - 1)]
+        const b = orig[Math.min(extHi, k + 1)]
+        const d = b.clone().sub(a)
+        return d.lengthSq() > 1e-10 ? d.normalize() : new THREE.Vector3(1, 0, 0)
+      })
+      const m: CinchMember = {
+        item,
+        orig,
+        cum,
+        tang,
+        extLo,
+        extHi,
+        sLo,
+        sHi,
+        guardLo: item.fromGland ? 0.24 : Math.max(0.21, item.guard + 0.08),
+        guardHi: item.toGland ? 0.24 : Math.max(0.21, item.guard + 0.08),
+        rampLo: item.fromGland ? 0.24 : 0.28,
+        rampHi: item.toGland ? 0.24 : 0.28,
+        sumTarget: orig.map(() => new THREE.Vector3()),
+        sumWeight: new Array<number>(orig.length).fill(0),
+      }
+      const list = byBundle.get(bid)
+      if (list) list.push(m)
+      else byBundle.set(bid, [m])
+    }
+
+    const sliceMember = (m: CinchMember, planePt: THREE.Vector3, planeDir: THREE.Vector3, maxReach: number) => {
+      let best: { p: THREE.Vector3; dir: THREE.Vector3; s: number; k: number; perp: number } | null = null
+      for (let i = m.extLo + 1; i <= m.extHi; i++) {
+        const a = m.orig[i - 1], b = m.orig[i]
+        const segL = m.cum[i] - m.cum[i - 1]
+        if (segL < 1e-7) continue
+        const da = (a.x - planePt.x) * planeDir.x + (a.y - planePt.y) * planeDir.y + (a.z - planePt.z) * planeDir.z
+        const db = (b.x - planePt.x) * planeDir.x + (b.y - planePt.y) * planeDir.y + (b.z - planePt.z) * planeDir.z
+        if ((da > 0 && db > 0) || (da < 0 && db < 0)) {
+          if (Math.min(Math.abs(da), Math.abs(db)) > 0.024) continue
+        }
+        const denom = da - db
+        const t = Math.max(0, Math.min(1, Math.abs(denom) > 1e-9 ? da / denom : 0.5))
+        const s = m.cum[i - 1] + segL * t
+        if (s < m.sLo + m.guardLo || s > m.sHi - m.guardHi) continue
+        const px = a.x + (b.x - a.x) * t
+        const py = a.y + (b.y - a.y) * t
+        const pz = a.z + (b.z - a.z) * t
+        const ox = px - planePt.x, oy = py - planePt.y, oz = pz - planePt.z
+        const ax = ox * planeDir.x + oy * planeDir.y + oz * planeDir.z
+        if (Math.abs(ax) > 0.028) continue
+        const rx = ox - planeDir.x * ax, ry = oy - planeDir.y * ax, rz = oz - planeDir.z * ax
+        const perp = Math.hypot(rx, ry, rz)
+        if (perp > maxReach) continue
+        if (!best || perp < best.perp) {
+          const nearK = t < 0.5 ? i - 1 : i
+          best = { p: new THREE.Vector3(px, py, pz), dir: m.tang[nearK], s, k: nearK, perp }
+        }
+      }
+      return best
+    }
+
+    const isLocallyGentle = (m: CinchMember, k: number) => {
+      const s0 = m.cum[k]
+      let kA = k, kB = k
+      while (kA > m.extLo && s0 - m.cum[kA] < 0.085) kA--
+      while (kB < m.extHi && m.cum[kB] - s0 < 0.085) kB++
+      return m.tang[kA].dot(m.tang[kB]) >= 0.88 && m.tang[k].dot(m.tang[kA]) >= 0.91 && m.tang[k].dot(m.tang[kB]) >= 0.91
+    }
+
+    const GATHER_REACH = 0.26 // 26 mm de alcance transversal para reunir o chicote
+    const LINK_GAP = 0.185 // 18,5 mm de folga máx. entre vizinhos para fechar num único feixe apertado
+
+    for (const members of byBundle.values()) {
+      if (members.length < 2) continue
+      const ordered = [...members].sort((a, b) =>
+        ((b.sHi - b.sLo) - (a.sHi - a.sLo)) || a.item.entry.wire.id.localeCompare(b.item.entry.wire.id))
+
+      const visitedStations: Array<{ c: THREE.Vector3; key: string }> = []
+
+      for (const lead of ordered) {
+        for (let k = lead.extLo + 1; k < lead.extHi; k++) {
+          const s = lead.cum[k]
+          if (s < lead.sLo + lead.guardLo || s > lead.sHi - lead.guardHi) continue
+          const seedP = lead.orig[k]
+          if (inAnyDuct(seedP)) continue
+          if (!isLocallyGentle(lead, k)) continue
+          const seedDir = lead.tang[k]
+
+          type Hit = { m: CinchMember; p: THREE.Vector3; dir: THREE.Vector3; s: number; k: number; r: number }
+          const cands: Hit[] = [{ m: lead, p: seedP, dir: seedDir, s, k, r: lead.item.entry.radius }]
+          for (const other of ordered) {
+            if (other === lead) continue
+            const hit = sliceMember(other, seedP, seedDir, GATHER_REACH)
+            if (!hit) continue
+            if (inAnyDuct(hit.p)) continue
+            if (Math.abs(hit.dir.dot(seedDir)) < 0.88) continue
+            if (!isLocallyGentle(other, hit.k)) continue
+            cands.push({ m: other, p: hit.p, dir: hit.dir, s: hit.s, k: hit.k, r: other.item.entry.radius })
+          }
+          if (cands.length < 2) continue
+
+          // Componente conexa de proximidade (reúne sub-feixes co-correntes sem puxar troços distantes).
+          const cluster: Hit[] = [cands[0]]
+          const used = new Set<number>([0])
+          let grew = true
+          while (grew) {
+            grew = false
+            for (let ci = 1; ci < cands.length; ci++) {
+              if (used.has(ci)) continue
+              const cand = cands[ci]
+              const linked = cluster.some((mem) => {
+                const d = cand.p.clone().sub(mem.p)
+                d.addScaledVector(seedDir, -d.dot(seedDir))
+                return d.length() - cand.r - mem.r <= LINK_GAP
+              })
+              if (linked) {
+                cluster.push(cand)
+                used.add(ci)
+                grew = true
+              }
+            }
+          }
+          if (cluster.length < 2) continue
+
+          const clusterKey = cluster.map((c) => c.m.item.entry.wire.id).sort().join('|')
+          // Tangente média do chicote e centróide ponderado (os fios mais longe do borne ancoram o tronco principal!).
+          const axis = new THREE.Vector3()
+          const center = new THREE.Vector3()
+          let wSum = 0
+          for (const h of cluster) {
+            const sign = h.dir.dot(seedDir) >= 0 ? 1 : -1
+            const dEnd = Math.min(h.s - h.m.sLo, h.m.sHi - h.s)
+            const w = (0.35 + smooth01((dEnd - 0.14) / 0.42)) * (h.r * h.r * 1000)
+            axis.addScaledVector(h.dir, sign * w)
+            center.addScaledVector(h.p, w)
+            wSum += w
+          }
+          if (wSum < 1e-9 || axis.lengthSq() < 1e-9) continue
+          axis.normalize()
+          center.multiplyScalar(1 / wSum)
+
+          if (visitedStations.some((vs) => vs.key === clusterKey && vs.c.distanceToSquared(center) < 0.068 * 0.068)) {
+            continue
+          }
+          visitedStations.push({ c: center.clone(), key: clusterKey })
+
+          // Referencial transversal canónico sem torção:
+          // - troços em XY: `bV` aponta para +Z (frente da chapa);
+          // - troços em Z (ex.: topo da fonte PS1): `bV` aponta para +Y (acima da tampa do aparelho).
+          const depthRun = Math.abs(axis.z) >= 0.72
+          const ref = depthRun ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1)
+          const bU = new THREE.Vector3().crossVectors(axis, ref)
+          if (bU.lengthSq() < 1e-6) bU.set(1, 0, 0)
+          else bU.normalize()
+          const bV = new THREE.Vector3().crossVectors(bU, axis).normalize()
+          if (!depthRun && bV.z < 0) { bU.negate(); bV.negate() }
+          if (depthRun && bV.y < 0) { bU.negate(); bV.negate() }
+
+          // Piso de segurança para a roseta (frente da chapa em XY; topo de aparelho subjacente em Z).
+          let vFloor: number | undefined
+          if (!depthRun && bV.z > 0.75) {
+            const reqZ = Math.max(...cluster.map((h) => h.m.item.minZ)) + 0.004
+            vFloor = (reqZ - center.z) / bV.z
+          } else if (depthRun && bV.y > 0.75) {
+            let roofY = -Infinity
+            for (const box of softBoxes) {
+              if (center.x >= box.min.x - 0.14 && center.x <= box.max.x + 0.14
+                && center.z >= box.min.z - 0.08 && center.z <= box.max.z + 0.08
+                && box.max.y <= center.y + 0.03) {
+                roofY = Math.max(roofY, box.max.y)
+              }
+            }
+            if (Number.isFinite(roofY)) vFloor = (roofY + 0.085) - center.y
+          }
+
+          // Aperto firme e encostado ao longo de todo o chicote + cintura extra nas estações de abraçadeira PA66!
+          const phase = Math.cos((Math.PI * s) / TIE_SPACING)
+          const tiePinch = phase * phase * phase * phase // [0..1]
+          const surfaceGap = 0.0018 - 0.0008 * tiePinch // 0,18 mm no tronco → 0,10 mm na abraçadeira (encostado real!)
+
+          // Ordenação estável por ID de cabo antes do empacotamento para evitar troca de pista entre estações!
+          const sortedCluster = [...cluster].sort((a, b) => a.m.item.entry.wire.id.localeCompare(b.m.item.entry.wire.id))
+          const packInputs = sortedCluster.map((h) => {
+            const rel = h.p.clone().sub(center)
+            return { r: h.r, prefU: rel.dot(bU), prefV: rel.dot(bV) }
+          })
+          const packed = packBundleRosette(packInputs, surfaceGap, vFloor)
+
+          for (let idx = 0; idx < sortedCluster.length; idx++) {
+            const h = sortedCluster[idx]
+            const { u, v: pv } = packed[idx]
+            const target = center.clone()
+              .addScaledVector(bU, u)
+              .addScaledVector(bV, pv)
+            target.z = Math.max(h.m.item.minZ, target.z)
+
+            // Deslocamento PURAMENTE transversal ao feixe (zero componente axial → NUNCA cria dobra para trás!).
+            const delta = target.sub(h.p)
+            delta.addScaledVector(axis, -delta.dot(axis))
+
+            const m = h.m
+            const WIN_S = 0.095
+            for (let vk = m.extLo + 1; vk < m.extHi; vk++) {
+              const ds = Math.abs(m.cum[vk] - h.s)
+              if (ds >= WIN_S) continue
+              const wk = 0.5 * (1 + Math.cos((Math.PI * ds) / WIN_S))
+              if (wk <= 1e-4) continue
+              m.sumTarget[vk].addScaledVector(delta, wk)
+              m.sumWeight[vk] += wk
+            }
+          }
+        }
+      }
+
+      // Aplica o deslocamento transversal de aperto com rampa Hermite C² suave na saída/entrada de bornes e derivações!
+      for (const m of members) {
+        const n = m.orig.length
+        const rawDisp = m.orig.map(() => new THREE.Vector3())
+        const hasTarget = m.sumWeight.map((w) => w > 0.05)
+
+        // Identifica troços contíguos filaçados e ignora cruzamentos fugazes (< 20 mm).
+        const runs: Array<[number, number]> = []
+        let rStart = -1
+        for (let k = m.extLo + 1; k < m.extHi; k++) {
+          if (hasTarget[k] && rStart < 0) rStart = k
+          else if (!hasTarget[k] && rStart >= 0) {
+            if (k + 1 < m.extHi && hasTarget[k + 1]) continue
+            runs.push([rStart, k - 1])
+            rStart = -1
+          }
+        }
+        if (rStart >= 0) runs.push([rStart, m.extHi - 1])
+
+        let moved = false
+        for (const [a, b] of runs) {
+          const runSpan = m.cum[b] - m.cum[a]
+          if (runSpan < 0.18) continue
+          const nearStartEnd = m.cum[a] - m.sLo < m.guardLo + 0.14
+          const nearFinishEnd = m.sHi - m.cum[b] < m.guardHi + 0.14
+          for (let k = a; k <= b; k++) {
+            const w = m.sumWeight[k]
+            let delta: THREE.Vector3
+            if (w > 0.05) {
+              delta = m.sumTarget[k].clone().multiplyScalar(1 / w)
+            } else {
+              const dPrev = m.sumTarget[k - 1].clone().multiplyScalar(1 / Math.max(1e-6, m.sumWeight[k - 1]))
+              const dNext = m.sumTarget[k + 1].clone().multiplyScalar(1 / Math.max(1e-6, m.sumWeight[k + 1]))
+              delta = dPrev.lerp(dNext, 0.5)
+            }
+            const aLo = smooth01((m.cum[k] - m.sLo - m.guardLo) / m.rampLo)
+            const aHi = smooth01((m.sHi - m.cum[k] - m.guardHi) / m.rampHi)
+            const aIn = nearStartEnd ? 1 : smooth01((m.cum[k] - m.cum[a] + 0.05) / 0.28)
+            const aOut = nearFinishEnd ? 1 : smooth01((m.cum[b] - m.cum[k] + 0.05) / 0.28)
+            const alpha = 0.97 * Math.min(aLo, aHi, aIn, aOut)
+            if (alpha <= 1e-4) continue
+            rawDisp[k].copy(delta).multiplyScalar(alpha)
+            moved = true
+          }
+        }
+        if (!moved) continue
+
+        // Suavização cosseno em comprimento de arco (raio 28 mm) sobre o campo de deslocamento:
+        // espalha as transições de entrada/saída do chicote em curvas naturais C² sem NENHUM vinco!
+        const SMOOTH_R = 0.28
+        const wallMargin = m.item.entry.radius + 0.048
+        const buildCandidateFrom = (base: THREE.Vector3[], rLo: number, rHi: number, blend: number) => {
+          const out = base.map((p) => p.clone())
+          for (let k = Math.max(m.extLo + 1, rLo - 6); k <= Math.min(m.extHi - 1, rHi + 6); k++) {
+            const sK = m.cum[k]
+            const termFade = Math.min(
+              smooth01((sK - m.sLo - m.guardLo) / (m.rampLo * 0.9)),
+              smooth01((m.sHi - sK - m.guardHi) / (m.rampHi * 0.9)),
+            )
+            if (termFade <= 1e-4) continue
+            let sx = 0, sy = 0, sz = 0, sw = 0
+            for (let j = k; j >= m.extLo; j--) {
+              const ds = sK - m.cum[j]
+              if (ds > SMOOTH_R) break
+              const gw = 0.5 * (1 + Math.cos((Math.PI * ds) / SMOOTH_R))
+              if (j >= rLo && j <= rHi) { sx += rawDisp[j].x * gw; sy += rawDisp[j].y * gw; sz += rawDisp[j].z * gw }
+              sw += gw
+            }
+            for (let j = k + 1; j <= m.extHi; j++) {
+              const ds = m.cum[j] - sK
+              if (ds > SMOOTH_R) break
+              const gw = 0.5 * (1 + Math.cos((Math.PI * ds) / SMOOTH_R))
+              if (j >= rLo && j <= rHi) { sx += rawDisp[j].x * gw; sy += rawDisp[j].y * gw; sz += rawDisp[j].z * gw }
+              sw += gw
+            }
+            if (sw <= 1e-6 || (Math.abs(sx) + Math.abs(sy) + Math.abs(sz) < 1e-8)) continue
+            const scaleK = (blend * Math.min(1, termFade * 1.12)) / sw
+            // Projeta estritamente na normal local do cabo → zero recuo axial mesmo junto a curvas de 90°!
+            let dx = sx * scaleK, dy = sy * scaleK, dz = sz * scaleK
+            const tK = m.tang[k]
+            const along = dx * tK.x + dy * tK.y + dz * tK.z
+            dx -= tK.x * along; dy -= tK.y * along; dz -= tK.z * along
+            let nx = base[k].x + dx
+            let ny = base[k].y + dy
+            let nz = Math.max(m.item.minZ, base[k].z + dz)
+            if (m.item.clampEnc) {
+              nx = Math.max(m.item.clampEnc.minX + wallMargin, Math.min(m.item.clampEnc.maxX - wallMargin, nx))
+              ny = Math.max(m.item.clampEnc.minY + wallMargin, Math.min(m.item.clampEnc.maxY - wallMargin, ny))
+              nz = Math.min(m.item.clampEnc.frontZ - wallMargin, nz)
+            }
+            out[k].set(nx, ny, nz)
+          }
+          return out
+        }
+
+        const hasNoFoldback = (chain: THREE.Vector3[]) => {
+          for (let k = Math.max(1, m.extLo); k < Math.min(chain.length - 1, m.extHi); k++) {
+            const ab = chain[k].clone().sub(chain[k - 1])
+            const bc = chain[k + 1].clone().sub(chain[k])
+            const l1 = ab.length(), l2 = bc.length()
+            if (l1 < 1e-5 || l2 < 1e-5) continue
+            if (ab.dot(bc) / (l1 * l2) < 0.25) return false
+          }
+          return true
+        }
+
+        // Valida primeiro de uma só vez; se um troço roçar num aparelho, valida troço a troço para não soltar o resto do chicote!
+        const fullCand = buildCandidateFrom(m.orig, m.extLo + 1, m.extHi - 1, 1.0)
+        if (hasNoFoldback(fullCand) && checkPathClear(fullCand.map(arr), m.item.entry.outerMm, m.item.exits, m.item.motorRoute)) {
+          for (let k = 0; k < n; k++) m.item.pts[k].copy(fullCand[k])
+          m.item.pinned = m.item.pinPoints(m.item.pts)
+        } else {
+          let cur = m.orig.map((p) => p.clone())
+          let anyApplied = false
+          for (const [rA, rB] of runs) {
+            if (m.cum[rB] - m.cum[rA] < 0.18) continue
+            for (const blend of [1.0, 0.72, 0.45]) {
+              const trial = buildCandidateFrom(cur, rA, rB, blend)
+              if (hasNoFoldback(trial) && checkPathClear(trial.map(arr), m.item.entry.outerMm, m.item.exits, m.item.motorRoute)) {
+                cur = trial
+                anyApplied = true
+                break
+              }
+            }
+          }
+          if (anyApplied) {
+            for (let k = 0; k < n; k++) m.item.pts[k].copy(cur[k])
+            m.item.pinned = m.item.pinPoints(m.item.pts)
+          }
+        }
+      }
+    }
+
+    // Compacta troços retos intermédios já perfeitamente colineares antes da relaxação (preserva pontas intactas!).
+    for (const item of builtPaths) {
+      if (!item.entry.wire.bundleId || item.fProbe || item.hasManual || item.pts.length < 28) continue
+      const lo = (item.fromGland ? Math.max(0, Math.min(item.pts.length - 1, item.fixedCount - 1)) : 0) + 12
+      const hi = (item.toGland ? Math.max(0, item.pts.length - item.fixedCount) : item.pts.length - 1) - 12
+      if (hi <= lo + 2) continue
+      const slim: THREE.Vector3[] = []
+      for (let i = 0; i <= lo; i++) slim.push(item.pts[i])
+      for (let i = lo + 1; i < hi; i++) {
+        const prev = slim[slim.length - 1]
+        const curr = item.pts[i]
+        const next = item.pts[i + 1]
+        const l1 = curr.distanceTo(prev), l2 = next.distanceTo(curr)
+        if (l1 < 0.004) continue
+        if (l2 > 0.004 && l1 + l2 < 0.24) {
+          const cosA = curr.clone().sub(prev).dot(next.clone().sub(curr)) / (l1 * l2)
+          if (cosA > 0.9999) continue
+        }
+        slim.push(curr)
+      }
+      for (let i = hi; i < item.pts.length; i++) slim.push(item.pts[i])
+      item.pts = slim
+      item.pinned = item.pinPoints(item.pts)
+    }
+  }
+
+  // 5) Relaxação geométrica 3D cápsula-a-cápsula com janela cosseno real em comprimento de arco (22 mm):
+  //    - dentro do MESMO chicote (`bundleId`): folga mínima de 0,03 mm → mantém os cabos encostados e apertados!
+  //    - entre chicotes distintos / cabos soltos: folga limpa de 0,50 mm sem criar vincos junto às ponteiras!
+  const RELAX_HALF_ARC = 0.22 // 22 mm para cada lado → zero micro-vincos de 40–60°!
+  const maxPasses = 22
   for (let pass = 0; pass < maxPasses; pass += 1) {
     let anyCollision = false
     const touched = new Uint8Array(builtPaths.length)
+    const arcs = builtPaths.map((item) => measureArc(item.pts))
     const boxes = builtPaths.map((item) => new THREE.Box3().setFromPoints(item.pts).expandByScalar(item.entry.radius + 0.01))
     for (let i = 0; i < builtPaths.length; i += 1) {
       const A = builtPaths[i]
       const boxA = boxes[i]
+      const arcA = arcs[i]
+      const totA = arcA[arcA.length - 1] ?? 0
       for (let j = i + 1; j < builtPaths.length; j += 1) {
         const B = builtPaths[j]
         if (!boxA.intersectsBox(boxes[j])) continue
+        const arcB = arcs[j]
+        const totB = arcB[arcB.length - 1] ?? 0
 
         const wA = A.entry.wire
         const wB = B.entry.wire
+        const sameBundle = Boolean(wA.bundleId && wA.bundleId === wB.bundleId)
         const sharedPositions: THREE.Vector3[] = []
         if (wA.fromTerminalId && (wA.fromTerminalId === wB.fromTerminalId || wA.fromTerminalId === wB.toTerminalId)) {
           sharedPositions.push(A.pts[0])
@@ -2614,7 +3152,8 @@ export function buildAllWirePaths3D(
           sharedPositions.push(A.pts[A.pts.length - 1])
         }
 
-        const reqDist = A.entry.radius + B.entry.radius + 0.006
+        const baseGap = sameBundle ? 0.0012 : 0.0055
+        const reqDist = A.entry.radius + B.entry.radius + baseGap
         for (let s1 = 0; s1 < A.pts.length - 1; s1 += 1) {
           const a0 = A.pts[s1]
           const a1 = A.pts[s1 + 1]
@@ -2626,14 +3165,19 @@ export function buildAllWirePaths3D(
             if (Math.max(a0.z, a1.z) + reqDist < Math.min(b0.z, b1.z) || Math.min(a0.z, a1.z) - reqDist > Math.max(b0.z, b1.z)) continue
 
             const hit = segSegClosest3D(a0, a1, b0, b1)
-            if (hit.dist >= reqDist) continue
-            if (sharedPositions.some((sp) => sp.distanceTo(hit.c1) < 0.22 || sp.distanceTo(hit.c2) < 0.22)) continue
+            const sHitA = arcA[s1] + (arcA[s1 + 1] - arcA[s1]) * hit.s
+            const sHitB = arcB[s2] + (arcB[s2 + 1] - arcB[s2]) * hit.t
+            const nearTerm = Math.min(sHitA, totA - sHitA, sHitB, totB - sHitB) < 0.28
+            const effReq = nearTerm ? A.entry.radius + B.entry.radius + 0.001 : reqDist
+            if (hit.dist >= effReq) continue
+            if (sharedPositions.some((sp) => sp.distanceTo(hit.c1) < 0.21 || sp.distanceTo(hit.c2) < 0.21)) continue
             if (A.pinned[s1] && A.pinned[s1 + 1] && B.pinned[s2] && B.pinned[s2 + 1]) continue
 
             anyCollision = true
             touched[i] = 1
             touched[j] = 1
-            const overlap = reqDist - hit.dist + 0.003
+            const extra = sameBundle || nearTerm ? 0.0012 : 0.0024
+            const overlap = effReq - hit.dist + extra
             const sep = hit.c1.clone().sub(hit.c2)
             if (sep.lengthSq() < 1e-8) {
               sep.set(0, 0, i > j ? 1 : -1)
@@ -2641,52 +3185,91 @@ export function buildAllWirePaths3D(
               sep.normalize()
             }
 
-            const pushChain = (item: typeof builtPaths[number], segIdx: number, dir: THREE.Vector3, amount: number) => {
-              const { pts, pinned, minZ, clampEnc } = item
-              const centerIdx = Math.min(pts.length - 2, Math.max(1, segIdx))
+            const pushChainArc = (
+              item: typeof builtPaths[number],
+              arc: number[],
+              total: number,
+              segIdx: number,
+              sCenter: number,
+              dir: THREE.Vector3,
+              amount: number,
+            ) => {
+              const { pts, pinned, minZ, clampEnc, guard } = item
               const wallMargin = item.entry.radius + 0.048
-              for (let k = -kHalf; k <= kHalf; k += 1) {
-                const idx = centerIdx + k
-                if (idx <= 0 || idx >= pts.length - 1 || pinned[idx]) continue
-                const w = kernel[k + kHalf] * amount
-                let nx = pts[idx].x + dir.x * w
-                let ny = pts[idx].y + dir.y * w
-                let nz = Math.max(minZ, pts[idx].z + dir.z * w)
+              const applyAt = (idx: number) => {
+                if (idx <= 0 || idx >= pts.length - 1 || pinned[idx]) return true
+                const ds = Math.abs(arc[idx] - sCenter)
+                if (ds >= RELAX_HALF_ARC) return false
+                const cosW = 0.5 * (1 + Math.cos((Math.PI * ds) / RELAX_HALF_ARC))
+                const dEnd = Math.min(arc[idx], total - arc[idx])
+                const endStiff = smooth01((dEnd - guard) / 0.16)
+                const w = cosW * endStiff * amount
+                if (w <= 1e-6) return true
+                // Projeta na normal local do cabo para nunca recuar sobre o troço fixo da ponteira!
+                const tVec = pts[Math.min(pts.length - 1, idx + 1)].clone().sub(pts[Math.max(0, idx - 1)])
+                let px = dir.x, py = dir.y, pz = dir.z
+                const tLenSq = tVec.lengthSq()
+                if (tLenSq > 1e-8) {
+                  const proj = (px * tVec.x + py * tVec.y + pz * tVec.z) / tLenSq
+                  px -= tVec.x * proj; py -= tVec.y * proj; pz -= tVec.z * proj
+                }
+                let nx = pts[idx].x + px * w
+                let ny = pts[idx].y + py * w
+                let nz = Math.max(minZ, pts[idx].z + pz * w)
                 if (clampEnc) {
                   nx = Math.max(clampEnc.minX + wallMargin, Math.min(clampEnc.maxX - wallMargin, nx))
                   ny = Math.max(clampEnc.minY + wallMargin, Math.min(clampEnc.maxY - wallMargin, ny))
                   nz = Math.min(clampEnc.frontZ - wallMargin, nz)
                 }
                 pts[idx].set(nx, ny, nz)
+                return true
               }
+              for (let idx = segIdx; idx >= 1; idx--) { if (!applyAt(idx)) break }
+              for (let idx = segIdx + 1; idx < pts.length - 1; idx++) { if (!applyAt(idx)) break }
+              // Evita acumular múltiplos empurrões no mesmo par em segmentos subdivididos.
             }
 
+            const gain = sameBundle ? 0.45 : 0.52
             if (sep.z < -0.25 && A.pts[Math.max(1, s1)].z - overlap * 0.6 <= A.minZ + 0.005) {
-              pushChain(B, s2, new THREE.Vector3(-sep.x * 0.4, -sep.y * 0.4, Math.abs(sep.z) + 0.6).normalize(), overlap * 1.05)
+              pushChainArc(B, arcB, totB, s2, sHitB, new THREE.Vector3(-sep.x * 0.35, -sep.y * 0.35, Math.abs(sep.z) + 0.65).normalize(), overlap * gain * 1.65)
             } else if (sep.z > 0.25 && B.pts[Math.max(1, s2)].z - overlap * 0.6 <= B.minZ + 0.005) {
-              pushChain(A, s1, new THREE.Vector3(sep.x * 0.4, sep.y * 0.4, Math.abs(sep.z) + 0.6).normalize(), overlap * 1.05)
+              pushChainArc(A, arcA, totA, s1, sHitA, new THREE.Vector3(sep.x * 0.35, sep.y * 0.35, Math.abs(sep.z) + 0.65).normalize(), overlap * gain * 1.65)
             } else {
-              pushChain(A, s1, sep, overlap * 0.55)
-              pushChain(B, s2, sep.clone().negate(), overlap * 0.55)
+              pushChainArc(A, arcA, totA, s1, sHitA, sep, overlap * gain)
+              pushChainArc(B, arcB, totB, s2, sHitB, sep.clone().negate(), overlap * gain)
             }
           }
         }
       }
     }
-    if (anyCollision && pass < maxPasses - 4) {
+    if (anyCollision && pass < maxPasses - 3) {
       for (let idxW = 0; idxW < builtPaths.length; idxW += 1) {
         if (!touched[idxW]) continue
         const item = builtPaths[idxW]
         const copy = item.pts.map((p) => p.clone())
+        const arc = arcs[idxW]
+        const tot = arc[arc.length - 1] ?? 0
         for (let idx = 2; idx < item.pts.length - 2; idx += 1) {
           if (item.pinned[idx]) continue
-          item.pts[idx].x = copy[idx].x * 0.82 + (copy[idx - 1].x + copy[idx + 1].x) * 0.09
-          item.pts[idx].y = copy[idx].y * 0.82 + (copy[idx - 1].y + copy[idx + 1].y) * 0.09
-          item.pts[idx].z = Math.max(item.minZ, copy[idx].z * 0.82 + (copy[idx - 1].z + copy[idx + 1].z) * 0.09)
+          const dEnd = Math.min(arc[idx], tot - arc[idx])
+          const blend = 0.14 * smooth01((dEnd - item.guard) / 0.18)
+          if (blend <= 1e-4) continue
+          const l1 = copy[idx].distanceTo(copy[idx - 1])
+          const l2 = copy[idx + 1].distanceTo(copy[idx])
+          if (l1 + l2 < 1e-6) continue
+          // Interpolação ponderada pelo comprimento de arco (nunca distorce transições entre segmento curto e longo!).
+          const wPrev = l2 / (l1 + l2)
+          const wNext = l1 / (l1 + l2)
+          const avgX = copy[idx - 1].x * wPrev + copy[idx + 1].x * wNext
+          const avgY = copy[idx - 1].y * wPrev + copy[idx + 1].y * wNext
+          const avgZ = copy[idx - 1].z * wPrev + copy[idx + 1].z * wNext
+          item.pts[idx].x = copy[idx].x * (1 - blend) + avgX * blend
+          item.pts[idx].y = copy[idx].y * (1 - blend) + avgY * blend
+          item.pts[idx].z = Math.max(item.minZ, copy[idx].z * (1 - blend) + avgZ * blend)
         }
       }
     }
-    if (pass === 7 || pass === 15 || pass === maxPasses - 1) {
+    if (pass === 7 || pass === 14 || pass === maxPasses - 1) {
       for (let idxW = 0; idxW < builtPaths.length; idxW += 1) {
         if (!touched[idxW]) continue
         const item = builtPaths[idxW]
@@ -2702,27 +3285,128 @@ export function buildAllWirePaths3D(
     if (!anyCollision) break
   }
 
-  const checkPathClear = (pts: V3[], outerMm: number, exits: Parameters<typeof keepWireOutsideSolids>[3], motorRoute?: WirePath3D['motorRoute']) => {
-    if (!motorRoute) return isWireOutsideSolids(pts, outerMm, obstacles, exits)
-    const count = motorRoute.points.length
-    const cut = motorRoute.side === 'to' ? Math.max(1, pts.length - count) : Math.min(pts.length - 2, count - 1)
-    const sub = motorRoute.side === 'to' ? pts.slice(0, cut + 1) : pts.slice(cut)
-    return isWireOutsideSolids(sub, outerMm, obstacles, exits)
+  // Simplificação colinear de alta precisão (remove subdivisões retas redundantes mantendo curvas 100% fiéis).
+  const compactExterior = (pts: V3[], motorRoute?: WirePath3D['motorRoute']): V3[] => {
+    if (pts.length < 28) return pts
+    const count = motorRoute?.points.length ?? 0
+    const lo = (motorRoute?.side === 'from' ? Math.max(0, Math.min(pts.length - 1, count - 1)) : 0) + 12
+    const hi = (motorRoute?.side === 'to' ? Math.max(0, pts.length - count) : pts.length - 1) - 12
+    if (hi <= lo + 2) return pts
+    const out: V3[] = []
+    for (let i = 0; i <= lo; i++) out.push(pts[i])
+    for (let i = lo + 1; i < hi; i++) {
+      const prev = out[out.length - 1]
+      const curr = pts[i]
+      const next = pts[i + 1]
+      const d1x = curr[0] - prev[0], d1y = curr[1] - prev[1], d1z = curr[2] - prev[2]
+      const d2x = next[0] - curr[0], d2y = next[1] - curr[1], d2z = next[2] - curr[2]
+      const l1 = Math.hypot(d1x, d1y, d1z), l2 = Math.hypot(d2x, d2y, d2z)
+      if (l1 < 1e-4) continue
+      if (l2 > 1e-4 && l1 + l2 < 0.36) {
+        const cosA = (d1x * d2x + d1y * d2y + d1z * d2z) / (l1 * l2)
+        if (cosA > 0.99985) continue
+      }
+      out.push(curr)
+    }
+    for (let i = hi; i < pts.length; i++) {
+      if (i > lo) out.push(pts[i])
+    }
+    return out
+  }
+
+  // Arredonda cantos vivos residuais com raios progressivos (aceita o maior raio que respeite 100% dos sólidos!).
+  const smoothOutsideProgressive = (pts: V3[], outerMm: number, exits: Parameters<typeof keepWireOutsideSolids>[3], motorRoute?: WirePath3D['motorRoute']): V3[] => {
+    for (const factor of [1.0, 0.68, 0.45]) {
+      const rawCand = smoothOutsideMotor(pts, outerMm * factor, motorRoute)
+      if (rawCand === pts) continue
+      const cand = factor === 1.0 ? rawCand : keepInFrontOfPlate(rawCand, outerMm)
+      if (checkPathClear(cand, outerMm, exits, motorRoute)) return cand
+    }
+    return pts
   }
 
   for (const item of builtPaths) {
     const front = keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm)
     const cleared = clearPathSolids(front, item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute)
     const cleanPoints = cleared.length > 1 ? cleared : front
-    const finalPoints = removeBacktracksOutsideMotor(cleanPoints, item.motorRoute)
-    // Cantos vivos que sobraram → arcos; se o arco tocar num aparelho, fica o traçado validado.
-    const smooth = smoothOutsideMotor(finalPoints, item.entry.outerMm, item.motorRoute)
-    const smoothSafe = smooth !== finalPoints && checkPathClear(smooth, item.entry.outerMm, item.exits, item.motorRoute)
-    const joined = smoothMotorJunction(smoothSafe ? smooth : finalPoints, item.motorRoute)
-    // Último passe: sem bicos no troço exterior, se continuar livre de sólidos.
+    const finalPoints = compactExterior(removeBacktracksOutsideMotor(cleanPoints, item.motorRoute), item.motorRoute)
+    const smoothed = smoothOutsideProgressive(finalPoints, item.entry.outerMm, item.exits, item.motorRoute)
+    const joined = smoothMotorJunction(smoothed, item.motorRoute)
     const despiked = despikeOutsideMotor(joined, item.motorRoute)
-    const despikedSafe = despiked !== joined && checkPathClear(despiked, item.entry.outerMm, item.exits, item.motorRoute)
-    const finalBody = despikedSafe ? despiked : joined
+    let finalBody = joined
+    if (despiked !== joined && checkPathClear(despiked, item.entry.outerMm, item.exits, item.motorRoute)) {
+      finalBody = despiked
+    } else if (despiked !== joined) {
+      // Remove bicos individualmente preservando qualquer vértice essencial ao contorno de obstáculos.
+      const nFix = item.motorRoute?.points.length ?? 0
+      const work = joined.slice()
+      for (let g = 0; g < 40; g++) {
+        let hit = false
+        const lo = item.motorRoute?.side === 'from' ? Math.max(1, nFix) : 1
+        const hi = item.motorRoute?.side === 'to' ? Math.max(lo, work.length - nFix) : work.length - 1
+        for (let i = lo; i < hi; i++) {
+          const p0 = v(work[i - 1]), p1 = v(work[i]), p2 = v(work[i + 1])
+          const a = p1.clone().sub(p0), b = p2.clone().sub(p1)
+          const la = a.length(), lb = b.length()
+          if (la < 1e-9 || lb < 1e-9 || a.angleTo(b) <= Math.PI / 2) continue
+          const delTrial = [...work.slice(0, i), ...work.slice(i + 1)]
+          if (checkPathClear(delTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+            work.splice(i, 1)
+            hit = true
+            break
+          }
+          const dirA = a.clone().multiplyScalar(1 / la)
+          // Se `i` é o ponto de saída que limpa a face frontal do aparelho e `i+1..j-1` mergulharam para trás, salta para `j`!
+          for (let j = i + 2; j < hi + 1; j++) {
+            const pj = v(work[j])
+            const fwd = pj.clone().sub(p1)
+            if (fwd.lengthSq() < 1e-6) continue
+            const angJ = a.angleTo(fwd)
+            if (angJ <= Math.PI * 0.499) {
+              const skipTrial = [...work.slice(0, i + 1), ...work.slice(j)]
+              if (checkPathClear(skipTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+                work.splice(i + 1, j - (i + 1))
+                hit = true
+                break
+              }
+            }
+            // Se `pj` já avançou lateralmente o suficiente (≥ 8 mm), liga por cotovelo ortogonal limpo de 90° à frente de `p1`!
+            const lat = fwd.clone().addScaledVector(dirA, -fwd.dot(dirA))
+            if (lat.length() >= 0.08) {
+              const p1Safe = p1.clone().addScaledVector(dirA, 0.004)
+              const elbow = arr(p1Safe.clone().add(lat))
+              const elbowTrial = [...work.slice(0, i), arr(p1Safe), elbow, ...work.slice(j)]
+              const e1 = v(elbow).sub(p1Safe), e2 = pj.clone().sub(v(elbow))
+              const e3 = j + 1 < work.length ? v(work[j + 1]).sub(pj) : null
+              if (a.angleTo(e1) <= Math.PI * 0.51
+                && (e2.length() < 1e-4 || e1.angleTo(e2) <= Math.PI * 0.51)
+                && (!e3 || e3.length() < 1e-4 || e2.length() < 1e-4 || e2.angleTo(e3) <= Math.PI * 0.55)
+                && checkPathClear(elbowTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+                work.splice(i, j - i, arr(p1Safe), elbow)
+                hit = true
+                break
+              }
+            }
+          }
+          if (hit) break
+          const proj = p2.clone().sub(p0).dot(dirA)
+          if (proj > 0.015 && proj < la * 0.995) {
+            for (const frac of [0.97, 0.9, 0.78]) {
+              const pulled = arr(p0.clone().addScaledVector(dirA, Math.max(0.012, proj * frac)))
+              const pullTrial = [...work.slice(0, i), pulled, ...work.slice(i + 1)]
+              if (checkPathClear(pullTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+                work[i] = pulled
+                hit = true
+                break
+              }
+            }
+            if (hit) break
+          }
+        }
+        if (!hit) break
+      }
+      finalBody = smoothOutsideProgressive(work, item.entry.outerMm, item.exits, item.motorRoute)
+    }
     const hasProbeEnd = endTypeOf(item.entry.wire, 'from') === 'probe' || endTypeOf(item.entry.wire, 'to') === 'probe'
     const smoothedJoin = hasProbeEnd && item.motorRoute ? smoothMotorRouteJoin(finalBody, item.motorRoute) : { points: finalBody, motorRoute: item.motorRoute }
     result.set(item.entry.wire.id, { points: smoothedJoin.points, starts: item.starts, motorRoute: smoothedJoin.motorRoute })

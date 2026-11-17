@@ -13,7 +13,7 @@ import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentOb
 import { MOTOR_BOX, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTerminalLayout'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 import { segmentEntersBox } from '../src/three/solidWireRouting'
-import { bundleLacingTies, lacePairBundles, TIE_REACH } from '../src/three/bundleLacing'
+import { bundleLacingTies, convexBeltOfCircles, lacePairBundles, packBundleRosette, TIE_REACH } from '../src/three/bundleLacing'
 import { useSimStore } from '../src/store/useSimStore'
 import { mountDepthOffset } from '../src/three/thermalMount'
 
@@ -48,7 +48,47 @@ for (const w of bundled) { const p = coord.get(w.id); if (p) paths.set(w.id, { p
 const ties = bundleLacingTies(built.wires, paths)
 check('Há abraçadeiras onde os cabos correm juntos', ties.length > 0, `${ties.length}`)
 check('Cada abraçadeira envolve 2+ cabos do mesmo chicote', ties.every((t) => t.wireIds.length >= 2 && t.wireIds.every((id) => built.wires.find((w) => w.id === id)?.bundleId === t.bundleId)))
-check('Raio da abraçadeira razoável (< 40 mm)', ties.every((t) => t.radius < 0.4), `max ${Math.max(0, ...ties.map((t) => t.radius / PANEL_UNITS_PER_MM)).toFixed(1)} mm`)
+check('Raio da abraçadeira justo e compacto (< 10 mm)', ties.every((t) => t.radius < 0.10), `max ${Math.max(0, ...ties.map((t) => t.radius / PANEL_UNITS_PER_MM)).toFixed(1)} mm`)
+const maxSpanMm = Math.max(0, ...ties.map((t) => t.halfWidth * 2 / PANEL_UNITS_PER_MM))
+const avgSpanMm = ties.reduce((s, t) => s + t.halfWidth * 2 / PANEL_UNITS_PER_MM, 0) / Math.max(1, ties.length)
+check('Chicotes apertados como quadro real (vão máx ≤ 15,5 mm, médio ≤ 9,5 mm)', maxSpanMm <= 15.5 && avgSpanMm <= 9.5, `máx ${maxSpanMm.toFixed(1)} mm · médio ${avgSpanMm.toFixed(1)} mm`)
+check('Todos os 7 chicotes nativos recebem abraçadeiras justas', [...ids].every((id) => ties.some((t) => t.bundleId === id)), `${new Set(ties.map((t) => t.bundleId)).size}/${ids.size}`)
+check('Cada abraçadeira exporta secção real dos condutores para cinta convexa PA66', ties.every((t) => t.circles.length === t.wireIds.length && convexBeltOfCircles(t.circles, 0.002).length >= 16))
+check('Chicote do motor M1 filaçado continuamente até ao bucim M20 (≥ 8 abraçadeiras)', ties.filter((t) => t.bundleId === 'chicote-motor-m1').length >= 8, `${ties.filter((t) => t.bundleId === 'chicote-motor-m1').length}`)
+let crossedTies = 0
+for (let i = 0; i < ties.length; i++) {
+  for (let j = i + 1; j < ties.length; j++) {
+    const a = ties[i], b = ties[j]
+    if (a.bundleId === b.bundleId) continue
+    const dx = a.position[0] - b.position[0], dy = a.position[1] - b.position[1], dz = a.position[2] - b.position[2]
+    const dist = Math.hypot(dx, dy, dz)
+    const axial = Math.abs(dx * a.axis[0] + dy * a.axis[1] + dz * a.axis[2])
+    const perp = Math.sqrt(Math.max(0, dist * dist - axial * axial))
+    if (axial <= 0.06 && perp < a.radius + b.radius + 0.03) crossedTies++
+  }
+}
+check('Zero abraçadeiras cruzadas em X ou sobrepostas entre chicotes', crossedTies === 0, `cruzadas=${crossedTies}`)
+const ps1ExitOk = ['native-wire-19', 'native-wire-20', 'native-wire-21', 'native-wire-27', 'native-wire-34', 'native-wire-40'].every((id) => {
+  const pts = coord.get(id)?.points ?? []
+  const startX = pts[0]?.[0] ?? 0
+  let maxDevMm = 0
+  for (let i = 1; i < Math.min(pts.length, 6); i++) {
+    if (pts[0][2] - pts[i][2] > 0.16) break
+    maxDevMm = Math.max(maxDevMm, Math.abs(pts[i][0] - startX) / PANEL_UNITS_PER_MM)
+  }
+  return maxDevMm < 0.8
+})
+check('Saídas de ponteira dupla em PS1 perfeitamente axiais sem curva em S (< 0,8 mm)', ps1ExitOk)
+const rosetteIn = Array.from({ length: 7 }, (_, idx) => ({ r: 0.014, u: idx * 0.05, v: 0 }))
+const rosette = packBundleRosette(rosetteIn, 0.001)
+let rosetteOverlap = false
+for (let i = 0; i < rosette.length; i++) {
+  for (let j = i + 1; j < rosette.length; j++) {
+    if (Math.hypot(rosette[i].u - rosette[j].u, rosette[i].v - rosette[j].v) < rosetteIn[i].r + rosetteIn[j].r - 1e-4) rosetteOverlap = true
+  }
+}
+const rosetteDiaMm = Math.max(...rosette.map((c, idx) => (Math.hypot(c.u, c.v) + rosetteIn[idx].r) * 2 / PANEL_UNITS_PER_MM))
+check('Empacotamento hexagonal em roseta (7×2,8 mm → ∅ ≤ 9,2 mm, zero sobreposição)', !rosetteOverlap && rosetteDiaMm <= 9.2, `∅ ${rosetteDiaMm.toFixed(1)} mm`)
 check('Eixo unitário', ties.every((t) => Math.abs(Math.hypot(...t.axis) - 1) < 1e-6))
 // Cabos sem chicote não geram abraçadeiras
 check('Sem bundleId não há abraçadeiras', bundleLacingTies(built.wires.map((w) => ({ ...w, bundleId: undefined })), paths).length === 0)
