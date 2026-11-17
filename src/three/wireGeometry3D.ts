@@ -1575,7 +1575,9 @@ function finishWireBody(
 }
 
 function isMotorGlandEligible(end: WireEndpoint3D, endType: WireEndType): boolean {
-  return Boolean(end.motorContext && endType !== 'banana')
+  // Cabos de potência/comando permanentes passam pelo bucim M20.
+  // Ponteiras e fichas do multímetro (probe / banana) não passam pelo bucim.
+  return Boolean(end.motorContext && endType !== 'banana' && endType !== 'probe')
 }
 
 /**
@@ -2063,10 +2065,12 @@ export function buildWirePath3D(
   const outerMm = cableOuterDiameterMm(wire.gauge)
   const fromType = endTypeOf(wire, 'from')
   const toType = endTypeOf(wire, 'to')
-  // Cabos ligados ao motor passam sempre pelo bucim, também com pontos 3D manuais.
+  // Cabos de potência/comando ligados ao motor passam pelo bucim M20.
+  // Pontas de prova do multímetro (probe/banana) ligam diretamente aos bornes sem passar pelo bucim.
   const manualPoints: V3[] = wire.waypoints3D?.map((p) => [p.x, p.y, p.z] as V3) ?? []
-  const fromMotorGland = isMotorGlandEligible(from, fromType) && !to.motorContext
-  const toMotorGland = isMotorGlandEligible(to, toType) && !from.motorContext
+  const isMultimeterLead = fromType === 'probe' || toType === 'probe' || fromType === 'banana' || toType === 'banana'
+  const fromMotorGland = !isMultimeterLead && isMotorGlandEligible(from, fromType) && !to.motorContext
+  const toMotorGland = !isMultimeterLead && isMotorGlandEligible(to, toType) && !from.motorContext
 
   if (toMotorGland || fromMotorGland) {
     const { trunkHint, plan } = computeBasePlan(wire, from, to, outerMm, obstacles)
@@ -2089,11 +2093,7 @@ export function buildWirePath3D(
         { componentId: from.componentId, axis: a.geometry.axis, glandBypass: fromMotorGland, enclosureGlandId: gland.enclosureGlandId },
         { componentId: to.componentId, axis: b.geometry.axis, glandBypass: toMotorGland, enclosureGlandId: gland.enclosureGlandId },
       ], wireFrontLimit(outerMm), wireHash(wire), motorRoute)
-    const hasProbeEnd = fromType === 'probe' || toType === 'probe'
-    const smoothedJoin = hasProbeEnd && !slotOverride
-      ? smoothMotorRouteJoin(safe, motorRoute)
-      : { points: safe, motorRoute }
-    return { points: smoothedJoin.points, starts: [a.geometry, b.geometry], motorRoute: smoothedJoin.motorRoute }
+    return { points: safe, starts: [a.geometry, b.geometry], motorRoute }
   }
 
   // Chicote industrial de aparelhos montados na porta (`door`/`doorOuter`) — sem pontos manuais 3D.

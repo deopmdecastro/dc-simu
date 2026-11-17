@@ -107,7 +107,16 @@ import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { findMountTarget, isThermalRelay, syncMounted } from '../three/thermalMount'
-import { findCombMountTarget, isCombBusbar, syncCombMounted } from '../three/combMount'
+import {
+  combConnectorMountPosition,
+  combMountPosition,
+  findCombConnectorMountTarget,
+  findCombMountTarget,
+  isBreaker,
+  isCombBusbar,
+  isCombConnector,
+  syncCombMounted,
+} from '../three/combMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, isIsometricMotorType, MOTOR_ISOMETRIC_ORIENTATION, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions, ZERO_COMPONENT_ORIENTATION } from '../three/componentOrientation'
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
@@ -496,8 +505,16 @@ interface Store extends CircuitState {
   setBusbarAcrylicColor: (componentId: string, hexColor: string) => void
   /** Barramento tipo pente (`busbarComb`): atualiza modo (1P/1P+N/3P/3P+N), dentes, direção, serigrafia ou conectores preservando cabos. */
   updateCombBusbar: (componentId: string, patch: Record<string, unknown>) => void
+  /** Encaixa barramento tipo pente nos bornes superiores de um disjuntor (ou no mais próximo). */
+  mountCombBusbar: (combId: string, breakerId?: string) => void
+  /** Desencaixa barramento tipo pente. */
+  unmountCombBusbar: (combId: string) => void
   /** Conector de alimentação para pente (`combBusbarConnector`): atualiza cor PA66, direção/estilo do pino e calibre preservando cabos. */
   updateCombConnector: (componentId: string, patch: Record<string, unknown>) => void
+  /** Encaixa conector de alimentação tipo pino num borne de disjuntor. */
+  mountCombConnector: (connectorId: string, breakerId?: string, socketLabel?: string) => void
+  /** Desencaixa conector de alimentação tipo pino. */
+  unmountCombConnector: (connectorId: string) => void
   /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). Se hierarchical, usa X1.0, X1.1… (ou startIndex: 1 → X1.1, X1.2…). */
   createTerminalStrip: (componentId: string, count: number, opts?: { hierarchical?: boolean; startIndex?: 0 | 1 }) => void
   /** Acrescenta bornes (ex.: +1, +N, +PE, +24V, 0V) à direita da régua atual, encaixados na mesma calha e agrupados automaticamente. */
@@ -2884,6 +2901,15 @@ export const useSimStore = create<Store>((set, get) => {
         }
         if (current.mountedOn) components = components.map((c) => (c.id === current.id ? { ...c, mountedOn: undefined } : c))
       }
+      if (isCombConnector(current)) {
+        const mount = findCombConnectorMountTarget(current, components)
+        if (mount) {
+          fixed++
+          components = components.map((c) => (c.id === current.id ? { ...c, schematicX: mount.schematicX, schematicY: mount.schematicY, mountedOn: mount.breaker.id, state: { ...c.state, mountedTerminal: mount.socketLabel }, railId: undefined, railOffsetMm: undefined, panel3DPosition: undefined } : c))
+          continue
+        }
+        if (current.mountedOn) components = components.map((c) => (c.id === current.id ? { ...c, mountedOn: undefined, state: { ...c.state, mountedTerminal: undefined } } : c))
+      }
       const hit = rails.length ? snapToRail(current, rails, components) : null
       if (hit) fixed++
       const rail = hit ? rails.find((r) => r.id === hit.railId) : undefined
@@ -3540,6 +3566,83 @@ export const useSimStore = create<Store>((set, get) => {
       )),
       dirty: true,
     }))
+    recomputeIfActive()
+  },
+
+  mountCombBusbar: (combId, breakerId) => {
+    set((state) => {
+      const comb = state.components.find((c) => c.id === combId)
+      if (!comb || !isCombBusbar(comb)) return {}
+      const targetBreaker = breakerId
+        ? state.components.find((c) => c.id === breakerId && isBreaker(c))
+        : findCombMountTarget(comb, state.components)?.breaker
+      if (!targetBreaker) return {}
+      const at = combMountPosition(comb, targetBreaker)
+      if (!at) return {}
+      const next = state.components.map((c) =>
+        c.id === combId
+          ? {
+              ...c,
+              schematicX: at.schematicX,
+              schematicY: at.schematicY,
+              mountedOn: targetBreaker.id,
+              railId: undefined,
+              railOffsetMm: undefined,
+              panel3DPosition: undefined,
+            }
+          : c
+      )
+      return { components: syncCombMounted(next), dirty: true }
+    })
+    recomputeIfActive()
+  },
+
+  unmountCombBusbar: (combId) => {
+    set((state) => {
+      const next = state.components.map((c) => (c.id === combId ? { ...c, mountedOn: undefined } : c))
+      return { components: next, dirty: true }
+    })
+    recomputeIfActive()
+  },
+
+  mountCombConnector: (connectorId, breakerId, socketLabel) => {
+    set((state) => {
+      const conn = state.components.find((c) => c.id === connectorId)
+      if (!conn || !isCombConnector(conn)) return {}
+      const targetBreaker = breakerId
+        ? state.components.find((c) => c.id === breakerId && isBreaker(c))
+        : findCombConnectorMountTarget(conn, state.components)?.breaker
+      if (!targetBreaker) return {}
+      const at = combConnectorMountPosition(conn, targetBreaker, socketLabel)
+      if (!at) return {}
+      const next = state.components.map((c) =>
+        c.id === connectorId
+          ? {
+              ...c,
+              schematicX: at.schematicX,
+              schematicY: at.schematicY,
+              mountedOn: targetBreaker.id,
+              state: { ...c.state, mountedTerminal: at.socketLabel },
+              railId: undefined,
+              railOffsetMm: undefined,
+              panel3DPosition: undefined,
+            }
+          : c
+      )
+      return { components: syncCombMounted(next), dirty: true }
+    })
+    recomputeIfActive()
+  },
+
+  unmountCombConnector: (connectorId) => {
+    set((state) => {
+      const next = state.components.map((c) =>
+        c.id === connectorId
+          ? { ...c, mountedOn: undefined, state: { ...c.state, mountedTerminal: undefined } }
+          : c
+      )
+      return { components: next, dirty: true }
+    })
     recomputeIfActive()
   },
 

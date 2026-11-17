@@ -928,8 +928,8 @@ function buildWegSpdMarkings(
       ctx.font = '600 16px "Inter", "Arial", sans-serif'
       ctx.fillText('IEC 61643-11', w / 2, 145)
     })
-    if (upTex) out.push(makePlateMesh(upTex, 15.6, 9.6, [0, 50.6, 28.52], u, 0, false))
-    if (lowTex) out.push(makePlateMesh(lowTex, 15.6, 9.6, [0, 31.0, 28.52], u, 0, false))
+    if (upTex) out.push(makePlateMesh(upTex, 15.6, 9.6, [0, 49.5, 34.50], u, -0.06, false))
+    if (lowTex) out.push(makePlateMesh(lowTex, 15.6, 9.6, [0, 32.2, 34.72], u, -0.06, false))
   } else {
     const upTex = cachedCanvasTexture(`spw12:up:${r.ucV}`, 720, 160, (ctx, w, h) => {
       const pw = w / 3
@@ -978,8 +978,8 @@ function buildWegSpdMarkings(
         ctx.fillText('EN 50539-11', x0 + pw / 2, 145)
       }
     })
-    if (upTex) out.push(makePlateMesh(upTex, 51.4, 9.6, [0, 50.6, 28.42], u, 0, false))
-    if (lowTex) out.push(makePlateMesh(lowTex, 51.4, 9.6, [0, 31.0, 28.42], u, 0, false))
+    if (upTex) out.push(makePlateMesh(upTex, 51.4, 9.6, [0, 49.5, 34.50], u, -0.06, false))
+    if (lowTex) out.push(makePlateMesh(lowTex, 51.4, 9.6, [0, 31.8, 34.78], u, -0.06, false))
   }
   return out
 }

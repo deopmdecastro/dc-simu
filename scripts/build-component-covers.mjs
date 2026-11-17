@@ -41,6 +41,7 @@ try {
   const page = await context.newPage()
   page.on('pageerror', (e) => console.warn('pageerror', e.message))
   await page.goto(baseURL + '/dashboard')
+  await page.waitForLoadState('networkidle')
   const types = await page.evaluate(async () => {
     const { TEMPLATES } = await import('/src/electrical/factory.ts')
     const { hasComponent3DVisual } = await import('/src/three/modelPaths.ts')

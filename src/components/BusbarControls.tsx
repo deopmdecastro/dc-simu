@@ -55,6 +55,12 @@ import {
 } from '../three/combBusbarParts'
 import Select from '../ui/Select'
 import { IconEye, IconEyeOff } from '../ui/icons'
+import {
+  breakerInputLabels,
+  findCombConnectorMountTarget,
+  findCombMountTarget,
+  isBreaker,
+} from '../three/combMount'
 
 /** Chaves de `c.state` geridas diretamente por `BusbarControls` (ocultas na lista genérica do Inspetor). */
 export const BUSBAR_STATE_KEYS = new Set([
@@ -476,6 +482,13 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
   const sourceOn = c.state.source === true
   const sourcePhase = typeof c.state.sourcePhase === 'string' ? c.state.sourcePhase : 'L1'
 
+  const components = useSimStore((s) => s.components)
+  const mountedBreaker = c.mountedOn ? components.find((comp) => comp.id === c.mountedOn) : null
+  const candidateMount = !mountedBreaker ? findCombMountTarget(c, components) : null
+  const breakers = components.filter(isBreaker)
+  const mountCombBusbar = useSimStore((s) => s.mountCombBusbar)
+  const unmountCombBusbar = useSimStore((s) => s.unmountCombBusbar)
+
   const [draft, setDraft] = useState(String(poles))
   useEffect(() => setDraft(String(poles)), [poles, c.id])
 
@@ -523,7 +536,7 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
                 onClick={() => patch({ combMode: m.id as CombBusbarMode })}
                 className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition text-left ${
                   active
-                    ? 'border-ink-900 bg-ink-900 text-white'
+                    ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
                     : 'border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
                 }`}
               >
@@ -551,7 +564,7 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
                 onClick={() => patch({ neutralSide: opt.id as CombNeutralSide })}
                 className={`rounded-md border px-2 py-1.5 text-[11px] font-medium transition ${
                   neutralSide === opt.id
-                    ? 'border-ink-900 bg-ink-900 text-white'
+                    ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
                     : 'border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
                 }`}
               >
@@ -621,7 +634,7 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
               onClick={() => applyPoles(n)}
               className={`rounded border px-2 py-0.5 text-[11px] font-medium transition ${
                 poles === n
-                  ? 'border-ink-900 bg-ink-900 text-white'
+                  ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
                   : 'border-ink-200 bg-white text-ink-600 hover:bg-surface-100'
               }`}
             >
@@ -646,7 +659,7 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
               onClick={() => patch({ teethDirection: opt.id as CombTeethDirection })}
               className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
                 teethDir === opt.id
-                  ? 'border-ink-900 bg-ink-900 text-white'
+                  ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
                   : 'border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
               }`}
             >
@@ -723,7 +736,7 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
               onClick={() => patch({ feedConnectors: opt.id as CombFeedConnectors })}
               className={`rounded-md border px-2 py-1.5 text-xs font-medium transition ${
                 feedConn === opt.id
-                  ? 'border-ink-900 bg-ink-900 text-white'
+                  ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
                   : 'border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
               }`}
             >
@@ -801,6 +814,65 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
             : 'Pente passivo real: alimente um pino ou conector (IN) e a corrente reparte-se por todos os pinos dessa barra.'}
         </small>
       </div>
+
+      {/* 7. Encaixe nos bornes dos disjuntores */}
+      <div className="space-y-1.5 border-t border-ink-100 pt-2.5">
+        <span className={fieldLabel}>Encaixe nos disjuntores</span>
+        {mountedBreaker ? (
+          <div className="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50/70 p-2 text-xs">
+            <div className="flex items-center gap-1.5 text-emerald-800">
+              <span className="font-medium">Encaixado:</span>
+              <span className="font-semibold">{mountedBreaker.label || mountedBreaker.id}</span>
+              <span className="text-[11px] text-emerald-600">({mountedBreaker.type})</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => unmountCombBusbar(c.id)}
+              className="rounded border border-red-200 bg-white px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-50 cursor-pointer"
+            >
+              Desencaixar
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {candidateMount ? (
+              <div className="flex items-center justify-between rounded-md border border-brand-200 bg-brand-50/60 p-2 text-xs">
+                <div className="text-ink-700">
+                  <span>Disjuntor detetado: </span>
+                  <span className="font-semibold text-brand-700">{candidateMount.breaker.label || candidateMount.breaker.id}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => mountCombBusbar(c.id, candidateMount.breaker.id)}
+                  className="rounded border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-brand-700 cursor-pointer"
+                >
+                  Encaixar agora
+                </button>
+              </div>
+            ) : breakers.length > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <Select
+                  className="dc-input flex-1 text-xs"
+                  aria-label="Selecionar disjuntor para encaixe"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) mountCombBusbar(c.id, e.target.value)
+                  }}
+                >
+                  <option value="">Escolher disjuntor para encaixar...</option>
+                  {breakers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.label || b.id} ({b.type})</option>
+                  ))}
+                </Select>
+              </div>
+            ) : (
+              <div className="text-[11px] text-ink-400">
+                Nenhum disjuntor no esquema. Adicione disjuntores para encaixar o barramento pente.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -813,6 +885,14 @@ function CombConnectorInspector({ c }: { c: ElectricalComponent }) {
   const gauge = combConnectorGaugeOf(c.state)
   const gaugeMeta = COMB_CONNECTOR_GAUGES.find((g) => g.id === gauge) ?? COMB_CONNECTOR_GAUGES[1]
   const activeColorName = COMB_CONNECTOR_COLORS.find((sw) => sw.value.toLowerCase() === color.toLowerCase())?.name ?? color.toUpperCase()
+
+  const components = useSimStore((s) => s.components)
+  const mountedBreaker = c.mountedOn ? components.find((comp) => comp.id === c.mountedOn) : null
+  const candidateMount = !mountedBreaker ? findCombConnectorMountTarget(c, components) : null
+  const breakers = components.filter(isBreaker)
+  const mountCombConnector = useSimStore((s) => s.mountCombConnector)
+  const unmountCombConnector = useSimStore((s) => s.unmountCombConnector)
+  const mountedTerminal = (c.state?.mountedTerminal as string) || (mountedBreaker ? breakerInputLabels(mountedBreaker)[0] : '1')
 
   const patch = (next: Record<string, unknown>) => useSimStore.getState().updateCombConnector(c.id, next)
 
@@ -845,7 +925,7 @@ function CombConnectorInspector({ c }: { c: ElectricalComponent }) {
               onClick={() => patch({ pinDirection: opt.id as CombTeethDirection })}
               className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
                 pinDir === opt.id
-                  ? 'border-ink-900 bg-ink-900 text-white'
+                  ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
                   : 'border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
               }`}
             >
@@ -870,7 +950,7 @@ function CombConnectorInspector({ c }: { c: ElectricalComponent }) {
               onClick={() => patch({ pinStyle: opt.id as CombConnectorPinStyle })}
               className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
                 pinStyle === opt.id
-                  ? 'border-ink-900 bg-ink-900 text-white'
+                  ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
                   : 'border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
               }`}
             >
@@ -896,6 +976,86 @@ function CombConnectorInspector({ c }: { c: ElectricalComponent }) {
         <small className="text-ink-400">
           {COMB_CONNECTOR.widthMm} × {COMB_CONNECTOR.heightMm} × {COMB_CONNECTOR.depthMm} mm · {gaugeMeta.ratedA} A · Continuidade real entre IN (bocal Pozidriv) e PINO (lâmina estanhada estriada).
         </small>
+      </div>
+
+      {/* 5. Encaixe no borne do disjuntor */}
+      <div className="space-y-1.5 border-t border-ink-100 pt-2.5">
+        <span className={fieldLabel}>Encaixe no disjuntor</span>
+        {mountedBreaker ? (
+          <div className="space-y-1.5 rounded-md border border-emerald-200 bg-emerald-50/70 p-2 text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-emerald-800">
+                <span className="font-medium">Encaixado em:</span>
+                <span className="font-semibold">{mountedBreaker.label || mountedBreaker.id}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => unmountCombConnector(c.id)}
+                className="rounded border border-red-200 bg-white px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-50 cursor-pointer"
+              >
+                Desencaixar
+              </button>
+            </div>
+            <div className="flex items-center gap-2 pt-1 text-[11px]">
+              <span className="text-ink-600">Borne de entrada:</span>
+              <div className="flex gap-1">
+                {breakerInputLabels(mountedBreaker).map((tLabel) => (
+                  <button
+                    key={tLabel}
+                    type="button"
+                    onClick={() => mountCombConnector(c.id, mountedBreaker.id, tLabel)}
+                    className={`rounded px-2 py-0.5 font-mono text-xs font-bold transition cursor-pointer ${
+                      mountedTerminal === tLabel
+                        ? 'border border-brand-700 bg-brand-600 text-white'
+                        : 'border border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
+                    }`}
+                  >
+                    {tLabel}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {candidateMount ? (
+              <div className="flex items-center justify-between rounded-md border border-brand-200 bg-brand-50/60 p-2 text-xs">
+                <div className="text-ink-700">
+                  <span>Disjuntor: </span>
+                  <span className="font-semibold text-brand-700">{candidateMount.breaker.label || candidateMount.breaker.id}</span>
+                  <span className="ml-1 text-[11px] text-ink-500">(Borne {candidateMount.socketLabel})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => mountCombConnector(c.id, candidateMount.breaker.id, candidateMount.socketLabel)}
+                  className="rounded border border-brand-600 bg-brand-600 px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-brand-700 cursor-pointer"
+                >
+                  Encaixar no borne
+                </button>
+              </div>
+            ) : breakers.length > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <Select
+                  className="dc-input flex-1 text-xs"
+                  aria-label="Selecionar disjuntor para encaixe do conector"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) mountCombConnector(c.id, e.target.value)
+                  }}
+                >
+                  <option value="">Escolher disjuntor para encaixar...</option>
+                  {breakers.map((b) => (
+                    <option key={b.id} value={b.id}>{b.label || b.id} ({b.type})</option>
+                  ))}
+                </Select>
+              </div>
+            ) : (
+              <div className="text-[11px] text-ink-400">
+                Nenhum disjuntor no esquema. Adicione disjuntores para encaixar o conector.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

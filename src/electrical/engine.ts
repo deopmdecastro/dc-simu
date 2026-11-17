@@ -18,7 +18,7 @@
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
 import { importedBridges } from './importedComponents'
 import { mountTerminalPairs } from './mounts'
-import { combMountPairs, isCombBusbar } from '../three/combMount'
+import { breakerInputLabels, combMountPairs, isCombBusbar, isCombConnector } from '../three/combMount'
 import { terminalStripJumperPairs } from './pti6Strip'
 import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarParts'
 
@@ -436,12 +436,19 @@ function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set
   }
   for (const [a, b] of terminalStripJumperPairs(components)) union(a, b)
   for (const comb of components) {
-    if (!isCombBusbar(comb) || !comb.mountedOn) continue
-    for (const { pinLabel, breakerId, socketLabel } of combMountPairs(comb, components)) {
-      const pin = comb.terminals.find((t) => t.label === pinLabel)
-      const br = components.find((c) => c.id === breakerId)
+    if (isCombBusbar(comb) && comb.mountedOn) {
+      for (const { pinLabel, breakerId, socketLabel } of combMountPairs(comb, components)) {
+        const pin = comb.terminals.find((t) => t.label === pinLabel)
+        const br = components.find((c) => c.id === breakerId)
+        const sock = br?.terminals.find((t) => t.label === socketLabel)
+        if (pin && sock) union(pin.id, sock.id)
+      }
+    } else if (isCombConnector(comb) && comb.mountedOn) {
+      const br = components.find((c) => c.id === comb.mountedOn)
+      const socketLabel = (comb.state?.mountedTerminal as string) || (br ? breakerInputLabels(br)[0] : '1')
+      const pino = comb.terminals.find((t) => t.label === 'PINO')
       const sock = br?.terminals.find((t) => t.label === socketLabel)
-      if (pin && sock) union(pin.id, sock.id)
+      if (pino && sock) union(pino.id, sock.id)
     }
   }
   const feeders = new Map<string, Set<string>>() // rede → componentes que a alimentam
@@ -576,14 +583,21 @@ function buildGraph(components: ElectricalComponent[], wires: Wire[]): Graph {
   }
   for (const c of components) for (const [a, b] of internalBridges(c)) addEdge(a, b)
   for (const [a, b] of terminalStripJumperPairs(components)) addEdge(a, b)
-  // Encaixe pente → bornes superiores dos disjuntores (sem cabos)
+  // Encaixe pente / conector de alimentação → bornes superiores dos disjuntores (sem cabos)
   for (const comb of components) {
-    if (!isCombBusbar(comb) || !comb.mountedOn) continue
-    for (const { pinLabel, breakerId, socketLabel } of combMountPairs(comb, components)) {
-      const pin = comb.terminals.find((t) => t.label === pinLabel)
-      const br = components.find((c) => c.id === breakerId)
+    if (isCombBusbar(comb) && comb.mountedOn) {
+      for (const { pinLabel, breakerId, socketLabel } of combMountPairs(comb, components)) {
+        const pin = comb.terminals.find((t) => t.label === pinLabel)
+        const br = components.find((c) => c.id === breakerId)
+        const sock = br?.terminals.find((t) => t.label === socketLabel)
+        if (pin && sock) addEdge(pin.id, sock.id)
+      }
+    } else if (isCombConnector(comb) && comb.mountedOn) {
+      const br = components.find((c) => c.id === comb.mountedOn)
+      const socketLabel = (comb.state?.mountedTerminal as string) || (br ? breakerInputLabels(br)[0] : '1')
+      const pino = comb.terminals.find((t) => t.label === 'PINO')
       const sock = br?.terminals.find((t) => t.label === socketLabel)
-      if (pin && sock) addEdge(pin.id, sock.id)
+      if (pino && sock) addEdge(pino.id, sock.id)
     }
   }
   return { adjacency }
