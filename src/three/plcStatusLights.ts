@@ -116,3 +116,57 @@ export function lampScenePosition(c: ElectricalComponent, at: { x: number; y: nu
     depth / 2 + 0.006,
   ]
 }
+
+/**
+ * LEDs de canal (I/Q) nos módulos S7-1500 — coluna junto ao conector, NÃO no borne.
+ * As posições ficam ligeiramente a interior das colunas de bornes (0,283 / 0,974)
+ * para não coincidirem com os pontos de ligação dos cabos.
+ */
+export function plcChannelLamps(component: ElectricalComponent): PlcLamp[] {
+  const type = component.type
+  if (type !== 'plcSiemensS71500Di32' && type !== 'plcSiemensS71500Cpu1511c') return []
+  const isDi = type === 'plcSiemensS71500Di32'
+  const out: PlcLamp[] = []
+  // 16 filas de E/S sob a fila de alimentação (mesma grelha dos bornes, x deslocado)
+  const rowFirst = 0.107 + (0.94 - 0.107) / 16
+  const rowLast = 0.94
+  const step = (rowLast - rowFirst) / 15
+  for (let i = 0; i < 16; i++) {
+    const y = rowFirst + i * step
+    const bit = i % 8
+    const byte = Math.floor(i / 8)
+    // Coluna esquerda (X10): entradas
+    const inLabel = `I${byte}.${bit}`
+    const inTerm = component.terminals.find((t) => t.label === inLabel)
+    out.push({
+      name: inLabel,
+      color: '#a855f7',
+      at: { x: isDi ? 0.22 : 0.38, y },
+      sizeMm: 2.0,
+      on: !!inTerm?.energized,
+    })
+    // Coluna direita (X11): DI32 = mais entradas; CPU = saídas
+    if (isDi) {
+      const inLabel2 = `I${byte + 2}.${bit}`
+      const inTerm2 = component.terminals.find((t) => t.label === inLabel2)
+      out.push({
+        name: inLabel2,
+        color: '#a855f7',
+        at: { x: 0.90, y },
+        sizeMm: 2.0,
+        on: !!inTerm2?.energized,
+      })
+    } else {
+      const outLabel = `Q${byte}.${bit}`
+      const outTerm = component.terminals.find((t) => t.label === outLabel)
+      out.push({
+        name: outLabel,
+        color: '#f87171',
+        at: { x: 0.90, y },
+        sizeMm: 2.0,
+        on: !!outTerm?.energized,
+      })
+    }
+  }
+  return out
+}
