@@ -16,6 +16,9 @@ import { upgradeNativeMotorMeter, upgradeNativeMotorRings } from '../project/nat
 import { refreshNativeWireCurves } from '../project/nativeWireCurves'
 import { planNativeWirePaths } from '../project/nativeRouting'
 import { lacePairBundles } from '../three/bundleLacing'
+import { defaultCoreColors } from '../admin/editor3d/wireStyle'
+import { dinFerruleColor } from '../schematic/wireEndColor'
+import { orthogonalizeWaypoints2D, simplifyWaypoints2D } from '../schematic/wireGeometry'
 import { addNativeIecSchematic } from '../project/nativeIec'
 import { addNativeAnnotations } from '../project/nativeProjects'
 import { addNativeThermalRelay } from '../project/nativeThermalRelay'
@@ -465,6 +468,18 @@ interface Store extends CircuitState {
   addFreeWire: (from: { terminalId?: string; point?: { x: number; y: number } }, to: { terminalId?: string; point?: { x: number; y: number } }, waypoints?: Array<{ x: number; y: number }>) => void
   updateWire: (id: string, patch: Partial<Wire>) => void
   setWiresLocked: (locked: boolean, ids?: string[]) => void
+  /** Inverte origem ↔ destino do cabo (pontas, terminações, waypoints 2D/3D, isolamento, espirais e marcadores). */
+  reverseWire: (id: string) => void
+  /** Seleciona todos os cabos que pertencem ao mesmo chicote (`bundleId`). */
+  selectBundleWires: (bundleId: string) => void
+  /** Copia o estilo do cabo selecionado para `wireDefaults` (novos cabos). */
+  copyWireToDefaults: (id: string) => void
+  /** Atalho nas terminações: copiar A→B, B→A ou aplicar cor DIN 46228-4 nas duas pontas. */
+  applyWireEndPreset: (id: string, mode: 'copyAtoB' | 'copyBtoA' | 'dinBoth') => void
+  /** Grava anilhas/marcadores normalizados nas duas pontas (8% e 92%): nº do cabo ou endereço dos bornes. */
+  stampWireEndMarkers: (id: string, mode: 'number' | 'terminals') => void
+  /** Refina os pontos de curva 2D de um cabo: alinhar a 90°, simplificar colineares ou limpar. */
+  refineWireCurve2D: (id: string, mode: 'ortho' | 'simplify' | 'clear') => void
   deleteWire: (id: string) => void
   deleteSelection: () => void
   /** Liga em cadeia (t1→t2→t3…) uma lista de bornes selecionados, criando os cabos e
@@ -2964,6 +2979,7 @@ export const useSimStore = create<Store>((set, get) => {
     if (exists) return
     get().commitHistory()
     const defs = get().wireDefaults
+    const coreCount = defs.conductorCount ?? 1
     const wire: Wire = {
       id: nanoid(8),
       fromTerminalId,
@@ -2976,14 +2992,14 @@ export const useSimStore = create<Store>((set, get) => {
       endType: defs.endType,
       fromEndType: defs.endType, toEndType: defs.endType,
       fromEndLayer: 'back', toEndLayer: 'back',
-      route: 'orthogonal',
+      route: defs.route ?? 'orthogonal',
       bend: 0.5,
       curveOffset: 0,
       number: `W${get().wires.length + 1}`,
-      conductorCount: defs.conductorCount ?? 1,
+      conductorCount: coreCount,
       sheathed: defs.sheathed ?? false,
       sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
-      conductorColors: (defs as any).conductorColors,
+      conductorColors: defs.conductorColors ?? (coreCount > 1 ? defaultCoreColors(coreCount) : undefined),
       energized: false,
     }
     // heurística: cabo entre polos de força = 'power'; entre N/PE = neutral/earth
@@ -3017,18 +3033,19 @@ export const useSimStore = create<Store>((set, get) => {
     if ((!from.point && !from.terminalId) || (!to.point && !to.terminalId)) return
     if (from.point && to.point && Math.hypot(from.point.x - to.point.x, from.point.y - to.point.y) < 5) return
     const defs = get().wireDefaults
+    const coreCount = defs.conductorCount ?? 1
     get().commitHistory()
     const wire: Wire = {
       id: nanoid(8), fromTerminalId: from.terminalId ?? '', toTerminalId: to.terminalId ?? '',
       fromPoint: from.point, toPoint: to.point, waypoints,
       color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
       endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
-      fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
+      fromEndLayer: 'back', toEndLayer: 'back', route: defs.route ?? 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`,
-      conductorCount: defs.conductorCount ?? 1,
+      conductorCount: coreCount,
       sheathed: defs.sheathed ?? false,
       sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
-      conductorColors: (defs as any).conductorColors,
+      conductorColors: defs.conductorColors ?? (coreCount > 1 ? defaultCoreColors(coreCount) : undefined),
       energized: false,
     }
     set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
@@ -3055,6 +3072,7 @@ export const useSimStore = create<Store>((set, get) => {
     }
     const project = (p: SpatialPoint3D) => ({ x: Math.round(panelToSchematicX(p.x)), y: Math.round(panelToSchematicY(p.y)) })
     const defs = get().wireDefaults
+    const coreCount = defs.conductorCount ?? 1
     get().commitHistory()
     const wire: Wire = {
       id: nanoid(8),
@@ -3067,12 +3085,12 @@ export const useSimStore = create<Store>((set, get) => {
       waypoints3D: path,
       color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
       endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
-      fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
+      fromEndLayer: 'back', toEndLayer: 'back', route: defs.route ?? 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`,
-      conductorCount: defs.conductorCount ?? 1,
+      conductorCount: coreCount,
       sheathed: defs.sheathed ?? false,
       sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
-      conductorColors: (defs as any).conductorColors,
+      conductorColors: defs.conductorColors ?? (coreCount > 1 ? defaultCoreColors(coreCount) : undefined),
       energized: false,
     }
     set((state) => ({ wires: normalizeWires([...state.wires, wire], state.components), selectedWireId: wire.id, dirty: true }))
@@ -3127,6 +3145,207 @@ export const useSimStore = create<Store>((set, get) => {
     state.commitHistory()
     set({ wires: state.wires.map(w => target.has(w.id) ? { ...w, locked } : w), dirty: true })
     state.pushEvent('info', `${target.size} cabo(s) ${locked ? 'bloqueados' : 'desbloqueados'}.`)
+  },
+
+  reverseWire: (id) => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const wire = state.wires.find((w) => w.id === id)
+    if (!wire || wire.locked) return
+    const flipFraction = (t: number) => Math.round(Math.max(0, Math.min(1, 1 - t)) * 1000) / 1000
+    const defaultEnd = wire.endType ?? 'none'
+    state.commitHistory()
+    set({
+      wires: normalizeWires(
+        state.wires.map((w) =>
+          w.id !== id
+            ? w
+            : {
+                ...w,
+                fromTerminalId: w.toTerminalId,
+                toTerminalId: w.fromTerminalId,
+                fromPoint: w.toPoint ? { ...w.toPoint } : undefined,
+                toPoint: w.fromPoint ? { ...w.fromPoint } : undefined,
+                fromPoint3D: w.toPoint3D ? { ...w.toPoint3D } : undefined,
+                toPoint3D: w.fromPoint3D ? { ...w.fromPoint3D } : undefined,
+                netFrom: w.netTo,
+                netTo: w.netFrom,
+                fromEndType: w.toEndType ?? defaultEnd,
+                toEndType: w.fromEndType ?? defaultEnd,
+                fromEndColor: w.toEndColor,
+                toEndColor: w.fromEndColor,
+                fromEndLayer: w.toEndLayer ?? 'back',
+                toEndLayer: w.fromEndLayer ?? 'back',
+                bend: flipFraction(w.bend ?? 0.5),
+                curveOffset: w.curveOffset ? -w.curveOffset : w.curveOffset,
+                waypoints: w.waypoints?.length ? [...w.waypoints].reverse().map((p) => ({ ...p })) : undefined,
+                waypoints3D: w.waypoints3D?.length ? [...w.waypoints3D].reverse().map((p) => ({ ...p })) : undefined,
+                isolation: w.isolation?.map((seg) => ({ ...seg, start: flipFraction(seg.end), end: flipFraction(seg.start) })),
+                spirals: w.spirals?.map((seg) => ({ ...seg, start: flipFraction(seg.end), end: flipFraction(seg.start) })),
+                markers: w.markers?.map((m) => ({ ...m, t: flipFraction(m.t) })),
+              },
+        ),
+        state.components,
+      ),
+      dirty: true,
+    })
+    state.pushEvent('info', `Sentido do cabo ${wire.number || wire.id} invertido (A ↔ B).`)
+    recomputeIfActive()
+  },
+
+  selectBundleWires: (bundleId) => {
+    if (!bundleId) return
+    const state = get()
+    const members = state.wires.filter((w) => w.bundleId === bundleId).map((w) => w.id)
+    if (!members.length) return
+    const primary = state.selectedWireId && members.includes(state.selectedWireId) ? state.selectedWireId : members[0]
+    set({
+      selectedWireId: primary,
+      selectedWireIds: members,
+      selectedComponentIds: [],
+      selectedTerminalId: null,
+    })
+    state.pushEvent('info', `Chicote selecionado (${members.length} cabos).`)
+  },
+
+  copyWireToDefaults: (id) => {
+    const state = get()
+    const wire = state.wires.find((w) => w.id === id)
+    if (!wire) return
+    set({
+      wireDefaults: {
+        ...state.wireDefaults,
+        autoColor: false,
+        color: wire.color,
+        gauge: wire.gauge,
+        flexibility: wire.flexibility,
+        endType: wire.fromEndType ?? wire.endType ?? 'ferrule',
+        route: wire.route,
+        conductorCount: wire.conductorCount ?? 1,
+        sheathed: !!wire.sheathed,
+        sheathColor: wire.sheathed ? (wire.sheathColor ?? '#0f172a') : undefined,
+        conductorColors: wire.conductorColors ? [...wire.conductorColors] : undefined,
+      },
+    })
+    state.pushEvent('info', `Estilo de ${wire.number || 'cabo'} (${wire.gauge}) copiado para os próximos cabos.`)
+  },
+
+  applyWireEndPreset: (id, mode) => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const ref = state.wires.find((w) => w.id === id)
+    if (!ref) return
+    const targets = new Set(
+      (state.selectedWireIds.length > 1 && state.selectedWireIds.includes(id) ? state.selectedWireIds : [id]).filter(
+        (wid) => !state.wires.find((w) => w.id === wid)?.locked,
+      ),
+    )
+    if (!targets.size) return
+    state.commitHistory()
+    set({
+      wires: state.wires.map((w) => {
+        if (!targets.has(w.id)) return w
+        const base = w.endType ?? 'none'
+        const aType = w.fromEndType ?? base
+        const bType = w.toEndType ?? base
+        if (mode === 'copyAtoB') {
+          return { ...w, toEndType: aType, toEndColor: w.fromEndColor, toEndLayer: w.fromEndLayer ?? 'back' }
+        }
+        if (mode === 'copyBtoA') {
+          return { ...w, fromEndType: bType, fromEndColor: w.toEndColor, fromEndLayer: w.toEndLayer ?? 'back' }
+        }
+        const din = dinFerruleColor(w.gauge)
+        if (!din) return w
+        return {
+          ...w,
+          fromEndType: aType === 'none' ? 'ferrule' : aType,
+          toEndType: bType === 'none' ? 'ferrule' : bType,
+          fromEndColor: din.hex,
+          toEndColor: din.hex,
+        }
+      }),
+      dirty: true,
+    })
+  },
+
+  stampWireEndMarkers: (id, mode) => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const targets = new Set(
+      (state.selectedWireIds.length > 1 && state.selectedWireIds.includes(id) ? state.selectedWireIds : [id]).filter(
+        (wid) => !state.wires.find((w) => w.id === wid)?.locked,
+      ),
+    )
+    if (!targets.size) return
+    const termTag = (tid: string) => {
+      if (!tid) return ''
+      for (const c of state.components) {
+        const t = c.terminals.find((item) => item.id === tid)
+        if (t) return `${c.ref}.${t.label}`
+      }
+      return ''
+    }
+    state.commitHistory()
+    set({
+      wires: state.wires.map((w) => {
+        if (!targets.has(w.id)) return w
+        const num = (w.number || w.label || 'W').trim()
+        const tagA = mode === 'number' ? num : termTag(w.fromTerminalId) || num
+        const tagB = mode === 'number' ? num : termTag(w.toTerminalId) || num
+        const middle = (w.markers ?? []).filter((m) => m.t > 0.14 && m.t < 0.86)
+        return {
+          ...w,
+          markers: [
+            { t: 0.08, text: tagA, color: '#0f172a', bg: '#fbbf24' },
+            ...middle,
+            { t: 0.92, text: tagB, color: '#0f172a', bg: '#fbbf24' },
+          ],
+        }
+      }),
+      dirty: true,
+    })
+    state.pushEvent('info', `Anilhas aplicadas nas pontas (${targets.size} cabo${targets.size > 1 ? 's' : ''}).`)
+  },
+
+  refineWireCurve2D: (id, mode) => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const wire = state.wires.find((w) => w.id === id)
+    if (!wire || wire.locked) return
+    const endpointPt = (tid: string, fallback?: { x: number; y: number }) => {
+      if (tid) {
+        for (const c of state.components) {
+          const t = c.terminals.find((item) => item.id === tid)
+          if (t) {
+            const loc = componentTerminalLocal(c, t)
+            return { x: c.schematicX + loc.x, y: c.schematicY + loc.y }
+          }
+        }
+      }
+      return fallback ?? null
+    }
+    state.commitHistory()
+    if (mode === 'clear') {
+      set({ wires: state.wires.map((w) => (w.id === id ? { ...w, waypoints: undefined, bend: 0.5, curveOffset: 0 } : w)), dirty: true })
+      return
+    }
+    if (!wire.waypoints?.length) return
+    const a = endpointPt(wire.fromTerminalId, wire.fromPoint)
+    const b = endpointPt(wire.toTerminalId, wire.toPoint)
+    if (!a || !b) return
+    const next = mode === 'ortho' ? orthogonalizeWaypoints2D(a, b, wire.waypoints) : simplifyWaypoints2D(a, b, wire.waypoints, 4)
+    set({
+      wires: state.wires.map((w) =>
+        w.id === id
+          ? {
+              ...w,
+              route: mode === 'ortho' && (w.route === 'arc' || w.route === 'direct') ? 'orthogonal' : w.route,
+              waypoints: next.length ? next : undefined,
+            }
+          : w,
+      ),
+      dirty: true,
+    })
   },
 
   organizeWires: (wireIds) => {

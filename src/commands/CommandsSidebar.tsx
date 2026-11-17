@@ -418,23 +418,89 @@ function TextProperties({ textId, disabled }: { textId: string; disabled: boolea
 }
 
 
-const WIRE_COLOR_ORDER: WireColor[] = ['black', 'brown', 'grey', 'blue', 'lightblue', 'green-yellow', 'red', 'orange', 'violet', 'white']
+const WIRE_COLOR_ORDER: WireColor[] = [
+  'black', 'brown', 'grey', 'blue', 'lightblue', 'green-yellow',
+  'red', 'orange', 'violet', 'green', 'yellow', 'pink', 'white',
+]
+
+const LEGACY_IEC_HEX_TO_COLOR: Record<string, WireColor> = {
+  '#dc2626': 'red', '#ef4444': 'red', '#b91c1c': 'red',
+  '#2563eb': 'blue', '#3b82f6': 'blue', '#1d4ed8': 'blue',
+  '#0ea5e9': 'lightblue', '#06b6d4': 'lightblue', '#38bdf8': 'lightblue',
+  '#111827': 'black', '#0f172a': 'black', '#1e293b': 'black', '#000000': 'black',
+  '#92400e': 'brown', '#78350f': 'brown', '#854d0e': 'brown', '#b45309': 'brown',
+  '#64748b': 'grey', '#94a3b8': 'grey', '#6b7280': 'grey',
+  '#f97316': 'orange', '#ea580c': 'orange',
+  '#eab308': 'yellow', '#ca8a04': 'yellow', '#facc15': 'yellow',
+  '#16a34a': 'green', '#22c55e': 'green',
+  '#7c3aed': 'violet', '#8b5cf6': 'violet', '#a855f7': 'violet',
+  '#ec4899': 'pink', '#db2777': 'pink',
+  '#ffffff': 'white', '#f8fafc': 'white', '#e2e8f0': 'white',
+}
+
+function normalizeIecWireColor(raw: string | undefined): WireColor | undefined {
+  if (!raw) return undefined
+  if (raw in WIRE_COLOR_LABEL) return raw as WireColor
+  return LEGACY_IEC_HEX_TO_COLOR[raw.trim().toLowerCase()]
+}
 
 function WireProperties({ wire, disabled }: { wire: CmdWire; disabled: boolean }) {
   const diagram = useSimStore((s) => s.commands) ?? emptyCommands()
+  const select = useCommandsUi((s) => s.select)
   const partA = diagram.parts.find((p) => p.id === wire.a.part)
   const partB = diagram.parts.find((p) => p.id === wire.b.part)
-  const labelA = partA ? `${partA.tag || CMD_PARTS[partA.kind]?.label || 'Símbolo'}:${terminalLabel(partA, wire.a.term)}` : '?'
-  const labelB = partB ? `${partB.tag || CMD_PARTS[partB.kind]?.label || 'Símbolo'}:${terminalLabel(partB, wire.b.term)}` : '?'
-  const currentColor = wire.color as WireColor | undefined
+  const tagA = partA ? (partA.tag || CMD_PARTS[partA.kind]?.label || 'Símbolo') : '?'
+  const tagB = partB ? (partB.tag || CMD_PARTS[partB.kind]?.label || 'Símbolo') : '?'
+  const termA = partA ? terminalLabel(partA, wire.a.term) : '?'
+  const termB = partB ? terminalLabel(partB, wire.b.term) : '?'
+  const labelA = termA ? `${tagA}:${termA}` : tagA
+  const labelB = termB ? `${tagB}:${termB}` : tagB
+  const currentColor = normalizeIecWireColor(wire.color)
+  const colorName = currentColor ? WIRE_COLOR_LABEL[currentColor] : wire.color
+  const previewBg = currentColor
+    ? currentColor === 'green-yellow'
+      ? 'repeating-linear-gradient(45deg, #22c55e 0 4px, #eab308 4px 8px)'
+      : WIRE_COLOR_HEX[currentColor]
+    : (wire.color || '#475569')
+  const hasManualMid = wire.mid !== undefined
 
   return (
-    <div className="dc-cmd-props">
+    <div className="dc-cmd-props space-y-2.5">
       <div className="pn-group">
-        <label className="text-[11px] font-semibold text-ink-700">Ligação</label>
-        <p className="text-[12px] font-mono text-ink-600 bg-surface-sunken/60 px-2 py-1.5 rounded border border-line-soft">
-          {labelA} → {labelB}
-        </p>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-[11px] font-semibold text-ink-700">Ligação IEC</label>
+          <span className="text-[9.5px] font-semibold text-ink-400">{colorName ?? 'Cor AUTO'}</span>
+        </div>
+        <div className="h-2 rounded-full border border-black/15 mb-2" style={{ background: previewBg }} aria-hidden="true" />
+        <div className="wi-endpoints" role="group" aria-label="Símbolos ligados pelo cabo IEC">
+          <button
+            type="button"
+            className="wi-endpoint"
+            disabled={!partA}
+            title={partA ? `Selecionar símbolo ${tagA}` : undefined}
+            onClick={() => partA && select({ type: 'part', id: partA.id })}
+          >
+            <span className="wi-endpoint-side">A</span>
+            <span className="wi-endpoint-body">
+              <b>{labelA}</b>
+              <small>{partA ? (CMD_PARTS[partA.kind]?.label ?? partA.kind) : '—'}</small>
+            </span>
+          </button>
+          <span className="self-center text-ink-400 text-[11px] px-0.5" aria-hidden="true">→</span>
+          <button
+            type="button"
+            className="wi-endpoint"
+            disabled={!partB}
+            title={partB ? `Selecionar símbolo ${tagB}` : undefined}
+            onClick={() => partB && select({ type: 'part', id: partB.id })}
+          >
+            <span className="wi-endpoint-side">B</span>
+            <span className="wi-endpoint-body">
+              <b>{labelB}</b>
+              <small>{partB ? (CMD_PARTS[partB.kind]?.label ?? partB.kind) : '—'}</small>
+            </span>
+          </button>
+        </div>
       </div>
 
       <div className="pn-group">
@@ -442,7 +508,7 @@ function WireProperties({ wire, disabled }: { wire: CmdWire; disabled: boolean }
           <label className="text-[11px] font-semibold text-ink-700">Cor da linha / condutor</label>
           <button
             type="button"
-            className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold border ${!currentColor ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-line text-ink-400'}`}
+            className={`wo-auto ${!currentColor ? 'is-on' : ''}`}
             disabled={disabled}
             onClick={() => patchWire(wire.id, { color: undefined })}
             title="Cor padrão / automática (IEC 60204-1)"
@@ -450,7 +516,7 @@ function WireProperties({ wire, disabled }: { wire: CmdWire; disabled: boolean }
             AUTO
           </button>
         </div>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Cor do cabo IEC">
+        <div className="wo-swatches" role="radiogroup" aria-label="Cor do cabo IEC">
           {WIRE_COLOR_ORDER.map((c) => {
             const hex = WIRE_COLOR_HEX[c]
             const active = currentColor === c
@@ -460,23 +526,41 @@ function WireProperties({ wire, disabled }: { wire: CmdWire; disabled: boolean }
                 type="button"
                 role="radio"
                 aria-checked={active}
+                aria-label={WIRE_COLOR_LABEL[c]}
                 disabled={disabled}
-                className={`w-6 h-6 rounded-full border transition-all ${active ? 'scale-110 ring-2 ring-brand-500 ring-offset-1 border-white' : 'border-line hover:scale-105'}`}
-                style={{ background: c === 'green-yellow' ? 'repeating-linear-gradient(45deg,#84cc16 0 3px,#eab308 3px 6px)' : hex }}
+                className={`wo-swatch${active ? ' is-on' : ''}${!currentColor ? ' is-dim' : ''}`}
+                style={{ background: c === 'green-yellow' ? 'repeating-linear-gradient(45deg,#22c55e 0 4px,#eab308 4px 8px)' : hex }}
                 title={WIRE_COLOR_LABEL[c]}
                 onClick={() => patchWire(wire.id, { color: c })}
               />
             )
           })}
         </div>
-        <p className="text-[10px] text-ink-400 mt-2">
-          {currentColor ? `Cor selecionada: ${WIRE_COLOR_LABEL[currentColor] ?? currentColor}.` : 'Cor automática pelo circuito (preto/cinza força, vermelho/azul comando, PE verde-amarelo).'}
+        <p className="wo-note mt-1.5">
+          {colorName ? `Cor fixa: ${colorName}.` : 'Cor automática pelo circuito (IEC 60204-1).'}
         </p>
       </div>
 
-      <p className="dc-cmd-muted text-[11px]">
-        Arraste o troço do meio no esquema para deslocar a linha.
-      </p>
+      <div className="pn-group">
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-[11px] font-semibold text-ink-700">Traçado ortogonal</label>
+          <span className="text-[10px] font-mono text-ink-400">{hasManualMid ? `Cota ${Math.round(wire.mid!)}` : 'Centrado (auto)'}</span>
+        </div>
+        {hasManualMid && (
+          <button
+            type="button"
+            className="dc-btn w-full mb-1.5"
+            disabled={disabled}
+            onClick={() => patchWire(wire.id, { mid: undefined })}
+            title="Repõe o segmento intermédio centrado automaticamente entre os dois bornes"
+          >
+            Repor alinhamento central
+          </button>
+        )}
+        <p className="dc-cmd-muted text-[10.5px]">
+          Arraste o troço intermédio no esquema IEC para afastar linhas paralelas sem perder os 90°.
+        </p>
+      </div>
 
       <button type="button" className="dc-btn is-danger w-full mt-2" disabled={disabled} onClick={removeSelected}>
         Apagar cabo

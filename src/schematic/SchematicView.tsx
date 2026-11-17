@@ -22,7 +22,21 @@ import DinRail2D from './DinRail2D'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireEndScale, wireStrokeWidth } from './wireMetrics'
-import { wireGeometry, wireGeometryForWire, pointAtFraction, tangentAtFraction, subpathBetween, type Pt } from './wireGeometry'
+import {
+  orthoPts,
+  pointAtFraction,
+  polylineLength,
+  simplifyWaypoints2D,
+  slideOrthoSegment,
+  snapDraftPoint2D,
+  subpathBetween,
+  tangentAtFraction,
+  wireGeometry,
+  wireGeometryForWire,
+  wireSegmentHandles,
+  type DraftSnap2D,
+  type Pt,
+} from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import EditorMinimap from '../ui/EditorMinimap'
@@ -457,8 +471,17 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [hoverTerminal, setHoverTerminal] = useState<string | null>(null)
   /** cadeia de bornes selecionados com shift+clique (ligação inteligente) */
   const [chain, setChain] = useState<string[]>([])
-  /** arraste do ponto de dobra/curva/waypoint de um cabo diretamente no esquema */
-  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number; originalTerminalId?: string; start?: Pt } | null>(null)
+  /** arraste do ponto de dobra/curva/waypoint/segmento de um cabo diretamente no esquema */
+  const [wireDrag, setWireDrag] = useState<{
+    wireId: string
+    mode: 'bend' | 'curve' | 'waypoint' | 'segment' | 'fromPoint' | 'toPoint'
+    index?: number
+    axis?: 'h' | 'v'
+    baseChain?: Pt[]
+    originalTerminalId?: string
+    start?: Pt
+  } | null>(null)
+  const [snapGuides, setSnapGuides] = useState<Pick<DraftSnap2D, 'guideX' | 'guideY' | 'lockLabel'> | null>(null)
   const [railResize, setRailResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
   const [ductResize, setDuctResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
   const [terminalViewDrag, setTerminalViewDrag] = useState<{ componentId: string; terminalId: string } | null>(null)
@@ -599,6 +622,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         setFreeStart(null)
         setDraftPoints([])
         setActiveWireId(null)
+        setSnapGuides(null)
         setChain([])
         useSimStore.getState().setGridDragEnabled(false)
         useSimStore.getState().setPlacingType(null)
@@ -610,6 +634,42 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       // atalhos ficam suspensos; fora disso valem sempre, mesmo que o foco
       // esteja num botão do painel de propriedades.
       if (isTypingTarget(e.target)) return
+      if (e.key === 'Backspace' && tool === 'wire' && (draftPoints.length > 0 || activeWireId || wireFrom || freeStart)) {
+        e.preventDefault()
+        if (draftPoints.length > 0) {
+          setDraftPoints((pts) => pts.slice(0, -1))
+        } else if (activeWireId) {
+          const cur = useSimStore.getState().wires.find((item) => item.id === activeWireId)
+          if (cur && cur.waypoints && cur.waypoints.length > 0) {
+            const prevPt = cur.waypoints[cur.waypoints.length - 1]
+            const rest = cur.waypoints.slice(0, -1)
+            commitHistory()
+            updateWire(activeWireId, { toPoint: prevPt, toPoint3D: undefined, waypoints: rest.length ? rest : undefined })
+            setFreeStart(prevPt)
+          } else if (cur) {
+            const originTerm = cur.fromTerminalId || null
+            const originPt = cur.fromPoint ?? null
+            useSimStore.getState().deleteWire(cur.id)
+            setActiveWireId(null)
+            setWireFrom(originTerm)
+            setFreeStart(originPt)
+          }
+        } else {
+          setWireFrom(null)
+          setFreeStart(null)
+          setSnapGuides(null)
+        }
+        return
+      }
+      if (e.key === 'Enter' && tool === 'wire' && (activeWireId || wireFrom || freeStart)) {
+        e.preventDefault()
+        setWireFrom(null)
+        setFreeStart(null)
+        setDraftPoints([])
+        setActiveWireId(null)
+        setSnapGuides(null)
+        return
+      }
       if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r' && selectedIds.length === 1) {
         rotateComponent(selectedIds[0])
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'd' && (selectedIds.length || selectedWireId || selectedWireIds.length)) {
@@ -654,6 +714,11 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     commitHistory,
     moveComponent,
     fitContent,
+    tool,
+    draftPoints,
+    activeWireId,
+    wireFrom,
+    freeStart,
   ])
 
   // Rotação e ordem de desenho da seleção (vale para o Esquema e para o 3D).
@@ -743,7 +808,18 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       const close = nearestTerminal(components, p, 16 / zoom, wireFrom ?? undefined)
         ?? nearestModelTerminal(components, p, wireFrom ?? undefined, Math.min(24, 28 / zoom))
       if (close) { onTerminalDown(e, close.id); setCursorPos(close.point); return }
-      const point = { x: snap(p.x), y: snap(p.y) }
+      const rawSnapped = { x: snap(p.x), y: snap(p.y) }
+      const defs = useSimStore.getState().wireDefaults
+      const anchor = draftPoints.length > 0
+        ? draftPoints[draftPoints.length - 1]
+        : (wireFrom ? terminalIndex.get(wireFrom) : freeStart) ?? null
+      const point = anchor && !e.altKey && (e.shiftKey || defs.orthoSnap !== false)
+        ? snapDraftPoint2D(anchor, rawSnapped, [], {
+            axisLock: e.shiftKey,
+            allow45: defs.route === 'direct',
+            thresholdPx: 8 / Math.max(0.5, zoom),
+          }).point
+        : rawSnapped
       if (wireFrom || freeStart) {
         // Cada clique prolonga o mesmo cabo; Esc apenas termina o traçado.
         // A extremidade anterior torna-se waypoint, mantendo um único cabo
@@ -838,12 +914,33 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         updateWire(w.id, { [wireDrag.mode]: { x: snap(p.x), y: snap(p.y) }, [`${wireDrag.mode}3D`]: undefined })
         return
       }
-      const a = w && terminalIndex.get(w.fromTerminalId)
-      const b = w && terminalIndex.get(w.toTerminalId)
+      const a = w && (w.fromPoint ?? terminalIndex.get(w.fromTerminalId))
+      const b = w && (w.toPoint ?? terminalIndex.get(w.toTerminalId))
+      if (w && wireDrag.mode === 'segment' && wireDrag.index !== undefined && wireDrag.axis && wireDrag.baseChain) {
+        const coord = wireDrag.axis === 'h' ? snap(p.y) : snap(p.x)
+        const next = slideOrthoSegment(wireDrag.baseChain, wireDrag.index, wireDrag.axis, coord, false)
+        setSnapGuides(wireDrag.axis === 'h' ? { guideX: null, guideY: coord, lockLabel: 'Corredor H' } : { guideX: coord, guideY: null, lockLabel: 'Corredor V' })
+        updateWire(w.id, { waypoints: next.length ? next : undefined })
+        return
+      }
       if (w && wireDrag.mode === 'waypoint' && wireDrag.index !== undefined) {
-        const next = [...(w.waypoints ?? [])]
-        next[wireDrag.index] = { x: snap(p.x), y: snap(p.y) }
-        updateWire(w.id, { waypoints: next })
+        const current = [...(w.waypoints ?? [])]
+        const prev = wireDrag.index > 0 ? current[wireDrag.index - 1] : a
+        const after = wireDrag.index + 1 < current.length ? current[wireDrag.index + 1] : b
+        const rawPt = { x: snap(p.x), y: snap(p.y) }
+        if (prev && !e.altKey) {
+          const snapped = snapDraftPoint2D(prev, rawPt, after ? [after] : [], {
+            axisLock: e.shiftKey,
+            allow45: w.route === 'direct',
+            thresholdPx: 7 / Math.max(0.5, zoom),
+          })
+          current[wireDrag.index] = snapped.point
+          setSnapGuides(snapped.guideX !== null || snapped.guideY !== null ? { guideX: snapped.guideX, guideY: snapped.guideY, lockLabel: snapped.lockLabel } : null)
+        } else {
+          current[wireDrag.index] = rawPt
+          setSnapGuides(null)
+        }
+        updateWire(w.id, { waypoints: current })
         return
       }
       if (w && a && b) {
@@ -883,11 +980,42 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       if (anchorId && origin) moveComponent(anchorId, snap(origin.x + dx), snap(origin.y + dy), drag.ids)
     }
     if (marquee) setMarquee({ ...marquee, x1: p.x, y1: p.y })
-    if ((tool === 'wire' && (wireFrom || freeStart)) || placingType) setCursorPos(p)
+    if (tool === 'wire' && (wireFrom || freeStart)) {
+      const defs = useSimStore.getState().wireDefaults
+      const anchor = draftPoints.length > 0
+        ? draftPoints[draftPoints.length - 1]
+        : (wireFrom ? terminalIndex.get(wireFrom) : freeStart) ?? null
+      if (anchor && !e.altKey && (e.shiftKey || defs.orthoSnap !== false)) {
+        const snapped = snapDraftPoint2D(anchor, { x: snap(p.x), y: snap(p.y) }, [], {
+          axisLock: e.shiftKey,
+          allow45: defs.route === 'direct',
+          thresholdPx: 8 / Math.max(0.5, zoom),
+        })
+        setCursorPos(snapped.point)
+        setSnapGuides(snapped.guideX !== null || snapped.guideY !== null ? { guideX: snapped.guideX, guideY: snapped.guideY, lockLabel: snapped.lockLabel } : null)
+      } else {
+        setCursorPos(p)
+        setSnapGuides(null)
+      }
+    } else if (placingType) {
+      setCursorPos(p)
+    } else if (snapGuides) {
+      setSnapGuides(null)
+    }
   }
 
   const onMouseUp = (e?: React.MouseEvent) => {
     setTerminalViewDrag(null)
+    setSnapGuides(null)
+    if (wireDrag && wireDrag.mode === 'segment') {
+      const w = useSimStore.getState().wires.find((item) => item.id === wireDrag.wireId)
+      const a = w && (w.fromPoint ?? terminalIndex.get(w.fromTerminalId))
+      const b = w && (w.toPoint ?? terminalIndex.get(w.toTerminalId))
+      if (w?.waypoints?.length && a && b) {
+        const cleaned = simplifyWaypoints2D(a, b, w.waypoints, 2)
+        updateWire(w.id, { waypoints: cleaned.length ? cleaned : undefined })
+      }
+    }
     if (wireDrag && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint') && e) {
       const w = useSimStore.getState().wires.find((item) => item.id === wireDrag.wireId)
       const p = toCanvas(e.clientX, e.clientY)
@@ -1059,13 +1187,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         } else addFreeWire({ point: freeStart }, { terminalId }, draftPoints)
         setActiveWireId(null)
         setFreeStart(null)
-        setWireFrom(terminalId)
+        setSnapGuides(null)
+        setWireFrom(useSimStore.getState().wireDefaults.chainMode === false ? null : terminalId)
         setDraftPoints([])
       } else if (!wireFrom) {
         setWireFrom(terminalId)
       } else if (wireFrom !== terminalId) {
         addWire(wireFrom, terminalId, undefined, draftPoints)
-        setWireFrom(terminalId)
+        setSnapGuides(null)
+        setWireFrom(useSimStore.getState().wireDefaults.chainMode === false ? null : terminalId)
         setDraftPoints([])
       }
       return
@@ -1222,9 +1352,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.12} strokeWidth={Math.max(0.8, (width + 1.6) * 0.2)} strokeLinecap="butt" />
           </g>
         )}
-        {/* Capas de isolamento (secções coloridas mais grossas sobre o condutor) */}
+        {/* Capas de isolamento (secções coloridas mais grossas sobre o condutor, seguindo os arcos reais) */}
         {(w.isolation ?? []).map((seg, i) => {
-          const iso = subpathBetween(display.geometry.pts, seg.start, seg.end)
+          const iso = subpathBetween(display.geometry.curvePts ?? display.geometry.pts, seg.start, seg.end)
           if (!iso) return null
           const isoW = width + 3.2
           return <g key={`iso-${i}`} pointerEvents="none">
@@ -1234,9 +1364,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           </g>
         })}
 
-        {/* Espirais de proteção (capa em hélice sobre o troço do cabo) */}
+        {/* Espirais de proteção (capa em hélice sobre o troço do cabo, seguindo os arcos reais) */}
         {(w.spirals ?? []).map((seg, i) => {
-          const sp = subpathBetween(display.geometry.pts, seg.start, seg.end)
+          const sp = subpathBetween(display.geometry.curvePts ?? display.geometry.pts, seg.start, seg.end)
           if (!sp) return null
           const spW = width + 5.5
           const col = seg.color ?? "#0a0a0a"
@@ -1246,11 +1376,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             <path d={sp} fill="none" stroke="#ffffff" strokeOpacity={0.12} strokeWidth={Math.max(1, spW * 0.2)} strokeLinecap="butt" />
           </g>
         })}
-        {/* Marcadores / tags (anéis numerados ao longo do cabo) */}
+        {/* Marcadores / tags (anéis numerados ao longo da curva real do cabo) */}
         {(w.markers ?? []).map((m, i) => {
-          const p = pointAtFraction(display.geometry.pts, m.t)
-          const tan = tangentAtFraction(display.geometry.pts, m.t)
-          const angle = Math.atan2(tan.y, tan.x) * 180 / Math.PI
+          const samplePts = display.geometry.curvePts ?? display.geometry.pts
+          const p = pointAtFraction(samplePts, m.t)
+          const tan = tangentAtFraction(samplePts, m.t)
+          let angle = Math.atan2(tan.y, tan.x) * 180 / Math.PI
+          // Mantém o texto da anilha sempre legível (nunca de pernas para o ar)
+          if (angle > 90) angle -= 180
+          else if (angle < -90) angle += 180
           const bg = m.bg ?? '#fbbf24'
           const r = Math.max(7, width * 1.6 + 4)
           return <g key={`mk-${i}`} pointerEvents="none" transform={`translate(${p.x},${p.y}) rotate(${angle})`}>
@@ -1300,6 +1434,43 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             commitHistory()
             updateWire(w.id, { netTo: name.trim().toUpperCase() || undefined })
           }} />}
+        {/* pegas de corredor ortogonal: deslizar troços inteiros mantendo os 90° */}
+        {selected && !w.locked && (w.route === 'orthogonal' || w.route === 'manhattan') && (w.waypoints?.length ?? 0) > 0 &&
+          wireSegmentHandles(a, b, w.waypoints ?? [], 34).map((seg) => (
+            <rect
+              key={`${w.id}-seg-${seg.segIndex}`}
+              x={seg.x - (seg.axis === 'h' ? 8 : 3.2)}
+              y={seg.y - (seg.axis === 'h' ? 3.2 : 8)}
+              width={seg.axis === 'h' ? 16 : 6.4}
+              height={seg.axis === 'h' ? 6.4 : 16}
+              rx={3.2}
+              fill="#eff5ff"
+              stroke="#2563eb"
+              strokeWidth={1.5}
+              style={{ cursor: seg.axis === 'h' ? 'ns-resize' : 'ew-resize' }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                if (simLocked || e.button !== 0) return
+                commitHistory()
+                const full = orthoPts([a, ...(w.waypoints ?? []), b])
+                // Remove colineares igual ao wireSegmentHandles para alinhar segIndex
+                const clean = full.filter((p, idx) => idx === 0 || Math.hypot(p.x - full[idx - 1].x, p.y - full[idx - 1].y) > 0.05)
+                const merged: Pt[] = [clean[0]]
+                for (let idx = 1; idx < clean.length - 1; idx++) {
+                  const pr = merged[merged.length - 1], cu = clean[idx], nx = clean[idx + 1]
+                  const d1 = Math.hypot(cu.x - pr.x, cu.y - pr.y), d2 = Math.hypot(nx.x - cu.x, nx.y - cu.y)
+                  const cr = (cu.x - pr.x) * (nx.y - cu.y) - (cu.y - pr.y) * (nx.x - cu.x)
+                  const dt = (cu.x - pr.x) * (nx.x - cu.x) + (cu.y - pr.y) * (nx.y - cu.y)
+                  if (Math.abs(cr) < 0.002 * d1 * d2 && dt >= 0) continue
+                  merged.push(cu)
+                }
+                merged.push(clean[clean.length - 1])
+                setWireDrag({ wireId: w.id, mode: 'segment', index: seg.segIndex, axis: seg.axis, baseChain: merged })
+              }}
+            >
+              <title>Arraste para deslizar este troço {seg.axis === 'h' ? 'horizontal' : 'vertical'} mantendo os 90°</title>
+            </rect>
+          ))}
         {/* pontos de curva do cabo — visíveis quando selecionado */}
         {selected && !w.locked &&
           (w.waypoints ?? []).map((wp, i) => (
@@ -1687,9 +1858,46 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           {/* Pontas da frente: apenas as escolhidas no inspetor. */}
           {renderWireEnds('front')}
 
-          {/* cabo em construção */}
-          {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
-          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point ?? nearestModelTerminal(components, cursorPos, wireFrom ?? undefined, Math.min(24, 28 / zoom))?.point ?? cursorPos, 'orthogonal', 0.5, 0, draftPoints).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
+          {/* guias magnéticas ortogonais (construção e edição de curvas) */}
+          {snapGuides && (
+            <g pointerEvents="none" opacity={0.62}>
+              {snapGuides.guideX !== null && (
+                <line x1={snapGuides.guideX} y1={-CANVAS_H} x2={snapGuides.guideX} y2={CANVAS_H * 2} stroke="#16a34a" strokeWidth={1 / Math.max(0.4, zoom)} strokeDasharray="4 4" />
+              )}
+              {snapGuides.guideY !== null && (
+                <line x1={-CANVAS_W} y1={snapGuides.guideY} x2={CANVAS_W * 2} y2={snapGuides.guideY} stroke="#ef4444" strokeWidth={1 / Math.max(0.4, zoom)} strokeDasharray="4 4" />
+              )}
+            </g>
+          )}
+          {/* cabo em construção (curva real + comprimento ao vivo) */}
+          {pendingFrom && <circle cx={pendingFrom.x} cy={pendingFrom.y} r={5} fill="#16a34a" stroke="#ffffff" strokeWidth={1.8} pointerEvents="none" />}
+          {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4.2} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
+          {pendingFrom && cursorPos && (() => {
+            const targetPt =
+              hoverTerminal && terminalIndex.get(hoverTerminal)
+                ? terminalIndex.get(hoverTerminal)!
+                : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point
+                  ?? nearestModelTerminal(components, cursorPos, wireFrom ?? undefined, Math.min(24, 28 / zoom))?.point
+                  ?? cursorPos
+            const defs = useSimStore.getState().wireDefaults
+            const draftRoute = defs.route ?? 'orthogonal'
+            const preview = wireGeometry(pendingFrom, targetPt, draftRoute, 0.5, draftRoute === 'arc' ? 26 : 0, draftPoints)
+            const previewLenMm = Math.round(polylineLength(preview.curvePts ?? preview.pts) / Math.max(0.1, SCHEMATIC_PX_PER_MM))
+            const previewColor = defs.autoColor ? '#2563eb' : (WIRE_COLORS[defs.color] ?? '#2563eb')
+            return (
+              <g pointerEvents="none">
+                <path d={preview.d} fill="none" stroke={previewColor} strokeWidth={2.2} strokeDasharray="6 4" strokeLinecap="round" strokeLinejoin="round" />
+                {previewLenMm >= 8 && (
+                  <g transform={`translate(${targetPt.x + 12},${targetPt.y - 14})`}>
+                    <rect x={-3} y={-9} width={snapGuides?.lockLabel ? 88 : 54} height={15} rx={4} fill="#ffffff" fillOpacity={0.94} stroke="#cbd5e1" strokeWidth={0.9} />
+                    <text x={2} y={1.5} fontSize={8.5} fontWeight={700} fill="#1e293b" style={{ fontFamily: 'ui-monospace, monospace' }}>
+                      {`≈${previewLenMm}mm${snapGuides?.lockLabel ? ` · ${snapGuides.lockLabel}` : ''}`}
+                    </text>
+                  </g>
+                )}
+              </g>
+            )
+          })()}
           {/* alvos clicáveis dos bornes (acima de tudo) */}
           {displayComponents.map((c) =>
             c.terminals.map((t) => {

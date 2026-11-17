@@ -627,8 +627,8 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
       return [
         text('native-txt3d-title', '3d', 'Partida direta com emergência', -3.25, 3.22, 16, true),
         text('native-txt3d-force', '3d', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -3.25, 2.68, 11),
-        text('native-txtsch-title', 'schematic', 'Partida direta com emergência', -260, -346, 16, true),
-        text('native-txtsch-force', 'schematic', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -260, -320, 12),
+        text('native-txtsch-title', 'schematic', 'Partida direta com emergência', -3.25, 3.22, 16, true),
+        text('native-txtsch-force', 'schematic', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -3.25, 2.68, 11),
       ]
     })(),
     virtualInputs: {},

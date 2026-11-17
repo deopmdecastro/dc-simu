@@ -153,3 +153,51 @@ export function insertIndexFor(chain: THREE.Vector3[], pointCount: number, point
   }
   return Math.max(0, Math.min(pointCount, best - 1))
 }
+
+/** Raio mínimo de curvatura medido num cabo de teste (mm) e indicação de conformidade IEC 60204-1. */
+export function evaluateWireCurvature(terminals: TerminalDef[], wire: WireEnds): { minBendMm: number | null; recommendedMm: number; bendOk: boolean } {
+  const outer = cableOuterDiameterMm(wire.gauge ?? '1.5mm²')
+  const recommendedMm = Math.round(outer * (wire.flexibility === 'rigid' ? 5 : 4) * 10) / 10
+  const model = wireModel(terminals, wire)
+  if (!model?.curve) return { minBendMm: null, recommendedMm, bendOk: true }
+  const total = model.curve.getLength()
+  if (total < 12) return { minBendMm: null, recommendedMm, bendOk: true }
+  const steps = Math.max(8, Math.min(96, Math.round(total / Math.max(4, outer * 2))))
+  const pts = model.curve.getSpacedPoints(steps)
+  let minR = Infinity
+  for (let i = 1; i < pts.length - 1; i++) {
+    const ab = pts[i].clone().sub(pts[i - 1])
+    const bc = pts[i + 1].clone().sub(pts[i])
+    const ac = pts[i + 1].clone().sub(pts[i - 1])
+    if (ab.angleTo(bc) < 0.12) continue
+    const area2 = new THREE.Vector3().crossVectors(ab, bc).length()
+    if (area2 > 1e-5) {
+      const r = (ab.length() * bc.length() * ac.length()) / (2 * area2)
+      if (r < minR) minR = r
+    }
+  }
+  const minBendMm = Number.isFinite(minR) && minR < 999 ? Math.max(1, Math.round(minR * 10) / 10) : null
+  return { minBendMm, recommendedMm, bendOk: minBendMm === null || minBendMm >= recommendedMm * 0.85 }
+}
+
+/** Alinha os pontos intermédios de um cabo de teste (mm) aos eixos ortogonais X/Y/Z. */
+export function orthogonalizeTestPoints(terminals: TerminalDef[], wire: WireEnds): Vec3[] {
+  if (!wire.points.length) return []
+  const from = wire.a ? terminals.find((item) => item.id === wire.a) : undefined
+  let prev: Vec3 = from ? from.position : wire.start ?? wire.points[0]
+  const out: Vec3[] = []
+  for (const pt of wire.points) {
+    const next: Vec3 = [
+      Math.abs(pt[0] - prev[0]) < 4 ? prev[0] : Math.round(pt[0] * 2) / 2,
+      Math.abs(pt[1] - prev[1]) < 4 ? prev[1] : Math.round(pt[1] * 2) / 2,
+      Math.abs(pt[2] - prev[2]) < 4 ? prev[2] : Math.round(pt[2] * 2) / 2,
+    ]
+    const dx = Math.abs(next[0] - prev[0]), dy = Math.abs(next[1] - prev[1])
+    if (dx > 3 && dy > 3) {
+      out.push(dy >= dx ? [prev[0], next[1], Math.max(prev[2], next[2])] : [next[0], prev[1], Math.max(prev[2], next[2])])
+    }
+    out.push(next)
+    prev = next
+  }
+  return out
+}

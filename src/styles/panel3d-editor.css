@@ -252,21 +252,45 @@
 
 /* Ações do traçado do cabo: no painel lateral esquerdo (inspetor), nunca sobre o canvas. */
 .panel3d-wire-actions-panel { display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid var(--dx-line,#dbe4ef); border-radius:8px; background:var(--dx-surface-2,#f8fafc); }
-.panel3d-wire-actions-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; }
-.panel3d-wire-actions-head strong { color:#1e3a8a; font-size:10.5px; }
-.panel3d-wire-actions-head small { flex:1 1 100%; color:var(--dx-ink-4,#94a3b8); font:600 9px ui-monospace,monospace; }
-.panel3d-wire-actions-head i { margin-left:auto; padding:2px 6px; border-radius:999px; color:#15803d; background:#dcfce7; font-size:8px; font-style:normal; font-weight:800; text-transform:uppercase; }
+.panel3d-wire-actions-head { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+.panel3d-wire-actions-head strong { color:var(--dx-ink,#0f172a); font-size:10.5px; font-weight:700; }
+.panel3d-wire-badge { padding:1.5px 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:5px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.panel3d-wire-badge.is-warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+.panel3d-wire-actions-head small { flex:1 1 100%; color:var(--dx-ink-3,#64748b); font:600 9.5px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.panel3d-wire-actions-head i { margin-left:auto; padding:2px 6px; border-radius:999px; color:#15803d; background:#dcfce7; font-size:8.5px; font-style:normal; font-weight:800; text-transform:uppercase; }
 .panel3d-wire-actions-head i.is-dirty { color:#1d4ed8; background:#dbeafe; }
 .panel3d-wire-actions { display:flex; flex-wrap:wrap; gap:4px; }
-.panel3d-wire-actions button { display:inline-flex; align-items:center; gap:4px; min-height:26px; padding:0 8px; border:1px solid var(--dx-line-strong,#c3ccd8); border-radius:6px; color:#40516a; background:#fff; font:700 9.5px ui-sans-serif,sans-serif; cursor:pointer; }
+.panel3d-wire-actions button { display:inline-flex; align-items:center; gap:4px; min-height:26px; padding:0 7px; border:1px solid var(--dx-line-strong,#c3ccd8); border-radius:6px; color:var(--dx-ink-2,#334155); background:#fff; font:600 10px ui-sans-serif,sans-serif; cursor:pointer; }
 .panel3d-wire-actions button:hover:not(:disabled) { border-color:#7da2f5; color:#1d4ed8; background:var(--dx-brand-soft,#eff5ff); }
 .panel3d-wire-actions button:disabled { opacity:.45; cursor:not-allowed; }
 .panel3d-wire-actions button.is-active { border-color:#7c3aed; color:#fff; background:#7c3aed; }
 .panel3d-wire-actions button.is-primary { border-color:#2563eb; color:#fff; background:#2563eb; }
 .panel3d-wire-actions button.is-danger { color:#b91c1c; }
-.panel3d-wire-actions-hint { color:var(--dx-ink-4,#94a3b8); font-size:9px; line-height:1.45; }
+.panel3d-wire-ends-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+.panel3d-wire-end-chip { display:flex; flex-wrap:wrap; align-items:center; gap:3px; padding:4px 5px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; background:var(--dx-surface,#fff); }
+.panel3d-wire-end-chip.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); }
+.panel3d-wire-end-chip span { flex:1 1 100%; font-size:9px; font-weight:700; color:var(--dx-ink-3,#64748b); text-transform:uppercase; letter-spacing:.03em; }
+.panel3d-wire-end-chip button { flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:3px; min-height:22px; padding:0 5px; border:1px solid var(--dx-line,#dbe4ef); border-radius:5px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 9.5px ui-sans-serif,sans-serif; cursor:pointer; }
+.panel3d-wire-end-chip button:hover:not(:disabled) { border-color:var(--dx-brand,#2f6bff); color:var(--dx-brand-700,#1f55e0); }
+.panel3d-wire-end-chip button:disabled { opacity:.45; cursor:not-allowed; }
+.panel3d-wire-waypoints { border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; background:var(--dx-surface,#fff); }
+.panel3d-wire-waypoints > summary { list-style:none; padding:5px 7px; font-size:9.5px; font-weight:700; color:var(--dx-ink-2,#334155); cursor:pointer; }
+.panel3d-wire-waypoints > summary::-webkit-details-marker { display:none; }
+.panel3d-wire-wp-list { display:flex; flex-direction:column; gap:3px; padding:0 5px 5px; max-height:168px; overflow-y:auto; }
+.panel3d-wire-wp-row { display:flex; align-items:center; gap:3px; padding:3px 4px; border:1px solid var(--dx-line-soft,#e5ecf5); border-radius:5px; background:var(--dx-surface-2,#f8fafc); cursor:pointer; }
+.panel3d-wire-wp-row.is-active { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); }
+.panel3d-wire-wp-idx { flex:none; width:18px; font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dx-ink-3,#64748b); }
+.panel3d-wire-wp-axis { flex:1 1 0; min-width:0; display:inline-flex; align-items:center; gap:2px; padding:0 3px; height:22px; border:1px solid var(--dx-line,#dbe4ef); border-radius:4px; background:var(--dx-surface,#fff); }
+.panel3d-wire-wp-axis i { font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace; font-style:normal; color:var(--dx-ink-4,#94a3b8); }
+.panel3d-wire-wp-axis input { width:100%; min-width:0; border:0; background:transparent; color:var(--dx-ink,#0f172a); font:600 9.5px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; text-align:right; outline:none; }
+.panel3d-wire-wp-del { flex:none; width:20px; height:22px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--dx-line,#dbe4ef); border-radius:4px; background:var(--dx-surface,#fff); color:#b91c1c; cursor:pointer; }
+.panel3d-wire-wp-del:hover:not(:disabled) { background:#fef2f2; border-color:#fecaca; }
+.panel3d-wire-actions-hint { color:var(--dx-ink-3,#64748b); font-size:9.5px; line-height:1.4; }
+.panel3d-draw-live b.is-warn, .panel3d-draw-live em.is-warn { color:#b45309; }
 @media (max-width:560px) {
-  .panel3d-wire-actions button { min-height:30px; font-size:10px; }
+  .panel3d-wire-actions button { min-height:34px; font-size:10.5px; }
+  .panel3d-wire-ends-row { grid-template-columns:1fr; }
+  .panel3d-wire-end-chip button { min-height:32px; }
 }
 
 

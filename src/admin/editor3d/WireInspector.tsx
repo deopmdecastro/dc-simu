@@ -5,8 +5,9 @@ import { IconCheck, IconClose, IconEye, IconEyeOff, IconFocus, IconWarning } fro
 import { useEditorStore, type TestWire } from './editorStore'
 import { ColorSwatches, ConductorChooser, EndChooser } from './WireControls'
 import { Empty, Field, Num, Section, Select, Text } from './ui'
-import { endLabel, evaluateWire, wireModel } from './wirePath'
-import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL, WIRE_END_LABEL, WIRE_GAUGES, WIRE_KIND_COLOR, WIRE_KIND_LABEL, cableOuterDiameterMm } from './wireStyle'
+import { endLabel, evaluateWire, evaluateWireCurvature, orthogonalizeTestPoints, wireModel } from './wirePath'
+import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL, WIRE_END_LABEL, WIRE_GAUGES, WIRE_KIND_COLOR, WIRE_KIND_LABEL, cableOuterDiameterMm, wireAmpacityIecA, wireColorSwatchBg } from './wireStyle'
+import { CableSpecimen } from '../../ui/WireOptions'
 import type { WireKind } from '../../types'
 
 const FREE = '__free'
@@ -22,6 +23,7 @@ export function WiresTab() {
   const reverse = useEditorStore((s) => s.reverseWire)
   const wire = wires.find((item) => item.id === selectedId)
   const verdict = useMemo(() => (wire ? evaluateWire(terminals, wire) : null), [wire, terminals])
+  const curvature = useMemo(() => (wire ? evaluateWireCurvature(terminals, wire) : null), [wire, terminals])
   const model = useMemo(() => (wire ? wireModel(terminals, wire) : null), [wire, terminals])
   const terminalOptions: Array<[string, string]> = [[FREE, 'Ponta livre'], ...terminals.map((item): [string, string] => [item.id, `${item.label} · ${item.name}`])]
 
@@ -63,7 +65,26 @@ export function WiresTab() {
     </Section>
     {!wire && <Empty>Selecione um cabo na lista ou clique nele no viewport (ferramenta Selecionar) para editar cor, secção e terminações.</Empty>}
     {wire && verdict && <>
-      <Section title="Identificação">
+      <Section title="Identificação e resumo">
+        <CableSpecimen
+          color={wire.color}
+          gauge={wire.gauge}
+          flexibility={wire.flexibility}
+          fromEndType={wire.endA}
+          toEndType={wire.endB}
+          fromEndColor={hex}
+          toEndColor={hex}
+        />
+        <div className="wo-preview-specs">
+          <span>Ø {cableOuterDiameterMm(wire.gauge).toFixed(1)} mm</span>
+          <span>{verdict.lengthMm} mm</span>
+          {curvature && (
+            <span className={!curvature.bendOk ? 'is-warn' : ''} title={`Raio mínimo recomendado: ${curvature.recommendedMm} mm`}>
+              {curvature.minBendMm !== null ? `Rmín ${curvature.minBendMm} mm` : 'Reto'}
+            </span>
+          )}
+          {wireAmpacityIecA(wire.gauge) && <span>≈ {wireAmpacityIecA(wire.gauge)} A</span>}
+        </div>
         <Field label="Nome"><Text value={wire.number} onChange={(number) => patch(wire.id, { number })} /></Field>
         <Field label="Função" hint="Ao mudar a função a cor segue a norma (IEC 60204-1); pode alterá-la depois.">
           <Select<WireKind> value={wire.kind} onChange={(kind) => patch(wire.id, { kind, color: WIRE_KIND_COLOR[kind] })} options={Object.entries(WIRE_KIND_LABEL) as Array<[WireKind, string]>} />
@@ -101,6 +122,9 @@ export function WiresTab() {
         <div className="ce-actions">
           <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => reverse(wire.id)} title="Troca origem e destino (e as terminações)">Inverter sentido</button>
           <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={addPoint}>+ Ponto</button>
+          {wire.points.length > 0 && (
+            <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Alinha os troços dos pontos intermédios a 90° nos eixos X/Y/Z" onClick={() => patch(wire.id, { points: orthogonalizeTestPoints(terminals, wire) })}>Alinhar 90°</button>
+          )}
           <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={wire.points.length === 0} onClick={() => patch(wire.id, { points: [] })}>Limpar pontos</button>
         </div>
         {wire.points.length === 0 && <p className="ce-hint">Sem pontos intermédios: o cabo segue direto entre as pontas. Duplo clique no cabo (viewport) acrescenta um ponto; arraste-o para o mover; duplo clique no ponto remove-o.</p>}
@@ -128,7 +152,7 @@ export function WireRow({ wire, selected }: { wire: TestWire; selected: boolean 
     onClick={() => set({ selectedWire: wire.id, selection: null, tab: 'wires' })}
     onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); set({ selectedWire: wire.id, selection: null, tab: 'wires' }) } }}
     onPointerEnter={() => set({ hoverWire: wire.id })} onPointerLeave={() => set({ hoverWire: null })}>
-    <i className="ce-dot" style={{ background: WIRE_COLOR_HEX[wire.color] }} />
+    <i className="ce-dot" style={{ background: wireColorSwatchBg(wire.color) }} />
     <span className="ce-wrow-name"><b>{wire.number}</b> {endLabel(terminals, wire.a)} <span className="ce-wire-link">→</span> {endLabel(terminals, wire.b)}</span>
     <em className="ce-wire-meta">{wire.gauge.replace('mm²', '')} mm² · {verdict.lengthMm} mm</em>
     <span className="ce-wrow-verdict" title={verdict.messages.join(' · ') || COMPAT_LABEL[verdict.level]}>{verdict.level === 'ok' ? <IconCheck size={12} /> : <IconWarning size={12} />}</span>

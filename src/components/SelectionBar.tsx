@@ -44,9 +44,10 @@ export default function SelectionBar() {
   const hasComponents = ids.length > 0
   if (demoMode || (!hasComponents && !wireId && !terminalId)) return null
 
+  const singleWire = multiWires.length === 1 ? selectedWires[0] : undefined
   const label = hasComponents
     ? (ids.length > 1 ? `${ids.length} objetos` : first?.ref || 'Objeto')
-    : multiWires.length > 1 ? `${multiWires.length} cabos` : wireId ? 'Cabo' : 'Borne'
+    : multiWires.length > 1 ? `${multiWires.length} cabos` : singleWire ? (singleWire.number || 'Cabo') : wireId ? 'Cabo' : 'Borne'
   const clear = () => { selectComponents([]); selectWire(null); selectTerminal(null) }
 
   return (

@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { TbButton } from '../ui/toolbarKit'
-import { useWireActionSlot } from '../ui/wireActionSlot'
+import { useWireActionSlot, useWireDraftSlot } from '../ui/wireActionSlot'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
 import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -67,9 +67,31 @@ import { MOTOR_FAN, MOTOR_SIZE, motorCadToCentered } from './motorTerminalLayout
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
 import LeadPigtails3D from './LeadPigtails3D'
-import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
+import { SnapGuides3D, WireDraftSideCard, WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
+import { terminalElectricalClassOf } from '../electrical/terminalClassification'
 import { wireEndColor } from '../schematic/wireEndColor'
-import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
+import {
+  buildWirePath3D,
+  cableOuterDiameterMm,
+  componentObstacles,
+  closestPointOnPolyline,
+  fromSpatial,
+  orthogonalizeWaypoints3D,
+  sampleCurveInsertPoint3D,
+  simplifyWaypoints3D,
+  snapControlPoint3D,
+  toSpatial,
+  waypointInsertIndex,
+  wireCurveMetrics3D,
+  wireEndpoint3D,
+  wireLengthMm,
+  WIRE_3D_COLORS,
+  type SnapGuideLine3D,
+  type V3,
+  type WireEndpoint3D,
+  type WirePath3D,
+  type WireObstacle,
+} from './wireGeometry3D'
 import { bundleLacingTies } from './bundleLacing'
 import { useWireRouting } from './useWireRouting'
 import { createWireRoutingJob } from './wireRoutingJob'
@@ -1785,7 +1807,7 @@ function DragHandle3D({ position, onPress, onLive, onCommit, snap, onDoubleClick
   onPress?: () => void
   onLive: (point: V3 | null) => void
   onCommit: (point: V3) => void
-  snap?: (point: V3) => V3
+  snap?: (point: V3, mods: { shiftKey: boolean; altKey: boolean }) => V3
   onDoubleClick?: () => void
   children: ReactNode
 }) {
@@ -1820,7 +1842,7 @@ function DragHandle3D({ position, onPress, onLive, onCommit, snap, onDoubleClick
       if (!hit) return
       hit.add(offset)
       let next: V3 = [hit.x, hit.y, hit.z]
-      if (snap && !e.altKey) next = snap(next)
+      if (snap && !e.altKey) next = snap(next, { shiftKey: e.shiftKey, altKey: e.altKey })
       last = next
       onLive(next)
     }
@@ -1850,19 +1872,41 @@ function DragHandle3D({ position, onPress, onLive, onCommit, snap, onDoubleClick
   </group>
 }
 
-function EditableWireWaypoint3D({ point, index, active, onSelect, onLive, onCommit, onRemove }: {
+function EditableWireWaypoint3D({ point, index, active, snap, onSelect, onLive, onCommit, onRemove }: {
   point: V3
   index: number
   active: boolean
+  snap?: (point: V3, mods: { shiftKey: boolean; altKey: boolean }) => V3
   onSelect: (index: number) => void
   onLive: (index: number, point: V3 | null) => void
   onCommit: (index: number, point: V3) => void
   onRemove: (index: number) => void
 }) {
-  return <DragHandle3D position={point} onPress={() => onSelect(index)} onLive={(next) => onLive(index, next)} onCommit={(next) => onCommit(index, next)} onDoubleClick={() => onRemove(index)}>
+  return <DragHandle3D position={point} snap={snap} onPress={() => onSelect(index)} onLive={(next) => onLive(index, next)} onCommit={(next) => onCommit(index, next)} onDoubleClick={() => onRemove(index)}>
     <mesh renderOrder={32}><sphereGeometry args={[active ? 0.095 : 0.072, 18, 18]} /><meshStandardMaterial color={active ? '#2563eb' : '#ffffff'} emissive={active ? '#1d4ed8' : '#64748b'} emissiveIntensity={active ? 0.75 : 0.28} depthTest={false} /></mesh>
-    <Text position={[0, 0.1, 0]} fontSize={0.052} color="#1e3a8a" anchorX="center" anchorY="bottom" depthOffset={-4} raycast={() => null}>{index + 1}</Text>
+    <Text position={[0, 0.1, 0]} fontSize={0.052} color="#1e3a8a" anchorX="center" anchorY="bottom" outlineWidth={0.003} outlineColor="#ffffff" depthOffset={-4} raycast={() => null}>{index + 1}</Text>
   </DragHandle3D>
+}
+
+/** Pega subtil a meio de um segmento manual para inserir rapidamente um novo ponto de curva com um clique. */
+function WireMidpointBead3D({ point, onInsert }: { point: V3; onInsert: () => void }) {
+  const { gl } = useThree()
+  const [hover, setHover] = useState(false)
+  return (
+    <group
+      position={point}
+      userData={{ noPick: true, noSnapshot: true }}
+      onPointerOver={(e) => { e.stopPropagation(); setHover(true); gl.domElement.style.cursor = 'copy' }}
+      onPointerOut={() => { setHover(false); gl.domElement.style.cursor = '' }}
+      onClick={(e) => { e.stopPropagation(); onInsert() }}
+    >
+      <mesh renderOrder={31}>
+        <sphereGeometry args={[hover ? 0.058 : 0.04, 14, 14]} />
+        <meshStandardMaterial color={hover ? '#2563eb' : '#93c5fd'} emissive={hover ? '#1d4ed8' : '#3b82f6'} emissiveIntensity={hover ? 0.65 : 0.3} transparent opacity={hover ? 0.96 : 0.72} depthTest={false} />
+      </mesh>
+      <mesh><sphereGeometry args={[0.14, 10, 10]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+    </group>
+  )
 }
 
 /** Pega numa ponta do cabo: arrasta-se (ligada ou livre) e encaixa no borne mais próximo ao largar; Religar/Soltar continuam no editor. */
@@ -2004,6 +2048,25 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
 
   type LiveDrag = { wireId: string; kind: 'waypoint' | 'end' | 'all'; index?: number; side?: 'from' | 'to'; point: V3; origin?: V3 }
   const [drag, setDrag] = useState<LiveDrag | null>(null)
+  const [dragGuides, setDragGuides] = useState<SnapGuideLine3D[]>([])
+  const snapWaypointFor = (wire: Wire, wpIndex: number, fromPos: V3, toPos: V3) => (point: V3, mods: { shiftKey: boolean; altKey: boolean }): V3 => {
+    const wps = (wire.waypoints3D ?? []).map(fromSpatial)
+    const prev = wpIndex > 0 ? wps[wpIndex - 1] : fromPos
+    const next = wpIndex + 1 < wps.length ? wps[wpIndex + 1] : toPos
+    const outerMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
+    const res = snapControlPoint3D(point, {
+      anchor: prev,
+      references: [next, fromPos, toPos],
+      obstacles,
+      outerMm,
+      axisLock: mods.shiftKey,
+      magnetic: true,
+      fine: mods.altKey,
+      gridStep: 0,
+    })
+    setDragGuides(res.guides)
+    return res.point
+  }
   const nearestTerminalPoint = (side: 'from' | 'to', wire: Wire) => (point: V3): V3 => {
     const otherId = side === 'from' ? wire.toTerminalId : wire.fromTerminalId
     let best: V3 = point
@@ -2185,10 +2248,23 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
       })}
       {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
+        snap={snapWaypointFor(storedWire, index, baseFrom.position, baseTo.position)}
         onSelect={handlers.onSelectWaypoint}
-        onLive={(waypointIndex, next) => setDrag(next ? { wireId: wire.id, kind: 'waypoint', index: waypointIndex, point: next } : null)}
-        onCommit={(waypointIndex, next) => handlers.onMoveWaypoint(wire.id, waypointIndex, toSpatial(next))}
+        onLive={(waypointIndex, next) => {
+          setDrag(next ? { wireId: wire.id, kind: 'waypoint', index: waypointIndex, point: next } : null)
+          if (!next) setDragGuides([])
+        }}
+        onCommit={(waypointIndex, next) => { setDragGuides([]); handlers.onMoveWaypoint(wire.id, waypointIndex, toSpatial(next)) }}
         onRemove={(waypointIndex) => handlers.onRemoveWaypoint(wire.id, waypointIndex)} />)}
+      {editing && !handlers.moveAll && !drag && manual.length > 0 && chain.slice(0, -1).map((segA, segIdx) => {
+        const segB = chain[segIdx + 1]
+        const segLen = Math.hypot(segB[0] - segA[0], segB[1] - segA[1], segB[2] - segA[2])
+        if (segLen < 0.34) return null
+        const midRaw: V3 = [(segA[0] + segB[0]) / 2, (segA[1] + segB[1]) / 2, (segA[2] + segB[2]) / 2]
+        const onCurve = closestPointOnPolyline(points, midRaw)
+        return <WireMidpointBead3D key={`${wire.id}-mid-${segIdx}`} point={onCurve} onInsert={() => handlers.onInsertWaypoint(wire.id, segIdx, toSpatial(onCurve))} />
+      })}
+      {editing && drag?.wireId === wire.id && dragGuides.length > 0 && <SnapGuides3D guides={dragGuides} />}
       {editing && !handlers.moveAll && (['from', 'to'] as const).map((side) => {
         const endKind = (side === 'from' ? wire.fromEndType : wire.toEndType) ?? wire.endType ?? 'none'
         return <EditableWireEnd3D key={`${wire.id}-${side}`} side={side} point={side === 'from' ? from.position : to.position} free={side === 'from' ? from.free : to.free} active={handlers.activeEnd === side} label={label(side)}
@@ -2885,6 +2961,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const [wireEditDirty, setWireEditDirty] = useState(false)
   // As ações do traçado do cabo vivem no painel lateral esquerdo (ver ui/wireActionSlot).
   const wireActionSlot = useWireActionSlot()
+  const wireDraftSlot = useWireDraftSlot()
   const components = useMemo(() => storedComponents.map((component) => viewOrientationEditor?.componentId === component.id ? {
     ...component,
     viewOrientation: viewOrientationEditor.draft,
@@ -3588,13 +3665,27 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const ends = wireEnds(selectedWire)
     return ends ? buildWirePath3D(selectedWire, ends.from, ends.to, componentObstacles(components, panelPivots)) : null
   })()
+  const selectedWireOuterMm = selectedWire
+    ? cableOuterDiameterMm(selectedWire.gauge, { conductorCount: selectedWire.conductorCount, sheathed: selectedWire.sheathed })
+    : 2.8
+  const selectedWireMetrics = selectedWire && selectedWirePath
+    ? wireCurveMetrics3D(selectedWirePath, selectedWireOuterMm, {
+        multicoreOrRigid: (selectedWire.conductorCount ?? 1) > 1 || !!selectedWire.sheathed || selectedWire.flexibility === 'rigid',
+      })
+    : null
   const addWireWaypoint = () => {
-    if (!selectedWire) return
+    if (!selectedWire || selectedWire.locked) return
     const ends = wireEnds(selectedWire)
     if (!ends) return
     const current = selectedWire.waypoints3D ?? []
+    const obstacles = componentObstacles(components, panelPivots)
+    const path = selectedWirePath ?? buildWirePath3D(selectedWire, ends.from, ends.to, obstacles)
+    if (current.length === 0 && path.points.length >= 2) {
+      const point = sampleCurveInsertPoint3D(path, selectedWireOuterMm)
+      insertWireWaypoint(selectedWire.id, 0, point)
+      return
+    }
     const chain = [ends.from.position, ...current.map(fromSpatial), ends.to.position]
-    // novo ponto a meio do troço mais longo, à frente do painel, para ficar logo visível e arrastável
     let longest = 0
     let longestLength = -1
     for (let i = 0; i < chain.length - 1; i += 1) {
@@ -3603,19 +3694,62 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }
     const a = chain[longest]
     const b = chain[longest + 1]
-    const point: SpatialPoint3D = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 - (current.length === 0 ? 0.25 : 0), z: Math.max(a[2], b[2]) + 0.12 }
-    insertWireWaypoint(selectedWire.id, longest, point)
+    const mid: V3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]
+    const onCurve = path.points.length >= 2 ? closestPointOnPolyline(path.points, mid) : mid
+    insertWireWaypoint(selectedWire.id, longest, toSpatial(onCurve))
   }
   const insertWireWaypoint = (wireId: string, index: number, point: SpatialPoint3D) => {
     const wire = useSimStore.getState().wires.find((candidate) => candidate.id === wireId)
-    if (!wire) return
+    if (!wire || wire.locked) return
     const next = [...(wire.waypoints3D ?? [])]
-    next.splice(Math.max(0, Math.min(index, next.length)), 0, point)
-    beginWireEdit(wire).updateWire(wireId, { waypoints3D: next, route: wire.flexibility === 'flexible' && wire.route !== 'arc' ? 'arc' : wire.route })
+    const clamped = Math.max(0, Math.min(index, next.length))
+    next.splice(clamped, 0, {
+      x: Math.round(point.x * 1000) / 1000,
+      y: Math.round(point.y * 1000) / 1000,
+      z: Math.round(point.z * 1000) / 1000,
+    })
+    // Preserva o modo de traçado escolhido (ortogonal/manhattan/curvo/direto) sem distorcer o 2D.
+    beginWireEdit(wire).updateWire(wireId, { waypoints3D: next })
     useSimStore.getState().selectWire(wireId)
     setMoveAllWire(false)
     setActiveEnd(null)
-    setActiveWaypointIndex(Math.max(0, Math.min(index, next.length - 1)))
+    setActiveWaypointIndex(Math.max(0, Math.min(clamped, next.length - 1)))
+  }
+  const orthogonalizeSelectedWire3D = () => {
+    if (!selectedWire || selectedWire.locked || !selectedWire.waypoints3D?.length) return
+    const ends = wireEnds(selectedWire)
+    if (!ends) return
+    const obstacles = componentObstacles(components, panelPivots)
+    const aligned = orthogonalizeWaypoints3D(ends.from.position, selectedWire.waypoints3D, ends.to.position, selectedWireOuterMm, obstacles)
+    beginWireEdit(selectedWire).updateWire(selectedWire.id, {
+      waypoints3D: aligned.length ? aligned : undefined,
+      route: selectedWire.route === 'arc' || selectedWire.route === 'direct' ? 'orthogonal' : selectedWire.route,
+    })
+    setActiveWaypointIndex(null)
+    useSimStore.getState().pushEvent('info', `Curva 3D de ${selectedWire.number || 'cabo'} alinhada a 90°.`)
+  }
+  const simplifySelectedWire3D = () => {
+    if (!selectedWire || selectedWire.locked || !selectedWire.waypoints3D?.length) return
+    const ends = wireEnds(selectedWire)
+    if (!ends) return
+    const before = selectedWire.waypoints3D.length
+    const clean = simplifyWaypoints3D(ends.from.position, selectedWire.waypoints3D, ends.to.position, 0.035)
+    beginWireEdit(selectedWire).updateWire(selectedWire.id, { waypoints3D: clean.length ? clean : undefined })
+    setActiveWaypointIndex(null)
+    useSimStore.getState().pushEvent('info', `Curva 3D simplificada (${before} → ${clean.length} ponto${clean.length === 1 ? '' : 's'}).`)
+  }
+  const resetSelectedWireAuto3D = () => {
+    if (!selectedWire || selectedWire.locked || !selectedWire.waypoints3D?.length) return
+    beginWireEdit(selectedWire).updateWire(selectedWire.id, { waypoints3D: undefined })
+    setActiveWaypointIndex(null)
+    useSimStore.getState().pushEvent('info', `Percurso 3D automático reposto em ${selectedWire.number || 'cabo'}.`)
+  }
+  const updateWaypointAxisMm = (index: number, axis: 'x' | 'y' | 'z', valueMm: number) => {
+    if (!selectedWire || selectedWire.locked || !Number.isFinite(valueMm)) return
+    const current = selectedWire.waypoints3D ?? []
+    if (!current[index]) return
+    const next = current.map((p, i) => (i === index ? { ...p, [axis]: Math.round(valueMm * PANEL_UNITS_PER_MM * 1000) / 1000 } : p))
+    beginWireEdit(selectedWire).updateWire(selectedWire.id, { waypoints3D: next })
   }
   const moveWireWaypoint = (wireId: string, index: number, point: SpatialPoint3D) => {
     const wire = useSimStore.getState().wires.find((candidate) => candidate.id === wireId)
@@ -3691,27 +3825,41 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     beginWireEdit(wire).updateWire(wireId, patch)
   }
 
-  /** Bornes disponíveis para o desenho/ligação de cabos no 3D (posição física real). */
+  /** Bornes disponíveis para o desenho/ligação de cabos no 3D (posição física real + classe elétrica). */
   const drawTerminals: DrawTerminal[] = components.flatMap((component) => {
     const pivot = panelPivots[component.id]
     if (!pivot) return []
+    const mounted = doorMountedComponent(component, components)
     return component.terminals.map((terminal) => {
-      const world = terminalWorld3D(doorMountedComponent(component, components), terminal, pivot)
-      return { id: terminal.id, position: [world.x, world.y, world.z] as V3, label: terminal.label, ref: component.ref, color: terminal.color }
+      const world = terminalWorld3D(mounted, terminal, pivot)
+      return {
+        id: terminal.id,
+        position: [world.x, world.y, world.z] as V3,
+        label: terminal.label,
+        ref: component.ref,
+        color: terminal.color,
+        electricalClass: terminalElectricalClassOf(component, terminal),
+      }
     })
   })
   const draftStart = (from: WireDraft['from']) => setDraft({ from, points: [] })
   const draftAddPoint = (point: V3) => setDraft((current) => current ? { ...current, points: [...current.points, point] } : current)
-  const draftFinish = (to: { terminalId: string } | { point: V3 }) => {
+  const draftFinish = (to: { terminalId: string } | { point: V3 }, opts?: { chain?: boolean }) => {
     const current = draftRef.current
     if (!current) return
     const lastIsEnd = 'point' in to && current.points.length && current.points[current.points.length - 1] === to.point
     const waypoints = (lastIsEnd ? current.points.slice(0, -1) : current.points).map(toSpatial)
     const from = 'terminalId' in current.from ? current.from : { point: toSpatial(current.from.point) }
     const end = 'terminalId' in to ? to : { point: toSpatial(to.point) }
-    const id = useSimStore.getState().addWire3D(from, end, waypoints)
-    setDraft(null)
-    if (id) useSimStore.getState().selectWire(id)
+    const store = useSimStore.getState()
+    const id = store.addWire3D(from, end, waypoints)
+    const continueChain = 'terminalId' in to && (!!opts?.chain || !!store.wireDefaults.chainMode)
+    if (continueChain) {
+      setDraft({ from: { terminalId: to.terminalId }, points: [] })
+    } else {
+      setDraft(null)
+      if (id) store.selectWire(id)
+    }
   }
   const draftUndoPoint = () => setDraft((current) => {
     if (!current) return current
@@ -3936,27 +4084,121 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           note={cubeNote}
           placement="top"
         />
+      {!demoMode && !simLocked && (editMode === 'connect' || reconnect !== null) && wireDraftSlot && createPortal(
+        <WireDraftSideCard
+          draft={draft}
+          originLabel={draft
+            ? ('terminalId' in draft.from
+                ? (() => {
+                    const tid = (draft.from as { terminalId: string }).terminalId
+                    const t = drawTerminals.find((item) => item.id === tid)
+                    return t ? `${t.ref}.${t.label}` : 'Borne'
+                  })()
+                : 'Ponta livre')
+            : ''}
+          reconnectingLabel={reconnect ? `ponta ${reconnect.end === 'from' ? 'A' : 'B'}` : null}
+          onUndoPoint={draftUndoPoint}
+          onFinishFree={draftFinishFree}
+          onCancel={() => { setDraft(null); setReconnect(null) }}
+        />,
+        wireDraftSlot,
+      )}
       {selectedWire && !demoMode && wireActionSlot && createPortal(<div className="panel3d-wire-actions-panel" role="region" aria-label="Traçado do cabo no esquema 3D">
         <div className="panel3d-wire-actions-head">
-          <strong>{selectedWire.number || 'Cabo'}</strong>
-          <small>{selectedWire.gauge} · Ø {cableOuterDiameterMm(selectedWire.gauge, { conductorCount: selectedWire.conductorCount, sheathed: selectedWire.sheathed }).toFixed(1)} mm{selectedWirePath ? ` · ≈ ${wireLengthMm(selectedWirePath)} mm` : ''}</small>
-          <i className={wireEditDirty ? 'is-dirty' : ''}>{wireEditDirty ? 'Alterado' : 'Sincronizado'}</i>
+          <strong>Curva 3D</strong>
+          <span className={`panel3d-wire-badge ${selectedWireMetrics && !selectedWireMetrics.bendOk ? 'is-warn' : ''}`}
+            title={selectedWireMetrics ? `Raio mínimo recomendado (IEC 60204-1): ${selectedWireMetrics.recommendedMinRadiusMm} mm` : undefined}>
+            {selectedWireMetrics
+              ? selectedWireMetrics.minBendRadiusMm !== null
+                ? `Rmín ${selectedWireMetrics.minBendRadiusMm} mm${selectedWireMetrics.bendOk ? '' : ' !'}`
+                : 'Reto'
+              : '—'}
+          </span>
+          <i className={wireEditDirty ? 'is-dirty' : ''}>{wireEditDirty ? 'Alterado' : (selectedWire.waypoints3D?.length ? `${selectedWire.waypoints3D.length} pt` : 'Auto')}</i>
+          <small>
+            {selectedWirePath ? `≈ ${wireLengthMm(selectedWirePath)} mm` : '—'}
+            {selectedWireMetrics ? ` · ${selectedWireMetrics.bendCount} ${selectedWireMetrics.bendCount === 1 ? 'dobra' : 'dobras'}` : ''}
+            {` · Ø ${selectedWireOuterMm.toFixed(1)} mm`}
+          </small>
         </div>
         <div className="panel3d-wire-actions">
-          <button type="button" onClick={addWireWaypoint} title="Adiciona um ponto de curva (também: duplo clique sobre o cabo)"><IconPlus size={11} />Ponto</button>
-          <button type="button" disabled={activeWaypointIndex === null} onClick={removeWireWaypoint} title="Remove o ponto ativo (Delete, ou duplo clique no ponto)"><IconDelete size={11} />Ponto</button>
-          <button type="button" className={moveAllWire ? 'is-active' : ''} aria-pressed={moveAllWire} onClick={() => { setMoveAllWire((value) => !value); setActiveWaypointIndex(null); setActiveEnd(null) }} title="Desloca o cabo inteiro com o manipulador 3D"><IconMove size={11} />Mover cabo</button>
-          {activeEnd && <>
-            <button type="button" onClick={() => startReconnect(activeEnd)} title="Escolher outro borne para esta ponta"><IconLink size={11} />Religar {activeEnd === 'from' ? 'A' : 'B'}</button>
-            <button type="button" onClick={() => detachWireEnd(activeEnd)} title="Soltar a ponta do borne (fica livre no espaço)"><IconUnlock size={11} />Soltar {activeEnd === 'from' ? 'A' : 'B'}</button>
+          <button type="button" disabled={!!selectedWire.locked || simLocked} onClick={addWireWaypoint} title="Insere um ponto de curva no troço mais longo (também: duplo clique no cabo)"><IconPlus size={11} />Ponto</button>
+          <button type="button" disabled={!!selectedWire.locked || simLocked || activeWaypointIndex === null} onClick={removeWireWaypoint} title="Remove o ponto ativo (Delete ou duplo clique na esfera)"><IconDelete size={11} />Remover</button>
+          {(selectedWire.waypoints3D?.length ?? 0) > 0 && <>
+            <button type="button" disabled={!!selectedWire.locked || simLocked} onClick={orthogonalizeSelectedWire3D} title="Alinha os troços da curva 3D a 90° nos eixos X/Y/Z">Alinhar 90°</button>
+            {(selectedWire.waypoints3D?.length ?? 0) >= 2 && (
+              <button type="button" disabled={!!selectedWire.locked || simLocked} onClick={simplifySelectedWire3D} title="Remove pontos de curva colineares ou redundantes">Simplificar</button>
+            )}
+            <button type="button" disabled={!!selectedWire.locked || simLocked} onClick={resetSelectedWireAuto3D} title="Remove pontos manuais e repõe o encaminhamento automático 3D">Auto 3D</button>
           </>}
-          {wireEditDirty && <>
+          <button type="button" disabled={!!selectedWire.locked || simLocked} className={moveAllWire ? 'is-active' : ''} aria-pressed={moveAllWire} onClick={() => { setMoveAllWire((value) => !value); setActiveWaypointIndex(null); setActiveEnd(null) }} title="Desloca o cabo inteiro com o manipulador 3D"><IconMove size={11} />Mover cabo</button>
+        </div>
+        <div className="panel3d-wire-ends-row" role="group" aria-label="Religar ou soltar pontas no 3D">
+          {(['from', 'to'] as const).map((side) => {
+            const tag = side === 'from' ? 'A' : 'B'
+            const hasTerm = !!(side === 'from' ? selectedWire.fromTerminalId : selectedWire.toTerminalId)
+            const isPicking = reconnect?.wireId === selectedWire.id && reconnect.end === side
+            return (
+              <div key={side} className={`panel3d-wire-end-chip ${activeEnd === side || isPicking ? 'is-on' : ''}`}>
+                <span>Ponta {tag}</span>
+                <button type="button" disabled={!!selectedWire.locked || simLocked} onClick={() => startReconnect(side)} title={`Escolher outro borne para a ponta ${tag}`}><IconLink size={10} />{isPicking ? 'A escolher…' : 'Religar'}</button>
+                {hasTerm && <button type="button" disabled={!!selectedWire.locked || simLocked} onClick={() => detachWireEnd(side)} title={`Soltar a ponta ${tag} do borne`}><IconUnlock size={10} />Soltar</button>}
+              </div>
+            )
+          })}
+        </div>
+        {(selectedWire.waypoints3D?.length ?? 0) > 0 && (
+          <details className="panel3d-wire-waypoints" open={activeWaypointIndex !== null}>
+            <summary>Coordenadas dos pontos 3D ({selectedWire.waypoints3D!.length}) · mm</summary>
+            <div className="panel3d-wire-wp-list">
+              {selectedWire.waypoints3D!.map((wp, idx) => (
+                <div
+                  key={idx}
+                  className={`panel3d-wire-wp-row ${activeWaypointIndex === idx ? 'is-active' : ''}`}
+                  onClick={() => { setActiveWaypointIndex(idx); setActiveEnd(null); setMoveAllWire(false) }}
+                >
+                  <span className="panel3d-wire-wp-idx">#{idx + 1}</span>
+                  {(['x', 'y', 'z'] as const).map((axis) => (
+                    <label key={axis} className="panel3d-wire-wp-axis">
+                      <i>{axis.toUpperCase()}</i>
+                      <input
+                        type="number"
+                        step={1}
+                        disabled={!!selectedWire.locked || simLocked}
+                        value={Math.round(wp[axis] / PANEL_UNITS_PER_MM)}
+                        aria-label={`Ponto ${idx + 1} eixo ${axis.toUpperCase()} (mm)`}
+                        onChange={(e) => updateWaypointAxisMm(idx, axis, Number(e.target.value))}
+                      />
+                    </label>
+                  ))}
+                  <button
+                    type="button"
+                    className="panel3d-wire-wp-del"
+                    disabled={!!selectedWire.locked || simLocked}
+                    aria-label={`Remover ponto ${idx + 1}`}
+                    title={`Remover ponto #${idx + 1}`}
+                    onClick={(e) => { e.stopPropagation(); removeWireWaypointAt(selectedWire.id, idx) }}
+                  >
+                    <IconClose size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        {wireEditDirty && (
+          <div className="panel3d-wire-actions">
             <button type="button" onClick={cancelWireEdit}><IconClose size={11} />Repor traçado</button>
             <button type="button" className="is-primary" onClick={saveWireEdit}><IconSave size={11} />Fixar traçado</button>
-          </>}
-          <button type="button" className="is-danger" onClick={() => { deleteWire(selectedWire.id); setActiveWaypointIndex(null); setActiveEnd(null) }}><IconDelete size={11} />Eliminar cabo</button>
-        </div>
-        <small className="panel3d-wire-actions-hint">{moveAllWire ? 'Arraste o cubo roxo para mover o cabo.' : reconnect ? 'Clique no novo borne da ponta.' : 'Arraste as bolas no esquema 3D para curvar · duplo clique no cabo cria um ponto · cor, secção e terminações acima'}</small>
+          </div>
+        )}
+        <small className="panel3d-wire-actions-hint">
+          {moveAllWire
+            ? 'Arraste o cubo roxo para deslocar todo o cabo.'
+            : reconnect
+              ? `Clique no borne de destino para a ponta ${reconnect.end === 'from' ? 'A' : 'B'} (Esc cancela).`
+              : 'Arraste as esferas (Shift trava eixo · Alt livre) · duplo clique no cabo cria ponto · clique nas contas azuis divide um troço.'}
+        </small>
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
@@ -4146,7 +4388,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           terminals={drawTerminals}
           wireRadius={(cableOuterDiameterMm(wireDefaults.gauge, { conductorCount: wireDefaults.conductorCount, sheathed: wireDefaults.sheathed }) * PANEL_UNITS_PER_MM) / 2}
           wireColor={WIRE_3D_COLORS[wireDefaults.autoColor ? 'red' : wireDefaults.color]}
-          smooth={wireDefaults.flexibility === 'flexible'}
+          sheathed={!!wireDefaults.sheathed}
+          sheathColor={wireDefaults.sheathColor}
+          smooth={(wireDefaults.route ?? 'orthogonal') === 'arc'}
+          route={wireDefaults.route ?? 'orthogonal'}
+          orthoSnap={wireDefaults.orthoSnap !== false}
           reconnecting={reconnect !== null}
           fallbackCenter={sceneCenter}
           obstacles={componentObstacles(components, panelPivots)}

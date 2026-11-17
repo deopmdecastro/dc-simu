@@ -16,17 +16,19 @@ import { useSimStore } from '../store/useSimStore'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import { iecAssociationOf, iecPrimaryLabel, iecRelatedLabels } from '../electrical/iecAssociation'
-import type { ComponentType, TerminalElectricalClass, TerminalKind, TerminalType, Wire, WireColor } from '../types'
-import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
+import type { ComponentType, TerminalElectricalClass, TerminalKind, TerminalType, Wire, WireColor, WireRoute } from '../types'
+import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import { terminalClassesCompatible, terminalDatasheetGuidance, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import LabelLibrary from './LabelLibrary'
 import DatasheetPanel from './DatasheetPanel'
 import { terminalConnections } from '../schematic/terminalConnections'
 import { dinFerruleColor, FERRULE_SWATCHES, wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
+import { polylineLength, wireGeometryForWire } from '../schematic/wireGeometry'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
-import { canInsertComponent3D, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
+import { componentTerminalLocal } from '../schematic/componentTerminalViews'
+import { canInsertComponent3D, isMountingRail, MISSING_3D_MODEL_MESSAGE, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { clampRailLengthMm, DIN_RAIL_15X55, dinRailProfileOf, railSlotCount } from '../three/dinRailGeometry'
 import { CableDuctControls, DinRailProfileControls, EnclosureControls, SpiralWrapControls, PANEL_ACCESSORY_STATE_KEYS, RAIL_PROFILE_STATE_KEYS } from './PanelAccessoryControls'
 import { isPanelAccessoryType } from '../three/enclosureParts'
@@ -34,9 +36,23 @@ import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 import TerminalStripControls from './TerminalStripControls'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
-import { WireOptionsFields } from '../ui/WireOptions'
-import { CABLE_PRESETS, applyCablePreset, matchCablePreset } from '../admin/editor3d/wireStyle'
-import { setWireActionSlot } from '../ui/wireActionSlot'
+import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
+import {
+  CABLE_PRESETS,
+  WIRE_COLOR_LABEL,
+  WIRE_END_LABEL,
+  WIRE_GAUGES,
+  WIRE_ROUTE_HINT,
+  WIRE_ROUTE_LABEL,
+  applyCablePreset,
+  cableOuterDiameterMm,
+  defaultCoreColors,
+  matchCablePreset,
+  wireAmpacityIecA,
+  wireColorSwatchBg,
+  wireMinBendRadiusMm,
+} from '../admin/editor3d/wireStyle'
+import { setWireActionSlot, setWireDraftSlot } from '../ui/wireActionSlot'
 import { allLightSwatches, swatchBackground, useLightColorLibrary } from '../catalog/lightColorLibrary'
 
 const label = 'dc-field-label'
@@ -270,8 +286,10 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const wires = useSimStore((s) => s.wires)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const selectedWireId = useSimStore((s) => s.selectedWireId)
+  const selectedWireIds = useSimStore((s) => s.selectedWireIds)
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const [tab, setTab] = useState<'library' | 'inspector'>('library')
+  const [wireEndTab, setWireEndTab] = useState<'from' | 'to'>('from')
   // Ferramenta ativa e valores dos cabos novos: com a ferramenta Cabo, o painel
   // lateral esquerdo passa a mostrar as opções (cor, condutor, secção, terminal)
   // em vez de as esconder num cartão sobre o canvas.
@@ -416,7 +434,13 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
   return (
     <div className="pn-panel shrink-0 flex flex-col h-full min-h-0" style={{ width }}>
-      <SidePanelHeader eyebrow={tab === 'library' ? 'ESQUEMA' : wireTool ? 'CABO' : 'COMPONENTE'} title={tab === 'library' ? 'Elementos' : wireTool ? 'Novo cabo' : 'Propriedades do componente'} side="left" onToggle={onCollapse} toggleLabel="Recolher biblioteca e inspetor" />
+      <SidePanelHeader
+        eyebrow={tab === 'library' ? 'ESQUEMA' : wireTool || (selectedWire && !selectedComponent) ? 'CABO' : selectedTerminal && !selectedComponent ? 'BORNE' : 'COMPONENTE'}
+        title={tab === 'library' ? 'Elementos' : wireTool ? 'Novo cabo' : selectedWire && !selectedComponent ? 'Inspetor do cabo' : selectedTerminal && !selectedComponent ? 'Propriedades do borne' : 'Propriedades do componente'}
+        side="left"
+        onToggle={onCollapse}
+        toggleLabel="Recolher biblioteca e inspetor"
+      />
       {/* abas */}
       <div className="pn-tabs flex items-end">
         <button onClick={() => setTab('library')} className={`dc-tab ${tab === 'library' ? 'dc-tab-active' : ''}`}>
@@ -486,16 +510,22 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
       {tab === 'inspector' && (
         <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
           {wireTool && (
-            <section className="dc-wire-new space-y-2" aria-label="Opções dos cabos novos">
-              <header className="flex items-baseline justify-between gap-2 border-b border-line pb-1">
+            <section className="dc-wire-new space-y-2.5" aria-label="Opções dos cabos novos">
+              <header className="flex items-baseline justify-between gap-2 border-b border-line pb-1.5">
                 <strong className="text-[11px] font-semibold text-ink-900">Cabos e ponteiras</strong>
-                <span className="text-[9px] text-ink-400">aplicado aos próximos cabos</span>
+                <span className="text-[9.5px] text-ink-400">próximos cabos</span>
               </header>
-              <WireOptionsFields value={wireDefaults} onChange={setWireDefaults} />
-              <p className="text-[10px] leading-relaxed text-ink-400">
-                Clique num borne para começar o cabo e noutro para terminar; <kbd>Esc</kbd> termina a ligação.
-                As mesmas opções aparecem no inspetor de cada cabo já desenhado.
-              </p>
+              {/* Estado em direto da construção de cabos no 3D (portal montado pelo Panel3D) */}
+              <div ref={setWireDraftSlot} className="dc-wire-draft-slot" data-slot="wire-draft-3d" />
+              <WireOptionsFields value={wireDefaults} onChange={setWireDefaults} showRouting />
+              <div className="wo-shortcuts" aria-label="Atalhos da ferramenta Cabo">
+                <span><kbd>Clique</kbd> borne / ponto</span>
+                <span><kbd>Shift</kbd> eixo 90° / cadeia</span>
+                <span><kbd>Alt</kbd> sem malha</span>
+                <span><kbd>Backspace</kbd> desfaz</span>
+                <span><kbd>Enter</kbd> ponta livre</span>
+                <span><kbd>Esc</kbd> termina</span>
+              </div>
             </section>
           )}
           {!wireTool && !selectedComponent && !selectedWire && !selectedTerminal && (
@@ -966,496 +996,1185 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           )}
 
           {/* ------------------------------------------------------ cabo */}
-          {selectedWire && (
-            <section className="dc-wire-inspector space-y-2.5">
-              <header className="dc-wire-inspector-head flex items-center justify-between sticky top-0 bg-surface-panel py-1 z-10 border-b border-line">
-                <span className="font-semibold text-ink-900">
-                  Cabo {selectedWire.number ?? selectedWire.id}
-                  {useSimStore.getState().selectedWireIds.length > 1 ? ` · +${useSimStore.getState().selectedWireIds.length - 1}` : ''}
-                </span>
-                <span className={`dc-chip ${selectedWire.energized ? '!border-amber-300 !bg-amber-50 !text-energy-deep' : ''}`}>
-                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${selectedWire.energized ? 'bg-energy' : 'bg-ink-300'}`} />
-                  {selectedWire.energized ? 'ENERGIZADO' : 'SEM TENSÃO'}
-                </span>
-              </header>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Organização e bloqueio do cabo">
-                <button type="button" className="dc-btn" disabled={!!selectedWire.locked || !wireEditingStopped}
-                  title="Recalcula o percurso nas duas vistas; Ctrl+Z desfaz"
-                  onClick={() => useSimStore.getState().organizeWires([selectedWire.id])}>Organizar cabo</button>
-                <button type="button" className="dc-btn" aria-pressed={!!selectedWire.locked} disabled={!wireEditingStopped}
-                  onClick={() => useSimStore.getState().setWiresLocked(!selectedWire.locked, [selectedWire.id])}>
-                  {selectedWire.locked ? <IconUnlock size={12} /> : <IconLock size={12} />}{selectedWire.locked ? 'Desbloquear cabo' : 'Bloquear cabo'}
-                </button>
-              </div>
-              {selectedWire.locked && <p className="text-[10px] text-ink-500">Cabo bloqueado: edição e eliminação desativadas. As pontas acompanham os equipamentos.</p>}
-              <fieldset disabled={!!selectedWire.locked} className="space-y-2.5 min-w-0" style={{ border: 0, margin: 0, padding: 0 }}>
-              <div className="dc-card p-2 space-y-1.5">
-                <label className={label + ' !mb-0'}>Chicote / filaçar</label>
-                <div className="flex flex-wrap gap-1">
-                  <button type="button" className="dc-btn" title="Filaça os cabos selecionados (Shift+clique para multi-seleção)"
-                    onClick={() => useSimStore.getState().laceWires()}>Filaçar seleção</button>
-                  <button type="button" className="dc-btn" disabled={!selectedWire.bundleId}
-                    onClick={() => useSimStore.getState().unlaceWires()}>Desfilaçar</button>
-                </div>
-                <small className="text-ink-400">
-                  {selectedWire.bundleId
-                    ? `Neste chicote: ${wires.filter((w) => w.bundleId === selectedWire.bundleId).length} cabo(s) · id ${selectedWire.bundleId}`
-                    : 'Shift+clique noutros cabos e use «Filaçar seleção» para criar um chicote.'}
-                </small>
-              </div>
+          {selectedWire && (() => {
+            const multiCount = selectedWireIds.length > 1 && selectedWireIds.includes(selectedWire.id) ? selectedWireIds.length : 1
+            const targetIds = multiCount > 1 ? selectedWireIds : [selectedWire.id]
+            const outerMm = cableOuterDiameterMm(selectedWire.gauge, {
+              conductorCount: selectedWire.conductorCount,
+              sheathed: selectedWire.sheathed,
+            })
+            const minBendMm = wireMinBendRadiusMm(selectedWire.gauge, {
+              conductorCount: selectedWire.conductorCount,
+              sheathed: selectedWire.sheathed,
+              flexibility: selectedWire.flexibility,
+            })
+            const ampacityA = wireAmpacityIecA(selectedWire.gauge)
+            const estLengthMm = (() => {
+              const aLocal = !selectedWire.fromPoint && wireFromOwner && wireFromTerminal ? componentTerminalLocal(wireFromOwner, wireFromTerminal) : null
+              const bLocal = !selectedWire.toPoint && wireToOwner && wireToTerminal ? componentTerminalLocal(wireToOwner, wireToTerminal) : null
+              const aPt = aLocal && wireFromOwner
+                ? { x: wireFromOwner.schematicX + aLocal.x, y: wireFromOwner.schematicY + aLocal.y }
+                : selectedWire.fromPoint ?? null
+              const bPt = bLocal && wireToOwner
+                ? { x: wireToOwner.schematicX + bLocal.x, y: wireToOwner.schematicY + bLocal.y }
+                : selectedWire.toPoint ?? null
+              if (!aPt || !bPt) return 0
+              const geom = wireGeometryForWire(selectedWire, aPt, bPt)
+              return Math.max(10, Math.round(polylineLength(geom.curvePts ?? geom.pts) / Math.max(0.1, SCHEMATIC_PX_PER_MM)))
+            })()
+            const displayLengthMm = selectedWire.lengthMm && selectedWire.lengthMm > 0 ? selectedWire.lengthMm : estLengthMm
+            const linkedFrom = !selectedWire.fromPoint ? wireFromTerminal : undefined
+            const linkedTo = !selectedWire.toPoint ? wireToTerminal : undefined
+            const fromColor = wireEndColor(selectedWire, 'from', linkedFrom?.color)
+            const toColor = wireEndColor(selectedWire, 'to', linkedTo?.color)
+            const fromType = selectedWire.fromEndType ?? selectedWire.endType ?? 'none'
+            const toType = selectedWire.toEndType ?? selectedWire.endType ?? 'none'
+            const fromTag = linkedFrom ? `${wireFromOwner?.ref}.${linkedFrom.label}` : (selectedWire.netFrom ? `Rede ${selectedWire.netFrom}` : 'Ponta livre')
+            const toTag = linkedTo ? `${wireToOwner?.ref}.${linkedTo.label}` : (selectedWire.netTo ? `Rede ${selectedWire.netTo}` : 'Ponta livre')
+            const bundleMembers = selectedWire.bundleId ? wires.filter((w) => w.bundleId === selectedWire.bundleId) : []
+            const presetId = matchCablePreset(selectedWire)
+            const presetLabel = presetId === 'custom' ? 'Personalizado' : (CABLE_PRESETS.find((p) => p.id === presetId)?.label ?? '')
+            const accessoryCount = (selectedWire.isolation?.length ?? 0) + (selectedWire.spirals?.length ?? 0) + (selectedWire.markers?.length ?? 0)
+            const wp2dCount = selectedWire.waypoints?.length ?? 0
+            const wp3dCount = selectedWire.waypoints3D?.length ?? 0
+            const iecSuggestedColor = WIRE_KIND_COLOR[selectedWire.kind]
 
-              {/* Traçado 3D: o painel 3D monta aqui as ações (pontos, mover, religar). */}
-              <div ref={setWireActionSlot} className="dc-wire-3d-actions" data-slot="wire-3d" />
-
-              <div className={`rounded-md border px-2 py-2 ${wireEditDirty ? 'border-blue-200 bg-blue-50' : 'border-emerald-200 bg-emerald-50/70'}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[9px] leading-4 text-ink-500">{wireEditDirty ? 'Pré-visualização aplicada ao Esquema e 3D.' : 'Cabo sincronizado com o projeto.'}</span>
-                  <div className="flex gap-1">
-                    <button type="button" className="dc-btn !h-6 !px-2 !text-[9px]" disabled={!wireEditDirty} onClick={cancelWireChanges}>Cancelar</button>
-                    <button type="button" className="dc-btn-primary dc-btn !h-6 !px-2 !text-[9px]" disabled={!wireEditDirty} onClick={saveWireChanges}>Guardar cabo</button>
+            return (
+              <section className="dc-wire-inspector wi-root" aria-label="Propriedades do cabo selecionado">
+                {/* Cabeçalho fixo com identificação, estado energético e amostra técnica */}
+                <header className="dc-wire-inspector-head wi-hero">
+                  <div className="wi-hero-top">
+                    <div className="wi-hero-title">
+                      <strong>Cabo {selectedWire.number || selectedWire.id}</strong>
+                      {multiCount > 1 && <span className="wi-badge is-brand" title={`${multiCount} cabos selecionados (edição em lote)`}>+{multiCount - 1}</span>}
+                      {selectedWire.locked && <span className="wi-badge" title="Cabo bloqueado"><IconLock size={10} />Fixo</span>}
+                    </div>
+                    <span className={`dc-chip ${selectedWire.energized ? '!border-amber-300 !bg-amber-50 !text-energy-deep' : ''}`}>
+                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${selectedWire.energized ? 'bg-energy' : 'bg-ink-300'}`} />
+                      {selectedWire.energized ? 'ENERGIZADO' : 'SEM TENSÃO'}
+                    </span>
                   </div>
-                </div>
-              </div>
 
-              <div className={`rounded-md border px-2 py-2 text-[9px] ${wireClassCompatible ? 'border-line bg-surface-sunken/50 text-ink-500' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
-                <div className="flex items-center justify-between gap-2"><strong>Compatibilidade elétrica</strong><span>{wireClassCompatible ? <><IconCheck size={10} className="ui-ck" />coerente</> : '⚠ verificar'}</span></div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {wireFromTerminal && wireFromClass && <span className="dc-chip">{wireFromOwner?.ref}.{wireFromTerminal.label} · {TERMINAL_ELECTRICAL_CLASS_LABEL[wireFromClass]}</span>}
-                  {wireToTerminal && wireToClass && <span className="dc-chip">{wireToOwner?.ref}.{wireToTerminal.label} · {TERMINAL_ELECTRICAL_CLASS_LABEL[wireToClass]}</span>}
-                </div>
-                {!wireClassCompatible && <p className="mt-1">As categorias AC, DC e Rede não devem ser ligadas diretamente. Confirme a ficha técnica e a função do circuito.</p>}
-              </div>
+                  <CableSpecimen
+                    color={selectedWire.color}
+                    gauge={selectedWire.gauge}
+                    flexibility={selectedWire.flexibility}
+                    conductorCount={selectedWire.conductorCount ?? 1}
+                    sheathed={!!selectedWire.sheathed}
+                    sheathColor={selectedWire.sheathColor}
+                    conductorColors={selectedWire.conductorColors}
+                    fromEndType={fromType}
+                    toEndType={toType}
+                    fromEndColor={fromColor}
+                    toEndColor={toColor}
+                  />
 
-              <LayerButtons />
-
-              <div>
-                <label className={label}>Cor do cabo</label>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(WIRE_COLORS).map(([name, hex]) => (
+                  {/* Ligação A ↔ B com navegação para os bornes e inversão de sentido */}
+                  <div className="wi-endpoints" role="group" aria-label="Ligação entre pontas do cabo">
                     <button
-                      key={name}
-                      title={name}
-                      onClick={() => patchSelectedWire({ color: name as WireColor })}
-                      className={`h-[22px] w-[22px] rounded-full border-2 transition-transform hover:scale-110 ${
-                        selectedWire.color === name ? 'border-brand-600 ring-2 ring-brand-200 scale-110' : 'border-white shadow-[0_0_0_1px_rgba(0,0,0,0.15)]'
-                      }`}
-                      style={{ background: hex }}
-                    />
-                  ))}
-                </div>
-                <div className="text-[10px] text-ink-400 mt-1">
-                  Atual: <span className="font-mono font-semibold" style={{ color: WIRE_COLORS[selectedWire.color] }}>{selectedWire.color}</span>
-                  {' '}— a cor é aplicada de imediato no esquema.
-                </div>
-              </div>
-
-
-              <div className="dc-card p-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className={label + ' !mb-0'}>Tipo de cabo</label>
-                  <span className="text-[10px] text-ink-400">{matchCablePreset(selectedWire) === 'custom' ? 'Personalizado' : (CABLE_PRESETS.find(p => p.id === matchCablePreset(selectedWire))?.label ?? '')}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {CABLE_PRESETS.map((preset) => {
-                    const on = matchCablePreset(selectedWire) === preset.id
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        title={`${preset.label} — ${preset.hint}`}
-                        onClick={() => patchSelectedWire(applyCablePreset(preset))}
-                        className={`flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors ${
-                          on ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-line bg-white hover:border-line-strong hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="text-[11px] font-semibold text-ink-900">{preset.label}</span>
-                        <span className="text-[9px] text-ink-400 leading-tight">{preset.hint}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-1 text-[11px] font-semibold text-ink-600">
-                    Nº
-                    <Select
-                      className="dc-select"
-                      value={selectedWire.conductorCount ?? 1}
-                      onChange={(e) => patchSelectedWire({ conductorCount: Number(e.target.value) })}
+                      type="button"
+                      className={`wi-endpoint ${!linkedFrom ? 'is-free' : ''}`}
+                      disabled={!linkedFrom}
+                      title={linkedFrom ? `Inspecionar borne ${fromTag}` : 'Ponta inicial livre (sem borne)'}
+                      onClick={() => linkedFrom && useSimStore.getState().selectTerminal(linkedFrom.id)}
                     >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
-                    </Select>
-                  </label>
-                  <button
-                    type="button"
-                    className={`dc-btn ${selectedWire.sheathed ? '!border-brand-500 !bg-brand-50' : ''}`}
-                    onClick={() => patchSelectedWire({
-                      sheathed: !selectedWire.sheathed,
-                      sheathColor: !selectedWire.sheathed ? (selectedWire.sheathColor ?? '#0f172a') : selectedWire.sheathColor,
-                    })}
-                  >
-                    {selectedWire.sheathed ? 'Isolado (capa)' : 'Sem capa'}
-                  </button>
-                  {selectedWire.sheathed && (
-                    <input
-                      type="color"
-                      className="h-7 w-8 rounded border border-line cursor-pointer"
-                      value={selectedWire.sheathColor ?? '#0f172a'}
-                      onChange={(e) => patchSelectedWire({ sheathColor: e.target.value })}
-                      title="Cor da capa exterior"
-                    />
-                  )}
-                </div>
-                {(selectedWire.conductorCount ?? 1) > 1 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-ink-500">Veias:</span>
-                    {Array.from({ length: selectedWire.conductorCount ?? 1 }).map((_, idx) => {
-                      const palette = ['#3b82f6', '#92400e', '#84cc16', '#1f2937', '#f59e0b', '#94a3b8', '#ffffff']
-                      const col = selectedWire.conductorColors?.[idx] ?? palette[idx % palette.length]
-                      return <input key={idx} type="color" className="h-7 w-7 rounded border border-line cursor-pointer" value={col}
-                        title={`Cor da veia ${idx + 1}`}
-                        onChange={(e) => {
-                          const list = [...(selectedWire.conductorColors ?? [])]
-                          // preenche palette gaps
-                          for (let i = 0; i < (selectedWire.conductorCount ?? 1); i++) if (!list[i]) list[i] = palette[i % palette.length]
-                          list[idx] = e.target.value
-                          patchSelectedWire({ conductorColors: list })
-                        }} />
-                    })}
-                    <button type="button" className="dc-btn text-[10px] px-1.5" title="Repor cores por omissão da paleta" onClick={() => patchSelectedWire({ conductorColors: undefined })}>Repor</button>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={label}>Seção</label>
-                  <Select className="dc-select" value={selectedWire.gauge} onChange={(e) => patchSelectedWire({ gauge: e.target.value })}>
-                    {GAUGES.map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <label className={label}>Tipo / função</label>
-                  <Select className="dc-select" value={selectedWire.kind} onChange={(e) => {
-                    const kind = e.target.value as keyof typeof WIRE_KIND_COLOR
-                    // cor normalizada pela função (IEC 60204-1) — pode ser alterada depois na paleta
-                    patchSelectedWire({ kind, color: WIRE_KIND_COLOR[kind] })
-                  }}>
-                    {Object.entries(WIRE_KIND_LABEL).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <label className={label}>Condutor</label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {([['flexible', 'Flexível', 'multifilar · curvas suaves'], ['rigid', 'Rígido', 'fio sólido · cantos arredondados']] as const).map(([id, name, hint]) => (
-                      <button
-                        key={id}
-                        onClick={() => patchSelectedWire({ flexibility: id })}
-                        className={`flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors ${
-                          selectedWire.flexibility === id ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-line bg-white hover:border-line-strong hover:bg-slate-50'
-                        }`}
-                      >
-                        <ConductorIcon flexible={id === 'flexible'} color={WIRE_COLORS[selectedWire.color]} />
-                        <span className="text-[11px] font-semibold text-ink-900">{name}</span>
-                        <span className="text-[9px] text-ink-400 leading-tight">{hint}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className={label}>Roteamento</label>
-                  <Select className="dc-select" value={selectedWire.route} onChange={(e) => patchSelectedWire({ route: e.target.value as any })}>
-                    <option value="orthogonal">Ortogonal</option>
-                    <option value="manhattan">Manhattan (vertical)</option>
-                    <option value="arc">Curvo</option>
-                    <option value="direct">Direto</option>
-                  </Select>
-                </div>
-                <div>
-                  <label className={label}>Dobra {selectedWire.bend.toFixed(2)}</label>
-                  <input type="range" min={0} max={1} step={0.05} className="w-full" value={selectedWire.bend} onChange={(e) => patchSelectedWire({ bend: Number(e.target.value) })} />
-                </div>
-                {(selectedWire.waypoints?.length ?? 0) > 0 && (
-                  <div>
-                    <label className={label}>Pontos de curva ({selectedWire.waypoints!.length})</label>
+                      <span className="wi-endpoint-side">A</span>
+                      <span className="wi-endpoint-body">
+                        <b>{fromTag}</b>
+                        <small>{wireFromClass && linkedFrom ? TERMINAL_ELECTRICAL_CLASS_LABEL[wireFromClass] : 'Sem borne'}</small>
+                      </span>
+                    </button>
                     <button
-                      className="dc-btn w-full"
-                      title="Remove todos os pontos de curva adicionados com duplo clique"
-                      onClick={() => patchSelectedWire({ waypoints: undefined })}
+                      type="button"
+                      className="wi-swap-btn"
+                      disabled={!!selectedWire.locked || !wireEditingStopped}
+                      title="Inverter sentido do cabo (A ↔ B, incluindo ponteiras, curvas e anilhas)"
+                      aria-label="Inverter sentido do cabo"
+                      onClick={() => useSimStore.getState().reverseWire(selectedWire.id)}
                     >
-                      Limpar pontos de curva
+                      <IconRotate size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`wi-endpoint ${!linkedTo ? 'is-free' : ''}`}
+                      disabled={!linkedTo}
+                      title={linkedTo ? `Inspecionar borne ${toTag}` : 'Ponta final livre (sem borne)'}
+                      onClick={() => linkedTo && useSimStore.getState().selectTerminal(linkedTo.id)}
+                    >
+                      <span className="wi-endpoint-side">B</span>
+                      <span className="wi-endpoint-body">
+                        <b>{toTag}</b>
+                        <small>{wireToClass && linkedTo ? TERMINAL_ELECTRICAL_CLASS_LABEL[wireToClass] : 'Sem borne'}</small>
+                      </span>
                     </button>
                   </div>
-                )}
-                {selectedWire.route === 'arc' && (
-                  <div>
-                    <label className={label}>Curvatura {(selectedWire.curveOffset ?? 0).toFixed(0)}px</label>
-                    <input
-                      type="range"
-                      min={-150}
-                      max={150}
-                      step={5}
-                      className="w-full"
-                      value={selectedWire.curveOffset ?? 0}
-                      onChange={(e) => patchSelectedWire({ curveOffset: Number(e.target.value) })}
-                    />
-                    <div className="text-[10px] text-ink-400 mt-0.5">Dica: com o cabo selecionado, também dá para arrastar o ponto de controle direto no esquema.</div>
-                  </div>
-                )}
-                <div>
-                  <label className={label}>Identificação</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      className="dc-input"
-                      value={selectedWire.number ?? ''}
-                      onChange={(e) => patchSelectedWire({ number: e.target.value })}
-                    />
-                    <LabelLibrary
-                      title="Escolher rótulo padrão IEC para a identificação do cabo"
-                      onPick={(l) => patchSelectedWire({ number: l })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className={label}>Etiqueta</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      className="dc-input"
-                      value={selectedWire.label ?? ''}
-                      onChange={(e) => patchSelectedWire({ label: e.target.value })}
-                    />
-                    <LabelLibrary
-                      title="Escolher rótulo padrão IEC para a etiqueta do cabo"
-                      onPick={(l) => patchSelectedWire({ label: l })}
-                    />
-                  </div>
-                </div>
-              </div>
 
-              <div className="dc-card p-2 space-y-2">
-                <label className={label + ' !mb-0'}>Terminais do cabo (independentes)</label>
-                {(['from', 'to'] as const).map((side) => {
-                  const typeKey = side === 'from' ? 'fromEndType' : 'toEndType'
-                  const layerKey = side === 'from' ? 'fromEndLayer' : 'toEndLayer'
-                  const colorKey = side === 'from' ? 'fromEndColor' : 'toEndColor'
-                  const linkedTerminal = side === 'from' ? (!selectedWire.fromPoint ? wireFromTerminal : undefined) : (!selectedWire.toPoint ? wireToTerminal : undefined)
-                  const endColor = wireEndColor(selectedWire, side, linkedTerminal?.color)
-                  const chosen = selectedWire[typeKey] ?? selectedWire.endType ?? 'none'
-                  const layer = selectedWire[layerKey] ?? 'back'
-                  const title = side === 'from' ? `Ponta inicial · ${wireFromTerminal?.label ?? (selectedWire.fromPoint ? 'livre' : '—')}` : `Ponta final · ${wireToTerminal?.label ?? (selectedWire.toPoint ? 'livre' : '—')}`
-                  return <div key={side} className="rounded border border-line p-1.5 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-semibold">{title}</span>
-                      <div className="flex shrink-0 rounded border border-line overflow-hidden" role="group" aria-label={`Camada da ${title}`}>
-                        {(['back', 'front'] as const).map((value) => <button key={value} type="button"
-                          title={value === 'back' ? 'Terminal atrás dos componentes' : 'Terminal à frente dos componentes'}
-                          aria-pressed={layer === value}
-                          className={`px-1.5 py-0.5 text-[10px] ${layer === value ? 'bg-brand-600 text-white' : 'bg-white text-ink-600'}`}
-                          onClick={() => patchSelectedWire({ [layerKey]: value })}>
-                          {value === 'back' ? 'Atrás' : 'À frente'}
-                        </button>)}
+                  {!wireClassCompatible && (
+                    <div className="wi-alert is-warn" role="status">
+                      <strong>Verificar compatibilidade elétrica</strong>
+                      <span>
+                        {wireFromClass ? TERMINAL_ELECTRICAL_CLASS_LABEL[wireFromClass] : '—'} ligado a {wireToClass ? TERMINAL_ELECTRICAL_CLASS_LABEL[wireToClass] : '—'}. Confirme a função do circuito.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Cotas físicas rápidas */}
+                  <div className="wi-kpis" aria-label="Resumo técnico do cabo">
+                    <div className="wi-kpi" title={selectedWire.lengthMm ? 'Comprimento definido para lista de material' : 'Comprimento estimado pela geometria'}>
+                      <small>Compr.</small>
+                      <strong>{displayLengthMm > 0 ? `${selectedWire.lengthMm ? '' : '≈ '}${displayLengthMm} mm` : '—'}</strong>
+                    </div>
+                    <div className="wi-kpi" title="Diâmetro exterior calculado pela secção, nº de veias e capa">
+                      <small>Diâmetro</small>
+                      <strong>Ø {outerMm.toFixed(1)} mm</strong>
+                    </div>
+                    <div className="wi-kpi" title={`Raio mínimo recomendado: ${minBendMm} mm${ampacityA ? ` · Corrente ref. IEC 60204-1: ${ampacityA} A` : ''}`}>
+                      <small>Rmín{ampacityA ? ' · Iz' : ''}</small>
+                      <strong>{minBendMm.toFixed(0)} mm{ampacityA ? ` · ${ampacityA}A` : ''}</strong>
+                    </div>
+                  </div>
+                </header>
+
+                {/* Ações principais rápidas */}
+                <div className="wi-primary-actions" role="group" aria-label="Organização e bloqueio do cabo">
+                  <button
+                    type="button"
+                    className="dc-btn"
+                    disabled={!!selectedWire.locked || !wireEditingStopped}
+                    title="Recalcula o percurso nas duas vistas; Ctrl+Z desfaz"
+                    onClick={() => useSimStore.getState().organizeWires(targetIds)}
+                  >
+                    Organizar cabo
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-btn"
+                    aria-pressed={!!selectedWire.locked}
+                    disabled={!wireEditingStopped}
+                    onClick={() => useSimStore.getState().setWiresLocked(!selectedWire.locked, targetIds)}
+                  >
+                    {selectedWire.locked ? <IconUnlock size={12} /> : <IconLock size={12} />}
+                    {selectedWire.locked ? 'Desbloquear cabo' : 'Bloquear cabo'}
+                  </button>
+                  <button
+                    type="button"
+                    className="dc-btn"
+                    title="Copia cor, secção, condutor, capa, traçado e ponteira deste cabo para os próximos cabos novos"
+                    onClick={() => useSimStore.getState().copyWireToDefaults(selectedWire.id)}
+                  >
+                    <IconCopy size={12} />Copiar estilo
+                  </button>
+                </div>
+
+                {selectedWire.locked && (
+                  <p className="wi-lock-note">
+                    Cabo bloqueado: edição e eliminação protegidas. As pontas acompanham os equipamentos.
+                  </p>
+                )}
+
+                {multiCount > 1 && (
+                  <p className="wi-batch-note">
+                    Edição em lote ativa: alterações de cor, secção, traçado ou terminais aplicam-se aos <b>{multiCount} cabos</b> selecionados.
+                  </p>
+                )}
+
+                {wireEditDirty && (
+                  <div className="wi-sync-bar" role="status">
+                    <span>Alterações aplicadas ao Esquema e 3D</span>
+                    <div className="wi-sync-btns">
+                      <button type="button" className="dc-btn !h-6 !px-2 !text-[10px]" onClick={cancelWireChanges}>Cancelar</button>
+                      <button type="button" className="dc-btn-primary dc-btn !h-6 !px-2 !text-[10px]" onClick={saveWireChanges}>Guardar cabo</button>
+                    </div>
+                  </div>
+                )}
+
+                <fieldset disabled={!!selectedWire.locked} className="wi-fieldset" style={{ border: 0, margin: 0, padding: 0 }}>
+                  {/* 1. TRAÇADO E CURVAS (2D + 3D) */}
+                  <details className="dc-inspector-group" open>
+                    <summary>
+                      <span>Traçado e curvas</span>
+                      <span className="wi-sum-meta">
+                        {WIRE_ROUTE_LABEL[selectedWire.route]}
+                        {(wp3dCount || wp2dCount) > 0 ? ` · ${wp3dCount || wp2dCount} pt` : ''}
+                      </span>
+                    </summary>
+                    <div className="dc-inspector-group-body space-y-2">
+                      <div className="wo-routes" role="radiogroup" aria-label="Roteamento do cabo">
+                        {WIRE_ROUTES_ORDER.map((route: WireRoute) => {
+                          const on = selectedWire.route === route
+                          return (
+                            <button
+                              key={route}
+                              type="button"
+                              role="radio"
+                              aria-checked={on}
+                              title={WIRE_ROUTE_HINT[route]}
+                              className={`wo-route${on ? ' is-on' : ''}`}
+                              onClick={() => patchSelectedWire({ route })}
+                            >
+                              <WireRouteGlyph route={route} size={24} />
+                              <span>{WIRE_ROUTE_LABEL[route]}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {selectedWire.route !== 'direct' && wp2dCount === 0 && (
+                        <div className="wi-slider-field">
+                          <div className="wi-slider-head">
+                            <label className={label + ' !mb-0'}>Posição da dobra</label>
+                            <span className="wi-slider-val">
+                              {Math.round(selectedWire.bend * 100)}%
+                              {Math.abs(selectedWire.bend - 0.5) > 0.01 && (
+                                <button type="button" onClick={() => patchSelectedWire({ bend: 0.5 })} title="Centrar dobra a 50%">50%</button>
+                              )}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0.05}
+                            max={0.95}
+                            step={0.05}
+                            aria-label="Posição da dobra"
+                            className="w-full"
+                            value={selectedWire.bend}
+                            onChange={(e) => patchSelectedWire({ bend: Number(e.target.value) })}
+                          />
+                        </div>
+                      )}
+
+                      {selectedWire.route === 'arc' && wp2dCount === 0 && (
+                        <div className="wi-slider-field">
+                          <div className="wi-slider-head">
+                            <label className={label + ' !mb-0'}>Barriga da curva</label>
+                            <span className="wi-slider-val">
+                              {(selectedWire.curveOffset ?? 0).toFixed(0)} px
+                              {(selectedWire.curveOffset ?? 0) !== 0 && (
+                                <button type="button" onClick={() => patchSelectedWire({ curveOffset: 0 })} title="Repor curvatura a 0 px">0</button>
+                              )}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={-150}
+                            max={150}
+                            step={5}
+                            aria-label="Curvatura do cabo"
+                            className="w-full"
+                            value={selectedWire.curveOffset ?? 0}
+                            onChange={(e) => patchSelectedWire({ curveOffset: Number(e.target.value) })}
+                          />
+                        </div>
+                      )}
+
+                      {wp2dCount > 0 && (
+                        <div className="wi-subcard wi-2d-curve-card">
+                          <div className="wi-subcard-head">
+                            <span>Pontos de curva 2D</span>
+                            <b>{wp2dCount} {wp2dCount === 1 ? 'ponto' : 'pontos'}</b>
+                          </div>
+                          <div className="wi-chip-actions">
+                            <button
+                              type="button"
+                              className="dc-btn"
+                              disabled={!wireEditingStopped}
+                              title="Alinha todos os troços a 90° e remove micro-desvios"
+                              onClick={() => useSimStore.getState().refineWireCurve2D(selectedWire.id, 'ortho')}
+                            >
+                              Alinhar 90°
+                            </button>
+                            {wp2dCount >= 2 && (
+                              <button
+                                type="button"
+                                className="dc-btn"
+                                disabled={!wireEditingStopped}
+                                title="Remove pontos de curva colineares ou redundantes"
+                                onClick={() => useSimStore.getState().refineWireCurve2D(selectedWire.id, 'simplify')}
+                              >
+                                Simplificar
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="dc-btn"
+                              disabled={!wireEditingStopped}
+                              title="Remove todos os pontos de curva 2D e volta ao traçado base"
+                              onClick={() => useSimStore.getState().refineWireCurve2D(selectedWire.id, 'clear')}
+                            >
+                              Limpar pontos
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Traçado 3D: o Panel3D monta aqui os controlos de curva, R_mín, pontas e coordenadas mm */}
+                      <div ref={setWireActionSlot} className="dc-wire-3d-actions" data-slot="wire-3d" />
+
+                      <LayerButtons />
+                    </div>
+                  </details>
+
+                  {/* 2. IDENTIFICAÇÃO E CHICOTE */}
+                  <details className="dc-inspector-group" open>
+                    <summary>
+                      <span>Identificação e chicote</span>
+                      <span className="wi-sum-meta">
+                        {bundleMembers.length > 0 ? `Chicote (${bundleMembers.length})` : (selectedWire.label || selectedWire.number || '—')}
+                      </span>
+                    </summary>
+                    <div className="dc-inspector-group-body space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={label}>Identificação</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              className="dc-input"
+                              aria-label="Identificação do cabo"
+                              placeholder="Ex.: W1"
+                              value={selectedWire.number ?? ''}
+                              onChange={(e) => patchSelectedWire({ number: e.target.value })}
+                            />
+                            <LabelLibrary
+                              title="Escolher rótulo padrão IEC para a identificação do cabo"
+                              onPick={(l) => patchSelectedWire({ number: l })}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={label}>Etiqueta / sinal</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              className="dc-input"
+                              aria-label="Etiqueta do cabo"
+                              placeholder="Ex.: L1, +24V"
+                              value={selectedWire.label ?? ''}
+                              onChange={(e) => patchSelectedWire({ label: e.target.value })}
+                            />
+                            <LabelLibrary
+                              title="Escolher rótulo padrão IEC para a etiqueta do cabo"
+                              onPick={(l) => patchSelectedWire({ label: l })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <label className={label + ' !mb-0'}>Metragem para lista (mm)</label>
+                          {estLengthMm > 0 && selectedWire.lengthMm !== estLengthMm && (
+                            <button
+                              type="button"
+                              className="wi-link-btn"
+                              title={`Preencher com o comprimento calculado (${estLengthMm} mm)`}
+                              onClick={() => patchSelectedWire({ lengthMm: estLengthMm })}
+                            >
+                              Usar ≈ {estLengthMm} mm
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={0}
+                            step={5}
+                            aria-label="Metragem (mm)"
+                            placeholder={estLengthMm > 0 ? `Auto (≈ ${estLengthMm} mm)` : '0'}
+                            className="dc-input"
+                            value={selectedWire.lengthMm ?? ''}
+                            onChange={(e) => {
+                              const raw = e.target.value.trim()
+                              patchSelectedWire({ lengthMm: raw === '' ? undefined : Math.max(0, Number(raw)) })
+                            }}
+                          />
+                          {selectedWire.lengthMm !== undefined && (
+                            <button
+                              type="button"
+                              className="dc-btn shrink-0"
+                              title="Voltar ao cálculo automático pela geometria"
+                              onClick={() => patchSelectedWire({ lengthMm: undefined })}
+                            >
+                              Auto
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="wi-subcard">
+                        <div className="wi-subcard-head">
+                          <span>Chicote / filaçamento</span>
+                          {bundleMembers.length > 0 ? (
+                            <b className="is-brand">{bundleMembers.length} cabos</b>
+                          ) : (
+                            <small>Isolado</small>
+                          )}
+                        </div>
+                        <div className="wi-chip-actions">
+                          <button
+                            type="button"
+                            className="dc-btn"
+                            disabled={!wireEditingStopped}
+                            title="Agrupa os cabos selecionados num único chicote com abraçadeiras PA66 no 3D"
+                            onClick={() => useSimStore.getState().laceWires()}
+                          >
+                            Filaçar seleção
+                          </button>
+                          <button
+                            type="button"
+                            className="dc-btn"
+                            disabled={!selectedWire.bundleId || !wireEditingStopped}
+                            onClick={() => useSimStore.getState().unlaceWires()}
+                          >
+                            Desfilaçar
+                          </button>
+                          {selectedWire.bundleId && bundleMembers.length > 1 && (
+                            <button
+                              type="button"
+                              className="dc-btn"
+                              title="Seleciona todos os cabos que pertencem a este chicote"
+                              onClick={() => useSimStore.getState().selectBundleWires(selectedWire.bundleId!)}
+                            >
+                              Selecionar chicote ({bundleMembers.length})
+                            </button>
+                          )}
+                        </div>
+                        <small className="wi-hint">
+                          {selectedWire.bundleId
+                            ? `Chicote «${selectedWire.bundleId}» · ${bundleMembers.map((w) => w.number || w.id).slice(0, 6).join(', ')}${bundleMembers.length > 6 ? '…' : ''}`
+                            : 'Shift+clique em 2+ cabos e use «Filaçar seleção» para agrupar com abraçadeiras.'}
+                        </small>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-ink-500">
-                      <label htmlFor={`wire-${side}-end-color`} className="shrink-0">Cor da ponteira</label>
-                      <input id={`wire-${side}-end-color`} type="color" className="w-9 h-7 rounded border border-line cursor-pointer" value={endColor}
-                        onChange={(e) => patchSelectedWire({ [colorKey]: e.target.value })} />
-                      <span className="font-mono">{endColor}</span>
-                      {selectedWire[colorKey] && <button type="button" className="ml-auto text-brand-600 hover:underline" title="Voltar a seguir a cor do borne" onClick={() => patchSelectedWire({ [colorKey]: undefined })}>Repor</button>}
-                    </div>
-                    {(() => {
-                      const din = dinFerruleColor(selectedWire.gauge)
-                      return <div className="dc-ferrule-swatches" role="group" aria-label={`Cores rápidas da ${title}`}>
-                        {din && <button type="button" className={`dc-ferrule-din${endColor.toLowerCase() === din.hex ? ' is-on' : ''}`} onClick={() => patchSelectedWire({ [colorKey]: din.hex })} title={`Cor normalizada DIN 46228-4 para ${selectedWire.gauge}: ${din.name}`} aria-label={`Aplicar cor DIN 46228-4 (${din.name})`}><i style={{ background: din.hex }} />DIN</button>}
-                        {FERRULE_SWATCHES.map((swatch) => <button key={swatch.hex} type="button" className={`dc-ferrule-swatch${endColor.toLowerCase() === swatch.hex ? ' is-on' : ''}`} style={{ background: swatch.hex }} title={`Ponteira ${swatch.name}`} aria-label={`Ponteira ${swatch.name}`} aria-pressed={endColor.toLowerCase() === swatch.hex} onClick={() => patchSelectedWire({ [colorKey]: swatch.hex })} />)}
+                  </details>
+
+                  {/* 3. CONDUTOR, COR E SECÇÃO */}
+                  <details className="dc-inspector-group" open>
+                    <summary>
+                      <span>Condutor, cor e secção</span>
+                      <span className="wi-sum-meta">
+                        <i className="wi-sum-dot" style={{ background: wireColorSwatchBg(selectedWire.color) }} />
+                        {(selectedWire.conductorCount ?? 1) > 1 ? `${selectedWire.conductorCount}×` : ''}{selectedWire.gauge}
+                      </span>
+                    </summary>
+                    <div className="dc-inspector-group-body space-y-2.5">
+                      <div>
+                        <label className={label}>Função do circuito (IEC 60204-1)</label>
+                        <Select
+                          className="dc-select"
+                          aria-label="Tipo / função do cabo"
+                          value={selectedWire.kind}
+                          onChange={(e) => {
+                            const kind = e.target.value as keyof typeof WIRE_KIND_COLOR
+                            patchSelectedWire({ kind, color: WIRE_KIND_COLOR[kind] })
+                          }}
+                        >
+                          {Object.entries(WIRE_KIND_LABEL).map(([k, v]) => (
+                            <option key={k} value={k}>{v}</option>
+                          ))}
+                        </Select>
                       </div>
-                    })()}
-                    <div className="grid grid-cols-2 gap-1">
-                      {WIRE_END_OPTIONS.map((o) => <button key={o.id} type="button" title={o.hint} aria-pressed={chosen === o.id}
-                        onClick={() => patchSelectedWire({ [typeKey]: o.id })}
-                        className={`flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-left text-[10.5px] transition-colors ${chosen === o.id ? 'border-brand-500 bg-brand-50 text-brand-700 font-semibold' : 'border-line bg-white text-ink-700 hover:border-line-strong hover:bg-slate-50'}`}>
-                        <WireEndIcon type={o.id} color={endColor} size={30} /><span className="min-w-0 leading-tight [overflow-wrap:anywhere]">{o.label}</span>
-                      </button>)}
+
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <label className={label + ' !mb-0'}>Cor do isolamento</label>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10.5px] font-medium text-ink-600">{WIRE_COLOR_LABEL[selectedWire.color]}</span>
+                            {selectedWire.color !== iecSuggestedColor && (
+                              <button
+                                type="button"
+                                className="wo-auto"
+                                title={`Aplicar cor normalizada IEC 60204-1 para ${WIRE_KIND_LABEL[selectedWire.kind]} (${WIRE_COLOR_LABEL[iecSuggestedColor]})`}
+                                onClick={() => patchSelectedWire({ color: iecSuggestedColor })}
+                              >
+                                IEC
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="wo-swatches" role="radiogroup" aria-label="Cor do cabo">
+                          {WIRE_COLOR_ORDER.map((name: WireColor) => {
+                            const on = selectedWire.color === name
+                            return (
+                              <button
+                                key={name}
+                                type="button"
+                                role="radio"
+                                aria-checked={on}
+                                aria-label={WIRE_COLOR_LABEL[name]}
+                                title={WIRE_COLOR_LABEL[name]}
+                                className={`wo-swatch${on ? ' is-on' : ''}`}
+                                style={{ background: wireColorSwatchBg(name) }}
+                                onClick={() => patchSelectedWire({ color: name })}
+                              />
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <label className={label + ' !mb-0'}>Secção nominal</label>
+                          <span className="text-[10px] font-mono text-ink-500">
+                            {selectedWire.gauge} · Ø {outerMm.toFixed(1)} mm{ampacityA ? ` · ≈ ${ampacityA} A` : ''}
+                          </span>
+                        </div>
+                        <div className="wo-gauges" role="radiogroup" aria-label="Secção do cabo">
+                          {WIRE_GAUGES.map((g) => {
+                            const on = selectedWire.gauge === g
+                            return (
+                              <button
+                                key={g}
+                                type="button"
+                                role="radio"
+                                aria-checked={on}
+                                aria-label={`Secção ${g}`}
+                                className={`wo-gauge${on ? ' is-on' : ''}`}
+                                onClick={() => patchSelectedWire({ gauge: g })}
+                              >
+                                {g.replace('mm²', '')}<i>mm²</i>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={label}>Construção do condutor</label>
+                        <div className="wo-choices" role="radiogroup" aria-label="Condutor">
+                          {([
+                            ['flexible', 'Flexível', 'Multifilar (H05V-K / H07V-K)'],
+                            ['rigid', 'Rígido', 'Fio sólido (H07V-U)'],
+                          ] as const).map(([id, name, hint]) => (
+                            <button
+                              key={id}
+                              type="button"
+                              role="radio"
+                              aria-checked={selectedWire.flexibility === id}
+                              className={`wo-choice${selectedWire.flexibility === id ? ' is-on' : ''}`}
+                              onClick={() => patchSelectedWire({ flexibility: id })}
+                            >
+                              <ConductorIcon flexible={id === 'flexible'} color={WIRE_COLORS[selectedWire.color]} size={36} />
+                              <strong>{name}</strong>
+                              <small>{hint}</small>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <details className="wi-nested-details" open={(selectedWire.conductorCount ?? 1) > 1 || !!selectedWire.sheathed}>
+                        <summary>
+                          <span>Formação e capa exterior</span>
+                          <em>{presetLabel}</em>
+                        </summary>
+                        <div className="wi-nested-body">
+                          <div className="wo-presets" role="radiogroup" aria-label="Tipo de cabo">
+                            {CABLE_PRESETS.map((preset) => {
+                              const on = presetId === preset.id
+                              return (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={on}
+                                  title={`${preset.label} — ${preset.hint}`}
+                                  className={`wo-preset${on ? ' is-on' : ''}`}
+                                  onClick={() => patchSelectedWire({
+                                    ...applyCablePreset(preset),
+                                    conductorColors: preset.conductors > 1 ? defaultCoreColors(preset.conductors) : undefined,
+                                  })}
+                                >
+                                  <strong>{preset.label}</strong>
+                                  <small>{preset.hint}</small>
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <div className="wo-row">
+                            <label className="wo-inline">
+                              <span>Veias</span>
+                              <Select
+                                className="wo-select"
+                                aria-label="Número de condutores"
+                                value={selectedWire.conductorCount ?? 1}
+                                onChange={(e) => {
+                                  const n = Number(e.target.value)
+                                  patchSelectedWire({
+                                    conductorCount: n,
+                                    conductorColors: n > 1 ? (selectedWire.conductorColors?.length === n ? selectedWire.conductorColors : defaultCoreColors(n)) : undefined,
+                                  })
+                                }}
+                              >
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
+                              </Select>
+                            </label>
+                            <button
+                              type="button"
+                              className={`wo-sheath-btn wo-sheath${selectedWire.sheathed ? ' is-on' : ''}`}
+                              aria-pressed={!!selectedWire.sheathed}
+                              onClick={() => patchSelectedWire({
+                                sheathed: !selectedWire.sheathed,
+                                sheathColor: !selectedWire.sheathed ? (selectedWire.sheathColor ?? '#0f172a') : selectedWire.sheathColor,
+                              })}
+                            >
+                              <strong>{selectedWire.sheathed ? 'Isolado (capa)' : 'Sem capa'}</strong>
+                              <small>{selectedWire.sheathed ? 'Capa global PVC' : 'Só isolação da veia'}</small>
+                            </button>
+                            {selectedWire.sheathed && (
+                              <input
+                                type="color"
+                                className="wo-sheath-color"
+                                aria-label="Cor da capa exterior"
+                                title="Cor da capa exterior"
+                                value={selectedWire.sheathColor ?? '#0f172a'}
+                                onChange={(e) => patchSelectedWire({ sheathColor: e.target.value })}
+                              />
+                            )}
+                          </div>
+                          {(selectedWire.conductorCount ?? 1) > 1 && (
+                            <div className="wi-cores-row">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-semibold text-ink-500">Cores das veias (HD 308 S2)</span>
+                                <button
+                                  type="button"
+                                  className="wi-link-btn"
+                                  title="Repor sequência de cores normalizada HD 308 S2"
+                                  onClick={() => patchSelectedWire({ conductorColors: defaultCoreColors(selectedWire.conductorCount ?? 2) })}
+                                >
+                                  Repor norma
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {Array.from({ length: selectedWire.conductorCount ?? 1 }).map((_, idx) => {
+                                  const defaults = defaultCoreColors(selectedWire.conductorCount ?? 2)
+                                  const col = selectedWire.conductorColors?.[idx] ?? defaults[idx % defaults.length]
+                                  return (
+                                    <label key={idx} className="wi-core-chip" title={`Cor da veia ${idx + 1}`}>
+                                      <span>{idx + 1}</span>
+                                      <input
+                                        type="color"
+                                        aria-label={`Cor da veia ${idx + 1}`}
+                                        value={col}
+                                        onChange={(e) => {
+                                          const count = selectedWire.conductorCount ?? 1
+                                          const list = Array.from({ length: count }, (__, i) => selectedWire.conductorColors?.[i] ?? defaults[i % defaults.length])
+                                          list[idx] = e.target.value
+                                          patchSelectedWire({ conductorColors: list })
+                                        }}
+                                      />
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </details>
                     </div>
-                  </div>
-                })}
-                <p className="text-[10px] text-ink-400 leading-relaxed">
-                  A cor e camada do cabo controlam o fio; cada ponteira tem cor e camada próprias. Sem personalização, a ponteira segue a cor do borne ligado. {selectedWire.fromPoint || selectedWire.toPoint ? 'Arraste uma ponta livre até um borne para a ligar. Só há continuidade elétrica quando ambas as pontas estiverem ligadas.' : ''}
-                </p>
-              </div>
+                  </details>
 
-              <label className="flex items-center gap-2">
-                <span className={label + ' !mb-0'}>Metragem (mm)</span>
-                <input
-                  type="number"
-                  className="dc-input"
-                  value={selectedWire.lengthMm ?? 0}
-                  onChange={(e) => patchSelectedWire({ lengthMm: Number(e.target.value) })}
-                />
-              </label>
+                  {/* 4. TERMINAIS DAS PONTAS (A / B) */}
+                  <details className="dc-inspector-group" open>
+                    <summary>
+                      <span>Terminais das pontas</span>
+                      <span className="wi-sum-meta">
+                        {fromType === toType ? WIRE_END_LABEL[fromType] : `${WIRE_END_LABEL[fromType]} → ${WIRE_END_LABEL[toType]}`}
+                      </span>
+                    </summary>
+                    <div className="dc-inspector-group-body space-y-2">
+                      {/* Atalhos de simetria e normalização DIN 46228-4 */}
+                      <div className="wi-end-presets" role="group" aria-label="Atalhos das ponteiras">
+                        {(() => {
+                          const din = dinFerruleColor(selectedWire.gauge)
+                          return din ? (
+                            <button
+                              type="button"
+                              className="dc-ferrule-din"
+                              disabled={!wireEditingStopped}
+                              title={`Aplicar ponteira e cor DIN 46228-4 (${din.name}, ${selectedWire.gauge}) nas duas pontas`}
+                              onClick={() => useSimStore.getState().applyWireEndPreset(selectedWire.id, 'dinBoth')}
+                            >
+                              <i style={{ background: din.hex }} />DIN A+B
+                            </button>
+                          ) : null
+                        })()}
+                        <button
+                          type="button"
+                          className="wi-mini-btn"
+                          disabled={!wireEditingStopped}
+                          title="Copiar tipo, cor e camada da ponta A para a ponta B"
+                          onClick={() => useSimStore.getState().applyWireEndPreset(selectedWire.id, 'copyAtoB')}
+                        >
+                          Igualar A→B
+                        </button>
+                        <button
+                          type="button"
+                          className="wi-mini-btn"
+                          disabled={!wireEditingStopped}
+                          title="Copiar tipo, cor e camada da ponta B para a ponta A"
+                          onClick={() => useSimStore.getState().applyWireEndPreset(selectedWire.id, 'copyBtoA')}
+                        >
+                          Igualar B→A
+                        </button>
+                      </div>
 
-              <div className="dc-card p-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className={label + ' !mb-0'}>Isolamento (capa)</label>
-                  <button type="button" className="dc-btn" title="Adiciona uma secção de isolamento a 25–75% do cabo"
+                      {/* Seletor de ponta ativa (A ou B) com miniatura real da ponteira */}
+                      <div className="wi-end-tabs" role="tablist" aria-label="Escolher ponta do cabo">
+                        {(['from', 'to'] as const).map((side) => {
+                          const isA = side === 'from'
+                          const active = wireEndTab === side
+                          const tType = isA ? fromType : toType
+                          const tCol = isA ? fromColor : toColor
+                          const tLabel = isA ? (linkedFrom?.label ?? 'livre') : (linkedTo?.label ?? 'livre')
+                          return (
+                            <button
+                              key={side}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              className={`wi-end-tab${active ? ' is-on' : ''}`}
+                              onClick={() => setWireEndTab(side)}
+                            >
+                              <WireEndIcon type={tType} color={tCol} size={24} />
+                              <span>
+                                <b>Ponta {isA ? 'A' : 'B'}</b>
+                                <small>{tLabel} · {WIRE_END_LABEL[tType]}</small>
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {(() => {
+                        const side = wireEndTab
+                        const typeKey = side === 'from' ? 'fromEndType' : 'toEndType'
+                        const layerKey = side === 'from' ? 'fromEndLayer' : 'toEndLayer'
+                        const colorKey = side === 'from' ? 'fromEndColor' : 'toEndColor'
+                        const endColor = side === 'from' ? fromColor : toColor
+                        const chosen = side === 'from' ? fromType : toType
+                        const layer = selectedWire[layerKey] ?? 'back'
+                        const title = side === 'from' ? `Ponta inicial (${fromTag})` : `Ponta final (${toTag})`
+                        const din = dinFerruleColor(selectedWire.gauge)
+                        return (
+                          <div className="wi-end-panel" role="tabpanel" aria-label={title}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10.5px] font-semibold text-ink-700 truncate">{title}</span>
+                              <div className="wi-seg-pair" role="group" aria-label={`Camada da ${title}`}>
+                                {(['back', 'front'] as const).map((value) => (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    aria-pressed={layer === value}
+                                    title={value === 'back' ? 'Terminal atrás dos componentes no 2D' : 'Terminal à frente dos componentes no 2D'}
+                                    className={layer === value ? 'is-on' : ''}
+                                    onClick={() => patchSelectedWire({ [layerKey]: value })}
+                                  >
+                                    {value === 'back' ? 'Atrás' : 'À frente'}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="dc-ferrule-swatches" role="group" aria-label={`Cores rápidas da ${title}`}>
+                              {din && (
+                                <button
+                                  type="button"
+                                  className={`dc-ferrule-din${endColor.toLowerCase() === din.hex ? ' is-on' : ''}`}
+                                  onClick={() => patchSelectedWire({ [colorKey]: din.hex })}
+                                  title={`Cor normalizada DIN 46228-4 para ${selectedWire.gauge}: ${din.name}`}
+                                  aria-label={`Aplicar cor DIN 46228-4 (${din.name})`}
+                                >
+                                  <i style={{ background: din.hex }} />DIN
+                                </button>
+                              )}
+                              {FERRULE_SWATCHES.map((swatch) => (
+                                <button
+                                  key={swatch.hex}
+                                  type="button"
+                                  className={`dc-ferrule-swatch${endColor.toLowerCase() === swatch.hex ? ' is-on' : ''}`}
+                                  style={{ background: swatch.hex }}
+                                  title={`Ponteira ${swatch.name}`}
+                                  aria-label={`Ponteira ${swatch.name}`}
+                                  aria-pressed={endColor.toLowerCase() === swatch.hex}
+                                  onClick={() => patchSelectedWire({ [colorKey]: swatch.hex })}
+                                />
+                              ))}
+                              <input
+                                id={`wire-${side}-end-color`}
+                                type="color"
+                                className="wi-end-color-input"
+                                aria-label={`Cor personalizada da ${title}`}
+                                title="Cor personalizada da ponteira"
+                                value={endColor}
+                                onChange={(e) => patchSelectedWire({ [colorKey]: e.target.value })}
+                              />
+                              {selectedWire[colorKey] && (
+                                <button
+                                  type="button"
+                                  className="wi-link-btn ml-auto"
+                                  title="Voltar a seguir a cor do borne ligado"
+                                  onClick={() => patchSelectedWire({ [colorKey]: undefined })}
+                                >
+                                  Repor
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="wo-ends" role="radiogroup" aria-label={`Tipo de terminal da ${title}`}>
+                              {WIRE_END_OPTIONS.map((o) => (
+                                <button
+                                  key={o.id}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={chosen === o.id}
+                                  title={o.hint}
+                                  className={`wo-end${chosen === o.id ? ' is-on' : ''}`}
+                                  onClick={() => patchSelectedWire({ [typeKey]: o.id })}
+                                >
+                                  <WireEndIcon type={o.id} color={endColor} size={30} />
+                                  <span>{o.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </details>
+
+                  {/* 5. ACESSÓRIOS NO PERCURSO (ANILHAS, ESPIRAL E CAPAS PARCIAIS) */}
+                  <details className="dc-inspector-group" open={accessoryCount > 0}>
+                    <summary>
+                      <span>Anilhas, espiral e capas</span>
+                      <span className="wi-sum-meta">{accessoryCount > 0 ? String(accessoryCount) : 'opcional'}</span>
+                    </summary>
+                    <div className="dc-inspector-group-body space-y-2.5">
+                      <CableAccessoryMap wire={selectedWire} />
+
+                      {/* Marcadores / anilhas numeradas */}
+                      <div className="wi-subcard">
+                        <div className="wi-subcard-head">
+                          <span>Anilhas / marcadores ({selectedWire.markers?.length ?? 0})</span>
+                          <button
+                            type="button"
+                            className="wi-mini-btn"
+                            title="Adiciona uma anilha a meio do cabo (50%)"
+                            onClick={() => {
+                              const list = [...(selectedWire.markers ?? [])]
+                              const text = selectedWire.number || String(list.length + 1)
+                              list.push({ t: 0.5, text, color: '#0f172a', bg: '#fbbf24' })
+                              patchSelectedWire({ markers: list })
+                            }}
+                          >
+                            + Marcador
+                          </button>
+                        </div>
+                        <div className="wi-chip-actions">
+                          <button
+                            type="button"
+                            className="wi-mini-btn"
+                            disabled={!wireEditingStopped}
+                            title="Aplica anilhas amarelas com o nº do cabo nas duas pontas (8% e 92%)"
+                            onClick={() => useSimStore.getState().stampWireEndMarkers(selectedWire.id, 'number')}
+                          >
+                            Anilhar Nº (A+B)
+                          </button>
+                          <button
+                            type="button"
+                            className="wi-mini-btn"
+                            disabled={!wireEditingStopped}
+                            title="Aplica anilhas com o endereço dos bornes (ex.: QG.2 / QM1.1) nas duas pontas"
+                            onClick={() => useSimStore.getState().stampWireEndMarkers(selectedWire.id, 'terminals')}
+                          >
+                            Anilhar bornes (A+B)
+                          </button>
+                          {(selectedWire.markers?.length ?? 0) > 0 && (
+                            <button
+                              type="button"
+                              className="wi-mini-btn is-danger"
+                              onClick={() => patchSelectedWire({ markers: undefined })}
+                            >
+                              Limpar
+                            </button>
+                          )}
+                        </div>
+                        {(selectedWire.markers ?? []).map((m, i) => (
+                          <div key={i} className="wi-acc-row">
+                            <input
+                              className="dc-input wi-acc-text"
+                              aria-label={`Texto do marcador ${i + 1}`}
+                              value={m.text}
+                              placeholder="W1"
+                              onChange={(e) => {
+                                const list = [...(selectedWire.markers ?? [])]
+                                list[i] = { ...list[i], text: e.target.value }
+                                patchSelectedWire({ markers: list })
+                              }}
+                            />
+                            <label className="wi-pct-field" title="Posição ao longo do cabo (0% = ponta A, 100% = ponta B)">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={2}
+                                aria-label={`Posição do marcador ${i + 1} (%)`}
+                                value={Math.round(m.t * 100)}
+                                onChange={(e) => {
+                                  const list = [...(selectedWire.markers ?? [])]
+                                  list[i] = { ...list[i], t: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                  patchSelectedWire({ markers: list })
+                                }}
+                              />
+                              <i>%</i>
+                            </label>
+                            <input
+                              type="color"
+                              title="Cor do texto"
+                              aria-label={`Cor do texto do marcador ${i + 1}`}
+                              className="wi-color-mini"
+                              value={m.color}
+                              onChange={(e) => {
+                                const list = [...(selectedWire.markers ?? [])]
+                                list[i] = { ...list[i], color: e.target.value }
+                                patchSelectedWire({ markers: list })
+                              }}
+                            />
+                            <input
+                              type="color"
+                              title="Cor da anilha"
+                              aria-label={`Cor de fundo do marcador ${i + 1}`}
+                              className="wi-color-mini"
+                              value={m.bg ?? '#fbbf24'}
+                              onChange={(e) => {
+                                const list = [...(selectedWire.markers ?? [])]
+                                list[i] = { ...list[i], bg: e.target.value }
+                                patchSelectedWire({ markers: list })
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="wi-row-del"
+                              aria-label={`Remover marcador ${i + 1}`}
+                              onClick={() => {
+                                const list = (selectedWire.markers ?? []).filter((_, j) => j !== i)
+                                patchSelectedWire({ markers: list.length ? list : undefined })
+                              }}
+                            >
+                              <IconClose size={10} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Espiral de proteção */}
+                      <div className="wi-subcard">
+                        <div className="wi-subcard-head">
+                          <span>Espiral de proteção ({selectedWire.spirals?.length ?? 0})</span>
+                          <button
+                            type="button"
+                            className="wi-mini-btn"
+                            title="Adiciona uma espiral protetora entre 25% e 75% do cabo"
+                            onClick={() => {
+                              const list = [...(selectedWire.spirals ?? [])]
+                              list.push({ start: 0.25, end: 0.75, color: '#0a0a0a', pitchMm: 8, innerDiaMm: 10 })
+                              patchSelectedWire({ spirals: list })
+                            }}
+                          >
+                            + Espiral
+                          </button>
+                        </div>
+                        {(selectedWire.spirals ?? []).map((seg, i) => (
+                          <div key={i} className="wi-acc-block">
+                            <div className="wi-acc-row">
+                              <label className="wi-pct-field" title="Início da espiral (%)">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step={5}
+                                  aria-label={`Início da espiral ${i + 1} (%)`}
+                                  value={Math.round(seg.start * 100)}
+                                  onChange={(e) => {
+                                    const list = [...(selectedWire.spirals ?? [])]
+                                    list[i] = { ...list[i], start: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                    patchSelectedWire({ spirals: list })
+                                  }}
+                                />
+                                <i>%</i>
+                              </label>
+                              <span className="text-ink-400 text-[10px]">→</span>
+                              <label className="wi-pct-field" title="Fim da espiral (%)">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step={5}
+                                  aria-label={`Fim da espiral ${i + 1} (%)`}
+                                  value={Math.round(seg.end * 100)}
+                                  onChange={(e) => {
+                                    const list = [...(selectedWire.spirals ?? [])]
+                                    list[i] = { ...list[i], end: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                    patchSelectedWire({ spirals: list })
+                                  }}
+                                />
+                                <i>%</i>
+                              </label>
+                              <input
+                                type="color"
+                                className="wi-color-mini"
+                                title="Cor da espiral"
+                                aria-label={`Cor da espiral ${i + 1}`}
+                                value={seg.color ?? '#0a0a0a'}
+                                onChange={(e) => {
+                                  const list = [...(selectedWire.spirals ?? [])]
+                                  list[i] = { ...list[i], color: e.target.value }
+                                  patchSelectedWire({ spirals: list })
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="wi-row-del ml-auto"
+                                aria-label={`Remover espiral ${i + 1}`}
+                                onClick={() => {
+                                  const list = (selectedWire.spirals ?? []).filter((_, j) => j !== i)
+                                  patchSelectedWire({ spirals: list.length ? list : undefined })
+                                }}
+                              >
+                                <IconClose size={10} />
+                              </button>
+                            </div>
+                            <div className="wi-acc-row">
+                              <label className="wi-unit-field">
+                                <span>Passo</span>
+                                <input
+                                  type="number"
+                                  min={4}
+                                  max={30}
+                                  step={1}
+                                  value={seg.pitchMm ?? 8}
+                                  onChange={(e) => {
+                                    const list = [...(selectedWire.spirals ?? [])]
+                                    list[i] = { ...list[i], pitchMm: Math.max(4, Math.min(30, Number(e.target.value))) }
+                                    patchSelectedWire({ spirals: list })
+                                  }}
+                                />
+                                <i>mm</i>
+                              </label>
+                              <label className="wi-unit-field">
+                                <span>Ø int.</span>
+                                <input
+                                  type="number"
+                                  min={4}
+                                  max={40}
+                                  step={1}
+                                  value={seg.innerDiaMm ?? 10}
+                                  onChange={(e) => {
+                                    const list = [...(selectedWire.spirals ?? [])]
+                                    list[i] = { ...list[i], innerDiaMm: Math.max(4, Math.min(40, Number(e.target.value))) }
+                                    patchSelectedWire({ spirals: list })
+                                  }}
+                                />
+                                <i>mm</i>
+                              </label>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Manga / isolamento parcial */}
+                      <div className="wi-subcard">
+                        <div className="wi-subcard-head">
+                          <span>Manga / isolamento ({selectedWire.isolation?.length ?? 0})</span>
+                          <button
+                            type="button"
+                            className="wi-mini-btn"
+                            title="Adiciona uma manga de isolamento entre 25% e 75% do cabo"
+                            onClick={() => {
+                              const list = [...(selectedWire.isolation ?? [])]
+                              list.push({ start: 0.25, end: 0.75, color: '#1e293b' })
+                              patchSelectedWire({ isolation: list })
+                            }}
+                          >
+                            + Secção
+                          </button>
+                        </div>
+                        {(selectedWire.isolation ?? []).map((seg, i) => (
+                          <div key={i} className="wi-acc-row">
+                            <label className="wi-pct-field" title="Início da manga (%)">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={5}
+                                aria-label={`Início do isolamento ${i + 1} (%)`}
+                                value={Math.round(seg.start * 100)}
+                                onChange={(e) => {
+                                  const list = [...(selectedWire.isolation ?? [])]
+                                  list[i] = { ...list[i], start: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                  patchSelectedWire({ isolation: list })
+                                }}
+                              />
+                              <i>%</i>
+                            </label>
+                            <span className="text-ink-400 text-[10px]">→</span>
+                            <label className="wi-pct-field" title="Fim da manga (%)">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={5}
+                                aria-label={`Fim do isolamento ${i + 1} (%)`}
+                                value={Math.round(seg.end * 100)}
+                                onChange={(e) => {
+                                  const list = [...(selectedWire.isolation ?? [])]
+                                  list[i] = { ...list[i], end: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                  patchSelectedWire({ isolation: list })
+                                }}
+                              />
+                              <i>%</i>
+                            </label>
+                            <input
+                              type="color"
+                              className="wi-color-mini"
+                              title="Cor da manga"
+                              aria-label={`Cor do isolamento ${i + 1}`}
+                              value={seg.color}
+                              onChange={(e) => {
+                                const list = [...(selectedWire.isolation ?? [])]
+                                list[i] = { ...list[i], color: e.target.value }
+                                patchSelectedWire({ isolation: list })
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="wi-row-del ml-auto"
+                              aria-label={`Remover secção ${i + 1}`}
+                              onClick={() => {
+                                const list = (selectedWire.isolation ?? []).filter((_, j) => j !== i)
+                                patchSelectedWire({ isolation: list.length ? list : undefined })
+                              }}
+                            >
+                              <IconClose size={10} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+
+                  <button
+                    type="button"
+                    className="dc-btn-danger dc-btn w-full"
+                    disabled={!wireEditingStopped}
                     onClick={() => {
-                      const list = [...(selectedWire.isolation ?? [])]
-                      list.push({ start: 0.25, end: 0.75, color: '#1e293b' })
-                      patchSelectedWire({ isolation: list })
-                    }}>+ Secção</button>
-                </div>
-                {(selectedWire.isolation ?? []).length === 0 && <small className="text-ink-400">Sem secções de isolamento. Use «+ Secção» para marcar onde a capa começa e termina.</small>}
-                {(selectedWire.isolation ?? []).map((seg, i) => (
-                  <div key={i} className="rounded border border-line p-1.5 space-y-1">
-                    <div className="flex items-center gap-1 text-[11px]">
-                      <span>Início</span>
-                      <input type="number" className="dc-input" min={0} max={1} step={0.05} value={seg.start}
-                        onChange={(e) => {
-                          const list = [...(selectedWire.isolation ?? [])]
-                          list[i] = { ...list[i], start: Math.max(0, Math.min(1, Number(e.target.value))) }
-                          patchSelectedWire({ isolation: list })
-                        }} />
-                      <span>Fim</span>
-                      <input type="number" className="dc-input" min={0} max={1} step={0.05} value={seg.end}
-                        onChange={(e) => {
-                          const list = [...(selectedWire.isolation ?? [])]
-                          list[i] = { ...list[i], end: Math.max(0, Math.min(1, Number(e.target.value))) }
-                          patchSelectedWire({ isolation: list })
-                        }} />
-                      <input type="color" className="w-8 h-7 rounded border border-line cursor-pointer" value={seg.color}
-                        onChange={(e) => {
-                          const list = [...(selectedWire.isolation ?? [])]
-                          list[i] = { ...list[i], color: e.target.value }
-                          patchSelectedWire({ isolation: list })
-                        }} />
-                      <button type="button" className="dc-btn text-red-600" onClick={() => {
-                        const list = (selectedWire.isolation ?? []).filter((_, j) => j !== i)
-                        patchSelectedWire({ isolation: list.length ? list : undefined })
-                      }}>×</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="dc-card p-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className={label + ' !mb-0'}>Espiral de proteção</label>
-                  <button type="button" className="dc-btn" title="Adiciona uma espiral de 25–75% do cabo"
-                    onClick={() => {
-                      const list = [...(selectedWire.spirals ?? [])]
-                      list.push({ start: 0.25, end: 0.75, color: '#0a0a0a', pitchMm: 8, innerDiaMm: 10 })
-                      patchSelectedWire({ spirals: list })
-                    }}>+ Espiral</button>
-                </div>
-                {(selectedWire.spirals ?? []).length === 0 && <small className="text-ink-400">Sem espirais. Use «+ Espiral» para proteger o cabo em dobras (porta/botões).</small>}
-                {(selectedWire.spirals ?? []).map((seg, i) => (
-                  <div key={i} className="rounded border border-line p-1.5 space-y-1">
-                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
-                      <span>Início</span>
-                      <input type="number" className="dc-input w-14" min={0} max={1} step={0.05} value={seg.start}
-                        onChange={(e) => {
-                          const list = [...(selectedWire.spirals ?? [])]
-                          list[i] = { ...list[i], start: Math.max(0, Math.min(1, Number(e.target.value))) }
-                          patchSelectedWire({ spirals: list })
-                        }} />
-                      <span>Fim</span>
-                      <input type="number" className="dc-input w-14" min={0} max={1} step={0.05} value={seg.end}
-                        onChange={(e) => {
-                          const list = [...(selectedWire.spirals ?? [])]
-                          list[i] = { ...list[i], end: Math.max(0, Math.min(1, Number(e.target.value))) }
-                          patchSelectedWire({ spirals: list })
-                        }} />
-                      <input type="color" className="w-8 h-7 rounded border border-line cursor-pointer" value={seg.color ?? '#0a0a0a'} title="Cor da espiral"
-                        onChange={(e) => {
-                          const list = [...(selectedWire.spirals ?? [])]
-                          list[i] = { ...list[i], color: e.target.value }
-                          patchSelectedWire({ spirals: list })
-                        }} />
-                      <button type="button" className="dc-btn text-red-600" onClick={() => {
-                        const list = (selectedWire.spirals ?? []).filter((_, j) => j !== i)
-                        patchSelectedWire({ spirals: list.length ? list : undefined })
-                      }}>×</button>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                      <label className="flex items-center gap-1">Passo
-                        <input type="number" className="dc-input w-14" min={4} max={30} step={1} value={seg.pitchMm ?? 8}
-                          onChange={(e) => {
-                            const list = [...(selectedWire.spirals ?? [])]
-                            list[i] = { ...list[i], pitchMm: Math.max(4, Math.min(30, Number(e.target.value))) }
-                            patchSelectedWire({ spirals: list })
-                          }} />
-                        <span className="text-[10px] text-ink-400">mm</span>
-                      </label>
-                      <label className="flex items-center gap-1">Ø int.
-                        <input type="number" className="dc-input w-14" min={4} max={40} step={1} value={seg.innerDiaMm ?? 10}
-                          onChange={(e) => {
-                            const list = [...(selectedWire.spirals ?? [])]
-                            list[i] = { ...list[i], innerDiaMm: Math.max(4, Math.min(40, Number(e.target.value))) }
-                            patchSelectedWire({ spirals: list })
-                          }} />
-                        <span className="text-[10px] text-ink-400">mm</span>
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="dc-card p-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <label className={label + ' !mb-0'}>Marcadores / tags</label>
-                  <button type="button" className="dc-btn" title="Adiciona um marcador a meio do cabo"
-                    onClick={() => {
-                      const list = [...(selectedWire.markers ?? [])]
-                      const n = String((list.length % 10))
-                      list.push({ t: 0.5, text: n, color: '#0a0a0a', bg: '#fbbf24' })
-                      patchSelectedWire({ markers: list })
-                    }}>+ Marcador</button>
-                </div>
-                {(selectedWire.markers ?? []).length === 0 && <small className="text-ink-400">Sem marcadores. Use «+ Marcador» para anéis numerados ou etiquetas no cabo.</small>}
-                {(selectedWire.markers ?? []).map((m, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-1 text-[11px]">
-                    <span>Pos.</span>
-                    <input type="number" className="dc-input w-14" min={0} max={1} step={0.05} value={m.t}
-                      onChange={(e) => {
-                        const list = [...(selectedWire.markers ?? [])]
-                        list[i] = { ...list[i], t: Math.max(0, Math.min(1, Number(e.target.value))) }
-                        patchSelectedWire({ markers: list })
-                      }} />
-                    <input className="dc-input w-16" value={m.text} placeholder="Nº"
-                      onChange={(e) => {
-                        const list = [...(selectedWire.markers ?? [])]
-                        list[i] = { ...list[i], text: e.target.value }
-                        patchSelectedWire({ markers: list })
-                      }} />
-                    <input type="color" title="Cor do texto" className="w-7 h-7 rounded border border-line cursor-pointer" value={m.color}
-                      onChange={(e) => {
-                        const list = [...(selectedWire.markers ?? [])]
-                        list[i] = { ...list[i], color: e.target.value }
-                        patchSelectedWire({ markers: list })
-                      }} />
-                    <input type="color" title="Fundo do marcador" className="w-7 h-7 rounded border border-line cursor-pointer" value={m.bg ?? '#fbbf24'}
-                      onChange={(e) => {
-                        const list = [...(selectedWire.markers ?? [])]
-                        list[i] = { ...list[i], bg: e.target.value }
-                        patchSelectedWire({ markers: list })
-                      }} />
-                    <button type="button" className="dc-btn text-red-600" onClick={() => {
-                      const list = (selectedWire.markers ?? []).filter((_, j) => j !== i)
-                      patchSelectedWire({ markers: list.length ? list : undefined })
-                    }}>×</button>
-                  </div>
-                ))}
-              </div>
-
-              <button className="dc-btn-danger dc-btn w-full" onClick={() => useSimStore.getState().deleteWire(selectedWire.id)}>
-                <IconDelete size={12} /> Eliminar cabo
-              </button>
-              </fieldset>
-            </section>
-          )}
+                      if (multiCount > 1) useSimStore.getState().deleteSelection()
+                      else useSimStore.getState().deleteWire(selectedWire.id)
+                    }}
+                  >
+                    <IconDelete size={12} /> {multiCount > 1 ? `Eliminar ${multiCount} cabos` : 'Eliminar cabo'}
+                  </button>
+                </fieldset>
+              </section>
+            )
+          })()}
 
           {/* ---------------------------------------------------- borne */}
           {selectedTerminal && terminalOwner && !selectedComponent && (

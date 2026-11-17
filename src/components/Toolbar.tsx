@@ -942,7 +942,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                     key={c}
                     className={`tb-swatch ${!wireDefaults.autoColor && wireDefaults.color === c ? 'is-active' : ''}`}
                     style={{ background: c === 'green-yellow' ? 'repeating-linear-gradient(45deg,#84cc16 0 4px,#eab308 4px 8px)' : WIRE_COLORS[c] }}
-                    title={`Cor: ${c}`}
+                    title={`Cor: ${WIRE_COLOR_LABEL[c]}`}
+                    aria-label={`Cor: ${WIRE_COLOR_LABEL[c]}`}
                     onClick={() => setWireDefaults({ color: c, autoColor: false })}
                   />
                 ))}

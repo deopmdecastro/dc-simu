@@ -30,3 +30,27 @@ const snapshot = () => node
 export function useWireActionSlot() {
   return useSyncExternalStore(subscribe, snapshot, () => null)
 }
+
+/**
+ * Segundo ponto de montagem no painel lateral: estado ao vivo da construção
+ * de cabos no 3D (origem, destino, comprimento, eixos magnéticos, desfazer/terminar).
+ */
+let draftNode: HTMLElement | null = null
+const draftListeners = new Set<() => void>()
+
+export function setWireDraftSlot(next: HTMLElement | null) {
+  if (next === draftNode) return
+  draftNode = next
+  draftListeners.forEach((listener) => listener())
+}
+
+function subscribeDraft(listener: () => void) {
+  draftListeners.add(listener)
+  return () => { draftListeners.delete(listener) }
+}
+
+const snapshotDraft = () => draftNode
+
+export function useWireDraftSlot() {
+  return useSyncExternalStore(subscribeDraft, snapshotDraft, () => null)
+}

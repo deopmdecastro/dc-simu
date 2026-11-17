@@ -444,6 +444,14 @@ export interface WireDefaults {
   sheathed?: boolean
   /** Cor da capa exterior (hex), p.ex. preto PVC. Só relevante se sheathed. */
   sheathColor?: string
+  /** Cores individuais das veias num cabo multicore (HD 308 S2). */
+  conductorColors?: string[]
+  /** Traçado preferido para os cabos novos (undefined = automático pelo condutor). */
+  route?: WireRoute
+  /** Ligação contínua em cadeia: ao terminar num borne, inicia logo o cabo seguinte nesse borne. */
+  chainMode?: boolean
+  /** Encaixe ortogonal magnético (90° nos eixos X/Y/Z) ao construir pontos de passagem. */
+  orthoSnap?: boolean
 }
 
 export interface Wire {

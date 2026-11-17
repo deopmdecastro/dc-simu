@@ -1,80 +1,263 @@
 /*
- * Opções dos cabos novos (cor, condutor, secção e terminal) no painel lateral.
- * Bloco partilhado pela barra/inspetor do simulador e pelo painel esquerdo do
- * editor de componentes — a mesma UI/UX com o ícone da ponteira e o ícone do
- * condutor rígido/flexível. Ver `src/ui/WireOptions.tsx`.
+ * Opções dos cabos novos e inspetor técnico de cabos (simulador 2D/3D,
+ * Esquema IEC e editor 3D de componentes).
+ * Segue estritamente o sistema visual do painel lateral (--dx-* / --pn-*):
+ * bordas limpas de 1 px (sem barras laterais de destaque), foco azul nítido
+ * e alvos generosos em tablet e telemóvel.
  */
-.wo-fields { display:flex; flex-direction:column; gap:10px; }
+
+/* ---------------- Opções partilhadas dos cabos novos (.wo-*) ---------------- */
+.wo-fields { display:flex; flex-direction:column; gap:11px; }
 .wo-group { display:flex; flex-direction:column; gap:5px; }
-.wo-label { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--dx-ink-3,#64748b); font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
-.wo-label em { color:var(--dx-ink-4,#94a3b8); font-style:normal; font-weight:700; letter-spacing:0; text-transform:none; }
-.wo-auto { flex:none; min-height:20px; padding:0 7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:999px; color:var(--dx-ink-4,#94a3b8); background:var(--dx-surface,#fff); font:800 9px ui-sans-serif,sans-serif; cursor:pointer; }
+.wo-label { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--dx-ink-3,#64748b); font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+.wo-label em { color:var(--dx-ink-2,#334155); font-style:normal; font-weight:600; letter-spacing:0; text-transform:none; font-variant-numeric:tabular-nums; }
+
+/* Cartão da amostra longitudinal do cabo + cotas técnicas */
+.wo-preview-card { display:flex; flex-direction:column; gap:6px; padding:7px 8px; border:1px solid var(--dx-line,#dbe4ef); border-radius:8px; background:var(--dx-surface-2,#f8fafc); }
+.wo-specimen { display:flex; align-items:center; gap:2px; height:28px; padding:0 2px; border:1px solid var(--dx-line-soft,#e5ecf5); border-radius:6px; background:var(--dx-surface,#fff); overflow:hidden; }
+.wo-specimen-end { display:inline-flex; align-items:center; flex:none; }
+.wo-specimen-end.is-flip { transform:scaleX(-1); }
+.wo-specimen-body { flex:1; min-width:36px; height:22px; display:block; }
+.wo-preview-specs { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.wo-preview-specs span { display:inline-flex; align-items:center; height:19px; padding:0 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:5px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 9.5px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.wo-preview-specs span.is-warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+
+/* Modos de traçado e rastreamento (4 cartões com glifo da curva) */
+.wo-routes { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
+.wo-route { display:flex; min-width:0; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:42px; padding:4px 3px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); font:600 9.5px ui-sans-serif,sans-serif; cursor:pointer; transition:border-color .12s ease, background .12s ease, color .12s ease; }
+.wo-route span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wo-route:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
+.wo-route.is-on { border-color:var(--dx-brand,#2f6bff); color:var(--dx-brand-700,#1f55e0); background:var(--dx-brand-soft,#eff5ff); font-weight:700; }
+
+.wo-toggles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+.wo-toggle { display:inline-flex; min-width:0; align-items:center; justify-content:center; min-height:26px; padding:0 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; color:var(--dx-ink-3,#64748b); background:var(--dx-surface,#fff); font:600 10px ui-sans-serif,sans-serif; cursor:pointer; transition:border-color .12s ease, background .12s ease, color .12s ease; }
+.wo-toggle:hover { border-color:var(--dx-line-strong,#c3ccd8); color:var(--dx-ink-2,#334155); }
+.wo-toggle.is-on { border-color:var(--dx-brand-line,#b9cdf8); color:var(--dx-brand-700,#1f55e0); background:var(--dx-brand-soft,#eff5ff); font-weight:700; }
+
+/* Cartão de estado em direto da construção de cabos 3D (portal no painel lateral) */
+.dc-wire-draft-slot:empty { display:none; }
+.wo-draft-card { display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid var(--dx-line,#dbe4ef); border-radius:8px; background:var(--dx-surface-2,#f8fafc); }
+.wo-draft-card.is-active { border-color:var(--dx-brand-line,#b9cdf8); background:var(--dx-brand-soft,#eff5ff); }
+.wo-draft-head { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.wo-draft-head strong { color:var(--dx-ink,#0f172a); font-size:11px; font-weight:700; }
+.wo-draft-pill { flex:none; padding:1.5px 6px; border-radius:999px; border:1px solid var(--dx-line,#dbe4ef); background:var(--dx-surface,#fff); color:var(--dx-ink-3,#64748b); font:700 9px ui-sans-serif,sans-serif; }
+.wo-draft-pill.is-ok { border-color:#86efac; background:#f0fdf4; color:#15803d; }
+.wo-draft-pill.is-warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+.wo-draft-hint { margin:0; color:var(--dx-ink-3,#64748b); font-size:10px; line-height:1.4; }
+.wo-draft-route { display:flex; flex-wrap:wrap; align-items:center; gap:5px; padding:4px 6px; border:1px solid var(--dx-line-soft,#e5ecf5); border-radius:6px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.wo-draft-route b { color:var(--dx-brand-700,#1f55e0); }
+.wo-draft-arrow { color:var(--dx-ink-4,#94a3b8); }
+.wo-draft-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; }
+.wo-draft-metrics > div { display:flex; flex-direction:column; padding:4px 6px; border:1px solid var(--dx-line-soft,#e5ecf5); border-radius:6px; background:var(--dx-surface,#fff); }
+.wo-draft-metrics small { color:var(--dx-ink-4,#94a3b8); font-size:8.5px; font-weight:600; text-transform:uppercase; }
+.wo-draft-metrics strong { color:var(--dx-ink,#0f172a); font:700 10.5px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.wo-draft-metrics strong.is-warn { color:#b45309; }
+.wo-draft-tags { display:flex; flex-wrap:wrap; gap:4px; }
+.wo-draft-tag { padding:1px 6px; border-radius:5px; border:1px solid var(--dx-line,#dbe4ef); background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 9.5px ui-sans-serif,sans-serif; }
+.wo-draft-tag.is-warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+.wo-draft-actions { display:flex; flex-wrap:wrap; gap:4px; }
+.wo-draft-actions button { flex:1 1 auto; min-height:26px; padding:0 7px; border:1px solid var(--dx-line-strong,#c3ccd8); border-radius:6px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 10px ui-sans-serif,sans-serif; cursor:pointer; }
+.wo-draft-actions button:hover:not(:disabled) { border-color:var(--dx-brand,#2f6bff); color:var(--dx-brand-700,#1f55e0); }
+.wo-draft-actions button:disabled { opacity:.45; cursor:not-allowed; }
+.wo-draft-actions button.is-danger { color:#b91c1c; }
+
+/* Atalhos compactos no rodapé da ferramenta Cabo */
+.wo-shortcuts { display:flex; flex-wrap:wrap; gap:4px 8px; padding:6px 8px; border:1px solid var(--dx-line-soft,#e5ecf5); border-radius:7px; background:var(--dx-surface-2,#f8fafc); color:var(--dx-ink-3,#64748b); font-size:9.5px; line-height:1.4; }
+.wo-shortcuts kbd { padding:0.5px 4px; border:1px solid var(--dx-line,#dbe4ef); border-radius:4px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 9px ui-monospace,SFMono-Regular,Menlo,monospace; }
+
+/* Paleta de cores */
+.wo-auto { flex:none; min-height:20px; padding:0 7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:999px; color:var(--dx-ink-3,#64748b); background:var(--dx-surface,#fff); font:800 9px ui-sans-serif,sans-serif; cursor:pointer; }
 .wo-auto.is-on { border-color:var(--dx-brand-line,#b9cdf8); color:var(--dx-brand-700,#1f55e0); background:var(--dx-brand-soft,#eff5ff); }
-.wo-auto:hover { border-color:#7da2f5; }
-.wo-swatches { display:flex; flex-wrap:wrap; gap:4px; }
-.wo-swatch { width:20px; height:20px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.18); cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
-.wo-swatch:hover { transform:scale(1.12); }
-.wo-swatch.is-dim { opacity:.55; }
-.wo-swatch.is-on { transform:scale(1.14); opacity:1; box-shadow:0 0 0 2px var(--dx-brand,#2f6bff); }
-.wo-note { color:var(--dx-ink-4,#94a3b8); font-size:9.5px; line-height:1.4; }
+.wo-auto:hover:not(:disabled) { border-color:#7da2f5; }
+.wo-swatches { display:flex; flex-wrap:wrap; gap:5px; }
+.wo-swatch { width:21px; height:21px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.2); cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+.wo-swatch:hover:not(:disabled) { transform:scale(1.1); }
+.wo-swatch.is-dim { opacity:.58; }
+.wo-swatch.is-on { transform:scale(1.12); opacity:1; box-shadow:0 0 0 2px var(--dx-brand,#2f6bff); }
+.wo-note { color:var(--dx-ink-3,#64748b); font-size:10px; line-height:1.4; }
+
+/* Condutor flexível / rígido */
 .wo-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
-.wo-choice { display:flex; min-width:0; flex-direction:column; align-items:flex-start; gap:1px; padding:6px 7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:8px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); text-align:left; cursor:pointer; transition:border-color .12s ease, background .12s ease; }
-.wo-choice strong { font-size:11px; font-weight:700; }
-.wo-choice small { color:var(--dx-ink-4,#94a3b8); font-size:8.5px; line-height:1.3; }
-.wo-choice:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
-.wo-choice.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); box-shadow:inset 0 0 0 1px var(--dx-brand-soft,#eff5ff); }
+.wo-choice, .wo-sheath-btn { display:flex; min-width:0; flex-direction:column; align-items:flex-start; gap:1px; padding:6px 7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:8px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); text-align:left; cursor:pointer; transition:border-color .12s ease, background .12s ease; }
+.wo-choice strong, .wo-sheath-btn strong { font-size:11px; font-weight:700; color:var(--dx-ink,#0f172a); }
+.wo-choice small, .wo-sheath-btn small { color:var(--dx-ink-3,#64748b); font-size:9px; line-height:1.3; }
+.wo-choice:hover, .wo-sheath-btn:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
+.wo-choice.is-on, .wo-sheath-btn.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); }
+
+/* Secções nominais (mm²) */
 .wo-gauges { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; }
-.wo-gauge { display:flex; min-width:0; align-items:baseline; justify-content:center; gap:1px; min-height:26px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); font:700 10.5px ui-sans-serif,sans-serif; cursor:pointer; }
-.wo-gauge i { color:var(--dx-ink-4,#94a3b8); font-size:7.5px; font-style:normal; }
+.wo-gauge { display:flex; min-width:0; align-items:baseline; justify-content:center; gap:1px; min-height:28px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); font:700 10.5px ui-sans-serif,sans-serif; font-variant-numeric:tabular-nums; cursor:pointer; }
+.wo-gauge i { color:var(--dx-ink-4,#94a3b8); font-size:8px; font-style:normal; }
 .wo-gauge:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
 .wo-gauge.is-on { border-color:var(--dx-brand,#2f6bff); color:#fff; background:var(--dx-brand,#2f6bff); }
 .wo-gauge.is-on i { color:#dbeafe; }
+
+/* Terminais das pontas */
 .wo-ends { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
-.wo-end { display:flex; min-width:0; align-items:center; gap:5px; padding:4px 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); font:600 10.5px ui-sans-serif,sans-serif; text-align:left; cursor:pointer; }
-.wo-end span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.wo-end svg { flex:none; }
-.wo-end:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
-.wo-end.is-on { border-color:var(--dx-brand,#2f6bff); color:var(--dx-brand-700,#1f55e0); background:var(--dx-brand-soft,#eff5ff); font-weight:800; box-shadow:0 0 0 1px var(--dx-brand-soft,#eff5ff); }
-.wo-fields.is-compact .wo-choices,
-.wo-fields.is-compact .wo-ends { grid-template-columns:1fr; }
-.wo-fields.is-compact .wo-gauges { grid-template-columns:repeat(3,minmax(0,1fr)); }
-@media (max-width:560px) {
-  .wo-choices { grid-template-columns:1fr; }
-  .wo-gauges { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .wo-swatch { width:22px; height:22px; }
-}
-
-/* Legibilidade: nomes dos terminais em duas linhas (sem «…» em painéis estreitos) e letra maior. */
-.wo-label { font-size:10px; }
-.wo-note { font-size:10.5px; color:var(--dx-ink-3,#64748b); }
-.wo-choice small { font-size:9.5px; color:var(--dx-ink-3,#64748b); }
-.wo-gauge { min-height:28px; font-size:11px; }
-.wo-gauge i { font-size:8.5px; }
-.wo-end { min-height:36px; padding:4px 7px; font-size:11px; line-height:1.2; }
+.wo-end { display:flex; min-width:0; align-items:center; gap:5px; min-height:36px; padding:4px 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); font:600 10.5px/1.2 ui-sans-serif,sans-serif; text-align:left; cursor:pointer; }
 .wo-end span { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
-.wo-end svg { width:30px; height:auto; }
+.wo-end svg { flex:none; width:28px; height:auto; }
+.wo-end:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
+.wo-end.is-on { border-color:var(--dx-brand,#2f6bff); color:var(--dx-brand-700,#1f55e0); background:var(--dx-brand-soft,#eff5ff); font-weight:700; }
 
-/* Inspetor do cabo · cor da ponteira: cores rápidas e cor normalizada DIN 46228-4 pela secção. */
+/* Presets de formação (fio simples / multicore / isolado) */
+.wo-presets { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+.wo-preset { display:flex; min-width:0; flex-direction:column; align-items:flex-start; gap:1px; padding:5px 7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); text-align:left; cursor:pointer; transition:border-color .12s ease, background .12s ease; }
+.wo-preset strong { font-size:10.5px; font-weight:700; color:var(--dx-ink,#0f172a); }
+.wo-preset small { color:var(--dx-ink-3,#64748b); font-size:8.5px; line-height:1.25; }
+.wo-preset:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
+.wo-preset.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); }
+.wo-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:4px; }
+.wo-inline { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; color:var(--dx-ink-3,#64748b); }
+.wo-select { min-height:28px; padding:0 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; background:var(--dx-surface,#fff); font:700 11px ui-sans-serif,sans-serif; }
+.wo-sheath { flex:1; min-width:105px; }
+.wo-sheath-color { width:28px; height:28px; padding:0; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; cursor:pointer; background:transparent; }
+
+/* Cores normalizadas DIN 46228-4 das ponteiras */
 .dc-ferrule-swatches { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
 .dc-ferrule-swatch { width:18px; height:18px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.22); cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
 .dc-ferrule-swatch:hover { transform:scale(1.12); }
 .dc-ferrule-swatch.is-on { box-shadow:0 0 0 2px var(--dx-brand,#2f6bff); }
 .dc-ferrule-din { display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 8px 0 4px; border:1px solid var(--dx-line,#dbe4ef); border-radius:999px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:700 10px ui-sans-serif,sans-serif; cursor:pointer; }
-.dc-ferrule-din i { width:13px; height:13px; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.25); }
-.dc-ferrule-din:hover { border-color:#7da2f5; }
+.dc-ferrule-din i { width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.25); }
+.dc-ferrule-din:hover:not(:disabled) { border-color:#7da2f5; }
 .dc-ferrule-din.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); color:var(--dx-brand-700,#1f55e0); }
-.dc-ferrule-swatch:focus-visible, .dc-ferrule-din:focus-visible { outline:2px solid var(--dx-brand,#2f6bff); outline-offset:2px; }
+.dc-ferrule-swatch:focus-visible, .dc-ferrule-din:focus-visible, .wo-swatch:focus-visible, .wo-route:focus-visible { outline:2px solid var(--dx-brand,#2f6bff); outline-offset:2px; }
 
-/* Presets de tipo de cabo (fio / multicore / isolado) */
-.wo-presets { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
-.wo-preset { display:flex; min-width:0; flex-direction:column; align-items:flex-start; gap:1px; padding:6px 7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:8px; color:var(--dx-ink-2,#334155); background:var(--dx-surface,#fff); text-align:left; cursor:pointer; transition:border-color .12s ease, background .12s ease; }
-.wo-preset strong { font-size:11px; font-weight:700; }
-.wo-preset small { color:var(--dx-ink-4,#94a3b8); font-size:8.5px; line-height:1.3; }
-.wo-preset:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
-.wo-preset.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); box-shadow:inset 0 0 0 1px var(--dx-brand-soft,#eff5ff); }
-.wo-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-.wo-inline { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; color:var(--dx-ink-3,#64748b); }
-.wo-select { min-height:28px; padding:0 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; background:var(--dx-surface,#fff); font:700 11px ui-sans-serif,sans-serif; }
-.wo-sheath { flex:1; min-width:110px; }
-.wo-sheath-color { width:28px; height:28px; padding:0; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; cursor:pointer; background:transparent; }
+/* ------------------- Inspetor do cabo selecionado (.wi-*) ------------------- */
+.wi-root { display:flex; flex-direction:column; gap:8px; }
+.wi-fieldset { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.wi-hero { display:flex; flex-direction:column; gap:7px; padding:8px; border:1px solid var(--dx-line,#dbe4ef); border-radius:9px; background:var(--dx-surface-2,#f8fafc); }
+.wi-hero-top { display:flex; align-items:center; justify-content:space-between; gap:6px; min-width:0; }
+.wi-hero-title { display:flex; align-items:center; gap:5px; min-width:0; }
+.wi-hero-title strong { color:var(--dx-ink,#0f172a); font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wi-badge { display:inline-flex; align-items:center; gap:3px; height:18px; padding:0 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:999px; background:var(--dx-surface,#fff); color:var(--dx-ink-3,#64748b); font:700 9.5px ui-sans-serif,sans-serif; }
+.wi-badge.is-brand { border-color:var(--dx-brand-line,#b9cdf8); background:var(--dx-brand-soft,#eff5ff); color:var(--dx-brand-700,#1f55e0); }
+
+/* Ligação A ↔ B */
+.wi-endpoints { display:flex; align-items:stretch; gap:4px; min-width:0; }
+.wi-endpoint { flex:1 1 0; min-width:0; display:flex; align-items:center; gap:6px; padding:5px 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface,#fff); text-align:left; cursor:pointer; transition:border-color .12s ease, background .12s ease; }
+.wi-endpoint:hover:not(:disabled) { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); }
+.wi-endpoint:disabled { cursor:default; }
+.wi-endpoint.is-free { border-style:dashed; }
+.wi-endpoint-side { flex:none; width:17px; height:17px; display:inline-flex; align-items:center; justify-content:center; border-radius:5px; background:var(--dx-surface-2,#f1f5f9); color:var(--dx-ink-2,#334155); font:800 9.5px ui-sans-serif,sans-serif; }
+.wi-endpoint-body { min-width:0; display:flex; flex-direction:column; }
+.wi-endpoint-body b { color:var(--dx-ink,#0f172a); font:700 10.5px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wi-endpoint-body small { color:var(--dx-ink-4,#94a3b8); font-size:8.5px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wi-swap-btn { flex:none; width:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface,#fff); color:var(--dx-ink-3,#64748b); cursor:pointer; transition:border-color .12s ease, color .12s ease, background .12s ease; }
+.wi-swap-btn:hover:not(:disabled) { border-color:var(--dx-brand,#2f6bff); color:var(--dx-brand-700,#1f55e0); background:var(--dx-brand-soft,#eff5ff); }
+.wi-swap-btn:disabled { opacity:.45; cursor:not-allowed; }
+
+/* Alerta elétrico discreto (sem barra lateral) */
+.wi-alert { display:flex; flex-direction:column; gap:2px; padding:6px 8px; border:1px solid #fcd34d; border-radius:7px; background:#fffbeb; color:#92400e; font-size:10px; line-height:1.35; }
+.wi-alert strong { font-size:10.5px; font-weight:700; }
+
+/* Cartões KPI de comprimento / diâmetro / curvatura */
+.wi-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; }
+.wi-kpi { display:flex; flex-direction:column; gap:1px; padding:4px 6px; border:1px solid var(--dx-line-soft,#e5ecf5); border-radius:6px; background:var(--dx-surface,#fff); min-width:0; }
+.wi-kpi small { color:var(--dx-ink-4,#94a3b8); font-size:8.5px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+.wi-kpi strong { color:var(--dx-ink,#0f172a); font:700 10.5px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.wi-primary-actions { display:flex; flex-wrap:wrap; gap:5px; }
+.wi-primary-actions .dc-btn { flex:1 1 auto; justify-content:center; }
+.wi-lock-note, .wi-batch-note { margin:0; padding:6px 8px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface-2,#f8fafc); color:var(--dx-ink-3,#64748b); font-size:10px; line-height:1.4; }
+.wi-batch-note { border-color:var(--dx-brand-line,#b9cdf8); background:var(--dx-brand-soft,#eff5ff); color:var(--dx-brand-700,#1f55e0); }
+.wi-sync-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px; padding:6px 8px; border:1px solid var(--dx-brand-line,#b9cdf8); border-radius:7px; background:var(--dx-brand-soft,#eff5ff); color:var(--dx-ink-2,#334155); font-size:10px; }
+.wi-sync-btns { display:flex; gap:4px; margin-left:auto; }
+
+/* Resumo à direita nos cabeçalhos de grupo (<details.dc-inspector-group > summary>) */
+.dc-wire-inspector .dc-inspector-group > summary { display:flex; align-items:center; gap:6px; }
+.wi-sum-meta { margin-left:auto; display:inline-flex; align-items:center; gap:4px; padding-right:2px; color:var(--dx-ink-4,#94a3b8); font:600 9.5px ui-monospace,SFMono-Regular,Menlo,monospace; text-transform:none; letter-spacing:0; }
+.wi-sum-dot { width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.24); flex:none; }
+
+/* Sliders e sub-cartões */
+.wi-slider-field { display:flex; flex-direction:column; gap:3px; }
+.wi-slider-head { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.wi-slider-val { display:inline-flex; align-items:center; gap:5px; color:var(--dx-ink-2,#334155); font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; }
+.wi-slider-val button, .wi-link-btn { padding:0 5px; height:18px; border:1px solid var(--dx-line,#dbe4ef); border-radius:4px; background:var(--dx-surface,#fff); color:var(--dx-brand-700,#1f55e0); font:600 9.5px ui-sans-serif,sans-serif; cursor:pointer; }
+.wi-slider-val button:hover, .wi-link-btn:hover { background:var(--dx-brand-soft,#eff5ff); border-color:var(--dx-brand-line,#b9cdf8); }
+
+.wi-subcard { display:flex; flex-direction:column; gap:6px; padding:7px 8px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface-2,#f8fafc); }
+.wi-subcard-head { display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:10.5px; font-weight:700; color:var(--dx-ink-2,#334155); }
+.wi-subcard-head b { font-size:10px; color:var(--dx-ink-3,#64748b); }
+.wi-subcard-head b.is-brand { color:var(--dx-brand-700,#1f55e0); }
+.wi-subcard-head small { color:var(--dx-ink-4,#94a3b8); font-weight:600; font-size:9.5px; }
+.wi-chip-actions { display:flex; flex-wrap:wrap; gap:4px; }
+.wi-hint { color:var(--dx-ink-4,#94a3b8); font-size:9.5px; line-height:1.35; }
+.dc-wire-3d-actions:empty { display:none; }
+
+/* Sub-bloco colapsável (formação multicore) */
+.wi-nested-details { border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface-2,#f8fafc); }
+.wi-nested-details > summary { list-style:none; display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 8px; font-size:10.5px; font-weight:700; color:var(--dx-ink-2,#334155); cursor:pointer; }
+.wi-nested-details > summary::-webkit-details-marker { display:none; }
+.wi-nested-details > summary em { font-style:normal; font-size:9.5px; font-weight:600; color:var(--dx-ink-4,#94a3b8); }
+.wi-nested-body { display:flex; flex-direction:column; gap:6px; padding:0 8px 8px; }
+.wi-cores-row { display:flex; flex-direction:column; gap:5px; padding-top:4px; border-top:1px solid var(--dx-line-soft,#e5ecf5); }
+.wi-core-chip { display:inline-flex; align-items:center; gap:3px; padding:2px 4px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; background:var(--dx-surface,#fff); font:700 9.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dx-ink-3,#64748b); }
+.wi-core-chip input { width:20px; height:20px; padding:0; border:0; background:transparent; cursor:pointer; }
+
+/* Terminais A/B com separadores compactos */
+.wi-end-presets { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.wi-mini-btn { display:inline-flex; align-items:center; justify-content:center; height:22px; padding:0 7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:600 10px ui-sans-serif,sans-serif; cursor:pointer; }
+.wi-mini-btn:hover:not(:disabled) { border-color:var(--dx-brand,#2f6bff); color:var(--dx-brand-700,#1f55e0); background:var(--dx-brand-soft,#eff5ff); }
+.wi-mini-btn:disabled { opacity:.45; cursor:not-allowed; }
+.wi-mini-btn.is-danger { color:#b91c1c; }
+
+.wi-end-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+.wi-end-tab { display:flex; min-width:0; align-items:center; gap:5px; padding:5px 6px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface,#fff); text-align:left; cursor:pointer; transition:border-color .12s ease, background .12s ease; }
+.wi-end-tab svg { flex:none; }
+.wi-end-tab span { min-width:0; display:flex; flex-direction:column; }
+.wi-end-tab b { font-size:10.5px; font-weight:700; color:var(--dx-ink,#0f172a); }
+.wi-end-tab small { font-size:9px; color:var(--dx-ink-4,#94a3b8); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wi-end-tab:hover { border-color:var(--dx-line-strong,#c3ccd8); background:var(--dx-surface-2,#f8fafc); }
+.wi-end-tab.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); }
+.wi-end-tab.is-on b { color:var(--dx-brand-700,#1f55e0); }
+
+.wi-end-panel { display:flex; flex-direction:column; gap:7px; padding:7px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface-2,#f8fafc); }
+.wi-seg-pair { display:inline-flex; flex:none; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; overflow:hidden; background:var(--dx-surface,#fff); }
+.wi-seg-pair button { padding:2px 6px; border:0; background:transparent; color:var(--dx-ink-3,#64748b); font:600 9.5px ui-sans-serif,sans-serif; cursor:pointer; }
+.wi-seg-pair button.is-on { background:var(--dx-brand,#2f6bff); color:#fff; }
+.wi-end-color-input { width:22px; height:22px; padding:0; border:1px solid var(--dx-line,#dbe4ef); border-radius:5px; background:transparent; cursor:pointer; }
+
+/* Mapa linear 0%–100% dos acessórios do cabo */
+.wi-cable-map { display:flex; align-items:center; gap:6px; padding:6px 8px; border:1px solid var(--dx-line,#dbe4ef); border-radius:7px; background:var(--dx-surface,#fff); }
+.wi-cable-map-end { flex:none; font:800 9.5px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dx-ink-3,#64748b); }
+.wi-cable-map-track { position:relative; flex:1; height:20px; display:flex; align-items:center; }
+.wi-cable-map-core { width:100%; height:4px; border-radius:999px; box-shadow:0 0 0 1px rgba(15,23,42,.2); }
+.wi-cable-map-iso { position:absolute; top:50%; transform:translateY(-50%); height:8px; border-radius:3px; opacity:.88; box-shadow:0 0 0 1px rgba(15,23,42,.25); }
+.wi-cable-map-spiral { position:absolute; top:50%; transform:translateY(-50%); height:12px; border:1px solid #0f172a; border-radius:3px; opacity:.82; }
+.wi-cable-map-marker { position:absolute; top:50%; transform:translate(-50%,-50%); max-width:44px; padding:0.5px 4px; border:1px solid #1e293b; border-radius:3px; font:800 8.5px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:2; }
+
+/* Linhas compactas de anilhas / espirais / mangas em % */
+.wi-acc-block { display:flex; flex-direction:column; gap:4px; padding:5px; border:1px solid var(--dx-line-soft,#e5ecf5); border-radius:6px; background:var(--dx-surface,#fff); }
+.wi-acc-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.wi-acc-text { width:62px !important; flex:1 1 56px; min-width:52px; height:26px !important; padding:0 6px !important; font:700 10.5px ui-monospace,SFMono-Regular,Menlo,monospace !important; }
+.wi-pct-field, .wi-unit-field { display:inline-flex; align-items:center; gap:2px; height:26px; padding:0 5px; border:1px solid var(--dx-line,#dbe4ef); border-radius:6px; background:var(--dx-surface,#fff); font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dx-ink-2,#334155); }
+.wi-pct-field input, .wi-unit-field input { width:34px; border:0; background:transparent; color:var(--dx-ink,#0f172a); font:700 10.5px ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; text-align:right; outline:none; }
+.wi-pct-field i, .wi-unit-field i, .wi-unit-field span { font-style:normal; font-size:9px; color:var(--dx-ink-4,#94a3b8); }
+.wi-color-mini { width:24px; height:26px; padding:0; border:1px solid var(--dx-line,#dbe4ef); border-radius:5px; background:transparent; cursor:pointer; }
+.wi-row-del { width:24px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--dx-line,#dbe4ef); border-radius:5px; background:var(--dx-surface,#fff); color:#b91c1c; cursor:pointer; }
+.wi-row-del:hover { background:#fef2f2; border-color:#fecaca; }
+
+/* Slots 3D e alternância limpa 2D/3D */
+.dc-wire-3d-actions:empty,
+.dc-wire-draft-slot:empty { display:none; }
+.wi-2d-curve-card:has(+ .dc-wire-3d-actions:not(:empty)) { display:none; }
+
+/* Compacto e responsivo (telemóvel ≤ 560 px) */
+.wo-fields.is-compact .wo-choices,
+.wo-fields.is-compact .wo-ends,
 .wo-fields.is-compact .wo-presets { grid-template-columns:1fr; }
+.wo-fields.is-compact .wo-routes { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.wo-fields.is-compact .wo-gauges { grid-template-columns:repeat(3,minmax(0,1fr)); }
+
+@media (max-width:560px) {
+  .wo-choices { grid-template-columns:1fr; }
+  .wo-routes { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .wo-gauges { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .wo-swatch { width:24px; height:24px; }
+  .wo-gauge, .wo-toggle, .wi-mini-btn { min-height:34px; }
+  .wo-end { min-height:40px; }
+  .wi-swap-btn { width:34px; min-height:38px; }
+  .wi-end-tabs { grid-template-columns:1fr; }
+}

@@ -172,6 +172,16 @@ export function wireEndpoint3D(
     const localX = terminal.position3D?.x ?? (spanX > 4 ? (terminal.x - Math.min(...xs)) / spanX : 0.5)
     const position = terminalWorld3D(component, terminal, pivot)
     const normal = terminalNormalWorld3D(component, terminal)
+    // Se um relé térmico está acoplado por baixo do contator, o borne inferior de bobina (ex.: A2)
+    // sai lateralmente para a fenda adjacente em vez de atravessar o corpo do relé térmico.
+    if (component.type.startsWith('contactor') && normal.y < -0.5) {
+      const hasMatedRelay = components.some((other) => {
+        if (!other.type.startsWith('thermalRelay')) return false
+        const op = pivots[other.id]
+        return Boolean(op && Math.abs(op.x - pivot.x) < 0.28 && op.y < pivot.y && pivot.y - op.y < 0.95)
+      })
+      if (hasMatedRelay) normal.set(localX >= 0.5 ? 1 : -1, 0, 0)
+    }
     const endKind = endTypeOf(wire, side)
     const portInfo = (endKind === 'ferruleDouble' || endKind === 'probe') && wires.length > 0
       ? sharedFerrulePort(wires, wire.id, side)
@@ -704,7 +714,31 @@ export function wireBodyPoints3D(
   const leadStep = Math.max(outerMm * 4.8 * U, 0.085)
 
   if (manual.length > 0) {
-    controls = [a, ...manual, b]
+    // Se a primeira/última perna manual faz ângulo agudo (> 82°) com o eixo da ponteira,
+    // insere uma saída axial curta para a curva nunca «partir» na boca da ponteira.
+    const isProbe = endTypeOf(wire, 'from') === 'probe' || endTypeOf(wire, 'to') === 'probe'
+    const startStub: V3[] = []
+    const endStub: V3[] = []
+    if (!isProbe && leads.a) {
+      const firstDir = v(manual[0]).sub(v(a))
+      const firstLen = firstDir.length()
+      const la = v(leads.a)
+      if (firstLen > leadStep * 2.2 && la.lengthSq() > 0.25 && firstDir.normalize().dot(la.normalize()) < 0.14) {
+        const s = v(a).addScaledVector(la, Math.min(leadStep * 0.72, firstLen * 0.28))
+        startStub.push([s.x, s.y, Math.max(frontZ, s.z)])
+      }
+    }
+    if (!isProbe && leads.b) {
+      const last = manual[manual.length - 1]
+      const lastDir = v(last).sub(v(b))
+      const lastLen = lastDir.length()
+      const lb = v(leads.b)
+      if (lastLen > leadStep * 2.2 && lb.lengthSq() > 0.25 && lastDir.normalize().dot(lb.normalize()) < 0.14) {
+        const s = v(b).addScaledVector(lb, Math.min(leadStep * 0.72, lastLen * 0.28))
+        endStub.push([s.x, s.y, Math.max(frontZ, s.z)])
+      }
+    }
+    controls = [a, ...startStub, ...manual, ...endStub, b]
   } else if (leads.a && leads.b && (endTypeOf(wire, 'from') === 'probe' || endTypeOf(wire, 'to') === 'probe')) {
     // Cabo de ensaio solto: tangentes axiais ao sair da ficha e do punho,
     // com folga para uma curva contínua, em vez de canais ortogonais do painel.
@@ -756,11 +790,23 @@ export function wireBodyPoints3D(
         }
         return yExit
       }
+      const clearOwnExitZ = (pt: V3, lead: V3 | null | undefined, fallback: number): number => {
+        const base = Math.max(frontZ, pt[2] + (lead?.[2] ?? 0) * fallback)
+        if (!lead || lead[2] <= 0.7) return base
+        let zExit = base
+        const clearPad = outerMm * U * 2.6 + 0.048
+        for (const box of obstacles) {
+          if (box.rail || box.duct || box.enclosureWall) continue
+          if (pt[0] < box.min.x - 0.02 || pt[0] > box.max.x + 0.02 || pt[1] < box.min.y - 0.02 || pt[1] > box.max.y + 0.02 || pt[2] < box.min.z - 0.04 || pt[2] > box.max.z + 0.04) continue
+          zExit = Math.max(zExit, box.max.z + clearPad)
+        }
+        return zExit
+      }
       const exitA: V3 = leads.a
-        ? [a[0] + leads.a[0] * rawStepA, clearOwnExitY(a, leads.a, yA, rawStepA), Math.max(frontZ, a[2] + leads.a[2] * rawStepA)]
+        ? [a[0] + leads.a[0] * rawStepA, clearOwnExitY(a, leads.a, yA, rawStepA), clearOwnExitZ(a, leads.a, rawStepA)]
         : a
       const exitB: V3 = leads.b
-        ? [b[0] + leads.b[0] * rawStepB, clearOwnExitY(b, leads.b, yB, rawStepB), Math.max(frontZ, b[2] + leads.b[2] * rawStepB)]
+        ? [b[0] + leads.b[0] * rawStepB, clearOwnExitY(b, leads.b, yB, rawStepB), clearOwnExitZ(b, leads.b, rawStepB)]
         : b
 
       // Evita «gancho invertido» quando a faixa fica ligeiramente atrás da saída axial superior/inferior.
@@ -836,7 +882,7 @@ export function wireBodyPoints3D(
           controls = [...startChain, [midX, effYA, ductZA], [midX, effYB, ductZB], ...endChain]
         }
       } else {
-        const rx = plan.riserX + (slot?.riserXOffset ?? trunkSpread(wire))
+        const rx = plan.riserX + (slot?.riserXOffset ?? 0)
         const zRiser = slot?.riserZ ?? (plan.inDuct ? Math.max(ductZA, ductZB) + 0.024 : Math.max(baseVertZ, ductZA + 0.044, ductZB + 0.044))
         controls = [
           ...startChain,
@@ -880,7 +926,7 @@ export function wireBodyPoints3D(
     const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.22)
     return keepInFrontOfPlate(curve.getPoints(Math.max(64, controls.length * 28)).map(arr), outerMm)
   }
-  if (controls.length <= 2) {
+  if (controls.length <= 2 && wire.route !== 'direct') {
     controls = ensureDetoured(controls, outerMm)
   }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
@@ -1010,10 +1056,12 @@ function planAroundMachines(
   const sortedSoft = [...soft].sort((a, b) => a.min.x - b.min.x)
   let reach = -Infinity
   for (const box of sortedSoft) {
-    if (reach !== -Infinity && box.min.x - reach > 0.14) xs.add((reach + box.min.x) / 2)
+    if (reach !== -Infinity && box.min.x - reach >= 0.075) xs.add((reach + box.min.x) / 2)
     reach = Math.max(reach, box.max.x)
   }
-  if (sortedSoft.length > 0) { xs.add(sortedSoft[0].min.x - 0.18); xs.add(reach + 0.18) }
+  const softMinX = sortedSoft.length > 0 ? sortedSoft[0].min.x : -Infinity
+  const softMaxX = sortedSoft.length > 0 ? reach : Infinity
+  if (sortedSoft.length > 0) { xs.add(softMinX - 0.18); xs.add(softMaxX + 0.18) }
   for (const box of hard) {
     if (box.enclosureWall) continue
     xs.add(box.min.x - 0.18); xs.add(box.max.x + 0.18)
@@ -1045,7 +1093,8 @@ function planAroundMachines(
           : { laneA, laneB, riserX, inDuct: base?.inDuct, enclosureId: enclosure?.id }
         const { cost, hits } = evaluate(plan, laneA)
         if (hits > 0) continue
-        const score = cost
+        const extPenalty = !enclosure && riserX !== undefined && (riserX < softMinX - 0.05 || riserX > softMaxX + 0.05) ? 95 : 0
+        const score = cost + extPenalty
         if (baseEval && baseEval.hits === 0 && score >= baseEval.cost - 20) continue
         if (!best || score < best.score) best = { plan, hint: laneA, score }
       }
@@ -1189,17 +1238,16 @@ function computeBasePlan(
     const hi = Math.max(laneA, laneB)
     const riserClearance = 0.18
     const between = softBoxes
-      .filter((box) => box.max.y > lo - 0.05 && box.min.y < hi + 0.05)
+      .filter((box) => box.max.y > lo + 0.02 && box.min.y < hi - 0.02)
       .sort((a, b) => a.min.x - b.min.x)
     const midX = (from.position[0] + to.position[0]) / 2
     if (between.length > 0) {
-      let candidates: number[] = [
-        between[0].min.x - riserClearance,
-        Math.max(...between.map((box) => box.max.x)) + riserClearance,
-      ]
+      const extLeft = between[0].min.x - riserClearance
+      const extRight = Math.max(...between.map((box) => box.max.x)) + riserClearance
+      let candidates: number[] = [extLeft, extRight]
       let reach = between[0].max.x
       for (let i = 1; i < between.length; i += 1) {
-        if (between[i].min.x - reach >= 0.14) {
+        if (between[i].min.x - reach >= 0.075) {
           candidates.push((reach + between[i].min.x) / 2)
         }
         reach = Math.max(reach, between[i].max.x)
@@ -1208,12 +1256,12 @@ function computeBasePlan(
         candidates = candidates.filter((cx) => cx >= sharedEnc.minX + 0.12 && cx <= sharedEnc.maxX - 0.12)
         if (!candidates.length) candidates = [sharedEnc.minX + 0.18, sharedEnc.maxX - 0.18]
       }
-      // Escolhe a passagem vertical que minimiza o comprimento total |xA - cx| + |xB - cx|.
-      plan.riserX = candidates.reduce((best, cx) => {
-        const dC = Math.abs(from.position[0] - cx) + Math.abs(to.position[0] - cx)
-        const dB = Math.abs(from.position[0] - best) + Math.abs(to.position[0] - best)
-        return dC < dB ? cx : best
-      }, candidates[0])
+      // Escolhe a passagem vertical que minimiza o comprimento total |xA - cx| + |xB - cx|,
+      // preferindo fendas interiores entre aparelhos a voltas largas por fora das extremidades da calha.
+      const riserCost = (cx: number) =>
+        Math.abs(from.position[0] - cx) + Math.abs(to.position[0] - cx)
+        + (!sharedEnc && (cx === extLeft || cx === extRight) ? 0.55 : 0)
+      plan.riserX = candidates.reduce((best, cx) => (riserCost(cx) < riserCost(best) ? cx : best), candidates[0])
     } else {
       plan.riserX = midX
     }
@@ -1764,10 +1812,19 @@ function buildMotorGlandBody3D(
     else if (panelAxis[0] > 0.5) leadStep = Math.max(leadStep, ownBox.max.x + clearance - panelHead[0])
     else if (panelAxis[0] < -0.5) leadStep = Math.max(leadStep, panelHead[0] - (ownBox.min.x - clearance))
   }
+  let panelExitZ = Math.max(frontZ, panelHead[2] + panelAxis[2] * leadStep)
+  if (panelAxis[2] > 0.7) {
+    const clearZ = outerMm * U * 2.6 + 0.048
+    for (const ob of obstacles) {
+      if (ob.rail || ob.duct || ob.enclosureWall) continue
+      if (panelHead[0] < ob.min.x - 0.02 || panelHead[0] > ob.max.x + 0.02 || panelHead[1] < ob.min.y - 0.02 || panelHead[1] > ob.max.y + 0.02) continue
+      panelExitZ = Math.max(panelExitZ, ob.max.z + clearZ)
+    }
+  }
   const exitPanel: V3 = [
     panelHead[0] + panelAxis[0] * leadStep,
     panelHead[1] + panelAxis[1] * leadStep,
-    Math.max(frontZ, panelHead[2] + panelAxis[2] * leadStep),
+    panelExitZ,
   ]
 
   let feederOuter: V3[] = []
@@ -1827,23 +1884,55 @@ function buildMotorGlandBody3D(
       if (v(exitPanel).distanceTo(v(panelHead)) > 1e-4) panelChain.push(exitPanel)
 
       if (panelAxis[2] > 0.5 || panelAxis[1] > 0.35 || (panelEnd.localY !== undefined && panelEnd.localY > 0.6)) {
-        const leftX = (panelAllBoxes.length > 0 ? Math.min(...panelAllBoxes.map((b) => b.min.x)) : panelHead[0]) - 0.14 - harnessIdx * 0.028
+        const leftEdgeX = (panelAllBoxes.length > 0 ? Math.min(...panelAllBoxes.map((b) => b.min.x)) : panelHead[0]) - 0.14 - harnessIdx * 0.028
+        const rightEdgeX = (panelAllBoxes.length > 0 ? Math.max(...panelAllBoxes.map((b) => b.max.x)) : panelHead[0]) + 0.14 + harnessIdx * 0.028
         const safeCrossZ = Math.max(ductZ + 0.045, railFrontZ, exitPanel[2])
+        // Procura a primeira passagem vertical livre entre aparelhos da calha DIN na direção do motor
+        // (ex.: fenda XG–QG para o PE de XG → M1), evitando laços largos para fora da borda esquerda da chapa!
+        const bandBoxes = softBoxes
+          .filter((b) => b.max.y > bottomDuctY + 0.04 && b.min.y < exitPanel[1] + 0.16)
+          .sort((a, b) => a.min.x - b.min.x)
+        const slotCandidates: number[] = [leftEdgeX, rightEdgeX]
+        if (bandBoxes.length > 0) {
+          let reach = bandBoxes[0].max.x
+          for (let i = 1; i < bandBoxes.length; i += 1) {
+            const gap = bandBoxes[i].min.x - reach
+            if (gap >= 0.12) {
+              // Evita atravessar pela frente de outros bornes do próprio aparelho quando sai para +Z.
+              const mid = (reach + bandBoxes[i].min.x) * 0.5
+              const crossesOwnFront = panelAxis[2] > 0.5 && ownBox
+                && ((mid < panelHead[0] && panelHead[0] - ownBox.min.x > 0.12)
+                  || (mid > panelHead[0] && ownBox.max.x - panelHead[0] > 0.12))
+              if (!crossesOwnFront) slotCandidates.push(mid)
+            }
+            reach = Math.max(reach, bandBoxes[i].max.x)
+          }
+        }
+        const goalX = entryLeft[0]
+        const dropX = slotCandidates.reduce((best, cx) => {
+          const isExtC = cx === leftEdgeX || cx === rightEdgeX
+          const isExtB = best === leftEdgeX || best === rightEdgeX
+          const costC = Math.abs(exitPanel[0] - cx) + Math.abs(goalX - cx) + (isExtC ? 0.45 : 0)
+          const costB = Math.abs(exitPanel[0] - best) + Math.abs(goalX - best) + (isExtB ? 0.45 : 0)
+          return costC < costB ? cx : best
+        }, leftEdgeX)
         if (panelAxis[2] > 0.5) {
           panelChain.push(
-            [leftX, exitPanel[1], safeCrossZ],
-            [leftX, bottomDuctY, safeCrossZ],
-            [leftX, bottomDuctY, ductZ],
+            [dropX, exitPanel[1], safeCrossZ],
+            [dropX, bottomDuctY, safeCrossZ],
+            [dropX, bottomDuctY, ductZ],
           )
         } else {
+          const spanLo = Math.min(exitPanel[0], dropX) - 0.04
+          const spanHi = Math.max(exitPanel[0], dropX) + 0.04
           const topClearY = (softBoxes.length > 0
-            ? Math.max(...softBoxes.filter((b) => b.min.x <= exitPanel[0] + 0.05).map((b) => b.max.y), exitPanel[1])
+            ? Math.max(...softBoxes.filter((b) => b.max.x >= spanLo && b.min.x <= spanHi).map((b) => b.max.y), exitPanel[1])
             : exitPanel[1]) + 0.11
           panelChain.push(
             [exitPanel[0], Math.max(exitPanel[1], topClearY), safeCrossZ],
-            [leftX, Math.max(exitPanel[1], topClearY), safeCrossZ],
-            [leftX, bottomDuctY, safeCrossZ],
-            [leftX, bottomDuctY, ductZ],
+            [dropX, Math.max(exitPanel[1], topClearY), safeCrossZ],
+            [dropX, bottomDuctY, safeCrossZ],
+            [dropX, bottomDuctY, ductZ],
           )
         }
       } else {
@@ -2682,3 +2771,421 @@ export function closestPointOnPolyline(points: V3[], point: V3): V3 {
 
 export const toSpatial = (p: V3): SpatialPoint3D => ({ x: p[0], y: p[1], z: p[2] })
 export const fromSpatial = (p: SpatialPoint3D): V3 => [p.x, p.y, p.z]
+
+/* ------------------------------------------- diagnóstico e edição de curvas 3D */
+
+export interface WireCurveMetrics3D {
+  /** Comprimento real total em mm (incluindo terminações). */
+  lengthMm: number
+  /** Menor raio de curvatura medido ao longo do cabo (mm); null se totalmente reto. */
+  minBendRadiusMm: number | null
+  /** Raio mínimo recomendado pela IEC 60204-1 / EN 50565-1 (mm). */
+  recommendedMinRadiusMm: number
+  /** Maior ângulo de desvio acumulado numa dobra (graus). */
+  maxTurnDeg: number
+  /** Número de dobras significativas (≥ 22°) ao longo do percurso. */
+  bendCount: number
+  /** `true` quando todas as curvas respeitam o raio mínimo recomendado (com 15% de tolerância de amostragem). */
+  bendOk: boolean
+  /** Posição 3D da curva mais apertada (para destaque visual opcional). */
+  tightestPoint: V3 | null
+}
+
+/**
+ * Reamostra uma polilinha 3D a passo uniforme (`stepUnits`) para medir
+ * curvatura de Menger sem ruído de micro-segmentos nos arcos.
+ */
+function resamplePolylineUniform(points: V3[], stepUnits: number): V3[] {
+  if (points.length < 2) return points
+  const clean: THREE.Vector3[] = [v(points[0])]
+  for (let i = 1; i < points.length; i++) {
+    const next = v(points[i])
+    if (next.distanceTo(clean[clean.length - 1]) > 1e-4) clean.push(next)
+  }
+  if (clean.length < 2) return clean.map(arr)
+  const cum: number[] = [0]
+  for (let i = 1; i < clean.length; i++) cum.push(cum[i - 1] + clean[i].distanceTo(clean[i - 1]))
+  const total = cum[cum.length - 1]
+  if (total < stepUnits * 1.5) return clean.map(arr)
+  const count = Math.max(2, Math.min(320, Math.round(total / stepUnits)))
+  const out: V3[] = [arr(clean[0])]
+  let seg = 1
+  for (let s = 1; s < count; s++) {
+    const target = (total * s) / count
+    while (seg < cum.length - 1 && cum[seg] < target) seg++
+    const span = Math.max(1e-6, cum[seg] - cum[seg - 1])
+    const u = (target - cum[seg - 1]) / span
+    out.push(arr(new THREE.Vector3().lerpVectors(clean[seg - 1], clean[seg], u)))
+  }
+  out.push(arr(clean[clean.length - 1]))
+  return out
+}
+
+/**
+ * Diagnóstico físico de curvatura de um cabo 3D (comprimento, raio mínimo real
+ * por circunferência de Menger, número de dobras e conformidade IEC 60204-1).
+ */
+export function wireCurveMetrics3D(
+  pointsOrPath: WirePath3D | V3[],
+  outerMm: number,
+  opts?: { multicoreOrRigid?: boolean },
+): WireCurveMetrics3D {
+  const points = Array.isArray(pointsOrPath) ? pointsOrPath : pointsOrPath.points
+  const lengthMm = Array.isArray(pointsOrPath) ? polylineLengthMm(points) : wireLengthMm(pointsOrPath)
+  const factor = opts?.multicoreOrRigid ? 5 : 4
+  const recommendedMinRadiusMm = Math.round(outerMm * factor * 10) / 10
+  if (points.length < 3) {
+    return { lengthMm, minBendRadiusMm: null, recommendedMinRadiusMm, maxTurnDeg: 0, bendCount: 0, bendOk: true, tightestPoint: null }
+  }
+
+  // Passo de análise proporcional ao diâmetro do cabo, reduzido em cabos curtos para não saltar ganchos apertados
+  const stepMm = Math.max(3.5, Math.min(outerMm * 1.8, Math.max(3.5, lengthMm / 8)))
+  const sampled = resamplePolylineUniform(points, stepMm * U)
+  let minRadiusMm = Infinity
+  let maxTurnDeg = 0
+  let tightestPoint: V3 | null = null
+  let bendCount = 0
+  let inBend = false
+  let accumRad = 0
+
+  for (let i = 1; i < sampled.length - 1; i++) {
+    const a = v(sampled[i - 1]), b = v(sampled[i]), c = v(sampled[i + 1])
+    const ab = b.clone().sub(a)
+    const bc = c.clone().sub(b)
+    const ac = c.clone().sub(a)
+    const d1 = ab.length(), d2 = bc.length(), d3 = ac.length()
+    if (d1 < 1e-4 || d2 < 1e-4 || d3 < 1e-4) continue
+    const turn = ab.angleTo(bc)
+    if (turn > 0.11) {
+      accumRad += turn
+      const area2 = new THREE.Vector3().crossVectors(ab, bc).length()
+      if (area2 > 1e-7) {
+        const radiusMm = ((d1 * d2 * d3) / (2 * area2)) / U
+        if (radiusMm < minRadiusMm) {
+          minRadiusMm = radiusMm
+          tightestPoint = sampled[i]
+        }
+      }
+      if (!inBend && accumRad >= (22 * Math.PI) / 180) {
+        bendCount += 1
+        inBend = true
+      }
+      const deg = (accumRad * 180) / Math.PI
+      if (deg > maxTurnDeg) maxTurnDeg = deg
+    } else {
+      inBend = false
+      accumRad = 0
+    }
+  }
+
+  const hasBend = Number.isFinite(minRadiusMm) && minRadiusMm < 999
+  const roundedMin = hasBend ? Math.max(1, Math.round(minRadiusMm * 10) / 10) : null
+  const bendOk = roundedMin === null || roundedMin >= recommendedMinRadiusMm * 0.85
+  return {
+    lengthMm,
+    minBendRadiusMm: roundedMin,
+    recommendedMinRadiusMm,
+    maxTurnDeg: Math.min(180, Math.round(maxTurnDeg)),
+    bendCount,
+    bendOk,
+    tightestPoint: hasBend ? tightestPoint : null,
+  }
+}
+
+/**
+ * Escolhe o ponto ótimo ao longo do percurso real de um cabo 3D para inserir um
+ * novo waypoint (meio do troço reto mais longo, sempre à frente da chapa).
+ */
+export function sampleCurveInsertPoint3D(path: WirePath3D, outerMm: number): SpatialPoint3D {
+  const pts = path.points
+  const frontZ = wireFrontLimit(outerMm)
+  if (pts.length < 2) return { x: 0, y: 0, z: frontZ + 0.06 }
+  // Procura o segmento reto mais longo fora dos 8% iniciais/finais (longe das ponteiras)
+  let bestIdx = Math.floor((pts.length - 1) / 2)
+  let bestLen = -1
+  const lo = pts.length > 6 ? 1 : 0
+  const hi = pts.length > 6 ? pts.length - 2 : pts.length - 1
+  for (let i = lo; i < hi; i++) {
+    const len = v(pts[i + 1]).distanceTo(v(pts[i]))
+    if (len > bestLen) { bestLen = len; bestIdx = i }
+  }
+  const a = pts[bestIdx], b = pts[Math.min(pts.length - 1, bestIdx + 1)]
+  return {
+    x: Math.round(((a[0] + b[0]) / 2) * 1000) / 1000,
+    y: Math.round(((a[1] + b[1]) / 2) * 1000) / 1000,
+    z: Math.round(Math.max(frontZ + 0.02, (a[2] + b[2]) / 2) * 1000) / 1000,
+  }
+}
+
+/**
+ * Alinha uma lista de waypoints 3D aos eixos X/Y/Z (cotovelos limpos a 90°),
+ * mantendo o cabo sempre à frente da chapa e fora dos obstáculos sólidos.
+ */
+export function orthogonalizeWaypoints3D(
+  from: V3,
+  waypoints: SpatialPoint3D[],
+  to: V3,
+  outerMm: number,
+  obstacles: WireObstacle[] = [],
+): SpatialPoint3D[] {
+  if (!waypoints.length) return []
+  const frontZ = wireFrontLimit(outerMm)
+  const snapThresh = 0.09 // 9 mm: alinha quase-ortogonais diretamente sem criar micro-degrau
+  const raw: V3[] = [from, ...waypoints.map(fromSpatial), to]
+  const out: V3[] = [from]
+
+  for (let i = 1; i < raw.length; i++) {
+    const prev = out[out.length - 1]
+    const target: V3 = i === raw.length - 1
+      ? raw[i]
+      : [
+          Math.abs(raw[i][0] - prev[0]) < snapThresh ? prev[0] : raw[i][0],
+          Math.abs(raw[i][1] - prev[1]) < snapThresh ? prev[1] : raw[i][1],
+          Math.max(frontZ, Math.abs(raw[i][2] - prev[2]) < snapThresh ? prev[2] : raw[i][2]),
+        ]
+    const dx = Math.abs(target[0] - prev[0])
+    const dy = Math.abs(target[1] - prev[1])
+    const dz = Math.abs(target[2] - prev[2])
+    const zSafe = Math.max(frontZ, prev[2], target[2])
+    if (dx > 0.035 && dy > 0.035) {
+      // Escolhe o cotovelo L mais livre de obstáculos (primeiro Y→X ou primeiro X→Y)
+      const elbowYX: V3 = [prev[0], target[1], zSafe]
+      const elbowXY: V3 = [target[0], prev[1], zSafe]
+      const exits: Parameters<typeof isWireOutsideSolids>[3] = [
+        { axis: [0, 0, 1] },
+        { axis: [0, 0, 1] },
+      ]
+      const clearYX = obstacles.length === 0 || isWireOutsideSolids([prev, elbowYX, target], outerMm, obstacles, exits)
+      const clearXY = obstacles.length === 0 || isWireOutsideSolids([prev, elbowXY, target], outerMm, obstacles, exits)
+      const preferYX = (clearYX && !clearXY) || (clearYX === clearXY && dy >= dx)
+      const elbow = preferYX ? elbowYX : elbowXY
+      if (dz > 0.045 && elbow[2] > prev[2] + 0.02) out.push([prev[0], prev[1], elbow[2]])
+      out.push(elbow)
+    } else if (dz > 0.045 && (dx > 0.035 || dy > 0.035)) {
+      out.push([prev[0], prev[1], zSafe])
+      out.push([target[0], target[1], zSafe])
+    }
+    if (i < raw.length - 1) out.push(target)
+  }
+  out.push(to)
+  const simplified = simplifyWaypoints3D(from, out.slice(1, -1).map(toSpatial), to, 0.022)
+  return simplified.map((p) => ({
+    x: Math.round(p.x * 1000) / 1000,
+    y: Math.round(p.y * 1000) / 1000,
+    z: Math.round(Math.max(frontZ, p.z) * 1000) / 1000,
+  }))
+}
+
+/** Remove waypoints 3D colineares ou quase coincidentes sem perder a geometria do cabo. */
+export function simplifyWaypoints3D(
+  from: V3,
+  waypoints: SpatialPoint3D[],
+  to: V3,
+  toleranceUnits = 0.025,
+): SpatialPoint3D[] {
+  if (!waypoints.length) return []
+  const chain: THREE.Vector3[] = [v(from)]
+  for (const wp of waypoints) {
+    const pt = v(fromSpatial(wp))
+    if (pt.distanceTo(chain[chain.length - 1]) >= toleranceUnits) chain.push(pt)
+  }
+  const endV = v(to)
+  if (chain.length > 1 && chain[chain.length - 1].distanceTo(endV) < toleranceUnits) chain.pop()
+  chain.push(endV)
+  if (chain.length <= 2) return []
+
+  const kept: THREE.Vector3[] = [chain[0]]
+  const line = new THREE.Line3()
+  const proj = new THREE.Vector3()
+  for (let i = 1; i < chain.length - 1; i++) {
+    const prev = kept[kept.length - 1], curr = chain[i], next = chain[i + 1]
+    line.set(prev, next)
+    line.closestPointToPoint(curr, true, proj)
+    if (proj.distanceTo(curr) <= toleranceUnits) continue
+    kept.push(curr)
+  }
+  return kept.slice(1).map((p) => ({
+    x: Math.round(p.x * 1000) / 1000,
+    y: Math.round(p.y * 1000) / 1000,
+    z: Math.round(p.z * 1000) / 1000,
+  }))
+}
+
+export interface SnapGuideLine3D {
+  axis: 'x' | 'y' | 'z' | 'duct'
+  from: V3
+  to: V3
+  color: string
+}
+
+export interface WaypointSnapResult3D {
+  point: V3
+  guides: SnapGuideLine3D[]
+  label: string | null
+  inDuct: boolean
+}
+
+/**
+ * Encaixe magnético 3D ao construir cabos ou arrastar pontos de curva:
+ * - encaixa no interior de calhas técnicas ranuradas (`duct`) quando o cursor passa sobre elas
+ * - alinha magneticamente coordenadas X, Y e Z com pontos vizinhos e bornes
+ * - com `axisLock` (Shift), bloqueia estritamente no eixo X, Y ou Z dominante a partir de `anchor`
+ */
+export function snapControlPoint3D(
+  raw: V3,
+  opts: {
+    anchor?: V3 | null
+    references?: V3[]
+    obstacles?: WireObstacle[]
+    outerMm?: number
+    axisLock?: boolean
+    magnetic?: boolean
+    fine?: boolean
+    gridStep?: number
+  } = {},
+): WaypointSnapResult3D {
+  const outerMm = opts.outerMm ?? 2.8
+  const frontZ = wireFrontLimit(outerMm)
+  let x = raw[0], y = raw[1], z = Math.max(frontZ, raw[2])
+  const guides: SnapGuideLine3D[] = []
+  const labels: string[] = []
+  let inDuct = false
+
+  if (opts.fine) {
+    return { point: [x, y, z], guides, label: 'Fino', inDuct: false }
+  }
+
+  // 1) Bloqueio estrito de eixo (Shift) em relação ao ponto anterior
+  if (opts.axisLock && opts.anchor) {
+    const a = opts.anchor
+    const dx = Math.abs(x - a[0]), dy = Math.abs(y - a[1]), dz = Math.abs(z - a[2])
+    if (dx >= dy && dx >= dz) {
+      y = a[1]; z = Math.max(frontZ, a[2])
+      guides.push({ axis: 'x', from: a, to: [x, y, z], color: '#ef4444' })
+      labels.push('Eixo X')
+    } else if (dy >= dz) {
+      x = a[0]; z = Math.max(frontZ, a[2])
+      guides.push({ axis: 'y', from: a, to: [x, y, z], color: '#16a34a' })
+      labels.push('Eixo Y')
+    } else {
+      x = a[0]; y = a[1]
+      guides.push({ axis: 'z', from: a, to: [x, y, z], color: '#2563eb' })
+      labels.push('Eixo Z')
+    }
+    if (opts.gridStep && opts.gridStep > 0) {
+      if (labels[0] === 'Eixo X') x = Math.round(x / opts.gridStep) * opts.gridStep
+      else if (labels[0] === 'Eixo Y') y = Math.round(y / opts.gridStep) * opts.gridStep
+      else z = Math.max(frontZ, Math.round(z / opts.gridStep) * opts.gridStep)
+      guides[0].to = [x, y, z]
+    }
+    return { point: [x, y, z], guides, label: labels.join(' · '), inDuct: false }
+  }
+
+  // 2) Encaixe magnético no eixo central de calhas técnicas (wireDuct)
+  const ducts = (opts.obstacles ?? []).filter((b) => b.duct)
+  for (const duct of ducts) {
+    const margin = 0.045
+    if (x >= duct.min.x - margin && x <= duct.max.x + margin && y >= duct.min.y - margin && y <= duct.max.y + margin) {
+      const spanX = duct.max.x - duct.min.x
+      const spanY = duct.max.y - duct.min.y
+      const ductZ = Math.max(frontZ + 0.015, duct.min.z + (duct.max.z - duct.min.z) * 0.45)
+      if (spanX >= spanY) {
+        const cy = (duct.min.y + duct.max.y) / 2
+        if (Math.abs(y - cy) < spanY * 0.55) {
+          y = cy; z = ductZ; inDuct = true
+          guides.push({ axis: 'duct', from: [duct.min.x, cy, ductZ], to: [duct.max.x, cy, ductZ], color: '#0284c7' })
+          labels.push('Calha H')
+        }
+      } else {
+        const cx = (duct.min.x + duct.max.x) / 2
+        if (Math.abs(x - cx) < spanX * 0.55) {
+          x = cx; z = ductZ; inDuct = true
+          guides.push({ axis: 'duct', from: [cx, duct.min.y, ductZ], to: [cx, duct.max.y, ductZ], color: '#0284c7' })
+          labels.push('Calha V')
+        }
+      }
+      if (inDuct) break
+    }
+  }
+
+  // 3) Encaixe magnético ortogonal nos vizinhos/referências (X, Y, Z)
+  if (opts.magnetic !== false) {
+    const refs = [...(opts.anchor ? [opts.anchor] : []), ...(opts.references ?? [])]
+    const thresh = 0.055 // 5,5 mm no espaço do painel
+    let refX: V3 | null = null, bestDx = thresh
+    let refY: V3 | null = null, bestDy = thresh
+    for (const r of refs) {
+      const dx = Math.abs(x - r[0])
+      if (!inDuct && dx < bestDx) { bestDx = dx; refX = r }
+      const dy = Math.abs(y - r[1])
+      if (!inDuct && dy < bestDy) { bestDy = dy; refY = r }
+    }
+    if (refX) {
+      x = refX[0]
+      labels.push('90° Y')
+    } else if (opts.gridStep && opts.gridStep > 0) {
+      x = Math.round(x / opts.gridStep) * opts.gridStep
+    }
+    if (refY) {
+      y = refY[1]
+      labels.push('90° X')
+    } else if (opts.gridStep && opts.gridStep > 0) {
+      y = Math.round(y / opts.gridStep) * opts.gridStep
+    }
+    if (refX) guides.push({ axis: 'y', from: refX, to: [x, y, z], color: '#16a34a' })
+    if (refY) guides.push({ axis: 'x', from: refY, to: [x, y, z], color: '#ef4444' })
+  } else if (opts.gridStep && opts.gridStep > 0) {
+    x = Math.round(x / opts.gridStep) * opts.gridStep
+    y = Math.round(y / opts.gridStep) * opts.gridStep
+  }
+
+  return { point: [x, y, Math.max(frontZ, z)], guides, label: labels.length ? labels.join(' · ') : null, inDuct }
+}
+
+/**
+ * Gera a curva 3D de pré-visualização ao vivo durante a construção de um cabo:
+ * aplica cantos arredondados com raio mínimo real (em ortogonal/manhattan), spline
+ * centrípeta suave (em curvo) ou linha direta, sempre à frente da chapa.
+ */
+export function buildDraftPreviewPoints3D(
+  controls: V3[],
+  route: Wire['route'],
+  outerMm: number,
+  orthoInsert = false,
+): V3[] {
+  if (controls.length < 2) return controls
+  const frontZ = wireFrontLimit(outerMm)
+  let pts: V3[] = controls.map((p, i) =>
+    i === 0 || i === controls.length - 1 ? p : ([p[0], p[1], Math.max(frontZ, p[2])] as V3),
+  )
+  // Se o modo for ortogonal/manhattan e o utilizador pediu encaixe 90°, insere cotovelo vivo no último segmento
+  if (orthoInsert && (route === 'orthogonal' || route === 'manhattan') && pts.length >= 2) {
+    const expanded: V3[] = [pts[0]]
+    for (let i = 1; i < pts.length; i++) {
+      const prev = expanded[expanded.length - 1]
+      const curr = pts[i]
+      const dx = Math.abs(curr[0] - prev[0]), dy = Math.abs(curr[1] - prev[1])
+      if (dx > 0.045 && dy > 0.045) {
+        const zMid = Math.max(frontZ, prev[2], curr[2])
+        expanded.push(route === 'manhattan' ? [prev[0], curr[1], zMid] : [curr[0], prev[1], zMid])
+      }
+      expanded.push(curr)
+    }
+    pts = expanded
+  }
+  const unique = pts.filter((p, i) => i === 0 || v(p).distanceTo(v(pts[i - 1])) > 1e-4)
+  if (unique.length < 2) return unique
+  if (route === 'direct') return unique
+  if (route === 'arc' && unique.length >= 3) {
+    const curve = new THREE.CatmullRomCurve3(unique.map(v), false, 'centripetal', 0.35)
+    const count = Math.min(120, Math.max(24, unique.length * 16))
+    return curve.getPoints(count).map((p, i, all) =>
+      i === 0 || i === all.length - 1 ? arr(p) : ([p.x, p.y, Math.max(frontZ, p.z)] as V3),
+    )
+  }
+  if (unique.length >= 3) {
+    return keepInFrontOfPlate(roundCorners(unique, outerMm, 6.5), outerMm)
+  }
+  return unique
+}
+

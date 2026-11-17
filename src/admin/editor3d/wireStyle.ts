@@ -1,5 +1,5 @@
 import type { TerminalDef } from '../../catalog/types'
-import type { WireColor, WireEndType, WireFlexibility, WireKind } from '../../types'
+import type { WireColor, WireEndType, WireFlexibility, WireKind, WireRoute } from '../../types'
 
 /**
  * Aparência dos cabos de teste — as mesmas opções do simulador (cor, secção, função,
@@ -20,6 +20,51 @@ export const WIRE_KIND_COLOR: Record<WireKind, WireColor> = { power: 'black', co
 export const WIRE_GAUGES = ['0.5mm²', '0.75mm²', '1mm²', '1.5mm²', '2.5mm²', '4mm²', '6mm²', '10mm²', '16mm²']
 
 export const WIRE_END_LABEL: Record<WireEndType, string> = { none: 'Nu', ferrule: 'Ponteira', ferruleDouble: 'Ponteira dupla', heatShrink: 'Termoretrátil', ring: 'Olhal', fork: 'Forquilha', pin: 'Pino', faston: 'Faston', tinned: 'Estanhado', banana: 'Ficha banana 4 mm', probe: 'Ponteira de teste' }
+export const WIRE_ROUTE_LABEL: Record<WireRoute, string> = {
+  orthogonal: 'Ortogonal',
+  manhattan: 'Manhattan',
+  arc: 'Curvo',
+  direct: 'Direto',
+}
+export const WIRE_ROUTE_HINT: Record<WireRoute, string> = {
+  orthogonal: 'Cantos a 90° com raio suave (padrão de quadro)',
+  manhattan: 'Degraus ortogonais em três segmentos',
+  arc: 'Curva contínua suave (spline flexível)',
+  direct: 'Segmento direto pelo menor percurso',
+}
+/** Cores normalizadas das veias em cabos multicore (HD 308 S2 / IEC 60445). */
+export const DEFAULT_CORE_COLORS_HEX = ['#92400e', '#3b82f6', '#84cc16', '#1f2937', '#94a3b8', '#f59e0b', '#8b5cf6', '#ef4444', '#22c55e', '#eab308', '#ec4899', '#f1f5f9']
+export function defaultCoreColors(count: number): string[] {
+  const n = Math.max(1, Math.min(24, Math.round(count)))
+  if (n === 2) return ['#92400e', '#3b82f6'] // castanho, azul
+  if (n === 3) return ['#92400e', '#3b82f6', '#84cc16'] // L, N, PE
+  if (n === 4) return ['#92400e', '#1f2937', '#94a3b8', '#84cc16'] // L1, L2, L3, PE
+  if (n === 5) return ['#92400e', '#1f2937', '#94a3b8', '#3b82f6', '#84cc16'] // L1, L2, L3, N, PE
+  return Array.from({ length: n }, (_, i) => DEFAULT_CORE_COLORS_HEX[i % DEFAULT_CORE_COLORS_HEX.length])
+}
+/** Corrente admissível indicativa em quadro (A) — IEC 60204-1 Tab. 6, PVC 70 °C (método B1/B2). */
+export function wireAmpacityIecA(gauge: string): number | null {
+  const area = Number.parseFloat(gauge.replace(',', '.'))
+  if (!Number.isFinite(area) || area <= 0) return null
+  const table: Array<[number, number]> = [
+    [0.5, 7.9], [0.75, 10], [1, 12.4], [1.5, 16], [2.5, 22], [4, 30], [6, 38], [10, 53], [16, 71], [25, 94], [35, 117],
+  ]
+  for (const [s, iz] of table) if (Math.abs(area - s) < 0.05) return iz
+  return Math.round(12.2 * Math.pow(area, 0.62) * 10) / 10
+}
+/** Raio mínimo de curvatura recomendado em instalação fixa (mm) — EN 50565-1 / IEC 60204-1. */
+export function wireMinBendRadiusMm(gauge: string, opts?: { conductorCount?: number; sheathed?: boolean; flexibility?: WireFlexibility }): number {
+  const outer = cableOuterDiameterMm(gauge, opts)
+  const multicoreOrRigid = (opts?.conductorCount ?? 1) > 1 || !!opts?.sheathed || opts?.flexibility === 'rigid'
+  const factor = multicoreOrRigid ? 5 : 4
+  return Math.round(outer * factor * 10) / 10
+}
+/** Fundo CSS do swatch de cor do cabo (inclui riscas diagonais normalizadas para PE). */
+export function wireColorSwatchBg(color: WireColor): string {
+  return color === 'green-yellow'
+    ? 'repeating-linear-gradient(45deg, #22c55e 0 4px, #eab308 4px 8px)'
+    : WIRE_COLOR_HEX[color]
+}
 export const FLAT_LUGS: WireEndType[] = ['ring', 'fork', 'faston']
 const ROUND_ENDS: WireEndType[] = ['ferrule', 'ferruleDouble', 'heatShrink', 'pin', 'banana', 'probe']
 
@@ -33,7 +78,7 @@ export interface WireStyle {
   endB: WireEndType
 }
 /** Valores usados nos cabos novos (como a ferramenta Cabo do simulador). */
-export interface WireDefaults { autoColor: boolean; color: WireColor; gauge: string; flexibility: WireFlexibility; endType: WireEndType; conductorCount?: number; sheathed?: boolean; sheathColor?: string; conductorColors?: string[] }
+export interface WireDefaults { autoColor: boolean; color: WireColor; gauge: string; flexibility: WireFlexibility; endType: WireEndType; conductorCount?: number; sheathed?: boolean; sheathColor?: string; conductorColors?: string[]; route?: WireRoute; chainMode?: boolean; orthoSnap?: boolean }
 export const DEFAULT_WIRE_DEFAULTS: WireDefaults = { autoColor: true, color: 'red', gauge: '1.5mm²', flexibility: 'flexible', endType: 'ferrule', conductorCount: 1, sheathed: false }
 
 /** Função sugerida a partir dos dois bornes (mesma heurística do simulador). */
