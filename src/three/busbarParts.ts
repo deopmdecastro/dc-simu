@@ -20,6 +20,8 @@ type TerminalSocket3D = NonNullable<Terminal['socket3D']>
  *     - `earthBar`           → Barramento de terra (PE) — acrílico verde esmeralda fixo
  *     - `busbarNeutral`      → Barramento de neutro (N) — acrílico azul safira fixo
  *     - `busbarPhaseAcrylic` → Barramento de fase (L) — acrílico com cor selecionável no Inspetor
+ *     Orelhas M4 na face de montagem (back / −Z), eixo do parafuso ao longo de Z
+ *     (rebaixo da cabeça acessível pelo lado da frente). Frente = furos de cabo + acrílico no topo.
  *
  *  2. Barramento repartidor de fases em escada (`busbarPhaseStepped`, tipo modular DIN 125 A):
  *     - 2, 3 ou 4 barras maciças de latão escalonadas (por omissão 4P: L1, L2, L3, N) com N bornes por barra
@@ -669,33 +671,40 @@ export function buildAcrylicBusbar(
     (_, i) => -bodyW / 2 + ACRYLIC_BUSBAR.endWallMm + (i + 0.5) * ACRYLIC_BUSBAR.pitchMm,
   )
 
-  // --- Orelhas de fixação M4 (esquerda e direita) com furo oblongo real e recorte de encaixe ---
+  // --- Orelhas de fixação M4 (esquerda e direita) na FACE DE MONTAGEM (traseira / −Z) ---
+  // Montagem em chapa vertical: eixo do parafuso ao longo de Z, rebaixo da cabeça
+  // acessível pelo lado da frente (+Z da orelha). Face de montagem = back (−Z).
+  // (Antes: placas horizontais XZ com eixo Y — parafuso “de cima”, lado de entrada
+  //  ficava virado para a chapa de forma incorrecta.)
   for (const sign of [-1, 1] as const) {
     const earOuter = sign * (W / 2)
     const earInner = sign * (bodyW / 2)
     const earCx = (earOuter + earInner) / 2
     const holeX = sign * (bodyW / 2 + ACRYLIC_BUSBAR.mountOffsetFromBodyMm)
-    const pocketX = sign * (bodyW / 2 + 2.5)
-    // Base perfurada M4 (5,2 mm de espessura) + rebordo superior rebaixado nas laterais
+    const earH = 11.5
+    const earCy = y0 + 6.5
+    const earThickness = 3.4
+    // Placa da orelha no plano XY, extrudida em Z, centrada de forma que a face
+    // traseira fique em −D/2 (contra a chapa). Furo M4 com eixo Z.
     bodyParts.push(
-      perforatedPlateXZ(
+      perforatedPlateXY(
         unit,
         ACRYLIC_BUSBAR.earWidthMm,
-        D,
-        5.2,
+        earH,
+        earThickness,
         earCx,
-        y0 + 2.6,
-        0,
-        [],
-        [{ x: holeX, z: 0, lenX: 6.0, r: 2.1 }],
-        [{ x: pocketX, z: 0, sx: 2.1, sz: 3.4 }],
+        earCy,
+        -D / 2 + earThickness / 2,
+        [{ x: holeX, y: earCy, r: 2.15 }],
+        20,
       ),
     )
-    // Paredes de reforço frontal e traseira da orelha (efeito rebaixo para cabeça do parafuso M4)
-    bodyParts.push(boxMm(unit, ACRYLIC_BUSBAR.earWidthMm, 2.2, 2.1, earCx, y0 + 6.3, D / 2 - 1.05))
-    bodyParts.push(boxMm(unit, ACRYLIC_BUSBAR.earWidthMm, 2.2, 2.1, earCx, y0 + 6.3, -D / 2 + 1.05))
-    // Degrau junto ao pilar vertical do corpo
-    bodyParts.push(boxMm(unit, 3.6, 3.6, D, sign * (bodyW / 2 + 1.8), y0 + 7.0, 0))
+    // Rebaixo anelar no lado +Z da orelha (entrada da cabeça do parafuso M4)
+    bodyParts.push(
+      boxMm(unit, ACRYLIC_BUSBAR.earWidthMm * 0.72, earH * 0.55, 1.1, earCx, earCy, -D / 2 + earThickness + 0.55),
+    )
+    // Degrau de transição orelha → corpo
+    bodyParts.push(boxMm(unit, 3.6, 3.6, D * 0.55, sign * (bodyW / 2 + 1.8), y0 + 7.0, -D / 4))
     // Pilar inferior do arco (y = 0 .. 14,4 mm) + parede lateral fina (1,9 mm) que emoldura os bornes 1 e N sem os tapar
     bodyParts.push(boxMm(unit, legW, 14.4, D, sign * (bodyW / 2 - legW / 2), y0 + 7.2, 0))
     bodyParts.push(boxMm(unit, 1.9, shoulderMm - 14.3, D, sign * (bodyW / 2 - 0.95), y0 + (14.3 + shoulderMm) / 2, 0))
