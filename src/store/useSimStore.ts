@@ -107,6 +107,7 @@ import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { findMountTarget, isThermalRelay, syncMounted } from '../three/thermalMount'
+import { findCombMountTarget, isCombBusbar, syncCombMounted } from '../three/combMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, isIsometricMotorType, MOTOR_ISOMETRIC_ORIENTATION, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions, ZERO_COMPONENT_ORIENTATION } from '../three/componentOrientation'
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
@@ -2873,6 +2874,15 @@ export const useSimStore = create<Store>((set, get) => {
         }
         if (current.mountedOn) components = components.map((c) => (c.id === current.id ? { ...c, mountedOn: undefined } : c))
       }
+      if (isCombBusbar(current)) {
+        const mount = findCombMountTarget(current, components)
+        if (mount) {
+          fixed++
+          components = components.map((c) => (c.id === current.id ? { ...c, schematicX: mount.schematicX, schematicY: mount.schematicY, mountedOn: mount.breaker.id, railId: undefined, railOffsetMm: undefined, panel3DPosition: undefined } : c))
+          continue
+        }
+        if (current.mountedOn) components = components.map((c) => (c.id === current.id ? { ...c, mountedOn: undefined } : c))
+      }
       const hit = rails.length ? snapToRail(current, rails, components) : null
       if (hit) fixed++
       const rail = hit ? rails.find((r) => r.id === hit.railId) : undefined
@@ -2885,7 +2895,7 @@ export const useSimStore = create<Store>((set, get) => {
       })
     }
     // Contactores que mudaram de sítio levam os relés encaixados; bornes do mesmo grupo agrupam-se automaticamente.
-    const mounted = syncMounted(components)
+    const mounted = syncCombMounted(syncMounted(components))
     const terminalTargets = targets.filter((t) => isTerminalStripType(t.type)).map((t) => t.id)
     if (terminalTargets.length) {
       // Se um borne novo encostou fisicamente (≤ 4 mm) a uma régua existente na mesma calha DIN, junta-se a essa régua.
@@ -4858,7 +4868,7 @@ export const useSimStore = create<Store>((set, get) => {
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
       const snapDirty = alignedWires.some((wire, i) => wire !== loadedWires[i])
       // Relés encaixados seguem a geometria de encaixe atual (projetos guardados com a posição antiga).
-      const cleanComponents = deenergizeComponents(syncMounted(loadedComponents))
+      const cleanComponents = deenergizeComponents(syncCombMounted(syncMounted(loadedComponents)))
       const cleanWires = normalizeWires(alignedWires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)), cleanComponents)
       const plcIds = cleanComponents.filter(isProgrammablePlc).map((c) => c.id)
       const loadedActiveId = plcIds.includes(parsed.activePlcId) ? parsed.activePlcId : plcIds[0] ?? null
