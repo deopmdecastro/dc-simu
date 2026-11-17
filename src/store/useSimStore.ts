@@ -901,7 +901,8 @@ function runOneTick(state: Store, dtMs: number) {
       if (sim.faults.overload && c.type.startsWith('contactor')) {
         // sobrecarga mecânica não desenergiza sozinha, mas registra esforço
       }
-      c.state.energized = finalEnergized
+      // Atracagem manual (botão de teste do contactor) mantém polos fechados sem bobina.
+      c.state.energized = finalEnergized || !!c.state.manualLatch || !!c.state.testPressed
     }
   }
 
