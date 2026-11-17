@@ -22,7 +22,7 @@ O [catálogo ECC](ECC-PLUGINS.md) também foi registado no Codex para explorar s
 
 O Copilot não aloja a aplicação. O repositório contém vercel.json, Dockerfile e compose.yaml; a URL, o commit e o ambiente de produção devem ser confirmados pelo responsável.
 
-O cofre BrainNet, quando estiver na estrutura local de pastas existente, contém a [avaliação de ferramentas e custos](https://github.com/deopmdecastro/BrainNet/blob/main/03-Projects/DC-Simu/AI-Tooling-Assessment.md) e o [backlog](https://github.com/deopmdecastro/BrainNet/blob/main/03-Projects/DC-Simu/Backlog.md). As ligações pressupõem que BrainNet e a pasta exterior dc-simu são irmãs.
+O cofre BrainNet, quando estiver na estrutura local de pastas existente (ou como repositório pai com submódulo), contém a [avaliação de ferramentas e custos](https://github.com/deopmdecastro/BrainNet/blob/main/03-Projects/DC-Simu/AI-Tooling-Assessment.md), o [protocolo de comunicação e workflows](https://github.com/deopmdecastro/BrainNet/blob/main/03-Projects/DC-Simu/Protocolo-Comunicacao-BrainNet-DCSimu.md), os [princípios de design](https://github.com/deopmdecastro/BrainNet/blob/main/03-Projects/DC-Simu/Design-Principles.md) e o [backlog](https://github.com/deopmdecastro/BrainNet/blob/main/03-Projects/DC-Simu/Backlog.md). As ligações pressupõem a prioridade do cofre BrainNet como fonte da verdade de contexto e automação.
 
 ## Validação e custo
 

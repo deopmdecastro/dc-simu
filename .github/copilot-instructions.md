@@ -2,7 +2,12 @@
 
 O DC-Simu é um simulador de comandos elétricos industriais em React 18, TypeScript e Vite, com Three.js/R3F e Zustand. Lê README.md e docs/AI-ASSISTANCE.md para conhecer os percursos e o uso das ferramentas de IA.
 
-Em tarefas de UI/UX, preserva o sistema visual e os fluxos existentes. Quando a aplicação estiver dentro do cofre BrainNet, consulta também `../../Design-Principles.md` (em `03-Projects/DC-Simu/`) e inclui essa nota no contexto da tarefa. Essa nota não está disponível num clone independente.
+## Priorização do cofre BrainNet (Contextos, Workflows e Automação)
+
+O cofre **BrainNet** (Obsidian + Maestri) é a fonte de autoridade de requisitos, regras de negócio, princípios de design e automação:
+- **Priorizar sempre o alinhamento e a comunicação com o cofre BrainNet.** Antes de iniciar qualquer tarefa de código ou interface, consulta os contextos e diretrizes em `03-Projects/DC-Simu/Design-Principles.md`, o protocolo de alinhamento em `03-Projects/DC-Simu/Protocolo-Comunicacao-BrainNet-DCSimu.md` e a tarefa correspondente em `03-Projects/DC-Simu/`.
+- **Workflows e ciclo de vida:** Respeitar a biblioteca de fluxos (WF-01 Intake, WF-02 Planning, WF-03 Agent Handoff, WF-04 Documentation Sync, WF-05 QA Approval). Toda a entrega de código deve produzir evidências de teste documentadas no cofre.
+- **UI/UX:** Aplicar com rigor o sistema de design (azul de marca `#2563eb` para ações ativas e seleção, botões de 44 px, sem bordas de acento isoladas, gating estrito de simulação).
 
 ## Implementação
 
