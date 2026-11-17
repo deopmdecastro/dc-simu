@@ -92,11 +92,27 @@ export function paintImportedModel(type: string, root: THREE.Object3D): PartInfo
   const parts = inventoryParts(root)
   const grey = parts.every((part) => part.color === '#797d81')
   if (type.startsWith('fuseHolderSchneider')) {
+    const carriers = parts.filter((part) => part.box.min.z > 50 && part.size.y > 30)
+    const neutralXs = carriers.filter((c) => c.vertices < 650).map((c) => c.center.x)
+    const isNeutralPart = (x: number) => neutralXs.some((nx) => Math.abs(nx - x) < 5)
     for (const part of parts) {
       if (looksLikeScrew(part)) paint(part, ZINC)
-      else if (part.box.min.z > 52 && part.size.y < 10) paint(part, SMOKED) // janela do indicador de fusível
-      else if (part.box.min.z > 50 && part.size.y > 30) paint(part, RAL7035_DARK) // porta-fusível (gaveta)
+      else if (part.box.min.z > 52 && part.size.y < 10) {
+        // Polo de neutro N (gravado à esquerda no CAD DF81N / DF103NV) leva clip azul Schneider;
+        // polos de fase levam lente fumada do indicador néon de fusível fundido.
+        paint(part, isNeutralPart(part.center.x) ? { color: '#0072ce', name: 'plastico_azul_neutro', roughness: 0.36 } : SMOKED)
+      } else if (part.box.min.z > 50 && part.size.y > 30) paint(part, RAL7035_DARK) // porta-fusível (gaveta)
       else paint(part, RAL7035)
+    }
+  } else if (type === 'residualBreakerHagerCfc225p') {
+    for (const part of parts) {
+      // Botão azul «T» de ensaio diferencial Hager, alavanca preta acetinada, parafusos zincados e janela mecânica.
+      if (part.mesh.name === 'cad_22_') paint(part, { color: '#0067b8', name: 'plastico_azul_teste', roughness: 0.32 })
+      else if (part.mesh.name === 'cad_6_Component24') paint(part, BLACK_PA)
+      else if (part.mesh.name === 'mesh_21_1') {
+        paint(part, { color: '#16a34a', name: 'plastico_indicador_estado', roughness: 0.34 })
+        part.mesh.userData.rcdFlag = true
+      } else if (/Screws/i.test(part.mesh.name)) paint(part, ZINC)
     }
   } else if (type === 'towerLightSb23011') {
     for (const part of parts) {
@@ -207,12 +223,81 @@ export function rigImportedModel(type: string, root: THREE.Object3D, parts: Part
   const rig: ImportedRig = { pivots: [], lamps: [], edges: { pulseOn: 0, pulseOff: 0 } }
   const pick = (box: Box, color?: string) => parts.filter((part) => inside(part.center, box) && (!color || sameColor(part.color, color))).map((part) => part.mesh)
   if (type.startsWith('fuseHolderSchneider')) {
-    // Cada gaveta roda à volta da aresta inferior da frente (abre para baixo e para fora).
+    // Cada gaveta roda à volta da aresta inferior da frente (abre para baixo e para fora) e
+    // transporta o cartucho cilíndrico real (cerâmica esteatite 10×38 / 8,5×31,5 com casquilhos
+    // niquelados nos polos de fase; tubo maciço niquelado no polo de neutro N à esquerda).
+    const isDf8 = type === 'fuseHolderSchneiderDf81n'
+    const cartR = (isDf8 ? 0.0041 : 0.0048)
+    const cartLen = (isDf8 ? 0.031 : 0.035)
+    const capLen = 0.0072
     for (const part of parts.filter((p) => p.box.min.z > 50 && p.size.y > 30)) {
+      const isNeutral = part.vertices < 650
       const window = parts.filter((p) => p.box.min.z > 52 && p.size.y < 10 && Math.abs(p.center.x - part.center.x) < part.size.x / 2)
-      pivotAround(root, [part.mesh, ...window.map((p) => p.mesh)], new THREE.Vector3(part.center.x, part.box.min.y, part.box.max.z - 2), 'carrier', rig)
-      for (const w of window) lampOf(w.mesh, 'blown', '#ff3b2f', rig)
+      const hingeY = part.box.min.y
+      const hingeZ = part.box.max.z - 2
+      pivotAround(root, [part.mesh, ...window.map((p) => p.mesh)], new THREE.Vector3(part.center.x, hingeY, hingeZ), 'carrier', rig)
+      const pivot = rig.pivots[rig.pivots.length - 1]?.pivot
+      if (pivot) {
+        pivot.userData.fuseCarrierRole = isNeutral ? 'neutral' : 'fuse'
+        pivot.userData.hingeY = hingeY
+        pivot.userData.hingeZ = hingeZ
+        // Berço interior do cartucho (visível ao abrir a gaveta; recuado no interior quando fechada).
+        const holder = new THREE.Group()
+        holder.name = '__dcFuseCartridge'
+        holder.position.set(0, (44.8 - hingeY) * 0.001, (46.8 - hingeZ) * 0.001)
+        const capMat = new THREE.MeshStandardMaterial({ color: '#d6dbe0', metalness: 0.86, roughness: 0.22, name: 'metal_niquel' })
+        if (isNeutral) {
+          const tube = new THREE.Mesh(new THREE.CylinderGeometry(cartR * 0.88, cartR * 0.88, cartLen, 18), capMat)
+          tube.raycast = () => null
+          const blueBand = new THREE.Mesh(
+            new THREE.CylinderGeometry(cartR * 0.92, cartR * 0.92, cartLen * 0.26, 18),
+            new THREE.MeshStandardMaterial({ color: '#0072ce', roughness: 0.35, metalness: 0.05 }),
+          )
+          blueBand.raycast = () => null
+          holder.add(tube, blueBand)
+        } else {
+          const bodyLen = cartLen - capLen * 1.6
+          const body = new THREE.Mesh(
+            new THREE.CylinderGeometry(cartR * 0.94, cartR * 0.94, bodyLen, 20),
+            new THREE.MeshStandardMaterial({ color: '#f6f4ee', roughness: 0.52, metalness: 0.02 }),
+          )
+          body.name = '__dcFuseCartridgeBody'
+          body.rotation.y = Math.PI / 2
+          body.raycast = () => null
+          const topCap = new THREE.Mesh(new THREE.CylinderGeometry(cartR, cartR, capLen, 20), capMat)
+          topCap.position.y = (cartLen - capLen) / 2
+          topCap.raycast = () => null
+          const botCap = new THREE.Mesh(new THREE.CylinderGeometry(cartR, cartR, capLen, 20), capMat)
+          botCap.position.y = -(cartLen - capLen) / 2
+          botCap.raycast = () => null
+          holder.add(body, topCap, botCap)
+        }
+        pivot.add(holder)
+      }
+      if (!isNeutral) {
+        for (const w of window) lampOf(w.mesh, 'blown', '#ff3b2f', rig)
+      }
     }
+  } else if (type === 'residualBreakerHagerCfc225p') {
+    // Alavanca basculante no tambor real (x=7.5, y=40.0, z=62.9 mm no GLB; o aparelho é rodado 180° em Z,
+    // pelo que a pose nativa aponta para cima = I·ON, -27° = disparado e -52° = O·OFF para baixo).
+    const lever = parts.find((p) => p.mesh.name === 'cad_6_Component24')
+    if (lever) pivotAround(root, [lever.mesh], new THREE.Vector3(lever.center.x, 40.0, 62.9), 'rcd-lever', rig)
+    // Botão azul «T» de ensaio diferencial (mergulha axialmente em -Z e regressa por mola).
+    const testBtn = parts.find((p) => p.mesh.name === 'cad_22_')
+    if (testBtn) {
+      pivotAround(root, [testBtn.mesh], testBtn.center.clone(), 'rcd-test', rig)
+      const tp = rig.pivots[rig.pivots.length - 1]?.pivot
+      if (tp) {
+        tp.name = '__dcHagerTestPivot'
+        tp.userData.frontOffsetZ = testBtn.box.max.z - testBtn.center.z + 0.14
+      }
+    }
+    // Janela mecânica de estado por cima da alavanca (verde = OFF, vermelho = ON, âmbar = disparado).
+    root.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (mesh.isMesh && mesh.userData.rcdFlag) lampOf(mesh, 'rcd-flag', '#dc2626', rig)
+    })
   } else if (type === 'motorBreakerSchneiderGv2me') {
     pivotAround(root, pick({ min: [-7, 40, 60], max: [6, 67, 80] }), new THREE.Vector3(0, 52, 66), 'button-off', rig)
     pivotAround(root, pick({ min: [8, 42, 60], max: [22, 67, 80] }), new THREE.Vector3(14.5, 55, 66), 'button-on', rig)
@@ -268,6 +353,8 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
   for (const item of rig.pivots) {
     let target = 0
     if (item.role === 'carrier') target = state.closed === false ? 1 : 0
+    else if (item.role === 'rcd-lever') target = closed ? 1 : state.tripped ? 0.48 : 0
+    else if (item.role === 'rcd-test') target = state.testPressed ? 1 : 0
     else if (item.role === 'button-on') target = rig.edges.pulseOn > 0 ? 1 : 0
     else if (item.role === 'button-off') target = rig.edges.pulseOff > 0 ? 1 : 0
     else if (item.role === 'key') target = state.pressed ? 1 : 0
@@ -277,11 +364,14 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     else if (item.role === 'stop') target = state.stopPressed ? 1 : 0
     else if (item.role === 'reset') target = typeof state.resetTurn === 'number' && Number.isFinite(state.resetTurn) ? Math.max(-1, Math.min(1, state.resetTurn)) : 0
     else if (item.role === 'knob') target = typeof state.position === 'number' ? state.position : 0
-    const next = springTo(item.value, target, delta, item.role.startsWith('button') || item.role === 'stop' || item.role === 'reset' ? 30 : 14)
+    const speed = item.role.startsWith('button') || item.role === 'stop' || item.role === 'reset' || item.role === 'rcd-test' ? 30 : item.role === 'rcd-lever' ? 22 : 14
+    const next = springTo(item.value, target, delta, speed)
     if (Math.abs(next - target) > 1e-4) moving = true
     item.value = Math.abs(next - target) < 1e-4 ? target : next
     const r = item.rest, p = item.restPos
-    if (item.role === 'carrier') item.pivot.rotation.set(r.x + item.value * THREE.MathUtils.degToRad(24), r.y, r.z)
+    if (item.role === 'carrier') item.pivot.rotation.set(r.x + item.value * THREE.MathUtils.degToRad(38), r.y, r.z)
+    else if (item.role === 'rcd-lever') item.pivot.rotation.set(r.x - (1 - item.value) * THREE.MathUtils.degToRad(52), r.y, r.z)
+    else if (item.role === 'rcd-test') item.pivot.position.set(p.x, p.y, p.z - item.value * 0.0028)
     else if (item.role === 'key') item.pivot.rotation.set(r.x, r.y, r.z - item.value * THREE.MathUtils.degToRad(60))
     else if (item.role === 'knob') item.pivot.rotation.set(r.x, r.y, r.z - (item.value - 1) * THREE.MathUtils.degToRad(45)) // CAD na posição direita
     else if (item.role === 'reset') {
@@ -289,11 +379,13 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
       item.pivot.position.set(p.x, p.y, p.z + (state.tripped ? .003 : 0))
     } else if (item.role.startsWith('button') || item.role === 'stop') item.pivot.position.set(p.x, p.y, p.z - item.value * .0028)
   }
+  const RCD_TRIP_COLOR = new THREE.Color('#f59e0b')
   for (const lamp of rig.lamps) {
     let on = false
     if (lamp.role === 'red' || lamp.role === 'yellow' || lamp.role === 'green') on = live && !!state[lamp.role]
     else if (lamp.role === 'blown') on = !!state.blown
     else if (lamp.role === 'surge') { lamp.material.color.copy(state.failed ? lamp.glow : lamp.base); continue } // bandeira mecânica: só muda de cor
+    else if (lamp.role === 'rcd-flag') { lamp.material.color.copy(state.tripped ? RCD_TRIP_COLOR : closed ? lamp.glow : lamp.base); continue }
     else if (lamp.role === 'power') on = live && !!state.powered
     else if (lamp.role === 'ch1' || lamp.role === 'ch2') on = live && !!state.powered && !!state.energized
     else if (lamp.role === 'output') on = live && !!state.powered && (state.no !== false ? !!state.triggered : !state.triggered)
@@ -331,12 +423,32 @@ const THERMAL_RELAY_CONTROLS: Array<{ control: ImportedControl; min: [number, nu
   { control: 'test', min: [2, 48, 55], max: [18, 68, 75] },
 ]
 
+/**
+ * Zonas de clique do botão azul «T» do diferencial Hager CFC225P já na pose direita
+ * (x centrado em [-17,75, +17,75], y desde a base [0, 86,25], z desde a traseira [0, 74,81]):
+ * `cad_22_` ocupa x ∈ [3,5, 14,5], y ∈ [55,25, 59,25], z ∈ [61,0, 70,0].
+ */
+const HAGER_RCD_CONTROLS: Array<{ control: ImportedControl; min: [number, number, number]; max: [number, number, number] }> = [
+  { control: 'test', min: [1.5, 52.5, 56], max: [16.5, 62.5, 75] },
+]
+
 /** Comando sob um ponto do aparelho (mm do GLB); `null` = corpo, que continua a ser a manobra geral. */
 export function importedControlAt(type: string, pointMm: [number, number, number]): ImportedControl | null {
-  if (type !== 'thermalRelaySiemens3ru1116') return null
   const [x, y, z] = pointMm
-  const hit = THERMAL_RELAY_CONTROLS.find((box) => x >= box.min[0] && x <= box.max[0] && y >= box.min[1] && y <= box.max[1] && z >= box.min[2] && z <= box.max[2])
-  return hit ? hit.control : null
+  if (type === 'thermalRelaySiemens3ru1116') {
+    const hit = THERMAL_RELAY_CONTROLS.find((box) => x >= box.min[0] && x <= box.max[0] && y >= box.min[1] && y <= box.max[1] && z >= box.min[2] && z <= box.max[2])
+    return hit ? hit.control : null
+  }
+  if (type === 'residualBreakerHagerCfc225p') {
+    const hit = HAGER_RCD_CONTROLS.find((box) => x >= box.min[0] && x <= box.max[0] && y >= box.min[1] && y <= box.max[1] && z >= box.min[2] && z <= box.max[2])
+    return hit ? hit.control : null
+  }
+  if (type === 'fuseHolderSchneiderDf101v' || type === 'fuseHolderSchneiderDf81n' || type === 'fuseHolderSchneiderDf103nv') {
+    // Gaveta porta-fusível articulada na frente (y ∈ [24,7, 65,4], z ≥ 52 mm; aberta avança até z ≈ 86 mm).
+    if (y >= 22 && y <= 67 && z >= 48 && z <= 92) return 'carrier'
+    return null
+  }
+  return null
 }
 
 /**

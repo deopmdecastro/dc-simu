@@ -87,10 +87,13 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
     if (c.type === 'busbarNeutral' && c.state.source !== false) c.terminals.forEach((x) => seed(x.id, 'N'))
     if (c.type === 'powerSupply') seed(c.terminals.find((x) => x.label === 'N')?.id, 'N')
     if (c.type === 'earthBar' || c.type === 'terminalPE') c.terminals.forEach((x) => seed(x.id, 'PE'))
-    if (c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker' || c.type === 'thermalRelay') {
+    if (c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'motorBreakerPkzmC10' || c.type === 'motorBreakerSchneiderGv2me' || c.type === 'residualBreaker' || c.type === 'thermalRelay' || c.type === 'thermalRelaySiemens3ru1116') {
       seed(c.terminals.find((x) => x.label === '1' || x.label === '1L1')?.id, 'L1')
       seed(c.terminals.find((x) => x.label === '3' || x.label === '3L2')?.id, 'L2')
       seed(c.terminals.find((x) => x.label === '5' || x.label === '5L3')?.id, 'L3')
+    }
+    if (c.type === 'residualBreaker' || c.type === 'residualBreakerHagerCfc225p' || c.type === 'fuseHolderSchneiderDf81n' || c.type === 'fuseHolderSchneiderDf103nv') {
+      seed(c.terminals.find((x) => x.label === 'N1')?.id, 'N')
     }
   }
 

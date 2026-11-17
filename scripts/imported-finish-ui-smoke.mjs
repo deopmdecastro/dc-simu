@@ -28,10 +28,11 @@ try {
   await page.goto(baseURL + '/scripts/imported-finish-audit.html')
   await page.waitForFunction(() => window.auditState?.done, null, { timeout: 600000 })
   const audit = await page.evaluate(() => window.auditState)
-  check(audit.ready === 14 && audit.errors.length === 0, 'os 14 GLB recebem acabamento e mecânica sem erros')
+  check(audit.ready >= 14 && audit.errors.length === 0, `os ${audit.ready} GLB recebem acabamento e mecânica sem erros`)
   const roles = (type, key) => audit.report[type]?.[key] ?? []
   check(roles('fuseHolderSchneiderDf103nv', 'pivots').filter((r) => r === 'carrier').length === 4, 'DF103NV: quatro gavetas articuladas')
   check(roles('fuseHolderSchneiderDf101v', 'lamps').includes('blown'), 'DF101V: indicador de fusível fundido')
+  check(['rcd-lever', 'rcd-test'].every((r) => roles('residualBreakerHagerCfc225p', 'pivots').includes(r)) && roles('residualBreakerHagerCfc225p', 'lamps').includes('rcd-flag'), 'Hager CFC225P: alavanca, botão T e janela verde/vermelha')
   check(roles('keyActuatorEao61', 'pivots').includes('key'), 'EAO 61: chave roda no canhão')
   check(roles('selectorSchneiderXa2ed33', 'pivots').includes('knob'), 'XA2ED33: manípulo separado do corpo e rotativo')
   check(roles('thermalRelaySiemens3ru1116', 'pivots').includes('reset'), '3RU1116: botão de rearme salta no disparo')

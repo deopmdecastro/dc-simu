@@ -17,8 +17,10 @@ export interface OrthographicModelImageOptions {
   viewRotation?: [number, number, number]
   flipDepth?: boolean
   physicalSizeMm?: ComponentModelSpec['physicalSizeMm']
-  /** Alterações visuais da captura (por exemplo, ecrã ligado do LOGO!). */
+  /** Alterações visuais da captura no modelo bruto (por exemplo, ecrã ligado do LOGO! ou rig importado). */
   configureObject?: (object: THREE.Object3D) => void
+  /** Alterações visuais já no modelo ajustado em mm (serigrafias 3D de fábrica). */
+  configureFitted?: (fitted: THREE.Object3D) => void
 }
 
 const CAPTURE_LONG_SIDE = 560
@@ -115,6 +117,7 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
   }
   if (motor) await waitMotorTextures()
   else await applyCadSurfaceTextures(fitted, { unitsPerMm: 1 })
+  options.configureFitted?.(fitted)
   const model = new THREE.Group()
   model.add(fitted)
   if (options.viewRotation) model.rotation.set(...options.viewRotation)

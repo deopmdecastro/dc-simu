@@ -134,7 +134,7 @@ export function extractBreakerHandle(
   const meshes: THREE.Mesh[] = []
   model.traverse((node) => {
     const mesh = node as THREE.Mesh
-    if (mesh.isMesh && mesh.geometry) meshes.push(mesh)
+    if (mesh.isMesh && mesh.geometry && !mesh.userData?.protectionMarking) meshes.push(mesh)
   })
   if (meshes.length === 0) return null
 

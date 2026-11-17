@@ -8,6 +8,16 @@ import { hiddenCatalogTypes } from '../catalog/hidden'
 import { parseCatalogType } from '../catalog/types'
 import PlcSignalPanel from './PlcSignalPanel'
 import ThermalRelayControls from './ThermalRelayControls'
+import ProtectionControls from './ProtectionControls'
+import { PROTECTION_MANAGED_STATE_KEYS, protectionControlKindOf } from '../electrical/protectionSpecs'
+import {
+  IEC_DIGIT_MARKER_PALETTE,
+  QUICK_LETTER_TOKENS,
+  WIRE_MARKER_STYLE_LABEL,
+  expandWireMarkerRings,
+  resolveWireMarkerStyle,
+  type WireMarkerStyle,
+} from '../electrical/wireMarkers'
 import { isProgrammablePlc } from '../ladder/plcPrograms'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -843,10 +853,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               {/* estado rápido conforme o tipo */}
               <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body dc-inspector-state-list">
                 {importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && <ThermalRelayControls component={selectedComponent} />}
+                {protectionControlKindOf(selectedComponent.type) && <ProtectionControls component={selectedComponent} />}
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
                   if (isMountingRail(selectedComponent.type) && (k === 'lengthMm' || RAIL_PROFILE_STATE_KEYS.has(k))) return null
                   if (isPanelAccessoryType(selectedComponent.type) && PANEL_ACCESSORY_STATE_KEYS.has(k)) return null
                   if (isRealBusbarType(selectedComponent.type) && BUSBAR_STATE_KEYS.has(k)) return null
+                  if (protectionControlKindOf(selectedComponent.type) && PROTECTION_MANAGED_STATE_KEYS.has(k)) return null
                   if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes') return null
                   // Não oferecer checkboxes que contornem a retenção de TEST ou o modo manual.
                   if (importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && ['testPressed', 'stopPressed', 'tripped', 'manual'].includes(k)) return null
@@ -1860,30 +1872,146 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     <div className="dc-inspector-group-body space-y-2.5">
                       <CableAccessoryMap wire={selectedWire} />
 
-                      {/* Marcadores / anilhas numeradas */}
-                      <div className="wi-subcard">
+                      {/* Marcadores / anilhas clip-on encaixáveis (IEC 60062 0–9 + CAB3/WIC) */}
+                      <div className="wi-subcard" data-wire-markers-card>
                         <div className="wi-subcard-head">
-                          <span>Anilhas / marcadores ({selectedWire.markers?.length ?? 0})</span>
+                          <span>Anilhas clip-on IEC ({selectedWire.markers?.length ?? 0})</span>
                           <button
                             type="button"
                             className="wi-mini-btn"
-                            title="Adiciona uma anilha a meio do cabo (50%)"
+                            disabled={!wireEditingStopped}
+                            title="Adiciona um conjunto de anilhas clip-on (IEC 60062) ao cabo"
                             onClick={() => {
                               const list = [...(selectedWire.markers ?? [])]
-                              const text = selectedWire.number || String(list.length + 1)
-                              list.push({ t: 0.5, text, color: '#0f172a', bg: '#fbbf24' })
+                              const text = selectedWire.number || (list.length === 0 ? '01' : String(list.length + 1).padStart(2, '0'))
+                              const t = list.length === 0 ? 0.14 : list.length === 1 ? 0.86 : 0.5
+                              list.push({ t, text, color: '#0f172a', bg: '#fbbf24', style: 'iec' })
                               patchSelectedWire({ markers: list })
                             }}
                           >
-                            + Marcador
+                            + Anilha
                           </button>
                         </div>
+
+                        {/* Régua de anilhas coloridas IEC 60062 (0=Preto … 9=Branco) — clique encaixa no último marcador ou cria um novo */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 0 2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: 'var(--dc-text-muted, #64748b)' }}>
+                            <span>Régua IEC 60062 (clique para encaixar)</span>
+                            {(selectedWire.markers?.length ?? 0) > 0 && (
+                              <button
+                                type="button"
+                                className="wi-mini-btn"
+                                disabled={!wireEditingStopped}
+                                title="Remove a última anilha do conjunto ativo"
+                                style={{ padding: '1px 5px', fontSize: '10px' }}
+                                onClick={() => {
+                                  const live = useSimStore.getState().wires.find((w) => w.id === selectedWire.id) ?? selectedWire
+                                  const list = [...(live.markers ?? [])]
+                                  const idx = list.length - 1
+                                  if (idx < 0) return
+                                  const next = list[idx].text.slice(0, -1)
+                                  list[idx] = { ...list[idx], text: next }
+                                  patchSelectedWire({ markers: list })
+                                }}
+                              >
+                                ⌫
+                              </button>
+                            )}
+                          </div>
+                          <div
+                            role="group"
+                            aria-label="Régua de anilhas numéricas IEC 60062 (0 a 9)"
+                            style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '2px' }}
+                          >
+                            {IEC_DIGIT_MARKER_PALETTE.map((ring) => (
+                              <button
+                                key={ring.char}
+                                type="button"
+                                disabled={!wireEditingStopped}
+                                data-iec-ring={ring.char}
+                                title={`${ring.name} · IEC 60062`}
+                                aria-label={`Encaixar anilha ${ring.name}`}
+                                onClick={() => {
+                                  const live = useSimStore.getState().wires.find((w) => w.id === selectedWire.id) ?? selectedWire
+                                  const list = [...(live.markers ?? [])]
+                                  if (list.length === 0) {
+                                    list.push({ t: 0.14, text: ring.char, color: '#0f172a', bg: '#fbbf24', style: 'iec' })
+                                  } else {
+                                    const idx = list.length - 1
+                                    list[idx] = { ...list[idx], text: `${list[idx].text}${ring.char}`.slice(0, 16) }
+                                  }
+                                  patchSelectedWire({ markers: list })
+                                }}
+                                style={{
+                                  height: '22px',
+                                  padding: 0,
+                                  borderRadius: '3px',
+                                  border: `1px solid ${ring.border}`,
+                                  background: `linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 42%, rgba(0,0,0,0.16) 100%), ${ring.bg}`,
+                                  color: ring.fg,
+                                  fontWeight: 900,
+                                  fontSize: '11px',
+                                  fontFamily: '"DIN Alternate", "Arial Narrow", "Inter", sans-serif',
+                                  cursor: wireEditingStopped ? 'pointer' : 'not-allowed',
+                                  textDecoration: ring.char === '6' || ring.char === '9' ? 'underline' : 'none',
+                                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 1px rgba(15,23,42,0.15)',
+                                }}
+                              >
+                                {ring.char}
+                              </button>
+                            ))}
+                          </div>
+                          <div
+                            role="group"
+                            aria-label="Anilhas de letras e símbolos"
+                            style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}
+                          >
+                            {QUICK_LETTER_TOKENS.map((sym) => {
+                              const bg = sym === '+' ? '#d9261c' : sym === '-' ? '#1565c0' : sym === 'N' ? '#1976d2' : '#facc15'
+                              const fg = sym === '+' || sym === '-' || sym === 'N' ? '#ffffff' : '#111827'
+                              return (
+                                <button
+                                  key={sym}
+                                  type="button"
+                                  disabled={!wireEditingStopped}
+                                  title={`Encaixar anilha «${sym}»`}
+                                  onClick={() => {
+                                    const live = useSimStore.getState().wires.find((w) => w.id === selectedWire.id) ?? selectedWire
+                                    const list = [...(live.markers ?? [])]
+                                    if (list.length === 0) {
+                                      list.push({ t: 0.14, text: sym, color: '#0f172a', bg: '#fbbf24', style: 'iec' })
+                                    } else {
+                                      const idx = list.length - 1
+                                      list[idx] = { ...list[idx], text: `${list[idx].text}${sym}`.slice(0, 16) }
+                                    }
+                                    patchSelectedWire({ markers: list })
+                                  }}
+                                  style={{
+                                    height: '18px',
+                                    minWidth: '18px',
+                                    padding: '0 3px',
+                                    borderRadius: '2.5px',
+                                    border: '1px solid rgba(15,23,42,0.28)',
+                                    background: bg,
+                                    color: fg,
+                                    fontWeight: 800,
+                                    fontSize: '9.5px',
+                                    cursor: wireEditingStopped ? 'pointer' : 'not-allowed',
+                                  }}
+                                >
+                                  {sym}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
                         <div className="wi-chip-actions">
                           <button
                             type="button"
                             className="wi-mini-btn"
                             disabled={!wireEditingStopped}
-                            title="Aplica anilhas amarelas com o nº do cabo nas duas pontas (8% e 92%)"
+                            title="Aplica anilhas IEC coloridas com o nº do cabo nas duas pontas (8% e 92%)"
                             onClick={() => useSimStore.getState().stampWireEndMarkers(selectedWire.id, 'number')}
                           >
                             Anilhar Nº (A+B)
@@ -1892,7 +2020,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                             type="button"
                             className="wi-mini-btn"
                             disabled={!wireEditingStopped}
-                            title="Aplica anilhas com o endereço dos bornes (ex.: QG.2 / QM1.1) nas duas pontas"
+                            title="Aplica anilhas clip-on com o endereço dos bornes (ex.: QG.2 / QM1.1) nas duas pontas"
                             onClick={() => useSimStore.getState().stampWireEndMarkers(selectedWire.id, 'terminals')}
                           >
                             Anilhar bornes (A+B)
@@ -1901,78 +2029,160 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                             <button
                               type="button"
                               className="wi-mini-btn is-danger"
+                              disabled={!wireEditingStopped}
                               onClick={() => patchSelectedWire({ markers: undefined })}
                             >
                               Limpar
                             </button>
                           )}
                         </div>
-                        {(selectedWire.markers ?? []).map((m, i) => (
-                          <div key={i} className="wi-acc-row">
-                            <input
-                              className="dc-input wi-acc-text"
-                              aria-label={`Texto do marcador ${i + 1}`}
-                              value={m.text}
-                              placeholder="W1"
-                              onChange={(e) => {
-                                const list = [...(selectedWire.markers ?? [])]
-                                list[i] = { ...list[i], text: e.target.value }
-                                patchSelectedWire({ markers: list })
-                              }}
-                            />
-                            <label className="wi-pct-field" title="Posição ao longo do cabo (0% = ponta A, 100% = ponta B)">
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                step={2}
-                                aria-label={`Posição do marcador ${i + 1} (%)`}
-                                value={Math.round(m.t * 100)}
-                                onChange={(e) => {
-                                  const list = [...(selectedWire.markers ?? [])]
-                                  list[i] = { ...list[i], t: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
-                                  patchSelectedWire({ markers: list })
-                                }}
-                              />
-                              <i>%</i>
-                            </label>
-                            <input
-                              type="color"
-                              title="Cor do texto"
-                              aria-label={`Cor do texto do marcador ${i + 1}`}
-                              className="wi-color-mini"
-                              value={m.color}
-                              onChange={(e) => {
-                                const list = [...(selectedWire.markers ?? [])]
-                                list[i] = { ...list[i], color: e.target.value }
-                                patchSelectedWire({ markers: list })
-                              }}
-                            />
-                            <input
-                              type="color"
-                              title="Cor da anilha"
-                              aria-label={`Cor de fundo do marcador ${i + 1}`}
-                              className="wi-color-mini"
-                              value={m.bg ?? '#fbbf24'}
-                              onChange={(e) => {
-                                const list = [...(selectedWire.markers ?? [])]
-                                list[i] = { ...list[i], bg: e.target.value }
-                                patchSelectedWire({ markers: list })
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="wi-row-del"
-                              aria-label={`Remover marcador ${i + 1}`}
-                              onClick={() => {
-                                const list = (selectedWire.markers ?? []).filter((_, j) => j !== i)
-                                patchSelectedWire({ markers: list.length ? list : undefined })
-                              }}
-                            >
-                              <IconClose size={10} />
-                            </button>
-                          </div>
-                        ))}
+                        {(selectedWire.markers ?? []).map((m, i) => {
+                          const style = resolveWireMarkerStyle(m)
+                          const rings = expandWireMarkerRings(m)
+                          return (
+                            <div key={i} className="wi-acc-block" style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', borderTop: '1px solid var(--dc-border, rgba(148,163,184,0.22))' }}>
+                              {/* Pré-visualização física das anilhas encaixadas lado a lado */}
+                              {rings.length > 0 && (
+                                <div
+                                  aria-label={`Pré-visualização das anilhas do marcador ${i + 1}`}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '1px',
+                                    padding: '3px 6px',
+                                    borderRadius: '4px',
+                                    background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+                                    overflowX: 'auto',
+                                  }}
+                                >
+                                  <span style={{ flex: '0 0 8px', height: '4px', borderRadius: '2px', background: '#475569' }} />
+                                  {rings.map((r, rIdx) => (
+                                    <span
+                                      key={rIdx}
+                                      title={r.colorName}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        minWidth: '13px',
+                                        height: '18px',
+                                        padding: '0 2px',
+                                        borderRadius: '2px',
+                                        background: `linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 40%, rgba(0,0,0,0.2) 100%), ${r.bg}`,
+                                        color: r.fg,
+                                        border: `0.5px solid ${r.border}`,
+                                        fontWeight: 900,
+                                        fontSize: '10.5px',
+                                        fontFamily: '"DIN Alternate", "Arial Narrow", "Inter", sans-serif',
+                                        textDecoration: r.char === '6' || r.char === '9' ? 'underline' : 'none',
+                                      }}
+                                    >
+                                      {r.char}
+                                    </span>
+                                  ))}
+                                  <span style={{ flex: '1 1 8px', height: '4px', borderRadius: '2px', background: '#475569' }} />
+                                  <small style={{ color: '#94a3b8', fontSize: '9.5px', marginLeft: '4px', whiteSpace: 'nowrap' }}>
+                                    {Math.round(m.t * 100)}%
+                                  </small>
+                                </div>
+                              )}
+                              <div className="wi-acc-row">
+                                <input
+                                  className="dc-input wi-acc-text"
+                                  aria-label={`Texto do marcador ${i + 1}`}
+                                  value={m.text}
+                                  maxLength={16}
+                                  placeholder="025341"
+                                  disabled={!wireEditingStopped}
+                                  onChange={(e) => {
+                                    const list = [...(selectedWire.markers ?? [])]
+                                    list[i] = { ...list[i], text: e.target.value }
+                                    patchSelectedWire({ markers: list })
+                                  }}
+                                />
+                                <label className="wi-pct-field" title="Posição ao longo do cabo (0% = ponta A, 100% = ponta B)">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={2}
+                                    disabled={!wireEditingStopped}
+                                    aria-label={`Posição do marcador ${i + 1} (%)`}
+                                    value={Math.round(m.t * 100)}
+                                    onChange={(e) => {
+                                      const list = [...(selectedWire.markers ?? [])]
+                                      list[i] = { ...list[i], t: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                      patchSelectedWire({ markers: list })
+                                    }}
+                                  />
+                                  <i>%</i>
+                                </label>
+                                <Select
+                                  className="dc-input"
+                                  aria-label={`Estilo das anilhas do marcador ${i + 1}`}
+                                  value={style}
+                                  disabled={!wireEditingStopped}
+                                  style={{ minWidth: '88px', fontSize: '10.5px', padding: '2px 4px' }}
+                                  onChange={(e) => {
+                                    const nextStyle = e.target.value as WireMarkerStyle
+                                    const list = [...(selectedWire.markers ?? [])]
+                                    list[i] = {
+                                      ...list[i],
+                                      style: nextStyle,
+                                      ...(nextStyle === 'yellow' ? { bg: '#facc15', color: '#111827' } : {}),
+                                      ...(nextStyle === 'white' ? { bg: '#f8fafc', color: '#0f172a' } : {}),
+                                    }
+                                    patchSelectedWire({ markers: list })
+                                  }}
+                                >
+                                  {(Object.keys(WIRE_MARKER_STYLE_LABEL) as WireMarkerStyle[]).map((st) => (
+                                    <option key={st} value={st}>{WIRE_MARKER_STYLE_LABEL[st]}</option>
+                                  ))}
+                                </Select>
+                                {style === 'custom' && (
+                                  <>
+                                    <input
+                                      type="color"
+                                      title="Cor do texto"
+                                      aria-label={`Cor do texto do marcador ${i + 1}`}
+                                      className="wi-color-mini"
+                                      value={m.color}
+                                      onChange={(e) => {
+                                        const list = [...(selectedWire.markers ?? [])]
+                                        list[i] = { ...list[i], color: e.target.value, style: 'custom' }
+                                        patchSelectedWire({ markers: list })
+                                      }}
+                                    />
+                                    <input
+                                      type="color"
+                                      title="Cor da anilha"
+                                      aria-label={`Cor de fundo do marcador ${i + 1}`}
+                                      className="wi-color-mini"
+                                      value={m.bg ?? '#fbbf24'}
+                                      onChange={(e) => {
+                                        const list = [...(selectedWire.markers ?? [])]
+                                        list[i] = { ...list[i], bg: e.target.value, style: 'custom' }
+                                        patchSelectedWire({ markers: list })
+                                      }}
+                                    />
+                                  </>
+                                )}
+                                <button
+                                  type="button"
+                                  className="wi-row-del"
+                                  disabled={!wireEditingStopped}
+                                  aria-label={`Remover marcador ${i + 1}`}
+                                  onClick={() => {
+                                    const list = (selectedWire.markers ?? []).filter((_, j) => j !== i)
+                                    patchSelectedWire({ markers: list.length ? list : undefined })
+                                  }}
+                                >
+                                  <IconClose size={10} />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
 
                       {/* Espiral de proteção */}

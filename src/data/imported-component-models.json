@@ -164,7 +164,7 @@
     "rotation": [
       0,
       0,
-      0
+      3.141592653589793
     ],
     "placement": "din-rail",
     "sourceRotationDeg": [

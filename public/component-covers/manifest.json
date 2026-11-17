@@ -1,6 +1,6 @@
 {
   "note": "Gerado por scripts/build-component-covers.mjs a partir dos GLB reais (WebP sem fundo): types = capa 3/4 de 192 px; front = vista frontal ortográfica.",
-  "generatedAt": "2026-11-17T12:30:39.333Z",
+  "generatedAt": "2026-11-17T13:58:17.627Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
     "fuseHolderSchneiderDf101v",

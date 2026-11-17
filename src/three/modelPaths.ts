@@ -173,7 +173,7 @@ function spec(
  * cada instância é aplicada por cima desta base e, portanto, continua isolada.
  */
 const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
-  ...Object.fromEntries(importedModels.map(model => [model.type, spec(model.type as ComponentType, model.path, [0,0,0], model.placement as ComponentPlacement)])),
+  ...Object.fromEntries(importedModels.map(model => [model.type, spec(model.type as ComponentType, model.path, (model.rotation ?? [0, 0, 0]) as [number, number, number], model.placement as ComponentPlacement)])),
   plcSiemensLogo1224RC: spec('plcSiemensLogo1224RC', MODEL_PATHS.plcSiemensLogo1224RC, [Math.PI / 2, 0, 0], 'din-rail'),
   powerSupplyProauto24A: spec('powerSupplyProauto24A', MODEL_PATHS.powerSupplyProauto24A, [0, 0, 0], 'din-rail'),
   contactorWegCWC09: spec('contactorWegCWC09', MODEL_PATHS.wegContactorCWC09, [Math.PI / 2, 0, 0], 'din-rail'),

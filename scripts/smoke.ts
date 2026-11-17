@@ -2832,5 +2832,112 @@ check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos d
   check('Barramento em escada: fechar/mostrar tampa e expandir para 4×11 = 44 bornes', !steppedCoverOpenOf(findByType('busbarPhaseStepped').state) && steppedCoverVisibleOf(findByType('busbarPhaseStepped').state) && findByType('busbarPhaseStepped').terminals.length === 44)
 }
 
+// ── Proteção realista (Hager CFC225P de pé + TeSys DF + calibres vivos) & anilhas IEC 60062 ──
+{
+  const { expandWireMarkerRings, IEC_DIGIT_MARKER_PALETTE, resolveWireMarkerStyle } = await import('../src/electrical/wireMarkers')
+  const { easy9CatalogCode, hagerRcdCatalogCode, GV2ME_RANGES, formatProtectionBadge } = await import('../src/electrical/protectionSpecs')
+  const { getComponentModelSpec } = await import('../src/three/modelPaths')
+
+  // 1) Hager CFC225P de pé ([0,0,π]), bornes 1/N1 em cima e 2/N2 em baixo, botão T e fuga à terra
+  const hagerSpec = getComponentModelSpec('residualBreakerHagerCfc225p')
+  check('Hager CFC225P: modelo 3D montado de pé ([0, 0, π])', !!hagerSpec?.rotation && Math.abs(hagerSpec.rotation[2] - Math.PI) < 1e-6)
+
+  const s = useSimStore.getState()
+  s.deleteComponents(s.components.map((c) => c.id))
+  const addC = (type: Parameters<typeof s.addComponent>[0], x: number, y: number) => {
+    useSimStore.getState().addComponent(type, x, y)
+    return useSimStore.getState().components.at(-1)!
+  }
+  const src = addC('powerSource1ph', 100, 60)
+  const hager = addC('residualBreakerHagerCfc225p', 120, 220)
+  const df101 = addC('fuseHolderSchneiderDf101v', 240, 220)
+  const df81 = addC('fuseHolderSchneiderDf81n', 340, 220)
+  const df103 = addC('fuseHolderSchneiderDf103nv', 460, 220)
+  const lamp = addC('pilotLightAd22', 240, 440)
+  const tid = (cid: string, label: string) => useSimStore.getState().components.find((c) => c.id === cid)!.terminals.find((t) => t.label === label)!.id
+
+  const n1x81 = df81.terminals.find((t) => t.label === 'N1')!.position3D!.x
+  const p1x81 = df81.terminals.find((t) => t.label === '1')!.position3D!.x
+  const n1x103 = df103.terminals.find((t) => t.label === 'N1')!.position3D!.x
+  const p1x103 = df103.terminals.find((t) => t.label === '1')!.position3D!.x
+  check('DF81N e DF103NV: polo de neutro seccionável N1/N2 no módulo esquerdo', n1x81 < p1x81 && n1x103 < p1x103)
+
+  s.setComponentState(hager.id, { closed: true, tripped: false })
+  s.setComponentState(df101.id, { closed: true, blown: false })
+  s.setComponentState(df81.id, { closed: true, blown: false })
+  s.addWire(tid(src.id, 'L'), tid(hager.id, '1'), 'phase')
+  s.addWire(tid(src.id, 'N'), tid(hager.id, 'N1'), 'neutral')
+  s.addWire(tid(hager.id, '2'), tid(df101.id, '1'), 'phase')
+  s.addWire(tid(df101.id, '2'), tid(lamp.id, 'X1'), 'phase')
+  s.addWire(tid(lamp.id, 'X2'), tid(df81.id, 'N2'), 'neutral')
+  s.addWire(tid(df81.id, 'N1'), tid(hager.id, 'N2'), 'neutral')
+
+  const evalLamp = () => {
+    useSimStore.getState().step()
+    const on = !!useSimStore.getState().components.find((c) => c.id === lamp.id)?.state.on
+    useSimStore.getState().stop()
+    return on
+  }
+  check('Cadeia Hager + DF101V + DF81N(N) fechada alimenta carga', evalLamp())
+  s.actuateImported(df101.id, true, 'carrier')
+  check('DF101V: abrir gaveta basculante secciona a fase', !evalLamp())
+  s.actuateImported(df101.id, true, 'carrier')
+  s.setComponentState(df101.id, { blown: true })
+  check('DF101V: cartucho fusível fundido interrompe a fase', !evalLamp())
+  s.setComponentState(df101.id, { blown: false })
+  check('DF101V: substituir cartucho restabelece a fase', evalLamp())
+  s.actuateImported(df81.id, true, 'carrier')
+  check('DF81N: abrir gaveta 1P+N secciona o neutro N1–N2', !evalLamp())
+  s.actuateImported(df81.id, true, 'carrier')
+  s.setComponentState(df81.id, { blown: true })
+  check('DF81N: fusível de fase fundido conserva tubo de neutro N1–N2 fechado', evalLamp())
+  s.setComponentState(df81.id, { blown: false })
+
+  s.actuateImported(hager.id, true, 'test')
+  s.actuateImported(hager.id, false, 'test')
+  const stAfterT = useSimStore.getState().components.find((c) => c.id === hager.id)!.state
+  check('Hager CFC225P: botão T dispara e retém o disparo ao largar', !!stAfterT.tripped && !stAfterT.closed && !stAfterT.testPressed && !evalLamp())
+  s.actuateImported(hager.id, true, 'reset')
+  const stAfterReset = useSimStore.getState().components.find((c) => c.id === hager.id)!.state
+  check('Hager CFC225P: Rearmar leva a O-OFF sem fechar contactos', !stAfterReset.tripped && !stAfterReset.closed && !evalLamp())
+  s.actuateImported(hager.id, true)
+  check('Hager CFC225P: Ligar alavanca restabelece L e N', evalLamp())
+  s.setFaults({ earthLeak: true })
+  useSimStore.getState().step()
+  const stLeak = useSimStore.getState().components.find((c) => c.id === hager.id)!.state
+  const lampLeak = !!useSimStore.getState().components.find((c) => c.id === lamp.id)?.state.on
+  s.setFaults({ earthLeak: false })
+  useSimStore.getState().stop()
+  check('Hager CFC225P: fuga à terra (earthLeak) dispara automaticamente e corta a carga', !!stLeak.tripped && !stLeak.closed && !lampLeak)
+
+  // 2) Catálogos e serigrafia de calibres IEC
+  check('Catálogo Easy9/Hager/GV2ME coerente com calibre selecionado',
+    easy9CatalogCode(1, 'C', 16) === 'EZ9F34116' &&
+    easy9CatalogCode(1, 'D', 32) === 'EZ9F35132' &&
+    easy9CatalogCode(3, 'C', 25) === 'EZ9F34325' &&
+    hagerRcdCatalogCode(25, 300, 'AC') === 'CFC225P' &&
+    hagerRcdCatalogCode(40, 30, 'A') === 'CDA240P' &&
+    GV2ME_RANGES.some((g) => g.code === 'GV2ME14' && g.maxA === 10) &&
+    GV2ME_RANGES.some((g) => g.code === 'GV2ME10' && g.maxA === 6.3) &&
+    (formatProtectionBadge({ ...df101, state: { ...df101.state, inA: 16, fuseClass: 'aM', closed: false } }) ?? '').includes('16'))
+
+  // 3) Anilhas de cabos encaixáveis IEC 60062 (0=preto … 9=branco)
+  check('Anilhas IEC 60062: 10 dígitos 0–9 com cores distintas', IEC_DIGIT_MARKER_PALETTE.length === 10 && new Set(IEC_DIGIT_MARKER_PALETTE.map((d) => d.bg)).size === 10)
+  const rings025341 = expandWireMarkerRings({ t: 0.5, text: '025341', color: '#0f172a', bg: '#fbbf24', style: 'iec' })
+  check('Anilhas IEC «025341»: preto, vermelho, verde, laranja, amarelo, castanho',
+    rings025341.map((r) => r.char).join('') === '025341' &&
+    rings025341[0].bg === '#18181b' &&
+    rings025341[1].bg === '#dc2626' &&
+    rings025341[2].bg === '#16a34a' &&
+    rings025341[3].bg === '#f97316' &&
+    rings025341[4].bg === '#facc15' &&
+    rings025341[5].bg === '#7c3f16')
+  check('Anilhas personalizadas preservam cor gravada em projetos antigos', resolveWireMarkerStyle({ bg: '#ec4899', color: '#ffffff' }) === 'custom')
+  const w0 = useSimStore.getState().wires[0]!
+  s.stampWireEndMarkers(w0.id, 'number')
+  const stamped = useSimStore.getState().wires.find((w) => w.id === w0.id)!.markers ?? []
+  check('Anilhar Nº (A+B) aplica duas anilhas IEC nas pontas (8% e 92%)', stamped.length === 2 && stamped.every((m) => m.style === 'iec'))
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

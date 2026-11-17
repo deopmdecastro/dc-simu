@@ -280,7 +280,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
       T('2', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
     ],
-    defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 16 },
+    defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 16, icn: '4,5 kA' },
   },
   breakerSteckSdC25: {
     category: 'protection', paletteName: 'Disjuntor Steck SD C25 · 1P 25 A curva C', group: 'Proteção', tag: 'QF', w: 27, h: 119,
@@ -315,12 +315,12 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('3', 'power-in', 0.75, 0, { position3D: { x: 0.75, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
       T('4', 'power-out', 0.75, 1, { position3D: { x: 0.75, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
     ],
-    defaultState: { closed: true, tripped: false, poles: 2, curve: 'C', inA: 16 },
+    defaultState: { closed: true, tripped: false, poles: 2, curve: 'C', inA: 16, icn: '4,5 kA' },
   },
   breaker3p: {
     category: 'protection', paletteName: 'Disjuntor Schneider Easy9 EZ9 · 3P', group: 'Proteção', tag: 'QF', w: 120, h: 110,
     terminals: poles3(),
-    defaultState: { closed: true, tripped: false, poles: 3, curve: 'C', inA: 25 },
+    defaultState: { closed: true, tripped: false, poles: 3, curve: 'C', inA: 25, icn: '4,5 kA' },
   },
   breaker4p: {
     category: 'protection', paletteName: 'Disjuntor tetrapolar', group: 'Proteção', tag: 'QF', w: 150, h: 110,
@@ -328,7 +328,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       ...poles3(),
       T('7', 'power-in', 0.93, 0), T('8', 'power-out', 0.93, 1),
     ],
-    defaultState: { closed: true, tripped: false, poles: 4, curve: 'C', inA: 25 },
+    defaultState: { closed: true, tripped: false, poles: 4, curve: 'C', inA: 25, icn: '6 kA' },
   },
   phoenixEcb3000760: {
     category: 'protection', paletteName: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760', group: 'Proteção', tag: 'QF', w: 76, h: 128,
@@ -340,12 +340,12 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('RESET', 'io', 0.75, 0.25, { position3D: { x: 0.75, y: 0.76, z: 1 }, terminalType: 'screw', diameter: 9 }),
       T('STATUS', 'io', 0.75, 0.62, { position3D: { x: 0.75, y: 0.38, z: 1 }, terminalType: 'screw', diameter: 9 }),
     ],
-    defaultState: { closed: true, tripped: false },
+    defaultState: { closed: true, tripped: false, inA: 1, ueDc: '24 V DC', code: 'EC-E1 1A' },
   },
   motorBreaker: {
     category: 'protection', paletteName: 'Disjuntor-motor', group: 'Proteção', tag: 'QM', w: 120, h: 120,
     terminals: poles3(),
-    defaultState: { closed: true, tripped: false, poles: 3, curve: 'D', inA: 6.3, magnetic: 13 },
+    defaultState: { closed: true, tripped: false, poles: 3, curve: 'D', inA: 6.3, rangeA: '4 - 6,3 A', magnetic: 88 },
   },
   residualBreaker: {
     category: 'protection', paletteName: 'Disjuntor DR (30mA)', group: 'Proteção', tag: 'QDR', w: 120, h: 110,
@@ -353,17 +353,17 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       ...poles3(),
       T('N1', 'neutral', 0.93, 0), T('N2', 'neutral', 0.93, 1),
     ],
-    defaultState: { closed: true, tripped: false, sensmA: 30 },
+    defaultState: { closed: true, tripped: false, inA: 40, sensmA: 30, rcdType: 'AC' },
   },
   fuse: {
     category: 'protection', paletteName: 'Fusível NH/DIAZED', group: 'Proteção', tag: 'F', w: 50, h: 90,
     terminals: [T('IN', 'power-in', 0.5, 0), T('OUT', 'power-out', 0.5, 1)],
-    defaultState: { blown: false, inA: 6 },
+    defaultState: { blown: false, inA: 6, fuseClass: 'gG' },
   },
   fuseHolder: {
     category: 'protection', paletteName: 'Porta-fusível cilíndrico', group: 'Proteção', tag: 'F', w: 60, h: 100,
     terminals: [T('1', 'power-in', 0.5, 0), T('2', 'power-out', 0.5, 1)],
-    defaultState: { blown: false, inA: 2 },
+    defaultState: { closed: true, blown: false, inA: 2, fuseClass: 'gG' },
   },
   surgeProtector: {
     category: 'protection', paletteName: 'DPS / supressor de surto', group: 'Proteção', tag: 'F', w: 90, h: 110,

@@ -35,11 +35,21 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   breaker4p: [['1', '2'], ['3', '4'], ['5', '6'], ['7', '8']],
   motorBreaker: [['1', '2'], ['3', '4'], ['5', '6']],
   motorBreakerPkzmC10: [['1', '2'], ['3', '4'], ['5', '6']],
+  motorBreakerSchneiderGv2me: [['1', '2'], ['3', '4'], ['5', '6']],
   residualBreaker: [['1', '2'], ['3', '4'], ['5', '6'], ['N1', 'N2']],
+  residualBreakerHagerCfc225p: [['1', '2'], ['N1', 'N2']],
+  fuse: [['IN', 'OUT']],
+  fuseHolder: [['1', '2']],
+  fuseHolderSchneiderDf101v: [['1', '2']],
+  fuseHolderSchneiderDf81n: [['N1', 'N2'], ['1', '2']],
+  fuseHolderSchneiderDf103nv: [['N1', 'N2'], ['1', '2'], ['3', '4'], ['5', '6']],
+  phoenixEcb3000760: [['Line+', 'LOAD+']],
   thermalRelay: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
+  thermalRelaySiemens3ru1116: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
   contactor: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
   contactor4p: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3'], ['7', '8']],
   contactorWegCWC09: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
+  contactorWegCwbc65: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
 }
 
 /** Polos de um aparelho (entrada↔saída), independentemente de estar aberto ou fechado.
@@ -106,7 +116,7 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     }
     case 'fuse':
     case 'fuseHolder': {
-      if (!c.state.blown) pair(la('IN') ?? la('1'), la('OUT') ?? la('2'))
+      if (c.state.closed !== false && !c.state.blown) pair(la('IN') ?? la('1'), la('OUT') ?? la('2'))
       break
     }
     case 'surgeProtector': {
@@ -349,7 +359,11 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
   return bridges
 }
 
-const HEAD_BREAKERS = new Set(['breaker1p', 'breakerSteckSdC25', 'breaker2p', 'breaker3p', 'breaker4p', 'motorBreaker', 'motorBreakerPkzmC10', 'residualBreaker'])
+const HEAD_BREAKERS = new Set([
+  'breaker1p', 'breakerSteckSdC25', 'breaker2p', 'breaker3p', 'breaker4p',
+  'motorBreaker', 'motorBreakerPkzmC10', 'motorBreakerSchneiderGv2me',
+  'residualBreaker', 'residualBreakerHagerCfc225p',
+])
 /** Componentes que alimentam a rede (mesmo desligados: nesse caso o que está a jusante fica sem tensão). */
 const FEEDER_TYPES = /^(powerSource|powerSupply|busbar|earthBar)/
 
@@ -435,7 +449,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     }
     if (c.type === 'earthBar') c.terminals.forEach((x) => ids.push(x.id))
     // rede entrando pelos polos de entrada dos disjuntores gerais
-    if (c.type === 'breaker1p' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'motorBreakerPkzmC10' || c.type === 'residualBreaker') {
+    if (HEAD_BREAKERS.has(c.type)) {
       c.terminals.filter((x) => x.kind === 'power-in' || (x.label === 'N1')).forEach((x) => {
         if (fedInputs?.has(x.id)) return
         if (faults?.phaseLoss && /L2|[35]/.test(x.label)) return

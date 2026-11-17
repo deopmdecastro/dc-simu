@@ -1,4 +1,5 @@
 import type { Wire, WireColor, WireDefaults, WireEndType, WireFlexibility, WireRoute } from '../types'
+import { expandWireMarkerRings } from '../electrical/wireMarkers'
 import { ConductorIcon, WIRE_END_OPTIONS, WireEndIcon } from '../schematic/wireEnds'
 import {
   CABLE_PRESETS,
@@ -239,15 +240,41 @@ export function CableAccessoryMap({ wire }: { wire: Pick<Wire, 'color' | 'sheath
           )
         })}
         {markers.map((m, i) => {
-          const pos = Math.max(2, Math.min(98, m.t * 100))
+          const pos = Math.max(3, Math.min(97, m.t * 100))
+          const rings = expandWireMarkerRings(m, 8)
           return (
             <span
               key={`mk-${i}`}
               className="wi-cable-map-marker"
-              style={{ left: `${pos}%`, background: m.bg ?? '#fbbf24', color: m.color }}
+              style={{
+                left: `${pos}%`,
+                display: 'inline-flex',
+                gap: '0.5px',
+                padding: '1px',
+                background: '#0f172a',
+                borderRadius: '3px',
+              }}
               title={`Anilha «${m.text}» a ${Math.round(m.t * 100)}%`}
             >
-              {m.text || '·'}
+              {rings.length ? rings.map((r, rIdx) => (
+                <i
+                  key={rIdx}
+                  style={{
+                    fontStyle: 'normal',
+                    fontWeight: 800,
+                    fontSize: '8.5px',
+                    lineHeight: '11px',
+                    minWidth: '7.5px',
+                    padding: '0 1.5px',
+                    textAlign: 'center',
+                    borderRadius: '1.5px',
+                    background: r.bg,
+                    color: r.fg,
+                  }}
+                >
+                  {r.char}
+                </i>
+              )) : '·'}
             </span>
           )
         })}

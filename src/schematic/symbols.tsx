@@ -252,11 +252,13 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       }
       case 'fuse':
       case 'fuseHolder': {
-        const blown = c.state.blown
+        const blown = !!c.state.blown
+        const open = c.state.closed === false
         return (
           <g>
-            <rect x={w / 2 - 10} y={10} width={20} height={h - 20} rx={3} fill={blown ? '#450a0a' : '#1f2937'} stroke={blown ? '#ef4444' : s} />
+            <rect x={w / 2 - 10} y={10} width={20} height={h - 20} rx={3} fill={blown ? '#450a0a' : open ? '#422006' : '#1f2937'} stroke={blown ? '#ef4444' : open ? '#f59e0b' : s} strokeDasharray={open ? '4 2' : undefined} />
             {label(4, 10, c.ref, 10, '#93c5fd')}
+            {c.state.inA ? label(4, h - 3, `${c.state.inA}A ${String(c.state.fuseClass ?? 'gG')}`, 7.5, '#64748b') : null}
             {blown && <line x1={w / 2 - 8} y1={h / 2 - 8} x2={w / 2 + 8} y2={h / 2 + 8} stroke="#ef4444" strokeWidth={2} />}
           </g>
         )

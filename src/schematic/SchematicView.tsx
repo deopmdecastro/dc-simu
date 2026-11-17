@@ -19,6 +19,8 @@ import { componentOrientationOf, isOriginalComponentOrientation } from '../three
 import { componentTerminalLocal, orientedImageFrame } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import DinRail2D from './DinRail2D'
+import { expandWireMarkerRings } from '../electrical/wireMarkers'
+import { formatProtectionBadge } from '../electrical/protectionSpecs'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireEndScale, wireStrokeWidth } from './wireMetrics'
@@ -1141,7 +1143,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   /** Disjuntores: duplo clique no corpo arma/desarma (e rearma um disparo), como o clique no Painel 3D. */
   const isToggleBreaker = (c: ElectricalComponent) =>
-    ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'motorBreaker', 'residualBreaker'].includes(c.type)
+    ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
 
   const toggleField = (c: ElectricalComponent, down: boolean) => {
     if (useSimStore.getState().sim.runState === 'stopped') return
@@ -1378,21 +1380,78 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             <path d={sp} fill="none" stroke="#ffffff" strokeOpacity={0.12} strokeWidth={Math.max(1, spW * 0.2)} strokeLinecap="butt" />
           </g>
         })}
-        {/* Marcadores / tags (anéis numerados ao longo da curva real do cabo) */}
+        {/* Anilhas / marcadores clip-on encaixáveis (código internacional IEC 60062 e letras CAB3/WIC) */}
         {(w.markers ?? []).map((m, i) => {
+          const rings = expandWireMarkerRings(m)
+          if (!rings.length) return null
           const samplePts = display.geometry.curvePts ?? display.geometry.pts
           const p = pointAtFraction(samplePts, m.t)
           const tan = tangentAtFraction(samplePts, m.t)
           let angle = Math.atan2(tan.y, tan.x) * 180 / Math.PI
-          // Mantém o texto da anilha sempre legível (nunca de pernas para o ar)
+          // Mantém os caracteres sempre direitos (nunca de pernas para o ar)
           if (angle > 90) angle -= 180
           else if (angle < -90) angle += 180
-          const bg = m.bg ?? '#fbbf24'
-          const r = Math.max(7, width * 1.6 + 4)
-          return <g key={`mk-${i}`} pointerEvents="none" transform={`translate(${p.x},${p.y}) rotate(${angle})`}>
-            <rect x={-r * 0.85} y={-r * 0.7} width={r * 1.7} height={r * 1.4} rx={2.2} fill={bg} stroke="#1e293b" strokeWidth={0.8} />
-            <text textAnchor="middle" dominantBaseline="central" fontSize={Math.max(8, r * 0.95)} fontWeight={700} fill={m.color} style={{ fontFamily: 'ui-monospace, monospace' }}>{m.text}</text>
-          </g>
+          const ringH = Math.max(12.5, width * 2.1 + 7.5)
+          const ringW = Math.max(8.2, ringH * 0.66)
+          const gap = 0.6
+          const step = ringW + gap
+          const totalW = rings.length * ringW + (rings.length - 1) * gap
+          const x0 = -totalW / 2
+          return (
+            <g key={`mk-${i}`} pointerEvents="none" transform={`translate(${p.x},${p.y}) rotate(${angle})`}>
+              {/* Sombra discreta sob o conjunto de anilhas */}
+              <rect x={x0 - 0.8} y={-ringH / 2 + 0.8} width={totalW + 1.6} height={ringH} rx={2.2} fill="#0f172a" fillOpacity={0.22} />
+              {rings.map((ring, rIdx) => {
+                const rx = x0 + rIdx * step
+                return (
+                  <g key={rIdx}>
+                    <rect
+                      x={rx}
+                      y={-ringH / 2}
+                      width={ringW}
+                      height={ringH}
+                      rx={1.8}
+                      fill={ring.bg}
+                      stroke={ring.border}
+                      strokeWidth={0.85}
+                    />
+                    {/* Brilho cilíndrico superior da anilha PVC */}
+                    <line
+                      x1={rx + 1.1}
+                      y1={-ringH / 2 + 1.4}
+                      x2={rx + ringW - 1.1}
+                      y2={-ringH / 2 + 1.4}
+                      stroke="#ffffff"
+                      strokeOpacity={0.32}
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={rx + ringW / 2}
+                      y={0.3}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={Math.max(8.2, ringH * 0.68)}
+                      fontWeight={900}
+                      fill={ring.fg}
+                      style={{ fontFamily: '"DIN Alternate", "Arial Narrow", "Inter", sans-serif' }}
+                    >
+                      {ring.char}
+                    </text>
+                    {(ring.char === '6' || ring.char === '9') && (
+                      <line
+                        x1={rx + ringW * 0.28}
+                        y1={ringH * 0.36}
+                        x2={rx + ringW * 0.72}
+                        y2={ringH * 0.36}
+                        stroke={ring.fg}
+                        strokeWidth={0.9}
+                      />
+                    )}
+                  </g>
+                )
+              })}
+            </g>
+          )
         })}
         {/* área de clique larga (clique seleciona · duplo clique adiciona ponto de curva) */}
         <path
@@ -1683,7 +1742,44 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.startPressed) useSimStore.getState().setComponentState(c.id, { startPressed: false }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>START · contacto NA 13–14</title></rect>
             </>}
+            {/* Botão azul T de ensaio diferencial do Hager CFC225P (canto superior direito do corpo de pé). */}
+            {c.type === 'residualBreakerHagerCfc225p' && isOriginalComponentOrientation(orientation) && (
+              <rect
+                x={c.w * 0.56}
+                y={c.h * 0.29}
+                width={c.w * 0.36}
+                height={c.h * 0.09}
+                rx={2.5}
+                fill={c.state.testPressed ? '#0067b8' : 'transparent'}
+                fillOpacity={0.35}
+                style={{ cursor: 'pointer' }}
+                onMouseDown={(e) => { e.stopPropagation(); if (!c.locked) useSimStore.getState().actuateImported(c.id, true, 'test') }}
+                onMouseUp={(e) => { e.stopPropagation(); if (c.state.testPressed) useSimStore.getState().actuateImported(c.id, false, 'test') }}
+                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.testPressed) useSimStore.getState().actuateImported(c.id, false, 'test') }}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
+                <title>Botão T · Testar disparo diferencial ({c.ref})</title>
+              </rect>
+            )}
             <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+            {(() => {
+              const badge = formatProtectionBadge(c)
+              if (!badge) return null
+              const alert = !!(c.state.tripped || c.state.blown || c.state.failed)
+              return (
+                <text
+                  x={c.w / 2}
+                  y={imageBounds.y + imageBounds.h + 24}
+                  textAnchor="middle"
+                  fontSize={8.5}
+                  fontWeight={600}
+                  fill={alert ? '#b91c1c' : '#64748b'}
+                  pointerEvents="none"
+                >
+                  {alert && c.state.tripped ? `${badge} · TRIP` : badge}
+                </text>
+              )
+            })()}
           </>
         ) : hasComponent3DVisual(c.type) ? (
           /* GLB-only: nunca cair em SymbolGlyph/SVG simbólico para tipos com modelo 3D.

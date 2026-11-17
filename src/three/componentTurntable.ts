@@ -3,7 +3,9 @@ import { createGltfLoader } from './gltfLoader'
 import type { ComponentType } from '../types'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
-import { paintImportedModel } from './importedFinish'
+import { paintImportedModel, rigImportedModel, animateImportedRig } from './importedFinish'
+import { applyProtectionMarkings } from './protectionMarkings'
+import { TEMPLATES } from '../electrical/factory'
 import { importedComponentInfo } from '../electrical/importedComponents'
 import { applyEditorMotorTextures, waitMotorTextures } from './motorEditorTextures'
 import { applyCadSurfaceTextures } from './cadSurface'
@@ -148,16 +150,13 @@ async function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentTy
     await waitMotorTextures()
     return
   }
-  // Importados (torre, sensor, …): cores por peça como no Painel 3D, antes do PBR comum.
-  if (importedComponentInfo(type)) {
-    paintImportedModel(type, root)
-  }
+  // Importados (torre, sensor, porta-fusível, diferencial…): já pintados em prepareObject antes do fit.
   if (type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR') {
     applyEmergencyButtonFinish(root, type)
   } else {
     root.traverse((child) => {
       const mesh = child as THREE.Mesh
-      if (!mesh.isMesh) return
+      if (!mesh.isMesh || mesh.userData?.protectionMarking) return
       const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       const enhanced = source.map((entry) => finishCadMaterial(entry, { envMapIntensity: 1.2 }))
       mesh.material = Array.isArray(mesh.material) ? enhanced : enhanced[0]
@@ -198,7 +197,20 @@ async function prepareObject(type: ComponentType): Promise<THREE.Object3D> {
   if (!spec) throw new Error('Modelo GLB indisponível')
   const source = await loadSource(spec.path)
   await nextIdle()
-  const object = fitComponentModel(cloneModelScene(source), spec, 1)
+  const raw = cloneModelScene(source)
+  const defaultState = TEMPLATES[type]?.defaultState ?? {}
+  if (importedComponentInfo(type)) {
+    const parts = paintImportedModel(type, raw)
+    const rig = rigImportedModel(type, raw, parts)
+    animateImportedRig(rig, type, defaultState, false, 10)
+  }
+  const object = fitComponentModel(raw, spec, 1)
+  applyProtectionMarkings(object, type, {
+    state: defaultState,
+    unitsPerMm: 1,
+    anchor: 'center',
+    heightMm: spec.physicalSizeMm.height,
+  })
   let scale: number
   if (spec.placement === 'rail') {
     object.updateMatrixWorld(true)

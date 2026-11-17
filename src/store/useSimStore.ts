@@ -727,7 +727,24 @@ function runOneTick(state: Store, dtMs: number) {
   const srcs = sourceTerminalIds(components, sim.faults, wires)
 
   // 1) Primeira passagem — apenas chaves físicas (botões, disjuntores, sensores)
-  const pass1 = computeContinuity(components, wires, srcs)
+  let pass1 = computeContinuity(components, wires, srcs)
+  // Fuga à terra ativa (> IΔn): dispara automaticamente os diferenciais (DR / ID) fechados e sob tensão,
+  // seccionando fase e neutro na própria varredura (IEC 61008-1).
+  if (sim.faults.earthLeak) {
+    let rcdTripped = false
+    for (const c of components) {
+      if ((c.type === 'residualBreakerHagerCfc225p' || c.type === 'residualBreaker') && c.state.closed && !c.state.tripped) {
+        const isLive = c.terminals.some((term) => pass1.energizedTerminals.has(term.id))
+        if (isLive) {
+          c.state.closed = false
+          c.state.tripped = true
+          c.state.tripReason = 'earth'
+          rcdTripped = true
+        }
+      }
+    }
+    if (rcdTripped) pass1 = computeContinuity(components, wires, srcs)
+  }
   for (const c of components) updateImportedPower(c, pass1.energizedTerminals, pass1.reachable)
 
   // 2–4) Cada PLC lê os seus bornes, executa o seu OB1 e escreve as suas
@@ -3412,9 +3429,9 @@ export const useSimStore = create<Store>((set, get) => {
         return {
           ...w,
           markers: [
-            { t: 0.08, text: tagA, color: '#0f172a', bg: '#fbbf24' },
+            { t: 0.08, text: tagA, color: '#111827', bg: '#facc15', style: 'iec' },
             ...middle,
-            { t: 0.92, text: tagB, color: '#0f172a', bg: '#fbbf24' },
+            { t: 0.92, text: tagB, color: '#111827', bg: '#facc15', style: 'iec' },
           ],
         }
       }),

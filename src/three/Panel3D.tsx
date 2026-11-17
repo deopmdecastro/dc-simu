@@ -67,6 +67,8 @@ import MotorShaftFan3D from './MotorShaftFan3D'
 import { updateMotorBodyMotion } from './motorBodyMotion'
 import { MOTOR_FAN, MOTOR_SIZE, motorCadToCentered } from './motorTerminalLayout'
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
+import { applyProtectionMarkings, protectionMarkingSignature } from './protectionMarkings'
+import { WireMarkers3D } from './WireMarkers3D'
 import { extractActuatorHead } from './actuatorHead'
 import LeadPigtails3D from './LeadPigtails3D'
 import { SnapGuides3D, WireDraftSideCard, WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
@@ -1009,13 +1011,23 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     return { model: fitted, importedRig: rigged, lenses }
   }, [scene, spec, centered, importedType])
   const invalidateFrame = useThree((three) => three.invalidate)
+  const markingSig = protectionMarkingSignature(c.type, c.state)
+  useEffect(() => {
+    applyProtectionMarkings(model, c.type, {
+      state: c.state,
+      unitsPerMm: PANEL_UNITS_PER_MM,
+      anchor: centered ? 'center' : 'bottom',
+      heightMm: spec.physicalSizeMm.height,
+    })
+    invalidateFrame()
+  }, [model, c.type, centered, spec.physicalSizeMm.height, markingSig, invalidateFrame])
   useFrame((_, delta) => {
     if (!importedRig || !importedType) return
     if (animateImportedRig(importedRig, importedType, { ...c.state, resetTurn }, useSimStore.getState().sim.runState !== 'stopped', Math.min(delta, 1 / 20))) invalidateFrame()
   })
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const active = simActive && !!(c.state.energized || c.state.powered)
-  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'residualBreakerHagerCfc225p'].includes(c.type)
+  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
   const rig = BREAKER_HANDLE_RIG[c.type]
   const breakerClosed = !!c.state.closed && !c.state.tripped
@@ -1109,10 +1121,12 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
   const simActive = useSimStore(s => s.sim.runState !== 'stopped')
   const { gl, controls, events } = useThree()
   const [resetTurn, setResetTurn] = useState(0)
-  const status = info.behavior === 'breaker' || info.behavior === 'fuse'
-    ? c.state.tripped ? 'Disparado' : c.state.closed ? 'Fechado' : 'Aberto'
-    : info.behavior === 'selector' ? c.state.position === -1 ? 'Esq.' : c.state.position === 1 ? 'Dir.' : '0'
-    : info.behavior === 'thermal' ? c.state.testPressed ? 'Ensaio · disparado' : c.state.tripped ? 'Disparado · RESET' : c.state.stopPressed ? 'STOP' : 'Armado' : ''
+  const status = info.behavior === 'fuse'
+    ? !c.state.closed ? 'Gaveta aberta' : c.state.blown ? 'Fundido' : 'Fechado'
+    : info.behavior === 'breaker'
+      ? c.state.testPressed ? 'Teste (T)' : c.state.tripped ? 'Disparado' : c.state.closed ? 'Ligado' : 'Desligado'
+      : info.behavior === 'selector' ? c.state.position === -1 ? 'Esq.' : c.state.position === 1 ? 'Dir.' : '0'
+      : info.behavior === 'thermal' ? c.state.testPressed ? 'Ensaio · disparado' : c.state.tripped ? 'Disparado · RESET' : c.state.stopPressed ? 'STOP' : 'Armado' : ''
   const group = useRef<THREE.Group>(null)
   type ImportedGesture = {
     control: ImportedControl | null
@@ -1176,9 +1190,11 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
   }, [])
   return <group ref={group} position={position ?? [x, RAIL_Y, 0]} onPointerDown={event => {
     if (event.button !== 0 || gesture.current) return
+    if (useSimStore.getState().gridDragEnabled && !simActive) return
     const control = controlAt(event)
     if (control ? !mechanical : !interactive || !simActive) return
     event.stopPropagation()
+    if (!simActive && !useSimStore.getState().demoMode) useSimStore.getState().selectComponents([c.id])
     const target = event.target as unknown as { setPointerCapture: (id: number) => void; releasePointerCapture: (id: number) => void }
     const orbit = controls as unknown as { enabled?: boolean } | null
     const active: ImportedGesture = {
@@ -2229,25 +2245,8 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
           <meshPhysicalMaterial color={col} roughness={0.65} metalness={0.05} clearcoat={0.15} clearcoatRoughness={0.6} envMapIntensity={0.7} />
         </mesh>
       })}
-      {/* Marcadores 3D: anéis coloridos com etiqueta */}
-      {(wire.markers ?? []).map((m, i) => {
-        const t = Math.max(0.02, Math.min(0.98, m.t))
-        const p = curve.getPointAt(t)
-        const tan = curve.getTangentAt(t).normalize()
-        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan)
-        const ringR = radius * 1.9 + 0.006
-        const bg = m.bg ?? '#fbbf24'
-        return <group key={`mk-${i}`} position={p} quaternion={quat} userData={{ noPick: true }}>
-          <mesh castShadow raycast={() => null}>
-            <torusGeometry args={[ringR, radius * 0.55, 8, 16]} />
-            <meshStandardMaterial color={bg} roughness={0.4} metalness={0.1} />
-          </mesh>
-          <mesh position={[0, 0, ringR + 0.02]} raycast={() => null}>
-            <planeGeometry args={[Math.max(0.06, 0.018 * Math.max(1, m.text.length)), 0.04]} />
-            <meshBasicMaterial color={bg} />
-          </mesh>
-        </group>
-      })}
+      {/* Anilhas clip-on encaixáveis 3D (código internacional de cores IEC 60062 e letras CAB3/WIC) */}
+      {wire.markers && wire.markers.length > 0 && <WireMarkers3D markers={wire.markers} curve={curve} wireRadius={radius} />}
       {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         snap={snapWaypointFor(storedWire, index, baseFrom.position, baseTo.position)}

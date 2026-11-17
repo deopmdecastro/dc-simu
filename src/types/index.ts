@@ -526,10 +526,10 @@ export interface Wire {
    */
   spirals?: Array<{ start: number; end: number; color?: string; pitchMm?: number; innerDiaMm?: number }>
   /**
-   * Marcadores / tags no cabo (anéis numerados, etiquetas): posição t em 0..1,
-   * texto (número ou etiqueta) e cor do marcador.
+   * Marcadores / anilhas no cabo (anéis clip-on encaixáveis com código de cores
+   * IEC 60062, amarelo CAB3, branco ou cor personalizada): posição t em 0..1.
    */
-  markers?: Array<{ t: number; text: string; color: string; bg?: string }>
+  markers?: Array<{ t: number; text: string; color: string; bg?: string; style?: 'iec' | 'yellow' | 'white' | 'custom' }>
   /** Identificador de chicote/bundle quando o cabo está filaçado com outros. */
   bundleId?: string
   /** Número de condutores (1 = fio simples; 2+ = cabo multicore). */

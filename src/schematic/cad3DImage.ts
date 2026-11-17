@@ -8,6 +8,10 @@ import { captureOrthographicModelImage, captureOrthographicObjectImage } from '.
 import { finishCadMaterial } from '../three/catalogMaterials'
 import { applyCadSurfaceTextures } from '../three/cadSurface'
 import { findStaticFrontImage } from '../three/staticComponentImages'
+import { importedComponentInfo } from '../electrical/importedComponents'
+import { animateImportedRig, paintImportedModel, rigImportedModel } from '../three/importedFinish'
+import { applyProtectionMarkings } from '../three/protectionMarkings'
+import { TEMPLATES } from '../electrical/factory'
 
 const imagePromises = new Map<ComponentType, Promise<string>>()
 let terminalSource: Promise<THREE.Object3D> | undefined
@@ -66,10 +70,33 @@ export function getCad3DImage(type: ComponentType): Promise<string> {
 export function captureCad3DImage(type: ComponentType): Promise<string> {
   const spec = getComponentModelSpec(type)
   if (!spec && !isTerminalAssemblyComponent(type)) return Promise.reject(new Error(`Sem modelo CAD para ${type}`))
-  return isTerminalAssemblyComponent(type) && !spec ? captureTerminalAssemblyImage(type) : captureOrthographicModelImage({
+  if (isTerminalAssemblyComponent(type) && !spec) return captureTerminalAssemblyImage(type)
+  const defaultState = TEMPLATES[type]?.defaultState ?? {}
+  return captureOrthographicModelImage({
     path: spec!.path,
     rotation: spec!.rotation,
     flipDepth: spec!.flipDepth,
     physicalSizeMm: spec!.physicalSizeMm,
+    configureObject: (inner) => {
+      if (!importedComponentInfo(type)) return
+      const parts = paintImportedModel(type, inner)
+      const rig = rigImportedModel(type, inner, parts)
+      animateImportedRig(rig, type, defaultState, false, 10)
+      inner.traverse((node) => {
+        const mesh = node as THREE.Mesh
+        if (!mesh.isMesh) return
+        mesh.material = Array.isArray(mesh.material)
+          ? mesh.material.map((m) => finishCadMaterial(m, { envMapIntensity: 1.15 }))
+          : finishCadMaterial(mesh.material, { envMapIntensity: 1.15 })
+      })
+    },
+    configureFitted: (fitted) => {
+      applyProtectionMarkings(fitted, type, {
+        state: defaultState,
+        unitsPerMm: 1,
+        anchor: 'center',
+        heightMm: spec!.physicalSizeMm.height,
+      })
+    },
   })
 }

@@ -186,6 +186,7 @@ export function ensureCadUvs(root: THREE.Object3D, unitsPerMm = DEFAULT_UNITS_PE
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh || !mesh.geometry || !mesh.material) return
+    if (mesh.userData.protectionMarking) return
     if (materialsOf(mesh).some(usesOwnMaps)) return
     const matrix = toMm.clone().multiply(toModel).multiply(mesh.matrixWorld)
     const key = matrix.elements.map((value) => value.toFixed(3)).join(',')
@@ -262,7 +263,7 @@ export function applyCadSurfaceTextures(root: THREE.Object3D, options: SurfaceOp
   const done = new Set<THREE.Material>()
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
-    if (!mesh.isMesh || !mesh.geometry?.getAttribute('uv')) return
+    if (!mesh.isMesh || mesh.userData.protectionMarking || !mesh.geometry?.getAttribute('uv')) return
     for (const material of materialsOf(mesh)) {
       if (done.has(material) || !(material instanceof THREE.MeshStandardMaterial)) continue
       done.add(material)
