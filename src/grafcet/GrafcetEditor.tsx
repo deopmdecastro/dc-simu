@@ -392,7 +392,44 @@ export const nextFreeStepNumber = (steps: readonly GrafcetStep[]): number => {
 /** Zoom máximo do diagrama (roda do rato, botões e pinça): suficiente para ler os textos num telemóvel. */
 const GRAFCET_ZOOM_MAX = 5
 
-export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, onOpenLadder, lockedChartId }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void; /** Força uma página (chart) — usado na vista dividida. */ lockedChartId?: string }) {
+export interface GrafcetEditorProps {
+  full?: boolean
+  onOpenEditor?: () => void
+  onOpenLadder?: () => void
+  /** Força uma página (chart) — usado na vista dividida e na monitorização ao vivo. */
+  lockedChartId?: string
+  /** Restringe a visualização a um sub-GRAFCET autónomo na mesma página. */
+  subsetStepIds?: readonly string[]
+  /** Etapas a acompanhar automaticamente no painel de monitorização. */
+  followStepIds?: readonly string[]
+  /** Quando verdadeiro, centra e acompanha automaticamente as etapas ativas. */
+  autoFollow?: boolean
+  /** Contador incremental para recentrar imediatamente a vista. */
+  recenterSeq?: number
+  /** Modo compacto lado a lado (quando dois GRAFCETs correm em simultâneo). */
+  splitCompact?: boolean
+  /** Oculta o cabeçalho/rodapé internos quando geridos por `GrafcetLiveDock`. */
+  hidePreviewChrome?: boolean
+  /** No monitor compacto de etapa ativa omite notas adesivas e blocos de texto longos (visíveis no GRAFCET completo). */
+  hideAnnotations?: boolean
+  /** Disparado quando o utilizador move ou amplia manualmente a pré-visualização. */
+  onManualView?: () => void
+}
+
+export default function GrafcetEditor({
+  full: fullProp = false,
+  onOpenEditor,
+  onOpenLadder,
+  lockedChartId,
+  subsetStepIds,
+  followStepIds,
+  autoFollow = false,
+  recenterSeq = 0,
+  splitCompact = false,
+  hidePreviewChrome = false,
+  hideAnnotations = false,
+  onManualView,
+}: GrafcetEditorProps) {
   const demoMode = useSimStore((state) => state.demoMode)
   /** Grupos de seleção (Ctrl+G): etapas e textos livres agrupados selecionam-se e movem-se juntos. */
   const selectionGroups = useSimStore((state) => state.selectionGroups)
@@ -426,10 +463,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const allComments = program.comments ?? []
   const canvasNotes = useSimStore(state => state.canvasNotes)
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
-  const steps = firstChartId ? allSteps.filter(inPage) : allSteps
-  const transitions = firstChartId ? allTransitions.filter(inPage) : allTransitions
-  const freeActions = firstChartId ? allFree.filter(inPage) : allFree
-  const comments = firstChartId ? allComments.filter(inPage) : allComments
+  const subsetSet = useMemo(() => (subsetStepIds?.length ? new Set(subsetStepIds) : null), [subsetStepIds])
+  const pageSteps = firstChartId ? allSteps.filter(inPage) : allSteps
+  const pageTransitions = firstChartId ? allTransitions.filter(inPage) : allTransitions
+  const steps = subsetSet ? pageSteps.filter((s) => subsetSet.has(s.id)) : pageSteps
+  const transitions = subsetSet
+    ? pageTransitions.filter((t) => t.from.some((id) => subsetSet.has(id)) || t.to.some((id) => subsetSet.has(id)))
+    : pageTransitions
+  const freeActions = subsetSet ? [] : (firstChartId ? allFree.filter(inPage) : allFree)
+  const comments = subsetSet || hideAnnotations ? [] : (firstChartId ? allComments.filter(inPage) : allComments)
   const [selected, setSelected] = useState<string | null>(() => (full ? steps[0]?.id ?? null : null))
   const [tab, setTab] = useState<EditorTab>('steps')
   const [showPalette, setShowPalette] = useState(() => {
@@ -602,11 +644,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }, [minimapOn])
   // O canvas já não tem HUD flutuante: o botão «Mapa» e o resumo do diagrama vivem na barra
   // de ferramentas, que só vê o estado que lhe for espelhado (DC-ADR-059).
-  useEffect(() => { useGrafcetUi.getState().setMinimapOn(minimapOn) }, [minimapOn])
+  useEffect(() => { if (full) useGrafcetUi.getState().setMinimapOn(minimapOn) }, [full, minimapOn])
   useEffect(() => {
+    if (!full) return
     const total = steps.reduce((acc, step) => acc + actionsOf(step).length, 0) + freeActions.length
     useGrafcetUi.getState().setStats(`${steps.length} etapas · ${transitions.length} transições · ${total} ações${freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}`)
-  }, [steps, transitions, freeActions])
+  }, [full, steps, transitions, freeActions])
   /** Área de transferência interna do editor (Ctrl+C / Ctrl+V). */
   const clipboardRef = useRef<{ ids: string[]; steps: GrafcetStep[]; transitions: GrafcetTransition[]; pos: Map<string, { x: number; y: number }>; pastes: number } | null>(null)
 
@@ -1106,7 +1149,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const projectFiles = useSimStore((state) => state.projectFiles)
   const autoSync = useGrafcetUi((state) => state.autoSync)
   const syncStatus = useMemo(() => ladderSyncStatus(program), [program, ladderRungs, projectFiles]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { useGrafcetUi.getState().setLadderSync(syncStatus) }, [syncStatus])
+  useEffect(() => { if (full) useGrafcetUi.getState().setLadderSync(syncStatus) }, [full, syncStatus])
   const programSignature = useMemo(() => JSON.stringify({ steps: program.steps, transitions: transitionsOf(program) }), [program])
   const lastAutoSync = useRef(programSignature)
   useEffect(() => {
@@ -2795,30 +2838,151 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   // Viewport / Zoom / Pan
   const viewportRef = useRef<HTMLDivElement>(null)
   const canvasId = useId()
+  const arrowId = `grafcet-arrow-${canvasId.replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const arrowActiveId = `${arrowId}-active`
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const [viewport, setViewport] = useState({ width: 440, height: 500 })
   const [zoom, setZoom] = useState<number | null>(null)
   const [pan, setPan] = useState<{ x: number; y: number } | null>(null)
+  /** Quando o utilizador arrasta/faz zoom manualmente na monitorização ao vivo, suspende até mudar a etapa ativa. */
+  const [manualFollowHold, setManualFollowHold] = useState(false)
+  const [smoothFollow, setSmoothFollow] = useState(false)
+  const followKey = followStepIds?.join('|') ?? ''
+  const prevFollowKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!viewportRef.current) return
     const node = viewportRef.current
-    const observer = new ResizeObserver(() => setViewport({ width: node.clientWidth, height: node.clientHeight }))
+    const update = () => {
+      const w = node.clientWidth
+      const h = node.clientHeight
+      if (w > 0 && h > 0) setViewport({ width: w, height: h })
+    }
+    const observer = new ResizeObserver(update)
     observer.observe(node)
-    setViewport({ width: node.clientWidth, height: node.clientHeight })
+    update()
     return () => observer.disconnect()
-  }, [full])
+  }, [full, activeChart, splitCompact])
 
-  const fit = full
-    ? Math.min(1.35, Math.max(0.15, Math.min((viewport.width - 70) / width, (viewport.height - 86) / height)))
-    : Math.min(1, Math.max(0.25, (viewport.width - 28) / width))
+  // Quando a etapa ativa muda (ou a página/sub-GRAFCET muda), retoma o enquadramento automático suavemente.
+  useEffect(() => {
+    if (full || !autoFollow) {
+      prevFollowKeyRef.current = followKey
+      return
+    }
+    const hadPrevious = prevFollowKeyRef.current !== null && prevFollowKeyRef.current !== followKey
+    prevFollowKeyRef.current = followKey
+    setManualFollowHold(false)
+    setZoom(null)
+    setPan(null)
+    if (hadPrevious) {
+      setSmoothFollow(true)
+      const timer = window.setTimeout(() => setSmoothFollow(false), 320)
+      return () => window.clearTimeout(timer)
+    }
+  }, [full, autoFollow, followKey, activeChart])
+
+  // Botão «Centrar / Seguir» ou alternância «A seguir ↔ Enquadrar tudo»: repõe vista e ativa transição suave.
+  const prevRecenterRef = useRef(recenterSeq)
+  useEffect(() => {
+    if (full || prevRecenterRef.current === recenterSeq) return
+    prevRecenterRef.current = recenterSeq
+    setManualFollowHold(false)
+    setZoom(null)
+    setPan(null)
+    setSmoothFollow(true)
+    const timer = window.setTimeout(() => setSmoothFollow(false), 320)
+    return () => window.clearTimeout(timer)
+  }, [full, recenterSeq])
+
+  /** Enquadramento focado na(s) etapa(s) ativa(s) + respetivas ações + transição seguinte (ou diagrama completo). */
+  const computeLiveView = (): { scale: number; x: number; y: number } | null => {
+    if (full || !hidePreviewChrome || !steps.length) return null
+    const vw = Math.max(120, viewport.width)
+    const vh = Math.max(110, viewport.height)
+    const targetIds = autoFollow && followStepIds?.length
+      ? followStepIds.filter((id) => stepById.has(id))
+      : steps.map((s) => s.id)
+    const effectiveIds = targetIds.length ? targetIds : steps.map((s) => s.id)
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    const focused = autoFollow && targetIds.length > 0
+
+    for (const sid of effectiveIds) {
+      const st = stepById.get(sid)
+      if (!st) continue
+      const sx = stepX(sid)
+      const sy = stepY(sid)
+      const { w: sw, h: sh } = stepSizeOf(sid)
+      const leftMargin = splitCompact ? 22 : 30
+      const topMargin = focused ? (splitCompact ? 28 : 36) : 20
+      const rightCond = splitCompact ? 96 : 124
+      const bottomTrans = focused ? (splitCompact ? 62 : 76) : 34
+      x0 = Math.min(x0, sx - sw / 2 - leftMargin)
+      y0 = Math.min(y0, sy - topMargin)
+      x1 = Math.max(x1, sx + sw / 2 + rightCond)
+      y1 = Math.max(y1, sy + sh + bottomTrans)
+      attachedBoxes(st).forEach((b) => {
+        x0 = Math.min(x0, b.x - 10)
+        y0 = Math.min(y0, b.y - 10)
+        x1 = Math.max(x1, b.x + b.w + (splitCompact ? 12 : 20))
+        y1 = Math.max(y1, b.y + b.h + 14)
+      })
+      if (focused) {
+        // Inclui a transição de saída imediata (e espreita a próxima etapa se estiver logo abaixo).
+        for (const t of transitions) {
+          if (!t.from.includes(sid)) continue
+          const nextSteps = t.to.map((tid) => stepById.get(tid)).filter(Boolean) as GrafcetStep[]
+          for (const ns of nextSteps) {
+            const ny = stepY(ns.id)
+            const nx = stepX(ns.id)
+            const dy = ny - (sy + sh)
+            if (dy > 0 && dy <= 145 && Math.abs(nx - sx) <= (splitCompact ? 90 : 160)) {
+              y1 = Math.max(y1, Math.min(ny + 26, sy + sh + (splitCompact ? 92 : 112)))
+            }
+          }
+        }
+      }
+    }
+    if (!Number.isFinite(x0) || !Number.isFinite(y0)) return null
+    const padX = splitCompact ? 8 : 14
+    const padY = splitCompact ? 8 : 12
+    const bw = Math.max(120, x1 - x0)
+    const bh = Math.max(90, y1 - y0)
+    const minS = focused ? (splitCompact ? 0.34 : 0.42) : 0.16
+    const maxS = focused ? (splitCompact ? 0.88 : 1.04) : 0.96
+    const s = Math.min(maxS, Math.max(minS, Math.min((vw - padX * 2) / bw, (vh - padY * 2) / bh)))
+    const cx = (x0 + x1) / 2
+    const cy = (y0 + y1) / 2
+    return {
+      scale: s,
+      x: Math.round(vw / 2 - cx * s),
+      y: Math.round(vh / 2 - cy * s),
+    }
+  }
+
+  const liveView = !manualFollowHold && zoom === null && pan === null ? computeLiveView() : null
+  const fit = liveView
+    ? liveView.scale
+    : full
+      ? Math.min(1.35, Math.max(0.15, Math.min((viewport.width - 70) / width, (viewport.height - 86) / height)))
+      : Math.min(1, Math.max(0.25, (viewport.width - 28) / width))
   const scale = zoom ?? fit
   // Thin the visible grid by powers of two when zoomed out; snap geometry stays at GRID.
   const gridSpacing = editorGridPitch(scale, GRID)
-  const position = pan ?? { x: (viewport.width - width * scale) / 2, y: full ? 38 : 22 }
-  const clamp = (value: number) => Math.max(full ? 0.15 : 0.25, Math.min(GRAFCET_ZOOM_MAX, value))
+  const position = pan ?? (liveView ? { x: liveView.x, y: liveView.y } : { x: (viewport.width - width * scale) / 2, y: full ? 38 : 22 })
+  const clamp = (value: number) => Math.max(full ? 0.15 : 0.18, Math.min(GRAFCET_ZOOM_MAX, value))
+
+  const markManualPreview = () => {
+    if (full || !hidePreviewChrome) return
+    setSmoothFollow(false)
+    if (!manualFollowHold) {
+      setManualFollowHold(true)
+      onManualView?.()
+    }
+  }
 
   const zoomAt = (value: number, point: { x: number; y: number }) => {
+    markManualPreview()
     const next = clamp(value)
     setPan({ x: point.x - ((point.x - position.x) * next) / scale, y: point.y - ((point.y - position.y) * next) / scale })
     setZoom(next)
@@ -2830,7 +2994,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     swallowPointers: true,
     ignoreSelector: '[role="scrollbar"]',
     enabled: steps.length > 0,
-    onStart: () => { pinchStartRef.current = { zoom: scale, pos: position } },
+    onStart: () => { markManualPreview(); pinchStartRef.current = { zoom: scale, pos: position } },
     onChange: ({ ratio, center, startCenter }) => {
       const start = pinchStartRef.current
       if (!start) return
@@ -2953,7 +3117,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       return
     }
     if (!dragRef.current) return
-    setPan({ x: dragRef.current.px + event.clientX - dragRef.current.x, y: dragRef.current.py + event.clientY - dragRef.current.y })
+    const dx = event.clientX - dragRef.current.x
+    const dy = event.clientY - dragRef.current.y
+    if (Math.hypot(dx, dy) > 4) markManualPreview()
+    setPan({ x: dragRef.current.px + dx, y: dragRef.current.py + dy })
   }
 
   const onPreviewUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -3979,13 +4146,17 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     .map(([key]) => key)
 
   return (
-    <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
+    <div
+      className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}${hidePreviewChrome ? ' is-live-embed' : ''}${splitCompact ? ' is-split-compact' : ''}`}
+      data-grafcet-chart={activeChart ?? 'main'}
+      data-grafcet-following={!full && autoFollow && !manualFollowHold ? 'true' : undefined}
+    >
       {program.importReview && full && <ImportReviewBanner warnings={program.importReview.warnings} blockers={programIssues.filter((issue) => issue.id !== 'import-review' && (issue.level === 'error' || issue.id.endsWith(':dup')))} onSelectIssue={selectIssue} onFinish={() => { void finishImportReview() }} />}
-      <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
-      <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
+      {full && <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>}
+      {full && <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>}
 
-      {!full && (
-        /* Modo Pré-visualização lateral (dock) */
+      {!full && !hidePreviewChrome && (
+        /* Modo Pré-visualização lateral (dock / demo) */
         <header className="grafcet-header">
           <div className="grafcet-title">
             <strong>{program.name?.trim() || 'GRAFCET'}</strong>
@@ -4235,12 +4406,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           )}
 
           {/* SVG DO DIAGRAMA GRAFCET COM ESTILO NORMALIZADO IEC E DUPLA LINHA AND */}
-          <GrafcetNotes notes={canvasNotes.filter(note => note.view === 'grafcet' && inPage(note))}
-            position={position} scale={scale} openId={openNoteId} setOpenId={setOpenNoteId}
-            toWorld={clientToWorld} readOnly={!full || demoMode} />
+          {!hideAnnotations && (
+            <GrafcetNotes notes={canvasNotes.filter(note => note.view === 'grafcet' && inPage(note))}
+              position={position} scale={scale} openId={openNoteId} setOpenId={setOpenNoteId}
+              toWorld={clientToWorld} readOnly={!full || demoMode} />
+          )}
           {!!steps.length && (
             <div
-              className="grafcet-pan-layer"
+              className={`grafcet-pan-layer${smoothFollow && !isDragging && !pinchStartRef.current ? ' is-gliding' : ''}`}
               style={{ width: width * scale, height: height * scale, transform: `translate(${position.x}px, ${position.y}px)` }}
             >
               <svg
@@ -4254,10 +4427,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 aria-label="Etapas, ações e transições do GRAFCET"
               >
                 <defs>
-                  <marker id="grafcet-arrow" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                  <marker id={arrowId} markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
                     <path d="M1 1 L7 4 L1 7" fill="none" stroke="#526883" strokeWidth="1.25" />
                   </marker>
-                  <marker id="grafcet-arrow-active" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                  <marker id={arrowActiveId} markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
                     <path d="M1 1 L7 4 L1 7" fill="none" stroke="#16a34a" strokeWidth="1.25" />
                   </marker>
                 </defs>
@@ -4307,7 +4480,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           fill="none"
                           stroke="#526883"
                           strokeWidth="2"
-                          markerEnd="url(#grafcet-arrow)"
+                          markerEnd={`url(#${arrowId})`}
                         />
                       )
                     })
@@ -4541,7 +4714,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}`}
                       >
-                        <path d={path} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
+                        <path d={path} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? `url(#${arrowActiveId})` : `url(#${arrowId})`} />
                         <path d={path} fill="none" stroke="transparent" strokeWidth="16" />
                         <line x1="50" y1={y + 83} x2="74" y2={y + 83} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
                         <text x={62 + CONDITION_OFFSET_X} y={y + 83 + CONDITION_OFFSET_Y} fill={linkColor} fontSize="12" fontWeight="600">
@@ -4595,7 +4768,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       >
                         <path d={refOrBranch ? `M ${refSrcX} ${refTop} V ${refJunctionY} H ${refX} V ${refBarY}` : `M ${refX} ${refTop} V ${refBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} />
                         {refOrBranch && <circle cx={refSrcX} cy={refJunctionY} r="3.6" fill={linkColor} data-or-branch="true" />}
-                        <path d={`M ${refX} ${refBarY} V ${refBarY + 24}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
+                        <path d={`M ${refX} ${refBarY} V ${refBarY + 24}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? `url(#${arrowActiveId})` : `url(#${arrowId})`} />
                         <line className="grafcet-transition-bar" x1={refX - 14} y1={refBarY} x2={refX + 14} y2={refBarY} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3}
                           onPointerDown={dragReference} onPointerMove={e => moveBar(transition.id, e)} onPointerUp={e => finishBar(transition.id, e)} onPointerCancel={cancelBendDrag}
                           style={{ cursor: 'move', touchAction: 'none', pointerEvents: 'stroke' }} />
@@ -4627,7 +4800,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           const y = stepY(sid) + stepHOf(sid)
                           return (
                             <g key={`ref-src-${sid}`}>
-                              <path d={`M ${x} ${y} V ${y + 24}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd="url(#grafcet-arrow)" />
+                              <path d={`M ${x} ${y} V ${y + 24}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd={`url(#${arrowId})`} />
                               <text x={x + 10} y={y + 18} fill="#64748b" fontSize="10.5" fontWeight="600">{`→ ${outRefs}`}</text>
                             </g>
                           )
@@ -4641,7 +4814,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           const y = stepY(tid)
                           return (
                             <g key={`ref-dst-${tid}`}>
-                              <path d={`M ${x} ${y - 28} V ${y - 3}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
+                              <path d={`M ${x} ${y - 28} V ${y - 3}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd={enabled ? `url(#${arrowActiveId})` : `url(#${arrowId})`} />
                               <text x={x - 10} y={y - 14} textAnchor="end" fill="#64748b" fontSize="10.5" fontWeight="600">{`${inRefs} →`}</text>
                             </g>
                           )
@@ -4734,7 +4907,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           fill="none"
                           stroke={linkColor}
                           strokeWidth={enabled || selectedLink ? 2 : 1.5}
-                          markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
+                          markerEnd={enabled ? `url(#${arrowActiveId})` : `url(#${arrowId})`}
                         />
                         <path
                           d={linkPath}
@@ -4950,7 +5123,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           fill="none"
                           stroke={linkColor}
                           strokeWidth={enabled || selectedLink ? 2 : 1.5}
-                          markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
+                          markerEnd={enabled ? `url(#${arrowActiveId})` : `url(#${arrowId})`}
                         />
                         <path
                           d={returnPath}
@@ -5124,7 +5297,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                               fill="none"
                               stroke={linkColor}
                               strokeWidth={enabled ? 2 : 1.5}
-                              markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
+                              markerEnd={enabled ? `url(#${arrowActiveId})` : `url(#${arrowId})`}
                             />
                           ))}
                           <line x1={iecBarX1} y1={iecBarY} x2={iecBarX2} y2={iecBarY} stroke={linkColor} strokeWidth="2.5" />
@@ -5167,7 +5340,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           fill="none"
                           stroke={linkColor}
                           strokeWidth={enabled ? 2 : 1.5}
-                          markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
+                          markerEnd={enabled ? `url(#${arrowActiveId})` : `url(#${arrowId})`}
                         />
                       ))}
 
@@ -5340,7 +5513,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   }
 
                   // Informação da etapa: número/identificador dentro da caixa e comentário/descrição acima
-                  const { stepNumber, comment } = getStepDisplayInfo(step, index)
+                  const globalIdx = subsetSet ? allSteps.indexOf(step) : index
+                  const { stepNumber, comment } = getStepDisplayInfo(step, globalIdx >= 0 ? globalIdx : index)
                   const isStepBeingDragged = dragPos?.id === step.id
                   const stepShiftX = stepX(step.id) - SPINE_X
                   // Tamanho da caixa (redimensionável): o eixo central fica em SPINE_X dentro do grupo deslocado.
@@ -5454,12 +5628,16 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         </>
                       )}
 
-                      {/* Captions occupy the right lane, clear of the incoming flow — espaçamento generoso. */}
-                      {comment && (
-                        <text className="grafcet-step-caption" x={SR + STEP_CAPTION_OFFSET_X} y={y + STEP_CAPTION_OFFSET_Y} fill="#475569" fontSize="12" fontWeight="600" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="6" strokeLinejoin="round">
-                          {diagramLabel(comment, 28)}
-                        </text>
-                      )}
+                      {/* Captions occupy the right lane, clear of the incoming flow e acima da bandeira de ação condicional. */}
+                      {comment && (() => {
+                        const firstAct = actionsOf(step)[0]
+                        const hasTopFlag = !!(firstAct && !isOffsetAction(firstAct) && (firstAct.condition?.trim() || firstAct.type === 'conditional' || firstAct.timeMs))
+                        return (
+                          <text className="grafcet-step-caption" x={SR + STEP_CAPTION_OFFSET_X} y={y + STEP_CAPTION_OFFSET_Y - (hasTopFlag ? 14 : 0)} fill="#475569" fontSize="12" fontWeight="600" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="6" strokeLinejoin="round">
+                            {diagramLabel(comment, 28)}
+                          </text>
+                        )
+                      })()}
 
                       {/* Halo de hover/seleção: só um traço translúcido (sem filtros), controlado por CSS — não repinta o grupo nem pisca */}
                       {full && <rect className="grafcet-hover-halo" x={SL} y={y} width={SW} height={SH} rx="4" pointerEvents="none" />}
@@ -7119,7 +7297,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         ))}
       </div>
 
-      {!full && (
+      {!full && !hidePreviewChrome && (
         <div className="grafcet-preview-status" role="status">
           <span className={running ? 'is-running' : ''}>● {running ? 'Simulação ativa' : 'Parado'}</span>
           <span>
@@ -7127,7 +7305,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               ? `Etapas ativas: ${runtime.active
                   .map((value) => {
                     const index = program.steps.findIndex((s) => s.id === value)
-                    return index < 0 ? '?' : getStepDisplayInfo(program.steps[index], index).stepNumber
+                    if (index < 0) return '?'
+                    const num = getStepDisplayInfo(program.steps[index], index).stepNumber
+                    return /^x/i.test(num) ? num : `X${num}`
                   })
                   .join(', ')}`
               : 'Nenhuma etapa ativa'}
@@ -7136,9 +7316,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         </div>
       )}
 
-      {signalsOpen && <SignalTableDialog onClose={() => setSignalsOpen(false)} />}
+      {full && signalsOpen && <SignalTableDialog onClose={() => setSignalsOpen(false)} />}
 
       {/* DIÁLOGOS FLUIDSIM E ATALHOS */}
+      {full && (
+      <>
       <StepDialog
         open={!!editingStep}
         step={editingStep}
@@ -7234,6 +7416,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           setTemplatesOpen(false)
         }}
       />
+      </>
+      )}
 
       {toast && (
         <div key={toast.id} className="ladder-toast grafcet-toast" role="status" aria-live="polite">

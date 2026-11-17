@@ -507,6 +507,21 @@
   /* O conteúdo do separador cresce com o painel (a rolagem é a da gaveta, como no GRAFCET). */
   .dc-cmd .cmd-dock > .dc-dock-tabs { padding: 0 0 8px; border-bottom: 1px solid var(--pn-line-soft); }
   .dc-cmd .cmd-dock .sim-embed-bar { display: none; }
+  /* Separador GRAFCET no telemóvel: dá altura real ao diagrama ao vivo (e aos 2 GRAFCETs lado a lado) sem colapsar a 0 px nem cortar o rodapé. */
+  .dc-cmd .cmd-dock.grafcet-properties.is-open:has(> .grafcet-live-dock) {
+    display: flex; flex-direction: column;
+    flex: 0 0 54%; max-height: 60%; overflow: hidden; gap: 0; padding-bottom: 0;
+  }
+  .dc-cmd .cmd-dock.grafcet-properties.is-open:has(> .grafcet-live-dock.is-multi) {
+    flex: 0 0 58%; max-height: 64%;
+  }
+  .dc-cmd .cmd-dock.grafcet-properties.is-open.is-tall:has(> .grafcet-live-dock) {
+    flex: 0 0 78%; max-height: 84%;
+  }
+  .dc-cmd .cmd-dock.grafcet-properties.is-open > .grafcet-live-dock {
+    flex: 1 1 0; min-height: 0; overflow: hidden;
+    width: calc(100% + var(--bs-pad, 12px) * 2); margin-inline: calc(var(--bs-pad, 12px) * -1);
+  }
 }
 
 /* Painel lateral completo no fundo do 3D Realista (telemóvel) — mesma gaveta que IEC/GRAFCET. */
@@ -528,6 +543,25 @@
   .schematic-sim-dock-phone .grafcet-properties-summary { flex: none; min-height: 44px; }
   .schematic-sim-dock-phone > .dc-dock-tabs { padding: 0 0 8px; border-bottom: 1px solid var(--pn-line-soft); }
   .schematic-sim-dock-phone .sim-embed-bar { display: none; }
+  /* Separador GRAFCET no telemóvel (3D / 2D): devolve a visualização completa focada na etapa ativa (1 ou 2 lado a lado). */
+  .schematic-sim-dock-phone.grafcet-properties.is-open:has(> .grafcet-live-dock) {
+    display: flex; flex-direction: column;
+    flex: 0 0 54%; max-height: 60%; overflow: hidden; gap: 0; padding-bottom: 0;
+  }
+  .schematic-sim-dock-phone.grafcet-properties.is-open:has(> .grafcet-live-dock.is-multi) {
+    flex: 0 0 58%; max-height: 64%;
+  }
+  .schematic-sim-dock-phone.grafcet-properties.is-open.is-tall:has(> .grafcet-live-dock) {
+    flex: 0 0 78%; max-height: 84%;
+  }
+  .schematic-sim-dock-phone.grafcet-properties.is-open > .grafcet-live-dock {
+    flex: 1 1 0; min-height: 0; overflow: hidden;
+    width: calc(100% + var(--bs-pad, 12px) * 2); margin-inline: calc(var(--bs-pad, 12px) * -1);
+  }
+  .grafcet-live-open-btn.dc-btn { min-height: 36px; }
+  .grafcet-live-chip { height: 30px; padding: 0 10px; font-size: 11.5px; }
+  .grafcet-live-follow-btn { min-height: 32px; padding: 0 9px; }
+  .grafcet-live-pane-open { width: 28px; height: 28px; }
 }
 
 /* Telemóvel (toque): zonas de toque maiores nas ligações do GRAFCET e sem dicas de teclado nos diálogos */

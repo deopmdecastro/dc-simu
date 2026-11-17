@@ -5,7 +5,7 @@ import SimulationDock from './SimulationDock'
 import { CommandsDiagnosticsPanel, SchematicDiagnosticsPanel } from '../diagnostics/DiagnosticsUi'
 import RouteLoading from '../ui/RouteLoading'
 
-const GrafcetEditor = lazy(() => import('../grafcet/GrafcetEditor'))
+const GrafcetLiveDock = lazy(() => import('../grafcet/GrafcetLiveDock'))
 const CommandsIoPanel = lazy(() => import('../commands/CommandsPanels').then((m) => ({ default: m.CommandsIoPanel })))
 const CommandsObjects = lazy(() => import('../commands/CommandsPanels').then((m) => ({ default: m.CommandsObjects })))
 
@@ -31,7 +31,7 @@ export default function RightDockPanel({ mode, tab, onTab, onOpenGrafcet }: {
         {tab === 'diagnostics'
           ? (commands ? <CommandsDiagnosticsPanel /> : <SchematicDiagnosticsPanel />)
           : tab === 'grafcet'
-            ? <GrafcetEditor onOpenEditor={onOpenGrafcet} />
+            ? <GrafcetLiveDock onOpenEditor={onOpenGrafcet} />
             : commands
               ? tab === 'signals' ? <CommandsIoPanel /> : <CommandsObjects />
               : tab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
