@@ -19,6 +19,7 @@ import ActionSymbol, { actionShape } from '../src/grafcet/ActionSymbol'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario } from '../src/simulation/scenarios'
 import { computeContinuity, internalBridges, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../src/electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/phases'
+import { ACRYLIC_BUSBAR, acrylicBusbarColorOf, acrylicBusbarDimsOf, steppedCoverOpenOf, steppedCoverVisibleOf } from '../src/three/busbarParts'
 import { collectUsedAddresses, runScan } from '../src/ladder/ladderEngine'
 import { applyKind } from '../src/ladder/ladderDnd'
 import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
@@ -1042,7 +1043,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 48 componentes com GLB real (25 anteriores, 16 novos, os 2 conjuntos 24 V, os 3 PLC Siemens S7, o quadro e a calha técnica) (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 48 && availableTypes.includes('panelEnclosure') && availableTypes.includes('cableDuct') && ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315'].every((t) => availableTypes.includes(t)) && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 52 componentes com GLB real (incluindo os 4 barramentos reais PE, N, Fase com acrílico e Fases em escada)', availableTypes.length === 52 && ['earthBar', 'busbarNeutral', 'busbarPhaseAcrylic', 'busbarPhaseStepped'].every((t) => availableTypes.includes(t as import('../src/types').ComponentType)) && availableTypes.includes('panelEnclosure') && availableTypes.includes('cableDuct') && ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315'].every((t) => availableTypes.includes(t)) && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   // Capas pré-geradas (scripts/build-component-covers.mjs): a biblioteca mostra imagens sem descarregar os GLB.
   {
@@ -2717,6 +2718,118 @@ check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos d
   // Compatibilidade: um projeto sem páginas continua a ler G2X135 pela numeração global.
   const flat = { steps: [{ id: 'f1', name: '1', initial: true, action: '', condition: '1' }, { id: 'f135', name: '135', initial: false, action: '', condition: '1' }], transitions: [] }
   check('GRAFCET: projeto sem páginas mantém G2X135 como a etapa 135 global', validCondition('G2X135') && grafcetGraphs(flat as never).length === 1 && evalCondition('G2X135', {}, { knownStepNumbers: new Set(['1', '135']), activeStepNumbers: new Set(['135']) }))
+}
+
+/* Barramentos 3D reais: Terra (acrílico verde), Neutro (acrílico azul), Fase (cor editável) e Repartidor em escada (tampa abre/fecha e mostra/oculta). */
+{
+  const d12 = acrylicBusbarDimsOf({ poleCount: 12 })
+  check(
+    'Barramento acrílico 12P respeita cotas reais (128 × 36,5 × 13 mm, corpo 98 mm, M4 a 115 mm, tampa 9,6 mm)',
+    d12.widthMm === 128 && d12.bodyWidthMm === 98 && d12.mountSpanMm === 115 && d12.heightMm === 36.5 && d12.depthMm === 13 && ACRYLIC_BUSBAR.coverHeightMm === 9.6,
+  )
+  check(
+    'Barramentos PE e N têm acrílico verde e azul fixos; Fase muda de cor',
+    acrylicBusbarColorOf('earthBar', { acrylicColor: '#ff0000' }) === ACRYLIC_BUSBAR.earthAcrylicColor &&
+      acrylicBusbarColorOf('busbarNeutral', { acrylicColor: '#ff0000' }) === ACRYLIC_BUSBAR.neutralAcrylicColor &&
+      acrylicBusbarColorOf('busbarPhaseAcrylic', { acrylicColor: '#d49a0a' }) === '#d49a0a',
+  )
+
+  useSimStore.getState().newProject('Teste Barramentos')
+  const s0 = useSimStore.getState()
+  s0.addComponent('earthBar', 100, 100)
+  s0.addComponent('busbarNeutral', 100, 220)
+  s0.addComponent('busbarPhaseAcrylic', 100, 340)
+  s0.addComponent('busbarPhaseStepped', 380, 180)
+  s0.addComponent('powerSource3ph', 40, 500)
+  s0.addComponent('motor3ph', 640, 220)
+  s0.addComponent('multimeterDm20', 640, 440)
+
+  const findByType = (t: string) => useSimStore.getState().components.find((x) => x.type === t)!
+  const bpe = findByType('earthBar')
+  const bn = findByType('busbarNeutral')
+  const bf = findByType('busbarPhaseAcrylic')
+  const qbl = findByType('busbarPhaseStepped')
+  const src = findByType('powerSource3ph')
+  const mot = findByType('motor3ph')
+  const dmm = findByType('multimeterDm20')
+  const tid = (c: typeof bpe, lab: string) => c.terminals.find((x) => x.label === lab)!.id
+
+  check('Barramentos iniciam com bornes reais (PE=10, N=10, L=10, Escada 4P=28)', bpe.terminals.length === 10 && bn.terminals.length === 10 && bf.terminals.length === 10 && qbl.terminals.length === 28)
+
+  s0.setBusbarPoleCount(bf.id, 12)
+  s0.setBusbarPoleCount(bpe.id, 16)
+  s0.setBusbarPoleCount(bn.id, 8)
+  s0.setBusbarAcrylicColor(bf.id, '#d49a0a')
+  check(
+    'Redimensionamento no Inspetor atualiza bornes, footprint e cor do acrílico (PE=16, N=8, Fase=12 amarelo)',
+    findByType('earthBar').terminals.length === 16 &&
+      findByType('busbarNeutral').terminals.length === 8 &&
+      findByType('busbarPhaseAcrylic').terminals.length === 12 &&
+      findByType('busbarPhaseAcrylic').w === Math.round(128 * 1.5) &&
+      findByType('busbarPhaseAcrylic').state.acrylicColor === '#d49a0a',
+  )
+
+  const bf12 = findByType('busbarPhaseAcrylic')
+  const bpe16 = findByType('earthBar')
+  const bn8 = findByType('busbarNeutral')
+  s0.addWire(tid(src, 'L1'), tid(qbl, 'L1.1'))
+  s0.addWire(tid(src, 'L2'), tid(qbl, 'L2.1'))
+  s0.addWire(tid(src, 'L3'), tid(qbl, 'L3.1'))
+  s0.addWire(tid(src, 'N'), tid(qbl, 'N.1'))
+  s0.addWire(tid(src, 'PE'), tid(bpe16, 'PE1'))
+  s0.addWire(tid(qbl, 'L1.4'), tid(mot, 'U1'))
+  s0.addWire(tid(qbl, 'L2.5'), tid(mot, 'V1'))
+  s0.addWire(tid(qbl, 'L3.6'), tid(mot, 'W1'))
+  s0.addWire(tid(bpe16, 'PE16'), tid(mot, 'PE'))
+  s0.addWire(tid(qbl, 'L2.7'), tid(bf12, 'L.1'))
+  s0.addWire(tid(bf12, 'L.12'), tid(dmm, 'VΩ'))
+  s0.addWire(tid(bn8, 'N8'), tid(dmm, 'COM'))
+
+  {
+    const st = useSimStore.getState()
+    const live = computeContinuity(st.components, st.wires, sourceTerminalIds(st.components, undefined, st.wires)).energizedTerminals
+    const phases = computePhaseLabels(st.components, st.wires)
+    const dmmNow = findByType('multimeterDm20')
+    const mDef = {
+      behavior: {
+        type: 'multimeter',
+        com: dmmNow.terminals.find((t) => t.label === 'COM')!.defId,
+        volt: dmmNow.terminals.find((t) => t.label === 'VΩ')!.defId,
+        milliamp: dmmNow.terminals.find((t) => t.label === 'mA')!.defId,
+        amp: dmmNow.terminals.find((t) => t.label === '10A')!.defId,
+      },
+    } as unknown as ComponentDefinition
+    const m230 = meterInputFor(mDef, dmmNow, st.components, st.wires, live, { dial: 'acv' })
+    check('Barramento em escada + barramento de fase distribuem 230 V AC reais até L.12↔N8', Math.abs(m230.vac - 400 / Math.sqrt(3)) < 1.5, `vac=${m230.vac.toFixed(1)}`)
+    check('Barramento em escada alimenta motor trifásico no sentido horário (L1·L2·L3) e terra PE1→PE16', ['U1', 'V1', 'W1', 'PE'].every((l) => live.has(tid(mot, l))) && motorDirectionFromPhases(mot, phases, live) === 'cw')
+    const wires400 = [
+      ...st.wires.filter((w) => w.toTerminalId !== tid(dmm, 'VΩ') && w.toTerminalId !== tid(dmm, 'COM')),
+      { id: 'w-a', fromTerminalId: tid(qbl, 'L1.7'), toTerminalId: tid(dmm, 'VΩ'), color: 'brown' as const, kind: 'power' as const, crossSection: 2.5 },
+      { id: 'w-b', fromTerminalId: tid(qbl, 'L3.7'), toTerminalId: tid(dmm, 'COM'), color: 'grey' as const, kind: 'power' as const, crossSection: 2.5 },
+    ]
+    const m400 = meterInputFor(mDef, findByType('multimeterDm20'), st.components, wires400 as never, live, { dial: 'acv' })
+    check('Degraus do barramento em escada são isolados entre si e medem 400 V AC (L1.7↔L3.7)', Math.abs(m400.vac - 400) < 1.5, `vac=${m400.vac.toFixed(1)}`)
+    const compsOff = st.components.map((c) => c.id === src.id ? { ...c, state: { ...c.state, on: false } } : c)
+    const liveOff = computeContinuity(compsOff, st.wires, sourceTerminalIds(compsOff, undefined, st.wires)).energizedTerminals
+    check('Desligar a fonte a montante desenergiza todos os bornes de fase dos barramentos', !liveOff.has(tid(qbl, 'L1.4')) && !liveOff.has(tid(bf12, 'L.6')))
+  }
+
+  s0.setBusbarPoleCount(bf.id, 6)
+  {
+    const st = useSimStore.getState()
+    const bf6 = findByType('busbarPhaseAcrylic')
+    const hasL1 = st.wires.some((w) => w.toTerminalId === tid(bf6, 'L.1'))
+    const dangling = st.wires.some((w) => w.fromTerminalId?.endsWith('-L.12') || w.toTerminalId?.endsWith('-L.12'))
+    check('Reduzir bornes (12→6) conserva cabos em L.1..L.6 e limpa bornes removidos', bf6.terminals.length === 6 && hasL1 && !dangling)
+  }
+
+  s0.setComponentState(qbl.id, { coverOpen: true })
+  check('Barramento em escada: abrir tampa (coverOpen=true, coverVisible=true)', steppedCoverOpenOf(findByType('busbarPhaseStepped').state) && steppedCoverVisibleOf(findByType('busbarPhaseStepped').state))
+  s0.setComponentState(qbl.id, { coverVisible: false })
+  check('Barramento em escada: ocultar tampa (coverVisible=false)', !steppedCoverVisibleOf(findByType('busbarPhaseStepped').state))
+  s0.setComponentState(qbl.id, { coverVisible: true, coverOpen: false })
+  s0.setBusbarPoleCount(qbl.id, 11, '4P')
+  check('Barramento em escada: fechar/mostrar tampa e expandir para 4×11 = 44 bornes', !steppedCoverOpenOf(findByType('busbarPhaseStepped').state) && steppedCoverVisibleOf(findByType('busbarPhaseStepped').state) && findByType('busbarPhaseStepped').terminals.length === 44)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

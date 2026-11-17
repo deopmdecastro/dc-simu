@@ -14,6 +14,12 @@
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { importedTemplates, upgradeImportedTerminals } from './importedComponents'
 import { FACE_INWARD, terminalInsetMm, realTerminalPosition, leadRootPosition, LEAD_PIGTAIL_LENGTH_MM, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
+import {
+  ACRYLIC_BUSBAR,
+  busbarFootprintPx,
+  busbarTerminalSpecs,
+  STEPPED_BUSBAR,
+} from '../three/busbarParts'
 
 const FACE_OUTWARD_3D: Record<RealTerminalSpot['face'], [number, number, number]> = {
   front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0],
@@ -918,23 +924,71 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { source: true },
   },
+  busbarPhaseAcrylic: {
+    category: 'terminal',
+    paletteName: 'Barramento de fase (L)',
+    group: 'Bornes e barras',
+    tag: 'BF',
+    ...busbarFootprintPx('busbarPhaseAcrylic')!,
+    terminals: busbarTerminalSpecs('busbarPhaseAcrylic', {
+      poleCount: ACRYLIC_BUSBAR.defaultPoles,
+      acrylicColor: ACRYLIC_BUSBAR.defaultPhaseAcrylicColor,
+    }),
+    defaultState: {
+      poleCount: ACRYLIC_BUSBAR.defaultPoles,
+      acrylicColor: ACRYLIC_BUSBAR.defaultPhaseAcrylicColor,
+      coverVisible: true,
+      source: false,
+      sourcePhase: 'L1',
+    },
+  },
   busbarNeutral: {
-    category: 'terminal', paletteName: 'Barramento de neutro', group: 'Bornes e barras', tag: 'BN', w: 180, h: 50,
-    terminals: [
-      T('N1', 'neutral', 0.25, 0.5),
-      T('N2', 'neutral', 0.5, 0.5),
-      T('N3', 'neutral', 0.75, 0.5),
-    ],
-    defaultState: { source: true },
+    category: 'terminal',
+    paletteName: 'Barramento de neutro (N)',
+    group: 'Bornes e barras',
+    tag: 'BN',
+    ...busbarFootprintPx('busbarNeutral')!,
+    terminals: busbarTerminalSpecs('busbarNeutral', {
+      poleCount: ACRYLIC_BUSBAR.defaultPoles,
+    }),
+    defaultState: {
+      poleCount: ACRYLIC_BUSBAR.defaultPoles,
+      coverVisible: true,
+      source: true,
+    },
   },
   earthBar: {
-    category: 'terminal', paletteName: 'Barra de terra (PE)', group: 'Bornes e barras', tag: 'BPE', w: 180, h: 50,
-    terminals: [
-      T('PE1', 'earth', 0.3, 0.5, { color: '#27834a' }),
-      T('PE2', 'earth', 0.6, 0.5, { color: '#27834a' }),
-      T('PE3', 'earth', 0.85, 0.5, { color: '#27834a' }),
-    ],
-    defaultState: { source: true },
+    category: 'terminal',
+    paletteName: 'Barramento de terra (PE)',
+    group: 'Bornes e barras',
+    tag: 'BPE',
+    ...busbarFootprintPx('earthBar')!,
+    terminals: busbarTerminalSpecs('earthBar', {
+      poleCount: ACRYLIC_BUSBAR.defaultPoles,
+    }),
+    defaultState: {
+      poleCount: ACRYLIC_BUSBAR.defaultPoles,
+      coverVisible: true,
+      source: true,
+    },
+  },
+  busbarPhaseStepped: {
+    category: 'terminal',
+    paletteName: 'Barramento de fases em escada',
+    group: 'Bornes e barras',
+    tag: 'QBL',
+    ...busbarFootprintPx('busbarPhaseStepped')!,
+    terminals: busbarTerminalSpecs('busbarPhaseStepped', {
+      poleCount: STEPPED_BUSBAR.defaultHoles,
+      barsMode: STEPPED_BUSBAR.defaultBars,
+    }),
+    defaultState: {
+      poleCount: STEPPED_BUSBAR.defaultHoles,
+      barsMode: STEPPED_BUSBAR.defaultBars,
+      coverOpen: false,
+      coverVisible: true,
+      source: false,
+    },
   },
   terminalSet1ph: {
     category: 'terminal', paletteName: 'Conjunto de bornes monofásico · L/N/PE', group: 'Bornes e barras', tag: 'X', w: 135, h: 86,

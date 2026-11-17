@@ -6,6 +6,7 @@ import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../electr
 import { editorTerminalRadiusMm } from '../catalog/terminalGeometry'
 import { isTerminalAssemblyComponent, terminalAssemblyConductors } from './terminalAssembly'
 import { panelAccessorySizeMm } from './enclosureParts'
+import { busbarSizeMm } from './busbarParts'
 import { clampRailLengthMm, dinRailProfileOf } from './dinRailGeometry'
 
 export type Terminal3DFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom'
@@ -87,9 +88,11 @@ export function component3DScaleOf(component: ElectricalComponent, override?: Pa
 /** Dimensões do volume local no Painel 3D. Para componentes legados sem ficha
  * física, deriva uma caixa conservadora do footprint sem mudar o projeto. */
 export function component3DDimensions(component: ElectricalComponent): Terminal3DPosition {
-  // Peças paramétricas: o tamanho real vem do estado (quadro, calha técnica, perfil DIN).
+  // Peças paramétricas: o tamanho real vem do estado (quadro, calha técnica, barramentos, perfil DIN).
   const accessory = panelAccessorySizeMm(component.type, component.state)
   if (accessory) return { x: accessory.x * PANEL_UNITS_PER_MM, y: accessory.y * PANEL_UNITS_PER_MM, z: accessory.z * PANEL_UNITS_PER_MM }
+  const busbar = busbarSizeMm(component.type, component.state)
+  if (busbar) return { x: busbar.x * PANEL_UNITS_PER_MM, y: busbar.y * PANEL_UNITS_PER_MM, z: busbar.z * PANEL_UNITS_PER_MM }
   if (component.type === 'dinRail15x55') {
     const profile = dinRailProfileOf(component.state)
     return { x: clampRailLengthMm(component.state.lengthMm) * PANEL_UNITS_PER_MM, y: profile.width * PANEL_UNITS_PER_MM, z: profile.height * PANEL_UNITS_PER_MM }

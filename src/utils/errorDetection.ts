@@ -439,6 +439,16 @@ export function detectDiagnostics(
         if (lab === 'L3') return 'L3'
         if (lab === 'N') return 'N'
       }
+      if (hit.component.type === 'busbarPhaseStepped' && hit.component.state.source === true) {
+        if (lab.startsWith('L1.')) return 'L1'
+        if (lab.startsWith('L2.')) return 'L2'
+        if (lab.startsWith('L3.')) return 'L3'
+        if (lab.startsWith('N.')) return 'N'
+      }
+      if (hit.component.type === 'busbarPhaseAcrylic' && hit.component.state.source === true) {
+        const sp = hit.component.state.sourcePhase
+        if (sp === 'L1' || sp === 'L2' || sp === 'L3') return sp
+      }
       if (hit.component.type === 'powerSource1ph') {
         if (lab === 'L') return 'L1'
         if (lab === 'N') return 'N'

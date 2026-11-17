@@ -38,6 +38,9 @@ function dcTags(components: ElectricalComponent[], wires: Wire[], energized: Set
     if (c.type === 'powerSupplyProauto24A' && c.state.powered && c.state.on) {
       spread(['+V1', '+V2'].map(id).filter(Boolean) as string[], { kind: 'dc', plus: true, volts }); spread(['-V1', '-V2'].map(id).filter(Boolean) as string[], { kind: 'dc', plus: false, volts })
     }
+    if (c.type === 'busbarPhaseAcrylic' && c.state.source === true && c.state.sourcePhase === 'DC+' && c.terminals[0]) {
+      spread([c.terminals[0].id], { kind: 'dc', plus: true, volts: Number(c.state.outV ?? 24) })
+    }
   }
   return tags
 }

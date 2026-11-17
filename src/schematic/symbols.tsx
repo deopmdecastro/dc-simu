@@ -670,6 +670,8 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'terminalPhoenixPti6':
       case 'terminalPE':
       case 'busbarPhase':
+      case 'busbarPhaseAcrylic':
+      case 'busbarPhaseStepped':
       case 'busbarNeutral':
       case 'earthBar':
       case 'terminalSet1ph':

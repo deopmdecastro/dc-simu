@@ -97,6 +97,15 @@ import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosit
 import { setStoredCover } from '../three/coverCapture'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, nextComponentHistory, previousComponentRevision, upgradeComponentEditorMetadata } from '../three/componentRevisions'
 import { isPanelAccessoryType } from '../three/enclosureParts'
+import {
+  busbarFootprintPx,
+  busbarTerminalSpecs,
+  clampAcrylicBusbarPoles,
+  clampSteppedBusbarHoles,
+  isAcrylicBusbarType,
+  isRealBusbarType,
+  steppedBarsModeOf,
+} from '../three/busbarParts'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -460,6 +469,10 @@ interface Store extends CircuitState {
   deleteTerminal: (terminalId: string) => void
   /** Régua PTI6: define N pólos (1..48) — regenera bornes 1..2N e footprint. */
   setTerminalPoleCount: (componentId: string, poleCount: number) => void
+  /** Barramentos reais (PE, N, Fase com acrílico e Fases em escada): altera o n.º de bornes (e barras 2P/3P/4P) preservando cabos ligados. */
+  setBusbarPoleCount: (componentId: string, poleCount: number, barsMode?: import('../three/busbarParts').SteppedBarConductors) => void
+  /** Barramento de fase com acrílico: altera a cor translúcida da tampa e dos indicadores de borne. */
+  setBusbarAcrylicColor: (componentId: string, hexColor: string) => void
   /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). Se hierarchical, usa X1.0, X1.1… */
   createTerminalStrip: (componentId: string, count: number, opts?: { hierarchical?: boolean }) => void
   addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor, waypoints?: Array<{ x: number; y: number }>) => void
@@ -2846,6 +2859,109 @@ export const useSimStore = create<Store>((set, get) => {
       dirty: true,
     }))
     recomputeIfActive()
+  },
+
+  setBusbarPoleCount: (componentId, poleCount, nextBarsMode) => {
+    const c = get().components.find((x) => x.id === componentId)
+    if (!c || !isRealBusbarType(c.type)) return
+    const isAcrylic = isAcrylicBusbarType(c.type)
+    const n = isAcrylic ? clampAcrylicBusbarPoles(poleCount) : clampSteppedBusbarHoles(poleCount)
+    const mode = isAcrylic ? undefined : (nextBarsMode ?? steppedBarsModeOf(c.state))
+    const nextState: Record<string, unknown> = {
+      ...c.state,
+      poleCount: n,
+      ...(mode ? { barsMode: mode } : {}),
+    }
+    const specs = busbarTerminalSpecs(c.type, nextState)
+    if (
+      c.state.poleCount === n &&
+      (!mode || steppedBarsModeOf(c.state) === mode) &&
+      c.terminals.length === specs.length
+    ) {
+      return
+    }
+    get().commitHistory()
+    const fp = busbarFootprintPx(c.type, nextState) ?? { w: c.w, h: c.h }
+    const oldByLabel = new Map(c.terminals.map((t) => [t.label, t]))
+    const newTerminals: Terminal[] = specs.map((spec) => {
+      const existing = oldByLabel.get(spec.label)
+      const clonedSocket = spec.socket3D
+        ? { ...spec.socket3D, normal: [...spec.socket3D.normal] as [number, number, number], position: { ...spec.socket3D.position } }
+        : undefined
+      if (existing) {
+        return {
+          ...existing,
+          displayName: spec.displayName,
+          kind: spec.kind,
+          terminalType: spec.terminalType,
+          color: spec.color,
+          diameter: spec.diameter,
+          x: spec.x,
+          y: spec.y,
+          position3D: spec.position3D ? { ...spec.position3D } : undefined,
+          socket3D: clonedSocket,
+        }
+      }
+      return {
+        id: `${c.id}-${spec.label}`,
+        componentId: c.id,
+        label: spec.label,
+        displayName: spec.displayName,
+        kind: spec.kind,
+        terminalType: spec.terminalType,
+        color: spec.color,
+        diameter: spec.diameter,
+        x: spec.x,
+        y: spec.y,
+        position3D: spec.position3D ? { ...spec.position3D } : undefined,
+        socket3D: clonedSocket,
+        energized: false,
+      }
+    })
+    const keptIds = new Set(newTerminals.map((t) => t.id))
+    const oldIds = new Set(c.terminals.map((t) => t.id))
+    const nextWires = get().wires.filter((w) => {
+      if (w.fromTerminalId && oldIds.has(w.fromTerminalId) && !keptIds.has(w.fromTerminalId)) return false
+      if (w.toTerminalId && oldIds.has(w.toTerminalId) && !keptIds.has(w.toTerminalId)) return false
+      return true
+    })
+    const cx = c.schematicX + c.w / 2
+    const cy = c.schematicY + c.h / 2
+    const nextComponents = get().components.map((item) => (
+      item.id === c.id
+        ? {
+            ...item,
+            w: fp.w,
+            h: fp.h,
+            schematicX: Math.round(cx - fp.w / 2),
+            schematicY: Math.round(cy - fp.h / 2),
+            terminals: newTerminals,
+            state: nextState as ElectricalComponent['state'],
+          }
+        : item
+    ))
+    set({ components: nextComponents, wires: nextWires, dirty: true })
+    recomputeIfActive()
+  },
+
+  setBusbarAcrylicColor: (componentId, hexColor) => {
+    const c = get().components.find((x) => x.id === componentId)
+    if (!c || c.type !== 'busbarPhaseAcrylic') return
+    const clean = hexColor.trim()
+    if (!/^#[0-9a-fA-F]{6}$/.test(clean) || c.state.acrylicColor === clean) return
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((item) => (
+        item.id === c.id
+          ? {
+              ...item,
+              state: { ...item.state, acrylicColor: clean },
+              terminals: item.terminals.map((t) => ({ ...t, color: clean })),
+            }
+          : item
+      )),
+      dirty: true,
+    }))
   },
 
   setTerminalPoleCount: (componentId, poleCount) => {

@@ -10,6 +10,7 @@
 
 import type { ElectricalComponent, Wire } from '../types'
 import { internalBridges, poleTerminalPairs } from './engine'
+import { steppedTerminalBarOf } from '../three/busbarParts'
 
 export type PhaseTag = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'DC+'
 
@@ -54,6 +55,19 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
       seed(t('L2'), 'L2')
       seed(t('L3'), 'L3')
     }
+    if (c.type === 'busbarPhaseAcrylic' && c.state.source === true) {
+      const sp = c.state.sourcePhase
+      if (sp === 'L1' || sp === 'L2' || sp === 'L3') seed(c.terminals[0]?.id, sp)
+    }
+    if (c.type === 'busbarPhaseStepped' && c.state.source === true) {
+      const done = new Set<string>()
+      for (const x of c.terminals) {
+        const bar = steppedTerminalBarOf(x.label)
+        if (!bar || done.has(bar)) continue
+        done.add(bar)
+        seed(x.id, bar)
+      }
+    }
     if (c.type === 'powerSource1ph') {
       seed(t('PE'), 'PE')
       if (c.state.on !== false) {
@@ -70,7 +84,8 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
         seed(t('N'), 'N')
       }
     }
-    if (c.type === 'busbarNeutral' || c.type === 'powerSupply') seed(c.terminals.find((x) => x.label === 'N')?.id, 'N')
+    if (c.type === 'busbarNeutral' && c.state.source !== false) c.terminals.forEach((x) => seed(x.id, 'N'))
+    if (c.type === 'powerSupply') seed(c.terminals.find((x) => x.label === 'N')?.id, 'N')
     if (c.type === 'earthBar' || c.type === 'terminalPE') c.terminals.forEach((x) => seed(x.id, 'PE'))
     if (c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker' || c.type === 'thermalRelay') {
       seed(c.terminals.find((x) => x.label === '1' || x.label === '1L1')?.id, 'L1')

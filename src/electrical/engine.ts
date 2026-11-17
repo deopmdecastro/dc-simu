@@ -18,6 +18,7 @@
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
 import { importedBridges } from './importedComponents'
 import { mountTerminalPairs } from './mounts'
+import { steppedTerminalBarOf } from '../three/busbarParts'
 
 export interface ContinuityResult {
   energizedTerminals: Set<string>
@@ -267,10 +268,11 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       break
     }
 
-    // ---- bornes / barras: passagem direta ----
+    // ---- bornes / barras unipolares: barra contínua de latão (todos os bornes equipotenciais) ----
     case 'terminalBlock':
     case 'terminalPhoenixPti6':
     case 'terminalPE':
+    case 'busbarPhaseAcrylic':
     case 'busbarNeutral':
     case 'earthBar': {
       for (let i = 0; i < c.terminals.length - 1; i++) bridges.push([c.terminals[i].id, c.terminals[i + 1].id])
@@ -278,6 +280,21 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     }
     case 'busbarPhase': {
       // L1/L2/L3 são condutores distintos; o barramento apenas os disponibiliza.
+      break
+    }
+    case 'busbarPhaseStepped': {
+      // Cada degrau (L1, L2, L3, N) é uma barra maciça de latão equipotencial, isolada dos outros degraus.
+      const byBar = new Map<string, string[]>()
+      for (const term of c.terminals) {
+        const bar = steppedTerminalBarOf(term.label)
+        if (!bar) continue
+        const list = byBar.get(bar)
+        if (list) list.push(term.id)
+        else byBar.set(bar, [term.id])
+      }
+      for (const barIds of byBar.values()) {
+        for (let i = 0; i < barIds.length - 1; i++) bridges.push([barIds[i], barIds[i + 1]])
+      }
       break
     }
     case 'terminalSet1ph':
@@ -352,8 +369,12 @@ function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set
   }
   const union = (a: string, b: string) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb) }
   for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) union(w.fromTerminalId, w.toTerminalId)
-  // Bornes e réguas: condutores passivos, sempre em continuidade.
-  for (const c of components) if (/^terminal/.test(c.type)) for (const [a, b] of internalBridges(c)) union(a, b)
+  // Bornes, réguas e barramentos repartidores: condutores passivos, sempre em continuidade por barra.
+  for (const c of components) {
+    if (/^(terminal|busbarPhaseAcrylic|busbarPhaseStepped|busbarNeutral)/.test(c.type)) {
+      for (const [a, b] of internalBridges(c)) union(a, b)
+    }
+  }
   const feeders = new Map<string, Set<string>>() // rede → componentes que a alimentam
   for (const c of components) {
     for (const term of c.terminals) {
@@ -394,6 +415,20 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
         push('L2')
         push('L3')
       }
+    }
+    if (c.type === 'busbarPhaseAcrylic' && c.state.source === true) {
+      const ph = typeof c.state.sourcePhase === 'string' ? c.state.sourcePhase : 'L1'
+      if (!(faults?.phaseLoss && ph === 'L2') && c.terminals[0]) ids.push(c.terminals[0].id)
+    }
+    if (c.type === 'busbarPhaseStepped' && c.state.source === true) {
+      const seeded = new Set<string>()
+      c.terminals.forEach((x) => {
+        const bar = steppedTerminalBarOf(x.label)
+        if (!bar || seeded.has(bar)) return
+        seeded.add(bar)
+        if (faults?.phaseLoss && bar === 'L2') return
+        ids.push(x.id)
+      })
     }
     if (c.type === 'busbarNeutral' && c.state.source !== false) {
       c.terminals.forEach((x) => ids.push(x.id))

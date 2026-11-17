@@ -35,6 +35,8 @@ import { isPanelAccessoryType } from '../three/enclosureParts'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 import TerminalStripControls from './TerminalStripControls'
+import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
+import { isRealBusbarType } from '../three/busbarParts'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
 import {
@@ -559,6 +561,14 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <input className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
               </div></details>
+              {isRealBusbarType(selectedComponent.type) && (
+                <details className="dc-inspector-group" open>
+                  <summary>Configuração do barramento</summary>
+                  <div className="dc-inspector-group-body">
+                    <BusbarControls c={selectedComponent} />
+                  </div>
+                </details>
+              )}
               {selectedComponent.catalog && <CatalogInspector component={selectedComponent} />}
               <DatasheetPanel type={selectedComponent.type} />
               {(() => {
@@ -836,6 +846,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
                   if (isMountingRail(selectedComponent.type) && (k === 'lengthMm' || RAIL_PROFILE_STATE_KEYS.has(k))) return null
                   if (isPanelAccessoryType(selectedComponent.type) && PANEL_ACCESSORY_STATE_KEYS.has(k)) return null
+                  if (isRealBusbarType(selectedComponent.type) && BUSBAR_STATE_KEYS.has(k)) return null
                   if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes') return null
                   // Não oferecer checkboxes que contornem a retenção de TEST ou o modo manual.
                   if (importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && ['testPressed', 'stopPressed', 'tripped', 'manual'].includes(k)) return null

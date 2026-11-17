@@ -108,6 +108,8 @@ export type ComponentType =
   | 'cableDuct'
   | 'spiralWrap'
   | 'busbarPhase'
+  | 'busbarPhaseAcrylic'
+  | 'busbarPhaseStepped'
   | 'busbarNeutral'
   | 'earthBar'
   | 'terminalSet1ph'

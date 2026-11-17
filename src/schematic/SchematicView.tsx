@@ -50,6 +50,8 @@ import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 import { InlineName } from '../ui/InlineName'
 import { CableDuct2D, Enclosure2D, SpiralWrap2D } from './PanelAccessories2D'
+import { Busbar2D } from './Busbar2D'
+import { isRealBusbarType } from '../three/busbarParts'
 import { CABLE_DUCT, isCableDuctType, isPanelAccessoryType } from '../three/enclosureParts'
 import { bundleLacingTies2D, type BundlePath2D } from '../three/bundleLacing'
 
@@ -1634,6 +1636,13 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
                 <title>Arraste para alterar o comprimento da calha (passos de 5 mm · Alt = livre)</title>
               </g>
             ))}
+          </>
+        ) : isRealBusbarType(c.type) ? (
+          <>
+            <Busbar2D c={c} />
+            <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+            <ComponentTerminals c={c} />
+            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : model ? (
           <>

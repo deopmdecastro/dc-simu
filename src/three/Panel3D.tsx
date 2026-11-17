@@ -61,6 +61,8 @@ import { GlowHalo } from './GlowHalo'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
+import { AcrylicBusbar3D, SteppedBusbar3D } from './Busbar3D'
+import { isAcrylicBusbarType, isSteppedBusbarType } from './busbarParts'
 import MotorShaftFan3D from './MotorShaftFan3D'
 import { updateMotorBodyMotion } from './motorBodyMotion'
 import { MOTOR_FAN, MOTOR_SIZE, motorCadToCentered } from './motorTerminalLayout'
@@ -334,7 +336,7 @@ function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['v
         color: colorMaterial.color?.getHexString(),
       }
       const base = visual.userData.dcSimuPresentationBase as { wireframe: boolean; opacity: number; transparent: boolean; depthWrite: boolean; color?: string }
-      const physicalSurface = material instanceof THREE.MeshStandardMaterial
+      const physicalSurface = material instanceof THREE.MeshStandardMaterial && !visual.userData.keepTransparent
       const wireframe = mode === 'wireframe' ? true : base.wireframe
       const transparent = mode === 'xray' ? true : physicalSurface ? false : base.transparent
       const depthWrite = mode === 'xray' ? false : physicalSurface ? true : base.depthWrite
@@ -4345,7 +4347,30 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={null}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={null}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'thermalRelay') content = <ThermalRelay3D c={c} x={x} />
-          else if (hasDinRailModel(c.type)) {
+          else if (isAcrylicBusbarType(c.type)) {
+            const base = basePivots[c.id]
+            const dims = component3DDimensions(c)
+            content = (
+              <AcrylicBusbar3D
+                c={c}
+                position={[base.x, base.y, base.z]}
+                wireMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
+                label={<Label text={c.ref} position={[0, dims.y / 2 + 0.085, 0.04]} size={0.072} color={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} />}
+              />
+            )
+          } else if (isSteppedBusbarType(c.type)) {
+            const base = basePivots[c.id]
+            const dims = component3DDimensions(c)
+            content = (
+              <SteppedBusbar3D
+                c={c}
+                position={[base.x, base.y, base.z]}
+                interactive={mechanicalControls && !c.locked}
+                wireMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
+                label={<Label text={c.ref} position={[0, dims.y / 2 + 0.095, 0.08]} size={0.075} color={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} />}
+              />
+            )
+          } else if (hasDinRailModel(c.type)) {
             const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CadComponentReal3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
