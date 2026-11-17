@@ -1,8 +1,26 @@
 import * as THREE from 'three'
 
 type Point = [number, number, number]
-export type SolidWireBox = THREE.Box3 & { componentId?: string; rail?: boolean }
-export type SocketExit = { componentId?: string; axis: Point; glandBypass?: boolean }
+export type EnclosureWallKind = 'back' | 'left' | 'right' | 'top' | 'bottom' | 'door'
+export type SolidWireBox = THREE.Box3 & {
+  componentId?: string
+  rail?: boolean
+  hard?: boolean
+  /** Calha técnica ranhurada (`cableDuct`): o interior é canal de passagem dos cabos. */
+  duct?: boolean
+  ductAxis?: 'x' | 'y'
+  /** Parede de armário (`panelEnclosure`). */
+  enclosureWall?: EnclosureWallKind
+}
+export type SocketExit = {
+  componentId?: string
+  axis: Point
+  glandBypass?: boolean
+  /** ID do quadro cuja chapa inferior de bucins permite saída física dos cabos de motor/campo. */
+  enclosureGlandId?: string
+  /** ID do quadro cuja porta permite passagem do borne montado em `doorOuter` para a face interior. */
+  enclosureDoorId?: string
+}
 const vec = (p: Point) => new THREE.Vector3(...p)
 const tuple = (p: THREE.Vector3): Point => [p.x, p.y, p.z]
 
@@ -11,6 +29,9 @@ export class OrientedWireBox extends THREE.Box3 {
   componentId?: string
   rail?: boolean
   hard?: boolean
+  duct?: boolean
+  ductAxis?: 'x' | 'y'
+  enclosureWall?: EnclosureWallKind
   readonly localBounds: THREE.Box3
   readonly worldToLocal: THREE.Matrix4
   readonly localToWorld: THREE.Matrix4
@@ -30,6 +51,8 @@ export class OrientedWireBox extends THREE.Box3 {
   override clone(): this {
     const box = new OrientedWireBox(this.localBounds, this.localToWorld)
     box.componentId = this.componentId; box.rail = this.rail; box.hard = this.hard
+    ;(box as SolidWireBox).enclosureWall = (this as SolidWireBox).enclosureWall
+    ;(box as SolidWireBox).duct = (this as SolidWireBox).duct
     return box as this
   }
 
@@ -60,6 +83,17 @@ export function segmentEntersBox(a: Point, b: Point, box: THREE.Box3): boolean {
 export const pathEntersBoxes = (points: Point[], boxes: THREE.Box3[]) =>
   points.some((p, i) => i > 0 && boxes.some(box => segmentEntersBox(points[i - 1], p, box)))
 
+function isBypassedSolid(box: SolidWireBox, exits: [SocketExit, SocketExit]): boolean {
+  if (box.duct) return true
+  if (box.enclosureWall === 'bottom' && box.componentId && (exits[0].enclosureGlandId === box.componentId || exits[1].enclosureGlandId === box.componentId)) {
+    return true
+  }
+  if (box.enclosureWall === 'door' && box.componentId && (exits[0].enclosureDoorId === box.componentId || exits[1].enclosureDoorId === box.componentId)) {
+    return true
+  }
+  return Boolean(box.componentId && ((box.componentId === exits[0].componentId && exits[0].glandBypass) || (box.componentId === exits[1].componentId && exits[1].glandBypass)))
+}
+
 /** A exceção pertence apenas ao túnel axial do encaixe, nunca a uma esfera à volta dele. */
 function clearWithSockets(points: Point[], boxes: SolidWireBox[], exits: [SocketExit, SocketExit], pad: number): boolean {
   const tunnel = (p: Point, q: Point, end: Point, exit: SocketExit, reverse: boolean) => {
@@ -69,9 +103,7 @@ function clearWithSockets(points: Point[], boxes: SolidWireBox[], exits: [Socket
       && (reverse ? a.dot(axis) >= b.dot(axis) - 1e-6 : b.dot(axis) >= a.dot(axis) - 1e-6)
   }
   for (const box of boxes) {
-    if (box.componentId && ((box.componentId === exits[0].componentId && exits[0].glandBypass) || (box.componentId === exits[1].componentId && exits[1].glandBypass))) {
-      continue
-    }
+    if (isBypassedSolid(box, exits)) continue
     const grown = box.clone().expandByScalar(pad)
     for (let i = 1; i < points.length; i++) {
       const a = points[i-1], b = points[i]
@@ -102,37 +134,114 @@ function socketEscape(point: Point, exit: SocketExit, boxes: SolidWireBox[], pad
   return Number.isFinite(distance) ? tuple(p.addScaledVector(direction, Math.max(0, distance) + 0.1)) : point
 }
 
-/** Grafo de visibilidade nos cantos dos volumes: escolhe um desvio livre em 3D.
- * Só é calculado quando o traçado sugerido/manual atravessa algum aparelho. */
-function routeOutside(a: Point, b: Point, boxes: THREE.Box3[], minZ: number, track: number): Point[] {
+/** Grafo de visibilidade nos cantos dos volumes: escolhe um desvio livre e ortogonal em 3D.
+ * Usa apenas os volumes realmente próximos do troço em conflito (nunca projeta fios interiores
+ * para a frente da abertura de um armário nem para a frente do motor). */
+function routeOutside(a: Point, b: Point, boxes: SolidWireBox[], minZ: number, track: number): Point[] {
   const clear = (p: Point, q: Point) => !boxes.some(box => segmentEntersBox(p, q, box))
   if (clear(a, b)) return [a, b]
-  const gap = 0.04 + (track % 13) * 0.04
-  const front = Math.max(minZ, ...boxes.map(box => box.max.z)) + gap
-  const candidates: Point[] = [[a[0], a[1], front], [b[0], b[1], front]]
-  for (const box of boxes) {
-    for (const x of [box.min.x - gap, box.max.x + gap])
-      for (const y of [box.min.y - gap, box.max.y + gap])
-        for (const z of [Math.max(minZ, box.min.z - gap), box.max.z + gap]) candidates.push([x, y, z])
-  }
-  const nodes = [a, b, ...candidates.filter(p => !boxes.some(box => box.containsPoint(vec(p))))]
-  const costs = nodes.map(() => Infinity), previous = nodes.map(() => -1), visited = new Set<number>()
-  costs[0] = 0
-  for (;;) {
-    let current = -1
-    for (let i = 0; i < nodes.length; i++) if (!visited.has(i) && (current < 0 || costs[i] < costs[current])) current = i
-    if (current < 0 || !Number.isFinite(costs[current])) return []
-    if (current === 1) break
-    visited.add(current)
-    for (let i = 0; i < nodes.length; i++) {
-      if (visited.has(i)) continue
-      const cost = costs[current] + vec(nodes[current]).distanceTo(vec(nodes[i]))
-      if (cost < costs[i] && clear(nodes[current], nodes[i])) { costs[i] = cost; previous[i] = current }
+  const gap = 0.024 + (track % 7) * 0.014
+  const blocking = boxes.filter(box => !box.enclosureWall && segmentEntersBox(a, b, box))
+  const localPool = blocking.length > 0 ? blocking : boxes.filter(box => segmentEntersBox(a, b, box))
+  const localFront = Math.max(minZ, a[2], b[2], ...localPool.map(box => box.max.z)) + gap
+  const candidates: Point[] = [
+    [a[0], a[1], localFront],
+    [b[0], b[1], localFront],
+    [a[0], b[1], localFront],
+    [b[0], a[1], localFront],
+    [a[0], b[1], Math.max(a[2], b[2])],
+    [b[0], a[1], Math.max(a[2], b[2])],
+  ]
+  const cornerSources = (localPool.length > 0 ? localPool : boxes).slice(0, 6)
+  for (const box of cornerSources) {
+    const xs = box.enclosureWall ? [a[0]] : [box.min.x - gap, box.max.x + gap]
+    const ys = box.enclosureWall ? [a[1]] : [box.min.y - gap, box.max.y + gap]
+    const zs = [Math.max(minZ, box.min.z - gap), box.max.z + gap]
+    for (const y of ys) {
+      candidates.push([a[0], y, localFront], [b[0], y, localFront])
     }
+    for (const x of xs) for (const y of ys) for (const z of zs) candidates.push([x, y, z])
   }
-  const result: Point[] = []
-  for (let i = 1; i >= 0; i = previous[i]) result.unshift(nodes[i])
-  return result
+  // Se ambos os pontos estão dentro de um armário (`enclosureWall`), nunca gera candidatos fora das paredes dele!
+  const leftW = boxes.find(w => w.enclosureWall === 'left' && a[0] > w.max.x && b[0] > w.max.x && a[1] > w.min.y && a[1] < w.max.y)
+  const rightW = leftW ? boxes.find(w => w.componentId === leftW.componentId && w.enclosureWall === 'right' && a[0] < w.min.x && b[0] < w.min.x) : undefined
+  const botW = rightW ? boxes.find(w => w.componentId === leftW!.componentId && w.enclosureWall === 'bottom' && a[1] > w.max.y && b[1] > w.max.y) : undefined
+  const topW = rightW ? boxes.find(w => w.componentId === leftW!.componentId && w.enclosureWall === 'top' && a[1] < w.min.y && b[1] < w.min.y) : undefined
+  const inBounds = (p: Point): boolean => {
+    if (leftW && rightW) {
+      if (p[0] <= leftW.max.x + 1e-4 || p[0] >= rightW.min.x - 1e-4) return false
+      if (botW && p[1] <= botW.max.y + 1e-4) return false
+      if (topW && p[1] >= topW.min.y - 1e-4) return false
+    }
+    return true
+  }
+  const dedupPool = (pool: Point[]): Point[] => {
+    const out: Point[] = []
+    const seen = new Set<string>()
+    for (const p of pool) {
+      if (!inBounds(p)) continue
+      const k = `${Math.round(p[0] * 100)},${Math.round(p[1] * 100)},${Math.round(p[2] * 100)}`
+      if (seen.has(k)) continue
+      seen.add(k)
+      if (!boxes.some(box => box.containsPoint(vec(p)))) out.push(p)
+    }
+    return out
+  }
+  const search = (pool: Point[]): Point[] => {
+    const nodes = [a, b, ...dedupPool(pool)]
+    const costs = nodes.map(() => Infinity), previous = nodes.map(() => -1), visited = new Uint8Array(nodes.length)
+    costs[0] = 0
+    for (;;) {
+      let current = -1
+      for (let i = 0; i < nodes.length; i++) if (!visited[i] && (current < 0 || costs[i] < costs[current])) current = i
+      if (current < 0 || !Number.isFinite(costs[current])) return []
+      if (current === 1) break
+      visited[current] = 1
+      const cp = nodes[current]
+      for (let i = 0; i < nodes.length; i++) {
+        if (visited[i]) continue
+        const np = nodes[i]
+        const dx = Math.abs(np[0] - cp[0]), dy = Math.abs(np[1] - cp[1]), dz = Math.abs(np[2] - cp[2])
+        const dist = Math.hypot(dx, dy, dz)
+        const diagPenalty = Math.min(dx, dy) * 0.22 + dz * 0.08
+        const cost = costs[current] + dist + diagPenalty
+        if (cost < costs[i] && clear(cp, np)) { costs[i] = cost; previous[i] = current }
+      }
+    }
+    const result: Point[] = []
+    for (let i = 1; i >= 0; i = previous[i]) result.unshift(nodes[i])
+    return result
+  }
+  const fast = search(candidates)
+  if (fast.length) return fast
+  // 2.º nível: vizinhança alargada (sem paredes de armário alheias) — rápido e sem atravessar o quadro todo.
+  const nbMinX = Math.min(a[0], b[0]) - 0.65, nbMaxX = Math.max(a[0], b[0]) + 0.65
+  const nbMinY = Math.min(a[1], b[1]) - 0.65, nbMaxY = Math.max(a[1], b[1]) + 0.65
+  const nearBoxes = boxes.filter(b => !b.enclosureWall && b.max.x >= nbMinX && b.min.x <= nbMaxX && b.max.y >= nbMinY && b.min.y <= nbMaxY)
+  if (nearBoxes.length > 0) {
+    const midFront = Math.max(localFront, ...nearBoxes.map(box => box.max.z)) + gap
+    const mid: Point[] = [...candidates, [a[0], a[1], midFront], [b[0], b[1], midFront], [a[0], b[1], midFront], [b[0], a[1], midFront]]
+    for (const box of nearBoxes.slice(0, 10)) {
+      for (const x of [box.min.x - gap, box.max.x + gap])
+        for (const y of [box.min.y - gap, box.max.y + gap]) mid.push([x, y, midFront], [x, y, box.max.z + gap])
+    }
+    const med = search(mid)
+    if (med.length) return med
+  }
+  // 3.º nível: fallback global garantido.
+  const nonWall = boxes.filter(b => !b.enclosureWall)
+  const fallbackFront = Math.max(localFront, ...(nonWall.length ? nonWall : boxes).map(box => box.max.z)) + gap
+  const full: Point[] = [[a[0], a[1], fallbackFront], [b[0], b[1], fallbackFront], [a[0], b[1], fallbackFront], [b[0], a[1], fallbackFront]]
+  for (const box of (nonWall.length ? nonWall : boxes).slice(0, 14)) {
+    for (const x of [box.min.x - gap, box.max.x + gap])
+      for (const y of [box.min.y - gap, box.max.y + gap]) full.push([x, y, box.max.z + gap])
+  }
+  return search(full)
+}
+
+export function isWireOutsideSolids(points: Point[], outerMm: number, obstacles: SolidWireBox[], exits: [SocketExit, SocketExit]): boolean {
+  if (points.length < 2) return true
+  return clearWithSockets(points, obstacles, exits, outerMm * 0.005 + 0.025)
 }
 
 export function keepWireOutsideSolids(points: Point[], outerMm: number, obstacles: SolidWireBox[], exits: [SocketExit, SocketExit], minZ: number, track = 0): Point[] {
@@ -140,10 +249,15 @@ export function keepWireOutsideSolids(points: Point[], outerMm: number, obstacle
   const solids = obstacles
   const pad = outerMm * 0.005 + 0.025
   if (clearWithSockets(points,solids,exits,pad)) return points
-  const activeSolids = solids.filter(box => !(box.componentId && ((box.componentId === exits[0].componentId && exits[0].glandBypass) || (box.componentId === exits[1].componentId && exits[1].glandBypass))))
-  const boxes = activeSolids.map(box => box.clone().expandByScalar(pad))
-  const ownA = !exits[0].glandBypass ? solids.find(box => box.componentId === exits[0].componentId)?.clone().expandByScalar(pad) : undefined
-  const ownB = !exits[1].glandBypass ? solids.find(box => box.componentId === exits[1].componentId)?.clone().expandByScalar(pad) : undefined
+  const activeSolids = solids.filter(box => !isBypassedSolid(box, exits))
+  const boxes = activeSolids.map(box => {
+    const c = box.clone().expandByScalar(pad) as SolidWireBox
+    c.enclosureWall = box.enclosureWall
+    c.duct = box.duct
+    return c
+  })
+  const ownA = !exits[0].glandBypass ? solids.find(box => box.componentId === exits[0].componentId && !box.enclosureWall && !box.duct)?.clone().expandByScalar(pad) : undefined
+  const ownB = !exits[1].glandBypass ? solids.find(box => box.componentId === exits[1].componentId && !box.enclosureWall && !box.duct)?.clone().expandByScalar(pad) : undefined
   const a = exits[0].glandBypass ? points[0] : socketEscape(points[0], exits[0], solids, pad)
   const b = exits[1].glandBypass ? points[points.length - 1] : socketEscape(points[points.length - 1], exits[1], solids, pad)
   // A primeira/última saída é axial; as curvas nunca herdam uma zona de exclusão

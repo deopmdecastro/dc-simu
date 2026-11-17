@@ -9,6 +9,13 @@ import {
   sanitizeComponentChange, upgradeMessage,
 } from '../saas/platformCore.mjs'
 import { nativeProjectSeeds, NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID } from '../project/nativeProjects'
+import {
+  isFreeNativeProjectId,
+  listMissingFreeNativeProjects,
+  openFreeNativeProject,
+  resetFreeNativeProject,
+  saveFreeNativeProject,
+} from '../project/freeNativeSandbox'
 import { nativeLandingPayload } from '../project/landingPublish'
 
 const NATIVE_IDS = [NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID] as const
@@ -453,11 +460,28 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   const user = requireSession()
   const data = readData()
 
+  const isFreeNativeFor = (id: string) =>
+    user.role !== 'admin' &&
+    isFreeNativeProjectId(id) &&
+    !data.projects.some((entry) => entry.id === id && roleFor(entry, user.id))
+
   if (url === '/projects' && verb === 'GET') {
-    return data.projects
-      .filter((project) => roleFor(project, user.id))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .map((project) => projectSummary(project, user.id)) as T
+    const visible = data.projects.filter((project) => roleFor(project, user.id))
+    const mapped = visible.map((project) => projectSummary(project, user.id))
+    if (user.role === 'admin') {
+      return mapped.sort((a, b) => b.updated_at.localeCompare(a.updated_at)) as T
+    }
+    const markers = visible.map((project) => {
+      const rec = project.content && typeof project.content === 'object' ? (project.content as Record<string, unknown>) : null
+      return {
+        id: project.id,
+        name: project.name,
+        nativeId: typeof rec?.nativeId === 'string' ? rec.nativeId : null,
+      }
+    })
+    return [...mapped, ...listMissingFreeNativeProjects(user.id, markers)].sort((a, b) =>
+      b.updated_at.localeCompare(a.updated_at),
+    ) as T
   }
 
   if (url === '/projects' && verb === 'POST') {
@@ -482,6 +506,9 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   }
 
   if (parts[0] === 'projects' && parts[1] && parts.length === 2 && verb === 'GET') {
+    if (isFreeNativeFor(parts[1])) {
+      return openFreeNativeProject(user.id, parts[1]) as T
+    }
     const project = accessibleProject(data, parts[1], user.id)
     return {
       id: project.id,
@@ -493,6 +520,15 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   }
 
   if (parts[0] === 'projects' && parts[1] && parts.length === 2 && verb === 'PUT') {
+    if (isFreeNativeFor(parts[1])) {
+      if (typeof payload.name === 'string' && payload.content === undefined) {
+        throw new Error('Apenas o proprietário pode mudar o nome')
+      }
+      const revision = Number(payload.revision)
+      if (!Number.isInteger(revision)) throw new Error('Revisão obrigatória')
+      const saved = saveFreeNativeProject(user.id, parts[1], payload.content, revision)
+      return { revision: saved.revision } as T
+    }
     const project = accessibleProject(data, parts[1], user.id)
     // Mudar só o nome (barra do editor): só o proprietário, sem tocar no conteúdo nem na revisão.
     if (typeof payload.name === 'string' && payload.content === undefined) {
@@ -515,6 +551,9 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   }
 
   if (parts[0] === 'projects' && parts[1] && parts.length === 2 && verb === 'DELETE') {
+    if (isFreeNativeFor(parts[1])) {
+      return resetFreeNativeProject(user.id, parts[1]) as T
+    }
     const project = accessibleProject(data, parts[1], user.id)
     if (project.ownerId !== user.id) throw new Error('Apenas o proprietário pode eliminar')
     // Projetos nativos: em vez de apagar, repõe o conteúdo de fábrica.
@@ -539,6 +578,9 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   }
 
   if (parts[0] === 'projects' && parts[1] && parts[2] === 'members' && verb === 'GET') {
+    if (isFreeNativeFor(parts[1])) {
+      return { members: [{ name: 'DC-Simu', email: 'Exemplo nativo incluído na conta' }] } as T
+    }
     const project = accessibleProject(data, parts[1], user.id)
     const members = project.memberIds
       .map(accountById)
@@ -591,6 +633,14 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     writeData(data)
     recordLocalAudit(user, `invite.${parts[2]}`, { type: 'project', id: invitation.projectId })
     return { ok: true } as T
+  }
+
+  if (parts[0] === 'projects' && parts[1] && parts[2] === 'comments' && isFreeNativeFor(parts[1])) {
+    const pricing = localPricing()
+    if (verb === 'GET') {
+      return { comments: [], canWrite: false, reason: upgradeMessage(pricing, 'comments') } as T
+    }
+    throw new Error(upgradeMessage(pricing, 'comments'))
   }
 
   if (parts[0] === 'catalog' || parts[0] === 'terminal-profiles' || (parts[0] === 'admin' && (parts[1] === 'catalog' || parts[1] === 'terminal-profiles'))) {

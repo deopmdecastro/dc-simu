@@ -1974,7 +1974,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
   // Encaminhamento coordenado de todos os cabos: recalcula apenas quando mudam traçados/posições (nunca nos ticks de RUN).
   const wiresGeoKey = useMemo(() => wires.map((w) => [
     w.id, w.fromTerminalId, w.toTerminalId, w.route, w.bend, w.curveOffset, w.gauge, w.flexibility,
-    w.fromEndType, w.toEndType, w.endType,
+    w.fromEndType, w.toEndType, w.endType, w.bundleId ?? '',
     w.fromPoint ? `${w.fromPoint.x},${w.fromPoint.y}` : '',
     w.toPoint ? `${w.toPoint.x},${w.toPoint.y}` : '',
     w.fromPoint3D ? `${w.fromPoint3D.x},${w.fromPoint3D.y},${w.fromPoint3D.z}` : '',
@@ -2203,35 +2203,115 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
         onCommit={(next) => handlers.onMoveAll(wire.id, { x: next[0] - baseCentroid[0], y: next[1] - baseCentroid[1], z: next[2] - baseCentroid[2] })} />}
     </group>
   })}
-    <BundleTies3D wires={wires} paths={coordinatedPaths} />
+    <BundleTies3D wires={wires} paths={coordinatedPaths} components={components} obstacles={obstacles} />
   </group>
 }
 
-/** Abraçadeiras de filaçar: uma por local onde os cabos do mesmo chicote correm juntos (ver `bundleLacing.ts`). */
-function BundleTies3D({ wires, paths }: { wires: Wire[]; paths: Map<string, WirePath3D> | null | undefined }) {
-  const ties = useMemo(() => {
+/** Constrói a fita plana em estádio (cápsula) de uma abraçadeira PA66 ajustada à secção real do feixe. */
+function buildStadiumStrapGeometry(halfW: number, halfH: number, thick = 0.0095, width = 0.032): THREE.BufferGeometry {
+  const hw = Math.max(0.012, halfW)
+  const hh = Math.max(0.011, Math.min(hw, halfH))
+  const flat = Math.max(0, hw - hh)
+  const stadiumPts = (r: number, segs = 12): THREE.Vector2[] => {
+    const pts: THREE.Vector2[] = []
+    for (let i = 0; i <= segs; i++) {
+      const a = -Math.PI / 2 + (Math.PI * i) / segs
+      pts.push(new THREE.Vector2(flat + Math.cos(a) * r, Math.sin(a) * r))
+    }
+    for (let i = 0; i <= segs; i++) {
+      const a = Math.PI / 2 + (Math.PI * i) / segs
+      pts.push(new THREE.Vector2(-flat + Math.cos(a) * r, Math.sin(a) * r))
+    }
+    return pts
+  }
+  const shape = new THREE.Shape(stadiumPts(hh + thick))
+  const hole = new THREE.Path(stadiumPts(hh).reverse())
+  shape.holes.push(hole)
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false, curveSegments: 12 })
+  geo.translate(0, 0, -width * 0.5)
+  geo.computeVertexNormals()
+  return geo
+}
+
+/** Abraçadeiras de filaçar (PA66): fita plana em cápsula ajustada ao feixe + cabeça de fecho realista. */
+function BundleTies3D({ wires, paths, components, obstacles }: {
+  wires: Wire[]
+  paths: Map<string, WirePath3D> | null | undefined
+  components: ElectricalComponent[]
+  obstacles: WireObstacle[]
+}) {
+  const closedDucts = useMemo(() => {
+    const closedIds = new Set(
+      components.filter((c) => c.type === 'cableDuct' && c.state?.coverOn !== false).map((c) => c.id),
+    )
+    if (!closedIds.size) return []
+    return obstacles.filter((o) => o.componentId && closedIds.has(o.componentId))
+  }, [components, obstacles])
+
+  const built = useMemo(() => {
     if (!paths || !wires.some((w) => w.bundleId)) return []
     const radii = new Map<string, { points: [number, number, number][]; radius: number }>()
     for (const w of wires) {
       const path = paths.get(w.id)
       if (!path || !w.bundleId) continue
-      radii.set(w.id, { points: path.points as [number, number, number][], radius: (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed }) * PANEL_UNITS_PER_MM) / 2 })
+      radii.set(w.id, {
+        points: path.points as [number, number, number][],
+        radius: (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed }) * PANEL_UNITS_PER_MM) / 2,
+      })
     }
-    return bundleLacingTies(wires, radii)
-  }, [wires, paths])
-  if (!ties.length) return null
-  const up = new THREE.Vector3(0, 0, 1)
+    const rawTies = bundleLacingTies(wires, radii).filter((tie) => {
+      const [x, y, z] = tie.position
+      // Oculta abraçadeiras totalmente tapadas por calha técnica com tampa fechada.
+      return !closedDucts.some((d) =>
+        x >= d.min.x + 0.01 && x <= d.max.x - 0.01
+        && y >= d.min.y + 0.01 && y <= d.max.y - 0.01
+        && z >= d.min.z - 0.02 && z <= d.max.z + 0.015)
+    })
+    return rawTies.map((tie) => {
+      const rVec = new THREE.Vector3(...tie.right).normalize()
+      const aVec = new THREE.Vector3(...tie.axis).normalize()
+      const uVec = new THREE.Vector3().crossVectors(aVec, rVec).normalize()
+      rVec.crossVectors(uVec, aVec).normalize()
+      const basis = new THREE.Matrix4().makeBasis(rVec, uVec, aVec)
+      const quat = new THREE.Quaternion().setFromRotationMatrix(basis)
+      const thick = 0.0095
+      const width = 0.032
+      const pos: [number, number, number] = [tie.position[0], tie.position[1], tie.position[2]]
+      // Garante que a fita nunca toca atrás da face frontal da chapa quando assente no painel.
+      const minStrapZ = pos[2] - Math.abs(rVec.z) * (tie.halfWidth + thick) - Math.abs(uVec.z) * (tie.halfHeight + thick)
+      if (pos[2] >= PLATE_FRONT_Z && minStrapZ < PLATE_FRONT_Z + 0.002) {
+        pos[2] += (PLATE_FRONT_Z + 0.002) - minStrapZ
+      }
+      return {
+        tie,
+        pos,
+        quat,
+        thick,
+        geo: buildStadiumStrapGeometry(tie.halfWidth, tie.halfHeight, thick, width),
+      }
+    })
+  }, [wires, paths, closedDucts])
+
+  useEffect(() => () => { for (const item of built) item.geo.dispose() }, [built])
+
+  if (!built.length) return null
   return <group userData={{ noPick: true }}>
-    {ties.map((tie, i) => {
-      const quat = new THREE.Quaternion().setFromUnitVectors(up, new THREE.Vector3(...tie.axis))
-      return <group key={`tie-${tie.bundleId}-${i}`} position={tie.position} quaternion={quat} userData={{ noPick: true }}>
-        <mesh raycast={() => null} castShadow>
-          <torusGeometry args={[tie.radius, 0.0085, 8, 24]} />
-          <meshStandardMaterial color="#e8e6df" roughness={0.55} metalness={0} />
+    {built.map(({ tie, pos, quat, thick, geo }, i) => {
+      // Poliamida natural marfim em feixes pretos (alto contraste); poliamida preta acetinada em feixes coloridos.
+      const strapColor = tie.darkBundle ? '#ebe6d8' : '#1b222c'
+      const pawlColor = tie.darkBundle ? '#475569' : '#64748b'
+      const headX = tie.halfWidth + thick + 0.011
+      return <group key={`tie-${tie.bundleId}-${i}`} position={pos} quaternion={quat} userData={{ noPick: true }}>
+        <mesh geometry={geo} raycast={() => null} castShadow receiveShadow>
+          <meshPhysicalMaterial color={strapColor} roughness={0.38} metalness={0.04} clearcoat={0.25} clearcoatRoughness={0.4} />
         </mesh>
-        <mesh raycast={() => null} position={[tie.radius + 0.006, 0, 0]}>
-          <boxGeometry args={[0.03, 0.02, 0.022]} />
-          <meshStandardMaterial color="#e8e6df" roughness={0.55} metalness={0} />
+        <mesh raycast={() => null} castShadow position={[headX, 0, 0]}>
+          <boxGeometry args={[0.028, 0.028, 0.038]} />
+          <meshPhysicalMaterial color={strapColor} roughness={0.38} metalness={0.04} clearcoat={0.25} clearcoatRoughness={0.4} />
+        </mesh>
+        <mesh raycast={() => null} position={[headX + 0.004, 0, 0]}>
+          <boxGeometry args={[0.022, 0.012, 0.04]} />
+          <meshStandardMaterial color={pawlColor} roughness={0.45} metalness={0.25} />
         </mesh>
       </group>
     })}

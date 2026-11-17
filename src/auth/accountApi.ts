@@ -283,6 +283,7 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
 
   // 2. Login
   if (url === '/login' && verb === 'POST') {
+    cachedServerUser = null
     const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
     const email = String(payload.email ?? '').trim().toLowerCase()
     const password = String(payload.password ?? '')
@@ -466,7 +467,9 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
     return supabaseApi<T>(url, verb, body)
   }
 
-  if (mode === 'server') return serverApi<T>(url, verb, body)
+  if (mode === 'server') {
+    return serverApiWithFreeNatives<T>(url, verb, body)
+  }
   if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
     throw new Error('Supabase é obrigatório em produção. Confirme VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY e inicie sessão novamente.')
   }
@@ -475,6 +478,78 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   }
   mode = 'local'
   return localApi<T>(url, verb, body)
+}
+
+let cachedServerUser: User | null = null
+
+async function currentServerUser(): Promise<User | null> {
+  if (cachedServerUser) return cachedServerUser
+  try {
+    const res = await serverApi<{ user: User }>('/me', 'GET')
+    cachedServerUser = res.user
+    return cachedServerUser
+  } catch {
+    return null
+  }
+}
+
+async function serverApiWithFreeNatives<T>(url: string, verb: string, body?: unknown): Promise<T> {
+  if (url === '/logout' && verb === 'POST') cachedServerUser = null
+  if (url === '/projects' && verb === 'GET') {
+    const [rows, me] = await Promise.all([
+      serverApi<import('../dashboard/Dashboard').Project[]>(url, verb, body),
+      currentServerUser(),
+    ])
+    if (!me || me.role === 'admin') return rows as T
+    const { listMissingFreeNativeProjects } = await import('../project/freeNativeSandbox')
+    const markers = rows.map((row) => ({ id: row.id, name: row.name }))
+    return [...rows, ...listMissingFreeNativeProjects(me.id, markers)].sort((a, b) =>
+      b.updated_at.localeCompare(a.updated_at),
+    ) as T
+  }
+  const matchProj = url.match(/^\/projects\/([^/]+)$/)
+  if (matchProj) {
+    const id = matchProj[1]
+    const { isFreeNativeProjectId, openFreeNativeProject, saveFreeNativeProject, resetFreeNativeProject } =
+      await import('../project/freeNativeSandbox')
+    if (isFreeNativeProjectId(id)) {
+      const me = await currentServerUser()
+      if (me && me.role !== 'admin') {
+        if (verb === 'GET') return openFreeNativeProject(me.id, id) as T
+        if (verb === 'PUT') {
+          const payload = (body ?? {}) as { content?: unknown; revision?: number; name?: string }
+          if (typeof payload.name === 'string' && payload.content === undefined) {
+            throw new Error('Apenas o proprietário pode mudar o nome')
+          }
+          const saved = saveFreeNativeProject(me.id, id, payload.content, payload.revision)
+          return { ok: true, revision: saved.revision } as T
+        }
+        if (verb === 'DELETE') return resetFreeNativeProject(me.id, id) as T
+      }
+    }
+  }
+  const matchMembers = url.match(/^\/projects\/([^/]+)\/members$/)
+  if (matchMembers && verb === 'GET') {
+    const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
+    if (isFreeNativeProjectId(matchMembers[1])) {
+      return { members: [{ name: 'DC-Simu', email: 'Exemplo nativo incluído na conta' }] } as T
+    }
+  }
+  const matchComments = url.match(/^\/projects\/([^/]+)\/comments$/)
+  if (matchComments) {
+    const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
+    if (isFreeNativeProjectId(matchComments[1])) {
+      if (verb === 'GET') {
+        return {
+          comments: [],
+          canWrite: false,
+          reason: 'Os comentários estão disponíveis em projetos próprios dos planos pagos.',
+        } as T
+      }
+      throw new Error('Os comentários estão disponíveis em projetos próprios dos planos pagos.')
+    }
+  }
+  return serverApi<T>(url, verb, body)
 }
 
 export function activeAccountBackend(): BackendMode {

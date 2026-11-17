@@ -36,7 +36,8 @@ import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 import { InlineName } from '../ui/InlineName'
 import { CableDuct2D, Enclosure2D, SpiralWrap2D } from './PanelAccessories2D'
-import { CABLE_DUCT, isPanelAccessoryType } from '../three/enclosureParts'
+import { CABLE_DUCT, isCableDuctType, isPanelAccessoryType } from '../three/enclosureParts'
+import { bundleLacingTies2D, type BundlePath2D } from '../three/bundleLacing'
 
 const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
 type SchematicCanvasMode = '2d' | '3d'
@@ -1629,6 +1630,42 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
           {/* Cabos e componentes partilham a mesma ordem z. */}
           {drawOrder.map((entry) => (entry.kind === 'wire' ? renderWireEl(entry.wire) : renderComponentEl(entry.comp)))}
+
+          {/* Abraçadeiras de filaçar (2D): fita PA66 + fecho sobre chicotes paralelos (`bundleId`). */}
+          {wires.some((w) => w.bundleId) && (() => {
+            const bundlePaths = new Map<string, BundlePath2D>()
+            for (const w of wires) {
+              if (!w.bundleId) continue
+              const disp = wireDisplay(w)
+              if (!disp) continue
+              bundlePaths.set(w.id, {
+                points: disp.geometry.pts,
+                halfWidth: wireStrokeWidth(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed }) * 0.5,
+              })
+            }
+            const closedDuctRects = displayComponents
+              .filter((c) => isCableDuctType(c.type) && c.state?.coverOn !== false)
+              .map((c) => {
+                const rot = Math.abs(Math.round((c.rotation ?? 0) / 90)) % 2 === 1
+                const cx = c.schematicX + c.w * 0.5, cy = c.schematicY + c.h * 0.5
+                const hw = (rot ? c.h : c.w) * 0.5, hh = (rot ? c.w : c.h) * 0.5
+                return { x0: cx - hw + 3, y0: cy - hh + 3, x1: cx + hw - 3, y1: cy + hh - 3 }
+              })
+            const ties2d = bundleLacingTies2D(wires, bundlePaths).filter((t) =>
+              !closedDuctRects.some((r) => t.x >= r.x0 && t.x <= r.x1 && t.y >= r.y0 && t.y <= r.y1))
+            if (!ties2d.length) return null
+            return (
+              <g className="dc-bundle-ties-2d" pointerEvents="none">
+                {ties2d.map((tie, idx) => (
+                  <g key={`tie2d-${tie.bundleId}-${idx}`} transform={`translate(${tie.x},${tie.y}) rotate(${tie.angleDeg})`}>
+                    <rect x={-2.5} y={-tie.halfSpan} width={5} height={tie.halfSpan * 2} rx={1.6} fill="#ebe6d8" stroke="#1e293b" strokeWidth={1.05} />
+                    <rect x={-3.4} y={tie.halfSpan - 1.2} width={6.8} height={4.4} rx={1.2} fill="#d6d0c0" stroke="#1e293b" strokeWidth={1} />
+                    <line x1={-1.6} y1={tie.halfSpan + 1} x2={1.6} y2={tie.halfSpan + 1} stroke="#334155" strokeWidth={1.1} />
+                  </g>
+                ))}
+              </g>
+            )
+          })()}
 
           {/* O fio entra até ao centro do parafuso; a cabeça do borne fica
               desenhada sobre o condutor, mesmo quando a ponteira está atrás. */}

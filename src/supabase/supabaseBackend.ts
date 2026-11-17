@@ -262,12 +262,29 @@ export async function supabaseGetProjects(): Promise<Project[]> {
       if (!errSeed && created) rows.unshift(created)
       else if (errSeed) console.error('[native-seed] Falha ao semear projeto nativo:', errSeed.message)
     }
+
+    // Capa do cartão a partir do conteúdo real (cover 3D guardado, diagrama ou esquema),
+    // como nos backends local e servidor; sem isto o dashboard via sempre «Projeto vazio».
+    const { buildProjectPreview } = await import('../dashboard/projectPreview')
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      revision: row.revision ?? 0,
+      updated_at: row.updated_at,
+      preview: buildProjectPreview(row.content),
+      owner: row.owner_id === user.id ? 'Você' : 'Colaborador',
+      role: row.owner_id === user.id ? 'owner' : 'editor',
+    }))
   }
 
-  // Capa do cartão a partir do conteúdo real (cover 3D guardado, diagrama ou esquema),
-  // como nos backends local e servidor; sem isto o dashboard via sempre «Projeto vazio».
-  const { buildProjectPreview } = await import('../dashboard/projectPreview')
-  return rows.map((row) => ({
+  // Contas não-admin (incluindo todas as contas Free e user@dcsimu.local):
+  // recebem os projetos nativos em falta como exemplos abertos (`role: 'editor'`,
+  // 0 vagas de proprietário consumidas), com rascunho isolado por utilizador.
+  const [{ buildProjectPreview }, { listMissingFreeNativeProjects }] = await Promise.all([
+    import('../dashboard/projectPreview'),
+    import('../project/freeNativeSandbox'),
+  ])
+  const mapped: Project[] = rows.map((row) => ({
     id: row.id,
     name: row.name,
     revision: row.revision ?? 0,
@@ -276,6 +293,17 @@ export async function supabaseGetProjects(): Promise<Project[]> {
     owner: row.owner_id === user.id ? 'Você' : 'Colaborador',
     role: row.owner_id === user.id ? 'owner' : 'editor',
   }))
+  const markers = rows.map((row) => {
+    const content = row.content && typeof row.content === 'object' ? (row.content as Record<string, unknown>) : null
+    return {
+      id: row.id,
+      name: row.name,
+      nativeId: typeof content?.nativeId === 'string' ? content.nativeId : null,
+    }
+  })
+  return [...mapped, ...listMissingFreeNativeProjects(user.id, markers)].sort((a, b) =>
+    b.updated_at.localeCompare(a.updated_at),
+  )
 }
 
 /** Cria um novo projeto na base de dados Supabase */
@@ -317,6 +345,11 @@ export async function supabaseGetProject(id: string): Promise<{ id: string; name
 
   if (!user) throw new Error('Sessão expirada.')
 
+  const { isFreeNativeProjectId, openFreeNativeProject } = await import('../project/freeNativeSandbox')
+  if (isFreeNativeProjectId(id)) {
+    return openFreeNativeProject(user.id, id)
+  }
+
   const { data, error } = await client
     .from('projects')
     .select('id, name, owner_id, revision, content, updated_at')
@@ -341,6 +374,10 @@ export async function supabaseRenameProject(id: string, name: string): Promise<{
   const client = clientOrThrow()
   const { data: { user } } = await client.auth.getUser()
   if (!user) throw new Error('Sessão expirada.')
+  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
+  if (isFreeNativeProjectId(id)) {
+    throw new Error('Apenas o proprietário pode mudar o nome')
+  }
   const trimmed = name.trim()
   if (!trimmed || trimmed.length > 120) throw new Error('Nome inválido')
   const { data, error } = await client
@@ -356,6 +393,13 @@ export async function supabaseRenameProject(id: string, name: string): Promise<{
 /** Atualiza o conteúdo de um projeto com controle de revisão */
 export async function supabaseUpdateProject(id: string, content: unknown, revision: number): Promise<{ ok: boolean; revision: number }> {
   const client = clientOrThrow()
+  const { isFreeNativeProjectId, saveFreeNativeProject } = await import('../project/freeNativeSandbox')
+  if (isFreeNativeProjectId(id)) {
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) throw new Error('Sessão expirada.')
+    const saved = saveFreeNativeProject(user.id, id, content, revision)
+    return { ok: true, revision: saved.revision }
+  }
 
   const nextRevision = revision + 1
   const payload = {
@@ -379,6 +423,12 @@ export async function supabaseUpdateProject(id: string, content: unknown, revisi
 /** Elimina um projeto no Supabase */
 export async function supabaseDeleteProject(id: string): Promise<{ ok: boolean }> {
   const client = clientOrThrow()
+  const { isFreeNativeProjectId, resetFreeNativeProject } = await import('../project/freeNativeSandbox')
+  if (isFreeNativeProjectId(id)) {
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) throw new Error('Sessão expirada.')
+    return resetFreeNativeProject(user.id, id)
+  }
 
   const { error } = await client
     .from('projects')
@@ -475,6 +525,10 @@ export async function supabaseInviteMember(projectId: string, email: string): Pr
 
 /** Obtém membros de um projeto */
 export async function supabaseFetchProjectMembers(projectId: string): Promise<{ members: Array<{ name: string; email: string }> }> {
+  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
+  if (isFreeNativeProjectId(projectId)) {
+    return { members: [{ name: 'DC-Simu', email: 'Exemplo nativo incluído na conta' }] }
+  }
   const client = clientOrThrow()
 
   const { data, error } = await client
@@ -707,6 +761,11 @@ async function commentContext(projectId: string) {
 }
 
 export async function supabaseListComments(projectId: string) {
+  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
+  if (isFreeNativeProjectId(projectId)) {
+    const pricing = await supabaseGetPricing()
+    return { comments: [], canWrite: false, reason: upgradeMessage(pricing, 'comments') }
+  }
   const { client, pricing, canWrite } = await commentContext(projectId)
   const { data, error } = await client.from('project_comments').select('*').eq('project_id', projectId).order('created_at')
   if (error) throw new Error(error.message)
@@ -714,6 +773,11 @@ export async function supabaseListComments(projectId: string) {
 }
 
 export async function supabaseAddComment(projectId: string, body: { body?: unknown; anchor?: unknown }) {
+  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
+  if (isFreeNativeProjectId(projectId)) {
+    const pricing = await supabaseGetPricing()
+    throw new Error(upgradeMessage(pricing, 'comments'))
+  }
   const { client, me, pricing, canWrite } = await commentContext(projectId)
   if (!canWrite) throw new Error(upgradeMessage(pricing, 'comments'))
   const { data, error } = await client.from('project_comments').insert({ project_id: projectId, author_id: me.id, body: sanitizeCommentBody(body.body), anchor: sanitizeCommentAnchor(body.anchor) }).select('*').single()

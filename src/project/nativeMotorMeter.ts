@@ -6,8 +6,8 @@ import { componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three
 export const NATIVE_PARTIDA_ID = 'native-partida-direta-v5'
 export const NATIVE_MOTOR_METER_FEATURE = 'motor-voltage-meter-v1'
 export const NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE = 'motor-meter-double-ferrule-v1'
-/** Curvas dos cabos 3D refeitas (arcos sem cantos vivos): repõe o traçado de origem dos cabos nativos. */
-export const NATIVE_WIRE_CURVES_FEATURE = 'wire-curves-v7'
+/** Curvas e chicotes (filaças) dos cabos 2D/3D refeitos: repõe traçado e `bundleId` dos cabos nativos. */
+export const NATIVE_WIRE_CURVES_FEATURE = 'wire-curves-v8'
 /** Relé térmico F1 acrescentado ao nativo (ver `nativeThermalRelay.ts`). */
 export const NATIVE_THERMAL_FEATURE = 'thermal-relay-v1'
 /** F1 encaixado por baixo do KM1 (sem os cabos KM1 → F1). */

@@ -8,7 +8,8 @@ import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus, Icon
 import ProjectCover from './ProjectCover'
 import type { ProjectPreviewData } from './projectPreview'
 import { buildProjectPreview, isEmptyPreview, isNativeProjectMeta } from './projectPreview'
-import { nativePartidaDiretaContent } from '../project/nativeProjects'
+import { nativePartidaDiretaContent, nativeProjectSeeds } from '../project/nativeProjects'
+import { FREE_NATIVE_OWNER, isFreeNativeProjectId } from '../project/freeNativeSandbox'
 import SupabaseModal from '../components/SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import N8nModal from '../components/N8nModal'
@@ -57,15 +58,25 @@ function relTime(iso: string) {
 }
 
 /** Capa e contagens: se o nativo vier vazio do backend, usa a semente embutida. */
-let nativeSeedPreview: ProjectPreviewData | null = null
-function nativeFallbackPreview(): ProjectPreviewData {
-  if (!nativeSeedPreview) nativeSeedPreview = buildProjectPreview(nativePartidaDiretaContent())
-  return nativeSeedPreview
+const nativeSeedPreviews = new Map<string, ProjectPreviewData>()
+function nativeFallbackPreview(id: string): ProjectPreviewData {
+  const hit = nativeSeedPreviews.get(id)
+  if (hit) return hit
+  const seed = nativeProjectSeeds().find((item) => item.id === id)
+  const preview = buildProjectPreview(seed ? seed.content : nativePartidaDiretaContent())
+  nativeSeedPreviews.set(id, preview)
+  return preview
 }
 
 function withNativeCover(p: Project): Project {
   if (!isNativeProjectMeta(p.id, p.name) || !isEmptyPreview(p.preview)) return p
-  return { ...p, preview: nativeFallbackPreview() }
+  return { ...p, preview: nativeFallbackPreview(p.id) }
+}
+
+function projectRoleLabel(p: Project): string {
+  if (p.role === 'owner') return 'Meu projeto'
+  if (p.owner === FREE_NATIVE_OWNER || isFreeNativeProjectId(p.id)) return 'Exemplo nativo'
+  return 'Partilhado'
 }
 
 function statsOf(p: Project) {
@@ -339,6 +350,16 @@ export default function Dashboard({
           <div className="dx-menu" role="menu">
             <button onClick={() => { setMenu(null); setCommentsFor(p) }}>Comentários</button>
             <button onClick={() => { setExpanded(expanded === p.id ? null : p.id); setMenu(null) }}>Ver membros</button>
+            {isFreeNativeProjectId(p.id) && p.revision > 0 && (
+              <button
+                onClick={() => {
+                  setMenu(null)
+                  void onDelete(p).catch((err) => setNotice(err instanceof Error ? err.message : 'Não foi possível repor o exemplo.'))
+                }}
+              >
+                Repor original
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -511,7 +532,7 @@ export default function Dashboard({
             }}
           >
             <ProjectCover preview={withNativeCover(hero).preview} large />
-            <span className="dx-proj-badge">{hero.role === 'owner' ? 'Meu projeto' : 'Partilhado'}{(() => { const k = withNativeCover(hero).preview?.kind; return k && k !== 'all' ? ` · ${kindLabel(k)}` : '' })()}</span>
+            <span className="dx-proj-badge">{projectRoleLabel(hero)}{(() => { const k = withNativeCover(hero).preview?.kind; return k && k !== 'all' ? ` · ${kindLabel(k)}` : '' })()}</span>
             {renderMenu(hero)}
           </div>
           <div className="dx-hero-body">
@@ -602,7 +623,7 @@ export default function Dashboard({
                   }}
                 >
                   <ProjectCover preview={withNativeCover(p).preview} />
-                  <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}{p.preview?.kind && p.preview.kind !== 'all' ? ` · ${kindLabel(p.preview.kind)}` : ''}</span>
+                  <span className="dx-proj-badge">{projectRoleLabel(p)}{p.preview?.kind && p.preview.kind !== 'all' ? ` · ${kindLabel(p.preview.kind)}` : ''}</span>
                   {renderMenu(p)}
                   {st.components > 0 && (
                     <div className="dx-proj-chips">

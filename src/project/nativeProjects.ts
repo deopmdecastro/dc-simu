@@ -23,7 +23,7 @@ import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
-import { lacePairBundles } from '../three/bundleLacing'
+import { lacePanelHarnesses } from '../three/bundleLacing'
 import { mountPosition } from '../three/thermalMount'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE, NATIVE_MOTOR_RING_FEATURE, NATIVE_WIRE_CURVES_FEATURE, NATIVE_THERMAL_FEATURE, NATIVE_THERMAL_MOUNT_FEATURE, NATIVE_COIL_AC_FEATURE, NATIVE_SIGNALS_FEATURE } from './nativeMotorMeter'
 import { buildNativeIecSchematic, NATIVE_IEC_FEATURE, NATIVE_IEC_V2_FEATURE, NATIVE_IEC_V3_FEATURE, NATIVE_IEC_V4_FEATURE, NATIVE_IEC_V5_FEATURE, NATIVE_IEC_V6_FEATURE, NATIVE_IEC_V7_FEATURE } from './nativeIec'
@@ -86,7 +86,7 @@ export { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
 export const NATIVE_PARTIDA_NAME = 'Partida direta com emergência (nativo)'
 /** Comentários e textos livres (GRAFCET + canvas 3D) com tags de E/S e funcionamento. */
 /** v2: posições organizadas + notas em schematic/3d/grafcet/commands. */
-export const NATIVE_ANNOTATIONS_FEATURE = 'native-annotations-v2'
+export const NATIVE_ANNOTATIONS_FEATURE = 'native-annotations-v3'
 
 const ADMIN_OWNER = 'dcsimu-admin'
 
@@ -524,8 +524,8 @@ export function buildNativePartidaDireta(): Built {
   // Encaixe direto: os cabos KM1 → F1 saem (os ids dos restantes mantêm-se).
   wires = wires.filter((w) => !NATIVE_F1_MOUNT_WIRES.includes(w.id))
   wires = syncSharedTerminalFerrules(withMotorMeterFerrules(wires, leads))
-  // Filaçar: os cabos que ligam o mesmo par de aparelhos (L1/L2/L3, 24 V, entradas, sinalização) formam um chicote.
-  wires = lacePairBundles(components, wires, { prefix: 'chicote', skip: (w) => w.id.startsWith('native-meter-') })
+  // Filaçar: agrupa cabos de força, motor, operadores e comando em chicotes industriais (`bundleId`).
+  wires = lacePanelHarnesses(components, wires, { prefix: 'chicote', skip: (w) => w.id.startsWith('native-meter-') })
   return {
     components,
     // Traçado cozido na semente: cada cabo contorna os equipamentos e aplica
@@ -625,10 +625,10 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
         color: bold ? '#0f172a' : '#334155', bold: !!bold, createdAt: at,
       })
       return [
-        text('native-txt3d-title', '3d', 'Partida direta com emergência', -2.8, 2.35, 18, true),
-        text('native-txt3d-force', '3d', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -2.8, 2.15, 12),
-        text('native-txtsch-title', 'schematic', 'Partida direta com emergência', -2.8, 2.35, 18, true),
-        text('native-txtsch-force', 'schematic', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -2.8, 2.15, 12),
+        text('native-txt3d-title', '3d', 'Partida direta com emergência', -3.25, 3.22, 16, true),
+        text('native-txt3d-force', '3d', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -3.25, 2.68, 11),
+        text('native-txtsch-title', 'schematic', 'Partida direta com emergência', -260, -346, 16, true),
+        text('native-txtsch-force', 'schematic', 'Força: XG → QG → QM1 → KM1 → F1 → M1', -260, -320, 12),
       ]
     })(),
     virtualInputs: {},
@@ -685,7 +685,7 @@ export function addNativeAnnotations<T extends Record<string, any>>(content: T):
     canvasNotes: [...userNotes, ...((fresh.canvasNotes as any[]) ?? [])],
     canvasTexts: [...userTexts, ...((fresh.canvasTexts as any[]) ?? [])],
     nativeFeatures: [
-      ...features.filter((f) => f !== 'native-annotations-v1'),
+      ...features.filter((f) => f !== 'native-annotations-v1' && f !== 'native-annotations-v2'),
       NATIVE_ANNOTATIONS_FEATURE,
     ],
   }

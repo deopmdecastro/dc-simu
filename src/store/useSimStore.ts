@@ -3565,7 +3565,7 @@ export const useSimStore = create<Store>((set, get) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
-      const parsed = addNativeAnnotations(addNativeIecSchematic(syncNativeLadder(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(refreshNativeWireCurves(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original))))))))))
+      const parsed = addNativeAnnotations(addNativeIecSchematic(syncNativeLadder(refreshNativeWireCurves(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original))))))))))
       setStoredCover(parsed?.cover, parsed?.coverVersion)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]

@@ -10,6 +10,9 @@ import type { ElectricalComponent, Wire, WireColor } from '../types'
 import { autoLayout, SPINE_X } from '../grafcet/layout'
 import type { GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
 import { bakeNativeRouting } from './nativeRouting'
+import { lacePanelHarnesses } from '../three/bundleLacing'
+import { NATIVE_WIRE_CURVES_FEATURE } from './nativeMotorMeter'
+import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { syncMounted } from '../three/thermalMount'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 
@@ -74,20 +77,20 @@ const x11 = strip('Ix1axOcW', 'X1.1', '0 V DC', 192)
 const x12 = strip('z2Up_lGd', 'X1.2', 'L comando 230 V', 204)
 const x13 = strip('DHogUPch', 'X1.3', 'N comando', 216)
 const doorBorne = ['START S1 → I0.0', 'STOP S1 → I0.1', 'H1 marcha ← Q0.3', 'H2 falha ← RT1 98', 'H3 estrela ← KM3 14', 'B0 canal (KS1 Y11)', 'B0 canal (KS1 Y12)']
-const x2 = doorBorne.map((label, i) => strip(null, `X2.${i + 1}`, label, 236 + i * 14))
+const x2 = doorBorne.map((label, i) => strip(`et-x2-${i + 1}`, `X2.${i + 1}`, label, 236 + i * 14))
 
 // ── Porta (furos Ø22) ────────────────────────────────────────────────────────────────────────
-const door = (type: string, ref: string, label: string, ox: number, oy: number, x: number, y: number, state: Record<string, unknown> = {}) => {
-  const c = keep(nanoid(8), type, ref, x, y, { label, state })
+const door = (id: string, type: string, ref: string, label: string, ox: number, oy: number, x: number, y: number, state: Record<string, unknown> = {}) => {
+  const c = keep(id, type, ref, x, y, { label, state })
   c.panelMount = { enclosureId: QE, face: 'doorOuter', offsetXmm: ox, offsetYmm: oy, cutoutMm: 22 }
   return c
 }
-const h1 = door('pilotLightAd22', 'H1', 'Marcha (verde)', -100, 200, 700, -480, { color: '#22c55e' })
-const h3 = door('pilotLightAd22', 'H3', 'Estrela (laranja)', 0, 200, 780, -480, { color: '#f59e0b' })
-const h2 = door('pilotLightAd22', 'H2', 'Falha térmica (vermelho)', 100, 200, 860, -480, { color: '#ef4444' })
+const h1 = door('et-door-h1', 'pilotLightAd22', 'H1', 'Marcha (verde)', -100, 200, 700, -480, { color: '#22c55e' })
+const h3 = door('et-door-h3', 'pilotLightAd22', 'H3', 'Estrela (laranja)', 0, 200, 780, -480, { color: '#f59e0b' })
+const h2 = door('et-door-h2', 'pilotLightAd22', 'H2', 'Falha térmica (vermelho)', 100, 200, 860, -480, { color: '#ef4444' })
 // Botoeira dupla NPB22-D11 (com modelo 3D): START 13-14 (NA) e STOP 21-22 (NF).
-const s1 = door('dualPushButtonNpb22D11', 'S1', 'Botoeira START / STOP', 0, 80, 760, -380)
-const b0 = door('emergencyButton', 'B0', 'Emergência (NF)', 0, -60, 780, -270)
+const s1 = door('et-door-s1', 'dualPushButtonNpb22D11', 'S1', 'Botoeira START / STOP', 0, 80, 760, -380)
+const b0 = door('et-door-b0', 'emergencyButton', 'B0', 'Emergência (NF)', 0, -60, 780, -270)
 
 const components: ElectricalComponent[] = [
   qe, tr1, tr2, tr4, ct1, ct2, ct3, ct4, ct5,
@@ -104,14 +107,17 @@ const tid = (c: ElectricalComponent, label: string) => {
 const wires: Wire[] = []
 const add = (a: ElectricalComponent, al: string, b: ElectricalComponent, bl: string, color: WireColor, num: string, gauge = '1.5mm²') => {
   wires.push({
-    id: nanoid(8), fromTerminalId: tid(a, al), toTerminalId: tid(b, bl), color, gauge, number: num,
+    id: `et-wire-${num.toLowerCase()}`, fromTerminalId: tid(a, al), toTerminalId: tid(b, bl), color, gauge, number: num,
     kind: color === 'green-yellow' ? 'earth' : color === 'black' || color === 'brown' ? 'power' : 'control',
-    flexibility: 'flexible', endType: 'ferrule', fromEndType: 'ferrule', toEndType: 'ferrule',
-    fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0, energized: false,
+    flexibility: 'flexible', endType: 'ferrule',
+    fromEndType: a.type === 'motor3ph' ? 'ring' : 'ferrule',
+    toEndType: b.type === 'motor3ph' ? 'ring' : 'ferrule',
+    fromEndLayer: 'back', toEndLayer: 'back', route: 'manhattan', bend: 0.5, curveOffset: 0, energized: false,
   } as Wire)
 }
 
-// Força: QG1 → QF1 → QM1 → KM1 → RT1 → M1 U1/V1/W1 e KM2; KM2 → W2/U2/V2 (Δ); KM3 fecha W2/U2/V2 (Y).
+// Força: QG1 → QF1 → QM1 → KM1 → RT1 → M1 U1/V1/W1 e KM2; KM2 → M1 W2/U2/V2 (Δ);
+// KM3 2T1/4T2/6T3 faz ponte local aos bornes de saída de KM2 (fecha W2/U2/V2 em estrela Y no quadro).
 add(qg1, 'L1', qf1, '1', 'black', 'W1', '2.5mm²'); add(qg1, 'L2', qf1, '3', 'black', 'W2', '2.5mm²'); add(qg1, 'L3', qf1, '5', 'black', 'W3', '2.5mm²')
 add(qf1, '2', qm1, '1', 'black', 'W4', '2.5mm²'); add(qf1, '4', qm1, '3', 'black', 'W5', '2.5mm²'); add(qf1, '6', qm1, '5', 'black', 'W6', '2.5mm²')
 add(qm1, '2', km1, '1L1', 'black', 'W7', '2.5mm²'); add(qm1, '4', km1, '3L2', 'black', 'W8', '2.5mm²'); add(qm1, '6', km1, '5L3', 'black', 'W9', '2.5mm²')
@@ -119,7 +125,7 @@ add(km1, '2T1', rt1, '1L1', 'black', 'W10', '2.5mm²'); add(km1, '4T2', rt1, '3L
 add(rt1, '2T1', m1, 'U1', 'black', 'W13', '2.5mm²'); add(rt1, '4T2', m1, 'V1', 'black', 'W14', '2.5mm²'); add(rt1, '6T3', m1, 'W1', 'black', 'W15', '2.5mm²')
 add(rt1, '2T1', km2, '1L1', 'black', 'W16', '2.5mm²'); add(rt1, '4T2', km2, '3L2', 'black', 'W17', '2.5mm²'); add(rt1, '6T3', km2, '5L3', 'black', 'W18', '2.5mm²')
 add(km2, '2T1', m1, 'W2', 'black', 'W19', '2.5mm²'); add(km2, '4T2', m1, 'U2', 'black', 'W20', '2.5mm²'); add(km2, '6T3', m1, 'V2', 'black', 'W21', '2.5mm²')
-add(km3, '2T1', m1, 'W2', 'black', 'W22', '2.5mm²'); add(km3, '4T2', m1, 'U2', 'black', 'W23', '2.5mm²'); add(km3, '6T3', m1, 'V2', 'black', 'W24', '2.5mm²')
+add(km3, '2T1', km2, '2T1', 'black', 'W22', '2.5mm²'); add(km3, '4T2', km2, '4T2', 'black', 'W23', '2.5mm²'); add(km3, '6T3', km2, '6T3', 'black', 'W24', '2.5mm²')
 add(km3, '1L1', km3, '3L2', 'black', 'W25', '2.5mm²'); add(km3, '3L2', km3, '5L3', 'black', 'W26', '2.5mm²')
 add(qg1, 'PE', m1, 'PE', 'green-yellow', 'PE1', '2.5mm²')
 add(qg1, 'PE', ps1, 'PE', 'green-yellow', 'PE2')
@@ -192,10 +198,13 @@ const tags = [
 ]
 
 const mounted = syncMounted(components)
-const routed = bakeNativeRouting(mounted.filter((c) => !['panelEnclosure', 'cableDuct', 'spiralWrap', 'dinRail15x55'].includes(c.type)), wires)
+const ferruled = syncSharedTerminalFerrules(wires)
+const laced = lacePanelHarnesses(mounted, ferruled, { prefix: 'chicote-et' })
+const routed = bakeNativeRouting(mounted, laced)
 const now = new Date().toISOString()
 const content = {
-  app: 'dc-simu', version: 6, projectKind: 'all', unlockedViews: [], savedAt: now, nativeId: NATIVE_ESTRELA_KS1_ID,
+  app: 'dc-simu', version: 6, projectKind: 'all', unlockedViews: [], savedAt: now,
+  nativeId: NATIVE_ESTRELA_KS1_ID, nativeFeatures: [NATIVE_WIRE_CURVES_FEATURE],
   components: mounted, wires: routed, ladder: { rungs: [] },
   fcBlocks: { fc1: [], fc2: [] }, fcAdded: { fc1: false, fc2: false },
   activePlcId: plc.id, plcPrograms: {}, plcTags: {}, projectFiles: {}, hiddenProjectFolders: {}, projectFolderLabels: {}, fcNames: {},

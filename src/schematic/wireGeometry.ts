@@ -8,41 +8,69 @@ function sharpPath(pts: Pt[]) {
 }
 
 /**
- * Raio visual dos cotovelos ortogonais. Limita-se a metade de cada segmento
- * adjacente para nunca ultrapassar um borne ou um ponto de controlo próximo.
+ * Raio visual dos cotovelos ortogonais. Limita-se a 46% de cada segmento
+ * adjacente para curvas suaves e contínuas sem ultrapassar bornes nem pontos vizinhos.
  */
-const WIRE_CORNER_RADIUS = 12
+const WIRE_CORNER_RADIUS = 18
 
 function roundedPath(pts: Pt[], radius = WIRE_CORNER_RADIUS) {
-  // Segmentos de comprimento zero podem aparecer quando os bornes estão alinhados.
-  const unique = pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.01)
+  // Remove segmentos nulos e funde pontos colineares para curvas limpas de raio inteiro.
+  const unique = pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.05)
   if (unique.length <= 2) return sharpPath(unique)
-  let d = `M ${unique[0].x},${unique[0].y}`
+  const clean: Pt[] = [unique[0]]
   for (let i = 1; i < unique.length - 1; i++) {
-    const prev = unique[i - 1], p = unique[i], next = unique[i + 1]
+    const prev = clean[clean.length - 1], p = unique[i], next = unique[i + 1]
     const d1 = Math.hypot(p.x - prev.x, p.y - prev.y)
     const d2 = Math.hypot(next.x - p.x, next.y - p.y)
     const cross = (p.x - prev.x) * (next.y - p.y) - (p.y - prev.y) * (next.x - p.x)
-    // Pontos colineares não são curvas: evita um desvio desnecessário.
+    const dot = (p.x - prev.x) * (next.x - p.x) + (p.y - prev.y) * (next.y - p.y)
+    if (Math.abs(cross) < 0.002 * d1 * d2 && dot >= 0) continue
+    clean.push(p)
+  }
+  clean.push(unique[unique.length - 1])
+  if (clean.length <= 2) return sharpPath(clean)
+  // Curva cúbica com k≈0.55228 reproduz um quarto de círculo verdadeiro (sem achatar o canto).
+  const K = 0.55228475
+  let d = `M ${clean[0].x},${clean[0].y}`
+  for (let i = 1; i < clean.length - 1; i++) {
+    const prev = clean[i - 1], p = clean[i], next = clean[i + 1]
+    const d1 = Math.hypot(p.x - prev.x, p.y - prev.y)
+    const d2 = Math.hypot(next.x - p.x, next.y - p.y)
+    const cross = (p.x - prev.x) * (next.y - p.y) - (p.y - prev.y) * (next.x - p.x)
     if (Math.abs(cross) < 0.001 * d1 * d2) { d += ` L ${p.x},${p.y}`; continue }
-    const r = Math.min(radius, d1 / 2, d2 / 2)
+    const r = Math.min(radius, d1 * 0.46, d2 * 0.46)
     const enter = { x: p.x - (p.x - prev.x) * r / d1, y: p.y - (p.y - prev.y) * r / d1 }
     const leave = { x: p.x + (next.x - p.x) * r / d2, y: p.y + (next.y - p.y) * r / d2 }
-    d += ` L ${enter.x},${enter.y} Q ${p.x},${p.y} ${leave.x},${leave.y}`
+    const c1 = { x: enter.x + (p.x - enter.x) * K, y: enter.y + (p.y - enter.y) * K }
+    const c2 = { x: leave.x + (p.x - leave.x) * K, y: leave.y + (p.y - leave.y) * K }
+    d += ` L ${enter.x},${enter.y} C ${c1.x},${c1.y} ${c2.x},${c2.y} ${leave.x},${leave.y}`
   }
-  const last = unique[unique.length - 1]
+  const last = clean[clean.length - 1]
   return d + ` L ${last.x},${last.y}`
 }
 
-/** Condutor rígido: entre pontos não alinhados insere um cotovelo a 90°. */
+/** Condutor ortogonal: entre pontos não alinhados prolonga a direção do segmento anterior antes de virar a 90°. */
 function orthoPts(pts: Pt[]): Pt[] {
   const out: Pt[] = [pts[0]]
   for (let i = 1; i < pts.length; i++) {
     const p = out[out.length - 1]
     const q = pts[i]
-    if (Math.abs(p.x - q.x) > 0.5 && Math.abs(p.y - q.y) > 0.5) {
-      // alterna horizontal-primeiro / vertical-primeiro para seguir o traçado natural
-      out.push(i % 2 === 1 ? { x: q.x, y: p.y } : { x: p.x, y: q.y })
+    const dx = Math.abs(p.x - q.x), dy = Math.abs(p.y - q.y)
+    if (dx > 0.5 && dy > 0.5) {
+      const prev = out.length >= 2 ? out[out.length - 2] : null
+      const next = i + 1 < pts.length ? pts[i + 1] : null
+      if (prev && Math.abs(p.x - prev.x) < 0.5 && Math.abs(p.y - prev.y) > 0.5) {
+        // Vinha na vertical (ex.: saída axial de borne superior/inferior): mantém X e depois vira em Y.
+        out.push({ x: p.x, y: q.y })
+      } else if (prev && Math.abs(p.y - prev.y) < 0.5 && Math.abs(p.x - prev.x) > 0.5) {
+        out.push({ x: q.x, y: p.y })
+      } else if (next && Math.abs(next.x - q.x) < 0.5 && Math.abs(next.y - q.y) > 0.5) {
+        out.push({ x: p.x, y: q.y })
+      } else if (next && Math.abs(next.y - q.y) < 0.5 && Math.abs(next.x - q.x) > 0.5) {
+        out.push({ x: q.x, y: p.y })
+      } else {
+        out.push(i % 2 === 1 ? { x: q.x, y: p.y } : { x: p.x, y: q.y })
+      }
     }
     out.push(q)
   }

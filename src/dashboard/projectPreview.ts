@@ -40,9 +40,9 @@ export function previewCoverOf(data: unknown): string | undefined {
   return typeof value === 'string' && value.startsWith('data:image/jpeg;base64,') && value.length <= 420_000 ? value : undefined
 }
 
-/** Identifica o projeto nativo (id estável ou nome com «(nativo)»). */
+/** Identifica um projeto nativo (id estável ou nome com «(nativo)»). */
 export function isNativeProjectMeta(id: string, name?: string): boolean {
-  if (id.startsWith('native-partida')) return true
+  if (id.startsWith('native-partida') || id.startsWith('native-estrela') || id.startsWith('grafcet-')) return true
   return typeof name === 'string' && /\(nativo\)/i.test(name)
 }
 
