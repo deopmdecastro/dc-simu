@@ -188,8 +188,10 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     // ---- contatores ----
     case 'contactor':
     case 'contactor4p':
-    case 'contactorWegCWC09': {
-      const en = !!c.state.energized
+    case 'contactorWegCWC09':
+    case 'contactorWegCwbc65': {
+      // manualLatch / testPressed: atracagem manual pelo botão de teste (didática)
+      const en = !!c.state.energized || !!c.state.manualLatch || !!c.state.testPressed
       if (en) {
         for (const [a, b] of POLE_PAIRS[c.type] ?? []) pair(la(a), la(b))
         pair(la('13'), la('14'))
