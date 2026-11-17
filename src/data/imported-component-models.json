@@ -259,7 +259,7 @@
     "type": "surgeProtectorWegSpw02",
     "rotation": [
       0,
-      0,
+      180,
       0
     ],
     "placement": "din-rail",
@@ -291,7 +291,7 @@
     "type": "surgeProtectorWegSpw12",
     "rotation": [
       0,
-      0,
+      180,
       0
     ],
     "placement": "din-rail",
@@ -342,7 +342,7 @@
       "type": "safetyRelaySiemens3tk2840",
       "archive": "safetyrelay_siemens_sirius_3tk2840-1.snapshot.4.zip",
       "archiveSha256": "2b1aaf727835ef095dcbcd6326a492eb4d6a18337a3bbcf03e56aa39c16d0ccc",
-      "member": "SafetyRelay_SIRIUS_3TK2840/Rel\u00e9_Emerg\u00eancia_SIRIUS_3TK2840_STEP.step",
+      "member": "SafetyRelay_SIRIUS_3TK2840/Relé_Emergência_SIRIUS_3TK2840_STEP.step",
       "sourceSha256": "8e5ca9f80e5e3f5736beac54d372650c72a6a6de7392b861f6899c67c051216d",
       "format": "STEP"
     },
@@ -374,7 +374,7 @@
       "type": "motorBreakerSchneiderGv2me",
       "archive": "schneidereletricmotorcircuitbreaker_gv2me-1.snapshot.5.zip",
       "archiveSha256": "906365774ea99bc37e32ac9d5cb548416af521fa3e4d635416f9a889aa601fde",
-      "member": "MotorCircuitBreakerGV2ME_SchneiderEletric\u00ae.stp",
+      "member": "MotorCircuitBreakerGV2ME_SchneiderEletric®.stp",
       "sourceSha256": "846ebde235472cbb1397c6912049d070ea98770e5318439661f42bde1641983e",
       "format": "STEP"
     },
