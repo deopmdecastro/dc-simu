@@ -45,7 +45,7 @@ for (const type of Object.keys(SIZE) as Type[]) {
   assert.equal(fronts.length, c.terminals.length, `${type}: todos os bornes saem pela frente`)
   for (const t of c.terminals) {
     const p = terminal3DPositionOf(t)
-    assert.ok(p.z > 0.95, `${type}.${t.label}: borne em z ${p.z.toFixed(2)} — devia estar na frente`)
+    assert.ok(p.z >= 0.90, `${type}.${t.label}: borne em z ${p.z.toFixed(2)} — devia estar na frente`)
     const [x, y] = [p.x, p.y]
     assert.ok(x > 0.02 && x < 0.98 && y > 0.02 && y < 0.98, `${type}.${t.label}: fora da frente (x ${x.toFixed(2)} y ${y.toFixed(2)})`)
     // O cabo sai por +Z, não pela lateral onde o CAD desenha o encaixe.

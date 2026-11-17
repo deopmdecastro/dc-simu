@@ -18,7 +18,7 @@ export default function ThermalRelayControls({ component: c }: { component: Elec
   return <div className="flex flex-col gap-2" data-thermal-controls>
     <span className="dc-field-label">Manobra · rearme manual (M)</span>
     <div className="flex flex-wrap gap-1">
-      <button type="button" className="dc-btn" aria-label={`TEST ${c.ref} — manter premido`} aria-pressed={!!c.state.testPressed} disabled={c.locked}
+      <button type="button" className={`dc-btn ${c.state.testPressed ? 'dc-btn-primary' : ''}`} aria-label={`TEST ${c.ref} — manter premido`} aria-pressed={!!c.state.testPressed} disabled={c.locked}
         onPointerDown={(event) => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); test(true) }}
         onPointerUp={() => test(false)} onPointerCancel={() => test(false)} onLostPointerCapture={() => test(false)} onBlur={() => test(false)}
         onKeyDown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); test(true) } }}

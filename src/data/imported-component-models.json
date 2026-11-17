@@ -259,7 +259,7 @@
     "type": "surgeProtectorWegSpw02",
     "rotation": [
       0,
-      180,
+      3.141592653589793,
       0
     ],
     "placement": "din-rail",
@@ -291,7 +291,7 @@
     "type": "surgeProtectorWegSpw12",
     "rotation": [
       0,
-      180,
+      3.141592653589793,
       0
     ],
     "placement": "din-rail",

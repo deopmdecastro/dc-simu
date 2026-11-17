@@ -3313,7 +3313,7 @@ button.dc-diag-tag:focus-visible { outline: 2px solid #2563eb; outline-offset: 1
 .dc-acc-seg button:last-child { border-right: none; }
 .dc-acc-seg button:hover { background: #f1f5f9; color: #334155; }
 .dc-acc-seg button.is-on {
-  background: #1e293b;
+  background: #2563eb;
   color: #fff;
 }
 .dc-acc-seg button:focus-visible {

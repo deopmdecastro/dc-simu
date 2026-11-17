@@ -248,7 +248,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Quadro metálico</div>
         <div className="text-[13px] font-bold text-slate-800">{d.widthMm} × {d.heightMm} × {d.depthMm} mm <span className={`ml-1.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${open ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>{open ? 'porta aberta' : 'porta fechada'}</span></div>
       </div>
-      <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm ${open ? 'bg-white border-slate-300 text-slate-700' : 'bg-slate-800 border-slate-800 text-white'}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
+      <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${open ? 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-brand-600 border-brand-700 text-white hover:bg-brand-500'}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
     </div>
 
     {/* Medidas — prática */}
@@ -262,7 +262,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       </div>
       <input type="range" className="w-full accent-slate-700 min-h-[38px]" aria-label="Largura do quadro (mm)" min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} value={d.widthMm} onChange={(e)=> resize(c, Number(e.target.value), d.heightMm, {widthMm: Number(e.target.value)})} />
       <div className="grid grid-cols-3 gap-1.5">
-        {ENCLOSURE_PRESETS.map(([w,h,dp])=> <button key={`${w}x${h}`} type="button" className={`rounded-lg border p-2 text-center transition ${d.widthMm===w&&d.heightMm===h ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}><div className="text-xs font-bold">{w}×{h}</div><div className="text-[10px] opacity-60">{dp} prof.</div></button>)}
+        {ENCLOSURE_PRESETS.map(([w,h,dp])=> <button key={`${w}x${h}`} type="button" className={`rounded-lg border p-2 text-center transition ${d.widthMm===w&&d.heightMm===h ? 'bg-brand-600 border-brand-700 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}><div className="text-xs font-bold">{w}×{h}</div><div className="text-[10px] opacity-60">{dp} prof.</div></button>)}
       </div>
       <div className="flex items-center gap-2 text-xs">
         <span className="text-slate-600">Dobradiças</span>
@@ -342,13 +342,13 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         {(['door','top','bottom','left','right','back'] as const).map((fid) => {
           const FaceIcon = {door: IconImage, top: IconArrowUp, bottom: IconArrowDown, left: IconArrowLeft, right: IconArrowRight, back: IconLayers}[fid] ?? IconImage
           const labels: Record<string,string> = {door:'Porta', top:'Topo', bottom:'Fundo', left:'Esq.', right:'Dir.', back:'Traseira'}
-          return <button key={fid} type="button" aria-pressed={holeFace===fid} className={`min-h-[34px] rounded-full border px-2.5 py-1 text-xs inline-flex items-center gap-1.5 ${holeFace===fid?'bg-slate-800 text-white border-slate-800':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><FaceIcon size={12} /> <span>{labels[fid]}</span></button>
+          return <button key={fid} type="button" aria-pressed={holeFace===fid} className={`min-h-[34px] rounded-full border px-2.5 py-1 text-xs inline-flex items-center gap-1.5 transition ${holeFace===fid?'bg-brand-600 text-white border-brand-700':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><FaceIcon size={12} /> <span>{labels[fid]}</span></button>
         })}
       </div>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Diâmetro do furo">
         <span className="text-xs text-slate-600">Ø</span>
         <div className="flex flex-wrap gap-1">
-          {[{label:'M16',mm:16},{label:'M20',mm:20},{label:'M25',mm:25},{label:'M32',mm:32},{label:'M40',mm:40},{label:'22mm',mm:22},{label:'30mm',mm:30}].map((p)=> <button key={p.label} type="button" aria-pressed={holeDia===p.mm} className={`min-h-[34px] rounded-full border px-2 py-1 text-xs ${holeDia===p.mm?'bg-slate-800 text-white border-slate-800':'bg-white border-slate-200 text-slate-600'}`} onClick={()=> setHoleDia(p.mm)}>{p.label} <span className="opacity-60">{p.mm}mm</span></button>)}
+          {[{label:'M16',mm:16},{label:'M20',mm:20},{label:'M25',mm:25},{label:'M32',mm:32},{label:'M40',mm:40},{label:'22mm',mm:22},{label:'30mm',mm:30}].map((p)=> <button key={p.label} type="button" aria-pressed={holeDia===p.mm} className={`min-h-[34px] rounded-full border px-2 py-1 text-xs transition ${holeDia===p.mm?'bg-brand-600 text-white border-brand-700':'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={()=> setHoleDia(p.mm)}>{p.label} <span className="opacity-60">{p.mm}mm</span></button>)}
         </div>
         <input type="number" className="dc-input w-16 h-9 text-xs" min={6} max={80} value={holeDia} aria-label="Diâmetro do furo (mm)" onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
         <span className="text-xs text-slate-400">mm</span>
@@ -431,7 +431,7 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
         <div className="text-[13px] font-bold text-slate-800 leading-none mt-0.5">{d.widthMm} × {d.heightMm} mm · {d.lengthMm} mm <span className={`ml-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${coverOn ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>{coverOn ? '● com tampa' : '○ sem tampa'}</span></div>
         <div className="text-[11px] text-slate-500 mt-1">Ranhurada • na chapa • sólida — cabos por dentro</div>
       </div>
-      <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${coverOn ? 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-700'}`} onClick={() => useSimStore.getState().setComponentState(c.id, { coverOn: !coverOn })} title={coverOn ? 'Mostra ranhuras e fundo' : 'Mostra tampa lisa'}>{coverOn ? 'Tirar tampa' : 'Pôr tampa'}</button>
+      <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${coverOn ? 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-brand-600 border-brand-700 text-white hover:bg-brand-500'}`} onClick={() => useSimStore.getState().setComponentState(c.id, { coverOn: !coverOn })} title={coverOn ? 'Mostra ranhuras e fundo' : 'Mostra tampa lisa'}>{coverOn ? 'Tirar tampa' : 'Pôr tampa'}</button>
     </div>
 
     {/* 1 · Medidas — uma card */}
@@ -442,7 +442,7 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
         <input type="range" min={CABLE_DUCT.minLengthMm} max={CABLE_DUCT.maxLengthMm} step={5} value={d.lengthMm} aria-label="Comprimento" onChange={(e) => resizeDuct(c, Number(e.target.value), d.widthMm, {})} />
       </div>
       <div className="flex flex-wrap gap-1.5" aria-label="Comprimentos comuns">
-        {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resizeDuct(c, mm, d.widthMm, {})}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
+        {[250, 400, 600, 820, 1000, 2000].map((mm) => <button key={mm} type="button" className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${d.lengthMm === mm ? 'bg-brand-600 border-brand-700 text-white' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={() => resizeDuct(c, mm, d.widthMm, {})}>{mm===820 ? '820 (quadro)' : mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
       </div>
       <div className="text-[11px] text-slate-500 leading-snug">Cada barra mexe só na sua ponta; a outra fica no sítio. Também pode arrastar as pegas azuis nas pontas, no Esquema.</div>
       <DuctSideBar c={c} side="left" lengthMm={d.lengthMm} />
