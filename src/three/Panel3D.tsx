@@ -49,7 +49,7 @@ import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './st
 import { applyEditorMotorTextures, onMotorTexturesReady } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
-import { hasPlcLamps, lampScenePosition, plcLamps } from './plcStatusLights'
+import { hasPlcLamps, lampScenePosition, plcChannelLamps, plcLamps } from './plcStatusLights'
 import { mountDepthOffset } from './thermalMount'
 import { combMountDepthOffset, isCombBusbar } from './combMount'
 import { buildDinRailGroup, clampRailLengthMm, DIN_RAIL_15X55, DIN_RAIL_FINISHES, dinRailProfileOf } from './dinRailGeometry'
@@ -949,8 +949,8 @@ function EquipmentStatusLights({ c, height, centered }: { c: ElectricalComponent
   const comm = runState === 'running' && !error && scanCount % 6 < 2
   const siemens = hasPlcLamps(c.type)
   if (siemens) {
-    // Lâmpadas nos sítios medidos do CAD (S7-1500: RUN/ERROR/MAINT; S7-300: SF…STOP).
-    const lamps = plcLamps(c.type, { runState, powered, error })
+    // Lâmpadas de estado (RUN/ERROR/…) + LEDs de canal I/Q (não coincidem com bornes).
+    const lamps = [...plcLamps(c.type, { runState, powered, error }), ...plcChannelLamps(c)]
     return <group>{lamps.map((lamp) => {
       const position = lampScenePosition(c, lamp.at, centered ? 'center' : 'bottom')
       const radius = (lamp.sizeMm * PANEL_UNITS_PER_MM) / 2
@@ -1178,6 +1178,8 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
   }
   const apply = (pressed: boolean, control: ImportedControl | null = null) => {
     if (useSimStore.getState().tool !== 'select' || (control ? !mechanical : !interactive)) return
+    // Estado elétrico só muda com simulação activa (ou demo).
+    if (!useSimStore.getState().demoMode && useSimStore.getState().sim.runState === 'stopped') return
     useSimStore.getState().actuateImported(c.id, pressed, control)
   }
   const finish = (commit: boolean) => {
@@ -1223,7 +1225,17 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
     if (event.button !== 0 || gesture.current) return
     if (useSimStore.getState().gridDragEnabled && !simActive) return
     const control = controlAt(event)
-    if (control ? !mechanical : !interactive || !simActive) return
+    // Controlos que alteram estado elétrico (gaveta, TEST, I/O, alavanca) só em simulação.
+    // Em STOP permite-se apenas inspecionar/selecionar o aparelho.
+    if (control) {
+      if (!mechanical) return
+      if (!simActive && !useSimStore.getState().demoMode) {
+        useSimStore.getState().selectComponents([c.id])
+        return
+      }
+    } else if (!interactive || !simActive) {
+      return
+    }
     event.stopPropagation()
     if (!simActive && !useSimStore.getState().demoMode) useSimStore.getState().selectComponents([c.id])
     const target = event.target as unknown as { setPointerCapture: (id: number) => void; releasePointerCapture: (id: number) => void }
