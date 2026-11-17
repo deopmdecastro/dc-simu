@@ -9,6 +9,8 @@ import { parseCatalogType } from '../catalog/types'
 import PlcSignalPanel from './PlcSignalPanel'
 import ThermalRelayControls from './ThermalRelayControls'
 import ProtectionControls from './ProtectionControls'
+import DeviceControls, { DEVICE_MANAGED_STATE_KEYS, hasDeviceControls } from './DeviceControls'
+import { TERMINAL_STRIP_STATE_KEYS, isTerminalStripType, terminalStripFor } from '../electrical/pti6Strip'
 import { PROTECTION_MANAGED_STATE_KEYS, protectionControlKindOf } from '../electrical/protectionSpecs'
 import {
   IEC_DIGIT_MARKER_PALETTE,
@@ -356,7 +358,26 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const groups = useMemo(() => paletteGroups().map((g) => ({ ...g, items: g.items.filter((it) => !hiddenComponents[it.type]) })).filter((g) => g.items.length > 0), [catalogRevision, hiddenComponents])
   const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => canInsertComponent3D(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
-  const selectedComponent = components.find((c) => c.id === selectedIds[0])
+  const [stripFocusId, setStripFocusId] = useState<string | null>(null)
+  const selectedComponent = useMemo(() => {
+    if (!selectedIds.length) return undefined
+    if (stripFocusId && selectedIds.includes(stripFocusId)) {
+      const focused = components.find((c) => c.id === stripFocusId)
+      if (focused) return focused
+    }
+    return components.find((c) => c.id === selectedIds[0])
+  }, [components, selectedIds, stripFocusId])
+  const multiSelectedComponents = useMemo(
+    () => (selectedIds.length > 1 ? selectedIds.map((id) => components.find((c) => c.id === id)).filter((c): c is NonNullable<typeof c> => !!c) : []),
+    [components, selectedIds],
+  )
+  const isSingleStripSelection = useMemo(() => {
+    if (multiSelectedComponents.length < 2) return false
+    const st = terminalStripFor(components, multiSelectedComponents[0].id)
+    if (!st) return false
+    const set = new Set(st.members.map((m) => m.id))
+    return multiSelectedComponents.every((c) => set.has(c.id))
+  }, [components, multiSelectedComponents])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
   const wireEditingStopped = useSimStore(s => s.sim.runState === 'stopped')
   const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
@@ -554,6 +575,33 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           {/* ------------------------------------------------ componente */}
           {selectedComponent && (
             <section key={selectedComponent.id} className="dc-inspector-component">
+              {multiSelectedComponents.length > 1 && !isSingleStripSelection && (() => {
+                const allTerminals = multiSelectedComponents.every((mc) => isTerminalStripType(mc.type))
+                return (
+                  <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <strong className="text-[11px] text-ink-800">{`${multiSelectedComponents.length} elementos selecionados`}</strong>
+                      <button type="button" className="text-[10px] text-blue-600 hover:underline" onClick={() => useSimStore.getState().selectComponents([selectedComponent.id])}>
+                        Só este
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" className="dc-btn dc-btn-primary text-[10.5px]" onClick={() => useSimStore.getState().groupItems('schematic', selectedIds)}>
+                        {allTerminals ? 'Agrupar régua' : 'Agrupar'}
+                      </button>
+                      <button type="button" className="dc-btn text-[10.5px]" onClick={() => useSimStore.getState().ungroupItems('schematic', selectedIds)}>
+                        Desagrupar
+                      </button>
+                      <button type="button" className="dc-btn text-[10.5px]" onClick={() => useSimStore.getState().duplicateComponents(selectedIds)}>
+                        <IconCopy size={11} /> Duplicar
+                      </button>
+                      <button type="button" className="dc-btn text-[10.5px]" onClick={() => useSimStore.getState().snapToRails(selectedIds, true)}>
+                        Fixar calha
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
               <header className="dc-inspector-hero">
                 <div className="dc-inspector-hero-thumb"><ComponentThumb type={selectedComponent.type} size={42} /></div>
                 <div className="min-w-0 flex-1"><strong className="block text-sm text-ink-900 truncate">{selectedComponent.ref || 'Sem referência'} <span className="text-[9px] text-blue-600">v{componentEditorVersionOf(selectedComponent)}</span></strong><span className="block text-[10px] text-ink-500 truncate">{selectedComponent.label}</span><time className="block text-[8px] text-ink-400 truncate" dateTime={selectedComponent.editorUpdatedAt}>Atualizado {formatComponentUpdateDate(selectedComponent.editorUpdatedAt)}</time></div>
@@ -571,6 +619,14 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <input className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
               </div></details>
+              {isTerminalStripType(selectedComponent.type) && (
+                <details className="dc-inspector-group" open>
+                  <summary>Régua de bornes</summary>
+                  <div className="dc-inspector-group-body">
+                    <TerminalStripControls c={selectedComponent} onFocusMember={setStripFocusId} />
+                  </div>
+                </details>
+              )}
               {isRealBusbarType(selectedComponent.type) && (
                 <details className="dc-inspector-group" open>
                   <summary>Configuração do barramento</summary>
@@ -702,9 +758,6 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               {selectedComponent.type === 'cableDuct' && <CableDuctControls c={selectedComponent} />}
               {selectedComponent.type === 'spiralWrap' && <SpiralWrapControls c={selectedComponent} />}
 
-              {/* Régua PTI6 — N pólos num único componente + botão para criar X1..Xn */}
-              {selectedComponent.type === 'terminalPhoenixPti6' && <TerminalStripControls c={selectedComponent} />}
-
               {isRailMountable(selectedComponent) && (() => {
                 const rail = components.find((item) => item.id === selectedComponent.railId)
                 return <div className="dc-rail-length">
@@ -800,7 +853,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   <button type="button" className="dc-btn" style={{background:'#facc15'}} title="Aviso triângulo amarelo com raio" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'warning', text:'PERIGO', icon:'bolt', background:'#facc15', color:'#0f172a', widthMm:36, heightMm:18, face:'front' })}>⚡ Aviso</button>
                   <button type="button" className="dc-btn" style={{background:'#22c55e',color:'white'}} title="Etiqueta CE verde" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text:'CE', background:'#22c55e', color:'white', widthMm:22, heightMm:14 })}>CE</button>
                   <button type="button" className="dc-btn" style={{background:'#0ea5e9',color:'white'}} title="Símbolo raio dentro de triângulo" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'symbol', icon:'bolt', text:'400V', background:'#fef3c7', color:'#92400e', widthMm:30, heightMm:14 })}>⚡ 400V</button>
-                  <button type="button" className="dc-btn" title="Logotipo / marca" onClick={()=> {const m=prompt('Marca/logotipo (ex: WEG, SIEMENS, SCHNEIDER)','WEG'); if(m) useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text:m.toUpperCase(), background:'#0f172a', color:'white', widthMm:32, heightMm:10 })}}>Logo</button>
+                  <button type="button" className="dc-btn" title="Logotipo de fabricante (editável abaixo)" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text: String(selectedComponent.state.manufacturer ?? 'WEG').split(' ')[0].toUpperCase().slice(0, 12) || 'WEG', background:'#0f172a', color:'#ffffff', widthMm:32, heightMm:10 })}>+ Marca</button>
                 </div>
                 {(selectedComponent.decals ?? []).map((d)=>(
                   <div key={d.id} className="rounded border border-line p-1.5 space-y-1 bg-slate-50/50">
@@ -811,6 +864,20 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                       <input className="dc-input flex-1" value={d.text ?? ''} placeholder="Texto" onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {text:e.target.value})} />
                       <button type="button" className="dc-btn text-red-600" onClick={()=> useSimStore.getState().removeDecal(selectedComponent.id, d.id)}>×</button>
                     </div>
+                    {d.kind === 'logo' && (
+                      <div className="flex flex-wrap gap-1">
+                        {['WEG', 'SIEMENS', 'SCHNEIDER', 'PHOENIX', 'HAGER', 'ABB', 'CE'].map((brand) => (
+                          <button
+                            key={brand}
+                            type="button"
+                            onClick={() => useSimStore.getState().updateDecal(selectedComponent.id, d.id, { text: brand })}
+                            className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono border ${(d.text ?? '').toUpperCase() === brand ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}
+                          >
+                            {brand}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex flex-wrap items-center gap-1 text-[11px]">
                       <span>Ícone</span>
                       <Select className="dc-input w-20" value={d.icon ?? ''} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {icon: e.target.value || undefined})}>
@@ -850,18 +917,29 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               </div></details>
               <OptionalPartsGroup component={selectedComponent} />
               {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-plc-sim-group><summary>Simular sinais (entradas)</summary><div className="dc-inspector-group-body"><PlcSignalPanel plcId={selectedComponent.id} compact /></div></details>}
-              {/* estado rápido conforme o tipo */}
+              {/* estado rápido conforme o tipo — só mostra controlos realmente funcionais */}
+              {(() => {
+                const isThermal = importedComponentInfo(selectedComponent.type)?.behavior === 'thermal'
+                const hasProt = !!protectionControlKindOf(selectedComponent.type)
+                const hasDev = hasDeviceControls(selectedComponent.type)
+                const extraEntries = Object.entries(selectedComponent.state).filter(([k]) => {
+                  if (isMountingRail(selectedComponent.type) && (k === 'lengthMm' || RAIL_PROFILE_STATE_KEYS.has(k))) return false
+                  if (isPanelAccessoryType(selectedComponent.type) && PANEL_ACCESSORY_STATE_KEYS.has(k)) return false
+                  if (isRealBusbarType(selectedComponent.type) && BUSBAR_STATE_KEYS.has(k)) return false
+                  if (isTerminalStripType(selectedComponent.type) && TERMINAL_STRIP_STATE_KEYS.has(k)) return false
+                  if (hasProt && (PROTECTION_MANAGED_STATE_KEYS.has(k) || DEVICE_MANAGED_STATE_KEYS.has(k))) return false
+                  if (hasDev && DEVICE_MANAGED_STATE_KEYS.has(k)) return false
+                  if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes' || k === 'glassColor') return false
+                  if (isThermal && (['testPressed', 'stopPressed', 'tripped', 'manual', 'manufacturer', 'code'].includes(k))) return false
+                  return true
+                })
+                if (!isThermal && !hasProt && !hasDev && extraEntries.length === 0) return null
+                return (
               <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body dc-inspector-state-list">
-                {importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && <ThermalRelayControls component={selectedComponent} />}
-                {protectionControlKindOf(selectedComponent.type) && <ProtectionControls component={selectedComponent} />}
-                {Object.entries(selectedComponent.state).map(([k, v]) => {
-                  if (isMountingRail(selectedComponent.type) && (k === 'lengthMm' || RAIL_PROFILE_STATE_KEYS.has(k))) return null
-                  if (isPanelAccessoryType(selectedComponent.type) && PANEL_ACCESSORY_STATE_KEYS.has(k)) return null
-                  if (isRealBusbarType(selectedComponent.type) && BUSBAR_STATE_KEYS.has(k)) return null
-                  if (protectionControlKindOf(selectedComponent.type) && PROTECTION_MANAGED_STATE_KEYS.has(k)) return null
-                  if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes') return null
-                  // Não oferecer checkboxes que contornem a retenção de TEST ou o modo manual.
-                  if (importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' && ['testPressed', 'stopPressed', 'tripped', 'manual'].includes(k)) return null
+                {isThermal && <ThermalRelayControls component={selectedComponent} />}
+                {hasProt && <ProtectionControls component={selectedComponent} />}
+                {hasDev && <DeviceControls component={selectedComponent} />}
+                {extraEntries.map(([k, v]) => {
                   if (typeof v === 'boolean') {
                     return (
                       <label key={k} className="dc-inspector-state-row is-toggle">
@@ -869,8 +947,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                         <input
                           type="checkbox"
                           checked={v}
-                          disabled={!!importedComponentInfo(selectedComponent.type) && (k === 'powered' || k === 'energized') || (['plcSiemensLogo1224RC', 'plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(selectedComponent.type) || selectedComponent.type === 'powerSupplyProauto24A') && (k === 'powered' || k === 'powerReady')}
-                          title={['plcSiemensLogo1224RC', 'plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(selectedComponent.type) && k === 'powered' ? 'Derivado das ligações L+ e M' : selectedComponent.type === 'powerSupplyProauto24A' && (k === 'powered' || k === 'powerReady') ? 'Derivado das ligações AC L e N' : undefined}
+                          disabled={!!importedComponentInfo(selectedComponent.type) && (k === 'powered' || k === 'energized')}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.checked })}
                         />
                       </label>
@@ -935,6 +1012,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   return null
                 })}
               </div></details>
+                )
+              })()}
               {/* bornes */}
               <details className="dc-inspector-group" open><summary>Bornes <span className="dc-inspector-count">{selectedComponent.terminals.length}</span></summary><div className="dc-inspector-group-body">
                 <div className="flex items-center justify-between mb-2">
@@ -1361,6 +1440,15 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                               title="Escolher rótulo padrão IEC para a identificação do cabo"
                               onPick={(l) => patchSelectedWire({ number: l })}
                             />
+                            <button
+                              type="button"
+                              className="dc-btn !px-1.5 text-[10px] font-mono"
+                              disabled={!wireEditingStopped || !!selectedWire.locked}
+                              title="Atribuir automaticamente a próxima etiqueta livre (W1, W2…)"
+                              onClick={() => useSimStore.getState().autoNumberWire(selectedWire.id)}
+                            >
+                              Auto
+                            </button>
                           </div>
                         </div>
                         <div>
@@ -2328,8 +2416,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                 aria-label={`Início do isolamento ${i + 1} (%)`}
                                 value={Math.round(seg.start * 100)}
                                 onChange={(e) => {
-                                  const list = [...(selectedWire.isolation ?? [])]
-                                  list[i] = { ...list[i], start: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                  const live = useSimStore.getState().wires.find((w) => w.id === selectedWire.id) ?? selectedWire
+                                  const list = [...(live.isolation ?? [])]
+                                  if (!list[i]) return
+                                  const maxStart = Math.max(0.05, (list[i].end ?? 1) - 0.05)
+                                  list[i] = { ...list[i], start: Math.max(0, Math.min(maxStart, Number(e.target.value) / 100)) }
                                   patchSelectedWire({ isolation: list })
                                 }}
                               />
@@ -2345,8 +2436,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                 aria-label={`Fim do isolamento ${i + 1} (%)`}
                                 value={Math.round(seg.end * 100)}
                                 onChange={(e) => {
-                                  const list = [...(selectedWire.isolation ?? [])]
-                                  list[i] = { ...list[i], end: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                  const live = useSimStore.getState().wires.find((w) => w.id === selectedWire.id) ?? selectedWire
+                                  const list = [...(live.isolation ?? [])]
+                                  if (!list[i]) return
+                                  const minEnd = Math.min(0.95, (list[i].start ?? 0) + 0.05)
+                                  list[i] = { ...list[i], end: Math.max(minEnd, Math.min(1, Number(e.target.value) / 100)) }
                                   patchSelectedWire({ isolation: list })
                                 }}
                               />
@@ -2400,9 +2494,21 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           {/* ---------------------------------------------------- borne */}
           {selectedTerminal && terminalOwner && !selectedComponent && (
             <section className="space-y-3">
-              <header className="border-b border-line pb-2">
-                <div className="font-semibold text-ink-900">{terminalOwner.ref} · {selectedTerminal.displayName || selectedTerminal.label}</div>
-                <div className="text-[10px] text-ink-400 mt-0.5">Borne físico {selectedTerminal.label} · {selectedTerminal.energized ? '● Energizado' : '○ Sem tensão'}</div>
+              <header className="border-b border-line pb-2 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-ink-900 truncate">{terminalOwner.ref} · {selectedTerminal.displayName || selectedTerminal.label}</div>
+                    <div className="text-[10px] text-ink-400 mt-0.5">Borne físico {selectedTerminal.label} · {selectedTerminal.energized ? '● Energizado' : '○ Sem tensão'}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="dc-btn text-[10.5px] shrink-0"
+                    title={`Voltar às propriedades do componente ${terminalOwner.ref}`}
+                    onClick={() => useSimStore.getState().selectComponents([terminalOwner.id])}
+                  >
+                    {`← ${terminalOwner.ref}`}
+                  </button>
+                </div>
               </header>
               <div className="dc-card p-2.5 space-y-2">
                 <div>

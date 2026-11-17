@@ -73,7 +73,25 @@ import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type 
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
-import { describeTerminalStripRefs, planTerminalStripRefs, pti6SchematicFootprint, pti6TerminalTemplates, TERMINAL_STRIP_GAP_PX } from '../electrical/pti6Strip'
+import {
+  canTerminalHaveJumper,
+  describeTerminalStripRefs,
+  isTerminalStripType,
+  nextFreeStripPrefix,
+  nextStripMemberRef,
+  parseTerminalRef,
+  planTerminalStripRefs,
+  pti6SchematicFootprint,
+  pti6TerminalTemplates,
+  resolveTerminalStrips,
+  TERMINAL_STRIP_GAP_PX,
+  TERMINAL_STRIP_PRESETS,
+  terminalMemberWidthMm,
+  terminalStripFor,
+  type StripNumberingMode,
+  type TerminalStripMemberSpec,
+  type TerminalStripPreset,
+} from '../electrical/pti6Strip'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, fcPresentOf, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
@@ -473,8 +491,22 @@ interface Store extends CircuitState {
   setBusbarPoleCount: (componentId: string, poleCount: number, barsMode?: import('../three/busbarParts').SteppedBarConductors) => void
   /** Barramento de fase com acrílico: altera a cor translúcida da tampa e dos indicadores de borne. */
   setBusbarAcrylicColor: (componentId: string, hexColor: string) => void
-  /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). Se hierarchical, usa X1.0, X1.1… */
-  createTerminalStrip: (componentId: string, count: number, opts?: { hierarchical?: boolean }) => void
+  /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). Se hierarchical, usa X1.0, X1.1… (ou startIndex: 1 → X1.1, X1.2…). */
+  createTerminalStrip: (componentId: string, count: number, opts?: { hierarchical?: boolean; startIndex?: 0 | 1 }) => void
+  /** Acrescenta bornes (ex.: +1, +N, +PE, +24V, 0V) à direita da régua atual, encaixados na mesma calha e agrupados automaticamente. */
+  appendToTerminalStrip: (componentId: string, specs: TerminalStripMemberSpec[], opts?: { numbering?: StripNumberingMode }) => void
+  /** Cria ou completa uma régua industrial pronta (3F+N+PE, L+N+PE, +24V/0V com FBS, Motor U·V·W+PE, Comando). */
+  applyTerminalStripPreset: (componentId: string, presetId: TerminalStripPreset['id']) => void
+  /** Liga ou desliga a ponte de encaixe FBS entre este borne e o borne seguinte da régua. */
+  toggleTerminalJumper: (componentId: string, force?: boolean) => void
+  /** Renumera sequencialmente todos os bornes da régua (X1.1…X1.n, X1.0…X1.n−1 ou X1…Xn). */
+  renumberTerminalStrip: (componentId: string, mode: StripNumberingMode) => void
+  /** Agrupa ou desagrupa todos os bornes de uma régua (`stripId` + `selectionGroups`). */
+  setTerminalStripGrouped: (componentId: string, grouped: boolean) => void
+  /** Configura encravamento mecânico recíproco entre dois contatores (null = sem encravamento). */
+  setContactorInterlock: (componentId: string, partnerId: string | null) => void
+  /** Atribui automaticamente o próximo número livre (`W1`, `W2`…) ao(s) cabo(s) selecionado(s). */
+  autoNumberWire: (id: string) => void
   addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor, waypoints?: Array<{ x: number; y: number }>) => void
   /** Cabo desenhado no Painel 3D: cada ponta é um borne ou um ponto livre no espaço; devolve o id do cabo. */
   addWire3D: (from: WireEnd3D, to: WireEnd3D, waypoints3D?: SpatialPoint3D[]) => string | null
@@ -827,7 +859,13 @@ function runOneTick(state: Store, dtMs: number) {
       state.runtime.rungTrace = trace
       state.runtime.rungSkipped = Object.fromEntries(scan.skipped.map((id) => [id, true]))
     }
-    for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
+    const cpuRunning = powered && plc.state.cpuMode !== 'STOP'
+    if ('ledRUN' in plc.state) plc.state.ledRUN = cpuRunning
+    if ('ledSTOP' in plc.state) plc.state.ledSTOP = powered && !cpuRunning
+    if ('ledDC5V' in plc.state) plc.state.ledDC5V = powered
+    if ('displayOn' in plc.state) plc.state.displayOn = powered
+    if ('mode' in plc.state) plc.state.mode = cpuRunning ? 'RUN' : 'STOP'
+    for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = cpuRunning && !!scan.table[key]
   }
   if (selectedId) {
     const active = state.runtime.plcRuntime[selectedId]
@@ -994,7 +1032,100 @@ function runOneTick(state: Store, dtMs: number) {
   syncMotorHumFromComponents(components)
 }
 
-/** Cor sugerida por função do cabo (usada na cor automática). */
+/**
+ * Sincroniza o agrupamento automático das réguas de bornes (mesmo `stripId` ou mesmo prefixo
+ * hierárquico `X1.0…X1.n` na mesma folha/calha), respeitando bornes desagrupados pelo utilizador
+ * (`state.stripUngrouped === true`). Quando `touchedIds` é fornecido, atualiza apenas as réguas
+ * que incluam pelo menos um dos componentes tocados.
+ */
+function syncAutoTerminalStripGroups(
+  components: ElectricalComponent[],
+  selectionGroups: SelectionGroup[],
+  touchedIds?: Iterable<string>,
+): { components: ElectricalComponent[]; selectionGroups: SelectionGroup[]; changed: boolean } {
+  const touched = touchedIds ? new Set(touchedIds) : null
+  const strips = resolveTerminalStrips(components)
+  if (!strips.length) return { components, selectionGroups, changed: false }
+  let nextGroups = selectionGroups
+  const assignStripId = new Map<string, string>()
+  let changed = false
+  for (const strip of strips) {
+    if (strip.members.length < 2) continue
+    if (touched && !strip.members.some((m) => touched.has(m.id))) continue
+    const memberIds = strip.members.map((m) => m.id)
+    const sid = strip.explicitStripId || nanoid(6)
+    for (const m of strip.members) {
+      if (m.state?.stripId !== sid) {
+        assignStripId.set(m.id, sid)
+        changed = true
+      }
+    }
+    const alreadyExact = nextGroups.some(
+      (g) => g.view === 'schematic' && g.members.length === memberIds.length && memberIds.every((id) => g.members.includes(id)),
+    )
+    if (!alreadyExact) {
+      const merged = groupIds(nextGroups, 'schematic', memberIds, nanoid(8))
+      if (merged) {
+        nextGroups = merged
+        changed = true
+      }
+    }
+  }
+  const nextComponents = assignStripId.size
+    ? components.map((c) => {
+        const sid = assignStripId.get(c.id)
+        return sid ? { ...c, state: { ...c.state, stripId: sid } } : c
+      })
+    : components
+  return { components: nextComponents, selectionGroups: nextGroups, changed }
+}
+
+/** Posiciona um novo borne encostado à direita de `anchor` na mesma folha e calha DIN, sem sobrepor outros aparelhos. */
+function placeStripCloneRight(
+  clone: ElectricalComponent,
+  anchor: ElectricalComponent,
+  cursorX: number,
+  cursorRailMm: number | null,
+  gapPx: number,
+  obstacles: ElectricalComponent[],
+  railMaxMm: number | null,
+): { schematicX: number; railOffsetMm?: number; nextCursorX: number; nextCursorRailMm: number | null } {
+  const sameSheet = (c: ElectricalComponent) => (c.sheet ?? '') === (anchor.sheet ?? '')
+  let x = cursorX
+  for (let guard = 0; guard < 96; guard++) {
+    const hit = obstacles.find(
+      (o) =>
+        sameSheet(o) &&
+        o.type !== 'panelEnclosure' &&
+        !isDinRail(o) &&
+        o.type !== 'cableDuct' &&
+        o.type !== 'spiralWrap' &&
+        o.schematicX < x + clone.w &&
+        o.schematicX + o.w > x &&
+        o.schematicY < anchor.schematicY + clone.h &&
+        o.schematicY + o.h > anchor.schematicY,
+    )
+    if (!hit) break
+    x = hit.schematicX + hit.w + gapPx
+  }
+  let railOffsetMm: number | undefined
+  let nextRailMm: number | null = null
+  if (anchor.railId && cursorRailMm !== null) {
+    const wMm = terminalMemberWidthMm(clone)
+    let mm = Math.max(0, Math.round(cursorRailMm * 100) / 100)
+    if (railMaxMm !== null && mm + wMm > railMaxMm) {
+      mm = Math.max(0, Math.round((railMaxMm - wMm) * 100) / 100)
+    }
+    railOffsetMm = mm
+    nextRailMm = Math.round((mm + wMm) * 100) / 100
+  }
+  return {
+    schematicX: x,
+    railOffsetMm,
+    nextCursorX: x + clone.w + gapPx,
+    nextCursorRailMm: nextRailMm,
+  }
+}
 export const WIRE_KIND_COLOR: Record<Wire['kind'], WireColor> = {
   power: 'black',
   control: 'red',
@@ -1186,17 +1317,54 @@ export const useSimStore = create<Store>((set, get) => {
   },
   selectionGroups: [],
   groupItems: (view, ids) => {
-    const next = groupIds(get().selectionGroups, view, ids, nanoid(8))
-    if (!next) return false
+    const targetSet = new Set(ids)
+    const state = get()
+    const terminalTargets = view === 'schematic'
+      ? state.components.filter((c) => targetSet.has(c.id) && isTerminalStripType(c.type) && Number(c.state?.poleCount ?? 1) <= 1)
+      : []
+    const next = groupIds(state.selectionGroups, view, ids, nanoid(8))
+    if (!next && terminalTargets.length < 2) return false
     get().commitHistory()
-    set({ selectionGroups: next, dirty: true })
+    if (terminalTargets.length >= 2 && terminalTargets.length === ids.length) {
+      const existingSid = terminalTargets.map((c) => (typeof c.state?.stripId === 'string' ? c.state.stripId : '')).find(Boolean)
+      const sid = existingSid || nanoid(6)
+      set({
+        components: state.components.map((c) => {
+          if (!targetSet.has(c.id)) return c
+          const nextState: Record<string, any> = { ...c.state, stripId: sid }
+          delete nextState.stripUngrouped
+          return { ...c, state: nextState }
+        }),
+        selectionGroups: next ?? state.selectionGroups,
+        dirty: true,
+      })
+      return true
+    }
+    set({ selectionGroups: next ?? state.selectionGroups, dirty: true })
     return true
   },
   ungroupItems: (view, ids) => {
-    const next = ungroupIds(get().selectionGroups, view, ids)
-    if (!next) return false
+    const state = get()
+    const targetSet = new Set(ids)
+    const terminalTargets = view === 'schematic'
+      ? state.components.filter((c) => targetSet.has(c.id) && isTerminalStripType(c.type))
+      : []
+    const next = ungroupIds(state.selectionGroups, view, ids)
+    if (!next && !terminalTargets.some((c) => c.state?.stripId && !c.state?.stripUngrouped)) return false
     get().commitHistory()
-    set({ selectionGroups: next, dirty: true })
+    const nextComponents = terminalTargets.length
+      ? state.components.map((c) => {
+          if (!targetSet.has(c.id) || !isTerminalStripType(c.type)) return c
+          const nextState: Record<string, any> = { ...c.state, stripUngrouped: true }
+          delete nextState.stripId
+          return { ...c, state: nextState }
+        })
+      : state.components
+    set({
+      components: nextComponents,
+      selectionGroups: next ?? state.selectionGroups,
+      dirty: true,
+    })
     return true
   },
   runtime: EMPTY_RUNTIME(),
@@ -2231,6 +2399,174 @@ export const useSimStore = create<Store>((set, get) => {
       return
     }
     if (allowedIds.length < ids.length) get().pushEvent('warning', 'Componentes sem modelo 3D GLB não foram duplicados.')
+
+    // Duplicação inteligente de bornes de calha DIN:
+    //  • 1 borne: acrescenta o borne seguinte encostado à direita na mesma régua e calha, agrupando-o automaticamente;
+    //  • Vários bornes (régua completa): cria uma nova régua completa (ex.: X1.* → X2.*) encostada na mesma calha, já agrupada.
+    const stateBefore = get()
+    const selectedSources = allowedIds
+      .map((id) => stateBefore.components.find((c) => c.id === id))
+      .filter((c): c is ElectricalComponent => !!c)
+    const allStripTerminals =
+      selectedSources.length > 0 &&
+      selectedSources.every((c) => isTerminalStripType(c.type) && Number(c.state?.poleCount ?? 1) <= 1 && !c.panelMount)
+
+    if (allStripTerminals) {
+      get().commitHistory()
+      const cloneFromSource = (src: ElectricalComponent, ref: string, extraState: Record<string, unknown>) => {
+        const cleanState = JSON.parse(JSON.stringify(src.state)) as Record<string, unknown>
+        delete cleanState.stripUngrouped
+        const clone = createComponent(src.type, ref, src.label, stateBefore.components.length, src.schematicX, src.schematicY, {
+          ...cleanState,
+          ...extraState,
+        })
+        clone.z = nextTopZ(stateBefore.components, stateBefore.wires)
+        clone.sheet = src.sheet
+        clone.mirrored = src.mirrored
+        clone.rotation = src.rotation
+        if (src.catalog) clone.catalog = { ...src.catalog }
+        clone.viewOrientation = componentOrientationOf(src)
+        clone.terminals = clone.terminals.map((terminal, index) => {
+          const source = src.terminals[index]
+          return source
+            ? {
+                ...terminal,
+                label: source.label,
+                displayName: source.displayName,
+                kind: source.kind,
+                terminalType: source.terminalType,
+                color: source.color,
+                x: source.x,
+                y: source.y,
+                position3D: source.position3D ? { ...source.position3D } : undefined,
+                pinned: source.pinned,
+              }
+            : terminal
+        })
+        clone.w = src.w
+        clone.h = src.h
+        clone.bodyColor = src.bodyColor
+        clone.view3DScale = component3DScaleOf(src)
+        clone.view3DRenderMode = src.view3DRenderMode ?? 'solid'
+        clone.railId = src.railId
+        clone.enclosureId = src.enclosureId
+        return clone
+      }
+
+      if (selectedSources.length === 1) {
+        const src = selectedSources[0]
+        const strip = terminalStripFor(stateBefore.components, src.id)
+        const members = strip?.members ?? [src]
+        const tail = members[members.length - 1]
+        const parsed = parseTerminalRef(src.ref)
+        const otherRefs = stateBefore.components.filter((c) => c.id !== src.id).map((c) => c.ref)
+        let nextBaseRef = src.ref
+        let cloneRef: string
+        if (parsed.hierarchical || (strip && strip.hierarchical)) {
+          const prefix = strip?.prefix || parsed.prefix
+          const sep = strip?.sep || parsed.sep || '.'
+          const prefSuffix = src.type === 'terminalPE' ? 'PE' : undefined
+          const startIdx: 0 | 1 = members.some((m) => parseTerminalRef(m.ref).index === 0) ? 0 : 1
+          cloneRef = nextStripMemberRef(stateBefore.components.map((c) => c.ref), prefix, sep, prefSuffix, startIdx)
+        } else if (src.type === 'terminalPE') {
+          cloneRef = nextRef(stateBefore.components, src.type)
+        } else {
+          const plan = planTerminalStripRefs(otherRefs, src.ref, 2, true, 1)
+          nextBaseRef = plan.baseRef
+          cloneRef = plan.refs[0] ?? nextRef(stateBefore.components, src.type)
+        }
+        const sid = (typeof tail.state?.stripId === 'string' && tail.state.stripId) || nanoid(6)
+        const rail = tail.railId ? stateBefore.components.find((r) => r.id === tail.railId) : undefined
+        const railMax = rail ? clampRailLengthMm(rail.state.lengthMm) : null
+        const startMm = tail.railId && typeof tail.railOffsetMm === 'number'
+          ? tail.railOffsetMm + terminalMemberWidthMm(tail)
+          : null
+        const clone = cloneFromSource(src, cloneRef, { stripId: sid, jumperNext: false })
+        const placed = placeStripCloneRight(
+          clone,
+          tail,
+          tail.schematicX + tail.w + TERMINAL_STRIP_GAP_PX.hierarchical,
+          startMm,
+          TERMINAL_STRIP_GAP_PX.hierarchical,
+          stateBefore.components,
+          railMax,
+        )
+        clone.schematicX = placed.schematicX
+        clone.schematicY = tail.schematicY
+        if (placed.railOffsetMm !== undefined) clone.railOffsetMm = placed.railOffsetMm
+        const memberIds = [...new Set([...members.map((m) => m.id), clone.id])]
+        const memberSet = new Set(members.map((m) => m.id))
+        set((s) => ({
+          components: [
+            ...s.components.map((c) => {
+              if (!memberSet.has(c.id)) return c
+              const nextState: Record<string, any> = { ...c.state, stripId: sid }
+              delete nextState.stripUngrouped
+              return { ...c, ref: c.id === src.id ? nextBaseRef : c.ref, state: nextState }
+            }),
+            clone,
+          ],
+          selectedComponentIds: [clone.id],
+          selectionGroups: groupIds(s.selectionGroups, 'schematic', memberIds, nanoid(8)) ?? s.selectionGroups,
+          dirty: true,
+        }))
+        if (clone.railId && clone.railOffsetMm === undefined) get().snapToRails([clone.id])
+        get().pushEvent('info', `Borne ${clone.ref} adicionado e agrupado na régua ${parseTerminalRef(clone.ref).prefix}${rail ? ` (${rail.ref})` : ''}.`)
+        recomputeIfActive()
+        return
+      }
+
+      // Régua múltipla: duplica todos os bornes como uma nova régua agrupada (ex.: X1.* → X2.*).
+      const ordered = [...selectedSources].sort((a, b) => (a.railOffsetMm ?? a.schematicX) - (b.railOffsetMm ?? b.schematicX))
+      const lead = ordered[0]
+      const tail = ordered[ordered.length - 1]
+      const leadParsed = parseTerminalRef(lead.ref)
+      const newPrefix = nextFreeStripPrefix(stateBefore.components.map((c) => c.ref), leadParsed.family === 'PE' ? 'X' : leadParsed.family)
+      const newSid = nanoid(6)
+      const rail = tail.railId ? stateBefore.components.find((r) => r.id === tail.railId) : undefined
+      const railMax = rail ? clampRailLengthMm(rail.state.lengthMm) : null
+      let cursorX = tail.schematicX + tail.w + 18
+      let cursorMm = tail.railId && typeof tail.railOffsetMm === 'number'
+        ? tail.railOffsetMm + terminalMemberWidthMm(tail) + 10
+        : null
+      const usedRefs = new Set(stateBefore.components.map((c) => c.ref))
+      const clones: ElectricalComponent[] = []
+      ordered.forEach((src, idx) => {
+        const sp = parseTerminalRef(src.ref)
+        const sep = sp.sep || '.'
+        const suffix = sp.hierarchical && sp.suffix ? sp.suffix : src.type === 'terminalPE' ? 'PE' : String(idx + 1)
+        const ref = nextStripMemberRef(usedRefs, newPrefix, sep, suffix, 1)
+        usedRefs.add(ref)
+        const keepJumper = idx < ordered.length - 1 && !!src.state?.jumperNext
+        const clone = cloneFromSource(src, ref, { stripId: newSid, jumperNext: keepJumper })
+        const placed = placeStripCloneRight(
+          clone,
+          tail,
+          cursorX,
+          cursorMm,
+          TERMINAL_STRIP_GAP_PX.hierarchical,
+          [...stateBefore.components, ...clones],
+          railMax,
+        )
+        clone.schematicX = placed.schematicX
+        clone.schematicY = tail.schematicY
+        if (placed.railOffsetMm !== undefined) clone.railOffsetMm = placed.railOffsetMm
+        cursorX = placed.nextCursorX
+        cursorMm = placed.nextCursorRailMm
+        clones.push(clone)
+      })
+      const cloneIds = clones.map((c) => c.id)
+      set((s) => ({
+        components: [...s.components, ...clones],
+        selectedComponentIds: cloneIds,
+        selectionGroups: groupIds(s.selectionGroups, 'schematic', cloneIds, nanoid(8)) ?? s.selectionGroups,
+        dirty: true,
+      }))
+      get().pushEvent('info', `Régua ${newPrefix} duplicada e agrupada (${clones.length} bornes${rail ? ` em ${rail.ref}` : ''}).`)
+      recomputeIfActive()
+      return
+    }
+
     get().commitHistory()
     set((s) => {
       const clones: ElectricalComponent[] = []
@@ -2241,6 +2577,7 @@ export const useSimStore = create<Store>((set, get) => {
         clone.ref = nextRef([...s.components, ...clones], src.type)
         const topZ = nextTopZ([...s.components, ...clones], s.wires)
         clone.z = topZ
+        clone.sheet = src.sheet
         clone.mirrored = src.mirrored
         clone.rotation = src.rotation
         if (src.catalog) clone.catalog = { ...src.catalog }
@@ -2272,6 +2609,7 @@ export const useSimStore = create<Store>((set, get) => {
         clone.bodyColor = src.bodyColor
         clone.view3DScale = component3DScaleOf(src)
         clone.view3DRenderMode = src.view3DRenderMode ?? 'solid'
+        clone.enclosureId = src.enclosureId
         clone.panel3DPosition = src.panel3DPosition
           ? { x: src.panel3DPosition.x + 0.35, y: src.panel3DPosition.y, z: src.panel3DPosition.z + 0.18 }
           : undefined
@@ -2348,6 +2686,33 @@ export const useSimStore = create<Store>((set, get) => {
       return
     }
     get().updateComponentRaw(id, patch)
+    // Se a TAG de um borne mudar de prefixo (ex.: X1.4 → X2 ou X1.4 → X2.1), solta-o de X1 e agrupa-o com X2 se existir.
+    if (current && typeof patch.ref === 'string' && patch.ref !== current.ref && isTerminalStripType(current.type)) {
+      const s = get()
+      const updated = s.components.find((c) => c.id === id)
+      if (updated && !updated.state?.stripUngrouped) {
+        const oldP = parseTerminalRef(current.ref)
+        const newP = parseTerminalRef(updated.ref)
+        const prefixChanged = oldP.prefix.toUpperCase() !== newP.prefix.toUpperCase()
+        const cleaned = prefixChanged
+          ? s.components.map((c) => {
+              if (c.id !== id) return c
+              const nextSt: Record<string, any> = { ...c.state }
+              delete nextSt.stripId
+              return { ...c, state: nextSt }
+            })
+          : s.components
+        const baseGroups = prefixChanged ? (ungroupIds(s.selectionGroups, 'schematic', [id]) ?? s.selectionGroups) : s.selectionGroups
+        if (newP.hierarchical) {
+          const synced = syncAutoTerminalStripGroups(cleaned, baseGroups, [id])
+          if (prefixChanged || synced.changed) {
+            set({ components: synced.components, selectionGroups: synced.selectionGroups, dirty: true })
+          }
+        } else if (prefixChanged) {
+          set({ components: cleaned, selectionGroups: baseGroups, dirty: true })
+        }
+      }
+    }
   },
 
   updateComponentRaw: (id, patch) => {
@@ -2513,8 +2878,51 @@ export const useSimStore = create<Store>((set, get) => {
         return { ...c, schematicX: hit.schematicX, schematicY: hit.schematicY, railId: hit.railId, railOffsetMm: hit.railOffsetMm, panel3DPosition: undefined, z }
       })
     }
-    // Contactores que mudaram de sítio levam os relés encaixados.
-    set({ components: syncMounted(components), dirty: true })
+    // Contactores que mudaram de sítio levam os relés encaixados; bornes do mesmo grupo agrupam-se automaticamente.
+    const mounted = syncMounted(components)
+    const terminalTargets = targets.filter((t) => isTerminalStripType(t.type)).map((t) => t.id)
+    if (terminalTargets.length) {
+      // Se um borne novo encostou fisicamente (≤ 4 mm) a uma régua existente na mesma calha DIN, junta-se a essa régua.
+      let joined = mounted
+      if (terminalTargets.length === 1) {
+        const me = joined.find((c) => c.id === terminalTargets[0])
+        if (me && me.railId && typeof me.railOffsetMm === 'number' && !me.state?.stripId && !me.state?.stripUngrouped) {
+          const meW = terminalMemberWidthMm(me)
+          const neighbor = joined.find((o) => {
+            if (o.id === me.id || o.railId !== me.railId || typeof o.railOffsetMm !== 'number') return false
+            if (!isTerminalStripType(o.type) || o.state?.stripUngrouped || Number(o.state?.poleCount ?? 1) > 1) return false
+            const oW = terminalMemberWidthMm(o)
+            const gapRight = me.railOffsetMm! - (o.railOffsetMm + oW)
+            const gapLeft = o.railOffsetMm - (me.railOffsetMm! + meW)
+            const touching = (gapRight >= -0.5 && gapRight <= 4.5) || (gapLeft >= -0.5 && gapLeft <= 4.5)
+            if (!touching) return false
+            // Junta automaticamente quando o vizinho já pertence a uma régua ou partilha a mesma família (ex.: X).
+            if (typeof o.state?.stripId === 'string' && o.state.stripId) return true
+            const mp = parseTerminalRef(me.ref)
+            const op = parseTerminalRef(o.ref)
+            return mp.family.toUpperCase() === op.family.toUpperCase() || me.type === 'terminalPE'
+          })
+          if (neighbor) {
+            const sid = (typeof neighbor.state?.stripId === 'string' && neighbor.state.stripId) || nanoid(6)
+            const np = parseTerminalRef(neighbor.ref)
+            const mp = parseTerminalRef(me.ref)
+            const used = joined.filter((c) => c.id !== me.id).map((c) => c.ref)
+            const autoRef = np.hierarchical && !mp.hierarchical
+              ? nextStripMemberRef(used, np.prefix, np.sep || '.', me.type === 'terminalPE' ? 'PE' : undefined, 1)
+              : me.ref
+            joined = joined.map((c) => {
+              if (c.id === me.id) return { ...c, ref: autoRef, state: { ...c.state, stripId: sid } }
+              if (c.id === neighbor.id && !c.state?.stripId) return { ...c, state: { ...c.state, stripId: sid } }
+              return c
+            })
+          }
+        }
+      }
+      const synced = syncAutoTerminalStripGroups(joined, get().selectionGroups, terminalTargets)
+      set({ components: synced.components, selectionGroups: synced.selectionGroups, dirty: true })
+      return fixed
+    }
+    set({ components: mounted, dirty: true })
     return fixed
   },
 
@@ -3040,49 +3448,420 @@ export const useSimStore = create<Store>((set, get) => {
 
   createTerminalStrip: (componentId, count, opts) => {
     const base = get().components.find((x) => x.id === componentId)
-    if (!base || base.type !== 'terminalPhoenixPti6') return
+    if (!base || !isTerminalStripType(base.type)) return
     const n = Math.max(1, Math.min(48, Math.floor(Number(count)) || 1))
     if (n <= 1) { get().pushEvent('info', 'Defina pelo menos 2 bornes para gerar a régua.'); return }
     get().commitHistory()
     const hierarchical = !!opts?.hierarchical
+    const startIndex: 0 | 1 = opts?.startIndex === 1 ? 1 : 0
+    const existingStrip = terminalStripFor(get().components, base.id)
     const others = get().components.filter((c) => c.id !== base.id)
-    const plan = planTerminalStripRefs(others.map((c) => c.ref), base.ref, n, hierarchical)
-    // Posição: um a seguir ao outro, com passo igual à largura de um borne (os clones têm 1 pólo) e sem sobrepor outros aparelhos da mesma linha.
+    const plan = planTerminalStripRefs(others.map((c) => c.ref), base.ref, n, hierarchical, startIndex)
     const gap = hierarchical ? TERMINAL_STRIP_GAP_PX.hierarchical : TERMINAL_STRIP_GAP_PX.loose
-    const sameSheet = (c: import('../types').ElectricalComponent) => c.sheet === base.sheet
-    const clones: import('../types').ElectricalComponent[] = []
-    let cursor = base.schematicX + base.w + gap
+    const anchor = existingStrip && existingStrip.members.length > 1 && hierarchical
+      ? existingStrip.members[existingStrip.members.length - 1]
+      : base
+    const rail = anchor.railId ? get().components.find((r) => r.id === anchor.railId) : undefined
+    const railMax = rail ? clampRailLengthMm(rail.state.lengthMm) : null
+    let cursor = anchor.schematicX + anchor.w + gap
+    let cursorMm = anchor.railId && typeof anchor.railOffsetMm === 'number'
+      ? anchor.railOffsetMm + terminalMemberWidthMm(anchor)
+      : null
+    const clones: ElectricalComponent[] = []
     for (const ref of plan.refs) {
-      const comp = createComponent(base.type, ref, base.label, 0, cursor, base.schematicY, { ...base.state, poleCount: 1 })
-      for (let guard = 0; guard < 64; guard++) {
-        const hit = others.find((o) => sameSheet(o) && o.type !== 'panelEnclosure' && o.type !== 'dinRail15x55' && o.schematicX < cursor + comp.w && o.schematicX + o.w > cursor && o.schematicY < base.schematicY + comp.h && o.schematicY + o.h > base.schematicY)
-        if (!hit) break
-        cursor = hit.schematicX + hit.w + gap
-      }
-      comp.schematicX = cursor
-      comp.sheet = base.sheet
-      comp.z = base.z
+      const cleanState: Record<string, any> = { ...base.state, poleCount: 1, jumperNext: false }
+      delete cleanState.stripUngrouped
+      delete cleanState.markerText
+      const comp = createComponent(base.type, ref, base.label, 0, cursor, anchor.schematicY, cleanState)
+      const placed = placeStripCloneRight(comp, anchor, cursor, cursorMm, gap, [...others, ...clones], railMax)
+      comp.schematicX = placed.schematicX
+      comp.schematicY = anchor.schematicY
+      comp.sheet = anchor.sheet
+      comp.z = anchor.z
       comp.bodyColor = base.bodyColor
-      comp.railId = base.railId
-      comp.railOffsetMm = base.railOffsetMm
-      comp.enclosureId = base.enclosureId
+      comp.railId = anchor.railId
+      if (placed.railOffsetMm !== undefined) comp.railOffsetMm = placed.railOffsetMm
+      comp.enclosureId = anchor.enclosureId
       clones.push(comp)
-      cursor += comp.w + gap
+      cursor = placed.nextCursorX
+      cursorMm = placed.nextCursorRailMm
     }
     const cloneIds = clones.map((c) => c.id)
-    // Todos partilham a régua (`stripId`): o 3D encosta-os pelo corpo real e o grupo move-os juntos.
-    const stripId = nanoid(6)
+    // Reutiliza o `stripId` da régua existente para manter todos os bornes do mesmo grupo unidos.
+    const existingMemberIds = hierarchical && existingStrip ? existingStrip.members.map((m) => m.id) : [base.id]
+    const stripId = (hierarchical && existingStrip?.explicitStripId) || (typeof base.state?.stripId === 'string' && base.state.stripId) || nanoid(6)
     for (const c of clones) c.state = { ...c.state, stripId }
+    const memberSet = new Set(existingMemberIds)
+    const allGroupIds = [...new Set([...existingMemberIds, ...cloneIds])]
     set((s) => ({
-      components: [...s.components.map((c) => (c.id === base.id ? { ...c, ref: plan.baseRef, state: { ...c.state, stripId } } : c)), ...clones],
-      selectedComponentIds: [base.id, ...cloneIds],
-      selectionGroups: groupIds(s.selectionGroups, 'schematic', [base.id, ...cloneIds], nanoid(8)) ?? s.selectionGroups,
+      components: [
+        ...s.components.map((c) => {
+          if (!memberSet.has(c.id)) return c
+          const nextSt: Record<string, any> = { ...c.state, stripId }
+          delete nextSt.stripUngrouped
+          return { ...c, ref: c.id === base.id ? plan.baseRef : c.ref, state: nextSt }
+        }),
+        ...clones,
+      ],
+      selectedComponentIds: allGroupIds,
+      selectionGroups: groupIds(s.selectionGroups, 'schematic', allGroupIds, nanoid(8)) ?? s.selectionGroups,
       dirty: true,
     }))
-    // Na calha DIN: encaixa os clones à calha do borne de origem (offset e altura certos, sem passar para o 3D solto).
-    if (base.railId) get().snapToRails(cloneIds)
-    get().pushEvent('info', `Régua criada e agrupada: ${describeTerminalStripRefs(plan, 6)} · ${n} bornes encostados${base.railId ? ' na mesma calha' : ''}. Ctrl+Shift+G desagrupa.`)
+    if (anchor.railId && clones.some((c) => c.railOffsetMm === undefined)) get().snapToRails(cloneIds)
+    get().pushEvent('info', `Régua criada e agrupada: ${describeTerminalStripRefs(plan, 6)} · ${allGroupIds.length} bornes encostados${anchor.railId ? ' na mesma calha' : ''}. Ctrl+Shift+G desagrupa.`)
     recomputeIfActive()
+  },
+
+  appendToTerminalStrip: (componentId, specs, opts) => {
+    if (get().demoMode || isSimEditLocked(get())) return
+    const state = get()
+    const base = state.components.find((x) => x.id === componentId)
+    if (!base || !isTerminalStripType(base.type) || !specs.length) return
+    const strip = terminalStripFor(state.components, base.id)
+    const members = strip?.members ?? [base]
+    const tail = members[members.length - 1]
+    const mode: StripNumberingMode = opts?.numbering
+      ?? (members.some((m) => parseTerminalRef(m.ref).index === 0) ? 'hier0' : 'hier1')
+    const baseParsed = parseTerminalRef(members[0].ref)
+    const prefix = strip?.hierarchical ? strip.prefix : (baseParsed.family === 'PE' ? nextFreeStripPrefix(state.components.map((c) => c.ref), 'X') : baseParsed.prefix)
+    const sep = strip?.sep || baseParsed.sep || '.'
+    const startIdx: 0 | 1 = mode === 'hier0' ? 0 : 1
+    const gap = mode === 'loose' ? TERMINAL_STRIP_GAP_PX.loose : TERMINAL_STRIP_GAP_PX.hierarchical
+    const usedRefs = new Set(state.components.map((c) => c.ref))
+
+    // Se havia apenas 1 borne simples `X1` e estamos em modo hierárquico, promove-o para `X1.1` (ou `X1.0`).
+    let promotedBaseRef: string | null = null
+    if (mode !== 'loose' && members.length === 1 && !baseParsed.hierarchical && base.type !== 'terminalPE') {
+      const candidate = `${prefix}${sep}${startIdx}`
+      if (!usedRefs.has(candidate)) {
+        usedRefs.delete(base.ref)
+        usedRefs.add(candidate)
+        promotedBaseRef = candidate
+      }
+    }
+
+    const sid = strip?.explicitStripId || (typeof tail.state?.stripId === 'string' && tail.state.stripId) || nanoid(6)
+    const rail = tail.railId ? state.components.find((r) => r.id === tail.railId) : undefined
+    const railMax = rail ? clampRailLengthMm(rail.state.lengthMm) : null
+    let cursorX = tail.schematicX + tail.w + gap
+    let cursorMm = tail.railId && typeof tail.railOffsetMm === 'number'
+      ? tail.railOffsetMm + terminalMemberWidthMm(tail)
+      : null
+    const clones: ElectricalComponent[] = []
+    for (const spec of specs.slice(0, 48)) {
+      let ref: string
+      if (mode === 'loose') {
+        if (spec.type === 'terminalPE') {
+          ref = nextRef([...state.components, ...clones], 'terminalPE')
+        } else {
+          const p = planTerminalStripRefs(usedRefs, prefix, 2, false)
+          ref = p.refs[0] ?? nextRef([...state.components, ...clones], spec.type)
+        }
+      } else {
+        ref = nextStripMemberRef(usedRefs, prefix, sep, spec.suffix, startIdx)
+      }
+      usedRefs.add(ref)
+      const initState: Record<string, unknown> = {
+        stripId: sid,
+        ...(spec.type === 'terminalPhoenixPti6' ? { poleCount: 1 } : {}),
+        ...(spec.markerText ? { markerText: spec.markerText } : {}),
+        ...(spec.jumperNext ? { jumperNext: true } : {}),
+      }
+      const comp = createComponent(spec.type, ref, spec.label, 0, cursorX, tail.schematicY, initState)
+      const placed = placeStripCloneRight(comp, tail, cursorX, cursorMm, gap, [...state.components, ...clones], railMax)
+      comp.schematicX = placed.schematicX
+      comp.schematicY = tail.schematicY
+      comp.sheet = tail.sheet
+      comp.z = tail.z
+      if (spec.bodyColor) comp.bodyColor = spec.bodyColor
+      comp.railId = tail.railId
+      if (placed.railOffsetMm !== undefined) comp.railOffsetMm = placed.railOffsetMm
+      comp.enclosureId = tail.enclosureId
+      clones.push(comp)
+      cursorX = placed.nextCursorX
+      cursorMm = placed.nextCursorRailMm
+    }
+    if (!clones.length) return
+    get().commitHistory()
+    const memberSet = new Set(members.map((m) => m.id))
+    const allIds = [...members.map((m) => m.id), ...clones.map((c) => c.id)]
+    set((s) => ({
+      components: [
+        ...s.components.map((c) => {
+          if (!memberSet.has(c.id)) return c
+          const nextSt: Record<string, any> = { ...c.state, stripId: sid }
+          delete nextSt.stripUngrouped
+          return {
+            ...c,
+            ref: c.id === base.id && promotedBaseRef ? promotedBaseRef : c.ref,
+            state: nextSt,
+          }
+        }),
+        ...clones,
+      ],
+      selectedComponentIds: [clones[clones.length - 1].id],
+      selectionGroups: groupIds(s.selectionGroups, 'schematic', allIds, nanoid(8)) ?? s.selectionGroups,
+      dirty: true,
+    }))
+    if (tail.railId && clones.some((c) => c.railOffsetMm === undefined)) get().snapToRails(clones.map((c) => c.id))
+    const tagSummary = clones.length === 1 ? clones[0].ref : `${clones[0].ref}…${clones[clones.length - 1].ref}`
+    get().pushEvent('info', `${clones.length === 1 ? 'Borne adicionado' : `${clones.length} bornes adicionados`} à régua ${prefix}: ${tagSummary} (${allIds.length} no grupo).`)
+    recomputeIfActive()
+  },
+
+  applyTerminalStripPreset: (componentId, presetId) => {
+    if (get().demoMode || isSimEditLocked(get())) return
+    const preset = TERMINAL_STRIP_PRESETS.find((p) => p.id === presetId)
+    const state = get()
+    const base = state.components.find((c) => c.id === componentId)
+    if (!preset || !base || !isTerminalStripType(base.type)) return
+    const strip = terminalStripFor(state.components, base.id)
+    const baseWired = state.wires.some((w) => base.terminals.some((t) => w.fromTerminalId === t.id || w.toTerminalId === t.id))
+    const firstSpec = preset.members[0]
+    const canReuseBase = (!strip || strip.members.length === 1) && !baseWired && base.type === firstSpec.type && Number(base.state?.poleCount ?? 1) <= 1
+
+    if (!canReuseBase) {
+      // Já existem bornes/cabos: acrescenta o kit completo à direita sem apagar nenhuma ligação.
+      get().appendToTerminalStrip(componentId, [...preset.members], { numbering: 'hier1' })
+      return
+    }
+
+    get().commitHistory()
+    const bp = parseTerminalRef(base.ref)
+    const prefix = bp.family === 'PE'
+      ? nextFreeStripPrefix(state.components.filter((c) => c.id !== base.id).map((c) => c.ref), 'X')
+      : bp.prefix
+    const sep = bp.sep || '.'
+    const used = new Set(state.components.filter((c) => c.id !== base.id).map((c) => c.ref))
+    const baseNewRef = nextStripMemberRef(used, prefix, sep, firstSpec.suffix, 1)
+    used.add(baseNewRef)
+    const sid = nanoid(6)
+    const rail = base.railId ? state.components.find((r) => r.id === base.railId) : undefined
+    const railMax = rail ? clampRailLengthMm(rail.state.lengthMm) : null
+    let cursorX = base.schematicX + base.w + TERMINAL_STRIP_GAP_PX.hierarchical
+    let cursorMm = base.railId && typeof base.railOffsetMm === 'number'
+      ? base.railOffsetMm + terminalMemberWidthMm(base)
+      : null
+    const others = state.components.filter((c) => c.id !== base.id)
+    const clones: ElectricalComponent[] = []
+    for (const spec of preset.members.slice(1)) {
+      const ref = nextStripMemberRef(used, prefix, sep, spec.suffix, 1)
+      used.add(ref)
+      const comp = createComponent(spec.type, ref, spec.label, 0, cursorX, base.schematicY, {
+        stripId: sid,
+        ...(spec.type === 'terminalPhoenixPti6' ? { poleCount: 1 } : {}),
+        ...(spec.markerText ? { markerText: spec.markerText } : {}),
+        ...(spec.jumperNext ? { jumperNext: true } : {}),
+      })
+      const placed = placeStripCloneRight(comp, base, cursorX, cursorMm, TERMINAL_STRIP_GAP_PX.hierarchical, [...others, ...clones], railMax)
+      comp.schematicX = placed.schematicX
+      comp.schematicY = base.schematicY
+      comp.sheet = base.sheet
+      comp.z = base.z
+      if (spec.bodyColor) comp.bodyColor = spec.bodyColor
+      comp.railId = base.railId
+      if (placed.railOffsetMm !== undefined) comp.railOffsetMm = placed.railOffsetMm
+      comp.enclosureId = base.enclosureId
+      clones.push(comp)
+      cursorX = placed.nextCursorX
+      cursorMm = placed.nextCursorRailMm
+    }
+    const allIds = [base.id, ...clones.map((c) => c.id)]
+    set((s) => ({
+      components: [
+        ...s.components.map((c) => {
+          if (c.id !== base.id) return c
+          const nextSt: Record<string, unknown> = {
+            ...c.state,
+            stripId: sid,
+            poleCount: 1,
+            jumperNext: !!firstSpec.jumperNext,
+          }
+          delete nextSt.stripUngrouped
+          if (firstSpec.markerText) nextSt.markerText = firstSpec.markerText
+          else delete nextSt.markerText
+          return {
+            ...c,
+            ref: baseNewRef,
+            label: firstSpec.label,
+            bodyColor: firstSpec.bodyColor,
+            state: nextSt,
+          }
+        }),
+        ...clones,
+      ],
+      selectedComponentIds: [base.id],
+      selectionGroups: groupIds(s.selectionGroups, 'schematic', allIds, nanoid(8)) ?? s.selectionGroups,
+      dirty: true,
+    }))
+    get().pushEvent('info', `Régua «${preset.title}» (${prefix}) criada e agrupada com ${allIds.length} bornes.`)
+    recomputeIfActive()
+  },
+
+  toggleTerminalJumper: (componentId, force) => {
+    if (get().demoMode) return
+    const state = get()
+    const strip = terminalStripFor(state.components, componentId)
+    if (!strip || strip.members.length < 2) return
+    const idx = strip.members.findIndex((m) => m.id === componentId)
+    if (idx < 0 || idx >= strip.members.length - 1) return
+    const cur = strip.members[idx]
+    const next = strip.members[idx + 1]
+    if (!canTerminalHaveJumper(cur.type) || !canTerminalHaveJumper(next.type)) {
+      get().pushEvent('warning', 'Bornes de proteção PE não admitem ponte de interligação FBS.')
+      return
+    }
+    const enabled = force !== undefined ? force : !cur.state?.jumperNext
+    get().setComponentState(componentId, { jumperNext: enabled })
+    get().pushEvent('info', enabled ? `Ponte FBS ligada entre ${cur.ref} e ${next.ref}.` : `Ponte FBS removida entre ${cur.ref} e ${next.ref}.`)
+  },
+
+  renumberTerminalStrip: (componentId, mode) => {
+    if (get().demoMode || isSimEditLocked(get())) return
+    const state = get()
+    const strip = terminalStripFor(state.components, componentId)
+    if (!strip || strip.members.length < 1) return
+    get().commitHistory()
+    const memberIds = new Set(strip.members.map((m) => m.id))
+    const used = new Set(state.components.filter((c) => !memberIds.has(c.id)).map((c) => c.ref))
+    const prefix = strip.prefix || 'X1'
+    const sep = strip.sep || '.'
+    const start = mode === 'hier0' ? 0 : 1
+    let seq = start
+    const newRefs = new Map<string, string>()
+    for (const m of strip.members) {
+      let ref: string
+      if (mode === 'loose') {
+        const fam = m.type === 'terminalPE' ? 'PE' : (parseTerminalRef(prefix).family || 'X')
+        const esc = fam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const re = new RegExp(`^${esc}(\\d+)$`)
+        let k = 1
+        for (const r of used) { const mm = re.exec(r); if (mm) k = Math.max(k, Number(mm[1]) + 1) }
+        ref = `${fam}${k}`
+      } else if (m.type === 'terminalPE') {
+        ref = nextStripMemberRef(used, prefix, sep, 'PE', start)
+      } else {
+        while (used.has(`${prefix}${sep}${seq}`)) seq++
+        ref = `${prefix}${sep}${seq++}`
+      }
+      used.add(ref)
+      newRefs.set(m.id, ref)
+    }
+    const sid = strip.explicitStripId || nanoid(6)
+    const ids = strip.members.map((m) => m.id)
+    set((s) => ({
+      components: s.components.map((c) => {
+        const nr = newRefs.get(c.id)
+        if (!nr) return c
+        const nextSt: Record<string, any> = { ...c.state, stripId: sid }
+        delete nextSt.stripUngrouped
+        return { ...c, ref: nr, state: nextSt }
+      }),
+      selectionGroups: ids.length >= 2 ? (groupIds(s.selectionGroups, 'schematic', ids, nanoid(8)) ?? s.selectionGroups) : s.selectionGroups,
+      dirty: true,
+    }))
+    const list = strip.members.map((m) => newRefs.get(m.id)!)
+    get().pushEvent('info', `Régua renumerada: ${list[0]} … ${list[list.length - 1]}.`)
+  },
+
+  setTerminalStripGrouped: (componentId, grouped) => {
+    if (get().demoMode || isSimEditLocked(get())) return
+    const state = get()
+    const target = state.components.find((c) => c.id === componentId)
+    if (!target || !isTerminalStripType(target.type)) return
+    if (grouped) {
+      // Junta todos os bornes do mesmo prefixo hierárquico (ou stripId) na mesma folha e calha/linha.
+      const tp = parseTerminalRef(target.ref)
+      const candidates = state.components.filter((c) => {
+        if (!isTerminalStripType(c.type) || c.panelMount || Number(c.state?.poleCount ?? 1) > 1) return false
+        if ((c.sheet ?? '') !== (target.sheet ?? '')) return false
+        if (target.railId ? c.railId !== target.railId : Math.abs(c.schematicY - target.schematicY) > 28) return false
+        if (c.id === target.id) return true
+        if (target.state?.stripId && c.state?.stripId === target.state.stripId) return true
+        const cp = parseTerminalRef(c.ref)
+        if (tp.hierarchical) return cp.prefix.toUpperCase() === tp.prefix.toUpperCase()
+        // Bornes soltos encostados na mesma calha
+        if (target.railId && typeof target.railOffsetMm === 'number' && typeof c.railOffsetMm === 'number') {
+          return Math.abs(c.railOffsetMm - target.railOffsetMm) <= 120 && cp.family.toUpperCase() === tp.family.toUpperCase()
+        }
+        return false
+      })
+      if (candidates.length < 2) {
+        get().pushEvent('info', 'Adicione pelo menos mais um borne na mesma calha/prefixo para formar uma régua agrupada.')
+        return
+      }
+      const ids = candidates.map((c) => c.id)
+      const sid = candidates.map((c) => (typeof c.state?.stripId === 'string' ? c.state.stripId : '')).find(Boolean) || nanoid(6)
+      get().commitHistory()
+      set((s) => ({
+        components: s.components.map((c) => {
+          if (!ids.includes(c.id)) return c
+          const nextSt: Record<string, any> = { ...c.state, stripId: sid }
+          delete nextSt.stripUngrouped
+          return { ...c, state: nextSt }
+        }),
+        selectionGroups: groupIds(s.selectionGroups, 'schematic', ids, nanoid(8)) ?? s.selectionGroups,
+        dirty: true,
+      }))
+      get().pushEvent('info', `Régua ${tp.prefix} agrupada (${ids.length} bornes movem-se e alinham-se em conjunto).`)
+      return
+    }
+    const strip = terminalStripFor(state.components, componentId)
+    const ids = strip && strip.members.length >= 2 ? strip.members.map((m) => m.id) : [componentId]
+    get().ungroupItems('schematic', ids)
+    get().pushEvent('info', `Régua desagrupada (${ids.length} bornes independentes).`)
+  },
+
+  setContactorInterlock: (componentId, partnerId) => {
+    if (get().demoMode) return
+    const state = get()
+    const self = state.components.find((c) => c.id === componentId)
+    if (!self) return
+    const nextPartner = partnerId && partnerId !== componentId ? state.components.find((c) => c.id === partnerId) : undefined
+    const prevPartnerId = typeof self.state.interlockWith === 'string' ? self.state.interlockWith : null
+    if (prevPartnerId === (nextPartner?.id ?? null)) return
+    get().commitHistory()
+    set((s) => ({
+      components: s.components.map((c) => {
+        if (c.id === componentId) return { ...c, state: { ...c.state, interlockWith: nextPartner?.id ?? null } }
+        if (nextPartner && c.id === nextPartner.id) return { ...c, state: { ...c.state, interlockWith: componentId } }
+        if (c.state.interlockWith === componentId || (nextPartner && c.state.interlockWith === nextPartner.id)) {
+          return { ...c, state: { ...c.state, interlockWith: null } }
+        }
+        return c
+      }),
+      dirty: true,
+    }))
+    get().pushEvent(
+      'info',
+      nextPartner
+        ? `Encravamento mecânico ligado: ${self.ref} ↔ ${nextPartner.ref}.`
+        : `Encravamento mecânico removido de ${self.ref}.`,
+    )
+    recomputeIfActive()
+  },
+
+  autoNumberWire: (id) => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const targets = (state.selectedWireIds.length > 1 && state.selectedWireIds.includes(id) ? state.selectedWireIds : [id])
+      .filter((wid) => !state.wires.find((w) => w.id === wid)?.locked)
+    if (!targets.length) return
+    const targetSet = new Set(targets)
+    const used = new Set(state.wires.filter((w) => !targetSet.has(w.id)).map((w) => (w.number ?? '').trim().toUpperCase()).filter(Boolean))
+    let seq = 1
+    const assigned = new Map<string, string>()
+    for (const wid of targets) {
+      while (used.has(`W${seq}`)) seq++
+      const tag = `W${seq++}`
+      used.add(tag)
+      assigned.set(wid, tag)
+    }
+    state.commitHistory()
+    set({
+      wires: state.wires.map((w) => (assigned.has(w.id) ? { ...w, number: assigned.get(w.id) } : w)),
+      dirty: true,
+    })
   },
 
   addWire: (fromTerminalId, toTerminalId, color, waypoints) => {
@@ -3980,7 +4759,20 @@ export const useSimStore = create<Store>((set, get) => {
         activeSheetId: typeof parsed.activeSheetId === 'string' ? parsed.activeSheetId : 'sheet-1',
         canvasNotes: Array.isArray(parsed.canvasNotes) ? parsed.canvasNotes.filter((note: CanvasNote) => note && typeof note.id === 'string' && typeof note.text === 'string') : [],
         canvasTexts: Array.isArray(parsed.canvasTexts) ? parsed.canvasTexts.filter((item: CanvasText) => item && typeof item.id === 'string' && typeof item.text === 'string' && Number.isFinite(item.x) && Number.isFinite(item.y)) : [],
-        selectionGroups: parseSelectionGroups(parsed.selectionGroups).length ? parseSelectionGroups(parsed.selectionGroups) : legacyComponentGroups(sourceComponents),
+        selectionGroups: (() => {
+          const baseGroups = parseSelectionGroups(parsed.selectionGroups).length
+            ? parseSelectionGroups(parsed.selectionGroups)
+            : legacyComponentGroups(sourceComponents)
+          let merged = baseGroups
+          for (const strip of resolveTerminalStrips(cleanComponents)) {
+            if (strip.members.length < 2) continue
+            const ids = strip.members.map((m) => m.id)
+            // Não sobrepõe grupos manuais já guardados; apenas agrupa réguas ainda soltas.
+            const alreadyGrouped = merged.some((g) => g.view === 'schematic' && ids.some((id) => g.members.includes(id)))
+            if (!alreadyGrouped) merged = groupIds(merged, 'schematic', ids, nanoid(8)) ?? merged
+          }
+          return merged
+        })(),
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: EDITOR_THEME.background } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',

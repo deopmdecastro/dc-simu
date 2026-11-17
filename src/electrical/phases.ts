@@ -10,6 +10,7 @@
 
 import type { ElectricalComponent, Wire } from '../types'
 import { internalBridges, poleTerminalPairs } from './engine'
+import { terminalStripJumperPairs } from './pti6Strip'
 import { steppedTerminalBarOf } from '../three/busbarParts'
 
 export type PhaseTag = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'DC+'
@@ -29,6 +30,7 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
       for (const [a, b] of internalBridges(c)) addEdge(a, b)
       if (topology) for (const [a, b] of poleTerminalPairs(c)) addEdge(a, b)
     }
+    for (const [a, b] of terminalStripJumperPairs(components)) addEdge(a, b)
     return adjacency
   }
   const adjacency = graph(false)

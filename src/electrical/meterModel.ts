@@ -1,5 +1,6 @@
 import { computeContinuity, internalBridges, probe, sourceTerminalIds } from './engine'
 import { computePhaseLabels, type PhaseTag } from './phases'
+import { terminalStripJumperPairs } from './pti6Strip'
 import { EMPTY_METER_INPUT, type MeterInput, type Vars } from '../catalog/behavior'
 import type { ComponentDefinition } from '../catalog/types'
 import type { ElectricalComponent, Wire } from '../types'
@@ -11,15 +12,69 @@ import type { ElectricalComponent, Wire } from '../types'
 
 export const NOMINAL_LINE_V = 400
 const PHASE_V = NOMINAL_LINE_V / Math.sqrt(3)
-const DC_SOURCE_TYPES = new Set(['powerSupply', 'powerSupplyProauto24A', 'transformer'])
+const DC_SOURCE_TYPES = new Set(['powerSupply', 'powerSupplyProauto24A', 'powerSource24v', 'transformer'])
 
-type Tag = { kind: 'ac'; phase: PhaseTag } | { kind: 'dc'; plus: boolean; volts: number } | null
+type Tag = { kind: 'ac'; phase: PhaseTag; phaseV?: number } | { kind: 'dc'; plus: boolean; volts: number } | null
+
+function buildPassiveAdjacency(components: ElectricalComponent[], wires: Wire[], excludeTypes?: Set<string>): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>()
+  const edge = (a: string, b: string) => {
+    ;(adjacency.get(a) ?? adjacency.set(a, []).get(a)!).push(b)
+    ;(adjacency.get(b) ?? adjacency.set(b, []).get(b)!).push(a)
+  }
+  for (const wire of wires) {
+    if (wire.fromTerminalId && wire.toTerminalId && !wire.fromPoint && !wire.toPoint) edge(wire.fromTerminalId, wire.toTerminalId)
+  }
+  for (const c of components) {
+    if (excludeTypes?.has(c.type)) continue
+    for (const [a, b] of internalBridges(c)) edge(a, b)
+  }
+  for (const [a, b] of terminalStripJumperPairs(components)) edge(a, b)
+  return adjacency
+}
+
+/** Propaga a tensão fase–neutro configurada nas fontes AC (`nominalV` no Inspetor). */
+function acPhaseVoltages(components: ElectricalComponent[], wires: Wire[]): Map<string, number> {
+  const adjacency = buildPassiveAdjacency(components, wires, DC_SOURCE_TYPES)
+  const map = new Map<string, number>()
+  const spread = (seeds: string[], phaseVolts: number) => {
+    const queue: string[] = []
+    for (const id of seeds) {
+      if (!map.has(id)) {
+        map.set(id, phaseVolts)
+        queue.push(id)
+      }
+    }
+    while (queue.length) {
+      const cur = queue.shift()!
+      for (const next of adjacency.get(cur) ?? []) {
+        if (!map.has(next)) {
+          map.set(next, phaseVolts)
+          queue.push(next)
+        }
+      }
+    }
+  }
+  for (const c of components) {
+    const id = (label: string) => c.terminals.find((item) => item.label === label)?.id
+    if (c.type === 'powerSource3ph' && c.state.on !== false) {
+      const lineV = Number(c.state.nominalV)
+      if (Number.isFinite(lineV) && lineV > 0 && Math.abs(lineV - NOMINAL_LINE_V) > 0.05) {
+        spread(['L1', 'L2', 'L3'].map(id).filter(Boolean) as string[], lineV / Math.sqrt(3))
+      }
+    }
+    if (c.type === 'powerSource1ph' && c.state.on !== false) {
+      const phV = Number(c.state.nominalV)
+      if (Number.isFinite(phV) && phV > 0 && Math.abs(phV - 230) > 0.5) {
+        spread(['L'].map(id).filter(Boolean) as string[], phV)
+      }
+    }
+  }
+  return map
+}
 
 function dcTags(components: ElectricalComponent[], wires: Wire[], energized: Set<string>): Map<string, Tag> {
-  const adjacency = new Map<string, string[]>()
-  const edge = (a: string, b: string) => { (adjacency.get(a) ?? adjacency.set(a, []).get(a)!).push(b); (adjacency.get(b) ?? adjacency.set(b, []).get(b)!).push(a) }
-  for (const wire of wires) if (wire.fromTerminalId && wire.toTerminalId && !wire.fromPoint && !wire.toPoint) edge(wire.fromTerminalId, wire.toTerminalId)
-  for (const c of components) if (!DC_SOURCE_TYPES.has(c.type)) for (const [a, b] of internalBridges(c)) edge(a, b)
+  const adjacency = buildPassiveAdjacency(components, wires, DC_SOURCE_TYPES)
   const tags = new Map<string, Tag>()
   const spread = (seeds: string[], tag: Tag) => {
     const queue = [...seeds]
@@ -32,6 +87,11 @@ function dcTags(components: ElectricalComponent[], wires: Wire[], energized: Set
   for (const c of components) {
     const id = (label: string) => c.terminals.find((item) => item.label === label)?.id
     const volts = Number(c.state.outV ?? 24)
+    if (c.type === 'powerSource24v' && c.state.on !== false) {
+      const dcV = Number.isFinite(Number(c.state.nominalV)) && Number(c.state.nominalV) >= 0 ? Number(c.state.nominalV) : 24
+      spread(['+24V'].map(id).filter(Boolean) as string[], { kind: 'dc', plus: true, volts: dcV })
+      spread(['0V'].map(id).filter(Boolean) as string[], { kind: 'dc', plus: false, volts: dcV })
+    }
     if (c.type === 'powerSupply' && c.state.on && energized.has(id('L') ?? '')) {
       spread([id('+V')].filter(Boolean) as string[], { kind: 'dc', plus: true, volts }); spread([id('-V')].filter(Boolean) as string[], { kind: 'dc', plus: false, volts })
     }
@@ -48,7 +108,8 @@ function dcTags(components: ElectricalComponent[], wires: Wire[], energized: Set
 const phasor = (tag: Tag): [number, number] => {
   if (!tag || tag.kind !== 'ac') return [0, 0]
   const angle = tag.phase === 'L1' ? 0 : tag.phase === 'L2' ? -2 * Math.PI / 3 : tag.phase === 'L3' ? 2 * Math.PI / 3 : null
-  return angle === null ? [0, 0] : [PHASE_V * Math.cos(angle), PHASE_V * Math.sin(angle)]
+  const mag = tag.phaseV ?? PHASE_V
+  return angle === null ? [0, 0] : [mag * Math.cos(angle), mag * Math.sin(angle)]
 }
 
 const LOAD_RULES: Array<{ test: RegExp; amps: (c: ElectricalComponent) => number; on: (c: ElectricalComponent) => boolean }> = [
@@ -87,7 +148,15 @@ export function meterInputFor(def: ComponentDefinition, meter: ElectricalCompone
   if (dial === 'dcv' || dial === 'acv' || dial === 'ohm') {
     if (!volt || !leads.com || !leads.volt) return input
     const phases = computePhaseLabels(components, wires)
-    const tagAc = (id: string): Tag => { const phase = phases.get(id); return phase && energized.has(id) ? { kind: 'ac', phase } : phase === 'N' || phase === 'PE' ? { kind: 'ac', phase } : null }
+    const acVolts = acPhaseVoltages(components, wires)
+    const tagAc = (id: string): Tag => {
+      const phase = phases.get(id)
+      return phase && energized.has(id)
+        ? { kind: 'ac', phase, phaseV: acVolts.get(id) }
+        : phase === 'N' || phase === 'PE'
+          ? { kind: 'ac', phase }
+          : null
+    }
     const dc = dcTags(components, wires, energized)
     const tagDc = (id: string) => dc.get(id) ?? null
     const dcValue = (tag: Tag) => (tag && tag.kind === 'dc' && tag.plus ? tag.volts : 0)

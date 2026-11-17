@@ -14,9 +14,15 @@ export const SPRING_PULSE_MS = 250
 const timers = new Map<string, number[]>()
 
 /** Aplica o gesto de um botão/seletor a um componente do simulador (variáveis, estado, ponte de corrente). */
-export function triggerControl(def: ComponentDefinition, componentId: string, control: ControlDef, gesture: ControlGesture) {
+export function triggerControl(
+  def: ComponentDefinition,
+  componentId: string,
+  control: ControlDef,
+  gesture: ControlGesture,
+  opts?: { allowStopped?: boolean },
+) {
   const store = useSimStore.getState()
-  if (store.sim.runState === 'stopped') return
+  if (store.sim.runState === 'stopped' && !opts?.allowStopped) return
   const live = store.components.find((item) => item.id === componentId)
   if (!live) return
   let vars: Vars = mergeVars(def, live.state?.catalogVars as Vars | undefined)
@@ -29,8 +35,8 @@ export function triggerControl(def: ComponentDefinition, componentId: string, co
   } else if (isSpringReturn(control)) {
     // Mola: ativo só enquanto premido. Um clique simples gera um impulso curto.
     if (gesture === 'press' || gesture === 'long') {
-      triggerControl(def, componentId, control, 'down')
-      window.setTimeout(() => triggerControl(def, componentId, control, 'up'), SPRING_PULSE_MS)
+      triggerControl(def, componentId, control, 'down', opts)
+      window.setTimeout(() => triggerControl(def, componentId, control, 'up', opts), SPRING_PULSE_MS)
       return
     }
     if (gesture !== 'down' && gesture !== 'up') return
@@ -43,7 +49,10 @@ export function triggerControl(def: ComponentDefinition, componentId: string, co
     vars = result.vars; state = result.state; delayed.push(...result.delayed)
   }
   const bridge = meterBridgeFor(def, live, vars)
-  store.setComponentState(componentId, { catalogVars: vars, catalogState: state, meterBridge: bridge })
+  const dm20Sync = live.type === 'multimeterDm20'
+    ? { selector: String(vars.dial ?? 'off'), hold: Boolean(vars.hold), backlight: Boolean(vars.light) }
+    : {}
+  store.setComponentState(componentId, { ...dm20Sync, catalogVars: vars, catalogState: state, meterBridge: bridge })
   const list = timers.get(componentId) ?? []
   for (const action of delayed) list.push(window.setTimeout(() => useSimStore.getState().setComponentState(componentId, { catalogState: action.state }), Math.max(0, action.afterMs)))
   timers.set(componentId, list)
@@ -56,7 +65,22 @@ export function useCatalogMeter(component: ElectricalComponent | undefined, def:
   const energized = useSimStore((s) => s.runtime.energizedTerminals)
   const runState = useSimStore((s) => s.sim.runState)
   const stored = component?.state?.catalogVars as Vars | undefined
-  const vars = useMemo(() => (def ? mergeVars(def, stored) : {}), [def, stored])
+  const legacyDial = typeof component?.state?.selector === 'string' && component.state.selector !== 'off' ? component.state.selector : undefined
+  const legacyHold = component?.state?.hold === true ? true : undefined
+  const legacyLight = component?.state?.backlight === true ? true : undefined
+  const vars = useMemo(() => {
+    if (!def) return {}
+    const merged = mergeVars(def, stored)
+    if (!stored && (legacyDial || legacyHold || legacyLight)) {
+      return {
+        ...merged,
+        ...(legacyDial ? { dial: legacyDial } : {}),
+        ...(legacyHold ? { hold: true } : {}),
+        ...(legacyLight ? { light: true } : {}),
+      }
+    }
+    return merged
+  }, [def, stored, legacyDial, legacyHold, legacyLight])
   const isMeter = def?.behavior?.type === 'multimeter'
   const [noise, setNoise] = useState(0)
   useEffect(() => {

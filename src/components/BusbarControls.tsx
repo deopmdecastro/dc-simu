@@ -93,7 +93,14 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
               aria-label="Número de bornes do barramento"
               data-busbar-pole-input
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                const raw = Number(e.target.value)
+                if (e.target.value.trim() !== '' && Number.isInteger(raw) && raw >= minN && raw <= maxN && raw !== currentCount) {
+                  useSimStore.getState().setBusbarPoleCount(c.id, raw)
+                }
+              }}
+              onBlur={() => applyCount()}
               onKeyDown={(e) => { if (e.key === 'Enter') applyCount() }}
             />
             <button
@@ -334,7 +341,14 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
             aria-label="Número de bornes por barra"
             data-busbar-pole-input
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              const raw = Number(e.target.value)
+              if (e.target.value.trim() !== '' && Number.isInteger(raw) && raw >= minN && raw <= maxN && raw !== currentCount) {
+                useSimStore.getState().setBusbarPoleCount(c.id, raw)
+              }
+            }}
+            onBlur={() => applyCount()}
             onKeyDown={(e) => { if (e.key === 'Enter') applyCount() }}
           />
           <button

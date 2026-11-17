@@ -29,9 +29,22 @@ export function inferTerminalElectricalClass(component: ElectricalComponent, ter
   }
   if (component.type === 'plcLsXbmDn32s') return /^(L\+|M|I\d+\.\d+|Q\d+\.\d+)$/i.test(terminal.label) ? 'dc' : 'network'
   if (component.type === 'siemensTsAdapterIeBasic') return /^(ETH|SERVICE)$/i.test(terminal.label) ? 'network' : 'dc'
-  // A variante AD22 integrada é nominalmente 24 V AC/DC; sem categoria dupla,
-  // "outro" evita impor uma alimentação incompatível ao projeto.
-  if (component.type === 'pilotLightAd22') return 'other'
+  // A variante AD22 integrada é nominalmente 24 V AC/DC; multímetros e bornes de passagem PTI 6
+  // aceitam tanto circuitos AC como DC sem gerar falso erro de incompatibilidade.
+  if (
+    component.type === 'pilotLightAd22' ||
+    component.type === 'multimeterDm20' ||
+    component.category === 'measurement' ||
+    component.type === 'terminalPhoenixPti6' ||
+    component.type === 'terminalBlock' ||
+    component.type === 'terminalPE' ||
+    component.type === 'photoSensorXukt1ksml2'
+  ) {
+    return 'other'
+  }
+  if (component.type === 'phoenixEcb3000760' || component.type === 'surgeProtectorWegSpw12') {
+    return 'dc'
+  }
   if (component.type === 'motor3ph' || component.type === 'motor1ph') return 'ac'
   if (component.type === 'transformer') return 'ac'
   if (component.type === 'contactorWegCWC09') {

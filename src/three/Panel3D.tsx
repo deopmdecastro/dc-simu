@@ -1,5 +1,13 @@
 import { doorMountMotion, doorMountedComponent } from './doorMount'
 import { EquipmentDecal3D } from './EquipmentDecal3D'
+import { TerminalJumperBridge3D, TerminalMarkerCard3D } from './terminalMarkings'
+import {
+  canTerminalHaveJumper,
+  isTerminalStripType,
+  resolveAdjacentLooseTerminalClusters,
+  resolveTerminalStrips,
+  terminalFrontBadge,
+} from '../electrical/pti6Strip'
 import { isTabletDesktop } from '../ui/device'
 import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
@@ -319,15 +327,20 @@ const BODY_TINT = new THREE.Color()
  * fica com quem a gere (lentes, LEDs, estados) exceto quando há tinta do corpo — antes cada render repunha
  * a cor original (apagando a cor do vidro dos sinaleiros) e marcava `needsUpdate` em todos os materiais.
  */
-function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['view3DRenderMode'], bodyColor?: string) {
+function applyRenderMode(
+  group: THREE.Group | null,
+  mode: ElectricalComponent['view3DRenderMode'],
+  bodyColor?: string,
+  strongInsulatorTint = false,
+) {
   if (!group) return
-  const key = `${mode ?? 'solid'}|${bodyColor ?? ''}`
+  const key = `${mode ?? 'solid'}|${bodyColor ?? ''}|${strongInsulatorTint ? 'pa66' : ''}`
   group.traverse((node) => {
     const mesh = node as THREE.Mesh
-    if (!mesh.isMesh || mesh.userData.presentationOverlay) return
+    if (!mesh.isMesh || mesh.userData.presentationOverlay || mesh.userData.protectionMarking || mesh.userData.terminalMarking) return
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     materials.forEach((material) => {
-      const visual = material as THREE.Material & { wireframe?: boolean; opacity: number; transparent: boolean; depthWrite: boolean }
+      const visual = material as THREE.Material & { wireframe?: boolean; opacity: number; transparent: boolean; depthWrite: boolean; metalness?: number }
       if (visual.userData.dcSimuRenderKey === key) return
       const colorMaterial = visual as typeof visual & { color?: THREE.Color }
       if (!visual.userData.dcSimuPresentationBase) visual.userData.dcSimuPresentationBase = {
@@ -350,8 +363,10 @@ function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['v
       visual.depthWrite = depthWrite
       if (physicalSurface) visual.depthTest = true
       if (colorMaterial.color && base.color) {
-        if (bodyColor) {
-          colorMaterial.color.set(`#${base.color}`).lerp(BODY_TINT.set(bodyColor), 0.34)
+        const isMetallicPart = strongInsulatorTint && typeof visual.metalness === 'number' && visual.metalness > 0.42
+        if (bodyColor && !isMetallicPart) {
+          // Bornes PA66 (PTI 6 BU/BN/BK/RD/OG): pigmentação realista de corpo moldado preservando o relevo.
+          colorMaterial.color.set(`#${base.color}`).lerp(BODY_TINT.set(bodyColor), strongInsulatorTint ? 0.84 : 0.34)
           visual.userData.dcSimuBodyTinted = true
         } else if (visual.userData.dcSimuBodyTinted) {
           colorMaterial.color.set(`#${base.color}`)
@@ -562,7 +577,8 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   const rotation = orientationRadians(orientation)
   const scale = component3DScaleOf(c)
   const renderMode = c.view3DRenderMode ?? 'solid'
-  useEffect(() => applyRenderMode(modelRef.current, renderMode, c.bodyColor), [renderMode, c.bodyColor, children])
+  const isTerminalInsulator = isTerminalStripType(c.type) && c.type !== 'terminalPE'
+  useEffect(() => applyRenderMode(modelRef.current, renderMode, c.bodyColor, isTerminalInsulator), [renderMode, c.bodyColor, isTerminalInsulator, children])
   // Modelos que carregam depois (Suspense/GLB) recebem o modo numa verificação leve, ~3× por segundo
   // (materiais já tratados saltam pela chave) — antes corria a cada frame com `needsUpdate` em todos.
   // Junta as malhas estáticas do CAD por material (menos chamadas de desenho). Corre depois de os efeitos
@@ -596,7 +612,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     renderModeTick.current += delta
     if (renderModeTick.current < 0.33) return
     renderModeTick.current = 0
-    applyRenderMode(modelRef.current, renderMode, c.bodyColor)
+    applyRenderMode(modelRef.current, renderMode, c.bodyColor, isTerminalInsulator)
   })
   useEffect(() => () => dragRef.current?.cleanup(), [])
 
@@ -969,7 +985,7 @@ function EquipmentStatusLights({ c, height, centered }: { c: ElectricalComponent
 }
 
 /** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
-function CadComponentReal3D({ c, x, position, interactive = true, labelColor, labelText, anchor, resetTurn = 0 }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean; labelColor?: string; labelText?: string; /** Apoio vertical: na calha assenta na base, solto fica centrado. */ anchor?: 'center' | 'bottom'; resetTurn?: number }) {
+function CadComponentReal3D({ c, x, position, interactive = true, labelColor, labelText, hideLabel = false, inTerminalStrip = false, anchor, resetTurn = 0 }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean; labelColor?: string; labelText?: string; hideLabel?: boolean; inTerminalStrip?: boolean; /** Apoio vertical: na calha assenta na base, solto fica centrado. */ anchor?: 'center' | 'bottom'; resetTurn?: number }) {
   const spec = getComponentModelSpec(c.type)!
   const centered = (anchor ?? (position ? 'center' : 'bottom')) === 'center'
   const { scene } = useGLTF(spec.path)
@@ -1106,11 +1122,25 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     {/* Torre: halo contido + luz de ponto no centro de cada lente (por dentro), a lente fica translúcida e emissiva quando acesa. */}
     {lenses.map((lens) => <GlowHalo key={lens.role} color={lens.color} on={simActive && !!c.state[lens.role]} radius={lens.radius} kind="lens" position={lens.center} />)}
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
+    {(c.type === 'terminalPhoenixPti6' || c.type === 'terminalPE') && !centered && (
+      <TerminalMarkerCard3D
+        type={c.type}
+        text={terminalFrontBadge(c, inTerminalStrip)}
+        disconnected={c.state.bridged === false}
+      />
+    )}
     <EquipmentStatusLights c={c} height={spec.targetHeight} centered={centered} />
     {/* Sem luz de ponto «energizado»: montar/desmontar luzes recompilava os shaders de toda a cena a cada
         comutação; o estado vê-se no rótulo, nos LEDs e na pose do aparelho. */}
-    {/* Relé encaixado por baixo do contactor: o nome vai para baixo (por cima ficava sobre o contactor). */}
-    <Label text={labelText ?? c.ref} position={c.mountedOn ? [0, spec.targetHeight * (centered ? -0.5 : 0) - 0.1, 0.22] : [0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]} color={labelColor ?? (active ? '#4ade80' : '#e2e8f0')} />
+    {/* Relé encaixado por baixo do contactor: o nome vai para baixo. Bornes em régua usam o cabeçalho comum da régua. */}
+    {!hideLabel && (
+      <Label
+        text={labelText ?? c.ref}
+        size={c.type === 'terminalPhoenixPti6' || c.type === 'terminalPE' ? 0.068 : 0.085}
+        position={c.mountedOn ? [0, spec.targetHeight * (centered ? -0.5 : 0) - 0.1, 0.22] : [0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]}
+        color={labelColor ?? (active ? '#4ade80' : '#e2e8f0')}
+      />
+    )}
   </group>
 }
 
@@ -1426,14 +1456,14 @@ function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return <group position={[x, RAIL_Y + 0.48, 0.12]}><primitive object={model} /></group>
 }
 
-/** PTI6 multi-pólo: N blocos lado a lado (escala real 8,15 mm/pólo) */
-function Pti6Strip3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const n = Math.max(1, Math.min(48, Math.floor(Number((c.state as any).poleCount ?? 1)) || 1))
+/** PTI6 multi-pólo: N blocos lado a lado (escala real 8,15 mm/pólo), alinhados à calha DIN com plaquetas ZB 8 e pente FBS opcional. */
+function Pti6Strip3D({ c, x, labelColor }: { c: ElectricalComponent; x: number; labelColor?: string }) {
+  const n = Math.max(1, Math.min(48, Math.floor(Number(c.state?.poleCount ?? 1)) || 1))
   const spec = getComponentModelSpec('terminalPhoenixPti6')!
   const { scene } = useGLTF(spec.path)
-  const model = useMemo(() => {
-    const obj = cloneModelScene(scene)
-    obj.traverse((node) => {
+  const poleModels = useMemo(() => {
+    const base = cloneModelScene(scene)
+    base.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material)
@@ -1441,17 +1471,37 @@ function Pti6Strip3D({ c, x }: { c: ElectricalComponent; x: number }) {
         : finishCadMaterial(mesh.material, { envMapIntensity: 1.2 })
       mesh.castShadow = mesh.receiveShadow = true
     })
-    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    const fitted = fitComponentModel(base, spec, PANEL_UNITS_PER_MM, 'bottom')
     void applyCadSurfaceTextures(fitted)
-    return fitted
-  }, [scene, spec])
-  const step = 8.15 * PANEL_UNITS_PER_MM // largura física por pólo
+    return Array.from({ length: n }, () => fitted.clone())
+  }, [scene, spec, n])
+  const step = 8.15 * PANEL_UNITS_PER_MM // largura física real de 1 borne PTI 6
+  const offsets = useMemo(() => Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * step), [n, step])
+  const disconnected = c.state?.bridged === false
+  const combJumper = !!c.state?.combJumper && n >= 2
+  const baseBadge = typeof c.state?.markerText === 'string' && c.state.markerText.trim() ? c.state.markerText.trim() : ''
   return (
-    <group position={[x, RAIL_Y + 0.48, 0.12]}>
-      {Array.from({ length: n }).map((_, i) => {
-        const offset = (i - (n - 1) / 2) * step
-        return <primitive key={i} object={model.clone()} position={[offset, 0, 0]} />
-      })}
+    <group position={[x, RAIL_Y, 0]}>
+      {poleModels.map((poleObj, i) => (
+        <group key={i} position={[offsets[i], 0, 0]}>
+          <primitive object={poleObj} castShadow receiveShadow />
+          <TerminalMarkerCard3D
+            type="terminalPhoenixPti6"
+            text={baseBadge ? (n <= 4 ? `${baseBadge.slice(0, 3)}${i + 1}` : String(i + 1)) : String(i + 1)}
+            disconnected={disconnected}
+          />
+        </group>
+      ))}
+      {combJumper && (
+        <TerminalJumperBridge3D
+          spanX={(n - 1) * step}
+          centerX={0}
+          baseY={0}
+          baseZ={0}
+          pinOffsetsX={offsets}
+        />
+      )}
+      <Label text={c.ref} size={0.078} position={[0, spec.targetHeight + 0.1, 0.22]} color={labelColor ?? '#e2e8f0'} />
     </group>
   )
 }
@@ -3392,7 +3442,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }
     for (const members of strips.values()) {
       if (members.length < 2) continue
-      members.sort((a, b) => a.schematicX - b.schematicX)
+      members.sort((a, b) => {
+        if (a.railId && a.railId === b.railId && typeof a.railOffsetMm === 'number' && typeof b.railOffsetMm === 'number') {
+          return a.railOffsetMm - b.railOffsetMm
+        }
+        return a.schematicX - b.schematicX
+      })
       const lead = members[0]
       let edge = panelPivots[lead.id].x + componentHalfExtents(lead, baseOrientationFor(lead)).x
       for (const m of members.slice(1)) {
@@ -3406,6 +3461,121 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const motion = doorMountMotion(component, components, PLATE_FRONT_Z)
     if (motion) panelPivots[component.id].sub(motion.hinge).applyAxisAngle(new THREE.Vector3(0, 1, 0), motion.angle).add(motion.hinge)
   }
+
+  // Réguas de bornes resolvidas (explícitas, hierárquicas `X1.0…X1.3` ou bornes soltos encostados):
+  // substitui as TAGs individuais sobrepostas por um único cabeçalho limpo + barra de agrupamento + pontes FBS 3D.
+  const { terminalStripMemberIds, terminalStripHeaders, terminalStripJumpers } = (() => {
+    const resolved = resolveTerminalStrips(components)
+    const claimed = new Set<string>()
+    for (const st of resolved) if (st.members.length >= 2) for (const m of st.members) claimed.add(m.id)
+    const loose = resolveAdjacentLooseTerminalClusters(components, claimed)
+    const activeStrips = [...resolved.filter((s) => s.members.length >= 2), ...loose]
+    const memberIds = new Set<string>()
+    const headers: Array<{
+      key: string
+      text: string
+      labelX: number
+      labelY: number
+      labelZ: number
+      leftX: number
+      rightX: number
+      barY: number
+      barZ: number
+      selected: boolean
+    }> = []
+    const jumpers: Array<{ key: string; centerX: number; spanX: number; baseY: number; baseZ: number }> = []
+
+    for (const st of activeStrips) {
+      const valid = st.members.filter((m) => !!panelPivots[m.id])
+      if (valid.length < 2) continue
+      for (const m of valid) memberIds.add(m.id)
+
+      // Ordena pela posição real X no painel 3D.
+      const ordered = [...valid].sort((a, b) => panelPivots[a.id].x - panelPivots[b.id].x)
+      let leftX = Infinity
+      let rightX = -Infinity
+      let topY = -Infinity
+      let maxFrontZ = -Infinity
+      for (const m of ordered) {
+        const p = panelPivots[m.id]
+        const h = componentHalfExtents(m, orientationFor(m))
+        leftX = Math.min(leftX, p.x - h.x)
+        rightX = Math.max(rightX, p.x + h.x)
+        topY = Math.max(topY, p.y + h.y)
+        maxFrontZ = Math.max(maxFrontZ, p.z + h.z)
+      }
+      const centerX = (leftX + rightX) / 2
+      const barY = topY + 0.045
+      const labelY = topY + 0.125
+      const labelZ = maxFrontZ - 0.02
+      const selected = ordered.some((m) => selectedIds.includes(m.id))
+      headers.push({
+        key: st.key,
+        text: st.headerTag,
+        labelX: centerX,
+        labelY,
+        labelZ,
+        leftX: leftX + 0.008,
+        rightX: rightX - 0.008,
+        barY,
+        barZ: labelZ,
+        selected,
+      })
+
+      // Pontes FBS vermelhas entre bornes adjacentes (≤ 18 mm centro-a-centro, nunca em PE).
+      for (let i = 0; i < ordered.length - 1; i++) {
+        const a = ordered[i]
+        const b = ordered[i + 1]
+        if (!a.state?.jumperNext) continue
+        if (!canTerminalHaveJumper(a.type) || !canTerminalHaveJumper(b.type)) continue
+        const pA = panelPivots[a.id]
+        const pB = panelPivots[b.id]
+        const span = Math.abs(pB.x - pA.x)
+        if (span > 0.24 || Math.abs(pB.y - pA.y) > 0.12) continue
+        const hA = componentHalfExtents(a, orientationFor(a))
+        jumpers.push({
+          key: `fbs:${a.id}:${b.id}`,
+          centerX: (pA.x + pB.x) / 2,
+          spanX: span,
+          baseY: pA.y - hA.y,
+          baseZ: pA.z,
+        })
+      }
+    }
+
+    // Anti-colisão horizontal entre cabeçalhos de régua e etiquetas de aparelhos vizinhos na mesma linha (ex.: QG1 | X1 | X2).
+    const estHalfW = (txt: string, fontSize = 0.078) => Math.max(0.06, txt.length * fontSize * 0.34 + 0.025)
+    const fixedNeighborLabels: Array<{ x: number; y: number; hw: number }> = []
+    for (const c of railComponents) {
+      if (memberIds.has(c.id) || isMountingRail(c.type) || c.type === 'panelEnclosure' || c.type === 'cableDuct' || c.type === 'spiralWrap') continue
+      const p = panelPivots[c.id]
+      if (!p) continue
+      const h = componentHalfExtents(c, orientationFor(c))
+      fixedNeighborLabels.push({ x: p.x, y: p.y + h.y + 0.1, hw: estHalfW(c.ref, 0.085) })
+    }
+    headers.sort((a, b) => a.labelX - b.labelX)
+    for (const hdr of headers) {
+      const hw = estHalfW(hdr.text)
+      for (const nb of fixedNeighborLabels) {
+        if (Math.abs(nb.y - hdr.labelY) > 0.24) continue
+        const minGap = nb.hw + hw + 0.025
+        const dx = hdr.labelX - nb.x
+        if (Math.abs(dx) < minGap) {
+          hdr.labelX = dx >= 0 ? nb.x + minGap : nb.x - minGap
+        }
+      }
+    }
+    for (let i = 1; i < headers.length; i++) {
+      const prev = headers[i - 1]
+      const cur = headers[i]
+      if (Math.abs(cur.labelY - prev.labelY) > 0.22) continue
+      const minGap = estHalfW(prev.text) + estHalfW(cur.text) + 0.03
+      if (cur.labelX - prev.labelX < minGap) {
+        cur.labelX = prev.labelX + minGap
+      }
+    }
+    return { terminalStripMemberIds: memberIds, terminalStripHeaders: headers, terminalStripJumpers: jumpers }
+  })()
   /** Só geometria/posições contam para sombras: RUN mexe estados, não posições. */
   const shadowWatch = useMemo(() => {
     const pos = components.map((c) => { const p = panelPivots[c.id]; return p ? `${c.id}:${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}:${c.rotation ?? 0}` : c.id }).join('|')
@@ -4369,12 +4539,32 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                 label={<Label text={c.ref} position={[0, dims.y / 2 + 0.095, 0.08]} size={0.075} color={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} />}
               />
             )
+          } else if (c.type === 'terminalPhoenixPti6' && Number(c.state?.poleCount ?? 1) > 1) {
+            content = (
+              <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}>
+                <Suspense fallback={null}>
+                  <Pti6Strip3D c={c} x={x} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#1e293b'} />
+                </Suspense>
+              </Model3DErrorBoundary>
+            )
           } else if (hasDinRailModel(c.type)) {
             const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CadComponentReal3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+            const inStrip = terminalStripMemberIds.has(c.id)
+            content = (
+              <Model3DErrorBoundary fallback={fallback}>
+                <Suspense fallback={null}>
+                  <CadComponentReal3D
+                    c={c}
+                    x={x}
+                    interactive={interactive && !c.locked}
+                    hideLabel={inStrip}
+                    inTerminalStrip={inStrip}
+                  />
+                </Suspense>
+              </Model3DErrorBoundary>
+            )
           } else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
-          else if ((c as any).type === 'terminalPhoenixPti6' && Number((c as any).state?.poleCount ?? 1) > 1) content = <Pti6Strip3D c={c} x={x} />
           else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} interactive={interactive && !c.locked} />
@@ -4460,6 +4650,40 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else content = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
           return wrapOriented(c, content)
         })}
+        {/* Cabeçalhos unificados e pontes FBS 3D das réguas de bornes — zero sobreposição de TAGs */}
+        {terminalStripHeaders.map((hdr) => {
+          const barW = Math.max(0.06, hdr.rightX - hdr.leftX)
+          const barCx = (hdr.leftX + hdr.rightX) / 2
+          const ink = hdr.selected ? '#2563eb' : (backgroundMode === 'dark' ? '#e2e8f0' : '#1e293b')
+          const lineInk = hdr.selected ? '#2563eb' : (backgroundMode === 'dark' ? '#94a3b8' : '#64748b')
+          return (
+            <group key={`strip-hdr-${hdr.key}`}>
+              <Label text={hdr.text} size={0.078} position={[hdr.labelX, hdr.labelY, hdr.labelZ]} color={ink} />
+              {/* Barra discreta de agrupamento sobre a régua inteira (canto esquerdo + traço + canto direito) */}
+              <mesh position={[barCx, hdr.barY, hdr.barZ]} raycast={() => null}>
+                <boxGeometry args={[barW, 0.009, 0.006]} />
+                <meshBasicMaterial color={lineInk} />
+              </mesh>
+              <mesh position={[hdr.leftX, hdr.barY - 0.014, hdr.barZ]} raycast={() => null}>
+                <boxGeometry args={[0.009, 0.032, 0.006]} />
+                <meshBasicMaterial color={lineInk} />
+              </mesh>
+              <mesh position={[hdr.rightX, hdr.barY - 0.014, hdr.barZ]} raycast={() => null}>
+                <boxGeometry args={[0.009, 0.032, 0.006]} />
+                <meshBasicMaterial color={lineInk} />
+              </mesh>
+            </group>
+          )
+        })}
+        {terminalStripJumpers.map((j) => (
+          <TerminalJumperBridge3D
+            key={j.key}
+            centerX={j.centerX}
+            spanX={j.spanX}
+            baseY={j.baseY}
+            baseZ={j.baseZ}
+          />
+        ))}
         <Wires3D
           onRoutingLoadingChange={setRoutingLoading}
           pivots={panelPivots}

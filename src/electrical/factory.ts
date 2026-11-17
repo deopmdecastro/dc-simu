@@ -1658,8 +1658,14 @@ export function nextRef(components: ElectricalComponent[], type: ComponentType):
   const tag = TEMPLATES[type].tag
   const used = components
     .filter((c) => c.ref.startsWith(tag))
-    .map((c) => Number(c.ref.replace(tag, '')))
-    .filter((n) => !Number.isNaN(n))
+    .map((c) => {
+      const rest = c.ref.slice(tag.length)
+      // Reconhece tanto TAGs simples (`X1`, `X2`) como prefixos de réguas hierárquicas (`X1.0`, `X2.7`, `X1:3`)
+      // sem nunca gerar números decimais (`1.3 + 1 = X2.3`).
+      const m = /^(\d+)(?:[.:].*)?$/.exec(rest)
+      return m ? Number(m[1]) : NaN
+    })
+    .filter((n) => Number.isInteger(n) && n >= 0)
   const next = (used.length ? Math.max(...used) : 0) + 1
   return `${tag}${next}`
 }

@@ -18,6 +18,7 @@
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
 import { importedBridges } from './importedComponents'
 import { mountTerminalPairs } from './mounts'
+import { terminalStripJumperPairs } from './pti6Strip'
 import { steppedTerminalBarOf } from '../three/busbarParts'
 
 export interface ContinuityResult {
@@ -278,10 +279,30 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       break
     }
 
-    // ---- bornes / barras unipolares: barra contínua de latão (todos os bornes equipotenciais) ----
-    case 'terminalBlock':
+    // ---- bornes DIN: passagem interna 1–2 (seccionável por `bridged === false`); em régua multi-pólo cada pólo (2k+1, 2k+2) é isolado salvo pente `combJumper === true` ----
     case 'terminalPhoenixPti6':
-    case 'terminalPE':
+    case 'terminalBlock': {
+      if (c.state.bridged === false) break
+      const poles = Math.floor(Number(c.state.poleCount ?? 1))
+      if (c.type === 'terminalPhoenixPti6' && poles > 1 && c.terminals.length === poles * 2) {
+        for (let i = 0; i < poles; i++) {
+          bridges.push([c.terminals[i * 2].id, c.terminals[i * 2 + 1].id])
+          if (c.state.combJumper && i + 1 < poles) {
+            bridges.push([c.terminals[i * 2].id, c.terminals[(i + 1) * 2].id])
+          }
+        }
+      } else {
+        for (let i = 0; i < c.terminals.length - 1; i++) bridges.push([c.terminals[i].id, c.terminals[i + 1].id])
+      }
+      break
+    }
+    case 'terminalPE': {
+      // Borne de proteção PE: condutividade garantida entre os bornes (salvo seccionamento explícito de ensaio).
+      if (c.state.bridged === false) break
+      for (let i = 0; i < c.terminals.length - 1; i++) bridges.push([c.terminals[i].id, c.terminals[i + 1].id])
+      break
+    }
+    // ---- barras unipolares: barra contínua de latão (todos os bornes equipotenciais) ----
     case 'busbarPhaseAcrylic':
     case 'busbarNeutral':
     case 'earthBar': {
@@ -389,6 +410,7 @@ function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set
       for (const [a, b] of internalBridges(c)) union(a, b)
     }
   }
+  for (const [a, b] of terminalStripJumperPairs(components)) union(a, b)
   const feeders = new Map<string, Set<string>>() // rede → componentes que a alimentam
   for (const c of components) {
     for (const term of c.terminals) {
@@ -508,6 +530,7 @@ function buildGraph(components: ElectricalComponent[], wires: Wire[]): Graph {
     if (a && b) addEdge(a, b)
   }
   for (const c of components) for (const [a, b] of internalBridges(c)) addEdge(a, b)
+  for (const [a, b] of terminalStripJumperPairs(components)) addEdge(a, b)
   return { adjacency }
 }
 

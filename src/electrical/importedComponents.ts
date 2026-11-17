@@ -54,7 +54,11 @@ export const IMPORTED_MOMENTARY_CONTROLS: ImportedControl[] = ['stop', 'test']
 export function importedActuationPatch(component: ElectricalComponent, pressed: boolean, control: ImportedControl | null = null): Record<string, unknown> | null {
   const info = importedComponentInfo(component.type)
   if (!info) return null
-  if (info.behavior === 'actuator' || info.behavior.startsWith('button')) return { pressed }
+  if (info.behavior === 'actuator' || info.behavior.startsWith('button')) {
+    // Se o utilizador desativar «Retorno por mola» (`momentary === false`), a chave/botão fica retido (0 ↔ I).
+    if (component.state.momentary === false) return pressed ? { pressed: !component.state.pressed } : null
+    return { pressed }
+  }
   // Relé térmico em modo manual (contrato didático DC-TEST-RESET-01): TEST simula um
   // disparo real e retido. Largar o cursor liberta testPressed, mas NÃO rearma a proteção.
   // STOP continua momentâneo. RESET só atua depois de libertar TEST/STOP e nunca liga KM1.
@@ -85,6 +89,10 @@ export function importedActuationPatch(component: ElectricalComponent, pressed: 
   // Porta-fusível Schneider TeSys DF: clicar na gaveta abre ou fecha o porta-cartucho.
   if (info.behavior === 'fuse' && control === 'carrier') {
     return pressed ? { closed: !component.state.closed } : null
+  }
+  // Seletor 3 posições: se «Posição mantida» (`maintain === false`) for desativada, retorna a 0 ao largar.
+  if (info.behavior === 'selector' && !pressed) {
+    return component.state.maintain === false && component.state.position !== 0 ? { position: 0 } : null
   }
   if (!pressed) return null
   if (info.behavior === 'breaker' || info.behavior === 'fuse') return { closed: !component.state.closed || !!component.state.tripped, tripped: false }

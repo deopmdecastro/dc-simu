@@ -21,6 +21,13 @@ import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import DinRail2D from './DinRail2D'
 import { expandWireMarkerRings } from '../electrical/wireMarkers'
 import { formatProtectionBadge } from '../electrical/protectionSpecs'
+import {
+  canTerminalHaveJumper,
+  isTerminalStripType,
+  resolveAdjacentLooseTerminalClusters,
+  resolveTerminalStrips,
+  terminalFrontBadge,
+} from '../electrical/pti6Strip'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireEndScale, wireStrokeWidth } from './wireMetrics'
@@ -1623,6 +1630,18 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       : c.type === 'contactorWegCWC09' ? wegImage
         : cadImages[c.type] ?? null
 
+  // Réguas de bornes na folha ativa: evita sobreposição de TAGs (X1.0…X1.3) mostrando um único cabeçalho + plaquetas ZB 8 + pontes FBS.
+  const schematicTerminalStrips = useMemo(() => {
+    const resolved = resolveTerminalStrips(displayComponents).filter((s) => s.members.length >= 2)
+    const claimed = new Set<string>()
+    for (const st of resolved) for (const m of st.members) claimed.add(m.id)
+    const loose = resolveAdjacentLooseTerminalClusters(displayComponents, claimed)
+    const list = [...resolved, ...loose]
+    const memberIds = new Set<string>()
+    for (const st of list) for (const m of st.members) memberIds.add(m.id)
+    return { list, memberIds }
+  }, [displayComponents])
+
   const renderComponentEl = (c: ElectricalComponent) => {
     const selected = selectedIds.includes(c.id)
     const baseModelImage = modelImageFor(c)
@@ -1761,7 +1780,58 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
                 <title>Botão T · Testar disparo diferencial ({c.ref})</title>
               </rect>
             )}
-            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+            {/* Bornes: cor PA66 opcional + plaqueta frontal ZB 8; se pertencer a régua, a TAG global fica na barra da régua. */}
+            {isTerminalStripType(c.type) && (() => {
+              const inStrip = schematicTerminalStrips.memberIds.has(c.id)
+              const badge = terminalFrontBadge(c, inStrip)
+              const pillW = Math.min(Math.max(10, c.w - 3), Math.max(12, badge.length * 5.4 + 5))
+              const pillH = c.w < 18 ? 10 : 12
+              const pillY = imageBounds.y + imageBounds.h * 0.5 - pillH / 2
+              const disconnected = c.state?.bridged === false
+              return (
+                <g pointerEvents="none">
+                  {c.bodyColor && c.type !== 'terminalPE' && (
+                    <rect
+                      x={imageBounds.x + 1}
+                      y={imageBounds.y + 2}
+                      width={Math.max(4, imageBounds.w - 2)}
+                      height={Math.max(6, imageBounds.h - 4)}
+                      rx={2}
+                      fill={c.bodyColor}
+                      fillOpacity={0.34}
+                    />
+                  )}
+                  {c.w >= 11 && (
+                    <>
+                      <rect
+                        x={c.w / 2 - pillW / 2}
+                        y={pillY}
+                        width={pillW}
+                        height={pillH}
+                        rx={2}
+                        fill="#ffffff"
+                        stroke={c.type === 'terminalPE' ? '#16a34a' : disconnected ? '#ea580c' : '#94a3b8'}
+                        strokeWidth={0.9}
+                      />
+                      <text
+                        x={c.w / 2}
+                        y={pillY + pillH / 2 + 0.5}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={c.w < 18 ? 6.4 : 7.6}
+                        fontWeight={800}
+                        fill="#0f172a"
+                      >
+                        {badge.slice(0, c.w < 18 ? 2 : 4)}
+                      </text>
+                    </>
+                  )}
+                </g>
+              )
+            })()}
+            {!schematicTerminalStrips.memberIds.has(c.id) && (
+              <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+            )}
             {(() => {
               const badge = formatProtectionBadge(c)
               if (!badge) return null
@@ -1906,6 +1976,60 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
           {/* Cabos e componentes partilham a mesma ordem z. */}
           {drawOrder.map((entry) => (entry.kind === 'wire' ? renderWireEl(entry.wire) : renderComponentEl(entry.comp)))}
+          {/* Cabeçalhos unificados e pontes FBS 2D das réguas de bornes — sem sobreposição de TAGs */}
+          {schematicTerminalStrips.list.length > 0 && (
+            <g className="dc-terminal-strips-2d" pointerEvents="none">
+              {schematicTerminalStrips.list.map((st) => {
+                const ordered = [...st.members].sort((a, b) => a.schematicX - b.schematicX)
+                const minX = Math.min(...ordered.map((m) => m.schematicX)) + 2
+                const maxX = Math.max(...ordered.map((m) => m.schematicX + m.w)) - 2
+                const maxBottom = Math.max(...ordered.map((m) => m.schematicY + m.h))
+                const cx = (minX + maxX) / 2
+                const barY = maxBottom + 4
+                const isSel = ordered.some((m) => selectedIds.includes(m.id))
+                const stroke = isSel ? '#2563eb' : '#64748b'
+                const textInk = isSel ? '#1d4ed8' : '#1e293b'
+                return (
+                  <g key={`st2d-${st.key}`}>
+                    <path
+                      d={`M ${minX} ${barY - 3} L ${minX} ${barY} L ${maxX} ${barY} L ${maxX} ${barY - 3}`}
+                      fill="none"
+                      stroke={stroke}
+                      strokeWidth={1.15}
+                    />
+                    <text
+                      x={cx}
+                      y={barY + 11}
+                      textAnchor="middle"
+                      fontSize={10.5}
+                      fontWeight={700}
+                      fill={textInk}
+                      stroke={EDITOR_THEME.background}
+                      strokeWidth={2.5}
+                      paintOrder="stroke"
+                    >
+                      {st.headerTag}
+                    </text>
+                    {ordered.slice(0, -1).map((a, i) => {
+                      const b = ordered[i + 1]
+                      if (!a.state?.jumperNext || !canTerminalHaveJumper(a.type) || !canTerminalHaveJumper(b.type)) return null
+                      const ax = a.schematicX + a.w / 2
+                      const bx = b.schematicX + b.w / 2
+                      if (Math.abs(bx - ax) > Math.max(a.w, b.w) + 28) return null
+                      const jy = Math.min(a.schematicY, b.schematicY) + Math.min(a.h, b.h) * 0.36
+                      return (
+                        <g key={`fbs2d-${a.id}-${b.id}`}>
+                          <line x1={ax} y1={jy} x2={bx} y2={jy} stroke="#dc2626" strokeWidth={3.2} strokeLinecap="round" />
+                          <circle cx={ax} cy={jy} r={2.1} fill="#dc2626" stroke="#ffffff" strokeWidth={0.7} />
+                          <circle cx={bx} cy={jy} r={2.1} fill="#dc2626" stroke="#ffffff" strokeWidth={0.7} />
+                        </g>
+                      )
+                    })}
+                  </g>
+                )
+              })}
+            </g>
+          )}
 
           {/* Abraçadeiras de filaçar (2D): fita PA66 + fecho sobre chicotes paralelos (`bundleId`). */}
           {wires.some((w) => w.bundleId) && (() => {

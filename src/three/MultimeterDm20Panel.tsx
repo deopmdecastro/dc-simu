@@ -12,14 +12,22 @@ const selector: ControlDef = {
     { id: 'ma', label: 'mA', angle: 68 }, { id: 'a10', label: '10 A', angle: 93 }, { id: 'ohm', label: 'Ω', angle: -112 },
   ],
 }
-const button = (id: string, event: 'select' | 'power' | 'hold'): ControlDef => ({ id, name: id, kind: 'button', partId: 'dm20', nodes: [], axis: [0, 0, 1], travelMm: 1, bindVar: '', positions: [], actions: [{ type: 'behavior', event }] })
-const selectButton = button('dm20-select', 'select'), powerButton = button('dm20-power', 'power'), holdButton = button('dm20-hold', 'hold')
+const button = (id: string, event: 'select' | 'power' | 'hold' | 'light'): ControlDef => ({ id, name: id, kind: 'button', partId: 'dm20', nodes: [], axis: [0, 0, 1], travelMm: 1, bindVar: '', positions: [], actions: [{ type: 'behavior', event }] })
+const selectButton = button('dm20-select', 'select'), powerButton = button('dm20-power', 'power'), holdButton = button('dm20-hold', 'hold'), lightButton = button('dm20-light', 'light')
+
+export const DM20_CONTROLS = {
+  selector,
+  select: selectButton,
+  power: powerButton,
+  hold: holdButton,
+  light: lightButton,
+} as const
 
 /** Definição funcional embutida: usa os mesmos bornes estáveis da biblioteca. */
 export const DM20_DEFINITION = {
   schemaVersion: 1, mount: 'machine', parts: [], materials: [], terminals: [], lights: [], states: [], initialState: 'base', interactions: [], assets: {},
   behavior: { type: 'multimeter', com: 'dm20-com', volt: 'dm20-volt', milliamp: 'dm20-ma', amp: 'dm20-amp' },
-  controls: [selector, selectButton, powerButton, holdButton], vars: [], displays: [],
+  controls: [selector, selectButton, powerButton, holdButton, lightButton], vars: [], displays: [],
 } as ComponentDefinition
 
 export default function MultimeterDm20Panel({ component, model, interactive = true }: { component: ElectricalComponent; model?: THREE.Object3D; interactive?: boolean }) {
