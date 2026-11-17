@@ -18,6 +18,7 @@
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
 import { importedBridges } from './importedComponents'
 import { mountTerminalPairs } from './mounts'
+import { combMountPairs, isCombBusbar } from '../three/combMount'
 import { terminalStripJumperPairs } from './pti6Strip'
 import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarParts'
 
@@ -432,6 +433,15 @@ function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set
     }
   }
   for (const [a, b] of terminalStripJumperPairs(components)) union(a, b)
+  for (const comb of components) {
+    if (!isCombBusbar(comb) || !comb.mountedOn) continue
+    for (const { pinLabel, breakerId, socketLabel } of combMountPairs(comb, components)) {
+      const pin = comb.terminals.find((t) => t.label === pinLabel)
+      const br = components.find((c) => c.id === breakerId)
+      const sock = br?.terminals.find((t) => t.label === socketLabel)
+      if (pin && sock) union(pin.id, sock.id)
+    }
+  }
   const feeders = new Map<string, Set<string>>() // rede → componentes que a alimentam
   for (const c of components) {
     for (const term of c.terminals) {
@@ -564,6 +574,16 @@ function buildGraph(components: ElectricalComponent[], wires: Wire[]): Graph {
   }
   for (const c of components) for (const [a, b] of internalBridges(c)) addEdge(a, b)
   for (const [a, b] of terminalStripJumperPairs(components)) addEdge(a, b)
+  // Encaixe pente → bornes superiores dos disjuntores (sem cabos)
+  for (const comb of components) {
+    if (!isCombBusbar(comb) || !comb.mountedOn) continue
+    for (const { pinLabel, breakerId, socketLabel } of combMountPairs(comb, components)) {
+      const pin = comb.terminals.find((t) => t.label === pinLabel)
+      const br = components.find((c) => c.id === breakerId)
+      const sock = br?.terminals.find((t) => t.label === socketLabel)
+      if (pin && sock) addEdge(pin.id, sock.id)
+    }
+  }
   return { adjacency }
 }
 
