@@ -110,6 +110,8 @@ export type ComponentType =
   | 'busbarPhase'
   | 'busbarPhaseAcrylic'
   | 'busbarPhaseStepped'
+  | 'busbarComb'
+  | 'combBusbarConnector'
   | 'busbarNeutral'
   | 'earthBar'
   | 'terminalSet1ph'

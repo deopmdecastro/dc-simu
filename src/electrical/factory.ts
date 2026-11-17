@@ -20,6 +20,7 @@ import {
   busbarTerminalSpecs,
   STEPPED_BUSBAR,
 } from '../three/busbarParts'
+import { COMB_BUSBAR, COMB_CONNECTOR } from '../three/combBusbarParts'
 
 const FACE_OUTWARD_3D: Record<RealTerminalSpot['face'], [number, number, number]> = {
   front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0],
@@ -988,6 +989,57 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       coverOpen: false,
       coverVisible: true,
       source: false,
+    },
+  },
+  busbarComb: {
+    category: 'terminal',
+    paletteName: 'Barramento tipo pente (pino)',
+    group: 'Bornes e barras',
+    tag: 'BP',
+    ...busbarFootprintPx('busbarComb', {
+      poleCount: COMB_BUSBAR.defaultPoles,
+      combMode: COMB_BUSBAR.defaultMode,
+    })!,
+    terminals: busbarTerminalSpecs('busbarComb', {
+      poleCount: COMB_BUSBAR.defaultPoles,
+      combMode: COMB_BUSBAR.defaultMode,
+      neutralSide: COMB_BUSBAR.defaultNeutralSide,
+      teethDirection: COMB_BUSBAR.defaultTeethDirection,
+      endCaps: true,
+      feedConnectors: COMB_BUSBAR.defaultFeedConnectors,
+    }),
+    defaultState: {
+      poleCount: COMB_BUSBAR.defaultPoles,
+      combMode: COMB_BUSBAR.defaultMode,
+      neutralSide: COMB_BUSBAR.defaultNeutralSide,
+      teethDirection: COMB_BUSBAR.defaultTeethDirection,
+      brandStyle: COMB_BUSBAR.defaultBrand,
+      ratedA: COMB_BUSBAR.defaultRatedA,
+      endCaps: true,
+      feedConnectors: COMB_BUSBAR.defaultFeedConnectors,
+      connectorColor: COMB_BUSBAR.defaultConnectorColor,
+      connectorPhaseColors: false,
+      source: false,
+      sourcePhase: 'L1',
+    },
+  },
+  combBusbarConnector: {
+    category: 'terminal',
+    paletteName: 'Conector para barramento pente',
+    group: 'Bornes e barras',
+    tag: 'CB',
+    ...busbarFootprintPx('combBusbarConnector')!,
+    terminals: busbarTerminalSpecs('combBusbarConnector', {
+      connectorColor: COMB_CONNECTOR.defaultColor,
+      pinDirection: COMB_CONNECTOR.defaultPinDirection,
+      pinStyle: COMB_CONNECTOR.defaultPinStyle,
+      gaugeRange: COMB_CONNECTOR.defaultGauge,
+    }),
+    defaultState: {
+      connectorColor: COMB_CONNECTOR.defaultColor,
+      pinDirection: COMB_CONNECTOR.defaultPinDirection,
+      pinStyle: COMB_CONNECTOR.defaultPinStyle,
+      gaugeRange: COMB_CONNECTOR.defaultGauge,
     },
   },
   terminalSet1ph: {

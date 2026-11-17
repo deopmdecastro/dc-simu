@@ -119,6 +119,8 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   busbarPhase: { primary: 'node', iec60617: '60617-3 / barramento', refLetter: 'X' },
   busbarPhaseAcrylic: { primary: 'node', iec60617: '60617-3 / barramento de fase', refLetter: 'BF', note: 'Barramento unipolar de latão com acrílico colorido' },
   busbarPhaseStepped: { primary: 'node', iec60617: '60617-3 / repartidor tetrapolar', refLetter: 'QBL', note: 'Barramento repartidor de fases em escada com tampa articulada' },
+  busbarComb: { primary: 'node', iec60617: '60617-3 / pente de ligação modular', refLetter: 'BP', note: 'Barramento tipo pente de pinos em cobre (1P, 1P+N, 3P, 3P+N · IEC 60947-7-1)' },
+  combBusbarConnector: { primary: 'node', iec60617: '60617-3 / borne de alimentação', refLetter: 'CB', note: 'Conector genérico de alimentação tipo pino 6–25 mm² para barramento pente' },
   busbarNeutral: { primary: 'node', iec60617: '60617-3', refLetter: 'N', note: 'Barramento de neutro com acrílico azul' },
   earthBar: { primary: 'node', iec60617: '60617-2 / 02-15-03', refLetter: 'PE', note: 'Barramento de terra com acrílico verde' },
   terminalSet1ph: { primary: 'node', iec60617: '60617-3', refLetter: 'X' },

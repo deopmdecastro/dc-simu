@@ -1,6 +1,15 @@
 import * as THREE from 'three'
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { ComponentType, Terminal, TerminalKind } from '../types'
+import {
+  COMB_CONNECTOR,
+  combBusbarDimsOf,
+  combBusbarTerminalSpecs,
+  combConnectorTerminalSpecs,
+  isCombBusbarType,
+  isCombConnectorType,
+} from './combBusbarParts'
+export { isCombBusbarType, isCombConnectorType, combTerminalConductorOf } from './combBusbarParts'
 type TerminalSocket3D = NonNullable<Terminal['socket3D']>
 
 /**
@@ -22,7 +31,7 @@ type TerminalSocket3D = NonNullable<Terminal['socket3D']>
  */
 
 export type AcrylicBusbarType = 'earthBar' | 'busbarNeutral' | 'busbarPhaseAcrylic'
-export type RealBusbarType = AcrylicBusbarType | 'busbarPhaseStepped'
+export type RealBusbarType = AcrylicBusbarType | 'busbarPhaseStepped' | 'busbarComb' | 'combBusbarConnector'
 
 export const ACRYLIC_BUSBAR_TYPES: readonly AcrylicBusbarType[] = [
   'earthBar',
@@ -35,6 +44,8 @@ export const REAL_BUSBAR_TYPES: readonly RealBusbarType[] = [
   'busbarNeutral',
   'busbarPhaseAcrylic',
   'busbarPhaseStepped',
+  'busbarComb',
+  'combBusbarConnector',
 ] as const
 
 export function isAcrylicBusbarType(type: string): type is AcrylicBusbarType {
@@ -46,7 +57,7 @@ export function isSteppedBusbarType(type: string): type is 'busbarPhaseStepped' 
 }
 
 export function isRealBusbarType(type: string): type is RealBusbarType {
-  return isAcrylicBusbarType(type) || isSteppedBusbarType(type)
+  return isAcrylicBusbarType(type) || isSteppedBusbarType(type) || isCombBusbarType(type) || isCombConnectorType(type)
 }
 
 /** Cotas de engenharia do barramento unipolar com acrílico (calibradas na ficha 12P = 128 × 36,5 × 13 mm). */
@@ -222,6 +233,13 @@ export function busbarSizeMm(type: string, state?: Record<string, unknown>): { x
     const d = steppedBusbarDimsOf(state)
     return { x: d.widthMm, y: d.heightMm, z: d.depthMm }
   }
+  if (isCombBusbarType(type)) {
+    const d = combBusbarDimsOf(state)
+    return { x: d.widthMm, y: d.heightMm, z: d.depthMm }
+  }
+  if (isCombConnectorType(type)) {
+    return { x: COMB_CONNECTOR.widthMm, y: COMB_CONNECTOR.heightMm, z: COMB_CONNECTOR.depthMm }
+  }
   return null
 }
 
@@ -238,8 +256,8 @@ export interface BusbarTerminalSpec {
   displayName?: string
   kind: TerminalKind
   color: string
-  terminalType: 'screw'
-  face: 'front'
+  terminalType: 'screw' | 'pin'
+  face: 'front' | 'top' | 'bottom'
   x: number
   y: number
   diameter: number
@@ -256,6 +274,8 @@ const CONDUCTOR_COLOR: Record<'L1' | 'L2' | 'L3' | 'N', string> = {
 
 /** Gera a lista exata de bornes (2D + encaixe 3D real no furo de latão) para qualquer barramento. */
 export function busbarTerminalSpecs(type: RealBusbarType, state?: Record<string, unknown>): BusbarTerminalSpec[] {
+  if (isCombBusbarType(type)) return combBusbarTerminalSpecs(state)
+  if (isCombConnectorType(type)) return combConnectorTerminalSpecs(state)
   if (isAcrylicBusbarType(type)) {
     const d = acrylicBusbarDimsOf(state)
     const prefix = type === 'earthBar' ? 'PE' : type === 'busbarNeutral' ? 'N' : 'L'

@@ -5,6 +5,7 @@ import { cloneModelScene, fitComponentModel } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
 import { paintImportedModel, rigImportedModel, animateImportedRig } from './importedFinish'
 import { applyProtectionMarkings } from './protectionMarkings'
+import { applyCombBusbarFinish } from './combBusbarMarkings'
 import { TEMPLATES } from '../electrical/factory'
 import { importedComponentInfo } from '../electrical/importedComponents'
 import { applyEditorMotorTextures, waitMotorTextures } from './motorEditorTextures'
@@ -211,6 +212,7 @@ async function prepareObject(type: ComponentType): Promise<THREE.Object3D> {
     anchor: 'center',
     heightMm: spec.physicalSizeMm.height,
   })
+  applyCombBusbarFinish(type, object, defaultState)
   let scale: number
   if (spec.placement === 'rail') {
     object.updateMatrixWorld(true)

@@ -204,7 +204,7 @@ export function CableDuct3D({ c, plateFrontZ, label, openings = [] }: { c: Elect
   const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : CABLE_DUCT_DEFAULT_COLOR
   const materials = useMemo(() => {
     const pvc = pvcMatte()
-    const make = (tint: string) => new THREE.MeshStandardMaterial({ color: tint, map: pvc.map, bumpMap: pvc.bump, bumpScale: 0.25, roughnessMap: pvc.rough, roughness: 0.66, metalness: 0.02, envMapIntensity: 0.7 })
+    const make = (tint: string) => new THREE.MeshStandardMaterial({ color: tint, map: pvc.map, bumpMap: pvc.bump, bumpScale: 0.0025, roughnessMap: pvc.rough, roughness: 0.62, metalness: 0.02, envMapIntensity: 0.82 })
     return { body: make(color), cover: make(new THREE.Color(color).offsetHSL(0, 0, 0.03).getStyle()) }
   }, [color])
   useEffect(() => () => { materials.body.dispose(); materials.cover.dispose() }, [materials])

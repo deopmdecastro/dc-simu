@@ -40,6 +40,8 @@ export const MODEL_PATHS = {
   busbarNeutral: '/models/bornes-e-barras/barramento-neutro-n.glb',
   busbarPhaseAcrylic: '/models/bornes-e-barras/barramento-fase-acrilico.glb',
   busbarPhaseStepped: '/models/bornes-e-barras/barramento-fases-escada-4p.glb',
+  busbarComb: '/models/bornes-e-barras/barramento-pente.glb',
+  combBusbarConnector: '/models/bornes-e-barras/conector-barramento-pente.glb',
   dinRail15x55: '/models/bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb',
   /** Pré-visualização (miniatura) — no Painel 3D o quadro e a calha técnica são paramétricos (scripts/build-enclosure-glb.ts). */
   panelEnclosure: '/models/quadros/quadro-metalico-600x800x250.glb',
@@ -120,6 +122,10 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   busbarPhaseAcrylic: { width: 112, height: 36.5, depth: 13 },
   /** Barramento repartidor de fases em escada com tampa articulada (4P × 7 furos = 88,8 × 88 × 50 mm; bornes e barras configuráveis). */
   busbarPhaseStepped: { width: 88.8, height: 88, depth: 50 },
+  /** Barramento tipo pente modular DIN (12 módulos de série = 214 × 28 × 9,8 mm; 1P / 1P+N / 3P / 3P+N e conectores configuráveis). */
+  busbarComb: { width: 214, height: 28, depth: 9.8 },
+  /** Conector genérico de alimentação tipo pino 6–25 mm² · 80 A (15,8 × 35,6 × 20,6 mm; cor PA66 personalizável). */
+  combBusbarConnector: { width: 15.8, height: 35.6, depth: 20.6 },
   /** 1 m por omissão; perfil e comprimento reais vêm de `state.profile` / `state.lengthMm` (TS35×7,5 por defeito). */
   dinRail15x55: { width: 1000, height: 35, depth: 7.5 },
   /** Miniatura (porta fechada: 250 mm de corpo + porta e fechos); o tamanho real vem de `state.widthMm/heightMm/depthMm`. */
@@ -234,6 +240,8 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   busbarNeutral: spec('busbarNeutral', MODEL_PATHS.busbarNeutral, [0, 0, 0], 'din-rail'),
   busbarPhaseAcrylic: spec('busbarPhaseAcrylic', MODEL_PATHS.busbarPhaseAcrylic, [0, 0, 0], 'din-rail'),
   busbarPhaseStepped: spec('busbarPhaseStepped', MODEL_PATHS.busbarPhaseStepped, [0, 0, 0], 'din-rail'),
+  busbarComb: spec('busbarComb', MODEL_PATHS.busbarComb, [0, 0, 0], 'din-rail'),
+  combBusbarConnector: spec('combBusbarConnector', MODEL_PATHS.combBusbarConnector, [0, 0, 0], 'din-rail'),
   dinRail15x55: spec('dinRail15x55', MODEL_PATHS.dinRail15x55, [0, 0, 0], 'rail'),
   panelEnclosure: spec('panelEnclosure', MODEL_PATHS.panelEnclosure, [0, 0, 0], 'accessory'),
   cableDuct: spec('cableDuct', MODEL_PATHS.cableDuct, [0, 0, 0], 'accessory'),

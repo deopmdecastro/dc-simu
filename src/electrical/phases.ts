@@ -11,7 +11,7 @@
 import type { ElectricalComponent, Wire } from '../types'
 import { internalBridges, poleTerminalPairs } from './engine'
 import { terminalStripJumperPairs } from './pti6Strip'
-import { steppedTerminalBarOf } from '../three/busbarParts'
+import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarParts'
 
 export type PhaseTag = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'DC+'
 
@@ -68,6 +68,20 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
         if (!bar || done.has(bar)) continue
         done.add(bar)
         seed(x.id, bar)
+      }
+    }
+    if (c.type === 'busbarComb' && c.state.source === true) {
+      const done = new Set<string>()
+      const sp = c.state.sourcePhase
+      for (const x of c.terminals) {
+        const cond = combTerminalConductorOf(x.label)
+        if (!cond || done.has(cond)) continue
+        done.add(cond)
+        if (cond === 'L') {
+          if (sp === 'L1' || sp === 'L2' || sp === 'L3' || sp === 'N') seed(x.id, sp)
+        } else {
+          seed(x.id, cond)
+        }
       }
     }
     if (c.type === 'powerSource1ph') {

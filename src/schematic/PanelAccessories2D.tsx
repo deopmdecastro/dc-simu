@@ -1,4 +1,4 @@
-import { inOpening, type DuctOpening } from './ductJunctions'
+import { closedFloorSpans, closedSpans, inOpening, type DuctOpening } from './ductJunctions'
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { ElectricalComponent } from '../types'
@@ -69,35 +69,97 @@ export function Enclosure2D({ c }: { c: ElectricalComponent }) {
   </g>
 }
 
-/** Calha técnica em vista frontal: com tampa (superfície lisa) ou aberta (dedos e fundo à vista). */
+/** Calha técnica ranhurada em vista frontal: dentes cortados de forma limpa nas uniões em T, L e cruz. */
 export function CableDuct2D({ c, openings = [] }: { c: ElectricalComponent; openings?: DuctOpening[] }) {
   const px = SCHEMATIC_PX_PER_MM
   const d = cableDuctDimsOf(c.state)
   const L = c.w, H = c.h
+  const lenMm = L / px
   const coverOn = c.state.coverOn !== false
   const pitch = CABLE_DUCT.pitch * px
   const slot = CABLE_DUCT.slot * px
+  const fingerW = pitch - slot
+  const headW = Math.min(pitch - 2.1 * px, fingerW + 2.2 * px)
   const n = Math.max(1, Math.floor((L - slot) / pitch))
   const start = L / 2 - ((n - 1) * pitch) / 2
-  const finger = Math.min(H * 0.22, 7)
+  const finger = Math.min(H * 0.23, 7.5)
+  const fillCol = coverOn ? '#b3b6b1' : '#8e928d'
+  const floorSpans = closedFloorSpans(lenMm, openings)
+  const topWallSpans = closedSpans(lenMm, openings, 'top')
+  const botWallSpans = closedSpans(lenMm, openings, 'bottom')
+  const sideOpenings = openings.filter((o) => !o.endTrim)
+
   return <g pointerEvents="none" data-cable-duct>
-    <rect x={0} y={0} width={L} height={H} rx={1.5} fill={coverOn ? '#b3b6b1' : '#8e928d'} stroke="#6f746e" strokeWidth={0.8} />
+    {/* Fundo da calha (aparado nas pontas que entram noutra calha para união em T limpa) */}
+    {floorSpans.map(([fa, fb], idx) => {
+      const fx = L / 2 + fa * px
+      const fw = Math.max(0, (fb - fa) * px)
+      const holeCount = !coverOn && H >= 34 && fw >= 54 ? Math.floor((fw - 24) / (25 * px)) : 0
+      return (
+        <g key={`fl${idx}`}>
+          <rect x={fx} y={0} width={fw} height={H} fill={fillCol} />
+          {/* Furação oblonga da base segundo NFC 68-102 */}
+          {holeCount > 0 && Array.from({ length: holeCount }, (_, k) => {
+            const hx = fx + fw / 2 - ((holeCount - 1) * 25 * px) / 2 + k * 25 * px
+            return (
+              <g key={`h${k}`} opacity={0.42}>
+                <rect x={hx - 6} y={H * 0.34 - 2} width={12} height={3.6} rx={1.8} fill="#6f746e" />
+                <rect x={hx - 6} y={H * 0.66 - 1.6} width={12} height={3.6} rx={1.8} fill="#6f746e" />
+              </g>
+            )
+          })}
+        </g>
+      )
+    })}
+
+    {/* Dentes/linguetas ranhurados: cortados exatamente onde outra calha liga em T */}
     {!coverOn && Array.from({ length: n }).flatMap((_, i) => {
-      const x = start + i * pitch - (pitch - slot) / 2
-      const mm0 = (x - L / 2) / px, mm1 = (x + pitch - slot - L / 2) / px
+      const cx = start + i * pitch
+      const x = cx - fingerW / 2
+      const mm0 = (cx - headW / 2 - L / 2) / px
+      const mm1 = (cx + headW / 2 - L / 2) / px
+      const topCut = inOpening(openings, 'top', mm0, mm1)
+      const botCut = inOpening(openings, 'bottom', mm0, mm1)
       return [
-        inOpening(openings, 'top', mm0, mm1) ? null : <rect key={`t${i}`} x={x} y={0} width={pitch - slot} height={finger} fill="#a9aca8" />,
-        inOpening(openings, 'bottom', mm0, mm1) ? null : <rect key={`b${i}`} x={x} y={H - finger} width={pitch - slot} height={finger} fill="#a9aca8" />,
+        topCut ? null : (
+          <g key={`t${i}`} data-duct-finger="top">
+            <rect x={x} y={0.5} width={fingerW} height={finger} fill="#b7bab5" stroke="#6f746e" strokeWidth={0.35} />
+            <rect x={cx - headW / 2} y={0.5} width={headW} height={2.1} fill="#c4c7c2" />
+          </g>
+        ),
+        botCut ? null : (
+          <g key={`b${i}`} data-duct-finger="bottom">
+            <rect x={x} y={H - finger - 0.5} width={fingerW} height={finger} fill="#b7bab5" stroke="#6f746e" strokeWidth={0.35} />
+            <rect x={cx - headW / 2} y={H - 2.6} width={headW} height={2.1} fill="#c4c7c2" />
+          </g>
+        ),
       ]
     })}
-    {coverOn && <>
-      <line x1={0} y1={2.2} x2={L} y2={2.2} stroke="#d7dad5" strokeWidth={1} />
-      <line x1={0} y1={H - 2.2} x2={L} y2={H - 2.2} stroke="#8a8e89" strokeWidth={1} />
-    </>}
-    {/* Passagem de cabos: a parede abre-se onde outra calha desemboca ou atravessa. */}
-    {openings.map((o, i) => {
+
+    {/* Contornos laterais apenas nos troços fechados (abertos onde liga o T!) */}
+    {topWallSpans.map(([a, b], i) => {
+      const x1 = L / 2 + a * px, x2 = L / 2 + b * px
+      return (
+        <g key={`tw${i}`}>
+          <line x1={x1} y1={0.4} x2={x2} y2={0.4} stroke="#6f746e" strokeWidth={0.85} />
+          {coverOn && <line x1={x1} y1={2.2} x2={x2} y2={2.2} stroke="#d7dad5" strokeWidth={1} />}
+        </g>
+      )
+    })}
+    {botWallSpans.map(([a, b], i) => {
+      const x1 = L / 2 + a * px, x2 = L / 2 + b * px
+      return (
+        <g key={`bw${i}`}>
+          <line x1={x1} y1={H - 0.4} x2={x2} y2={H - 0.4} stroke="#6f746e" strokeWidth={0.85} />
+          {coverOn && <line x1={x1} y1={H - 2.2} x2={x2} y2={H - 2.2} stroke="#8a8e89" strokeWidth={1} />}
+        </g>
+      )
+    })}
+
+    {/* Passagem aberta da união em T: limpa dentes e parede onde o ramal desemboca */}
+    {sideOpenings.map((o, i) => {
       const x = L / 2 + Math.min(o.from, o.to) * px, w = Math.abs(o.to - o.from) * px
-      return <rect key={`op${i}`} data-duct-opening x={x} y={o.side === 'top' ? -0.6 : H - 3.4} width={w} height={4} fill={coverOn ? '#b3b6b1' : '#8e928d'} />
+      return <rect key={`op${i}`} data-duct-opening x={x} y={o.side === 'top' ? -0.8 : H - finger - 0.6} width={w} height={finger + 1.4} fill={fillCol} />
     })}
     <text x={L / 2} y={H + 13} textAnchor="middle" fontSize={10} fill="#475569">{c.ref} · {d.lengthMm} mm · {d.widthMm}×{d.heightMm}{coverOn ? '' : ' · sem tampa'}</text>
   </g>

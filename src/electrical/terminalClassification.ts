@@ -38,6 +38,8 @@ export function inferTerminalElectricalClass(component: ElectricalComponent, ter
     component.type === 'terminalPhoenixPti6' ||
     component.type === 'terminalBlock' ||
     component.type === 'terminalPE' ||
+    component.type === 'combBusbarConnector' ||
+    (component.type === 'busbarComb' && component.state?.combMode === '1P') ||
     component.type === 'photoSensorXukt1ksml2'
   ) {
     return 'other'

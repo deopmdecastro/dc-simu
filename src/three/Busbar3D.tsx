@@ -27,6 +27,31 @@ import {
   steppedCoverVisibleOf,
   type AcrylicBusbarType,
 } from './busbarParts'
+import {
+  buildCombBusbar,
+  buildCombConnector,
+  COMB_CONDUCTOR_HEX,
+  combBrandOf,
+  combConnectorColorOf,
+  combConnectorGaugeOf,
+  combConnectorPhaseColorsOf,
+  combConnectorPinDirectionOf,
+  combConnectorPinStyleOf,
+  combEndCapsOf,
+  combFeedConnectorsOf,
+  combModeOf,
+  combNeutralSideOf,
+  combRatedAOf,
+  combTeethDirectionOf,
+  clampCombBusbarPoles,
+  type CombConductor,
+} from './combBusbarParts'
+import {
+  brushedElectrolyticCopperMaps,
+  getCombBusbarSilkscreenTexture,
+  getCombConnectorStampTexture,
+  serratedTinnedBladeBump,
+} from './combBusbarMarkings'
 
 const U = PANEL_UNITS_PER_MM
 
@@ -193,7 +218,7 @@ function acrylicMicroRough(): THREE.CanvasTexture {
 /** Liga assincronamente os mapas PBR fotografados (ambientCG CC0) ao material e redesenha a cena. */
 function attachScannedPbr(
   material: THREE.MeshPhysicalMaterial | THREE.MeshStandardMaterial,
-  entryId: 'latao' | 'aco-inox' | 'aco-zincado' | 'plastico-claro',
+  entryId: 'latao' | 'cobre' | 'aco-inox' | 'aco-zincado' | 'plastico-claro',
   opts: { useColor?: boolean; normalScale?: number; invalidate: () => void; cancelled: () => boolean },
 ) {
   const entry = textureLibraryEntry(entryId)
@@ -560,6 +585,330 @@ export function SteppedBusbar3D({
         object={built.cover}
         onDoubleClick={onCoverDoubleClick}
       />
+      {label}
+    </group>
+  )
+}
+
+/**
+ * Barramento tipo pente 3D real (`busbarComb` — 1P, 1P+N, 3P e 3P+N) com:
+ *  - pinos e barras internas em cobre eletrolítico escovado PBR (`ambientCG Metal035` + estrias de laminagem),
+ *  - perfil isolante rígido em PVC RAL 7035 PBR (`ambientCG Plastic010`) + barreiras dielétricas anti-arco,
+ *  - serigrafia industrial de alta definição atualizada ao vivo (Lexman, Sibratec, Schneider, Legrand + L1/L2/L3/N),
+ *  - conectores de alimentação acopláveis (6–25 mm²) com pino estanhado estriado e cor PA66 personalizável.
+ */
+export function CombBusbar3D({
+  c,
+  position,
+  label,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+  label?: ReactNode
+}) {
+  const invalidate = useThree((s) => s.invalidate)
+  const poles = clampCombBusbarPoles(c.state.poleCount)
+  const combMode = combModeOf(c.state)
+  const neutralSide = combNeutralSideOf(c.state)
+  const teethDirection = combTeethDirectionOf(c.state)
+  const brandStyle = combBrandOf(c.state)
+  const ratedA = combRatedAOf(c.state)
+  const endCaps = combEndCapsOf(c.state)
+  const feedConnectors = combFeedConnectorsOf(c.state)
+  const connectorColor = combConnectorColorOf(c.state)
+  const connectorPhaseColors = combConnectorPhaseColorsOf(c.state)
+
+  const baseMats = useMemo(() => {
+    const cu = brushedElectrolyticCopperMaps()
+    const paBump = polyamideGrainBump()
+    const tinBump = serratedTinnedBladeBump()
+
+    const pvcOuter = new THREE.MeshPhysicalMaterial({
+      color: '#e1e4e7',
+      bumpMap: paBump,
+      bumpScale: 0.0005,
+      roughness: 0.42,
+      metalness: 0.0,
+      clearcoat: 0.14,
+      clearcoatRoughness: 0.45,
+      envMapIntensity: 0.9,
+    })
+    pvcOuter.userData.keepColor = true
+
+    const pvcBarrier = new THREE.MeshStandardMaterial({
+      color: '#9aa1aa',
+      bumpMap: paBump,
+      bumpScale: 0.0004,
+      roughness: 0.56,
+      metalness: 0.02,
+      envMapIntensity: 0.78,
+    })
+    pvcBarrier.userData.keepColor = true
+
+    const copper = new THREE.MeshPhysicalMaterial({
+      color: '#e28c55',
+      map: cu.color,
+      bumpMap: cu.bump,
+      bumpScale: 0.0007,
+      roughnessMap: cu.rough,
+      roughness: 0.23,
+      metalness: 0.92,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.25,
+      envMapIntensity: 1.45,
+    })
+    copper.userData.keepColor = true
+
+    const tinned = new THREE.MeshPhysicalMaterial({
+      color: '#e5e9ef',
+      bumpMap: tinBump,
+      bumpScale: 0.001,
+      roughness: 0.19,
+      metalness: 0.95,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.2,
+      envMapIntensity: 1.5,
+    })
+    tinned.userData.keepColor = true
+
+    const cage = new THREE.MeshPhysicalMaterial({
+      color: '#d9be6c',
+      roughness: 0.26,
+      metalness: 0.9,
+      envMapIntensity: 1.25,
+    })
+    cage.userData.keepColor = true
+
+    const dark = new THREE.MeshStandardMaterial({
+      color: '#1b2028',
+      roughness: 0.8,
+      metalness: 0.28,
+    })
+    dark.userData.keepColor = true
+
+    const silkscreen = new THREE.MeshPhysicalMaterial({
+      color: '#ffffff',
+      roughness: 0.34,
+      metalness: 0.01,
+      clearcoat: 0.16,
+      clearcoatRoughness: 0.36,
+      envMapIntensity: 0.85,
+    })
+    silkscreen.userData.keepColor = true
+
+    return { pvcOuter, pvcBarrier, copper, tinned, cage, dark, silkscreen }
+  }, [])
+
+  // Mapas PBR reais fotografados (cobre Metal035, aço inox Metal055A, latão Metal042A e plástico Plastic010)
+  useEffect(() => {
+    let dead = false
+    const opts = { invalidate, cancelled: () => dead }
+    attachScannedPbr(baseMats.copper, 'cobre', { useColor: true, normalScale: 0.42, ...opts })
+    attachScannedPbr(baseMats.tinned, 'aco-inox', { normalScale: 0.32, ...opts })
+    attachScannedPbr(baseMats.cage, 'latao', { normalScale: 0.3, ...opts })
+    attachScannedPbr(baseMats.pvcOuter, 'plastico-claro', { normalScale: 0.32, ...opts })
+    return () => {
+      dead = true
+      Object.values(baseMats).forEach((m) => m.dispose())
+    }
+  }, [baseMats, invalidate])
+
+  // Atualiza a serigrafia frontal ao vivo sempre que muda marca, modo, polos, lado do N, direção ou calibre
+  useEffect(() => {
+    const tex = getCombBusbarSilkscreenTexture({
+      poleCount: poles,
+      combMode,
+      neutralSide,
+      teethDirection,
+      brandStyle,
+      ratedA,
+    })
+    baseMats.silkscreen.map = tex
+    baseMats.silkscreen.needsUpdate = true
+    invalidate()
+  }, [baseMats, poles, combMode, neutralSide, teethDirection, brandStyle, ratedA, invalidate])
+
+  // Materiais PA66 dos conectores de alimentação acoplados (cor escolhida ou cores IEC por fase)
+  const connMats = useMemo(() => {
+    const paBump = polyamideGrainBump()
+    const makePa66 = (hex: string) => {
+      const m = new THREE.MeshPhysicalMaterial({
+        color: hex,
+        bumpMap: paBump,
+        bumpScale: 0.0006,
+        roughness: 0.38,
+        metalness: 0.0,
+        clearcoat: 0.15,
+        clearcoatRoughness: 0.42,
+        envMapIntensity: 0.92,
+      })
+      m.userData.keepColor = true
+      return m
+    }
+    if (!connectorPhaseColors) {
+      const single = makePa66(connectorColor)
+      return {
+        list: [single],
+        pick: () => single,
+      }
+    }
+    const byCond: Record<CombConductor, THREE.MeshPhysicalMaterial> = {
+      L: makePa66(COMB_CONDUCTOR_HEX.L),
+      L1: makePa66(COMB_CONDUCTOR_HEX.L1),
+      L2: makePa66(COMB_CONDUCTOR_HEX.L2),
+      L3: makePa66(COMB_CONDUCTOR_HEX.L3),
+      N: makePa66(COMB_CONDUCTOR_HEX.N),
+    }
+    return {
+      list: Object.values(byCond),
+      pick: (cond: CombConductor) => byCond[cond],
+    }
+  }, [connectorColor, connectorPhaseColors])
+
+  useEffect(() => {
+    let dead = false
+    for (const m of connMats.list) {
+      attachScannedPbr(m, 'plastico-claro', { normalScale: 0.35, invalidate, cancelled: () => dead })
+    }
+    return () => {
+      dead = true
+      connMats.list.forEach((m) => m.dispose())
+    }
+  }, [connMats, invalidate])
+
+  const built = useMemo(
+    () =>
+      buildCombBusbar(
+        { poleCount: poles, combMode, neutralSide, teethDirection, endCaps, feedConnectors },
+        U,
+        {
+          ...baseMats,
+          connectorBodyFor: (cond) => connMats.pick(cond),
+        },
+      ),
+    [poles, combMode, neutralSide, teethDirection, endCaps, feedConnectors, baseMats, connMats],
+  )
+
+  useEffect(() => () => disposeGroupGeometries(built.root), [built])
+
+  return (
+    <group position={position}>
+      <primitive object={built.root} />
+      {label}
+    </group>
+  )
+}
+
+/**
+ * Conector genérico de alimentação tipo pino 3D real (`combBusbarConnector` · 6–25 mm² · 80 A):
+ * corpo PA66 com cor editável no Inspetor, bocal tubular saliente IP20, parafuso Pozidriv M6
+ * visível no interior, gravação de calibre no capuz e pino chato de cobre estanhado estriado.
+ */
+export function CombConnector3D({
+  c,
+  position,
+  label,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+  label?: ReactNode
+}) {
+  const invalidate = useThree((s) => s.invalidate)
+  const color = combConnectorColorOf(c.state)
+  const pinDirection = combConnectorPinDirectionOf(c.state)
+  const pinStyle = combConnectorPinStyleOf(c.state)
+  const gaugeRange = combConnectorGaugeOf(c.state)
+
+  const mats = useMemo(() => {
+    const paBump = polyamideGrainBump()
+    const tinBump = serratedTinnedBladeBump()
+
+    const housing = new THREE.MeshPhysicalMaterial({
+      color,
+      bumpMap: paBump,
+      bumpScale: 0.00065,
+      roughness: 0.37,
+      metalness: 0.0,
+      clearcoat: 0.16,
+      clearcoatRoughness: 0.4,
+      envMapIntensity: 0.95,
+    })
+    housing.userData.keepColor = true
+
+    const tinned = new THREE.MeshPhysicalMaterial({
+      color: '#e6eaf0',
+      bumpMap: tinBump,
+      bumpScale: 0.0011,
+      roughness: 0.18,
+      metalness: 0.95,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.18,
+      envMapIntensity: 1.52,
+    })
+    tinned.userData.keepColor = true
+
+    const cage = new THREE.MeshPhysicalMaterial({
+      color: '#d9be6c',
+      roughness: 0.25,
+      metalness: 0.9,
+      envMapIntensity: 1.25,
+    })
+    cage.userData.keepColor = true
+
+    const dark = new THREE.MeshStandardMaterial({
+      color: '#181d25',
+      roughness: 0.82,
+      metalness: 0.3,
+    })
+    dark.userData.keepColor = true
+
+    const stamp = new THREE.MeshStandardMaterial({
+      transparent: true,
+      roughness: 0.44,
+      metalness: 0.0,
+      depthWrite: false,
+    })
+    stamp.userData.keepColor = true
+    stamp.userData.keepTransparent = true
+
+    return { housing, tinned, cage, dark, stamp }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    let dead = false
+    const opts = { invalidate, cancelled: () => dead }
+    attachScannedPbr(mats.housing, 'plastico-claro', { normalScale: 0.38, ...opts })
+    attachScannedPbr(mats.tinned, 'aco-inox', { normalScale: 0.34, ...opts })
+    attachScannedPbr(mats.cage, 'latao', { normalScale: 0.3, ...opts })
+    return () => {
+      dead = true
+      Object.values(mats).forEach((m) => m.dispose())
+    }
+  }, [mats, invalidate])
+
+  // Cor PA66 + gravação de calibre atualizadas ao vivo sem recriar malhas
+  useEffect(() => {
+    mats.housing.color.set(color)
+    delete mats.housing.userData.dcSimuPresentationBase
+    delete mats.housing.userData.dcSimuRenderKey
+    mats.housing.needsUpdate = true
+    mats.stamp.map = getCombConnectorStampTexture({ connectorColor: color, gaugeRange })
+    mats.stamp.needsUpdate = true
+    invalidate()
+  }, [mats, color, gaugeRange, invalidate])
+
+  const built = useMemo(
+    () => buildCombConnector({ pinDirection, pinStyle, gaugeRange, connectorColor: color }, U, mats),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pinDirection, pinStyle, mats],
+  )
+
+  useEffect(() => () => disposeGroupGeometries(built.root), [built])
+
+  return (
+    <group position={position}>
+      <primitive object={built.root} />
       {label}
     </group>
   )

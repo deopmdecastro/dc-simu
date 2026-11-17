@@ -11,6 +11,7 @@ import { findStaticFrontImage } from '../three/staticComponentImages'
 import { importedComponentInfo } from '../electrical/importedComponents'
 import { animateImportedRig, paintImportedModel, rigImportedModel } from '../three/importedFinish'
 import { applyProtectionMarkings } from '../three/protectionMarkings'
+import { applyCombBusbarFinish } from '../three/combBusbarMarkings'
 import { TEMPLATES } from '../electrical/factory'
 
 const imagePromises = new Map<ComponentType, Promise<string>>()
@@ -97,6 +98,7 @@ export function captureCad3DImage(type: ComponentType): Promise<string> {
         anchor: 'center',
         heightMm: spec!.physicalSizeMm.height,
       })
+      applyCombBusbarFinish(type, fitted, defaultState)
     },
   })
 }

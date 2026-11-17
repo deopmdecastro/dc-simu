@@ -1043,7 +1043,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 52 componentes com GLB real (incluindo os 4 barramentos reais PE, N, Fase com acrílico e Fases em escada)', availableTypes.length === 52 && ['earthBar', 'busbarNeutral', 'busbarPhaseAcrylic', 'busbarPhaseStepped'].every((t) => availableTypes.includes(t as import('../src/types').ComponentType)) && availableTypes.includes('panelEnclosure') && availableTypes.includes('cableDuct') && ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315'].every((t) => availableTypes.includes(t)) && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 54 componentes com GLB real (incluindo barramentos reais PE, N, Fase, Escada, Pente e Conector de Pente)', availableTypes.length === 54 && ['earthBar', 'busbarNeutral', 'busbarPhaseAcrylic', 'busbarPhaseStepped', 'busbarComb', 'combBusbarConnector'].every((t) => availableTypes.includes(t as import('../src/types').ComponentType)) && availableTypes.includes('panelEnclosure') && availableTypes.includes('cableDuct') && ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315'].every((t) => availableTypes.includes(t)) && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   // Capas pré-geradas (scripts/build-component-covers.mjs): a biblioteca mostra imagens sem descarregar os GLB.
   {
@@ -2937,6 +2937,210 @@ check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos d
   s.stampWireEndMarkers(w0.id, 'number')
   const stamped = useSimStore.getState().wires.find((w) => w.id === w0.id)!.markers ?? []
   check('Anilhar Nº (A+B) aplica duas anilhas IEC nas pontas (8% e 92%)', stamped.length === 2 && stamped.every((m) => m.style === 'iec'))
+}
+
+// ── Release #202: Barramento tipo pente (1P/1P+N/3P/3P+N), Conector de pino personalizável e corte de dentes em T das calhas ──
+{
+  const { combBusbarDimsOf, combConnectorColorOf, combConnectorGaugeOf, combConnectorPinDirectionOf } = await import('../src/three/combBusbarParts')
+  const { ductJunctionOpenings, inOpening, closedSpans, closedFloorSpans } = await import('../src/schematic/ductJunctions')
+  const { buildCableDuct, CABLE_DUCT } = await import('../src/three/enclosureParts')
+
+  useSimStore.setState({ components: [], wires: [], selectedComponentIds: [], selectedWireIds: [], selectedWireId: null })
+  const s = useSimStore.getState()
+
+  // 1) Barramento tipo pente: 4 modos de polos (1P, 1P+N, 3P, 3P+N), posição do neutro, orientação e conectores acoplados
+  const bpId = s.addComponent('busbarComb', 200, 200)
+  const bp0 = () => useSimStore.getState().components.find((c) => c.id === bpId)!
+  check('Barramento tipo pente 1P (12P de série): 12 pinos L.1..L.12 a passo DIN 18 mm (214 mm)',
+    bp0().terminals.length === 12 &&
+    bp0().terminals[0].label === 'L.1' &&
+    bp0().terminals[11].label === 'L.12' &&
+    Math.abs(combBusbarDimsOf(bp0().state).widthMm - 214) < 0.1)
+
+  s.updateCombBusbar(bpId, { combMode: '1P+N', poleCount: 10, neutralSide: 'right', brandStyle: 'sibratec' })
+  check('Barramento tipo pente 1P+N (10P): alterna L1.k e N.k (5 fases + 5 neutros)',
+    bp0().terminals.length === 10 &&
+    bp0().terminals[0].label === 'L1.1' &&
+    bp0().terminals[1].label === 'N.1' &&
+    bp0().terminals[8].label === 'L1.5' &&
+    bp0().terminals[9].label === 'N.5')
+
+  s.updateCombBusbar(bpId, { neutralSide: 'left' })
+  check('Barramento tipo pente 1P+N com neutro à esquerda: alterna N.1, L1.1…',
+    bp0().terminals[0].label === 'N.1' && bp0().terminals[1].label === 'L1.1')
+
+  s.updateCombBusbar(bpId, { combMode: '3P', poleCount: 9, brandStyle: 'schneider', ratedA: 80 })
+  check('Barramento tipo pente 3P (9P): 3 ciclos trifásicos L1 · L2 · L3 e 3 barras internas escalonadas',
+    bp0().terminals.length === 9 &&
+    bp0().terminals.slice(0, 3).map((t) => t.label).join(',') === 'L1.1,L2.1,L3.1' &&
+    bp0().terminals[8].label === 'L3.3' &&
+    combBusbarDimsOf(bp0().state).bars === 3)
+
+  s.updateCombBusbar(bpId, { combMode: '3P+N', poleCount: 12, neutralSide: 'right', feedConnectors: 'left', connectorPhaseColors: true, ratedA: 100 })
+  check('Barramento tipo pente 3P+N com conectores acoplados: 12 pinos + 4 bocais IN.L1/IN.L2/IN.L3/IN.N',
+    bp0().terminals.length === 16 &&
+    ['IN.L1', 'IN.L2', 'IN.L3', 'IN.N'].every((lbl) => bp0().terminals.some((t) => t.label === lbl)) &&
+    combBusbarDimsOf(bp0().state).bars === 4)
+
+  // 2) Conectores avulsos personalizáveis + continuidade real 3P+N (400 V / 230 V + motor 3~ + disjuntor + lâmpada)
+  s.updateCombBusbar(bpId, { feedConnectors: 'none', ratedA: 63 })
+  const src3 = s.addComponent('powerSource3ph', 40, 120)
+  const src1 = s.addComponent('powerSource1ph', 40, 260)
+  const cb1 = s.addComponent('combBusbarConnector', 180, 120)
+  const cb2 = s.addComponent('combBusbarConnector', 210, 120)
+  const cb3 = s.addComponent('combBusbarConnector', 240, 120)
+  const cbN = s.addComponent('combBusbarConnector', 270, 120)
+  s.updateCombConnector(cb1, { connectorColor: '#7c3f16', gaugeRange: '6-25', pinStyle: 'cranked' })
+  s.updateCombConnector(cb2, { connectorColor: '#25282d', gaugeRange: '6-25', pinDirection: 'down' })
+  s.updateCombConnector(cb3, { connectorColor: '#d91e96', gaugeRange: '10-35', pinStyle: 'straight' }) // cor personalizada!
+  s.updateCombConnector(cbN, { connectorColor: '#1d63c2', gaugeRange: '4-16', pinDirection: 'up' })
+
+  const cb3Obj = useSimStore.getState().components.find((c) => c.id === cb3)!
+  const cbNObj = useSimStore.getState().components.find((c) => c.id === cbN)!
+  check('Conector de barramento pente aceita cores normativas e personalizadas, calibre e orientação do pino',
+    combConnectorColorOf(cb3Obj.state) === '#d91e96' &&
+    combConnectorColorOf(cbNObj.state) === '#1d63c2' &&
+    combConnectorGaugeOf(cb3Obj.state) === '10-35' &&
+    combConnectorPinDirectionOf(cbNObj.state) === 'up')
+
+  const q3 = s.addComponent('breaker3p', 220, 320)
+  const q1 = s.addComponent('breaker1p', 360, 320)
+  const mot = s.addComponent('motor3ph', 220, 460)
+  const h1 = s.addComponent('pilotLightAd22', 360, 460)
+
+  const tid = (cid: string, lbl: string) => {
+    const comp = useSimStore.getState().components.find((c) => c.id === cid)!
+    const t = comp.terminals.find((x) => x.label === lbl)
+    if (!t) throw new Error(`Borne ${lbl} não encontrado em ${comp.type} (${comp.terminals.map((k) => k.label).join(',')})`)
+    return t.id
+  }
+
+  // Rede 3P+N -> 4 conectores tipo pino -> primeiros dentes do pente 3P+N -> Q3/motor e Q1/sinalizador nos últimos dentes!
+  s.addWire(tid(src3, 'L1'), tid(cb1, 'IN'))
+  s.addWire(tid(src3, 'L2'), tid(cb2, 'IN'))
+  s.addWire(tid(src3, 'L3'), tid(cb3, 'IN'))
+  s.addWire(tid(src1, 'N'), tid(cbN, 'IN'))
+  s.addWire(tid(cb1, 'PINO'), tid(bpId, 'L1.1'))
+  s.addWire(tid(cb2, 'PINO'), tid(bpId, 'L2.1'))
+  s.addWire(tid(cb3, 'PINO'), tid(bpId, 'L3.1'))
+  s.addWire(tid(cbN, 'PINO'), tid(bpId, 'N.1'))
+
+  s.addWire(tid(bpId, 'L1.3'), tid(q3, '1'))
+  s.addWire(tid(bpId, 'L2.3'), tid(q3, '3'))
+  s.addWire(tid(bpId, 'L3.3'), tid(q3, '5'))
+  s.addWire(tid(q3, '2'), tid(mot, 'U1'))
+  s.addWire(tid(q3, '4'), tid(mot, 'V1'))
+  s.addWire(tid(q3, '6'), tid(mot, 'W1'))
+
+  s.addWire(tid(bpId, 'L2.2'), tid(q1, '1'))
+  s.addWire(tid(q1, '2'), tid(h1, 'X1'))
+  s.addWire(tid(h1, 'X2'), tid(bpId, 'N.3'))
+
+  s.setComponentState(q3, { closed: true })
+  s.setComponentState(q1, { closed: true })
+  s.step()
+
+  const stOn = useSimStore.getState()
+  const liveOn = computeContinuity(stOn.components, stOn.wires, sourceTerminalIds(stOn.components, undefined, stOn.wires)).energizedTerminals
+  const phases = computePhaseLabels(stOn.components, stOn.wires)
+  const motDir = motorDirectionFromPhases(stOn.components.find((c) => c.id === mot)!, phases, liveOn)
+  const h1Powered = isLoadPowered(stOn.components.find((c) => c.id === h1)!, liveOn)
+  const mId = s.addComponent('multimeterDm20', 500, 320)
+  const meter = useSimStore.getState().components.find((c) => c.id === mId)!
+  const stAll = useSimStore.getState()
+  const mDef = {
+    behavior: {
+      type: 'multimeter',
+      com: meter.terminals.find((t) => t.label === 'COM')!.defId,
+      volt: meter.terminals.find((t) => t.label === 'VΩ')!.defId,
+      milliamp: meter.terminals.find((t) => t.label === 'mA')!.defId,
+      amp: meter.terminals.find((t) => t.label === '10A')!.defId,
+    },
+  } as unknown as import('../src/catalog/types').ComponentDefinition
+  const wiresLL = [...stAll.wires,
+    { id: 'wm1', fromTerminalId: tid(bpId, 'L1.3'), toTerminalId: terminalByLabel(meter, 'VΩ')!.id, color: 'brown' as const, kind: 'power' as const, crossSection: 2.5 },
+    { id: 'wm2', fromTerminalId: tid(bpId, 'L3.3'), toTerminalId: terminalByLabel(meter, 'COM')!.id, color: 'grey' as const, kind: 'power' as const, crossSection: 2.5 }] as never
+  const liveLL = computeContinuity(stAll.components, wiresLL, sourceTerminalIds(stAll.components, undefined, wiresLL)).energizedTerminals
+  const vLL = meterInputFor(mDef, meter, stAll.components, wiresLL, liveLL, { dial: 'acv' })
+  const wiresLN = [...stAll.wires,
+    { id: 'wm3', fromTerminalId: tid(bpId, 'L2.3'), toTerminalId: terminalByLabel(meter, 'VΩ')!.id, color: 'black' as const, kind: 'power' as const, crossSection: 2.5 },
+    { id: 'wm4', fromTerminalId: tid(bpId, 'N.3'), toTerminalId: terminalByLabel(meter, 'COM')!.id, color: 'blue' as const, kind: 'power' as const, crossSection: 2.5 }] as never
+  const liveLN = computeContinuity(stAll.components, wiresLN, sourceTerminalIds(stAll.components, undefined, wiresLN)).energizedTerminals
+  const vLN = meterInputFor(mDef, meter, stAll.components, wiresLN, liveLN, { dial: 'acv' })
+  check('Conector + Barramento pente 3P+N propagam L1·L2·L3·N isolados (400 V AC / 230 V AC, motor horário e sinalizador aceso)',
+    motDir === 'cw' && h1Powered &&
+    Math.abs(vLL.vac - 400) < 2 && Math.abs(vLN.vac - 230.9) < 2 &&
+    liveOn.has(tid(bpId, 'N.3')) &&
+    phases.get(tid(bpId, 'L1.3')) === 'L1' &&
+    phases.get(tid(bpId, 'L2.3')) === 'L2' &&
+    phases.get(tid(bpId, 'L3.3')) === 'L3' &&
+    phases.get(tid(bpId, 'N.3')) === 'N',
+    `dir=${motDir} h1=${h1Powered} vLL=${vLL.vac.toFixed(1)} vLN=${vLN.vac.toFixed(1)}`)
+
+  // Abrir disjuntor derivado corta carga; desligar fonte a montante corta o pente; redimensionar preserva cabos
+  s.setComponentState(q1, { closed: false })
+  const stQ1Off = useSimStore.getState()
+  const liveQ1Off = computeContinuity(stQ1Off.components, stQ1Off.wires, sourceTerminalIds(stQ1Off.components, undefined, stQ1Off.wires)).energizedTerminals
+  check('Abrir disjuntor alimentado pelo barramento pente corta imediatamente a carga a jusante',
+    !isLoadPowered(stQ1Off.components.find((c) => c.id === h1)!, liveQ1Off))
+  const compsSrcOff = stQ1Off.components.map((c) => c.id === src3 ? { ...c, state: { ...c.state, on: false } } : c)
+  const liveSrcOff = computeContinuity(compsSrcOff, stQ1Off.wires, sourceTerminalIds(compsSrcOff, undefined, stQ1Off.wires)).energizedTerminals
+  check('Desligar fonte a montante desenergiza conectores de pino e todas as fases do barramento pente',
+    !liveSrcOff.has(tid(cb1, 'PINO')) && !liveSrcOff.has(tid(bpId, 'L1.3')) && !liveSrcOff.has(tid(bpId, 'L2.3')) && !liveSrcOff.has(tid(bpId, 'L3.3')))
+
+  s.updateCombBusbar(bpId, { poleCount: 16 })
+  check('Expandir barramento pente (12P → 16P) preserva 100% dos cabos ligados',
+    bp0().terminals.length === 16 && useSimStore.getState().wires.some((w) => w.toTerminalId === tid(bpId, 'L1.1')))
+
+  // 3) Calhas técnicas ranhuradas: corte limpo dos dentes nas uniões em T, L, cruz e rotação 3D
+  useSimStore.setState({ components: [], wires: [], selectedComponentIds: [], selectedWireIds: [], selectedWireId: null })
+  const hDuct = s.addComponent('cableDuct', 100, 120)
+  s.setComponentState(hDuct, { coverOn: false, widthMm: 40, heightMm: 60, lengthMm: 500 })
+  s.updateComponent(hDuct, { w: 750, h: 60 })
+  const tLeft = s.addDuctAdjacent(hDuct, 'bottom', 240)
+  s.updateComponent(tLeft, { schematicX: 250 - 180 })
+  const tRight = s.addDuctAdjacent(hDuct, 'bottom', 240)
+  // Ramal direito com sobreposição de 10 mm dentro da calha horizontal (testa endTrim + preservação da parede superior)
+  s.updateComponent(tRight, { schematicX: 640 - 180, schematicY: 180 + 180 - 15 - 30 })
+
+  const ducts = useSimStore.getState().components
+  const hObj = ducts.find((c) => c.id === hDuct)!
+  const rObj = ducts.find((c) => c.id === tRight)!
+  const hOpen = ductJunctionOpenings(hObj, ducts)
+  const rOpen = ductJunctionOpenings(rObj, ducts)
+
+  check('Calha ranhurada em duplo T (IMG_5792): corta os 2 T na parede inferior e preserva 100% da parede superior',
+    hOpen.filter((o) => o.side === 'bottom').length === 2 &&
+    hOpen.filter((o) => o.side === 'top').length === 0 &&
+    closedSpans(500, hOpen, 'top').length === 1 &&
+    closedSpans(500, hOpen, 'bottom').length === 3)
+
+  // Verifica que todos os dentes na boca de ambos os T são destacados
+  const pitch = CABLE_DUCT.pitch, fingerW = pitch - CABLE_DUCT.slot
+  const nFingers = Math.floor((500 - CABLE_DUCT.slot) / pitch)
+  const fStart = -((nFingers - 1) * pitch) / 2
+  let cutBottom = 0, cutTop = 0
+  for (let i = 0; i < nFingers; i++) {
+    const fx = fStart + i * pitch
+    if (inOpening(hOpen, 'bottom', fx - fingerW / 2, fx + fingerW / 2)) cutBottom++
+    if (inOpening(hOpen, 'top', fx - fingerW / 2, fx + fingerW / 2)) cutTop++
+  }
+  check('Calha ranhurada em T destaca todos os dentes das 2 bocas de T (>= 6 dentes) e 0 dentes na parede oposta',
+    cutBottom >= 6 && cutTop === 0, `cortadosInf=${cutBottom} cortadosSup=${cutTop}`)
+
+  check('Ramal em T sobreposto apara os dentes da ponta e o fundo coplanar (endTrim)',
+    rOpen.length === 2 && rOpen.every((o) => o.endTrim) &&
+    closedFloorSpans(240, rOpen)[0][0] > -120)
+
+  // Testa também ramal rodado em 3D via viewOrientation.z = 90 (sem rotation 2D)
+  const t3d = s.addComponent('cableDuct', 450 - 120, 0)
+  s.setComponentState(t3d, { coverOn: false, widthMm: 40, heightMm: 60, lengthMm: 160 })
+  s.updateComponent(t3d, { schematicX: 450 - 120, schematicY: 0, w: 240, h: 60, rotation: 0, viewOrientation: { x: 0, y: 0, z: 90 } })
+  const hOpen3d = ductJunctionOpenings(hObj, useSimStore.getState().components)
+  const dummyMat = new THREE.MeshStandardMaterial()
+  const ductMeshGroup = buildCableDuct({ lengthMm: 500, widthMm: 40, heightMm: 60 }, 0.01, { body: dummyMat, cover: dummyMat }, false, hOpen3d)
+  check('União em T rodada em 3D (viewOrientation.z=90°) corta dentes no topo e gera malha 3D válida',
+    hOpen3d.some((o) => o.side === 'top') && Boolean(ductMeshGroup.getObjectByName('cable-duct-body')), JSON.stringify(hOpen3d))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

@@ -122,6 +122,8 @@ import {
   clampSteppedBusbarHoles,
   isAcrylicBusbarType,
   isRealBusbarType,
+  isCombBusbarType,
+  isCombConnectorType,
   steppedBarsModeOf,
 } from '../three/busbarParts'
 
@@ -491,6 +493,10 @@ interface Store extends CircuitState {
   setBusbarPoleCount: (componentId: string, poleCount: number, barsMode?: import('../three/busbarParts').SteppedBarConductors) => void
   /** Barramento de fase com acrílico: altera a cor translúcida da tampa e dos indicadores de borne. */
   setBusbarAcrylicColor: (componentId: string, hexColor: string) => void
+  /** Barramento tipo pente (`busbarComb`): atualiza modo (1P/1P+N/3P/3P+N), dentes, direção, serigrafia ou conectores preservando cabos. */
+  updateCombBusbar: (componentId: string, patch: Record<string, unknown>) => void
+  /** Conector de alimentação para pente (`combBusbarConnector`): atualiza cor PA66, direção/estilo do pino e calibre preservando cabos. */
+  updateCombConnector: (componentId: string, patch: Record<string, unknown>) => void
   /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). Se hierarchical, usa X1.0, X1.1… (ou startIndex: 1 → X1.1, X1.2…). */
   createTerminalStrip: (componentId: string, count: number, opts?: { hierarchical?: boolean; startIndex?: 0 | 1 }) => void
   /** Acrescenta bornes (ex.: +1, +N, +PE, +24V, 0V) à direita da régua atual, encaixados na mesma calha e agrupados automaticamente. */
@@ -3289,6 +3295,11 @@ export const useSimStore = create<Store>((set, get) => {
   setBusbarPoleCount: (componentId, poleCount, nextBarsMode) => {
     const c = get().components.find((x) => x.id === componentId)
     if (!c || !isRealBusbarType(c.type)) return
+    if (isCombBusbarType(c.type)) {
+      get().updateCombBusbar(componentId, { poleCount })
+      return
+    }
+    if (isCombConnectorType(c.type)) return
     const isAcrylic = isAcrylicBusbarType(c.type)
     const n = isAcrylic ? clampAcrylicBusbarPoles(poleCount) : clampSteppedBusbarHoles(poleCount)
     const mode = isAcrylic ? undefined : (nextBarsMode ?? steppedBarsModeOf(c.state))
@@ -3387,6 +3398,138 @@ export const useSimStore = create<Store>((set, get) => {
       )),
       dirty: true,
     }))
+  },
+
+  updateCombBusbar: (componentId, patch) => {
+    const c = get().components.find((x) => x.id === componentId)
+    if (!c || !isCombBusbarType(c.type)) return
+    const nextState: Record<string, unknown> = { ...c.state, ...patch }
+    if ('poleCount' in patch) {
+      const raw = Number(patch.poleCount)
+      nextState.poleCount = Number.isFinite(raw) ? Math.max(2, Math.min(24, Math.round(raw))) : c.state.poleCount
+    }
+    const specs = busbarTerminalSpecs('busbarComb', nextState)
+    const fp = busbarFootprintPx('busbarComb', nextState) ?? { w: c.w, h: c.h }
+    get().commitHistory()
+    const oldByLabel = new Map(c.terminals.map((t) => [t.label, t]))
+    const newTerminals: Terminal[] = specs.map((spec) => {
+      const existing = oldByLabel.get(spec.label)
+      const clonedSocket = spec.socket3D
+        ? { ...spec.socket3D, normal: [...spec.socket3D.normal] as [number, number, number], position: { ...spec.socket3D.position } }
+        : undefined
+      if (existing) {
+        return {
+          ...existing,
+          displayName: spec.displayName,
+          kind: spec.kind,
+          terminalType: spec.terminalType,
+          color: spec.color,
+          diameter: spec.diameter,
+          x: spec.x,
+          y: spec.y,
+          position3D: spec.position3D ? { ...spec.position3D } : undefined,
+          socket3D: clonedSocket,
+        }
+      }
+      return {
+        id: `${c.id}-${spec.label}`,
+        componentId: c.id,
+        label: spec.label,
+        displayName: spec.displayName,
+        kind: spec.kind,
+        terminalType: spec.terminalType,
+        color: spec.color,
+        diameter: spec.diameter,
+        x: spec.x,
+        y: spec.y,
+        position3D: spec.position3D ? { ...spec.position3D } : undefined,
+        socket3D: clonedSocket,
+        energized: false,
+      }
+    })
+    const keptIds = new Set(newTerminals.map((t) => t.id))
+    const oldIds = new Set(c.terminals.map((t) => t.id))
+    const nextWires = get().wires.filter((w) => {
+      if (w.fromTerminalId && oldIds.has(w.fromTerminalId) && !keptIds.has(w.fromTerminalId)) return false
+      if (w.toTerminalId && oldIds.has(w.toTerminalId) && !keptIds.has(w.toTerminalId)) return false
+      return true
+    })
+    const cx = c.schematicX + c.w / 2
+    const cy = c.schematicY + c.h / 2
+    set((s) => ({
+      components: s.components.map((item) => (
+        item.id === c.id
+          ? {
+              ...item,
+              w: fp.w,
+              h: fp.h,
+              schematicX: Math.round(cx - fp.w / 2),
+              schematicY: Math.round(cy - fp.h / 2),
+              terminals: newTerminals,
+              state: nextState as ElectricalComponent['state'],
+            }
+          : item
+      )),
+      wires: nextWires,
+      dirty: true,
+    }))
+    recomputeIfActive()
+  },
+
+  updateCombConnector: (componentId, patch) => {
+    const c = get().components.find((x) => x.id === componentId)
+    if (!c || !isCombConnectorType(c.type)) return
+    const nextState: Record<string, unknown> = { ...c.state, ...patch }
+    if (typeof nextState.connectorColor === 'string') {
+      const clean = nextState.connectorColor.trim()
+      if (/^#[0-9a-fA-F]{6}$/.test(clean)) nextState.connectorColor = clean.toLowerCase()
+    }
+    const specs = busbarTerminalSpecs('combBusbarConnector', nextState)
+    get().commitHistory()
+    const oldByLabel = new Map(c.terminals.map((t) => [t.label, t]))
+    const newTerminals: Terminal[] = specs.map((spec) => {
+      const existing = oldByLabel.get(spec.label)
+      const clonedSocket = spec.socket3D
+        ? { ...spec.socket3D, normal: [...spec.socket3D.normal] as [number, number, number], position: { ...spec.socket3D.position } }
+        : undefined
+      return existing
+        ? {
+            ...existing,
+            displayName: spec.displayName,
+            kind: spec.kind,
+            terminalType: spec.terminalType,
+            color: spec.color,
+            diameter: spec.diameter,
+            x: spec.x,
+            y: spec.y,
+            position3D: spec.position3D ? { ...spec.position3D } : undefined,
+            socket3D: clonedSocket,
+          }
+        : {
+            id: `${c.id}-${spec.label}`,
+            componentId: c.id,
+            label: spec.label,
+            displayName: spec.displayName,
+            kind: spec.kind,
+            terminalType: spec.terminalType,
+            color: spec.color,
+            diameter: spec.diameter,
+            x: spec.x,
+            y: spec.y,
+            position3D: spec.position3D ? { ...spec.position3D } : undefined,
+            socket3D: clonedSocket,
+            energized: false,
+          }
+    })
+    set((s) => ({
+      components: s.components.map((item) => (
+        item.id === c.id
+          ? { ...item, terminals: newTerminals, state: nextState as ElectricalComponent['state'] }
+          : item
+      )),
+      dirty: true,
+    }))
+    recomputeIfActive()
   },
 
   setTerminalPoleCount: (componentId, poleCount) => {

@@ -674,6 +674,8 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'busbarPhase':
       case 'busbarPhaseAcrylic':
       case 'busbarPhaseStepped':
+      case 'busbarComb':
+      case 'combBusbarConnector':
       case 'busbarNeutral':
       case 'earthBar':
       case 'terminalSet1ph':

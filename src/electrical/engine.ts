@@ -19,7 +19,7 @@ import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../type
 import { importedBridges } from './importedComponents'
 import { mountTerminalPairs } from './mounts'
 import { terminalStripJumperPairs } from './pti6Strip'
-import { steppedTerminalBarOf } from '../three/busbarParts'
+import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarParts'
 
 export interface ContinuityResult {
   energizedTerminals: Set<string>
@@ -328,6 +328,27 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       }
       break
     }
+    case 'busbarComb': {
+      // Cada barra laminada interna de cobre (L em 1P; L1/N em 1P+N; L1/L2/L3 em 3P; L1/L2/L3/N em 3P+N)
+      // une todos os seus dentes e o respetivo conector acoplado IN.*, mantendo isolamento total entre barras.
+      const byCond = new Map<string, string[]>()
+      for (const term of c.terminals) {
+        const cond = combTerminalConductorOf(term.label)
+        if (!cond) continue
+        const list = byCond.get(cond)
+        if (list) list.push(term.id)
+        else byCond.set(cond, [term.id])
+      }
+      for (const ids of byCond.values()) {
+        for (let i = 0; i < ids.length - 1; i++) bridges.push([ids[i], ids[i + 1]])
+      }
+      break
+    }
+    case 'combBusbarConnector': {
+      // Conector de alimentação 6–25 mm²: continuidade direta entre o borne tubular (IN) e o pino estanhado (PINO).
+      pair(la('IN'), la('PINO'))
+      break
+    }
     case 'terminalSet1ph':
     case 'terminalSet3ph':
     case 'terminalSet24v': {
@@ -406,7 +427,7 @@ function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set
   for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) union(w.fromTerminalId, w.toTerminalId)
   // Bornes, réguas e barramentos repartidores: condutores passivos, sempre em continuidade por barra.
   for (const c of components) {
-    if (/^(terminal|busbarPhaseAcrylic|busbarPhaseStepped|busbarNeutral)/.test(c.type)) {
+    if (/^(terminal|busbarPhaseAcrylic|busbarPhaseStepped|busbarComb|combBusbarConnector|busbarNeutral)/.test(c.type)) {
       for (const [a, b] of internalBridges(c)) union(a, b)
     }
   }
@@ -463,6 +484,18 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
         if (!bar || seeded.has(bar)) return
         seeded.add(bar)
         if (faults?.phaseLoss && bar === 'L2') return
+        ids.push(x.id)
+      })
+    }
+    if (c.type === 'busbarComb' && c.state.source === true) {
+      const seeded = new Set<string>()
+      const singlePhase = typeof c.state.sourcePhase === 'string' ? c.state.sourcePhase : 'L1'
+      c.terminals.forEach((x) => {
+        const cond = combTerminalConductorOf(x.label)
+        if (!cond || seeded.has(cond)) return
+        seeded.add(cond)
+        const eff = cond === 'L' ? singlePhase : cond
+        if (faults?.phaseLoss && eff === 'L2') return
         ids.push(x.id)
       })
     }

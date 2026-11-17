@@ -11,6 +11,23 @@ import {
   steppedCoverOpenOf,
   steppedCoverVisibleOf,
 } from '../three/busbarParts'
+import {
+  COMB_BUSBAR,
+  COMB_CONDUCTOR_HEX,
+  COMB_CONNECTOR,
+  COMB_CONNECTOR_GAUGES,
+  combBrandOf,
+  combBusbarDimsOf,
+  combCatalogCodeOf,
+  combConnectorColorOf,
+  combConnectorGaugeOf,
+  combConnectorPhaseColorsOf,
+  combConnectorPinDirectionOf,
+  combRatedAOf,
+  combSectionMm2Of,
+  isCombBusbarType,
+  isCombConnectorType,
+} from '../three/combBusbarParts'
 
 /**
  * Vista frontal ortográfica fiel em 2D dos barramentos isolados com acrílico (PE, N e Fase)
@@ -19,6 +36,13 @@ import {
  */
 export function Busbar2D({ c }: { c: ElectricalComponent }) {
   const uid = `bb-${c.id.replace(/[^a-zA-Z0-9_-]/g, '')}`
+
+  if (isCombBusbarType(c.type)) {
+    return <CombBusbar2DView c={c} uid={uid} />
+  }
+  if (isCombConnectorType(c.type)) {
+    return <CombConnector2DView c={c} uid={uid} />
+  }
 
   if (isAcrylicBusbarType(c.type)) {
     const d = acrylicBusbarDimsOf(c.state)
@@ -225,6 +249,325 @@ export function Busbar2D({ c }: { c: ElectricalComponent }) {
           />
         </g>
       )}
+    </g>
+  )
+}
+
+/** Vista ortográfica frontal 2D realista do barramento tipo pente (`busbarComb` — 1P, 1P+N, 3P, 3P+N). */
+function CombBusbar2DView({ c, uid }: { c: ElectricalComponent; uid: string }) {
+  const d = combBusbarDimsOf(c.state)
+  const brand = combBrandOf(c.state)
+  const ratedA = combRatedAOf(c.state)
+  const sectionMm2 = combSectionMm2Of(ratedA)
+  const code = combCatalogCodeOf(brand, d.mode, d.poles, ratedA)
+  const connColor = combConnectorColorOf(c.state)
+  const phaseCols = combConnectorPhaseColorsOf(c.state)
+
+  const sx = c.w / d.widthMm
+  const sy = c.h / d.heightMm
+  const toX = (xMm: number) => (xMm + d.widthMm / 2) * sx
+  const toY = (yMm: number) => (d.heightMm / 2 - yMm) * sy
+
+  const isDown = d.teethDirection === 'down'
+  const spineTop = toY(d.spineCenterYMm + d.spineHeightMm / 2)
+  const spineH = d.spineHeightMm * sy
+  const spineLeft = toX(-d.bodyLengthMm / 2)
+  const spineW = d.bodyLengthMm * sx
+  const capW = d.endCaps ? COMB_BUSBAR.endCapMm * sx : 0
+  const spineEdgeY = isDown ? spineTop + spineH : spineTop
+  const pinLen = d.pinLengthMm * sy
+  const pinW = COMB_BUSBAR.pinWidthMm * sx
+  const shW = COMB_BUSBAR.pinShoulderWidthMm * sx
+  const brandLabel = brand === 'lexman' ? 'LEXman' : brand === 'sibratec' ? 'SIBRATEC' : brand === 'schneider' ? 'Schneider' : 'legrand'
+  const brandInk = brand === 'schneider' ? '#009530' : brand === 'legrand' ? '#d9272e' : '#242930'
+
+  return (
+    <g pointerEvents="none" data-comb-busbar={d.mode}>
+      <defs>
+        <linearGradient id={`${uid}-pvc`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f1f3f5" />
+          <stop offset="16%" stopColor="#d9dde2" />
+          <stop offset="86%" stopColor="#cdd2d8" />
+          <stop offset="100%" stopColor="#b8bec6" />
+        </linearGradient>
+        <linearGradient id={`${uid}-cu`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#9c4a1f" />
+          <stop offset="35%" stopColor="#e3925c" />
+          <stop offset="68%" stopColor="#cf753d" />
+          <stop offset="100%" stopColor="#8c3f18" />
+        </linearGradient>
+        <linearGradient id={`${uid}-sn`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#94a3b8" />
+          <stop offset="45%" stopColor="#f1f5f9" />
+          <stop offset="100%" stopColor="#64748b" />
+        </linearGradient>
+      </defs>
+
+      {/* Pinos chanfrados de cobre eletrolítico Cu-ETP a passo modular de 18 mm */}
+      {d.teeth.map((t) => {
+        const cx = toX(t.xMm)
+        const tipW = pinW * 0.56
+        const cham = pinLen * 0.25
+        const pts = isDown
+          ? [
+              `${cx - pinW / 2},${spineEdgeY}`,
+              `${cx + pinW / 2},${spineEdgeY}`,
+              `${cx + pinW / 2},${spineEdgeY + pinLen - cham}`,
+              `${cx + tipW / 2},${spineEdgeY + pinLen}`,
+              `${cx - tipW / 2},${spineEdgeY + pinLen}`,
+              `${cx - pinW / 2},${spineEdgeY + pinLen - cham}`,
+            ].join(' ')
+          : [
+              `${cx - pinW / 2},${spineEdgeY}`,
+              `${cx - pinW / 2},${spineEdgeY - pinLen + cham}`,
+              `${cx - tipW / 2},${spineEdgeY - pinLen}`,
+              `${cx + tipW / 2},${spineEdgeY - pinLen}`,
+              `${cx + pinW / 2},${spineEdgeY - pinLen + cham}`,
+              `${cx + pinW / 2},${spineEdgeY}`,
+            ].join(' ')
+        return (
+          <g key={t.label}>
+            {/* Ombro / dobra escalonada na saída do canal */}
+            <rect
+              x={cx - shW / 2}
+              y={isDown ? spineEdgeY - 0.6 : spineEdgeY - 2.4 * sy}
+              width={shW}
+              height={3.0 * sy}
+              fill={`url(#${uid}-cu)`}
+              stroke="#78350f"
+              strokeWidth={0.45}
+            />
+            <polygon points={pts} fill={`url(#${uid}-cu)`} stroke="#78350f" strokeWidth={0.55} />
+          </g>
+        )
+      })}
+
+      {/* Perfil isolante em PVC rígido + barreiras escalonadas + serigrafia real */}
+      <rect x={spineLeft} y={spineTop} width={spineW} height={spineH} rx={1.6} fill={`url(#${uid}-pvc)`} stroke="#7b838e" strokeWidth={0.85} />
+      <line
+        x1={spineLeft + 1}
+        y1={isDown ? spineTop + 2.4 : spineTop + spineH - 2.4}
+        x2={spineLeft + spineW - 1}
+        y2={isDown ? spineTop + 2.4 : spineTop + spineH - 2.4}
+        stroke="#64748b"
+        strokeWidth={0.8}
+      />
+
+      {/* Topos isolantes laterais (end caps) */}
+      {d.endCaps && (
+        <>
+          <rect x={0} y={spineTop - 0.3} width={Math.max(1.8, capW)} height={spineH + 0.6} rx={0.8} fill="#9aa1aa" stroke="#64748b" strokeWidth={0.6} />
+          <rect x={c.w - Math.max(1.8, capW)} y={spineTop - 0.3} width={Math.max(1.8, capW)} height={spineH + 0.6} rx={0.8} fill="#9aa1aa" stroke="#64748b" strokeWidth={0.6} />
+        </>
+      )}
+
+      {/* Etiqueta / serigrafia técnica (CE, marca, código, modo, calibre e código de barras) */}
+      {spineW >= 78 && (
+        <g>
+          {brand === 'lexman' && spineW >= 150 && (
+            <>
+              <rect
+                x={spineLeft + spineW * 0.09}
+                y={spineTop + (isDown ? 3.4 : spineH * 0.28)}
+                width={spineW * 0.4}
+                height={spineH * 0.56}
+                rx={1.2}
+                fill="#ffffff"
+                stroke="#cbd5e1"
+                strokeWidth={0.5}
+              />
+              <rect
+                x={spineLeft + spineW * 0.1}
+                y={spineTop + (isDown ? 3.4 + spineH * 0.32 : spineH * 0.6)}
+                width={spineW * 0.12}
+                height={spineH * 0.21}
+                rx={0.8}
+                fill="#e11d48"
+              />
+              <text
+                x={spineLeft + spineW * 0.16}
+                y={spineTop + (isDown ? 3.4 + spineH * 0.46 : spineH * 0.74)}
+                textAnchor="middle"
+                fontSize={Math.max(4.2, spineH * 0.16)}
+                fontWeight={700}
+                fill="#ffffff"
+              >
+                {code}
+              </text>
+            </>
+          )}
+          <text
+            x={spineLeft + 5}
+            y={spineTop + (isDown ? spineH * 0.48 : spineH * 0.66)}
+            fontSize={Math.max(5.5, spineH * 0.28)}
+            fontWeight={800}
+            fill="#242930"
+          >
+            CE
+          </text>
+          <text
+            x={spineLeft + (brand === 'lexman' && spineW >= 150 ? spineW * 0.105 : 22)}
+            y={spineTop + (isDown ? spineH * 0.36 : spineH * 0.56)}
+            fontSize={Math.max(5.5, spineH * 0.25)}
+            fontWeight={800}
+            fill={brandInk}
+          >
+            {brandLabel}
+          </text>
+          <text
+            x={spineLeft + spineW * (brand === 'lexman' && spineW >= 150 ? 0.53 : 0.46)}
+            y={spineTop + (isDown ? spineH * 0.45 : spineH * 0.64)}
+            fontSize={Math.max(5, spineH * 0.22)}
+            fontWeight={700}
+            fill="#334155"
+          >
+            {d.mode} · {ratedA}A · {sectionMm2}mm²
+          </text>
+        </g>
+      )}
+
+      {/* Identificação de fase (L / L1 / L2 / L3 / N) alinhada com cada pino */}
+      {d.teeth.map((t) => {
+        const cx = toX(t.xMm)
+        const text = d.mode === '1P' ? 'L' : d.mode === '1P+N' && t.conductor === 'L1' ? 'L' : t.conductor
+        const badgeY = isDown ? spineTop + spineH - 4.8 : spineTop + 4.8
+        const col = t.conductor === 'N' ? '#1d63c2' : t.conductor === 'L1' || t.conductor === 'L' ? '#6d3713' : t.conductor === 'L2' ? '#1f242c' : '#475569'
+        return (
+          <text key={`lbl-${t.label}`} x={cx} y={badgeY} textAnchor="middle" dominantBaseline="central" fontSize={5.2} fontWeight={800} fill={col}>
+            {text}
+          </text>
+        )
+      })}
+
+      {/* Conectores de alimentação 6–25 mm² acoplados aos dentes (com cor personalizável) */}
+      {d.connectorToothIndices.map((idx) => {
+        const t = d.teeth[idx]
+        if (!t) return null
+        const cx = toX(t.xMm)
+        const cw = COMB_CONNECTOR.widthMm * sx * 0.94
+        const ch = COMB_CONNECTOR.bodyHeightMm * sy * 0.9
+        const cy = isDown ? spineEdgeY + pinLen + ch * 0.34 : spineEdgeY - pinLen - ch * 0.34
+        const fill = phaseCols ? COMB_CONDUCTOR_HEX[t.conductor] : connColor
+        const bladeY = isDown ? spineEdgeY + 1 : cy - ch / 2 - pinLen * 0.72
+        return (
+          <g key={`fc-${t.label}`}>
+            {/* Pino chato estanhado acoplado ao dente */}
+            <rect x={cx - pinW * 0.42} y={bladeY} width={pinW * 0.84} height={pinLen * 0.78} fill={`url(#${uid}-sn)`} stroke="#475569" strokeWidth={0.45} />
+            {/* Corpo PA66 colorido + bocal cilíndrico + parafuso Pozidriv */}
+            <rect x={cx - cw / 2} y={cy - ch / 2} width={cw} height={ch} rx={2.2} fill={fill} stroke="#64748b" strokeWidth={0.8} />
+            <circle cx={cx} cy={cy} r={Math.min(cw, ch) * 0.34} fill={fill} stroke="#475569" strokeWidth={0.75} />
+            <circle cx={cx} cy={cy} r={Math.min(cw, ch) * 0.21} fill="#cbd5e1" stroke="#334155" strokeWidth={0.6} />
+            <line x1={cx - 2.3} y1={cy} x2={cx + 2.3} y2={cy} stroke="#334155" strokeWidth={0.7} />
+            <line x1={cx} y1={cy - 2.3} x2={cx} y2={cy + 2.3} stroke="#334155" strokeWidth={0.7} />
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
+/** Vista ortográfica frontal 2D realista do conector de alimentação para pente (`combBusbarConnector`). */
+function CombConnector2DView({ c, uid }: { c: ElectricalComponent; uid: string }) {
+  const color = combConnectorColorOf(c.state)
+  const dir = combConnectorPinDirectionOf(c.state)
+  const gauge = combConnectorGaugeOf(c.state)
+  const stamp = (COMB_CONNECTOR_GAUGES.find((g) => g.id === gauge) ?? COMB_CONNECTOR_GAUGES[1]).stamp
+  const isDown = dir === 'down'
+
+  const sx = c.w / COMB_CONNECTOR.widthMm
+  const sy = c.h / COMB_CONNECTOR.heightMm
+  const bodyH = COMB_CONNECTOR.bodyHeightMm * sy
+  const pinH = COMB_CONNECTOR.pinLengthMm * sy
+  const bodyY = isDown ? 0.5 : pinH
+  const pinY = isDown ? bodyH - 0.5 : 0.5
+  const pinW = COMB_CONNECTOR.pinWidthMm * sx
+  const shW = COMB_CONNECTOR.shoulderWidthMm * sx
+  const cx = c.w / 2
+  const collarY = bodyY + bodyH * (isDown ? 0.56 : 0.44)
+  const rOut = COMB_CONNECTOR.collarOuterRadiusMm * Math.min(sx, sy)
+  const rIn = COMB_CONNECTOR.collarInnerRadiusMm * Math.min(sx, sy)
+  const ribCount = 6
+
+  return (
+    <g pointerEvents="none" data-comb-connector={color}>
+      <defs>
+        <linearGradient id={`${uid}-tin`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#94a3b8" />
+          <stop offset="42%" stopColor="#f8fafc" />
+          <stop offset="72%" stopColor="#cbd5e1" />
+          <stop offset="100%" stopColor="#64748b" />
+        </linearGradient>
+      </defs>
+
+      {/* Pino chato de cobre estanhado com ombro em T e estrias horizontais */}
+      <rect
+        x={cx - shW / 2}
+        y={isDown ? bodyH - 1.2 : pinH - 1.4}
+        width={shW}
+        height={2.4}
+        rx={0.5}
+        fill={`url(#${uid}-tin)`}
+        stroke="#475569"
+        strokeWidth={0.55}
+      />
+      <rect x={cx - pinW / 2} y={pinY} width={pinW} height={pinH} rx={0.9} fill={`url(#${uid}-tin)`} stroke="#475569" strokeWidth={0.65} />
+      {Array.from({ length: ribCount }, (_, i) => {
+        const ry = pinY + ((i + 1) / (ribCount + 1)) * pinH
+        return <line key={i} x1={cx - pinW * 0.42} y1={ry} x2={cx + pinW * 0.42} y2={ry} stroke="#64748b" strokeWidth={0.55} />
+      })}
+
+      {/* Capuz superior escalonado (`6-25□`) + corpo isolante PA66 na cor escolhida */}
+      <rect
+        x={2.2}
+        y={isDown ? bodyY : bodyY + bodyH - 4.8}
+        width={c.w - 4.4}
+        height={4.8}
+        rx={1.8}
+        fill={color}
+        stroke="#64748b"
+        strokeWidth={0.75}
+      />
+      <rect
+        x={0.8}
+        y={isDown ? bodyY + 3.4 : bodyY}
+        width={c.w - 1.6}
+        height={bodyH - 3.6}
+        rx={1.6}
+        fill={color}
+        stroke="#64748b"
+        strokeWidth={0.85}
+      />
+
+      {/* 4 cavidades quadradas de moldação nos cantos (fiel à foto IMG_5789!) */}
+      {[
+        [2.4, (isDown ? bodyY + 5.2 : bodyY + 1.8)],
+        [c.w - 4.8, (isDown ? bodyY + 5.2 : bodyY + 1.8)],
+        [2.4, (isDown ? bodyY + bodyH - 4.2 : bodyY + bodyH - 7.4)],
+        [c.w - 4.8, (isDown ? bodyY + bodyH - 4.2 : bodyY + bodyH - 7.4)],
+      ].map(([px, py], i) => (
+        <rect key={i} x={px} y={py} width={2.3} height={2.3} rx={0.4} fill="#334155" fillOpacity={0.35} />
+      ))}
+
+      {/* Bocal cilíndrico IP20 + parafuso Pozidriv M6 no interior */}
+      <circle cx={cx} cy={collarY} r={rOut} fill={color} stroke="#475569" strokeWidth={0.85} />
+      <circle cx={cx} cy={collarY} r={rIn} fill="#1e293b" stroke="#94a3b8" strokeWidth={0.6} />
+      <circle cx={cx} cy={collarY} r={rIn * 0.76} fill="#e2e8f0" stroke="#475569" strokeWidth={0.5} />
+      <line x1={cx - rIn * 0.55} y1={collarY} x2={cx + rIn * 0.55} y2={collarY} stroke="#334155" strokeWidth={0.8} />
+      <line x1={cx} y1={collarY - rIn * 0.55} x2={cx} y2={collarY + rIn * 0.55} stroke="#334155" strokeWidth={0.8} />
+
+      {/* Gravação de calibre (`6-25□`) */}
+      <text
+        x={cx}
+        y={isDown ? bodyY + 2.7 : bodyY + bodyH - 2.1}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={3.6}
+        fontWeight={700}
+        fill="#475569"
+        fillOpacity={0.85}
+      >
+        {stamp}
+      </text>
     </g>
   )
 }

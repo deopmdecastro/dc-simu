@@ -15,6 +15,14 @@ import {
   type AcrylicBusbarMaterials,
   type SteppedBusbarMaterials,
 } from '../src/three/busbarParts'
+import {
+  buildCombBusbar,
+  buildCombConnector,
+  COMB_BUSBAR,
+  COMB_CONNECTOR,
+  type CombBusbarMaterials,
+  type CombConnectorMaterials,
+} from '../src/three/combBusbarParts'
 
 ;(globalThis as unknown as { FileReader: unknown }).FileReader = class {
   result: ArrayBuffer | string | null = null
@@ -118,3 +126,48 @@ await writeGlb('public/models/bornes-e-barras/barramento-fase-acrilico.glb', ph.
 
 const stepped = buildSteppedBusbar({ poleCount: STEPPED_BUSBAR.defaultHoles, barsMode: STEPPED_BUSBAR.defaultBars }, unit, steppedMats)
 await writeGlb('public/models/bornes-e-barras/barramento-fases-escada-4p.glb', stepped.root)
+
+const combMats: CombBusbarMaterials = {
+  pvcOuter: new THREE.MeshStandardMaterial({ color: '#e1e4e7', metalness: 0.0, roughness: 0.42, name: 'pvc-ral7035-pente' }),
+  pvcBarrier: new THREE.MeshStandardMaterial({ color: '#9aa1aa', metalness: 0.02, roughness: 0.56, name: 'pvc-barreira-pente' }),
+  copper: new THREE.MeshStandardMaterial({ color: '#cf7742', metalness: 0.91, roughness: 0.24, name: 'cobre-cuetp-pente' }),
+  silkscreen: new THREE.MeshStandardMaterial({ color: '#dadde1', metalness: 0.01, roughness: 0.36, name: 'serigrafia-pente' }),
+  tinned: new THREE.MeshStandardMaterial({ color: '#e4e8ee', metalness: 0.94, roughness: 0.2, name: 'pino-estanhado-pente' }),
+  cage: new THREE.MeshStandardMaterial({ color: '#d9be6c', metalness: 0.9, roughness: 0.26, name: 'gaiola-pente' }),
+  dark: new THREE.MeshStandardMaterial({ color: '#1b2028', metalness: 0.28, roughness: 0.8, name: 'furo-pente' }),
+}
+
+const comb = buildCombBusbar(
+  {
+    poleCount: COMB_BUSBAR.defaultPoles,
+    combMode: COMB_BUSBAR.defaultMode,
+    brandStyle: COMB_BUSBAR.defaultBrand,
+    ratedA: COMB_BUSBAR.defaultRatedA,
+    teethDirection: COMB_BUSBAR.defaultTeethDirection,
+    endCaps: true,
+    feedConnectors: 'none',
+  },
+  unit,
+  combMats,
+)
+await writeGlb('public/models/bornes-e-barras/barramento-pente.glb', comb.root)
+
+const connMats: CombConnectorMaterials = {
+  housing: new THREE.MeshStandardMaterial({ color: COMB_CONNECTOR.defaultColor, metalness: 0.0, roughness: 0.38, name: 'pa66-conector-pente' }),
+  tinned: new THREE.MeshStandardMaterial({ color: '#e5e9ef', metalness: 0.95, roughness: 0.19, name: 'pino-estanhado-estriado' }),
+  cage: new THREE.MeshStandardMaterial({ color: '#d9be6c', metalness: 0.9, roughness: 0.25, name: 'gaiola-borne-25mm2' }),
+  dark: new THREE.MeshStandardMaterial({ color: '#181d25', metalness: 0.3, roughness: 0.82, name: 'cavidade-conector' }),
+  stamp: new THREE.MeshStandardMaterial({ color: '#e5e7eb', metalness: 0.0, roughness: 0.44, transparent: true, opacity: 0.01, name: 'gravacao-6-25' }),
+}
+
+const conn = buildCombConnector(
+  {
+    connectorColor: COMB_CONNECTOR.defaultColor,
+    pinDirection: COMB_CONNECTOR.defaultPinDirection,
+    pinStyle: COMB_CONNECTOR.defaultPinStyle,
+    gaugeRange: COMB_CONNECTOR.defaultGauge,
+  },
+  unit,
+  connMats,
+)
+await writeGlb('public/models/bornes-e-barras/conector-barramento-pente.glb', conn.root)

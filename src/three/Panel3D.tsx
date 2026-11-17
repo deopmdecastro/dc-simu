@@ -69,8 +69,8 @@ import { GlowHalo } from './GlowHalo'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
-import { AcrylicBusbar3D, SteppedBusbar3D } from './Busbar3D'
-import { isAcrylicBusbarType, isSteppedBusbarType } from './busbarParts'
+import { AcrylicBusbar3D, CombBusbar3D, CombConnector3D, SteppedBusbar3D } from './Busbar3D'
+import { isAcrylicBusbarType, isCombBusbarType, isCombConnectorType, isSteppedBusbarType } from './busbarParts'
 import MotorShaftFan3D from './MotorShaftFan3D'
 import { updateMotorBodyMotion } from './motorBodyMotion'
 import { MOTOR_FAN, MOTOR_SIZE, motorCadToCentered } from './motorTerminalLayout'
@@ -4537,6 +4537,26 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                 interactive={mechanicalControls && !c.locked}
                 wireMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
                 label={<Label text={c.ref} position={[0, dims.y / 2 + 0.095, 0.08]} size={0.075} color={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} />}
+              />
+            )
+          } else if (isCombBusbarType(c.type)) {
+            const base = basePivots[c.id]
+            const dims = component3DDimensions(c)
+            content = (
+              <CombBusbar3D
+                c={c}
+                position={[base.x, base.y, base.z]}
+                label={<Label text={c.ref} position={[0, dims.y / 2 + 0.08, 0.05]} size={0.072} color={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} />}
+              />
+            )
+          } else if (isCombConnectorType(c.type)) {
+            const base = basePivots[c.id]
+            const dims = component3DDimensions(c)
+            content = (
+              <CombConnector3D
+                c={c}
+                position={[base.x, base.y, base.z]}
+                label={<Label text={c.ref} position={[0, dims.y / 2 + 0.075, 0.04]} size={0.068} color={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} />}
               />
             )
           } else if (c.type === 'terminalPhoenixPti6' && Number(c.state?.poleCount ?? 1) > 1) {

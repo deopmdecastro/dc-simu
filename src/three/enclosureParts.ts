@@ -1,4 +1,4 @@
-import { closedSpans, inOpening, type DuctOpening } from '../schematic/ductJunctions'
+import { closedFloorSpans, closedSpans, inOpening, type DuctOpening } from '../schematic/ductJunctions'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
@@ -280,38 +280,96 @@ export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMa
 
 export interface CableDuctMaterials { body: THREE.Material; cover: THREE.Material }
 
-/** Calha técnica ranhurada (dedos destacáveis) com tampa de encaixe. Base em z = 0. */
+/**
+ * Calha técnica ranhurada com dentes/linguetas destacáveis (pré-corte de retenção, furação de base
+ * NFC 68-102 e corte limpo dos dentes nas uniões em T, L e cruz `+`). Base assente em `z = 0`.
+ */
 export function buildCableDuct(dims: CableDuctDims, unit: number, m: CableDuctMaterials, coverOn = true, openings: DuctOpening[] = []): THREE.Group {
   const { lengthMm: L, widthMm: W, heightMm: H } = dims
   const c = CABLE_DUCT
   const group = new THREE.Group(); group.name = 'cable-duct'
-  const strip = Math.max(8, H * 0.28)
-  const fingerH = H - c.base - strip
+  const strip = Math.max(7, Math.min(11, H * 0.22))
+  const fingerH = Math.max(6, H - c.base - strip)
   const fingerW = c.pitch - c.slot
+  // Cabeça alargada em T da lingueta (sistema de retenção de cabos — deixa fenda estreita de entrada no topo)
+  const headH = Math.min(4.6, fingerH * 0.22)
+  const headW = Math.min(c.pitch - 2.1, fingerW + 2.2)
+  const stemH = Math.max(2, fingerH - headH)
   const n = Math.max(1, Math.floor((L - c.slot) / c.pitch))
   const start = -((n - 1) * c.pitch) / 2
-  const parts: THREE.BufferGeometry[] = [boxGeo(unit, L, W, c.base, 0, 0, c.base / 2)]
-  for (const sy of [-1, 1]) {
+
+  // Fundo aparado nas pontas que entram noutra calha (evita sobreposição coplanar nas uniões em T)
+  const floorSpans = closedFloorSpans(L, openings)
+  const parts: THREE.BufferGeometry[] = []
+  for (const [fa, fb] of floorSpans) {
+    const segL = fb - fa
+    const segCx = (fa + fb) / 2
+    parts.push(boxGeo(unit, segL, W, c.base, segCx, 0, c.base / 2))
+    // Guias/furação oblonga de fixação da base segundo NFC 68-102 (visível com a calha sem tampa)
+    if (!coverOn && W >= 24 && segL >= 36) {
+      const holePitch = 25
+      const count = Math.floor((segL - 16) / holePitch)
+      const rowOffset = W >= 38 ? W * 0.21 : 0
+      const rows = rowOffset > 0 ? [-rowOffset, rowOffset] : [0]
+      for (let k = 0; k < count; k++) {
+        const hx = segCx - ((count - 1) * holePitch) / 2 + k * holePitch
+        for (const ry of rows) {
+          parts.push(boxGeo(unit, 11.5, 4.2, 0.45, hx, ry, c.base + 0.22))
+        }
+      }
+    }
+  }
+
+  for (const sy of [-1, 1] as const) {
     const y = sy * (W / 2 - c.wall / 2)
-    // 3D tem y para cima, o Esquema para baixo: lado +y aqui = `top` no Esquema.
-    const side = sy === 1 ? 'top' : 'bottom'
-    // fita lateral em troços: onde outra calha desemboca/atravessa a parede abre-se (passagem de cabos)
-    for (const [a, b] of closedSpans(L, openings, side)) parts.push(boxGeo(unit, b - a, c.wall, strip, (a + b) / 2, y, c.base + strip / 2))
+    // 3D tem +Y para cima e o Esquema tem +Y para baixo: +Y local corresponde a `top` no Esquema.
+    const side: 'top' | 'bottom' = sy === 1 ? 'top' : 'bottom'
+
+    // Parede inferior contínua + vinco de corte fácil: abre-se na boca de cada união em T/L/`+`
+    for (const [a, b] of closedSpans(L, openings, side)) {
+      const segL = b - a
+      const segCx = (a + b) / 2
+      parts.push(boxGeo(unit, segL, c.wall, strip - 0.6, segCx, y, c.base + (strip - 0.6) / 2))
+      // Nervura fina de pré-corte (linha por onde os dentes são destacados nas uniões em T)
+      parts.push(boxGeo(unit, segL, c.wall * 0.68, 0.7, segCx, y - sy * 0.14, c.base + strip - 0.3))
+    }
+
+    // Dentes/linguetas ranhurados: todos os dentes na zona da união em T são cortados pela base!
     for (let i = 0; i < n; i++) {
       const x = start + i * c.pitch
-      // dedos (pinos) que cairiam na passagem partem-se
-      if (inOpening(openings, side, x - fingerW / 2, x + fingerW / 2)) continue
-      parts.push(boxGeo(unit, fingerW, c.wall, fingerH, x, y, c.base + strip + fingerH / 2))
-      // patilha de encaixe da tampa, virada para dentro
-      parts.push(boxGeo(unit, fingerW, 2.2, 1.6, x, y - sy * 1.4, H - 0.8))
+      const halfSpan = headW / 2
+      // Também omite dentes que sairiam fora do comprimento útil
+      if (x - fingerW / 2 < -L / 2 - 0.1 || x + fingerW / 2 > L / 2 + 0.1) continue
+      if (inOpening(openings, side, x - halfSpan, x + halfSpan)) continue
+
+      // Haste vertical da lingueta com pré-corte intermédio de saída de cabos
+      if (stemH > 12) {
+        const midCutZ = c.base + strip + stemH * 0.52
+        const lowH = stemH * 0.49
+        const upH = stemH - lowH - 0.7
+        parts.push(boxGeo(unit, fingerW, c.wall, lowH, x, y, c.base + strip + lowH / 2))
+        parts.push(boxGeo(unit, fingerW * 0.82, c.wall * 0.75, 0.8, x, y, midCutZ))
+        parts.push(boxGeo(unit, fingerW, c.wall, upH, x, y, c.base + strip + lowH + 0.7 + upH / 2))
+      } else {
+        parts.push(boxGeo(unit, fingerW, c.wall, stemH, x, y, c.base + strip + stemH / 2))
+      }
+
+      // Cabeça alargada em T (retenção de cabos e quinas suavizadas) + patilha interior da tampa
+      parts.push(boxGeo(unit, headW, c.wall, headH, x, y, c.base + strip + stemH + headH / 2))
+      parts.push(boxGeo(unit, fingerW, 2.3, 1.6, x, y - sy * 1.45, H - 0.8))
     }
   }
   group.add(mergedMesh(parts, m.body, unit, 'cable-duct-body', 120))
   if (coverOn) {
-    const skirt = 7
-    const lid: THREE.BufferGeometry[] = [boxGeo(unit, L, W + 1.6, 1.8, 0, 0, H + 0.9)]
-    for (const sy of [-1, 1]) {
-      for (const [a, b] of closedSpans(L, openings, sy === 1 ? 'top' : 'bottom')) lid.push(boxGeo(unit, b - a, 1.2, skirt, (a + b) / 2, sy * (W / 2 + 0.2), H - skirt / 2 + 1.8))
+    const skirt = Math.min(7.5, H * 0.28)
+    const lid: THREE.BufferGeometry[] = []
+    for (const [fa, fb] of floorSpans) {
+      lid.push(boxGeo(unit, fb - fa, W + 1.6, 1.8, (fa + fb) / 2, 0, H + 0.9))
+    }
+    for (const sy of [-1, 1] as const) {
+      for (const [a, b] of closedSpans(L, openings, sy === 1 ? 'top' : 'bottom')) {
+        lid.push(boxGeo(unit, b - a, 1.2, skirt, (a + b) / 2, sy * (W / 2 + 0.2), H - skirt / 2 + 1.8))
+      }
     }
     group.add(mergedMesh(lid, m.cover, unit, 'cable-duct-cover', 120))
   }

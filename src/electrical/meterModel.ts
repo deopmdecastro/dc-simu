@@ -101,6 +101,9 @@ function dcTags(components: ElectricalComponent[], wires: Wire[], energized: Set
     if (c.type === 'busbarPhaseAcrylic' && c.state.source === true && c.state.sourcePhase === 'DC+' && c.terminals[0]) {
       spread([c.terminals[0].id], { kind: 'dc', plus: true, volts: Number(c.state.outV ?? 24) })
     }
+    if (c.type === 'busbarComb' && c.state.source === true && c.state.sourcePhase === 'DC+' && c.state.combMode === '1P' && c.terminals[0]) {
+      spread([c.terminals[0].id], { kind: 'dc', plus: true, volts: Number(c.state.outV ?? 24) })
+    }
   }
   return tags
 }
