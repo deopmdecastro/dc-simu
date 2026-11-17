@@ -94,10 +94,22 @@ export function importedActuationPatch(component: ElectricalComponent, pressed: 
   if (info.behavior === 'selector' && !pressed) {
     return component.state.maintain === false && component.state.position !== 0 ? { position: 0 } : null
   }
+  // Contactor: botão de teste atraca manualmente (mantém energizado até soltar ou novo clique).
+  if (info.behavior === 'contactor' && control === 'test') {
+    if (!pressed) return { testPressed: false, manualLatch: false }
+    return { testPressed: true, manualLatch: true, energized: true }
+  }
   if (!pressed) return null
   if (info.behavior === 'breaker' || info.behavior === 'fuse') return { closed: !component.state.closed || !!component.state.tripped, tripped: false }
   // O corpo injeta uma falha; retirar o disparo pertence ao RESET, não a um segundo clique.
   if (info.behavior === 'thermal') return component.state.tripped ? null : { tripped: true }
+  // Contactor: clique no corpo ou no teste força atracagem manual (didática).
+  if (info.behavior === 'contactor') {
+    const latched = !!component.state.manualLatch || !!component.state.testPressed
+    return latched
+      ? { manualLatch: false, testPressed: false, energized: false }
+      : { manualLatch: true, energized: true }
+  }
   if (info.behavior === 'selector') return { position: component.state.position === -1 ? 0 : component.state.position === 0 ? 1 : -1 }
   if (info.behavior === 'photo') return { triggered: !component.state.triggered }
   if (info.behavior === 'safety') return { resetRequested: true }
@@ -194,7 +206,7 @@ export function importedBridges(component: ElectricalComponent): Array<[string,s
     const closeNo = !!state.tripped || !!state.testPressed
     pairs = [...info.poles ?? [], ...(openNc ? [] : [['95','96'] as Pair]), ...(closeNo ? [['97','98'] as Pair] : [])]
   }
-  if (info.behavior === 'contactor' && state.energized) pairs = info.poles ?? []
+  if (info.behavior === 'contactor' && (state.energized || state.manualLatch || state.testPressed)) pairs = info.poles ?? []
   if (info.behavior === 'actuator' && component.terminals.length) pairs = state.pressed ? [['11','14']] : [['11','12']]
   if (info.behavior === 'selector') pairs = state.position === -1 ? [['13','14']] : state.position === 1 ? [['23','24']] : []
   if (info.behavior === 'photo') {
