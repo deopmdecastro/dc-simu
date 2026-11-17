@@ -229,11 +229,18 @@ const s7Terminals = (
   rows: Array<{ label: string; x: number; y: number }>,
   kindOf: (label: string) => TerminalKind,
   extraOf: (label: string) => Partial<TerminalTemplate>,
-): TerminalTemplate[] => rows.map((row) => T(row.label, kindOf(row.label), row.x, 1 - row.y, {
-  terminalType: 'plug',
-  face: S7_FRONT_FACE,
-  ...extraOf(row.label),
-}))
+): TerminalTemplate[] => rows.map((row) => {
+  const extra = extraOf(row.label)
+  // y da tabela siemensPlc conta do topo; position3D conta da base.
+  // z=0.92 = superfície dos conectores frontais X10/X11 (não a faixa de LEDs de canal).
+  const yFromBase = 1 - row.y
+  return T(row.label, kindOf(row.label), row.x, yFromBase, {
+    terminalType: 'plug',
+    face: S7_FRONT_FACE,
+    position3D: { x: row.x, y: yFromBase, z: 0.92 },
+    ...extra,
+  })
+})
 
 /**
  * S7-1500 DI 32×24 V DC (6ES7521-1BL00-0AB0): 32 entradas nos conectores frontais
