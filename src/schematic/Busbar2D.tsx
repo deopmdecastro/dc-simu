@@ -3,6 +3,7 @@ import {
   ACRYLIC_BUSBAR,
   acrylicBusbarColorOf,
   acrylicBusbarDimsOf,
+  acrylicBusbarWireEntryOf,
   acrylicCoverVisibleOf,
   isAcrylicBusbarType,
   STEPPED_BUSBAR,
@@ -50,14 +51,15 @@ export function Busbar2D({ c }: { c: ElectricalComponent }) {
     const sy = c.h / d.heightMm
     const color = acrylicBusbarColorOf(c.type, c.state)
     const coverOn = acrylicCoverVisibleOf(c.state)
+    const wireEntry = acrylicBusbarWireEntryOf(c.type, c.state)
+    const isTop = wireEntry === 'top'
     const earW = ACRYLIC_BUSBAR.earWidthMm * sx
     const bodyX = earW
     const bodyW = d.bodyWidthMm * sx
-    const covH = ACRYLIC_BUSBAR.coverHeightMm * sy
-    const archTopY = (d.heightMm - 9.2) * sy
-    const earTopY = (d.heightMm - ACRYLIC_BUSBAR.earHeightMm) * sy
-    const holeY = (d.heightMm - ACRYLIC_BUSBAR.holeCenterYMm) * sy
-    const holeR = ACRYLIC_BUSBAR.holeRadiusMm * Math.min(sx, sy)
+    const screwY = c.h / 2
+    const screwR = 2.4 * Math.min(sx, sy)
+    const wireY = isTop ? 3.5 * sy : c.h - 3.5 * sy
+    const wireR = 2.2 * Math.min(sx, sy)
     const clipCount = d.poles <= 6 ? 2 : 3
     const clipW = Math.max(6, Math.min(12, bodyW * 0.1))
 
@@ -74,6 +76,12 @@ export function Busbar2D({ c }: { c: ElectricalComponent }) {
             <stop offset="50%" stopColor="#cfa23b" />
             <stop offset="100%" stopColor="#8a6518" />
           </linearGradient>
+          <linearGradient id={`${uid}-sc`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fef08a" />
+            <stop offset="45%" stopColor="#eab308" />
+            <stop offset="85%" stopColor="#ca8a04" />
+            <stop offset="100%" stopColor="#713f12" />
+          </linearGradient>
           <linearGradient id={`${uid}-ac`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.52" />
             <stop offset="22%" stopColor={color} stopOpacity="0.68" />
@@ -89,56 +97,102 @@ export function Busbar2D({ c }: { c: ElectricalComponent }) {
             : c.w - (ACRYLIC_BUSBAR.earWidthMm - ACRYLIC_BUSBAR.mountOffsetFromBodyMm) * sx
           return (
             <g key={idx}>
-              <rect x={ex} y={earTopY} width={earW} height={c.h - earTopY} rx={1.6} fill={`url(#${uid}-pa)`} stroke="#9c9588" strokeWidth={0.9} />
-              <rect x={slotCx - 3 * sx} y={earTopY + 1.8 * sy} width={6 * sx} height={3.6 * sy} rx={1.8 * sy} fill="#f8fafc" stroke="#8a8377" strokeWidth={0.8} />
+              <rect x={ex} y={c.h * 0.22} width={earW} height={c.h * 0.56} rx={1.6} fill={`url(#${uid}-pa)`} stroke="#9c9588" strokeWidth={0.9} />
+              <circle cx={slotCx} cy={c.h / 2} r={2.15 * Math.min(sx, sy)} fill="#f8fafc" stroke="#8a8377" strokeWidth={0.8} />
             </g>
           )
         })}
 
-        {/* Corpo isolante PA66 com arco inferior */}
-        <path
-          d={[
-            `M ${bodyX} ${c.h}`,
-            `L ${bodyX} ${covH - 0.5}`,
-            `L ${bodyX + bodyW} ${covH - 0.5}`,
-            `L ${bodyX + bodyW} ${c.h}`,
-            `L ${bodyX + bodyW - 3.2 * sx} ${c.h}`,
-            `L ${bodyX + bodyW - 3.2 * sx} ${archTopY}`,
-            `L ${bodyX + 3.2 * sx} ${archTopY}`,
-            `L ${bodyX + 3.2 * sx} ${c.h}`,
-            'Z',
-          ].join(' ')}
+        {/* Corpo isolante PA66 */}
+        <rect
+          x={bodyX}
+          y={1.5 * sy}
+          width={bodyW}
+          height={c.h - 3 * sy}
+          rx={2}
           fill={`url(#${uid}-pa)`}
           stroke="#958e81"
           strokeWidth={0.95}
         />
 
-        {/* Furos frontais de latão + cabeças dos parafusos sob o acrílico */}
+        {/* Barra condutora maciça central de latão */}
+        <rect
+          x={bodyX + 2 * sx}
+          y={screwY - 6.5 * sy}
+          width={bodyW - 4 * sx}
+          height={13 * sy}
+          rx={1.5}
+          fill={`url(#${uid}-br)`}
+          stroke="#7d5b14"
+          strokeWidth={0.8}
+        />
+
+        {/* Parafusos frontais e furos de entrada de cabos */}
         {Array.from({ length: d.poles }, (_, i) => {
           const cx = bodyX + (ACRYLIC_BUSBAR.endWallMm + (i + 0.5) * ACRYLIC_BUSBAR.pitchMm) * sx
           return (
             <g key={i}>
-              {/* Cabeça de parafuso M4 no topo */}
-              <rect x={cx - 2.3 * sx} y={covH * 0.34} width={4.6 * sx} height={covH * 0.62} rx={1} fill={`url(#${uid}-br)`} stroke="#785713" strokeWidth={0.55} />
-              {/* Anel biselado de latão e furo de entrada do cabo */}
-              <circle cx={cx} cy={holeY} r={holeR} fill={`url(#${uid}-br)`} stroke="#7c5b16" strokeWidth={0.7} />
-              <circle cx={cx} cy={holeY} r={holeR * 0.66} fill="#2b2110" />
-              <ellipse cx={cx} cy={holeY - holeR * 0.26} rx={holeR * 0.44} ry={holeR * 0.24} fill="#d8ae47" opacity={0.85} />
+              {/* Furo de entrada do condutor (topo ou base) */}
+              <circle cx={cx} cy={wireY} r={wireR} fill="#1e180d" stroke="#cfa23b" strokeWidth={0.7} />
+
+              {/* Arruela plana sob a cabeça do parafuso */}
+              <circle cx={cx} cy={screwY} r={screwR * 1.3} fill="#d8ae47" stroke="#785713" strokeWidth={0.4} />
+
+              {/* Cabeça do parafuso frontal M4 */}
+              <circle cx={cx} cy={screwY} r={screwR} fill={`url(#${uid}-sc)`} stroke="#5b3d09" strokeWidth={0.6} />
+
+              {/* Fenda em cruz Pozidriv / Phillips voltada para a frente */}
+              <line x1={cx - screwR * 0.72} y1={screwY} x2={cx + screwR * 0.72} y2={screwY} stroke="#3b2404" strokeWidth={0.7} />
+              <line x1={cx} y1={screwY - screwR * 0.72} x2={cx} y2={screwY + screwR * 0.72} stroke="#3b2404" strokeWidth={0.7} />
+              <line x1={cx - screwR * 0.42} y1={screwY - screwR * 0.42} x2={cx + screwR * 0.42} y2={screwY + screwR * 0.42} stroke="#3b2404" strokeWidth={0.5} />
+              <line x1={cx - screwR * 0.42} y1={screwY + screwR * 0.42} x2={cx + screwR * 0.42} y2={screwY - screwR * 0.42} stroke="#3b2404" strokeWidth={0.5} />
             </g>
           )
         })}
 
-        {/* Tampa superior em acrílico translúcido colorido + trincos frontais */}
+        {/* Tampa frontal em acrílico translúcido colorido com aberturas de acesso à chave de fendas */}
         {coverOn && (
           <g>
-            <rect x={bodyX + 0.4} y={0.5} width={bodyW - 0.8} height={covH} rx={1.8} fill={color} fillOpacity={0.56} stroke={color} strokeWidth={1.1} />
-            <rect x={bodyX + 0.4} y={0.5} width={bodyW - 0.8} height={covH} rx={1.8} fill={`url(#${uid}-ac)`} />
-            <line x1={bodyX + 2} y1={2.1} x2={bodyX + bodyW - 2} y2={2.1} stroke="#ffffff" strokeOpacity={0.72} strokeWidth={1.1} />
+            <rect
+              x={bodyX + 0.6}
+              y={3.5 * sy}
+              width={bodyW - 1.2}
+              height={c.h - 7 * sy}
+              rx={1.8}
+              fill={color}
+              fillOpacity={0.52}
+              stroke={color}
+              strokeWidth={1.1}
+            />
+            <rect
+              x={bodyX + 0.6}
+              y={3.5 * sy}
+              width={bodyW - 1.2}
+              height={c.h - 7 * sy}
+              rx={1.8}
+              fill={`url(#${uid}-ac)`}
+            />
+            {/* Aberturas circulares na tampa para passar a chave de fendas */}
+            {Array.from({ length: d.poles }, (_, i) => {
+              const cx = bodyX + (ACRYLIC_BUSBAR.endWallMm + (i + 0.5) * ACRYLIC_BUSBAR.pitchMm) * sx
+              return (
+                <circle
+                  key={`ap-${i}`}
+                  cx={cx}
+                  cy={screwY}
+                  r={screwR * 1.35}
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeOpacity={0.65}
+                  strokeWidth={0.8}
+                />
+              )
+            })}
             {Array.from({ length: clipCount }, (_, k) => {
               const frac = clipCount === 2 ? (k === 0 ? 0.24 : 0.76) : (k === 0 ? 0.18 : k === 1 ? 0.5 : 0.82)
               const lx = bodyX + frac * bodyW - clipW / 2
               return (
-                <rect key={k} x={lx} y={covH - 2.2} width={clipW} height={4.4} rx={0.9} fill={color} fillOpacity={0.82} stroke="#ffffff" strokeOpacity={0.45} strokeWidth={0.6} />
+                <rect key={k} x={lx} y={c.h - 5.5 * sy} width={clipW} height={3.5 * sy} rx={0.7} fill={color} fillOpacity={0.85} stroke="#ffffff" strokeOpacity={0.45} strokeWidth={0.6} />
               )
             })}
           </g>

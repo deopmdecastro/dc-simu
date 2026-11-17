@@ -17,6 +17,7 @@ import { textureLibraryEntry } from './textureLibrary'
 import {
   acrylicBusbarColorOf,
   acrylicBusbarDimsOf,
+  acrylicBusbarWireEntryOf,
   acrylicCoverVisibleOf,
   buildAcrylicBusbar,
   buildSteppedBusbar,
@@ -319,6 +320,7 @@ export function AcrylicBusbar3D({
   const dims = acrylicBusbarDimsOf(c.state)
   const acrylicColor = acrylicBusbarColorOf(type, c.state)
   const coverVisible = acrylicCoverVisibleOf(c.state)
+  const wireEntry = acrylicBusbarWireEntryOf(type, c.state)
   const insulatorHex = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : '#ddd7cb'
 
   const materials = useMemo(() => {
@@ -377,14 +379,14 @@ export function AcrylicBusbar3D({
   }, [materials, invalidate])
 
   const built = useMemo(() => {
-    const res = buildAcrylicBusbar(dims.poles, U, materials)
+    const res = buildAcrylicBusbar(dims.poles, U, materials, { wireEntryDirection: wireEntry })
     // A tampa fica numa ordem de render superior para mostrar nitidamente os parafusos e o latão por dentro.
     res.cover.traverse((node) => {
       const m = node as THREE.Mesh
       if (m.isMesh) m.renderOrder = 3
     })
     return res
-  }, [dims.poles, materials])
+  }, [dims.poles, wireEntry, materials])
 
   useEffect(() => () => disposeGroupGeometries(built.root), [built])
 

@@ -2830,6 +2830,21 @@ check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos d
   s0.setComponentState(qbl.id, { coverVisible: true, coverOpen: false })
   s0.setBusbarPoleCount(qbl.id, 11, '4P')
   check('Barramento em escada: fechar/mostrar tampa e expandir para 4×11 = 44 bornes', !steppedCoverOpenOf(findByType('busbarPhaseStepped').state) && steppedCoverVisibleOf(findByType('busbarPhaseStepped').state) && findByType('busbarPhaseStepped').terminals.length === 44)
+
+  s0.setBusbarWireEntryDirection(bpe16.id, 'top')
+  check(
+    'Barramento acrílico: alternar entrada para face superior (top) atualiza face e normais dos bornes',
+    findByType('earthBar').state.wireEntryDirection === 'top' &&
+      findByType('earthBar').terminals[0]?.face === 'top' &&
+      findByType('earthBar').terminals[0]?.socket3D?.normal[1] === 1,
+  )
+  s0.setBusbarWireEntryDirection(bpe16.id, 'bottom')
+  check(
+    'Barramento acrílico: retornar entrada para face inferior (bottom) atualiza face e normais dos bornes',
+    findByType('earthBar').state.wireEntryDirection === 'bottom' &&
+      findByType('earthBar').terminals[0]?.face === 'bottom' &&
+      findByType('earthBar').terminals[0]?.socket3D?.normal[1] === -1,
+  )
 }
 
 // ── Proteção realista (Hager CFC225P de pé + TeSys DF + calibres vivos) & anilhas IEC 60062 ──

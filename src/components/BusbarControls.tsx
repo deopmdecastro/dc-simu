@@ -5,6 +5,7 @@ import {
   ACRYLIC_BUSBAR,
   acrylicBusbarColorOf,
   acrylicBusbarDimsOf,
+  acrylicBusbarWireEntryOf,
   acrylicCoverVisibleOf,
   clampAcrylicBusbarPoles,
   clampSteppedBusbarHoles,
@@ -68,6 +69,7 @@ export const BUSBAR_STATE_KEYS = new Set([
   'acrylicColor',
   'coverOpen',
   'coverVisible',
+  'wireEntryDirection',
   'barsMode',
   'combMode',
   'neutralSide',
@@ -120,6 +122,7 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
     const dims = acrylicBusbarDimsOf(c.state)
     const color = acrylicBusbarColorOf(c.type, c.state)
     const coverVisible = acrylicCoverVisibleOf(c.state)
+    const wireEntry = acrylicBusbarWireEntryOf(c.type, c.state)
     const isPhase = c.type === 'busbarPhaseAcrylic'
     const sourceOn = isPhase ? c.state.source === true : c.state.source !== false
     const sourcePhase = typeof c.state.sourcePhase === 'string' ? c.state.sourcePhase : 'L1'
@@ -259,6 +262,35 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
               </span>
             </div>
           )}
+        </div>
+
+        {/* Entrada dos cabos (por baixo ou por cima) */}
+        <div className="dc-rail-length space-y-1.5">
+          <label className={fieldLabel}>Entrada dos condutores</label>
+          <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Entrada dos condutores">
+            {([
+              { id: 'bottom', label: 'Por baixo (inferior)' },
+              { id: 'top', label: 'Por cima (superior)' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                aria-pressed={wireEntry === opt.id}
+                data-busbar-wire-entry={opt.id}
+                onClick={() => useSimStore.getState().setBusbarWireEntryDirection(c.id, opt.id)}
+                className={`rounded-md border px-2 py-1 text-xs font-medium transition cursor-pointer ${
+                  wireEntry === opt.id
+                    ? 'border-brand-700 bg-brand-600 text-white shadow-xs'
+                    : 'border-ink-200 bg-white text-ink-700 hover:bg-surface-100'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <small className="text-ink-400">
+            Parafusos de aperto voltados para a frente (+Z). Túneis condutores acessíveis {wireEntry === 'top' ? 'pela face superior' : 'pela face inferior'}.
+          </small>
         </div>
 
         {/* Comportamento elétrico (em N e Fase; PE é sempre referência de terra) */}

@@ -503,6 +503,8 @@ interface Store extends CircuitState {
   setBusbarPoleCount: (componentId: string, poleCount: number, barsMode?: import('../three/busbarParts').SteppedBarConductors) => void
   /** Barramento de fase com acrílico: altera a cor translúcida da tampa e dos indicadores de borne. */
   setBusbarAcrylicColor: (componentId: string, hexColor: string) => void
+  /** Barramento unipolar isolado com acrílico: altera a face de entrada dos cabos (inferior ou superior). */
+  setBusbarWireEntryDirection: (componentId: string, direction: 'bottom' | 'top') => void
   /** Barramento tipo pente (`busbarComb`): atualiza modo (1P/1P+N/3P/3P+N), dentes, direção, serigrafia ou conectores preservando cabos. */
   updateCombBusbar: (componentId: string, patch: Record<string, unknown>) => void
   /** Encaixa barramento tipo pente nos bornes superiores de um disjuntor (ou no mais próximo). */
@@ -3430,6 +3432,63 @@ export const useSimStore = create<Store>((set, get) => {
               ...item,
               state: { ...item.state, acrylicColor: clean },
               terminals: item.terminals.map((t) => ({ ...t, color: clean })),
+            }
+          : item
+      )),
+      dirty: true,
+    }))
+  },
+
+  setBusbarWireEntryDirection: (componentId, direction) => {
+    const c = get().components.find((x) => x.id === componentId)
+    if (!c || !isAcrylicBusbarType(c.type)) return
+    if (c.state.wireEntryDirection === direction) return
+    get().commitHistory()
+    const nextState: Record<string, unknown> = {
+      ...c.state,
+      wireEntryDirection: direction,
+    }
+    const specs = busbarTerminalSpecs(c.type, nextState)
+    const oldByLabel = new Map(c.terminals.map((t) => [t.label, t]))
+    const newTerminals: Terminal[] = specs.map((spec) => {
+      const existing = oldByLabel.get(spec.label)
+      const clonedSocket = spec.socket3D
+        ? { ...spec.socket3D, normal: [...spec.socket3D.normal] as [number, number, number], position: { ...spec.socket3D.position } }
+        : undefined
+      if (existing) {
+        return {
+          ...existing,
+          face: spec.face,
+          x: spec.x,
+          y: spec.y,
+          position3D: spec.position3D ? { ...spec.position3D } : undefined,
+          socket3D: clonedSocket,
+        }
+      }
+      return {
+        id: `${c.id}-${spec.label}`,
+        componentId: c.id,
+        label: spec.label,
+        displayName: spec.displayName,
+        kind: spec.kind,
+        terminalType: spec.terminalType,
+        color: spec.color,
+        face: spec.face,
+        diameter: spec.diameter,
+        x: spec.x,
+        y: spec.y,
+        position3D: spec.position3D ? { ...spec.position3D } : undefined,
+        socket3D: clonedSocket,
+        energized: false,
+      }
+    })
+    set((s) => ({
+      components: s.components.map((item) => (
+        item.id === c.id
+          ? {
+              ...item,
+              state: nextState,
+              terminals: newTerminals,
             }
           : item
       )),

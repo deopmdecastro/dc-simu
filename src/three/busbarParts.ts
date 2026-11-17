@@ -176,6 +176,14 @@ export function acrylicCoverVisibleOf(state?: Record<string, unknown>): boolean 
   return state?.coverVisible !== false
 }
 
+/** Direção de entrada dos condutores nos barramentos unipolares: 'bottom' (por baixo) ou 'top' (por cima). */
+export function acrylicBusbarWireEntryOf(type: string, state?: Record<string, unknown>): 'bottom' | 'top' {
+  if (state?.wireEntryDirection === 'top' || state?.wireEntryDirection === 'bottom') {
+    return state.wireEntryDirection
+  }
+  return type === 'busbarNeutral' ? 'top' : 'bottom'
+}
+
 export interface AcrylicBusbarDims {
   poles: number
   bodyWidthMm: number
@@ -287,10 +295,12 @@ export function busbarTerminalSpecs(type: RealBusbarType, state?: Record<string,
       : type === 'busbarNeutral'
         ? '#2563eb'
         : acrylicBusbarColorOf(type, state)
-    const insetMm = 1.8
-    const posY = Number((ACRYLIC_BUSBAR.holeCenterYMm / d.heightMm).toFixed(5))
-    const posZ = Number(((d.depthMm - insetMm) / d.depthMm).toFixed(5))
-    const y2d = Number((1 - posY).toFixed(5))
+    const entryDir = acrylicBusbarWireEntryOf(type, state)
+    const isTop = entryDir === 'top'
+    const holeYMm = isTop ? d.heightMm / 2 + 6.0 : d.heightMm / 2 - 6.0
+    const posY = Number((holeYMm / d.heightMm).toFixed(5))
+    const posZ = Number(((d.depthMm / 2 + 1.2) / d.depthMm).toFixed(5))
+    const y2d = isTop ? 0.08 : 0.92
 
     return Array.from({ length: d.poles }, (_, i) => {
       const xMm = -d.bodyWidthMm / 2 + ACRYLIC_BUSBAR.endWallMm + (i + 0.5) * ACRYLIC_BUSBAR.pitchMm
@@ -303,17 +313,17 @@ export function busbarTerminalSpecs(type: RealBusbarType, state?: Record<string,
         kind,
         color,
         terminalType: 'screw',
-        face: 'front',
+        face: isTop ? 'top' : 'bottom',
         x: nx,
         y: y2d,
         diameter: 8,
         position3D: position,
         socket3D: {
           position: { ...position },
-          normal: [0, 0, 1],
+          normal: [0, isTop ? 1 : -1, 0],
           diameterMm: 5.0,
           depthMm: 8.2,
-          insetMm,
+          insetMm: 1.8,
         },
       }
     })
@@ -593,12 +603,37 @@ function pushClampingScrew(
   slotParts: THREE.BufferGeometry[],
   threadParts: THREE.BufferGeometry[],
   x: number,
-  headBaseY: number,
+  y: number,
   z: number,
   headR: number,
   headH: number,
   shankLen: number,
+  axis: 'y' | 'z' = 'y',
 ) {
+  if (axis === 'z') {
+    // Cabeça voltada para +Z (vista frontal do painel): eletricista aperta o parafuso pela frente do quadro
+    const headBaseZ = z
+    screwParts.push(cylMm(unit, headR * 1.07, headR * 1.07, headH * 0.24, x, y, headBaseZ + headH * 0.12, 'z', 20))
+    screwParts.push(cylMm(unit, headR * 0.94, headR, headH * 0.76, x, y, headBaseZ + headH * 0.62, 'z', 20))
+    const slotZ = headBaseZ + headH - 0.12
+    slotParts.push(boxMm(unit, headR * 1.72, headR * 0.32, 0.34, x, y, slotZ))
+    slotParts.push(boxMm(unit, headR * 0.32, headR * 1.48, 0.34, x, y, slotZ))
+    if (shankLen > 0.5) {
+      const shankR = headR * 0.68
+      threadParts.push(cylMm(unit, shankR, shankR * 0.92, shankLen, x, y, headBaseZ - shankLen / 2, 'z', 16))
+      const rings = Math.max(2, Math.floor(shankLen / 0.85))
+      for (let r = 0; r < rings; r++) {
+        const rz = headBaseZ - 0.55 - r * 0.82
+        if (rz > headBaseZ - shankLen + 0.25) {
+          threadParts.push(cylMm(unit, shankR * 1.16, shankR * 1.02, 0.36, x, y, rz, 'z', 16))
+        }
+      }
+    }
+    return
+  }
+
+  // Eixo original 'y':
+  const headBaseY = y
   // Anilha de aperto na base da cabeça
   screwParts.push(cylMm(unit, headR * 1.07, headR * 1.07, headH * 0.24, x, headBaseY + headH * 0.12, z, 'y', 20))
   // Corpo cilíndrico chanfrado da cabeça
@@ -646,19 +681,22 @@ export interface BuiltAcrylicBusbar {
   dims: AcrylicBusbarDims
 }
 
+export interface AcrylicBusbarBuildOptions {
+  wireEntryDirection?: 'bottom' | 'top'
+}
+
 export function buildAcrylicBusbar(
   polesCount: number,
   unit: number,
   materials: AcrylicBusbarMaterials,
+  options?: AcrylicBusbarBuildOptions,
 ): BuiltAcrylicBusbar {
+  const isTop = options?.wireEntryDirection === 'top'
+  const wireEntrySign = isTop ? 1 : -1
   const dims = acrylicBusbarDimsOf(polesCount)
   const { poles, bodyWidthMm: bodyW, widthMm: W, heightMm: H, depthMm: D } = dims
-  const y0 = -H / 2 // y0 = base física (0 mm), y0 + H = topo da tampa (36,5 mm)
-  const bodyTopMm = H - ACRYLIC_BUSBAR.coverHeightMm + 0.7 // 27,6 mm (ombro sob o acrílico)
-  const shoulderMm = H - ACRYLIC_BUSBAR.coverHeightMm // 26,9 mm
-  const archClearMm = 9.2
-  const legW = 3.2
-  const holeYMm = ACRYLIC_BUSBAR.holeCenterYMm
+  const z0 = -D / 2 // -6.5 mm (face traseira assentada na chapa do quadro)
+  const zFront = D / 2 // +6.5 mm (face frontal extrema)
 
   const bodyParts: THREE.BufferGeometry[] = []
   const brassParts: THREE.BufferGeometry[] = []
@@ -671,21 +709,16 @@ export function buildAcrylicBusbar(
     (_, i) => -bodyW / 2 + ACRYLIC_BUSBAR.endWallMm + (i + 0.5) * ACRYLIC_BUSBAR.pitchMm,
   )
 
-  // --- Orelhas de fixação M4 (esquerda e direita) na FACE DE MONTAGEM (traseira / −Z) ---
-  // Montagem em chapa vertical: eixo do parafuso ao longo de Z, rebaixo da cabeça
-  // acessível pelo lado da frente (+Z da orelha). Face de montagem = back (−Z).
-  // (Antes: placas horizontais XZ com eixo Y — parafuso “de cima”, lado de entrada
-  //  ficava virado para a chapa de forma incorrecta.)
+  // --- 1. Orelhas de fixação M4 (esquerda e direita) na FACE DE MONTAGEM (traseira / −Z) ---
   for (const sign of [-1, 1] as const) {
     const earOuter = sign * (W / 2)
     const earInner = sign * (bodyW / 2)
     const earCx = (earOuter + earInner) / 2
     const holeX = sign * (bodyW / 2 + ACRYLIC_BUSBAR.mountOffsetFromBodyMm)
-    const earH = 11.5
-    const earCy = y0 + 6.5
+    const earH = 14.0
+    const earCy = 0
     const earThickness = 3.4
-    // Placa da orelha no plano XY, extrudida em Z, centrada de forma que a face
-    // traseira fique em −D/2 (contra a chapa). Furo M4 com eixo Z.
+    // Placa da orelha no plano XY, extrudida em Z, face traseira em z0
     bodyParts.push(
       perforatedPlateXY(
         unit,
@@ -694,198 +727,111 @@ export function buildAcrylicBusbar(
         earThickness,
         earCx,
         earCy,
-        -D / 2 + earThickness / 2,
+        z0 + earThickness / 2,
         [{ x: holeX, y: earCy, r: 2.15 }],
         20,
       ),
     )
-    // Rebaixo anelar no lado +Z da orelha (entrada da cabeça do parafuso M4)
+    // Rebaixo anelar no lado +Z da orelha para a cabeça do parafuso M4
     bodyParts.push(
-      boxMm(unit, ACRYLIC_BUSBAR.earWidthMm * 0.72, earH * 0.55, 1.1, earCx, earCy, -D / 2 + earThickness + 0.55),
+      boxMm(unit, ACRYLIC_BUSBAR.earWidthMm * 0.72, earH * 0.55, 1.1, earCx, earCy, z0 + earThickness + 0.55),
     )
-    // Degrau de transição orelha → corpo
-    bodyParts.push(boxMm(unit, 3.6, 3.6, D * 0.55, sign * (bodyW / 2 + 1.8), y0 + 7.0, -D / 4))
-    // Pilar inferior do arco (y = 0 .. 14,4 mm) + parede lateral fina (1,9 mm) que emoldura os bornes 1 e N sem os tapar
-    bodyParts.push(boxMm(unit, legW, 14.4, D, sign * (bodyW / 2 - legW / 2), y0 + 7.2, 0))
-    bodyParts.push(boxMm(unit, 1.9, shoulderMm - 14.3, D, sign * (bodyW / 2 - 0.95), y0 + (14.3 + shoulderMm) / 2, 0))
+    // Degrau de transição orelha → corpo do suporte
+    bodyParts.push(boxMm(unit, 3.6, earH, D * 0.55, sign * (bodyW / 2 + 1.8), earCy, z0 + D * 0.275))
+    // Braço lateral do suporte (pilar) que sustenta a barra de latão
+    bodyParts.push(boxMm(unit, 3.2, H, D * 0.85, sign * (bodyW / 2 - 1.6), 0, z0 + (D * 0.85) / 2))
   }
 
-  // --- Ponte inferior isolante (y = 9,2 .. 14,4 mm) com ranhuras de moldagem reais ---
-  const spanInner = bodyW - legW * 2
-  const baseSlabH = 5.2
-  const notchCount = poles <= 6 ? 2 : 3
-  bodyParts.push(boxMm(unit, spanInner + 0.4, baseSlabH - 2.2, D, 0, y0 + archClearMm + 2.2 + (baseSlabH - 2.2) / 2, 0))
-  // Parte inferior segmentada pelas pequenas fendas verticais características (foto 1 e foto 2)
-  const notchW = 1.15
-  const notchPositions = Array.from({ length: notchCount }, (_, idx) =>
-    -spanInner / 2 + ((idx + 1) / (notchCount + 1)) * spanInner,
-  )
-  let segStart = -spanInner / 2
-  for (const nx of [...notchPositions, spanInner / 2]) {
-    const segEnd = nx === spanInner / 2 ? nx : nx - notchW / 2
-    const sw = segEnd - segStart
-    if (sw > 0.4) {
-      bodyParts.push(boxMm(unit, sw, 2.2, D, (segStart + segEnd) / 2, y0 + archClearMm + 1.1, 0))
-    }
-    segStart = nx + notchW / 2
-  }
+  // --- 2. Berço e isolamento PA66 posterior e flanges extremas (respeitam altura exata H = 36.5 mm) ---
+  const spanInner = bodyW - 6.4
+  // Placa posterior dielétrica entre a barra de latão e a chapa de montagem (isolamento 1000 V)
+  bodyParts.push(boxMm(unit, spanInner, H, 3.0, 0, 0, z0 + 1.5))
+  // Flanges superior e inferior que delimitam o invólucro dielétrico a ±H/2
+  bodyParts.push(boxMm(unit, spanInner, 2.2, D * 0.65, 0, H / 2 - 1.1, z0 + (D * 0.65) / 2))
+  bodyParts.push(boxMm(unit, spanInner, 2.2, D * 0.65, 0, -H / 2 + 1.1, z0 + (D * 0.65) / 2))
 
-  // --- Painel frontal PA66 perfurado com N furos circulares chanfrados de entrada dos cabos ---
-  const frontBandBot = archClearMm + baseSlabH - 0.1 // 14,3 mm
-  const frontBandTop = shoulderMm // 26,9 mm
-  const frontBandH = frontBandTop - frontBandBot
-  const frontBandCy = y0 + (frontBandBot + frontBandTop) / 2
-  const frontWallT = 2.0
-  const plateSpanW = bodyW - 3.6
-  bodyParts.push(
-    perforatedPlateXY(
-      unit,
-      plateSpanW,
-      frontBandH,
-      frontWallT,
-      0,
-      frontBandCy,
-      D / 2 - frontWallT / 2,
-      poleXs.map((px) => ({ x: px, y: y0 + holeYMm, r: ACRYLIC_BUSBAR.holeRadiusMm })),
-      24,
-    ),
-  )
-
-  // Painel traseiro PA66 com janelas circulares de saída/inspeção (como na vista posterior da foto 2)
-  bodyParts.push(
-    perforatedPlateXY(
-      unit,
-      plateSpanW,
-      frontBandH,
-      frontWallT,
-      0,
-      frontBandCy,
-      -D / 2 + frontWallT / 2,
-      poleXs.map((px) => ({ x: px, y: y0 + holeYMm, r: ACRYLIC_BUSBAR.holeRadiusMm * 0.92 })),
-      20,
-    ),
-  )
-
-  // Tabiques dielétricos internos entre bornes + placa superior de chaminés dos parafusos
+  // Tabiques dielétricos verticais entre bornes vizinhos
   for (let i = 0; i < poles - 1; i++) {
     const ribX = (poleXs[i] + poleXs[i + 1]) / 2
-    bodyParts.push(boxMm(unit, 1.0, 3.6, D - 2.6, ribX, y0 + shoulderMm - 1.1, 0))
+    bodyParts.push(boxMm(unit, 1.0, 18.0, D - 4.2, ribX, 0, -0.6))
   }
-  // Colarinho superior recuado (encaixe da tampa acrílica) com N poços circulares para os parafusos
-  const collarW = bodyW - 1.6
-  const collarD = D - 1.6
-  bodyParts.push(
-    perforatedPlateXZ(
-      unit,
-      collarW,
-      collarD,
-      2.6,
-      0,
-      y0 + bodyTopMm - 0.8,
-      0,
-      poleXs.map((px) => ({ x: px, z: 0, r: 2.75 })),
-    ),
-  )
 
-  // --- Barra condutora maciça de latão maquinado CuZn39Pb3 ---
-  const brassW = bodyW - 3.6
-  const brassH = 8.8
-  const brassD = D - frontWallT * 2 + 0.3 // 9,3 mm
-  const brassCy = y0 + holeYMm + 0.2
-  // Núcleo superior e inferior da barra + face frontal e traseira perfuradas com anéis biselados brilhantes
-  brassParts.push(
-    perforatedPlateXY(
-      unit,
-      brassW,
-      brassH,
-      2.4,
-      0,
-      brassCy,
-      brassD / 2 - 1.0,
-      poleXs.map((px) => ({ x: px, y: y0 + holeYMm, r: 2.15 })),
-      24,
-    ),
-  )
-  brassParts.push(
-    perforatedPlateXY(
-      unit,
-      brassW,
-      brassH,
-      2.4,
-      0,
-      brassCy,
-      -brassD / 2 + 1.0,
-      poleXs.map((px) => ({ x: px, y: y0 + holeYMm, r: 2.15 })),
-      20,
-    ),
-  )
-  // Corpo central de latão acima e abaixo dos túneis de cabo
-  brassParts.push(boxMm(unit, brassW, 2.3, brassD - 3.8, 0, y0 + holeYMm + 3.35, 0))
-  brassParts.push(boxMm(unit, brassW, 2.1, brassD - 3.8, 0, y0 + holeYMm - 3.15, 0))
-
-  // Anéis chanfrados de latão em cada entrada + fundo escuro do túnel + parafuso M4 completo
+  // Furos chanfrados de entrada de cabos no corpo PA66 (na face inferior se bottom, ou superior se top)
+  const cableEntryY = wireEntrySign * 10.5
   for (const px of poleXs) {
-    // Casquilho biselado de latão visível à entrada de cada borne (brilho metálico circular da foto 1 e 2)
-    brassParts.push(ringCollarMm(unit, 2.05, 2.62, 1.5, px, y0 + holeYMm, D / 2 - 1.15, 'z', 24))
-    brassParts.push(ringCollarMm(unit, 2.0, 2.48, 1.2, px, y0 + holeYMm, -D / 2 + 1.15, 'z', 18))
-    // Fundo sombreado do túnel de passagem do condutor
-    boreParts.push(cylMm(unit, 1.98, 1.98, 5.2, px, y0 + holeYMm, 0, 'z', 18))
-    // Parafuso M4 de aperto (cabeça visível através do acrílico + rosca dourada visível dentro do furo!)
+    bodyParts.push(ringCollarMm(unit, 2.3, 2.9, 1.8, px, cableEntryY, 1.4, 'y', 20))
+  }
+
+  // --- 3. Barra condutora maciça de latão maquinado CuZn39Pb3 ---
+  const brassW = bodyW - 3.6
+  const brassH = 12.0
+  const brassD = 6.8
+  const brassCz = 1.2
+  // Corpo da barra de latão
+  brassParts.push(boxMm(unit, brassW, brassH, brassD, 0, 0, brassCz))
+
+  // Face frontal de latão com sedes cilíndricas para as cabeças dos parafusos
+  // Furos roscados + Parafusos M4 voltados para a VISTA FRONTAL (+Z)!
+  const screwFaceZ = brassCz + brassD / 2 // +4.6 mm
+  for (const px of poleXs) {
+    // Parafuso M4 com cabeça virada para a frente (+Z)
     pushClampingScrew(
       unit,
       screwParts,
       boreParts,
       brassParts,
       px,
-      y0 + 25.0,
       0,
-      2.35,
-      3.1,
-      4.4,
+      screwFaceZ,
+      2.4,
+      2.0,
+      4.6,
+      'z',
     )
+    // Furos de entrada do condutor (na face inferior se bottom, ou superior se top)
+    const holeMouthY = wireEntrySign * (brassH / 2)
+    // Casquilho de latão à entrada do furo
+    brassParts.push(ringCollarMm(unit, 2.05, 2.55, 1.2, px, holeMouthY, brassCz, 'y', 24))
+    // Fundo sombreado do túnel condutor
+    boreParts.push(cylMm(unit, 1.95, 1.95, 5.0, px, holeMouthY - wireEntrySign * 2.5, brassCz, 'y', 18))
   }
 
-  // --- Tampa protetora de encaixe em acrílico translúcido colorido (9,6 mm) ---
+  // --- 4. Tampa de proteção em acrílico translúcido colorido na FACE FRONTAL (+Z) ---
   const covW = bodyW - 0.6
-  const covD = D - 2.9 // corpo da tampa 10,1 mm + trincos frontais/traseiros de 1,45 mm = cota total exata de 13,0 mm
-  const covBot = y0 + shoulderMm // 26,9 mm
-  const covTop = y0 + H // 36,5 mm
-  const covH = covTop - covBot // 9,6 mm
-  const wallT = 1.25
-  const topT = 1.55
+  const covH = 22.0
+  const covThickness = 2.4
+  const covFrontZ = zFront - 0.05 // +6.45 mm
+  const covCz = covFrontZ - covThickness / 2 // +5.25 mm
 
-  // Topo biselado em duas camadas finas (cria o reflexo branco cristalino nas arestas da foto 1)
-  coverParts.push(boxMm(unit, covW - 0.9, 0.5, covD - 0.9, 0, covTop - 0.25, 0))
-  coverParts.push(boxMm(unit, covW, topT - 0.5, covD, 0, covTop - 0.5 - (topT - 0.5) / 2, 0))
-  // Saias laterais translúcidas (frente, trás, esquerda, direita)
-  const skirtH = covH - topT
-  const skirtCy = covBot + skirtH / 2
-  coverParts.push(boxMm(unit, covW, skirtH, wallT, 0, skirtCy, covD / 2 - wallT / 2))
-  coverParts.push(boxMm(unit, covW, skirtH, wallT, 0, skirtCy, -covD / 2 + wallT / 2))
-  coverParts.push(boxMm(unit, wallT, skirtH, covD - wallT * 2, -covW / 2 + wallT / 2, skirtCy, 0))
-  coverParts.push(boxMm(unit, wallT, skirtH, covD - wallT * 2, covW / 2 - wallT / 2, skirtCy, 0))
-
-  // Anéis guia internos de chave de fendas + nervuras internas (visíveis por refração através do acrílico!)
+  // Placa frontal de acrílico com N furos circulares para chave de fendas
+  coverParts.push(
+    perforatedPlateXY(
+      unit,
+      covW,
+      covH,
+      covThickness,
+      0,
+      0,
+      covCz,
+      poleXs.map((px) => ({ x: px, y: 0, r: 2.75 })),
+      24,
+    ),
+  )
+  // Anéis guia de chave de fendas em cada abertura circular da tampa
   for (const px of poleXs) {
-    coverParts.push(ringCollarMm(unit, 1.85, 2.65, 2.2, px, covTop - topT - 1.1, 0, 'y', 20))
+    coverParts.push(ringCollarMm(unit, 2.75, 3.35, 0.8, px, 0, covFrontZ - 0.4, 'z', 20))
   }
-  for (let i = 0; i < poles - 1; i++) {
-    const rx = (poleXs[i] + poleXs[i + 1]) / 2
-    coverParts.push(boxMm(unit, 0.65, 3.2, covD - wallT * 2 - 0.6, rx, covTop - topT - 1.6, 0))
-  }
-
-  // Patas/abas de encaixe rápido («snap clips») frontais e traseiras — 2 até 6P, 3 para 7P+ (foto 1 e 2)
+  // Saias protetoras superior e inferior da tampa acrílica
+  coverParts.push(boxMm(unit, covW, 1.4, 2.8, 0, covH / 2 - 0.7, covCz - 0.4))
+  coverParts.push(boxMm(unit, covW, 1.4, 2.8, 0, -covH / 2 + 0.7, covCz - 0.4))
+  // Patilhas de encaixe nas extremidades (snap clips)
   const clipCount = poles <= 6 ? 2 : 3
-  const clipW = Math.min(8.4, Math.max(5.6, covW * 0.11))
+  const clipW = Math.min(8.0, Math.max(5.4, covW * 0.11))
   for (let c = 0; c < clipCount; c++) {
     const frac = clipCount === 2 ? (c === 0 ? 0.24 : 0.76) : (c === 0 ? 0.18 : c === 1 ? 0.5 : 0.82)
     const cx = -covW / 2 + frac * covW
-    for (const zSign of [1, -1] as const) {
-      const cz = zSign * (covD / 2 + 0.52)
-      // Aba vertical que desce 1,9 mm abaixo do bordo do acrílico + unha de retenção
-      coverParts.push(boxMm(unit, clipW, 4.4, 1.05, cx, covBot + 0.3, cz))
-      coverParts.push(boxMm(unit, clipW + 0.6, 1.1, 1.55, cx, covBot - 1.25, zSign * (covD / 2 + 0.68)))
-    }
+    coverParts.push(boxMm(unit, clipW, 3.2, 1.2, cx, covH / 2 + 1.2, covCz))
+    coverParts.push(boxMm(unit, clipW, 3.2, 1.2, cx, -covH / 2 - 1.2, covCz))
   }
 
   const body = new THREE.Group()
