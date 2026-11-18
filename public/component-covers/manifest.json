@@ -1,5 +1,5 @@
 {
-  "note": "Gerado por scripts/build-component-covers.mjs a partir dos GLB reais (WebP sem fundo): types = capa 3/4 de 192 px; front = vista frontal ortogr\u00e1fica.",
+  "note": "Gerado por scripts/build-component-covers.mjs a partir dos GLB reais (WebP sem fundo): types = capa 3/4 de 192 px; front = vista frontal ortográfica.",
   "generatedAt": "2026-11-17T23:04:19.205Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
@@ -57,7 +57,12 @@
     "powerSource24v",
     "multimeterDm20",
     "meterD522066",
-    "meterKws306"
+    "meterKws306",
+    "breakerSchneiderIc60h1p",
+    "residualBreakerSchneiderIid4p",
+    "residualBreakerSchneiderIdpnVigi",
+    "pilotLightSchneiderIil1p",
+    "pilotLightSchneiderIil3p"
   ],
   "types": {
     "breaker1p": "breaker1p.webp",
@@ -115,7 +120,12 @@
     "thermalRelaySiemens3ru1116": "thermalRelaySiemens3ru1116.webp",
     "towerLightSb23011": "towerLightSb23011.webp",
     "meterD522066": "meterD522066.webp",
-    "meterKws306": "meterKws306.webp"
+    "meterKws306": "meterKws306.webp",
+    "breakerSchneiderIc60h1p": "breakerSchneiderIc60h1p.webp",
+    "residualBreakerSchneiderIid4p": "residualBreakerSchneiderIid4p.webp",
+    "residualBreakerSchneiderIdpnVigi": "residualBreakerSchneiderIdpnVigi.webp",
+    "pilotLightSchneiderIil1p": "pilotLightSchneiderIil1p.webp",
+    "pilotLightSchneiderIil3p": "pilotLightSchneiderIil3p.webp"
   },
   "front": {
     "breaker1p": "front/breaker1p.webp",
@@ -173,6 +183,11 @@
     "thermalRelaySiemens3ru1116": "front/thermalRelaySiemens3ru1116.webp",
     "towerLightSb23011": "front/towerLightSb23011.webp",
     "meterD522066": "front/meterD522066.webp",
-    "meterKws306": "front/meterKws306.webp"
+    "meterKws306": "front/meterKws306.webp",
+    "breakerSchneiderIc60h1p": "front/breakerSchneiderIc60h1p.webp",
+    "residualBreakerSchneiderIid4p": "front/residualBreakerSchneiderIid4p.webp",
+    "residualBreakerSchneiderIdpnVigi": "front/residualBreakerSchneiderIdpnVigi.webp",
+    "pilotLightSchneiderIil1p": "front/pilotLightSchneiderIil1p.webp",
+    "pilotLightSchneiderIil3p": "front/pilotLightSchneiderIil3p.webp"
   }
 }

@@ -179,7 +179,7 @@
 .ce-kind:hover { border-color:var(--dx-brand-line, #c0d4fc); background:var(--dx-brand-soft, #f7f9ff); }
 .ce-kind:focus-visible { outline:3px solid var(--dx-brand-soft-2, #dbe7ff); outline-offset:1px; }
 .ce-kind.is-active { border-color:var(--dx-brand, #2655e5); background:var(--dx-brand-soft, #eef4ff); box-shadow:0 0 0 1px var(--dx-brand, #2655e5) inset; }
-.ce-kind.is-active::after { content:'✓'; position:absolute; top:9px; right:10px; width:18px; height:18px; display:grid; place-items:center; border-radius:50%; background:var(--dx-brand); color:#fff; font-size:11px; font-weight:700; }
+.ce-kind-check { position:absolute; top:9px; right:10px; width:18px; height:18px; display:grid; place-items:center; border-radius:50%; background:var(--dx-brand); color:#fff; }
 .ce-seg { display:inline-flex; border:1px solid var(--dx-line, #d9e1ec); border-radius:8px; overflow:hidden; align-self:flex-start; }
 .ce-seg button { border:0; background:var(--dx-surface); padding:7px 14px; font:inherit; font-size:12.5px; cursor:pointer; color:inherit; }
 .ce-seg button + button { border-left:1px solid var(--dx-line, #d9e1ec); }

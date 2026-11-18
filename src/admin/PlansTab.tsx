@@ -1,3 +1,4 @@
+import { IconChevronLeft, IconChevronRight } from '../ui/icons'
 import { useEffect, useMemo, useState } from 'react'
 import Select from '../ui/Select'
 import { adminApi } from './adminApi'
@@ -137,8 +138,8 @@ export default function PlansTab({ users, planRequests, onChanged, onError }: Pr
           <textarea className="dx-input" rows={3} value={extrasText[plan.id] ?? plan.extras.join('\n')} onChange={(event) => { setExtrasText({ ...extrasText, [plan.id]: event.target.value }); patchPlan(plan.id, { extras: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean).slice(0, 8) }) }} aria-label={`Linhas extra do plano ${plan.name}`} />
         </label>
         <footer className="cb-actions">
-          <button className="dx-btn dx-btn-ghost dx-btn-sm" disabled={index === 0} onClick={() => move(plan.id, -1)} aria-label={`Mover ${plan.name} para a esquerda`}>←</button>
-          <button className="dx-btn dx-btn-ghost dx-btn-sm" disabled={index === plans.length - 1} onClick={() => move(plan.id, 1)} aria-label={`Mover ${plan.name} para a direita`}>→</button>
+          <button className="dx-btn dx-btn-ghost dx-btn-sm" disabled={index === 0} onClick={() => move(plan.id, -1)} aria-label={`Mover ${plan.name} para a esquerda`}><IconChevronLeft size={11} /></button>
+          <button className="dx-btn dx-btn-ghost dx-btn-sm" disabled={index === plans.length - 1} onClick={() => move(plan.id, 1)} aria-label={`Mover ${plan.name} para a direita`}><IconChevronRight size={11} /></button>
         </footer>
       </article>)}
     </div>

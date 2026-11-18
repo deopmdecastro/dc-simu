@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { applyPreset, axisIndex, DEFAULT_TILT, FEELS, normalizeMotion, presetFromControl, type MotionPreset } from '../../catalog/controlMotion'
 import type { ControlDef, ControlMotion, Vec3 } from '../../catalog/types'
-import { IconClose } from '../../ui/icons'
+import { IconClose, IconSwap } from '../../ui/icons'
 import { useEditorStore } from './editorStore'
 import { allMotionPresets, applyMotionPreset, breakerAxesOf, controlIsOn, controlVariable, deleteMotionPreset, makeBreakerTilt, saveMotionPreset, setControlOn } from './controlOps'
 import { Check, Field, Num, Section, Select, Text } from './ui'
@@ -69,7 +69,7 @@ export function MotionFields({ control, patch }: { control: ControlDef; patch: P
       <Field label="Ângulo em OFF"><Num value={motion.angleOff} min={-180} max={180} step={1} unit="°" onChange={(angleOff) => patchMotion({ angleOff }, 'aoff')} /></Field>
       <Field label="Ângulo em ON"><Num value={motion.angleOn} min={-180} max={180} step={1} unit="°" onChange={(angleOn) => patchMotion({ angleOn }, 'aon')} /></Field>
       <div className="ce-actions-inline">
-        <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Troca o sentido: o que subia passa a descer" onClick={() => patchMotion({ angleOff: motion.angleOn, angleOn: motion.angleOff })}>⇅ Inverter sentido</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Troca o sentido: o que subia passa a descer" onClick={() => patchMotion({ angleOff: motion.angleOn, angleOn: motion.angleOff })}><IconSwap size={12} /> Inverter sentido</button>
       </div>
       <p className="ce-hint">Ângulos relativos à pose do modelo (0° = como o GLB foi exportado). Positivo = sentido horário visto ao longo do eixo.</p>
       <Field label="Pivô (% da caixa do manípulo)" hint="Ponto à volta do qual o manípulo roda (bola vermelha no modelo). Em percentagem, para servir também noutros disjuntores de tamanho diferente.">

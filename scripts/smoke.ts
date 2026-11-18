@@ -1,4 +1,5 @@
 import './node-env'
+import './ui-icons-smoke'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import fs from 'node:fs'
@@ -38,6 +39,11 @@ import { wireEndColor } from '../src/schematic/wireEndColor'
 import { gaugeMm, wireEndScale, wireStrokeWidth } from '../src/schematic/wireMetrics'
 import { wireGeometryForWire } from '../src/schematic/wireGeometry'
 import { isProgrammablePlc } from '../src/ladder/plcPrograms'
+import {
+  nativeQuadroDistribuicaoContent,
+  NATIVE_QUADRO_DISTRIBUICAO_ID,
+  NATIVE_QUADRO_DISTRIBUICAO_NAME,
+} from '../src/project/nativeQuadroDistribuicao'
 import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { ComponentType, LadderRung } from '../src/types'
@@ -1038,6 +1044,39 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const poly = (name: string) => (doc.materials as Array<{ name?: string; pbrMetallicRoughness: { baseColorFactor: number[] } }>).filter((m) => m.name === `Polímero ${name}`).map(toHex)
   check('GLB 24 V: corpos dos módulos preto, vermelho e verde', poly('0V').every((h: string) => h === '#171717') && poly('+24V').every((h: string) => h === '#dc2626') && poly('PE').every((h: string) => h === '#27834a') && poly('0V').length === 2 && poly('+24V').length === 2 && poly('PE').length === 2, JSON.stringify([poly('0V'), poly('+24V'), poly('PE')]))
   check('GLB 24 V: 3 módulos PTI6 (3 × 4 nós)', doc.scenes[0].nodes.length === 3 && doc.nodes.length === 12)
+}
+
+/* Equipamentos Schneider Acti9 DIN modulares (iC60H 1P, iID 4P, iDPN Vigi, iIL 1P/3P) */
+{
+  const ic60 = createComponent('breakerSchneiderIc60h1p')
+  check('Schneider iC60H 1P: 2 bornes (1 topo, 2 base)', ic60.terminals.length === 2 && !!terminalByLabel(ic60, '1') && !!terminalByLabel(ic60, '2'))
+  ic60.state.closed = true
+  ic60.state.tripped = false
+  check('Schneider iC60H fechado liga 1-2', internalBridges(ic60).length === 1)
+  ic60.state.closed = false
+  check('Schneider iC60H aberto interrompe passagem', internalBridges(ic60).length === 0)
+
+  const iid4p = createComponent('residualBreakerSchneiderIid4p')
+  check('Schneider iID 4P: 8 bornes com Neutro e L1, L2, L3', iid4p.terminals.length === 8 && !!terminalByLabel(iid4p, 'N1') && !!terminalByLabel(iid4p, 'N2') && !!terminalByLabel(iid4p, '1') && !!terminalByLabel(iid4p, '2'))
+  iid4p.state.closed = true
+  iid4p.state.tripped = false
+  check('Schneider iID 4P fechado conduz 4 polos (N + 3 fases)', internalBridges(iid4p).length === 4)
+  iid4p.state.tripped = true
+  check('Schneider iID 4P disparado interrompe todos os polos', internalBridges(iid4p).length === 0)
+
+  const idpn = createComponent('residualBreakerSchneiderIdpnVigi')
+  check('Schneider iDPN Vigi 1P+N: 4 bornes (N1, 1, N2, 2)', idpn.terminals.length === 4 && !!terminalByLabel(idpn, 'N1') && !!terminalByLabel(idpn, '1') && !!terminalByLabel(idpn, 'N2') && !!terminalByLabel(idpn, '2'))
+  idpn.state.closed = true
+  idpn.state.tripped = false
+  check('Schneider iDPN Vigi conduz N e Fase quando fechado', internalBridges(idpn).length === 2)
+  idpn.state.tripped = true
+  check('Schneider iDPN Vigi disparado interrompe N e Fase', internalBridges(idpn).length === 0)
+
+  const iil1p = createComponent('pilotLightSchneiderIil1p')
+  check('Schneider iIL 1P: 2 bornes X1 e X2', iil1p.terminals.length === 2 && !!terminalByLabel(iil1p, 'X1') && !!terminalByLabel(iil1p, 'X2'))
+
+  const iil3p = createComponent('pilotLightSchneiderIil3p')
+  check('Schneider iIL 3P: 4 bornes L1, L2, L3 e N', iil3p.terminals.length === 4 && !!terminalByLabel(iil3p, 'L1') && !!terminalByLabel(iil3p, 'L2') && !!terminalByLabel(iil3p, 'L3') && !!terminalByLabel(iil3p, 'N'))
 }
 
 /* A Biblioteca só liberta componentes associados a um GLB real. */
@@ -3156,6 +3195,50 @@ check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos d
   const ductMeshGroup = buildCableDuct({ lengthMm: 500, widthMm: 40, heightMm: 60 }, 0.01, { body: dummyMat, cover: dummyMat }, false, hOpen3d)
   check('União em T rodada em 3D (viewOrientation.z=90°) corta dentes no topo e gera malha 3D válida',
     hOpen3d.some((o) => o.side === 'top') && Boolean(ductMeshGroup.getObjectByName('cable-duct-body')), JSON.stringify(hOpen3d))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quadro Geral de Distribuição Completo (QGD)
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const qd = nativeQuadroDistribuicaoContent()
+  const qdComps = qd.components as ElectricalComponent[]
+  const qdWires = qd.wires as Wire[]
+  const byRef = (r: string) => qdComps.find((c) => c.ref === r)
+
+  check('Quadro de Distribuição: ID nativo e metadados válidos', qd.nativeId === NATIVE_QUADRO_DISTRIBUICAO_ID)
+  check('Quadro de Distribuição: invólucro 800×1000 com furos na base inferior', (() => {
+    const qe = byRef('QE1')
+    if (!qe) return false
+    const h = (qe.state as any).holes as Array<{ face: string }>
+    return Array.isArray(h) && h.length >= 5 && h.every((x) => x.face === 'bottom')
+  })())
+  check('Quadro de Distribuição: aparelhos essenciais (Corte Geral, DPS, Medidor KWS, Acti9 iIL 3P, Escada, Pente, Diferenciais, PTI6)', (() => {
+    const refs = ['QG1', 'DPS1', 'PM1', 'HL1', 'BB_ESCADA', 'ID_TRIF', 'ID_GERAL', 'RCBO_ESP', 'BB_COMB1', 'Q_ILUM', 'Q_TOM1', 'Q_TOM2', 'Q_ESP', 'BB_COMB2', 'Q_TRIF', 'N_BAR', 'PE_BAR', 'LUM1', 'TOM_GERAL', 'TOM_ESP', 'TOM_TRIF', 'M1']
+    return refs.every((r) => Boolean(byRef(r)))
+  })())
+  check('Quadro de Distribuição: barramentos tipo pente Schneider Acti9 e réguas de bornes interligadas', (() => {
+    const comb1 = byRef('BB_COMB1')
+    const comb2 = byRef('BB_COMB2')
+    return Boolean(comb1 && comb2 && qdWires.length >= 50)
+  })())
+
+  const qdSrcs = sourceTerminalIds(qdComps, {}, qdWires)
+  const qdCont = computeContinuity(qdComps, qdWires, qdSrcs)
+  const qg1 = byRef('QG1')!
+  const pm1 = byRef('PM1')!
+  const hl1 = byRef('HL1')!
+  const lum1 = byRef('LUM1')!
+  const m1 = byRef('M1')!
+
+  check('Quadro de Distribuição: continuidade elétrica global (Corte Geral, Medidor, Sinalizador, Luz e Motor trifásico)',
+    qdCont.energizedTerminals.has(`${qg1.id}-2`) &&
+    qdCont.energizedTerminals.has(`${pm1.id}-L1-OUT`) &&
+    qdCont.energizedTerminals.has(`${hl1.id}-L1`) &&
+    qdCont.energizedTerminals.has(`${lum1.id}-X1`) &&
+    qdCont.energizedTerminals.has(`${m1.id}-U1`) &&
+    qdCont.energizedTerminals.has(`${m1.id}-V1`) &&
+    qdCont.energizedTerminals.has(`${m1.id}-W1`))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

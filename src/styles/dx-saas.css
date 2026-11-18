@@ -68,7 +68,7 @@
 .dx-price-value span { color:var(--dx-ink-3); font-size:13px; }
 .dx-price-card ul { display:grid; align-content:start; gap:6px; margin:0; padding:0; list-style:none; font-size:13.5px; color:var(--dx-ink-2); flex:1; }
 .dx-price-card li { display:flex; gap:8px; }
-.dx-price-card li::before { content:'✓'; color:var(--dx-brand); font-weight:700; }
+.dx-price-card li > svg { flex:none; margin-top:4px; color:var(--dx-brand); }
 .dx-price-card .dx-btn { width:100%; justify-content:center; }
 .dx-price-note { margin:var(--dx-4) 0 0; color:var(--dx-ink-3); font-size:12.5px; }
 

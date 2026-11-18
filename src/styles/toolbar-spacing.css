@@ -238,18 +238,18 @@
 }
 
 
-/* 2.ª linha densa (PC/tablet sem espaço): botões com ícone mostram só o ícone; o texto continua no DOM
-   (nome acessível e título), por isso nada desaparece — apenas encolhe. */
-.dc-toolbar-row2.is-dense .dc-tool-btn:has(svg),
-.dc-toolbar-row2.is-dense .dc-seg > button:has(svg) { font-size: 0; gap: 0; padding-left: 7px; padding-right: 7px; }
-.dc-toolbar-row2.is-dense .dc-tool-btn:has(svg) kbd,
-.dc-toolbar-row2.is-dense .dc-tool-btn:has(svg) .dc-kbd { display: none; }
+/* 2.ª linha densa (só em ecrãs móveis/estreitos sem espaço):
+   no PC/desktop, mantém sempre ícone + nome visíveis em todas as vistas. */
+@media (max-width: 800px) {
+  .dc-toolbar-row2.is-dense .dc-tool-btn:has(svg),
+  .dc-toolbar-row2.is-dense .dc-seg > button:has(svg) { font-size: 0; gap: 0; padding-left: 7px; padding-right: 7px; }
+  .dc-toolbar-row2.is-dense .dc-tool-btn:has(svg) kbd,
+  .dc-toolbar-row2.is-dense .dc-tool-btn:has(svg) .dc-kbd { display: none; }
 
-/* 1.º nível («apertado»): só os grupos secundários (edição, extras, navegação, atalhos, caixa-preta)
-   ficam com ícone; Painéis, Ferramentas e Anotações (.tb-primary) mantêm o texto. Igual em todas as vistas. */
-.dc-toolbar-row2.is-tight .dc-tool-btn:has(svg):not(.tb-primary *),
-.dc-toolbar-row2.is-tight .dc-seg > button:has(svg):not(.tb-primary *) { font-size: 0; gap: 0; padding-left: 7px; padding-right: 7px; }
-.dc-toolbar-row2.is-tight .dc-tool-btn:has(svg):not(.tb-primary *) kbd { display: none; }
+  .dc-toolbar-row2.is-tight .dc-tool-btn:has(svg):not(.tb-primary *),
+  .dc-toolbar-row2.is-tight .dc-seg > button:has(svg):not(.tb-primary *) { font-size: 0; gap: 0; padding-left: 7px; padding-right: 7px; }
+  .dc-toolbar-row2.is-tight .dc-tool-btn:has(svg):not(.tb-primary *) kbd { display: none; }
+}
 
 /* ---------------------------------------------------------------------------
    Refinamento 2026-11-02 — hierarquia, tablet e alvos de toque
@@ -274,14 +274,20 @@
   }
 }
 
-/* Em larguras intermédias (tablet em janela estreita ou desktop estreito)
-   reforçar o comportamento is-tight/is-dense: labels de texto desaparecem
-   e o utilizador vê só ícones + tooltip. Reduz ruído visual sem esconder ações. */
-@media (max-width: 1100px) {
+/* Em ecrãs móveis muito estreitos os labels de texto diminuem para poupar espaço. */
+@media (max-width: 640px) {
   .dc-toolbar-row2.is-tight .dc-tool-btn > span:not([class*="icon"]):not(.sr-only),
   .dc-toolbar-row2.is-dense .dc-tool-btn > span:not([class*="icon"]):not(.sr-only),
   .dc-toolbar-main .dc-file-extra span:not(.sr-only) {
     display: none;
+  }
+  .dc-tool-inline .dc-tool-btn > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }
 
@@ -296,10 +302,33 @@
   opacity: 0.85;
 }
 
-/* Ações em linha (ToolInlineItems): só ícone, com o nome na dica e no nome acessível. */
+/* Ações em linha (ToolInlineItems) no PC: exibem SEMPRE ícone e nome padronizados. */
 .dc-tool-inline { display: inline-flex; align-items: center; gap: 4px; flex: none; }
-.dc-tool-inline .dc-tool-btn > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.dc-tool-inline .dc-tool-btn { padding-left: 7px; padding-right: 7px; }
+.dc-tool-inline .dc-tool-btn { display: inline-flex; align-items: center; gap: 6px; padding-left: 8px; padding-right: 8px; font-size: 11.5px; }
+.dc-tool-inline .dc-tool-btn > span { display: inline-block; white-space: nowrap; }
+
+/* No PC (desktop >= 768px): padrão universal com ícone e nome em todos os botões e organização alinhada. */
+@media (min-width: 768px) {
+  .dc-toolbar-row2 .dc-tool-btn,
+  .dc-toolbar-row2 .dc-seg > button,
+  .dc-tool-inline .dc-tool-btn {
+    font-size: 11.5px !important;
+    gap: 6px !important;
+    padding-left: 9px !important;
+    padding-right: 9px !important;
+  }
+  .dc-toolbar-row2 .dc-tool-btn > span,
+  .dc-toolbar-row2 .dc-seg > button > span,
+  .dc-tool-inline .dc-tool-btn > span {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    clip: auto !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+  }
+}
 
 /* edge inset toolbar 2026-11-03 — mais ar entre botões e o limite da barra */
 .dc-toolbar-main,

@@ -47,6 +47,7 @@ import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_3D, NOTE_COLORS } from '../ui/textStyle'
 import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEditorMotorTextures, onMotorTexturesReady } from './motorEditorTextures'
+import { FaultEffects3D, type FaultPoint3D } from './FaultEffects3D'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { hasPlcLamps, lampScenePosition, plcChannelLamps, plcLamps } from './plcStatusLights'
@@ -70,6 +71,13 @@ import { GlowHalo } from './GlowHalo'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import { MeterD522066_3D, MeterKws306_3D } from './DigitalMeters3D'
+import {
+  SchneiderBreaker1P_3D,
+  SchneiderRcd4P_3D,
+  SchneiderRcd1PN_3D,
+  SchneiderPilotLight1P_3D,
+  SchneiderPilotLight3P_3D,
+} from './SchneiderComponents3D'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import { AcrylicBusbar3D, CombBusbar3D, CombConnector3D, SteppedBusbar3D } from './Busbar3D'
 import { isAcrylicBusbarType, isCombBusbarType, isCombConnectorType, isSteppedBusbarType } from './busbarParts'
@@ -2223,6 +2231,13 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
     const flowing = wireEnergyEffectVisible(runState, wire.energized, wire.carryingCurrent)
     const wireColor = WIRE_3D_COLORS[wire.color]
+    const isHot = (wire.heatLevel ?? 0) > 0.05
+    const isBurnt = !!wire.burnt
+    const displayWireColor = isBurnt ? '#18181b' : wireColor
+    const emissiveColor = isHot ? '#ff3b00' : flowing ? wireColor : '#000000'
+    const emissiveInt = isHot ? Math.min(2.5, (wire.heatLevel ?? 0) * 2.2) : flowing ? 0.07 : 0
+    const wireRoughness = isBurnt ? 0.92 : 0.32
+    const wireClearcoat = isBurnt ? 0.0 : 0.55
     const editing = selected && !wire.locked && (editMode === 'navigate' || editMode === 'connect')
     const manual = wire.waypoints3D ?? []
     const chain = [from.position, ...manual.map(fromSpatial), to.position]
@@ -2250,7 +2265,16 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
       </mesh>}
       <mesh castShadow receiveShadow renderOrder={19} raycast={() => null}>
         <tubeGeometry args={[curve, segments, radius, 14, false]} />
-        <meshPhysicalMaterial color={wireColor} roughness={0.32} metalness={0.03} clearcoat={0.55} clearcoatRoughness={0.24} envMapIntensity={1.15} emissive={flowing ? wireColor : '#000000'} emissiveIntensity={flowing ? 0.07 : 0} />
+        <meshPhysicalMaterial
+          color={displayWireColor}
+          roughness={wireRoughness}
+          metalness={0.03}
+          clearcoat={wireClearcoat}
+          clearcoatRoughness={0.24}
+          envMapIntensity={1.15}
+          emissive={emissiveColor}
+          emissiveIntensity={emissiveInt}
+        />
       </mesh>
       {/* Volume transparente maior: seleção fiável (clique) e curvas novas (duplo clique) sem falsificar a secção visível. */}
       <mesh userData={{ wireHit: true }}
@@ -2674,6 +2698,71 @@ function SoftwareRunInvalidator({ active }: { active: boolean }) {
     }
   }, [active, invalidate])
   return null
+}
+
+/**
+ * Camada 3D de Arco Elétrico, Faíscas e Fumo para curto-circuitos e sobreaquecimento.
+ */
+function FaultEffectsLayer({ panelPivots }: { panelPivots: Record<string, THREE.Vector3> }) {
+  const shortCircuit = useSimStore((s) => s.sim.shortCircuit)
+  const components = useSimStore((s) => s.components)
+  const wires = useSimStore((s) => s.wires)
+  useSimStore((s) => s.simTick)
+
+  const arcActive = !!shortCircuit?.active
+  const arcPosition: [number, number, number] = shortCircuit?.focalPoint ?? [0, 0, 0.22]
+
+  const smokePoints = useMemo(() => {
+    const list: FaultPoint3D[] = []
+    for (const w of wires) {
+      const heat = w.heatLevel ?? 0
+      if (heat > 0.12 || w.burnt) {
+        const cFrom = components.find((c) => c.terminals.some((t) => t.id === w.fromTerminalId))
+        const p = cFrom ? panelPivots[cFrom.id] : null
+        if (p) {
+          list.push({
+            position: [p.x, p.y + 0.04, p.z + 0.08],
+            intensity: Math.max(0.2, heat),
+          })
+        }
+      }
+    }
+    for (const c of components) {
+      const heat = Number(c.state.heatLevel ?? 0)
+      if (heat > 0.12 || c.state.burnt) {
+        const p = panelPivots[c.id]
+        if (p) {
+          list.push({
+            position: [p.x, p.y, p.z + 0.07],
+            intensity: Math.max(0.25, heat),
+          })
+        }
+      }
+    }
+    return list
+  }, [wires, components, panelPivots])
+
+  const burntPoints = useMemo(() => {
+    const list: Array<[number, number, number]> = []
+    for (const c of components) {
+      if (c.state.burnt) {
+        const p = panelPivots[c.id]
+        if (p) {
+          list.push([p.x, p.y, p.z + 0.08])
+        }
+      }
+    }
+    return list
+  }, [components, panelPivots])
+
+  return (
+    <FaultEffects3D
+      arcActive={arcActive}
+      arcPosition={arcPosition}
+      smokePoints={smokePoints}
+      burntPoints={burntPoints}
+    />
+  )
 }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
@@ -4594,7 +4683,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                 </Suspense>
               </Model3DErrorBoundary>
             )
-          } else if (hasDinRailModel(c.type)) {
+          } else if (hasDinRailModel(c.type) && getComponentModelSpec(c.type)) {
+            // As peças Acti9 procedurais também montam em DIN, mas não têm
+            // spec.path/GLB: seguem para o seu renderizador dedicado abaixo.
             const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
             const inStrip = terminalStripMemberIds.has(c.id)
             content = (
@@ -4616,6 +4707,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
           else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} />
           else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} />
+          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} interactive={canActuate} />
+          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} />
+          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} interactive={interactive && !c.locked} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
@@ -4675,6 +4771,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
           else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} />
           else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} />
+          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} interactive={canActuate} />
+          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} />
+          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} />
           else if (c.type === 'capacitorRun60uF' && getComponentModelSpec(c.type)) {
             const [px, py, pz] = frontPivot(c)
             const fallback = <group position={[x + px, py, pz]}>
@@ -4790,6 +4891,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             </group>
           })}
         </group>
+        <FaultEffectsLayer panelPivots={panelPivots} />
         <PanelCameraRig command={cameraCommand} railWidth={sceneWidth}
           onStats={stats => setCameraStats(previous => previous.zoom === stats.zoom && Math.abs(previous.yaw - stats.yaw) < 0.001 && Math.abs(previous.pitch - stats.pitch) < 0.001 ? previous : stats)}
           scrollBridge={cameraScrollBridge} scrollBounds={contentBounds ?? { minX: -2, maxX: 2, minY: -2, maxY: 2, minZ: -0.2, maxZ: 0.6 }}

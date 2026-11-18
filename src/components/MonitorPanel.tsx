@@ -1,5 +1,5 @@
 import { useSimStore } from '../store/useSimStore'
-import { IconPlay, IconTimer, IconShield, IconSearch, IconCounter, IconCheck } from '../ui/icons'
+import { IconPlay, IconTimer, IconShield, IconSearch, IconCounter, IconCheck, IconCommands } from '../ui/icons'
 
 function Bit({ label: name, tagName, value, onToggle }: { label: string; tagName?: string | null; value: boolean; onToggle?: () => void }) {
   return (
@@ -41,9 +41,16 @@ export default function MonitorPanel() {
   const events = useSimStore((s) => s.sim.events)
   const measurements = useSimStore((s) => s.sim.measurements)
   const faults = useSimStore((s) => s.sim.faults)
+  const shortCircuit = useSimStore((s) => s.sim.shortCircuit)
+  const wires = useSimStore((s) => s.wires)
+  const repairBurntEquipment = useSimStore((s) => s.repairBurntEquipment)
   const components = useSimStore((s) => s.components)
   const setFaults = useSimStore((s) => s.setFaults)
   const tags = useSimStore((s) => s.tags)
+
+  const damagedWiresCount = wires.filter((w) => w.damaged || w.burnt).length
+  const damagedCompsCount = components.filter((c) => c.state.damaged || c.state.burnt).length
+  const totalDamaged = damagedWiresCount + damagedCompsCount
 
   const tagNameFor = (address: string) => {
     const t = tags.find((tt) => tt.address === address)
@@ -183,6 +190,34 @@ export default function MonitorPanel() {
             </label>
           ))}
         </div>
+
+        {shortCircuit?.active && (
+          <div className="mt-2.5 p-2.5 rounded border border-red-500 bg-red-50 text-xs text-red-900 flex flex-col gap-1">
+            <div className="font-bold flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+              <IconCommands size={13} /> Curto-Circuito Ativo!
+            </div>
+            <div>{shortCircuit.cause}</div>
+            <div className="text-[11px] text-red-700">
+              {shortCircuit.shortedWires.length > 0 && `${shortCircuit.shortedWires.length} condutor(es) afetados.`}
+            </div>
+          </div>
+        )}
+
+        {totalDamaged > 0 && (
+          <div className="mt-2.5 p-2.5 rounded border border-amber-400 bg-amber-50 text-xs text-amber-900 flex items-center justify-between">
+            <div>
+              <span className="font-semibold">{totalDamaged}</span> item(ns) danificado(s) por curto ou sobreaquecimento.
+            </div>
+            <button
+              type="button"
+              onClick={repairBurntEquipment}
+              className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-medium text-[11px] shadow-sm transition-colors"
+            >
+              Reparar Tudo
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="pn-card">

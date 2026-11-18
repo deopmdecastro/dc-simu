@@ -266,7 +266,7 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
   }
   .grafcet-full .grafcet-toolbox-head { min-height: 58px; padding-left: 16px; }
   .grafcet-full .grafcet-toolbox-head button { font-size: 0; border-radius: 10px; }
-  .grafcet-full .grafcet-toolbox-head button::after { content: '✕'; font-size: 16px; }
+  .grafcet-full .grafcet-toolbox-head button svg { width:14px; height:14px; }
   .grafcet-full .grafcet-toolbox-list section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0 14px; }
   .grafcet-full .grafcet-toolbox-list section h3 { grid-column: 1 / -1; margin: 4px 0 0; }
   .grafcet-full .grafcet-toolbox-item { min-height: 58px; height: 100%; }

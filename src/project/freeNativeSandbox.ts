@@ -15,6 +15,7 @@ import { buildProjectPreview } from '../dashboard/projectPreview'
 import {
   NATIVE_ESTRELA_KS1_ID,
   NATIVE_PARTIDA_ID,
+  NATIVE_QUADRO_DISTRIBUICAO_ID,
   nativeProjectSeeds,
   type NativeProjectSeed,
 } from './nativeProjects'
@@ -24,6 +25,7 @@ export const FREE_NATIVE_OWNER = 'DC-Simu'
 export const FREE_NATIVE_PROJECT_IDS = [
   NATIVE_PARTIDA_ID,
   NATIVE_ESTRELA_KS1_ID,
+  NATIVE_QUADRO_DISTRIBUICAO_ID,
   'grafcet-exemplo-basico',
   'grafcet-exemplo-normal',
   'grafcet-exemplo-avancado',
@@ -49,6 +51,7 @@ const memoryDrafts = new Map<string, FreeNativeDraft>()
 function factoryUpdatedAt(seedId: string, index: number): string {
   if (seedId === NATIVE_PARTIDA_ID) return '2026-01-02T00:00:02.000Z'
   if (seedId === NATIVE_ESTRELA_KS1_ID) return '2026-01-02T00:00:01.000Z'
+  if (seedId === NATIVE_QUADRO_DISTRIBUICAO_ID) return '2026-01-02T00:00:00.000Z'
   const sec = String(Math.max(1, 59 - index)).padStart(2, '0')
   return `2026-01-01T00:00:${sec}.000Z`
 }

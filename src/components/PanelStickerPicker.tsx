@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PANEL_STICKER_PRESETS, type PanelStickerDef } from '../three/panelStickers'
 import { IconClose } from '../ui/icons'
+import CircuitIcon from '../ui/CircuitIcon'
 
 export default function PanelStickerPicker({
   onPick,
@@ -42,6 +43,7 @@ export default function PanelStickerPicker({
           <button
             type="button"
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition"
+            aria-label="Fechar etiquetas de circuito"
             onClick={onClose}
           >
             <IconClose size={14} />
@@ -93,29 +95,7 @@ export default function PanelStickerPicker({
                   </div>
                 ) : (
                   <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-200 flex flex-col items-center justify-center text-slate-700 shadow-2xs group-hover:scale-105 transition">
-                    <span className="text-xl">
-                      {s.icon === 'socket' && '🔌'}
-                      {s.icon === 'light' && '💡'}
-                      {s.icon === 'gardenlight' && '🏮'}
-                      {s.icon === 'ac' && '❄️'}
-                      {s.icon === 'oven' && '🍳'}
-                      {s.icon === 'cooktop' && '🥘'}
-                      {s.icon === 'hood' && '🌪️'}
-                      {s.icon === 'waterheater' && '♨️'}
-                      {s.icon === 'fridge' && '🧊'}
-                      {s.icon === 'washer' && '🫧'}
-                      {s.icon === 'gate' && '🚪'}
-                      {s.icon === 'garage' && '🚗'}
-                      {s.icon === 'fan' && '🌀'}
-                      {s.icon === 'wifi' && '📶'}
-                      {s.icon === 'floorheat' && '♨️'}
-                      {s.icon === 'cctv' && '📹'}
-                      {s.icon === 'pump' && '💧'}
-                      {s.icon === 'shield' && '🛡️'}
-                      {s.icon === 'alarm' && '🚨'}
-                      {s.icon === 'intercom' && '🔔'}
-                      {s.icon === 'power' && '⏻'}
-                    </span>
+                    <CircuitIcon icon={s.icon} size={27} accent={s.accent} />
                   </div>
                 )}
                 <span className="text-[11px] font-semibold text-slate-700 mt-1.5 leading-tight line-clamp-1 group-hover:text-brand-700">

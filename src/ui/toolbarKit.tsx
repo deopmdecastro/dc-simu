@@ -4,7 +4,7 @@ import type React from 'react'
 import type { ReactNode } from 'react'
 import Select from './Select'
 import { isTabletDevice } from './device'
-import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset, IconSignals, IconCheck } from './icons'
+import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset, IconSignals, IconCheck, IconClose } from './icons'
 
 /**
  * Elementos comuns das barras de ferramentas: Esquema/Painel 3D, GRAFCET, Ladder
@@ -452,7 +452,7 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
           <div ref={popup} className="tm-panel is-sheet" role="menu" aria-label={title ?? label} onKeyDown={onItemKey}>
             <div className="tm-drag" onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}>
               <span className="tm-grab" aria-hidden />
-              <header className="tm-head"><strong>{title ?? label}</strong><button type="button" className="tm-close" onClick={() => { setOpen(false); button.current?.focus() }} aria-label="Fechar menu">×</button></header>
+              <header className="tm-head"><strong>{title ?? label}</strong><button type="button" className="tm-close" onClick={() => { setOpen(false); button.current?.focus() }} aria-label="Fechar menu"><IconClose size={12} /></button></header>
             </div>
             <div className="tm-body">
               {sections.filter((section) => section.items.length > 0).map((section) => <section className="tm-section" key={section.id ?? section.title}>

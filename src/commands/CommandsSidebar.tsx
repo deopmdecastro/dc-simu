@@ -2,7 +2,7 @@
 // (mesma estrutura da biblioteca/inspetor do Esquema 3D).
 import { useEffect, useMemo, useState } from 'react'
 import SidePanelHeader from '../components/SidePanelHeader'
-import { IconChevronDown, IconProjects, IconSearch } from '../ui/icons'
+import { IconChevronDown, IconProjects, IconSearch, IconStar, IconCommands, IconClose, IconHistory, IconArrowRight } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import type { CanvasText } from '../types'
 import { CMD_PALETTE, CMD_PARTS, CMD_VARIANTS, emptyCommands, partBox, partTerminals, variantOf, type CmdKind, type CmdPart } from './model'
@@ -48,7 +48,7 @@ function SymbolTile({ kind, favorite, placing, disabled, onPick, onQuickAdd, onF
       <span className="dc-library-tile-image"><SymbolThumb kind={kind} /></span>
       <span className="dc-library-tile-name">{def.label}</span>
     </button>
-    <button type="button" className={`dc-library-tile-favorite ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-pressed={favorite} aria-label={`${favorite ? 'Remover' : 'Adicionar'} ${def.label} ${favorite ? 'dos' : 'aos'} favoritos`} title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>{favorite ? '★' : '☆'}</button>
+    <button type="button" className={`dc-library-tile-favorite ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-pressed={favorite} aria-label={`${favorite ? 'Remover' : 'Adicionar'} ${def.label} ${favorite ? 'dos' : 'aos'} favoritos`} title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}><IconStar size={11} /></button>
   </div>
 }
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -113,7 +113,7 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
           <div className="pn-section">
             <div className="relative">
               <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar símbolo (contactor, botão, motor…)" aria-label="Pesquisar símbolos" className="dc-input !pl-7 !pr-7" />
-              {filter && <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" title="Limpar pesquisa" onClick={() => setFilter('')}>×</button>}
+              {filter && <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" title="Limpar pesquisa" onClick={() => setFilter('')}><IconClose size={12} /></button>}
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
@@ -128,13 +128,13 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
               title="Analisa os componentes e cabos colocados no painel 3D e gera o esquema elétrico de comandos e potência correspondente"
               onClick={() => useSimStore.getState().generateIecFromPhysical()}
             >
-              ⚡ Gerar Esquema IEC pelo 3D
+              <IconCommands size={12} /> Gerar Esquema IEC pelo 3D
             </button>
           </div>
           {placing && <div className="dc-cmd-placing p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center" role="status"><span className="flex-1">A posicionar: {CMD_PARTS[placing].label} · Shift mantém · Esc cancela</span><button type="button" className="dc-btn !h-6" onClick={() => setPlacing(null)}>Cancelar</button></div>}
           <div className="pn-body flex-1 overflow-y-auto min-h-0 dc-library-scroll">
-            {recent.length > 0 && !filter && <section className="dc-library-section" aria-label="Símbolos recentes"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.map(tile)}</div></section>}
-            {favorites.length > 0 && !filter && <section className="dc-library-section" aria-label="Símbolos favoritos"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.map(tile)}</div></section>}
+            {recent.length > 0 && !filter && <section className="dc-library-section" aria-label="Símbolos recentes"><div className="dc-library-section-title"><strong><IconHistory size={11} />Recentes</strong><span>{recent.length}</span></div><div className="dc-library-recent">{recent.map(tile)}</div></section>}
+            {favorites.length > 0 && !filter && <section className="dc-library-section" aria-label="Símbolos favoritos"><div className="dc-library-section-title"><strong><IconStar size={11} />Favoritos</strong><span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.map(tile)}</div></section>}
             {!groups.length && (
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconSearch size={18} /></span>
@@ -496,7 +496,7 @@ function WireProperties({ wire, disabled }: { wire: CmdWire; disabled: boolean }
               <small>{partA ? (CMD_PARTS[partA.kind]?.label ?? partA.kind) : '—'}</small>
             </span>
           </button>
-          <span className="self-center text-ink-400 text-[11px] px-0.5" aria-hidden="true">→</span>
+          <span className="self-center text-ink-400 text-[11px] px-0.5" aria-hidden="true"><IconArrowRight size={11} /></span>
           <button
             type="button"
             className="wi-endpoint"

@@ -39,6 +39,7 @@ export interface IecAssociation {
 const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   // --- Proteção -----------------------------------------------------------
   breaker1p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-02', refLetter: 'Q', note: 'Disjuntor 1P — mesmo símbolo de manobra; no IEC o número de pólos define-se pela instância' },
+  breakerSchneiderIc60h1p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-02', refLetter: 'Q', note: 'Disjuntor Schneider Acti9 iC60H 1P' },
   breaker2p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-02', refLetter: 'Q' },
   breaker3p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-02', refLetter: 'Q' },
   breaker4p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-02', refLetter: 'Q', note: '4P: L1–L3 + N' },
@@ -46,6 +47,8 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   motorBreaker: { primary: 'breaker3', related: ['thermal3', 'thermalNC', 'thermalNO'], iec60617: '60617-7', refLetter: 'Q', note: 'Disjuntor-motor = manobra + proteção térmica' },
   motorBreakerPkzmC10: { primary: 'breaker3', related: ['thermal3', 'thermalNC', 'thermalNO'], iec60617: '60617-7', refLetter: 'Q' },
   residualBreaker: { primary: 'breaker3', iec60617: '60617-7 / 07-13-08', refLetter: 'Q', note: 'Disjuntor diferencial (DR)' },
+  residualBreakerSchneiderIid4p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-08', refLetter: 'Q', note: 'Interruptor Diferencial Schneider Acti9 iID 4P' },
+  residualBreakerSchneiderIdpnVigi: { primary: 'breaker3', iec60617: '60617-7 / 07-13-08', refLetter: 'Q', note: 'Disjuntor Diferencial Schneider Acti9 iDPN N Vigi 1P+N' },
   phoenixEcb3000760: { primary: 'breaker3', iec60617: '60617-7', refLetter: 'Q', note: 'Proteção electrónica 24 V' },
   fuse: { primary: 'fuse', iec60617: '60617-7 / 07-21-01', refLetter: 'F' },
   fuseHolder: { primary: 'fuse', iec60617: '60617-7 / 07-21-01', refLetter: 'F' },
@@ -90,6 +93,8 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   ledYellow: { primary: 'lamp', iec60617: '60617-8 / 08-10-05', refLetter: 'H' },
   ledWhite: { primary: 'lamp', iec60617: '60617-8 / 08-10-05', refLetter: 'H' },
   pilotLightAd22: { primary: 'lamp', iec60617: '60617-8 / 08-10-05', refLetter: 'H' },
+  pilotLightSchneiderIil1p: { primary: 'lamp', iec60617: '60617-8 / 08-10-05', refLetter: 'H', note: 'Sinalizador modular Schneider Acti9 iIL 1P' },
+  pilotLightSchneiderIil3p: { primary: 'lamp', iec60617: '60617-8 / 08-10-05', refLetter: 'H', note: 'Sinalizador modular trifásico de fases L1-L2-L3' },
   buzzer: { primary: 'lamp', iec60617: '60617-8 / 08-10-10', refLetter: 'H', note: 'Sinalizador acústico' },
   towerLight: { primary: 'lamp', iec60617: '60617-8', refLetter: 'H', note: 'Coluna luminosa' },
 

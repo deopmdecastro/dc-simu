@@ -55,7 +55,7 @@ import {
   type CombTeethDirection,
 } from '../three/combBusbarParts'
 import Select from '../ui/Select'
-import { IconEye, IconEyeOff } from '../ui/icons'
+import { IconEye, IconEyeOff, IconCheck, IconPlus } from '../ui/icons'
 import {
   breakerInputLabels,
   findCombConnectorMountTarget,
@@ -90,11 +90,8 @@ export const BUSBAR_STATE_KEYS = new Set([
 const fieldLabel = 'dc-field-label'
 
 export default function BusbarControls({ c }: { c: ElectricalComponent }) {
-  if (isCombBusbarType(c.type)) return <CombBusbarInspector c={c} />
-  if (isCombConnectorType(c.type)) return <CombConnectorInspector c={c} />
   const isAcrylic = isAcrylicBusbarType(c.type)
   const isStepped = isSteppedBusbarType(c.type)
-  if (!isAcrylic && !isStepped) return null
 
   const minN = isAcrylic ? ACRYLIC_BUSBAR.minPoles : STEPPED_BUSBAR.minHoles
   const maxN = isAcrylic ? ACRYLIC_BUSBAR.maxPoles : STEPPED_BUSBAR.maxHoles
@@ -104,6 +101,12 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
 
   const [draft, setDraft] = useState(String(currentCount))
   useEffect(() => setDraft(String(currentCount)), [currentCount, c.id])
+
+  // A seleção pode mudar de família sem remontar este componente. Todos os
+  // hooks têm de executar antes de qualquer uma destas saídas antecipadas.
+  if (isCombBusbarType(c.type)) return <CombBusbarInspector c={c} />
+  if (isCombConnectorType(c.type)) return <CombConnectorInspector c={c} />
+  if (!isAcrylic && !isStepped) return null
 
   const parsedDraft = isAcrylic ? clampAcrylicBusbarPoles(draft) : clampSteppedBusbarHoles(draft)
   const hasChange = parsedDraft !== currentCount
@@ -532,7 +535,8 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
     if (clamped !== poles) patch({ poleCount: clamped })
   }
 
-  const hasNeutral = mode === '1P+N' || mode === '3P+N'
+  const hasNeutral = mode === '1P+N' || mode === '1P+N-3P' || mode === '3P+N'
+  const hasToothCovers = Boolean((c.state.toothCoverCount as number) > 0 || (Array.isArray(c.state.toothCovers) && (c.state.toothCovers as number[]).length > 0))
   const activeModeMeta = COMB_BUSBAR_MODES.find((m) => m.id === mode) ?? COMB_BUSBAR_MODES[0]
 
   const insertStandaloneConnector = () => {
@@ -735,14 +739,24 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
             </Select>
           </label>
         </div>
-        <button
-          type="button"
-          onClick={() => patch({ endCaps: !endCaps })}
-          className="dc-btn w-full justify-center gap-1.5 text-xs"
-        >
-          {endCaps ? <IconEyeOff size={13} /> : <IconEye size={13} />}
-          {endCaps ? 'Ocultar topos isolantes laterais' : 'Mostrar topos isolantes laterais'}
-        </button>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={() => patch({ endCaps: !endCaps })}
+            className="dc-btn justify-center gap-1.5 text-[11px]"
+          >
+            {endCaps ? <IconEyeOff size={13} /> : <IconEye size={13} />}
+            {endCaps ? 'Sem topos laterais' : 'Topos laterais'}
+          </button>
+          <button
+            type="button"
+            onClick={() => patch({ toothCoverCount: hasToothCovers ? 0 : 3 })}
+            className={`dc-btn justify-center gap-1.5 text-[11px] ${hasToothCovers ? '!bg-amber-100 !border-amber-400 !text-amber-900' : ''}`}
+            title="Tampas amarelas de proteção para dentes não utilizados (A9XPT920)"
+          >
+            {hasToothCovers ? <IconCheck size={11} /> : <IconPlus size={11} />} Tampas dentes
+          </button>
+        </div>
         <small className="text-ink-400">
           Cobre eletrolítico Cu-ETP {sectionMm2} mm² · {ratedA} A · 230/400 V~ · IEC 60947-7-1.
         </small>

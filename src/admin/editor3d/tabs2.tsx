@@ -14,7 +14,7 @@ import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps
 import { addTerminalInHole, addTerminalsInAllHoles, auditSeats, clearHoles, fixSeats, scanHoles } from './holeOps'
 import { SEAT_LABEL, type SeatReport } from '../../catalog/terminalSeat'
 import { Check, Color, Confirm, Empty, Field, Group, Num, PresetCard, Section, Select, Slider, Text, Vec3Input } from './ui'
-import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
+import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus, IconArrowUp } from '../../ui/icons'
 import FaceChooser from './FaceChooser'
 import { NodePicker, whenFields } from './tabsControls'
 import { AutoDetectSection } from './AutoDetectPanel'
@@ -326,7 +326,7 @@ function LightColorRules({ def, light, patch }: { def: ComponentDefLike; light: 
     {palette.length > 1 && <span className="ce-actions-inline" aria-label="Cores desta luz">{palette.map((color) => <i key={color} title={color} style={{ width: 16, height: 16, borderRadius: 999, background: color, border: '1px solid #94a3b8', display: 'inline-block' }} />)}</span>}
     {rules.map((rule, index) => <div key={rule.id} className="ce-action-card">
       <div className="ce-action-head"><b>Regra {index + 1}</b>
-        <button className="ce-linkbtn" aria-label="Subir regra" disabled={index === 0} onClick={() => patch({ colorRules: rules.map((item, i) => (i === index - 1 ? rules[index] : i === index ? rules[index - 1] : item)) }, 'rule-up')}>↑</button>
+        <button className="ce-linkbtn" aria-label="Subir regra" disabled={index === 0} onClick={() => patch({ colorRules: rules.map((item, i) => (i === index - 1 ? rules[index] : i === index ? rules[index - 1] : item)) }, 'rule-up')}><IconArrowUp size={11} /></button>
         <button className="ce-linkbtn" aria-label="Remover regra" onClick={() => patch({ colorRules: rules.filter((item) => item.id !== rule.id) }, 'rule-del')}><IconClose size={12} /></button></div>
       {whenFields(def, rule.when, (when) => when && setRule(rule.id, { when }, 'when'))}
       <Field label="Cor"><Color value={rule.color} onChange={(color) => setRule(rule.id, { color }, 'color')} /></Field>

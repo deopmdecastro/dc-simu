@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { COMPAT_LABEL } from '../../catalog/terminalCompat'
 import type { Vec3 } from '../../catalog/types'
-import { IconCheck, IconClose, IconEye, IconEyeOff, IconFocus, IconWarning } from '../../ui/icons'
+import { IconCheck, IconClose, IconEye, IconEyeOff, IconFocus, IconWarning, IconArrowRight } from '../../ui/icons'
 import { useEditorStore, type TestWire } from './editorStore'
 import { ColorSwatches, ConductorChooser, EndChooser } from './WireControls'
 import { Empty, Field, Num, Section, Select, Text } from './ui'
@@ -153,7 +153,7 @@ export function WireRow({ wire, selected }: { wire: TestWire; selected: boolean 
     onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); set({ selectedWire: wire.id, selection: null, tab: 'wires' }) } }}
     onPointerEnter={() => set({ hoverWire: wire.id })} onPointerLeave={() => set({ hoverWire: null })}>
     <i className="ce-dot" style={{ background: wireColorSwatchBg(wire.color) }} />
-    <span className="ce-wrow-name"><b>{wire.number}</b> {endLabel(terminals, wire.a)} <span className="ce-wire-link">→</span> {endLabel(terminals, wire.b)}</span>
+    <span className="ce-wrow-name"><b>{wire.number}</b> {endLabel(terminals, wire.a)} <span className="ce-wire-link"><IconArrowRight size={11} /></span> {endLabel(terminals, wire.b)}</span>
     <em className="ce-wire-meta">{wire.gauge.replace('mm²', '')} mm² · {verdict.lengthMm} mm</em>
     <span className="ce-wrow-verdict" title={verdict.messages.join(' · ') || COMPAT_LABEL[verdict.level]}>{verdict.level === 'ok' ? <IconCheck size={12} /> : <IconWarning size={12} />}</span>
     <button className="ce-icon" title={wire.hidden ? 'Mostrar cabo' : 'Ocultar cabo'} aria-label={wire.hidden ? 'Mostrar cabo' : 'Ocultar cabo'} onClick={(event) => { event.stopPropagation(); patch(wire.id, { hidden: !wire.hidden }) }}>{wire.hidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>

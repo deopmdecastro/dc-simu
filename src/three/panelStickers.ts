@@ -4,6 +4,9 @@
  * climatização, segurança, videovigilância, bombas e números modulares 1 a 14).
  */
 
+import { faBolt } from '@fortawesome/free-solid-svg-icons/faBolt'
+import { faSkullCrossbones } from '@fortawesome/free-solid-svg-icons/faSkullCrossbones'
+
 export interface PanelStickerDef {
   id: string
   category: 'sockets' | 'lighting' | 'appliances' | 'climate' | 'security' | 'numbers'
@@ -103,6 +106,18 @@ export function drawStickerIcon(
   ctx.lineJoin = 'round'
 
   switch (icon) {
+    case 'bolt':
+    case 'danger': {
+      // Mesmos contornos SVG usados nos controlos da interface, rasterizados
+      // apenas para a textura física; nunca dependem de um glifo de emoji.
+      const [w, h, , , data] = (icon === 'bolt' ? faBolt : faSkullCrossbones).icon
+      const scale = size / Math.max(w, h)
+      ctx.scale(scale, scale)
+      ctx.translate(-w / 2, -h / 2)
+      for (const path of Array.isArray(data) ? data : [data]) ctx.fill(new Path2D(path))
+      break
+    }
+
     case 'socket': {
       // Placa exterior quadrada com cantos arredondados
       ctx.fillStyle = '#e2e8f0'

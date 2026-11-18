@@ -11,7 +11,7 @@ import type { IecDef, IecSymbolDef, IecTerminalDef } from '../../catalog/types'
 import { newId } from '../../catalog/definition'
 import { Section, Field, Select, Text, Num, Empty, Check } from './ui'
 import { useEditorStore } from './editorStore'
-import { IconPlus, IconDelete, IconCopy, IconPlay, IconPause } from '../../ui/icons'
+import { IconPlus, IconDelete, IconCopy, IconPlay, IconPause, IconSwap } from '../../ui/icons'
 
 const ALL_KINDS = Object.keys(CMD_PARTS) as CmdKind[]
 const KIND_OPTIONS: Array<[string, string]> = [
@@ -199,7 +199,7 @@ function PolesEditor({
             options={opts}
             onChange={(v) => onChange(poles.map((p, j) => (j === i ? [Number(v), p[1]] as [number, number] : p)))}
           />
-          <span className="text-[10px] text-ink-400">↔</span>
+          <span className="text-[10px] text-ink-400"><IconSwap size={10} /></span>
           <Select
             value={String(pair[1])}
             options={opts}

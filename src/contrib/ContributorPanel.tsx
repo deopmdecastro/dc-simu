@@ -8,7 +8,7 @@ import { COMPONENT_OPTIONS, ContributionRow, GlbPreview, formatBytes } from './C
 import type { GlbDimensions } from './GlbPreview'
 import { KIND_LABEL, MAX_GLB_BYTES, MAX_PDF_BYTES, type Contribution, type ContributionKind } from './types'
 import { readValidationHead, validateFile, validateInput } from './validate'
-import { IconArrowLeft } from '../ui/icons'
+import { IconArrowLeft, IconPlus, IconClose } from '../ui/icons'
 
 type Tab = 'send' | 'mine' | 'library'
 const NEW_COMPONENT = '__new__'
@@ -146,7 +146,7 @@ export default function ContributorPanel({ user, onBack, initialTab = 'send' }: 
       <button role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'is-active' : ''} onClick={() => setTab('mine')}>As minhas<span>{mine.length}</span>{pending > 0 && <em title="Em revisão">{pending}</em>}</button>
       <button role="tab" aria-selected={tab === 'library'} className={tab === 'library' ? 'is-active' : ''} onClick={() => setTab('library')}>Biblioteca da comunidade<span>{library.length}</span></button>
     </div>
-    {message && <div className={`cb-toast ${message.error ? 'is-error' : ''}`} role={message.error ? 'alert' : 'status'}>{message.text}<button onClick={() => setMessage(null)} aria-label="Fechar">×</button></div>}
+    {message && <div className={`cb-toast ${message.error ? 'is-error' : ''}`} role={message.error ? 'alert' : 'status'}>{message.text}<button onClick={() => setMessage(null)} aria-label="Fechar"><IconClose size={12} /></button></div>}
 
     {tab === 'send' && <form className="cb-form" onSubmit={submit} noValidate>
       <div className="cb-kinds" role="radiogroup" aria-label="Tipo de contribuição">
@@ -162,7 +162,7 @@ export default function ContributorPanel({ user, onBack, initialTab = 'send' }: 
           {Array.from(new Set(COMPONENT_OPTIONS.map((option) => option.group))).map((group) => <optgroup key={group} label={group}>
             {COMPONENT_OPTIONS.filter((option) => option.group === group).map((option) => <option key={option.type} value={option.type}>{option.label}</option>)}
           </optgroup>)}
-          <option value={NEW_COMPONENT}>➕ Componente novo (ainda não existe)</option>
+          <option value={NEW_COMPONENT}><IconPlus size={11} /> Componente novo (ainda não existe)</option>
         </Select>
       </label>
       {draft.component === NEW_COMPONENT && <label className="dx-field"><span className="dx-label">Nome do componente novo</span>

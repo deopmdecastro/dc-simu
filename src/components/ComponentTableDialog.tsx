@@ -1,3 +1,4 @@
+import { IconClose } from '../ui/icons'
 import { useMemo, useState } from 'react'
 import { nanoid } from 'nanoid'
 import { useSimStore } from '../store/useSimStore'
@@ -115,7 +116,7 @@ export default function ComponentTableDialog({ onClose }: { onClose: () => void 
                       <td className="text-center"><input type="checkbox" checked={!!row.locked} onChange={(event) => patch(row.key, { locked: event.target.checked })} aria-label={`Bloqueado, linha ${index + 1}`} /></td>
                       <td><input className="dc-input is-ref" list="component-table-rails" value={row.rail} onChange={(event) => patch(row.key, { rail: event.target.value })} aria-label={`Calha da linha ${index + 1}`} /></td>
                       <td><input className="dc-input is-num" inputMode="decimal" value={row.railOffsetMm ?? ''} onChange={(event) => patch(row.key, { railOffsetMm: numberValue(event.target.value) })} disabled={!row.rail} aria-label={`Posição na calha da linha ${index + 1}`} /></td>
-                      <td>{!row.fromProject && <button type="button" className="component-table-remove" onClick={() => setRows((list) => list.filter((item) => item.key !== row.key))} aria-label={`Remover linha ${index + 1}`}>×</button>}</td>
+                      <td>{!row.fromProject && <button type="button" className="component-table-remove" onClick={() => setRows((list) => list.filter((item) => item.key !== row.key))} aria-label={`Remover linha ${index + 1}`}><IconClose size={12} /></button>}</td>
                     </tr>
                   )
                 })}

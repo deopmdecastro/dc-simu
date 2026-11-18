@@ -231,8 +231,8 @@ export default function TransitionDialog({
     <fieldset className={`grafcet-link-side is-${side}`} aria-label={isFrom ? 'Origens' : 'Destinos'}>
       <legend><b>{isFrom ? 'Origens' : 'Destinos'}</b><small>{isFrom ? 'têm de estar todas ativas' : 'são ativados juntos'}</small><span className="grafcet-link-count">{ids.length}</span></legend>
       <div className="grafcet-link-chips" data-property-save-ignore aria-label={isFrom ? 'Etapas de origem' : 'Etapas de destino'}>
-        {ids.map((id, index) => <span key={`${id}:${index}`} className={`grafcet-link-chip${missing.has(id) ? ' is-missing' : ''}`}>{labelOf(id)}<button type="button" onClick={() => pickStep(side, id)} aria-label={`Retirar ${labelOf(id)}`} title="Retirar">×</button></span>)}
-        {sourceMode && <span className="grafcet-link-chip is-source">Transição-fonte · sempre validada<button type="button" onClick={() => setSource(false)} aria-label="Deixar de ser transição-fonte" title="Desfazer">×</button></span>}
+        {ids.map((id, index) => <span key={`${id}:${index}`} className={`grafcet-link-chip${missing.has(id) ? ' is-missing' : ''}`}>{labelOf(id)}<button type="button" onClick={() => pickStep(side, id)} aria-label={`Retirar ${labelOf(id)}`} title="Retirar"><IconClose size={12} /></button></span>)}
+        {sourceMode && <span className="grafcet-link-chip is-source">Transição-fonte · sempre validada<button type="button" onClick={() => setSource(false)} aria-label="Deixar de ser transição-fonte" title="Desfazer"><IconClose size={12} /></button></span>}
         {!ids.length && !sourceMode && <span className="grafcet-link-empty">{isFrom ? 'Sem origem' : 'Sem destino'}</span>}
       </div>
       {!sourceMode && <div className="grafcet-link-picker" data-property-save-ignore>

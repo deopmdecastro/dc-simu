@@ -12,7 +12,7 @@ import { getComponentModelSpec, hasComponent3DVisual } from '../three/modelPaths
 import { component3DDimensions } from '../three/terminal3D'
 import TerminalFaceEditor from './TerminalFaceEditor'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
-import { IconCube, IconEye, IconRotate, IconSave } from '../ui/icons'
+import { IconCube, IconEye, IconRotate, IconSave, IconClose } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent } from '../types'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 
@@ -290,7 +290,7 @@ export function ComponentEditorDock() {
         <header>
           <div><IconCube size={16} /><span><strong>{component.ref}<b className="component-editor-version">v{componentEditorVersionOf(component)}</b>{dirty && <em className="component-editor-dirty" title="Alterações por aplicar">● por aplicar</em>}</strong><small>{component.label} · Atualizado {formatComponentUpdateDate(component.editorUpdatedAt)}</small></span></div>
           <button type="button" className="component-editor-peek" onClick={() => setCollapsed(true)} aria-label="Ver a vista do componente" title="Ver a vista (o editor fica minimizado)"><IconEye size={14} /><span>Ver vista</span></button>
-          <button type="button" onClick={requestClose} aria-label="Fechar painel de edição" title="Fechar (Esc)">×</button>
+          <button type="button" onClick={requestClose} aria-label="Fechar painel de edição" title="Fechar (Esc)"><IconClose size={12} /></button>
         </header>
 
         <nav className="component-view-tabs" role="tablist" aria-label="Secções do painel de edição">

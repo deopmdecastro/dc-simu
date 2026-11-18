@@ -410,9 +410,29 @@ function CombBusbar2DView({ c, uid }: { c: ElectricalComponent; uid: string }) {
       {/* Topos isolantes laterais (end caps) */}
       {d.endCaps && (
         <>
-          <rect x={0} y={spineTop - 0.3} width={Math.max(1.8, capW)} height={spineH + 0.6} rx={0.8} fill="#9aa1aa" stroke="#64748b" strokeWidth={0.6} />
-          <rect x={c.w - Math.max(1.8, capW)} y={spineTop - 0.3} width={Math.max(1.8, capW)} height={spineH + 0.6} rx={0.8} fill="#9aa1aa" stroke="#64748b" strokeWidth={0.6} />
+          <rect x={0} y={spineTop - 0.3} width={Math.max(1.8, capW)} height={spineH + 0.6} rx={0.8} fill={brand === 'schneider' ? '#eab308' : '#9aa1aa'} stroke={brand === 'schneider' ? '#ca8a04' : '#64748b'} strokeWidth={0.6} />
+          <rect x={c.w - Math.max(1.8, capW)} y={spineTop - 0.3} width={Math.max(1.8, capW)} height={spineH + 0.6} rx={0.8} fill={brand === 'schneider' ? '#eab308' : '#9aa1aa'} stroke={brand === 'schneider' ? '#ca8a04' : '#64748b'} strokeWidth={0.6} />
         </>
+      )}
+
+      {/* Tampas de proteção amarelas snap-on para dentes de reserva (A9XPT920) */}
+      {((c.state.toothCoverCount as number) > 0 || (brand === 'schneider' && d.mode === '1P+N-3P' && d.teeth.length > 6)) && (
+        d.teeth.slice(-3).map((t) => {
+          const cx = toX(t.xMm)
+          return (
+            <rect
+              key={`cover-${t.label}`}
+              x={cx - pinW * 0.72}
+              y={isDown ? spineEdgeY : spineEdgeY - pinLen * 0.9}
+              width={pinW * 1.44}
+              height={pinLen * 0.9}
+              rx={1.2}
+              fill="#eab308"
+              stroke="#ca8a04"
+              strokeWidth={0.5}
+            />
+          )
+        })
       )}
 
       {/* Etiqueta / serigrafia técnica (CE, marca, código, modo, calibre e código de barras) */}

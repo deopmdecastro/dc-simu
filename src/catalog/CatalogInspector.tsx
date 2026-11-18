@@ -1,3 +1,4 @@
+import { IconBell } from '../ui/icons'
 import { uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
@@ -52,7 +53,7 @@ export default function CatalogInspector({ component }: { component: ElectricalC
         <label className="dc-field-label">Controlos do equipamento</label>
         {meter.reading && <div className="dc-meter-readout" role="status" aria-live="polite">
           <span className="dc-meter-lcd">{meter.reading.on ? `${meter.reading.negative ? '-' : ''}${meter.reading.text} ${meter.reading.unit}` : 'OFF'}</span>
-          <span className="dc-meter-tags">{meter.reading.on && meter.reading.quantity}{meter.reading.hold ? ' · HOLD' : ''}{meter.reading.beep ? ' · 🔔' : ''}</span>
+          <span className="dc-meter-tags">{meter.reading.on && meter.reading.quantity}{meter.reading.hold ? ' · HOLD' : ''}{meter.reading.beep && <> · <IconBell size={11} title="Sinal sonoro ativo" /></>}</span>
           {meter.reading.warning && <span className="dc-meter-warn">{meter.reading.warning}</span>}
         </div>}
         {controls.filter((control) => control.kind === 'selector').map((control) => <div key={control.id}>

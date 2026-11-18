@@ -1,3 +1,4 @@
+import { IconSound, IconStop, IconRotateRight, IconRotateLeft } from '../ui/icons'
 import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { componentTerminalLocal } from './componentTerminalViews'
@@ -215,13 +216,16 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
     switch (c.type) {
       // ------------------------------------------------------------- proteção
       case 'breaker1p':
+      case 'breakerSchneiderIc60h1p':
       case 'breakerSteckSdC25':
       case 'breaker2p':
       case 'breaker3p':
       case 'breaker4p':
       case 'motorBreaker':
       case 'motorBreakerPkzmC10':
-      case 'residualBreaker': {
+      case 'residualBreaker':
+      case 'residualBreakerSchneiderIid4p':
+      case 'residualBreakerSchneiderIdpnVigi': {
         const poles = c.terminals.filter((t) => t.kind === 'power-in').length
         const closed = c.state.closed && !c.state.tripped
         return (
@@ -417,15 +421,39 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'ledYellow':
       case 'ledWhite':
       case 'pilotLightAd22':
+      case 'pilotLightSchneiderIil1p':
       case 'buzzer': {
-        const col = c.state.color && (c.type.startsWith('led') || c.type === 'pilotLightAd22') ? c.state.color : '#f59e0b'
+        const col = c.state.color && (c.type.startsWith('led') || c.type.startsWith('pilotLight')) ? c.state.color : '#f59e0b'
         const lit = !!c.state.on
         return (
           <g>
             <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 6} fill={lit ? col : '#1f2937'} stroke={lit ? col : '#4b5563'} strokeWidth={2} />
             {lit && <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 1} fill="none" stroke={col} opacity={0.35} strokeWidth={4} />}
-            {c.type === 'buzzer' && <text x={w / 2 - 6} y={h / 2 + 4} fontSize={10} fill={lit ? '#111827' : '#94a3b8'}>♪</text>}
+            {c.type === 'buzzer' && <g transform={`translate(${w / 2 - 6},${h / 2 - 6})`} color={lit ? '#111827' : '#94a3b8'}><IconSound size={12} /></g>}
             {label(4, 10, c.ref, 9, '#93c5fd')}
+          </g>
+        )
+      }
+      case 'pilotLightSchneiderIil3p': {
+        const l1Lit = !!c.state.l1On
+        const l2Lit = !!c.state.l2On
+        const l3Lit = !!c.state.l3On
+        const col = c.state.color || '#ef4444'
+        return (
+          <g>
+            <rect x={4} y={12} width={w - 8} height={h - 24} rx={4} fill="#1e293b" stroke={s} />
+            {[
+              { x: w * 0.22, lit: l1Lit, lbl: 'L1' },
+              { x: w * 0.5, lit: l2Lit, lbl: 'L2' },
+              { x: w * 0.78, lit: l3Lit, lbl: 'L3' },
+            ].map((p, idx) => (
+              <g key={idx}>
+                <circle cx={p.x} cy={h / 2} r={10} fill={p.lit ? col : '#334155'} stroke={p.lit ? '#f87171' : '#475569'} strokeWidth={1.5} />
+                {p.lit && <circle cx={p.x} cy={h / 2} r={13} fill="none" stroke={col} opacity={0.4} strokeWidth={2} />}
+                <text x={p.x} y={h / 2 + 3} fontSize={8} fill={p.lit ? '#ffffff' : '#94a3b8'} textAnchor="middle" fontWeight="bold">{p.lbl}</text>
+              </g>
+            ))}
+            {label(6, 10, c.ref, 9, '#93c5fd')}
           </g>
         )
       }
@@ -457,9 +485,9 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           <g>
             <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 6} fill={body} stroke={rim} strokeWidth={2} />
             <text x={w / 2 - 8} y={h / 2 + 6} fontSize={18} fill="#e5e7eb" fontWeight="bold">M</text>
-            <text x={w / 2 + 12} y={h / 2 + 6} fontSize={12} fill={run ? '#4ade80' : '#64748b'}>
-              {run ? (dir === 'cw' ? '↻' : '↺') : '⏹'}
-            </text>
+            <g transform={`translate(${w / 2 + 12},${h / 2 - 6})`} color={run ? '#4ade80' : '#64748b'}>
+              {run ? (dir === 'cw' ? <IconRotateRight size={12} /> : <IconRotateLeft size={12} />) : <IconStop size={12} />}
+            </g>
             {label(4, 12, c.ref, 10, mono ? '#bfdbfe' : '#93c5fd')}
             {label(4, h - 4, mono ? '1~' : `${c.state.cv ?? 1} cv`, 8, mono ? '#93c5fd' : '#64748b')}
           </g>

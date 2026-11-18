@@ -1,3 +1,4 @@
+import { IconContact } from '../ui/icons'
 import { useEffect, useMemo, useState } from 'react'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
@@ -195,7 +196,7 @@ export default function TerminalStripControls({
                       }}
                     />
                     <span className="font-mono leading-none truncate max-w-[32px]">{badge}</span>
-                    {isOpen && <span className="text-[8px] leading-none text-orange-600 font-bold mt-0.5">⏧</span>}
+                    {isOpen && <span className="text-[8px] leading-none text-orange-600 font-bold mt-0.5"><IconContact size={8} title="Seccionador aberto" /></span>}
                   </button>
                   {hasBridgeSlot && (
                     <button

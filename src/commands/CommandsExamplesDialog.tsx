@@ -1,3 +1,4 @@
+import { IconClose } from '../ui/icons'
 /**
  * Diálogo de exemplos IEC — mesma experiência visual e de interação do
  * diálogo de modelos do GRAFCET (gtpl-* em clean-mode.css): categorias em
@@ -86,7 +87,7 @@ export default function CommandsExamplesDialog({ open, onClose, onLoad }: Props)
             <strong id="cmd-examples-title">Exemplos de esquema IEC</strong>
             <small>Substitui o esquema atual · pode desfazer com Ctrl+Z</small>
           </div>
-          <button type="button" className="gtpl-close" aria-label="Fechar" onClick={onClose}>✕</button>
+          <button type="button" className="gtpl-close" aria-label="Fechar" onClick={onClose}><IconClose size={12} /></button>
         </div>
 
         <div className="gtpl-tools">

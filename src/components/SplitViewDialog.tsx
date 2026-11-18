@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ViewMode } from './Toolbar'
 import { useSplitView, type SplitPane } from '../ui/splitViewStore'
-import { IconCompare, IconGrafcet, IconLadder, IconCube, IconCommands, IconMonitor } from '../ui/icons'
+import { IconCompare, IconGrafcet, IconLadder, IconCube, IconCommands, IconMonitor, IconClose } from '../ui/icons'
 
 const VIEW_META: Record<ViewMode, { label: string; icon: typeof IconCube }> = {
   schematic: { label: '3D Realista', icon: IconCube },
@@ -105,7 +105,7 @@ export default function SplitViewDialog({ availableViews }: Props) {
             <strong id="split-view-title">Ver dois canvas</strong>
             <small>Escolha dois ambientes ou duas páginas GRAFCET para ver em simultâneo</small>
           </div>
-          <button type="button" className="gtpl-close" aria-label="Fechar" onClick={close}>✕</button>
+          <button type="button" className="gtpl-close" aria-label="Fechar" onClick={close}><IconClose size={12} /></button>
         </div>
 
         {(multiView && multiPage) && (

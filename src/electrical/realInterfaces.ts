@@ -152,6 +152,36 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":9,"holeDepthMm":15},
     {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":9,"holeDepthMm":15},
   ],
+  breakerSchneiderIc60h1p: [
+    {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":9,"holeDepthMm":15},
+  ],
+  residualBreakerSchneiderIdpnVigi: [
+    {"label":"N1","face":"top","x":0.254,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"1","face":"top","x":0.746,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"N2","face":"bottom","x":0.254,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.746,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+  ],
+  residualBreakerSchneiderIid4p: [
+    {"label":"N1","face":"top","x":0.125,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"1","face":"top","x":0.375,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"3","face":"top","x":0.625,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"5","face":"top","x":0.875,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"N2","face":"bottom","x":0.125,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.375,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"4","face":"bottom","x":0.625,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"6","face":"bottom","x":0.875,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+  ],
+  pilotLightSchneiderIil1p: [
+    {"label":"X1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"X2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+  ],
+  pilotLightSchneiderIil3p: [
+    {"label":"L1","face":"top","x":0.167,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"L2","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"L3","face":"top","x":0.833,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"N","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+  ],
   breaker2p: [
     {"label":"1","face":"top","x":0.254,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
     {"label":"3","face":"top","x":0.746,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},

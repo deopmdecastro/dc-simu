@@ -1,3 +1,4 @@
+import { IconClose } from './icons'
 import { useId, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -279,7 +280,7 @@ export default function EditorMinimap({
                   onClick={closeExpanded}
                   aria-label="Fechar pré-visualização"
                 >
-                  Fechar <span aria-hidden="true">×</span>
+                  Fechar <IconClose size={11} />
                 </button>
               </header>
               <div

@@ -7,7 +7,8 @@ import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { useShallow } from 'zustand/react/shallow'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
-import { IconCube, IconLock, IconProbe, IconSchematic } from '../ui/icons'
+import { IconCube, IconLock, IconProbe, IconSchematic, IconClose } from '../ui/icons'
+import CircuitIcon, { isCircuitIcon } from '../ui/CircuitIcon'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
@@ -1321,7 +1322,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const display = wireDisplay(w)
     if (!display) return null
     const { a, b } = display
-    const col = WIRE_COLORS[w.color] ?? '#94a3b8'
+    const isBurnt = !!w.burnt
+    const isHot = (w.heatLevel ?? 0) > 0.05
+    const col = isBurnt ? '#18181b' : isHot ? '#ff3b00' : (WIRE_COLORS[w.color] ?? '#94a3b8')
     const flexible = w.flexibility === 'flexible'
     const selected = selectedWireId === w.id || selectedWireIds.includes(w.id)
     const { d, handle } = display.geometry
@@ -1347,6 +1350,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           <path d={d} stroke="#3b82f6" strokeWidth={width + 9} opacity={0.18} />
           <path d={d} stroke="#60a5fa" strokeWidth={width + 4} opacity={0.42} />
         </g>}
+        {isHot && <path d={d} fill="none" stroke="#ff3b00" strokeWidth={width + 6} opacity={Math.min(0.85, (w.heatLevel ?? 0) * 0.9)} strokeLinecap="round" pointerEvents="none" />}
+        {isBurnt && <path d={d} fill="none" stroke="#000000" strokeWidth={width + 3} opacity={0.7} strokeDasharray="4 4" strokeLinecap="round" pointerEvents="none" />}
         {showEnergyFlow && <path d={d} fill="none" stroke={col} strokeWidth={width + 2.4} opacity={0.14} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
         {/* contorno escuro fino: dá leitura a cores claras (branco, amarelo, azul-claro) */}
         <path d={d} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
@@ -1875,8 +1880,10 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           const oy = -(d.offsetYmm ?? 0) * px
           const cx = c.w / 2 + ox
           const cy = c.h / 2 + oy
-          const iconMap: Record<string, string> = { bolt: '⚡', danger: '☠', ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
-          const iconTxt = d.icon ? (iconMap[d.icon] ?? d.icon) : ''
+          const vectorIcon = isCircuitIcon(d.icon)
+          const iconMap: Record<string, string> = { ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
+          const iconTxt = !vectorIcon && d.icon && d.icon !== 'num' ? (iconMap[d.icon] ?? d.icon) : ''
+          const iconSize = Math.min(dh * 0.48, dw * 0.5)
           const bg = d.background ?? '#facc15'
           const fg = d.color ?? '#0f172a'
           if (d.kind === 'image' && (d as any).imageUrl) {
@@ -1887,8 +1894,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           }
           return <g key={d.id} transform={`translate(${cx},${cy}) rotate(${d.rotationDeg ?? 0})`}>
             <rect x={-dw / 2} y={-dh / 2} width={dw} height={dh} rx={Math.min(3, dh * 0.25)} fill={bg} stroke={d.border ? fg : 'none'} strokeWidth={d.border ? 0.9 : 0} />
-            {d.kind === 'warning' && <path d={`M 0 ${-dh * 0.35} L ${dw * 0.28} ${dh * 0.25} L ${-dw * 0.28} ${dh * 0.25} Z`} fill={fg} opacity={0.95} />}
-            <text x={0} y={d.kind === 'warning' ? dh * 0.38 : 0} textAnchor="middle" dominantBaseline="middle" fontSize={Math.max(6, dh * 0.42)} fill={fg} fontWeight={d.kind === 'logo' ? 800 : 700} letterSpacing={d.kind === 'logo' ? 0.5 : 0}>{iconTxt ? `${iconTxt} ` : ''}{d.text ?? ''}</text>
+            {d.kind === 'warning' && <path d={`M 0 ${-dh * 0.43} L ${dh * 0.32} ${dh * 0.13} L ${-dh * 0.32} ${dh * 0.13} Z`} fill="none" stroke={fg} strokeWidth={0.8} />}
+            {vectorIcon && <g transform={`translate(${-iconSize / 2},${-dh * 0.4})`} color={fg}><CircuitIcon icon={d.icon!} size={iconSize} /></g>}
+            <text x={0} y={vectorIcon || d.kind === 'warning' ? dh * 0.3 : 0} textAnchor="middle" dominantBaseline="middle" fontSize={Math.max(6, dh * (vectorIcon ? 0.23 : 0.42))} fill={fg} fontWeight={d.kind === 'logo' ? 800 : 700} letterSpacing={d.kind === 'logo' ? 0.5 : 0}>{iconTxt ? `${iconTxt} ` : ''}{d.text ?? ''}</text>
           </g>
         })}
       </g>
@@ -1914,7 +1922,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
                 title={`${sh.name} — ${isActive ? 'clique no nome para o mudar' : 'clique para abrir; duplo clique para mudar o nome'}. Fios entre folhas ligam-se por etiquetas de rede (pontas soltas).`}
                 onCommit={(next) => renameSheet(sh.id, next)}
               />
-              {sheets.length > 1 && <button type="button" className="schematic-sheet-del" aria-label={`Eliminar ${sh.name}`} title="Eliminar folha (só se estiver vazia)" onClick={() => removeSheet(sh.id)}>×</button>}
+              {sheets.length > 1 && <button type="button" className="schematic-sheet-del" aria-label={`Eliminar ${sh.name}`} title="Eliminar folha (só se estiver vazia)" onClick={() => removeSheet(sh.id)}><IconClose size={12} /></button>}
             </span>
           )
         })}

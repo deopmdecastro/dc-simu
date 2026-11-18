@@ -698,7 +698,17 @@ export function CombBusbar3D({
     })
     silkscreen.userData.keepColor = true
 
-    return { pvcOuter, pvcBarrier, copper, tinned, cage, dark, silkscreen }
+    const yellowCap = new THREE.MeshPhysicalMaterial({
+      color: '#eab308',
+      roughness: 0.36,
+      metalness: 0.08,
+      clearcoat: 0.15,
+      clearcoatRoughness: 0.4,
+      envMapIntensity: 0.95,
+    })
+    yellowCap.userData.keepColor = true
+
+    return { pvcOuter, pvcBarrier, copper, tinned, cage, dark, silkscreen, yellowCap }
   }, [])
 
   // Mapas PBR reais fotografados (cobre Metal035, aço inox Metal055A, latão Metal042A e plástico Plastic010)
@@ -781,14 +791,14 @@ export function CombBusbar3D({
   const built = useMemo(
     () =>
       buildCombBusbar(
-        { poleCount: poles, combMode, neutralSide, teethDirection, endCaps, feedConnectors },
+        { ...c.state, poleCount: poles, combMode, neutralSide, teethDirection, endCaps, feedConnectors, brandStyle },
         U,
         {
           ...baseMats,
           connectorBodyFor: (cond) => connMats.pick(cond),
         },
       ),
-    [poles, combMode, neutralSide, teethDirection, endCaps, feedConnectors, baseMats, connMats],
+    [c.state, poles, combMode, neutralSide, teethDirection, endCaps, feedConnectors, brandStyle, baseMats, connMats],
   )
 
   useEffect(() => () => disposeGroupGeometries(built.root), [built])

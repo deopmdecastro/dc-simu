@@ -352,7 +352,213 @@ export function syncMotorHumFromComponents(
   else setMotorHum(false)
 }
 
+// ---------------------------------------------------------------------------
+// Efeitos sonoros de Curto-Circuito, Sobreaquecimento e Queima de Condutores
+// ---------------------------------------------------------------------------
+
+let sizzleSource: AudioBufferSourceNode | null = null
+let sizzleGain: GainNode | null = null
+let sizzleHumOsc: OscillatorNode | null = null
+let sizzleHumGain: GainNode | null = null
+let isSizzling = false
+
+/** Ruído branco sintetizado reutilizável para faíscas e fritura de isolamento */
+function createNoiseBuffer(audio: AudioContext, seconds = 1.0): AudioBuffer {
+  const sampleRate = audio.sampleRate
+  const buffer = audio.createBuffer(1, sampleRate * seconds, sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < data.length; i++) {
+    data[i] = Math.random() * 2 - 1
+  }
+  return buffer
+}
+
+/**
+ * Detonação de curto-circuito e arco elétrico (estouro seco + zumbido magnético + estalo).
+ */
+export function playShortCircuitBoom(): void {
+  if (!enabled) return
+  unlockAudio()
+  const audio = ensureCtx()
+  if (!audio) return
+
+  try {
+    const t0 = audio.currentTime
+
+    // 1. Sub-grave de detonação atmosférica (150Hz -> 28Hz)
+    const boomOsc = audio.createOscillator()
+    const boomGain = audio.createGain()
+    boomOsc.type = 'sawtooth'
+    boomOsc.frequency.setValueAtTime(160, t0)
+    boomOsc.frequency.exponentialRampToValueAtTime(28, t0 + 0.32)
+
+    boomGain.gain.setValueAtTime(0.0001, t0)
+    boomGain.gain.exponentialRampToValueAtTime(0.48, t0 + 0.008)
+    boomGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35)
+
+    boomOsc.connect(boomGain)
+    boomGain.connect(audio.destination)
+    boomOsc.start(t0)
+    boomOsc.stop(t0 + 0.36)
+
+    // 2. Ruído de expansão de ar do arco voltaico
+    const noiseBuf = createNoiseBuffer(audio, 0.3)
+    const noiseSrc = audio.createBufferSource()
+    noiseSrc.buffer = noiseBuf
+    const noiseFilter = audio.createBiquadFilter()
+    noiseFilter.type = 'bandpass'
+    noiseFilter.frequency.setValueAtTime(1200, t0)
+    noiseFilter.frequency.exponentialRampToValueAtTime(350, t0 + 0.22)
+    noiseFilter.Q.value = 1.8
+
+    const noiseGain = audio.createGain()
+    noiseGain.gain.setValueAtTime(0.42, t0)
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25)
+
+    noiseSrc.connect(noiseFilter)
+    noiseFilter.connect(noiseGain)
+    noiseGain.connect(audio.destination)
+    noiseSrc.start(t0)
+    noiseSrc.stop(t0 + 0.26)
+
+    // 3. Estalidos múltiplos de faíscas metálicas (cobre fundido)
+    for (let i = 0; i < 4; i++) {
+      const sparkTime = t0 + 0.02 + i * 0.035 + Math.random() * 0.015
+      const sparkOsc = audio.createOscillator()
+      const sparkGain = audio.createGain()
+      sparkOsc.type = 'square'
+      sparkOsc.frequency.setValueAtTime(2200 + Math.random() * 1200, sparkTime)
+      sparkGain.gain.setValueAtTime(0.12, sparkTime)
+      sparkGain.gain.exponentialRampToValueAtTime(0.0001, sparkTime + 0.03)
+
+      sparkOsc.connect(sparkGain)
+      sparkGain.connect(audio.destination)
+      sparkOsc.start(sparkTime)
+      sparkOsc.stop(sparkTime + 0.032)
+    }
+  } catch {
+    /* falha tolerada */
+  }
+}
+
+/**
+ * Inicia ou modula o chiar / fritura contínua de condutor sobreaquecido e queima de isolamento PVC.
+ * `intensity`: 0.0 (frio) a 1.0 (incandescência/fumo denso).
+ */
+export function startOverheatSizzle(intensity = 0.5): void {
+  if (!enabled) return
+  unlockAudio()
+  const audio = ensureCtx()
+  if (!audio) return
+
+  try {
+    const t0 = audio.currentTime
+    const clamped = Math.max(0.05, Math.min(1.0, intensity))
+
+    if (!isSizzling || !sizzleGain) {
+      isSizzling = true
+      // Gerador de ruído contínuo para a fritura
+      const noise = createNoiseBuffer(audio, 2.0)
+      sizzleSource = audio.createBufferSource()
+      sizzleSource.buffer = noise
+      sizzleSource.loop = true
+
+      const filter = audio.createBiquadFilter()
+      filter.type = 'highpass'
+      filter.frequency.setValueAtTime(2400, t0)
+
+      sizzleGain = audio.createGain()
+      sizzleGain.gain.setValueAtTime(0.0001, t0)
+      sizzleGain.gain.linearRampToValueAtTime(clamped * 0.18, t0 + 0.1)
+
+      sizzleSource.connect(filter)
+      filter.connect(sizzleGain)
+      sizzleGain.connect(audio.destination)
+      sizzleSource.start(t0)
+
+      // Zumbido eletromagnético de falta (100 Hz = 2º harmónico da rede 50Hz sob corrente extrema)
+      sizzleHumOsc = audio.createOscillator()
+      sizzleHumOsc.type = 'sawtooth'
+      sizzleHumOsc.frequency.setValueAtTime(100, t0)
+
+      const humFilter = audio.createBiquadFilter()
+      humFilter.type = 'lowpass'
+      humFilter.frequency.setValueAtTime(450, t0)
+
+      sizzleHumGain = audio.createGain()
+      sizzleHumGain.gain.setValueAtTime(0.0001, t0)
+      sizzleHumGain.gain.linearRampToValueAtTime(clamped * 0.12, t0 + 0.12)
+
+      sizzleHumOsc.connect(humFilter)
+      humFilter.connect(sizzleHumGain)
+      sizzleHumGain.connect(audio.destination)
+      sizzleHumOsc.start(t0)
+    } else {
+      // Modula volume suavemente
+      sizzleGain.gain.setTargetAtTime(clamped * 0.18, t0, 0.1)
+      if (sizzleHumGain) sizzleHumGain.gain.setTargetAtTime(clamped * 0.12, t0, 0.1)
+    }
+  } catch {
+    stopOverheatSizzle()
+  }
+}
+
+/** Interrompe o som de fritura de sobreaquecimento */
+export function stopOverheatSizzle(): void {
+  if (!isSizzling) return
+  isSizzling = false
+  try {
+    if (sizzleSource) {
+      sizzleSource.stop()
+      sizzleSource.disconnect()
+      sizzleSource = null
+    }
+    if (sizzleGain) {
+      sizzleGain.disconnect()
+      sizzleGain = null
+    }
+    if (sizzleHumOsc) {
+      sizzleHumOsc.stop()
+      sizzleHumOsc.disconnect()
+      sizzleHumOsc = null
+    }
+    if (sizzleHumGain) {
+      sizzleHumGain.disconnect()
+      sizzleHumGain = null
+    }
+  } catch {
+    /* tolerado */
+  }
+}
+
+/** Estalo agudo de isolamento plástico a arrebentar/carbonizar */
+export function playWireBurnPop(): void {
+  if (!enabled) return
+  unlockAudio()
+  const audio = ensureCtx()
+  if (!audio) return
+  try {
+    const t0 = audio.currentTime
+    const osc = audio.createOscillator()
+    const gain = audio.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(3200, t0)
+    osc.frequency.exponentialRampToValueAtTime(600, t0 + 0.04)
+
+    gain.gain.setValueAtTime(0.18, t0)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05)
+
+    osc.connect(gain)
+    gain.connect(audio.destination)
+    osc.start(t0)
+    osc.stop(t0 + 0.055)
+  } catch {
+    /* tolerado */
+  }
+}
+
 /** Desliga tudo (STOP, mudança de projeto). */
 export function silenceAll(): void {
   stopMotorHum()
+  stopOverheatSizzle()
 }

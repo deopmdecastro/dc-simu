@@ -290,6 +290,14 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 16, icn: '4,5 kA' },
   },
+  breakerSchneiderIc60h1p: {
+    category: 'protection', paletteName: 'Disjuntor Schneider Acti9 iC60H · 1P C20', group: 'Proteção', tag: 'QF', w: 60, h: 110,
+    terminals: [
+      T('1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('2', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+    ],
+    defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 20, icn: '10 kA', code: 'A9F07120', brand: 'Schneider Electric' },
+  },
   breakerSteckSdC25: {
     category: 'protection', paletteName: 'Disjuntor Steck SD C25 · 1P 25 A curva C', group: 'Proteção', tag: 'QF', w: 27, h: 119,
     terminals: [
@@ -362,6 +370,30 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('N1', 'neutral', 0.93, 0), T('N2', 'neutral', 0.93, 1),
     ],
     defaultState: { closed: true, tripped: false, inA: 40, sensmA: 30, rcdType: 'AC' },
+  },
+  residualBreakerSchneiderIid4p: {
+    category: 'protection', paletteName: 'Interruptor Diferencial Schneider Acti9 iID · 4P 40A 30mA', group: 'Proteção', tag: 'QDR', w: 140, h: 110,
+    terminals: [
+      T('N1', 'neutral', 0.125, 0, { position3D: { x: 0.125, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('1', 'power-in', 0.375, 0, { position3D: { x: 0.375, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('3', 'power-in', 0.625, 0, { position3D: { x: 0.625, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('5', 'power-in', 0.875, 0, { position3D: { x: 0.875, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('N2', 'neutral', 0.125, 1, { position3D: { x: 0.125, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('2', 'power-out', 0.375, 1, { position3D: { x: 0.375, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('4', 'power-out', 0.625, 1, { position3D: { x: 0.625, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('6', 'power-out', 0.875, 1, { position3D: { x: 0.875, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+    ],
+    defaultState: { closed: true, tripped: false, inA: 40, sensmA: 30, rcdType: 'AC', poles: 4, code: 'A9R11440', brand: 'Schneider Electric' },
+  },
+  residualBreakerSchneiderIdpnVigi: {
+    category: 'protection', paletteName: 'Disjuntor Diferencial Schneider Acti9 iDPN N Vigi · 1P+N C16 30mA', group: 'Proteção', tag: 'QDR', w: 90, h: 110,
+    terminals: [
+      T('N1', 'neutral', 0.25, 0, { position3D: { x: 0.25, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('1', 'power-in', 0.75, 0, { position3D: { x: 0.75, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('N2', 'neutral', 0.25, 1, { position3D: { x: 0.25, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('2', 'power-out', 0.75, 1, { position3D: { x: 0.75, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+    ],
+    defaultState: { closed: true, tripped: false, inA: 16, curve: 'C', sensmA: 30, rcdType: 'A', poles: 2, code: 'A9D32616', brand: 'Schneider Electric' },
   },
   fuse: {
     category: 'protection', paletteName: 'Fusível NH/DIAZED', group: 'Proteção', tag: 'F', w: 50, h: 90,
@@ -653,6 +685,24 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       mountingDiameterMm: 22, currentMa: 20, serviceLifeHours: 30000,
       protection: 'IP40 (série)', operatingTemperature: '-25…+55 °C',
     },
+  },
+  pilotLightSchneiderIil1p: {
+    category: 'signaling', paletteName: 'Sinalizador Modular Schneider Acti9 iIL · 1P 230V', group: 'Sinalização', tag: 'H', w: 60, h: 100,
+    terminals: [
+      T('X1', 'io', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('X2', 'io', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 9 }),
+    ],
+    defaultState: { on: false, color: '#ef4444', voltage: '230V AC', brand: 'Schneider Electric', code: 'A9E18320' },
+  },
+  pilotLightSchneiderIil3p: {
+    category: 'signaling', paletteName: 'Sinalizador Trifásico Schneider Acti9 iIL · 3P L1-L2-L3 (Falha de Fase)', group: 'Sinalização', tag: 'H', w: 110, h: 100,
+    terminals: [
+      T('L1', 'power-in', 0.2, 0, { position3D: { x: 0.167, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('L2', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('L3', 'power-in', 0.8, 0, { position3D: { x: 0.833, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('N', 'neutral', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 9 }),
+    ],
+    defaultState: { on: false, l1On: false, l2On: false, l3On: false, phaseLoss: false, color: '#ef4444', voltage: '230/400V AC', brand: 'Schneider Electric', code: 'A9E18324' },
   },
   buzzer: {
     category: 'signaling', paletteName: 'Buzzer / sirene', group: 'Sinalização', tag: 'HA', w: 60, h: 80,

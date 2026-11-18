@@ -32,6 +32,7 @@ export interface ContinuityResult {
 
 const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   breaker1p: [['1', '2']],
+  breakerSchneiderIc60h1p: [['1', '2']],
   breakerSteckSdC25: [['1', '2']],
   breaker2p: [['1', '2'], ['3', '4']],
   breaker3p: [['1', '2'], ['3', '4'], ['5', '6']],
@@ -40,6 +41,8 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   motorBreakerPkzmC10: [['1', '2'], ['3', '4'], ['5', '6']],
   motorBreakerSchneiderGv2me: [['1', '2'], ['3', '4'], ['5', '6']],
   residualBreaker: [['1', '2'], ['3', '4'], ['5', '6'], ['N1', 'N2']],
+  residualBreakerSchneiderIid4p: [['1', '2'], ['3', '4'], ['5', '6'], ['N1', 'N2']],
+  residualBreakerSchneiderIdpnVigi: [['1', '2'], ['N1', 'N2']],
   residualBreakerHagerCfc225p: [['1', '2'], ['N1', 'N2']],
   fuse: [['IN', 'OUT']],
   fuseHolder: [['1', '2']],
@@ -98,13 +101,16 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
   switch (c.type) {
     // ---- proteção: fecha os polos quando armado e não disparado ----
     case 'breaker1p':
+    case 'breakerSchneiderIc60h1p':
     case 'breakerSteckSdC25':
     case 'breaker2p':
     case 'breaker3p':
     case 'breaker4p':
     case 'motorBreaker':
     case 'motorBreakerPkzmC10':
-    case 'residualBreaker': {
+    case 'residualBreaker':
+    case 'residualBreakerSchneiderIid4p':
+    case 'residualBreakerSchneiderIdpnVigi': {
       if (c.state.closed && !c.state.tripped) {
         for (const [a, b] of POLE_PAIRS[c.type] ?? []) pair(la(a), la(b))
       }
@@ -123,6 +129,9 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       break
     }
     case 'surgeProtector': {
+      // Variante em derivação (3P+N): alta impedância em serviço normal.
+      // Não criar uma ponte permanente entre fase, neutro e terra.
+      if (c.state.connection === 'parallel') break
       if (!c.state.failed) {
         pair(la('1'), la('2'))
         pair(la('2'), la('3'))
@@ -431,9 +440,9 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
 }
 
 const HEAD_BREAKERS = new Set([
-  'breaker1p', 'breakerSteckSdC25', 'breaker2p', 'breaker3p', 'breaker4p',
+  'breaker1p', 'breakerSchneiderIc60h1p', 'breakerSteckSdC25', 'breaker2p', 'breaker3p', 'breaker4p',
   'motorBreaker', 'motorBreakerPkzmC10', 'motorBreakerSchneiderGv2me',
-  'residualBreaker', 'residualBreakerHagerCfc225p',
+  'residualBreaker', 'residualBreakerSchneiderIid4p', 'residualBreakerSchneiderIdpnVigi', 'residualBreakerHagerCfc225p',
 ])
 /** Componentes que alimentam a rede (mesmo desligados: nesse caso o que está a jusante fica sem tensão). */
 const FEEDER_TYPES = /^(powerSource|powerSupply|busbar|earthBar)/

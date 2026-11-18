@@ -9,6 +9,20 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## QGD nativo, inspetor estável e ícones SVG
+
+O **Quadro Geral de Distribuição Completo Multi-Circuitos (QGD)** aparece no dashboard
+para Admin e contas Free: 47 componentes, 76 condutores, iluminação, duas tomadas gerais,
+tomadas especiais, CEE e motor com proteção dedicada. Os rascunhos Free são isolados e não
+consomem a quota de projetos próprios. A semente abre sem erros ou avisos de diagnóstico.
+
+Corrigido o React #310 ao inserir/selecionar elementos e trocar de família de barramentos;
+uma regra de hooks passa a bloquear regressões no CI. As peças Acti9 procedurais usam o
+renderizador correto, sem tentar carregar um GLB inexistente. Integrações continuam exclusivas
+do administrador e os pictogramas da interface usam SVG.
+
+[Detalhes, limites do exemplo didático e testes](docs/QGD-NATIVO-REACT310.md).
+
 ## Simulação 3D com cursor normal
 
 A mão/dedo 3D sobreposto foi removido da visualização 3D. RUN, pausa e paragem usam o cursor normal do sistema e os cursores das ferramentas/alvos; os comandos elétricos, as animações dos equipamentos e o bloqueio de edição não mudam. A geometria e os eventos do cursor antigo deixam de ser montados, em vez de ficarem apenas invisíveis.

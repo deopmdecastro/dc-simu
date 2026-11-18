@@ -50,7 +50,7 @@ import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/co
 import TerminalStripControls from './TerminalStripControls'
 import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
 import { isRealBusbarType } from '../three/busbarParts'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
 import {
   CABLE_PRESETS,
@@ -211,10 +211,10 @@ function LayerButtons() {
         Camada (frente / trás)
       </label>
       <div className="flex gap-1">
-        <button className={btn} title="Trazer para frente" onClick={() => useSimStore.getState().bringSelectionToFront()}>⤒ Frente</button>
-        <button className={btn} title="Avançar uma camada" onClick={() => useSimStore.getState().bringSelectionForward()}>↑</button>
-        <button className={btn} title="Recuar uma camada" onClick={() => useSimStore.getState().sendSelectionBackward()}>↓</button>
-        <button className={btn} title="Enviar para trás" onClick={() => useSimStore.getState().sendSelectionToBack()}>⤓ Trás</button>
+        <button className={btn} title="Trazer para frente" onClick={() => useSimStore.getState().bringSelectionToFront()}><IconArrowUp size={11} /> Frente</button>
+        <button className={btn} title="Avançar uma camada" onClick={() => useSimStore.getState().bringSelectionForward()}><IconArrowUp size={11} /></button>
+        <button className={btn} title="Recuar uma camada" onClick={() => useSimStore.getState().sendSelectionBackward()}><IconArrowDown size={11} /></button>
+        <button className={btn} title="Enviar para trás" onClick={() => useSimStore.getState().sendSelectionToBack()}><IconArrowDown size={11} /> Trás</button>
       </div>
     </div>
   )
@@ -293,7 +293,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
       <span className="dc-library-tile-name">{name}</span>
       {!available && <span className="dc-library-tile-status">{disabledNote ? 'Desativado' : 'Aguarda GLB 3D'}</span>}
     </button>
-    <button type="button" className={`dc-library-tile-favorite ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-pressed={favorite} aria-label={`${favorite ? 'Remover' : 'Adicionar'} ${name} ${favorite ? 'dos' : 'aos'} favoritos`} title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>{favorite ? '★' : '☆'}</button>
+    <button type="button" className={`dc-library-tile-favorite ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-pressed={favorite} aria-label={`${favorite ? 'Remover' : 'Adicionar'} ${name} ${favorite ? 'dos' : 'aos'} favoritos`} title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}><IconStar size={11} /></button>
   </div>
 }
 
@@ -319,6 +319,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const tool = useSimStore((s) => s.tool)
   const wireDefaults = useSimStore((s) => s.wireDefaults)
   const setWireDefaults = useSimStore((s) => s.setWireDefaults)
+  // Subscrições também são hooks: nunca as chamar dentro do ramo do inspetor.
+  const detachWiresOnDrag = useSimStore((s) => s.detachWiresOnDrag)
   const wireTool = tool === 'wire'
   useEffect(() => { if (wireTool) setTab('inspector') }, [wireTool])
   const [terminalLibOpen, setTerminalLibOpen] = useState(false)
@@ -499,7 +501,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           <div className="pn-section">
             <div className="relative">
               <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar nome, tipo ou categoria…" aria-label="Pesquisar componentes" className="dc-input !pl-7 !pr-7" />
-              {filter && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" title="Limpar pesquisa" onClick={() => setFilter('')}>×</button>}
+              {filter && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" title="Limpar pesquisa" onClick={() => setFilter('')}><IconClose size={12} /></button>}
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
@@ -511,7 +513,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               onClick={() => useSimStore.getState().generateIecFromPhysical()}
               title="Gera automaticamente o Esquema IEC 60617 (comandos e força) a partir dos equipamentos e cabos montados no painel 3D"
             >
-              ⚡ Gerar Esquema IEC pelo 3D
+              <IconCommands size={12} /> Gerar Esquema IEC pelo 3D
             </button>
           </div>
           <div className="dc-library-model-notice" role="note">
@@ -524,8 +526,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           </div>
           {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
           <div className="pn-body flex-1 overflow-y-auto min-h-0 dc-library-scroll">
-            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.filter((type) => !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
-            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type] && !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title"><strong><IconHistory size={11} />Recentes</strong><span>{recent.length}</span></div><div className="dc-library-recent">{recent.filter((type) => !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title"><strong><IconStar size={11} />Favoritos</strong><span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type] && !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
             {!filtered.length && (
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconSearch size={18} /></span>
@@ -981,11 +983,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <span className="text-[10px] text-ink-400">{(selectedComponent.decals ?? []).length} etiqueta(s)</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  <button type="button" className="dc-btn bg-brand-50 text-brand-700 border-brand-200 font-semibold" title="Abre a biblioteca de adesivos de circuitos residenciais/industriais: tomadas, iluminação, AC, forno, bomba, números DIN..." onClick={() => setStickerPickerOpen(true)}>🏷️ Adesivos de Circuito</button>
+                  <button type="button" className="dc-btn bg-brand-50 text-brand-700 border-brand-200 font-semibold" title="Abre a biblioteca de adesivos de circuitos residenciais/industriais: tomadas, iluminação, AC, forno, bomba, números DIN..." onClick={() => setStickerPickerOpen(true)}><IconTag size={12} /> Adesivos de Circuito</button>
                   <button type="button" className="dc-btn" title="Etiqueta de texto simples" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'text', text: selectedComponent.ref || 'Q1', background:'#ffffff', color:'#0f172a', widthMm:28, heightMm:10 })}>+ Texto</button>
-                  <button type="button" className="dc-btn" style={{background:'#facc15'}} title="Aviso triângulo amarelo com raio" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'warning', text:'PERIGO', icon:'bolt', background:'#facc15', color:'#0f172a', widthMm:36, heightMm:18, face:'front' })}>⚡ Aviso</button>
+                  <button type="button" className="dc-btn" style={{background:'#facc15'}} title="Aviso triângulo amarelo com raio" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'warning', text:'PERIGO', icon:'bolt', background:'#facc15', color:'#0f172a', widthMm:36, heightMm:18, face:'front' })}><IconWarning size={12} /> Aviso</button>
                   <button type="button" className="dc-btn" style={{background:'#22c55e',color:'white'}} title="Etiqueta CE verde" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text:'CE', background:'#22c55e', color:'white', widthMm:22, heightMm:14 })}>CE</button>
-                  <button type="button" className="dc-btn" style={{background:'#0ea5e9',color:'white'}} title="Símbolo raio dentro de triângulo" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'symbol', icon:'bolt', text:'400V', background:'#fef3c7', color:'#92400e', widthMm:30, heightMm:14 })}>⚡ 400V</button>
+                  <button type="button" className="dc-btn" style={{background:'#0ea5e9',color:'white'}} title="Símbolo raio dentro de triângulo" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'symbol', icon:'bolt', text:'400V', background:'#fef3c7', color:'#92400e', widthMm:30, heightMm:14 })}><IconCommands size={12} /> 400V</button>
                   <button type="button" className="dc-btn" title="Logotipo de fabricante (editável abaixo)" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text: String(selectedComponent.state.manufacturer ?? 'WEG').split(' ')[0].toUpperCase().slice(0, 12) || 'WEG', background:'#0f172a', color:'#ffffff', widthMm:32, heightMm:10 })}>+ Marca</button>
                 </div>
                 {(selectedComponent.decals ?? []).map((d)=>(
@@ -995,7 +997,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                         <option value="text">Texto</option><option value="warning">Aviso</option><option value="symbol">Símbolo</option><option value="logo">Logo</option>
                       </Select>
                       <input className="dc-input flex-1" value={d.text ?? ''} placeholder="Texto" onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {text:e.target.value})} />
-                      <button type="button" className="dc-btn text-red-600" onClick={()=> useSimStore.getState().removeDecal(selectedComponent.id, d.id)}>×</button>
+                      <button type="button" className="dc-btn text-red-600" aria-label="Remover etiqueta" onClick={()=> useSimStore.getState().removeDecal(selectedComponent.id, d.id)}><IconClose size={12} /></button>
                     </div>
                     {d.kind === 'logo' && (
                       <div className="flex flex-wrap gap-1">
@@ -1014,7 +1016,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     <div className="flex flex-wrap items-center gap-1 text-[11px]">
                       <span>Ícone</span>
                       <Select className="dc-input w-20" value={d.icon ?? ''} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {icon: e.target.value || undefined})}>
-                        <option value="">—</option><option value="bolt">⚡ raio</option><option value="danger">☠ perigo</option><option value="ce">CE</option><option value="wago">WAGO</option><option value="siemens">Siemens</option>
+                        <option value="">—</option><option value="bolt"><IconCommands size={11} /> Raio</option><option value="danger"><IconDanger size={11} /> Perigo</option><option value="ce">CE</option><option value="wago">WAGO</option><option value="siemens">Siemens</option>
                       </Select>
                       <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.background ?? '#facc15'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {background:e.target.value})} title="Fundo" />
                       <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.color ?? '#0f172a'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {color:e.target.value})} title="Texto" />
@@ -1059,7 +1061,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={useSimStore((s) => s.detachWiresOnDrag)}
+                  checked={detachWiresOnDrag}
                   onChange={() => useSimStore.getState().toggleDetachWiresOnDrag()}
                   className="accent-brand-600 rounded"
                 />
@@ -2154,7 +2156,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                   patchSelectedWire({ markers: list })
                                 }}
                               >
-                                ⌫
+                                <IconBackspace size={12} />
                               </button>
                             )}
                           </div>
@@ -2573,7 +2575,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                 />
                                 <i>%</i>
                               </label>
-                              <span className="text-ink-400 text-[10px]">→</span>
+                              <span className="text-ink-400 text-[10px]"><IconArrowRight size={10} /></span>
                               <label className="wi-pct-field" title="Fim da espiral (%)">
                                 <input
                                   type="number"
@@ -2690,7 +2692,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                               />
                               <i>%</i>
                             </label>
-                            <span className="text-ink-400 text-[10px]">→</span>
+                            <span className="text-ink-400 text-[10px]"><IconArrowRight size={10} /></span>
                             <label className="wi-pct-field" title="Fim da manga (%)">
                               <input
                                 type="number"

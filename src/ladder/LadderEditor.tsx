@@ -41,8 +41,9 @@ import {
   IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
   IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconLayers, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep, IconTools
-} from '../ui/icons'
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconLayers, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep, IconTools,
+  IconIssue,
+  IconChevronUp, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import SidePanelHeader from '../components/SidePanelHeader'
 import { COMPILE_GATE_KEY, compileGateEnabled, compileHash, compileInputOf, compileLadder, compileSummary, type CompileResult } from './ladderCompile'
@@ -195,8 +196,8 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
           <span className="ladder-switch-text">ativa</span>
         </label>}
         {!demoMode && <div className="ladder-rung-actions" onDoubleClick={(e) => e.stopPropagation()}>
-          <button className="ladder-rung-action" title="Mover para cima (Alt+Shift+↑)" aria-label="Mover network para cima" disabled={index === 0} onClick={() => moveRung(rung.id, -1)}>↑</button>
-          <button className="ladder-rung-action" title="Mover para baixo (Alt+Shift+↓)" aria-label="Mover network para baixo" disabled={index >= total - 1} onClick={() => moveRung(rung.id, 1)}>↓</button>
+          <button className="ladder-rung-action" title="Mover para cima (Alt+Shift+↑)" aria-label="Mover network para cima" disabled={index === 0} onClick={() => moveRung(rung.id, -1)}><IconArrowUp size={11} /></button>
+          <button className="ladder-rung-action" title="Mover para baixo (Alt+Shift+↓)" aria-label="Mover network para baixo" disabled={index >= total - 1} onClick={() => moveRung(rung.id, 1)}><IconArrowDown size={11} /></button>
           <button className="ladder-rung-action" title="Duplicar network (Ctrl+D)" aria-label="Duplicar network" onClick={() => duplicateRung(rung.id)}><IconCopy size={11} /></button>
           <button className="ladder-rung-action is-danger" title="Eliminar network (Ctrl+Del)" aria-label="Eliminar network" onClick={requestDelete}><IconDelete size={11} /></button>
         </div>}
@@ -1352,7 +1353,7 @@ function BlockProgramView({ id, notify, registerInsert, registerAddRung }: {
           <div className="ladder-call-hint">
             <span className="lnet-call-drop-badge">CALL</span>
             <span className="lnet-call-drop-name">«{dragBlockHint}»</span>
-            <em>→ nova network</em>
+            <em><IconArrowRight size={10} /> nova network</em>
           </div>
         )}
         <div className={`ladder-networks-scale ${visibleBlockRungs.length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
@@ -2017,7 +2018,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             ))
           ) : (
             <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
-              {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
+              {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span><IconClose size={10} /></span>
             </button>
           )}
           <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => { setProgramTab('tags'); setActiveProjectNode('plcVariables') }}><IconTag size={13} />Tabela de Tags</button>
@@ -2096,7 +2097,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               <div className="ladder-call-hint">
                 <span className="lnet-call-drop-badge">CALL</span>
                 <span className="lnet-call-drop-name">«{dragBlockHint}»</span>
-                <em>→ nova network</em>
+                <em><IconArrowRight size={10} /> nova network</em>
               </div>
             )}
             <div className={`ladder-networks-scale ${(demoMode ? visibleRungs : rungs).length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
@@ -2186,7 +2187,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                 { id: 'counters', label: <><IconCounter size={11} />Contadores</> },
                 { id: 'force', label: <><IconShield size={11} />Forçar{Object.keys(forcedAddrs).length ? ` (${Object.keys(forcedAddrs).length})` : ''}</> },
                 { id: 'debug', label: <><IconStep size={11} />Depuração{breakpointCount ? ` (${breakpointCount})` : ''}</> },
-                { id: 'compile', label: <><IconTools size={11} />Compilação{compileResult ? (compileStale ? ' (desatualizada)' : compileResult.ok ? (compileResult.warnings ? ` (${compileResult.warnings} !)` : ' ✓') : ` (${compileResult.errors} ✖)`) : ''}</> },
+                { id: 'compile', label: <><IconTools size={11} />Compilação{compileResult && (compileStale ? ' (desatualizada)' : compileResult.ok ? (compileResult.warnings ? <><span>({compileResult.warnings})</span><IconIssue level="warning" size={11} /></> : <IconCheck size={11} />) : <><span>({compileResult.errors})</span><IconIssue level="error" size={11} /></>)}</> },
                 { id: 'lint', label: lintCount ? <><IconShield size={11} />Verificação ({lintCount})</> : <><IconCheck size={10} className="ui-ck" />Verificação</> },
               ]
               return statusTabs.map(({ id, label }) => (
@@ -2217,12 +2218,12 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                 </label>
               </div>
               {compileResult && <div className="ladder-lint" role="list">
-                {compileResult.issues.length ? compileResult.issues.map((issue) => <button type="button" role="listitem" key={`${issue.blockId}:${issue.id}`} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => goToIssue(issue.blockId, issue.rungId)}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>)
+                {compileResult.issues.length ? compileResult.issues.map((issue) => <button type="button" role="listitem" key={`${issue.blockId}:${issue.id}`} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => goToIssue(issue.blockId, issue.rungId)}><b><IconIssue level={issue.level} size={12} /></b><span>{issue.message}</span></button>)
                   : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Compilação sem erros nem avisos.</span>}
               </div>}
             </div>}
             {statusTab === 'lint' && <div className="ladder-lint" role="list">
-              {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Nenhum problema encontrado — o programa está limpo.</span>}
+              {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b><IconIssue level={issue.level} size={12} /></b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Nenhum problema encontrado — o programa está limpo.</span>}
             </div>}
             {statusTab === 'memory' && <>
               <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />
@@ -2268,7 +2269,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         <div className="ladder-palette-scroll">
           {visibleGroups.map((group) => (
             <section className="ladder-palette-group" key={group.title}>
-              <div className="ladder-palette-group-title"><IconChevronDown size={12} /> {group.title} <span>⌃</span></div>
+              <div className="ladder-palette-group-title"><IconChevronDown size={12} /> {group.title} <span><IconChevronUp size={11} /></span></div>
               {group.items.map((item) => (
                 <button
                   className="ladder-palette-item"

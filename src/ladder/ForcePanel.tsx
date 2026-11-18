@@ -1,3 +1,4 @@
+import { IconWarning } from '../ui/icons'
 import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { isDeclarableAddress } from './ladderEngine'
@@ -32,6 +33,6 @@ export default function ForcePanel() {
           <button type="button" onClick={() => setForce(a, null)} title="Libertar este endereço">Libertar</button>
         </li>)}</ul>
       : <p className="ladder-status-empty">Sem valores forçados. Indique um endereço e escolha «Forçar 1» ou «Forçar 0» — o valor mantém-se durante o RUN, mesmo que o programa tente alterá-lo.</p>}
-    {entries.length > 0 && <p className="ladder-force-warn" role="status">⚠ {entries.length} endereço{entries.length === 1 ? '' : 's'} forçado{entries.length === 1 ? '' : 's'}: o programa não controla {entries.length === 1 ? 'esse endereço' : 'esses endereços'}.</p>}
+    {entries.length > 0 && <p className="ladder-force-warn" role="status"><IconWarning size={12} /> {entries.length} endereço{entries.length === 1 ? '' : 's'} forçado{entries.length === 1 ? '' : 's'}: o programa não controla {entries.length === 1 ? 'esse endereço' : 'esses endereços'}.</p>}
   </section>
 }

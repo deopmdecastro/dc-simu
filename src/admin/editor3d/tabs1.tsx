@@ -1,3 +1,4 @@
+import { IconEye, IconPlus } from '../../ui/icons'
 import { uiAlert } from '../../ui/dialogs'
 import { useMemo } from 'react'
 import { newId, defaultMaterial, posedPart, boundsMm } from '../../catalog/definition'
@@ -102,7 +103,7 @@ export function ObjectTab() {
         <Check checked={!!part.optional} label="Peça opcional (olho)" onChange={(optional) => edit((current) => patchPart(current, part.id, { optional }))} />
         <Check checked={!!part.editorOnly} label="Só no editor" onChange={(editorOnly) => edit((current) => patchPart(current, part.id, { editorOnly }))} />
       </div>
-      <p className="ce-hint">Opcional: no projeto, o utilizador mostra ou oculta esta peça com o olho (👁) nas propriedades do componente. O «Visível» acima é o estado inicial. «Só no editor»: pré-visualização que não entra no modelo publicado.</p>
+      <p className="ce-hint">Opcional: no projeto, o utilizador mostra ou oculta esta peça com o ícone <IconEye size={11} title="Mostrar ou ocultar" /> nas propriedades do componente. O «Visível» acima é o estado inicial. «Só no editor»: pré-visualização que não entra no modelo publicado.</p>
     </Section>}
   </>
 }
@@ -256,7 +257,7 @@ function TextureLibrarySection({ material, part }: { material: MaterialDef; part
     return next
   })
   return <Section title={<>Biblioteca de texturas reais {current && <em className="ce-tex-current">· {current.name}</em>}</>}>
-    <p className="ce-hint">Materiais PBR fotografados (ambientCG, CC0): cor, relevo, rugosidade e metal, à escala real. Clique para aplicar a «{material.name}»; ⊕ cria um material novo{part && part.kind !== 'group' ? ` e aplica-o a «${part.name}»` : ''}.</p>
+    <p className="ce-hint">Materiais PBR fotografados (ambientCG, CC0): cor, relevo, rugosidade e metal, à escala real. Clique para aplicar a «{material.name}»; o botão de adicionar cria um material novo{part && part.kind !== 'group' ? ` e aplica-o a «${part.name}»` : ''}.</p>
     {TEXTURE_CATEGORIES.map((category) => <div key={category} className="ce-tex-group">
       <b>{category}</b>
       <div className="ce-tex-grid">
@@ -265,7 +266,7 @@ function TextureLibrarySection({ material, part }: { material: MaterialDef; part
             <img src={item.thumb} alt="" loading="lazy" width={56} height={56} />
             <span>{item.name}</span>
           </button>
-          <button type="button" className="ce-tex-new" title="Novo material com esta textura" aria-label={`Novo material ${item.name}`} onClick={() => apply(item, true)}>⊕</button>
+          <button type="button" className="ce-tex-new" title="Novo material com esta textura" aria-label={`Novo material ${item.name}`} onClick={() => apply(item, true)}><IconPlus size={12} /></button>
         </div>)}
       </div>
     </div>)}

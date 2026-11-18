@@ -1,3 +1,4 @@
+import { IconCheck, IconLock, IconCommands, IconGraduation, IconStar } from '../ui/icons'
 import { useCallback, useEffect, useState } from 'react'
 import Select from '../ui/Select'
 import { accountApi } from '../auth/accountApi'
@@ -86,8 +87,8 @@ export default function AccountPlanCard({ ownedProjects }: { ownedProjects: numb
     <div className="dx-plan-main">
       <div className="flex items-center gap-2">
         <span className="dx-over text-slate-500 font-medium">O seu plano</span>
-        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${info.plan === 'empresa' ? 'bg-amber-100 text-amber-800 border border-amber-300' : info.plan === 'escola' ? 'bg-purple-100 text-purple-800 border border-purple-300' : info.plan === 'pro' ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
-          {info.plan === 'empresa' ? 'Empresa ★' : info.plan === 'escola' ? 'Escola 🎓' : info.plan === 'pro' ? 'Profissional ⚡' : 'Gratuito'}
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${info.plan === 'empresa' ? 'bg-amber-100 text-amber-800 border border-amber-300' : info.plan === 'escola' ? 'bg-purple-100 text-purple-800 border border-purple-300' : info.plan === 'pro' ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
+          {info.plan === 'empresa' ? <><IconStar size={10} />Empresa</> : info.plan === 'escola' ? <><IconGraduation size={11} />Escola</> : info.plan === 'pro' ? <><IconCommands size={10} />Profissional</> : 'Gratuito'}
         </span>
       </div>
 
@@ -135,9 +136,12 @@ export default function AccountPlanCard({ ownedProjects }: { ownedProjects: numb
             <span
               key={feature.key}
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${on ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
-              title={feature.description}
+              title={`${feature.description} — ${on ? 'Incluído no plano' : 'Não incluído no plano'}`}
+              data-feature={feature.key}
+              data-enabled={on}
             >
-              <span>{on ? '✓' : '🔒'}</span>
+              <span className="inline-flex" aria-hidden="true">{on ? <IconCheck size={10} /> : <IconLock size={9} />}</span>
+              <span className="sr-only">{on ? 'Incluído: ' : 'Não incluído: '}</span>
               <span>{feature.label}</span>
             </span>
           )
@@ -150,7 +154,7 @@ export default function AccountPlanCard({ ownedProjects }: { ownedProjects: numb
           <span className="dx-plan-pending">Pedido pendente: {planById(pricing, info.pending.plan).name} ({info.pending.period === 'yearly' ? 'anual' : 'mensal'})</span>
           <button className="dx-btn dx-btn-ghost dx-btn-sm" disabled={busy} onClick={() => void cancel()}>Cancelar pedido</button>
         </>
-        : options.length > 0 && <button className="dx-btn dx-btn-primary dx-btn-sm shadow-sm" onClick={() => { setChoice((current) => ({ ...current, plan: options.find((option) => option.highlighted)?.id ?? options[0].id })); setOpen(!open) }} aria-expanded={open}>⚡ Mudar de plano</button>}
+        : options.length > 0 && <button className="dx-btn dx-btn-primary dx-btn-sm shadow-sm" onClick={() => { setChoice((current) => ({ ...current, plan: options.find((option) => option.highlighted)?.id ?? options[0].id })); setOpen(!open) }} aria-expanded={open}><IconCommands size={12} />Mudar de plano</button>}
     </div>
     {open && !info.pending && <div className="dx-plan-request">
       <label><span>Plano</span>

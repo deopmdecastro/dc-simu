@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Invite, User } from '../dashboard/Dashboard'
-import { IconAccount, IconBell, IconChevronRight, IconCube, IconKey, IconLogout, IconProjects, IconShield } from '../ui/icons'
+import { IconAccount, IconBell, IconChevronRight, IconCube, IconKey, IconLogout, IconProjects, IconShield, IconWarning, IconInfo, IconSave } from '../ui/icons'
 import Avatar from '../ui/Avatar'
 import SupabaseModal from './SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
@@ -49,12 +49,17 @@ export default function AccountControls({
   const profileMenu = useRef<HTMLElement>(null)
   const profileMenuId = useId()
   const total = invites.length + (dirty ? 1 : 0) + errors + warnings
+  const isAdmin = user.role === 'admin'
   const backend = activeAccountBackend()
-  const supabaseConfigured = isSupabaseConfigured()
-  const n8nConfigured = isN8nConfigured()
-  const sessionLabel = backend === 'server' ? 'Sessão no servidor'
+  const supabaseConfigured = isAdmin && isSupabaseConfigured()
+  const n8nConfigured = isAdmin && isN8nConfigured()
+  const sessionLabel = !isAdmin ? 'Sessão ativa' : backend === 'server' ? 'Sessão no servidor'
     : backend === 'supabase' ? 'Sessão Supabase'
       : backend === 'local' ? 'Sessão neste navegador' : 'Sessão ativa'
+
+  useEffect(() => {
+    if (!isAdmin) { setShowSupabase(false); setShowN8n(false) }
+  }, [isAdmin])
 
   useEffect(() => {
     if (!open) return
@@ -115,15 +120,15 @@ export default function AccountControls({
             <IconChevronRight size={13} />
           </button>)}
           {dirty && <div className="dx-notification-item">
-            <span className="dx-notification-symbol is-warning">●</span>
+            <span className="dx-notification-symbol is-warning"><IconSave size={14} /></span>
             <span><strong>Alterações por guardar</strong><small>Guarde o projeto na conta antes de sair.</small></span>
           </div>}
           {errors > 0 && <div className="dx-notification-item">
-            <span className="dx-notification-symbol is-error">!</span>
+            <span className="dx-notification-symbol is-error"><IconWarning size={14} /></span>
             <span><strong>{errors} {errors === 1 ? 'erro ativo' : 'erros ativos'}</strong><small>Consulte o Monitor para diagnosticar o circuito.</small></span>
           </div>}
           {warnings > 0 && <div className="dx-notification-item">
-            <span className="dx-notification-symbol is-warning">!</span>
+            <span className="dx-notification-symbol is-warning"><IconInfo size={14} /></span>
             <span><strong>{warnings} {warnings === 1 ? 'aviso ativo' : 'avisos ativos'}</strong><small>Existem verificações pendentes no projeto.</small></span>
           </div>}
           {total === 0 && <div className="dx-notification-empty">
@@ -166,29 +171,31 @@ export default function AccountControls({
             {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" className="dx-profile-action" onClick={() => { setOpen(null); onAdmin() }}><span className="dx-profile-action-icon"><IconShield size={17} /></span><span className="dx-profile-action-copy"><strong>Administração</strong></span><IconChevronRight className="dx-profile-chevron" size={14} /></button>}
             {['server', 'supabase'].includes(backend) && <button type="button" className="dx-profile-action" onClick={() => { setOpen(null); setShowPassword(true) }}><span className="dx-profile-action-icon"><IconKey size={17} /></span><span className="dx-profile-action-copy"><strong>Alterar palavra-passe</strong></span><IconChevronRight className="dx-profile-chevron" size={14} /></button>}
           </div>
-          <div className="dx-profile-group dx-profile-connections">
-            <h3>Ligações</h3>
-            <button type="button" className="dx-profile-action is-integration" onClick={() => { setOpen(null); setShowSupabase(true) }}>
-              <span className="dx-profile-action-icon is-supabase"><SupabaseLogo size={20} title="" /></span>
-              <span className="dx-profile-action-copy"><strong>Base de dados</strong><small>Supabase</small></span>
-              <span className={`dx-profile-config ${supabaseConfigured ? 'is-set' : ''}`}>{supabaseConfigured ? 'Configurado' : 'Configurar'}</span>
-              <IconChevronRight className="dx-profile-chevron" size={14} />
-            </button>
-            <button type="button" className="dx-profile-action is-integration" onClick={() => { setOpen(null); setShowN8n(true) }}>
-              <span className="dx-profile-action-icon is-n8n"><N8nLogo size={20} title="" /></span>
-              <span className="dx-profile-action-copy"><strong>Automação</strong><small>n8n Workflow</small></span>
-              <span className={`dx-profile-config ${n8nConfigured ? 'is-set' : ''}`}>{n8nConfigured ? 'Configurado' : 'Configurar'}</span>
-              <IconChevronRight className="dx-profile-chevron" size={14} />
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="dx-profile-group dx-profile-connections">
+              <h3>Ligações</h3>
+              <button type="button" className="dx-profile-action is-integration" onClick={() => { setOpen(null); setShowSupabase(true) }}>
+                <span className="dx-profile-action-icon is-supabase"><SupabaseLogo size={20} title="" /></span>
+                <span className="dx-profile-action-copy"><strong>Base de dados</strong><small>Supabase</small></span>
+                <span className={`dx-profile-config ${supabaseConfigured ? 'is-set' : ''}`}>{supabaseConfigured ? 'Configurado' : 'Configurar'}</span>
+                <IconChevronRight className="dx-profile-chevron" size={14} />
+              </button>
+              <button type="button" className="dx-profile-action is-integration" onClick={() => { setOpen(null); setShowN8n(true) }}>
+                <span className="dx-profile-action-icon is-n8n"><N8nLogo size={20} title="" /></span>
+                <span className="dx-profile-action-copy"><strong>Automação</strong><small>n8n Workflow</small></span>
+                <span className={`dx-profile-config ${n8nConfigured ? 'is-set' : ''}`}>{n8nConfigured ? 'Configurado' : 'Configurar'}</span>
+                <IconChevronRight className="dx-profile-chevron" size={14} />
+              </button>
+            </div>
+          )}
         </nav>
         <div className="dx-profile-exit"><button type="button" className="dx-profile-action is-logout" onClick={() => { setOpen(null); onLogout() }}><span className="dx-profile-action-icon"><IconLogout size={17} /></span><span className="dx-profile-action-copy"><strong>Sair da conta</strong></span></button></div>
         <footer><span className="dx-profile-session-dot" aria-hidden="true" />{sessionLabel}</footer>
       </section>}
     </div>
 
-    <SupabaseModal isOpen={showSupabase} onClose={() => setShowSupabase(false)} />
-    <N8nModal isOpen={showN8n} onClose={() => setShowN8n(false)} />
+    {isAdmin && showSupabase && <SupabaseModal isOpen onClose={() => setShowSupabase(false)} />}
+    {isAdmin && showN8n && <N8nModal isOpen onClose={() => setShowN8n(false)} />}
     <ChangePasswordModal open={showPassword} onClose={() => setShowPassword(false)} />
   </div>
 }

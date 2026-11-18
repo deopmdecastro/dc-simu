@@ -131,6 +131,12 @@ function wire(from: string, to: string, color: WireColor, number: string): Wire 
 
 import { nativeEstrelaKs1Content, NATIVE_ESTRELA_KS1_ID, NATIVE_ESTRELA_KS1_NAME } from './nativeEstrelaKs1'
 export { NATIVE_ESTRELA_KS1_ID, NATIVE_ESTRELA_KS1_NAME } from './nativeEstrelaKs1'
+import {
+  nativeQuadroDistribuicaoContent,
+  NATIVE_QUADRO_DISTRIBUICAO_ID,
+  NATIVE_QUADRO_DISTRIBUICAO_NAME,
+} from './nativeQuadroDistribuicao'
+export { NATIVE_QUADRO_DISTRIBUICAO_ID, NATIVE_QUADRO_DISTRIBUICAO_NAME } from './nativeQuadroDistribuicao'
 
 export function buildNativeGrafcet(): GrafcetProgram {
   const s0 = 'native-s0'
@@ -804,6 +810,16 @@ function buildNativeProjectSeeds(): NativeProjectSeed[] {
       revision: 0,
       updatedAt: new Date().toISOString(),
       nativeId: NATIVE_ESTRELA_KS1_ID,
+    },
+    {
+      id: NATIVE_QUADRO_DISTRIBUICAO_ID,
+      name: NATIVE_QUADRO_DISTRIBUICAO_NAME,
+      ownerId: ADMIN_OWNER,
+      memberIds: [],
+      content: nativeQuadroDistribuicaoContent(),
+      revision: 0,
+      updatedAt: new Date().toISOString(),
+      nativeId: NATIVE_QUADRO_DISTRIBUICAO_ID,
     },
     ...examples,
   ]

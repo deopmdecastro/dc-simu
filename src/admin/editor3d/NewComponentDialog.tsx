@@ -1,3 +1,4 @@
+import { IconCheck } from '../../ui/icons'
 import Select from '../../ui/Select'
 import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useState } from 'react'
@@ -89,6 +90,7 @@ export default function NewComponentDialog({ onCancel, onCreated, onError }: { o
       <div className="ce-kinds" role="radiogroup" aria-label="Tipo de componente">
         {COMPONENT_KINDS.map((item) => <button type="button" key={item.id} role="radio" aria-checked={item.id === kindId} className={`ce-kind${item.id === kindId ? ' is-active' : ''}`} onClick={() => pickKind(item.id)} title={item.hint}>
           <b>{item.label}</b><small>{item.hint}</small>
+          {item.id === kindId && <span className="ce-kind-check"><IconCheck size={10} /></span>}
         </button>)}
       </div>
 

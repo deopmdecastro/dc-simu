@@ -1871,6 +1871,7 @@ button:disabled { cursor:not-allowed; }
 .dc-library-section { padding:9px 0 13px; border-bottom:1px solid #e1e8f2; margin-bottom:12px; }
 .dc-library-section-title { display:flex; align-items:center; justify-content:space-between; padding:0 3px 7px; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#69788f; }
 .dc-library-section-title span { font-weight:500; color:#94a3b8; }
+.dc-library-section-title strong { display:inline-flex; align-items:center; gap:6px; font:inherit; }
 .dc-library-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(82px,1fr)); gap:5px; padding:7px 5px 10px; }
 .dc-library-recent { display:flex; gap:6px; overflow-x:auto; padding:2px 3px 8px; scrollbar-width:thin; }
 .dc-library-recent .dc-library-tile { flex:0 0 86px; }

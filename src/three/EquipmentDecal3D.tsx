@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
-import { drawCircuitSticker, PANEL_STICKER_PRESETS } from './panelStickers'
+import { drawCircuitSticker, drawStickerIcon, PANEL_STICKER_PRESETS } from './panelStickers'
 
 type Decal = NonNullable<ElectricalComponent['decals']>[number]
 
@@ -36,7 +36,7 @@ export function EquipmentDecal3D({ decal: d }: { decal: Decal }) {
 
     const stickerPreset = PANEL_STICKER_PRESETS.find((p) => p.icon === d.icon && (p.label === d.text || p.id === d.icon)) ||
       (d.icon ? PANEL_STICKER_PRESETS.find((p) => p.icon === d.icon) : undefined)
-    if (stickerPreset || d.kind === 'symbol') {
+    if (stickerPreset || (d.kind === 'symbol' && (d.icon === 'bolt' || d.icon === 'danger'))) {
       const sticker: import('./panelStickers').PanelStickerDef = stickerPreset ?? {
         id: 'custom',
         category: 'sockets',
@@ -66,16 +66,18 @@ export function EquipmentDecal3D({ decal: d }: { decal: Decal }) {
       ctx.lineWidth = Math.max(2, canvas.height * 0.025)
       ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, canvas.width - ctx.lineWidth, canvas.height - ctx.lineWidth)
     }
-    const icons: Record<string, string> = { bolt: '⚡', danger: '☠', ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
-    const text = [d.icon ? (icons[d.icon] ?? d.icon) : '', d.text ?? ''].filter(Boolean).join(' ')
-    let size = canvas.height * 0.45
+    const vectorIcon = d.icon === 'bolt' || d.icon === 'danger'
+    const icons: Record<string, string> = { ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
+    const text = [!vectorIcon && d.icon ? (icons[d.icon] ?? d.icon) : '', d.text ?? ''].filter(Boolean).join(' ')
+    if (vectorIcon) drawStickerIcon(ctx, d.icon!, canvas.width / 2, canvas.height * 0.33, canvas.height * 0.46, d.color ?? '#0f172a')
+    let size = canvas.height * (vectorIcon ? 0.25 : 0.45)
     ctx.font = `${d.kind === 'logo' ? 800 : 700} ${size}px system-ui, sans-serif`
     const available = canvas.width * 0.9
     if (ctx.measureText(text).width > available) size *= available / ctx.measureText(text).width
     ctx.font = `${d.kind === 'logo' ? 800 : 700} ${size}px system-ui, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2)
+    ctx.fillText(text, canvas.width / 2, canvas.height * (vectorIcon ? 0.79 : 0.5))
     const map = new THREE.CanvasTexture(canvas)
     map.colorSpace = THREE.SRGBColorSpace
     map.anisotropy = 4

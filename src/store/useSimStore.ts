@@ -67,7 +67,8 @@ import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRIC
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { importedActuationPatch, importedComponentInfo, updateImportedLoads, updateImportedPower } from '../electrical/importedComponents'
-import { playClick, syncMotorHumFromComponents, silenceAll, unlockAudio } from '../audio/sfx'
+import { playClick, syncMotorHumFromComponents, silenceAll, unlockAudio, playShortCircuitBoom, startOverheatSizzle, stopOverheatSizzle, playWireBurnPop } from '../audio/sfx'
+import { evaluateShortCircuits } from '../electrical/shortCircuitEngine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -371,6 +372,7 @@ interface Store extends CircuitState {
   step: () => void
   setFaults: (patch: Partial<FaultState>) => void
   toggleBlackBox: () => void
+  repairBurntEquipment: () => void
   pushEvent: (level: SimEvent['level'], message: string) => void
   _intervalId: number | null
 
@@ -963,8 +965,20 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 8) Sinaleiros / buzzer / torre
   for (const c of components) {
-    if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'pilotLightAd22' || c.type === 'buzzer') {
+    if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'pilotLightAd22' || c.type === 'pilotLightSchneiderIil1p' || c.type === 'buzzer') {
       c.state.on = isLoadPowered(c, pass3.energizedTerminals)
+    }
+    if (c.type === 'pilotLightSchneiderIil3p') {
+      const nId = terminalByLabel(c, 'N')?.id ?? ''
+      const l1Id = terminalByLabel(c, 'L1')?.id ?? ''
+      const l2Id = terminalByLabel(c, 'L2')?.id ?? ''
+      const l3Id = terminalByLabel(c, 'L3')?.id ?? ''
+      const nLive = pass3.energizedTerminals.has(nId)
+      c.state.l1On = pass3.energizedTerminals.has(l1Id) && (nLive || pass3.energizedTerminals.has(l2Id) || pass3.energizedTerminals.has(l3Id))
+      c.state.l2On = pass3.energizedTerminals.has(l2Id) && (nLive || pass3.energizedTerminals.has(l1Id) || pass3.energizedTerminals.has(l3Id))
+      c.state.l3On = pass3.energizedTerminals.has(l3Id) && (nLive || pass3.energizedTerminals.has(l1Id) || pass3.energizedTerminals.has(l2Id))
+      c.state.on = Boolean(c.state.l1On || c.state.l2On || c.state.l3On)
+      c.state.phaseLoss = Boolean(!(c.state.l1On && c.state.l2On && c.state.l3On) && c.state.on)
     }
     if (c.type === 'towerLight') {
       c.state.red = pass3.energizedTerminals.has(terminalByLabel(c, 'R')?.id ?? '')
@@ -1117,7 +1131,91 @@ function runOneTick(state: Store, dtMs: number) {
     }
   }
 
-  // 11) Diagnósticos + medições
+  // 11) Curto-circuito, Sobreaquecimento e Proteções
+  const shortDiag = evaluateShortCircuits(components, wires, pass3.energizedTerminals, sim.faults)
+  state.sim.shortCircuit = {
+    active: shortDiag.active,
+    focalPoint: shortDiag.focalPoint,
+    cause: shortDiag.cause,
+    shortedWires: Array.from(shortDiag.wires),
+  }
+
+  if (shortDiag.active) {
+    if (shortDiag.trippableBreakers.length > 0) {
+      let trippedAny = false
+      for (const b of shortDiag.trippableBreakers) {
+        if (!b.locked && b.state.closed && !b.state.tripped) {
+          b.state.closed = false
+          b.state.tripped = true
+          b.state.tripReason = 'shortCircuit'
+          trippedAny = true
+        }
+      }
+      if (trippedAny) {
+        try { playShortCircuitBoom() } catch {}
+        try { playClick('breaker') } catch {}
+        state.sim.events = [
+          {
+            id: nanoid(6),
+            ts: Date.now(),
+            level: 'error' as const,
+            message: `Disparo magnético de proteção por curto-circuito! (${shortDiag.cause})`,
+          },
+          ...state.sim.events,
+        ].slice(0, 120)
+      }
+    } else {
+      // Sem disjuntor de corte ou disjuntor bloqueado: aquecimento extremo e fumo
+      let maxHeat = 0
+      for (const w of wires) {
+        if (shortDiag.wires.has(w.id) || (w.carryingCurrent && sim.faults.overload)) {
+          const prevHeat = w.heatLevel ?? 0
+          w.heatLevel = Math.min(1.0, prevHeat + dtMs / 1400)
+          maxHeat = Math.max(maxHeat, w.heatLevel)
+          if (w.heatLevel >= 0.72 && !w.burnt) {
+            w.burnt = true
+            w.damaged = true
+            try { playWireBurnPop() } catch {}
+          }
+        }
+      }
+      for (const c of components) {
+        if (shortDiag.components.has(c.id)) {
+          const prevHeat = Number(c.state.heatLevel ?? 0)
+          c.state.heatLevel = Math.min(1.0, prevHeat + dtMs / 1800)
+          maxHeat = Math.max(maxHeat, c.state.heatLevel)
+          if (c.state.heatLevel >= 0.7 && !c.state.burnt) {
+            c.state.burnt = true
+            c.state.damaged = true
+            try { playWireBurnPop() } catch {}
+          }
+        }
+      }
+      if (maxHeat > 0.08) {
+        try { startOverheatSizzle(maxHeat) } catch {}
+      }
+    }
+  } else {
+    // Arrefecimento gradual quando a corrente cessa
+    let anyHot = false
+    for (const w of wires) {
+      if ((w.heatLevel ?? 0) > 0) {
+        w.heatLevel = Math.max(0, (w.heatLevel ?? 0) - dtMs / 4000)
+        if (w.heatLevel > 0.08) anyHot = true
+      }
+    }
+    for (const c of components) {
+      if ((c.state.heatLevel ?? 0) > 0) {
+        c.state.heatLevel = Math.max(0, Number(c.state.heatLevel ?? 0) - dtMs / 4000)
+        if (c.state.heatLevel > 0.08) anyHot = true
+      }
+    }
+    if (!anyHot) {
+      try { stopOverheatSizzle() } catch {}
+    }
+  }
+
+  // 12) Diagnósticos + medições
   state.sim.diagnostics = detectDiagnostics(components, wires, pass3.energizedTerminals, sim.faults)
   state.sim.measurements = buildMeasurements(components, wires, pass3.energizedTerminals)
   state.sim.scanCount += 1
@@ -1886,10 +1984,10 @@ export const useSimStore = create<Store>((set, get) => {
     const state = get()
     const components = state.components.map((component) => {
       const nextState = { ...component.state }
-      for (const key of ['energized', 'pressed', 'startPressed', 'stopPressed', 'testPressed', 'running', 'done', 'powered', 'powerReady', 'triggered', 'tripped']) {
+      for (const key of ['energized', 'pressed', 'startPressed', 'stopPressed', 'testPressed', 'running', 'done', 'powered', 'powerReady', 'triggered', 'tripped', 'burnt', 'damaged']) {
         if (key in nextState) nextState[key] = false
       }
-      for (const key of ['elapsedMs', 'rpmVisual', 'reading', 'count', 'frequencyHz']) {
+      for (const key of ['elapsedMs', 'rpmVisual', 'reading', 'count', 'frequencyHz', 'heatLevel']) {
         if (key in nextState) nextState[key] = 0
       }
       if ('direction' in nextState) nextState.direction = 'stopped'
@@ -1905,7 +2003,7 @@ export const useSimStore = create<Store>((set, get) => {
     })
     set({
       components,
-      wires: state.wires.map((wire) => ({ ...wire, energized: false })),
+      wires: state.wires.map((wire) => ({ ...wire, energized: false, heatLevel: 0, burnt: false, damaged: false })),
       runtime: EMPTY_RUNTIME(),
       grafcetRuntime: emptyGrafcetRuntime(),
       sim: {
@@ -1953,6 +2051,28 @@ export const useSimStore = create<Store>((set, get) => {
   },
 
   toggleBlackBox: () => set((s) => ({ sim: { ...s.sim, blackBox: !s.sim.blackBox } })),
+
+  repairBurntEquipment: () => {
+    set((s) => ({
+      wires: s.wires.map((w) => ({ ...w, damaged: false, burnt: false, heatLevel: 0 })),
+      components: s.components.map((c) => ({
+        ...c,
+        state: { ...c.state, damaged: false, burnt: false, heatLevel: 0, tripped: false },
+      })),
+      sim: {
+        ...s.sim,
+        events: [
+          {
+            id: nanoid(6),
+            ts: Date.now(),
+            level: 'info' as const,
+            message: 'Equipamentos e cabos reparados / substituídos com sucesso.',
+          },
+          ...s.sim.events,
+        ].slice(0, 120),
+      },
+    }))
+  },
 
   pushEvent: (level, message) =>
     set((s) => ({

@@ -1,6 +1,6 @@
 import { useSimStore } from '../store/useSimStore'
 import { useCommandsUi } from '../commands/commandsUi'
-import { IconCheck, IconCheckCircle, IconWarning, IconXCircle } from '../ui/icons'
+import { IconCheck, IconCheckCircle, IconWarning, IconXCircle, IconIssue } from '../ui/icons'
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics, type DiagItem, type DiagSummary, type DiagView } from './viewDiagnostics'
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -56,7 +56,7 @@ export function DiagnosticsPanel({ summary, onSelect, okChecks, context }: { sum
     {summary.items.map((item) => {
       const clickable = !!onSelect && !!item.target
       return <button key={item.id} type="button" className={`grafcet-issue is-${item.level}`} disabled={!clickable} onClick={() => clickable && onSelect!(item)}>
-        <b>{item.level === 'error' ? '✖' : item.level === 'warning' ? '!' : 'i'}</b>
+        <b><IconIssue level={item.level} size={12} /></b>
         <span>{item.message}</span>
         {clickable ? <em>abrir</em> : <em />}
       </button>

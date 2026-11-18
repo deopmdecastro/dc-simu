@@ -1,3 +1,4 @@
+import { IconExternalLink, IconDownload } from '../ui/icons'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -57,7 +58,7 @@ export function ContributionPreview({ item }: { item: Contribution }) {
   if (!url) return <p className="cb-note">A carregar o ficheiro…</p>
   if (item.kind === 'datasheet') {
     return <div className="cb-pdf">
-      <object data={url} type="application/pdf" aria-label={`Pré-visualização de ${item.fileName}`}><a className="dx-btn dx-btn-secondary dx-btn-sm" href={url} target="_blank" rel="noopener noreferrer">Abrir PDF ↗</a></object>
+      <object data={url} type="application/pdf" aria-label={`Pré-visualização de ${item.fileName}`}><a className="dx-btn dx-btn-secondary dx-btn-sm" href={url} target="_blank" rel="noopener noreferrer">Abrir PDF <IconExternalLink size={11} /></a></object>
     </div>
   }
   return <Suspense fallback={<p className="cb-note">A preparar a pré-visualização 3D…</p>}><GlbPreview url={url} /></Suspense>
@@ -87,7 +88,7 @@ export function ContributionRow({ item, expanded, onToggle, actions, showAuthor 
       <ContributionPreview item={item} />
       {error && <p className="cb-note is-error" role="alert">{error}</p>}
       <div className="cb-actions">
-        <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => downloadContribution(item).catch((cause) => setError(cause instanceof Error ? cause.message : 'Falha ao descarregar'))}>↓ Descarregar {KIND_LABEL[item.kind].split(' ')[0]}</button>
+        <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => downloadContribution(item).catch((cause) => setError(cause instanceof Error ? cause.message : 'Falha ao descarregar'))}><IconDownload size={11} /> Descarregar {KIND_LABEL[item.kind].split(' ')[0]}</button>
         {actions}
       </div>
     </div>}

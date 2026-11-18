@@ -8,7 +8,7 @@ import AddBlockDialog from './AddBlockDialog'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LadderMathOp, LadderCoilType, LadderContactType, LadderDataType, LadderRung, LadderCompareOp, LadderCompareType } from '../types'
-import { IconArrowRight, IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconPlus, IconTimer } from '../ui/icons'
+import { IconArrowRight, IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconPlus, IconTimer, IconClose } from '../ui/icons'
 import { emitOpenLadderBlock } from './ladderDnd'
 import { useSimStore } from '../store/useSimStore'
 import type { ProjectFile } from './projectFiles'
@@ -350,7 +350,7 @@ export default function LadderElementDialog({
       <header>
         <span className="ladder-dialog-icon"><KindIcon kind={draft.kind} /></span>
         <div><strong id="ladder-element-dialog-title">{isCompare ? 'Propriedades do comparador' : titleFor(draft.kind)}</strong><small>Network: {rung.name || 'sem título'} · duplo clique para reabrir</small></div>
-        <button type="button" className="ladder-dialog-close" onClick={onClose} aria-label="Fechar">×</button>
+        <button type="button" className="ladder-dialog-close" onClick={onClose} aria-label="Fechar"><IconClose size={12} /></button>
       </header>
       <form onSubmit={(event) => { event.preventDefault(); save() }}>
         <div className="ladder-dialog-body">

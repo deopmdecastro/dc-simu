@@ -8,7 +8,7 @@ import {
   saveSupabaseConfig,
   testSupabaseConnection,
 } from '../supabase/supabaseClient'
-import { IconClose, IconCheck } from '../ui/icons'
+import { IconClose, IconCheck, IconWarning } from '../ui/icons'
 import { SupabaseLogo } from '../ui/BrandLogos'
 
 const SCHEMA_SQL = `-- DC-SIMU: Script de Inicialização para o Supabase
@@ -72,7 +72,6 @@ function StatusPill({ on, textOn, textOff }: { on: boolean; textOn: string; text
         display: 'inline-flex',
         alignItems: 'center',
         gap: '6px',
-        marginTop: '5px',
         padding: '3px 10px 3px 8px',
         borderRadius: '999px',
         fontSize: '11.5px',
@@ -103,6 +102,7 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
   const [url, setUrl] = useState(currentConfig.url)
   const [anonKey, setAnonKey] = useState(currentConfig.anonKey)
   const [showKey, setShowKey] = useState(false)
+  const [showSqlPreview, setShowSqlPreview] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [copied, setCopied] = useState(false)
@@ -158,9 +158,6 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
     }
   }
 
-  // Portal para o <body>: evita que a animação de entrada da vista (dx-view-in,
-  // que retém um transform no .dx-dash) prenda o position:fixed do modal e o
-  // descentre da viewport / deixe a topbar por cima do backdrop.
   return createPortal(
     <div
       className="dx-dialog-backdrop is-open"
@@ -168,12 +165,12 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 9999,
+        background: 'rgba(15, 23, 42, 0.72)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 99999,
         display: 'grid',
         placeItems: 'center',
-        padding: '12px',
+        padding: '16px',
       }}
     >
       <div
@@ -181,41 +178,41 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
         onClick={(e) => e.stopPropagation()}
         style={{
           background: '#ffffff',
-          borderRadius: '14px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
-          maxWidth: '560px',
+          borderRadius: '16px',
+          boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          maxWidth: '600px',
           width: '100%',
-          maxHeight: 'calc(100dvh - 24px)',
+          maxHeight: 'calc(100dvh - 32px)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           border: '1px solid #e2e8f0',
-          padding: 0 /* anula o padding da classe .dx-dialog */,
+          padding: 0,
         }}
       >
         {/* Cabeçalho */}
         <div
           style={{
-            padding: '16px 20px',
+            padding: '18px 24px',
             borderBottom: '1px solid #e2e8f0',
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '12px',
-            background: 'linear-gradient(to right, #f0fdf6, #f8fafc 45%)',
+            gap: '14px',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #f8fafc 60%)',
             flex: 'none',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
             <span
               style={{
-                width: '40px',
-                height: '40px',
+                width: '42px',
+                height: '42px',
                 flex: 'none',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 background: '#ffffff',
-                border: '1px solid #d6f5e5',
-                boxShadow: '0 2px 6px rgba(63, 207, 142, 0.18)',
+                border: '1px solid #bbf7d0',
+                boxShadow: '0 4px 12px rgba(63, 207, 142, 0.2)',
                 display: 'grid',
                 placeItems: 'center',
               }}
@@ -224,30 +221,50 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
               <SupabaseLogo size={24} />
             </span>
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', margin: 0, lineHeight: 1.3 }}>
-                Base de Dados: Supabase <span style={{ color: '#64748b', fontWeight: 500 }}>(PostgreSQL)</span>
-              </h2>
-              <StatusPill
-                on={configured}
-                textOn="Conectado ao Supabase na nuvem"
-                textOff="Não configurado — a usar base local"
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: '16.5px', fontWeight: 700, color: '#0f172a', margin: 0, lineHeight: 1.25 }}>
+                  Base de Dados: Supabase <span style={{ color: '#64748b', fontWeight: 500 }}>(PostgreSQL)</span>
+                </h2>
+                <span
+                  style={{
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: '#0369a1',
+                    background: '#e0f2fe',
+                    padding: '2px 7px',
+                    borderRadius: '5px',
+                    border: '1px solid #bae6fd',
+                  }}
+                >
+                  Admin
+                </span>
+              </div>
+              <div style={{ marginTop: '5px' }}>
+                <StatusPill
+                  on={configured}
+                  textOn="Conectado ao Supabase na nuvem"
+                  textOff="Não configurado — a usar base local"
+                />
+              </div>
             </div>
           </div>
           <button
             onClick={onClose}
             className="dx-icon-btn"
             style={{
-              width: '30px',
-              height: '30px',
+              width: '32px',
+              height: '32px',
               flex: 'none',
               display: 'grid',
               placeItems: 'center',
               border: '1px solid #e2e8f0',
-              borderRadius: '8px',
+              borderRadius: '9px',
               background: '#ffffff',
               color: '#475569',
               cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
             aria-label="Fechar"
           >
@@ -258,7 +275,7 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
         {/* Corpo (rolável) */}
         <div
           style={{
-            padding: '20px',
+            padding: '22px 24px',
             display: 'flex',
             flexDirection: 'column',
             gap: '16px',
@@ -267,22 +284,23 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
             overflowY: 'auto',
           }}
         >
+          {/* Banner de Estado */}
           <div
             style={{
-              padding: '12px 14px',
-              borderRadius: '10px',
+              padding: '13px 16px',
+              borderRadius: '11px',
               background: configured ? '#f0fdf4' : '#eff6ff',
               border: `1px solid ${configured ? '#bbf7d0' : '#bfdbfe'}`,
               fontSize: '12.5px',
               lineHeight: 1.55,
               color: configured ? '#166534' : '#1e40af',
               display: 'flex',
-              gap: '10px',
+              gap: '12px',
               alignItems: 'flex-start',
             }}
           >
-            <span style={{ flex: 'none', marginTop: '1px' }}>
-              <SupabaseLogo size={16} color={configured ? '#16a34a' : '#3b82f6'} title="" />
+            <span style={{ flex: 'none', marginTop: '2px' }}>
+              <SupabaseLogo size={18} color={configured ? '#16a34a' : '#3b82f6'} title="" />
             </span>
             {configured ? (
               <div>
@@ -290,11 +308,12 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
               </div>
             ) : (
               <div>
-                <strong>Guarde os seus projetos na nuvem:</strong> conecte uma base de dados gratuita do Supabase para aceder aos seus quadros a partir de qualquer computador.
+                <strong>Guarde os seus projetos na nuvem:</strong> conecte uma base de dados gratuita do Supabase para aceder aos seus quadros a partir de qualquer computador com segurança e sincronização contínua.
               </div>
             )}
           </div>
 
+          {/* Project URL */}
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#334155' }}>
             Project URL (URL do Projeto Supabase)
             <input
@@ -302,7 +321,15 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
               inputMode="url"
               autoComplete="off"
               spellCheck={false}
-              style={{ padding: '10px 12px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '8px', width: '100%' }}
+              style={{
+                padding: '10px 14px',
+                fontSize: '13px',
+                border: '1px solid #cbd5e1',
+                borderRadius: '9px',
+                width: '100%',
+                outline: 'none',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              }}
               placeholder="https://xyzabcdefghijk.supabase.co"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -312,6 +339,7 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
             </span>
           </label>
 
+          {/* Project API Key */}
           <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#334155' }}>
             Project API Key (Chave Anon / Pública)
             <span style={{ position: 'relative', display: 'block' }}>
@@ -320,7 +348,16 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
                 type={showKey ? 'text' : 'password'}
                 autoComplete="off"
                 spellCheck={false}
-                style={{ padding: '10px 74px 10px 12px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '8px', width: '100%' }}
+                style={{
+                  padding: '10px 80px 10px 14px',
+                  fontSize: '13px',
+                  fontFamily: showKey ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' : 'inherit',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '9px',
+                  width: '100%',
+                  outline: 'none',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                }}
                 placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 value={anonKey}
                 onChange={(e) => setAnonKey(e.target.value)}
@@ -331,17 +368,18 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
                 aria-label={showKey ? 'Ocultar chave' : 'Mostrar chave'}
                 style={{
                   position: 'absolute',
-                  right: '5px',
+                  right: '6px',
                   top: '50%',
                   transform: 'translateY(-50%)',
                   border: '1px solid #e2e8f0',
                   background: '#f8fafc',
                   color: '#475569',
-                  borderRadius: '6px',
+                  borderRadius: '7px',
                   fontSize: '11px',
                   fontWeight: 600,
-                  padding: '5px 9px',
+                  padding: '5px 10px',
                   cursor: 'pointer',
+                  transition: 'background 0.15s ease',
                 }}
               >
                 {showKey ? 'Ocultar' : 'Mostrar'}
@@ -357,57 +395,124 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
             <div
               role="status"
               style={{
-                padding: '10px 14px',
-                borderRadius: '8px',
+                padding: '11px 14px',
+                borderRadius: '9px',
                 fontSize: '12.5px',
-                fontWeight: 500,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
                 background: testResult.ok ? '#f0fdf4' : '#fef2f2',
                 border: `1px solid ${testResult.ok ? '#86efac' : '#fca5a5'}`,
                 color: testResult.ok ? '#15803d' : '#b91c1c',
               }}
             >
-              {testResult.ok ? '✓ ' : '✕ '} {testResult.message}
+              {testResult.ok ? <IconCheck size={16} /> : <IconWarning size={16} />}
+              <span>{testResult.message}</span>
             </div>
           )}
 
-          {/* Guia Rápido do Schema SQL */}
-          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                Script SQL de Criação de Tabelas (Schema)
-              </span>
+          {/* Card Schema SQL */}
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '11px',
+              padding: '14px 16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                flexWrap: 'wrap',
+                marginBottom: '8px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+                  Script SQL de Criação de Tabelas (Schema)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowSqlPreview((v) => !v)}
+                  style={{
+                    fontSize: '11px',
+                    color: '#2563eb',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  {showSqlPreview ? 'Ocultar preview' : 'Ver SQL'}
+                </button>
+              </div>
               <button
                 type="button"
                 className="dx-btn dx-btn-sm"
                 onClick={copySql}
                 style={{
-                  fontSize: '11px',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
                   padding: '5px 12px',
                   borderRadius: '7px',
                   border: '1px solid #cbd5e1',
                   background: copied ? '#f0fdf4' : '#ffffff',
                   color: copied ? '#15803d' : '#334155',
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                {copied ? <><IconCheck size={11} className="ui-ck" />Copiado!</> : 'Copiar Script SQL'}
+                {copied ? (
+                  <>
+                    <IconCheck size={12} className="ui-ck" />
+                    Copiado!
+                  </>
+                ) : (
+                  'Copiar Script SQL'
+                )}
               </button>
             </div>
             <p style={{ fontSize: '11.5px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
               Basta abrir o <b>SQL Editor</b> no painel do Supabase, colar este script e clicar em <b>RUN</b>. Ele cria as tabelas de projetos, utilizadores e permissões RLS.
             </p>
+            {showSqlPreview && (
+              <pre
+                style={{
+                  marginTop: '10px',
+                  padding: '10px 12px',
+                  background: '#0f172a',
+                  color: '#e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '11px',
+                  maxHeight: '140px',
+                  overflowY: 'auto',
+                  fontFamily: 'ui-monospace, monospace',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {SCHEMA_SQL}
+              </pre>
+            )}
           </div>
         </div>
 
         {/* Rodapé com botões de ação */}
         <div
           style={{
-            padding: '13px 20px',
+            padding: '14px 24px',
             borderTop: '1px solid #e2e8f0',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '10px',
+            gap: '12px',
             flexWrap: 'wrap',
             background: '#f8fafc',
             flex: 'none',
@@ -420,13 +525,14 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
                 className="dx-btn"
                 style={{
                   color: '#dc2626',
-                  border: '1px solid #fca5a5',
-                  background: '#fff',
-                  borderRadius: '8px',
+                  border: '1px solid #fecaca',
+                  background: '#ffffff',
+                  borderRadius: '9px',
                   fontSize: '12px',
                   fontWeight: 600,
-                  padding: '7px 13px',
+                  padding: '8px 14px',
                   cursor: 'pointer',
+                  transition: 'background 0.15s ease',
                 }}
                 onClick={handleDisconnect}
               >
@@ -434,7 +540,7 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               type="button"
               className="dx-btn"
@@ -443,16 +549,19 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
               style={{
                 fontSize: '12.5px',
                 fontWeight: 600,
-                padding: '8px 15px',
-                borderRadius: '8px',
+                padding: '8px 16px',
+                borderRadius: '9px',
                 border: '1px solid #cbd5e1',
                 background: '#ffffff',
                 color: '#334155',
                 cursor: testing || !url || !anonKey ? 'not-allowed' : 'pointer',
                 opacity: testing || !url || !anonKey ? 0.55 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              {testing ? 'A testar…' : 'Testar Ligação'}
+              {testing ? 'A testar ligação…' : 'Testar Ligação'}
             </button>
             <button
               type="button"
@@ -462,14 +571,15 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
               style={{
                 fontSize: '12.5px',
                 fontWeight: 700,
-                padding: '8px 16px',
-                borderRadius: '8px',
+                padding: '8px 18px',
+                borderRadius: '9px',
                 border: '1px solid #0d9e64',
                 background: '#3FCF8E',
                 color: '#06281a',
                 cursor: !url || !anonKey ? 'not-allowed' : 'pointer',
                 opacity: !url || !anonKey ? 0.55 : 1,
-                boxShadow: '0 1px 3px rgba(63, 207, 142, 0.45)',
+                boxShadow: '0 2px 8px rgba(63, 207, 142, 0.4)',
+                transition: 'all 0.15s ease',
               }}
             >
               Guardar e Conectar

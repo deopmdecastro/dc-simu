@@ -422,7 +422,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
           title="Fura no fundo com bucim M20 para passagem de cabos"
           onClick={() => useSimStore.getState().addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 0, offsetYmm: 0, glandType: 'M20' })}
         >
-          ⚡ Bucim M20 no fundo
+          <IconPlus size={11} /> Bucim M20 no fundo
         </button>
         <button
           type="button"
@@ -435,7 +435,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
             store.addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 60, offsetYmm: 0, glandType: 'M20' })
           }}
         >
-          ⚡ 3 Bucins M20 fundo
+          <IconPlus size={11} /> 3 Bucins M20 fundo
         </button>
         <button
           type="button"
@@ -443,7 +443,7 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
           title="Fura Ø22 na porta para botoeira ou luz piloto"
           onClick={() => useSimStore.getState().addPanelHole(c.id, { face: 'door', diameterMm: 22, offsetXmm: 0, offsetYmm: 60, glandType: 'none' })}
         >
-          ⚡ Furo Ø22 na porta
+          <IconPlus size={11} /> Furo Ø22 na porta
         </button>
       </div>
       {holes.length===0 ? <p className="text-[11px] text-slate-400 border border-dashed border-slate-200 rounded p-2 text-center">Nenhum furo. Os furos aparecem no Esquema e no 3D; depois pode pôr bucim ou aparelho.</p>

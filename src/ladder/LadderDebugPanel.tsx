@@ -1,3 +1,4 @@
+import { IconClose, IconChevronLeft, IconChevronRight } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import { BREAK_MODE_LABEL, formatTraceValue, type LadderBreakMode } from './ladderDebug'
 import type { LadderRung } from '../types'
@@ -40,8 +41,8 @@ export default function LadderDebugPanel({ rungs }: { rungs: LadderRung[] }) {
     <div className="ladder-debug" aria-label="Depuração do programa Ladder">
       <div className="ladder-debug-bar" role="toolbar" aria-label="Passo a passo">
         <button type="button" className="dc-btn" onClick={stepScan} title="Pausa (se estiver em RUN) e executa exatamente um ciclo de scan">Passo (1 ciclo)</button>
-        <button type="button" className="dc-btn" onClick={() => go(atPos <= 0 ? 0 : atPos - 1)} disabled={!trace.length || atPos <= 0} title="Network anterior no rasto do último ciclo">◀ Network</button>
-        <button type="button" className="dc-btn" onClick={() => go(atPos < 0 ? 0 : atPos + 1)} disabled={!trace.length || atPos >= trace.length - 1} title="Network seguinte no rasto do último ciclo">Network ▶</button>
+        <button type="button" className="dc-btn" onClick={() => go(atPos <= 0 ? 0 : atPos - 1)} disabled={!trace.length || atPos <= 0} title="Network anterior no rasto do último ciclo"><IconChevronLeft size={10} /> Network</button>
+        <button type="button" className="dc-btn" onClick={() => go(atPos < 0 ? 0 : atPos + 1)} disabled={!trace.length || atPos >= trace.length - 1} title="Network seguinte no rasto do último ciclo">Network <IconChevronRight size={10} /></button>
         <button type="button" className="dc-btn dc-btn-primary" onClick={play} disabled={running} title="Continuar em RUN até ao próximo ponto de paragem">Continuar</button>
         <label className="ladder-debug-toggle" title="Desligado: os pontos ficam marcados mas a simulação não para">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Parar nos pontos de paragem
@@ -58,9 +59,9 @@ export default function LadderDebugPanel({ rungs }: { rungs: LadderRung[] }) {
               <Select className="ladder-debug-select" aria-label={`Condição do ponto de paragem da ${nameOf(id)}`} value={mode} onChange={(e) => setBreakpoint(id, e.target.value as LadderBreakMode)}>
                 {(Object.keys(BREAK_MODE_LABEL) as LadderBreakMode[]).map((m) => <option key={m} value={m}>{BREAK_MODE_LABEL[m]}</option>)}
               </Select>
-              <button type="button" className="ladder-debug-link is-danger" onClick={() => setBreakpoint(id, null)} aria-label={`Remover o ponto de paragem da ${nameOf(id)}`}>×</button>
+              <button type="button" className="ladder-debug-link is-danger" onClick={() => setBreakpoint(id, null)} aria-label={`Remover o ponto de paragem da ${nameOf(id)}`}><IconClose size={12} /></button>
             </div>
-          )) : <span className="ladder-status-empty">Sem pontos de paragem. Use o botão ● no cabeçalho de uma network.</span>}
+          )) : <span className="ladder-status-empty">Sem pontos de paragem. Use o botão de ponto de paragem no cabeçalho de uma network.</span>}
         </section>
         <section className="ladder-debug-col" aria-label="Rasto do último ciclo">
           <div className="ladder-status-title">Rasto do último ciclo</div>

@@ -3,7 +3,7 @@ import { PROJECT_KINDS, kindLabel, type ProjectKind } from '../project/kind'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useRef } from 'react'
 import { LogoMark } from '../ui/Brand'
-import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus, IconGrid } from '../ui/icons'
+import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus, IconGrid, IconMore, IconExternalLink } from '../ui/icons'
 
 import ProjectCover from './ProjectCover'
 import type { ProjectPreviewData } from './projectPreview'
@@ -205,6 +205,9 @@ export default function Dashboard({
   const [closing, setClosing] = useState(false)
   const [supabaseModalOpen, setSupabaseModalOpen] = useState(false)
   const [n8nModalOpen, setN8nModalOpen] = useState(false)
+  useEffect(() => {
+    if (user?.role !== 'admin') { setSupabaseModalOpen(false); setN8nModalOpen(false) }
+  }, [user?.role])
   /** Aviso de plano (limite de projetos, partilha fora do plano). */
   const [planGate, setPlanGate] = useState('')
   const [commentsFor, setCommentsFor] = useState<Project | null>(null)
@@ -344,7 +347,7 @@ export default function Dashboard({
     p.role !== 'owner' ? (
       <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
         <button className="dx-icon-btn" aria-label={`Opções de ${p.name}`} aria-expanded={menu === p.id} onClick={() => setMenu(menu === p.id ? null : p.id)}>
-          ⋯
+          <IconMore size={15} />
         </button>
         {menu === p.id && (
           <div className="dx-menu" role="menu">
@@ -366,7 +369,7 @@ export default function Dashboard({
     ) : (
       <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
         <button className="dx-icon-btn" aria-label={`Opções de ${p.name}`} aria-expanded={menu === p.id} onClick={() => setMenu(menu === p.id ? null : p.id)}>
-          ⋯
+          <IconMore size={15} />
         </button>
         {menu === p.id && (
           <div className="dx-menu" role="menu">
@@ -416,30 +419,34 @@ export default function Dashboard({
         </div>
         <div className="dx-dash-side">
           <span className="dx-dash-date">{today}</span>
-          <button
-            type="button"
-            className="dx-btn dx-btn-secondary"
-            onClick={() => setSupabaseModalOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}
-            title="Configurar conexão à base de dados na nuvem (Supabase / PostgreSQL)"
-          >
-            <span style={{ display: 'inline-flex', opacity: isSupabaseConfigured() ? 1 : 0.45 }}>
-              <SupabaseLogo size={14} title="" />
-            </span>
-            {isSupabaseConfigured() ? 'Supabase Conectado' : 'Configurar Supabase'}
-          </button>
-          <button
-            type="button"
-            className="dx-btn dx-btn-secondary"
-            onClick={() => setN8nModalOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}
-            title="Integração n8n Automation (Workflow: MipSJCjJ6fya9UGt)"
-          >
-            <span style={{ display: 'inline-flex', opacity: isN8nConfigured() ? 1 : 0.45 }}>
-              <N8nLogo size={14} title="" />
-            </span>
-            {isN8nConfigured() ? 'n8n Conectado' : 'Configurar n8n'}
-          </button>
+          {user?.role === 'admin' && (
+            <>
+              <button
+                type="button"
+                className="dx-btn dx-btn-secondary"
+                onClick={() => setSupabaseModalOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}
+                title="Configurar conexão à base de dados na nuvem (Supabase / PostgreSQL) [Apenas Administradores]"
+              >
+                <span style={{ display: 'inline-flex', opacity: isSupabaseConfigured() ? 1 : 0.45 }}>
+                  <SupabaseLogo size={14} title="" />
+                </span>
+                {isSupabaseConfigured() ? 'Supabase Conectado' : 'Configurar Supabase'}
+              </button>
+              <button
+                type="button"
+                className="dx-btn dx-btn-secondary"
+                onClick={() => setN8nModalOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}
+                title="Integração n8n Automation (Workflow: MipSJCjJ6fya9UGt) [Apenas Administradores]"
+              >
+                <span style={{ display: 'inline-flex', opacity: isN8nConfigured() ? 1 : 0.45 }}>
+                  <N8nLogo size={14} title="" />
+                </span>
+                {isN8nConfigured() ? 'n8n Conectado' : 'Configurar n8n'}
+              </button>
+            </>
+          )}
           <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>
             <IconPlus size={14} /> Novo projeto
           </button>
@@ -656,7 +663,7 @@ export default function Dashboard({
                     </button>
                     {p.role === 'owner' && (
                       <button className="dx-btn dx-btn-secondary" title="Convidar editor" aria-label={`Convidar editor para ${p.name}`} onClick={() => openModal('invite', p)}>
-                        ↗
+                        <IconExternalLink size={13} />
                       </button>
                     )}
                   </div>
@@ -783,17 +790,14 @@ export default function Dashboard({
         </div>
       )}
 
-      <SupabaseModal
-        isOpen={supabaseModalOpen}
+      {user?.role === 'admin' && supabaseModalOpen && <SupabaseModal
+        isOpen
         onClose={() => setSupabaseModalOpen(false)}
-        onConfigChanged={() => {
-          // recarrega a página ao alterar configuração
-        }}
-      />
-      <N8nModal
-        isOpen={n8nModalOpen}
+      />}
+      {user?.role === 'admin' && n8nModalOpen && <N8nModal
+        isOpen
         onClose={() => setN8nModalOpen(false)}
-      />
+      />}
     </div>
   )
 }

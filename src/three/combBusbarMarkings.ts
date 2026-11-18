@@ -262,10 +262,14 @@ function modeTitlePt(mode: CombBusbarMode, ratedA: CombRatedA): string {
       return `1 PÓLO - ${ratedA}A`
     case '1P+N':
       return `2 PÓLOS (F+N) - ${ratedA}A`
+    case '1P+N-3P':
+      return `Acti9 1P+N (3P BAL) - ${ratedA}A`
     case '3P':
       return `3 PÓLOS - ${ratedA}A`
     case '3P+N':
       return `3F+N (4P) - ${ratedA}A`
+    default:
+      return `PENTE - ${ratedA}A`
   }
 }
 
@@ -365,7 +369,7 @@ export function getCombBusbarSilkscreenTexture(state?: Record<string, unknown>):
     if (u < 0.01 || u > 0.99) continue
     const px = u * W
     const py = pinBandY + pinBandH * 0.54
-    drawToothPhaseBadge(ctx, px, py, t.conductor, mode, pinBandH, dims.poles)
+    drawToothPhaseBadge(ctx, px, py, t.conductor, mode, pinBandH, dims.poles, brand)
   }
 
   const tex = new THREE.CanvasTexture(canvas)
@@ -534,7 +538,7 @@ function drawBrandArt(
   }
 
   if (brand === 'schneider') {
-    // Acti9 / Easy9 industrial: verde Schneider #009530 + A9XPH… + Ui 500V · In 63A + ⚡
+    // Acti9 industrial (imagem 42): verde Schneider #009530 + A9XPC712 / A9XPH… + Ui 400V~ / 500V~ + barcode + CE
     ctx.fillStyle = '#009530'
     ctx.font = `800 ${Math.round(mainH * 0.36)}px Inter, Arial, sans-serif`
     ctx.textAlign = 'left'
@@ -546,17 +550,18 @@ function drawBrandArt(
     if (!compact) {
       ctx.fillStyle = '#1e293b'
       ctx.font = `800 ${Math.round(mainH * 0.3)}px Inter, Arial, sans-serif`
-      ctx.fillText(code, W * 0.26, mainCy - mainH * 0.1)
-      ctx.font = `700 ${Math.round(mainH * 0.21)}px Inter, Arial, sans-serif`
+      ctx.fillText(code, W * 0.22, mainCy - mainH * 0.1)
+      ctx.font = `700 ${Math.round(mainH * 0.2)}px Inter, Arial, sans-serif`
       ctx.fillStyle = '#334155'
-      ctx.fillText(modeShortSpec(mode, ratedA, sectionMm2), W * 0.26, mainCy + mainH * 0.22)
+      ctx.fillText(mode === '1P+N-3P' ? '80A · 16mm² Cu' : modeShortSpec(mode, ratedA, sectionMm2), W * 0.22, mainCy + mainH * 0.22)
 
-      drawBoltTriangle(ctx, W * 0.56, mainCy, mainH * 0.58, true)
+      drawBarcode(ctx, W * 0.38, mainTop + mainH * 0.12, W * 0.16, mainH * 0.74, `360648079${ratedA}${String(poles).padStart(2, '0')}`, '#1e293b')
+
       ctx.fillStyle = '#334155'
       ctx.font = `600 ${Math.round(mainH * 0.2)}px Inter, Arial, sans-serif`
-      ctx.fillText(`Ui 500V~ · Isc 25kA · IEC 60947-7-1`, W * 0.61, mainCy - mainH * 0.1)
-      ctx.fillText(`NÃO CORTAR SOB TENSÃO · ${poles} MÓD. (18mm)`, W * 0.61, mainCy + mainH * 0.2)
-      drawCeMark(ctx, W * 0.89, mainCy, mainH * 0.25, '#1e293b')
+      ctx.fillText(`Ui 400V~ · Isc 25kA · IEC 60439-1`, W * 0.58, mainCy - mainH * 0.1)
+      ctx.fillText(`NÃO CORTAR SOB TENSÃO · ${poles} P`, W * 0.58, mainCy + mainH * 0.2)
+      drawCeMark(ctx, W * 0.88, mainCy, mainH * 0.25, '#1e293b')
       drawWeeeIcon(ctx, W * 0.965, mainCy, mainH * 0.62, '#1e293b')
     } else {
       ctx.fillStyle = '#1e293b'
@@ -633,11 +638,38 @@ function drawToothPhaseBadge(
   mode: CombBusbarMode,
   bandH: number,
   poles: number,
+  brand: CombBrandStyle = 'lexman',
 ): void {
   const isNeutral = conductor === 'N'
   const pillW = Math.min(poles > 16 ? 48 : 62, bandH * 1.38)
   const pillH = bandH * 0.72
   ctx.save()
+
+  // Schneider Acti9 (imagem 42): círculo preto com "N" branco + "L1", "L2", "L3" a preto grafite
+  if (brand === 'schneider' || mode === '1P+N-3P') {
+    if (isNeutral) {
+      const radius = Math.min(pillH * 0.46, pillW * 0.46)
+      ctx.fillStyle = '#1e293b'
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.font = `900 ${Math.round(radius * 1.25)}px Inter, Arial, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('N', cx, cy + 1)
+      ctx.restore()
+      return
+    }
+    ctx.fillStyle = '#1e293b'
+    ctx.font = `900 ${Math.round(bandH * 0.44)}px Inter, Arial, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(conductor, cx, cy + 1)
+    ctx.restore()
+    return
+  }
+
   if (isNeutral) {
     // Marcação azul normalizada IEC 60446 sobre cada dente de Neutro (N)
     ctx.fillStyle = '#1d63c2'

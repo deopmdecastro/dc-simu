@@ -99,7 +99,7 @@ import {
   IconSignals,
   IconWarning,
   IconCheckCircle,
-} from '../ui/icons'
+  IconIssue, IconFlag, IconPlay, IconExternalLink, IconLadder } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import { useNarrowMenu } from '../ui/toolbarKit'
 import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY } from '../ui/device'
@@ -235,34 +235,34 @@ function actionLinkPath(x1: number, y1: number, busX: number, y2: number, x2: nu
   const r = Math.max(0, Math.min(radius, Math.abs(dy) / 2, Math.abs(busX - x1), Math.abs(x2 - busX)))
   return `M ${x1} ${y1} H ${busX - r} Q ${busX} ${y1} ${busX} ${y1 + dir * r} V ${y2 - dir * r} Q ${busX} ${y2} ${busX + r} ${y2} H ${x2}`
 }
-const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: string; name: string; detail: string }> }> = [
+const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; name: string; detail: string }> }> = [
   {
     group: 'Etapas e ligações',
     items: [
-      { kind: 'initial', icon: '◎', name: 'Etapa inicial', detail: 'Ponto de partida da sequência' },
-      { kind: 'step', icon: '□', name: 'Etapa', detail: 'Nasce sem ligação — una-a depois' },
-      { kind: 'transition', icon: '⊣', name: 'Transição solta', detail: 'Barra livre — arraste ou ligue por linha' },
+      { kind: 'initial', name: 'Etapa inicial', detail: 'Ponto de partida da sequência' },
+      { kind: 'step', name: 'Etapa', detail: 'Nasce sem ligação — una-a depois' },
+      { kind: 'transition', name: 'Transição solta', detail: 'Barra livre — arraste ou ligue por linha' },
     ],
   },
   {
     group: 'Ações',
     items: [
-      { kind: 'action', icon: '▤', name: 'Ação', detail: 'Saída Q ou memória M' },
-      { kind: 'conditional', icon: '◇', name: 'Ação condicionada', detail: 'Saída ativa sob condição' },
+      { kind: 'action', name: 'Ação', detail: 'Saída Q ou memória M' },
+      { kind: 'conditional', name: 'Ação condicionada', detail: 'Saída ativa sob condição' },
     ],
   },
   {
     group: 'Ramos simultâneos',
     items: [
-      { kind: 'fork', icon: '⑂', name: 'Divergência AND', detail: 'Uma etapa → dois ramos' },
-      { kind: 'join', icon: '⑃', name: 'Convergência AND', detail: 'Dois ramos → uma etapa' },
+      { kind: 'fork', name: 'Divergência AND', detail: 'Uma etapa → dois ramos' },
+      { kind: 'join', name: 'Convergência AND', detail: 'Dois ramos → uma etapa' },
     ],
   },
   {
     group: 'Estruturas prontas',
     items: [
-      { kind: 'or-block', icon: '⑂', name: 'Seleção OU (2 ramos)', detail: 'Etapa → 2 ramos alternativos → etapa final' },
-      { kind: 'and-block', icon: '⑂', name: 'Paralelismo ET (2 ramos)', detail: 'Etapa → 2 ramos simultâneos (barra dupla) → etapa final' },
+      { kind: 'or-block', name: 'Seleção OU (2 ramos)', detail: 'Etapa → 2 ramos alternativos → etapa final' },
+      { kind: 'and-block', name: 'Paralelismo ET (2 ramos)', detail: 'Etapa → 2 ramos simultâneos (barra dupla) → etapa final' },
     ],
   },
 ]
@@ -1614,7 +1614,7 @@ export default function GrafcetEditor({
     notify(`Modelo carregado: ${tmpl.name}`)
   }
 
-  const usePalette = (kind: PaletteItem, at?: { x: number; y: number }) => {
+  const insertPaletteItem = (kind: PaletteItem, at?: { x: number; y: number }) => {
     if (kind === 'initial') addInitial(at)
     else if (kind === 'step') addConnectedStep(undefined, at)
     else if (kind === 'transition') addFreeTransition(at)
@@ -4223,7 +4223,7 @@ export default function GrafcetEditor({
                         <button
                           key={item.kind}
                           disabled={paletteDisabled(item.kind)}
-                          onClick={() => { usePalette(item.kind); if (window.matchMedia('(max-width: 1199px)').matches) setShowPalette(false) }}
+                          onClick={() => { insertPaletteItem(item.kind); if (window.matchMedia('(max-width: 1199px)').matches) setShowPalette(false) }}
                           draggable={!paletteDisabled(item.kind)}
                           onDragStart={(event) => {
                             event.dataTransfer.setData(GRAFCET_MIME, item.kind)
@@ -4377,7 +4377,7 @@ export default function GrafcetEditor({
                       if (zoom === null) setZoom(scale)
                       if (pan === null) setPan(position)
                     }
-                    usePalette(kind, at)
+                    insertPaletteItem(kind, at)
                   }
                 }
               : undefined
@@ -5598,7 +5598,7 @@ export default function GrafcetEditor({
                                 updateStep(step.id, { initial: true, stepType: 'initial' }, 'force')
                                 notify(`Etapa ${stepNumber} definida como inicial`)
                               } else {
-                                usePalette(kind)
+                                insertPaletteItem(kind)
                               }
                             }
                           : undefined
@@ -6711,15 +6711,15 @@ export default function GrafcetEditor({
                             title="Sem etapa — arraste a caixa sobre uma etapa ou use Ligar [L]"
                           >
                             <i className="is-pending" />
-                            ▤ <b>{action.variable || action.address || 'ação'}</b>
+                            <IconLadder size={12} /> <b>{action.variable || action.address || 'ação'}</b>
                             {action.condition && action.condition !== '1' && <span className="grafcet-free-action-cond">· {action.condition}</span>}
                             <em className="grafcet-tag-free">por ligar</em>
                           </button>
                           <button aria-label="Editar ação solta" title="Editar ação" onClick={() => setEditingAction({ step: null, action })}>
-                            ✎
+                            <IconEdit size={12} />
                           </button>
                           <button aria-label="Eliminar ação solta" title="Eliminar ação" onClick={() => removeFreeAction(action.id)}>
-                            ✕
+                            <IconClose size={12} />
                           </button>
                         </div>
                       ))}
@@ -6889,7 +6889,7 @@ export default function GrafcetEditor({
                         }}
                         title="Torna esta a única etapa ativa (forçagem)"
                       >
-                        ⚑ Forçar esta etapa
+                        <IconFlag size={12} /> Forçar esta etapa
                       </button>
                       {runtime.active.includes(selectedStep.id) && (
                         <span className="grafcet-step-timer">ativa há {fmtSeconds(runtime.elapsed?.[selectedStep.id] ?? 0)}</span>
@@ -7018,7 +7018,7 @@ export default function GrafcetEditor({
                               setEditingAction({ step: selectedStep, action })
                             }}
                           >
-                            ↗
+                            <IconExternalLink size={12} />
                           </button>
                           <button
                             type="button"
@@ -7202,7 +7202,7 @@ export default function GrafcetEditor({
                           )
                         }
                       >
-                        ▶ Disparar manualmente
+                        <IconPlay size={11} /> Disparar manualmente
                       </button>
 
                       <label className="grafcet-transition-comment">
@@ -7276,7 +7276,7 @@ export default function GrafcetEditor({
                 </div>
                 {issues.map((issue) => (
                   <button key={issue.id} className={`grafcet-issue is-${issue.level}`} onClick={() => selectIssue(issue)}>
-                    <b>{issue.level === 'error' ? '✖' : '!'}</b>
+                    <b><IconIssue level={issue.level} size={12} /></b>
                     <span>{issue.message}</span>
                     <em>abrir</em>
                   </button>

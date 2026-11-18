@@ -33,6 +33,7 @@ export type ComponentType =
   | `cat:${string}`
   // --- Proteção ---------------------------------------------------------
   | 'breaker1p'
+  | 'breakerSchneiderIc60h1p'
   | 'breaker2p'
   | 'breaker3p'
   | 'breaker4p'
@@ -40,6 +41,8 @@ export type ComponentType =
   | 'motorBreakerPkzmC10'
   | 'motorBreaker'
   | 'residualBreaker'
+  | 'residualBreakerSchneiderIid4p'
+  | 'residualBreakerSchneiderIdpnVigi'
   | 'phoenixEcb3000760'
   | 'fuse'
   | 'fuseHolder'
@@ -81,6 +84,8 @@ export type ComponentType =
   | 'ledYellow'
   | 'ledWhite'
   | 'pilotLightAd22'
+  | 'pilotLightSchneiderIil1p'
+  | 'pilotLightSchneiderIil3p'
   | 'buzzer'
   | 'towerLight'
   // --- Motores / acionamentos ------------------------------------------
@@ -548,6 +553,12 @@ export interface Wire {
   energized: boolean
   /** Conduz corrente ativa num circuito fechado com carga em funcionamento. */
   carryingCurrent?: boolean
+  /** Nível térmico acumulado por sobrecorrente/curto-circuito (0..1). */
+  heatLevel?: number
+  /** Cabo danificado por sobreaquecimento / curto-circuito. */
+  damaged?: boolean
+  /** Cabo queimado / isolamento carbonizado. */
+  burnt?: boolean
   /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
    *  componentes compartilham o mesmo espaço de camadas. */
   z?: number
@@ -742,6 +753,12 @@ export interface SimulationState {
   events: SimEvent[]
   measurements: Measurement[]
   blackBox: boolean
+  shortCircuit?: {
+    active: boolean
+    focalPoint: [number, number, number] | null
+    cause: string
+    shortedWires: string[]
+  }
 }
 
 // ---------------------------------------------------------------------------

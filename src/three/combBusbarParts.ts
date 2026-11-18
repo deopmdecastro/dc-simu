@@ -25,7 +25,7 @@ export interface CombTerminalSpec {
  *  - `3P`   → Trifásico (tripolar · L1 + L2 + L3)
  *  - `3P+N` → Trifásico + Neutro (tetrapolar · L1 + L2 + L3 + N)
  */
-export type CombBusbarMode = '1P' | '1P+N' | '3P' | '3P+N'
+export type CombBusbarMode = '1P' | '1P+N' | '1P+N-3P' | '3P' | '3P+N'
 export type CombConductor = 'L' | 'L1' | 'L2' | 'L3' | 'N'
 export type CombNeutralSide = 'right' | 'left'
 export type CombTeethDirection = 'down' | 'up'
@@ -38,6 +38,7 @@ export type CombConnectorGauge = '4-16' | '6-25' | '10-35'
 export const COMB_BUSBAR_MODES: readonly { id: CombBusbarMode; short: string; label: string; desc: string; bars: number }[] = [
   { id: '1P', short: 'Único (1P)', label: 'Barramento único (1P)', desc: '1 barra contínua de cobre — todos os dentes interligados', bars: 1 },
   { id: '1P+N', short: 'Fase + N', label: 'Fase + Neutro (1P+N)', desc: '2 barras isoladas alternadas (L · N · L · N…)', bars: 2 },
+  { id: '1P+N-3P', short: 'Acti9 1P+N', label: 'Schneider Acti9 1P+N (A9XPC712)', desc: 'Distribuição trifásica para disjuntores 1P+N (N · L1 · N · L2 · N · L3…)', bars: 4 },
   { id: '3P', short: 'Trifásico (3P)', label: 'Trifásico (3P)', desc: '3 barras isoladas escalonadas (L1 · L2 · L3…)', bars: 3 },
   { id: '3P+N', short: '3 Fases + N', label: '3 Fases + Neutro (3P+N)', desc: '4 barras isoladas escalonadas (L1 · L2 · L3 · N…)', bars: 4 },
 ] as const
@@ -165,8 +166,8 @@ export function clampCombBusbarPoles(value: unknown): number {
 }
 
 export function combModeOf(state?: Record<string, unknown>): CombBusbarMode {
-  const m = state?.combMode
-  if (m === '1P' || m === '1P+N' || m === '3P' || m === '3P+N') return m
+  const m = state?.combMode ?? state?.mode
+  if (m === '1P' || m === '1P+N' || m === '1P+N-3P' || m === '3P' || m === '3P+N') return m
   return COMB_BUSBAR.defaultMode
 }
 
@@ -233,6 +234,10 @@ export function combSequenceOf(mode: CombBusbarMode, neutralSide: CombNeutralSid
       return ['L'] as const
     case '1P+N':
       return neutralSide === 'left' ? (['N', 'L1'] as const) : (['L1', 'N'] as const)
+    case '1P+N-3P':
+      return neutralSide === 'right'
+        ? (['L1', 'N', 'L2', 'N', 'L3', 'N'] as const)
+        : (['N', 'L1', 'N', 'L2', 'N', 'L3'] as const)
     case '3P':
       return ['L1', 'L2', 'L3'] as const
     case '3P+N':
@@ -247,20 +252,21 @@ export function combCatalogCodeOf(brand: CombBrandStyle, mode: CombBusbarMode, p
   const p = String(poles).padStart(2, '0')
   if (brand === 'lexman') {
     if (mode === '1P') return ratedA > 63 ? '88918368' : '88918361'
-    if (mode === '1P+N') return '88918364'
+    if (mode === '1P+N' || mode === '1P+N-3P') return '88918364'
     if (mode === '3P') return '88918372'
     return '88918379'
   }
   if (brand === 'sibratec') {
-    const k = mode === '1P' ? '1' : mode === '1P+N' ? '2' : mode === '3P' ? '3' : '4'
+    const k = mode === '1P' ? '1' : mode === '1P+N' || mode === '1P+N-3P' ? '2' : mode === '3P' ? '3' : '4'
     return `BPP-${k}P${p}-${ratedA}`
   }
   if (brand === 'schneider') {
+    if (mode === '1P+N-3P') return poles <= 12 ? 'A9XPC712' : 'A9XPC724'
     const k = mode === '1P' ? '1' : mode === '1P+N' ? '2' : mode === '3P' ? '3' : '4'
     return `A9XPH${k}${p}`
   }
   if (mode === '1P') return `4049 ${p}`
-  if (mode === '1P+N') return `4050 ${p}`
+  if (mode === '1P+N' || mode === '1P+N-3P') return `4050 ${p}`
   if (mode === '3P') return `4051 ${p}`
   return `4052 ${p}`
 }
@@ -322,7 +328,8 @@ export function combBusbarDimsOf(state?: Record<string, unknown>): CombBusbarDim
   const feedConnectors = combFeedConnectorsOf(state)
   const endCaps = combEndCapsOf(state)
   const sequence = combSequenceOf(mode, neutralSide)
-  const bars = sequence.length
+  const uniqueConductors = Array.from(new Set(sequence))
+  const bars = uniqueConductors.length
 
   // Comprimento modular real: cada dente ocupa 1 passo de 18 mm, com folga simétrica nas pontas
   const bodyLengthMm = Number(((poles - 1) * COMB_BUSBAR.pitchMm + 12.8).toFixed(2))
@@ -355,8 +362,8 @@ export function combBusbarDimsOf(state?: Record<string, unknown>): CombBusbarDim
   const counts: Record<string, number> = {}
   const teeth: CombToothInfo[] = []
   for (let i = 0; i < poles; i++) {
-    const barIndex = i % bars
-    const conductor = sequence[barIndex]
+    const conductor = sequence[i % sequence.length]
+    const barIndex = uniqueConductors.indexOf(conductor)
     const occ = (counts[conductor] ?? 0) + 1
     counts[conductor] = occ
     const xMm = Number((((i - (poles - 1) / 2) * COMB_BUSBAR.pitchMm)).toFixed(3))
@@ -960,6 +967,8 @@ export interface CombBusbarMaterials {
   cage: THREE.Material
   /** Cavidades internas sombreadas. */
   dark: THREE.Material
+  /** Tampas amarelas de proteção e topos Schneider Acti9 (A9XPE / A9XPT920). */
+  yellowCap?: THREE.Material
   /** Material PA66 de cada conector acoplado (por condutor ou cor única). */
   connectorBodyFor?: (conductor: CombConductor, index: number) => THREE.Material
 }
@@ -989,6 +998,7 @@ export function buildCombBusbar(
   const tinnedParts: THREE.BufferGeometry[] = []
   const cageParts: THREE.BufferGeometry[] = []
   const darkParts: THREE.BufferGeometry[] = []
+  const yellowParts: THREE.BufferGeometry[] = []
 
   // 1) Perfil isolante exterior em U de PVC rígido (dorso arredondado + parede frontal lisa + parede traseira)
   const wallT = 1.55
@@ -1032,13 +1042,34 @@ export function buildCombBusbar(
   }
 
   // 3) Topos isolantes laterais encaixados (end caps IP20 nas pontas esquerda e direita)
+  const isSchneiderYellow = state?.brandStyle === 'schneider' || state?.endCapColor === 'yellow' || (materials.yellowCap != null && (state?.brandStyle === 'schneider' || !state?.brandStyle))
   if (dims.endCaps) {
     const capW = COMB_BUSBAR.endCapMm
     for (const sx of [-1, 1] as const) {
       const capX = sx * (W / 2 - capW / 2)
-      pvcBarrierParts.push(box(unit, capW, sH + 0.3, sD + 0.35, capX, sY, sZ))
+      const capTarget = isSchneiderYellow ? yellowParts : pvcBarrierParts
+      capTarget.push(box(unit, capW, sH + 0.3, sD + 0.35, capX, sY, sZ))
       // Aba fina de encaixe sobre o bordo do perfil
-      pvcOuterParts.push(box(unit, capW * 0.65, sH - 1.2, sD - 0.6, capX - sx * 0.25, sY, sZ))
+      capTarget.push(box(unit, capW * 0.65, sH - 1.2, sD - 0.6, capX - sx * 0.25, sY, sZ))
+    }
+  }
+
+  // Tampas de proteção snap-on amarelas para dentes de reserva (A9XPT920 como na imagem 42!)
+  const toothCovers: number[] = Array.isArray(state?.toothCovers)
+    ? (state.toothCovers as number[])
+    : typeof state?.toothCoverCount === 'number' && (state.toothCoverCount as number) > 0
+    ? Array.from({ length: Math.min(dims.teeth.length, state.toothCoverCount as number) }, (_, k) => dims.teeth.length - 1 - k)
+    : (state?.brandStyle === 'schneider' && dims.mode === '1P+N-3P' && dims.teeth.length > 6)
+    ? [dims.teeth.length - 3, dims.teeth.length - 2, dims.teeth.length - 1] // 3 tampas amarelas acopladas na ponta como na foto!
+    : []
+
+  if (toothCovers.length > 0) {
+    for (const idx of toothCovers) {
+      const tooth = dims.teeth[idx]
+      if (!tooth) continue
+      const toothY = spineOpenY + dirSign * (dims.pinLengthMm * 0.48)
+      yellowParts.push(box(unit, 16.2, 14.2, 7.8, tooth.xMm, toothY, dims.pinPlaneZMm))
+      yellowParts.push(box(unit, 17.0, 3.2, 9.2, tooth.xMm, spineOpenY + dirSign * 1.6, dims.pinPlaneZMm))
     }
   }
 
@@ -1063,6 +1094,10 @@ export function buildCombBusbar(
     mergeMesh(pvcBarrierParts, materials.pvcBarrier, unit, 'comb-pvc-barriers', 55),
     mergeMesh(copperParts, materials.copper, unit, 'comb-copper-bars-pins', 48),
   )
+
+  if (yellowParts.length > 0) {
+    root.add(mergeMesh(yellowParts, materials.yellowCap ?? materials.pvcOuter, unit, 'comb-yellow-caps-covers', 60))
+  }
 
   // 5) Faixa frontal de serigrafia real (UV 0..1 limpo em toda a largura da espinha PVC)
   const silkW = bodyL - 0.6

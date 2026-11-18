@@ -10,7 +10,7 @@ import {
 } from '../project/nativeProjects'
 import type { LadderRung } from '../types'
 import type { GrafcetProgram } from '../grafcet/engine'
-import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
+import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo, IconMove } from '../ui/icons'
 
 /** Viewport 3D real do produto e vitrine de modelos — carregados sob pedido (performance no 1.º paint). */
 const LandingMotorHero = lazy(() => import('../three/LandingMotorHero'))
@@ -484,7 +484,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
                 <div className="dx-lib-thumb">
                   <LandingGlbThumb type={c.type} />
                   <span className="dx-lib-3d">(3D)</span>
-                  <span className="dx-lib-rotate-hint" aria-hidden="true">↕ ↔ Arraste para girar</span>
+                  <span className="dx-lib-rotate-hint" aria-hidden="true"><IconMove size={12} /> Arraste para girar</span>
                 </div>
                 <div className="dx-lib-body">
                   <b>{c.n}</b>

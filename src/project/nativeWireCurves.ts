@@ -12,6 +12,10 @@
 import type { ElectricalComponent, Wire } from '../types'
 import { NATIVE_PARTIDA_ID, NATIVE_WIRE_CURVES_FEATURE } from './nativeMotorMeter'
 import { NATIVE_ESTRELA_KS1_ID, nativeEstrelaKs1Content } from './nativeEstrelaKs1'
+import {
+  NATIVE_QUADRO_DISTRIBUICAO_ID,
+  nativeQuadroDistribuicaoContent,
+} from './nativeQuadroDistribuicao'
 import { buildNativePartidaDireta } from './nativeProjects'
 import { bakeNativeRouting } from './nativeRouting'
 
@@ -30,6 +34,12 @@ function seedProjectFor(nativeId: unknown): { components: ElectricalComponent[];
   }
   if (nativeId === NATIVE_ESTRELA_KS1_ID) {
     const built = nativeEstrelaKs1Content()
+    return Array.isArray(built.components) && Array.isArray(built.wires)
+      ? { components: built.components as ElectricalComponent[], wires: built.wires as Wire[] }
+      : null
+  }
+  if (nativeId === NATIVE_QUADRO_DISTRIBUICAO_ID) {
+    const built = nativeQuadroDistribuicaoContent()
     return Array.isArray(built.components) && Array.isArray(built.wires)
       ? { components: built.components as ElectricalComponent[], wires: built.wires as Wire[] }
       : null

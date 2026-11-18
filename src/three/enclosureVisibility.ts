@@ -4,6 +4,7 @@ import type { EnclosureParts } from './enclosureParts'
 export const ENCLOSURE_FACES = [
   ['door', 'Porta'], ['left', 'Lateral esquerda'], ['right', 'Lateral direita'],
   ['top', 'Topo'], ['bottom', 'Base'], ['back', 'Fundo'], ['plate', 'Chapa de montagem'],
+  ['innerCover', 'Proteção interior'],
 ] as const
 export type EnclosureFace = (typeof ENCLOSURE_FACES)[number][0]
 export const ENCLOSURE_EXTERIOR_FACES: readonly EnclosureFace[] = ['door', 'left', 'right', 'top', 'bottom']
@@ -28,6 +29,7 @@ const meshFaces: Record<string, EnclosureFace> = {
   'enclosure-left': 'left', 'enclosure-right': 'right', 'enclosure-top': 'top', 'enclosure-bottom': 'bottom',
   'enclosure-back': 'back', 'enclosure-wall-brackets': 'back', 'enclosure-gland': 'bottom',
   'enclosure-mounting-plate': 'plate', 'enclosure-standoffs': 'plate', 'enclosure-hinge-body': 'door',
+  'enclosure-inner-cover-plate': 'innerCover', 'enclosure-inner-cover-screws': 'innerCover', 'enclosure-inner-cover-details': 'innerCover',
 }
 const raycasts = new WeakMap<THREE.Object3D, THREE.Object3D['raycast']>()
 const noRaycast: THREE.Object3D['raycast'] = () => {}

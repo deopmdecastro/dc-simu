@@ -85,7 +85,7 @@ const COMMAND_TOOLS: Array<{ id: CmdTool; label: string; icon: typeof IconCursor
 
 const GRAFCET_TOOLS: Array<{ id: 'select' | 'pan' | 'connect'; label: string; icon: typeof IconCursor; key: string; title: string }> = [
   { id: 'select', label: 'Selecionar', icon: IconCursor, key: 'V', title: 'Ferramenta Selecionar: selecione e arraste etapas [V ou S]' },
-  { id: 'pan', label: 'Arrastar', icon: IconHand, key: 'H', title: 'Ferramenta Arrastar: mova a tela arrastando o diagrama [H ou Barra de Espaço]' },
+  { id: 'pan', label: 'Mover vista', icon: IconHand, key: 'H', title: 'Ferramenta Mover vista: mova a tela arrastando o diagrama [H ou Barra de Espaço]' },
   { id: 'connect', label: 'Ligar', icon: IconWire, key: 'L', title: 'Ferramenta Ligar: una etapas e transições por linha — arraste de uma saída para um destino [L]' },
 ]
 
@@ -1016,8 +1016,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {/* ── Edição: ações sobre o desenho / programa */}
         {isCmd && <>
           <span className="tb-sep" />
-          <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdSelection?.type !== 'part' || cmdRunning} onClick={() => useCommandsUi.getState().emit('rotate')} title="Rodar o símbolo selecionado 90° [R]"><IconRotate size={13} /><span>Rodar</span></button>
-          <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdSelection || cmdRunning} onClick={() => useCommandsUi.getState().emit('delete')} title="Apagar o símbolo ou cabo selecionado [Del]"><IconDelete size={13} /><span>Apagar</span></button>
+          <div className="dc-seg" role="toolbar" aria-label="Ações de edição">
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdSelection?.type !== 'part' || cmdRunning} onClick={() => useCommandsUi.getState().emit('rotate')} title="Rodar o símbolo selecionado 90° [R]"><IconRotate size={13} /><span>Rodar</span></button>
+            <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdSelection || cmdRunning} onClick={() => useCommandsUi.getState().emit('delete')} title="Apagar o símbolo ou cabo selecionado [Del]"><IconDelete size={13} /><span>Apagar</span></button>
+          </div>
         </>}
         {mode === 'ladder' && <>
           <span className="tb-sep" />
@@ -1105,9 +1107,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <>
                 {isCmd && <>
                   <span className="tb-sep" />
-                  <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo IEC (arranque, inversão, emergência, pneumática…)"><IconTemplates size={13} /><span>Exemplos</span></button>
-                  <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('import')} title="Importar FluidSIM (.ct) ou CADe SIMU (.cad)"><IconImport size={13} /><span>Importar</span></button>
-                  <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span>Limpar</span></button>
+                  <div className="dc-seg" role="toolbar" aria-label="Ações do esquema">
+                    <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('examples')} title="Abrir um esquema de exemplo IEC (arranque, inversão, emergência, pneumática…)"><IconTemplates size={13} /><span>Exemplos</span></button>
+                    <button type="button" className="dc-tool-btn !gap-1.5" disabled={cmdRunning} onClick={() => useCommandsUi.getState().emit('import')} title="Importar FluidSIM (.ct) ou CADe SIMU (.cad)"><IconImport size={13} /><span>Importar</span></button>
+                    <button type="button" className="dc-tool-btn !gap-1.5" disabled={!cmdHasParts || cmdRunning} onClick={() => useCommandsUi.getState().emit('clear')} title="Apagar todo o esquema (pode desfazer)"><IconErase size={13} /><span>Limpar</span></button>
+                  </div>
                 </>}
                 {mode === 'schematic' && <>
                   <span className="tb-sep" />

@@ -143,6 +143,11 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   multimeterDm20: { width: 88, height: 184, depth: 53 },
   meterD522066: { width: 54, height: 80, depth: 64 },
   meterKws306: { width: 74, height: 86.5, depth: 65 },
+  breakerSchneiderIc60h1p: { width: 18, height: 85, depth: 74 },
+  residualBreakerSchneiderIid4p: { width: 72, height: 85, depth: 74 },
+  residualBreakerSchneiderIdpnVigi: { width: 36, height: 85, depth: 74 },
+  pilotLightSchneiderIil1p: { width: 18, height: 85, depth: 74 },
+  pilotLightSchneiderIil3p: { width: 54, height: 85, depth: 74 },
 }
 
 export interface ComponentModelSpec {
@@ -328,7 +333,17 @@ export function hasComponent3DModel(type: ComponentType): boolean {
 }
 
 export function hasComponent3DVisual(type: ComponentType): boolean {
-  return hasComponent3DModel(type) || isTerminalAssemblyComponent(type) || type === 'meterD522066' || type === 'meterKws306'
+  return (
+    hasComponent3DModel(type) ||
+    isTerminalAssemblyComponent(type) ||
+    type === 'meterD522066' ||
+    type === 'meterKws306' ||
+    type === 'breakerSchneiderIc60h1p' ||
+    type === 'residualBreakerSchneiderIid4p' ||
+    type === 'residualBreakerSchneiderIdpnVigi' ||
+    type === 'pilotLightSchneiderIil1p' ||
+    type === 'pilotLightSchneiderIil3p'
+  )
 }
 
 export function canInsertComponent3D(type: ComponentType): boolean {
@@ -338,6 +353,15 @@ export function canInsertComponent3D(type: ComponentType): boolean {
 export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo GLB ou representação 3D ainda não disponível.'
 
 export function hasDinRailModel(type: ComponentType): boolean {
+  if (
+    type === 'breakerSchneiderIc60h1p' ||
+    type === 'residualBreakerSchneiderIid4p' ||
+    type === 'residualBreakerSchneiderIdpnVigi' ||
+    type === 'pilotLightSchneiderIil1p' ||
+    type === 'pilotLightSchneiderIil3p'
+  ) {
+    return true
+  }
   return getComponentGlbSpec(type)?.placement === 'din-rail'
 }
 

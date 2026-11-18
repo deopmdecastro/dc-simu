@@ -8,7 +8,12 @@ import {
   canUse, componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, limitFor, limitMessage,
   sanitizeComponentChange, upgradeMessage,
 } from '../saas/platformCore.mjs'
-import { nativeProjectSeeds, NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID } from '../project/nativeProjects'
+import {
+  nativeProjectSeeds,
+  NATIVE_PARTIDA_ID,
+  NATIVE_ESTRELA_KS1_ID,
+  NATIVE_QUADRO_DISTRIBUICAO_ID,
+} from '../project/nativeProjects'
 import {
   isFreeNativeProjectId,
   listMissingFreeNativeProjects,
@@ -18,7 +23,7 @@ import {
 } from '../project/freeNativeSandbox'
 import { nativeLandingPayload } from '../project/landingPublish'
 
-const NATIVE_IDS = [NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID] as const
+const NATIVE_IDS = [NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID, NATIVE_QUADRO_DISTRIBUICAO_ID] as const
 const isNativeId = (id: string) => (NATIVE_IDS as readonly string[]).includes(id)
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'

@@ -1,3 +1,4 @@
+import { IconChevronUp, IconChevronDown, IconChevronLeft, IconChevronRight } from '../ui/icons'
 import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 
 export type ViewCubeFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric'
@@ -44,11 +45,11 @@ function CurvedArrow({ flip }: { flip: boolean }) {
     <path d="M4 20c0-7.2 4.6-12 10.4-12V4.4L21 10l-6.6 5.6V12C10.6 12 7.4 15 7.4 20z" fill="currentColor" />
   </svg>
 }
-const ARROWS: Array<{ id: 'up' | 'down' | 'left' | 'right'; glyph: string; title: string; sx: number; sy: number }> = [
-  { id: 'up', glyph: '▲', title: 'Rodar para cima', sx: 0, sy: -1 },
-  { id: 'right', glyph: '▶', title: 'Rodar para a direita', sx: 1, sy: 0 },
-  { id: 'down', glyph: '▼', title: 'Rodar para baixo', sx: 0, sy: 1 },
-  { id: 'left', glyph: '◀', title: 'Rodar para a esquerda', sx: -1, sy: 0 },
+const ARROWS: Array<{ id: 'up' | 'down' | 'left' | 'right'; icon: typeof IconChevronUp; title: string; sx: number; sy: number }> = [
+  { id: 'up', icon: IconChevronUp, title: 'Rodar para cima', sx: 0, sy: -1 },
+  { id: 'right', icon: IconChevronRight, title: 'Rodar para a direita', sx: 1, sy: 0 },
+  { id: 'down', icon: IconChevronDown, title: 'Rodar para baixo', sx: 0, sy: 1 },
+  { id: 'left', icon: IconChevronLeft, title: 'Rodar para a esquerda', sx: -1, sy: 0 },
 ]
 
 /**
@@ -183,7 +184,7 @@ export function ViewCubeDial({
         aria-label={arrow.title}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => { event.stopPropagation(); onDrag(arrow.sx * arrowStep, arrow.sy * arrowStep, false); onDragEnd?.() }}
-      >{arrow.glyph}</button>)}
+      ><arrow.icon size={10} /></button>)}
       <div className="vcube-body" style={{ transform }}>
         <i className="vcube-axis x" /><i className="vcube-axis y" /><i className="vcube-axis z" />
         {FACES.map((face) => <button

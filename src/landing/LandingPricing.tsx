@@ -1,3 +1,4 @@
+import { IconCheck } from '../ui/icons'
 import { useEffect, useState } from 'react'
 import { accountApi } from '../auth/accountApi'
 import { DEFAULT_PRICING, FEATURES, LIMIT_KEYS, LIMIT_LABEL, readPricing, type PlanConfig, type PricingConfig } from '../saas/platformCore.mjs'
@@ -62,7 +63,7 @@ export default function LandingPricing({ pricing, onChoose }: { pricing: Pricing
             <h3>{plan.name}</h3>
             {plan.tagline && <p className="dx-price-tag">{plan.tagline}</p>}
             <div className="dx-price-value"><strong>{formatPrice(price, pricing.currency)}</strong>{price !== null && price > 0 && <span>/{period === 'yearly' ? 'ano' : 'mês'}</span>}</div>
-            <ul>{featureLines(plan).map((line) => <li key={line}>{line}</li>)}</ul>
+            <ul>{featureLines(plan).map((line) => <li key={line}><IconCheck size={12} /><span>{line}</span></li>)}</ul>
             <button type="button" className={`dx-btn ${plan.highlighted ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => onChoose(plan, period)}>{plan.ctaLabel || 'Escolher'}</button>
           </article>
         })}

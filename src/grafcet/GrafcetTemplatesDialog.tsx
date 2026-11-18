@@ -1,3 +1,4 @@
+import { IconClose } from '../ui/icons'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { transitionsOf } from './engine'
 import type { GrafcetTemplateInfo } from './templates'
@@ -109,7 +110,7 @@ export default function GrafcetTemplatesDialog({
             <strong>Modelos prontos</strong>
             <small>{entries.length} modelos · escolha um ponto de partida</small>
           </div>
-          <button type="button" className="gtpl-close" onClick={onClose} aria-label="Fechar modelos">✕</button>
+          <button type="button" className="gtpl-close" onClick={onClose} aria-label="Fechar modelos"><IconClose size={12} /></button>
         </header>
 
         <div className="gtpl-tools">
