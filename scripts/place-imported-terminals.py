@@ -42,17 +42,17 @@ PLACEMENTS = {
         ('23', 'back', 9.6, 30.0, 0.0, 5.0, 3.0),
         ('24', 'back', 9.6, 10.0, 0.0, 5.0, 3.0),
     ],
-    # WEG CWBC65: fila traseira do topo (1/3/5 + A1); a saída inferior não está
-    # desenhada no CAD — fica por baixo das mesmas colunas.
+    # CWBC65: corrected physical front frame, no reshaping. Main conductor
+    # entrances at the two end decks; A1/A2 at the right-hand coil row.
     'contactorWegCwbc65': [
-        ('1L1', 'top', -15.7, 159.4, 45.0, 6.6, 9.0),
-        ('3L2', 'top', -5.5, 159.4, 45.0, 6.6, 8.3),
-        ('5L3', 'top', 4.7, 159.4, 45.0, 6.6, 8.3),
-        ('A1', 'top', 14.5, 159.4, 45.0, 6.4, 8.1),
-        ('2T1', 'bottom', -15.7, 0.0, 45.0, 6.6, 3.0),
-        ('4T2', 'bottom', -5.5, 0.0, 45.0, 6.6, 3.0),
-        ('6T3', 'bottom', 4.7, 0.0, 45.0, 6.6, 3.0),
-        ('A2', 'bottom', 14.5, 0.0, 45.0, 6.4, 3.0),
+        ('1L1', 'top', -17.5, 114.4, 44.0, 10.0, 17.0),
+        ('3L2', 'top', -0.5, 114.4, 44.0, 10.0, 17.0),
+        ('5L3', 'top', 16.5, 114.4, 44.0, 10.0, 17.0),
+        ('A1', 'front', 14.65, 77.5, 115.1, 6.4, 4.2),
+        ('2T1', 'bottom', -17.5, 0.6, 44.0, 10.0, 17.0),
+        ('4T2', 'bottom', -0.5, 0.6, 44.0, 10.0, 17.0),
+        ('6T3', 'bottom', 16.5, 0.6, 44.0, 10.0, 17.0),
+        ('A2', 'front', 14.65, 37.5, 115.1, 6.4, 4.2),
     ],
     # WEG SPW12: referencial FINAL do modelo, após rotation Y = pi em modelPaths.
     # A rotação inverte x/z; os encaixes não ficam na face frontal de z = 50 mm.
@@ -113,7 +113,6 @@ CONTACTS = {
     'keyActuatorEao61': {'11': 'pin', '12': 'pin', '14': 'pin'},
     'photoSensorXukt1ksml2': {'COM': 'lead', 'NA': 'lead', 'NF': 'lead'},
     'towerLightSb23011': {'R': 'lead', 'Y': 'lead', 'G': 'lead', 'COM': 'lead'},
-    'contactorWegCwbc65': {'2T1': 'surface', '4T2': 'surface', '6T3': 'surface', 'A2': 'surface'},
     'motorBreakerSchneiderGv2me': {'2': 'surface', '4': 'surface', '6': 'surface'},
 }
 

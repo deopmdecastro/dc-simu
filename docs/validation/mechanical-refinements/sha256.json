@@ -1,0 +1,19 @@
+{
+  "acrilico.png": "077522d934ba28e0eb7a2990c4151aaef583c2f620608f956d2010a78cfe70ec",
+  "audit-comparison.json": "a6cc335bbaf8c1e2534450e2dd5adc7c81cfef5848fffb49c2cacd74b0d17afa",
+  "audit-inventory.json": "2ac52c12ccd5774ec5a8fbe8727594d486980695223b7c6e6b4e0a7fc0cac8fb",
+  "avel.png": "b6754c1d510e186a280d70ffe4019c304263ea293e7a01769f2f027c218c3417",
+  "built-asset-parity.json": "d776e8c9d7faa55a5ed8dd4941106d2f81d2237682a9baafb99de64ca4819d1e",
+  "catalog-results.json": "d2d359116b9120387e8c0a58c8b95974092706aae71603ea983f21faa06a33bd",
+  "cwbc.png": "47ab98535231450ff5604d1c6c1a8c88ebf00f67f6d3a0e680b3376ba582e748",
+  "d52.png": "43609ac0f75adeafd822c5c2c0e7376d58bf6b82f976efa17fd831bce90f3769",
+  "geya.png": "2eefe969ac0527ad99b55b0e151a8a8ef5b033e6c86e96abf2430582c076d0b1",
+  "lcd-results.json": "3dc606a8bafffae4d0c2d6adb52d30071d8853601917767461cb58b2ab7aaa42",
+  "lossless-export.json": "a4ea37a11474717c9e98b8e40cb4d9fd60814456763c1894aed9157f1d7a5eb9",
+  "minified-guard-results.json": "ff50815628247659269650b04ae074b225321ff5186aa4d0054d0987fd4d4182",
+  "native-results.json": "6f3d2aac43b59c8fb9087e404426c73a4beed1ec2716b7bebbfff6a573834380",
+  "pente.png": "135077f0bc16f88751e3b794a023f26152d2878555e0e193e008fde3e062fb6d",
+  "protected-checkout.json": "3f4b755092c03576d87b98354b0836d58d1dba3a2741a3f3b0da8e7a554e0bb8",
+  "source-sha256.json": "eaf391d6c8393ef6a9c1a0847a6b553666f2945267dd085dc17f701babb1663e",
+  "validation-outcomes.json": "05d88a87b77d56c6cdcbc6309057b33d8937dd17d9a48c6a10ba11d8eedb5a6f"
+}

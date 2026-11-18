@@ -156,13 +156,16 @@ function Scene() {
   const root = useMemo(() => buildDefinitionObject(def, glbCache), [def.parts, def.materials, def.assets, glbRevision])
   const known = useMemo(() => new Set(def.parts.map((part) => part.id)), [def.parts])
   useEffect(() => () => {
+    const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>()
     root.traverse((node) => {
       const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
+      if (!mesh.isMesh && !(node as THREE.LineSegments).isLineSegments) return
       const owner = def.parts.find((part) => part.id === partIdOf(node, known))
-      if (owner && owner.kind !== 'glb') mesh.geometry.dispose()
-      ;(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((material) => material.dispose())
+      if (owner && owner.kind !== 'glb') geometries.add(mesh.geometry)
+      ;(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach(material => materials.add(material))
     })
+    geometries.forEach(geometry => geometry.dispose())
+    materials.forEach(material => material.dispose())
   }, [root])
 
   // miniaturas por vista e capa: a UI pede imagens ao renderer/modelo atuais

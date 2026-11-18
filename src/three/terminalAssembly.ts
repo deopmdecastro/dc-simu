@@ -3,6 +3,8 @@ import type { ComponentType } from '../types'
 import { cachedDangerStickerTexture } from './protectionMarkings'
 
 /** Tipos nativos com GLBs compostos a partir do borne Phoenix PTI6 original. */
+export const TERMINAL_ASSEMBLY_COVER_SEED = 'terminal-assembly-cover-v1'
+
 export const TERMINAL_ASSEMBLY_TYPES = new Set<ComponentType>([
   'powerSource1ph', 'powerSource3ph', 'powerSource24v', 'terminalSet1ph', 'terminalSet3ph', 'terminalSet24v',
 ])
@@ -55,8 +57,13 @@ export function buildTerminalAssemblyCoverGroup(widthMm: number, heightMm: numbe
     depthWrite: false,
   })
 
+  // Presentation modes/body pigment must not turn this protective window
+  // into an opaque PA66 body when the inspector changes a component state.
+  clearMat.userData.keepTransparent = true
   const boxGeo = new THREE.BoxGeometry(covW * unit, covH * unit, covD * unit)
   const boxMesh = new THREE.Mesh(boxGeo, clearMat)
+  boxMesh.name = 'terminal-assembly-acrylic-shield'
+  boxMesh.userData.presentationOverlay = true
   boxMesh.position.set(0, 0, frontZ * unit)
   group.add(boxMesh)
 
@@ -110,6 +117,19 @@ export function buildTerminalAssemblyCoverGroup(widthMm: number, heightMm: numbe
   }
 
   return group
+}
+
+/** Release only the generated cover geometry/materials, including its edge lines.
+ * The warning texture is shared by the marking cache and is not owned here. */
+export function disposeTerminalAssemblyCover(group: THREE.Object3D): void {
+  const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>()
+  group.traverse(node => {
+    const drawable = node as THREE.Mesh
+    if (drawable.geometry) geometries.add(drawable.geometry)
+    if (drawable.material) for (const material of Array.isArray(drawable.material) ? drawable.material : [drawable.material]) materials.add(material)
+  })
+  geometries.forEach(geometry => geometry.dispose())
+  materials.forEach(material => material.dispose())
 }
 
 /** Tinge só os materiais neutros do corpo do PTI6 e preserva a ferragem. */

@@ -81,9 +81,12 @@ export function findMountTarget(relay: ElectricalComponent, components: Electric
 export function syncMounted(components: ElectricalComponent[]): ElectricalComponent[] {
   let changed = false
   const next = components.map((component) => {
-    if (!component.mountedOn) return component
+    // Each mounting system owns only its own devices. In particular, adding
+    // another rail device or reopening a project must not detach a comb/feeder
+    // merely because it is not a thermal relay (syncCombMounted handles those).
+    if (!component.mountedOn || !isThermalRelay(component)) return component
     const contactor = components.find((c) => c.id === component.mountedOn)
-    if (!contactor || !isThermalRelay(component)) { changed = true; return { ...component, mountedOn: undefined } }
+    if (!contactor) { changed = true; return { ...component, mountedOn: undefined } }
     const at = mountPosition(component, contactor)
     if (!at || (at.schematicX === component.schematicX && at.schematicY === component.schematicY && !component.railId)) return component
     changed = true

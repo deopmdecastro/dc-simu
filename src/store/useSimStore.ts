@@ -3899,21 +3899,37 @@ export const useSimStore = create<Store>((set, get) => {
       if (/^#[0-9a-fA-F]{6}$/.test(clean)) nextState.connectorColor = clean.toLowerCase()
     }
     const specs = busbarTerminalSpecs('combBusbarConnector', nextState)
+    const previousSpecs = busbarTerminalSpecs('combBusbarConnector', c.state)
+    const samePoint = (a: Terminal['position3D'], b: Terminal['position3D']) => !!a && !!b
+      && Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 2e-5
     get().commitHistory()
     const oldByLabel = new Map(c.terminals.map((t) => [t.label, t]))
     const newTerminals: Terminal[] = specs.map((spec) => {
-      const existing = oldByLabel.get(spec.label)
+      const existing = oldByLabel.get(spec.label), previous = previousSpecs.find(t => t.label === spec.label)
+      if (existing && previous) {
+        const socket = existing.socket3D, automatic = previous.socket3D
+        const manualSocket = !!socket && (!automatic || !samePoint(socket.position, automatic.position)
+          || socket.normal.some((n, i) => Math.abs(n - automatic.normal[i]) > 2e-5)
+          || Math.abs(socket.diameterMm - automatic.diameterMm) > 1e-4
+          || Math.abs(socket.depthMm - automatic.depthMm) > 1e-4
+          || Math.abs(socket.insetMm - automatic.insetMm) > 1e-4)
+        // Changing PA66 colour/gauge or the visible blade must not erase a
+        // pinned/manual cable endpoint, authored socket or cable direction.
+        if (existing.pinned || manualSocket || (existing.position3D && !samePoint(existing.position3D, previous.position3D))
+          || (existing.face && existing.face !== previous.face)) return existing
+      }
       const clonedSocket = spec.socket3D
         ? { ...spec.socket3D, normal: [...spec.socket3D.normal] as [number, number, number], position: { ...spec.socket3D.position } }
         : undefined
       return existing
         ? {
             ...existing,
-            displayName: spec.displayName,
+            displayName: !existing.displayName || existing.displayName === previous?.displayName ? spec.displayName : existing.displayName,
             kind: spec.kind,
             terminalType: spec.terminalType,
             color: spec.color,
             diameter: spec.diameter,
+            face: spec.face,
             x: spec.x,
             y: spec.y,
             position3D: spec.position3D ? { ...spec.position3D } : undefined,
@@ -3928,6 +3944,7 @@ export const useSimStore = create<Store>((set, get) => {
             terminalType: spec.terminalType,
             color: spec.color,
             diameter: spec.diameter,
+            face: spec.face,
             x: spec.x,
             y: spec.y,
             position3D: spec.position3D ? { ...spec.position3D } : undefined,
@@ -3936,11 +3953,11 @@ export const useSimStore = create<Store>((set, get) => {
           }
     })
     set((s) => ({
-      components: s.components.map((item) => (
+      components: syncCombMounted(s.components.map((item) => (
         item.id === c.id
           ? { ...item, terminals: newTerminals, state: nextState as ElectricalComponent['state'] }
           : item
-      )),
+      ))),
       dirty: true,
     }))
     recomputeIfActive()

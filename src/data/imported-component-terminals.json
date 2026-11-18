@@ -335,78 +335,74 @@
     {
       "label": "1L1",
       "face": "top",
-      "x": 0.227478,
-      "y": 0.0,
-      "z": 0.391304,
-      "diameterMm": 6.6,
-      "holeDepthMm": 9.0
+      "x": 0.196233,
+      "y": 0.005217,
+      "z": 0.276035,
+      "diameterMm": 10.0,
+      "holeDepthMm": 17.0
     },
     {
       "label": "3L2",
       "face": "top",
-      "x": 0.40453,
-      "y": 0.0,
-      "z": 0.391304,
-      "diameterMm": 6.6,
-      "holeDepthMm": 8.3
+      "x": 0.491321,
+      "y": 0.005217,
+      "z": 0.276035,
+      "diameterMm": 10.0,
+      "holeDepthMm": 17.0
     },
     {
       "label": "5L3",
       "face": "top",
-      "x": 0.581583,
-      "y": 0.0,
-      "z": 0.391304,
-      "diameterMm": 6.6,
-      "holeDepthMm": 8.3
+      "x": 0.786409,
+      "y": 0.005217,
+      "z": 0.276035,
+      "diameterMm": 10.0,
+      "holeDepthMm": 17.0
     },
     {
       "label": "A1",
-      "face": "top",
-      "x": 0.751692,
-      "y": 0.0,
-      "z": 0.391304,
+      "face": "front",
+      "x": 0.754296,
+      "y": 0.326087,
+      "z": 0.722083,
       "diameterMm": 6.4,
-      "holeDepthMm": 8.1
+      "holeDepthMm": 4.2
     },
     {
       "label": "2T1",
       "face": "bottom",
-      "x": 0.227478,
-      "y": 1.0,
-      "z": 0.391304,
-      "diameterMm": 6.6,
-      "holeDepthMm": 3.0,
-      "contact": "surface"
+      "x": 0.196233,
+      "y": 0.994783,
+      "z": 0.276035,
+      "diameterMm": 10.0,
+      "holeDepthMm": 17.0
     },
     {
       "label": "4T2",
       "face": "bottom",
-      "x": 0.40453,
-      "y": 1.0,
-      "z": 0.391304,
-      "diameterMm": 6.6,
-      "holeDepthMm": 3.0,
-      "contact": "surface"
+      "x": 0.491321,
+      "y": 0.994783,
+      "z": 0.276035,
+      "diameterMm": 10.0,
+      "holeDepthMm": 17.0
     },
     {
       "label": "6T3",
       "face": "bottom",
-      "x": 0.581583,
-      "y": 1.0,
-      "z": 0.391304,
-      "diameterMm": 6.6,
-      "holeDepthMm": 3.0,
-      "contact": "surface"
+      "x": 0.786409,
+      "y": 0.994783,
+      "z": 0.276035,
+      "diameterMm": 10.0,
+      "holeDepthMm": 17.0
     },
     {
       "label": "A2",
-      "face": "bottom",
-      "x": 0.751692,
-      "y": 1.0,
-      "z": 0.391304,
+      "face": "front",
+      "x": 0.754296,
+      "y": 0.673913,
+      "z": 0.722083,
       "diameterMm": 6.4,
-      "holeDepthMm": 3.0,
-      "contact": "surface"
+      "holeDepthMm": 4.2
     }
   ],
   "surgeProtectorWegSpw12": [

@@ -503,6 +503,23 @@ export function combBusbarTerminalSpecs(state?: Record<string, unknown>): CombTe
   return out
 }
 
+/** Physical blade tip, not the electrical marker (which is 1.375 mm up the
+ * contact surface). Keep the cranked and straight constructions in the same
+ * nominal frame; mounting must not depend on clamped terminal coordinates.
+ */
+export function combConnectorBladeTipMm(state?: Record<string, unknown>): [number, number, number] {
+  const s = combConnectorPinDirectionOf(state) === 'down' ? -1 : 1
+  const cranked = combConnectorPinStyleOf(state) === 'cranked'
+  const blockY = -s * (COMB_CONNECTOR.heightMm - COMB_CONNECTOR.bodyHeightMm) / 2
+  const mainH = COMB_CONNECTOR.bodyHeightMm - 3.3
+  const mainY = blockY + s * 3.3 / 2
+  const shoulder = mainY + s * (mainH / 2 + .75)
+  const start = shoulder + s * (cranked ? 4.15 : .7)
+  const length = COMB_CONNECTOR.pinLengthMm - (cranked ? 4.9 : 1.45)
+  const z = -COMB_CONNECTOR.depthMm / 2 + 2.8 + .95 - (cranked ? COMB_CONNECTOR.crankOffsetZMm : 0)
+  return [0, start + s * (length + .075), z]
+}
+
 /** Bornes 2D + 3D reais do conector avulso de alimentação para barramento pente (`combBusbarConnector`). */
 export function combConnectorTerminalSpecs(state?: Record<string, unknown>): CombTerminalSpec[] {
   const dir = combConnectorPinDirectionOf(state)
@@ -519,14 +536,17 @@ export function combConnectorTerminalSpecs(state?: Record<string, unknown>): Com
   const blockCenterY = isDown
     ? H / 2 - COMB_CONNECTOR.bodyHeightMm / 2
     : -H / 2 + COMB_CONNECTOR.bodyHeightMm / 2
-  const collarY = blockCenterY + s * 1.1
+  const collarY = blockCenterY + s * (3.3 / 2)
   const collarZ = D / 2 - 1.5
   const nyIn = Number((collarY / H + 0.5).toFixed(5))
   const nzIn = Number((collarZ / D + 0.5).toFixed(5))
 
   // Ponta do pino chato estanhado estriado (perfeitamente alinhada com a lâmina 3D bladeZ)
   const pinTipY = isDown ? -H / 2 + 1.5 : H / 2 - 1.5
-  const blockCenterZ = -D / 2 + COMB_CONNECTOR.blockDepthMm / 2 + 0.3
+  // Reserve 2.5 mm behind the housing for the cranked blade. Without this,
+  // the mesh tip escaped its nominal frame and the terminal was clamped to a
+  // different Z plane, so an apparently mounted pin was still 2.38 mm away.
+  const blockCenterZ = -D / 2 + COMB_CONNECTOR.blockDepthMm / 2 + 2.8
   const backZ = blockCenterZ - COMB_CONNECTOR.blockDepthMm / 2
   const plateZ = backZ + 0.95
   const crankDz = style === 'cranked' ? -COMB_CONNECTOR.crankOffsetZMm : 0
@@ -1190,7 +1210,7 @@ export function buildCombConnector(
   const bD = COMB_CONNECTOR.blockDepthMm
 
   const blockCenterY = isDown ? H / 2 - bH / 2 : -H / 2 + bH / 2
-  const blockCenterZ = -D / 2 + bD / 2 + 0.3
+  const blockCenterZ = -D / 2 + bD / 2 + 2.8
 
   const sub = buildConnectorSubParts(
     unit,

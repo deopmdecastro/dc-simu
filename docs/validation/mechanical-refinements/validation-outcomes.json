@@ -1,0 +1,94 @@
+{
+  "baseCommit": "7990560a8873e58561042a7025888a09286bc8a9",
+  "publication": "PAUSED",
+  "committedMechanicalChanges": false,
+  "pushedMechanicalChanges": false,
+  "deployedMechanicalChanges": false,
+  "typecheck": {
+    "command": "npx tsc -p tsconfig.json --noEmit; also tsc -b in the successful isolated build",
+    "exitCode": 0,
+    "errors": 0,
+    "log": "typecheck-final.log"
+  },
+  "ci": {
+    "command": "npm run -s test:ci",
+    "exitCode": 0,
+    "commands": 104,
+    "log": "full-ci-final.log",
+    "sameProductionSourceAsFinalBrowserAcceptance": true
+  },
+  "mechanical": {
+    "exitCode": 0,
+    "assertions": 169,
+    "log": "mechanical-smoke-twentysecond.log",
+    "alsoRunInCI": true
+  },
+  "nativeBrowser": {
+    "exitCode": 0,
+    "assertions": 43,
+    "exceptions": [],
+    "log": "ui-final-second.log"
+  },
+  "adminCatalogBrowser": {
+    "exitCode": 0,
+    "assertions": 68,
+    "publications": 11,
+    "exceptions": [],
+    "scope": "Disposable local IndexedDB; no account/cloud writes",
+    "log": "catalog-sixth.log"
+  },
+  "lcdBrowser": {
+    "exitCode": 0,
+    "assertions": 86,
+    "exceptions": [],
+    "log": "lcd-final.log"
+  },
+  "lcdUnitAssertions": 76,
+  "build": {
+    "command": "Node 22, VERCEL=1, APP_BUILD_COMMIT=mechanical-local-446ee38bb1c5d4c1 npm run build -- --outDir /home/user/.cache/dc-simu-mechanical-review",
+    "exitCode": 0,
+    "buildId": "mechanical-local-446ee38bb1c5d4c1.r213.mwmlqehr",
+    "builtAt": "2026-11-18T23:05:35.954Z",
+    "output": "/home/user/.cache/dc-simu-mechanical-review",
+    "acceptedLcdBuildUnchanged": true,
+    "minifiedGuardAssertions": 10,
+    "minifiedScope": "Actual minified static build rejects fabricated local User/Admin sessions. No authenticated cloud, project or RLS acceptance.",
+    "assetParityChecks": 6,
+    "log": "production-build-local.log"
+  },
+  "audits": {
+    "legacyNearSurfaceGateExitCode": 1,
+    "baselineWarnings": 15,
+    "currentWarnings": 15,
+    "newWarnings": 0,
+    "scope": "The failed global legacy heuristic is retained and compared against accepted commit 7990560a; no rule or source was weakened. Geometric cavity regressions pass separately.",
+    "comparison": "audit-comparative-final.json"
+  },
+  "protectedCheckout": {
+    "filesCompared": 1039,
+    "differences": [],
+    "head": "adf9fbf3f1505b11759fc63b8741d5b96ffef327",
+    "statusEntries": 122,
+    "statusSha256": "e6a8e6453b62c04058de6bddb883b3d210304e3293cd4e610855d75f1f64f751",
+    "indexGitlink": "10e555bf47a68d8ab7cb7a0a5d1966f2fa13e666",
+    "baselineArchive": "/home/user/work/qgd-release/brainnet-nested-source-before.tar.gz",
+    "scope": "Every regular archived file; no checkout, reset, clean or write to the protected checkout.",
+    "preserved": true,
+    "parentHead": "dac3a94e6e3964b56018a935ef4c51193f4b903e",
+    "parentIndexSha256": "cb2d4913eb738df3b5994e7fd42f18edfa55997c6001129dd26e215f92cd1eae",
+    "parentIndexUnchanged": true
+  },
+  "losslessExport": "baked-cwbc-lossless/report.json",
+  "sourceFingerprint": "acceptance-source-sha256.json",
+  "developmentTestCorrections": [
+    "The old CWBC65 A2 factory contact is surface, not socket; the real legacy-load fixture now faithfully reproduces it without loosening authored endpoint guards.",
+    "AVEL GLTFExporter bakes flipY into the PNG; parity compares UV-visible pixels and independently confirms the two storage orientations.",
+    "Native STOP readiness now waits below 1e-9 local units before the stricter world-rest and stationary-CAD assertions; 43 final mounted checks pass."
+  ],
+  "notClaimed": [
+    "User visual acceptance",
+    "Cloud/Supabase/RLS authenticated acceptance",
+    "Electrical accessory certification",
+    "Manufacturer cavity verification for the no-CAD legacy generic 4P"
+  ]
+}

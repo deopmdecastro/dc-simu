@@ -1,5 +1,6 @@
 import { IconEye, IconPlus } from '../../ui/icons'
 import { uiAlert } from '../../ui/dialogs'
+import TerminalAssemblyCoverSection from './TerminalAssemblyCoverSection'
 import { useMemo } from 'react'
 import { newId, defaultMaterial, posedPart, boundsMm } from '../../catalog/definition'
 import type { MaterialDef, PartDef, SpinDef, Vec3 } from '../../catalog/types'
@@ -39,6 +40,7 @@ function Overview() {
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setRibbon('wire')}>Ligar cabo [3]</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => cameraTo('fit')}>Enquadrar [F]</button>
     </div>
+    <TerminalAssemblyCoverSection />
     {issues.length > 0 && <ul className="ce-overview-issues">{issues.slice(0, 4).map((issue, index) => <li key={index} className={`is-${issue.level}`}>{issue.text}</li>)}{issues.length > 4 && <li>+{issues.length - 4} mais…</li>}</ul>}
   </div>
 }

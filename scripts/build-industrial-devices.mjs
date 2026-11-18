@@ -1,5 +1,5 @@
 /**
- * node scripts/build-industrial-devices.mjs <pasta STEP> [tipo]
+ * node --import tsx scripts/build-industrial-devices.mjs <pasta STEP> [tipo]
  * ATV / Finder: CAD original, sem redimensionamento não uniforme.
  * GEYA / AVEL / Metaltex: reconstruções cotadas, NÃO CAD oficial.
  * Impressos: scripts/build-industrial-labels.py; fontes/hash em sources.json.
@@ -8,6 +8,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as T from 'three'
 import { readStep, mat, fromOcc, box, plane, cylinder, shapePlate, drill, terminal, led, writeGlb } from './lib/cad-building.mjs'
+import { buildCaptiveTerminalScrew } from '../src/three/terminalHardware.ts'
 
 const source = path.resolve(process.argv[2] ?? '/home/user/work/industrial-devices-audit/cad-rebuilt')
 const output = path.resolve('public/models/industriais')
@@ -139,8 +140,20 @@ async function geya(type){
  if(type==='timerGeyaGrt8M1')knob(root,'industrial_function',-2.4,44.3,64.9,2.4)
  led(root,-2.6,66.7,64.5,'#18a33b','industrial_led_power',1.2);led(root,2.55,66.7,64.5,'#cb1430','industrial_led_relay',1.2)
  const labels=['A1','S','A2','15','16','18']
- for(const [i,label]of labels.entries()){const p=[-5.2+(i%3)*5.2,i<3?86.5:8.5,38];drill([body],'z',p,2.3,33,38.1);terms.push(terminal(root,label,...p,{r:2.3,depth:5}))}
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type==='timerGeyaGrt8M1'?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body, open DIN notch, six real-depth front cavities. Local manual fascia adapted: knobs / LEDs separated; common A2 illustration relabelled B1 where applicable. No manufacturer STEP obtained.'})
+ for(const [i,label]of labels.entries()){
+  const x=-5.2+(i%3)*5.2,top=i<3,screwY=top?83.5:11.5
+  // Keep each complete rim inside its stepped deck. The former 86.5/8.5 mm
+  // centres cut across its edge and left half the cavity floating in space.
+  const p=[x,screwY,38];drill([body],'z',p,2.2,29,38.1)
+  terminal(root,'driver_'+label,...p,{r:2.2,depth:9,screw:false})
+  const screw=buildCaptiveTerminalScrew('geya_'+label,1.78);screw.position.set(x,screwY,34.1);root.add(screw)
+  root.add(cylinder(.8,19,steel,'industrial_geya_screw_shank_'+label,[x,screwY,23.6]))
+  // Real conductor inlets are separate from the front screw/key access.
+  const mouth=[x,top?92.5:2.5,14]
+  drill([body],'y',mouth,1.75,top?83.5:2.4,top?92.6:11.5)
+  terms.push(terminal(root,label,...mouth,{r:1.75,depth:9,face:top?'top':'bottom'}))
+ }
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type==='timerGeyaGrt8M1'?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
 }
 
 async function avel(){

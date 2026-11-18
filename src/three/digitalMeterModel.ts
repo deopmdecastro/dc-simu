@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { getComponentPhysicalSizeMm, PANEL_UNITS_PER_MM as U, type ComponentModelSpec } from './modelPaths'
 import { fitComponentModel, disposeModelClone } from './modelFit'
 import { finiteBore } from './finiteBore'
+import { buildCaptiveTerminalScrew } from './terminalHardware'
 import { cachedCanvasTexture } from './protectionMarkings'
 import { DEVICE_LCD_SIZE, deviceLcdFrame, drawDeviceLcd, type DeviceLcdProfile } from './deviceLcd'
 
@@ -74,9 +75,28 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
     button(22.5,45,63.7,1.65,'digital_meter_reset',blue)
     for(const[label,x]of [['1',-14],['2',-4]] as const){
       bore(body,label,[x,0,30],'y',[0,-1,0],2.7,12)
-      // Front screwdriver wells are distinct from the bottom conductor mouths.
+      // Distinct cable mouth and front screwdriver well. The captive head is
+      // recessed 2.6 mm, with a real cross slot; never a gold/black face disk.
       bore(body,'screwdriver_'+label,[x,12,42],'z',[0,0,1],2.8,11)
+      const screw=buildCaptiveTerminalScrew('d52_'+label,2.18)
+      screw.position.set(x,12,39.4);root.add(screw)
+      const shank=new THREE.CylinderGeometry(1.05,1.05,8.6,20);shank.rotateX(Math.PI/2)
+      mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,12,34.2])
     }
+    // The photographed shell also has the two upper moulded 3/4 recesses.
+    // They are unpopulated housing details: no invented electrical terminals,
+    // bridge or sensor input, and no change to the working CT or 1/2 contracts.
+    for(const[label,x]of [['3',-14],['4',-4]] as const){
+      const old=body.geometry;body.geometry=finiteBore(old,'z',[x,74.5,44],2.7,38,44.02);old.dispose()
+      const lip=new THREE.TorusGeometry(2.65,.12,6,24)
+      mesh(lip,white,'digital_meter_molded_recess_'+label,[x,74.5,44.01])
+      const sleeve=new THREE.CylinderGeometry(2.68,2.68,6,24,1,true);sleeve.rotateX(Math.PI/2)
+      const inner=material('#85877f');inner.side=THREE.DoubleSide
+      mesh(sleeve,inner,'digital_meter_molded_recess_wall_'+label,[x,74.5,41])
+      const floor=new THREE.CircleGeometry(2.68,24)
+      mesh(floor,inner,'digital_meter_molded_recess_floor_'+label,[x,74.5,38.01])
+    }
+    marking('3    4',-9,69.6,44.025,22,2.3,'digital_meter_spare_mold_numbers')
     marking('D52-2066',-13.4,65.1,64.09,21.5,2.1,'digital_meter_type')
     marking('Multi-Function Digital Meter',-2.5,24.1,64.09,43,2,'digital_meter_legend')
     marking('1    2',-9,17,42.025,22,2.5,'digital_meter_voltage_terminals')

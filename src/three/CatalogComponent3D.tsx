@@ -26,6 +26,7 @@ import { logoRuntimeVars } from './logoRuntime'
 import { isIndustrialDevice } from '../electrical/industrialDevices'
 import { prepareIndustrialModel } from './industrialFinish'
 import { useControlWheel } from './useControlWheel'
+import { buildTerminalAssemblyCoverGroup, disposeTerminalAssemblyCover, isTerminalAssemblyComponent, TERMINAL_ASSEMBLY_COVER_SEED } from './terminalAssembly'
 
 const EMPTY_PARTS: string[] = []
 
@@ -83,7 +84,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     } else {
       object.traverse((node) => {
         const mesh = node as THREE.Mesh
-        if (!mesh.isMesh) return
+        if (!mesh.isMesh || mesh.userData.presentationOverlay) return
         mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.25 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.25 })
         mesh.castShadow = mesh.receiveShadow = true
       })
@@ -99,6 +100,26 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     object.updateMatrixWorld(true)
     return { model: object, topY: anchor === 'bottom' ? height : height / 2 }
   }, [scene, origin, anchor, builtin])
+
+  const coverParts = useMemo(() => version?.definition.parts.filter(part => part.procedural === 'terminal-assembly-cover' && !part.editorOnly) ?? [], [version])
+  // Old immutable publications predate the editable cover part. Only those
+  // get the compatibility overlay; never recreate a cover deleted by its author.
+  const acrylic = useMemo(() => {
+    if (!builtin || !isTerminalAssemblyComponent(builtin) || c.state.acrylicCover !== true
+      || coverParts.length || version?.definition.builtinSeeds?.includes(TERMINAL_ASSEMBLY_COVER_SEED)) return null
+    const { width, height, depth } = spec.physicalSizeMm
+    const cover = buildTerminalAssemblyCoverGroup(width, height, depth, PANEL_UNITS_PER_MM)
+    if (anchor === 'bottom') cover.position.y = height * PANEL_UNITS_PER_MM / 2
+    return cover
+  }, [builtin, c.state.acrylicCover, spec, anchor, coverParts, version])
+  useEffect(() => () => { if (acrylic) disposeTerminalAssemblyCover(acrylic) }, [acrylic])
+  const applyCoverVisibility = () => {
+    for (const part of coverParts) {
+      const node = model.getObjectByName(part.id)
+      if (node) node.visible = typeof c.state.acrylicCover === 'boolean' ? c.state.acrylicCover : part.visible
+    }
+  }
+  useEffect(() => { applyCoverVisibility(); invalidate() }, [coverParts, model, c.state.acrylicCover])
 
   // Cabeça móvel do botão de emergência (só nos tipos que a têm): o controlo
   // `dcsimu_head` só existe depois de separar a peça do corpo.
@@ -147,7 +168,10 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   useEffect(() => { rig.current?.setHiddenParts(hiddenParts); invalidate() }, [hiddenParts, version, model])
   useFrame((_, delta) => {
     rig.current?.setLive({ $rpm: Number(c.state?.rpmVisual ?? (c.state?.running ? 1 : 0)) || 0, $dir: c.state?.direction === 'ccw' ? 'ccw' : 'cw', $motor: !!c.state?.running })
-    const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1)); if (a || b) invalidate()
+    const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1))
+    // The instance choice overrides visibility, never authored cover transforms.
+    applyCoverVisibility()
+    if (a || b) invalidate()
   })
 
   const known = useMemo(() => new Set(version?.definition.parts.map((part) => part.id) ?? []), [version])
@@ -224,6 +248,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     onPointerUp={(event) => fire(event, 'pressUp')}
   >
     <primitive dispose={null} object={model} />
+    {acrylic && <primitive object={acrylic} />}
     {builtin === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
     {builtin === 'motor3ph' && <group position={[model.position.x, model.position.y, model.position.z]}><MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} /></group>}
     {children?.(topY)}

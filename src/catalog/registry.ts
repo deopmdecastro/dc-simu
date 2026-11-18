@@ -33,6 +33,7 @@ function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemp
   const isMultimeter = version.definition.behavior?.type === 'multimeter'
   const origin = builtinOrigin(entry)
   const original = origin ? TEMPLATES[origin] : undefined
+  const covers = version.definition.parts.filter(part => part.procedural === 'terminal-assembly-cover' && !part.editorOnly)
   return {
     category: isMultimeter ? 'measurement' : original?.category ?? entry.meta.category,
     paletteName: entry.meta.name,
@@ -55,6 +56,7 @@ function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemp
     defaultState: {
       ...(origin&&supportsBuiltinRuntime(origin)?{...structuredClone(original!.defaultState),builtinOrigin:origin,...(isIndustrialDevice(origin)?{industrialOrigin:origin}:{}),...Object.fromEntries((version.definition.vars??[]).filter(v=>!v.id.startsWith('$')).map(v=>[v.id,v.initial]))}:{}),
       catalogState: version.definition.initialState,
+      ...(covers.length ? { acrylicCover: covers.some(part => part.visible) } : {}),
     },
   }
 }

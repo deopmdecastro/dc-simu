@@ -1,4 +1,5 @@
 import { uiAlert } from '../../ui/dialogs'
+import TerminalAssemblyCoverSection from './TerminalAssemblyCoverSection'
 import { useMemo, useRef, useState } from 'react'
 import { newId, resolveState } from '../../catalog/definition'
 import type { ActionDef, InteractionDef, LightColorRule, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
@@ -662,6 +663,7 @@ export function ComponentTab() {
       <Field label="Montagem"><Select value={def.mount} onChange={(mount) => edit((state) => ({ ...state, mount }))} options={[['din-rail', 'Calha DIN'], ['panel-front', 'Frente do painel'], ['machine', 'Máquina / campo']]} /></Field>
     </Section>
     <RealSizeSection />
+    <TerminalAssemblyCoverSection />
     <CoverSection />
     <DatasheetSection />
     <Section title="Propriedades" open={false} actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => editMeta({ properties: [...meta.properties, { key: '', value: '' }] })}>+ Nova</button>}>

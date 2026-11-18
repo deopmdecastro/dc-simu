@@ -147,8 +147,14 @@ export class ComponentRig {
   private readonly schneiderModular: SchneiderModularType | null
   private readonly digitalMeter: DigitalMeterType | null
   private readonly industrial: IndustrialDeviceType | null
+  private readonly cwbcCarrier: { node: THREE.Object3D; rest: THREE.Vector3; travel: THREE.Vector3; value: number } | null
 
   constructor(private readonly def: ComponentDefinition, private readonly root: THREE.Object3D, private readonly animator?: StateAnimator | null) {
+    const carrierNode = root.getObjectByName('imported_carrier'), carrierPose = carrierNode?.userData.cwbcCarrier
+    const vector = (value: unknown): value is [number, number, number] => Array.isArray(value) && value.length === 3 && value.every(Number.isFinite)
+    this.cwbcCarrier = carrierNode && vector(carrierPose?.rest) && vector(carrierPose?.travel)
+      ? { node: carrierNode, rest: new THREE.Vector3(...carrierPose.rest), travel: new THREE.Vector3(...carrierPose.travel), value: 0 } : null
+    if (this.cwbcCarrier) this.cwbcCarrier.node.position.copy(this.cwbcCarrier.rest)
     this.industrial=industrialTypeIn(root)
     if(this.industrial)prepareIndustrialModel(root,this.industrial)
     this.schneiderModular=root.getObjectByName(ACTI9_MCB_HANDLE)?'breakerSchneiderIc60h1p':root.getObjectByName('acti9_lens_3')?'pilotLightSchneiderIil3p':root.getObjectByName('acti9_lens_1')?'pilotLightSchneiderIil1p':null
@@ -324,7 +330,7 @@ export class ComponentRig {
   }
 
   /** Aplica já a pose final (sem animação). */
-  snap() { for (const item of this.items.values()) { item.value = item.target; item.velocity = 0 } this.apply() }
+  snap() { for (const item of this.items.values()) { item.value = item.target; item.velocity = 0 } this.apply(); this.updateCwbcCarrier(0, true) }
 
   private apply() {
     for (const item of this.items.values()) {
@@ -389,6 +395,20 @@ export class ComponentRig {
     if (!on) for (const item of this.spinners) { item.node.quaternion.copy(item.base); item.last.copy(item.base); item.angle = 0 }
   }
 
+  /** Manufacturer coil carrier: exact same saved local rest/course as native.
+   * Only its two real meshes move; STOP de-energises, never rotates the body.
+   */
+  private updateCwbcCarrier(delta: number, instant = false): boolean {
+    const item = this.cwbcCarrier
+    if (!item) return false
+    const target = this.vars.energized && this.vars.$simStopped !== true ? 1 : 0
+    const next = instant ? target : item.value + (target - item.value) * (1 - Math.exp(-delta * 14))
+    const moving = Math.abs(next - target) > 1e-4
+    item.value = moving ? next : target
+    item.node.position.copy(item.rest).addScaledVector(item.travel, item.value)
+    return moving
+  }
+
   /** Há peças com rotação contínua? */
   get hasSpinners() { return this.spinners.length > 0 }
 
@@ -419,7 +439,7 @@ export class ComponentRig {
 
   /** Devolve true enquanto algo se mexe (para a vista pedir novo frame). */
   update(delta: number): boolean {
-    const spinning = this.updateSpinners(delta)
+    const spinning = this.updateSpinners(delta), carrierMoving = this.updateCwbcCarrier(delta)
     let moving = false
     for (const node of this.hiddenParts) node.visible = false
     const k = 1 - Math.exp(-delta * 14)
@@ -434,10 +454,11 @@ export class ComponentRig {
       if (Math.abs(diff) > 0.05) { item.value += diff * k; moving = true } else if (diff !== 0) { item.value = item.target; moving = true }
     }
     if (moving) this.apply()
-    return moving || spinning
+    return moving || spinning || carrierMoving
   }
 
   dispose() {
+    if (this.cwbcCarrier) this.cwbcCarrier.node.position.copy(this.cwbcCarrier.rest)
     if(this.industrial)releaseIndustrialLcd(this.root)
     if(this.digitalMeter)releaseDigitalMeterDisplay(this.root)
     for (const item of this.items.values()) for (const entry of item.moving) { entry.node.matrix.copy(entry.local0); entry.local0.decompose(entry.node.position, entry.node.quaternion, entry.node.scale) }

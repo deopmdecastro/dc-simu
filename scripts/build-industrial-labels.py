@@ -1,6 +1,7 @@
 """Offline: python3 scripts/build-industrial-labels.py <pasta dos PDF>
 Requires PyMuPDF and Pillow. Original logos come from source artwork, never a font.
-Only the GEYA common-reference text and explicit simulation nominal labels are reconstructed.
+The AVEL photographed wording, GEYA common-reference text and explicit nominal labels are re-typeset.
+The AVEL wordmarks are cropped/rectified from the original catalogue, not recreated as a font.
 """
 from pathlib import Path
 import sys, json, hashlib
@@ -38,15 +39,12 @@ for kind,target in [('m','geya-grt8-m-face.png'),('ab','geya-grt8-b-face.png')]:
         # Manual illustration says A2 (two outputs). This product is B1 (one output).
         draw.rectangle((1*scale,53*scale,23*scale,58*scale),fill='white');draw.text((1*scale,53*scale),'GRT8-B1',font=font(46),fill='#222222')
     im.save(out/target,optimize=True)
-# AVEL photo is extracted at original resolution, not a screenshot or invented brand.
+# AVEL: preserve the actual catalogue wordmarks, but re-typeset its exact
+# photographed text at 1408 x 3200 px. Do not magnify the old perspective photo.
+from lib.avel_silkscreen import build_avel_silkscreen
 d=fitz.open(source/'avel-relays-catalog.pdf');image=d.extract_image(678)
-im=Image.open(BytesIO(image['image'])).convert('RGB')
-im=im.transform((352,800),Image.Transform.QUAD,(127,5,127,351,247,351,247,5),Image.Resampling.BICUBIC)
-draw=ImageDraw.Draw(im)
-for y in [154,176,222,246,292,314]:
-    x=(146-127)/120*352;yy=(y-5)/346*800
-    draw.ellipse((x-15,yy-15,x+15,yy+15),fill='#e6e8e1')
-im.save(out/'avel-411-face.png',optimize=True)
+photo=Image.open(BytesIO(image['image'])).convert('RGB')
+build_avel_silkscreen(photo,out/'avel-411-face.png')
 # Nominal print labels are explicitly reconstructed from reference text. No false
 # serial number, QR, CE/UL claim or arbitrary certification badge is invented.
 def label(file,lines,size=(512,280),bg='#ecece4',fg='#30332e'):

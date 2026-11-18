@@ -1,0 +1,10 @@
+{
+  "assertions": 10,
+  "version": {
+    "buildId": "mechanical-local-446ee38bb1c5d4c1.r213.mwmlqehr",
+    "builtAt": "2026-11-18T23:05:35.954Z"
+  },
+  "mode": "static-session-guard",
+  "authenticatedProjectFlow": "NOT_RUN_REQUIRES_REAL_SUPABASE",
+  "scope": "Actual minified static build rejects fabricated local User/Admin sessions. No authenticated cloud, project or RLS acceptance."
+}

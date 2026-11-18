@@ -7,7 +7,7 @@
       "source": "https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip",
       "cadMember": "MCADID0000926_3D-simplified.stp",
       "cadSha256": "f88134f58af2d9f9b00b5ea17df978257c1683fee3dc28b683e7ece1f50bd2c9",
-      "changes": "Rigid Rx(+90°). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and three original-function LEDs. Control connector placement is functional, not certified metrology.",
+      "changes": "Rigid Rx(+90\u00b0). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and three original-function LEDs. Control connector placement is functional, not certified metrology.",
       "physicalSizeMm": {
         "width": 72.750237,
         "height": 142.950153,
@@ -34,7 +34,7 @@
           "sha256": "002bfd6bf673f84159a3923ca802f655376aee5621eff327dd9ece5dc8b42b8f"
         }
       ],
-      "changes": "94.04 + 55.34, rigid transforms only. Pin rows at 28/34.35/40.70/44.80 mm and X ±6.6/±2.2. Seat reference 35.5 mm. TEST faces 119–155 separated; internals and 24 V DC label reconstructed. TEST is momentary, no lock. CAD does not prove a photographed coil voltage.",
+      "changes": "94.04 + 55.34, rigid transforms only. Pin rows at 28/34.35/40.70/44.80 mm and X \u00b16.6/\u00b12.2. Seat reference 35.5 mm. TEST faces 119\u2013155 separated; internals and 24 V DC label reconstructed. TEST is momentary, no lock. CAD does not prove a photographed coil voltage.",
       "physicalSizeMm": {
         "width": 27,
         "height": 78.599997,
@@ -51,7 +51,7 @@
       "kind": "dimensioned-reconstruction",
       "source": "https://www.caiado.pt/images/uploaded/CatalogosCaiado/catalogo-avel-reles-eletronicos.pdf",
       "page": 14,
-      "changes": "35×79×77 mm nominal, 77.61 mm visual envelope including label. Eleven undecal pins and six physical LEDs (tank wet/dry, well wet/dry, relay, supply). Front label rectified from original catalogue photo. No switches, display or automatically included base.",
+      "changes": "35\u00d779\u00d777 mm nominal, 77.61 mm visual envelope including label. Eleven undecal pins and six physical LEDs (tank wet/dry, well wet/dry, relay, supply). Front label rectified from original catalogue photo. No switches, display or automatically included base.",
       "physicalSizeMm": {
         "width": 35,
         "height": 79,
@@ -61,45 +61,49 @@
       "cavities": 0,
       "pins": 11,
       "bytes": 115576,
-      "sha256": "da2c36b5d20d39bd6ee6634bac8a992cac5d33f0809cb2da4149644b7746a6aa"
-    },
-    {
-      "type": "timerGeyaGrt8M1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body, open DIN notch, six real-depth front cavities. Local manual fascia adapted: knobs / LEDs separated; common A2 illustration relabelled B1 where applicable. No manufacturer STEP obtained.",
-      "physicalSizeMm": {
-        "width": 18,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 136900,
-      "sha256": "9f9da939fb99f9e5397e68275e4c369e6dd37afafe821f25d9143a8dae513946"
-    },
-    {
-      "type": "timerGeyaGrt8B1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body, open DIN notch, six real-depth front cavities. Local manual fascia adapted: knobs / LEDs separated; common A2 illustration relabelled B1 where applicable. No manufacturer STEP obtained.",
-      "physicalSizeMm": {
-        "width": 18,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 128824,
-      "sha256": "9db876e6339e3dd6701b6d4687e0cdd95411e472055985832ce691ff948789a5"
+      "sha256": "da2c36b5d20d39bd6ee6634bac8a992cac5d33f0809cb2da4149644b7746a6aa",
+      "silkscreen": {
+        "revision": "avel-legible-v2",
+        "file": "avel-411-face.png",
+        "sha256": "3086ead5cc6019f90ac0bc68c3a61640a63fe146b7c394f06efad3089b3eae42",
+        "sourcePdfSha256": "ac43db6590d999b1a11b6aa365514e3c547df74d58c51a5f40d1744dd483a239",
+        "method": "Exact photographed wording re-typeset in clean scalable typography; original partner and AVEL wordmarks rectified and recoloured from catalogue image 678; six neutral apertures at live lens centres. Educational reconstruction, not official vector artwork.",
+        "width": 1408,
+        "height": 3200,
+        "wording": "411 RNPD0-023 01; REL\u00c9 de N\u00cdVEL; Controlo de Po\u00e7o e Dep\u00f3sito; DEP\u00d3SITO / PO\u00c7O; \u00c1gua / Falta de \u00c1gua; Ligado (1-3); Tens\u00e3o (2-10); 230 V~",
+        "ledCentersPx": [
+          [
+            213.333,
+            1374.768
+          ],
+          [
+            213.333,
+            1578.752
+          ],
+          [
+            213.333,
+            1999.469
+          ],
+          [
+            213.333,
+            2220.452
+          ],
+          [
+            213.333,
+            2649.668
+          ],
+          [
+            213.333,
+            2853.652
+          ]
+        ]
+      }
     },
     {
       "type": "buzzerMetaltexTby301",
       "kind": "dimensioned-reconstruction",
       "source": "https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf",
-      "changes": "47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø35 bezel and Ø25 acoustic mouth, two rear connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.",
+      "changes": "47\u00d747 mm rear body, nominal 69.5 mm depth; \u00d830 panel neck, \u00d835 bezel and \u00d825 acoustic mouth, two rear connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.",
       "physicalSizeMm": {
         "width": 47,
         "height": 47.01,
@@ -128,6 +132,38 @@
       "pins": 0,
       "bytes": 1661892,
       "sha256": "1331b5c0943e6742451f06fcb5d3a10bc860711e7ba69d4e28092fbe2bd09a6a"
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+      "changes": "Nominal 18\u00d790\u00d764 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "physicalSizeMm": {
+        "width": 18,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 338188,
+      "sha256": "c5d87a2e72eeac38a8c9c692536eeab02b22b1573667f59e54101e74086eaedb"
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
+      "changes": "Nominal 18\u00d790\u00d764 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "physicalSizeMm": {
+        "width": 18,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 330104,
+      "sha256": "9cc41ec87af397a7bcbc85cb47b7582910e53ad6fab5b1be27fb0d2211c74950"
     }
   ]
 }

@@ -81,6 +81,8 @@ export interface PartDef {
   overrideMaterial?: boolean
   /** Peça GLB: tinge só os materiais neutros (usado nos bornes compostos por fase). */
   neutralTintColor?: string
+  /** Geometria integrada editável, gerada em mm e incluída no GLB publicado. */
+  procedural?: 'terminal-assembly-cover'
 }
 
 export type TerminalPolarity = 'none' | 'positive' | 'negative' | 'ac' | 'neutral' | 'earth'

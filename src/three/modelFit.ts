@@ -58,7 +58,7 @@ function shareCloneMaterials(root: THREE.Object3D): Set<THREE.Material> {
   }
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
-    if (!mesh.isMesh || !mesh.material) return
+    if ((!mesh.isMesh && !(node as THREE.LineSegments).isLineSegments) || !mesh.material) return
     mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material)
   })
   return new Set(byReference.values())
@@ -73,7 +73,7 @@ export function disposeModelClone(root: THREE.Object3D): void {
   root.traverse(node => {
     for (const material of cloneMaterials.get(node) ?? []) materials.add(material)
     const mesh = node as THREE.Mesh
-    if (!mesh.isMesh) return
+    if (!mesh.isMesh && !(node as THREE.LineSegments).isLineSegments) return
     if (mesh.geometry && !cachedGeometries.has(mesh.geometry)) geometries.add(mesh.geometry)
     for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) if (material) materials.add(material)
   })
@@ -84,7 +84,7 @@ export function disposeModelClone(root: THREE.Object3D): void {
 /** Clona a cena do cache do GLTF garantindo caixas exatas. */
 export function cloneModelScene<T extends THREE.Object3D>(scene: T): T {
   fixGeometryBounds(scene)
-  scene.traverse(node => { const mesh=node as THREE.Mesh; if(mesh.isMesh&&mesh.geometry)cachedGeometries.add(mesh.geometry) })
+  scene.traverse(node => { const mesh=node as THREE.Mesh; if((mesh.isMesh||(node as THREE.LineSegments).isLineSegments)&&mesh.geometry)cachedGeometries.add(mesh.geometry) })
   const clone = scene.clone(true) as T
   cloneMaterials.set(clone, shareCloneMaterials(clone))
   markCadNodes(clone)

@@ -1,0 +1,14 @@
+{
+  "filesCompared": 1039,
+  "differences": [],
+  "head": "adf9fbf3f1505b11759fc63b8741d5b96ffef327",
+  "statusEntries": 122,
+  "statusSha256": "e6a8e6453b62c04058de6bddb883b3d210304e3293cd4e610855d75f1f64f751",
+  "indexGitlink": "10e555bf47a68d8ab7cb7a0a5d1966f2fa13e666",
+  "baselineArchive": "/home/user/work/qgd-release/brainnet-nested-source-before.tar.gz",
+  "scope": "Every regular archived file; no checkout, reset, clean or write to the protected checkout.",
+  "preserved": true,
+  "parentHead": "dac3a94e6e3964b56018a935ef4c51193f4b903e",
+  "parentIndexSha256": "cb2d4913eb738df3b5994e7fd42f18edfa55997c6001129dd26e215f92cd1eae",
+  "parentIndexUnchanged": true
+}

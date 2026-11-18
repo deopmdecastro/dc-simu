@@ -3,7 +3,8 @@ import { importedComponentInfo } from '../electrical/importedComponents'
 import Select from '../ui/Select'
 import CatalogInspector from '../catalog/CatalogInspector'
 import SidePanelHeader from './SidePanelHeader'
-import { useCatalogStore } from '../catalog/registry'
+import { builtinOriginType, useCatalogStore } from '../catalog/registry'
+import { isTerminalAssemblyComponent, TERMINAL_ASSEMBLY_COVER_SEED } from '../three/terminalAssembly'
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { parseCatalogType } from '../catalog/types'
 import PlcSignalPanel from './PlcSignalPanel'
@@ -896,21 +897,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   </div>
                 </div>
               )}
-              {(selectedComponent.type === 'powerSource1ph' || selectedComponent.type === 'powerSource3ph' || selectedComponent.type === 'powerSource24v' || selectedComponent.type === 'terminalSet1ph' || selectedComponent.type === 'terminalSet3ph' || selectedComponent.type === 'terminalSet24v') && (
-                <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between">
-                  <div className="flex-1 pr-2">
-                    <div className="text-xs font-semibold text-slate-700">Acrílico de proteção</div>
-                    <div className="text-[11px] text-slate-500">Tampa transparente com parafusos e sinal de aviso</div>
-                  </div>
-                  <button
-                    type="button"
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${selectedComponent.state?.acrylicCover ? 'bg-brand-600 border-brand-700 text-white hover:bg-brand-500' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`}
-                    onClick={() => useSimStore.getState().setComponentState(selectedComponent.id, { acrylicCover: !selectedComponent.state?.acrylicCover })}
-                  >
-                    {selectedComponent.state?.acrylicCover ? 'Com acrílico' : 'Sem acrílico'}
-                  </button>
-                </div>
-              )}
+              <TerminalAssemblyCoverControl component={selectedComponent} />
 
               {isRailMountable(selectedComponent) && (() => {
                 const rail = components.find((item) => item.id === selectedComponent.railId)
@@ -1103,7 +1090,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   if (isTerminalStripType(selectedComponent.type) && TERMINAL_STRIP_STATE_KEYS.has(k)) return false
                   if (hasProt && (PROTECTION_MANAGED_STATE_KEYS.has(k) || DEVICE_MANAGED_STATE_KEYS.has(k))) return false
                   if (hasDev && DEVICE_MANAGED_STATE_KEYS.has(k)) return false
-                  if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes' || k === 'glassColor') return false
+                  if (k === 'showFan' || k === 'acrylicCover' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes' || k === 'glassColor') return false
                   if (isThermal && (['testPressed', 'stopPressed', 'tripped', 'manual', 'manufacturer', 'code'].includes(k))) return false
                   return true
                 })
@@ -2875,6 +2862,26 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
  * veio do motor integrado, ou peças marcadas «Peça opcional» no editor de
  * elementos). O estado vive no componente, por isso fica guardado no projeto.
  */
+function TerminalAssemblyCoverControl({ component }: { component: { id: string; type: ComponentType; locked?: boolean; state: Record<string, unknown> } }) {
+  const entries = useCatalogStore(s => s.entries), link = parseCatalogType(component.type)
+  const def = link ? entries.find(entry => entry.id === link.id)?.versions.find(version => version.version === link.version)?.definition : undefined
+  const covers = def?.parts.filter(part => part.procedural === 'terminal-assembly-cover' && !part.editorOnly) ?? []
+  if (!isTerminalAssemblyComponent(builtinOriginType(component.type) ?? component.type)
+    || (def?.builtinSeeds?.includes(TERMINAL_ASSEMBLY_COVER_SEED) && !covers.length)) return null
+  const on = typeof component.state.acrylicCover === 'boolean' ? component.state.acrylicCover : covers.some(part => part.visible)
+  return <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between">
+    <div className="flex-1 pr-2">
+      <div className="text-xs font-semibold text-slate-700">Acrílico de proteção</div>
+      <div className="text-[11px] text-slate-500">Tampa transparente com parafusos e sinal de aviso</div>
+    </div>
+    <button type="button" disabled={component.locked} aria-pressed={on}
+      className={`rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${on ? 'bg-brand-600 border-brand-700 text-white hover:bg-brand-500' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+      onClick={() => useSimStore.getState().setComponentState(component.id, { acrylicCover: !on })}>
+      {on ? 'Com acrílico' : 'Sem acrílico'}
+    </button>
+  </div>
+}
+
 function OptionalPartsGroup({ component }: { component: { id: string; type: string; locked?: boolean; state: Record<string, unknown> } }) {
   const entries = useCatalogStore((s) => s.entries)
   const link = parseCatalogType(component.type)
@@ -2883,7 +2890,7 @@ function OptionalPartsGroup({ component }: { component: { id: string; type: stri
     if (!link) return []
     const def = entries.find((entry) => entry.id === link.id)?.versions.find((item) => item.version === link.version)?.definition
     const hidden = new Set((component.state.hiddenParts as string[] | undefined) ?? [])
-    return (def?.parts ?? []).filter((part) => part.optional && !part.editorOnly).map((part) => ({ key: part.id, name: part.name, visible: !hidden.has(part.id) }))
+    return (def?.parts ?? []).filter((part) => part.optional && !part.editorOnly && part.procedural !== 'terminal-assembly-cover').map((part) => ({ key: part.id, name: part.name, visible: !hidden.has(part.id) }))
   }, [component.type, component.state.showFan, component.state.hiddenParts, entries, link?.id, link?.version])
   if (!rows.length) return null
   const toggle = (key: string, visible: boolean) => {

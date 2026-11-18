@@ -1059,6 +1059,16 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   })
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const active = simActive && !!(c.state.energized || c.state.powered)
+  // These native PTI6 assemblies are routed through this CAD renderer, not
+  // TerminalAssembly3D below. The inspector state must drive the actual route.
+  const acrylic = useMemo(() => {
+    if (!isTerminalAssemblyComponent(c.type) || c.state.acrylicCover !== true) return null
+    const { width, height, depth } = spec.physicalSizeMm
+    const group = buildTerminalAssemblyCoverGroup(width, height, depth, PANEL_UNITS_PER_MM)
+    if (!centered) group.position.y = height * PANEL_UNITS_PER_MM / 2
+    return group
+  }, [c.type, c.state.acrylicCover, spec, centered])
+  useEffect(() => () => { if (acrylic) disposeTerminalAssemblyCover(acrylic) }, [acrylic])
   const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
   const rig = BREAKER_HANDLE_RIG[c.type]
@@ -1135,6 +1145,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   })
   return <group position={position ?? [x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
+    {acrylic && <primitive object={acrylic} />}
     {/* Torre: halo contido + luz de ponto no centro de cada lente (por dentro), a lente fica translúcida e emissiva quando acesa. */}
     {lenses.map((lens) => <GlowHalo key={lens.role} color={lens.color} on={simActive && !!c.state[lens.role]} radius={lens.radius} kind="lens" position={lens.center} />)}
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
@@ -1464,7 +1475,7 @@ function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
   </group>
 }
 
-import { buildTerminalAssemblyCoverGroup } from './terminalAssembly'
+import { buildTerminalAssemblyCoverGroup, disposeTerminalAssemblyCover, isTerminalAssemblyComponent } from './terminalAssembly'
 
 /** Conjunto nativo completo, carregado do GLB composto pelos bornes originais. */
 function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
@@ -1485,9 +1496,13 @@ function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [scene, spec])
 
   const cover = useMemo(() => {
-    if (!c.state?.acrylicCover) return null
-    return buildTerminalAssemblyCoverGroup(spec.physicalSizeMm.width, spec.physicalSizeMm.height, spec.physicalSizeMm.depth, PANEL_UNITS_PER_MM)
+    if (c.state?.acrylicCover !== true) return null
+    const group = buildTerminalAssemblyCoverGroup(spec.physicalSizeMm.width, spec.physicalSizeMm.height, spec.physicalSizeMm.depth, PANEL_UNITS_PER_MM)
+    group.position.y = spec.physicalSizeMm.height * PANEL_UNITS_PER_MM / 2
+    return group
   }, [c.state?.acrylicCover, spec])
+  useEffect(() => () => { if (cover) disposeTerminalAssemblyCover(cover) }, [cover])
+  useEffect(() => () => disposeModelClone(model), [model])
 
   return (
     <group position={[x, RAIL_Y + 0.48, 0.12]}>

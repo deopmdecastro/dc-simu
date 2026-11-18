@@ -1,0 +1,22 @@
+{
+  "assertions": 86,
+  "exceptions": [],
+  "published": [
+    {
+      "source": "meterD522066",
+      "id": "mfr-ui-meterd522066",
+      "version": 1
+    },
+    {
+      "source": "meterKws306",
+      "id": "mfr-ui-meterkws306",
+      "version": 1
+    },
+    {
+      "source": "vfdSchneiderAtv320",
+      "id": "mfr-ui-vfdschneideratv320",
+      "version": 1
+    }
+  ],
+  "scope": "Actual mounted Panel3D and ComponentEditor3D; supplied-photo optical fixtures, physical pixel windows, native/Admin/published parity, real local save/reopen/bake/publication, full reload, wired STEP and STOP. No live cloud or firmware certification."
+}

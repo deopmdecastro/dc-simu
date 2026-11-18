@@ -12,12 +12,13 @@
  * os restantes são descobertos por proximidade e passo modular.
  */
 import * as THREE from 'three'
-import type { ElectricalComponent, Wire } from '../types'
-import { terminalWorld3D } from './terminal3D'
+import type { ComponentType, ElectricalComponent, Wire } from '../types'
+import { component3DDimensions, terminalWorld3D } from './terminal3D'
+import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { componentPanelXY, panelToSchematicX, panelToSchematicY } from './panelLayout'
 import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
 import { componentHalfExtents } from './panelBounds'
-import { combTerminalConductorOf, type CombConductor } from './combBusbarParts'
+import { COMB_CONNECTOR, combBusbarDimsOf, combConnectorBladeTipMm, combConnectorTerminalSpecs, combTerminalConductorOf, type CombConductor } from './combBusbarParts'
 
 /** Tipos de disjuntor que aceitam pente nos bornes superiores. */
 const BREAKER_TYPES = new Set([
@@ -45,8 +46,10 @@ export const COMB_CONNECTOR_PIN_INSERT_MM = 10.0
 
 /** Bornes de entrada (topo) por tipo de disjuntor, da esquerda para a direita. */
 export function breakerInputLabels(breaker: ElectricalComponent): string[] {
+  if (breaker.type === 'residualBreakerHagerCfc225p') return ['1', 'N1']
+  if (breaker.type === 'phoenixEcb3000760') return ['Line+']
   const poles = Number(breaker.state?.poles) || (
-    breaker.type === 'breaker1p' || breaker.type === 'breakerSteckSdC25' || breaker.type === 'phoenixEcb3000760' ? 1
+    breaker.type === 'breaker1p' || breaker.type === 'breakerSteckSdC25' ? 1
     : breaker.type === 'breaker2p' ? 2
     : breaker.type === 'breaker4p' ? 4
     : 3
@@ -65,16 +68,116 @@ export function combPinTerminals(comb: ElectricalComponent): ElectricalComponent
     .sort((a, b) => (a.position3D?.x ?? a.x) - (b.position3D?.x ?? b.x))
 }
 
-function meanWorld(
-  component: ElectricalComponent,
-  labels: string[],
+/** Actual end of the rendered blade/tooth, transformed with the component.
+ * User terminal edits retain their electrical identity but cannot move metal.
+ */
+export function combPhysicalTipWorld3D(component: ElectricalComponent, label: string, pivot: THREE.Vector3): THREE.Vector3 | null {
+  let point: [number, number, number]
+  if (isCombConnector(component)) point = combConnectorBladeTipMm(component.state)
+  else {
+    const dims = combBusbarDimsOf(component.state), tooth = dims.teeth.find(t => t.label === label)
+    if (!tooth) return null
+    point = [tooth.xMm, dims.pinTipYMm, dims.pinPlaneZMm]
+  }
+  const size = component3DDimensions(component)
+  const position3D = { x: .5 + point[0] * PANEL_UNITS_PER_MM / size.x,
+    y: .5 + point[1] * PANEL_UNITS_PER_MM / size.y, z: .5 + point[2] * PANEL_UNITS_PER_MM / size.z }
+  const terminal = component.terminals.find(t => t.label === label)
+  return terminal ? terminalWorld3D(component, { ...terminal, position3D }, pivot) : null
+}
+
+function meanPhysicalTips(component: ElectricalComponent, labels: string[], pivot: THREE.Vector3): THREE.Vector3 | null {
+  const points = labels.map(label => combPhysicalTipWorld3D(component, label, pivot))
+  if (!points.length || points.some(p => !p)) return null
+  return points.reduce<THREE.Vector3>((sum, p) => sum.add(p!), new THREE.Vector3()).multiplyScalar(1 / points.length)
+}
+
+/** Local clamp lanes verified against the rendered CAD, sampling the entire
+ * blade width/thickness, not just its centre. Offsets are from each calibrated
+ * mouth. Hager / Phoenix have a shallow rear seat; a universal 10 mm insertion
+ * there pierced the stepped clamp. This is visual fit, not an accessory rating.
+ */
+const TOP_CLAMP_LANES: Partial<Record<ComponentType, { combZ: number; feedZ: number; combInsert: number; feedInsert: number }>> = {
+  breaker1p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  breaker2p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  breaker3p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  breakerSteckSdC25: { combZ: -4.5, feedZ: -1.5, combInsert: 10, feedInsert: 10 },
+  residualBreakerHagerCfc225p: { combZ: -1, feedZ: 2, combInsert: 4, feedInsert: 10 },
+  phoenixEcb3000760: { combZ: -1.5, feedZ: 1, combInsert: 4, feedInsert: 10 },
+}
+
+export function breakerMountInsertionMm(breaker: ElectricalComponent, role: 'comb' | 'feed'): number {
+  const lanes = TOP_CLAMP_LANES[breaker.type]
+  return (role === 'comb' ? lanes?.combInsert : lanes?.feedInsert)
+    ?? (role === 'comb' ? COMB_PIN_INSERT_MM : COMB_CONNECTOR_PIN_INSERT_MM)
+}
+
+/** Two insertion lanes of the SAME electrical clamp. The comb uses its rear
+ * portion; the feeder blade enters the conductor lane in front. These are not
+ * extra electrical terminals, nor the circular front screwdriver access.
+ * Lane centres stay inside the measured upper mouth (Easy9: ~9 mm deep).
+ */
+export function breakerMountMouthWorld3D(
+  breaker: ElectricalComponent,
+  label: string,
+  role: 'comb' | 'feed',
   pivot: THREE.Vector3,
 ): THREE.Vector3 | null {
-  const terms = labels.map((l) => component.terminals.find((t) => t.label === l))
-  if (terms.some((t) => !t)) return null
-  const sum = new THREE.Vector3()
-  for (const t of terms) sum.add(terminalWorld3D(component, t!, pivot))
-  return sum.multiplyScalar(1 / terms.length)
+  const terminal = breaker.terminals.find(t => t.label === label)
+  if (!terminal) return null
+  const spot = REAL_TERMINALS[breaker.type]?.find(t => t.label === label && t.face === 'top')
+  if (!spot) return terminalWorld3D(breaker, terminal, pivot)
+  const depthMm = component3DDimensions(breaker).z / PANEL_UNITS_PER_MM
+  const lanes = TOP_CLAMP_LANES[breaker.type]
+  const laneMm = (role === 'comb' ? lanes?.combZ : lanes?.feedZ) ?? 0
+  const mouth = { x: spot.x, y: 1 - spot.y, z: spot.z + laneMm / depthMm }
+  return terminalWorld3D(breaker, { ...terminal, position3D: mouth }, pivot)
+}
+
+function meanMountMouth(breaker: ElectricalComponent, labels: string[], role: 'comb' | 'feed', pivot: THREE.Vector3): THREE.Vector3 | null {
+  const points = labels.map(label => breakerMountMouthWorld3D(breaker, label, role, pivot))
+  if (!points.length || points.some(p => !p)) return null
+  return points.reduce<THREE.Vector3>((sum, p) => sum.add(p!), new THREE.Vector3()).multiplyScalar(1 / points.length)
+}
+
+/** A mounted top feeder must point down. Rebuild its physical defaults while
+ * retaining terminal IDs, wire references and user-pinned endpoints. This also
+ * repairs old saved mounts with an upward pin / a clamped, off-mesh Z position.
+ */
+export function prepareCombConnectorForTopMount(component: ElectricalComponent): ElectricalComponent {
+  const state = { ...component.state, pinDirection: 'down' }
+  const specs = combConnectorTerminalSpecs(state)
+  const known = (['down', 'up'] as const).flatMap(pinDirection => (['cranked', 'straight'] as const).flatMap(pinStyle => {
+    const defaults = combConnectorTerminalSpecs({ ...component.state, pinDirection, pinStyle })
+    const legacy = defaults.map(spec => {
+      const position3D = { ...spec.position3D }
+      if (spec.label === 'PINO') position3D.z = Math.max(.05, position3D.z - 2.5 / COMB_CONNECTOR.depthMm)
+      else position3D.y += (pinDirection === 'down' ? 1 : -1) * .55 / COMB_CONNECTOR.heightMm
+      return { ...spec, position3D, socket3D: { ...spec.socket3D, position: { ...position3D } } }
+    })
+    return [...defaults, ...legacy]
+  }))
+  const same = (a: unknown, b: unknown): boolean => {
+    if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) < 2e-5
+    if (a && b && typeof a === 'object' && typeof b === 'object') {
+      const aa = a as Record<string, unknown>, bb = b as Record<string, unknown>
+      return Object.keys(bb).every(key => same(aa[key], bb[key]))
+    }
+    return a === b
+  }
+  let changed = component.state.pinDirection !== 'down'
+  const terminals = component.terminals.map(terminal => {
+    const spec = specs.find(s => s.label === terminal.label)
+    if (!spec || terminal.pinned || !known.some(old => old.label === terminal.label
+      && same(terminal.position3D, old.position3D)
+      && (!terminal.socket3D || same(terminal.socket3D, old.socket3D))
+      && (!terminal.face || terminal.face === old.face))) return terminal
+    if (same(terminal.position3D, spec.position3D) && same(terminal.socket3D, spec.socket3D) && terminal.face === spec.face) return terminal
+    changed = true
+    return { ...terminal, position3D: { ...spec.position3D }, socket3D: { ...spec.socket3D,
+      normal: [...spec.socket3D.normal] as [number, number, number], position: { ...spec.socket3D.position } }, face: spec.face }
+  })
+  return changed ? { ...component, state, terminals } : component
 }
 
 /**
@@ -90,15 +193,15 @@ export function combMountPosition(
   if (!inputs.length || pins.length < inputs.length) return null
 
   const { x, y } = componentPanelXY(breaker)
-  const socket = meanWorld(breaker, inputs, new THREE.Vector3(x, y, 0))
+  const socket = meanMountMouth(breaker, inputs, 'comb', new THREE.Vector3(x, y, 0))
   // Usar os primeiros N pinos alinhados com o âncora (da esquerda)
   const pinLabels = pins.slice(0, inputs.length).map((t) => t.label)
-  const pinCenter = meanWorld(comb, pinLabels, new THREE.Vector3(0, 0, 0))
+  const pinCenter = meanPhysicalTips(comb, pinLabels, new THREE.Vector3(0, 0, 0))
   if (!socket || !pinCenter) return null
 
   // Pinos inseridos nos bornes de topo do disjuntor
   const targetCx = socket.x - pinCenter.x
-  const targetCy = socket.y - pinCenter.y - COMB_PIN_INSERT_MM * PANEL_UNITS_PER_MM
+  const targetCy = socket.y - pinCenter.y - breakerMountInsertionMm(breaker, 'comb') * PANEL_UNITS_PER_MM
   return {
     schematicX: Math.round(panelToSchematicX(targetCx) - comb.w / 2),
     schematicY: Math.round(panelToSchematicY(targetCy) - comb.h / 2),
@@ -113,6 +216,7 @@ export function combConnectorMountPosition(
   breaker: ElectricalComponent,
   preferredTerminal?: string,
 ): { schematicX: number; schematicY: number; socketLabel: string } | null {
+  connector = prepareCombConnectorForTopMount(connector)
   const inputs = breakerInputLabels(breaker)
   if (!inputs.length) return null
 
@@ -139,11 +243,13 @@ export function combConnectorMountPosition(
   const pinoTerm = connector.terminals.find((t) => t.label === 'PINO')
   if (!targetTerm || !pinoTerm) return null
 
-  const socket = terminalWorld3D(breaker, targetTerm, new THREE.Vector3(x, y, 0))
-  const pinoCenter = terminalWorld3D(connector, pinoTerm, new THREE.Vector3(0, 0, 0))
+  const socket = breakerMountMouthWorld3D(breaker, targetLabel, 'feed', new THREE.Vector3(x, y, 0))
+  if (!socket) return null
+  const pinoCenter = combPhysicalTipWorld3D(connector, 'PINO', new THREE.Vector3(0, 0, 0))
+  if (!pinoCenter) return null
 
   const targetCx = socket.x - pinoCenter.x
-  const targetCy = socket.y - pinoCenter.y - COMB_CONNECTOR_PIN_INSERT_MM * PANEL_UNITS_PER_MM
+  const targetCy = socket.y - pinoCenter.y - breakerMountInsertionMm(breaker, 'feed') * PANEL_UNITS_PER_MM
   return {
     schematicX: Math.round(panelToSchematicX(targetCx) - connector.w / 2),
     schematicY: Math.round(panelToSchematicY(targetCy) - connector.h / 2),
@@ -163,12 +269,13 @@ export function combMountDepthOffset(
     const inputs = breakerInputLabels(breaker)
     const pins = combPinTerminals(component).slice(0, inputs.length)
     if (!inputs.length || !pins.length) return 0
-    const socket = meanWorld(
+    const socket = meanMountMouth(
       breaker,
       inputs,
+      'comb',
       new THREE.Vector3(0, 0, componentHalfExtents(breaker).z),
     )
-    const pin = meanWorld(
+    const pin = meanPhysicalTips(
       component,
       pins.map((t) => t.label),
       new THREE.Vector3(0, 0, componentHalfExtents(component).z),
@@ -180,8 +287,8 @@ export function combMountDepthOffset(
     const socketTerm = breaker.terminals.find((t) => t.label === socketLabel)
     const pinoTerm = component.terminals.find((t) => t.label === 'PINO')
     if (!socketTerm || !pinoTerm) return 0
-    const socket = terminalWorld3D(breaker, socketTerm, new THREE.Vector3(0, 0, componentHalfExtents(breaker).z))
-    const pino = terminalWorld3D(component, pinoTerm, new THREE.Vector3(0, 0, componentHalfExtents(component).z))
+    const socket = breakerMountMouthWorld3D(breaker, socketLabel, 'feed', new THREE.Vector3(0, 0, componentHalfExtents(breaker).z))
+    const pino = combPhysicalTipWorld3D(component, 'PINO', new THREE.Vector3(0, 0, componentHalfExtents(component).z))
     return socket && pino ? socket.z - pino.z : 0
   }
   return 0
@@ -328,6 +435,10 @@ export function syncCombMounted(components: ElectricalComponent[]): ElectricalCo
   let changed = false
   const next = components.map((component) => {
     if (!component.mountedOn) return component
+    if (isCombConnector(component)) {
+      const prepared = prepareCombConnectorForTopMount(component)
+      if (prepared !== component) { changed = true; component = prepared }
+    }
     if (isCombBusbar(component)) {
       const breaker = components.find((c) => c.id === component.mountedOn)
       if (!breaker || !isBreaker(breaker)) {

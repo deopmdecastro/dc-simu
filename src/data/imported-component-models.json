@@ -232,15 +232,15 @@
     ],
     "placement": "din-rail",
     "sourceRotationDeg": [
-      0,
+      90,
       -90,
       0
     ],
     "path": "/models/importados/contactorWegCwbc65.glb",
     "physicalSizeMm": {
       "width": 57.61,
-      "height": 159.4,
-      "depth": 115
+      "height": 115,
+      "depth": 159.4
     },
     "source": {
       "type": "contactorWegCwbc65",
@@ -252,8 +252,13 @@
     },
     "meshes": 88,
     "triangles": 167370,
-    "bytes": 5476392,
-    "glbSha256": "95f15d36a0921c494e2f1b7828ffadda0dfacfa087e19f1ba7c0e4ae3cac3f93"
+    "bytes": 5478020,
+    "glbSha256": "0aec38294084b6adf2f2e88b7d9a11314dcbef00e70e1665fadf963cfbd2a4f8",
+    "frameRevision": "cwbc65-front-v1",
+    "frameCorrection": {
+      "previousGlbSha256": "95f15d36a0921c494e2f1b7828ffadda0dfacfa087e19f1ba7c0e4ae3cac3f93",
+      "operation": "Rigid Rx(+90 degrees), translate Y +115 mm; terminal/front side faces +Z, DIN rear faces -Z. No change to source dimensions or tessellation."
+    }
   },
   {
     "type": "surgeProtectorWegSpw02",

@@ -1,0 +1,25 @@
+{
+  "baseline": "7990560a8873e58561042a7025888a09286bc8a9",
+  "scope": "Legacy nearSurface heuristic comparison, not measured-cavity acceptance. PLC/bar/assembly interior endpoints were already flagged in the accepted baseline. No source or guards altered. Actual mechanical geometry is tested separately.",
+  "baselineWarnings": 15,
+  "currentWarnings": 15,
+  "newOrChangedWarnings": {},
+  "resolvedWarnings": [],
+  "unchangedWarningTypes": [
+    "plcSiemensS71500Di32",
+    "plcSiemensS71500Cpu1511c",
+    "plcSiemensS7300Cpu315",
+    "busbarPhaseAcrylic",
+    "busbarNeutral",
+    "earthBar",
+    "busbarPhaseStepped",
+    "busbarComb",
+    "combBusbarConnector",
+    "terminalSet1ph",
+    "terminalSet24v",
+    "terminalSet3ph",
+    "powerSource1ph",
+    "powerSource3ph",
+    "powerSource24v"
+  ]
+}

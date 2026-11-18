@@ -26,7 +26,7 @@ import { COMB_BUSBAR, COMB_CONNECTOR } from '../three/combBusbarParts'
 const FACE_OUTWARD_3D: Record<RealTerminalSpot['face'], [number, number, number]> = {
   front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0],
 }
-import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE } from './legacyRealInterfaces'
+import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE, MECHANICAL_INTERFACE_TYPES } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { terminalAssemblyConductors, TERMINAL_CONDUCTOR_PATTERN } from '../three/terminalAssembly'
@@ -1332,6 +1332,8 @@ function surfacePosition(spot: RealTerminalSpot): { x: number; y: number; z: num
 /** Migra posições automáticas antigas (Y invertido ou ponto na superfície).
  *  Preserva bornes movidos à mão e a identidade dos componentes já atualizados. */
 export function upgradeRealInterfacePositions(input: ElectricalComponent): ElectricalComponent {
+  // Authored native geometry has priority over the mechanical factory revision.
+  if (MECHANICAL_INTERFACE_TYPES.has(input.type) && (input.editorVersion ?? 1) > 1) return input
   const imported = upgradeImportedTerminals(input, createTerminal)
   // Os medidores DIN estavam classificados como fontes. Só corrige essa
   // categoria legada; referências, nomes, estado e ligações ficam intactos.
@@ -1403,8 +1405,9 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     const legacy = legacyInsetIntoHole(c.type, previous ?? spot)
     const surface = surfacePosition(previous ?? spot)
     const inset = realTerminalPosition(c.type, previous ?? spot)
+    const tolerance = MECHANICAL_INTERFACE_TYPES.has(c.type) ? 1e-6 : 1e-3
     const matches = (position: { x: number; y: number; z: number }) =>
-      Math.abs(at.x - position.x) <= 1e-3 && Math.abs(at.y - position.y) <= 1e-3 && Math.abs(at.z - position.z) <= 1e-3
+      Math.abs(at.x - position.x) <= tolerance && Math.abs(at.y - position.y) <= tolerance && Math.abs(at.z - position.z) <= tolerance
     const meterPosition=LEGACY_METER_POSITIONS[c.type]?.[label]
     const oldPhysical=LEGACY_MODULAR_SIZE[c.type]
     const oldInset=previous && oldPhysical ? (()=>{
@@ -1412,8 +1415,43 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
       return {x:previous.x+nx*d/oldPhysical.width,y:1-previous.y-ny*d/oldPhysical.height,z:previous.z+nz*d/oldPhysical.depth}
     })() : null
     if (!matches(legacy) && !matches(surface) && !matches(inset) && !matches(surfacePosition(spot)) && !(oldInset&&matches(oldInset)) && !(meterPosition&&matches(meterPosition))) return canonical
+    const mechanical: Partial<Terminal> = {}
+    if (MECHANICAL_INTERFACE_TYPES.has(c.type) && previous) {
+      // A manual cable direction / socket is geometry too. Position alone is
+      // not authority to overwrite it, even if it still sits at an old default.
+      const socket = terminal.socket3D
+      const close = (a: number, b: number) => Math.abs(a - b) < 1e-6
+      // Older saves can carry a known legacy position with current default
+      // metadata supplied by the loader. Accept either COMPLETE automatic
+      // interface, never a mixture containing an authored socket or normal.
+      const known = [previous, spot].map(candidate => {
+        if (terminal.face && terminal.face !== candidate.face) return null
+        if (terminal.contact && terminal.contact !== (candidate.contact ?? 'socket')) return null
+        if (!socket) return { atMouth: false }
+        const atMouth = close(socket.insetMm, 0) && close(socket.position.x, candidate.x)
+          && close(socket.position.y, 1 - candidate.y) && close(socket.position.z, candidate.z)
+        const atEndpoint = close(socket.insetMm, terminalInsetMm(candidate)) && close(socket.position.x, at.x)
+          && close(socket.position.y, at.y) && close(socket.position.z, at.z)
+        if ((!atMouth && !atEndpoint)
+          || !socket.normal.every((n, i) => close(n, FACE_OUTWARD_3D[candidate.face][i]))
+          || !close(socket.diameterMm, candidate.diameterMm ?? 4)
+          || !close(socket.depthMm, candidate.holeDepthMm ?? 5)) return null
+        return { atMouth }
+      }).find(candidate => candidate !== null)
+      if (!known) return canonical
+      if (socket) {
+        mechanical.socket3D = { ...socket,
+          position: known.atMouth ? { x: spot.x, y: 1 - spot.y, z: spot.z } : { ...target },
+          normal: [...FACE_OUTWARD_3D[spot.face]], diameterMm: spot.diameterMm ?? 4,
+          depthMm: spot.holeDepthMm ?? 5, insetMm: known.atMouth ? 0 : terminalInsetMm(spot) }
+      }
+      mechanical.face = spot.face
+      mechanical.contact = spot.contact ?? 'socket'
+      if (terminal.diameter === previous.diameterMm) mechanical.diameter = spot.diameterMm
+    }
     changed = true
     return { ...terminal, label, ...(repairMeter ? { defId: label === 'COM' ? 'dm20-com' : 'dm20-volt' } : {}), position3D: target,
+      ...mechanical,
       // A calibração dos Acti9 também estreita a entrada no CAD; só o diâmetro
       // automático antigo acompanha a migração (valores personalizados ficam).
       ...((oldPhysical || c.type === 'residualBreakerSchneiderIid4p' || c.type === 'residualBreakerSchneiderIdpnVigi')

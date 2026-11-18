@@ -1,8 +1,216 @@
-// Posições automáticas até 13896bc. Dados imutáveis usados apenas na migração.
+// Immutable snapshots of known automatic interfaces, used only for guarded
+// migrations. The mechanical revision snapshots the accepted LCD baseline.
 import type { ComponentType } from '../types'
 import type { RealTerminalSpot } from './realInterfaces'
 
+export const MECHANICAL_INTERFACE_TYPES = new Set<ComponentType>([
+  'contactorWegCwbc65', 'timerGeyaGrt8M1', 'timerGeyaGrt8B1',
+])
+
 export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
+  // Mechanical-detail revision: match only the untouched previous automatic endpoints.
+  contactorWegCwbc65: [
+    {
+      "label": "1L1",
+      "face": "top",
+      "x": 0.227478,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 9.0
+    },
+    {
+      "label": "3L2",
+      "face": "top",
+      "x": 0.40453,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 8.3
+    },
+    {
+      "label": "5L3",
+      "face": "top",
+      "x": 0.581583,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 8.3
+    },
+    {
+      "label": "A1",
+      "face": "top",
+      "x": 0.751692,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.4,
+      "holeDepthMm": 8.1
+    },
+    {
+      "label": "2T1",
+      "face": "bottom",
+      "x": 0.227478,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    },
+    {
+      "label": "4T2",
+      "face": "bottom",
+      "x": 0.40453,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    },
+    {
+      "label": "6T3",
+      "face": "bottom",
+      "x": 0.581583,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    },
+    {
+      "label": "A2",
+      "face": "bottom",
+      "x": 0.751692,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.4,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    }
+  ],
+  timerGeyaGrt8M1: [
+    {
+      "label": "A1",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.211111,
+      "y": 0.089474,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "S",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.5,
+      "y": 0.089474,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "A2",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.788889,
+      "y": 0.089474,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "15",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.211111,
+      "y": 0.910526,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "16",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.5,
+      "y": 0.910526,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "18",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.788889,
+      "y": 0.910526,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    }
+  ],
+  timerGeyaGrt8B1: [
+    {
+      "label": "A1",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.211111,
+      "y": 0.089474,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "S",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.5,
+      "y": 0.089474,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "A2",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.788889,
+      "y": 0.089474,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "15",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.211111,
+      "y": 0.910526,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "16",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.5,
+      "y": 0.910526,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    },
+    {
+      "label": "18",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.788889,
+      "y": 0.910526,
+      "z": 0.581484,
+      "diameterMm": 4.6,
+      "holeDepthMm": 5
+    }
+  ],
   // Finder 90.23: old global-envelope mouth plane; only untouched defaults migrate.
   relaySocketFinder9023: [
     {
@@ -515,5 +723,6 @@ export const LEGACY_METER_POSITIONS: Record<string, Record<string,{x:number;y:nu
  meterKws306: Object.fromEntries(['L1','L2','L3','N'].flatMap((label,i)=>[['IN',.88],['OUT',.12]].map(([side,y])=>[label+'-'+side,{x:[.15,.38,.62,.85][i],y:Number(y),z:.65}])))
 }
 export const LEGACY_MODULAR_SIZE: Record<string,{width:number;height:number;depth:number}> = {
+ contactorWegCwbc65:{width:57.61,height:159.4,depth:115},
  breakerSchneiderIc60h1p:{width:18,height:85,depth:74},pilotLightSchneiderIil1p:{width:18,height:85,depth:74},pilotLightSchneiderIil3p:{width:54,height:85,depth:74}
 }

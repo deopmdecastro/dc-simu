@@ -4,7 +4,7 @@
  * Uso: npx tsx scripts/build-busbar-glb.ts
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { basename, dirname } from 'node:path'
 import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import {
@@ -41,7 +41,12 @@ import {
   }
 }
 
+// Permit a mechanical revision to rebuild only its own asset, without
+// rewriting unrelated PE/N/phase/stepped busbars.
+const onlyArg = process.argv.indexOf('--only')
+const only = onlyArg >= 0 ? new Set((process.argv[onlyArg + 1] ?? '').split(',')) : null
 function writeGlb(out: string, object: THREE.Object3D): Promise<void> {
+  if (only && !only.has(basename(out, '.glb'))) return Promise.resolve()
   return new Promise((resolve) => {
     const scene = new THREE.Scene()
     scene.add(object)

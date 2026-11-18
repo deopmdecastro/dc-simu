@@ -10,10 +10,10 @@ import { inferFromFunction } from '../../catalog/terminalProfiles'
 import { DEFAULT_META } from '../../catalog/definition'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 } from '../../catalog/types'
 import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm, hasComponent3DVisual, hasDinRailModel } from '../../three/modelPaths'
-import { isTerminalAssemblyComponent, terminalAssemblyLayout, TERMINAL_CONDUCTOR_PATTERN } from '../../three/terminalAssembly'
+import { isTerminalAssemblyComponent, terminalAssemblyLayout, TERMINAL_ASSEMBLY_COVER_SEED, TERMINAL_CONDUCTOR_PATTERN } from '../../three/terminalAssembly'
 import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../../electrical/realInterfaces'
-import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE } from '../../electrical/legacyRealInterfaces'
+import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE, MECHANICAL_INTERFACE_TYPES } from '../../electrical/legacyRealInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
 import { seedLogoPanel } from './seedLogoPanel'
@@ -343,6 +343,7 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     await loadGlbAssets(next, cache)
   }
   if (upgradeTerminalAssemblyTerminals(type, next, cache)) changed = true
+  if (upgradeMechanicalInterfaceDefaults(type, next, cache)) changed = true
   const upgraded = await upgradeUneditedGeometry(type, next, cache)
   if (upgraded) { next = upgraded; changed = true }
   if (type === 'multimeterDm20' && (next.controls ?? []).length === 0 && (next.displays ?? []).length === 0) {
@@ -359,7 +360,45 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     if (migrateMotorDraft(next, cache)) changed = true
   }
   if (fixFlippedTerminals(type, next, cache).length) changed = true
+  if (seedTerminalAssemblyCover(type, next)) changed = true
+  if (seedCwbcCarrier(type, next)) changed = true
   return changed ? next : null
+}
+
+/** Mechanical revision: only a native, untransformed original GLB and exact
+ * old automatic terminal geometry qualify. IDs, authored controls, terminal
+ * names/rules and every manual endpoint or socket remain owned by the author.
+ */
+function upgradeMechanicalInterfaceDefaults(type: ComponentType, def: ComponentDefinition, cache: GlbCache): boolean {
+  if (!MECHANICAL_INTERFACE_TYPES.has(type)) return false
+  const spec = getComponentModelSpec(type), part = def.parts[0]
+  if (!spec || def.parts.length !== 1 || part.kind !== 'glb' || part.locked || !part.visible || !part.asset || part.glbNode) return false
+  const same = (a: number[], b: number[], tolerance = .02) => a.length === b.length && a.every((n, i) => Math.abs(n - b[i]) < tolerance)
+  const asset = def.assets[part.asset]
+  if (asset?.builtinType !== type || asset.data !== spec.path || !same(part.position, [0, 0, 0], 1e-6)
+    || !same(part.rotation, [0, 0, 0], 1e-6) || !same(part.scale, [1, 1, 1], 1e-6)) return false
+  if (def.states.some(state => state.parts[part.id])) return false
+  const physical = LEGACY_MODULAR_SIZE[type] ?? spec.physicalSizeMm
+  const fresh = terminalsFor(type, TEMPLATES[type].terminals, builtinBox(type, def, cache))
+  let changed = false
+  def.terminals = def.terminals.map(terminal => {
+    const old = LEGACY_REAL_TERMINALS[type]?.find(spot => spot.label === terminal.label)
+    const next = fresh.find(item => item.label === terminal.label)
+    if (!old || !next) return terminal
+    const inset = terminalInsetMm(old), normal = FACE_NORMAL[old.face]
+    const position = [(old.x - .5) * physical.width - normal[0] * inset,
+      (1 - old.y) * physical.height - normal[1] * inset,
+      (old.z - .5) * physical.depth - normal[2] * inset]
+    if (!same(terminal.position, position) || !same(terminal.normal, [...normal], 1e-6)) return terminal
+    if ((terminal.diameterMm !== undefined && Math.abs(terminal.diameterMm - (old.diameterMm ?? 4)) > .02)
+      || (terminal.socketDepthMm !== undefined && Math.abs(terminal.socketDepthMm - (old.holeDepthMm ?? 5)) > .02)
+      || (terminal.socketInsetMm !== undefined && Math.abs(terminal.socketInsetMm - inset) > .02)) return terminal
+    if (same(terminal.position, next.position) && same(terminal.normal, next.normal)) return terminal
+    changed = true
+    return { ...terminal, position: next.position, normal: next.normal, diameterMm: next.diameterMm,
+      socketDepthMm: next.socketDepthMm, socketInsetMm: next.socketInsetMm }
+  })
+  return changed
 }
 
 /** Caixa do modelo original do integrado (só a peça GLB de origem), em mm. */
@@ -375,6 +414,7 @@ function builtinBox(type: ComponentType, def: ComponentDefinition, cache: GlbCac
  * Devolve as etiquetas corrigidas (o `def` é alterado no lugar).
  */
 export function fixFlippedTerminals(type: ComponentType, def: ComponentDefinition, cache: GlbCache): string[] {
+  if (MECHANICAL_INTERFACE_TYPES.has(type)) return []
   const tpl = TEMPLATES[type]
   if (!tpl || !def.terminals.length) return []
   const box = builtinBox(type, def, cache)
@@ -482,6 +522,37 @@ function migrateMotorDraft(def: ComponentDefinition, cache: GlbCache): boolean {
   seedMotorFan(def)
   if (def.parts.length !== before) changed = true
   return changed
+}
+
+/** Coil preview variable, not a fake physical pushbutton. The saved CAD
+ * carries its actual carrier rest/course, shared by Admin and runtime rigs.
+ */
+function seedCwbcCarrier(type: ComponentType, def: ComponentDefinition): boolean {
+  if (type !== 'contactorWegCwbc65' || def.builtinSeeds?.includes('cwbc65-carrier-v1')
+    || !def.parts.some(part => part.asset && def.assets[part.asset]?.builtinType === type)) return false
+  if (!def.vars?.some(variable => variable.id === 'energized')) def.vars = [...(def.vars ?? []), { id: 'energized', name: 'Bobina energizada', type: 'bool', initial: false }]
+  def.builtinSeeds = [...(def.builtinSeeds ?? []), 'cwbc65-carrier-v1']
+  return true
+}
+
+/** One editable, optional protective part; never flatten it into the body.
+ * Existing authored/split/transformed models are not retrofitted. A seed marker
+ * records ownership so an author-deleted cover does not reappear on reopen.
+ */
+function seedTerminalAssemblyCover(type: ComponentType, def: ComponentDefinition): boolean {
+  if (!isTerminalAssemblyComponent(type) || def.builtinSeeds?.includes(TERMINAL_ASSEMBLY_COVER_SEED)
+    || def.parts.some(part => part.procedural === 'terminal-assembly-cover')) return false
+  const body = def.parts[0], physical = getComponentPhysicalSizeMm(type)
+  const same = (a: Vec3, b: Vec3) => a.every((n, i) => Math.abs(n - b[i]) < 1e-6)
+  if (!physical || !body || def.parts.length !== 1 || !isSeededTerminalAssembly(type, def)
+    || body.glbNode || body.locked || !body.visible || body.parentId
+    || !same(body.position, [0, 0, 0]) || !same(body.rotation, [0, 0, 0]) || !same(body.scale, [1, 1, 1])
+    || def.states.some(state => state.parts[body.id])) return false
+  def.parts.push({ ...defaultPart('group', null, 'Acrílico de proteção'),
+    procedural: 'terminal-assembly-cover', optional: true, visible: false,
+    size: [physical.width, physical.height, physical.depth], position: [0, physical.height / 2, 0] })
+  def.builtinSeeds = [...(def.builtinSeeds ?? []), TERMINAL_ASSEMBLY_COVER_SEED]
+  return true
 }
 
 /** Insere no editor o GLB nativo completo do conjunto de bornes. */
@@ -800,6 +871,8 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   seedEmergencyActuator(def, type)
   if (type === 'plcSiemensLogo1224RC') seedLogoPanel(def, cache)
   if (type === 'motor3ph') { seedMotorTerminalBoard(def, cache); seedMotorFan(def) }
+  seedTerminalAssemblyCover(type, def)
+  seedCwbcCarrier(type, def)
   const meta: CatalogMeta = {
     ...DEFAULT_META,
     name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : usedComposite ? (isDigitalMeterType(type) ? ' (representação 3D procedural completa, sem CAD do fabricante)' : ' (bornes reais; corpo sem CAD)') : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,

@@ -137,11 +137,17 @@ export function paintImportedModel(type: string, root: THREE.Object3D): PartInfo
     // Cabeça do operador em preto acetinado; blocos de contactos ZBE na traseira em poliamida branca.
     for (const part of parts) paint(part, part.box.min.z < 24 ? WHITE_PA : BLACK_PA)
   } else if (type === 'contactorWegCwbc65') {
+    // CWBC65: the former blue block was the main shell, not a blue actuator.
+    // Supplied CAD now uses the verified front frame (Rx +90°, no stretching).
+    const shell: Finish = { color: '#9eabb8', name: 'plastico_cinzento_weg', roughness: .48 }
+    const insulatedResistance: Finish = { color: '#d5d0bf', name: 'isolamento_resistencia_weg', roughness: .82 }
     for (const part of parts) {
-      if (part.mesh.name === 'cad_0_') paint(part, { color: '#005596', name: 'plastico_azul_weg', roughness: 0.4 })
-      else if (part.vertices === 1720 || part.vertices === 518 || part.vertices === 640) paint(part, RESISTOR) // resistências de pré-carga
-      else if (maxDim(part) <= 14 && part.vertices >= 200) paint(part, ZINC) // parafusos e terminais dos bornes
-      else paint(part, RAL7035)
+      const id = /^cad_(\d+)_/.exec(part.mesh.name)?.[1]
+      const index = Number(id)
+      if ([1, 2, 36].includes(index)) paint(part, BLACK_PA) // DIN rear and early-make support
+      else if ([66, 74, 75, 85, 86, 87].includes(index)) paint(part, insulatedResistance)
+      else if (part.vertices === 1720 || part.vertices === 518 || part.vertices === 640 || (maxDim(part) <= 14 && part.vertices >= 200)) paint(part, ZINC)
+      else paint(part, shell)
     }
   } else if (type === 'motorBreakerSchneiderGv2me') {
     for (const part of parts) {
@@ -172,7 +178,7 @@ export function paintImportedModel(type: string, root: THREE.Object3D): PartInfo
 
 // ----------------------------------------------------------------- mecânica
 export type ImportedRig = {
-  pivots: Array<{ role: string; pivot: THREE.Object3D; rest: THREE.Euler; restPos: THREE.Vector3; value: number }>
+  pivots: Array<{ role: string; pivot: THREE.Object3D; rest: THREE.Euler; restPos: THREE.Vector3; value: number; travel?: THREE.Vector3 }>
   lamps: Array<{ role: string; material: THREE.MeshStandardMaterial; base: THREE.Color; glow: THREE.Color; light?: THREE.PointLight; value: number }>
   edges: { closed?: boolean; tripped?: boolean; pulseOn: number; pulseOff: number }
 }
@@ -321,8 +327,18 @@ export function rigImportedModel(type: string, root: THREE.Object3D, parts: Part
     })
   } else if (type === 'contactorWegCwbc65') {
     // Atuador central / carruagem móvel dos contactos que afunda quando o contactor atraca
-    const carrier = parts.filter((p) => p.mesh.name === 'cad_38_' || p.mesh.name === 'cad_39_').map((p) => p.mesh)
-    if (carrier.length) pivotAround(root, carrier, new THREE.Vector3(0, 125, 55), 'carrier', rig)
+    const carrier = parts.filter((p) => p.mesh.name === 'cad_38_' || p.mesh.name === 'cad_39_')
+    if (carrier.length) {
+      const bounds = carrier.reduce((box, part) => box.union(part.box), new THREE.Box3())
+      pivotAround(root, carrier.map(part => part.mesh), bounds.getCenter(new THREE.Vector3()), 'carrier', rig)
+      const item = rig.pivots[rig.pivots.length - 1], parent = item.pivot.parent!
+      // The supplied CAD still contains its rigid Rx(+90°) frame. Translating
+      // parent-local Z would lift the carrier in physical Y. Express the real
+      // front-normal course in the parent's coordinates before fitting it.
+      const origin = parent.worldToLocal(root.localToWorld(new THREE.Vector3()))
+      item.travel = parent.worldToLocal(root.localToWorld(new THREE.Vector3(0, 0, -.0028))).sub(origin)
+      item.pivot.userData.cwbcCarrier = { rest: item.restPos.toArray(), travel: item.travel.toArray() }
+    }
   } else if (type === 'motorBreakerSchneiderGv2me') {
     // Botão vermelho O (STOP) à esquerda e preto I (START) à direita (filtro estrito por tamanho para nunca capturar a carcaça)
     const btnOff = parts.find((p) => p.size.x < 16 && p.size.y > 15 && p.center.x > -5 && p.center.x < 5 && p.center.y > 45 && p.center.y < 62)
@@ -399,7 +415,7 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     const r = item.rest, p = item.restPos
     if (item.role === 'carrier') {
       if (type === 'contactorWegCwbc65') {
-        item.pivot.position.set(p.x, p.y - item.value * 0.0028, p.z - item.value * 0.0012)
+        item.pivot.position.copy(p).addScaledVector(item.travel ?? new THREE.Vector3(0, 0, -.0028), item.value)
       } else {
         item.pivot.rotation.set(r.x + item.value * THREE.MathUtils.degToRad(38), r.y, r.z)
       }

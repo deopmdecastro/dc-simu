@@ -146,7 +146,9 @@ export async function applyIndustrialTextures(root: THREE.Object3D, type: Indust
   await Promise.all(Object.entries(PRINTS[type] ?? {}).map(async ([name, file]) => {
     const mesh = root.getObjectByName(name) as THREE.Mesh | undefined
     if (!mesh?.isMesh) return
-    const texture = await textureFor(new URL(file, `${location.origin}/models/industriais/`).pathname)
+    const url = new URL(file, `${location.origin}/models/industriais/`)
+    if (type === 'levelRelayAvel411') url.searchParams.set('v', 'avel-legible-v2')
+    const texture = await textureFor(url.pathname + url.search)
     if (isCancelled()) return
     for (const old of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) old.dispose()
     const material = new THREE.MeshStandardMaterial({ map: texture, color: '#ffffff', roughness: .56, metalness: 0, transparent: true, alphaTest: .04, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })

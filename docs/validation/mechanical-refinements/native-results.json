@@ -1,0 +1,308 @@
+{
+  "acrylic": [
+    {
+      "type": "powerSource1ph",
+      "on": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "reopened": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "disposal": {
+        "geometries": 15,
+        "materials": 5
+      }
+    },
+    {
+      "type": "powerSource3ph",
+      "on": {
+        "count": 1,
+        "width": 0.43950000405311584,
+        "center": [
+          -6.463333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "reopened": {
+        "count": 1,
+        "width": 0.43950000405311584,
+        "center": [
+          -6.463333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "disposal": {
+        "geometries": 15,
+        "materials": 5
+      }
+    },
+    {
+      "type": "powerSource24v",
+      "on": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "reopened": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "disposal": {
+        "geometries": 15,
+        "materials": 5
+      }
+    },
+    {
+      "type": "terminalSet1ph",
+      "on": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "reopened": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "disposal": {
+        "geometries": 15,
+        "materials": 5
+      }
+    },
+    {
+      "type": "terminalSet3ph",
+      "on": {
+        "count": 1,
+        "width": 0.43950000405311584,
+        "center": [
+          -6.463333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "reopened": {
+        "count": 1,
+        "width": 0.43950000405311584,
+        "center": [
+          -6.463333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "disposal": {
+        "geometries": 15,
+        "materials": 5
+      }
+    },
+    {
+      "type": "terminalSet24v",
+      "on": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "reopened": {
+        "count": 1,
+        "width": 0.27649998664855957,
+        "center": [
+          -6.543333333333334,
+          4.336666666666667,
+          0.3205
+        ],
+        "opacity": 0.38,
+        "geometries": 15,
+        "materials": 5
+      },
+      "disposal": {
+        "geometries": 15,
+        "materials": 5
+      }
+    }
+  ],
+  "devices": [
+    {
+      "type": "contactorWegCwbc65",
+      "stats": []
+    },
+    {
+      "type": "levelRelayAvel411",
+      "stats": [
+        {
+          "name": "industrial_avel_label",
+          "texture": {
+            "width": 1408,
+            "height": 3200
+          }
+        }
+      ]
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "stats": [
+        {
+          "name": "terminal_screw_head_geya_A1",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_S",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_A2",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_15",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_16",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_18",
+          "texture": null
+        }
+      ]
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "stats": [
+        {
+          "name": "terminal_screw_head_geya_A1",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_S",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_A2",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_15",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_16",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_geya_18",
+          "texture": null
+        }
+      ]
+    },
+    {
+      "type": "meterD522066",
+      "stats": [
+        {
+          "name": "digital_meter_lcd_recess",
+          "texture": null
+        },
+        {
+          "name": "digital_meter_lcd",
+          "texture": {
+            "width": 640,
+            "height": 520
+          }
+        },
+        {
+          "name": "terminal_screw_head_d52_1",
+          "texture": null
+        },
+        {
+          "name": "terminal_screw_head_d52_2",
+          "texture": null
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "comb": {
+    "tip": [
+      -4.4,
+      2.5532500000000002,
+      0.04624959999999993
+    ],
+    "mouth": [
+      -4.398286666666667,
+      2.655833603333334,
+      0.046249599999999946
+    ],
+    "dx": 0.0017133333333330114,
+    "dz": 1.3877787807814457e-17,
+    "insert": 0.1025836033333336,
+    "bridges": 4
+  },
+  "checks": 43
+}

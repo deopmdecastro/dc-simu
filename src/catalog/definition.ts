@@ -16,7 +16,7 @@ import { finishCadMaterial } from '../three/catalogMaterials'
 import { getComponentModelSpec } from '../three/modelPaths'
 import { applyProtectionMarkings } from '../three/protectionMarkings'
 import { applySchneiderRcdState, isSchneiderRcd, prepareSchneiderRcdModel } from '../three/schneiderRcdModel'
-import { tintTerminalBodyMaterials } from '../three/terminalAssembly'
+import { buildTerminalAssemblyCoverGroup, tintTerminalBodyMaterials } from '../three/terminalAssembly'
 import { textureLibraryEntry } from '../three/textureLibrary'
 import type {
   CatalogMeta, ComponentDefinition, EasingName, LightState, MaterialDef, PartDef, RuntimeSpec, RuntimeTerminal, StateDef, StateOverride, Vec3,
@@ -412,7 +412,8 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
           node.add(picked)
         }
       }
-    } else if (part.kind === 'group') node = new THREE.Group()
+    } else if (part.kind === 'group') node = part.procedural === 'terminal-assembly-cover'
+      ? buildTerminalAssemblyCoverGroup(...part.size, 1) : new THREE.Group()
     else {
       const materialDef = part.materialId ? materials.get(part.materialId) : undefined
       let geometry = geometryFor(part)!
@@ -654,5 +655,8 @@ export async function bakeGlb(def: ComponentDefinition, glb: GlbCache): Promise<
   wrapper.add(root)
   const exporter = new GLTFExporter()
   const result = await new Promise<ArrayBuffer>((resolve, reject) => exporter.parse(wrapper, (value) => resolve(value as ArrayBuffer), reject, { binary: true, onlyVisible: true }))
-  return arrayBufferToBase64(result)
+  // Large manufacturer CADs retain every triangle and texel. Pack identical
+  // binary spans and losslessly encode geometry instead of relaxing the cap.
+  const packed = result.byteLength > 4_000_000 ? await (await import('./glbCompression')).compactCatalogGlb(result) : result
+  return arrayBufferToBase64(packed)
 }

@@ -547,8 +547,11 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
     if (id) {
       st.updateCombConnector(id, {
         connectorColor: connColor,
-        pinDirection: teethDir === 'down' ? 'up' : 'down',
+        pinDirection: teethDir,
       })
+      // A feeder created for an already mounted comb belongs to the front
+      // conductor lane of its breaker, not upside-down in the comb's tooth.
+      if (c.mountedOn) st.mountCombConnector(id, c.mountedOn)
     }
   }
 
@@ -968,6 +971,8 @@ function CombConnectorInspector({ c }: { c: ElectricalComponent }) {
               key={opt.id}
               type="button"
               aria-pressed={pinDir === opt.id}
+              disabled={!!c.mountedOn && opt.id === 'up'}
+              title={c.mountedOn && opt.id === 'up' ? 'Desencaixe o conector antes de inverter o pino.' : undefined}
               onClick={() => patch({ pinDirection: opt.id as CombTeethDirection })}
               className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
                 pinDir === opt.id

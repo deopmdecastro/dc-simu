@@ -749,63 +749,63 @@
     "terminals": [
       {
         "label": "A1",
-        "face": "front",
+        "face": "top",
         "contact": "socket",
         "x": 0.211111,
-        "y": 0.089474,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "S",
-        "face": "front",
+        "face": "top",
         "contact": "socket",
         "x": 0.5,
-        "y": 0.089474,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "A2",
-        "face": "front",
+        "face": "top",
         "contact": "socket",
         "x": 0.788889,
-        "y": 0.089474,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "15",
-        "face": "front",
+        "face": "bottom",
         "contact": "socket",
         "x": 0.211111,
-        "y": 0.910526,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "16",
-        "face": "front",
+        "face": "bottom",
         "contact": "socket",
         "x": 0.5,
-        "y": 0.910526,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "18",
-        "face": "front",
+        "face": "bottom",
         "contact": "socket",
         "x": 0.788889,
-        "y": 0.910526,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       }
     ]
   },
@@ -819,63 +819,63 @@
     "terminals": [
       {
         "label": "A1",
-        "face": "front",
+        "face": "top",
         "contact": "socket",
         "x": 0.211111,
-        "y": 0.089474,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "S",
-        "face": "front",
+        "face": "top",
         "contact": "socket",
         "x": 0.5,
-        "y": 0.089474,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "A2",
-        "face": "front",
+        "face": "top",
         "contact": "socket",
         "x": 0.788889,
-        "y": 0.089474,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "15",
-        "face": "front",
+        "face": "bottom",
         "contact": "socket",
         "x": 0.211111,
-        "y": 0.910526,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "16",
-        "face": "front",
+        "face": "bottom",
         "contact": "socket",
         "x": 0.5,
-        "y": 0.910526,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       },
       {
         "label": "18",
-        "face": "front",
+        "face": "bottom",
         "contact": "socket",
         "x": 0.788889,
-        "y": 0.910526,
-        "z": 0.581484,
-        "diameterMm": 4.6,
-        "holeDepthMm": 5
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 3.5,
+        "holeDepthMm": 9
       }
     ]
   },

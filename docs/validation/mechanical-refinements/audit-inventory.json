@@ -1,0 +1,2524 @@
+{
+  "terminals": [
+    {
+      "type": "fuseHolderSchneiderDf103nv",
+      "name": "Porta-fusíveis Schneider DF103NV · 3P+N · 10×38",
+      "terminals": 8,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "fuseHolderSchneiderDf101v",
+      "name": "Porta-fusível Schneider DF101V · 1P · 10×38",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "fuseHolderSchneiderDf81n",
+      "name": "Porta-fusível Schneider DF81N · 1P+N · 8,5×31,5",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "keyActuatorEao61",
+      "name": "Comutador de chave EAO 61-2101.0/D · 2 posições com retorno",
+      "terminals": 3,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "thermalRelaySiemens3ru1116",
+      "name": "Relé térmico Siemens 3RU1116-1AB0 · 1,1–1,6 A",
+      "terminals": 11,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "residualBreakerHagerCfc225p",
+      "name": "Interruptor diferencial Hager CFC225P · 2P · 25 A · 300 mA",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "selectorSchneiderXa2ed33",
+      "name": "Seletor Schneider Harmony XA2ED33 · 3 posições · 2NA",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "contactorWegCwbc65",
+      "name": "Contactor para condensadores WEG CWBC65",
+      "terminals": 8,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "surgeProtectorWegSpw02",
+      "name": "DPS WEG SPW02-275 · CA",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "surgeProtectorWegSpw12",
+      "name": "DPS fotovoltaico WEG SPW12 · CC",
+      "terminals": 3,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "safetyRelaySiemens3tk2840",
+      "name": "Relé de segurança Siemens SIRIUS 3TK2840",
+      "terminals": 11,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "motorBreakerSchneiderGv2me",
+      "name": "Disjuntor-motor Schneider TeSys GV2ME · 3P",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "towerLightSb23011",
+      "name": "Torre de sinalização SB2-3011 · 3 cores",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "photoSensorXukt1ksml2",
+      "name": "Sensor fotoelétrico Telemecanique XUKT1KSML2 · reflex · 3 fios",
+      "terminals": 3,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "vfdSchneiderAtv320",
+      "name": "Variador Schneider Altivar Machine ATV320U04M2C · 0,37 kW",
+      "terminals": 35,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "relaySocketFinder9023",
+      "name": "Base undecal Finder 90.23 · 11 pinos · painel/calha DIN",
+      "terminals": 22,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "relayFinder5534",
+      "name": "Relé de interface Finder 55.34 + base 94.04 · 4 CO · 24 V DC",
+      "terminals": 14,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "name": "Temporizador GEYA GRT8-M1 W240 · multifunções · TON em A",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "name": "Temporizador TOF GEYA GRT8-B1 A230 · desoperação por S",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "levelRelayAvel411",
+      "name": "Relé de nível AVEL 411RNPD0023 · poço e depósito · 230 V AC",
+      "terminals": 11,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "buzzerMetaltexTby301",
+      "name": "Sinalizador sonoro Metaltex TBY-301 · 110 V AC · Ø30 mm",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "breaker1p",
+      "name": "Disjuntor Schneider Easy9 EZ9 · 1P",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "breakerSchneiderIc60h1p",
+      "name": "Disjuntor Schneider Acti9 iC60H · 1P C20",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "breakerSteckSdC25",
+      "name": "Disjuntor Steck SD C25 · 1P 25 A curva C",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "motorBreakerPkzmC10",
+      "name": "Disjuntor-motor Eaton/Moeller PKZM C-10 · 3P 6,3-10 A",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "breaker2p",
+      "name": "Disjuntor Schneider Easy9 EZ9 · 2P",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "breaker3p",
+      "name": "Disjuntor Schneider Easy9 EZ9 · 3P",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "phoenixEcb3000760",
+      "name": "Phoenix Contact EC 1 12DC/1A S-R · 3000760",
+      "terminals": 5,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "residualBreakerSchneiderIid4p",
+      "name": "Interruptor Diferencial Schneider Acti9 iID · 4P 40A 30mA",
+      "terminals": 8,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "residualBreakerSchneiderIdpnVigi",
+      "name": "Disjuntor Diferencial Schneider Acti9 iDPN N Vigi · 1P+N C16 30mA",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "dualPushButtonNpb22D11",
+      "name": "Botoeira dupla NHD NPB22-D11 · START/STOP",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "emergencyButton",
+      "name": "Botão de emergência Metaltex P20AKR · 1NF",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "emergencyButtonKeyP20ACR",
+      "name": "Botão de emergência Metaltex P20ACR · chave · 1NF",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "contactorWegCWC09",
+      "name": "Contator WEG CWC09 · 9 A (3NA + 1NA)",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "safetyRelay",
+      "name": "Relé de segurança Allen-Bradley Guardmaster MSR127TP",
+      "terminals": 16,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "pilotLightAd22",
+      "name": "Sinaleiro LED AD22-22DS · 24 V",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "pilotLightSchneiderIil1p",
+      "name": "Sinalizador Modular Schneider Acti9 iIL · 1P 230V",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "pilotLightSchneiderIil3p",
+      "name": "Sinalizador Trifásico Schneider Acti9 iIL · Presença de tensão L1-L2-L3 · 1 módulo",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "motor3ph",
+      "name": "Motor SEW DRN80MK4/B3 · 0,55 kW",
+      "terminals": 7,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "motor1ph",
+      "name": "Motor monofásico · azul DC-Simu",
+      "terminals": 5,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "capacitorRun60uF",
+      "name": "Condensador (genérico CBB65)",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "plcSiemensLogo1224RC",
+      "name": "Siemens LOGO! 12/24RC (8DI/4DQ)",
+      "terminals": 19,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "plcLsXbmDn32s",
+      "name": "CLP LS Electric XGB XBM-DN32S · 16DI/16DO",
+      "terminals": 34,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "plcSiemensS71500Di32",
+      "name": "Siemens S7-1500 DI 32×24 V · 6ES7521-1BL00-0AB0",
+      "terminals": 34,
+      "duplicateLabels": [],
+      "interior": [
+        "L+",
+        "M",
+        "I0.0",
+        "I0.1",
+        "I0.2",
+        "I0.3",
+        "I0.4",
+        "I0.5",
+        "I0.6",
+        "I0.7",
+        "I1.0",
+        "I1.1",
+        "I1.2",
+        "I1.3",
+        "I1.4",
+        "I1.5",
+        "I1.6",
+        "I1.7",
+        "I2.0",
+        "I2.1",
+        "I2.2",
+        "I2.3",
+        "I2.4",
+        "I2.5",
+        "I2.6",
+        "I2.7",
+        "I3.0",
+        "I3.1",
+        "I3.2",
+        "I3.3",
+        "I3.4",
+        "I3.5",
+        "I3.6",
+        "I3.7"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "plcSiemensS71500Cpu1511c",
+      "name": "Siemens S7-1500 CPU 1511C-1 PN · 6ES7511-1CK00-0AB0",
+      "terminals": 35,
+      "duplicateLabels": [],
+      "interior": [
+        "L+",
+        "M",
+        "PN",
+        "I0.0",
+        "Q0.0",
+        "I0.1",
+        "Q0.1",
+        "I0.2",
+        "Q0.2",
+        "I0.3",
+        "Q0.3",
+        "I0.4",
+        "Q0.4",
+        "I0.5",
+        "Q0.5",
+        "I0.6",
+        "Q0.6",
+        "I0.7",
+        "Q0.7",
+        "I1.0",
+        "Q1.0",
+        "I1.1",
+        "Q1.1",
+        "I1.2",
+        "Q1.2",
+        "I1.3",
+        "Q1.3",
+        "I1.4",
+        "Q1.4",
+        "I1.5",
+        "Q1.5",
+        "I1.6",
+        "Q1.6",
+        "I1.7",
+        "Q1.7"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "plcSiemensS7300Cpu315",
+      "name": "Siemens S7-300 CPU 315-2 DP",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [
+        "L+",
+        "M",
+        "MPI",
+        "DP"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "siemensTsAdapterIeBasic",
+      "name": "Siemens SIMATIC TS Adapter IE Basic · 6ES7972-0EB00-0XA0",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "terminalPhoenixPti6",
+      "name": "Borne Phoenix Contact PTI 6 · 3213972",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "terminalPE",
+      "name": "Borne de terra (verde/amarelo)",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "dinRail15x55",
+      "name": "Calha DIN perfurada TS35 / G-rail (EN 60715) · textura real",
+      "terminals": 0,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": false,
+      "ok": true
+    },
+    {
+      "type": "panelEnclosure",
+      "name": "Quadro metálico com porta (IP66) · chapa de montagem",
+      "terminals": 0,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": false,
+      "ok": true
+    },
+    {
+      "type": "cableDuct",
+      "name": "Calha técnica ranhurada com tampa (PVC)",
+      "terminals": 0,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": false,
+      "ok": true
+    },
+    {
+      "type": "busbarPhaseAcrylic",
+      "name": "Barramento de fase (L)",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "L.1",
+        "L.2",
+        "L.3",
+        "L.4",
+        "L.5",
+        "L.6",
+        "L.7",
+        "L.8",
+        "L.9",
+        "L.10"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "busbarNeutral",
+      "name": "Barramento de neutro (N)",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "N1",
+        "N2",
+        "N3",
+        "N4",
+        "N5",
+        "N6",
+        "N7",
+        "N8",
+        "N9",
+        "N10"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "earthBar",
+      "name": "Barramento de terra (PE)",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "PE1",
+        "PE2",
+        "PE3",
+        "PE4",
+        "PE5",
+        "PE6",
+        "PE7",
+        "PE8",
+        "PE9",
+        "PE10"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "busbarPhaseStepped",
+      "name": "Barramento de fases em escada",
+      "terminals": 28,
+      "duplicateLabels": [],
+      "interior": [
+        "L1.1",
+        "L1.2",
+        "L1.3",
+        "L1.4",
+        "L1.5",
+        "L1.6",
+        "L1.7",
+        "L2.1",
+        "L2.2",
+        "L2.3",
+        "L2.4",
+        "L2.5",
+        "L2.6",
+        "L2.7",
+        "L3.1",
+        "L3.2",
+        "L3.3",
+        "L3.4",
+        "L3.5",
+        "L3.6",
+        "L3.7",
+        "N.1",
+        "N.2",
+        "N.3",
+        "N.4",
+        "N.5",
+        "N.6",
+        "N.7"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "busbarComb",
+      "name": "Barramento tipo pente (pino)",
+      "terminals": 12,
+      "duplicateLabels": [],
+      "interior": [
+        "L.1",
+        "L.2",
+        "L.3",
+        "L.4",
+        "L.5",
+        "L.6",
+        "L.7",
+        "L.8",
+        "L.9",
+        "L.10",
+        "L.11",
+        "L.12"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "combBusbarConnector",
+      "name": "Conector para barramento pente",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [
+        "IN",
+        "PINO"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "terminalSet1ph",
+      "name": "Conjunto de bornes monofásico · L/N/PE",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [
+        "L-IN",
+        "L-OUT",
+        "N-IN",
+        "N-OUT",
+        "PE-IN",
+        "PE-OUT"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "terminalSet24v",
+      "name": "Conjunto de bornes 24V · 0V/+24V/PE",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [
+        "0V-IN",
+        "0V-OUT",
+        "+24V-IN",
+        "+24V-OUT",
+        "PE-IN",
+        "PE-OUT"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "terminalSet3ph",
+      "name": "Conjunto de bornes trifásico · L1/L2/L3/N/PE",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "L1-IN",
+        "L1-OUT",
+        "L2-IN",
+        "L2-OUT",
+        "L3-IN",
+        "L3-OUT",
+        "N-IN",
+        "N-OUT",
+        "PE-IN",
+        "PE-OUT"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "powerSupplyProauto24A",
+      "name": "Fonte Proauto / DRAN120-24A · 24V 5A",
+      "terminals": 9,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    },
+    {
+      "type": "powerSource1ph",
+      "name": "Fonte AC monofásica · L/N/PE",
+      "terminals": 3,
+      "duplicateLabels": [],
+      "interior": [
+        "L",
+        "N",
+        "PE"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "powerSource3ph",
+      "name": "Fonte AC trifásica · L1/L2/L3/N/PE",
+      "terminals": 5,
+      "duplicateLabels": [],
+      "interior": [
+        "L1",
+        "L2",
+        "L3",
+        "N",
+        "PE"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "powerSource24v",
+      "name": "Fonte DC 24V · 0V/+24V/PE",
+      "terminals": 3,
+      "duplicateLabels": [],
+      "interior": [
+        "0V",
+        "+24V",
+        "PE"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "multimeterDm20",
+      "name": "Multímetro digital RGK DM-20",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [],
+      "missingType": [],
+      "measured": true,
+      "ok": true
+    }
+  ],
+  "badTerminals": [
+    {
+      "type": "plcSiemensS71500Di32",
+      "name": "Siemens S7-1500 DI 32×24 V · 6ES7521-1BL00-0AB0",
+      "terminals": 34,
+      "duplicateLabels": [],
+      "interior": [
+        "L+",
+        "M",
+        "I0.0",
+        "I0.1",
+        "I0.2",
+        "I0.3",
+        "I0.4",
+        "I0.5",
+        "I0.6",
+        "I0.7",
+        "I1.0",
+        "I1.1",
+        "I1.2",
+        "I1.3",
+        "I1.4",
+        "I1.5",
+        "I1.6",
+        "I1.7",
+        "I2.0",
+        "I2.1",
+        "I2.2",
+        "I2.3",
+        "I2.4",
+        "I2.5",
+        "I2.6",
+        "I2.7",
+        "I3.0",
+        "I3.1",
+        "I3.2",
+        "I3.3",
+        "I3.4",
+        "I3.5",
+        "I3.6",
+        "I3.7"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "plcSiemensS71500Cpu1511c",
+      "name": "Siemens S7-1500 CPU 1511C-1 PN · 6ES7511-1CK00-0AB0",
+      "terminals": 35,
+      "duplicateLabels": [],
+      "interior": [
+        "L+",
+        "M",
+        "PN",
+        "I0.0",
+        "Q0.0",
+        "I0.1",
+        "Q0.1",
+        "I0.2",
+        "Q0.2",
+        "I0.3",
+        "Q0.3",
+        "I0.4",
+        "Q0.4",
+        "I0.5",
+        "Q0.5",
+        "I0.6",
+        "Q0.6",
+        "I0.7",
+        "Q0.7",
+        "I1.0",
+        "Q1.0",
+        "I1.1",
+        "Q1.1",
+        "I1.2",
+        "Q1.2",
+        "I1.3",
+        "Q1.3",
+        "I1.4",
+        "Q1.4",
+        "I1.5",
+        "Q1.5",
+        "I1.6",
+        "Q1.6",
+        "I1.7",
+        "Q1.7"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "plcSiemensS7300Cpu315",
+      "name": "Siemens S7-300 CPU 315-2 DP",
+      "terminals": 4,
+      "duplicateLabels": [],
+      "interior": [
+        "L+",
+        "M",
+        "MPI",
+        "DP"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "busbarPhaseAcrylic",
+      "name": "Barramento de fase (L)",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "L.1",
+        "L.2",
+        "L.3",
+        "L.4",
+        "L.5",
+        "L.6",
+        "L.7",
+        "L.8",
+        "L.9",
+        "L.10"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "busbarNeutral",
+      "name": "Barramento de neutro (N)",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "N1",
+        "N2",
+        "N3",
+        "N4",
+        "N5",
+        "N6",
+        "N7",
+        "N8",
+        "N9",
+        "N10"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "earthBar",
+      "name": "Barramento de terra (PE)",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "PE1",
+        "PE2",
+        "PE3",
+        "PE4",
+        "PE5",
+        "PE6",
+        "PE7",
+        "PE8",
+        "PE9",
+        "PE10"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "busbarPhaseStepped",
+      "name": "Barramento de fases em escada",
+      "terminals": 28,
+      "duplicateLabels": [],
+      "interior": [
+        "L1.1",
+        "L1.2",
+        "L1.3",
+        "L1.4",
+        "L1.5",
+        "L1.6",
+        "L1.7",
+        "L2.1",
+        "L2.2",
+        "L2.3",
+        "L2.4",
+        "L2.5",
+        "L2.6",
+        "L2.7",
+        "L3.1",
+        "L3.2",
+        "L3.3",
+        "L3.4",
+        "L3.5",
+        "L3.6",
+        "L3.7",
+        "N.1",
+        "N.2",
+        "N.3",
+        "N.4",
+        "N.5",
+        "N.6",
+        "N.7"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "busbarComb",
+      "name": "Barramento tipo pente (pino)",
+      "terminals": 12,
+      "duplicateLabels": [],
+      "interior": [
+        "L.1",
+        "L.2",
+        "L.3",
+        "L.4",
+        "L.5",
+        "L.6",
+        "L.7",
+        "L.8",
+        "L.9",
+        "L.10",
+        "L.11",
+        "L.12"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "combBusbarConnector",
+      "name": "Conector para barramento pente",
+      "terminals": 2,
+      "duplicateLabels": [],
+      "interior": [
+        "IN",
+        "PINO"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "terminalSet1ph",
+      "name": "Conjunto de bornes monofásico · L/N/PE",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [
+        "L-IN",
+        "L-OUT",
+        "N-IN",
+        "N-OUT",
+        "PE-IN",
+        "PE-OUT"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "terminalSet24v",
+      "name": "Conjunto de bornes 24V · 0V/+24V/PE",
+      "terminals": 6,
+      "duplicateLabels": [],
+      "interior": [
+        "0V-IN",
+        "0V-OUT",
+        "+24V-IN",
+        "+24V-OUT",
+        "PE-IN",
+        "PE-OUT"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "terminalSet3ph",
+      "name": "Conjunto de bornes trifásico · L1/L2/L3/N/PE",
+      "terminals": 10,
+      "duplicateLabels": [],
+      "interior": [
+        "L1-IN",
+        "L1-OUT",
+        "L2-IN",
+        "L2-OUT",
+        "L3-IN",
+        "L3-OUT",
+        "N-IN",
+        "N-OUT",
+        "PE-IN",
+        "PE-OUT"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "powerSource1ph",
+      "name": "Fonte AC monofásica · L/N/PE",
+      "terminals": 3,
+      "duplicateLabels": [],
+      "interior": [
+        "L",
+        "N",
+        "PE"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "powerSource3ph",
+      "name": "Fonte AC trifásica · L1/L2/L3/N/PE",
+      "terminals": 5,
+      "duplicateLabels": [],
+      "interior": [
+        "L1",
+        "L2",
+        "L3",
+        "N",
+        "PE"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    },
+    {
+      "type": "powerSource24v",
+      "name": "Fonte DC 24V · 0V/+24V/PE",
+      "terminals": 3,
+      "duplicateLabels": [],
+      "interior": [
+        "0V",
+        "+24V",
+        "PE"
+      ],
+      "missingType": [],
+      "measured": false,
+      "ok": false
+    }
+  ],
+  "models": [
+    {
+      "type": "fuseHolderSchneiderDf103nv",
+      "raw": [
+        0.06970000267028809,
+        0.07925593852996828,
+        0.06105588376522064
+      ],
+      "rotated": [
+        0.06970000267028809,
+        0.07925593852996828,
+        0.06105588376522064
+      ],
+      "physical": [
+        69.7,
+        79.256,
+        61.056
+      ],
+      "scale": 1000.0008803403233,
+      "error": 0.0000010234028899880343
+    },
+    {
+      "type": "fuseHolderSchneiderDf101v",
+      "raw": [
+        0.01719999872148037,
+        0.07925204932689667,
+        0.06105000153183936
+      ],
+      "rotated": [
+        0.01719999872148037,
+        0.07925204932689667,
+        0.06105000153183936
+      ],
+      "physical": [
+        17.2,
+        79.252,
+        61.05
+      ],
+      "scale": 999.9998089451776,
+      "error": 4.313505743702706e-7
+    },
+    {
+      "type": "fuseHolderSchneiderDf81n",
+      "raw": [
+        0.034700002521276474,
+        0.07925204932689667,
+        0.061049997806549065
+      ],
+      "rotated": [
+        0.034700002521276474,
+        0.07925204932689667,
+        0.061049997806549065
+      ],
+      "physical": [
+        34.7,
+        79.252,
+        61.05
+      ],
+      "scale": 999.9997802880215,
+      "error": 4.026934242729041e-7
+    },
+    {
+      "type": "keyActuatorEao61",
+      "raw": [
+        0.03999999910593033,
+        0.03999999910593033,
+        0.0750500038266182
+      ],
+      "rotated": [
+        0.03999999910593033,
+        0.03999999910593033,
+        0.0750500038266182
+      ],
+      "physical": [
+        40,
+        40,
+        75.05
+      ],
+      "scale": 999.9999979052993,
+      "error": 4.889288107712275e-8
+    },
+    {
+      "type": "thermalRelaySiemens3ru1116",
+      "raw": [
+        0.04482099786400795,
+        0.0749099999666214,
+        0.0722699984908104
+      ],
+      "rotated": [
+        0.04482099786400795,
+        0.0749099999666214,
+        0.0722699984908104
+      ],
+      "physical": [
+        44.821,
+        74.91,
+        72.27
+      ],
+      "scale": 1000.0000229947661,
+      "error": 2.4661290787264534e-8
+    },
+    {
+      "type": "residualBreakerHagerCfc225p",
+      "raw": [
+        0.03550000116229057,
+        0.08624999970197678,
+        0.07480910420417786
+      ],
+      "rotated": [
+        0.03550000116229057,
+        0.08624999970197678,
+        0.07480910420417786
+      ],
+      "physical": [
+        35.5,
+        86.25,
+        74.809
+      ],
+      "scale": 999.9995259265628,
+      "error": 9.188614409350038e-7
+    },
+    {
+      "type": "selectorSchneiderXa2ed33",
+      "raw": [
+        0.029999999329447746,
+        0.04199275001883507,
+        0.06825000047683716
+      ],
+      "rotated": [
+        0.029999999329447746,
+        0.04199275001883507,
+        0.06825000047683716
+      ],
+      "physical": [
+        30,
+        41.993,
+        68.25
+      ],
+      "scale": 1000.001989437809,
+      "error": 0.000003963514396021495
+    },
+    {
+      "type": "contactorWegCwbc65",
+      "raw": [
+        0.05760997161269188,
+        0.11500000208616258,
+        0.15940000116825104
+      ],
+      "rotated": [
+        0.05760997161269188,
+        0.11500000208616258,
+        0.15940000116825104
+      ],
+      "physical": [
+        57.61,
+        115,
+        159.4
+      ],
+      "scale": 1000.0001557600746,
+      "error": 3.369897794147647e-7
+    },
+    {
+      "type": "surgeProtectorWegSpw02",
+      "raw": [
+        0.017999999225139618,
+        0.08105000108480453,
+        0.06909999996423721
+      ],
+      "rotated": [
+        0.017999999225139625,
+        0.08105000108480453,
+        0.06909999996423721
+      ],
+      "physical": [
+        18,
+        81.05,
+        69.1
+      ],
+      "scale": 1000.0000100603222,
+      "error": 3.298747786040224e-8
+    },
+    {
+      "type": "surgeProtectorWegSpw12",
+      "raw": [
+        0.05404999852180481,
+        0.08105000108480452,
+        0.06930000334978104
+      ],
+      "rotated": [
+        0.05404999852180481,
+        0.08105000108480452,
+        0.06930000334978104
+      ],
+      "physical": [
+        54.05,
+        81.05,
+        69.3
+      ],
+      "scale": 999.9999885422966,
+      "error": 3.880636678665894e-8
+    },
+    {
+      "type": "safetyRelaySiemens3tk2840",
+      "raw": [
+        0.022099997848272324,
+        0.10000000149011612,
+        0.09049999713897705
+      ],
+      "rotated": [
+        0.022099997848272324,
+        0.10000000149011612,
+        0.09049999713897705
+      ],
+      "physical": [
+        22.1,
+        100,
+        90.5
+      ],
+      "scale": 1000.0000380252004,
+      "error": 5.933805025115646e-8
+    },
+    {
+      "type": "motorBreakerSchneiderGv2me",
+      "raw": [
+        0.04450000077486038,
+        0.08919999748468399,
+        0.07686446607112885
+      ],
+      "rotated": [
+        0.04450000077486038,
+        0.08919999748468399,
+        0.07686446607112885
+      ],
+      "physical": [
+        44.5,
+        89.2,
+        76.864
+      ],
+      "scale": 999.9979824096672,
+      "error": 0.000004045962568977046
+    },
+    {
+      "type": "towerLightSb23011",
+      "raw": [
+        0.07000000029802322,
+        0.32697510719299316,
+        0.07097560912370682
+      ],
+      "rotated": [
+        0.07000000029802322,
+        0.32697510719299316,
+        0.07097560912370682
+      ],
+      "physical": [
+        70,
+        326.975,
+        70.976
+      ],
+      "scale": 1000.0017250304348,
+      "error": 0.0000037821548495298174
+    },
+    {
+      "type": "photoSensorXukt1ksml2",
+      "raw": [
+        0.03381391987204552,
+        0.0696086585521698,
+        0.06960865855216981
+      ],
+      "rotated": [
+        0.03381391987204552,
+        0.0696086585521698,
+        0.06960865855216981
+      ],
+      "physical": [
+        33.814,
+        69.609,
+        69.609
+      ],
+      "scale": 1000.0040600567605,
+      "error": 0.0000016903762605213757
+    },
+    {
+      "type": "plcSiemensS71500Di32",
+      "raw": [
+        0.04699235036969185,
+        0.1317024528980255,
+        0.1469999998807907
+      ],
+      "rotated": [
+        0.04699235036969185,
+        0.1469999998807907,
+        0.1317024528980255
+      ],
+      "physical": [
+        47,
+        147,
+        131.7
+      ],
+      "scale": 1000.0480502985432,
+      "error": 0.00011472877487617161
+    },
+    {
+      "type": "plcSiemensS71500Cpu1511c",
+      "raw": [
+        0.08489999920129776,
+        0.12925276160240173,
+        0.1469999998807907
+      ],
+      "rotated": [
+        0.08489999920129776,
+        0.1469999998807907,
+        0.1292527616024017
+      ],
+      "physical": [
+        85,
+        147,
+        131.7
+      ],
+      "scale": 1006.6667587637855,
+      "error": 0.012185743488482226
+    },
+    {
+      "type": "plcSiemensS7300Cpu315",
+      "raw": [
+        0.03999999910593033,
+        0.12210088968276979,
+        0.1250351667404175
+      ],
+      "rotated": [
+        0.03999999910593033,
+        0.12210088968276979,
+        0.1250351667404175
+      ],
+      "physical": [
+        40,
+        122.1,
+        125.04
+      ],
+      "scale": 1000.0104634959628,
+      "error": 0.000028191410696987163
+    },
+    {
+      "type": "vfdSchneiderAtv320",
+      "raw": [
+        0.07275023311376572,
+        0.14295015914440154,
+        0.12805999781191352
+      ],
+      "rotated": [
+        0.07275023311376572,
+        0.14295015914440154,
+        0.12805999781191352
+      ],
+      "physical": [
+        72.750237,
+        142.950153,
+        128.059998
+      ],
+      "scale": 1000.0000039682557,
+      "error": 4.9450600947409384e-8
+    },
+    {
+      "type": "relaySocketFinder9023",
+      "raw": [
+        0.03799999877810478,
+        0.06859378281160389,
+        0.022900734118494036
+      ],
+      "rotated": [
+        0.03799999877810478,
+        0.06859378281160389,
+        0.022900734118494036
+      ],
+      "physical": [
+        38,
+        68.593784,
+        22.900734
+      ],
+      "scale": 1000.0000147686733,
+      "error": 1.994291920492941e-8
+    },
+    {
+      "type": "relayFinder5534",
+      "raw": [
+        0.027000000700354576,
+        0.0785999953389167,
+        0.07171000000000022
+      ],
+      "rotated": [
+        0.027000000700354576,
+        0.0785999953389167,
+        0.07171000000000022
+      ],
+      "physical": [
+        27,
+        78.599997,
+        71.71
+      ],
+      "scale": 999.9999983981052,
+      "error": 2.4337162840559756e-8
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "raw": [
+        0.017999999225139618,
+        0.09499999988824129,
+        0.06534999999848429
+      ],
+      "rotated": [
+        0.017999999225139618,
+        0.09499999988824129,
+        0.06534999999848429
+      ],
+      "physical": [
+        18,
+        95,
+        65.35
+      ],
+      "scale": 1000.0000147491334,
+      "error": 2.8298667187343085e-8
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "raw": [
+        0.017999999225139618,
+        0.09499999988824129,
+        0.06534999999848429
+      ],
+      "rotated": [
+        0.017999999225139618,
+        0.09499999988824129,
+        0.06534999999848429
+      ],
+      "physical": [
+        18,
+        95,
+        65.35
+      ],
+      "scale": 1000.0000147491334,
+      "error": 2.8298667187343085e-8
+    },
+    {
+      "type": "levelRelayAvel411",
+      "raw": [
+        0.03500000014901161,
+        0.07900000363588333,
+        0.07785500037611462
+      ],
+      "rotated": [
+        0.03500000014901161,
+        0.07900000363588333,
+        0.07785500037611462
+      ],
+      "physical": [
+        35,
+        79,
+        77.855
+      ],
+      "scale": 999.9999816292417,
+      "error": 2.7653079714973217e-8
+    },
+    {
+      "type": "buzzerMetaltexTby301",
+      "raw": [
+        0.04699999839067459,
+        0.0470099991953373,
+        0.06950000002374873
+      ],
+      "rotated": [
+        0.04699999839067459,
+        0.0470099991953373,
+        0.06950000002374873
+      ],
+      "physical": [
+        47,
+        47.01,
+        69.5
+      ],
+      "scale": 1000.0000170053668,
+      "error": 1.7347074887652525e-8
+    },
+    {
+      "type": "plcSiemensLogo1224RC",
+      "raw": [
+        0.07150000000000001,
+        0.059900001525878904,
+        0.09
+      ],
+      "rotated": [
+        0.07150000000000001,
+        0.09,
+        0.05990000152587892
+      ],
+      "physical": [
+        72,
+        90,
+        55
+      ],
+      "scale": 974.2134105341315,
+      "error": 0.0574991457997962
+    },
+    {
+      "type": "powerSupplyProauto24A",
+      "raw": [
+        0.064,
+        0.12831746673583982,
+        0.12394736194610595
+      ],
+      "rotated": [
+        0.064,
+        0.12831746673583982,
+        0.12394736194610595
+      ],
+      "physical": [
+        64,
+        124.5,
+        123.6
+      ],
+      "scale": 989.057602952974,
+      "error": 0.01901585421253771
+    },
+    {
+      "type": "contactorWegCWC09",
+      "raw": [
+        45.47648811340332,
+        52.01000032015145,
+        58
+      ],
+      "rotated": [
+        45.47648811340332,
+        58,
+        52.01000032015146
+      ],
+      "physical": [
+        45.48,
+        58,
+        52.01
+      ],
+      "scale": 1.0000257386941704,
+      "error": 0.00005148420671363674
+    },
+    {
+      "type": "breaker1p",
+      "raw": [
+        0.01769999973475933,
+        0.08450000220909715,
+        0.07457076758146286
+      ],
+      "rotated": [
+        0.01769999973475933,
+        0.08450000220909715,
+        0.07457076758146286
+      ],
+      "physical": [
+        17.7,
+        84.5,
+        74.57
+      ],
+      "scale": 999.9965651592206,
+      "error": 0.000006858512024865426
+    },
+    {
+      "type": "breaker2p",
+      "raw": [
+        0.035999998450279236,
+        0.08450000220909715,
+        0.0754396915435791
+      ],
+      "rotated": [
+        0.035999998450279236,
+        0.08450000220909715,
+        0.0754396915435791
+      ],
+      "physical": [
+        36,
+        84.5,
+        75.44
+      ],
+      "scale": 1000.0013685602216,
+      "error": 0.000002720217631813071
+    },
+    {
+      "type": "breaker3p",
+      "raw": [
+        0.05400000140070915,
+        0.08450000220909715,
+        0.07543676346540451
+      ],
+      "rotated": [
+        0.05400000140070915,
+        0.08450000220909715,
+        0.07543676346540451
+      ],
+      "physical": [
+        54,
+        84.5,
+        75.44
+      ],
+      "scale": 1000.014283748804,
+      "error": 0.000028619785340744386
+    },
+    {
+      "type": "breakerSteckSdC25",
+      "raw": [
+        0.017775000462279422,
+        0.07963500171899796,
+        0.07261568307876588
+      ],
+      "rotated": [
+        0.017775000462279422,
+        0.07963500171899796,
+        0.07261568307876588
+      ],
+      "physical": [
+        17.8,
+        79.6,
+        72.6
+      ],
+      "scale": 1000.2499762796814,
+      "error": 0.0011561784201796765
+    },
+    {
+      "type": "motorBreakerPkzmC10",
+      "raw": [
+        0.04470000043511391,
+        0.09179999679327011,
+        0.0754999965429306
+      ],
+      "rotated": [
+        0.04470000043511391,
+        0.09179999679327011,
+        0.0754999965429306
+      ],
+      "physical": [
+        44.7,
+        91.8,
+        75.5
+      ],
+      "scale": 1000.0000236622029,
+      "error": 3.3396293841470026e-8
+    },
+    {
+      "type": "phoenixEcb3000760",
+      "raw": [
+        12.399999618530273,
+        81.65435791015625,
+        80
+      ],
+      "rotated": [
+        12.399999618530273,
+        80.00000000000001,
+        81.65435791015625
+      ],
+      "physical": [
+        12.4,
+        80,
+        81.65
+      ],
+      "scale": 0.9999822198681817,
+      "error": 0.000035590710097177514
+    },
+    {
+      "type": "emergencyButton",
+      "raw": [
+        0.0394954439252615,
+        0.04444915894418955,
+        0.075849998742342
+      ],
+      "rotated": [
+        0.0394954439252615,
+        0.04444915894418955,
+        0.075849998742342
+      ],
+      "physical": [
+        38.9,
+        44.2,
+        76
+      ],
+      "scale": 993.7407806400737,
+      "error": 0.008872584800159067
+    },
+    {
+      "type": "emergencyButtonKeyP20ACR",
+      "raw": [
+        0.040400002151727676,
+        0.09660465875640512,
+        0.044449154287576675
+      ],
+      "rotated": [
+        0.040400002151727676,
+        0.04444915428757668,
+        0.09660465875640512
+      ],
+      "physical": [
+        40,
+        44,
+        97
+      ],
+      "scale": 994.6733456478019,
+      "error": 0.009469456970344625
+    },
+    {
+      "type": "dualPushButtonNpb22D11",
+      "raw": [
+        48.79980659484863,
+        30.199999809265137,
+        61.79948616027832
+      ],
+      "rotated": [
+        48.79980659484863,
+        30.199999809265137,
+        61.79948616027832
+      ],
+      "physical": [
+        48.8,
+        30.2,
+        61.8
+      ],
+      "scale": 1.0000040947207371,
+      "error": 0.00000421988971921472
+    },
+    {
+      "type": "safetyRelay",
+      "raw": [
+        0.09910000115633011,
+        0.02265373431146145,
+        0.11273000086657703
+      ],
+      "rotated": [
+        0.02265373431146145,
+        0.09910000115633011,
+        0.11273000086657703
+      ],
+      "physical": [
+        22.65,
+        99.1,
+        112.73
+      ],
+      "scale": 999.9450428338348,
+      "error": 0.00010989195866129009
+    },
+    {
+      "type": "plcLsXbmDn32s",
+      "raw": [
+        82.0247802734375,
+        30.20000457763672,
+        97.490478515625
+      ],
+      "rotated": [
+        30.20000457763672,
+        97.490478515625,
+        82.0247802734375
+      ],
+      "physical": [
+        30.2,
+        97.49,
+        82.03
+      ],
+      "scale": 1.000019524865709,
+      "error": 0.000044110244333595006
+    },
+    {
+      "type": "siemensTsAdapterIeBasic",
+      "raw": [
+        30,
+        75.09693908691406,
+        105.58020782470703
+      ],
+      "rotated": [
+        30,
+        105.58020782470705,
+        75.09693908691406
+      ],
+      "physical": [
+        30,
+        105.58,
+        75.1
+      ],
+      "scale": 1.0000129301680811,
+      "error": 0.0000278289640589513
+    },
+    {
+      "type": "terminalPhoenixPti6",
+      "raw": [
+        8.149999612830271,
+        48.50000000080532,
+        66.0147201765094
+      ],
+      "rotated": [
+        8.149999612830271,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "physical": [
+        8.15,
+        66.02,
+        48.5
+      ],
+      "scale": 1.0000266749485194,
+      "error": 0.000053303117174552384
+    },
+    {
+      "type": "terminalSet1ph",
+      "raw": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "rotated": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "physical": [
+        24.45,
+        66.02,
+        48.5
+      ],
+      "scale": 1.0000266643914624,
+      "error": 0.000053313674512889264
+    },
+    {
+      "type": "terminalSet3ph",
+      "raw": [
+        40.74999961283027,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "rotated": [
+        40.74999961283027,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "physical": [
+        40.75,
+        66.02,
+        48.5
+      ],
+      "scale": 1.000026662280051,
+      "error": 0.000053315785980334596
+    },
+    {
+      "type": "terminalSet24v",
+      "raw": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "rotated": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "physical": [
+        24.45,
+        66.02,
+        48.5
+      ],
+      "scale": 1.0000266643914624,
+      "error": 0.000053313674512889264
+    },
+    {
+      "type": "powerSource1ph",
+      "raw": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "rotated": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "physical": [
+        24.45,
+        66.02,
+        48.5
+      ],
+      "scale": 1.0000266643914624,
+      "error": 0.000053313674512889264
+    },
+    {
+      "type": "powerSource3ph",
+      "raw": [
+        40.74999961283027,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "rotated": [
+        40.74999961283027,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "physical": [
+        40.75,
+        66.02,
+        48.5
+      ],
+      "scale": 1.000026662280051,
+      "error": 0.000053315785980334596
+    },
+    {
+      "type": "powerSource24v",
+      "raw": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "rotated": [
+        24.449999612830272,
+        66.0147201765094,
+        48.50000000080532
+      ],
+      "physical": [
+        24.45,
+        66.02,
+        48.5
+      ],
+      "scale": 1.0000266643914624,
+      "error": 0.000053313674512889264
+    },
+    {
+      "type": "terminalPE",
+      "raw": [
+        5.150000095367432,
+        35.25,
+        48.599998474121094
+      ],
+      "rotated": [
+        5.150000095367432,
+        48.5999984741211,
+        35.250000000000014
+      ],
+      "physical": [
+        5.15,
+        48.6,
+        35.25
+      ],
+      "scale": 1.0000000042929125,
+      "error": 2.71037734478341e-8
+    },
+    {
+      "type": "earthBar",
+      "raw": [
+        0.1119999960064888,
+        0.0364999994635582,
+        0.013150000013411045
+      ],
+      "rotated": [
+        0.1119999960064888,
+        0.0364999994635582,
+        0.013150000013411045
+      ],
+      "physical": [
+        112,
+        36.5,
+        13
+      ],
+      "scale": 996.1831853485735,
+      "error": 0.007619111198508666
+    },
+    {
+      "type": "busbarNeutral",
+      "raw": [
+        0.1119999960064888,
+        0.0364999994635582,
+        0.013150000013411045
+      ],
+      "rotated": [
+        0.1119999960064888,
+        0.0364999994635582,
+        0.013150000013411045
+      ],
+      "physical": [
+        112,
+        36.5,
+        13
+      ],
+      "scale": 996.1831853485735,
+      "error": 0.007619111198508666
+    },
+    {
+      "type": "busbarPhaseAcrylic",
+      "raw": [
+        0.1119999960064888,
+        0.0364999994635582,
+        0.013150000013411045
+      ],
+      "rotated": [
+        0.1119999960064888,
+        0.0364999994635582,
+        0.013150000013411045
+      ],
+      "physical": [
+        112,
+        36.5,
+        13
+      ],
+      "scale": 996.1831853485735,
+      "error": 0.007619111198508666
+    },
+    {
+      "type": "busbarPhaseStepped",
+      "raw": [
+        0.08879999816417694,
+        0.0879999997496605,
+        0.05009999871253967
+      ],
+      "rotated": [
+        0.08879999816417694,
+        0.0879999997496605,
+        0.05009999871253967
+      ],
+      "physical": [
+        88.8,
+        88,
+        50
+      ],
+      "scale": 999.3342372363046,
+      "error": 0.0013311057744771482
+    },
+    {
+      "type": "busbarComb",
+      "raw": [
+        0.21400000154972076,
+        0.0284000001847744,
+        0.0101500004529953
+      ],
+      "rotated": [
+        0.21400000154972076,
+        0.0284000001847744,
+        0.0101500004529953
+      ],
+      "physical": [
+        214,
+        28,
+        9.8
+      ],
+      "scale": 983.7088225855425,
+      "error": 0.01849289533616938
+    },
+    {
+      "type": "combBusbarConnector",
+      "raw": [
+        0.016009999439120293,
+        0.03562000021338463,
+        0.020604999735951424
+      ],
+      "rotated": [
+        0.016009999439120293,
+        0.03562000021338463,
+        0.020604999735951424
+      ],
+      "physical": [
+        15.8,
+        35.6,
+        20.6
+      ],
+      "scale": 995.3415928214814,
+      "error": 0.008497947144648244
+    },
+    {
+      "type": "dinRail15x55",
+      "raw": [
+        1,
+        0.014000000026077031,
+        0.005500000023748726
+      ],
+      "rotated": [
+        1,
+        0.014000000026077031,
+        0.005500000023748726
+      ],
+      "physical": [
+        1000,
+        15,
+        5.5
+      ],
+      "scale": 1023.2641059856854,
+      "error": 0.04706943511987971
+    },
+    {
+      "type": "panelEnclosure",
+      "raw": [
+        0.6102000117972493,
+        0.800000011920929,
+        0.28259999928437174
+      ],
+      "rotated": [
+        0.6102000117972493,
+        0.800000011920929,
+        0.28259999928437174
+      ],
+      "physical": [
+        600,
+        800,
+        282
+      ],
+      "scale": 993.6924605462958,
+      "error": 0.010474377984045713
+    },
+    {
+      "type": "cableDuct",
+      "raw": [
+        0.6000000238418579,
+        0.041600000113248825,
+        0.061799999373964964
+      ],
+      "rotated": [
+        0.6000000238418579,
+        0.041600000113248825,
+        0.061799999373964964
+      ],
+      "physical": [
+        600,
+        40,
+        62
+      ],
+      "scale": 988.075097046089,
+      "error": 0.026856904100288514
+    },
+    {
+      "type": "motor3ph",
+      "raw": [
+        0.264,
+        0.20800000000000002,
+        0.156
+      ],
+      "rotated": [
+        0.264,
+        0.20800000000000002,
+        0.156
+      ],
+      "physical": [
+        264,
+        208,
+        156
+      ],
+      "scale": 999.9999999999998,
+      "error": 2.220446049250313e-16
+    },
+    {
+      "type": "motor1ph",
+      "raw": [
+        0.264,
+        0.20800000000000002,
+        0.156
+      ],
+      "rotated": [
+        0.264,
+        0.20800000000000002,
+        0.156
+      ],
+      "physical": [
+        264,
+        208,
+        156
+      ],
+      "scale": 999.9999999999998,
+      "error": 2.220446049250313e-16
+    },
+    {
+      "type": "capacitorRun60uF",
+      "raw": [
+        49.98445883393288,
+        119.00000274181366,
+        49.969265237450614
+      ],
+      "rotated": [
+        49.98445883393288,
+        119.00000274181366,
+        49.969265237450614
+      ],
+      "physical": [
+        50,
+        119,
+        50
+      ],
+      "scale": 1.000308625231651,
+      "error": 0.0003085530448465601
+    },
+    {
+      "type": "pilotLightAd22",
+      "raw": [
+        29.299999237060547,
+        51.5,
+        29.294677734375
+      ],
+      "rotated": [
+        29.299999237060547,
+        29.294677734375,
+        51.5
+      ],
+      "physical": [
+        29.3,
+        29.3,
+        51.5
+      ],
+      "scale": 1.0000605651105632,
+      "error": 0.00012110784721519607
+    },
+    {
+      "type": "multimeterDm20",
+      "raw": [
+        0.32593141012997684,
+        0.6438755989074707,
+        0.09638696127868551
+      ],
+      "rotated": [
+        0.32593141012997684,
+        0.6438755989074707,
+        0.09638696127868551
+      ],
+      "physical": [
+        88,
+        184,
+        53
+      ],
+      "scale": 348.7733540414072,
+      "error": 0.5765737198427858
+    },
+    {
+      "type": "breakerSchneiderIc60h1p",
+      "raw": [
+        0.01770000159740448,
+        0.09039985409981455,
+        0.075004956984003
+      ],
+      "rotated": [
+        0.01770000159740448,
+        0.09039985409981455,
+        0.075004956984003
+      ],
+      "physical": [
+        18,
+        91,
+        78.5
+      ],
+      "scale": 1023.2557275803467,
+      "error": 0.022811273431838863
+    },
+    {
+      "type": "residualBreakerSchneiderIid4p",
+      "raw": [
+        0.07169999927282333,
+        0.085,
+        0.07443549146410078
+      ],
+      "rotated": [
+        0.07169999927282333,
+        0.085,
+        0.07443549146410078
+      ],
+      "physical": [
+        72,
+        85,
+        73.5
+      ],
+      "scale": 997.1799584319097,
+      "error": 0.009775340000769073
+    },
+    {
+      "type": "residualBreakerSchneiderIdpnVigi",
+      "raw": [
+        0.035599999129772186,
+        0.085,
+        0.07430219111346759
+      ],
+      "rotated": [
+        0.035599999129772186,
+        0.085,
+        0.07430219111346759
+      ],
+      "physical": [
+        36,
+        85,
+        73
+      ],
+      "scale": 997.8331260067715,
+      "error": 0.01539208723808494
+    },
+    {
+      "type": "pilotLightSchneiderIil1p",
+      "raw": [
+        0.01785000041127205,
+        0.08170028030872345,
+        0.06650000065565109
+      ],
+      "rotated": [
+        0.01785000041127205,
+        0.08170028030872345,
+        0.06650000065565109
+      ],
+      "physical": [
+        18,
+        82,
+        68
+      ],
+      "scale": 1011.5110105276639,
+      "error": 0.010919673886901293
+    },
+    {
+      "type": "pilotLightSchneiderIil3p",
+      "raw": [
+        0.017799999564886093,
+        0.08170000463724136,
+        0.06903527677059174
+      ],
+      "rotated": [
+        0.017799999564886093,
+        0.08170000463724136,
+        0.06903527677059174
+      ],
+      "physical": [
+        18,
+        82,
+        69.5
+      ],
+      "scale": 1007.2084012627836,
+      "error": 0.003998753890066098
+    }
+  ]
+}

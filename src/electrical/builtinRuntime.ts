@@ -9,6 +9,8 @@ const SUPPORTED = new Set<ComponentType>([
   'meterD522066','meterKws306','currentTransformerSplitCore',
   'breakerSchneiderIc60h1p','pilotLightSchneiderIil1p','pilotLightSchneiderIil3p',
   'residualBreakerSchneiderIid4p','residualBreakerSchneiderIdpnVigi','safetyRelay',
+  'contactorWegCwbc65',
+  'powerSource1ph','powerSource3ph','powerSource24v','terminalSet1ph','terminalSet3ph','terminalSet24v',
 ])
 export const supportsBuiltinRuntime=(type:ComponentType)=>SUPPORTED.has(type)
 export function builtinRuntimeType(c:Pick<ElectricalComponent,'type'|'state'>):ComponentType|null {
