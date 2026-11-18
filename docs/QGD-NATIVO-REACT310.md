@@ -79,6 +79,8 @@ npm run test:ci
 npm run test:inspector-hooks-ui
 npm run test:qgd-ui
 npm run test:account-icons-ui
+# Para validar o build minificado, com npm run preview -- --port 4173:
+npm run test:qgd-build-ui
 ```
 
 `test:hooks` percorre todo o código `src` e é bloqueante em `test:ci`.
@@ -91,6 +93,11 @@ inserção real da biblioteca, seleção vazia/simples/múltipla, bornes, cabos,
 eliminar/desfazer e alternância de famílias de barramentos.
 `test:qgd-ui`: 19 verificações de dashboard, abertura, seleção, duplicação,
 gravação e reabertura, nas contas User e Admin.
+`test:qgd-build-ui`: 20 verificações apenas com os assets minificados e ações
+da interface, incluindo aguardar o canvas, selecionar pelos Objetos,
+duplicar, inserir pela biblioteca, guardar e reabrir em User/Admin. Capturas
+e diagnóstico de falhas ficam em `runtime/qgd-production-ui/` (ignorado).
+Este teste não importa módulos `/src` nem usa APIs internas da store.
 
 Publicação deve ser confirmada por commit remoto, estado do deployment e
 `version.json` da aplicação, não apenas pelo resultado de `git push`.

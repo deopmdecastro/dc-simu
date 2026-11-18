@@ -172,7 +172,8 @@
     "test:hooks": "eslint src --max-warnings 0",
     "test:inspector-hooks-ui": "node scripts/inspector-hooks-ui-smoke.mjs",
     "test:qgd": "tsx scripts/quadro-distribuicao-smoke.ts",
-    "test:qgd-ui": "node scripts/qgd-native-ui-smoke.mjs"
+    "test:qgd-ui": "node scripts/qgd-native-ui-smoke.mjs",
+    "test:qgd-build-ui": "node scripts/qgd-production-ui-smoke.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",
