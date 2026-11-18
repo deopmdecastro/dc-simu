@@ -15,7 +15,7 @@ const MARKING_TAG = '__dcProtectionMarking'
 const MAX_TEXTURE_CACHE = 96
 const textureCache = new Map<string, THREE.CanvasTexture>()
 
-function cachedCanvasTexture(
+export function cachedCanvasTexture(
   key: string,
   widthPx: number,
   heightPx: number,
@@ -812,7 +812,7 @@ function buildGv2meMarkings(state: Record<string, unknown> | undefined, u: numbe
   })
   if (dialTex) out.push(makePlateMesh(dialTex, 11.4, 11.4, [-14.2, 53.0, 28.52], u))
 
-  // Símbolos O (STOP) e I (START) nas teclas.
+  // Símbolos O (STOP) e I (START) nas teclas (gerados para encaixe nos botões móveis)
   const stopTex = cachedCanvasTexture('gv2:btnO', 96, 96, (ctx, w, h) => {
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 9
@@ -828,8 +828,8 @@ function buildGv2meMarkings(state: Record<string, unknown> | undefined, u: numbe
     ctx.lineTo(w / 2, h - 20)
     ctx.stroke()
   })
-  if (stopTex) out.push(makePlateMesh(stopTex, 5.2, 5.2, [-1.2, 53.2, 30.22], u))
-  if (startTex) out.push(makePlateMesh(startTex, 5.2, 5.2, [14.8, 54.0, 38.58], u))
+  void stopTex
+  void startTex
 
   // Identificação dos bornes 1/L1 · 3/L2 · 5/L3 (topo) e 2/T1 · 4/T2 · 6/T3 (bloco inferior preto).
   const topTex = drawTerminalStrip('gv2:t:v3', [
@@ -1071,6 +1071,62 @@ export function clearProtectionMarkings(fitted: THREE.Object3D): void {
 }
 
 /**
+ * Gera ou obtém em cache o autocolante padrão de perigo elétrico (ISO 7010-W012):
+ * triângulo amarelo com orla preta grossa e raio/relâmpago preto.
+ */
+export function cachedDangerStickerTexture(): THREE.CanvasTexture | null {
+  return cachedCanvasTexture('decal:iso-danger-w012:v1', 256, 256, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h)
+    const margin = 16
+    const x0 = w / 2
+    const y0 = margin + 8
+    const xL = margin
+    const yL = h - margin - 8
+    const xR = w - margin
+    const yR = h - margin - 8
+
+    // Triângulo equilátero amarelo de alta visibilidade (RAL 1023)
+    ctx.fillStyle = '#facc15'
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 14
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+
+    ctx.beginPath()
+    ctx.moveTo(x0, y0)
+    ctx.lineTo(xR, yR)
+    ctx.lineTo(xL, yL)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+
+    // Borda interna preta fina ISO 7010-W012
+    ctx.lineWidth = 4
+    ctx.strokeStyle = '#000000'
+    ctx.beginPath()
+    const inset = 14
+    ctx.moveTo(x0, y0 + inset * 1.5)
+    ctx.lineTo(xR - inset, yR - inset * 0.7)
+    ctx.lineTo(xL + inset, yL - inset * 0.7)
+    ctx.closePath()
+    ctx.stroke()
+
+    // Raio preto de alta tensão clássico (proporções reais de sinalética)
+    ctx.fillStyle = '#000000'
+    ctx.beginPath()
+    ctx.moveTo(w / 2 + 8, y0 + 38)
+    ctx.lineTo(w / 2 - 22, y0 + 104)
+    ctx.lineTo(w / 2 - 3, y0 + 104)
+    ctx.lineTo(w / 2 - 20, y0 + 172)
+    ctx.lineTo(w / 2 + 24, y0 + 92)
+    ctx.lineTo(w / 2 + 6, y0 + 92)
+    ctx.lineTo(w / 2 + 20, y0 + 38)
+    ctx.closePath()
+    ctx.fill()
+  })
+}
+
+/**
  * Aplica (ou atualiza) a serigrafia de fábrica e calibre nominal num modelo `fitComponentModel`.
  * Funciona tanto no Painel 3D (`unitsPerMm = PANEL_UNITS_PER_MM`) como nas miniaturas/capas (`unitsPerMm = 1`).
  */
@@ -1121,6 +1177,39 @@ export function applyProtectionMarkings(
     updateFuseHolderCarriers(fitted, type, options.state)
   } else if (type === 'motorBreakerSchneiderGv2me') {
     plates = buildGv2meMarkings(options.state, u)
+    const btnOff = fitted.getObjectByName('imported_button-off')
+    if (btnOff) {
+      btnOff.children = btnOff.children.filter((ch) => ch.name !== '__dcGv2meBtnO')
+      const stopTex = cachedCanvasTexture('gv2:btnO', 96, 96, (ctx, w, h) => {
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 9
+        ctx.beginPath()
+        ctx.arc(w / 2, h / 2, 24, 0, Math.PI * 2)
+        ctx.stroke()
+      })
+      if (stopTex) {
+        const m = makePlateMesh(stopTex, 5.2, 5.2, [0, 0, 1.8], 0.001)
+        m.name = '__dcGv2meBtnO'
+        btnOff.add(m)
+      }
+    }
+    const btnOn = fitted.getObjectByName('imported_button-on')
+    if (btnOn) {
+      btnOn.children = btnOn.children.filter((ch) => ch.name !== '__dcGv2meBtnI')
+      const startTex = cachedCanvasTexture('gv2:btnI', 96, 96, (ctx, w, h) => {
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 10
+        ctx.beginPath()
+        ctx.moveTo(w / 2, 20)
+        ctx.lineTo(w / 2, h - 20)
+        ctx.stroke()
+      })
+      if (startTex) {
+        const m = makePlateMesh(startTex, 5.2, 5.2, [0, 0, 5.1], 0.001)
+        m.name = '__dcGv2meBtnI'
+        btnOn.add(m)
+      }
+    }
   } else if (type === 'phoenixEcb3000760') {
     plates = buildPhoenixEcbMarkings(options.state, u)
   } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12') {

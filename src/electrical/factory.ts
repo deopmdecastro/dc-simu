@@ -737,8 +737,12 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   capacitorRun60uF: {
     category: 'motor', paletteName: 'Condensador (genérico CBB65)', group: 'Motores', tag: 'C', w: 70, h: 110,
     terminals: [
-      T('1', 'power-in', 0.3, 0, { position3D: { x: 0.32, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2', 'power-out', 0.7, 0, { position3D: { x: 0.68, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('1', 'power-in', 0.28, 0, { position3D: { x: 0.35, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('1B', 'power-in', 0.38, 0, { position3D: { x: 0.41, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2', 'power-out', 0.62, 0, { position3D: { x: 0.59, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2B', 'power-out', 0.72, 0, { position3D: { x: 0.65, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2C', 'power-out', 0.62, 0.08, { position3D: { x: 0.59, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2D', 'power-out', 0.72, 0.08, { position3D: { x: 0.65, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
     ],
     defaultState: {
       capacitanceUf: 60,
@@ -1160,6 +1164,66 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('10A', 'io', 0.228, 0.93, { defId: 'dm20-amp', position3D: { x: 0.22795, y: 0.07044, z: 0.67151 }, terminalType: 'plug', diameter: 8, color: '#dc2626', electricalClass: 'other' }),
     ],
     defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
+  },
+  meterD522066: {
+    category: 'power', paletteName: 'Medidor multifunções D52-2066 LCD', group: 'Fontes', tag: 'PM', w: 108, h: 160,
+    terminals: [
+      T('1', 'power-in', 0.28, 0.92, {
+        displayName: '1 · Tensão L (AC 40–300V)', color: '#171717', terminalType: 'screw',
+        position3D: { x: 0.28, y: 0.16, z: 0.88 },
+      }),
+      T('2', 'neutral', 0.48, 0.92, {
+        displayName: '2 · Tensão N', color: '#2563eb', terminalType: 'screw',
+        position3D: { x: 0.48, y: 0.16, z: 0.88 },
+      }),
+      T('CT-IN', 'io', 0.80, 0.22, {
+        displayName: 'TC · Passagem de condutor (entrada)', color: '#f59e0b', terminalType: 'spring',
+        position3D: { x: 0.80, y: 0.22, z: 0.92 },
+      }),
+      T('CT-OUT', 'io', 0.80, 0.88, {
+        displayName: 'TC · Passagem de condutor (saída)', color: '#f59e0b', terminalType: 'spring',
+        position3D: { x: 0.80, y: 0.12, z: 0.12 },
+      }),
+    ],
+    defaultState: { on: true, voltage: 230, current: 1.14, power: 256.3, energy: 0.22, frequency: 50, powerFactor: 1.0, resetPressed: false },
+  },
+  meterKws306: {
+    category: 'power', paletteName: 'Medidor trifásico KWS-306 LCD', group: 'Fontes', tag: 'PM', w: 148, h: 173,
+    terminals: [
+      T('L1-IN', 'power-in', 0.15, 0.08, {
+        displayName: 'A (L1) · Entrada de rede', color: '#171717', terminalType: 'screw',
+        position3D: { x: 0.15, y: 0.88, z: 0.65 },
+      }),
+      T('L2-IN', 'power-in', 0.38, 0.08, {
+        displayName: 'B (L2) · Entrada de rede', color: '#8b4513', terminalType: 'screw',
+        position3D: { x: 0.38, y: 0.88, z: 0.65 },
+      }),
+      T('L3-IN', 'power-in', 0.62, 0.08, {
+        displayName: 'C (L3) · Entrada de rede', color: '#6b7280', terminalType: 'screw',
+        position3D: { x: 0.62, y: 0.88, z: 0.65 },
+      }),
+      T('N-IN', 'neutral', 0.85, 0.08, {
+        displayName: 'N · Entrada de rede', color: '#2563eb', terminalType: 'screw',
+        position3D: { x: 0.85, y: 0.88, z: 0.65 },
+      }),
+      T('L1-OUT', 'power-out', 0.15, 0.92, {
+        displayName: 'A (L1) · Saída para carga', color: '#171717', terminalType: 'screw',
+        position3D: { x: 0.15, y: 0.12, z: 0.65 },
+      }),
+      T('L2-OUT', 'power-out', 0.38, 0.92, {
+        displayName: 'B (L2) · Saída para carga', color: '#8b4513', terminalType: 'screw',
+        position3D: { x: 0.38, y: 0.12, z: 0.65 },
+      }),
+      T('L3-OUT', 'power-out', 0.62, 0.92, {
+        displayName: 'C (L3) · Saída para carga', color: '#6b7280', terminalType: 'screw',
+        position3D: { x: 0.62, y: 0.12, z: 0.65 },
+      }),
+      T('N-OUT', 'neutral', 0.85, 0.92, {
+        displayName: 'N · Saída para carga', color: '#2563eb', terminalType: 'screw',
+        position3D: { x: 0.85, y: 0.12, z: 0.65 },
+      }),
+    ],
+    defaultState: { on: true, switchOn: true, vA: 211.0, vB: 210.4, vC: 210.4, iA: 7.892, iB: 0, iC: 0, pA: 1.665, pB: 0, pC: 0, energy: 1.40, frequency: 50, temp: 15, screenMode: 0 },
   },
 }
 

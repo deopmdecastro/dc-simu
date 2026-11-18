@@ -128,6 +128,14 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"0V","face":"left","x":0.0,"y":0.50,"z":0.18,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
     {"label":"OUT","face":"left","x":0.0,"y":0.45,"z":0.16,"diameterMm":1.5,"holeDepthMm":1.0,"contact":"lead"},
   ],
+  capacitorRun60uF: [
+    {"label":"1","face":"top","x":0.35,"y":0.0,"z":0.50,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
+    {"label":"1B","face":"top","x":0.41,"y":0.0,"z":0.50,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
+    {"label":"2","face":"top","x":0.59,"y":0.0,"z":0.45,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
+    {"label":"2B","face":"top","x":0.65,"y":0.0,"z":0.45,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
+    {"label":"2C","face":"top","x":0.59,"y":0.0,"z":0.55,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
+    {"label":"2D","face":"top","x":0.65,"y":0.0,"z":0.55,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
+  ],
   breakerSteckSdC25: [
     {"label":"1","face":"top","x":0.501124,"y":0.011678,"z":0.367237,"diameterMm":11.3,"holeDepthMm":13.494},
     {"label":"2","face":"bottom","x":0.501124,"y":0.978464,"z":0.368237,"diameterMm":11.3,"holeDepthMm":13.494},

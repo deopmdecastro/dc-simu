@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { ComponentType, Terminal, TerminalKind } from '../types'
+import { cachedDangerStickerTexture } from './protectionMarkings'
 import {
   COMB_CONNECTOR,
   combBusbarDimsOf,
@@ -336,10 +337,11 @@ export function busbarTerminalSpecs(type: RealBusbarType, state?: Record<string,
   const insetMm = 1.6
   const out: BusbarTerminalSpec[] = []
   d.conductors.forEach((cond, barIdx) => {
-    const { yMm, frontZMm } = steppedBarCenterMm(d, barIdx)
-    const ny = Number((yMm / d.heightMm).toFixed(5))
-    const nz = Number(((frontZMm - insetMm) / d.depthMm).toFixed(5))
-    const y2d = Number((1 - ny).toFixed(5))
+    const { yMm, zMm } = steppedBarCenterMm(d, barIdx)
+    const botYMm = yMm - STEPPED_BUSBAR.barHeightMm / 2
+    const ny = Number((botYMm / d.heightMm).toFixed(5))
+    const nz = Number((zMm / d.depthMm).toFixed(5))
+    const y2d = Number((1 - (yMm / d.heightMm)).toFixed(5))
     const kind: TerminalKind = cond === 'N' ? 'neutral' : 'power-in'
     const color = CONDUCTOR_COLOR[cond]
     for (let k = 0; k < d.holesPerBar; k++) {
@@ -353,14 +355,14 @@ export function busbarTerminalSpecs(type: RealBusbarType, state?: Record<string,
         kind,
         color,
         terminalType: 'screw',
-        face: 'front',
+        face: 'bottom',
         x: nx,
         y: y2d,
         diameter: isMain ? 9 : 7.5,
         position3D: position,
         socket3D: {
           position: { ...position },
-          normal: [0, 0, 1],
+          normal: [0, -1, 0],
           diameterMm: isMain ? 6.4 : 5.0,
           depthMm: 8.0,
           insetMm,
@@ -981,44 +983,37 @@ export function buildSteppedBusbar(
     }
 
     // --- Barra maciça de latão maquinado CuZn39Pb3 do degrau `b` ---
-    const holes = holeXs.map((hx, idx) => ({
-      x: hx,
-      y: y0 + yMm - 0.3,
-      r: idx === 0 ? 2.85 : 2.32,
-    }))
-    // Face frontal de latão perfurada com todos os K furos reais de entrada de cabos
-    brassParts.push(
-      perforatedPlateXY(unit, barW, barH, 2.8, 0, y0 + yMm, z0 + frontZMm - 1.4, holes, 24),
-    )
-    // Corpo maciço de latão atrás dos furos + topo roscado e base condutora contínua
-    brassParts.push(boxMm(unit, barW, barH, barD - 5.2, 0, y0 + yMm, z0 + zMm - 1.8))
-    brassParts.push(boxMm(unit, barW, 2.6, 3.0, 0, y0 + yMm + barH / 2 - 1.3, z0 + frontZMm - 4.1))
-    brassParts.push(boxMm(unit, barW, 2.2, 3.0, 0, y0 + yMm - barH / 2 + 1.1, z0 + frontZMm - 4.1))
+    // Corpo maciço de latão da barra
+    brassParts.push(boxMm(unit, barW, barH, barD, 0, y0 + yMm, z0 + zMm))
 
-    // Anéis biselados de latão + cavidade sombreada + parafusos zincados de aperto no topo de cada barra
+    // Furos de entrada dos cabos por BAIXO (face inferior) e parafusos de aperto na vista FRONTAL (Z)
     holeXs.forEach((hx, idx) => {
-      const rIn = idx === 0 ? 2.75 : 2.22
-      const rOut = idx === 0 ? 3.35 : 2.78
-      const holeCy = y0 + yMm - 0.3
-      brassParts.push(ringCollarMm(unit, rIn, rOut, 0.9, hx, holeCy, z0 + frontZMm - 0.25, 'z', 24))
-      boreParts.push(cylMm(unit, rIn * 0.96, rIn * 0.96, 4.6, hx, holeCy, z0 + frontZMm - 2.6, 'z', 18))
+      const isMain = idx === 0
+      const rIn = isMain ? 2.85 : 2.25
+      const rOut = isMain ? 3.45 : 2.85
+      const screwR = isMain ? 2.85 : 2.35
 
-      // Gola cilíndrica metálica + parafuso zincado M6 (entrada 1) / M5 (saídas 2..K) — fileira brilhante da foto 3
-      const screwR = idx === 0 ? 3.05 : 2.55
-      const screwH = idx === 0 ? 4.4 : 3.8
-      const screwZ = z0 + zMm + 0.5
+      // 1) Parafusos zincados de aperto na vista frontal (eixo Z): cabeça cilíndrica + fenda combinada
       pushClampingScrew(
         unit,
         screwParts,
         boreParts,
         brassParts,
         hx,
-        y0 + yMm + barH / 2,
-        screwZ,
+        y0 + yMm,
+        z0 + frontZMm - 0.6,
         screwR,
-        screwH,
-        3.6,
+        1.3,
+        3.5,
+        'z',
       )
+      // Gola de latão em relevo na face frontal em torno de cada parafuso
+      brassParts.push(ringCollarMm(unit, screwR * 1.05, screwR * 1.35, 0.7, hx, y0 + yMm, z0 + frontZMm - 0.05, 'z', 24))
+
+      // 2) Furos de entrada dos condutores por BAIXO (face inferior em -Y): cavidade condutora e anel
+      const botY = y0 + yMm - barH / 2
+      boreParts.push(cylMm(unit, rIn * 0.95, rIn * 0.95, 5.0, hx, botY + 2.5, z0 + zMm, 'y', 20))
+      brassParts.push(ringCollarMm(unit, rIn, rOut, 0.8, hx, botY + 0.4, z0 + zMm, 'y', 24))
     })
   }
 
@@ -1109,6 +1104,26 @@ export function buildSteppedBusbar(
     buildMergedMesh(coverClearParts, materials.cover, unit, 'stepped-cover-polycarbonate', 80, false, false),
     buildMergedMesh(coverEdgeParts, materials.coverEdge, unit, 'stepped-cover-rim', 60, false, false),
   )
+
+  // Adesivo de triângulo e raio perigo (ISO 7010-W012) na tampa acrílica
+  const dangerTex = cachedDangerStickerTexture()
+  if (dangerTex) {
+    const decalSizeMm = Math.min(22, covW * 0.32)
+    const decalGeo = new THREE.PlaneGeometry(decalSizeMm * unit, decalSizeMm * unit)
+    const decalMat = new THREE.MeshBasicMaterial({
+      map: dangerTex,
+      transparent: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+    const decalMesh = new THREE.Mesh(decalGeo, decalMat)
+    decalMesh.name = 'stepped-cover-danger-decal'
+    decalMesh.position.set(0, apronCy * unit, (frontZRel + 0.15) * unit)
+    cover.add(decalMesh)
+  }
 
   const root = new THREE.Group()
   root.name = 'stepped-busbar'

@@ -126,6 +126,8 @@ export type ComponentType =
   | 'analogAmmeter'
   // --- Aparelhos de medir ----------------------------------------------
   | 'multimeterDm20'
+  | 'meterD522066'
+  | 'meterKws306'
 
 /**
  * Tipos físicos de terminal/conexão do borne — inclui os terminais de cabo
@@ -147,6 +149,7 @@ export type TerminalType =
   | 'claw'
   | 'tubular'
   | 'bar'
+  | 'banana'
 
 export type TerminalKind =
   | 'power-in'
@@ -543,6 +546,8 @@ export interface Wire {
   /** Cores por veia quando multicore (ex.: ['#2563eb','#92400e','#22c55e']). Fallback = cor do cabo. */
   conductorColors?: string[]
   energized: boolean
+  /** Conduz corrente ativa num circuito fechado com carga em funcionamento. */
+  carryingCurrent?: boolean
   /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
    *  componentes compartilham o mesmo espaço de camadas. */
   z?: number

@@ -69,6 +69,7 @@ import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
+import { MeterD522066_3D, MeterKws306_3D } from './DigitalMeters3D'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import { AcrylicBusbar3D, CombBusbar3D, CombConnector3D, SteppedBusbar3D } from './Busbar3D'
 import { isAcrylicBusbarType, isCombBusbarType, isCombConnectorType, isSteppedBusbarType } from './busbarParts'
@@ -1449,6 +1450,8 @@ function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
   </group>
 }
 
+import { buildTerminalAssemblyCoverGroup } from './terminalAssembly'
+
 /** Conjunto nativo completo, carregado do GLB composto pelos bornes originais. */
 function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
@@ -1466,7 +1469,18 @@ function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
     void applyCadSurfaceTextures(object)
     return object
   }, [scene, spec])
-  return <group position={[x, RAIL_Y + 0.48, 0.12]}><primitive object={model} /></group>
+
+  const cover = useMemo(() => {
+    if (!c.state?.acrylicCover) return null
+    return buildTerminalAssemblyCoverGroup(spec.physicalSizeMm.width, spec.physicalSizeMm.height, spec.physicalSizeMm.depth, PANEL_UNITS_PER_MM)
+  }, [c.state?.acrylicCover, spec])
+
+  return (
+    <group position={[x, RAIL_Y + 0.48, 0.12]}>
+      <primitive object={model} />
+      {cover && <primitive object={cover} />}
+    </group>
+  )
 }
 
 /** PTI6 multi-pólo: N blocos lado a lado (escala real 8,15 mm/pólo), alinhados à calha DIN com plaquetas ZB 8 e pente FBS opcional. */
@@ -2207,7 +2221,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const selected = wire.id === selectedWireId
     const outerDiameterMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
-    const flowing = wireEnergyEffectVisible(runState, wire.energized)
+    const flowing = wireEnergyEffectVisible(runState, wire.energized, wire.carryingCurrent)
     const wireColor = WIRE_3D_COLORS[wire.color]
     const editing = selected && !wire.locked && (editMode === 'navigate' || editMode === 'connect')
     const manual = wire.waypoints3D ?? []
@@ -4600,6 +4614,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
+          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} />
+          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} interactive={interactive && !c.locked} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
@@ -4657,6 +4673,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
+          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} />
+          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} />
           else if (c.type === 'capacitorRun60uF' && getComponentModelSpec(c.type)) {
             const [px, py, pz] = frontPivot(c)
             const fallback = <group position={[x + px, py, pz]}>

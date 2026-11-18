@@ -613,6 +613,21 @@ export const referenceGraphNumber = (reference: StepStateReference): number => r
 export const stepReferenceText = (graph: string | number | null, step: string, active: boolean): string =>
   `G${graph ?? 0} ${active ? '<=>' : '<>'} X${step}`
 
+const BUILTIN_SIGNAL_ALIASES: Record<string, string> = {
+  EMERG: 'I0.0',
+  EMERGENCIA: 'I0.0',
+  START: 'I0.1',
+  MARCHA: 'I0.1',
+  STOP: 'I0.2',
+  PARAGEM: 'I0.2',
+  F1: 'I0.3',
+  TERMICOF1: 'I0.3',
+  KM1: 'Q0.0',
+  H1: 'Q0.1',
+  H2: 'Q0.2',
+  H3: 'Q0.3',
+}
+
 function parseCondition(expression: string, ctx: ConditionContext): boolean | null {
   // Leitura canónica da tabela: aceita bits antigos (I3) e novos (I0.2).
   // Projetos já migrados usam a chave canónica; fixtures, integrações e sessões
@@ -629,7 +644,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
     const key = Object.keys(table).find((name) => name.toUpperCase() === upper)
     if (key) return !!table[key]
     // Nome da tabela de variáveis (Start → I0.1): lê o estado do endereço. Um nível só.
-    const target = aliased ? undefined : signalAliasResolver?.(upper)
+    const target = aliased ? undefined : (signalAliasResolver?.(upper) ?? BUILTIN_SIGNAL_ALIASES[upper])
     return target ? read(table, target, true) : false
   }
   const readBit = (t: string) => read(ctx.table, t)

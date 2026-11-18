@@ -19,6 +19,35 @@ export function wireSideEndType(wire: Wire, side: 'from' | 'to'): WireEndType {
 }
 
 /**
+ * Mapeia o tipo físico do borne (`terminalType`) para a terminação de cabo adequada por defeito:
+ * - `faston`, `fastonMale`, `fastonFemale` → terminal fêmea de encaixe rápido (`faston`)
+ * - `ring` → terminal de olhal (`ring`)
+ * - `fork` → terminal de forquilha (`fork`)
+ * - `pin`, `conical` → ponteira tipo pino cilíndrico (`pin`)
+ * - `banana` → ficha banana (`banana`)
+ */
+export function defaultWireEndTypeForTerminal(terminalType: import('../types').TerminalType | undefined): WireEndType | undefined {
+  if (!terminalType) return undefined
+  switch (terminalType) {
+    case 'faston':
+    case 'fastonMale':
+    case 'fastonFemale':
+      return 'faston'
+    case 'ring':
+      return 'ring'
+    case 'fork':
+      return 'fork'
+    case 'pin':
+    case 'conical':
+      return 'pin'
+    case 'banana':
+      return 'banana'
+    default:
+      return undefined
+  }
+}
+
+/**
  * Uma ponta de condutor é elegível para ponteira dupla DIN 46228-4 sempre que
  * está ligada a um borne real (sem ponta livre) e não usa um conector fixo.
  */

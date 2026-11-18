@@ -141,6 +141,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   capacitorRun60uF: { width: 50, height: 119, depth: 50 },
   pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
   multimeterDm20: { width: 88, height: 184, depth: 53 },
+  meterD522066: { width: 54, height: 80, depth: 64 },
+  meterKws306: { width: 74, height: 86.5, depth: 65 },
 }
 
 export interface ComponentModelSpec {
@@ -326,7 +328,7 @@ export function hasComponent3DModel(type: ComponentType): boolean {
 }
 
 export function hasComponent3DVisual(type: ComponentType): boolean {
-  return hasComponent3DModel(type) || isTerminalAssemblyComponent(type)
+  return hasComponent3DModel(type) || isTerminalAssemblyComponent(type) || type === 'meterD522066' || type === 'meterKws306'
 }
 
 export function canInsertComponent3D(type: ComponentType): boolean {

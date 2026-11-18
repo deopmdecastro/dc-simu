@@ -928,10 +928,49 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
                 if (pts.length < 2) return null
                 const d = pts.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ')
                 const selected = selection?.type === 'wire' && selection.id === w.id
-                return <g key={w.id} data-cmd-wire={w.id}>
-                  {selected && <path d={d} className="dc-cmd-wire-halo" />}
-                  <path d={d} className="dc-cmd-wire" stroke={wireColor(w)} strokeWidth={running && rt.liveWires[w.id] ? 2.4 : 1.6} />
-                </g>
+                const is4Pts = pts.length === 4
+                const midPt = is4Pts ? { x: (pts[1].x + pts[2].x) / 2, y: pts[1].y } : null
+
+                return (
+                  <g key={w.id} data-cmd-wire={w.id} className="dc-cmd-wire-group">
+                    {/* Linha transparente mais larga para clique/arrasto rápido */}
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={14}
+                      style={{ cursor: tool === 'select' ? 'pointer' : undefined }}
+                      onPointerDown={(e) => {
+                        if (!editable) return
+                        e.stopPropagation()
+                        if (tool === 'erase') { removeItem({ type: 'wire', id: w.id }); return }
+                        select({ type: 'wire', id: w.id })
+                        if (is4Pts && tool === 'select') {
+                          gesture.current = { kind: 'mid', startX: e.clientX, startY: e.clientY, wireId: w.id }
+                          ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
+                        }
+                      }}
+                    />
+                    {selected && <path d={d} className="dc-cmd-wire-halo" />}
+                    <path d={d} className="dc-cmd-wire" stroke={wireColor(w)} strokeWidth={running && rt.liveWires[w.id] ? 2.4 : 1.6} />
+
+                    {/* Manípulo visual de arrasto no segmento intermediário */}
+                    {selected && editable && midPt && (
+                      <g
+                        transform={`translate(${midPt.x}, ${midPt.y})`}
+                        style={{ cursor: 'ns-resize' }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation()
+                          gesture.current = { kind: 'mid', startX: e.clientX, startY: e.clientY, wireId: w.id }
+                          ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
+                        }}
+                      >
+                        <circle r={6} fill="#2563eb" stroke="#ffffff" strokeWidth={1.5} />
+                        <line x1="-3" y1="0" x2="3" y2="0" stroke="#ffffff" strokeWidth={1.2} />
+                      </g>
+                    )}
+                  </g>
+                )
               })}
               {pageParts.map((part) => (
                 <g

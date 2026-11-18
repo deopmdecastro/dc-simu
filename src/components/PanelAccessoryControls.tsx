@@ -280,6 +280,40 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       </button>
     </div>
 
+    {/* Sobretampa modular interna (segunda tampa DIN) */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex-1 pr-2">
+          <div className="text-xs font-semibold text-slate-700">Sobretampa modular interna (espelho DIN)</div>
+          <div className="text-[11px] text-slate-500">Segunda tampa de proteção com janelas modulares e parafusos de fecho</div>
+        </div>
+        <button
+          type="button"
+          className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${c.state.innerCover ? 'bg-brand-600 border-brand-700 text-white' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'}`}
+          onClick={() => set({ innerCover: !c.state.innerCover })}
+        >
+          {c.state.innerCover ? 'Ocultar sobretampa' : 'Mostrar sobretampa'}
+        </button>
+      </div>
+      {c.state.innerCover && (
+        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+          <span className="text-slate-600">Fileiras modulares</span>
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5, 6].map((num) => (
+              <button
+                key={num}
+                type="button"
+                className={`w-6 h-6 rounded text-xs font-semibold border ${((c.state.modularRows as number) || Math.max(1, Math.min(6, Math.round((d.heightMm - 40) / 145)))) === num ? 'bg-brand-600 border-brand-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                onClick={() => set({ modularRows: num })}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+
     <details className="dc-inspector-group" data-enclosure-visibility>
       <summary>Visibilidade das chapas <span className="dc-inspector-count">{hiddenFaces.length}/{ENCLOSURE_FACES.length} ocultas</span></summary>
       <div className="dc-inspector-group-body">
@@ -346,18 +380,71 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         })}
       </div>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Diâmetro do furo">
-        <span className="text-xs text-slate-600">Ø</span>
+        <span className="text-xs text-slate-600 font-semibold">Ø</span>
         <div className="flex flex-wrap gap-1">
-          {[{label:'M16',mm:16},{label:'M20',mm:20},{label:'M25',mm:25},{label:'M32',mm:32},{label:'M40',mm:40},{label:'22mm',mm:22},{label:'30mm',mm:30}].map((p)=> <button key={p.label} type="button" aria-pressed={holeDia===p.mm} className={`min-h-[34px] rounded-full border px-2 py-1 text-xs transition ${holeDia===p.mm?'bg-brand-600 text-white border-brand-700':'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} onClick={()=> setHoleDia(p.mm)}>{p.label} <span className="opacity-60">{p.mm}mm</span></button>)}
+          {[{label:'M16',mm:16,gland:'M16'},{label:'M20',mm:20,gland:'M20'},{label:'M25',mm:25,gland:'M25'},{label:'M32',mm:32,gland:'M32'},{label:'M40',mm:40,gland:'M40'},{label:'22mm',mm:22,gland:'none'},{label:'30mm',mm:30,gland:'none'}].map((p)=> (
+            <button
+              key={p.label}
+              type="button"
+              aria-pressed={holeDia===p.mm}
+              className={`min-h-[34px] rounded-full border px-2 py-1 text-xs transition ${holeDia===p.mm?'bg-brand-600 text-white border-brand-700 font-semibold':'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              onClick={()=> setHoleDia(p.mm)}
+            >
+              {p.label} <span className="opacity-60 text-[10px]">{p.mm}mm</span>
+            </button>
+          ))}
         </div>
         <input type="number" className="dc-input w-16 h-9 text-xs" min={6} max={80} value={holeDia} aria-label="Diâmetro do furo (mm)" onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
         <span className="text-xs text-slate-400">mm</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 pt-1">
         <label className="flex items-center gap-1 text-xs">X <input type="number" className="dc-input w-14 h-9 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
         <label className="flex items-center gap-1 text-xs">Y <input type="number" className="dc-input w-14 h-9 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
-        <span className="text-[11px] text-slate-400">mm do centro</span>
-        <button type="button" onClick={()=> useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy })} className="ml-auto min-h-[38px] dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs inline-flex items-center gap-1.5"><IconPlus size={12} /> Fazer furo</button>
+        <span className="text-[11px] text-slate-400">mm</span>
+        <button
+          type="button"
+          onClick={()=> {
+            const isGlandMetric = holeDia === 16 || holeDia === 20 || holeDia === 25 || holeDia === 32 || holeDia === 40
+            const glandType = isGlandMetric ? (`M${holeDia}` as const) : 'none'
+            useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy, glandType })
+          }}
+          className="ml-auto min-h-[38px] dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs inline-flex items-center gap-1.5"
+        >
+          <IconPlus size={12} /> Fazer furo
+        </button>
+      </div>
+
+      {/* Modelos rápidos de furação */}
+      <div className="flex flex-wrap gap-1.5 pt-1">
+        <button
+          type="button"
+          className="dc-btn text-[11px] py-1 px-2.5 h-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md"
+          title="Fura no fundo com bucim M20 para passagem de cabos"
+          onClick={() => useSimStore.getState().addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 0, offsetYmm: 0, glandType: 'M20' })}
+        >
+          ⚡ Bucim M20 no fundo
+        </button>
+        <button
+          type="button"
+          className="dc-btn text-[11px] py-1 px-2.5 h-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md"
+          title="Fura 3 bucins M20 no fundo espaçados"
+          onClick={() => {
+            const store = useSimStore.getState()
+            store.addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: -60, offsetYmm: 0, glandType: 'M20' })
+            store.addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 0, offsetYmm: 0, glandType: 'M20' })
+            store.addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 60, offsetYmm: 0, glandType: 'M20' })
+          }}
+        >
+          ⚡ 3 Bucins M20 fundo
+        </button>
+        <button
+          type="button"
+          className="dc-btn text-[11px] py-1 px-2.5 h-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md"
+          title="Fura Ø22 na porta para botoeira ou luz piloto"
+          onClick={() => useSimStore.getState().addPanelHole(c.id, { face: 'door', diameterMm: 22, offsetXmm: 0, offsetYmm: 60, glandType: 'none' })}
+        >
+          ⚡ Furo Ø22 na porta
+        </button>
       </div>
       {holes.length===0 ? <p className="text-[11px] text-slate-400 border border-dashed border-slate-200 rounded p-2 text-center">Nenhum furo. Os furos aparecem no Esquema e no 3D; depois pode pôr bucim ou aparelho.</p>
       : <div className="space-y-1.5 max-h-44 overflow-auto pr-1">
@@ -374,7 +461,12 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
             <option value="">— bucim —</option><option value="M16">M16</option><option value="M20">M20</option><option value="M25">M25</option><option value="M32">M32</option><option value="M40">M40</option><option value="none">sem bucim</option>
           </Select>
           <Select className="dc-input h-9 text-xs w-28" aria-label={`Adicionar aparelho ao furo ${h.id}`} disabled={!!occupiedBy} title={occupiedBy ? 'Este furo já tem um aparelho montado.' : undefined} defaultValue="" resetOnSelect onChange={(e)=> { const v=e.target.value; if(!v || occupiedBy) return; useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm, h.id) }}>
-            <option value="">{occupiedBy ? 'Aparelho montado' : '＋ aparelho'}</option><option value="buttonNO">Botão NA</option><option value="buttonNC">Botão NF</option><option value="selector2">Chave 2 pos</option><option value="pilotLightAd22">Luz piloto</option><option value="emergencyButton">Emergência</option>
+            <option value="">{occupiedBy ? 'Aparelho montado' : '＋ aparelho'}</option>
+            <option value="buttonNO">Botão NA (Verde)</option>
+            <option value="buttonNC">Botão NF (Vermelho)</option>
+            <option value="selector2">Chave 2 pos</option>
+            <option value="pilotLightAd22">Sinalizador LED AD22</option>
+            <option value="emergencyButton">Emergência</option>
           </Select>
           <button type="button" className="dc-btn min-h-[34px] min-w-[34px] justify-center text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)} aria-label="Remover furo"><IconClose size={12} /></button>
           </div>

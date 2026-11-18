@@ -1,4 +1,5 @@
 import { downloadBlob } from '../utils/downloadBlob'
+import { saveProject, saveAutosave, setLastOpened } from '../utils/persistence'
 import { ViewDiagnosticsTag, DiagnosticsTag } from '../diagnostics/DiagnosticsUi'
 import { useCommandsDiagnostics, useGrafcetDiagnostics, useLadderDiagnostics, useSchematicDiagnostics } from '../diagnostics/viewDiagnostics'
 import { uiAlert, uiConfirm, uiChoose } from '../ui/dialogs'
@@ -415,6 +416,29 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
   const createNewProject = onBack
 
+  const handleSave = () => {
+    const state = useSimStore.getState()
+    const name = (currentProjectName || 'Projeto').trim()
+    const json = state.saveJSON()
+    saveProject(name, json)
+    saveAutosave(json)
+    setLastOpened(name)
+    useSimStore.setState({ dirty: false })
+    window.dispatchEvent(new CustomEvent('dcsimu:save-project'))
+    state.pushEvent('info', `Projeto «${name}» guardado.`)
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        handleSave()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [currentProjectName])
+
   const saveBlob = (content: string, type: string, name: string) => {
     downloadBlob(new Blob([content], { type }), name)
   }
@@ -481,7 +505,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     items: [
       { id: 'new', label: 'Novo projeto', hint: 'Volta aos projetos para criar um em branco', icon: <IconPlus size={15} />, onSelect: createNewProject },
       { id: 'open', label: 'Abrir ficheiro', hint: 'Escolhe um projeto .json do dispositivo', icon: <IconOpen size={15} />, onSelect: () => fileRef.current?.click() },
-      { id: 'save', label: 'Guardar em ficheiro', hint: dirty ? 'Há alterações por guardar' : 'Descarrega o projeto em .json', icon: <IconSave size={15} />, onSelect: download, primary: dirty },
+      { id: 'save', label: 'Guardar projeto', hint: dirty ? 'Guardar alterações no projeto (Ctrl+S)' : 'Projeto guardado', icon: <IconSave size={15} />, onSelect: handleSave, primary: dirty },
+      { id: 'export-json', label: 'Exportar ficheiro (.json)', hint: 'Descarrega uma cópia do projeto em .json', icon: <IconDownload size={15} />, onSelect: download },
       { id: 'add-module', label: 'Adicionar módulo…', hint: 'Abrir 3D, Ladder, GRAFCET ou IEC neste projeto', icon: <IconPlus size={15} />, onSelect: () => void addProjectModule() },
     ],
   }, {
@@ -711,7 +736,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button onClick={() => fileRef.current?.click()} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Abrir projeto (.json)">
               <IconOpen size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Abrir</span>
             </button>
-            <button onClick={download} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 relative" title="Salvar projeto em arquivo JSON">
+            <button onClick={handleSave} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 relative" title="Guardar projeto (Ctrl+S)">
               <IconSave size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Salvar</span>
               {dirty && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-state-pause" title="Alterações por guardar" />}
             </button>

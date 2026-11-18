@@ -78,18 +78,71 @@ export default function AccountPlanCard({ ownedProjects }: { ownedProjects: numb
     } finally { setBusy(false) }
   }
 
+  const pct = limit ? Math.min(100, Math.round((ownedProjects / limit) * 100)) : 0
+  const isNearLimit = limit !== null && ownedProjects >= limit * 0.8
+  const isAtLimit = limit !== null && ownedProjects >= limit
+
   return <section className="dx-plan-card" aria-label="O seu plano" data-plan={info.plan}>
     <div className="dx-plan-main">
-      <span className="dx-over">O seu plano</span>
-      <strong>{plan.name}</strong>
-      <span className="dx-plan-meta">
-        {limit === null ? `${ownedProjects} projeto(s) · ilimitado` : `${ownedProjects}/${limit} projeto(s)`}
-        {' · '}{plan.limits.collaborators === null ? 'colaboradores ilimitados' : `${LIMIT_LABEL.collaborators}: ${plan.limits.collaborators}`}
-        {info.planExpiresAt && !expired && ` · válido até ${new Date(info.planExpiresAt).toLocaleDateString('pt-PT')}`}
-      </span>
+      <div className="flex items-center gap-2">
+        <span className="dx-over text-slate-500 font-medium">O seu plano</span>
+        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${info.plan === 'empresa' ? 'bg-amber-100 text-amber-800 border border-amber-300' : info.plan === 'escola' ? 'bg-purple-100 text-purple-800 border border-purple-300' : info.plan === 'pro' ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
+          {info.plan === 'empresa' ? 'Empresa ★' : info.plan === 'escola' ? 'Escola 🎓' : info.plan === 'pro' ? 'Profissional ⚡' : 'Gratuito'}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-baseline gap-2">
+        <strong className="text-xl text-slate-900 font-extrabold">{plan.name}</strong>
+        {info.planExpiresAt && !expired && (
+          <span className="text-xs text-slate-500">
+            · Válido até {new Date(info.planExpiresAt).toLocaleDateString('pt-PT')}
+          </span>
+        )}
+      </div>
+
+      {/* Barra de progresso do limite de projetos */}
+      <div className="py-1">
+        <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+          <span className="font-medium">
+            {limit === null ? (
+              <span>Projetos da sua autoria: <b>{ownedProjects}</b> (ilimitados)</span>
+            ) : (
+              <span>Projetos: <b>{ownedProjects}</b> de <b>{limit}</b> utilizados ({pct}%)</span>
+            )}
+          </span>
+          <span className="text-slate-500">
+            {plan.limits.collaborators === null ? 'Colaboradores ilimitados' : `${LIMIT_LABEL.collaborators}: ${plan.limits.collaborators}`}
+          </span>
+        </div>
+        {limit !== null && (
+          <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${isAtLimit ? 'bg-rose-500' : isNearLimit ? 'bg-amber-500' : 'bg-brand-600'}`}
+              style={{ width: `${Math.max(4, pct)}%` }}
+            />
+          </div>
+        )}
+      </div>
+
       {expired && <span className="dx-plan-warn">O período do plano {planById(pricing, info.assigned).name} terminou: está no plano {plan.name}.</span>}
-      {limit !== null && ownedProjects >= limit && <span className="dx-plan-warn">Atingiu o limite de projetos do plano.</span>}
-      <span className="dx-plan-features">{FEATURES.map((feature) => <span key={feature.key} className={plan.features[feature.key] ? 'is-on' : 'is-off'} title={feature.description}>{plan.features[feature.key] ? '✓' : '—'} {feature.label}</span>)}</span>
+      {limit !== null && ownedProjects >= limit && <span className="dx-plan-warn text-rose-600 font-semibold text-xs">Atingiu o limite de projetos do plano.</span>}
+
+      {/* Lista de funcionalidades como chips modernos */}
+      <div className="flex flex-wrap gap-1.5 pt-1">
+        {FEATURES.map((feature) => {
+          const on = !!plan.features[feature.key]
+          return (
+            <span
+              key={feature.key}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${on ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
+              title={feature.description}
+            >
+              <span>{on ? '✓' : '🔒'}</span>
+              <span>{feature.label}</span>
+            </span>
+          )
+        })}
+      </div>
     </div>
     <div className="dx-plan-side">
       {info.pending
@@ -97,7 +150,7 @@ export default function AccountPlanCard({ ownedProjects }: { ownedProjects: numb
           <span className="dx-plan-pending">Pedido pendente: {planById(pricing, info.pending.plan).name} ({info.pending.period === 'yearly' ? 'anual' : 'mensal'})</span>
           <button className="dx-btn dx-btn-ghost dx-btn-sm" disabled={busy} onClick={() => void cancel()}>Cancelar pedido</button>
         </>
-        : options.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { setChoice((current) => ({ ...current, plan: options.find((option) => option.highlighted)?.id ?? options[0].id })); setOpen(!open) }} aria-expanded={open}>Mudar de plano</button>}
+        : options.length > 0 && <button className="dx-btn dx-btn-primary dx-btn-sm shadow-sm" onClick={() => { setChoice((current) => ({ ...current, plan: options.find((option) => option.highlighted)?.id ?? options[0].id })); setOpen(!open) }} aria-expanded={open}>⚡ Mudar de plano</button>}
     </div>
     {open && !info.pending && <div className="dx-plan-request">
       <label><span>Plano</span>

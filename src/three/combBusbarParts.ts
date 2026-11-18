@@ -517,10 +517,13 @@ export function combConnectorTerminalSpecs(state?: Record<string, unknown>): Com
   const nyIn = Number((collarY / H + 0.5).toFixed(5))
   const nzIn = Number((collarZ / D + 0.5).toFixed(5))
 
-  // Ponta do pino chato estanhado estriado
+  // Ponta do pino chato estanhado estriado (perfeitamente alinhada com a lâmina 3D bladeZ)
   const pinTipY = isDown ? -H / 2 + 1.5 : H / 2 - 1.5
-  const rearZ = -D / 2 + 1.8
-  const pinTipZ = style === 'cranked' ? rearZ - COMB_CONNECTOR.crankOffsetZMm * 0.35 + 1.2 : rearZ + 0.8
+  const blockCenterZ = -D / 2 + COMB_CONNECTOR.blockDepthMm / 2 + 0.3
+  const backZ = blockCenterZ - COMB_CONNECTOR.blockDepthMm / 2
+  const plateZ = backZ + 0.95
+  const crankDz = style === 'cranked' ? -COMB_CONNECTOR.crankOffsetZMm : 0
+  const pinTipZ = plateZ + crankDz
   const nyPin = Number(Math.max(0.02, Math.min(0.98, pinTipY / H + 0.5)).toFixed(5))
   const nzPin = Number(Math.max(0.05, Math.min(0.95, pinTipZ / D + 0.5)).toFixed(5))
   void W

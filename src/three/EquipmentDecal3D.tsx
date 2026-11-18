@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
+import { drawCircuitSticker, PANEL_STICKER_PRESETS } from './panelStickers'
 
 type Decal = NonNullable<ElectricalComponent['decals']>[number]
 
@@ -32,6 +33,31 @@ export function EquipmentDecal3D({ decal: d }: { decal: Decal }) {
     canvas.width = 1024
     canvas.height = Math.max(64, Math.round(1024 * height / width))
     const ctx = canvas.getContext('2d')!
+
+    const stickerPreset = PANEL_STICKER_PRESETS.find((p) => p.icon === d.icon && (p.label === d.text || p.id === d.icon)) ||
+      (d.icon ? PANEL_STICKER_PRESETS.find((p) => p.icon === d.icon) : undefined)
+    if (stickerPreset || d.kind === 'symbol') {
+      const sticker: import('./panelStickers').PanelStickerDef = stickerPreset ?? {
+        id: 'custom',
+        category: 'sockets',
+        categoryName: 'Geral',
+        icon: d.icon || 'socket',
+        label: d.text || '',
+        bg: d.background || '#ffffff',
+        fg: d.color || '#1e293b',
+      }
+      drawCircuitSticker(ctx, canvas.width, canvas.height, {
+        ...sticker,
+        label: d.text || sticker.label,
+        bg: d.background || sticker.bg,
+        fg: d.color || sticker.fg,
+      })
+      const map = new THREE.CanvasTexture(canvas)
+      map.colorSpace = THREE.SRGBColorSpace
+      map.anisotropy = 4
+      return map
+    }
+
     ctx.fillStyle = d.background ?? '#ffffff'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.fillStyle = d.color ?? '#0f172a'

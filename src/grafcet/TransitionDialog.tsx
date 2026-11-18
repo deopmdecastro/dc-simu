@@ -325,15 +325,70 @@ export default function TransitionDialog({
           <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Ajuda sobre transições</summary><div><p>A condição é uma expressão booleana: <code>I1 * /I2</code> exige I1 ativa e I2 inativa. Use AND (*), OR (+), NOT (/), flancos e parênteses.</p><p><code>X10</code> consulta a etapa com o número 10 no diagrama. <code>T(2s)</code> verifica dois segundos de atividade das origens.</p><p><b>Etapas de outro GRAFCET:</b> <code>G1 &lt;=&gt; X11</code> exige a etapa 11 da página G1 ativa; <code>G1 &lt;&gt; X11</code> exige-a inativa. G0 é a primeira página (este GRAFCET quando só há uma), G1 a segunda, e assim por diante. As páginas correm em simultâneo e partilham sinais, por isso a dependência entre elas é avaliada no mesmo ciclo.</p><p>Várias origens sincronizam ramos: todas precisam de estar ativas. Com a condição verdadeira, a transição ativa todos os destinos (AND). Pode guardar uma transição solta e completá-la no diagrama.</p><p>Uma <b>transição-fonte</b> não tem etapa de origem: está sempre validada e dispara quando a condição é verdadeira. Para só disparar com outra etapa ativa ou inativa (deste ou de outro GRAFCET), use «Só se» nas origens.</p></div></details>
         </section>
         <aside className="grafcet-property-preview">
-          <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span className="grafcet-preview-live">Ao editar</span></div>
-          <div className="grafcet-transition-map" aria-label="Resumo das ligações da transição">
-            <span className="grafcet-map-label">ORIGENS · TODAS ATIVAS</span><div className="grafcet-map-steps">{from.length ? from.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : isSourceTransition ? <span className="is-source">{guardText ? 'Transição-fonte · Só se' : 'Transição-fonte · sempre validada'}</span> : <em>Sem origem</em>}</div>
-            {!!guardText && <><span className="grafcet-map-label">SÓ SE</span><div className="grafcet-map-steps">{guardRows.filter((row) => row.step).map((row, index) => <span key={`g:${index}`} className={`is-state${row.graph !== graphNumber ? ' is-external' : ''}`}>{stepReferenceText(row.graph, row.step, row.active)}</span>)}</div></>}
-            <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>
-            <div className="grafcet-map-transition"><strong>{name || `T${transitionIndex + 1}`}</strong><code>{displayDescription && description ? description : condition || 'Condição por definir'}</code><span className={validCondition(condition) ? 'is-valid' : 'is-incomplete'}>{validCondition(condition) ? <IconCheck size={11} /> : <IconWarning size={11} />}{validCondition(condition) ? 'Sintaxe válida' : 'Expressão incompleta'}</span></div>
-            <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>
-            <span className="grafcet-map-label">DESTINOS · ATIVADOS JUNTOS</span><div className="grafcet-map-steps">{to.length ? to.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : <em>Sem destino</em>}</div>
-          </div>
+          <div className="grafcet-property-preview-label"><span>Pré-visualização IEC</span><span className="grafcet-preview-live">Ao editar</span></div>
+          {(() => {
+            const fromLabels = from.length ? from.map(labelOf) : [isSourceTransition ? 'Fonte' : 'Sem origem']
+            const toLabels = to.length ? to.map(labelOf) : ['Sem destino']
+            const isSource = isSourceTransition && !from.length
+            const isValid = validCondition(condition)
+            const condText = displayDescription && description ? description : condition || '1'
+            const transName = name || `T${transitionIndex + 1}`
+
+            return (
+              <div className="flex flex-col items-center gap-2 w-full my-1">
+                <svg viewBox="0 0 220 180" className="w-full h-44 rounded-lg border border-slate-200 bg-slate-50/50 shadow-inner">
+                  {/* Origens */}
+                  {!isSource ? (
+                    <g transform="translate(110, 24)">
+                      <rect x="-36" y="-14" width="72" height="28" fill="#ffffff" stroke="#1e293b" strokeWidth="1.8" rx="3" />
+                      <text x="0" y="4" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#0f172a">
+                        {fromLabels.slice(0, 2).join(' + ')}
+                      </text>
+                    </g>
+                  ) : (
+                    <g transform="translate(110, 24)">
+                      <circle cx="0" cy="0" r="12" fill="#eff6ff" stroke="#2563eb" strokeWidth="1.8" />
+                      <text x="0" y="3.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="#2563eb">FONTE</text>
+                    </g>
+                  )}
+
+                  {/* Linha vertical até à transição */}
+                  <line x1="110" y1="38" x2="110" y2="84" stroke="#1e293b" strokeWidth="1.8" />
+
+                  {/* Barra da transição */}
+                  <g transform="translate(110, 84)">
+                    <line x1="-24" y1="0" x2="24" y2="0" stroke="#1e293b" strokeWidth="3" />
+                    {/* Nome T1 à esquerda */}
+                    <text x="-28" y="3.5" textAnchor="end" fontSize="11" fontWeight="700" fill="#2563eb">
+                      {transName}
+                    </text>
+                    {/* Condição à direita */}
+                    <text x="28" y="3.5" textAnchor="start" fontSize="10.5" fontWeight="600" fill="#0f172a">
+                      {condText.length > 18 ? `${condText.slice(0, 17)}…` : condText}
+                    </text>
+                  </g>
+
+                  {/* Linha vertical e seta até ao destino */}
+                  <line x1="110" y1="84" x2="110" y2="128" stroke="#1e293b" strokeWidth="1.8" />
+                  <polygon points="106,124 114,124 110,132" fill="#1e293b" />
+
+                  {/* Destinos */}
+                  <g transform="translate(110, 146)">
+                    <rect x="-36" y="-14" width="72" height="28" fill="#ffffff" stroke="#1e293b" strokeWidth="1.8" rx="3" />
+                    <text x="0" y="4" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#0f172a">
+                      {toLabels.slice(0, 2).join(' + ')}
+                    </text>
+                  </g>
+                </svg>
+
+                {/* Badge de validação de sintaxe */}
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isValid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                  {isValid ? <IconCheck size={12} /> : <IconWarning size={12} />}
+                  <span>{isValid ? 'Sintaxe válida' : 'Expressão incompleta'}</span>
+                </div>
+              </div>
+            )
+          })()}
           <p className="grafcet-property-note">Pré-visualização do rascunho. Guarde para aplicar.</p>
           {externalCount > 0 && <p className="grafcet-preview-external" role="status"><IconGrafcet size={12} /> {externalCount === 1 ? '1 dependência' : `${externalCount} dependências`} de outro GRAFCET{externalCount === 1 ? '' : 's'}.</p>}
           {!!comparisons.length && <p className="grafcet-preview-external is-doc" role="status"><IconCompare size={12} /> {comparisons.length} equivalência{comparisons.length === 1 ? '' : 's'} documental{comparisons.length === 1 ? '' : 'is'}.</p>}

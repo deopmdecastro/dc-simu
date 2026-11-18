@@ -20,7 +20,7 @@ import { defaultCoreColors } from '../admin/editor3d/wireStyle'
 import { dinFerruleColor } from '../schematic/wireEndColor'
 import { orthogonalizeWaypoints2D, simplifyWaypoints2D } from '../schematic/wireGeometry'
 import { addNativeIecSchematic } from '../project/nativeIec'
-import { addNativeAnnotations } from '../project/nativeProjects'
+import { addNativeAnnotations, upgradeNativeGrafcetTags } from '../project/nativeProjects'
 import { addNativeThermalRelay } from '../project/nativeThermalRelay'
 import { fixNativeCoilWiring } from '../project/nativeCoilFix'
 import { addNativeSignals } from '../project/nativeSignals'
@@ -61,7 +61,8 @@ import type {
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
 import { SIEMENS_S7_TYPES } from '../electrical/siemensPlc'
-import { syncLeadCableHeatShrink, syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
+import { defaultWireEndTypeForTerminal, syncLeadCableHeatShrink, syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
+import { generateIecDiagramFromPhysical } from '../commands/fromPhysical'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
@@ -225,6 +226,8 @@ interface Store extends CircuitState {
   /** Esquema de comandos elétricos (potência + comando, símbolos IEC 60617). */
   commands: CommandsDiagram
   setCommands: (diagram: CommandsDiagram, historyMode?: 'auto' | 'force' | 'skip', historyKey?: string) => void
+  /** Gera o Esquema IEC 60617 (comandos e força) a partir do layout e ligações 3D reais. */
+  generateIecFromPhysical: () => void
   setGrafcet: (program: GrafcetProgram, historyMode?: 'auto' | 'force' | 'skip', historyKey?: string) => void
   fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
   /** FC1/FC2 não vêm por defeito: só entram na árvore depois de adicionadas
@@ -455,6 +458,11 @@ interface Store extends CircuitState {
   snapToRails: (ids?: string[], commit?: boolean) => number
   /** Solta equipamentos da calha (mantém a posição atual). */
   detachFromRail: (ids: string[]) => void
+  /** Solta/desconecta todos os cabos ligados aos equipamentos (mantém as pontas livres na posição atual). */
+  detachWiresFromComponents: (ids: string[]) => void
+  /** Se ativo, ao arrastar componentes solta os cabos automaticamente em vez de os esticar. */
+  detachWiresOnDrag: boolean
+  toggleDetachWiresOnDrag: () => void
   /** Associa componentes a um quadro (`panelEnclosure`). */
   assignToEnclosure: (ids: string[], enclosureId: string) => void
   /** Remove a associação a quadro (mantém a posição atual). */
@@ -948,7 +956,10 @@ function runOneTick(state: Store, dtMs: number) {
   state.runtime.energizedWires = pass3.energizedWires
 
   for (const c of components) for (const t of c.terminals) t.energized = pass3.energizedTerminals.has(t.id)
-  for (const w of wires) w.energized = pass3.energizedWires.has(w.id)
+  for (const w of wires) {
+    w.energized = pass3.energizedWires.has(w.id)
+    w.carryingCurrent = pass3.activeWires?.has(w.id) ?? w.energized
+  }
 
   // 8) Sinaleiros / buzzer / torre
   for (const c of components) {
@@ -966,6 +977,61 @@ function runOneTick(state: Store, dtMs: number) {
     if (c.type === 'analogAmmeter') {
       const live = isLoadPowered(c, pass3.energizedTerminals, '1', '2')
       c.state.reading = live ? Number((c.state.scaleInA * 0.6).toFixed(1)) : 0
+    }
+    if (c.type === 'meterD522066') {
+      const term1 = terminalByLabel(c, '1')?.id
+      const term2 = terminalByLabel(c, '2')?.id
+      const live = !!term1 && !!term2 && pass3.energizedTerminals.has(term1) && pass3.energizedTerminals.has(term2)
+      c.state.on = live
+      if (live) {
+        c.state.voltage = 223.8
+        const runningLoads = components.filter((item) => (item.type === 'motor3ph' || item.type === 'motor1ph') && item.state.running).length
+        const amps = runningLoads > 0 ? Number((1.14 * runningLoads).toFixed(2)) : pass3.activeWires && pass3.activeWires.size > 0 ? 1.14 : 0.00
+        c.state.current = amps
+        c.state.power = Number((c.state.voltage * amps * (Number(c.state.powerFactor) || 1.0)).toFixed(1))
+        c.state.frequency = 50.0
+        if (amps > 0 && state.sim.runState === 'running') {
+          c.state.energy = Number((Number(c.state.energy ?? 0.22) + 0.0001).toFixed(2))
+        }
+      } else {
+        c.state.voltage = 0
+        c.state.current = 0
+        c.state.power = 0
+      }
+    }
+    if (c.type === 'meterKws306') {
+      const l1 = terminalByLabel(c, 'L1-IN')?.id
+      const l2 = terminalByLabel(c, 'L2-IN')?.id
+      const l3 = terminalByLabel(c, 'L3-IN')?.id
+      const n = terminalByLabel(c, 'N-IN')?.id
+      const liveL1 = !!l1 && pass3.energizedTerminals.has(l1)
+      const liveL2 = !!l2 && pass3.energizedTerminals.has(l2)
+      const liveL3 = !!l3 && pass3.energizedTerminals.has(l3)
+      const liveN = !!n && pass3.energizedTerminals.has(n)
+      const isLive = (liveL1 || liveL2 || liveL3) && liveN
+      c.state.on = isLive
+      if (isLive) {
+        c.state.vA = liveL1 ? 211.0 : 0
+        c.state.vB = liveL2 ? 210.4 : 0
+        c.state.vC = liveL3 ? 210.4 : 0
+        const runningMotors = components.filter((item) => item.type === 'motor3ph' && item.state.running).length
+        const baseI = runningMotors > 0 && c.state.switchOn !== false ? 7.892 : 0
+        c.state.iA = liveL1 ? baseI : 0
+        c.state.iB = liveL2 ? (baseI > 0 ? 7.850 : 0) : 0
+        c.state.iC = liveL3 ? (baseI > 0 ? 7.880 : 0) : 0
+        c.state.pA = Number(((c.state.vA * c.state.iA * 0.98) / 1000).toFixed(3))
+        c.state.pB = Number(((c.state.vB * c.state.iB * 0.98) / 1000).toFixed(3))
+        c.state.pC = Number(((c.state.vC * c.state.iC * 0.98) / 1000).toFixed(3))
+        c.state.frequency = 50
+        c.state.temp = 15
+        if (baseI > 0 && state.sim.runState === 'running') {
+          c.state.energy = Number((Number(c.state.energy ?? 1.40) + 0.0002).toFixed(2))
+        }
+      } else {
+        c.state.vA = 0; c.state.vB = 0; c.state.vC = 0
+        c.state.iA = 0; c.state.iB = 0; c.state.iC = 0
+        c.state.pA = 0; c.state.pB = 0; c.state.pC = 0
+      }
     }
   }
 
@@ -1210,11 +1276,35 @@ function deenergizeComponents(components: ElectricalComponent[]): ElectricalComp
 
 
 const normalizeWires = (wires: Wire[], components: ElectricalComponent[] = []) => {
-  const afterFerrule = syncSharedTerminalFerrules(wires.map(w => w.locked === undefined ? w : { ...w, locked: w.locked === true }))
   const byTerm = new Map<string, string>()
+  const byTermDef = new Map<string, import('../types').Terminal>()
   for (const c of components) {
-    for (const term of c.terminals ?? []) byTerm.set(term.id, c.type)
+    for (const term of c.terminals ?? []) {
+      byTerm.set(term.id, c.type)
+      byTermDef.set(term.id, term)
+    }
   }
+  const autoSynced = wires.map((w) => {
+    let fromEnd = w.fromEndType
+    let toEnd = w.toEndType
+    if (w.fromTerminalId && !w.fromPoint) {
+      const term = byTermDef.get(w.fromTerminalId)
+      const expected = defaultWireEndTypeForTerminal(term?.terminalType)
+      if (expected && (!fromEnd || fromEnd === 'ferrule' || fromEnd === 'none')) {
+        fromEnd = expected
+      }
+    }
+    if (w.toTerminalId && !w.toPoint) {
+      const term = byTermDef.get(w.toTerminalId)
+      const expected = defaultWireEndTypeForTerminal(term?.terminalType)
+      if (expected && (!toEnd || toEnd === 'ferrule' || toEnd === 'none')) {
+        toEnd = expected
+      }
+    }
+    if (fromEnd === w.fromEndType && toEnd === w.toEndType) return w
+    return { ...w, fromEndType: fromEnd, toEndType: toEnd }
+  })
+  const afterFerrule = syncSharedTerminalFerrules(autoSynced.map(w => w.locked === undefined ? w : { ...w, locked: w.locked === true }))
   return syncLeadCableHeatShrink(afterFerrule, byTerm)
 }
 
@@ -1496,6 +1586,14 @@ export const useSimStore = create<Store>((set, get) => {
     if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(historyKey))) get().commitHistory()
     if (historyMode === 'force') resetGroupedEdit()
     set({ commands: normalizeCommandsPages(diagram), dirty: true })
+  },
+  generateIecFromPhysical: () => {
+    const s = get()
+    if (s.demoMode || isSimEditLocked(s)) return
+    const diagram = generateIecDiagramFromPhysical(s.components, s.wires)
+    s.commitHistory()
+    s.setCommands(diagram)
+    s.pushEvent('info', `Esquema IEC gerado com ${diagram.parts.length} símbolo(s) e ${diagram.wires.length} ligação(ões) a partir do painel 3D real.`)
   },
   setGrafcet: (program, historyMode = 'force', historyKey = 'grafcet') => {
     // Demonstração da landing: o GRAFCET é só de visualização/simulação —
@@ -2818,7 +2916,39 @@ export const useSimStore = create<Store>((set, get) => {
         dy = constrain(dy, resolved.y - component.schematicY)
       }
       if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return {}
-      const wires = enclosures.length ? shiftGroupWires(s.wires, s.components, groupIds, dx, dy) : null
+
+      // Se ativado o modo "soltar cabos ao arrastar", desliga os cabos antes do movimento
+      let nextWires = s.wires
+      if (s.detachWiresOnDrag && groupIds.size) {
+        const terminalToComp = new Map<string, { comp: ElectricalComponent; term: Terminal }>()
+        for (const c of s.components) {
+          if (!groupIds.has(c.id)) continue
+          for (const t of c.terminals) terminalToComp.set(t.id, { comp: c, term: t })
+        }
+        if (terminalToComp.size > 0) {
+          nextWires = nextWires.map((w) => {
+            let fromTerm = w.fromTerminalId
+            let toTerm = w.toTerminalId
+            let fromPt = w.fromPoint
+            let toPt = w.toPoint
+            if (fromTerm && terminalToComp.has(fromTerm)) {
+              const { comp, term } = terminalToComp.get(fromTerm)!
+              fromPt = { x: Math.round(comp.schematicX + term.x * comp.w), y: Math.round(comp.schematicY + term.y * comp.h) }
+              fromTerm = ''
+            }
+            if (toTerm && terminalToComp.has(toTerm)) {
+              const { comp, term } = terminalToComp.get(toTerm)!
+              toPt = { x: Math.round(comp.schematicX + term.x * comp.w), y: Math.round(comp.schematicY + term.y * comp.h) }
+              toTerm = ''
+            }
+            return (fromTerm !== w.fromTerminalId || toTerm !== w.toTerminalId)
+              ? { ...w, fromTerminalId: fromTerm, toTerminalId: toTerm, fromPoint: fromPt, toPoint: toPt }
+              : w
+          })
+        }
+      }
+
+      const wires = enclosures.length ? shiftGroupWires(nextWires, s.components, groupIds, dx, dy) : (nextWires !== s.wires ? nextWires : null)
       return {
         components: s.components.map((component) => groupIds.has(component.id) ? {
           ...component,
@@ -2977,6 +3107,67 @@ export const useSimStore = create<Store>((set, get) => {
       components: s.components.map((c) => (ids.includes(c.id) && c.railId ? { ...c, railId: undefined, railOffsetMm: undefined } : c)),
       dirty: true,
     }))
+  },
+
+  detachWiresOnDrag: false,
+  toggleDetachWiresOnDrag: () => set((s) => ({ detachWiresOnDrag: !s.detachWiresOnDrag })),
+
+  detachWiresFromComponents: (ids) => {
+    const state = get()
+    if (state.demoMode || isSimEditLocked(state)) return
+    const terminalToComp = new Map<string, { comp: ElectricalComponent; term: Terminal }>()
+    for (const c of state.components) {
+      if (!ids.includes(c.id)) continue
+      for (const t of c.terminals) {
+        terminalToComp.set(t.id, { comp: c, term: t })
+      }
+    }
+    if (terminalToComp.size === 0) return
+
+    get().commitHistory()
+    let detachedCount = 0
+    const nextWires = state.wires.map((w) => {
+      let fromTerm = w.fromTerminalId
+      let toTerm = w.toTerminalId
+      let fromPt = w.fromPoint
+      let toPt = w.toPoint
+      let mutated = false
+
+      if (fromTerm && terminalToComp.has(fromTerm)) {
+        const { comp, term } = terminalToComp.get(fromTerm)!
+        fromPt = {
+          x: Math.round(comp.schematicX + term.x * comp.w),
+          y: Math.round(comp.schematicY + term.y * comp.h),
+        }
+        fromTerm = ''
+        mutated = true
+      }
+      if (toTerm && terminalToComp.has(toTerm)) {
+        const { comp, term } = terminalToComp.get(toTerm)!
+        toPt = {
+          x: Math.round(comp.schematicX + term.x * comp.w),
+          y: Math.round(comp.schematicY + term.y * comp.h),
+        }
+        toTerm = ''
+        mutated = true
+      }
+      if (mutated) {
+        detachedCount++
+        return {
+          ...w,
+          fromTerminalId: fromTerm,
+          toTerminalId: toTerm,
+          fromPoint: fromPt,
+          toPoint: toPt,
+        }
+      }
+      return w
+    })
+
+    if (detachedCount > 0) {
+      set({ wires: normalizeWires(nextWires, state.components), dirty: true })
+      get().pushEvent('info', `${detachedCount} ligação(ões) de cabo solta(s). O equipamento pode agora ser movido livremente.`)
+    }
   },
 
   assignToEnclosure: (ids, enclosureId) => {
@@ -4240,6 +4431,10 @@ export const useSimStore = create<Store>((set, get) => {
     }
     const a = labelOf(fromTerminalId)
     const b = labelOf(toTerminalId)
+    const autoEndFrom = defaultWireEndTypeForTerminal(a?.terminal?.terminalType)
+    const autoEndTo = defaultWireEndTypeForTerminal(b?.terminal?.terminalType)
+    if (autoEndFrom) wire.fromEndType = autoEndFrom
+    if (autoEndTo) wire.toEndType = autoEndTo
     if (a?.kind === 'power-in' || a?.kind === 'power-out' || b?.kind === 'power-in' || b?.kind === 'power-out') wire.kind = 'power'
     if (a?.kind === 'neutral' || b?.kind === 'neutral') wire.kind = 'neutral'
     if (a?.kind === 'earth' || b?.kind === 'earth') wire.kind = 'earth'
@@ -5012,7 +5207,7 @@ export const useSimStore = create<Store>((set, get) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
-      const parsed = addNativeAnnotations(addNativeIecSchematic(syncNativeLadder(refreshNativeWireCurves(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original))))))))))
+      const parsed = upgradeNativeGrafcetTags(addNativeAnnotations(addNativeIecSchematic(syncNativeLadder(refreshNativeWireCurves(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original)))))))))))
       setStoredCover(parsed?.cover, parsed?.coverVersion)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]

@@ -771,6 +771,47 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
+      case 'meterD522066': {
+        const on = c.state.on !== false
+        return (
+          <g>
+            <rect x={4} y={6} width={w - 8} height={h - 12} rx={6} fill="#0f172a" stroke="#334155" strokeWidth={2} />
+            <rect x={10} y={12} width={w - 20} height={h * 0.58} rx={4} fill="#020617" stroke="#1e293b" />
+            <text x={16} y={26} fontSize={8} fontWeight={700} fill="#64748b">D52-2066</text>
+            <circle cx={w - 18} cy={22} r={4} fill="#2563eb" />
+            <text x={w - 16} y={44} fontSize={13} fontWeight={900} fill={on ? '#fde047' : '#334155'} textAnchor="end">{`${c.state.power ?? 256.3} W`}</text>
+            <text x={w - 16} y={62} fontSize={12} fontWeight={900} fill={on ? '#fb923c' : '#334155'} textAnchor="end">{`${c.state.energy ?? 0.22} kWh`}</text>
+            <text x={16} y={80} fontSize={11} fontWeight={900} fill={on ? '#38bdf8' : '#334155'}>{`${c.state.voltage ?? 223.8} V`}</text>
+            <text x={w - 16} y={80} fontSize={10} fontWeight={900} fill={on ? '#f8fafc' : '#334155'} textAnchor="end">{`${c.state.frequency ?? 50} Hz`}</text>
+            <text x={16} y={98} fontSize={11} fontWeight={900} fill={on ? '#f87171' : '#334155'}>{`${c.state.current ?? 1.14} A`}</text>
+            <text x={w - 16} y={98} fontSize={10} fontWeight={900} fill={on ? '#60a5fa' : '#334155'} textAnchor="end">{`${c.state.powerFactor ?? 1.0} PF`}</text>
+            <rect x={10} y={h * 0.68} width={w - 20} height={h * 0.26} rx={3} fill="#1e293b" />
+            <circle cx={w * 0.8} cy={h * 0.81} r={11} fill="#020617" stroke="#475569" strokeWidth={1.5} />
+            <text x={w * 0.8} y={h * 0.83} fontSize={8} fill="#94a3b8" textAnchor="middle">TC</text>
+            <text x={18} y={h * 0.78} fontSize={8} fill="#94a3b8">1: L</text>
+            <text x={18} y={h * 0.89} fontSize={8} fill="#94a3b8">2: N</text>
+            {label(8, h - 8, c.ref, 10, '#93c5fd')}
+          </g>
+        )
+      }
+      case 'meterKws306': {
+        const sw = c.state.switchOn !== false
+        return (
+          <g>
+            <rect x={4} y={6} width={w - 8} height={h - 12} rx={6} fill="#0f172a" stroke="#334155" strokeWidth={2} />
+            <rect x={10} y={12} width={w - 20} height={h * 0.72} rx={4} fill="#020617" stroke="#1e293b" />
+            <text x={16} y={26} fontSize={8} fontWeight={700} fill="#94a3b8">KWS-306 3P+N</text>
+            <rect x={w - 42} y={16} width={28} height={12} rx={2} fill={sw ? '#15803d' : '#b91c1c'} />
+            <text x={w - 28} y={25} fontSize={7} fontWeight={800} fill="#ffffff" textAnchor="middle">{sw ? 'ON' : 'OFF'}</text>
+            <text x={16} y={44} fontSize={9} fill="#38bdf8">{`A: ${c.state.vA ?? 211}V · ${c.state.iA ?? 7.89}A · ${c.state.pA ?? 1.66}kW`}</text>
+            <text x={16} y={62} fontSize={9} fill="#38bdf8">{`B: ${c.state.vB ?? 210}V · ${c.state.iB ?? 0}A · ${c.state.pB ?? 0}kW`}</text>
+            <text x={16} y={80} fontSize={9} fill="#38bdf8">{`C: ${c.state.vC ?? 210}V · ${c.state.iC ?? 0}A · ${c.state.pC ?? 0}kW`}</text>
+            <text x={16} y={102} fontSize={10} fontWeight={800} fill="#22d3ee">{`Σ ${c.state.energy ?? 1.40} kWh · 50Hz · 15°C`}</text>
+            <text x={w / 2} y={h - 14} fontSize={8} fill="#64748b" textAnchor="middle">↓ ENTRADA (topo) / CARGA (base) ↓</text>
+            {label(8, h - 6, c.ref, 10, '#93c5fd')}
+          </g>
+        )
+      }
       default:
         return (
           <g>

@@ -48,16 +48,41 @@ const PASS_THROUGH = new Set(['enclosure-back', 'enclosure-mounting-plate', 'enc
 
 export function EnclosureHoleGland3D({ diameter, glandType }: { diameter: number; glandType?: string }) {
   if (!glandType || glandType === 'none') return null
-  return <>
-    <mesh position={[0, 0, 0.008]}>
-      <ringGeometry args={[diameter / 2 * 0.55, diameter / 2 * 0.95, 28]} />
-      <meshStandardMaterial color="#9ca3af" metalness={0.6} roughness={0.35} side={THREE.DoubleSide} />
-    </mesh>
-    <mesh position={[0, 0, -0.04]} rotation={[Math.PI / 2, 0, 0]}>
-      <cylinderGeometry args={[diameter / 2 * 0.42, diameter / 2 * 0.48, 0.08, 20]} />
-      <meshStandardMaterial color="#6b7280" metalness={0.55} roughness={0.4} />
-    </mesh>
-  </>
+  const r = diameter / 2
+  const isMetallic = glandType?.includes('metal') || glandType?.includes('inox')
+  const matColor = isMetallic ? '#cbd5e1' : glandType === 'M16' || glandType === 'M20' ? '#9ca3af' : '#374151'
+  const metalness = isMetallic ? 0.85 : 0.08
+  const roughness = isMetallic ? 0.25 : 0.45
+
+  return (
+    <group>
+      {/* Colar / flange exterior sobre a face da chapa */}
+      <mesh position={[0, 0, 0.002]}>
+        <ringGeometry args={[r * 0.65, r * 1.15, 28]} />
+        <meshStandardMaterial color={matColor} metalness={metalness} roughness={roughness} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Corpo sextavado do bucim projetando para fora (+Z) */}
+      <mesh position={[0, 0, 0.008]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[r * 1.12, r * 1.12, 0.012, 6]} />
+        <meshStandardMaterial color={matColor} metalness={metalness} roughness={roughness} />
+      </mesh>
+      {/* Cúpula de aperto cónica com bocal exterior */}
+      <mesh position={[0, 0, 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[r * 0.72, r * 1.05, 0.014, 16]} />
+        <meshStandardMaterial color={matColor} metalness={metalness} roughness={roughness} />
+      </mesh>
+      {/* Vedante interior em elastómero/borracha preta para abraçar o cabo */}
+      <mesh position={[0, 0, 0.026]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[r * 0.42, r * 0.42, 0.004, 16]} />
+        <meshStandardMaterial color="#111827" roughness={0.9} metalness={0.05} />
+      </mesh>
+      {/* Contraporca sextavada de fixação no interior do quadro (-Z) */}
+      <mesh position={[0, 0, -0.008]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[r * 1.18, r * 1.18, 0.006, 6]} />
+        <meshStandardMaterial color={isMetallic ? '#94a3b8' : '#4b5563'} metalness={isMetallic ? 0.8 : 0.2} roughness={0.4} />
+      </mesh>
+    </group>
+  )
 }
 
 /** Quadro: a face da chapa de montagem coincide com o plano da chapa do painel (`plateFrontZ`, relativo ao pivô). */
@@ -84,8 +109,9 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
   }, [color, finishId])
   useEffect(() => () => Object.values(materials).forEach((m) => m.dispose()), [materials])
 
+  const modularRows = typeof c.state.modularRows === 'number' ? c.state.modularRows : undefined
   const parts = useMemo(() => {
-    const built = buildEnclosure(dims, U, materials, hinge)
+    const built = buildEnclosure(dims, U, materials, hinge, modularRows)
     for (const root of [built.body, built.door]) root.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -94,7 +120,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
     })
     return built
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dims.widthMm, dims.heightMm, dims.depthMm, hinge, materials])
+  }, [dims.widthMm, dims.heightMm, dims.depthMm, hinge, materials, modularRows])
   useEffect(() => () => { disposeTree(parts.body); disposeTree(parts.door) }, [parts])
   const visibilityKey = hiddenEnclosureFaces(c.state).join('|')
   useEffect(() => {
@@ -104,6 +130,15 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
     // A visibilidade não reconstrói malhas nem altera o estado físico.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parts, visibilityKey, invalidate, gl])
+
+  // Sobretampa modular interna (segunda tampa)
+  const showInnerCover = c.state.innerCover === true || c.state.modularCover === true
+  useEffect(() => {
+    if (parts.innerCover) {
+      parts.innerCover.visible = showInnerCover
+      invalidate()
+    }
+  }, [parts.innerCover, showInnerCover, invalidate])
 
   // Porta: amortecimento crítico até ao ângulo pedido (abre/fecha como uma porta real, sem saltos).
   const open = c.state.doorOpen !== false
@@ -137,7 +172,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
     <primitive object={parts.door} onClick={toggleDoor}
       onPointerOver={() => { if (interactive && !c.locked) document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { document.body.style.cursor = '' }} />
-    {/* Decalques na porta — rodam com a porta (mesmo hinge/angle) */}
+    {/* Decalques e furos na porta — rodam com a porta (mesmo hinge/angle) */}
     <group ref={decalsDoorRef} position={parts.hinge} visible={enclosureFaceVisible(c.state, 'door')}>
       {(c.decals ?? []).filter((d) => d.face === 'door' || d.face === 'doorOuter' || d.face === 'front').map((d) => {
         const offX = (d.offsetXmm ?? 0) * U
@@ -150,49 +185,70 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
           <EquipmentDecal3D decal={d} />
         </group>
       })}
+      {/* Furos na porta (rodam com a porta!) */}
+      {((c.state as any).holes as import('../types').EnclosureHole[] | undefined ?? [])
+        .filter((h) => h.face === 'door' || h.face === 'doorOuter')
+        .map((h) => {
+          const dia = Math.max(8, h.diameterMm ?? 20) * U
+          const ox = (h.offsetXmm ?? 0) * U
+          const oy = (h.offsetYmm ?? 0) * U
+          const side = hinge === 'right' ? 1 : -1
+          const dir = -side
+          const cx = dir * (dims.widthMm / 2 + 3) * U
+          const skinZ = (ENCLOSURE.doorReturn - 4) * U
+          const isGland = !!h.glandType && h.glandType !== 'none'
+          return (
+            <group key={h.id} position={[cx + ox, oy, skinZ + 0.01]}>
+              <mesh>
+                <circleGeometry args={[dia / 2, 28]} />
+                <meshStandardMaterial color={isGland ? '#2f3540' : '#0f172a'} roughness={0.85} metalness={0.1} side={THREE.DoubleSide} />
+              </mesh>
+              <EnclosureHoleGland3D diameter={dia} glandType={h.glandType} />
+            </group>
+          )
+        })}
     </group>
-    {/* Furos do inspetor: indicação visual na face (disco escuro + anel de bucim se houver) */}
-    {((c.state as any).holes as import('../types').EnclosureHole[] | undefined ?? []).filter(h => enclosureFaceVisible(c.state, h.face === 'doorOuter' ? 'door' : h.face ?? 'bottom')).map((h) => {
-      const dia = Math.max(8, h.diameterMm ?? 20) * U
-      const ox = (h.offsetXmm ?? 0) * U
-      const oy = (h.offsetYmm ?? 0) * U
-      const isGland = !!h.glandType && h.glandType !== 'none'
-      const face = h.face ?? 'bottom'
-      // Posição e orientação por face (referencial do corpo do quadro)
-      let pos: [number, number, number] = [ox, oy, dims.depthMm * U]
-      let rot: [number, number, number] = [0, 0, 0]
-      const halfW = dims.widthMm * U / 2
-      const halfH = dims.heightMm * U / 2
-      const D = dims.depthMm * U
-      if (face === 'door' || face === 'doorOuter') {
-        // na porta: aproximamos à face exterior quando fechada; o grupo da porta já roda
-        pos = [ox, oy, D + 0.02]
-      } else if (face === 'back') {
-        pos = [ox, oy, 0.02]
-        rot = [0, Math.PI, 0]
-      } else if (face === 'top') {
-        pos = [ox, halfH - 0.02, D / 2 + oy]
-        rot = [-Math.PI / 2, 0, 0]
-      } else if (face === 'bottom') {
-        pos = [ox, -halfH + 0.02, D / 2 + oy]
-        rot = [Math.PI / 2, 0, 0]
-      } else if (face === 'left') {
-        pos = [-halfW + 0.02, oy, D / 2 + ox]
-        rot = [0, -Math.PI / 2, 0]
-      } else if (face === 'right') {
-        pos = [halfW - 0.02, oy, D / 2 + ox]
-        rot = [0, Math.PI / 2, 0]
-      }
-      return (
-        <group key={h.id} position={pos} rotation={rot}>
-          <mesh>
-            <circleGeometry args={[dia / 2, 28]} />
-            <meshStandardMaterial color={isGland ? '#2f3540' : '#0f172a'} roughness={0.85} metalness={0.1} side={THREE.DoubleSide} />
-          </mesh>
-          <EnclosureHoleGland3D diameter={dia} glandType={h.glandType} />
-        </group>
-      )
-    })}
+    {/* Furos do corpo estático (topo, fundo, laterais, traseira) */}
+    {((c.state as any).holes as import('../types').EnclosureHole[] | undefined ?? [])
+      .filter((h) => h.face !== 'door' && h.face !== 'doorOuter' && enclosureFaceVisible(c.state, h.face ?? 'bottom'))
+      .map((h) => {
+        const dia = Math.max(8, h.diameterMm ?? 20) * U
+        const ox = (h.offsetXmm ?? 0) * U
+        const oy = (h.offsetYmm ?? 0) * U
+        const isGland = !!h.glandType && h.glandType !== 'none'
+        const face = h.face ?? 'bottom'
+        // Posição e orientação por face (referencial do corpo do quadro)
+        let pos: [number, number, number] = [ox, oy, dims.depthMm * U]
+        let rot: [number, number, number] = [0, 0, 0]
+        const halfW = dims.widthMm * U / 2
+        const halfH = dims.heightMm * U / 2
+        const D = dims.depthMm * U
+        if (face === 'back') {
+          pos = [ox, oy, 0.02]
+          rot = [0, Math.PI, 0]
+        } else if (face === 'top') {
+          pos = [ox, halfH - 0.002, D / 2 + oy]
+          rot = [-Math.PI / 2, 0, 0]
+        } else if (face === 'bottom') {
+          pos = [ox, -halfH + 0.002, D / 2 + oy]
+          rot = [Math.PI / 2, 0, 0]
+        } else if (face === 'left') {
+          pos = [-halfW + 0.002, oy, D / 2 + ox]
+          rot = [0, -Math.PI / 2, 0]
+        } else if (face === 'right') {
+          pos = [halfW - 0.002, oy, D / 2 + ox]
+          rot = [0, Math.PI / 2, 0]
+        }
+        return (
+          <group key={h.id} position={pos} rotation={rot}>
+            <mesh>
+              <circleGeometry args={[dia / 2, 28]} />
+              <meshStandardMaterial color={isGland ? '#2f3540' : '#0f172a'} roughness={0.85} metalness={0.1} side={THREE.DoubleSide} />
+            </mesh>
+            <EnclosureHoleGland3D diameter={dia} glandType={h.glandType} />
+          </group>
+        )
+      })}
     <group position={[0, dims.heightMm * U / 2 + 0.12, dims.depthMm * U]}>{label}</group>
   </group>
 }

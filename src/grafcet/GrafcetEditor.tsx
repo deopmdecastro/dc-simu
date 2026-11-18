@@ -197,8 +197,16 @@ const actionLabel = (action: GrafcetAction) => action.displayDescription && acti
 const showsCondition = (transition: { displayCondition?: boolean; condition?: string }) =>
   transition.displayCondition !== false
 
-const diagramCondition = (condition: string) => {
-  const text = condition === '1' ? '=1' : (condition || '1')
+const diagramCondition = (
+  transitionOrCondition: string | { condition?: string; description?: string; displayDescription?: boolean },
+  description?: string,
+  displayDescription?: boolean,
+) => {
+  const isObj = typeof transitionOrCondition === 'object' && transitionOrCondition !== null
+  const cond = isObj ? transitionOrCondition.condition : transitionOrCondition
+  const desc = isObj ? transitionOrCondition.description : description
+  const showDesc = isObj ? transitionOrCondition.displayDescription : displayDescription
+  const text = showDesc && desc ? desc : cond === '1' ? '=1' : (cond || '1')
   // O halo mantém a leitura; a baseline central alinha o texto com a barra IEC.
   return <>
     <title>{text}</title>
@@ -2948,8 +2956,8 @@ export default function GrafcetEditor({
     const padY = splitCompact ? 8 : 12
     const bw = Math.max(120, x1 - x0)
     const bh = Math.max(90, y1 - y0)
-    const minS = focused ? (splitCompact ? 0.34 : 0.42) : 0.16
-    const maxS = focused ? (splitCompact ? 0.88 : 1.04) : 0.96
+    const minS = focused ? (splitCompact ? 0.34 : 0.40) : 0.16
+    const maxS = focused ? (splitCompact ? 0.62 : 0.70) : (splitCompact ? 0.58 : 0.66)
     const s = Math.min(maxS, Math.max(minS, Math.min((vw - padX * 2) / bw, (vh - padY * 2) / bh)))
     const cx = (x0 + x1) / 2
     const cy = (y0 + y1) / 2
@@ -2964,8 +2972,8 @@ export default function GrafcetEditor({
   const fit = liveView
     ? liveView.scale
     : full
-      ? Math.min(1.35, Math.max(0.15, Math.min((viewport.width - 70) / width, (viewport.height - 86) / height)))
-      : Math.min(1, Math.max(0.25, (viewport.width - 28) / width))
+      ? Math.min(1.0, Math.max(0.18, Math.min((viewport.width - 90) / width, (viewport.height - 110) / height)))
+      : Math.min(0.85, Math.max(0.25, (viewport.width - 28) / width))
   const scale = zoom ?? fit
   // Thin the visible grid by powers of two when zoomed out; snap geometry stays at GRID.
   const gridSpacing = editorGridPitch(scale, GRID)
@@ -4584,7 +4592,7 @@ export default function GrafcetEditor({
                         </text>
                         <g transform={`translate(${ftx + CONDITION_OFFSET_X}, ${fty + CONDITION_OFFSET_Y})`}>
                           <text fill={barColor} fontSize="12.5" fontWeight="600" letterSpacing="0.02em">
-                            {showsCondition(transition) ? diagramCondition(transition.condition) : null}
+                            {showsCondition(transition) ? diagramCondition(transition) : null}
                           </text>
                           {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                         </g>
@@ -4718,7 +4726,7 @@ export default function GrafcetEditor({
                         <path d={path} fill="none" stroke="transparent" strokeWidth="16" />
                         <line x1="50" y1={y + 83} x2="74" y2={y + 83} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
                         <text x={62 + CONDITION_OFFSET_X} y={y + 83 + CONDITION_OFFSET_Y} fill={linkColor} fontSize="12" fontWeight="600">
-                          {showsCondition(transition) ? diagramCondition(transition.condition) : null}
+                          {showsCondition(transition) ? diagramCondition(transition) : null}
                         </text>
                         {full && (isTransHovered || selectedLink) && (
                           <g
@@ -4786,7 +4794,7 @@ export default function GrafcetEditor({
                         <g transform={`translate(${refX + CONDITION_OFFSET_X}, ${refBarY + CONDITION_OFFSET_Y})`}>
                           {showsCondition(transition) && (
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                              {diagramCondition(transition.condition)}
+                              {diagramCondition(transition)}
                             </text>
                           )}
                           {showsCondition(transition) && transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
@@ -4980,7 +4988,7 @@ export default function GrafcetEditor({
                         <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                           {showsCondition(transition) && (
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                              {diagramCondition(transition.condition)}
+                              {diagramCondition(transition)}
                             </text>
                           )}
                           {showsCondition(transition) && transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
@@ -5206,7 +5214,7 @@ export default function GrafcetEditor({
                         <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                           {showsCondition(transition) && (
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                              {diagramCondition(transition.condition)}
+                              {diagramCondition(transition)}
                             </text>
                           )}
                           {showsCondition(transition) && transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
@@ -5310,7 +5318,7 @@ export default function GrafcetEditor({
                           </text>
                           <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                              {showsCondition(transition) ? diagramCondition(transition.condition) : null}
+                              {showsCondition(transition) ? diagramCondition(transition) : null}
                             </text>
                             {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                           </g>
@@ -5380,7 +5388,7 @@ export default function GrafcetEditor({
                       {/* Texto da condição formatada com suporte a barra superior (overbar) */}
                       <g transform={`translate(${tx + CONDITION_OFFSET_X}, ${ty + CONDITION_OFFSET_Y})`}>
                         <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                          {showsCondition(transition) ? diagramCondition(transition.condition) : null}
+                          {showsCondition(transition) ? diagramCondition(transition) : null}
                         </text>
                         {transition.guard?.trim() && !(transition.source && !transition.from.length) && <text className="grafcet-guard-label" y="16" fontSize="11" fontWeight="600">se {transition.guard.trim()}</text>}
                       </g>

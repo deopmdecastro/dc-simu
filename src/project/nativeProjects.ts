@@ -146,8 +146,8 @@ export function buildNativeGrafcet(): GrafcetProgram {
       description: 'Parado / reset completo',
       actions: [
         // Parado sem falha → H2 laranja; emergência premida ou F1 disparado → H3 vermelho.
-        { id: nanoid(6), address: 'Q0.2', variable: 'H2', description: 'H2 PARADO', condition: 'I0.0*!I0.3', kind: 'N', displayDescription: true },
-        { id: nanoid(6), address: 'Q0.3', variable: 'H3', description: 'H3 EMERGÊNCIA', condition: '!I0.0+I0.3', kind: 'N', displayDescription: true },
+        { id: nanoid(6), address: 'Q0.2', variable: 'H2', description: 'H2 PARADO', condition: 'EMERG * !F1', kind: 'N', displayDescription: true },
+        { id: nanoid(6), address: 'Q0.3', variable: 'H3', description: 'H3 EMERGÊNCIA', condition: '!EMERG + F1', kind: 'N', displayDescription: true },
       ],
     },
     {
@@ -164,7 +164,7 @@ export function buildNativeGrafcet(): GrafcetProgram {
       ],
     },
   ]
-  // Modo complete reset: emergência (I0.0), STOP (I0.2) ou disparo do relé térmico F1 (I0.3, 97-98)
+  // Modo complete reset: emergência (EMERG), STOP (STOP) ou disparo do relé térmico F1 (F1)
   // devolve sempre a X0; arranque só com emergência e STOP libertados, F1 armado + START.
   const transitions: GrafcetTransition[] = [
     {
@@ -172,7 +172,7 @@ export function buildNativeGrafcet(): GrafcetProgram {
       name: 'T1',
       from: [s0],
       to: [s1],
-      condition: 'I0.0*I0.2*!I0.3*I0.1',
+      condition: 'EMERG * STOP * !F1 * START',
       description: 'Emergência OK · STOP OK · F1 armado · START',
     },
     {
@@ -180,7 +180,7 @@ export function buildNativeGrafcet(): GrafcetProgram {
       name: 'T2',
       from: [s1],
       to: [s0],
-      condition: '!I0.0+!I0.2+I0.3',
+      condition: '!EMERG + !STOP + F1',
       description: 'Emergência, STOP ou F1 disparado (reset completo)',
     },
   ]
@@ -688,6 +688,46 @@ export function addNativeAnnotations<T extends Record<string, any>>(content: T):
       ...features.filter((f) => f !== 'native-annotations-v1' && f !== 'native-annotations-v2'),
       NATIVE_ANNOTATIONS_FEATURE,
     ],
+  }
+}
+
+/**
+ * Atualiza condições e ações do GRAFCET nativo com nomes de tags em vez de endereços crus (ex: EMERG*STOP*!F1*START).
+ */
+export function upgradeNativeGrafcetTags<T extends Record<string, any>>(content: T): T {
+  if (content.nativeId !== NATIVE_PARTIDA_ID || !content.grafcet) return content
+  const grafcet = content.grafcet
+  let changed = false
+  const transitions = ((grafcet.transitions ?? []) as GrafcetTransition[]).map((t) => {
+    if (t.id === 'native-t1' && (t.condition.includes('I0.0') || t.condition.includes('I0.1') || t.condition === 'I0.0*I0.2*!I0.3*I0.1')) {
+      changed = true
+      return { ...t, condition: 'EMERG * STOP * !F1 * START' }
+    }
+    if (t.id === 'native-t2' && (t.condition.includes('I0.0') || t.condition.includes('I0.2') || t.condition === '!I0.0+!I0.2+I0.3')) {
+      changed = true
+      return { ...t, condition: '!EMERG + !STOP + F1' }
+    }
+    return t
+  })
+  const steps = ((grafcet.steps ?? []) as GrafcetStep[]).map((s) => {
+    if (s.id === 'native-s0') {
+      const actions = (s.actions ?? []).map((a) => {
+        if (a.condition?.includes('I0.0') || a.condition === 'I0.0*!I0.3') { changed = true; return { ...a, condition: 'EMERG * !F1' } }
+        if (a.condition?.includes('I0.3') || a.condition === '!I0.0+I0.3') { changed = true; return { ...a, condition: '!EMERG + F1' } }
+        return a
+      })
+      return { ...s, actions }
+    }
+    return s
+  })
+  if (!changed) return content
+  return {
+    ...content,
+    grafcet: {
+      ...grafcet,
+      transitions,
+      steps,
+    },
   }
 }
 

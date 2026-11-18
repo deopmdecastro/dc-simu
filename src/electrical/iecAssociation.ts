@@ -134,6 +134,8 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   powerSupplyProauto24A: { primary: 'supply', iec60617: '60617-2', refLetter: 'G' },
   analogAmmeter: { iec60617: '60617-8 / 08-02-01', refLetter: 'P', note: 'Amperímetro' },
   multimeterDm20: { iec60617: '60617-8 / instrumento de medida', refLetter: 'P' },
+  meterD522066: { iec60617: '60617-8 / medidor multifunções', refLetter: 'P', note: 'Medidor multifuncional digital LCD' },
+  meterKws306: { iec60617: '60617-8 / analisador de energia', refLetter: 'P', note: 'Medidor de energia trifásico LCD' },
 }
 
 /** Categorias → associação por omissão (para catálogo sem iecSymbol explícito). */

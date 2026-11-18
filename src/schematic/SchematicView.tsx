@@ -1328,7 +1328,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const width = wireStrokeWidth(w.gauge, { conductorCount: w.conductorCount, sheathed: w.sheathed })
     const cap = 'square'
     const join = 'miter'
-    const showEnergyFlow = wireEnergyEffectVisible(simRunState, w.energized)
+    const showEnergyFlow = wireEnergyEffectVisible(simRunState, w.energized, w.carryingCurrent)
     const addPoint = (e: React.MouseEvent) => {
       // duplo clique no cabo = adiciona um ponto de curva arrastável
       e.stopPropagation()

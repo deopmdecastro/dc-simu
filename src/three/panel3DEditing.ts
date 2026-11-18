@@ -1,10 +1,11 @@
 /** O estado elétrico pode permanecer calculado quando a simulação está parada,
- * mas o efeito visual de fluxo só existe durante RUN. */
+ * mas o efeito visual de fluxo só existe durante RUN em fios que conduzem corrente. */
 export function wireEnergyEffectVisible(
   runState: 'running' | 'paused' | 'stopped',
   energized: boolean,
+  carryingCurrent?: boolean,
 ) {
-  return runState === 'running' && energized
+  return runState === 'running' && (carryingCurrent !== undefined ? carryingCurrent : energized)
 }
 
 /** Abaixo deste ângulo (graus) o piso é visto de perfil e degenera numa faixa de linhas. */

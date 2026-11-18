@@ -15,7 +15,7 @@ import { accountApi } from './auth/accountApi'
 import { useComponentSettings } from './admin/componentSettings'
 import { useAppUpdates } from './utils/appUpdates'
 import { askUpdateWithPendingChanges } from './components/UpdatePrompt'
-import { saveAutosave } from './utils/persistence'
+import { saveAutosave, loadAutosave, loadProject, getLastOpenedProjectName } from './utils/persistence'
 import AccountControls from './components/AccountControls'
 import { AppTopbar, EditorTopbar } from './components/AppTopbar'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -135,6 +135,28 @@ export default function Account() {
     if (!projectId || openRef.current?.id === projectId) return
     void load(projectId)
   }, [ready, user?.id, page, location.pathname])
+
+  // Restaura projeto local / autosave ao entrar no editor caso não haja projeto de nuvem no URL
+  useEffect(() => {
+    if (!ready || page !== 'editor') return
+    const projectId = projectIdFromPath(location.pathname)
+    if (projectId) return
+
+    if (useSimStore.getState().components.length > 0) return
+
+    const lastName = getLastOpenedProjectName()
+    const local = lastName ? loadProject(lastName) : null
+    const auto = loadAutosave()
+    const toRestore = local || auto?.json
+    if (toRestore) {
+      try {
+        useSimStore.getState().loadJSON(toRestore)
+        if (lastName) useSimStore.getState().setCurrentProjectName(lastName)
+      } catch {
+        // ignora se corrompido
+      }
+    }
+  }, [ready, page, location.pathname])
 
   // Componentes desativados pelo administrador: recarrega ao entrar e ao abrir o editor.
   useEffect(() => {
@@ -424,9 +446,16 @@ export default function Account() {
         void save()
       }
     }
+    const onSaveProject = () => {
+      void save()
+    }
     window.addEventListener('keydown', handle)
-    return () => window.removeEventListener('keydown', handle)
-  }, [page])
+    window.addEventListener('dcsimu:save-project', onSaveProject)
+    return () => {
+      window.removeEventListener('keydown', handle)
+      window.removeEventListener('dcsimu:save-project', onSaveProject)
+    }
+  }, [page, save])
 
   const openId = open?.id
 

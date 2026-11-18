@@ -45,10 +45,10 @@ export const importedComponentInfo = (type: string): ImportedComponentInfo | und
  * a manobra geral; os comandos dedicados existem onde o CAD os desenha (relé térmico 3RU1116,
  * botão azul T do diferencial Hager CFC225P e gaveta basculante dos porta-fusíveis TeSys DF).
  */
-export type ImportedControl = 'reset' | 'stop' | 'test' | 'carrier'
+export type ImportedControl = 'reset' | 'stop' | 'test' | 'carrier' | 'start'
 
 /** Botões que se premem e voltam a si mesmos: agem enquanto o dedo está em cima. */
-export const IMPORTED_MOMENTARY_CONTROLS: ImportedControl[] = ['stop', 'test']
+export const IMPORTED_MOMENTARY_CONTROLS: ImportedControl[] = ['stop', 'test', 'start']
 
 /** Uma regra de manobra partilhada pelo Esquema e pelo Painel 3D. */
 export function importedActuationPatch(component: ElectricalComponent, pressed: boolean, control: ImportedControl | null = null): Record<string, unknown> | null {
@@ -89,6 +89,13 @@ export function importedActuationPatch(component: ElectricalComponent, pressed: 
   // Porta-fusível Schneider TeSys DF: clicar na gaveta abre ou fecha o porta-cartucho.
   if (info.behavior === 'fuse' && control === 'carrier') {
     return pressed ? { closed: !component.state.closed } : null
+  }
+  // Disjuntor-motor Schneider TeSys GV2ME: botões I (START) e O (STOP) físicos dedicados
+  if (component.type === 'motorBreakerSchneiderGv2me') {
+    if (control === 'start') return pressed ? { closed: true, tripped: false } : null
+    if (control === 'stop') return pressed ? { closed: false } : null
+    if (!pressed) return null
+    return { closed: !component.state.closed || !!component.state.tripped, tripped: false }
   }
   // Seletor 3 posições: se «Posição mantida» (`maintain === false`) for desativada, retorna a 0 ao largar.
   if (info.behavior === 'selector' && !pressed) {

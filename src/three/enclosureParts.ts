@@ -162,6 +162,8 @@ export interface EnclosureParts {
   body: THREE.Group
   /** porta (geometria relativa ao eixo das dobradiças) */
   door: THREE.Group
+  /** sobretampa modular interna (segunda tampa com aberturas DIN e parafusos de fecho rápido) */
+  innerCover: THREE.Group
   /** posição do eixo das dobradiças (unidades de cena) */
   hinge: THREE.Vector3
   /** sentido de abertura: rotação Y positiva (dobradiças à direita) ou negativa */
@@ -169,7 +171,7 @@ export interface EnclosureParts {
 }
 
 /** Armário metálico com chapa de montagem, porta com junta, dobradiças e fechos de ¼ de volta. */
-export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMaterials, hingeSide: EnclosureHinge = 'right'): EnclosureParts {
+export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMaterials, hingeSide: EnclosureHinge = 'right', rowsOverride?: number): EnclosureParts {
   const { widthMm: W, heightMm: H, depthMm: D } = dims
   const s = ENCLOSURE.sheet, f = ENCLOSURE.flange
   const body = new THREE.Group(); body.name = 'enclosure-body'
@@ -271,11 +273,99 @@ export function buildEnclosure(dims: EnclosureDims, unit: number, m: EnclosureMa
   body.add(mergedMesh(hingeYs.map((y) => boxGeo(unit, 8, 52, 12, hx - side * 2, y, D + 1)), m.metal, unit, 'enclosure-hinge-body', 60))
 
   door.position.copy(hinge)
+
+  // Sobretampa modular interna (segunda tampa / espelho de proteção DIN)
+  const innerCover = buildInnerModularCover(dims, unit, m, rowsOverride)
+  body.add(innerCover)
+
   // O otimizador não pode fundir peças que os olhos ocultam/restauram individualmente.
-  for (const root of [body, door]) root.traverse(node => {
+  for (const root of [body, door, innerCover]) root.traverse(node => {
     if ((node as THREE.Mesh).isMesh) node.userData.enclosurePart = true
   })
-  return { body, door, hinge, openSign: side === 1 ? 1 : -1 }
+  return { body, door, innerCover, hinge, openSign: side === 1 ? 1 : -1 }
+}
+
+/**
+ * Sobretampa modular interna (espelho DIN / segunda tampa frontal de proteção):
+ * painéis modulares horizontais em chapa com aberturas normalizadas de 45 mm para
+ * passagem de disjuntores e aparelhagem DIN, parafusos de fecho rápido nos cantos
+ * e perfis verticais de fixação ao corpo do armário.
+ */
+export function buildInnerModularCover(
+  dims: EnclosureDims,
+  unit: number,
+  m: EnclosureMaterials,
+  rowsOverride?: number,
+): THREE.Group {
+  const { widthMm: W, heightMm: H, depthMm: D } = dims
+  const f = ENCLOSURE.flange
+  const group = new THREE.Group()
+  group.name = 'enclosure-inner-cover'
+
+  const covW = W - 2 * f - 4
+  const covH = H - 2 * f - 4
+  const covZ = D - 42 // plano recuado ~42 mm da frente
+
+  const rows = rowsOverride && rowsOverride >= 1 && rowsOverride <= 8
+    ? rowsOverride
+    : Math.max(1, Math.min(6, Math.round(covH / 145)))
+
+  const rowH = covH / rows
+  const winH = Math.min(46, rowH * 0.42)
+  const winW = Math.max(60, covW - 74)
+  const plateT = 1.5
+
+  const plateGeos: THREE.BufferGeometry[] = []
+  const screwGeos: THREE.BufferGeometry[] = []
+  const darkGeos: THREE.BufferGeometry[] = []
+
+  for (let r = 0; r < rows; r++) {
+    const rowY = -covH / 2 + (r + 0.5) * rowH
+    const topStripH = (rowH - winH) / 2
+    const botStripH = (rowH - winH) / 2
+    const topY = rowY + winH / 2 + topStripH / 2
+    const botY = rowY - winH / 2 - botStripH / 2
+    const sideW = (covW - winW) / 2
+    const leftX = -(covW / 2 - sideW / 2)
+    const rightX = covW / 2 - sideW / 2
+
+    plateGeos.push(boxGeo(unit, covW, topStripH, plateT, 0, topY, covZ))
+    plateGeos.push(boxGeo(unit, covW, botStripH, plateT, 0, botY, covZ))
+    plateGeos.push(boxGeo(unit, sideW, winH, plateT, leftX, rowY, covZ))
+    plateGeos.push(boxGeo(unit, sideW, winH, plateT, rightX, rowY, covZ))
+
+    // Re bordo/bainha dobrada em torno da janela modular
+    darkGeos.push(boxGeo(unit, winW, 1.2, 4, 0, rowY + winH / 2, covZ - 2))
+    darkGeos.push(boxGeo(unit, winW, 1.2, 4, 0, rowY - winH / 2, covZ - 2))
+    darkGeos.push(boxGeo(unit, 1.2, winH, 4, -winW / 2, rowY, covZ - 2))
+    darkGeos.push(boxGeo(unit, 1.2, winH, 4, winW / 2, rowY, covZ - 2))
+
+    // Fenda/ranhura de junção entre painéis modulares
+    if (r > 0) {
+      darkGeos.push(boxGeo(unit, covW, 1.5, 2, 0, -covH / 2 + r * rowH, covZ + 0.2))
+    }
+
+    // Parafusos de fecho rápido nos cantos de cada painel
+    const screwX = covW / 2 - 14
+    const screwY1 = rowY + rowH / 2 - 12
+    const screwY2 = rowY - rowH / 2 + 12
+    for (const sx of [-screwX, screwX]) {
+      for (const sy of [screwY1, screwY2]) {
+        screwGeos.push(cylGeo(unit, 8, 2.2, sx, sy, covZ + plateT / 2 + 0.8, 'z', 16))
+        darkGeos.push(boxGeo(unit, 5.5, 1.2, 0.8, sx, sy, covZ + plateT / 2 + 1.8))
+      }
+    }
+  }
+
+  // Perfis verticais de fixação
+  plateGeos.push(boxGeo(unit, 16, covH, 20, -(covW / 2 - 8), 0, covZ - 10))
+  plateGeos.push(boxGeo(unit, 16, covH, 20, covW / 2 - 8, 0, covZ - 10))
+
+  if (plateGeos.length) group.add(mergedMesh(plateGeos, m.body, unit, 'enclosure-inner-cover-plate'))
+  if (screwGeos.length) group.add(mergedMesh(screwGeos, m.metal, unit, 'enclosure-inner-cover-screws'))
+  if (darkGeos.length) group.add(mergedMesh(darkGeos, m.dark, unit, 'enclosure-inner-cover-details'))
+
+  return group
 }
 
 export interface CableDuctMaterials { body: THREE.Material; cover: THREE.Material }

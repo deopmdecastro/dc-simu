@@ -32,6 +32,7 @@ import type { ComponentType, TerminalElectricalClass, TerminalKind, TerminalType
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import { terminalClassesCompatible, terminalDatasheetGuidance, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import LabelLibrary from './LabelLibrary'
+import PanelStickerPicker from './PanelStickerPicker'
 import DatasheetPanel from './DatasheetPanel'
 import { terminalConnections } from '../schematic/terminalConnections'
 import { dinFerruleColor, FERRULE_SWATCHES, wireEndColor } from '../schematic/wireEndColor'
@@ -149,6 +150,14 @@ const BODY_COLOR_OPTIONS = [
   { name: 'Vermelho', value: '#e11d48' }, { name: 'Laranja', value: '#f97316' },
   { name: 'Amarelo', value: '#facc15' }, { name: 'Verde', value: '#16a34a' },
   { name: 'Azul', value: '#2563eb' }, { name: 'Castanho', value: '#8b4513' },
+] as const
+
+const CABLE_DUCT_COLOR_OPTIONS = [
+  { name: 'Cinzento RAL 7030 (padrão)', value: '#a9aca8' },
+  { name: 'Cinza claro RAL 7035', value: '#cfd1cb' },
+  { name: 'Azul (segurança intrínseca)', value: '#0072bb' },
+  { name: 'Preto', value: '#262626' },
+  { name: 'Branco', value: '#f8fafc' },
 ] as const
 
 function ColorPaletteField({ value, options, ariaLabel, fieldLabel, onChange }: {
@@ -359,6 +368,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => canInsertComponent3D(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
   const [stripFocusId, setStripFocusId] = useState<string | null>(null)
+  const [stickerPickerOpen, setStickerPickerOpen] = useState(false)
   const selectedComponent = useMemo(() => {
     if (!selectedIds.length) return undefined
     if (stripFocusId && selectedIds.includes(stripFocusId)) {
@@ -493,8 +503,16 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
-          <div className="pn-section is-compact">
+          <div className="pn-section is-compact space-y-1">
             <button type="button" className="dc-btn w-full justify-center" onClick={() => setTerminalLibOpen(true)} title="Consulte os perfis de bornes e ligações usados nos componentes (L, N, PE, A1/A2, 13/14…)">Biblioteca de bornes e perfis de ligação</button>
+            <button
+              type="button"
+              className="dc-btn w-full justify-center text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border-brand-200"
+              onClick={() => useSimStore.getState().generateIecFromPhysical()}
+              title="Gera automaticamente o Esquema IEC 60617 (comandos e força) a partir dos equipamentos e cabos montados no painel 3D"
+            >
+              ⚡ Gerar Esquema IEC pelo 3D
+            </button>
           </div>
           <div className="dc-library-model-notice" role="note">
             <IconLock size={13} />
@@ -540,6 +558,26 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           <TerminalLibrary mode="browse" />
         </div>
       </div>, document.body)}
+
+      {stickerPickerOpen && selectedComponent && createPortal(
+        <PanelStickerPicker
+          onClose={() => setStickerPickerOpen(false)}
+          onPick={(sticker) => {
+            useSimStore.getState().addDecal(selectedComponent.id, {
+              kind: 'symbol',
+              icon: sticker.icon,
+              text: sticker.label,
+              background: sticker.bg || '#ffffff',
+              color: sticker.fg || '#1e293b',
+              widthMm: sticker.category === 'numbers' ? 16 : 24,
+              heightMm: sticker.category === 'numbers' ? 16 : 24,
+              face: 'front',
+            })
+            useSimStore.getState().pushEvent('info', `Adesivo «${sticker.label}» colado em ${selectedComponent.ref}.`)
+          }}
+        />,
+        document.body
+      )}
       {tab === 'inspector' && (
         <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
           {wireTool && (
@@ -696,28 +734,34 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { schematicY: Number(e.target.value) })}
                   />
                 </div>
-                <div>
-                  <label className={label}>Largura</label>
-                  <input type="number" className="dc-input" value={selectedComponent.w} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { w: Math.max(30, Number(e.target.value)) })} />
-                </div>
-                <div>
-                  <label className={label}>Altura</label>
-                  <input type="number" className="dc-input" value={selectedComponent.h} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { h: Math.max(30, Number(e.target.value)) })} />
-                </div>
-                <div>
-                  <label className={label}>Rotação</label>
-                  <Select className="dc-select" value={selectedComponent.rotation} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { rotation: Number(e.target.value) })}>
-                    {[0, 90, 180, 270].map((r) => (
-                      <option key={r} value={r}>{r}°</option>
-                    ))}
-                  </Select>
-                </div>
+                {selectedComponent.type !== 'cableDuct' && !isMountingRail(selectedComponent.type) && (
+                  <>
+                    <div>
+                      <label className={label}>Largura</label>
+                      <input type="number" className="dc-input" value={selectedComponent.w} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { w: Math.max(30, Number(e.target.value)) })} />
+                    </div>
+                    <div>
+                      <label className={label}>Altura</label>
+                      <input type="number" className="dc-input" value={selectedComponent.h} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { h: Math.max(30, Number(e.target.value)) })} />
+                    </div>
+                  </>
+                )}
+                {selectedComponent.type !== 'cableDuct' && (
+                  <div>
+                    <label className={label}>Rotação</label>
+                    <Select className="dc-select" value={selectedComponent.rotation} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { rotation: Number(e.target.value) })}>
+                      {[0, 90, 180, 270].map((r) => (
+                        <option key={r} value={r}>{r}°</option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
                 <div className="col-span-2">
                   <ColorPaletteField
-                    value={selectedComponent.bodyColor ?? '#e2e8f0'}
-                    options={BODY_COLOR_OPTIONS}
+                    value={selectedComponent.bodyColor ?? (selectedComponent.type === 'cableDuct' ? '#a9aca8' : '#e2e8f0')}
+                    options={selectedComponent.type === 'cableDuct' ? CABLE_DUCT_COLOR_OPTIONS : BODY_COLOR_OPTIONS}
                     ariaLabel="cor do corpo"
-                    fieldLabel="Cor do corpo"
+                    fieldLabel={selectedComponent.type === 'cableDuct' ? 'Cor da calha (PVC)' : 'Cor do corpo'}
                     onChange={(value) => useSimStore.getState().updateComponent(selectedComponent.id, { bodyColor: value })}
                   />
                 </div>
@@ -757,6 +801,94 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               {selectedComponent.type === 'panelEnclosure' && <EnclosureControls c={selectedComponent} />}
               {selectedComponent.type === 'cableDuct' && <CableDuctControls c={selectedComponent} />}
               {selectedComponent.type === 'spiralWrap' && <SpiralWrapControls c={selectedComponent} />}
+              {selectedComponent.type === 'meterD522066' && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                  <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidor D52-2066 LCD</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-500 block text-[10px]">Tensão (V)</span>
+                      <strong className="text-sky-600 font-mono text-sm">{selectedComponent.state.on !== false ? `${Number(selectedComponent.state.voltage ?? 223.8).toFixed(1)} V` : '0 V'}</strong>
+                    </div>
+                    <div className="p-2 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-500 block text-[10px]">Corrente (A)</span>
+                      <strong className="text-red-500 font-mono text-sm">{selectedComponent.state.on !== false ? `${Number(selectedComponent.state.current ?? 1.14).toFixed(2)} A` : '0 A'}</strong>
+                    </div>
+                    <div className="p-2 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-500 block text-[10px]">Potência ativa</span>
+                      <strong className="text-amber-500 font-mono text-sm">{selectedComponent.state.on !== false ? `${Number(selectedComponent.state.power ?? 256.3).toFixed(1)} W` : '0 W'}</strong>
+                    </div>
+                    <div className="p-2 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-500 block text-[10px]">Energia total</span>
+                      <strong className="text-orange-500 font-mono text-sm">{`${Number(selectedComponent.state.energy ?? 0.22).toFixed(2)} kWh`}</strong>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="dc-btn w-full justify-center text-xs"
+                    onClick={() => {
+                      useSimStore.getState().setComponentState(selectedComponent.id, { energy: 0.00 })
+                      useSimStore.getState().pushEvent('info', `${selectedComponent.ref}: Contador de energia reposto a 0.00 kWh.`)
+                    }}
+                  >
+                    Repor contador (Reset kWh)
+                  </button>
+                </div>
+              )}
+              {selectedComponent.type === 'meterKws306' && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                  <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Analisador KWS-306 3P+N</div>
+                  <div className="p-2 rounded bg-slate-900 text-white font-mono text-xs space-y-1">
+                    <div className="flex justify-between text-sky-400">
+                      <span>VA: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.vA ?? 211).toFixed(1)}V` : '0V'}</span>
+                      <span>VB: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.vB ?? 210.4).toFixed(1)}V` : '0V'}</span>
+                      <span>VC: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.vC ?? 210.4).toFixed(1)}V` : '0V'}</span>
+                    </div>
+                    <div className="flex justify-between text-red-400">
+                      <span>IA: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.iA ?? 7.892).toFixed(2)}A` : '0A'}</span>
+                      <span>IB: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.iB ?? 0).toFixed(2)}A` : '0A'}</span>
+                      <span>IC: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.iC ?? 0).toFixed(2)}A` : '0A'}</span>
+                    </div>
+                    <div className="flex justify-between text-yellow-400">
+                      <span>PA: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.pA ?? 1.665).toFixed(2)}kW` : '0kW'}</span>
+                      <span>PB: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.pB ?? 0).toFixed(2)}kW` : '0kW'}</span>
+                      <span>PC: {selectedComponent.state.on !== false ? `${Number(selectedComponent.state.pC ?? 0).toFixed(2)}kW` : '0kW'}</span>
+                    </div>
+                    <div className="flex justify-between text-cyan-300 pt-1 border-t border-slate-700">
+                      <span>Σ {Number(selectedComponent.state.energy ?? 1.40).toFixed(2)} kWh</span>
+                      <span>50 Hz · 15°C</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-xs text-slate-600">Relé de saída:</span>
+                    <button
+                      type="button"
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${selectedComponent.state?.switchOn !== false ? 'bg-emerald-600 border-emerald-700 text-white' : 'bg-rose-600 border-rose-700 text-white'}`}
+                      onClick={() => {
+                        const cur = selectedComponent.state?.switchOn !== false
+                        useSimStore.getState().setComponentState(selectedComponent.id, { switchOn: !cur })
+                        useSimStore.getState().pushEvent('info', `${selectedComponent.ref}: Saída ${!cur ? 'LIGADA (fechada)' : 'ABERTA (desligada)'}.`)
+                      }}
+                    >
+                      {selectedComponent.state?.switchOn !== false ? 'Saída LIGADA (NO)' : 'Saída ABERTA (OFF)'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {(selectedComponent.type === 'powerSource1ph' || selectedComponent.type === 'powerSource3ph' || selectedComponent.type === 'powerSource24v' || selectedComponent.type === 'terminalSet1ph' || selectedComponent.type === 'terminalSet3ph' || selectedComponent.type === 'terminalSet24v') && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between">
+                  <div className="flex-1 pr-2">
+                    <div className="text-xs font-semibold text-slate-700">Acrílico de proteção</div>
+                    <div className="text-[11px] text-slate-500">Tampa transparente com parafusos e sinal de aviso</div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${selectedComponent.state?.acrylicCover ? 'bg-brand-600 border-brand-700 text-white hover:bg-brand-500' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+                    onClick={() => useSimStore.getState().setComponentState(selectedComponent.id, { acrylicCover: !selectedComponent.state?.acrylicCover })}
+                  >
+                    {selectedComponent.state?.acrylicCover ? 'Com acrílico' : 'Sem acrílico'}
+                  </button>
+                </div>
+              )}
 
               {isRailMountable(selectedComponent) && (() => {
                 const rail = components.find((item) => item.id === selectedComponent.railId)
@@ -849,6 +981,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <span className="text-[10px] text-ink-400">{(selectedComponent.decals ?? []).length} etiqueta(s)</span>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-1">
+                  <button type="button" className="dc-btn bg-brand-50 text-brand-700 border-brand-200 font-semibold" title="Abre a biblioteca de adesivos de circuitos residenciais/industriais: tomadas, iluminação, AC, forno, bomba, números DIN..." onClick={() => setStickerPickerOpen(true)}>🏷️ Adesivos de Circuito</button>
                   <button type="button" className="dc-btn" title="Etiqueta de texto simples" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'text', text: selectedComponent.ref || 'Q1', background:'#ffffff', color:'#0f172a', widthMm:28, heightMm:10 })}>+ Texto</button>
                   <button type="button" className="dc-btn" style={{background:'#facc15'}} title="Aviso triângulo amarelo com raio" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'warning', text:'PERIGO', icon:'bolt', background:'#facc15', color:'#0f172a', widthMm:36, heightMm:18, face:'front' })}>⚡ Aviso</button>
                   <button type="button" className="dc-btn" style={{background:'#22c55e',color:'white'}} title="Etiqueta CE verde" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text:'CE', background:'#22c55e', color:'white', widthMm:22, heightMm:14 })}>CE</button>
@@ -903,6 +1036,16 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <div className="flex flex-wrap gap-1">
                 <button className="dc-btn" onClick={() => useSimStore.getState().rotateComponent(selectedComponent.id)}><IconRotate size={12} /> Girar 90°</button>
                 <button className="dc-btn" onClick={() => useSimStore.getState().mirrorComponent(selectedComponent.id)}>Espelhar</button>
+                {wires.some((w) => selectedComponent.terminals.some((t) => w.fromTerminalId === t.id || w.toTerminalId === t.id)) && (
+                  <button
+                    type="button"
+                    className="dc-btn text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200"
+                    title="Desconecta todos os cabos ligados a este equipamento e deixa-os como pontas livres no sítio, permitindo arrastar o equipamento sem puxar os cabos"
+                    onClick={() => useSimStore.getState().detachWiresFromComponents([selectedComponent.id])}
+                  >
+                    Soltar cabos
+                  </button>
+                )}
                 <button className="dc-btn" onClick={() => useSimStore.getState().toggleLock(selectedComponent.id)}>
                   <IconLock size={12} /> {selectedComponent.locked ? 'Desbloquear' : 'Bloquear'}
                 </button>
@@ -913,6 +1056,15 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   useSimStore.getState().deleteComponents([selectedComponent.id])
                 }}><IconDelete size={12} /> Eliminar</button>
               </div>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={useSimStore((s) => s.detachWiresOnDrag)}
+                  onChange={() => useSimStore.getState().toggleDetachWiresOnDrag()}
+                  className="accent-brand-600 rounded"
+                />
+                <span>Soltar cabos ao arrastar componentes</span>
+              </label>
 
               </div></details>
               <OptionalPartsGroup component={selectedComponent} />
@@ -2094,7 +2246,58 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           </div>
                         </div>
 
-                        <div className="wi-chip-actions">
+                        {(() => {
+                          const termA = components.flatMap(c => c.terminals).find(t => t.id === selectedWire.fromTerminalId)
+                          const compA = components.find(c => c.terminals.some(t => t.id === selectedWire.fromTerminalId))
+                          const termB = components.flatMap(c => c.terminals).find(t => t.id === selectedWire.toTerminalId)
+                          const compB = components.find(c => c.terminals.some(t => t.id === selectedWire.toTerminalId))
+                          const nameA = compA ? `${compA.ref}:${termA?.label ?? '?'}` : 'Ponta livre A'
+                          const nameB = compB ? `${compB.ref}:${termB?.label ?? '?'}` : 'Ponta livre B'
+
+                          return (
+                            <div className="flex items-center justify-between text-[11px] p-2 rounded bg-slate-50 border border-slate-200">
+                              <div className="flex items-center gap-1.5 font-mono">
+                                <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold">A</span>
+                                <span className="font-semibold text-slate-800">{nameA}</span>
+                              </div>
+                              <span className="text-slate-400">⟶</span>
+                              <div className="flex items-center gap-1.5 font-mono">
+                                <span className="font-semibold text-slate-800">{nameB}</span>
+                                <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold">B</span>
+                              </div>
+                            </div>
+                          )
+                        })()}
+
+                        <div className="wi-chip-actions flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            className="wi-mini-btn"
+                            disabled={!wireEditingStopped}
+                            title="Aplica anilha na Ponta A (8%)"
+                            onClick={() => {
+                              const list = [...(selectedWire.markers ?? [])]
+                              const text = selectedWire.number || '01'
+                              list.push({ t: 0.08, text, color: '#0f172a', bg: '#fbbf24', style: 'iec' })
+                              patchSelectedWire({ markers: list })
+                            }}
+                          >
+                            + Ponta A
+                          </button>
+                          <button
+                            type="button"
+                            className="wi-mini-btn"
+                            disabled={!wireEditingStopped}
+                            title="Aplica anilha na Ponta B (92%)"
+                            onClick={() => {
+                              const list = [...(selectedWire.markers ?? [])]
+                              const text = selectedWire.number || '02'
+                              list.push({ t: 0.92, text, color: '#0f172a', bg: '#fbbf24', style: 'iec' })
+                              patchSelectedWire({ markers: list })
+                            }}
+                          >
+                            + Ponta B
+                          </button>
                           <button
                             type="button"
                             className="wi-mini-btn"
@@ -2128,7 +2331,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           const style = resolveWireMarkerStyle(m)
                           const rings = expandWireMarkerRings(m)
                           return (
-                            <div key={i} className="wi-acc-block" style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', borderTop: '1px solid var(--dc-border, rgba(148,163,184,0.22))' }}>
+                            <div key={i} className="wi-acc-block" style={{ display: 'flex', flexDirection: 'column', gap: '5px', paddingTop: '6px', borderTop: '1px solid var(--dc-border, rgba(148,163,184,0.22))' }}>
                               {/* Pré-visualização física das anilhas encaixadas lado a lado */}
                               {rings.length > 0 && (
                                 <div
@@ -2174,6 +2377,67 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                   </small>
                                 </div>
                               )}
+
+                              {/* Seletor rápido de ponta para ancorar anilha */}
+                              <div className="flex items-center justify-between text-[10.5px]">
+                                <span className="text-slate-500 font-medium">Ancorar na ponta:</span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${m.t <= 0.2 ? 'bg-brand-600 text-white border-brand-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                                    onClick={() => {
+                                      const list = [...(selectedWire.markers ?? [])]
+                                      list[i] = { ...list[i], t: 0.08 }
+                                      patchSelectedWire({ markers: list })
+                                    }}
+                                  >
+                                    Ponta A (8%)
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${m.t > 0.4 && m.t < 0.6 ? 'bg-brand-600 text-white border-brand-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                                    onClick={() => {
+                                      const list = [...(selectedWire.markers ?? [])]
+                                      list[i] = { ...list[i], t: 0.5 }
+                                      patchSelectedWire({ markers: list })
+                                    }}
+                                  >
+                                    Meio (50%)
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${m.t >= 0.8 ? 'bg-brand-600 text-white border-brand-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                                    onClick={() => {
+                                      const list = [...(selectedWire.markers ?? [])]
+                                      list[i] = { ...list[i], t: 0.92 }
+                                      patchSelectedWire({ markers: list })
+                                    }}
+                                  >
+                                    Ponta B (92%)
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Barra deslizante contínua com indicação das pontas */}
+                              <div className="flex items-center gap-1.5 px-0.5">
+                                <span className="text-[10px] font-bold text-slate-500">A</span>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={100}
+                                  step={1}
+                                  disabled={!wireEditingStopped}
+                                  value={Math.round(m.t * 100)}
+                                  className="flex-1 accent-brand-600 h-1 bg-slate-200 rounded cursor-pointer"
+                                  onChange={(e) => {
+                                    const list = [...(selectedWire.markers ?? [])]
+                                    list[i] = { ...list[i], t: Math.max(0, Math.min(1, Number(e.target.value) / 100)) }
+                                    patchSelectedWire({ markers: list })
+                                  }}
+                                />
+                                <span className="text-[10px] font-bold text-slate-500">B</span>
+                              </div>
+
                               <div className="wi-acc-row">
                                 <input
                                   className="dc-input wi-acc-text"

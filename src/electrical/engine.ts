@@ -25,6 +25,7 @@ import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarPa
 export interface ContinuityResult {
   energizedTerminals: Set<string>
   energizedWires: Set<string>
+  activeWires?: Set<string>
   /** mapa borne → lista de bornes alcançáveis (usado pela sonda e pelo alerta de curto) */
   reachable: Map<string, Set<string>>
 }
@@ -316,6 +317,25 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       // L1/L2/L3 são condutores distintos; o barramento apenas os disponibiliza.
       break
     }
+    case 'meterD522066': {
+      const ctIn = t(c, 'CT-IN')?.id
+      const ctOut = t(c, 'CT-OUT')?.id
+      if (ctIn && ctOut) bridges.push([ctIn, ctOut])
+      break
+    }
+    case 'meterKws306': {
+      if (c.state.switchOn !== false) {
+        const p1In = t(c, 'L1-IN')?.id, p1Out = t(c, 'L1-OUT')?.id
+        const p2In = t(c, 'L2-IN')?.id, p2Out = t(c, 'L2-OUT')?.id
+        const p3In = t(c, 'L3-IN')?.id, p3Out = t(c, 'L3-OUT')?.id
+        const nIn = t(c, 'N-IN')?.id, nOut = t(c, 'N-OUT')?.id
+        if (p1In && p1Out) bridges.push([p1In, p1Out])
+        if (p2In && p2Out) bridges.push([p2In, p2Out])
+        if (p3In && p3Out) bridges.push([p3In, p3Out])
+        if (nIn && nOut) bridges.push([nIn, nOut])
+      }
+      break
+    }
     case 'busbarPhaseStepped': {
       // Cada degrau (L1, L2, L3, N) é uma barra maciça de latão equipotencial, isolada dos outros degraus.
       const byBar = new Map<string, string[]>()
@@ -393,6 +413,12 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     // Condensador de arranque/funcionamento: caminho condutivo entre os dois terminais
     // (modelo de continuidade binária; em AC o condensador passa a corrente).
     case 'capacitorRun60uF': {
+      pair(la('1'), la('1B'))
+      pair(la('2'), la('2B'))
+      pair(la('2'), la('2C'))
+      pair(la('2'), la('2D'))
+      pair(la('2B'), la('2C'))
+      pair(la('2C'), la('2D'))
       if (!c.state.failed) pair(la('1'), la('2'))
       break
     }
@@ -624,6 +650,103 @@ function bfs(graph: Graph, sources: string[]): Set<string> {
   return visited
 }
 
+export function computeCurrentFlow(
+  components: ElectricalComponent[],
+  wires: Wire[],
+  energizedTerminals: Set<string>,
+  graph: Graph,
+): Set<string> {
+  const activeWires = new Set<string>()
+
+  // 1. Identificar bornes de carga em funcionamento
+  const activeTerminalPairs: Array<[string, string]> = []
+  const activeSingleTerminals: string[] = []
+
+  for (const c of components) {
+    // Bobinas (contactor, relé auxiliar, temporizador, soft-starter)
+    const a1 = t(c, 'A1')?.id
+    const a2 = t(c, 'A2')?.id
+    if (a1 && a2 && energizedTerminals.has(a1) && energizedTerminals.has(a2)) {
+      activeTerminalPairs.push([a1, a2])
+    }
+    // Cargas monofásicas / sinalizadores (X1-X2)
+    const x1 = t(c, 'X1')?.id
+    const x2 = t(c, 'X2')?.id
+    if (x1 && x2 && energizedTerminals.has(x1) && energizedTerminals.has(x2)) {
+      activeTerminalPairs.push([x1, x2])
+    }
+    // Motores trifásicos (U1, V1, W1 energizados)
+    const u1 = (t(c, 'U1') || t(c, 'U'))?.id
+    const v1 = (t(c, 'V1') || t(c, 'V'))?.id
+    const w1 = (t(c, 'W1') || t(c, 'W'))?.id
+    if (u1 && v1 && w1 && energizedTerminals.has(u1) && energizedTerminals.has(v1) && energizedTerminals.has(w1)) {
+      activeSingleTerminals.push(u1, v1, w1)
+    }
+    // Fontes DC / PLCs com alimentação ligada
+    if (c.type === 'powerSupplyProauto24A' && c.state.powered) {
+      const l = t(c, 'L')?.id
+      const n = t(c, 'N')?.id
+      if (l && n && energizedTerminals.has(l) && energizedTerminals.has(n)) {
+        activeTerminalPairs.push([l, n])
+      }
+    }
+    if (c.type === 'plcSiemensLogo1224RC' && c.state.powered) {
+      const lp = t(c, 'L+')?.id
+      const m = t(c, 'M')?.id
+      if (lp && m && energizedTerminals.has(lp) && energizedTerminals.has(m)) {
+        activeTerminalPairs.push([lp, m])
+      }
+    }
+    // Condensadores
+    if (c.type === 'capacitorRun60uF') {
+      const u = (t(c, 'U') || t(c, '1'))?.id
+      const v = (t(c, 'V') || t(c, '2'))?.id
+      if (u && v && energizedTerminals.has(u) && energizedTerminals.has(v)) {
+        activeSingleTerminals.push(u, v)
+      }
+    }
+  }
+
+  if (activeTerminalPairs.length === 0 && activeSingleTerminals.length === 0) {
+    return activeWires
+  }
+
+  const wireByEdge = new Map<string, string>()
+  for (const w of wires) {
+    if (energizedTerminals.has(w.fromTerminalId) && energizedTerminals.has(w.toTerminalId)) {
+      wireByEdge.set(`${w.fromTerminalId}|${w.toTerminalId}`, w.id)
+      wireByEdge.set(`${w.toTerminalId}|${w.fromTerminalId}`, w.id)
+    }
+  }
+
+  const visited = new Set<string>()
+  const queue: string[] = []
+
+  for (const [a, b] of activeTerminalPairs) {
+    queue.push(a, b)
+    visited.add(a)
+    visited.add(b)
+  }
+  for (const term of activeSingleTerminals) {
+    queue.push(term)
+    visited.add(term)
+  }
+
+  while (queue.length > 0) {
+    const cur = queue.shift()!
+    for (const nb of graph.adjacency.get(cur) ?? []) {
+      const wireId = wireByEdge.get(`${cur}|${nb}`)
+      if (wireId) activeWires.add(wireId)
+      if (!visited.has(nb)) {
+        visited.add(nb)
+        queue.push(nb)
+      }
+    }
+  }
+
+  return activeWires
+}
+
 export function computeContinuity(components: ElectricalComponent[], wires: Wire[], sourceTerminalIds: string[]): ContinuityResult {
   const graph = buildGraph(components, wires)
   const energizedTerminals = bfs(graph, sourceTerminalIds)
@@ -631,7 +754,8 @@ export function computeContinuity(components: ElectricalComponent[], wires: Wire
   for (const w of wires) {
     if (energizedTerminals.has(w.fromTerminalId) && energizedTerminals.has(w.toTerminalId)) energizedWires.add(w.id)
   }
-  return { energizedTerminals, energizedWires, reachable: graph.adjacency as unknown as Map<string, Set<string>> }
+  const activeWires = computeCurrentFlow(components, wires, energizedTerminals, graph)
+  return { energizedTerminals, energizedWires, activeWires, reachable: graph.adjacency as unknown as Map<string, Set<string>> }
 }
 
 /** Bobina (A1/A2) recebendo energia. */

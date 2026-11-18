@@ -121,6 +121,16 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
             <span>{groups.reduce((n, g) => n + g.kinds.length, 0)} símbolos{filter ? ' na pesquisa' : ''} · {CMD_PALETTE.length} pastas</span>
             <span className="flex gap-2"><button type="button" onClick={() => saveCollapsed(new Set())}>Expandir</button><button type="button" onClick={() => saveCollapsed(new Set(CMD_PALETTE.map((g) => g.title)))}>Recolher</button></span>
           </div>
+          <div className="px-3 py-1.5 border-b border-line bg-surface-subtle">
+            <button
+              type="button"
+              className="dc-btn w-full justify-center text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border-brand-200"
+              title="Analisa os componentes e cabos colocados no painel 3D e gera o esquema elétrico de comandos e potência correspondente"
+              onClick={() => useSimStore.getState().generateIecFromPhysical()}
+            >
+              ⚡ Gerar Esquema IEC pelo 3D
+            </button>
+          </div>
           {placing && <div className="dc-cmd-placing p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center" role="status"><span className="flex-1">A posicionar: {CMD_PARTS[placing].label} · Shift mantém · Esc cancela</span><button type="button" className="dc-btn !h-6" onClick={() => setPlacing(null)}>Cancelar</button></div>}
           <div className="pn-body flex-1 overflow-y-auto min-h-0 dc-library-scroll">
             {recent.length > 0 && !filter && <section className="dc-library-section" aria-label="Símbolos recentes"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.map(tile)}</div></section>}

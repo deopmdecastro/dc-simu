@@ -126,15 +126,36 @@ export function paintImportedModel(type: string, root: THREE.Object3D): PartInfo
       else if (maxDim(part) < 15) paint(part, ZINC) // parafuso de articulação
       else paint(part, min.y > 100 ? BLACK_PA : ALU) // cabeça e tubo de suporte
     }
+  } else if (type === 'keyActuatorEao61') {
+    for (const part of parts) {
+      if (part.mesh.name === 'cad_3_SOLID' || (part.center.z > 33 && part.size.x <= 2.5)) paint(part, ALU)
+      else if (looksLikeScrew(part) || part.center.z < 20) paint(part, ZINC)
+      else if (part.center.z > 50) paint(part, BLACK_PA)
+      else paint(part, RAL7035)
+    }
   } else if (type === 'selectorSchneiderXa2ed33') {
-    // Um só sólido no CAD: cabeça e manípulo (frente) em preto, blocos de contactos brancos,
-    // a placa de fixação em aço zincado. A divisão do manípulo é feita no `rig`.
-    for (const part of parts) paint(part, part.size.z > 40 ? WHITE_PA : BLACK_PA)
+    // Cabeça do operador em preto acetinado; blocos de contactos ZBE na traseira em poliamida branca.
+    for (const part of parts) paint(part, part.box.min.z < 24 ? WHITE_PA : BLACK_PA)
   } else if (type === 'contactorWegCwbc65') {
     for (const part of parts) {
-      if (part.vertices === 518 || part.vertices === 640) paint(part, RESISTOR) // resistências de pré-carga
+      if (part.mesh.name === 'cad_0_') paint(part, { color: '#005596', name: 'plastico_azul_weg', roughness: 0.4 })
+      else if (part.vertices === 1720 || part.vertices === 518 || part.vertices === 640) paint(part, RESISTOR) // resistências de pré-carga
       else if (maxDim(part) <= 14 && part.vertices >= 200) paint(part, ZINC) // parafusos e terminais dos bornes
       else paint(part, RAL7035)
+    }
+  } else if (type === 'motorBreakerSchneiderGv2me') {
+    for (const part of parts) {
+      if (part.size.x < 16 && part.size.y > 15 && part.center.x < 5 && part.center.x > -5) {
+        paint(part, { color: '#dc2626', name: 'plastico_vermelho_stop', roughness: 0.38 }) // Botão vermelho O (STOP)
+      } else if (part.size.x < 16 && part.size.y > 15 && part.center.x > 8) {
+        paint(part, BLACK_PA) // Botão preto I (START)
+      } else if (looksLikeScrew(part)) {
+        paint(part, ZINC)
+      } else if (part.size.x > 30 && part.box.min.z > 50) {
+        paint(part, { color: '#ece8d9', name: 'plastico_bege_schneider', roughness: 0.46 }) // Frente TeSys GV2ME
+      } else {
+        paint(part, BLACK_PA) // Base e terminais
+      }
     }
   } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12') {
     for (const part of parts) {
@@ -298,9 +319,16 @@ export function rigImportedModel(type: string, root: THREE.Object3D, parts: Part
       const mesh = node as THREE.Mesh
       if (mesh.isMesh && mesh.userData.rcdFlag) lampOf(mesh, 'rcd-flag', '#dc2626', rig)
     })
+  } else if (type === 'contactorWegCwbc65') {
+    // Atuador central / carruagem móvel dos contactos que afunda quando o contactor atraca
+    const carrier = parts.filter((p) => p.mesh.name === 'cad_38_' || p.mesh.name === 'cad_39_').map((p) => p.mesh)
+    if (carrier.length) pivotAround(root, carrier, new THREE.Vector3(0, 125, 55), 'carrier', rig)
   } else if (type === 'motorBreakerSchneiderGv2me') {
-    pivotAround(root, pick({ min: [-7, 40, 60], max: [6, 67, 80] }), new THREE.Vector3(0, 52, 66), 'button-off', rig)
-    pivotAround(root, pick({ min: [8, 42, 60], max: [22, 67, 80] }), new THREE.Vector3(14.5, 55, 66), 'button-on', rig)
+    // Botão vermelho O (STOP) à esquerda e preto I (START) à direita (filtro estrito por tamanho para nunca capturar a carcaça)
+    const btnOff = parts.find((p) => p.size.x < 16 && p.size.y > 15 && p.center.x > -5 && p.center.x < 5 && p.center.y > 45 && p.center.y < 62)
+    const btnOn = parts.find((p) => p.size.x < 16 && p.size.y > 15 && p.center.x > 8 && p.center.x < 22 && p.center.y > 45 && p.center.y < 62)
+    if (btnOff) pivotAround(root, [btnOff.mesh], btnOff.center.clone(), 'button-off', rig)
+    if (btnOn) pivotAround(root, [btnOn.mesh], btnOn.center.clone(), 'button-on', rig)
   } else if (type === 'keyActuatorEao61') {
     pivotAround(root, parts.filter((p) => inside(p.center, { min: [-1.5, 9, 33], max: [1.5, 24, 76] }) && p.size.x <= 2.5).map((p) => p.mesh), new THREE.Vector3(0, 20, 50), 'key', rig)
   } else if (type === 'thermalRelaySiemens3ru1116') {
@@ -352,11 +380,11 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
   rig.edges.pulseOff = Math.max(0, rig.edges.pulseOff - delta)
   for (const item of rig.pivots) {
     let target = 0
-    if (item.role === 'carrier') target = state.closed === false ? 1 : 0
+    if (item.role === 'carrier') target = type === 'contactorWegCwbc65' ? (state.energized ? 1 : 0) : state.closed === false ? 1 : 0
     else if (item.role === 'rcd-lever') target = closed ? 1 : state.tripped ? 0.48 : 0
     else if (item.role === 'rcd-test') target = state.testPressed ? 1 : 0
-    else if (item.role === 'button-on') target = rig.edges.pulseOn > 0 ? 1 : 0
-    else if (item.role === 'button-off') target = rig.edges.pulseOff > 0 ? 1 : 0
+    else if (item.role === 'button-on') target = type === 'motorBreakerSchneiderGv2me' ? (closed ? 1 : 0) : rig.edges.pulseOn > 0 ? 1 : 0
+    else if (item.role === 'button-off') target = type === 'motorBreakerSchneiderGv2me' ? (closed ? 1 : 0) : rig.edges.pulseOff > 0 ? 1 : 0
     else if (item.role === 'key') target = state.pressed ? 1 : 0
     // STOP mantém o curso axial. RESET usa a cruz azul existente como manípulo rotativo
     // didático (−1…1); ao largar, a mola regressa a zero. Não muda a seleção física M/A.
@@ -369,14 +397,23 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
     if (Math.abs(next - target) > 1e-4) moving = true
     item.value = Math.abs(next - target) < 1e-4 ? target : next
     const r = item.rest, p = item.restPos
-    if (item.role === 'carrier') item.pivot.rotation.set(r.x + item.value * THREE.MathUtils.degToRad(38), r.y, r.z)
-    else if (item.role === 'rcd-lever') item.pivot.rotation.set(r.x - (1 - item.value) * THREE.MathUtils.degToRad(52), r.y, r.z)
+    if (item.role === 'carrier') {
+      if (type === 'contactorWegCwbc65') {
+        item.pivot.position.set(p.x, p.y - item.value * 0.0028, p.z - item.value * 0.0012)
+      } else {
+        item.pivot.rotation.set(r.x + item.value * THREE.MathUtils.degToRad(38), r.y, r.z)
+      }
+    } else if (item.role === 'rcd-lever') item.pivot.rotation.set(r.x - (1 - item.value) * THREE.MathUtils.degToRad(52), r.y, r.z)
     else if (item.role === 'rcd-test') item.pivot.position.set(p.x, p.y, p.z - item.value * 0.0028)
     else if (item.role === 'key') item.pivot.rotation.set(r.x, r.y, r.z - item.value * THREE.MathUtils.degToRad(60))
-    else if (item.role === 'knob') item.pivot.rotation.set(r.x, r.y, r.z - (item.value - 1) * THREE.MathUtils.degToRad(45)) // CAD na posição direita
+    else if (item.role === 'knob') item.pivot.rotation.set(r.x, r.y, r.z - (item.value + 1) * THREE.MathUtils.degToRad(45)) // CAD na posição esquerda (-1)
     else if (item.role === 'reset') {
       item.pivot.rotation.set(r.x, r.y, r.z - item.value * THREE.MathUtils.degToRad(35))
       item.pivot.position.set(p.x, p.y, p.z + (state.tripped ? .003 : 0))
+    } else if (item.role === 'button-on' && type === 'motorBreakerSchneiderGv2me') {
+      item.pivot.position.set(p.x, p.y, p.z - item.value * 0.0055)
+    } else if (item.role === 'button-off' && type === 'motorBreakerSchneiderGv2me') {
+      item.pivot.position.set(p.x, p.y, p.z + item.value * 0.0055)
     } else if (item.role.startsWith('button') || item.role === 'stop') item.pivot.position.set(p.x, p.y, p.z - item.value * .0028)
   }
   const RCD_TRIP_COLOR = new THREE.Color('#f59e0b')
@@ -446,6 +483,13 @@ export function importedControlAt(type: string, pointMm: [number, number, number
   if (type === 'fuseHolderSchneiderDf101v' || type === 'fuseHolderSchneiderDf81n' || type === 'fuseHolderSchneiderDf103nv') {
     // Gaveta porta-fusível articulada na frente (y ∈ [24,7, 65,4], z ≥ 52 mm; aberta avança até z ≈ 86 mm).
     if (y >= 22 && y <= 67 && z >= 48 && z <= 92) return 'carrier'
+    return null
+  }
+  if (type === 'motorBreakerSchneiderGv2me') {
+    // Botão vermelho O (STOP): x ∈ [-7, 5], y ∈ [42, 65], z ∈ [64, 80]
+    if (x >= -7 && x <= 5 && y >= 42 && y <= 65 && z >= 64 && z <= 80) return 'stop'
+    // Botão preto I (START): x ∈ [8, 22], y ∈ [42, 65], z ∈ [64, 80]
+    if (x >= 8 && x <= 22 && y >= 42 && y <= 65 && z >= 64 && z <= 80) return 'start'
     return null
   }
   return null
