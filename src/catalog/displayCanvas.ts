@@ -1,5 +1,24 @@
 import { evalWhen, type MeterReading, type Vars } from './behavior'
 import type { DisplayDef, DisplayLine } from './types'
+import { DEVICE_LCD_COLORS, deviceLcdFrame, drawDeviceLcd } from '../three/deviceLcd'
+
+/** Only the exact untouched, old factory-generated visor is adapted in memory.
+ * No saved definition, authored line, colour, position, control or ID is changed.
+ * An explicit custom choice disables the compatibility rendering permanently.
+ */
+export function isLegacyAtvFactoryDisplay(display: DisplayDef): boolean {
+  const line = display.lines[0]
+  return display.deviceFace === undefined && display.kind === 'text' && display.name === 'Altivar · visor local'
+    && display.background === '#10190d' && display.foreground === '#e54024' && display.powerVar === 'powered'
+    && !display.backlightVar && display.hideNodes?.length === 1 && display.hideNodes[0] === 'industrial_lcd'
+    && display.lines.length === 1 && line.text === '{industrialDisplay}' && line.x === .95 && line.y === .68
+    && line.size === .72 && line.align === 'right' && !line.color && !line.when
+}
+export function factoryDeviceDisplay(display: DisplayDef, source: string | null): DisplayDef {
+  return source === 'vfdSchneiderAtv320' && isLegacyAtvFactoryDisplay(display)
+    ? { ...display, deviceFace: 'atv320', background: DEVICE_LCD_COLORS.background, foreground: DEVICE_LCD_COLORS.atv }
+    : display
+}
 
 /** Desenho dos ecrãs (LCD de 7 segmentos e ecrãs de texto) num canvas 2D. */
 
@@ -121,6 +140,13 @@ export function drawDisplay(canvas: HTMLCanvasElement, display: DisplayDef, vars
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const powered = !display.powerVar || Boolean(vars[display.powerVar]) || (display.kind === 'lcd' && display.powerVar === undefined)
+  if (display.kind === 'text' && display.deviceFace === 'atv320') {
+    const frame = deviceLcdFrame('atv320', { ...vars, powered })
+    frame.background = display.background
+    for (const cell of frame.cells) cell.color = display.foreground
+    drawDeviceLcd(canvas, frame)
+    return
+  }
   const backlit = display.backlightVar ? Boolean(vars[display.backlightVar]) : Boolean(reading?.backlight)
   const backlightColor = /^#[0-9a-f]{6}$/i.test(display.backlightColor ?? '') ? display.backlightColor! : '#9cf0b4'
   const backlightStrength = Math.min(1, Math.max(0, Number.isFinite(display.backlightStrength) ? display.backlightStrength! : 0.5))

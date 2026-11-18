@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { atv320DisplayText, deviceLcdFrame, drawDeviceLcd } from './deviceLcd'
 import { INDUSTRIAL_DEVICE_TYPES, GEYA_FUNCTIONS, GEYA_RANGES_MS, isIndustrialDevice, type IndustrialDeviceType } from '../electrical/industrialDevices'
 
 /** Nomes funcionais iguais no Painel, no Admin e no GLB publicado. */
@@ -66,12 +67,7 @@ export const INDUSTRIAL_LED_NODES: Record<string, string> = {
 }
 
 export function industrialDisplayText(s: Record<string, unknown>): string {
-  if (!s.powered) return ''
-  if (s.deviceFault) return 'FAULT'
-  const menu = String(s.menu ?? 'ref')
-  if (menu === 'mon') return (Number(s.frequencyHz) || 0).toFixed(1)
-  if (!s.editing) return menu.toUpperCase()
-  return menu === 'conf' ? (Number(s.rampUpMs ?? 3000) / 1000).toFixed(1) : (Number(s.presetHz) || 0).toFixed(1)
+  return atv320DisplayText(s)
 }
 
 function redrawLcd(root: THREE.Object3D, s: Record<string, unknown>): void {
@@ -87,16 +83,10 @@ function redrawLcd(root: THREE.Object3D, s: Record<string, unknown>): void {
     for (const old of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) old.dispose()
     mesh.material = material
   }
-  const powered = !!s.powered, text = industrialDisplayText(s)
-  const signature = `${powered}|${text}|${!!s.editing}`
+  const frame = deviceLcdFrame('atv320', s), signature = JSON.stringify(frame)
   if (signature === entry.signature) return
   entry.signature = signature
-  const ctx = entry.canvas.getContext('2d'); if (!ctx) return
-  ctx.fillStyle = '#10190d'; ctx.fillRect(0, 0, 512, 128)
-  if (powered) {
-    ctx.fillStyle = '#e54024'; ctx.font = 'bold 89px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'
-    ctx.fillText(text, 488, 65, 470)
-  }
+  drawDeviceLcd(entry.canvas, frame)
   entry.texture.needsUpdate = true
 }
 

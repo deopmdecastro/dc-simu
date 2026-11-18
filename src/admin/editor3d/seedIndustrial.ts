@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { GEYA_FUNCTIONS, GEYA_RANGES_MS, INDUSTRIAL_INFO, isIndustrialDevice, type IndustrialControl } from '../../electrical/industrialDevices'
 import { INDUSTRIAL_LED_NODES, industrialLedVars } from '../../three/industrialFinish'
+import { DEVICE_LCD_COLORS } from '../../three/deviceLcd'
 import { buildDefinitionObject, newId, type GlbCache } from '../../catalog/definition'
 import type { ComponentDefinition, ControlDef, Vec3 } from '../../catalog/types'
 
@@ -37,9 +38,9 @@ export function seedIndustrial(type: string, def: ComponentDefinition, cache: Gl
       const box = new THREE.Box3().setFromObject(lcd, true), size = box.getSize(new THREE.Vector3())
       const centre = root.worldToLocal(box.getCenter(new THREE.Vector3()))
       def.displays = [{
-        id: newId('disp_'), name: 'Altivar · visor local', kind: 'text',
+        id: newId('disp_'), name: 'Altivar · visor local', kind: 'text', deviceFace: 'atv320',
         position: centre.toArray() as Vec3, normal: [0, 0, 1], roll: 0,
-        widthMm: size.x, heightMm: size.y, density: 30, background: '#10190d', foreground: '#e54024',
+        widthMm: size.x, heightMm: size.y, density: 30, background: DEVICE_LCD_COLORS.background, foreground: DEVICE_LCD_COLORS.atv,
         powerVar: 'powered', hideNodesPart: part.id, hideNodes: ['industrial_lcd'],
         lines: [{ id: newId('ln_'), text: '{industrialDisplay}', x: .95, y: .68, size: .72, align: 'right' }],
       }]

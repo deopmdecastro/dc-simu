@@ -1,0 +1,93 @@
+
+> dc-simu@2.0.0 test:device-lcd-ui
+> node scripts/device-lcd-ui-smoke.mjs
+
+PASS — meterD522066: a new unpowered actual Panel3D instance has a blank LCD
+PASS — native meterD522066: every photographed numeric field has the correct colour/location [{"name":"power","ink":0.11077008928571429},{"name":"energy","ink":0.08320711096938775},{"name":"voltage","ink":0.17086226851851852},{"name":"frequency","ink":0.18110021786492375},{"name":"current","ink":0.05705054012345679},{"name":"pf","ink":0.14508442265795207}]
+PASS — native meterD522066: actual numerals are seven-segment geometry, never a browser font
+PASS — meterD522066: separate physical instances own independent live/blank textures
+PASS — meterD522066: unchanged visible values reuse the same texture
+PASS — meterKws306: a new unpowered actual Panel3D instance has a blank LCD
+PASS — native meterKws306: every photographed numeric field has the correct colour/location [{"name":"voltage-0","ink":0.15307481394437916},{"name":"current-0","ink":0.209087348217783},{"name":"power-0","ink":0.19318448883666275},{"name":"voltage-1","ink":0.17320799059929495},{"name":"current-1","ink":0.23924794359576967},{"name":"power-1","ink":0.24300822561692126},{"name":"voltage-2","ink":0.17320799059929495},{"name":"current-2","ink":0.23924794359576967},{"name":"power-2","ink":0.24300822561692126},{"name":"total","ink":0.16906176151242255},{"name":"frequency","ink":0.1859201511930073},{"name":"temperature","ink":0.09170751633986927}]
+PASS — native meterKws306: actual numerals are seven-segment geometry, never a browser font
+PASS — native meterKws306: LCD aperture has the real landscape proportions, not the whole square fascia
+PASS — meterKws306: separate physical instances own independent live/blank textures
+PASS — meterKws306: unchanged visible values reuse the same texture
+PASS — vfdSchneiderAtv320: a new unpowered actual Panel3D instance has a blank LCD
+PASS — native vfdSchneiderAtv320: every photographed numeric field has the correct colour/location [{"name":"four-digit-local-terminal","ink":0.07892635314995564}]
+PASS — native vfdSchneiderAtv320: actual numerals are seven-segment geometry, never a browser font
+PASS — vfdSchneiderAtv320: separate physical instances own independent live/blank textures
+PASS — vfdSchneiderAtv320: unchanged visible values reuse the same texture
+PASS — KWS presentation 0: every photographed numeric field has the correct colour/location [{"name":"voltage-0","ink":0.15307481394437916},{"name":"current-0","ink":0.209087348217783},{"name":"power-0","ink":0.19318448883666275},{"name":"voltage-1","ink":0.17320799059929495},{"name":"current-1","ink":0.23924794359576967},{"name":"power-1","ink":0.24300822561692126},{"name":"voltage-2","ink":0.17320799059929495},{"name":"current-2","ink":0.23924794359576967},{"name":"power-2","ink":0.24300822561692126},{"name":"total","ink":0.16906176151242255},{"name":"frequency","ink":0.1859201511930073},{"name":"temperature","ink":0.09170751633986927}]
+PASS — KWS presentation 0: actual numerals are seven-segment geometry, never a browser font
+PASS — KWS presentation 0: LCD aperture has the real landscape proportions, not the whole square fascia
+PASS — KWS 0: no invented full-screen presentation or ON banner
+PASS — KWS presentation 1: every photographed numeric field has the correct colour/location [{"name":"voltage-0","ink":0.15307481394437916},{"name":"current-0","ink":0.209087348217783},{"name":"power-0","ink":0.14257735996866433},{"name":"voltage-1","ink":0.17320799059929495},{"name":"current-1","ink":0.23924794359576967},{"name":"power-1","ink":0.1826870348609479},{"name":"voltage-2","ink":0.17320799059929495},{"name":"current-2","ink":0.23924794359576967},{"name":"power-2","ink":0.1826870348609479},{"name":"total","ink":0.16906176151242255},{"name":"frequency","ink":0.1859201511930073},{"name":"temperature","ink":0.09170751633986927}]
+PASS — KWS presentation 1: actual numerals are seven-segment geometry, never a browser font
+PASS — KWS presentation 1: LCD aperture has the real landscape proportions, not the whole square fascia
+PASS — KWS 1: no invented full-screen presentation or ON banner
+PASS — KWS presentation 2: every photographed numeric field has the correct colour/location [{"name":"voltage-0","ink":0.15229142185663924},{"name":"current-0","ink":0.2082256169212691},{"name":"power-0","ink":0.19302781041911476},{"name":"voltage-1","ink":0.172502937720329},{"name":"current-1","ink":0.23783783783783785},{"name":"power-1","ink":0.2426948687818253},{"name":"voltage-2","ink":0.172502937720329},{"name":"current-2","ink":0.23783783783783785},{"name":"power-2","ink":0.2426948687818253},{"name":"total","ink":0.09043878137574247},{"name":"frequency","ink":0.17836050082683677},{"name":"temperature","ink":0.08762254901960784}]
+PASS — KWS presentation 2: actual numerals are seven-segment geometry, never a browser font
+PASS — KWS presentation 2: LCD aperture has the real landscape proportions, not the whole square fascia
+PASS — KWS 2: no invented full-screen presentation or ON banner
+NATIVE LCD SCENARIOS COMPLETE; validating real Admin persistence/publication next.
+PASS — meterD522066: actual new Admin draft starts unpowered, with no baked demo digits
+PASS — Admin meterD522066: every photographed numeric field has the correct colour/location [{"name":"power","ink":0.11077008928571429},{"name":"energy","ink":0.08320711096938775},{"name":"voltage","ink":0.17086226851851852},{"name":"frequency","ink":0.18110021786492375},{"name":"current","ink":0.05705054012345679},{"name":"pf","ink":0.14508442265795207}]
+PASS — Admin meterD522066: actual numerals are seven-segment geometry, never a browser font
+PASS — meterD522066: native and Admin actual LCD masks match across texture density 0
+PASS — meterD522066: actual save/reopen retains authored controls, display profile/coordinates and exact terminal IDs
+PASS — meterD522066: actual bake/publication persists the full component without losing terminals
+PASS — No React/WebGL exceptions: OK
+PASS — meterKws306: actual new Admin draft starts unpowered, with no baked demo digits
+PASS — Admin meterKws306: every photographed numeric field has the correct colour/location [{"name":"voltage-0","ink":0.15307481394437916},{"name":"current-0","ink":0.209087348217783},{"name":"power-0","ink":0.19318448883666275},{"name":"voltage-1","ink":0.17320799059929495},{"name":"current-1","ink":0.23924794359576967},{"name":"power-1","ink":0.24300822561692126},{"name":"voltage-2","ink":0.17320799059929495},{"name":"current-2","ink":0.23924794359576967},{"name":"power-2","ink":0.24300822561692126},{"name":"total","ink":0.16906176151242255},{"name":"frequency","ink":0.1859201511930073},{"name":"temperature","ink":0.09170751633986927}]
+PASS — Admin meterKws306: actual numerals are seven-segment geometry, never a browser font
+PASS — Admin meterKws306: LCD aperture has the real landscape proportions, not the whole square fascia
+PASS — meterKws306: native and Admin actual LCD masks match across texture density 0
+PASS — meterKws306: actual save/reopen retains authored controls, display profile/coordinates and exact terminal IDs
+PASS — meterKws306: actual bake/publication persists the full component without losing terminals
+PASS — No React/WebGL exceptions: OK
+PASS — vfdSchneiderAtv320: actual new Admin draft starts unpowered, with no baked demo digits
+PASS — Admin vfdSchneiderAtv320: every photographed numeric field has the correct colour/location [{"name":"four-digit-local-terminal","ink":0.07721977432893584}]
+PASS — Admin vfdSchneiderAtv320: actual numerals are seven-segment geometry, never a browser font
+PASS — vfdSchneiderAtv320: native and Admin actual LCD masks match across texture density 0.0012657912229861413
+PASS — ATV Admin stores an explicit four-digit physical display profile
+PASS — ATV actual Admin presentation choice explicitly opts out of the physical renderer
+PASS — ATV explicit custom choice and authored text survive actual save/reopen unchanged
+PASS — ATV actual custom LCD renders the authored line and live variable without a factory override
+PASS — ATV choosing the physical face again preserves authored text, display ID and exact geometry
+PASS — ATV switching presentation back restores the same actual physical seven-segment pixels
+PASS — vfdSchneiderAtv320: actual save/reopen retains authored controls, display profile/coordinates and exact terminal IDs
+PASS — vfdSchneiderAtv320: actual bake/publication persists the full component without losing terminals
+PASS — No React/WebGL exceptions: OK
+PASS — freshly published meterD522066: every photographed numeric field has the correct colour/location [{"name":"power","ink":0.11077008928571429},{"name":"energy","ink":0.08320711096938775},{"name":"voltage","ink":0.17086226851851852},{"name":"frequency","ink":0.18110021786492375},{"name":"current","ink":0.05705054012345679},{"name":"pf","ink":0.14508442265795207}]
+PASS — freshly published meterD522066: actual numerals are seven-segment geometry, never a browser font
+PASS — meterD522066: fresh catalogue load has independently owned live/blank LCDs
+PASS — meterD522066: actual published LCD matches the saved Admin physical face 0
+PASS — meterD522066: actual project roundtrip retains catalogue types, every terminal ID and connected wire
+PASS — meterD522066: genuine source wiring/STEP powers only the connected instance
+PASS — meterD522066: LCD current comes from a real series load, not the optical reference fixture
+PASS — meterD522066: genuine wired publication updates actual LCD pixels; unconnected instance remains blank
+PASS — meterD522066: actual STOP blanks both displays without leaving baked digits
+PASS — No React/WebGL exceptions: OK
+PASS — freshly published meterKws306: every photographed numeric field has the correct colour/location [{"name":"voltage-0","ink":0.15307481394437916},{"name":"current-0","ink":0.209087348217783},{"name":"power-0","ink":0.19318448883666275},{"name":"voltage-1","ink":0.17320799059929495},{"name":"current-1","ink":0.23924794359576967},{"name":"power-1","ink":0.24300822561692126},{"name":"voltage-2","ink":0.17320799059929495},{"name":"current-2","ink":0.23924794359576967},{"name":"power-2","ink":0.24300822561692126},{"name":"total","ink":0.16906176151242255},{"name":"frequency","ink":0.1859201511930073},{"name":"temperature","ink":0.09170751633986927}]
+PASS — freshly published meterKws306: actual numerals are seven-segment geometry, never a browser font
+PASS — freshly published meterKws306: LCD aperture has the real landscape proportions, not the whole square fascia
+PASS — meterKws306: fresh catalogue load has independently owned live/blank LCDs
+PASS — meterKws306: actual published LCD matches the saved Admin physical face 0
+PASS — meterKws306: actual project roundtrip retains catalogue types, every terminal ID and connected wire
+PASS — meterKws306: genuine source wiring/STEP powers only the connected instance
+PASS — meterKws306: LCD current comes from a real series load, not the optical reference fixture
+PASS — meterKws306: genuine wired publication updates actual LCD pixels; unconnected instance remains blank
+PASS — meterKws306: actual STOP blanks both displays without leaving baked digits
+PASS — No React/WebGL exceptions: OK
+PASS — freshly published vfdSchneiderAtv320: every photographed numeric field has the correct colour/location [{"name":"four-digit-local-terminal","ink":0.07721977432893584}]
+PASS — freshly published vfdSchneiderAtv320: actual numerals are seven-segment geometry, never a browser font
+PASS — vfdSchneiderAtv320: fresh catalogue load has independently owned live/blank LCDs
+PASS — vfdSchneiderAtv320: actual published LCD matches the saved Admin physical face 0
+PASS — vfdSchneiderAtv320: actual project roundtrip retains catalogue types, every terminal ID and connected wire
+PASS — vfdSchneiderAtv320: genuine source wiring/STEP powers only the connected instance
+PASS — vfdSchneiderAtv320: genuine wired publication updates actual LCD pixels; unconnected instance remains blank
+PASS — vfdSchneiderAtv320: actual STOP blanks both displays without leaving baked digits
+PASS — No React/WebGL exceptions: OK
+
+PASS — 86 real device LCD / Admin / published-catalogue assertions

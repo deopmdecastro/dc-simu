@@ -33,6 +33,7 @@ for (const type of INDUSTRIAL_DEVICE_TYPES) {
   check(record?.sha256 === createHash('sha256').update(bytes).digest('hex'), `${type}: GLB hash matches build provenance`)
   const { scene } = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '')
   const box = new THREE.Box3().setFromObject(scene, true), size = box.getSize(new THREE.Vector3())
+  check(!!scene.getObjectByName('industrial_lcd') === (type === 'vfdSchneiderAtv320'), `${type}: only the actual local-display device has an LCD; none invented on relays, socket or buzzer`)
   check([size.x, size.y, size.z].every((v, i) => Math.abs(v * 1000 - Object.values(g.physicalSizeMm)[i]) < .015), `${type}: millimetres, axes and exported bounds`)
   const clone = cloneModelScene(scene); prepareIndustrialModel(clone, type); mergeStaticMeshes(clone)
   check(clone.getObjectByName('industrial_device_' + type), `${type}: static merge preserves device identity`)

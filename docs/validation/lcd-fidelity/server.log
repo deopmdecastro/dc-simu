@@ -1,0 +1,194 @@
+
+> dc-simu@2.0.0 test:server
+> node scripts/server-e2e.mjs
+
+PASS API não expõe chaves service-role/secret
+PASS API sem cache e com cabeçalhos de segurança
+PASS mutação com Origin externo é recusada
+PASS proxy n8n exige sessão
+PASS teste n8n exige sessão
+PASS conta antiga migrada fica desativada e não entra
+PASS admin entra sem repor a palavra-passe antiga
+PASS senha inicial não substitui a palavra-passe já guardada
+PASS user entra com a senha inicial configurada
+PASS proxy n8n usa o destino do servidor, não o URL do corpo
+PASS proxy n8n não encaminha nem devolve segredos
+PASS teste n8n confirma workflow sem executar webhook
+PASS chave da API n8n só segue na consulta server-side
+PASS segunda sessão do utilizador inicia
+PASS alteração exige palavra-passe atual correta
+PASS alteração rejeita palavra-passe fraca
+PASS alteração renova a sessão e termina as outras
+PASS palavra-passe anterior deixa de funcionar
+PASS palavra-passe nova permite iniciar sessão
+PASS perfil: nome muda e aparece em /me
+PASS perfil: nome curto é recusado
+PASS perfil: avatar PNG é aceite e devolvido
+PASS perfil: avatar que não é imagem raster é recusado
+PASS perfil: avatar removido volta a null
+PASS perfil: e-mail inválido é recusado
+PASS perfil: conta fixa não muda de e-mail
+PASS perfil: conta normal criada
+PASS perfil: mudar e-mail exige a palavra-passe atual
+PASS perfil: e-mail já em uso é recusado
+PASS perfil: e-mail muda com a palavra-passe e o login segue o novo
+PASS perfil: sem sessão é recusado
+PASS corpo: JSON inválido devolve 400 em JSON sem pilha
+PASS corpo: excesso de tamanho devolve 413 em JSON
+PASS corpo: criar projeto sem corpo devolve 400
+PASS corpo: convite sem corpo não devolve 500
+PASS corpo: guardar sem conteúdo devolve 400
+PASS perfis de bornes: utilizador não grava
+PASS perfis de bornes: admin grava
+PASS perfis de bornes: perfil vazio é recusado
+PASS perfis de bornes: utilizador lê o perfil do admin
+PASS perfis de bornes: utilizador não elimina
+PASS perfis de bornes: admin elimina
+PASS user não acede à administração
+PASS user não lê registos
+PASS lista tem as duas contas fixas protegidas e a conta antiga desativada
+PASS conta fixa não pode ser desativada
+PASS conta fixa não pode ser eliminada
+PASS palavra-passe fraca rejeitada
+PASS e-mail inválido rejeitado
+PASS conta criada
+PASS e-mail duplicado rejeitado
+PASS utilizador não cria contas
+PASS novo utilizador entra
+PASS palavra-passe errada falha
+PASS plano por omissão é free
+PASS admin atribui plano Pro
+PASS novo utilizador cria projeto
+PASS novo utilizador cria contribuição
+PASS convite a conta existente
+PASS convite a conta inexistente falha
+PASS proprietário muda o nome sem conteúdo
+PASS nome mudado persiste
+PASS nome vazio rejeitado
+PASS mudar a revisão não é preciso ao mudar o nome
+PASS convite pendente lista novo nome
+PASS membro editor não muda o nome
+PASS membro editor guarda conteúdo
+PASS promover a admin
+PASS novo admin acede à administração
+PASS rebaixar a utilizador
+PASS papel inválido rejeitado
+PASS admin não altera a própria conta
+PASS sessão conta como ativa
+PASS conta desativada
+PASS sessão da conta desativada termina
+PASS conta desativada não entra
+PASS conta reativada entra
+PASS nova palavra-passe fraca rejeitada
+PASS repor palavra-passe termina sessões
+PASS palavra-passe antiga deixa de servir
+PASS palavra-passe nova serve
+PASS terminar sessões
+PASS admin não termina a própria sessão aqui
+PASS utilizador vê definições
+PASS desativar exige motivo
+PASS tipo inválido rejeitado
+PASS utilizador não altera componentes
+PASS componente desativado
+PASS definições chegam ao utilizador
+PASS lista admin de componentes
+PASS componente reativado
+PASS admin lista projetos com tamanho e membros
+PASS eliminar com dados pede confirmação
+PASS eliminar com confirmação
+PASS conta eliminada
+PASS dados da conta eliminados
+PASS convites pendentes removidos
+PASS registo login.success
+PASS registo login.failed
+PASS registo login.denied
+PASS registo user.create
+PASS registo user.update
+PASS registo user.disable
+PASS registo user.enable
+PASS registo user.password
+PASS registo user.password.self
+PASS registo session.revoke
+PASS registo user.delete
+PASS registo component.disable
+PASS registo component.enable
+PASS registo project.create
+PASS registo contribution.create
+PASS total coerente
+PASS registos ordenados do mais recente
+PASS nenhum registo contém palavras-passe
+PASS filtro por categoria
+PASS pesquisa e ação
+PASS pesquisa com curingas não parte
+PASS paginação
+PASS filtro por data futura vazio
+PASS user não apaga registos
+PASS purga exige dias válidos
+PASS purga não apaga registos recentes
+PASS bloqueio após tentativas falhadas
+PASS bloqueado mesmo com a palavra-passe certa
+PASS registo de bloqueio
+PASS X-Forwarded-For não permite contornar o bloqueio
+PASS estado do sistema
+PASS utilizador não vê o sistema
+PASS exportação sem segredos
+PASS saas: preços públicos sem sessão
+PASS saas: utilizador não altera preços
+PASS saas: preço inválido recusado
+PASS saas: dois destaques recusados
+PASS saas: admin altera preços e cartões
+PASS saas: definições trazem plano e preços
+PASS saas: limite de projetos do Free aplicado no servidor
+PASS saas: Free não partilha projetos
+PASS saas: Free lê mas não escreve comentários
+PASS saas: admin não pede plano
+PASS saas: plano inválido recusado
+PASS saas: pedido de plano criado
+PASS saas: pedido duplicado recusado
+PASS saas: admin vê pedidos pendentes
+PASS saas: utilizador não aprova
+PASS saas: aprovação aplica o plano com fim anual
+PASS saas: pedido decidido não se decide outra vez
+PASS saas: Pro cria acima do limite Free
+PASS saas: lista de utilizadores traz o plano
+PASS saas: conta fixa continua protegida no nome
+PASS saas: plano inválido no PATCH
+PASS saas: plano expirado volta ao Free
+PASS saas: Pro convida
+PASS saas: não membro não lê comentários
+PASS saas: dono comenta
+PASS saas: convidado Free comenta em projeto Pro
+PASS saas: comentário vazio recusado
+PASS saas: comentário longo recusado
+PASS saas: convidado não edita comentário alheio
+PASS saas: convidado não apaga comentário alheio
+PASS saas: autor edita o seu comentário
+PASS saas: dono resolve comentário
+PASS saas: ambos veem a conversa
+PASS saas: dono apaga comentário do convidado
+PASS saas: bloquear exige motivo
+PASS saas: estado inválido cai para ativo e plano inválido recusado
+PASS saas: estados de componentes publicados
+PASS saas: compatibilidade disabledComponents só com bloqueados
+PASS saas: repor componente arquivado
+PASS saas: registo pricing.update
+PASS saas: registo plan.request
+PASS saas: registo plan.approve
+PASS saas: registo user.plan
+PASS saas: registo comment.create
+PASS saas: registo comment.update
+PASS saas: registo comment.resolve
+PASS saas: registo comment.delete
+PASS saas: registo component.archive
+PASS saas: registo component.delete
+PASS saas: registo component.plan
+PASS saas: registo component.block
+PASS saas: registo component.restore
+PASS saas: eliminar conta com comentários
+PASS reinício: nome da conta fixa alterado antes de parar
+PASS reinício: servidor arranca sem senhas iniciais
+PASS reinício: conta fixa continua a entrar
+PASS reinício: nome alterado da conta fixa mantém-se
+PASS recurso de build em falta devolve 404, não o index.html
+
+188 passaram, 0 falharam

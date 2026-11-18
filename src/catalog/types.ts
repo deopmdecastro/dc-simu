@@ -302,6 +302,8 @@ export interface DisplayDef {
   foreground: string
   /** 'text' = linhas com variáveis; 'lcd' = LCD de multímetro (7 segmentos). */
   kind: 'text' | 'lcd'
+  /** Physical local-terminal face; explicit custom keeps authored text untouched. */
+  deviceFace?: 'atv320' | 'custom'
   lines: DisplayLine[]
   /** Variável que liga/desliga o ecrã (vazio = sempre ligado) e a que acende a retroiluminação. */
   powerVar?: string

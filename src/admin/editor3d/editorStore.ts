@@ -166,6 +166,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const last = entry.versions[entry.versions.length - 1]
     set({
       entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, multi: [], mode: 'edit',
+      // Preview values belong to this editor session, never to the next draft.
+      // Otherwise a tested/live LCD inherits another device's ON/energy values.
+      previewVars: {},
       editState: BASE_STATE, previewState: draft.initialState, ribbon: 'select', placing: false, placingSpec: null, faceLock: null, testWires: [], ...CLEAR_WIRE, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, tab: 'object', dirty: false, past: [], future: [],
       lastKey: '', lastAt: 0, viewCommand: { kind: 'fit', n: Date.now() },
     })

@@ -1,0 +1,38 @@
+{
+  "commands": [
+    {
+      "command": "npm run test:device-lcd",
+      "exitCode": 0,
+      "assertions": 76
+    },
+    {
+      "command": "npm run test:emergency-actuator",
+      "exitCode": 0,
+      "assertions": 42
+    },
+    {
+      "command": "npm run test:meters-schneider",
+      "exitCode": 0,
+      "assertions": 53
+    },
+    {
+      "command": "npm run test:industrial",
+      "exitCode": 0,
+      "assertions": 102
+    },
+    {
+      "command": "npm run test:builtin-sync",
+      "exitCode": 0,
+      "assertions": 883,
+      "builtins": 117,
+      "withGlb": 66
+    },
+    {
+      "command": "npm run test:editor3d-functional",
+      "exitCode": 0,
+      "assertions": 57
+    }
+  ],
+  "sourceLog": "focused-regressions.log in the local audit workspace; Node-only GLTF texture warnings retained there, not browser exceptions.",
+  "typecheckExitCode": 0
+}

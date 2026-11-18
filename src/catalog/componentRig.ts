@@ -3,7 +3,7 @@ import { applyIndustrialState, industrialTypeIn, industrialLedVars, industrialDi
 import type { IndustrialDeviceType } from '../electrical/industrialDevices'
 import * as THREE from 'three'
 import { selectorValue, toggleIsOn, type MeterReading, type Vars } from './behavior'
-import { displayPixelSize, drawDisplay } from './displayCanvas'
+import { displayPixelSize, drawDisplay, factoryDeviceDisplay } from './displayCanvas'
 import { motionAngle, normalizeMotion, pivotFromBox, stepSpring } from './controlMotion'
 import type { StateAnimator } from './stateAnimator'
 import type { ComponentDefinition, ControlDef, DisplayDef, SpinDef } from './types'
@@ -186,7 +186,7 @@ export class ComponentRig {
       this.spinners.push({ node, spin: part.spin, axis, base: node.quaternion.clone(), last: node.quaternion.clone(), angle: 0 })
     }
     for (const display of def.displays ?? []) {
-      this.addDisplay(display)
+      this.addDisplay(factoryDeviceDisplay(display, this.industrial))
       const part = display.hideNodesPart ? root.getObjectByName(display.hideNodesPart) : null
       for (const name of display.hideNodes ?? []) { const node = part?.getObjectByName(name); if (node) { node.visible = false; this.hidden.push(node) } }
     }

@@ -1,0 +1,36 @@
+[
+  {
+    "name": "full-ci",
+    "command": [
+      "npm",
+      "run",
+      "test:ci"
+    ],
+    "exitCode": 0,
+    "seconds": 301.71,
+    "log": "full-ci.log"
+  },
+  {
+    "name": "server",
+    "command": [
+      "npm",
+      "run",
+      "test:server"
+    ],
+    "exitCode": 0,
+    "seconds": 3.43,
+    "log": "server.log"
+  },
+  {
+    "name": "production-dependencies",
+    "command": [
+      "npm",
+      "audit",
+      "--omit=dev",
+      "--audit-level=high"
+    ],
+    "exitCode": 0,
+    "seconds": 1.03,
+    "log": "production-dependencies.log"
+  }
+]

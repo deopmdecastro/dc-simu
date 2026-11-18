@@ -4,6 +4,7 @@ import { getComponentPhysicalSizeMm, PANEL_UNITS_PER_MM as U, type ComponentMode
 import { fitComponentModel, disposeModelClone } from './modelFit'
 import { finiteBore } from './finiteBore'
 import { cachedCanvasTexture } from './protectionMarkings'
+import { DEVICE_LCD_SIZE, deviceLcdFrame, drawDeviceLcd, type DeviceLcdProfile } from './deviceLcd'
 
 export type DigitalMeterType = 'meterD522066' | 'meterKws306' | 'currentTransformerSplitCore'
 export const isDigitalMeterType = (type: string): type is DigitalMeterType => type === 'meterD522066' || type === 'meterKws306' || type === 'currentTransformerSplitCore'
@@ -13,28 +14,6 @@ export function digitalMeterSpec(type: DigitalMeterType): ComponentModelSpec {
   return { path:`procedural:${type}`,rotation:[0,0,0],placement:type==='currentTransformerSplitCore'?'machine':'din-rail',targetHeight:physicalSizeMm.height*U,physicalSizeMm }
 }
 const material=(color:string,metalness=0)=>new THREE.MeshStandardMaterial({color,metalness,roughness:.55})
-
-/** Seven-segment phosphor layout drawn locally; no downloaded font or demo
- * screenshot. Values still come exclusively from the wired electrical state. */
-function sevenSegmentText(ctx:CanvasRenderingContext2D,x:number,bottom:number,text:string,height:number,color:string,align:CanvasTextAlign='right',maxWidth=600):void {
-  const step=(c:string)=>height*(c==='.'?.22:.65),width=[...text].reduce((n,c)=>n+step(c),0),k=Math.min(1,maxWidth/Math.max(1,width))
-  ctx.save();ctx.translate(x-(align==='right'?width*k:align==='center'?width*k/2:0),bottom-height*k);ctx.scale(k,k);ctx.fillStyle=color
-  const w=height*.52,t=height*.095,gap=height*.025
-  const polygon=(p:number[][])=>{ctx.beginPath();p.forEach(([a,b],i)=>i?ctx.lineTo(a,b):ctx.moveTo(a,b));ctx.closePath();ctx.fill()}
-  const horizontal=(y:number)=>polygon([[t/2,y],[w-t/2,y],[w,y+t/2],[w-t/2,y+t],[t/2,y+t],[0,y+t/2]])
-  const vertical=(a:number,y:number)=>{const h=(height-t)/2-gap;polygon([[a,y+t/2],[a+t/2,y],[a+t,y+t/2],[a+t,y+h-t/2],[a+t/2,y+h],[a,y+h-t/2]])}
-  const segments:Record<string,string>={'0':'abcdef','1':'bc','2':'abged','3':'abgcd','4':'fgbc','5':'afgcd','6':'afgecd','7':'abc','8':'abcdefg','9':'abfgcd','-':'g'}
-  for(const c of text){
-    if(c==='.'){ctx.beginPath();ctx.arc(height*.055,height-height*.055,height*.052,0,Math.PI*2);ctx.fill()}
-    else for(const segment of segments[c]??''){
-      if(segment==='a')horizontal(0);if(segment==='g')horizontal((height-t)/2);if(segment==='d')horizontal(height-t)
-      if(segment==='f')vertical(0,t/2+gap);if(segment==='b')vertical(w-t,t/2+gap)
-      if(segment==='e')vertical(0,(height+t)/2+gap);if(segment==='c')vertical(w-t,(height+t)/2+gap)
-    }
-    ctx.translate(step(c),0)
-  }
-  ctx.restore()
-}
 
 function profileBody(width:number,points:Array<[number,number]>,holes:Array<[number,number,number]>,mat:THREE.Material):THREE.Mesh {
   const shape=new THREE.Shape();points.forEach(([z,y],i)=>i?shape.lineTo(-z,y):shape.moveTo(-z,y));shape.closePath()
@@ -108,7 +87,8 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
   }else{
     const body=profileBody(74,[[0,0],[43,0],[43,18],[65,20],[65,66.5],[43,68.5],[43,86.5],[0,86.5],[0,61],[7.5,61],[7.5,25],[0,25]],[],white);body.name='digital_meter_body';root.add(body)
     box(68,48,1,dark,'digital_meter_frame',[0,43.25,64.45])
-    plane(52,42,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[-5,43.25,65.01])
+    // Photographed LCD is ~1.48:1, not the almost-square full fascia.
+    plane(52,35.1,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[-5,44.2,65.01])
     for(const [i,label]of ['M','+','−','ON/OFF'].entries()){
       const y=58.25-i*10,name=i===3?'digital_meter_switch':i===0?'digital_meter_menu':`digital_meter_menu_${i}`
       box(3.7,7,1.2,i===3?material('#e8e8db'):white,name,[30.7,y,64.5]);marking(label,25.6,y,65.13,i===3?6:3.3,2.3,'digital_meter_button_ink')
@@ -132,41 +112,18 @@ const displays=new WeakMap<THREE.Object3D,{texture:THREE.CanvasTexture;canvas:HT
 export function applyDigitalMeterState(root:THREE.Object3D,type:DigitalMeterType,s:Record<string,unknown>):void {
   const display=root.getObjectByName('digital_meter_lcd') as THREE.Mesh|undefined
   if(!display||typeof document==='undefined')return
+  const profile:DeviceLcdProfile=type==='meterD522066'?'d52-2066':'kws-306'
   let entry=displays.get(display)
-  if(!entry){const canvas=document.createElement('canvas');canvas.width=640;canvas.height=560;const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;entry={texture,canvas,signature:''};displays.set(display,entry);for(const material of Array.isArray(display.material)?display.material:[display.material])material.dispose();display.material=new THREE.MeshBasicMaterial({map:texture,toneMapped:false})}
-  const fields=type==='meterD522066'?['on','voltage','current','power','energy','frequency','powerFactor']:['on','switchOn','screenMode','vA','vB','vC','iA','iB','iC','pA','pB','pC','energy','frequency','temp']
-  const signature=JSON.stringify(fields.map(k=>s[k]));if(signature===entry.signature)return;entry.signature=signature
-  const ctx=entry.canvas.getContext('2d');if(!ctx)return
-  ctx.fillStyle='#060908';ctx.fillRect(0,0,640,560)
-  const on=!!s.on
-  if(on){
-    const value=(key:string,digits:number)=>Number(s[key]??0).toFixed(digits)
-    const text=(x:number,y:number,t:string,size:number,color:string,align:CanvasTextAlign='right')=>{if(/^-?\d+(?:\.\d+)?$/.test(t)){sevenSegmentText(ctx,x,y,t,size,color,align);return}ctx.fillStyle=color;ctx.font=`bold ${size}px Arial, sans-serif`;ctx.textAlign=align;ctx.fillText(t,x,y)}
-    if(type==='meterD522066'){
-      sevenSegmentText(ctx,532,104,value('power',1),86,'#e7ef24','right',500);text(610,103,'W',48,'#e7ef24')
-      sevenSegmentText(ctx,506,235,value('energy',2),82,'#e88632','right',480);text(616,233,'kWh',41,'#e88632')
-      sevenSegmentText(ctx,313,381,value('voltage',1),65,'#18cbd3','right',290);text(355,381,'V',37,'#18cbd3')
-      sevenSegmentText(ctx,557,381,value('frequency',1),61,'#dce9e4','right',195);text(617,381,'Hz',32,'#dce9e4')
-      sevenSegmentText(ctx,313,507,value('current',2),65,'#f24836','right',290);text(355,507,'A',37,'#f24836')
-      sevenSegmentText(ctx,557,507,value('powerFactor',2),61,'#24b9d4','right',195);text(617,507,'PF',32,'#24b9d4')
-    }else{
-      // Presentation pages share the same wired measurements. This is not an
-      // emulation of undocumented KWS firmware/configuration menus.
-      const mode=((Number(s.screenMode)||0)%3+3)%3
-      if(mode===1){
-        text(30,66,'ENERGY',40,'#8ab8b1','left');text(612,195,value('energy',3)+' kWh',74,'#35c4b2')
-        text(30,315,'TOTAL',35,'#b2c7c2','left');text(612,394,(Number(s.pA??0)+Number(s.pB??0)+Number(s.pC??0)).toFixed(3)+' kW',70,'#e0c94b')
-        text(30,510,value('frequency',1)+' Hz',42,'#c5ddda','left')
-      }else if(mode===2){
-        text(28,50,'PHASE POWER',36,'#a9c9c0','left')
-        for(const [i,phase]of ['A','B','C'].entries()){const y=150+i*125;text(28,y,phase,48,'#cbd2cb','left');text(615,y,value('p'+phase,3)+' kW',65,'#e0c94b');text(615,y+51,value('v'+phase,1)+' V  '+value('i'+phase,3)+' A',33,'#69aaba')}
-      }else for(const [i,phase]of ['A','B','C'].entries()){
-        const y=100+i*112;text(23,y,phase,39,'#cbd2cb','left');text(230,y,value('v'+phase,1),51,'#44bbde');text(423,y,value('i'+phase,3),51,'#e35c54');text(618,y,value('p'+phase,3),49,'#e0c94b')
-      }
-      if(mode===0){text(230,35,'V',32,'#44bbde');text(423,35,'A',32,'#e35c54');text(618,35,'kW',32,'#e0c94b');text(25,462,value('energy',2)+' kWh',50,'#35c4b2','left');text(618,462,value('frequency',0)+' Hz',47,'#c5ddda')}
-      text(25,535,s.switchOn===false?'OFF':'ON',36,s.switchOn===false?'#dc7169':'#42c759','left');text(618,535,'KWS-306',29,'#7c918b')
-    }
+  if(!entry){
+    const canvas=document.createElement('canvas'),size=DEVICE_LCD_SIZE[profile];canvas.width=size.width;canvas.height=size.height
+    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4
+    entry={texture,canvas,signature:''};displays.set(display,entry)
+    for(const material of Array.isArray(display.material)?display.material:[display.material])material.dispose()
+    display.material=new THREE.MeshBasicMaterial({map:texture,toneMapped:false});display.material.userData.protectionMarking=true
   }
+  const frame=deviceLcdFrame(profile,s),signature=JSON.stringify(frame)
+  if(signature===entry.signature)return;entry.signature=signature
+  drawDeviceLcd(entry.canvas,frame)
   entry.texture.needsUpdate=true
 }
 export function releaseDigitalMeterDisplay(root:THREE.Object3D):void {const mesh=root.getObjectByName('digital_meter_lcd');if(mesh){displays.get(mesh)?.texture.dispose();displays.delete(mesh)}}

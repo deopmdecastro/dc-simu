@@ -1,5 +1,9 @@
 # Medidores, TC e aparelhos modulares Schneider
 
+**Incremento LCD posterior à recuperação:** [faces físicas D52/KWS/ATV320 e
+validação dedicada](LCD-FIDELIDADE.md). Esse incremento não aprova o CAD de toda
+a carcaça nem substitui as pendências mais amplas deste documento.
+
 Documento técnico da recuperação de 17 de novembro de 2026.
 [Resultados atuais e pendências](RECUPERACAO-2026-11-17.md).
 As evidências antigas em `validation/meters-schneider-2026-11-17/` são

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { MULTIMETER_VARS, mergeVars, multimeterReading, selectorValue, varDefsOf } from '../../catalog/behavior'
 import { listGlbNodes } from '../../catalog/componentRig'
+import { isLegacyAtvFactoryDisplay } from '../../catalog/displayCanvas'
 import { newId } from '../../catalog/definition'
 import type { BehaviorEvent, ComponentDefinition, ControlAction, ControlDef, ControlReturnMode, DisplayDef, DisplayLine, VarDef, VarValue, Vec3, WhenDef } from '../../catalog/types'
 import { IconClose } from '../../ui/icons'
@@ -286,6 +287,8 @@ export function DisplaysTab() {
   const glbRevision = useEditorStore((s) => s.glbRevision)
   const displays = def.displays ?? []
   const display = selection?.kind === 'display' ? displays.find((item) => item.id === selection.id) : undefined
+  const atvSource = Object.values(def.assets).some((asset) => asset.builtinType === 'vfdSchneiderAtv320')
+  const physicalFace = display?.kind === 'text' && (display.deviceFace === 'atv320' || (atvSource && isLegacyAtvFactoryDisplay(display)))
   const patch = (value: Partial<DisplayDef>, key = '') => display && edit((state) => ({ ...state, displays: (state.displays ?? []).map((item) => (item.id === display.id ? { ...item, ...value } : item)) }), key ? `disp:${display.id}:${key}` : '')
   const patchLine = (id: string, value: Partial<DisplayLine>, key: string) => display && patch({ lines: display.lines.map((line) => (line.id === id ? { ...line, ...value } : line)) }, `${key}${id}`)
   const bounds = useMemo(() => defBounds(def), [def.parts, def.assets, glbRevision])
@@ -329,6 +332,7 @@ export function DisplaysTab() {
       </Section>
       <Section title="Aspeto">
         <Field label="Tipo"><Select value={display.kind} onChange={(kind) => patch({ kind })} options={[['text', 'Texto com variáveis'], ['lcd', 'LCD de multímetro (7 segmentos)']]} /></Field>
+        {display.kind === 'text' && <Field label="Apresentação" hint="O perfil físico usa quatro posições de sete segmentos. Trocar de apresentação não apaga as suas linhas de texto."><Select value={physicalFace ? 'atv320' : 'custom'} onChange={(deviceFace) => patch({ deviceFace })} options={[['custom', 'Texto personalizado'], ['atv320', 'ATV320 · visor físico']]} /></Field>}
         <Field label="Fundo"><Color value={display.background} onChange={(background) => patch({ background }, 'bg')} /></Field>
         <Field label="Cor do texto"><Color value={display.foreground} onChange={(foreground) => patch({ foreground }, 'fg')} /></Field>
         {display.kind === 'text' && <>
@@ -339,7 +343,7 @@ export function DisplaysTab() {
         </>}
         {!!display.hideNodes?.length && <Field label="Objetos escondidos" hint="Texto/dígitos pintados no modelo que este ecrã substitui."><span className="ce-inline"><code>{display.hideNodes.length}</code><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ hideNodes: [] })}>Mostrar de novo</button></span></Field>}
       </Section>
-      {display.kind === 'text' && <Section title="Conteúdo" actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ lines: [...display.lines, { id: newId('ln_'), text: 'Texto', x: 0.5, y: 0.5, size: 0.3, align: 'center' }] })}>+ Linha</button>}>
+      {display.kind === 'text' && !physicalFace && <Section title="Conteúdo" actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ lines: [...display.lines, { id: newId('ln_'), text: 'Texto', x: 0.5, y: 0.5, size: 0.3, align: 'center' }] })}>+ Linha</button>}>
         <p className="ce-hint">Use <code>{'{state}'}</code> = nome do estado, <code>{'{id}'}</code> = valor de uma variável. Posição e tamanho em fração do ecrã (0–1).</p>
         {display.lines.map((line, index) => <details key={line.id} className="ce-action-card ce-display-line">
           <summary><span>{index + 1}</span><strong>{line.text || 'Linha vazia'}</strong>{line.when && <small>{String(line.when.value)}</small>}</summary>

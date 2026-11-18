@@ -1,0 +1,82 @@
+
+> dc-simu@2.0.0 test:device-lcd
+> tsx scripts/device-lcd-smoke.ts
+
+PASS — D52 photographed six-field face uses the supplied readings, never a screenshot
+PASS — D52 Hz and PF retain their physical decimal precision
+PASS — D52 has two full-width top lines and two paired bottom lines
+PASS — D52 six measured fields retain photographed yellow/orange/cyan/white/red/blue groups
+PASS — D52 units are separate legends, not letters mixed into numeral geometry
+PASS — D52 five-digit energy resolution/rounding 999.99 → 999.99
+PASS — D52 five-digit energy resolution/rounding 999.999 → 1000.0
+PASS — D52 five-digit energy resolution/rounding 1234.56 → 1234.6
+PASS — D52 five-digit energy resolution/rounding 9999.99 → 10000
+PASS — D52 five-digit energy resolution/rounding 12345.67 → 12346
+PASS — D52 power crosses 9999.9 W without six-digit overflow or rescaling
+PASS — invalid/negative/over-capacity unsigned readings are dashes, never NaN, exponent text or saturation
+PASS — KWS physical four-digit channels adapt decimals rather than squeeze extra digits
+PASS — KWS photographed V/A/kW grid and channel precision
+PASS — KWS voltage is blue-violet, current red and power yellow, not generic cyan text
+PASS — KWS seven-slot cyan energy footer is explicitly total, never mislabeled phase A
+PASS — KWS physical footer includes white frequency and temperature
+PASS — KWS view 0 keeps the physical face, without invented full-screen pages or branding inside the LCD
+PASS — KWS view 1 keeps the physical face, without invented full-screen pages or branding inside the LCD
+PASS — KWS PF uses the actual same-phase watts/(V×A), not a second fake measurement
+PASS — KWS view 2 keeps the physical face, without invented full-screen pages or branding inside the LCD
+PASS — KWS total-power view uses documented footer fields and real summed kW
+PASS — KWS manual OFF opens output without falsely blanking the powered input display
+PASS — KWS absent temperature is not replaced by a plausible demo temperature
+PASS — KWS signed temperature fits the actual three-slot area
+PASS — ATV local terminal has four real seven-segment cells and the documented rEF- spelling
+PASS — ATV COnF and monitoring frequency use documented glyphs/decimal point
+PASS — ATV reference/ramp edit values fit four physical digits
+PASS — ATV boolean fault does not invent a diagnostic cause or print the impossible five-character FAULT
+PASS — physical segment glyph exists for 0
+PASS — physical segment glyph exists for 1
+PASS — physical segment glyph exists for 2
+PASS — physical segment glyph exists for 3
+PASS — physical segment glyph exists for 4
+PASS — physical segment glyph exists for 5
+PASS — physical segment glyph exists for 6
+PASS — physical segment glyph exists for 7
+PASS — physical segment glyph exists for 8
+PASS — physical segment glyph exists for 9
+PASS — physical segment glyph exists for r
+PASS — physical segment glyph exists for E
+PASS — physical segment glyph exists for F
+PASS — physical segment glyph exists for C
+PASS — physical segment glyph exists for O
+PASS — physical segment glyph exists for n
+PASS — physical segment glyph exists for U
+PASS — physical segment glyph exists for S
+PASS — physical segment glyph exists for L
+PASS — physical segment glyph exists for F
+PASS — physical segment glyph exists for -
+PASS — unpowered d52-2066 has no residual digits, units or demo values
+PASS — drawing d52-2066 does not mutate simulation state
+PASS — every d52-2066 physical field lies inside its LCD aperture
+PASS — unpowered kws-306 has no residual digits, units or demo values
+PASS — drawing kws-306 does not mutate simulation state
+PASS — every kws-306 physical field lies inside its LCD aperture
+PASS — unpowered atv320 has no residual digits, units or demo values
+PASS — drawing atv320 does not mutate simulation state
+PASS — every atv320 physical field lies inside its LCD aperture
+PASS — legacy factory compatibility is render-only; IDs, geometry and stored definition are untouched
+PASS — same text on an unrelated device never activates a factory override
+PASS — authored display setting is not replaced: deviceFace
+PASS — authored display setting is not replaced: name
+PASS — authored display setting is not replaced: foreground
+PASS — authored display setting is not replaced: background
+PASS — authored display setting is not replaced: backlightVar
+PASS — authored display setting is not replaced: lines
+PASS — authored display setting is not replaced: lines
+PASS — physical face survives normal definition / JSON persistence
+PASS — meterD522066: publishing/runtime preparation never cuts a non-emergency into a fake head
+PASS — meterD522066: live LCD remains the visible surface; no stale baked copy occludes it
+PASS — meterKws306: publishing/runtime preparation never cuts a non-emergency into a fake head
+PASS — meterKws306: live LCD remains the visible surface; no stale baked copy occludes it
+PASS — opening a different Admin draft clears prior-device LCD preview values
+PASS — new Admin LCD uses its own authored initial values, never prior test readings
+PASS — clearing ephemeral preview does not overwrite persisted vars, parts or authored definitions
+
+PASS — 76 device LCD geometry, precision, provenance-scope and authored-definition assertions

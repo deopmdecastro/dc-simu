@@ -191,9 +191,12 @@ export function prepareActuatorHead(
   definition: ComponentDefinition,
   unitsPerMm = 1,
 ): { definition: ComponentDefinition; head: ActuatorHead | null } {
-  const head = extractActuatorHead(model, model)
   const controls = definition.controls ?? []
-  if (!controls.some((control) => control.nodes?.includes(ACTUATOR_HEAD_NAME))) return { definition, head }
+  // Extraction mutates geometry/visibility. It is opt-in for an authored
+  // emergency-head control, never a geometric guess on every catalogue item:
+  // otherwise a meter's live LCD is hidden behind a baked `__head` copy.
+  if (!controls.some((control) => control.nodes?.includes(ACTUATOR_HEAD_NAME))) return { definition, head: null }
+  const head = extractActuatorHead(model, model)
   return {
     head,
     definition: {
