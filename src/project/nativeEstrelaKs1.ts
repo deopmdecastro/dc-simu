@@ -16,7 +16,8 @@ import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { syncMounted } from '../three/thermalMount'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 
-export const NATIVE_ESTRELA_KS1_ID = 'native-estrela-ks1-v1'
+import { NATIVE_ESTRELA_KS1_ID } from './nativeProjectIds'
+export { NATIVE_ESTRELA_KS1_ID } from './nativeProjectIds'
 export const NATIVE_ESTRELA_KS1_NAME = 'Estrela-Triângulo com KS1 (nativo)'
 
 const PX = SCHEMATIC_PX_PER_MM

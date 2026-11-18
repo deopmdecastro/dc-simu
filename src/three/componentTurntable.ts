@@ -1,10 +1,14 @@
 import * as THREE from 'three'
+import { isIndustrialDevice } from '../electrical/industrialDevices'
+import { prepareIndustrialModel, applyIndustrialState, applyIndustrialTextures, releaseIndustrialLcd } from './industrialFinish'
 import { createGltfLoader } from './gltfLoader'
 import type { ComponentType } from '../types'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
+import { createDigitalMeterObject, digitalMeterSpec, isDigitalMeterType } from './digitalMeterModel'
 import { paintImportedModel, rigImportedModel, animateImportedRig } from './importedFinish'
 import { applyProtectionMarkings } from './protectionMarkings'
+import { applySchneiderRcdState, isSchneiderRcd, prepareSchneiderRcdModel } from './schneiderRcdModel'
 import { applyCombBusbarFinish } from './combBusbarMarkings'
 import { TEMPLATES } from '../electrical/factory'
 import { importedComponentInfo } from '../electrical/importedComponents'
@@ -145,6 +149,9 @@ function normalizeObject(root: THREE.Object3D) {
 
 /** Acabamento igual ao do Painel 3D; resolve quando os mapas reais estão aplicados. */
 async function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentType, renderUnitsPerMm: number): Promise<void> {
+  // Industrial assets already have authored PBR materials and separate print UVs.
+  // Applying a generic photographed polymer albedo made their cases look striped.
+  if (isIndustrialDevice(type)) return
   if (type === 'motor3ph' || type === 'motor1ph') {
     applyEditorMotorTextures(root)
     // A capa só é tirada com a pintura e o aço já carregados (antes saía cinzenta).
@@ -168,6 +175,7 @@ async function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentTy
 }
 
 function cleanupPreparedObject(turntable: THREE.Group, object: THREE.Object3D) {
+  releaseIndustrialLcd(object)
   object.traverse((child) => {
     const mesh = child as THREE.Mesh
     if (mesh.isMesh && mesh.material) disposeMaterial(mesh.material)
@@ -194,18 +202,28 @@ function restPose(type: ComponentType, pitchIndex = DEFAULT_PITCH_INDEX): [numbe
 const RAIL_SECTION_MM = 180
 
 async function prepareObject(type: ComponentType): Promise<THREE.Object3D> {
-  const spec = getComponentGlbSpec(type)
-  if (!spec) throw new Error('Modelo GLB indisponível')
-  const source = await loadSource(spec.path)
+  const spec = getComponentGlbSpec(type) ?? (isDigitalMeterType(type) ? digitalMeterSpec(type) : undefined)
+  if (!spec) throw new Error('Modelo 3D indisponível')
+  const defaultState = isSchneiderRcd(type)
+    ? { ...TEMPLATES[type]?.defaultState, closed: false, tripped: false } // Foto de produto na pose segura O.OFF.
+    : TEMPLATES[type]?.defaultState ?? {}
+  const raw = isDigitalMeterType(type)
+    ? createDigitalMeterObject(type, defaultState)
+    : cloneModelScene(await loadSource(spec.path))
   await nextIdle()
-  const raw = cloneModelScene(source)
-  const defaultState = TEMPLATES[type]?.defaultState ?? {}
   if (importedComponentInfo(type)) {
     const parts = paintImportedModel(type, raw)
     const rig = rigImportedModel(type, raw, parts)
     animateImportedRig(rig, type, defaultState, false, 10)
   }
+  if (isSchneiderRcd(type)) prepareSchneiderRcdModel(raw)
   const object = fitComponentModel(raw, spec, 1)
+  if (isIndustrialDevice(type)) {
+    prepareIndustrialModel(object, type)
+    applyIndustrialState(object, type, defaultState, false, false)
+    await applyIndustrialTextures(object, type)
+  }
+  if (isSchneiderRcd(type)) applySchneiderRcdState(object, defaultState)
   applyProtectionMarkings(object, type, {
     state: defaultState,
     unitsPerMm: 1,

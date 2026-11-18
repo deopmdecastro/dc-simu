@@ -1,0 +1,45 @@
+PASS — user: QGD continua completo, 47 componentes/76 cabos
+PASS — user: pesquisa «medidor» mostra os dois aparelhos de medir
+PASS — user: os dois medidores estão desbloqueados
+PASS — user: medidores estão no grupo «Aparelhos de medir»
+PASS — user: as duas capas dos medidores carregam na biblioteca
+PASS — user: inserir D52 pela biblioteca não perde cabos
+PASS — user: inserir KWS pela biblioteca não perde cabos
+PASS — user: inserção mantém as identidades dos dois tipos
+PASS — user: biblioteca sem exceções ou React #310 — OK
+PASS — admin: QGD continua completo, 47 componentes/76 cabos
+PASS — admin: pesquisa «medidor» mostra os dois aparelhos de medir
+PASS — admin: os dois medidores estão desbloqueados
+PASS — admin: medidores estão no grupo «Aparelhos de medir»
+PASS — admin: as duas capas dos medidores carregam na biblioteca
+PASS — admin: inserir D52 pela biblioteca não perde cabos
+PASS — admin: inserir KWS pela biblioteca não perde cabos
+PASS — admin: inserção mantém as identidades dos dois tipos
+PASS — admin: biblioteca sem exceções ou React #310 — OK
+PASS — meterD522066: corpo centrado no mesmo pivô dos bornes e seleção ({"distance":0.0002500008940929388})
+PASS — D52: um clique curto em RESET não apaga o contador
+PASS — D52: manter RESET 5 s repõe o contador pela malha real
+PASS — D52: RESET premido antes de pointercancel
+PASS — D52: pointercancel cancela o temporizador de 5 s, solta a tecla e restaura a navegação
+PASS — D52: RESET premido antes de blur
+PASS — D52: blur cancela o temporizador de 5 s, solta a tecla e restaura a navegação
+PASS — meterD522066: vista rodada completa é capturada sem erro
+PASS — meterD522066: sem exceções, perda de contexto WebGL ou React #310 — OK
+PASS — meterKws306: corpo centrado no mesmo pivô dos bornes e seleção ({"distance":0.0006995696893550563})
+PASS — KWS: botão ON/OFF abre o relé
+PASS — KWS: segundo clique fecha o relé
+PASS — KWS: tecla física menu muda o modo de leitura
+PASS — KWS: tecla física menu_1 muda o modo de leitura
+PASS — KWS: tecla física menu_2 muda o modo de leitura
+PASS — KWS: LCD atualiza quando apenas screenMode muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas iB muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas vC muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas pC muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas frequency muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas temp muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas screenMode muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas powerFactor muda, sem cache obsoleta
+PASS — meterKws306: vista rodada completa é capturada sem erro
+PASS — meterKws306: sem exceções, perda de contexto WebGL ou React #310 — OK
+
+43 verificações de biblioteca e controlos 3D dos medidores/Schneider passaram no navegador.

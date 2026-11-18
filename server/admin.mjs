@@ -1,5 +1,6 @@
 import { statSync, rmSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { RETAINED_NATIVE_PROJECT_ID, isNativeProjectId } from '../src/project/nativeProjectPolicy.mjs'
 import { componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, sanitizeComponentChange } from '../src/saas/platformCore.mjs'
 
 /**
@@ -148,6 +149,9 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
 
   app.delete('/api/admin/users/:id', auth, admin, (req, res) => {
     const row = editable(req, res); if (!row) return
+    // Refuse the entire cascade, even with force=1; do not partially delete
+    // personal projects or silently transfer the retained native project.
+    if (db.prepare('SELECT 1 FROM projects WHERE id=? AND owner_id=?').get(RETAINED_NATIVE_PROJECT_ID, row.id)) return fail(res, 409, 'Esta conta é proprietária do projeto nativo retido. Transfira-o explicitamente antes de eliminar a conta.')
     const projects = db.prepare('SELECT count(*) n FROM projects WHERE owner_id=?').get(row.id).n
     const contributions = db.prepare('SELECT count(*) n FROM contributions WHERE author_id=?').get(row.id).n
     const force = req.query.force === '1'
@@ -176,6 +180,7 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
   app.delete('/api/admin/projects/:id', auth, admin, (req, res) => {
     const row = db.prepare('SELECT id,name FROM projects WHERE id=?').get(req.params.id)
     if (!row) return fail(res, 404, 'Projeto não encontrado')
+    if (isNativeProjectId(row.id)) return fail(res, 403, 'O projeto nativo retido não pode ser eliminado.')
     db.prepare('DELETE FROM projects WHERE id=?').run(row.id)
     auditReq(req, 'project.delete', { type: 'project', id: row.id, label: row.name }, 'pelo administrador')
     res.json({ ok: true })

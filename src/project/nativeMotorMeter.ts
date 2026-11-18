@@ -3,7 +3,8 @@ import type { ElectricalComponent, Wire } from '../types'
 import { isSharedFerruleCandidate, wireSideEndType } from '../electrical/sharedFerrules'
 import { componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 
-export const NATIVE_PARTIDA_ID = 'native-partida-direta-v5'
+import { NATIVE_PARTIDA_ID } from './nativeProjectIds'
+export { NATIVE_PARTIDA_ID } from './nativeProjectIds'
 export const NATIVE_MOTOR_METER_FEATURE = 'motor-voltage-meter-v1'
 export const NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE = 'motor-meter-double-ferrule-v1'
 /** Curvas e chicotes (filaças) dos cabos 2D/3D refeitos: repõe traçado e `bundleId` dos cabos nativos. */

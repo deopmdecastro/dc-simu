@@ -1,0 +1,7 @@
+
+> dc-simu@2.0.0 test:terminal-geometry
+> tsx scripts/terminal-geometry-smoke.ts residualBreakerSchneiderIid4p residualBreakerSchneiderIdpnVigi
+
+PASS — residualBreakerSchneiderIid4p: 8 ligações no interior dos encaixes
+PASS — residualBreakerSchneiderIdpnVigi: 4 ligações no interior dos encaixes
+PASS — 2 modelos CAD (+0 procedurais: ), 12 encaixes com cavidade e 0 pinos/fios: profundidade, marcadores e escala física

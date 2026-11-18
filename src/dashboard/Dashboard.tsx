@@ -7,8 +7,6 @@ import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus, Icon
 
 import ProjectCover from './ProjectCover'
 import type { ProjectPreviewData } from './projectPreview'
-import { buildProjectPreview, isEmptyPreview, isNativeProjectMeta } from './projectPreview'
-import { nativePartidaDiretaContent, nativeProjectSeeds } from '../project/nativeProjects'
 import { FREE_NATIVE_OWNER, isFreeNativeProjectId } from '../project/freeNativeSandbox'
 import SupabaseModal from '../components/SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
@@ -57,25 +55,13 @@ function relTime(iso: string) {
   return rtf.format(Math.round(diff / (86400 * 365)), 'year')
 }
 
-/** Capa e contagens: se o nativo vier vazio do backend, usa a semente embutida. */
-const nativeSeedPreviews = new Map<string, ProjectPreviewData>()
-function nativeFallbackPreview(id: string): ProjectPreviewData {
-  const hit = nativeSeedPreviews.get(id)
-  if (hit) return hit
-  const seed = nativeProjectSeeds().find((item) => item.id === id)
-  const preview = buildProjectPreview(seed ? seed.content : nativePartidaDiretaContent())
-  nativeSeedPreviews.set(id, preview)
-  return preview
-}
-
-function withNativeCover(p: Project): Project {
-  if (!isNativeProjectMeta(p.id, p.name) || !isEmptyPreview(p.preview)) return p
-  return { ...p, preview: nativeFallbackPreview(p.id) }
-}
+/** A capa representa sempre o conteúdo real, mesmo quando este está vazio. */
+function withNativeCover(p: Project): Project { return p }
 
 function projectRoleLabel(p: Project): string {
+  if (isFreeNativeProjectId(p.id)) return 'Projeto nativo'
+  if (p.owner === FREE_NATIVE_OWNER) return 'Rascunho local antigo'
   if (p.role === 'owner') return 'Meu projeto'
-  if (p.owner === FREE_NATIVE_OWNER || isFreeNativeProjectId(p.id)) return 'Exemplo nativo'
   return 'Partilhado'
 }
 
@@ -353,14 +339,14 @@ export default function Dashboard({
           <div className="dx-menu" role="menu">
             <button onClick={() => { setMenu(null); setCommentsFor(p) }}>Comentários</button>
             <button onClick={() => { setExpanded(expanded === p.id ? null : p.id); setMenu(null) }}>Ver membros</button>
-            {isFreeNativeProjectId(p.id) && p.revision > 0 && (
+            {p.owner === FREE_NATIVE_OWNER && p.revision > 0 && (
               <button
                 onClick={() => {
                   setMenu(null)
                   void onDelete(p).catch((err) => setNotice(err instanceof Error ? err.message : 'Não foi possível repor o exemplo.'))
                 }}
               >
-                Repor original
+                Eliminar rascunho local
               </button>
             )}
           </div>

@@ -26,7 +26,7 @@ export function expandPolyline(points: readonly Point[]): Point[] {
   const out: Point[] = []
   let prev: Point | null = null
   for (const point of points) {
-    if (prev && Math.round(prev.x) !== Math.round(point.x) && Math.round(prev.y) !== Math.round(point.y)) out.push({ x: prev.x, y: point.y })
+    if (prev && Math.abs(prev.x - point.x) >= 1e-7 && Math.abs(prev.y - point.y) >= 1e-7) out.push({ x: prev.x, y: point.y })
     out.push({ x: point.x, y: point.y })
     prev = point
   }
@@ -116,7 +116,7 @@ export function findClearSpot(want: Point, occupied: Point[], box = BOX): Point 
 // ---------------------------------------------------------------------------
 // Arrasto ortogonal de troços
 // ---------------------------------------------------------------------------
-const same = (a: number, b: number) => Math.round(a) === Math.round(b)
+const same = (a: number, b: number) => Math.abs(a - b) < 1e-7
 
 /** Remove pontos repetidos e colineares; os extremos (ancoragens) nunca se perdem. */
 export function simplifyOrthogonal(points: readonly Point[]): Point[] {

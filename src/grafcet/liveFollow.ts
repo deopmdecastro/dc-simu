@@ -279,7 +279,7 @@ export function computeLiveUnitStatuses(
     }
     const focusStepIds = activeStepIds.length
       ? activeStepIds
-      : unit.allStepIds
+      : unit.initialStepIds.length ? unit.initialStepIds : unit.allStepIds.slice(0, 1)
     const isProgressed = activeStepIds.some((id) => !initialSet.has(id))
     return {
       unit,

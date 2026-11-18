@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { loadModelMm } from './detect-interfaces'
 import { detectHoles } from '../src/catalog/holeDetect'
 import models from '../src/data/imported-component-models.json'
 import calibrated from '../src/data/imported-component-terminals.json'
@@ -13,9 +13,13 @@ await fs.mkdir(output, { recursive: true })
 for (const model of models) {
   if (!process.argv[3] && !Object.prototype.hasOwnProperty.call(calibrated, model.type)) continue
   if (process.argv[3] && !process.argv[3].split(',').includes(model.type)) continue
-  const bytes=await fs.readFile(path.join('public', model.path))
-  const {scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length), '')
-  scene.scale.setScalar(1000)
+  // Scan the same rotated/fitted CAD as Panel3D, not the unrotated GLB.
+  const loaded = await loadModelMm(model.type as Parameters<typeof loadModelMm>[0])
+  if (!loaded) throw new Error('Missing actual CAD: ' + model.type)
+  const scene = loaded.root
+  // Calibration reports use x centred, y from base, z from back.
+  scene.position.y += loaded.phys.height / 2
+  scene.position.z += loaded.phys.depth / 2
   scene.updateMatrixWorld(true)
   const report: Record<string, unknown> = { type:model.type, bounds:new THREE.Box3().setFromObject(scene,true) }
   for (const face of ['top','bottom','front'] as const) {

@@ -1,3 +1,7 @@
+import { applyMsr127Leds } from './msr127Model'
+import { IndustrialDevice3D } from './IndustrialDevice3D'
+import { industrialDeviceTypeOf } from '../electrical/industrialDevices'
+import { CurrentTransformer3D } from './DigitalMeters3D'
 import { doorMountMotion, doorMountedComponent } from './doorMount'
 import { EquipmentDecal3D } from './EquipmentDecal3D'
 import { TerminalJumperBridge3D, TerminalMarkerCard3D } from './terminalMarkings'
@@ -34,7 +38,7 @@ import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, Ico
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
-import { cloneModelScene, fitComponentModel } from './modelFit'
+import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
 import CanvasAnnotations3D, { type TextGroupHandlers } from './CanvasAnnotations3D'
@@ -48,7 +52,7 @@ import { DEFAULT_TEXT_STYLE_3D, NOTE_COLORS } from '../ui/textStyle'
 import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEditorMotorTextures, onMotorTexturesReady } from './motorEditorTextures'
 import { FaultEffects3D, type FaultPoint3D } from './FaultEffects3D'
-import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
+import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, getComponentPhysicalSizeMm, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { hasPlcLamps, lampScenePosition, plcChannelLamps, plcLamps } from './plcStatusLights'
 import { mountDepthOffset } from './thermalMount'
@@ -844,7 +848,6 @@ function LogoSiemens1224RCMesh({ c, x, interactive = true }: { c: ElectricalComp
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => finishCadMaterial(mat, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
     const fitted = fitComponentModel(obj, getComponentModelSpec(c.type)!, PANEL_UNITS_PER_MM, 'bottom')
-    void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene])
   const screen = useMemo(() => logoScreenRect(model), [model])
@@ -878,7 +881,7 @@ function LogoSiemens1224RCMesh({ c, x, interactive = true }: { c: ElectricalComp
 
   return (
     <group position={[x, RAIL_Y, 0]}>
-      <primitive object={model} castShadow receiveShadow />
+      <primitive dispose={null} object={model} castShadow receiveShadow />
       <LogoFrontPanel c={c} interactive={interactive && !c.locked} screen={screen} />
       <Label text={c.ref} position={[0, LOGO_1224RC_TARGET_HEIGHT + 0.14, 0.22]} color="#e2e8f0" />
     </group>
@@ -973,15 +976,10 @@ function EquipmentStatusLights({ c, height, centered }: { c: ElectricalComponent
     })}</group>
   }
   const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
-  const safety = c.type === 'safetyRelay'
-  // Disjuntores não têm LEDs reais: o estado vê-se na posição do manípulo, não em luzes inventadas.
-  if (!plc && !safety) return null
+  // MSR127 lamps are now in the shared physical model, also used by Admin/bake.
+  if (!plc) return null
   const run = powered && runState === 'running' && !error
-  const lights = plc
-    ? [{ c: '#22c55e', on: run }, { c: '#ef4444', on: error }, { c: '#38bdf8', on: comm && powered }]
-    : safety
-      ? [{ c: '#22c55e', on: powered && !error }, { c: '#ef4444', on: error }]
-      : []
+  const lights = [{ c: '#22c55e', on: run }, { c: '#ef4444', on: error }, { c: '#38bdf8', on: comm && powered }]
   const physical = getComponentModelSpec(c.type)?.physicalSizeMm
   const halfDepth = ((physical?.depth ?? 68) * PANEL_UNITS_PER_MM) / 2
   // Dentro da face frontal: os três aparelhos são slim (22–30 mm); a 24 mm fixos os LED ficavam no ar.
@@ -1037,6 +1035,9 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     return { model: fitted, importedRig: rigged, lenses }
   }, [scene, spec, centered, importedType])
   const invalidateFrame = useThree((three) => three.invalidate)
+  useEffect(() => { void applyCadSurfaceTextures(model) }, [model])
+  useEffect(() => () => disposeModelClone(model), [model])
+  const modelSimTick = useSimStore(s => s.simTick)
   const markingSig = protectionMarkingSignature(c.type, c.state)
   useEffect(() => {
     applyProtectionMarkings(model, c.type, {
@@ -1047,6 +1048,11 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     })
     invalidateFrame()
   }, [model, c.type, centered, spec.physicalSizeMm.height, markingSig, invalidateFrame])
+  // The shared markings create the three physical lenses. Apply their state
+  // afterwards, and on scan ticks (the solver mutates c.state in place).
+  useEffect(() => {
+    if (c.type === 'safetyRelay') { applyMsr127Leds(model, c.state); invalidateFrame() }
+  }, [model, c.type, c.state, modelSimTick, markingSig, invalidateFrame])
   useFrame((_, delta) => {
     if (!importedRig || !importedType) return
     if (animateImportedRig(importedRig, importedType, { ...c.state, resetTurn }, useSimStore.getState().sim.runState !== 'stopped', Math.min(delta, 1 / 20))) invalidateFrame()
@@ -3411,7 +3417,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const { positions } = useMemo(() => {
     const rail = components.filter((c) => hasDinRailModel(c.type) || RAIL_MOUNT_TYPE_PREFIXES.some((t) => c.type.startsWith(t)))
     const pos: Record<string, THREE.Vector3> = {}
-    for (const c of rail) pos[c.id] = new THREE.Vector3(0, RAIL_Y + (getComponentModelSpec(c.type)?.targetHeight ?? 0.8) / 2, 0)
+    for (const c of rail) pos[c.id] = new THREE.Vector3(0, RAIL_Y + (getComponentPhysicalSizeMm(c.type)?.height ?? 80) * PANEL_UNITS_PER_MM / 2, 0)
     return { positions: pos }
   }, [components])
 
@@ -4626,7 +4632,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
-          if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={(industrialDeviceTypeOf(c) ? mechanicalControls : interactive) && !c.locked} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
           else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} interactive={interactive && !c.locked} mechanical={mechanicalControls && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><Suspense fallback={null}><LogoSiemens1224RCMesh c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={null}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
@@ -4683,9 +4689,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                 </Suspense>
               </Model3DErrorBoundary>
             )
-          } else if (hasDinRailModel(c.type) && getComponentModelSpec(c.type)) {
-            // As peças Acti9 procedurais também montam em DIN, mas não têm
-            // spec.path/GLB: seguem para o seu renderizador dedicado abaixo.
+          } else if (industrialDeviceTypeOf(c)) {
+            content=<IndustrialDevice3D c={c} x={x} position={basePivots[c.id].toArray() as [number,number,number]} interactive={mechanicalControls&&!c.locked}/>
+          } else if (hasDinRailModel(c.type) && getComponentModelSpec(c.type) && c.type !== 'residualBreakerSchneiderIid4p' && c.type !== 'residualBreakerSchneiderIdpnVigi' && !['breakerSchneiderIc60h1p', 'pilotLightSchneiderIil1p', 'pilotLightSchneiderIil3p'].includes(c.type)) {
+            // Acti9 has dedicated CAD/state rendering below; do not route it
+            // through this generic, envelope-based equipment renderer.
             const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
             const inStrip = terminalStripMemberIds.has(c.id)
             content = (
@@ -4705,13 +4713,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
-          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} />
-          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} />
-          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} interactive={canActuate} />
-          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} interactive={canActuate} />
-          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} interactive={canActuate} />
-          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} />
-          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} />
+          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} interactive={interactive && !c.locked} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
@@ -4754,7 +4762,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           if (isCatalogType(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
             const [px, py, pz] = frontPivot(c)
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={(industrialDeviceTypeOf(c) ? mechanicalControls : interactive) && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          } else if (industrialDeviceTypeOf(c)) {
+            const [px,py,pz]=frontPivot(c)
+            content=<IndustrialDevice3D c={c} x={x} position={[x+px,py,pz]} interactive={mechanicalControls&&!c.locked}/>
+          } else if (c.type==='currentTransformerSplitCore') {
+            const [px,py,pz]=frontPivot(c)
+            content=<CurrentTransformer3D c={c} x={x} position={[x+px,py,pz]} interactive={false}/>
           } else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) {
             const [px,py,pz] = frontPivot(c)
             const fallback = <Sensor3D c={c} x={x} onToggle={() => {}} />
@@ -4769,13 +4783,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
-          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} />
-          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} />
-          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} interactive={canActuate} />
-          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} interactive={canActuate} />
-          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} interactive={canActuate} />
-          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} />
-          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} />
+          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
           else if (c.type === 'capacitorRun60uF' && getComponentModelSpec(c.type)) {
             const [px, py, pz] = frontPivot(c)
             const fallback = <group position={[x + px, py, pz]}>

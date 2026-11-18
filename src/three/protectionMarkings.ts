@@ -1,4 +1,7 @@
+import { cachedCanvasTexture, bindCachedCanvasTexture } from './canvasTextureCache'
+import { prepareMsr127Leds, applyMsr127Leds } from './msr127Model'
 import * as THREE from 'three'
+import { drawBrandArtwork } from './brandArtwork'
 import type { ComponentType } from '../types'
 import {
   GV2ME_RANGES,
@@ -12,41 +15,7 @@ import {
 } from '../electrical/protectionSpecs'
 
 const MARKING_TAG = '__dcProtectionMarking'
-const MAX_TEXTURE_CACHE = 96
-const textureCache = new Map<string, THREE.CanvasTexture>()
-
-export function cachedCanvasTexture(
-  key: string,
-  widthPx: number,
-  heightPx: number,
-  draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
-): THREE.CanvasTexture | null {
-  if (typeof document === 'undefined') return null
-  const hit = textureCache.get(key)
-  if (hit) return hit
-  if (textureCache.size >= MAX_TEXTURE_CACHE) {
-    const oldest = textureCache.keys().next().value
-    if (oldest) {
-      textureCache.get(oldest)?.dispose()
-      textureCache.delete(oldest)
-    }
-  }
-  const canvas = document.createElement('canvas')
-  canvas.width = widthPx
-  canvas.height = heightPx
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-  ctx.clearRect(0, 0, widthPx, heightPx)
-  draw(ctx, widthPx, heightPx)
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 8
-  tex.minFilter = THREE.LinearMipmapLinearFilter
-  tex.magFilter = THREE.LinearFilter
-  tex.needsUpdate = true
-  textureCache.set(key, tex)
-  return tex
-}
+export { cachedCanvasTexture } from './canvasTextureCache'
 
 function makePlateMesh(
   tex: THREE.CanvasTexture,
@@ -68,6 +37,7 @@ function makePlateMesh(
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   })
+  bindCachedCanvasTexture(mat,tex)
   mat.userData.keepTransparent = transparent
   mat.userData.protectionMarking = true
   const mesh = new THREE.Mesh(geo, mat)
@@ -270,10 +240,7 @@ function buildEasy9Markings(type: 'breaker1p' | 'breaker2p' | 'breaker3p', state
     ctx.fillStyle = '#ffffff'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.font = '800 26px "Inter", "Arial", sans-serif'
-    ctx.fillText('Schneider', 12, bandH * 0.44)
-    ctx.font = '600 15px "Inter", "Arial", sans-serif'
-    ctx.fillText('Electric', 112, bandH * 0.78)
+    drawBrandArtwork(ctx, 'schneider-electric', 12, 4, 214, bandH - 8, '#ffffff')
 
     if (poles === 1) {
       ctx.fillStyle = '#009530'
@@ -392,17 +359,9 @@ function buildHagerRcdMarkings(state: Record<string, unknown> | undefined, u: nu
   const upTex = cachedCanvasTexture('hager:top:v2', 512, 112, (ctx, w, h) => {
     ctx.fillStyle = '#dadad0'
     ctx.fillRect(0, 0, w, h)
-    // Marca :hager em azul-marinho
-    ctx.fillStyle = '#005596'
-    ctx.beginPath()
-    ctx.arc(24, h * 0.42, 6, 0, Math.PI * 2)
-    ctx.arc(24, h * 0.66, 6, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#0f2942'
-    ctx.font = '900 44px "Inter", "Arial", sans-serif'
+    drawBrandArtwork(ctx, 'hager', 15, 17, 246, 76)
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText('hager', 38, h * 0.54)
     // Indicação de polo 1 e TEST T sobre o botão azul à direita
     ctx.fillStyle = '#0067b8'
     roundRect(ctx, w - 168, 18, 148, 44, 8)
@@ -636,7 +595,8 @@ function updateFuseHolderCarriers(
         ctx.font = '800 24px "Inter", "Arial", sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(index <= 1 ? 'Schneider' : 'TeSys', w / 2, 25)
+        if (index <= 1) drawBrandArtwork(ctx, 'schneider-electric', 10, 4, w - 20, 40, '#ffffff')
+        else ctx.fillText('TeSys', w / 2, 25)
         ctx.fillStyle = '#e8ebe9'
         ctx.fillRect(0, 48, w, h - 48)
         ctx.fillStyle = '#0f172a'
@@ -749,7 +709,7 @@ function buildGv2meMarkings(state: Record<string, unknown> | undefined, u: numbe
     ctx.font = '800 28px "Inter", "Arial", sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText('Schneider', 16, 30)
+    drawBrandArtwork(ctx, 'schneider-electric', 12, 5, 236, 46, '#ffffff')
     // Modelo TeSys GV2ME
     ctx.fillStyle = '#0f172a'
     ctx.font = '900 32px "Inter", "Arial", sans-serif'
@@ -1058,8 +1018,10 @@ export function protectionMarkingSignature(type: ComponentType, state?: Record<s
 /** Remove serigrafias anteriormente aplicadas num modelo `fitted`. */
 export function clearProtectionMarkings(fitted: THREE.Object3D): void {
   const old = fitted.children.filter((ch) => ch.name === MARKING_TAG || ch.userData?.protectionMarking)
+  const movingLetter = fitted.getObjectByName('__dcSchneiderTestMarking')
+  if (movingLetter) old.push(movingLetter)
   for (const node of old) {
-    fitted.remove(node)
+    node.removeFromParent()
     node.traverse((sub) => {
       const m = sub as THREE.Mesh
       if (!m.isMesh) return
@@ -1126,10 +1088,204 @@ export function cachedDangerStickerTexture(): THREE.CanvasTexture | null {
   })
 }
 
+/** Front ink on the actual modular CAD surface. The label is transparent;
+ * recessed openings and mold steps are found by ray, never filled by a box. */
+function buildSchneiderModularMarkings(fitted: THREE.Object3D, type: ComponentType, state: Record<string, unknown> | undefined, u: number, anchor: 'center' | 'bottom', heightMm: number): THREE.Object3D[] {
+  const breaker = type === 'breakerSchneiderIc60h1p', three = type === 'pilotLightSchneiderIil3p'
+  const r = readProtectionRatings(type, state)
+  const label = cachedCanvasTexture(`acti9:modular:v1:${type}:${r.curve}:${r.inA}`, 720, 720, (ctx, w) => {
+    drawBrandArtwork(ctx, 'schneider-electric', 15, 18, 690, 206)
+    ctx.fillStyle = '#363d36'; ctx.textAlign = 'left'
+    ctx.font = 'bold 64px Arial, sans-serif'
+    ctx.fillText(breaker ? `iC60H ${r.curve}${formatAmpPt(r.inA)}` : 'iIL', 24, 328)
+    ctx.font = '36px Arial, sans-serif'
+    ctx.fillText(breaker ? 'A9F07120' : three ? 'A9E18327' : 'A9E18320', 24, 423)
+    ctx.font = '32px Arial, sans-serif'
+    ctx.fillText(breaker ? '230/400V~' : three ? '230–400V~' : '110–230V~', 24, 520)
+  })
+  if (!label) return []
+  const targets: THREE.Object3D[] = []
+  fitted.traverse(node => { if ((node as THREE.Mesh).isMesh && node.name.startsWith('acti9_body')) targets.push(node) })
+  if (!targets.length) return []
+  const plate = makePlateMesh(label, 15.2, breaker ? 17 : 16, [0, breaker ? 56.5 : 55.7, 0], u)
+  plate.geometry.dispose()
+  plate.geometry = new THREE.PlaneGeometry(15.2*u, (breaker ? 17 : 16)*u, 16, 18)
+  fitted.updateWorldMatrix(true, true)
+  const ray = new THREE.Raycaster(), direction = new THREE.Vector3(0,0,-1).transformDirection(fitted.matrixWorld)
+  const p = plate.geometry.attributes.position, valid: boolean[] = []
+  for (let i=0; i<p.count; i++) {
+    const x=p.getX(i), y=p.getY(i)+plate.position.y-(anchor==='center'?heightMm*u/2:0)
+    ray.set(fitted.localToWorld(new THREE.Vector3(x,y,100*u)), direction)
+    const hit=ray.intersectObjects(targets,false)[0]; valid.push(!!hit)
+    p.setZ(i,hit?fitted.worldToLocal(hit.point).z+.035*u:0)
+  }
+  const indices:number[]=[],original=plate.geometry.index!
+  for(let i=0;i<original.count;i+=3){const t=[original.getX(i),original.getX(i+1),original.getX(i+2)];if(t.every(k=>valid[k]))indices.push(...t)}
+  plate.geometry.setIndex(indices);plate.geometry.computeVertexNormals()
+  return [plate]
+}
+
+/** Serigrafia Acti9: tinta transparente projetada sobre a caixa CAD (sem tapar cavidades). */
+function buildSchneiderRcdMarkings(
+  fitted: THREE.Object3D,
+  type: ComponentType,
+  state: Record<string, unknown> | undefined,
+  u: number,
+  anchor: 'center' | 'bottom',
+  heightMm: number,
+): THREE.Object3D[] {
+  const iid = type === 'residualBreakerSchneiderIid4p'
+  const width = iid ? 72 : 36
+  const r = readProtectionRatings(type, state)
+  const code = iid ? 'A9R11440' : 'A9D32616'
+  const plates: THREE.Object3D[] = []
+  const body: THREE.Object3D[] = [], test: THREE.Object3D[] = []
+  fitted.traverse((node) => {
+    if (!(node as THREE.Mesh).isMesh) return
+    if (node.name.startsWith('schneider_body')) body.push(node)
+    if (node.name === 'schneider_test') test.push(node)
+  })
+  // O modelo pode ter acabado de receber o pivô do painel. Atualiza também
+  // os antepassados antes de lançar os raios, para a tinta não usar a pose anterior.
+  fitted.updateWorldMatrix(true, true)
+  const ray = new THREE.Raycaster()
+  const down = new THREE.Vector3(0, 0, -1).transformDirection(fitted.matrixWorld)
+  const offsetY = anchor === 'center' ? -heightMm * u / 2 : 0
+  const projected = (texture: THREE.CanvasTexture | null, w: number, h: number, x: number, y: number, targets = body) => {
+    if (!texture || !targets.length) return
+    const plate = makePlateMesh(texture, w, h, [x, y, 0], u)
+    plate.geometry.dispose()
+    plate.geometry = new THREE.PlaneGeometry(w * u, h * u, Math.max(4, Math.ceil(w / 1.5)), Math.max(4, Math.ceil(h)))
+    const positions = plate.geometry.attributes.position
+    const supported: boolean[] = []
+    for (let i = 0; i < positions.count; i++) {
+      const px = positions.getX(i) + x * u
+      const py = positions.getY(i) + y * u + offsetY
+      ray.set(fitted.localToWorld(new THREE.Vector3(px, py, 100 * u)), down)
+      const hit = ray.intersectObjects(targets, false)[0]
+      supported.push(!!hit)
+      // Sem superfície, elimina o triângulo em vez de esconder um vértice
+      // 100 mm atrás do corpo (isso falseava os limites físicos no Admin).
+      positions.setZ(i, hit ? fitted.worldToLocal(hit.point).z + 0.035 * u : 0)
+    }
+    const original = plate.geometry.index!, indices: number[] = []
+    for (let i = 0; i < original.count; i += 3) {
+      const triangle = [original.getX(i), original.getX(i + 1), original.getX(i + 2)]
+      if (triangle.every((index) => supported[index])) indices.push(...triangle)
+    }
+    if (!indices.length) {
+      plate.geometry.dispose()
+      ;(plate.material as THREE.Material).dispose()
+      return
+    }
+    plate.geometry.setIndex(indices)
+    plate.geometry.computeVertexNormals()
+    plates.push(plate)
+    return plate
+  }
+  const brand = cachedCanvasTexture(`acti9:${code}:brand:v2:${r.inA}:${r.curve}`, 1024, 172, (ctx, w) => {
+    const green = '#14833e'
+    ctx.fillStyle = green
+    drawBrandArtwork(ctx, 'schneider-electric', 8, 7, iid ? 350 : 560, 102)
+    ctx.fillRect(iid ? 380 : 608, 16, w - (iid ? 380 : 608) - 12, 20)
+    ctx.fillStyle = '#363936'
+    ctx.font = `${iid ? 34 : 39}px Arial, sans-serif`
+    ctx.fillText(iid ? 'iID' : `iDPN N Vigi  ${r.curve} ${formatAmpPt(r.inA)}A`, 9, 158)
+  })
+  // iID: botão T à esquerda do logótipo; Vigi: botão à direita, sob a faixa verde.
+  // O ressalto superior termina a ≈66,7 mm: toda a marca fica na face
+  // saliente, sem atravessar o degrau e desaparecer numa vista em perspetiva.
+  projected(brand, iid ? 51 : 33, iid ? 8.5 : 8.3, iid ? 8.5 : 0, 61.6)
+  const technical = cachedCanvasTexture(`acti9:${code}:technical:v2:${r.inA}:${r.sensmA}:${r.rcdType}`, 1024, 210, (ctx, w, h) => {
+    ctx.fillStyle = '#636963'
+    ctx.font = '28px Arial, sans-serif'
+    ctx.fillText(code, 18, 37)
+    ctx.font = '31px Arial, sans-serif'
+    ctx.fillText(`${formatAmpPt(r.inA)}A   IΔn ${r.sensmA}mA   ${iid ? '400V~' : '230/240V~'}`, 180, 50)
+    ctx.font = '25px Arial, sans-serif'
+    ctx.fillText(iid ? 'IEC/EN 61008-1' : 'IEC/EN 61009-2-1   6000', 180, 98)
+    drawRcdTypeSymbol(ctx, w - 160, 122, 130, 57, r.rcdType)
+    ctx.font = '31px Arial, sans-serif'
+    ctx.fillText('T   Regular test', 390, h - 28)
+    // Esquema dos polos, incluindo o neutro do lado esquerdo.
+    ctx.lineWidth = 2.8; ctx.strokeStyle = '#636963'
+    const count = iid ? 4 : 2
+    for (let i = 0; i < count; i++) {
+      const x = 25 + i * 34
+      ctx.beginPath(); ctx.moveTo(x, 73); ctx.lineTo(x, 104); ctx.lineTo(x + 10, 120)
+      ctx.moveTo(x, 125); ctx.lineTo(x, 157); ctx.stroke()
+    }
+    ctx.font = '24px Arial, sans-serif'; ctx.fillText('N', 17, 190)
+  })
+  projected(technical, width - 3, 7.2, 0, 70.6)
+  for (const [row, y] of [['top', 81.1], ['bottom', 3.2]] as const) {
+    const letters = cachedCanvasTexture(`acti9:${code}:terminals:${row}:v2`, iid ? 1024 : 512, 64, (ctx, w) => {
+      const count = iid ? 4 : 2
+      ctx.font = 'bold 40px Arial, sans-serif'; ctx.textBaseline = 'middle'
+      for (let pole = 0; pole < count; pole++) {
+        ctx.fillStyle = pole === 0 ? '#2477a1' : '#626760'
+        const atX = iid ? pole * w / count + 10 : (row === 'top' ? [0.035, 0.30] : [0.56, 0.82])[pole] * w
+        ctx.fillText(pole === 0 ? 'N' : (iid ? String(pole * 2 - (row === 'top' ? 1 : 0)) : row === 'top' ? '1' : '2'), atX, 34)
+      }
+    })
+    projected(letters, width - 2, 2.3, 0, y)
+  }
+  if (!iid) {
+    const letter = cachedCanvasTexture('acti9:vigi:T:v1', 160, 80, (ctx, w, h) => {
+      ctx.fillStyle = '#7f867c'; ctx.font = 'bold 62px Arial, sans-serif'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('T', w / 2, h / 2)
+    })
+    const marking = projected(letter, 4, 2.2, 8.9, 59.6, test)
+    if (marking) {
+      marking.name = '__dcSchneiderTestMarking'
+      marking.userData.followSchneiderTest = true
+    }
+  }
+  // Impressão lateral: mantém a frente limpa, como no aparelho real.
+  const side = cachedCanvasTexture(`acti9:${code}:side:v1:${r.inA}:${r.sensmA}:${r.rcdType}`, 700, 680, (ctx, w) => {
+    ctx.fillStyle = '#878c85'
+    ctx.font = '33px Arial, sans-serif'; ctx.fillText(iid ? 'IEC/EN 61008-1' : 'IEC/EN 61009-2-1', 35, 120)
+    ctx.fillText(iid ? 'Ue=400/415V~' : 'Ue=230/240V~   Icn=6000A', 35, 178)
+    ctx.fillText(`${formatAmpPt(r.inA)}A   IΔn=${r.sensmA}mA   ${r.rcdType}`, 35, 235)
+    ctx.font = '27px Arial, sans-serif'; ctx.fillText('Schneider Electric, CS 30323', 35, 356)
+    ctx.fillText('F - 92506 Rueil-Malmaison Cedex', 35, 401)
+    ctx.font = '76px Arial, sans-serif'; ctx.fillText('CE', 35, 519)
+    ctx.font = '30px Arial, sans-serif'; ctx.fillText(code, 200, 510)
+    ctx.fillText('DIN 35 mm', w - 220, 610)
+  })
+  if (side) {
+    const plate = makePlateMesh(side, 39, 42, [-width / 2 - 0.03, 41, -8], u)
+    plate.rotation.y = -Math.PI / 2
+    plates.push(plate)
+  }
+  return plates
+}
+
 /**
  * Aplica (ou atualiza) a serigrafia de fábrica e calibre nominal num modelo `fitComponentModel`.
  * Funciona tanto no Painel 3D (`unitsPerMm = PANEL_UNITS_PER_MM`) como nas miniaturas/capas (`unitsPerMm = 1`).
  */
+/** Reference lettering/circuit from Rockwell 440R-IN079D-EN-P and
+ * 440R-N23132 front photograph. Identification, not a forged certification. */
+function buildMsr127Markings(u:number):THREE.Object3D[] {
+  const texture=cachedCanvasTexture('msr127:front:v1',450,1400,(ctx,w,h)=>{
+    ctx.fillStyle='#f4eee6';ctx.textAlign='center';ctx.textBaseline='middle'
+    const text=(value:string,y:number,size=30,x=w/2)=>{ctx.font=`600 ${size}px Arial, sans-serif`;ctx.fillText(value,x,y)}
+    text('13    23    33    41',42,32);text('A1  S11  S52  S12',122,31)
+    text('MSR127TP',219,46);text('Allen-Bradley',282,32);text('Guardmaster',345,30,285)
+    text('PWR',375,28,54);text('CH1',621,28,54);text('CH2',793,28,54)
+    ctx.strokeStyle='#f4eee6';ctx.lineWidth=3.6
+    for(let i=0;i<4;i++){
+      const x=173+i*67;text(['13','23','33','41'][i],432,25,x);text(['14','24','34','42'][i],1060,25,x)
+      ctx.beginPath();ctx.moveTo(x,465);ctx.lineTo(x,610);ctx.moveTo(x,705);ctx.lineTo(x,820);ctx.moveTo(x,910);ctx.lineTo(x,1030)
+      if(i<3){ctx.moveTo(x,705);ctx.lineTo(x-24,630);ctx.moveTo(x,910);ctx.lineTo(x-24,835)}else{ctx.moveTo(x,610);ctx.lineTo(x-15,610);ctx.lineTo(x-15,705);ctx.lineTo(x,705);ctx.moveTo(x,820);ctx.lineTo(x-15,820);ctx.lineTo(x-15,910);ctx.lineTo(x,910)}ctx.stroke()
+    }
+    ctx.setLineDash([9,7]);for(const y of [675,875]){ctx.beginPath();ctx.moveTo(140,y);ctx.lineTo(400,y);ctx.stroke()}ctx.setLineDash([])
+    text('S21  S22  S34  A2',1215,31);text('14    24    34    42',1337,32)
+  })
+  return texture?[makePlateMesh(texture,20.4,68,[0,49.55,56.405],u)]:[]
+}
+
 export function applyProtectionMarkings(
   fitted: THREE.Object3D,
   type: ComponentType,
@@ -1146,7 +1302,15 @@ export function applyProtectionMarkings(
   const u = options.unitsPerMm
   let plates: THREE.Object3D[] = []
 
-  if (type === 'breaker1p' || type === 'breaker2p' || type === 'breaker3p') {
+  if (type === 'safetyRelay') {
+    plates = buildMsr127Markings(u)
+    prepareMsr127Leds(fitted,u,options.anchor,options.heightMm,112.73)
+    applyMsr127Leds(fitted,options.state ?? {})
+  } else if (type === 'breakerSchneiderIc60h1p' || type === 'pilotLightSchneiderIil1p' || type === 'pilotLightSchneiderIil3p') {
+    plates = buildSchneiderModularMarkings(fitted, type, options.state, u, options.anchor, options.heightMm)
+  } else if (type === 'residualBreakerSchneiderIid4p' || type === 'residualBreakerSchneiderIdpnVigi') {
+    plates = buildSchneiderRcdMarkings(fitted, type, options.state, u, options.anchor, options.heightMm)
+  } else if (type === 'breaker1p' || type === 'breaker2p' || type === 'breaker3p') {
     plates = buildEasy9Markings(type, options.state, u)
   } else if (type === 'residualBreakerHagerCfc225p') {
     plates = buildHagerRcdMarkings(options.state, u)
@@ -1229,4 +1393,12 @@ export function applyProtectionMarkings(
   }
   for (const plate of plates) group.add(plate)
   fitted.add(group)
+  // A tinta do T acompanha o botão também no editor Admin, cujo controlo
+  // move o nó sem reconstruir a serigrafia a cada fotograma.
+  const testButton = fitted.getObjectByName('schneider_test')
+  const movingLetter = plates.find((plate) => plate.userData.followSchneiderTest)
+  if (testButton && movingLetter) {
+    fitted.updateMatrixWorld(true)
+    testButton.attach(movingLetter)
+  }
 }

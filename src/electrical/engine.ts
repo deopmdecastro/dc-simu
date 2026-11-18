@@ -1,3 +1,4 @@
+import { electricalComponentView } from './builtinRuntime'
 // ============================================================================
 // Motor de continuidade elétrica (DC-Simu v2)
 //
@@ -17,6 +18,7 @@
 
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
 import { importedBridges } from './importedComponents'
+import { industrialBridges, industrialDeviceTypeOf } from './industrialDevices'
 import { mountTerminalPairs } from './mounts'
 import { breakerInputLabels, combMountPairs, isCombBusbar, isCombConnector } from '../three/combMount'
 import { terminalStripJumperPairs } from './pti6Strip'
@@ -63,7 +65,7 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
  *  atravessa o contactor mesmo desligado. A energização, essa, continua a depender
  *  do estado (ver `internalBridges`). */
 export function poleTerminalPairs(c: ElectricalComponent): Array<[string, string]> {
-  const pairs = POLE_PAIRS[c.type]
+  const pairs = POLE_PAIRS[electricalComponentView(c).type]
   if (!pairs) return []
   const out: Array<[string, string]> = []
   for (const [a, b] of pairs) {
@@ -81,11 +83,13 @@ function t(c: ElectricalComponent, label: string) {
 /** Pontes condutivas internas de um componente, dado o estado atual. */
 /** Ligações internas do aparelho e, se for um relé encaixado num contactor, as do encaixe. */
 export function internalBridges(c: ElectricalComponent): Array<[string, string]> {
-  const own = componentBridges(c)
+  const own = componentBridges(electricalComponentView(c))
   return c.mountedOn ? [...own, ...mountTerminalPairs(c)] : own
 }
 
 function componentBridges(c: ElectricalComponent): Array<[string, string]> {
+  const industrial = industrialBridges(c)
+  if (industrial) return industrial
   const imported = importedBridges(c)
   if (imported) return imported
   const bridges: Array<[string, string]> = []
@@ -324,6 +328,12 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     }
     case 'busbarPhase': {
       // L1/L2/L3 são condutores distintos; o barramento apenas os disponibiliza.
+      break
+    }
+    case 'currentTransformerSplitCore': {
+      // Só o condutor que atravessa a janela é contínuo; secundário isolado da rede.
+      const a=t(c,'P1')?.id,b=t(c,'P2')?.id
+      if(a&&b)bridges.push([a,b])
       break
     }
     case 'meterD522066': {
@@ -565,6 +575,11 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
         ids.push(x.id)
       })
     }
+    // Fontes isoladas: nunca há ponte entre a entrada AC e a saída do ATV.
+    if (industrialDeviceTypeOf(c) === 'vfdSchneiderAtv320' && c.state.powered) {
+      push('+24'); push('10V'); push('COM1'); push('COM2')
+      if (c.state.running && c.state.stoReleased && !c.state.deviceFault) { push('U/T1'); push('V/T2'); push('W/T3') }
+    }
     // fontes locais
     if (c.type === 'powerSupply' && c.state.on) push('+V')
     if (c.type === 'powerSource1ph') {
@@ -591,6 +606,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
       // -V são kind 'neutral', pelo que não contaminam o positivo da alimentação do PLC.
       push('-V1'); push('-V2')
     }
+    if (c.type === 'safetyRelay' && c.state.powered) push('S11')
     if (c.type === 'transformer' && !c.state.failed) push('S1')
   }
   return ids

@@ -3,6 +3,316 @@ import type { ComponentType } from '../types'
 import type { RealTerminalSpot } from './realInterfaces'
 
 export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
+  // Finder 90.23: old global-envelope mouth plane; only untouched defaults migrate.
+  relaySocketFinder9023: [
+    {
+      "label": "1",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.586053,
+      "y": 0.858186,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P1",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.570789,
+      "y": 0.613856,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "2",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.742895,
+      "y": 0.813869,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P2",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.689474,
+      "y": 0.572308,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "3",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.883421,
+      "y": 0.733251,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P3",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.747895,
+      "y": 0.500729,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "4",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.841053,
+      "y": 0.187443,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P4",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.726579,
+      "y": 0.422736,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "5",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.681316,
+      "y": 0.121987,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P5",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.635526,
+      "y": 0.364569,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "6",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.5,
+      "y": 0.098225,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P6",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.5,
+      "y": 0.342993,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "7",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.318684,
+      "y": 0.121987,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P7",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.365,
+      "y": 0.364569,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "8",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.158947,
+      "y": 0.187443,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P8",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.273421,
+      "y": 0.422736,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "9",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.116579,
+      "y": 0.733251,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P9",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.252105,
+      "y": 0.500729,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "10",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.257105,
+      "y": 0.814014,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P10",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.311053,
+      "y": 0.572162,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    },
+    {
+      "label": "11",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.413947,
+      "y": 0.858186,
+      "z": 1,
+      "diameterMm": 4.1,
+      "holeDepthMm": 6
+    },
+    {
+      "label": "P11",
+      "face": "front",
+      "contact": "socket",
+      "x": 0.429211,
+      "y": 0.613856,
+      "z": 1,
+      "diameterMm": 2.7,
+      "holeDepthMm": 7
+    }
+  ],
+
+  // WEG SPW: obsolete automatic frame before applying the declared Y = pi rotation.
+  surgeProtectorWegSpw02: [
+    {
+      "label": "L",
+      "face": "top",
+      "x": 0.5,
+      "y": 0.006786,
+      "z": 0.722287,
+      "diameterMm": 11.1,
+      "holeDepthMm": 16.2
+    },
+    {
+      "label": "PE",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 0.993831,
+      "z": 0.722287,
+      "diameterMm": 11.1,
+      "holeDepthMm": 13.6
+    }
+  ],
+  surgeProtectorWegSpw12: [
+    {
+      "label": "+",
+      "face": "bottom",
+      "x": 0.166975,
+      "y": 1.0,
+      "z": 0.721501,
+      "diameterMm": 11.3,
+      "holeDepthMm": 18.7
+    },
+    {
+      "label": "-",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 1.0,
+      "z": 0.721501,
+      "diameterMm": 11.3,
+      "holeDepthMm": 18.7
+    },
+    {
+      "label": "PE",
+      "face": "bottom",
+      "x": 0.833025,
+      "y": 1.0,
+      "z": 0.721501,
+      "diameterMm": 11.3,
+      "holeDepthMm": 18.7
+    }
+  ],
+
+  // Antes da revisão CAD iIL/iC60H: pontos automáticos do visual genérico.
+  breakerSchneiderIc60h1p: [
+    {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":9,"holeDepthMm":15},
+  ],
+
+  pilotLightSchneiderIil1p: [
+    {"label":"X1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"X2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+  ],
+
+  pilotLightSchneiderIil3p: [
+    {"label":"L1","face":"top","x":0.167,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"L2","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"L3","face":"top","x":0.833,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+    {"label":"N","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":8,"holeDepthMm":12},
+  ],
+
+  // Acti9 procedural até d474ab3: preserva IDs e só migra os pontos automáticos.
+  residualBreakerSchneiderIdpnVigi: [
+    {"label":"N1","face":"top","x":0.254,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"1","face":"top","x":0.746,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"N2","face":"bottom","x":0.254,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.746,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+  ],
+  residualBreakerSchneiderIid4p: [
+    {"label":"N1","face":"top","x":0.125,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"1","face":"top","x":0.375,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"3","face":"top","x":0.625,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"5","face":"top","x":0.875,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"N2","face":"bottom","x":0.125,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.375,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"4","face":"bottom","x":0.625,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"6","face":"bottom","x":0.875,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+  ],
   breakerSteckSdC25: [
     {"label":"1","face":"top","x":0.5,"y":0.006,"z":0.389,"diameterMm":11.3,"holeDepthMm":4.5},
     {"label":"2","face":"bottom","x":0.5,"y":0.984,"z":0.39,"diameterMm":11.3,"holeDepthMm":5},
@@ -197,4 +507,13 @@ export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSp
     {"label":"COM","face":"front","x":0.23,"y":0.83,"z":0.886,"diameterMm":7,"holeDepthMm":12},
     {"label":"VΩmA","face":"front","x":0.77,"y":0.83,"z":0.886,"diameterMm":7,"holeDepthMm":12},
   ],
+}
+
+/** Pontos por omissão anteriores às cavidades físicas dos medidores; não são pontos manuais. */
+export const LEGACY_METER_POSITIONS: Record<string, Record<string,{x:number;y:number;z:number}>> = {
+ meterD522066: {'1':{x:.28,y:.16,z:.88},'2':{x:.48,y:.16,z:.88},'CT-IN':{x:.80,y:.22,z:.92},'CT-OUT':{x:.80,y:.12,z:.12}},
+ meterKws306: Object.fromEntries(['L1','L2','L3','N'].flatMap((label,i)=>[['IN',.88],['OUT',.12]].map(([side,y])=>[label+'-'+side,{x:[.15,.38,.62,.85][i],y:Number(y),z:.65}])))
+}
+export const LEGACY_MODULAR_SIZE: Record<string,{width:number;height:number;depth:number}> = {
+ breakerSchneiderIc60h1p:{width:18,height:85,depth:74},pilotLightSchneiderIil1p:{width:18,height:85,depth:74},pilotLightSchneiderIil3p:{width:54,height:85,depth:74}
 }

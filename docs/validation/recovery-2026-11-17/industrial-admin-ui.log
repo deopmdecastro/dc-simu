@@ -1,0 +1,80 @@
+PASS — relaySocketFinder9023: real GLB and usable terminals in full Admin editor
+PASS — relaySocketFinder9023: original PDF is really embedded in saved draft
+PASS — relaySocketFinder9023: explicit builtin provenance survives Admin load
+PASS — relaySocketFinder9023: no fictitious controls or LCD seeded
+PASS — relaySocketFinder9023: no automatic invisible control box over the model
+PASS — relaySocketFinder9023: actual save/reopen preserves authored controls and every terminal ID
+PASS — relaySocketFinder9023: actual publication/bake retains authored controls and electrical interface
+PASS — No React/WebGL exceptions: OK
+PASS — relayFinder5534: real GLB and usable terminals in full Admin editor
+PASS — relayFinder5534: original PDF is really embedded in saved draft
+PASS — relayFinder5534: explicit builtin provenance survives Admin load
+PASS — relayFinder5534: no automatic invisible control box over the model
+PASS — relayFinder5534: actual save/reopen preserves authored controls and every terminal ID
+PASS — relayFinder5534: actual publication/bake retains authored controls and electrical interface
+PASS — No React/WebGL exceptions: OK
+PASS — timerGeyaGrt8M1: real GLB and usable terminals in full Admin editor
+PASS — timerGeyaGrt8M1: original PDF is really embedded in saved draft
+PASS — timerGeyaGrt8M1: explicit builtin provenance survives Admin load
+PASS — timerGeyaGrt8M1: no automatic invisible control box over the model
+PASS — timerGeyaGrt8M1: actual save/reopen preserves authored controls and every terminal ID
+PASS — timerGeyaGrt8M1: actual publication/bake retains authored controls and electrical interface
+PASS — No React/WebGL exceptions: OK
+PASS — timerGeyaGrt8B1: real GLB and usable terminals in full Admin editor
+PASS — timerGeyaGrt8B1: original PDF is really embedded in saved draft
+PASS — timerGeyaGrt8B1: explicit builtin provenance survives Admin load
+PASS — timerGeyaGrt8B1: no automatic invisible control box over the model
+PASS — timerGeyaGrt8B1: actual save/reopen preserves authored controls and every terminal ID
+PASS — timerGeyaGrt8B1: actual publication/bake retains authored controls and electrical interface
+PASS — No React/WebGL exceptions: OK
+PASS — levelRelayAvel411: real GLB and usable terminals in full Admin editor
+PASS — levelRelayAvel411: original PDF is really embedded in saved draft
+PASS — levelRelayAvel411: explicit builtin provenance survives Admin load
+PASS — levelRelayAvel411: no fictitious controls or LCD seeded
+PASS — levelRelayAvel411: no automatic invisible control box over the model
+PASS — levelRelayAvel411: actual save/reopen preserves authored controls and every terminal ID
+PASS — levelRelayAvel411: actual publication/bake retains authored controls and electrical interface
+PASS — No React/WebGL exceptions: OK
+PASS — buzzerMetaltexTby301: real GLB and usable terminals in full Admin editor
+PASS — buzzerMetaltexTby301: original PDF is really embedded in saved draft
+PASS — buzzerMetaltexTby301: explicit builtin provenance survives Admin load
+PASS — buzzerMetaltexTby301: no fictitious controls or LCD seeded
+PASS — buzzerMetaltexTby301: no automatic invisible control box over the model
+PASS — buzzerMetaltexTby301: actual save/reopen preserves authored controls and every terminal ID
+PASS — buzzerMetaltexTby301: actual publication/bake retains authored controls and electrical interface
+PASS — No React/WebGL exceptions: OK
+PASS — vfdSchneiderAtv320: real GLB and usable terminals in full Admin editor
+PASS — vfdSchneiderAtv320: original PDF is really embedded in saved draft
+PASS — vfdSchneiderAtv320: explicit builtin provenance survives Admin load
+PASS — vfdSchneiderAtv320: no automatic invisible control box over the model
+PASS — Admin: actual encoder mesh enters editing
+PASS — Admin: encoder wheel changes the reference
+PASS — Admin: physical encoder wheel does not zoom the camera
+PASS — Admin: physical ESC exits editing
+PASS — Admin: exactly one generic dynamic LCD, without duplicate industrial canvas
+PASS — vfdSchneiderAtv320: actual save/reopen preserves authored controls and every terminal ID
+PASS — vfdSchneiderAtv320: actual publication/bake retains authored controls and electrical interface
+PASS — No React/WebGL exceptions: OK
+PASS — relaySocketFinder9023: fresh published catalog instance follows real wiring independently of disconnected second instance
+PASS — relaySocketFinder9023: project save/load preserves catalog type, terminal IDs and wire endpoints
+PASS — No React/WebGL exceptions: OK
+PASS — relayFinder5534: fresh published catalog instance follows real wiring independently of disconnected second instance
+PASS — relayFinder5534: project save/load preserves catalog type, terminal IDs and wire endpoints
+PASS — No React/WebGL exceptions: OK
+PASS — timerGeyaGrt8M1: fresh published catalog instance follows real wiring independently of disconnected second instance
+PASS — timerGeyaGrt8M1: project save/load preserves catalog type, terminal IDs and wire endpoints
+PASS — No React/WebGL exceptions: OK
+PASS — timerGeyaGrt8B1: fresh published catalog instance follows real wiring independently of disconnected second instance
+PASS — timerGeyaGrt8B1: project save/load preserves catalog type, terminal IDs and wire endpoints
+PASS — No React/WebGL exceptions: OK
+PASS — levelRelayAvel411: fresh published catalog instance follows real wiring independently of disconnected second instance
+PASS — levelRelayAvel411: project save/load preserves catalog type, terminal IDs and wire endpoints
+PASS — No React/WebGL exceptions: OK
+PASS — buzzerMetaltexTby301: fresh published catalog instance follows real wiring independently of disconnected second instance
+PASS — buzzerMetaltexTby301: project save/load preserves catalog type, terminal IDs and wire endpoints
+PASS — No React/WebGL exceptions: OK
+PASS — vfdSchneiderAtv320: fresh published catalog instance follows real wiring independently of disconnected second instance
+PASS — vfdSchneiderAtv320: project save/load preserves catalog type, terminal IDs and wire endpoints
+PASS — No React/WebGL exceptions: OK
+
+PASS — 78 actual industrial Admin/fresh-catalog assertions

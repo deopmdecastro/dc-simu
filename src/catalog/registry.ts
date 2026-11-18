@@ -1,3 +1,5 @@
+import { supportsBuiltinRuntime } from '../electrical/builtinRuntime'
+import { isIndustrialDevice } from '../electrical/industrialDevices'
 import { create } from 'zustand'
 import { SCHEMATIC_PX_PER_MM, registerCatalogModel, setCatalogModelPath } from '../three/modelPaths'
 import { TEMPLATES, type ComponentTemplate } from '../electrical/factory'
@@ -50,7 +52,10 @@ function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemp
       } } : {}),
       rules: { polarity: terminal.polarity, direction: terminal.direction, accepts: terminal.accepts },
     })),
-    defaultState: { catalogState: version.definition.initialState },
+    defaultState: {
+      ...(origin&&supportsBuiltinRuntime(origin)?{...structuredClone(original!.defaultState),builtinOrigin:origin,...(isIndustrialDevice(origin)?{industrialOrigin:origin}:{}),...Object.fromEntries((version.definition.vars??[]).filter(v=>!v.id.startsWith('$')).map(v=>[v.id,v.initial]))}:{}),
+      catalogState: version.definition.initialState,
+    },
   }
 }
 

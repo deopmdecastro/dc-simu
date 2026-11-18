@@ -52,6 +52,8 @@ try {
   const done = { ...previous.types }
   const front = { ...(previous.front ?? {}) }
   const wanted = only ? types.filter((type) => only.includes(type)) : types
+  if (only?.some(type => !types.includes(type))) throw new Error('Tipo sem representação partilhada: ' + only.filter(type => !types.includes(type)).join(', '))
+  const failed = []
   for (const type of wanted) {
     const started = Date.now()
     const images = await page.evaluate(async (type) => {
@@ -76,7 +78,7 @@ try {
       const frontBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9))
       return { cover, front: await webpBase64(frontBlob) }
     }, type).catch((error) => { console.warn(`✗ ${type}: ${error.message}`); return null })
-    if (!images) continue
+    if (!images) { failed.push(type); continue }
     const file = `${type}.webp`
     fs.writeFileSync(path.join(outDir, file), Buffer.from(images.cover, 'base64'))
     fs.writeFileSync(path.join(outDir, 'front', file), Buffer.from(images.front, 'base64'))
@@ -86,7 +88,7 @@ try {
     console.log(`✓ ${type} (capa ${kib(images.cover)} KiB, frontal ${kib(images.front)} KiB, ${Date.now() - started} ms)`)
   }
   const manifest = {
-    note: 'Gerado por scripts/build-component-covers.mjs a partir dos GLB reais (WebP sem fundo): types = capa 3/4 de 192 px; front = vista frontal ortográfica.',
+    note: 'Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.',
     generatedAt: new Date().toISOString(),
     expected: types,
     types: Object.fromEntries(Object.entries(done).filter(([type]) => types.includes(type)).sort(([a], [b]) => a.localeCompare(b))),
@@ -95,7 +97,8 @@ try {
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
   const missing = types.filter((type) => !manifest.types[type] || !manifest.front[type])
   console.log(`\n${Object.keys(manifest.types).length}/${types.length} capas em public/component-covers${missing.length ? ` · em falta: ${missing.join(', ')}` : ''}`)
-  if (missing.length) process.exitCode = 1
+  if (failed.length) console.error('Falha ao atualizar as capturas pedidas (não aprovadas por existirem capas antigas): ' + failed.join(', '))
+  if (missing.length || failed.length) process.exitCode = 1
 } finally {
   await browser.close()
 }

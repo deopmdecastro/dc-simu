@@ -13,6 +13,8 @@ type SettingsResponse = {
 interface ComponentSettingsState {
   /** Componentes que não podem ser inseridos → motivo completo (bloqueado ou acima do plano). */
   disabled: Record<string, string>
+  /** Bloqueio explícito; uma restrição de plano não é um duplicado bloqueado. */
+  blocked: Record<string, true>
   /** Componentes arquivados/eliminados: desaparecem da biblioteca (ADMIN-COMP-01). */
   hidden: Record<string, true>
   loaded: boolean
@@ -31,6 +33,7 @@ export const DISABLED_COMPONENT_MESSAGE = 'Bloqueado pelo administrador'
  */
 export const useComponentSettings = create<ComponentSettingsState>((set, get) => ({
   disabled: {},
+  blocked: {},
   hidden: {},
   loaded: false,
   async load(user) {
@@ -46,17 +49,19 @@ export const useComponentSettings = create<ComponentSettingsState>((set, get) =>
     const subject = { role: role ?? 'user', plan: response.plan ?? null } as const
     const disabled: Record<string, string> = {}
     const hidden: Record<string, true> = {}
+    const blocked: Record<string, true> = {}
     const list = response.components ?? response.disabledComponents.map((entry) => ({ type: entry.type, status: 'blocked' as const, note: entry.note, minPlan: null }))
     for (const entry of list) {
+      if (entry.status === 'blocked') blocked[entry.type] = true
       const access = componentAccess(entry, subject, pricing)
       if (!access.visible) hidden[entry.type] = true
       else if (!access.insertable) disabled[entry.type] = access.reason ?? DISABLED_COMPONENT_MESSAGE
     }
-    set({ disabled, hidden, loaded: true })
+    set({ disabled, blocked, hidden, loaded: true })
     usePlanStore.getState().set({ pricing, plan: role === 'admin' ? null : response.plan ?? pricing.defaultPlan, role: role ?? 'user' })
   },
-  set(list) { set({ disabled: Object.fromEntries(list.map((entry) => [entry.type, entry.note ? `${DISABLED_COMPONENT_MESSAGE}: ${entry.note}` : DISABLED_COMPONENT_MESSAGE])), loaded: true }) },
-  reset() { set({ disabled: {}, hidden: {}, loaded: false }); usePlanStore.getState().reset() },
+  set(list) { set({ blocked: Object.fromEntries(list.map(entry => [entry.type, true as const])), disabled: Object.fromEntries(list.map((entry) => [entry.type, entry.note ? `${DISABLED_COMPONENT_MESSAGE}: ${entry.note}` : DISABLED_COMPONENT_MESSAGE])), loaded: true }) },
+  reset() { set({ disabled: {}, blocked: {}, hidden: {}, loaded: false }); usePlanStore.getState().reset() },
 }))
 
 export function disabledReason(disabled: Record<string, string>, type: string) {

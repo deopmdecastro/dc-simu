@@ -1,0 +1,5 @@
+
+> dc-simu@2.0.0 test:meters-schneider
+> tsx scripts/meters-schneider-smoke.ts
+
+PASS — 192 verificações de medidores DIN e diferenciais Schneider: biblioteca, Admin, CAD, manobra, migração e continuidade elétrica.

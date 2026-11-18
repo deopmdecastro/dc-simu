@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { MULTIMETER_VARS, initialVars, isSpringReturn, mergeVars, runControlActions, selectorStep, setSelector, springHold, varDefsOf, type Vars } from '../../catalog/behavior'
+import { MULTIMETER_VARS, initialVars, industrialRotaryActions, isSpringReturn, mergeVars, runControlActions, selectorStep, setSelector, springHold, varDefsOf, type Vars } from '../../catalog/behavior'
 import { boundsMm, buildDefinitionObject, newId } from '../../catalog/definition'
 import { listGlbNodes } from '../../catalog/componentRig'
 import { classifyNode, controlFromSuggestion, displayFromSuggestion, lightFromSuggestion, suggestFromNodes, variableFromSuggestion, type Suggestion } from '../../catalog/interactables'
@@ -21,7 +21,11 @@ export function triggerEditorControl(control: ControlDef, gesture: 'press' | 'lo
   let vars: Vars = mergeVars(store.def, store.previewVars)
   let state = store.previewState
   const delayed: Array<{ state: string; afterMs: number }> = []
-  if (control.kind === 'selector') {
+  const rotary = typeof gesture === 'object' && 'step' in gesture ? industrialRotaryActions(control, gesture.step) : null
+  if (rotary) {
+    const result = runControlActions(rotary, vars, state)
+    vars = result.vars; state = result.state; delayed.push(...result.delayed)
+  } else if (control.kind === 'selector') {
     const target = typeof gesture === 'object' && 'select' in gesture ? gesture.select : selectorStep(control, vars, typeof gesture === 'object' && 'step' in gesture ? gesture.step : 1)
     if (!target) return
     vars = setSelector(control, vars, target)

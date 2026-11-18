@@ -1,6 +1,7 @@
 import type { ElectricalComponent, FaultState, Wire } from '../types'
 import { computePhaseLabels } from './phases'
 import { internalBridges } from './engine'
+import { industrialDeviceTypeOf } from './industrialDevices'
 
 export interface ShortCircuitDiagnostic {
   active: boolean
@@ -45,6 +46,8 @@ const LOAD_COMPONENT_TYPES = new Set([
   'plcSiemensS7300Cpu315',
   'plcLsXbmDn32s',
   'meterD522066',
+  // Um TC externo não é uma carga: P1/P2 é o mesmo condutor e deve
+  // continuar a denunciar um curto se for ligado entre fase e neutro.
   'meterKws306',
   'multimeterDm20',
 ])
@@ -148,7 +151,7 @@ export function evaluateShortCircuits(
 
   // B) Identifica curto através de pontes/polos de dispositivos não-carga (ex.: polos de disjuntor fechando fase sobre neutro)
   for (const c of components) {
-    if (LOAD_COMPONENT_TYPES.has(c.type)) continue
+    if (LOAD_COMPONENT_TYPES.has(c.type) && !industrialDeviceTypeOf(c)) continue
     for (const [tAId, tBId] of internalBridges(c)) {
       if (!energizedTerminals.has(tAId) && !energizedTerminals.has(tBId)) continue
       const phA = phaseMap.get(tAId)

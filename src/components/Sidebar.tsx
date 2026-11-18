@@ -25,6 +25,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import TerminalLibrary from './TerminalLibrary'
 import { useSimStore } from '../store/useSimStore'
+import { blockedDuplicateReplacement } from '../catalog/blockedDuplicates'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import { iecAssociationOf, iecPrimaryLabel, iecRelatedLabels } from '../electrical/iecAssociation'
@@ -365,7 +366,18 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const catalogRevision = useCatalogStore((s) => s.revision)
   const disabledComponents = useComponentSettings((s) => s.disabled)
   // ADMIN-COMP-01: arquivados/eliminados saem da biblioteca, recentes e favoritos.
-  const hiddenComponents = useComponentSettings((s) => s.hidden)
+  const adminHidden = useComponentSettings((s) => s.hidden)
+  const explicitlyBlocked = useComponentSettings((s) => s.blocked)
+  const hiddenComponents = useMemo(() => {
+    const hidden = { ...adminHidden }
+    for (const type of Object.keys(TEMPLATES) as ComponentType[]) {
+      if (blockedDuplicateReplacement(type, {
+        blocked: t => !!explicitlyBlocked[t], has3D: canInsertComponent3D,
+        available: t => !(t in disabledComponents) && !adminHidden[t] && !hiddenCatalogTypes.has(t),
+      })) hidden[type] = true
+    }
+    return hidden
+  }, [adminHidden, explicitlyBlocked, disabledComponents, catalogRevision])
   const groups = useMemo(() => paletteGroups().map((g) => ({ ...g, items: g.items.filter((it) => !hiddenComponents[it.type]) })).filter((g) => g.items.length > 0), [catalogRevision, hiddenComponents])
   const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => canInsertComponent3D(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
@@ -803,9 +815,17 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               {selectedComponent.type === 'panelEnclosure' && <EnclosureControls c={selectedComponent} />}
               {selectedComponent.type === 'cableDuct' && <CableDuctControls c={selectedComponent} />}
               {selectedComponent.type === 'spiralWrap' && <SpiralWrapControls c={selectedComponent} />}
+              {selectedComponent.type === 'currentTransformerSplitCore' && <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2 text-xs">
+                <strong>Transformador de corrente externo · janela Ø16 mm</strong>
+                <p>P1/P2 representam o mesmo condutor que atravessa a janela. S1/S2 são o secundário isolado; não são bornes de alimentação.</p>
+                <p>Modelo visual de referência: relação e dimensões exteriores não certificadas. Não é acrescentado automaticamente ao KWS-306 (ligação direta) nem ao D52 de TC interno.</p>
+                <p>Num D52 de versão externa, confirmar na chapa a relação do TC e os bornes 3/4. A compatibilidade elétrica dessa versão não é presumida.</p>
+                <label className="flex gap-2 items-center"><input type="checkbox" checked={selectedComponent.state.primaryConductor===true} onChange={e=>useSimStore.getState().setComponentState(selectedComponent.id,{primaryConductor:e.target.checked})}/>Mostrar condutor de demonstração</label>
+              </div>}
               {selectedComponent.type === 'meterD522066' && (
                 <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
                   <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidor D52-2066 LCD</div>
+                  <p className="text-xs text-slate-500">Versão com TC interno: 1/2 medem a tensão; CT-IN/OUT são a passagem do mesmo condutor, não o secundário de um TC externo. Nos modelos externos, confirmar a relação e os bornes 3/4 antes de ligar.</p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded bg-slate-50 border border-slate-100">
                       <span className="text-slate-500 block text-[10px]">Tensão (V)</span>

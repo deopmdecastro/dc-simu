@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "generatedBy": "scripts/build-schneider-{modular,rcd}-glb.mjs",
+  "units": "metres",
+  "note": "STEP-derived simulation assets with explicit adaptations. Not unmodified manufacturer CAD or certified equipment. Nominal frame is not a clip-envelope fit.",
+  "models": [
+    {
+      "path": "/models/protecao/schneider-acti9-idpn-n-vigi-1pn.glb",
+      "bytes": 296384,
+      "sha256": "89d30472c4544cea472d106005540a210872ca20ed790aab4bc59fef9a42cbe0",
+      "nominalSizeMm": {
+        "width": 36,
+        "height": 85,
+        "depth": 73
+      },
+      "measuredSizeMm": {
+        "width": 35.599998474121094,
+        "height": 85,
+        "depth": 74.30218908691313
+      },
+      "source": {
+        "document": "MCADFD0000952",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0000952_3D-CAD",
+        "file": "MCADFD0000952_3D-simplified.stp",
+        "sha256": "3f91263db327040711513f5ccf42b9496184f25d83268178e4180e403bce8c36"
+      },
+      "adaptations": [
+        "Rigid front-facing transform. Original STEP shell, two handle pieces, four screws and test button preserved separately.",
+        "Rear clips translated by their extension to mounting pose. No anisotropic envelope fit.",
+        "Added live VisiSafe regions and reopened conductor cavities at stable electrical terminal axes."
+      ]
+    },
+    {
+      "path": "/models/protecao/schneider-acti9-iid-4p.glb",
+      "bytes": 302472,
+      "sha256": "487c2bb74f3c2ce54540f9a73683a8f3c3e715135c2297fa44cbc861f92f4d9b",
+      "nominalSizeMm": {
+        "width": 72,
+        "height": 85,
+        "depth": 73.5
+      },
+      "measuredSizeMm": {
+        "width": 71.69999694824219,
+        "height": 85,
+        "depth": 74.4354888945818
+      },
+      "source": {
+        "document": "MCADFD0001753",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0001753_3D-CAD",
+        "file": "MCADFD0001753_3D-simplified.stp",
+        "sha256": "cfcf565a48c1625764355c74373bc99870a5b6f043413c52023906ea5e1b6bab"
+      },
+      "adaptations": [
+        "Fused simplified STEP explicitly split by reviewed original faces: rocker 103/117-120, dark grip 104-116, test button 186-190. No replacement generic shell.",
+        "Rear clips rigidly translated to mounting pose. Body and curved front remain at source scale; nominal depth differs from source handle envelope by less than 1 mm.",
+        "Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged."
+      ]
+    }
+  ]
+}

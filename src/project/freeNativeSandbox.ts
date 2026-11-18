@@ -1,214 +1,80 @@
-/**
- * Projetos nativos disponíveis em todas as contas (incluindo o plano Free e
- * `user@dcsimu.local`) sem consumir a quota de projetos próprios do utilizador.
- *
- * A conta `admin` continua a ser proprietária das sementes persistidas na base
- * de dados (usadas na publicação da landing). As restantes contas recebem os
- * projetos nativos em falta com `owner: 'DC-Simu'` e `role: 'editor'` (0 vagas
- * de proprietário ocupadas), podendo abrir esquema 2D/IEC, quadro 3D, Ladder e
- * GRAFCET, simular, editar, guardar um rascunho isolado por utilizador, repor o
- * conteúdo de fábrica ou duplicar para um projeto próprio.
- */
-
+/** Legacy local draft compatibility. No project is seeded or fetched from a
+ * fabricated UUID. The retained native UUID always follows the real backend.
+ * Existing drafts are kept byte-for-byte until an explicit save/reset. */
 import type { Project } from '../dashboard/Dashboard'
 import { buildProjectPreview } from '../dashboard/projectPreview'
-import {
-  NATIVE_ESTRELA_KS1_ID,
-  NATIVE_PARTIDA_ID,
-  NATIVE_QUADRO_DISTRIBUICAO_ID,
-  nativeProjectSeeds,
-  type NativeProjectSeed,
-} from './nativeProjects'
+import type { NativeProjectSeed } from './nativeProjects'
+import { isNativeProjectId } from './nativeProjectIds'
 
-export const FREE_NATIVE_OWNER = 'DC-Simu'
-
-export const FREE_NATIVE_PROJECT_IDS = [
-  NATIVE_PARTIDA_ID,
-  NATIVE_ESTRELA_KS1_ID,
-  NATIVE_QUADRO_DISTRIBUICAO_ID,
-  'grafcet-exemplo-basico',
-  'grafcet-exemplo-normal',
-  'grafcet-exemplo-avancado',
-  'grafcet-estampagem-industrial',
-  'grafcet-estampagem-guiao-1185',
-] as const
-
+export const FREE_NATIVE_OWNER = 'Rascunho local antigo'
+/** Compatibility export: there are no synthetic native project cards. */
+export const FREE_NATIVE_PROJECT_IDS: readonly string[] = []
+const LEGACY_IDS = new Set([
+  'native-partida-direta-v5', 'native-estrela-ks1-v1', 'native-quadro-distribuicao-v1',
+  'grafcet-exemplo-basico', 'grafcet-exemplo-normal', 'grafcet-exemplo-avancado',
+  'grafcet-estampagem-industrial', 'grafcet-estampagem-guiao-1185',
+])
 const DRAFT_PREFIX = 'dcsimu:free-native-draft:v1:'
-
-type FreeNativeDraft = {
-  revision: number
-  updatedAt: string
-  content: unknown
-}
-
+type FreeNativeDraft = { revision: number; updatedAt: string; content: unknown }
 const memoryDrafts = new Map<string, FreeNativeDraft>()
+const draftKey = (userId: string, projectId: string) => `${DRAFT_PREFIX}${userId}:${projectId}`
 
-/**
- * Datas estáveis de fábrica para que projetos pessoais recentes do utilizador
- * (p.ex. «Electronica») continuem no destaque «Continuar de onde parou»,
- * mantendo Partida direta e Estrela-Triângulo logo no topo dos exemplos.
- */
-function factoryUpdatedAt(seedId: string, index: number): string {
-  if (seedId === NATIVE_PARTIDA_ID) return '2026-01-02T00:00:02.000Z'
-  if (seedId === NATIVE_ESTRELA_KS1_ID) return '2026-01-02T00:00:01.000Z'
-  if (seedId === NATIVE_QUADRO_DISTRIBUICAO_ID) return '2026-01-02T00:00:00.000Z'
-  const sec = String(Math.max(1, 59 - index)).padStart(2, '0')
-  return `2026-01-01T00:00:${sec}.000Z`
-}
-
-/** Sementes nativas expostas a todas as contas Free / não-admin. */
-export function freeNativeProjectSeeds(): NativeProjectSeed[] {
-  return nativeProjectSeeds().map((seed, index) => ({
-    ...seed,
-    ownerId: FREE_NATIVE_OWNER,
-    memberIds: [],
-    revision: 0,
-    updatedAt: factoryUpdatedAt(seed.id, index),
-  }))
-}
-
-/** Verifica se o identificador corresponde a um projeto nativo partilhado. */
-export function isFreeNativeProjectId(id: string): boolean {
-  if ((FREE_NATIVE_PROJECT_IDS as readonly string[]).includes(id)) return true
-  return id.startsWith('grafcet-')
-}
-
-function draftKey(userId: string, projectId: string): string {
-  return `${DRAFT_PREFIX}${userId}:${projectId}`
-}
+export function freeNativeProjectSeeds(): NativeProjectSeed[] { return [] }
+/** Public native classification, never used to intercept a cloud request. */
+export function isFreeNativeProjectId(id: string): boolean { return isNativeProjectId(id) }
 
 export function readFreeNativeDraft(userId: string, projectId: string): FreeNativeDraft | null {
+  if (!LEGACY_IDS.has(projectId)) return null
   const key = draftKey(userId, projectId)
   try {
-    if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem(key)
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<FreeNativeDraft>
-        if (parsed && typeof parsed === 'object' && 'content' in parsed) {
-          return {
-            revision: typeof parsed.revision === 'number' && Number.isInteger(parsed.revision) ? parsed.revision : 0,
-            updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
-            content: parsed.content,
-          }
-        }
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<FreeNativeDraft>
+      if (parsed && typeof parsed === 'object' && 'content' in parsed) return {
+        revision: Number.isInteger(parsed.revision) ? parsed.revision! : 0,
+        updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '', content: parsed.content,
       }
     }
-  } catch {
-    /* localStorage indisponível ou inválido — usa cópia em memória */
-  }
-  const mem = memoryDrafts.get(key)
-  return mem ? structuredClone(mem) : null
+  } catch { /* No mutation of an invalid or unavailable local store. */ }
+  const memory = memoryDrafts.get(key)
+  return memory ? structuredClone(memory) : null
+}
+export function hasLegacyFreeNativeDraft(userId: string, projectId: string): boolean {
+  return LEGACY_IDS.has(projectId) && !!readFreeNativeDraft(userId, projectId)
 }
 
-function stripHeavyCover(content: unknown): unknown {
-  if (!content || typeof content !== 'object' || Array.isArray(content)) return content
-  const record = content as Record<string, unknown>
-  if (!('cover' in record)) return content
-  const { cover: _cover, ...rest } = record
-  return rest
-}
-
-export function saveFreeNativeProject(
-  userId: string,
-  projectId: string,
-  content: unknown,
-  expectedRevision?: number,
-): { ok: true; revision: number; updatedAt: string } {
-  const seed = freeNativeProjectSeeds().find((item) => item.id === projectId)
-  if (!seed) throw new Error('Projeto nativo não encontrado.')
+export function saveFreeNativeProject(userId: string, projectId: string, content: unknown, expectedRevision?: number): { ok: true; revision: number; updatedAt: string } {
   const current = readFreeNativeDraft(userId, projectId)
-  const currentRevision = current?.revision ?? 0
-  if (typeof expectedRevision === 'number' && Number.isInteger(expectedRevision) && expectedRevision !== currentRevision) {
-    throw new Error('Este projeto foi alterado noutro separador. Reabra-o antes de guardar.')
-  }
-  const normalized = typeof content === 'string' ? JSON.parse(content) : content
-  const next: FreeNativeDraft = {
-    revision: currentRevision + 1,
-    updatedAt: new Date().toISOString(),
-    content: normalized,
-  }
-  const key = draftKey(userId, projectId)
-  memoryDrafts.set(key, structuredClone(next))
-  try {
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(key, JSON.stringify(next))
-      } catch {
-        // Se a miniatura JPEG exceder a quota do browser, persiste sem a capa.
-        localStorage.setItem(key, JSON.stringify({ ...next, content: stripHeavyCover(normalized) }))
-      }
-    }
-  } catch {
-    /* mantém em memoryDrafts durante a sessão */
-  }
+  if (!current) throw new Error('Rascunho local antigo não encontrado. O projeto cloud deve ser aberto pelo serviço real.')
+  if (expectedRevision !== undefined && expectedRevision !== current.revision) throw new Error('Este projeto foi alterado noutro separador. Reabra-o antes de guardar.')
+  const next: FreeNativeDraft = { revision: current.revision + 1, updatedAt: new Date().toISOString(), content: typeof content === 'string' ? JSON.parse(content) : content }
+  // Persist first; a quota failure must not report an unpersisted successful save.
+  if (typeof localStorage !== 'undefined') localStorage.setItem(draftKey(userId, projectId), JSON.stringify(next))
+  memoryDrafts.set(draftKey(userId, projectId), structuredClone(next))
   return { ok: true, revision: next.revision, updatedAt: next.updatedAt }
 }
-
+/** An explicit deletion removes only this user's legacy draft, never a project row. */
 export function resetFreeNativeProject(userId: string, projectId: string): { ok: true } {
-  const seed = freeNativeProjectSeeds().find((item) => item.id === projectId)
-  if (!seed) throw new Error('Projeto nativo não encontrado.')
-  const key = draftKey(userId, projectId)
-  memoryDrafts.delete(key)
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(key)
-  } catch {
-    /* ignorar */
-  }
+  if (!hasLegacyFreeNativeDraft(userId, projectId)) throw new Error('Rascunho local antigo não encontrado.')
+  if (typeof localStorage !== 'undefined') localStorage.removeItem(draftKey(userId, projectId))
+  memoryDrafts.delete(draftKey(userId, projectId))
   return { ok: true }
 }
-
-export function openFreeNativeProject(
-  userId: string,
-  projectId: string,
-): { id: string; name: string; role: 'editor'; revision: number; content: unknown } {
-  const seed = freeNativeProjectSeeds().find((item) => item.id === projectId)
-  if (!seed) throw new Error('Projeto não encontrado.')
+export function openFreeNativeProject(userId: string, projectId: string): { id: string; name: string; role: 'editor'; revision: number; content: unknown } {
   const draft = readFreeNativeDraft(userId, projectId)
-  return {
-    id: seed.id,
-    name: seed.name,
-    role: 'editor',
-    revision: draft?.revision ?? 0,
-    content: draft ? draft.content : seed.content,
+  if (!draft) throw new Error('Rascunho local antigo não encontrado.')
+  const name = draft.content && typeof draft.content === 'object' && typeof (draft.content as Record<string, unknown>).projectName === 'string'
+    ? String((draft.content as Record<string, unknown>).projectName) : `Rascunho local · ${projectId}`
+  return { id: projectId, name, role: 'editor', revision: draft.revision, content: draft.content }
+}
+/** Exposes only drafts that ALREADY exist. No name-based deduplication or seeds. */
+export function listMissingFreeNativeProjects(userId: string, existing: Array<{ id: string; name?: string; nativeId?: string | null }>): Project[] {
+  const found: Project[] = []
+  for (const id of LEGACY_IDS) {
+    if (existing.some(row => row.id === id)) continue
+    const draft = readFreeNativeDraft(userId, id)
+    if (!draft) continue
+    found.push({ id, name: openFreeNativeProject(userId, id).name, revision: draft.revision, updated_at: draft.updatedAt, preview: buildProjectPreview(draft.content), owner: FREE_NATIVE_OWNER, role: 'editor' })
   }
-}
-
-type ExistingProjectMarker = {
-  id: string
-  name?: string
-  nativeId?: string | null
-}
-
-function alreadyPresent(seed: NativeProjectSeed, existing: ExistingProjectMarker[]): boolean {
-  return existing.some((row) => {
-    if (row.id === seed.id) return true
-    if (row.nativeId && row.nativeId === seed.nativeId) return true
-    if (row.name && row.name === seed.name) return true
-    return false
-  })
-}
-
-/**
- * Devolve os resumos dos projetos nativos que ainda não constam da lista do
- * utilizador. Cada item entra como `role: 'editor'` (`owner: 'DC-Simu'`) para
- * nunca consumir o limite de projetos criados no plano Free.
- */
-export function listMissingFreeNativeProjects(userId: string, existing: ExistingProjectMarker[]): Project[] {
-  const seeds = freeNativeProjectSeeds()
-  const out: Project[] = []
-  for (const seed of seeds) {
-    if (alreadyPresent(seed, existing)) continue
-    const draft = readFreeNativeDraft(userId, seed.id)
-    const content = draft ? draft.content : seed.content
-    out.push({
-      id: seed.id,
-      name: seed.name,
-      revision: draft?.revision ?? 0,
-      updated_at: draft?.updatedAt ?? seed.updatedAt,
-      preview: buildProjectPreview(content),
-      owner: FREE_NATIVE_OWNER,
-      role: 'editor',
-    })
-  }
-  return out
+  return found
 }

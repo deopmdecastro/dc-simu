@@ -12,7 +12,7 @@ import { ComponentThumb } from '../../three/componentThumbnails'
 import type { ComponentType } from '../../types'
 import { generateCover } from './coverGen'
 import { createComponentCatalogBackup, downloadComponentCatalogBackup, parseComponentCatalogBackup, restoreComponentCatalogBackup } from '../../catalog/catalogBackup'
-import { buildBuiltinDraft, builtinComponents, builtinTypeOf, upgradeBuiltinDraft, type BuiltinInfo } from './builtinComponents'
+import { buildBuiltinDraft, builtinComponents, builtinTypeOf, upgradeBuiltinDraft, upgradeBuiltinMeta, type BuiltinInfo } from './builtinComponents'
 import ComponentEditor3D from './ComponentEditor3D'
 import CrashBoundary from '../../ui/CrashBoundary'
 import SyncPanel from './SyncPanel'
@@ -87,7 +87,8 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
         const source = await catalogApi.adminGet(existing)
         const current = source.draft ?? source.versions[source.versions.length - 1].definition
         const upgraded = await upgradeBuiltinDraft(item.type, current)
-        if (upgraded) { await catalogApi.save(existing, source.meta, upgraded); onNotice('Rascunho atualizado com os elementos em falta (botões, ecrãs e ligações).'); await reload() }
+        const meta = upgradeBuiltinMeta(item.type, source.meta)
+        if (upgraded || meta) { await catalogApi.save(existing, meta ?? source.meta, upgraded ?? current); onNotice('Rascunho atualizado com a representação 3D e os elementos em falta (botões, ecrãs e ligações).'); await reload() }
       } catch { /* abre na mesma o que existe */ }
       openEditor(existing, name)
       return
@@ -243,7 +244,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
           <div className="ce-card-body">
             <h3 className="ce-card-title" title={item.name}>{item.name}</h3>
             <div className="ce-card-meta"><span className="ce-chip">{item.group}</span><span>{item.tag} · {item.terminals} borne{item.terminals === 1 ? '' : 's'}</span></div>
-            <p className="ce-card-desc">{item.hasModel ? 'Modelo 3D CAD da plataforma.' : item.hasVisual ? 'Conjunto composto por bornes CAD reais; o corpo do equipamento não tem modelo CAD.' : 'Sem modelo CAD: abre como volume com as dimensões físicas. Publique-o para o desbloquear no simulador.'}</p>
+            <p className="ce-card-desc">{item.hasModel ? 'Modelo 3D CAD da plataforma.' : item.type === 'meterD522066' || item.type === 'meterKws306' ? 'Medidor DIN com representação 3D procedural completa e LCD; sem CAD do fabricante.' : item.hasVisual ? 'Representação 3D procedural da plataforma; pode ser editada ou substituída por um CAD.' : 'Sem modelo CAD: abre como volume com as dimensões físicas. Publique-o para o desbloquear no simulador.'}</p>
           </div>
           <div className="ce-card-actions">
             <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={importing !== null} onClick={() => void openBuiltin(item)}>{importing === item.type ? 'A importar…' : 'Editar no 3D'}</button>

@@ -74,6 +74,12 @@ export const clampRailLengthMm = (value: unknown): number => {
   return Math.max(DIN_RAIL_15X55.minLengthMm, Math.min(DIN_RAIL_15X55.maxLengthMm, Math.round(n * 10) / 10))
 }
 
+/** Espaçadores da calha: 0…500 mm em décimas; dados inválidos não deslocam a instalação. */
+export function railDepthOffsetMm(state: Record<string, unknown> | undefined): number {
+  const value = state?.depthOffsetMm
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(500, Math.round(value * 10) / 10)) : 0
+}
+
 /** Nº de furos para um comprimento (margem de meio passo em cada ponta). */
 export const railSlotCount = (lengthMm: number, profile: DinRailProfile = DIN_RAIL_15X55): number =>
   Math.max(0, Math.floor((lengthMm - profile.slotLength) / profile.slotPitch) + 1)

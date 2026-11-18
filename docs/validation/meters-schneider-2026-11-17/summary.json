@@ -1,0 +1,163 @@
+{
+  "date": "2026-11-17",
+  "historical": true,
+  "appliesToRecoveredTree": false,
+  "supersededBy": "../../RECUPERACAO-2026-11-17.md",
+  "note": "Evidência histórica preservada sem reclassificar falhas nem atribuir estes hashes/números à recuperação atual.",
+  "scope": "Bibliotecas de medidores DIN e CAD/manobra dos diferenciais Schneider; auto-validação local, não revisão QA independente.",
+  "gates": [
+    {
+      "gate": "typecheck-final",
+      "exit": 0,
+      "seconds": 60.6
+    },
+    {
+      "gate": "hooks-final",
+      "exit": 0,
+      "seconds": 18.9
+    },
+    {
+      "gate": "core-final",
+      "exit": 0,
+      "seconds": 9.0,
+      "note": "Reexecutado após atualizar a asserção exata de 54 para 56 CAD, exigindo ambos os diferenciais novos; 834 PASS."
+    },
+    {
+      "gate": "qgd-final",
+      "exit": 0,
+      "seconds": 1.7
+    },
+    {
+      "gate": "meters-schneider-final",
+      "exit": 0,
+      "seconds": 1.6
+    },
+    {
+      "gate": "editor3d-functional-final",
+      "exit": 0,
+      "seconds": 6.7
+    },
+    {
+      "gate": "component-validate-final",
+      "exit": 0,
+      "seconds": 0.5
+    },
+    {
+      "gate": "cad-surface-final",
+      "exit": 0,
+      "seconds": 0.5
+    },
+    {
+      "gate": "interactables-final",
+      "exit": 0,
+      "seconds": 0.4
+    },
+    {
+      "gate": "logo-editor-final",
+      "exit": 0,
+      "seconds": 1.4
+    },
+    {
+      "gate": "terminal-geometry-final",
+      "exit": 0,
+      "seconds": 1.0
+    },
+    {
+      "gate": "saas-final",
+      "exit": 0,
+      "seconds": 0.5
+    }
+  ],
+  "browser": {
+    "simulator": {
+      "checks": 78,
+      "exit": 0,
+      "roles": [
+        "user/Free",
+        "admin"
+      ],
+      "types": [
+        "meterD522066",
+        "meterKws306",
+        "residualBreakerSchneiderIid4p",
+        "residualBreakerSchneiderIdpnVigi"
+      ]
+    },
+    "admin_rcd": {
+      "checks": 44,
+      "exit": 0,
+      "types": [
+        "residualBreakerSchneiderIid4p",
+        "residualBreakerSchneiderIdpnVigi"
+      ]
+    }
+  },
+  "models": [
+    {
+      "type": "residualBreakerSchneiderIid4p",
+      "file": "schneider-acti9-iid-4p.glb",
+      "physicalSizeMm": {
+        "width": 72,
+        "height": 85,
+        "depth": 73.5
+      },
+      "sha256": "36b75fbe593fe7e6f22daa6c23c82738a6a108569509404af1378875003b3d0f",
+      "bytes": 583940
+    },
+    {
+      "type": "residualBreakerSchneiderIdpnVigi",
+      "file": "schneider-acti9-idpn-n-vigi-1pn.glb",
+      "physicalSizeMm": {
+        "width": 36,
+        "height": 85,
+        "depth": 73
+      },
+      "sha256": "150717a8cb172fe4b26eac5b5e370302309fd05bd6959a94ca2957e78daf3b7e",
+      "bytes": 522332
+    }
+  ],
+  "interfaces": {
+    "before": 26,
+    "after": 27,
+    "unrelated_preserved": 25
+  },
+  "covers": {
+    "fresh": 8,
+    "manifest_covers": 61,
+    "manifest_fronts": 61
+  },
+  "build": {
+    "static_vercel": {
+      "exit": 0,
+      "pwa": true,
+      "large_chunk_warning": true
+    },
+    "first_attempt": {
+      "result": "timeout",
+      "reason": "pressão de memória sem swap; processo filho explicitamente encerrado"
+    },
+    "qgd_minified_ui_static": {
+      "exit": 1,
+      "reason": "fixture de sessão local não é aceite no build estático VERCEL=1; redirecionou corretamente para login. Sem alteração do guard de autenticação."
+    }
+  },
+  "global": {
+    "test:ci": {
+      "exit": 1,
+      "failure": "editors-sweep: capacitorRun60uF, bornes 2D sobrepostos"
+    },
+    "test:terminal-geometry": {
+      "exit": 1,
+      "failure": "surgeProtectorWegSpw02.L fora do centro da cavidade"
+    },
+    "baseline": "Pendências já registadas na entrega anterior; não foram desativadas."
+  },
+  "not_verified": [
+    "Supabase real",
+    "RLS",
+    "cloud",
+    "login autenticado de produção",
+    "publicação remota desta correção"
+  ],
+  "versionedLogFormatting": "Only trailing whitespace and extra terminal blank lines normalized for Git hygiene. Raw originals retained in the execution workspace; no test outcomes rewritten."
+}

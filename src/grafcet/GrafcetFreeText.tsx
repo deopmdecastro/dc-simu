@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { GrafcetComment } from './engine'
 import { fontStack } from '../ui/textStyle'
 
@@ -19,13 +19,15 @@ export function freeTextBox(comment: GrafcetComment) {
  * Texto livre do GRAFCET: arrasta-se com a ferramenta Selecionar, duplo clique edita
  * no próprio desenho (sem caixa do sistema) e a barra de formatação muda o estilo.
  */
-export default function GrafcetFreeText({ comment, selected, editing, interactive, touchEdit, toWorld, snap, onSelect, onEdit, onMove, onText, onContextMenu, onGroupDown }: {
+export default function GrafcetFreeText({ comment, selected, editing, interactive, touchEdit, toWorld, snap, onSelect, onEdit, onMove, onText, onContextMenu, onGroupDown, gestureKey }: {
   comment: GrafcetComment
   selected: boolean
   editing: boolean
   interactive: boolean
   /** Telemóvel: 1.º toque seleciona, toque num texto já selecionado (ou duplo toque) pede a edição. */
   touchEdit?: boolean
+  /** Changing page/tool/transport cancels a preview without an undo record. */
+  gestureKey?: string
   toWorld: (clientX: number, clientY: number) => { x: number; y: number }
   snap: (point: { x: number; y: number }, free: boolean) => { x: number; y: number }
   onSelect: () => void
@@ -37,7 +39,28 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   onGroupDown?: (comment: GrafcetComment, event: ReactPointerEvent<SVGGElement>) => boolean
 }) {
   const [live, setLive] = useState<{ x: number; y: number } | null>(null)
-  const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean; wasSelected: boolean } | null>(null)
+  const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean; wasSelected: boolean; pending?: { x: number; y: number }; capture: SVGGElement; pointerId: number } | null>(null)
+  const cancelDrag = useCallback(() => {
+    const current = drag.current
+    drag.current = null
+    setLive(null)
+    try { current?.capture.releasePointerCapture(current.pointerId) } catch { /* no active capture */ }
+  }, [])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !drag.current) return
+      event.preventDefault(); event.stopImmediatePropagation(); cancelDrag()
+    }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('blur', cancelDrag)
+    window.addEventListener('pointercancel', cancelDrag)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', cancelDrag)
+      window.removeEventListener('pointercancel', cancelDrag)
+      cancelDrag()
+    }
+  }, [cancelDrag, interactive, editing, comment.id, gestureKey])
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const discardRef = useRef(false)
   const [draft, setDraft] = useState(comment.text)
@@ -72,7 +95,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
     if (onGroupDown?.(comment, event)) return
     onSelect()
     const point = toWorld(event.clientX, event.clientY)
-    drag.current = { dx: comment.x - point.x, dy: comment.y - point.y, sx: event.clientX, sy: event.clientY, moved: false, wasSelected: selected }
+    drag.current = { dx: comment.x - point.x, dy: comment.y - point.y, sx: event.clientX, sy: event.clientY, moved: false, wasSelected: selected, capture: event.currentTarget, pointerId: event.pointerId }
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* noop */ }
   }
   const move = (event: ReactPointerEvent<SVGGElement>) => {
@@ -81,12 +104,13 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
     if (!current.moved && Math.hypot(event.clientX - current.sx, event.clientY - current.sy) < (touchEdit ? 8 : 3)) return
     current.moved = true
     const point = toWorld(event.clientX, event.clientY)
-    setLive(snap({ x: point.x + current.dx, y: point.y + current.dy }, event.altKey))
+    current.pending = snap({ x: point.x + current.dx, y: point.y + current.dy }, event.altKey)
+    setLive(current.pending)
   }
   const up = () => {
     const current = drag.current
     drag.current = null
-    if (current?.moved && live) onMove(Math.round(live.x), Math.round(live.y))
+    if (current?.moved && current.pending) onMove(Math.round(current.pending.x), Math.round(current.pending.y))
     // Clique/toque sem arrastar: seleciona (barra de formatação) e abre já a escrita.
     else if (current && !current.moved && interactive && (!touchEdit || current.wasSelected)) onEdit(true)
     setLive(null)
@@ -99,7 +123,7 @@ export default function GrafcetFreeText({ comment, selected, editing, interactiv
   }
 
   return <g className={`grafcet-free-text${selected ? ' is-selected' : ''}`} data-grafcet-text={comment.id}
-    onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+    onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancelDrag}
     onDoubleClick={(event) => { if (!interactive) return; event.stopPropagation(); onSelect(); onEdit(true) }}
     onContextMenu={onContextMenu}
     style={{ cursor: interactive ? (editing ? 'text' : 'move') : 'default', pointerEvents: 'auto' }}>

@@ -25,6 +25,8 @@ import {
 import { addPage, normalizeCommandsPages, pageRefPeers, pagesOf, partsOnPage, removePage, renamePage, textsOnPage, wiresOnPage, DEFAULT_PAGE_ID, pageIdOf } from './pages'
 import PageLinkDialog from './PageLinkDialog'
 import TagTextDialog from './TagTextDialog'
+import { commandWirePoints, commandSegmentDrag, moveCommandSegment, moveCommandsSelection } from './geometry'
+import { nearestLeg, type SegmentDrag } from '../grafcet/links'
 import { emptyCmdRuntime, isClosed, logoOutputOn, voltmeterIsDc, voltmeterReading } from './engine'
 import { CmdSymbol, cmdTagPosition, cmdTagBounds, PHASE_COLORS, type CmdSymbolState } from './symbols'
 import { COMMANDS_EXAMPLES, type CommandsExampleInfo } from './examples'
@@ -161,7 +163,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
   // Telemóvel: Entradas/Saídas no fundo, como no GRAFCET; no tablet/PC continuam no painel lateral.
   const phone = useNarrowMenu(PHONE_TOUCH_QUERY)
   const canvasId = useId()
-  const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee' | 'label'; labelId?: string; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number; labelIds?: string[]; textOrigins?: Record<string, Pt> } | null>(null)
+  const gesture = useRef<{ kind: 'pan' | 'move' | 'tag' | 'mid' | 'wire' | 'press' | 'marquee' | 'label'; labelId?: string; startX: number; startY: number; view?: View; partId?: string; partIds?: string[]; origin?: Pt; offset?: Pt; wireId?: string; segment?: SegmentDrag; moved?: boolean; tag?: string; x0?: number; y0?: number; x1?: number; y1?: number; labelIds?: string[]; textOrigins?: Record<string, Pt> } | null>(null)
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [pageLinkModal, setPageLinkModal] = useState<{ partId: string } | null>(null)
   const [tagModal, setTagModal] = useState<{ partId: string } | null>(null)
@@ -174,6 +176,32 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
 
   const notify = useCallback((text: string) => { setNotice(text); window.setTimeout(() => setNotice((v) => (v === text ? null : v)), 2600) }, [])
   const commit = (next: CommandsDiagram) => { setPreview(null); commitDiagram(next) }
+
+  const cancelGestureRef = useRef<() => void>(() => {})
+  cancelGestureRef.current = () => {
+    const active = gesture.current
+    gesture.current = null
+    if (active?.kind === 'press' && active.tag) useCommandsUi.getState().press(active.tag, false)
+    for (const [id, origin] of Object.entries(active?.textOrigins ?? {})) useSimStore.getState().updateCanvasText(id, origin)
+    setPreview(null); setDraft(null); setHoverTerm(null); setMarquee(null)
+  }
+  useEffect(() => {
+    const cancel = () => cancelGestureRef.current()
+    window.addEventListener('blur', cancel)
+    return () => { window.removeEventListener('blur', cancel); cancel() }
+  }, [pageId, tool, running, paused, demo])
+  useEffect(() => {
+    // Group/text/route gestures live in this editor, not CommandsFreeText.
+    // Either simulator can change transport before React effects/pointerup;
+    // cancel synchronously so an in-flight group drag cannot be committed.
+    const stopPanel = useSimStore.subscribe((next, previous) => {
+      if (next.sim.runState !== previous.sim.runState) cancelGestureRef.current()
+    })
+    const stopCommands = useCommandsUi.subscribe((next, previous) => {
+      if (next.rt.running !== previous.rt.running || next.paused !== previous.paused) cancelGestureRef.current()
+    })
+    return () => { stopPanel(); stopCommands() }
+  }, [])
 
   // ---------------------------------------------------------------- simulação
   // O tick do IEC corre em `commandsUi` (global): sair da vista não para a simulação
@@ -344,9 +372,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
     return best
   }
   const pointsOf = (w: CmdWire): Pt[] => {
-    const pa = partById.get(w.a.part), pb = partById.get(w.b.part)
-    if (!pa || !pb) return []
-    return wirePoints(terminalAt(pa, w.a.term), terminalAt(pb, w.b.term), w.mid)
+    return commandWirePoints(w, partById)
   }
   const wireNear = (p: Pt): { wire: CmdWire; at: Pt } | null => {
     let best: { wire: CmdWire; at: Pt } | null = null, bestD = 7 / Math.min(1, view.scale)
@@ -597,20 +623,13 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       setMarquee({ x0: g.x0, y0: g.y0, x1: p.x, y1: p.y })
     }
     if (g.kind === 'move' && g.offset && g.origin) {
-      const x = snap(p.x - g.offset.x), y = snap(p.y - g.offset.y)
+      const x = event.altKey ? Math.round(p.x - g.offset.x) : snap(p.x - g.offset.x), y = event.altKey ? Math.round(p.y - g.offset.y) : snap(p.y - g.offset.y)
       const dx = x - g.origin.x, dy = y - g.origin.y
       const ids = new Set(g.partIds?.length ? g.partIds : g.partId ? [g.partId] : [])
       const labels = new Set(g.labelIds ?? [])
       for (const [id, o] of Object.entries(g.textOrigins ?? {})) useSimStore.getState().updateCanvasText(id, { x: o.x + dx, y: o.y + dy })
-      if (dx !== 0 || dy !== 0) {
-        if (!g.moved && !ids.size && !labels.size) useSimStore.getState().commitHistory()
-        g.moved = true
-        setPreview({
-          ...stored,
-          parts: stored.parts.map((q) => (ids.has(q.id) ? { ...q, x: snap(q.x + dx), y: snap(q.y + dy) } : q)),
-          texts: labels.size ? (stored.texts ?? []).map((t) => (labels.has(t.id) ? { ...t, x: t.x + dx, y: t.y + dy } : t)) : stored.texts,
-        })
-      } else setPreview(null)
+      g.moved = dx !== 0 || dy !== 0
+      setPreview(g.moved ? moveCommandsSelection(stored, [...ids], [...labels], dx, dy) : null)
     }
     if (g.kind === 'tag' && g.partId && g.offset) {
       const part = stored.parts.find((q) => q.id === g.partId)
@@ -626,7 +645,12 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       g.moved = x !== g.origin.x || y !== g.origin.y
       setPreview(g.moved ? { ...stored, texts: (stored.texts ?? []).map((q) => (q.id === g.labelId ? { ...q, x, y } : q)) } : null)
     }
-    if (g.kind === 'mid' && g.wireId) { g.moved = true; setPreview({ ...stored, wires: stored.wires.map((q) => (q.id === g.wireId ? { ...q, mid: snap(p.y) } : q)) }) }
+    if (g.kind === 'mid' && g.wireId && g.segment) {
+      const start = toWorld(g.startX, g.startY), axis = g.segment.axis
+      const raw = p[axis] - start[axis], delta = event.altKey ? Math.round(raw) : snap(raw)
+      g.moved = delta !== 0
+      setPreview(g.moved ? { ...stored, wires: stored.wires.map(q => q.id === g.wireId ? moveCommandSegment(q, g.segment!, delta) : q) } : null)
+    }
     if (g.kind === 'wire' && draft) { setDraft({ ...draft, to: p }); setHoverTerm(terminalNear(p, draft.from)) }
   }
   const onUp = (event: ReactPointerEvent) => {
@@ -686,12 +710,13 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
       const undoKey = e.key.toLowerCase()
       if (mod && (undoKey === 'z' || undoKey === 'y') && !demo) {
         e.preventDefault()
+        cancelGestureRef.current()
         ui.stop()
         if (undoKey === 'y' || e.shiftKey) useSimStore.getState().redo(); else useSimStore.getState().undo()
         return
       }
       if (!mod && !e.altKey && e.key === '?') { e.preventDefault(); setHelpOpen(true); return }
-      if (e.key === 'Escape') { setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); setMarquee(null); select(null); return }
+      if (e.key === 'Escape') { cancelGestureRef.current(); setPlacing(null); setDraft(null); setHoverTerm(null); setPlacingText(false); setSelectedTextId(null); setEditingTextId(null); setMarquee(null); select(null); return }
       // Texto livre selecionado: os mesmos atalhos do GRAFCET (Enter/F2 edita, Ctrl+B/I/U formata).
       if (selectedFreeText && editable) {
         if (!mod && (e.key === 'Enter' || e.key === 'F2')) { e.preventDefault(); setEditingTextId(selectedFreeText.id); return }
@@ -713,6 +738,18 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
         return
       }
       if (mod || !editable) return
+      const arrow = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, number[]>)[e.key]
+      if (arrow) {
+        const ids = selectionNow()
+        if (!ids.length) return
+        e.preventDefault()
+        const amount = e.altKey ? 1 : CMD_GRID * (e.shiftKey ? 5 : 1)
+        const dx = arrow[0] * amount, dy = arrow[1] * amount
+        const selected = new Set(ids), st = useSimStore.getState()
+        commit(moveCommandsSelection(st.commands, ids, ids, dx, dy))
+        for (const text of st.canvasTexts) if (selected.has(text.id)) st.updateCanvasText(text.id, { x: text.x + dx, y: text.y + dy })
+        return
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && (ui.selectedTextIds.length || ui.selectedLabelIds.length)) { e.preventDefault(); removeSelectedGroup(); setSelectedTextId(null); setEditingTextId(null); return }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedTextId) { e.preventDefault(); useSimStore.getState().removeCanvasText(selectedTextId); setSelectedTextId(null); setEditingTextId(null); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeSelected(); return }
@@ -904,7 +941,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
           className={`dc-cmd-canvas is-tool-${tool} ${placing ? 'is-placing' : ''} ${placingText ? 'is-placing-text' : ''}`}
           style={background}
           onPointerDown={onCanvasDown} onPointerMove={onMove} onPointerUp={onUp}
-          onPointerCancel={() => { gesture.current = null; setPreview(null); setDraft(null) }}
+          onPointerCancel={() => cancelGestureRef.current()}
           onPointerLeave={() => setCursor(null)}
           onDoubleClick={(e) => { if ((e.target as Element).tagName === 'svg') fit() }}
           onDragOver={(e) => { if (e.dataTransfer.types.includes('text/dc-cmd-kind')) e.preventDefault() }}
@@ -945,8 +982,9 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
                         e.stopPropagation()
                         if (tool === 'erase') { removeItem({ type: 'wire', id: w.id }); return }
                         select({ type: 'wire', id: w.id })
-                        if (is4Pts && tool === 'select') {
-                          gesture.current = { kind: 'mid', startX: e.clientX, startY: e.clientY, wireId: w.id }
+                        if (tool === 'select') {
+                          const leg = nearestLeg(pts, toWorld(e.clientX, e.clientY))
+                          gesture.current = { kind: 'mid', startX: e.clientX, startY: e.clientY, wireId: w.id, segment: commandSegmentDrag(w, partById, leg) ?? undefined }
                           ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
                         }
                       }}
@@ -961,7 +999,7 @@ export default function CommandsEditor({ demo = false, onOpenGrafcet }: { demo?:
                         style={{ cursor: 'ns-resize' }}
                         onPointerDown={(e) => {
                           e.stopPropagation()
-                          gesture.current = { kind: 'mid', startX: e.clientX, startY: e.clientY, wireId: w.id }
+                          gesture.current = { kind: 'mid', startX: e.clientX, startY: e.clientY, wireId: w.id, segment: commandSegmentDrag(w, partById, 1) ?? undefined }
                           ;(e.currentTarget as Element).setPointerCapture?.(e.pointerId)
                         }}
                       >

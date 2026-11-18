@@ -6,5 +6,5 @@ export function editorTerminalRadiusMm(terminal: Pick<TerminalDef, 'diameterMm' 
   const inset = terminal.socketInsetMm
   const depth = terminal.socketDepthMm
   if (typeof inset !== 'number' || typeof depth !== 'number') return Math.min(radius, 2)
-  return Math.max(.1, Math.min(radius, inset * .65, (depth - inset) * .65))
+  return Math.max(.1, Math.min(radius, inset * .4, (depth - inset) * .4))
 }

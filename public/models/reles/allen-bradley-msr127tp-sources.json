@@ -1,0 +1,15 @@
+{
+  "asset": "/models/reles/allen-bradley-msr127tp.glb",
+  "sha256": "de019d76ba3818070fceae46d561e08ea001c31d77a0d91914860aa1caadc11b",
+  "source": "Existing supplied Onshape-exported unmarked shell; no independently authenticated manufacturer CAD source recovered.",
+  "manufacturerManual": "/datasheets/rockwell-msr127-440r-in079d-en-p.pdf",
+  "manualSource": "https://literature.rockwellautomation.com/idc/groups/literature/documents/in/440r-in079_-en-p.pdf",
+  "frontReference": "https://premierequipmentsolutions.com/allen-bradley-msr127tp-440r-n23132-safety-relay-sd29237",
+  "adaptations": [
+    "The existing measured shell frame is preserved: 22.65 x 99.1 x 112.73 mm. Manufacturer nominal drawing: 22.5 x 99 x 114.5 mm. Not exact-source dimensional acceptance.",
+    "Four-column staggered terminal banks reconstructed from manual fig.3 and front photograph in terminalSocketGeometry.ts; no manufacturer terminal metrology claim.",
+    "White model/terminal lettering and contact diagram transcribed into a transparent local decal. Not authenticated original print artwork or a certification mark.",
+    "Three independent green PWR/CH1/CH2 LEDs shared by Panel3D and Admin/baked catalog.",
+    "Electrical timing, reset and topology are ideal didactic approximations; not certified cross-fault/PL/SIL behaviour."
+  ]
+}

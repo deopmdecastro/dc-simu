@@ -1,0 +1,53 @@
+{
+  "notice": "Original local manufacturer PDFs; model reconstructions are not official CAD or certified electrical equipment.",
+  "files": [
+    {
+      "sourceFile": "atv320u04m2c-datasheet.pdf",
+      "file": "schneider-atv320u04m2c.pdf",
+      "pages": 15,
+      "sha256": "7272865ffd743ad8d01475d34b4c3f797d71189e51c67a83fc6828c363267e57"
+    },
+    {
+      "sourceFile": "atv320-installation.pdf",
+      "file": "schneider-atv320-installation.pdf",
+      "pages": 134,
+      "sha256": "e81586cd3d37c26405b2dfabd6c2cbc9c95423a3b4fe304068f4613ef052ec61"
+    },
+    {
+      "sourceFile": "finder-55.pdf",
+      "file": "finder-serie-55.pdf",
+      "pages": 18,
+      "sha256": "6809e94a84351e6a06a2c9ff76311c44777a0259672250c46a50d25f5ae5c9fc"
+    },
+    {
+      "sourceFile": "S60EN.pdf",
+      "file": "finder-serie-60-bases-90.pdf",
+      "pages": 16,
+      "sha256": "d59f67469871b3f856805168647278fb8f69205f2bf192ad376cfe29e16e4025"
+    },
+    {
+      "sourceFile": "geya-grt8-m.pdf",
+      "file": "geya-grt8-m.pdf",
+      "pages": 2,
+      "sha256": "b297685821c5970f756801730fca448bc9093983c036fd6eed1092e8ef323190"
+    },
+    {
+      "sourceFile": "geya-grt8-ab.pdf",
+      "file": "geya-grt8-ab.pdf",
+      "pages": 2,
+      "sha256": "f64a489e333a9723db641e27a64c89aa6dd17cc0f865fa4dd130a82e8381a757"
+    },
+    {
+      "sourceFile": "avel-relays-catalog.pdf",
+      "file": "avel-411rnpd0.pdf",
+      "pages": 85,
+      "sha256": "ac43db6590d999b1a11b6aa365514e3c547df74d58c51a5f40d1744dd483a239"
+    },
+    {
+      "sourceFile": "metaltex-tby.pdf",
+      "file": "metaltex-tby.pdf",
+      "pages": 1,
+      "sha256": "c8115602e74d8456c7f60a68f2603c0f1956caf2cadd172536f81f4821348d25"
+    }
+  ]
+}

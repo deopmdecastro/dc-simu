@@ -1,3 +1,5 @@
+import { industrialDeviceTypeOf } from '../electrical/industrialDevices'
+import type { ElectricalComponent } from '../types'
 /**
  * Efeitos sonoros didáticos (Web Audio) — cliques de manobra e zumbido do motor.
  * Segue o mesmo contrato do bip de continuidade (`catalog/beep.ts`):
@@ -44,7 +46,8 @@ export function setSfxEnabled(on: boolean): void {
   try {
     localStorage.setItem(STORAGE_KEY, on ? '1' : '0')
   } catch { /* private mode */ }
-  if (!on) stopMotorHum()
+  if (!on) { stopMotorHum(); stopSounderNodes(); stopOverheatSizzle() }
+  else if(sounderWanted)unlockAudio()
 }
 
 
@@ -103,7 +106,8 @@ function ensureCtx(): AudioContext | null {
 export function unlockAudio(): void {
   const audio = ensureCtx()
   if (!audio) return
-  if (audio.state !== 'running') void audio.resume().catch(() => undefined)
+  if (audio.state !== 'running') void audio.resume().then(updateSounder).catch(() => undefined)
+  else updateSounder()
   routeAudioToPlayback()
   // Tom silencioso de 1 amostra para “acordar” alguns browsers móveis.
   if (!unlockBound) {
@@ -561,4 +565,36 @@ export function playWireBurnPop(): void {
 export function silenceAll(): void {
   stopMotorHum()
   stopOverheatSizzle()
+  sounderWanted=false;stopSounderNodes()
+}
+
+// Sinalizadores industriais: um tom didático contínuo, não uma medição de dB.
+// Nenhum setInterval próprio: o scan decide se existe pelo menos um aparelho ON.
+let sounderWanted=false
+let sounderOsc:OscillatorNode|null=null
+let sounderGain:GainNode|null=null
+let sounderFilter:BiquadFilterNode|null=null
+function stopSounderNodes():void{
+ const osc=sounderOsc,gain=sounderGain,filter=sounderFilter
+ sounderOsc=null;sounderGain=null;sounderFilter=null
+ try{osc?.stop()}catch{/* já parado */}
+ osc?.disconnect();gain?.disconnect();filter?.disconnect()
+}
+function updateSounder():void{
+ if(!sounderWanted||!enabled){stopSounderNodes();return}
+ // Não cria nem desbloqueia contexto a partir de um scan automático. Só um
+ // contexto já autorizado por gesto (RUN, clique/tecla) pode produzir som.
+ if(!ctx||ctx.state!=='running'||sounderOsc)return
+ try{
+  const osc=ctx.createOscillator(),filter=ctx.createBiquadFilter(),gain=ctx.createGain()
+  osc.type='square';osc.frequency.value=1850
+  filter.type='lowpass';filter.frequency.value=4200;filter.Q.value=.65
+  gain.gain.setValueAtTime(0,ctx.currentTime);gain.gain.linearRampToValueAtTime(.035,ctx.currentTime+.025)
+  osc.connect(filter);filter.connect(gain);gain.connect(ctx.destination)
+  sounderOsc=osc;sounderFilter=filter;sounderGain=gain;osc.start()
+ }catch{stopSounderNodes()}
+}
+export function syncIndustrialSounders(components:ElectricalComponent[]):void{
+ sounderWanted=components.some(c=>industrialDeviceTypeOf(c)==='buzzerMetaltexTby301'&&!!c.state.powered&&!!c.state.on&&!c.state.dutyLimitReached)
+ updateSounder()
 }

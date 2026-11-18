@@ -45,6 +45,23 @@ check('sobrescreve para grafcet', hasCrossClipboard('grafcet') && !hasCrossClipb
 const g = readGrafcetCrossClipboard()
 check('lê etapas grafcet', !!g && g.stepIds[0] === 's1' && g.positions[0].y === 200)
 
+// A denied system clipboard is an asynchronous rejection, not a synchronous
+// throw. Local cross-project copy/paste must keep working without page errors.
+const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+const rejected: unknown[] = []
+const onUnhandled = (error: unknown) => rejected.push(error)
+process.on('unhandledRejection', onUnhandled)
+try {
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: () => Promise.reject(new Error('Write permission denied')) } } })
+  writeElectricalCrossClipboard({ components: [{ id: 'permission-denied' }], wires: [] })
+  await new Promise(resolve => setTimeout(resolve, 0))
+  check('clipboard recusado não produz rejeição não tratada', rejected.length === 0)
+  check('clipboard local continua legível sem permissão do sistema', (readElectricalCrossClipboard()?.components[0] as { id: string })?.id === 'permission-denied')
+} finally {
+  process.off('unhandledRejection', onUnhandled)
+  if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator)
+  else Reflect.deleteProperty(globalThis, 'navigator')
+}
 clearCrossClipboard()
 check('limpo', !hasCrossClipboard())
 

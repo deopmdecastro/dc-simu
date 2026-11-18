@@ -1,3 +1,4 @@
+import { electricalComponentView, builtinRuntimeType } from '../electrical/builtinRuntime'
 import { adjacentDuctPlacement, fitAdjacentDuct, snapNewDuct, type DuctPlacement } from '../schematic/ductPlacement'
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
@@ -67,7 +68,10 @@ import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRIC
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { importedActuationPatch, importedComponentInfo, updateImportedLoads, updateImportedPower } from '../electrical/importedComponents'
-import { playClick, syncMotorHumFromComponents, silenceAll, unlockAudio, playShortCircuitBoom, startOverheatSizzle, stopOverheatSizzle, playWireBurnPop } from '../audio/sfx'
+import { industrialInput, industrialDeviceTypeOf, updateIndustrialDevice, type IndustrialElectricalContext } from '../electrical/industrialDevices'
+import { updatePanelMeters } from '../electrical/panelMeterModel'
+import { updateMsr127 } from '../electrical/msr127'
+import { playClick, syncIndustrialSounders, syncMotorHumFromComponents, silenceAll, unlockAudio, playShortCircuitBoom, startOverheatSizzle, stopOverheatSizzle, playWireBurnPop } from '../audio/sfx'
 import { evaluateShortCircuits } from '../electrical/shortCircuitEngine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
@@ -780,7 +784,8 @@ function pathBetween(adjacency: Map<string, Set<string>>, from: string, to: stri
 }
 
 function runOneTick(state: Store, dtMs: number) {
-  const { components, wires, ladder, sim } = state
+  const { wires, ladder, sim } = state
+  const components = state.components.map(electricalComponentView)
   // Atualizar acessórios DC que têm alimentação física, antes do grafo do scan.
   for (const c of components) if (c.type === 'siemensTsAdapterIeBasic') {
     c.state.powered = logoElectricalInputs(c, components, wires).powered
@@ -792,7 +797,19 @@ function runOneTick(state: Store, dtMs: number) {
     // O motor é binário: não modela a banda de tensão nem atrasos reais.
     c.state.powerReady = c.state.powered
   }
-  const srcs = sourceTerminalIds(components, sim.faults, wires)
+  // Primeiro resolve a alimentação AC do ATV; só depois cria +24/10V/COM (P24 é entrada).
+  // Esta passagem não avança temporizadores nem consome arestas de S.
+  const industrial=components.filter(c=>industrialDeviceTypeOf(c))
+  if(industrial.some(c=>industrialDeviceTypeOf(c)==='vfdSchneiderAtv320')){
+    const supply=computeContinuity(components,wires,sourceTerminalIds(components,sim.faults,wires))
+    const context:IndustrialElectricalContext={components,live:supply.energizedTerminals,adjacency:supply.reachable,phases:computePhaseLabels(components,wires)}
+    for(const c of industrial)if(industrialDeviceTypeOf(c)==='vfdSchneiderAtv320'){
+      const v=industrialInput(c,'R/L1','S/L2',context)
+      c.state.powered=!v.dc&&v.voltage>=170&&v.voltage<=264
+      if(!c.state.powered){c.state.running=false;c.state.frequencyHz=0}
+    }
+  }
+  let srcs = sourceTerminalIds(components, sim.faults, wires)
 
   // 1) Primeira passagem — apenas chaves físicas (botões, disjuntores, sensores)
   let pass1 = computeContinuity(components, wires, srcs)
@@ -801,7 +818,7 @@ function runOneTick(state: Store, dtMs: number) {
   if (sim.faults.earthLeak) {
     let rcdTripped = false
     for (const c of components) {
-      if ((c.type === 'residualBreakerHagerCfc225p' || c.type === 'residualBreaker') && c.state.closed && !c.state.tripped) {
+      if ((c.type === 'residualBreakerHagerCfc225p' || c.type === 'residualBreaker' || c.type === 'residualBreakerSchneiderIid4p' || c.type === 'residualBreakerSchneiderIdpnVigi') && c.state.closed && !c.state.tripped) {
         const isLive = c.terminals.some((term) => pass1.energizedTerminals.has(term.id))
         if (isLive) {
           c.state.closed = false
@@ -920,7 +937,7 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 6) Coils (contator / relé / temporizador / soft-starter)
   for (const c of components) {
-    if (importedComponentInfo(c.type)?.behavior === 'contactor' || c.type === 'contactor' || c.type === 'contactorWegCWC09' || c.type === 'contactor4p' || c.type === 'auxRelay' || c.type === 'auxRelay4' || c.type === 'timerRelayTON' || c.type === 'timerRelayTOF' || c.type === 'counterRelay' || c.type === 'safetyRelay' || c.type === 'softStarter') {
+    if (importedComponentInfo(c.type)?.behavior === 'contactor' || c.type === 'contactor' || c.type === 'contactorWegCWC09' || c.type === 'contactor4p' || c.type === 'auxRelay' || c.type === 'auxRelay4' || c.type === 'timerRelayTON' || c.type === 'timerRelayTOF' || c.type === 'counterRelay' || c.type === 'softStarter') {
       const wants = isCoilPowered(c, pass2.energizedTerminals)
       let finalEnergized = wants
       if (wants && c.state.interlockWith) {
@@ -933,6 +950,20 @@ function runOneTick(state: Store, dtMs: number) {
       // Atracagem manual (botão de teste do contactor) mantém polos fechados sem bobina.
       c.state.energized = finalEnergized || !!c.state.manualLatch || !!c.state.testPressed
     }
+  }
+
+  // Aparelhos documentados: os contactos seguem o contrato de cada referência.
+  if(industrial.length){
+    const context:IndustrialElectricalContext={components,live:pass2.energizedTerminals,adjacency:pass2.reachable,phases:computePhaseLabels(components,wires)}
+    for(const c of industrial)updateIndustrialDevice(c,context,dtMs)
+    srcs=sourceTerminalIds(components,sim.faults,wires)
+  }
+
+  const safetyRelays = components.filter(c => c.type === 'safetyRelay')
+  if (safetyRelays.length) {
+    const context: IndustrialElectricalContext = { components, live: pass2.energizedTerminals, adjacency: pass2.reachable, phases: computePhaseLabels(components, wires) }
+    for (const c of safetyRelays) updateMsr127(c, context, dtMs)
+    srcs = sourceTerminalIds(components, sim.faults, wires)
   }
 
   // Temporizador estrela-triângulo dedicado (relé KT)
@@ -964,21 +995,24 @@ function runOneTick(state: Store, dtMs: number) {
   }
 
   // 8) Sinaleiros / buzzer / torre
+  const indicationPhases = computePhaseLabels(components, wires)
   for (const c of components) {
     if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'pilotLightAd22' || c.type === 'pilotLightSchneiderIil1p' || c.type === 'buzzer') {
       c.state.on = isLoadPowered(c, pass3.energizedTerminals)
     }
-    if (c.type === 'pilotLightSchneiderIil3p') {
-      const nId = terminalByLabel(c, 'N')?.id ?? ''
-      const l1Id = terminalByLabel(c, 'L1')?.id ?? ''
-      const l2Id = terminalByLabel(c, 'L2')?.id ?? ''
-      const l3Id = terminalByLabel(c, 'L3')?.id ?? ''
-      const nLive = pass3.energizedTerminals.has(nId)
-      c.state.l1On = pass3.energizedTerminals.has(l1Id) && (nLive || pass3.energizedTerminals.has(l2Id) || pass3.energizedTerminals.has(l3Id))
-      c.state.l2On = pass3.energizedTerminals.has(l2Id) && (nLive || pass3.energizedTerminals.has(l1Id) || pass3.energizedTerminals.has(l3Id))
-      c.state.l3On = pass3.energizedTerminals.has(l3Id) && (nLive || pass3.energizedTerminals.has(l1Id) || pass3.energizedTerminals.has(l2Id))
-      c.state.on = Boolean(c.state.l1On || c.state.l2On || c.state.l3On)
-      c.state.phaseLoss = Boolean(!(c.state.l1On && c.state.l2On && c.state.l3On) && c.state.on)
+    if (c.type === 'pilotLightSchneiderIil1p' || c.type === 'pilotLightSchneiderIil3p') {
+      const ctx: IndustrialElectricalContext = { components, live: pass3.energizedTerminals, adjacency: pass3.reachable, phases: indicationPhases }
+      if (c.type === 'pilotLightSchneiderIil1p') {
+        const input = industrialInput(c, 'X1', 'X2', ctx)
+        c.state.on = !input.dc && input.voltage >= 110 && input.voltage <= 253
+      } else {
+        for (let phase=1; phase<=3; phase++) {
+          const input = industrialInput(c, 'L'+phase, 'N', ctx)
+          c.state['l'+phase+'On'] = !input.dc && input.voltage >= 195.5 && input.voltage <= 440
+        }
+        c.state.on = Boolean(c.state.l1On || c.state.l2On || c.state.l3On)
+        c.state.phaseLoss = Boolean(c.state.on && !(c.state.l1On && c.state.l2On && c.state.l3On))
+      }
     }
     if (c.type === 'towerLight') {
       c.state.red = pass3.energizedTerminals.has(terminalByLabel(c, 'R')?.id ?? '')
@@ -992,66 +1026,11 @@ function runOneTick(state: Store, dtMs: number) {
       const live = isLoadPowered(c, pass3.energizedTerminals, '1', '2')
       c.state.reading = live ? Number((c.state.scaleInA * 0.6).toFixed(1)) : 0
     }
-    if (c.type === 'meterD522066') {
-      const term1 = terminalByLabel(c, '1')?.id
-      const term2 = terminalByLabel(c, '2')?.id
-      const live = !!term1 && !!term2 && pass3.energizedTerminals.has(term1) && pass3.energizedTerminals.has(term2)
-      c.state.on = live
-      if (live) {
-        c.state.voltage = 223.8
-        const runningLoads = components.filter((item) => (item.type === 'motor3ph' || item.type === 'motor1ph') && item.state.running).length
-        const amps = runningLoads > 0 ? Number((1.14 * runningLoads).toFixed(2)) : pass3.activeWires && pass3.activeWires.size > 0 ? 1.14 : 0.00
-        c.state.current = amps
-        c.state.power = Number((c.state.voltage * amps * (Number(c.state.powerFactor) || 1.0)).toFixed(1))
-        c.state.frequency = 50.0
-        if (amps > 0 && state.sim.runState === 'running') {
-          c.state.energy = Number((Number(c.state.energy ?? 0.22) + 0.0001).toFixed(2))
-        }
-      } else {
-        c.state.voltage = 0
-        c.state.current = 0
-        c.state.power = 0
-      }
-    }
-    if (c.type === 'meterKws306') {
-      const l1 = terminalByLabel(c, 'L1-IN')?.id
-      const l2 = terminalByLabel(c, 'L2-IN')?.id
-      const l3 = terminalByLabel(c, 'L3-IN')?.id
-      const n = terminalByLabel(c, 'N-IN')?.id
-      const liveL1 = !!l1 && pass3.energizedTerminals.has(l1)
-      const liveL2 = !!l2 && pass3.energizedTerminals.has(l2)
-      const liveL3 = !!l3 && pass3.energizedTerminals.has(l3)
-      const liveN = !!n && pass3.energizedTerminals.has(n)
-      const isLive = (liveL1 || liveL2 || liveL3) && liveN
-      c.state.on = isLive
-      if (isLive) {
-        c.state.vA = liveL1 ? 211.0 : 0
-        c.state.vB = liveL2 ? 210.4 : 0
-        c.state.vC = liveL3 ? 210.4 : 0
-        const runningMotors = components.filter((item) => item.type === 'motor3ph' && item.state.running).length
-        const baseI = runningMotors > 0 && c.state.switchOn !== false ? 7.892 : 0
-        c.state.iA = liveL1 ? baseI : 0
-        c.state.iB = liveL2 ? (baseI > 0 ? 7.850 : 0) : 0
-        c.state.iC = liveL3 ? (baseI > 0 ? 7.880 : 0) : 0
-        c.state.pA = Number(((c.state.vA * c.state.iA * 0.98) / 1000).toFixed(3))
-        c.state.pB = Number(((c.state.vB * c.state.iB * 0.98) / 1000).toFixed(3))
-        c.state.pC = Number(((c.state.vC * c.state.iC * 0.98) / 1000).toFixed(3))
-        c.state.frequency = 50
-        c.state.temp = 15
-        if (baseI > 0 && state.sim.runState === 'running') {
-          c.state.energy = Number((Number(c.state.energy ?? 1.40) + 0.0002).toFixed(2))
-        }
-      } else {
-        c.state.vA = 0; c.state.vB = 0; c.state.vC = 0
-        c.state.iA = 0; c.state.iB = 0; c.state.iC = 0
-        c.state.pA = 0; c.state.pB = 0; c.state.pC = 0
-      }
-    }
   }
 
   // 9) Motores — sentido real pela sequência de fases
   const thermalTripped = components.some((c) => c.type === 'thermalRelay' && c.state.tripped)
-  const phaseLabels = computePhaseLabels(components, wires)
+  const phaseLabels = indicationPhases
   for (const c of components) {
     if (c.type === 'motor3ph') {
       const dir = motorDirectionFromPhases(c, phaseLabels, pass3.energizedTerminals)
@@ -1066,6 +1045,11 @@ function runOneTick(state: Store, dtMs: number) {
       const externalDelta = ends.every((id) => !!id && pass3.energizedTerminals.has(id))
       const bridged = boxBridged || (c.state.motorConnection === 'none' && (externalStar || externalDelta))
       const live = !!(bridged && u1 && v1 && w1 && pass3.energizedTerminals.has(u1.id) && pass3.energizedTerminals.has(v1.id) && pass3.energizedTerminals.has(w1.id))
+      const drive=industrial.find(d=>industrialDeviceTypeOf(d)==='vfdSchneiderAtv320'&&d.state.running&&u1&&['U/T1','V/T2','W/T3'].some(label=>{
+        const output=terminalByLabel(d,label)?.id
+        return !!output&&pathBetween(pass3.reachable,output,u1.id)
+      }))
+      const targetSpeed=drive?Math.min(1,Number(drive.state.frequencyHz)/50):1
       c.state.tripped = thermalTripped
       c.state.running = live && !thermalTripped && !sim.faults.phaseLoss
       if (c.state.running) {
@@ -1080,7 +1064,7 @@ function runOneTick(state: Store, dtMs: number) {
           // Arranque com inércia exponencial + leve sobre-impulso de binário
           const prev = c.state.rpmVisual ?? 0
           const tau = prev < 0.15 ? 320 : prev < 0.6 ? 420 : 650 // ms - arranque mais rápido, depois mais suave
-          c.state.rpmVisual = prev + (1 - prev) * (dtMs / tau)
+          c.state.rpmVisual = prev + (targetSpeed - prev) * Math.min(1,dtMs / tau)
           if (c.state.rpmVisual > 0.98) c.state.rpmVisual = 0.98 + (c.state.rpmVisual - 0.98) * 0.4 // saturação suave
           c.state.rpmVisual = Math.min(1, c.state.rpmVisual)
         }
@@ -1118,6 +1102,8 @@ function runOneTick(state: Store, dtMs: number) {
       }
     }
   }
+
+  updatePanelMeters(components, wires, pass3, dtMs, true)
 
   // 10) Inversor — rampa de frequência
   for (const c of components) {
@@ -1221,6 +1207,7 @@ function runOneTick(state: Store, dtMs: number) {
   state.sim.scanCount += 1
   // Feedback sonoro do motor (zumbido enquanto algum eixo corre).
   syncMotorHumFromComponents(components)
+  syncIndustrialSounders(components)
 }
 
 /**
@@ -1333,9 +1320,15 @@ export type VirtualInputMode = 'latch' | 'push' | 'nc'
 function deenergizeComponents(components: ElectricalComponent[]): ElectricalComponent[] {
   return components.map((component) => {
     const nextState = { ...component.state }
-    for (const key of ['energized', 'running', 'done', 'powered', 'powerReady', 'startPressed', 'stopPressed', 'testPressed']) {
+    const runtimeType = builtinRuntimeType(component) ?? component.type
+    for (const key of ['energized', 'running', 'done', 'powered', 'powerReady', 'startPressed', 'stopPressed', 'testPressed', 'stoReleased', '_wasPowered', '_wasTrigger', '_offTiming', '_pulseActive']) {
       if (key in nextState) nextState[key] = false
     }
+    if (runtimeType === 'safetyRelay') Object.assign(nextState, { startupElapsedMs: 0, recoveryElapsedMs: 0, channel1On: false, channel2On: false, input1Closed: false, input2Closed: false })
+    if (runtimeType === 'pilotLightSchneiderIil1p' || runtimeType === 'pilotLightSchneiderIil3p') Object.assign(nextState, { on: false, l1On: false, l2On: false, l3On: false, phaseLoss: false })
+    if (runtimeType === 'meterD522066') Object.assign(nextState, { on: false, voltage: 0, current: 0, power: 0, frequency: 0 })
+    if (runtimeType === 'meterKws306') Object.assign(nextState, { on: false, vA: 0, vB: 0, vC: 0, iA: 0, iB: 0, iC: 0, pA: 0, pB: 0, pC: 0, frequency: 0 })
+    if (runtimeType === 'currentTransformerSplitCore') Object.assign(nextState, { primaryCurrentA: 0, secondaryCurrentA: 0 })
     // O disparo mecânico sobrevive a STOP/reabrir; só RESET (ou Reiniciar tudo) o limpa.
     if (
       component.type === 'ledGreen' ||
@@ -1358,6 +1351,11 @@ function deenergizeComponents(components: ElectricalComponent[]): ElectricalComp
     if ('pressedButton' in nextState) nextState.pressedButton = null
     for (const key of ['elapsedMs', 'rpmVisual', 'reading', 'frequencyHz']) {
       if (key in nextState) nextState[key] = 0
+    }
+    if (industrialDeviceTypeOf(component)) {
+      if ('on' in nextState) nextState.on = false
+      nextState._delayedEdges = []
+      if ('activeMs' in nextState) nextState.activeMs = 0
     }
     if ('direction' in nextState) nextState.direction = 'stopped'
     for (const key of ['inputs', 'outputs']) {
@@ -1990,7 +1988,12 @@ export const useSimStore = create<Store>((set, get) => {
       for (const key of ['elapsedMs', 'rpmVisual', 'reading', 'count', 'frequencyHz', 'heatLevel']) {
         if (key in nextState) nextState[key] = 0
       }
-      if ('direction' in nextState) nextState.direction = 'stopped'
+      if (industrialDeviceTypeOf(component)) {
+      if ('on' in nextState) nextState.on = false
+      nextState._delayedEdges = []
+      if ('activeMs' in nextState) nextState.activeMs = 0
+    }
+    if ('direction' in nextState) nextState.direction = 'stopped'
       for (const key of ['inputs', 'outputs', 'memories']) {
         const table = nextState[key]
         if (table && typeof table === 'object') nextState[key] = Object.fromEntries(Object.keys(table).map((address) => [address, false]))
@@ -2040,6 +2043,10 @@ export const useSimStore = create<Store>((set, get) => {
         },
       }))
     }
+    // STEP is a transport operation: stop a running scheduler, or leave STOP
+    // for a live paused simulation so field buttons remain operable afterwards.
+    // Exactly one scan is advanced, never a continuous RUN in the background.
+    if (get().sim.runState !== 'paused' || get()._intervalId) get().pause()
     const st = get()
     runOneTick(st as unknown as Store, 100)
     pushRuntime(set, st)

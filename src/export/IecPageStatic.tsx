@@ -2,7 +2,8 @@
  *  Reutiliza o mesmo `CmdSymbol`, `wirePoints` e cores de cabo do editor IEC, por isso o
  *  desenho exportado é o do ecrã (em repouso: sem simulação). */
 import type { CanvasText } from '../types'
-import { partBox, terminalAt, wirePoints, type CmdPart, type CmdWire, type CommandsDiagram, type Pt } from '../commands/model'
+import { partBox, type CmdPart, type CmdWire, type CommandsDiagram, type Pt } from '../commands/model'
+import { commandWirePoints } from '../commands/geometry'
 import { partsOnPage, textsOnPage, wiresOnPage } from '../commands/pages'
 import { emptyCmdRuntime, isClosed } from '../commands/engine'
 import { CmdSymbol, cmdTagBounds } from '../commands/symbols'
@@ -28,6 +29,10 @@ export function iecPageBounds(diagram: CommandsDiagram, pageId: string, free: Ca
     boxes.push(partBox(p))
     try { const t = cmdTagBounds(p); if (t) boxes.push(t as { x: number; y: number; w: number; h: number }) } catch { /* sem etiqueta */ }
   }
+  const byId = new Map(parts.map(p => [p.id, p]))
+  for (const wire of wiresOnPage(diagram, pageId)) {
+    for (const p of commandWirePoints(wire, byId)) boxes.push({ x: p.x, y: p.y, w: 0, h: 0 })
+  }
   for (const t of textsOnPage(diagram, pageId)) boxes.push(labelBox(t))
   for (const t of free) {
     const lines = t.text.split('\n')
@@ -47,8 +52,7 @@ export default function IecPageStatic({ diagram, pageId, free }: { diagram: Comm
   const byId = new Map<string, CmdPart>(parts.map((p) => [p.id, p]))
   const rt = emptyCmdRuntime()
   const pointsOf = (w: CmdWire): Pt[] => {
-    const a = byId.get(w.a.part), b = byId.get(w.b.part)
-    return a && b ? wirePoints(terminalAt(a, w.a.term), terminalAt(b, w.b.term), w.mid) : []
+    return commandWirePoints(w, byId)
   }
   return (
     <svg className="dc-cmd-svg iec-pdf-svg" xmlns="http://www.w3.org/2000/svg" width={box.w} height={box.h} viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} style={{ position: 'static' }}>
@@ -58,7 +62,7 @@ export default function IecPageStatic({ diagram, pageId, free }: { diagram: Comm
         if (pts.length < 2) return null
         return <path key={w.id} className="dc-cmd-wire" d={pts.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ')} stroke={wireHex(w)} strokeWidth={1.6} fill="none" />
       })}
-      {parts.map((part) => <g key={part.id}><CmdSymbol part={part} state={{ closed: isClosed(part, rt), idle: true }} /></g>)}
+      {parts.map((part) => <g key={part.id}><CmdSymbol interactive={false} part={part} state={{ closed: isClosed(part, rt), idle: true }} /></g>)}
       {free.map((t) => (
         <text key={t.id} x={t.x} y={t.y + t.size} fill={t.color} fontSize={t.size} fontWeight={t.bold ? 700 : 400} fontStyle={t.italic ? 'italic' : 'normal'}
           textAnchor={t.align === 'center' ? 'middle' : t.align === 'right' ? 'end' : 'start'}

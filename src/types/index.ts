@@ -12,6 +12,7 @@
 // ============================================================================
 
 import type { ImportedComponentType } from './imported'
+import type { IndustrialDeviceType } from '../electrical/industrialDevices'
 
 export type ComponentCategory =
   | 'protection'
@@ -29,6 +30,7 @@ export type ComponentCategory =
 
 export type ComponentType =
   | ImportedComponentType
+  | IndustrialDeviceType
   // --- Catálogo oficial (Editor 3D do Admin): cat:<id>:v<versão> ---------
   | `cat:${string}`
   // --- Proteção ---------------------------------------------------------
@@ -133,6 +135,7 @@ export type ComponentType =
   | 'multimeterDm20'
   | 'meterD522066'
   | 'meterKws306'
+  | 'currentTransformerSplitCore'
 
 /**
  * Tipos físicos de terminal/conexão do borne — inclui os terminais de cabo

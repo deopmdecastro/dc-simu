@@ -1,3 +1,4 @@
+import { isNativeProjectId, RETAINED_NATIVE_PROJECT_ID } from '../project/nativeProjectIds'
 import type { Invite, Project, User } from '../dashboard/Dashboard'
 import type { StoredProfile } from '../catalog/terminalProfiles'
 import type { CatalogEntry, CatalogMeta, CatalogVersion, ComponentDefinition } from '../catalog/types'
@@ -222,88 +223,16 @@ export async function supabaseGetProjects(): Promise<Project[]> {
 
   const rows = [...(ownedProjects || [])]
 
-  // Projetos nativos (ex.: «Partida direta (nativo)» — alimenta a landing):
-  // na conta de um administrador materializa-se uma cópia editável, marcada com
-  // content.nativeId para nunca duplicar (idempotente também depois de editar —
-  // a marca viaja no content através do saveJSON da loja).
-  if ((await resolveRole(user.id)) === 'admin') {
-    const { nativeProjectSeeds } = await import('../project/nativeProjects')
-    for (const seed of nativeProjectSeeds()) {
-      const exists = rows.some((row) => {
-        const content = row.content && typeof row.content === 'object' ? (row.content as Record<string, unknown>) : null
-        return content?.nativeId === seed.nativeId
-      })
-      if (exists) continue
-      // Exemplos GRAFCET: uma versão nova da semente (…-v8 → …-v9) atualiza a cópia existente em vez de criar outra ao lado.
-      const family = seed.nativeId.replace(/-v\d+$/, '-v')
-      const older = seed.id.startsWith('grafcet-')
-        ? rows.find((row) => {
-          const content = row.content && typeof row.content === 'object' ? (row.content as Record<string, unknown>) : null
-          return row.owner_id === user.id && typeof content?.nativeId === 'string' && content.nativeId.startsWith(family)
-        })
-        : undefined
-      if (older) {
-        const { data: updated, error: errUpdate } = await client
-          .from('projects')
-          .update({ name: seed.name, content: seed.content, updated_at: new Date().toISOString() })
-          .eq('id', older.id)
-          .eq('owner_id', user.id)
-          .select('id, name, revision, updated_at, content, owner_id')
-          .single()
-        if (!errUpdate && updated) rows[rows.indexOf(older)] = updated
-        else if (errUpdate) console.error('[native-seed] Falha ao atualizar projeto nativo:', errUpdate.message)
-        continue
-      }
-      const { data: created, error: errSeed } = await client
-        .from('projects')
-        .insert({ name: seed.name, owner_id: user.id, content: seed.content, revision: 0, updated_at: seed.updatedAt })
-        .select('id, name, revision, updated_at, content, owner_id')
-        .single()
-      if (!errSeed && created) rows.unshift(created)
-      else if (errSeed) console.error('[native-seed] Falha ao semear projeto nativo:', errSeed.message)
-    }
-
-    // Capa do cartão a partir do conteúdo real (cover 3D guardado, diagrama ou esquema),
-    // como nos backends local e servidor; sem isto o dashboard via sempre «Projeto vazio».
-    const { buildProjectPreview } = await import('../dashboard/projectPreview')
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      revision: row.revision ?? 0,
-      updated_at: row.updated_at,
-      preview: buildProjectPreview(row.content),
-      owner: row.owner_id === user.id ? 'Você' : 'Colaborador',
-      role: row.owner_id === user.id ? 'owner' : 'editor',
-    }))
-  }
-
-  // Contas não-admin (incluindo todas as contas Free e user@dcsimu.local):
-  // recebem os projetos nativos em falta como exemplos abertos (`role: 'editor'`,
-  // 0 vagas de proprietário consumidas), com rascunho isolado por utilizador.
+  // Reading a list never inserts, updates, deletes or reseeds any project.
   const [{ buildProjectPreview }, { listMissingFreeNativeProjects }] = await Promise.all([
-    import('../dashboard/projectPreview'),
-    import('../project/freeNativeSandbox'),
+    import('../dashboard/projectPreview'), import('../project/freeNativeSandbox'),
   ])
-  const mapped: Project[] = rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    revision: row.revision ?? 0,
-    updated_at: row.updated_at,
-    preview: buildProjectPreview(row.content),
-    owner: row.owner_id === user.id ? 'Você' : 'Colaborador',
+  const mapped: Project[] = rows.map(row => ({
+    id: row.id, name: row.name, revision: row.revision ?? 0, updated_at: row.updated_at,
+    preview: buildProjectPreview(row.content), owner: row.owner_id === user.id ? 'Você' : 'Colaborador',
     role: row.owner_id === user.id ? 'owner' : 'editor',
   }))
-  const markers = rows.map((row) => {
-    const content = row.content && typeof row.content === 'object' ? (row.content as Record<string, unknown>) : null
-    return {
-      id: row.id,
-      name: row.name,
-      nativeId: typeof content?.nativeId === 'string' ? content.nativeId : null,
-    }
-  })
-  return [...mapped, ...listMissingFreeNativeProjects(user.id, markers)].sort((a, b) =>
-    b.updated_at.localeCompare(a.updated_at),
-  )
+  return [...mapped, ...listMissingFreeNativeProjects(user.id, rows)].sort((a,b) => b.updated_at.localeCompare(a.updated_at))
 }
 
 /** Cria um novo projeto na base de dados Supabase */
@@ -338,6 +267,17 @@ export async function supabaseCreateProject(name: string, content: unknown): Pro
   }
 }
 
+/** A saved offline draft never shadows an accessible real row. A malformed
+ * legacy textual ID cannot exist in the UUID projects column; other backend
+ * errors (auth/network/schema) must not silently redirect writes to a draft. */
+async function hasLegacyDraftWithoutCloudRow(userId: string, projectId: string): Promise<boolean> {
+  const { hasLegacyFreeNativeDraft } = await import('../project/freeNativeSandbox')
+  if (!hasLegacyFreeNativeDraft(userId, projectId)) return false
+  const { data, error } = await clientOrThrow().from('projects').select('id').eq('id', projectId).maybeSingle()
+  if (error && error.code !== '22P02') throw new Error(`Não foi possível verificar o projeto cloud: ${error.message}`)
+  return !data
+}
+
 /** Carrega um projeto específico pelo ID */
 export async function supabaseGetProject(id: string): Promise<{ id: string; name: string; role: 'owner' | 'editor'; revision: number; content: unknown }> {
   const client = clientOrThrow()
@@ -345,8 +285,8 @@ export async function supabaseGetProject(id: string): Promise<{ id: string; name
 
   if (!user) throw new Error('Sessão expirada.')
 
-  const { isFreeNativeProjectId, openFreeNativeProject } = await import('../project/freeNativeSandbox')
-  if (isFreeNativeProjectId(id)) {
+  const { openFreeNativeProject } = await import('../project/freeNativeSandbox')
+  if (await hasLegacyDraftWithoutCloudRow((await client.auth.getUser()).data.user?.id ?? '', id)) {
     return openFreeNativeProject(user.id, id)
   }
 
@@ -374,8 +314,8 @@ export async function supabaseRenameProject(id: string, name: string): Promise<{
   const client = clientOrThrow()
   const { data: { user } } = await client.auth.getUser()
   if (!user) throw new Error('Sessão expirada.')
-  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
-  if (isFreeNativeProjectId(id)) {
+
+  if (await hasLegacyDraftWithoutCloudRow((await client.auth.getUser()).data.user?.id ?? '', id)) {
     throw new Error('Apenas o proprietário pode mudar o nome')
   }
   const trimmed = name.trim()
@@ -393,8 +333,8 @@ export async function supabaseRenameProject(id: string, name: string): Promise<{
 /** Atualiza o conteúdo de um projeto com controle de revisão */
 export async function supabaseUpdateProject(id: string, content: unknown, revision: number): Promise<{ ok: boolean; revision: number }> {
   const client = clientOrThrow()
-  const { isFreeNativeProjectId, saveFreeNativeProject } = await import('../project/freeNativeSandbox')
-  if (isFreeNativeProjectId(id)) {
+  const { saveFreeNativeProject } = await import('../project/freeNativeSandbox')
+  if (await hasLegacyDraftWithoutCloudRow((await client.auth.getUser()).data.user?.id ?? '', id)) {
     const { data: { user } } = await client.auth.getUser()
     if (!user) throw new Error('Sessão expirada.')
     const saved = saveFreeNativeProject(user.id, id, content, revision)
@@ -422,9 +362,10 @@ export async function supabaseUpdateProject(id: string, content: unknown, revisi
 
 /** Elimina um projeto no Supabase */
 export async function supabaseDeleteProject(id: string): Promise<{ ok: boolean }> {
+  if (isNativeProjectId(id)) throw new Error('O projeto nativo retido não pode ser eliminado.')
   const client = clientOrThrow()
-  const { isFreeNativeProjectId, resetFreeNativeProject } = await import('../project/freeNativeSandbox')
-  if (isFreeNativeProjectId(id)) {
+  const { resetFreeNativeProject } = await import('../project/freeNativeSandbox')
+  if (await hasLegacyDraftWithoutCloudRow((await client.auth.getUser()).data.user?.id ?? '', id)) {
     const { data: { user } } = await client.auth.getUser()
     if (!user) throw new Error('Sessão expirada.')
     return resetFreeNativeProject(user.id, id)
@@ -525,9 +466,8 @@ export async function supabaseInviteMember(projectId: string, email: string): Pr
 
 /** Obtém membros de um projeto */
 export async function supabaseFetchProjectMembers(projectId: string): Promise<{ members: Array<{ name: string; email: string }> }> {
-  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
-  if (isFreeNativeProjectId(projectId)) {
-    return { members: [{ name: 'DC-Simu', email: 'Exemplo nativo incluído na conta' }] }
+  if (await hasLegacyDraftWithoutCloudRow((await clientOrThrow().auth.getUser()).data.user?.id ?? '', projectId)) {
+    return { members: [] }
   }
   const client = clientOrThrow()
 
@@ -761,8 +701,8 @@ async function commentContext(projectId: string) {
 }
 
 export async function supabaseListComments(projectId: string) {
-  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
-  if (isFreeNativeProjectId(projectId)) {
+
+  if (await hasLegacyDraftWithoutCloudRow((await clientOrThrow().auth.getUser()).data.user?.id ?? '', projectId)) {
     const pricing = await supabaseGetPricing()
     return { comments: [], canWrite: false, reason: upgradeMessage(pricing, 'comments') }
   }
@@ -773,8 +713,8 @@ export async function supabaseListComments(projectId: string) {
 }
 
 export async function supabaseAddComment(projectId: string, body: { body?: unknown; anchor?: unknown }) {
-  const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
-  if (isFreeNativeProjectId(projectId)) {
+
+  if (await hasLegacyDraftWithoutCloudRow((await clientOrThrow().auth.getUser()).data.user?.id ?? '', projectId)) {
     const pricing = await supabaseGetPricing()
     throw new Error(upgradeMessage(pricing, 'comments'))
   }
@@ -1046,11 +986,7 @@ export async function supabaseGetLandingPublished() {
     return nativeLandingPayload()
   }
   const { data: setting } = await client.from('platform_settings').select('value').eq('key', 'landing_published_project').maybeSingle()
-  const projectId = (setting?.value as { projectId?: string } | null)?.projectId
-  if (!projectId) {
-    const { nativeLandingPayload } = await import('../project/landingPublish')
-    return nativeLandingPayload()
-  }
+  const projectId = (setting?.value as { projectId?: string } | null)?.projectId ?? RETAINED_NATIVE_PROJECT_ID
   const { data: project, error } = await client
     .from('projects')
     .select('id, name, revision, updated_at, owner_id, content, profiles:owner_id(email)')
@@ -1067,7 +1003,7 @@ export async function supabaseGetLandingPublished() {
     owner,
     revision: project.revision ?? 0,
     updatedAt: project.updated_at,
-    isNative: false,
+    isNative: isNativeProjectId(project.id),
     content: (project.content && typeof project.content === 'object' ? project.content : {}) as Record<string, unknown>,
   }
 }
@@ -1096,7 +1032,7 @@ export async function supabaseSetLandingPublish(projectId: string | null) {
       updated_at: now,
       updated_by: user?.email || 'admin',
     })
-    return { projectId: '', isNative: true }
+    return { projectId: '', isNative: false }
   }
   const { data: project } = await client.from('projects').select('id, name, profiles:owner_id(email)').eq('id', projectId).maybeSingle()
   if (!project) throw new Error('Projeto não encontrado')
@@ -1110,6 +1046,6 @@ export async function supabaseSetLandingPublish(projectId: string | null) {
     projectId: project.id,
     name: project.name,
     owner: (project as { profiles?: { email?: string } }).profiles?.email || '',
-    isNative: false,
+    isNative: isNativeProjectId(project.id),
   }
 }

@@ -1,8 +1,9 @@
+import { builtinRuntimeType } from '../electrical/builtinRuntime'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { meterBridgeFor, meterInputFor } from '../electrical/meterModel'
 import type { ElectricalComponent } from '../types'
-import { EMPTY_METER_INPUT, initialVars, isSpringReturn, mergeVars, multimeterReading, runControlActions, selectorStep, setSelector, springHold, type MeterReading, type Vars } from './behavior'
+import { EMPTY_METER_INPUT, initialVars, industrialRotaryActions, isSpringReturn, mergeVars, multimeterReading, runControlActions, selectorStep, setSelector, springHold, type MeterReading, type Vars } from './behavior'
 import type { ComponentDefinition, ControlDef } from './types'
 
 /** `down`/`up`: premir e largar um botão com mola (`returnMode: 'spring'`). */
@@ -25,10 +26,13 @@ export function triggerControl(
   if (store.sim.runState === 'stopped' && !opts?.allowStopped) return
   const live = store.components.find((item) => item.id === componentId)
   if (!live) return
-  let vars: Vars = mergeVars(def, live.state?.catalogVars as Vars | undefined)
+  const industrial=builtinRuntimeType(live)
+  let vars: Vars = {...mergeVars(def, live.state?.catalogVars as Vars | undefined),...(industrial?Object.fromEntries(Object.entries(live.state).filter(([k,v])=>!k.startsWith('$')&&['boolean','string','number'].includes(typeof v))):{})}
   let state = String(live.state?.catalogState ?? def.initialState)
   const delayed: Array<{ state: string; afterMs: number }> = []
-  if (control.kind === 'selector') {
+  const rotary=typeof gesture==='object'&&'step' in gesture?industrialRotaryActions(control,gesture.step):null
+  if(rotary){const result=runControlActions(rotary,vars,state);vars=result.vars;state=result.state}
+  else if (control.kind === 'selector') {
     const target = typeof gesture === 'object' && 'select' in gesture ? gesture.select : selectorStep(control, vars, typeof gesture === 'object' && 'step' in gesture ? gesture.step : 1)
     if (!target) return
     vars = setSelector(control, vars, target)
@@ -52,7 +56,8 @@ export function triggerControl(
   const dm20Sync = live.type === 'multimeterDm20'
     ? { selector: String(vars.dial ?? 'off'), hold: Boolean(vars.hold), backlight: Boolean(vars.light) }
     : {}
-  store.setComponentState(componentId, { ...dm20Sync, catalogVars: vars, catalogState: state, meterBridge: bridge })
+  const industrialSync=industrial?Object.fromEntries(Object.entries(vars).filter(([k])=>!k.startsWith('$')&&k!=='industrialOrigin'&&k!=='builtinOrigin')):{}
+  store.setComponentState(componentId, { ...industrialSync, ...dm20Sync, catalogVars: vars, catalogState: state, meterBridge: bridge })
   const list = timers.get(componentId) ?? []
   for (const action of delayed) list.push(window.setTimeout(() => useSimStore.getState().setComponentState(componentId, { catalogState: action.state }), Math.max(0, action.afterMs)))
   timers.set(componentId, list)
@@ -65,6 +70,7 @@ export function useCatalogMeter(component: ElectricalComponent | undefined, def:
   const energized = useSimStore((s) => s.runtime.energizedTerminals)
   const runState = useSimStore((s) => s.sim.runState)
   const stored = component?.state?.catalogVars as Vars | undefined
+  const physicalSignature=component&&builtinRuntimeType(component)?JSON.stringify(Object.entries(component.state).filter(([,v])=>['boolean','string','number'].includes(typeof v))):''
   const legacyDial = typeof component?.state?.selector === 'string' && component.state.selector !== 'off' ? component.state.selector : undefined
   const legacyHold = component?.state?.hold === true ? true : undefined
   const legacyLight = component?.state?.backlight === true ? true : undefined
@@ -79,8 +85,8 @@ export function useCatalogMeter(component: ElectricalComponent | undefined, def:
         ...(legacyLight ? { light: true } : {}),
       }
     }
-    return merged
-  }, [def, stored, legacyDial, legacyHold, legacyLight])
+    return component&&builtinRuntimeType(component)?{...merged,...Object.fromEntries(Object.entries(component.state).filter(([,v])=>['boolean','string','number'].includes(typeof v)))}:merged
+  }, [def, stored, legacyDial, legacyHold, legacyLight, physicalSignature])
   const isMeter = def?.behavior?.type === 'multimeter'
   const [noise, setNoise] = useState(0)
   useEffect(() => {

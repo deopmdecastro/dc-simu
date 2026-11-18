@@ -1,0 +1,50 @@
+
+> dc-simu@2.0.0 test:meters-schneider-admin-ui
+> node scripts/meters-schneider-admin-ui-smoke.mjs
+
+PASS — residualBreakerSchneiderIid4p: integrado disponível na biblioteca Admin, sem bloqueio
+PASS — residualBreakerSchneiderIid4p: Editar no 3D importa o aparelho completo com montagem DIN
+PASS — residualBreakerSchneiderIid4p: dimensões físicas corretas no viewport Admin (72.03 × 85.00 × 73.50 mm)
+PASS — residualBreakerSchneiderIid4p: Guardar rascunho persiste a edição local
+PASS — residualBreakerSchneiderIid4p: reabrir conserva metadados e identidades dos bornes
+PASS — residualBreakerSchneiderIid4p: abrir o placeholder antigo migra o corpo e conserva o ID da peça
+PASS — residualBreakerSchneiderIid4p: migração real do editor conserva IDs, rótulos e nomes dos bornes
+PASS — residualBreakerSchneiderIid4p: abertura direta cria os dois controlos corretos, sem toggle genérico
+PASS — residualBreakerSchneiderIid4p: migração pode ser guardada sem publicar qualquer versão
+PASS — residualBreakerSchneiderIid4p: migração guardada é estável depois de recarregar
+PASS — residualBreakerSchneiderIid4p: Admin representa I.ON com a fita vermelha correta
+PASS — residualBreakerSchneiderIid4p: T é operável pela malha real também em Simular do Admin
+PASS — residualBreakerSchneiderIid4p: T Admin tem curso físico de 1,2 mm
+PASS — residualBreakerSchneiderIid4p: Admin representa TRIP na posição intermédia, não em OFF
+PASS — residualBreakerSchneiderIid4p: soltar T fora do viewport Admin mantém o disparo e liberta a mola
+PASS — residualBreakerSchneiderIid4p: T Admin não arrasta a câmara e repõe OrbitControls
+PASS — residualBreakerSchneiderIid4p: T Admin está premido antes de cancelar
+PASS — residualBreakerSchneiderIid4p: pointercancel Admin liberta T sem rearmar nem rodar a câmara
+PASS — residualBreakerSchneiderIid4p: pega real no Admin rearma o diferencial e mostra I.ON
+PASS — residualBreakerSchneiderIid4p: segundo clique Admin abre em O.OFF verde
+PASS — residualBreakerSchneiderIid4p: exportar GLB Admin conserva as três regiões de sinalização
+PASS — residualBreakerSchneiderIid4p: Admin sem exceções ou React #310 — OK
+PASS — residualBreakerSchneiderIdpnVigi: integrado disponível na biblioteca Admin, sem bloqueio
+PASS — residualBreakerSchneiderIdpnVigi: Editar no 3D importa o aparelho completo com montagem DIN
+PASS — residualBreakerSchneiderIdpnVigi: dimensões físicas corretas no viewport Admin (36.03 × 85.00 × 73.00 mm)
+PASS — residualBreakerSchneiderIdpnVigi: Guardar rascunho persiste a edição local
+PASS — residualBreakerSchneiderIdpnVigi: reabrir conserva metadados e identidades dos bornes
+PASS — residualBreakerSchneiderIdpnVigi: abrir o placeholder antigo migra o corpo e conserva o ID da peça
+PASS — residualBreakerSchneiderIdpnVigi: migração real do editor conserva IDs, rótulos e nomes dos bornes
+PASS — residualBreakerSchneiderIdpnVigi: abertura direta cria os dois controlos corretos, sem toggle genérico
+PASS — residualBreakerSchneiderIdpnVigi: migração pode ser guardada sem publicar qualquer versão
+PASS — residualBreakerSchneiderIdpnVigi: migração guardada é estável depois de recarregar
+PASS — residualBreakerSchneiderIdpnVigi: Admin representa I.ON com a fita vermelha correta
+PASS — residualBreakerSchneiderIdpnVigi: T é operável pela malha real também em Simular do Admin
+PASS — residualBreakerSchneiderIdpnVigi: T Admin tem curso físico de 1,2 mm
+PASS — residualBreakerSchneiderIdpnVigi: Admin representa TRIP na posição intermédia, não em OFF
+PASS — residualBreakerSchneiderIdpnVigi: soltar T fora do viewport Admin mantém o disparo e liberta a mola
+PASS — residualBreakerSchneiderIdpnVigi: T Admin não arrasta a câmara e repõe OrbitControls
+PASS — residualBreakerSchneiderIdpnVigi: T Admin está premido antes de cancelar
+PASS — residualBreakerSchneiderIdpnVigi: pointercancel Admin liberta T sem rearmar nem rodar a câmara
+PASS — residualBreakerSchneiderIdpnVigi: pega real no Admin rearma o diferencial e mostra I.ON
+PASS — residualBreakerSchneiderIdpnVigi: segundo clique Admin abre em O.OFF verde
+PASS — residualBreakerSchneiderIdpnVigi: exportar GLB Admin conserva as três regiões de sinalização
+PASS — residualBreakerSchneiderIdpnVigi: Admin sem exceções ou React #310 — OK
+
+44 verificações reais do catálogo/editor Admin passaram, apenas em armazenamento local isolado.

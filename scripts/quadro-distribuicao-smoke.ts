@@ -5,6 +5,7 @@ import {
   NATIVE_QUADRO_DISTRIBUICAO_NAME,
 } from '../src/project/nativeQuadroDistribuicao'
 import { nativeProjectSeeds } from '../src/project/nativeProjects'
+import { isNativeProjectId, RETAINED_NATIVE_PROJECT_ID } from '../src/project/nativeProjectIds'
 import {
   FREE_NATIVE_PROJECT_IDS, listMissingFreeNativeProjects, openFreeNativeProject,
   saveFreeNativeProject, resetFreeNativeProject,
@@ -63,22 +64,14 @@ check(!live(withOpen('ID_TRIF'), [terminal('ID_GERAL', 'N2')]).has(terminal('TOM
 
 const seeds = nativeProjectSeeds().filter((seed) => seed.id === NATIVE_QUADRO_DISTRIBUICAO_ID)
 check(seeds.length === 1 && seeds[0].name === NATIVE_QUADRO_DISTRIBUICAO_NAME && seeds[0].ownerId === 'dcsimu-admin', 'QGD registado uma única vez na lista nativa da conta Admin')
-check((FREE_NATIVE_PROJECT_IDS as readonly string[]).includes(NATIVE_QUADRO_DISTRIBUICAO_ID), 'QGD incluído explicitamente nos nativos Free')
-const missing = listMissingFreeNativeProjects('qgd-user-a', []).find((p) => p.id === NATIVE_QUADRO_DISTRIBUICAO_ID)
-check(missing?.role === 'editor' && missing.owner === 'DC-Simu', 'Nativo Free não consome uma vaga de proprietário')
-check(!listMissingFreeNativeProjects('qgd-user-a', [{ id: NATIVE_QUADRO_DISTRIBUICAO_ID }]).some((p) => p.id === NATIVE_QUADRO_DISTRIBUICAO_ID), 'Lista não duplica um QGD já existente')
-const edited = structuredClone(content)
-;(edited.components as ElectricalComponent[])[0].label = 'Rascunho privado QGD'
-const saved = saveFreeNativeProject('qgd-user-a', NATIVE_QUADRO_DISTRIBUICAO_ID, edited, 0)
-check(saved.revision === 1 && (openFreeNativeProject('qgd-user-a', NATIVE_QUADRO_DISTRIBUICAO_ID).content as typeof content).components !== undefined, 'QGD Free abre, edita e guarda com revisão')
-check(((openFreeNativeProject('qgd-user-b', NATIVE_QUADRO_DISTRIBUICAO_ID).content as typeof content).components as ElectricalComponent[])[0].label !== 'Rascunho privado QGD', 'Rascunhos isolados entre utilizadores')
-assert.throws(() => saveFreeNativeProject('qgd-user-a', NATIVE_QUADRO_DISTRIBUICAO_ID, content, 0), /noutro separador/)
-check(true, 'Conflito de revisão impede sobrescrever uma gravação mais recente')
-resetFreeNativeProject('qgd-user-a', NATIVE_QUADRO_DISTRIBUICAO_ID)
-check(openFreeNativeProject('qgd-user-a', NATIVE_QUADRO_DISTRIBUICAO_ID).revision === 0, 'Repor restaura o QGD de fábrica')
+check(!isNativeProjectId(NATIVE_QUADRO_DISTRIBUICAO_ID) && isNativeProjectId(RETAINED_NATIVE_PROJECT_ID), 'QGD legado não é reclassificado como nativo; só o UUID cloud retido é nativo')
+check(FREE_NATIVE_PROJECT_IDS.length === 0, 'não há cartões nativos sintéticos nem cópias QGD automaticamente semeadas')
+check(listMissingFreeNativeProjects('qgd-user-a', []).length === 0, 'uma conta limpa não recebe QGD nem outros exemplos locais inventados')
+assert.throws(() => openFreeNativeProject('qgd-user-a', NATIVE_QUADRO_DISTRIBUICAO_ID), /não encontrado/)
+check(true, 'abrir um QGD ausente não fabrica conteúdo em substituição da cloud')
 
-// Contrato real do backend local: duas sessões sintéticas; nunca usa uma API
-// externa ou a conta/sessão de uma pessoa. Restaura a propriedade global no fim.
+// Contrato real do backend local, incluindo um rascunho que JÁ existia.
+// Armazenamento descartável; nunca toca nos projetos de uma pessoa real.
 const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 const memory = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -88,21 +81,40 @@ Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
   key: (index: number) => [...memory.keys()][index] ?? null, get length() { return memory.size },
 } })
 try {
+  const key = `dcsimu:free-native-draft:v1:dcsimu-user:${NATIVE_QUADRO_DISTRIBUICAO_ID}`
+  const edited = structuredClone(content)
+  ;(edited.components as ElectricalComponent[])[0].label = 'Rascunho privado QGD'
+  const draft = JSON.stringify({ revision: 0, updatedAt: '2025-01-01T00:00:00Z', content: edited })
+  localStorage.setItem(key, draft)
+  const missing = listMissingFreeNativeProjects('dcsimu-user', [])
+  check(missing.length === 1 && missing[0].role === 'editor' && missing[0].owner !== 'DC-Simu', 'rascunho QGD já existente continua acessível e identificado como local antigo')
+  check(localStorage.getItem(key) === draft, 'listar não reescreve o rascunho nem perde a edição pessoal')
+  check(!listMissingFreeNativeProjects('dcsimu-user', [{ id: NATIVE_QUADRO_DISTRIBUICAO_ID }]).length, 'linha real com o mesmo ID não é sombreada por um segundo cartão local')
+  const saved = saveFreeNativeProject('dcsimu-user', NATIVE_QUADRO_DISTRIBUICAO_ID, edited, 0)
+  check(saved.revision === 1 && openFreeNativeProject('dcsimu-user', NATIVE_QUADRO_DISTRIBUICAO_ID).revision === 1, 'rascunho legado mantém gravação por revisão')
+  assert.throws(() => saveFreeNativeProject('dcsimu-user', NATIVE_QUADRO_DISTRIBUICAO_ID, content, 0), /noutro separador/)
+  assert.throws(() => openFreeNativeProject('another-user', NATIVE_QUADRO_DISTRIBUICAO_ID), /não encontrado/)
+  check(true, 'conflitos e isolamento entre utilizadores permanecem efetivos')
   localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-user')
   const rows = await localApi<Array<{ id: string; role: string }>>('/projects')
-  check(rows.some((p) => p.id === NATIVE_QUADRO_DISTRIBUICAO_ID && p.role === 'editor'), 'API lista o QGD para a conta de utilizador normal')
-  for (let i = 0; i < 3; i++) await localApi('/projects', 'POST', { name: `Projeto pessoal de teste ${i}`, content: {} })
+  check(rows.some(p => p.id === NATIVE_QUADRO_DISTRIBUICAO_ID && p.role === 'editor'), 'API local lista apenas o rascunho realmente existente')
+  const ids: string[] = []
+  for (let i = 0; i < 3; i++) {
+    const p = await localApi<{ id: string }>('/projects', 'POST', { name: i ? `Projeto pessoal de teste ${i}` : 'DC-Simu — QGD pessoal', content: i ? {} : content })
+    ids.push(p.id)
+  }
   await assert.rejects(localApi('/projects', 'POST', { name: 'Excede quota', content: {} }), /limite|plano|Free|projetos/i)
-  const opened = await localApi<{ revision: number; content: unknown }>(`/projects/${NATIVE_QUADRO_DISTRIBUICAO_ID}`)
+  const personal = await localApi<{ role: string; content: typeof content }>(`/projects/${ids[0]}`)
+  check(personal.role === 'owner' && (personal.content.components as ElectricalComponent[]).length === 47, 'cópia QGD pessoal com nome DC-Simu mantém propriedade e todos os componentes')
+  const opened = await localApi<{ revision: number }>(`/projects/${NATIVE_QUADRO_DISTRIBUICAO_ID}`)
   await localApi(`/projects/${NATIVE_QUADRO_DISTRIBUICAO_ID}`, 'PUT', { revision: opened.revision, content: edited })
   const reopened = await localApi<{ content: { components: ElectricalComponent[] } }>(`/projects/${NATIVE_QUADRO_DISTRIBUICAO_ID}`)
-  check(reopened.content.components[0].label === 'Rascunho privado QGD', 'Conta Free abre e guarda o QGD mesmo com a quota de três projetos pessoais cheia')
-  localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
-  const admin = await localApi<{ role: string; content: { components: ElectricalComponent[] } }>(`/projects/${NATIVE_QUADRO_DISTRIBUICAO_ID}`)
-  check(admin.role === 'owner' && admin.content.components[0].label !== 'Rascunho privado QGD', 'Admin mantém a semente original; o rascunho Free não a altera')
+  check(reopened.content.components[0].label === 'Rascunho privado QGD', 'rascunho local existente pode guardar com a quota pessoal cheia')
+  resetFreeNativeProject('dcsimu-user', NATIVE_QUADRO_DISTRIBUICAO_ID)
+  check(!listMissingFreeNativeProjects('dcsimu-user', []).length, 'reposição explícita remove só o rascunho, sem o voltar a semear')
+  check((await localApi<{ role: string }>(`/projects/${ids[0]}`)).role === 'owner', 'repor rascunho não elimina nem altera o projeto pessoal')
 } finally {
   if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage)
   else Reflect.deleteProperty(globalThis, 'localStorage')
-  resetFreeNativeProject('dcsimu-user', NATIVE_QUADRO_DISTRIBUICAO_ID)
 }
-console.log(`\n${checks} verificações do QGD nativo passaram.`)
+console.log(`\n${checks} verificações QGD e compatibilidade passaram.`)

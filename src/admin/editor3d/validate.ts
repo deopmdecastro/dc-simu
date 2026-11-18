@@ -71,7 +71,7 @@ export function validateDefinition(def: ComponentDefinition, meta: CatalogMeta):
     if (control.hitArea && !localControlArea(control)) issues.push({ level: 'error', text: `O controlo «${control.name}» tem uma área de clique inválida: use posição finita e dimensões positivas.` })
     if (control.kind === 'selector' && control.positions.length < 2) issues.push({ level: 'warn', text: `O seletor «${control.name}» tem menos de 2 posições.` })
     if (control.kind === 'selector' && control.bindVar && !varIds.has(control.bindVar)) issues.push({ level: 'warn', text: `O seletor «${control.name}» escreve numa variável que não existe.` })
-    if (control.kind !== 'selector' && control.actions.length === 0) issues.push({ level: 'warn', text: `O botão «${control.name}» não tem ações.` })
+    if (control.kind !== 'selector' && control.actions.length === 0 && !control.longActions?.length) issues.push({ level: 'warn', text: `O botão «${control.name}» não tem ações.` })
     if (control.returnMode === 'spring' && control.kind !== 'selector' && !control.actions.some((action) => action.type === 'toggleVar' || action.type === 'setVar') && !control.bindVar) issues.push({ level: 'warn', text: `O botão com mola «${control.name}» não altera nenhuma variável: ao largar não há nada para repor.` })
     if (control.kind !== 'selector' && control.motion?.mode === 'tilt') {
       if (Math.abs(control.motion.angleOn - control.motion.angleOff) < 1) issues.push({ level: 'warn', text: `O manípulo «${control.name}» tem os mesmos ângulos em ON e OFF: não vai mexer.` })

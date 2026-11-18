@@ -6,6 +6,7 @@ import { resolve } from 'node:path'
 import { passwordProblem, registerAdmin } from './admin.mjs'
 import { registerCatalog } from './catalog.mjs'
 import { migrateSaas, registerSaas } from './saas.mjs'
+import { isNativeProjectId } from '../src/project/nativeProjectPolicy.mjs'
 
 const dir = process.env.DATA_DIR || './data'
 mkdirSync(dir, { recursive: true })
@@ -296,7 +297,13 @@ app.put('/api/projects/:id',auth,project,(req,res)=>{
  if (!result.changes)return fail(res,409,'Este projeto foi alterado noutro separador ou por outro membro. Reabra-o antes de guardar.')
  res.json({revision:revision+1})
 })
-app.delete('/api/projects/:id',auth,project,(req,res)=>{if(req.project.role!=='owner')return fail(res,403,'Apenas o proprietário pode eliminar');db.prepare('DELETE FROM projects WHERE id=?').run(req.project.id);auditReq(req,'project.delete',{type:'project',id:req.project.id,label:req.project.name});res.json({ok:true})})
+app.delete('/api/projects/:id',auth,project,(req,res)=>{
+ if(req.project.role!=='owner')return fail(res,403,'Apenas o proprietário pode eliminar')
+ if(isNativeProjectId(req.project.id))return fail(res,403,'O projeto nativo retido não pode ser eliminado.')
+ db.prepare('DELETE FROM projects WHERE id=?').run(req.project.id)
+ auditReq(req,'project.delete',{type:'project',id:req.project.id,label:req.project.name})
+ res.json({ok:true})
+})
 app.get('/api/projects/:id/members',auth,project,(req,res)=>res.json({members:db.prepare('SELECT u.name,u.email FROM members m JOIN users u ON u.id=m.user_id WHERE m.project_id=?').all(req.project.id)}))
 app.post('/api/projects/:id/invitations',auth,project,saas.inviteLimit,(req,res)=>{
  if(req.project.role!=='owner')return fail(res,403,'Apenas o proprietário pode convidar')

@@ -4,7 +4,8 @@ import { loadModelMm } from './detect-interfaces'
 import { getComponentModelSpec } from '../src/three/modelPaths'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
 import { createComponent, terminalByLabel } from '../src/electrical/factory'
-import { terminalMarkerRadius, terminalNormalWorld3D } from '../src/three/terminal3D'
+import { terminalLocal3D, terminalMarkerRadius, terminalNormalWorld3D } from '../src/three/terminal3D'
+import { applyIndustrialState } from '../src/three/industrialFinish'
 import type { ComponentType } from '../src/types'
 import '../src/catalog/holeDetect'
 
@@ -20,9 +21,24 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   assert.ok(model, `${type}: GLB em falta`)
   const { root, box, phys } = model
   const size = box.getSize(new THREE.Vector3())
-  for (const [actual, expected] of [[size.x, phys.width], [size.y, phys.height], [size.z, phys.depth]]) {
+  let preservedFrame: THREE.Object3D | undefined
+  root.traverse(node => { if (node.userData.cadScalePreserved && node.userData.physicalFrameMm) preservedFrame = node })
+  if (preservedFrame) {
+    // An open clip / OFF rocker is not the nominal placement frame. Verify the
+    // manufacturer STEP's uniform metre→mm scale instead of stretching it.
+    const scale = preservedFrame.getWorldScale(new THREE.Vector3())
+    assert.ok([scale.x, scale.y, scale.z].every(k => Math.abs(k - 1000) < 1e-5), `${type}: escala física uniforme do CAD`)
+  } else for (const [actual, expected] of [[size.x, phys.width], [size.y, phys.height], [size.z, phys.depth]]) {
     assert.ok(Math.abs(actual - expected) < .001, `${type}: modelo e bornes usam volumes diferentes`)
   }
+  if (type === 'vfdSchneiderAtv320') {
+    // A closed service cover correctly occludes control terminals. Verify the
+    // accessible, open state instead of accepting a cable through the cover.
+    applyIndustrialState(root, type, { controlCoverOpen: true }, false, false)
+    assert.equal(root.getObjectByName('industrial_control_cover')?.visible, false, 'ATV320: acesso aos bornes pela tampa de serviço aberta')
+  }
+  const visibleMeshes: THREE.Object3D[] = []
+  root.traverseVisible(node => { if ((node as THREE.Mesh).isMesh) visibleMeshes.push(node) })
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh) return
@@ -35,8 +51,7 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   for (const spot of REAL_TERMINALS[type]!) {
     const terminal = terminalByLabel(component, spot.label)!
     assert.ok(terminal, `${type}.${spot.label}: ligação em falta`)
-    const at = terminal.position3D!
-    const p = new THREE.Vector3((at.x - .5) * size.x, (at.y - .5) * size.y, (at.z - .5) * size.z)
+    const p = terminalLocal3D(component, terminal).multiplyScalar(100)
     const axis = ({ front: 2, back: 2, left: 0, right: 0, top: 1, bottom: 1 } as const)[spot.face]
     const sign = ['front', 'right', 'top'].includes(spot.face) ? 1 : -1
     const u = (axis + 1) % 3, v = (axis + 2) % 3
@@ -44,8 +59,20 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
     const sample = (a: number, b: number) => {
       const origin = p.clone().setComponent(axis, start)
       origin.setComponent(u, origin.getComponent(u) + a).setComponent(v, origin.getComponent(v) + b)
-      ray.set(origin, new THREE.Vector3().setComponent(axis, -sign))
-      return ray.intersectObject(root, true)[0]?.distance ?? Infinity
+      const direction = new THREE.Vector3().setComponent(axis, -sign)
+      ray.set(origin, direction)
+      const hit = ray.intersectObjects(visibleMeshes, false)[0]
+      if (hit) return hit.distance
+      // Float32 cap triangle fans can miss their exact common vertex in BVH.
+      // Retry ONLY an empty ray by one nanometre, never replace a finite
+      // obstruction. Use the nearest hit conservatively at this tiny tolerance.
+      const retries: number[] = []
+      for (const delta of [-.000001, .000001]) {
+        ray.set(origin.clone().setComponent(u, origin.getComponent(u) + delta), direction)
+        const retry = ray.intersectObjects(visibleMeshes, false)[0]
+        if (retry) retries.push(retry.distance)
+      }
+      return retries.length ? Math.min(...retries) : Infinity
     }
     const floor = sample(0, 0), ring: number[] = []
     const radius = (spot.diameterMm ?? 4) * .65

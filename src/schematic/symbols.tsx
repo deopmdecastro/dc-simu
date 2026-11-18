@@ -390,13 +390,29 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       }
 
       // ----------------------------------------------------------------- relés
+      case 'safetyRelay': {
+        const green = '#39c869', body = '#9a252b'
+        return <g>
+          <rect x={3} y={12} width={w-6} height={h-24} rx={3} fill={body} stroke={s}/>
+          <text x={w/2} y={43} textAnchor="middle" fontSize={11} fill="#fff">{c.ref} · MSR127TP</text>
+          <text x={w/2} y={58} textAnchor="middle" fontSize={8} fill="#f4dadd">24 V AC/DC · 3 NO + 1 NC</text>
+          {(['PWR','CH1','CH2'] as const).map((name,i)=><g key={name}>
+            <circle cx={w*.23+i*w*.27} cy={78} r={3.5} fill={(i===0?c.state.powered:c.state.energized)?green:'#4b4b3e'}/>
+            <text x={w*.23+i*w*.27} y={92} textAnchor="middle" fontSize={8} fill="#fff">{name}</text>
+          </g>)}
+          <text x={w/2} y={108} textAnchor="middle" fontSize={8} fill="#fff">START S12–S34 · TP</text>
+          {c.terminals.map(t=>{
+            const x=t.x*w,top=t.y<.5
+            return <text key={t.id} x={x} y={top?23:h-17} textAnchor="middle" fontSize={7} fill="#fff">{t.label}</text>
+          })}
+        </g>
+      }
       case 'auxRelay':
       case 'auxRelay4':
       case 'timerRelayTON':
       case 'timerRelayTOF':
       case 'timerRelayStarDelta':
-      case 'counterRelay':
-      case 'safetyRelay': {
+      case 'counterRelay': {
         const isTimer = c.type.startsWith('timerRelay')
         const isCounter = c.type === 'counterRelay'
         return (
@@ -798,6 +814,16 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
             {label(4, 10, c.ref, 9, '#93c5fd')}
           </g>
         )
+      }
+      case 'currentTransformerSplitCore': {
+        return <g>
+          <rect x={4} y={4} width={w-8} height={h-8} rx={5} fill="#242b29" stroke="#59625e" />
+          <circle cx={w/2} cy={h*.37} r={w*.23} fill="none" stroke="#c3cbc4" strokeWidth={3}/>
+          <path d={`M ${w/2} 2 V ${h*.66}`} stroke="#9b623a" strokeWidth={2}/>
+          <text x={w/2} y={h*.78} textAnchor="middle" fontSize={7} fill="#d8e4dc">TC Ø16</text>
+          <text x={w/2} y={h*.92} textAnchor="middle" fontSize={6} fill="#aabdb2">S1 · S2</text>
+          {label(3,10,c.ref,7,'#93c5fd')}
+        </g>
       }
       case 'meterD522066': {
         const on = c.state.on !== false

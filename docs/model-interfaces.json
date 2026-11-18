@@ -9834,5 +9834,1870 @@
         ]
       }
     ]
+  },
+  "residualBreakerSchneiderIdpnVigi": {
+    "physical": {
+      "width": 36,
+      "height": 85,
+      "depth": 73
+    },
+    "holes": [
+      {
+        "face": "top",
+        "mm": [
+          4.1,
+          42.3,
+          -16.4
+        ],
+        "frac": [
+          0.613,
+          0.003,
+          0.275
+        ],
+        "d": 10.8,
+        "depth": 12.2,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          13.1,
+          42.5,
+          -16.2
+        ],
+        "frac": [
+          0.863,
+          0,
+          0.277
+        ],
+        "d": 10.1,
+        "depth": 12.7,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          -13.4,
+          42.5,
+          -19.1
+        ],
+        "frac": [
+          0.127,
+          0,
+          0.238
+        ],
+        "d": 8.3,
+        "depth": 13.5,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          -4.9,
+          42.5,
+          -14.2
+        ],
+        "frac": [
+          0.364,
+          0,
+          0.305
+        ],
+        "d": 8.2,
+        "depth": 13.5,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          -4.8,
+          -41.8,
+          -11.7
+        ],
+        "frac": [
+          0.367,
+          0.992,
+          0.34
+        ],
+        "d": 9.6,
+        "depth": 11.2,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          -13.2,
+          -42.2,
+          -16.6
+        ],
+        "frac": [
+          0.133,
+          0.996,
+          0.272
+        ],
+        "d": 9.3,
+        "depth": 11.5,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          4.9,
+          -42.5,
+          -19.1
+        ],
+        "frac": [
+          0.636,
+          1,
+          0.238
+        ],
+        "d": 8.2,
+        "depth": 13.5,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          13.4,
+          -42.5,
+          -14.2
+        ],
+        "frac": [
+          0.873,
+          1,
+          0.305
+        ],
+        "d": 8.2,
+        "depth": 13.5,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          4.9,
+          -35.1,
+          11.7
+        ],
+        "frac": [
+          0.635,
+          0.913,
+          0.66
+        ],
+        "d": 6.6,
+        "depth": 5.4,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          13.4,
+          -35.1,
+          11.7
+        ],
+        "frac": [
+          0.873,
+          0.913,
+          0.66
+        ],
+        "d": 6.6,
+        "depth": 5.4,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          -13.4,
+          35.1,
+          11.7
+        ],
+        "frac": [
+          0.127,
+          0.087,
+          0.66
+        ],
+        "d": 6.6,
+        "depth": 5.4,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          -4.9,
+          35.1,
+          11.7
+        ],
+        "frac": [
+          0.365,
+          0.087,
+          0.66
+        ],
+        "d": 6.6,
+        "depth": 5.4,
+        "through": false
+      }
+    ],
+    "parts": [
+      {
+        "name": "schneider_body_1pn",
+        "volume": 213677.0450642094,
+        "centre": [
+          0,
+          0,
+          -1.6
+        ],
+        "frac": [
+          0.5,
+          0.5,
+          0.478
+        ]
+      },
+      {
+        "name": "schneider_handle_2_white",
+        "volume": 5245.014516094756,
+        "centre": [
+          3.6,
+          -10.1,
+          27
+        ],
+        "frac": [
+          0.601,
+          0.381,
+          0.87
+        ]
+      },
+      {
+        "name": "schneider_din_clip_2",
+        "volume": 3002.5780226858888,
+        "centre": [
+          -9.2,
+          -26.3,
+          -33.8
+        ],
+        "frac": [
+          0.246,
+          0.19,
+          0.037
+        ]
+      },
+      {
+        "name": "schneider_handle_1_white",
+        "volume": 2441.1348737260905,
+        "centre": [
+          -9.1,
+          -8.5,
+          25.2
+        ],
+        "frac": [
+          0.247,
+          0.4,
+          0.845
+        ]
+      },
+      {
+        "name": "schneider_din_clip_1",
+        "volume": 2245.0133590933747,
+        "centre": [
+          -9.2,
+          27,
+          -32
+        ],
+        "frac": [
+          0.246,
+          0.818,
+          0.061
+        ]
+      },
+      {
+        "name": "schneider_handle_1_grip",
+        "volume": 943.1678395481829,
+        "centre": [
+          -9.1,
+          -16.1,
+          32
+        ],
+        "frac": [
+          0.247,
+          0.311,
+          0.939
+        ]
+      },
+      {
+        "name": "schneider_test",
+        "volume": 133.9305310329024,
+        "centre": [
+          8.9,
+          17.2,
+          29.7
+        ],
+        "frac": [
+          0.746,
+          0.702,
+          0.907
+        ]
+      },
+      {
+        "name": "schneider_terminal_screw_1",
+        "volume": 84.15430691668288,
+        "centre": [
+          4.9,
+          -35.1,
+          5.6
+        ],
+        "frac": [
+          0.635,
+          0.087,
+          0.577
+        ]
+      },
+      {
+        "name": "schneider_terminal_screw_2",
+        "volume": 84.15430691668288,
+        "centre": [
+          13.4,
+          -35.1,
+          5.6
+        ],
+        "frac": [
+          0.874,
+          0.087,
+          0.577
+        ]
+      },
+      {
+        "name": "schneider_terminal_screw_4",
+        "volume": 84.15430088784797,
+        "centre": [
+          -4.9,
+          35.1,
+          5.6
+        ],
+        "frac": [
+          0.365,
+          0.913,
+          0.577
+        ]
+      },
+      {
+        "name": "schneider_terminal_screw_3",
+        "volume": 84.15428883018838,
+        "centre": [
+          -13.4,
+          35.1,
+          5.6
+        ],
+        "frac": [
+          0.126,
+          0.913,
+          0.577
+        ]
+      },
+      {
+        "name": "schneider_visisafe",
+        "volume": 40.24894077966461,
+        "centre": [
+          -9.1,
+          -3.7,
+          29.2
+        ],
+        "frac": [
+          0.247,
+          0.456,
+          0.9
+        ]
+      },
+      {
+        "name": "schneider_visisafe_on",
+        "volume": 6.020071533220096,
+        "centre": [
+          -9.1,
+          -14.1,
+          23.5
+        ],
+        "frac": [
+          0.247,
+          0.334,
+          0.821
+        ]
+      },
+      {
+        "name": "schneider_visisafe_trip",
+        "volume": 5.350487360818263,
+        "centre": [
+          -9.1,
+          -7.4,
+          30.4
+        ],
+        "frac": [
+          0.247,
+          0.412,
+          0.917
+        ]
+      }
+    ]
+  },
+  "residualBreakerSchneiderIid4p": {
+    "physical": {
+      "width": 72,
+      "height": 85,
+      "depth": 73.5
+    },
+    "holes": [
+      {
+        "face": "top",
+        "mm": [
+          -8.9,
+          42.5,
+          -15.8
+        ],
+        "frac": [
+          0.376,
+          0,
+          0.285
+        ],
+        "d": 8,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "top",
+        "mm": [
+          8.9,
+          42.5,
+          -15.8
+        ],
+        "frac": [
+          0.624,
+          0,
+          0.285
+        ],
+        "d": 8,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "top",
+        "mm": [
+          -26.9,
+          42.5,
+          -15.8
+        ],
+        "frac": [
+          0.126,
+          0,
+          0.285
+        ],
+        "d": 7.9,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "top",
+        "mm": [
+          26.9,
+          42.5,
+          -15.8
+        ],
+        "frac": [
+          0.874,
+          0,
+          0.285
+        ],
+        "d": 7.9,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "top",
+        "mm": [
+          -10.7,
+          42.5,
+          -31
+        ],
+        "frac": [
+          0.352,
+          0,
+          0.078
+        ],
+        "d": 4.4,
+        "depth": 10.5,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          10.7,
+          42.5,
+          -31
+        ],
+        "frac": [
+          0.648,
+          0,
+          0.078
+        ],
+        "d": 4.4,
+        "depth": 10.5,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          -25,
+          42.5,
+          -31
+        ],
+        "frac": [
+          0.152,
+          0,
+          0.078
+        ],
+        "d": 4.2,
+        "depth": 10.1,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          25,
+          42.5,
+          -31
+        ],
+        "frac": [
+          0.848,
+          0,
+          0.078
+        ],
+        "d": 4.2,
+        "depth": 10.1,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          -8.9,
+          -42.5,
+          -15.8
+        ],
+        "frac": [
+          0.376,
+          1,
+          0.285
+        ],
+        "d": 8,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          8.9,
+          -42.5,
+          -15.8
+        ],
+        "frac": [
+          0.624,
+          1,
+          0.285
+        ],
+        "d": 8,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          -26.9,
+          -42.5,
+          -15.8
+        ],
+        "frac": [
+          0.126,
+          1,
+          0.285
+        ],
+        "d": 7.9,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          26.9,
+          -42.5,
+          -15.8
+        ],
+        "frac": [
+          0.874,
+          1,
+          0.285
+        ],
+        "d": 7.9,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "front",
+        "mm": [
+          -27,
+          16.9,
+          34.9
+        ],
+        "frac": [
+          0.125,
+          0.301,
+          0.975
+        ],
+        "d": 13.7,
+        "depth": 3.5,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          -26.8,
+          -33.5,
+          12
+        ],
+        "frac": [
+          0.128,
+          0.895,
+          0.663
+        ],
+        "d": 7.3,
+        "depth": 9.7,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          26.8,
+          -33.5,
+          12
+        ],
+        "frac": [
+          0.872,
+          0.895,
+          0.663
+        ],
+        "d": 7.3,
+        "depth": 9.7,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          -26.8,
+          36.2,
+          11.8
+        ],
+        "frac": [
+          0.128,
+          0.074,
+          0.661
+        ],
+        "d": 7.3,
+        "depth": 9.5,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          26.8,
+          36.2,
+          11.8
+        ],
+        "frac": [
+          0.872,
+          0.074,
+          0.661
+        ],
+        "d": 7.3,
+        "depth": 9.5,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          -8.9,
+          36.1,
+          11.8
+        ],
+        "frac": [
+          0.376,
+          0.075,
+          0.661
+        ],
+        "d": 7.2,
+        "depth": 9.5,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          8.9,
+          36.1,
+          11.8
+        ],
+        "frac": [
+          0.624,
+          0.075,
+          0.661
+        ],
+        "d": 7.2,
+        "depth": 9.5,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          -8.9,
+          -33.5,
+          12
+        ],
+        "frac": [
+          0.376,
+          0.895,
+          0.663
+        ],
+        "d": 7.1,
+        "depth": 9.6,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          8.9,
+          -33.5,
+          12
+        ],
+        "frac": [
+          0.624,
+          0.895,
+          0.663
+        ],
+        "d": 7.1,
+        "depth": 9.6,
+        "through": false
+      },
+      {
+        "face": "back",
+        "mm": [
+          0,
+          -30,
+          -36.5
+        ],
+        "frac": [
+          0.5,
+          0.853,
+          0.003
+        ],
+        "d": 19.2,
+        "depth": 4.4,
+        "through": false
+      },
+      {
+        "face": "back",
+        "mm": [
+          0,
+          29.7,
+          -36.4
+        ],
+        "frac": [
+          0.5,
+          0.151,
+          0.005
+        ],
+        "d": 15.7,
+        "depth": 4.3,
+        "through": false
+      },
+      {
+        "face": "left",
+        "mm": [
+          -36,
+          15.3,
+          -32.7
+        ],
+        "frac": [
+          0,
+          0.32,
+          0.055
+        ],
+        "d": 5.4,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "left",
+        "mm": [
+          -36,
+          16.9,
+          33.3
+        ],
+        "frac": [
+          0,
+          0.301,
+          0.953
+        ],
+        "d": 3.8,
+        "depth": 4.6,
+        "through": false
+      },
+      {
+        "face": "right",
+        "mm": [
+          36,
+          15.3,
+          -32.7
+        ],
+        "frac": [
+          1,
+          0.32,
+          0.055
+        ],
+        "d": 5.4,
+        "depth": 85,
+        "through": true
+      },
+      {
+        "face": "right",
+        "mm": [
+          36,
+          16.9,
+          33.3
+        ],
+        "frac": [
+          1,
+          0.301,
+          0.953
+        ],
+        "d": 3.8,
+        "depth": 58.8,
+        "through": false
+      }
+    ],
+    "parts": [
+      {
+        "name": "schneider_body_4p",
+        "volume": 418423.2060267739,
+        "centre": [
+          0,
+          0,
+          -2.4
+        ],
+        "frac": [
+          0.5,
+          0.5,
+          0.468
+        ]
+      },
+      {
+        "name": "schneider_body_actuator_recess",
+        "volume": 5564.245496023034,
+        "centre": [
+          -26.9,
+          -7.9,
+          25.5
+        ],
+        "frac": [
+          0.127,
+          0.407,
+          0.847
+        ]
+      },
+      {
+        "name": "schneider_din_clip_4",
+        "volume": 2998.9845650498864,
+        "centre": [
+          17.9,
+          -26.3,
+          -34
+        ],
+        "frac": [
+          0.748,
+          0.19,
+          0.037
+        ]
+      },
+      {
+        "name": "schneider_din_clip_3",
+        "volume": 2998.9840721636738,
+        "centre": [
+          -17.9,
+          -26.3,
+          -34
+        ],
+        "frac": [
+          0.252,
+          0.19,
+          0.037
+        ]
+      },
+      {
+        "name": "schneider_din_clip_2",
+        "volume": 2987.7246915044293,
+        "centre": [
+          -17.9,
+          27.3,
+          -31.5
+        ],
+        "frac": [
+          0.252,
+          0.821,
+          0.071
+        ]
+      },
+      {
+        "name": "schneider_din_clip_1",
+        "volume": 2987.724511985999,
+        "centre": [
+          17.9,
+          27.3,
+          -31.5
+        ],
+        "frac": [
+          0.748,
+          0.821,
+          0.071
+        ]
+      },
+      {
+        "name": "schneider_handle_1_white",
+        "volume": 2500.490011813953,
+        "centre": [
+          -27,
+          -8.4,
+          25.4
+        ],
+        "frac": [
+          0.125,
+          0.401,
+          0.845
+        ]
+      },
+      {
+        "name": "schneider_terminal_screws",
+        "volume": 2305.560438391928,
+        "centre": [
+          0,
+          1.3,
+          2.2
+        ],
+        "frac": [
+          0.5,
+          0.515,
+          0.53
+        ]
+      },
+      {
+        "name": "schneider_handle_1_grip",
+        "volume": 918.784582178261,
+        "centre": [
+          -27,
+          -16.2,
+          32.4
+        ],
+        "frac": [
+          0.125,
+          0.31,
+          0.941
+        ]
+      },
+      {
+        "name": "schneider_conductor_socket_wall",
+        "volume": 858.7912993020957,
+        "centre": [
+          -26.8,
+          35.7,
+          -15.8
+        ],
+        "frac": [
+          0.128,
+          0.92,
+          0.285
+        ]
+      },
+      {
+        "name": "schneider_conductor_socket_wall_1",
+        "volume": 858.7912993020957,
+        "centre": [
+          -26.8,
+          -35.7,
+          -15.8
+        ],
+        "frac": [
+          0.128,
+          0.08,
+          0.285
+        ]
+      },
+      {
+        "name": "schneider_conductor_socket_wall_6",
+        "volume": 858.7912993020957,
+        "centre": [
+          26.8,
+          35.7,
+          -15.8
+        ],
+        "frac": [
+          0.872,
+          0.92,
+          0.285
+        ]
+      },
+      {
+        "name": "schneider_conductor_socket_wall_7",
+        "volume": 858.7912993020957,
+        "centre": [
+          26.8,
+          -35.7,
+          -15.8
+        ],
+        "frac": [
+          0.872,
+          0.08,
+          0.285
+        ]
+      },
+      {
+        "name": "schneider_conductor_socket_wall_2",
+        "volume": 858.7912993020952,
+        "centre": [
+          -8.9,
+          35.7,
+          -15.8
+        ],
+        "frac": [
+          0.376,
+          0.92,
+          0.285
+        ]
+      }
+    ]
+  },
+  "breakerSchneiderIc60h1p": {
+    "physical": {
+      "width": 18,
+      "height": 91,
+      "depth": 78.5
+    },
+    "holes": [
+      {
+        "face": "top",
+        "mm": [
+          0,
+          44.1,
+          -18.7
+        ],
+        "frac": [
+          0.5,
+          0.015,
+          0.262
+        ],
+        "d": 8.7,
+        "depth": 14.1,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          0,
+          -44.1,
+          -18.7
+        ],
+        "frac": [
+          0.5,
+          0.985,
+          0.262
+        ],
+        "d": 8.7,
+        "depth": 14.1,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          0,
+          -35.4,
+          13.1
+        ],
+        "frac": [
+          0.5,
+          0.89,
+          0.666
+        ],
+        "d": 7.3,
+        "depth": 2.8,
+        "through": false
+      },
+      {
+        "face": "front",
+        "mm": [
+          0,
+          35.5,
+          13.1
+        ],
+        "frac": [
+          0.5,
+          0.11,
+          0.666
+        ],
+        "d": 7.3,
+        "depth": 2.8,
+        "through": false
+      },
+      {
+        "face": "right",
+        "mm": [
+          9,
+          -7.6,
+          25.1
+        ],
+        "frac": [
+          1,
+          0.583,
+          0.82
+        ],
+        "d": 4.8,
+        "depth": 1.3,
+        "through": false
+      },
+      {
+        "face": "right",
+        "mm": [
+          9,
+          -27.4,
+          -29.3
+        ],
+        "frac": [
+          1,
+          0.801,
+          0.127
+        ],
+        "d": 4.7,
+        "depth": 1.3,
+        "through": false
+      },
+      {
+        "face": "right",
+        "mm": [
+          9,
+          27.2,
+          9.2
+        ],
+        "frac": [
+          1,
+          0.202,
+          0.617
+        ],
+        "d": 4.7,
+        "depth": 1.3,
+        "through": false
+      },
+      {
+        "face": "right",
+        "mm": [
+          9,
+          34.2,
+          -26.3
+        ],
+        "frac": [
+          1,
+          0.124,
+          0.165
+        ],
+        "d": 4.6,
+        "depth": 1.3,
+        "through": false
+      },
+      {
+        "face": "right",
+        "mm": [
+          9,
+          4.3,
+          -5.9
+        ],
+        "frac": [
+          1,
+          0.453,
+          0.425
+        ],
+        "d": 4.5,
+        "depth": 1.3,
+        "through": false
+      },
+      {
+        "face": "right",
+        "mm": [
+          9,
+          -24.9,
+          5.8
+        ],
+        "frac": [
+          1,
+          0.774,
+          0.574
+        ],
+        "d": 4.5,
+        "depth": 1.3,
+        "through": false
+      }
+    ],
+    "parts": [
+      {
+        "name": "acti9_body",
+        "volume": 118058.28510441407,
+        "centre": [
+          0,
+          0,
+          -2.1
+        ],
+        "frac": [
+          0.5,
+          0.5,
+          0.474
+        ]
+      },
+      {
+        "name": "acti9_handle_white",
+        "volume": 3301.2742188382044,
+        "centre": [
+          0,
+          -8.9,
+          27.6
+        ],
+        "frac": [
+          0.5,
+          0.402,
+          0.852
+        ]
+      },
+      {
+        "name": "acti9_din_clip_4",
+        "volume": 2046.1141050973897,
+        "centre": [
+          0,
+          -26.8,
+          -36.3
+        ],
+        "frac": [
+          0.5,
+          0.206,
+          0.038
+        ]
+      },
+      {
+        "name": "acti9_din_clip_5",
+        "volume": 1660.399312311293,
+        "centre": [
+          0,
+          27.2,
+          -34.8
+        ],
+        "frac": [
+          0.5,
+          0.799,
+          0.057
+        ]
+      },
+      {
+        "name": "acti9_front_cap",
+        "volume": 1624.1659326754254,
+        "centre": [
+          0,
+          12.9,
+          31.4
+        ],
+        "frac": [
+          0.5,
+          0.642,
+          0.9
+        ]
+      },
+      {
+        "name": "acti9_handle_grip",
+        "volume": 718.76540739322,
+        "centre": [
+          -0.1,
+          -15.4,
+          35.8
+        ],
+        "frac": [
+          0.494,
+          0.331,
+          0.957
+        ]
+      },
+      {
+        "name": "acti9_terminal_clamp_6",
+        "volume": 185.39436516898533,
+        "centre": [
+          0,
+          44.1,
+          0
+        ],
+        "frac": [
+          0.5,
+          0.985,
+          0.501
+        ]
+      },
+      {
+        "name": "acti9_terminal_clamp_7",
+        "volume": 185.34445417143277,
+        "centre": [
+          0,
+          -44.1,
+          0
+        ],
+        "frac": [
+          0.5,
+          0.015,
+          0.501
+        ]
+      },
+      {
+        "name": "acti9_terminal_screw_1",
+        "volume": 99.07322079044826,
+        "centre": [
+          0,
+          -35.4,
+          9.4
+        ],
+        "frac": [
+          0.5,
+          0.111,
+          0.62
+        ]
+      },
+      {
+        "name": "acti9_terminal_slot_1",
+        "volume": 99.07322079044826,
+        "centre": [
+          0,
+          -35.4,
+          9.4
+        ],
+        "frac": [
+          0.5,
+          0.111,
+          0.62
+        ]
+      },
+      {
+        "name": "acti9_terminal_screw_2",
+        "volume": 99.07315972999733,
+        "centre": [
+          0,
+          35.4,
+          9.4
+        ],
+        "frac": [
+          0.5,
+          0.889,
+          0.62
+        ]
+      },
+      {
+        "name": "acti9_terminal_slot_2",
+        "volume": 99.07315972999733,
+        "centre": [
+          0,
+          35.4,
+          9.4
+        ],
+        "frac": [
+          0.5,
+          0.889,
+          0.62
+        ]
+      },
+      {
+        "name": "acti9_status_off",
+        "volume": 17.83759148405753,
+        "centre": [
+          0,
+          -4.8,
+          31.7
+        ],
+        "frac": [
+          0.5,
+          0.447,
+          0.903
+        ]
+      },
+      {
+        "name": "acti9_status_trip",
+        "volume": 8.593108991360264,
+        "centre": [
+          0,
+          -8.8,
+          32.1
+        ],
+        "frac": [
+          0.5,
+          0.404,
+          0.909
+        ]
+      }
+    ]
+  },
+  "pilotLightSchneiderIil1p": {
+    "physical": {
+      "width": 18,
+      "height": 82,
+      "depth": 68
+    },
+    "holes": [
+      {
+        "face": "top",
+        "mm": [
+          4,
+          41,
+          -12.2
+        ],
+        "frac": [
+          0.723,
+          0,
+          0.32
+        ],
+        "d": 8.9,
+        "depth": 12.1,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          -4.6,
+          41,
+          -12.2
+        ],
+        "frac": [
+          0.246,
+          0,
+          0.32
+        ],
+        "d": 8.5,
+        "depth": 12.1,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          -6.8,
+          40.7,
+          -29.6
+        ],
+        "frac": [
+          0.122,
+          0.004,
+          0.065
+        ],
+        "d": 3.8,
+        "depth": 8.9,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          6.8,
+          40.7,
+          -29.6
+        ],
+        "frac": [
+          0.876,
+          0.004,
+          0.065
+        ],
+        "d": 3.7,
+        "depth": 7.1,
+        "through": false
+      },
+      {
+        "face": "top",
+        "mm": [
+          0,
+          41,
+          -27.9
+        ],
+        "frac": [
+          0.5,
+          0.001,
+          0.09
+        ],
+        "d": 2.3,
+        "depth": 9.9,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          -4.8,
+          -41,
+          -20.7
+        ],
+        "frac": [
+          0.231,
+          1,
+          0.195
+        ],
+        "d": 6.2,
+        "depth": 4,
+        "through": false
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          2.4,
+          -41,
+          -20.7
+        ],
+        "frac": [
+          0.633,
+          1,
+          0.195
+        ],
+        "d": 6.2,
+        "depth": 4,
+        "through": false
+      }
+    ],
+    "parts": [
+      {
+        "name": "acti9_body",
+        "volume": 100367.6506702697,
+        "centre": [
+          0,
+          0,
+          0
+        ],
+        "frac": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "name": "acti9_terminal_slots",
+        "volume": 3641.07971495671,
+        "centre": [
+          0,
+          -31.2,
+          2.3
+        ],
+        "frac": [
+          0.499,
+          0.12,
+          0.534
+        ]
+      },
+      {
+        "name": "acti9_din_clip_lower",
+        "volume": 2834.825799533044,
+        "centre": [
+          0,
+          -26.6,
+          -31.2
+        ],
+        "frac": [
+          0.5,
+          0.175,
+          0.041
+        ]
+      },
+      {
+        "name": "acti9_din_clip_upper",
+        "volume": 2186.9683678091433,
+        "centre": [
+          0,
+          25.5,
+          -29.5
+        ],
+        "frac": [
+          0.5,
+          0.811,
+          0.066
+        ]
+      },
+      {
+        "name": "acti9_lens_1",
+        "volume": 79.41644979835,
+        "centre": [
+          0,
+          -2.8,
+          33.5
+        ],
+        "frac": [
+          0.499,
+          0.466,
+          0.993
+        ]
+      },
+      {
+        "name": "acti9_terminal_screw_1",
+        "volume": 23.932720188655654,
+        "centre": [
+          2.4,
+          -35.8,
+          -5.2
+        ],
+        "frac": [
+          0.633,
+          0.064,
+          0.424
+        ]
+      },
+      {
+        "name": "acti9_terminal_screw_2",
+        "volume": 23.932719608210817,
+        "centre": [
+          -4.9,
+          -35.8,
+          -5.2
+        ],
+        "frac": [
+          0.23,
+          0.064,
+          0.424
+        ]
+      }
+    ]
+  },
+  "pilotLightSchneiderIil3p": {
+    "physical": {
+      "width": 18,
+      "height": 82,
+      "depth": 69.5
+    },
+    "holes": [
+      {
+        "face": "bottom",
+        "mm": [
+          -4.9,
+          -40.9,
+          -22.2
+        ],
+        "frac": [
+          0.23,
+          0.999,
+          0.181
+        ],
+        "d": 7.2,
+        "depth": 82,
+        "through": true
+      },
+      {
+        "face": "bottom",
+        "mm": [
+          2.4,
+          -40.9,
+          -22.2
+        ],
+        "frac": [
+          0.634,
+          0.999,
+          0.181
+        ],
+        "d": 7.2,
+        "depth": 82,
+        "through": true
+      }
+    ],
+    "parts": [
+      {
+        "name": "acti9_body",
+        "volume": 97102.73490299375,
+        "centre": [
+          0,
+          0,
+          -1.9
+        ],
+        "frac": [
+          0.5,
+          0.5,
+          0.473
+        ]
+      },
+      {
+        "name": "acti9_terminal_screws",
+        "volume": 4259.0759334059985,
+        "centre": [
+          0,
+          -31.2,
+          0.9
+        ],
+        "frac": [
+          0.5,
+          0.12,
+          0.513
+        ]
+      },
+      {
+        "name": "acti9_terminal_slots",
+        "volume": 3769.4470073821594,
+        "centre": [
+          0,
+          -31.2,
+          0.4
+        ],
+        "frac": [
+          0.5,
+          0.12,
+          0.506
+        ]
+      },
+      {
+        "name": "acti9_lens_window",
+        "volume": 420.6517215722334,
+        "centre": [
+          -0.2,
+          -8,
+          32.8
+        ],
+        "frac": [
+          0.489,
+          0.402,
+          0.972
+        ]
+      },
+      {
+        "name": "acti9_wire_socket_wall",
+        "volume": 389.70318561521697,
+        "centre": [
+          -4.9,
+          -37,
+          -22.2
+        ],
+        "frac": [
+          0.23,
+          0.049,
+          0.181
+        ]
+      },
+      {
+        "name": "acti9_wire_socket_wall_1",
+        "volume": 389.7031856152169,
+        "centre": [
+          2.4,
+          -37,
+          -22.2
+        ],
+        "frac": [
+          0.635,
+          0.049,
+          0.181
+        ]
+      },
+      {
+        "name": "acti9_wire_socket_wall_3",
+        "volume": 331.5055288265369,
+        "centre": [
+          4.9,
+          -28.9,
+          -2.7
+        ],
+        "frac": [
+          0.77,
+          0.147,
+          0.461
+        ]
+      },
+      {
+        "name": "acti9_wire_socket_wall_2",
+        "volume": 331.5055288265368,
+        "centre": [
+          -2.4,
+          -28.9,
+          -2.7
+        ],
+        "frac": [
+          0.365,
+          0.147,
+          0.461
+        ]
+      },
+      {
+        "name": "acti9_lens_1",
+        "volume": 10.502094881534697,
+        "centre": [
+          -0.2,
+          -2.1,
+          34.4
+        ],
+        "frac": [
+          0.488,
+          0.474,
+          0.994
+        ]
+      },
+      {
+        "name": "acti9_lens_2",
+        "volume": 10.502094881534694,
+        "centre": [
+          -0.2,
+          -8,
+          34.4
+        ],
+        "frac": [
+          0.488,
+          0.402,
+          0.994
+        ]
+      },
+      {
+        "name": "acti9_lens_3",
+        "volume": 10.502094881534694,
+        "centre": [
+          -0.2,
+          -13.9,
+          34.4
+        ],
+        "frac": [
+          0.488,
+          0.33,
+          0.994
+        ]
+      },
+      {
+        "name": "acti9_wire_socket_floor",
+        "volume": 0,
+        "centre": [
+          -4.9,
+          -32.9,
+          -22.2
+        ],
+        "frac": [
+          0.23,
+          0.098,
+          0.181
+        ]
+      },
+      {
+        "name": "acti9_wire_socket_floor_1",
+        "volume": 0,
+        "centre": [
+          2.4,
+          -32.9,
+          -22.2
+        ],
+        "frac": [
+          0.635,
+          0.098,
+          0.181
+        ]
+      },
+      {
+        "name": "acti9_wire_socket_floor_2",
+        "volume": 0,
+        "centre": [
+          -2.4,
+          -24.4,
+          -2.7
+        ],
+        "frac": [
+          0.365,
+          0.203,
+          0.461
+        ]
+      }
+    ]
   }
 }

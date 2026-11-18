@@ -56,7 +56,7 @@ assert('Tags nomeiam I/O da demo', built.tags.some((t) => t.address === 'I0.1') 
 
 // ── 2. Corte do payload nativo ───────────────────────────────────────────────
 const nativo = nativeLandingPayload()
-assert('Payload nativo marcado isNative', nativo.isNative === true && nativo.projectId === NATIVE_PARTIDA_ID)
+assert('Fallback offline não se faz passar por projeto nativo cloud', nativo.isNative === false && nativo.projectId === '')
 const slice = sliceLandingDemo(nativo)
 assert('Corte nativo: ladder não vazio', slice.ladder.length > 0)
 assert('Corte nativo: grafcet tem etapas', slice.grafcet.steps.length >= 2)
@@ -109,10 +109,12 @@ assert('Nomes nativos cobrem a tabela', Object.keys(nativeDemoTable(true, true))
   store.loadJSON(JSON.stringify(nativePartidaDiretaContent()))
   assert('Loja: edições mantêm a marca (readópção do content nativo)', useSimStore.getState().nativeId === NATIVE_PARTIDA_ID)
 
-  const backendSrc = (await import('node:fs')).readFileSync(new URL('../src/supabase/supabaseBackend.ts', import.meta.url), 'utf8')
-  assert('Backend Supabase: semente nativa reservada a admin', /resolveRole\(user\.id\)'\) === 'admin'/.test(backendSrc.replace(/\s+/g, ' ')) || backendSrc.includes("=== 'admin'"))
-  assert('Backend Supabase: dedup por content.nativeId', backendSrc.includes('content?.nativeId === seed.nativeId'))
-  assert('Backend Supabase: insere a semente na base', backendSrc.includes("if (!errSeed && created) rows.unshift(created)"))
+  // The previous test demanded automatic database seeding, now explicitly
+  // forbidden. Real local/PostgREST no-write coverage lives in test:native-policy.
+  const { isNativeProjectId, RETAINED_NATIVE_PROJECT_ID } = await import('../src/project/nativeProjectIds')
+  assert('Só o UUID cloud retido tem classificação nativa', isNativeProjectId(RETAINED_NATIVE_PROJECT_ID))
+  assert('Template legado da demo não é classificado como linha cloud nativa', !isNativeProjectId(NATIVE_PARTIDA_ID))
+  assert('Prefixos e nomes de projetos pessoais não adquirem estatuto nativo', ['native-personal', 'grafcet-exemplo-pessoal', 'O meu trabalho (nativo)'].every(id => !isNativeProjectId(id)))
 }
 
 // ── 6. Traçado dos cabos: nunca atravessa equipamentos ──────────────────────

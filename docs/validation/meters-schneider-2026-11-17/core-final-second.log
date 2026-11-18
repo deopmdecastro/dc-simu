@@ -1,0 +1,878 @@
+
+> dc-simu@2.0.0 test
+> tsx scripts/smoke.ts
+
+PASS — SVG: 522 ficheiros de interface sem emoji ou pictogramas de fonte
+PASS — SVG: plano e diagnósticos usam vetores decorativos acessíveis
+PASS — SVG: todas as etiquetas DIN têm pictograma vetorial, incluindo energia e perigo
+PASS — SVG: os cartões públicos de preços também usam confirmação SVG
+
+— Cenário 1: partida direta com selo —
+PASS — KM1 desligado em repouso
+PASS — KM1 liga ao pressionar START
+PASS — selo mantém KM1 após soltar START
+PASS — motor recebe as três fases
+PASS — motor gira no sentido horário (L1-L2-L3) :: dir=cw
+PASS — STOP desliga KM1
+PASS — STOP mantém o circuito desligado
+PASS — falha de falta de fase reduz a malha energizada
+PASS — sonda: A2 → neutro tem continuidade :: Continuidade direta (mesmo nó elétrico).
+PASS — sonda: A1 → neutro aberto em repouso :: Circuito aberto entre os pontos medidos.
+
+— Cenário 2: reversão de motor —
+PASS — AVANÇO energiza KM1 e bloqueia KM2
+PASS — avanço: motor gira horário :: dir=cw
+PASS — reversão direta é bloqueada com KM1 energizado
+PASS — STOP desliga KM1
+PASS — REVERSÃO energiza KM2 e mantém KM1 desligado
+PASS — reversão: motor gira anti-horário (L3-L2-L1) :: dir=ccw
+PASS — nunca energiza KM1 e KM2 simultaneamente
+PASS — selo de M2 mantém KM2 após soltar REVERSÃO
+PASS — emergência derruba KM1 e KM2
+
+— Cenário 3: partida estrela-triângulo (4 s) —
+PASS — primeiros 0,5 s: KM1 + KM2 (estrela), sem KM3 :: Q1=undefined Q2=undefined Q3=undefined T1=500ms
+PASS — após 4 s: KM2 (estrela) sai e KM3 (triângulo) entra :: T1=true KM2=false KM3=true
+PASS — motor roda em estrela e em triângulo :: dir=cw
+
+— Cenário 4: partida sequencial + contagem —
+PASS — M1 parte imediatamente
+PASS — M2 ainda não partiu (TON de 3 s em andamento) :: T1=600ms
+PASS — M2 parte após 3 s :: T1done=true
+PASS — contador CTU registra 3 pulsos do sensor :: count=3
+PASS — motor não escreve no programa (rung imutável no scan)
+PASS — RISING dispara na borda de subida
+PASS — RISING só dura um scan (memória no runtime)
+PASS — FALLING dispara na borda de descida
+PASS — FALLING só dura um scan
+PASS — TP liga após borda de subida
+PASS — TP termina no tempo pré-definido
+PASS — TP não rearma com entrada mantida
+PASS — TP rearma após nova borda
+PASS — estrela-triângulo respeita intervalo de transição
+PASS — estrela-triângulo ativa delta após intervalo
+PASS — número da ação vira Qn
+PASS — ação «1» sem prefixo liga Q1 na etapa
+PASS — comando forçado (C) liga a saída enquanto a etapa está ativa
+PASS — pulso ao desativar (DA) liga Q2 só ao sair da etapa
+PASS — pulso ao desativar dura uma varredura
+PASS — ação solta só com número não gera aviso nem erro
+PASS — GRAFCET ativa etapa inicial e respetiva ação
+PASS — GRAFCET avança uma etapa por scan e atualiza saídas
+PASS — GRAFCET não regressa antes da transição
+PASS — GRAFCET regressa ao início com transição negada
+PASS — GRAFCET limpa saídas de programa removido
+PASS — condição inválida não dispara
+PASS — divergência AND ativa duas etapas
+PASS — ação condicionada desliga sem sair da etapa
+PASS — convergência AND espera e consome ambas as origens
+PASS — retorno no scan seguinte (sem cascata)
+PASS — expressões rejeitam sintaxe incorreta
+PASS — cabo livre não altera continuidade do circuito
+PASS — ponta ligada e ponta livre ainda não conduzem
+PASS — duas pontas ligadas podem conduzir
+PASS — LOGO! tem 19 parafusos/bornes visíveis
+PASS — projetos antigos recebem os segundos contactos sem duplicar
+PASS — relé Q0.0 liga somente os seus dois parafusos, não L+
+PASS — sem alimentação o relé não fecha
+PASS — L+ isolado não alimenta o LOGO!
+PASS — L+ e M alimentados permitem executar o LOGO!
+PASS — I0.0 lê 1 apenas na rede positiva
+PASS — bornes superiores do LOGO! estão sobre o modelo
+PASS — saídas do LOGO! estão sobre os contactos inferiores
+PASS — alinhamento fino dos parafusos do PNG real
+PASS — posição personalizada de borne é respeitada
+PASS — bornes Proauto usam o centro X medido e ficam recuados dentro dos furos
+PASS — projetos com bornes na superfície são migrados para o interior do furo
+PASS — DRAN120-24A tem 9 pinos conforme a ficha
+PASS — modelo 24A usa bornes de parafuso
+PASS — seis parafusos em cima, três em baixo e alinhados por ordem da ficha
+PASS — posição personalizada da fonte é respeitada
+PASS — projetos 24B migram sem trocar IDs dos fios
+PASS — sem fase ou neutro a fonte não arranca
+PASS — L e N em redes distintas alimentam a fonte
+PASS — saídas duplas e RDY fazem ponte sem AC→DC
+PASS — V+ é fonte apenas com a fonte ligada
+PASS — clique próximo encaixa no centro real do borne
+PASS — clique fora do alcance não encaixa
+PASS — cabo antigo próximo encaixa e preserva a ligação da outra ponta
+PASS — ponta antes escondida pela fotografia do PLC encaixa no parafuso
+PASS — encaixe alargado só atua dentro do corpo do modelo
+PASS — frente move traçado do cabo à frente dos componentes
+PASS — trás move traçado do cabo atrás dos componentes
+PASS — tipos e camadas independentes persistem no projeto
+PASS — inspector lista destino e ponta livre sem contar ponto desligado
+PASS — nome de apresentação não altera o identificador físico do PLC
+PASS — cores das ponteiras independem da cor do cabo e entre si
+PASS — ponteira não personalizada segue o borne e não o condutor
+PASS — rígido e flexível exibem caminho e pontos idênticos
+PASS — cantos ortogonais substituem curva suave
+PASS — classificação não muda traçado sem pontos
+PASS — só PLCs entram no seletor
+PASS — novo PLC abre OB1 e FC vazios sem clonar programa
+PASS — programas distintos executam saídas Q0.0 independentes
+PASS — voltar ao PLC restaura OB1 e FC originais
+PASS — projeto guarda programas distintos por id estável de PLC
+PASS — reabrir projeto restaura PLC ativo e programas
+PASS — projeto antigo atribui programa ao primeiro PLC
+PASS — segundo PLC de projeto antigo inicia programa vazio
+PASS — ao eliminar PLC ativo volta ao programa do PLC restante
+PASS — CLP modular mostra 12 entradas reais, nome e destino do fio
+PASS — monitor identifica entrada física ligada e o valor lido
+PASS — monitor distingue entrada sem ligação de uma entrada ligada a zero
+PASS — monitor assinala PLC sem alimentação mesmo com cabo na entrada
+PASS — LOGO mostra 8 entradas e 4 saídas agrupando parafusos duplos
+PASS — capacidade derivada dos bornes do PLC e não do padrão fixo 8/4
+PASS — criação real nas oito pastas do PLC
+PASS — ficheiros e tags ficam no PLC de origem
+PASS — nomes, networks, tabelas e tags são guardados
+PASS — reabrir repõe ficheiros e tags do PLC
+PASS — eliminar ficheiro remove apenas item selecionado
+PASS — eliminar pasta opcional remove o conteúdo e oculta a pasta
+PASS — pastas eliminadas persistem ao reabrir o projeto
+PASS — pasta eliminada pode ser restaurada vazia
+PASS — backup restaura tags e ficheiros do momento da criação
+PASS — remoção de PLC limpa só ficheiros desse PLC
+PASS — MOVE cria operação editável em vez de comentário não suportado
+PASS — MOVE copia entrada ligada para memória no scan
+PASS — MOVE desativado não escreve saídas
+PASS — network desativada não apaga a bobina escrita por outra
+PASS — network desativada não repõe o temporizador
+PASS — ramo vazio em paralelo não congela a memória de flanco
+PASS — tags incluem o 2.º operando do comparador
+PASS — MOVE não altera endereços físicos de entrada
+PASS — arrastar ponta conserva cabo e liga novo borne
+PASS — CALL FC executa bloco referenciado no mesmo PLC
+PASS — FC não executa sem RLO na chamada
+PASS — CALL recursivo protegido sem bloquear saída do FC
+PASS — DB JSON tipado compila três variáveis válidas
+PASS — MOVE tipado copia DB BOOL para saída
+PASS — MOVE copia literal INT para DB INT
+PASS — MOVE recusa número em saída BOOL
+PASS — MOVE BOOL aceita 0/1 sem reescrever entrada I1
+PASS — DB rejeita tipo inválido sem avaliar código
+PASS — DB BOOL alimenta contacto sem cruzar valores entre PLCs
+PASS — MOVE INT escreve apenas DB do PLC onde o rung está ativo
+PASS — Botão de emergência usa a face frontal do CAD Metaltex P20AKR
+PASS — Botão de emergência CAD mantém os dois bornes NF 21/22
+PASS — Phoenix 3000760 cria Line+, LOAD+, 0V, RESET e STATUS
+PASS — Phoenix 3000760 usa o GLB oficial com orientação frontal vertical
+PASS — Phoenix 3000760 encaminha apenas Line+ para LOAD+ quando fechado
+PASS — Phoenix 3000760 interrompe a passagem quando disparado
+PASS — Phoenix 3000760 interrompe a passagem quando aberto
+PASS — todos os novos equipamentos têm CAD e vista física correta
+PASS — Steck SD C25 usa o GLB do STEP, de pé e sem rotação, em calha DIN
+PASS — Steck SD C25 cria os bornes 1 (topo) e 2 (base) e conserva 25 A curva C
+PASS — Steck SD C25: bornes medidos ficam nas faces de cima e de baixo
+PASS — Steck SD C25 fechado liga 1–2
+PASS — Steck SD C25 aberto ou disparado interrompe a passagem
+PASS — GLB do Steck traz o manípulo em malhas dcsimu_handle_* separadas do corpo
+PASS — Steck SD C25: ação ON/OFF alterna o estado na store e repõe
+PASS — EZ9 1P: 2 bornes (entradas ímpares em cima, saídas pares em baixo)
+PASS — EZ9 1P: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ 0,29 da profundidade)
+PASS — EZ9 1P: fechado liga 1 polo(s) (1–2); aberto ou disparado interrompe
+PASS — EZ9 1P: GLB traz 1 corpo(s), 1 alavanca(s) em malhas dcsimu_handle_*
+PASS — EZ9 1P: caixa do GLB = dimensão física (17.7×84.5×74.57 mm)
+PASS — EZ9 1P: charneira do manípulo medida no cubo da alavanca (y 32,5 · z 61,5 mm)
+PASS — EZ9 1P: nós do manípulo no rig existem no GLB
+PASS — EZ9 1P: patim recolhido (y = −2,5 mm) e traseira em z = 0
+PASS — EZ9 1P: ação ON/OFF alterna o estado na store e repõe
+PASS — EZ9 2P: 4 bornes (entradas ímpares em cima, saídas pares em baixo)
+PASS — EZ9 2P: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ 0,29 da profundidade)
+PASS — EZ9 2P: fechado liga 2 polo(s) (1–2, 3–4…); aberto ou disparado interrompe
+PASS — EZ9 2P: GLB traz 2 corpo(s), 2 alavanca(s) e a barra de ligação em malhas dcsimu_handle_*
+PASS — EZ9 2P: caixa do GLB = dimensão física (36×84.5×75.44 mm)
+PASS — EZ9 2P: charneira do manípulo medida no cubo da alavanca (y 32,5 · z 61,5 mm)
+PASS — EZ9 2P: nós do manípulo no rig existem no GLB
+PASS — EZ9 2P: patim recolhido (y = −2,5 mm) e traseira em z = 0
+PASS — EZ9 2P: ação ON/OFF alterna o estado na store e repõe
+PASS — EZ9 3P: 6 bornes (entradas ímpares em cima, saídas pares em baixo)
+PASS — EZ9 3P: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ 0,29 da profundidade)
+PASS — EZ9 3P: fechado liga 3 polo(s) (1–2, 3–4…); aberto ou disparado interrompe
+PASS — EZ9 3P: GLB traz 3 corpo(s), 3 alavanca(s) e a barra de ligação em malhas dcsimu_handle_*
+PASS — EZ9 3P: caixa do GLB = dimensão física (54×84.5×75.44 mm)
+PASS — EZ9 3P: charneira do manípulo medida no cubo da alavanca (y 32,5 · z 61,5 mm)
+PASS — EZ9 3P: nós do manípulo no rig existem no GLB
+PASS — EZ9 3P: patim recolhido (y = −2,5 mm) e traseira em z = 0
+PASS — EZ9 3P: ação ON/OFF alterna o estado na store e repõe
+PASS — Phoenix PTI 6 cria duas ligações Push-in no mesmo potencial
+PASS — NPB22-D11 separa START NA de STOP NF
+PASS — MSR127TP modela 3NA de segurança e 1NF auxiliar
+PASS — LS XBM-DN32S é PLC programável com 16DI/16DO
+PASS — TS Adapter IE é acessório e não recebe programa Ladder
+PASS — torre SB2-3011: os 4 fios (R/Y/G/COM) terminam 45 mm abaixo da base :: 45.0,45.0,45.0,45.0
+PASS — sensor XUK: os 3 condutores (COM/NA/NF) terminam 45 mm fora do corpo, afastados entre si :: 45.0,45.0,45.0
+PASS — sensor XUK: pontas dos condutores a pelo menos 3 mm umas das outras (cabo aberto) :: 7.0
+PASS — motor monofásico usa o GLB do DRN80 duplicado (mesma geometria e texturas)
+PASS — motor monofásico: carcaça pintada de azul em vez do vermelho SEW
+PASS — motor monofásico tem bornes U1 U2 (principal), Z1 Z2 (auxiliar) e PE, com encaixes reais na caixa
+PASS — placa monofásica usa os pernos da placa trifásica (U1/U2 nos de U1/W2, Z1/Z2 nos de W1/V2, PE no mesmo grampo)
+PASS — projetos antigos ganham Z1/Z2 ao abrir, sem perder os bornes existentes
+PASS — SEW DRN80MK4/B3 usa o GLB real fora da calha DIN
+PASS — motor SEW conserva U1/V1/W1/PE e dados nominais da ficha
+PASS — AD22-22DS usa o GLB real na frente do painel
+PASS — sinaleiro AD22 cria X1/X2 e dados nominais de 24 V AC/DC
+PASS — sinaleiro AD22 só acende com X1 e X2 alimentados
+PASS — cor da luz é individual e não altera outra instância
+PASS — fonte 24 V: +24V vermelho, 0V preto e PE verde
+PASS — borne 24 V: entradas e saídas com as mesmas cores
+PASS — fonte 24 V: ordem preto · vermelho · verde alinhada com os 3 módulos PTI6 :: 0.129039, 0.46237233333333333, 0.7957056666666666
+PASS — fonte 24 V: furos calibrados no PTI6 (socket3D)
+PASS — fonte 24 V ligada alimenta +24V, 0V e PE
+PASS — fonte 24 V desligada só mantém o PE
+PASS — borne 24 V passa o +24V da entrada para a saída
+PASS — borne 24 V não mistura condutores (0V-OUT sem cabo não fica energizado)
+PASS — GLB 24 V: corpos dos módulos preto, vermelho e verde :: [["#171717","#171717"],["#dc2626","#dc2626"],["#27834a","#27834a"]]
+PASS — GLB 24 V: 3 módulos PTI6 (3 × 4 nós)
+PASS — Schneider iC60H 1P: 2 bornes (1 topo, 2 base)
+PASS — Schneider iC60H fechado liga 1-2
+PASS — Schneider iC60H aberto interrompe passagem
+PASS — Schneider iID 4P: 8 bornes com Neutro e L1, L2, L3
+PASS — Schneider iID 4P fechado conduz 4 polos (N + 3 fases)
+PASS — Schneider iID 4P disparado interrompe todos os polos
+PASS — Schneider iDPN Vigi 1P+N: 4 bornes (N1, 1, N2, 2)
+PASS — Schneider iDPN Vigi conduz N e Fase quando fechado
+PASS — Schneider iDPN Vigi disparado interrompe N e Fase
+PASS — Schneider iIL 1P: 2 bornes X1 e X2
+PASS — Schneider iIL 3P: 4 bornes L1, L2, L3 e N
+PASS — disponibilidade 3D reconhece os 59 componentes com GLB real (incluindo iIL 1P/3P, iC60H e os barramentos) :: tipos: fuseHolderSchneiderDf103nv, fuseHolderSchneiderDf101v, fuseHolderSchneiderDf81n, keyActuatorEao61, thermalRelaySiemens3ru1116, residualBreakerHagerCfc225p, selectorSchneiderXa2ed33, contactorWegCwbc65, surgeProtectorWegSpw02, surgeProtectorWegSpw12, safetyRelaySiemens3tk2840, motorBreakerSchneiderGv2me, towerLightSb23011, photoSensorXukt1ksml2, breaker1p, breakerSchneiderIc60h1p, breakerSteckSdC25, motorBreakerPkzmC10, breaker2p, breaker3p, phoenixEcb3000760, residualBreakerSchneiderIid4p, residualBreakerSchneiderIdpnVigi, dualPushButtonNpb22D11, emergencyButton, emergencyButtonKeyP20ACR, contactorWegCWC09, safetyRelay, pilotLightAd22, pilotLightSchneiderIil1p, pilotLightSchneiderIil3p, motor3ph, motor1ph, capacitorRun60uF, plcSiemensLogo1224RC, plcLsXbmDn32s, plcSiemensS71500Di32, plcSiemensS71500Cpu1511c, plcSiemensS7300Cpu315, siemensTsAdapterIeBasic, terminalPhoenixPti6, terminalPE, dinRail15x55, panelEnclosure, cableDuct, busbarPhaseAcrylic, busbarNeutral, earthBar, busbarPhaseStepped, busbarComb, combBusbarConnector, terminalSet1ph, terminalSet24v, terminalSet3ph, powerSupplyProauto24A, powerSource1ph, powerSource3ph, powerSource24v, multimeterDm20
+PASS — renderizadores CAD dedicados também ficam disponíveis
+PASS — capas WebP pré-geradas para todos os componentes com 3D (node scripts/build-component-covers.mjs)
+PASS — vistas frontais WebP pré-geradas para o Esquema 2D de todos os componentes com 3D
+PASS — componentes sem GLB permanecem bloqueados
+PASS — todos os tipos da tabela CAD genérica ficam disponíveis
+PASS — disjuntores Schneider EZ9 1P/2P/3P ficam de pé, sem rotação nem espelho, em calha DIN
+PASS — todos os componentes disponíveis expõem GLB para o turntable da landing
+PASS — Esquema e Painel 3D derivam escala da mesma dimensão física
+PASS — demonstração de partida direta 3D usa sete componentes reais, incluindo H1 e H2
+PASS — store impede inserção indireta de componente sem GLB
+PASS — estados de posicionamento e arraste não contornam o bloqueio
+PASS — cor escolhida para o AD22 persiste no projeto
+PASS — classificação inferida distingue DC, AC, rede e contactos secos
+PASS — classificação explícita tem prioridade e incompatibilidades são detetadas
+PASS — criação de borne suporta explicitamente as seis faces do componente
+PASS — novos bornes da mesma face recebem posições iniciais distintas
+PASS — Aplicar persiste a lista completa de bornes, incluindo novos e removidos
+PASS — remover borne no editor limpa apenas cabos que ficaram inválidos
+PASS — Cancelar descarta borne criado no rascunho
+PASS — nova instância começa na versão 1 com data ISO de atualização
+PASS — migração de projeto antigo cria metadados seguros usando a última data guardada
+PASS — nova instância recebe uma orientação visual válida
+PASS — presets cobrem vista isométrica, faces e reset original
+PASS — ângulos personalizados são normalizados sem tocar em dados elétricos
+PASS — cada preset tem uma chave estável para o mapa de bornes
+PASS — rastreio automático projeta o borne quando a vista roda
+PASS — limites projetados nunca cortam o footprint original
+PASS — rastreio automático cria uma sugestão para cada borne
+PASS — geometria física 3D partilhada converte e recupera coordenadas normalizadas
+PASS — endpoint físico do cabo acompanha escala, rotação e pivô da instância
+PASS — editor aplica orientação somente à instância selecionada
+PASS — Aplicar cria uma nova revisão datada com nota e snapshot recuperável
+PASS — posição manual do borne é guardada apenas na vista ativa
+PASS — definição física do borne preserva identidade elétrica estável
+PASS — escala, render e cor são persistidos sem alterar o estado funcional
+PASS — editar o componente preserva cabos e referências aos IDs dos bornes
+PASS — orientação, mapa, físico e aparência persistem no JSON do projeto
+PASS — Cancelar descarta orientação, bornes, aparência e não cria versão
+PASS — duplicação copia físico e aparência mas cria identidades elétricas novas
+PASS — Aplicar sem alteração real não cria versão artificial
+PASS — restaurar carrega o snapshot no rascunho e Aplicar cria uma revisão nova, sem reescrever o passado
+PASS — padrão do tipo aplica orientação, bornes e aparência apenas a futuras instâncias
+PASS — padrão físico do tipo é normalizado e persistente
+PASS — edição GRAFCET entra no histórico global
+PASS — Desfazer restaura o GRAFCET anterior
+PASS — Refazer reaplica a alteração GRAFCET
+PASS — escrita contínua no GRAFCET cria um único passo de histórico
+PASS — Ctrl+Z no GRAFCET repõe o valor anterior à escrita agrupada
+PASS — mover entre networks e sincronizar tag cria um só passo de histórico
+PASS — Ctrl+Z restaura networks e tag em conjunto
+PASS — Ctrl+Y reaplica networks e tag em conjunto
+PASS — Ctrl+Z recupera pasta e conteúdo eliminados da árvore
+PASS — Ctrl+Y reaplica eliminação segura da pasta
+PASS — novo projeto começa completamente vazio
+PASS — projeto guardado não incorpora catálogo de exemplos
+PASS — posição 3D individual persiste no mesmo projeto
+PASS — curvas 3D do cabo persistem sem alterar os bornes partilhados
+PASS — reiniciar simulação não troca nem recria o projeto
+PASS — reiniciar remove energia visual sem apagar o cabo
+PASS — efeito de fluxo elétrico aparece exclusivamente durante RUN
+PASS — componente novo entra na camada de topo depois de reordenar :: z=1,0,2
+PASS — enviar para trás coloca o componente abaixo dos restantes
+PASS — desfazer repõe a camada anterior
+PASS — rotação do esquema roda os bornes no 3D (sentido horário) :: 0.188,0.001
+PASS — espelhar inverte o eixo X dos bornes no 3D
+PASS — vista isométrica projeta bornes em coordenadas finitas dentro do componente
+PASS — allowlist local contém exatamente Admin e User
+PASS — a conta Admin fixa é identificada para exigir autenticação na base de dados
+PASS — credenciais fixas atribuem os papéis corretos
+PASS — senha incorreta e terceira conta nunca autenticam
+PASS — conta Admin fixa autentica no servidor e não no navegador
+PASS — conta User fixa também usa a base de dados quando o servidor está disponível
+PASS — erro JSON em objeto nunca aparece como [object Object]
+PASS — sessão local persiste a identidade e logout encerra o acesso
+PASS — backend sem servidor cria, revê e reabre projetos
+PASS — backend local mantém o registo desativado
+PASS — calha DIN 15×5,5 existe na biblioteca com GLB de 1 m e sem bornes elétricos
+PASS — footprint do Esquema acompanha o comprimento físico (1,5 px/mm)
+PASS — comprimento da calha é limitado a 25–3000 mm
+PASS — nº de furos cresce com o comprimento (passo 25 mm)
+PASS — componente arrastado para longe fica contido na chapa (X, Y e Z)
+PASS — o limite inferior é a chapa e o trilho — nada atravessa a base
+PASS — posição válida não é alterada
+PASS — aparelho fundo já não atravessa a chapa por trás
+PASS — motores (máquina externa) não são limitados pelo painel
+PASS — a semi-extensão da calha usa o comprimento editado (não o GLB de 1 m)
+PASS — a moldura da imagem orientada é centrada no footprint
+PASS — a moldura inclui exatamente a folga da captura
+PASS — todos os bornes do LOGO! acompanham a imagem em vista isométrica
+PASS — vista original mantém o footprint calibrado
+PASS — colisão varrida bloqueia atravessar um componente mesmo com salto grande do cursor
+PASS — inserção ocupada usa automaticamente a posição livre mais próxima
+PASS — store impede arrastar um componente para dentro de outro
+PASS — store impede inserir componente sobre uma posição ocupada
+PASS — redimensionar a calha no 2D atualiza o comprimento (mm) usado no 3D
+PASS — alterar o comprimento (mm) atualiza a largura no Esquema
+PASS — imã fixa o equipamento à calha ao alcance
+PASS — imã centra o equipamento verticalmente na calha
+PASS — equipamento fica dentro do comprimento da calha
+PASS — imã da calha escolhe a vaga livre mais próxima e não sobrepõe equipamentos
+PASS — mover a calha leva os equipamentos fixos
+PASS — encurtar a calha empurra o equipamento para dentro dela
+PASS — comprimento respeita o mínimo/máximo
+PASS — equipamento largado longe da calha fica solto
+PASS — apagar a calha solta os equipamentos
+PASS — bornes sobrepostos ficam separados pelo menos ~1 diâmetro de rastreamento
+PASS — 3D: a calha de 500 mm mede 5,00 unidades de cena (1 mm = 0,01)
+PASS — 3D: conversão Esquema ↔ painel é reversível
+PASS — 3D: mover a peça no Esquema move o pivô 3D à escala real
+PASS — 3D: o pivô da calha é o centro do seu footprint
+PASS — 3D: imã de calha fixa o equipamento largado ao alcance
+PASS — 3D: imã centra o equipamento no eixo da calha
+PASS — 3D: imã mantém o equipamento dentro do comprimento da calha
+PASS — 3D: largado longe da calha fica solto
+PASS — 3D: com o imã desligado nada é fixado
+PASS — editor de bornes abre diretamente na secção Bornes
+PASS — bornes: inverso da projeção 2D→3D devolve o mesmo ponto (front) :: 13.068,3.513 vs 13.068,3.513
+PASS — bornes: inverso da projeção 2D→3D devolve o mesmo ponto (isometric) :: 23.015,-0.276 vs 23.015,-0.276
+PASS — bornes: inverso da projeção 2D→3D devolve o mesmo ponto (right) :: 51.112,3.513 vs 51.112,3.513
+PASS — bornes: arrastar no 2D passa a definir o ponto físico 3D
+PASS — bornes: a posição 2D arrastada mantém-se exata
+PASS — bornes: mover no 3D grava o ponto físico normalizado
+PASS — bornes: mover no 3D limpa ajustes 2D manuais para o Esquema seguir o ponto
+PASS — vista: cubo em identidade para a câmara frontal
+PASS — cubo: câmara frontal vê a face FRENTE
+PASS — cubo: câmara à direita vê a face DIREITA
+PASS — cubo: câmara por cima vê o TOPO
+PASS — cubo: câmara por baixo vê a BASE
+PASS — cubo: câmara por trás vê TRÁS
+PASS — cubo: orientação neutra do componente mostra a FRENTE
+PASS — cubo: rodar 180° em Y mostra TRÁS
+PASS — cubo: rodar 90° em Y mostra a face ESQUERDA ou DIREITA
+PASS — cubo: cantos isométricos a ±45° / ±35,264°
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:54b900f9-bc12-4640-9f97-06e56c62f961
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:9b8b4f8e-4149-4a35-accf-107e8859987a
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:abf49137-29f9-41b2-b189-44d10cdc8279
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:9c856313-b4c7-46f7-ab45-b24fe4776eba
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:eedc6f29-7d72-45cf-b8a8-cd77efd51eb5
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:14129e0d-c533-4f61-91c1-1e4a8fa5a5f0
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:11397675-264d-4e80-b905-12796ed3017b
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:45b8a2de-9de0-420a-ac79-101a0a327892
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:da38a541-7050-4c7e-800e-7df05df943c1
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:3c52500e-3cd7-4bbd-9d06-9651825484c2
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:431e0dc9-1548-4980-b342-27ee7f9846bb
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:6924b086-85e5-4677-90da-9b2f6aab5d00
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:f90f8012-b0c1-4cac-b651-0d2489946c17
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:7bf354c5-4ffa-48c6-9953-c37292b3a6a8
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:d8e1edeb-5a95-4402-9fe7-7ce5c35e6c3b
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:85a8e9a2-0634-4ac4-9f0d-387fae617872
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:b6a980a4-b855-4205-bb6c-594b6c64f72d
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:b8823034-8f49-41b2-835d-7fae7c016f41
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:2b266f08-6b53-4f0d-9d9b-030d3935a4ff
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:b2061dda-86b4-4779-9363-b40b78f0b8c1
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:4852ed57-3634-4430-9357-a85d959521dc
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:ed718c6a-5ba5-4280-8225-be8892372912
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:0cf749ce-1ca7-4d8d-995f-7b263165a6a5
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:fc144a63-9299-43f9-8d46-ca3543e94b93
+THREE.GLTFLoader: Couldn't load texture blob:nodedata:c761c79e-9797-4758-bfa7-9dc730a8d4ad
+PASS — escala 3D: auditoria cobre os modelos com GLB
+PASS — escala 3D: fuseHolderSchneiderDf103nv encaixa na ficha física (<6%)
+PASS — escala 3D: fuseHolderSchneiderDf101v encaixa na ficha física (<6%)
+PASS — escala 3D: fuseHolderSchneiderDf81n encaixa na ficha física (<6%)
+PASS — escala 3D: keyActuatorEao61 encaixa na ficha física (<6%)
+PASS — escala 3D: thermalRelaySiemens3ru1116 encaixa na ficha física (<6%)
+PASS — escala 3D: residualBreakerHagerCfc225p encaixa na ficha física (<6%)
+PASS — escala 3D: selectorSchneiderXa2ed33 encaixa na ficha física (<6%)
+PASS — escala 3D: contactorWegCwbc65 encaixa na ficha física (<6%)
+PASS — escala 3D: surgeProtectorWegSpw02 encaixa na ficha física (<6%)
+PASS — escala 3D: surgeProtectorWegSpw12 encaixa na ficha física (<6%)
+PASS — escala 3D: safetyRelaySiemens3tk2840 encaixa na ficha física (<6%)
+PASS — escala 3D: motorBreakerSchneiderGv2me encaixa na ficha física (<6%)
+PASS — escala 3D: towerLightSb23011 encaixa na ficha física (<6%)
+PASS — escala 3D: photoSensorXukt1ksml2 encaixa na ficha física (<6%)
+PASS — escala 3D: plcSiemensS71500Di32 encaixa na ficha física (<6%)
+PASS — escala 3D: plcSiemensS71500Cpu1511c encaixa na ficha física (<6%)
+PASS — escala 3D: plcSiemensS7300Cpu315 encaixa na ficha física (<6%)
+PASS — escala 3D: plcSiemensLogo1224RC encaixa na ficha física (<6%)
+PASS — escala 3D: powerSupplyProauto24A encaixa na ficha física (<6%)
+PASS — escala 3D: contactorWegCWC09 encaixa na ficha física (<6%)
+PASS — escala 3D: breaker1p encaixa na ficha física (<6%)
+PASS — escala 3D: breaker2p encaixa na ficha física (<6%)
+PASS — escala 3D: breaker3p encaixa na ficha física (<6%)
+PASS — escala 3D: breakerSteckSdC25 encaixa na ficha física (<6%)
+PASS — escala 3D: motorBreakerPkzmC10 encaixa na ficha física (<6%)
+PASS — escala 3D: phoenixEcb3000760 encaixa na ficha física (<6%)
+PASS — escala 3D: emergencyButton encaixa na ficha física (<6%)
+PASS — escala 3D: emergencyButtonKeyP20ACR encaixa na ficha física (<6%)
+PASS — escala 3D: dualPushButtonNpb22D11 encaixa na ficha física (<6%)
+PASS — escala 3D: safetyRelay encaixa na ficha física (<6%)
+PASS — escala 3D: plcLsXbmDn32s encaixa na ficha física (<6%)
+PASS — escala 3D: siemensTsAdapterIeBasic encaixa na ficha física (<6%)
+PASS — escala 3D: terminalPhoenixPti6 encaixa na ficha física (<6%)
+PASS — escala 3D: terminalSet1ph encaixa na ficha física (<6%)
+PASS — escala 3D: terminalSet3ph encaixa na ficha física (<6%)
+PASS — escala 3D: terminalSet24v encaixa na ficha física (<6%)
+PASS — escala 3D: powerSource1ph encaixa na ficha física (<6%)
+PASS — escala 3D: powerSource3ph encaixa na ficha física (<6%)
+PASS — escala 3D: powerSource24v encaixa na ficha física (<6%)
+PASS — escala 3D: terminalPE encaixa na ficha física (<6%)
+PASS — escala 3D: earthBar encaixa na ficha física (<6%)
+PASS — escala 3D: busbarNeutral encaixa na ficha física (<6%)
+PASS — escala 3D: busbarPhaseAcrylic encaixa na ficha física (<6%)
+PASS — escala 3D: busbarPhaseStepped encaixa na ficha física (<6%)
+PASS — escala 3D: busbarComb encaixa na ficha física (<6%)
+PASS — escala 3D: combBusbarConnector encaixa na ficha física (<6%)
+PASS — escala 3D: dinRail15x55 encaixa na ficha física (<6%)
+PASS — escala 3D: panelEnclosure encaixa na ficha física (<6%)
+PASS — escala 3D: cableDuct encaixa na ficha física (<6%)
+PASS — escala 3D: motor3ph encaixa na ficha física (<6%)
+PASS — escala 3D: motor1ph encaixa na ficha física (<6%)
+PASS — escala 3D: capacitorRun60uF encaixa na ficha física (<6%)
+PASS — escala 3D: pilotLightAd22 encaixa na ficha física (<6%)
+PASS — escala 3D: multimeterDm20 calibra pela altura real de 184 mm
+PASS — escala 3D: breakerSchneiderIc60h1p encaixa na ficha física (<6%)
+PASS — escala 3D: residualBreakerSchneiderIid4p encaixa na ficha física (<6%)
+PASS — escala 3D: residualBreakerSchneiderIdpnVigi encaixa na ficha física (<6%)
+PASS — escala 3D: pilotLightSchneiderIil1p encaixa na ficha física (<6%)
+PASS — escala 3D: pilotLightSchneiderIil3p encaixa na ficha física (<6%)
+PASS — escala 3D: borne PTI6 fica com 66 mm de altura (não 48,5)
+PASS — contribuir: GLB real é aceite com malhas
+PASS — contribuir: PDF real é aceite
+PASS — contribuir: PDF não passa como GLB
+PASS — contribuir: GLB não passa como PDF
+PASS — contribuir: GLB truncado é rejeitado
+PASS — contribuir: bloco JSON inválido é rejeitado
+PASS — contribuir: limite de tamanho do GLB (40 MB)
+PASS — contribuir: limite de tamanho do PDF (25 MB)
+PASS — contribuir: GLB com recursos externos é rejeitado
+PASS — contribuir: validateFile escolhe o validador pelo tipo
+PASS — contribuir: nome de ficheiro sem caminhos
+PASS — contribuir: título curto é recusado
+PASS — contribuir: componente novo exige nome
+PASS — contribuir: componente novo com nome é válido
+PASS — contribuir: filtro "as minhas"
+PASS — contribuir: filtro por estado+tipo
+PASS — contribuir: filtro por componente
+PASS — contribuir: estatísticas do administrador
+PASS — contribuir (fluxo): GLB enviado fica em revisão com metadados
+PASS — contribuir (fluxo): PDF não é aceite como modelo 3D
+PASS — contribuir (fluxo): componente novo aceite
+PASS — contribuir (fluxo): o autor vê as suas contribuições
+PASS — contribuir (fluxo): utilizador não aprova
+PASS — contribuir (fluxo): utilizador não vê estatísticas de admin
+PASS — contribuir (fluxo): ficheiro guardado é idêntico
+PASS — contribuir (fluxo): admin vê todas as contribuições
+PASS — contribuir (fluxo): rejeitar exige motivo
+PASS — contribuir (fluxo): rejeição regista motivo e revisor
+PASS — contribuir (fluxo): estatísticas do admin
+PASS — contribuir (fluxo): corrigir uma rejeitada volta a «em revisão» e limpa o motivo
+PASS — contribuir (fluxo): aprovada já não pode ser alterada pelo autor
+PASS — contribuir (fluxo): aprovada não pode ser eliminada pelo autor
+PASS — contribuir (fluxo): biblioteca pública só tem aprovadas
+PASS — contribuir (fluxo): autor elimina a sua contribuição pendente
+PASS — contribuir (fluxo): admin elimina qualquer contribuição
+PASS — admin (local): lista as duas contas fixas protegidas
+PASS — admin (local): criar contas só com servidor
+PASS — admin (local): eliminar contas só com servidor
+PASS — admin (local): desativar componente exige motivo
+PASS — admin (local): tipo de componente inválido
+PASS — admin (local): componente desativado aparece nas definições
+PASS — admin (local): utilizador vê componentes desativados
+PASS — admin (local): utilizador não lê registos
+PASS — admin (local): utilizador não altera componentes
+PASS — admin (local): componente reativado
+PASS — registo local: login.success
+PASS — registo local: login.failed
+PASS — registo local: logout
+PASS — registo local: component.disable
+PASS — registo local: component.enable
+PASS — registo local: contribution.create
+PASS — registo local: contribution.upload
+PASS — registo local: contribution.rejected
+PASS — registo local: contribution.approved
+PASS — registo local: contribution.delete
+PASS — registo local: filtro por categoria
+PASS — registo local: nunca guarda palavras-passe
+PASS — sistema (local): resumo
+PASS — exportação (local): sem segredos
+PASS — registos (local): purga exige dias válidos
+PASS — registos (local): purga não apaga registos recentes
+PASS — logs: ordena do mais recente
+PASS — logs: categoria auth
+PASS — logs: categoria user não apanha login
+PASS — logs: pesquisa em detalhe e alvo
+PASS — logs: filtro por utilizador (e-mail ou id)
+PASS — logs: intervalo de datas
+PASS — logs: paginação
+PASS — logs: ação exata
+PASS — logs: gravidade
+PASS — logs: todas as ações conhecidas têm categoria coerente
+PASS — csv: neutraliza fórmulas e escapa aspas/vírgulas
+PASS — palavra-passe: regras
+PASS — palavra-passe: gerada cumpre as regras e varia
+PASS — contas fixas reconhecidas
+PASS — cover: miniatura JPEG guardada passa para o preview (qualquer versão)
+PASS — cover: ignora conteúdo que não é JPEG data URL
+PASS — bornes: ids de perfis únicos
+PASS — bornes: sugestões referem perfis existentes
+PASS — bornes: rótulos únicos em todos os perfis (valores por omissão)
+PASS — bornes: disjuntor 3P = 1..6, entradas em cima e saídas em baixo
+PASS — bornes: disjuntor 4P tem 8 bornes (N = 7/8)
+PASS — bornes: 3P+N leva N1/N2 com numeração por omissão IEC
+PASS — bornes: trifásico com checkboxes (sem L2/PE)
+PASS — bornes: contactor 1L1…6T3, A1/A2 e auxiliares 13/14 + 21/22
+PASS — bornes: relé com 3 grupos usa 11/12/14, 21/22/24, 31/32/34
+PASS — bornes: botão NA+NF e seletor de 3 posições
+PASS — bornes: PLC configurável conta DI/DO/AI/AO
+PASS — bornes: motor 6 terminais e variador com RS485
+PASS — bornes: sensor 3 fios marca o contacto NA/NF
+PASS — bornes: layout fica sobre a face (topo y=máx, base y=mín) com normal certa
+PASS — bornes: layout dentro da caixa
+PASS — bornes: etiquetas repetidas ficam únicas ao aplicar outro perfil
+PASS — bornes: especificações extraídas de um componente voltam a gerar o mesmo número
+PASS — compat: L1↔L1 ok, L1↔L2 aviso, L1↔24V erro, PE↔L1 erro
+PASS — multímetro: básico = COM, VΩ, mA, 10A (todos no grupo Medição, tomada banana)
+PASS — multímetro: COM preto e VΩ vermelho; termopar opcional acrescenta T+/T−
+PASS — multímetro: 3 entradas, alicate, bancada 4 fios, ponteiras e osciloscópio
+PASS — compat: porta de medição liga a L1, a 24 V e a PE sem erro; duas portas de medição avisam
+PASS — compat: sem grupo Medição mantém as regras (L1↔24V erro)
+PASS — sugestões: aparelhos de medir incluem multímetro sem o impor a sensores ou contactores
+PASS — biblioteca 3D: lista todos os componentes integrados da plataforma
+PASS — biblioteca 3D: tipos únicos e modelos CAD assinalados
+PASS — biblioteca 3D: cópia importada reconhece o tipo de origem
+PASS — esquema: o cabo grosso desenha-se mais grosso e a espessura fica dentro dos limites
+PASS — esquema: secção em falta ou inválida cai no valor de 1,5 mm²
+PASS — esquema: a ponteira acompanha a secção do condutor (maior em 16 mm² do que em 0,5 mm²)
+PASS — cabo (editor): diâmetro exterior cresce com a secção e há cor/terminal automáticos
+PASS — cabo (editor): evaluateWire aceita ligação a porta de medição e avisa de ponta livre
+PASS — compat: bobina A1↔A2 não gera aviso de entradas
+PASS — cabos 3D: ligação direta entre dois bornes tem comprimento ≥ distância
+PASS — cabos 3D: pontos intermédios alongam o traçado
+PASS — cabos 3D: ponta livre termina na posição indicada
+PASS — cabos 3D: sem ponta de destino não há traçado
+PASS — catálogo: versão do administrador é aplicada sozinha ao componente oficial
+PASS — catálogo: cópia independente não é atualizada
+PASS — catálogo: posição e identidade da instância mantêm-se
+PASS — multímetro: formato dos dígitos (≥100 → 1 casa, ≥10 → 2, senão 3)
+PASS — multímetro: V⎓ mostra a tensão contínua
+PASS — multímetro: V~ mostra a tensão alternada
+PASS — multímetro: Ω escala para kΩ
+PASS — multímetro: OFF apaga o ecrã
+PASS — multímetro: ponta na ficha errada avisa e não mede
+PASS — multímetro: sem ponta COM avisa
+PASS — multímetro: circuito aberto → OL
+PASS — multímetro: continuidade com bip abaixo de 50 Ω
+PASS — multímetro: HOLD, SEL e OFF atuam sobre as variáveis
+PASS — seletor: avança e volta ao início
+PASS — seletor: rodar acorda o aparelho
+PASS — ações: alternar variável
+PASS — condições: evalWhen compara variáveis
+PASS — multímetro no circuito: L1–L2 lê ≈ 400 V CA
+PASS — multímetro no circuito: +V/−V da fonte lê 24 V CC
+PASS — multímetro no circuito: pontas trocadas dão tensão negativa
+PASS — multímetro no circuito: sem pontas não há medição
+PASS — multímetro no circuito: OFF não mede
+PASS — tamanho real: GLB escala a peça, primitivas escalam as dimensões
+PASS — tamanho real: bornes, ecrãs e estados acompanham
+PASS — PKZM C-10: GLB de pé em calha DIN, sem rotação nem espelho
+PASS — PKZM C-10: seis bornes 1/3/5 em cima e 2/4/6 em baixo
+PASS — PKZM C-10: fechado liga os três polos; desligado não liga nenhum
+PASS — Contator WEG: 1/3/5/13/A1 no topo e 2/4/6/14/A2 na base
+PASS — Contator WEG: bocas de ligação alinhadas nas cinco colunas medidas no GLB
+PASS — Editor 3D: filho de um grupo bloqueado conta como bloqueado
+PASS — Editor 3D: topmostIds tira filhos cujo pai também está selecionado
+PASS — Editor 3D: splitLocked separa bloqueadas e ignora ids inexistentes
+PASS — Editor 3D: eliminar poupa peças bloqueadas e apaga as outras com os filhos
+PASS — Editor 3D: só peças bloqueadas → nada é eliminado
+PASS — Editor 3D: eliminar um botão selecionado remove-o de facto (antes não fazia nada)
+PASS — Editor 3D: eliminar um ecrã selecionado remove-o de facto
+PASS — Editor 3D: eliminar um id inexistente não altera nada
+PASS — Editor 3D: rangeBetween devolve o intervalo nos dois sentidos
+PASS — Editor 3D: ancestorsOf sobe do pai à raiz
+PASS — Editor 3D: lista de objetos mostra a árvore com a indentação certa
+PASS — Editor 3D: recolher um grupo esconde os filhos mas mantém a linha do grupo
+PASS — Editor 3D: nos cartões nada é recolhido
+PASS — Editor 3D: o filtro mostra a peça e os antepassados, mesmo com o grupo recolhido
+PASS — Editor 3D: o filtro ignora acentos e maiúsculas
+PASS — Editor 3D: um ciclo de pais corrompido não bloqueia a lista
+PASS — Editor 3D: pruneSelection limpa uma seleção que já não existe
+PASS — Editor 3D: pruneSelection mantém o que existe e tira o fantasma da seleção múltipla
+PASS — Editor 3D: desfazer a criação de uma peça limpa a seleção
+PASS — Editor 3D: refazer repõe a peça sem seleção fantasma
+PASS — GRAFCET v2: flanco ascendente só dispara uma vez (arranque sem flanco prévio)
+PASS — GRAFCET v2: ^I1 dispara no flanco
+PASS — GRAFCET v2: ação S memoriza saída
+PASS — GRAFCET v2: ação D ainda não ligou
+PASS — GRAFCET v2: ação D liga após 300 ms
+PASS — GRAFCET v2: T(0.5s) avança para c
+PASS — GRAFCET v2: ação R repõe M1 e L liga Q3
+PASS — GRAFCET v2: ação L desliga após 200 ms
+PASS — GRAFCET v2: T(400ms) regressa ao início
+PASS — condições: sintaxe de tempo e flancos
+PASS — GRAFCET v2: forçagem define as etapas ativas
+PASS — GRAFCET v2: disparo manual de transição
+PASS — GRAFCET v2: validação aceita o programa
+PASS — GRAFCET v2: validação deteta falta de inicial, órfãs e X inexistente
+PASS — GRAFCET FluidSIM: temporização padrão IEC 10s/X85 válida
+PASS — GRAFCET FluidSIM: expressões booleanas com *, +, / e _ válidas
+PASS — GRAFCET: comparações de etapa G0 e composição booleana são aceites
+PASS — GRAFCET: G0 <> X9 é verdadeiro quando X9 está inativa no gráfico atual
+PASS — GRAFCET FluidSIM: avaliação de temporizador 10s/X85
+PASS — GRAFCET FluidSIM: avaliação booleana complexa
+PASS — GRAFCET IEC: ação condicional /1Hz desenha 1Hz com sobrelinha
+PASS — GRAFCET→Ladder (sequência com timer, S/R, D e L): sem avisos
+PASS — GRAFCET→Ladder (sequência com timer, S/R, D e L): equivalente ao simulador em 400 scans aleatórios
+PASS — GRAFCET→Ladder (divergência/convergência AND com prioridade): sem avisos
+PASS — GRAFCET→Ladder (divergência/convergência AND com prioridade): equivalente ao simulador em 400 scans aleatórios
+PASS — G…: prefixo removido (G0X9, G3X12, G1 <=> X5, 5s/G2X4)
+PASS — G…: variável I1/G3 sem X não é alterada
+PASS — G0X9 é uma condição válida
+PASS — número da etapa: «Etapa 9» → 9
+PASS — G0X9: ativa quando a etapa desenhada 9 está ativa (não o índice 9) :: b
+PASS — G0X9 * I2 dispara a transição para a etapa 12 :: c
+PASS — ação só com número («1») atua como Q1
+PASS — Ladder auto: OB100 com repor etapas + etapas iniciais
+PASS — Ladder auto: Main sem network de inicialização
+PASS — Ladder auto: saída 1 → Q1 e G0X9 resolvido sem avisos
+PASS — Ladder auto: tabela com entradas, saídas e memórias
+PASS — Ladder auto (OB100 + Main) equivalente ao simulador com G0X9
+PASS — lint Ladder: bobina duplicada
+PASS — lint Ladder: escrita numa entrada
+PASS — lint Ladder: lido sem escrita
+PASS — lint Ladder: SET sem RESET
+PASS — lint Ladder: network sem saída
+PASS — lint Ladder: temporizador repetido
+PASS — lint Ladder: programa correto sem erros
+PASS — lint Ladder: programa gerado do GRAFCET sem erros
+PASS — grelha: encaixe arredonda ao múltiplo mais próximo da origem
+PASS — grelha: o eixo central é sempre um ponto da grelha
+PASS — tamanho: etapa sem medidas usa 64×54
+PASS — tamanho: medidas guardadas respeitam limites
+PASS — tamanho: ação sem medidas usa 140×30
+PASS — redimensionar: face este muda só a largura
+PASS — redimensionar: face oeste move a esquerda e alarga
+PASS — redimensionar: face norte sobe o topo e mantém o eixo
+PASS — redimensionar: etapa cresce para os dois lados do eixo
+PASS — redimensionar: canto mantém a proporção
+PASS — redimensionar: canto não desce abaixo do mínimo
+PASS — origem: diagrama dentro do quadro não muda
+PASS — origem: arrastar para lá da borda desloca a página
+PASS — grelha: limites impedem posições negativas
+PASS — guias: alinha ao eixo da etapa mais próxima (x e y independentes)
+PASS — guias: fora do limiar não altera nada
+PASS — nova etapa abaixo da origem evita sobrepor outra
+PASS — organizar: sequência linear fica numa só coluna
+PASS — organizar: etapas descem pela ordem do fluxo
+PASS — organizar: ramos simultâneos ficam em colunas distintas à mesma altura
+PASS — organizar: convergência fica abaixo dos dois ramos
+PASS — organizar: nenhuma etapa sobreposta
+PASS — organizar: ciclos mantêm a etapa inicial no topo
+PASS — organizar: salto não coloca o destino acima das etapas intermédias
+PASS — organizar: programa vazio devolve vazio
+PASS — organizar: ações em coluna reservam mais altura que as mesmas ações em linha
+PASS — entradas: I1*!I2 → I1,I2
+PASS — entradas: flancos ^I3 e \I4
+PASS — entradas: ignora nomes, Q/M e timers
+PASS — entradas: I33 fora do intervalo e I05 normalizado
+PASS — deteção: 3 transições, 2 entradas (I1, I3)
+PASS — deteção: I3 usada em T1 e T2
+PASS — deteção: nome sugerido T1 · 0 → 1
+PASS — deteção: nome do utilizador é mantido
+PASS — deteção: maxInput = 3
+PASS — símbolos: /Start*!Stop → START,STOP
+PASS — símbolos: ignora I/Q/M, etapas, timers e frequências
+PASS — símbolos: operadores por extenso e flancos
+PASS — deteção: I2 antes das variáveis simbólicas START e STOP
+PASS — deteção: maxInput ignora variáveis simbólicas
+PASS — seleção: retângulo normaliza cantos invertidos
+PASS — seleção: retângulo apanha só as etapas tocadas
+PASS — seleção: retângulo grande apanha todas
+PASS — seleção: retângulo vazio não apanha nada
+PASS — seleção: união sem repetidos
+PASS — seleção: toggle liga e desliga
+PASS — grupo: deslocamento não sai da área mínima
+PASS — grupo: deslocamento positivo passa intacto
+PASS — alinhar topo: todas com o y mínimo
+PASS — alinhar eixo: todas com o mesmo x
+PASS — alinhar: uma só etapa não muda
+PASS — distribuir: espaçamento igual, pontas fixas
+PASS — distribuir: menos de 3 não faz nada
+PASS — copiar: 2 etapas e só a transição interna
+PASS — copiar: ids novos e transição remapeada
+PASS — copiar: etapa inicial deixa de ser inicial
+PASS — copiar: posição deslocada e fixada
+PASS — copiar: ações recebem ids novos
+PASS — copiar: original intocado
+PASS — copiar: seleção sem transições internas não leva transições
+PASS — limites: caixa envolvente com margem
+PASS — limites: vazio devolve null
+PASS — zoom à seleção: escala limitada ao máximo
+PASS — zoom à seleção: centro do retângulo fica no centro da janela
+PASS — zoom à seleção: retângulo enorme respeita o mínimo
+
+— Tabela de sinais dinâmica —
+PASS — uso: I0.0 lido em 2 transições
+PASS — uso: Q0.0 escrito em 2 ações (etapa + solta)
+PASS — uso: condição da ação conta como uso (I0.2, M0.0)
+PASS — uso: T(2s) não é endereço
+PASS — não declarados: só os que faltam, ordenados I→Q→M
+PASS — declarar: ignora duplicados, já existentes e inválidos
+PASS — declarar: cria Bool sem nome
+PASS — cursor: palavra completa sob o cursor
+PASS — cursor: no meio da palavra apanha a palavra toda
+PASS — cursor: números e «5s» não são tokens
+PASS — cursor: depois de operador sem palavra é null
+PASS — cursor: «.5HZ» ignorado
+PASS — sugestões: endereço exato primeiro
+PASS — sugestões: nome por palavra («mot» → Selo motor e Motor, empate por I→M→Q)
+PASS — sugestões: ignora acentos
+PASS — sugestões: encontra por comentário
+PASS — sugestões: sem consulta não sugere nada
+PASS — sugestões: respeita o limite
+PASS — inserir: condição «1» é substituída
+PASS — inserir: junta com AND
+PASS — inserir: depois de operador não duplica
+PASS — receptividade: X0 usa a etapa ativa (sem contexto daria falso)
+PASS — receptividade: T(2s) falso antes do tempo
+PASS — receptividade: T(2s) verdadeiro depois do tempo
+PASS — receptividade: inválida é falsa
+PASS — relógio Hz avança com o tempo simulado (sem depender de transições)
+PASS — validação: divergência OR com receptividades iguais avisa
+PASS — validação: divergência OR exclusiva não avisa
+PASS — modelos IEC existem (simples, motores, processo, seleção e semáforos)
+PASS — modelo «Sequência simples (I1→I2→I3)» sem erros de validação
+PASS — modelo «Sequência simples (I1→I2→I3)» tem etapas posicionadas
+PASS — modelo «Dois motores (ramos paralelos)» sem erros de validação
+PASS — modelo «Dois motores (ramos paralelos)» tem etapas posicionadas
+PASS — modelo «Processo com 4 ramos e falha» sem erros de validação
+PASS — modelo «Processo com 4 ramos e falha» tem etapas posicionadas
+PASS — modelo «Seleção OU (ramos alternativos)» sem erros de validação
+PASS — modelo «Seleção OU (ramos alternativos)» tem etapas posicionadas
+PASS — modelo «Semáforos (ciclo com retorno e paragem)» sem erros de validação
+PASS — modelo «Semáforos (ciclo com retorno e paragem)» tem etapas posicionadas
+PASS — motores: ramos paralelos 3 e 5 em colunas diferentes
+PASS — processo: START leva à etapa 1
+PASS — processo: CZ4 leva à etapa 2
+PASS — processo: TIMER_T0 (1s) dispara a divergência AND para 3,4,5,6
+PASS — processo: CZ1/CZ2 avançam 4→7 e 5→8 mantendo 3 e 6
+PASS — processo: T9 sincroniza 3,6,7,8 → etapa 9 (sem ficar nenhuma etapa presa)
+PASS — processo: TIMER_T3 (2s) leva à etapa 10
+PASS — processo: TIMER_T4 (5s) devolve à etapa inicial 0
+PASS — processo: saídas repostas (R) no regresso
+PASS — processo: sem CZ3, TIMER_T6 (6s) leva à etapa de falha 11
+PASS — processo: etapa 11 ativa PULSE_Z3 e repõe Z1
+PASS — processo: T''0 devolve a 0 depois da falha
+PASS — Fonte Proauto: -V/+V/RDY ficam dentro dos furos da face de TOPO
+PASS — Fonte Proauto: PE/L/N ficam dentro dos furos da face de BASE
+PASS — Fonte Proauto: nenhum borne fica fora de uma face nem na frente
+PASS — LOGO!: entradas I em cima e saídas Q em baixo
+PASS — Esquema 2D: +V1 no topo e PE na base da fonte
+PASS — Migração: borne com posição legada passa para dentro do furo de topo
+PASS — Migração: borne movido à mão não é alterado
+PASS — Migração: é idempotente
+PASS — Faces: borne medido movido à mão para a frente segue a nova face
+PASS — Faces: borne medido movido para o interior não fica associado ao encaixe antigo
+PASS — Interfaces medidas: todos os bornes aparecem na face do respetivo encaixe
+PASS — Interfaces medidas: componentes atuais conservam a identidade ao carregar
+PASS — Migração: todas as interfaces de superfície passam para os encaixes sem mudar IDs nem coordenadas 2D
+PASS — Migração: todas as interfaces migradas são idempotentes
+PASS — Migração: posições do commit 13896bc passam para os furos corrigidos, conservando IDs e 2D
+PASS — Migração: bornes fixados não são reposicionados mesmo quando coincidem com valores antigos
+PASS — Multímetro: quatro tomadas recuperadas com identidades COM/VΩ/mA/10A
+PASS — Multímetro: migração conserva IDs das ligações antigas e não duplica ao repetir
+PASS — Carregamento completo: conserva os bornes fixados e os ajustes manuais
+PASS — Carregamento completo: recupera quatro tomadas sem perder as ligações antigas
+PASS — GRAFCET: mover a barra refaz o percurso pela barra, ortogonal e ligado às duas etapas
+PASS — GRAFCET: largar a ponta sobre outra linha da mesma etapa cria o nó na coluna do destino, sem ir e voltar
+PASS — GRAFCET: o nó de derivação é o ponto onde a ligação deixa a outra linha
+PASS — GRAFCET: a barra não sobe acima da etapa de origem
+PASS — Alinhar: esquerda, direita e centro horizontal igualam a margem/eixo e não mexem no Y
+PASS — Alinhar: topo e base respeitam o eixo Y do editor (Y para baixo no 2D, para cima no 3D)
+PASS — Distribuir: espaços iguais entre vizinhos, extremos no lugar
+PASS — Alinhar: só devolve o que muda; distribuir pede 3 elementos
+PASS — Ponteiras DIN 46228-4: 0,5 branco · 1 vermelho · 1,5 preto · 2,5 azul · 6 amarelo
+PASS — Ponteiras DIN 46228-4: secção fora da tabela não inventa cor; cores rápidas sem repetidos
+PASS — GRAFCET: receptivityOf junta a condição e o estado da origem
+PASS — GRAFCET: transição-fonte com «Só se» a etapa de destino inativa dispara uma única vez
+PASS — GRAFCET: títulos «G<n> - …» na mesma página definem G0 e G3 (o texto «G0 <> X9» não é título)
+PASS — GRAFCET: G0X4 e G3 <> X149 resolvem-se pelos títulos na mesma página
+PASS — GRAFCET: variável terminada em + seguida de OU («bp_A+ + G0<>X4») é válida; «a + + b» e «a++b» continuam inválidas
+PASS — GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos da tabela
+PASS — GRAFCET: as páginas numeram-se G0, G1… e cada uma tem as suas etapas
+PASS — GRAFCET: os números de etapa são contados por página
+PASS — GRAFCET: «G1 <=> X11» dispara a transição com a etapa 11 da outra página ativa
+PASS — GRAFCET: «G1 <=> X11» com a etapa 11 da outra página inativa não dispara
+PASS — GRAFCET: «G1 <> X11» dispara quando a etapa 11 da outra página está inativa
+PASS — GRAFCET: as referências de estado guardam a página, a etapa e se deve estar ativa
+PASS — GRAFCET: projeto sem páginas mantém G2X135 como a etapa 135 global
+PASS — Barramento acrílico 12P respeita cotas reais (128 × 36,5 × 13 mm, corpo 98 mm, M4 a 115 mm, tampa 9,6 mm)
+PASS — Barramentos PE e N têm acrílico verde e azul fixos; Fase muda de cor
+PASS — Barramentos iniciam com bornes reais (PE=10, N=10, L=10, Escada 4P=28)
+PASS — Redimensionamento no Inspetor atualiza bornes, footprint e cor do acrílico (PE=16, N=8, Fase=12 amarelo)
+PASS — Barramento em escada + barramento de fase distribuem 230 V AC reais até L.12↔N8 :: vac=230.9
+PASS — Barramento em escada alimenta motor trifásico no sentido horário (L1·L2·L3) e terra PE1→PE16
+PASS — Degraus do barramento em escada são isolados entre si e medem 400 V AC (L1.7↔L3.7) :: vac=400.0
+PASS — Desligar a fonte a montante desenergiza todos os bornes de fase dos barramentos
+PASS — Reduzir bornes (12→6) conserva cabos em L.1..L.6 e limpa bornes removidos
+PASS — Barramento em escada: abrir tampa (coverOpen=true, coverVisible=true)
+PASS — Barramento em escada: ocultar tampa (coverVisible=false)
+PASS — Barramento em escada: fechar/mostrar tampa e expandir para 4×11 = 44 bornes
+PASS — Barramento acrílico: alternar entrada para face superior (top) atualiza face e normais dos bornes
+PASS — Barramento acrílico: retornar entrada para face inferior (bottom) atualiza face e normais dos bornes
+PASS — Hager CFC225P: modelo 3D montado de pé ([0, 0, π])
+PASS — DF81N e DF103NV: polo de neutro seccionável N1/N2 no módulo esquerdo
+PASS — Cadeia Hager + DF101V + DF81N(N) fechada alimenta carga
+PASS — DF101V: abrir gaveta basculante secciona a fase
+PASS — DF101V: cartucho fusível fundido interrompe a fase
+PASS — DF101V: substituir cartucho restabelece a fase
+PASS — DF81N: abrir gaveta 1P+N secciona o neutro N1–N2
+PASS — DF81N: fusível de fase fundido conserva tubo de neutro N1–N2 fechado
+PASS — Hager CFC225P: botão T dispara e retém o disparo ao largar
+PASS — Hager CFC225P: Rearmar leva a O-OFF sem fechar contactos
+PASS — Hager CFC225P: Ligar alavanca restabelece L e N
+PASS — Hager CFC225P: fuga à terra (earthLeak) dispara automaticamente e corta a carga
+PASS — Catálogo Easy9/Hager/GV2ME coerente com calibre selecionado
+PASS — Anilhas IEC 60062: 10 dígitos 0–9 com cores distintas
+PASS — Anilhas IEC «025341»: preto, vermelho, verde, laranja, amarelo, castanho
+PASS — Anilhas personalizadas preservam cor gravada em projetos antigos
+PASS — Anilhar Nº (A+B) aplica duas anilhas IEC nas pontas (8% e 92%)
+PASS — Barramento tipo pente 1P (12P de série): 12 pinos L.1..L.12 a passo DIN 18 mm (214 mm)
+PASS — Barramento tipo pente 1P+N (10P): alterna L1.k e N.k (5 fases + 5 neutros)
+PASS — Barramento tipo pente 1P+N com neutro à esquerda: alterna N.1, L1.1…
+PASS — Barramento tipo pente 3P (9P): 3 ciclos trifásicos L1 · L2 · L3 e 3 barras internas escalonadas
+PASS — Barramento tipo pente 3P+N com conectores acoplados: 12 pinos + 4 bocais IN.L1/IN.L2/IN.L3/IN.N
+PASS — Conector de barramento pente aceita cores normativas e personalizadas, calibre e orientação do pino
+PASS — Conector + Barramento pente 3P+N propagam L1·L2·L3·N isolados (400 V AC / 230 V AC, motor horário e sinalizador aceso) :: dir=cw h1=true vLL=400.0 vLN=230.9
+PASS — Abrir disjuntor alimentado pelo barramento pente corta imediatamente a carga a jusante
+PASS — Desligar fonte a montante desenergiza conectores de pino e todas as fases do barramento pente
+PASS — Expandir barramento pente (12P → 16P) preserva 100% dos cabos ligados
+PASS — Calha ranhurada em duplo T (IMG_5792): corta os 2 T na parede inferior e preserva 100% da parede superior
+PASS — Calha ranhurada em T destaca todos os dentes das 2 bocas de T (>= 6 dentes) e 0 dentes na parede oposta :: cortadosInf=9 cortadosSup=0
+PASS — Ramal em T sobreposto apara os dentes da ponta e o fundo coplanar (endTrim)
+PASS — União em T rodada em 3D (viewOrientation.z=90°) corta dentes no topo e gera malha 3D válida :: [{"side":"top","from":-36.67,"to":3.33},{"side":"bottom","from":-170,"to":-130},{"side":"bottom","from":90,"to":130}]
+PASS — Quadro de Distribuição: ID nativo e metadados válidos
+PASS — Quadro de Distribuição: invólucro 800×1000 com furos na base inferior
+PASS — Quadro de Distribuição: aparelhos essenciais (Corte Geral, DPS, Medidor KWS, Acti9 iIL 3P, Escada, Pente, Diferenciais, PTI6)
+PASS — Quadro de Distribuição: barramentos tipo pente Schneider Acti9 e réguas de bornes interligadas
+PASS — Quadro de Distribuição: continuidade elétrica global (Corte Geral, Medidor, Sinalizador, Luz e Motor trifásico)
+
+✅ TODOS OS TESTES PASSARAM

@@ -1,3 +1,4 @@
+import type { IndustrialControl, IndustrialDeviceType } from '../electrical/industrialDevices'
 import type { ComponentCategory, ComponentType, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
 
 /**
@@ -108,6 +109,8 @@ export interface TerminalDef {
   /** Profundidade disponível e recuo do ponto de ligação dentro de uma cavidade medida. */
   socketDepthMm?: number
   socketInsetMm?: number
+  /** Ponto físico medido (inclui passagens sem fundo); não o projetar na envolvente ao publicar. */
+  preservePosition3D?: boolean
   /** Função do borne no circuito (L1, N, PE, +24V, A1, I0.0…). Opcional: componentes antigos não a têm. */
   fn?: string
   /** Contacto: NA (NO), NF (NC) ou comum (COM). */
@@ -213,6 +216,7 @@ export type ControlAction =
   | { type: 'toggleVar'; var: string }
   | { type: 'cycleVar'; var: string; values: VarValue[] }
   | { type: 'behavior'; event: BehaviorEvent }
+  | { type: 'industrial'; device: IndustrialDeviceType; control: IndustrialControl; step?: 1 | -1 }
 
 /** Eventos do comportamento embutido (multímetro). */
 export type BehaviorEvent = 'select' | 'hold' | 'light' | 'power'
@@ -259,9 +263,15 @@ export interface ControlDef {
   positions: ControlPosition[]
   /** Seletor: variável que recebe o id da posição. */
   bindVar?: string
+  /** Mola física independente: só esta variável regressa ao repouso ao largar;
+   * as ações correm uma vez ao premir e os seus efeitos ficam retidos (ex.: T de diferencial).
+   * Omisso conserva o comportamento legado das botoneiras NA/NF. */
+  holdVar?: string
   /** Botão/interruptor: ações ao clicar; `longActions` ao manter premido (≥ 0,6 s). */
   actions: ControlAction[]
   longActions?: ControlAction[]
+  /** Limiar da pressão prolongada; omisso preserva os 600 ms dos controlos antigos. */
+  longPressMs?: number
   /** Botão/interruptor: tipo de animação (deslizar ou bascular sobre um pivô). */
   motion?: ControlMotion
   /**

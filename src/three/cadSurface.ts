@@ -286,7 +286,11 @@ function assignMaps(material: THREE.MeshStandardMaterial, entry: TextureLibraryE
   const roughP = tiledTexture(entry.maps.roughness, false, spec.tileMm)
   const metalP = spec.metalness && entry.maps.metalness ? tiledTexture(entry.maps.metalness, false, spec.tileMm) : Promise.resolve(null)
   const colorP = tintedAlbedo(entry, spec.tileMm)
+  let cancelled=false
+  const cancel=()=>{cancelled=true;delete material.userData.cadSurface}
+  material.addEventListener('dispose',cancel)
   return Promise.all([normalP, roughP, metalP, colorP]).then(([normalMap, roughnessMap, metalnessMap, albedo]) => {
+    if(cancelled)return
     // O albedo neutro multiplica a cor do material — a peça ganha o detalhe da
     // fotografia real (riscos, grão, nuance) sem perder a cor de fábrica.
     if (albedo && !material.map) material.map = albedo
@@ -305,5 +309,5 @@ function assignMaps(material: THREE.MeshStandardMaterial, entry: TextureLibraryE
   }).catch(() => {
     // Sem rede/PWA fria: o material calibrado continua válido, só sem relevo.
     delete material.userData.cadSurface
-  })
+  }).finally(()=>material.removeEventListener('dispose',cancel))
 }

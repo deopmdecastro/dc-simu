@@ -40,7 +40,11 @@ def calibrate(folder):
                 x, y, z = hole['position']
                 spots.append(dict(label=label, face=face, x=round((x + width / 2) / width, 6), y=round(1 - y / height, 6), z=round(z / depth, 6), diameterMm=round(hole['diameterMm'], 3), holeDepthMm=round(hole['depthMm'], 3)))
         result[identifier] = spots
-    (root / 'src/data/imported-component-terminals.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+    # Preserve all manually reviewed devices outside ASSIGNMENTS.
+    target = root / 'src/data/imported-component-terminals.json'
+    data = json.loads(target.read_text(encoding='utf-8'))
+    data.update(result)
+    target.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
 
 
 if __name__ == '__main__':

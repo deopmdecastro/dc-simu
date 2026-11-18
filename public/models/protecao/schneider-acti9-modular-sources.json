@@ -1,0 +1,86 @@
+{
+  "format": 1,
+  "generatedBy": "scripts/build-schneider-{modular,rcd}-glb.mjs",
+  "units": "metres",
+  "note": "STEP-derived simulation assets with explicit adaptations. Not unmodified manufacturer CAD or certified equipment. Nominal frame is not a clip-envelope fit.",
+  "models": [
+    {
+      "path": "/models/protecao/schneider-acti9-ic60h-1p.glb",
+      "bytes": 304576,
+      "sha256": "6d72907bca66288bef42d692ca9f71ab483c6e8d1859b4439da225be54a01c50",
+      "nominalSizeMm": {
+        "width": 18,
+        "height": 91,
+        "depth": 78.5
+      },
+      "measuredSizeMm": {
+        "width": 17.700000762939453,
+        "height": 90.39985356340185,
+        "depth": 75.0049550170661
+      },
+      "source": {
+        "document": "MCADFD0000984",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0000984_3D-CAD",
+        "file": "MCADFD0000984_3D-simplified.stp",
+        "sha256": "85770193f564e43f010248651dce567aa9f3a90de25b48a058f0c7081f9d8912"
+      },
+      "adaptations": [
+        "Rigid coordinate transform; white rocker and dark grip retain distinct STEP meshes under an articulated pivot.",
+        "Manufacturer screw/clip/body distinctions retained; live VisiSafe overlays added; conductor entrances reopened along electrical terminal axes.",
+        "Nominal 18x91x78.5 mm is a placement frame, not an anisotropic scale of the CAD envelope."
+      ]
+    },
+    {
+      "path": "/models/sinalizacao/schneider-acti9-iil-1p.glb",
+      "bytes": 125744,
+      "sha256": "db5534e287eb7277a9d580261fb90fb2170992aba754779dc47c2529c349d16b",
+      "nominalSizeMm": {
+        "width": 18,
+        "height": 82,
+        "depth": 68
+      },
+      "measuredSizeMm": {
+        "width": 17.850000381469727,
+        "height": 81.70027923583984,
+        "depth": 66.5
+      },
+      "source": {
+        "document": "MCADFD0000979",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0000979_3D-CAD",
+        "file": "MCADFD0000979_3D-simplified.stp",
+        "sha256": "d8159ef1a7a70515ed57e3d4fd1ffa458133f3654fa0a06628e71cbd1e81057e"
+      },
+      "adaptations": [
+        "CAD shell retained at manufacturer millimetre scale; retractable fixing clips translated to mounting pose, not scaled.",
+        "Live red lens material; 3-phase lens partitioned into three independent emissive regions, whose internal optical partitions are a simulation adaptation.",
+        "Conductor cavities reopened at documented terminal axes. Local vector manufacturer artwork is projected at runtime."
+      ]
+    },
+    {
+      "path": "/models/sinalizacao/schneider-acti9-iil-3p.glb",
+      "bytes": 156992,
+      "sha256": "8b58d8c1680456b484ca113fb4078916e418292dacd8693788bca95bf585999e",
+      "nominalSizeMm": {
+        "width": 18,
+        "height": 82,
+        "depth": 69.5
+      },
+      "measuredSizeMm": {
+        "width": 17.799999237060547,
+        "height": 81.70000457763672,
+        "depth": 69.0352783203125
+      },
+      "source": {
+        "document": "MCADFD0000980",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0000980_3D-CAD",
+        "file": "MCADFD0000980_3D-simplified.stp",
+        "sha256": "494bb29044c2c1aff638a411f7ee777d111528880fd0c81d4a7f7c71eea6cc13"
+      },
+      "adaptations": [
+        "CAD shell retained at manufacturer millimetre scale; retractable fixing clips translated to mounting pose, not scaled.",
+        "Live red lens material; 3-phase lens partitioned into three independent emissive regions, whose internal optical partitions are a simulation adaptation.",
+        "Conductor cavities reopened at documented terminal axes. Local vector manufacturer artwork is projected at runtime."
+      ]
+    }
+  ]
+}

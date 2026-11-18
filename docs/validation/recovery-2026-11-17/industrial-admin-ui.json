@@ -1,0 +1,42 @@
+{
+  "assertions": 78,
+  "exceptions": [],
+  "published": [
+    {
+      "type": "relaySocketFinder9023",
+      "id": "mfr-ui-relaysocketfinder9023",
+      "version": 1
+    },
+    {
+      "type": "relayFinder5534",
+      "id": "mfr-ui-relayfinder5534",
+      "version": 1
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "id": "mfr-ui-timergeyagrt8m1",
+      "version": 1
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "id": "mfr-ui-timergeyagrt8b1",
+      "version": 1
+    },
+    {
+      "type": "levelRelayAvel411",
+      "id": "mfr-ui-levelrelayavel411",
+      "version": 1
+    },
+    {
+      "type": "buzzerMetaltexTby301",
+      "id": "mfr-ui-buzzermetaltextby301",
+      "version": 1
+    },
+    {
+      "type": "vfdSchneiderAtv320",
+      "id": "mfr-ui-vfdschneideratv320",
+      "version": 1
+    }
+  ],
+  "scope": "Actual ComponentEditor3D save/reopen/publish/bake for all seven types, page reload and wired independent Panel3D catalog instances. Isolated local IndexedDB, not live cloud."
+}

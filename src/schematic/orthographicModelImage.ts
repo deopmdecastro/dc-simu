@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { releaseIndustrialLcd } from '../three/industrialFinish'
 import { cloneModelScene, fitComponentModel } from '../three/modelFit'
 import type { ComponentModelSpec } from '../three/modelPaths'
 import { createGltfLoader } from '../three/gltfLoader'
@@ -164,6 +165,7 @@ function renderModelImage(model: THREE.Group, _shared: { motor?: boolean; emerge
   renderer.render(scene, camera)
   const image = canvas.toDataURL('image/png')
 
+  releaseIndustrialLcd(model)
   // A geometria pertence ao GLB em cache (partilhada por clone) — só os
   // materiais clonados desta captura são libertados.
   model.traverse((node) => {

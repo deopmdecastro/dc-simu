@@ -1,0 +1,129 @@
+PASS — breakerSchneiderIc60h1p: GLB corresponde ao manifesto de origem/adaptações
+PASS — breakerSchneiderIc60h1p: escala física igual à dos bornes
+PASS — breakerSchneiderIc60h1p: corpo CAD moldado, não um cubo
+PASS — breakerSchneiderIc60h1p: só a pega é atuador, o corpo continua selecionável
+PASS — breakerSchneiderIc60h1p: pose off tem curso correto e só uma fita ativa
+PASS — breakerSchneiderIc60h1p: charneira imóvel em off
+PASS — breakerSchneiderIc60h1p: pose on tem curso correto e só uma fita ativa
+PASS — breakerSchneiderIc60h1p: charneira imóvel em on
+PASS — breakerSchneiderIc60h1p: pose trip tem curso correto e só uma fita ativa
+PASS — breakerSchneiderIc60h1p: charneira imóvel em trip
+PASS — breakerSchneiderIc60h1p: Admin usa o manípulo real
+PASS — breakerSchneiderIc60h1p: Admin preserva a charneira e VisiSafe on
+PASS — breakerSchneiderIc60h1p: Admin preserva a charneira e VisiSafe trip
+PASS — breakerSchneiderIc60h1p: Admin preserva a charneira e VisiSafe off
+PASS — o acabamento PBR não reativa as três fitas ao mesmo tempo
+PASS — breakerSchneiderIc60h1p: placeholder Admin das dimensões antigas migra sem perder nomes/IDs
+PASS — breakerSchneiderIc60h1p: migração remapeia luzes/comandos para a peça original
+PASS — breakerSchneiderIc60h1p: reabrir o rascunho migrado não volta a alterar a definição
+PASS — breakerSchneiderIc60h1p: modelo/borne/material manual impede a substituição automática
+PASS — breakerSchneiderIc60h1p: modelo/borne/material manual impede a substituição automática
+PASS — breakerSchneiderIc60h1p: modelo/borne/material manual impede a substituição automática
+PASS — breakerSchneiderIc60h1p: migração corrige os bornes sem mudar IDs
+PASS — breakerSchneiderIc60h1p: posição fixada à mão e idempotência preservadas
+PASS — breakerSchneiderIc60h1p: posição manual mesmo sem pinned e diâmetro próprio conservam-se
+PASS — breakerSchneiderIc60h1p: só o diâmetro automático antigo acompanha a calibração do novo furo
+PASS — pilotLightSchneiderIil1p: GLB corresponde ao manifesto de origem/adaptações
+PASS — pilotLightSchneiderIil1p: escala física igual à dos bornes
+PASS — pilotLightSchneiderIil1p: corpo CAD moldado, não um cubo
+PASS — pilotLightSchneiderIil1p: fusão conserva 1 lente(s) e materiais independentes
+PASS — pilotLightSchneiderIil1p: sinalizador não cria contactos de relé nem une fases
+PASS — pilotLightSchneiderIil1p: Admin tem zonas LED separadas, não um disjuntor fictício
+PASS — pilotLightSchneiderIil1p: placeholder Admin das dimensões antigas migra sem perder nomes/IDs
+PASS — pilotLightSchneiderIil1p: migração remapeia luzes/comandos para a peça original
+PASS — pilotLightSchneiderIil1p: reabrir o rascunho migrado não volta a alterar a definição
+PASS — pilotLightSchneiderIil1p: modelo/borne/material manual impede a substituição automática
+PASS — pilotLightSchneiderIil1p: modelo/borne/material manual impede a substituição automática
+PASS — pilotLightSchneiderIil1p: modelo/borne/material manual impede a substituição automática
+PASS — pilotLightSchneiderIil1p: migração corrige os bornes sem mudar IDs
+PASS — pilotLightSchneiderIil1p: posição fixada à mão e idempotência preservadas
+PASS — pilotLightSchneiderIil1p: posição manual mesmo sem pinned e diâmetro próprio conservam-se
+PASS — pilotLightSchneiderIil1p: só o diâmetro automático antigo acompanha a calibração do novo furo
+PASS — pilotLightSchneiderIil3p: GLB corresponde ao manifesto de origem/adaptações
+PASS — pilotLightSchneiderIil3p: escala física igual à dos bornes
+PASS — pilotLightSchneiderIil3p: corpo CAD moldado, não um cubo
+PASS — pilotLightSchneiderIil3p: fusão conserva 3 lente(s) e materiais independentes
+PASS — pilotLightSchneiderIil3p: perder L2 não apaga nem acende L1/L3
+PASS — pilotLightSchneiderIil3p: sinalizador não cria contactos de relé nem une fases
+PASS — pilotLightSchneiderIil3p: Admin tem zonas LED separadas, não um disjuntor fictício
+PASS — pilotLightSchneiderIil3p: placeholder Admin das dimensões antigas migra sem perder nomes/IDs
+PASS — pilotLightSchneiderIil3p: migração remapeia luzes/comandos para a peça original
+PASS — pilotLightSchneiderIil3p: reabrir o rascunho migrado não volta a alterar a definição
+PASS — pilotLightSchneiderIil3p: modelo/borne/material manual impede a substituição automática
+PASS — pilotLightSchneiderIil3p: modelo/borne/material manual impede a substituição automática
+PASS — pilotLightSchneiderIil3p: modelo/borne/material manual impede a substituição automática
+PASS — pilotLightSchneiderIil3p: migração corrige os bornes sem mudar IDs
+PASS — pilotLightSchneiderIil3p: posição fixada à mão e idempotência preservadas
+PASS — pilotLightSchneiderIil3p: posição manual mesmo sem pinned e diâmetro próprio conservam-se
+PASS — pilotLightSchneiderIil3p: só o diâmetro automático antigo acompanha a calibração do novo furo
+PASS — iIL trifásico corrigido: 1 módulo / A9E18327, nunca A9E18324 / 54 mm
+PASS — meterD522066: biblioteca de medição mantém-se
+PASS — D52: o canal primário atravessa realmente o corpo no eixo X (não é cilindro preto maciço)
+PASS — D52: passagem primária migrado sem reinterpretar CT-IN/OUT como secundário
+PASS — D52: alimentação L/N nunca é unida pelo TC
+PASS — meterD522066: preparar versão de catálogo não corta o LCD/corpo como se fosse um cogumelo de emergência
+PASS — D52: RESET Admin também exige 5 s
+PASS — meterD522066: assinatura visual deteta alteração no sítio de on
+PASS — meterD522066: assinatura visual deteta alteração no sítio de power
+PASS — meterD522066: assinatura visual deteta alteração no sítio de energy
+PASS — meterD522066: assinatura visual deteta alteração no sítio de voltage
+PASS — meterD522066: assinatura visual deteta alteração no sítio de frequency
+PASS — meterD522066: assinatura visual deteta alteração no sítio de current
+PASS — meterD522066: assinatura visual deteta alteração no sítio de powerFactor
+PASS — meterD522066: assinatura visual deteta alteração no sítio de resetPressed
+PASS — meterKws306: biblioteca de medição mantém-se
+PASS — KWS: ligação direta 3P+N sem TC externo acrescentado
+PASS — KWS: a máscara preta está visível à frente do ABS branco, não enterrada na carcaça
+PASS — KWS: a máscara não cobre o LCD no recorte frontal
+THREE.GLTFExporter: Creating normalized normal attribute from the non-normalized one.
+PASS — meterKws306: preparar versão de catálogo não corta o LCD/corpo como se fosse um cogumelo de emergência
+PASS — KWS: Admin recebe as quatro teclas endereçáveis
+PASS — KWS: tecla Menos no Admin/catálogo recua, como no aparelho integrado
+PASS — meterKws306: assinatura visual deteta alteração no sítio de on
+PASS — meterKws306: assinatura visual deteta alteração no sítio de switchOn
+PASS — meterKws306: assinatura visual deteta alteração no sítio de screenMode
+PASS — meterKws306: assinatura visual deteta alteração no sítio de vA
+PASS — meterKws306: assinatura visual deteta alteração no sítio de vB
+PASS — meterKws306: assinatura visual deteta alteração no sítio de vC
+PASS — meterKws306: assinatura visual deteta alteração no sítio de iA
+PASS — meterKws306: assinatura visual deteta alteração no sítio de iB
+PASS — meterKws306: assinatura visual deteta alteração no sítio de iC
+PASS — meterKws306: assinatura visual deteta alteração no sítio de pA
+PASS — meterKws306: assinatura visual deteta alteração no sítio de pB
+PASS — meterKws306: assinatura visual deteta alteração no sítio de pC
+PASS — meterKws306: assinatura visual deteta alteração no sítio de energy
+PASS — meterKws306: assinatura visual deteta alteração no sítio de frequency
+PASS — meterKws306: assinatura visual deteta alteração no sítio de temp
+PASS — meterKws306: assinatura visual deteta alteração no sítio de powerFactor
+PASS — currentTransformerSplitCore: biblioteca de medição mantém-se
+PASS — TC externo: janela física Ø16 aberta de frente a trás
+PASS — TC externo: só o primário é contínuo; S1/S2 isolados da rede
+THREE.GLTFExporter: Creating normalized normal attribute from the non-normalized one.
+THREE.GLTFExporter: Creating normalized normal attribute from the non-normalized one.
+PASS — currentTransformerSplitCore: preparar versão de catálogo não corta o LCD/corpo como se fosse um cogumelo de emergência
+PASS — TC externo não ganha um encaixe DIN inexistente
+THREE.GLTFExporter: Creating normalized normal attribute from the non-normalized one.
+THREE.GLTFExporter: Creating normalized normal attribute from the non-normalized one.
+PASS — TC externo: migração de volume antigo também conserva montagem livre e ID
+PASS — currentTransformerSplitCore: assinatura visual deteta alteração no sítio de primaryConductor
+PASS — TC externo em série conduz até à carga, incluindo a indicação de corrente do cabo
+PASS — TC externo em série não une secundário à rede nem inventa curto-circuito
+PASS — TC externo sem carga a jusante não é contado como consumo/carga
+PASS — ligar P1/P2 de um TC entre fase e neutro continua a denunciar um curto real
+PASS — obturadores não entram na projeção de um aparelho de 74 mm
+PASS — obturadores fracionáveis, em tiras até 12 módulos
+PASS — sobretampa outline: número de superfícies/linhas correto (0/7)
+PASS — sobretampa outline: o picking atravessa sempre para os aparelhos
+PASS — sobretampa solid: número de superfícies/linhas correto (5/0)
+PASS — sobretampa solid: o picking atravessa sempre para os aparelhos
+PASS — sobretampa hidden: número de superfícies/linhas correto (0/0)
+PASS — sobretampa hidden: o picking atravessa sempre para os aparelhos
+PASS — flags antigos da sobretampa continuam compatíveis
+PASS — 15×5.5: parafusos/roscas/batentes geométricos com 3 chamadas de desenho
+PASS — 35×7.5: parafusos/roscas/batentes geométricos com 3 chamadas de desenho
+PASS — 35×15: parafusos/roscas/batentes geométricos com 3 chamadas de desenho
+PASS — profundidade de calha eleva aparelhos e centros dos bornes na mesma medida
+PASS — a ponta ligada do cabo acompanha a calha exatamente 87 mm
+PASS — batentes limitados ao comprimento e profundidade inválida recusada
+
+PASS — 122 verificações novas de CAD, TC, interfaces, migrações, rig, profundidade e sobretampa.

@@ -53,8 +53,8 @@ export function faceOfNormal(normal: Vec3): Face {
 
 const prepared = new WeakSet<THREE.Object3D>()
 function prepare(root: THREE.Object3D) {
-  if (prepared.has(root)) return
   root.updateWorldMatrix(true, true)
+  if (prepared.has(root)) return
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh) return
@@ -75,11 +75,26 @@ export function measureSeat(root: THREE.Object3D, position: Vec3, normal: Vec3, 
   const ray = new THREE.Raycaster() as THREE.Raycaster & { firstHitOnly?: boolean }
   ray.firstHitOnly = true
   const direction = new THREE.Vector3().setComponent(axis, -sign)
+  const visibleMeshes: THREE.Object3D[] = []
+  root.traverseVisible(node => {
+    const mesh = node as THREE.Mesh
+    if (mesh.isMesh && (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).some(material => material.visible)) visibleMeshes.push(mesh)
+  })
   const sample = (a: number, b: number) => {
     const origin = new THREE.Vector3(...position).setComponent(axis, start)
     origin.setComponent(u, origin.getComponent(u) + a).setComponent(v, origin.getComponent(v) + b)
     ray.set(origin, direction)
-    return ray.intersectObject(root, true)[0]?.distance ?? Infinity
+    const hit = ray.intersectObjects(visibleMeshes, false)[0]
+    if (hit) return hit.distance
+    // Exact common-vertex misses of a Float32 triangle fan: retry only an
+    // empty ray by 1 nm. Never replace or look behind a finite obstruction.
+    const retries: number[] = []
+    for (const delta of [-.000001, .000001]) {
+      ray.set(origin.clone().setComponent(u, origin.getComponent(u) + delta), direction)
+      const retry = ray.intersectObjects(visibleMeshes, false)[0]
+      if (retry) retries.push(retry.distance)
+    }
+    return retries.length ? Math.min(...retries) : Infinity
   }
   const floor = sample(0, 0)
   const radius = Math.max(0.6, diameterMm * 0.65)

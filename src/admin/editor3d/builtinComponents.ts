@@ -1,3 +1,6 @@
+import { seedIndustrial } from './seedIndustrial'
+import { isIndustrialDevice, INDUSTRIAL_INFO } from '../../electrical/industrialDevices'
+import { iecAssociationOf } from '../../electrical/iecAssociation'
 import * as THREE from 'three'
 import { importedComponentInfo } from '../../electrical/importedComponents'
 import { inferBreakerAxes, tiltControlPatch } from '../../catalog/controlMotion'
@@ -6,13 +9,17 @@ import { boundsMm, buildDefinitionObject, defaultDefinition, defaultMaterial, de
 import { inferFromFunction } from '../../catalog/terminalProfiles'
 import { DEFAULT_META } from '../../catalog/definition'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 } from '../../catalog/types'
-import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm, hasComponent3DVisual } from '../../three/modelPaths'
+import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm, hasComponent3DVisual, hasDinRailModel } from '../../three/modelPaths'
 import { isTerminalAssemblyComponent, terminalAssemblyLayout, TERMINAL_CONDUCTOR_PATTERN } from '../../three/terminalAssembly'
 import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../../electrical/realInterfaces'
+import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE } from '../../electrical/legacyRealInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
 import { seedLogoPanel } from './seedLogoPanel'
+import { digitalMeterGlbData, isDigitalMeterType } from '../../three/digitalMeterModel'
+import { isSchneiderRcd, SCHNEIDER_RCD_HANDLE_NODE, SCHNEIDER_RCD_TEST_NODE, SCHNEIDER_RCD_THROW_DEG } from '../../three/schneiderRcdModel'
+import { ACTI9_MCB_HANDLE, isSchneiderModular } from '../../three/schneiderModularModel'
 import { ACTUATOR_HEAD_NAME, ACTUATOR_HEAD_TYPES } from '../../three/actuatorHead'
 
 /** Componentes que já vêm com a plataforma (Biblioteca do simulador), listados também na Biblioteca 3D do Admin. */
@@ -39,6 +46,12 @@ export function builtinComponents(): BuiltinInfo[] {
 export function builtinTypeOf(entry: Pick<CatalogEntry, 'meta'>): string | null {
   const origin = entry.meta.properties?.find((item) => item.key === 'Origem' && item.value.startsWith(BUILTIN_ORIGIN_PREFIX))
   return origin ? origin.value.slice(BUILTIN_ORIGIN_PREFIX.length) : null
+}
+
+/** Corrige só a classificação antiga dos medidores, sem renomear grupos próprios. */
+export function upgradeBuiltinMeta(type: ComponentType, meta: CatalogMeta): CatalogMeta | null {
+  if (!isDigitalMeterType(type) || meta.category !== 'power') return null
+  return { ...meta, category: TEMPLATES[type].category, group: meta.group === 'Fontes' ? TEMPLATES[type].group : meta.group }
 }
 
 const MOUNT: Record<string, ComponentDefinition['mount']> = {
@@ -101,6 +114,11 @@ function legacyTerminalsFor(list: TerminalTemplate[], box: THREE.Box3): Terminal
 
 /** Conserva o ponto físico no interior do furo, sem o projetar para a caixa. */
 function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] {
+  // These STEP models retain a nominal placement frame. A retracted fixing
+  // clip / OFF handle changes visible bounds, not the measured terminal frame.
+  // loadGlbAssets fits this family at x/z centre and y=0 at its nominal base.
+  const physical = (isSchneiderModular(type) || isSchneiderRcd(type) || isDigitalMeterType(type)) ? getComponentPhysicalSizeMm(type) : undefined
+  if (physical) box = new THREE.Box3(new THREE.Vector3(-physical.width / 2, 0, -physical.depth / 2), new THREE.Vector3(physical.width / 2, physical.height, physical.depth / 2))
   const size = box.getSize(new THREE.Vector3())
   return legacyTerminalsFor(list, box).map((terminal, index) => {
     const item = list[index], p = item.position3D
@@ -117,8 +135,11 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
     ].sort((a, b) => a.distance - b.distance)[0].normal as Vec3
     return { ...terminal,
       position: [box.min.x + p.x * size.x, box.min.y + p.y * size.y, box.min.z + p.z * size.z],
+      ...(isDigitalMeterType(type) ? { preservePosition3D: true } : {}),
       normal: spot ? [...FACE_NORMAL[spot.face]] : nearest,
-      ...(spot ? { diameterMm: spot.diameterMm, socketDepthMm: spot.holeDepthMm, socketInsetMm: terminalInsetMm(spot) } : {}),
+      ...(spot ? { diameterMm: spot.diameterMm, socketDepthMm: spot.holeDepthMm, socketInsetMm: terminalInsetMm(spot) }
+        : type === 'currentTransformerSplitCore' && /^S[12]$/.test(item.label)
+          ? { diameterMm: 4.4, socketDepthMm: 5, socketInsetMm: (1 - p.z) * size.z } : {}),
     }
   })
 }
@@ -313,8 +334,10 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
   let next: ComponentDefinition = JSON.parse(JSON.stringify(def))
   const cache: GlbCache = new Map()
   await loadGlbAssets(next, cache)
+  const visualUpgrade = await upgradeMeterRcdPlaceholder(type, next)
+  if (visualUpgrade) { next = visualUpgrade; await loadGlbAssets(next, cache) }
   const assemblyUpgrade = await upgradeTerminalAssemblyPlaceholder(type, next)
-  let changed = !!assemblyUpgrade
+  let changed = !!assemblyUpgrade || !!visualUpgrade
   if (assemblyUpgrade) {
     next = assemblyUpgrade
     await loadGlbAssets(next, cache)
@@ -326,6 +349,9 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     seedMultimeterDm20(next, cache)
     changed = (next.controls ?? []).length > 0
   }
+  if (seedSchneiderRcdControls(type, next, cache)) changed = true
+  if (seedSchneiderModularControls(type,next,cache)) changed=true
+  if (seedDigitalMeterControls(type,next)) changed=true
   if (type === 'plcSiemensLogo1224RC' && seedLogoPanel(next, cache)) changed = true
   if (seedEmergencyActuator(next, type)) changed = true
   if (type === 'motor3ph') {
@@ -513,6 +539,69 @@ async function upgradeTerminalAssemblyPlaceholder(type: ComponentType, def: Comp
   return next
 }
 
+/** Substitui só o volume automático intacto dos medidores/Acti9 antigos.
+ * Uma caixa, material ou borne editado à mão impede a migração completa. */
+async function upgradeMeterRcdPlaceholder(type: ComponentType, def: ComponentDefinition): Promise<ComponentDefinition | null> {
+  if (!isDigitalMeterType(type) && !isSchneiderRcd(type) && !isSchneiderModular(type)) return null
+  const part = def.parts[0], physical = getComponentPhysicalSizeMm(type)!
+  if (!part) return null
+  const same = (a: number[], b: number[]) => a.length === b.length && a.every((value, index) => Math.abs(value - b[index]) < 0.02)
+  const controls = def.controls ?? [], vars = def.vars ?? [], toggle = controls[0]
+  // O editor antigo acrescentava este único controlo genérico ao abrir uma
+  // proteção sem CAD. Reconhece-o exatamente; controlos próprios continuam intocáveis.
+  const automaticToggle = (isSchneiderRcd(type)||type==='breakerSchneiderIc60h1p') && controls.length === 1 && toggle.id === 'builtin-breaker-toggle'
+    && toggle.name === 'Liga / desliga' && toggle.kind === 'toggle' && toggle.partId === part.id
+    && same(toggle.axis, [0, 1, 0]) && toggle.travelMm === 0 && toggle.bindVar === 'closed'
+    && !toggle.nodes && !toggle.motion && !toggle.returnMode && toggle.positions.length === 0
+    && toggle.actions.length === 1 && toggle.actions[0].type === 'toggleVar' && toggle.actions[0].var === 'closed'
+    && vars.length === 2 && vars.every((v) => v.type === 'bool' && (v.id === 'closed' ? v.name === 'Disjuntor fechado' && v.initial === true : v.id === 'tripped' && v.name === 'Disparado' && v.initial === false))
+  if (def.parts.length !== 1 || part.kind !== 'box' || part.name !== 'Corpo' || part.locked || !part.visible
+    || Object.keys(def.assets).length || (controls.length > 0 && !automaticToggle) || (def.displays ?? []).length || def.lights.length
+    || (vars.length > 0 && !automaticToggle) || def.states.some((state) => Object.keys(state.parts).length)) return null
+  const material = def.materials.find((item) => item.id === part.materialId)
+  const oldSize=LEGACY_MODULAR_SIZE[type]
+  const sizes=[physical,...(oldSize?[oldSize]:[]),...(isSchneiderRcd(type)?[{...physical,depth:74}]:[])]
+  if(material?.color.toLowerCase()!=='#cbd5e1'||!same(part.rotation,[0,0,0])||!same(part.scale,[1,1,1])
+    ||!sizes.some(s=>same(part.size,[s.width,s.height,s.depth])&&same(part.position,[0,s.height/2,0])))return null
+  const box = boundsMm(def)
+  const oldList = TEMPLATES[type].terminals.map((item) => {
+    const previous = LEGACY_REAL_TERMINALS[type]?.find((spot) => spot.label === item.label)
+    return previous ? { ...item, position3D: realTerminalPosition(type, previous) } : item
+  })
+  const expected = terminalsFor(type, oldList, box)
+  const size=box.getSize(new THREE.Vector3())
+  const matchesKnown=(terminal:TerminalDef,current:TerminalDef)=>{
+    if(same(current.position,terminal.position)&&same(current.normal,terminal.normal))return true
+    let at=LEGACY_METER_POSITIONS[type]?.[terminal.label]
+    const previous=LEGACY_REAL_TERMINALS[type]?.find(s=>s.label===terminal.label)
+    let normal:Vec3|undefined
+    if(oldSize&&previous){
+      const inside:Record<string,Vec3>={top:[0,1,0],bottom:[0,-1,0],front:[0,0,-1],back:[0,0,1],left:[1,0,0],right:[-1,0,0]}
+      const n=inside[previous.face],d=terminalInsetMm(previous)
+      at={x:previous.x+n[0]*d/oldSize.width,y:1-previous.y-n[1]*d/oldSize.height,z:previous.z+n[2]*d/oldSize.depth};normal=[...FACE_NORMAL[previous.face]]
+    }
+    if(!at)return false
+    normal??=[{d:1-at.z,n:[0,0,1]},{d:at.z,n:[0,0,-1]},{d:1-at.y,n:[0,1,0]},{d:at.y,n:[0,-1,0]},{d:at.x,n:[-1,0,0]},{d:1-at.x,n:[1,0,0]}].sort((a,b)=>a.d-b.d)[0].n as Vec3
+    return same(current.position,[box.min.x+at.x*size.x,box.min.y+at.y*size.y,box.min.z+at.z*size.z])&&same(current.normal,normal)
+  }
+  if(def.terminals.length!==expected.length||!expected.every(t=>{const c=def.terminals.find(x=>x.label===t.label);return !!c&&matchesKnown(t,c)}))return null
+  const fresh = await buildBuiltinDraft(type)
+  if (!fresh.usedModel && !fresh.usedComposite) return null
+  const id = fresh.def.parts[0].id
+  return { ...def, mount: fresh.def.mount, assets: fresh.def.assets,
+    parts: fresh.def.parts.map((item) => item.id === id ? { ...item, id: part.id } : item),
+    vars: fresh.def.vars,
+    builtinSeeds: [...new Set([...(def.builtinSeeds ?? []), ...(fresh.def.builtinSeeds ?? [])])],
+    controls: fresh.def.controls?.map((control) => ({ ...control, partId: control.partId === id ? part.id : control.partId })),
+    lights: fresh.def.lights.map((light) => ({ ...light, partId: light.partId === id ? part.id : light.partId })),
+    terminals: fresh.def.terminals.map((terminal) => {
+      const current = def.terminals.find((item) => item.label === terminal.label)!
+      return { ...current, position: terminal.position, normal: terminal.normal, diameterMm: terminal.diameterMm,
+        socketDepthMm: terminal.socketDepthMm, socketInsetMm: terminal.socketInsetMm }
+    }),
+  }
+}
+
 /** Reconhece apenas o importador GLB antigo intacto; preserva modelos ajustados à mão. */
 async function upgradeUneditedGeometry(type: ComponentType, def: ComponentDefinition, cache: GlbCache): Promise<ComponentDefinition | null> {
   const spec = getComponentModelSpec(type), part = def.parts[0]
@@ -577,6 +666,65 @@ function seedEmergencyActuator(def: ComponentDefinition, type: ComponentType): b
   return true
 }
 
+/** Os controlos atuam nos nós reais do STEP, nunca numa caixa invisível sobre o aparelho. */
+function seedSchneiderRcdControls(type: ComponentType, def: ComponentDefinition, cache: GlbCache): boolean {
+  if (!isSchneiderRcd(type) || (def.controls ?? []).length) return false
+  const partId = def.parts.find((part) => part.kind === 'glb')?.id
+  if (!partId) return false
+  const object = buildDefinitionObject(def, cache)
+  object.updateMatrixWorld(true)
+  const actuator = object.getObjectByName(SCHNEIDER_RCD_HANDLE_NODE)
+  if (!actuator) return false
+  const box = new THREE.Box3().setFromObject(actuator, true), size = box.getSize(new THREE.Vector3())
+  const hinge = actuator.getWorldPosition(new THREE.Vector3())
+  const pivotRel = hinge.sub(box.min).divide(size).toArray() as Vec3
+  def.vars = [...(def.vars ?? []).filter((item) => !['closed', 'tripped', 'testPressed'].includes(item.id)),
+    { id: 'closed', name: 'Diferencial fechado', type: 'bool', initial: true },
+    { id: 'tripped', name: 'Disparado', type: 'bool', initial: false },
+    { id: 'testPressed', name: 'Botão T premido', type: 'bool', initial: false },
+  ]
+  def.controls = [
+    { id: newId('ctl_'), name: 'Manípulo I / O', kind: 'toggle', partId, nodes: [SCHNEIDER_RCD_HANDLE_NODE], axis: [1, 0, 0], travelMm: 0, positions: [], bindVar: 'closed', returnMode: 'latch',
+      motion: { mode: 'tilt', angleOff: 0, angleOn: -SCHNEIDER_RCD_THROW_DEG, pivotRel, feel: 'snap', durationMs: 220 },
+      actions: [{ type: 'toggleVar', var: 'closed' }, { type: 'setVar', var: 'tripped', value: false }] },
+    { id: newId('ctl_'), name: 'Ensaio diferencial T', kind: 'button', partId, nodes: [SCHNEIDER_RCD_TEST_NODE, 'schneider_test_letter'].filter((name) => !!object.getObjectByName(name)), axis: [0, 0, 1], travelMm: 1.2, positions: [], bindVar: 'testPressed', holdVar: 'testPressed', returnMode: 'spring',
+      actions: [{ type: 'setVar', var: 'closed', value: false }, { type: 'setVar', var: 'tripped', value: true }] },
+  ]
+  return true
+}
+
+/** CAD modular: pega com charneira medida e três lâmpadas eletricamente independentes. */
+function seedSchneiderModularControls(type: ComponentType,def: ComponentDefinition,cache:GlbCache):boolean {
+  if(!isSchneiderModular(type)||def.builtinSeeds?.includes('acti9-modular-v1'))return false
+  const partId=def.parts.find(p=>p.kind==='glb')?.id
+  if(!partId || def.controls?.length || def.lights.length)return false
+  const object=buildDefinitionObject(def,cache)
+  if(type==='breakerSchneiderIc60h1p'){
+    const actuator=object.getObjectByName(ACTI9_MCB_HANDLE);if(!actuator)return false
+    object.updateMatrixWorld(true)
+    const box=new THREE.Box3().setFromObject(actuator,true),size=box.getSize(new THREE.Vector3())
+    const pivotRel=actuator.getWorldPosition(new THREE.Vector3()).sub(box.min).divide(size).toArray() as Vec3
+    def.vars=[{id:'closed',name:'Disjuntor fechado',type:'bool',initial:true},{id:'tripped',name:'Disparado',type:'bool',initial:false}]
+    def.controls=[{id:newId('ctl_'),name:'Manípulo I / O',kind:'toggle',partId,nodes:[ACTI9_MCB_HANDLE],axis:[1,0,0],travelMm:0,positions:[],bindVar:'closed',returnMode:'latch',motion:{mode:'tilt',angleOff:0,angleOn:-70,pivotRel,feel:'snap',durationMs:220},actions:[{type:'toggleVar',var:'closed'},{type:'setVar',var:'tripped',value:false}]}]
+  }else{
+    const count=type==='pilotLightSchneiderIil3p'?3:1
+    if(!Array.from({length:count},(_,i)=>object.getObjectByName(`acti9_lens_${i+1}`)).every(Boolean))return false
+    def.vars=Array.from({length:count},(_,i)=>({id:count===1?'on':`l${i+1}On`,name:count===1?'Presença de tensão':`Tensão L${i+1}`,type:'bool' as const,initial:false}))
+    def.lights=Array.from({length:count},(_,i)=>({id:newId('led_'),name:count===1?'Indicador vermelho':`Indicador L${i+1}`,partId,nodes:[`acti9_lens_${i+1}`],color:'#ef1820',glassColor:'#801018',intensity:1.1,kind:'led' as const,when:{var:count===1?'on':`l${i+1}On`,op:'eq' as const,value:true},glow:{enabled:false}}))
+  }
+  def.builtinSeeds=[...(def.builtinSeeds??[]),'acti9-modular-v1'];return true
+}
+
+/** Teclas e leituras partilham as malhas/LCD do simulador; o RESET físico exige 5 segundos. */
+function seedDigitalMeterControls(type:ComponentType,def:ComponentDefinition):boolean {
+  if(!isDigitalMeterType(type)||type==='currentTransformerSplitCore'||def.builtinSeeds?.includes('digital-meter-v2')||def.controls?.length)return false
+  const partId=def.parts.find(p=>p.kind==='glb')?.id;if(!partId)return false
+  def.vars=Object.entries(TEMPLATES[type].defaultState).filter(([,v])=>typeof v==='number'||typeof v==='boolean').map(([id,v])=>({id,name:id,type:typeof v==='boolean'?'bool' as const:'number' as const,initial:v as boolean|number}))
+  if(type==='meterD522066')def.controls=[{id:newId('ctl_'),name:'RESET · manter 5 s',kind:'button',partId,nodes:['digital_meter_reset'],axis:[0,0,1],travelMm:.6,positions:[],returnMode:'latch',actions:[],longPressMs:5000,longActions:[{type:'setVar',var:'energy',value:0}]}]
+  else def.controls=[...Array.from({length:3},(_,i)=>({id:newId('ctl_'),name:['Menu M','Mais +','Menos −'][i],kind:'button' as const,partId,nodes:[i===0?'digital_meter_menu':`digital_meter_menu_${i}`],axis:[0,0,1] as Vec3,travelMm:.6,positions:[],returnMode:'latch' as const,actions:[{type:'cycleVar' as const,var:'screenMode',values:i===2?[0,2,1]:[0,1,2]}]})),{id:newId('ctl_'),name:'Interruptor ON / OFF',kind:'toggle',partId,nodes:['digital_meter_switch'],axis:[0,0,1],travelMm:.6,positions:[],returnMode:'latch',bindVar:'switchOn',actions:[{type:'toggleVar',var:'switchOn'}]}]
+  def.builtinSeeds=[...(def.builtinSeeds??[]),'digital-meter-v2'];return true
+}
+
 /** Rascunho editável a partir de um componente integrado: modelo GLB (ou volume físico) + bornes + metadados. */
 export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: CatalogMeta; def: ComponentDefinition; usedModel: boolean; usedComposite: boolean }> {
   const tpl = TEMPLATES[type]
@@ -585,7 +733,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   const physical = getComponentPhysicalSizeMm(type) ?? { width: Math.max(8, Math.round(tpl.w / 1.5)), height: Math.max(8, Math.round(tpl.h / 1.5)), depth: 45 }
   const base = defaultDefinition()
   const material = defaultMaterial('Plástico', '#cbd5e1')
-  const def: ComponentDefinition = { ...base, mount: spec?.placement === 'rail' ? 'din-rail' : spec?.placement === 'accessory' ? 'machine' : spec?.placement && spec.placement !== 'din-rail' ? spec.placement : MOUNT[tpl.category] ?? 'din-rail', materials: [material], parts: [], terminals: [], assets: {} }
+  const def: ComponentDefinition = { ...base, mount: hasDinRailModel(type) || spec?.placement === 'rail' ? 'din-rail' : spec?.placement === 'accessory' ? 'machine' : spec?.placement && spec.placement !== 'din-rail' ? spec.placement : MOUNT[tpl.category] ?? 'din-rail', materials: [material], parts: [], terminals: [], assets: {} }
   const cache: GlbCache = new Map()
   let usedModel = false
   let usedComposite = false
@@ -598,6 +746,15 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
       Object.assign(def, draft, { materials: [material] })
       usedModel = true
     }
+  }
+  if (!usedModel && isDigitalMeterType(type)) {
+    const assetId = newId('a_')
+    // Export carries a nominal metre frame; loadGlbAssets converts it rigidly
+    // to mm. No 50-mm envelope normalisation or compensation by the part.
+    def.parts = [{ ...defaultPart('glb', null, tpl.paletteName.slice(0, 40)), asset: assetId }]
+    def.assets = { [assetId]: { name: `${type}-procedural.glb`, mime: 'model/gltf-binary', builtinType: type, data: await digitalMeterGlbData(type, tpl.defaultState) } }
+    await loadGlbAssets(def, cache)
+    usedComposite = cache.has(assetId)
   }
   if (!usedModel && isTerminalAssemblyComponent(type)) {
     const fallback = { ...defaultPart('box', material.id, 'Corpo'), size: [physical.width, physical.height, physical.depth] as Vec3, position: [0, physical.height / 2, 0] as Vec3 }
@@ -636,12 +793,16 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
   // ligados aos objetos reais do modelo, visíveis na lista como elementos.
   if (type === 'multimeterDm20') seedMultimeterDm20(def, cache)
+  seedSchneiderRcdControls(type, def, cache)
+  seedSchneiderModularControls(type,def,cache)
+  seedDigitalMeterControls(type,def)
+  seedIndustrial(type,def,cache)
   seedEmergencyActuator(def, type)
   if (type === 'plcSiemensLogo1224RC') seedLogoPanel(def, cache)
   if (type === 'motor3ph') { seedMotorTerminalBoard(def, cache); seedMotorFan(def) }
   const meta: CatalogMeta = {
     ...DEFAULT_META,
-    name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : usedComposite ? ' (bornes reais; corpo sem CAD)' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,
+    name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : usedComposite ? (isDigitalMeterType(type) ? ' (representação 3D procedural completa, sem CAD do fabricante)' : ' (bornes reais; corpo sem CAD)') : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,
     category: tpl.category, group: tpl.group, tag: tpl.tag.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'X', tags: [],
     properties: [{ key: 'Origem', value: `${BUILTIN_ORIGIN_PREFIX}${type}` }],
   }
@@ -653,5 +814,37 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
     meta.properties.push({ key:'Âmbito da simulação', value:imported.scope })
     if (imported.source) meta.datasheet = { status:'have', url:imported.source }
   }
+  const association = iecAssociationOf(type)
+  if (association.primary || association.related?.length) {
+    def.iec = { primary: association.primary, related: association.related ? [...association.related] : [] }
+    meta.iecSymbol = association.primary
+    meta.iecRelated = association.related ? [...association.related] : []
+  }
+  if (isIndustrialDevice(type)) {
+    const info = INDUSTRIAL_INFO[type]
+    meta.manufacturer = info.manufacturer
+    meta.reference = info.reference
+    meta.description = `${info.name}. ${info.scope}`
+    meta.properties.push({ key: 'Proveniência 3D', value: info.provenance }, { key: 'Âmbito da simulação', value: info.scope })
+    const fileName = info.datasheet.split('/').pop()!
+    meta.datasheet = { status: 'have', url: info.source, fileName }
+    const response = await fetch(info.datasheet)
+    if (!response.ok) throw new Error(`PDF industrial indisponível: ${response.status}`)
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error(`Ficha ${fileName} não é PDF`)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+    def.assets.datasheet = { name: fileName, mime: 'application/pdf', data: `data:application/pdf;base64,${btoa(binary)}` }
+  }
+  if(type==='safetyRelay'){
+    if(!def.vars?.length)def.vars=Object.entries(TEMPLATES.safetyRelay.defaultState).filter(([,v])=>typeof v==='boolean'||typeof v==='number').map(([id,v])=>({id,name:id,type:typeof v==='boolean'?'bool' as const:'number' as const,initial:v as boolean|number}))
+    const fileName='rockwell-msr127-440r-in079d-en-p.pdf',response=await fetch('/datasheets/'+fileName)
+    if(!response.ok)throw new Error('Manual MSR127 indisponível: '+response.status)
+    const bytes=new Uint8Array(await response.arrayBuffer());if(new TextDecoder().decode(bytes.slice(0,5))!=='%PDF-')throw new Error('Manual MSR127 inválido')
+    let binary='';for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000))
+    def.assets.datasheet={name:fileName,mime:'application/pdf',data:'data:application/pdf;base64,'+btoa(binary)}
+    meta.datasheet={status:'have',url:'https://literature.rockwellautomation.com/idc/groups/literature/documents/in/440r-in079_-en-p.pdf',fileName}
+  }
+  if(type==='currentTransformerSplitCore')def.mount='machine'
   return { meta, def, usedModel, usedComposite }
 }

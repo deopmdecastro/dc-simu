@@ -1,0 +1,43 @@
+PASS — meterD522066: actual React Panel3D renderer mounts
+PASS — meterD522066: actual local markings/LCD texture is uploaded
+PASS — No React/WebGL exceptions: OK
+PASS — meterKws306: actual React Panel3D renderer mounts
+PASS — meterKws306: actual local markings/LCD texture is uploaded
+PASS — No React/WebGL exceptions: OK
+PASS — currentTransformerSplitCore: actual React Panel3D renderer mounts
+PASS — No React/WebGL exceptions: OK
+PASS — breakerSchneiderIc60h1p: actual React Panel3D renderer mounts
+PASS — breakerSchneiderIc60h1p: manufacturer-derived CAD with real cavity nodes, not generic fallback
+PASS — breakerSchneiderIc60h1p: actual local markings/LCD texture is uploaded
+PASS — No React/WebGL exceptions: OK
+PASS — pilotLightSchneiderIil1p: actual React Panel3D renderer mounts
+PASS — pilotLightSchneiderIil1p: manufacturer-derived CAD with real cavity nodes, not generic fallback
+PASS — pilotLightSchneiderIil1p: actual local markings/LCD texture is uploaded
+PASS — No React/WebGL exceptions: OK
+PASS — pilotLightSchneiderIil3p: actual React Panel3D renderer mounts
+PASS — pilotLightSchneiderIil3p: manufacturer-derived CAD with real cavity nodes, not generic fallback
+PASS — pilotLightSchneiderIil3p: actual local markings/LCD texture is uploaded
+PASS — No React/WebGL exceptions: OK
+PASS — residualBreakerSchneiderIid4p: actual React Panel3D renderer mounts
+PASS — residualBreakerSchneiderIid4p: manufacturer-derived CAD with real cavity nodes, not generic fallback
+PASS — residualBreakerSchneiderIid4p: actual local markings/LCD texture is uploaded
+PASS — No React/WebGL exceptions: OK
+PASS — residualBreakerSchneiderIdpnVigi: actual React Panel3D renderer mounts
+PASS — residualBreakerSchneiderIdpnVigi: manufacturer-derived CAD with real cavity nodes, not generic fallback
+PASS — residualBreakerSchneiderIdpnVigi: actual local markings/LCD texture is uploaded
+PASS — No React/WebGL exceptions: OK
+PASS — iC60H: actual dedicated CAD rocker changes electrical state
+PASS — iC60H actual rocker follows open pose
+PASS — iID: physical T trips and holds spring actuator
+PASS — iID release outside returns T while trip remains latched
+PASS — iID: orbit controls restored after outside release
+PASS — two actual iIL3P instances have independent red lens materials/state
+PASS — two actual meter LCDs have distinct textures and readings
+PASS — D52 click does not reset energy: RESET requires a real five-second hold
+PASS — D52 cancelled/blurred RESET does not alter energy
+PASS — D52 held RESET for 5 s clears cumulative energy
+PASS — schneider-electric: synchronous vector path artwork matches actual local SVG raster 0.00137
+PASS — hager: synchronous vector path artwork matches actual local SVG raster 0.00035
+PASS — No React/WebGL exceptions: OK
+
+PASS — 41 actual meter/Schneider Panel3D assertions

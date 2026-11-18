@@ -1,11 +1,9 @@
 import type { ComponentType, ComponentViewOrientation } from '../types'
-import { captureOrthographicModelImage } from '../schematic/orthographicModelImage'
-import { getCad3DImage } from '../schematic/cad3DImage'
-import { getComponentGlbSpec } from './modelPaths'
+import { captureCad3DImage, getCad3DImage } from '../schematic/cad3DImage'
 import { normalizeComponentOrientation } from './componentOrientation'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
 
-// v2: orientação composta sobre a rotação base (igual ao Painel 3D).
+// v3: orientação composta sobre o visual completo (CAD ou procedural, com estado e tinta).
 const cache = new Map<string, Promise<string>>()
 
 /** Captura ortográfica de uma orientação individual, sem alterar o GLB fonte. */
@@ -25,16 +23,12 @@ export function getOrientedComponentImage(
     return composite
   }
 
-  const spec = getComponentGlbSpec(type)
-  if (!spec) return Promise.reject(new Error(`Sem GLB para ${type}`))
   const radians = Math.PI / 180
-  const promise = captureOrthographicModelImage({
-    path: spec.path,
-    rotation: spec.rotation,
-    viewRotation: [orientation.x * radians, orientation.y * radians, orientation.z * radians],
-    flipDepth: spec.flipDepth,
-    physicalSizeMm: spec.physicalSizeMm,
-  }).catch((error) => {
+  // A rotação usa o MESMO modelo completo da frente: LCD procedural,
+  // serigrafias, manípulos e estado de fábrica — nunca o GLB despido.
+  const promise = captureCad3DImage(type, [
+    orientation.x * radians, orientation.y * radians, orientation.z * radians,
+  ]).catch((error) => {
     cache.delete(key)
     throw error
   })

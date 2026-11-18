@@ -1,5 +1,5 @@
 import type { Component3DScale, ElectricalComponent, Terminal } from '../types'
-import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
+import { getComponentModelSpec, getComponentPhysicalSizeMm, PANEL_UNITS_PER_MM } from './modelPaths'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import * as THREE from 'three'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../electrical/realInterfaces'
@@ -21,7 +21,10 @@ export function terminalMarkerRadius(component: ElectricalComponent, terminal: T
   }
   const spot = REAL_TERMINALS[component.type]?.find((spot) => spot.label === terminal.label)
   if (!spot) return .014
-  return Math.max(.001, Math.min((spot.diameterMm ?? 4) * .003, (spot.holeDepthMm ?? 5) * .002, terminalInsetMm(spot) * .0065))
+  // Hover + selection expands the sphere by up to 1.32. Keep clearance for
+  // stepped local lips as well as the nominal mouth plane; this is only the
+  // marker, never a change to the actual cable/terminal diameter.
+  return Math.max(.001, Math.min((spot.diameterMm ?? 4) * .003, (spot.holeDepthMm ?? 5) * .002, terminalInsetMm(spot) * .004))
 }
 
 const finite = (value: unknown, fallback: number) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
@@ -103,7 +106,8 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
     const base = getComponentModelSpec(component.type)?.physicalSizeMm
     if (base) return { x: base.width * n * PANEL_UNITS_PER_MM, y: base.height * PANEL_UNITS_PER_MM, z: base.depth * PANEL_UNITS_PER_MM }
   }
-  const physical = getComponentModelSpec(component.type)?.physicalSizeMm
+  // Os medidores DIN procedurais também têm dimensões físicas, embora não tenham GLB.
+  const physical = getComponentPhysicalSizeMm(component.type)
   if (physical) return {
     x: physical.width * PANEL_UNITS_PER_MM,
     y: physical.height * PANEL_UNITS_PER_MM,

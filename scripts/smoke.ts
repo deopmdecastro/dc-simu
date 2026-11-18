@@ -1082,7 +1082,15 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 54 componentes com GLB real (incluindo barramentos reais PE, N, Fase, Escada, Pente e Conector de Pente)', availableTypes.length === 54 && ['earthBar', 'busbarNeutral', 'busbarPhaseAcrylic', 'busbarPhaseStepped', 'busbarComb', 'combBusbarConnector'].every((t) => availableTypes.includes(t as import('../src/types').ComponentType)) && availableTypes.includes('panelEnclosure') && availableTypes.includes('cableDuct') && ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315'].every((t) => availableTypes.includes(t)) && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D mantém a base CAD e inclui as novas famílias industriais/Schneider', availableTypes.length >= 54 && ['earthBar', 'busbarNeutral', 'busbarPhaseAcrylic', 'busbarPhaseStepped', 'busbarComb', 'combBusbarConnector'].every((t) => availableTypes.includes(t as import('../src/types').ComponentType)) && availableTypes.includes('panelEnclosure') && availableTypes.includes('cableDuct') && ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315'].every((t) => availableTypes.includes(t)) && availableTypes.includes('terminalSet24v') && availableTypes.includes('powerSource24v') && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  const brokenCadAssets = availableTypes.filter(type => {
+    const spec = getComponentModelSpec(type)
+    if (!spec || !fs.existsSync('public' + spec.path)) return true
+    const data = fs.readFileSync('public' + spec.path)
+    if (data.length < 28 || data.toString('ascii', 0, 4) !== 'glTF' || data.readUInt32LE(8) !== data.length) return true
+    try { const gltf = JSON.parse(data.toString('utf8', 20, 20 + data.readUInt32LE(12))); return !gltf.meshes?.length || !gltf.accessors?.some((a: {count:number}) => a.count > 0) } catch { return true }
+  })
+  check('cada modelo anunciado corresponde a um GLB local íntegro e com malhas (não só um caminho no registo)', brokenCadAssets.length === 0, brokenCadAssets.join(', '))
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   // Capas pré-geradas (scripts/build-component-covers.mjs): a biblioteca mostra imagens sem descarregar os GLB.
   {
@@ -1588,6 +1596,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
 {
   // Calha real: Esquema (px) ↔ comprimento (mm) ↔ 3D, imã e equipamentos fixos.
+  // A previous STEP deliberately leaves live PAUSE; mounting edits require STOP.
+  useSimStore.getState().stop()
   const rail = createComponent('dinRail15x55', undefined, undefined, 0, 100, 300, { lengthMm: 1000 })
   const plcOnRail = createComponent('plcSiemensLogo1224RC', undefined, undefined, 1, 300, 150)
   useSimStore.setState({ components: [rail, plcOnRail], wires: [], selectedComponentIds: [], history: [], future: [], grid: { ...useSimStore.getState().grid, railMagnet: true } })
@@ -3147,6 +3157,10 @@ check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos d
     bp0().terminals.length === 16 && useSimStore.getState().wires.some((w) => w.toTerminalId === tid(bpId, 'L1.1')))
 
   // 3) Calhas técnicas ranhuradas: corte limpo dos dentes nas uniões em T, L, cruz e rotação 3D
+  // A bancada anterior deixou PAUSE após medir/manobrar. Limpar componentes
+  // não termina a simulação: parar explicitamente antes de iniciar nova edição.
+  // O bloqueio de addDuctAdjacent em RUN/PAUSE continua a ser obrigatório.
+  useSimStore.getState().stop()
   useSimStore.setState({ components: [], wires: [], selectedComponentIds: [], selectedWireIds: [], selectedWireId: null })
   const hDuct = s.addComponent('cableDuct', 100, 120)
   s.setComponentState(hDuct, { coverOn: false, widthMm: 40, heightMm: 60, lengthMm: 500 })

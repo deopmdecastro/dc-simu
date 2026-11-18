@@ -1,5 +1,6 @@
 import type { ComponentType } from '../types'
 import importedTerminals from '../data/imported-component-terminals.json'
+import industrialGeometry from '../data/industrial-device-geometry.json'
 import { MONO_MOTOR_TERMINAL_ORDER, MOTOR_SOCKET_DEPTH, MOTOR_STUD, MOTOR_TERMINAL_ORDER, motorTerminalFraction } from '../three/motorTerminalLayout'
 import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 
@@ -111,6 +112,7 @@ export interface RealControlSpot {
 
 export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
   ...importedTerminals as Partial<Record<ComponentType, RealTerminalSpot[]>>,
+  ...Object.fromEntries(Object.entries(industrialGeometry).map(([type, model]) => [type, model.terminals])) as Partial<Record<ComponentType, RealTerminalSpot[]>>,
   // Torre genérica: mesmos pigtails multi-cor da SB2-3011 (predefinição).
   towerLight: [
     {"label":"R","face":"bottom","x":0.328571,"y":1.0,"z":0.500169,"diameterMm":2.0,"holeDepthMm":1.0,"contact":"lead"},
@@ -152,37 +154,45 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":9,"holeDepthMm":15},
     {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":9,"holeDepthMm":15},
   ],
-  breakerSchneiderIc60h1p: [
-    {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":9,"holeDepthMm":15},
-    {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":9,"holeDepthMm":15},
+  meterD522066: [
+    {label:'1',face:'bottom',x:13/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
+    {label:'2',face:'bottom',x:23/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
+    {label:'CT-IN',face:'left',x:0,y:68/80,z:18/64,diameterMm:15,holeDepthMm:54},
+    {label:'CT-OUT',face:'right',x:1,y:68/80,z:18/64,diameterMm:15,holeDepthMm:54},
   ],
+  meterKws306: [
+    ...[-28,-9.3,9.3,28].map((x,i)=>({label:['L1-IN','L2-IN','L3-IN','N-IN'][i],face:'top' as const,x:(x+37)/74,y:0,z:30/65,diameterMm:7.4,holeDepthMm:12})),
+    ...[-28,-9.3,9.3,28].map((x,i)=>({label:['L1-OUT','L2-OUT','L3-OUT','N-OUT'][i],face:'bottom' as const,x:(x+37)/74,y:1,z:30/65,diameterMm:7.4,holeDepthMm:12})),
+  ],
+  breakerSchneiderIc60h1p: [
+    {"label":"1","face":"top","x":0.5,"y":0.01545,"z":0.262,"diameterMm":8.7,"holeDepthMm":14.1},
+    {"label":"2","face":"bottom","x":0.5,"y":0.98455,"z":0.262,"diameterMm":8.7,"holeDepthMm":14.1},
+  ],  // STEP A9D32616: passo de 9 mm, bornes de entrada à esquerda e saída à direita.
   residualBreakerSchneiderIdpnVigi: [
-    {"label":"N1","face":"top","x":0.254,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"1","face":"top","x":0.746,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"N2","face":"bottom","x":0.254,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"2","face":"bottom","x":0.746,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"N1","face":"top","x":0.126404,"y":0,"z":0.238,"diameterMm":8.2,"holeDepthMm":13.5},
+    {"label":"1","face":"top","x":0.365169,"y":0,"z":0.305,"diameterMm":8.2,"holeDepthMm":13.5},
+    {"label":"N2","face":"bottom","x":0.634831,"y":1,"z":0.238,"diameterMm":8.2,"holeDepthMm":13.5},
+    {"label":"2","face":"bottom","x":0.873596,"y":1,"z":0.305,"diameterMm":8.2,"holeDepthMm":13.5},
   ],
   residualBreakerSchneiderIid4p: [
-    {"label":"N1","face":"top","x":0.125,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"1","face":"top","x":0.375,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"3","face":"top","x":0.625,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"5","face":"top","x":0.875,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"N2","face":"bottom","x":0.125,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"2","face":"bottom","x":0.375,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"4","face":"bottom","x":0.625,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
-    {"label":"6","face":"bottom","x":0.875,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"N1","face":"top","x":0.127615,"y":0,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
+    {"label":"1","face":"top","x":0.375872,"y":0,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
+    {"label":"3","face":"top","x":0.624128,"y":0,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
+    {"label":"5","face":"top","x":0.872385,"y":0,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
+    {"label":"N2","face":"bottom","x":0.127615,"y":1,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
+    {"label":"2","face":"bottom","x":0.375872,"y":1,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
+    {"label":"4","face":"bottom","x":0.624128,"y":1,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
+    {"label":"6","face":"bottom","x":0.872385,"y":1,"z":0.284821,"diameterMm":8,"holeDepthMm":13.5},
   ],
   pilotLightSchneiderIil1p: [
-    {"label":"X1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
-    {"label":"X2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":8,"holeDepthMm":12},
-  ],
-  pilotLightSchneiderIil3p: [
-    {"label":"L1","face":"top","x":0.167,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
-    {"label":"L2","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
-    {"label":"L3","face":"top","x":0.833,"y":0.011834,"z":0.287,"diameterMm":8,"holeDepthMm":12},
-    {"label":"N","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":8,"holeDepthMm":12},
-  ],
-  breaker2p: [
+    {"label":"X1","face":"bottom","x":0.23,"y":1,"z":0.195,"diameterMm":5.2,"holeDepthMm":4},
+    {"label":"X2","face":"bottom","x":0.633,"y":1,"z":0.195,"diameterMm":5.2,"holeDepthMm":4},
+  ],  pilotLightSchneiderIil3p: [
+    {"label":"L1","face":"bottom","x":0.230337,"y":1,"z":0.180646,"diameterMm":6.9,"holeDepthMm":8},
+    {"label":"L2","face":"bottom","x":0.634831,"y":1,"z":0.180646,"diameterMm":6.9,"holeDepthMm":8},
+    {"label":"L3","face":"bottom","x":0.365169,"y":0.907862,"z":0.460648,"diameterMm":6,"holeDepthMm":9},
+    {"label":"N","face":"bottom","x":0.769663,"y":0.907862,"z":0.460648,"diameterMm":6,"holeDepthMm":9},
+  ],  breaker2p: [
     {"label":"1","face":"top","x":0.254,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
     {"label":"3","face":"top","x":0.746,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
     {"label":"2","face":"bottom","x":0.254,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
@@ -267,23 +277,25 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"L","face":"bottom","x":0.499063,"y":0.97025,"z":0.847515,"diameterMm":8.1,"holeDepthMm":1.94},
     {"label":"N","face":"bottom","x":0.647063,"y":0.97025,"z":0.847515,"diameterMm":8.1,"holeDepthMm":1.94},
   ],
+  // Four columns × two staggered banks per side; Rockwell fig.3/photo.
+  // Visual reconstruction, not exact-source metrology. Terminal IDs are unchanged.
   safetyRelay: [
-    {"label":"A1","face":"top","x":0.3,"y":0,"z":0.82,"diameterMm":4,"holeDepthMm":6},
-    {"label":"S11","face":"top","x":0.3,"y":0,"z":0.62,"diameterMm":4,"holeDepthMm":6},
-    {"label":"S52","face":"top","x":0.3,"y":0,"z":0.42,"diameterMm":4,"holeDepthMm":6},
-    {"label":"S12","face":"top","x":0.3,"y":0,"z":0.22,"diameterMm":4,"holeDepthMm":6},
-    {"label":"13","face":"top","x":0.7,"y":0,"z":0.82,"diameterMm":4,"holeDepthMm":6},
-    {"label":"23","face":"top","x":0.7,"y":0,"z":0.62,"diameterMm":4,"holeDepthMm":6},
-    {"label":"33","face":"top","x":0.7,"y":0,"z":0.42,"diameterMm":4,"holeDepthMm":6},
-    {"label":"41","face":"top","x":0.7,"y":0,"z":0.22,"diameterMm":4,"holeDepthMm":6},
-    {"label":"A2","face":"bottom","x":0.3,"y":1,"z":0.82,"diameterMm":4,"holeDepthMm":6},
-    {"label":"S21","face":"bottom","x":0.3,"y":1,"z":0.62,"diameterMm":4,"holeDepthMm":6},
-    {"label":"S22","face":"bottom","x":0.3,"y":1,"z":0.42,"diameterMm":4,"holeDepthMm":6},
-    {"label":"S34","face":"bottom","x":0.3,"y":1,"z":0.22,"diameterMm":4,"holeDepthMm":6},
-    {"label":"14","face":"bottom","x":0.7,"y":1,"z":0.82,"diameterMm":4,"holeDepthMm":6},
-    {"label":"24","face":"bottom","x":0.7,"y":1,"z":0.62,"diameterMm":4,"holeDepthMm":6},
-    {"label":"34","face":"bottom","x":0.7,"y":1,"z":0.42,"diameterMm":4,"holeDepthMm":6},
-    {"label":"42","face":"bottom","x":0.7,"y":1,"z":0.22,"diameterMm":4,"holeDepthMm":6},
+    {"label":"13","face":"top","x":0.16,"y":0,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"23","face":"top","x":0.386667,"y":0,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"33","face":"top","x":0.613333,"y":0,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"41","face":"top","x":0.84,"y":0,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"A1","face":"top","x":0.16,"y":0.1,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"S11","face":"top","x":0.386667,"y":0.1,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"S52","face":"top","x":0.613333,"y":0.1,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"S12","face":"top","x":0.84,"y":0.1,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"S21","face":"bottom","x":0.16,"y":0.9,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"S22","face":"bottom","x":0.386667,"y":0.9,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"S34","face":"bottom","x":0.613333,"y":0.9,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"A2","face":"bottom","x":0.84,"y":0.9,"z":0.93,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"14","face":"bottom","x":0.16,"y":1,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"24","face":"bottom","x":0.386667,"y":1,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"34","face":"bottom","x":0.613333,"y":1,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
+    {"label":"42","face":"bottom","x":0.84,"y":1,"z":0.78,"diameterMm":3.6,"holeDepthMm":6},
   ],
   siemensTsAdapterIeBasic: [
     {"label":"L+","face":"back","x":0.504,"y":0.730075,"z":0.000672,"diameterMm":7.8,"holeDepthMm":4.95},

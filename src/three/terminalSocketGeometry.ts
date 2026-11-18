@@ -1,3 +1,4 @@
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three'
 import { getComponentModelSpec, type ComponentModelSpec } from './modelPaths'
 import type { ComponentType } from '../types'
@@ -54,6 +55,36 @@ function clipGeometry(source: THREE.BufferGeometry, planes: THREE.Plane[]): THRE
   return geometry
 }
 
+/** The slim MSR has FOUR columns, not two columns along its entire depth.
+ * Keep the supplied unmarked shell; replace only the four terminal-bank regions
+ * with visibly open, staggered four-pole blocks matching fig.3/product photos. */
+function addMsr127Banks(model:THREE.Group,box:THREE.Box3,units:number):void {
+  const size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3()),cut=18*units,rear=box.min.z+size.z*.72
+  model.traverse(node=>{
+    const mesh=node as THREE.Mesh;if(!mesh.isMesh)return
+    const inverse=mesh.matrixWorld.clone().invert(),plane=(n:THREE.Vector3,c:number)=>new THREE.Plane(n,c).applyMatrix4(inverse)
+    const core=clipGeometry(mesh.geometry,[plane(new THREE.Vector3(0,1,0),-box.min.y-cut),plane(new THREE.Vector3(0,-1,0),box.max.y-cut)])
+    const top=clipGeometry(mesh.geometry,[plane(new THREE.Vector3(0,1,0),-box.max.y+cut),plane(new THREE.Vector3(0,0,-1),rear)])
+    const bottom=clipGeometry(mesh.geometry,[plane(new THREE.Vector3(0,-1,0),box.min.y+cut),plane(new THREE.Vector3(0,0,-1),rear)])
+    mesh.geometry=mergeGeometries([core,top,bottom])!;for(const g of [core,top,bottom])g.dispose();mesh.userData.generatedTerminalSocket=true
+  })
+  const spots=REAL_TERMINALS.safetyRelay!,rows=new Map<string,typeof spots>()
+  for(const spot of spots){const key=spot.face+':'+spot.y+':'+spot.z;rows.set(key,[...(rows.get(key)??[]),spot])}
+  for(const row of rows.values()){
+    const first=row[0],up=first.face==='top',mouthY=box.max.y-first.y*size.y,z=box.min.z+first.z*size.z,depth=6*units
+    const shape=new THREE.Shape(),halfW=size.x*.475,halfD=5*units
+    shape.moveTo(-halfW,-halfD);shape.lineTo(halfW,-halfD);shape.lineTo(halfW,halfD);shape.lineTo(-halfW,halfD);shape.closePath()
+    for(const spot of row){const hole=new THREE.Path();hole.absarc((spot.x-.5)*size.x,0,1.8*units,0,Math.PI*2,true);shape.holes.push(hole)}
+    const geometry=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:20});geometry.rotateX(-Math.PI/2)
+    const bank=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:'#242c2c',roughness:.6}));bank.name='msr127_terminal_bank_'+row.map(s=>s.label).join('_');bank.position.set(center.x,up?mouthY-depth:mouthY,z);bank.userData.generatedTerminalSocket=true;model.add(bank)
+    for(const spot of row){
+      const x=box.min.x+spot.x*size.x,group=new THREE.Group();group.name='msr127_connection_'+spot.label;group.position.set(x,mouthY,z)
+      const floor=new THREE.Mesh(new THREE.CylinderGeometry(1.35*units,1.35*units,.5*units,20),new THREE.MeshStandardMaterial({color:'#b4a172',metalness:.65,roughness:.35}));floor.position.y=(up?-1:1)*(depth-.5*units);group.add(floor);model.add(group)
+    }
+  }
+  model.userData.msr127TerminalAdaptation='Reconstructed four-column staggered banks; source shell retained, no official CAD/metrology claim.'
+}
+
 export function addTerminalSocketBlocks(model: THREE.Group, spec: ComponentModelSpec, units: number): void {
   const type = SOCKET_BLOCK_TYPES.find((type) => getComponentModelSpec(type)?.path === spec.path)
   if (!type) return
@@ -62,6 +93,7 @@ export function addTerminalSocketBlocks(model: THREE.Group, spec: ComponentModel
   model.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(model, true)
   const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3())
+  if(type==='safetyRelay'){addMsr127Banks(model,box,units);model.updateMatrixWorld(true);return}
   const motorVariant = motorVariantOf(type)
   if (motorVariant) {
     // Motor: retira a tampa da caixa de bornes e constrói o compartimento real

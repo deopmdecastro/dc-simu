@@ -1,3 +1,4 @@
+import { industrialControlPatch } from '../electrical/industrialDevices'
 import { nextCatalogState } from './interactions'
 import type { BehaviorEvent, ComponentDefinition, ControlAction, ControlDef, VarDef, VarValue, WhenDef } from './types'
 
@@ -78,6 +79,7 @@ export function runControlActions(actions: ControlAction[], vars: Vars, state: s
         break
       }
       case 'behavior': current = multimeterEvent(current, action.event); break
+      case 'industrial': { const patch=industrialControlPatch(action.device,current,action.control,action.step); for(const [k,v] of Object.entries(patch))if(['string','number','boolean'].includes(typeof v))current[k]=v; break }
       case 'delayedState': delayed.push({ state: action.state, afterMs: action.afterMs }); break
       default: { const next = nextCatalogState(action, nextState); if (next) nextState = next }
     }
@@ -91,6 +93,7 @@ export const isSpringReturn = (control: Pick<ControlDef, 'kind' | 'returnMode'>)
 
 /** Variáveis seguradas pela mola (as das ações «alternar/definir variável» ou, em falta, `bindVar`). */
 export function springVariables(control: ControlDef): string[] {
+  if (control.holdVar) return [control.holdVar]
   const vars = control.actions.flatMap((action) => (action.type === 'toggleVar' || action.type === 'setVar' ? [action.var] : []))
   if (!vars.length && control.bindVar) vars.push(control.bindVar)
   return [...new Set(vars)]
@@ -104,6 +107,13 @@ export function springHold(control: ControlDef, vars: Vars, state: string, down:
   const current = { ...vars }
   const others: ControlAction[] = []
   const restOf = (name: string): VarValue => (name in rest ? rest[name] : false)
+  if (control.holdVar) {
+    // T tem mola, mas o disparo mantém-se. Só o estado físico da tecla volta
+    // ao repouso; não desfaz closed/tripped nem repete as ações ao largar.
+    const result = runControlActions(down ? control.actions : [], current, state)
+    result.vars[control.holdVar] = down ? true : restOf(control.holdVar)
+    return { ...result, changed: result.state !== state || JSON.stringify(result.vars) !== JSON.stringify(vars) }
+  }
   for (const action of control.actions) {
     if (action.type === 'toggleVar') current[action.var] = down ? true : restOf(action.var)
     else if (action.type === 'setVar') current[action.var] = down ? action.value : restOf(action.var)
@@ -242,4 +252,10 @@ export function multimeterReading(vars: Vars, input: MeterInput, noise = 0): Met
     else text = formatDigits(jitter(shown, 0.002))
   }
   return { ...base, text, unit, continuity, beep, quantity: continuity ? 'Continuidade' : 'Resistência', warning }
+}
+
+/** Encoder industrial: premir confirma; rodar é um gesto diferente. */
+export function industrialRotaryActions(control:ControlDef,step:1|-1):ControlAction[]|null{
+ const action=control.actions.find(a=>a.type==='industrial'&&a.control==='enter')
+ return action?.type==='industrial'?[{...action,control:'encoder',step}]:null
 }

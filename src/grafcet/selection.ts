@@ -1,4 +1,4 @@
-import type { GrafcetStep, GrafcetTransition } from './engine'
+import type { GrafcetStep, GrafcetTransition, GrafcetProgram, GrafcetComment } from './engine'
 import { cloneActions } from './actionLayout'
 import { GRID, MIN_X, MIN_Y, SPINE_X, START_Y, STEP_H, snapToGrid } from './layout'
 
@@ -99,6 +99,9 @@ export function distributePositions(items: Pos[], axis: DistributeAxis): Pos[] {
 export interface SubDiagram {
   steps: GrafcetStep[]
   transitions: GrafcetTransition[]
+  comments?: GrafcetComment[]
+  linkBends?: GrafcetProgram['linkBends']
+  linkBars?: GrafcetProgram['linkBars']
 }
 
 /**
@@ -113,7 +116,8 @@ export function cloneSubDiagram(
   where: (stepId: string) => { x: number; y: number },
   offset: { dx: number; dy: number },
   newId: () => string,
-  suffix = ' (cópia)'
+  suffix = ' (cópia)',
+  extras: Pick<GrafcetProgram, 'linkBends' | 'linkBars' | 'comments'> = {},
 ): SubDiagram {
   const wanted = new Set(ids)
   const picked = steps.filter((step) => wanted.has(step.id))
@@ -134,17 +138,25 @@ export function cloneSubDiagram(
     if (step.stepType === 'initial-enclosing') clone.stepType = 'enclosing'
     return clone
   })
+  const transitionMap = new Map<string, string>()
   const copiedTransitions: GrafcetTransition[] = transitions
     .filter((t) => t.from.length > 0 && t.to.length > 0 && t.from.every((v) => wanted.has(v)) && t.to.every((v) => wanted.has(v)))
-    .map((t) => ({
+    .map((t) => {
+      const tid = newId()
+      transitionMap.set(t.id, tid)
+      return {
       ...t,
-      id: newId(),
+      id: tid,
       from: t.from.map((v) => remap.get(v)!),
       to: t.to.map((v) => remap.get(v)!),
       ...(t.x !== undefined ? { x: t.x + offset.dx } : {}),
       ...(t.y !== undefined ? { y: t.y + offset.dy } : {}),
-    }))
-  return { steps: copiedSteps, transitions: copiedTransitions }
+    }})
+  const shifted = (p: { x: number; y: number }) => ({ x: p.x + offset.dx, y: p.y + offset.dy })
+  const linkBends = Object.fromEntries([...transitionMap].filter(([old]) => extras.linkBends?.[old]).map(([old, tid]) => [tid, extras.linkBends![old].map(shifted)]))
+  const linkBars = Object.fromEntries([...transitionMap].filter(([old]) => extras.linkBars?.[old]).map(([old, tid]) => [tid, shifted(extras.linkBars![old])]))
+  const comments = extras.comments?.map(c => ({ ...c, ...shifted(c), id: newId() }))
+  return { steps: copiedSteps, transitions: copiedTransitions, ...(Object.keys(linkBends).length ? { linkBends } : {}), ...(Object.keys(linkBars).length ? { linkBars } : {}), ...(comments?.length ? { comments } : {}) }
 }
 
 /** Posição de arranque sensata quando uma etapa ainda não tem posição manual. */

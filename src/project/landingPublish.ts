@@ -75,15 +75,15 @@ export function sliceLandingDemo(payload: LandingPublishedPayload): LandingDemoS
   }
 }
 
-/** Fallback offline / sem publicação: projeto nativo. */
+/** Demonstração offline identificada como tal; nunca substitui uma linha cloud. */
 export function nativeLandingPayload(): LandingPublishedPayload {
   return {
-    projectId: NATIVE_PARTIDA_ID,
-    name: NATIVE_PARTIDA_NAME,
+    projectId: '',
+    name: 'Demonstração offline · partida direta',
     owner: 'admin@dcsimu.local',
     revision: 0,
     updatedAt: new Date().toISOString(),
-    isNative: true,
+    isNative: false,
     content: nativePartidaDiretaContent(),
   }
 }

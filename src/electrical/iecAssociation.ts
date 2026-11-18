@@ -37,6 +37,13 @@ export interface IecAssociation {
 
 /** Mapa estático dos tipos integrados (não-catálogo). */
 const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
+  vfdSchneiderAtv320: { primary: 'converter', iec60617: '60617-6 / conversor CA–CA com frequência variável', refLetter: 'U', note: 'Entrada monofásica R/L1–S/L2, saída trifásica isolada U/T1–V/T2–W/T3. Não é um contactor nem uma ponte de potência.' },
+  relayFinder5534: { primary: 'coil', related: ['contactNO','contactNC'], iec60617: '60617-7 / quatro contactos inversores', refLetter: 'K', note: 'Finder 55.34 / 94.04: 4 CO isolados, bobina 24 V CC.' },
+  timerGeyaGrt8M1: { primary: 'timerCoil', related: ['timedNO','timedNC'], iec60617: '60617-7 / relé temporizado multifunções', refLetter: 'K', note: 'A=TON; E=TOF por S; B=intervalo. Escala × fração.' },
+  timerGeyaGrt8B1: { primary: 'timerCoil', related: ['timedNO','timedNC'], iec60617: '60617-7 / atraso à desoperação por S', refLetter: 'K', note: 'GRT8-B1 A230, alimentação permanente 230 V CA.' },
+  levelRelayAvel411: { primary: 'coil', related: ['contactNO','contactNC'], iec60617: '60617-7 / relé de nível condutivo', refLetter: 'K', note: 'Seis sondas; contacto inversor 1–3/1–4, não sondas de potência.' },
+  relaySocketFinder9023: { primary: 'node', iec60617: '60617-3 / conexão destacável de onze vias', refLetter: 'X', note: 'Base passiva: onze ligações n–Pn independentes; não contém bobina ou contactos de relé.' },
+  buzzerMetaltexTby301: { primary: 'buzzer', iec60617: '60617-8 / sinalizador acústico', refLetter: 'H', note: 'TBY-301: 110 V CA, sinal contínuo; sem sinalização luminosa.' },
   // --- Proteção -----------------------------------------------------------
   breaker1p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-02', refLetter: 'Q', note: 'Disjuntor 1P — mesmo símbolo de manobra; no IEC o número de pólos define-se pela instância' },
   breakerSchneiderIc60h1p: { primary: 'breaker3', iec60617: '60617-7 / 07-13-02', refLetter: 'Q', note: 'Disjuntor Schneider Acti9 iC60H 1P' },

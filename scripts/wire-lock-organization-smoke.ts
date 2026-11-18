@@ -57,8 +57,12 @@ assert.deepEqual(plain(st().wires), allLocked); checks++
 check(st().history.length === lockedHistory, 'organização e numeração sem cabos editáveis não criam histórico')
 st().step()
 check(st().wires.every(w => w.locked) && st().wires.some(w => w.energized), 'bloqueio não impede cálculo elétrico nem se perde durante a simulação')
+check(st().sim.runState === 'paused', 'STEP mantém a pausa viva, não regressa implicitamente a STOP')
 st().setWiresLocked(false)
-check(st().wires.every(w => !w.locked), 'desbloquear todos repõe edição')
+check(st().wires.every(w => w.locked), 'STEP em PAUSA continua a impedir alterações de bloqueio')
+st().stop()
+st().setWiresLocked(false)
+check(st().wires.every(w => !w.locked), 'STOP explícito permite desbloquear todos e repõe edição')
 
 for (const mode of ['running', 'paused'] as const) {
   useSimStore.setState({ sim: { ...st().sim, runState: mode } })

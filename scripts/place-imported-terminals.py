@@ -54,11 +54,12 @@ PLACEMENTS = {
         ('6T3', 'bottom', 4.7, 0.0, 45.0, 6.6, 3.0),
         ('A2', 'bottom', 14.5, 0.0, 45.0, 6.4, 3.0),
     ],
-    # WEG SPW12: três entradas inferiores medidas (Ø 11,3 mm).
+    # WEG SPW12: referencial FINAL do modelo, após rotation Y = pi em modelPaths.
+    # A rotação inverte x/z; os encaixes não ficam na face frontal de z = 50 mm.
     'surgeProtectorWegSpw12': [
-        ('+', 'bottom', -18.0, 0.0, 50.0, 11.3, 18.7),
-        ('-', 'bottom', 0.0, 0.0, 50.0, 11.3, 18.7),
-        ('PE', 'bottom', 18.0, 0.0, 50.0, 11.3, 18.7),
+        ('+', 'bottom', 18.0, 0.0, 19.3, 11.3, 18.7),
+        ('-', 'bottom', 0.0, 0.0, 19.3, 11.3, 18.7),
+        ('PE', 'bottom', -18.0, 0.0, 19.3, 11.3, 18.7),
     ],
     # Siemens 3TK2840: quatro filas de três parafusos (22,5 mm); entradas no topo e na base.
     'safetyRelaySiemens3tk2840': [

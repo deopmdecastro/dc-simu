@@ -61,6 +61,9 @@ let mode: BackendMode = 'unknown'
 
 /** O servidor não respondeu como API (deploy estático ou rede em baixo). */
 class ApiUnavailable extends Error {}
+class ApiResponseError extends Error {
+  constructor(readonly status: number, message: string) { super(message) }
+}
 
 /** Nunca deixe um payload desconhecido chegar à coerção de Error: objetos
  * transformam-se em "[object Object]", que não ajuda o utilizador. */
@@ -101,7 +104,7 @@ async function serverApi<T>(url: string, method = 'GET', body?: unknown): Promis
     if ((response.status === 404 || response.status === 405) && typeof error !== 'string') {
       throw new ApiUnavailable('API indisponível')
     }
-    throw new Error(readableApiError(error ?? data, `Falha no servidor (${response.status})`))
+    throw new ApiResponseError(response.status, readableApiError(error ?? data, `Falha no servidor (${response.status})`))
   }
   return data as T
 }
@@ -418,6 +421,7 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
 
   // 4. Logout
   if (url === '/logout' && verb === 'POST') {
+    cachedServerUser = null
     if (mode === 'supabase') {
       await supabaseLogout()
     }
@@ -493,6 +497,19 @@ async function currentServerUser(): Promise<User | null> {
   }
 }
 
+/** Check the real server first only when an old offline draft actually
+ * exists. A 403, expired session or network error is never treated as absence. */
+async function serverLegacyDraftOwner(projectId: string): Promise<User | null> {
+  const me = await currentServerUser()
+  const { hasLegacyFreeNativeDraft } = await import('../project/freeNativeSandbox')
+  if (!me || !hasLegacyFreeNativeDraft(me.id, projectId)) return null
+  try { await serverApi(`/projects/${encodeURIComponent(projectId)}`); return null }
+  catch (error) {
+    if (error instanceof ApiResponseError && error.status === 404) return me
+    throw error
+  }
+}
+
 async function serverApiWithFreeNatives<T>(url: string, verb: string, body?: unknown): Promise<T> {
   if (url === '/logout' && verb === 'POST') cachedServerUser = null
   if (url === '/projects' && verb === 'GET') {
@@ -500,7 +517,7 @@ async function serverApiWithFreeNatives<T>(url: string, verb: string, body?: unk
       serverApi<import('../dashboard/Dashboard').Project[]>(url, verb, body),
       currentServerUser(),
     ])
-    if (!me || me.role === 'admin') return rows as T
+    if (!me) return rows as T
     const { listMissingFreeNativeProjects } = await import('../project/freeNativeSandbox')
     const markers = rows.map((row) => ({ id: row.id, name: row.name }))
     return [...rows, ...listMissingFreeNativeProjects(me.id, markers)].sort((a, b) =>
@@ -510,11 +527,11 @@ async function serverApiWithFreeNatives<T>(url: string, verb: string, body?: unk
   const matchProj = url.match(/^\/projects\/([^/]+)$/)
   if (matchProj) {
     const id = matchProj[1]
-    const { isFreeNativeProjectId, openFreeNativeProject, saveFreeNativeProject, resetFreeNativeProject } =
+    const { openFreeNativeProject, saveFreeNativeProject, resetFreeNativeProject } =
       await import('../project/freeNativeSandbox')
-    if (isFreeNativeProjectId(id)) {
-      const me = await currentServerUser()
-      if (me && me.role !== 'admin') {
+    {
+      const me = await serverLegacyDraftOwner(id)
+      if (me) {
         if (verb === 'GET') return openFreeNativeProject(me.id, id) as T
         if (verb === 'PUT') {
           const payload = (body ?? {}) as { content?: unknown; revision?: number; name?: string }
@@ -530,15 +547,13 @@ async function serverApiWithFreeNatives<T>(url: string, verb: string, body?: unk
   }
   const matchMembers = url.match(/^\/projects\/([^/]+)\/members$/)
   if (matchMembers && verb === 'GET') {
-    const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
-    if (isFreeNativeProjectId(matchMembers[1])) {
-      return { members: [{ name: 'DC-Simu', email: 'Exemplo nativo incluído na conta' }] } as T
+    if (await serverLegacyDraftOwner(matchMembers[1])) {
+      return { members: [] } as T
     }
   }
   const matchComments = url.match(/^\/projects\/([^/]+)\/comments$/)
   if (matchComments) {
-    const { isFreeNativeProjectId } = await import('../project/freeNativeSandbox')
-    if (isFreeNativeProjectId(matchComments[1])) {
+    if (await serverLegacyDraftOwner(matchComments[1])) {
       if (verb === 'GET') {
         return {
           comments: [],

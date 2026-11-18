@@ -9,12 +9,29 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Recuperação de 17 de novembro de 2026
+
+A revisão reúne os sete aparelhos industriais, medidores D52-2066/KWS-306,
+TC externo, Schneider iC60H/iIL/iID/iDPN, interfaces MSR127 e correções dos
+editores IEC/GRAFCET e da persistência. O mesmo modelo serve o simulador,
+o Admin e a exportação, preservando tipos e IDs dos projetos existentes.
+
+Os medidores e o TC são **reconstruções procedurais**, não CAD oficiais nem
+modelos já aceites visualmente pelo utilizador. Os Schneider usam STEP do
+fabricante com adaptações documentadas; isto não constitui certificação.
+
+[Estado atual, trabalho feito, pendências e evidências de validação](docs/RECUPERACAO-2026-11-17.md).
+[Referências e compatibilidade dos medidores/Schneider](docs/MEDIDORES-SCHNEIDER-3D.md).
+
 ## QGD nativo, inspetor estável e ícones SVG
 
-O **Quadro Geral de Distribuição Completo Multi-Circuitos (QGD)** aparece no dashboard
-para Admin e contas Free: 47 componentes, 76 condutores, iluminação, duas tomadas gerais,
-tomadas especiais, CEE e motor com proteção dedicada. Os rascunhos Free são isolados e não
-consomem a quota de projetos próprios. A semente abre sem erros ou avisos de diagnóstico.
+O conteúdo didático **Quadro Geral de Distribuição Completo Multi-Circuitos (QGD)**
+conserva 47 componentes e 76 condutores, iluminação, tomadas, CEE e motor protegido.
+**Não se criam cópias ou cartões QGD automaticamente em contas limpas.** Só o UUID
+`f8df6df2-c5dd-4b86-ba54-93aeeddc566b` identifica o projeto nativo retido na cloud.
+Rascunhos locais antigos continuam acessíveis, isolados e sujeitos a revisão;
+projetos pessoais não são classificados nem eliminados pelo nome ou prefixo.
+O documento QGD abaixo é histórico; a política atual está no relatório de recuperação.
 
 Corrigido o React #310 ao inserir/selecionar elementos e trocar de família de barramentos;
 uma regra de hooks passa a bloquear regressões no CI. As peças Acti9 procedurais usam o
@@ -35,7 +52,17 @@ O editor GRAFCET aceita ficheiros `.ct` do FluidSIM 4, com leitura local de etap
 
 ## Bornes dentro dos encaixes 3D
 
-As 142 ligações dos 20 equipamentos integrados com bornes são verificadas contra as cavidades da geometria renderizada. O editor usa a mesma escala física do CAD, limita o marcador ao espaço do furo e migra posições automáticas antigas. Consulte [calibração, réguas complementares e verificações](docs/TERMINAL-GEOMETRY.md); execute `npm run test:terminal-geometry` para verificar os GLB locais.
+A auditoria CAD atual cobre **48 modelos: 303 cavidades e 39 pinos/fios/contactos
+de superfície (342 ligações medidas)**. Verifica os pontos reais dos cabos, o
+fundo, o aro e a folga dos marcadores ampliados. D52, KWS e TC têm ensaios
+procedurais separados, incluindo os encaixes Admin e a exportação dos pontos;
+os tipos procedurais listados como excluídos do varrimento CAD não são contados
+como se tivessem passado esse varrimento.
+A tampa de serviço do ATV é aberta para testar os bornes que ela protege;
+a oclusão física da tampa fechada mantém-se. O editor usa o referencial físico
+comum e migra apenas padrões automáticos antigos reconhecidos, não posições
+manuais ou fixadas. Consulte [geometria e limites](docs/TERMINAL-GEOMETRY.md)
+e execute `npm run test:terminal-geometry`.
 
 ## Novidades — v5.4 (resumo da administração responsivo)
 

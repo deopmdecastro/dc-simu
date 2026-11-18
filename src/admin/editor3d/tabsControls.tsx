@@ -262,7 +262,7 @@ export function ControlsTab() {
       {control.kind !== 'selector' && <>
         <Section title="Ações ao clicar"><ActionList def={def} actions={control.actions} onChange={(actions) => patch({ actions })} />
           <div className="ce-actions"><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => triggerEditorControl(control, 'press')}>Testar clique</button></div></Section>
-        <Section title="Ações ao manter premido (≥ 0,6 s)" open={!!control.longActions?.length}><ActionList def={def} actions={control.longActions ?? []} onChange={(longActions) => patch({ longActions })} />
+        <Section title={`Ações ao manter premido (≥ ${((control.longPressMs??600)/1000).toLocaleString('pt-PT')} s)`} open={!!control.longActions?.length}><ActionList def={def} actions={control.longActions ?? []} onChange={(longActions) => patch({ longActions })} />
           <div className="ce-actions"><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => triggerEditorControl(control, 'long')}>Testar premir longo</button></div></Section>
       </>}
       <Section title="Ações"><Confirm label="Eliminar controlo" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, controls: (state.controls ?? []).filter((item) => item.id !== control.id) })); set({ selection: null, pick: null }) }} /></Section>

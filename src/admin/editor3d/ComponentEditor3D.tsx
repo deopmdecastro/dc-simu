@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, preloadDefinitionTextures, resolveState, runtimeSpec } from '../../catalog/definition'
-import { builtinTypeOf, upgradeBuiltinDraft } from './builtinComponents'
+import { builtinTypeOf, upgradeBuiltinDraft, upgradeBuiltinMeta } from './builtinComponents'
 import type { ComponentType } from '../../types'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
@@ -523,8 +523,11 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     catalogApi.adminGet(id).then(async (loaded) => {
       if (cancelled) return
       const origin = loaded.meta.properties?.find((item) => item.key === 'Origem')?.value ?? ''
+      // Os Acti9 têm seed específico após a migração do volume antigo;
+      // acrescentar antes um toggle genérico faria o guard confundi-lo com edição manual.
+      const schneiderRcd = /residualBreakerSchneider(?:Iid4p|IdpnVigi)/.test(origin)
       const breakerOrigin = /(breaker|phoenixEcb|motorBreaker|residualBreaker)/.test(origin)
-      if (breakerOrigin && loaded.draft && !(loaded.draft.controls?.length)) {
+      if (breakerOrigin && !schneiderRcd && loaded.draft && !(loaded.draft.controls?.length)) {
         const partId = loaded.draft.parts[0]?.id
         if (partId) loaded = { ...loaded, draft: { ...loaded.draft,
           vars: [...(loaded.draft.vars ?? []), { id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }],
@@ -533,12 +536,18 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       }
       // Atualiza rascunhos integrados antigos, preservando os ajustes manuais.
       const builtinType = builtinTypeOf(loaded)
+      let draftMigrated = false
       if (loaded.draft && builtinType) {
         const upgraded = await upgradeBuiltinDraft(builtinType as ComponentType, loaded.draft)
         if (cancelled) return
-        if (upgraded) loaded = { ...loaded, draft: upgraded }
+        const meta = upgradeBuiltinMeta(builtinType as ComponentType, loaded.meta)
+        if (upgraded || meta) {
+          loaded = { ...loaded, draft: upgraded ?? loaded.draft, meta: meta ?? loaded.meta }
+          draftMigrated = true
+        }
       }
       useEditorStore.getState().open(loaded)
+      if (draftMigrated) useEditorStore.getState().set({ dirty: true })
       const defNow = useEditorStore.getState().def
       await loadGlbAssets(defNow, glbCache)
       await preloadDefinitionTextures(defNow)

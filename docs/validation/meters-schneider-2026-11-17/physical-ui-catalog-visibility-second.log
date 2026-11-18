@@ -1,0 +1,10 @@
+PASS — versão editável: duas instâncias não partilham a textura LCD quando têm energias diferentes
+PASS — versão editável: ambos os LCD têm dígitos acesos e superfície frontal desobstruída
+PASS — versão editável: clique curto não apaga o contador
+PASS — versão editável: RESET de 5 s funciona no GLB assado do catálogo
+PASS — versão editável: pointercancel cancela o gesto e devolve OrbitControls
+PASS — versão editável: blur cancela o gesto e devolve OrbitControls
+PASS — RESET da primeira instância deixa intacta a energia da segunda
+PASS — catalog-reset: sem exceções, React #310 ou perda WebGL
+
+PASS — 8 verificações de mecânica, CAD, Admin e marcas no navegador.

@@ -1,0 +1,84 @@
+
+> dc-simu@2.0.0 test:meters-schneider-ui
+> node scripts/meters-schneider-ui-smoke.mjs
+
+PASS — user: QGD continua completo, 47 componentes/76 cabos
+PASS — user: pesquisa «medidor» mostra os dois aparelhos de medir
+PASS — user: os dois medidores estão desbloqueados
+PASS — user: medidores estão no grupo «Aparelhos de medir»
+PASS — user: as duas capas dos medidores carregam na biblioteca
+PASS — user: inserir D52 pela biblioteca não perde cabos
+PASS — user: inserir KWS pela biblioteca não perde cabos
+PASS — user: inserção mantém as identidades dos dois tipos
+PASS — user: biblioteca sem exceções ou React #310 — OK
+PASS — admin: QGD continua completo, 47 componentes/76 cabos
+PASS — admin: pesquisa «medidor» mostra os dois aparelhos de medir
+PASS — admin: os dois medidores estão desbloqueados
+PASS — admin: medidores estão no grupo «Aparelhos de medir»
+PASS — admin: as duas capas dos medidores carregam na biblioteca
+PASS — admin: inserir D52 pela biblioteca não perde cabos
+PASS — admin: inserir KWS pela biblioteca não perde cabos
+PASS — admin: inserção mantém as identidades dos dois tipos
+PASS — admin: biblioteca sem exceções ou React #310 — OK
+PASS — meterD522066: corpo centrado no mesmo pivô dos bornes e seleção ({"distance":0})
+PASS — D52: botão RESET repõe o contador pela malha real
+PASS — meterD522066: vista rodada completa é capturada sem erro
+PASS — meterD522066: sem exceções, perda de contexto WebGL ou React #310 — OK
+PASS — meterKws306: corpo centrado no mesmo pivô dos bornes e seleção ({"distance":0})
+PASS — KWS: botão ON/OFF abre o relé
+PASS — KWS: segundo clique fecha o relé
+PASS — KWS: LCD atualiza quando apenas iB muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas vC muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas pC muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas frequency muda, sem cache obsoleta
+PASS — KWS: LCD atualiza quando apenas temp muda, sem cache obsoleta
+PASS — meterKws306: vista rodada completa é capturada sem erro
+PASS — meterKws306: sem exceções, perda de contexto WebGL ou React #310 — OK
+PASS — residualBreakerSchneiderIid4p: corpo centrado no mesmo pivô dos bornes e seleção ({"distance":0.011285840673770971})
+PASS — residualBreakerSchneiderIid4p: I.ON vermelho está visível na superfície do manípulo
+PASS — residualBreakerSchneiderIid4p: premir T no CAD dispara e mantém o botão premido
+PASS — residualBreakerSchneiderIid4p: T desloca-se fisicamente 1,2 mm para dentro
+PASS — residualBreakerSchneiderIid4p: a letra T acompanha a mola, sem flutuar no corpo
+PASS — residualBreakerSchneiderIid4p: o indicador continua visível na pose TRIP
+PASS — residualBreakerSchneiderIid4p: soltar T repõe a mola sem rearmar
+PASS — residualBreakerSchneiderIid4p: o clique posterior ao pointerup não duplica o disparo
+PASS — residualBreakerSchneiderIid4p: T está realmente premido antes de sair do canvas
+PASS — residualBreakerSchneiderIid4p: soltar fora do canvas liberta T e conserva o disparo
+PASS — residualBreakerSchneiderIid4p: operar T e largar fora não roda a câmara e repõe OrbitControls
+PASS — residualBreakerSchneiderIid4p: T está realmente premido antes de pointercancel
+PASS — residualBreakerSchneiderIid4p: pointercancel também liberta a mola T
+PASS — residualBreakerSchneiderIid4p: cancelar T conserva a câmara e repõe OrbitControls
+PASS — residualBreakerSchneiderIid4p: disparo tem manípulo em posição intermédia
+PASS — residualBreakerSchneiderIid4p: clicar na pega rearma e fecha
+PASS — residualBreakerSchneiderIid4p: novo clique abre em O.OFF
+PASS — residualBreakerSchneiderIid4p: O.OFF verde está visível na superfície do manípulo
+PASS — residualBreakerSchneiderIid4p: corpo seleciona sem manobrar
+PASS — residualBreakerSchneiderIid4p: aparelho bloqueado ignora a manobra
+PASS — residualBreakerSchneiderIid4p: ferramenta de cabos não liga o aparelho
+PASS — residualBreakerSchneiderIid4p: vista rodada completa é capturada sem erro
+PASS — residualBreakerSchneiderIid4p: sem exceções, perda de contexto WebGL ou React #310 — OK
+PASS — residualBreakerSchneiderIdpnVigi: corpo centrado no mesmo pivô dos bornes e seleção ({"distance":0.009999123948932875})
+PASS — residualBreakerSchneiderIdpnVigi: I.ON vermelho está visível na superfície do manípulo
+PASS — residualBreakerSchneiderIdpnVigi: premir T no CAD dispara e mantém o botão premido
+PASS — residualBreakerSchneiderIdpnVigi: T desloca-se fisicamente 1,2 mm para dentro
+PASS — residualBreakerSchneiderIdpnVigi: a letra T acompanha a mola, sem flutuar no corpo
+PASS — residualBreakerSchneiderIdpnVigi: o indicador continua visível na pose TRIP
+PASS — residualBreakerSchneiderIdpnVigi: soltar T repõe a mola sem rearmar
+PASS — residualBreakerSchneiderIdpnVigi: o clique posterior ao pointerup não duplica o disparo
+PASS — residualBreakerSchneiderIdpnVigi: T está realmente premido antes de sair do canvas
+PASS — residualBreakerSchneiderIdpnVigi: soltar fora do canvas liberta T e conserva o disparo
+PASS — residualBreakerSchneiderIdpnVigi: operar T e largar fora não roda a câmara e repõe OrbitControls
+PASS — residualBreakerSchneiderIdpnVigi: T está realmente premido antes de pointercancel
+PASS — residualBreakerSchneiderIdpnVigi: pointercancel também liberta a mola T
+PASS — residualBreakerSchneiderIdpnVigi: cancelar T conserva a câmara e repõe OrbitControls
+PASS — residualBreakerSchneiderIdpnVigi: disparo tem manípulo em posição intermédia
+PASS — residualBreakerSchneiderIdpnVigi: clicar na pega rearma e fecha
+PASS — residualBreakerSchneiderIdpnVigi: novo clique abre em O.OFF
+PASS — residualBreakerSchneiderIdpnVigi: O.OFF verde está visível na superfície do manípulo
+PASS — residualBreakerSchneiderIdpnVigi: corpo seleciona sem manobrar
+PASS — residualBreakerSchneiderIdpnVigi: aparelho bloqueado ignora a manobra
+PASS — residualBreakerSchneiderIdpnVigi: ferramenta de cabos não liga o aparelho
+PASS — residualBreakerSchneiderIdpnVigi: vista rodada completa é capturada sem erro
+PASS — residualBreakerSchneiderIdpnVigi: sem exceções, perda de contexto WebGL ou React #310 — OK
+
+78 verificações de biblioteca e controlos 3D dos medidores/Schneider passaram no navegador.

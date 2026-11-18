@@ -13,6 +13,7 @@
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { importedTemplates, upgradeImportedTerminals } from './importedComponents'
+import { industrialTemplates } from './industrialDevices'
 import { FACE_INWARD, terminalInsetMm, realTerminalPosition, leadRootPosition, LEAD_PIGTAIL_LENGTH_MM, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
 import {
   ACRYLIC_BUSBAR,
@@ -25,7 +26,7 @@ import { COMB_BUSBAR, COMB_CONNECTOR } from '../three/combBusbarParts'
 const FACE_OUTWARD_3D: Record<RealTerminalSpot['face'], [number, number, number]> = {
   front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0],
 }
-import { LEGACY_REAL_TERMINALS } from './legacyRealInterfaces'
+import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { terminalAssemblyConductors, TERMINAL_CONDUCTOR_PATTERN } from '../three/terminalAssembly'
@@ -281,6 +282,7 @@ function plcS7300Cpu315Terminals(): TerminalTemplate[] {
 
 export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   ...importedTemplates(),
+  ...industrialTemplates(),
   // ---------------- Proteção ----------------
   breaker1p: {
     category: 'protection', paletteName: 'Disjuntor Schneider Easy9 EZ9 · 1P', group: 'Proteção', tag: 'QF', w: 60, h: 110,
@@ -641,7 +643,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('41', 'aux-nc', 0.84, 0, { terminalType: 'screw' }),
       T('42', 'aux-nc', 0.96, 0, { terminalType: 'screw' }),
       T('A2', 'coil-minus', 0.06, 1, { terminalType: 'screw' }),
-      // S52 (reset monitorizado) existe no CAD; sem posição própria no esquema ficava a 3 px de S12.
+      // S52 é entrada de segurança, não reset; o start TP é S12–S34.
       T('S52', 'io', 0.15, 1, { terminalType: 'screw' }),
       T('13', 'aux-no', 0.24, 1, { terminalType: 'screw' }),
       T('14', 'aux-no', 0.36, 1, { terminalType: 'screw' }),
@@ -650,7 +652,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('33', 'aux-no', 0.74, 1, { terminalType: 'screw' }),
       T('34', 'aux-no', 0.86, 1, { terminalType: 'screw' }),
     ],
-    defaultState: { energized: false, tripped: false, dualChannel: true, supply: '24 V AC/DC', reset: 'auto/manual', safetyCategory: 'Cat. 4 / PLe / SIL 3' },
+    defaultState: { powered: false, energized: false, channel1On: false, channel2On: false, tripped: false, dualChannel: true, supply: '24 V AC/DC', reset: 'TP · automático/manual por nível S12–S34', safetyCategory: 'Modelo didático · sem validação PL/SIL', startupElapsedMs: 0, recoveryElapsedMs: 0 },
   },
 
   // ---------------- Sinalização ----------------
@@ -695,14 +697,14 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { on: false, color: '#ef4444', voltage: '230V AC', brand: 'Schneider Electric', code: 'A9E18320' },
   },
   pilotLightSchneiderIil3p: {
-    category: 'signaling', paletteName: 'Sinalizador Trifásico Schneider Acti9 iIL · 3P L1-L2-L3 (Falha de Fase)', group: 'Sinalização', tag: 'H', w: 110, h: 100,
+    category: 'signaling', paletteName: 'Sinalizador Trifásico Schneider Acti9 iIL · Presença de tensão L1-L2-L3 · 1 módulo', group: 'Sinalização', tag: 'H', w: 110, h: 100,
     terminals: [
       T('L1', 'power-in', 0.2, 0, { position3D: { x: 0.167, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
       T('L2', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
       T('L3', 'power-in', 0.8, 0, { position3D: { x: 0.833, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
       T('N', 'neutral', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 9 }),
     ],
-    defaultState: { on: false, l1On: false, l2On: false, l3On: false, phaseLoss: false, color: '#ef4444', voltage: '230/400V AC', brand: 'Schneider Electric', code: 'A9E18324' },
+    defaultState: { on: false, l1On: false, l2On: false, l3On: false, phaseLoss: false, color: '#ef4444', voltage: '230/400V AC', brand: 'Schneider Electric', code: 'A9E18327' },
   },
   buzzer: {
     category: 'signaling', paletteName: 'Buzzer / sirene', group: 'Sinalização', tag: 'HA', w: 60, h: 80,
@@ -787,12 +789,12 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   capacitorRun60uF: {
     category: 'motor', paletteName: 'Condensador (genérico CBB65)', group: 'Motores', tag: 'C', w: 70, h: 110,
     terminals: [
-      T('1', 'power-in', 0.28, 0, { position3D: { x: 0.35, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('1B', 'power-in', 0.38, 0, { position3D: { x: 0.41, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2', 'power-out', 0.62, 0, { position3D: { x: 0.59, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2B', 'power-out', 0.72, 0, { position3D: { x: 0.65, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2C', 'power-out', 0.62, 0.08, { position3D: { x: 0.59, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2D', 'power-out', 0.72, 0.08, { position3D: { x: 0.65, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('1', 'power-in', 0.23, 0, { position3D: { x: 0.35, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('1B', 'power-in', 0.36, 0, { position3D: { x: 0.41, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2', 'power-out', 0.64, 0, { position3D: { x: 0.59, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2B', 'power-out', 0.77, 0, { position3D: { x: 0.65, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2C', 'power-out', 0.64, 0.1, { position3D: { x: 0.59, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2D', 'power-out', 0.77, 0.1, { position3D: { x: 0.65, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
     ],
     defaultState: {
       capacitanceUf: 60,
@@ -1215,8 +1217,18 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
   },
+  currentTransformerSplitCore: {
+    category: 'measurement', paletteName: 'TC externo abrível · janela Ø16 mm', group: 'Aparelhos de medir', tag: 'TC', w: 54, h: 72,
+    terminals: [
+      T('P1','io',.5,.12,{displayName:'Primário · passagem do mesmo condutor (entrada)',position3D:{x:.5,y:28/48,z:1},terminalType:'spring'}),
+      T('P2','io',.5,.3,{displayName:'Primário · passagem do mesmo condutor (saída)',position3D:{x:.5,y:28/48,z:0},terminalType:'spring'}),
+      T('S1','io',.35,.88,{displayName:'Secundário S1 · só entrada TC compatível',position3D:{x:14/36,y:5/48,z:.92},terminalType:'screw',color:'#dc2626'}),
+      T('S2','io',.65,.88,{displayName:'Secundário S2 · só entrada TC compatível',position3D:{x:22/36,y:5/48,z:.92},terminalType:'screw',color:'#1f2937'}),
+    ],
+    defaultState:{primaryA:100,secondaryA:.05,primaryConductor:false,referenceOnly:true},
+  },
   meterD522066: {
-    category: 'power', paletteName: 'Medidor multifunções D52-2066 LCD', group: 'Fontes', tag: 'PM', w: 108, h: 160,
+    category: 'measurement', paletteName: 'Medidor monofásico multifunções D52-2066 LCD', group: 'Aparelhos de medir', tag: 'PM', w: 108, h: 160,
     terminals: [
       T('1', 'power-in', 0.28, 0.92, {
         displayName: '1 · Tensão L (AC 40–300V)', color: '#171717', terminalType: 'screw',
@@ -1235,10 +1247,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
         position3D: { x: 0.80, y: 0.12, z: 0.12 },
       }),
     ],
-    defaultState: { on: true, voltage: 230, current: 1.14, power: 256.3, energy: 0.22, frequency: 50, powerFactor: 1.0, resetPressed: false },
+    defaultState: { on: false, voltage: 0, current: 0, power: 0, energy: 0, frequency: 0, powerFactor: 1.0, resetPressed: false },
   },
   meterKws306: {
-    category: 'power', paletteName: 'Medidor trifásico KWS-306 LCD', group: 'Fontes', tag: 'PM', w: 148, h: 173,
+    category: 'measurement', paletteName: 'Medidor trifásico KWS-306 LCD', group: 'Aparelhos de medir', tag: 'PM', w: 148, h: 173,
     terminals: [
       T('L1-IN', 'power-in', 0.15, 0.08, {
         displayName: 'A (L1) · Entrada de rede', color: '#171717', terminalType: 'screw',
@@ -1273,7 +1285,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
         position3D: { x: 0.85, y: 0.12, z: 0.65 },
       }),
     ],
-    defaultState: { on: true, switchOn: true, vA: 211.0, vB: 210.4, vC: 210.4, iA: 7.892, iB: 0, iC: 0, pA: 1.665, pB: 0, pC: 0, energy: 1.40, frequency: 50, temp: 15, screenMode: 0 },
+    defaultState: { on: false, switchOn: true, vA: 0, vB: 0, vC: 0, iA: 0, iB: 0, iC: 0, pA: 0, pB: 0, pC: 0, energy: 0, frequency: 0, temp: 20, screenMode: 0 },
   },
 }
 
@@ -1320,7 +1332,16 @@ function surfacePosition(spot: RealTerminalSpot): { x: number; y: number; z: num
 /** Migra posições automáticas antigas (Y invertido ou ponto na superfície).
  *  Preserva bornes movidos à mão e a identidade dos componentes já atualizados. */
 export function upgradeRealInterfacePositions(input: ElectricalComponent): ElectricalComponent {
-  const c = upgradeImportedTerminals(input, createTerminal)
+  const imported = upgradeImportedTerminals(input, createTerminal)
+  // Os medidores DIN estavam classificados como fontes. Só corrige essa
+  // categoria legada; referências, nomes, estado e ligações ficam intactos.
+  let c = (imported.type === 'meterD522066' || imported.type === 'meterKws306') && imported.category === 'power'
+    ? { ...imported, category: 'measurement' as const } : imported
+  if(c.type==='pilotLightSchneiderIil3p' && c.state.code==='A9E18324') c={...c,state:{...c.state,code:'A9E18327'}}
+  const oldSize=LEGACY_MODULAR_SIZE[c.type], footprint=getSchematicPhysicalFootprint(c.type)
+  if(oldSize && footprint && c.w===Math.round(oldSize.width*1.5) && c.h===Math.round(oldSize.height*1.5)) {
+    c={...c,w:footprint.w,h:footprint.h,schematicX:c.schematicX+(c.w-footprint.w)/2,schematicY:c.schematicY+(c.h-footprint.h)/2}
+  }
   const spots = REAL_TERMINALS[c.type]
   if (!spots?.length) return c
   let changed = false
@@ -1384,9 +1405,20 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     const inset = realTerminalPosition(c.type, previous ?? spot)
     const matches = (position: { x: number; y: number; z: number }) =>
       Math.abs(at.x - position.x) <= 1e-3 && Math.abs(at.y - position.y) <= 1e-3 && Math.abs(at.z - position.z) <= 1e-3
-    if (!matches(legacy) && !matches(surface) && !matches(inset) && !matches(surfacePosition(spot))) return canonical
+    const meterPosition=LEGACY_METER_POSITIONS[c.type]?.[label]
+    const oldPhysical=LEGACY_MODULAR_SIZE[c.type]
+    const oldInset=previous && oldPhysical ? (()=>{
+      const [nx,ny,nz]=FACE_INWARD[previous.face],d=terminalInsetMm(previous)
+      return {x:previous.x+nx*d/oldPhysical.width,y:1-previous.y-ny*d/oldPhysical.height,z:previous.z+nz*d/oldPhysical.depth}
+    })() : null
+    if (!matches(legacy) && !matches(surface) && !matches(inset) && !matches(surfacePosition(spot)) && !(oldInset&&matches(oldInset)) && !(meterPosition&&matches(meterPosition))) return canonical
     changed = true
-    return { ...terminal, label, ...(repairMeter ? { defId: label === 'COM' ? 'dm20-com' : 'dm20-volt' } : {}), position3D: target }
+    return { ...terminal, label, ...(repairMeter ? { defId: label === 'COM' ? 'dm20-com' : 'dm20-volt' } : {}), position3D: target,
+      // A calibração dos Acti9 também estreita a entrada no CAD; só o diâmetro
+      // automático antigo acompanha a migração (valores personalizados ficam).
+      ...((oldPhysical || c.type === 'residualBreakerSchneiderIid4p' || c.type === 'residualBreakerSchneiderIdpnVigi')
+        && previous?.diameterMm === terminal.diameter ? { diameter: spot.diameterMm } : {}),
+    }
   })
   // Sensor fotoelétrico: migrar V+/0V/OUT ou NO/NC para COM/NA/NF com pigtails.
   if (c.type === 'photoSensor' || c.type === 'photoSensorXukt1ksml2') {

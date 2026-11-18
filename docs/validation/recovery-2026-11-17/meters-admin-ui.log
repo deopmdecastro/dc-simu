@@ -1,0 +1,112 @@
+PASS — meterD522066: full Admin imports real shared CAD/procedural geometry
+PASS — meterD522066: distinct editable electrical terminals
+PASS — meterD522066: only real physical controls, no invented switches
+PASS — meterD522066: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"1","endpointError":6.4047456679787536e-15,"mouthError":2.5121479338940403e-15},{"label":"2","endpointError":5.329070518200751e-15,"mouthError":1.7763568394002505e-15},{"label":"CT-IN","endpointError":2.5121479338940403e-15,"mouthError":0},{"label":"CT-OUT","endpointError":2.5121479338940403e-15,"mouthError":0}]
+PASS — meterD522066: no automatic invisible actuator proxy
+PASS — Admin D52: short RESET leaves energy unchanged
+PASS — Admin D52: cancelled hold does not reset
+PASS — Admin D52: actual five-second hold resets
+PASS — meterD522066: save/reopen preserves authored controls and exact terminal IDs
+PASS — meterD522066: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — meterKws306: full Admin imports real shared CAD/procedural geometry
+PASS — meterKws306: distinct editable electrical terminals
+PASS — meterKws306: only real physical controls, no invented switches
+PASS — meterKws306: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"L1-IN","endpointError":3.972054645195637e-15,"mouthError":3.552713678800501e-15},{"label":"L2-IN","endpointError":1.7763568394002505e-15,"mouthError":0},{"label":"L3-IN","endpointError":2.5121479338940403e-15,"mouthError":3.552713678800501e-15},{"label":"N-IN","endpointError":3.972054645195637e-15,"mouthError":3.552713678800501e-15},{"label":"L1-OUT","endpointError":4.189529226675416e-15,"mouthError":3.794299872214038e-15},{"label":"L2-OUT","endpointError":2.220446049250313e-15,"mouthError":1.3322676295501878e-15},{"label":"L3-OUT","endpointError":2.8435583831733384e-15,"mouthError":3.794299872214038e-15},{"label":"N-OUT","endpointError":4.189529226675416e-15,"mouthError":3.794299872214038e-15}]
+PASS — meterKws306: no automatic invisible actuator proxy
+PASS — Admin KWS: actual M button changes screen mode
+PASS — Admin KWS: minus button runs the reverse cycle
+PASS — meterKws306: save/reopen preserves authored controls and exact terminal IDs
+PASS — meterKws306: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — currentTransformerSplitCore: full Admin imports real shared CAD/procedural geometry
+PASS — currentTransformerSplitCore: distinct editable electrical terminals
+PASS — currentTransformerSplitCore: only real physical controls, no invented switches
+PASS — currentTransformerSplitCore: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"P1","endpointError":0,"mouthError":0},{"label":"P2","endpointError":0,"mouthError":0},{"label":"S1","endpointError":3.9968028886505635e-15,"mouthError":0},{"label":"S2","endpointError":4.351167857633658e-15,"mouthError":0}]
+PASS — currentTransformerSplitCore: no automatic invisible actuator proxy
+PASS — currentTransformerSplitCore: save/reopen preserves authored controls and exact terminal IDs
+PASS — currentTransformerSplitCore: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — breakerSchneiderIc60h1p: full Admin imports real shared CAD/procedural geometry
+PASS — breakerSchneiderIc60h1p: distinct editable electrical terminals
+PASS — breakerSchneiderIc60h1p: only real physical controls, no invented switches
+PASS — breakerSchneiderIc60h1p: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"1","endpointError":0,"mouthError":0},{"label":"2","endpointError":8.881784197001252e-16,"mouthError":8.881784197001252e-16}]
+PASS — breakerSchneiderIc60h1p: no automatic invisible actuator proxy
+PASS — Admin iC60H: actual rocker toggles shared variable
+PASS — breakerSchneiderIc60h1p: save/reopen preserves authored controls and exact terminal IDs
+PASS — breakerSchneiderIc60h1p: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — pilotLightSchneiderIil1p: full Admin imports real shared CAD/procedural geometry
+PASS — pilotLightSchneiderIil1p: distinct editable electrical terminals
+PASS — pilotLightSchneiderIil1p: only real physical controls, no invented switches
+PASS — pilotLightSchneiderIil1p: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"X1","endpointError":4.6629367034256575e-15,"mouthError":1.9860273225978185e-15},{"label":"X2","endpointError":4.577566798522238e-15,"mouthError":1.7763568394002505e-15}]
+PASS — pilotLightSchneiderIil1p: no automatic invisible actuator proxy
+PASS — Admin pilotLightSchneiderIil1p: physical lens follows live preview
+PASS — pilotLightSchneiderIil1p: save/reopen preserves authored controls and exact terminal IDs
+PASS — pilotLightSchneiderIil1p: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — pilotLightSchneiderIil3p: full Admin imports real shared CAD/procedural geometry
+PASS — pilotLightSchneiderIil3p: distinct editable electrical terminals
+PASS — pilotLightSchneiderIil3p: only real physical controls, no invented switches
+PASS — pilotLightSchneiderIil3p: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"L1","endpointError":6.836666485528232e-15,"mouthError":3.66205343881779e-15},{"label":"L2","endpointError":6.793258640404412e-15,"mouthError":3.552713678800501e-15},{"label":"L3","endpointError":2.8780270159990897e-15,"mouthError":1.831026719408895e-15},{"label":"N","endpointError":2.9790409838967277e-15,"mouthError":1.9860273225978185e-15}]
+PASS — pilotLightSchneiderIil3p: no automatic invisible actuator proxy
+PASS — Admin pilotLightSchneiderIil3p: physical lens follows live preview
+PASS — pilotLightSchneiderIil3p: save/reopen preserves authored controls and exact terminal IDs
+PASS — pilotLightSchneiderIil3p: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — residualBreakerSchneiderIid4p: full Admin imports real shared CAD/procedural geometry
+PASS — residualBreakerSchneiderIid4p: distinct editable electrical terminals
+PASS — residualBreakerSchneiderIid4p: only real physical controls, no invented switches
+PASS — residualBreakerSchneiderIid4p: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"N1","endpointError":7.105427357601002e-15,"mouthError":3.552713678800501e-15},{"label":"1","endpointError":1.7763568394002505e-15,"mouthError":1.7763568394002505e-15},{"label":"3","endpointError":1.7763568394002505e-15,"mouthError":1.7763568394002505e-15},{"label":"5","endpointError":0,"mouthError":3.552713678800501e-15},{"label":"N2","endpointError":7.229248575812844e-15,"mouthError":3.794299872214038e-15},{"label":"2","endpointError":2.220446049250313e-15,"mouthError":2.220446049250313e-15},{"label":"4","endpointError":2.220446049250313e-15,"mouthError":2.220446049250313e-15},{"label":"6","endpointError":1.3322676295501878e-15,"mouthError":3.794299872214038e-15}]
+PASS — residualBreakerSchneiderIid4p: no automatic invisible actuator proxy
+PASS — Admin residualBreakerSchneiderIid4p: physical T hold trips
+PASS — Admin residualBreakerSchneiderIid4p: outside release preserves trip but returns spring
+PASS — residualBreakerSchneiderIid4p: save/reopen preserves authored controls and exact terminal IDs
+PASS — residualBreakerSchneiderIid4p: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — residualBreakerSchneiderIdpnVigi: full Admin imports real shared CAD/procedural geometry
+PASS — residualBreakerSchneiderIdpnVigi: distinct editable electrical terminals
+PASS — residualBreakerSchneiderIdpnVigi: only real physical controls, no invented switches
+PASS — residualBreakerSchneiderIdpnVigi: actual Admin mouths and simulator endpoints align in preserved physical frame [{"label":"N1","endpointError":0,"mouthError":3.552713678800501e-15},{"label":"1","endpointError":1.9860273225978185e-15,"mouthError":8.881784197001252e-16},{"label":"N2","endpointError":1.6011864169946884e-15,"mouthError":3.794299872214038e-15},{"label":"2","endpointError":2.220446049250313e-15,"mouthError":1.3322676295501878e-15}]
+PASS — residualBreakerSchneiderIdpnVigi: no automatic invisible actuator proxy
+PASS — Admin residualBreakerSchneiderIdpnVigi: physical T hold trips
+PASS — Admin residualBreakerSchneiderIdpnVigi: outside release preserves trip but returns spring
+PASS — residualBreakerSchneiderIdpnVigi: save/reopen preserves authored controls and exact terminal IDs
+PASS — residualBreakerSchneiderIdpnVigi: actual Admin bake/publication stores usable version
+PASS — No React/WebGL exceptions: OK
+PASS — meterD522066: freshly reloaded published instance retains immutable catalog type
+PASS — meterD522066: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — meterD522066: published metering follows real series wiring with independent second instance
+PASS — meterD522066: actual freshly published LCD texture shows wired readings while independent disconnected instance stays blank [26557,0]
+PASS — No React/WebGL exceptions: OK
+PASS — meterKws306: freshly reloaded published instance retains immutable catalog type
+PASS — meterKws306: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — meterKws306: published phase current is wired, not a demo value
+PASS — meterKws306: actual freshly published LCD texture shows wired readings while independent disconnected instance stays blank [29213,0]
+PASS — No React/WebGL exceptions: OK
+PASS — currentTransformerSplitCore: freshly reloaded published instance retains immutable catalog type
+PASS — currentTransformerSplitCore: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — currentTransformerSplitCore: published CT retains isolated primary/secondary semantics
+PASS — No React/WebGL exceptions: OK
+PASS — breakerSchneiderIc60h1p: freshly reloaded published instance retains immutable catalog type
+PASS — breakerSchneiderIc60h1p: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — breakerSchneiderIc60h1p: published protective poles conduct using retained source semantics
+PASS — No React/WebGL exceptions: OK
+PASS — pilotLightSchneiderIil1p: freshly reloaded published instance retains immutable catalog type
+PASS — pilotLightSchneiderIil1p: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — pilotLightSchneiderIil1p: published lamp follows actual voltage, not catalog-only preview variables
+PASS — No React/WebGL exceptions: OK
+PASS — pilotLightSchneiderIil3p: freshly reloaded published instance retains immutable catalog type
+PASS — pilotLightSchneiderIil3p: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — pilotLightSchneiderIil3p: published lamp follows actual voltage, not catalog-only preview variables
+PASS — No React/WebGL exceptions: OK
+PASS — residualBreakerSchneiderIid4p: freshly reloaded published instance retains immutable catalog type
+PASS — residualBreakerSchneiderIid4p: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — residualBreakerSchneiderIid4p: published protective poles conduct using retained source semantics
+PASS — No React/WebGL exceptions: OK
+PASS — residualBreakerSchneiderIdpnVigi: freshly reloaded published instance retains immutable catalog type
+PASS — residualBreakerSchneiderIdpnVigi: project save/load keeps every catalog type, terminal ID and connected wire endpoint
+PASS — residualBreakerSchneiderIdpnVigi: published protective poles conduct using retained source semantics
+PASS — No React/WebGL exceptions: OK
+
+PASS — 110 actual meter/Schneider Admin and fresh-catalog assertions

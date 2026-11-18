@@ -259,7 +259,7 @@ check(!tripped.coils.KM1 && tripped.motors[motorId]?.mode !== 'run', 'F1 dispara
   const up = addNativeSignals(old)
   check(up.components.some((c: any) => c.id === 'native-h3') && up.components.find((c: any) => c.id === 'native-h2').state.color === '#f97316', 'migração: entra o H3 e o H2 passa a laranja')
   check(fresh.wires.filter(newWire).every((w: any) => up.wires.some((x: any) => x.fromTerminalId === w.fromTerminalId && x.toTerminalId === w.toTerminalId)), 'migração: entram os cabos F1 → I0.3 e Q0.3 → H3')
-  check(up.grafcet.transitions.find((t: any) => t.id === 'native-t2').condition.includes('I0.3') && up.tags.some((t: any) => t.address === 'I0.3'), 'migração: GRAFCET, programa e tags com o F1 e o H3')
+  check(up.grafcet.transitions.find((t: any) => t.id === 'native-t2').condition.includes('F1') && up.tags.some((t: any) => t.address === 'I0.3' && t.name === 'F1') && up.tags.some((t: any) => t.address === 'Q0.3' && t.name === 'H3'), 'migração: GRAFCET usa o alias F1 e as tags efetivas ligam-no a I0.3, com H3 em Q0.3')
   check(schematicDiagnostics(up.components, up.wires, [], false).length === 0, 'migração: quadro sem avisos')
   check(addNativeSignals(up) === up, 'migração dos sinais corre uma só vez')
   const busy = { ...old, wires: [...old.wires, { ...old.wires[0], id: 'meu', fromTerminalId: 'native-psu-+V1', toTerminalId: 'native-plc-I0.3' }] }

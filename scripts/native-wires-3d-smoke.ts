@@ -9,7 +9,7 @@ import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from '..
 import { DIN_RAIL_15X55 } from '../src/three/dinRailGeometry'
 import { PANEL_UNITS_PER_MM, isMountingRail } from '../src/three/modelPaths'
 import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D, worldToMotorCad } from '../src/three/wireGeometry3D'
-import { MOTOR_BOX, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTerminalLayout'
+import { MOTOR_BOX, MOTOR_CAD, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTerminalLayout'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 import { segmentEntersBox } from '../src/three/solidWireRouting'
 import { mountDepthOffset } from '../src/three/thermalMount'
@@ -41,6 +41,22 @@ const plateFront = PLATE_Z + PLATE_THICKNESS / 2
 const plateOffenders: string[] = []
 const offenders: string[] = []
 const coordinated = buildAllWirePaths3D(built.wires, built.components, pivots, obstacles)
+/** Permanent feeders use the gland. Meter probes/banana leads intentionally
+ * bypass it (MULTIMETER-MOTOR-GLAND-BYPASS-01); validate their REAL cable and
+ * probe-stem paths against the motor envelope/open terminal compartment. */
+function directProbeClear(path: ReturnType<typeof buildWirePath3D>, component = motor, pivot = pivots[motor.id]): boolean {
+  if (path.motorRoute || path.starts[1].type !== 'probe') return false
+  const body = new THREE.Box3(new THREE.Vector3(MOTOR_CAD.minX + 2, MOTOR_CAD.minY + 2, MOTOR_CAD.minZ + 2), new THREE.Vector3(MOTOR_CAD.maxX - 2, MOTOR_CAD.maxY - 2, MOTOR_CAD.maxZ - 2))
+  const points = path.points.map(p => worldToMotorCad(component, pivot, new THREE.Vector3(...p)))
+  if (points.some((p, i) => i > 0 && segmentEntersBox(points[i - 1].toArray() as [number, number, number], p.toArray() as [number, number, number], body))) return false
+  const stem = path.starts[1], tip = new THREE.Vector3(...stem.origin), head = tip.clone().addScaledVector(new THREE.Vector3(...stem.axis), stem.length)
+  for (let i = 0; i <= 40; i++) {
+    const p = worldToMotorCad(component, pivot, tip.clone().lerp(head, i / 40))
+    // The straight probe descends only through the open top of the terminal box.
+    if (p.y < MOTOR_FLOOR_Y + 4 || (p.y < MOTOR_BOX.top && !(p.x > MOTOR_BOX.x0 + MOTOR_BOX.wall && p.x < MOTOR_BOX.x1 - MOTOR_BOX.wall && p.z > MOTOR_BOX.z0 + MOTOR_BOX.wall && p.z < MOTOR_BOX.z1 - MOTOR_BOX.wall))) return false
+  }
+  return true
+}
 check('Todos os cabos têm traçado visível', built.wires.every(w => (coordinated.get(w.id)?.points.length ?? 0) >= 2), built.wires.filter(w => (coordinated.get(w.id)?.points.length ?? 0) < 2).map(w => w.number).join(', '))
 for (const lead of built.wires.filter(w => w.id.startsWith('native-meter-'))) {
   const path = coordinated.get(lead.id)!
@@ -53,13 +69,7 @@ for (const lead of built.wires.filter(w => w.id.startsWith('native-meter-'))) {
   const standalonePath = buildWirePath3D(lead, from, to, obstacles)
   const standalone = standalonePath.points.map(p => new THREE.Vector3(...p))
   const standaloneDirections = standalone.slice(1).map((p, i) => p.clone().sub(standalone[i]).normalize())
-  const joinIndex = standalonePath.motorRoute?.side === 'to'
-    ? standalone.length - standalonePath.motorRoute.points.length
-    : standalonePath.motorRoute?.points.length ?? -1
-  const joinAngle = joinIndex > 0 && joinIndex < standaloneDirections.length
-    ? standaloneDirections[joinIndex].angleTo(standaloneDirections[joinIndex - 1])
-    : Infinity
-  check(`${lead.number}: junção do bucim suave também no traçado individual`, joinAngle < Math.PI / 9)
+  check(`${lead.number}: sonda individual contorna o bucim, sai axialmente e não tem cotovelos agudos`, directProbeClear(standalonePath) && standaloneDirections[0].dot(new THREE.Vector3(...standalonePath.starts[0].axis)) > .995 && standaloneDirections.at(-1)!.clone().negate().dot(new THREE.Vector3(...standalonePath.starts[1].axis)) > .995 && standaloneDirections.slice(1).every((direction, i) => direction.angleTo(standaloneDirections[i]) < Math.PI / 9))
   const feed = built.wires.find(w => w.id !== lead.id && w.toTerminalId === lead.toTerminalId)!
   const ferrule = coordinated.get(feed.id)!.starts[1]
   const offset = new THREE.Vector3(...path.starts[1].origin).distanceTo(new THREE.Vector3(...ferrule.origin))
@@ -122,7 +132,7 @@ for (const wire of built.wires) {
 }
 const motorFeeders = built.wires.filter((w) => [w.fromTerminalId, w.toTerminalId].some((id) => id.startsWith(motor.id)) && !w.id.startsWith('native-meter-'))
 const motorGlandWires = built.wires.filter((w) => [w.fromTerminalId, w.toTerminalId].some((id, index) =>
-  id.startsWith(motor.id) && (index === 0 ? w.fromEndType : w.toEndType) !== 'banana'))
+  id.startsWith(motor.id) && !['banana', 'probe'].includes((index === 0 ? w.fromEndType : w.toEndType) ?? 'ferrule')))
 const feedersThroughGland = motorFeeders.every((w) => {
   const pts = coordinated.get(w.id)?.points ?? []
   return pts.some((pt) => {
@@ -162,7 +172,7 @@ for (const wire of motorFeeders) {
 }
 check('Nenhum cabo 3D passa pela carcaça do motor (nem cabos alheios à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
 check('Todos os 4 cabos de força/PE entram no motor pelo bucim M20 (MOTOR_GLAND)', motorFeeders.length === 4 && feedersThroughGland)
-check('Cabos do multímetro também entram pelo bucim M20 em canais separados das fases', motorGlandWires.length === 6 && allMotorWiresThroughGland && glandChannels.every(Boolean) && minGlandChannelSpacing >= 3.5 && ['native-meter-red', 'native-meter-black'].every((id) => (coordinated.get(id)?.motorRoute?.points.length ?? 0) > 2), `separação mínima ${minGlandChannelSpacing.toFixed(1)} mm`)
+check('Quatro alimentadores permanentes usam canais M20 separados; sondas tocam diretamente nos pernos pela caixa aberta', motorGlandWires.length === 4 && allMotorWiresThroughGland && glandChannels.every(Boolean) && minGlandChannelSpacing >= 3.5 && ['native-meter-red', 'native-meter-black'].every(id => directProbeClear(coordinated.get(id)!)), `separação mínima ${minGlandChannelSpacing.toFixed(1)} mm`)
 check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
 check('Nenhuma ponteira/terminal atravessa a chapa do painel', ferruleBehindPlate === 0)
 check('Todos os cabos contornam os outros aparelhos e a calha com a sua espessura física', solidOffenders.length === 0, solidOffenders.join(', '))
@@ -253,7 +263,7 @@ const motorOrient = componentOrientationOf(motor)
       check(`${lead.number} ${name}: motor deslocado não leva sonda de volta ao quadro`, pts.every(p => p.x >= left))
       const length = pts.slice(1).reduce((sum, p, i) => sum + p.distanceTo(pts[i]), 0)
       check(`${lead.number} ${name}: percurso limitado à ligação aparelho–motor`, length < pts[0].distanceTo(pts.at(-1)!) * 3)
-      check(`${lead.number} ${name}: mantém entrada pelo bucim`, (path.motorRoute?.points.length ?? 0) > 20)
+      check(`${lead.number} ${name}: conserva sonda direta fora da carcaça e haste na caixa aberta`, directProbeClear(path, movedMotor, movedPivots[motor.id]))
     }
   }
 }
@@ -279,6 +289,7 @@ for (const pose of [
     return fixed > 2 && !outer.some((p, i) => i > 0 && segmentEntersBox(outer[i - 1], p, own))
   })
   check(`Motor ${JSON.stringify(pose)}: cabos visíveis e aproximação fora da carcaça`, built.wires.every(w => (paths.get(w.id)?.points.length ?? 0) > 1) && exteriorClear)
+  check(`Motor ${JSON.stringify(pose)}: sondas diretas não atravessam o corpo nem as paredes da caixa`, ['native-meter-red', 'native-meter-black'].every(id => directProbeClear(paths.get(id)!)))
 }
 // Curvas: sem cantos vivos nem bicos (viragem > 90° entre segmentos de pelo menos 0,2 mm) em nenhum cabo nativo.
 {

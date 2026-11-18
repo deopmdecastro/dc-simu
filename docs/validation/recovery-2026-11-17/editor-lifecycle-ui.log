@@ -1,0 +1,64 @@
+PASS — GRAFCET step Escape: preview cancels without changing geometry/topology
+PASS — GRAFCET step Escape: no phantom undo entry
+PASS — GRAFCET step pointercancel: preview cancels without changing geometry/topology
+PASS — GRAFCET step pointercancel: no phantom undo entry
+PASS — GRAFCET step blur: preview cancels without changing geometry/topology
+PASS — GRAFCET step blur: no phantom undo entry
+PASS — GRAFCET step F6: preview cancels without changing geometry/topology
+PASS — GRAFCET step F6: no phantom undo entry
+PASS — GRAFCET step RUN: preview cancels without changing geometry/topology
+PASS — GRAFCET step RUN: no phantom undo entry
+PASS — GRAFCET step unmount: preview cancels without changing geometry/topology
+PASS — GRAFCET step unmount: no phantom undo entry
+PASS — GRAFCET resize Escape: native window listeners rollback
+PASS — GRAFCET resize pointercancel: native window listeners rollback
+PASS — GRAFCET resize blur: native window listeners rollback
+PASS — GRAFCET resize F6: native window listeners rollback
+PASS — GRAFCET resize RUN: native window listeners rollback
+PASS — GRAFCET resize unmount: native window listeners rollback
+PASS — GRAFCET free text Escape: cancelled drag does not commit
+PASS — GRAFCET free text pointercancel: cancelled drag does not commit
+PASS — GRAFCET free text blur: cancelled drag does not commit
+PASS — GRAFCET free text F6: cancelled drag does not commit
+PASS — GRAFCET free text RUN: cancelled drag does not commit
+PASS — GRAFCET free text unmount: cancelled drag does not commit
+PASS — GRAFCET mixed arrows move all selected steps and free text rigidly
+PASS — GRAFCET internal bars and orthogonal route translate with all endpoints
+PASS — GRAFCET Shift+arrow provides coarse movement
+PASS — actual cross-project paste remaps IDs into destination chart
+PASS — actual paste retains internal topology, edited bar and route
+PASS — actual paste retains mixed free text in destination chart
+PASS — actual pasted custom route survives save/load
+PASS — IEC free text Escape: cancellation restores exact document and text position
+PASS — IEC free text pointercancel: cancellation restores exact document and text position
+PASS — IEC free text blur: cancellation restores exact document and text position
+PASS — IEC free text F5: cancellation restores exact document and text position
+PASS — IEC free text RUN: cancellation restores exact document and text position
+PASS — IEC free text RUN-panel: cancellation restores exact document and text position
+PASS — IEC free text STEP-panel: cancellation restores exact document and text position
+PASS — IEC free text unmount: cancellation restores exact document and text position
+PASS — IEC mixed group Escape: actual group text preview moved before cancellation
+PASS — IEC mixed group Escape: cancellation restores parts, routes and live text positions
+PASS — IEC mixed group Escape: no phantom undo entry
+PASS — IEC mixed group pointercancel: actual group text preview moved before cancellation
+PASS — IEC mixed group pointercancel: cancellation restores parts, routes and live text positions
+PASS — IEC mixed group pointercancel: no phantom undo entry
+PASS — IEC mixed group RUN: actual group text preview moved before cancellation
+PASS — IEC mixed group RUN: cancellation restores parts, routes and live text positions
+PASS — IEC mixed group RUN: no phantom undo entry
+PASS — IEC mixed group RUN-panel: actual group text preview moved before cancellation
+PASS — IEC mixed group RUN-panel: cancellation restores parts, routes and live text positions
+PASS — IEC mixed group RUN-panel: no phantom undo entry
+PASS — IEC mixed group STEP-panel: actual group text preview moved before cancellation
+PASS — IEC mixed group STEP-panel: cancellation restores parts, routes and live text positions
+PASS — IEC mixed group STEP-panel: no phantom undo entry
+PASS — IEC mixed group unmount: actual group text preview moved before cancellation
+PASS — IEC mixed group unmount: cancellation restores parts, routes and live text positions
+PASS — IEC mixed group unmount: no phantom undo entry
+PASS — IEC Alt+arrow moves exactly one world unit
+PASS — IEC Shift+arrow moves five 20-unit grid steps
+PASS — IEC actual Undo restores keyboard geometry
+PASS — IEC actual Redo restores keyboard geometry
+PASS — No React/WebGL exceptions: OK
+
+PASS — 62 actual editor lifecycle assertions

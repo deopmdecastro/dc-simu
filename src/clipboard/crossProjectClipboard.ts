@@ -29,6 +29,9 @@ export interface GrafcetCrossClip {
   steps: unknown[]
   transitions: unknown[]
   positions: Array<{ id: string; x: number; y: number }>
+  linkBends?: Record<string, Array<{ x: number; y: number }>>
+  linkBars?: Record<string, { x: number; y: number }>
+  comments?: import('../grafcet/engine').GrafcetComment[]
 }
 
 export type CrossProjectClip = ElectricalCrossClip | GrafcetCrossClip
@@ -75,9 +78,11 @@ function writeStorage(clip: CrossProjectClip) {
   }
   try {
     const payload = CLIP_MIME_PREFIX + JSON.stringify(clip)
-    void navigator.clipboard?.writeText?.(payload)
+    // Permission errors reject asynchronously in browsers. The local copy is
+    // already durable; a denied system clipboard must not become a page error.
+    void navigator.clipboard?.writeText?.(payload)?.catch(() => {})
   } catch {
-    // permissão negada — ignora
+    // Clipboard API absent/blocked synchronously — keep the local fallback.
   }
 }
 
@@ -105,6 +110,9 @@ export function writeGrafcetCrossClipboard(payload: {
   steps: unknown[]
   transitions: unknown[]
   positions: Array<{ id: string; x: number; y: number }>
+  linkBends?: Record<string, Array<{ x: number; y: number }>>
+  linkBars?: Record<string, { x: number; y: number }>
+  comments?: import('../grafcet/engine').GrafcetComment[]
   sourceProject?: string | null
 }): GrafcetCrossClip {
   const clip: GrafcetCrossClip = {
@@ -116,6 +124,7 @@ export function writeGrafcetCrossClipboard(payload: {
     steps: payload.steps,
     transitions: payload.transitions,
     positions: payload.positions,
+    linkBends: payload.linkBends, linkBars: payload.linkBars, comments: payload.comments,
   }
   writeStorage(clip)
   return clip

@@ -1,3 +1,4 @@
+import { bindCachedCanvasTexture } from './canvasTextureCache'
 import * as THREE from 'three'
 
 export interface FinishOptions {
@@ -144,6 +145,7 @@ function finishCadMaterialUncached(source: THREE.Material, options: FinishOption
     physical.envMapIntensity = envIntensity
   }
 
+  bindCachedCanvasTexture(physical,physical.map)
   return physical
 }
 

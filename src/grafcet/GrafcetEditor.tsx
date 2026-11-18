@@ -451,7 +451,8 @@ export default function GrafcetEditor({
   const tags = useSimStore((state) => state.tags)
   const setGrafcet = useSimStore((state) => state.setGrafcet)
   const sharedGridStyle = useSimStore((state) => state.grid.style)
-  const running = useSimStore((state) => state.sim.runState === 'running')
+  const simRunState = useSimStore((state) => state.sim.runState)
+  const running = simRunState === 'running'
 
   // ── Páginas do GRAFCET (charts IEC 60848): cada página mostra as suas etapas,
   //  transições, ações soltas e comentários. Elementos sem página pertencem à 1.ª.
@@ -659,7 +660,7 @@ export default function GrafcetEditor({
     useGrafcetUi.getState().setStats(`${steps.length} etapas · ${transitions.length} transições · ${total} ações${freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}`)
   }, [full, steps, transitions, freeActions])
   /** Área de transferência interna do editor (Ctrl+C / Ctrl+V). */
-  const clipboardRef = useRef<{ ids: string[]; steps: GrafcetStep[]; transitions: GrafcetTransition[]; pos: Map<string, { x: number; y: number }>; pastes: number } | null>(null)
+  const clipboardRef = useRef<{ ids: string[]; steps: GrafcetStep[]; transitions: GrafcetTransition[]; pos: Map<string, { x: number; y: number }>; extras: Pick<GrafcetProgram, 'linkBends' | 'linkBars' | 'comments'>; pastes: number } | null>(null)
 
   const selectedStep = steps.find((step) => step.id === selected)
   const selectedTransition = transitions.find((transition) => transition.id === selected)
@@ -781,6 +782,23 @@ export default function GrafcetEditor({
 
   const save = (patch: Partial<GrafcetProgram>, mode: HistoryMode = 'force', historyKey = 'grafcet') => {
     const p = { ...patch }
+    if (p.steps && (!p.linkBends || !p.linkBars)) {
+      const moves = new Map(p.steps.filter(s => Number.isFinite(s.x) && Number.isFinite(s.y)).map(s => {
+        const old = steps.find(v => v.id === s.id)
+        const x = old && isPinned(old) ? old.x! : SPINE_X
+        const y = old && isPinned(old) ? old.y! : stepPositions.get(s.id) ?? START_Y
+        return [s.id, { dx: s.x! - x, dy: s.y! - y }]
+      }))
+      let bends = program.linkBends, bars = program.linkBars
+      for (const t of transitions) {
+        const ends = [...t.from, ...t.to], move = moves.get(ends[0])
+        if (!move || (!move.dx && !move.dy) || !ends.every(id => moves.get(id)?.dx === move.dx && moves.get(id)?.dy === move.dy)) continue
+        if (!p.linkBends && bends?.[t.id]) bends = { ...bends, [t.id]: bends[t.id].map(pt => ({ x: pt.x + move.dx, y: pt.y + move.dy })) }
+        if (!p.linkBars && bars?.[t.id]) bars = { ...bars, [t.id]: { x: bars[t.id].x + move.dx, y: bars[t.id].y + move.dy } }
+      }
+      if (!p.linkBends && bends !== program.linkBends) p.linkBends = bends
+      if (!p.linkBars && bars !== program.linkBars) p.linkBars = bars
+    }
     normalizeOrigin(p)
     if (firstChartId) {
       const stamp = <T extends { id: string; chart?: string }>(all: T[], edited: T[]): T[] => {
@@ -2759,6 +2777,8 @@ export default function GrafcetEditor({
   // ------------------------------------------------------------------
   // Redimensionar etapas e ações (faces: uma dimensão; cantos: proporcional)
   // ------------------------------------------------------------------
+  const localGestureCleanup = useRef<(() => void) | null>(null)
+  const cancelGeometryRef = useRef<() => void>(() => {})
   const resizeRef = useRef<{ kind: 'step' | 'action'; id: string; stepId: string | null; handle: ResizeHandle; start: Box; cx: number; cy: number; box: Box } | null>(null)
   const startResize = (kind: 'step' | 'action', id: string, stepId: string | null, handle: ResizeHandle, start: Box, e: React.PointerEvent) => {
     if (!full || e.button !== 0) return
@@ -2772,6 +2792,7 @@ export default function GrafcetEditor({
     } catch {
       /* noop */
     }
+    localGestureCleanup.current?.()
     resizeRef.current = { kind, id, stepId, handle, start, cx: e.clientX, cy: e.clientY, box: start }
     setResizeLive({ kind, id, ...start })
     const limits = kind === 'step' ? STEP_SIZE_LIMITS : ACTION_SIZE_LIMITS
@@ -2792,10 +2813,13 @@ export default function GrafcetEditor({
       r.box = box
       setResizeLive({ kind: r.kind, id: r.id, ...box })
     }
-    const onEnd = () => {
+    const onCancel = () => finish(false)
+    const onEnd = () => finish(true)
+    const finish = (commit: boolean) => {
+      localGestureCleanup.current = null
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onEnd)
-      window.removeEventListener('pointercancel', onEnd)
+      window.removeEventListener('pointercancel', onCancel)
       const r = resizeRef.current
       resizeRef.current = null
       setResizeLive(null)
@@ -2803,7 +2827,7 @@ export default function GrafcetEditor({
       window.setTimeout(() => {
         suppressClickRef.current = false
       }, 0)
-      if (!r) return
+      if (!r || !commit) return
       const { box, start } = r
       if (box.w === start.w && box.h === start.h && box.x === start.x && box.y === start.y) return
       if (r.kind === 'step') {
@@ -2827,9 +2851,10 @@ export default function GrafcetEditor({
       }
       notify(`Ação redimensionada · ${box.w}×${box.h}`)
     }
+    localGestureCleanup.current = onCancel
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onEnd)
-    window.addEventListener('pointercancel', onEnd)
+    window.addEventListener('pointercancel', onCancel)
   }
 
   /** true se o troço direto entre duas etapas não atravessa nenhuma outra etapa. */
@@ -3200,6 +3225,7 @@ export default function GrafcetEditor({
     setMultiSelection(members)
     const stepsStart = members.filter((sid) => stepById.has(sid)).map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
     const textsStart = members.filter((cid) => commentById.has(cid)).map((cid) => ({ id: cid, x: commentById.get(cid)!.x, y: commentById.get(cid)!.y }))
+    localGestureCleanup.current?.()
     const sx = e.clientX, sy = e.clientY
     let moved = false
     let last = { dx: 0, dy: 0 }
@@ -3211,12 +3237,15 @@ export default function GrafcetEditor({
       last = { dx: Math.round(dx), dy: Math.round(dy) }
       setGroupOffset(last)
     }
-    const onUp = () => {
+    const onCancel = () => finish(false)
+    const onUp = () => finish(true)
+    const finish = (commit: boolean) => {
+      localGestureCleanup.current = null
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('pointercancel', onCancel)
       setGroupOffset(null)
-      if (!moved || (!last.dx && !last.dy)) return
+      if (!commit || !moved || (!last.dx && !last.dy)) return
       suppressClickRef.current = true
       window.setTimeout(() => { suppressClickRef.current = false }, 0)
       const s0 = new Map(stepsStart.map((p) => [p.id, p]))
@@ -3226,9 +3255,10 @@ export default function GrafcetEditor({
         comments: allComments.map((c) => (t0.has(c.id) ? { ...c, x: t0.get(c.id)!.x + last.dx, y: t0.get(c.id)!.y + last.dy } : c)),
       })
     }
+    localGestureCleanup.current = onCancel
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
+    window.addEventListener('pointercancel', onCancel)
     return true
   }
 
@@ -3353,21 +3383,30 @@ export default function GrafcetEditor({
 
   const onStepPointerCancel = () => resetStepDrag()
 
-  // Esc cancela o arrastamento em curso sem guardar (etapa, transição solta ou ação).
+  // Every transient geometry gesture is preview-only until pointerup.
+  // Escape, lost focus, F6/transport, page/tool switch and unmount all roll back,
+  // including native window listeners installed by resize and mixed-group drag.
+  cancelGeometryRef.current = () => {
+    localGestureCleanup.current?.()
+    resetStepDrag(); resetTransDrag(); resetActionDrag(); cancelBendDrag()
+    setResizeLive(null); setGroupOffset(null)
+  }
   useEffect(() => {
-    if (!dragPos && !transDragPos && !actionDragPos && !barDragLive) return
+    const cancel = () => cancelGeometryRef.current()
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        resetStepDrag()
-        resetTransDrag()
-        resetActionDrag()
-        cancelBendDrag()
-      }
+      if (event.key !== 'Escape' || !(localGestureCleanup.current || stepDragRef.current || transDragRef.current || actionDragRef.current || bendDragRef.current || segDragRef.current || barDragRef.current)) return
+      event.preventDefault(); event.stopImmediatePropagation(); cancel()
     }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [dragPos !== null, transDragPos !== null, actionDragPos !== null, barDragLive !== null])
+    window.addEventListener('blur', cancel)
+    window.addEventListener('pointercancel', cancel)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', cancel)
+      window.removeEventListener('pointercancel', cancel)
+      cancel()
+    }
+  }, [full, activeChart, simRunState, activeTool])
 
   const organizeLayout = () => {
     if (useSimStore.getState().sim.runState !== 'stopped') return notify('Pare a simulação antes de organizar a página')
@@ -3502,15 +3541,18 @@ export default function GrafcetEditor({
 
   const copySelection = (silent = false) => {
     const ids = copyableIds()
-    if (!ids.length) return false
+    const texts = comments.filter(c => groupCommentIds.includes(c.id) || c.id === selectedCommentId)
+    if (!ids.length && !texts.length) return false
     const pos = new Map(ids.map((sid) => [sid, { x: stepX(sid), y: stepY(sid) }]))
-    clipboardRef.current = { ids, steps, transitions, pos, pastes: 0 }
+    const extras = structuredClone({ linkBends: program.linkBends, linkBars: program.linkBars, comments: texts })
+    clipboardRef.current = { ids, steps, transitions, pos, extras, pastes: 0 }
     writeGrafcetCrossClipboard({
       stepIds: ids,
       steps,
       transitions,
       positions: ids.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) })),
       sourceProject: useSimStore.getState().currentProjectName,
+      ...extras,
     })
     if (!silent) notify(ids.length === 1 ? 'Etapa copiada · Ctrl+V cola (também noutro projeto)' : `${ids.length} etapas copiadas · Ctrl+V cola (também noutro projeto)`)
     return true
@@ -3520,12 +3562,13 @@ export default function GrafcetEditor({
     let clip = clipboardRef.current
     if (!clip) {
       const cross = readGrafcetCrossClipboard()
-      if (cross && cross.stepIds.length) {
+      if (cross && (cross.stepIds.length || cross.comments?.length)) {
         clip = {
           ids: cross.stepIds,
           steps: cross.steps as GrafcetStep[],
           transitions: cross.transitions as GrafcetTransition[],
           pos: new Map(cross.positions.map((p) => [p.id, { x: p.x, y: p.y }])),
+          extras: { linkBends: cross.linkBends, linkBars: cross.linkBars, comments: cross.comments },
           pastes: 0,
         }
         clipboardRef.current = clip
@@ -3534,10 +3577,15 @@ export default function GrafcetEditor({
     if (!clip) return notify('Nada para colar — copie etapas com Ctrl+C (funciona entre projetos)')
     clip.pastes += 1
     const shift = GRID * 3 * clip.pastes
-    const copy: SubDiagram = cloneSubDiagram(clip.steps, clip.transitions, clip.ids, (sid) => clip.pos.get(sid) ?? { x: SPINE_X, y: START_Y }, { dx: shift, dy: shift }, id)
-    if (!copy.steps.length) return notify('As etapas copiadas já não existem')
-    save({ steps: [...steps, ...copy.steps], transitions: [...transitions, ...copy.transitions] })
-    const pasted = copy.steps.map((s) => s.id)
+    const copy: SubDiagram = cloneSubDiagram(clip.steps, clip.transitions, clip.ids, (sid) => clip.pos.get(sid) ?? { x: SPINE_X, y: START_Y }, { dx: shift, dy: shift }, id, ' (cópia)', clip.extras)
+    if (!copy.steps.length && !copy.comments?.length) return notify('Nada para colar')
+    // A pasted subdiagram belongs to the destination page, not the source page.
+    const stamp = <T extends { chart?: string }>(item: T): T => ({ ...item, chart: activeChart })
+    save({ steps: [...steps, ...copy.steps.map(stamp)], transitions: [...transitions, ...copy.transitions.map(stamp)],
+      ...(copy.comments?.length ? { comments: [...comments, ...copy.comments.map(stamp)] } : {}),
+      linkBends: { ...program.linkBends, ...copy.linkBends }, linkBars: { ...program.linkBars, ...copy.linkBars },
+    })
+    const pasted = [...copy.steps.map((s) => s.id), ...(copy.comments ?? []).map(c => c.id)]
     setMulti(pasted.length >= 2 ? pasted : [])
     setSelected(pasted[0])
     setSelectedActionId(null)
@@ -3668,6 +3716,7 @@ export default function GrafcetEditor({
   })()
 
   const doUndo = () => {
+    cancelGeometryRef.current()
     const state = useSimStore.getState()
     if (!state.history.length) return notify('Nada para desfazer')
     state.undo()
@@ -3675,6 +3724,7 @@ export default function GrafcetEditor({
   }
 
   const doRedo = () => {
+    cancelGeometryRef.current()
     const state = useSimStore.getState()
     if (!state.future.length) return notify('Nada para refazer')
     state.redo()
@@ -4386,7 +4436,14 @@ export default function GrafcetEditor({
           onPointerDown={onPreviewDown}
           onPointerMove={onPreviewMove}
           onPointerUp={onPreviewUp}
-          onPointerCancel={onPreviewUp}
+          onPointerCancel={(event) => {
+            const mq = marqueeRef.current
+            if (mq) setMultiSelection(mq.base)
+            marqueeRef.current = null; setMarquee(null)
+            dragRef.current = null; setIsDragging(false)
+            cancelGeometryRef.current()
+            try { event.currentTarget.releasePointerCapture(event.pointerId) } catch { /* no capture */ }
+          }}
         >
           {/* Estado Vazio Amigável */}
           {!steps.length && (
@@ -5467,6 +5524,7 @@ export default function GrafcetEditor({
                     comment={groupOffset && groupCommentIds.includes(comment.id) ? { ...comment, x: comment.x + groupOffset.dx, y: comment.y + groupOffset.dy } : comment}
                     interactive={full && !demoMode && activeTool === 'select' && !isSpacePan}
                     touchEdit={phone}
+                    gestureKey={`${activeChart}:${simRunState}:${activeTool}`}
                     selected={selectedCommentId === comment.id || groupCommentIds.includes(comment.id)}
                     editing={editingCommentId === comment.id}
                     onGroupDown={onCommentGroupDown}

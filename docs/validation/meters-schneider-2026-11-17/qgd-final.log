@@ -1,0 +1,49 @@
+
+> dc-simu@2.0.0 test:qgd
+> tsx scripts/quadro-distribuicao-smoke.ts
+
+— QGD nativo: topologia, proteções, registo e persistência —
+PASS — ID nativo estável
+PASS — 47 componentes e 76 condutores na semente revista
+PASS — Equipamentos e cinco circuitos terminais presentes, incluindo duas tomadas gerais independentes
+PASS — Setor monofásico usa efetivamente o diferencial Hager 2P
+PASS — Cinco furos inferiores para bucins
+PASS — Bornes com identificadores únicos
+PASS — Componentes e cabos sem IDs duplicados
+PASS — Nenhum cabo órfão
+PASS — Diagnóstico de fábrica: zero erros e zero avisos, sem desativar regras
+PASS — DPS 3P+N em derivação não cria curto permanente entre L, N e PE
+PASS — Montagem de fábrica sem curto-circuito
+PASS — QG1:2 alimentado com proteções armadas
+PASS — PM1:L1-OUT alimentado com proteções armadas
+PASS — HL1:L1 alimentado com proteções armadas
+PASS — LUM1:X1 alimentado com proteções armadas
+PASS — TOM_GERAL:L-IN alimentado com proteções armadas
+PASS — TOM_GERAL2:L-IN alimentado com proteções armadas
+PASS — TOM_ESP:L-IN alimentado com proteções armadas
+PASS — M1:U1 alimentado com proteções armadas
+PASS — M1:V1 alimentado com proteções armadas
+PASS — M1:W1 alimentado com proteções armadas
+PASS — BB_COMB1: bornes correspondem ao modo de polos real
+PASS — BB_COMB1: entrada e saída realmente cabladas
+PASS — BB_COMB2: bornes correspondem ao modo de polos real
+PASS — BB_COMB2: entrada e saída realmente cabladas
+PASS — Corte geral desliga iluminação e motor
+PASS — Corte da iluminação não desliga as tomadas
+PASS — Cada circuito de tomadas gerais é independente
+PASS — RCBO corta apenas o circuito especial
+PASS — Disjuntor-motor corta o motor sem cortar a tomada CEE
+PASS — Neutros a jusante dos dois diferenciais não estão unidos
+PASS — QGD registado uma única vez na lista nativa da conta Admin
+PASS — QGD incluído explicitamente nos nativos Free
+PASS — Nativo Free não consome uma vaga de proprietário
+PASS — Lista não duplica um QGD já existente
+PASS — QGD Free abre, edita e guarda com revisão
+PASS — Rascunhos isolados entre utilizadores
+PASS — Conflito de revisão impede sobrescrever uma gravação mais recente
+PASS — Repor restaura o QGD de fábrica
+PASS — API lista o QGD para a conta de utilizador normal
+PASS — Conta Free abre e guarda o QGD mesmo com a quota de três projetos pessoais cheia
+PASS — Admin mantém a semente original; o rascunho Free não a altera
+
+42 verificações do QGD nativo passaram.

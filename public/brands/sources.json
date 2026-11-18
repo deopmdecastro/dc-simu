@@ -1,0 +1,23 @@
+{
+  "purpose": "Identificação fiel de produtos simulados; marcas pertencem aos respetivos titulares. Sem endosso ou certificação.",
+  "logos": [
+    {
+      "brand": "Schneider Electric",
+      "asset": "schneider-electric.svg",
+      "source": "https://logotyp.us/file/schneider-electric.svg",
+      "verifiedAgainst": "https://download.se.com/files?p_Doc_Ref=NNZ9822700",
+      "changes": "Apenas recorte do viewBox ao limite do logótipo. Geometria vetorial conservada.",
+      "sha256": "dcc7369e7cfb26247212de0c1eb6bd7d9005770b41a25df94bbdf690c1a433ba"
+    },
+    {
+      "brand": "Hager",
+      "asset": "hager.svg",
+      "source": "https://hager.com/es/documentacion-downloads/logotipo",
+      "download": "https://assets.sc.hager.com/es/-/media/project/hagerdeep/spain/hager/spain/downloads_es/logotipo/hager-logo-digital.zip",
+      "file": "Hager_Logo_128px_sRGB_blue.svg",
+      "conditions": "https://assets.sc.hager.com/es/-/media/project/hagerdeep/spain/hager/spain/documentacion/hager-logo_usage_guideline.pdf",
+      "changes": "Nenhuma. Azul original #0078c3.",
+      "sha256": "e551e9d2151bff4a8c56cfd1a40ed124263fdd1bb14a2a6df4309025e544cdfb"
+    }
+  ]
+}

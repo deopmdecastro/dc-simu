@@ -1,3 +1,5 @@
+import { innerCoverModeOf, modularCoverLayout } from '../three/modularCoverLayout'
+import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 import { useState } from 'react'
 import { fitDuctResize, fitDuctSideResize } from '../schematic/ductResize'
 import type { DuctSlot } from '../schematic/ductPlacement'
@@ -5,8 +7,8 @@ import { ENCLOSURE_EXTERIOR_FACES, ENCLOSURE_FACES, hiddenEnclosureFaces, toggle
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
-import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
-import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileIdOf, dinRailProfileOf } from '../three/dinRailGeometry'
+import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
+import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileIdOf, dinRailProfileOf, railDepthOffsetMm } from '../three/dinRailGeometry'
 import { CABLE_DUCT_DEFAULT_COLOR, ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
 import Select from '../ui/Select'
 import {
@@ -26,8 +28,8 @@ import {
 } from '../ui/icons'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
-export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color', 'editorHiddenFaces'])
-export const RAIL_PROFILE_STATE_KEYS = new Set(['profile', 'finish', 'perforated'])
+export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color', 'editorHiddenFaces', 'innerCover', 'modularCover', 'modularRows', 'innerCoverMode', 'innerCoverBlanking', 'innerCoverInsetMm'])
+export const RAIL_PROFILE_STATE_KEYS = new Set(['profile', 'finish', 'perforated', 'depthOffsetMm', 'endStops'])
 
 const ENCLOSURE_PRESETS: Array<[number, number, number]> = [[300, 400, 200], [400, 500, 200], [500, 700, 250], [600, 800, 250], [800, 1000, 300], [1000, 1200, 300]]
 const ENCLOSURE_COLORS = [
@@ -280,38 +282,19 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       </button>
     </div>
 
-    {/* Sobretampa modular interna (segunda tampa DIN) */}
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 pr-2">
-          <div className="text-xs font-semibold text-slate-700">Sobretampa modular interna (espelho DIN)</div>
-          <div className="text-[11px] text-slate-500">Segunda tampa de proteção com janelas modulares e parafusos de fecho</div>
-        </div>
-        <button
-          type="button"
-          className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${c.state.innerCover ? 'bg-brand-600 border-brand-700 text-white' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'}`}
-          onClick={() => set({ innerCover: !c.state.innerCover })}
-        >
-          {c.state.innerCover ? 'Ocultar sobretampa' : 'Mostrar sobretampa'}
-        </button>
+    {/* O modo de montagem não tem superfícies, nem mesmo transparentes. */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3" data-inner-cover-controls>
+      <div className="text-xs font-semibold text-slate-700">Sobretampa modular interna (espelho DIN)</div>
+      <div className="dc-acc-seg" role="group" aria-label="Modo da sobretampa">
+        {([['hidden','Oculta'],['outline','Tracejada'],['solid','Sólida']] as const).map(([mode,label]) => <button key={mode} type="button" aria-pressed={innerCoverModeOf(c.state)===mode} className={innerCoverModeOf(c.state)===mode?'is-on':''} onClick={()=>set({innerCover:mode!=='hidden',modularCover:false,innerCoverMode:mode==='outline'?'outline':'solid'})}>{label}</button>)}
       </div>
-      {c.state.innerCover && (
-        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-          <span className="text-slate-600">Fileiras modulares</span>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5, 6].map((num) => (
-              <button
-                key={num}
-                type="button"
-                className={`w-6 h-6 rounded text-xs font-semibold border ${((c.state.modularRows as number) || Math.max(1, Math.min(6, Math.round((d.heightMm - 40) / 145)))) === num ? 'bg-brand-600 border-brand-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
-                onClick={() => set({ modularRows: num })}
-              >
-                {num}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <p className="text-[11px] text-slate-500">Tracejada: apenas contornos, sem fundo nem obturadores — permite selecionar e posicionar os aparelhos por dentro.</p>
+      <div className="flex items-center justify-between text-xs"><span>Fileiras modulares</span><div className="flex gap-1">
+        {[1,2,3,4,5,6].map(num=><button key={num} type="button" aria-label={`${num} fileiras modulares`} aria-pressed={modularCoverLayout(d,typeof c.state.modularRows==='number'?c.state.modularRows:undefined).rows===num} className={`w-7 h-8 rounded border ${modularCoverLayout(d,typeof c.state.modularRows==='number'?c.state.modularRows:undefined).rows===num?'bg-brand-600 text-white border-brand-700':'bg-slate-50 border-slate-200'}`} onClick={()=>set({modularRows:num})}>{num}</button>)}
+      </div></div>
+      <MmField label="Recuo da sobretampa à frente" min={20} max={Math.max(20,d.depthMm-45)} step={1} value={typeof c.state.innerCoverInsetMm==='number'?c.state.innerCoverInsetMm:42} onChange={innerCoverInsetMm=>set({innerCoverInsetMm})}/>
+      <label className="dc-acc-row"><span>Obturadores nas aberturas livres</span><input aria-label="Obturadores automáticos" type="checkbox" checked={c.state.innerCoverBlanking!==false} onChange={e=>set({innerCoverBlanking:e.target.checked})}/></label>
+      <p className="text-[11px] text-slate-500">Tiras brancas fracionáveis. As vagas são recalculadas sem tapar aparelhos, incluindo os que não estão centrados nos módulos de 18 mm.</p>
     </div>
 
     <details className="dc-inspector-group" data-enclosure-visibility>
@@ -607,6 +590,23 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
   const profileId = dinRailProfileIdOf(c.state)
   const profile = dinRailProfileOf(c.state)
   const finish = typeof c.state.finish === 'string' && DIN_RAIL_FINISH_IDS.includes(c.state.finish) ? c.state.finish : DIN_RAIL_FINISH_IDS[0]
+  const all = useSimStore(s => s.components)
+  const depth = railDepthOffsetMm(c.state)
+  const enclosure = all.find(e => e.type === 'panelEnclosure' && (e.id === c.enclosureId || (!c.enclosureId && Math.abs(c.schematicX+c.w/2-e.schematicX-e.w/2)<e.w/2 && Math.abs(c.schematicY+c.h/2-e.schematicY-e.h/2)<e.h/2)))
+  const maxDepth = enclosure ? Math.max(0,enclosureDimsOf(enclosure.state).depthMm-ENCLOSURE_PLATE_FRONT_MM-profile.height-45) : 400
+  const alignToCover = () => {
+    if (!enclosure) return
+    const d=enclosureDimsOf(enclosure.state), layout=modularCoverLayout(d,Number(enclosure.state.modularRows)||undefined,Number(enclosure.state.innerCoverInsetMm)||42)
+    const members=all.filter(item=>item.railId===c.id)
+    const fasciaDepth = (item: ElectricalComponent) => {
+      const specific: Record<string,number>={breakerSchneiderIc60h1p:69,pilotLightSchneiderIil1p:65.5,pilotLightSchneiderIil3p:65.5,residualBreakerSchneiderIid4p:64,residualBreakerSchneiderIdpnVigi:64,meterD522066:63,meterKws306:64}
+      return specific[item.type] ?? Math.max(35,(getComponentPhysicalSizeMm(item.type)?.depth ?? 65)-8)
+    }
+    const shallowest = members.length ? Math.min(...members.map(fasciaDepth)) : 64
+    const required=layout.zMm-ENCLOSURE_PLATE_FRONT_MM-profile.height-shallowest+1
+    useSimStore.getState().setComponentState(c.id,{depthOffsetMm:Math.max(0,Math.min(maxDepth,Math.round(required)))})
+    if (required<0 || required>maxDepth) useSimStore.getState().pushEvent('warning',`${c.ref}: alinhamento limitado pela profundidade disponível no quadro.`)
+  }
   const setProfile = (id: string) => {
     const next = DIN_RAIL_PROFILES[id]
     const h = Math.round(next.width * SCHEMATIC_PX_PER_MM)
@@ -631,6 +631,11 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
     <label className="dc-acc-row"><span>Perfurada</span>
       <input type="checkbox" checked={c.state.perforated !== false} onChange={(e) => useSimStore.getState().setComponentState(c.id, { perforated: e.target.checked })} />
     </label>
+    <MmField label="Distância da calha à chapa" value={depth} min={0} max={Math.max(maxDepth,depth)} step={1} onChange={depthOffsetMm=>useSimStore.getState().setComponentState(c.id,{depthOffsetMm})}/>
+    <div className="flex justify-between text-[11px] text-slate-500"><span>Mais fundo: 0 mm</span><span>Mais à frente: +{maxDepth} mm</span></div>
+    <label className="dc-acc-row"><span>Batentes de retenção</span><input aria-label="Batentes da calha DIN" type="checkbox" checked={c.state.endStops!==false} onChange={e=>useSimStore.getState().setComponentState(c.id,{endStops:e.target.checked})}/></label>
+    <button type="button" className="dc-btn w-full" disabled={!enclosure} onClick={alignToCover}>Alinhar frente à sobretampa</button>
+    <p className="text-[11px] text-slate-500">Aparelhos, bornes e pontas de cabo acompanham a calha. Colunas, contraporcas e parafusos ficam ligados à chapa; batentes ajustam-se ao conjunto quando existe espaço.</p>
     <small className="text-ink-400">
       Face de encaixe {profile.width} mm · altura {String(profile.height).replace('.', ',')} mm ·
       {c.state.perforated === false ? ' sem furos' : ` furos oblongos (passo ${profile.slotPitch} mm)`}.

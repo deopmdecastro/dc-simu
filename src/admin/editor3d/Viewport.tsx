@@ -29,6 +29,8 @@ import TestWires from './WiresView'
 import { MeasureController } from './MeasureTool'
 import { dragState } from './dragState'
 import { ContextLossGuard, ContextLossNotice } from '../../three/ContextLossGuard'
+import { industrialRotaryActions } from '../../catalog/behavior'
+import { useControlWheel } from '../../three/useControlWheel'
 
 const DEG = 180 / Math.PI
 let lastDragEnd = 0
@@ -146,6 +148,7 @@ function Scene() {
   const animator = useRef<StateAnimator | null>(null)
   const rig = useRef<ComponentRig | null>(null)
   const held = useRef<{ id: string; at: number } | null>(null)
+  const releaseControl = useRef<((cancelled: boolean) => void) | null>(null)
   const timers = useRef<number[]>([])
   const [hover, setHover] = useState<{ point: THREE.Vector3; normal: THREE.Vector3 } | null>(null)
   const [markerObject, setMarkerObject] = useState<THREE.Group | null>(null)
@@ -183,6 +186,16 @@ function Scene() {
   const reading = useMemo(() => (def.behavior ? multimeterReading(vars, meterTest, 0) : null), [def.behavior, vars, meterTest])
   const liveControlTest = mode === 'simulate' || (mode === 'edit' && tab === 'controls' && ribbon === 'select' && !pick && !placing)
   const pickControlAreas = mode === 'edit' && ribbon === 'select' && !pick && !placing
+  useControlWheel((hits, step) => {
+    if (!liveControlTest || ribbon === 'wire' || ribbon === 'measure') return false
+    const id = rig.current?.controlFromHits(hits, 3)
+    const control = id ? rig.current?.controlById(id) : undefined
+    if (!control || (control.kind !== 'selector' && !industrialRotaryActions(control, step))) return false
+    triggerEditorControl(control, { step })
+    invalidate()
+    return true
+  })
+  useEffect(() => () => releaseControl.current?.(true), [root, liveControlTest])
   useEffect(() => {
     rig.current = new ComponentRig(def, root, animator.current)
     if (import.meta.env.DEV) (window as unknown as { __ceRig?: ComponentRig | null }).__ceRig = rig.current
@@ -468,26 +481,42 @@ function Scene() {
     else state.edit((current) => ({ ...current, lights: current.lights.map((item) => (item.id === target.id ? { ...item, partId: hit.partId, nodes: toggle(item.partId, item.nodes) } : item)) }))
   }
   const pressDown = (event: ThreeEvent<PointerEvent>) => {
-    if (!liveControlTest || ribbon === 'wire' || ribbon === 'measure') return
+    if (event.button !== 0 || !liveControlTest || ribbon === 'wire' || ribbon === 'measure') return
     if (event.intersections[0]?.object !== event.object) return
     const id = rig.current?.controlFromHits(event.intersections, 3)
     const control = id ? rig.current?.controlById(id) : undefined
     if (!id || !control) return
     event.stopPropagation()
-    if (control.kind === 'selector') { triggerEditorControl(control, { step: event.shiftKey ? -1 : 1 }); return }
+    releaseControl.current?.(true)
+    // O evento R3F não cancela o OrbitControls DOM; a câmara fica quieta
+    // enquanto o utilizador opera uma pega/botão, mesmo que o largue fora.
+    const orbit = controls as unknown as { enabled: boolean } | null
+    const orbitEnabled = orbit?.enabled
+    if (orbit) orbit.enabled = false
     held.current = { id, at: performance.now() }
     rig.current?.hold(id, true); invalidate()
     const spring = isSpringReturn(control)
-    if (spring) triggerEditorControl(control, 'down')
-    const release = () => {
-      window.removeEventListener('pointerup', release)
+    if (control.kind === 'selector') triggerEditorControl(control, { step: event.shiftKey ? -1 : 1 })
+    else if (spring) triggerEditorControl(control, 'down')
+    const release = (cancelled: boolean) => {
+      if (releaseControl.current !== release) return
+      releaseControl.current = null
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      window.removeEventListener('blur', cancel)
       const press = held.current
       held.current = null
+      if (orbit && orbitEnabled !== undefined) orbit.enabled = orbitEnabled
       rig.current?.hold(id, false); invalidate()
-      if (spring) triggerEditorControl(control, 'up')
-      else if (press) triggerEditorControl(control, performance.now() - press.at >= 600 ? 'long' : 'press')
+      if (spring && useEditorStore.getState().def.controls?.some((item) => item.id === id)) triggerEditorControl(control, 'up')
+      else if (!cancelled && press && control.kind !== 'selector') triggerEditorControl(control, performance.now() - press.at >= (control.longPressMs ?? 600) ? 'long' : 'press')
     }
-    window.addEventListener('pointerup', release)
+    const up = () => release(false)
+    const cancel = () => release(true)
+    releaseControl.current = release
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+    window.addEventListener('blur', cancel)
   }
 
   const commitPart = () => {

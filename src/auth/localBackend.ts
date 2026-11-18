@@ -1,3 +1,4 @@
+import { RETAINED_NATIVE_PROJECT_ID, isNativeProjectId as isNativeId } from '../project/nativeProjectIds'
 import { localCatalogApi } from './localCatalog'
 import type { Invite, Project, User } from '../dashboard/Dashboard'
 import { buildProjectPreview, type ProjectPreviewData } from '../dashboard/projectPreview'
@@ -9,13 +10,7 @@ import {
   sanitizeComponentChange, upgradeMessage,
 } from '../saas/platformCore.mjs'
 import {
-  nativeProjectSeeds,
-  NATIVE_PARTIDA_ID,
-  NATIVE_ESTRELA_KS1_ID,
-  NATIVE_QUADRO_DISTRIBUICAO_ID,
-} from '../project/nativeProjects'
-import {
-  isFreeNativeProjectId,
+  hasLegacyFreeNativeDraft,
   listMissingFreeNativeProjects,
   openFreeNativeProject,
   resetFreeNativeProject,
@@ -23,8 +18,6 @@ import {
 } from '../project/freeNativeSandbox'
 import { nativeLandingPayload } from '../project/landingPublish'
 
-const NATIVE_IDS = [NATIVE_PARTIDA_ID, NATIVE_ESTRELA_KS1_ID, NATIVE_QUADRO_DISTRIBUICAO_ID] as const
-const isNativeId = (id: string) => (NATIVE_IDS as readonly string[]).includes(id)
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'
 
@@ -197,66 +190,6 @@ function newId() {
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
-function contentHasComponents(content: unknown): boolean {
-  if (!content || typeof content !== 'object') return false
-  const list = (content as { components?: unknown }).components
-  if (Array.isArray(list) && list.length > 0) return true
-  // Projetos só GRAFCET (exemplos): o conteúdo é o diagrama, não componentes.
-  const grafcet = (content as { projectKind?: unknown; grafcet?: { steps?: unknown } }).grafcet
-  return (content as { projectKind?: unknown }).projectKind === 'grafcet' && Array.isArray(grafcet?.steps) && grafcet!.steps.length > 0
-}
-
-function ensureNativeProjects(data: LocalData): LocalData {
-  const seeds = nativeProjectSeeds()
-  let changed = false
-  // Remove sementes antigas quando existe a versão atual (v4 — grupos força/comando).
-  // Inclui o estrela-triângulo antigo (substituído pelo nativo com KS1).
-  const legacyIds = ['native-estrela-triangulo-v1', 'native-partida-direta-v1', 'native-partida-direta-v2', 'native-partida-direta-v3', 'native-partida-direta-v4']
-  const before = data.projects.length
-  data.projects = data.projects.filter((project) => !legacyIds.includes(project.id))
-  if (data.projects.length !== before) changed = true
-  for (const seed of seeds) {
-    const index = data.projects.findIndex((project) => project.id === seed.id)
-    if (index < 0) {
-      data.projects = [
-        {
-          id: seed.id,
-          name: seed.name,
-          ownerId: seed.ownerId,
-          memberIds: seed.memberIds,
-          content: seed.content,
-          revision: seed.revision,
-          updatedAt: seed.updatedAt,
-        },
-        ...data.projects,
-      ]
-      changed = true
-      continue
-    }
-    // Sem componentes OU nativeId desatualizado: repõe a semente (capa + lógica).
-    const current = data.projects[index]
-    const storedNativeId = current.content && typeof current.content === 'object'
-      ? (current.content as { nativeId?: string }).nativeId
-      : undefined
-    if (!contentHasComponents(current.content) || storedNativeId !== seed.nativeId) {
-      data.projects[index] = {
-        ...current,
-        name: seed.name,
-        content: seed.content,
-        revision: Math.max(current.revision, seed.revision),
-        updatedAt: new Date().toISOString(),
-      }
-      // Invalidar capas em cache do nativo (evita «Projeto vazio» após reseed).
-      for (const key of [...previewCache.keys()]) {
-        if (key.startsWith(`${seed.id}:`)) previewCache.delete(key)
-      }
-      changed = true
-    }
-  }
-  if (changed) writeData(data)
-  return data
-}
-
 function readData(): LocalData {
   try {
     const parsed = JSON.parse(localStorage.getItem(DATA_KEY) || '{}') as Partial<LocalData>
@@ -265,9 +198,9 @@ function readData(): LocalData {
       invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
       publishedProjectId: typeof parsed.publishedProjectId === 'string' ? parsed.publishedProjectId : parsed.publishedProjectId === null ? null : undefined,
     }
-    return ensureNativeProjects(data)
+    return data
   } catch {
-    return ensureNativeProjects({ projects: [], invitations: [] })
+    return { projects: [], invitations: [] }
   }
 }
 
@@ -335,21 +268,7 @@ function previewFor(project: StoredProject): ProjectPreviewData {
   const key = `${project.id}:${project.revision}:${project.updatedAt}`
   let preview = previewCache.get(key)
   if (!preview) {
-    let content = project.content
-    // Nativo: se não há geometria útil para a capa, usar sempre a semente embutida
-    // (evita cartão vazio quando o conteúdo guardado está incompleto ou legado).
-    if (isNativeId(project.id)) {
-      const seed = nativeProjectSeeds().find((item) => item.id === project.id)
-      if (seed) {
-        const fromStored = contentHasComponents(content) ? buildProjectPreview(content) : null
-        if (!fromStored || fromStored.components.length === 0) {
-          content = seed.content
-        } else {
-          preview = fromStored
-        }
-      }
-    }
-    if (!preview) preview = buildProjectPreview(content)
+    preview = buildProjectPreview(project.content)
     previewCache.set(key, preview)
     if (previewCache.size > 200) previewCache.delete(previewCache.keys().next().value as string)
   }
@@ -397,24 +316,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (url === '/landing/published' && verb === 'GET') {
     const data = readData()
     const publishedId = data.publishedProjectId
-    if (!publishedId || isNativeId(publishedId)) {
-      const fallback = nativeLandingPayload()
-      const targetId = publishedId && isNativeId(publishedId) ? publishedId : NATIVE_PARTIDA_ID
-      const native = data.projects.find((project) => project.id === targetId)
-      if (native && native.content && typeof native.content === 'object') {
-        return {
-          projectId: native.id,
-          name: native.name,
-          owner: accountById(native.ownerId)?.email || 'admin@dcsimu.local',
-          revision: native.revision,
-          updatedAt: native.updatedAt,
-          isNative: true,
-          content: native.content as Record<string, unknown>,
-        } as T
-      }
-      return fallback as T
-    }
-    const project = data.projects.find((entry) => entry.id === publishedId)
+    const project = data.projects.find((entry) => entry.id === (publishedId ?? RETAINED_NATIVE_PROJECT_ID))
     if (!project) {
       return nativeLandingPayload() as T
     }
@@ -466,16 +368,12 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   const data = readData()
 
   const isFreeNativeFor = (id: string) =>
-    user.role !== 'admin' &&
-    isFreeNativeProjectId(id) &&
+    hasLegacyFreeNativeDraft(user.id, id) &&
     !data.projects.some((entry) => entry.id === id && roleFor(entry, user.id))
 
   if (url === '/projects' && verb === 'GET') {
     const visible = data.projects.filter((project) => roleFor(project, user.id))
     const mapped = visible.map((project) => projectSummary(project, user.id))
-    if (user.role === 'admin') {
-      return mapped.sort((a, b) => b.updated_at.localeCompare(a.updated_at)) as T
-    }
     const markers = visible.map((project) => {
       const rec = project.content && typeof project.content === 'object' ? (project.content as Record<string, unknown>) : null
       return {
@@ -561,19 +459,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     }
     const project = accessibleProject(data, parts[1], user.id)
     if (project.ownerId !== user.id) throw new Error('Apenas o proprietário pode eliminar')
-    // Projetos nativos: em vez de apagar, repõe o conteúdo de fábrica.
-    if (isNativeId(project.id)) {
-      const seed = nativeProjectSeeds().find((item) => item.id === project.id)
-      if (seed) {
-        project.content = seed.content
-        project.name = seed.name
-        project.revision = 0
-        project.updatedAt = new Date().toISOString()
-        writeData(data)
-        recordLocalAudit(user, 'project.reset-native', { type: 'project', id: project.id, label: project.name })
-        return { ok: true } as T
-      }
-    }
+    if (isNativeId(project.id)) throw new Error('O projeto nativo retido não pode ser eliminado nem reposto por uma semente local.')
     data.projects = data.projects.filter((entry) => entry.id !== project.id)
     data.invitations = data.invitations.filter((entry) => entry.projectId !== project.id)
     writeData(data)
@@ -584,7 +470,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
 
   if (parts[0] === 'projects' && parts[1] && parts[2] === 'members' && verb === 'GET') {
     if (isFreeNativeFor(parts[1])) {
-      return { members: [{ name: 'DC-Simu', email: 'Exemplo nativo incluído na conta' }] } as T
+      return { members: [] } as T
     }
     const project = accessibleProject(data, parts[1], user.id)
     const members = project.memberIds
@@ -728,11 +614,11 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (url === '/admin/landing/publish' && verb === 'GET') {
     requireAdmin()
     const data = readData()
-    const id = data.publishedProjectId ?? NATIVE_PARTIDA_ID
+    const id = data.publishedProjectId ?? RETAINED_NATIVE_PROJECT_ID
     const project = data.projects.find((entry) => entry.id === id)
     return {
-      projectId: id,
-      name: project?.name ?? (isNativeId(id) ? 'Partida direta (nativo)' : id),
+      projectId: project?.id ?? '',
+      name: project?.name ?? '(nenhum projeto publicado)',
       owner: project ? (accountById(project.ownerId)?.email || '') : 'admin@dcsimu.local',
     } as T
   }
@@ -747,7 +633,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
       data.publishedProjectId = null
       writeData(data)
       recordLocalAudit(admin, 'landing.unpublish', { type: 'project', label: 'landing' }, 'fallback nativo')
-      return { projectId: NATIVE_PARTIDA_ID, isNative: true } as T
+      return { projectId: '', isNative: false } as T
     }
     const project = data.projects.find((entry) => entry.id === projectId)
     if (!project) throw new Error('Projeto não encontrado')
@@ -765,7 +651,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (url === '/admin/projects' && verb === 'GET') {
     requireAdmin()
     const data = readData()
-    const publishedId = data.publishedProjectId ?? NATIVE_PARTIDA_ID
+    const publishedId = data.publishedProjectId ?? RETAINED_NATIVE_PROJECT_ID
     return [...data.projects]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .map((project): AdminProjectRow => ({
@@ -786,6 +672,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     const data = readData()
     const project = data.projects.find((entry) => entry.id === parts[2])
     if (!project) throw new Error('Projeto não encontrado')
+    if (isNativeId(project.id)) throw new Error('O projeto nativo retido não pode ser eliminado.')
     if (data.publishedProjectId === project.id) data.publishedProjectId = null
     data.projects = data.projects.filter((entry) => entry.id !== parts[2])
     data.invitations = data.invitations.filter((invite) => invite.projectId !== parts[2])

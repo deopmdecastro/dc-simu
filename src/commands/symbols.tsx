@@ -953,13 +953,13 @@ export function cmdTagBounds(part: CmdPart) {
 }
 
 /** Símbolo completo: geometria rodada, referência e marcação dos bornes. */
-export function CmdSymbol({ part, state, selected, showTerminals = true, onTagPointerDown }: { part: CmdPart; state?: CmdSymbolState; selected?: boolean; showTerminals?: boolean; onTagPointerDown?: (event: ReactPointerEvent<SVGTextElement>) => void }) {
+export function CmdSymbol({ part, state, selected, showTerminals = true, interactive = true, onTagPointerDown }: { part: CmdPart; state?: CmdSymbolState; selected?: boolean; showTerminals?: boolean; interactive?: boolean; onTagPointerDown?: (event: ReactPointerEvent<SVGTextElement>) => void }) {
   const box = partBox(part)
   const st = state ?? {}
   return (
     <g className={`dc-cmd-symbol${selected ? ' is-selected' : ''}${st.idle ? '' : ' is-live'}`} data-cmd-part={part.id} data-cmd-kind={part.kind} transform={`translate(${part.x} ${part.y})`}>
       {/* Halo de hover/seleção — mesmo padrão do GRAFCET (sem tooltip nativo preto). */}
-      <rect
+      {interactive && <rect
         className="dc-cmd-hover-halo"
         x={box.x - part.x - 6}
         y={box.y - part.y - 6}
@@ -967,7 +967,7 @@ export function CmdSymbol({ part, state, selected, showTerminals = true, onTagPo
         height={box.h + 12}
         rx={4}
         ry={4}
-      />
+      />}
       {/* Seleção como no GRAFCET: fundo azul leve + pegas nos cantos (sem caixa preta). */}
       {selected && (() => {
         const x0 = box.x - part.x - 6, y0 = box.y - part.y - 6, x1 = x0 + box.w + 12, y1 = y0 + box.h + 12
@@ -977,7 +977,7 @@ export function CmdSymbol({ part, state, selected, showTerminals = true, onTagPo
         </g>
       })()}
       {/* Área de clique invisível: o símbolo inteiro responde (não só os traços) — premir botões, selecionar, arrastar. */}
-      <rect className="dc-cmd-symbol-hit" x={box.x - part.x - 4} y={box.y - part.y - 4} width={box.w + 8} height={box.h + 8} fill="transparent" stroke="none" />
+      {interactive && <rect className="dc-cmd-symbol-hit" x={box.x - part.x - 4} y={box.y - part.y - 4} width={box.w + 8} height={box.h + 8} fill="transparent" stroke="none" />}
       <g transform={`rotate(${part.rot})`} stroke={INK} strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
         {symbolBody(part, st)}
       </g>

@@ -1,3 +1,7 @@
+import { isIndustrialDevice, INDUSTRIAL_INFO } from '../electrical/industrialDevices'
+import { prepareIndustrialModel, applyIndustrialState, applyIndustrialTextures } from '../three/industrialFinish'
+import { isSchneiderModular, prepareSchneiderModular, applySchneiderModularState } from '../three/schneiderModularModel'
+import { isDigitalMeterType } from '../three/digitalMeterModel'
 import * as THREE from 'three'
 import { ACTUATOR_HEAD_TYPES, extractActuatorHead } from '../three/actuatorHead'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
@@ -5,8 +9,13 @@ import { createGltfLoader } from '../three/gltfLoader'
 import { nanoid } from 'nanoid'
 import { stampBasePose } from './basePose'
 import { fitComponentModel } from '../three/modelFit'
+import { applyCadSurfaceTextures } from '../three/cadSurface'
+import { importedComponentInfo } from '../electrical/importedComponents'
+import { paintImportedModel, rigImportedModel, animateImportedRig } from '../three/importedFinish'
 import { finishCadMaterial } from '../three/catalogMaterials'
 import { getComponentModelSpec } from '../three/modelPaths'
+import { applyProtectionMarkings } from '../three/protectionMarkings'
+import { applySchneiderRcdState, isSchneiderRcd, prepareSchneiderRcdModel } from '../three/schneiderRcdModel'
 import { tintTerminalBodyMaterials } from '../three/terminalAssembly'
 import { textureLibraryEntry } from '../three/textureLibrary'
 import type {
@@ -361,7 +370,17 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
       node = new THREE.Group()
       if (source) {
         const clone = source.clone(true)
-        clone.traverse((child) => { const mesh = child as THREE.Mesh; if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((item) => item.clone()) : mesh.material.clone() })
+        // Preserve the source's material sharing INSIDE this part. Cloning per
+        // mesh makes GLTFExporter rebuild identical ORM images many times and
+        // can reject a small CAD model at the unchanged publication size cap.
+        // A separate map per part keeps authored instances/overrides isolated.
+        const materialCopies = new Map<THREE.Material, THREE.Material>()
+        const copyMaterial = (material: THREE.Material): THREE.Material => {
+          let copy = materialCopies.get(material)
+          if (!copy) { copy = material.clone(); materialCopies.set(material, copy) }
+          return copy
+        }
+        clone.traverse((child) => { const mesh = child as THREE.Mesh; if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map(copyMaterial) : copyMaterial(mesh.material) })
         // Material escolhido sobre o CAD (ex.: textura real): fica fora a ferragem gerada da caixa de bornes.
         const overrideRaw = part.overrideMaterial && part.materialId ? materials.get(part.materialId) : undefined
         // Não substituir o CAD por um material liso branco/cinza sem mapas: isso é a causa clássica do «GLB branco» no editor.
@@ -424,12 +443,18 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
 /** Acabamento PBR igual ao Painel 3D: CAD «gesso» passa a plástico/metal com texturas legíveis no editor. */
 function finishGlbTree(root: THREE.Object3D) {
   if (root.userData.__dcFinished) return
+  const finishedMaterials = new Map<THREE.Material, THREE.Material>()
+  const finish = (material: THREE.Material): THREE.Material => {
+    let result = finishedMaterials.get(material)
+    if (!result) { result = finishCadMaterial(material, { envMapIntensity: 1.1 }); finishedMaterials.set(material, result) }
+    return result
+  }
   root.traverse((child) => {
     const mesh = child as THREE.Mesh
     if (!mesh.isMesh || !mesh.material) return
     mesh.material = Array.isArray(mesh.material)
-      ? mesh.material.map((item) => finishCadMaterial(item, { envMapIntensity: 1.1 }))
-      : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
+      ? mesh.material.map(finish)
+      : finish(mesh.material)
     mesh.castShadow = mesh.receiveShadow = true
   })
   root.userData.__dcFinished = true
@@ -450,13 +475,48 @@ export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): 
     try {
       const buffer = await (await fetch(asset.data)).arrayBuffer()
       const gltf = await new Promise<{ scene: THREE.Object3D }>((resolve, reject) => loader.parse(buffer, '', resolve as never, reject))
+      let digitalFrame = false
+      if (asset.builtinType && isDigitalMeterType(asset.builtinType)) gltf.scene.traverse(node => {
+        if (node.userData.digitalMeterType === asset.builtinType && node.userData.digitalMeterUnitsPerMm === .001) digitalFrame = true
+      })
+      if (digitalFrame) {
+        gltf.scene.scale.multiplyScalar(1000)
+        gltf.scene.updateMatrixWorld(true)
+        gltf.scene.userData.__dcFinished = true
+        cache.set(part.asset, gltf.scene)
+        changed = true
+        continue
+      }
       const builtin = asset.builtinType ? getComponentModelSpec(asset.builtinType) : undefined
       if (builtin && asset.data === builtin.path) {
+        if(asset.builtinType && importedComponentInfo(asset.builtinType)){const parts=paintImportedModel(asset.builtinType,gltf.scene);const rig=rigImportedModel(asset.builtinType,gltf.scene,parts);animateImportedRig(rig,asset.builtinType,importedComponentInfo(asset.builtinType)!.state,false,10)}
         const fitted = fitComponentModel(gltf.scene, builtin, 1, 'bottom')
+        if(asset.builtinType && isIndustrialDevice(asset.builtinType)){prepareIndustrialModel(fitted,asset.builtinType);applyIndustrialState(fitted,asset.builtinType,INDUSTRIAL_INFO[asset.builtinType].defaultState,false,false)}
+        if (asset.builtinType && isSchneiderRcd(asset.builtinType)) {
+          prepareSchneiderRcdModel(fitted)
+          applySchneiderRcdState(fitted, { closed: false })
+          applyProtectionMarkings(fitted, asset.builtinType, {
+            state: { closed: false, inA: asset.builtinType === 'residualBreakerSchneiderIid4p' ? 40 : 16, curve: 'C', sensmA: 30, rcdType: asset.builtinType === 'residualBreakerSchneiderIid4p' ? 'AC' : 'A' },
+            unitsPerMm: 1, anchor: 'bottom', heightMm: builtin.physicalSizeMm.height,
+          })
+        }
+        if (asset.builtinType && isSchneiderModular(asset.builtinType)) {
+          prepareSchneiderModular(fitted)
+          applyProtectionMarkings(fitted,asset.builtinType,{state:{closed:false,inA:20,curve:'C'},unitsPerMm:1,anchor:'bottom',heightMm:builtin.physicalSizeMm.height})
+          applySchneiderModularState(fitted,asset.builtinType,{closed:false})
+        }
         // Botões de emergência: a cabeça (cogumelo/fole) passa a ser um nó próprio
         // (`dcsimu_head`) para o controlo a afundar sem arrastar a carcaça.
         if (asset.builtinType && ACTUATOR_HEAD_TYPES.includes(asset.builtinType)) extractActuatorHead(fitted, fitted)
-        finishGlbTree(fitted)
+        if(asset.builtinType && !isSchneiderRcd(asset.builtinType) && !isSchneiderModular(asset.builtinType))applyProtectionMarkings(fitted,asset.builtinType,{state:importedComponentInfo(asset.builtinType)?.state,unitsPerMm:1,anchor:'bottom',heightMm:builtin.physicalSizeMm.height})
+        if (asset.builtinType && isIndustrialDevice(asset.builtinType)) {
+          // Authored industrial surfaces/print UVs must survive Admin and bake.
+          await applyIndustrialTextures(fitted, asset.builtinType)
+          fitted.userData.__dcFinished = true
+        } else {
+          finishGlbTree(fitted)
+          if (typeof document !== 'undefined') await applyCadSurfaceTextures(fitted, { unitsPerMm: 1 })
+        }
         cache.set(part.asset, fitted)
         changed = true
         continue
@@ -526,8 +586,9 @@ export function runtimeSpec(def: ComponentDefinition, box: THREE.Box3): RuntimeS
     // Ponta de fio fora do corpo (cabos soltos de sensores e torres): conserva a posição real em 3D.
     const outside = [rx, ry, rz].some((value) => value < -1e-6 || value > 1 + 1e-6)
     const position3D = outside ? { x: rx, y: ry, z: rz } : { x: nx, y: ny, z: nz }
-    // Encaixes medidos conservam o recuo físico; bornes genéricos continuam na face.
-    if (!outside && !(terminal.socketDepthMm && terminal.socketInsetMm)) {
+    // Encaixes e passagens medidos conservam o ponto físico, mesmo que um
+    // patim/lente aumente a envolvente. Bornes genéricos antigos continuam na face.
+    if (!outside && !terminal.preservePosition3D && !(terminal.socketDepthMm && terminal.socketInsetMm)) {
       if (axis === 'x') position3D.x = fx >= 0 ? 1 : 0
       else if (axis === 'y') position3D.y = fy >= 0 ? 1 : 0
       else position3D.z = fz >= 0 ? 1 : 0
@@ -586,6 +647,9 @@ export async function bakeGlb(def: ComponentDefinition, glb: GlbCache): Promise<
     const material = mesh?.material as THREE.MeshStandardMaterial | undefined
     if (material?.isMeshStandardMaterial) { material.emissive.set(state.on ? state.color ?? light.color : '#000000'); material.emissiveIntensity = state.on ? state.intensity ?? light.intensity : 0 }
   }
+  // O acesso de serviço não desaparece do GLB publicado só porque a tampa
+  // estava fechada ao guardar. O runtime repõe a visibilidade por instância.
+  root.traverse(n=>{if(n.name==='industrial_control_interior')n.visible=true})
   const wrapper = new THREE.Group()
   wrapper.add(root)
   const exporter = new GLTFExporter()

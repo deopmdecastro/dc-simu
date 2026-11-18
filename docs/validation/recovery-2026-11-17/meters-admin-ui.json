@@ -1,0 +1,47 @@
+{
+  "assertions": 110,
+  "exceptions": [],
+  "published": [
+    {
+      "type": "meterD522066",
+      "id": "mfr-ui-meterd522066",
+      "version": 1
+    },
+    {
+      "type": "meterKws306",
+      "id": "mfr-ui-meterkws306",
+      "version": 1
+    },
+    {
+      "type": "currentTransformerSplitCore",
+      "id": "mfr-ui-currenttransformersplitcore",
+      "version": 1
+    },
+    {
+      "type": "breakerSchneiderIc60h1p",
+      "id": "mfr-ui-breakerschneideric60h1p",
+      "version": 1
+    },
+    {
+      "type": "pilotLightSchneiderIil1p",
+      "id": "mfr-ui-pilotlightschneideriil1p",
+      "version": 1
+    },
+    {
+      "type": "pilotLightSchneiderIil3p",
+      "id": "mfr-ui-pilotlightschneideriil3p",
+      "version": 1
+    },
+    {
+      "type": "residualBreakerSchneiderIid4p",
+      "id": "mfr-ui-residualbreakerschneideriid4p",
+      "version": 1
+    },
+    {
+      "type": "residualBreakerSchneiderIdpnVigi",
+      "id": "mfr-ui-residualbreakerschneideridpnvigi",
+      "version": 1
+    }
+  ],
+  "scope": "Actual ComponentEditor3D/save/reopen/publish/bake, full page reload, fresh IndexedDB catalogue fetch and actual Panel3D instances. No live cloud writes."
+}

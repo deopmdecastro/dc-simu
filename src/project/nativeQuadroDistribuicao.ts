@@ -42,7 +42,8 @@ import { bakeNativeRouting } from './nativeRouting'
 import { NATIVE_WIRE_CURVES_FEATURE } from './nativeMotorMeter'
 import { busbarFootprintPx, busbarTerminalSpecs, isRealBusbarType } from '../three/busbarParts'
 
-export const NATIVE_QUADRO_DISTRIBUICAO_ID = 'native-quadro-distribuicao-v1'
+import { NATIVE_QUADRO_DISTRIBUICAO_ID } from './nativeProjectIds'
+export { NATIVE_QUADRO_DISTRIBUICAO_ID } from './nativeProjectIds'
 export const NATIVE_QUADRO_DISTRIBUICAO_NAME = 'Quadro Geral de Distribuição Completo Multi-Circuitos (QGD)'
 
 const PX = 1.5

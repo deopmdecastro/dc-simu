@@ -10,6 +10,7 @@
 
 import type { ElectricalComponent, Wire } from '../types'
 import { internalBridges, poleTerminalPairs } from './engine'
+import { industrialDeviceTypeOf } from './industrialDevices'
 import { terminalStripJumperPairs } from './pti6Strip'
 import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarParts'
 
@@ -52,6 +53,18 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
 
   for (const c of components) {
     const t = (l: string) => c.terminals.find((x) => x.label === l)?.id
+    if (c.type === 'powerSource24v' && c.state.on !== false) { seed(t('+24V'), 'DC+'); seed(t('0V'), 'N'); seed(t('PE'), 'PE') }
+    if (c.type === 'powerSupplyProauto24A' && c.state.powered && c.state.on !== false) {
+      for (const label of ['+V1','+V2']) seed(t(label), 'DC+')
+      for (const label of ['-V1','-V2']) seed(t(label), 'N')
+    }
+    if (industrialDeviceTypeOf(c) === 'vfdSchneiderAtv320') {
+      seed(t('PE-IN'), 'PE'); seed(t('PE-OUT'), 'PE')
+      if (c.state.powered) { seed(t('+24'), 'DC+'); seed(t('10V'), 'DC+'); seed(t('COM1'), 'N'); seed(t('COM2'), 'N') }
+      if (c.state.running && c.state.stoReleased) {
+        seed(t('U/T1'), c.state.direction === 'ccw' ? 'L3' : 'L1'); seed(t('V/T2'), 'L2'); seed(t('W/T3'), c.state.direction === 'ccw' ? 'L1' : 'L3')
+      }
+    }
     if (c.type === 'busbarPhase') {
       seed(t('L1'), 'L1')
       seed(t('L2'), 'L2')

@@ -5,6 +5,8 @@ import { getComponentModelSpec } from '../src/three/modelPaths'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
 import { importedComponentInfo } from '../src/electrical/importedComponents'
 import { createComponent, terminalByLabel } from '../src/electrical/factory'
+import { terminalLocal3D } from '../src/three/terminal3D'
+import { applyIndustrialState } from '../src/three/industrialFinish'
 import { detectHoles } from '../src/catalog/holeDetect'
 import { FACE_NORMAL } from '../src/catalog/terminalProfiles'
 import { auditTerminalSeats, measureSeat, seatFix, socketForHole } from '../src/catalog/terminalSeat'
@@ -22,18 +24,22 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   if (!getComponentModelSpec(type)) { console.log(`PASS — ${type}: procedural, sem CAD a verificar`); continue }
   const model = await loadModelMm(type)
   assert.ok(model, `${type}: GLB em falta`)
-  const { root, box } = model
-  const size = box.getSize(new THREE.Vector3())
+  const { root } = model
   const component = createComponent(type)
   // Só os encaixes com cavidade (`contact` socket) assentam num furo; pinos e pontas de fio ficam de fora.
   const sockets = REAL_TERMINALS[type]!.filter((spot) => !spot.contact || spot.contact === 'socket')
   if (!sockets.length) { console.log(`PASS — ${type}: só pinos/fios, sem cavidades a verificar`); continue }
   const defs: TerminalDef[] = sockets.map((spot) => {
     const live = terminalByLabel(component, spot.label)!
-    const at = live.position3D!
-    const position: Vec3 = [(at.x - .5) * size.x, (at.y - .5) * size.y, (at.z - .5) * size.z]
+    const position = terminalLocal3D(component, live).multiplyScalar(100).toArray() as Vec3
     return terminal(spot.label, position, FACE_NORMAL[spot.face], spot.diameterMm ?? 4)
   })
+  if (type === 'vfdSchneiderAtv320') {
+    const covered = defs.find(def => def.label === '10V')!
+    assert.notEqual(measureSeat(root, covered.position, covered.normal, covered.diameterMm).status, 'seated', 'ATV320: genuine closed service cover must still obstruct its control terminals')
+    applyIndustrialState(root, type, { controlCoverOpen: true }, false, false)
+    assert.equal(root.getObjectByName('industrial_control_cover')?.visible, false, 'ATV320: open the genuine cover before measuring accessible sockets')
+  }
   const reports = auditTerminalSeats(root, defs)
   for (const report of reports) {
     assert.equal(report.status, 'seated', `${type}.${report.label}: ${report.status} — ${report.message}`)
@@ -75,5 +81,7 @@ assert.equal(measureSeat(plain, [0, 0, 10], [0, 0, 1], 4).status, 'surface', 'fa
 assert.equal(measureSeat(plain, [0, 0, 6], [0, 0, 1], 4).status, 'buried', 'ponto atrás da face devia dar «buried»')
 assert.equal(measureSeat(plain, [80, 80, 10], [0, 0, 1], 4).status, 'floating', 'fora do modelo devia dar «floating»')
 
-assert.equal(seated, 200, 'Cobertura incompleta: 142 bornes anteriores, 20 encaixes calibrados, 33 parafusos medidos nos CAD importados (inclui a passagem A2 do relé térmico 3RU1116) e os 5 do motor monofásico')
+const expected = Object.entries(REAL_TERMINALS).reduce((sum, [type, spots]) => sum + (getComponentModelSpec(type as ComponentType) ? spots!.filter(spot => !spot.contact || spot.contact === 'socket').length : 0), 0)
+assert.equal(seated, expected, 'Cobertura incompleta: todos os encaixes CAD declarados, incluindo industriais e Schneider novos')
+assert.ok(seated >= 303, 'Manter os 303 encaixes da recuperação, não apenas os 200 históricos')
 console.log(`PASS — ${seated} bornes integrados confirmados dentro das cavidades; ${fixed} correções «boca → cavidade»; ${holesTested} bornes criados a partir de furos ficaram na cavidade`)

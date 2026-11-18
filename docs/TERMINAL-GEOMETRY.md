@@ -1,60 +1,135 @@
 # Posição física dos bornes 3D
 
-As 142 ligações dos 20 equipamentos integrados com bornes usam o mesmo volume físico que o CAD renderizado. A calha DIN não tem ligações elétricas. Componentes importados pelo utilizador mantêm a geometria e a calibração da respetiva definição.
+## Cobertura atual
 
-`fitComponentModel` aplica a rotação base, o espelho definido pelo modelo, as três dimensões físicas e a ancoragem. Painel 3D, capturas por face, catálogo, landing e o leitor de medições usam esta normalização. Correções à forma ou à geometria de um elemento devem ser feitas no GLB original em `public/models/`, para que todos os usos do modelo recebam a correção. Transformações locais podem continuar a definir orientação e escala física; não substituem uma correção do objeto de origem.
+A execução da recuperação de 17 de novembro de 2026 de
+`npm run test:terminal-geometry` passou com **48 modelos CAD: 303 encaixes
+com cavidade e 39 pinos/fios/contactos de superfície**, num total de 342
+ligações medidas. Não são 342 cavidades; cada tipo de contacto tem a sua
+verificação. A mensagem desse script lista ainda cinco tipos procedurais
+excluídos do varrimento CAD — não se contam como aprovação geométrica.
 
-`src/electrical/realInterfaces.ts` contém as bocas dos encaixes na convenção Y=0 no topo. `realTerminalPosition` converte para Y=1 no topo e coloca o centro da ligação no interior da cavidade. A normal da ligação usa a face do encaixe medido; escolher apenas a face mais próxima da caixa exterior dá uma direção errada em cavidades recuadas, como as do Phoenix PTI 6.
+D52, KWS e TC têm verificações específicas em `test:meters-schneider`
+(53 asserções no conjunto da suite): referencial procedural idêntico no
+Admin/simulador, encaixe real de tensão/secundário, passagem primária vazada
+e conservação dos pontos na exportação. Os primários de passagem não são
+tratados como parafusos com um fundo inexistente.
 
-O diâmetro do marcador vem da abertura física e é limitado pela profundidade disponível. O campo `Terminal.diameter` continua a controlar o símbolo 2D. Os marcadores respeitam a profundidade do modelo e deixam de ser desenhados através do plástico.
+O estado agregado, limitações e publicação estão em
+[RECUPERACAO-2026-11-17.md](RECUPERACAO-2026-11-17.md). Um ensaio geométrico não
+substitui a aceitação visual nem uma medição/certificação do fabricante.
 
-## Réguas complementares
+## Um referencial para o modelo e os cabos
 
-Os CAD do relé de segurança e do PLC LS não contêm os encaixes necessários às 16 e 34 ligações configuradas. A pedido do utilizador, a visualização acrescenta réguas vazadas, com fundo recuado e um furo por ligação. A caixa funcional do motor passa a ter sete encaixes alinhados com as seis ligações de enrolamento e PE; as pontes Y/Δ conservam o comando existente.
+`fitComponentModel` aplica a rotação base, espelho e ancoragem. Os novos
+Schneider derivados de STEP conservam **fator uniforme de 1000 na conversão
+metro → milímetro** porque os GLB estão em metros; patins abertos e manípulos salientes não servem
+para esticar o corpo. Os medidores procedurais também declaram o seu
+referencial nominal e a unidade de construção. Os CAD antigos continuam a
+usar a calibração histórica pela caixa orientada, por compatibilidade.
 
-`terminalSocketGeometry.ts` recorta as tampas sobrepostas e acrescenta estas cavidades sem alterar a fonte GLB em cache. Esta geometria complementa a representação funcional; não representa uma medição dos conectores ausentes no CAD original.
+Painel 3D, capturas, catálogo e Admin partilham esse contrato. Os bornes Admin
+Schneider usam a implantação nominal, não a caixa variável dos patins/manípulos.
+Os novos GLB procedurais guardam a unidade do referencial: o Admin converte-os
+rigidamente, sem a normalização genérica para 50 mm. `preservePosition3D`
+conserva pontos medidos de passagens abertas na publicação, sem inventar um
+fundo ou um recuo de parafuso para impedir a projeção na envolvente.
+O contrato verifica o ponto realmente usado por `terminalLocal3D`, e não apenas
+uma coordenada de metadados que nunca chega ao cabo.
 
-## Projetos guardados
+`src/electrical/realInterfaces.ts` contém bocas e normais na convenção Y=0 no
+topo; `realTerminalPosition` faz a conversão e o recuo. Cavidades escalonadas
+não podem ser orientadas pela face mais próxima da caixa exterior.
+`industrial-device-geometry.json` contém o levantamento das sete peças
+industriais. As tabelas WEG SPW02/SPW12 já estão no referencial final rodado:
+**não aplicar novamente a inversão X/Z usada durante a recuperação**.
 
-`legacyRealInterfaces.ts` conserva as posições automáticas até ao commit `13896bc`. No carregamento, a migração reconhece as versões com Y invertido, os pontos na superfície e os pontos recuados antigos. Conserva IDs, coordenadas 2D, cabos e posições manuais distintas desses padrões; bornes fixados (`pinned`) não são deslocados.
+## Cavidades e marcadores
 
-O multímetro recupera as quatro tomadas `COM`, `VΩ`, `mA` e `10A`. Projetos da versão com apenas duas tomadas recuperam as duas em falta; a ligação antiga `VΩmA` mantém o seu ID e passa a `VΩ`. A migração é idempotente.
+- O ensaio lança raios contra as malhas efetivamente visíveis e compara boca,
+  fundo, aro, recuo e ponto real do condutor.
+- A dimensão do marcador é limitada pela abertura e pela folga restante.
+  Também se verifica a ampliação de seleção/hover de 1,32 ×. O diâmetro físico
+  do terminal não foi reduzido para ocultar obstruções; `Terminal.diameter`
+  continua a controlar a representação 2D.
+- No ATV320 os terminais de comando são verificados com a **tampa de serviço
+  genuína aberta**. A tampa fechada continua a ocultá-los; não foi perfurada
+  nem removida para fazer o teste passar.
+- O Finder 90.23 usa bocas medidas no aro local escalonado, não no máximo Z
+  global. As folhas de contacto recuadas P1–P11 são **reconstrução funcional**,
+  não contactos autenticados no CAD original.
+- Um raio exatamente num vértice comum de uma triangulação pode não devolver
+  interseção. Apenas nesse caso vazio se repetem raios a ±1 nm e se escolhe o
+  fundo mais próximo. Uma obstrução finita nunca é ignorada por esse mecanismo.
+
+## Complementos funcionais do MSR127 e PLC LS
+
+O GLB MSR127 original permanece inalterado. A representação acrescenta quatro
+bancos escalonados de quatro ligações, serigrafia e três lentes, referenciados
+no manual Rockwell local. São complementos reconstruídos, não CAD oficial nem
+validação PL/SIL. O PLC LS mantém as réguas funcionais necessárias às suas 34
+ligações. A caixa do motor tem sete encaixes para enrolamentos e PE.
+
+`terminalSocketGeometry.ts` recorta tampas sobrepostas e constrói cavidades
+sem alterar a geometria de origem em cache. Isto não é metrologia de conectores
+que o ficheiro original não continha.
+
+## Projetos e calibrações guardadas
+
+`legacyRealInterfaces.ts` conserva padrões automáticos antigos, incluindo as
+posições WEG e Finder anteriores a esta recuperação. A migração estreita só
+reconhece esses padrões intactos; mantém IDs, cabos, posições 2D e ajustes
+manuais distintos. Bornes fixados (`pinned`) não são deslocados.
+
+O multímetro conserva COM, VΩ, mA e 10A. A atualização da antiga tomada
+VΩmA mantém o ID e acrescenta apenas as tomadas ausentes. A migração é
+idempotente. Uma definição criada/editada por uma pessoa conserva a sua
+calibração, sem uma nova deteção automática silenciosa.
+
+Os scripts de colocação/calibração fazem merge preservando os restantes tipos.
+Devem ser usados contra o modelo já orientado e ajustado, não contra eixos
+brutos do fornecedor. Guardar as tabelas antigas antes de uma nova calibração.
 
 ## Verificação
 
-Na pasta da aplicação:
-
-```powershell
-npm run test:terminal-geometry
-npm test
+```sh
 npm run typecheck
-npm run build
+npm run test:terminal-geometry
+npm run test:terminal-seat
+npm run test:meters-schneider
+npm run test:industrial
+npm run test:ci
 ```
 
-O teste geométrico carrega os GLB locais e mede o fundo e o aro de cada cavidade por raios. Rejeita centros fora do furo, pontos dentro do material, marcadores maiores do que o espaço disponível, dimensões incoerentes e cabos orientados pela face errada. Cobre as 142 ligações, incluindo as réguas complementares.
+`test:terminal-geometry` rejeita centros fora dos furos, pontos dentro do
+material, marcadores sem folga, normais erradas e deformações do referencial.
+A suite industrial verifica também SHA-256 dos GLB, fichas PDF, dimensões e
+continuidade elétrica. A carga de imagens embutidas pode produzir avisos do
+GLTFLoader em Node; os materiais/texturas são testados adicionalmente no browser.
 
-Para rever visualmente, iniciar Vite e abrir `/scripts/terminal-geometry-view.html`. O cenário usa a mesma normalização e os mesmos marcadores do produto. Permite selecionar componente/face e medir um ponto clicando no modelo.
+Para inspeção visual local: iniciar Vite e abrir
+`/scripts/terminal-geometry-view.html`. O cenário partilha a normalização e os
+marcadores do produto. O teste de editor completo usa uma conta sintética,
+sem API, service workers ou escrita cloud:
 
-O percurso automatizado no editor completo usa uma sessão e um projeto sintéticos, sem API real:
-
-```powershell
-$env:TERMINAL_TEST_URL = 'http://127.0.0.1:5173'
-$env:TERMINAL_TEST_CHANNEL = 'chrome' # opcional, para usar o Chrome instalado
-npm run test:terminal-geometry-ui
+```sh
+TERMINAL_TEST_URL=http://127.0.0.1:5173 npm run test:terminal-geometry-ui
 ```
 
-O servidor Vite de teste deve arrancar com as integrações remotas desativadas. Reiniciá-lo depois de alterar módulos de estado evita testar instâncias duplicadas pelo HMR. O script bloqueia API, service workers e consulta de versão; permite apenas os servidores de fontes usados na interface, incluindo os dados do resolvedor Unicode do texto 3D. `TERMINAL_TEST_OUTPUT` permite guardar capturas numa pasta de evidências sintéticas.
+Reiniciar o Vite depois de mudanças que dupliquem módulos de estado/React evita
+confundir HMR com comportamento de produção. As novas fixtures esperam pela
+geometria montada com predicados síncronos; uma Promise que resolve `false`
+não é uma condição válida de prontidão em `waitForFunction`.
 
-## Encaixe dos bornes criados no editor
+## Bornes e comandos criados no Admin
 
-O editor de componentes usa o mesmo método por raios (`src/catalog/terminalSeat.ts`) para os bornes que o administrador cria:
+**Bornes → Encaixe dos bornes → Verificar encaixe** usa `terminalSeat.ts` para
+medir boca e fundo; distingue cavidade, superfície, material e ausência de
+apoio. **Encaixar** procura um furo livre na mesma face e grava a profundidade e
+o recuo, em vez de projetar o marcador na face exterior.
 
-- **Bornes › Encaixe dos bornes › Verificar encaixe** mede, para cada borne, a boca (anel de 12 raios a 0,65 × Ø) e o fundo (raio central) ao longo da normal, e classifica: dentro da cavidade, à boca do furo, fora do modelo, dentro do material, face plana ou sem superfície.
-- **Encaixar / Encaixar todos** move o borne para o furo livre mais próximo na mesma face (até 1,5 × Ø ou 5 mm) ou recua-o para dentro da cavidade que já tem por baixo, e grava `socketDepthMm`/`socketInsetMm`.
-- Os bornes criados a partir de furos (`addTerminalInHole`) já nascem recuados, com a profundidade e o recuo medidos; antes ficavam à boca do furo e, sem estes campos, o simulador projetava-os na face exterior da caixa.
-
-Verificação automática: `npm run test:terminal-seat` (142 bornes integrados dentro das cavidades, correção «boca → cavidade» em cada modelo, bornes criados a partir dos furos detetados) e `npm run test:editor3d-autodetect-ui` no editor completo.
-
-## Deteção automática e retorno (mola/retenção)
-
-**Botões › Deteção automática no modelo** (também na aba Bornes) propõe bornes, botões, manípulos, seletores, ecrãs e LEDs pelo nome dos objetos do GLB e, para nomes genéricos de CAD, pela forma (placa fina à face → ecrã; cilindro pequeno a sobressair → botão; disco Ø ≥ 22 mm → seletor; peça pequena emissiva → LED). Para cada botão é inferido o retorno (`ControlDef.returnMode`): mola nas botoneiras de impulso e nos botões TEST/rearme; retenção nos manípulos de disjuntor (basculante, «clique com mola») e nas emergências travadas. Com mola, a variável só fica ativa enquanto o botão está premido. Cobertura: `test:interactables` e `test:auto-detect-models` (GLB reais).
+A deteção de comandos infere botão, manípulo, seletor, visor e LED por nome e
+forma. Os novos integrados usam controlos físicos explícitos; não se põe uma
+caixa de atuação automática invisível sobre o corpo. Áreas de interação
+criadas expressamente pelo autor continuam suportadas. Mola/retenção e
+`holdVar` distinguem o retorno físico de uma ação elétrica retida.

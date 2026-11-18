@@ -1,7 +1,7 @@
 /**
  * Comentários e textos livres no Esquema IEC (coordenadas do diagrama).
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CanvasNote, CanvasText } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { useCommandsUi } from './commandsUi'
@@ -99,7 +99,40 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
 }) {
   const [draft, setDraft] = useState(item.text)
   const editorRef = useRef<HTMLTextAreaElement>(null)
-  const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null)
+  const drag = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean; pending?: { x: number; y: number }; capture: HTMLDivElement; pointerId: number } | null>(null)
+  const [live, setLive] = useState<{ x: number; y: number } | null>(null)
+  const simRunState = useSimStore((state) => state.sim.runState)
+  const cancelDrag = useCallback(() => {
+    const current = drag.current
+    drag.current = null
+    setLive(null)
+    try { current?.capture.releasePointerCapture(current.pointerId) } catch { /* no active capture */ }
+  }, [])
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !drag.current) return
+      event.preventDefault(); event.stopImmediatePropagation(); cancelDrag()
+    }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('blur', cancelDrag)
+    window.addEventListener('pointercancel', cancelDrag)
+    // Transport updates and pointerup can arrive before React commits a new
+    // readOnly prop/effect. Cancel synchronously so a RUN in that same frame
+    // cannot commit a stale drag. Both simulators retain independent clocks.
+    const stopPanel = useSimStore.subscribe((next, previous) => {
+      if (next.sim.runState !== previous.sim.runState) cancelDrag()
+    })
+    const stopCommands = useCommandsUi.subscribe((next, previous) => {
+      if (next.rt.running !== previous.rt.running || next.paused !== previous.paused) cancelDrag()
+    })
+    return () => {
+      stopPanel(); stopCommands()
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', cancelDrag)
+      window.removeEventListener('pointercancel', cancelDrag)
+      cancelDrag()
+    }
+  }, [cancelDrag, readOnly, editing, item.id, simRunState])
   // O texto acompanha a escala do desenho (com zoom reduzido não fica preso num mínimo e não
   // tapa os símbolos); só durante a edição fica com um tamanho mínimo legível.
   const sizePx = editing ? Math.max(12, item.size * scale) : item.size * scale
@@ -132,26 +165,32 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
     if (onGroupDown?.(item, event)) return
     onSelect()
     const start = toWorld(event.clientX, event.clientY)
-    drag.current = { dx: item.x - start.x, dy: item.y - start.y, sx: event.clientX, sy: event.clientY, moved: false }
+    drag.current = { dx: item.x - start.x, dy: item.y - start.y, sx: event.clientX, sy: event.clientY, moved: false, capture: event.currentTarget, pointerId: event.pointerId }
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* noop */ }
   }
   const move = (event: React.PointerEvent<HTMLDivElement>) => {
     const current = drag.current
     if (!current) return
     if (!current.moved && Math.hypot(event.clientX - current.sx, event.clientY - current.sy) < 4) return
-    // Início do arrasto: um passo de Desfazer com a posição original.
-    if (!current.moved) useSimStore.getState().commitHistory()
+    // Preview only: cancelled gestures never change the document or history.
     current.moved = true
     const point = toWorld(event.clientX, event.clientY)
     const x = point.x + current.dx
     const y = point.y + current.dy
-    useSimStore.getState().updateCanvasText(item.id, event.altKey ? { x: Math.round(x), y: Math.round(y) } : { x: snap(x), y: snap(y) })
+    current.pending = event.altKey ? { x: Math.round(x), y: Math.round(y) } : { x: snap(x), y: snap(y) }
+    setLive(current.pending)
   }
   // Um clique/toque sem arrastar seleciona (barra de formatação) e abre já a escrita no próprio sítio.
   const up = () => {
     const current = drag.current
     drag.current = null
+    if (current?.moved && current.pending && !readOnly) {
+      const store = useSimStore.getState()
+      store.commitHistory()
+      store.updateCanvasText(item.id, current.pending)
+    }
     if (current && !current.moved && !readOnly) onEdit(true)
+    setLive(null)
   }
 
   const textStyle = { ...textCss(item, sizePx), fontFamily: fontStack(item.font), width: fixedWidth, whiteSpace: fixedWidth ? 'pre-wrap' as const : 'pre' as const }
@@ -159,11 +198,11 @@ function CommandsFreeText({ item, scale, selected, editing, readOnly, toWorld, o
     <div
       className={`dc-cmd-text-anchor${selected ? ' is-selected' : ''}${editing ? ' is-editing' : ''}`}
       data-cmd-text={item.id}
-      style={{ transform: `rotate(${item.rotation ?? 0}deg)`, transformOrigin: 'top left' }}
+      style={{ transform: `translate(${live ? (live.x - item.x) * scale : 0}px, ${live ? (live.y - item.y) * scale : 0}px) rotate(${item.rotation ?? 0}deg)`, transformOrigin: 'top left' }}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}
-      onPointerCancel={up}
+      onPointerCancel={cancelDrag}
       onDoubleClick={(event) => { if (readOnly) return; event.stopPropagation(); onSelect(); onEdit(true) }}
       onContextMenu={(event) => { if (readOnly) return; event.preventDefault(); event.stopPropagation(); onSelect() }}
       title={readOnly ? item.text : 'Clique para escrever · arraste para mover · Ctrl+B/I/U formata'}

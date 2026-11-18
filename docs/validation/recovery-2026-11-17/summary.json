@@ -1,0 +1,171 @@
+{
+  "date": "2026-11-17",
+  "stage": "LOCAL_TESTS_APPROVED_RELEASE_OPERATION_SEPARATE",
+  "baselineAppCommit": "d474ab3e99383e1e8ede6cc75a2b8ae1277b3323",
+  "baselineBrainNetCommit": "dac3a94e6e3964b56018a935ef4c51193f4b903e",
+  "gates": {
+    "typecheck": {
+      "exit": 0
+    },
+    "test:ci": {
+      "exit": 0,
+      "chainedCommands": 102
+    },
+    "serverE2e": {
+      "exit": 0,
+      "passed": 188,
+      "failed": 0
+    },
+    "productionDependencyAudit": {
+      "exit": 0,
+      "vulnerabilities": 0
+    }
+  },
+  "actualBrowserResults": {
+    "metersAdmin": {
+      "assertions": 110,
+      "exceptions": [],
+      "published": [
+        {
+          "type": "meterD522066",
+          "id": "mfr-ui-meterd522066",
+          "version": 1
+        },
+        {
+          "type": "meterKws306",
+          "id": "mfr-ui-meterkws306",
+          "version": 1
+        },
+        {
+          "type": "currentTransformerSplitCore",
+          "id": "mfr-ui-currenttransformersplitcore",
+          "version": 1
+        },
+        {
+          "type": "breakerSchneiderIc60h1p",
+          "id": "mfr-ui-breakerschneideric60h1p",
+          "version": 1
+        },
+        {
+          "type": "pilotLightSchneiderIil1p",
+          "id": "mfr-ui-pilotlightschneideriil1p",
+          "version": 1
+        },
+        {
+          "type": "pilotLightSchneiderIil3p",
+          "id": "mfr-ui-pilotlightschneideriil3p",
+          "version": 1
+        },
+        {
+          "type": "residualBreakerSchneiderIid4p",
+          "id": "mfr-ui-residualbreakerschneideriid4p",
+          "version": 1
+        },
+        {
+          "type": "residualBreakerSchneiderIdpnVigi",
+          "id": "mfr-ui-residualbreakerschneideridpnvigi",
+          "version": 1
+        }
+      ],
+      "scope": "Actual ComponentEditor3D/save/reopen/publish/bake, full page reload, fresh IndexedDB catalogue fetch and actual Panel3D instances. No live cloud writes."
+    },
+    "industrialAdmin": {
+      "assertions": 78,
+      "exceptions": [],
+      "published": [
+        {
+          "type": "relaySocketFinder9023",
+          "id": "mfr-ui-relaysocketfinder9023",
+          "version": 1
+        },
+        {
+          "type": "relayFinder5534",
+          "id": "mfr-ui-relayfinder5534",
+          "version": 1
+        },
+        {
+          "type": "timerGeyaGrt8M1",
+          "id": "mfr-ui-timergeyagrt8m1",
+          "version": 1
+        },
+        {
+          "type": "timerGeyaGrt8B1",
+          "id": "mfr-ui-timergeyagrt8b1",
+          "version": 1
+        },
+        {
+          "type": "levelRelayAvel411",
+          "id": "mfr-ui-levelrelayavel411",
+          "version": 1
+        },
+        {
+          "type": "buzzerMetaltexTby301",
+          "id": "mfr-ui-buzzermetaltextby301",
+          "version": 1
+        },
+        {
+          "type": "vfdSchneiderAtv320",
+          "id": "mfr-ui-vfdschneideratv320",
+          "version": 1
+        }
+      ],
+      "scope": "Actual ComponentEditor3D save/reopen/publish/bake for all seven types, page reload and wired independent Panel3D catalog instances. Isolated local IndexedDB, not live cloud."
+    },
+    "metersPanel": {
+      "assertions": 41,
+      "errors": [],
+      "scope": "Actual Panel3D/R3F; local synthetic project and source SVG raster comparisons; not hardware or live cloud."
+    },
+    "editorLifecycle": {
+      "assertions": 62,
+      "exceptions": [],
+      "scope": "Actual Toolbar F6 and mounted React GRAFCET/IEC canvases; isolated local synthetic documents, no cloud."
+    }
+  },
+  "materialSharingRegression": {
+    "beforeGlbBytes": 4531324,
+    "afterGlbBytes": 4405348,
+    "beforeMaterials": 27,
+    "afterMaterials": 24,
+    "beforeExportedImages": 35,
+    "afterExportedImages": 32,
+    "publicationBase64CapUnchanged": 6000000,
+    "textureResolutionReduced": false,
+    "distinctAuthoredPartsRemainIsolated": true
+  },
+  "physicalAudit": {
+    "cadModels": 48,
+    "cavities": 303,
+    "contacts": 39,
+    "totalConnections": 342,
+    "proceduralTypesExcludedNotPassedAsCad": 5,
+    "terminalSeats": 303,
+    "mouthCorrections": 43,
+    "placementScenarios": 80
+  },
+  "covers": {
+    "regeneratedTypes": 18,
+    "totalCovers": 69,
+    "totalFronts": 69
+  },
+  "preservation": {
+    "filesCompared": 1039,
+    "differences": [],
+    "head": "adf9fbf3f1505b11759fc63b8741d5b96ffef327",
+    "statusEntries": 122,
+    "statusSha256": "e6a8e6453b62c04058de6bddb883b3d210304e3293cd4e610855d75f1f64f751",
+    "indexGitlink": "10e555bf47a68d8ab7cb7a0a5d1966f2fa13e666",
+    "baselineArchive": "/home/user/work/qgd-release/brainnet-nested-source-before.tar.gz",
+    "scope": "Every regular archived file; no checkout, reset, clean or write to the protected checkout.",
+    "preserved": true
+  },
+  "notCertifiedByThisRecord": [
+    "Commit/push/remote CI/deploy: subsequent release operation, see BrainNet release record",
+    "Supabase/RLS/cloud or live production login",
+    "Manufacturer-faithful visual acceptance of procedural reconstructions",
+    "Hardware/GPU performance: SwiftShader result is not approval",
+    "Personal BrainNet foundation check still has two protected nested missing links"
+  ],
+  "historicalFailures": "The prior iDPN size rejection, Panel3D framing miss and IEC group transport rollback failure were diagnosed and fixed before the green reruns. Intermediate lifecycle group test exposed initial-fit fixture timing and was rerun with the actual framing shortcut. Prior logs remain in the execution workspace.",
+  "versionedLogFormatting": "Only trailing whitespace and extra terminal blank lines normalized for Git hygiene. Raw originals retained in the execution workspace; no test outcomes rewritten."
+}

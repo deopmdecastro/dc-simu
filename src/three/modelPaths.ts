@@ -1,3 +1,4 @@
+import { INDUSTRIAL_GEOMETRY, industrialSchematicFootprint, isIndustrialDevice } from '../electrical/industrialDevices'
 import type { ComponentType } from '../types'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
 import importedModels from '../data/imported-component-models.json'
@@ -12,6 +13,9 @@ export const MODEL_PATHS = {
   schneiderEz9Breaker1p: '/models/protecao/schneider-ez9-1p.glb',
   schneiderEz9Breaker2p: '/models/protecao/schneider-ez9-2p.glb',
   schneiderEz9Breaker3p: '/models/protecao/schneider-ez9-3p.glb',
+  /** Acti9: STEP oficiais, com manípulo e botão de teste separados. */
+  schneiderIid4p: '/models/protecao/schneider-acti9-iid-4p.glb',
+  schneiderIdpnVigi: '/models/protecao/schneider-acti9-idpn-n-vigi-1pn.glb',
   /** Moeller/Eaton PKZM C-10 — GLB gerado do STEP do fabricante por `scripts/build-pkzmc10-glb.py`. */
   eatonPkzmC10: '/models/protecao/eaton-pkzmc-10.glb',
   phoenixEcb3000760: '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb',
@@ -77,6 +81,7 @@ export const MIN_SCHEMATIC_HIT_WIDTH = 24
 
 export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalSizeMm>> = {
   ...Object.fromEntries(importedModels.map(model => [model.type, model.physicalSizeMm])),
+  ...Object.fromEntries(Object.entries(INDUSTRIAL_GEOMETRY).map(([type, model]) => [type, model.physicalSizeMm])),
   plcSiemensLogo1224RC: { width: 72, height: 90, depth: 55 },
   powerSupplyProauto24A: { width: 64, height: 124.5, depth: 123.6 },
   contactorWegCWC09: { width: 45.48, height: 58, depth: 52.01 },
@@ -143,11 +148,13 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   multimeterDm20: { width: 88, height: 184, depth: 53 },
   meterD522066: { width: 54, height: 80, depth: 64 },
   meterKws306: { width: 74, height: 86.5, depth: 65 },
-  breakerSchneiderIc60h1p: { width: 18, height: 85, depth: 74 },
-  residualBreakerSchneiderIid4p: { width: 72, height: 85, depth: 74 },
-  residualBreakerSchneiderIdpnVigi: { width: 36, height: 85, depth: 74 },
-  pilotLightSchneiderIil1p: { width: 18, height: 85, depth: 74 },
-  pilotLightSchneiderIil3p: { width: 54, height: 85, depth: 74 },
+  breakerSchneiderIc60h1p: { width: 18, height: 91, depth: 78.5 },
+  // Corpo de 85 mm; patins DIN recolhidos, não a pose de instalação do STEP.
+  residualBreakerSchneiderIid4p: { width: 72, height: 85, depth: 73.5 },
+  residualBreakerSchneiderIdpnVigi: { width: 36, height: 85, depth: 73 },
+  pilotLightSchneiderIil1p: { width: 18, height: 82, depth: 68 },
+  pilotLightSchneiderIil3p: { width: 18, height: 82, depth: 69.5 },
+  currentTransformerSplitCore: { width: 36, height: 48, depth: 24 },
 }
 
 export interface ComponentModelSpec {
@@ -186,6 +193,10 @@ function spec(
  * cada instância é aplicada por cima desta base e, portanto, continua isolada.
  */
 const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
+  ...Object.fromEntries(Object.entries(INDUSTRIAL_GEOMETRY).map(([type, model]) => [type, spec(type as ComponentType, model.path, [0, 0, 0], type === 'buzzerMetaltexTby301' ? 'panel-front' : type === 'levelRelayAvel411' ? 'machine' : 'din-rail')])),
+  breakerSchneiderIc60h1p: spec('breakerSchneiderIc60h1p', '/models/protecao/schneider-acti9-ic60h-1p.glb', [0,0,0], 'din-rail'),
+  pilotLightSchneiderIil1p: spec('pilotLightSchneiderIil1p', '/models/sinalizacao/schneider-acti9-iil-1p.glb', [0,0,0], 'din-rail'),
+  pilotLightSchneiderIil3p: spec('pilotLightSchneiderIil3p', '/models/sinalizacao/schneider-acti9-iil-3p.glb', [0,0,0], 'din-rail'),
   ...Object.fromEntries(importedModels.map(model => [model.type, spec(model.type as ComponentType, model.path, (model.rotation ?? [0, 0, 0]) as [number, number, number], model.placement as ComponentPlacement)])),
   plcSiemensLogo1224RC: spec('plcSiemensLogo1224RC', MODEL_PATHS.plcSiemensLogo1224RC, [Math.PI / 2, 0, 0], 'din-rail'),
   powerSupplyProauto24A: spec('powerSupplyProauto24A', MODEL_PATHS.powerSupplyProauto24A, [0, 0, 0], 'din-rail'),
@@ -195,6 +206,8 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   breaker1p: spec('breaker1p', MODEL_PATHS.schneiderEz9Breaker1p, [0, 0, 0], 'din-rail'),
   breaker2p: spec('breaker2p', MODEL_PATHS.schneiderEz9Breaker2p, [0, 0, 0], 'din-rail'),
   breaker3p: spec('breaker3p', MODEL_PATHS.schneiderEz9Breaker3p, [0, 0, 0], 'din-rail'),
+  residualBreakerSchneiderIid4p: spec('residualBreakerSchneiderIid4p', MODEL_PATHS.schneiderIid4p, [0, 0, 0], 'din-rail'),
+  residualBreakerSchneiderIdpnVigi: spec('residualBreakerSchneiderIdpnVigi', MODEL_PATHS.schneiderIdpnVigi, [0, 0, 0], 'din-rail'),
   // O GLB foi gerado do STEP já de pé: topo em +Y, frente em +Z (manípulo e bornes à frente),
   // por isso não precisa de rotação nem de espelho. O manípulo vai como malhas `dcsimu_handle_*`.
   breakerSteckSdC25: spec('breakerSteckSdC25', MODEL_PATHS.steckBreakerSdC25, [0, 0, 0], 'din-rail'),
@@ -270,6 +283,7 @@ export function getComponentPhysicalSizeMm(type: ComponentType): PhysicalSizeMm 
 }
 
 export function getSchematicPhysicalFootprint(type: ComponentType): { w: number; h: number } | undefined {
+  if (isIndustrialDevice(type)) return industrialSchematicFootprint(type)
   const physical = getComponentPhysicalSizeMm(type)
   if (!physical) return undefined
   return {
@@ -338,6 +352,7 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     isTerminalAssemblyComponent(type) ||
     type === 'meterD522066' ||
     type === 'meterKws306' ||
+    type === 'currentTransformerSplitCore' ||
     type === 'breakerSchneiderIc60h1p' ||
     type === 'residualBreakerSchneiderIid4p' ||
     type === 'residualBreakerSchneiderIdpnVigi' ||
@@ -354,6 +369,8 @@ export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo GLB ou representaçã
 
 export function hasDinRailModel(type: ComponentType): boolean {
   if (
+    type === 'meterD522066' ||
+    type === 'meterKws306' ||
     type === 'breakerSchneiderIc60h1p' ||
     type === 'residualBreakerSchneiderIid4p' ||
     type === 'residualBreakerSchneiderIdpnVigi' ||

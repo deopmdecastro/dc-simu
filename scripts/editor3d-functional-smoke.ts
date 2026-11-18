@@ -77,7 +77,7 @@ check('Enquadramento inclui todas as peças da multisseleção', () => {
 const originalFetch = globalThis.fetch
 globalThis.fetch = async (input, init) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-  if (url.startsWith('/models/')) return new Response(await fs.readFile(path.join('public', decodeURIComponent(url))))
+  if (url.startsWith('/models/') || url.startsWith('/datasheets/')) return new Response(await fs.readFile(path.join('public', decodeURIComponent(url))))
   if (url.startsWith('blob:') || url.startsWith('data:')) return originalFetch(input, init)
   throw new Error('Rede externa proibida neste teste: ' + url)
 }
@@ -101,10 +101,20 @@ try {
     catalogComponent.viewOrientation = { x: 0, y: 0, z: 0 }
     check(type + ': editor importa o volume físico e conserva os pontos dos furos', () => {
       assert.ok(usedModel)
-      assert.ok(Math.abs(size.x - spec.physicalSizeMm.width) < .001 && Math.abs(size.y - spec.physicalSizeMm.height) < .001 && Math.abs(size.z - spec.physicalSizeMm.depth) < .001)
+      let preserved = false
+      root.traverse(node => {
+        if (node.userData.cadScalePreserved && node.userData.physicalFrameMm) {
+          preserved = true
+          assert.deepEqual(node.userData.physicalFrameMm, spec.physicalSizeMm, 'Mesmo referencial nominal de implantação')
+          const scale = node.getWorldScale(new THREE.Vector3())
+          assert.ok([scale.x, scale.y, scale.z].every(k => Math.abs(k - 1000) < 1e-5), 'STEP mantém escala uniforme, não deforma patins/manípulos')
+        }
+      })
+      if (!preserved) assert.ok(Math.abs(size.x - spec.physicalSizeMm.width) < .001 && Math.abs(size.y - spec.physicalSizeMm.height) < .001 && Math.abs(size.z - spec.physicalSizeMm.depth) < .001)
       for (const terminal of draft.terminals) {
         const p = TEMPLATES[type].terminals.find((item) => item.label === terminal.label)!.position3D!
-        assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3((p.x-.5)*size.x,p.y*size.y,(p.z-.5)*size.z)) < .001)
+        const frame = spec.physicalSizeMm
+        assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3((p.x-.5)*frame.width,p.y*frame.height,(p.z-.5)*frame.depth)) < .001)
         const spot = REAL_TERMINALS[type]!.find((spot) => spot.label === terminal.label)!
         // Pinos e pontas de fio (`contact` ≠ socket) não têm cavidade onde o marcador tenha de caber.
         const socketRoom = Math.min(spot.diameterMm! * .5, terminal.socketInsetMm!, terminal.socketDepthMm! - terminal.socketInsetMm!)
@@ -147,4 +157,4 @@ try {
   const repeatedUpgrade = await upgradeBuiltinDraft('terminalPhoenixPti6', updated!)
   check('Atualização do rascunho é idempotente', () => assert.equal(repeatedUpgrade, null))
 } finally { globalThis.fetch = originalFetch }
-console.log(`PASS — ${checks} verificações funcionais; 25 modelos e 162 bornes importados sem rede externa`)
+console.log(`PASS — ${checks} verificações funcionais; todos os CAD e bornes declarados em REAL_TERMINALS importados sem rede externa`)

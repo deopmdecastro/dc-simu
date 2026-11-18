@@ -51,10 +51,15 @@ export function detectHoles(root: THREE.Object3D, face: Face, options: HoleScanO
   const limit = options.limit ?? 40
 
   root.updateMatrixWorld(true)
-  root.traverse((child) => {
+  const visibleMeshes: THREE.Object3D[] = []
+  root.traverseVisible((child) => {
     const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    if (!materials.some(material => material.visible)) return
+    visibleMeshes.push(mesh)
     const geometry = mesh.geometry as unknown as { boundsTree?: unknown; computeBoundsTree?: () => void }
-    if (mesh.isMesh && geometry && !geometry.boundsTree) geometry.computeBoundsTree?.()
+    if (!geometry.boundsTree) geometry.computeBoundsTree?.()
   })
   const box = new THREE.Box3().setFromObject(root, true)
   if (box.isEmpty()) return []
@@ -88,7 +93,7 @@ export function detectHoles(root: THREE.Object3D, face: Face, options: HoleScanO
       origin.setComponent(uAxis, uMin + (i + 0.5) * uStep)
       origin.setComponent(vAxis, vMin + (j + 0.5) * vStep)
       raycaster.set(origin, direction)
-      const hit = raycaster.intersectObject(root, true)[0]
+      const hit = raycaster.intersectObjects(visibleMeshes, false)[0]
       if (hit) depth[j * grid + i] = hit.distance
     }
   }

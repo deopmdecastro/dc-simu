@@ -40,11 +40,9 @@ export function previewCoverOf(data: unknown): string | undefined {
   return typeof value === 'string' && value.startsWith('data:image/jpeg;base64,') && value.length <= 420_000 ? value : undefined
 }
 
-/** Identifica um projeto nativo (id estável ou nome com «(nativo)»). */
-export function isNativeProjectMeta(id: string, name?: string): boolean {
-  if (id.startsWith('native-partida') || id.startsWith('native-estrela') || id.startsWith('grafcet-')) return true
-  return typeof name === 'string' && /\(nativo\)/i.test(name)
-}
+/** Só a identidade cloud explicitamente retida; um nome nunca classifica projetos pessoais. */
+import { isNativeProjectId } from '../project/nativeProjectIds'
+export const isNativeProjectMeta = (id: string, _name?: string): boolean => isNativeProjectId(id)
 
 /** True quando o preview não tem geometria útil para a capa. */
 export function isEmptyPreview(preview?: ProjectPreviewData | null): boolean {

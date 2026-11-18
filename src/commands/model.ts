@@ -91,6 +91,8 @@ export interface CmdWire {
   b: CmdEnd
   /** Posição do troço do meio (y se o cabo muda de coluna, x se muda de linha); vazio = a meio. */
   mid?: number
+  /** Pontos interiores ortogonais; os extremos continuam CmdEnd (identidade elétrica). */
+  bends?: Pt[]
   /** Página do cabo (folha). Por omissão a dos bornes. */
   page?: string
   /** Cor da linha (cor de condutor IEC 60204-1: 'black', 'red', 'blue', 'green-yellow'…); vazio = automática. */

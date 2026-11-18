@@ -1,3 +1,6 @@
+import { applyMsr127Leds } from '../three/msr127Model'
+import { applyIndustrialState, industrialTypeIn, industrialLedVars, industrialDisplayText, prepareIndustrialModel, releaseIndustrialLcd } from '../three/industrialFinish'
+import type { IndustrialDeviceType } from '../electrical/industrialDevices'
 import * as THREE from 'three'
 import { selectorValue, toggleIsOn, type MeterReading, type Vars } from './behavior'
 import { displayPixelSize, drawDisplay } from './displayCanvas'
@@ -6,6 +9,9 @@ import type { StateAnimator } from './stateAnimator'
 import type { ComponentDefinition, ControlDef, DisplayDef, SpinDef } from './types'
 import { controlAreaBox, localControlArea } from './controlArea'
 import { restoreBasePose } from './basePose'
+import { applySchneiderModularState, ACTI9_MCB_HANDLE, type SchneiderModularType } from '../three/schneiderModularModel'
+import { applyDigitalMeterState, releaseDigitalMeterDisplay, type DigitalMeterType } from '../three/digitalMeterModel'
+import { applySchneiderRcdIndicator, SCHNEIDER_RCD_HANDLE_NODE } from '../three/schneiderRcdModel'
 
 /** Nó (peça ou nó dentro do GLB) a que um controlo está ligado. */
 export function controlNodes(root: THREE.Object3D, control: { partId: string; nodes?: string[] }): THREE.Object3D[] {
@@ -137,8 +143,17 @@ export class ComponentRig {
   private vars: Vars = {}
   private reading: MeterReading | null = null
   private stateName = ''
+  private readonly schneiderRcd: boolean
+  private readonly schneiderModular: SchneiderModularType | null
+  private readonly digitalMeter: DigitalMeterType | null
+  private readonly industrial: IndustrialDeviceType | null
 
   constructor(private readonly def: ComponentDefinition, private readonly root: THREE.Object3D, private readonly animator?: StateAnimator | null) {
+    this.industrial=industrialTypeIn(root)
+    if(this.industrial)prepareIndustrialModel(root,this.industrial)
+    this.schneiderModular=root.getObjectByName(ACTI9_MCB_HANDLE)?'breakerSchneiderIc60h1p':root.getObjectByName('acti9_lens_3')?'pilotLightSchneiderIil3p':root.getObjectByName('acti9_lens_1')?'pilotLightSchneiderIil1p':null
+    this.digitalMeter=root.getObjectByName('digital_meter_reset')?'meterD522066':root.getObjectByName('digital_meter_switch')?'meterKws306':null
+    this.schneiderRcd = !!root.getObjectByName('schneider_visisafe') && !!def.controls?.some((control) => control.bindVar === 'closed' && control.nodes?.includes(SCHNEIDER_RCD_HANDLE_NODE))
     for (const control of def.controls ?? []) {
       const nodes = control.hitArea && control.nodes === undefined ? [] : controlNodes(root, control)
       // A pose de repouso tem de vir do GLB, não do que estiver no nó agora: a rig é
@@ -159,7 +174,9 @@ export class ComponentRig {
       const moving = nodes.map((node): Moving => ({ node, local0: node.matrix.clone(), parentToRoot: matrixToRoot(node.parent ?? root, root) }))
       this.items.set(control.id, { control, moving, nodes, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
       for (const node of nodes) node.traverse((child) => this.owner.set(child, control.id))
-      if (control.nodes !== undefined || control.hitArea) this.addProxy(control, box)
+      // Manufacturer industrial controls already have distinct pickable meshes.
+      // Only an explicitly authored hitArea may add a proxy over these devices.
+      if (control.hitArea || (!this.industrial && !this.schneiderRcd && !this.schneiderModular && !this.digitalMeter && control.nodes !== undefined)) this.addProxy(control, box)
     }
     for (const part of def.parts) {
       if (!part.spin) continue
@@ -236,15 +253,25 @@ export class ComponentRig {
 
   /** Atualiza variáveis e leitura: reposiciona controlos e redesenha os ecrãs que mudaram. */
   setVars(vars: Vars, reading: MeterReading | null = this.reading, stateName = this.stateName) {
+    if(this.industrial)vars={...vars,...industrialLedVars(this.industrial,vars),industrialDisplay:industrialDisplayText(vars)}
     this.vars = vars; this.reading = reading; this.stateName = stateName
     for (const item of this.items.values()) {
       const control = item.control
       if (control.kind === 'selector') {
         const position = control.positions.find((entry) => entry.id === selectorValue(control, vars))
         item.target = position ? position.angle : item.target
-      } else item.target = item.held || (control.kind === 'toggle' || control.actions.some((a) => a.type === 'toggleVar' || a.type === 'behavior') ? toggleIsOn(control, vars) : false) ? 1 : 0
+      } else if ((this.schneiderRcd || this.schneiderModular==='breakerSchneiderIc60h1p') && control.bindVar === 'closed' && (control.nodes?.includes(SCHNEIDER_RCD_HANDLE_NODE)||control.nodes?.includes(ACTI9_MCB_HANDLE))) {
+        // Os Acti9 distinguem aberto, fechado e disparado também no Admin/catálogo.
+        item.target = vars.tripped ? 0.48 : vars.closed ? 1 : 0
+      } else if (control.holdVar) item.target = item.held || Boolean(vars[control.holdVar]) ? 1 : 0
+      else item.target = item.held || (control.kind === 'toggle' || control.actions.some((a) => a.type === 'toggleVar' || a.type === 'behavior') ? toggleIsOn(control, vars) : false) ? 1 : 0
     }
     this.animator?.setVars(vars)
+    if (this.schneiderRcd) applySchneiderRcdIndicator(this.root, vars)
+    if(this.schneiderModular)applySchneiderModularState(this.root,this.schneiderModular,vars,false)
+    if(this.industrial)applyIndustrialState(this.root,this.industrial,vars,false,false)
+    if(this.digitalMeter)applyDigitalMeterState(this.root,this.digitalMeter,vars)
+    if(this.root.getObjectByName('msr127_led_pwr'))applyMsr127Leds(this.root,vars)
     this.redraw()
     this.apply()
   }
@@ -411,6 +438,8 @@ export class ComponentRig {
   }
 
   dispose() {
+    if(this.industrial)releaseIndustrialLcd(this.root)
+    if(this.digitalMeter)releaseDigitalMeterDisplay(this.root)
     for (const item of this.items.values()) for (const entry of item.moving) { entry.node.matrix.copy(entry.local0); entry.local0.decompose(entry.node.position, entry.node.quaternion, entry.node.scale) }
     this.hidden.forEach((node) => { node.visible = true }); this.hidden.length = 0
     for (const item of this.spinners) item.node.quaternion.copy(item.base)

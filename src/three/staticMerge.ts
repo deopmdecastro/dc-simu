@@ -23,7 +23,7 @@ export function markCadNodes(root: THREE.Object3D) { root.traverse((node) => { (
 
 /** Nó do GLB sem papel próprio (sem anotações, sem React): o seu transform nunca muda depois de montado. */
 /** Chaves que o carregador/acabamento põe em todos os nós: não são anotações de animação. */
-const PASSIVE_KEYS = new Set(['name', 'gltfExtensions', 'gltfExtras', 'cadFinished'])
+const PASSIVE_KEYS = new Set(['name', 'gltfExtensions', 'gltfExtras', 'cadFinished', 'cadName', 'sourceType'])
 const annotated = (node: THREE.Object3D) => Object.keys(node.userData).some((key) => !PASSIVE_KEYS.has(key))
 
 function staticCadNode(node: THREE.Object3D): boolean {
