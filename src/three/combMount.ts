@@ -20,14 +20,24 @@ import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
 import { componentHalfExtents } from './panelBounds'
 import { COMB_CONNECTOR, combBusbarDimsOf, combConnectorBladeTipMm, combConnectorTerminalSpecs, combTerminalConductorOf, type CombConductor } from './combBusbarParts'
 
-/** Tipos de disjuntor que aceitam pente nos bornes superiores. */
+/** Tipos de disjuntor / diferencial / proteção que aceitam pente nos bornes superiores.
+ * Inclui genéricos, Schneider Acti9, Hager, Steck, motor e residuais.
+ * Qualquer tipo que tenha bornes de entrada topo compatíveis (1/3/5… ou N1) pode ser adicionado aqui.
+ */
 const BREAKER_TYPES = new Set([
   'breaker1p',
   'breaker2p',
   'breaker3p',
   'breaker4p',
   'breakerSteckSdC25',
+  'breakerSchneiderIc60h1p',
+  'residualBreaker',
   'residualBreakerHagerCfc225p',
+  'residualBreakerSchneiderIid4p',
+  'residualBreakerSchneiderIdpnVigi',
+  'motorBreaker',
+  'motorBreakerPkzmC10',
+  'motorBreakerSchneiderGv2me',
   'phoenixEcb3000760',
 ])
 
@@ -47,11 +57,17 @@ export const COMB_CONNECTOR_PIN_INSERT_MM = 10.0
 /** Bornes de entrada (topo) por tipo de disjuntor, da esquerda para a direita. */
 export function breakerInputLabels(breaker: ElectricalComponent): string[] {
   if (breaker.type === 'residualBreakerHagerCfc225p') return ['1', 'N1']
+  if (breaker.type === 'residualBreakerSchneiderIdpnVigi') return ['1', 'N']
+  if (breaker.type === 'residualBreakerSchneiderIid4p') return ['1', '3', '5', 'N']
   if (breaker.type === 'phoenixEcb3000760') return ['Line+']
+  if (breaker.type === 'breakerSchneiderIc60h1p') return ['1']
+  if (breaker.type === 'motorBreakerPkzmC10' || breaker.type === 'motorBreakerSchneiderGv2me' || breaker.type === 'motorBreaker') {
+    return ['1', '3', '5']
+  }
   const poles = Number(breaker.state?.poles) || (
     breaker.type === 'breaker1p' || breaker.type === 'breakerSteckSdC25' ? 1
     : breaker.type === 'breaker2p' ? 2
-    : breaker.type === 'breaker4p' ? 4
+    : breaker.type === 'breaker4p' || breaker.type === 'residualBreaker' ? 4
     : 3
   )
   if (poles <= 1) return ['1']
