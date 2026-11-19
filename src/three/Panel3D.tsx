@@ -1069,7 +1069,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     return group
   }, [c.type, c.state.acrylicCover, spec, centered])
   useEffect(() => () => { if (acrylic) disposeTerminalAssemblyCover(acrylic) }, [acrylic])
-  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
+  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'switchSchneiderEz9s1p', 'switchSchneiderEz9s2p', 'switchSchneiderEz9s4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
   const rig = BREAKER_HANDLE_RIG[c.type]
   const breakerClosed = !!c.state.closed && !c.state.tripped

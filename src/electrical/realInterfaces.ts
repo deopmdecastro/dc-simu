@@ -203,6 +203,26 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":9,"holeDepthMm":15},
     {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":9,"holeDepthMm":15},
   ],
+  switchSchneiderEz9s1p: [
+    {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+  ],
+  switchSchneiderEz9s2p: [
+    {"label":"1","face":"top","x":0.25,"y":0.011834,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"3","face":"top","x":0.75,"y":0.011834,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.25,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"4","face":"bottom","x":0.75,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+  ],
+  switchSchneiderEz9s4p: [
+    {"label":"1","face":"top","x":0.125,"y":0.011834,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"3","face":"top","x":0.375,"y":0.011834,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"5","face":"top","x":0.625,"y":0.011834,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"7","face":"top","x":0.875,"y":0.011834,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.125,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"4","face":"bottom","x":0.375,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"6","face":"bottom","x":0.625,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+    {"label":"8","face":"bottom","x":0.875,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
+  ],
   meterD522066: [
     {label:'1',face:'bottom',x:13/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
     {label:'2',face:'bottom',x:23/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
@@ -433,6 +453,21 @@ export const REAL_CONTROLS: Partial<Record<ComponentType, RealControlSpot[]>> = 
     { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
     { node: 'dcsimu_handle_3', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
     { node: 'dcsimu_handle_bridge', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+  ],
+  switchSchneiderEz9s1p: [
+    { node: 'dcsimu_handle_1', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+  ],
+  switchSchneiderEz9s2p: [
+    { node: 'dcsimu_handle_1', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_bridge', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+  ],
+  switchSchneiderEz9s4p: [
+    { node: 'dcsimu_handle_1', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_3', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_4', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_bridge', kind: 'toggle', name: 'Manípulo do interruptor', travelMm: 0, variable: 'closed' },
   ],
 }
 

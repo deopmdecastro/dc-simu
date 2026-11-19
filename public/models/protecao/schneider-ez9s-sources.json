@@ -1,0 +1,89 @@
+{
+  "format": 1,
+  "generatedBy": "scripts/build-schneider-{modular,rcd}-glb.mjs",
+  "units": "metres",
+  "note": "STEP-derived simulation assets with explicit adaptations. Not unmodified manufacturer CAD or certified equipment. Nominal frame is not a clip-envelope fit.",
+  "models": [
+    {
+      "path": "/models/protecao/schneider-ez9s-1p.glb",
+      "bytes": 245612,
+      "sha256": "8703936f0da4fd26095af543fdd2e648251794122da351c67668109828b7f6b6",
+      "nominalSizeMm": {
+        "width": 18,
+        "height": 81,
+        "depth": 66.5
+      },
+      "measuredSizeMm": {
+        "width": 19.200000762939453,
+        "height": 78.14144604768371,
+        "depth": 74.83308374097943
+      },
+      "source": {
+        "document": "MCADFD0001285",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0001285_3D-CAD",
+        "file": "MCADFD0001285_3D-simplified.stp",
+        "sha256": "0aff6d297ba49ff28a7e1fc0fb58232c50e41e4d8d6c1b509f5d9148172e62f4"
+      },
+      "adaptations": [
+        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 1 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e bornes preservada.",
+        "Manípulo reconstruído em vermelho Easy9 Switch com perfil do iSW, sob pivot `ez9s_handle_pivot` (OFF = ponta para baixo); barra de ligação entre polos nos 2P/4P.",
+        "Serigrafia EZ9S16163 · 63 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings).",
+        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3; cavidades de borne reabertas nos eixos documentados."
+      ]
+    },
+    {
+      "path": "/models/protecao/schneider-ez9s-2p.glb",
+      "bytes": 486712,
+      "sha256": "5112c2e1b6331bdebabb773324dd1e0ba518585cbfa1e891c11067adfc14302c",
+      "nominalSizeMm": {
+        "width": 36,
+        "height": 81,
+        "depth": 66.5
+      },
+      "measuredSizeMm": {
+        "width": 37.20000076293945,
+        "height": 78.14144604768371,
+        "depth": 74.83308374097943
+      },
+      "source": {
+        "document": "MCADFD0001285",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0001285_3D-CAD",
+        "file": "MCADFD0001285_3D-simplified.stp",
+        "sha256": "0aff6d297ba49ff28a7e1fc0fb58232c50e41e4d8d6c1b509f5d9148172e62f4"
+      },
+      "adaptations": [
+        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 2 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e bornes preservada.",
+        "Manípulo reconstruído em vermelho Easy9 Switch com perfil do iSW, sob pivot `ez9s_handle_pivot` (OFF = ponta para baixo); barra de ligação entre polos nos 2P/4P.",
+        "Serigrafia EZ9S16263 · 63 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings).",
+        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3; cavidades de borne reabertas nos eixos documentados."
+      ]
+    },
+    {
+      "path": "/models/protecao/schneider-ez9s-4p.glb",
+      "bytes": 964636,
+      "sha256": "30ceeeaf67fb27e5bf12839480029f9028e82788022fce54f2e37b8e4dfbe8c0",
+      "nominalSizeMm": {
+        "width": 72,
+        "height": 81,
+        "depth": 66.5
+      },
+      "measuredSizeMm": {
+        "width": 73.20000076293945,
+        "height": 78.14144604768371,
+        "depth": 74.83308374097943
+      },
+      "source": {
+        "document": "MCADFD0001285",
+        "url": "https://download.se.com/files?p_Doc_Ref=MCADFD0001285_3D-CAD",
+        "file": "MCADFD0001285_3D-simplified.stp",
+        "sha256": "0aff6d297ba49ff28a7e1fc0fb58232c50e41e4d8d6c1b509f5d9148172e62f4"
+      },
+      "adaptations": [
+        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 4 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e bornes preservada.",
+        "Manípulo reconstruído em vermelho Easy9 Switch com perfil do iSW, sob pivot `ez9s_handle_pivot` (OFF = ponta para baixo); barra de ligação entre polos nos 2P/4P.",
+        "Serigrafia EZ9S16491 · 100 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings).",
+        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3; cavidades de borne reabertas nos eixos documentados."
+      ]
+    }
+  ]
+}

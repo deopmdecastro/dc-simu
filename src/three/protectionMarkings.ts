@@ -348,6 +348,93 @@ function buildEasy9Markings(type: 'breaker1p' | 'breaker2p' | 'breaker3p', state
   return out
 }
 
+function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneiderEz9s2p' | 'switchSchneiderEz9s4p', state: Record<string, unknown> | undefined, u: number): THREE.Object3D[] {
+  const poles = type === 'switchSchneiderEz9s1p' ? 1 : type === 'switchSchneiderEz9s2p' ? 2 : 4
+  const r = readProtectionRatings(type, state)
+  const ampTxt = formatAmpPt(r.inA)
+  const code = easy9SwitchCatalogCode(poles, r.inA)
+  const ue = poles === 1 ? '230V~' : '400V~'
+  const frontZ = 74.5 * u
+  const lowerZ = 74.5 * u
+  const out: THREE.Object3D[] = []
+
+  const wMm = poles * 18
+  const hMm = 20.0
+  const wPx = poles * 256
+  const hPx = 320
+  const mainKey = `ez9s:${poles}:${ampTxt}:${r.closed ? 1 : 0}:${r.tripped ? 1 : 0}`
+  const mainTex = cachedCanvasTexture(mainKey, wPx, hPx, (ctx, w, h) => {
+    ctx.fillStyle = '#eeede8'
+    ctx.fillRect(0, 0, w, h)
+    if (poles > 1) {
+      ctx.strokeStyle = 'rgba(100,116,139,0.22)'
+      ctx.lineWidth = 2
+      for (let i = 1; i < poles; i += 1) {
+        ctx.beginPath()
+        ctx.moveTo((i * w) / poles, 0)
+        ctx.lineTo((i * w) / poles, h)
+        ctx.stroke()
+      }
+    }
+    const bandH = 54
+    ctx.fillStyle = '#009530'
+    ctx.fillRect(0, 0, poles === 1 ? w : w / poles, bandH)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 34px Arial, Helvetica, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('Schneider Electric', (poles === 1 ? w : w / poles) / 2, bandH / 2)
+    ctx.fillStyle = '#1e293b'
+    ctx.font = 'bold 52px Arial, Helvetica, sans-serif'
+    ctx.fillText('EZ9 Switch', (poles === 1 ? w : w / poles) / 2, 130)
+    ctx.font = 'bold 40px Arial, Helvetica, sans-serif'
+    ctx.fillText(`${code} · ${ampTxt} A`, (poles === 1 ? w : w / poles) / 2, 190)
+    ctx.font = '28px Arial, Helvetica, sans-serif'
+    ctx.fillStyle = '#64748b'
+    ctx.fillText(`IEC 60947-3 · AC-22A · ${ue}`, (poles === 1 ? w : w / poles) / 2, 240)
+    ctx.font = '26px Arial, Helvetica, sans-serif'
+    ctx.fillText('Icm 0,945 kA · Icw 0,756 kA (1 s)', (poles === 1 ? w : w / poles) / 2, 280)
+  })
+  const main = new THREE.Mesh(
+    new THREE.PlaneGeometry(wMm * u, hMm * u),
+    new THREE.MeshStandardMaterial({ map: mainTex, roughness: 0.6, metalness: 0.05 })
+  )
+  main.name = 'industrial_fascia'
+  main.position.set(0, 58 * u, frontZ + 0.2)
+  main.userData.protectionMarking = true
+  out.push(main)
+
+  const labelKey = `ez9s:label:${poles}:${ampTxt}`
+  const labelTex = cachedCanvasTexture(labelKey, wPx, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#eeede8'
+    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = '#1e293b'
+    ctx.font = 'bold 30px Arial, Helvetica, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('Easy9 Switch', w / 2, h / 2 - 16)
+    ctx.font = '24px Arial, Helvetica, sans-serif'
+    ctx.fillStyle = '#64748b'
+    ctx.fillText(`${code} · In ${ampTxt} A`, w / 2, h / 2 + 22)
+  })
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(wMm * u, 8 * u),
+    new THREE.MeshStandardMaterial({ map: labelTex, roughness: 0.6, metalness: 0.05 })
+  )
+  label.name = 'industrial_ez9s_label'
+  label.position.set(0, 22 * u, lowerZ + 0.2)
+  label.userData.protectionMarking = true
+  out.push(label)
+
+  return out
+}
+
+function easy9SwitchCatalogCode(poles: number, inA: number): string {
+  if (poles === 1) return 'EZ9S16163'
+  if (poles === 2) return 'EZ9S16263'
+  return 'EZ9S16491'
+}
+
 function buildHagerRcdMarkings(state: Record<string, unknown> | undefined, u: number): THREE.Object3D[] {
   const r = readProtectionRatings('residualBreakerHagerCfc225p', state)
   const code = hagerRcdCatalogCode(r.inA, r.sensmA, r.rcdType)
@@ -1312,6 +1399,8 @@ export function applyProtectionMarkings(
     plates = buildSchneiderRcdMarkings(fitted, type, options.state, u, options.anchor, options.heightMm)
   } else if (type === 'breaker1p' || type === 'breaker2p' || type === 'breaker3p') {
     plates = buildEasy9Markings(type, options.state, u)
+  } else if (type === 'switchSchneiderEz9s1p' || type === 'switchSchneiderEz9s2p' || type === 'switchSchneiderEz9s4p') {
+    plates = buildEasy9SwitchMarkings(type, options.state, u)
   } else if (type === 'residualBreakerHagerCfc225p') {
     plates = buildHagerRcdMarkings(options.state, u)
     // Atualizar letra branca «T» na face frontal do botão azul (acompanha o curso do botão).

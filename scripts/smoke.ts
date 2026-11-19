@@ -867,7 +867,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   }
 
   // ---- Schneider Easy9 (EZ9) 1P / 2P / 3P: GLB dos STEP, bornes nas entradas reais, manípulo e simulação ----
-  for (const [type, poles] of [['breaker1p', 1], ['breaker2p', 2], ['breaker3p', 3]] as const) {
+  for (const [type, poles] of [['breaker1p', 1], ['breaker2p', 2], ['breaker3p', 3], ['switchSchneiderEz9s1p', 1], ['switchSchneiderEz9s2p', 2], ['switchSchneiderEz9s4p', 4]] as const) {
     const label = `EZ9 ${poles}P`
     const spec = getComponentModelSpec(type)!
     const comp = createComponent(type)
@@ -1108,7 +1108,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('componentes sem GLB permanecem bloqueados', ['contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
   // Os Easy9 foram gerados dos STEP já de pé (topo em +Y, frente em +Z): sem rotação nem espelho.
-  check('disjuntores Schneider EZ9 1P/2P/3P ficam de pé, sem rotação nem espelho, em calha DIN', (['breaker1p', 'breaker2p', 'breaker3p'] as const).every((type) => {
+  check('disjuntores Schneider EZ9 1P/2P/3P e interruptores Easy9 Switch 1P/2P/4P ficam de pé, sem rotação nem espelho, em calha DIN', (['breaker1p', 'breaker2p', 'breaker3p', 'switchSchneiderEz9s1p', 'switchSchneiderEz9s2p', 'switchSchneiderEz9s4p'] as const).every((type) => {
     const spec = getComponentModelSpec(type)
     return !!spec && spec.rotation.every((angle) => angle === 0) && !spec.flipDepth && spec.placement === 'din-rail'
       && spec.path.startsWith('/models/protecao/schneider-ez9-') && spec.physicalSizeMm.height > spec.physicalSizeMm.width
