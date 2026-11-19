@@ -1095,7 +1095,11 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   // Capas pré-geradas (scripts/build-component-covers.mjs): a biblioteca mostra imagens sem descarregar os GLB.
   {
     const covers = JSON.parse(fs.readFileSync('public/component-covers/manifest.json', 'utf8')) as { types: Record<string, string>; front: Record<string, string> }
-    const visual = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DVisual)
+    // Capas WebP vêm do turntable sobre GLB/modelo de catálogo — tipos só procedurais no Panel3D
+    // (ex.: buttonNO) contam como visual mas não exigem WebP pré-gerada.
+    const visual = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(
+      (type) => hasComponent3DVisual(type) && !!getComponentModelSpec(type),
+    )
     const missing = visual.filter((type) => !covers.types[type] || !fs.existsSync(`public/component-covers/${covers.types[type]}`))
     check('capas WebP pré-geradas para todos os componentes com 3D (node scripts/build-component-covers.mjs)', missing.length === 0, missing.length ? `sem capa: ${missing.join(', ')}` : '')
     const missingFront = visual.filter((type) => !covers.front?.[type] || !fs.existsSync(`public/component-covers/${covers.front[type]}`))
