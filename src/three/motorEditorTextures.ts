@@ -124,9 +124,13 @@ function ensurePhysicalUv(geometry: THREE.BufferGeometry, tileMm = 85): void {
  * mapas PBR da biblioteca do editor de elementos — com projeção UV física,
  * esmalte metálico SEW e aço maquinado de alto contraste — reutilizando
  * texturas em cache sem clonar centenas de mapas.
+ *
+ * `forcePaint` força a cor da carcaça (ex.: vermelho SEW no hero trifásico)
+ * independentemente da cor plana do GLB, evitando o flash azul→vermelho.
  */
-export function applyEditorMotorTextures(root: THREE.Object3D) {
+export function applyEditorMotorTextures(root: THREE.Object3D, opts?: { forcePaint?: string }) {
   const materialCache = new Map<string, THREE.Material>()
+  const forcePaint = opts?.forcePaint
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh || !mesh.material) return
@@ -136,7 +140,7 @@ export function applyEditorMotorTextures(root: THREE.Object3D) {
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     const next = list.map((source) => {
       if ((source as THREE.Material).userData?.__dcMotorTextured) return source
-      const cacheKey = source.uuid
+      const cacheKey = source.uuid + (forcePaint ?? '')
       const cached = materialCache.get(cacheKey)
       if (cached) return cached
 
@@ -144,7 +148,13 @@ export function applyEditorMotorTextures(root: THREE.Object3D) {
       if (!(base instanceof THREE.MeshStandardMaterial) && !(base instanceof THREE.MeshPhysicalMaterial)) {
         return base
       }
-      const { entryId, role, paint } = classifyMaterial(base)
+      let { entryId, role, paint } = classifyMaterial(base)
+      // Carcaça: se o CAD veio azul mas o contexto pede vermelho SEW (trifásico), força.
+      if (forcePaint && (role === 'sew-paint' || entryId === 'pintura-industrial')) {
+        role = 'sew-paint'
+        entryId = 'pintura-industrial'
+        paint = forcePaint
+      }
       const entry = textureLibraryEntry(entryId) ?? textureLibraryEntry('ferro-fundido')
       if (!entry) return base
 

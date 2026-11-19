@@ -8,7 +8,7 @@ import { getComponentModelSpec } from './modelPaths'
 import { preparedModel, cloneMaterials, applyModelState } from './LandingShowcase'
 import { MOTOR_FAN, MOTOR_SIZE, MOTOR_CAD } from './motorTerminalLayout'
 import MotorShaftFan3D from './MotorShaftFan3D'
-import { applyEditorMotorTextures } from './motorEditorTextures'
+import { applyEditorMotorTextures, onMotorTexturesReady, waitMotorTextures } from './motorEditorTextures'
 
 /**
  * Motor trifásico SEW (DRN80MK4-B3) isolado, sem cartão nem HUD: a peça e a pá
@@ -101,9 +101,19 @@ function MotorRunning() {
     const result = preparedModel(type, gltf.scene)
     cloneMaterials(result.scene)
     applyModelState(result.scene, false, type)
-    applyEditorMotorTextures(result.scene)
+    // Vermelho SEW desde o primeiro frame (o GLB CAD costuma vir azul).
+    applyEditorMotorTextures(result.scene, { forcePaint: '#b3191e' })
     return result
   }, [gltf.scene, type])
+
+  // Só revelar o modelo quando os mapas PBR chegarem — evita flash azul/cinza.
+  const [texturesReady, setTexturesReady] = useState(false)
+  useEffect(() => {
+    let alive = true
+    void waitMotorTextures().then(() => { if (alive) setTexturesReady(true) })
+    const off = onMotorTexturesReady(() => setTexturesReady(true))
+    return () => { alive = false; off() }
+  }, [prepared])
 
   const fanComponent = useMemo(() => {
     const component = createComponent('motor3ph', 'M1')
@@ -133,7 +143,7 @@ function MotorRunning() {
 
   return (
     <>
-      <group>
+      <group visible={texturesReady}>
         <primitive object={prepared.scene} />
         <group position={fan.position} scale={fan.scale}>
           <MotorShaftFan3D component={fanComponent} />
