@@ -73,7 +73,10 @@
     "meterKws306",
     "pushButtonXb2No",
     "pushButtonXb2Nc",
-    "pushButtonXb2Black"
+    "pushButtonXb2Black",
+    "pushButtonXb2Yellow",
+    "pushButtonXb2Blue",
+    "pushButtonXb2White"
   ],
   "types": {
     "breaker1p": "breaker1p.webp",
@@ -147,7 +150,10 @@
     "vfdSchneiderAtv320": "vfdSchneiderAtv320.webp",
     "pushButtonXb2No": "pushButtonXb2No.webp",
     "pushButtonXb2Nc": "pushButtonXb2Nc.webp",
-    "pushButtonXb2Black": "pushButtonXb2Black.webp"
+    "pushButtonXb2Black": "pushButtonXb2Black.webp",
+    "pushButtonXb2Yellow": "pushButtonXb2Yellow.webp",
+    "pushButtonXb2Blue": "pushButtonXb2Blue.webp",
+    "pushButtonXb2White": "pushButtonXb2White.webp"
   },
   "front": {
     "breaker1p": "front/breaker1p.webp",
@@ -221,6 +227,9 @@
     "vfdSchneiderAtv320": "front/vfdSchneiderAtv320.webp",
     "pushButtonXb2No": "front/pushButtonXb2No.webp",
     "pushButtonXb2Nc": "front/pushButtonXb2Nc.webp",
-    "pushButtonXb2Black": "front/pushButtonXb2Black.webp"
+    "pushButtonXb2Black": "front/pushButtonXb2Black.webp",
+    "pushButtonXb2Yellow": "front/pushButtonXb2Yellow.webp",
+    "pushButtonXb2Blue": "front/pushButtonXb2Blue.webp",
+    "pushButtonXb2White": "front/pushButtonXb2White.webp"
   }
 }

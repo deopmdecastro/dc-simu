@@ -309,6 +309,12 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       }
       case 'buttonNO':
       case 'buttonNC':
+      case 'pushButtonXb2No':
+      case 'pushButtonXb2Nc':
+      case 'pushButtonXb2Black':
+      case 'pushButtonXb2Yellow':
+      case 'pushButtonXb2Blue':
+      case 'pushButtonXb2White':
       case 'emergencyButton':
       case 'emergencyButtonKeyP20ACR':
       case 'selector2':
@@ -317,9 +323,14 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'limitSwitch':
       case 'footSwitch': {
         const pressed = c.state.pressed
-        const isNC = c.type === 'buttonNC' || c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
+        const isNC = c.type === 'buttonNC' || c.type === 'pushButtonXb2Nc' || c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
         const isEmg = c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
-        const col = c.type === 'buttonNO' ? '#22c55e' : isEmg ? '#dc2626' : isNC ? '#ef4444' : '#eab308'
+        const col = c.type === 'buttonNO' || c.type === 'pushButtonXb2No' ? '#22c55e'
+          : c.type === 'pushButtonXb2Black' ? '#1f2937'
+          : c.type === 'pushButtonXb2Yellow' ? '#eab308'
+          : c.type === 'pushButtonXb2Blue' ? '#2563eb'
+          : c.type === 'pushButtonXb2White' ? '#f8fafc'
+          : isEmg ? '#dc2626' : isNC ? '#ef4444' : '#eab308'
         const cy = h / 2
         return (
           <g>

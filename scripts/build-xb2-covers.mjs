@@ -10,6 +10,9 @@ const COLORS = {
   pushButtonXb2No: { cap: '#16a34a', contact: '#3eae27' },
   pushButtonXb2Nc: { cap: '#dc2626', contact: '#ce1229' },
   pushButtonXb2Black: { cap: '#1f2937', contact: '#f2f2ea' },
+  pushButtonXb2Yellow: { cap: '#eab308', contact: '#3eae27' },
+  pushButtonXb2Blue: { cap: '#2563eb', contact: '#3eae27' },
+  pushButtonXb2White: { cap: '#f8fafc', contact: '#3eae27' },
 }
 
 async function loadGlb(file) {
@@ -28,7 +31,7 @@ function render(root, tint) {
   const up = new T.Vector3(0, 1, 0)
   const right = new T.Vector3().crossVectors(up, eye).normalize()
   const camUp = new T.Vector3().crossVectors(eye, right).normalize()
-  const scale = (SIZE * 0.72) / Math.max(size.x, size.y)
+  const scale = (SIZE * 0.9) / Math.max(size.x, size.y)
   const tris = []
   root.traverse(node => {
     if (!node.isMesh) return
@@ -38,8 +41,8 @@ function render(root, tint) {
     const name = node.name
     const m = node.material
     const base = new T.Color(m?.color?.getHex?.() ?? 0x888888)
-    if (name === 'industrial_xb2_cap') base.set(tint.cap)
-    if (name === 'industrial_xb2_contact') base.set(tint.contact)
+    if (name === 'industrial_xb2_cap_face') base.set(tint.cap)
+    if (name === 'industrial_xb2_plunger') base.set(tint.contact)
     const metal = m?.metalness ?? 0
     const rough = m?.roughness ?? 0.6
     for (let i = 0; i < pos.count; i += 3) {
@@ -48,12 +51,12 @@ function render(root, tint) {
       const cx = (v[0].x + v[1].x + v[2].x) / 3, cy = (v[0].y + v[1].y + v[2].y) / 3, cz = (v[0].z + v[1].z + v[2].z) / 3
       const depth = cx * eye.x + cy * eye.y + cz * eye.z
       const faceN = n ? n[0].clone().add(n[1]).add(n[2]).normalize() : new T.Vector3(0, 0, 1)
-      const light = Math.max(0.25, Math.min(1, faceN.dot(new T.Vector3(0.4, 0.7, 0.6).normalize()) * (0.9 + 0.4 * (1 - rough))))
+      const light = Math.max(0.45, Math.min(1, faceN.dot(new T.Vector3(0.4, 0.7, 0.6).normalize()) * (0.9 + 0.4 * (1 - rough))))
       const col = base.clone().multiplyScalar(light)
       const shade = 1 - metal * 0.25
       const px = v.map(p => [
-        Math.round((p.x * right.x + p.y * right.y + p.z * right.z) * scale + SIZE / 2),
-        Math.round(-(p.x * camUp.x + p.y * camUp.y + p.z * camUp.z) * scale + SIZE / 2),
+        Math.round((p.x * right.x + p.y * right.y + p.z * right.z) * scale + SIZE / 2 - center.x * right.x * scale - center.y * right.y * scale - center.z * right.z * scale),
+        Math.round(-(p.x * camUp.x + p.y * camUp.y + p.z * camUp.z) * scale + SIZE / 2 + center.x * camUp.x * scale + center.y * camUp.y * scale + center.z * camUp.z * scale),
       ])
       tris.push({ px, depth, color: [Math.min(255, col.r * 255 * shade), Math.min(255, col.g * 255 * shade), Math.min(255, col.b * 255 * shade)] })
     }
@@ -72,7 +75,7 @@ function render(root, tint) {
       const w2 = 1 - w0 - w1
       if (w0 < 0 || w1 < 0 || w2 < 0) continue
       const idx = (y * SIZE + x) * 4
-      if (pixels[idx + 3] === 0) pixels.set([...color.map(Math.round), 255], idx)
+      pixels.set([...color.map(Math.round), 255], idx)
     }
   }
   return pixels

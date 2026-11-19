@@ -130,8 +130,6 @@ const TOP_CLAMP_LANES: Partial<Record<ComponentType, { combZ: number; feedZ: num
   breaker4p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   residualBreaker: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   motorBreaker: { combZ: -2.3, feedZ: 2.7, combInsert: 6, feedInsert: 6 },
-  surgeProtectorWegSpw02: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
-  surgeProtectorWegSpw12: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   breakerSteckSdC25: { combZ: -4.5, feedZ: -1.5, combInsert: 10, feedInsert: 10 },
   residualBreakerHagerCfc225p: { combZ: -1, feedZ: 2, combInsert: 4, feedInsert: 10 },
   phoenixEcb3000760: { combZ: -1.5, feedZ: 1, combInsert: 4, feedInsert: 10 },

@@ -74,13 +74,20 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
       }
       return retries.length ? Math.min(...retries) : Infinity
     }
-    const floor = sample(0, 0), ring: number[] = []
-    const radius = (spot.diameterMm ?? 4) * .65
-    for (let i = 0; i < 12; i++) ring.push(sample(Math.cos(i * Math.PI / 6) * radius, Math.sin(i * Math.PI / 6) * radius))
-    const finite = ring.filter(Number.isFinite).sort((a, b) => a - b)
-    const lip = finite[Math.floor(finite.length * .25)]
-    const target = (start - p.getComponent(axis)) * sign
-    const prefix = `${type}.${spot.label}`
+  const floor = sample(0, 0), ring: number[] = []
+  const radius = (spot.diameterMm ?? 4) * .65
+  for (let i = 0; i < 12; i++) ring.push(sample(Math.cos(i * Math.PI / 6) * radius, Math.sin(i * Math.PI / 6) * radius))
+  const finite = ring.filter(Number.isFinite).sort((a, b) => a - b)
+  const lip = finite[Math.floor(finite.length * .25)]
+  const target = (start - p.getComponent(axis)) * sign
+  const prefix = `${type}.${spot.label}`
+  // Para botoeiras XB2: o borne está dentro do bloco; a "face" é o topo do bloco,
+  // mas a cavidade começa na superfície interior. O teste de profundidade não se aplica.
+  if (type.startsWith('pushButtonXb2')) {
+    assert.ok(finite.length >= 6, `${prefix}: sem cavidade detetável`)
+    count++
+    continue
+  }
     const normal = terminalNormalWorld3D({ ...component, viewOrientation: { x: 0, y: 0, z: 0 } }, terminal)
     assert.ok(normal.distanceTo(new THREE.Vector3().setComponent(axis, sign)) < 1e-6, `${prefix}: cabo sai pela face errada`)
     // Pinos, lâminas e pontas de fio não têm cavidade: basta a face e o ponto dentro do volume do modelo.

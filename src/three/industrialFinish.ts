@@ -47,7 +47,7 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
   // recuados). O grupo runtime flutuante foi removido: duplicava os parafusos
   // e ficava suspenso a meio do ar na face do painel.
   // Botoeiras KEOLEA KL-XB2: a tampa Ø22,5 mm é a zona de pressão real.
-  if (type === 'pushButtonXb2No' || type === 'pushButtonXb2Nc' || type === 'pushButtonXb2Black') {
+  if (type.startsWith('pushButtonXb2')) {
     root.traverse(node => {
       if (node.name === 'industrial_xb2_cap') node.userData.industrialControl = 'button'
       if (node.name === 'industrial_xb2_cap' || node.name.startsWith('industrial_xb2_bezel_knurl_') || node.name === 'industrial_xb2_bezel') node.userData.industrialMoving = true
@@ -180,6 +180,12 @@ const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
   levelRelayAvel411: { industrial_avel_label: 'avel-411-face.png' },
   relayFinder5534: { industrial_finder_label: 'finder-5534-label.png' },
   buzzerMetaltexTby301: { industrial_metaltex_label: 'metaltex-tby-label.png' },
+  pushButtonXb2No: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
+  pushButtonXb2Black: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
+  pushButtonXb2Yellow: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
+  pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
+  pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
+  pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_side_rev_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_back: 'xb2-nc-back-baked.png' },
   vfdSchneiderAtv320: {
     industrial_schneider_logo: '../../brands/schneider-electric.svg',
     industrial_product_sticker: 'atv320-product-label.png',

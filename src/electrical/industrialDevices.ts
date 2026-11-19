@@ -81,10 +81,28 @@ export const INDUSTRIAL_INFO: Record<IndustrialDeviceType, {
     scope: 'Ø22 mm de furação, anel serrilhado Ø29 mm, bloco NA branco 3-4 (tampa preta). Ui 660 V, Ith 10 A, Uimp 6 kV, AC-15 240 V/3 A, DC-13. Contacto fecha enquanto premido e abre por mola ao largar. Sem iluminação nem manípulo de manobra.',
     defaultState: { pressed: false, momentary: true, color: '#1f2937' },
   },
+  pushButtonXb2Yellow: {
+    name: 'Botoeira KEOLEA KL-XB2 amarela · NA 3-4 · momentânea', manufacturer: 'KEOLEA', reference: 'KL-XB2-BA51', category: 'command', tag: 'S',
+    datasheet: '/datasheets/industrial/keolea-xb2.pdf', source: 'https://www.keolea.com/uploads/xb2-ba.pdf', provenance: 'Reconstrução 3D cotada das fotografias do utilizador; não foi obtido STEP do fabricante.',
+    scope: 'Ø22 mm de furação, anel serrilhado Ø29 mm, bloco NA 3-4. Ui 660 V, Ith 10 A, Uimp 6 kV, AC-15 240 V/3 A, DC-13. Contacto fecha enquanto premido e abre por mola ao largar. Sem iluminação nem manípulo de manobra.',
+    defaultState: { pressed: false, momentary: true, color: '#eab308' },
+  },
+  pushButtonXb2Blue: {
+    name: 'Botoeira KEOLEA KL-XB2 azul · NA 3-4 · momentânea', manufacturer: 'KEOLEA', reference: 'KL-XB2-BA61', category: 'command', tag: 'S',
+    datasheet: '/datasheets/industrial/keolea-xb2.pdf', source: 'https://www.keolea.com/uploads/xb2-ba.pdf', provenance: 'Reconstrução 3D cotada das fotografias do utilizador; não foi obtido STEP do fabricante.',
+    scope: 'Ø22 mm de furação, anel serrilhado Ø29 mm, bloco NA 3-4. Ui 660 V, Ith 10 A, Uimp 6 kV, AC-15 240 V/3 A, DC-13. Contacto fecha enquanto premido e abre por mola ao largar. Sem iluminação nem manípulo de manobra.',
+    defaultState: { pressed: false, momentary: true, color: '#2563eb' },
+  },
+  pushButtonXb2White: {
+    name: 'Botoeira KEOLEA KL-XB2 branca · NA 3-4 · momentânea', manufacturer: 'KEOLEA', reference: 'KL-XB2-BA11', category: 'command', tag: 'S',
+    datasheet: '/datasheets/industrial/keolea-xb2.pdf', source: 'https://www.keolea.com/uploads/xb2-ba.pdf', provenance: 'Reconstrução 3D cotada das fotografias do utilizador; não foi obtido STEP do fabricante.',
+    scope: 'Ø22 mm de furação, anel serrilhado Ø29 mm, bloco NA 3-4. Ui 660 V, Ith 10 A, Uimp 6 kV, AC-15 240 V/3 A, DC-13. Contacto fecha enquanto premido e abre por mola ao largar. Sem iluminação nem manípulo de manobra.',
+    defaultState: { pressed: false, momentary: true, color: '#f8fafc' },
+  },
 }
 
 function terminalKind(type: IndustrialDeviceType, label: string): TerminalKind {
-  if (type === 'pushButtonXb2No' || type === 'pushButtonXb2Black') return label === '3' ? 'power-in' : 'power-out'
+  if (['pushButtonXb2No','pushButtonXb2Black','pushButtonXb2Yellow','pushButtonXb2Blue','pushButtonXb2White'].includes(type)) return label === '3' ? 'power-in' : 'power-out'
   if (type === 'pushButtonXb2Nc') return label === '1' ? 'power-in' : 'power-out'
   if (type === 'vfdSchneiderAtv320') {
     if (label.startsWith('PE')) return 'earth'
@@ -167,7 +185,7 @@ export function industrialBridges(c: ElectricalComponent): Array<[string,string]
   else if(type==='relayFinder5534')for(const n of [1,2,3,4])pair(n+'1',n+(c.state.energized?'4':'2'))
   else if(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8B1')pair('15',c.state.energized?'18':'16')
   else if(type==='levelRelayAvel411')pair('1',c.state.energized?'3':'4')
-  else if(type==='pushButtonXb2No'||type==='pushButtonXb2Black'){if(c.state.pressed)pair('3','4')}
+  else if(type.startsWith('pushButtonXb2')&&type!=='pushButtonXb2Nc'){if(c.state.pressed)pair('3','4')}
   else if(type==='pushButtonXb2Nc'){if(!c.state.pressed)pair('1','2')}
   else if(type==='vfdSchneiderAtv320'){
     pair('PE-IN','PE-OUT');pair('COM1','COM2')
@@ -313,7 +331,7 @@ export function updateIndustrialDevice(c:ElectricalComponent,ctx:IndustrialElect
 export type IndustrialControl='encoder'|'enter'|'escape'|'range'|'fraction'|'function'|'test'|'cover'|'button'
 export function industrialControlPatch(type:string,state:Record<string,any>,control:IndustrialControl,step:1|-1=1):Record<string,any>{
   if(!isIndustrialDevice(type))return {}
-  if(control==='button'&&(type==='pushButtonXb2No'||type==='pushButtonXb2Nc'||type==='pushButtonXb2Black'))return {pressed:!state.pressed}
+  if(control==='button'&&type.startsWith('pushButtonXb2'))return {pressed:!state.pressed}
   const cycle=<T>(values:readonly T[],value:T)=>values[(Math.max(0,values.indexOf(value))+step+values.length)%values.length]
   if(control==='cover'&&type==='vfdSchneiderAtv320')return {controlCoverOpen:!state.controlCoverOpen}
   if(control==='test'&&type==='relayFinder5534')return {testPressed:!state.testPressed}

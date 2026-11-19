@@ -20,11 +20,6 @@ const data = { ...before }, records = []
  * uses the measured cavity wall, not a synthetic void through the whole part. */
 const RECESS_ONLY = {
   buzzerMetaltexTby301: new Set(['1', '2']),
-  // Botoeira XB2: poço de 2,4 mm no topo do bloco de contactos; a parede medida
-  // é a superfície de encaixe, não um furo atravessante.
-  pushButtonXb2No: new Set(['3', '4']),
-  pushButtonXb2Nc: new Set(['1', '2']),
-  pushButtonXb2Black: new Set(['1', '3']),
 }
 const dark=mat('#3a3b36'),white=mat('#e5e5da'),blue=mat('#0b478a'),red=mat('#ce1229'),steel=mat('#aab0a8',.75,.32),black=mat('#151712'),green=mat('#3eae27'),copper=mat('#ac6631',.75,.4)
 // Zamac/poliamida para as botoeiras Ø22; níquel escovado para aros e porcas serrilhadas.
@@ -242,34 +237,43 @@ async function metaltex(){
  */
 async function xb2(type){
  const root=device(type),terms=[]
- const contactColor=type==='pushButtonXb2No'?green:type==='pushButtonXb2Nc'?red:white
- const capColor=type==='pushButtonXb2No'?green:type==='pushButtonXb2Nc'?red:black
- // Tampa Ø22,5 mm com aro Ø29 mm (molas visíveis na vista frontal).
- root.add(cylinder(11.25,10,capColor,'industrial_xb2_cap',[0,0,42.4]))
+ // Família KEOLEA KL-XB2: 6 cores de cabeça, corpo metálico cromado e bloco de contacto
+ // preto com êmbolo colorido por função (verde=NA 3-4, vermelho=NF 1-2).
+ const capColor={No:mat('#16a34a'),Nc:mat('#dc2626'),Black:mat('#1f2937'),Yellow:mat('#eab308'),Blue:mat('#2563eb'),White:mat('#f8fafc')}[type.replace('pushButtonXb2','')]
+ const plungerColor=type==='pushButtonXb2No'||type==='pushButtonXb2Black'||type==='pushButtonXb2Yellow'||type==='pushButtonXb2Blue'||type==='pushButtonXb2White'?green:red
+ const contactColor=black
+ // Tampa Ø22,5 mm: corpo metálico com disco superior colorido.
+ root.add(cylinder(11.25,9.5,zamac,'industrial_xb2_cap',[0,0,42.15]))
+ root.add(cylinder(10.8,1.2,capColor,'industrial_xb2_cap_face',[0,0,47.45]))
  for(let i=0;i<28;i++){const a=i/28*Math.PI*2,knurl=box(1.05,1.05,2.1,zamac,'industrial_xb2_bezel_knurl_'+i,[Math.cos(a)*13.35,Math.sin(a)*13.35,37.6]);knurl.rotation.z=a;root.add(knurl)}
  root.add(cylinder(14.5,2.6,nickel,'industrial_xb2_bezel',[0,0,36.6]))
+ // Parafuso de fixação lateral embutido na parede da cabeça (centro no eixo do anel).
+ const fixing=buildCaptiveTerminalScrew('xb2_fixing',1.0);fixing.position.set(13.2,0,36.0);root.add(fixing)
  // Furo Ø22 mm na chapa; porca de aperto atrás.
  root.add(cylinder(11,22,dark,'industrial_xb2_body',[0,0,24]))
  root.add(cylinder(13.5,4.5,nickel,'industrial_xb2_locknut',[0,0,15.8]))
  for(let i=0;i<24;i++){const a=i/24*Math.PI*2,knurl=box(1.1,1.1,4.5,zamac,'industrial_xb2_locknut_knurl_'+i,[Math.cos(a)*13.6,Math.sin(a)*13.6,15.8]);knurl.rotation.z=a;root.add(knurl)}
- // Bloco de contactos cúbico 22×46×22 mm (cor da função), com bornes nos topos.
+ // Bloco de contactos cúbico 22×46×22 mm em poliamida preta.
  root.add(box(22,46,22,contactColor,'industrial_xb2_contact',[0,0,2]))
+ // Êmbolo de comando colorido no topo do bloco (indica a função elétrica).
+ root.add(cylinder(6,2.2,plungerColor,'industrial_xb2_plunger',[0,0,24.9]))
  // Serigrafia elétrica nas faces laterais (Ui 660V / Ith 10A / AC-15 / DC-13 / diagrama).
- const etch=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_'+ (type==='pushButtonXb2No'?'34':'12'),[0,23.15,2]);etch.rotation.x=Math.PI/2;root.add(etch)
- const etch2=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_rev_'+ (type==='pushButtonXb2No'?'34':'12'),[0,-23.15,2]);etch2.rotation.x=-Math.PI/2;root.add(etch2)
+ const pair=type==='pushButtonXb2No'||type==='pushButtonXb2Black'||type==='pushButtonXb2Yellow'||type==='pushButtonXb2Blue'||type==='pushButtonXb2White'?'34':'12'
+ const etch=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_'+pair,[0,23.15,2]);etch.rotation.x=Math.PI/2;root.add(etch)
+ const etch2=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_rev_'+pair,[0,-23.15,2]);etch2.rotation.x=-Math.PI/2;root.add(etch2)
  const backPlate=plane(19.6,19.6,polyamide,'industrial_xb2_etch_back',[0,0,-9.15]);backPlate.rotation.y=Math.PI;root.add(backPlate)
- // Bornes 1-2 (NC, cima) ou 3-4 (NO, cima) com cabeça de parafuso Pozidriv.
- const labels=type==='pushButtonXb2No'?['3','4']:type==='pushButtonXb2Nc'?['1','2']:['1','3']
+ // Bornes 1-2 (NC) ou 3-4 (NO) com cabeça de parafuso Pozidriv; bornes ficam no topo do bloco.
+ const labels=pair==='34'?['3','4']:['1','2']
  for(const[label,y]of [[labels[0],-6.6],[labels[1],6.6]]){
   drill([root.getObjectByName('industrial_xb2_contact')],'z',[0,y,11],1.9,8.6,11.1)
-  terms.push(terminal(root,label,0,y,11,{r:1.9,depth:2.4,face:'top'}))
+  terms.push(terminal(root,label,0,y,11,{r:1.9,depth:2.4,face:'bottom',contact:'socket'}))
   const head=buildCaptiveTerminalScrew('xb2_'+label,1.35);head.position.set(0,y,9.6);root.add(head)
   const pin=cylinder(1.5,8.2,copper,'industrial_xb2_pin_'+label,[0,y,4.4]);root.add(pin)
  }
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.'})
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.'})
 }
 
-const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')]]
+const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')],['pushButtonXb2Yellow',()=>xb2('pushButtonXb2Yellow')],['pushButtonXb2Blue',()=>xb2('pushButtonXb2Blue')],['pushButtonXb2White',()=>xb2('pushButtonXb2White')]]
 for(const[type,job]of jobs)if(!process.argv[3]||process.argv[3]===type)await job()
 await fs.writeFile('src/data/industrial-device-geometry.json',JSON.stringify(data,null,2)+'\n')
 let previous=[];try{previous=JSON.parse(await fs.readFile(path.join(output,'sources.json'),'utf8')).models??[]}catch{}

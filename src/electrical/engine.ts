@@ -444,7 +444,10 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
 
     // Botoeiras industriais Ø22 (KEOLEA KL-XB2): instantâneas, retorno por mola.
     case 'pushButtonXb2No':
-    case 'pushButtonXb2Black': {
+    case 'pushButtonXb2Black':
+    case 'pushButtonXb2Yellow':
+    case 'pushButtonXb2Blue':
+    case 'pushButtonXb2White': {
       if (c.state.pressed) pair(la('3'), la('4'))
       break
     }

@@ -378,7 +378,10 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'timerGeyaGrt8B1' ||
     type === 'pushButtonXb2No' ||
     type === 'pushButtonXb2Nc' ||
-    type === 'pushButtonXb2Black'
+    type === 'pushButtonXb2Black' ||
+    type === 'pushButtonXb2Yellow' ||
+    type === 'pushButtonXb2Blue' ||
+    type === 'pushButtonXb2White'
   )
 }
 

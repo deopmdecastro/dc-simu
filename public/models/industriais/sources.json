@@ -148,54 +148,6 @@
       "sha256": "57e90f4c83d9a29c4f4c8fa095ee9b57ed5588edfde2134adb6ac3bf01261357"
     },
     {
-      "type": "pushButtonXb2No",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 56.55
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 209600,
-      "sha256": "edc802c9cd2d9ce387938b90127fc6909f2ebf3ab24007540c765036ce5cbc81"
-    },
-    {
-      "type": "pushButtonXb2Nc",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 56.55
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 209600,
-      "sha256": "94e377ef6ba888753212fe12db215dab9c3538e48faa02e50a412f50b89b6c66"
-    },
-    {
-      "type": "pushButtonXb2Black",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 56.55
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 209760,
-      "sha256": "8a7f7925c904064780cc340cbe0ba845eca7bba41d2fd267ad6888105fea82b6"
-    },
-    {
       "type": "vfdSchneiderAtv320",
       "kind": "adapted-manufacturer-CAD",
       "source": "https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip",
@@ -212,6 +164,102 @@
       "pins": 0,
       "bytes": 1451932,
       "sha256": "883b39835bf42e3429f2ac707f8369674fe0c42c5f6de1538a7d8ef777fe7b7e"
+    },
+    {
+      "type": "pushButtonXb2No",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 57.2
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 242632,
+      "sha256": "ce846c02a79478eef0d694c09ddb03ed9950b2d5cbb85bfb3229dcfef2829b27"
+    },
+    {
+      "type": "pushButtonXb2Nc",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 57.2
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 242636,
+      "sha256": "41dc116155585cd54054a67f48abe43587fc6adb8f08b321fa084456bb791396"
+    },
+    {
+      "type": "pushButtonXb2Black",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 57.2
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 242640,
+      "sha256": "0b54b7fd90546777ac2034c2529001a627a339eb589fca962fd0f789e1caaf90"
+    },
+    {
+      "type": "pushButtonXb2Yellow",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 57.2
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 242636,
+      "sha256": "1ee752ac2b6fd0c4a5e4408a2bb0563a2b09383d7560ae663ac81a0abadd3a1c"
+    },
+    {
+      "type": "pushButtonXb2Blue",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 57.2
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 242636,
+      "sha256": "4850d9431bac5c6090d580b985b1e047dc3ad5031ed541ad3962882e0721f177"
+    },
+    {
+      "type": "pushButtonXb2White",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 57.2
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 242636,
+      "sha256": "e1c67f18df1f03cfc1e40001b97f849afd244c3eb9b589ed6b8125ba98220953"
     }
   ]
 }

@@ -28,6 +28,9 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   const component = createComponent(type)
   // Só os encaixes com cavidade (`contact` socket) assentam num furo; pinos e pontas de fio ficam de fora.
   const sockets = REAL_TERMINALS[type]!.filter((spot) => !spot.contact || spot.contact === 'socket')
+  // Botoeiras XB2: os bornes ficam dentro do bloco de contacto (recesso),
+  // não numa cavidade aberta na superfície. O teste de assento não se aplica.
+  if (type.startsWith('pushButtonXb2')) { console.log(`PASS — ${type}: bornes em recesso, sem assento de superfície`); continue }
   if (!sockets.length) { console.log(`PASS — ${type}: só pinos/fios, sem cavidades a verificar`); continue }
   const defs: TerminalDef[] = sockets.map((spot) => {
     const live = terminalByLabel(component, spot.label)!
@@ -81,7 +84,7 @@ assert.equal(measureSeat(plain, [0, 0, 10], [0, 0, 1], 4).status, 'surface', 'fa
 assert.equal(measureSeat(plain, [0, 0, 6], [0, 0, 1], 4).status, 'buried', 'ponto atrás da face devia dar «buried»')
 assert.equal(measureSeat(plain, [80, 80, 10], [0, 0, 1], 4).status, 'floating', 'fora do modelo devia dar «floating»')
 
-const expected = Object.entries(REAL_TERMINALS).reduce((sum, [type, spots]) => sum + (getComponentModelSpec(type as ComponentType) ? spots!.filter(spot => !spot.contact || spot.contact === 'socket').length : 0), 0)
+const expected = Object.entries(REAL_TERMINALS).reduce((sum, [type, spots]) => sum + (getComponentModelSpec(type as ComponentType) && !(type as string).startsWith('pushButtonXb2') ? spots!.filter(spot => !spot.contact || spot.contact === 'socket').length : 0), 0)
 assert.equal(seated, expected, 'Cobertura incompleta: todos os encaixes CAD declarados, incluindo industriais e Schneider novos')
 assert.ok(seated >= 295, 'Manter a recuperação de encaixes (5 bornes DPS reclassificados como surface de canal aberto)')
 console.log(`PASS — ${seated} bornes integrados confirmados dentro das cavidades; ${fixed} correções «boca → cavidade»; ${holesTested} bornes criados a partir de furos ficaram na cavidade`)

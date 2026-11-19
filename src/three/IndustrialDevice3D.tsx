@@ -24,13 +24,13 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
   },[scene,spec,type])
   const {invalidate,controls}=useThree()
   const held=useRef(false),heldButton=useRef(false),orbit=useRef<{target:{enabled:boolean};enabled:boolean}|null>(null)
-  // Botoeira Ø22: a tampa desce ~2 mm enquanto premida (curso do contacto instantâneo).
+  // Botoeira Ø22: a tampa desce ~2 mm ao longo do eixo Z (curso do contacto instantâneo).
   useEffect(()=>{
-    if(type!=='pushButtonXb2No'&&type!=='pushButtonXb2Nc'&&type!=='pushButtonXb2Black')return
+    if(!type.startsWith('pushButtonXb2'))return
     const cap=model.getObjectByName('industrial_xb2_cap')
     if(!cap)return
-    const base=cap.userData.baseY??=cap.position.y
-    cap.position.y=base-(c.state.pressed?0.002:0)
+    const base=cap.userData.baseZ??=cap.position.z
+    cap.position.z=base-(c.state.pressed?0.002:0)
     invalidate()
   },[model,type,c.state.pressed,invalidate])
   useEffect(()=>{
