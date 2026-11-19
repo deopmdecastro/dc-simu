@@ -1003,29 +1003,119 @@
     "path": "/models/industriais/buzzerMetaltexTby301.glb",
     "physicalSizeMm": {
       "width": 47,
-      "height": 47.01,
-      "depth": 69.5
+      "height": 47,
+      "depth": 70.7
     },
     "terminals": [
       {
         "label": "1",
         "face": "back",
-        "contact": "socket",
+        "contact": "surface",
         "x": 0.5,
-        "y": 0.638375,
-        "z": 0,
+        "y": 0.638298,
+        "z": 0.016973,
         "diameterMm": 4.2,
         "holeDepthMm": 5
       },
       {
         "label": "2",
         "face": "back",
-        "contact": "socket",
+        "contact": "surface",
         "x": 0.5,
-        "y": 0.361838,
-        "z": 0,
+        "y": 0.361702,
+        "z": 0.016973,
         "diameterMm": 4.2,
         "holeDepthMm": 5
+      }
+    ]
+  },
+  "pushButtonXb2No": {
+    "path": "/models/industriais/pushButtonXb2No.glb",
+    "physicalSizeMm": {
+      "width": 29,
+      "height": 46.3,
+      "depth": 56.55
+    },
+    "terminals": [
+      {
+        "label": "3",
+        "face": "top",
+        "contact": "surface",
+        "x": 0.5,
+        "y": 0.642549,
+        "z": 0.356322,
+        "diameterMm": 3.8,
+        "holeDepthMm": 2.4
+      },
+      {
+        "label": "4",
+        "face": "top",
+        "contact": "surface",
+        "x": 0.5,
+        "y": 0.357451,
+        "z": 0.356322,
+        "diameterMm": 3.8,
+        "holeDepthMm": 2.4
+      }
+    ]
+  },
+  "pushButtonXb2Nc": {
+    "path": "/models/industriais/pushButtonXb2Nc.glb",
+    "physicalSizeMm": {
+      "width": 29,
+      "height": 46.3,
+      "depth": 56.55
+    },
+    "terminals": [
+      {
+        "label": "1",
+        "face": "top",
+        "contact": "surface",
+        "x": 0.5,
+        "y": 0.642549,
+        "z": 0.356322,
+        "diameterMm": 3.8,
+        "holeDepthMm": 2.4
+      },
+      {
+        "label": "2",
+        "face": "top",
+        "contact": "surface",
+        "x": 0.5,
+        "y": 0.357451,
+        "z": 0.356322,
+        "diameterMm": 3.8,
+        "holeDepthMm": 2.4
+      }
+    ]
+  },
+  "pushButtonXb2Black": {
+    "path": "/models/industriais/pushButtonXb2Black.glb",
+    "physicalSizeMm": {
+      "width": 29,
+      "height": 46.3,
+      "depth": 56.55
+    },
+    "terminals": [
+      {
+        "label": "1",
+        "face": "top",
+        "contact": "surface",
+        "x": 0.5,
+        "y": 0.642549,
+        "z": 0.356322,
+        "diameterMm": 3.8,
+        "holeDepthMm": 2.4
+      },
+      {
+        "label": "3",
+        "face": "top",
+        "contact": "surface",
+        "x": 0.5,
+        "y": 0.357451,
+        "z": 0.356322,
+        "diameterMm": 3.8,
+        "holeDepthMm": 2.4
       }
     ]
   }

@@ -86,13 +86,15 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
       mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,12,34.2])
     }
     // CT secondary terminals 3/4 (top entry + front screwdriver wells) — external CT wiring.
+    // At y≈68 the stepped body face is z=44 (not 42 as the bottom step): the well
+    // must cross that face, otherwise the captive screw stays sealed inside.
     for(const[label,x]of [['3',-14],['4',-4]] as const){
       bore(body,label,[x,80,30],'y',[0,1,0],2.7,12)
-      bore(body,'screwdriver_'+label,[x,68,42],'z',[0,0,1],2.8,11)
+      bore(body,'screwdriver_'+label,[x,68,44],'z',[0,0,1],2.8,13.1)
       const screw=buildCaptiveTerminalScrew('d52_'+label,2.18)
-      screw.position.set(x,68,39.4);root.add(screw)
-      const shank=new THREE.CylinderGeometry(1.05,1.05,8.6,20);shank.rotateX(Math.PI/2)
-      mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,68,34.2])
+      screw.position.set(x,68,41.4);root.add(screw)
+      const shank=new THREE.CylinderGeometry(1.05,1.05,9.8,20);shank.rotateX(Math.PI/2)
+      mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,68,36.4])
     }
     marking('3    4',-9,69.6,44.025,22,2.3,'digital_meter_ct_terminals')
     marking('D52-2066',-13.4,65.1,64.09,21.5,2.1,'digital_meter_type')

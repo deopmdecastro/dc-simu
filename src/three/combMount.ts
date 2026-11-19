@@ -39,6 +39,8 @@ const BREAKER_TYPES = new Set([
   'motorBreakerPkzmC10',
   'motorBreakerSchneiderGv2me',
   'phoenixEcb3000760',
+  'surgeProtectorWegSpw02',
+  'surgeProtectorWegSpw12',
 ])
 
 export const isCombBusbar = (c: Pick<ElectricalComponent, 'type'>) => c.type === 'busbarComb'
@@ -117,6 +119,13 @@ const TOP_CLAMP_LANES: Partial<Record<ComponentType, { combZ: number; feedZ: num
   breaker1p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   breaker2p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   breaker3p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  // Genéricos 4P/DR/QM e DPS WEG partilham a boca de borne Easy9 (REAL_TERMINALS
+  // acima): mesmas pistas de pente/alimentador, mesma inserção de 10 mm.
+  breaker4p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  residualBreaker: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  motorBreaker: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  surgeProtectorWegSpw02: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  surgeProtectorWegSpw12: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   breakerSteckSdC25: { combZ: -4.5, feedZ: -1.5, combInsert: 10, feedInsert: 10 },
   residualBreakerHagerCfc225p: { combZ: -1, feedZ: 2, combInsert: 4, feedInsert: 10 },
   phoenixEcb3000760: { combZ: -1.5, feedZ: 1, combInsert: 4, feedInsert: 10 },

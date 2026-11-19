@@ -23,7 +23,16 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     return fitted
   },[scene,spec,type])
   const {invalidate,controls}=useThree()
-  const held=useRef(false),orbit=useRef<{target:{enabled:boolean};enabled:boolean}|null>(null)
+  const held=useRef(false),heldButton=useRef(false),orbit=useRef<{target:{enabled:boolean};enabled:boolean}|null>(null)
+  // Botoeira Ø22: a tampa desce ~2 mm enquanto premida (curso do contacto instantâneo).
+  useEffect(()=>{
+    if(type!=='pushButtonXb2No'&&type!=='pushButtonXb2Nc'&&type!=='pushButtonXb2Black')return
+    const cap=model.getObjectByName('industrial_xb2_cap')
+    if(!cap)return
+    const base=cap.userData.baseY??=cap.position.y
+    cap.position.y=base-(c.state.pressed?0.002:0)
+    invalidate()
+  },[model,type,c.state.pressed,invalidate])
   useEffect(()=>{
     let active=true
     applyIndustrialTextures(model,type,()=>!active).then(()=>{if(active)invalidate()}).catch(error=>console.error(`Impressos locais ${type}:`,error))
@@ -45,6 +54,7 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     const release=()=>{
       if(orbit.current){orbit.current.target.enabled=orbit.current.enabled;orbit.current=null}
       if(held.current){held.current=false;const store=useSimStore.getState();if(store.components.some(n=>n.id===c.id))store.setComponentState(c.id,{testPressed:false})}
+      if(heldButton.current){heldButton.current=false;const store=useSimStore.getState();if(store.components.some(n=>n.id===c.id))store.setComponentState(c.id,{pressed:false})}
     }
     window.addEventListener('pointerup',release);window.addEventListener('pointercancel',release);window.addEventListener('blur',release)
     return()=>{window.removeEventListener('pointerup',release);window.removeEventListener('pointercancel',release);window.removeEventListener('blur',release);release()}
@@ -56,11 +66,12 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     const target=controls as unknown as {enabled:boolean}|null
     if(target&&!orbit.current){orbit.current={target,enabled:target.enabled};target.enabled=false}
     if(action==='test'){held.current=true;useSimStore.getState().setComponentState(c.id,{testPressed:true})}
+    else if(action==='button'){heldButton.current=true;useSimStore.getState().setComponentState(c.id,{pressed:true})}
   }
   const click=(event:ThreeEvent<MouseEvent>)=>{
     if(!mayActuate())return
     const action=industrialAction(event.object);if(!action)return
-    event.stopPropagation();if(action!=='test')act(action as IndustrialControl,event.shiftKey?-1:1)
+    event.stopPropagation();if(action!=='test'&&action!=='button')act(action as IndustrialControl,event.shiftKey?-1:1)
   }
   useControlWheel((hits,step)=>{
     if(!mayActuate()||!hits[0]||!isInControlModel(hits[0].object,model))return false

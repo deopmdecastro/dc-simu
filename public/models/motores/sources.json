@@ -1,0 +1,19 @@
+{
+  "models": [
+    {
+      "type": "capacitorRun60uF",
+      "kind": "adapted-manufacturer-CAD",
+      "source": "https://grabcad.com/library/60uf-capacitor-godrej-1",
+      "physicalSizeMm": {
+        "width": 50,
+        "height": 132,
+        "depth": 50
+      },
+      "interfaces": 6,
+      "pins": 6,
+      "bytes": 617428,
+      "sha256": "6a79478fefc3a96a0406599f35bf574e104412adf4ed032b2b6e2e829bdecbdf",
+      "changes": "Six DIN 46244 6.3×0.8 mm faston blades added on the top cap, grouped 1/1B (negative) and 2/2B/2C/2D (positive) per user photograph IMG_5852; original STEP body unchanged. Not a manufacturer CAD amendment; visualisation only."
+    }
+  ]
+}

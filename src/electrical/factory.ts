@@ -787,14 +787,14 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
    * Dois terminais faston no topo. Não polarizado.
    */
   capacitorRun60uF: {
-    category: 'motor', paletteName: 'Condensador (genérico CBB65)', group: 'Motores', tag: 'C', w: 70, h: 110,
+    category: 'motor', paletteName: 'Condensador (genérico CBB65 · 6 pinos faston)', group: 'Motores', tag: 'C', w: 70, h: 110,
     terminals: [
-      T('1', 'power-in', 0.23, 0, { position3D: { x: 0.35, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('1', 'power-in', 0.18, 0, { position3D: { x: 0.35, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
       T('1B', 'power-in', 0.36, 0, { position3D: { x: 0.41, y: 1, z: 0.5 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2', 'power-out', 0.64, 0, { position3D: { x: 0.59, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2B', 'power-out', 0.77, 0, { position3D: { x: 0.65, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2C', 'power-out', 0.64, 0.1, { position3D: { x: 0.59, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
-      T('2D', 'power-out', 0.77, 0.1, { position3D: { x: 0.65, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2', 'power-out', 0.55, 0.06, { position3D: { x: 0.59, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2B', 'power-out', 0.82, 0.06, { position3D: { x: 0.65, y: 1, z: 0.45 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2C', 'power-out', 0.55, 0.2, { position3D: { x: 0.59, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
+      T('2D', 'power-out', 0.82, 0.2, { position3D: { x: 0.65, y: 1, z: 0.55 }, terminalType: 'faston', diameter: 8, color: '#94a3b8' }),
     ],
     defaultState: {
       capacitanceUf: 60,

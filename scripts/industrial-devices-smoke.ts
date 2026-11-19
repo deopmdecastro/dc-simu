@@ -24,7 +24,7 @@ const context = (components: ElectricalComponent[], wires: Wire[]): IndustrialEl
   return { components, adjacency: graph.reachable, live: graph.energizedTerminals, phases: computePhaseLabels(components, wires) }
 }
 const provenance = JSON.parse(fs.readFileSync('public/models/industriais/sources.json', 'utf8'))
-check(INDUSTRIAL_DEVICE_TYPES.length === 7, 'seven explicit industrial references')
+check(INDUSTRIAL_DEVICE_TYPES.length === 10, 'ten explicit industrial references')
 for (const type of INDUSTRIAL_DEVICE_TYPES) {
   const g = INDUSTRIAL_GEOMETRY[type], info = INDUSTRIAL_INFO[type], c = createComponent(type)
   check(c.terminals.length === g.terminals.length && new Set(c.terminals.map(t => t.id)).size === c.terminals.length, `${type}: stable unique terminal identities`)

@@ -7,7 +7,7 @@
       "source": "https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip",
       "cadMember": "MCADID0000926_3D-simplified.stp",
       "cadSha256": "f88134f58af2d9f9b00b5ea17df978257c1683fee3dc28b683e7ece1f50bd2c9",
-      "changes": "Rigid Rx(+90\u00b0). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and three original-function LEDs. Control connector placement is functional, not certified metrology.",
+      "changes": "Rigid Rx(+90°). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and three original-function LEDs. Control connector placement is functional, not certified metrology.",
       "physicalSizeMm": {
         "width": 72.750237,
         "height": 142.950153,
@@ -34,7 +34,7 @@
           "sha256": "002bfd6bf673f84159a3923ca802f655376aee5621eff327dd9ece5dc8b42b8f"
         }
       ],
-      "changes": "94.04 + 55.34, rigid transforms only. Pin rows at 28/34.35/40.70/44.80 mm and X \u00b16.6/\u00b12.2. Seat reference 35.5 mm. TEST faces 119\u2013155 separated; internals and 24 V DC label reconstructed. TEST is momentary, no lock. CAD does not prove a photographed coil voltage.",
+      "changes": "94.04 + 55.34, rigid transforms only. Pin rows at 28/34.35/40.70/44.80 mm and X ±6.6/±2.2. Seat reference 35.5 mm. TEST faces 119–155 separated; internals and 24 V DC label reconstructed. TEST is momentary, no lock. CAD does not prove a photographed coil voltage.",
       "physicalSizeMm": {
         "width": 27,
         "height": 78.599997,
@@ -51,7 +51,7 @@
       "kind": "dimensioned-reconstruction",
       "source": "https://www.caiado.pt/images/uploaded/CatalogosCaiado/catalogo-avel-reles-eletronicos.pdf",
       "page": 14,
-      "changes": "35\u00d779\u00d777 mm nominal, 77.61 mm visual envelope including label. Eleven undecal pins and six physical LEDs (tank wet/dry, well wet/dry, relay, supply). Front label rectified from original catalogue photo. No switches, display or automatically included base.",
+      "changes": "35×79×77 mm nominal, 77.61 mm visual envelope including label. Eleven undecal pins and six physical LEDs (tank wet/dry, well wet/dry, relay, supply). Front label rectified from original catalogue photo. No switches, display or automatically included base.",
       "physicalSizeMm": {
         "width": 35,
         "height": 79,
@@ -70,7 +70,7 @@
         "method": "Exact photographed wording re-typeset in clean scalable typography; original partner and AVEL wordmarks rectified and recoloured from catalogue image 678; six neutral apertures at live lens centres. Educational reconstruction, not official vector artwork.",
         "width": 1408,
         "height": 3200,
-        "wording": "411 RNPD0-023 01; REL\u00c9 de N\u00cdVEL; Controlo de Po\u00e7o e Dep\u00f3sito; DEP\u00d3SITO / PO\u00c7O; \u00c1gua / Falta de \u00c1gua; Ligado (1-3); Tens\u00e3o (2-10); 230 V~",
+        "wording": "411 RNPD0-023 01; RELÉ de NÍVEL; Controlo de Poço e Depósito; DEPÓSITO / POÇO; Água / Falta de Água; Ligado (1-3); Tensão (2-10); 230 V~",
         "ledCentersPx": [
           [
             213.333,
@@ -100,22 +100,6 @@
       }
     },
     {
-      "type": "buzzerMetaltexTby301",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf",
-      "changes": "47\u00d747 mm rear body, nominal 69.5 mm depth; \u00d830 panel neck, \u00d835 bezel and \u00d825 acoustic mouth, two rear connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.",
-      "physicalSizeMm": {
-        "width": 47,
-        "height": 47.01,
-        "depth": 69.5
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 328428,
-      "sha256": "818512321db3b54520db2794fab7df2badee155abe830c91630b7d75ee7bdd0a"
-    },
-    {
       "type": "relaySocketFinder9023",
       "kind": "adapted-manufacturer-CAD",
       "source": "https://cdn.findernet.com/app/uploads/2020/09/11054915/90.stp_-1.zip",
@@ -137,7 +121,7 @@
       "type": "timerGeyaGrt8M1",
       "kind": "dimensioned-reconstruction",
       "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-      "changes": "Nominal 18\u00d790\u00d764 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
       "physicalSizeMm": {
         "width": 18,
         "height": 95,
@@ -153,7 +137,7 @@
       "type": "timerGeyaGrt8B1",
       "kind": "dimensioned-reconstruction",
       "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
-      "changes": "Nominal 18\u00d790\u00d764 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
       "physicalSizeMm": {
         "width": 18,
         "height": 95,
@@ -164,6 +148,70 @@
       "pins": 0,
       "bytes": 330104,
       "sha256": "9cc41ec87af397a7bcbc85cb47b7582910e53ad6fab5b1be27fb0d2211c74950"
+    },
+    {
+      "type": "buzzerMetaltexTby301",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf",
+      "changes": "47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø35 knurled chrome bezel and Ø25 acoustic mouth with recessed grille; four rear M3 cover screws; maker sticker relocated to the rear face as in the user photographs («tend / BUZZER / AC110V»); two rear screw connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.",
+      "physicalSizeMm": {
+        "width": 47,
+        "height": 47,
+        "depth": 70.7
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 435300,
+      "sha256": "57e90f4c83d9a29c4f4c8fa095ee9b57ed5588edfde2134adb6ac3bf01261357"
+    },
+    {
+      "type": "pushButtonXb2No",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 56.55
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 209600,
+      "sha256": "edc802c9cd2d9ce387938b90127fc6909f2ebf3ab24007540c765036ce5cbc81"
+    },
+    {
+      "type": "pushButtonXb2Nc",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 56.55
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 209600,
+      "sha256": "94e377ef6ba888753212fe12db215dab9c3538e48faa02e50a412f50b89b6c66"
+    },
+    {
+      "type": "pushButtonXb2Black",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 29,
+        "height": 46.3,
+        "depth": 56.55
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 209760,
+      "sha256": "8a7f7925c904064780cc340cbe0ba845eca7bba41d2fd267ad6888105fea82b6"
     }
   ]
 }

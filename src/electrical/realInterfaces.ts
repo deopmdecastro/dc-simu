@@ -49,6 +49,7 @@ export interface RealTerminalSpot {
  * cabo entra) sem o esconder por completo dentro do corpo do aparelho.
  */
 export function terminalInsetMm(spot: RealTerminalSpot): number {
+  if (spot.contact === 'pin') return 0
   return Math.min(3, Math.max(1, (spot.holeDepthMm ?? 5) / 3))
 }
 
@@ -137,6 +138,46 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"2B","face":"top","x":0.65,"y":0.0,"z":0.45,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
     {"label":"2C","face":"top","x":0.59,"y":0.0,"z":0.55,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
     {"label":"2D","face":"top","x":0.65,"y":0.0,"z":0.55,"diameterMm":6.3,"holeDepthMm":12.0,"contact":"pin"},
+  ],
+  // Pente/encaixe universal: pistas do pente calibradas nos disjuntores Easy9
+  // (combZ −2,3 / feedZ 2,7 / insert 10) replicadas nos genéricos 4P/DR/QM e
+  // nos DPS WEG, para o pente encaixar em todos os aparelhos compatíveis.
+  breaker4p: [
+    {label:'1',face:'top',x:0.2,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'3',face:'top',x:0.5,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'5',face:'top',x:0.8,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'7',face:'top',x:0.93,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'2',face:'bottom',x:0.2,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'4',face:'bottom',x:0.5,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'6',face:'bottom',x:0.8,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'8',face:'bottom',x:0.93,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+  ],
+  motorBreaker: [
+    {label:'1',face:'top',x:0.2,y:0.0177,z:0.497,diameterMm:9,holeDepthMm:6.5},
+    {label:'3',face:'top',x:0.5,y:0.0177,z:0.497,diameterMm:9,holeDepthMm:6.5},
+    {label:'5',face:'top',x:0.8,y:0.0177,z:0.497,diameterMm:9,holeDepthMm:6.5},
+    {label:'2',face:'bottom',x:0.2,y:0.9823,z:0.497,diameterMm:9,holeDepthMm:6.5},
+    {label:'4',face:'bottom',x:0.5,y:0.9823,z:0.497,diameterMm:9,holeDepthMm:6.5},
+    {label:'6',face:'bottom',x:0.8,y:0.9823,z:0.497,diameterMm:9,holeDepthMm:6.5},
+  ],
+  residualBreaker: [
+    {label:'1',face:'top',x:0.2,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'3',face:'top',x:0.5,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'5',face:'top',x:0.8,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'N1',face:'top',x:0.93,y:0.0118,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'2',face:'bottom',x:0.2,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'4',face:'bottom',x:0.5,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'6',face:'bottom',x:0.8,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+    {label:'N2',face:'bottom',x:0.93,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
+  ],
+  surgeProtectorWegSpw02: [
+    {label:'L',face:'top',x:0.35,y:0.006786,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
+    {label:'PE',face:'bottom',x:0.65,y:0.993214,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
+  ],
+  surgeProtectorWegSpw12: [
+    {label:'+',face:'top',x:0.3,y:0.006786,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
+    {label:'-',face:'top',x:0.65,y:0.006786,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
+    {label:'PE',face:'bottom',x:0.5,y:0.993214,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
   ],
   breakerSteckSdC25: [
     {"label":"1","face":"top","x":0.501124,"y":0.011678,"z":0.367237,"diameterMm":11.3,"holeDepthMm":13.494},

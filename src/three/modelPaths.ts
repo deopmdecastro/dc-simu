@@ -92,6 +92,12 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   breaker1p: { width: 17.7, height: 84.5, depth: 74.57 },
   breaker2p: { width: 36, height: 84.5, depth: 75.44 },
   breaker3p: { width: 54, height: 84.5, depth: 75.44 },
+  /** Easy9 4P: 4 módulos de 17,7 mm ≈ 70,8 mm; mesma altura/profundidade dos 1P–3P. */
+  breaker4p: { width: 70.8, height: 84.5, depth: 75.44 },
+  /** Genérico DR 4P: mesmo envelope do Easy9 4P (4 módulos). */
+  residualBreaker: { width: 70.8, height: 84.5, depth: 75.44 },
+  /** Genérico QM 3P: mesmo envelope do Easy9 3P (3 módulos). */
+  motorBreaker: { width: 54, height: 84.5, depth: 75.44 },
   /** Medido no STEP do fabricante: 17,8 × 79,6 × 72,6 mm (a profundidade inclui o manípulo). */
   breakerSteckSdC25: { width: 17.8, height: 79.6, depth: 72.6 },
   /** Medido no STEP do fabricante: 44,7 × 91,8 × 75,5 mm (a profundidade inclui o botão rotativo). */
@@ -143,7 +149,7 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   /** Mesmo envelope do SEW DRN80 — variante monofásica azul DC-Simu. */
   motor1ph: { width: 264, height: 208, depth: 156 },
   /** Cilindro CBB65 genérico (~Ø50 × 119 mm). Valores elétricos vêm do estado. */
-  capacitorRun60uF: { width: 50, height: 119, depth: 50 },
+  capacitorRun60uF: { width: 50, height: 132, depth: 50 },
   pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
   multimeterDm20: { width: 88, height: 184, depth: 53 },
   meterD522066: { width: 54, height: 80, depth: 64 },
@@ -369,7 +375,10 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'capacitorRun60uF' ||
     type === 'buzzerMetaltexTby301' ||
     type === 'timerGeyaGrt8M1' ||
-    type === 'timerGeyaGrt8B1'
+    type === 'timerGeyaGrt8B1' ||
+    type === 'pushButtonXb2No' ||
+    type === 'pushButtonXb2Nc' ||
+    type === 'pushButtonXb2Black'
   )
 }
 

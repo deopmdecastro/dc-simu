@@ -21,6 +21,9 @@ export function terminalMarkerRadius(component: ElectricalComponent, terminal: T
   }
   const spot = REAL_TERMINALS[component.type]?.find((spot) => spot.label === terminal.label)
   if (!spot) return .014
+  // Pinos/lâminas salientes (faston do condensador): o marcador cobre a lâmina
+  // inteira para o cabo encaixar ao encostar, sem ficar «dentro» de um furo.
+  if (spot.contact === 'pin') return Math.max(.001, Math.min((spot.diameterMm ?? 4) * .0016, (spot.holeDepthMm ?? 5) * .0012))
   // Hover + selection expands the sphere by up to 1.32. Keep clearance for
   // stepped local lips as well as the nominal mouth plane; this is only the
   // marker, never a change to the actual cable/terminal diameter.

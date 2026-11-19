@@ -15,7 +15,20 @@ const output = path.resolve('public/models/industriais')
 await fs.mkdir(output, { recursive: true })
 const before = JSON.parse(await fs.readFile('src/data/industrial-device-geometry.json', 'utf8'))
 const data = { ...before }, records = []
+/** Cavities whose finite body was drilled only partially (recessed access). The
+ * ring floor becomes the outer lip, not the conductor mouth; the socket check
+ * uses the measured cavity wall, not a synthetic void through the whole part. */
+const RECESS_ONLY = {
+  buzzerMetaltexTby301: new Set(['1', '2']),
+  // Botoeira XB2: poço de 2,4 mm no topo do bloco de contactos; a parede medida
+  // é a superfície de encaixe, não um furo atravessante.
+  pushButtonXb2No: new Set(['3', '4']),
+  pushButtonXb2Nc: new Set(['1', '2']),
+  pushButtonXb2Black: new Set(['1', '3']),
+}
 const dark=mat('#3a3b36'),white=mat('#e5e5da'),blue=mat('#0b478a'),red=mat('#ce1229'),steel=mat('#aab0a8',.75,.32),black=mat('#151712'),green=mat('#3eae27'),copper=mat('#ac6631',.75,.4)
+// Zamac/poliamida para as botoeiras Ø22; níquel escovado para aros e porcas serrilhadas.
+const zamac=mat('#b9bdc0',.85,.28),nickel=mat('#c9cdd1',.9,.22),polyamide=mat('#f2f2ea',0,.6)
 function device(type) { const g=new T.Group();g.name='industrial_device_'+type;g.userData.industrialType=type;return g }
 function knob(root,name,x,y,z,r=2.25,color=red) {
  const group=new T.Group();group.name=name;group.position.set(x,y,z)
@@ -32,7 +45,8 @@ async function store(type,root,terms,provenance) {
  const bounds=new T.Box3().setFromObject(root,true),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3())
  const round=v=>+v.toFixed(6)
  const physicalSizeMm={width:round(size.x),height:round(size.y),depth:round(size.z)}
- data[type]={path:`/models/industriais/${type}.glb`,physicalSizeMm,terminals:terms.map(t=>({label:t.label,face:t.face,contact:t.contact,x:round((t.point[0]-bounds.min.x)/size.x),y:round(1-(t.point[1]-bounds.min.y)/size.y),z:round((t.point[2]-bounds.min.z)/size.z),diameterMm:t.diameterMm,holeDepthMm:t.holeDepthMm}))}
+ const recess=RECESS_ONLY[type]
+ data[type]={path:`/models/industriais/${type}.glb`,physicalSizeMm,terminals:terms.map(t=>({label:t.label,face:t.face,contact:recess?.has(t.label)?'surface':t.contact,x:round((t.point[0]-bounds.min.x)/size.x),y:round(1-(t.point[1]-bounds.min.y)/size.y),z:round((t.point[2]-bounds.min.z)/size.z),diameterMm:t.diameterMm,holeDepthMm:t.holeDepthMm}))}
  // Bake translation once; parent remains identity for the Admin's named pivots.
  const offset=new T.Vector3(-center.x,-bounds.min.y,-bounds.min.z)
  for(const child of root.children)child.position.add(offset)
@@ -170,20 +184,67 @@ async function avel(){
 
 async function metaltex(){
  const type='buzzerMetaltexTby301',root=device(type),terms=[]
- const body=box(47,47,36, dark,'industrial_tby_body',[0,0,18]);root.add(body)
- root.add(box(47,47,8, dark,'industrial_tby_shoulder',[0,0,40]))
- root.add(cylinder(15,14, dark,'industrial_tby_neck',[0,0,51]))
- root.add(cylinder(17.5,3, steel,'industrial_tby_bezel',[0,0,59.5]))
+ // Corpo traseiro 47×47×36 mm (nas fotos tend o borne fica nesta caixa), gola de
+ // transição Ø30, pescoço de passagem na chapa, aro cromado serrilhado Ø35 à frente
+ // e tampa acústica preta com grelha de ranhuras.
+ const body=box(47,47,36,dark,'industrial_tby_body',[0,0,18]);root.add(body)
+ // Quatro parafusos M3 de montagem da tampa traseira (cabeças visíveis, fenda simples).
+ for(const[px,py]of [[-19.5,-19.5],[19.5,-19.5],[-19.5,19.5],[19.5,19.5]]){
+  const head=cylinder(2.6,1.1,steel,'industrial_tby_screw',[px,py,-0.55]);root.add(head)
+  const slot=box(4.2,.7,.24,black,'industrial_tby_screw_slot',[px,py,-1.08]);root.add(slot)
+ }
+ // Etiqueta do fabricante na traseira, entre os parafusos (foto IMG_5858).
+ const sticker=plane(28,20,white,'industrial_metaltex_label',[0,0,-1.02]);sticker.rotation.y=Math.PI;root.add(sticker)
+ const shoulder=cylinder(16.5,8,dark,'industrial_tby_shoulder',[0,0,40]);root.add(shoulder)
+ root.add(cylinder(15,14,dark,'industrial_tby_neck',[0,0,51]))
+ // Aro de aperto serrilhado (estrias radiais visíveis na foto).
+ const bezel=cylinder(17.5,3,nickel,'industrial_tby_bezel',[0,0,59.5]);root.add(bezel)
+ for(let i=0;i<36;i++){const a=i/36*Math.PI*2,knurl=box(1.1,1.1,3,zamac,'industrial_tby_bezel_knurl_'+i,[Math.cos(a)*17.4,Math.sin(a)*17.4,59.5]);knurl.rotation.z=a;root.add(knurl)}
  root.add(cylinder(12.5,9.5,black,'industrial_tby_horn',[0,0,64.75]))
- // Recessed grille: actual slots through a thin perforated face, not a luminous lens.
+ // Grelha côncava com furos reais atravessados na tampa (não é uma lente luminosa).
  const holes=[];for(let x=-7.5;x<=7.5;x+=3)for(let y=-7.5;y<=7.5;y+=3)if(x*x+y*y<85)holes.push([x,y,.8])
- const grille=shapePlate(21,21,.5,holes,dark,'industrial_tby_grille', [0,0,69]);root.add(grille)
+ const grille=shapePlate(21,21,.5,holes,dark,'industrial_tby_grille',[0,0,69]);root.add(grille)
  for(const[label,y]of [['1',-6.5],['2',6.5]]){drill([body],'z',[0,y,-18],2.1,-18.1,-13);terms.push(terminal(root,label,0,y,0,{r:2.1,depth:5,face:'back'}))}
- const label=plane(28,10,white,'industrial_metaltex_label',[0,23.51,24]);label.rotation.x=-Math.PI/2;root.add(label)
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf',changes:'47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø35 bezel and Ø25 acoustic mouth, two rear connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.'})
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf',changes:'47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø35 knurled chrome bezel and Ø25 acoustic mouth with recessed grille; four rear M3 cover screws; maker sticker relocated to the rear face as in the user photographs («tend / BUZZER / AC110V»); two rear screw connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.'})
 }
 
-const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex]]
+/**
+ * Botoeira Ø22 mm KEOLEA KL-XB2 (padrão XB2-BA). Reconstrução cotada das fotos
+ * do utilizador (IMG_5853–5857): cabeça metálica com aro serrilhado Ø29 mm,
+ * anel de fixação, tampa redonda da cor do actuador e bloco de contactos
+ * NO (verde, 3-4) ou NC (vermelho, 1-2) com serigrafia elétrica nas faces.
+ * Posição de instalação: cabeça virada para +Z (fora da chapa), contactos atrás.
+ */
+async function xb2(type){
+ const root=device(type),terms=[]
+ const contactColor=type==='pushButtonXb2No'?green:type==='pushButtonXb2Nc'?red:white
+ const capColor=type==='pushButtonXb2No'?green:type==='pushButtonXb2Nc'?red:black
+ // Tampa Ø22,5 mm com aro Ø29 mm (molas visíveis na vista frontal).
+ root.add(cylinder(11.25,10,capColor,'industrial_xb2_cap',[0,0,42.4]))
+ for(let i=0;i<28;i++){const a=i/28*Math.PI*2,knurl=box(1.05,1.05,2.1,zamac,'industrial_xb2_bezel_knurl_'+i,[Math.cos(a)*13.35,Math.sin(a)*13.35,37.6]);knurl.rotation.z=a;root.add(knurl)}
+ root.add(cylinder(14.5,2.6,nickel,'industrial_xb2_bezel',[0,0,36.6]))
+ // Furo Ø22 mm na chapa; porca de aperto atrás.
+ root.add(cylinder(11,22,dark,'industrial_xb2_body',[0,0,24]))
+ root.add(cylinder(13.5,4.5,nickel,'industrial_xb2_locknut',[0,0,15.8]))
+ for(let i=0;i<24;i++){const a=i/24*Math.PI*2,knurl=box(1.1,1.1,4.5,zamac,'industrial_xb2_locknut_knurl_'+i,[Math.cos(a)*13.6,Math.sin(a)*13.6,15.8]);knurl.rotation.z=a;root.add(knurl)}
+ // Bloco de contactos cúbico 22×46×22 mm (cor da função), com bornes nos topos.
+ root.add(box(22,46,22,contactColor,'industrial_xb2_contact',[0,0,2]))
+ // Serigrafia elétrica nas faces laterais (Ui 660V / Ith 10A / AC-15 / DC-13 / diagrama).
+ const etch=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_'+ (type==='pushButtonXb2No'?'34':'12'),[0,23.15,2]);etch.rotation.x=Math.PI/2;root.add(etch)
+ const etch2=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_rev_'+ (type==='pushButtonXb2No'?'34':'12'),[0,-23.15,2]);etch2.rotation.x=-Math.PI/2;root.add(etch2)
+ const backPlate=plane(19.6,19.6,polyamide,'industrial_xb2_etch_back',[0,0,-9.15]);backPlate.rotation.y=Math.PI;root.add(backPlate)
+ // Bornes 1-2 (NC, cima) ou 3-4 (NO, cima) com cabeça de parafuso Pozidriv.
+ const labels=type==='pushButtonXb2No'?['3','4']:type==='pushButtonXb2Nc'?['1','2']:['1','3']
+ for(const[label,y]of [[labels[0],-6.6],[labels[1],6.6]]){
+  drill([root.getObjectByName('industrial_xb2_contact')],'z',[0,y,11],1.9,8.6,11.1)
+  terms.push(terminal(root,label,0,y,11,{r:1.9,depth:2.4,face:'top'}))
+  const head=buildCaptiveTerminalScrew('xb2_'+label,1.35);head.position.set(0,y,9.6);root.add(head)
+  const pin=cylinder(1.5,8.2,copper,'industrial_xb2_pin_'+label,[0,y,4.4]);root.add(pin)
+ }
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole; Ø29 mm knurled chrome bezel; coloured cap; zamac body; 22×46×22 mm NO (green 3-4) or NC (red 1-2) contact block with Pozidriv screw terminals and serigraphic electrical ratings; front installation as in the user photographs. Contacts are momentary with spring return; no latching or illumination invented.'})
+}
+
+const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')]]
 for(const[type,job]of jobs)if(!process.argv[3]||process.argv[3]===type)await job()
 await fs.writeFile('src/data/industrial-device-geometry.json',JSON.stringify(data,null,2)+'\n')
 let previous=[];try{previous=JSON.parse(await fs.readFile(path.join(output,'sources.json'),'utf8')).models??[]}catch{}
