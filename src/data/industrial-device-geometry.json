@@ -742,7 +742,7 @@
   "timerGeyaGrt8M1": {
     "path": "/models/industriais/timerGeyaGrt8M1.glb",
     "physicalSizeMm": {
-      "width": 18,
+      "width": 18.1,
       "height": 95,
       "depth": 65.35
     },
@@ -751,11 +751,11 @@
         "label": "A1",
         "face": "top",
         "contact": "socket",
-        "x": 0.211111,
+        "x": 0.212707,
         "y": 0.026316,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "S",
@@ -764,28 +764,28 @@
         "x": 0.5,
         "y": 0.026316,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "A2",
         "face": "top",
         "contact": "socket",
-        "x": 0.788889,
+        "x": 0.787293,
         "y": 0.026316,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "15",
         "face": "bottom",
         "contact": "socket",
-        "x": 0.211111,
+        "x": 0.212707,
         "y": 0.973684,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "16",
@@ -794,25 +794,25 @@
         "x": 0.5,
         "y": 0.973684,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "18",
         "face": "bottom",
         "contact": "socket",
-        "x": 0.788889,
+        "x": 0.787293,
         "y": 0.973684,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       }
     ]
   },
   "timerGeyaGrt8B1": {
     "path": "/models/industriais/timerGeyaGrt8B1.glb",
     "physicalSizeMm": {
-      "width": 18,
+      "width": 18.1,
       "height": 95,
       "depth": 65.35
     },
@@ -821,11 +821,11 @@
         "label": "A1",
         "face": "top",
         "contact": "socket",
-        "x": 0.211111,
+        "x": 0.212707,
         "y": 0.026316,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "S",
@@ -834,28 +834,28 @@
         "x": 0.5,
         "y": 0.026316,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "A2",
         "face": "top",
         "contact": "socket",
-        "x": 0.788889,
+        "x": 0.787293,
         "y": 0.026316,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "15",
         "face": "bottom",
         "contact": "socket",
-        "x": 0.211111,
+        "x": 0.212707,
         "y": 0.973684,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "16",
@@ -864,18 +864,18 @@
         "x": 0.5,
         "y": 0.973684,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       },
       {
         "label": "18",
         "face": "bottom",
         "contact": "socket",
-        "x": 0.788889,
+        "x": 0.787293,
         "y": 0.973684,
         "z": 0.214231,
-        "diameterMm": 3.5,
-        "holeDepthMm": 9
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
       }
     ]
   },
@@ -1002,210 +1002,210 @@
   "buzzerMetaltexTby301": {
     "path": "/models/industriais/buzzerMetaltexTby301.glb",
     "physicalSizeMm": {
-      "width": 47,
-      "height": 47,
-      "depth": 70.7
+      "width": 47.2,
+      "height": 47.2,
+      "depth": 77.48
     },
     "terminals": [
       {
         "label": "1",
         "face": "back",
         "contact": "surface",
-        "x": 0.5,
-        "y": 0.638298,
-        "z": 0.016973,
-        "diameterMm": 4.2,
-        "holeDepthMm": 5
+        "x": 0.245763,
+        "y": 0.860169,
+        "z": 0.05937,
+        "diameterMm": 4.6,
+        "holeDepthMm": 5.6
       },
       {
         "label": "2",
         "face": "back",
         "contact": "surface",
-        "x": 0.5,
-        "y": 0.361702,
-        "z": 0.016973,
-        "diameterMm": 4.2,
-        "holeDepthMm": 5
+        "x": 0.754237,
+        "y": 0.860169,
+        "z": 0.05937,
+        "diameterMm": 4.6,
+        "holeDepthMm": 5.6
       }
     ]
   },
   "pushButtonXb2No": {
     "path": "/models/industriais/pushButtonXb2No.glb",
     "physicalSizeMm": {
-      "width": 29,
-      "height": 46.3,
-      "depth": 57.2
+      "width": 32.6,
+      "height": 30,
+      "depth": 58.7
     },
     "terminals": [
       {
-        "label": "3",
-        "face": "bottom",
+        "label": "4",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.642549,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.266667,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       },
       {
-        "label": "4",
-        "face": "bottom",
+        "label": "3",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.357451,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.733333,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       }
     ]
   },
   "pushButtonXb2Nc": {
     "path": "/models/industriais/pushButtonXb2Nc.glb",
     "physicalSizeMm": {
-      "width": 29,
-      "height": 46.3,
-      "depth": 57.2
+      "width": 32.6,
+      "height": 30,
+      "depth": 58.7
     },
     "terminals": [
       {
         "label": "1",
-        "face": "bottom",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.642549,
-        "z": 0.352273,
+        "x": 0.276074,
+        "y": 0.266667,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       },
       {
         "label": "2",
-        "face": "bottom",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.357451,
-        "z": 0.352273,
+        "x": 0.276074,
+        "y": 0.733333,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       }
     ]
   },
   "pushButtonXb2Black": {
     "path": "/models/industriais/pushButtonXb2Black.glb",
     "physicalSizeMm": {
-      "width": 29,
-      "height": 46.3,
-      "depth": 57.2
+      "width": 32.6,
+      "height": 30,
+      "depth": 58.7
     },
     "terminals": [
       {
-        "label": "3",
-        "face": "bottom",
+        "label": "4",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.642549,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.266667,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       },
       {
-        "label": "4",
-        "face": "bottom",
+        "label": "3",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.357451,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.733333,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       }
     ]
   },
   "pushButtonXb2Yellow": {
     "path": "/models/industriais/pushButtonXb2Yellow.glb",
     "physicalSizeMm": {
-      "width": 29,
-      "height": 46.3,
-      "depth": 57.2
+      "width": 32.6,
+      "height": 30,
+      "depth": 58.7
     },
     "terminals": [
       {
-        "label": "3",
-        "face": "bottom",
+        "label": "4",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.642549,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.266667,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       },
       {
-        "label": "4",
-        "face": "bottom",
+        "label": "3",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.357451,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.733333,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       }
     ]
   },
   "pushButtonXb2Blue": {
     "path": "/models/industriais/pushButtonXb2Blue.glb",
     "physicalSizeMm": {
-      "width": 29,
-      "height": 46.3,
-      "depth": 57.2
+      "width": 32.6,
+      "height": 30,
+      "depth": 58.7
     },
     "terminals": [
       {
-        "label": "3",
-        "face": "bottom",
+        "label": "4",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.642549,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.266667,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       },
       {
-        "label": "4",
-        "face": "bottom",
+        "label": "3",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.357451,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.733333,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       }
     ]
   },
   "pushButtonXb2White": {
     "path": "/models/industriais/pushButtonXb2White.glb",
     "physicalSizeMm": {
-      "width": 29,
-      "height": 46.3,
-      "depth": 57.2
+      "width": 32.6,
+      "height": 30,
+      "depth": 58.7
     },
     "terminals": [
       {
-        "label": "3",
-        "face": "bottom",
+        "label": "4",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.642549,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.266667,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       },
       {
-        "label": "4",
-        "face": "bottom",
+        "label": "3",
+        "face": "back",
         "contact": "socket",
-        "x": 0.5,
-        "y": 0.357451,
-        "z": 0.352273,
+        "x": 0.644172,
+        "y": 0.733333,
+        "z": 0.069847,
         "diameterMm": 3.8,
-        "holeDepthMm": 2.4
+        "holeDepthMm": 5.2
       }
     ]
   },

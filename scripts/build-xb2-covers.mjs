@@ -31,7 +31,7 @@ function render(root, tint) {
   const up = new T.Vector3(0, 1, 0)
   const right = new T.Vector3().crossVectors(up, eye).normalize()
   const camUp = new T.Vector3().crossVectors(eye, right).normalize()
-  const scale = (SIZE * 0.9) / Math.max(size.x, size.y)
+  const scale = (SIZE * 0.9) / Math.max(size.x, size.y, size.z)
   const tris = []
   root.traverse(node => {
     if (!node.isMesh) return
@@ -41,7 +41,7 @@ function render(root, tint) {
     const name = node.name
     const m = node.material
     const base = new T.Color(m?.color?.getHex?.() ?? 0x888888)
-    if (name === 'industrial_xb2_cap_face') base.set(tint.cap)
+    if (name === 'industrial_xb2_cap') base.set(tint.cap)
     if (name === 'industrial_xb2_plunger') base.set(tint.contact)
     const metal = m?.metalness ?? 0
     const rough = m?.roughness ?? 0.6

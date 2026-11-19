@@ -54,7 +54,7 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
       if (node.name.startsWith('industrial_mico_button_') || node.name.startsWith('industrial_mico_select_')) node.userData.industrialMoving = true
     })
   }
-  // Botoeiras KEOLEA KL-XB2: a tampa Ø22,5 mm é a zona de pressão real.
+  // Botoeiras KEOLEA KL-XB2: o disco colorido do actuador é a zona de pressão real.
   if (type.startsWith('pushButtonXb2')) {
     root.traverse(node => {
       if (node.name === 'industrial_xb2_cap') node.userData.industrialControl = 'button'
@@ -200,17 +200,17 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
 }
 
 const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
-  timerGeyaGrt8M1: { industrial_fascia: 'geya-grt8-m-face.png' },
-  timerGeyaGrt8B1: { industrial_fascia: 'geya-grt8-b-face.png' },
+  timerGeyaGrt8M1: { industrial_fascia: 'geya-grt8-m-face.png', industrial_geya_side_r: 'geya-grt8-m-side-r.png', industrial_geya_side_l: 'geya-grt8-m-side-l.png' },
+  timerGeyaGrt8B1: { industrial_fascia: 'geya-grt8-b-face.png', industrial_geya_side_r: 'geya-grt8-b-side-r.png', industrial_geya_side_l: 'geya-grt8-b-side-l.png' },
   levelRelayAvel411: { industrial_avel_label: 'avel-411-face.png' },
   relayFinder5534: { industrial_finder_label: 'finder-5534-label.png' },
   buzzerMetaltexTby301: { industrial_metaltex_label: 'metaltex-tby-label.png' },
-  pushButtonXb2No: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
-  pushButtonXb2Black: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
-  pushButtonXb2Yellow: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
-  pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
-  pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
-  pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_side_rev_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_back: 'xb2-nc-back-baked.png' },
+  pushButtonXb2No: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
+  pushButtonXb2Black: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
+  pushButtonXb2Yellow: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
+  pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
+  pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
+  pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_side_rev_12: 'xb2-nc-etch-baked.png' },
   breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png' },
   vfdSchneiderAtv320: {
     industrial_schneider_logo: '../../brands/schneider-electric.svg',

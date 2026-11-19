@@ -178,16 +178,32 @@ async function geya(type){
   const x=-5.2+(i%3)*5.2,top=i<3,screwY=top?83.5:11.5
   // Keep each complete rim inside its stepped deck. The former 86.5/8.5 mm
   // centres cut across its edge and left half the cavity floating in space.
-  const p=[x,screwY,38];drill([body],'z',p,2.2,29,38.1)
-  terminal(root,'driver_'+label,...p,{r:2.2,depth:9,screw:false})
-  const screw=buildCaptiveTerminalScrew('geya_'+label,1.78);screw.position.set(x,screwY,34.1);root.add(screw)
+  const p=[x,screwY,38];drill([body],'z',p,2.4,28.5,38.1)
+  terminal(root,'driver_'+label,...p,{r:2.4,depth:9.6,screw:false})
+  // Parafuso cativo Pozidriv com a cabeça c. 7 mm dentro do poço (fotos:
+  // cabeça visível ao fundo do túnel de acesso da chave).
+  const screw=buildCaptiveTerminalScrew('geya_'+label,2.1);screw.position.set(x,screwY,30.6);root.add(screw)
   root.add(cylinder(.8,19,steel,'industrial_geya_screw_shank_'+label,[x,screwY,23.6]))
-  // Real conductor inlets are separate from the front screw/key access.
+  // Entrada do condutor em ranhura na face superior/inferior (a faixa de corpo
+  // de altura plena só existe em z 0..24; o grampo de cobre fica sob a ranhura).
+  // Corte único largo (r 2.6) e profundo, com prioridade de clipping sobre a
+  // tampa extrudida, para não deixar resíduos dentro do raio da boca (r 2.0).
+  drill([body],'y',[x,top?92.5:2.5,14],2.6,top?82.5:2.4,top?92.8:12.5)
+  root.add(box(3.4,1.2,9,copper,'industrial_geya_clamp_'+label,[x,top?83.9:11.0,14]))
   const mouth=[x,top?92.5:2.5,14]
-  drill([body],'y',mouth,1.75,top?83.5:2.4,top?92.6:11.5)
-  terms.push(terminal(root,label,...mouth,{r:1.75,depth:9,face:top?'top':'bottom'}))
+  terms.push(terminal(root,label,...mouth,{r:2.0,depth:8.6,face:top?'top':'bottom'}))
  }
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type==='timerGeyaGrt8M1'?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
+ // Paredes divisoras entre bornes nos degraus (separam os poços, como no real).
+ for(const dx of [-2.6,2.6]){
+  root.add(box(1,7.5,16,white,'industrial_geya_divider_top_'+dx,[dx,83.2,45]))
+  root.add(box(1,7,16,white,'industrial_geya_divider_bot_'+dx,[dx,11.8,45]))
+ }
+ // Patilha vermelha de desbloqueio da calha DIN, visível na frente inferior.
+ root.add(box(9,3.6,2.6,red,'industrial_geya_din_tab',[0,4,24.6]))
+ // Serigrafia lateral: diagramas de função/temporização (faces ±X do módulo).
+ const sideR=plane(58,53,white,'industrial_geya_side_r',[9.05,45.5,33]);sideR.rotation.y=Math.PI/2;root.add(sideR)
+ const sideL=plane(58,53,white,'industrial_geya_side_l',[-9.05,45.5,33]);sideL.rotation.y=-Math.PI/2;root.add(sideL)
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type==='timerGeyaGrt8M1'?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
 }
 
 async function avel(){
@@ -204,73 +220,101 @@ async function avel(){
 
 async function metaltex(){
  const type='buzzerMetaltexTby301',root=device(type),terms=[]
- // Corpo traseiro 47×47×36 mm (nas fotos tend o borne fica nesta caixa), gola de
- // transição Ø30, pescoço de passagem na chapa, aro cromado serrilhado Ø35 à frente
- // e tampa acústica preta com grelha de ranhuras.
+ // Corpo traseiro 47×47×36 mm. Face traseira (z=0) conforme foto IMG_5858:
+ // boss circular do magneto, 4 parafusos M4 com anilha nos cantos, parafuso
+ // central, etiqueta «BUZZER / AC110V / tend» e os 2 bornes na borda inferior.
  const body=box(47,47,36,dark,'industrial_tby_body',[0,0,18]);root.add(body)
- // Quatro parafusos M3 de montagem da tampa traseira (cabeças visíveis, fenda simples).
+ root.add(cylinder(16,2.4,mat('#2c2e28'),'industrial_tby_rear_dome',[0,5,-1.2]))
  for(const[px,py]of [[-19.5,-19.5],[19.5,-19.5],[-19.5,19.5],[19.5,19.5]]){
-  const head=cylinder(2.6,1.1,steel,'industrial_tby_screw',[px,py,-0.55]);root.add(head)
-  const slot=box(4.2,.7,.24,black,'industrial_tby_screw_slot',[px,py,-1.08]);root.add(slot)
+  root.add(cylinder(4.1,.55,steel,'industrial_tby_washer',[px,py,-0.28]))
+  root.add(cylinder(3.1,1.7,steel,'industrial_tby_screw',[px,py,-1.35]))
+  const slot=box(4.6,.8,.3,black,'industrial_tby_screw_slot',[px,py,-2.22]);root.add(slot)
  }
- // Etiqueta do fabricante na traseira, entre os parafusos (foto IMG_5858).
- const sticker=plane(28,20,white,'industrial_metaltex_label',[0,0,-1.02]);sticker.rotation.y=Math.PI;root.add(sticker)
+ // Parafuso central da tampa (fenda simples), por cima da etiqueta.
+ root.add(cylinder(2.2,1.3,steel,'industrial_tby_screw_center',[0,10,-0.65]))
+ const cslot=box(3.4,.6,.26,black,'industrial_tby_screw_center_slot',[0,10,-1.32]);root.add(cslot)
+ // Etiqueta do fabricante na traseira, entre o parafuso central e os bornes.
+ const sticker=plane(26,13,white,'industrial_metaltex_label',[0,-5,-0.06]);sticker.rotation.y=Math.PI;root.add(sticker)
+ // Bornes de parafuso na borda inferior da traseira (1 à esquerda, 2 à direita),
+ // com poço, contacto de latão e cabeça Pozidriv dentro do poço.
+ for(const[label,tx]of [['1',-12],['2',12]]){
+  drill([body],'z',[tx,-17,-18],2.3,-18.1,-12.4)
+  terms.push(terminal(root,label,tx,-17,0,{r:2.3,depth:5.6,face:'back'}))
+  const screw=buildCaptiveTerminalScrew('tby_'+label,1.8);screw.rotation.y=Math.PI;screw.position.set(tx,-17,-4.6);root.add(screw)
+ }
+ // Pescoço Ø30 de passagem na chapa e transição cónica a partir do corpo.
  const shoulder=cylinder(16.5,8,dark,'industrial_tby_shoulder',[0,0,40]);root.add(shoulder)
  root.add(cylinder(15,14,dark,'industrial_tby_neck',[0,0,51]))
- // Aro de aperto serrilhado (estrias radiais visíveis na foto).
- const bezel=cylinder(17.5,3,nickel,'industrial_tby_bezel',[0,0,59.5]);root.add(bezel)
- for(let i=0;i<36;i++){const a=i/36*Math.PI*2,knurl=box(1.1,1.1,3,zamac,'industrial_tby_bezel_knurl_'+i,[Math.cos(a)*17.4,Math.sin(a)*17.4,59.5]);knurl.rotation.z=a;root.add(knurl)}
- root.add(cylinder(12.5,9.5,black,'industrial_tby_horn',[0,0,64.75]))
- // Grelha côncava com furos reais atravessados na tampa (não é uma lente luminosa).
- const holes=[];for(let x=-7.5;x<=7.5;x+=3)for(let y=-7.5;y<=7.5;y+=3)if(x*x+y*y<85)holes.push([x,y,.8])
- const grille=shapePlate(21,21,.5,holes,dark,'industrial_tby_grille',[0,0,69]);root.add(grille)
- for(const[label,y]of [['1',-6.5],['2',6.5]]){drill([body],'z',[0,y,-18],2.1,-18.1,-13);terms.push(terminal(root,label,0,y,0,{r:2.1,depth:5,face:'back'}))}
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf',changes:'47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø35 knurled chrome bezel and Ø25 acoustic mouth with recessed grille; four rear M3 cover screws; maker sticker relocated to the rear face as in the user photographs («tend / BUZZER / AC110V»); two rear screw connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.'})
+ // Porca de aperto frontal Ø36 serrilhada fina (foto IMG_5859: estrias verticais densas).
+ const bezel=cylinder(18,6,nickel,'industrial_tby_bezel',[0,0,58]);root.add(bezel)
+ for(let i=0;i<48;i++){const a=i/48*Math.PI*2,knurl=box(.75,.75,6.2,zamac,'industrial_tby_bezel_knurl_'+i,[Math.cos(a)*17.9,Math.sin(a)*17.9,58]);knurl.rotation.z=a;root.add(knurl)}
+ // Tampa acústica preta: base cilíndrica Ø28, rebordo com 12 estrias radiais
+ // verticais (foto IMG_5859) e cúpula central suave.
+ root.add(cylinder(14,7.4,black,'industrial_tby_horn',[0,0,64.3]))
+ for(let i=0;i<12;i++){const a=i/12*Math.PI*2,r=box(1.3,1.3,6.4,black,'industrial_tby_ridge_'+i,[Math.cos(a)*13.9,Math.sin(a)*13.9,65]);r.rotation.z=a;root.add(r)}
+ const dome=new T.Mesh(new T.SphereGeometry(13.2,32,10,0,Math.PI*2,0,Math.PI/2.7),black)
+ dome.name='industrial_tby_dome';dome.scale.set(1,.4,1);dome.rotation.x=Math.PI/2;dome.position.set(0,0,67.6);root.add(dome)
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf',changes:'47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø36 finely knurled chrome front nut, Ø28 acoustic cap with dome and 8 radial slots (photo IMG_5859). Rear face per photo IMG_5858: circular magnet boss, four M4 corner screws with washers, centre screw, «BUZZER / AC110V / tend» sticker between centre screw and the two bottom-edge screw terminals (1 left, 2 right) with recessed Pozidriv heads. Sound is synthesized, not a recording or calibrated SPL.'})
 }
 
 /**
  * Botoeira Ø22 mm KEOLEA KL-XB2 (padrão XB2-BA). Reconstrução cotada das fotos
- * do utilizador (IMG_5853–5857): cabeça metálica com aro serrilhado Ø29 mm,
- * anel de fixação, tampa redonda da cor do actuador e bloco de contactos
- * NO (verde, 3-4) ou NC (vermelho, 1-2) com serigrafia elétrica nas faces.
- * Posição de instalação: cabeça virada para +Z (fora da chapa), contactos atrás.
+ * do utilizador: IMG_5854 (desenho cotado: cabeça metálica Ø29, 22 mm cabeça,
+ * 55 mm total, 43 mm placa→fundo), IMG_5853/5856/5857 (bloco de contacto com
+ * serigrafia CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5)
+ * e IMG_5855 (bornes de parafuso na face traseira: NF 1-2 à esquerda, NA 4-3 à
+ * direita, condutores por cima/baixo).
+ * Eixo do aparelho = Z: z=0 face traseira do bloco de contacto; cabeça em +Z.
+ * Pilha: bloco 33 mm + placa de zamak 10 mm + cabeça 12 mm = 55 mm totais.
  */
 async function xb2(type){
  const root=device(type),terms=[]
- // Família KEOLEA KL-XB2: 6 cores de cabeça, corpo metálico cromado e bloco de contacto
- // preto com êmbolo colorido por função (verde=NA 3-4, vermelho=NF 1-2).
  const capColor={No:mat('#16a34a'),Nc:mat('#dc2626'),Black:mat('#1f2937'),Yellow:mat('#eab308'),Blue:mat('#2563eb'),White:mat('#f8fafc')}[type.replace('pushButtonXb2','')]
- const plungerColor=type==='pushButtonXb2No'||type==='pushButtonXb2Black'||type==='pushButtonXb2Yellow'||type==='pushButtonXb2Blue'||type==='pushButtonXb2White'?green:red
- const contactColor=black
- // Tampa Ø22,5 mm: corpo metálico com disco superior colorido.
- root.add(cylinder(11.25,9.5,zamac,'industrial_xb2_cap',[0,0,42.15]))
- root.add(cylinder(10.8,1.2,capColor,'industrial_xb2_cap_face',[0,0,47.45]))
- for(let i=0;i<28;i++){const a=i/28*Math.PI*2,knurl=box(1.05,1.05,2.1,zamac,'industrial_xb2_bezel_knurl_'+i,[Math.cos(a)*13.35,Math.sin(a)*13.35,37.6]);knurl.rotation.z=a;root.add(knurl)}
- root.add(cylinder(14.5,2.6,nickel,'industrial_xb2_bezel',[0,0,36.6]))
- // Parafuso de fixação lateral embutido na parede da cabeça (centro no eixo do anel).
- const fixing=buildCaptiveTerminalScrew('xb2_fixing',1.0);fixing.position.set(13.2,0,36.0);root.add(fixing)
- // Furo Ø22 mm na chapa; porca de aperto atrás.
- root.add(cylinder(11,22,dark,'industrial_xb2_body',[0,0,24]))
- root.add(cylinder(13.5,4.5,nickel,'industrial_xb2_locknut',[0,0,15.8]))
- for(let i=0;i<24;i++){const a=i/24*Math.PI*2,knurl=box(1.1,1.1,4.5,zamac,'industrial_xb2_locknut_knurl_'+i,[Math.cos(a)*13.6,Math.sin(a)*13.6,15.8]);knurl.rotation.z=a;root.add(knurl)}
- // Bloco de contactos cúbico 22×46×22 mm em poliamida preta.
- root.add(box(22,46,22,contactColor,'industrial_xb2_contact',[0,0,2]))
- // Êmbolo de comando colorido no topo do bloco (indica a função elétrica).
- root.add(cylinder(6,2.2,plungerColor,'industrial_xb2_plunger',[0,0,24.9]))
- // Serigrafia elétrica nas faces laterais (Ui 660V / Ith 10A / AC-15 / DC-13 / diagrama).
- const pair=type==='pushButtonXb2No'||type==='pushButtonXb2Black'||type==='pushButtonXb2Yellow'||type==='pushButtonXb2Blue'||type==='pushButtonXb2White'?'34':'12'
- const etch=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_'+pair,[0,23.15,2]);etch.rotation.x=Math.PI/2;root.add(etch)
- const etch2=plane(19.6,17.6,polyamide,'industrial_xb2_etch_side_rev_'+pair,[0,-23.15,2]);etch2.rotation.x=-Math.PI/2;root.add(etch2)
- const backPlate=plane(19.6,19.6,polyamide,'industrial_xb2_etch_back',[0,0,-9.15]);backPlate.rotation.y=Math.PI;root.add(backPlate)
- // Bornes 1-2 (NC) ou 3-4 (NO) com cabeça de parafuso Pozidriv; bornes ficam no topo do bloco.
- const labels=pair==='34'?['3','4']:['1','2']
- for(const[label,y]of [[labels[0],-6.6],[labels[1],6.6]]){
-  drill([root.getObjectByName('industrial_xb2_contact')],'z',[0,y,11],1.9,8.6,11.1)
-  terms.push(terminal(root,label,0,y,11,{r:1.9,depth:2.4,face:'bottom',contact:'socket'}))
-  const head=buildCaptiveTerminalScrew('xb2_'+label,1.35);head.position.set(0,y,9.6);root.add(head)
-  const pin=cylinder(1.5,8.2,copper,'industrial_xb2_pin_'+label,[0,y,4.4]);root.add(pin)
+ const isNc=type==='pushButtonXb2Nc'
+ const pair=isNc?'12':'34'
+ // Bloco de contactos em poliamida preta 24×27×33 mm (largo×alto×fundo).
+ const block=box(24,27,33,black,'industrial_xb2_contact',[0,0,16.5]);root.add(block)
+ // Patilha metálica de retenção na borda inferior da face traseira (fotos do bloco).
+ root.add(box(4,1.8,2.6,steel,'industrial_xb2_latch',[0,-13.2,1.4]))
+ // Bornes de parafuso na face traseira (z=0), uma coluna por bloco:
+ // NF à esquerda (1 em cima, 2 em baixo), NA à direita (4 em cima, 3 em baixo).
+ const col=isNc?-6:6,labels=isNc?['1','2']:['4','3']
+ for(const[label,wy]of [[labels[0],7],[labels[1],-7]]){
+  // Poço do borne na face traseira (coords locais do bloco: z=0 mundo → −16.5 local).
+  drill([block],'z',[col,wy,-16.5],1.9,-16.7,-11.4)
+  terms.push(terminal(root,label,col,wy,0,{r:1.9,depth:5.2,face:'back'}))
+  const screw=buildCaptiveTerminalScrew('xb2_'+label,1.5);screw.rotation.y=Math.PI;screw.position.set(col,wy,-4.1);root.add(screw)
+  // Entrada do condutor por cima (1/4) ou por baixo (2/3), ao encontro do poço.
+  const top=wy>0
+  drill([block],'y',[col,0,-12.3],1.7,top?7.4:-13.6,top?13.6:-7.4)
  }
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.'})
+ // Serigrafia branca nas duas faces laterais grandes (24×33 mm): texto lê-se com
+ // a cabeça para cima (+Z). Plano 21×30 mm, textura 240×340 regenerada offline.
+ const etch=plane(21,30,polyamide,'industrial_xb2_etch_side_'+pair,[0,13.65,16.5]);etch.rotation.set(-Math.PI/2,0,Math.PI);root.add(etch)
+ const etch2=plane(21,30,polyamide,'industrial_xb2_etch_side_rev_'+pair,[0,-13.65,16.5]);etch2.rotation.set(Math.PI/2,0,0);root.add(etch2)
+ // Placa média de zamak 30×30×10 mm (z 33..43) com aro de assentamento da cabeça.
+ root.add(box(30,30,10,zamac,'industrial_xb2_plate',[0,0,38]))
+ root.add(cylinder(12.5,1.6,nickel,'industrial_xb2_plate_seat',[0,0,43.2]))
+ // Parafuso de fixação lateral: espiga roscada + porca sextavada + anilha, à
+ // direita da cabeça, entre a placa e a coroa (espreita sob a aba da cabeça).
+ root.add(cylinder(2.4,11,steel,'industrial_xb2_fixing_stud',[13.2,0,48.5]))
+ root.add(cylinder(4.2,2.2,nickel,'industrial_xb2_fixing_nut',[13.2,0,44.2],'z',6))
+ root.add(cylinder(4.4,.55,steel,'industrial_xb2_fixing_washer1',[13.2,0,45.8]))
+ root.add(cylinder(4.4,.55,steel,'industrial_xb2_fixing_washer2',[13.2,0,46.7]))
+ // Vedação negra entre a placa e a cabeça.
+ root.add(cylinder(12,1.4,black,'industrial_xb2_gasket',[0,0,43.6]))
+ // Cabeça metálica cromada Ø29 (z 43..53): corpo + aro superior com o rebaixo
+ // onde assenta o disco colorido (o disco é o actuador móvel, ±2 mm de curso).
+ root.add(cylinder(14.5,10,nickel,'industrial_xb2_head',[0,0,48]))
+ const ringShape=new T.Shape();ringShape.absarc(0,0,14.5,0,Math.PI*2,false)
+ const ringHole=new T.Path();ringHole.absarc(0,0,12.6,0,Math.PI*2,true);ringShape.holes.push(ringHole)
+ const ring=new T.Mesh(new T.ExtrudeGeometry(ringShape,{depth:1.5,bevelEnabled:false,curveSegments:40}),nickel)
+ ring.name='industrial_xb2_bezel';ring.position.set(0,0,52.6);root.add(ring)
+ // Disco colorido do actuador (é o «cap» que o 3D prime; afunda 2 mm ao premir).
+ root.add(cylinder(12.5,2.6,capColor,'industrial_xb2_cap',[0,0,53.3]))
+ // Garganta de ligação cabeça↔placa (pescoço cromado visível na junção).
+ root.add(cylinder(11.5,2.4,nickel,'industrial_xb2_collar',[0,0,43.9]))
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.'})
 }
 
 // Murrelektronik MICO Classic 4.6 (9000-41034-0100600): proteção eletrónica 24 V DC,

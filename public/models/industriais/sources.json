@@ -100,54 +100,6 @@
       "sha256": "1331b5c0943e6742451f06fcb5d3a10bc860711e7ba69d4e28092fbe2bd09a6a"
     },
     {
-      "type": "timerGeyaGrt8M1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "physicalSizeMm": {
-        "width": 18,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 338188,
-      "sha256": "c5d87a2e72eeac38a8c9c692536eeab02b22b1573667f59e54101e74086eaedb"
-    },
-    {
-      "type": "timerGeyaGrt8B1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlets, distinct from fully enclosed front screw wells; recessed captive screws with geometric cross slots. Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "physicalSizeMm": {
-        "width": 18,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 330104,
-      "sha256": "9cc41ec87af397a7bcbc85cb47b7582910e53ad6fab5b1be27fb0d2211c74950"
-    },
-    {
-      "type": "buzzerMetaltexTby301",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf",
-      "changes": "47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø35 knurled chrome bezel and Ø25 acoustic mouth with recessed grille; four rear M3 cover screws; maker sticker relocated to the rear face as in the user photographs («tend / BUZZER / AC110V»); two rear screw connections. Printed brand cropped from actual PDF; nominal 110 V AC label reconstructed. Sound is synthesized, not a recording or calibrated SPL.",
-      "physicalSizeMm": {
-        "width": 47,
-        "height": 47,
-        "depth": 70.7
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 435300,
-      "sha256": "57e90f4c83d9a29c4f4c8fa095ee9b57ed5588edfde2134adb6ac3bf01261357"
-    },
-    {
       "type": "vfdSchneiderAtv320",
       "kind": "adapted-manufacturer-CAD",
       "source": "https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip",
@@ -166,102 +118,6 @@
       "sha256": "883b39835bf42e3429f2ac707f8369674fe0c42c5f6de1538a7d8ef777fe7b7e"
     },
     {
-      "type": "pushButtonXb2No",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 57.2
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 242632,
-      "sha256": "ce846c02a79478eef0d694c09ddb03ed9950b2d5cbb85bfb3229dcfef2829b27"
-    },
-    {
-      "type": "pushButtonXb2Nc",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 57.2
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 242636,
-      "sha256": "41dc116155585cd54054a67f48abe43587fc6adb8f08b321fa084456bb791396"
-    },
-    {
-      "type": "pushButtonXb2Black",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 57.2
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 242640,
-      "sha256": "0b54b7fd90546777ac2034c2529001a627a339eb589fca962fd0f789e1caaf90"
-    },
-    {
-      "type": "pushButtonXb2Yellow",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 57.2
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 242636,
-      "sha256": "1ee752ac2b6fd0c4a5e4408a2bb0563a2b09383d7560ae663ac81a0abadd3a1c"
-    },
-    {
-      "type": "pushButtonXb2Blue",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 57.2
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 242636,
-      "sha256": "4850d9431bac5c6090d580b985b1e047dc3ad5031ed541ad3962882e0721f177"
-    },
-    {
-      "type": "pushButtonXb2White",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 29,
-        "height": 46.3,
-        "depth": 57.2
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 242636,
-      "sha256": "e1c67f18df1f03cfc1e40001b97f849afd244c3eb9b589ed6b8125ba98220953"
-    },
-    {
       "type": "breakerMurrelektronikMico46",
       "kind": "dimensioned-reconstruction",
       "source": "https://media.automation24.com/manual/101523.pdf",
@@ -276,6 +132,150 @@
       "pins": 0,
       "bytes": 175188,
       "sha256": "a3c682ca9e41873483ebf67a00b3d50703c5476f830879bd762acb25df2a0180"
+    },
+    {
+      "type": "pushButtonXb2No",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 32.6,
+        "height": 30,
+        "depth": 58.7
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 161952,
+      "sha256": "f06b12d943268fe91dfab3e0e9c8d3c9188698f03c4fb2b48d72806365e140f7"
+    },
+    {
+      "type": "pushButtonXb2Nc",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 32.6,
+        "height": 30,
+        "depth": 58.7
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 162488,
+      "sha256": "5499095e464b327d30e50ebe7b48a7ce9efbdef06aa5536804c64267fa777798"
+    },
+    {
+      "type": "pushButtonXb2Black",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 32.6,
+        "height": 30,
+        "depth": 58.7
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 161960,
+      "sha256": "af177d2f2dfa926aeef6a70725d98382d249f2c07c4108fe30f102b1946a684f"
+    },
+    {
+      "type": "pushButtonXb2Yellow",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 32.6,
+        "height": 30,
+        "depth": 58.7
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 161956,
+      "sha256": "f8d075eb1bd1fbb68642c528c199fc66d06e925c94dab1a2fe69d73aa385eb05"
+    },
+    {
+      "type": "pushButtonXb2Blue",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 32.6,
+        "height": 30,
+        "depth": 58.7
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 161956,
+      "sha256": "178bd958e2c43d6654bb15fdef979b9edd310dba851227babd7c87a476093d05"
+    },
+    {
+      "type": "pushButtonXb2White",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 32.6,
+        "height": 30,
+        "depth": 58.7
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 161956,
+      "sha256": "4d28570da89d06942b00809862cda916e9b335c92a4eeac84c0e3355e9dbf110"
+    },
+    {
+      "type": "buzzerMetaltexTby301",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf",
+      "changes": "47×47 mm rear body, nominal 69.5 mm depth; Ø30 panel neck, Ø36 finely knurled chrome front nut, Ø28 acoustic cap with dome and 8 radial slots (photo IMG_5859). Rear face per photo IMG_5858: circular magnet boss, four M4 corner screws with washers, centre screw, «BUZZER / AC110V / tend» sticker between centre screw and the two bottom-edge screw terminals (1 left, 2 right) with recessed Pozidriv heads. Sound is synthesized, not a recording or calibrated SPL.",
+      "physicalSizeMm": {
+        "width": 47.2,
+        "height": 47.2,
+        "depth": 77.48
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 296160,
+      "sha256": "bdc4e3a36f01a313664fc2a6448e64a8c025f3b84c09b50527d0d18d874d6a5c"
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "physicalSizeMm": {
+        "width": 18.1,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 361712,
+      "sha256": "56837ad0bda19696d5231a3c0561952aa845ffab40b159606c8b2cec1f1b783d"
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "physicalSizeMm": {
+        "width": 18.1,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 353624,
+      "sha256": "b5ec2f4db41f08c0afb252469e109c5de82bc3993968747f3ec5f065d68e3bd8"
     }
   ]
 }
