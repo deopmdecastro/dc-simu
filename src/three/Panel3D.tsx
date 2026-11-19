@@ -1768,8 +1768,12 @@ function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; on
   const pressed = !!c.state.pressed
   const isEmg = c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
   const isNC = c.type === 'buttonNC'
-  const color = isEmg ? '#dc2626' : isNC ? '#ef4444' : c.type === 'buttonNO' ? '#22c55e' : '#eab308'
-  const r = isEmg ? 0.17 : 0.1
+  // Cor do estado (permite botões coloridos via state.color) ou fallback por tipo.
+  const color = (typeof c.state.color === 'string' && c.state.color) || (isEmg ? '#dc2626' : isNC ? '#ef4444' : c.type === 'buttonNO' ? '#22c55e' : '#eab308')
+  // Cotas aproximadas Ø29 cabeça / furação 22 mm (imagem de referência KEOLEA).
+  const headR = isEmg ? 0.17 : 0.145
+  const bezelR = headR + 0.018
+  const baseW = isEmg ? 0.38 : 0.32
   // Curso com mola: afunda depressa, regressa com ligeiro ressalto (emergência mantém-se travada em baixo).
   const cap = useRef<THREE.Mesh>(null)
   const spring = useRef<SpringState>({ value: pressed ? 1 : 0, velocity: 0 })
@@ -1777,24 +1781,52 @@ function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; on
     if (!cap.current) return
     const latched = isEmg && pressed
     stepSpring(spring.current, pressed || latched ? 1 : 0, delta, pressed ? 'smooth' : 'snap', pressed ? 70 : 220)
-    cap.current.position.y = -0.05 * spring.current.value
+    cap.current.position.y = -0.055 * spring.current.value
   })
+  const metal = { color: '#c8ccd0', metalness: 0.82, roughness: 0.28 }
+  const bodyMat = { color: '#2a2e32', metalness: 0.25, roughness: 0.55 }
   return (
     <group position={[x, RAIL_Y + 1.05, 0.4]}>
-      <mesh castShadow position={[0, -0.06, -0.05]}>
-        <cylinderGeometry args={[r + 0.03, r + 0.03, 0.05, 20]} />
-        <meshStandardMaterial color="#111827" />
+      {/* Corpo / base zinc alloy + contact block silhouette */}
+      <mesh castShadow position={[0, -0.22, 0]}>
+        <boxGeometry args={[baseW, 0.28, baseW * 0.85]} />
+        <meshStandardMaterial {...bodyMat} />
       </mesh>
+      {/* Placa de fixação / medium plate */}
+      <mesh position={[0, -0.05, 0]} castShadow>
+        <boxGeometry args={[baseW * 1.05, 0.04, baseW * 0.95]} />
+        <meshStandardMaterial {...metal} />
+      </mesh>
+      {/* Anel metálico (metal head / bezel) */}
+      <mesh position={[0, 0.02, 0]} castShadow>
+        <cylinderGeometry args={[bezelR, bezelR, 0.035, 32]} />
+        <meshStandardMaterial {...metal} />
+      </mesh>
+      {/* Cabeça colorida (pressionável) */}
       <mesh
         ref={cap}
-        position={[0, pressed ? -0.05 : 0, 0]}
+        position={[0, pressed ? -0.03 : 0.04, 0]}
         onPointerDown={(event) => pressWhileHeld(event, () => onPress(true), () => onPress(false))}
-        onPointerOut={() => pressed && onPress(false)}
+        onPointerOut={() => pressed && !isEmg && onPress(false)}
+        castShadow
       >
-        <cylinderGeometry args={[r, r, 0.1, 24]} />
-        <meshStandardMaterial color={color} emissive={pressed ? color : '#000'} emissiveIntensity={pressed ? 0.6 : 0} roughness={0.35} metalness={0.05} />
+        <cylinderGeometry args={[headR, headR * 0.98, 0.09, 32]} />
+        <meshStandardMaterial color={color} emissive={pressed ? color : '#000'} emissiveIntensity={pressed ? 0.45 : 0} roughness={0.32} metalness={0.08} />
       </mesh>
-      <Label text={c.ref} position={[0, 0.17, 0]} />
+      {/* Poços de borne (vista frontal inferior) — referência NO/NC */}
+      {[[-0.08, -0.28], [0.08, -0.28]].map(([tx, ty], i) => (
+        <group key={i} position={[tx, ty, baseW * 0.42]}>
+          <mesh>
+            <cylinderGeometry args={[0.018, 0.018, 0.04, 12]} />
+            <meshStandardMaterial color="#1f2326" />
+          </mesh>
+          <mesh position={[0, 0, 0.012]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.012, 12]} />
+            <meshStandardMaterial color="#b8bcc0" metalness={0.7} roughness={0.35} />
+          </mesh>
+        </group>
+      ))}
+      <Label text={c.ref} position={[0, 0.22, 0]} />
     </group>
   )
 }

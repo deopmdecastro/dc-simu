@@ -576,9 +576,11 @@ let sounderGain:GainNode|null=null
 let sounderFilter:BiquadFilterNode|null=null
 function stopSounderNodes():void{
  const osc=sounderOsc,gain=sounderGain,filter=sounderFilter
+ const lfo=(osc as unknown as {__lfo?:OscillatorNode}|null)?.__lfo
  sounderOsc=null;sounderGain=null;sounderFilter=null
  try{osc?.stop()}catch{/* já parado */}
- osc?.disconnect();gain?.disconnect();filter?.disconnect()
+ try{lfo?.stop()}catch{/* já parado */}
+ osc?.disconnect();lfo?.disconnect();gain?.disconnect();filter?.disconnect()
 }
 function updateSounder():void{
  if(!sounderWanted||!enabled){stopSounderNodes();return}
@@ -586,12 +588,21 @@ function updateSounder():void{
  // contexto já autorizado por gesto (RUN, clique/tecla) pode produzir som.
  if(!ctx||ctx.state!=='running'||sounderOsc)return
  try{
+  // Piezo industrial típico (~2.7–3.2 kHz, harmónicos, leve saturado).
+  // Tom didático contínuo; não é medição SPL nem gravação do TBY-301.
   const osc=ctx.createOscillator(),filter=ctx.createBiquadFilter(),gain=ctx.createGain()
-  osc.type='square';osc.frequency.value=1850
-  filter.type='lowpass';filter.frequency.value=4200;filter.Q.value=.65
-  gain.gain.setValueAtTime(0,ctx.currentTime);gain.gain.linearRampToValueAtTime(.035,ctx.currentTime+.025)
+  const lfo=ctx.createOscillator(),lfoGain=ctx.createGain()
+  osc.type='square';osc.frequency.value=2850
+  lfo.type='sine';lfo.frequency.value=6.5
+  lfoGain.gain.value=35
+  lfo.connect(lfoGain);lfoGain.connect(osc.frequency)
+  filter.type='bandpass';filter.frequency.value=3200;filter.Q.value=2.8
+  gain.gain.setValueAtTime(0,ctx.currentTime);gain.gain.linearRampToValueAtTime(.028,ctx.currentTime+.018)
   osc.connect(filter);filter.connect(gain);gain.connect(ctx.destination)
-  sounderOsc=osc;sounderFilter=filter;sounderGain=gain;osc.start()
+  sounderOsc=osc;sounderFilter=filter;sounderGain=gain
+  osc.start();lfo.start()
+  // Guard LFO for stop (attached to osc userData for cleanup)
+  ;(osc as unknown as {__lfo?:OscillatorNode}).__lfo=lfo
  }catch{stopSounderNodes()}
 }
 export function syncIndustrialSounders(components:ElectricalComponent[]):void{
