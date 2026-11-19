@@ -94,6 +94,10 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   breaker3p: { width: 54, height: 84.5, depth: 75.44 },
   /** Easy9 4P: 4 módulos de 17,7 mm ≈ 70,8 mm; mesma altura/profundidade dos 1P–3P. */
   breaker4p: { width: 70.8, height: 84.5, depth: 75.44 },
+  /** Easy9 Switch (EZ9S): medido no STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm). */
+  switchSchneiderEz9s1p: { width: 18, height: 81, depth: 66.5 },
+  switchSchneiderEz9s2p: { width: 36, height: 81, depth: 66.5 },
+  switchSchneiderEz9s4p: { width: 72, height: 81, depth: 66.5 },
   /** Genérico DR 4P: mesmo envelope do Easy9 4P (4 módulos). */
   residualBreaker: { width: 70.8, height: 84.5, depth: 75.44 },
   /** Genérico QM 3P: mesmo envelope do Easy9 3P (3 módulos). */
