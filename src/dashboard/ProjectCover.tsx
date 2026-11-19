@@ -161,7 +161,8 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
             </g>
           )
         })}
-        {preview.wires.map((w, i) => (
+        {/* Em projetos densos os fios 2D escondem as miniaturas 3D dos aparelhos reais. */}
+        {(preview.wires.length <= 18 ? preview.wires : []).map((w, i) => (
           <path key={`w${i}`} d={coverWirePath(w, i, stroke)} fill="none" stroke={wireColor(w.c)} strokeWidth={stroke * 1.5} strokeLinejoin="round" strokeLinecap="round" opacity=".9" />
         ))}
         {devices.map((c) => c.p.map((pt, k) => <circle key={`${c.ref}${k}${pt[0]}`} cx={pt[0]} cy={pt[1]} r={stroke * 1.7} className="dx-cover-pin" />))}

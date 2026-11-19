@@ -55,23 +55,35 @@ function relTime(iso: string) {
   return rtf.format(Math.round(diff / (86400 * 365)), 'year')
 }
 
-/** Capa fotorealista do projeto nativo retido (partida direta). */
-const NATIVE_PARTIDA_COVER = '/project-covers/native-partida.jpg'
+/** Capa 3D capturada localmente do canvas do projeto (vista real do editor). */
+const LOCAL_COVER_PREFIX = 'dcsimu:project-cover:v1:'
 
-/** Aplica capa realista ao projeto nativo quando ainda não há JPEG 3D guardado. */
+function readLocalProjectCover(id: string): string | undefined {
+  try {
+    if (typeof localStorage === 'undefined') return undefined
+    const value = localStorage.getItem(LOCAL_COVER_PREFIX + id)
+    return typeof value === 'string' && value.startsWith('data:image/jpeg') && value.length <= 420_000 ? value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Preferir JPEG 3D real do canvas (conteúdo ou captura local); nunca uma imagem genérica. */
 function withNativeCover(p: Project): Project {
-  if (!isFreeNativeProjectId(p.id) && p.owner !== 'Projeto nativo') return p
-  const preview = p.preview
-  if (preview?.cover && preview.cover.startsWith('data:image/jpeg')) return p
+  const fromContent = p.preview?.cover && p.preview.cover.startsWith('data:image/jpeg') ? p.preview.cover : undefined
+  const fromLocal = readLocalProjectCover(p.id)
+  const cover = fromContent || fromLocal
+  if (!cover) return p
+  if (p.preview?.cover === cover) return p
   return {
     ...p,
     preview: {
-      components: preview?.components ?? [],
-      wires: preview?.wires ?? [],
-      stats: preview?.stats,
-      kind: preview?.kind ?? 'all',
-      flow: preview?.flow,
-      cover: NATIVE_PARTIDA_COVER,
+      components: p.preview?.components ?? [],
+      wires: p.preview?.wires ?? [],
+      stats: p.preview?.stats,
+      kind: p.preview?.kind ?? 'all',
+      flow: p.preview?.flow,
+      cover,
     },
   }
 }

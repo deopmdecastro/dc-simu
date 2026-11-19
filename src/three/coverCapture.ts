@@ -78,3 +78,15 @@ export function coverForExport(): string | null {
 export function canCaptureCover() {
   return !!capture
 }
+
+
+/** Guarda a captura 3D do canvas para o cartão do dashboard (local por projeto). */
+const LOCAL_COVER_PREFIX = 'dcsimu:project-cover:v1:'
+export function saveLocalProjectCover(projectId: string, dataUrl: string | null | undefined): void {
+  if (!projectId || !dataUrl || !dataUrl.startsWith('data:image/jpeg')) return
+  if (dataUrl.length > COVER_MAX_CHARS) return
+  try {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(LOCAL_COVER_PREFIX + projectId, dataUrl)
+  } catch { /* quota / private mode */ }
+}

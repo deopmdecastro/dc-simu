@@ -8,7 +8,7 @@ import RouteLoading from './ui/RouteLoading'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import type { User, Project, Invite } from './dashboard/Dashboard'
 import { setViewer } from './auth/viewer'
-import { COVER_VERSION, canCaptureFreshCover, captureCover, hasStoredCover, setStoredCover, storedCoverVersion } from './three/coverCapture'
+import { COVER_VERSION, canCaptureFreshCover, captureCover, hasStoredCover, setStoredCover, storedCoverVersion, saveLocalProjectCover } from './three/coverCapture'
 import { flowCoverDataUrl } from './dashboard/flowCover'
 import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
@@ -191,7 +191,11 @@ export default function Account() {
     const wants3d = s.projectKind === 'all' || s.projectKind === 'schematic' || !s.projectKind
     if (wants3d) {
       const scene = captureCover()
-      if (scene) return scene
+      if (scene) {
+        const id = openRef.current?.id
+        if (id) saveLocalProjectCover(id, scene)
+        return scene
+      }
     }
     try {
       const flow = await flowCoverDataUrl({ kind: s.projectKind, rungs: s.ladder.rungs, grafcet: s.grafcet, name })
@@ -327,6 +331,13 @@ export default function Account() {
       openRef.current = entry
       setOpen(entry)
       setPage('editor')
+      // Após a cena 3D montar, captura a vista real do canvas para o cartão do dashboard.
+      window.setTimeout(() => {
+        if (openRef.current?.id !== entry.id) return
+        if (!canCaptureFreshCover()) return
+        const scene = captureCover()
+        if (scene) saveLocalProjectCover(entry.id, scene)
+      }, 4500)
     } catch (value) {
       error(value)
     }
