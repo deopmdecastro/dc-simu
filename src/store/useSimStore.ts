@@ -113,6 +113,7 @@ import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { findMountTarget, isThermalRelay, syncMounted } from '../three/thermalMount'
+import { findSocketMountTarget, isPlugInRelay, isRelaySocket, relaySocketMountPosition, syncSocketMounted } from '../three/relaySocketMount'
 import {
   combConnectorMountPosition,
   combMountPosition,
@@ -531,6 +532,10 @@ interface Store extends CircuitState {
   mountCombConnector: (connectorId: string, breakerId?: string, socketLabel?: string) => void
   /** Desencaixa conector de alimentação tipo pino. */
   unmountCombConnector: (connectorId: string) => void
+  /** Encaixa o relé plug-in (AVEL 411) na base undecal Finder 90.23 (ou na livre mais próxima). */
+  mountRelayOnSocket: (relayId: string, socketId?: string) => void
+  /** Desencaixa o relé plug-in da base, deixando-o livre ao lado. */
+  unmountRelayFromSocket: (relayId: string) => void
   /** Cria X1..XN ao longo da mesma calha DIN (clona o borne selecionado). Se hierarchical, usa X1.0, X1.1… (ou startIndex: 1 → X1.1, X1.2…). */
   createTerminalStrip: (componentId: string, count: number, opts?: { hierarchical?: boolean; startIndex?: 0 | 1 }) => void
   /** Acrescenta bornes (ex.: +1, +N, +PE, +24V, 0V) à direita da régua atual, encaixados na mesma calha e agrupados automaticamente. */
@@ -3135,13 +3140,26 @@ export const useSimStore = create<Store>((set, get) => {
   snapToRails: (ids, commit = false) => {
     const state = get()
     const rails = state.components.filter(isDinRail)
-    const targets = state.components.filter((c) => isRailMountable(c) && (!ids || ids.includes(c.id)))
+    const targets = state.components.filter((c) => (isRailMountable(c) || isPlugInRelay(c)) && (!ids || ids.includes(c.id)))
     if (!targets.length) return 0
     if (commit) get().commitHistory()
     let fixed = 0
     let components = state.components
     for (const target of targets) {
       const current = components.find((c) => c.id === target.id)!
+      if (isPlugInRelay(current)) {
+        // Relé plug-in: nunca assenta diretamente na calha — encaixa na base undecal (Finder 90.23).
+        const mount = findSocketMountTarget(current, components)
+        if (mount) {
+          fixed++
+          // A chave de polarização impõe uma única orientação: repõe rotação/espelho ao encaixar.
+          // O relé tapa a base no Esquema (fica por cima, como no quadro real).
+          components = components.map((c) => (c.id === current.id ? { ...c, schematicX: mount.schematicX, schematicY: mount.schematicY, rotation: 0, mirrored: false, mountedOn: mount.socket.id, railId: undefined, railOffsetMm: undefined, panel3DPosition: undefined, z: (mount.socket.z ?? 0) + 1 } : c))
+        } else if (current.mountedOn) {
+          components = components.map((c) => (c.id === current.id ? { ...c, mountedOn: undefined } : c))
+        }
+        continue
+      }
       if (isThermalRelay(current)) {
         const mount = findMountTarget(current, components)
         if (mount) {
@@ -3181,7 +3199,7 @@ export const useSimStore = create<Store>((set, get) => {
       })
     }
     // Contactores que mudaram de sítio levam os relés encaixados; bornes do mesmo grupo agrupam-se automaticamente.
-    const mounted = syncCombMounted(syncMounted(components))
+    const mounted = syncSocketMounted(syncCombMounted(syncMounted(components)))
     const terminalTargets = targets.filter((t) => isTerminalStripType(t.type)).map((t) => t.id)
     if (terminalTargets.length) {
       // Se um borne novo encostou fisicamente (≤ 4 mm) a uma régua existente na mesma calha DIN, junta-se a essa régua.
@@ -4037,6 +4055,56 @@ export const useSimStore = create<Store>((set, get) => {
       )
       return { components: next, dirty: true }
     })
+    recomputeIfActive()
+  },
+
+  mountRelayOnSocket: (relayId, socketId) => {
+    let mountedRef = ''
+    set((state) => {
+      const relay = state.components.find((c) => c.id === relayId)
+      if (!relay || !isPlugInRelay(relay)) return {}
+      const socket = socketId
+        ? state.components.find((c) => c.id === socketId && isRelaySocket(c) && !state.components.some((o) => o.id !== relayId && o.mountedOn === c.id))
+        : findSocketMountTarget(relay, state.components)?.socket
+      if (!socket) return {}
+      const at = relaySocketMountPosition(relay, socket)
+      if (!at) return {}
+      mountedRef = socket.ref
+      const next = state.components.map((c) =>
+        c.id === relayId
+          ? {
+              ...c,
+              schematicX: at.schematicX,
+              schematicY: at.schematicY,
+              // A chave de polarização impõe uma única orientação de encaixe.
+              rotation: 0,
+              mirrored: false,
+              mountedOn: socket.id,
+              railId: undefined,
+              railOffsetMm: undefined,
+              panel3DPosition: undefined,
+              z: (socket.z ?? 0) + 1,
+            }
+          : c
+      )
+      return { components: syncSocketMounted(next), dirty: true }
+    })
+    if (mountedRef) get().pushEvent('info', `${get().components.find((c) => c.id === relayId)?.ref ?? 'Relé'} encaixado na base ${mountedRef}: pinos 1–11 nos alvéolos P1–P11.`)
+    recomputeIfActive()
+  },
+
+  unmountRelayFromSocket: (relayId) => {
+    let moved = false
+    set((state) => {
+      const relay = state.components.find((c) => c.id === relayId)
+      if (!relay || !isPlugInRelay(relay) || !relay.mountedOn) return {}
+      moved = true
+      // Retirado da base, o relé pousa livre logo por baixo dela (sem sobrepor outros aparelhos).
+      const free = nearestFreeComponentPosition(relay, relay.schematicX, relay.schematicY + relay.h + 24, state.components)
+      const next = state.components.map((c) => (c.id === relayId ? { ...c, mountedOn: undefined, schematicX: free.x, schematicY: free.y } : c))
+      return { components: next, dirty: true }
+    })
+    if (moved) get().pushEvent('info', `${get().components.find((c) => c.id === relayId)?.ref ?? 'Relé'} desencaixado da base.`)
     recomputeIfActive()
   },
 
@@ -5370,7 +5438,7 @@ export const useSimStore = create<Store>((set, get) => {
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
       const snapDirty = alignedWires.some((wire, i) => wire !== loadedWires[i])
       // Relés encaixados seguem a geometria de encaixe atual (projetos guardados com a posição antiga).
-      const cleanComponents = deenergizeComponents(syncCombMounted(syncMounted(loadedComponents)))
+      const cleanComponents = deenergizeComponents(syncSocketMounted(syncCombMounted(syncMounted(loadedComponents))))
       const cleanWires = normalizeWires(alignedWires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)), cleanComponents)
       const plcIds = cleanComponents.filter(isProgrammablePlc).map((c) => c.id)
       const loadedActiveId = plcIds.includes(parsed.activePlcId) ? parsed.activePlcId : plcIds[0] ?? null

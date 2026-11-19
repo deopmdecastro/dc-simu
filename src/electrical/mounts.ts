@@ -21,3 +21,18 @@ export function mountTerminalPairs(relay: Pick<ElectricalComponent, 'mountedOn' 
   }
   return pairs
 }
+
+/**
+ * Relé plug-in (AVEL 411RNPD0023) encaixado na base undecal (Finder 90.23):
+ * cada pino i fica ligado ao alvéolo Pi da base — a mesma via do borne de parafuso i,
+ * que a base já ponteia internamente. Vazio se não estiver encaixado.
+ */
+export function relaySocketTerminalPairs(relay: Pick<ElectricalComponent, 'mountedOn' | 'terminals'>): Array<[string, string]> {
+  if (!relay.mountedOn) return []
+  const pairs: Array<[string, string]> = []
+  for (const t of relay.terminals) {
+    if (!/^\d{1,2}$/.test(t.label)) continue
+    pairs.push([t.id, `${relay.mountedOn}-P${t.label}`])
+  }
+  return pairs
+}

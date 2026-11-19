@@ -56,6 +56,7 @@ import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, getCo
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { hasPlcLamps, lampScenePosition, plcChannelLamps, plcLamps } from './plcStatusLights'
 import { mountDepthOffset } from './thermalMount'
+import { relaySocketMountDepthOffset } from './relaySocketMount'
 import { combMountDepthOffset, isCombBusbar, isCombConnector } from './combMount'
 import { buildDinRailGroup, clampRailLengthMm, DIN_RAIL_15X55, DIN_RAIL_FINISHES, dinRailProfileOf } from './dinRailGeometry'
 import { applyWorldUv, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, isPanelAccessoryType } from './enclosureParts'
@@ -3595,7 +3596,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       } else {
         ;[px, py] = clampInsideAnyEnclosure(px, py, half)
       }
-      panelPivots[component.id] = new THREE.Vector3(px, py, PLATE_FRONT_Z + mountedRailHeightMm(component, components) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components) + ((isCombBusbar(component) || isCombConnector(component)) ? combMountDepthOffset(component, components) : 0))
+      panelPivots[component.id] = new THREE.Vector3(px, py, PLATE_FRONT_Z + mountedRailHeightMm(component, components) * PANEL_UNITS_PER_MM + half.z + mountDepthOffset(component, components) + relaySocketMountDepthOffset(component, components) + ((isCombBusbar(component) || isCombConnector(component)) ? combMountDepthOffset(component, components) : 0))
     }
   }
   // Réguas de bornes (`state.stripId`): no 3D encostam pelo corpo real, qualquer que seja o passo do Esquema

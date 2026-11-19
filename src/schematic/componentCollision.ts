@@ -1,5 +1,6 @@
 import type { ElectricalComponent } from '../types'
 import { isDinRail, isRailMountable } from '../three/railMount'
+import { isPlugInRelay, isRelaySocket } from '../three/relaySocketMount'
 import { ENCLOSURE } from '../three/enclosureParts'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 
@@ -62,6 +63,9 @@ function isIntentionalMountingOverlap(a: ElectricalComponent, b: ElectricalCompo
   // Calhas técnicas: encontros em T/cruz nos cantos; o corpo da calha é sólido
   // face a aparelhos (não atravessam o PVC).
   if (a.type === 'cableDuct' && b.type === 'cableDuct') return true
+  // Relé plug-in ↔ base undecal: o relé entra na frente da base (direção Z no 3D),
+  // por isso no Esquema 2D as duas caixas sobrepõem-se quando encaixados.
+  if ((isPlugInRelay(a) && isRelaySocket(b)) || (isRelaySocket(a) && isPlugInRelay(b))) return true
   // Só equipamentos próprios para calha DIN podem sobrepor o seu suporte; duas
   // calhas e componentes de montagem em chapa continuam a ser objetos físicos.
   if (isDinRail(a) !== isDinRail(b)) {

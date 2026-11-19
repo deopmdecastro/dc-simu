@@ -33,6 +33,8 @@ export function panelLimits(plateWidth: number): PanelLimits {
 export function isPanelBound(component: ElectricalComponent): boolean {
   // O quadro envolve a chapa: não conta para o tamanho da chapa nem é um obstáculo nela.
   if (component.type === 'panelEnclosure') return false
+  // Um relé plug-in encaixado na base undecal passa a viver no painel (posição derivada da base).
+  if (component.mountedOn) return true
   return getComponentModelSpec(component.type)?.placement !== 'machine'
     && component.type !== 'motor3ph' && component.type !== 'motor1ph'
 }

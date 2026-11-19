@@ -4,6 +4,7 @@ import { terminalClassesCompatible, terminalElectricalClassOf } from '../electri
 import { computePhaseLabels, type PhaseTag } from '../electrical/phases'
 import { mountBridges, MOUNT_PASS_THROUGH } from '../three/thermalMount'
 import { combMountBridges } from '../three/combMount'
+import { relaySocketMountBridges } from '../three/relaySocketMount'
 
 const isSupport = (type: string) => /^dinRail|rail|busbar|barra|mountingPlate|cableDuct|calha|panelEnclosure|spiralWrap/i.test(type)
 
@@ -26,7 +27,7 @@ export function detectDiagnostics(
 ): SimulationDiagnostic[] {
   const diags: SimulationDiagnostic[] = []
   // Relé térmico encaixado no contactor + pente encaixado nos disjuntores: pinos ligados por dentro (sem cabos).
-  const bridges = [...mountBridges(components), ...combMountBridges(components)]
+  const bridges = [...mountBridges(components), ...combMountBridges(components), ...relaySocketMountBridges(components)]
   const linked = bridges.length ? [...wires, ...bridges] : wires
 
   // 1. Contatores intertravados energizados ao mesmo tempo

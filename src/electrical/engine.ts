@@ -19,7 +19,7 @@ import { electricalComponentView } from './builtinRuntime'
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
 import { importedBridges } from './importedComponents'
 import { industrialBridges, industrialDeviceTypeOf } from './industrialDevices'
-import { mountTerminalPairs } from './mounts'
+import { mountTerminalPairs, relaySocketTerminalPairs } from './mounts'
 import { breakerInputLabels, combMountPairs, isCombBusbar, isCombConnector } from '../three/combMount'
 import { terminalStripJumperPairs } from './pti6Strip'
 import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarParts'
@@ -81,10 +81,14 @@ function t(c: ElectricalComponent, label: string) {
 }
 
 /** Pontes condutivas internas de um componente, dado o estado atual. */
-/** Ligações internas do aparelho e, se for um relé encaixado num contactor, as do encaixe. */
+/** Ligações internas do aparelho e, se estiver encaixado (relé térmico no contactor,
+ *  relé plug-in na base undecal), também as do encaixe. */
 export function internalBridges(c: ElectricalComponent): Array<[string, string]> {
   const own = componentBridges(electricalComponentView(c))
-  return c.mountedOn ? [...own, ...mountTerminalPairs(c)] : own
+  if (!c.mountedOn) return own
+  // Relé plug-in na base undecal: cada pino i fica no alvéolo Pi da base.
+  if (industrialDeviceTypeOf(c) === 'levelRelayAvel411') return [...own, ...relaySocketTerminalPairs(c)]
+  return [...own, ...mountTerminalPairs(c)]
 }
 
 function componentBridges(c: ElectricalComponent): Array<[string, string]> {

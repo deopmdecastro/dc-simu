@@ -9,6 +9,8 @@ import { hiddenCatalogTypes } from '../catalog/hidden'
 import { parseCatalogType } from '../catalog/types'
 import PlcSignalPanel from './PlcSignalPanel'
 import ThermalRelayControls from './ThermalRelayControls'
+import RelaySocketControls from './RelaySocketControls'
+import { isPlugInRelay, isRelaySocket } from '../three/relaySocketMount'
 import ProtectionControls from './ProtectionControls'
 import DeviceControls, { DEVICE_MANAGED_STATE_KEYS, hasDeviceControls } from './DeviceControls'
 import { TERMINAL_STRIP_STATE_KEYS, isTerminalStripType, terminalStripFor } from '../electrical/pti6Strip'
@@ -1077,6 +1079,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
               </div></details>
               <OptionalPartsGroup component={selectedComponent} />
+              {(isPlugInRelay(selectedComponent) || isRelaySocket(selectedComponent)) && (
+                <details className="dc-inspector-group" open><summary>Base de encaixe</summary><div className="dc-inspector-group-body"><RelaySocketControls component={selectedComponent} /></div></details>
+              )}
               {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-plc-sim-group><summary>Simular sinais (entradas)</summary><div className="dc-inspector-group-body"><PlcSignalPanel plcId={selectedComponent.id} compact /></div></details>}
               {/* estado rápido conforme o tipo — só mostra controlos realmente funcionais */}
               {(() => {
