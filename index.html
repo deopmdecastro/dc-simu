@@ -11,18 +11,11 @@
       (function () {
         var key = 'dcsimu:startup-asset-recovered:v6'
         var recovering = false
-        document.addEventListener('error', function (event) {
-          var target = event.target
-          var failedUrl = null
-          if (target instanceof HTMLLinkElement && target.rel === 'stylesheet') failedUrl = target.href
-          if (target instanceof HTMLScriptElement && target.type === 'module') failedUrl = target.src
-          if (!failedUrl) return
-          // Só assets do próprio domínio indicam um deploy antigo; fontes/CDNs externos em falha não devem apagar caches.
-          try { if (new URL(failedUrl, location.href).origin !== location.origin) return } catch (_) { return }
+        function wipeAndReload(reason) {
           if (recovering) return
           try {
-            if (sessionStorage.getItem(key) === failedUrl) return
-            sessionStorage.setItem(key, failedUrl)
+            if (sessionStorage.getItem(key) === reason) return
+            sessionStorage.setItem(key, reason)
           } catch (_) { /* armazenamento indisponível */ }
           recovering = true
           Promise.all([
@@ -37,7 +30,32 @@
             url.searchParams.set('_fresh', String(Date.now()))
             window.location.replace(url.toString())
           })
+        }
+        document.addEventListener('error', function (event) {
+          var target = event.target
+          var failedUrl = null
+          if (target instanceof HTMLLinkElement && target.rel === 'stylesheet') failedUrl = target.href
+          if (target instanceof HTMLScriptElement && target.type === 'module') failedUrl = target.src
+          if (!failedUrl) return
+          // Só assets do próprio domínio indicam um deploy antigo; fontes/CDNs externos em falha não devem apagar caches.
+          try { if (new URL(failedUrl, location.href).origin !== location.origin) return } catch (_) { return }
+          wipeAndReload(failedUrl)
         }, true)
+        // Watchdog anti-ecrã-branco: se ao fim de 12 s a app ainda não montou
+        // (raiz vazia) — típico de um service worker antigo a servir um bundle
+        // com um erro fatal de arranque — limpa caches/SW e recarrega 1× por sessão.
+        // Só atua quando existem caches/SW (numa rede apenas lenta não há nada para limpar).
+        window.setTimeout(function () {
+          var root = document.getElementById('root')
+          var mounted = root && root.childElementCount > 0
+          if (mounted) return
+          Promise.all([
+            ('caches' in window ? caches.keys() : Promise.resolve([])).catch(function () { return [] }),
+            ('serviceWorker' in navigator ? navigator.serviceWorker.getRegistrations() : Promise.resolve([])).catch(function () { return [] }),
+          ]).then(function (res) {
+            if ((res[0] && res[0].length) || (res[1] && res[1].length)) wipeAndReload('boot-timeout')
+          })
+        }, 12000)
       })()
     </script>
     <script>
