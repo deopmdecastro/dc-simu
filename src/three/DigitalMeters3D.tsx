@@ -32,6 +32,7 @@ function DigitalMeter3D({ c, x, position, interactive = true }: DigitalMeterProp
     if (!['digital_meter_reset', 'digital_meter_switch', 'digital_meter_menu','digital_meter_menu_1','digital_meter_menu_2'].includes(name)) return
     event.stopPropagation()
     const store = useSimStore.getState()
+    if (store.sim.runState === 'stopped' && !store.demoMode) return
     if (name === 'digital_meter_reset') return // The manufacturer's RESET requires a 5 s hold, never a click.
     if (name === 'digital_meter_switch') store.setComponentState(c.id, { switchOn: c.state.switchOn === false })
     else store.setComponentState(c.id, { screenMode: (Number(c.state.screenMode ?? 0) + (name === 'digital_meter_menu_2' ? 2 : 1)) % 3 })
@@ -39,11 +40,13 @@ function DigitalMeter3D({ c, x, position, interactive = true }: DigitalMeterProp
   const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
     if (!interactive || c.locked || event.button !== 0 || event.object.name !== 'digital_meter_reset' || useSimStore.getState().tool !== 'select') return
     event.stopPropagation()
+    const store = useSimStore.getState()
+    if (store.sim.runState === 'stopped' && !store.demoMode) return
     releaseHold.current?.()
     const orbit = controls as unknown as { enabled: boolean } | undefined, enabled = orbit?.enabled
     if (orbit) orbit.enabled = false
     const timer = window.setTimeout(() => {
-      const store = useSimStore.getState(), live = store.components.find(item => item.id === c.id)
+      const live = store.components.find(item => item.id === c.id)
       if (!live || live.locked || !live.state.on || store.tool !== 'select') return
       store.setComponentState(c.id, { energy: 0 })
       store.pushEvent('info', `${c.ref}: RESET mantido 5 s · energia reposta a 0,00 kWh.`)

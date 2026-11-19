@@ -15,7 +15,13 @@ export default function MotorTerminalBoard3D({ c, interactive = true, unitsPerMm
   const next = connection === 'none' ? 'star' : connection === 'star' ? 'delta' : 'none'
   const u = unitsPerMm
   const board = motorCadToCentered([MOTOR_BOARD.cx, MOTOR_BOARD_TOP + 4, MOTOR_BOARD.cz]).map((v) => v * u) as [number, number, number]
-  return <group onClick={(event) => { if (!interactive) return; event.stopPropagation(); useSimStore.getState().setComponentState(c.id, { motorConnection: next }) }}>
+  return <group onClick={(event) => {
+    if (!interactive) return
+    event.stopPropagation()
+    const store = useSimStore.getState()
+    if (store.sim.runState === 'stopped' && !store.demoMode) return
+    store.setComponentState(c.id, { motorConnection: next })
+  }}>
     {/* alvo de clique invisível sobre a placa */}
     <mesh position={board}><boxGeometry args={[MOTOR_BOARD.w * u, 8 * u, MOTOR_BOARD.d * u]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
     {motorBridges(connection).map((bridge) => {

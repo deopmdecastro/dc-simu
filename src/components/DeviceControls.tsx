@@ -197,12 +197,12 @@ function MultimeterControls({ c, locked }: { c: ElectricalComponent; locked: boo
 
   const setDial = (mode: DialMode) => {
     if (locked) return
-    triggerControl(DM20_DEFINITION, c.id, DM20_CONTROLS.selector, { select: mode }, { allowStopped: true })
+    triggerControl(DM20_DEFINITION, c.id, DM20_CONTROLS.selector, { select: mode })
   }
 
   const pressKey = (key: 'power' | 'select' | 'hold' | 'light') => {
     if (locked) return
-    triggerControl(DM20_DEFINITION, c.id, DM20_CONTROLS[key], 'press', { allowStopped: true })
+    triggerControl(DM20_DEFINITION, c.id, DM20_CONTROLS[key], 'press')
   }
 
   return (

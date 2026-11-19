@@ -21,6 +21,7 @@ export default function CatalogInspector({ component }: { component: ElectricalC
   const version = entry?.versions.find((item) => item.version === link?.version)
   const info = useMemo(() => catalogUpdateInfo(component, entries), [component, entries])
   const meter = useCatalogMeter(component, version?.definition)
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped') || useSimStore((s) => s.demoMode)
   if (!link) return null
   const controls = version?.definition.controls ?? []
   const states = version?.definition.states ?? []
@@ -58,13 +59,13 @@ export default function CatalogInspector({ component }: { component: ElectricalC
         </div>}
         {controls.filter((control) => control.kind === 'selector').map((control) => <div key={control.id}>
           <label className="dc-field-label">{control.name}</label>
-          <Select className="dc-select" value={selectorValue(control, meter.vars)} onChange={(event) => triggerControl(version.definition, component.id, control, { select: event.target.value })}>
+          <Select className="dc-select" value={selectorValue(control, meter.vars)} disabled={!simActive} onChange={(event) => triggerControl(version.definition, component.id, control, { select: event.target.value })}>
             {control.positions.map((position) => <option key={position.id} value={position.id}>{position.label}</option>)}
           </Select>
         </div>)}
         <div className="flex gap-1 flex-wrap mt-1">
-          {controls.filter((control) => control.kind !== 'selector').map((control) => <button key={control.id} className="dc-btn" onClick={() => triggerControl(version.definition, component.id, control, 'press')}
-            onContextMenu={(event) => { event.preventDefault(); triggerControl(version.definition, component.id, control, 'long') }} title="Clique: ação · botão direito: premir longo">{control.name}</button>)}
+          {controls.filter((control) => control.kind !== 'selector').map((control) => <button key={control.id} className="dc-btn" disabled={!simActive} onClick={() => triggerControl(version.definition, component.id, control, 'press')}
+            onContextMenu={(event) => { event.preventDefault(); triggerControl(version.definition, component.id, control, 'long') }} title={simActive ? 'Clique: ação · botão direito: premir longo' : 'Inicie a simulação para atuar'}>{control.name}</button>)}
         </div>
       </div>}
       {colorZones.length > 0 && <div className="dc-catalog-colors">
