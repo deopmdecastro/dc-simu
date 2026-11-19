@@ -6,6 +6,7 @@
  * usa o projeto nativo «Partida direta».
  */
 
+import { RETAINED_NATIVE_PROJECT_ID } from './nativeProjectIds'
 import {
   NATIVE_PARTIDA_ID,
   NATIVE_PARTIDA_NAME,
@@ -78,12 +79,12 @@ export function sliceLandingDemo(payload: LandingPublishedPayload): LandingDemoS
 /** Demonstração offline identificada como tal; nunca substitui uma linha cloud. */
 export function nativeLandingPayload(): LandingPublishedPayload {
   return {
-    projectId: '',
-    name: 'Demonstração offline · partida direta',
-    owner: 'admin@dcsimu.local',
+    projectId: RETAINED_NATIVE_PROJECT_ID,
+    name: NATIVE_PARTIDA_NAME,
+    owner: 'Projeto nativo',
     revision: 0,
     updatedAt: new Date().toISOString(),
-    isNative: false,
+    isNative: true,
     content: nativePartidaDiretaContent(),
   }
 }

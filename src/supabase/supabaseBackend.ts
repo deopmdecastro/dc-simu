@@ -233,22 +233,21 @@ export async function supabaseGetProjects(): Promise<Project[]> {
     role: row.owner_id === user.id ? 'owner' : 'editor',
   }))
   const extras = listMissingFreeNativeProjects(user.id, rows)
-  // Projeto nativo retido: visível em todas as contas (incl. free), mesmo sem membership.
-  if (!mapped.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID) && !extras.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID)) {
+  // Preferir conteúdo cloud do projeto nativo retido quando a landing o expõe.
+  const retainedIdx = extras.findIndex((p) => p.id === RETAINED_NATIVE_PROJECT_ID)
+  if (retainedIdx >= 0) {
     try {
       const landing = await supabaseGetLandingPublished()
-      if (landing?.projectId === RETAINED_NATIVE_PROJECT_ID && landing.content) {
-        extras.push({
-          id: RETAINED_NATIVE_PROJECT_ID,
-          name: landing.name || 'Projeto nativo de exemplo',
-          revision: landing.revision ?? 0,
-          updated_at: landing.updatedAt || new Date().toISOString(),
+      if (landing?.content && (landing.projectId === RETAINED_NATIVE_PROJECT_ID || !landing.projectId)) {
+        extras[retainedIdx] = {
+          ...extras[retainedIdx],
+          name: landing.name || extras[retainedIdx].name,
+          revision: landing.revision ?? extras[retainedIdx].revision,
+          updated_at: landing.updatedAt || extras[retainedIdx].updated_at,
           preview: buildProjectPreview(landing.content),
-          owner: 'Projeto nativo',
-          role: 'editor',
-        })
+        }
       }
-    } catch { /* landing indisponível: não bloquear a lista */ }
+    } catch { /* mantém cartão embutido */ }
   }
   return [...mapped, ...extras].sort((a,b) => b.updated_at.localeCompare(a.updated_at))
 }
@@ -315,11 +314,11 @@ export async function supabaseGetProject(id: string): Promise<{ id: string; name
     .single()
 
   if (error || !data) {
-    // Projeto nativo retido: qualquer conta autenticada pode abrir via landing.
+    // Projeto nativo retido: qualquer conta autenticada pode abrir (cloud ou conteúdo embutido).
     if (isNativeProjectId(id)) {
       try {
         const landing = await supabaseGetLandingPublished()
-        if (landing?.projectId === id && landing.content) {
+        if (landing?.content) {
           return {
             id,
             name: landing.name || 'Projeto nativo de exemplo',
@@ -328,7 +327,9 @@ export async function supabaseGetProject(id: string): Promise<{ id: string; name
             content: landing.content,
           }
         }
-      } catch { /* continua para o erro abaixo */ }
+      } catch { /* tenta embutido */ }
+      const { openRetainedNativeProject } = await import('../project/freeNativeSandbox')
+      return openRetainedNativeProject()
     }
     throw new Error(`Projeto não encontrado no Supabase: ${error?.message || 'Sem dados'}`)
   }

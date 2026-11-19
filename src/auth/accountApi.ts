@@ -527,7 +527,7 @@ async function serverApiWithFreeNatives<T>(url: string, verb: string, body?: unk
   const matchProj = url.match(/^\/projects\/([^/]+)$/)
   if (matchProj) {
     const id = matchProj[1]
-    const { openFreeNativeProject, saveFreeNativeProject, resetFreeNativeProject } =
+    const { openFreeNativeProject, saveFreeNativeProject, resetFreeNativeProject, openRetainedNativeProject, isFreeNativeProjectId } =
       await import('../project/freeNativeSandbox')
     {
       const me = await serverLegacyDraftOwner(id)
@@ -542,6 +542,17 @@ async function serverApiWithFreeNatives<T>(url: string, verb: string, body?: unk
           return { ok: true, revision: saved.revision } as T
         }
         if (verb === 'DELETE') return resetFreeNativeProject(me.id, id) as T
+      }
+    }
+    // Projeto nativo retido: se o servidor não o devolver (sem membership), usa conteúdo embutido.
+    if (verb === 'GET' && isFreeNativeProjectId(id)) {
+      try {
+        return await serverApi<T>(url, verb, body)
+      } catch (error) {
+        if (error instanceof ApiResponseError && (error.status === 404 || error.status === 403)) {
+          return openRetainedNativeProject() as T
+        }
+        throw error
       }
     }
   }

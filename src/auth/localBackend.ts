@@ -383,11 +383,12 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
       }
     })
     const extras = listMissingFreeNativeProjects(user.id, markers)
-    // Projeto nativo retido: aparece em todas as contas, inclusive free.
-    if (!mapped.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID) && !extras.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID)) {
+    // Preferir a cópia local do nativo retido se existir; listMissing já garante o cartão.
+    if (extras.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID)) {
       const retained = data.projects.find((entry) => entry.id === RETAINED_NATIVE_PROJECT_ID)
       if (retained) {
-        extras.push({
+        const idx = extras.findIndex((p) => p.id === RETAINED_NATIVE_PROJECT_ID)
+        extras[idx] = {
           id: retained.id,
           name: retained.name,
           revision: retained.revision,
@@ -395,7 +396,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
           preview: previewFor(retained),
           owner: 'Projeto nativo',
           role: 'editor',
-        })
+        }
       }
     }
     return [...mapped, ...extras].sort((a, b) =>

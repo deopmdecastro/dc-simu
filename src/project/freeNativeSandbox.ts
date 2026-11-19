@@ -4,7 +4,8 @@
 import type { Project } from '../dashboard/Dashboard'
 import { buildProjectPreview } from '../dashboard/projectPreview'
 import type { NativeProjectSeed } from './nativeProjects'
-import { isNativeProjectId } from './nativeProjectIds'
+import { isNativeProjectId, RETAINED_NATIVE_PROJECT_ID } from './nativeProjectIds'
+import { NATIVE_PARTIDA_NAME, nativePartidaDiretaContent } from './nativeProjects'
 
 export const FREE_NATIVE_OWNER = 'Rascunho local antigo'
 /** Compatibility export: there are no synthetic native project cards. */
@@ -67,7 +68,33 @@ export function openFreeNativeProject(userId: string, projectId: string): { id: 
     ? String((draft.content as Record<string, unknown>).projectName) : `Rascunho local · ${projectId}`
   return { id: projectId, name, role: 'editor', revision: draft.revision, content: draft.content }
 }
-/** Exposes only drafts that ALREADY exist. No name-based deduplication or seeds. */
+/** Cartão estável do projeto nativo de exemplo (partida direta) para todas as contas. */
+export function retainedNativeProjectCard(content?: unknown): Project {
+  const body = content && typeof content === 'object' ? content : nativePartidaDiretaContent()
+  return {
+    id: RETAINED_NATIVE_PROJECT_ID,
+    name: NATIVE_PARTIDA_NAME,
+    revision: 0,
+    updated_at: new Date(0).toISOString(),
+    preview: buildProjectPreview(body),
+    owner: 'Projeto nativo',
+    role: 'editor',
+  }
+}
+
+/** Conteúdo embutido do projeto nativo retido (abertura sem membership no Supabase). */
+export function openRetainedNativeProject(): { id: string; name: string; role: 'editor'; revision: number; content: unknown } {
+  return {
+    id: RETAINED_NATIVE_PROJECT_ID,
+    name: NATIVE_PARTIDA_NAME,
+    role: 'editor',
+    revision: 0,
+    content: nativePartidaDiretaContent(),
+  }
+}
+
+/** Exposes only drafts that ALREADY exist. No name-based deduplication or seeds.
+ *  Additionally always surfaces the retained native example when absent from the list. */
 export function listMissingFreeNativeProjects(userId: string, existing: Array<{ id: string; name?: string; nativeId?: string | null }>): Project[] {
   const found: Project[] = []
   for (const id of LEGACY_IDS) {
@@ -75,6 +102,11 @@ export function listMissingFreeNativeProjects(userId: string, existing: Array<{ 
     const draft = readFreeNativeDraft(userId, id)
     if (!draft) continue
     found.push({ id, name: openFreeNativeProject(userId, id).name, revision: draft.revision, updated_at: draft.updatedAt, preview: buildProjectPreview(draft.content), owner: FREE_NATIVE_OWNER, role: 'editor' })
+  }
+  // Projeto nativo retido: visível em todas as contas (free e pagas), mesmo sem membership.
+  if (!existing.some((row) => row.id === RETAINED_NATIVE_PROJECT_ID)
+      && !found.some((row) => row.id === RETAINED_NATIVE_PROJECT_ID)) {
+    found.push(retainedNativeProjectCard())
   }
   return found
 }
