@@ -177,6 +177,17 @@ function StatusBadge({ label, tone }: { label: string; tone: 'ok' | 'warn' | 'da
   )
 }
 
+/** Aviso no topo do painel quando a simulação está parada: a manobra física fica
+ * bloqueada, mas os parâmetros nominais continuam editáveis (mesma regra dos
+ * ProtectionControls — DC-ADR-071: em RUN atua-se; em STOP prepara-se). */
+function ManobraStopHint() {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] leading-4 text-slate-600">
+      Manobra bloqueada — inicie a simulação (▶) para atuar o aparelho. Os parâmetros nominais continuam editáveis.
+    </div>
+  )
+}
+
 function MultimeterControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const { reading, vars } = useCatalogMeter(c, DM20_DEFINITION)
   const dial = String(vars.dial ?? c.state?.selector ?? 'off') as DialMode
@@ -314,7 +325,10 @@ function MultimeterControls({ c, locked }: { c: ElectricalComponent; locked: boo
 
 function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  /** Manobra (ligar/seccionar a fonte, cortar a saída) só com a simulação ativa; tensão/frequência/trimmer editam-se sempre. */
+  const gateAct = locked || !simActive
+  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
 
   if (c.type === 'powerSource3ph' || c.type === 'powerSource1ph' || c.type === 'powerSource24v') {
     const isOn = c.state.on !== false
@@ -328,6 +342,7 @@ function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean 
 
     return (
       <div className="flex flex-col gap-2" data-device-controls="power-source">
+        {!simActive && <ManobraStopHint />}
         <div className="flex items-center justify-between gap-1">
           <span className="dc-field-label">Alimentação</span>
           <StatusBadge label={isOn ? `${nominalV} V ${isDc ? 'DC' : 'AC'}` : 'Desligada'} tone={isOn ? 'ok' : 'neutral'} />
@@ -335,7 +350,8 @@ function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean 
         <div className="grid grid-cols-2 gap-1">
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={isOn}
             onClick={() => setState(c.id, { on: true })}
             className={`dc-btn text-[11px] justify-center ${isOn ? 'dc-btn-primary' : ''}`}
@@ -344,7 +360,8 @@ function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean 
           </button>
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={!isOn}
             onClick={() => setState(c.id, { on: false })}
             className={`dc-btn text-[11px] justify-center ${!isOn ? 'dc-btn-primary' : ''}`}
@@ -400,6 +417,7 @@ function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean 
 
   return (
     <div className="flex flex-col gap-2" data-device-controls="power-supply">
+      {!simActive && <ManobraStopHint />}
       <div className="flex items-center justify-between gap-1">
         <span className="dc-field-label">Fonte 24 V DC · 5 A (120 W)</span>
         <StatusBadge
@@ -410,7 +428,8 @@ function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean 
       <div className="grid grid-cols-2 gap-1">
         <button
           type="button"
-          disabled={locked}
+          disabled={gateAct}
+          title={actTitle}
           aria-pressed={enabled}
           onClick={() => setState(c.id, { on: true })}
           className={`dc-btn text-[11px] justify-center ${enabled ? 'dc-btn-primary' : ''}`}
@@ -419,7 +438,8 @@ function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean 
         </button>
         <button
           type="button"
-          disabled={locked}
+          disabled={gateAct}
+          title={actTitle}
           aria-pressed={!enabled}
           onClick={() => setState(c.id, { on: false })}
           className={`dc-btn text-[11px] justify-center ${!enabled ? 'dc-btn-primary' : ''}`}
@@ -452,7 +472,7 @@ function ContactorControls({ c, locked }: { c: ElectricalComponent; locked: bool
   const components = useSimStore((s) => s.components)
   const setState = useSimStore((s) => s.setComponentState)
   const setInterlock = useSimStore((s) => s.setContactorInterlock)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
 
   const isAux = c.type === 'auxRelay' || c.type === 'auxRelay4'
   const energized = simActive && !!c.state.energized
@@ -531,7 +551,11 @@ function ContactorControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
 function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  /** Manobra física (rodar seletor/chave, premir botão, atuar emergência, rearmar relé) só com a simulação ativa;
+   *  o tipo de retorno (mola/retentivo) é configuração mecânica e edita-se sempre. */
+  const gateAct = locked || !simActive
+  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
 
   // Seletor Schneider Harmony XA2ED33 · 3 posições (-1: 13–14, 0: aberto, +1: 23–24)
   if (c.type === 'selectorSchneiderXa2ed33' || c.type === 'selector3') {
@@ -539,6 +563,7 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
     const maintain = c.state.maintain !== false
     return (
       <div className="flex flex-col gap-2" data-device-controls="selector3">
+        {!simActive && <ManobraStopHint />}
         <div className="flex items-center justify-between gap-1">
           <span className="dc-field-label">Seletor 3 posições (2NA)</span>
           <StatusBadge
@@ -555,7 +580,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
             <button
               key={val}
               type="button"
-              disabled={locked}
+              disabled={gateAct}
+              title={actTitle}
               aria-pressed={pos === val}
               onClick={() => setState(c.id, { position: val })}
               className={`dc-btn text-[10.5px] justify-center font-mono ${pos === val ? 'dc-btn-primary' : ''}`}
@@ -594,6 +620,7 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
     const momentary = c.state.momentary !== false
     return (
       <div className="flex flex-col gap-2" data-device-controls="key-switch">
+        {!simActive && <ManobraStopHint />}
         <div className="flex items-center justify-between gap-1">
           <span className="dc-field-label">Comutador de chave (11–12 / 14)</span>
           <StatusBadge label={turned ? 'I · 11–14' : '0 · 11–12'} tone={turned ? 'ok' : 'neutral'} />
@@ -601,7 +628,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
         <div className="grid grid-cols-2 gap-1">
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={!turned}
             onClick={() => setState(c.id, { pressed: false })}
             className={`dc-btn text-[11px] justify-center ${!turned ? 'dc-btn-primary' : ''}`}
@@ -610,7 +638,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
           </button>
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={turned}
             onClick={() => setState(c.id, { pressed: true })}
             className={`dc-btn text-[11px] justify-center ${turned ? 'dc-btn-primary' : ''}`}
@@ -648,6 +677,7 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
     const isKey = c.type === 'emergencyButtonKeyP20ACR'
     return (
       <div className="flex flex-col gap-2" data-device-controls="estop">
+        {!simActive && <ManobraStopHint />}
         <div className="flex items-center justify-between gap-1">
           <span className="dc-field-label">Emergência cogumelo (NF)</span>
           <StatusBadge label={pressed ? 'Travado (aberto)' : 'Rearmado (NF)'} tone={pressed ? 'danger' : 'ok'} />
@@ -655,7 +685,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
         <div className="grid grid-cols-2 gap-1">
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={!pressed}
             onClick={() => setState(c.id, { pressed: false })}
             className={`dc-btn text-[11px] justify-center ${!pressed ? 'dc-btn-primary' : ''}`}
@@ -664,7 +695,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
           </button>
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={pressed}
             onClick={() => setState(c.id, { pressed: true })}
             className={`dc-btn text-[11px] justify-center ${pressed ? 'dc-btn-primary' : ''}`}
@@ -682,6 +714,7 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
     const stopOn = !!c.state.stopPressed
     return (
       <div className="flex flex-col gap-2" data-device-controls="dual-pb">
+        {!simActive && <ManobraStopHint />}
         <div className="flex items-center justify-between gap-1">
           <span className="dc-field-label">Botoneira dupla START / STOP</span>
           <StatusBadge
@@ -692,7 +725,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
         <div className="grid grid-cols-2 gap-1">
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={startOn}
             onClick={() => setState(c.id, { startPressed: !startOn, ...(startOn ? {} : { stopPressed: false }) })}
             className={`dc-btn text-[11px] justify-center ${startOn ? 'dc-btn-primary' : ''}`}
@@ -701,7 +735,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
           </button>
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={stopOn}
             onClick={() => setState(c.id, { stopPressed: !stopOn, ...(stopOn ? {} : { startPressed: false }) })}
             className={`dc-btn text-[11px] justify-center ${stopOn ? 'dc-btn-primary' : ''}`}
@@ -720,6 +755,7 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
 
   return (
     <div className="flex flex-col gap-2" data-device-controls="safety-relay">
+      {!simActive && <ManobraStopHint />}
       <div className="flex items-center justify-between gap-1">
         <span className="dc-field-label">Relé de segurança (14 / 24)</span>
         <StatusBadge
@@ -730,7 +766,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
       <div className="grid grid-cols-2 gap-1">
         <button
           type="button"
-          disabled={locked}
+          disabled={gateAct}
+          title={actTitle}
           onClick={() => setState(c.id, { tripped: false, resetRequested: true })}
           className="dc-btn dc-btn-primary text-[11px] justify-center"
         >
@@ -738,7 +775,8 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
         </button>
         <button
           type="button"
-          disabled={locked}
+          disabled={gateAct}
+          title={actTitle}
           aria-pressed={tripped}
           onClick={() => setState(c.id, { tripped: !tripped, energized: false, resetRequested: false })}
           className={`dc-btn text-[11px] justify-center ${tripped ? 'dc-btn-primary' : ''}`}
@@ -752,13 +790,17 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
 
 function SensorAndLightControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  /** A simulação do evento físico (objeto detetado, feixe cortado) é manobra; o alcance nominal edita-se sempre. */
+  const gateAct = locked || !simActive
+  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
 
   if (c.type === 'photoSensorXukt1ksml2' || ['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) {
     const triggered = !!c.state.triggered
     const rangeM = Number(c.state.rangeM) > 0 ? Number(c.state.rangeM) : 1.5
     return (
       <div className="flex flex-col gap-2" data-device-controls="sensor">
+        {!simActive && <ManobraStopHint />}
         <div className="flex items-center justify-between gap-1">
           <span className="dc-field-label">Comutador ótico (COM / NA / NF)</span>
           <StatusBadge label={triggered ? 'COM–NA fechado' : 'COM–NF fechado'} tone={triggered ? 'ok' : 'neutral'} />
@@ -766,7 +808,8 @@ function SensorAndLightControls({ c, locked }: { c: ElectricalComponent; locked:
         <div className="grid grid-cols-2 gap-1">
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={!triggered}
             onClick={() => setState(c.id, { triggered: false })}
             className={`dc-btn text-[11px] justify-center ${!triggered ? 'dc-btn-primary' : ''}`}
@@ -775,7 +818,8 @@ function SensorAndLightControls({ c, locked }: { c: ElectricalComponent; locked:
           </button>
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={triggered}
             onClick={() => setState(c.id, { triggered: true })}
             className={`dc-btn text-[11px] justify-center ${triggered ? 'dc-btn-primary' : ''}`}
@@ -834,13 +878,18 @@ function SensorAndLightControls({ c, locked }: { c: ElectricalComponent; locked:
 
 function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  /** A simulação de avaria do condensador é manobra (como «Simular fusão» nos ProtectionControls);
+   *  capacitância, ligação da caixa de bornes e chapa característica são nominais e editam-se sempre. */
+  const gateAct = locked || !simActive
+  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
 
   if (c.type === 'capacitorRun60uF') {
     const uf = Number(c.state.capacitanceUf) > 0 ? Number(c.state.capacitanceUf) : 60
     const failed = !!c.state.failed
     return (
       <div className="flex flex-col gap-2" data-device-controls="capacitor">
+        {!simActive && <ManobraStopHint />}
         <div className="flex items-center justify-between gap-1">
           <span className="dc-field-label">{`Condensador CBB65 · ${uf} µF / 450 V~`}</span>
           <StatusBadge label={failed ? 'Aberto (avaria)' : 'Operacional'} tone={failed ? 'danger' : 'ok'} />
@@ -862,7 +911,8 @@ function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; lock
         <div className="grid grid-cols-2 gap-1">
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={!failed}
             onClick={() => setState(c.id, { failed: false })}
             className={`dc-btn text-[10.5px] justify-center ${!failed ? 'dc-btn-primary' : ''}`}
@@ -871,7 +921,8 @@ function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; lock
           </button>
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={failed}
             onClick={() => setState(c.id, { failed: true })}
             className={`dc-btn text-[10.5px] justify-center ${failed ? 'dc-btn-primary' : ''}`}
@@ -977,7 +1028,10 @@ function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; lock
 
 function PlcModuleControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  /** O seletor RUN/STOP da CPU é manobra física do aparelho: só com a simulação ativa. */
+  const gateAct = locked || !simActive
+  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
   const powered = simActive && !!c.state.powered
   const isAdapterOrIo = c.type === 'plcSiemensS71500Di32' || c.type === 'siemensTsAdapterIeBasic'
   const cpuMode = c.state.cpuMode === 'STOP' ? 'STOP' : 'RUN'
@@ -1006,9 +1060,11 @@ function PlcModuleControls({ c, locked }: { c: ElectricalComponent; locked: bool
       </div>
       {!isAdapterOrIo && (
         <div className="grid grid-cols-2 gap-1">
+          {!simActive && <div className="col-span-2"><ManobraStopHint /></div>}
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={cpuMode === 'RUN'}
             onClick={() => setState(c.id, { cpuMode: 'RUN', mode: 'RUN' })}
             className={`dc-btn text-[11px] justify-center font-mono ${cpuMode === 'RUN' ? 'dc-btn-primary' : ''}`}
@@ -1017,7 +1073,8 @@ function PlcModuleControls({ c, locked }: { c: ElectricalComponent; locked: bool
           </button>
           <button
             type="button"
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             aria-pressed={cpuMode === 'STOP'}
             onClick={() => setState(c.id, { cpuMode: 'STOP', mode: 'STOP' })}
             className={`dc-btn text-[11px] justify-center font-mono ${cpuMode === 'STOP' ? 'dc-btn-primary' : ''}`}

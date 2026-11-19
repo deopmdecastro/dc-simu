@@ -44,15 +44,19 @@ function withCurrentValue(options: readonly number[], current: number): number[]
 export default function ProtectionControls({ component: c }: { component: ElectricalComponent }) {
   const kind = protectionControlKindOf(c.type)
   const testHeld = useRef(false)
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
   if (!kind) return null
 
   const r = readProtectionRatings(c.type, c.state)
   const locked = !!c.locked
+  /** Manobra (ligar/desligar/disparar/gaveta/fusão) só com a simulação ativa; parâmetros (In, curva…) editam-se sempre. */
+  const gateAct = locked || !simActive
+  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
   const setState = (patch: Record<string, unknown>) => useSimStore.getState().setComponentState(c.id, patch)
   const isImported = !!importedComponentInfo(c.type)
 
   const pressRcdTest = (down: boolean) => {
-    if (testHeld.current === down || locked) return
+    if (testHeld.current === down || locked || !simActive) return
     testHeld.current = down
     if (isImported) {
       useSimStore.getState().actuateImported(c.id, down, 'test')
@@ -63,6 +67,13 @@ export default function ProtectionControls({ component: c }: { component: Electr
       setState({ testPressed: false })
     }
   }
+
+  /** Aviso mostrado no topo do painel quando a simulação está parada. */
+  const stopHint = !simActive ? (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] leading-4 text-slate-600">
+      Manobra bloqueada — inicie a simulação (▶) para ligar, desligar ou testar o aparelho. Os parâmetros nominais continuam editáveis.
+    </div>
+  ) : null
 
   // ------------------------------------------------------------------ Disjuntores modulares (MCB)
   if (kind === 'mcb') {
@@ -89,11 +100,13 @@ export default function ProtectionControls({ component: c }: { component: Electr
     }
     return (
       <div className="flex flex-col gap-2" data-protection-controls="mcb">
+        {stopHint}
         <div className="flex flex-wrap gap-1">
           <button
             type="button"
             className={`dc-btn flex-1 ${isOn ? 'dc-btn-primary' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             onClick={() => setState({ closed: true, tripped: false, tripReason: '' })}
           >
             I · Ligado
@@ -101,7 +114,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
           <button
             type="button"
             className={`dc-btn flex-1 ${!r.closed && !r.tripped ? 'dc-btn-primary' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             onClick={() => setState({ closed: false, tripped: false, tripReason: '' })}
           >
             O · Desligado
@@ -109,7 +123,7 @@ export default function ProtectionControls({ component: c }: { component: Electr
           <button
             type="button"
             className={`dc-btn ${r.tripped ? 'dc-btn-danger' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
             onClick={() => setState(r.tripped ? { tripped: false, closed: false, tripReason: '' } : { tripped: true, closed: false, tripReason: 'manual' })}
             title={r.tripped ? 'Rearmar alavanca do disjuntor' : 'Simular disparo termomagnético'}
           >
@@ -183,11 +197,13 @@ export default function ProtectionControls({ component: c }: { component: Electr
         : 'Seccionado (O · OFF) — polos 1–2 e N abertos. Ligue (I · ON) para ensaiar o disparo com o botão T.'
     return (
       <div className="flex flex-col gap-2" data-protection-controls="rcd">
+        {stopHint}
         <div className="flex flex-wrap gap-1">
           <button
             type="button"
             className={`dc-btn flex-1 ${isOn ? 'dc-btn-primary' : ''}`}
-            disabled={locked || r.testPressed}
+            disabled={gateAct || r.testPressed}
+            title={actTitle}
             onClick={() => setState({ closed: true, tripped: false, tripReason: '' })}
           >
             I · Ligar
@@ -195,7 +211,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
           <button
             type="button"
             className={`dc-btn flex-1 ${!r.closed && !r.tripped ? 'dc-btn-primary' : ''}`}
-            disabled={locked || r.testPressed}
+            disabled={gateAct || r.testPressed}
+            title={actTitle}
             onClick={() => setState({ closed: false, tripped: false, tripReason: '' })}
           >
             O · Desligar
@@ -211,7 +228,7 @@ export default function ProtectionControls({ component: c }: { component: Electr
             }}
             aria-label={`Testar diferencial ${c.ref} (botão T)`}
             aria-pressed={r.testPressed}
-            disabled={locked}
+            disabled={gateAct}
             onPointerDown={(event) => {
               if (event.button !== 0) return
               event.preventDefault()
@@ -236,7 +253,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
             <button
               type="button"
               className="dc-btn"
-              disabled={locked || r.testPressed}
+              disabled={gateAct || r.testPressed}
+              title={actTitle}
               aria-label={`Rearmar ${c.ref}`}
               onClick={() => (isImported ? useSimStore.getState().actuateImported(c.id, true, 'reset') : setState({ tripped: false, closed: false, tripReason: '' }))}
             >
@@ -319,13 +337,15 @@ export default function ProtectionControls({ component: c }: { component: Electr
           : `Em continuidade — cartucho ${formatAmpPt(r.inA)} A (${r.fuseClass}) íntegro${kind === 'fuseHolder' ? ' e gaveta fechada' : ''}.`
     return (
       <div className="flex flex-col gap-2" data-protection-controls={kind}>
+        {stopHint}
         {kind === 'fuseHolder' && (
           <div className="flex flex-wrap gap-1">
             <button
               type="button"
               className={`dc-btn flex-1 ${r.closed ? 'dc-btn-primary' : ''}`}
               aria-label={`Fechar gaveta de ${c.ref}`}
-              disabled={locked}
+              disabled={gateAct}
+              title={actTitle}
               onClick={() => setState({ closed: true })}
             >
               Fechar gaveta
@@ -334,7 +354,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
               type="button"
               className={`dc-btn flex-1 ${!r.closed ? 'dc-btn-primary' : ''}`}
               aria-label={`Abrir gaveta de ${c.ref}`}
-              disabled={locked}
+              disabled={gateAct}
+              title={actTitle}
               onClick={() => setState({ closed: false })}
             >
               Abrir gaveta
@@ -345,7 +366,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
           <button
             type="button"
             className={`dc-btn flex-1 ${!r.blown ? 'dc-btn-primary' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             onClick={() => setState({ blown: false })}
           >
             {r.blown ? 'Substituir fusível' : 'Cartucho intacto'}
@@ -353,7 +375,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
           <button
             type="button"
             className={`dc-btn flex-1 ${r.blown ? 'dc-btn-danger' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             onClick={() => setState({ blown: !r.blown })}
           >
             {r.blown ? 'Fundido' : 'Simular fusão'}
@@ -415,11 +438,13 @@ export default function ProtectionControls({ component: c }: { component: Electr
     const stepList = withCurrentValue(dialSteps, r.inA)
     return (
       <div className="flex flex-col gap-2" data-protection-controls="motorBreaker">
+        {stopHint}
         <div className="flex flex-wrap gap-1">
           <button
             type="button"
             className={`dc-btn flex-1 ${isOn ? 'dc-btn-primary' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             onClick={() => setState({ closed: true, tripped: false })}
           >
             I · Marcha
@@ -427,7 +452,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
           <button
             type="button"
             className={`dc-btn flex-1 ${!r.closed && !r.tripped ? 'dc-btn-primary' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             onClick={() => setState({ closed: false, tripped: false })}
           >
             O · Paragem
@@ -435,7 +461,8 @@ export default function ProtectionControls({ component: c }: { component: Electr
           <button
             type="button"
             className={`dc-btn ${r.tripped ? 'dc-btn-danger' : ''}`}
-            disabled={locked}
+            disabled={gateAct}
+            title={actTitle}
             onClick={() => setState(r.tripped ? { tripped: false, closed: false } : { tripped: true, closed: false })}
           >
             {r.tripped ? 'Rearmar' : 'Disparar'}
@@ -488,10 +515,11 @@ export default function ProtectionControls({ component: c }: { component: Electr
     const isOn = r.closed && !r.tripped
     return (
       <div className="flex flex-col gap-2" data-protection-controls="ecb">
+        {stopHint}
         <div className="flex flex-wrap gap-1">
-          <button type="button" className={`dc-btn flex-1 ${isOn ? 'dc-btn-primary' : ''}`} disabled={locked} onClick={() => setState({ closed: true, tripped: false })}>Armado</button>
-          <button type="button" className={`dc-btn flex-1 ${!r.closed && !r.tripped ? 'dc-btn-primary' : ''}`} disabled={locked} onClick={() => setState({ closed: false, tripped: false })}>Aberto</button>
-          <button type="button" className={`dc-btn ${r.tripped ? 'dc-btn-danger' : ''}`} disabled={locked} onClick={() => setState(r.tripped ? { tripped: false, closed: true } : { tripped: true, closed: false })}>{r.tripped ? 'Reset' : 'Disparar'}</button>
+          <button type="button" className={`dc-btn flex-1 ${isOn ? 'dc-btn-primary' : ''}`} disabled={gateAct} title={actTitle} onClick={() => setState({ closed: true, tripped: false })}>Armado</button>
+          <button type="button" className={`dc-btn flex-1 ${!r.closed && !r.tripped ? 'dc-btn-primary' : ''}`} disabled={gateAct} title={actTitle} onClick={() => setState({ closed: false, tripped: false })}>Aberto</button>
+          <button type="button" className={`dc-btn ${r.tripped ? 'dc-btn-danger' : ''}`} disabled={gateAct} title={actTitle} onClick={() => setState(r.tripped ? { tripped: false, closed: true } : { tripped: true, closed: false })}>{r.tripped ? 'Reset' : 'Disparar'}</button>
         </div>
         <label className="dc-inspector-state-row">
           <span className="dc-inspector-state-label">Corrente nominal (In)</span>
@@ -532,11 +560,12 @@ export default function ProtectionControls({ component: c }: { component: Electr
   const imaxOptions = withCurrentValue(isPv ? SPW12_IMAX_OPTIONS : SPW02_IMAX_OPTIONS, r.imaxKa)
   return (
     <div className="flex flex-col gap-2" data-protection-controls="spd">
+      {stopHint}
       <div className="flex flex-wrap gap-1">
-        <button type="button" className={`dc-btn flex-1 ${!r.failed ? 'dc-btn-primary' : ''}`} disabled={locked} onClick={() => setState({ failed: false })}>
+        <button type="button" className={`dc-btn flex-1 ${!r.failed ? 'dc-btn-primary' : ''}`} disabled={gateAct} title={actTitle} onClick={() => setState({ failed: false })}>
           {r.failed ? 'Substituir cartucho' : 'OK (verde)'}
         </button>
-        <button type="button" className={`dc-btn flex-1 ${r.failed ? 'dc-btn-danger' : ''}`} disabled={locked} onClick={() => setState({ failed: !r.failed })}>
+        <button type="button" className={`dc-btn flex-1 ${r.failed ? 'dc-btn-danger' : ''}`} disabled={gateAct} title={actTitle} onClick={() => setState({ failed: !r.failed })}>
           {r.failed ? 'Fim de vida' : 'Simular avaria'}
         </button>
       </div>

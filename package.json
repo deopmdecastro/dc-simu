@@ -157,6 +157,7 @@
     "test:relay-socket-mount": "tsx scripts/relay-socket-mount-smoke.ts",
     "test:thermal-mount-ui": "node scripts/thermal-mount-ui-smoke.mjs",
     "test:avel-mount-ui": "node scripts/avel-mount-ui-smoke.mjs",
+    "test:device-controls-gating-ui": "node scripts/device-controls-gating-ui-smoke.mjs",
     "test:commands-import": "tsx scripts/commands-import-smoke.ts",
     "test:qet-symbols": "tsx scripts/qet-symbols-smoke.tsx",
     "test:cade-simu-import": "tsx scripts/cade-simu-import-smoke.ts",
