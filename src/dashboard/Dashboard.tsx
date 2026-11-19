@@ -55,8 +55,26 @@ function relTime(iso: string) {
   return rtf.format(Math.round(diff / (86400 * 365)), 'year')
 }
 
-/** A capa representa sempre o conteúdo real, mesmo quando este está vazio. */
-function withNativeCover(p: Project): Project { return p }
+/** Capa fotorealista do projeto nativo retido (partida direta). */
+const NATIVE_PARTIDA_COVER = '/project-covers/native-partida.jpg'
+
+/** Aplica capa realista ao projeto nativo quando ainda não há JPEG 3D guardado. */
+function withNativeCover(p: Project): Project {
+  if (!isFreeNativeProjectId(p.id) && p.owner !== 'Projeto nativo') return p
+  const preview = p.preview
+  if (preview?.cover && preview.cover.startsWith('data:image/jpeg')) return p
+  return {
+    ...p,
+    preview: {
+      components: preview?.components ?? [],
+      wires: preview?.wires ?? [],
+      stats: preview?.stats,
+      kind: preview?.kind ?? 'all',
+      flow: preview?.flow,
+      cover: NATIVE_PARTIDA_COVER,
+    },
+  }
+}
 
 function projectRoleLabel(p: Project): string {
   if (isFreeNativeProjectId(p.id) || p.owner === 'Projeto nativo') return 'Projeto nativo'
