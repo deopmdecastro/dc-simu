@@ -2,24 +2,6 @@
   "notice": "Manufacturer trademarks belong to their owners. Adapted CAD / reconstructions are educational visualizations, not official replacement CAD, certified hardware, or fabrication data.",
   "models": [
     {
-      "type": "vfdSchneiderAtv320",
-      "kind": "adapted-manufacturer-CAD",
-      "source": "https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip",
-      "cadMember": "MCADID0000926_3D-simplified.stp",
-      "cadSha256": "f88134f58af2d9f9b00b5ea17df978257c1683fee3dc28b683e7ece1f50bd2c9",
-      "changes": "Rigid Rx(+90°). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and three original-function LEDs. Control connector placement is functional, not certified metrology.",
-      "physicalSizeMm": {
-        "width": 72.750237,
-        "height": 142.950153,
-        "depth": 128.059998
-      },
-      "interfaces": 35,
-      "cavities": 33,
-      "pins": 0,
-      "bytes": 1447368,
-      "sha256": "ebe5d6c54f566fe8fd03d4c19c3eb0c7f2b889f175d94c31a76d03bc30396a17"
-    },
-    {
       "type": "relayFinder5534",
       "kind": "assembled-manufacturer-CAD",
       "sources": [
@@ -212,6 +194,24 @@
       "pins": 0,
       "bytes": 209760,
       "sha256": "8a7f7925c904064780cc340cbe0ba845eca7bba41d2fd267ad6888105fea82b6"
+    },
+    {
+      "type": "vfdSchneiderAtv320",
+      "kind": "adapted-manufacturer-CAD",
+      "source": "https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip",
+      "cadMember": "MCADID0000926_3D-simplified.stp",
+      "cadSha256": "f88134f58af2d9f9b00b5ea17df978257c1683fee3dc28b683e7ece1f50bd2c9",
+      "changes": "Rigid Rx(+90°). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and CAN Run/Err LEDs; HMI window, legend planes and QR sticker laid out to the photographed ATV320U04M2C fascia. Control connector placement is functional, not certified metrology.",
+      "physicalSizeMm": {
+        "width": 72.900237,
+        "height": 142.950153,
+        "depth": 128.059998
+      },
+      "interfaces": 35,
+      "cavities": 33,
+      "pins": 0,
+      "bytes": 1451932,
+      "sha256": "883b39835bf42e3429f2ac707f8369674fe0c42c5f6de1538a7d8ef777fe7b7e"
     }
   ]
 }

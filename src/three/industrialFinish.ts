@@ -56,27 +56,28 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
   // ATV320: melhorar aspeto do encoder verde (botão rotativo knurled) e do ESC.
   // O GLB STEP traz a geometria base; aqui afinamos materiais e detalhe de face.
   if (type === 'vfdSchneiderAtv320') {
-    const encoder = root.getObjectByName('industrial_encoder') as THREE.Mesh | undefined
-    if (encoder?.isMesh) {
+    // 'industrial_encoder' é o pivot de rotação; o corpo é o mesh filho.
+    const pivot = root.getObjectByName('industrial_encoder')
+    const encoder = root.getObjectByName('industrial_encoder_body') as THREE.Mesh | undefined
+    if (pivot && encoder?.isMesh) {
       const mat = new THREE.MeshStandardMaterial({
-        color: '#1faa3a', metalness: 0.15, roughness: 0.42,
+        color: '#3eae27', metalness: 0.1, roughness: 0.5,
       })
       if (Array.isArray(encoder.material)) encoder.material.forEach(m => m.dispose())
       else encoder.material.dispose()
       encoder.material = mat
-      // Anel de knurling subtil (cilindro fino à volta) se ainda não existir
+      // Serrilhado do aro do jog dial (textura de aderência da unidade real).
       if (!root.getObjectByName('atv_encoder_knurl')) {
         const box = new THREE.Box3().setFromObject(encoder)
         const size = new THREE.Vector3(); box.getSize(size)
         const center = new THREE.Vector3(); box.getCenter(center)
-        const r = Math.max(size.x, size.z) * 0.52
+        const r = Math.max(size.x, size.y) * 0.5
         const knurl = new THREE.Mesh(
-          new THREE.TorusGeometry(r, r * 0.06, 8, 48),
-          new THREE.MeshStandardMaterial({ color: '#178c2e', metalness: 0.2, roughness: 0.5 })
+          new THREE.TorusGeometry(r * 0.96, r * 0.07, 8, 64),
+          new THREE.MeshStandardMaterial({ color: '#2b8a1e', metalness: 0.1, roughness: 0.62 })
         )
         knurl.name = 'atv_encoder_knurl'
-        knurl.position.copy(center)
-        knurl.rotation.x = Math.PI / 2
+        knurl.position.set(center.x, center.y, box.max.z - size.z * 0.18)
         root.add(knurl)
       }
     }
@@ -124,7 +125,7 @@ function redrawLcd(root: THREE.Object3D, s: Record<string, unknown>): void {
   if (!mesh?.isMesh || typeof document === 'undefined') return
   let entry = lcds.get(mesh)
   if (!entry) {
-    const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128
+    const canvas = document.createElement('canvas'); canvas.width = 420; canvas.height = 126
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4
     entry = { canvas, texture, signature: '' }; lcds.set(mesh, entry)
     const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false })
@@ -179,7 +180,21 @@ const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
   levelRelayAvel411: { industrial_avel_label: 'avel-411-face.png' },
   relayFinder5534: { industrial_finder_label: 'finder-5534-label.png' },
   buzzerMetaltexTby301: { industrial_metaltex_label: 'metaltex-tby-label.png' },
-  vfdSchneiderAtv320: { industrial_schneider_logo: '../../brands/schneider-electric.svg', industrial_product_sticker: 'atv320-product-label.png', industrial_altivar_label: 'atv320-altivar-label.png', industrial_danger_label: 'atv320-danger-label.png' },
+  vfdSchneiderAtv320: {
+    industrial_schneider_logo: '../../brands/schneider-electric.svg',
+    industrial_product_sticker: 'atv320-product-label.png',
+    industrial_altivar_label: 'atv320-altivar-label.png',
+    industrial_danger_label: 'atv320-danger-label.png',
+    industrial_qr_sticker: 'atv320-qr-sticker.png',
+    industrial_hmi_legend_ref: 'atv320-legend-ref.png',
+    industrial_hmi_legend_mon: 'atv320-legend-mon.png',
+    industrial_hmi_legend_conf: 'atv320-legend-conf.png',
+    industrial_hmi_legend_value: 'atv320-legend-value.png',
+    industrial_hmi_legend_unit: 'atv320-legend-unit.png',
+    industrial_hmi_legend_can_run: 'atv320-legend-can-run.png',
+    industrial_hmi_legend_can_err: 'atv320-legend-can-err.png',
+    industrial_escape_label: 'atv320-legend-esc.png',
+  },
 }
 
 function textureFor(url: string): Promise<THREE.Texture> {

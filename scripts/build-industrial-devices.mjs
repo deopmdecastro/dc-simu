@@ -58,22 +58,47 @@ async function store(type,root,terms,provenance) {
 async function atv() {
  const type='vfdSchneiderAtv320',r=await readStep(path.join(source,'MCADID0000926_3D-simplified.stp')),root=device(type),map=(x,y,z)=>[x-36,-z,y]
  const cover=new T.Group();cover.name='industrial_control_cover';root.add(cover)
+ // Materiais fiéis à unidade real (fotografia eibabo ATV320U04M2C): tampa e
+ // flap quase negros (#2e2f2c), corpo cinzento-escuro quente (#3a3b36).
+ const faceDark=mat('#2e2f2c')
  const solids=[]
  for(const [i,m] of r.meshes.entries()){
-  const node=fromOcc(m,map,i===7?green:i===14||i===15||i===12?steel:dark,'atv320_cad_'+i)
+  const material=i===7?green:i===14||i===15||i===12?steel:i===10||i===11?faceDark:dark
+  const node=fromOcc(m,map,material,'atv320_cad_'+i)
   if(i===7){node.geometry.computeBoundingBox();const c=node.geometry.boundingBox.getCenter(new T.Vector3());node.geometry.translate(-c.x,-c.y,-c.z);const pivot=new T.Group();pivot.name='industrial_encoder';pivot.position.copy(c);node.name='industrial_encoder_body';pivot.add(node);root.add(pivot)}
   else if(i===10||i===11)cover.add(node)
   else {root.add(node);solids.push(node)}
  }
- root.add(box(8,8,1.1,dark,'industrial_escape',[-23.7,94.5,132.5]))
- root.add(plane(50.4,16.2,dark,'industrial_display_frame',[-1,116.8,131.95]))
- root.add(plane(30.3,8.1,black,'industrial_lcd',[-1,115.1,132.02]))
- cover.add(plane(14,21,white,'industrial_product_sticker',[24.6,94.4,131.96]))
+ // Serigrafia do HMI real (fotografia eibabo ATV320U04M2C): janela LCD no
+ // topo; "CAN Run"/"CAN Err" com LED verde/vermelho por cima da janela;
+ // coluna Ref/Mon/Conf à esquerda e Value/Unit à direita; ESC (quadrado
+ // escuro com rótulo por baixo) à esquerda do encoder; autocolante QR de
+ // fábrica à direita do encoder. Plano frontal da tampa: z≈132 mm.
+ const FACE=132.14
+ root.add(plane(52,17.5,faceDark,'industrial_display_frame',[-3,113.4,131.98]))
+ root.add(plane(35,10.5,black,'industrial_lcd',[-3,113.4,FACE+.02]))
+ const legendPlane=(name,w,h,x,y)=>root.add(plane(w,h,white,name,[x,y,FACE+.04]))
+ legendPlane('industrial_hmi_legend_can_run',9,2.4,-8,122.9)
+ legendPlane('industrial_hmi_legend_can_err',9,2.4,6,122.9)
+ led(root,-8,121.1,FACE+.05,'#16a56b','industrial_led_run',.9)
+ led(root,6,121.1,FACE+.05,'#c52224','industrial_led_fault',.9)
+ legendPlane('industrial_hmi_legend_ref',6,2.6,-22,116.9)
+ legendPlane('industrial_hmi_legend_mon',6,2.6,-22,113.4)
+ legendPlane('industrial_hmi_legend_conf',6,2.6,-22,109.9)
+ legendPlane('industrial_hmi_legend_value',7,2.6,15.5,115.4)
+ legendPlane('industrial_hmi_legend_unit',7,2.6,15.5,111.4)
+ // Botão ESC físico (quadrado escuro, rótulo "ESC" impresso por baixo).
+ root.add(box(6.5,6.5,1.4,faceDark,'industrial_escape',[-19.5,95.5,FACE-.3]))
+ legendPlane('industrial_escape_label',5.5,2.6,-19.5,90.6)
+ // Autocolante QR de fábrica à direita do encoder (conteúdo reconstruído, sem
+ // ligação real: ver sources.json — não inventa URL nem número de série).
+ cover.add(plane(15,15,white,'industrial_qr_sticker',[26.5,95.5,131.99]))
+ // Etiqueta de características na face lateral direita, como na unidade real.
+ const side=plane(26,40,white,'industrial_product_sticker',[36.15,88,75]);side.rotation.y=Math.PI/2;root.add(side)
  cover.add(plane(20,26,dark,'industrial_danger_label',[-23.4,31.1,131.96]))
  cover.add(plane(16,16,dark,'industrial_altivar_label',[0,25.1,131.96]))
  cover.add(plane(14,4.8,white,'industrial_schneider_logo',[24,20.5,131.96]))
- root.add(box(3,16,1,dark,'industrial_cover_latch',[31.5,39,132.1]))
- for(const [i,color]of ['#c52224','#16a56b','#c52224'].entries())led(root,-12+i*10,121.5,132.1,color,['industrial_led_fault','industrial_led_run','industrial_led_can'][i])
+ root.add(box(3,16,1,faceDark,'industrial_cover_latch',[31.5,39,132.1]))
  const terms=[]
  const lower=[['PB',-27.95],['PO',-20.05],['PA/+',-12.15],['PC/-',-4.25],['U/T1',3.65],['V/T2',11.55],['W/T3',19.45]]
  const power=lower.map(([label,x])=>({label,x,z:70})).concat([{label:'R/L1',x:-12.15,z:50},{label:'S/L2',x:-4.25,z:50}])
@@ -85,7 +110,7 @@ async function atv() {
  const rows=[{y:61,labels:['10V','AI1','COM1','AI2','AI3','COM2','AQ1','R1A','R1B','R1C','R2A','R2C'],x:-29.5},{y:47,labels:['+24','DI1','DI2','DI3','DI4','DI5','DI6','STO','P24'],x:-29.5},{y:31,labels:['DQ-','DQ+','PE-CTRL'],x:.5}]
  for(const row of rows){const holes=[];row.labels.forEach((label,i)=>{const x=row.x+i*5;holes.push([x-row.x-(row.labels.length-1)*2.5,0,1.9]);drill(solids,'z',[x,row.y,124],1.9,117,132);terms.push(terminal(inside,label,x,row.y,124,{r:1.85,depth:7}))});inside.add(shapePlate(row.labels.length*5+1,9,7,holes,blue,'industrial_control_terminal_block',[row.x+(row.labels.length-1)*2.5,row.y,117]))}
  inside.add(box(14,13,10,black,'industrial_rj45_body',[23.5,30,118]))
- await store(type,root,terms,{kind:'adapted-manufacturer-CAD',source:'https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip',cadMember:'MCADID0000926_3D-simplified.stp',cadSha256:r.sha256,changes:'Rigid Rx(+90°). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and three original-function LEDs. Control connector placement is functional, not certified metrology.'})
+ await store(type,root,terms,{kind:'adapted-manufacturer-CAD',source:'https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip',cadMember:'MCADID0000926_3D-simplified.stp',cadSha256:r.sha256,changes:'Rigid Rx(+90°). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and CAN Run/Err LEDs; HMI window, legend planes and QR sticker laid out to the photographed ATV320U04M2C fascia. Control connector placement is functional, not certified metrology.'})
 }
 
 async function finderSocket(){

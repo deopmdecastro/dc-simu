@@ -28,7 +28,7 @@ export interface DeviceLcdFrame {
 export const DEVICE_LCD_SIZE = {
   'd52-2066': { width: 640, height: 520 },
   'kws-306': { width: 640, height: 432 },
-  atv320: { width: 512, height: 128 },
+  atv320: { width: 420, height: 126 },
 } as const
 export const DEVICE_LCD_COLORS = {
   background: '#060908', d52Power: '#e5ef36', d52Energy: '#f07936',
@@ -80,17 +80,11 @@ export function deviceLcdFrame(profile: DeviceLcdProfile, s: Record<string, unkn
   const legend = (id: string, text: string, color: string, rect: LcdCell['rect'], align: CanvasTextAlign = 'left') => frame.cells.push({ id, kind: 'legend', text, color, rect, align })
   const C = DEVICE_LCD_COLORS
   if (profile === 'atv320') {
-    // HMI local NVE41295: quatro dígitos 7-segmentos + legendas Ref/Mon/Conf / Value Unit.
-    // Layout cotado a partir da fotografia do ATV320U04M2C (não firmware real).
-    const menu = String(s.menu ?? 'ref')
-    const menuColor = (id: string) => menu === id ? C.atv : '#5a6a5a'
-    legend('ref', 'Ref', menuColor('ref'), [8, 4, 48, 14], 'center')
-    legend('mon', 'Mon', menuColor('mon'), [60, 4, 48, 14], 'center')
-    legend('conf', 'Conf', menuColor('conf'), [112, 4, 52, 14], 'center')
-    legend('value', 'Value', '#7a8a7a', [380, 4, 60, 14], 'center')
-    legend('unit', 'Unit', '#7a8a7a', [450, 4, 48, 14], 'center')
-    // Status LEDs textual indicators (CAN / Run / etc. are physical LEDs on the GLB)
-    segment('value', atv320DisplayText(s), C.atv, [48, 28, 416, 84], 4)
+    // HMI local NVE41295: quatro dígitos 7-segmentos na janela. As legendas
+    // Ref/Mon/Conf, Value/Unit, CAN Run/CAN Err e ESC são serigrafia física
+    // da tampa (planos no GLB), não texto dentro do visor — ver a fotografia
+    // do ATV320U04M2C e build-industrial-devices.mjs.
+    segment('value', atv320DisplayText(s), C.atv, [40, 23, 340, 80], 4)
   } else if (profile === 'd52-2066') {
     segment('power', lcdNumber(measurement(s, 'power'), 5, 1), C.d52Power, [24, 16, 504, 88], 5)
     legend('power-unit', 'W', C.d52Power, [550, 61, 70, 39])
