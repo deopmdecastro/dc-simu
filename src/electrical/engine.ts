@@ -337,9 +337,9 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       break
     }
     case 'meterD522066': {
-      const ctIn = t(c, 'CT-IN')?.id
-      const ctOut = t(c, 'CT-OUT')?.id
-      if (ctIn && ctOut) bridges.push([ctIn, ctOut])
+      // External CT variant: voltage terminals 1/2 sense L-N; CT secondary 3/4
+      // receive the isolated secondary from a separate currentTransformerSplitCore.
+      // No primary conductor bridge through the meter body.
       break
     }
     case 'meterKws306': {

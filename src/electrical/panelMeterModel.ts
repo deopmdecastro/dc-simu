@@ -57,9 +57,26 @@ export function updatePanelMeters(components:ElectricalComponent[],wires:Wire[],
   for(const c of components){
     if(c.type==='meterD522066'){
       const input=industrialInput(c,'1','2',ctx),powered=!input.dc&&input.voltage>=40&&input.voltage<=300
-      const sensed=powered?branch(c,'CT-IN','CT-OUT',components,wires,ctx.live,input.voltage):{amps:0,watts:0,ambiguous:false}
-      Object.assign(c.state,{on:powered,voltage:powered?input.voltage:0,current:sensed.amps,power:sensed.watts,powerFactor:sensed.amps>0&&input.voltage>0?sensed.watts/(input.voltage*sensed.amps):0,frequency:powered?frequency(c,'1',ctx):0,measurementAmbiguous:sensed.ambiguous})
-      integrate(c,sensed.watts,dtMs,running)
+      // External CT: secondary arrives on 3/4. Prefer linked CT primaryCurrentA when present;
+      // otherwise treat 3-4 branch current as secondary and scale by typical 100A/50mA.
+      let amps=0,watts=0,ambiguous=false
+      if(powered){
+        const linkedCt=components.find(other=>other.type==='currentTransformerSplitCore'&&wires.some(w=>
+          (w.a===c.id&&(w.aTerm==='3'||w.aTerm==='4')&&w.b===other.id)||(w.b===c.id&&(w.bTerm==='3'||w.bTerm==='4')&&w.a===other.id)
+        ))
+        if(linkedCt&&typeof linkedCt.state.primaryCurrentA==='number'){
+          amps=linkedCt.state.primaryCurrentA
+          watts=amps*input.voltage
+        }else{
+          const sensed=branch(c,'3','4',components,wires,ctx.live,0)
+          // Secondary ~50 mA full scale for 100 A primary (typical for this meter family).
+          amps=sensed.amps*(100/0.05)
+          watts=amps*input.voltage
+          ambiguous=sensed.ambiguous
+        }
+      }
+      Object.assign(c.state,{on:powered,voltage:powered?input.voltage:0,current:amps,power:watts,powerFactor:amps>0&&input.voltage>0?watts/(input.voltage*amps):0,frequency:powered?frequency(c,'1',ctx):0,measurementAmbiguous:ambiguous})
+      integrate(c,watts,dtMs,running)
     }else if(c.type==='meterKws306'){
       let any=false,watts=0,ambiguous=false
       for(const [phase,suffix]of [['L1','A'],['L2','B'],['L3','C']]){

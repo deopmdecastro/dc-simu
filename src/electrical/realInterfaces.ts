@@ -157,8 +157,8 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
   meterD522066: [
     {label:'1',face:'bottom',x:13/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
     {label:'2',face:'bottom',x:23/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
-    {label:'CT-IN',face:'left',x:0,y:68/80,z:18/64,diameterMm:15,holeDepthMm:54},
-    {label:'CT-OUT',face:'right',x:1,y:68/80,z:18/64,diameterMm:15,holeDepthMm:54},
+    {label:'3',face:'top',x:13/54,y:0,z:30/64,diameterMm:5.4,holeDepthMm:12},
+    {label:'4',face:'top',x:23/54,y:0,z:30/64,diameterMm:5.4,holeDepthMm:12},
   ],
   meterKws306: [
     ...[-28,-9.3,9.3,28].map((x,i)=>({label:['L1-IN','L2-IN','L3-IN','N-IN'][i],face:'top' as const,x:(x+37)/74,y:0,z:30/65,diameterMm:7.4,holeDepthMm:12})),

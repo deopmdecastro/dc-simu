@@ -1238,13 +1238,13 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
         displayName: '2 · Tensão N', color: '#2563eb', terminalType: 'screw',
         position3D: { x: 0.48, y: 0.16, z: 0.88 },
       }),
-      T('CT-IN', 'io', 0.80, 0.22, {
-        displayName: 'TC · Passagem de condutor (entrada)', color: '#f59e0b', terminalType: 'spring',
-        position3D: { x: 0.80, y: 0.22, z: 0.92 },
+      T('3', 'io', 0.28, 0.08, {
+        displayName: '3 · TC secundário (S1)', color: '#f59e0b', terminalType: 'screw',
+        position3D: { x: 0.28, y: 0.84, z: 0.88 },
       }),
-      T('CT-OUT', 'io', 0.80, 0.88, {
-        displayName: 'TC · Passagem de condutor (saída)', color: '#f59e0b', terminalType: 'spring',
-        position3D: { x: 0.80, y: 0.12, z: 0.12 },
+      T('4', 'io', 0.48, 0.08, {
+        displayName: '4 · TC secundário (S2)', color: '#f59e0b', terminalType: 'screw',
+        position3D: { x: 0.48, y: 0.84, z: 0.88 },
       }),
     ],
     defaultState: { on: false, voltage: 0, current: 0, power: 0, energy: 0, frequency: 0, powerFactor: 1.0, resetPressed: false },

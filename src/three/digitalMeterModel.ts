@@ -66,13 +66,15 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
     marking('QNCTK1-16',0,43,24.04,26,3.1,'digital_meter_ct_type')
     marking('100 A / 50 mA',0,12.5,24.04,25,3,'digital_meter_ct_rating')
   }else if(type==='meterD522066'){
-    const body=profileBody(54,[[0,0],[42,0],[42,22],[64,22],[64,67],[44,67],[44,80],[0,80],[0,57],[7.5,57],[7.5,22],[0,22]],[[18,12,7.5]],white);body.name='digital_meter_body';root.add(body)
-    const tube=new THREE.CylinderGeometry(7.45,7.45,53.7,36,1,true);tube.rotateZ(Math.PI/2)
-    const wall=material('#3b4039');wall.side=THREE.DoubleSide;mesh(tube,wall,'digital_meter_ct_tunnel',[0,12,18])
+    // External-CT variant (D52/YD52): solid body, no primary conductor tunnel.
+    // Primary CT is external (split-core or solid); secondary connects to 3/4.
+    // Profile matches photographed shell without the internal CT bore.
+    const body=profileBody(54,[[0,0],[42,0],[42,22],[64,22],[64,67],[44,67],[44,80],[0,80],[0,57],[7.5,57],[7.5,22],[0,22]],[],white);body.name='digital_meter_body';root.add(body)
     box(53,44.6,.8,material('#eeeee6'),'digital_meter_frame',[0,44.5,63.6])
     box(46,38,.1,dark,'digital_meter_lcd_recess',[-3.1,44,64.01])
     plane(43.5,35.5,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[-3.3,44,64.08])
     button(22.5,45,63.7,1.65,'digital_meter_reset',blue)
+    // Voltage terminals 1/2 (bottom entry + front screwdriver wells with captive screws)
     for(const[label,x]of [['1',-14],['2',-4]] as const){
       bore(body,label,[x,0,30],'y',[0,-1,0],2.7,12)
       // Distinct cable mouth and front screwdriver well. The captive head is
@@ -83,20 +85,16 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
       const shank=new THREE.CylinderGeometry(1.05,1.05,8.6,20);shank.rotateX(Math.PI/2)
       mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,12,34.2])
     }
-    // The photographed shell also has the two upper moulded 3/4 recesses.
-    // They are unpopulated housing details: no invented electrical terminals,
-    // bridge or sensor input, and no change to the working CT or 1/2 contracts.
+    // CT secondary terminals 3/4 (top entry + front screwdriver wells) — external CT wiring.
     for(const[label,x]of [['3',-14],['4',-4]] as const){
-      const old=body.geometry;body.geometry=finiteBore(old,'z',[x,74.5,44],2.7,38,44.02);old.dispose()
-      const lip=new THREE.TorusGeometry(2.65,.12,6,24)
-      mesh(lip,white,'digital_meter_molded_recess_'+label,[x,74.5,44.01])
-      const sleeve=new THREE.CylinderGeometry(2.68,2.68,6,24,1,true);sleeve.rotateX(Math.PI/2)
-      const inner=material('#85877f');inner.side=THREE.DoubleSide
-      mesh(sleeve,inner,'digital_meter_molded_recess_wall_'+label,[x,74.5,41])
-      const floor=new THREE.CircleGeometry(2.68,24)
-      mesh(floor,inner,'digital_meter_molded_recess_floor_'+label,[x,74.5,38.01])
+      bore(body,label,[x,80,30],'y',[0,1,0],2.7,12)
+      bore(body,'screwdriver_'+label,[x,68,42],'z',[0,0,1],2.8,11)
+      const screw=buildCaptiveTerminalScrew('d52_'+label,2.18)
+      screw.position.set(x,68,39.4);root.add(screw)
+      const shank=new THREE.CylinderGeometry(1.05,1.05,8.6,20);shank.rotateX(Math.PI/2)
+      mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,68,34.2])
     }
-    marking('3    4',-9,69.6,44.025,22,2.3,'digital_meter_spare_mold_numbers')
+    marking('3    4',-9,69.6,44.025,22,2.3,'digital_meter_ct_terminals')
     marking('D52-2066',-13.4,65.1,64.09,21.5,2.1,'digital_meter_type')
     marking('Multi-Function Digital Meter',-2.5,24.1,64.09,43,2,'digital_meter_legend')
     marking('1    2',-9,17,42.025,22,2.5,'digital_meter_voltage_terminals')
