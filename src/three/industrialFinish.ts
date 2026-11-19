@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { atv320DisplayText, deviceLcdFrame, drawDeviceLcd } from './deviceLcd'
 import { INDUSTRIAL_DEVICE_TYPES, GEYA_FUNCTIONS, GEYA_RANGES_MS, isIndustrialDevice, type IndustrialDeviceType } from '../electrical/industrialDevices'
+import { buildCaptiveTerminalScrew } from './terminalHardware'
 
 /** Nomes funcionais iguais no Painel, no Admin e no GLB publicado. */
 const ACTIONS: Record<string, string> = {
@@ -39,6 +40,34 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
     if (ACTIONS[node.name] || node.name === 'industrial_control_cover' || node.name === 'industrial_control_interior') node.userData.industrialMoving = true
     prepared.add(node)
   })
+  // GEYA GRT8: parafusos captivos visíveis na face frontal (vista +Z) alinhados
+  // com os bornes superiores (A1/S/A2) e inferiores (15/16/18). O GLB traz as
+  // cavidades; estes parafusos completam a serigrafia/hardware da face.
+  if (type === 'timerGeyaGrt8M1' || type === 'timerGeyaGrt8B1') {
+    if (!root.getObjectByName('timer_front_screws')) {
+      // Modelos industriais são encaixados em mm (unit ~0.001). Os parafusos
+      // captivos ficam na face +Z (frente) alinhados com os bornes superiores
+      // e inferiores definidos no geometry.json.
+      const U = 0.001
+      const group = new THREE.Group()
+      group.name = 'timer_front_screws'
+      const xs = [-0.2889 * 18 * U, 0, 0.2889 * 18 * U]
+      const topY = 0.42 * 95 * U
+      const botY = -0.42 * 95 * U
+      const frontZ = 0.48 * 65.35 * U
+      const labelsTop = ['A1', 'S', 'A2']
+      const labelsBot = ['15', '16', '18']
+      for (let i = 0; i < 3; i++) {
+        const sTop = buildCaptiveTerminalScrew('geya_' + labelsTop[i], 1.6, U)
+        sTop.position.set(xs[i], topY, frontZ)
+        group.add(sTop)
+        const sBot = buildCaptiveTerminalScrew('geya_' + labelsBot[i], 1.6, U)
+        sBot.position.set(xs[i], botY, frontZ)
+        group.add(sBot)
+      }
+      root.add(group)
+    }
+  }
 }
 
 export function industrialAction(object: THREE.Object3D): string | null {
