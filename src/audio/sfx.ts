@@ -588,21 +588,33 @@ function updateSounder():void{
  // contexto já autorizado por gesto (RUN, clique/tecla) pode produzir som.
  if(!ctx||ctx.state!=='running'||sounderOsc)return
  try{
-  // Piezo industrial típico (~2.7–3.2 kHz, harmónicos, leve saturado).
-  // Tom didático contínuo; não é medição SPL nem gravação do TBY-301.
-  const osc=ctx.createOscillator(),filter=ctx.createBiquadFilter(),gain=ctx.createGain()
-  const lfo=ctx.createOscillator(),lfoGain=ctx.createGain()
-  osc.type='square';osc.frequency.value=2850
-  lfo.type='sine';lfo.frequency.value=6.5
-  lfoGain.gain.value=35
-  lfo.connect(lfoGain);lfoGain.connect(osc.frequency)
-  filter.type='bandpass';filter.frequency.value=3200;filter.Q.value=2.8
-  gain.gain.setValueAtTime(0,ctx.currentTime);gain.gain.linearRampToValueAtTime(.028,ctx.currentTime+.018)
-  osc.connect(filter);filter.connect(gain);gain.connect(ctx.destination)
+  // Metaltex TBY-301 (110 VCA, 50/60 Hz): buzzer eletromagnético, NÃO piezo.
+  // A bobina atrai a armadura nos dois semiciclos da rede, por isso o
+  // diafragma vibra a 2× a frequência da rede (100 Hz com rede de 50 Hz).
+  // Timbre áspero característico: dente-de-serra de 100 Hz (harmónicos ricos)
+  // com saturação suave (metal do diafragma), ressonância acústica ~1,9 kHz e
+  // matelagem mecânica (AM) a 100 Hz. Som contínuo (>85 dB no aparelho real);
+  // aqui é uma síntese didática, não medição SPL nem gravação.
+  const RATTLE_HZ=100
+  const osc=ctx.createOscillator(),shaper=ctx.createWaveShaper(),filter=ctx.createBiquadFilter(),gain=ctx.createGain()
+  const am=ctx.createOscillator(),amGain=ctx.createGain()
+  osc.type='sawtooth';osc.frequency.value=RATTLE_HZ
+  // Saturação tipo tanh: harmónicos metálicos do diafragma em vibração forçada.
+  const curve=new Float32Array(257)
+  for(let i=0;i<257;i++){const x=i/128-1;curve[i]=Math.tanh(2.6*x)}
+  shaper.curve=curve;shaper.oversample='2x'
+  // Ressonância da cúpula acústica: corpo nasal por volta de 1,9 kHz.
+  filter.type='bandpass';filter.frequency.value=1900;filter.Q.value=.9
+  // Matelagem: a armadura bate 100 vezes por segundo → AM sinusoidal profunda.
+  am.type='sine';am.frequency.value=RATTLE_HZ
+  amGain.gain.value=.011
+  am.connect(amGain);amGain.connect(gain.gain)
+  gain.gain.setValueAtTime(0,ctx.currentTime);gain.gain.linearRampToValueAtTime(.024,ctx.currentTime+.02)
+  osc.connect(shaper);shaper.connect(filter);filter.connect(gain);gain.connect(ctx.destination)
   sounderOsc=osc;sounderFilter=filter;sounderGain=gain
-  osc.start();lfo.start()
-  // Guard LFO for stop (attached to osc userData for cleanup)
-  ;(osc as unknown as {__lfo?:OscillatorNode}).__lfo=lfo
+  osc.start();am.start()
+  // Guard AM osc for stop (attached to osc userData for cleanup)
+  ;(osc as unknown as {__lfo?:OscillatorNode}).__lfo=am
  }catch{stopSounderNodes()}
 }
 export function syncIndustrialSounders(components:ElectricalComponent[]):void{
