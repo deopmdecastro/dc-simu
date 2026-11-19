@@ -24,7 +24,7 @@ const context = (components: ElectricalComponent[], wires: Wire[]): IndustrialEl
   return { components, adjacency: graph.reachable, live: graph.energizedTerminals, phases: computePhaseLabels(components, wires) }
 }
 const provenance = JSON.parse(fs.readFileSync('public/models/industriais/sources.json', 'utf8'))
-check(INDUSTRIAL_DEVICE_TYPES.length === 13, 'thirteen explicit industrial references')
+check(INDUSTRIAL_DEVICE_TYPES.length === 14, 'fourteen explicit industrial references')
 for (const type of INDUSTRIAL_DEVICE_TYPES) {
   const g = INDUSTRIAL_GEOMETRY[type], info = INDUSTRIAL_INFO[type], c = createComponent(type)
   check(c.terminals.length === g.terminals.length && new Set(c.terminals.map(t => t.id)).size === c.terminals.length, `${type}: stable unique terminal identities`)
@@ -124,5 +124,27 @@ useSimStore.getState().stop();check(!liveDrive().state.running&&!liveDrive().sta
 const saved=useSimStore.getState().saveJSON();useSimStore.getState().loadJSON(saved)
 check(liveDrive().terminals.map(t=>t.id).join()===drive.terminals.map(t=>t.id).join(),'save/load preserves industrial endpoint identities')
 check(industrialDeviceTypeOf({type:'cat:test:v1',state:{industrialOrigin:'relayFinder5534'}} as ElectricalComponent)==='relayFinder5534','published catalog industrial origin remains functional')
+// MICO Classic 4.6: alimentação 24 V DC, canais ON/OFF, disparo por sobrecorrente e Sammelmeldung 13-14.
+const dcSrc=createComponent('powerSource24v');dcSrc.state.nominalV=24
+const mico=createComponent('breakerMurrelektronikMico46')
+wires=[cable(dcSrc,'+24V',mico,'L+'),cable(dcSrc,'0V',mico,'GND')]
+const scanMico=()=>updateIndustrialDevice(mico,context([dcSrc,mico],wires),100)
+scanMico();check(mico.state.powered===true&&mico.state.supplyMismatch===false,'MICO: 24 V DC alimenta sem mismatch')
+check(mico.state.channels['1'].on===false,'MICO: entrega com canais OFF (estado de fábrica)')
+const patch=industrialControlPatch('breakerMurrelektronikMico46',mico.state,'ch1')
+Object.assign(mico.state,patch);scanMico()
+check(mico.state.channels['1'].on===true,'MICO: botão liga canal')
+check(mico.state.channels['1'].tripped===false,'MICO: 0 A não dispara')
+mico.state.channels['1'].currentA=2;scanMico()
+check(mico.state.channels['1'].tripped===true&&mico.state.alarmOpen===true,'MICO: sobrecorrente dispara e abre Sammelmeldung')
+const selPatch=industrialControlPatch('breakerMurrelektronikMico46',mico.state,'sel1')
+Object.assign(mico.state,selPatch)
+check(mico.state.channels['1'].setpointA===2&&mico.state.channels['1'].on===false,'MICO: mudar seletor desliga canal')
+mico.state.channels['1'].on=true;mico.state.channels['1'].tripped=true;mico.state.onRemote=true
+scanMico()
+check(mico.state.channels['1'].tripped===false,'MICO: ON remoto rearma canal disparado')
+mico.state.onRemote=false
+dcSrc.state.nominalV=0;scanMico()
+check(mico.state.powered===false&&mico.state.channels['1'].tripped===false,'MICO: corte de rede limpa disparo')
 check(!('running' in industrialControlPatch('vfdSchneiderAtv320',{},'enter')),'ATV encoder is not an invented RUN button')
 if(errors.length){console.error(`\n${errors.length}/${checks} failed:\n${errors.join('\n')}`);process.exitCode=1}else console.log(`\nPASS — ${checks} industrial asset/electrical checks`)

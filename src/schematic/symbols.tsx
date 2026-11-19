@@ -215,6 +215,27 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
   const body = () => {
     switch (c.type) {
       // ------------------------------------------------------------- proteção
+      case 'breakerMurrelektronikMico46': {
+        const ch = (c.state.channels ?? {}) as Record<string, { on: boolean; tripped: boolean; fault: boolean; setpointA: number }>
+        const anyBad = [1, 2, 3, 4].some((i) => ch[String(i)]?.on && (ch[String(i)]?.tripped || ch[String(i)]?.fault))
+        return (
+          <g>
+            <rect x={4} y={8} width={w - 8} height={h - 16} rx={5} fill={c.state.powered ? '#1c2a1c' : '#181c18'} stroke={anyBad ? '#ef4444' : s} />
+            {[1, 2, 3, 4].map((i) => {
+              const cx = (i * w) / 5, chst = ch[String(i)]
+              const col = !c.state.powered ? '#334155' : chst?.fault ? '#f97316' : chst?.tripped ? '#ef4444' : chst?.on ? '#22c55e' : '#475569'
+              return (
+                <g key={i}>
+                  <circle cx={cx} cy={h * 0.32} r={5} fill={col} stroke="#0f172a" strokeWidth={1.5} />
+                  <text x={cx} y={h * 0.52} textAnchor="middle" fontSize={7} fill="#94a3b8">{chst?.setpointA ?? 1}A</text>
+                  <text x={cx} y={h * 0.7} textAnchor="middle" fontSize={7} fill="#cbd5e1">{i}</text>
+                </g>
+              )
+            })}
+            {label(8, h - 4, c.ref, 9, '#93c5fd')}
+          </g>
+        )
+      }
       case 'breaker1p':
       case 'breakerSchneiderIc60h1p':
       case 'breakerSteckSdC25':

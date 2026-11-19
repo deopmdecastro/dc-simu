@@ -46,6 +46,14 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
   // build-industrial-devices.mjs a z=34.1/38 mm, dentro dos poços frontais
   // recuados). O grupo runtime flutuante foi removido: duplicava os parafusos
   // e ficava suspenso a meio do ar na face do painel.
+  // MICO 4.6: botões de canal e seletores de corrente.
+  if (type === 'breakerMurrelektronikMico46') {
+    root.traverse(node => {
+      const m = /^industrial_mico_(button|select)_([1-4])$/.exec(node.name)
+      if (m) node.userData.industrialControl = m[1] + m[2]
+      if (node.name.startsWith('industrial_mico_button_') || node.name.startsWith('industrial_mico_select_')) node.userData.industrialMoving = true
+    })
+  }
   // Botoeiras KEOLEA KL-XB2: a tampa Ø22,5 mm é a zona de pressão real.
   if (type.startsWith('pushButtonXb2')) {
     root.traverse(node => {
@@ -107,6 +115,12 @@ export function industrialLedVars(type: IndustrialDeviceType, s: Record<string, 
     ledTankWater: !!s.powered && !!s.tankMinWet, ledTankDry: !!s.powered && !s.tankMinWet,
     ledWellWater: !!s.powered && !!s.wellReady, ledWellDry: !!s.powered && !s.wellReady,
   }
+  if (type === 'breakerMurrelektronikMico46') {
+    const ch = (s.channels ?? {}) as Record<string, { on: boolean; tripped: boolean; fault: boolean }>
+    const out: Record<string, boolean> = {}
+    for (const i of [1, 2, 3, 4]) { const c = ch[String(i)]; out['led' + i] = !!s.powered && !!c?.on && !c?.tripped && !c?.fault }
+    return out
+  }
   return {}
 }
 export const INDUSTRIAL_LED_NODES: Record<string, string> = {
@@ -114,6 +128,7 @@ export const INDUSTRIAL_LED_NODES: Record<string, string> = {
   industrial_led_power: 'ledPower', industrial_led_relay: 'ledRelay',
   industrial_led_tank_water: 'ledTankWater', industrial_led_tank_dry: 'ledTankDry',
   industrial_led_well_water: 'ledWellWater', industrial_led_well_dry: 'ledWellDry',
+  industrial_mico_led_1: 'led1', industrial_mico_led_2: 'led2', industrial_mico_led_3: 'led3', industrial_mico_led_4: 'led4',
 }
 
 export function industrialDisplayText(s: Record<string, unknown>): string {
@@ -169,6 +184,16 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
     }
   }
   if (drawLcd && type === 'vfdSchneiderAtv320') redrawLcd(root, s)
+  if (type === 'breakerMurrelektronikMico46' && moveControls) {
+    const ch = (s.channels ?? {}) as Record<string, { on: boolean; setpointA: number }>
+    for (const i of [1, 2, 3, 4]) {
+      const c = ch[String(i)]
+      const btn = root.getObjectByName('industrial_mico_button_' + i)
+      if (btn) { btn.userData.restZ ??= btn.position.z; btn.position.z = btn.userData.restZ - (c?.on ? 0 : 0.0008) }
+      const sel = root.getObjectByName('industrial_mico_select_' + i)
+      if (sel && c) sel.rotation.z = -[1, 2, 4, 6].indexOf(c.setpointA) * Math.PI / 4
+    }
+  }
   const armature = root.getObjectByName('industrial_armature')
   if (armature) armature.rotation.x = s.energized ? -.07 : 0
   root.updateMatrixWorld(true)
@@ -186,6 +211,7 @@ const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
   pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
   pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_back: 'xb2-no-back-baked.png' },
   pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_side_rev_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_back: 'xb2-nc-back-baked.png' },
+  breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png' },
   vfdSchneiderAtv320: {
     industrial_schneider_logo: '../../brands/schneider-electric.svg',
     industrial_product_sticker: 'atv320-product-label.png',

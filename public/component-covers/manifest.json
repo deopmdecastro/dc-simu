@@ -76,7 +76,8 @@
     "pushButtonXb2Black",
     "pushButtonXb2Yellow",
     "pushButtonXb2Blue",
-    "pushButtonXb2White"
+    "pushButtonXb2White",
+    "breakerMurrelektronikMico46"
   ],
   "types": {
     "breaker1p": "breaker1p.webp",
@@ -153,7 +154,8 @@
     "pushButtonXb2Black": "pushButtonXb2Black.webp",
     "pushButtonXb2Yellow": "pushButtonXb2Yellow.webp",
     "pushButtonXb2Blue": "pushButtonXb2Blue.webp",
-    "pushButtonXb2White": "pushButtonXb2White.webp"
+    "pushButtonXb2White": "pushButtonXb2White.webp",
+    "breakerMurrelektronikMico46": "breakerMurrelektronikMico46.webp"
   },
   "front": {
     "breaker1p": "front/breaker1p.webp",
@@ -230,6 +232,7 @@
     "pushButtonXb2Black": "front/pushButtonXb2Black.webp",
     "pushButtonXb2Yellow": "front/pushButtonXb2Yellow.webp",
     "pushButtonXb2Blue": "front/pushButtonXb2Blue.webp",
-    "pushButtonXb2White": "front/pushButtonXb2White.webp"
+    "pushButtonXb2White": "front/pushButtonXb2White.webp",
+    "breakerMurrelektronikMico46": "front/breakerMurrelektronikMico46.webp"
   }
 }

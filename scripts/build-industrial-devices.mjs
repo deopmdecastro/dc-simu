@@ -273,7 +273,76 @@ async function xb2(type){
  await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole; Ø29 mm knurled chrome bezel; metallic cap body with coloured top disc; zamac body; 22×46×22 mm black polyamide contact block with coloured function plunger (green NO 3-4, red NC 1-2) and Pozidriv screw terminals; serigraphic electrical ratings on sides/back. Contacts are momentary with spring return; no latching or illumination invented.'})
 }
 
-const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')],['pushButtonXb2Yellow',()=>xb2('pushButtonXb2Yellow')],['pushButtonXb2Blue',()=>xb2('pushButtonXb2Blue')],['pushButtonXb2White',()=>xb2('pushButtonXb2White')]]
+// Murrelektronik MICO Classic 4.6 (9000-41034-0100600): proteção eletrónica 24 V DC,
+// 4 canais, corpo calha DIN 90(A)×70(L)×80(P) mm com bornes de mola verdes.
+// Nota: drill/bore usa coordenadas LOCAIS do mesh (box() é centrado na posição).
+async function mico(){
+ const type='breakerMurrelektronikMico46',root=device(type),terms=[]
+ const GREEN=mat('#3a9b2e'),DARKGREEN=mat('#1f5c1a'),BODY=mat('#2b2d2a'),BODY2=mat('#3a3d38')
+ // Corpo principal 70L × 80A × 58P mm (frente em +Z). Centro mundial [0,40,29].
+ const body=box(70,80,58,BODY,'industrial_mico_body',[0,40,29]);root.add(body)
+ // Rebordo inferior com reentrância DIN (trilho TH35 à traseira, z=0 lado calha).
+ root.add(box(70,14,10,BODY2,'industrial_mico_din_base',[0,7,5]))
+ root.add(box(70,9,6,black,'industrial_mico_din_clip',[0,3.5,2]))
+ // Degrau superior: grelhas de ventilação horizontais.
+ for(let i=0;i<7;i++)root.add(box(2.4,1.6,50,black,'industrial_mico_vent_top_'+i,[-21+i*7,79.4,30]))
+ // Helper: cavidade aberta na face superior (mundo y=80; corpo local y=40).
+ // O bloco verde é decorativo; o contacto fica na superfície do corpo.
+ const cavityTop=(name,x,y,z,r,label)=>{
+  const blk=box(name.includes('small')?7.5:9.5,name.includes('small')?9:12,name.includes('small')?7.5:9,GREEN,name,[x,y,z]);root.add(blk)
+  root.add(box(name.includes('small')?3.6:4.4,2,1,DARKGREEN,name+'_slot',[x,y,z+(name.includes('small')?3.6:4.0)]))
+  drill([body],'y',[x,40,z],r,34,40)
+  terms.push(terminal(root,label,x,80.0,z,{r,depth:6,face:'top',contact:'surface'}))
+ }
+ // Entradas +24V (esq/dir, topo).
+ cavityTop('industrial_mico_in_plus_1',-17,68,56,2.0,'L+')
+ cavityTop('industrial_mico_in_plus_2', 17,68,56,2.0,'L+2')
+ // Bloco central ON (remote) + 13/14 (Sammelmeldung): bornes de mola pequenos.
+ cavityTop('industrial_mico_on_small',-9,76.25,56,1.7,'ON')
+ cavityTop('industrial_mico_alarm13_small',1.5,76.25,56,1.7,'13')
+ cavityTop('industrial_mico_alarm14_small',11,76.25,56,1.7,'14')
+ // Serigrafia: logótipo (esq) + legenda LED (dir).
+ root.add(plane(20,10,white,'industrial_mico_logo',[-21,55,58.6]))
+ root.add(plane(26,10,white,'industrial_mico_legend',[14,55,58.6]))
+ // 4 canais: seletor de corrente, LED, botão ON/OFF.
+ const chX=[-24.5,-8.2,8.2,24.5]
+ for(let i=0;i<4;i++){
+  const x=chX[i],ch=String(i+1)
+  const sel=new T.Group();sel.name='industrial_mico_select_'+ch;sel.position.set(x,44,58.6)
+  sel.add(cylinder(2.6,.9,mat('#1a1c1a'),'industrial_mico_select_body_'+ch))
+  sel.add(box(3.4,.5,.14,mat('#e8e8de'),'industrial_mico_select_mark_'+ch,[0,0,.48]))
+  root.add(sel)
+  led(root,x,36.5,58.6,'#d8e6d8','industrial_mico_led_'+ch,1.15)
+  const btn=new T.Group();btn.name='industrial_mico_button_'+ch;btn.position.set(x,29,58.6)
+  btn.add(cylinder(2.7,1.1,mat('#2f9e2c'),'industrial_mico_button_cap_'+ch))
+  btn.add(box(2.6,.4,.2,mat('#0f3010'),'industrial_mico_button_slot_'+ch,[0,0,.5]))
+  root.add(btn)
+ }
+ // Grelha de ventilação frontal.
+ for(let i=0;i<11;i++)root.add(box(1.7,8,2.2,BODY2,'industrial_mico_vent_'+i,[-25+i*5,18,57.4]))
+ // Saídas OUT1-4 (fundo): blocos verdes decorativos; contacto na superfície do corpo.
+ for(let i=0;i<4;i++){
+  const x=chX[i]
+  const blk=box(9.5,12,9,GREEN,'industrial_mico_out_'+String(i+1),[x,6,56]);root.add(blk)
+  root.add(box(4.4,2.5,1.2,DARKGREEN,'industrial_mico_out_slot_'+String(i+1),[x,6,60.0]))
+  drill([body],'y',[x,40,56],2.0,-40,-28)
+  terms.push(terminal(root,'OUT'+String(i+1),x,0.0,56,{r:2.0,depth:6,face:'bottom',contact:'surface'}))
+ }
+ // GND 0V entradas (fundo, cantos).
+ const gnd=(name,x,label)=>{
+  const blk=box(9.5,12,9,GREEN,name,[x,6,56]);root.add(blk)
+  root.add(box(4.4,2.5,1.2,DARKGREEN,name+'_slot',[x,6,60.0]))
+  drill([body],'y',[x,40,56],2.0,-40,-28)
+  terms.push(terminal(root,label,x,0.0,56,{r:2.0,depth:6,face:'bottom',contact:'surface'}))
+ }
+ gnd('industrial_mico_gnd_1',-30,'GND')
+ gnd('industrial_mico_gnd_2', 30,'GND2')
+ // Texto "Output not intended to be interconnected" na base frontal.
+ root.add(plane(40,4.5,white,'industrial_mico_class2',[0,2.2,58.6]))
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://media.automation24.com/manual/101523.pdf',changes:'90×70×80 mm (H×W×D) DIN TH35 housing, 4-channel electronic circuit protection. Spring-clamp terminals: 2× +24V inputs 16 mm² top, ON/13/14 signal terminals 2.5 mm² top-center, 4× OUT 4 mm² bottom, 2× GND 4 mm² bottom corners. Per-channel: countersunk 1/2/4/6 A current selector, bi-colour LED (green/red, flash states), ON/OFF button. Group alarm potential-free 13-14, remote ON, cascading 75 ms channel start, status memory. Front serigraphy MURR ELEKTRONIK + LED legend. Dimensioned reconstruction, not manufacturer STEP.'})
+}
+
+const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')],['pushButtonXb2Yellow',()=>xb2('pushButtonXb2Yellow')],['pushButtonXb2Blue',()=>xb2('pushButtonXb2Blue')],['pushButtonXb2White',()=>xb2('pushButtonXb2White')],['breakerMurrelektronikMico46',mico]]
 for(const[type,job]of jobs)if(!process.argv[3]||process.argv[3]===type)await job()
 await fs.writeFile('src/data/industrial-device-geometry.json',JSON.stringify(data,null,2)+'\n')
 let previous=[];try{previous=JSON.parse(await fs.readFile(path.join(output,'sources.json'),'utf8')).models??[]}catch{}

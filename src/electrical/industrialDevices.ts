@@ -99,6 +99,12 @@ export const INDUSTRIAL_INFO: Record<IndustrialDeviceType, {
     scope: 'Ø22 mm de furação, anel serrilhado Ø29 mm, bloco NA 3-4. Ui 660 V, Ith 10 A, Uimp 6 kV, AC-15 240 V/3 A, DC-13. Contacto fecha enquanto premido e abre por mola ao largar. Sem iluminação nem manípulo de manobra.',
     defaultState: { pressed: false, momentary: true, color: '#f8fafc' },
   },
+  breakerMurrelektronikMico46: {
+    name: 'Proteção eletrónica Murrelektronik MICO Classic 4.6 · 4 canais · 24 V DC', manufacturer: 'Murrelektronik', reference: '9000-41034-0100600', category: 'protection', tag: 'F',
+    datasheet: '/datasheets/industrial/murrelektronik-mico46.pdf', source: 'https://media.automation24.com/manual/101523.pdf', provenance: 'Reconstrução 3D cotada do manual de instalação MICO 4.6 V2.5; não foi obtido STEP do fabricante.',
+    scope: 'Entrada +24 V DC (18–30 V) por bornes de mola 16 mm² (L+/L+2); 4 canais OUT 24 V com seletor de corrente 1/2/4/6 A por canal e botão ON/OFF com LED bi-cor (verde=on, verde intermitente=>90%I, vermelho=off, vermelho 1 Hz=sobrecorrente disparado, vermelho 5 Hz=defeito interno). Arranque em cascata 75 ms por canal; memória de estado após corte de rede. Sammelmeldung 13-14 contacto livre de potencial 30 V AC/DC 100 mA (abre em qualquer disparo); entrada ON remota 10–30 V DC ≥20 ms (restart). GND alimenta a eletrónica. Corrente máxima de ponte 40 A; paralelo de canais não permitido.',
+    defaultState: { powered: false, onRemote: false, channels: { '1': { on: false, tripped: false, fault: false, currentA: 0, setpointA: 1 }, '2': { on: false, tripped: false, fault: false, currentA: 0, setpointA: 1 }, '3': { on: false, tripped: false, fault: false, currentA: 0, setpointA: 1 }, '4': { on: false, tripped: false, fault: false, currentA: 0, setpointA: 1 } }, supplyMismatch: false },
+  },
 }
 
 function terminalKind(type: IndustrialDeviceType, label: string): TerminalKind {
@@ -121,6 +127,14 @@ function terminalKind(type: IndustrialDeviceType, label: string): TerminalKind {
     return 'aux-no'
   }
   if (type === 'levelRelayAvel411') return label === '2' ? 'coil-plus' : label === '10' ? 'coil-minus' : label === '4' ? 'aux-nc' : 'io'
+  if (type === 'breakerMurrelektronikMico46') {
+    if (label === 'GND' || label === 'GND2') return 'neutral'
+    if (label === 'L+' || label === 'L+2') return 'power-in'
+    if (label === 'ON') return 'io'
+    if (label === '13' || label === '14') return 'aux-no'
+    if (/^OUT[1-4]$/.test(label)) return 'power-out'
+    return 'io'
+  }
   return 'io'
 }
 
@@ -166,7 +180,7 @@ export function industrialTemplates(): Record<IndustrialDeviceType, ComponentTem
           normal: normals[spot.face as keyof typeof normals] as [number,number,number], position },
         ...(spot.contact==='pin'?{displayName:'Pino '+spot.label}:spot.label.startsWith('P')&&type==='relaySocketFinder9023'?{displayName:'Alvéolo '+spot.label}:{}) }
     })
-    return [type,{ category:info.category,paletteName:info.name,group:info.category==='drive'?'Acionamentos':info.category==='signaling'?'Sinalização':info.category==='terminal'?'Bornes e barras':'Relés',
+    return [type,{ category:info.category,paletteName:info.name,group:info.category==='drive'?'Acionamentos':info.category==='signaling'?'Sinalização':info.category==='terminal'?'Bornes e barras':info.category==='protection'?'Proteção':'Relés',
       tag:info.tag,...industrialSchematicFootprint(type),terminals,defaultState:structuredClone(info.defaultState) }]
   })) as Record<IndustrialDeviceType,ComponentTemplate>
 }
@@ -187,6 +201,15 @@ export function industrialBridges(c: ElectricalComponent): Array<[string,string]
   else if(type==='levelRelayAvel411')pair('1',c.state.energized?'3':'4')
   else if(type.startsWith('pushButtonXb2')&&type!=='pushButtonXb2Nc'){if(c.state.pressed)pair('3','4')}
   else if(type==='pushButtonXb2Nc'){if(!c.state.pressed)pair('1','2')}
+  else if(type==='breakerMurrelektronikMico46'){
+    const ch=(c.state.channels??{}) as Record<string,{on:boolean;tripped:boolean;fault:boolean}>
+    const anyBad=[1,2,3,4].some(i=>{const k=ch[String(i)];return !!k?.on&&(!!k?.tripped||!!k?.fault)})
+    if(!anyBad)pair('13','14')
+    for(let i=1;i<=4;i++){
+      const k=ch[String(i)]
+      if(k?.on&&!k?.tripped&&!k?.fault)pair('L+','OUT'+i)
+    }
+  }
   else if(type==='vfdSchneiderAtv320'){
     pair('PE-IN','PE-OUT');pair('COM1','COM2')
     pair('R1C',c.state.powered&&!c.state.deviceFault?'R1A':'R1B')
@@ -276,6 +299,29 @@ export function updateGeyaTimer(state:Record<string,any>,powered:boolean,trigger
   state.energized=on;state.elapsedMs=elapsed;state.running=running;state._wasPowered=true;state._wasTrigger=trigger
 }
 
+/** MICO Classic 4.6: atualiza cada canal (disparo por sobrecorrente / defeito / manual) e o Sammelmeldung. */
+export function updateMico46(state:Record<string,any>,powered:boolean,dtMs:number):void {
+  const dt=Math.max(0,Number.isFinite(dtMs)?dtMs:0)
+  state.powered=powered
+  const ch=(state.channels??{}) as Record<string,{on:boolean;tripped:boolean;fault:boolean;currentA:number;setpointA:number}>
+  for(const key of ['1','2','3','4']){
+    const c=ch[key]??={on:false,tripped:false,fault:false,currentA:0,setpointA:1}
+    c.currentA=Math.max(0,Number(c.currentA)||0)
+    c.setpointA=[1,2,4,6].includes(c.setpointA)?c.setpointA:1
+    if(!powered){c.tripped=false;c.fault=false;c.currentA=0;continue}
+    if(c.on&&!c.fault&&!c.tripped){
+      if(c.currentA>c.setpointA)c.tripped=true
+    }
+  }
+  if(powered&&!state._wasPowered){
+    for(const key of ['1','2','3','4'])if(ch[key]?.on)state['_cascade_'+key]=75*(Number(key)-1)
+  }
+  state._wasPowered=powered
+  if(powered&&state.onRemote)for(const key of ['1','2','3','4']){const c=ch[key];if(c?.on&&c?.tripped&&!c?.fault){c.tripped=false;c.currentA=0}}
+  state.alarmOpen=[1,2,3,4].some(i=>{const c=ch[String(i)];return !!c?.on&&(!!c?.tripped||!!c?.fault)})
+  void dt
+}
+
 /** dt real uma única vez/scan; a pré-passagem do ATV calcula só a rede de controlo. */
 export function updateIndustrialDevice(c:ElectricalComponent,ctx:IndustrialElectricalContext,dtMs:number):void {
   const type=industrialDeviceTypeOf(c)
@@ -311,6 +357,10 @@ export function updateIndustrialDevice(c:ElectricalComponent,ctx:IndustrialElect
     s.powered=ok;s.supplyMismatch=v.voltage>0&&!ok;s.activeMs=ok?(Number(s.activeMs)||0)+dt:0
     s.dutyLimitReached=s.activeMs>=1800000;s.on=ok&&!s.dutyLimitReached;return
   }
+  if(type==='breakerMurrelektronikMico46'){
+    const v=industrialInput(c,'L+','GND',ctx),ok=v.dc&&inRange(v.voltage,18,30)
+    s.supplyMismatch=v.voltage>0&&!ok;updateMico46(s,ok,dt);return
+  }
   const v=industrialInput(c,'R/L1','S/L2',ctx),ok=!v.dc&&inRange(v.voltage,170,264)
   s.powered=ok;s.supplyMismatch=v.voltage>0&&!ok
   const signal=(label:string,min:number)=>{const x=industrialInput(c,label,'COM1',ctx);return x.dc&&x.positive&&x.voltage>min&&x.voltage<=30}
@@ -328,10 +378,17 @@ export function updateIndustrialDevice(c:ElectricalComponent,ctx:IndustrialElect
   s.running=ok&&s.stoReleased&&!s.deviceFault&&s.frequencyHz>.01
 }
 
-export type IndustrialControl='encoder'|'enter'|'escape'|'range'|'fraction'|'function'|'test'|'cover'|'button'
+export type IndustrialControl='encoder'|'enter'|'escape'|'range'|'fraction'|'function'|'test'|'cover'|'button'|'ch1'|'ch2'|'ch3'|'ch4'|'sel1'|'sel2'|'sel3'|'sel4'
 export function industrialControlPatch(type:string,state:Record<string,any>,control:IndustrialControl,step:1|-1=1):Record<string,any>{
   if(!isIndustrialDevice(type))return {}
   if(control==='button'&&type.startsWith('pushButtonXb2'))return {pressed:!state.pressed}
+  if(type==='breakerMurrelektronikMico46'){
+    const m=/^(ch|sel)([1-4])$/.exec(control);if(!m)return {}
+    const ch=m[2];const channels=structuredClone((state.channels??{}) as Record<string,{on:boolean;tripped:boolean;fault:boolean;currentA:number;setpointA:number}>)
+    const c=channels[ch]??={on:false,tripped:false,fault:false,currentA:0,setpointA:1}
+    if(m[1]==='ch'){c.on=!c.on;if(!c.on){c.tripped=false;c.fault=false;c.currentA=0}return {channels}}
+    const order=[1,2,4,6];const next=order[(order.indexOf(c.setpointA)+1)%order.length]??1;c.setpointA=next;c.on=false;c.tripped=false;return {channels}
+  }
   const cycle=<T>(values:readonly T[],value:T)=>values[(Math.max(0,values.indexOf(value))+step+values.length)%values.length]
   if(control==='cover'&&type==='vfdSchneiderAtv320')return {controlCoverOpen:!state.controlCoverOpen}
   if(control==='test'&&type==='relayFinder5534')return {testPressed:!state.testPressed}
