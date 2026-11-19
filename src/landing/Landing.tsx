@@ -93,6 +93,13 @@ const LINKS: [string, string][] = [
   ['#faq', 'FAQ'],
 ]
 
+const FOOTER_LINKS: [string, string][] = [
+  ['/privacidade', 'Privacidade'],
+  ['/termos', 'Termos'],
+  ['/cookies', 'Cookies'],
+  ['/licencas', 'Licenças'],
+]
+
 /** Estilo inline com o índice de escalonamento usado pelas animações CSS. */
 const stagger = (i: number) => ({ ['--i' as string]: i }) as CSSProperties
 
@@ -627,6 +634,11 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           </div>
           <nav aria-label="Rodapé">
             {links.map(([href, label]) => (
+              <a key={href} href={href}>
+                {label}
+              </a>
+            ))}
+            {FOOTER_LINKS.map(([href, label]) => (
               <a key={href} href={href}>
                 {label}
               </a>

@@ -5,6 +5,9 @@ import { useCatalogStore } from './catalog/registry'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Logo from './ui/Brand'
 import RouteLoading from './ui/RouteLoading'
+import LegalPage from './legal/LegalPage'
+import CookieBanner from './legal/CookieBanner'
+import { legalDocFromPath } from './legal/legalContent'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import type { User, Project, Invite } from './dashboard/Dashboard'
 import { setViewer } from './auth/viewer'
@@ -600,11 +603,26 @@ export default function Account() {
       <Suspense fallback={<RouteLoading label={loadingLabel} />}><App onBack={() => void leave()} /></Suspense>
       {commentsOpen && user && <ProjectComments key={open.id} projectId={open.id} projectName={open.name} projectRole={open.role ?? 'owner'} viewer={user} onClose={() => setCommentsOpen(false)} onCount={setCommentCount} />}
     </div>
+  
+    <CookieBanner />
   </>
 
-  if (page === 'landing') return <Suspense fallback={<RouteLoading label={loadingLabel} />}>
-    <Landing onAccess={() => { setMessage(''); setPage('login') }} onLogin={() => { setMessage(''); setPage('login') }} />
-  </Suspense>
+  if (page === 'legal') {
+    const docId = legalDocFromPath(location.pathname) ?? 'privacidade'
+    return <>
+      <Suspense fallback={<RouteLoading label={loadingLabel} />}>
+        <LegalPage docId={docId} />
+      </Suspense>
+      <CookieBanner />
+    </>
+  }
+
+  if (page === 'landing') return <>
+    <Suspense fallback={<RouteLoading label={loadingLabel} />}>
+      <Landing onAccess={() => { setMessage(''); setPage('login') }} onLogin={() => { setMessage(''); setPage('login') }} />
+    </Suspense>
+    <CookieBanner />
+  </>
 
   return <main className="account-shell dx">
     {page !== 'login' && user && <AppTopbar user={user} invites={invites}
@@ -618,12 +636,14 @@ export default function Account() {
     {page === 'account' && user && <Suspense fallback={<RouteLoading label={loadingLabel} />}><AccountPage user={user} ownedProjects={projects.filter((project) => project.role === 'owner').length} onUser={setUser} onBack={() => setPage('dashboard')} /></Suspense>}
     {page === 'dashboard' && <Suspense fallback={<RouteLoading label={loadingLabel} />}><Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers} /></Suspense>}
     {message && page !== 'login' && <div className="dx-toast" role="status">{message}<button onClick={() => setMessage('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
+    <CookieBanner />
   </main>
 }
 
 function pageLoadingLabel(page: AppPage): string {
   switch (page) {
     case 'landing': return 'A carregar a página inicial…'
+    case 'legal': return 'A carregar a informação legal…'
     case 'login': return 'A preparar o acesso…'
     case 'editor': return 'A carregar o editor…'
     case 'admin': return 'A carregar a administração…'
@@ -779,6 +799,24 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
             </fieldset>
           </>
         )}
+        {isRegister && (
+          <div className="dx-auth-legal">
+            <label>
+              <input type="checkbox" required name="acceptTerms" />
+              <span>
+                Li e aceito os{' '}
+                <a href="/termos" target="_blank" rel="noopener noreferrer">Termos de utilização</a>
+                {' '}e a{' '}
+                <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de privacidade</a>.
+              </span>
+            </label>
+          </div>
+        )}
+        <p className="dx-auth-legal">
+          Ao continuar, confirma também a{' '}
+          <a href="/cookies" target="_blank" rel="noopener noreferrer">política de cookies</a>
+          {' '}e o armazenamento local necessário ao serviço.
+        </p>
         <button className="dx-btn dx-btn-primary dx-btn-lg" style={{ width: '100%' }} disabled={busy}>
           {busy
             ? <><span className="dx-spin" aria-hidden />Aguarde…</>

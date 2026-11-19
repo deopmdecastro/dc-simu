@@ -1,5 +1,5 @@
 import { foldText } from '../utils/text'
-export type AppPage = 'landing' | 'login' | 'dashboard' | 'editor' | 'admin' | 'contribute' | 'account'
+export type AppPage = 'landing' | 'login' | 'dashboard' | 'editor' | 'admin' | 'contribute' | 'account' | 'legal'
 
 /** Nome legível para a barra de endereço: «Disjuntor Steck SD C25 · 1P» → «disjuntor-steck-sd-c25-1p». */
 export function routeSlug(name?: string): string {
@@ -17,6 +17,10 @@ export const ROUTES = {
   contribute: '/contribute',
   account: '/account',
   admin: '/admin',
+  privacy: '/privacidade',
+  terms: '/termos',
+  cookies: '/cookies',
+  licenses: '/licencas',
   /** `/admin/editor/<id>/<nome-do-dispositivo>` — o nome é informativo e pode faltar. */
   adminEditor: (componentId?: string, name?: string) => {
     if (!componentId) return '/admin/editor'
@@ -33,6 +37,7 @@ export function pageFromPath(pathname: string): AppPage {
   if (pathname === ROUTES.account) return 'account'
   if (pathname === ROUTES.admin || isAdminEditorPath(pathname)) return 'admin'
   if (/^\/projects\/[^/]+\/?$/.test(pathname)) return 'editor'
+  if (pathname === ROUTES.privacy || pathname === ROUTES.terms || pathname === ROUTES.cookies || pathname === ROUTES.licenses) return 'legal'
   return 'landing'
 }
 

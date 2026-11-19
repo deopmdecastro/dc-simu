@@ -1,0 +1,306 @@
+/* ==========================================================================
+   Páginas legais + banner de cookies
+   ========================================================================== */
+
+.dx-legal {
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+}
+
+.dx-legal-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid #e2e8f0;
+  backdrop-filter: blur(10px);
+}
+
+.dx-legal-top-in {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3.5rem;
+  padding: 0.6rem 0;
+}
+
+.dx-legal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.dx-legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin-left: auto;
+}
+
+.dx-legal-nav a {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+}
+
+.dx-legal-nav a:hover,
+.dx-legal-nav a.is-active {
+  color: #1d4ed8;
+}
+
+.dx-legal-enter {
+  flex-shrink: 0;
+  background: #2563eb;
+  color: #fff !important;
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.dx-legal-main {
+  flex: 1;
+  padding: 2.5rem 0 3.5rem;
+  max-width: 48rem;
+}
+
+.dx-legal-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.dx-legal-main h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.dx-legal-summary {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.dx-legal-updated {
+  margin: 0 0 2rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.dx-legal-body section {
+  margin-bottom: 1.75rem;
+}
+
+.dx-legal-body h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.1rem;
+  line-height: 1.35;
+}
+
+.dx-legal-body p {
+  margin: 0 0 0.65rem;
+  line-height: 1.65;
+  color: #334155;
+  font-size: 0.98rem;
+}
+
+.dx-legal-more {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dx-legal-more p {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.dx-legal-more ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.dx-legal-more li {
+  margin: 0.35rem 0;
+}
+
+.dx-legal-more a {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dx-legal-more a:hover {
+  text-decoration: underline;
+}
+
+.dx-legal-foot {
+  border-top: 1px solid #e2e8f0;
+  padding: 1rem 0 1.4rem;
+  background: #fff;
+}
+
+.dx-legal-foot small {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+/* —— Banner cookies —— */
+.dx-cookie {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+.dx-cookie-in {
+  pointer-events: auto;
+  max-width: 56rem;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.25rem;
+  padding: 0.95rem 1.15rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.35);
+}
+
+.dx-cookie-copy {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.dx-cookie-copy strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+  color: #fff;
+}
+
+.dx-cookie-copy p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+.dx-cookie-copy a {
+  color: #93c5fd;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dx-cookie-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.dx-cookie-primary {
+  background: #2563eb;
+  color: #fff !important;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1.05rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.dx-cookie-primary:hover {
+  background: #1d4ed8;
+}
+
+.dx-cookie-secondary {
+  background: transparent;
+  color: #e2e8f0 !important;
+  border: 1px solid #475569;
+  border-radius: 999px;
+  padding: 0.55rem 1.05rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.dx-cookie-secondary:hover {
+  border-color: #94a3b8;
+  color: #fff !important;
+}
+
+.dx-auth-legal {
+  margin: 0.75rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.dx-auth-legal a {
+  color: #1d4ed8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dx-auth-legal a:hover {
+  text-decoration: underline;
+}
+
+.dx-auth-legal label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.dx-auth-legal input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .dx-legal-top-in {
+    flex-wrap: wrap;
+  }
+  .dx-legal-nav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+  }
+  .dx-cookie-in {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .dx-cookie-actions {
+    width: 100%;
+  }
+  .dx-cookie-actions .dx-btn,
+  .dx-cookie-primary,
+  .dx-cookie-secondary {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
