@@ -41,16 +41,18 @@ export default function CookieBanner() {
   return (
     <div className="dx-cookie" role="dialog" aria-labelledby="dx-cookie-title" aria-describedby="dx-cookie-desc">
       <div className="dx-cookie-in">
-        <CookieIcon />
-        <div className="dx-cookie-copy">
-          <strong id="dx-cookie-title">Cookies e dados no dispositivo</strong>
-          <p id="dx-cookie-desc">
-            Utilizamos armazenamento local essencial para sessão, projetos e preferências.
-            Ao continuar, confirma que leu a{' '}
-            <Link to="/cookies">política de cookies</Link>
-            {' '}e a{' '}
-            <Link to="/privacidade">política de privacidade</Link>.
-          </p>
+        <div className="dx-cookie-header">
+          <CookieIcon />
+          <div className="dx-cookie-copy">
+            <strong id="dx-cookie-title">Cookies e dados no dispositivo</strong>
+            <p id="dx-cookie-desc">
+              Utilizamos armazenamento local essencial para sessão, projetos e preferências.
+              Ao continuar, confirma que leu a{' '}
+              <Link to="/cookies">política de cookies</Link>
+              {' '}e a{' '}
+              <Link to="/privacidade">política de privacidade</Link>.
+            </p>
+          </div>
         </div>
         <div className="dx-cookie-actions">
           <Link to="/cookies" className="dx-btn dx-cookie-secondary">
