@@ -61,9 +61,19 @@ export function updatePanelMeters(components:ElectricalComponent[],wires:Wire[],
       // otherwise treat 3-4 branch current as secondary and scale by typical 100A/50mA.
       let amps=0,watts=0,ambiguous=false
       if(powered){
-        const linkedCt=components.find(other=>other.type==='currentTransformerSplitCore'&&wires.some(w=>
-          (w.a===c.id&&(w.aTerm==='3'||w.aTerm==='4')&&w.b===other.id)||(w.b===c.id&&(w.bTerm==='3'||w.bTerm==='4')&&w.a===other.id)
-        ))
+        const ctTerms=new Set(
+          (['3','4'] as const).map((label)=>idOf(c,label)).filter((id):id is string=>!!id),
+        )
+        const linkedCt=components.find((other)=>{
+          if(other.type!=='currentTransformerSplitCore')return false
+          const otherTermIds=new Set(other.terminals.map((t)=>t.id))
+          return wires.some((w)=>{
+            if(w.fromPoint||w.toPoint)return false
+            const aOnMeter=ctTerms.has(w.fromTerminalId),bOnMeter=ctTerms.has(w.toTerminalId)
+            const aOnCt=otherTermIds.has(w.fromTerminalId),bOnCt=otherTermIds.has(w.toTerminalId)
+            return (aOnMeter&&bOnCt)||(bOnMeter&&aOnCt)
+          })
+        })
         if(linkedCt&&typeof linkedCt.state.primaryCurrentA==='number'){
           amps=linkedCt.state.primaryCurrentA
           watts=amps*input.voltage
