@@ -58,18 +58,24 @@ export const COMB_CONNECTOR_PIN_INSERT_MM = 10.0
 
 /** Bornes de entrada (topo) por tipo de disjuntor, da esquerda para a direita. */
 export function breakerInputLabels(breaker: ElectricalComponent): string[] {
+  // Rótulos têm de existir nos bornes reais do componente (N1, não "N"), na
+  // ordem física esquerda→direita medida no CAD — o pente alinha os pinos por
+  // esta ordem e o conector usa o primeiro como borne preferido.
   if (breaker.type === 'residualBreakerHagerCfc225p') return ['1', 'N1']
-  if (breaker.type === 'residualBreakerSchneiderIdpnVigi') return ['1', 'N']
-  if (breaker.type === 'residualBreakerSchneiderIid4p') return ['1', '3', '5', 'N']
+  if (breaker.type === 'residualBreakerSchneiderIdpnVigi') return ['N1', '1']
+  if (breaker.type === 'residualBreakerSchneiderIid4p') return ['N1', '1', '3', '5']
+  if (breaker.type === 'residualBreaker') return ['1', '3', '5', 'N1']
   if (breaker.type === 'phoenixEcb3000760') return ['Line+']
   if (breaker.type === 'breakerSchneiderIc60h1p') return ['1']
+  if (breaker.type === 'surgeProtectorWegSpw02') return ['L']
+  if (breaker.type === 'surgeProtectorWegSpw12') return ['+', '-']
   if (breaker.type === 'motorBreakerPkzmC10' || breaker.type === 'motorBreakerSchneiderGv2me' || breaker.type === 'motorBreaker') {
     return ['1', '3', '5']
   }
   const poles = Number(breaker.state?.poles) || (
     breaker.type === 'breaker1p' || breaker.type === 'breakerSteckSdC25' ? 1
     : breaker.type === 'breaker2p' ? 2
-    : breaker.type === 'breaker4p' || breaker.type === 'residualBreaker' ? 4
+    : breaker.type === 'breaker4p' ? 4
     : 3
   )
   if (poles <= 1) return ['1']
@@ -123,12 +129,27 @@ const TOP_CLAMP_LANES: Partial<Record<ComponentType, { combZ: number; feedZ: num
   // acima): mesmas pistas de pente/alimentador, mesma inserção de 10 mm.
   breaker4p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   residualBreaker: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
-  motorBreaker: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  motorBreaker: { combZ: -2.3, feedZ: 2.7, combInsert: 6, feedInsert: 6 },
   surgeProtectorWegSpw02: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   surgeProtectorWegSpw12: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
   breakerSteckSdC25: { combZ: -4.5, feedZ: -1.5, combInsert: 10, feedInsert: 10 },
   residualBreakerHagerCfc225p: { combZ: -1, feedZ: 2, combInsert: 4, feedInsert: 10 },
   phoenixEcb3000760: { combZ: -1.5, feedZ: 1, combInsert: 4, feedInsert: 10 },
+  // Acti9 iC60/iID/iDPN: bocas de borne da mesma família Easy9 (poço de ~9 mm),
+  // oficialmente compatíveis com pentes A9XPH. Pistas calibradas por raycast no
+  // GLB medido (gaiola ~5 mm, boca do borne no centro; v. probe de encaixe).
+  breakerSchneiderIc60h1p: { combZ: -2.3, feedZ: 2.7, combInsert: 10, feedInsert: 10 },
+  residualBreakerSchneiderIid4p: { combZ: -1.3, feedZ: 1.3, combInsert: 10, feedInsert: 10 },
+  residualBreakerSchneiderIdpnVigi: { combZ: -1, feedZ: 1, combInsert: 10, feedInsert: 10 },
+  // DPS WEG SPW: bornes L/PE e +/-/PE na face posterior do topo; o raycast mede
+  // a gaiola entre +2,8 e +8 mm — o conector de fase usa o borne L/+.
+  surgeProtectorWegSpw02: { combZ: 4.5, feedZ: 5.5, combInsert: 10, feedInsert: 10 },
+  surgeProtectorWegSpw12: { combZ: 4.5, feedZ: 5.5, combInsert: 10, feedInsert: 10 },
+  // Disjuntores-motor (Eaton PKZM / TeSys GV2 com barramentos B3.0/GV2G): a
+  // lâmina entra pela cavidade posterior (z<0); poço de borne de 6,5 mm —
+  // inserção curta de 6 mm, nunca os 10 mm dos Easy9.
+  motorBreakerPkzmC10: { combZ: -2.3, feedZ: -0.8, combInsert: 6, feedInsert: 6 },
+  motorBreakerSchneiderGv2me: { combZ: -3.5, feedZ: -3.4, combInsert: 6, feedInsert: 6 },
 }
 
 export function breakerMountInsertionMm(breaker: ElectricalComponent, role: 'comb' | 'feed'): number {

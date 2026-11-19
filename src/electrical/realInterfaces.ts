@@ -170,14 +170,22 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {label:'6',face:'bottom',x:0.8,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
     {label:'N2',face:'bottom',x:0.93,y:0.9586,z:0.287,diameterMm:9,holeDepthMm:15},
   ],
+  // DPS WEG SPW: bornes de parafuso na face posterior do corpo (canal aberto
+  // medido no GLB entre z≈0.76–0.96, centrado em 0.86), não na face frontal.
+  // Furos de ~4 mm com ~10 mm de poço útil (a sonda de 11 mm era o corpo, não
+  // o borne). WEG: https://www.weg.net/catalog/weg/PT/pt/Prote%C3%A7%C3%A3o...
+  // DPS WEG SPW: bornes na face posterior (canal de ligação medido no GLB em
+  // z≈0.76–0.96). O GLB simplificado é um canal aberto sem poço de parafuso
+  // discreto (o lábio tem uma rampa uniforme), por isso `surface`: o borne fica
+  // na face do canal e a lâmina do pente assenta ali.
   surgeProtectorWegSpw02: [
-    {label:'L',face:'top',x:0.35,y:0.006786,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
-    {label:'PE',face:'bottom',x:0.65,y:0.993214,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
+    {label:'L',face:'top',x:0.35,y:0,z:0.86,contact:'surface',diameterMm:4,holeDepthMm:4},
+    {label:'PE',face:'bottom',x:0.65,y:1,z:0.86,contact:'surface',diameterMm:4,holeDepthMm:4},
   ],
   surgeProtectorWegSpw12: [
-    {label:'+',face:'top',x:0.3,y:0.006786,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
-    {label:'-',face:'top',x:0.65,y:0.006786,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
-    {label:'PE',face:'bottom',x:0.5,y:0.993214,z:0.722287,diameterMm:11.1,holeDepthMm:16.2},
+    {label:'+',face:'top',x:0.22,y:0,z:0.86,contact:'surface',diameterMm:4,holeDepthMm:4},
+    {label:'-',face:'top',x:0.78,y:0,z:0.86,contact:'surface',diameterMm:4,holeDepthMm:4},
+    {label:'PE',face:'bottom',x:0.5,y:1,z:0.86,contact:'surface',diameterMm:4,holeDepthMm:4},
   ],
   breakerSteckSdC25: [
     {"label":"1","face":"top","x":0.501124,"y":0.011678,"z":0.367237,"diameterMm":11.3,"holeDepthMm":13.494},

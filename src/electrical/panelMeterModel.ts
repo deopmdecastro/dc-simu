@@ -75,8 +75,13 @@ export function updatePanelMeters(components:ElectricalComponent[],wires:Wire[],
           })
         })
         if(linkedCt&&typeof linkedCt.state.primaryCurrentA==='number'){
-          amps=linkedCt.state.primaryCurrentA
-          watts=amps*input.voltage
+          // O TC só mede corrente; o medidor tem a tensão em 1/2. Os watts
+          // reais (com fp da carga) vêm do ramo primário P1/P2 com a tensão
+          // medida — como um D52 real deriva potência de V×I×cosφ.
+          const primary=branch(linkedCt,'P1','P2',components,wires,ctx.live,input.voltage)
+          amps=primary.amps
+          watts=primary.watts
+          ambiguous=primary.ambiguous
         }else{
           const sensed=branch(c,'3','4',components,wires,ctx.live,0)
           // Secondary ~50 mA full scale for 100 A primary (typical for this meter family).

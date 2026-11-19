@@ -7,9 +7,10 @@ const {check,done}=assertions()
 Object.defineProperty(globalThis,'window',{configurable:true,value:globalThis})
 const st=()=>useSimStore.getState(),cmd=()=>useCommandsUi.getState()
 st().newProject()
-const source=make('powerSource1ph'),meter=make('meterD522066'),motor=make('motor1ph')
-const wires=[cable(source,'L',meter,'1'),cable(source,'N',meter,'2'),cable(source,'L',meter,'CT-IN'),cable(meter,'CT-OUT',motor,'U1'),cable(source,'N',motor,'U2')]
-useSimStore.setState({components:[source,meter,motor],wires,demoMode:false})
+const source=make('powerSource1ph'),meter=make('meterD522066'),motor=make('motor1ph'),ct=make('currentTransformerSplitCore')
+// TC externo: primário P1/P2 em série com a carga, secundário S1/S2 nos bornes 3/4.
+const wires=[cable(source,'L',meter,'1'),cable(source,'N',meter,'2'),cable(source,'L',ct,'P1'),cable(ct,'P2',motor,'U1'),cable(source,'N',motor,'U2'),cable(ct,'S1',meter,'3'),cable(ct,'S2',meter,'4')]
+useSimStore.setState({components:[source,ct,meter,motor],wires,demoMode:false})
 const originalEndpoints=st().wires.map(w=>[w.id,w.fromTerminalId,w.toTerminalId])
 st().step();check(st().sim.scanCount===1&&st().components.find(c=>c.id===motor.id)?.state.running,'single step performs a real wired electrical scan')
 check(st().sim.runState==='paused'&&!st()._intervalId,'STEP from STOP leaves a live paused simulation, never a still-stopped field UI')

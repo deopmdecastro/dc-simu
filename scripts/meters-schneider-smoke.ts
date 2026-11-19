@@ -23,12 +23,15 @@ let components=[ac,meter,motor,other],wires=[cable(ac,'L',meter,'1'),cable(ac,'N
 const scan=(dt=100,running=true)=>updatePanelMeters(components,wires,graph(components,wires),dt,running)
 scan();check(meter.state.on&&meter.state.voltage===240&&meter.state.frequency===60,'D52 uses the connected source voltage and frequency')
 check(meter.state.current===0&&meter.state.energy===0,'unrelated running motors do not create phantom meter current/energy')
-wires.push(cable(ac,'L',meter,'CT-IN'),cable(meter,'CT-OUT',motor,'U1'),cable(ac,'N',motor,'U2'));scan(3_600_000)
+const extCt=make('currentTransformerSplitCore');components=[ac,extCt,meter,motor,other]
+// TC externo (variante YD52 real): o primário P1/P2 leva a carga; o secundário
+// S1/S2 liga aos bornes 3/4 do medidor. Sem CT-IN/CT-OUT internos.
+wires.push(cable(ac,'L',extCt,'P1'),cable(extCt,'P2',motor,'U1'),cable(ac,'N',motor,'U2'),cable(extCt,'S1',meter,'3'),cable(extCt,'S2',meter,'4'));scan(3_600_000)
 check(meter.state.current===2.5&&meter.state.power===480,'D52 CT passage measures only its real series load')
 check(Math.abs(meter.state.energy-.48)<1e-12,'energy integrates watts × elapsed milliseconds in kWh')
 const energy=meter.state.energy;scan(10000,false);scan(0);check(meter.state.energy===energy,'pause and zero-time recomputation never add energy')
 scan(1);check(meter.state.energy>energy&&meter.state.energy-energy<.000001,'sub-display precision is retained; no fixed rounded increments')
-wires.push(cable(ac,'L',motor,'U1'));scan();check(meter.state.current===0&&meter.state.measurementAmbiguous,'bypassed CT branch is explicitly ambiguous, not double-counted')
+wires.push(cable(ac,'L',motor,'U1'));scan();check(meter.state.current===0&&meter.state.measurementAmbiguous,'bypassed CT primary is explicitly ambiguous, not double-counted')
 wires=wires.filter(w=>w.toTerminalId!==terminal(meter,'2'));scan();check(!meter.state.on&&meter.state.power===0,'loss of actual D52 neutral blanks readings')
 const ct=make('currentTransformerSplitCore'),primary=internalBridges(ct)
 check(primary.length===1&&primary[0].includes(terminal(ct,'P1'))&&primary[0].includes(terminal(ct,'P2')),'CT primary is continuous while secondary remains isolated')

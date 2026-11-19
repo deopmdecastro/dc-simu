@@ -203,8 +203,12 @@ for(const type of ['timerGeyaGrt8M1','timerGeyaGrt8B1'] as const){
 const d52=createDigitalMeterObject('meterD522066');d52.updateMatrixWorld(true)
 for(const label of ['1','2']){const r=crossRecess(d52.getObjectByName('terminal_screw_d52_'+label)!);check(r.face-r.floor>.5,'D52 '+label+': front driver well contains a recessed cross screw')}
 const ctRay=new THREE.Raycaster(new THREE.Vector3(-1,12*U,18*U),new THREE.Vector3(1,0,0))
-check(!ctRay.intersectObject(d52,true).some(h=>h.distance<2),'D52: transverse primary-current passage remains genuinely open')
-check(!!d52.getObjectByName('digital_meter_lcd')&&!d52.getObjectByName('digital_meter_connection_3'),'D52: original live LCD and internal-CT electrical interface remain unchanged')
+// Variante de TC externo (YD52-2066): corpo sólido, SEM túnel de primário.
+// O primário é um TC externo (split-core); o secundário liga aos bornes 3/4.
+check(ctRay.intersectObject(d52,true).length>0,'D52 external-CT variant has a solid body, never a fake open primary tunnel')
+const d52c=createComponent('meterD522066')
+check(!d52c.terminals.some(t=>/^CT-/.test(t.label))&&['3','4'].every(l=>d52c.terminals.some(t=>t.label===l)),'D52 external-CT variant exposes only the 3/4 secondary terminals, never CT-IN/CT-OUT')
+check(!!d52.getObjectByName('digital_meter_lcd')&&!!d52.getObjectByName('digital_meter_connection_3')&&!!d52.getObjectByName('digital_meter_connection_4')&&!d52.getObjectByName('digital_meter_connection_CT-IN'),'D52: live LCD and external-CT secondary wells 3/4; no CT-IN/CT-OUT meshes')
 
 const material=new THREE.MeshStandardMaterial(),materials={housing:material,tinned:material,cage:material,dark:material}
 for(const pinStyle of ['cranked','straight'] as const)for(const pinDirection of ['down','up'] as const){
@@ -254,17 +258,24 @@ check(before===signature()&&s().components.find(c=>c.id===cbId)?.state.mountedTe
 check(computeContinuity(s().components,[...s().wires,...combMountBridges(s().components)],[supply.terminals.find(t=>t.label==='L2')!.id]).energizedTerminals.has(output.id),'Reopening the wired feeder preserves its actual powered path, not just a mountedTerminal label')
 cb=clone(s().components.find(c=>c.id===cbId)!);cb.terminals[0].position3D!.x+=.03
 check(prepareCombConnectorForTopMount(cb).terminals[0]===cb.terminals[0],'Mount migration preserves a manually edited feeder terminal')
-for(const type of ['breaker1p','breaker2p','breaker3p','breakerSteckSdC25','residualBreakerHagerCfc225p','phoenixEcb3000760'] as const){
+for(const type of ['breaker1p','breaker2p','breaker3p','breakerSteckSdC25','breakerSchneiderIc60h1p','residualBreakerHagerCfc225p','residualBreakerSchneiderIid4p','residualBreakerSchneiderIdpnVigi','motorBreakerPkzmC10','motorBreakerSchneiderGv2me','phoenixEcb3000760','surgeProtectorWegSpw02','surgeProtectorWegSpw12'] as const){
  const model=(await loadModelMm(type))!,breaker=createComponent(type),ray=new THREE.Raycaster()
  for(const label of breakerInputLabels(breaker))for(const role of ['comb','feed'] as const){
   const p=breakerMountMouthWorld3D(breaker,label,role,new THREE.Vector3())!.multiplyScalar(100)
   const halfW=(role==='feed'?COMB_CONNECTOR.pinWidthMm:COMB_BUSBAR.pinWidthMm)/2,halfD=(role==='feed'?COMB_CONNECTOR.pinThickMm+.32:COMB_BUSBAR.pinThickMm)/2
+  const tipY=p.y-breakerMountInsertionMm(breaker,role)-.05
+  // Amostras sem impacto = interior aberto da gaiola (a lâmina passa); qualquer
+  // impacto tem de ficar ABAIXO da ponta (nunca plástico atravessado). O centro
+  // tem de encontrar o fundo metálico — prova de que a cavidade existe.
+  let centerDepth=0
   for(let ix=0;ix<=8;ix++)for(let iz=0;iz<=8;iz++){
    const dx=-halfW+ix*halfW/4,dz=-halfD+iz*halfD/4
    ray.set(new THREE.Vector3(p.x+dx,p.y+3,p.z+dz),new THREE.Vector3(0,-1,0))
    const hit=ray.intersectObject(model.root,true)[0]
-   assert.ok(hit&&hit.point.y<p.y-breakerMountInsertionMm(breaker,role)-.05,`${type}.${label}/${role}: blade would intersect ${hit?.object.name} at ${hit?.point.y}, mouth ${p.y}`)
+   assert.ok(!hit||hit.point.y<tipY,`${type}.${label}/${role}: blade would intersect ${hit?.object.name} at ${hit?.point.y}, mouth ${p.y}`)
+   if(ix===4&&iz===4)centerDepth=hit?p.y-hit.point.y:0
   }
+  assert.ok(centerDepth>breakerMountInsertionMm(breaker,role)-.05,`${type}.${label}/${role}: cavity centre is shallower than the ${breakerMountInsertionMm(breaker,role)} mm insertion`)
  }
  check(true,type+': all comb/feed blade corners enter the measured top cavity without piercing plastic')
 }

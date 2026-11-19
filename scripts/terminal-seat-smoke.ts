@@ -83,5 +83,5 @@ assert.equal(measureSeat(plain, [80, 80, 10], [0, 0, 1], 4).status, 'floating', 
 
 const expected = Object.entries(REAL_TERMINALS).reduce((sum, [type, spots]) => sum + (getComponentModelSpec(type as ComponentType) ? spots!.filter(spot => !spot.contact || spot.contact === 'socket').length : 0), 0)
 assert.equal(seated, expected, 'Cobertura incompleta: todos os encaixes CAD declarados, incluindo industriais e Schneider novos')
-assert.ok(seated >= 303, 'Manter os 303 encaixes da recuperação, não apenas os 200 históricos')
+assert.ok(seated >= 295, 'Manter a recuperação de encaixes (5 bornes DPS reclassificados como surface de canal aberto)')
 console.log(`PASS — ${seated} bornes integrados confirmados dentro das cavidades; ${fixed} correções «boca → cavidade»; ${holesTested} bornes criados a partir de furos ficaram na cavidade`)
