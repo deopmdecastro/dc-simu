@@ -68,6 +68,41 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
       root.add(group)
     }
   }
+  // ATV320: melhorar aspeto do encoder verde (botão rotativo knurled) e do ESC.
+  // O GLB STEP traz a geometria base; aqui afinamos materiais e detalhe de face.
+  if (type === 'vfdSchneiderAtv320') {
+    const encoder = root.getObjectByName('industrial_encoder') as THREE.Mesh | undefined
+    if (encoder?.isMesh) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: '#1faa3a', metalness: 0.15, roughness: 0.42,
+      })
+      if (Array.isArray(encoder.material)) encoder.material.forEach(m => m.dispose())
+      else encoder.material.dispose()
+      encoder.material = mat
+      // Anel de knurling subtil (cilindro fino à volta) se ainda não existir
+      if (!root.getObjectByName('atv_encoder_knurl')) {
+        const box = new THREE.Box3().setFromObject(encoder)
+        const size = new THREE.Vector3(); box.getSize(size)
+        const center = new THREE.Vector3(); box.getCenter(center)
+        const r = Math.max(size.x, size.z) * 0.52
+        const knurl = new THREE.Mesh(
+          new THREE.TorusGeometry(r, r * 0.06, 8, 48),
+          new THREE.MeshStandardMaterial({ color: '#178c2e', metalness: 0.2, roughness: 0.5 })
+        )
+        knurl.name = 'atv_encoder_knurl'
+        knurl.position.copy(center)
+        knurl.rotation.x = Math.PI / 2
+        root.add(knurl)
+      }
+    }
+    const esc = root.getObjectByName('industrial_escape') as THREE.Mesh | undefined
+    if (esc?.isMesh) {
+      const mat = new THREE.MeshStandardMaterial({ color: '#1c1f24', metalness: 0.35, roughness: 0.45 })
+      if (Array.isArray(esc.material)) esc.material.forEach(m => m.dispose())
+      else esc.material.dispose()
+      esc.material = mat
+    }
+  }
 }
 
 export function industrialAction(object: THREE.Object3D): string | null {
