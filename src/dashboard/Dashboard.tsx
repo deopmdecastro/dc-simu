@@ -59,7 +59,7 @@ function relTime(iso: string) {
 function withNativeCover(p: Project): Project { return p }
 
 function projectRoleLabel(p: Project): string {
-  if (isFreeNativeProjectId(p.id)) return 'Projeto nativo'
+  if (isFreeNativeProjectId(p.id) || p.owner === 'Projeto nativo') return 'Projeto nativo'
   if (p.owner === FREE_NATIVE_OWNER) return 'Rascunho local antigo'
   if (p.role === 'owner') return 'Meu projeto'
   return 'Partilhado'

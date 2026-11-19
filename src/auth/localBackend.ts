@@ -382,7 +382,23 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
         nativeId: typeof rec?.nativeId === 'string' ? rec.nativeId : null,
       }
     })
-    return [...mapped, ...listMissingFreeNativeProjects(user.id, markers)].sort((a, b) =>
+    const extras = listMissingFreeNativeProjects(user.id, markers)
+    // Projeto nativo retido: aparece em todas as contas, inclusive free.
+    if (!mapped.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID) && !extras.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID)) {
+      const retained = data.projects.find((entry) => entry.id === RETAINED_NATIVE_PROJECT_ID)
+      if (retained) {
+        extras.push({
+          id: retained.id,
+          name: retained.name,
+          revision: retained.revision,
+          updated_at: retained.updatedAt,
+          preview: previewFor(retained),
+          owner: 'Projeto nativo',
+          role: 'editor',
+        })
+      }
+    }
+    return [...mapped, ...extras].sort((a, b) =>
       b.updated_at.localeCompare(a.updated_at),
     ) as T
   }
@@ -411,6 +427,19 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (parts[0] === 'projects' && parts[1] && parts.length === 2 && verb === 'GET') {
     if (isFreeNativeFor(parts[1])) {
       return openFreeNativeProject(user.id, parts[1]) as T
+    }
+    // Projeto nativo retido: qualquer conta autenticada pode abrir (exemplo).
+    if (isNativeId(parts[1])) {
+      const retained = data.projects.find((entry) => entry.id === parts[1])
+      if (retained) {
+        return {
+          id: retained.id,
+          name: retained.name,
+          role: roleFor(retained, user.id) || 'editor',
+          revision: retained.revision,
+          content: retained.content,
+        } as T
+      }
     }
     const project = accessibleProject(data, parts[1], user.id)
     return {

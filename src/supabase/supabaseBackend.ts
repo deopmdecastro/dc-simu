@@ -232,7 +232,25 @@ export async function supabaseGetProjects(): Promise<Project[]> {
     preview: buildProjectPreview(row.content), owner: row.owner_id === user.id ? 'Você' : 'Colaborador',
     role: row.owner_id === user.id ? 'owner' : 'editor',
   }))
-  return [...mapped, ...listMissingFreeNativeProjects(user.id, rows)].sort((a,b) => b.updated_at.localeCompare(a.updated_at))
+  const extras = listMissingFreeNativeProjects(user.id, rows)
+  // Projeto nativo retido: visível em todas as contas (incl. free), mesmo sem membership.
+  if (!mapped.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID) && !extras.some((p) => p.id === RETAINED_NATIVE_PROJECT_ID)) {
+    try {
+      const landing = await supabaseGetLandingPublished()
+      if (landing?.projectId === RETAINED_NATIVE_PROJECT_ID && landing.content) {
+        extras.push({
+          id: RETAINED_NATIVE_PROJECT_ID,
+          name: landing.name || 'Projeto nativo de exemplo',
+          revision: landing.revision ?? 0,
+          updated_at: landing.updatedAt || new Date().toISOString(),
+          preview: buildProjectPreview(landing.content),
+          owner: 'Projeto nativo',
+          role: 'editor',
+        })
+      }
+    } catch { /* landing indisponível: não bloquear a lista */ }
+  }
+  return [...mapped, ...extras].sort((a,b) => b.updated_at.localeCompare(a.updated_at))
 }
 
 /** Cria um novo projeto na base de dados Supabase */
@@ -297,6 +315,21 @@ export async function supabaseGetProject(id: string): Promise<{ id: string; name
     .single()
 
   if (error || !data) {
+    // Projeto nativo retido: qualquer conta autenticada pode abrir via landing.
+    if (isNativeProjectId(id)) {
+      try {
+        const landing = await supabaseGetLandingPublished()
+        if (landing?.projectId === id && landing.content) {
+          return {
+            id,
+            name: landing.name || 'Projeto nativo de exemplo',
+            role: 'editor',
+            revision: landing.revision ?? 0,
+            content: landing.content,
+          }
+        }
+      } catch { /* continua para o erro abaixo */ }
+    }
     throw new Error(`Projeto não encontrado no Supabase: ${error?.message || 'Sem dados'}`)
   }
 
