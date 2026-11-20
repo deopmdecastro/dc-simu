@@ -354,8 +354,9 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
   const ampTxt = formatAmpPt(r.inA)
   const code = easy9SwitchCatalogCode(poles, r.inA)
   const ue = poles === 1 ? '230V~' : '400V~'
-  const frontZ = 0.5 * u
-  const lowerZ = 0.5 * u
+  // Face frontal do GLB (fascia/manípulo) ≈ 74,5 mm a partir da traseira DIN.
+  const frontZ = 74.5 * u
+  const lowerZ = 74.5 * u
   const out: THREE.Object3D[] = []
 
   const wMm = poles * 18
