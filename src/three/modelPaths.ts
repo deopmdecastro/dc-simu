@@ -397,6 +397,7 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'capacitorRun60uF' ||
     type === 'buzzerMetaltexTby301' ||
     type === 'timerGeyaGrt8M1' ||
+    type === 'timerGeyaGrt8M2' ||
     type === 'timerGeyaGrt8B1' ||
     type === 'pushButtonXb2No' ||
     type === 'pushButtonXb2Nc' ||
