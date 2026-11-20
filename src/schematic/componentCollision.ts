@@ -135,6 +135,48 @@ function sweepAxis(
 }
 
 /**
+ * Posição final face às paredes dos quadros: totalmente dentro do interior útil ou totalmente
+ * fora. Se a caixa ficaria a atravessar uma parede, encaixa dentro quando o centro já está no
+ * interior (soltar dentro do quadro) e, caso contrário, encosta por fora pelo lado mais próximo.
+ */
+function settleAgainstEnclosureWalls(
+  component: ElectricalComponent,
+  point: { x: number; y: number },
+  enclosures: ElectricalComponent[],
+): { x: number; y: number } {
+  let { x, y } = point
+  const inset = (ENCLOSURE.flange + ENCLOSURE.sheet) * SCHEMATIC_PX_PER_MM
+  for (const enclosure of enclosures) {
+    const outer = componentBounds2D(enclosure)
+    const box = componentBounds2D(component, x, y)
+    if (!boundsOverlap(outer, box, 0)) continue
+    const inner = { left: outer.left + inset, right: outer.right - inset, top: outer.top + inset, bottom: outer.bottom - inset }
+    const fitsInside = box.right - box.left <= inner.right - inner.left && box.bottom - box.top <= inner.bottom - inner.top
+    const centerX = (box.left + box.right) / 2, centerY = (box.top + box.bottom) / 2
+    const centerInside = centerX > inner.left && centerX < inner.right && centerY > inner.top && centerY < inner.bottom
+    if (fitsInside && centerInside) {
+      if (box.left < inner.left) x += inner.left - box.left
+      if (box.right > inner.right) x -= box.right - inner.right
+      if (box.top < inner.top) y += inner.top - box.top
+      if (box.bottom > inner.bottom) y -= box.bottom - inner.bottom
+      continue
+    }
+    if (box.left >= inner.left && box.right <= inner.right && box.top >= inner.top && box.bottom <= inner.bottom) continue
+    // Fora: empurra pelo lado de menor deslocação, com a folga habitual.
+    const g = COMPONENT_COLLISION_GAP
+    const pushes = [
+      { dx: outer.left - g - box.right, dy: 0 },
+      { dx: outer.right + g - box.left, dy: 0 },
+      { dx: 0, dy: outer.top - g - box.bottom },
+      { dx: 0, dy: outer.bottom + g - box.top },
+    ].sort((a, b) => Math.abs(a.dx) + Math.abs(a.dy) - Math.abs(b.dx) - Math.abs(b.dy))
+    x += pushes[0].dx
+    y += pushes[0].dy
+  }
+  return { x, y }
+}
+
+/**
  * Resolve o movimento por varrimento de caixas, impedindo atravessar outro
  * equipamento mesmo quando o cursor salta vários píxeis entre eventos.
  * Testa X→Y e Y→X para permitir deslizar naturalmente junto aos bordos.
@@ -147,7 +189,13 @@ export function resolveComponentMove(
   ignoreIds: ReadonlySet<string> = new Set(),
   gap = COMPONENT_COLLISION_GAP,
 ): { x: number; y: number; blocked: boolean } {
-  const obstacles = obstaclesFor(component, all, ignoreIds)
+  // Paredes de quadros: o aparelho é levantado por cima delas durante o arrasto (não desliza
+  // contra a parede exterior, o que impedia levar algo de fora para dentro do quadro). Só a
+  // posição final é ajustada para nunca ficar a atravessar a parede.
+  const enclosureWalls = component.type === 'panelEnclosure' ? [] : all.filter((other) =>
+    other.type === 'panelEnclosure' && other.id !== component.id && !ignoreIds.has(other.id) && component.enclosureId !== other.id)
+  const wallIds = new Set(enclosureWalls.map((enclosure) => enclosure.id))
+  const obstacles = obstaclesFor(component, all, ignoreIds).filter((other) => !wallIds.has(other.id))
   const dx = targetX - component.schematicX
   const dy = targetY - component.schematicY
   const solve = (first: 'x' | 'y') => {
@@ -161,9 +209,14 @@ export function resolveComponentMove(
   const yx = solve('y')
   const score = (point: { x: number; y: number }) => (point.x - targetX) ** 2 + (point.y - targetY) ** 2
   let best = score(xy) <= score(yx) ? xy : yx
-  // Segurança final para cantos/caixas inicialmente inválidas.
-  if (!componentPositionIsFree(component, best.x, best.y, all, ignoreIds, gap)
-    && componentPositionIsFree(component, component.schematicX, component.schematicY, all, ignoreIds, gap)) {
+  if (enclosureWalls.length) best = settleAgainstEnclosureWalls(component, best, enclosureWalls)
+  // Segurança final para cantos/caixas inicialmente inválidas (avaliada na posição candidata:
+  // a regra do quadro depende de o aparelho ficar dentro ou fora do interior útil).
+  const isFreeAt = (point: { x: number; y: number }) => {
+    const moved = { ...component, schematicX: point.x, schematicY: point.y }
+    return componentPositionIsFree(moved, point.x, point.y, all, ignoreIds, gap)
+  }
+  if (!isFreeAt(best) && isFreeAt({ x: component.schematicX, y: component.schematicY })) {
     best = { x: component.schematicX, y: component.schematicY }
   }
   return { ...best, blocked: Math.abs(best.x - targetX) > 0.01 || Math.abs(best.y - targetY) > 0.01 }

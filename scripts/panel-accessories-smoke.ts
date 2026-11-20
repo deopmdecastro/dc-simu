@@ -8,7 +8,7 @@ import {
 import { buildDinRailGroup, DIN_RAIL_PROFILES, dinRailProfileOf, railSlotCount } from '../src/three/dinRailGeometry'
 import { createComponent, TEMPLATES } from '../src/electrical/factory'
 import { component3DDimensions } from '../src/three/terminal3D'
-import { componentPositionIsFree } from '../src/schematic/componentCollision'
+import { componentBounds2D, componentPositionIsFree, resolveComponentMove } from '../src/schematic/componentCollision'
 import { detectDiagnostics } from '../src/utils/errorDetection'
 import { hasIecSymbol, iecAssociationOf } from '../src/electrical/iecAssociation'
 import { isPanelBound } from '../src/three/panelBounds'
@@ -111,6 +111,38 @@ check('quadro, calha técnica e espiral são acessórios', isPanelAccessoryType(
   check('calha técnica não entra num aparelho', !componentPositionIsFree({ ...ductA, schematicX: 150, schematicY: 220 }, 150, 220, [breaker]))
   const diags = detectDiagnostics([enc, breaker, ductA], [], new Set())
   check('sem aviso de sobreposição para o quadro', !diags.some((d) => /sobrepostos/.test(d.message)))
+}
+
+{
+  // Arrastar de fora para dentro do quadro: o aparelho passa por cima da parede (antes ficava
+  // preso à parede exterior) e nunca é largado a atravessá-la.
+  const enc = createComponent('panelEnclosure', 'QE1', undefined, 0, 0, 0)
+  enc.schematicX = 0; enc.schematicY = 0 // 900 × 1200 px
+  const dev = createComponent('breaker3p', 'Q1', undefined, 0, 0, 0)
+  dev.schematicX = 1100; dev.schematicY = 500 // fora, à direita
+  const all = [enc, dev]
+  const into = resolveComponentMove(dev, 400, 500, all)
+  const inBox = componentBounds2D({ ...dev, schematicX: into.x, schematicY: into.y })
+  const inset = (ENCLOSURE.flange + ENCLOSURE.sheet) * 1.5
+  check('arrastar de fora para dentro do quadro chega ao destino', Math.abs(into.x - 400) < .01 && Math.abs(into.y - 500) < .01 && !into.blocked)
+  check('largado dentro fica no interior útil', inBox.left >= inset - .01 && inBox.right <= 900 - inset + .01)
+  // Centro já dentro mas caixa a atravessar a parede direita → encaixa no interior.
+  const straddleIn = resolveComponentMove(dev, 900 - inset - 5 - dev.w / 2, 500, all)
+  const sBox = componentBounds2D({ ...dev, schematicX: straddleIn.x, schematicY: straddleIn.y })
+  check('a atravessar a parede com o centro dentro: encaixa dentro', sBox.right <= 900 - inset + .01)
+  // Centro fora a atravessar a parede → fica encostado por fora (nunca dentro da chapa).
+  const straddleOut = resolveComponentMove(dev, 900 - 10, 500, all)
+  const oBox = componentBounds2D({ ...dev, schematicX: straddleOut.x, schematicY: straddleOut.y })
+  check('a atravessar a parede com o centro fora: fica encostado por fora', oBox.left >= 900)
+  // De dentro para fora também passa a parede.
+  const inside = { ...dev, schematicX: 400, schematicY: 500 }
+  const out = resolveComponentMove(inside, 1200, 500, [enc, inside])
+  check('arrastar de dentro para fora do quadro também funciona', Math.abs(out.x - 1200) < .01)
+  // Outros aparelhos continuam sólidos dentro do quadro.
+  const other = createComponent('breaker3p', 'Q2', undefined, 0, 0, 0)
+  other.schematicX = 380; other.schematicY = 500
+  const blocked = resolveComponentMove(dev, 400, 500, [enc, dev, other])
+  check('dentro do quadro os aparelhos continuam sólidos entre si', blocked.blocked)
 }
 
 console.log(`[panel-accessories] OK — ${n} verificações`)
