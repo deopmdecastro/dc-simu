@@ -12,6 +12,7 @@ import { ALIGN_ACTIONS, requestAlign, type AlignAction } from '../ui/alignItems'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
 import Select from '../ui/Select'
+import { LogoMark } from '../ui/Brand'
 import type React from 'react'
 import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -752,12 +753,25 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         </div>
         )}
 
-        {/* vistas — ambientes (3D · Ladder · GRAFCET na demonstração) */}
-        <div className={`${demo ? 'min-w-0 flex items-center' : 'flex-1 flex justify-center min-w-0'} dc-views-container`}>
-          <div className="flex items-center rounded-lg p-1 gap-1 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
+        {/* Logo + seletor de módulos (3D Realista · Ladder · GRAFCET · Esquema IEC) */}
+        {demo && (
+          <div className="dc-demo-brand shrink-0 flex items-center gap-2 mr-1" aria-hidden={false}>
+            <LogoMark size={22} />
+            <span className="dc-demo-brand-text hidden sm:inline">
+              <strong>DC-SIMU</strong>
+              <small>Demo</small>
+            </span>
+          </div>
+        )}
+        <div className={`${demo ? 'min-w-0 flex-1 flex items-center overflow-x-auto' : 'flex-1 flex justify-center min-w-0'} dc-views-container`}>
+          <div className={`flex items-center rounded-lg p-1 gap-0.5 sm:gap-1 bg-surface-sunken border border-line shadow-inner ${demo ? 'dc-demo-modules' : ''}`} role="tablist" aria-label="Módulos">
             {visibleViews.map(({ id, label, icon: DefaultIcon, key }) => {
-              const displayLabel = demo && id === 'schematic' ? '3D' : label
-              const Icon = demo && id === 'schematic' ? IconCube : DefaultIcon
+              // Na demo: rótulos completos e consistentes (3D Realista / Esquema IEC)
+              const displayLabel =
+                id === 'schematic' ? (demo ? '3D Realista' : '3D Realista')
+                : id === 'commands' ? 'Esquema IEC'
+                : label
+              const Icon = id === 'schematic' ? IconCube : DefaultIcon
               return (
                 <button
                   key={id}
@@ -765,14 +779,13 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   aria-label={displayLabel}
                   aria-selected={mode === id}
                   onClick={() => setMode(id)}
-                  className={`dc-view-tab relative inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3.5' : 'px-3 2xl:px-4'} whitespace-nowrap rounded-[6px] text-xs font-semibold transition-all ${
+                  className={`dc-view-tab relative inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3' : 'px-3 2xl:px-4'} whitespace-nowrap rounded-[6px] text-xs font-semibold transition-all ${
                     mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
                   }`}
                   title={`${displayLabel} [${key} · Ctrl+${visibleViews.findIndex((v) => v.id === id) + 1}]`}
                 >
                   <Icon size={14} />
                   <span className={`dc-view-label ${demo ? 'inline' : 'hidden md:inline'}`}>{displayLabel}</span>
-                  {/* Estado do diagnóstico desta vista (✓ OK · ! avisos · ✖ erros), como o separador do GRAFCET */}
                   {!demo && id !== 'monitor' && <ViewDiagnosticsTag view={id} badge label={displayLabel} />}
                 </button>
               )
