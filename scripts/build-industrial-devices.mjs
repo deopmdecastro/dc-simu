@@ -387,8 +387,8 @@ async function xb2(type){
 async function mico(){
  const type='breakerMurrelektronikMico46',root=device(type),terms=[]
  const W=70,HW=W/2
- const BODY=mat('#262826',0,.62),BODY2=mat('#30332f',0,.55),RIB=mat('#1b1c1b',0,.7)
- const GREEN=mat('#3fc43a',0,.42),GREEN_D=mat('#1d6a1a',0,.6),HOLE=mat('#0b0d0b',0,.9),ORANGE=mat('#2a2b28',0,.5)
+ const BODY=mat('#1f201f',0,.68),BODY2=mat('#2b2d2b',0,.6),RIB=mat('#141514',0,.75)
+ const GREEN=mat('#2fc936',0,.38),GREEN_D=mat('#1d6a1a',0,.6),HOLE=mat('#0b0d0b',0,.9),ORANGE=mat('#2a2b28',0,.5)
  const CLEAR=mat('#dfe6ea',0,.18);CLEAR.transparent=true;CLEAR.opacity=.72
  const SMOKE=mat('#c9d3d8',0,.1);SMOKE.transparent=true;SMOKE.opacity=.28
  // Perfil lateral (z,y) extrudido na largura: traseira 0..30 até ao topo (y 82),
@@ -403,7 +403,7 @@ async function mico(){
  // Laterais: rasgos verticais de ventilação na zona alta traseira (ambos os lados).
  for(const side of [-1,1])for(let i=0;i<8;i++){const s=box(.6,22,1.4,RIB,'industrial_mico_vent_side_'+(side<0?'l':'r')+'_'+i,[side*(HW+.2),62,4+i*3.2]);root.add(s)}
  // Etiqueta de características na face lateral direita.
- const sticker=plane(24,30,mat('#cfd2cc',0,.7),'industrial_mico_side_label',[HW+.25,40,18]);sticker.rotation.y=Math.PI/2;root.add(sticker)
+ const sticker=plane(24,30,mat('#2c2e2c',0,.8),'industrial_mico_side_label',[HW+.25,40,18]);sticker.rotation.y=Math.PI/2;root.add(sticker)
 
  // ── Bornes de entrada na prateleira superior (y 71) ──
  const SHELF=71
@@ -432,11 +432,14 @@ async function mico(){
  // ── Frente: logótipo, legenda, janela com 4 botões transparentes e seletores ──
  // Chanfro superior entre a prateleira e a frente (rebordo mais claro).
  const bevel=box(W-2,2,6.4,BODY2,'industrial_mico_front_bevel',[0,67.6,47.5]);bevel.rotation.x=-Math.atan2(5,5);root.add(bevel)
- root.add(plane(22,9,white,'industrial_mico_logo',[-19,60,FRONT+.05]))
- root.add(plane(30,9,white,'industrial_mico_legend',[15,60,FRONT+.05]))
+ root.add(plane(22,11,white,'industrial_mico_logo',[-19,60.5,FRONT+.05]))
+ root.add(plane(27.5,11,white,'industrial_mico_legend',[16,60.5,FRONT+.05]))
+ // Marcações impressas no corpo: +24V junto às entradas, GND 0V junto ao borne de massa.
+ for(const[side,x]of [['1',-22],['2',22]]){const p=plane(9,4.5,white,'industrial_mico_print_24v_'+side,[x,68.9,47.9]);p.rotation.x=-Math.PI/4;root.add(p)}
+ const gndPrint=plane(10,6,white,'industrial_mico_print_gnd',[HW+.26,12,40]);gndPrint.rotation.y=Math.PI/2;root.add(gndPrint)
  // Janela rebaixada dos botões com tampa transparente articulada (só a moldura e o vidro
  // por cima, para os cliques chegarem aos botões).
- root.add(box(W-6,16,1.2,RIB,'industrial_mico_button_tray',[0,48,FRONT+.3]))
+ root.add(box(W-6,16,1.2,mat('#9aa2a6',0,.35),'industrial_mico_button_tray',[0,48,FRONT+.3]))
  root.add(box(W-4,1.4,3.4,SMOKE,'industrial_mico_cover_hinge',[0,56.6,FRONT+1.7]))
  root.add(box(W-4,1,3.4,SMOKE,'industrial_mico_cover_lip',[0,39.6,FRONT+1.7]))
  const chX=[-24.5,-8.2,8.2,24.5]

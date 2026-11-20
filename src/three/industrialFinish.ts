@@ -294,7 +294,7 @@ const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
   pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
   pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
   pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', ...xb2TerminalNumbers() },
-  breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png' },
+  breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png', industrial_mico_print_24v_1: 'mico-24v.png', industrial_mico_print_24v_2: 'mico-24v.png', industrial_mico_print_gnd: 'mico-gnd.png' },
   vfdSchneiderAtv320: {
     industrial_schneider_logo: '../../brands/schneider-electric.svg',
     industrial_product_sticker: 'atv320-product-label.png',

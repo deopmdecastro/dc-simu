@@ -10,6 +10,9 @@ const TEXTURES = {
   industrial_mico_logo: 'public/models/industriais/mico-logo.png',
   industrial_mico_legend: 'public/models/industriais/mico-legend.png',
   industrial_mico_class2: 'public/models/industriais/mico-class2.png',
+  industrial_mico_print_24v_1: 'public/models/industriais/mico-24v.png',
+  industrial_mico_print_24v_2: 'public/models/industriais/mico-24v.png',
+  industrial_mico_print_gnd: 'public/models/industriais/mico-gnd.png',
 }
 
 async function loadGlb(file) {
