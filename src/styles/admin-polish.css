@@ -31,13 +31,72 @@
 .adm-list-row.has-avatar { align-items: center; gap: 10px; }
 
 /* ---------- capas (projetos e componentes) ---------- */
-.adm-cover { position: relative; display: grid; place-items: center; flex: none; overflow: hidden; border: 1px solid var(--dx-line-soft); border-radius: 10px; background: var(--dx-surface-2); color: var(--dx-ink-4); }
-.adm-cover-project.is-md { width: 64px; height: 44px; }
-.adm-cover-project.is-lg { width: 96px; height: 64px; }
+.adm-cover { position: relative; display: grid; place-items: center; flex: none; overflow: hidden; border: 1px solid var(--dx-line-soft); border-radius: 12px; background: var(--dx-surface-2); color: var(--dx-ink-4); }
+.adm-cover-project.is-md { width: 88px; height: 60px; }
+.adm-cover-project.is-lg { width: 148px; height: 96px; }
+.adm-cover-project.is-xl { width: 220px; height: 140px; }
 .adm-cover-project.is-plain { border-color: transparent; }
-.adm-cover-project.has-art > .dx-cover { width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; }
-.adm-cover-project.has-art .dx-cover svg, .adm-cover-project.has-art .dx-cover img { width: 100%; height: 100%; }
-.adm-cover-project .dx-cover-empty span, .adm-cover-project .dx-cover-empty small { display: none; }
+.adm-cover-project.has-art {
+  background: #e9eef5;
+  border-color: var(--dx-line-soft, #e2e8f0);
+  box-shadow: 0 1px 2px rgba(23, 32, 46, 0.06);
+}
+.adm-cover-project.has-art > .dx-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: #e9eef5;
+}
+.adm-cover-project.has-art .dx-cover svg,
+.adm-cover-project.has-art .dx-cover img,
+.adm-cover-project.has-art .dx-cover-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.adm-cover-project.has-art .dx-cover > svg {
+  padding: 8px 10px 12px;
+  box-sizing: border-box;
+}
+.adm-cover-project.is-lg.has-art .dx-cover > svg { padding: 10px 12px 14px; }
+.adm-cover-project.is-xl.has-art .dx-cover > svg { padding: 14px 16px 18px; }
+.adm-cover-project .dx-cover-empty span,
+.adm-cover-project .dx-cover-empty small { display: none; }
+.adm-cover-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(110deg, #e9eef5 25%, #f4f7fb 45%, #e9eef5 65%);
+  background-size: 200% 100%;
+}
+.adm-project-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.adm-project-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.adm-project-name strong {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+.adm-project-name small {
+  color: var(--dx-ink-3, #64748b);
+  font-size: 0.75rem;
+}
 .adm-cover-component { background: #fff; }
 .adm-cover-component.is-md { width: 52px; height: 52px; }
 .adm-cover-component.is-lg { width: 68px; height: 68px; }
@@ -92,7 +151,8 @@
   /* tabela de projetos → cartões com capa */
   .adm-table-projects tbody tr { display: grid; gap: 4px; padding: 12px 14px 12px; }
   .adm-table-projects tbody th { min-width: 0; padding: 0 0 8px; border-bottom: 1px solid var(--dx-line-soft); }
-  .adm-table-projects .adm-cover-project.is-md { width: 72px; height: 50px; }
+  .adm-table-projects .adm-cover-project.is-md { width: 100px; height: 68px; }
+  .adm-table-projects .adm-cover-project.is-lg { width: 160px; height: 104px; }
   .adm-table-projects td.is-owner { max-width: none; }
   .adm-table-projects td.is-owner .adm-person { justify-content: flex-end; max-width: 70%; }
   .adm-table-projects .is-actions { padding-top: 8px; }
