@@ -354,21 +354,22 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
   const ampTxt = formatAmpPt(r.inA)
   const code = easy9SwitchCatalogCode(poles, r.inA)
   const ue = poles === 1 ? '230V~' : '400V~'
-  /* Face frontal do GLB: a parede do molde está a 74,7 mm da traseira DIN (STEP
-   * MCADFD0001285) e o manípulo vermelho vem 3 mm mais à frente. A serigrafia é uma
-   * película fina e opaca colada nessa parede.
+  /* Face frontal do GLB: a parede do molde está a 66,5 mm da traseira DIN (STEP
+   * MCADFD0002242/2243/2245: traseira em z −70,3, parede em z −3,8) e a travessa
+   * vermelha vem até 75,1 mm. A serigrafia é uma película fina e opaca colada nessa
+   * parede — nunca no ar à frente do manípulo.
    * As cotas ficam em MILÍMETROS porque `makePlateMesh` já aplica `unitsPerMm`;
    * multiplicar outra vez por `u` punha-a ~100× à frente do aparelho — era a «placa
    * solta» que aparecia em vez da serigrafia e esticava a caixa 74 mm em profundidade. */
   /* A face frontal do molde é plana a z = 65,5 mm entre y 36 e 60 mm (medido no STEP a
    * várias colunas de x); acima disso o corpo recolhe para os poços dos parafusos. O
    * manípulo vermelho vem até 74,7 mm, mas a serigrafia assenta na parede, não no ar. */
-  const FRONT_Z_MM = 65.5
+  const FRONT_Z_MM = 66.5
   /* As cotas acima são do GLB, onde a traseira assenta em z = 0. A serigrafia é acrescentada
    * ao grupo `fitted`, cuja caixa está centrada em profundidade (`frame.position.z =
    * -depth / 2` em `fitComponentModel`): sem esta correção as chapas ficavam 37 mm à frente
    * da parede — invisíveis de frente, flutuando na vista iso. */
-  const DEPTH_OFFSET_MM = -74.7 / 2
+  const DEPTH_OFFSET_MM = -75.1 / 2
   const out: THREE.Object3D[] = []
   const shift = (pos: [number, number, number]): [number, number, number] =>
     [pos[0], pos[1], pos[2] + DEPTH_OFFSET_MM]
@@ -415,7 +416,7 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
     ctx.font = '700 26px "Inter", "Arial", sans-serif'
     ctx.fillText(`${ampTxt}A`, px(2.7) + px(2.8), px(21.4))
   })
-  if (mainTex) out.push(makePlateMesh(mainTex, wMm - 0.6, 23.4, shift([0, 48, FRONT_Z_MM]), u, 0, false))
+  if (mainTex) out.push(makePlateMesh(mainTex, wMm - 0.6, 24.0, shift([0, 41.5, FRONT_Z_MM]), u, 0, false))
 
   /* Face inferior do mesmo molde: referência comercial, calibre, tensão e norma.
    * É o que se lê de frente num armário real, abaixo do manípulo. */
@@ -436,8 +437,14 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
     ctx.font = '600 26px "Inter", "Arial", sans-serif'
     ctx.fillText('IEC 60947-3 · AC-22A', cx, 108)
   })
-  // Faixa de catálogo sob o manípulo, na parede do bloco inferior (z = 64,7 mm no STEP).
-  if (labelTex) out.push(makePlateMesh(labelTex, wMm - 0.6, 6.2, shift([0, 22.4, 68.3]), u))
+  /* Faixa de catálogo no degrau superior, à esquerda dos bornes de entrada — é onde o
+   * produto a traz. A face do degrau está a 49,3 mm da traseira (STEP: z −21 com a
+   * traseira em −70,3), por isso a chapa assenta em 49,0 mm e não à frente do corpo. */
+  /* A faixa do produto é o filete estreito entre o degrau e a parede principal (y 63,5…66
+   * no STEP, ou seja 63,4…66,3 mm sobre a calha): acima disso estão os poços dos parafusos
+   * e a chapa ficava dentro deles. */
+  const labelWidth = Math.min(wMm - 2, 26)
+  if (labelTex) out.push(makePlateMesh(labelTex, labelWidth, 2.6, shift([-wMm / 2 + labelWidth / 2 + 1.2, 64.9, 49.0]), u))
 
   /* Calibre nas laterais (como no molde real, gravado no flanco). */
   const sideTex = cachedCanvasTexture(`ez9s:side:${poles}:${ampTxt}`, 160, 360, (ctx, w, h) => {
@@ -454,13 +461,13 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
   /* Os flancos do molde ficam 0,6 mm além do referencial nominal (aletas de encaixe na calha):
    * encostar a chapa a `wMm / 2` enterrava-a dentro da malha e a gravação lateral nunca
    * aparecia. Assenta-se na largura real do molde. */
-  const bodyHalfMm = (poles === 1 ? 19.2 : 19.2 + (poles - 1) * 18) / 2
+  const bodyHalfMm = (poles === 1 ? 17.85 : 17.85 + (poles - 1) * 18) / 2
   if (sideTex) for (const side of [-1, 1] as const) {
     const material = new THREE.MeshStandardMaterial({ map: sideTex, transparent: true, alphaTest: 0.04, roughness: 0.6, metalness: 0.03 })
     bindCachedCanvasTexture(material, sideTex)
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(9 * u, 22 * u), material)
     plate.name = MARKING_TAG
-    plate.position.set(side * (bodyHalfMm + 0.02) * u, 50 * u, (FRONT_Z_MM - 22 + DEPTH_OFFSET_MM) * u)
+    plate.position.set(side * (bodyHalfMm + 0.02) * u, 41.5 * u, (FRONT_Z_MM - 22 + DEPTH_OFFSET_MM) * u)
     plate.rotation.y = (side * Math.PI) / 2
     plate.userData.protectionMarking = true
     plate.raycast = () => null
