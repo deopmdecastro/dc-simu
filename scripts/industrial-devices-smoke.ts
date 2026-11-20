@@ -115,6 +115,8 @@ const drive=createComponent('vfdSchneiderAtv320');ac.state.nominalV=230
 wires=[cable(ac,'L',drive,'R/L1'),cable(ac,'N',drive,'S/L2')]
 useSimStore.getState().loadJSON(JSON.stringify({app:'dc-simu',version:6,components:[ac,drive],wires}))
 const liveDrive=()=>useSimStore.getState().components.find(c=>c.id===drive.id)!
+// STEP em STOP não faz nada (8479475: só ▶ acorda a simulação); em PAUSA avança um scan.
+useSimStore.setState(s=>({sim:{...s.sim,runState:'paused'}}))
 useSimStore.getState().step();check(liveDrive().state.powered&&!liveDrive().state.running,'ATV: mains supply powers controls but cannot invent STO/DI wiring')
 useSimStore.setState({wires:[...useSimStore.getState().wires,cable(drive,'+24',drive,'STO'),cable(drive,'+24',drive,'DI1')]})
 for(let i=0;i<8;i++)useSimStore.getState().step()
