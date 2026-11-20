@@ -1,0 +1,17 @@
+{
+  "checks": 3,
+  "parent": "industrial_mico_body",
+  "gapsMm": [
+    0.03500028210840633,
+    0.034998053398179074,
+    0.03500401874755288,
+    0.03500165285032564,
+    0.03499997216576056,
+    0.034998014207034966,
+    0.03500255131775032,
+    0.035002331915568785,
+    0.03500008342248062
+  ],
+  "errors": [],
+  "scope": "Painel React/R3F real em contexto isolado, sem pedidos externos; raios dirigidos à superfície física da carcaça."
+}

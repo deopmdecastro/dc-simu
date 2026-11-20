@@ -136,6 +136,14 @@ export function buildMicoClassic(bodyProfile) {
   }
   // Side marking is a reconstruction of the model reference and circuit, no serial/certification facsimile.
   const side=plane(49,49,print,'industrial_mico_side_label',[35,44,29]);side.rotation.y=Math.PI/2;root.add(side)
-  const gnd=plane(9,6,print,'industrial_mico_print_gnd',[29,7,73]);root.add(gnd)
+  // Serigrafia na estreita face da carcaça à direita das lâminas, coplanar
+  // com a rampa real. O plano anterior ficava ~10 mm à frente do plástico.
+  body.updateWorldMatrix(true,false)
+  const seat=new T.Raycaster(new T.Vector3(32.75,15,85),new T.Vector3(0,0,-1)).intersectObject(body,false)[0]
+  if(!seat?.face)throw new Error('MICO: carcaça ausente sob a marcação GND 0V')
+  const normal=seat.face.normal.clone().normalize(),at=seat.point.clone().addScaledVector(normal,.035)
+  const gnd=plane(4.4,3,print,'industrial_mico_print_gnd',at.toArray())
+  gnd.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),normal)
+  body.add(gnd)
   return {root,terms}
 }
