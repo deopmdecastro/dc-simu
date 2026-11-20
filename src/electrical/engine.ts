@@ -39,6 +39,10 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   breaker2p: [['1', '2'], ['3', '4']],
   breaker3p: [['1', '2'], ['3', '4'], ['5', '6']],
   breaker4p: [['1', '2'], ['3', '4'], ['5', '6'], ['7', '8']],
+  // Interruptores de corte Easy9 Switch (IEC 60947-3): manobra sem proteção.
+  switchSchneiderEz9s1p: [['1', '2']],
+  switchSchneiderEz9s2p: [['1', '2'], ['3', '4']],
+  switchSchneiderEz9s4p: [['1', '2'], ['3', '4'], ['5', '6'], ['7', '8']],
   motorBreaker: [['1', '2'], ['3', '4'], ['5', '6']],
   motorBreakerPkzmC10: [['1', '2'], ['3', '4'], ['5', '6']],
   motorBreakerSchneiderGv2me: [['1', '2'], ['3', '4'], ['5', '6']],
@@ -114,6 +118,9 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     case 'breaker2p':
     case 'breaker3p':
     case 'breaker4p':
+    case 'switchSchneiderEz9s1p':
+    case 'switchSchneiderEz9s2p':
+    case 'switchSchneiderEz9s4p':
     case 'motorBreaker':
     case 'motorBreakerPkzmC10':
     case 'residualBreaker':
@@ -469,6 +476,7 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
 
 const HEAD_BREAKERS = new Set([
   'breaker1p', 'breakerSchneiderIc60h1p', 'breakerSteckSdC25', 'breaker2p', 'breaker3p', 'breaker4p',
+  'switchSchneiderEz9s1p', 'switchSchneiderEz9s2p', 'switchSchneiderEz9s4p',
   'motorBreaker', 'motorBreakerPkzmC10', 'motorBreakerSchneiderGv2me',
   'residualBreaker', 'residualBreakerSchneiderIid4p', 'residualBreakerSchneiderIdpnVigi', 'residualBreakerHagerCfc225p',
 ])

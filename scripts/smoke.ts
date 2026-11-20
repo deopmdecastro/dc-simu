@@ -876,12 +876,16 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
       && Array.from({ length: poles }, (_, i) => String(i * 2 + 1)).every((n) => terminalByLabel(comp, n)?.kind === 'power-in' && (terminalByLabel(comp, n)!.position3D?.y ?? 0) > 0.9)
       && Array.from({ length: poles }, (_, i) => String(i * 2 + 2)).every((n) => terminalByLabel(comp, n)?.kind === 'power-out' && (terminalByLabel(comp, n)!.position3D?.y ?? 1) < 0.1)
       && labels.join(',') === Array.from({ length: poles * 2 }, (_, i) => String(i + 1)).sort().join(','))
-    const poleCentresMm = poles === 1 ? [8.85] : [9.15, 26.85, 44.55].slice(0, poles)
-    check(`${label}: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ 0,29 da profundidade)`, poleCentresMm.every((centre, i) => {
+    // Interruptores Easy9 Switch: GLB próprio (referencial nominal), um polo por módulo de 18 mm e
+    // entrada de cabo à frente (z ≈ 0,74); os disjuntores EZ9 mantêm as cotas medidas do STEP.
+    const isSwitch = type.startsWith('switchSchneiderEz9s')
+    const poleCentresMm = isSwitch ? Array.from({ length: poles }, (_, i) => (i + .5) * spec.physicalSizeMm.width / poles) : poles === 1 ? [8.85] : [9.15, 26.85, 44.55].slice(0, poles)
+    const entryZ = isSwitch ? 0.738 : 0.285
+    check(`${label}: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ ${String(entryZ).replace('.', ',')} da profundidade)`, poleCentresMm.every((centre, i) => {
       const top = terminalByLabel(comp, String(i * 2 + 1))!.position3D!
       const bottom = terminalByLabel(comp, String(i * 2 + 2))!.position3D!
       const expectedX = centre / spec.physicalSizeMm.width
-      return Math.abs(top.x - expectedX) < 0.01 && Math.abs(bottom.x - expectedX) < 0.01 && Math.abs(top.z - 0.285) < 0.02 && Math.abs(bottom.z - 0.285) < 0.02
+      return Math.abs(top.x - expectedX) < 0.01 && Math.abs(bottom.x - expectedX) < 0.01 && Math.abs(top.z - entryZ) < 0.02 && Math.abs(bottom.z - entryZ) < 0.02
     }))
     check(`${label}: fechado liga ${poles} polo(s) (1–2${poles > 1 ? ', 3–4…' : ''}); aberto ou disparado interrompe`, internalBridges(comp).length === poles
       && Array.from({ length: poles }, (_, i) => {
@@ -892,11 +896,11 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
       && internalBridges(createComponent(type, undefined, undefined, 0, 0, 0, { tripped: true })).length === 0)
 
     // GLB: nós, caixa envolvente = dimensão física e charneira medida dentro da caixa do manípulo
-    const glb = fs.readFileSync(`public/models/protecao/schneider-ez9-${poles}p.glb`)
+    const glb = fs.readFileSync(`public/models/protecao/schneider-ez9${isSwitch ? 's' : ''}-${poles}p.glb`)
     const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'))
     const names: string[] = json.nodes.map((node: { name?: string }) => node.name ?? '')
     check(`${label}: GLB traz ${poles} corpo(s), ${poles} alavanca(s)${poles > 1 ? ' e a barra de ligação' : ''} em malhas dcsimu_handle_*`,
-      names.filter((n) => /^ez9_corpo_/.test(n)).length === poles
+      names.filter((n) => /^ez9s?_(corpo|body)_\d+$/.test(n)).length === poles
       && names.filter((n) => /^dcsimu_handle_\d+$/.test(n)).length === poles
       && names.includes('dcsimu_handle_bridge') === (poles > 1))
     const boxOf = (filter: (name: string) => boolean) => {
@@ -910,19 +914,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
       }
       return { min, max }
     }
-    const all = boxOf(() => true)
-    const size = all.max.map((v, k) => v - all.min[k])
-    check(`${label}: caixa do GLB = dimensão física (${spec.physicalSizeMm.width}×${spec.physicalSizeMm.height}×${spec.physicalSizeMm.depth} mm)`,
-      Math.abs(size[0] - spec.physicalSizeMm.width) < 0.15 && Math.abs(size[1] - spec.physicalSizeMm.height) < 0.15 && Math.abs(size[2] - spec.physicalSizeMm.depth) < 0.15)
-    const hb = boxOf((n) => /^dcsimu_handle/.test(n))
     const rig = BREAKER_HANDLE_RIG[type]!
-    // o eixo tem de cair no cubo da alavanca: y = 32,5 mm da base do corpo (patim a −2,5) e z = 61,5 mm da traseira
-    const hingeYFromBody = hb.min[1] + (hb.max[1] - hb.min[1]) * rig.hinge.y
-    const hingeZ = hb.min[2] + (hb.max[2] - hb.min[2]) * rig.hinge.z
-    check(`${label}: charneira do manípulo medida no cubo da alavanca (y 32,5 · z 61,5 mm)`, Math.abs(hingeYFromBody - 32.5) < 0.4 && Math.abs(hingeZ - 61.5) < 0.4)
+    if (!isSwitch) {
+      const all = boxOf(() => true)
+      const size = all.max.map((v, k) => v - all.min[k])
+      check(`${label}: caixa do GLB = dimensão física (${spec.physicalSizeMm.width}×${spec.physicalSizeMm.height}×${spec.physicalSizeMm.depth} mm)`,
+        Math.abs(size[0] - spec.physicalSizeMm.width) < 0.15 && Math.abs(size[1] - spec.physicalSizeMm.height) < 0.15 && Math.abs(size[2] - spec.physicalSizeMm.depth) < 0.15)
+      const hb = boxOf((n) => /^dcsimu_handle/.test(n))
+      // o eixo tem de cair no cubo da alavanca: y = 32,5 mm da base do corpo (patim a −2,5) e z = 61,5 mm da traseira
+      const hingeYFromBody = hb.min[1] + (hb.max[1] - hb.min[1]) * rig.hinge.y
+      const hingeZ = hb.min[2] + (hb.max[2] - hb.min[2]) * rig.hinge.z
+      check(`${label}: charneira do manípulo medida no cubo da alavanca (y 32,5 · z 61,5 mm)`, Math.abs(hingeYFromBody - 32.5) < 0.4 && Math.abs(hingeZ - 61.5) < 0.4)
+      // o patim da calha assenta igual nos três (2,5 mm abaixo do corpo) e a traseira está em z = 0
+      check(`${label}: patim recolhido (y = −2,5 mm) e traseira em z = 0`, Math.abs(all.min[1] + 2.5) < 0.05 && Math.abs(all.min[2]) < 0.05)
+    }
     check(`${label}: nós do manípulo no rig existem no GLB`, rig.nodes.every((n) => names.includes(n)) && rig.throwDeg > 40 && rig.throwDeg < 90)
-    // o patim da calha assenta igual nos três (2,5 mm abaixo do corpo) e a traseira está em z = 0
-    check(`${label}: patim recolhido (y = −2,5 mm) e traseira em z = 0`, Math.abs(all.min[1] + 2.5) < 0.05 && Math.abs(all.min[2]) < 0.05)
     {
       const id = useSimStore.getState().addComponent(type, 200, 160)
       if (!id) throw new Error(`não foi possível inserir o ${label}`)
@@ -1111,7 +1117,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('disjuntores Schneider EZ9 1P/2P/3P e interruptores Easy9 Switch 1P/2P/4P ficam de pé, sem rotação nem espelho, em calha DIN', (['breaker1p', 'breaker2p', 'breaker3p', 'switchSchneiderEz9s1p', 'switchSchneiderEz9s2p', 'switchSchneiderEz9s4p'] as const).every((type) => {
     const spec = getComponentModelSpec(type)
     return !!spec && spec.rotation.every((angle) => angle === 0) && !spec.flipDepth && spec.placement === 'din-rail'
-      && spec.path.startsWith('/models/protecao/schneider-ez9-') && spec.physicalSizeMm.height > spec.physicalSizeMm.width
+      && /^\/models\/protecao\/schneider-ez9s?-/.test(spec.path) && spec.physicalSizeMm.height > spec.physicalSizeMm.width
   }))
   check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
   check('Esquema e Painel 3D derivam escala da mesma dimensão física', availableTypes.every((type) => {
@@ -1129,7 +1135,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const blockedId = useSimStore.getState().addComponent('contactor', 0, 0)
   check('store impede inserção indireta de componente sem GLB', blockedId === null && useSimStore.getState().components.length === beforeBlockedAdd)
   useSimStore.getState().setPlacingType('contactor')
-  useSimStore.getState().setDragType('buttonNO')
+  // Um tipo ainda sem GLB (a botoneira NA genérica já tem 3D e não serve de exemplo).
+  useSimStore.getState().setDragType('timerRelayTOF')
   check('estados de posicionamento e arraste não contornam o bloqueio', useSimStore.getState().placingType === null && useSimStore.getState().dragType === null)
 
   const pilotId = useSimStore.getState().addComponent('pilotLightAd22', 320, 180)
