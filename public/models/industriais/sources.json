@@ -308,6 +308,26 @@
       "pins": 0,
       "bytes": 1594188,
       "sha256": "b74803cdcf19b84cd5f79b7e0e2f7fd4d4a313b728841a113ad5de4d8e8f9353"
+    },
+    {
+      "type": "breakerMurrelektronikMico24",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://shop.murrelektronik.com/index.php?anid=9000-41042-0100400_1&cl=details&fnc=outputSpecSheet&lang=5",
+      "changes": "Separate 36 × 90 × 80 mm MICO 2.4 reconstruction from user photograph and manufacturer product sheet. Two clear keys, 1/2/3/4 A selectors, protective flap, two lower channel blades, one input, duplicated ON, 13/14, GND and two duplicated output pairs. No invented serial or certification artwork. Not manufacturer STEP.",
+      "visualRefinement": {
+        "reference": "User photograph and Murrelektronik product sheet 9000-41042-0100400",
+        "details": "Narrow 36 mm case, one large input clamp, four signal entries, one GND and two duplicated output pairs. Two clear keys, current selectors and lower blades, separate transparent guard, recessed vents and housing-bound marking. Reconstructed appearance, not manufacturer CAD."
+      },
+      "physicalSizeMm": {
+        "width": 36,
+        "height": 90.000002,
+        "depth": 79.900004
+      },
+      "interfaces": 10,
+      "cavities": 10,
+      "pins": 0,
+      "bytes": 1133004,
+      "sha256": "d27ac44a54e17d8612a6b1202d3362bc83c1ade1f8409d9384f1e29aa122a200"
     }
   ]
 }

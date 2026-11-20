@@ -2,6 +2,7 @@ import { IconSound, IconStop, IconRotateRight, IconRotateLeft } from '../ui/icon
 import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { componentTerminalLocal } from './componentTerminalViews'
+import { micoProfile } from '../electrical/industrialDevices'
 
 /** Cores de cabo do editor (com contraste calibrado para o modo claro). */
 export const WIRE_COLORS: Record<string, string> = {
@@ -215,14 +216,16 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
   const body = () => {
     switch (c.type) {
       // ------------------------------------------------------------- proteção
-      case 'breakerMurrelektronikMico46': {
+      case 'breakerMurrelektronikMico46':
+      case 'breakerMurrelektronikMico24': {
         const ch = (c.state.channels ?? {}) as Record<string, { on: boolean; tripped: boolean; fault: boolean; setpointA: number }>
-        const anyBad = [1, 2, 3, 4].some((i) => ch[String(i)]?.on && (ch[String(i)]?.tripped || ch[String(i)]?.fault))
+        const channels = Array.from({length:micoProfile(c.type)!.count},(_,i)=>i+1)
+        const anyBad = channels.some((i) => ch[String(i)]?.on && (ch[String(i)]?.tripped || ch[String(i)]?.fault))
         return (
           <g>
             <rect x={4} y={8} width={w - 8} height={h - 16} rx={5} fill={c.state.powered ? '#1c2a1c' : '#181c18'} stroke={anyBad ? '#ef4444' : s} />
-            {[1, 2, 3, 4].map((i) => {
-              const cx = (i * w) / 5, chst = ch[String(i)]
+            {channels.map((i) => {
+              const cx = (i * w) / (channels.length+1), chst = ch[String(i)]
               const col = !c.state.powered ? '#334155' : chst?.fault ? '#f97316' : chst?.tripped ? '#ef4444' : chst?.on ? '#22c55e' : '#475569'
               return (
                 <g key={i}>

@@ -11,6 +11,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { readStep, mat, fromOcc, box, plane, cylinder, shapePlate, drill, terminal, led, writeGlb } from './lib/cad-building.mjs'
 import { buildCaptiveTerminalScrew } from '../src/three/terminalHardware.ts'
 import { buildMicoClassic } from './lib/mico-classic-model.mjs'
+import { buildMico24 } from './lib/mico24-model.mjs'
 
 const source = path.resolve(process.argv[2] ?? '/home/user/work/industrial-devices-audit/cad-rebuilt')
 const output = path.resolve('public/models/industriais')
@@ -475,6 +476,10 @@ async function mico(){
 }
 
 const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8M2',()=>geya('timerGeyaGrt8M2')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')],['pushButtonXb2Yellow',()=>xb2('pushButtonXb2Yellow')],['pushButtonXb2Blue',()=>xb2('pushButtonXb2Blue')],['pushButtonXb2White',()=>xb2('pushButtonXb2White')],['breakerMurrelektronikMico46',mico]]
+jobs.push(['breakerMurrelektronikMico24',async()=>{
+ const {root,terms}=buildMico24(bodyProfile)
+ await store('breakerMurrelektronikMico24',root,terms,{kind:'dimensioned-reconstruction',source:'https://shop.murrelektronik.com/index.php?anid=9000-41042-0100400_1&cl=details&fnc=outputSpecSheet&lang=5',changes:'Separate 36 × 90 × 80 mm MICO 2.4 reconstruction from user photograph and manufacturer product sheet. Two clear keys, 1/2/3/4 A selectors, protective flap, two lower channel blades, one input, duplicated ON, 13/14, GND and two duplicated output pairs. No invented serial or certification artwork. Not manufacturer STEP.'})
+}])
 for(const[type,job]of jobs)if(!process.argv[3]||process.argv[3]===type)await job()
 await fs.writeFile('src/data/industrial-device-geometry.json',JSON.stringify(data,null,2)+'\n')
 let previous=[];try{previous=JSON.parse(await fs.readFile(path.join(output,'sources.json'),'utf8')).models??[]}catch{}

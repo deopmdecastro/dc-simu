@@ -24,7 +24,7 @@ const context = (components: ElectricalComponent[], wires: Wire[]): IndustrialEl
   return { components, adjacency: graph.reachable, live: graph.energizedTerminals, phases: computePhaseLabels(components, wires) }
 }
 const provenance = JSON.parse(fs.readFileSync('public/models/industriais/sources.json', 'utf8'))
-check(INDUSTRIAL_DEVICE_TYPES.length === 15, 'fifteen explicit industrial references')
+check(INDUSTRIAL_DEVICE_TYPES.length === 16, 'sixteen explicit industrial references')
 for (const type of INDUSTRIAL_DEVICE_TYPES) {
   const g = INDUSTRIAL_GEOMETRY[type], info = INDUSTRIAL_INFO[type], c = createComponent(type)
   check(c.terminals.length === g.terminals.length && new Set(c.terminals.map(t => t.id)).size === c.terminals.length, `${type}: stable unique terminal identities`)
@@ -46,6 +46,15 @@ for (const type of INDUSTRIAL_DEVICE_TYPES) {
       const btnAction = btn && industrialAction(btn.children[0] ?? btn), selAction = sel && industrialAction(sel.children[0] ?? sel)
       check(btnAction === 'ch' + i && Object.keys(industrialControlPatch(type, createComponent(type).state, btnAction as any)).length > 0, `MICO: clique no botão ${i} liga/desliga o canal (${btnAction})`)
       check(selAction === 'sel' + i && Object.keys(industrialControlPatch(type, createComponent(type).state, selAction as any)).length > 0, `MICO: clique no seletor ${i} muda a corrente (${selAction})`)
+    }
+  }
+  if(type==='breakerMurrelektronikMico24'){
+    check(g.terminals.length===10&&Math.abs(g.physicalSizeMm.width-36)<.01&&Math.abs(g.physicalSizeMm.height-90)<.01&&Math.abs(g.physicalSizeMm.depth-80)<.11,'MICO 2.4: W36 H90 D80, ten measured spring entries')
+    check([1,2].every(i=>scene.getObjectByName('industrial_mico_channel_blade_'+i)&&scene.getObjectByName('industrial_mico_button_'+i))&&!scene.getObjectByName('industrial_mico_button_3'),'MICO 2.4: two real blades and keys, no hidden four-channel copy')
+    check(Object.keys(industrialControlPatch(type,c.state,'ch3')).length===0&&Object.keys(industrialControlPatch(type,c.state,'sel4')).length===0,'MICO 2.4: non-existent controls cannot create ghost channels')
+    for(const i of [1,2]){
+      const btn=clone.getObjectByName('industrial_mico_button_'+i)!,sel=clone.getObjectByName('industrial_mico_select_'+i)!
+      check(industrialAction(btn.children[0])==='ch'+i&&industrialAction(sel.children[0])==='sel'+i,'MICO 2.4: actual key/selector '+i+' survive static merge')
     }
   }
   const cavityErrors: string[] = []
@@ -165,4 +174,38 @@ mico.state.onRemote=false
 dcSrc.state.nominalV=0;scanMico()
 check(mico.state.powered===false&&mico.state.channels['1'].tripped===false,'MICO: corte de rede limpa disparo')
 check(!('running' in industrialControlPatch('vfdSchneiderAtv320',{},'enter')),'ATV encoder is not an invented RUN button')
+const compact=createComponent('breakerMurrelektronikMico24'),supply24=createComponent('powerSource24v')
+const supplyWires=[cable(supply24,'+24V',compact,'L+'),cable(supply24,'0V',compact,'GND')]
+const scan24=(dt=100,extra:Wire[]=[])=>updateIndustrialDevice(compact,context([supply24,compact],[...supplyWires,...extra]),dt)
+scan24();check(compact.state.powered&&Object.keys(compact.state.channels).length===2,'MICO 2.4: real 24 V wiring powers exactly two channels')
+for(const channel of [1,2]){
+ const actual:number[]=[]
+ for(let i=0;i<4;i++){actual.push(compact.state.channels[String(channel)].setpointA);Object.assign(compact.state,industrialControlPatch(compact.type,compact.state,('sel'+channel) as any))}
+ check(actual.join(',')==='1,2,3,4'&&compact.state.channels[String(channel)].setpointA===1,'MICO 2.4: selector '+channel+' cycles 1/2/3/4 A, never 6 A')
+ Object.assign(compact.state,industrialControlPatch(compact.type,compact.state,('ch'+channel) as any))
+}
+scan24()
+let graph24=context([supply24,compact],supplyWires)
+check(['OUT1','OUT1-2','OUT2','OUT2-2'].every(label=>graph24.live.has(id(compact,label))),'MICO 2.4: both physical outputs of each enabled channel are live')
+compact.state.channels['1'].currentA=2;scan24()
+graph24=context([supply24,compact],supplyWires)
+check(compact.state.channels['1'].tripped&&!compact.state.channels['2'].tripped&&!graph24.live.has(id(compact,'OUT1'))&&!graph24.live.has(id(compact,'OUT1-2'))&&graph24.live.has(id(compact,'OUT2'))&&graph24.live.has(id(compact,'OUT2-2')),'MICO 2.4: channel 1 trip isolates its two outputs and preserves channel 2')
+check(compact.state.alarmOpen&&!internalBridges(compact).some(([a,b])=>a===id(compact,'13')&&b===id(compact,'14')),'MICO 2.4: a trip opens the dry 13–14 alarm contact')
+const remote24=[cable(supply24,'+24V',compact,'ON2')]
+scan24(10,remote24);scan24(9,remote24)
+check(compact.state.channels['1'].tripped,'MICO 2.4: a 19 ms ON pulse cannot rearm')
+scan24(1,remote24);check(!compact.state.channels['1'].tripped,'MICO 2.4: wired ON2 rearms at 20 ms')
+compact.state.channels['1'].currentA=2;scan24(100,remote24)
+check(compact.state.channels['1'].tripped,'MICO 2.4: holding ON high does not repeatedly clear a new fault')
+scan24(10);scan24(20,remote24);check(!compact.state.channels['1'].tripped,'MICO 2.4: a new ON pulse rearms again')
+Object.assign(compact.state,industrialControlPatch(compact.type,compact.state,'ch2'));scan24()
+graph24=context([supply24,compact],supplyWires)
+check(!graph24.live.has(id(compact,'OUT2'))&&!graph24.live.has(id(compact,'OUT2-2')),'MICO 2.4: manual OFF isolates both channel 2 sockets')
+const reverseWires=[cable(supply24,'+24V',compact,'GND'),cable(supply24,'0V',compact,'L+')]
+updateIndustrialDevice(compact,context([supply24,compact],reverseWires),100)
+check(!compact.state.powered&&compact.state.supplyMismatch,'MICO 2.4: reversed DC does not power the electronics')
+const missingGnd=[cable(supply24,'+24V',compact,'L+')]
+updateIndustrialDevice(compact,context([supply24,compact],missingGnd),100)
+check(!compact.state.powered&&!context([supply24,compact],missingGnd).live.has(id(compact,'OUT1')),'MICO 2.4: missing GND cannot enable an output')
+check(Object.keys(compact.state.channels).join(',')==='1,2','MICO 2.4: scans never create channels 3 or 4')
 if(errors.length){console.error(`\n${errors.length}/${checks} failed:\n${errors.join('\n')}`);process.exitCode=1}else console.log(`\nPASS — ${checks} industrial asset/electrical checks`)

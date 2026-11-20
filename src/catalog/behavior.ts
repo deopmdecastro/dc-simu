@@ -1,4 +1,4 @@
-import { industrialControlPatch } from '../electrical/industrialDevices'
+import { industrialControlPatch, micoProfile, micoChannelVars, micoStateFromVars } from '../electrical/industrialDevices'
 import { nextCatalogState } from './interactions'
 import type { BehaviorEvent, ComponentDefinition, ControlAction, ControlDef, VarDef, VarValue, WhenDef } from './types'
 
@@ -79,7 +79,13 @@ export function runControlActions(actions: ControlAction[], vars: Vars, state: s
         break
       }
       case 'behavior': current = multimeterEvent(current, action.event); break
-      case 'industrial': { const patch=industrialControlPatch(action.device,current,action.control,action.step); for(const [k,v] of Object.entries(patch))if(['string','number','boolean'].includes(typeof v))current[k]=v; break }
+      case 'industrial': {
+        const source=micoProfile(action.device)?{...current,...micoStateFromVars(action.device,current)}:current
+        const patch=industrialControlPatch(action.device,source,action.control,action.step)
+        const values={...patch,...micoChannelVars(action.device,{...source,...patch})}
+        for(const [k,v] of Object.entries(values))if(['string','number','boolean'].includes(typeof v))current[k]=v
+        break
+      }
       case 'delayedState': delayed.push({ state: action.state, afterMs: action.afterMs }); break
       default: { const next = nextCatalogState(action, nextState); if (next) nextState = next }
     }
@@ -135,6 +141,14 @@ export function selectorStep(control: ControlDef, vars: Vars, delta: 1 | -1): st
 
 export function setSelector(control: ControlDef, vars: Vars, positionId: string): Vars {
   if (!control.bindVar) return vars
+  const mico=control.actions.find(a=>a.type==='industrial'&&micoProfile(a.device)&&/^sel[1-4]$/.test(a.control))
+  if(mico?.type==='industrial'){
+    const profile=micoProfile(mico.device)!,state=micoStateFromVars(mico.device,vars),channel=state.channels[mico.control.slice(3)]
+    const amps=Number(positionId)
+    if(!channel||!(profile.currents as readonly number[]).includes(amps))return vars
+    channel.setpointA=amps;channel.on=false;channel.tripped=false
+    return{...vars,...micoChannelVars(mico.device,state)}
+  }
   const next = { ...vars, [control.bindVar]: positionId }
   // acordar o multímetro ao rodar o seletor
   if (next.sleep !== undefined && next.sleep !== '') next.sleep = ''
@@ -256,6 +270,6 @@ export function multimeterReading(vars: Vars, input: MeterInput, noise = 0): Met
 
 /** Encoder industrial: premir confirma; rodar é um gesto diferente. */
 export function industrialRotaryActions(control:ControlDef,step:1|-1):ControlAction[]|null{
- const action=control.actions.find(a=>a.type==='industrial'&&a.control==='enter')
- return action?.type==='industrial'?[{...action,control:'encoder',step}]:null
+ const action=control.actions.find(a=>a.type==='industrial'&&(a.control==='enter'||(micoProfile(a.device)&&/^sel[1-4]$/.test(a.control))))
+ return action?.type==='industrial'?[{...action,control:action.control==='enter'?'encoder':action.control,step}]:null
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { atv320DisplayText, deviceLcdFrame, drawDeviceLcd } from './deviceLcd'
-import { INDUSTRIAL_DEVICE_TYPES, GEYA_FUNCTIONS, GEYA_RANGES_MS, isIndustrialDevice, type IndustrialDeviceType } from '../electrical/industrialDevices'
+import { INDUSTRIAL_DEVICE_TYPES, GEYA_FUNCTIONS, GEYA_RANGES_MS, isIndustrialDevice, micoProfile, micoStateFromVars, type IndustrialDeviceType } from '../electrical/industrialDevices'
 import { playClick } from '../audio/sfx'
 
 /**
@@ -64,7 +64,7 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
   // recuados). O grupo runtime flutuante foi removido: duplicava os parafusos
   // e ficava suspenso a meio do ar na face do painel.
   // MICO 4.6: botões de canal e seletores de corrente.
-  if (type === 'breakerMurrelektronikMico46') {
+  if (micoProfile(type)) {
     root.traverse(node => {
       const m = /^industrial_mico_(button|select)_([1-4])$/.exec(node.name)
       // Nomes do contrato de industrialControlPatch: ch1…ch4 (ON/OFF) e sel1…sel4 (corrente).
@@ -149,10 +149,10 @@ export function industrialLedVars(type: IndustrialDeviceType, s: Record<string, 
     ledTankWater: !!s.powered && !!s.tankMinWet, ledTankDry: !!s.powered && !s.tankMinWet,
     ledWellWater: !!s.powered && !!s.wellReady, ledWellDry: !!s.powered && !s.wellReady,
   }
-  if (type === 'breakerMurrelektronikMico46') {
-    const ch = (s.channels ?? {}) as Record<string, { on: boolean; tripped: boolean; fault: boolean }>
+  if (micoProfile(type)) {
+    const ch = (s.channels ?? micoStateFromVars(type,s).channels) as Record<string, { on: boolean; tripped: boolean; fault: boolean }>
     const out: Record<string, boolean> = {}
-    for (const i of [1, 2, 3, 4]) { const c = ch[String(i)]; out['led' + i] = !!s.powered && !!c?.on && !c?.tripped && !c?.fault }
+    for (let i=1;i<=micoProfile(type)!.count;i++) { const c = ch[String(i)]; out['led' + i] = !!s.powered && !!c?.on && !c?.tripped && !c?.fault }
     return out
   }
   return {}
@@ -235,9 +235,9 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
     }
   }
   if (drawLcd && type === 'vfdSchneiderAtv320') redrawLcd(root, s)
-  if (type === 'breakerMurrelektronikMico46') {
-    const ch = (s.channels ?? {}) as Record<string, { on: boolean; setpointA: number; tripped?: boolean; fault?: boolean }>
-    for (const i of [1, 2, 3, 4]) {
+  if (micoProfile(type)) {
+    const ch = (s.channels ?? micoStateFromVars(type,s).channels) as Record<string, { on: boolean; setpointA: number; tripped?: boolean; fault?: boolean }>
+    for (let i=1;i<=micoProfile(type)!.count;i++) {
       const c = ch[String(i)]
       const lens = root.getObjectByName('industrial_mico_led_' + i) as THREE.Mesh | undefined
       if (lens?.isMesh) for (const material of Array.isArray(lens.material) ? lens.material : [lens.material]) {
@@ -249,7 +249,7 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
       const btn = root.getObjectByName('industrial_mico_button_' + i)
       if (btn) { btn.userData.restZ ??= btn.position.z; btn.position.z = btn.userData.restZ - (c?.on ? 0 : 0.0008) }
       const sel = root.getObjectByName('industrial_mico_select_' + i)
-      if (sel && c) sel.rotation.z = -[1, 2, 4, 6].indexOf(c.setpointA) * Math.PI / 4
+      if (sel && c) sel.rotation.z = -(micoProfile(type)!.currents as readonly number[]).indexOf(c.setpointA) * micoProfile(type)!.selectorAngle
     }
   }
   const armature = root.getObjectByName('industrial_armature')
@@ -294,6 +294,7 @@ export const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>
   pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
   pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', ...xb2TerminalNumbers() },
   breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png', industrial_mico_print_24v_1: 'mico-24v.png', industrial_mico_print_24v_2: 'mico-24v.png', industrial_mico_print_gnd: 'mico-gnd.png', industrial_mico_signal_labels: 'mico-signals.png', industrial_mico_guard_numbers: 'mico-numbers.png', industrial_mico_side_label: 'mico-side.png' },
+  breakerMurrelektronikMico24: { industrial_mico_logo: 'mico24-logo.png', industrial_mico_class2: 'mico24-class2.png', industrial_mico_print_24v_1: 'mico-24v.png', industrial_mico_print_gnd: 'mico-gnd.png', industrial_mico_signal_labels: 'mico24-signals.png', industrial_mico_guard_numbers: 'mico24-numbers.png', industrial_mico_scale_1: 'mico24-scale.png', industrial_mico_scale_2: 'mico24-scale.png', industrial_mico_side_label: 'mico24-side.png' },
   vfdSchneiderAtv320: {
     industrial_schneider_logo: 'atv320-schneider-white.png',
     industrial_product_sticker: 'atv320-product-label.png',

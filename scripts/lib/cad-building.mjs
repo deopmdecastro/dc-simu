@@ -55,6 +55,16 @@ export function bore(source,axis,c,radius,min,max,sides=24){
  input.dispose();const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.normalizeNormals();return g
 }
 export function drill(meshes,axis,c,r,min,max) { for(const mesh of meshes){const old=mesh.geometry;mesh.geometry=bore(old,axis,c,r,min,max);old.dispose()} }
+/** Finite rectangular recess. Removes the original triangles inside the box. */
+export function cutBox(mesh,lo,hi){
+ const old=mesh.geometry,input=old.index?old.toNonIndexed():old,p=input.attributes.position,n=input.attributes.normal,positions=[],normals=[]
+ const planes=[[1,0,0,-lo[0]],[-1,0,0,hi[0]],[0,1,0,-lo[1]],[0,-1,0,hi[1]],[0,0,1,-lo[2]],[0,0,-1,hi[2]]]
+ const clip=(poly,plane,sign)=>{const out=[],dist=v=>sign*(v[0]*plane[0]+v[1]*plane[1]+v[2]*plane[2]+plane[3]);for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],da=dist(a),db=dist(b);if(da>=-1e-8)out.push(a);if(da*db<0)out.push(a.map((x,j)=>x+(b[j]-x)*da/(da-db)))}return out}
+ const emit=poly=>{for(let i=1;i<poly.length-1;i++)for(const v of [poly[0],poly[i],poly[i+1]]){positions.push(...v.slice(0,3));normals.push(...v.slice(3))}}
+ for(let i=0;i<p.count;i+=3){let poly=[0,1,2].map(j=>[p.getX(i+j),p.getY(i+j),p.getZ(i+j),n.getX(i+j),n.getY(i+j),n.getZ(i+j)]);if([0,1,2].some(k=>Math.max(...poly.map(v=>v[k]))<lo[k]||Math.min(...poly.map(v=>v[k]))>hi[k])){emit(poly);continue}for(const plane of planes){emit(clip(poly,plane,-1));poly=clip(poly,plane,1);if(poly.length<3)break}}
+ mesh.geometry=new T.BufferGeometry();mesh.geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));mesh.geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));old.dispose()
+ if(input!==old)input.dispose()
+}
 const inner=mat('#3b3b32',.1,.7), brass=mat('#b9a167',.65,.4)
 /** Deep cavity: open mouth, inner wall and recessed contact, never a surface disk. */
 export function terminal(root,label,x,y,z,{r=2.3,depth=6,face='front',contact='socket',screw=true}={}) {

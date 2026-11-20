@@ -1,0 +1,25 @@
+{
+  "checks": 19,
+  "details": {
+    "guard": [
+      {
+        "transparent": true,
+        "opacity": 0.23,
+        "transmission": 0.3
+      }
+    ],
+    "key": [
+      {
+        "transparent": true,
+        "opacity": 0.23,
+        "transmission": 0.3
+      }
+    ]
+  },
+  "led": [
+    "36c938",
+    "d52e32"
+  ],
+  "errors": [],
+  "scope": "Painel/Admin React/R3F reais; guardar/reabrir/exportar apenas em IndexedDB isolado, pedidos externos bloqueados."
+}

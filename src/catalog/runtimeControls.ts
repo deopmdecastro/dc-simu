@@ -1,4 +1,5 @@
 import { builtinRuntimeType } from '../electrical/builtinRuntime'
+import { micoProfile, micoChannelVars, micoStateFromVars } from '../electrical/industrialDevices'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { isManobraAllowed } from '../store/manobra'
@@ -28,6 +29,7 @@ export function triggerControl(
   if (!live) return
   const industrial=builtinRuntimeType(live)
   let vars: Vars = {...mergeVars(def, live.state?.catalogVars as Vars | undefined),...(industrial?Object.fromEntries(Object.entries(live.state).filter(([k,v])=>!k.startsWith('$')&&['boolean','string','number'].includes(typeof v))):{})}
+  if(industrial)vars={...vars,...micoChannelVars(industrial,live.state)}
   let state = String(live.state?.catalogState ?? def.initialState)
   const delayed: Array<{ state: string; afterMs: number }> = []
   const rotary=typeof gesture==='object'&&'step' in gesture?industrialRotaryActions(control,gesture.step):null
@@ -56,7 +58,7 @@ export function triggerControl(
   const dm20Sync = live.type === 'multimeterDm20'
     ? { selector: String(vars.dial ?? 'off'), hold: Boolean(vars.hold), backlight: Boolean(vars.light) }
     : {}
-  const industrialSync=industrial?Object.fromEntries(Object.entries(vars).filter(([k])=>!k.startsWith('$')&&k!=='industrialOrigin'&&k!=='builtinOrigin')):{}
+  const industrialSync=industrial?{...Object.fromEntries(Object.entries(vars).filter(([k])=>!k.startsWith('$')&&k!=='industrialOrigin'&&k!=='builtinOrigin')),...(micoProfile(industrial)?micoStateFromVars(industrial,vars):{})}:{}
   store.operateComponent(componentId, { ...industrialSync, ...dm20Sync, catalogVars: vars, catalogState: state, meterBridge: bridge })
   const list = timers.get(componentId) ?? []
   for (const action of delayed) list.push(window.setTimeout(() => useSimStore.getState().operateComponent(componentId, { catalogState: action.state }), Math.max(0, action.afterMs)))
@@ -70,7 +72,7 @@ export function useCatalogMeter(component: ElectricalComponent | undefined, def:
   const energized = useSimStore((s) => s.runtime.energizedTerminals)
   const runState = useSimStore((s) => s.sim.runState)
   const stored = component?.state?.catalogVars as Vars | undefined
-  const physicalSignature=component&&builtinRuntimeType(component)?JSON.stringify(Object.entries(component.state).filter(([,v])=>['boolean','string','number'].includes(typeof v))):''
+  const physicalSignature=component&&builtinRuntimeType(component)?JSON.stringify({...Object.fromEntries(Object.entries(component.state).filter(([,v])=>['boolean','string','number'].includes(typeof v))),...micoChannelVars(builtinRuntimeType(component)!,component.state)}):''
   const legacyDial = typeof component?.state?.selector === 'string' && component.state.selector !== 'off' ? component.state.selector : undefined
   const legacyHold = component?.state?.hold === true ? true : undefined
   const legacyLight = component?.state?.backlight === true ? true : undefined
@@ -85,7 +87,7 @@ export function useCatalogMeter(component: ElectricalComponent | undefined, def:
         ...(legacyLight ? { light: true } : {}),
       }
     }
-    return component&&builtinRuntimeType(component)?{...merged,...Object.fromEntries(Object.entries(component.state).filter(([,v])=>['boolean','string','number'].includes(typeof v)))}:merged
+    return component&&builtinRuntimeType(component)?{...merged,...Object.fromEntries(Object.entries(component.state).filter(([,v])=>['boolean','string','number'].includes(typeof v))),...micoChannelVars(builtinRuntimeType(component)!,component.state)}:merged
   }, [def, stored, legacyDial, legacyHold, legacyLight, physicalSignature])
   const isMeter = def?.behavior?.type === 'multimeter'
   const [noise, setNoise] = useState(0)

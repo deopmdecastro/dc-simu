@@ -1,6 +1,6 @@
 {
   "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.",
-  "generatedAt": "2026-11-20T20:30:23.450Z",
+  "generatedAt": "2026-11-20T20:50:58.735Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
     "fuseHolderSchneiderDf101v",
@@ -31,6 +31,7 @@
     "pushButtonXb2White",
     "breakerMurrelektronikMico46",
     "timerGeyaGrt8M2",
+    "breakerMurrelektronikMico24",
     "breaker1p",
     "breakerSchneiderIc60h1p",
     "breakerSteckSdC25",
@@ -91,6 +92,7 @@
     "breaker1p": "breaker1p.webp",
     "breaker2p": "breaker2p.webp",
     "breaker3p": "breaker3p.webp",
+    "breakerMurrelektronikMico24": "breakerMurrelektronikMico24.webp",
     "breakerMurrelektronikMico46": "breakerMurrelektronikMico46.webp",
     "breakerSchneiderIc60h1p": "breakerSchneiderIc60h1p.webp",
     "breakerSteckSdC25": "breakerSteckSdC25.webp",
@@ -173,6 +175,7 @@
     "breaker1p": "front/breaker1p.webp",
     "breaker2p": "front/breaker2p.webp",
     "breaker3p": "front/breaker3p.webp",
+    "breakerMurrelektronikMico24": "front/breakerMurrelektronikMico24.webp",
     "breakerMurrelektronikMico46": "front/breakerMurrelektronikMico46.webp",
     "breakerSchneiderIc60h1p": "front/breakerSchneiderIc60h1p.webp",
     "breakerSteckSdC25": "front/breakerSteckSdC25.webp",

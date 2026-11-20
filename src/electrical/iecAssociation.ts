@@ -62,6 +62,7 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   residualBreakerSchneiderIdpnVigi: { primary: 'breaker3', iec60617: '60617-7 / 07-13-08', refLetter: 'Q', note: 'Disjuntor Diferencial Schneider Acti9 iDPN N Vigi 1P+N' },
   phoenixEcb3000760: { primary: 'breaker3', iec60617: '60617-7', refLetter: 'Q', note: 'Proteção electrónica 24 V DC' },
   breakerMurrelektronikMico46: { primary: 'breaker3', iec60617: '60617-7 / proteção eletrónica multicanal', refLetter: 'F', note: 'MICO 4.6: 4 canais 24 V DC com seletor de corrente 1/2/4/6 A, botão ON/OFF por canal, LED bi-cor, Sammelmeldung 13-14 e ON remoto.' },
+  breakerMurrelektronikMico24: { primary: 'breaker2', iec60617: '60617-7 / proteção eletrónica de dois canais', refLetter: 'F', note: 'MICO 2.4: dois canais 24 V DC, seletores 1/2/3/4 A, duas saídas físicas por canal, LED bi-cor, alarme 13-14 e ON remoto.' },
   fuse: { primary: 'fuse', iec60617: '60617-7 / 07-21-01', refLetter: 'F' },
   fuseHolder: { primary: 'fuse', iec60617: '60617-7 / 07-21-01', refLetter: 'F' },
   surgeProtector: { primary: 'fuse', iec60617: '60617-5 / 05-', refLetter: 'F', note: 'DPS — símbolo de descarregador de sobretensão' },

@@ -8,6 +8,33 @@ export type IndustrialDeviceType = keyof typeof geometry
 export const INDUSTRIAL_DEVICE_TYPES = Object.keys(geometry) as IndustrialDeviceType[]
 export const isIndustrialDevice = (type: string): type is IndustrialDeviceType => Object.prototype.hasOwnProperty.call(geometry, type)
 export const INDUSTRIAL_GEOMETRY = geometry
+export const MICO_PROFILES = {
+  breakerMurrelektronikMico46: { count: 4, currents: [1,2,4,6], selectorAngle: Math.PI/4 },
+  breakerMurrelektronikMico24: { count: 2, currents: [1,2,3,4], selectorAngle: Math.PI/2 },
+} as const
+export function micoProfile(type: string) { return MICO_PROFILES[type as keyof typeof MICO_PROFILES] ?? null }
+/** Scalar editor bindings are derived from the canonical electrical channels. */
+export function micoChannelVars(type:string,state:Record<string,any>):Record<string,boolean|number>{
+  const profile=micoProfile(type),vars:Record<string,boolean|number>={}
+  if(!profile)return vars
+  for(let i=1;i<=profile.count;i++){
+    const c=state.channels?.[String(i)]??{}
+    vars['mico'+i+'On']=!!c.on;vars['mico'+i+'Trip']=!!c.tripped;vars['mico'+i+'Fault']=!!c.fault
+    vars['mico'+i+'Amps']=Number(c.setpointA)||1;vars['mico'+i+'Current']=Math.max(0,Number(c.currentA)||0)
+  }
+  return vars
+}
+/** Reconstitutes only the model's declared channels from typed scalar controls. */
+export function micoStateFromVars(type:string,vars:Record<string,any>){
+  const channels:Record<string,{on:boolean;tripped:boolean;fault:boolean;setpointA:number;currentA:number}>={}
+  const profile=micoProfile(type)
+  if(profile)for(let i=1;i<=profile.count;i++)channels[String(i)]={
+    on:!!vars['mico'+i+'On'],tripped:!!vars['mico'+i+'Trip'],fault:!!vars['mico'+i+'Fault'],
+    setpointA:(profile.currents as readonly number[]).includes(Number(vars['mico'+i+'Amps']))?Number(vars['mico'+i+'Amps']):1,
+    currentA:Math.max(0,Number(vars['mico'+i+'Current'])||0),
+  }
+  return{channels}
+}
 
 /** Só tipos nativos ou versões do catálogo explicitamente originadas num deles. */
 export function industrialDeviceTypeOf(c: Pick<ElectricalComponent, 'type' | 'state'>): IndustrialDeviceType | null {
@@ -106,6 +133,12 @@ export const INDUSTRIAL_INFO: Record<IndustrialDeviceType, {
     scope: 'Ø22 mm de furação, anel serrilhado Ø29 mm, bloco NA 3-4. Ui 660 V, Ith 10 A, Uimp 6 kV, AC-15 240 V/3 A, DC-13. Contacto fecha enquanto premido e abre por mola ao largar. Sem iluminação nem manípulo de manobra.',
     defaultState: { pressed: false, momentary: true, color: '#f8fafc' },
   },
+  breakerMurrelektronikMico24: {
+    name: 'Proteção eletrónica Murrelektronik MICO 2.4 · 2 canais · 24 V DC', manufacturer: 'Murrelektronik', reference: '9000-41042-0100400', category: 'protection', tag: 'F',
+    datasheet: '/datasheets/industrial/murrelektronik-mico24.pdf', source: 'https://shop.murrelektronik.com/index.php?anid=9000-41042-0100400_1&cl=details&fnc=outputSpecSheet&lang=5', provenance: 'Reconstrução 3D pela fotografia do utilizador e ficha oficial; 36 × 90 × 80 mm. Não é STEP do fabricante.',
+    scope: 'Dois canais 24 V DC, entrada 18–30 V, seletores independentes 1/2/3/4 A e duas saídas físicas por canal. Bornes L+, GND, ON/ON2, 13/14, OUT1/OUT1-2 e OUT2/OUT2-2. Contacto de alarme 13–14 livre de potencial, 30 V AC/DC e 100 mA; entrada ON 10–30 V por impulso de pelo menos 20 ms. Proteção por canal com corrente de ensaio explícita; curva térmica, capacidade de arranque, cascata e intermitência dos LED não são modeladas. Saídas não podem ser ligadas em paralelo. Calha TH35, proteção Class 2 conforme a referência documental.',
+    defaultState: { powered: false, onRemote: false, channels: { '1': { on: false, tripped: false, fault: false, currentA: 0, setpointA: 1 }, '2': { on: false, tripped: false, fault: false, currentA: 0, setpointA: 1 } }, supplyMismatch: false },
+  },
   breakerMurrelektronikMico46: {
     name: 'Proteção eletrónica Murrelektronik MICO Classic 4.6 · 4 canais · 24 V DC', manufacturer: 'Murrelektronik', reference: '9000-41034-0100600', category: 'protection', tag: 'F',
     datasheet: '/datasheets/industrial/murrelektronik-mico46.pdf', source: 'https://media.automation24.com/manual/101523.pdf', provenance: 'Reconstrução 3D cotada do manual de instalação MICO 4.6 V2.5; não foi obtido STEP do fabricante.',
@@ -134,12 +167,12 @@ function terminalKind(type: IndustrialDeviceType, label: string): TerminalKind {
     return 'aux-no'
   }
   if (type === 'levelRelayAvel411') return label === '2' ? 'coil-plus' : label === '10' ? 'coil-minus' : label === '4' ? 'aux-nc' : 'io'
-  if (type === 'breakerMurrelektronikMico46') {
+  if (micoProfile(type)) {
     if (label === 'GND' || label === 'GND2') return 'neutral'
     if (label === 'L+' || label === 'L+2') return 'power-in'
     if (label === 'ON') return 'io'
     if (label === '13' || label === '14') return 'aux-no'
-    if (/^OUT[1-4]$/.test(label)) return 'power-out'
+    if (/^OUT[1-4](?:-2)?$/.test(label)) return 'power-out'
     return 'io'
   }
   return 'io'
@@ -216,14 +249,16 @@ export function industrialBridges(c: ElectricalComponent): Array<[string,string]
   else if(type==='levelRelayAvel411')pair('1',c.state.energized?'3':'4')
   else if(type.startsWith('pushButtonXb2')&&type!=='pushButtonXb2Nc'){if(c.state.pressed)pair('3','4')}
   else if(type==='pushButtonXb2Nc'){if(!c.state.pressed)pair('1','2')}
-  else if(type==='breakerMurrelektronikMico46'){
+  else if(micoProfile(type)){
     pair('L+','L+2');pair('GND','GND2');pair('ON','ON2')
+    const count=micoProfile(type)!.count
+    for(let i=1;i<=count;i++)pair('OUT'+i,'OUT'+i+'-2')
     const ch=(c.state.channels??{}) as Record<string,{on:boolean;tripped:boolean;fault:boolean}>
-    const anyBad=[1,2,3,4].some(i=>{const k=ch[String(i)];return !!k?.on&&(!!k?.tripped||!!k?.fault)})
+    const anyBad=Array.from({length:count},(_,i)=>ch[String(i+1)]).some(k=>!!k?.on&&(!!k?.tripped||!!k?.fault))
     if(!anyBad)pair('13','14')
-    for(let i=1;i<=4;i++){
+    for(let i=1;i<=count;i++){
       const k=ch[String(i)]
-      if(k?.on&&!k?.tripped&&!k?.fault)pair('L+','OUT'+i)
+      if(k?.on&&!k?.tripped&&!k?.fault&&(type!=='breakerMurrelektronikMico24'||c.state.powered))pair('L+','OUT'+i)
     }
   }
   else if(type==='vfdSchneiderAtv320'){
@@ -315,26 +350,27 @@ export function updateGeyaTimer(state:Record<string,any>,powered:boolean,trigger
   state.energized=on;state.elapsedMs=elapsed;state.running=running;state._wasPowered=true;state._wasTrigger=trigger
 }
 
-/** MICO Classic 4.6: atualiza cada canal (disparo por sobrecorrente / defeito / manual) e o Sammelmeldung. */
-export function updateMico46(state:Record<string,any>,powered:boolean,dtMs:number):void {
+/** Família MICO: canais previstos por modelo; mantém a assinatura pública legada 4.6. */
+export function updateMico46(state:Record<string,any>,powered:boolean,dtMs:number,profile:{count:number;currents:readonly number[]}=MICO_PROFILES.breakerMurrelektronikMico46):void {
   const dt=Math.max(0,Number.isFinite(dtMs)?dtMs:0)
   state.powered=powered
-  const ch=(state.channels??{}) as Record<string,{on:boolean;tripped:boolean;fault:boolean;currentA:number;setpointA:number}>
-  for(const key of ['1','2','3','4']){
+  const ch=(state.channels??={}) as Record<string,{on:boolean;tripped:boolean;fault:boolean;currentA:number;setpointA:number}>
+  const keys=Array.from({length:profile.count},(_,i)=>String(i+1))
+  for(const key of keys){
     const c=ch[key]??={on:false,tripped:false,fault:false,currentA:0,setpointA:1}
     c.currentA=Math.max(0,Number(c.currentA)||0)
-    c.setpointA=[1,2,4,6].includes(c.setpointA)?c.setpointA:1
+    c.setpointA=profile.currents.includes(c.setpointA)?c.setpointA:1
     if(!powered){c.tripped=false;c.fault=false;c.currentA=0;continue}
     if(c.on&&!c.fault&&!c.tripped){
       if(c.currentA>c.setpointA)c.tripped=true
     }
   }
   if(powered&&!state._wasPowered){
-    for(const key of ['1','2','3','4'])if(ch[key]?.on)state['_cascade_'+key]=75*(Number(key)-1)
+    for(const key of keys)if(ch[key]?.on)state['_cascade_'+key]=75*(Number(key)-1)
   }
   state._wasPowered=powered
-  if(powered&&state.onRemote)for(const key of ['1','2','3','4']){const c=ch[key];if(c?.on&&c?.tripped&&!c?.fault){c.tripped=false;c.currentA=0}}
-  state.alarmOpen=[1,2,3,4].some(i=>{const c=ch[String(i)];return !!c?.on&&(!!c?.tripped||!!c?.fault)})
+  if(powered&&state.onRemote)for(const key of keys){const c=ch[key];if(c?.on&&c?.tripped&&!c?.fault){c.tripped=false;c.currentA=0}}
+  state.alarmOpen=keys.some(key=>{const c=ch[key];return !!c?.on&&(!!c?.tripped||!!c?.fault)})
   void dt
 }
 
@@ -373,9 +409,19 @@ export function updateIndustrialDevice(c:ElectricalComponent,ctx:IndustrialElect
     s.powered=ok;s.supplyMismatch=v.voltage>0&&!ok;s.activeMs=ok?(Number(s.activeMs)||0)+dt:0
     s.dutyLimitReached=s.activeMs>=1800000;s.on=ok&&!s.dutyLimitReached;return
   }
-  if(type==='breakerMurrelektronikMico46'){
-    const v=industrialInput(c,'L+','GND',ctx),ok=v.dc&&inRange(v.voltage,18,30)
-    s.supplyMismatch=v.voltage>0&&!ok;updateMico46(s,ok,dt);return
+  if(micoProfile(type)){
+    const v=industrialInput(c,'L+','GND',ctx),ok=v.dc&&inRange(v.voltage,18,30)&&(type!=='breakerMurrelektronikMico24'||v.positive)
+    s.supplyMismatch=v.voltage>0&&!ok
+    if(type==='breakerMurrelektronikMico24'){
+      const remote=industrialInput(c,'ON','GND',ctx),high=ok&&remote.dc&&remote.positive&&inRange(remote.voltage,10,30)
+      s._onHighMs=high?(Number(s._onHighMs)||0)+dt:0
+      const pulse=high&&s._onHighMs>=20&&!s._onHandled
+      if(!high)s._onHandled=false
+      const manual=s.onRemote;s.onRemote=!!manual||pulse
+      updateMico46(s,ok,dt,micoProfile(type)!);s.onRemote=manual
+      if(pulse)s._onHandled=true
+    }else updateMico46(s,ok,dt,micoProfile(type)!)
+    return
   }
   const v=industrialInput(c,'R/L1','S/L2',ctx),ok=!v.dc&&inRange(v.voltage,170,264)
   s.powered=ok;s.supplyMismatch=v.voltage>0&&!ok
@@ -398,12 +444,13 @@ export type IndustrialControl='encoder'|'enter'|'escape'|'range'|'fraction'|'fun
 export function industrialControlPatch(type:string,state:Record<string,any>,control:IndustrialControl,step:1|-1=1):Record<string,any>{
   if(!isIndustrialDevice(type))return {}
   if(control==='button'&&type.startsWith('pushButtonXb2'))return {pressed:!state.pressed}
-  if(type==='breakerMurrelektronikMico46'){
+  if(micoProfile(type)){
     const m=/^(ch|sel)([1-4])$/.exec(control);if(!m)return {}
+    const profile=micoProfile(type)!;if(Number(m[2])>profile.count)return {}
     const ch=m[2];const channels=structuredClone((state.channels??{}) as Record<string,{on:boolean;tripped:boolean;fault:boolean;currentA:number;setpointA:number}>)
     const c=channels[ch]??={on:false,tripped:false,fault:false,currentA:0,setpointA:1}
     if(m[1]==='ch'){c.on=!c.on;if(!c.on){c.tripped=false;c.fault=false;c.currentA=0}return {channels}}
-    const order=[1,2,4,6];const next=order[(order.indexOf(c.setpointA)+1)%order.length]??1;c.setpointA=next;c.on=false;c.tripped=false;return {channels}
+    const order:readonly number[]=profile.currents;const next=order[(Math.max(0,order.indexOf(c.setpointA))+step+order.length)%order.length]??1;c.setpointA=next;c.on=false;c.tripped=false;return {channels}
   }
   const cycle=<T>(values:readonly T[],value:T)=>values[(Math.max(0,values.indexOf(value))+step+values.length)%values.length]
   if(control==='cover'&&type==='vfdSchneiderAtv320')return {controlCoverOpen:!state.controlCoverOpen}

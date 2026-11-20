@@ -405,7 +405,8 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'pushButtonXb2Yellow' ||
     type === 'pushButtonXb2Blue' ||
     type === 'pushButtonXb2White' ||
-    type === 'breakerMurrelektronikMico46'
+    type === 'breakerMurrelektronikMico46' ||
+    type === 'breakerMurrelektronikMico24'
   )
 }
 

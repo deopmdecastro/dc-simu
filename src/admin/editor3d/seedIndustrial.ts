@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { GEYA_FUNCTIONS, GEYA_RANGES_MS, INDUSTRIAL_INFO, isIndustrialDevice, type IndustrialControl } from '../../electrical/industrialDevices'
+import { GEYA_FUNCTIONS, GEYA_RANGES_MS, INDUSTRIAL_INFO, isIndustrialDevice, micoProfile, micoChannelVars, type IndustrialControl } from '../../electrical/industrialDevices'
 import { INDUSTRIAL_LED_NODES, industrialLedVars } from '../../three/industrialFinish'
 import { DEVICE_LCD_COLORS } from '../../three/deviceLcd'
 import { buildDefinitionObject, newId, type GlbCache } from '../../catalog/definition'
@@ -15,7 +15,7 @@ export function seedIndustrial(type: string, def: ComponentDefinition, cache: Gl
   const root = buildDefinitionObject(def, cache), model = root.getObjectByName(part.id)
   if (!model) return false
   const state = structuredClone(INDUSTRIAL_INFO[type].defaultState)
-  const initial = { ...state, ...industrialLedVars(type, state) }
+  const initial = { ...state, ...industrialLedVars(type, state), ...micoChannelVars(type,state) }
   for (const [id, value] of Object.entries(initial)) {
     if (value === null || !['boolean', 'number', 'string'].includes(typeof value) || def.vars?.some(v => v.id === id)) continue
     def.vars = [...(def.vars ?? []), { id, name: id, type: typeof value === 'boolean' ? 'bool' : typeof value === 'number' ? 'number' : 'text', initial: value as boolean | number | string }]
@@ -62,7 +62,15 @@ export function seedIndustrial(type: string, def: ComponentDefinition, cache: Gl
       kind: 'selector', bindVar: 'function', positions: GEYA_FUNCTIONS.map((label, i) => ({ id: label, label, angle: -i * 36 })),
     })
   }
+  const mico=micoProfile(type)
+  if(mico)for(let i=1;i<=mico.count;i++){
+    control('Canal '+i+' · ON/OFF','industrial_mico_button_'+i,('ch'+i) as IndustrialControl,{bindVar:'mico'+i+'On',travelMm:.8})
+    control('Canal '+i+' · corrente','industrial_mico_select_'+i,('sel'+i) as IndustrialControl,{
+      kind:'selector',bindVar:'mico'+i+'Amps',positions:mico.currents.map((amp,index)=>({id:String(amp),label:amp+' A',angle:-index*mico.selectorAngle*180/Math.PI})),
+    })
+  }
   model.traverse(node => {
+    if(mico)return // Bi-colour lenses follow the actual channel through industrialFinish.
     const variable = INDUSTRIAL_LED_NODES[node.name]
     if (!variable || !(node instanceof THREE.Mesh)) return
     const colour = String(node.userData.ledColor ?? '#25c85d')
