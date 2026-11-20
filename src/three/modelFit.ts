@@ -94,6 +94,14 @@ export function cloneModelScene<T extends THREE.Object3D>(scene: T): T {
 /** Referencial físico comum ao modelo, às medições e aos pontos dos cabos.
  * Escala os eixos já orientados: a caixa final coincide com as dimensões usadas
  * por terminalLocal3D, mesmo quando as proporções do CAD diferem da ficha. */
+/**
+ * Modelos (por caminho) cujo GLB traz o referencial nominal de implantação
+ * (`cadScalePreserved`/`proceduralScalePreserved`): a envolvente visível (patilha
+ * aberta, manípulo em OFF) não é a régua dos bornes — o referencial físico é.
+ */
+const nominalFrameModels = new Set<string>()
+export const usesNominalFrame = (path: string | undefined): boolean => !!path && nominalFrameModels.has(path)
+
 export function fitComponentModel(object: THREE.Object3D, spec: ComponentModelSpec, unitsPerMm = 0.01, anchor: 'center' | 'bottom' = 'center'): THREE.Group {
   fixGeometryBounds(object)
   object.rotation.set(...spec.rotation)
@@ -111,6 +119,7 @@ export function fitComponentModel(object: THREE.Object3D, spec: ComponentModelSp
       sourceScalePreserved = true; sourceUnitsPerMm = Number(node.userData.frameUnitsPerMm)
     }
   })
+  if (sourceScalePreserved) nominalFrameModels.add(spec.path)
   if (sourceScalePreserved) {
     // New STEP conversions already use a documented placement frame in metres.
     // Open fixing clips / an OFF handle are not a ruler for stretching the shell.

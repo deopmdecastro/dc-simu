@@ -10,6 +10,7 @@ import { inferFromFunction } from '../../catalog/terminalProfiles'
 import { DEFAULT_META } from '../../catalog/definition'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 } from '../../catalog/types'
 import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm, hasComponent3DVisual, hasDinRailModel } from '../../three/modelPaths'
+import { usesNominalFrame } from '../../three/modelFit'
 import { isTerminalAssemblyComponent, terminalAssemblyLayout, TERMINAL_ASSEMBLY_COVER_SEED, TERMINAL_CONDUCTOR_PATTERN } from '../../three/terminalAssembly'
 import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../../electrical/realInterfaces'
@@ -117,7 +118,8 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
   // These STEP models retain a nominal placement frame. A retracted fixing
   // clip / OFF handle changes visible bounds, not the measured terminal frame.
   // loadGlbAssets fits this family at x/z centre and y=0 at its nominal base.
-  const physical = (isSchneiderModular(type) || isSchneiderRcd(type) || isDigitalMeterType(type)) ? getComponentPhysicalSizeMm(type) : undefined
+  // Também qualquer GLB carregado com referencial nominal (ex.: Easy9 Switch), detetado em fitComponentModel.
+  const physical = (isSchneiderModular(type) || isSchneiderRcd(type) || isDigitalMeterType(type) || usesNominalFrame(getComponentModelSpec(type)?.path)) ? getComponentPhysicalSizeMm(type) : undefined
   if (physical) box = new THREE.Box3(new THREE.Vector3(-physical.width / 2, 0, -physical.depth / 2), new THREE.Vector3(physical.width / 2, physical.height, physical.depth / 2))
   const size = box.getSize(new THREE.Vector3())
   return legacyTerminalsFor(list, box).map((terminal, index) => {
@@ -135,7 +137,9 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
     ].sort((a, b) => a.distance - b.distance)[0].normal as Vec3
     return { ...terminal,
       position: [box.min.x + p.x * size.x, box.min.y + p.y * size.y, box.min.z + p.z * size.z],
-      ...(isDigitalMeterType(type) ? { preservePosition3D: true } : {}),
+      // Pinos não têm furo onde o ponto «afunde»: a ponta medida é o ponto físico
+      // e não pode ser encostada à envolvente (3RU1116: 0,01 mm abaixo do topo).
+      ...(isDigitalMeterType(type) || spot?.contact === 'pin' ? { preservePosition3D: true } : {}),
       normal: spot ? [...FACE_NORMAL[spot.face]] : nearest,
       ...(spot ? { diameterMm: spot.diameterMm, socketDepthMm: spot.holeDepthMm, socketInsetMm: terminalInsetMm(spot) }
         : type === 'currentTransformerSplitCore' && /^S[12]$/.test(item.label)

@@ -114,14 +114,14 @@ try {
       for (const terminal of draft.terminals) {
         const p = TEMPLATES[type].terminals.find((item) => item.label === terminal.label)!.position3D!
         const frame = spec.physicalSizeMm
-        assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3((p.x-.5)*frame.width,p.y*frame.height,(p.z-.5)*frame.depth)) < .001)
+        assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3((p.x-.5)*frame.width,p.y*frame.height,(p.z-.5)*frame.depth)) < .001, `${type}.${terminal.label}: ponto do editor = ponto do modelo`)
         const spot = REAL_TERMINALS[type]!.find((spot) => spot.label === terminal.label)!
         // Pinos e pontas de fio (`contact` ≠ socket) não têm cavidade onde o marcador tenha de caber.
         const socketRoom = Math.min(spot.diameterMm! * .5, terminal.socketInsetMm!, terminal.socketDepthMm! - terminal.socketInsetMm!)
         if (!spot.contact || spot.contact === 'socket') assert.ok(editorTerminalRadiusMm(terminal) * 1.32 < socketRoom, `${type}.${terminal.label}: marcador maior do que o encaixe`)
         const exported = runtime.terminals.find((item) => item.id === terminal.id)!
         const q = exported.position3D
-        assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3(box.min.x + q.x * volume.x, box.min.y + q.y * volume.y, box.min.z + q.z * volume.z)) < .001, 'Exportação conserva a posição dentro do furo')
+        assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3(box.min.x + q.x * volume.x, box.min.y + q.y * volume.y, box.min.z + q.z * volume.z)) < .001, `${type}.${terminal.label}: exportação conserva a posição dentro do furo (${new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3(box.min.x + q.x * volume.x, box.min.y + q.y * volume.y, box.min.z + q.z * volume.z)).toFixed(4)} mm)`)
         const instance = catalogComponent.terminals.find((item) => item.defId === terminal.id)!
         assert.deepEqual(instance.position3D, q)
         assert.equal(terminalMarkerRadius(catalogComponent, instance), editorTerminalRadiusMm(terminal) * .01)
