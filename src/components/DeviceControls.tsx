@@ -1,5 +1,7 @@
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { useManobraAllowed } from '../store/useManobraAllowed'
+import { MANOBRA_BLOCKED_TITLE } from '../store/manobra'
 import { triggerControl, useCatalogMeter } from '../catalog/runtimeControls'
 import type { DialMode } from '../catalog/behavior'
 import { DM20_CONTROLS, DM20_DEFINITION } from '../three/MultimeterDm20Panel'
@@ -325,10 +327,10 @@ function MultimeterControls({ c, locked }: { c: ElectricalComponent; locked: boo
 
 function PowerControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  const simActive = useManobraAllowed()
   /** Manobra (ligar/seccionar a fonte, cortar a saída) só com a simulação ativa; tensão/frequência/trimmer editam-se sempre. */
   const gateAct = locked || !simActive
-  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
+  const actTitle = simActive ? undefined : MANOBRA_BLOCKED_TITLE
 
   if (c.type === 'powerSource3ph' || c.type === 'powerSource1ph' || c.type === 'powerSource24v') {
     const isOn = c.state.on !== false
@@ -472,7 +474,7 @@ function ContactorControls({ c, locked }: { c: ElectricalComponent; locked: bool
   const components = useSimStore((s) => s.components)
   const setState = useSimStore((s) => s.setComponentState)
   const setInterlock = useSimStore((s) => s.setContactorInterlock)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  const simActive = useManobraAllowed()
 
   const isAux = c.type === 'auxRelay' || c.type === 'auxRelay4'
   const energized = simActive && !!c.state.energized
@@ -551,11 +553,11 @@ function ContactorControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
 function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  const simActive = useManobraAllowed()
   /** Manobra física (rodar seletor/chave, premir botão, atuar emergência, rearmar relé) só com a simulação ativa;
    *  o tipo de retorno (mola/retentivo) é configuração mecânica e edita-se sempre. */
   const gateAct = locked || !simActive
-  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
+  const actTitle = simActive ? undefined : MANOBRA_BLOCKED_TITLE
 
   // Seletor Schneider Harmony XA2ED33 · 3 posições (-1: 13–14, 0: aberto, +1: 23–24)
   if (c.type === 'selectorSchneiderXa2ed33' || c.type === 'selector3') {
@@ -790,10 +792,10 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
 
 function SensorAndLightControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  const simActive = useManobraAllowed()
   /** A simulação do evento físico (objeto detetado, feixe cortado) é manobra; o alcance nominal edita-se sempre. */
   const gateAct = locked || !simActive
-  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
+  const actTitle = simActive ? undefined : MANOBRA_BLOCKED_TITLE
 
   if (c.type === 'photoSensorXukt1ksml2' || ['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) {
     const triggered = !!c.state.triggered
@@ -878,11 +880,11 @@ function SensorAndLightControls({ c, locked }: { c: ElectricalComponent; locked:
 
 function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  const simActive = useManobraAllowed()
   /** A simulação de avaria do condensador é manobra (como «Simular fusão» nos ProtectionControls);
    *  capacitância, ligação da caixa de bornes e chapa característica são nominais e editam-se sempre. */
   const gateAct = locked || !simActive
-  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
+  const actTitle = simActive ? undefined : MANOBRA_BLOCKED_TITLE
 
   if (c.type === 'capacitorRun60uF') {
     const uf = Number(c.state.capacitanceUf) > 0 ? Number(c.state.capacitanceUf) : 60
@@ -1028,10 +1030,10 @@ function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; lock
 
 function PlcModuleControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  const simActive = useManobraAllowed()
   /** O seletor RUN/STOP da CPU é manobra física do aparelho: só com a simulação ativa. */
   const gateAct = locked || !simActive
-  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
+  const actTitle = simActive ? undefined : MANOBRA_BLOCKED_TITLE
   const powered = simActive && !!c.state.powered
   const isAdapterOrIo = c.type === 'plcSiemensS71500Di32' || c.type === 'siemensTsAdapterIeBasic'
   const cpuMode = c.state.cpuMode === 'STOP' ? 'STOP' : 'RUN'

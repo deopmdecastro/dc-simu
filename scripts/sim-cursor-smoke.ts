@@ -13,9 +13,9 @@ check(!/SimFinger3D|sim-finger/.test(panel), 'o painel não monta nem identifica
 check(!/data-sim-finger|cursor\s*:\s*none/.test(css), 'o CSS do painel não esconde o cursor para a simulação')
 check(/\.panel3d-stage\[data-edit-mode="navigate"\]\[data-placing="none"\] canvas \{ cursor: default; \}/.test(css), 'a ferramenta Selecionar mantém o cursor normal e os cursores dos alvos')
 check(/\.panel3d-stage\[data-edit-mode="pan"\] canvas:active[\s\S]*?cursor: grabbing !important/.test(css), 'o cursor de deslocamento da vista continua disponível')
-check(panel.includes("const canActuate = runState !== 'stopped' && (demoMode || tool === 'select') && !viewOrientationEditor"), 'as condições de atuação em RUN/PAUSA não mudam')
+check(panel.includes("const canActuate = isManobraAllowed({ sim: { runState } }) && (demoMode || tool === 'select') && !viewOrientationEditor"), 'as condições de atuação em RUN/PAUSA seguem a regra global de manobra')
 check(panel.includes("const simLocked = demoMode || ((runState === 'running' || runState === 'paused') && !viewOrientationEditor)"), 'o bloqueio de edição em RUN/PAUSA não muda')
-check(/onStart=\{\(pressed\) => activateComponent\(c, \(\) => setComponentState\(c\.id, \{ startPressed: pressed \}\)\)\}/.test(panel)
-  && /onStop=\{\(pressed\) => activateComponent\(c, \(\) => setComponentState\(c\.id, \{ stopPressed: pressed \}\)\)\}/.test(panel), 'as zonas START/STOP continuam ligadas às ações elétricas existentes')
+check(/onStart=\{\(pressed\) => activateComponent\(c, \(\) => operateComponent\(c\.id, \{ startPressed: pressed \}\)\)\}/.test(panel)
+  && /onStop=\{\(pressed\) => activateComponent\(c, \(\) => operateComponent\(c\.id, \{ stopPressed: pressed \}\)\)\}/.test(panel), 'as zonas START/STOP continuam ligadas às ações elétricas existentes')
 
 console.log(`\n${checks} verificações OK — consulta também test:sim-select-3d-ui para a cena e o cursor no browser`)

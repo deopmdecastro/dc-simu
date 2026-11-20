@@ -4,6 +4,7 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { isManobraAllowed } from '../store/manobra'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import { finishCadMaterial } from './catalogMaterials'
@@ -47,14 +48,14 @@ function SchneiderRcdCad({ c, x, position, interactive = true }: Props) {
   const mayActuate = () => interactive && !c.locked && useSimStore.getState().tool === 'select'
   const actuate = (action: 'test' | 'toggle', pressed = false) => {
     const store = useSimStore.getState()
-    if (store.sim.runState === 'stopped' && !store.demoMode) {
+    if (!isManobraAllowed(store)) {
       store.selectComponents([c.id])
       return
     }
     const current = store.components.find((component) => component.id === c.id) ?? c
     const patch = schneiderRcdActionPatch(current, action)
     if (!patch) return
-    store.setComponentState(c.id, { ...patch, testPressed: pressed })
+    store.operateComponent(c.id, { ...patch, testPressed: pressed })
     store.pushEvent(action === 'test' ? 'warning' : 'info', action === 'test'
       ? `${c.ref}: Disparo diferencial de ensaio (botão T).`
       : `${c.ref}: ${patch.closed ? 'Ligado (I.ON)' : 'Desligado (O.OFF)'}.`)

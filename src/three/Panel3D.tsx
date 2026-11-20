@@ -26,6 +26,7 @@ import { useRef, useMemo, useState, useEffect, useId, Suspense, Component, type 
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { isManobraAllowed } from '../store/manobra'
 import { TbButton } from '../ui/toolbarKit'
 import { useWireActionSlot, useWireDraftSlot } from '../ui/wireActionSlot'
 import { useEditorShortcuts } from '../ui/shortcuts'
@@ -1205,8 +1206,7 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
   }
   const apply = (pressed: boolean, control: ImportedControl | null = null) => {
     if (useSimStore.getState().tool !== 'select' || (control ? !mechanical : !interactive)) return
-    // Estado elétrico só muda com simulação activa (ou demo).
-    if (!useSimStore.getState().demoMode && useSimStore.getState().sim.runState === 'stopped') return
+    // Regra global: o store recusa a manobra antes de ▶ (actuateImported).
     useSimStore.getState().actuateImported(c.id, pressed, control)
   }
   const finish = (commit: boolean) => {
@@ -3214,7 +3214,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const updateCanvasText = useSimStore((s) => s.updateCanvasText)
   const removeCanvasText = useSimStore((s) => s.removeCanvasText)
   const pressButton = useSimStore((s) => s.pressButton)
-  const setComponentState = useSimStore((s) => s.setComponentState)
+  const operateComponent = useSimStore((s) => s.operateComponent)
   const addComponent = useSimStore((s) => s.addComponent)
   const selectComponents = useSimStore((s) => s.selectComponents)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
@@ -3230,13 +3230,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const viewLocked = useSimStore((s) => s.viewLocked)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = demoMode ? 'navigate' : tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
-  // Atuar botões, disjuntores e seletores apenas quando a simulação está ativa (RUN ou PAUSA).
+  // Regra GLOBAL de manobra (store/manobra): nenhum aparelho se atua antes de ▶ —
+  // botões, disjuntores, seletores, porta-fusível, TEST/RESET e teclas dos CAD.
   // Em STOP mantém-se apenas seleção/edição (e visualização estática na demonstração).
-  const canActuate = runState !== 'stopped' && (demoMode || tool === 'select') && !viewOrientationEditor
+  const canActuate = isManobraAllowed({ sim: { runState } }) && (demoMode || tool === 'select') && !viewOrientationEditor
   const interactive = canActuate
-  // Comandos mecânicos dos CAD (botões do relé térmico): funcionam com a simulação parada,
-  // porque no aparelho real se premem para ensaiar o contacto auxiliar.
-  const mechanicalControls = (demoMode || tool === 'select') && !viewOrientationEditor
+  const mechanicalControls = canActuate
+  // Montagem (porta do quadro): não é manobra de aparelho e abre também em STOP.
+  const assemblyControls = (demoMode || tool === 'select') && !viewOrientationEditor
   const simLocked = demoMode || ((runState === 'running' || runState === 'paused') && !viewOrientationEditor)
 
   const probeA = useSimStore((state) => state.probeA)
@@ -3951,7 +3952,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (currentTool !== 'select') return
     if (component.locked) return
     if (canActuate) {
-      // Botões, cogumelo, START/STOP: atuam em STOP e em RUN/PAUSA (DC-ADR-071).
+      // Botões, cogumelo, START/STOP: só em RUN/PAUSA (regra global em store/manobra).
       action()
     }
     // Em STOP o aparelho clicado fica selecionado (Inspetor). Em RUN/PAUSA só atua: não se seleciona nem se move.
@@ -4806,7 +4807,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             event.stopPropagation()
             if (!demoMode && !simLocked) useSimStore.getState().selectComponents([c.id])
             const closed = !!c.state.closed && !c.state.tripped
-            useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
+            useSimStore.getState().operateComponent(c.id, { closed: !closed, tripped: false })
           }}>{content}</group>
           return wrapOriented(c, content)
         })}
@@ -4820,7 +4821,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           const plateFrontZ = PLATE_FRONT_Z - panelPivots[c.id].z
           const label = <Label text={c.ref} position={[0, 0, 0]} size={0.075} color="#475569" />
           return wrapOriented(c, c.type === 'panelEnclosure'
-            ? <Enclosure3D c={c} interactive={mechanicalControls} plateFrontZ={plateFrontZ} label={label} coverOccupants={enclosureCoverOccupants(c)} />
+            ? <Enclosure3D c={c} interactive={assemblyControls} plateFrontZ={plateFrontZ} label={label} coverOccupants={enclosureCoverOccupants(c)} />
             : c.type === 'spiralWrap'
               ? <SpiralWrap3D c={c} plateFrontZ={plateFrontZ} label={label} />
               : <CableDuct3D c={c} plateFrontZ={plateFrontZ} label={label} openings={ductJunctionOpenings(c, components)} />)
@@ -4877,12 +4878,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           }
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
-            const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => setComponentState(c.id, { startPressed: pressed }))} />
+            const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => operateComponent(c.id, { startPressed: pressed }))} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><DualPushButtonReal3D c={c} x={x}
-              onStart={(pressed) => activateComponent(c, () => setComponentState(c.id, { startPressed: pressed }))}
-              onStop={(pressed) => activateComponent(c, () => setComponentState(c.id, { stopPressed: pressed }))} /></Suspense></Model3DErrorBoundary>
+              onStart={(pressed) => activateComponent(c, () => operateComponent(c.id, { startPressed: pressed }))}
+              onStop={(pressed) => activateComponent(c, () => operateComponent(c.id, { stopPressed: pressed }))} /></Suspense></Model3DErrorBoundary>
           } else if ((c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR') && getCommandModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />}><Suspense fallback={null}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} /></Suspense></Model3DErrorBoundary>
-          else if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) content = <Sensor3D c={c} x={x} onToggle={() => activateComponent(c, () => setComponentState(c.id, { triggered: !c.state.triggered }))} />
+          else if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) content = <Sensor3D c={c} x={x} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered }))} />
           else content = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
           return wrapOriented(c, content)
         })}

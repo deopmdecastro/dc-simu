@@ -48,7 +48,7 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     const store=useSimStore.getState(),live=store.components.find(n=>n.id===c.id)
     if(!live)return
     const patch=industrialControlPatch(type,live.state,control,step)
-    if(Object.keys(patch).length)store.setComponentState(c.id,patch)
+    if(Object.keys(patch).length)store.operateComponent(c.id,patch)
   }
   useEffect(()=>{
     const release=()=>{
@@ -65,8 +65,8 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     event.stopPropagation()
     const target=controls as unknown as {enabled:boolean}|null
     if(target&&!orbit.current){orbit.current={target,enabled:target.enabled};target.enabled=false}
-    if(action==='test'){held.current=true;useSimStore.getState().setComponentState(c.id,{testPressed:true})}
-    else if(action==='button'){heldButton.current=true;useSimStore.getState().setComponentState(c.id,{pressed:true})}
+    if(action==='test'){held.current=true;useSimStore.getState().operateComponent(c.id,{testPressed:true})}
+    else if(action==='button'){heldButton.current=true;useSimStore.getState().operateComponent(c.id,{pressed:true})}
   }
   const click=(event:ThreeEvent<MouseEvent>)=>{
     if(!mayActuate())return

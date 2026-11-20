@@ -28,6 +28,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import TerminalLibrary from './TerminalLibrary'
 import { useSimStore } from '../store/useSimStore'
+import { useManobraAllowed } from '../store/useManobraAllowed'
+import { MANOBRA_BLOCKED_TITLE, MANOBRA_STATE_KEYS } from '../store/manobra'
 import { blockedDuplicateReplacement } from '../catalog/blockedDuplicates'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
@@ -307,6 +309,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
  */
 export default function Sidebar({ width = 300, quickAddOnPick = false, onComponentAdded, onCollapse }: { width?: number | string; quickAddOnPick?: boolean; onComponentAdded?: () => void; onCollapse?: () => void }) {
   const components = useSimStore((s) => s.components)
+  const manobraAllowed = useManobraAllowed()
   // Estado elétrico do inspetor (bornes energizados, indicadores): tick da simulação.
   useSimStore((s) => s.simTick)
   const grid = useSimStore((s) => s.grid)
@@ -850,8 +853,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   <button
                     type="button"
                     className="dc-btn w-full justify-center text-xs"
+                    disabled={!manobraAllowed}
+                    title={manobraAllowed ? undefined : MANOBRA_BLOCKED_TITLE}
                     onClick={() => {
-                      useSimStore.getState().setComponentState(selectedComponent.id, { energy: 0.00 })
+                      if (!manobraAllowed) return
+                      useSimStore.getState().operateComponent(selectedComponent.id, { energy: 0.00 })
                       useSimStore.getState().pushEvent('info', `${selectedComponent.ref}: Contador de energia reposto a 0.00 kWh.`)
                     }}
                   >
@@ -887,10 +893,13 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     <span className="text-xs text-slate-600">Relé de saída:</span>
                     <button
                       type="button"
+                      disabled={!manobraAllowed}
+                      title={manobraAllowed ? undefined : MANOBRA_BLOCKED_TITLE}
                       className={`rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${selectedComponent.state?.switchOn !== false ? 'bg-emerald-600 border-emerald-700 text-white' : 'bg-rose-600 border-rose-700 text-white'}`}
                       onClick={() => {
+                        if (!manobraAllowed) return
                         const cur = selectedComponent.state?.switchOn !== false
-                        useSimStore.getState().setComponentState(selectedComponent.id, { switchOn: !cur })
+                        useSimStore.getState().operateComponent(selectedComponent.id, { switchOn: !cur })
                         useSimStore.getState().pushEvent('info', `${selectedComponent.ref}: Saída ${!cur ? 'LIGADA (fechada)' : 'ABERTA (desligada)'}.`)
                       }}
                     >
@@ -1113,7 +1122,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                         <input
                           type="checkbox"
                           checked={v}
-                          disabled={!!importedComponentInfo(selectedComponent.type) && (k === 'powered' || k === 'energized')}
+                          disabled={(!!importedComponentInfo(selectedComponent.type) && (k === 'powered' || k === 'energized')) || (!manobraAllowed && MANOBRA_STATE_KEYS.has(k))}
+                          title={!manobraAllowed && MANOBRA_STATE_KEYS.has(k) ? MANOBRA_BLOCKED_TITLE : undefined}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.checked })}
                         />
                       </label>
@@ -1127,6 +1137,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           type="number"
                           className="dc-input dc-inspector-state-input text-right"
                           value={v}
+                          disabled={!manobraAllowed && MANOBRA_STATE_KEYS.has(k)}
+                          title={!manobraAllowed && MANOBRA_STATE_KEYS.has(k) ? MANOBRA_BLOCKED_TITLE : undefined}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: Number(e.target.value) })}
                         />
                       </label>

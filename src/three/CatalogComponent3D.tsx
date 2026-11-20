@@ -5,6 +5,7 @@ import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { isManobraAllowed } from '../store/manobra'
 import { builtinOriginType, useCatalogStore } from '../catalog/registry'
 import { parseCatalogType, type ComponentDefinition, type TriggerName } from '../catalog/types'
 import { interactionsFor, runInteractions } from '../catalog/interactions'
@@ -182,7 +183,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     const control = id ? rig.current?.controlById(id) : undefined
     if (!control || (control.kind !== 'selector' && !industrialRotaryActions(control, step))) return false
     // Painel 3D: manobra só com simulação ativa (STOP = selecionar, não armar/abrir).
-    triggerControl(version.definition, c.id, control, { step }, { allowStopped: false })
+    triggerControl(version.definition, c.id, control, { step })
     invalidate()
     return true
   })
@@ -196,7 +197,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     event.stopPropagation()
     // Sempre seleciona o componente (em STOP o utilizador quer o inspetor, não a manobra).
     if (!useSimStore.getState().demoMode) useSimStore.getState().selectComponents([c.id])
-    const simLive = useSimStore.getState().sim.runState !== 'stopped' || useSimStore.getState().demoMode
+    const simLive = isManobraAllowed(useSimStore.getState())
     // Em STOP: apenas seleção — não armar disjuntor / abrir gaveta / etc.
     if (!simLive) return true
     releaseControl.current?.(true)
@@ -207,8 +208,8 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     rig.current?.hold(id, true); invalidate()
     // Botão com mola: a variável fica ativa enquanto o dedo/rato o mantém premido.
     const spring = isSpringReturn(control)
-    if (control.kind === 'selector') triggerControl(version.definition, c.id, control, { step: event.shiftKey ? -1 : 1 }, { allowStopped: false })
-    else if (spring) triggerControl(version.definition, c.id, control, 'down', { allowStopped: false })
+    if (control.kind === 'selector') triggerControl(version.definition, c.id, control, { step: event.shiftKey ? -1 : 1 })
+    else if (spring) triggerControl(version.definition, c.id, control, 'down')
     const release = (cancelled: boolean) => {
       if (releaseControl.current !== release) return
       releaseControl.current = null
@@ -219,8 +220,8 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
       pressed.current = null
       if (orbit && orbitEnabled !== undefined) orbit.enabled = orbitEnabled
       rig.current?.hold(id, false); invalidate()
-      if (spring) triggerControl(version.definition, c.id, control, 'up', { allowStopped: false })
-      else if (!cancelled && press && control.kind !== 'selector') triggerControl(version.definition, c.id, control, performance.now() - press.at >= (control.longPressMs ?? 600) ? 'long' : 'press', { allowStopped: false })
+      if (spring) triggerControl(version.definition, c.id, control, 'up')
+      else if (!cancelled && press && control.kind !== 'selector') triggerControl(version.definition, c.id, control, performance.now() - press.at >= (control.longPressMs ?? 600) ? 'long' : 'press')
     }
     const up = () => release(false), cancel = () => release(true)
     releaseControl.current = release
@@ -234,7 +235,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     if (trigger !== 'pressDown' && rig.current?.controlFromHits(event.intersections, 3 * PANEL_UNITS_PER_MM)) return
     // Em STOP não alterar catalogState pelo toque no modelo (seleção apenas).
     const store = useSimStore.getState()
-    if (store.sim.runState === 'stopped' && !store.demoMode) {
+    if (!isManobraAllowed(store)) {
       if (!store.demoMode) store.selectComponents([c.id])
       return
     }
@@ -242,9 +243,9 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     if (!interactions.length) return
     const live = store.components.find((item) => item.id === c.id)
     const result = runInteractions(interactions, String(live?.state?.catalogState ?? version.definition.initialState))
-    if (result.changed) store.setComponentState(c.id, { catalogState: result.state })
+    if (result.changed) store.operateComponent(c.id, { catalogState: result.state })
     for (const action of result.delayed) {
-      timers.current.push(window.setTimeout(() => useSimStore.getState().setComponentState(c.id, { catalogState: action.state }), Math.max(0, action.afterMs)))
+      timers.current.push(window.setTimeout(() => useSimStore.getState().operateComponent(c.id, { catalogState: action.state }), Math.max(0, action.afterMs)))
     }
   }
 

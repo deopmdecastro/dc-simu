@@ -40,7 +40,7 @@ function SchneiderModularCad({ c, x, position, interactive = true }: Props) {
     if (!interactive || c.locked || store.tool !== 'select' || !schneiderModularAction(event.object)) return
     event.stopPropagation()
     const current = store.components.find(item => item.id === c.id) ?? c
-    store.setComponentState(c.id, { closed: current.state.tripped ? true : !current.state.closed, tripped: false, tripReason: '' })
+    store.operateComponent(c.id, { closed: current.state.tripped ? true : !current.state.closed, tripped: false, tripReason: '' })
   }
   return <group position={position ?? [x,0,0]}><primitive dispose={null} object={model} onClick={toggle} /></group>
 }

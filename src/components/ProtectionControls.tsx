@@ -1,6 +1,8 @@
 import { useRef } from 'react'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { useManobraAllowed } from '../store/useManobraAllowed'
+import { MANOBRA_BLOCKED_TITLE } from '../store/manobra'
 import { importedComponentInfo } from '../electrical/importedComponents'
 import Select from '../ui/Select'
 import {
@@ -44,14 +46,14 @@ function withCurrentValue(options: readonly number[], current: number): number[]
 export default function ProtectionControls({ component: c }: { component: ElectricalComponent }) {
   const kind = protectionControlKindOf(c.type)
   const testHeld = useRef(false)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  const simActive = useManobraAllowed()
   if (!kind) return null
 
   const r = readProtectionRatings(c.type, c.state)
   const locked = !!c.locked
   /** Manobra (ligar/desligar/disparar/gaveta/fusão) só com a simulação ativa; parâmetros (In, curva…) editam-se sempre. */
   const gateAct = locked || !simActive
-  const actTitle = simActive ? undefined : 'Inicie a simulação (▶) para manobrar o aparelho'
+  const actTitle = simActive ? undefined : MANOBRA_BLOCKED_TITLE
   const setState = (patch: Record<string, unknown>) => useSimStore.getState().setComponentState(c.id, patch)
   const isImported = !!importedComponentInfo(c.type)
 

@@ -3,6 +3,8 @@ import { uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { useManobraAllowed } from '../store/useManobraAllowed'
+import { MANOBRA_BLOCKED_TITLE } from '../store/manobra'
 import type { ElectricalComponent } from '../types'
 import { useCatalogStore } from './registry'
 import { triggerControl, useCatalogMeter } from './runtimeControls'
@@ -21,8 +23,8 @@ export default function CatalogInspector({ component }: { component: ElectricalC
   const version = entry?.versions.find((item) => item.version === link?.version)
   const info = useMemo(() => catalogUpdateInfo(component, entries), [component, entries])
   const meter = useCatalogMeter(component, version?.definition)
-  // Um só seletor: `a || useSimStore(...)` saltava o 2.º hook e mudava a ordem dos hooks.
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
+  // Regra global de manobra: nada se atua antes de ▶.
+  const simActive = useManobraAllowed()
   if (!link) return null
   const controls = version?.definition.controls ?? []
   const states = version?.definition.states ?? []
@@ -66,7 +68,7 @@ export default function CatalogInspector({ component }: { component: ElectricalC
         </div>)}
         <div className="flex gap-1 flex-wrap mt-1">
           {controls.filter((control) => control.kind !== 'selector').map((control) => <button key={control.id} className="dc-btn" disabled={!simActive} onClick={() => triggerControl(version.definition, component.id, control, 'press')}
-            onContextMenu={(event) => { event.preventDefault(); triggerControl(version.definition, component.id, control, 'long') }} title={simActive ? 'Clique: ação · botão direito: premir longo' : 'Inicie a simulação para atuar'}>{control.name}</button>)}
+            onContextMenu={(event) => { event.preventDefault(); triggerControl(version.definition, component.id, control, 'long') }} title={simActive ? 'Clique: ação · botão direito: premir longo' : MANOBRA_BLOCKED_TITLE}>{control.name}</button>)}
         </div>
       </div>}
       {colorZones.length > 0 && <div className="dc-catalog-colors">
@@ -86,7 +88,7 @@ export default function CatalogInspector({ component }: { component: ElectricalC
       </div>}
       {states.length > 1 && <div>
         <label className="dc-field-label">Estado</label>
-        <Select className="dc-select" value={current} onChange={(event) => useSimStore.getState().updateComponent(component.id, { state: { ...component.state, catalogState: event.target.value } })}>
+        <Select className="dc-select" value={current} disabled={!simActive} title={simActive ? undefined : MANOBRA_BLOCKED_TITLE} onChange={(event) => useSimStore.getState().updateComponent(component.id, { state: { ...component.state, catalogState: event.target.value } })}>
           {states.map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}
         </Select>
       </div>}

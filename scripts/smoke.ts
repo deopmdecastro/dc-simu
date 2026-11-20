@@ -2954,28 +2954,36 @@ check('GRAFCET: sinais com maiúsculas e minúsculas (bp_Avanca_A+) são lidos d
     return on
   }
   check('Cadeia Hager + DF101V + DF81N(N) fechada alimenta carga', evalLamp())
+  // Regra global de manobra: só se manobra com a simulação ativa (PAUSA basta, sem relógio).
+  const operate = (id: string, pressed: boolean, control?: 'carrier' | 'test' | 'reset') => {
+    useSimStore.setState((st) => ({ sim: { ...st.sim, runState: 'paused' } }))
+    useSimStore.getState().actuateImported(id, pressed, control)
+    useSimStore.getState().stop()
+  }
   s.actuateImported(df101.id, true, 'carrier')
+  check('Regra de manobra: em STOP a gaveta do DF101V não abre', evalLamp())
+  operate(df101.id, true, 'carrier')
   check('DF101V: abrir gaveta basculante secciona a fase', !evalLamp())
-  s.actuateImported(df101.id, true, 'carrier')
+  operate(df101.id, true, 'carrier')
   s.setComponentState(df101.id, { blown: true })
   check('DF101V: cartucho fusível fundido interrompe a fase', !evalLamp())
   s.setComponentState(df101.id, { blown: false })
   check('DF101V: substituir cartucho restabelece a fase', evalLamp())
-  s.actuateImported(df81.id, true, 'carrier')
+  operate(df81.id, true, 'carrier')
   check('DF81N: abrir gaveta 1P+N secciona o neutro N1–N2', !evalLamp())
-  s.actuateImported(df81.id, true, 'carrier')
+  operate(df81.id, true, 'carrier')
   s.setComponentState(df81.id, { blown: true })
   check('DF81N: fusível de fase fundido conserva tubo de neutro N1–N2 fechado', evalLamp())
   s.setComponentState(df81.id, { blown: false })
 
-  s.actuateImported(hager.id, true, 'test')
-  s.actuateImported(hager.id, false, 'test')
+  operate(hager.id, true, 'test')
+  operate(hager.id, false, 'test')
   const stAfterT = useSimStore.getState().components.find((c) => c.id === hager.id)!.state
   check('Hager CFC225P: botão T dispara e retém o disparo ao largar', !!stAfterT.tripped && !stAfterT.closed && !stAfterT.testPressed && !evalLamp())
-  s.actuateImported(hager.id, true, 'reset')
+  operate(hager.id, true, 'reset')
   const stAfterReset = useSimStore.getState().components.find((c) => c.id === hager.id)!.state
   check('Hager CFC225P: Rearmar leva a O-OFF sem fechar contactos', !stAfterReset.tripped && !stAfterReset.closed && !evalLamp())
-  s.actuateImported(hager.id, true)
+  operate(hager.id, true)
   check('Hager CFC225P: Ligar alavanca restabelece L e N', evalLamp())
   s.setFaults({ earthLeak: true })
   useSimStore.getState().step()

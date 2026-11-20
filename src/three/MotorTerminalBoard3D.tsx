@@ -1,5 +1,6 @@
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { isManobraAllowed } from '../store/manobra'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_STUD, motorBridges, motorCadToCentered } from './motorTerminalLayout'
 
@@ -19,7 +20,7 @@ export default function MotorTerminalBoard3D({ c, interactive = true, unitsPerMm
     if (!interactive) return
     event.stopPropagation()
     const store = useSimStore.getState()
-    if (store.sim.runState === 'stopped' && !store.demoMode) return
+    if (!isManobraAllowed(store)) return
     store.setComponentState(c.id, { motorConnection: next })
   }}>
     {/* alvo de clique invisível sobre a placa */}

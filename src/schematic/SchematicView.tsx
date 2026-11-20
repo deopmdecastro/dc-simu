@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { useShallow } from 'zustand/react/shallow'
 import { useSimStore } from '../store/useSimStore'
+import { isManobraAllowed } from '../store/manobra'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
 import { IconCube, IconLock, IconProbe, IconSchematic, IconClose } from '../ui/icons'
 import CircuitIcon, { isCircuitIcon } from '../ui/CircuitIcon'
@@ -1154,23 +1155,23 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
 
   const toggleField = (c: ElectricalComponent, down: boolean) => {
-    if (useSimStore.getState().sim.runState === 'stopped') return
+    if (!isManobraAllowed(useSimStore.getState())) return
     if (importedComponentInfo(c.type)) {
       useSimStore.getState().actuateImported(c.id, down)
       return
     }
     if (isToggleBreaker(c)) {
       const closed = !!c.state.closed && !c.state.tripped
-      useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
+      useSimStore.getState().operateComponent(c.id, { closed: !closed, tripped: false })
       return
     }
     if (!isPressable(c)) return
     if (c.type === 'proximitySensor' || c.type === 'photoSensor' || c.type === 'pressureSwitch' || c.type === 'thermostat') {
-      useSimStore.getState().setComponentState(c.id, { triggered: down })
+      useSimStore.getState().operateComponent(c.id, { triggered: down })
     } else if (c.type === 'dualPushButtonNpb22D11') {
-      useSimStore.getState().setComponentState(c.id, { startPressed: down })
+      useSimStore.getState().operateComponent(c.id, { startPressed: down })
     } else if (c.state.maintain) {
-      useSimStore.getState().setComponentState(c.id, { pressed: !c.state.pressed })
+      useSimStore.getState().operateComponent(c.id, { pressed: !c.state.pressed })
     } else {
       pressButton(c.id, down)
     }
@@ -1740,9 +1741,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               const coords = { up: [0.8, 0.45], down: [0.8, 0.63], left: [0.68, 0.54], right: [0.92, 0.54], ESC: [0.72, 0.72], OK: [0.88, 0.72] }
               const [bx, by] = coords[button]
               return <rect key={button} x={(bx - 0.055) * imageW} y={(by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
-                onMouseDown={(e) => { e.stopPropagation(); if (useSimStore.getState().sim.runState !== 'stopped') useSimStore.getState().setComponentState(c.id, { pressedButton: button }) }}
-                onMouseUp={(e) => { e.stopPropagation(); if (c.state.pressedButton) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
-                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
+                onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().operateComponent(c.id, { pressedButton: button }) }}
+                onMouseUp={(e) => { e.stopPropagation(); if (c.state.pressedButton) useSimStore.getState().operateComponent(c.id, { pressedButton: null }) }}
+                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().operateComponent(c.id, { pressedButton: null }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>{button}</title></rect>
             })}
             {c.type === 'pilotLightAd22' && isOriginalComponentOrientation(orientation) && <g pointerEvents="none">
@@ -1755,15 +1756,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             {c.type === 'dualPushButtonNpb22D11' && isOriginalComponentOrientation(orientation) && <>
               <rect x={c.w * 0.12} y={c.h * 0.18} width={c.w * 0.34} height={c.h * 0.55} rx={6}
                 fill={c.state.stopPressed ? '#ef4444' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
-                onMouseDown={(e) => { e.stopPropagation(); if (useSimStore.getState().sim.runState !== 'stopped') useSimStore.getState().setComponentState(c.id, { stopPressed: true }) }}
-                onMouseUp={(e) => { e.stopPropagation(); if (c.state.stopPressed) useSimStore.getState().setComponentState(c.id, { stopPressed: false }) }}
-                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.stopPressed) useSimStore.getState().setComponentState(c.id, { stopPressed: false }) }}
+                onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().operateComponent(c.id, { stopPressed: true }) }}
+                onMouseUp={(e) => { e.stopPropagation(); if (c.state.stopPressed) useSimStore.getState().operateComponent(c.id, { stopPressed: false }) }}
+                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.stopPressed) useSimStore.getState().operateComponent(c.id, { stopPressed: false }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>STOP · contacto NF 21–22</title></rect>
               <rect x={c.w * 0.54} y={c.h * 0.18} width={c.w * 0.34} height={c.h * 0.55} rx={6}
                 fill={c.state.startPressed ? '#22c55e' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
-                onMouseDown={(e) => { e.stopPropagation(); if (useSimStore.getState().sim.runState !== 'stopped') useSimStore.getState().setComponentState(c.id, { startPressed: true }) }}
-                onMouseUp={(e) => { e.stopPropagation(); if (c.state.startPressed) useSimStore.getState().setComponentState(c.id, { startPressed: false }) }}
-                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.startPressed) useSimStore.getState().setComponentState(c.id, { startPressed: false }) }}
+                onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().operateComponent(c.id, { startPressed: true }) }}
+                onMouseUp={(e) => { e.stopPropagation(); if (c.state.startPressed) useSimStore.getState().operateComponent(c.id, { startPressed: false }) }}
+                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.startPressed) useSimStore.getState().operateComponent(c.id, { startPressed: false }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>START · contacto NA 13–14</title></rect>
             </>}
             {/* Botão azul T de ensaio diferencial do Hager CFC225P (canto superior direito do corpo de pé). */}

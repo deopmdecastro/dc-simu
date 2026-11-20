@@ -624,12 +624,11 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         const pressed = c.state.pressedButton as string | undefined
         const pressBtn = (name: string) => (e: React.MouseEvent) => {
           e.stopPropagation()
-          if (useSimStore.getState().sim.runState === 'stopped') return
-          useSimStore.getState().setComponentState(c.id, { pressedButton: name })
+          useSimStore.getState().operateComponent(c.id, { pressedButton: name })
         }
         const releaseBtn = (e: React.MouseEvent) => {
           e.stopPropagation()
-          if (c.state.pressedButton) useSimStore.getState().setComponentState(c.id, { pressedButton: null })
+          if (c.state.pressedButton) useSimStore.getState().operateComponent(c.id, { pressedButton: null })
         }
         const arrowFill = (name: string) => (pressed === name ? '#e4e4e7' : '#71717a')
         const keyFill = (name: string) => (pressed === name ? '#38bdf8' : '#1d4ed8')

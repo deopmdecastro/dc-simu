@@ -1,6 +1,7 @@
 import { builtinRuntimeType } from '../electrical/builtinRuntime'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { isManobraAllowed } from '../store/manobra'
 import { meterBridgeFor, meterInputFor } from '../electrical/meterModel'
 import type { ElectricalComponent } from '../types'
 import { EMPTY_METER_INPUT, initialVars, industrialRotaryActions, isSpringReturn, mergeVars, multimeterReading, runControlActions, selectorStep, setSelector, springHold, type MeterReading, type Vars } from './behavior'
@@ -20,10 +21,9 @@ export function triggerControl(
   componentId: string,
   control: ControlDef,
   gesture: ControlGesture,
-  opts?: { allowStopped?: boolean },
 ) {
   const store = useSimStore.getState()
-  if (store.sim.runState === 'stopped' && !opts?.allowStopped) return
+  if (!isManobraAllowed(store)) return
   const live = store.components.find((item) => item.id === componentId)
   if (!live) return
   const industrial=builtinRuntimeType(live)
@@ -39,8 +39,8 @@ export function triggerControl(
   } else if (isSpringReturn(control)) {
     // Mola: ativo só enquanto premido. Um clique simples gera um impulso curto.
     if (gesture === 'press' || gesture === 'long') {
-      triggerControl(def, componentId, control, 'down', opts)
-      window.setTimeout(() => triggerControl(def, componentId, control, 'up', opts), SPRING_PULSE_MS)
+      triggerControl(def, componentId, control, 'down')
+      window.setTimeout(() => triggerControl(def, componentId, control, 'up'), SPRING_PULSE_MS)
       return
     }
     if (gesture !== 'down' && gesture !== 'up') return
@@ -57,9 +57,9 @@ export function triggerControl(
     ? { selector: String(vars.dial ?? 'off'), hold: Boolean(vars.hold), backlight: Boolean(vars.light) }
     : {}
   const industrialSync=industrial?Object.fromEntries(Object.entries(vars).filter(([k])=>!k.startsWith('$')&&k!=='industrialOrigin'&&k!=='builtinOrigin')):{}
-  store.setComponentState(componentId, { ...industrialSync, ...dm20Sync, catalogVars: vars, catalogState: state, meterBridge: bridge })
+  store.operateComponent(componentId, { ...industrialSync, ...dm20Sync, catalogVars: vars, catalogState: state, meterBridge: bridge })
   const list = timers.get(componentId) ?? []
-  for (const action of delayed) list.push(window.setTimeout(() => useSimStore.getState().setComponentState(componentId, { catalogState: action.state }), Math.max(0, action.afterMs)))
+  for (const action of delayed) list.push(window.setTimeout(() => useSimStore.getState().operateComponent(componentId, { catalogState: action.state }), Math.max(0, action.afterMs)))
   timers.set(componentId, list)
 }
 

@@ -1,6 +1,8 @@
 import { useRef } from 'react'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { useManobraAllowed } from '../store/useManobraAllowed'
+import { MANOBRA_BLOCKED_TITLE } from '../store/manobra'
 import { IconRotate } from '../ui/icons'
 import { requestThermalResetTurn, type ThermalResetDirection } from '../three/thermalResetControl'
 
@@ -8,17 +10,19 @@ import { requestThermalResetTurn, type ThermalResetDirection } from '../three/th
 export default function ThermalRelayControls({ component: c }: { component: ElectricalComponent }) {
   const held = useRef(false)
   const actuate = useSimStore((s) => s.actuateImported)
+  const manobraAllowed = useManobraAllowed()
   const test = (pressed: boolean) => {
     if (held.current === pressed) return
     held.current = pressed
     actuate(c.id, pressed, 'test')
   }
-  const reset = (direction: ThermalResetDirection) => { requestThermalResetTurn(c.id, direction); actuate(c.id, true, 'reset') }
-  const canReset = !!c.state.tripped && !c.state.testPressed && !c.state.stopPressed && !c.locked
+  const reset = (direction: ThermalResetDirection) => { if (!manobraAllowed) return; requestThermalResetTurn(c.id, direction); actuate(c.id, true, 'reset') }
+  const canReset = manobraAllowed && !!c.state.tripped && !c.state.testPressed && !c.state.stopPressed && !c.locked
   return <div className="flex flex-col gap-2" data-thermal-controls>
     <span className="dc-field-label">Manobra · rearme manual (M)</span>
+    {!manobraAllowed && <small className="text-ink-400">Manobra bloqueada — inicie a simulação (▶).</small>}
     <div className="flex flex-wrap gap-1">
-      <button type="button" className={`dc-btn ${c.state.testPressed ? 'dc-btn-primary' : ''}`} aria-label={`TEST ${c.ref} — manter premido`} aria-pressed={!!c.state.testPressed} disabled={c.locked}
+      <button type="button" className={`dc-btn ${c.state.testPressed ? 'dc-btn-primary' : ''}`} aria-label={`TEST ${c.ref} — manter premido`} aria-pressed={!!c.state.testPressed} disabled={c.locked || !manobraAllowed} title={manobraAllowed ? undefined : MANOBRA_BLOCKED_TITLE}
         onPointerDown={(event) => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); test(true) }}
         onPointerUp={() => test(false)} onPointerCancel={() => test(false)} onLostPointerCapture={() => test(false)} onBlur={() => test(false)}
         onKeyDown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); test(true) } }}

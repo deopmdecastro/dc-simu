@@ -132,6 +132,7 @@ import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosit
 import { setStoredCover } from '../three/coverCapture'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, nextComponentHistory, previousComponentRevision, upgradeComponentEditorMetadata } from '../three/componentRevisions'
 import { isPanelAccessoryType } from '../three/enclosureParts'
+import { allowedManobraPatch, isManobraAllowed } from './manobra'
 import {
   busbarFootprintPx,
   busbarTerminalSpecs,
@@ -384,6 +385,8 @@ interface Store extends CircuitState {
   // --- acionamento de campo ---
   pressButton: (componentId: string, pressed: boolean) => void
   setComponentState: (componentId: string, patch: Record<string, any>) => void
+  /** Gesto do utilizador sobre um aparelho: só com a simulação em RUN/PAUSA (regra global em store/manobra). */
+  operateComponent: (componentId: string, patch: Record<string, any>) => void
   /** Manobra comum dos CAD: TEST/STOP/RESET têm a mesma semântica em todas as vistas. */
   actuateImported: (componentId: string, pressed: boolean, control?: import('../electrical/importedComponents').ImportedControl | null) => void
   toggleTerminal: (terminalId: string) => void
@@ -2096,7 +2099,7 @@ export const useSimStore = create<Store>((set, get) => {
 
   // ------------------------------------------------------------- acionamento
   pressButton: (componentId, pressed) => {
-    if (get().sim.runState === 'stopped') return
+    if (!isManobraAllowed(get())) return
     let changed = false
     set((s) => {
       const c = s.components.find((x) => x.id === componentId)
@@ -2137,7 +2140,12 @@ export const useSimStore = create<Store>((set, get) => {
     if (sfx) playClick(sfx)
     recomputeIfActive()
   },
+  operateComponent: (componentId, patch) => {
+    const allowed = allowedManobraPatch(get(), patch)
+    if (allowed) get().setComponentState(componentId, allowed)
+  },
   actuateImported: (componentId, pressed, control = null) => {
+    if (!isManobraAllowed(get())) return
     const component = get().components.find((c) => c.id === componentId)
     if (!component) return
     const patch = importedActuationPatch(component, pressed, control)
@@ -2146,7 +2154,7 @@ export const useSimStore = create<Store>((set, get) => {
   },
 
   toggleTerminal: (terminalId) => {
-    if (get().sim.runState === 'stopped') return
+    if (!isManobraAllowed(get())) return
     let sfx: 'breaker' | 'thermal' | null = null
     set((s) => {
       for (const c of s.components) {
