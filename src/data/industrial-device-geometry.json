@@ -1212,38 +1212,38 @@
   "breakerMurrelektronikMico46": {
     "path": "/models/industriais/breakerMurrelektronikMico46.glb",
     "physicalSizeMm": {
-      "width": 70,
-      "height": 81.75,
-      "depth": 61.6
+      "width": 71,
+      "height": 83.1,
+      "depth": 56
     },
     "terminals": [
       {
         "label": "L+",
         "face": "top",
         "contact": "surface",
-        "x": 0.257143,
-        "y": 0.009174,
-        "z": 0.925325,
-        "diameterMm": 4,
-        "holeDepthMm": 6
+        "x": 0.190141,
+        "y": 0.031889,
+        "z": 0.642857,
+        "diameterMm": 6.4,
+        "holeDepthMm": 8
       },
       {
         "label": "L+2",
         "face": "top",
         "contact": "surface",
-        "x": 0.742857,
-        "y": 0.009174,
-        "z": 0.925325,
-        "diameterMm": 4,
-        "holeDepthMm": 6
+        "x": 0.809859,
+        "y": 0.031889,
+        "z": 0.642857,
+        "diameterMm": 6.4,
+        "holeDepthMm": 8
       },
       {
         "label": "ON",
         "face": "top",
         "contact": "surface",
-        "x": 0.371429,
-        "y": 0.009174,
-        "z": 0.925325,
+        "x": 0.401408,
+        "y": 0.055957,
+        "z": 0.633929,
         "diameterMm": 3.4,
         "holeDepthMm": 6
       },
@@ -1251,9 +1251,9 @@
         "label": "13",
         "face": "top",
         "contact": "surface",
-        "x": 0.521429,
-        "y": 0.009174,
-        "z": 0.925325,
+        "x": 0.5,
+        "y": 0.055957,
+        "z": 0.633929,
         "diameterMm": 3.4,
         "holeDepthMm": 6
       },
@@ -1261,19 +1261,29 @@
         "label": "14",
         "face": "top",
         "contact": "surface",
-        "x": 0.657143,
-        "y": 0.009174,
-        "z": 0.925325,
+        "x": 0.598592,
+        "y": 0.055957,
+        "z": 0.633929,
         "diameterMm": 3.4,
+        "holeDepthMm": 6
+      },
+      {
+        "label": "GND",
+        "face": "bottom",
+        "contact": "surface",
+        "x": 0.091549,
+        "y": 0.994585,
+        "z": 0.669643,
+        "diameterMm": 4,
         "holeDepthMm": 6
       },
       {
         "label": "OUT1",
         "face": "bottom",
         "contact": "surface",
-        "x": 0.15,
-        "y": 0.987768,
-        "z": 0.925325,
+        "x": 0.25493,
+        "y": 0.994585,
+        "z": 0.669643,
         "diameterMm": 4,
         "holeDepthMm": 6
       },
@@ -1281,9 +1291,9 @@
         "label": "OUT2",
         "face": "bottom",
         "contact": "surface",
-        "x": 0.382857,
-        "y": 0.987768,
-        "z": 0.925325,
+        "x": 0.41831,
+        "y": 0.994585,
+        "z": 0.669643,
         "diameterMm": 4,
         "holeDepthMm": 6
       },
@@ -1291,9 +1301,9 @@
         "label": "OUT3",
         "face": "bottom",
         "contact": "surface",
-        "x": 0.617143,
-        "y": 0.987768,
-        "z": 0.925325,
+        "x": 0.58169,
+        "y": 0.994585,
+        "z": 0.669643,
         "diameterMm": 4,
         "holeDepthMm": 6
       },
@@ -1301,19 +1311,9 @@
         "label": "OUT4",
         "face": "bottom",
         "contact": "surface",
-        "x": 0.85,
-        "y": 0.987768,
-        "z": 0.925325,
-        "diameterMm": 4,
-        "holeDepthMm": 6
-      },
-      {
-        "label": "GND",
-        "face": "bottom",
-        "contact": "surface",
-        "x": 0.071429,
-        "y": 0.987768,
-        "z": 0.925325,
+        "x": 0.74507,
+        "y": 0.994585,
+        "z": 0.669643,
         "diameterMm": 4,
         "holeDepthMm": 6
       },
@@ -1321,9 +1321,9 @@
         "label": "GND2",
         "face": "bottom",
         "contact": "surface",
-        "x": 0.928571,
-        "y": 0.987768,
-        "z": 0.925325,
+        "x": 0.908451,
+        "y": 0.994585,
+        "z": 0.669643,
         "diameterMm": 4,
         "holeDepthMm": 6
       }

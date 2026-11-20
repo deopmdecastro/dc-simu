@@ -118,22 +118,6 @@
       "sha256": "883b39835bf42e3429f2ac707f8369674fe0c42c5f6de1538a7d8ef777fe7b7e"
     },
     {
-      "type": "breakerMurrelektronikMico46",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://media.automation24.com/manual/101523.pdf",
-      "changes": "90×70×80 mm (H×W×D) DIN TH35 housing, 4-channel electronic circuit protection. Spring-clamp terminals: 2× +24V inputs 16 mm² top, ON/13/14 signal terminals 2.5 mm² top-center, 4× OUT 4 mm² bottom, 2× GND 4 mm² bottom corners. Per-channel: countersunk 1/2/4/6 A current selector, bi-colour LED (green/red, flash states), ON/OFF button. Group alarm potential-free 13-14, remote ON, cascading 75 ms channel start, status memory. Front serigraphy MURR ELEKTRONIK + LED legend. Dimensioned reconstruction, not manufacturer STEP.",
-      "physicalSizeMm": {
-        "width": 70,
-        "height": 81.75,
-        "depth": 61.6
-      },
-      "interfaces": 11,
-      "cavities": 0,
-      "pins": 0,
-      "bytes": 175188,
-      "sha256": "a3c682ca9e41873483ebf67a00b3d50703c5476f830879bd762acb25df2a0180"
-    },
-    {
       "type": "buzzerMetaltexTby301",
       "kind": "dimensioned-reconstruction",
       "source": "https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf",
@@ -292,6 +276,22 @@
       "pins": 0,
       "bytes": 108884,
       "sha256": "677937c1014db3becb9739a3892a4518f4f78b44659dd963e48ef5de387e5b83"
+    },
+    {
+      "type": "breakerMurrelektronikMico46",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://media.automation24.com/manual/101523.pdf",
+      "changes": "Redrawn from the product photograph: stepped side profile (tall rear with slatted top vent and side slots, input shelf, front window, finned heat-sink block, lower output step). Spring-clamp terminals: 2× +24V 16 mm² on the top shelf with round entries and front release levers, ON/13/14 signal block between them, 4× OUT and 2× GND on the lower step entering from below. Per channel: translucent ON/OFF key with the bi-colour LED inside under a hinged clear cover, green-arrow 1/2/4/6 A selector. Footprint kept at 70 mm width. Dimensioned reconstruction, not manufacturer STEP.",
+      "physicalSizeMm": {
+        "width": 71,
+        "height": 83.1,
+        "depth": 56
+      },
+      "interfaces": 11,
+      "cavities": 0,
+      "pins": 0,
+      "bytes": 341136,
+      "sha256": "5a1821bc527f540560096b8abf93a91a6aaae9d2a8d1066cc4875b7bf86470a8"
     }
   ]
 }

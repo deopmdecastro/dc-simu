@@ -378,73 +378,104 @@ async function xb2(type){
  await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.'})
 }
 
-// Murrelektronik MICO Classic 4.6 (9000-41034-0100600): proteção eletrónica 24 V DC,
-// 4 canais, corpo calha DIN 90(A)×70(L)×80(P) mm com bornes de mola verdes.
-// Nota: drill/bore usa coordenadas LOCAIS do mesh (box() é centrado na posição).
+// Murrelektronik MICO Classic 4.6 (9000-41034-0100600): proteção eletrónica 24 V DC, 4 canais.
+// Redesenhado a partir da fotografia do produto: perfil escalonado (traseira alta com
+// grelha superior, prateleira dos bornes de entrada, frente com janela dos botões,
+// bloco de alhetas e degrau inferior com os bornes de saída). Pegada 70×82×~60 mm
+// mantida para não desarrumar projetos existentes. Coordenadas: x largura, y altura,
+// z profundidade (0 = lado da calha DIN, +z = frente).
 async function mico(){
  const type='breakerMurrelektronikMico46',root=device(type),terms=[]
- const GREEN=mat('#3a9b2e'),DARKGREEN=mat('#1f5c1a'),BODY=mat('#2b2d2a'),BODY2=mat('#3a3d38')
- // Corpo principal 70L × 80A × 58P mm (frente em +Z). Centro mundial [0,40,29].
- const body=box(70,80,58,BODY,'industrial_mico_body',[0,40,29]);root.add(body)
- // Rebordo inferior com reentrância DIN (trilho TH35 à traseira, z=0 lado calha).
- root.add(box(70,14,10,BODY2,'industrial_mico_din_base',[0,7,5]))
- root.add(box(70,9,6,black,'industrial_mico_din_clip',[0,3.5,2]))
- // Degrau superior: grelhas de ventilação horizontais.
- for(let i=0;i<7;i++)root.add(box(2.4,1.6,50,black,'industrial_mico_vent_top_'+i,[-21+i*7,79.4,30]))
- // Helper: cavidade aberta na face superior (mundo y=80; corpo local y=40).
- // O bloco verde é decorativo; o contacto fica na superfície do corpo.
- const cavityTop=(name,x,y,z,r,label)=>{
-  const blk=box(name.includes('small')?7.5:9.5,name.includes('small')?9:12,name.includes('small')?7.5:9,GREEN,name,[x,y,z]);root.add(blk)
-  root.add(box(name.includes('small')?3.6:4.4,2,1,DARKGREEN,name+'_slot',[x,y,z+(name.includes('small')?3.6:4.0)]))
-  drill([body],'y',[x,40,z],r,34,40)
-  terms.push(terminal(root,label,x,80.0,z,{r,depth:6,face:'top',contact:'surface'}))
+ const W=70,HW=W/2
+ const BODY=mat('#262826',0,.62),BODY2=mat('#30332f',0,.55),RIB=mat('#1b1c1b',0,.7)
+ const GREEN=mat('#3fc43a',0,.42),GREEN_D=mat('#1d6a1a',0,.6),HOLE=mat('#0b0d0b',0,.9),ORANGE=mat('#2a2b28',0,.5)
+ const CLEAR=mat('#dfe6ea',0,.18);CLEAR.transparent=true;CLEAR.opacity=.72
+ const SMOKE=mat('#c9d3d8',0,.1);SMOKE.transparent=true;SMOKE.opacity=.28
+ // Perfil lateral (z,y) extrudido na largura: traseira 0..30 até ao topo (y 82),
+ // prateleira dos bornes de entrada a y 71, frente da janela a z 50, alhetas por baixo.
+ const FRONT=50
+ root.add(bodyProfile(W,[[0,4],[0,82],[31,82],[31,71],[45,71],[FRONT,66],[FRONT,31],[47,29],[47,10],[44,8],[44,0],[8,0],[8,4]].map(([z,y])=>[-z,y]),BODY,'industrial_mico_body'))
+ // Pé DIN TH35: mola e gancho na traseira inferior.
+ root.add(box(W-6,6,8,RIB,'industrial_mico_din_base',[0,3,4]))
+ root.add(box(12,3,3,BODY2,'industrial_mico_din_clip',[0,1.5,1.5]))
+ // Topo traseiro: grelha de ventilação em ripas finas (como na fotografia).
+ for(let i=0;i<13;i++)root.add(box(W-8,.9,1.3,RIB,'industrial_mico_vent_top_'+i,[0,82.2,2.5+i*2.15]))
+ // Laterais: rasgos verticais de ventilação na zona alta traseira (ambos os lados).
+ for(const side of [-1,1])for(let i=0;i<8;i++){const s=box(.6,22,1.4,RIB,'industrial_mico_vent_side_'+(side<0?'l':'r')+'_'+i,[side*(HW+.2),62,4+i*3.2]);root.add(s)}
+ // Etiqueta de características na face lateral direita.
+ const sticker=plane(24,30,mat('#cfd2cc',0,.7),'industrial_mico_side_label',[HW+.25,40,18]);sticker.rotation.y=Math.PI/2;root.add(sticker)
+
+ // ── Bornes de entrada na prateleira superior (y 71) ──
+ const SHELF=71
+ const bigInput=(name,x,label)=>{
+  // Bloco de mola 16 mm²: entrada redonda em cima, alavanca de abertura à frente.
+  root.add(box(15,9,13,GREEN,name,[x,SHELF+4.5,38]))
+  root.add(cylinder(3.4,.5,HOLE,name+'_entry',[x,SHELF+9.05,36],'y'))
+  root.add(cylinder(4.3,.3,GREEN_D,name+'_entry_rim',[x,SHELF+9.02,36],'y'))
+  root.add(box(6,2.2,1.2,GREEN_D,name+'_slot',[x,SHELF+6,44.7]))
+  root.add(box(4.6,1.2,.6,HOLE,name+'_slot_hole',[x,SHELF+6,45.35]))
+  terms.push(terminal(root,label,x,SHELF+9,36,{r:3.2,depth:8,face:'top',contact:'surface'}))
  }
- // Entradas +24V (esq/dir, topo).
- cavityTop('industrial_mico_in_plus_1',-17,68,56,2.0,'L+')
- cavityTop('industrial_mico_in_plus_2', 17,68,56,2.0,'L+2')
- // Bloco central ON (remote) + 13/14 (Sammelmeldung): bornes de mola pequenos.
- cavityTop('industrial_mico_on_small',-9,76.25,56,1.7,'ON')
- cavityTop('industrial_mico_alarm13_small',1.5,76.25,56,1.7,'13')
- cavityTop('industrial_mico_alarm14_small',11,76.25,56,1.7,'14')
- // Serigrafia: logótipo (esq) + legenda LED (dir).
- root.add(plane(20,10,white,'industrial_mico_logo',[-21,55,58.6]))
- root.add(plane(26,10,white,'industrial_mico_legend',[14,55,58.6]))
- // 4 canais: seletor de corrente, LED, botão ON/OFF.
+ bigInput('industrial_mico_in_plus_1',-22,'L+')
+ bigInput('industrial_mico_in_plus_2', 22,'L+2')
+ // Bloco central de sinal (ON / 13 / 14): três polos pequenos com botões de abertura.
+ root.add(box(22,7,12,GREEN,'industrial_mico_signal_block',[0,SHELF+3.5,38]))
+ const sig=[['industrial_mico_on_small',-7,'ON'],['industrial_mico_alarm13_small',0,'13'],['industrial_mico_alarm14_small',7,'14']]
+ for(const[name,x,label]of sig){
+  root.add(box(4.2,1,4.2,HOLE,name,[x,SHELF+7.05,35.5]))
+  root.add(box(3.6,1.6,1,GREEN_D,name+'_slot',[x,SHELF+4,44.2]))
+  terms.push(terminal(root,label,x,SHELF+7,35.5,{r:1.7,depth:6,face:'top',contact:'surface'}))
+ }
+ // Separadores escuros entre blocos (nervuras da caixa).
+ for(const x of [-13.5,13.5])root.add(box(2.5,6,13,BODY2,'industrial_mico_shelf_rib_'+(x<0?'l':'r'),[x,SHELF+3,38]))
+
+ // ── Frente: logótipo, legenda, janela com 4 botões transparentes e seletores ──
+ // Chanfro superior entre a prateleira e a frente (rebordo mais claro).
+ const bevel=box(W-2,2,6.4,BODY2,'industrial_mico_front_bevel',[0,67.6,47.5]);bevel.rotation.x=-Math.atan2(5,5);root.add(bevel)
+ root.add(plane(22,9,white,'industrial_mico_logo',[-19,60,FRONT+.05]))
+ root.add(plane(30,9,white,'industrial_mico_legend',[15,60,FRONT+.05]))
+ // Janela rebaixada dos botões com tampa transparente articulada (só a moldura e o vidro
+ // por cima, para os cliques chegarem aos botões).
+ root.add(box(W-6,16,1.2,RIB,'industrial_mico_button_tray',[0,48,FRONT+.3]))
+ root.add(box(W-4,1.4,3.4,SMOKE,'industrial_mico_cover_hinge',[0,56.6,FRONT+1.7]))
+ root.add(box(W-4,1,3.4,SMOKE,'industrial_mico_cover_lip',[0,39.6,FRONT+1.7]))
  const chX=[-24.5,-8.2,8.2,24.5]
  for(let i=0;i<4;i++){
   const x=chX[i],ch=String(i+1)
-  const sel=new T.Group();sel.name='industrial_mico_select_'+ch;sel.position.set(x,44,58.6)
-  sel.add(cylinder(2.6,.9,mat('#1a1c1a'),'industrial_mico_select_body_'+ch))
-  sel.add(box(3.4,.5,.14,mat('#e8e8de'),'industrial_mico_select_mark_'+ch,[0,0,.48]))
-  root.add(sel)
-  led(root,x,36.5,58.6,'#d8e6d8','industrial_mico_led_'+ch,1.15)
-  const btn=new T.Group();btn.name='industrial_mico_button_'+ch;btn.position.set(x,29,58.6)
-  btn.add(cylinder(2.7,1.1,mat('#2f9e2c'),'industrial_mico_button_cap_'+ch))
-  btn.add(box(2.6,.4,.2,mat('#0f3010'),'industrial_mico_button_slot_'+ch,[0,0,.5]))
+  // Botão ON/OFF: tecla retangular translúcida, com o LED bi-cor por dentro.
+  const btn=new T.Group();btn.name='industrial_mico_button_'+ch;btn.position.set(x,48.5,FRONT+1)
+  const key=box(11,9,2.2,CLEAR,'industrial_mico_button_cap_'+ch,[0,0,.4]);btn.add(key)
+  btn.add(box(5,.5,.2,mat('#7d8a90',0,.4),'industrial_mico_button_slot_'+ch,[0,-2.6,1.55]))
   root.add(btn)
+  led(root,x,49.6,FRONT+.85,'#d8e6d8','industrial_mico_led_'+ch,1.6)
+  // Seletor de corrente 1/2/4/6 A: seta verde num assento redondo (roda com o valor).
+  root.add(cylinder(3.6,.6,RIB,'industrial_mico_select_seat_'+ch,[x,34.8,FRONT+.3]))
+  const sel=new T.Group();sel.name='industrial_mico_select_'+ch;sel.position.set(x,34.8,FRONT+.7)
+  sel.add(cylinder(3,.5,mat('#1d1f1d'),'industrial_mico_select_body_'+ch))
+  const arrow=new T.Shape();arrow.moveTo(0,2.6);arrow.lineTo(1.9,.6);arrow.lineTo(.7,.6);arrow.lineTo(.7,-2.2);arrow.lineTo(-.7,-2.2);arrow.lineTo(-.7,.6);arrow.lineTo(-1.9,.6);arrow.closePath()
+  const am=new T.Mesh(new T.ExtrudeGeometry(arrow,{depth:.35,bevelEnabled:false}),GREEN);am.name='industrial_mico_select_mark_'+ch;am.position.z=.25;sel.add(am)
+  root.add(sel)
  }
- // Grelha de ventilação frontal.
- for(let i=0;i<11;i++)root.add(box(1.7,8,2.2,BODY2,'industrial_mico_vent_'+i,[-25+i*5,18,57.4]))
- // Saídas OUT1-4 (fundo): blocos verdes decorativos; contacto na superfície do corpo.
- for(let i=0;i<4;i++){
-  const x=chX[i]
-  const blk=box(9.5,12,9,GREEN,'industrial_mico_out_'+String(i+1),[x,6,56]);root.add(blk)
-  root.add(box(4.4,2.5,1.2,DARKGREEN,'industrial_mico_out_slot_'+String(i+1),[x,6,60.0]))
-  drill([body],'y',[x,40,56],2.0,-40,-28)
-  terms.push(terminal(root,'OUT'+String(i+1),x,0.0,56,{r:2.0,depth:6,face:'bottom',contact:'surface'}))
+ // ── Bloco de alhetas (dissipador) entre a janela e os bornes de saída ──
+ root.add(box(W-2,2,3,BODY2,'industrial_mico_fin_cap',[0,30,FRONT-1.5]))
+ for(let i=0;i<9;i++)root.add(box(3.2,19,9,BODY,'industrial_mico_vent_'+i,[-28+i*7,19.5,47+4.5]))
+ for(let i=0;i<8;i++)root.add(box(3.8,18,1,HOLE,'industrial_mico_fin_gap_'+i,[-24.5+i*7,19.5,47.2]))
+ // Aviso «Output not intended to be interconnected» na lateral (na frente tapava os seletores).
+ const class2=plane(36,4,white,'industrial_mico_class2',[HW+.26,20,22]);class2.rotation.y=Math.PI/2;root.add(class2)
+ // ── Bornes de saída e GND no degrau inferior (entrada por baixo, alavanca à frente) ──
+ const LOW=[-29,-17.4,-5.8,5.8,17.4,29]
+ const bottomTerm=(name,x,label)=>{
+  root.add(box(10.4,8,11,GREEN,name,[x,4,38.5]))
+  root.add(cylinder(2.2,.5,HOLE,name+'_entry',[x,-.2,37.5],'y'))
+  root.add(box(4.6,2.4,1,GREEN_D,name+'_slot',[x,5,44.4]))
+  root.add(box(3.4,1.4,.5,HOLE,name+'_slot_hole',[x,5,44.95]))
+  terms.push(terminal(root,label,x,0,37.5,{r:2.0,depth:6,face:'bottom',contact:'surface'}))
  }
- // GND 0V entradas (fundo, cantos).
- const gnd=(name,x,label)=>{
-  const blk=box(9.5,12,9,GREEN,name,[x,6,56]);root.add(blk)
-  root.add(box(4.4,2.5,1.2,DARKGREEN,name+'_slot',[x,6,60.0]))
-  drill([body],'y',[x,40,56],2.0,-40,-28)
-  terms.push(terminal(root,label,x,0.0,56,{r:2.0,depth:6,face:'bottom',contact:'surface'}))
- }
- gnd('industrial_mico_gnd_1',-30,'GND')
- gnd('industrial_mico_gnd_2', 30,'GND2')
- // Texto "Output not intended to be interconnected" na base frontal.
- root.add(plane(40,4.5,white,'industrial_mico_class2',[0,2.2,58.6]))
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://media.automation24.com/manual/101523.pdf',changes:'90×70×80 mm (H×W×D) DIN TH35 housing, 4-channel electronic circuit protection. Spring-clamp terminals: 2× +24V inputs 16 mm² top, ON/13/14 signal terminals 2.5 mm² top-center, 4× OUT 4 mm² bottom, 2× GND 4 mm² bottom corners. Per-channel: countersunk 1/2/4/6 A current selector, bi-colour LED (green/red, flash states), ON/OFF button. Group alarm potential-free 13-14, remote ON, cascading 75 ms channel start, status memory. Front serigraphy MURR ELEKTRONIK + LED legend. Dimensioned reconstruction, not manufacturer STEP.'})
+ bottomTerm('industrial_mico_gnd_1',LOW[0],'GND')
+ for(let i=0;i<4;i++)bottomTerm('industrial_mico_out_'+String(i+1),LOW[i+1],'OUT'+String(i+1))
+ bottomTerm('industrial_mico_gnd_2',LOW[5],'GND2')
+ for(const x of [-23.2,-11.6,0,11.6,23.2])root.add(box(1.2,8,11,ORANGE,'industrial_mico_low_rib_'+x,[x,4,38.5]))
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://media.automation24.com/manual/101523.pdf',changes:'Redrawn from the product photograph: stepped side profile (tall rear with slatted top vent and side slots, input shelf, front window, finned heat-sink block, lower output step). Spring-clamp terminals: 2× +24V 16 mm² on the top shelf with round entries and front release levers, ON/13/14 signal block between them, 4× OUT and 2× GND on the lower step entering from below. Per channel: translucent ON/OFF key with the bi-colour LED inside under a hinged clear cover, green-arrow 1/2/4/6 A selector. Footprint kept at 70 mm width. Dimensioned reconstruction, not manufacturer STEP.'})
 }
 
 const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8M2',()=>geya('timerGeyaGrt8M2')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')],['pushButtonXb2Yellow',()=>xb2('pushButtonXb2Yellow')],['pushButtonXb2Blue',()=>xb2('pushButtonXb2Blue')],['pushButtonXb2White',()=>xb2('pushButtonXb2White')],['breakerMurrelektronikMico46',mico]]
