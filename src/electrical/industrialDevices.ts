@@ -145,6 +145,13 @@ export function industrialSchematicFootprint(type: IndustrialDeviceType): { w: n
   return { w: Math.max(1, Math.round(width * 1.5)), h: Math.max(1, Math.round(height * 1.5)) }
 }
 
+/** Pasta da biblioteca por categoria (as mesmas dos integrados) — nunca «o resto vai para Relés». */
+const INDUSTRIAL_PALETTE_GROUP: Record<ComponentTemplate['category'], string> = {
+  protection: 'Proteção', command: 'Comando', sensor: 'Sensores', measurement: 'Aparelhos de medir',
+  contactor: 'Contatores', relay: 'Relés', signaling: 'Sinalização', motor: 'Motores', drive: 'Acionamentos',
+  controller: 'Controladores', terminal: 'Bornes e barras', power: 'Fontes',
+}
+
 export function industrialTemplates(): Record<IndustrialDeviceType, ComponentTemplate> {
   return Object.fromEntries(INDUSTRIAL_DEVICE_TYPES.map(type => {
     const g = geometry[type], info = INDUSTRIAL_INFO[type]
@@ -180,7 +187,7 @@ export function industrialTemplates(): Record<IndustrialDeviceType, ComponentTem
           normal: normals[spot.face as keyof typeof normals] as [number,number,number], position },
         ...(spot.contact==='pin'?{displayName:'Pino '+spot.label}:spot.label.startsWith('P')&&type==='relaySocketFinder9023'?{displayName:'Alvéolo '+spot.label}:{}) }
     })
-    return [type,{ category:info.category,paletteName:info.name,group:info.category==='drive'?'Acionamentos':info.category==='signaling'?'Sinalização':info.category==='terminal'?'Bornes e barras':info.category==='protection'?'Proteção':'Relés',
+    return [type,{ category:info.category,paletteName:info.name,group:INDUSTRIAL_PALETTE_GROUP[info.category],
       tag:info.tag,...industrialSchematicFootprint(type),terminals,defaultState:structuredClone(info.defaultState) }]
   })) as Record<IndustrialDeviceType,ComponentTemplate>
 }
