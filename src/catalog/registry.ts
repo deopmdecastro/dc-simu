@@ -6,9 +6,9 @@ import { TEMPLATES, type ComponentTemplate } from '../electrical/factory'
 import type { ComponentType } from '../types'
 import { catalogApi } from './catalogApi'
 import { hiddenCatalogTypes } from './hidden'
+import { catalogPaletteGroup } from './paletteGroup'
 import { catalogType, isCatalogType, parseCatalogType, type CatalogEntry, type CatalogVersion } from './types'
 
-const PALETTE_GROUP = 'Catálogo oficial'
 const BUILTIN_ORIGIN_PREFIX = 'Integrado · '
 const registered = new Set<string>()
 /** Tipo de catálogo → componente integrado que ele substitui (DM-20, motor…). */
@@ -28,6 +28,10 @@ function builtinOrigin(entry: CatalogEntry): ComponentType | null {
 /** Tipos antigos que já não devem aparecer na biblioteca (há versão mais recente ou o componente foi arquivado). */
 const hiddenInLibrary = hiddenCatalogTypes
 
+/** Pares categoria/pasta dos integrados (não do catálogo): fonte das pastas da biblioteca. */
+const builtinPaletteGroups = () => (Object.entries(TEMPLATES) as Array<[string, ComponentTemplate]>)
+  .filter(([type]) => !isCatalogType(type)).map(([, tpl]) => [tpl.category, tpl.group] as const)
+
 function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemplate {
   const runtime = version.runtime
   const isMultimeter = version.definition.behavior?.type === 'multimeter'
@@ -39,7 +43,7 @@ function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemp
     paletteName: entry.meta.name,
     // Um integrado republicado permanece na pasta onde os utilizadores já o
     // procuram; componentes novos ficam no Catálogo oficial.
-    group: isMultimeter ? 'Aparelhos de medir' : original?.group ?? (entry.meta.group?.trim() ? `${PALETTE_GROUP} · ${entry.meta.group.trim()}` : PALETTE_GROUP),
+    group: isMultimeter ? 'Aparelhos de medir' : original?.group ?? catalogPaletteGroup(entry.meta.category, entry.meta.group, builtinPaletteGroups()),
     tag: (entry.meta.tag || 'X').replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'X',
     w: Math.max(1, Math.round(runtime.widthMm * SCHEMATIC_PX_PER_MM)),
     h: Math.max(1, Math.round(runtime.heightMm * SCHEMATIC_PX_PER_MM)),
