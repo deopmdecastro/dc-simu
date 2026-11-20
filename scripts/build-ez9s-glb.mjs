@@ -25,6 +25,7 @@
 // módulos, com uma alavanca branca por polo. Na pose OFF do STEP é reconstruído
 // como peça própria solidária a todos os polos, sob um pivot comum.
 import { source, makeRoot, addMesh, pivot, cavities, saveModel, manifest, faceBounds, materials as m } from './lib/schneider-building.mjs'
+import * as THREE from 'three'
 import { mat, box, cylinder } from './lib/cad-building.mjs'
 
 const red = mat('#c8352b', .12, .4)          // travessa/pega do Easy9 Switch
@@ -48,8 +49,23 @@ const map = (x, y, z) => [x, y + Y_OFFSET, z]   // identidade em X/Z
 const HANDLE = { yMin: 19.0, yMax: 32.1, zMin: 65.5, zMax: 74.7 }
 const HINGE_MM = { y: HANDLE.yMax + Y_OFFSET, z: (HANDLE.zMin + HANDLE.zMax) / 2 }
 
-// Bornes: bocas no topo e na base, abertas em −Z; os túneis correm a 24 mm da frente.
-const TERMINAL = { z: 25, depth: 14, diameter: 9 }
+/* Bornes do STEP (medidos, não deduzidos): a boca do túnel está na FACE FRONTAL, a
+ * z ≈ 26,5 mm — o intervalo vazio z 28,1…27,2 nas varreduras do topo e da base — e o
+ * parafuso Pozidriv fica num poço recuado à frente dela, a z 16,3…21,7 mm. A versão
+ * anterior abria os túneis em Y, a partir do topo, e deixava os furos visíveis como
+ * cicatrizes escuras nas faces de cima e de baixo. */
+const TERMINAL = { z: 25, depth: 14, diameter: 9 }        // túnel do STEP, a 25 mm da traseira
+/* O degrau dos bornes tem a face a z ≈ 45,5 mm (medido: y 60…70 em cima e y 9,5…13 em
+ * baixo); é aí que abre o poço do parafuso. A versão anterior punha-o a z 19 mm — dentro
+ * do corpo, e por isso invisível. */
+/* O STEP já traz o poço do parafuso escavado no degrau: a face vale 45,5 mm no rebordo e
+ * desce a ≈40 mm no fundo do poço (medido na grelha de z frontal). O parafuso assenta aí. */
+const SCREW = { z: 38.6, radius: 2.1 }
+/* Alturas dos bornes no STEP: a face frontal dos degraus vale 45,5 mm entre y 66…70 (topo)
+ * e y 9,5…13 (base). É aí que o parafuso Pozidriv fica visível, como no produto. */
+const TERMINAL_ROW = { top: 66.4, bottom: 11.4 }
+/* Tampa/quadro branco à volta da travessa vermelha: moldura de 1,5 mm, a z 62,4…65,5. */
+const SHROUD = { yMin: 24.4, yMax: 35.4, xMin: 3.3, xMax: 14.3 }
 
 const MODULE_CX = [-1.6 + 9.6, 16.0 + 9.6]      // centros físicos ≈ 8,0 e 25,6 mm
 const models = []
@@ -71,15 +87,32 @@ for (const v of VARIANTS) {
     const shift = (x, y, z) => map(x + dx, y, z)
     /* Separa o manípulo do molde: as faces da janela frontal (y 21…32, z > 65) são a
      * peça vermelha; o resto é o corpo branco. Nada é reconstruído por cima do CAD. */
+    /* Três grupos, medidos nas faces do STEP:
+     *  · travessa vermelha — faces cujo plano frontal chega a z > 70 mm (a barra e o seu
+     *    lábio inferior). O que estava a apanhar antes era o recesso branco do molde
+     *    (z 62,4…65,5), que ficava vermelho e fazia a peça parecer um bloco liso;
+     *  · alavancas e quadro brancos — faces da janela do manípulo (y 24,4…35,4) que não
+     *    chegam à frente;
+     *  · corpo — tudo o resto. */
     const handleFaces = []
+    const shroudFaces = []
     const bodyFaces = []
     mesh.brep_faces.forEach((_, i) => {
       const b = faceBounds(mesh, i)
-      if (b[1][0] > 18.5 && b[1][1] < 35.0 && b[2][0] > 64.0) handleFaces.push(i)
+      const inWindow = b[1][0] > 20.5 && b[1][1] < 35.8 && b[2][0] > 62.0
+      /* Só é travessa vermelha o que chega à frente do molde (z > 71 mm, medido nas faces
+       * do STEP: a barra ocupa z 68,9…74,7). Com o limite em 68 mm o leque branco do molde
+       * (z até 69,6) também ficava vermelho e o manípulo lia-se como um bloco liso. */
+      if (inWindow && b[2][1] > 71.0) handleFaces.push(i)
+      else if (inWindow) shroudFaces.push(i)
       else bodyFaces.push(i)
     })
     const body = addMesh(root, mesh, shift, m.white, `ez9s_body_${mod + 1}`, bodyFaces)
     body.userData.module = mod + 1
+    if (shroudFaces.length) {
+      const sh = addMesh(root, mesh, shift, m.white, `ez9s_lever_${mod + 1}`, shroudFaces)
+      sh.userData.module = mod + 1
+    }
     if (handleFaces.length) {
       const h = addMesh(root, mesh, shift, red, `dcsimu_handle_${mod + 1}`, handleFaces)
       h.userData.module = mod + 1
@@ -103,7 +136,10 @@ for (const v of VARIANTS) {
     root.add(mesh)
   }
 
-  // --- Bocas dos bornes (túneis PZ2 reais, ≤ 35 mm², 3,5 N·m) ------------
+  /* --- Bocas dos bornes (túneis PZ2 reais, ≤ 35 mm², 3,5 N·m) ------------
+   * O encaixe elétrico é o túnel do STEP que corre em Z a ≈25 mm da traseira; o fio entra
+   * pelo topo e pela base. O parafuso Pozidriv do produto fica à frente, no degrau — mas
+   * é só hardware visível, não desloca o ponto de ligação. */
   const rows = []
   for (let mod = 0; mod < v.poles; mod++) {
     const nx = (mod + 0.5) / v.poles
@@ -116,13 +152,17 @@ for (const v of VARIANTS) {
     if (conn) conn.position.z = TERMINAL.z
   }
 
-  // Parafusos Pozidriv no fundo dos poços, como no STEP.
+  // Parafuso Pozidriv no fundo do poço que o próprio STEP escava no degrau.
   for (let mod = 0; mod < v.poles; mod++) {
     const cx = centres[mod]
-    for (const [yy, face] of [[71.6, 'top'], [17.6, 'bottom']]) {
-      const screw = cylinder(2.7, 1.6, m.steel, `ez9s_screw_${face}_${mod + 1}`, [cx, yy, TERMINAL.z - 6])
+    for (const [yy, face] of [[TERMINAL_ROW.top + Y_OFFSET, 'top'], [TERMINAL_ROW.bottom + Y_OFFSET, 'bottom']]) {
+      const screw = cylinder(SCREW.radius, 1.2, m.steel, `ez9s_screw_${face}_${mod + 1}`, [cx, yy, SCREW.z])
       screw.rotation.x = Math.PI / 2
       root.add(screw)
+      for (const [w, h] of [[SCREW.radius * 1.5, .45], [.45, SCREW.radius * 1.5]]) {
+        const slot = box(w, h, .3, m.dark, `ez9s_screw_slot_${face}_${mod + 1}`, [cx, yy, SCREW.z + .35])
+        root.add(slot)
+      }
     }
   }
 

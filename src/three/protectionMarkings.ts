@@ -437,7 +437,7 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
     ctx.fillText('IEC 60947-3 · AC-22A', cx, 108)
   })
   // Faixa de catálogo sob o manípulo, na parede do bloco inferior (z = 64,7 mm no STEP).
-  if (labelTex) out.push(makePlateMesh(labelTex, wMm - 0.6, 7.4, shift([0, 17.4, 64.7]), u))
+  if (labelTex) out.push(makePlateMesh(labelTex, wMm - 0.6, 6.2, shift([0, 22.4, 68.3]), u))
 
   /* Calibre nas laterais (como no molde real, gravado no flanco). */
   const sideTex = cachedCanvasTexture(`ez9s:side:${poles}:${ampTxt}`, 160, 360, (ctx, w, h) => {

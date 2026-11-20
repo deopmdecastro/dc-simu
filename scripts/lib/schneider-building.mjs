@@ -62,10 +62,10 @@ export function faceBounds(m, i) {
 export function cavities(root, dims, rows) {
   const meshes = []; root.traverse(node => { if (node.isMesh && !/clip|handle|test|lens|visisafe/.test(node.name)) meshes.push(node) })
   for (const row of rows) {
-    const [label, face, nx, ny, nz, diameter, depth] = row
+    const [label, face, nx, ny, nz, diameter, depth, axis = 'y'] = row
     const p = [(nx-.5)*dims.width, (1-ny)*dims.height, nz*dims.depth]
-    const top = face === 'top'
-    drill(meshes, 'y', p, diameter/2, top ? p[1]-depth : p[1]-.5, top ? p[1]+.5 : p[1]+depth)
+    const along = axis === 'y' ? { top: 1, bottom: -1 }[face] : 1
+    drill(meshes, axis, p, diameter/2, Math.min(p[{x:0,y:1,z:2}[axis]], p[{x:0,y:1,z:2}[axis]] - along*depth), Math.max(p[{x:0,y:1,z:2}[axis]], p[{x:0,y:1,z:2}[axis]] - along*depth))
     terminal(root, label, ...p, { r: diameter/2, depth, face })
     root.getObjectByName('industrial_connection_' + label).name = 'acti9_connection_' + label
   }
