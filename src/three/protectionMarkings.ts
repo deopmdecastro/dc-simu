@@ -377,74 +377,83 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
   const columnMm = 18
   const columnPx = 256
 
-  /* Faixa frontal do Easy9 Switch real: fundo marfim liso, logótipo Schneider Electric
-   * a verde + «Easy9» e o símbolo de íman «EZ» também a verde, alinhados à esquerda do
-   * primeiro módulo; um fio de junção por cada módulo adicional. Não há faixa verde,
-   * nem código comercial, nem esquema unifilar impressos na frente do aparelho —
-   * os dados de catálogo ficam na lateral e na embalagem. */
-  const mainKey = `ez9s:fascia:${poles}:${ampTxt}`
-  const mainTex = cachedCanvasTexture(mainKey, wMm * 40, 26 * 40, (ctx, w, h) => {
-    ctx.fillStyle = '#eeede8'
-    ctx.fillRect(0, 0, w, h)
-    // Junta entre módulos de 18 mm (só depois do primeiro, como no molde).
-    for (let i = 1; i < poles; i += 1) {
-      const x = (i * columnMm * 40)
-      ctx.strokeStyle = 'rgba(120,130,140,0.30)'
-      ctx.lineWidth = 3
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke()
-    }
+  /* ---- Serigrafia do bloco do primeiro polo (parede frontal) -----------
+   * Reproduz o que o produto traz impresso: logótipo Schneider Electric a verde,
+   * «Easy9» / «Switch» / «100A» / «EZ9S16491» a cinza-grafite alinhados à esquerda e o
+   * símbolo «EZ» verde (quadrado cheio, monograma vazado) à direita. Sem o calibre e a
+   * referência a peça lia-se como «só o logótipo». */
+  const mainKey = `ez9s:fascia:${poles}:${ampTxt}:${code}`
+  const fasciaWmm = 17, fasciaHmm = 18
+  const mainTex = cachedCanvasTexture(mainKey, Math.round(fasciaWmm * 40), Math.round(fasciaHmm * 40), (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h)
     const px = (mm: number) => mm * 40
-    // «Schneider Electric» a verde, largura ≈ 8,6 mm × 2,6 mm, a 2,6 mm da aresta.
-    drawBrandArtwork(ctx, 'schneider-electric', px(2.6), px(7.4), px(13.2), px(4.0))
-    // «Easy9» a verde por baixo do logótipo.
-    ctx.fillStyle = '#009530'
-    ctx.font = '700 30px "Inter", "Arial", sans-serif'
+    drawBrandArtwork(ctx, 'schneider-electric', px(0.4), px(0.45), px(13.4), px(4.4))
+    ctx.fillStyle = '#5b6068'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText('Easy9', px(2.7), px(14.0))
-    // Símbolo de íman «EZ» (verde, moldura), à direita do logótipo no primeiro módulo.
-    const bx = px(8.4), by = px(17.6), bw = px(5.6), bh = px(4.2)
-    ctx.strokeStyle = '#009530'
+    /* Ritmo vertical do molde: bloco de quatro linhas no meio-baixo da máscara, passo
+     * 2,7 mm e corpo 2,2 mm — é assim que a referência o imprime. */
+    ctx.font = '500 74px "Inter", "Arial", sans-serif'
+    ctx.fillText('Easy9', px(0.4), px(8.5))
+    ctx.fillText('Switch', px(0.4), px(10.9))
+    ctx.fillText(`${ampTxt}A`, px(0.4), px(13.3))
+    ctx.fillText(code, px(0.4), px(15.7))
+    // Símbolo «EZ»: quadrado verde de cantos redondos com o monograma vazado.
+    const bx = px(10.0), by = px(6.9), bw = px(5.6), bh = px(5.6), rad = px(0.75)
     ctx.fillStyle = '#009530'
-    ctx.lineWidth = 4
-    ctx.strokeRect(bx, by, bw, bh)
-    ctx.font = '800 46px "Inter", "Arial", sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('EZ', bx + bw / 2, by + bh / 2 + 2)
-    // Calibre impresso uma vez por módulo, discreto, sob o íman.
-    ctx.fillStyle = '#334155'
-    ctx.font = '700 26px "Inter", "Arial", sans-serif'
-    ctx.fillText(`${ampTxt}A`, px(2.7) + px(2.8), px(21.4))
-  })
-  if (mainTex) out.push(makePlateMesh(mainTex, wMm - 0.6, 24.0, shift([0, 41.5, FRONT_Z_MM]), u, 0, false))
-
-  /* Face inferior do mesmo molde: referência comercial, calibre, tensão e norma.
-   * É o que se lê de frente num armário real, abaixo do manípulo. */
-  const labelKey = `ez9s:label:${poles}:${ampTxt}:${ue}`
-  const labelTex = cachedCanvasTexture(labelKey, poles * columnPx, 132, (ctx, w, h) => {
-    ctx.fillStyle = '#eeede8'
-    ctx.fillRect(0, 0, w, h)
-    const cx = (poles === 1 ? w : w / poles) / 2
+    ctx.beginPath()
+    ctx.moveTo(bx + rad, by)
+    ctx.lineTo(bx + bw - rad, by); ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + rad)
+    ctx.lineTo(bx + bw, by + bh - rad); ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - rad, by + bh)
+    ctx.lineTo(bx + rad, by + bh); ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - rad)
+    ctx.lineTo(bx, by + rad); ctx.quadraticCurveTo(bx, by, bx + rad, by)
+    ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#f4f6f3'
+    ctx.font = '800 68px "Inter", "Arial", sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#475569'
-    ctx.font = '700 30px "Inter", "Arial", sans-serif'
-    ctx.fillText(`${code}`, cx, 34)
-    ctx.fillStyle = '#1e293b'
-    ctx.font = '800 34px "Inter", "Arial", sans-serif'
-    ctx.fillText(`${ampTxt} A · ${ue}`, cx, 74)
-    ctx.fillStyle = '#64748b'
-    ctx.font = '600 26px "Inter", "Arial", sans-serif'
-    ctx.fillText('IEC 60947-3 · AC-22A', cx, 108)
+    ctx.fillText('EZ', bx + bw / 2, by + bh / 2 + px(0.15))
   })
-  /* Faixa de catálogo no degrau superior, à esquerda dos bornes de entrada — é onde o
-   * produto a traz. A face do degrau está a 49,3 mm da traseira (STEP: z −21 com a
-   * traseira em −70,3), por isso a chapa assenta em 49,0 mm e não à frente do corpo. */
-  /* A faixa do produto é o filete estreito entre o degrau e a parede principal (y 63,5…66
-   * no STEP, ou seja 63,4…66,3 mm sobre a calha): acima disso estão os poços dos parafusos
-   * e a chapa ficava dentro deles. */
-  const labelWidth = Math.min(wMm - 2, 26)
-  if (labelTex) out.push(makePlateMesh(labelTex, labelWidth, 2.6, shift([-wMm / 2 + labelWidth / 2 + 1.2, 64.9, 49.0]), u))
+  /* A chapa é do tamanho do bloco impresso e assenta no canto superior esquerdo do
+   * primeiro módulo; o resto da parede fica marfim liso, como no molde. */
+  if (mainTex) out.push(makePlateMesh(mainTex, fasciaWmm, fasciaHmm, shift([-wMm / 2 + 1.0 + fasciaWmm / 2, 51.0, FRONT_Z_MM]), u, 0, true))
+
+  /* ---- Quadro técnico no degrau superior (à esquerda dos bornes) --------
+   * O produto imprime aqui a tabela de características: AC-22A, 50/60 Hz, IP20, 400 V~
+   * e as colunas de calibre/corrente, tudo dentro de um filete fino como no molde. */
+  const plateWmm = Math.min(wMm - 3.2, 15.0), plateHmm = 7.6
+  const tableKey = `ez9s:table:${poles}:${ampTxt}:${ue}`
+  const tableTex = cachedCanvasTexture(tableKey, Math.round(plateWmm * 40), Math.round(plateHmm * 40), (ctx, w, h) => {
+    const px = (mm: number) => mm * 40
+    ctx.clearRect(0, 0, w, h)
+    ctx.strokeStyle = 'rgba(120,132,146,0.75)'
+    ctx.lineWidth = 2.5
+    ctx.strokeRect(px(0.45), px(0.45), w - px(0.9), h - px(0.9))
+    ctx.fillStyle = '#4d5560'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    const rows = ['AC-22A', '50/60Hz', 'IP20', `${ue}`]
+    rows.forEach((line, i) => {
+      ctx.font = `${i === 3 ? 700 : 600} 25px "Inter", "Arial", sans-serif`
+      ctx.fillText(line, px(1.0), px(1.4 + i * 1.55))
+    })
+    /* Colunas de corrente ancoradas à direita da tabela: em módulos estreitos (1P) a
+     * tabela encolhe e as colunas deslocam-se com ela. São sempre as quatro do molde. */
+    const step = px(1.85), colsX = w - px(4.2) - step * 3
+    ctx.font = '700 16px "Inter", "Arial", sans-serif'
+    const heads = ['40A', '63A', '80A', '100A']
+    heads.forEach((label, i) => ctx.fillText(label, colsX + i * step, px(2.0)))
+    const currents = [['14', '14', '15', '15'], ['12', '14', '18', '18']]
+    ctx.font = '500 16px "Inter", "Arial", sans-serif'
+    currents.forEach((row, r) => {
+      row.forEach((val, i) => ctx.fillText(val, colsX + i * step, px(4.3 + r * 1.5)))
+    })
+  })
+  /* A parede do degrau superior está a z 50,1 mm no STEP (não a 49,3 mm do filete mais
+   * baixo). A chapa fica ACIMA da fila de parafusos — os poços ocupam y 66,3…73,3 — e
+   * encostada à esquerda do primeiro módulo, 0,4 mm à frente da parede para não ficar
+   * escondida dentro do material. */
+  if (tableTex) out.push(makePlateMesh(tableTex, plateWmm, plateHmm, shift([-wMm / 2 + plateWmm / 2 + 1.4, 77.0, 50.5]), u))
 
   /* Calibre nas laterais (como no molde real, gravado no flanco). */
   const sideTex = cachedCanvasTexture(`ez9s:side:${poles}:${ampTxt}`, 160, 360, (ctx, w, h) => {
