@@ -10,6 +10,9 @@ export const isSchneiderRcd = (type: ComponentType): type is SchneiderRcdType =>
 export const SCHNEIDER_RCD_HANDLE_NODE = 'schneider_handle_pivot'
 export const SCHNEIDER_RCD_TEST_NODE = 'schneider_test'
 export const SCHNEIDER_RCD_THROW_DEG = 70
+/** iID 4P: curso da alavanca e eixo real relativo ao nó do GLB (metros: y −3,2 mm, z −6 mm). */
+export const SCHNEIDER_IID_THROW_DEG = 45
+export const SCHNEIDER_IID_AXIS_OFFSET_M = new THREE.Vector3(0, -0.0032, -0.006)
 export type SchneiderRcdAction = 'toggle' | 'test'
 const ownedIndicators = new WeakSet<THREE.Object3D>()
 
@@ -54,7 +57,18 @@ export function applySchneiderRcdState(root: THREE.Object3D, state: Record<strin
   const tripped = !!state.tripped
   const closed = !!state.closed && !tripped
   const pivot = root.getObjectByName(SCHNEIDER_RCD_HANDLE_NODE)
-  if (pivot) pivot.rotation.x = -THREE.MathUtils.degToRad(SCHNEIDER_RCD_THROW_DEG) * (closed ? 1 : tripped ? 0.48 : 0)
+  if (pivot && pivot.getObjectByName('schneider_handle_grip')) {
+    // iID 4P: o nó do GLB está quase à face (z 61 mm) e rodava 70° — a alavanca saltava para
+    // fora, o punho saía pela lateral e via-se o interior oco da peça do STEP. O eixo real fica
+    // no centro da alavanca, ~11 mm dentro do corpo; daí o punho vai de baixo (O.OFF) a cima
+    // (I.ON) simetricamente, num curso de 45°. Roda-se em torno desse eixo sem regenerar o GLB.
+    const restPosition = (pivot.userData.schneiderRestPosition ??= pivot.position.clone()) as THREE.Vector3
+    const angle = -THREE.MathUtils.degToRad(SCHNEIDER_IID_THROW_DEG) * (closed ? 1 : tripped ? 0.5 : 0)
+    const toAxis = SCHNEIDER_IID_AXIS_OFFSET_M.clone()
+    pivot.rotation.x = angle
+    // posição = eixo + R·(repouso − eixo), com o eixo = repouso + toAxis
+    pivot.position.copy(restPosition).add(toAxis).add(toAxis.clone().negate().applyAxisAngle(new THREE.Vector3(1, 0, 0), angle))
+  } else if (pivot) pivot.rotation.x = -THREE.MathUtils.degToRad(SCHNEIDER_RCD_THROW_DEG) * (closed ? 1 : tripped ? 0.48 : 0)
   root.traverse((node) => {
     if (node.name.startsWith('schneider_test')) {
       node.userData.schneiderRestZ ??= node.position.z

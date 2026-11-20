@@ -1,6 +1,6 @@
 // Revisão visual de um aparelho industrial: renderiza o GLB com as serigrafias da
 // aplicação (PRINTS) em WebGL real, em quatro vistas, para comparar com fotografias.
-// Uso: node --import tsx scripts/render-industrial.mjs <tipo> <saida.png> [largura]
+// Uso: node --import tsx scripts/render-industrial.mjs <tipo | caminho em public/models> <saida.png> [largura]
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
@@ -33,7 +33,7 @@ try {
     const renderer = new T.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true })
     renderer.setClearColor('#ffffff'); renderer.toneMapping = T.ACESFilmicToneMapping; renderer.outputColorSpace = T.SRGBColorSpace
     const dir = type.startsWith('timerGeya') || type.startsWith('levelRelay') || type.startsWith('buzzer') || type.startsWith('vfd') || type.startsWith('relay') || type.startsWith('pushButtonXb2') || type.startsWith('breakerMurr') ? 'industriais' : 'industriais'
-    const gltf = await new GLTFLoader().loadAsync(`/models/${dir}/${type}.glb`)
+    const gltf = await new GLTFLoader().loadAsync(type.includes('/') ? `/models/${type}` : `/models/${dir}/${type}.glb`)
     const loader = new T.TextureLoader()
     for (const [name, file] of Object.entries(prints)) {
       const node = gltf.scene.getObjectByName(name); if (!node) continue

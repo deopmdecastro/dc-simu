@@ -19,7 +19,7 @@ import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
 import { seedLogoPanel } from './seedLogoPanel'
 import { digitalMeterGlbData, isDigitalMeterType } from '../../three/digitalMeterModel'
-import { isSchneiderRcd, SCHNEIDER_RCD_HANDLE_NODE, SCHNEIDER_RCD_TEST_NODE, SCHNEIDER_RCD_THROW_DEG } from '../../three/schneiderRcdModel'
+import { isSchneiderRcd, SCHNEIDER_IID_AXIS_OFFSET_M, SCHNEIDER_IID_THROW_DEG, SCHNEIDER_RCD_HANDLE_NODE, SCHNEIDER_RCD_TEST_NODE, SCHNEIDER_RCD_THROW_DEG } from '../../three/schneiderRcdModel'
 import { ACTI9_MCB_HANDLE, isSchneiderModular } from '../../three/schneiderModularModel'
 import { ACTUATOR_HEAD_NAME, ACTUATOR_HEAD_TYPES } from '../../three/actuatorHead'
 
@@ -751,7 +751,12 @@ function seedSchneiderRcdControls(type: ComponentType, def: ComponentDefinition,
   const actuator = object.getObjectByName(SCHNEIDER_RCD_HANDLE_NODE)
   if (!actuator) return false
   const box = new THREE.Box3().setFromObject(actuator, true), size = box.getSize(new THREE.Vector3())
-  const hinge = actuator.getWorldPosition(new THREE.Vector3())
+  // iID 4P: eixo real ~11 mm dentro do corpo e curso de 45° (como em applySchneiderRcdState).
+  const isIid = !!actuator.getObjectByName('schneider_handle_grip')
+  const hinge = isIid && actuator.parent
+    ? actuator.parent.localToWorld(actuator.position.clone().add(SCHNEIDER_IID_AXIS_OFFSET_M))
+    : actuator.getWorldPosition(new THREE.Vector3())
+  const throwDeg = isIid ? SCHNEIDER_IID_THROW_DEG : SCHNEIDER_RCD_THROW_DEG
   const pivotRel = hinge.sub(box.min).divide(size).toArray() as Vec3
   def.vars = [...(def.vars ?? []).filter((item) => !['closed', 'tripped', 'testPressed'].includes(item.id)),
     { id: 'closed', name: 'Diferencial fechado', type: 'bool', initial: true },
@@ -760,7 +765,7 @@ function seedSchneiderRcdControls(type: ComponentType, def: ComponentDefinition,
   ]
   def.controls = [
     { id: newId('ctl_'), name: 'Manípulo I / O', kind: 'toggle', partId, nodes: [SCHNEIDER_RCD_HANDLE_NODE], axis: [1, 0, 0], travelMm: 0, positions: [], bindVar: 'closed', returnMode: 'latch',
-      motion: { mode: 'tilt', angleOff: 0, angleOn: -SCHNEIDER_RCD_THROW_DEG, pivotRel, feel: 'snap', durationMs: 220 },
+      motion: { mode: 'tilt', angleOff: 0, angleOn: -throwDeg, pivotRel, feel: 'snap', durationMs: 220 },
       actions: [{ type: 'toggleVar', var: 'closed' }, { type: 'setVar', var: 'tripped', value: false }] },
     { id: newId('ctl_'), name: 'Ensaio diferencial T', kind: 'button', partId, nodes: [SCHNEIDER_RCD_TEST_NODE, 'schneider_test_letter'].filter((name) => !!object.getObjectByName(name)), axis: [0, 0, 1], travelMm: 1.2, positions: [], bindVar: 'testPressed', holdVar: 'testPressed', returnMode: 'spring',
       actions: [{ type: 'setVar', var: 'closed', value: false }, { type: 'setVar', var: 'tripped', value: true }] },
