@@ -34,8 +34,8 @@ const browser = await chromium.launch(process.env.LABELS_CHANNEL === 'bundled' ?
 const page = await browser.newPage()
 for (const [file, [w, h, html]] of Object.entries(labels)) {
   await page.setViewportSize({ width: w, height: h })
-  await page.setContent(`<!doctype html><html><body style="margin:0;width:${w}px;height:${h}px;position:relative;overflow:hidden;background:${BODY}">${html}</body></html>`)
-  await page.screenshot({ path: path.join(OUT, file), clip: { x: 0, y: 0, width: w, height: h } })
+  await page.setContent(`<!doctype html><html><body style="margin:0;width:${w}px;height:${h}px;position:relative;overflow:hidden;background:transparent">${html}</body></html>`)
+  await page.screenshot({ omitBackground: true, path: path.join(OUT, file), clip: { x: 0, y: 0, width: w, height: h } })
   console.log('✓', file)
 }
 await browser.close()

@@ -37,6 +37,15 @@ for (const type of INDUSTRIAL_DEVICE_TYPES) {
   check([size.x, size.y, size.z].every((v, i) => Math.abs(v * 1000 - Object.values(g.physicalSizeMm)[i]) < .015), `${type}: millimetres, axes and exported bounds`)
   const clone = cloneModelScene(scene); prepareIndustrialModel(clone, type); mergeStaticMeshes(clone)
   check(clone.getObjectByName('industrial_device_' + type), `${type}: static merge preserves device identity`)
+  if (type === 'breakerMurrelektronikMico46') {
+    // O clique 3D tem de dar um controlo que a lógica conhece (antes «button1» era ignorado).
+    for (const i of [1, 2, 3, 4]) {
+      const btn = clone.getObjectByName('industrial_mico_button_' + i), sel = clone.getObjectByName('industrial_mico_select_' + i)
+      const btnAction = btn && industrialAction(btn.children[0] ?? btn), selAction = sel && industrialAction(sel.children[0] ?? sel)
+      check(btnAction === 'ch' + i && Object.keys(industrialControlPatch(type, createComponent(type).state, btnAction as any)).length > 0, `MICO: clique no botão ${i} liga/desliga o canal (${btnAction})`)
+      check(selAction === 'sel' + i && Object.keys(industrialControlPatch(type, createComponent(type).state, selAction as any)).length > 0, `MICO: clique no seletor ${i} muda a corrente (${selAction})`)
+    }
+  }
   const cavityErrors: string[] = []
   for (const terminal of g.terminals) {
     if (terminal.contact !== 'socket') continue

@@ -134,54 +134,6 @@
       "sha256": "bdc4e3a36f01a313664fc2a6448e64a8c025f3b84c09b50527d0d18d874d6a5c"
     },
     {
-      "type": "timerGeyaGrt8M2",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "physicalSizeMm": {
-        "width": 18.1,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 9,
-      "cavities": 9,
-      "pins": 0,
-      "bytes": 499824,
-      "sha256": "120fecfdcbb722e928d7762a7e38876ca70279694decbb78769d2b6b789f122e"
-    },
-    {
-      "type": "timerGeyaGrt8M1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "physicalSizeMm": {
-        "width": 18.1,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 362428,
-      "sha256": "5dbb9f54a91f9fe05c4e469e96ed69ff855c97ace743c961d2900d4174c36483"
-    },
-    {
-      "type": "timerGeyaGrt8B1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "physicalSizeMm": {
-        "width": 18.1,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 354340,
-      "sha256": "9ec3d0ea9148f3df540facd2a54f9ac76157aa3ce5c8d0a1c83429cb0d0ac0b4"
-    },
-    {
       "type": "pushButtonXb2No",
       "kind": "dimensioned-reconstruction",
       "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
@@ -292,6 +244,54 @@
       "pins": 0,
       "bytes": 344924,
       "sha256": "a222269575b11706adeccd7a9b63281cc39c37acf04a33afa94949779b8736ee"
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "physicalSizeMm": {
+        "width": 18.08,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 362732,
+      "sha256": "946721e305b5904d07d752173c7367d8c02bbbff4ae8a7cc5702900414dcea61"
+    },
+    {
+      "type": "timerGeyaGrt8M2",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "physicalSizeMm": {
+        "width": 18.08,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 9,
+      "cavities": 9,
+      "pins": 0,
+      "bytes": 500124,
+      "sha256": "5c443bcadd0fd6016c3d47878310dbecc77150e148520253c76695df97ca4122"
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
+      "physicalSizeMm": {
+        "width": 18.08,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 354644,
+      "sha256": "839739321e54041aad57fdbb68949dc166870387966e9ffb96f243009fa7977d"
     }
   ]
 }

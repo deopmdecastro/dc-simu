@@ -67,7 +67,9 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
   if (type === 'breakerMurrelektronikMico46') {
     root.traverse(node => {
       const m = /^industrial_mico_(button|select)_([1-4])$/.exec(node.name)
-      if (m) node.userData.industrialControl = m[1] + m[2]
+      // Nomes do contrato de industrialControlPatch: ch1…ch4 (ON/OFF) e sel1…sel4 (corrente).
+      // Antes ficava «button1»/«select1», que a lógica ignorava: os botões não faziam nada.
+      if (m) node.userData.industrialControl = (m[1] === 'button' ? 'ch' : 'sel') + m[2]
       if (node.name.startsWith('industrial_mico_button_') || node.name.startsWith('industrial_mico_select_')) node.userData.industrialMoving = true
     })
   }
@@ -232,9 +234,9 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
   if (interior) interior.visible = !!s.controlCoverOpen
   // Rodar uma escala é diferente do impulso de um botão da rig genérica.
   const range = root.getObjectByName('industrial_range'), fraction = root.getObjectByName('industrial_fraction'), fn = root.getObjectByName('industrial_function')
-  if (moveControls && range) range.rotation.z = -Math.max(0, GEYA_RANGES_MS.indexOf(Number(s.rangeMs) as never)) * Math.PI / 5
+  if (moveControls && range) range.rotation.z = -Math.max(0, GEYA_RANGES_MS.indexOf(Number(s.rangeMs) as never)) * Math.PI / 6
   if (moveControls && fraction) fraction.rotation.z = -Math.PI * 1.5 * (Math.max(.1, Math.min(1, Number(s.fraction) || .3)) - .1) / .9
-  if (moveControls && fn) fn.rotation.z = -Math.max(0, GEYA_FUNCTIONS.indexOf(String(s.function) as never)) * Math.PI / 5
+  if (moveControls && fn) fn.rotation.z = -Math.max(0, GEYA_FUNCTIONS.indexOf(String(s.function) as never)) * Math.PI / 6
   if (moveControls) {
     const test = root.getObjectByName('industrial_test')
     if (test) {
@@ -272,13 +274,13 @@ function xb2TerminalNumbers(): Record<string, string> {
   return out
 }
 
-const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
+export const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
   timerGeyaGrt8M1: {
     industrial_fascia: 'geya-grt8-m-face.png', industrial_geya_side_r: 'geya-grt8-m-side-r.png', industrial_geya_side_l: 'geya-grt8-m-side-l.png',
     ...geyaScrewLabels(),
   },
   timerGeyaGrt8M2: {
-    industrial_fascia: 'geya-grt8-m2-face.png', industrial_geya_side_r: 'geya-grt8-m-side-r.png', industrial_geya_side_l: 'geya-grt8-m-side-l.png',
+    industrial_fascia: 'geya-grt8-m2-face.png', industrial_geya_side_r: 'geya-grt8-m2-side-r.png', industrial_geya_side_l: 'geya-grt8-m2-side-l.png',
     ...geyaScrewLabels(),
   },
   timerGeyaGrt8B1: {

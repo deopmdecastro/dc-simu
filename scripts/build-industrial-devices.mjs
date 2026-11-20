@@ -178,10 +178,15 @@ async function geya(type){
  // inversores (15/16/18 e 25/26/28), como no aparelho real; no M1/B1 fica baixo.
  const stepY = type === 'timerGeyaGrt8M2' ? 34 : 22
  const profile=[[0,2.5],[0,92.5],[-24,92.5],[-24,87],[-38,87],[-38,77],[-64,73],[-64,stepY],[-38,stepY-4],[-38,8],[-24,8],[-24,2.5]]
- const body=bodyProfile(18,profile,white,'industrial_geya_body');root.add(body)
- root.add(shapePlate(16,5,1.5,[[0,0,2.1]],red,'industrial_din_latch_bottom',[0,2.5,1]))
+ // Corpo cinzento-claro como na fotografia do manual (não branco puro).
+ const GREY=mat('#d4d5d1',0,.6),GREY_D=mat('#bfc0bc',0,.6)
+ const body=bodyProfile(18,profile,GREY,'industrial_geya_body');root.add(body)
+ root.add(shapePlate(16,5,1.5,[[0,0,2.1]],GREY_D,'industrial_din_latch_bottom',[0,2.5,1]))
  root.add(shapePlate(16,5,1.5,[[0,0,2.1]],red,'industrial_din_latch_top',[0,92.5,1]))
- root.add(plane(17.6,43.5,white,'industrial_fascia',[0,49.5,64.015]))
+ // A tampa frontal acaba onde acaba a frente: no M2 o degrau dos bornes 25/26/28 começa mais acima
+ // (antes a placa descia sobre essa fila e o texto «GRT8-M2» flutuava à frente dos bornes).
+ const faceTop=71.25,faceBottom=Math.max(27.75,stepY+1.5)
+ root.add(plane(17.6,faceTop-faceBottom,white,'industrial_fascia',[0,(faceTop+faceBottom)/2,64.015]))
  knob(root,'industrial_range',-2.4,59.5,64.9,2.4)
  knob(root,'industrial_fraction',.45,51.9,64.9,2.4)
  if(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8M2')knob(root,'industrial_function',-2.4,44.3,64.9,2.4)
@@ -225,14 +230,17 @@ async function geya(type){
  // do corpo (face a z 38, fundo a z 8). As antigas saíam 15 mm à frente do
  // degrau e liam-se como duas barbatanas soltas no ar.
  for(const dx of [-2.6,2.6]){
-  root.add(box(1,8.4,10,white,'industrial_geya_divider_top_'+dx,[dx,82.5,33]))
-  root.add(box(1,8.0,10,white,'industrial_geya_divider_bot_'+dx,[dx,12.5,33]))
+  root.add(box(1,8.4,10,GREY,'industrial_geya_divider_top_'+dx,[dx,82.5,33]))
+  root.add(box(1,8.0,10,GREY,'industrial_geya_divider_bot_'+dx,[dx,12.5,33]))
  }
  // Patilha vermelha de desbloqueio da calha DIN, visível na frente inferior.
- root.add(box(9,3.6,2.6,red,'industrial_geya_din_tab',[0,4,24.6]))
+ root.add(box(9,3.6,2.6,GREY_D,'industrial_geya_din_tab',[0,4,24.6]))
  // Serigrafia lateral: diagramas de função/temporização (faces ±X do módulo).
- const sideR=plane(58,53,white,'industrial_geya_side_r',[9.05,45.5,33]);sideR.rotation.y=Math.PI/2;root.add(sideR)
- const sideL=plane(58,53,white,'industrial_geya_side_l',[-9.05,45.5,33]);sideL.rotation.y=-Math.PI/2;root.add(sideL)
+ // Só dentro da zona em que a lateral tem a profundidade toda (y stepY…73, z 0…64):
+ // o retângulo antigo saía da silhueta em baixo e lia-se como uma segunda placa (relé «duplicado»).
+ const sideY0=stepY+1.5,sideY1=72,sideH=sideY1-sideY0,sideYc=(sideY0+sideY1)/2
+ const sideR=plane(58,sideH,white,'industrial_geya_side_r',[9.04,sideYc,33]);sideR.rotation.y=Math.PI/2;root.add(sideR)
+ const sideL=plane(58,sideH,white,'industrial_geya_side_l',[-9.04,sideYc,33]);sideL.rotation.y=-Math.PI/2;root.add(sideL)
  await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type.startsWith('timerGeyaGrt8M')?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
 }
 
