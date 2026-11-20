@@ -93,7 +93,12 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
     const WX=-2,WY=44.6
     box(44,36.6,.3,material('#15181a'),'digital_meter_lcd_recess',[WX,WY,64.05])
     plane(41.6,34.2,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[WX,WY,64.22])
-    const glass=plane(44,36.6,new THREE.MeshStandardMaterial({color:'#ffffff',transparent:true,opacity:.1,roughness:.06,metalness:.1,depthWrite:false}),'digital_meter_glass',[WX,WY,64.32])
+    /* Vidro do visor. Sem `keepTransparent`, o `applyRenderMode` do painel trata qualquer
+     * `MeshStandardMaterial` como superfície física e força `opacity = 1` / `transparent =
+     * false`: o vidro ficava uma placa branca opaca sobre o ecrã e lia-se «LCD branco». */
+    const glassMaterial=new THREE.MeshStandardMaterial({color:'#ffffff',transparent:true,opacity:.1,roughness:.06,metalness:.1,depthWrite:false})
+    glassMaterial.userData.keepTransparent=true
+    const glass=plane(44,36.6,glassMaterial,'digital_meter_glass',[WX,WY,64.32])
     glass.raycast=()=>{};glass.userData.protectionMarking=false
     button(22.7,46,64.2,1.95,'digital_meter_reset',blue)
     // Janelas das patilhas e junta base/tampa nas duas laterais.
@@ -122,23 +127,73 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
     silk('RESET',22.7,43.2,64.08,.75,'digital_meter_reset_label',{weight:700})
     for(const y of [18,61]){box(11,2,2,shell,'digital_meter_din_clip_bar',[0,y,1]);for(const x of [-4,4])box(1.4,6,1.8,shell,'digital_meter_din_clip_arm',[x,y+2,1])}
   }else{
-    const body=profileBody(74,[[0,0],[43,0],[43,18],[65,20],[65,66.5],[43,68.5],[43,86.5],[0,86.5],[0,61],[7.5,61],[7.5,25],[0,25]],[],white);body.name='digital_meter_body';root.add(body)
-    box(68,48,1,dark,'digital_meter_frame',[0,43.25,64.45])
-    // Photographed LCD is ~1.48:1, not the almost-square full fascia.
-    plane(52,35.1,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[-5,44.2,65.01])
-    for(const [i,label]of ['M','+','−','ON/OFF'].entries()){
-      const y=58.25-i*10,name=i===3?'digital_meter_switch':i===0?'digital_meter_menu':`digital_meter_menu_${i}`
-      box(3.7,7,1.2,i===3?material('#e8e8db'):white,name,[30.7,y,64.5]);marking(label,25.6,y,65.13,i===3?6:3.3,2.3,'digital_meter_button_ink')
+    /* KWS-306 trifásico (4 módulos DIN, 74 × 86,5 × 65 mm). Mesmo acabamento do D52:
+     * corpo marfim com degraus de borne, tampa frontal boleada, vidro sobre o LCD e
+     * parafusos de latão captivos em gaiola. Cotas da vista frontal do produto:
+     * degraus dos bornes a 43 mm, tampa 43…65 mm, janela preta do LCD e coluna de
+     * quatro teclas à direita. Serigrafia A/B/C/N junto aos bornes e seta de sentido
+     * de corrente, como no aparelho real. */
+    const SH=43 // face dos degraus (bornes), medida a partir da parede traseira
+    const shell=material('#e7e9e4'),bezelM=material('#f0f1ed'),brass=new THREE.MeshStandardMaterial({color:'#c9a85c',metalness:.85,roughness:.32})
+    shell.roughness=.62;bezelM.roughness=.5
+    const body=profileBody(74,[[0,0],[SH,0],[SH,25],[65,25],[65,61.5],[SH,61.5],[SH,86.5],[0,86.5],[0,61],[7.5,61],[7.5,25],[0,25]],[],shell);body.name='digital_meter_body';root.add(body)
+    // Tampa frontal com arestas boleadas, igual à do D52.
+    const bezelShape=new THREE.Shape(),bw=71,bh=33,br=1.8
+    bezelShape.moveTo(-bw/2+br,-bh/2);bezelShape.lineTo(bw/2-br,-bh/2);bezelShape.quadraticCurveTo(bw/2,-bh/2,bw/2,-bh/2+br);bezelShape.lineTo(bw/2,bh/2-br);bezelShape.quadraticCurveTo(bw/2,bh/2,bw/2-br,bh/2)
+    bezelShape.lineTo(-bw/2+br,bh/2);bezelShape.quadraticCurveTo(-bw/2,bh/2,-bw/2,bh/2-br);bezelShape.lineTo(-bw/2,-bh/2+br)
+    bezelShape.quadraticCurveTo(-bw/2,-bh/2,-bw/2+br,-bh/2)
+    mesh(new THREE.ExtrudeGeometry(bezelShape,{depth:1.4,bevelEnabled:true,bevelThickness:.6,bevelSize:.6,bevelSegments:3,curveSegments:8}),bezelM,'digital_meter_frame',[0,43.25,63.0])
+    // Janela do LCD: aro preto + ecrã + vidro (o vidro mantém-se transparente no painel).
+    const WY=43.25
+    box(70,31,.3,material('#15181a'),'digital_meter_lcd_recess',[0,WY,65.05])
+    plane(58,29.2,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[-5,WY,65.22])
+    const glassMaterial=new THREE.MeshStandardMaterial({color:'#ffffff',transparent:true,opacity:.1,roughness:.06,metalness:.1,depthWrite:false})
+    glassMaterial.userData.keepTransparent=true
+    const glass=plane(58,29.2,glassMaterial,'digital_meter_glass',[-5,WY,65.32])
+    glass.raycast=()=>{};glass.userData.protectionMarking=false
+    // Junta base/tampa e janelas das patilhas DIN nas laterais.
+    const shade=material('#b9bcb5'),seam=material('#cbcec7')
+    for(const sx of [-1,1]){
+      for(const y of [22,64])box(.3,4.2,2.2,shade,'digital_meter_latch_window',[sx*37.02,y,21])
+      box(.06,85.4,.22,seam,'digital_meter_mold_seam',[sx*37.03,43,16.5])
     }
-    for(const [i,x]of [-28,-9.3,9.3,28].entries()){
-      bore(body,['L1-IN','L2-IN','L3-IN','N-IN'][i],[x,86.5,30],'y',[0,1,0],3.7,12)
-      bore(body,['L1-OUT','L2-OUT','L3-OUT','N-OUT'][i],[x,0,30],'y',[0,-1,0],3.7,12)
-      bore(body,'screwdriver_top_'+i,[x,78.5,43],'z',[0,0,1],3.5,11)
-      bore(body,'screwdriver_bottom_'+i,[x,7.5,43],'z',[0,0,1],3.5,11)
+    /* Teclas: coluna de quatro pastilhas à direita da janela, como no produto. A de baixo
+     * é ON/OFF (texto serigrafado ao lado); as restantes são M, + e −. */
+    /* Quatro pastilhas separadas (não uma barra contínua), como no produto. */
+    const KEY_X=29.5
+    const keys=[['digital_meter_menu',KEY_X,54],['digital_meter_menu_1',KEY_X,49],['digital_meter_menu_2',KEY_X,44],['digital_meter_switch',KEY_X,39]] as const
+    for(const [name,kx,ky] of keys){
+      box(4.2,4.2,1.2,white,name,[kx,ky,65.3])
+      if(name==='digital_meter_switch')continue
+      silk(name==='digital_meter_menu'?'M':name==='digital_meter_menu_1'?'+':'−',kx,ky,65.92,1.7,'digital_meter_button_ink_'+name,{weight:800})
     }
-    marking('A        B        C        N',0,84,43.02,65,4,'digital_meter_input_marking')
-    marking('A        B        C        N',0,14.5,43.02,65,4,'digital_meter_output_marking')
-    marking('KWS-306',-25,20.5,65.14,17,2.1,'digital_meter_type')
+    silk('ON/OFF',KEY_X,35.4,65.9,.75,'digital_meter_switch_label',{weight:700,color:'#c8cdc9'})
+    const terminal=(label:string,x:number,top:boolean)=>{
+      const yWell=top?77:9,yFace=top?86.5:0,n=top?1:-1
+      // Entrada do cabo atrás da cabeça do parafuso (gaiola), poço da chave pela frente.
+      bore(body,label,[x,yFace,37],'y',[0,n,0],2.6,11,false,'#7d8079')
+      bore(body,'screwdriver_'+label,[x,yWell,SH],'z',[0,0,1],3.1,6.6,false,'#a3a69f')
+      const screw=buildCaptiveTerminalScrew('kws_'+label,2.36)
+      screw.traverse(o=>{const m=o as THREE.Mesh;if(m.isMesh&&o.name.startsWith('terminal_screw_head_')){(m.material as THREE.Material).dispose();m.material=brass}})
+      screw.position.set(x,yWell,SH-2.7);root.add(screw)
+      const shank=new THREE.CylinderGeometry(1.15,1.15,6.4,20);shank.rotateX(Math.PI/2)
+      mesh(shank,brass,'digital_meter_screw_shank_'+label,[x,yWell,SH-6.4])
+      box(5.6,6,3.4,brass,'digital_meter_clamp_'+label,[x,yWell,36.6])
+    }
+    /* Serigrafia de fábrica: A B C N nos degraus de cima e de baixo e a seta de
+     * sentido da corrente entre os dois bornes do meio. */
+    const PHASES=['A','B','C','N'] as const
+    for(const [i,x] of [-27,-9,9,27].entries()){
+      terminal(PHASES[i]+'-IN',x,true)
+      terminal(PHASES[i]+'-OUT',x,false)
+      // Nos degraus de borne: em cima y 61,5…86,5 e em baixo y 0…25 (não é Z!).
+      silk(PHASES[i],x,68.5,SH+.03,2.6,'digital_meter_input_marking_'+PHASES[i],{weight:800,color:'#2f3534'})
+      silk(PHASES[i],x,17.5,SH+.03,2.6,'digital_meter_output_marking_'+PHASES[i],{weight:800,color:'#2f3534'})
+    }
+    silk('↓',0,68.5,SH+.03,3.4,'digital_meter_flow_arrow_top',{weight:800,color:'#2f3534'})
+    silk('↓',0,17.5,SH+.03,3.4,'digital_meter_flow_arrow_bottom',{weight:800,color:'#2f3534'})
+    silk('KWS-306',-26.5,28.6,65.26,1.45,'digital_meter_type',{italic:true,weight:800,color:'#d7dbd6'})
+    for(const y of [22,60]){box(16,2,2,shell,'digital_meter_din_clip_bar',[0,y,1]);for(const x of [-6,6])box(1.4,6,1.8,shell,'digital_meter_din_clip_arm',[x,y+2,1])}
   }
   root.traverse(n=>{if(n instanceof THREE.Mesh){n.geometry.scale(U,U,U);n.position.multiplyScalar(U);n.castShadow=n.receiveShadow=true;n.userData.digitalMeterPart=n.name}else if(n!==root)n.position.multiplyScalar(U)})
   applyDigitalMeterState(root,type,state);return root

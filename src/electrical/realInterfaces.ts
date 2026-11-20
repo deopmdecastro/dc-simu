@@ -231,8 +231,8 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {label:'4',face:'top',x:34/54,y:0,z:44/64,diameterMm:4.6,holeDepthMm:10},
   ],
   meterKws306: [
-    ...[-28,-9.3,9.3,28].map((x,i)=>({label:['L1-IN','L2-IN','L3-IN','N-IN'][i],face:'top' as const,x:(x+37)/74,y:0,z:30/65,diameterMm:7.4,holeDepthMm:12})),
-    ...[-28,-9.3,9.3,28].map((x,i)=>({label:['L1-OUT','L2-OUT','L3-OUT','N-OUT'][i],face:'bottom' as const,x:(x+37)/74,y:1,z:30/65,diameterMm:7.4,holeDepthMm:12})),
+    ...[-27,-9,9,27].map((x,i)=>({label:['L1-IN','L2-IN','L3-IN','N-IN'][i],face:'top' as const,x:(x+37)/74,y:0,z:37/65,diameterMm:7.4,holeDepthMm:12})),
+    ...[-27,-9,9,27].map((x,i)=>({label:['L1-OUT','L2-OUT','L3-OUT','N-OUT'][i],face:'bottom' as const,x:(x+37)/74,y:1,z:37/65,diameterMm:7.4,holeDepthMm:12})),
   ],
   breakerSchneiderIc60h1p: [
     {"label":"1","face":"top","x":0.5,"y":0.01545,"z":0.262,"diameterMm":8.7,"holeDepthMm":14.1},

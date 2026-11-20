@@ -1286,35 +1286,35 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [
       T('L1-IN', 'power-in', 0.15, 0.08, {
         displayName: 'A (L1) · Entrada de rede', color: '#171717', terminalType: 'screw',
-        position3D: { x: 0.15, y: 0.88, z: 0.65 },
+        position3D: { x: 0.1351, y: 0.88, z: 0.5692 },
       }),
       T('L2-IN', 'power-in', 0.38, 0.08, {
         displayName: 'B (L2) · Entrada de rede', color: '#8b4513', terminalType: 'screw',
-        position3D: { x: 0.38, y: 0.88, z: 0.65 },
+        position3D: { x: 0.3784, y: 0.88, z: 0.5692 },
       }),
       T('L3-IN', 'power-in', 0.62, 0.08, {
         displayName: 'C (L3) · Entrada de rede', color: '#6b7280', terminalType: 'screw',
-        position3D: { x: 0.62, y: 0.88, z: 0.65 },
+        position3D: { x: 0.6216, y: 0.88, z: 0.5692 },
       }),
       T('N-IN', 'neutral', 0.85, 0.08, {
         displayName: 'N · Entrada de rede', color: '#2563eb', terminalType: 'screw',
-        position3D: { x: 0.85, y: 0.88, z: 0.65 },
+        position3D: { x: 0.8649, y: 0.88, z: 0.5692 },
       }),
       T('L1-OUT', 'power-out', 0.15, 0.92, {
         displayName: 'A (L1) · Saída para carga', color: '#171717', terminalType: 'screw',
-        position3D: { x: 0.15, y: 0.12, z: 0.65 },
+        position3D: { x: 0.1351, y: 0.12, z: 0.5692 },
       }),
       T('L2-OUT', 'power-out', 0.38, 0.92, {
         displayName: 'B (L2) · Saída para carga', color: '#8b4513', terminalType: 'screw',
-        position3D: { x: 0.38, y: 0.12, z: 0.65 },
+        position3D: { x: 0.3784, y: 0.12, z: 0.5692 },
       }),
       T('L3-OUT', 'power-out', 0.62, 0.92, {
         displayName: 'C (L3) · Saída para carga', color: '#6b7280', terminalType: 'screw',
-        position3D: { x: 0.62, y: 0.12, z: 0.65 },
+        position3D: { x: 0.6216, y: 0.12, z: 0.5692 },
       }),
       T('N-OUT', 'neutral', 0.85, 0.92, {
         displayName: 'N · Saída para carga', color: '#2563eb', terminalType: 'screw',
-        position3D: { x: 0.85, y: 0.12, z: 0.65 },
+        position3D: { x: 0.8649, y: 0.12, z: 0.5692 },
       }),
     ],
     defaultState: { on: false, switchOn: true, vA: 0, vB: 0, vC: 0, iA: 0, iB: 0, iC: 0, pA: 0, pB: 0, pC: 0, energy: 0, frequency: 0, temp: 20, screenMode: 0 },
