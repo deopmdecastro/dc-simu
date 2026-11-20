@@ -21,7 +21,8 @@ export default function CatalogInspector({ component }: { component: ElectricalC
   const version = entry?.versions.find((item) => item.version === link?.version)
   const info = useMemo(() => catalogUpdateInfo(component, entries), [component, entries])
   const meter = useCatalogMeter(component, version?.definition)
-  const simActive = useSimStore((s) => s.sim.runState !== 'stopped') || useSimStore((s) => s.demoMode)
+  // Um só seletor: `a || useSimStore(...)` saltava o 2.º hook e mudava a ordem dos hooks.
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped' || s.demoMode)
   if (!link) return null
   const controls = version?.definition.controls ?? []
   const states = version?.definition.states ?? []
