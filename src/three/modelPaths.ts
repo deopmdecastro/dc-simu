@@ -340,7 +340,11 @@ const ez9Nodes = (poles: number) => [...Array.from({ length: poles }, (_, index)
 /** Easy9 Switch: o CAD do produto traz uma alavanca vermelha por polo (`MANETTE`) e uma
  * travessa que as une (`EXTENSION_MANETTE_02`, malha `dcsimu_handle_bridge` no GLB). A travessa
  * só existe nos de 2P e 4P — no 1P a lista inclui um nó que não existe e é ignorado. */
-const ez9SwitchNodes = (poles: number) => [...Array.from({ length: poles }, (_, index) => `dcsimu_handle_${index + 1}`), 'dcsimu_handle_bridge']
+const ez9SwitchNodes = (poles: number) => {
+  const nodes = [...Array.from({ length: poles }, (_, index) => `dcsimu_handle_${index + 1}`)]
+  if (poles > 1) nodes.push('dcsimu_handle_bridge')
+  return nodes
+}
 
 export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>> = {
   // cubo da alavanca a y = 32,5 mm e z = 61,5 mm (da base e da traseira do corpo)

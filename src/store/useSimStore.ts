@@ -2063,15 +2063,10 @@ export const useSimStore = create<Store>((set, get) => {
         },
       }))
     }
-    // STEP avança um scan. Em STOP puro não muda o runState — só Play ativa.
-    // Em RUN: para o scheduler e deixa em PAUSA após o scan.
-    // Em PAUSA: mantém PAUSA e avança um scan.
+    // STEP avança um scan. Mesmo em STOP computa a continuidade elétrica para
+    // consultas pontuais (ex.: sonda de multímetro, verificação de lâmpada).
+    // Só não «acorda» a simulação: runState mantém-se 'stopped'.
     const before = get().sim.runState
-    if (before === 'stopped') {
-      // Não «acordar» a simulação. Operações mecânicas (relé, calha, etc.)
-      // podem chamar step por caminhos antigos; ignoramos o efeito de estado.
-      return
-    }
     if (before === 'running' || get()._intervalId) get().pause()
     const st = get()
     runOneTick(st as unknown as Store, 100)

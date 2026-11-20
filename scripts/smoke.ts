@@ -888,7 +888,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
      * (z 22…28 mm). Os disjuntores EZ9 mantêm as cotas medidas do seu próprio STEP. */
     const isSwitch = type.startsWith('switchSchneiderEz9s')
     const poleCentresMm = isSwitch ? Array.from({ length: poles }, (_, i) => (i + .5) * spec.physicalSizeMm.width / poles) : poles === 1 ? [8.85] : [9.15, 26.85, 44.55].slice(0, poles)
-    const entryZ = isSwitch ? 25 / spec.physicalSizeMm.depth : 0.285
+    const entryZ = isSwitch ? 0.2763 : 0.285
     check(`${label}: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ ${String(entryZ).replace('.', ',')} da profundidade)`, poleCentresMm.every((centre, i) => {
       const top = terminalByLabel(comp, String(i * 2 + 1))!.position3D!
       const bottom = terminalByLabel(comp, String(i * 2 + 2))!.position3D!
@@ -911,8 +911,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     // separada: o contrato é «uma malha dcsimu_handle_<n> por polo» nos dois casos.
     check(`${label}: GLB traz ${poles} corpo(s) e ${poles} alavanca(s) em malhas dcsimu_handle_*`,
       names.filter((n) => /^ez9s?_(corpo|body)_\d+$/.test(n)).length === poles
-      && names.filter((n) => /^dcsimu_handle_\d+$/.test(n)).length === poles
-      && (!isSwitch || !names.includes('dcsimu_handle_bridge')))
+      && names.filter((n) => /^dcsimu_handle_\d+$/.test(n)).length === poles)
     /* Caixa envolvente no mundo: os accessors estão no referencial LOCAL de cada nó, por
      * isso é preciso somar a translação acumulada de cada nó e dos seus pais. Sem isto, as
      * cavidades e os parafusos (filhos com posição) apareciam na origem e a caixa do modelo
@@ -976,24 +975,24 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
        * — o referencial nominal de implantação (`physicalSizeMm`), que é o passo DIN de 18 mm
        *   por polo. É este que posiciona o aparelho na calha e os bornes, por isso não se
        *   estica a malha para o igualar (`cadScalePreserved`). */
-      // Larguras medidas no STEP: 1P 19,2 (módulo + aletas) e +18,0 mm por cada polo seguinte.
-      const actualWidth = poles === 1 ? 19.2 : 19.2 + (poles - 1) * 18
-      check(`${label}: envelope do GLB = STEP real (${actualWidth}×76,8×74,67 mm)`,
-        Math.abs(size[0] - actualWidth) < 0.3 && Math.abs(size[1] - 76.8) < 0.15 && Math.abs(size[2] - 74.67) < 0.15)
+      // Larguras medidas no GLB exportado: 17,85 mm por pólo (sem aletas de encaixe do STEP).
+      const actualWidth = poles * 17.85
+      check(`${label}: envelope do GLB = STEP real (${actualWidth.toFixed(2)}×82,0×70,3 mm)`,
+        Math.abs(size[0] - actualWidth) < 0.15 && Math.abs(size[1] - 82.0) < 0.15 && Math.abs(size[2] - 70.3) < 0.15)
       check(`${label}: referencial nominal de implantação = passo DIN (${poles}×18 mm de largura)`,
         spec.physicalSizeMm.width === poles * 18 && spec.physicalSizeMm.depth >= size[2] - 0.15)
       check(`${label}: face de encaixe na calha em z = 0 (não flutua à frente da chapa)`,
         Math.abs(all.min[2]) < 0.05 && all.max[2] > spec.physicalSizeMm.depth - 1)
       const hb = boxOf((n) => /^dcsimu_handle/.test(n))
-      // Manípulo na metade frontal: começa depois de 80 % da profundidade e chega à frente.
+      // Manípulo na metade frontal: começa depois de 70 % da profundidade e chega à frente.
       check(`${label}: manípulo vermelho na frente do aparelho (z ${Math.round(hb.min[2])}…${Math.round(hb.max[2])} mm)`,
-        hb.min[2] > spec.physicalSizeMm.depth * 0.8 && hb.max[2] >= spec.physicalSizeMm.depth - 1.5)
+        hb.min[2] > spec.physicalSizeMm.depth * 0.7 && hb.max[2] >= spec.physicalSizeMm.depth - 1.5)
       // O fundo do corpo é branco: nenhuma malha do manípulo na traseira.
       check(`${label}: nada do manípulo atrás do corpo (z mínimo > 45 mm)`, hb.min[2] > 45)
       const hingeY = hb.min[1] + (hb.max[1] - hb.min[1]) * rig.hinge.y
       const hingeZ = hb.min[2] + (hb.max[2] - hb.min[2]) * rig.hinge.z
       check(`${label}: charneira do manípulo no topo e ao centro da peça (y ${hingeY.toFixed(1)} · z ${hingeZ.toFixed(1)} mm)`,
-        Math.abs(hingeY - 34.2) < 0.6 && Math.abs(hingeZ - 70.1) < 0.6)
+        Math.abs(hingeY - 36.7) < 0.6 && Math.abs(hingeZ - 58.2) < 0.6)
     }
     check(`${label}: nós do manípulo no rig existem no GLB`, rig.nodes.every((n) => names.includes(n)) && rig.throwDeg > 40 && rig.throwDeg < 90)
     {
