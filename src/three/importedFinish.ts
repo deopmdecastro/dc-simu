@@ -22,6 +22,12 @@ import type { ImportedControl } from '../electrical/importedComponents'
  */
 
 type Box = { min: [number, number, number]; max: [number, number, number] }
+
+/** GV2ME (mm no GLB): tampa a z 67,4 sobre as teclas; frente das teclas em repouso
+ *  (desligado) e curso quando liga — a I afunda, a O salta. Nunca abaixo de z 67,9. */
+export const GV2ME_BUTTON_BACK = 64
+export const GV2ME_BUTTON_FRONT = { off: 68.6, on: 70.4 } as const
+export const GV2ME_BUTTON_TRAVEL = { off: 1.8, on: 2.2 } as const
 export type PartInfo = { mesh: THREE.Mesh; box: THREE.Box3; size: THREE.Vector3; center: THREE.Vector3; color: string; vertices: number }
 
 const hex = (material: THREE.Material | THREE.Material[]) => {
@@ -42,6 +48,22 @@ function primitiveBoxMm(mesh: THREE.Mesh): { box: THREE.Box3; vertices: number }
   if (used) used.forEach(visit)
   else for (let i = 0; i < position.count; i += 1) visit(i)
   return { box, vertices: used ? used.size : position.count }
+}
+
+/** Retira de `mesh` os triângulos (vértices em mm no referencial do GLB) que cumprem `drop`.
+ *  Só reescreve o índice desta primitiva; o atributo de posição partilhado fica intacto. */
+function dropTriangles(mesh: THREE.Mesh, drop: (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => boolean): number {
+  const index = mesh.geometry.getIndex()!, position = mesh.geometry.getAttribute('position')
+  mesh.updateWorldMatrix(true, false)
+  const at = (i: number) => new THREE.Vector3().fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld).multiplyScalar(1000)
+  const kept: number[] = []
+  for (let i = 0; i < index.count; i += 3) {
+    const [ia, ib, ic] = [index.getX(i), index.getX(i + 1), index.getX(i + 2)]
+    if (!drop(at(ia), at(ib), at(ic))) kept.push(ia, ib, ic)
+  }
+  const removed = (index.count - kept.length) / 3
+  if (removed) { mesh.geometry = mesh.geometry.clone(); mesh.geometry.setIndex(kept) }
+  return removed
 }
 
 /** Inventário das peças do GLB ainda sem ajuste (raiz na identidade, metros → mm). */
@@ -343,8 +365,41 @@ export function rigImportedModel(type: string, root: THREE.Object3D, parts: Part
     // Botão vermelho O (STOP) à esquerda e preto I (START) à direita (filtro estrito por tamanho para nunca capturar a carcaça)
     const btnOff = parts.find((p) => p.size.x < 16 && p.size.y > 15 && p.center.x > -5 && p.center.x < 5 && p.center.y > 45 && p.center.y < 62)
     const btnOn = parts.find((p) => p.size.x < 16 && p.size.y > 15 && p.center.x > 8 && p.center.x < 22 && p.center.y > 45 && p.center.y < 62)
+    // As teclas do STEP são cascas finas e inclinadas (a I chega a sair 9,5 mm como uma aba).
+    // Ao mover-se mostravam o interior oco e a I enfiava-se atrás da travessa da tampa (z 67,4),
+    // que aparecia como uma barra branca. Passam a teclas sólidas com o mesmo contorno, da
+    // cavidade (z 64) até à frente em repouso; o curso fica sempre à frente da tampa.
+    for (const [part, frontMm] of [[btnOff, GV2ME_BUTTON_FRONT.off], [btnOn, GV2ME_BUTTON_FRONT.on]] as const) {
+      if (!part) continue
+      const { min, max } = part.box
+      // A janela da O sobe até y 66,9 (rampa da tampa a z 65,5…66,9); a casca do STEP
+      // parava em 64 e essa rampa via-se como uma faixa cinzenta por cima da tecla.
+      if (part === btnOff) max.y = Math.max(max.y, 66.9)
+      const depth = frontMm - GV2ME_BUTTON_BACK
+      const geometry = new THREE.BoxGeometry(max.x - min.x, max.y - min.y, depth)
+      geometry.translate((min.x + max.x) / 2, (min.y + max.y) / 2, GV2ME_BUTTON_BACK + depth / 2)
+      geometry.scale(.001, .001, .001)
+      part.mesh.updateWorldMatrix(true, false)
+      geometry.applyMatrix4(part.mesh.matrixWorld.clone().invert())
+      part.mesh.geometry = geometry // o atributo original é partilhado com outras primitivas: não se liberta
+      part.center.set((min.x + max.x) / 2, (min.y + max.y) / 2, GV2ME_BUTTON_BACK + depth / 2)
+      part.box.min.z = GV2ME_BUTTON_BACK; part.box.max.z = frontMm
+    }
+    // Restos das cascas das teclas noutras primitivas (uma lâmina inclinada até z 71,4 e uma
+    // aresta a z 76,9 sobre a I): ficavam a atravessar a tecla sólida como uma barra clara.
+    const footprints = [btnOff, btnOn].filter((p): p is PartInfo => !!p).map((p) => p.box)
+    const buttons = new Set([btnOff?.mesh, btnOn?.mesh])
+    if (footprints.length) root.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh || buttons.has(mesh) || !mesh.geometry.index) return
+      dropTriangles(mesh, (a, b, c) => [a, b, c].some((v) => v.z > 67.6) && footprints.some((f) => [a, b, c].every((v) => v.x >= f.min.x - .3 && v.x <= f.max.x + .3 && v.y >= f.min.y - .3 && v.y <= f.max.y + .3)))
+    })
     if (btnOff) pivotAround(root, [btnOff.mesh], btnOff.center.clone(), 'button-off', rig)
     if (btnOn) pivotAround(root, [btnOn.mesh], btnOn.center.clone(), 'button-on', rig)
+    for (const [part, role] of [[btnOff, 'button-off'], [btnOn, 'button-on']] as const) {
+      const pivot = part && root.getObjectByName(`imported_${role}`)
+      if (pivot) pivot.userData.frontOffsetMm = part.box.max.z - part.center.z
+    }
   } else if (type === 'keyActuatorEao61') {
     pivotAround(root, parts.filter((p) => inside(p.center, { min: [-1.5, 9, 33], max: [1.5, 24, 76] }) && p.size.x <= 2.5).map((p) => p.mesh), new THREE.Vector3(0, 20, 50), 'key', rig)
   } else if (type === 'thermalRelaySiemens3ru1116') {
@@ -427,9 +482,9 @@ export function animateImportedRig(rig: ImportedRig, type: string, state: Record
       item.pivot.rotation.set(r.x, r.y, r.z - item.value * THREE.MathUtils.degToRad(35))
       item.pivot.position.set(p.x, p.y, p.z + (state.tripped ? .003 : 0))
     } else if (item.role === 'button-on' && type === 'motorBreakerSchneiderGv2me') {
-      item.pivot.position.set(p.x, p.y, p.z - item.value * 0.0055)
+      item.pivot.position.set(p.x, p.y, p.z - item.value * GV2ME_BUTTON_TRAVEL.on * .001)
     } else if (item.role === 'button-off' && type === 'motorBreakerSchneiderGv2me') {
-      item.pivot.position.set(p.x, p.y, p.z + item.value * 0.0055)
+      item.pivot.position.set(p.x, p.y, p.z + item.value * GV2ME_BUTTON_TRAVEL.off * .001)
     } else if (item.role.startsWith('button') || item.role === 'stop') item.pivot.position.set(p.x, p.y, p.z - item.value * .0028)
   }
   const RCD_TRIP_COLOR = new THREE.Color('#f59e0b')

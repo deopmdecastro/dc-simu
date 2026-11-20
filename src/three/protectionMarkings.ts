@@ -1498,7 +1498,8 @@ export function applyProtectionMarkings(
         ctx.stroke()
       })
       if (stopTex) {
-        const m = makePlateMesh(stopTex, 5.2, 5.2, [0, 0, 1.8], 0.001)
+        // Na face da tecla sólida (ver GV2ME_BUTTON_FRONT em importedFinish).
+        const m = makePlateMesh(stopTex, 5.2, 5.2, [0, 0, Number(btnOff.userData.frontOffsetMm ?? 1.75) + .05], 0.001)
         m.name = '__dcGv2meBtnO'
         btnOff.add(m)
       }
@@ -1515,7 +1516,7 @@ export function applyProtectionMarkings(
         ctx.stroke()
       })
       if (startTex) {
-        const m = makePlateMesh(startTex, 5.2, 5.2, [0, 0, 5.1], 0.001)
+        const m = makePlateMesh(startTex, 5.2, 5.2, [0, 0, Number(btnOn.userData.frontOffsetMm ?? 5.05) + .05], 0.001)
         m.name = '__dcGv2meBtnI'
         btnOn.add(m)
       }
