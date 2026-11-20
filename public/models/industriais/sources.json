@@ -212,22 +212,6 @@
       "sha256": "677937c1014db3becb9739a3892a4518f4f78b44659dd963e48ef5de387e5b83"
     },
     {
-      "type": "breakerMurrelektronikMico46",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://media.automation24.com/manual/101523.pdf",
-      "changes": "Redrawn from the product photograph: stepped side profile (tall rear with slatted top vent and side slots, input shelf, front window, finned heat-sink block, lower output step). Spring-clamp terminals: 2× +24V 16 mm² on the top shelf with round entries and front release levers, ON/13/14 signal block between them, 4× OUT and 2× GND on the lower step entering from below. Per channel: translucent ON/OFF key with the bi-colour LED inside under a hinged clear cover, green-arrow 1/2/4/6 A selector. Footprint kept at 70 mm width. Dimensioned reconstruction, not manufacturer STEP.",
-      "physicalSizeMm": {
-        "width": 71,
-        "height": 83.1,
-        "depth": 56
-      },
-      "interfaces": 11,
-      "cavities": 0,
-      "pins": 0,
-      "bytes": 344924,
-      "sha256": "a222269575b11706adeccd7a9b63281cc39c37acf04a33afa94949779b8736ee"
-    },
-    {
       "type": "timerGeyaGrt8B1",
       "kind": "dimensioned-reconstruction",
       "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
@@ -304,6 +288,26 @@
       "pins": 0,
       "bytes": 2188264,
       "sha256": "7468f00724323b267f7eeba1be33caab4a7ed39a7cddab6fee8b83327b48b598"
+    },
+    {
+      "type": "breakerMurrelektronikMico46",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://media.automation24.com/manual/101523.pdf",
+      "changes": "Rebuilt from the Classic 4.6 product photograph and manual V2.5: inclined spring terminals with two ON entries, open roof slots, charcoal rounded case, clear keys and separate protective flap, four sloping lower blades and side circuit marking. Manual envelope W70 H90 D80 mm. Reconstructed appearance, not manufacturer STEP.",
+      "visualRefinement": {
+        "reference": "MICO Classic 4.6 product photograph and installation manual V2.5",
+        "details": "70 × 90 × 80 mm case, inclined spring terminals, duplicated ON, perforated roof, clear keys and protective flap, four sloping lower channel blades and side circuit marking. Reconstructed appearance, not manufacturer STEP."
+      },
+      "physicalSizeMm": {
+        "width": 70,
+        "height": 90,
+        "depth": 79.9
+      },
+      "interfaces": 12,
+      "cavities": 12,
+      "pins": 0,
+      "bytes": 1594004,
+      "sha256": "a4a2f748509155e2069694b48ba1c241b9d18d2c6743d90711a14069b66ee8ba"
     }
   ]
 }

@@ -1,0 +1,58 @@
+{
+  "checks": 18,
+  "measurements": [
+    {
+      "name": "off",
+      "hits": [
+        "schneider_handle_grip",
+        "schneider_handle_white",
+        "schneider_handle_barrel",
+        "schneider_handle_grip",
+        "schneider_handle_white",
+        "schneider_handle_barrel",
+        "schneider_handle_grip",
+        "schneider_handle_barrel",
+        "schneider_handle_barrel"
+      ],
+      "centerError": 5.551115123125783e-17,
+      "opaque": true,
+      "angle": 0
+    },
+    {
+      "name": "on",
+      "hits": [
+        "schneider_handle_barrel",
+        "schneider_handle_barrel",
+        "schneider_handle_grip",
+        "schneider_handle_barrel",
+        "schneider_handle_barrel",
+        "schneider_handle_grip",
+        "schneider_handle_barrel",
+        "schneider_handle_barrel",
+        "schneider_handle_grip"
+      ],
+      "centerError": 5.551115123125783e-17,
+      "opaque": true,
+      "angle": -0.7853981633974483
+    },
+    {
+      "name": "trip",
+      "hits": [
+        "schneider_handle_barrel",
+        "schneider_handle_grip",
+        "schneider_handle_barrel",
+        "schneider_handle_barrel",
+        "schneider_handle_grip",
+        "schneider_handle_barrel",
+        "schneider_handle_barrel",
+        "schneider_handle_grip",
+        "schneider_handle_barrel"
+      ],
+      "centerError": 8.881784197001252e-16,
+      "opaque": true,
+      "angle": -0.39269908169872414
+    }
+  ],
+  "errors": [],
+  "scope": "Painel/Admin React/R3F reais, guardar/reabrir/exportar para catálogo em IndexedDB isolado, pedidos externos bloqueados"
+}

@@ -46,7 +46,7 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
     if (ACTIONS[node.name]) node.userData.industrialControl = ACTIONS[node.name]
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh || prepared.has(node)) return
-    const owned = node.name.startsWith('industrial_led_') || node.name === 'industrial_lcd' || node.name.endsWith('_label') || node.name.endsWith('_logo') || node.name.includes('_sticker') || node.name === 'industrial_fascia'
+    const owned = node.name.startsWith('industrial_led_') || node.name.startsWith('industrial_mico_led_') || node.name === 'industrial_lcd' || node.name.endsWith('_label') || node.name.endsWith('_logo') || node.name.includes('_sticker') || node.name === 'industrial_fascia'
     if (owned) {
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone()
       node.userData.protectionMarking = true // UVs de impressão, não projeção CAD genérica
@@ -71,6 +71,8 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
       // Antes ficava «button1»/«select1», que a lógica ignorava: os botões não faziam nada.
       if (m) node.userData.industrialControl = (m[1] === 'button' ? 'ch' : 'sel') + m[2]
       if (node.name.startsWith('industrial_mico_button_') || node.name.startsWith('industrial_mico_select_')) node.userData.industrialMoving = true
+      // The clear protective flap must not swallow picks intended for the real selectors.
+      if (node.name.startsWith('industrial_mico_guard_')) node.raycast = () => {}
     })
   }
   // Botoeiras KEOLEA KL-XB2: o disco colorido do actuador é a zona de pressão real.
@@ -233,10 +235,17 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
     }
   }
   if (drawLcd && type === 'vfdSchneiderAtv320') redrawLcd(root, s)
-  if (type === 'breakerMurrelektronikMico46' && moveControls) {
-    const ch = (s.channels ?? {}) as Record<string, { on: boolean; setpointA: number }>
+  if (type === 'breakerMurrelektronikMico46') {
+    const ch = (s.channels ?? {}) as Record<string, { on: boolean; setpointA: number; tripped?: boolean; fault?: boolean }>
     for (const i of [1, 2, 3, 4]) {
       const c = ch[String(i)]
+      const lens = root.getObjectByName('industrial_mico_led_' + i) as THREE.Mesh | undefined
+      if (lens?.isMesh) for (const material of Array.isArray(lens.material) ? lens.material : [lens.material]) {
+        if (!(material instanceof THREE.MeshStandardMaterial)) continue
+        const color = !s.powered ? '#514c51' : c?.on && !c.tripped && !c.fault ? '#36c938' : '#d52e32'
+        material.color.set(color);material.emissive.set(s.powered ? color : '#000000');material.emissiveIntensity = s.powered ? .35 : 0
+      }
+      if (!moveControls) continue
       const btn = root.getObjectByName('industrial_mico_button_' + i)
       if (btn) { btn.userData.restZ ??= btn.position.z; btn.position.z = btn.userData.restZ - (c?.on ? 0 : 0.0008) }
       const sel = root.getObjectByName('industrial_mico_select_' + i)
@@ -284,7 +293,7 @@ export const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>
   pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
   pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
   pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', ...xb2TerminalNumbers() },
-  breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png', industrial_mico_print_24v_1: 'mico-24v.png', industrial_mico_print_24v_2: 'mico-24v.png', industrial_mico_print_gnd: 'mico-gnd.png' },
+  breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png', industrial_mico_print_24v_1: 'mico-24v.png', industrial_mico_print_24v_2: 'mico-24v.png', industrial_mico_print_gnd: 'mico-gnd.png', industrial_mico_signal_labels: 'mico-signals.png', industrial_mico_guard_numbers: 'mico-numbers.png', industrial_mico_side_label: 'mico-side.png' },
   vfdSchneiderAtv320: {
     industrial_schneider_logo: 'atv320-schneider-white.png',
     industrial_product_sticker: 'atv320-product-label.png',

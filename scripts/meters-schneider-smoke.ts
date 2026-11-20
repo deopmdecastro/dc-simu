@@ -12,6 +12,7 @@ import { getComponentModelSpec } from '../src/three/modelPaths'
 import { terminalLocal3D } from '../src/three/terminal3D'
 import { REAL_TERMINALS,terminalInsetMm } from '../src/electrical/realInterfaces'
 import { applySchneiderModularState } from '../src/three/schneiderModularModel'
+import { applySchneiderRcdState, completeSchneiderIidHandle } from '../src/three/schneiderRcdModel'
 import { createDigitalMeterObject, digitalMeterSpec } from '../src/three/digitalMeterModel'
 import { buildBuiltinDraft } from '../src/admin/editor3d/builtinComponents'
 import { boundsMm, buildDefinitionObject, loadGlbAssets, runtimeSpec } from '../src/catalog/definition'
@@ -75,6 +76,18 @@ for(const type of types){
  }
  check(!misaligned.length,type+': CAD cavity axes and live electrical endpoints share the physical frame '+misaligned.join(','))
  check(!occluded.length,type+': terminal rays enter a finite unobstructed cavity '+occluded.join(','))
+ if(type==='residualBreakerSchneiderIid4p'){
+  const barrel=clone.getObjectByName('schneider_handle_barrel')!
+  check(!!barrel,'iID: source GLB includes the black handle closure')
+  barrel.removeFromParent();completeSchneiderIidHandle(clone);completeSchneiderIidHandle(clone)
+  let count=0;clone.traverse(n=>{if(n.name==='schneider_handle_barrel')count++})
+  check(count===1,'iID: legacy asset closure is restored once, without duplicate geometry')
+  const centers=[]
+  for(const state of [{closed:false},{closed:true},{closed:false,tripped:true}]){
+   applySchneiderRcdState(clone,state);centers.push(clone.getObjectByName('schneider_handle_barrel')!.getWorldPosition(new THREE.Vector3()))
+  }
+  check(centers.every(c=>c.distanceTo(centers[0])<1e-9),'iID: black barrel remains on the real hinge axis in OFF/ON/TRIP')
+ }
  if(type==='pilotLightSchneiderIil3p'){
   const second=fitComponentModel(cloneModelScene(scene),spec,.01,'center');applySchneiderModularState(fitted,type,{l1On:true,l2On:false,l3On:true});applySchneiderModularState(second,type,{l1On:false,l2On:true,l3On:false})
   const lens=(r:THREE.Object3D,n:number)=>(r.getObjectByName('acti9_lens_'+n) as THREE.Mesh).material as THREE.MeshStandardMaterial

@@ -2,6 +2,7 @@
 import geometry from '../data/industrial-device-geometry.json'
 import type { ElectricalComponent, TerminalKind } from '../types'
 import type { ComponentTemplate, TerminalTemplate } from './factory'
+import type { RealTerminalSpot } from './realInterfaces'
 
 export type IndustrialDeviceType = keyof typeof geometry
 export const INDUSTRIAL_DEVICE_TYPES = Object.keys(geometry) as IndustrialDeviceType[]
@@ -160,7 +161,7 @@ const INDUSTRIAL_PALETTE_GROUP: Record<ComponentTemplate['category'], string> = 
 
 export function industrialTemplates(): Record<IndustrialDeviceType, ComponentTemplate> {
   return Object.fromEntries(INDUSTRIAL_DEVICE_TYPES.map(type => {
-    const g = geometry[type], info = INDUSTRIAL_INFO[type]
+    const g = { ...geometry[type], terminals: geometry[type].terminals as RealTerminalSpot[] }, info = INDUSTRIAL_INFO[type]
     const normals = { front: [0,0,1], back: [0,0,-1], top: [0,1,0], bottom: [0,-1,0], left: [-1,0,0], right: [1,0,0] }
     // Grupos lógicos em grelha. IDs e coordenadas 3D continuam a vir do fabricante.
     const groups: typeof g.terminals[] = []
@@ -190,7 +191,7 @@ export function industrialTemplates(): Record<IndustrialDeviceType, ComponentTem
         diameter: Math.min(6,spot.diameterMm??3), position3D: position,
         face: spot.face as 'front'|'back'|'top'|'bottom'|'left'|'right',
         socket3D: { diameterMm: spot.diameterMm??3, depthMm: spot.holeDepthMm??5, insetMm: 0,
-          normal: normals[spot.face as keyof typeof normals] as [number,number,number], position },
+          normal: (spot.normal ?? normals[spot.face as keyof typeof normals]) as [number,number,number], position },
         ...(spot.contact==='pin'?{displayName:'Pino '+spot.label}:spot.label.startsWith('P')&&type==='relaySocketFinder9023'?{displayName:'Alvéolo '+spot.label}:{}) }
     })
     return [type,{ category:info.category,paletteName:info.name,group:INDUSTRIAL_PALETTE_GROUP[info.category],
@@ -216,6 +217,7 @@ export function industrialBridges(c: ElectricalComponent): Array<[string,string]
   else if(type.startsWith('pushButtonXb2')&&type!=='pushButtonXb2Nc'){if(c.state.pressed)pair('3','4')}
   else if(type==='pushButtonXb2Nc'){if(!c.state.pressed)pair('1','2')}
   else if(type==='breakerMurrelektronikMico46'){
+    pair('L+','L+2');pair('GND','GND2');pair('ON','ON2')
     const ch=(c.state.channels??{}) as Record<string,{on:boolean;tripped:boolean;fault:boolean}>
     const anyBad=[1,2,3,4].some(i=>{const k=ch[String(i)];return !!k?.on&&(!!k?.tripped||!!k?.fault)})
     if(!anyBad)pair('13','14')

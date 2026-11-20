@@ -4,10 +4,12 @@ import type { ComponentType } from '../types'
 import type { RealTerminalSpot } from './realInterfaces'
 
 export const MECHANICAL_INTERFACE_TYPES = new Set<ComponentType>([
-  'contactorWegCwbc65', 'timerGeyaGrt8M1', 'timerGeyaGrt8M2', 'timerGeyaGrt8B1',
+  'contactorWegCwbc65', 'timerGeyaGrt8M1', 'timerGeyaGrt8M2', 'timerGeyaGrt8B1', 'breakerMurrelektronikMico46',
 ])
 
 export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
+  // MICO anterior à frente inclinada: onze pontos automáticos de superfície.
+  breakerMurrelektronikMico46: [{"label":"L+","face":"top","contact":"surface","x":0.190141,"y":0.031889,"z":0.642857,"diameterMm":6.4,"holeDepthMm":8},{"label":"L+2","face":"top","contact":"surface","x":0.809859,"y":0.031889,"z":0.642857,"diameterMm":6.4,"holeDepthMm":8},{"label":"ON","face":"top","contact":"surface","x":0.401408,"y":0.055957,"z":0.633929,"diameterMm":3.4,"holeDepthMm":6},{"label":"13","face":"top","contact":"surface","x":0.5,"y":0.055957,"z":0.633929,"diameterMm":3.4,"holeDepthMm":6},{"label":"14","face":"top","contact":"surface","x":0.598592,"y":0.055957,"z":0.633929,"diameterMm":3.4,"holeDepthMm":6},{"label":"GND","face":"bottom","contact":"surface","x":0.091549,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT1","face":"bottom","contact":"surface","x":0.25493,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT2","face":"bottom","contact":"surface","x":0.41831,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT3","face":"bottom","contact":"surface","x":0.58169,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT4","face":"bottom","contact":"surface","x":0.74507,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"GND2","face":"bottom","contact":"surface","x":0.908451,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6}],
   // M2 anterior: as duas filas inferiores partilhavam indevidamente a entrada.
   timerGeyaGrt8M2: [
     {label:'A1',face:'top',contact:'socket',x:.212389,y:.026316,z:.214231,diameterMm:4,holeDepthMm:8.6},
@@ -735,6 +737,7 @@ export const LEGACY_METER_POSITIONS: Record<string, Record<string,{x:number;y:nu
  meterKws306: Object.fromEntries(['L1','L2','L3','N'].flatMap((label,i)=>[['IN',.88],['OUT',.12]].map(([side,y])=>[label+'-'+side,{x:[.1351,.3784,.6216,.8649][i],y:Number(y),z:.5692}])))
 }
 export const LEGACY_MODULAR_SIZE: Record<string,{width:number;height:number;depth:number}> = {
+  breakerMurrelektronikMico46: {"width":71,"height":83.1,"depth":56},
   timerGeyaGrt8M2: {width:18.08,height:95,depth:65.35},
  contactorWegCwbc65:{width:57.61,height:159.4,depth:115},
  breakerSchneiderIc60h1p:{width:18,height:85,depth:74},pilotLightSchneiderIil1p:{width:18,height:85,depth:74},pilotLightSchneiderIil3p:{width:54,height:85,depth:74}

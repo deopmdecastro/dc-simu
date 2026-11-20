@@ -1,4 +1,24 @@
 import { source, makeRoot, addMesh, pivot, cavities, status, saveModel, manifest, materials as m } from './lib/schneider-building.mjs'
+import fs from 'node:fs/promises'
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+import {completeSchneiderIidHandle} from '../src/three/schneiderRcdModel.ts'
+
+// node --import tsx scripts/build-schneider-rcd-glb.mjs --refresh-iid-barrel
+// Atualiza um GLB existente sem repetir o download/conversão do STEP original.
+if(process.argv.includes('--refresh-iid-barrel')){
+ const file='public/models/protecao/schneider-acti9-iid-4p.glb',manifestFile='public/models/protecao/schneider-acti9-rcd-sources.json'
+ const provenance=JSON.parse(await fs.readFile(manifestFile,'utf8')),previous=provenance.models.find(m=>m.path==='/models/protecao/schneider-acti9-iid-4p.glb')
+ const bytes=await fs.readFile(file),{scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')
+ const root=scene.getObjectByName('schneider_residualBreakerSchneiderIid4p')
+ if(!root)throw Error('Missing original iID model root')
+ root.traverse(n=>{if(n.isMesh)n.geometry.scale(1000,1000,1000);n.position.multiplyScalar(1000)})
+ completeSchneiderIidHandle(root,1)
+ const note='Added a capped black handle barrel behind the original STEP grip, concentric with the reviewed iID axis. Reconstructed closure prevents visibility through the simplified handle aperture; no electrical interfaces changed.'
+ const record=await saveModel(root,previous.path,previous.nominalSizeMm,previous.source,[...new Set([...previous.adaptations,note])])
+ provenance.models=provenance.models.map(m=>m.path===record.path?record:m)
+ await fs.writeFile(manifestFile,JSON.stringify(provenance,null,2)+'\n')
+ console.log('iID: obturador preto integrado no GLB ('+record.bytes+' bytes)');process.exit(0)
+}
 const sourceDir=process.argv.includes('--source-dir')?process.argv[process.argv.indexOf('--source-dir')+1]:undefined
 const models=[]
 {
@@ -33,6 +53,7 @@ const models=[]
  addMesh(root,shell,map,m.white,'schneider_test',test)
  for(let i=1;i<s.meshes.length;i++)addMesh(root,s.meshes[i],(x,y,z)=>map(x,y+(i<=2?-5.504:5.069),z),m.latch,'schneider_clip_'+i)
  status(root,'schneider_visisafe',-26.9,41.8,66.4,9)
+ completeSchneiderIidHandle(root,1)
  const rows=[]
  for(const [face,ny,labels]of [['top',0,['N1','1','3','5']],['bottom',1,['N2','2','4','6']]])
   for(let k=0;k<4;k++)rows.push([labels[k],face,[.127615,.375872,.624128,.872385][k],ny,.284821,8,13.5])
@@ -40,7 +61,8 @@ const models=[]
  models.push(await saveModel(root,'/models/protecao/schneider-acti9-iid-4p.glb',dims,s.source,[
   'Fused simplified STEP explicitly split by reviewed original faces: rocker 103/117-120, dark grip 104-116, test button 186-190. No replacement generic shell.',
   'Rear clips rigidly translated to mounting pose. Body and curved front remain at source scale; nominal depth differs from source handle envelope by less than 1 mm.',
-  'Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged.'
+  'Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged.',
+  'Closed black handle barrel reconstructed behind the original grip, concentric with the real hinge axis, to occlude the hollow simplified STEP aperture.'
  ]))
 }
 await manifest('models/protecao/schneider-acti9-rcd-sources.json',models)

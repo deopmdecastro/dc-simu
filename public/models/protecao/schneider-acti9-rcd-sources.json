@@ -32,8 +32,8 @@
     },
     {
       "path": "/models/protecao/schneider-acti9-iid-4p.glb",
-      "bytes": 302472,
-      "sha256": "487c2bb74f3c2ce54540f9a73683a8f3c3e715135c2297fa44cbc861f92f4d9b",
+      "bytes": 319784,
+      "sha256": "0aa2015431202594ed6559273d77819bede616827ba958dc3c9e236bd86f7c26",
       "nominalSizeMm": {
         "width": 72,
         "height": 85,
@@ -53,7 +53,8 @@
       "adaptations": [
         "Fused simplified STEP explicitly split by reviewed original faces: rocker 103/117-120, dark grip 104-116, test button 186-190. No replacement generic shell.",
         "Rear clips rigidly translated to mounting pose. Body and curved front remain at source scale; nominal depth differs from source handle envelope by less than 1 mm.",
-        "Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged."
+        "Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged.",
+        "Added a capped black handle barrel behind the original STEP grip, concentric with the reviewed iID axis. Reconstructed closure prevents visibility through the simplified handle aperture; no electrical interfaces changed."
       ]
     }
   ]

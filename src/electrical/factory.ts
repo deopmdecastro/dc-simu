@@ -1497,7 +1497,7 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
         const atEndpoint = close(socket.insetMm, terminalInsetMm(candidate)) && close(socket.position.x, at.x)
           && close(socket.position.y, at.y) && close(socket.position.z, at.z)
         if ((!atMouth && !atEndpoint)
-          || !socket.normal.every((n, i) => close(n, FACE_OUTWARD_3D[candidate.face][i]))
+          || !socket.normal.every((n, i) => close(n, (candidate.normal ?? FACE_OUTWARD_3D[candidate.face])[i]))
           || !close(socket.diameterMm, candidate.diameterMm ?? 4)
           || !close(socket.depthMm, candidate.holeDepthMm ?? 5)) return null
         return { atMouth }
@@ -1506,7 +1506,7 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
       if (socket) {
         mechanical.socket3D = { ...socket,
           position: known.atMouth ? { x: spot.x, y: 1 - spot.y, z: spot.z } : { ...target },
-          normal: [...FACE_OUTWARD_3D[spot.face]], diameterMm: spot.diameterMm ?? 4,
+          normal: [...(spot.normal ?? FACE_OUTWARD_3D[spot.face])], diameterMm: spot.diameterMm ?? 4,
           depthMm: spot.holeDepthMm ?? 5, insetMm: known.atMouth ? 0 : terminalInsetMm(spot) }
       }
       mechanical.face = spot.face
@@ -1581,6 +1581,13 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
       terminals[index] = { ...terminal, ...(legacy ? { x: template.x, y: template.y } : {}), kind: 'io' }
       changed = true
     })
+  }
+  // Só projetos nativos automáticos recebem a segunda entrada ON; as identidades
+  // dos onze bornes existentes e os extremos dos cabos são conservados.
+  if (c.type === 'breakerMurrelektronikMico46' && !terminals.some(t => t.label === 'ON2')) {
+    const template = TEMPLATES.breakerMurrelektronikMico46.terminals.find(t => t.label === 'ON2')!
+    terminals.push({ ...createTerminal(c.id, template.label, template.kind), ...template })
+    changed = true
   }
   if (repairMeter) {
     for (const template of TEMPLATES.multimeterDm20.terminals) {

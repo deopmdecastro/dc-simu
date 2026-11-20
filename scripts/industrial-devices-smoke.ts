@@ -38,6 +38,8 @@ for (const type of INDUSTRIAL_DEVICE_TYPES) {
   const clone = cloneModelScene(scene); prepareIndustrialModel(clone, type); mergeStaticMeshes(clone)
   check(clone.getObjectByName('industrial_device_' + type), `${type}: static merge preserves device identity`)
   if (type === 'breakerMurrelektronikMico46') {
+    check([1,2,3,4].every(i=>scene.getObjectByName('industrial_mico_channel_blade_'+i)) && !!scene.getObjectByName('industrial_mico_perforated_roof'), 'MICO: four distinct sloping channel blades and perforated roof in the exported asset')
+    check(g.terminals.length===12 && g.terminals.some(t=>t.label==='ON2') && Math.abs(g.physicalSizeMm.width-70)<.2 && Math.abs(g.physicalSizeMm.height-90)<.2 && Math.abs(g.physicalSizeMm.depth-80)<.2, 'MICO: manual W70 H90 D80 envelope and duplicated ON entry')
     // O clique 3D tem de dar um controlo que a lógica conhece (antes «button1» era ignorado).
     for (const i of [1, 2, 3, 4]) {
       const btn = clone.getObjectByName('industrial_mico_button_' + i), sel = clone.getObjectByName('industrial_mico_select_' + i)
@@ -49,7 +51,7 @@ for (const type of INDUSTRIAL_DEVICE_TYPES) {
   const cavityErrors: string[] = []
   for (const terminal of g.terminals) {
     if (terminal.contact !== 'socket') continue
-    const normal = new THREE.Vector3(...({ front: [0,0,1], back: [0,0,-1], top: [0,1,0], bottom: [0,-1,0], left: [-1,0,0], right: [1,0,0] } as const)[terminal.face])
+    const normal = new THREE.Vector3(...('normal' in terminal ? terminal.normal : ({ front: [0,0,1], back: [0,0,-1], top: [0,1,0], bottom: [0,-1,0], left: [-1,0,0], right: [1,0,0] } as const)[terminal.face]))
     const at = new THREE.Vector3(box.min.x + terminal.x * size.x, box.max.y - terminal.y * size.y, box.min.z + terminal.z * size.z)
     const ray = new THREE.Raycaster(at.clone().addScaledVector(normal, .00015), normal.clone().negate(), 0, terminal.holeDepthMm / 1000 + .001)
     const hits = ray.intersectObject(scene, true).filter(h => !h.object.name.includes('label') && !h.object.name.includes('sticker'))
@@ -141,6 +143,11 @@ const mico=createComponent('breakerMurrelektronikMico46')
 wires=[cable(dcSrc,'+24V',mico,'L+'),cable(dcSrc,'0V',mico,'GND')]
 const scanMico=()=>updateIndustrialDevice(mico,context([dcSrc,mico],wires),100)
 scanMico();check(mico.state.powered===true&&mico.state.supplyMismatch===false,'MICO: 24 V DC alimenta sem mismatch')
+const duplicateFeed=createComponent('breakerMurrelektronikMico46'), duplicateWires=[cable(dcSrc,'+24V',duplicateFeed,'L+2'),cable(dcSrc,'0V',duplicateFeed,'GND2')]
+updateIndustrialDevice(duplicateFeed,context([dcSrc,duplicateFeed],duplicateWires),100)
+check(duplicateFeed.state.powered===true,'MICO: duplicated L+2 and GND2 feed the same input rails')
+const duplicateGraph=context([duplicateFeed],[])
+check([...(duplicateGraph.adjacency.get(id(duplicateFeed,'ON'))??[])].includes(id(duplicateFeed,'ON2')),'MICO: ON and ON2 share the same restart input')
 check(mico.state.channels['1'].on===false,'MICO: entrega com canais OFF (estado de fábrica)')
 const patch=industrialControlPatch('breakerMurrelektronikMico46',mico.state,'ch1')
 Object.assign(mico.state,patch);scanMico()

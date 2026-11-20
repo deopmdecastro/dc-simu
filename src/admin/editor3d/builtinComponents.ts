@@ -140,7 +140,7 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
       // Pinos não têm furo onde o ponto «afunde»: a ponta medida é o ponto físico
       // e não pode ser encostada à envolvente (3RU1116: 0,01 mm abaixo do topo).
       ...(isDigitalMeterType(type) || spot?.contact === 'pin' ? { preservePosition3D: true } : {}),
-      normal: spot ? [...FACE_NORMAL[spot.face]] : nearest,
+      normal: spot ? [...(spot.normal ?? FACE_NORMAL[spot.face])] : nearest,
       ...(spot ? { diameterMm: spot.diameterMm, socketDepthMm: spot.holeDepthMm, socketInsetMm: terminalInsetMm(spot) }
         : type === 'currentTransformerSplitCore' && /^S[12]$/.test(item.label)
           ? { diameterMm: 4.4, socketDepthMm: 5, socketInsetMm: (1 - p.z) * size.z } : {}),
@@ -402,6 +402,9 @@ function upgradeMechanicalInterfaceDefaults(type: ComponentType, def: ComponentD
     return { ...terminal, position: next.position, normal: next.normal, diameterMm: next.diameterMm,
       socketDepthMm: next.socketDepthMm, socketInsetMm: next.socketInsetMm }
   })
+  if (type === 'breakerMurrelektronikMico46' && changed && !def.terminals.some(t => t.label === 'ON2')) {
+    def.terminals.push(fresh.find(t => t.label === 'ON2')!)
+  }
   return changed
 }
 

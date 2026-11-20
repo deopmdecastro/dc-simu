@@ -46,10 +46,10 @@ function oldTerminalPoint(type:ComponentType, label:string){
 }
 for(const type of MECHANICAL_INTERFACE_TYPES){
  const c=createComponent(type),fresh=clone(c)
- c.terminals=c.terminals.map(t=>{const {old,point}=oldTerminalPoint(type,t.label);return{...t,position3D:point,face:old.face,contact:old.contact??'socket',diameter:old.diameterMm,socket3D:type.startsWith('timerGeya')?{diameterMm:old.diameterMm!,depthMm:old.holeDepthMm!,insetMm:0,normal:[...normal[old.face]],position:{x:old.x,y:1-old.y,z:old.z}}:undefined}})
+ c.terminals=c.terminals.filter(t=>LEGACY_REAL_TERMINALS[type]!.some(s=>s.label===t.label)).map(t=>{const {old,point}=oldTerminalPoint(type,t.label);return{...t,position3D:point,face:old.face,contact:old.contact??'socket',diameter:old.diameterMm,socket3D:type.startsWith('timerGeya')?{diameterMm:old.diameterMm!,depthMm:old.holeDepthMm!,insetMm:0,normal:[...normal[old.face]],position:{x:old.x,y:1-old.y,z:old.z}}:undefined}})
  const upgraded=upgradeRealInterfacePositions(c)
- check(upgraded.terminals.every(t=>{const target=fresh.terminals.find(x=>x.label===t.label)!;return t.id===target.id&&(['x','y','z'] as const).every(k=>Math.abs(t.position3D![k]-target.position3D![k])<1e-9)&&t.contact==='socket'}),type+': only known factory endpoints migrate, retaining terminal IDs')
- check(upgraded.terminals.every(t=>terminalNormalWorld3D(upgraded,t).distanceTo(new THREE.Vector3(...normal[REAL_TERMINALS[type]!.find(s=>s.label===t.label)!.face]))<1e-6),type+': migrated cable normals follow the corrected physical face')
+ check(upgraded.terminals.length===fresh.terminals.length&&upgraded.terminals.every(t=>{const target=fresh.terminals.find(x=>x.label===t.label)!,old=c.terminals.find(x=>x.label===t.label);return (!old||t.id===old.id)&&(['x','y','z'] as const).every(k=>Math.abs(t.position3D![k]-target.position3D![k])<1e-9)&&t.contact==='socket'}),type+': only known factory endpoints migrate, retaining terminal IDs')
+ check(upgraded.terminals.every(t=>{const spot=REAL_TERMINALS[type]!.find(s=>s.label===t.label)!;return terminalNormalWorld3D(upgraded,t).distanceTo(new THREE.Vector3(...(spot.normal??normal[spot.face])))<1e-6}),type+': migrated cable normals follow the corrected physical face')
  check(upgradeRealInterfacePositions(upgraded)===upgraded,type+': native migration is idempotent')
  const pinned=clone(c);pinned.terminals[0].pinned=true
  check(upgradeRealInterfacePositions(pinned).terminals[0]===pinned.terminals[0],type+': pinned endpoint is untouched')
@@ -63,7 +63,7 @@ for(const type of MECHANICAL_INTERFACE_TYPES){
  for(const field of ['face','contact','socketPosition','socketDiameter','socketNormal'] as const){
   const custom=clone(c),first=custom.terminals[0],o=oldTerminalPoint(type,first.label)
   if(field==='face')first.face='left'
-  if(field==='contact')first.contact='surface'
+  if(field==='contact')first.contact=first.contact==='surface'?'pin':'surface'
   if(field.startsWith('socket')){
    first.socket3D={position:{x:o.old.x,y:1-o.old.y,z:o.old.z},normal:[...normal[o.old.face]],diameterMm:o.old.diameterMm!,depthMm:o.old.holeDepthMm!,insetMm:0}
    if(field==='socketPosition')first.socket3D.position.x+=.0001
@@ -75,11 +75,11 @@ for(const type of MECHANICAL_INTERFACE_TYPES){
  const endpoints=clone(c)
  endpoints.terminals=endpoints.terminals.map(t=>{const {old,point}=oldTerminalPoint(type,t.label);return{...t,socket3D:{position:{...point},normal:[...normal[old.face]],diameterMm:old.diameterMm!,depthMm:old.holeDepthMm!,insetMm:terminalInsetMm(old)}}})
  const endpointResult=upgradeRealInterfacePositions(endpoints)
- check(endpointResult.terminals.every(t=>JSON.stringify(t.socket3D?.position)===JSON.stringify(t.position3D)),type+': legacy socket-at-endpoint representation also follows its automatic endpoint')
+ check(endpointResult.terminals.filter(t=>c.terminals.some(s=>s.label===t.label)).every(t=>JSON.stringify(t.socket3D?.position)===JSON.stringify(t.position3D)),type+': legacy socket-at-endpoint representation also follows its automatic endpoint')
  const {def}=await buildBuiltinDraft(type),oldDef=clone(def)
- oldDef.terminals=oldDef.terminals.map(t=>{const {old,p,point}=oldTerminalPoint(type,t.label);return{...t,name:'AUTOR '+t.label,position:[(point.x-.5)*p.width,point.y*p.height,(point.z-.5)*p.depth],normal:[...normal[old.face]],diameterMm:old.diameterMm,socketDepthMm:old.holeDepthMm,socketInsetMm:terminalInsetMm(old)}})
+ oldDef.terminals=oldDef.terminals.filter(t=>LEGACY_REAL_TERMINALS[type]!.some(s=>s.label===t.label)).map(t=>{const {old,p,point}=oldTerminalPoint(type,t.label);return{...t,name:'AUTOR '+t.label,position:[(point.x-.5)*p.width,point.y*p.height,(point.z-.5)*p.depth],normal:[...normal[old.face]],diameterMm:old.diameterMm,socketDepthMm:old.holeDepthMm,socketInsetMm:terminalInsetMm(old)}})
  const admin=await upgradeBuiltinDraft(type,oldDef)
- check(admin?.terminals.every(t=>{const expected=def.terminals.find(x=>x.label===t.label)!;return t.id===expected.id&&t.name==='AUTOR '+t.label&&t.position.every((n,i)=>close(n,expected.position[i]))&&t.normal.every((n,i)=>n===expected.normal[i])}),type+': Admin recognises exact legacy geometry and preserves IDs/authored names')
+ check(admin?.terminals.length===def.terminals.length&&admin.terminals.every(t=>{const expected=def.terminals.find(x=>x.label===t.label)!,old=oldDef.terminals.find(x=>x.label===t.label);return (!old||(t.id===expected.id&&t.name==='AUTOR '+t.label))&&t.position.every((n,i)=>close(n,expected.position[i]))&&t.normal.every((n,i)=>n===expected.normal[i])}),type+': Admin recognises exact legacy geometry and preserves IDs/authored names')
  const moved=clone(oldDef);moved.terminals[0].position[0]+=.5
  const result=await upgradeBuiltinDraft(type,moved)
  check(JSON.stringify((result??moved).terminals[0])===JSON.stringify(moved.terminals[0]),type+': Admin preserves a manual endpoint')

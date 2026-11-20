@@ -16,8 +16,33 @@ export const SCHNEIDER_IID_AXIS_OFFSET_M = new THREE.Vector3(0, -0.0032, -0.006)
 export type SchneiderRcdAction = 'toggle' | 'test'
 const ownedIndicators = new WeakSet<THREE.Object3D>()
 
+/** Obturador preto atrás da pega do iID: fecha o interior omitido no STEP
+ * simplificado. Cilindro fechado no eixo real, por isso acompanha o manípulo
+ * sem abrir uma folga durante o curso. `unit` converte mm para o referencial local. */
+export function completeSchneiderIidHandle(root: THREE.Object3D, unit = .001): void {
+  const pivot = root.getObjectByName(SCHNEIDER_RCD_HANDLE_NODE)
+  if (!pivot?.getObjectByName('schneider_handle_grip')) return
+  // A fita VisiSafe assenta à frente da superfície curva, na mesma posição XY.
+  for (const suffix of ['', '_on', '_trip']) {
+    const indicator = root.getObjectByName('schneider_visisafe' + suffix)
+    if (indicator) indicator.position.z = (68.45 + (suffix === '_on' ? .016 : suffix === '_trip' ? .008 : 0)) * unit
+  }
+  const previous = pivot.getObjectByName('schneider_handle_barrel')
+  if (previous?.userData.schneiderHandleClosure === 2) return
+  previous?.removeFromParent()
+  const geometry = new THREE.CylinderGeometry(15.85 * unit, 15.85 * unit, 8.9 * unit, 96, 1, false)
+  geometry.rotateZ(Math.PI / 2)
+  const barrel = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#181b1b', metalness: .02, roughness: .43 }))
+  barrel.name = 'schneider_handle_barrel'
+  barrel.position.copy(SCHNEIDER_IID_AXIS_OFFSET_M).multiplyScalar(unit / .001)
+  barrel.userData.schneiderControl = 'toggle'
+  barrel.userData.schneiderHandleClosure = 2
+  pivot.add(barrel)
+}
+
 /** Anota as peças móveis ANTES da junção de malhas estáticas do painel. */
 export function prepareSchneiderRcdModel(root: THREE.Object3D): void {
+  completeSchneiderIidHandle(root)
   root.traverse((node) => {
     if (node.name.startsWith('schneider_handle') || node.name.startsWith('schneider_visisafe')) node.userData.schneiderControl = 'toggle'
     else if (node.name.startsWith('schneider_test')) node.userData.schneiderControl = 'test'

@@ -24,6 +24,8 @@ export interface RealTerminalSpot {
   label: string
   /** Face onde está o encaixe (define a direção de saída do cabo). */
   face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'
+  /** Eixo de saída medido numa entrada inclinada, em coordenadas físicas XYZ (Y para cima). */
+  normal?: [number, number, number]
   /**
    * Tipo de contacto. Por omissão `socket` (furo/parafuso com cavidade medida). `pin`: pino ou lâmina
    * saliente (encaixe no contactor, elemento de comutação); `lead`: ponta de fio/cabo; `surface`: ponto
@@ -87,6 +89,11 @@ export function realTerminalPosition(type: ComponentType, spot: RealTerminalSpot
     }
   }
   const inset = size ? terminalInsetMm(spot) : 0
+  if (spot.normal && size) return {
+    x: clamp(spot.x - spot.normal[0] * inset / size.width),
+    y: clamp(1 - spot.y - spot.normal[1] * inset / size.height),
+    z: clamp(spot.z - spot.normal[2] * inset / size.depth),
+  }
   return {
     x: clamp(spot.x + (size ? inx * inset / size.width : 0)),
     y: 1 - clamp(spot.y + (size ? iny * inset / size.height : 0)),
