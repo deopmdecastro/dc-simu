@@ -12,7 +12,7 @@ export type LegalDoc = {
   sections: LegalSection[]
 }
 
-const UPDATED = '19 de novembro de 2026'
+const UPDATED = '20 de novembro de 2026'
 
 export const LEGAL_DOCS: Record<LegalDocId, LegalDoc> = {
   privacidade: {
