@@ -69,54 +69,129 @@ try {
     }, React.createElement(SelectionBar)))
   })
 
-  const bar = page.getByRole('toolbar', { name: 'Ações para 2 cabos selecionado' })
-  await bar.waitFor()
+  const visibleLayout = (bar) => bar.evaluate((el) => {
+    const box = el.getBoundingClientRect()
+    const shown = (node) => node.offsetParent !== null && getComputedStyle(node).display !== 'none'
+    const buttons = [...el.querySelectorAll(':scope > .dc-sel-group > button, :scope > button')].filter(shown).map((button) => {
+      const rect = button.getBoundingClientRect()
+      return { name: button.getAttribute('aria-label'), left: rect.left, right: rect.right, height: rect.height }
+    })
+    const actions = [...el.querySelectorAll('.dc-selection-action')].filter(shown).map((button) => {
+      const icon = button.querySelector('svg')
+      const text = button.querySelector('.dc-selection-action-label')
+      return {
+        accessibleName: button.getAttribute('aria-label'),
+        iconVisible: getComputedStyle(icon).display !== 'none' && icon.getBoundingClientRect().width > 0,
+        labelVisible: getComputedStyle(text).display !== 'none' && text.getBoundingClientRect().width > 0,
+        title: button.title,
+      }
+    })
+    return { left: box.left, right: box.right, clientWidth: el.clientWidth, scrollWidth: el.scrollWidth, buttons, actions }
+  })
+  const fits = (layout, width, label) => {
+    check(layout.left >= 0 && layout.right <= width, `${label}: barra dentro do ecrã a ${width} px`)
+    check(layout.scrollWidth <= layout.clientWidth + 1, `${label}: sem conteúdo cortado nem rolagem escondida a ${width} px`)
+    check(layout.buttons.every((button) => button.left >= layout.left && button.right <= layout.right + 1), `${label}: todos os controlos dentro da barra a ${width} px`)
+  }
+  const names = (layout) => layout.buttons.map((button) => button.name).join('|')
+  // Capturas opcionais para revisão visual: SELECTION_BAR_SHOTS=pasta
+  const shot = async (name) => { if (process.env.SELECTION_BAR_SHOTS) await page.screenshot({ path: process.env.SELECTION_BAR_SHOTS + '/' + name + '.png', clip: { x: 0, y: 500, width: page.viewportSize().width, height: 300 } }) }
+
+  // ---- Cabos ----
+  const wireBar = page.getByRole('toolbar', { name: 'Ações para cabos selecionados' })
+  await wireBar.waitFor()
   for (const width of [430, 360]) {
     await page.setViewportSize({ width, height: 800 })
     await page.waitForTimeout(100)
-    const layout = await bar.evaluate((el) => {
-      const box = el.getBoundingClientRect()
-      const buttons = [...el.querySelectorAll('button')].map((button) => {
-        const rect = button.getBoundingClientRect()
-        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height }
-      })
-      const actions = [...el.querySelectorAll('.dc-selection-action')].map((button) => {
-        const icon = button.querySelector('svg')
-        const text = button.querySelector('.dc-selection-action-label')
-        const iconRect = icon.getBoundingClientRect()
-        const textRect = text.getBoundingClientRect()
-        return {
-          accessibleName: button.getAttribute('aria-label'),
-          iconVisible: getComputedStyle(icon).display !== 'none' && iconRect.width > 0,
-          labelVisible: getComputedStyle(text).display !== 'none' && textRect.width > 0,
-          clipped: text.scrollWidth > text.clientWidth,
-          title: button.title,
-        }
-      })
-      return {
-        left: box.left,
-        right: box.right,
-        width: box.width,
-        clientWidth: el.clientWidth,
-        scrollWidth: el.scrollWidth,
-        buttons,
-        actions,
-      }
-    })
-    check(layout.left >= 0 && layout.right <= width, `Barra centrada dentro do ecrã a ${width} px`)
-    check(layout.scrollWidth <= layout.clientWidth + 1, `Sem conteúdo cortado ou rolagem escondida a ${width} px`)
-    check(layout.buttons.length === 8, `As oito ações permanecem presentes a ${width} px`)
-    check(layout.buttons.every((button) => button.left >= layout.left && button.right <= layout.right + 1), `Todos os controlos ficam dentro da barra a ${width} px`)
-    check(layout.buttons.every((button) => button.height >= 40), `Alvos táteis têm pelo menos 40 px a ${width} px`)
-    check(layout.actions.every((action) => !action.clipped), `Sem rótulos cortados a ${width} px`)
-    check(layout.actions.every((action) => action.iconVisible && !action.labelVisible), `Ações mostram só o ícone a ${width} px`)
-    check(layout.actions.map((action) => action.accessibleName).join('|') === 'Filaçar|Desfilaçar', `Nomes acessíveis completos mantidos a ${width} px`)
-    check(layout.actions.every((action) => action.title.length > 0), `Dicas das ações disponíveis a ${width} px`)
-    check(await bar.getByRole('button', { name: 'Filaçar', exact: true }).isEnabled(), `Filaçar continua operável a ${width} px`)
-    check(await bar.getByRole('button', { name: 'Desfilaçar', exact: true }).isEnabled(), `Desfilaçar continua operável a ${width} px`)
-    check(await bar.getByRole('button', { name: 'Apagar', exact: true }).isVisible(), `Apagar continua distinto e visível a ${width} px`)
-    check(await bar.getByRole('button', { name: 'Limpar seleção', exact: true }).isVisible(), `Limpar seleção continua distinto e visível a ${width} px`)
+    const layout = await visibleLayout(wireBar)
+    fits(layout, width, 'Cabos')
+    await shot('cabos-' + width)
+    check(layout.buttons.every((button) => button.height >= 40), `Cabos: alvos táteis com pelo menos 40 px a ${width} px`)
+    check(layout.actions.every((action) => action.iconVisible && !action.labelVisible && action.title.length > 0), `Cabos: filaçar/desfilaçar só com ícone e dica a ${width} px`)
+    check(layout.actions.map((action) => action.accessibleName).join('|') === 'Filaçar|Desfilaçar', `Cabos: nomes acessíveis completos a ${width} px`)
+    check(await wireBar.getByRole('button', { name: 'Filaçar', exact: true }).isEnabled(), `Cabos: Filaçar operável a ${width} px`)
+    check(await wireBar.getByRole('button', { name: 'Apagar', exact: true }).isVisible() && await wireBar.getByRole('button', { name: 'Limpar seleção', exact: true }).isVisible(), `Cabos: Apagar e Limpar visíveis a ${width} px`)
+    await wireBar.getByRole('button', { name: 'Mais ações' }).click()
+    check(await wireBar.getByRole('menuitem', { name: /Organizar cabos/ }).isVisible(), `Cabos: «Organizar» passa para o menu a ${width} px`)
+    await page.keyboard.press('Escape')
+    check(!(await wireBar.getByRole('menu').count()), `Cabos: Esc fecha o menu a ${width} px`)
   }
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.waitForTimeout(100)
+  check(!(await wireBar.getByRole('button', { name: 'Mais ações' }).isVisible()), 'Cabos: sem menu «Mais» quando tudo cabe (1280 px)')
+
+  // ---- Um componente ----
+  const ids = await page.evaluate(async () => {
+    const { useSimStore } = await import('/src/store/useSimStore.ts')
+    const a = useSimStore.getState().addComponent('breaker3p', 200, 200)
+    const b = useSimStore.getState().addComponent('breaker3p', 400, 200)
+    useSimStore.setState({ selectedWireId: null, selectedWireIds: [], selectedComponentIds: [a] })
+    return [a, b]
+  })
+  const state = () => page.evaluate(async (ids) => {
+    const { useSimStore } = await import('/src/store/useSimStore.ts')
+    const s = useSimStore.getState()
+    return ids.map((id) => { const c = s.components.find((entry) => entry.id === id); return { locked: !!c?.locked, rotation: c?.rotation ?? 0, mirrored: !!c?.mirrored } })
+  }, ids)
+  const bar = page.getByRole('toolbar', { name: 'Ações para objeto selecionado' })
+  await bar.waitFor()
+  let layout = await visibleLayout(bar)
+  fits(layout, 1280, 'Objeto')
+  await shot('objeto-1280')
+  check(names(layout) === 'Seleção múltipla|Rodar 90° à esquerda|Rodar 90° à direita|Espelhar|Duplicar|Bloquear|Mais ações|Apagar|Limpar seleção', 'Objeto: ações principais visíveis e na ordem certa (1280 px) ' + names(layout))
+  await bar.getByRole('button', { name: 'Rodar 90° à direita' }).click()
+  check((await state())[0].rotation === 90, 'Objeto: rodar à direita muda a rotação')
+  await bar.getByRole('button', { name: 'Espelhar' }).click()
+  check((await state())[0].mirrored, 'Objeto: espelhar aplica-se')
+  await bar.getByRole('button', { name: 'Bloquear' }).click()
+  check((await state())[0].locked && await bar.getByRole('button', { name: 'Desbloquear' }).isVisible(), 'Objeto: bloquear muda para «Desbloquear»')
+  check(await bar.getByRole('button', { name: 'Rodar 90° à direita' }).isDisabled(), 'Objeto: bloqueado não roda')
+  await bar.getByRole('button', { name: 'Desbloquear' }).click()
+  check(!(await state())[0].locked, 'Objeto: desbloquear repõe')
+  await bar.getByRole('button', { name: 'Mais ações' }).click()
+  const menu = bar.getByRole('menu')
+  await shot('objeto-1280-menu')
+  check(await menu.getByRole('menuitem', { name: /Trazer para a frente/ }).isVisible() && await menu.getByRole('menuitem', { name: /Editar apresentação/ }).isVisible(), 'Objeto: menu com ordem e apresentação')
+  check(!(await menu.getByRole('menuitem', { name: /Rodar 90° à esquerda/ }).isVisible()), 'Objeto: sem duplicados no menu quando cabe na barra')
+  check(await page.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'), 'Objeto: foco entra no menu ao abrir')
+  await page.keyboard.press('ArrowDown')
+  check(await page.evaluate(() => /Enviar para trás/.test(document.activeElement?.textContent || '')), 'Objeto: setas percorrem o menu')
+  await page.keyboard.press('Escape')
+  check(!(await bar.getByRole('menu').count()) && await page.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Mais ações'), 'Objeto: Esc fecha o menu e devolve o foco')
+  await page.keyboard.press('ArrowRight')
+  check(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Apagar'), 'Objeto: setas percorrem a barra')
+
+  for (const width of [430, 360]) {
+    await page.setViewportSize({ width, height: 800 })
+    await page.waitForTimeout(100)
+    layout = await visibleLayout(bar)
+    fits(layout, width, 'Objeto')
+    await shot('objeto-' + width)
+    check(layout.buttons.every((button) => button.height >= 40), `Objeto: alvos táteis com pelo menos 40 px a ${width} px`)
+    check(!names(layout).includes('Rodar 90° à esquerda') && names(layout).includes('Mais ações'), `Objeto: ações secundárias passam para o menu a ${width} px`)
+  }
+  const before = (await state())[0].rotation
+  await bar.getByRole('button', { name: 'Mais ações' }).click()
+  await bar.getByRole('menuitem', { name: /Rodar 90° à esquerda/ }).click()
+  check((await state())[0].rotation === (before + 270) % 360, 'Objeto: rodar à esquerda pelo menu em ecrã estreito')
+  check(!(await bar.getByRole('menu').count()), 'Objeto: menu fecha depois da ação')
+
+  // ---- Vários componentes ----
+  await page.evaluate(async (ids) => { const { useSimStore } = await import('/src/store/useSimStore.ts'); useSimStore.setState({ selectedComponentIds: ids }) }, ids)
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const multi = page.getByRole('toolbar', { name: 'Ações para objetos selecionados' })
+  await multi.waitFor()
+  check(/2\s*objetos/.test(await multi.locator('.dc-selection-label').innerText()), 'Vários: rótulo com contagem')
+  check(!(await multi.getByRole('button', { name: 'Espelhar' }).count()), 'Vários: espelhar só para um objeto')
+  await multi.getByRole('button', { name: 'Bloquear' }).click()
+  check((await state()).every((c) => c.locked), 'Vários: bloquear aplica-se a todos')
+  await multi.getByRole('button', { name: 'Desbloquear' }).click()
+  check((await state()).every((c) => !c.locked), 'Vários: desbloquear aplica-se a todos')
+  await multi.getByRole('button', { name: 'Mais ações' }).click()
+  check(await multi.getByRole('menuitem', { name: /^Agrupar/ }).isVisible(), 'Vários: menu oferece agrupar')
+  await shot('varios-1280-menu')
+  await page.mouse.click(5, 5)
+  check(!(await multi.getByRole('menu').count()), 'Vários: clicar fora fecha o menu')
   assert.deepEqual(errors, [], 'Sem exceções JavaScript')
   console.log('PASS — smoke visual da barra de seleção')
 } finally {

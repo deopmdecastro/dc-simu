@@ -491,6 +491,8 @@ interface Store extends CircuitState {
   rotateComponent: (id: string) => void
   mirrorComponent: (id: string) => void
   toggleLock: (id: string) => void
+  /** Bloqueia ou desbloqueia vários componentes num só passo de histórico. */
+  setComponentsLocked: (ids: string[], locked: boolean) => void
   deleteComponents: (ids: string[]) => void
   /** Agrupa e desagrupa os componentes selecionados (Ctrl+G / Ctrl+Shift+G). */
   groupSelection: () => void
@@ -3479,6 +3481,14 @@ export const useSimStore = create<Store>((set, get) => {
     if (get().demoMode) return
     get().commitHistory()
     set((s) => ({ components: s.components.map((c) => (c.id === id ? { ...c, locked: !c.locked } : c)), dirty: true }))
+  },
+
+  setComponentsLocked: (ids, locked) => {
+    if (get().demoMode || !ids.length) return
+    const targets = new Set(ids)
+    if (!get().components.some((c) => targets.has(c.id) && Boolean(c.locked) !== locked)) return
+    get().commitHistory()
+    set((s) => ({ components: s.components.map((c) => (targets.has(c.id) ? { ...c, locked } : c)), dirty: true }))
   },
 
   deleteComponents: (ids) => {
