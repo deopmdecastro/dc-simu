@@ -4,10 +4,22 @@ import type { ComponentType } from '../types'
 import type { RealTerminalSpot } from './realInterfaces'
 
 export const MECHANICAL_INTERFACE_TYPES = new Set<ComponentType>([
-  'contactorWegCwbc65', 'timerGeyaGrt8M1', 'timerGeyaGrt8B1',
+  'contactorWegCwbc65', 'timerGeyaGrt8M1', 'timerGeyaGrt8M2', 'timerGeyaGrt8B1',
 ])
 
 export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
+  // M2 anterior: as duas filas inferiores partilhavam indevidamente a entrada.
+  timerGeyaGrt8M2: [
+    {label:'A1',face:'top',contact:'socket',x:.212389,y:.026316,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'S',face:'top',contact:'socket',x:.5,y:.026316,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'A2',face:'top',contact:'socket',x:.787611,y:.026316,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'25',face:'bottom',contact:'socket',x:.212389,y:.973684,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'26',face:'bottom',contact:'socket',x:.5,y:.973684,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'28',face:'bottom',contact:'socket',x:.787611,y:.973684,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'15',face:'bottom',contact:'socket',x:.212389,y:.973684,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'16',face:'bottom',contact:'socket',x:.5,y:.973684,z:.214231,diameterMm:4,holeDepthMm:8.6},
+    {label:'18',face:'bottom',contact:'socket',x:.787611,y:.973684,z:.214231,diameterMm:4,holeDepthMm:8.6},
+  ],
   // Mechanical-detail revision: match only the untouched previous automatic endpoints.
   contactorWegCwbc65: [
     {
@@ -723,6 +735,7 @@ export const LEGACY_METER_POSITIONS: Record<string, Record<string,{x:number;y:nu
  meterKws306: Object.fromEntries(['L1','L2','L3','N'].flatMap((label,i)=>[['IN',.88],['OUT',.12]].map(([side,y])=>[label+'-'+side,{x:[.1351,.3784,.6216,.8649][i],y:Number(y),z:.5692}])))
 }
 export const LEGACY_MODULAR_SIZE: Record<string,{width:number;height:number;depth:number}> = {
+  timerGeyaGrt8M2: {width:18.08,height:95,depth:65.35},
  contactorWegCwbc65:{width:57.61,height:159.4,depth:115},
  breakerSchneiderIc60h1p:{width:18,height:85,depth:74},pilotLightSchneiderIil1p:{width:18,height:85,depth:74},pilotLightSchneiderIil3p:{width:54,height:85,depth:74}
 }

@@ -1,0 +1,10 @@
+{
+  "checks": 30,
+  "types": [
+    "timerGeyaGrt8M1",
+    "timerGeyaGrt8M2",
+    "vfdSchneiderAtv320"
+  ],
+  "exceptions": [],
+  "scope": "Painel React/R3F real; projeto sintético isolado, pedidos externos bloqueados"
+}

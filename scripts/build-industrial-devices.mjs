@@ -7,6 +7,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as T from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { readStep, mat, fromOcc, box, plane, cylinder, shapePlate, drill, terminal, led, writeGlb } from './lib/cad-building.mjs'
 import { buildCaptiveTerminalScrew } from '../src/three/terminalHardware.ts'
 
@@ -25,14 +26,15 @@ const dark=mat('#3a3b36'),white=mat('#e5e5da'),blue=mat('#0b478a'),red=mat('#ce1
 // Zamac/poliamida para as botoeiras Ø22; níquel escovado para aros e porcas serrilhadas.
 const zamac=mat('#b9bdc0',.85,.28),nickel=mat('#c9cdd1',.9,.22),polyamide=mat('#f2f2ea',0,.6)
 function device(type) { const g=new T.Group();g.name='industrial_device_'+type;g.userData.industrialType=type;return g }
-function knob(root,name,x,y,z,r=2.25,color=red) {
- const group=new T.Group();group.name=name;group.position.set(x,y,z)
- group.add(cylinder(r,.7,color,name+'_body'))
- const slot=box(r*1.4,.42,.12,black,name+'_slot',[0,0,.39]);slot.rotation.z=Math.PI/4;group.add(slot);root.add(group)
-}
-function bodyProfile(width,points,material,name) {
- const s=new T.Shape();points.forEach(([z,y],i)=>i?s.lineTo(z,y):s.moveTo(z,y));s.closePath()
- const g=new T.ExtrudeGeometry(s,{depth:width,bevelEnabled:false});g.applyMatrix4(new T.Matrix4().set(0,0,1,-width/2,0,1,0,0,-1,0,0,0,0,0,0,1))
+function bodyProfile(width,points,material,name,rounded=false) {
+ const s=new T.Shape()
+ points.forEach(([z,y],i)=>{
+  if(!rounded){i?s.lineTo(z,y):s.moveTo(z,y);return}
+  const p=new T.Vector2(z,y),prev=new T.Vector2(...points[(i+points.length-1)%points.length]),next=new T.Vector2(...points[(i+1)%points.length])
+  const start=prev.sub(p).normalize().multiplyScalar(.4).add(p),end=next.sub(p).normalize().multiplyScalar(.4).add(p)
+  i?s.lineTo(start.x,start.y):s.moveTo(start.x,start.y);s.quadraticCurveTo(z,y,end.x,end.y)
+ });s.closePath()
+ const g=new T.ExtrudeGeometry(s,{depth:width,bevelEnabled:false,curveSegments:6});g.applyMatrix4(new T.Matrix4().set(0,0,1,-width/2,0,1,0,0,-1,0,0,0,0,0,0,1))
  const m=new T.Mesh(g,material);m.name=name;return m
 }
 async function store(type,root,terms,provenance) {
@@ -46,23 +48,41 @@ async function store(type,root,terms,provenance) {
  const offset=new T.Vector3(-center.x,-bounds.min.y,-bounds.min.z)
  for(const child of root.children)child.position.add(offset)
  const result=await writeGlb(new URL('file://'+path.join(output,type+'.glb')),root)
- const record={type,...provenance,physicalSizeMm,interfaces:terms.length,cavities:terms.filter(t=>t.contact==='socket').length,pins:terms.filter(t=>t.contact==='pin').length,...result}
+ const record={type,...provenance,visualRefinement:root.userData.visualRefinement,physicalSizeMm,interfaces:terms.length,cavities:terms.filter(t=>t.contact==='socket').length,pins:terms.filter(t=>t.contact==='pin').length,...result}
  records.push(record);console.log(type,result.bytes,physicalSizeMm,`${record.cavities} cavidades, ${record.pins} pinos`)
 }
 
 async function atv() {
  const type='vfdSchneiderAtv320',r=await readStep(path.join(source,'MCADID0000926_3D-simplified.stp')),root=device(type),map=(x,y,z)=>[x-36,-z,y]
+ root.userData.visualRefinement={reference:'https://download.schneider-electric.com/files?p_Doc_Ref=ATV320U0xM2C_front&p_File_Type=rendition_1500_jpg',details:'Original CAD shell retained. Encoder front skin recessed 0.23 mm for triangular grip relief within the original envelope. Rounded HMI bezel, non-overlapping four-digit display and legends, FAULT/CAN indicators, rounded labelled ESC, front labels and 33 captive cross screws. Public-reference-only QR; no serial number reconstructed.'}
  const cover=new T.Group();cover.name='industrial_control_cover';root.add(cover)
  // Materiais fiéis à unidade real (fotografia eibabo ATV320U04M2C): tampa e
  // flap quase negros (#2e2f2c), corpo cinzento-escuro quente (#3a3b36).
- const faceDark=mat('#2e2f2c')
+ const faceDark=mat('#30353b',0,.42)
+ const rounded=(w,h,d,r,material,name,at)=>{
+  const s=new T.Shape(),x=-w/2,y=-h/2
+  s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y)
+  const g=new T.ExtrudeGeometry(s,{depth:d,bevelEnabled:false,curveSegments:8});g.translate(0,0,-d/2)
+  const m=new T.Mesh(g,material);m.name=name;m.position.set(...at);return m
+ }
  const solids=[]
  for(const [i,m] of r.meshes.entries()){
-  const material=i===7?green:i===14||i===15||i===12?steel:i===10||i===11?faceDark:dark
+  const material=i===7?mat('#009648',.02,.35):i===14||i===15||i===12?steel:i===10||i===11?faceDark:dark
   const node=fromOcc(m,map,material,'atv320_cad_'+i)
   if(i===7){node.geometry.computeBoundingBox();const c=node.geometry.boundingBox.getCenter(new T.Vector3());node.geometry.translate(-c.x,-c.y,-c.z);const pivot=new T.Group();pivot.name='industrial_encoder';pivot.position.copy(c);node.name='industrial_encoder_body';pivot.add(node);root.add(pivot)}
   else if(i===10||i===11)cover.add(node)
   else {root.add(node);solids.push(node)}
+ }
+ const encoder=root.getObjectByName('industrial_encoder'),encoderBody=root.getObjectByName('industrial_encoder_body')
+ encoderBody.geometry.computeBoundingBox()
+ const front=encoderBody.geometry.boundingBox.max.z,positions=encoderBody.geometry.attributes.position
+ for(let i=0;i<positions.count;i++)if(positions.getZ(i)>front-.01&&Math.hypot(positions.getX(i),positions.getY(i))<10.9)positions.setZ(i,front-.23)
+ positions.needsUpdate=true;encoderBody.geometry.computeVertexNormals()
+ for(const [radius,count] of [[9.6,27],[7.7,22],[5.9,17]])for(let i=0;i<count;i++){
+  const a=2*Math.PI*i/count,shape=new T.Shape()
+  for(let j=0;j<3;j++){const t=a+j*2*Math.PI/3,px=Math.cos(t)*.77,py=Math.sin(t)*.77;j?shape.lineTo(px,py):shape.moveTo(px,py)}shape.closePath()
+  const tooth=new T.Mesh(new T.ExtrudeGeometry(shape,{depth:.19,bevelEnabled:true,bevelSize:.06,bevelThickness:.03,bevelSegments:1}),mat('#008c43',.02,.37))
+  tooth.name='industrial_encoder_grip_'+radius+'_'+i;tooth.position.set(Math.cos(a)*radius,Math.sin(a)*radius,front-.22);encoder.add(tooth)
  }
  // Serigrafia do HMI real (fotografia eibabo ATV320U04M2C): janela LCD no
  // topo; "CAN Run"/"CAN Err" com LED verde/vermelho por cima da janela;
@@ -70,29 +90,39 @@ async function atv() {
  // escuro com rótulo por baixo) à esquerda do encoder; autocolante QR de
  // fábrica à direita do encoder. Plano frontal da tampa: z≈132 mm.
  const FACE=132.14
- root.add(plane(52,17.5,faceDark,'industrial_display_frame',[-3,113.4,131.98]))
- root.add(plane(35,10.5,black,'industrial_lcd',[-3,113.4,FACE+.02]))
+ const frame=rounded(52,17.5,.7,2.5,mat('#242a31',0,.35),'industrial_display_frame',[-1.5,119.4,132.02]);root.add(frame)
+ root.add(plane(30.5,9.2,black,'industrial_lcd',[-1.5,116.8,132.40]))
  const legendPlane=(name,w,h,x,y)=>root.add(plane(w,h,white,name,[x,y,FACE+.04]))
- legendPlane('industrial_hmi_legend_can_run',9,2.4,-8,122.9)
- legendPlane('industrial_hmi_legend_can_err',9,2.4,6,122.9)
- led(root,-8,121.1,FACE+.05,'#16a56b','industrial_led_run',.9)
- led(root,6,121.1,FACE+.05,'#c52224','industrial_led_fault',.9)
- legendPlane('industrial_hmi_legend_ref',6,2.6,-22,116.9)
- legendPlane('industrial_hmi_legend_mon',6,2.6,-22,113.4)
- legendPlane('industrial_hmi_legend_conf',6,2.6,-22,109.9)
- legendPlane('industrial_hmi_legend_value',7,2.6,15.5,115.4)
- legendPlane('industrial_hmi_legend_unit',7,2.6,15.5,111.4)
+ legendPlane('industrial_hmi_legend_fault',9,1.7,-13,123.1)
+ legendPlane('industrial_hmi_legend_can_run',9,1.7,-1.5,123.1)
+ legendPlane('industrial_hmi_legend_can_err',9,1.7,10.1,123.1)
+ led(root,-13,125.4,132.46,'#c52224','industrial_led_fault',.62)
+ led(root,-1.5,125.4,132.46,'#16a56b','industrial_led_run',.62)
+ led(root,10.1,125.4,132.46,'#4c2025','industrial_led_can_err',.62)
+ legendPlane('industrial_hmi_legend_ref',5,2.4,-20,119.6)
+ legendPlane('industrial_hmi_legend_mon',5,2.4,-20,116.5)
+ legendPlane('industrial_hmi_legend_conf',5,2.4,-20,113.4)
+ legendPlane('industrial_hmi_legend_value',6,2.4,17.8,118.5)
+ legendPlane('industrial_hmi_legend_unit',6,2.4,17.8,113.4)
+ // Impressão acima da janela, no mesmo plano do rebaixo arredondado.
+ for(const node of root.children)if(node.name.startsWith('industrial_hmi_legend_'))node.position.z=132.41
  // Botão ESC físico (quadrado escuro, rótulo "ESC" impresso por baixo).
- root.add(box(6.5,6.5,1.4,faceDark,'industrial_escape',[-19.5,95.5,FACE-.3]))
- legendPlane('industrial_escape_label',5.5,2.6,-19.5,90.6)
+ const escBezel=rounded(13.5,13.5,1.2,2.5,mat('#242a31',0,.4),'industrial_escape_bezel',[-20.5,91.8,131.6]);root.add(escBezel)
+ const esc=rounded(9,9,1.4,1.1,faceDark,'industrial_escape',[-20.5,91.8,132]);root.add(esc)
+ legendPlane('industrial_escape_label',6.6,2.8,-20.5,91.8)
+ root.getObjectByName('industrial_escape_label').position.z=132.72
+ esc.add(root.getObjectByName('industrial_escape_label'));esc.children[0].position.set(0,0,.72)
  // Autocolante QR de fábrica à direita do encoder (conteúdo reconstruído, sem
  // ligação real: ver sources.json — não inventa URL nem número de série).
- cover.add(plane(15,15,white,'industrial_qr_sticker',[26.5,95.5,131.99]))
+ cover.add(plane(14,21,white,'industrial_qr_sticker',[24,95.5,132.01]))
  // Etiqueta de características na face lateral direita, como na unidade real.
  const side=plane(26,40,white,'industrial_product_sticker',[36.15,88,75]);side.rotation.y=Math.PI/2;root.add(side)
- cover.add(plane(20,26,dark,'industrial_danger_label',[-23.4,31.1,131.96]))
- cover.add(plane(16,16,dark,'industrial_altivar_label',[0,25.1,131.96]))
- cover.add(plane(14,4.8,white,'industrial_schneider_logo',[24,20.5,131.96]))
+ cover.add(plane(20,26,dark,'industrial_danger_label',[-23,33,132.02]))
+ cover.add(plane(16,16,dark,'industrial_altivar_label',[-1.7,26.5,132.02]))
+ cover.add(plane(16,4.8,white,'industrial_schneider_logo',[24,20.5,132.02]))
+ // Alojamento da placa opcional: junta moldada no contorno.
+ const option=new T.Mesh(new RoundedBoxGeometry(43,17,.25,3,.65),mat('#171c22',0,.6));option.name='industrial_option_seam';option.position.set(-12.4,70,132.02);cover.add(option)
+ const optionFace=new T.Mesh(new RoundedBoxGeometry(42.4,16.4,.35,3,.5),faceDark);optionFace.name='industrial_option_cover';optionFace.position.set(-12.4,70,132.12);cover.add(optionFace)
  root.add(box(3,16,1,faceDark,'industrial_cover_latch',[31.5,39,132.1]))
  const terms=[]
  const lower=[['PB',-27.95],['PO',-20.05],['PA/+',-12.15],['PC/-',-4.25],['U/T1',3.65],['V/T2',11.55],['W/T3',19.45]]
@@ -105,6 +135,12 @@ async function atv() {
  const rows=[{y:61,labels:['10V','AI1','COM1','AI2','AI3','COM2','AQ1','R1A','R1B','R1C','R2A','R2C'],x:-29.5},{y:47,labels:['+24','DI1','DI2','DI3','DI4','DI5','DI6','STO','P24'],x:-29.5},{y:31,labels:['DQ-','DQ+','PE-CTRL'],x:.5}]
  for(const row of rows){const holes=[];row.labels.forEach((label,i)=>{const x=row.x+i*5;holes.push([x-row.x-(row.labels.length-1)*2.5,0,1.9]);drill(solids,'z',[x,row.y,124],1.9,117,132);terms.push(terminal(inside,label,x,row.y,124,{r:1.85,depth:7}))});inside.add(shapePlate(row.labels.length*5+1,9,7,holes,blue,'industrial_control_terminal_block',[row.x+(row.labels.length-1)*2.5,row.y,117]))}
  inside.add(box(14,13,10,black,'industrial_rj45_body',[23.5,30,118]))
+ for(const t of terms.filter(t=>t.contact==='socket')){
+  const socket=root.getObjectByName('industrial_connection_'+t.label),plain=socket.getObjectByName('contact_'+t.label)
+  if(plain){plain.geometry.dispose();plain.removeFromParent()}
+  const screw=buildCaptiveTerminalScrew('atv_'+t.label,t.face==='bottom'?1.9:1.3)
+  screw.position.z=-t.holeDepthMm+.65;socket.add(screw)
+ }
  await store(type,root,terms,{kind:'adapted-manufacturer-CAD',source:'https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip',cadMember:'MCADID0000926_3D-simplified.stp',cadSha256:r.sha256,changes:'Rigid Rx(+90°). Functional lower power cavities / control block rebuilt to NVE41289 pp.100/120/123. Named encoder, ESC, service cover and CAN Run/Err LEDs; HMI window, legend planes and QR sticker laid out to the photographed ATV320U04M2C fascia. Control connector placement is functional, not certified metrology.'})
 }
 
@@ -163,6 +199,8 @@ async function finderRelay(){
 
 async function geya(type){
  const root=device(type),terms=[]
+ root.userData.visualRefinement={reference:'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf',details:'Rounded moulded cover, open screw wells, geometric cross-recess selectors, convex live LED lenses. Original GEYA vector artwork extracted from the local manual. M2 has an elevated 25/26/28 shelf with three separate bottom-entry mouths; reconstructed from product illustrations, not a manufacturer STEP.'}
+ const b1=type==='timerGeyaGrt8B1'
  // y/z profile extruded along X. DIN notch and stepped access ends are real voids.
  // Perfil y/z do GRT8, extrudido em X (cotas do manual: 90 mm de corpo, 64 mm de
  // profundidade, 95 mm com as patilhas). Frente a z 0, traseira a z −64.
@@ -177,20 +215,49 @@ async function geya(type){
  // No M2 o degrau inferior dos bornes é mais alto para levar as duas filas de
  // inversores (15/16/18 e 25/26/28), como no aparelho real; no M1/B1 fica baixo.
  const stepY = type === 'timerGeyaGrt8M2' ? 34 : 22
- const profile=[[0,2.5],[0,92.5],[-24,92.5],[-24,87],[-38,87],[-38,77],[-64,73],[-64,stepY],[-38,stepY-4],[-38,8],[-24,8],[-24,2.5]]
+ const profile=[[0,2.5],[0,92.5],[-24,92.5],[-24,87],[-38,87],[-38,77],[-64,73],[-64,stepY],...(type==='timerGeyaGrt8M2'?[[-54,32],[-54,16.6],[-38,16.6]]:[[-38,stepY-.8]]),[-38,8],[-24,8],[-24,2.5]]
  // Corpo cinzento-claro como na fotografia do manual (não branco puro).
  const GREY=mat('#d4d5d1',0,.6),GREY_D=mat('#bfc0bc',0,.6)
- const body=bodyProfile(18,profile,GREY,'industrial_geya_body');root.add(body)
+ const body=bodyProfile(18,profile,GREY,'industrial_geya_body',true);root.add(body)
+ const faceTop=71.25,faceBottom=Math.max(27.75,stepY+1.5)
+ {
+  // Tampa moldada com cantos suaves, junta perimetral e ressalto frontal.
+  const cap=new T.Mesh(new RoundedBoxGeometry(17.8,faceTop-faceBottom+.2,1.6,3,.35),GREY)
+  cap.name='industrial_geya_front_cover';cap.position.set(0,(faceTop+faceBottom)/2,63.25);root.add(cap)
+  for(const y of [75.8,faceBottom-(stepY===34?1:2.95)])root.add(box(.65,stepY===34&&y<40?1.2:5.4,.25,black,'industrial_geya_cover_slot_'+y,[0,y,bodyFront(y)+.05]))
+  for(const y of [72.1,faceBottom-.85])root.add(box(.32,1.2,.5,dark,'industrial_geya_cover_catch_'+y,[-8.85,y,58.6]))
+  for(const y of [80,16])for(const x of [-9,9])root.add(box(.08,5,.35,GREY_D,'industrial_geya_mould_seam_'+x+'_'+y,[x,y,10]))
+ }
+ function bodyFront(y){return y>73?64-(y-73)*6.5:y<stepY?38:64}
  root.add(shapePlate(16,5,1.5,[[0,0,2.1]],GREY_D,'industrial_din_latch_bottom',[0,2.5,1]))
  root.add(shapePlate(16,5,1.5,[[0,0,2.1]],red,'industrial_din_latch_top',[0,92.5,1]))
  // A tampa frontal acaba onde acaba a frente: no M2 o degrau dos bornes 25/26/28 começa mais acima
  // (antes a placa descia sobre essa fila e o texto «GRT8-M2» flutuava à frente dos bornes).
- const faceTop=71.25,faceBottom=Math.max(27.75,stepY+1.5)
- root.add(plane(17.6,faceTop-faceBottom,white,'industrial_fascia',[0,(faceTop+faceBottom)/2,64.015]))
- knob(root,'industrial_range',-2.4,59.5,64.9,2.4)
- knob(root,'industrial_fraction',.45,51.9,64.9,2.4)
- if(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8M2')knob(root,'industrial_function',-2.4,44.3,64.9,2.4)
+ root.add(plane(17.6,faceTop-faceBottom,white,'industrial_fascia',[0,(faceTop+faceBottom)/2,64.07]))
+ {
+  const controls=[['industrial_range',-2.4,59.5],['industrial_fraction',.45,51.9]]
+  if(!b1)controls.push(['industrial_function',-2.4,44.3])
+  for(const [name,x,y] of controls){
+   const pivot=new T.Group();pivot.name=name;pivot.position.set(x,y,64.65)
+   pivot.add(cylinder(2.55,.28,GREY_D,name+'_seat',[0,0,-.35]))
+   const shape=new T.Shape();shape.absarc(0,0,2.4,0,Math.PI*2,false)
+   const cross=new T.Path(),a=.35,b=1.65
+   ;[[-a,b],[a,b],[a,a],[b,a],[b,-a],[a,-a],[a,-b],[-a,-b],[-a,-a],[-b,-a],[-b,a],[-a,a]].forEach(([px,py],i)=>i?cross.lineTo(px,py):cross.moveTo(px,py));cross.closePath();shape.holes.push(cross)
+   const head=new T.Mesh(new T.ExtrudeGeometry(shape,{depth:.55,bevelEnabled:true,bevelSize:.07,bevelThickness:.07,bevelSegments:2,curveSegments:32}),red)
+   head.name=name+'_body';pivot.add(head)
+   pivot.add(cylinder(2.32,.18,mat('#8e151a',.08,.43),name+'_recess_floor',[0,0,-.08]))
+   // Índice radial: zero em 225°, igual à escala e à rotação de estado.
+   const index=box(.3,.95,.09,black,name+'_index',[-1.17,-1.17,.655]);index.rotation.z=-Math.PI/4;pivot.add(index)
+   root.add(pivot)
+  }
+ }
  led(root,-2.6,66.7,64.5,'#18a33b','industrial_led_power',1.2);led(root,2.55,66.7,64.5,'#cb1430','industrial_led_relay',1.2)
+ for(const name of ['industrial_led_power','industrial_led_relay']){
+  const lens=root.getObjectByName(name),color=lens.userData.ledColor
+  lens.geometry.dispose();lens.geometry=new T.SphereGeometry(1.16,24,12,0,Math.PI*2,0,Math.PI/2)
+  lens.material=new T.MeshPhysicalMaterial({color,roughness:.18,clearcoat:1,clearcoatRoughness:.1})
+  lens.scale.y=.4;lens.position.z=64.73
+ }
  // Bornes: uma só fila por degrau, como no produto real (A1 S A2 em cima,
  // 15 16 18 em baixo). O corpo do produto não tem degraus de duas alturas
  // dentro do mesmo bloco: cada borne é um parafuso numa só parede, com a
@@ -200,28 +267,31 @@ async function geya(type){
  // fila própria atrás da primeira, como no desenho do manual (p.1).
  const rows = type === 'timerGeyaGrt8M2'
    ? [{ top: true, y: 82.6, z: 38, names: ['A1','S','A2'] },
-      { top: false, y: 26.5, z: 38, names: ['25','26','28'] },
+      { top: false, y: 26.5, z: 54, mouthY:16.6, mouthZ:46, names: ['25','26','28'] },
       { top: false, y: 12.4, z: 38, names: ['15','16','18'] }]
    : [{ top: true, y: 82.6, z: 38, names: ['A1','S','A2'] },
       { top: false, y: 12.4, z: 38, names: ['15','16','18'] }]
  // O 2.º inversor do M2 fica numa prateleira própria, 8 mm à frente do degrau
  // inferior — é a fila dupla de bornes que o desenho do manual mostra.
- for(const { top, y, z, names } of rows){
+ for(const { top, y, z, mouthY=top?92.5:2.5, mouthZ=14, names } of rows){
   for(const [i,label] of names.entries()){
    const x = -5.2 + i * 5.2
    // Poço frontal com parafuso cativo no fundo (Pozidriv), aberto na parede
    // do degrau (z 38 mm) e cavidade de 9,6 mm.
    drill([body],'z',[x,y,z],2.6,z-9.6,z+.1)
-   const screw=buildCaptiveTerminalScrew('geya_'+label,2.15);screw.position.set(x,y,z-7.2);root.add(screw)
-   root.add(cylinder(.8,19,steel,'industrial_geya_screw_shank_'+label,[x,y,z-14.2]))
+   const screw=buildCaptiveTerminalScrew('geya_'+label,2.15);screw.position.set(x,y,z-1.25);root.add(screw)
+   root.add(cylinder(.8,22.4,steel,'industrial_geya_screw_shank_'+label,[x,y,z-13.2]))
    // Janela oblonga do borne (a ranhura escura da referência) entre a
    // parede do degrau e o poço do parafuso.
-   const slot=box(3.6,2.6,.5,mat('#2f2f2a'),'industrial_geya_slot_'+label,[x,y,z-.6])
-   root.add(slot)
+   {
+    // Parede aberta: nunca uma placa opaca por cima da cabeça metálica.
+    const wall=new T.Mesh(new T.CylinderGeometry(2.53,2.53,3.7,32,1,true),mat('#494a45',.05,.7))
+    wall.name='industrial_geya_driver_well_'+label;wall.position.set(x,y,z-1.85);wall.rotation.x=Math.PI/2;wall.material.side=T.DoubleSide;root.add(wall)
+   }
    // Entrada do condutor na face superior/inferior, com grampo de cobre.
-   drill([body],'y',[x,top?92.5:2.5,14],2.6,top?82.5:2.4,top?92.8:12.5)
-   root.add(box(3.4,1.2,9,copper,'industrial_geya_clamp_'+label,[x,top?83.0:12.9,14]))
-   terms.push(terminal(root,label,x,top?92.5:2.5,14,{r:2.0,depth:8.6,face:top?'top':'bottom'}))
+   drill([body],'y',[x,mouthY,mouthZ],2.6,top?mouthY-10:mouthY-.1,top?mouthY+.3:mouthY+10)
+   root.add(box(3.4,1.2,9,copper,'industrial_geya_clamp_'+label,[x,top?mouthY-9.5:mouthY+10.4,mouthZ]))
+   terms.push(terminal(root,label,x,mouthY,mouthZ,{r:2.0,depth:8.6,face:top?'top':'bottom'}))
    // Serigrafia do degrau: a etiqueta real fica imediatamente acima do poço.
    root.add(plane(4.6,1.9,white,'industrial_geya_label_'+label,[x, y + (top?3.5:-3.5), z+.06]))
   }
@@ -235,13 +305,17 @@ async function geya(type){
  }
  // Patilha vermelha de desbloqueio da calha DIN, visível na frente inferior.
  root.add(box(9,3.6,2.6,GREY_D,'industrial_geya_din_tab',[0,4,24.6]))
+ {
+  root.add(box(10,2.7,2.2,red,'industrial_geya_release_clip',[0,3.6,21.8]))
+  root.add(box(6,.55,.6,dark,'industrial_geya_release_grip',[0,3,23]))
+ }
  // Serigrafia lateral: diagramas de função/temporização (faces ±X do módulo).
  // Só dentro da zona em que a lateral tem a profundidade toda (y stepY…73, z 0…64):
  // o retângulo antigo saía da silhueta em baixo e lia-se como uma segunda placa (relé «duplicado»).
  const sideY0=stepY+1.5,sideY1=72,sideH=sideY1-sideY0,sideYc=(sideY0+sideY1)/2
  const sideR=plane(58,sideH,white,'industrial_geya_side_r',[9.04,sideYc,33]);sideR.rotation.y=Math.PI/2;root.add(sideR)
  const sideL=plane(58,sideH,white,'industrial_geya_side_l',[-9.04,sideYc,33]);sideL.rotation.y=-Math.PI/2;root.add(sideL)
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type.startsWith('timerGeyaGrt8M')?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type.startsWith('timerGeyaGrt8M')?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:(b1?'B1/A230 refined against user product photograph: open driver wells, visible cross screws 1.25 mm behind the deck, cross-recess red selectors with radial indices, convex state-driven LED lenses, rounded cover, mould seams and flank timing/wiring serigraphy. Existing 18.08×95×65.35 mm asset envelope and all conductor endpoints retained. ':'')+'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
 }
 
 async function avel(){

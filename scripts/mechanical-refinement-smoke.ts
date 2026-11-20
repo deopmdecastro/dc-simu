@@ -48,7 +48,7 @@ for(const type of MECHANICAL_INTERFACE_TYPES){
  const c=createComponent(type),fresh=clone(c)
  c.terminals=c.terminals.map(t=>{const {old,point}=oldTerminalPoint(type,t.label);return{...t,position3D:point,face:old.face,contact:old.contact??'socket',diameter:old.diameterMm,socket3D:type.startsWith('timerGeya')?{diameterMm:old.diameterMm!,depthMm:old.holeDepthMm!,insetMm:0,normal:[...normal[old.face]],position:{x:old.x,y:1-old.y,z:old.z}}:undefined}})
  const upgraded=upgradeRealInterfacePositions(c)
- check(upgraded.terminals.every(t=>{const target=fresh.terminals.find(x=>x.label===t.label)!;return t.id===target.id&&JSON.stringify(t.position3D)===JSON.stringify(target.position3D)&&t.contact==='socket'}),type+': only known factory endpoints migrate, retaining terminal IDs')
+ check(upgraded.terminals.every(t=>{const target=fresh.terminals.find(x=>x.label===t.label)!;return t.id===target.id&&(['x','y','z'] as const).every(k=>Math.abs(t.position3D![k]-target.position3D![k])<1e-9)&&t.contact==='socket'}),type+': only known factory endpoints migrate, retaining terminal IDs')
  check(upgraded.terminals.every(t=>terminalNormalWorld3D(upgraded,t).distanceTo(new THREE.Vector3(...normal[REAL_TERMINALS[type]!.find(s=>s.label===t.label)!.face]))<1e-6),type+': migrated cable normals follow the corrected physical face')
  check(upgradeRealInterfacePositions(upgraded)===upgraded,type+': native migration is idempotent')
  const pinned=clone(c);pinned.terminals[0].pinned=true
@@ -199,6 +199,18 @@ for(const type of ['timerGeyaGrt8M1','timerGeyaGrt8B1'] as const){
  const model=(await loadModelMm(type))!;let screws=0
  model.root.traverse(n=>{if(n.name.startsWith('terminal_screw_geya_')){const r=crossRecess(n);assert.ok(r.face-r.floor>.5);screws++}})
  check(screws===6,type+': six real captive screws and finite, independent cable mouths')
+ if(type==='timerGeyaGrt8B1'){
+  for(const label of ['A1','S','A2','15','16','18']){
+   const screw=model.root.getObjectByName('terminal_screw_geya_'+label)!
+   const origin=screw.localToWorld(new THREE.Vector3(.0008,.0008,.012)),direction=screw.localToWorld(new THREE.Vector3(.0008,.0008,0)).sub(origin).normalize()
+   const hit=new THREE.Raycaster(origin,direction).intersectObject(model.root,true)[0]
+   check(hit?.object.name==='terminal_screw_head_geya_'+label,'B1 '+label+': screwdriver ray reaches the real head without an opaque plate hiding it')
+  }
+  for(const name of ['industrial_range','industrial_fraction']){
+   const pivot=model.root.getObjectByName(name)!,ray=new THREE.Raycaster(pivot.localToWorld(new THREE.Vector3(0,0,.004)),new THREE.Vector3(0,0,-1))
+   check(ray.intersectObject(pivot,true)[0]?.object.name===name+'_recess_floor','B1 '+name+': cross is an open geometric recess')
+  }
+ }
 }
 const d52=createDigitalMeterObject('meterD522066');d52.updateMatrixWorld(true)
 for(const label of ['1','2']){const r=crossRecess(d52.getObjectByName('terminal_screw_d52_'+label)!);check(r.face-r.floor>.5,'D52 '+label+': front driver well contains a recessed cross screw')}

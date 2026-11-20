@@ -1,0 +1,31 @@
+{
+  "checks": 11,
+  "hardware": [
+    {
+      "label": "A1",
+      "hit": "terminal_screw_head_geya_A1"
+    },
+    {
+      "label": "S",
+      "hit": "terminal_screw_head_geya_S"
+    },
+    {
+      "label": "A2",
+      "hit": "terminal_screw_head_geya_A2"
+    },
+    {
+      "label": "15",
+      "hit": "terminal_screw_head_geya_15"
+    },
+    {
+      "label": "16",
+      "hit": "terminal_screw_head_geya_16"
+    },
+    {
+      "label": "18",
+      "hit": "terminal_screw_head_geya_18"
+    }
+  ],
+  "exceptions": [],
+  "scope": "Painel React/R3F real, projeto sintético isolado"
+}

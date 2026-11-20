@@ -1372,8 +1372,8 @@
         "face": "bottom",
         "contact": "socket",
         "x": 0.212389,
-        "y": 0.973684,
-        "z": 0.214231,
+        "y": 0.825263,
+        "z": 0.703902,
         "diameterMm": 4,
         "holeDepthMm": 8.6
       },
@@ -1382,8 +1382,8 @@
         "face": "bottom",
         "contact": "socket",
         "x": 0.5,
-        "y": 0.973684,
-        "z": 0.214231,
+        "y": 0.825263,
+        "z": 0.703902,
         "diameterMm": 4,
         "holeDepthMm": 8.6
       },
@@ -1392,8 +1392,8 @@
         "face": "bottom",
         "contact": "socket",
         "x": 0.787611,
-        "y": 0.973684,
-        "z": 0.214231,
+        "y": 0.825263,
+        "z": 0.703902,
         "diameterMm": 4,
         "holeDepthMm": 8.6
       },

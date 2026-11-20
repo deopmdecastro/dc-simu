@@ -1405,7 +1405,7 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     ? { ...imported, category: 'measurement' as const } : imported
   if(c.type==='pilotLightSchneiderIil3p' && c.state.code==='A9E18324') c={...c,state:{...c.state,code:'A9E18327'}}
   const oldSize=LEGACY_MODULAR_SIZE[c.type], footprint=getSchematicPhysicalFootprint(c.type)
-  if(oldSize && footprint && c.w===Math.round(oldSize.width*1.5) && c.h===Math.round(oldSize.height*1.5)) {
+  if(oldSize && footprint && (c.w!==footprint.w || c.h!==footprint.h) && c.w===Math.round(oldSize.width*1.5) && c.h===Math.round(oldSize.height*1.5)) {
     c={...c,w:footprint.w,h:footprint.h,schematicX:c.schematicX+(c.w-footprint.w)/2,schematicY:c.schematicY+(c.h-footprint.h)/2}
   }
   const spots = REAL_TERMINALS[c.type]
