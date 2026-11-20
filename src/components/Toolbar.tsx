@@ -723,7 +723,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   return (
     <div ref={shellRef} className={`dc-toolbar-shell shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20${compactBar && !demo ? ' is-compact' : ''}`}>
       {/* ============================ linha 1 — projeto · vistas · simulação */}
-      <div ref={mainBarRef} className={`flex items-center gap-2.5 px-4 min-h-[46px] ${demo ? 'justify-between' : 'border-b border-line-soft'} dc-toolbar-main`}>
+      <div ref={mainBarRef} className={`flex items-center gap-2.5 px-4 min-h-[46px] ${demo ? 'dc-demo-toolbar-main' : 'border-b border-line-soft'} dc-toolbar-main`}>
         {/* Projeto: Novo / Abrir / Guardar / BOM / PDF — agrupados; em ecrã estreito viram ToolMenu */}
         {!demo && (
         <div className="dc-project-file-tools flex items-center gap-1.5 shrink-0">
@@ -755,20 +755,25 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
         {/* Logo + seletor de módulos (3D Realista · Ladder · GRAFCET · Esquema IEC) */}
         {demo && (
-          <div className="dc-demo-brand shrink-0 flex items-center gap-2 mr-1" aria-hidden={false}>
+          <div className="dc-demo-brand" aria-label="DC-SIMU demonstração">
             <LogoMark size={22} />
-            <span className="dc-demo-brand-text hidden sm:inline">
+            <span className="dc-demo-brand-text">
               <strong>DC-SIMU</strong>
               <small>Demo</small>
             </span>
           </div>
         )}
-        <div className={`${demo ? 'min-w-0 flex-1 flex items-center overflow-x-auto' : 'flex-1 flex justify-center min-w-0'} dc-views-container`}>
-          <div className={`flex items-center rounded-lg p-1 gap-0.5 sm:gap-1 bg-surface-sunken border border-line shadow-inner ${demo ? 'dc-demo-modules' : ''}`} role="tablist" aria-label="Módulos">
-            {visibleViews.map(({ id, label, icon: DefaultIcon, key }) => {
-              // Na demo: rótulos completos e consistentes (3D Realista / Esquema IEC)
+        <div className={`${demo ? 'dc-demo-views' : 'flex-1 flex justify-center min-w-0'} dc-views-container`}>
+          <div className={`flex items-center rounded-lg p-1 gap-0.5 sm:gap-1 bg-surface-sunken border border-line shadow-inner ${demo ? 'dc-demo-modules' : ''}`} role="tablist" aria-label="Módulos do projeto">
+            {(demo
+              ? // Ordem fixa na demo: 3D Realista e Esquema IEC em destaque, depois Ladder/GRAFCET
+                (['schematic', 'commands', 'ladder', 'grafcet'] as const)
+                  .map((id) => visibleViews.find((v) => v.id === id))
+                  .filter((v): v is (typeof visibleViews)[number] => !!v)
+              : visibleViews
+            ).map(({ id, label, icon: DefaultIcon, key }) => {
               const displayLabel =
-                id === 'schematic' ? (demo ? '3D Realista' : '3D Realista')
+                id === 'schematic' ? '3D Realista'
                 : id === 'commands' ? 'Esquema IEC'
                 : label
               const Icon = id === 'schematic' ? IconCube : DefaultIcon
@@ -782,7 +787,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   className={`dc-view-tab relative inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3' : 'px-3 2xl:px-4'} whitespace-nowrap rounded-[6px] text-xs font-semibold transition-all ${
                     mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
                   }`}
-                  title={`${displayLabel} [${key} · Ctrl+${visibleViews.findIndex((v) => v.id === id) + 1}]`}
+                  title={`${displayLabel} [${key}]`}
                 >
                   <Icon size={14} />
                   <span className={`dc-view-label ${demo ? 'inline' : 'hidden md:inline'}`}>{displayLabel}</span>
