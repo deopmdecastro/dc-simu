@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { createComponent } from '../src/electrical/factory'
 import { useSimStore } from '../src/store/useSimStore'
 import { buildEnclosure } from '../src/three/enclosureParts'
-import { ENCLOSURE_EXTERIOR_FACES, ENCLOSURE_FACES, applyEnclosureVisibility, hiddenEnclosureFaces, toggleEnclosureExteriorVisibility } from '../src/three/enclosureVisibility'
+import { ENCLOSURE_EXTERIOR_FACES, ENCLOSURE_FACES, applyEnclosureVisibility, applyInnerCoverMode, hiddenEnclosureFaces, toggleEnclosureExteriorVisibility } from '../src/three/enclosureVisibility'
 import { componentObstacles } from '../src/three/wireGeometry3D'
 import { mergeStaticMeshes } from '../src/three/staticMerge'
 
@@ -63,4 +63,45 @@ const pivot={ [enclosure.id]:new THREE.Vector3(0,0,1) }
 const shown=componentObstacles([{...enclosure,state:{...enclosure.state,editorHiddenFaces:[]}}],pivot)
 const hidden=componentObstacles([{...enclosure,state:{...enclosure.state,editorHiddenFaces:['door','left','top']}}],pivot)
 assert.deepEqual(hidden.map(b=>[b.min.toArray(),b.max.toArray()]),shown.map(b=>[b.min.toArray(),b.max.toArray()]),'ocultar chapas não muda obstáculos físicos nem permite cabos pela parede')
+
+// Modo da sobretampa modular: oculta / tracejada (só contornos, cliques atravessam) / sólida.
+{
+  const cover = parts.innerCover
+  const plate = cover.getObjectByName('enclosure-inner-cover-plate') as THREE.Mesh
+  const outline = cover.getObjectByName('enclosure-inner-cover-outline') as THREE.LineSegments
+  assert.ok(plate?.isMesh, 'sobretampa tem chapa construída')
+  assert.ok(outline?.isLineSegments, 'sobretampa tem contornos tracejados construídos')
+  const outlineMat = outline.material as THREE.LineDashedMaterial
+  assert.equal(outlineMat.isLineDashedMaterial, true, 'contornos usam material tracejado')
+  assert.ok((outline.geometry.getAttribute('lineDistance')?.count ?? 0) > 0, 'tracejado tem distâncias de linha calculadas')
+
+  applyEnclosureVisibility(parts, {})
+  applyInnerCoverMode(cover, 'solid', false)
+  assert.equal(cover.visible, true, 'modo sólida mostra a sobretampa')
+  assert.equal(plate.visible, true, 'sólida: chapa visível')
+  assert.equal(outline.visible, false, 'sólida: contornos fora de cena')
+  // Apontar para uma faixa sólida da sobretampa (y=-250 = faixa inferior da 1ª fileira)
+  const coverRay = new THREE.Raycaster(new THREE.Vector3(0, -250, 1000), new THREE.Vector3(0, 0, -1))
+  assert.ok(coverRay.intersectObject(cover, true).length > 0, 'sólida: a chapa apanha o clique')
+
+  applyInnerCoverMode(cover, 'outline', false)
+  assert.equal(cover.visible, true, 'tracejada: grupo em cena')
+  assert.equal(plate.visible, false, 'tracejada: sem chapa (sem fundo)')
+  assert.equal((cover.getObjectByName('enclosure-inner-cover-screws') as THREE.Mesh).visible, false, 'tracejada: sem parafusos sólidos')
+  assert.equal((cover.getObjectByName('enclosure-inner-cover-details') as THREE.Mesh).visible, false, 'tracejada: sem rebordos sólidos')
+  assert.equal(outline.visible, true, 'tracejada: contornos tracejados visíveis')
+  assert.equal(coverRay.intersectObject(cover, true).length, 0, 'tracejada: os cliques atravessam para os aparelhos')
+
+  // Face «innerCover» ocultada na edição 3D vence qualquer modo.
+  applyEnclosureVisibility(parts, { editorHiddenFaces: ['innerCover'] })
+  applyInnerCoverMode(cover, 'outline', true)
+  assert.equal(cover.visible, false, 'face oculta na edição vence o modo tracejada')
+  applyInnerCoverMode(cover, 'solid', true)
+  assert.equal(cover.visible, false, 'face oculta na edição vence o modo sólida')
+
+  // Repor tudo.
+  applyEnclosureVisibility(parts, {})
+  applyInnerCoverMode(cover, 'solid', false)
+  assert.equal(plate.visible, true, 'repor: chapa sólida de novo visível')
+}
 console.log('PASS — visibilidade do quadro: faces independentes, atalho de exteriores, cliques, desfazer/refazer, persistência e física preservada')

@@ -13,7 +13,8 @@ import { useSimStore } from '../store/useSimStore'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import { buildCableDuct, buildEnclosure, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf } from './enclosureParts'
 import { galvanizedSteel, powderCoat, pvcMatte } from './proceduralTextures'
-import { applyEnclosureVisibility, enclosureFaceVisible, hiddenEnclosureFaces } from './enclosureVisibility'
+import { applyEnclosureVisibility, applyInnerCoverMode, enclosureFaceVisible, hiddenEnclosureFaces } from './enclosureVisibility'
+import { innerCoverModeOf } from './modularCoverLayout'
 
 const U = PANEL_UNITS_PER_MM
 
@@ -40,7 +41,13 @@ function powderMaterial(color: string) {
 
 /** Liberta geometrias (os mapas são partilhados por cache e não se apagam). */
 function disposeTree(root: THREE.Object3D) {
-  root.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) mesh.geometry.dispose() })
+  root.traverse((node) => {
+    const mesh = node as THREE.Mesh
+    if (mesh.isMesh) { mesh.geometry.dispose(); return }
+    const line = node as THREE.LineSegments
+    // Contornos tracejados da sobretampa: geometria e material são próprios da peça.
+    if (line.isLineSegments) { line.geometry.dispose(); const mat = line.material; (Array.isArray(mat) ? mat : [mat]).forEach((m) => m.dispose()) }
+  })
 }
 
 /** Superfícies que não devem apanhar cliques (o clique atravessa para os aparelhos e para a chapa). */
@@ -123,22 +130,17 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
   }, [dims.widthMm, dims.heightMm, dims.depthMm, hinge, materials, modularRows])
   useEffect(() => () => { disposeTree(parts.body); disposeTree(parts.door) }, [parts])
   const visibilityKey = hiddenEnclosureFaces(c.state).join('|')
+  // Sobretampa modular interna: o modo (oculta/tracejada/sólida) compõe-se com as
+  // faces ocultas — applyInnerCoverMode é o dono único dessas peças e corre por último.
+  const innerCoverMode = innerCoverModeOf(c.state)
   useEffect(() => {
     applyEnclosureVisibility(parts, c.state)
+    applyInnerCoverMode(parts.innerCover, innerCoverMode, hiddenEnclosureFaces(c.state).includes('innerCover'))
     gl.shadowMap.needsUpdate = true
     invalidate()
     // A visibilidade não reconstrói malhas nem altera o estado físico.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parts, visibilityKey, invalidate, gl])
-
-  // Sobretampa modular interna (segunda tampa)
-  const showInnerCover = c.state.innerCover === true || c.state.modularCover === true
-  useEffect(() => {
-    if (parts.innerCover) {
-      parts.innerCover.visible = showInnerCover
-      invalidate()
-    }
-  }, [parts.innerCover, showInnerCover, invalidate])
+  }, [parts, visibilityKey, innerCoverMode, invalidate, gl])
 
   // Porta: amortecimento crítico até ao ângulo pedido (abre/fecha como uma porta real, sem saltos).
   const open = c.state.doorOpen !== false

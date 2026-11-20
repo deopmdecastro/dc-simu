@@ -266,11 +266,15 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       <div className="grid grid-cols-3 gap-1.5">
         {ENCLOSURE_PRESETS.map(([w,h,dp])=> <button key={`${w}x${h}`} type="button" className={`rounded-lg border p-2 text-center transition ${d.widthMm===w&&d.heightMm===h ? 'bg-brand-600 border-brand-700 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}><div className="text-xs font-bold">{w}×{h}</div><div className="text-[10px] opacity-60">{dp} prof.</div></button>)}
       </div>
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-slate-600">Dobradiças</span>
-        <div className="dc-acc-seg ml-auto" role="group"><button type="button" aria-pressed={hinge==='left'} className={hinge==='left'?'is-on':''} onClick={()=> set({hingeSide:'left'})}>Esq.</button><button type="button" aria-pressed={hinge==='right'} className={hinge==='right'?'is-on':''} onClick={()=> set({hingeSide:'right'})}>Dir.</button></div>
-        <span className="text-slate-600 ml-2">Chapa</span>
-        <Select className="dc-input h-7 text-xs" aria-label="Acabamento da chapa" value={typeof c.state.plateFinish==='string'?c.state.plateFinish:'Aço galvanizado'} onChange={(e)=> set({plateFinish:e.target.value})}>{ENCLOSURE_PLATE_FINISH_IDS.map(id=> <option key={id} value={id}>{id}</option>)}</Select>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-slate-600 shrink-0">Dobradiças</span>
+          <div className="dc-acc-seg" role="group" aria-label="Lado das dobradiças"><button type="button" aria-pressed={hinge==='left'} className={hinge==='left'?'is-on':''} onClick={()=> set({hingeSide:'left'})}>Esq.</button><button type="button" aria-pressed={hinge==='right'} className={hinge==='right'?'is-on':''} onClick={()=> set({hingeSide:'right'})}>Dir.</button></div>
+        </div>
+        <label className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-slate-600 shrink-0">Chapa de montagem</span>
+          <Select className="dc-input h-8 flex-1 min-w-0 text-xs" aria-label="Acabamento da chapa" value={typeof c.state.plateFinish==='string'?c.state.plateFinish:'Aço galvanizado'} onChange={(e)=> set({plateFinish:e.target.value})}>{ENCLOSURE_PLATE_FINISH_IDS.map(id=> <option key={id} value={id}>{id}</option>)}</Select>
+        </label>
       </div>
       <div className="flex items-center gap-2"><span className="text-xs text-slate-600">Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(v)=> useSimStore.getState().updateComponent(c.id,{bodyColor:v})} /></div>
     </div>
@@ -284,17 +288,30 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
 
     {/* O modo de montagem não tem superfícies, nem mesmo transparentes. */}
     <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3" data-inner-cover-controls>
-      <div className="text-xs font-semibold text-slate-700">Sobretampa modular interna (espelho DIN)</div>
-      <div className="dc-acc-seg" role="group" aria-label="Modo da sobretampa">
-        {([['hidden','Oculta'],['outline','Tracejada'],['solid','Sólida']] as const).map(([mode,label]) => <button key={mode} type="button" aria-pressed={innerCoverModeOf(c.state)===mode} className={innerCoverModeOf(c.state)===mode?'is-on':''} onClick={()=>set({innerCover:mode!=='hidden',modularCover:false,innerCoverMode:mode==='outline'?'outline':'solid'})}>{label}</button>)}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Sobretampa modular</span>
+        <span className="text-[10px] text-slate-400">espelho DIN</span>
       </div>
-      <p className="text-[11px] text-slate-500">Tracejada: apenas contornos, sem fundo nem obturadores — permite selecionar e posicionar os aparelhos por dentro.</p>
+      <div className="dc-acc-seg w-full" role="group" aria-label="Modo da sobretampa">
+        {([['hidden','Oculta'],['outline','Tracejada'],['solid','Sólida']] as const).map(([mode,label]) => <button key={mode} type="button" aria-pressed={innerCoverModeOf(c.state)===mode} className={`flex-1${innerCoverModeOf(c.state)===mode?' is-on':''}`} onClick={()=>set({innerCover:mode!=='hidden',modularCover:false,innerCoverMode:mode==='outline'?'outline':'solid'})}>{label}</button>)}
+      </div>
+      {innerCoverModeOf(c.state) === 'hidden' && (
+        <p className="text-[11px] text-slate-500 leading-snug">Sem sobretampa: a aparelhagem fica completamente à vista com a porta aberta.</p>
+      )}
+      {innerCoverModeOf(c.state) === 'outline' && (
+        <p className="text-[11px] text-slate-500 leading-snug">Só os contornos tracejados da chapa, sem fundo nem obturadores — os cliques atravessam a sobretampa para selecionar e posicionar os aparelhos por dentro.</p>
+      )}
+      {innerCoverModeOf(c.state) === 'solid' && (
+        <p className="text-[11px] text-slate-500 leading-snug">Chapa de proteção opaca com janelas DIN para os aparelhos modulares.</p>
+      )}
+      {innerCoverModeOf(c.state) !== 'hidden' && (<>
       <div className="flex items-center justify-between text-xs"><span>Fileiras modulares</span><div className="flex gap-1">
         {[1,2,3,4,5,6].map(num=><button key={num} type="button" aria-label={`${num} fileiras modulares`} aria-pressed={modularCoverLayout(d,typeof c.state.modularRows==='number'?c.state.modularRows:undefined).rows===num} className={`w-7 h-8 rounded border ${modularCoverLayout(d,typeof c.state.modularRows==='number'?c.state.modularRows:undefined).rows===num?'bg-brand-600 text-white border-brand-700':'bg-slate-50 border-slate-200'}`} onClick={()=>set({modularRows:num})}>{num}</button>)}
       </div></div>
       <MmField label="Recuo da sobretampa à frente" min={20} max={Math.max(20,d.depthMm-45)} step={1} value={typeof c.state.innerCoverInsetMm==='number'?c.state.innerCoverInsetMm:42} onChange={innerCoverInsetMm=>set({innerCoverInsetMm})}/>
-      <label className="dc-acc-row"><span>Obturadores nas aberturas livres</span><input aria-label="Obturadores automáticos" type="checkbox" checked={c.state.innerCoverBlanking!==false} onChange={e=>set({innerCoverBlanking:e.target.checked})}/></label>
-      <p className="text-[11px] text-slate-500">Tiras brancas fracionáveis. As vagas são recalculadas sem tapar aparelhos, incluindo os que não estão centrados nos módulos de 18 mm.</p>
+      <label className={`dc-acc-row ${innerCoverModeOf(c.state)==='outline'?'opacity-45':''}`} title={innerCoverModeOf(c.state)==='outline'?'A sobretampa tracejada é só contornos: não tem obturadores.':undefined}><span>Obturadores nas aberturas livres</span><input aria-label="Obturadores automáticos" type="checkbox" disabled={innerCoverModeOf(c.state)==='outline'} checked={innerCoverModeOf(c.state)==='solid'&&c.state.innerCoverBlanking!==false} onChange={e=>set({innerCoverBlanking:e.target.checked})}/></label>
+      {innerCoverModeOf(c.state)==='solid' && <p className="text-[11px] text-slate-500 leading-snug">Tiras brancas fracionáveis. As vagas são recalculadas sem tapar aparelhos, incluindo os que não estão centrados nos módulos de 18 mm.</p>}
+      </>)}
     </div>
 
     <details className="dc-inspector-group" data-enclosure-visibility>

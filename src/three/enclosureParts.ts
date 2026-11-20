@@ -361,9 +361,30 @@ export function buildInnerModularCover(
   plateGeos.push(boxGeo(unit, 16, covH, 20, -(covW / 2 - 8), 0, covZ - 10))
   plateGeos.push(boxGeo(unit, 16, covH, 20, covW / 2 - 8, 0, covZ - 10))
 
-  if (plateGeos.length) group.add(mergedMesh(plateGeos, m.body, unit, 'enclosure-inner-cover-plate'))
-  if (screwGeos.length) group.add(mergedMesh(screwGeos, m.metal, unit, 'enclosure-inner-cover-screws'))
+  let plateMesh: THREE.Mesh | null = null
+  let screwMesh: THREE.Mesh | null = null
+  if (plateGeos.length) { plateMesh = mergedMesh(plateGeos, m.body, unit, 'enclosure-inner-cover-plate'); group.add(plateMesh) }
+  if (screwGeos.length) { screwMesh = mergedMesh(screwGeos, m.metal, unit, 'enclosure-inner-cover-screws'); group.add(screwMesh) }
   if (darkGeos.length) group.add(mergedMesh(darkGeos, m.dark, unit, 'enclosure-inner-cover-details'))
+
+  // Modo «tracejada»: só os contornos (chapa + parafusos), sem fundo — os cliques
+  // atravessam para selecionar e posicionar os aparelhos por dentro da sobretampa.
+  if (plateMesh || screwMesh) {
+    const edgeSource = mergeGeometries([plateMesh, screwMesh].filter(Boolean).map((mesh) => mesh!.geometry.clone()), false)
+    if (edgeSource) {
+      const edges = new THREE.EdgesGeometry(edgeSource, 20)
+      edgeSource.dispose()
+      const outline = new THREE.LineSegments(edges, new THREE.LineDashedMaterial({
+        color: '#334155', dashSize: 7 * unit, gapSize: 4.5 * unit, transparent: true, opacity: 0.95,
+      }))
+      outline.computeLineDistances()
+      outline.name = 'enclosure-inner-cover-outline'
+      outline.visible = false
+      // Linhas nunca interceptam cliques nem preenchem a vista.
+      outline.raycast = () => {}
+      group.add(outline)
+    }
+  }
 
   return group
 }
