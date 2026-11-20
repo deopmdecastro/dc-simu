@@ -1,0 +1,462 @@
+{
+  "configurations": [
+    {
+      "barsMode": "2P",
+      "poleCount": 4,
+      "dims": {
+        "holesPerBar": 4,
+        "barsMode": "2P",
+        "conductors": [
+          "L1",
+          "N"
+        ],
+        "barWidthMm": 40,
+        "widthMm": 62.4,
+        "heightMm": 57.6,
+        "depthMm": 33.2
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -30.600000381469727,
+          -21.899999618530273,
+          -16.600000381469727
+        ],
+        "max": [
+          30.600000381469727,
+          20.5,
+          -12.40000057220459
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "2P",
+      "poleCount": 7,
+      "dims": {
+        "holesPerBar": 7,
+        "barsMode": "2P",
+        "conductors": [
+          "L1",
+          "N"
+        ],
+        "barWidthMm": 66.4,
+        "widthMm": 88.8,
+        "heightMm": 57.6,
+        "depthMm": 33.2
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -43.79999923706055,
+          -21.899999618530273,
+          -16.600000381469727
+        ],
+        "max": [
+          43.79999923706055,
+          20.5,
+          -12.40000057220459
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "2P",
+      "poleCount": 11,
+      "dims": {
+        "holesPerBar": 11,
+        "barsMode": "2P",
+        "conductors": [
+          "L1",
+          "N"
+        ],
+        "barWidthMm": 101.60000000000001,
+        "widthMm": 124,
+        "heightMm": 57.6,
+        "depthMm": 33.2
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -61.400001525878906,
+          -21.899999618530273,
+          -16.600000381469727
+        ],
+        "max": [
+          61.400001525878906,
+          20.5,
+          -12.40000057220459
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "2P",
+      "poleCount": 16,
+      "dims": {
+        "holesPerBar": 16,
+        "barsMode": "2P",
+        "conductors": [
+          "L1",
+          "N"
+        ],
+        "barWidthMm": 145.60000000000002,
+        "widthMm": 168,
+        "heightMm": 57.6,
+        "depthMm": 33.2
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -83.4000015258789,
+          -21.899999618530273,
+          -16.600000381469727
+        ],
+        "max": [
+          83.4000015258789,
+          20.5,
+          -12.40000057220459
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "3P",
+      "poleCount": 4,
+      "dims": {
+        "holesPerBar": 4,
+        "barsMode": "3P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3"
+        ],
+        "barWidthMm": 40,
+        "widthMm": 62.4,
+        "heightMm": 72.8,
+        "depthMm": 41.6
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -30.600000381469727,
+          -21.899999618530273,
+          -20.799999237060547
+        ],
+        "max": [
+          30.600000381469727,
+          20.5,
+          -16.600000381469727
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "3P",
+      "poleCount": 7,
+      "dims": {
+        "holesPerBar": 7,
+        "barsMode": "3P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3"
+        ],
+        "barWidthMm": 66.4,
+        "widthMm": 88.8,
+        "heightMm": 72.8,
+        "depthMm": 41.6
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -43.79999923706055,
+          -21.899999618530273,
+          -20.799999237060547
+        ],
+        "max": [
+          43.79999923706055,
+          20.5,
+          -16.600000381469727
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "3P",
+      "poleCount": 11,
+      "dims": {
+        "holesPerBar": 11,
+        "barsMode": "3P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3"
+        ],
+        "barWidthMm": 101.60000000000001,
+        "widthMm": 124,
+        "heightMm": 72.8,
+        "depthMm": 41.6
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -61.400001525878906,
+          -21.899999618530273,
+          -20.799999237060547
+        ],
+        "max": [
+          61.400001525878906,
+          20.5,
+          -16.600000381469727
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "3P",
+      "poleCount": 16,
+      "dims": {
+        "holesPerBar": 16,
+        "barsMode": "3P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3"
+        ],
+        "barWidthMm": 145.60000000000002,
+        "widthMm": 168,
+        "heightMm": 72.8,
+        "depthMm": 41.6
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -83.4000015258789,
+          -21.899999618530273,
+          -20.799999237060547
+        ],
+        "max": [
+          83.4000015258789,
+          20.5,
+          -16.600000381469727
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "4P",
+      "poleCount": 4,
+      "dims": {
+        "holesPerBar": 4,
+        "barsMode": "4P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3",
+          "N"
+        ],
+        "barWidthMm": 40,
+        "widthMm": 62.4,
+        "heightMm": 88,
+        "depthMm": 50
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -30.600000381469727,
+          -21.899999618530273,
+          -25
+        ],
+        "max": [
+          30.600000381469727,
+          20.5,
+          -20.799999237060547
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "4P",
+      "poleCount": 7,
+      "dims": {
+        "holesPerBar": 7,
+        "barsMode": "4P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3",
+          "N"
+        ],
+        "barWidthMm": 66.4,
+        "widthMm": 88.8,
+        "heightMm": 88,
+        "depthMm": 50
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -43.79999923706055,
+          -21.899999618530273,
+          -25
+        ],
+        "max": [
+          43.79999923706055,
+          20.5,
+          -20.799999237060547
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "4P",
+      "poleCount": 11,
+      "dims": {
+        "holesPerBar": 11,
+        "barsMode": "4P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3",
+          "N"
+        ],
+        "barWidthMm": 101.60000000000001,
+        "widthMm": 124,
+        "heightMm": 88,
+        "depthMm": 50
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -61.400001525878906,
+          -21.899999618530273,
+          -25
+        ],
+        "max": [
+          61.400001525878906,
+          20.5,
+          -20.799999237060547
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    },
+    {
+      "barsMode": "4P",
+      "poleCount": 16,
+      "dims": {
+        "holesPerBar": 16,
+        "barsMode": "4P",
+        "conductors": [
+          "L1",
+          "L2",
+          "L3",
+          "N"
+        ],
+        "barWidthMm": 145.60000000000002,
+        "widthMm": 168,
+        "heightMm": 88,
+        "depthMm": 50
+      },
+      "clips": {
+        "vertices": 96,
+        "min": [
+          -83.4000015258789,
+          -21.899999618530273,
+          -25
+        ],
+        "max": [
+          83.4000015258789,
+          20.5,
+          -20.799999237060547
+        ]
+      },
+      "clipY": [
+        -21.9,
+        -17.5,
+        17.5,
+        20.5
+      ],
+      "correct": true
+    }
+  ],
+  "exportedGlb": {
+    "vertices": 96,
+    "min": [
+      -0.043800000101327896,
+      -0.021900000050663948,
+      -0.02500000037252903
+    ],
+    "max": [
+      0.043800000101327896,
+      0.020500000566244125,
+      -0.020800000056624413
+    ]
+  },
+  "glbMatchesGenerator": true
+}
