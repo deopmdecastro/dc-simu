@@ -1,4 +1,11 @@
-import { innerCoverModeOf, modularCoverLayout } from '../three/modularCoverLayout'
+import { innerCoverInsetOf, innerCoverModeOf, modularCoverLayout } from '../three/modularCoverLayout'
+
+/** Cores do tracejado da sobretampa (contraste sobre chapa clara e sobre fundo escuro). */
+const INNER_COVER_OUTLINE_COLORS = [
+  { name: 'Ardósia', value: INNER_COVER_OUTLINE_DEFAULT_COLOR }, { name: 'Azul', value: '#2563eb' },
+  { name: 'Vermelho', value: '#dc2626' }, { name: 'Laranja', value: '#ea580c' },
+  { name: 'Verde', value: '#16a34a' }, { name: 'Branco', value: '#f8fafc' },
+]
 import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 import { useState } from 'react'
 import { fitDuctResize, fitDuctSideResize } from '../schematic/ductResize'
@@ -7,7 +14,7 @@ import { ENCLOSURE_EXTERIOR_FACES, ENCLOSURE_FACES, hiddenEnclosureFaces, toggle
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
-import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, spiralWrapDimsOf } from '../three/enclosureParts'
+import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, INNER_COVER_OUTLINE_DEFAULT_COLOR, spiralWrapDimsOf } from '../three/enclosureParts'
 import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileIdOf, dinRailProfileOf, railDepthOffsetMm } from '../three/dinRailGeometry'
 import { CABLE_DUCT_DEFAULT_COLOR, ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
 import Select from '../ui/Select'
@@ -28,7 +35,7 @@ import {
 } from '../ui/icons'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
-export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color', 'editorHiddenFaces', 'innerCover', 'modularCover', 'modularRows', 'innerCoverMode', 'innerCoverBlanking', 'innerCoverInsetMm'])
+export const PANEL_ACCESSORY_STATE_KEYS = new Set(['widthMm', 'heightMm', 'depthMm', 'doorOpen', 'hingeSide', 'plateFinish', 'lengthMm', 'coverOn', 'innerDiaMm', 'pitchMm', 'color', 'editorHiddenFaces', 'innerCover', 'modularCover', 'modularRows', 'innerCoverMode', 'innerCoverBlanking', 'innerCoverInsetMm', 'innerCoverOutlineColor'])
 export const RAIL_PROFILE_STATE_KEYS = new Set(['profile', 'finish', 'perforated', 'depthOffsetMm', 'endStops'])
 
 const ENCLOSURE_PRESETS: Array<[number, number, number]> = [[300, 400, 200], [400, 500, 200], [500, 700, 250], [600, 800, 250], [800, 1000, 300], [1000, 1200, 300]]
@@ -308,7 +315,10 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       <div className="flex items-center justify-between text-xs"><span>Fileiras modulares</span><div className="flex gap-1">
         {[1,2,3,4,5,6].map(num=><button key={num} type="button" aria-label={`${num} fileiras modulares`} aria-pressed={modularCoverLayout(d,typeof c.state.modularRows==='number'?c.state.modularRows:undefined).rows===num} className={`w-7 h-8 rounded border ${modularCoverLayout(d,typeof c.state.modularRows==='number'?c.state.modularRows:undefined).rows===num?'bg-brand-600 text-white border-brand-700':'bg-slate-50 border-slate-200'}`} onClick={()=>set({modularRows:num})}>{num}</button>)}
       </div></div>
-      <MmField label="Recuo da sobretampa à frente" min={20} max={Math.max(20,d.depthMm-45)} step={1} value={typeof c.state.innerCoverInsetMm==='number'?c.state.innerCoverInsetMm:42} onChange={innerCoverInsetMm=>set({innerCoverInsetMm})}/>
+      <MmField label="Recuo da sobretampa à frente" min={20} max={Math.max(20,d.depthMm-45)} step={1} value={innerCoverInsetOf(d,c.state.innerCoverInsetMm)} onChange={innerCoverInsetMm=>set({innerCoverInsetMm})}/>
+      {innerCoverModeOf(c.state)==='outline' && <div className="dc-acc-row"><span>Cor do tracejado</span>
+        <Swatches options={INNER_COVER_OUTLINE_COLORS} value={typeof c.state.innerCoverOutlineColor==='string'?c.state.innerCoverOutlineColor:INNER_COVER_OUTLINE_DEFAULT_COLOR} onPick={innerCoverOutlineColor=>set({innerCoverOutlineColor})}/>
+      </div>}
       <label className={`dc-acc-row ${innerCoverModeOf(c.state)==='outline'?'opacity-45':''}`} title={innerCoverModeOf(c.state)==='outline'?'A sobretampa tracejada é só contornos: não tem obturadores.':undefined}><span>Obturadores nas aberturas livres</span><input aria-label="Obturadores automáticos" type="checkbox" disabled={innerCoverModeOf(c.state)==='outline'} checked={innerCoverModeOf(c.state)==='solid'&&c.state.innerCoverBlanking!==false} onChange={e=>set({innerCoverBlanking:e.target.checked})}/></label>
       {innerCoverModeOf(c.state)==='solid' && <p className="text-[11px] text-slate-500 leading-snug">Tiras brancas fracionáveis. As vagas são recalculadas sem tapar aparelhos, incluindo os que não estão centrados nos módulos de 18 mm.</p>}
       </>)}
@@ -613,7 +623,7 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
   const maxDepth = enclosure ? Math.max(0,enclosureDimsOf(enclosure.state).depthMm-ENCLOSURE_PLATE_FRONT_MM-profile.height-45) : 400
   const alignToCover = () => {
     if (!enclosure) return
-    const d=enclosureDimsOf(enclosure.state), layout=modularCoverLayout(d,Number(enclosure.state.modularRows)||undefined,Number(enclosure.state.innerCoverInsetMm)||42)
+    const d=enclosureDimsOf(enclosure.state), layout=modularCoverLayout(d,Number(enclosure.state.modularRows)||undefined,innerCoverInsetOf(d,enclosure.state.innerCoverInsetMm))
     const members=all.filter(item=>item.railId===c.id)
     const fasciaDepth = (item: ElectricalComponent) => {
       const specific: Record<string,number>={breakerSchneiderIc60h1p:69,pilotLightSchneiderIil1p:65.5,pilotLightSchneiderIil3p:65.5,residualBreakerSchneiderIid4p:64,residualBreakerSchneiderIdpnVigi:64,meterD522066:63,meterKws306:64}

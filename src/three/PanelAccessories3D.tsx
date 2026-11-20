@@ -11,10 +11,10 @@ import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
-import { buildCableDuct, buildEnclosure, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf } from './enclosureParts'
+import { buildCableDuct, buildEnclosure, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, setInnerCoverInset, setInnerCoverOutlineColor } from './enclosureParts'
 import { galvanizedSteel, powderCoat, pvcMatte } from './proceduralTextures'
 import { applyEnclosureVisibility, applyInnerCoverMode, enclosureFaceVisible, hiddenEnclosureFaces } from './enclosureVisibility'
-import { innerCoverModeOf } from './modularCoverLayout'
+import { innerCoverInsetOf, innerCoverModeOf, modularCoverLayout, vacantCoverBlanks, type CoverOccupant } from './modularCoverLayout'
 
 const U = PANEL_UNITS_PER_MM
 
@@ -93,7 +93,7 @@ export function EnclosureHoleGland3D({ diameter, glandType }: { diameter: number
 }
 
 /** Quadro: a face da chapa de montagem coincide com o plano da chapa do painel (`plateFrontZ`, relativo ao pivô). */
-export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: ElectricalComponent; interactive: boolean; plateFrontZ: number; label?: ReactNode }) {
+export function Enclosure3D({ c, interactive, plateFrontZ, label, coverOccupants = [] }: { c: ElectricalComponent; interactive: boolean; plateFrontZ: number; label?: ReactNode; coverOccupants?: readonly CoverOccupant[] }) {
   const { invalidate, gl } = useThree()
   const dims = enclosureDimsOf(c.state)
   const hinge = enclosureHingeOf(c.state)
@@ -142,6 +142,31 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parts, visibilityKey, innerCoverMode, invalidate, gl])
 
+  // Recuo e cor do tracejado: só translação/material — sem reconstruir o armário.
+  const coverInsetMm = innerCoverInsetOf(dims, c.state.innerCoverInsetMm)
+  const outlineColor = typeof c.state.innerCoverOutlineColor === 'string' ? c.state.innerCoverOutlineColor : undefined
+  useEffect(() => {
+    setInnerCoverInset(parts.innerCover, dims, coverInsetMm, U)
+    setInnerCoverOutlineColor(parts.innerCover, outlineColor)
+    gl.shadowMap.needsUpdate = true
+    invalidate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parts, coverInsetMm, outlineColor, invalidate, gl])
+
+  // Obturadores automáticos: tiras brancas nas vagas das janelas DIN não ocupadas
+  // pela projeção real dos aparelhos (só na sobretampa sólida e visível).
+  const showBlanks = innerCoverMode === 'solid' && c.state.innerCoverBlanking !== false && !hiddenEnclosureFaces(c.state).includes('innerCover')
+  const occupantsKey = coverOccupants.map((o) => `${o.xMm.toFixed(1)},${o.yMm.toFixed(1)},${o.widthMm.toFixed(1)},${o.heightMm.toFixed(1)}`).join(';')
+  const coverBlanks = useMemo(() => {
+    if (!showBlanks) return []
+    const layout = modularCoverLayout(dims, modularRows, coverInsetMm)
+    return vacantCoverBlanks(layout, coverOccupants).map((b) => ({ ...b, zMm: layout.zMm }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBlanks, occupantsKey, dims.widthMm, dims.heightMm, dims.depthMm, modularRows, coverInsetMm])
+  const blankMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: '#f3f3ef', roughness: 0.62, metalness: 0 }), [])
+  useEffect(() => () => blankMaterial.dispose(), [blankMaterial])
+  useEffect(() => { gl.shadowMap.needsUpdate = true; invalidate() }, [coverBlanks, gl, invalidate])
+
   // Porta: amortecimento crítico até ao ângulo pedido (abre/fecha como uma porta real, sem saltos).
   const open = c.state.doorOpen !== false
   const angle = useRef(open ? ENCLOSURE.openDeg : 0)
@@ -171,6 +196,12 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label }: { c: Electri
 
   return <group position={[0, 0, plateFrontZ - ENCLOSURE_PLATE_FRONT_MM * U]}>
     <primitive object={parts.body} />
+    {coverBlanks.length > 0 && <group name="enclosure-inner-cover-blanks">
+      {coverBlanks.map((b, i) => <mesh key={i} name="enclosure-inner-cover-blank" material={blankMaterial} castShadow receiveShadow
+        position={[b.xMm * U, b.yMm * U, (b.zMm + 0.4) * U]}>
+        <boxGeometry args={[Math.max(1, b.widthMm - 0.6) * U, Math.max(1, b.heightMm - 0.4) * U, 2.4 * U]} />
+      </mesh>)}
+    </group>}
     <primitive object={parts.door} onClick={toggleDoor}
       onPointerOver={() => { if (interactive && !c.locked) document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { document.body.style.cursor = '' }} />

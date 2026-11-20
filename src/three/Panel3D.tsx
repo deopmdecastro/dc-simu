@@ -3957,6 +3957,28 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     // Em STOP o aparelho clicado fica selecionado (Inspetor). Em RUN/PAUSA só atua: não se seleciona nem se move.
     if (!demoMode && !simLocked) selectComponents([component.id], useSimStore.getState().multiSelectMode)
   }
+  // Projeção REAL (mm, centrada no quadro) dos aparelhos de chapa/calha dentro de um quadro:
+  // alimenta os obturadores automáticos da sobretampa (não tapam aparelhos).
+  const enclosureCoverOccupants = (enclosure: ElectricalComponent) => {
+    const center = panelPivots[enclosure.id]
+    if (!center) return []
+    const dims = enclosureDimsOf(enclosure.state)
+    const halfW = dims.widthMm / 2, halfH = dims.heightMm / 2
+    const occupants: Array<{ xMm: number; yMm: number; widthMm: number; heightMm: number }> = []
+    for (const component of components) {
+      if (component.id === enclosure.id || isPanelAccessoryType(component.type) || isMountingRail(component.type) || !isPanelBound(component)) continue
+      const face = component.panelMount?.face
+      if (face && face !== 'inside') continue
+      const pivot = panelPivots[component.id]
+      if (!pivot) continue
+      const half = componentHalfExtents(component, baseOrientationFor(component))
+      const xMm = (pivot.x - center.x) / PANEL_UNITS_PER_MM, yMm = (pivot.y - center.y) / PANEL_UNITS_PER_MM
+      if (Math.abs(xMm) > halfW || Math.abs(yMm) > halfH) continue
+      occupants.push({ xMm, yMm, widthMm: (2 * half.x) / PANEL_UNITS_PER_MM, heightMm: (2 * half.y) / PANEL_UNITS_PER_MM })
+    }
+    return occupants
+  }
+
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
     const pivot = panelPivots[component.id]
@@ -4798,7 +4820,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           const plateFrontZ = PLATE_FRONT_Z - panelPivots[c.id].z
           const label = <Label text={c.ref} position={[0, 0, 0]} size={0.075} color="#475569" />
           return wrapOriented(c, c.type === 'panelEnclosure'
-            ? <Enclosure3D c={c} interactive={mechanicalControls} plateFrontZ={plateFrontZ} label={label} />
+            ? <Enclosure3D c={c} interactive={mechanicalControls} plateFrontZ={plateFrontZ} label={label} coverOccupants={enclosureCoverOccupants(c)} />
             : c.type === 'spiralWrap'
               ? <SpiralWrap3D c={c} plateFrontZ={plateFrontZ} label={label} />
               : <CableDuct3D c={c} plateFrontZ={plateFrontZ} label={label} openings={ductJunctionOpenings(c, components)} />)

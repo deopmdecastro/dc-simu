@@ -15,13 +15,28 @@ export function innerCoverModeOf(state: Record<string, unknown> | undefined): In
   return state.innerCoverMode === 'outline' ? 'outline' : 'solid'
 }
 
-/** Medidas em mm, referencial centrado no quadro e Z a partir da parede traseira. */
-export function modularCoverLayout(dims: EnclosureDims, rowsOverride?: number, insetMm = 42): ModularCoverLayout {
-  const widthMm = Math.max(40, dims.widthMm - 40), heightMm = Math.max(40, dims.heightMm - 40)
-  const requested = Number.isFinite(rowsOverride) ? Math.round(rowsOverride!) : Math.round(heightMm / 145)
+/** Recuo por omissão do plano da sobretampa em relação à frente do armário (mm). */
+export const INNER_COVER_DEFAULT_INSET_MM = 42
+/** Aba frontal do armário (igual a ENCLOSURE.flange; aqui sem import para evitar ciclo). */
+const FLANGE_MM = 18
+
+/** Recuo válido (mm) para umas medidas de armário; valores inválidos voltam ao padrão. */
+export function innerCoverInsetOf(dims: EnclosureDims, insetMm?: unknown): number {
+  const raw = typeof insetMm === 'number' && Number.isFinite(insetMm) ? insetMm : INNER_COVER_DEFAULT_INSET_MM
+  return Math.max(20, Math.min(Math.max(20, dims.depthMm - 45), raw))
+}
+
+/**
+ * Medidas em mm, referencial centrado no quadro e Z a partir da parede traseira.
+ * Fonte única da geometria: a chapa 3D (buildInnerModularCover) e os obturadores
+ * automáticos usam exatamente estas janelas.
+ */
+export function modularCoverLayout(dims: EnclosureDims, rowsOverride?: number, insetMm: number = INNER_COVER_DEFAULT_INSET_MM): ModularCoverLayout {
+  const widthMm = Math.max(40, dims.widthMm - 2 * FLANGE_MM - 4), heightMm = Math.max(40, dims.heightMm - 2 * FLANGE_MM - 4)
+  const requested = Number.isFinite(rowsOverride) && rowsOverride! >= 1 ? Math.round(rowsOverride!) : Math.round(heightMm / 145)
   const rows = Math.max(1, Math.min(6, requested)), rowHeightMm = heightMm / rows
-  const inset = Number.isFinite(insetMm) ? Math.max(20, Math.min(Math.max(20, dims.depthMm - 45), insetMm)) : 42
-  const windowWidth = Math.max(20, widthMm - 74), windowHeight = Math.min(46, rowHeightMm * .42)
+  const inset = innerCoverInsetOf(dims, insetMm)
+  const windowWidth = Math.max(20, Math.min(widthMm - 20, Math.max(60, widthMm - 74))), windowHeight = Math.min(46, rowHeightMm * .42)
   return {
     widthMm, heightMm, zMm: dims.depthMm - inset, rows, rowHeightMm,
     openings: Array.from({ length: rows }, (_, r) => ({

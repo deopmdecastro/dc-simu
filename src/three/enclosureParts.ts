@@ -1,6 +1,7 @@
 import { closedFloorSpans, closedSpans, inOpening, type DuctOpening } from '../schematic/ductJunctions'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { INNER_COVER_DEFAULT_INSET_MM, innerCoverInsetOf, modularCoverLayout } from './modularCoverLayout'
 
 /**
  * Quadro elétrico (armário metálico com porta) e calha técnica ranhurada com tampa —
@@ -297,22 +298,19 @@ export function buildInnerModularCover(
   m: EnclosureMaterials,
   rowsOverride?: number,
 ): THREE.Group {
-  const { widthMm: W, heightMm: H, depthMm: D } = dims
-  const f = ENCLOSURE.flange
   const group = new THREE.Group()
   group.name = 'enclosure-inner-cover'
 
-  const covW = W - 2 * f - 4
-  const covH = H - 2 * f - 4
-  const covZ = D - 42 // plano recuado ~42 mm da frente
-
-  const rows = rowsOverride && rowsOverride >= 1 && rowsOverride <= 8
-    ? rowsOverride
-    : Math.max(1, Math.min(6, Math.round(covH / 145)))
-
-  const rowH = covH / rows
-  const winH = Math.min(46, rowH * 0.42)
-  const winW = Math.max(60, covW - 74)
+  // Construída sempre ao recuo padrão: o recuo pedido aplica-se depois só como
+  // translação em Z (setInnerCoverInset) — mexer no slider não reconstrói malhas.
+  const layout = modularCoverLayout(dims, rowsOverride)
+  const covW = layout.widthMm
+  const covH = layout.heightMm
+  const covZ = layout.zMm
+  const rows = layout.rows
+  const rowH = layout.rowHeightMm
+  const winH = layout.openings[0]?.heightMm ?? Math.min(46, rowH * 0.42)
+  const winW = layout.openings[0]?.widthMm ?? Math.max(60, covW - 74)
   const plateT = 1.5
 
   const plateGeos: THREE.BufferGeometry[] = []
@@ -375,7 +373,7 @@ export function buildInnerModularCover(
       const edges = new THREE.EdgesGeometry(edgeSource, 20)
       edgeSource.dispose()
       const outline = new THREE.LineSegments(edges, new THREE.LineDashedMaterial({
-        color: '#334155', dashSize: 7 * unit, gapSize: 4.5 * unit, transparent: true, opacity: 0.95,
+        color: INNER_COVER_OUTLINE_DEFAULT_COLOR, dashSize: 7 * unit, gapSize: 4.5 * unit, transparent: true, opacity: 0.95,
       }))
       outline.computeLineDistances()
       outline.name = 'enclosure-inner-cover-outline'
@@ -387,6 +385,25 @@ export function buildInnerModularCover(
   }
 
   return group
+}
+
+/** Cor por omissão do tracejado da sobretampa (ardósia, legível sobre chapa clara). */
+export const INNER_COVER_OUTLINE_DEFAULT_COLOR = '#334155'
+
+/** Recuo da sobretampa: translação do grupo construído ao recuo padrão (sem reconstruir). */
+export function setInnerCoverInset(innerCover: THREE.Group | undefined, dims: EnclosureDims, insetMm: unknown, unit: number): void {
+  if (!innerCover) return
+  innerCover.position.z = (INNER_COVER_DEFAULT_INSET_MM - innerCoverInsetOf(dims, insetMm)) * unit
+}
+
+/** Cor do tracejado da sobretampa; cores inválidas voltam à cor padrão. */
+export function setInnerCoverOutlineColor(innerCover: THREE.Group | undefined, color: unknown): void {
+  if (!innerCover) return
+  const value = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color : INNER_COVER_OUTLINE_DEFAULT_COLOR
+  innerCover.traverse((node) => {
+    const line = node as THREE.LineSegments
+    if (line.isLineSegments && line.material instanceof THREE.LineDashedMaterial) line.material.color.set(value)
+  })
 }
 
 export interface CableDuctMaterials { body: THREE.Material; cover: THREE.Material }
