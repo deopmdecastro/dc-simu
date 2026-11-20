@@ -37,6 +37,12 @@ export const INDUSTRIAL_INFO: Record<IndustrialDeviceType, {
     scope: 'A1/A2: 12–240 V CA/CC, S: comando, inversor 15/16/18 de 16 A AC1. Dez funções A…J; A=TON, E=TOF por S (B é intervalo, não TOF neste modelo). Atraso = escala × ajuste 10–100%; 0,1 s…10 dias. Sem LCD. Simulação ideal, sem tolerâncias eletromecânicas.',
     defaultState: { powered: false, energized: false, function: 'A', rangeMs: 10000, fraction: .3, presetMs: 3000, elapsedMs: 0, running: false, supplyMismatch: false },
   },
+  timerGeyaGrt8M2: {
+    name: 'Temporizador GEYA GRT8-M2 W240 · multifunções · 2×SPDT · TON em A', manufacturer: 'GEYA', reference: 'GRT8-M2 W240', category: 'relay', tag: 'KT',
+    datasheet: '/datasheets/industrial/geya-grt8-m.pdf', source: 'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf', provenance: 'Reconstrução 3D cotada/fotográfica; não foi obtido STEP do fabricante.',
+    scope: 'A1/A2: 12–240 V CA/CC, S: comando, dois inversores independentes de 16 A AC1: 15/16/18 e 25/26/28. Dez funções A…J; A=TON, E=TOF por S. Atraso = escala × ajuste 10–100%; 0,1 s…10 dias. Sem LCD. Simulação ideal, sem tolerâncias eletromecânicas.',
+    defaultState: { powered: false, energized: false, function: 'A', rangeMs: 10000, fraction: .3, presetMs: 3000, elapsedMs: 0, running: false, supplyMismatch: false },
+  },
   timerGeyaGrt8B1: {
     name: 'Temporizador TOF GEYA GRT8-B1 A230 · desoperação por S', manufacturer: 'GEYA', reference: 'GRT8-B1 A230', category: 'relay', tag: 'KT',
     datasheet: '/datasheets/industrial/geya-grt8-ab.pdf', source: 'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf', provenance: 'Reconstrução 3D cotada/fotográfica; não foi obtido STEP do fabricante.',
@@ -119,7 +125,7 @@ function terminalKind(type: IndustrialDeviceType, label: string): TerminalKind {
     if (label === 'P24') return 'power-in'
     if (/AI|AQ/.test(label)) return 'analog'
   }
-  if (['relayFinder5534','timerGeyaGrt8M1','timerGeyaGrt8B1'].includes(type)) {
+  if (['relayFinder5534','timerGeyaGrt8M1','timerGeyaGrt8M2','timerGeyaGrt8B1'].includes(type)) {
     if (label === 'A1') return 'coil-plus'
     if (label === 'A2') return 'coil-minus'
     if (label === 'S') return 'io'
@@ -205,6 +211,7 @@ export function industrialBridges(c: ElectricalComponent): Array<[string,string]
   if(type==='relaySocketFinder9023')for(let i=1;i<=11;i++)pair(String(i),'P'+i)
   else if(type==='relayFinder5534')for(const n of [1,2,3,4])pair(n+'1',n+(c.state.energized?'4':'2'))
   else if(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8B1')pair('15',c.state.energized?'18':'16')
+  else if(type==='timerGeyaGrt8M2'){const on=c.state.energized;pair('15',on?'18':'16');pair('25',on?'28':'26')}
   else if(type==='levelRelayAvel411')pair('1',c.state.energized?'3':'4')
   else if(type.startsWith('pushButtonXb2')&&type!=='pushButtonXb2Nc'){if(c.state.pressed)pair('3','4')}
   else if(type==='pushButtonXb2Nc'){if(!c.state.pressed)pair('1','2')}
@@ -338,7 +345,7 @@ export function updateIndustrialDevice(c:ElectricalComponent,ctx:IndustrialElect
     const v=industrialInput(c,'A1','A2',ctx),ok=v.dc&&v.positive&&inRange(v.voltage,19.2,26.4)
     s.powered=ok;s.supplyMismatch=v.voltage>0&&!ok;s.energized=ok||!!s.testPressed;return
   }
-  if(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8B1'){
+  if(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8M2'||type==='timerGeyaGrt8B1'){
     const v=industrialInput(c,'A1','A2',ctx)
     const ok=type==='timerGeyaGrt8B1'?!v.dc&&inRange(v.voltage,195.5,253):inRange(v.voltage,12,240)&&(!v.dc||v.positive)
     // S só é comando quando fechado à MESMA alimentação A1, não uma segunda fonte.
@@ -410,8 +417,8 @@ export function industrialControlPatch(type:string,state:Record<string,any>,cont
     return {}
   }
   const reset={elapsedMs:0,_wasPowered:false,_wasTrigger:false,_pulseActive:false,_offTiming:false,_delayedEdges:[],energized:false}
-  if(control==='function'&&type==='timerGeyaGrt8M1')return {...reset,function:cycle(GEYA_FUNCTIONS,state.function)}
-  if((type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8B1')&&control==='range')return {...reset,rangeMs:cycle(GEYA_RANGES_MS,state.rangeMs)}
-  if((type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8B1')&&control==='fraction')return {...reset,fraction:Math.max(.1,Math.min(1,Math.round(((Number(state.fraction)||.3)+step*.1)*10)/10))}
+  if(control==='function'&&(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8M2'))return {...reset,function:cycle(GEYA_FUNCTIONS,state.function)}
+  if((type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8M2'||type==='timerGeyaGrt8B1')&&control==='range')return {...reset,rangeMs:cycle(GEYA_RANGES_MS,state.rangeMs)}
+  if((type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8M2'||type==='timerGeyaGrt8B1')&&control==='fraction')return {...reset,fraction:Math.max(.1,Math.min(1,Math.round(((Number(state.fraction)||.3)+step*.1)*10)/10))}
   return {}
 }

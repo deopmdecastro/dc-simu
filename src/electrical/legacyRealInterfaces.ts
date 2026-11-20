@@ -720,7 +720,7 @@ export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSp
 /** Pontos por omissão anteriores às cavidades físicas dos medidores; não são pontos manuais. */
 export const LEGACY_METER_POSITIONS: Record<string, Record<string,{x:number;y:number;z:number}>> = {
  meterD522066: {'1':{x:.28,y:.16,z:.88},'2':{x:.48,y:.16,z:.88},'3':{x:.28,y:.84,z:.88},'4':{x:.48,y:.84,z:.88}},
- meterKws306: Object.fromEntries(['L1','L2','L3','N'].flatMap((label,i)=>[['IN',.88],['OUT',.12]].map(([side,y])=>[label+'-'+side,{x:[.15,.38,.62,.85][i],y:Number(y),z:.65}])))
+ meterKws306: Object.fromEntries(['L1','L2','L3','N'].flatMap((label,i)=>[['IN',.88],['OUT',.12]].map(([side,y])=>[label+'-'+side,{x:[.1351,.3784,.6216,.8649][i],y:Number(y),z:.5692}])))
 }
 export const LEGACY_MODULAR_SIZE: Record<string,{width:number;height:number;depth:number}> = {
  contactorWegCwbc65:{width:57.61,height:159.4,depth:115},

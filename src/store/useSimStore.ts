@@ -1478,14 +1478,19 @@ function shiftGroupWires(wires: Wire[], components: ElectricalComponent[], group
 }
 
 export const useSimStore = create<Store>((set, get) => {
-  /** Reavalia um scan apenas quando a simulação já foi iniciada (pausa ou passo a passo; nunca em STOP puro). */
+  /**
+   * Reavalia um scan apenas quando a simulação já está em RUN ou PAUSA.
+   * Nunca chama step() a partir de STOP puro: step() força stopped→paused e
+   * isso fazia operações mecânicas (encaixe de relé, snap à calha, etc.)
+   * «ativarem» a simulação. A única forma de sair de STOP é o botão Play.
+   */
   const recomputeIfPaused = () => {
-    const { runState, scanCount } = get().sim
-    if (runState === 'paused' || (runState === 'stopped' && scanCount > 0)) get().step()
+    const { runState } = get().sim
+    if (runState === 'running' || runState === 'paused') get().step()
   }
   const recomputeIfActive = () => {
-    const { runState, scanCount } = get().sim
-    if (runState !== 'stopped' || scanCount > 0) get().step()
+    const { runState } = get().sim
+    if (runState === 'running' || runState === 'paused') get().step()
   }
   return ({
   components: [],
@@ -1787,9 +1792,8 @@ export const useSimStore = create<Store>((set, get) => {
   ladderTraceCursor: null,
   setLadderTraceCursor: (index) => set({ ladderTraceCursor: index }),
   ladderStepScan: () => {
-    if (get().sim.runState === 'running') get().pause()
-    if (get().sim.runState === 'stopped') set((s) => ({ sim: { ...s.sim, runState: 'paused' } }))
-    get().step()
+    // Nunca elevar STOP → PAUSA aqui. Só recalcula se já ativo.
+    if (get().sim.runState === 'running' || get().sim.runState === 'paused') get().step()
     set({ ladderBreakHit: null, ladderTraceCursor: 0 })
   },
   setVirtualInputMode: (address, mode) => {
@@ -1966,6 +1970,12 @@ export const useSimStore = create<Store>((set, get) => {
   pause: () => {
     const iv = get()._intervalId
     if (iv) window.clearInterval(iv)
+    // STOP permanece STOP — pausar só a partir de RUN (ou manter PAUSA).
+    // Encaixe de relé / snap / edição nunca devem «ativar» a simulação.
+    if (get().sim.runState === 'stopped') {
+      set({ _intervalId: null })
+      return
+    }
     set((s) => ({ sim: { ...s.sim, runState: 'paused' }, _intervalId: null }))
   },
 
@@ -2051,10 +2061,16 @@ export const useSimStore = create<Store>((set, get) => {
         },
       }))
     }
-    // STEP is a transport operation: stop a running scheduler, or leave STOP
-    // for a live paused simulation so field buttons remain operable afterwards.
-    // Exactly one scan is advanced, never a continuous RUN in the background.
-    if (get().sim.runState !== 'paused' || get()._intervalId) get().pause()
+    // STEP avança um scan. Em STOP puro não muda o runState — só Play ativa.
+    // Em RUN: para o scheduler e deixa em PAUSA após o scan.
+    // Em PAUSA: mantém PAUSA e avança um scan.
+    const before = get().sim.runState
+    if (before === 'stopped') {
+      // Não «acordar» a simulação. Operações mecânicas (relé, calha, etc.)
+      // podem chamar step por caminhos antigos; ignoramos o efeito de estado.
+      return
+    }
+    if (before === 'running' || get()._intervalId) get().pause()
     const st = get()
     runOneTick(st as unknown as Store, 100)
     pushRuntime(set, st)
@@ -4098,7 +4114,12 @@ export const useSimStore = create<Store>((set, get) => {
       return { components: syncSocketMounted(next), dirty: true }
     })
     if (mountedRef) get().pushEvent('info', `${get().components.find((c) => c.id === relayId)?.ref ?? 'Relé'} encaixado na base ${mountedRef}: pinos 1–11 nos alvéolos P1–P11.`)
-    recomputeIfActive()
+    // Montagem mecânica nunca inicia nem tira a simulação de STOP puro.
+    // Só recalcula o scan se já estiver em RUN ou PAUSA (Play continua a ser a única forma de ativar).
+    {
+      const { runState } = get().sim
+      if (runState === 'running' || runState === 'paused') get().step()
+    }
   },
 
   unmountRelayFromSocket: (relayId) => {
@@ -4113,7 +4134,11 @@ export const useSimStore = create<Store>((set, get) => {
       return { components: next, dirty: true }
     })
     if (moved) get().pushEvent('info', `${get().components.find((c) => c.id === relayId)?.ref ?? 'Relé'} desencaixado da base.`)
-    recomputeIfActive()
+    // Desmontagem mecânica nunca inicia nem tira a simulação de STOP puro.
+    {
+      const { runState } = get().sim
+      if (runState === 'running' || runState === 'paused') get().step()
+    }
   },
 
   setTerminalPoleCount: (componentId, poleCount) => {

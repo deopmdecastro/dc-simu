@@ -2432,6 +2432,78 @@ html:has(.dx-landing) {
   .dx-window-chip { display: none; }
 }
 
+
+/* ---- Demo embed: logo | seletor 3D↔IEC | play ---- */
+.dc-demo-root .dc-demo-toolbar-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+  min-height: 48px;
+}
+.dc-demo-root .dc-demo-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
+.dc-demo-root .dc-demo-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.dc-demo-root .dc-demo-brand-text strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-900, #17202e);
+}
+.dc-demo-root .dc-demo-brand-text small {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-600, #2655e5);
+}
+.dc-demo-root .dc-demo-views {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.dc-demo-root .dc-demo-views::-webkit-scrollbar { display: none; }
+.dc-demo-root .dc-demo-modules {
+  flex-wrap: nowrap;
+  min-width: max-content;
+  margin: 0 auto;
+}
+.dc-demo-root .dc-demo-modules .dc-view-tab {
+  flex: 0 0 auto;
+}
+.dc-demo-root .dc-demo-modules .dc-view-label {
+  font-size: 0.72rem;
+}
+.dc-demo-root .dc-transport-tools {
+  justify-self: end;
+}
+@media (max-width: 420px) {
+  .dc-demo-root .dc-demo-brand-text small { display: none; }
+  .dc-demo-root .dc-demo-modules .dc-view-label {
+    max-width: 4.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+.landing-editor-embed .dc-toolbar-shell {
+  border-bottom: 1px solid var(--line, #d3dbe5);
+  background: #fff;
+}
+
 /* ---------------------------------------------------------- demo: simular apenas */
 /* A vista do editor embutida respira melhor: barras mais altas, mais ar entre
    grupos e menos controlos (edição toda fora — ver modo demo no App). */

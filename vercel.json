@@ -39,6 +39,10 @@
     {
       "source": "/licencas",
       "destination": "/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [

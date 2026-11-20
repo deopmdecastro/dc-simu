@@ -49,7 +49,7 @@ export function seedIndustrial(type: string, def: ComponentDefinition, cache: Gl
   if (type === 'relayFinder5534') control('TEST momentâneo · sem trava', 'industrial_test', 'test', {
     bindVar: 'testPressed', holdVar: 'testPressed', returnMode: 'spring', travelMm: .8, actions: [],
   })
-  if (type === 'timerGeyaGrt8M1' || type === 'timerGeyaGrt8B1') {
+  if (type === 'timerGeyaGrt8M1' || type === 'timerGeyaGrt8M2' || type === 'timerGeyaGrt8B1') {
     control('Escala de tempo', 'industrial_range', 'range', {
       kind: 'selector', bindVar: 'rangeMs',
       positions: GEYA_RANGES_MS.map((ms, i) => ({ id: String(ms), label: ms < 0 ? 'ON' : ms === 0 ? 'OFF' : `${ms / 1000} s`, angle: -i * 36 })),
@@ -58,7 +58,7 @@ export function seedIndustrial(type: string, def: ComponentDefinition, cache: Gl
       kind: 'selector', bindVar: 'fraction',
       positions: Array.from({ length: 10 }, (_, i) => ({ id: String((i + 1) / 10), label: `${(i + 1) * 10} %`, angle: -i * 30 })),
     })
-    if (type === 'timerGeyaGrt8M1') control('Função A B C D E F G H I J', 'industrial_function', 'function', {
+    if (type === 'timerGeyaGrt8M1' || type === 'timerGeyaGrt8M2') control('Função A B C D E F G H I J', 'industrial_function', 'function', {
       kind: 'selector', bindVar: 'function', positions: GEYA_FUNCTIONS.map((label, i) => ({ id: label, label, angle: -i * 36 })),
     })
   }

@@ -66,6 +66,13 @@ export default function LandingEditorShowcase({ onAccess }: { onAccess: () => vo
           useLadderZoom.getState().setZoom(1.15)
         } catch { /* ignore */ }
         store.setDemoMode(true)
+        // Garante o seletor 3D Realista + Esquema IEC (e Ladder/GRAFCET se existirem).
+        try {
+          store.unlockProjectView('schematic')
+          store.unlockProjectView('commands')
+          store.unlockProjectView('ladder')
+          store.unlockProjectView('grafcet')
+        } catch { /* store antiga */ }
         setReady(true)
       } catch {
         if (mounted.current) setFailed(true)

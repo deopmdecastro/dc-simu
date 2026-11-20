@@ -354,77 +354,134 @@ function buildEasy9SwitchMarkings(type: 'switchSchneiderEz9s1p' | 'switchSchneid
   const ampTxt = formatAmpPt(r.inA)
   const code = easy9SwitchCatalogCode(poles, r.inA)
   const ue = poles === 1 ? '230V~' : '400V~'
-  const frontZ = 74.5 * u
-  const lowerZ = 74.5 * u
+  /* Face frontal do GLB: a parede do molde está a 66,5 mm da traseira DIN (STEP
+   * MCADFD0002242/2243/2245: traseira em z −70,3, parede em z −3,8) e a travessa
+   * vermelha vem até 75,1 mm. A serigrafia é uma película fina e opaca colada nessa
+   * parede — nunca no ar à frente do manípulo.
+   * As cotas ficam em MILÍMETROS porque `makePlateMesh` já aplica `unitsPerMm`;
+   * multiplicar outra vez por `u` punha-a ~100× à frente do aparelho — era a «placa
+   * solta» que aparecia em vez da serigrafia e esticava a caixa 74 mm em profundidade. */
+  /* A face frontal do molde é plana a z = 65,5 mm entre y 36 e 60 mm (medido no STEP a
+   * várias colunas de x); acima disso o corpo recolhe para os poços dos parafusos. O
+   * manípulo vermelho vem até 74,7 mm, mas a serigrafia assenta na parede, não no ar. */
+  const FRONT_Z_MM = 66.5
+  /* As cotas acima são do GLB, onde a traseira assenta em z = 0. A serigrafia é acrescentada
+   * ao grupo `fitted`, cuja caixa está centrada em profundidade (`frame.position.z =
+   * -depth / 2` em `fitComponentModel`): sem esta correção as chapas ficavam 37 mm à frente
+   * da parede — invisíveis de frente, flutuando na vista iso. */
+  const DEPTH_OFFSET_MM = -75.1 / 2
   const out: THREE.Object3D[] = []
-
+  const shift = (pos: [number, number, number]): [number, number, number] =>
+    [pos[0], pos[1], pos[2] + DEPTH_OFFSET_MM]
   const wMm = poles * 18
-  const hMm = 20.0
-  const wPx = poles * 256
-  const hPx = 320
-  const mainKey = `ez9s:${poles}:${ampTxt}:${r.closed ? 1 : 0}:${r.tripped ? 1 : 0}`
-  const mainTex = cachedCanvasTexture(mainKey, wPx, hPx, (ctx, w, h) => {
-    ctx.fillStyle = '#eeede8'
-    ctx.fillRect(0, 0, w, h)
-    if (poles > 1) {
-      ctx.strokeStyle = 'rgba(100,116,139,0.22)'
-      ctx.lineWidth = 2
-      for (let i = 1; i < poles; i += 1) {
-        ctx.beginPath()
-        ctx.moveTo((i * w) / poles, 0)
-        ctx.lineTo((i * w) / poles, h)
-        ctx.stroke()
-      }
-    }
-    const bandH = 54
-    ctx.fillStyle = '#009530'
-    ctx.fillRect(0, 0, poles === 1 ? w : w / poles, bandH)
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 34px Arial, Helvetica, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('Schneider Electric', (poles === 1 ? w : w / poles) / 2, bandH / 2)
-    ctx.fillStyle = '#1e293b'
-    ctx.font = 'bold 52px Arial, Helvetica, sans-serif'
-    ctx.fillText('EZ9 Switch', (poles === 1 ? w : w / poles) / 2, 130)
-    ctx.font = 'bold 40px Arial, Helvetica, sans-serif'
-    ctx.fillText(`${code} · ${ampTxt} A`, (poles === 1 ? w : w / poles) / 2, 190)
-    ctx.font = '28px Arial, Helvetica, sans-serif'
-    ctx.fillStyle = '#64748b'
-    ctx.fillText(`IEC 60947-3 · AC-22A · ${ue}`, (poles === 1 ? w : w / poles) / 2, 240)
-    ctx.font = '26px Arial, Helvetica, sans-serif'
-    ctx.fillText('Icm 0,945 kA · Icw 0,756 kA (1 s)', (poles === 1 ? w : w / poles) / 2, 280)
-  })
-  const main = new THREE.Mesh(
-    new THREE.PlaneGeometry(wMm * u, hMm * u),
-    new THREE.MeshStandardMaterial({ map: mainTex, roughness: 0.6, metalness: 0.05 })
-  )
-  main.name = 'industrial_fascia'
-  main.position.set(0, 58 * u, frontZ + 0.2)
-  main.userData.protectionMarking = true
-  out.push(main)
+  const columnMm = 18
+  const columnPx = 256
 
-  const labelKey = `ez9s:label:${poles}:${ampTxt}`
-  const labelTex = cachedCanvasTexture(labelKey, wPx, 160, (ctx, w, h) => {
-    ctx.fillStyle = '#eeede8'
-    ctx.fillRect(0, 0, w, h)
-    ctx.fillStyle = '#1e293b'
-    ctx.font = 'bold 30px Arial, Helvetica, sans-serif'
+  /* ---- Serigrafia do bloco do primeiro polo (parede frontal) -----------
+   * Reproduz o que o produto traz impresso: logótipo Schneider Electric a verde,
+   * «Easy9» / «Switch» / «100A» / «EZ9S16491» a cinza-grafite alinhados à esquerda e o
+   * símbolo «EZ» verde (quadrado cheio, monograma vazado) à direita. Sem o calibre e a
+   * referência a peça lia-se como «só o logótipo». */
+  const mainKey = `ez9s:fascia:${poles}:${ampTxt}:${code}`
+  const fasciaWmm = 17, fasciaHmm = 18
+  const mainTex = cachedCanvasTexture(mainKey, Math.round(fasciaWmm * 40), Math.round(fasciaHmm * 40), (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h)
+    const px = (mm: number) => mm * 40
+    drawBrandArtwork(ctx, 'schneider-electric', px(0.4), px(0.45), px(13.4), px(4.4))
+    ctx.fillStyle = '#5b6068'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    /* Ritmo vertical do molde: bloco de quatro linhas no meio-baixo da máscara, passo
+     * 2,7 mm e corpo 2,2 mm — é assim que a referência o imprime. */
+    ctx.font = '500 74px "Inter", "Arial", sans-serif'
+    ctx.fillText('Easy9', px(0.4), px(8.5))
+    ctx.fillText('Switch', px(0.4), px(10.9))
+    ctx.fillText(`${ampTxt}A`, px(0.4), px(13.3))
+    ctx.fillText(code, px(0.4), px(15.7))
+    // Símbolo «EZ»: quadrado verde de cantos redondos com o monograma vazado.
+    const bx = px(10.0), by = px(6.9), bw = px(5.6), bh = px(5.6), rad = px(0.75)
+    ctx.fillStyle = '#009530'
+    ctx.beginPath()
+    ctx.moveTo(bx + rad, by)
+    ctx.lineTo(bx + bw - rad, by); ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + rad)
+    ctx.lineTo(bx + bw, by + bh - rad); ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - rad, by + bh)
+    ctx.lineTo(bx + rad, by + bh); ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - rad)
+    ctx.lineTo(bx, by + rad); ctx.quadraticCurveTo(bx, by, bx + rad, by)
+    ctx.closePath(); ctx.fill()
+    ctx.fillStyle = '#f4f6f3'
+    ctx.font = '800 68px "Inter", "Arial", sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText('Easy9 Switch', w / 2, h / 2 - 16)
-    ctx.font = '24px Arial, Helvetica, sans-serif'
-    ctx.fillStyle = '#64748b'
-    ctx.fillText(`${code} · In ${ampTxt} A`, w / 2, h / 2 + 22)
+    ctx.fillText('EZ', bx + bw / 2, by + bh / 2 + px(0.15))
   })
-  const label = new THREE.Mesh(
-    new THREE.PlaneGeometry(wMm * u, 8 * u),
-    new THREE.MeshStandardMaterial({ map: labelTex, roughness: 0.6, metalness: 0.05 })
-  )
-  label.name = 'industrial_ez9s_label'
-  label.position.set(0, 22 * u, lowerZ + 0.2)
-  label.userData.protectionMarking = true
-  out.push(label)
+  /* A chapa é do tamanho do bloco impresso e assenta no canto superior esquerdo do
+   * primeiro módulo; o resto da parede fica marfim liso, como no molde. */
+  if (mainTex) out.push(makePlateMesh(mainTex, fasciaWmm, fasciaHmm, shift([-wMm / 2 + 1.0 + fasciaWmm / 2, 51.0, FRONT_Z_MM]), u, 0, true))
+
+  /* ---- Quadro técnico no degrau superior (à esquerda dos bornes) --------
+   * O produto imprime aqui a tabela de características: AC-22A, 50/60 Hz, IP20, 400 V~
+   * e as colunas de calibre/corrente, tudo dentro de um filete fino como no molde. */
+  const plateWmm = Math.min(wMm - 3.2, 15.0), plateHmm = 7.6
+  const tableKey = `ez9s:table:${poles}:${ampTxt}:${ue}`
+  const tableTex = cachedCanvasTexture(tableKey, Math.round(plateWmm * 40), Math.round(plateHmm * 40), (ctx, w, h) => {
+    const px = (mm: number) => mm * 40
+    ctx.clearRect(0, 0, w, h)
+    ctx.strokeStyle = 'rgba(120,132,146,0.75)'
+    ctx.lineWidth = 2.5
+    ctx.strokeRect(px(0.45), px(0.45), w - px(0.9), h - px(0.9))
+    ctx.fillStyle = '#4d5560'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    const rows = ['AC-22A', '50/60Hz', 'IP20', `${ue}`]
+    rows.forEach((line, i) => {
+      ctx.font = `${i === 3 ? 700 : 600} 25px "Inter", "Arial", sans-serif`
+      ctx.fillText(line, px(1.0), px(1.4 + i * 1.55))
+    })
+    /* Colunas de corrente ancoradas à direita da tabela: em módulos estreitos (1P) a
+     * tabela encolhe e as colunas deslocam-se com ela. São sempre as quatro do molde. */
+    const step = px(1.85), colsX = w - px(4.2) - step * 3
+    ctx.font = '700 16px "Inter", "Arial", sans-serif'
+    const heads = ['40A', '63A', '80A', '100A']
+    heads.forEach((label, i) => ctx.fillText(label, colsX + i * step, px(2.0)))
+    const currents = [['14', '14', '15', '15'], ['12', '14', '18', '18']]
+    ctx.font = '500 16px "Inter", "Arial", sans-serif'
+    currents.forEach((row, r) => {
+      row.forEach((val, i) => ctx.fillText(val, colsX + i * step, px(4.3 + r * 1.5)))
+    })
+  })
+  /* A parede do degrau superior está a z 50,1 mm no STEP (não a 49,3 mm do filete mais
+   * baixo). A chapa fica ACIMA da fila de parafusos — os poços ocupam y 66,3…73,3 — e
+   * encostada à esquerda do primeiro módulo, 0,4 mm à frente da parede para não ficar
+   * escondida dentro do material. */
+  if (tableTex) out.push(makePlateMesh(tableTex, plateWmm, plateHmm, shift([-wMm / 2 + plateWmm / 2 + 1.4, 77.0, 50.5]), u))
+
+  /* Calibre nas laterais (como no molde real, gravado no flanco). */
+  const sideTex = cachedCanvasTexture(`ez9s:side:${poles}:${ampTxt}`, 160, 360, (ctx, w, h) => {
+    ctx.save()
+    ctx.translate(w / 2, h / 2)
+    ctx.rotate(-Math.PI / 2)
+    ctx.fillStyle = '#475569'
+    ctx.font = '700 26px "Inter", "Arial", sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(`${code}  ·  ${ampTxt}A  ·  ${ue}`, 0, 0)
+    ctx.restore()
+  })
+  /* Os flancos do molde ficam 0,6 mm além do referencial nominal (aletas de encaixe na calha):
+   * encostar a chapa a `wMm / 2` enterrava-a dentro da malha e a gravação lateral nunca
+   * aparecia. Assenta-se na largura real do molde. */
+  const bodyHalfMm = (poles === 1 ? 17.85 : 17.85 + (poles - 1) * 18) / 2
+  if (sideTex) for (const side of [-1, 1] as const) {
+    const material = new THREE.MeshStandardMaterial({ map: sideTex, transparent: true, alphaTest: 0.04, roughness: 0.6, metalness: 0.03 })
+    bindCachedCanvasTexture(material, sideTex)
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(9 * u, 22 * u), material)
+    plate.name = MARKING_TAG
+    plate.position.set(side * (bodyHalfMm + 0.02) * u, 41.5 * u, (FRONT_Z_MM - 22 + DEPTH_OFFSET_MM) * u)
+    plate.rotation.y = (side * Math.PI) / 2
+    plate.userData.protectionMarking = true
+    plate.raycast = () => null
+    out.push(plate)
+  }
 
   return out
 }

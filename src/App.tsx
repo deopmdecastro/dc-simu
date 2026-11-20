@@ -53,8 +53,15 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   // (gravado no projeto, logo mantém-se ao guardar e reabrir).
   const hasLadderProgram = useMemo(() => hasGeneratedLadder(), [ladderRungs, projectFiles])
   const viewsAll = allowedViews(projectKind, hasLadderProgram, unlockedViews)
-  // Demonstração: apenas as vistas de projeto (o Monitor de diagnóstico fica para o editor completo).
-  const views = demo ? viewsAll.filter((v) => v !== 'monitor') : viewsAll
+  // Demonstração: o visitante deve poder alternar 3D Realista ↔ Esquema IEC (e Ladder/GRAFCET
+  // se o projeto os tiver). O Monitor fica só no editor completo.
+  const views = demo
+    ? Array.from(new Set<ViewMode>([
+        'schematic',
+        'commands',
+        ...viewsAll.filter((v) => v !== 'monitor'),
+      ]))
+    : viewsAll
   const splitEnabled = useSplitView((s) => s.enabled)
   const splitLeft = useSplitView((s) => s.left)
   const splitRight = useSplitView((s) => s.right)

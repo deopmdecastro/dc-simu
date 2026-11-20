@@ -94,10 +94,14 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   breaker3p: { width: 54, height: 84.5, depth: 75.44 },
   /** Easy9 4P: 4 módulos de 17,7 mm ≈ 70,8 mm; mesma altura/profundidade dos 1P–3P. */
   breaker4p: { width: 70.8, height: 84.5, depth: 75.44 },
-  /** Easy9 Switch (EZ9S): medido no STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm). */
-  switchSchneiderEz9s1p: { width: 18, height: 81, depth: 66.5 },
-  switchSchneiderEz9s2p: { width: 36, height: 81, depth: 66.5 },
-  switchSchneiderEz9s4p: { width: 72, height: 81, depth: 66.5 },
+  /**
+   * Easy9 Switch (EZ9S): medido nos vértices do STEP do próprio produto (MCADFD0002242 /
+   * 2243 / 2245) — corpo de 82 mm, 84,5 mm até à ponta do clip DIN, e 75,1 mm até à frente
+   * da travessa vermelha. O CAD anterior (MCADFD0001285) era da gama iSW/SW.
+   */
+  switchSchneiderEz9s1p: { width: 18, height: 84.5, depth: 75.1 },
+  switchSchneiderEz9s2p: { width: 36, height: 84.5, depth: 75.1 },
+  switchSchneiderEz9s4p: { width: 72, height: 84.5, depth: 75.1 },
   /** Genérico DR 4P: mesmo envelope do Easy9 4P (4 módulos). */
   residualBreaker: { width: 70.8, height: 84.5, depth: 75.44 },
   /** Genérico QM 3P: mesmo envelope do Easy9 3P (3 módulos). */
@@ -333,16 +337,23 @@ export interface BreakerHandleRig {
 
 const EZ9_THROW_DEG = 70
 const ez9Nodes = (poles: number) => [...Array.from({ length: poles }, (_, index) => `dcsimu_handle_${index + 1}`), ...(poles > 1 ? ['dcsimu_handle_bridge'] : [])]
+/** Easy9 Switch: o CAD do produto traz uma alavanca vermelha por polo (`MANETTE`) e uma
+ * travessa que as une (`EXTENSION_MANETTE_02`, malha `dcsimu_handle_bridge` no GLB). A travessa
+ * só existe nos de 2P e 4P — no 1P a lista inclui um nó que não existe e é ignorado. */
+const ez9SwitchNodes = (poles: number) => [...Array.from({ length: poles }, (_, index) => `dcsimu_handle_${index + 1}`), 'dcsimu_handle_bridge']
 
 export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>> = {
   // cubo da alavanca a y = 32,5 mm e z = 61,5 mm (da base e da traseira do corpo)
   breaker1p: { hinge: { y: 0.645, z: 0.297 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(1) },
   breaker2p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
   breaker3p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(3) },
-  // Easy9 Switch: a charneira é o cubo da alavanca vermelha (y 48,5 mm, z 70 mm).
-  switchSchneiderEz9s1p: { hinge: { y: 0.599, z: 0.94 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(1) },
-  switchSchneiderEz9s2p: { hinge: { y: 0.599, z: 0.94 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
-  switchSchneiderEz9s4p: { hinge: { y: 0.599, z: 0.94 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(4) },
+  /* Easy9 Switch: a charneira é a aresta de topo do conjunto vermelho (y 40 mm no STEP, ou
+   * seja 40/84,5 = 0,473 da caixa do manípulo; z 0,22 da mesma caixa, logo atrás do lábio
+   * frontal). As frações são relativas à caixa de `dcsimu_handle_*`, como o
+   * `extractBreakerHandle` as espera. */
+  switchSchneiderEz9s1p: { hinge: { y: 0.92, z: 0.12 }, throwDeg: EZ9_THROW_DEG, nodes: ez9SwitchNodes(1) },
+  switchSchneiderEz9s2p: { hinge: { y: 0.92, z: 0.12 }, throwDeg: EZ9_THROW_DEG, nodes: ez9SwitchNodes(2) },
+  switchSchneiderEz9s4p: { hinge: { y: 0.92, z: 0.12 }, throwDeg: EZ9_THROW_DEG, nodes: ez9SwitchNodes(4) },
   // Steck: o cubo redondo (centro y −8,25 mm, z 61,45 mm no STEP) fica a 58,7 % da altura e 32,8 % da profundidade
   breakerSteckSdC25: { hinge: { y: 0.587, z: 0.328 }, throwDeg: 40, nodes: ['dcsimu_handle_2', 'dcsimu_handle_3'] },
   /* PKZM C-10: o eixo é o centro do aro/cubo redondo (`dcsimu_handle_2`, 15,5 × 15,5 mm), não o centro
@@ -386,6 +397,7 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'capacitorRun60uF' ||
     type === 'buzzerMetaltexTby301' ||
     type === 'timerGeyaGrt8M1' ||
+    type === 'timerGeyaGrt8M2' ||
     type === 'timerGeyaGrt8B1' ||
     type === 'pushButtonXb2No' ||
     type === 'pushButtonXb2Nc' ||

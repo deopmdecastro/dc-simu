@@ -109,7 +109,7 @@ export function industrialAction(object: THREE.Object3D): string | null {
 /** Variáveis derivadas (lâmpadas físicas); não altera o contrato elétrico. */
 export function industrialLedVars(type: IndustrialDeviceType, s: Record<string, unknown>): Record<string, boolean> {
   if (type === 'vfdSchneiderAtv320') return { ledFault: !!s.powered && !!s.deviceFault, ledRun: !!s.powered && !!s.running, ledCan: false }
-  if (type === 'timerGeyaGrt8M1' || type === 'timerGeyaGrt8B1') return { ledPower: !!s.powered, ledRelay: !!s.powered && !!s.energized }
+  if (type === 'timerGeyaGrt8M1' || type === 'timerGeyaGrt8M2' || type === 'timerGeyaGrt8B1') return { ledPower: !!s.powered, ledRelay: !!s.powered && !!s.energized }
   if (type === 'levelRelayAvel411') return {
     ledPower: !!s.powered, ledRelay: !!s.powered && !!s.energized,
     ledTankWater: !!s.powered && !!s.tankMinWet, ledTankDry: !!s.powered && !s.tankMinWet,
@@ -199,9 +199,26 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
   root.updateMatrixWorld(true)
 }
 
+/** Etiquetas A1 S A2 / 15 16 18 impressas sobre cada poço de borne do GRT8. */
+function geyaScrewLabels(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const label of ['A1', 'S', 'A2', '15', '16', '18', '25', '26', '28']) out['industrial_geya_label_' + label] = `geya-screw-label-${label}.png`
+  return out
+}
+
 const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
-  timerGeyaGrt8M1: { industrial_fascia: 'geya-grt8-m-face.png', industrial_geya_side_r: 'geya-grt8-m-side-r.png', industrial_geya_side_l: 'geya-grt8-m-side-l.png' },
-  timerGeyaGrt8B1: { industrial_fascia: 'geya-grt8-b-face.png', industrial_geya_side_r: 'geya-grt8-b-side-r.png', industrial_geya_side_l: 'geya-grt8-b-side-l.png' },
+  timerGeyaGrt8M1: {
+    industrial_fascia: 'geya-grt8-m-face.png', industrial_geya_side_r: 'geya-grt8-m-side-r.png', industrial_geya_side_l: 'geya-grt8-m-side-l.png',
+    ...geyaScrewLabels(),
+  },
+  timerGeyaGrt8M2: {
+    industrial_fascia: 'geya-grt8-m2-face.png', industrial_geya_side_r: 'geya-grt8-m-side-r.png', industrial_geya_side_l: 'geya-grt8-m-side-l.png',
+    ...geyaScrewLabels(),
+  },
+  timerGeyaGrt8B1: {
+    industrial_fascia: 'geya-grt8-b-face.png', industrial_geya_side_r: 'geya-grt8-b-side-r.png', industrial_geya_side_l: 'geya-grt8-b-side-l.png',
+    ...geyaScrewLabels(),
+  },
   levelRelayAvel411: { industrial_avel_label: 'avel-411-face.png' },
   relayFinder5534: { industrial_finder_label: 'finder-5534-label.png' },
   buzzerMetaltexTby301: { industrial_metaltex_label: 'metaltex-tby-label.png' },

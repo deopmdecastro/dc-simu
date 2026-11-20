@@ -1328,5 +1328,105 @@
         "holeDepthMm": 6
       }
     ]
+  },
+  "timerGeyaGrt8M2": {
+    "path": "/models/industriais/timerGeyaGrt8M2.glb",
+    "physicalSizeMm": {
+      "width": 18.1,
+      "height": 95,
+      "depth": 65.35
+    },
+    "terminals": [
+      {
+        "label": "A1",
+        "face": "top",
+        "contact": "socket",
+        "x": 0.212707,
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "S",
+        "face": "top",
+        "contact": "socket",
+        "x": 0.5,
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "A2",
+        "face": "top",
+        "contact": "socket",
+        "x": 0.787293,
+        "y": 0.026316,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "25",
+        "face": "bottom",
+        "contact": "socket",
+        "x": 0.212707,
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "26",
+        "face": "bottom",
+        "contact": "socket",
+        "x": 0.5,
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "28",
+        "face": "bottom",
+        "contact": "socket",
+        "x": 0.787293,
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "15",
+        "face": "bottom",
+        "contact": "socket",
+        "x": 0.212707,
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "16",
+        "face": "bottom",
+        "contact": "socket",
+        "x": 0.5,
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      },
+      {
+        "label": "18",
+        "face": "bottom",
+        "contact": "socket",
+        "x": 0.787293,
+        "y": 0.973684,
+        "z": 0.214231,
+        "diameterMm": 4,
+        "holeDepthMm": 8.6
+      }
+    ]
   }
 }

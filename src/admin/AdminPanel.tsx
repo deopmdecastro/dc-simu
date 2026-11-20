@@ -422,7 +422,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         : <div className="adm-tablewrap"><table className="adm-table adm-table-projects">
           <thead><tr><th scope="col">Projeto</th><th scope="col">Proprietário</th><th scope="col" className="is-num">Membros</th><th scope="col" className="is-num">Tamanho</th><th scope="col" className="is-num">Rev.</th><th scope="col">Atualizado</th><th scope="col">Landing</th><th scope="col"><span className="adm-vh">Ações</span></th></tr></thead>
           <tbody>{shownProjects.map((project) => <tr key={project.id}>
-            <th scope="row" data-label="Projeto"><span className="adm-project-cell"><ProjectThumb name={project.name} preview={project.preview} /><span className="adm-project-name"><strong>{project.name}</strong><small>{project.revision ? `Revisão ${project.revision}` : 'Sem revisões'}</small></span></span></th>
+            <th scope="row" data-label="Projeto"><span className="adm-project-cell"><ProjectThumb name={project.name} preview={project.preview} size="lg" /><span className="adm-project-name"><strong>{project.name}</strong><small>{project.revision ? `Revisão ${project.revision}` : 'Sem revisões'}</small></span></span></th>
             <td data-label="Proprietário" className="is-owner"><span className="adm-person"><Avatar email={project.owner} name={project.owner} size="sm" /><span>{project.owner}</span></span></td>
             <td data-label="Membros" className="is-num">{project.members ?? 0}</td>
             <td data-label="Tamanho" className="is-num">{project.size !== undefined ? formatBytes(project.size) : '—'}</td>

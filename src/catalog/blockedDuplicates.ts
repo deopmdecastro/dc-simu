@@ -2,7 +2,7 @@ import type { ComponentType } from '../types'
 
 /**
  * Lista deliberadamente estreita de duplicados FUNCIONAIS: um item genérico sem 3D
- * só sai da biblioteca quando existe um aparelho com 3D com a mesma função, os
+ * é eliminado da biblioteca (não aparece com cadeado) quando existe um aparelho com 3D com a mesma função, os
  * mesmos bornes (ou superconjunto) e a mesma classe de alimentação. Projetos
  * gravados nunca são reescritos — o tipo antigo continua a abrir e a simular.
  *

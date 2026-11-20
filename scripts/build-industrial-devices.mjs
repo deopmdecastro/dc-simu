@@ -164,46 +164,76 @@ async function finderRelay(){
 async function geya(type){
  const root=device(type),terms=[]
  // y/z profile extruded along X. DIN notch and stepped access ends are real voids.
- const profile=[[0,2.5],[0,37],[-7.5,37],[-7.5,58],[0,58],[0,92.5],[-24,92.5],[-24,87],[-38,87],[-38,77],[-64,73],[-64,22],[-38,18],[-38,8],[-24,8],[-24,2.5]]
+ // Perfil y/z do GRT8, extrudido em X (cotas do manual: 90 mm de corpo, 64 mm de
+ // profundidade, 95 mm com as patilhas). Frente a z 0, traseira a z −64.
+ // Topo e base têm o mesmo degrau: parede de bornes a z 0 e bloco recuado a z −24
+ // a partir de 82,5 mm (topo) e até 12,5 mm (base) — é a identidade do produto nas
+ // fotos do manual, não um degrau inventado só num dos lados.
+ // (z, y) do GRT8, extrudido em X. Em mundo z cresce para a frente: as cotas
+ // negativas do perfil são a frente. A frente é uma parede CONTÍNUA de baixo a
+ // cima (y 2,5…92,5) — o perfil anterior tinha uma reentrância de 7,5 mm entre
+ // y 37…58 que abria uma faixa escura a meio do aparelho e deixava a chapa da
+ // serigrafia a flutuar à frente dela. É o perfil do manual (90 × 64).
+ // No M2 o degrau inferior dos bornes é mais alto para levar as duas filas de
+ // inversores (15/16/18 e 25/26/28), como no aparelho real; no M1/B1 fica baixo.
+ const stepY = type === 'timerGeyaGrt8M2' ? 34 : 22
+ const profile=[[0,2.5],[0,92.5],[-24,92.5],[-24,87],[-38,87],[-38,77],[-64,73],[-64,stepY],[-38,stepY-4],[-38,8],[-24,8],[-24,2.5]]
  const body=bodyProfile(18,profile,white,'industrial_geya_body');root.add(body)
  root.add(shapePlate(16,5,1.5,[[0,0,2.1]],red,'industrial_din_latch_bottom',[0,2.5,1]))
  root.add(shapePlate(16,5,1.5,[[0,0,2.1]],red,'industrial_din_latch_top',[0,92.5,1]))
  root.add(plane(17.6,43.5,white,'industrial_fascia',[0,49.5,64.015]))
  knob(root,'industrial_range',-2.4,59.5,64.9,2.4)
  knob(root,'industrial_fraction',.45,51.9,64.9,2.4)
- if(type==='timerGeyaGrt8M1')knob(root,'industrial_function',-2.4,44.3,64.9,2.4)
+ if(type==='timerGeyaGrt8M1'||type==='timerGeyaGrt8M2')knob(root,'industrial_function',-2.4,44.3,64.9,2.4)
  led(root,-2.6,66.7,64.5,'#18a33b','industrial_led_power',1.2);led(root,2.55,66.7,64.5,'#cb1430','industrial_led_relay',1.2)
- const labels=['A1','S','A2','15','16','18']
- for(const [i,label]of labels.entries()){
-  const x=-5.2+(i%3)*5.2,top=i<3,screwY=top?83.5:11.5
-  // Keep each complete rim inside its stepped deck. The former 86.5/8.5 mm
-  // centres cut across its edge and left half the cavity floating in space.
-  const p=[x,screwY,38];drill([body],'z',p,2.4,28.5,38.1)
-  terminal(root,'driver_'+label,...p,{r:2.4,depth:9.6,screw:false})
-  // Parafuso cativo Pozidriv com a cabeça c. 7 mm dentro do poço (fotos:
-  // cabeça visível ao fundo do túnel de acesso da chave).
-  const screw=buildCaptiveTerminalScrew('geya_'+label,2.1);screw.position.set(x,screwY,30.6);root.add(screw)
-  root.add(cylinder(.8,19,steel,'industrial_geya_screw_shank_'+label,[x,screwY,23.6]))
-  // Entrada do condutor em ranhura na face superior/inferior (a faixa de corpo
-  // de altura plena só existe em z 0..24; o grampo de cobre fica sob a ranhura).
-  // Corte único largo (r 2.6) e profundo, com prioridade de clipping sobre a
-  // tampa extrudida, para não deixar resíduos dentro do raio da boca (r 2.0).
-  drill([body],'y',[x,top?92.5:2.5,14],2.6,top?82.5:2.4,top?92.8:12.5)
-  root.add(box(3.4,1.2,9,copper,'industrial_geya_clamp_'+label,[x,top?83.9:11.0,14]))
-  const mouth=[x,top?92.5:2.5,14]
-  terms.push(terminal(root,label,...mouth,{r:2.0,depth:8.6,face:top?'top':'bottom'}))
+ // Bornes: uma só fila por degrau, como no produto real (A1 S A2 em cima,
+ // 15 16 18 em baixo). O corpo do produto não tem degraus de duas alturas
+ // dentro do mesmo bloco: cada borne é um parafuso numa só parede, com a
+ // entrada do condutor na face superior/inferior e a serigrafia impressa
+ // por cima do poço (fotos do manual GRT8-M p.1 e GRT8-A/B p.1).
+ // GRT8-M2 é 2×SPDT: além de 15/16/18 tem o segundo inversor 25/26/28, numa
+ // fila própria atrás da primeira, como no desenho do manual (p.1).
+ const rows = type === 'timerGeyaGrt8M2'
+   ? [{ top: true, y: 82.6, z: 38, names: ['A1','S','A2'] },
+      { top: false, y: 26.5, z: 38, names: ['25','26','28'] },
+      { top: false, y: 12.4, z: 38, names: ['15','16','18'] }]
+   : [{ top: true, y: 82.6, z: 38, names: ['A1','S','A2'] },
+      { top: false, y: 12.4, z: 38, names: ['15','16','18'] }]
+ // O 2.º inversor do M2 fica numa prateleira própria, 8 mm à frente do degrau
+ // inferior — é a fila dupla de bornes que o desenho do manual mostra.
+ for(const { top, y, z, names } of rows){
+  for(const [i,label] of names.entries()){
+   const x = -5.2 + i * 5.2
+   // Poço frontal com parafuso cativo no fundo (Pozidriv), aberto na parede
+   // do degrau (z 38 mm) e cavidade de 9,6 mm.
+   drill([body],'z',[x,y,z],2.6,z-9.6,z+.1)
+   const screw=buildCaptiveTerminalScrew('geya_'+label,2.15);screw.position.set(x,y,z-7.2);root.add(screw)
+   root.add(cylinder(.8,19,steel,'industrial_geya_screw_shank_'+label,[x,y,z-14.2]))
+   // Janela oblonga do borne (a ranhura escura da referência) entre a
+   // parede do degrau e o poço do parafuso.
+   const slot=box(3.6,2.6,.5,mat('#2f2f2a'),'industrial_geya_slot_'+label,[x,y,z-.6])
+   root.add(slot)
+   // Entrada do condutor na face superior/inferior, com grampo de cobre.
+   drill([body],'y',[x,top?92.5:2.5,14],2.6,top?82.5:2.4,top?92.8:12.5)
+   root.add(box(3.4,1.2,9,copper,'industrial_geya_clamp_'+label,[x,top?83.0:12.9,14]))
+   terms.push(terminal(root,label,x,top?92.5:2.5,14,{r:2.0,depth:8.6,face:top?'top':'bottom'}))
+   // Serigrafia do degrau: a etiqueta real fica imediatamente acima do poço.
+   root.add(plane(4.6,1.9,white,'industrial_geya_label_'+label,[x, y + (top?3.5:-3.5), z+.06]))
+  }
  }
- // Paredes divisoras entre bornes nos degraus (separam os poços, como no real).
+ // Paredes divisoras entre os três bornes de cada degrau, dentro do volume
+ // do corpo (face a z 38, fundo a z 8). As antigas saíam 15 mm à frente do
+ // degrau e liam-se como duas barbatanas soltas no ar.
  for(const dx of [-2.6,2.6]){
-  root.add(box(1,7.5,16,white,'industrial_geya_divider_top_'+dx,[dx,83.2,45]))
-  root.add(box(1,7,16,white,'industrial_geya_divider_bot_'+dx,[dx,11.8,45]))
+  root.add(box(1,8.4,10,white,'industrial_geya_divider_top_'+dx,[dx,82.5,33]))
+  root.add(box(1,8.0,10,white,'industrial_geya_divider_bot_'+dx,[dx,12.5,33]))
  }
  // Patilha vermelha de desbloqueio da calha DIN, visível na frente inferior.
  root.add(box(9,3.6,2.6,red,'industrial_geya_din_tab',[0,4,24.6]))
  // Serigrafia lateral: diagramas de função/temporização (faces ±X do módulo).
  const sideR=plane(58,53,white,'industrial_geya_side_r',[9.05,45.5,33]);sideR.rotation.y=Math.PI/2;root.add(sideR)
  const sideL=plane(58,53,white,'industrial_geya_side_l',[-9.05,45.5,33]);sideL.rotation.y=-Math.PI/2;root.add(sideL)
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type==='timerGeyaGrt8M1'?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:type.startsWith('timerGeyaGrt8M')?'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf':'https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf',changes:'Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.'})
 }
 
 async function avel(){
@@ -386,7 +416,7 @@ async function mico(){
  await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://media.automation24.com/manual/101523.pdf',changes:'90×70×80 mm (H×W×D) DIN TH35 housing, 4-channel electronic circuit protection. Spring-clamp terminals: 2× +24V inputs 16 mm² top, ON/13/14 signal terminals 2.5 mm² top-center, 4× OUT 4 mm² bottom, 2× GND 4 mm² bottom corners. Per-channel: countersunk 1/2/4/6 A current selector, bi-colour LED (green/red, flash states), ON/OFF button. Group alarm potential-free 13-14, remote ON, cascading 75 ms channel start, status memory. Front serigraphy MURR ELEKTRONIK + LED legend. Dimensioned reconstruction, not manufacturer STEP.'})
 }
 
-const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')],['pushButtonXb2Yellow',()=>xb2('pushButtonXb2Yellow')],['pushButtonXb2Blue',()=>xb2('pushButtonXb2Blue')],['pushButtonXb2White',()=>xb2('pushButtonXb2White')],['breakerMurrelektronikMico46',mico]]
+const jobs=[['vfdSchneiderAtv320',atv],['relaySocketFinder9023',finderSocket],['relayFinder5534',finderRelay],['timerGeyaGrt8M1',()=>geya('timerGeyaGrt8M1')],['timerGeyaGrt8M2',()=>geya('timerGeyaGrt8M2')],['timerGeyaGrt8B1',()=>geya('timerGeyaGrt8B1')],['levelRelayAvel411',avel],['buzzerMetaltexTby301',metaltex],['pushButtonXb2No',()=>xb2('pushButtonXb2No')],['pushButtonXb2Nc',()=>xb2('pushButtonXb2Nc')],['pushButtonXb2Black',()=>xb2('pushButtonXb2Black')],['pushButtonXb2Yellow',()=>xb2('pushButtonXb2Yellow')],['pushButtonXb2Blue',()=>xb2('pushButtonXb2Blue')],['pushButtonXb2White',()=>xb2('pushButtonXb2White')],['breakerMurrelektronikMico46',mico]]
 for(const[type,job]of jobs)if(!process.argv[3]||process.argv[3]===type)await job()
 await fs.writeFile('src/data/industrial-device-geometry.json',JSON.stringify(data,null,2)+'\n')
 let previous=[];try{previous=JSON.parse(await fs.readFile(path.join(output,'sources.json'),'utf8')).models??[]}catch{}

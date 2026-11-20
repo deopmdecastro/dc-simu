@@ -1,6 +1,6 @@
 {
   "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.",
-  "generatedAt": "2026-11-20T01:43:13.161Z",
+  "generatedAt": "2026-11-20T15:30:29.277Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
     "fuseHolderSchneiderDf101v",
@@ -30,6 +30,7 @@
     "pushButtonXb2Blue",
     "pushButtonXb2White",
     "breakerMurrelektronikMico46",
+    "timerGeyaGrt8M2",
     "breaker1p",
     "breakerSchneiderIc60h1p",
     "breakerSteckSdC25",
@@ -164,6 +165,7 @@
     "thermalRelaySiemens3ru1116": "thermalRelaySiemens3ru1116.webp",
     "timerGeyaGrt8B1": "timerGeyaGrt8B1.webp",
     "timerGeyaGrt8M1": "timerGeyaGrt8M1.webp",
+    "timerGeyaGrt8M2": "timerGeyaGrt8M2.webp",
     "towerLightSb23011": "towerLightSb23011.webp",
     "vfdSchneiderAtv320": "vfdSchneiderAtv320.webp"
   },
@@ -245,6 +247,7 @@
     "thermalRelaySiemens3ru1116": "front/thermalRelaySiemens3ru1116.webp",
     "timerGeyaGrt8B1": "front/timerGeyaGrt8B1.webp",
     "timerGeyaGrt8M1": "front/timerGeyaGrt8M1.webp",
+    "timerGeyaGrt8M2": "front/timerGeyaGrt8M2.webp",
     "towerLightSb23011": "front/towerLightSb23011.webp",
     "vfdSchneiderAtv320": "front/vfdSchneiderAtv320.webp"
   }
