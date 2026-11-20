@@ -216,9 +216,9 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   breaker1p: spec('breaker1p', MODEL_PATHS.schneiderEz9Breaker1p, [0, 0, 0], 'din-rail'),
   breaker2p: spec('breaker2p', MODEL_PATHS.schneiderEz9Breaker2p, [0, 0, 0], 'din-rail'),
   breaker3p: spec('breaker3p', MODEL_PATHS.schneiderEz9Breaker3p, [0, 0, 0], 'din-rail'),
-  switchSchneiderEz9s1p: spec('switchSchneiderEz9s1p', '/models/protecao/schneider-ez9s-1p.glb', [0, 0, 0], 'din-rail'),
-  switchSchneiderEz9s2p: spec('switchSchneiderEz9s2p', '/models/protecao/schneider-ez9s-2p.glb', [0, 0, 0], 'din-rail'),
-  switchSchneiderEz9s4p: spec('switchSchneiderEz9s4p', '/models/protecao/schneider-ez9s-4p.glb', [0, 0, 0], 'din-rail'),
+  switchSchneiderEz9s1p: spec('switchSchneiderEz9s1p', '/models/protecao/schneider-ez9s-1p.glb', [0, 0, 0], 'din-rail', true),
+  switchSchneiderEz9s2p: spec('switchSchneiderEz9s2p', '/models/protecao/schneider-ez9s-2p.glb', [0, 0, 0], 'din-rail', true),
+  switchSchneiderEz9s4p: spec('switchSchneiderEz9s4p', '/models/protecao/schneider-ez9s-4p.glb', [0, 0, 0], 'din-rail', true),
   residualBreakerSchneiderIid4p: spec('residualBreakerSchneiderIid4p', MODEL_PATHS.schneiderIid4p, [0, 0, 0], 'din-rail'),
   residualBreakerSchneiderIdpnVigi: spec('residualBreakerSchneiderIdpnVigi', MODEL_PATHS.schneiderIdpnVigi, [0, 0, 0], 'din-rail'),
   // O GLB foi gerado do STEP já de pé: topo em +Y, frente em +Z (manípulo e bornes à frente),
@@ -340,9 +340,9 @@ export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>
   breaker2p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
   breaker3p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(3) },
   // Easy9 Switch: a charneira é o cubo da alavanca vermelha (y 48,5 mm, z 70 mm).
-  switchSchneiderEz9s1p: { hinge: { y: 0.599, z: 0.94 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(1) },
-  switchSchneiderEz9s2p: { hinge: { y: 0.599, z: 0.94 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
-  switchSchneiderEz9s4p: { hinge: { y: 0.599, z: 0.94 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(4) },
+  switchSchneiderEz9s1p: { hinge: { y: 0.599, z: 0.06 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(1) },
+  switchSchneiderEz9s2p: { hinge: { y: 0.599, z: 0.06 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
+  switchSchneiderEz9s4p: { hinge: { y: 0.599, z: 0.06 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(4) },
   // Steck: o cubo redondo (centro y −8,25 mm, z 61,45 mm no STEP) fica a 58,7 % da altura e 32,8 % da profundidade
   breakerSteckSdC25: { hinge: { y: 0.587, z: 0.328 }, throwDeg: 40, nodes: ['dcsimu_handle_2', 'dcsimu_handle_3'] },
   /* PKZM C-10: o eixo é o centro do aro/cubo redondo (`dcsimu_handle_2`, 15,5 × 15,5 mm), não o centro
