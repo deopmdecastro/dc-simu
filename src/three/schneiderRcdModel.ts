@@ -34,7 +34,7 @@ export function completeSchneiderIidHandle(root: THREE.Object3D, unit = .001): v
   if (grip?.isMesh && shoulder?.isMesh && shoulder.material !== grip.material) shoulder.material = grip.material
   if (grip?.isMesh) splitIidCradle(root, grip.material as THREE.Material, unit)
   const previous = pivot.getObjectByName('schneider_handle_barrel')
-  if (previous?.userData.schneiderHandleClosure === 3) return
+  if (previous?.userData.schneiderHandleClosure === 4) return
   previous?.removeFromParent()
   // A ranhura da carcaça tem 9,0 mm (x −31,4…−22,4); com 8,9 mm ficavam duas frestas
   // brancas ao lado da alavanca. 9,6 mm: as pontas ficam escondidas na carcaça.
@@ -44,20 +44,26 @@ export function completeSchneiderIidHandle(root: THREE.Object3D, unit = .001): v
   barrel.name = 'schneider_handle_barrel'
   barrel.position.copy(SCHNEIDER_IID_AXIS_OFFSET_M).multiplyScalar(unit / .001)
   barrel.userData.schneiderControl = 'toggle'
-  barrel.userData.schneiderHandleClosure = 3
+  barrel.userData.schneiderHandleClosure = 4
   pivot.add(barrel)
 }
 
 /** Cúpula do berço da alavanca do iID (mm no referencial do GLB): esfera ~Ø19 mm
  *  moldada na carcaça à volta da ranhura, x −36,5…−17,5, y 24,5…47, frente até z 71. */
 const IID_CRADLE = { x: [-37, -17], y: [24.5, 47.5], zMin: 66.3, face: 69, center: [-26.9, 35.4], radius: 11 } as const
+const IID_HANDLE_EDGE = { x: [-36, -22], y: [20, 26], z: [65.3, 66.3] } as const
+const IID_HANDLE_EDGE_PATCH = { x: [-34.5, -21.5], y: [21, 21.65] } as const
 
 /** O STEP funde a cúpula do berço na carcaça branca; ao lado da alavanca lia-se como uma
  *  bola branca. Passa para uma malha própria com o material antracite da alavanca (fixa:
- *  não roda). Só os triângulos inteiros dentro da cúpula; a travessa e a faixa a z 66 ficam. */
+ *  não roda). A aresta curta da carcaça logo abaixo da pega também fica antracite. */
 function splitIidCradle(root: THREE.Object3D, material: THREE.Material, unit: number): void {
   const body = root.getObjectByName('schneider_body') as THREE.Mesh | undefined
-  if (!body?.isMesh || body.parent?.getObjectByName('schneider_handle_cradle')) return
+  if (!body?.isMesh) return
+  if (body.parent?.getObjectByName('schneider_handle_cradle')) {
+    addIidHandleEdge(root, material, unit)
+    return
+  }
   root.updateMatrixWorld(true)
   const toRoot = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(body.matrixWorld)
   const geometry = body.geometry, position = geometry.getAttribute('position'), index = geometry.getIndex()
@@ -70,17 +76,39 @@ function splitIidCradle(root: THREE.Object3D, material: THREE.Material, unit: nu
     const flatFace = p.every((v) => Math.abs(v.z - IID_CRADLE.face) < .08) // frente plana da carcaça
     const cx = (p[0].x + p[1].x + p[2].x) / 3 - IID_CRADLE.center[0], cy = (p[0].y + p[1].y + p[2].y) / 3 - IID_CRADLE.center[1]
     const dome = within(p, IID_CRADLE) && z > IID_CRADLE.zMin && !flatFace && Math.hypot(cx, cy) <= IID_CRADLE.radius
-    ;(dome ? cradle : keep).push(at(i), at(i + 1), at(i + 2))
+    const handleEdge = p.every((v) =>
+      v.x >= IID_HANDLE_EDGE.x[0] && v.x <= IID_HANDLE_EDGE.x[1] &&
+      v.y >= IID_HANDLE_EDGE.y[0] && v.y <= IID_HANDLE_EDGE.y[1] &&
+      v.z >= IID_HANDLE_EDGE.z[0] && v.z <= IID_HANDLE_EDGE.z[1])
+    ;(dome || handleEdge ? cradle : keep).push(at(i), at(i + 1), at(i + 2))
   }
-  if (!cradle.length) return
-  const shell = geometry.clone(); shell.setIndex(keep)
-  const dome = geometry.clone(); dome.setIndex(cradle)
-  body.geometry = shell
-  const mesh = new THREE.Mesh(dome, material)
-  mesh.name = 'schneider_handle_cradle'
-  mesh.position.copy(body.position); mesh.quaternion.copy(body.quaternion); mesh.scale.copy(body.scale)
-  mesh.castShadow = mesh.receiveShadow = true
-  body.parent!.add(mesh)
+  if (cradle.length) {
+    const shell = geometry.clone(); shell.setIndex(keep)
+    const dome = geometry.clone(); dome.setIndex(cradle)
+    body.geometry = shell
+    const mesh = new THREE.Mesh(dome, material)
+    mesh.name = 'schneider_handle_cradle'
+    mesh.position.copy(body.position); mesh.quaternion.copy(body.quaternion); mesh.scale.copy(body.scale)
+    mesh.castShadow = mesh.receiveShadow = true
+    body.parent!.add(mesh)
+  }
+  addIidHandleEdge(root, material, unit)
+}
+
+function addIidHandleEdge(root: THREE.Object3D, material: THREE.Material, unit: number): void {
+  if (root.getObjectByName('schneider_handle_edge')) return
+  const [x0, x1] = IID_HANDLE_EDGE_PATCH.x, [y0, y1] = IID_HANDLE_EDGE_PATCH.y
+  const chassisSlope = .66 / 4.35
+  const frontZ = (y: number) => 65.45 + (y - 21) * chassisSlope + .08
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute([
+    x0, y0, frontZ(y0), x1, y0, frontZ(y0), x1, y1, frontZ(y1), x0, y1, frontZ(y1),
+  ].map((value) => value * unit), 3))
+  geometry.setIndex([0, 1, 2, 0, 2, 3])
+  geometry.computeVertexNormals()
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.name = 'schneider_handle_edge'
+  root.add(mesh)
 }
 
 /** Anota as peças móveis ANTES da junção de malhas estáticas do painel. */

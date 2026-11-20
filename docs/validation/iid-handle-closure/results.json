@@ -1,5 +1,5 @@
 {
-  "checks": 18,
+  "checks": 19,
   "measurements": [
     {
       "name": "off",
@@ -14,6 +14,7 @@
         "schneider_handle_barrel",
         "schneider_handle_barrel"
       ],
+      "edgeName": "schneider_handle_edge",
       "centerError": 5.551115123125783e-17,
       "opaque": true,
       "angle": 0
@@ -31,6 +32,7 @@
         "schneider_handle_barrel",
         "schneider_handle_grip"
       ],
+      "edgeName": "schneider_handle_edge",
       "centerError": 5.551115123125783e-17,
       "opaque": true,
       "angle": -0.7853981633974483
@@ -48,6 +50,7 @@
         "schneider_handle_grip",
         "schneider_handle_barrel"
       ],
+      "edgeName": "schneider_handle_edge",
       "centerError": 8.881784197001252e-16,
       "opaque": true,
       "angle": -0.39269908169872414

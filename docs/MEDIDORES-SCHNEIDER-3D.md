@@ -127,6 +127,7 @@ npm run test:native-server
 # Vite em execução, conta sintética isolada; suites em série em máquinas de 2 GB:
 npm run test:meters-schneider-ui
 npm run test:meters-schneider-admin-ui
+npm run test:iid-handle-closure-ui
 npm run test:msr127-panel-ui
 npm run test:grafcet-lifecycle-ui
 npm run test:panel3d-profile
@@ -137,6 +138,9 @@ VERCEL=1 npm run build
 Usar os nomes presentes no `package.json` se uma distribuição anterior ainda
 não contiver estas suites. `INDUSTRIAL_TEST_URL` configura a origem das novas
 fixtures; `METERS_TEST_OUTPUT` e `METERS_ADMIN_UI_OUTPUT` guardam evidências.
+O teste `test:iid-handle-closure-ui` valida Painel, Admin, guardar/reabrir e
+exportação do iID; só substitui as imagens e resultados em
+`docs/validation/iid-handle-closure/` depois de o percurso inteiro passar.
 As suites usam uma conta local e IndexedDB descartáveis, bloqueiam API,
 service workers e recursos externos: **não provam autenticação real,
 Supabase/RLS, nem escrita cloud ou publicação de produção**.

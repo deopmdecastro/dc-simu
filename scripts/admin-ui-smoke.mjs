@@ -22,6 +22,7 @@ async function session(width, height) {
   await context.addInitScript(() => {
     localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
     localStorage.removeItem('dcsimu:supabase:config:v1')
+    localStorage.setItem('dcsimu:cookie-consent:v1', JSON.stringify({ accepted: true, at: '2026-11-20T21:55:44.266Z', version: 1 }))
   })
   const page = await context.newPage()
   const errors = []
@@ -120,6 +121,28 @@ try {
     check(await help.count() === 1 && !(await help.evaluate((el) => el.hasAttribute('open'))), 'Telemóvel: a nota de ajuda começa fechada (a lista ganha 130 px)')
     await capture(page, 'adm-telefone-componentes')
 
+    // 5) projetos: cartões compactos, pesquisa e ações alcançáveis
+    await openSection(page, 'Projetos')
+    const projectRows = page.locator('.adm-table-projects tbody tr')
+    if (await projectRows.count() > 0) {
+      const projectLayout = await projectRows.first().evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const cover = el.querySelector('.adm-cover-project')?.getBoundingClientRect()
+        const actions = [...el.querySelectorAll('.is-actions .dx-btn')].map((button) => Math.round(button.getBoundingClientRect().height))
+        return { height: Math.round(r.height), display: getComputedStyle(el).display, coverHeight: cover ? Math.round(cover.height) : 0, actions }
+      })
+      check(projectLayout.display === 'grid', 'Telemóvel: projetos usam cartões em grelha')
+      check(projectLayout.coverHeight <= 60, `Telemóvel: a capa do projeto ocupa ≤ 60 px (medido: ${projectLayout.coverHeight})`)
+      check(projectLayout.actions.length === 2 && projectLayout.actions.every((height) => height >= 40), `Telemóvel: publicar e eliminar têm alvos de 40 px (${projectLayout.actions.join(", ")})`)
+      check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Telemóvel: projetos sem deslocamento horizontal')
+      const search = page.getByRole('searchbox', { name: 'Pesquisar projetos' })
+      await search.fill('__sem_resultado_ui__')
+      check(await page.getByText('Nenhum projeto com esta pesquisa.').isVisible(), 'Telemóvel: a pesquisa vazia mantém o estado explicativo')
+      await search.fill('')
+      await capture(page, 'adm-telefone-projetos')
+    } else {
+      check(await page.getByText('Ainda não há projetos criados.').isVisible(), 'Telemóvel: o estado vazio de projetos continua visível')
+    }
     // 5) planos: a barra de gravação não tapa os últimos campos
     await openSection(page, 'Planos e preços')
     const bar = page.locator('.cb-save-bar')
@@ -132,7 +155,7 @@ try {
     check(reserve >= barBox.height, `Telemóvel: o conteúdo reserva ${Math.round(reserve)} px para a barra (altura ${Math.round(barBox.height)} px)`)
     await capture(page, 'adm-telefone-planos')
 
-    // 6) utilizadores: ações da conta numa grelha legível
+    // 7) utilizadores: ações da conta numa grelha legível
     await openSection(page, 'Utilizadores')
     const actions = page.locator('.cb-user-actions').first()
     await actions.waitFor()
@@ -209,6 +232,22 @@ try {
     await page.locator('.cb-component').first().waitFor()
     check(await page.locator('.cb-component').first().getByRole('button', { name: 'Arquivar…' }).isVisible(), 'Secretária: as ações ficam na linha, sem menu escondido')
     await capture(page, 'adm-desktop-componentes')
+    await openSection(page, 'Projetos')
+    const deskProjectRows = page.locator('.adm-table-projects tbody tr')
+    if (await deskProjectRows.count() > 0) {
+      const projectTable = await page.locator('.adm-table-projects').evaluate((el) => {
+        const table = el.getBoundingClientRect()
+        const wrap = el.parentElement.getBoundingClientRect()
+        return { tableWidth: Math.round(table.width), wrapWidth: Math.round(wrap.width), columns: el.querySelectorAll('thead th').length, coverHeight: Math.round(el.querySelector('.adm-cover-project')?.getBoundingClientRect().height ?? 0) }
+      })
+      check(projectTable.columns === 7, 'Secretária: projetos usam sete colunas legíveis sem uma revisão duplicada')
+      check(projectTable.tableWidth <= projectTable.wrapWidth + 1, 'Secretária: a tabela usa a largura sem corte horizontal')
+      check(projectTable.coverHeight <= 68, 'Secretária: a capa compacta ocupa ≤ 68 px')
+      check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Secretária: projetos sem deslocamento horizontal')
+      await capture(page, 'adm-desktop-projetos')
+    } else {
+      check(await page.getByText('Ainda não há projetos criados.').isVisible(), 'Secretária: o estado vazio de projetos continua visível')
+    }
     assert.deepEqual(errors, [], 'Secretária: nenhuma exceção JavaScript')
     check(true, 'Secretária: percurso sem exceções JavaScript')
     await context.close()

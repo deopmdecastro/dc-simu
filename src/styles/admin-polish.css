@@ -141,6 +141,32 @@
 /* ---------- Biblioteca 3D: botões com ícone ---------- */
 .ce-list-actions .dx-btn { display: inline-flex; align-items: center; gap: 8px; }
 
+/* ---------- projetos: contexto, tabela compacta e ações distintas ---------- */
+.adm-project-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.adm-project-toolbar .cb-search { width: min(440px, 100%); }
+.adm-project-result { flex: none; color: var(--dx-ink-4); font-size: 12.5px; }
+.adm-project-result strong { color: var(--dx-ink-2); font-variant-numeric: tabular-nums; }
+.adm-table-projects { table-layout: fixed; }
+.adm-table-projects thead th { padding: 9px 12px; }
+.adm-table-projects tbody th,
+.adm-table-projects tbody td { padding: 10px 12px; }
+.adm-table-projects thead th:nth-child(1) { width: 27%; }
+.adm-table-projects thead th:nth-child(2) { width: 16%; }
+.adm-table-projects thead th:nth-child(3) { width: 6%; }
+.adm-table-projects thead th:nth-child(4) { width: 8%; }
+.adm-table-projects thead th:nth-child(5) { width: 12%; }
+.adm-table-projects thead th:nth-child(6) { width: 8%; }
+.adm-table-projects thead th:nth-child(7) { width: 23%; }
+.adm-table-projects tbody th { min-width: 0; }
+.adm-table-projects .adm-project-name strong { overflow: visible; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }
+.adm-table-projects td.is-owner { max-width: none; }
+.adm-table-projects td.is-owner .adm-person { max-width: 100%; }
+.adm-table-projects td.is-owner .adm-person > span:last-child { overflow: visible; white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+.adm-table-projects .adm-cover-project.is-lg { width: 88px; height: 60px; }
+.adm-table-projects .is-actions { width: 23%; }
+.adm-project-actions { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; }
+.adm-project-actions .dx-btn { width: 100%; min-height: 32px; justify-content: center; white-space: nowrap; }
+.adm-table-projects tbody tr { height: 88px; }
 /* ---------- telemóvel ---------- */
 @media (max-width: 720px) {
   .dx-admin-head-actions.adm-head-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
@@ -148,15 +174,23 @@
   .adm-head-actions .adm-cta { justify-content: center; }
   .adm-head-actions .adm-back { padding: 0 14px; }
 
-  /* tabela de projetos → cartões com capa */
-  .adm-table-projects tbody tr { display: grid; gap: 4px; padding: 12px 14px 12px; }
-  .adm-table-projects tbody th { min-width: 0; padding: 0 0 8px; border-bottom: 1px solid var(--dx-line-soft); }
-  .adm-table-projects .adm-cover-project.is-md { width: 100px; height: 68px; }
-  .adm-table-projects .adm-cover-project.is-lg { width: 160px; height: 104px; }
-  .adm-table-projects td.is-owner { max-width: none; }
-  .adm-table-projects td.is-owner .adm-person { justify-content: flex-end; max-width: 70%; }
-  .adm-table-projects .is-actions { padding-top: 8px; }
-  .adm-table-projects .is-actions .dx-btn { width: 100%; height: 40px; justify-content: center; }
+  /* tabela de projetos → cartões compactos com capa e metadados agrupados */
+  .adm-project-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .adm-project-toolbar .cb-search { width: 100%; }
+  .adm-project-result { text-align: right; }
+  .adm-table-projects tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; height: auto; padding: 12px 14px; }
+  .adm-table-projects tbody th { grid-column: 1 / -1; min-width: 0; padding: 0 0 10px; border-bottom: 1px solid var(--dx-line-soft); }
+  .adm-table-projects .adm-project-cell { align-items: center; gap: 10px; }
+  .adm-table-projects .adm-cover-project.is-md,
+  .adm-table-projects .adm-cover-project.is-lg { width: 88px; height: 60px; }
+  .adm-table-projects td.is-owner { grid-column: 1 / -1; max-width: none; }
+  .adm-table-projects td.is-owner .adm-person { justify-content: flex-start; max-width: 100%; }
+  .adm-table-projects td.is-num,
+  .adm-table-projects td[data-label="Atualizado"],
+  .adm-table-projects td[data-label="Landing"] { min-width: 0; }
+  .adm-table-projects .is-actions { grid-column: 1 / -1; display: block; width: auto; padding-top: 8px; }
+  .adm-project-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .adm-project-actions .dx-btn { width: 100%; height: 40px; justify-content: center; }
 
   /* componentes: capa mais pequena para não roubar largura ao título */
   .adm-cover-component.is-md { width: 44px; height: 44px; }
