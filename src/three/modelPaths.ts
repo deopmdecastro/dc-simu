@@ -94,10 +94,14 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   breaker3p: { width: 54, height: 84.5, depth: 75.44 },
   /** Easy9 4P: 4 módulos de 17,7 mm ≈ 70,8 mm; mesma altura/profundidade dos 1P–3P. */
   breaker4p: { width: 70.8, height: 84.5, depth: 75.44 },
-  /** Easy9 Switch (EZ9S): medido no STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm). */
-  switchSchneiderEz9s1p: { width: 18, height: 81, depth: 75 },
-  switchSchneiderEz9s2p: { width: 36, height: 81, depth: 75 },
-  switchSchneiderEz9s4p: { width: 72, height: 81, depth: 75 },
+  /**
+   * Easy9 Switch (EZ9S): medido nos vértices do STEP MCADFD0001285 (gama iSW/SW, mesmo molde
+   * modular 18 mm) — corpo de 76,8 mm com 2,1 mm de assentamento na calha e 74,7 mm de
+   * profundidade até à frente do manípulo.
+   */
+  switchSchneiderEz9s1p: { width: 18, height: 78.9, depth: 74.7 },
+  switchSchneiderEz9s2p: { width: 36, height: 78.9, depth: 74.7 },
+  switchSchneiderEz9s4p: { width: 72, height: 78.9, depth: 74.7 },
   /** Genérico DR 4P: mesmo envelope do Easy9 4P (4 módulos). */
   residualBreaker: { width: 70.8, height: 84.5, depth: 75.44 },
   /** Genérico QM 3P: mesmo envelope do Easy9 3P (3 módulos). */
@@ -333,16 +337,21 @@ export interface BreakerHandleRig {
 
 const EZ9_THROW_DEG = 70
 const ez9Nodes = (poles: number) => [...Array.from({ length: poles }, (_, index) => `dcsimu_handle_${index + 1}`), ...(poles > 1 ? ['dcsimu_handle_bridge'] : [])]
+/** Easy9 Switch: o manípulo do molde já é uma travessa única com uma peça por polo, por isso
+ * não existe malha `dcsimu_handle_bridge` separada (ao contrário dos disjuntores Easy9). */
+const ez9SwitchNodes = (poles: number) => Array.from({ length: poles }, (_, index) => `dcsimu_handle_${index + 1}`)
 
 export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>> = {
   // cubo da alavanca a y = 32,5 mm e z = 61,5 mm (da base e da traseira do corpo)
   breaker1p: { hinge: { y: 0.645, z: 0.297 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(1) },
   breaker2p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
   breaker3p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(3) },
-  // Easy9 Switch: a charneira é o cubo da alavanca vermelha (y 48,5 mm, z 70 mm).
-  switchSchneiderEz9s1p: { hinge: { y: 0.599, z: 0.936 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(1) },
-  switchSchneiderEz9s2p: { hinge: { y: 0.599, z: 0.936 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
-  switchSchneiderEz9s4p: { hinge: { y: 0.599, z: 0.936 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(4) },
+  /* Easy9 Switch: a charneira é a aresta de topo do manípulo vermelho (y 34,2 mm sobre a
+   * calha, z 70,1 mm da traseira), medida no STEP. As frações são da caixa do conjunto
+   * `dcsimu_handle_*`, tal como o `extractBreakerHandle` as espera. */
+  switchSchneiderEz9s1p: { hinge: { y: 1.0, z: 0.5 }, throwDeg: EZ9_THROW_DEG, nodes: ez9SwitchNodes(1) },
+  switchSchneiderEz9s2p: { hinge: { y: 1.0, z: 0.5 }, throwDeg: EZ9_THROW_DEG, nodes: ez9SwitchNodes(2) },
+  switchSchneiderEz9s4p: { hinge: { y: 1.0, z: 0.5 }, throwDeg: EZ9_THROW_DEG, nodes: ez9SwitchNodes(4) },
   // Steck: o cubo redondo (centro y −8,25 mm, z 61,45 mm no STEP) fica a 58,7 % da altura e 32,8 % da profundidade
   breakerSteckSdC25: { hinge: { y: 0.587, z: 0.328 }, throwDeg: 40, nodes: ['dcsimu_handle_2', 'dcsimu_handle_3'] },
   /* PKZM C-10: o eixo é o centro do aro/cubo redondo (`dcsimu_handle_2`, 15,5 × 15,5 mm), não o centro

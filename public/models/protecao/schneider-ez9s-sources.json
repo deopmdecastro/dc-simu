@@ -6,17 +6,17 @@
   "models": [
     {
       "path": "/models/protecao/schneider-ez9s-1p.glb",
-      "bytes": 245612,
-      "sha256": "8703936f0da4fd26095af543fdd2e648251794122da351c67668109828b7f6b6",
+      "bytes": 240888,
+      "sha256": "4843e9216de4794f9fb32ed46f99593c6fe8ae9324581854162e66d0a13a0af0",
       "nominalSizeMm": {
         "width": 18,
-        "height": 81,
-        "depth": 66.5
+        "height": 78.9,
+        "depth": 74.7
       },
       "measuredSizeMm": {
         "width": 19.200000762939453,
-        "height": 78.14144604768371,
-        "depth": 74.83308374097943
+        "height": 76.80000162124634,
+        "depth": 74.66708374023438
       },
       "source": {
         "document": "MCADFD0001285",
@@ -25,25 +25,27 @@
         "sha256": "0aff6d297ba49ff28a7e1fc0fb58232c50e41e4d8d6c1b509f5d9148172e62f4"
       },
       "adaptations": [
-        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 1 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e bornes preservada.",
-        "Manípulo reconstruído em vermelho Easy9 Switch com perfil do iSW, sob pivot `ez9s_handle_pivot` (OFF = ponta para baixo); barra de ligação entre polos nos 2P/4P.",
-        "Serigrafia EZ9S16163 · 63 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings).",
-        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3; cavidades de borne reabertas nos eixos documentados."
+        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 1 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e túneis de borne preservados.",
+        "Orientação medida nos vértices do STEP: frente (manípulo, janela de estado e cabeças Pozidriv) em z = 65,5…74,7 mm e face de encaixe na calha em z = 0. O STEP usa já a convenção do GLB (frente = +Z), pelo que só se acrescenta o deslocamento vertical de 2,1 mm que assenta o corpo na calha.",
+        "Corrige o mapeamento anterior (z → 74,7 − z), que invertia a profundidade: a moldura, o manípulo e a serigrafia ficavam na traseira do aparelho e a face da calha saía para z = 29 mm, deixando o interruptor a flutuar à frente da chapa.",
+        "Manípulo vermelho é geometria do próprio STEP: as 9 faces do molde na janela frontal (x 3,5…14,1 · y 21,1…32,1 · z 65,5…74,7 mm) são separadas do corpo em malhas `dcsimu_handle_<n>` e pintadas de vermelho, sem reconstrução por caixas nem sobreposição. A travessa é solidária aos polos sob um único pivot `ez9s_handle_pivot` (OFF = pose do STEP, ponta para baixo).",
+        "Serigrafia EZ9S16163 · 63 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings), assente na parede frontal do molde (z = 65,5 mm) e nas laterais.",
+        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3."
       ]
     },
     {
       "path": "/models/protecao/schneider-ez9s-2p.glb",
-      "bytes": 486712,
-      "sha256": "5112c2e1b6331bdebabb773324dd1e0ba518585cbfa1e891c11067adfc14302c",
+      "bytes": 476464,
+      "sha256": "0aef7b2b879bac9e8492700d3c00ee4662d815ab238194f4dcf555c9918522e2",
       "nominalSizeMm": {
         "width": 36,
-        "height": 81,
-        "depth": 66.5
+        "height": 78.9,
+        "depth": 74.7
       },
       "measuredSizeMm": {
         "width": 37.20000076293945,
-        "height": 78.14144604768371,
-        "depth": 74.83308374097943
+        "height": 76.80000162124634,
+        "depth": 74.66708374023438
       },
       "source": {
         "document": "MCADFD0001285",
@@ -52,25 +54,27 @@
         "sha256": "0aff6d297ba49ff28a7e1fc0fb58232c50e41e4d8d6c1b509f5d9148172e62f4"
       },
       "adaptations": [
-        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 2 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e bornes preservada.",
-        "Manípulo reconstruído em vermelho Easy9 Switch com perfil do iSW, sob pivot `ez9s_handle_pivot` (OFF = ponta para baixo); barra de ligação entre polos nos 2P/4P.",
-        "Serigrafia EZ9S16263 · 63 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings).",
-        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3; cavidades de borne reabertas nos eixos documentados."
+        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 2 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e túneis de borne preservados.",
+        "Orientação medida nos vértices do STEP: frente (manípulo, janela de estado e cabeças Pozidriv) em z = 65,5…74,7 mm e face de encaixe na calha em z = 0. O STEP usa já a convenção do GLB (frente = +Z), pelo que só se acrescenta o deslocamento vertical de 2,1 mm que assenta o corpo na calha.",
+        "Corrige o mapeamento anterior (z → 74,7 − z), que invertia a profundidade: a moldura, o manípulo e a serigrafia ficavam na traseira do aparelho e a face da calha saía para z = 29 mm, deixando o interruptor a flutuar à frente da chapa.",
+        "Manípulo vermelho é geometria do próprio STEP: as 9 faces do molde na janela frontal (x 3,5…14,1 · y 21,1…32,1 · z 65,5…74,7 mm) são separadas do corpo em malhas `dcsimu_handle_<n>` e pintadas de vermelho, sem reconstrução por caixas nem sobreposição. A travessa é solidária aos polos sob um único pivot `ez9s_handle_pivot` (OFF = pose do STEP, ponta para baixo).",
+        "Serigrafia EZ9S16263 · 63 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings), assente na parede frontal do molde (z = 65,5 mm) e nas laterais.",
+        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3."
       ]
     },
     {
       "path": "/models/protecao/schneider-ez9s-4p.glb",
-      "bytes": 964636,
-      "sha256": "30ceeeaf67fb27e5bf12839480029f9028e82788022fce54f2e37b8e4dfbe8c0",
+      "bytes": 947420,
+      "sha256": "762c4811aea7698452ae721482887b370e5328d49b5ea89185813dd88a56632e",
       "nominalSizeMm": {
         "width": 72,
-        "height": 81,
-        "depth": 66.5
+        "height": 78.9,
+        "depth": 74.7
       },
       "measuredSizeMm": {
         "width": 73.20000076293945,
-        "height": 78.14144604768371,
-        "depth": 74.83308374097943
+        "height": 76.80000162124634,
+        "depth": 74.66708374023438
       },
       "source": {
         "document": "MCADFD0001285",
@@ -79,10 +83,12 @@
         "sha256": "0aff6d297ba49ff28a7e1fc0fb58232c50e41e4d8d6c1b509f5d9148172e62f4"
       },
       "adaptations": [
-        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 4 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e bornes preservada.",
-        "Manípulo reconstruído em vermelho Easy9 Switch com perfil do iSW, sob pivot `ez9s_handle_pivot` (OFF = ponta para baixo); barra de ligação entre polos nos 2P/4P.",
-        "Serigrafia EZ9S16491 · 100 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings).",
-        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3; cavidades de borne reabertas nos eixos documentados."
+        "STEP MCADFD0001285 (gama iSW/SW, mesmo molde modular 18 mm do Easy9 Switch) cortado/duplicado em 4 módulo(s) de 18 mm; geometria de corpo, entalhe DIN e túneis de borne preservados.",
+        "Orientação medida nos vértices do STEP: frente (manípulo, janela de estado e cabeças Pozidriv) em z = 65,5…74,7 mm e face de encaixe na calha em z = 0. O STEP usa já a convenção do GLB (frente = +Z), pelo que só se acrescenta o deslocamento vertical de 2,1 mm que assenta o corpo na calha.",
+        "Corrige o mapeamento anterior (z → 74,7 − z), que invertia a profundidade: a moldura, o manípulo e a serigrafia ficavam na traseira do aparelho e a face da calha saía para z = 29 mm, deixando o interruptor a flutuar à frente da chapa.",
+        "Manípulo vermelho é geometria do próprio STEP: as 9 faces do molde na janela frontal (x 3,5…14,1 · y 21,1…32,1 · z 65,5…74,7 mm) são separadas do corpo em malhas `dcsimu_handle_<n>` e pintadas de vermelho, sem reconstrução por caixas nem sobreposição. A travessa é solidária aos polos sob um único pivot `ez9s_handle_pivot` (OFF = pose do STEP, ponta para baixo).",
+        "Serigrafia EZ9S16491 · 100 A · IEC 60947-3 · AC-22A projetada em tempo de execução (protectionMarkings), assente na parede frontal do molde (z = 65,5 mm) e nas laterais.",
+        "Janela de indicação de posição (verde/vermelho) conforme IEC 60947-3."
       ]
     }
   ]

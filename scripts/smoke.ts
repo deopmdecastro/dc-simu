@@ -782,12 +782,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     branches: [{ id: 'db-branch', elements: [{ kind: 'contact', id: 'db-contact', address: 'DB1.ENABLED', contactType: 'NO' }] }],
     coils: [{ kind: 'coil', id: 'db-q1', address: 'Q0.0', coilType: 'COIL' }], move: { source: '12', target: 'DB1.COUNT' } }
   const file = (enabled: boolean) => ({ id: `db-${enabled}`, folder: 'dataBlocks' as const, name: 'DB1', createdAt: '', content: JSON.stringify({ enabled: { type: 'BOOL', value: enabled }, count: { type: 'INT', value: 0 } }) })
+  /* `step()` só avança um scan com a simulação ativa: em STOP puro não acorda a
+   * simulação (é a regra que impede encaixes mecânicos de a ativarem, ver manobra.ts).
+   * Por isso o cenário arranca em RUN, como o utilizador faz com Play. */
   useSimStore.setState({ components: [a,b], wires: [], activePlcId: a.id, ladder: { rungs: [program] }, plcPrograms: { [b.id]: { rungs: [program], fc1: [], fc2: [] } },
-    projectFiles: { [a.id]: [file(true)], [b.id]: [file(false)] }, runtime: { ...useSimStore.getState().runtime, plcRuntime: {} } })
+    projectFiles: { [a.id]: [file(true)], [b.id]: [file(false)] }, runtime: { ...useSimStore.getState().runtime, plcRuntime: {} },
+    sim: { ...useSimStore.getState().sim, runState: 'running' } })
   useSimStore.getState().step()
   const current = useSimStore.getState()
   check('DB BOOL alimenta contacto sem cruzar valores entre PLCs', !!current.components[0].state.outputs['Q0.0'] && !current.components[1].state.outputs['Q0.0'])
   check('MOVE INT escreve apenas DB do PLC onde o rung está ativo', current.runtime.plcRuntime[a.id].db['DB1.COUNT'].value === 12 && current.runtime.plcRuntime[b.id].db['DB1.COUNT'].value === 0)
+  // Devolver a store ao STOP de repouso: os cenários seguintes contam com a regra de manobra
+  // «em STOP a gaveta não abre» e não podem herdar o RUN deste bloco.
+  useSimStore.setState({ sim: { ...useSimStore.getState().sim, runState: 'stopped' } })
 }
 
 /* Botão de emergência CAD Metaltex: conserva a ligação 1NF existente. */
@@ -876,11 +883,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
       && Array.from({ length: poles }, (_, i) => String(i * 2 + 1)).every((n) => terminalByLabel(comp, n)?.kind === 'power-in' && (terminalByLabel(comp, n)!.position3D?.y ?? 0) > 0.9)
       && Array.from({ length: poles }, (_, i) => String(i * 2 + 2)).every((n) => terminalByLabel(comp, n)?.kind === 'power-out' && (terminalByLabel(comp, n)!.position3D?.y ?? 1) < 0.1)
       && labels.join(',') === Array.from({ length: poles * 2 }, (_, i) => String(i + 1)).sort().join(','))
-    // Interruptores Easy9 Switch: GLB próprio (referencial nominal), um polo por módulo de 18 mm e
-    // entrada de cabo à frente (z ≈ 0,74); os disjuntores EZ9 mantêm as cotas medidas do STEP.
+    /* Interruptores Easy9 Switch: GLB próprio (referencial nominal do STEP MCADFD0001285), um polo
+     * por módulo de 18 mm e túnel de borne a 25 mm da frente — o eixo que se mediu nas bocas do CAD
+     * (z 22…28 mm). Os disjuntores EZ9 mantêm as cotas medidas do seu próprio STEP. */
     const isSwitch = type.startsWith('switchSchneiderEz9s')
     const poleCentresMm = isSwitch ? Array.from({ length: poles }, (_, i) => (i + .5) * spec.physicalSizeMm.width / poles) : poles === 1 ? [8.85] : [9.15, 26.85, 44.55].slice(0, poles)
-    const entryZ = isSwitch ? 0.738 : 0.285
+    const entryZ = isSwitch ? 25 / spec.physicalSizeMm.depth : 0.285
     check(`${label}: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ ${String(entryZ).replace('.', ',')} da profundidade)`, poleCentresMm.every((centre, i) => {
       const top = terminalByLabel(comp, String(i * 2 + 1))!.position3D!
       const bottom = terminalByLabel(comp, String(i * 2 + 2))!.position3D!
@@ -899,25 +907,48 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     const glb = fs.readFileSync(`public/models/protecao/schneider-ez9${isSwitch ? 's' : ''}-${poles}p.glb`)
     const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'))
     const names: string[] = json.nodes.map((node: { name?: string }) => node.name ?? '')
-    check(`${label}: GLB traz ${poles} corpo(s), ${poles} alavanca(s)${poles > 1 ? ' e a barra de ligação' : ''} em malhas dcsimu_handle_*`,
+    // O Easy9 Switch tem um manípulo por polo solidário a uma travessa comum, não uma barra
+    // separada: o contrato é «uma malha dcsimu_handle_<n> por polo» nos dois casos.
+    check(`${label}: GLB traz ${poles} corpo(s) e ${poles} alavanca(s) em malhas dcsimu_handle_*`,
       names.filter((n) => /^ez9s?_(corpo|body)_\d+$/.test(n)).length === poles
       && names.filter((n) => /^dcsimu_handle_\d+$/.test(n)).length === poles
-      && names.includes('dcsimu_handle_bridge') === (poles > 1))
+      && (!isSwitch || !names.includes('dcsimu_handle_bridge')))
+    /* Caixa envolvente no mundo: os accessors estão no referencial LOCAL de cada nó, por
+     * isso é preciso somar a translação acumulada de cada nó e dos seus pais. Sem isto, as
+     * cavidades e os parafusos (filhos com posição) apareciam na origem e a caixa do modelo
+     * saía maior do que o aparelho. */
     const boxOf = (filter: (name: string) => boolean) => {
       const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity]
-      for (const node of json.nodes as Array<{ name?: string; mesh?: number }>) {
-        if (node.mesh === undefined || !filter(node.name ?? '')) continue
-        for (const primitive of json.meshes[node.mesh].primitives) {
-          const accessor = json.accessors[primitive.attributes.POSITION]
-          for (let k = 0; k < 3; k += 1) { min[k] = Math.min(min[k], accessor.min[k] * 1000); max[k] = Math.max(max[k], accessor.max[k] * 1000) }
+      const walk = (index: number, offset: [number, number, number]) => {
+        const node = json.nodes[index] as { name?: string; mesh?: number; translation?: number[]; matrix?: number[]; children?: number[] }
+        // O exportador GLTF escreve `matrix` quando há posição/rotação (caso do pivot, das
+        // cavidades e dos parafusos); só os nós sem transformação ficam sem matriz.
+        const local: [number, number, number] = node.matrix
+          ? [node.matrix[12] ?? 0, node.matrix[13] ?? 0, node.matrix[14] ?? 0]
+          : [node.translation?.[0] ?? 0, node.translation?.[1] ?? 0, node.translation?.[2] ?? 0]
+        const at: [number, number, number] = [offset[0] + local[0], offset[1] + local[1], offset[2] + local[2]]
+        if (node.mesh !== undefined && filter(node.name ?? '')) {
+          for (const primitive of json.meshes[node.mesh].primitives) {
+            const accessor = json.accessors[primitive.attributes.POSITION]
+            for (let k = 0; k < 3; k += 1) {
+              min[k] = Math.min(min[k], (accessor.min[k] + at[k]) * 1000)
+              max[k] = Math.max(max[k], (accessor.max[k] + at[k]) * 1000)
+            }
+          }
         }
+        for (const child of node.children ?? []) walk(child, at)
       }
+      for (const root of (json.scenes?.[0]?.nodes ?? [])) walk(root, [0, 0, 0])
       return { min, max }
     }
     const rig = BREAKER_HANDLE_RIG[type]!
     if (!isSwitch) {
       const all = boxOf(() => true)
+      /* A caixa do corpo são as malhas ez9s_body_*: as cavidades dos bornes (cavity_*) são
+       * cilindros de receção do fio e saem 3,6 mm além das faces de topo de propósito, para o
+       * cabo entrar — não fazem parte do envelope do aparelho. */
       const size = all.max.map((v, k) => v - all.min[k])
+      // Os disjuntores Easy9 são esticados para a ficha; os interruptores conservam a escala do STEP.
       check(`${label}: caixa do GLB = dimensão física (${spec.physicalSizeMm.width}×${spec.physicalSizeMm.height}×${spec.physicalSizeMm.depth} mm)`,
         Math.abs(size[0] - spec.physicalSizeMm.width) < 0.15 && Math.abs(size[1] - spec.physicalSizeMm.height) < 0.15 && Math.abs(size[2] - spec.physicalSizeMm.depth) < 0.15)
       const hb = boxOf((n) => /^dcsimu_handle/.test(n))
@@ -927,6 +958,42 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
       check(`${label}: charneira do manípulo medida no cubo da alavanca (y 32,5 · z 61,5 mm)`, Math.abs(hingeYFromBody - 32.5) < 0.4 && Math.abs(hingeZ - 61.5) < 0.4)
       // o patim da calha assenta igual nos três (2,5 mm abaixo do corpo) e a traseira está em z = 0
       check(`${label}: patim recolhido (y = −2,5 mm) e traseira em z = 0`, Math.abs(all.min[1] + 2.5) < 0.05 && Math.abs(all.min[2]) < 0.05)
+    } else {
+      /* Easy9 Switch: a frente do aparelho tem de ser a que levou a moldura, o manípulo
+       * vermelho e a serigrafia. O STEP MCADFD0001285 já usa a convenção do GLB (frente em
+       * +Z); uma inversão de profundidade põe o manípulo na traseira — foi o defeito
+       * reportado de «serigrafia e manípulos na parte de trás». Aqui mede-se o GLB, não a
+       * tabela que o gerou. */
+      const all = boxOf(() => true)
+      /* A caixa do corpo são as malhas ez9s_body_*: as cavidades dos bornes (cavity_*) são
+       * cilindros de receção do fio e saem 3,6 mm além das faces de topo de propósito, para o
+       * cabo entrar — não fazem parte do envelope do aparelho. */
+      const body = boxOf((n) => /^ez9s_body_\d+$/.test(n))
+      const size = body.max.map((v, k) => v - body.min[k])
+      /* Duas réguas diferentes, e de propósito:
+       * — o envelope do molde, que é o do STEP (76,8 mm de altura × 74,67 de profundidade,
+       *   módulo de 19,2 mm com as aletas de encaixe);
+       * — o referencial nominal de implantação (`physicalSizeMm`), que é o passo DIN de 18 mm
+       *   por polo. É este que posiciona o aparelho na calha e os bornes, por isso não se
+       *   estica a malha para o igualar (`cadScalePreserved`). */
+      // Larguras medidas no STEP: 1P 19,2 (módulo + aletas) e +18,0 mm por cada polo seguinte.
+      const actualWidth = poles === 1 ? 19.2 : 19.2 + (poles - 1) * 18
+      check(`${label}: envelope do GLB = STEP real (${actualWidth}×76,8×74,67 mm)`,
+        Math.abs(size[0] - actualWidth) < 0.3 && Math.abs(size[1] - 76.8) < 0.15 && Math.abs(size[2] - 74.67) < 0.15)
+      check(`${label}: referencial nominal de implantação = passo DIN (${poles}×18 mm de largura)`,
+        spec.physicalSizeMm.width === poles * 18 && spec.physicalSizeMm.depth >= size[2] - 0.15)
+      check(`${label}: face de encaixe na calha em z = 0 (não flutua à frente da chapa)`,
+        Math.abs(all.min[2]) < 0.05 && all.max[2] > spec.physicalSizeMm.depth - 1)
+      const hb = boxOf((n) => /^dcsimu_handle/.test(n))
+      // Manípulo na metade frontal: começa depois de 80 % da profundidade e chega à frente.
+      check(`${label}: manípulo vermelho na frente do aparelho (z ${Math.round(hb.min[2])}…${Math.round(hb.max[2])} mm)`,
+        hb.min[2] > spec.physicalSizeMm.depth * 0.8 && hb.max[2] >= spec.physicalSizeMm.depth - 1.5)
+      // O fundo do corpo é branco: nenhuma malha do manípulo na traseira.
+      check(`${label}: nada do manípulo atrás do corpo (z mínimo > 45 mm)`, hb.min[2] > 45)
+      const hingeY = hb.min[1] + (hb.max[1] - hb.min[1]) * rig.hinge.y
+      const hingeZ = hb.min[2] + (hb.max[2] - hb.min[2]) * rig.hinge.z
+      check(`${label}: charneira do manípulo no topo e ao centro da peça (y ${hingeY.toFixed(1)} · z ${hingeZ.toFixed(1)} mm)`,
+        Math.abs(hingeY - 34.2) < 0.6 && Math.abs(hingeZ - 70.1) < 0.6)
     }
     check(`${label}: nós do manípulo no rig existem no GLB`, rig.nodes.every((n) => names.includes(n)) && rig.throwDeg > 40 && rig.throwDeg < 90)
     {
