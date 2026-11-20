@@ -134,102 +134,6 @@
       "sha256": "a3c682ca9e41873483ebf67a00b3d50703c5476f830879bd762acb25df2a0180"
     },
     {
-      "type": "pushButtonXb2No",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 32.6,
-        "height": 30,
-        "depth": 58.7
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 161952,
-      "sha256": "f06b12d943268fe91dfab3e0e9c8d3c9188698f03c4fb2b48d72806365e140f7"
-    },
-    {
-      "type": "pushButtonXb2Nc",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 32.6,
-        "height": 30,
-        "depth": 58.7
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 162488,
-      "sha256": "5499095e464b327d30e50ebe7b48a7ce9efbdef06aa5536804c64267fa777798"
-    },
-    {
-      "type": "pushButtonXb2Black",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 32.6,
-        "height": 30,
-        "depth": 58.7
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 161960,
-      "sha256": "af177d2f2dfa926aeef6a70725d98382d249f2c07c4108fe30f102b1946a684f"
-    },
-    {
-      "type": "pushButtonXb2Yellow",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 32.6,
-        "height": 30,
-        "depth": 58.7
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 161956,
-      "sha256": "f8d075eb1bd1fbb68642c528c199fc66d06e925c94dab1a2fe69d73aa385eb05"
-    },
-    {
-      "type": "pushButtonXb2Blue",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 32.6,
-        "height": 30,
-        "depth": 58.7
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 161956,
-      "sha256": "178bd958e2c43d6654bb15fdef979b9edd310dba851227babd7c87a476093d05"
-    },
-    {
-      "type": "pushButtonXb2White",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
-      "changes": "Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.",
-      "physicalSizeMm": {
-        "width": 32.6,
-        "height": 30,
-        "depth": 58.7
-      },
-      "interfaces": 2,
-      "cavities": 2,
-      "pins": 0,
-      "bytes": 161956,
-      "sha256": "4d28570da89d06942b00809862cda916e9b335c92a4eeac84c0e3355e9dbf110"
-    },
-    {
       "type": "buzzerMetaltexTby301",
       "kind": "dimensioned-reconstruction",
       "source": "https://arquivo.metaltex.com.br/produtos/pdf/tby.pdf",
@@ -292,6 +196,102 @@
       "pins": 0,
       "bytes": 354340,
       "sha256": "9ec3d0ea9148f3df540facd2a54f9ac76157aa3ce5c8d0a1c83429cb0d0ac0b4"
+    },
+    {
+      "type": "pushButtonXb2No",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 30,
+        "height": 30,
+        "depth": 58.54
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 108884,
+      "sha256": "571e1eb8faf2a52a9c7582ca4580deef07f1c3c1ca315f782c27904de3e9cc4e"
+    },
+    {
+      "type": "pushButtonXb2Nc",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 30,
+        "height": 30,
+        "depth": 58.54
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 109436,
+      "sha256": "9021246c1b29181170f5f4c05b7ac021c52ab0f885ce45797e969f0a3eb2ddf9"
+    },
+    {
+      "type": "pushButtonXb2Black",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 30,
+        "height": 30,
+        "depth": 58.54
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 108892,
+      "sha256": "8541b25b51fd590d0a254dc693324a88e5c56827c1e301f8036b9f229c63c063"
+    },
+    {
+      "type": "pushButtonXb2Yellow",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 30,
+        "height": 30,
+        "depth": 58.54
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 108872,
+      "sha256": "fdab3cc8e3bed6ca44ab0b0de83391d1a701d80c5fba3be88679182cbb171d3a"
+    },
+    {
+      "type": "pushButtonXb2Blue",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 30,
+        "height": 30,
+        "depth": 58.54
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 108888,
+      "sha256": "7b713479232e54cc162402b5a7da0bc31402c12bd3b287d771f44afe3bcbbd6b"
+    },
+    {
+      "type": "pushButtonXb2White",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.keolea.com/uploads/xb2-ba.pdf",
+      "changes": "Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.",
+      "physicalSizeMm": {
+        "width": 30,
+        "height": 30,
+        "depth": 58.54
+      },
+      "interfaces": 2,
+      "cavities": 2,
+      "pins": 0,
+      "bytes": 108884,
+      "sha256": "677937c1014db3becb9739a3892a4518f4f78b44659dd963e48ef5de387e5b83"
     }
   ]
 }

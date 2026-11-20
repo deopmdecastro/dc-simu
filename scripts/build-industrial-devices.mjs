@@ -288,63 +288,94 @@ async function metaltex(){
 }
 
 /**
- * Botoeira Ø22 mm KEOLEA KL-XB2 (padrão XB2-BA). Reconstrução cotada das fotos
- * do utilizador: IMG_5854 (desenho cotado: cabeça metálica Ø29, 22 mm cabeça,
- * 55 mm total, 43 mm placa→fundo), IMG_5853/5856/5857 (bloco de contacto com
- * serigrafia CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5)
- * e IMG_5855 (bornes de parafuso na face traseira: NF 1-2 à esquerda, NA 4-3 à
- * direita, condutores por cima/baixo).
- * Eixo do aparelho = Z: z=0 face traseira do bloco de contacto; cabeça em +Z.
- * Pilha: bloco 33 mm + placa de zamak 10 mm + cabeça 12 mm = 55 mm totais.
+ * Botoeira Ø22 mm KEOLEA KL-XB2 (padrão XB2-BA31 / ZB2-BZ101). Reconstrução
+ * cotada das fotos do utilizador: IMG_5854 (desenho cotado: cabeça metálica
+ * Ø29, 55 mm total) e IMG_5853/5855/5856/5857 (bloco de contacto em poliamida
+ * preta com serigrafia CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/
+ * GB/T14048.5 e bornes de parafuso NF 1-2 / NA 4-3 com entrada de condutor por
+ * cima e por baixo).
+ *
+ * Eixo do aparelho = Z, cabeça em +Z. Pilha real (da frente para trás):
+ *   disco colorido 2,5 · aro cromado Ø29 2,5 · cabeça/bainha 9,5 ·
+ *   porca sextavada (aperta no painel) 3,5 · placa de zamak 30×30 10 ·
+ *   bloco de contacto 33 mm (com os bornes atrás).
+ *
+ * O que estava errado na versão anterior e aqui se corrige:
+ *  - os parafusos dos bornes eram parafusos captivos com o veio a crescer para
+ *    TRÁS: a cabeça ficava 4,1 mm atrás da face traseira, a flutuar no ar, e o
+ *    veio saía pela frente do bloco. São agora cabeças de fenda assentes na
+ *    face traseira, com o veio para dentro do bloco (como no aparelho real).
+ *  - o aro (Ø29) era mais largo do que a cabeça e ficava à frente do disco, com
+ *    o «espigão» de fixação a atravessar o aro cromado: parecia uma porca solta
+ *    em cima do botão. O aro é agora a aba frontal da cabeça, o disco assenta
+ *    dentro dele, e o parafuso de fixação passou a ser a porca sextavada real
+ *    atrás do painel.
+ *  - os bornes não tinham identificação. A face traseira leva agora o número
+ *    do borne gravado ao lado de cada poço (1/2 à esquerda, 4/3 à direita).
  */
 async function xb2(type){
  const root=device(type),terms=[]
- const capColor={No:mat('#16a34a'),Nc:mat('#dc2626'),Black:mat('#1f2937'),Yellow:mat('#eab308'),Blue:mat('#2563eb'),White:mat('#f8fafc')}[type.replace('pushButtonXb2','')]
+ const capColor={No:mat('#2f9e3f'),Nc:mat('#c8202b'),Black:mat('#20242a'),Yellow:mat('#f2c200'),Blue:mat('#1f5fd0'),White:mat('#f4f4ee')}[type.replace('pushButtonXb2','')]
  const isNc=type==='pushButtonXb2Nc'
  const pair=isNc?'12':'34'
+ // Face traseira do bloco (z=0) e frente da cabeça (z≈58).
+ const BACK=0, CONTACT_D=33
+ const acetate=mat('#1b1d18',.04,.42)   // poliamida preta acetinada do bloco
+ const steelScrew=mat('#b6bcc2',.88,.3) // parafusos zincados dos bornes
  // Bloco de contactos em poliamida preta 24×27×33 mm (largo×alto×fundo).
- const block=box(24,27,33,black,'industrial_xb2_contact',[0,0,16.5]);root.add(block)
+ const block=box(24,27,CONTACT_D,acetate,'industrial_xb2_contact',[0,0,BACK+CONTACT_D/2]);root.add(block)
  // Patilha metálica de retenção na borda inferior da face traseira (fotos do bloco).
  root.add(box(4,1.8,2.6,steel,'industrial_xb2_latch',[0,-13.2,1.4]))
+ // Serigrafia branca nas duas faces laterais grandes (24×33 mm), texto legível
+ // com a cabeça para cima (+Z). Planos 21×30 mm assentes nas faces ±Y.
+ const etch=plane(21,30,polyamide,'industrial_xb2_etch_side_'+pair,[0,13.65,16.5]);etch.rotation.set(-Math.PI/2,0,Math.PI);root.add(etch)
+ const etch2=plane(21,30,polyamide,'industrial_xb2_etch_side_rev_'+pair,[0,-13.65,16.5]);etch2.rotation.set(Math.PI/2,0,0);root.add(etch2)
  // Bornes de parafuso na face traseira (z=0), uma coluna por bloco:
  // NF à esquerda (1 em cima, 2 em baixo), NA à direita (4 em cima, 3 em baixo).
  const col=isNc?-6:6,labels=isNc?['1','2']:['4','3']
+ // ATENÇÃO: drill/bore usam coordenadas LOCAIS da malha. O bloco tem 33 mm de
+ // fundo e está centrado a z=16,5, logo a face traseira (mundo z=0) é a local
+ // z=-16,5: o poço vai de -16,7 (boca) a -11,3 (fundo). Com coordenadas de
+ // mundo o drill não cortava nada e a face traseira ficava cega — era isso que
+ // tornava os parafusos «soltos».
+ const REAR=-CONTACT_D/2
  for(const[label,wy]of [[labels[0],7],[labels[1],-7]]){
-  // Poço do borne na face traseira (coords locais do bloco: z=0 mundo → −16.5 local).
-  drill([block],'z',[col,wy,-16.5],1.9,-16.7,-11.4)
-  terms.push(terminal(root,label,col,wy,0,{r:1.9,depth:5.2,face:'back'}))
-  const screw=buildCaptiveTerminalScrew('xb2_'+label,1.5);screw.rotation.y=Math.PI;screw.position.set(col,wy,-4.1);root.add(screw)
+  drill([block],'z',[col,wy,REAR],2.05,REAR-.2,REAR+5.2)
+  // Cabeça de fenda assente no FUNDO do poço, com o veio para dentro do bloco.
+  // O parafuso fica no FUNDO do poço (cara a 4,4 mm da boca): o poço continua
+  // aberto para o condutor entrar, como no borne real, e deixa de haver metal à
+  // frente da cavidade declarada (holeDepthMm = 5,2).
+  root.add(cylinder(1.95,.9,steelScrew,'terminal_screw_head_xb2_'+label,[col,wy,4.45],'z',20))
+  root.add(box(1.7,.5,.45,mat('#4a4f52',.6,.5),'terminal_screw_slot_xb2_'+label,[col,wy,4.95]))
+  root.add(cylinder(.95,7,steelScrew,'terminal_screw_shank_xb2_'+label,[col,wy,8.4],'z',12))
   // Entrada do condutor por cima (1/4) ou por baixo (2/3), ao encontro do poço.
   const top=wy>0
-  drill([block],'y',[col,0,-12.3],1.7,top?7.4:-13.6,top?13.6:-7.4)
+  drill([block],'y',[col,0,REAR+2.6],1.7,top?7.4:-13.6,top?13.6:-7.4)
+  // Número do borne gravado ao lado do poço, na face traseira (plano virado a -Z).
+  const num=plane(2.9,2.9,mat('#1b1d18',.04,.42),'industrial_xb2_terminal_'+label,[col+(col>0?-3.7:3.7),wy,-.04])
+  num.rotation.y=Math.PI;root.add(num)
+  terms.push(terminal(root,label,col,wy,0,{r:2.05,depth:5.2,face:'back',screw:false}))
  }
- // Serigrafia branca nas duas faces laterais grandes (24×33 mm): texto lê-se com
- // a cabeça para cima (+Z). Plano 21×30 mm, textura 240×340 regenerada offline.
- const etch=plane(21,30,polyamide,'industrial_xb2_etch_side_'+pair,[0,13.65,16.5]);etch.rotation.set(-Math.PI/2,0,Math.PI);root.add(etch)
- const etch2=plane(21,30,polyamide,'industrial_xb2_etch_side_rev_'+pair,[0,-13.65,16.5]);etch2.rotation.set(Math.PI/2,0,0);root.add(etch2)
- // Placa média de zamak 30×30×10 mm (z 33..43) com aro de assentamento da cabeça.
- root.add(box(30,30,10,zamac,'industrial_xb2_plate',[0,0,38]))
- root.add(cylinder(12.5,1.6,nickel,'industrial_xb2_plate_seat',[0,0,43.2]))
- // Parafuso de fixação lateral: espiga roscada + porca sextavada + anilha, à
- // direita da cabeça, entre a placa e a coroa (espreita sob a aba da cabeça).
- root.add(cylinder(2.4,11,steel,'industrial_xb2_fixing_stud',[13.2,0,48.5]))
- root.add(cylinder(4.2,2.2,nickel,'industrial_xb2_fixing_nut',[13.2,0,44.2],'z',6))
- root.add(cylinder(4.4,.55,steel,'industrial_xb2_fixing_washer1',[13.2,0,45.8]))
- root.add(cylinder(4.4,.55,steel,'industrial_xb2_fixing_washer2',[13.2,0,46.7]))
- // Vedação negra entre a placa e a cabeça.
- root.add(cylinder(12,1.4,black,'industrial_xb2_gasket',[0,0,43.6]))
- // Cabeça metálica cromada Ø29 (z 43..53): corpo + aro superior com o rebaixo
- // onde assenta o disco colorido (o disco é o actuador móvel, ±2 mm de curso).
- root.add(cylinder(14.5,10,nickel,'industrial_xb2_head',[0,0,48]))
- const ringShape=new T.Shape();ringShape.absarc(0,0,14.5,0,Math.PI*2,false)
- const ringHole=new T.Path();ringHole.absarc(0,0,12.6,0,Math.PI*2,true);ringShape.holes.push(ringHole)
- const ring=new T.Mesh(new T.ExtrudeGeometry(ringShape,{depth:1.5,bevelEnabled:false,curveSegments:40}),nickel)
- ring.name='industrial_xb2_bezel';ring.position.set(0,0,52.6);root.add(ring)
- // Disco colorido do actuador (é o «cap» que o 3D prime; afunda 2 mm ao premir).
- root.add(cylinder(12.5,2.6,capColor,'industrial_xb2_cap',[0,0,53.3]))
- // Garganta de ligação cabeça↔placa (pescoço cromado visível na junção).
- root.add(cylinder(11.5,2.4,nickel,'industrial_xb2_collar',[0,0,43.9]))
- await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole; dimensioned from user photo set: Ø29 mm chrome metal head (12 mm), 30×30×10 mm zinc-alloy middle plate with side fixing screw (stud + hex nut + spring washers), 24×27×33 mm black polyamide contact block (55 mm overall). Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head. Momentary with spring return; no latching or illumination invented.'})
+ // Placa média de zamak 30×30×10 mm — assenta na cara interior do painel.
+ const PLATE=BACK+CONTACT_D, PLATE_D=10
+ const plate=box(30,30,PLATE_D,zamac,'industrial_xb2_plate',[0,0,PLATE+PLATE_D/2]);root.add(plate)
+ // Porca sextavada de fixação ao painel (a peça real que aperta a cabeça).
+ const NUT=PLATE+PLATE_D
+ const hexShape=new T.Shape();for(let i=0;i<6;i++){const a=Math.PI/6+i*Math.PI/3,px=Math.cos(a)*9.2,py=Math.sin(a)*9.2;i?hexShape.lineTo(px,py):hexShape.moveTo(px,py)}hexShape.closePath()
+ const hexNut=new T.Mesh(new T.ExtrudeGeometry(hexShape,{depth:3.5,bevelEnabled:false}),nickel);hexNut.name='industrial_xb2_nut';hexNut.position.set(0,0,NUT);root.add(hexNut)
+ // Vedação negra na base da cabeça (junta IP65 contra o painel).
+ root.add(cylinder(13.2,1.1,mat('#141614',.02,.7),'industrial_xb2_gasket',[0,0,NUT+3.5]))
+ // Cabeça cromada Ø29: bainha roscada + aba frontal (o aro que se vê no painel).
+ const HEAD=NUT+3.5
+ root.add(cylinder(13.6,9.5,nickel,'industrial_xb2_head',[0,0,HEAD+4.75]))
+ // Aba/aro cromado Ø29 com rebaixo, onde o disco do actuador assenta (flush).
+ const bezelShape=new T.Shape();bezelShape.absarc(0,0,14.5,0,Math.PI*2,false)
+ const bezelHole=new T.Path();bezelHole.absarc(0,0,11.6,0,Math.PI*2,true);bezelShape.holes.push(bezelHole)
+ const bezel=new T.Mesh(new T.ExtrudeGeometry(bezelShape,{depth:2.5,bevelEnabled:false,curveSegments:48}),nickel)
+ bezel.name='industrial_xb2_bezel';bezel.position.set(0,0,HEAD+9.5);root.add(bezel)
+ // Disco colorido do actuador, embutido no aro (flush, como no XB2-BA real).
+ root.add(cylinder(11.7,2.4,capColor,'industrial_xb2_cap',[0,0,HEAD+10.5],'z',48))
+ await store(type,root,terms,{kind:'dimensioned-reconstruction',source:'https://www.keolea.com/uploads/xb2-ba.pdf',changes:'Ø22 mm panel hole (22,5 mm cut-out); dimensioned from user photo set: Ø29 mm chrome head with the coloured actuator disc flush inside its front bezel (2,2 mm travel), hex fixing nut behind the 30×30×10 mm zinc-alloy plate, 24×27×33 mm black polyamide contact block, 55 mm overall. Rear-face screw terminals in one column: NC 1 over 2 left, NO 4 over 3 right, each with a slot-head screw seated inside the recess and its number engraved beside the well; conductor inlets from top/bottom; white serigraphy CE/KEOLEA/KL-XB2/Ui 660V/Ith 10A/Uimp 6kV/AC-15/DC-13/GB/T14048.5 on both flanks; coloured actuator disc travels 2 mm into the head and clicks to red on press (press feedback). Momentary with spring return; no latching or illumination invented.'})
 }
 
 // Murrelektronik MICO Classic 4.6 (9000-41034-0100600): proteção eletrónica 24 V DC,

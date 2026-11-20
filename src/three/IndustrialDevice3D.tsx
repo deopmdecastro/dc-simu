@@ -7,7 +7,7 @@ import { useSimStore } from '../store/useSimStore'
 import { industrialControlPatch, industrialDeviceTypeOf, type IndustrialControl } from '../electrical/industrialDevices'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
-import { applyIndustrialState, applyIndustrialTextures, industrialAction, prepareIndustrialModel, releaseIndustrialLcd } from './industrialFinish'
+import { applyIndustrialState, applyIndustrialTextures, industrialAction, industrialClickSound, prepareIndustrialModel, releaseIndustrialLcd } from './industrialFinish'
 import { mergeStaticMeshes } from './staticMerge'
 import { isInControlModel, useControlWheel } from './useControlWheel'
 
@@ -24,15 +24,9 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
   },[scene,spec,type])
   const {invalidate,controls}=useThree()
   const held=useRef(false),heldButton=useRef(false),orbit=useRef<{target:{enabled:boolean};enabled:boolean}|null>(null)
-  // Botoeira Ø22: a tampa desce ~2 mm ao longo do eixo Z (curso do contacto instantâneo).
-  useEffect(()=>{
-    if(!type.startsWith('pushButtonXb2'))return
-    const cap=model.getObjectByName('industrial_xb2_cap')
-    if(!cap)return
-    const base=cap.userData.baseZ??=cap.position.z
-    cap.position.z=base-(c.state.pressed?0.002:0)
-    invalidate()
-  },[model,type,c.state.pressed,invalidate])
+  // Botoeira Ø22: o curso de 2 mm e a cor de pressão vivem em
+  // applyIndustrialState (também usados pelo Editor e pelas capas); aqui só se
+  // garante que o clique tem som.
   useEffect(()=>{
     let active=true
     applyIndustrialTextures(model,type,()=>!active).then(()=>{if(active)invalidate()}).catch(error=>console.error(`Impressos locais ${type}:`,error))
@@ -66,7 +60,7 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     const target=controls as unknown as {enabled:boolean}|null
     if(target&&!orbit.current){orbit.current={target,enabled:target.enabled};target.enabled=false}
     if(action==='test'){held.current=true;useSimStore.getState().operateComponent(c.id,{testPressed:true})}
-    else if(action==='button'){heldButton.current=true;useSimStore.getState().operateComponent(c.id,{pressed:true})}
+    else if(action==='button'){heldButton.current=true;useSimStore.getState().operateComponent(c.id,{pressed:true});industrialClickSound()}
   }
   const click=(event:ThreeEvent<MouseEvent>)=>{
     if(!mayActuate())return

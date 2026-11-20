@@ -1,6 +1,23 @@
 import * as THREE from 'three'
 import { atv320DisplayText, deviceLcdFrame, drawDeviceLcd } from './deviceLcd'
 import { INDUSTRIAL_DEVICE_TYPES, GEYA_FUNCTIONS, GEYA_RANGES_MS, isIndustrialDevice, type IndustrialDeviceType } from '../electrical/industrialDevices'
+import { playClick } from '../audio/sfx'
+
+/**
+ * Cor de repouso de cada actuador XB2 (o mesmo tom do GLB publicado) e cor de
+ * pressão. Premir uma botoeira real muda o que se vê: o disco desce 2 mm e a
+ * cara fica na sombra do aro, e nos modelos iluminados acende. Aqui o disco
+ * escurece/satura para o toque ser inequívoco, sem inventar iluminação que o
+ * aparelho não tem (o KL-XB2 é luminoso só nas versões com lâmpada).
+ */
+const XB2_CAP_COLORS: Record<string, { rest: string; pressed: string }> = {
+  pushButtonXb2No: { rest: '#2f9e3f', pressed: '#1d6f2c' },
+  pushButtonXb2Nc: { rest: '#c8202b', pressed: '#8f1420' },
+  pushButtonXb2Black: { rest: '#20242a', pressed: '#0d1013' },
+  pushButtonXb2Yellow: { rest: '#f2c200', pressed: '#bf9600' },
+  pushButtonXb2Blue: { rest: '#1f5fd0', pressed: '#17479c' },
+  pushButtonXb2White: { rest: '#f4f4ee', pressed: '#cfd2ca' },
+}
 
 /** Nomes funcionais iguais no Painel, no Admin e no GLB publicado. */
 const ACTIONS: Record<string, string> = {
@@ -57,8 +74,28 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
   // Botoeiras KEOLEA KL-XB2: o disco colorido do actuador é a zona de pressão real.
   if (type.startsWith('pushButtonXb2')) {
     root.traverse(node => {
-      if (node.name === 'industrial_xb2_cap') node.userData.industrialControl = 'button'
-      if (node.name === 'industrial_xb2_cap' || node.name.startsWith('industrial_xb2_bezel_knurl_') || node.name === 'industrial_xb2_bezel') node.userData.industrialMoving = true
+      if (node.name === 'industrial_xb2_cap') {
+        node.userData.industrialControl = 'button'
+        const palette = XB2_CAP_COLORS[type]
+        const mesh = node as THREE.Mesh
+        // prepareIndustrialModel corre a cada mudança de estado: o material do
+        // disco é criado uma só vez por instância.
+        if (palette && mesh.isMesh && !mesh.userData.xb2CapRest) {
+          // Cópia própria do material: premir troca a cor só desta instância.
+          for (const old of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) old.dispose?.()
+          const base = palette.rest
+          const material = new THREE.MeshPhysicalMaterial({
+            color: base, metalness: .02, roughness: .24,
+            clearcoat: .55, clearcoatRoughness: .16,
+          })
+          material.name = 'xb2_cap_' + type
+          mesh.material = material
+          mesh.userData.xb2CapRest = base
+          mesh.userData.xb2CapPressed = palette.pressed
+          mesh.castShadow = mesh.receiveShadow = true
+        }
+      }
+      if (node.name === 'industrial_xb2_cap' || node.name === 'industrial_xb2_bezel') node.userData.industrialMoving = true
     })
   }
   // ATV320: melhorar aspeto do encoder verde (botão rotativo knurled) e do ESC.
@@ -97,6 +134,11 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
       esc.material = mat
     }
   }
+}
+
+/** Clique físico curto de botoeira (o mesmo motor de som dos disjuntores). */
+export function industrialClickSound(): void {
+  try { playClick('button') } catch { /* som desligado ou indisponível */ }
 }
 
 export function industrialAction(object: THREE.Object3D): string | null {
@@ -168,6 +210,23 @@ export function applyIndustrialState(root: THREE.Object3D, type: IndustrialDevic
       material.emissive.set(on ? color : '#000000'); material.emissiveIntensity = on ? 1.3 : 0
     }
   }
+  // Botoeira XB2: curso de 2 mm do disco e cor de pressão. `moveControls` falso
+  // (Admin, capas, fotografia) fixa o repouso — a cor de pressão só aparece com
+  // o botão realmente premido.
+  if (type.startsWith('pushButtonXb2')) {
+    const cap = root.getObjectByName('industrial_xb2_cap') as THREE.Mesh | undefined
+    if (cap?.isMesh) {
+      const pressed = moveControls && !!s.pressed
+      const restZ = cap.userData.xb2RestZ ?? (cap.userData.xb2RestZ = cap.position.z)
+      cap.position.z = Number(restZ) - (pressed ? .002 : 0)
+      const material = (Array.isArray(cap.material) ? cap.material[0] : cap.material) as THREE.MeshPhysicalMaterial | undefined
+      const target = (pressed ? cap.userData.xb2CapPressed : cap.userData.xb2CapRest) as string | undefined
+      if (material?.color && target && material.userData.xb2Color !== target) {
+        material.color.set(target)
+        material.userData.xb2Color = target
+      }
+    }
+  }
   const cover = root.getObjectByName('industrial_control_cover'), interior = root.getObjectByName('industrial_control_interior')
   if (cover) cover.visible = !s.controlCoverOpen
   if (interior) interior.visible = !!s.controlCoverOpen
@@ -206,6 +265,13 @@ function geyaScrewLabels(): Record<string, string> {
   return out
 }
 
+/** Números dos bornes gravados na face traseira de cada bloco de contactos. */
+function xb2TerminalNumbers(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const label of ['1', '2', '3', '4']) out['industrial_xb2_terminal_' + label] = `xb2-terminal-${label}.png`
+  return out
+}
+
 const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
   timerGeyaGrt8M1: {
     industrial_fascia: 'geya-grt8-m-face.png', industrial_geya_side_r: 'geya-grt8-m-side-r.png', industrial_geya_side_l: 'geya-grt8-m-side-l.png',
@@ -222,12 +288,12 @@ const PRINTS: Partial<Record<IndustrialDeviceType, Record<string, string>>> = {
   levelRelayAvel411: { industrial_avel_label: 'avel-411-face.png' },
   relayFinder5534: { industrial_finder_label: 'finder-5534-label.png' },
   buzzerMetaltexTby301: { industrial_metaltex_label: 'metaltex-tby-label.png' },
-  pushButtonXb2No: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
-  pushButtonXb2Black: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
-  pushButtonXb2Yellow: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
-  pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
-  pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', industrial_xb2_etch_side_rev_34: 'xb2-no-etch-baked.png' },
-  pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', industrial_xb2_etch_side_rev_12: 'xb2-nc-etch-baked.png' },
+  pushButtonXb2No: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
+  pushButtonXb2Black: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
+  pushButtonXb2Yellow: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
+  pushButtonXb2Blue: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
+  pushButtonXb2White: { industrial_xb2_etch_side_34: 'xb2-no-etch-baked.png', ...xb2TerminalNumbers() },
+  pushButtonXb2Nc: { industrial_xb2_etch_side_12: 'xb2-nc-etch-baked.png', ...xb2TerminalNumbers() },
   breakerMurrelektronikMico46: { industrial_mico_logo: 'mico-logo.png', industrial_mico_legend: 'mico-legend.png', industrial_mico_class2: 'mico-class2.png' },
   vfdSchneiderAtv320: {
     industrial_schneider_logo: '../../brands/schneider-electric.svg',
