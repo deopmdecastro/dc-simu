@@ -16,7 +16,7 @@ import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, INNER_COVER_OUTLINE_DEFAULT_COLOR, spiralWrapDimsOf } from '../three/enclosureParts'
 import { DIN_RAIL_FINISH_IDS, DIN_RAIL_PROFILE_IDS, DIN_RAIL_PROFILES, dinRailProfileIdOf, dinRailProfileOf, railDepthOffsetMm } from '../three/dinRailGeometry'
-import { CABLE_DUCT_DEFAULT_COLOR, ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
+import { ENCLOSURE_DEFAULT_COLOR, ENCLOSURE_PLATE_FINISH_IDS } from '../three/PanelAccessories3D'
 import Select from '../ui/Select'
 import {
   IconArrowLeft,
@@ -46,12 +46,6 @@ const ENCLOSURE_COLORS = [
   { name: 'RAL 7016 antracite', value: '#3b4148' },
   { name: 'Inox escovado', value: '#c3c8cc' },
 ]
-const DUCT_COLORS = [
-  { name: 'RAL 7030 cinzento-pedra', value: CABLE_DUCT_DEFAULT_COLOR },
-  { name: 'RAL 7035 cinzento-claro', value: ENCLOSURE_DEFAULT_COLOR },
-  { name: 'Azul (comando)', value: '#4f7fbf' },
-  { name: 'Branco', value: '#eeefea' },
-]
 
 /** Muda as medidas mantendo o centro no Esquema (o footprint acompanha os mm). */
 function resize(c: ElectricalComponent, wMm: number, hMm: number, state: Record<string, unknown>) {
@@ -62,7 +56,8 @@ function resize(c: ElectricalComponent, wMm: number, hMm: number, state: Record<
   // Se a calha/quadro está dentro de um quadro QE1, não deixa o footprint sair da moldura — ajusta o centro para caber.
   try {
     const all = useSimStore.getState().components
-    const enclosures = all.filter((e) => e.type === 'panelEnclosure')
+    // O próprio quadro não se limita a si mesmo (antes: aviso «QE1 maior que o interior do QE1» ao aumentar).
+    const enclosures = c.type === 'panelEnclosure' ? [] : all.filter((e) => e.type === 'panelEnclosure' && e.id !== c.id)
     // Considera a rotação da calha para o AABB no esquema (vertical = w/h trocados)
     const isVerticalDuct = c.type === 'cableDuct' && Math.round(((c.rotation ?? 0) % 180) / 90) % 2 === 1
     const effW = isVerticalDuct ? h : w
@@ -134,9 +129,10 @@ function DuctSideBar({ c, side, lengthMm }: { c: ElectricalComponent; side: 'lef
 
 function MmField({ label, value, min, max, step = 10, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (mm: number) => void }) {
   const commit = (raw: number) => { if (Number.isFinite(raw)) onChange(Math.max(min, Math.min(max, Math.round(raw)))) }
+  // O campo numérico só aplica ao sair/Enter: antes, escrever «35» com mínimo 20 aplicava logo 20 ao «3».
   return <div className="dc-acc-field">
     <span>{label}</span>
-    <input type="number" className="dc-input" min={min} max={max} step={step} value={value} onChange={(e) => commit(Number(e.target.value))} aria-label={`${label} (mm)`} />
+    <DraftNumber label={label} value={value} min={min} max={max} onCommit={commit} />
     <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => commit(Number(e.target.value))} aria-label={label} />
   </div>
 }
@@ -265,11 +261,13 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       <div className="flex items-center justify-between"><span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</span><button type="button" className="min-h-[38px] text-[11px] font-medium text-blue-600 hover:underline" onClick={fitToContent}><IconDistH size={12} className="inline mr-1" />Ajustar ao conteúdo</button></div>
       <p role="status" aria-live="polite" data-enclosure-fit-feedback className={fitFeedback ? 'text-[11px] text-amber-800 leading-snug' : 'sr-only'}>{fitFeedback}</p>
       <div className="grid grid-cols-3 gap-2">
-        <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} onChange={(e)=> resize(c, Math.max(ENCLOSURE.minWidthMm, Math.min(ENCLOSURE.maxWidthMm, Number(e.target.value)||0)), d.heightMm, {widthMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
-        <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} step={10} onChange={(e)=> resize(c, d.widthMm, Math.max(ENCLOSURE.minHeightMm, Math.min(ENCLOSURE.maxHeightMm, Number(e.target.value)||0)), {heightMm: Number(e.target.value)})} /><span className="text-xs text-slate-400">mm</span></div></label>
-        <label className="space-y-1"><span className="text-xs text-slate-600">Prof.</span><div className="flex items-center gap-1"><input type="number" className="dc-input h-8 w-full text-center text-sm" value={d.depthMm} min={ENCLOSURE.minDepthMm} max={ENCLOSURE.maxDepthMm} step={10} onChange={(e)=> set({depthMm: Math.max(ENCLOSURE.minDepthMm, Math.min(ENCLOSURE.maxDepthMm, Number(e.target.value)||0))})} /><span className="text-xs text-slate-400">mm</span></div></label>
+        {/* Rascunho até sair/Enter, valor limitado aos mínimos/máximos e o mesmo no estado e no footprint. */}
+        <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span><div className="flex items-center gap-1"><DraftNumber label="Largura do quadro" className="h-8 w-full text-sm" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} onCommit={(mm)=> resize(c, mm, d.heightMm, {widthMm: mm})} /><span className="text-xs text-slate-400">mm</span></div></label>
+        <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span><div className="flex items-center gap-1"><DraftNumber label="Altura do quadro" className="h-8 w-full text-sm" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} onCommit={(mm)=> resize(c, d.widthMm, mm, {heightMm: mm})} /><span className="text-xs text-slate-400">mm</span></div></label>
+        <label className="space-y-1"><span className="text-xs text-slate-600">Prof.</span><div className="flex items-center gap-1"><DraftNumber label="Profundidade do quadro" className="h-8 w-full text-sm" value={d.depthMm} min={ENCLOSURE.minDepthMm} max={ENCLOSURE.maxDepthMm} onCommit={(mm)=> set({depthMm: mm})} /><span className="text-xs text-slate-400">mm</span></div></label>
       </div>
       <input type="range" className="w-full accent-slate-700 min-h-[38px]" aria-label="Largura do quadro (mm)" min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} value={d.widthMm} onChange={(e)=> resize(c, Number(e.target.value), d.heightMm, {widthMm: Number(e.target.value)})} />
+      <input type="range" className="w-full accent-slate-700 min-h-[38px]" aria-label="Altura do quadro (mm)" min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} step={10} value={d.heightMm} onChange={(e)=> resize(c, d.widthMm, Number(e.target.value), {heightMm: Number(e.target.value)})} />
       <div className="grid grid-cols-3 gap-1.5">
         {ENCLOSURE_PRESETS.map(([w,h,dp])=> <button key={`${w}x${h}`} type="button" className={`rounded-lg border p-2 text-center transition ${d.widthMm===w&&d.heightMm===h ? 'bg-brand-600 border-brand-700 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}><div className="text-xs font-bold">{w}×{h}</div><div className="text-[10px] opacity-60">{dp} prof.</div></button>)}
       </div>
@@ -365,10 +363,11 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
             <div className="text-[10px] text-slate-500">{de.widthMm}×{de.heightMm} mm • {de.offsetXmm??0},{de.offsetYmm??0} mm</div>
           </div>
           <div className="flex items-center gap-1">
-            <input type="number" className="dc-input w-14 h-7 text-xs" title="Largura mm" value={de.widthMm??30} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {widthMm: Number(e.target.value)})} />
-            <input type="number" className="dc-input w-14 h-7 text-xs" title="Altura mm" value={de.heightMm??30} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {heightMm: Number(e.target.value)})} />
-            <input type="number" className="dc-input w-12 h-7 text-xs" title="X mm" placeholder="X" value={de.offsetXmm??0} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetXmm: Number(e.target.value)})} />
-            <input type="number" className="dc-input w-12 h-7 text-xs" title="Y mm" placeholder="Y" value={de.offsetYmm??0} onChange={(e)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetYmm: Number(e.target.value)})} />
+            {/* Limitado à porta: sem tamanhos nulos/negativos nem imagem fora da tampa. */}
+            <DraftNumber label="Largura da imagem" className="w-14 h-7 text-xs" value={de.widthMm??30} min={5} max={d.widthMm} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {widthMm: mm})} />
+            <DraftNumber label="Altura da imagem" className="w-14 h-7 text-xs" value={de.heightMm??30} min={5} max={d.heightMm} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {heightMm: mm})} />
+            <DraftNumber label="X da imagem" className="w-12 h-7 text-xs" value={de.offsetXmm??0} min={-Math.round(d.widthMm/2)} max={Math.round(d.widthMm/2)} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetXmm: mm})} />
+            <DraftNumber label="Y da imagem" className="w-12 h-7 text-xs" value={de.offsetYmm??0} min={-Math.round(d.heightMm/2)} max={Math.round(d.heightMm/2)} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetYmm: mm})} />
             <button type="button" className="dc-btn text-red-600 px-1.5 py-1" onClick={()=> useSimStore.getState().removeDecal(c.id, de.id)} aria-label="Remover imagem"><IconClose size={12} /></button>
           </div>
         </div>)}
@@ -510,7 +509,6 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
   const d = cableDuctDimsOf(c.state)
   const coverOn = c.state.coverOn !== false
   const vertical = Math.round(((c.rotation ?? 0) % 180) / 90) % 2 === 1
-  const color = c.bodyColor && c.bodyColor !== '#e2e8f0' ? c.bodyColor : CABLE_DUCT_DEFAULT_COLOR
   const setLength = (v: number) => resizeDuct(c, v, d.widthMm, {})
   const setHeight = (v: number) => { useSimStore.getState().setComponentState(c.id, { heightMm: v }); useSimStore.getState().pushEvent('info', `Calha ${c.ref} altura ${v} mm — veja no 3D a parede subir.`) }
   const join = (slot: DuctSlot) => {
@@ -597,18 +595,15 @@ export function CableDuctControls({ c }: { c: ElectricalComponent }) {
     {/* 2 · Posicionamento */}
     <div className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between">
       <span className="text-xs text-slate-600">Orientação</span>
-      <div className="dc-acc-seg" role="group" aria-label="Orientação da calha">
-        <button type="button" aria-pressed={!vertical} className={!vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 0 })}>— Horizontal</button>
-        <button type="button" aria-pressed={vertical} className={vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 90 })}><IconArrowUp size={11} className="inline mr-0.5" /><IconArrowDown size={11} className="inline mr-1" />Vertical</button>
+      <div className="dc-acc-seg" role="group" aria-label="Orientação da calha" title={c.locked ? 'Desbloqueie a calha para mudar a orientação.' : undefined}>
+        <button type="button" aria-pressed={!vertical} disabled={!!c.locked && vertical} className={!vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 0 })}>— Horizontal</button>
+        <button type="button" aria-pressed={vertical} disabled={!!c.locked && !vertical} className={vertical ? 'is-on' : ''} onClick={() => useSimStore.getState().updateComponent(c.id, { rotation: 90 })}><IconArrowUp size={11} className="inline mr-0.5" /><IconArrowDown size={11} className="inline mr-1" />Vertical</button>
       </div>
     </div>
 
-    {/* 3 · Aparência */}
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
-      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Aparência</div>
-      <div className="flex items-center justify-between"><span className="text-xs text-slate-600">Cor</span><Swatches options={DUCT_COLORS} value={color} onPick={(value) => useSimStore.getState().updateComponent(c.id, { bodyColor: value })} /></div>
-      <p className="text-[11px] text-slate-400 leading-snug">PVC cinzento-pedra padrão. A calha é sólida no 3D (cabos contornam por fora); no esquema os cabos passam por dentro da calha.</p>
-    </div>
+    {/* 3 · Aparência — a cor escolhe-se no campo «Cor da calha (PVC)» acima (uma só paleta; antes havia
+        duas com valores diferentes para «a mesma» cor). */}
+    <p className="text-[11px] text-slate-400 leading-snug">PVC cinzento-pedra padrão. A calha é sólida no 3D (cabos contornam por fora); no esquema os cabos passam por dentro da calha.</p>
   </div>
 }
 
@@ -637,7 +632,11 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
   const setProfile = (id: string) => {
     const next = DIN_RAIL_PROFILES[id]
     const h = Math.round(next.width * SCHEMATIC_PX_PER_MM)
-    useSimStore.getState().updateComponentRaw(c.id, { h, schematicY: Math.round(c.schematicY + (c.h - h) / 2), state: { ...c.state, profile: id } })
+    const st = useSimStore.getState()
+    if (st.demoMode || id === profileId) return
+    // Mudança de perfil é uma edição do utilizador: entra no histórico (Ctrl+Z desfaz).
+    st.commitHistory()
+    st.updateComponentRaw(c.id, { h, schematicY: Math.round(c.schematicY + (c.h - h) / 2), state: { ...c.state, profile: id } })
   }
   return <div className="dc-acc">
     <div className="dc-acc-row">

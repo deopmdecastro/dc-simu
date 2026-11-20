@@ -122,7 +122,7 @@ const exercise = (target) => page.evaluate(async (target) => {
   const checks = [...root.querySelectorAll('input[type="checkbox"]')].filter((el) => !skip(el))
   for (const el of checks) {
     const label = `checkbox · ${labelOf(el)}`
-    if (/imã automático/i.test(label)) continue // preferência global do editor, não do componente
+    if (/imã automático|soltar cabos ao arrastar/i.test(label)) continue // preferências globais do editor, não do componente
     await record(label, async () => { el.click() })
     if (document.contains(el)) el.click()
     await wait(30)
@@ -142,7 +142,7 @@ const exercise = (target) => page.evaluate(async (target) => {
   }
 
   // Botões segmentados e de preset do quadro/calha/perfil, e ações de posição.
-  const buttons = [...root.querySelectorAll('.dc-acc button, .dc-acc-seg button')].filter((el) => !skip(el) && !el.classList.contains('dcx-select') && el.getAttribute('aria-pressed') !== 'true' && !el.classList.contains('dc-btn-primary'))
+  const buttons = [...root.querySelectorAll('.dc-acc button, .dc-acc-seg button')].filter((el) => !skip(el) && !el.classList.contains('dcx-select') && el.getAttribute('aria-pressed') !== 'true' && el.getAttribute('aria-checked') !== 'true' && !el.classList.contains('dc-btn-primary'))
   for (const el of buttons) {
     if (!document.contains(el) || skip(el)) continue
     const text = (el.textContent.trim() || el.getAttribute('aria-label') || el.title || '').slice(0, 40)

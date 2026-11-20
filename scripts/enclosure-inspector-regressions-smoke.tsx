@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createComponent } from '../src/electrical/factory'
-import { EnclosureControls, fitEnclosureToContent } from '../src/components/PanelAccessoryControls'
+import { CableDuctControls, EnclosureControls, fitEnclosureToContent } from '../src/components/PanelAccessoryControls'
 import { Enclosure2D } from '../src/schematic/PanelAccessories2D'
 import { EnclosureHoleGland3D } from '../src/three/PanelAccessories3D'
 import { useSimStore } from '../src/store/useSimStore'
@@ -230,4 +230,32 @@ const elementTypes = (node: unknown): string[] => {
   assert.match(inspector, /Aparelho montado/, 'inspetor explica o estado da ação desativada')
 }
 
-console.log('PASS — regressões do inspetor: bounds/posição, limite máximo, estado vazio, acessibilidade, bucins e ocupação única dos furos')
+{
+  // Medidas do quadro: rascunho de texto que só aplica ao sair/Enter (antes: número aplicado a cada tecla,
+  // com o valor não limitado gravado no estado — «600» passava por 6 mm).
+  const enclosure = makeEnclosure()
+  useSimStore.setState({ components: [enclosure], selectedComponentIds: [] })
+  const inspector = renderInspector(enclosure)
+  for (const label of ['Largura do quadro (mm)', 'Altura do quadro (mm)', 'Profundidade do quadro (mm)']) {
+    const input = inspector.match(new RegExp(`<input\\b[^>]*aria-label="${label.replace(/[()]/g, '\\$&')}"[^>]*>`))?.[0]
+    assert.ok(input, `inspetor mostra o campo «${label}»`)
+    assert.match(input!, /type="text"/, `«${label}» é um rascunho de texto (não aplica a cada tecla)`)
+    assert.match(input!, /inputMode="numeric"/, `«${label}» abre o teclado numérico`)
+  }
+  assert.match(inspector, /aria-label="Altura do quadro \(mm\)"[^>]*type="range"|type="range"[^>]*aria-label="Altura do quadro \(mm\)"/, 'a altura também tem barra deslizante')
+}
+
+{
+  // Calha: uma só paleta de cor (o bloco geral «Cor da calha (PVC)»); o cartão do inspetor já não repete outra.
+  const duct = createComponent('cableDuct', 'CT1', undefined, 0, 0, 0)
+  useSimStore.setState({ components: [duct], selectedComponentIds: [duct.id] })
+  const markup = renderToStaticMarkup(createElement(CableDuctControls, { c: duct }))
+  assert.doesNotMatch(markup, /role="radiogroup"/, 'inspetor da calha sem segunda paleta de cor com valores diferentes')
+  // Bloqueada: a orientação não muda pelo inspetor.
+  const locked = { ...duct, locked: true }
+  const lockedMarkup = renderToStaticMarkup(createElement(CableDuctControls, { c: locked }))
+  const vertical = lockedMarkup.match(/<button\b[^>]*>(?:(?!<\/button>).)*Vertical<\/button>/s)?.[0]
+  assert.ok(vertical?.includes('disabled'), 'calha bloqueada não passa a vertical pelo inspetor')
+}
+
+console.log('PASS — regressões do inspetor: bounds/posição, limite máximo, estado vazio, acessibilidade, bucins, ocupação única dos furos, medidas em rascunho e paleta única da calha')
