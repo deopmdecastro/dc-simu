@@ -368,6 +368,32 @@ export default function Account() {
     try {
       await persistOpenProject(true)
     } catch (value) {
+      if ((value as { code?: string } | null)?.code === 'PROJECT_READ_ONLY') {
+        await saveAsCopy()
+        return
+      }
+      error(value)
+    }
+  }
+
+  /** Projeto de outra conta (só leitura): grava o estado atual como cópia na conta de quem grava e abre-a. */
+  async function saveAsCopy() {
+    const entry = openRef.current
+    if (!entry) return
+    try {
+      const name = uniqueProjectName(`${entry.name} (cópia)`, projects.map((project) => project.name)) || 'Projeto (cópia)'
+      const cover = await resolveCover(name)
+      const content = { ...JSON.parse(useSimStore.getState().saveJSON()), cover, coverVersion: cover ? storedCoverVersion() : undefined }
+      const created = await api<Open>('/projects', 'POST', { name, content })
+      const copy: Open = { id: created.id, name: created.name ?? name, revision: created.revision ?? 0, role: 'owner' }
+      openRef.current = copy
+      setOpen(copy)
+      useSimStore.getState().setCurrentProjectName(copy.name)
+      useSimStore.setState({ dirty: false })
+      navigate(ROUTES.editor(copy.id), { replace: true })
+      setMessage(`Este projeto é de outra conta, por isso foi guardado como cópia na sua conta: «${copy.name}». O original não foi alterado.`)
+      void refresh()
+    } catch (value) {
       error(value)
     }
   }

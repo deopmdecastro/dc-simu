@@ -413,7 +413,8 @@ export async function supabaseUpdateProject(id: string, content: unknown, revisi
     const { data: current } = await client.from('projects').select('owner_id, revision').eq('id', id).maybeSingle()
     if (!current) throw new Error('O projeto já não existe ou deixou de ter acesso a ele. Nada foi guardado.')
     const isMember = user ? current.owner_id === user.id || Boolean((await client.from('project_members').select('user_id').eq('project_id', id).eq('user_id', user.id).maybeSingle()).data) : false
-    if (!isMember) throw new Error('Este projeto pertence a outra conta e está aberto só para leitura: as alterações não foram guardadas. Peça ao proprietário um convite para editar ou crie uma cópia.')
+    // Só dono e membros editam (política RLS). A app trata este código guardando uma cópia na conta de quem grava.
+    if (!isMember) throw Object.assign(new Error('Este projeto pertence a outra conta e está aberto só para leitura.'), { code: 'PROJECT_READ_ONLY' })
     throw new Error('Este projeto foi alterado noutro separador ou dispositivo. Reabra-o antes de guardar — nada foi sobrescrito.')
   }
 
