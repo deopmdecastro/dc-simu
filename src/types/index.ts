@@ -64,6 +64,12 @@ export type ComponentType =
   | 'keySwitch'
   | 'footSwitch'
   | 'limitSwitch'
+  | 'pushButtonXb2No'
+  | 'pushButtonXb2Nc'
+  | 'pushButtonXb2Black'
+  | 'pushButtonXb2Yellow'
+  | 'pushButtonXb2Blue'
+  | 'pushButtonXb2White'
   // --- Sensores ---------------------------------------------------------
   | 'proximitySensor'
   | 'photoSensor'

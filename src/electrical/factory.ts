@@ -522,6 +522,38 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { pressed: false, momentary: true, actuator: 'roller' },
   },
 
+  // ---------------- Botoeiras KEOLEA KL-XB2 Ø22 mm ----------------
+  pushButtonXb2No: {
+    category: 'command', paletteName: 'Botoeira KEOLEA KL-XB2 verde · NA 3-4 · momentânea', group: 'Comando', tag: 'S', w: 70, h: 80,
+    terminals: [T('3', 'power-in', 0.15, 0.5), T('4', 'power-out', 0.85, 0.5)],
+    defaultState: { pressed: false, momentary: true, color: '#16a34a' },
+  },
+  pushButtonXb2Nc: {
+    category: 'command', paletteName: 'Botoeira KEOLEA KL-XB2 vermelha · NF 1-2 · momentânea', group: 'Comando', tag: 'S', w: 70, h: 80,
+    terminals: [T('1', 'power-in', 0.15, 0.5), T('2', 'power-out', 0.85, 0.5)],
+    defaultState: { pressed: false, momentary: true, color: '#dc2626' },
+  },
+  pushButtonXb2Black: {
+    category: 'command', paletteName: 'Botoeira KEOLEA KL-XB2 preta · NA 3-4 · momentânea', group: 'Comando', tag: 'S', w: 70, h: 80,
+    terminals: [T('3', 'power-in', 0.15, 0.5), T('4', 'power-out', 0.85, 0.5)],
+    defaultState: { pressed: false, momentary: true, color: '#1f2937' },
+  },
+  pushButtonXb2Yellow: {
+    category: 'command', paletteName: 'Botoeira KEOLEA KL-XB2 amarela · NA 3-4 · momentânea', group: 'Comando', tag: 'S', w: 70, h: 80,
+    terminals: [T('3', 'power-in', 0.15, 0.5), T('4', 'power-out', 0.85, 0.5)],
+    defaultState: { pressed: false, momentary: true, color: '#eab308' },
+  },
+  pushButtonXb2Blue: {
+    category: 'command', paletteName: 'Botoeira KEOLEA KL-XB2 azul · NA 3-4 · momentânea', group: 'Comando', tag: 'S', w: 70, h: 80,
+    terminals: [T('3', 'power-in', 0.15, 0.5), T('4', 'power-out', 0.85, 0.5)],
+    defaultState: { pressed: false, momentary: true, color: '#2563eb' },
+  },
+  pushButtonXb2White: {
+    category: 'command', paletteName: 'Botoeira KEOLEA KL-XB2 branca · NA 3-4 · momentânea', group: 'Comando', tag: 'S', w: 70, h: 80,
+    terminals: [T('3', 'power-in', 0.15, 0.5), T('4', 'power-out', 0.85, 0.5)],
+    defaultState: { pressed: false, momentary: true, color: '#f8fafc' },
+  },
+
   // ---------------- Sensores ----------------
   proximitySensor: {
     category: 'sensor', paletteName: 'Sensor indutivo PNP (M18)', group: 'Sensores', tag: 'B', w: 80, h: 110,
