@@ -224,10 +224,11 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"8","face":"bottom","x":0.875,"y":0.95858,"z":0.738,"diameterMm":9,"holeDepthMm":15},
   ],
   meterD522066: [
-    {label:'1',face:'bottom',x:13/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
-    {label:'2',face:'bottom',x:23/54,y:1,z:30/64,diameterMm:5.4,holeDepthMm:12},
-    {label:'3',face:'top',x:13/54,y:0,z:30/64,diameterMm:5.4,holeDepthMm:12},
-    {label:'4',face:'top',x:23/54,y:0,z:30/64,diameterMm:5.4,holeDepthMm:12},
+    // Entradas do cabo atrás da cabeça do parafuso (z = 44 mm), posições das fotos frontais.
+    {label:'1',face:'bottom',x:30/54,y:1,z:44/64,diameterMm:4.6,holeDepthMm:10},
+    {label:'2',face:'bottom',x:38/54,y:1,z:44/64,diameterMm:4.6,holeDepthMm:10},
+    {label:'3',face:'top',x:26/54,y:0,z:44/64,diameterMm:4.6,holeDepthMm:10},
+    {label:'4',face:'top',x:34/54,y:0,z:44/64,diameterMm:4.6,holeDepthMm:10},
   ],
   meterKws306: [
     ...[-28,-9.3,9.3,28].map((x,i)=>({label:['L1-IN','L2-IN','L3-IN','N-IN'][i],face:'top' as const,x:(x+37)/74,y:0,z:30/65,diameterMm:7.4,holeDepthMm:12})),

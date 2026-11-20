@@ -36,13 +36,13 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
   const box=(w:number,h:number,d:number,m:THREE.Material,name:string,at:[number,number,number])=>mesh(new THREE.BoxGeometry(w,h,d),m,name,at)
   const plane=(w:number,h:number,m:THREE.Material,name:string,at:[number,number,number])=>{const n=mesh(new THREE.PlaneGeometry(w,h),m,name,at);n.userData.protectionMarking=true;return n}
   const button=(x:number,y:number,z:number,r:number,name:string,m=white)=>{const g=new THREE.CylinderGeometry(r,r,1.2,24);g.rotateX(Math.PI/2);return mesh(g,m,name,[x,y,z])}
-  const bore=(body:THREE.Mesh,label:string,point:[number,number,number],axis:'x'|'y'|'z',normal:[number,number,number],radius:number,depth:number,through=false)=>{
+  const bore=(body:THREE.Mesh,label:string,point:[number,number,number],axis:'x'|'y'|'z',normal:[number,number,number],radius:number,depth:number,through=false,wallColor='#33372f')=>{
     const k={x:0,y:1,z:2}[axis],v=point[k],dir=normal[k],old=body.geometry
     body.geometry=finiteBore(old,axis,point,radius,through?-100:Math.min(v,v-dir*depth)-.01,through?100:Math.max(v,v-dir*depth)+.01);old.dispose()
     const group=new THREE.Group();group.name='digital_meter_connection_'+label;group.position.set(...point)
     group.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(...normal))
     const wallG=new THREE.CylinderGeometry(radius-.02,radius-.02,depth,24,1,true);wallG.rotateX(Math.PI/2);wallG.translate(0,0,-depth/2)
-    const wallM=material('#33372f');wallM.side=THREE.DoubleSide
+    const wallM=material(wallColor);wallM.side=THREE.DoubleSide
     const wall=new THREE.Mesh(wallG,wallM);wall.name='cavity_'+label;group.add(wall)
     if(!through){const g=new THREE.CylinderGeometry(radius*.65,radius*.65,.6,24);g.rotateX(Math.PI/2);const screw=new THREE.Mesh(g,steel);screw.position.z=-depth+.4;screw.name='contact_'+label;group.add(screw)}
     root.add(group)
@@ -50,6 +50,15 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
   const marking=(text:string,x:number,y:number,z:number,w:number,h:number,name:string)=>{
     const tex=cachedCanvasTexture(`meter:ink:${text}`,512,128,(ctx,pw,ph)=>{ctx.fillStyle='#343b3b';ctx.font='600 64px Arial, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,pw/2,ph/2,pw-10)})
     if(tex){const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,polygonOffset:true,polygonOffsetFactor:-2});bindCachedCanvasTexture(mat,tex);const n=plane(w,h,mat,name,[x,y,z]);n.raycast=()=>{}}
+  }
+  /** Serigrafia sem deformação: o plano segue a proporção do texto; `capMm` = altura das maiúsculas. */
+  const silk=(text:string,x:number,y:number,z:number,capMm:number,name:string,ink:{italic?:boolean;weight?:number;color?:string}={})=>{
+    const font=`${ink.italic?'italic ':''}${ink.weight??600} 72px Arial, sans-serif`,color=ink.color??'#3a4040'
+    const cw=Math.max(64,Math.ceil((text.length*44+24)/32)*32),ch=96
+    const tex=cachedCanvasTexture(`meter:silk:${font}:${color}:${text}`,cw,ch,(ctx,pw,ph)=>{ctx.fillStyle=color;ctx.font=font;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,pw/2,ph/2+2,pw-8)})
+    if(!tex)return
+    const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,polygonOffset:true,polygonOffsetFactor:-2});bindCachedCanvasTexture(mat,tex)
+    const h=capMm*ch/52,n=plane(h*cw/ch,h,mat,name,[x,y,z]);n.raycast=()=>{}
   }
   if(type==='currentTransformerSplitCore'){
     const shape=new THREE.Shape();shape.moveTo(-15,0);shape.lineTo(15,0);shape.quadraticCurveTo(18,0,18,3);shape.lineTo(18,45);shape.quadraticCurveTo(18,48,15,48);shape.lineTo(-15,48);shape.quadraticCurveTo(-18,48,-18,45);shape.lineTo(-18,3);shape.quadraticCurveTo(-18,0,-15,0);shape.closePath()
@@ -66,44 +75,52 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
     marking('QNCTK1-16',0,43,24.04,26,3.1,'digital_meter_ct_type')
     marking('100 A / 50 mA',0,12.5,24.04,25,3,'digital_meter_ct_rating')
   }else if(type==='meterD522066'){
-    // External-CT variant (D52/YD52): solid body, no primary conductor tunnel.
-    // Primary CT is external (split-core or solid); secondary connects to 3/4.
-    // Profile matches photographed shell without the internal CT bore.
-    const body=profileBody(54,[[0,0],[42,0],[42,22],[64,22],[64,67],[44,67],[44,80],[0,80],[0,57],[7.5,57],[7.5,22],[0,22]],[],white);body.name='digital_meter_body';root.add(body)
-    box(53,44.6,.8,material('#eeeee6'),'digital_meter_frame',[0,44.5,63.6])
-    box(46,38,.1,dark,'digital_meter_lcd_recess',[-3.1,44,64.01])
-    plane(43.5,35.5,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[-3.3,44,64.08])
-    button(22.5,45,63.7,1.65,'digital_meter_reset',blue)
-    // Voltage terminals 1/2 (bottom entry + front screwdriver wells with captive screws)
-    for(const[label,x]of [['1',-14],['2',-4]] as const){
-      bore(body,label,[x,0,30],'y',[0,-1,0],2.7,12)
-      // Distinct cable mouth and front screwdriver well. The captive head is
-      // recessed 2.6 mm, with a real cross slot; never a gold/black face disk.
-      bore(body,'screwdriver_'+label,[x,12,42],'z',[0,0,1],2.8,11)
-      const screw=buildCaptiveTerminalScrew('d52_'+label,2.18)
-      screw.position.set(x,12,39.4);root.add(screw)
-      const shank=new THREE.CylinderGeometry(1.05,1.05,8.6,20);shank.rotateX(Math.PI/2)
-      mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,12,34.2])
+    // D52-2066 / YD52-2066 (TC externo): 3 módulos DIN, 54 × 80 × 64 mm.
+    // Fotografias de referência: degraus dos bornes a 50 mm, capuz frontal 22–66 mm
+    // com moldura arredondada, janela LCD com aro preto e vidro, RESET azul à direita.
+    // Bornes: 1/2 (tensão) em baixo, 3/4 (secundário do TC) em cima — parafusos de
+    // latão em gaiola, entrada do cabo junto à aresta (fenda em U) e chave pela frente.
+    const shell=material('#e7e9e4'),bezelM=material('#f0f1ed'),brass=new THREE.MeshStandardMaterial({color:'#c9a85c',metalness:.85,roughness:.32})
+    shell.roughness=.62;bezelM.roughness=.5
+    const SH=50 // face dos degraus (bornes), medida a partir da parede traseira
+    const body=profileBody(54,[[0,0],[SH,0],[SH,22],[62,22],[62,66],[SH,66],[SH,80],[0,80],[0,57.5],[7.5,57.5],[7.5,22.5],[0,22.5]],[],shell);body.name='digital_meter_body';root.add(body)
+    // Moldura frontal (tampa do visor) com arestas boleadas.
+    const bezelShape=new THREE.Shape(),bw=53.2,bh=43.4,br=1.6
+    bezelShape.moveTo(-bw/2+br,-bh/2);bezelShape.lineTo(bw/2-br,-bh/2);bezelShape.quadraticCurveTo(bw/2,-bh/2,bw/2,-bh/2+br);bezelShape.lineTo(bw/2,bh/2-br);bezelShape.quadraticCurveTo(bw/2,bh/2,bw/2-br,bh/2)
+    bezelShape.lineTo(-bw/2+br,bh/2);bezelShape.quadraticCurveTo(-bw/2,bh/2,-bw/2,bh/2-br);bezelShape.lineTo(-bw/2,-bh/2+br);bezelShape.quadraticCurveTo(-bw/2,-bh/2,-bw/2+br,-bh/2)
+    mesh(new THREE.ExtrudeGeometry(bezelShape,{depth:1.4,bevelEnabled:true,bevelThickness:.6,bevelSize:.6,bevelSegments:3,curveSegments:8}),bezelM,'digital_meter_frame',[0,44,62])
+    // Janela: aro preto do LCD, ecrã ativo e vidro com reflexo (sem apanhar cliques).
+    const WX=-2,WY=44.6
+    box(44,36.6,.3,material('#15181a'),'digital_meter_lcd_recess',[WX,WY,64.05])
+    plane(41.6,34.2,new THREE.MeshBasicMaterial({color:'#090c0b'}),'digital_meter_lcd',[WX,WY,64.22])
+    const glass=plane(44,36.6,new THREE.MeshStandardMaterial({color:'#ffffff',transparent:true,opacity:.1,roughness:.06,metalness:.1,depthWrite:false}),'digital_meter_glass',[WX,WY,64.32])
+    glass.raycast=()=>{};glass.userData.protectionMarking=false
+    button(22.7,46,64.2,1.95,'digital_meter_reset',blue)
+    // Janelas das patilhas e junta base/tampa nas duas laterais.
+    const shade=material('#b9bcb5'),seam=material('#cbcec7')
+    for(const sx of [-1,1]){
+      for(const y of [18,62])box(.3,4.2,2.2,shade,'digital_meter_latch_window',[sx*27.02,y,21])
+      box(.06,79.4,.22,seam,'digital_meter_mold_seam',[sx*27.03,40,16.5])
     }
-    // CT secondary terminals 3/4 (top entry + front screwdriver wells) — external CT wiring.
-    // At y≈68 the stepped body face is z=44 (not 42 as the bottom step): the well
-    // must cross that face, otherwise the captive screw stays sealed inside.
-    for(const[label,x]of [['3',-14],['4',-4]] as const){
-      bore(body,label,[x,80,30],'y',[0,1,0],2.7,12)
-      bore(body,'screwdriver_'+label,[x,68,44],'z',[0,0,1],2.8,13.1)
+    const terminal=(label:string,x:number,top:boolean)=>{
+      const yWell=top?73:7,yFace=top?80:0,n=top?1:-1
+      // Entrada do cabo atrás da cabeça do parafuso (gaiola), poço da chave pela frente.
+      bore(body,label,[x,yFace,44],'y',[0,n,0],2.3,10,false,'#7d8079')
+      bore(body,'screwdriver_'+label,[x,yWell,SH],'z',[0,0,1],2.9,6.2,false,'#a3a69f')
       const screw=buildCaptiveTerminalScrew('d52_'+label,2.18)
-      screw.position.set(x,68,41.4);root.add(screw)
-      const shank=new THREE.CylinderGeometry(1.05,1.05,9.8,20);shank.rotateX(Math.PI/2)
-      mesh(shank,steel,'digital_meter_screw_shank_'+label,[x,68,36.4])
+      screw.traverse(o=>{const m=o as THREE.Mesh;if(m.isMesh&&o.name.startsWith('terminal_screw_head_')){(m.material as THREE.Material).dispose();m.material=brass}})
+      screw.position.set(x,yWell,SH-2.6);root.add(screw)
+      const shank=new THREE.CylinderGeometry(1.05,1.05,6,20);shank.rotateX(Math.PI/2)
+      mesh(shank,brass,'digital_meter_screw_shank_'+label,[x,yWell,SH-6.2])
+      box(5,5.4,3.2,brass,'digital_meter_clamp_'+label,[x,yWell,43.6])
     }
-    marking('3    4',-9,69.6,44.025,22,2.3,'digital_meter_ct_terminals')
-    marking('D52-2066',-13.4,65.1,64.09,21.5,2.1,'digital_meter_type')
-    marking('Multi-Function Digital Meter',-2.5,24.1,64.09,43,2,'digital_meter_legend')
-    marking('1    2',-9,17,42.025,22,2.5,'digital_meter_voltage_terminals')
-    marking('RESET',22.4,41.4,64.09,5.3,1.5,'digital_meter_reset_label')
-    // Fine molded joints, not contrasting stripes across a generic block.
-    for(const x of [-18,18])box(.10,79,.05,material('#cdd0c7'),'digital_meter_mold_seam',[x,40,43.96])
-    for(const y of [18,61]){box(11,2,2,white,'digital_meter_din_clip_bar',[0,y,1]);for(const x of [-4,4])box(1.4,6,1.8,white,'digital_meter_din_clip_arm',[x,y+2,1])}
+    // Posições pela vista frontal das fotos: 3/4 junto ao centro, 1/2 desviados à direita.
+    for(const[label,x]of [['3',-1],['4',7]] as const)terminal(label,x,true)
+    for(const[label,x]of [['1',3],['2',11]] as const){terminal(label,x,false);silk(label,x,13.6,SH+.025,1.8,'digital_meter_voltage_terminals',{weight:700})}
+    silk('D52-2066',-17,64.35,64.08,1.75,'digital_meter_type',{italic:true,weight:800})
+    silk('Multi-Function Digital Meter',1.5,24.2,64.08,1.35,'digital_meter_legend',{italic:true,weight:700})
+    silk('RESET',22.7,43.2,64.08,.75,'digital_meter_reset_label',{weight:700})
+    for(const y of [18,61]){box(11,2,2,shell,'digital_meter_din_clip_bar',[0,y,1]);for(const x of [-4,4])box(1.4,6,1.8,shell,'digital_meter_din_clip_arm',[x,y+2,1])}
   }else{
     const body=profileBody(74,[[0,0],[43,0],[43,18],[65,20],[65,66.5],[43,68.5],[43,86.5],[0,86.5],[0,61],[7.5,61],[7.5,25],[0,25]],[],white);body.name='digital_meter_body';root.add(body)
     box(68,48,1,dark,'digital_meter_frame',[0,43.25,64.45])
