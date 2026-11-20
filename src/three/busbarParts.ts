@@ -919,16 +919,15 @@ export function buildSteppedBusbar(
   // --- Suportes laterais escalonados (esquerdo e direito) com pés de calha DIN (foto 3) ---
   for (const sign of [-1, 1] as const) {
     const cx = sign * (W / 2 - sideW / 2)
-    // Pé frontal e pé traseiro tipo cavalete DIN (característicos da foto 3)
+    // Base maciça da lateral até ao 1.º degrau. Antes havia aqui dois «pés» de cavalete (frente e
+    // trás) a sair por baixo, como se o aparelho assentasse numa mesa: no quadro a calha TS35 passa
+    // ATRÁS do aparelho, a meia altura, e os pés liam-se como orelhas no sítio errado.
     const footW = sideW - 1.2
-    bodyParts.push(boxMm(unit, footW, 13.5, 11.0, cx, y0 + 6.75, z0 + D - 6.5))
-    bodyParts.push(boxMm(unit, footW + 1.0, 4.4, 14.5, cx, y0 + 2.2, z0 + D - 7.2))
-    bodyParts.push(boxMm(unit, footW, 13.5, 11.5, cx, y0 + 6.75, z0 + 6.8))
-    bodyParts.push(boxMm(unit, footW + 1.0, 4.4, 14.5, cx, y0 + 2.2, z0 + 7.2))
-    // Travessa lateral unindo os dois pés acima do rasgo da calha TS35
-    bodyParts.push(boxMm(unit, sideW, 9.5, D - 2.0, cx, y0 + 15.5, 0))
-    // Patilha de travamento DIN no rasgo inferior
-    darkParts.push(boxMm(unit, footW * 0.62, 2.6, D * 0.42, cx, y0 + 9.8, 0))
+    bodyParts.push(boxMm(unit, sideW, 18.0, D - 2.0, cx, y0 + 9.0, 0))
+    // Ganchos DIN na face traseira, centrados na calha (eixo do aparelho): gancho fixo em cima,
+    // trinco de mola em baixo — o rasgo de 35 mm entre eles abraça a calha.
+    darkParts.push(boxMm(unit, footW, 3.0, 4.2, cx, 17.5 + 1.5, z0 + 2.1))
+    darkParts.push(boxMm(unit, footW * 0.8, 4.4, 4.2, cx, -17.5 - 2.2, z0 + 2.1))
 
     // Degraus laterais moldados em escada que abraçam cada barra e sustentam a tampa
     for (let b = 0; b < nBars; b++) {
