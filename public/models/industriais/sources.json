@@ -254,7 +254,7 @@
       "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
       "visualRefinement": {
         "reference": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-        "details": "Rounded moulded cover, open screw wells, geometric cross-recess selectors, convex live LED lenses. Original GEYA vector artwork extracted from the local manual. M2 has an elevated 25/26/28 shelf with three separate bottom-entry mouths; reconstructed from product illustrations, not a manufacturer STEP."
+        "details": "Rounded moulded cover, open screw wells, geometric cross-recess selectors, convex live LED lenses. Original GEYA vector artwork extracted from the local manual. M2 keeps the same symmetric three-level side profile as M1/B1; its 25/26/28 row sits above 15/16/18 on the same lower terminal wall, entering through the step face. Reconstructed from product illustrations, not a manufacturer STEP."
       },
       "physicalSizeMm": {
         "width": 18.08,
@@ -264,8 +264,8 @@
       "interfaces": 9,
       "cavities": 9,
       "pins": 0,
-      "bytes": 813988,
-      "sha256": "4039428c752cb77ae4bc933fe79bbb6bfb7c760eb029306003feaba517bcae94"
+      "bytes": 828636,
+      "sha256": "9707478e8f8c82fdb9096c29bba84e7d6bcbc5b1597b654f6b61cef9585b6163"
     },
     {
       "type": "vfdSchneiderAtv320",

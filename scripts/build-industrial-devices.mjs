@@ -201,7 +201,7 @@ async function finderRelay(){
 
 async function geya(type){
  const root=device(type),terms=[]
- root.userData.visualRefinement={reference:'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf',details:'Rounded moulded cover, open screw wells, geometric cross-recess selectors, convex live LED lenses. Original GEYA vector artwork extracted from the local manual. M2 has an elevated 25/26/28 shelf with three separate bottom-entry mouths; reconstructed from product illustrations, not a manufacturer STEP.'}
+ root.userData.visualRefinement={reference:'https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf',details:'Rounded moulded cover, open screw wells, geometric cross-recess selectors, convex live LED lenses. Original GEYA vector artwork extracted from the local manual. M2 keeps the same symmetric three-level side profile as M1/B1; its 25/26/28 row sits above 15/16/18 on the same lower terminal wall, entering through the step face. Reconstructed from product illustrations, not a manufacturer STEP.'}
  const b1=type==='timerGeyaGrt8B1'
  // y/z profile extruded along X. DIN notch and stepped access ends are real voids.
  // Perfil y/z do GRT8, extrudido em X (cotas do manual: 90 mm de corpo, 64 mm de
@@ -214,10 +214,13 @@ async function geya(type){
  // cima (y 2,5…92,5) — o perfil anterior tinha uma reentrância de 7,5 mm entre
  // y 37…58 que abria uma faixa escura a meio do aparelho e deixava a chapa da
  // serigrafia a flutuar à frente dela. É o perfil do manual (90 × 64).
- // No M2 o degrau inferior dos bornes é mais alto para levar as duas filas de
- // inversores (15/16/18 e 25/26/28), como no aparelho real; no M1/B1 fica baixo.
- const stepY = type === 'timerGeyaGrt8M2' ? 34 : 22
- const profile=[[0,2.5],[0,92.5],[-24,92.5],[-24,87],[-38,87],[-38,77],[-64,73],[-64,stepY],...(type==='timerGeyaGrt8M2'?[[-54,32],[-54,16.6],[-38,16.6]]:[[-38,stepY-.8]]),[-38,8],[-24,8],[-24,2.5]]
+ // Silhueta lateral de 3 degraus em cima e em baixo, simétrica, em TODOS os GRT8
+ // (foto «Dimensions» do GRT8-M2: traseira DIN, degrau dos bornes, frente de 45 mm).
+ // O M2 já teve uma 4.ª prateleira em baixo para a fila 25/26/28; no produto as duas
+ // filas partilham a mesma parede do degrau inferior (ver `rows`).
+ const m2 = type === 'timerGeyaGrt8M2'
+ const stepY = 22
+ const profile=[[0,2.5],[0,92.5],[-24,92.5],[-24,87],[-38,87],[-38,77],[-64,73],[-64,stepY],[-38,stepY-.8],[-38,8],[-24,8],[-24,2.5]]
  // Corpo cinzento-claro como na fotografia do manual (não branco puro).
  const GREY=mat('#d4d5d1',0,.6),GREY_D=mat('#bfc0bc',0,.6)
  const body=bodyProfile(18,profile,GREY,'industrial_geya_body',true);root.add(body)
@@ -226,7 +229,8 @@ async function geya(type){
   // Tampa moldada com cantos suaves, junta perimetral e ressalto frontal.
   const cap=new T.Mesh(new RoundedBoxGeometry(17.8,faceTop-faceBottom+.2,1.6,3,.35),GREY)
   cap.name='industrial_geya_front_cover';cap.position.set(0,(faceTop+faceBottom)/2,63.25);root.add(cap)
-  for(const y of [75.8,faceBottom-(stepY===34?1:2.95)])root.add(box(.65,stepY===34&&y<40?1.2:5.4,.25,black,'industrial_geya_cover_slot_'+y,[0,y,bodyFront(y)+.05]))
+  // No M2 a faixa por baixo da tampa leva os números 25/26/28 e 15/16/18: sem ranhura.
+  for(const y of m2?[75.8]:[75.8,faceBottom-2.95])root.add(box(.65,5.4,.25,black,'industrial_geya_cover_slot_'+y,[0,y,bodyFront(y)+.05]))
   for(const y of [72.1,faceBottom-.85])root.add(box(.32,1.2,.5,dark,'industrial_geya_cover_catch_'+y,[-8.85,y,58.6]))
   for(const y of [80,16])for(const x of [-9,9])root.add(box(.08,5,.35,GREY_D,'industrial_geya_mould_seam_'+x+'_'+y,[x,y,10]))
  }
@@ -267,22 +271,23 @@ async function geya(type){
  // por cima do poço (fotos do manual GRT8-M p.1 e GRT8-A/B p.1).
  // GRT8-M2 é 2×SPDT: além de 15/16/18 tem o segundo inversor 25/26/28, numa
  // fila própria atrás da primeira, como no desenho do manual (p.1).
- const rows = type === 'timerGeyaGrt8M2'
+ // M2: duas filas na mesma parede do degrau inferior (y 8…22). 15/16/18 em baixo com a
+ // entrada na base traseira; 25/26/28 por cima, com a entrada na face do degrau (y 8),
+ // atrás do poço inferior. Os números vão impressos na frente, por baixo da tampa.
+ const rows = m2
    ? [{ top: true, y: 82.6, z: 38, names: ['A1','S','A2'] },
-      { top: false, y: 26.5, z: 54, mouthY:16.6, mouthZ:46, names: ['25','26','28'] },
-      { top: false, y: 12.4, z: 38, names: ['15','16','18'] }]
+      { top: false, y: 18.6, z: 38, depth: 9.4, mouthY: 8, mouthZ: 26.2, mouthR: 2.1, labelY: 25.9, names: ['25','26','28'] },
+      { top: false, y: 11.0, z: 38, depth: 9.4, shank: 8, labelY: 23.6, names: ['15','16','18'] }]
    : [{ top: true, y: 82.6, z: 38, names: ['A1','S','A2'] },
       { top: false, y: 12.4, z: 38, names: ['15','16','18'] }]
- // O 2.º inversor do M2 fica numa prateleira própria, 8 mm à frente do degrau
- // inferior — é a fila dupla de bornes que o desenho do manual mostra.
- for(const { top, y, z, mouthY=top?92.5:2.5, mouthZ=14, names } of rows){
+ for(const { top, y, z, depth=9.6, shank=22.4, mouthY=top?92.5:2.5, mouthZ=14, mouthR=2.6, clampDy=10.4, labelY, names } of rows){
   for(const [i,label] of names.entries()){
    const x = -5.2 + i * 5.2
    // Poço frontal com parafuso cativo no fundo (Pozidriv), aberto na parede
    // do degrau (z 38 mm) e cavidade de 9,6 mm.
-   drill([body],'z',[x,y,z],2.6,z-9.6,z+.1)
+   drill([body],'z',[x,y,z],2.6,z-depth,z+.1)
    const screw=buildCaptiveTerminalScrew('geya_'+label,2.15);screw.position.set(x,y,z-1.25);root.add(screw)
-   root.add(cylinder(.8,22.4,steel,'industrial_geya_screw_shank_'+label,[x,y,z-13.2]))
+   root.add(cylinder(.8,shank,steel,'industrial_geya_screw_shank_'+label,[x,y,z-2-shank/2]))
    // Janela oblonga do borne (a ranhura escura da referência) entre a
    // parede do degrau e o poço do parafuso.
    {
@@ -291,11 +296,12 @@ async function geya(type){
     wall.name='industrial_geya_driver_well_'+label;wall.position.set(x,y,z-1.85);wall.rotation.x=Math.PI/2;wall.material.side=T.DoubleSide;root.add(wall)
    }
    // Entrada do condutor na face superior/inferior, com grampo de cobre.
-   drill([body],'y',[x,mouthY,mouthZ],2.6,top?mouthY-10:mouthY-.1,top?mouthY+.3:mouthY+10)
-   root.add(box(3.4,1.2,9,copper,'industrial_geya_clamp_'+label,[x,top?mouthY-9.5:mouthY+10.4,mouthZ]))
+   drill([body],'y',[x,mouthY,mouthZ],mouthR,top?mouthY-10:mouthY-.1,top?mouthY+.3:mouthY+10)
+   root.add(box(3.4,1.2,mouthR===2.6?9:4,copper,'industrial_geya_clamp_'+label,[x,top?mouthY-9.5:mouthY+clampDy,mouthZ]))
    terms.push(terminal(root,label,x,mouthY,mouthZ,{r:2.0,depth:8.6,face:top?'top':'bottom'}))
-   // Serigrafia do degrau: a etiqueta real fica imediatamente acima do poço.
-   root.add(plane(4.6,1.9,white,'industrial_geya_label_'+label,[x, y + (top?3.5:-3.5), z+.06]))
+   // Serigrafia do degrau: a etiqueta real fica imediatamente acima do poço
+   // (M2: duas linhas na frente, entre a tampa e o degrau, como na fotografia).
+   root.add(plane(4.6,1.9,white,'industrial_geya_label_'+label,labelY?[x,labelY,64.06]:[x, y + (top?3.5:-3.5), z+.06]))
   }
  }
  // Paredes divisoras entre os três bornes de cada degrau, dentro do volume
@@ -303,7 +309,7 @@ async function geya(type){
  // degrau e liam-se como duas barbatanas soltas no ar.
  for(const dx of [-2.6,2.6]){
   root.add(box(1,8.4,10,GREY,'industrial_geya_divider_top_'+dx,[dx,82.5,33]))
-  root.add(box(1,8.0,10,GREY,'industrial_geya_divider_bot_'+dx,[dx,12.5,33]))
+  root.add(m2?box(1,13,10,GREY,'industrial_geya_divider_bot_'+dx,[dx,14.8,33]):box(1,8.0,10,GREY,'industrial_geya_divider_bot_'+dx,[dx,12.5,33]))
  }
  // Patilha vermelha de desbloqueio da calha DIN, visível na frente inferior.
  root.add(box(9,3.6,2.6,GREY_D,'industrial_geya_din_tab',[0,4,24.6]))

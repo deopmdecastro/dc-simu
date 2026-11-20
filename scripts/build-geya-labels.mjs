@@ -97,12 +97,12 @@ function b1Side() {
 
 const faces = {
   'geya-grt8-m-face.png': face('GRT8-M1', ['range', 'fraction', 'function']),
-  'geya-grt8-m2-face.png': face('GRT8-M2', ['range', 'fraction', 'function'], 71.25 - 35.5),
+  'geya-grt8-m2-face.png': face('GRT8-M2', ['range', 'fraction', 'function']),
   'geya-grt8-b-face.png': face('GRT8-B1', ['range', 'fraction']),
   'geya-grt8-m-side-l.png': mSide('GRT8-M1',48.5),
   'geya-grt8-m-side-r.png': mSide('GRT8-M1',48.5),
-  'geya-grt8-m2-side-l.png': mSide('GRT8-M2',36.5,true),
-  'geya-grt8-m2-side-r.png': mSide('GRT8-M2',36.5,true),
+  'geya-grt8-m2-side-l.png': mSide('GRT8-M2',48.5,true),
+  'geya-grt8-m2-side-r.png': mSide('GRT8-M2',48.5,true),
   'geya-grt8-b-side-l.png': b1Side(),
   'geya-grt8-b-side-r.png': b1Side(),
 }
