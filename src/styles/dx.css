@@ -1531,13 +1531,13 @@ button.dx-notification-item:hover {
   background: var(--dx-line);
   transition: background 320ms var(--dx-ease);
 }
-.dx-auth-meter .s1 i:nth-child(1) {
+.dx-auth-meter.s1 i:nth-child(1) {
   background: var(--dx-danger);
 }
-.dx-auth-meter .s2 i:nth-child(-n + 2) {
+.dx-auth-meter.s2 i:nth-child(-n + 2) {
   background: var(--dx-warn);
 }
-.dx-auth-meter .s3 i {
+.dx-auth-meter.s3 i {
   background: var(--dx-run);
 }
 .dx-auth-meter small {
@@ -1886,3 +1886,15 @@ button.dx-notification-item:hover {
   .vio-switch { min-height: 56px !important; }
   .dc-side-panel-actions > button { min-width: 40px; min-height: 40px; }
 }
+
+/* Registo: requisitos da palavra-passe, armadilha anti-robô e avisos. */
+.dx-auth-rules { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; font-size: 11.5px; color: var(--dx-ink-3); }
+.dx-auth-rules li { display: flex; gap: 6px; align-items: baseline; transition: color 200ms var(--dx-ease); }
+.dx-auth-rule-mark { width: 10px; height: 10px; flex: none; display: inline-grid; place-items: center; align-self: center; }
+.dx-auth-rule-mark > i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .6; }
+.dx-auth-rules li.is-ok { color: var(--dx-run); }
+@media (max-width: 420px) { .dx-auth-rules { grid-template-columns: 1fr; } }
+.dx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dx-auth-trap { position: absolute !important; left: -10000px !important; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.dx-field-error { display: block; margin: -6px 0 10px; font-size: 11.5px; color: var(--dx-danger); }
+.dx-alert-link { margin-left: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }

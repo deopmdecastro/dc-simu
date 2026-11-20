@@ -146,6 +146,47 @@ try {
   check('user não acede à administração', (await user.call('GET', '/admin/users')).status === 403)
   check('user não lê registos', (await user.call('GET', '/admin/logs')).status === 403)
 
+  // ---- Registo público de contas ----
+  {
+    const signup = (body, client = new Client()) => client.call('POST', '/register', { name: 'Rita Nova', email: 'rita.nova@exemplo.pt', password: 'Circuito2026Seguro', acceptTerms: true, ...body }).then((r) => ({ ...r, client }))
+    check('registo: estado público indica registo aberto', (await new Client().call('GET', '/register/status')).data.open === true)
+    check('registo: palavra-passe fraca recusada', (await signup({ password: 'fraca123' })).status === 400)
+    check('registo: palavra-passe com o e-mail recusada', (await signup({ password: 'Rita.nova2026X' })).status === 400)
+    check('registo: sem aceitar os termos recusado', (await signup({ acceptTerms: false })).status === 400)
+    check('registo: e-mail inválido recusado', (await signup({ email: 'rita@' })).status === 400)
+    check('registo: domínio reservado das contas fixas recusado', (await signup({ email: 'outra@dcsimu.local' })).status === 400)
+    check('registo: campo-armadilha preenchido recusado', (await signup({ website: 'http://spam' })).status === 400)
+    check('registo: nome em falta recusado', (await signup({ name: ' ' })).status === 400)
+    const made = await signup({ role: 'admin', plan: 'pro', active: 0, jobTitle: 'Formadora', institution: 'Escola Técnica', institutionKind: 'school' })
+    check('registo: conta criada com sessão aberta', made.status === 201 && !!made.client.cookie && made.data.user?.email === 'rita.nova@exemplo.pt', JSON.stringify(made.data))
+    check('registo: papel e plano nunca vêm do pedido', made.data.user?.role === 'user' && made.data.user?.plan === 'free')
+    const me = await made.client.call('GET', '/me')
+    check('registo: sessão válida e perfil guardado', me.status === 200 && me.data.user.role === 'user' && me.data.user.jobTitle === 'Formadora' && me.data.user.institutionKind === 'school')
+    const plan = await made.client.call('GET', '/account/plan')
+    check('registo: nova conta começa no plano gratuito', plan.status === 200 && plan.data.plan === 'free' && plan.data.assigned === 'free')
+    check('registo: nova conta não acede à administração', (await made.client.call('GET', '/admin/users')).status === 403)
+    check('registo: com sessão iniciada não cria outra conta', (await signup({ email: 'outra.rita@exemplo.pt' }, made.client)).status === 409)
+    const dup = await signup({ email: 'RITA.NOVA@exemplo.pt ' })
+    check('registo: e-mail existente (maiúsculas/espaços) recusado com aviso', dup.status === 409 && /já existe uma conta/i.test(dup.data.error || ''), JSON.stringify(dup.data))
+    check('registo: e-mail de conta antiga também recusado', (await signup({ email: 'antigo@exemplo.pt' })).status === 409)
+    const relogin = await new Client().login('rita.nova@exemplo.pt', 'Circuito2026Seguro')
+    check('registo: a nova conta entra com a palavra-passe', relogin.status === 200 && relogin.data.user.plan === 'free')
+    const profile = await made.client.call('PATCH', '/account/profile', { jobTitle: 'Projetista', institution: 'Oficina', institutionKind: 'work' })
+    check('perfil: função e instituição gravadas no servidor', profile.status === 200 && profile.data.user.jobTitle === 'Projetista' && (await made.client.call('GET', '/me')).data.user.institutionKind === 'work')
+    check('perfil: tipo de instituição inválido recusado', (await made.client.call('PATCH', '/account/profile', { institutionKind: 'admin' })).status === 400)
+    const listedUsers = (await admin.call('GET', '/admin/users')).data
+    check('registo: administrador vê a nova conta', listedUsers.some((u) => u.email === 'rita.nova@exemplo.pt' && u.role === 'user'))
+    const logs = (await admin.call('GET', '/admin/logs?q=rita.nova')).data
+    const logRows = Array.isArray(logs) ? logs : logs?.items ?? logs?.rows ?? []
+    check('registo: criação e duplicado ficam auditados', logRows.some((row) => row.action === 'user.register') && logRows.some((row) => row.action === 'user.register.duplicate'), JSON.stringify(logs).slice(0, 300))
+    let limited = null
+    for (let i = 0; i < 12 && !limited; i++) { const r = await signup({}); if (r.status === 429) limited = r }
+    check('registo: limite de pedidos por rede', !!limited && /demasiados pedidos/i.test(limited.data.error || ''))
+    const rita = listedUsers.find((u) => u.email === 'rita.nova@exemplo.pt')
+    check('registo: administrador desativa a conta criada', (await admin.call('PATCH', `/admin/users/${rita.id}`, { active: false })).status === 200 && (await made.client.call('GET', '/me')).status === 401)
+    check('registo: administrador elimina a conta criada', (await admin.call('DELETE', `/admin/users/${rita.id}?force=1`)).status === 200)
+  }
+
   let users = (await admin.call('GET', '/admin/users')).data
   check('lista tem as duas contas fixas protegidas e a conta antiga desativada', users.length === 3 && users.filter(u => u.fixed).length === 2 && users.filter(u => u.fixed).every(u => u.active) && users.find(u => u.email === 'antigo@exemplo.pt')?.active === false)
   const fixedUser = users.find(u => u.email === 'user@dcsimu.local')

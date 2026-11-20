@@ -267,19 +267,32 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
 
   // 1. Registo de nova conta
   if (url === '/register') {
+    const payload = (body ?? {}) as { email?: string; password?: string; name?: string; jobTitle?: string; institution?: string; institutionKind?: 'school' | 'work' | 'own'; website?: string }
+    // Campo-armadilha preenchido: robô. Não chega a nenhum backend.
+    if (payload.website) throw new Error('Pedido inválido.')
     if (isSupabaseConfigured()) {
-      const payload = (body ?? {}) as { email?: string; password?: string; name?: string; jobTitle?: string; institution?: string; institutionKind?: 'school' | 'work' | 'own' }
       if (payload.email && payload.password) {
-        mode = 'supabase'
-        return (await supabaseRegister(payload.email, payload.password, payload.name || 'Utilizador', {
+        const result = await supabaseRegister(payload.email.trim().toLowerCase(), payload.password, payload.name || 'Utilizador', {
           jobTitle: payload.jobTitle,
           institution: payload.institution,
           institutionKind: payload.institutionKind,
-        })) as T
+        })
+        // Sem sessão (confirmação por e-mail pendente) o modo continua por decidir.
+        if (!result.needsConfirmation) mode = 'supabase'
+        return result as T
       }
     }
     if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
       throw new Error('Supabase não está configurado nesta versão de produção. Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no ambiente de build.')
+    }
+    // Docker/SQLite: o servidor valida, recusa e-mails existentes e abre a sessão.
+    try {
+      cachedServerUser = null
+      const response = await serverApi<{ user: User }>(url, verb, body)
+      mode = 'server'
+      return response as T
+    } catch (error) {
+      if (!(error instanceof ApiUnavailable)) throw error
     }
     return localApi<T>(url, verb, body)
   }

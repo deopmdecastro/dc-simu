@@ -332,7 +332,9 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   }
 
 
-  if (url === '/register') throw new Error('O registo está desativado. Utilize uma das duas contas autorizadas.')
+  // Sem servidor não há onde guardar contas com segurança (só existiria neste navegador):
+  // criar conta exige o servidor Docker/SQLite ou o Supabase.
+  if (url === '/register') throw new Error('Criar conta exige ligação ao servidor (Docker) ou ao Supabase. Neste modo offline só existem as contas fixas.')
   if (url === '/me' && verb === 'GET') return { user: requireSession() } as T
   if (url === '/account/profile' && verb === 'PATCH') {
     const current = requireSession()

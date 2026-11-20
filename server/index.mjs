@@ -70,6 +70,9 @@ addColumn('users', 'active', 'INTEGER NOT NULL DEFAULT 1')
 if (!hadActive) db.exec('UPDATE users SET active=0')
 addColumn('users', 'created_at', 'TEXT')
 addColumn('users', 'last_login', 'TEXT')
+addColumn('users', 'job_title', 'TEXT')
+addColumn('users', 'institution', 'TEXT')
+addColumn('users', 'institution_kind', 'TEXT')
 addColumn('sessions', 'created_at', 'TEXT')
 addColumn('sessions', 'last_seen', 'TEXT')
 addColumn('sessions', 'ip', 'TEXT')
@@ -121,7 +124,7 @@ app.use('/api', (req, res, next) => {
     }
   }
   const token = cookie(req)
-  const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role,users.avatar,users.plan,users.plan_expires_at planExpiresAt FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>? AND users.active=1').get(hash(token), Date.now()) : null
+  const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role,users.avatar,users.plan,users.plan_expires_at planExpiresAt,users.job_title jobTitle,users.institution,users.institution_kind institutionKind FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>? AND users.active=1').get(hash(token), Date.now()) : null
   req.user = sessionUser || null
   if (sessionUser) { const now = Date.now(), seen = db.prepare('SELECT last_seen FROM sessions WHERE token=?').get(hash(token))?.last_seen; if (!seen || now - Date.parse(seen) > 60000) db.prepare('UPDATE sessions SET last_seen=? WHERE token=?').run(new Date(now).toISOString(), hash(token)) }
   next()
@@ -139,9 +142,87 @@ const project = (req,res,next) => {
   if (!p) return fail(res,404,'Projeto não encontrado ou sem acesso')
   req.project=p; next()
 }
-app.post('/api/register',(_req,res) => fail(res,403,'O registo está desativado. Utilize uma das duas contas autorizadas.'))
 const attempts = new Map()
 const MAX_ATTEMPTS = 6, WINDOW_MS = 10 * 60_000, MAX_ATTEMPT_KEYS = 5000
+// ---- Registo público de contas ----
+// REGISTRATION_OPEN=0 desliga a criação de contas (ex.: instância interna).
+// Papel, plano e estado nunca vêm do pedido: uma conta nova é sempre 'user', 'free' e ativa.
+const registrationOpen = () => process.env.REGISTRATION_OPEN !== '0'
+const registrations = new Map()
+const MAX_REGISTRATIONS = 10, REGISTRATION_WINDOW_MS = 60 * 60_000
+const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/
+const RESERVED_EMAIL = /@dcsimu\.local$/i
+const INSTITUTION_KINDS = new Set(['school', 'work', 'own'])
+const cleanText = value => typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : ''
+/** Palavra-passe forte e que não repete o e-mail nem o nome. */
+const registrationPasswordProblem = (password, email, name) => {
+  const base = passwordProblem(password)
+  if (base) return base
+  const lower = password.toLowerCase()
+  const local = String(email || '').split('@')[0].toLowerCase()
+  if (local.length >= 4 && lower.includes(local)) return 'A palavra-passe não pode conter o seu e-mail.'
+  const first = String(name || '').trim().split(' ')[0].toLowerCase()
+  if (first.length >= 4 && lower.includes(first)) return 'A palavra-passe não pode conter o seu nome.'
+  return null
+}
+const userOutOf = row => ({ id: row.id, name: row.name, email: row.email, role: row.role, avatar: row.avatar || null, plan: row.plan || 'free', planExpiresAt: row.plan_expires_at || null, jobTitle: row.job_title || null, institution: row.institution || null, institutionKind: row.institution_kind || null })
+function openSession(user, req, res) {
+  const token = randomBytes(32).toString('hex'), now = new Date().toISOString()
+  db.prepare('INSERT INTO sessions(token,user_id,expires,created_at,last_seen,ip,agent) VALUES (?,?,?,?,?,?,?)').run(hash(token), user.id, Date.now() + 30 * 86400000, now, now, clientIp(req), String(req.get('user-agent') || '').slice(0, 200))
+  db.prepare('UPDATE users SET last_login=? WHERE id=?').run(now, user.id)
+  db.prepare('DELETE FROM sessions WHERE expires<=?').run(Date.now())
+  res.setHeader('Set-Cookie', `dc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${req.secure ? '; Secure' : ''}`)
+}
+const DUPLICATE_EMAIL = 'Já existe uma conta com este e-mail. Inicie sessão ou peça ao administrador para recuperar o acesso.'
+app.get('/api/register/status', (_req, res) => res.json({ open: registrationOpen() }))
+app.post('/api/register', (req, res) => {
+  if (!registrationOpen()) return fail(res, 403, 'A criação de contas está desativada neste servidor. Contacte o administrador.')
+  if (req.user) return fail(res, 409, 'Já tem sessão iniciada. Termine a sessão antes de criar outra conta.')
+  const ip = clientIp(req), now = Date.now()
+  const window = registrations.get(ip)
+  if (window && now - window.first < REGISTRATION_WINDOW_MS && window.count >= MAX_REGISTRATIONS) {
+    audit(null, 'user.register.blocked', { type: 'user', label: ip }, 'Demasiados pedidos de registo', ip)
+    return fail(res, 429, `Demasiados pedidos de registo a partir desta rede. Tente novamente dentro de ${Math.ceil((window.first + REGISTRATION_WINDOW_MS - now) / 60000)} min.`)
+  }
+  const body = req.body ?? {}
+  // Campo-armadilha: invisível para pessoas, preenchido por robôs.
+  if (typeof body.website === 'string' && body.website.trim()) return fail(res, 400, 'Pedido inválido.')
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+  const name = cleanText(body.name)
+  const password = typeof body.password === 'string' ? body.password : ''
+  const jobTitle = cleanText(body.jobTitle), institution = cleanText(body.institution)
+  const institutionKind = typeof body.institutionKind === 'string' ? body.institutionKind : ''
+  if (email.length > 254 || !EMAIL_PATTERN.test(email)) return fail(res, 400, 'Indique um e-mail válido.')
+  if (RESERVED_EMAIL.test(email)) return fail(res, 400, 'Este domínio de e-mail está reservado.')
+  if (name.length < 2 || name.length > 80) return fail(res, 400, 'O nome deve ter entre 2 e 80 caracteres.')
+  if (jobTitle.length > 80) return fail(res, 400, 'A função deve ter no máximo 80 caracteres.')
+  if (institution.length > 120) return fail(res, 400, 'A instituição deve ter no máximo 120 caracteres.')
+  if (institutionKind && !INSTITUTION_KINDS.has(institutionKind)) return fail(res, 400, 'Tipo de instituição inválido.')
+  if (body.acceptTerms !== true) return fail(res, 400, 'Aceite os Termos de utilização e a Política de privacidade para criar a conta.')
+  const problem = registrationPasswordProblem(password, email, name)
+  if (problem) return fail(res, 400, problem)
+  // Só os pedidos bem formados contam para o limite (inclui os de e-mail repetido).
+  if (!window || now - window.first >= REGISTRATION_WINDOW_MS) registrations.set(ip, { count: 1, first: now })
+  else window.count++
+  while (registrations.size > MAX_ATTEMPT_KEYS) registrations.delete(registrations.keys().next().value)
+  if (db.prepare('SELECT 1 FROM users WHERE email=?').get(email)) {
+    audit({ email }, 'user.register.duplicate', { type: 'user', label: email }, 'E-mail já registado', ip)
+    return fail(res, 409, DUPLICATE_EMAIL)
+  }
+  const userId = id()
+  try {
+    db.prepare("INSERT INTO users(id,email,name,password,role,active,created_at,plan,job_title,institution,institution_kind) VALUES (?,?,?,?,'user',1,?,'free',?,?,?)")
+      .run(userId, email, name, pwd(password), new Date().toISOString(), jobTitle || null, institution || null, institutionKind || null)
+  } catch (error) {
+    // Corrida entre dois pedidos com o mesmo e-mail: a restrição UNIQUE decide.
+    if (String(error?.code || '').startsWith('SQLITE_CONSTRAINT')) return fail(res, 409, DUPLICATE_EMAIL)
+    throw error
+  }
+  const row = db.prepare('SELECT * FROM users WHERE id=?').get(userId)
+  openSession(row, req, res)
+  audit(row, 'user.register', { type: 'user', id: userId, label: email }, `plano: free${institutionKind ? ` · ${institutionKind}` : ''}`, ip)
+  res.status(201).json({ user: userOutOf(row) })
+})
 const blockedUntil = key => { const e = attempts.get(key); return e && e.count >= MAX_ATTEMPTS && Date.now() - e.first < WINDOW_MS ? e.first + WINDOW_MS : 0 }
 const noteFailure = key => {
   const e = attempts.get(key), now = Date.now()
@@ -159,13 +240,9 @@ function login(email,password,req,res) {
   if (!user || !valid) { noteFailure(key); audit(user ? { id: user.id, name: user.name, email: user.email } : { email }, 'login.failed', { type: 'user', id: user?.id, label: email }, 'Credenciais inválidas', ip); return fail(res,401,'Credenciais inválidas') }
   if (!user.active) { audit(user, 'login.denied', { type: 'user', id: user.id, label: email }, 'Conta desativada', ip); return fail(res,403,'Esta conta está desativada. Contacte o administrador.') }
   attempts.delete(key)
-  const token=randomBytes(32).toString('hex'), now=new Date().toISOString()
-  db.prepare('INSERT INTO sessions(token,user_id,expires,created_at,last_seen,ip,agent) VALUES (?,?,?,?,?,?,?)').run(hash(token),user.id,Date.now()+30*86400000,now,now,ip,String(req.get('user-agent')||'').slice(0,200))
-  db.prepare('UPDATE users SET last_login=? WHERE id=?').run(now,user.id)
-  db.prepare('DELETE FROM sessions WHERE expires<=?').run(Date.now())
+  openSession(user, req, res)
   audit(user, 'login.success', { type: 'user', id: user.id, label: user.email }, '', ip)
-  res.setHeader('Set-Cookie', `dc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${req.secure ? '; Secure' : ''}`)
-  res.json({user:{id:user.id,name:user.name,email:user.email,role:user.role,avatar:user.avatar||null}})
+  res.json({ user: userOutOf(user) })
 }
 app.post('/api/login', (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
@@ -177,9 +254,9 @@ app.get('/api/me',auth,(req,res)=>res.json({user:req.user}))
 const AVATAR_PREFIX = /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/
 app.patch('/api/account/profile', auth, (req, res) => {
   const body = req.body ?? {}
-  const current = db.prepare('SELECT id,email,name,avatar,password FROM users WHERE id=?').get(req.user.id)
+  const current = db.prepare('SELECT id,email,name,avatar,password,job_title,institution,institution_kind FROM users WHERE id=?').get(req.user.id)
   if (!current) return fail(res, 404, 'Conta não encontrada')
-  const next = { name: current.name, email: current.email, avatar: current.avatar ?? null }
+  const next = { name: current.name, email: current.email, avatar: current.avatar ?? null, jobTitle: current.job_title ?? null, institution: current.institution ?? null, institutionKind: current.institution_kind ?? null }
   const changed = []
   if (body.name !== undefined) {
     const name = typeof body.name === 'string' ? body.name.trim().replace(/\s+/g, ' ') : ''
@@ -206,10 +283,25 @@ app.patch('/api/account/profile', auth, (req, res) => {
       next.avatar = body.avatar; changed.push('avatar')
     }
   }
+  if (body.jobTitle !== undefined) {
+    const job = body.jobTitle === null ? '' : cleanText(body.jobTitle)
+    if (job.length > 80) return fail(res, 400, 'A função deve ter no máximo 80 caracteres')
+    if ((job || null) !== next.jobTitle) { next.jobTitle = job || null; changed.push('função') }
+  }
+  if (body.institution !== undefined) {
+    const inst = body.institution === null ? '' : cleanText(body.institution)
+    if (inst.length > 120) return fail(res, 400, 'A instituição deve ter no máximo 120 caracteres')
+    if ((inst || null) !== next.institution) { next.institution = inst || null; changed.push('instituição') }
+  }
+  if (body.institutionKind !== undefined) {
+    const kind = body.institutionKind === null ? null : body.institutionKind
+    if (kind !== null && !INSTITUTION_KINDS.has(kind)) return fail(res, 400, 'Tipo de instituição inválido')
+    if (kind !== next.institutionKind) { next.institutionKind = kind; changed.push('tipo de instituição') }
+  }
   if (!changed.length) return res.json({ user: { ...req.user, ...next } })
-  db.prepare('UPDATE users SET name=?,email=?,avatar=? WHERE id=?').run(next.name, next.email, next.avatar, current.id)
+  db.prepare('UPDATE users SET name=?,email=?,avatar=?,job_title=?,institution=?,institution_kind=? WHERE id=?').run(next.name, next.email, next.avatar, next.jobTitle, next.institution, next.institutionKind, current.id)
   auditReq(req, 'user.profile.self', { type: 'user', id: current.id, label: next.email }, `Atualizou: ${changed.join(', ')}`)
-  res.json({ user: { id: current.id, name: next.name, email: next.email, role: req.user.role, avatar: next.avatar, plan: req.user.plan, planExpiresAt: req.user.planExpiresAt } })
+  res.json({ user: { id: current.id, name: next.name, email: next.email, role: req.user.role, avatar: next.avatar, plan: req.user.plan, planExpiresAt: req.user.planExpiresAt, jobTitle: next.jobTitle, institution: next.institution, institutionKind: next.institutionKind } })
 })
 app.post('/api/account/password', auth, (req, res) => {
   const currentPassword = req.body?.currentPassword

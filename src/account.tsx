@@ -8,13 +8,14 @@ import RouteLoading from './ui/RouteLoading'
 import LegalPage from './legal/LegalPage'
 import CookieBanner from './legal/CookieBanner'
 import { legalDocFromPath } from './legal/legalContent'
-import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
+import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight, IconCheck } from './ui/icons'
 import type { User, Project, Invite } from './dashboard/Dashboard'
 import { setViewer } from './auth/viewer'
 import { COVER_VERSION, canCaptureFreshCover, captureCover, hasStoredCover, setStoredCover, storedCoverVersion, saveLocalProjectCover } from './three/coverCapture'
 import { flowCoverDataUrl } from './dashboard/flowCover'
 import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
+import { EMAIL_PATTERN, isDuplicateEmailError, passwordRules, registrationPasswordProblem } from './auth/passwordPolicy'
 import { useComponentSettings } from './admin/componentSettings'
 import { useAppUpdates } from './utils/appUpdates'
 import { askUpdateWithPendingChanges } from './components/UpdatePrompt'
@@ -256,20 +257,37 @@ export default function Account() {
     setMessage('')
     try {
       if (authMode === 'register') {
+        const formEl = event.currentTarget as HTMLFormElement
+        const acceptTerms = (formEl.elements.namedItem('acceptTerms') as HTMLInputElement | null)?.checked === true
+        const website = (formEl.elements.namedItem('website') as HTMLInputElement | null)?.value ?? ''
+        const email = form.email.trim().toLowerCase()
+        const name = form.name.trim().replace(/\s+/g, ' ')
+        if (name.length < 2 || name.length > 80) throw new Error('Indique o seu nome (entre 2 e 80 caracteres).')
+        if (email.length > 254 || !EMAIL_PATTERN.test(email)) throw new Error('Indique um e-mail válido.')
+        const passwordIssue = registrationPasswordProblem(form.password, email, name)
+        if (passwordIssue) throw new Error(passwordIssue)
         if (form.password !== form.confirmPassword) throw new Error('As palavras-passe não coincidem.')
-        if (form.password.length < 8) throw new Error('A palavra-passe deve ter pelo menos 8 caracteres.')
-        if (!form.name.trim() || form.name.trim().length < 2) throw new Error('Indique o seu nome (mínimo 2 caracteres).')
         if (!form.jobTitle.trim()) throw new Error('Indique a sua função ou cargo.')
         if (!form.institutionKind) throw new Error('Escolha o tipo de instituição.')
         if (!form.institution.trim()) throw new Error('Indique a instituição (escola, empresa ou projeto).')
-        const response = await api<{ user: User }>('/register', 'POST', {
-          email: form.email.trim(),
+        if (!acceptTerms) throw new Error('Aceite os Termos de utilização e a Política de privacidade para criar a conta.')
+        const response = await api<{ user: User; needsConfirmation?: boolean }>('/register', 'POST', {
+          email,
           password: form.password,
-          name: form.name.trim(),
+          name,
           jobTitle: form.jobTitle.trim(),
           institution: form.institution.trim(),
           institutionKind: form.institutionKind,
+          acceptTerms,
+          website,
         })
+        if (response.needsConfirmation) {
+          // Supabase com confirmação ativa: a conta só fica utilizável depois do link.
+          setAuthMode('login')
+          setForm({ email, password: '', name: '', jobTitle: '', institution: '', institutionKind: '', confirmPassword: '' })
+          setMessage(`Conta criada. Enviámos um e-mail de confirmação para ${email} — abra o link e depois entre.`)
+          return
+        }
         setUser(response.user)
         setPage('dashboard')
         setForm({ email: '', password: '', name: '', jobTitle: '', institution: '', institutionKind: '', confirmPassword: '' })
@@ -685,16 +703,13 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
   const canFocus = typeof window !== 'undefined' && window.matchMedia('(hover:hover)').matches
   const isRegister = mode === 'register'
 
-  const strength = (() => {
-    const p = form.password
-    if (!p) return 0
-    let s = 0
-    if (p.length >= 8) s++
-    if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++
-    if (/\d/.test(p) || /[^A-Za-z0-9]/.test(p)) s++
-    return s
-  })()
+  const rules = passwordRules(form.password, form.email, form.name)
+  const passed = rules.filter((rule) => rule.ok).length
+  // 0 vazio · 1 fraca · 2 média · 3 forte (todas as regras cumpridas).
+  const strength = !form.password ? 0 : passed === rules.length ? 3 : passed >= 2 ? 2 : 1
   const strengthLabel = strength === 0 ? '' : strength === 1 ? 'Fraca' : strength === 2 ? 'Média' : 'Forte'
+  const confirmMismatch = isRegister && form.confirmPassword.length > 0 && form.confirmPassword !== form.password
+  const duplicate = isRegister && isDuplicateEmailError(message)
 
   const institutionPlaceholder =
     form.institutionKind === 'school' ? 'Ex.: Escola Secundária / ISEL'
@@ -736,8 +751,15 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
         <button type="button" role="tab" aria-selected={isRegister} className={isRegister ? 'is-active' : ''} onClick={() => { clearMessage(); setMode('register') }}>Criar conta</button>
       </div>
 
-      {message && <div className="dx-alert" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso"><IconClose size={11} /></button></div>}
+      {message && <div className="dx-alert" role="alert">
+        <span>{message}{duplicate && <> <button type="button" className="dx-alert-link" onClick={() => { clearMessage(); setForm({ ...form, password: '', confirmPassword: '' }); setMode('login') }}>Entrar com este e-mail</button></>}</span>
+        <button onClick={clearMessage} aria-label="Fechar aviso"><IconClose size={11} /></button>
+      </div>}
       <form onSubmit={onSubmit} noValidate={false}>
+        {isRegister && (
+          // Campo-armadilha: escondido de pessoas e leitores de ecrã; robôs preenchem-no.
+          <input className="dx-auth-trap" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" defaultValue="" />
+        )}
         {isRegister && (
           <label className="dx-field"><span className="dx-label">Nome</span>
             <input className="dx-input" required type="text" autoComplete="name" placeholder="O seu nome" maxLength={80}
@@ -745,20 +767,23 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
           </label>
         )}
         <label className="dx-field"><span className="dx-label">Email</span>
-          <input className="dx-input" required type="email" autoFocus={canFocus && !isRegister} autoComplete="username" placeholder="nome@empresa.pt"
+          <input className="dx-input" required type="email" autoFocus={canFocus && !isRegister} autoComplete={isRegister ? 'email' : 'username'} placeholder="nome@empresa.pt" maxLength={254}
             value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
         </label>
         <label className="dx-field"><span className="dx-label">Palavra-passe</span>
           <div className="dx-auth-pw">
             <input className="dx-input" required type={show ? 'text' : 'password'} autoComplete={isRegister ? 'new-password' : 'current-password'}
-              placeholder={isRegister ? 'Mínimo 8 caracteres' : 'A sua palavra-passe'}
+              placeholder={isRegister ? 'Mínimo 10 caracteres' : 'A sua palavra-passe'} maxLength={200}
+              minLength={isRegister ? 10 : undefined} aria-describedby={isRegister ? 'dx-pw-rules' : undefined}
               value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
             <button type="button" onClick={() => setShow(!show)} aria-pressed={show}>{show ? 'Ocultar' : 'Mostrar'}</button>
           </div>
-          {isRegister && form.password && (
-            <div className={`dx-auth-meter s${strength}`} aria-live="polite">
-              <div><i /><i /><i /></div>
-              <small>Força: {strengthLabel}</small>
+          {isRegister && (
+            <div className={`dx-auth-meter s${strength}`} id="dx-pw-rules" aria-live="polite">
+              {form.password && <><div><i /><i /><i /></div><small>Força: {strengthLabel}</small></>}
+              <ul className="dx-auth-rules">
+                {rules.map((rule) => <li key={rule.id} className={rule.ok ? 'is-ok' : ''}><span aria-hidden className="dx-auth-rule-mark">{rule.ok ? <IconCheck size={10} /> : <i />}</span>{rule.label}<span className="dx-sr">{rule.ok ? ' — cumprido' : ' — em falta'}</span></li>)}
+              </ul>
             </div>
           )}
         </label>
@@ -767,11 +792,12 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
             <label className="dx-field"><span className="dx-label">Confirmar palavra-passe</span>
               <div className="dx-auth-pw">
                 <input className="dx-input" required type={showConfirm ? 'text' : 'password'} autoComplete="new-password"
-                  placeholder="Repita a palavra-passe" value={form.confirmPassword}
+                  placeholder="Repita a palavra-passe" value={form.confirmPassword} maxLength={200} aria-invalid={confirmMismatch || undefined}
                   onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })} />
                 <button type="button" onClick={() => setShowConfirm(!showConfirm)} aria-pressed={showConfirm}>{showConfirm ? 'Ocultar' : 'Mostrar'}</button>
               </div>
             </label>
+            {confirmMismatch && <small className="dx-field-error" role="status">As palavras-passe não coincidem.</small>}
             <label className="dx-field"><span className="dx-label">Função ou cargo</span>
               <input className="dx-input" required type="text" maxLength={80} placeholder="Ex.: Projetista, Formador, Estudante"
                 value={form.jobTitle} onChange={(event) => setForm({ ...form, jobTitle: event.target.value })} />

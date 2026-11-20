@@ -171,7 +171,7 @@ export async function supabaseEnsureAccount(email: string, password: string, nam
 }
 
 /** Registo de nova conta no Supabase */
-export async function supabaseRegister(email: string, password: string, name: string, extra?: { jobTitle?: string; institution?: string; institutionKind?: 'school' | 'work' | 'own' }): Promise<{ user: User }> {
+export async function supabaseRegister(email: string, password: string, name: string, extra?: { jobTitle?: string; institution?: string; institutionKind?: 'school' | 'work' | 'own' }): Promise<{ user: User; needsConfirmation?: boolean }> {
   const client = clientOrThrow()
 
   const { data, error } = await client.auth.signUp({
@@ -182,14 +182,27 @@ export async function supabaseRegister(email: string, password: string, name: st
     },
   })
 
-  if (error || !data.user) {
-    throw new Error(error?.message || 'Falha ao criar conta no Supabase.')
+  if (error) {
+    const message = error.message || ''
+    const code = (error as { code?: string }).code || ''
+    if (/already (been )?registered|already exists/i.test(message) || code === 'user_already_exists' || code === 'email_exists') throw new Error(DUPLICATE_EMAIL_MESSAGE)
+    if (/rate limit|too many/i.test(message) || error.status === 429) throw new Error('Demasiados pedidos de registo. Aguarde alguns minutos e tente novamente.')
+    if (code === 'weak_password' || /password/i.test(message)) throw new Error('A palavra-passe não cumpre a política de segurança do servidor. Use pelo menos 10 caracteres com maiúsculas, minúsculas e números.')
+    throw new Error(message || 'Falha ao criar conta no Supabase.')
   }
+  if (!data.user) throw new Error('Falha ao criar conta no Supabase.')
+  // Com a confirmação de e-mail ativa, o Supabase devolve um utilizador «falso» sem
+  // identidades quando o e-mail já existe (para não revelar contas). Aqui avisamos.
+  if (Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error(DUPLICATE_EMAIL_MESSAGE)
 
   return {
     user: userFromAuth(data.user, 'user'),
+    // Sem sessão: a conta existe mas tem de ser confirmada pelo link enviado por e-mail.
+    needsConfirmation: !data.session,
   }
 }
+
+export const DUPLICATE_EMAIL_MESSAGE = 'Já existe uma conta com este e-mail. Inicie sessão ou recupere o acesso.'
 
 /** Encerra a sessão no Supabase */
 export async function supabaseLogout(): Promise<{ ok: boolean }> {
@@ -382,16 +395,29 @@ export async function supabaseUpdateProject(id: string, content: unknown, revisi
     updated_at: new Date().toISOString(),
   }
 
-  const { error } = await client
+  // Pede a linha alterada de volta: com RLS, um UPDATE sem permissão responde 204 sem
+  // erro e sem alterar nada — antes a app dizia «Projeto guardado» e perdia o trabalho.
+  // A revisão no filtro impede também sobrescrever uma gravação feita noutro separador.
+  const { data, error } = await client
     .from('projects')
     .update(payload)
     .eq('id', id)
+    .eq('revision', revision)
+    .select('id, revision')
 
   if (error) {
     throw new Error(`Erro ao guardar projeto no Supabase: ${error.message}`)
   }
+  if (!data || data.length === 0) {
+    const { data: { user } } = await client.auth.getUser()
+    const { data: current } = await client.from('projects').select('owner_id, revision').eq('id', id).maybeSingle()
+    if (!current) throw new Error('O projeto já não existe ou deixou de ter acesso a ele. Nada foi guardado.')
+    const isMember = user ? current.owner_id === user.id || Boolean((await client.from('project_members').select('user_id').eq('project_id', id).eq('user_id', user.id).maybeSingle()).data) : false
+    if (!isMember) throw new Error('Este projeto pertence a outra conta e está aberto só para leitura: as alterações não foram guardadas. Peça ao proprietário um convite para editar ou crie uma cópia.')
+    throw new Error('Este projeto foi alterado noutro separador ou dispositivo. Reabra-o antes de guardar — nada foi sobrescrito.')
+  }
 
-  return { ok: true, revision: nextRevision }
+  return { ok: true, revision: Number(data[0].revision) || nextRevision }
 }
 
 /** Elimina um projeto no Supabase */

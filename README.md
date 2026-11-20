@@ -157,7 +157,7 @@ O painel **Administração** (conta `admin`) passou a ter sete separadores:
 - **Contribuições** — revisão de datasheets e modelos 3D (aprovar, rejeitar com motivo, repor, eliminar).
 - **Componentes** — catálogo completo com estado do modelo 3D, fichas e modelos da comunidade, e propostas de componentes novos. O administrador pode **desativar** um componente (com motivo): deixa de poder ser inserido a partir da biblioteca (aparece bloqueado com o motivo), mas os projetos que já o usam continuam a abrir. No servidor a definição vale para todos; sem servidor vale só neste navegador.
 - **Projetos** — pesquisa, proprietário, membros, tamanho e revisão; eliminação.
-- **Utilizadores** *(servidor)* — criar contas (nome, e-mail, papel, palavra-passe ≥ 10 caracteres com maiúsculas/minúsculas/números, com gerador), editar nome/papel, **ativar/desativar**, repor palavra-passe, **terminar sessões**, eliminar (com confirmação dos projetos e contribuições que são eliminados) e saltar para a atividade de cada conta. As duas contas fixas e a própria conta do administrador não podem ser alteradas nem eliminadas. O registo público continua desativado: só o administrador cria contas. Desativar uma conta termina de imediato as suas sessões.
+- **Utilizadores** *(servidor)* — criar contas (nome, e-mail, papel, palavra-passe ≥ 10 caracteres com maiúsculas/minúsculas/números, com gerador), editar nome/papel, **ativar/desativar**, repor palavra-passe, **terminar sessões**, eliminar (com confirmação dos projetos e contribuições que são eliminados) e saltar para a atividade de cada conta. As duas contas fixas e a própria conta do administrador não podem ser alteradas nem eliminadas. As contas criadas pelo registo público aparecem aqui como `user` no plano gratuito e podem ser desativadas ou eliminadas como as restantes. Desativar uma conta termina de imediato as suas sessões.
 - **Registos** — auditoria de quem fez o quê e quando: início/fim de sessão e falhas, contas, projetos e convites, contribuições, componentes e ações do sistema. Filtros por categoria, ação, utilizador, texto e datas; paginação; atualização automática; **exportação CSV** (protegida contra injeção de fórmulas); apagar registos antigos (a própria purga fica registada). Nunca se guardam palavras-passe.
 - **Sistema** — contas/sessões/projetos/contribuições/eventos, armazenamento, versão, Node, tempo em execução, e **exportação JSON** dos dados (sem palavras-passe).
 
@@ -200,8 +200,10 @@ Segurança do servidor: após 6 tentativas falhadas em 10 minutos (por e-mail + 
 - O service worker é registado em toda a aplicação. Ao encontrar uma versão nova, guarda primeiro
   qualquer projeto alterado, ativa o novo worker e recarrega sem pedir confirmação. O Workbox remove
   automaticamente precaches antigos; HTML, `sw.js`, manifesto e versão têm headers de revalidação.
-- O registo público foi removido. Apenas as contas fixas **Admin** (`admin@dcsimu.local`) e **User**
-  (`user@dcsimu.local`) podem autenticar, com papéis `admin` e `user` respetivamente.
+- **Criar conta** (servidor Docker/SQLite ou Supabase): nome, e-mail, palavra-passe (≥ 10 caracteres com
+  maiúsculas, minúsculas e números, sem o nome nem o e-mail), função/instituição e aceitação dos termos.
+  Um e-mail já registado é recusado com aviso e atalho para «Entrar». Ver «Registo de contas» abaixo.
+  Sem servidor (modo offline) continuam a existir apenas as contas fixas **Admin** e **User**.
 - Em deploy estático, sessão, projetos, revisões, convites e administração funcionam no próprio
   navegador, sem `/api`. Quando a API Docker existe, o mesmo frontend mantém os projetos SQLite.
   As palavras-passe nunca são guardadas na sessão local; apenas um identificador de conta é mantido.
@@ -798,7 +800,8 @@ apenas guardados e editáveis, nunca executados silenciosamente.
 
 ## Contas fixas e persistência sem servidor
 
-O registo está desativado. Só existem estas identidades:
+Sem servidor nem Supabase, o registo não está disponível (não há onde guardar contas com
+segurança) e só existem estas identidades:
 
 - `admin@dcsimu.local` — papel `admin`;
 - `user@dcsimu.local` — papel `user`.
@@ -850,9 +853,30 @@ as palavras-passe iniciais são derivadas com scrypt e **não são repostas nos
 arranques seguintes**. Se atualizar uma instalação antiga que usava as
 credenciais de demonstração, altere-as para valores únicos. As sessões usam
 cookies HttpOnly e SameSite=Lax; use HTTPS em produção e configure `TRUST_PROXY=1`
-só quando houver um proxy reverso fiável. `POST /api/register` devolve sempre
-403: outras contas só existem se o administrador as criar no painel
-**Administração → Utilizadores**. Contas antigas (anteriores ao painel) e os
+só quando houver um proxy reverso fiável. 
+
+### Registo de contas
+
+`POST /api/register` cria uma conta pública (desligue com `REGISTRATION_OPEN=0`; o estado é
+público em `GET /api/register/status`). Regras aplicadas no servidor — a interface só avisa antes:
+
+- e-mail normalizado (minúsculas, sem espaços) e único: um e-mail existente devolve 409 com aviso
+  (também em corrida, pela restrição `UNIQUE`); o domínio `@dcsimu.local` das contas fixas está reservado;
+- palavra-passe ≥ 10 caracteres com maiúsculas, minúsculas e números, sem conter o nome nem o e-mail,
+  derivada com scrypt;
+- papel, plano e estado **nunca** vêm do pedido: a conta nasce `user`, plano `free` e ativa; mudar de
+  plano continua a passar por pedido aprovado pelo administrador;
+- aceitação dos termos obrigatória, campo-armadilha anti-robô e limite de 10 pedidos por hora por rede
+  (HTTP 429), sem confiar em `X-Forwarded-For` salvo `TRUST_PROXY=1`;
+- com sessão iniciada não se cria outra conta; a conta criada fica com sessão aberta;
+- tudo fica auditado (`user.register`, `user.register.duplicate`, `user.register.blocked`).
+
+No Supabase, o registo usa `auth.signUp`: o trigger `handle_new_user` cria o perfil sempre como `user`
+e a proteção do perfil impede que o próprio utilizador mude papel ou plano. Com a confirmação de e-mail
+ativa, a interface avisa que é preciso abrir o link antes de entrar; um e-mail já registado é detetado e
+avisado.
+
+Outras contas podem continuar a ser criadas pelo administrador em **Administração → Utilizadores**. Contas antigas (anteriores ao painel) e os
 respetivos projetos não são apagados da base, mas ficam desativadas até o
 administrador as reativar.
 
