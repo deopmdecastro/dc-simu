@@ -56,13 +56,10 @@ export function prepareIndustrialModel(root: THREE.Object3D, type: IndustrialDev
     if (ACTIONS[node.name] || node.name === 'industrial_control_cover' || node.name === 'industrial_control_interior') node.userData.industrialMoving = true
     prepared.add(node)
   })
-  // GEYA GRT8: parafusos captivos visíveis na face frontal (vista +Z) alinhados
-  // com os bornes superiores (A1/S/A2) e inferiores (15/16/18). O GLB traz as
-  // cavidades; estes parafusos completam a serigrafia/hardware da face.
   // GEYA GRT8: os parafusos captivos corretos já estão no GLB (gerado por
-  // build-industrial-devices.mjs a z=34.1/38 mm, dentro dos poços frontais
-  // recuados). O grupo runtime flutuante foi removido: duplicava os parafusos
-  // e ficava suspenso a meio do ar na face do painel.
+  // build-industrial-devices.mjs): degraus traseiros Z24 e intermédio M2 Z38,
+  // cabeças 1,25 mm rebaixadas. Não acrescentar hardware runtime à frente
+  // dos degraus: duplicaria os parafusos e deixaria peças suspensas.
   // MICO 4.6: botões de canal e seletores de corrente.
   if (micoProfile(type)) {
     root.traverse(node => {

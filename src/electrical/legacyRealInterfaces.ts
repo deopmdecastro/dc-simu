@@ -7,6 +7,15 @@ export const MECHANICAL_INTERFACE_TYPES = new Set<ComponentType>([
   'contactorWegCwbc65', 'timerGeyaGrt8M1', 'timerGeyaGrt8M2', 'timerGeyaGrt8B1', 'breakerMurrelektronikMico46',
 ])
 
+/** M2 publicado antes da correção dos degraus de 21/11: a fila intermédia
+ * entrava pela prateleira Y8/Z26,2. Snapshot imutável, apenas para migração
+ * de valores automáticos exatos; nunca usado como posição de um modelo novo. */
+export const GEYA_PREVIOUS_STEP_TERMINALS: RealTerminalSpot[] = [
+  {label:'25',face:'bottom',contact:'socket',x:.212389,y:.915789,z:.400918,diameterMm:4,holeDepthMm:8.6},
+  {label:'26',face:'bottom',contact:'socket',x:.5,y:.915789,z:.400918,diameterMm:4,holeDepthMm:8.6},
+  {label:'28',face:'bottom',contact:'socket',x:.787611,y:.915789,z:.400918,diameterMm:4,holeDepthMm:8.6},
+]
+
 export const LEGACY_REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
   // MICO anterior à frente inclinada: onze pontos automáticos de superfície.
   breakerMurrelektronikMico46: [{"label":"L+","face":"top","contact":"surface","x":0.190141,"y":0.031889,"z":0.642857,"diameterMm":6.4,"holeDepthMm":8},{"label":"L+2","face":"top","contact":"surface","x":0.809859,"y":0.031889,"z":0.642857,"diameterMm":6.4,"holeDepthMm":8},{"label":"ON","face":"top","contact":"surface","x":0.401408,"y":0.055957,"z":0.633929,"diameterMm":3.4,"holeDepthMm":6},{"label":"13","face":"top","contact":"surface","x":0.5,"y":0.055957,"z":0.633929,"diameterMm":3.4,"holeDepthMm":6},{"label":"14","face":"top","contact":"surface","x":0.598592,"y":0.055957,"z":0.633929,"diameterMm":3.4,"holeDepthMm":6},{"label":"GND","face":"bottom","contact":"surface","x":0.091549,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT1","face":"bottom","contact":"surface","x":0.25493,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT2","face":"bottom","contact":"surface","x":0.41831,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT3","face":"bottom","contact":"surface","x":0.58169,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"OUT4","face":"bottom","contact":"surface","x":0.74507,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6},{"label":"GND2","face":"bottom","contact":"surface","x":0.908451,"y":0.994585,"z":0.669643,"diameterMm":4,"holeDepthMm":6}],

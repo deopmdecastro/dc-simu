@@ -1442,30 +1442,30 @@
         "face": "bottom",
         "contact": "socket",
         "x": 0.212389,
-        "y": 0.915789,
-        "z": 0.400918,
+        "y": 0.857895,
+        "z": 0.459067,
         "diameterMm": 4,
-        "holeDepthMm": 8.6
+        "holeDepthMm": 5.2
       },
       {
         "label": "26",
         "face": "bottom",
         "contact": "socket",
         "x": 0.5,
-        "y": 0.915789,
-        "z": 0.400918,
+        "y": 0.857895,
+        "z": 0.459067,
         "diameterMm": 4,
-        "holeDepthMm": 8.6
+        "holeDepthMm": 5.2
       },
       {
         "label": "28",
         "face": "bottom",
         "contact": "socket",
         "x": 0.787611,
-        "y": 0.915789,
-        "z": 0.400918,
+        "y": 0.857895,
+        "z": 0.459067,
         "diameterMm": 4,
-        "holeDepthMm": 8.6
+        "holeDepthMm": 5.2
       },
       {
         "label": "15",

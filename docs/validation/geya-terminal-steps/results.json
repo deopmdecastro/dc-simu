@@ -1,0 +1,237 @@
+{
+  "checks": 56,
+  "types": [
+    "timerGeyaGrt8M1",
+    "timerGeyaGrt8M2",
+    "timerGeyaGrt8B1"
+  ],
+  "measurements": [
+    {
+      "type": "timerGeyaGrt8M1",
+      "rows": [
+        {
+          "label": "A1",
+          "screw": [
+            -5.199999999999872,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_A1",
+          "labelHit": "industrial_geya_label_A1"
+        },
+        {
+          "label": "S",
+          "screw": [
+            1.1102230246251568e-13,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_S",
+          "labelHit": "industrial_geya_label_S"
+        },
+        {
+          "label": "A2",
+          "screw": [
+            5.199999999999983,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_A2",
+          "labelHit": "industrial_geya_label_A2"
+        },
+        {
+          "label": "15",
+          "screw": [
+            -5.199999999999872,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_15",
+          "labelHit": "industrial_geya_label_15"
+        },
+        {
+          "label": "16",
+          "screw": [
+            1.1102230246251568e-13,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_16",
+          "labelHit": "industrial_geya_label_16"
+        },
+        {
+          "label": "18",
+          "screw": [
+            5.199999999999983,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_18",
+          "labelHit": "industrial_geya_label_18"
+        }
+      ]
+    },
+    {
+      "type": "timerGeyaGrt8M2",
+      "rows": [
+        {
+          "label": "A1",
+          "screw": [
+            -5.199999999999872,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_A1",
+          "labelHit": "industrial_geya_label_A1"
+        },
+        {
+          "label": "S",
+          "screw": [
+            1.1102230246251568e-13,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_S",
+          "labelHit": "industrial_geya_label_S"
+        },
+        {
+          "label": "A2",
+          "screw": [
+            5.199999999999983,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_A2",
+          "labelHit": "industrial_geya_label_A2"
+        },
+        {
+          "label": "15",
+          "screw": [
+            -5.199999999999872,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_15",
+          "labelHit": "industrial_geya_label_15"
+        },
+        {
+          "label": "16",
+          "screw": [
+            1.1102230246251568e-13,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_16",
+          "labelHit": "industrial_geya_label_16"
+        },
+        {
+          "label": "18",
+          "screw": [
+            5.199999999999983,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_18",
+          "labelHit": "industrial_geya_label_18"
+        },
+        {
+          "label": "25",
+          "screw": [
+            -5.199999999999872,
+            20.000000000000078,
+            36.75
+          ],
+          "hit": "terminal_screw_head_geya_25",
+          "labelHit": "industrial_geya_label_25"
+        },
+        {
+          "label": "26",
+          "screw": [
+            1.1102230246251568e-13,
+            20.000000000000078,
+            36.75
+          ],
+          "hit": "terminal_screw_head_geya_26",
+          "labelHit": "industrial_geya_label_26"
+        },
+        {
+          "label": "28",
+          "screw": [
+            5.199999999999983,
+            20.000000000000078,
+            36.75
+          ],
+          "hit": "terminal_screw_head_geya_28",
+          "labelHit": "industrial_geya_label_28"
+        }
+      ]
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "rows": [
+        {
+          "label": "A1",
+          "screw": [
+            -5.199999999999872,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_A1",
+          "labelHit": "industrial_geya_label_A1"
+        },
+        {
+          "label": "S",
+          "screw": [
+            1.1102230246251568e-13,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_S",
+          "labelHit": "industrial_geya_label_S"
+        },
+        {
+          "label": "A2",
+          "screw": [
+            5.199999999999983,
+            85.8,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_A2",
+          "labelHit": "industrial_geya_label_A2"
+        },
+        {
+          "label": "15",
+          "screw": [
+            -5.199999999999872,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_15",
+          "labelHit": "industrial_geya_label_15"
+        },
+        {
+          "label": "16",
+          "screw": [
+            1.1102230246251568e-13,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_16",
+          "labelHit": "industrial_geya_label_16"
+        },
+        {
+          "label": "18",
+          "screw": [
+            5.199999999999983,
+            9.200000000000044,
+            22.75
+          ],
+          "hit": "terminal_screw_head_geya_18",
+          "labelHit": "industrial_geya_label_18"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "scope": "Painel/Admin React/R3F, IndexedDB isolado, pedidos externos bloqueados"
+}

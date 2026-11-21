@@ -26,7 +26,7 @@ import { COMB_BUSBAR, COMB_CONNECTOR } from '../three/combBusbarParts'
 const FACE_OUTWARD_3D: Record<RealTerminalSpot['face'], [number, number, number]> = {
   front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0],
 }
-import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE, MECHANICAL_INTERFACE_TYPES } from './legacyRealInterfaces'
+import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE, MECHANICAL_INTERFACE_TYPES, GEYA_PREVIOUS_STEP_TERMINALS } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { terminalAssemblyConductors, TERMINAL_CONDUCTOR_PATTERN } from '../three/terminalAssembly'
@@ -1417,8 +1417,11 @@ export function upgradeRealInterfacePositions(input: ElectricalComponent): Elect
     const canonical = label === terminal.label ? terminal : { ...terminal, label, defId: 'dm20-volt' }
     if (canonical !== terminal) changed = true
     const spot = spots.find((item) => item.label.toLocaleUpperCase() === label.toLocaleUpperCase())
-    const previous = LEGACY_REAL_TERMINALS[c.type]?.find((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
     const at = terminal.position3D
+    const oldStep = c.type === 'timerGeyaGrt8M2' ? GEYA_PREVIOUS_STEP_TERMINALS.find(item => item.label === label) : undefined
+    const matchesOldStep = oldStep && at && [realTerminalPosition(c.type, oldStep), legacyInsetIntoHole(c.type, oldStep), surfacePosition(oldStep)]
+      .some(p => Math.hypot(p.x - at.x, p.y - at.y, p.z - at.z) < 1e-6)
+    const previous = matchesOldStep ? oldStep : LEGACY_REAL_TERMINALS[c.type]?.find((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
     if (!spot || terminal.pinned) return canonical
     // XUKT: as primeiras raízes automáticas estavam deslocadas do fim da
     // bainha que já existe no CAD. Migrar só o par ponta/raiz conhecido;

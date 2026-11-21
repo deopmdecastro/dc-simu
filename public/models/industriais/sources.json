@@ -212,62 +212,6 @@
       "sha256": "677937c1014db3becb9739a3892a4518f4f78b44659dd963e48ef5de387e5b83"
     },
     {
-      "type": "timerGeyaGrt8B1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
-      "changes": "B1/A230 refined against user product photograph: open driver wells, visible cross screws 1.25 mm behind the deck, cross-recess red selectors with radial indices, convex state-driven LED lenses, rounded cover, mould seams and flank timing/wiring serigraphy. Existing 18.08×95×65.35 mm asset envelope and all conductor endpoints retained. Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "physicalSizeMm": {
-        "width": 18.08,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 579316,
-      "sha256": "96d20bb51c8845d85bb271023df4b28266f90ea9a26ad966f1089f209ef8f8eb"
-    },
-    {
-      "type": "timerGeyaGrt8M1",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "visualRefinement": {
-        "reference": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-        "details": "Rounded moulded cover, open screw wells, geometric cross-recess selectors, convex live LED lenses. Original GEYA vector artwork extracted from the local manual. M2 has an elevated 25/26/28 shelf with three separate bottom-entry mouths; reconstructed from product illustrations, not a manufacturer STEP."
-      },
-      "physicalSizeMm": {
-        "width": 18.08,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 6,
-      "cavities": 6,
-      "pins": 0,
-      "bytes": 662304,
-      "sha256": "93f03dc31898683f3a8db86c7652f0ed6e4858200942e76bb6ab13db1d7b6cc4"
-    },
-    {
-      "type": "timerGeyaGrt8M2",
-      "kind": "dimensioned-reconstruction",
-      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Stepped body and open DIN notch. Six finite top/bottom conductor inlet slots aligned with the front wells, each with a visible copper clamp inside; recessed captive Pozidriv screws near the deck faces; divider walls between poles on both decks; red DIN release tab at the bottom front; function/timing diagram serigraphy on both flanks (photos IMG_5849-5851). Exact terminal identities A1/S/A2/15/16/18 retained. Manual fascia has separate knobs / LEDs; B1 reference retyped where applicable. Dimensioned visualization, not manufacturer STEP or certified metrology.",
-      "visualRefinement": {
-        "reference": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
-        "details": "Rounded moulded cover, open screw wells, geometric cross-recess selectors, convex live LED lenses. Original GEYA vector artwork extracted from the local manual. M2 keeps the same symmetric three-level side profile as M1/B1; its 25/26/28 row sits above 15/16/18 on the same lower terminal wall, entering through the step face. Reconstructed from product illustrations, not a manufacturer STEP."
-      },
-      "physicalSizeMm": {
-        "width": 18.08,
-        "height": 95,
-        "depth": 65.35
-      },
-      "interfaces": 9,
-      "cavities": 9,
-      "pins": 0,
-      "bytes": 828636,
-      "sha256": "9707478e8f8c82fdb9096c29bba84e7d6bcbc5b1597b654f6b61cef9585b6163"
-    },
-    {
       "type": "vfdSchneiderAtv320",
       "kind": "adapted-manufacturer-CAD",
       "source": "https://media.distributordatasolutions.com/228/schneider_synd_us_xlsx/4cd04adf5708d2c1d973e6277f32c6ca12387619.zip",
@@ -328,6 +272,66 @@
       "pins": 0,
       "bytes": 1133004,
       "sha256": "d27ac44a54e17d8612a6b1202d3362bc83c1ade1f8409d9384f1e29aa122a200"
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Corrected rear terminal steps: A1/S/A2 above and 15/16/18 below at Z24; Six independent terminals, original conductor endpoints retained. Screws recessed 1.25 mm behind their own step face, shafts end at the associated clamp depth, labels and dividers follow the same step. Original fascia, side printing, selectors and live LEDs preserved. Reconstructed visible geometry from manufacturer manual product photographs, not manufacturer STEP or certified detail measurements.",
+      "visualRefinement": {
+        "reference": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+        "details": "Reference step layout: A1/S/A2 on the upper rear wall, 15/16/18 on the lower rear wall (Z24), M2 25/26/28 on the next lower wall (Z38). Each screw well, label, divider and conductor inlet belongs to its own step. Rounded cover, geometric cross selectors, convex live LEDs and original GEYA vector artwork retained. Reconstruction from manual product photographs, not manufacturer STEP or certified detail dimensions."
+      },
+      "physicalSizeMm": {
+        "width": 18.08,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 659588,
+      "sha256": "e27c83dc20af2e8f0bbb5c19e082b141951f49cbc74130e77ad5e10b0b86486c"
+    },
+    {
+      "type": "timerGeyaGrt8M2",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Corrected rear terminal steps: A1/S/A2 above and 15/16/18 below at Z24; M2 25/26/28 on the separate intermediate lower step at Z38, with its own underside cable mouths. Nine independent terminals; only automatic legacy 25/26/28 endpoints require migration. Screws recessed 1.25 mm behind their own step face, shafts end at the associated clamp depth, labels and dividers follow the same step. Original fascia, side printing, selectors and live LEDs preserved. Reconstructed visible geometry from manufacturer manual product photographs, not manufacturer STEP or certified detail measurements.",
+      "visualRefinement": {
+        "reference": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+        "details": "Reference step layout: A1/S/A2 on the upper rear wall, 15/16/18 on the lower rear wall (Z24), M2 25/26/28 on the next lower wall (Z38). Each screw well, label, divider and conductor inlet belongs to its own step. Rounded cover, geometric cross selectors, convex live LEDs and original GEYA vector artwork retained. Reconstruction from manual product photographs, not manufacturer STEP or certified detail dimensions."
+      },
+      "physicalSizeMm": {
+        "width": 18.08,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 9,
+      "cavities": 9,
+      "pins": 0,
+      "bytes": 808348,
+      "sha256": "1fa2f0c6c1ad4ee4a9d6f15040436ceca23e37f855e1021b626ee06b3e1f7eb5"
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "kind": "dimensioned-reconstruction",
+      "source": "https://www.geya.net/wp-content/uploads/2022/10/GRT8-AB-Manual.pdf",
+      "changes": "Nominal 18×90×64 mm body, 95 mm overall mounting tabs. Corrected rear terminal steps: A1/S/A2 above and 15/16/18 below at Z24; Six independent terminals, original conductor endpoints retained. Screws recessed 1.25 mm behind their own step face, shafts end at the associated clamp depth, labels and dividers follow the same step. Original fascia, side printing, selectors and live LEDs preserved. Reconstructed visible geometry from manufacturer manual product photographs, not manufacturer STEP or certified detail measurements.",
+      "visualRefinement": {
+        "reference": "https://www.geya.net/wp-content/uploads/2021/05/GRT8-M-Instruction-Manual.pdf",
+        "details": "Reference step layout: A1/S/A2 on the upper rear wall, 15/16/18 on the lower rear wall (Z24), M2 25/26/28 on the next lower wall (Z38). Each screw well, label, divider and conductor inlet belongs to its own step. Rounded cover, geometric cross selectors, convex live LEDs and original GEYA vector artwork retained. Reconstruction from manual product photographs, not manufacturer STEP or certified detail dimensions."
+      },
+      "physicalSizeMm": {
+        "width": 18.08,
+        "height": 95,
+        "depth": 65.35
+      },
+      "interfaces": 6,
+      "cavities": 6,
+      "pins": 0,
+      "bytes": 577028,
+      "sha256": "29b9005d7becf2e3e7f90a10dc9ba3bd6cd4870288d3344987845d90638e4c85"
     }
   ]
 }

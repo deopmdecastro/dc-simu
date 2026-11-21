@@ -14,7 +14,7 @@ import { usesNominalFrame } from '../../three/modelFit'
 import { isTerminalAssemblyComponent, terminalAssemblyLayout, TERMINAL_ASSEMBLY_COVER_SEED, TERMINAL_CONDUCTOR_PATTERN } from '../../three/terminalAssembly'
 import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../../electrical/realInterfaces'
-import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE, MECHANICAL_INTERFACE_TYPES } from '../../electrical/legacyRealInterfaces'
+import { LEGACY_REAL_TERMINALS, LEGACY_METER_POSITIONS, LEGACY_MODULAR_SIZE, MECHANICAL_INTERFACE_TYPES, GEYA_PREVIOUS_STEP_TERMINALS } from '../../electrical/legacyRealInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
 import { seedLogoPanel } from './seedLogoPanel'
@@ -386,7 +386,13 @@ function upgradeMechanicalInterfaceDefaults(type: ComponentType, def: ComponentD
   const fresh = terminalsFor(type, TEMPLATES[type].terminals, builtinBox(type, def, cache))
   let changed = false
   def.terminals = def.terminals.map(terminal => {
-    const old = LEGACY_REAL_TERMINALS[type]?.find(spot => spot.label === terminal.label)
+    const old = [...(type === 'timerGeyaGrt8M2' ? GEYA_PREVIOUS_STEP_TERMINALS : []), ...(LEGACY_REAL_TERMINALS[type] ?? [])].find(spot => {
+      if (spot.label !== terminal.label) return false
+      const inset = terminalInsetMm(spot), normal = FACE_NORMAL[spot.face]
+      return same(terminal.position, [(spot.x - .5) * physical.width - normal[0] * inset,
+        (1 - spot.y) * physical.height - normal[1] * inset, (spot.z - .5) * physical.depth - normal[2] * inset])
+        && same(terminal.normal, [...normal], 1e-6)
+    })
     const next = fresh.find(item => item.label === terminal.label)
     if (!old || !next) return terminal
     const inset = terminalInsetMm(old), normal = FACE_NORMAL[old.face]
