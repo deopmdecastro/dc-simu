@@ -445,7 +445,14 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   }
   const fileSlug = (currentProjectName ?? 'projeto').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'projeto'
   const downloadBOM = () => saveBlob('\uFEFF' + bomToCSV(buildBOM(components), wires), 'text/csv;charset=utf-8', `dc-simu-${fileSlug}-bom.csv`)
+  /** Formato nativo .dc — header mágico + JSON. Só o DC-Simu interpreta. */
+  const DCSIMU_MAGIC = 'DCSIMU\x01'
   const download = () => saveBlob(saveJSON(), 'application/json', `dc-simu-${fileSlug}.json`)
+  const downloadDc = () => {
+    const payload = saveJSON()
+    const body = DCSIMU_MAGIC + payload
+    saveBlob(body, 'application/x-dcsimu', `dc-simu-${fileSlug}.dc`)
+  }
 
   const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -456,7 +463,17 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     }
     const reader = new FileReader()
     reader.onload = () => {
-      loadJSON(String(reader.result))
+      let text = String(reader.result ?? '')
+      // Aceita .dc (com header mágico) ou .json legado
+      if (text.startsWith(DCSIMU_MAGIC)) {
+        text = text.slice(DCSIMU_MAGIC.length)
+      } else if (file.name.toLowerCase().endsWith('.dc') && !text.trimStart().startsWith('{')) {
+        // Ficheiro .dc sem header reconhecível — rejeita silenciosamente para não carregar lixo
+        console.warn('[dc-simu] ficheiro .dc inválido ou de outra aplicação')
+        e.target.value = ''
+        return
+      }
+      loadJSON(text)
       setCurrentProjectName(null)
       e.target.value = ''
     }
@@ -505,9 +522,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     id: 'file', title: 'Projeto',
     items: [
       { id: 'new', label: 'Novo projeto', hint: 'Volta aos projetos para criar um em branco', icon: <IconPlus size={15} />, onSelect: createNewProject },
-      { id: 'open', label: 'Abrir ficheiro', hint: 'Escolhe um projeto .json do dispositivo', icon: <IconOpen size={15} />, onSelect: () => fileRef.current?.click() },
+      { id: 'open', label: 'Abrir ficheiro', hint: 'Escolhe um projeto .dc (nativo) ou .json do dispositivo', icon: <IconOpen size={15} />, onSelect: () => fileRef.current?.click() },
       { id: 'save', label: 'Guardar projeto', hint: dirty ? 'Guardar alterações no projeto (Ctrl+S)' : 'Projeto guardado', icon: <IconSave size={15} />, onSelect: handleSave, primary: dirty },
-      { id: 'export-json', label: 'Exportar ficheiro (.json)', hint: 'Descarrega uma cópia do projeto em .json', icon: <IconDownload size={15} />, onSelect: download },
+      { id: 'export-dc', label: 'Exportar ficheiro (.dc)', hint: 'Formato nativo DC-Simu — só abre nesta aplicação', icon: <IconDownload size={15} />, onSelect: downloadDc },
+      { id: 'export-json', label: 'Exportar ficheiro (.json)', hint: 'Descarrega uma cópia do projeto em .json (legado)', icon: <IconDownload size={15} />, onSelect: download },
       { id: 'add-module', label: 'Adicionar módulo…', hint: 'Abrir 3D, Ladder, GRAFCET ou IEC neste projeto', icon: <IconPlus size={15} />, onSelect: () => void addProjectModule() },
     ],
   }, {
@@ -749,7 +767,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </button>
           </div>
             )}
-          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
+          <input ref={fileRef} type="file" accept=".dc,.json,application/x-dcsimu,application/json" className="hidden" onChange={upload} />
         </div>
         )}
 

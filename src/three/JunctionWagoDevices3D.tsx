@@ -280,36 +280,39 @@ export function CableGlandPG({
   rotation: [number, number, number]
   scale?: number
 }) {
+  // Escala sempre uniforme para evitar deformidade (ovais) quando o parent tem scale não-uniforme.
+  const s = typeof scale === 'number' ? scale : 1
   return (
-    <group position={position} rotation={rotation} scale={scale}>
-      {/* Anel de vedação preto */}
-      <mesh position={[0, 0.025, 0]}>
-        <cylinderGeometry args={[0.135, 0.135, 0.04, 18]} />
-        <meshStandardMaterial color="#1f2937" roughness={0.85} />
+    <group position={position} rotation={rotation} scale={[s, s, s]}>
+      {/* Anel de vedação / junta preta (EPDM) */}
+      <mesh position={[0, 0.022, 0]}>
+        <cylinderGeometry args={[0.128, 0.128, 0.036, 20]} />
+        <meshStandardMaterial color="#1a1f26" roughness={0.88} metalness={0.02} />
       </mesh>
-      {/* Sextavado base do bucim (RAL 7035) */}
-      <mesh position={[0, 0.095, 0]} castShadow>
-        <cylinderGeometry args={[0.145, 0.145, 0.10, 6]} />
-        <meshStandardMaterial color="#c8cdd2" roughness={0.42} metalness={0.05} />
+      {/* Corpo sextavado de latão (base PG) */}
+      <mesh position={[0, 0.09, 0]} castShadow>
+        <cylinderGeometry args={[0.138, 0.138, 0.095, 6]} />
+        <meshStandardMaterial color="#b8860b" roughness={0.32} metalness={0.72} />
       </mesh>
-      {/* Rosca intermediária */}
-      <mesh position={[0, 0.185, 0]}>
-        <cylinderGeometry args={[0.115, 0.115, 0.09, 18]} />
-        <meshStandardMaterial color="#bfc5cb" roughness={0.48} />
+      {/* Rosca / corpo cilíndrico intermédio */}
+      <mesh position={[0, 0.175, 0]}>
+        <cylinderGeometry args={[0.108, 0.108, 0.085, 20]} />
+        <meshStandardMaterial color="#c9a227" roughness={0.36} metalness={0.68} />
       </mesh>
-      {/* Porca cúpula sextavada de aperto */}
-      <mesh position={[0, 0.275, 0]} castShadow>
-        <cylinderGeometry args={[0.132, 0.142, 0.11, 6]} />
-        <meshStandardMaterial color="#d2d7dc" roughness={0.38} metalness={0.05} />
+      {/* Porca de aperto sextavada (latão) */}
+      <mesh position={[0, 0.26, 0]} castShadow>
+        <cylinderGeometry args={[0.128, 0.136, 0.1, 6]} />
+        <meshStandardMaterial color="#d4af37" roughness={0.28} metalness={0.75} />
       </mesh>
-      {/* Cúpula arredondada com borracha de aperto interna */}
-      <mesh position={[0, 0.355, 0]}>
-        <cylinderGeometry args={[0.095, 0.125, 0.06, 16]} />
-        <meshStandardMaterial color="#cbd0d5" roughness={0.4} />
+      {/* Cúpula / domo de aperto com inserção de borracha */}
+      <mesh position={[0, 0.335, 0]}>
+        <cylinderGeometry args={[0.09, 0.118, 0.055, 18]} />
+        <meshStandardMaterial color="#c9a227" roughness={0.34} metalness={0.7} />
       </mesh>
-      <mesh position={[0, 0.39, 0]}>
-        <cylinderGeometry args={[0.064, 0.072, 0.04, 16]} />
-        <meshStandardMaterial color="#111827" roughness={0.82} />
+      {/* Entrada do cabo (borracha preta) */}
+      <mesh position={[0, 0.372, 0]}>
+        <cylinderGeometry args={[0.058, 0.068, 0.038, 16]} />
+        <meshStandardMaterial color="#111827" roughness={0.85} metalness={0.05} />
       </mesh>
     </group>
   )
