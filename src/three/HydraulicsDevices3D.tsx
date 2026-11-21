@@ -269,31 +269,57 @@ export function FloatSwitchFelix3D({
     const tetherTube = new THREE.TubeGeometry(tetherCurve, 28, 4.2 * U, 10, false)
     const verticalDropLen = Math.max(0.12, Math.abs(counterY))
 
-    // Cabo preto H07RN-F estanque a sair FORA do reservatório até à caixa de derivação exterior!
+    // Cabo H07RN-F estanque editável a sair FORA do reservatório até ao bucim da caixa de derivação exterior!
     const exitSide = tankContext.sideSign === 0 ? 1 : tankContext.sideSign
-    const extTarget = tankContext.externalCableTarget
+    const bendX = Number(c.state.cableBendXMm ?? 0) * U
+    const bendY = Number(c.state.cableBendYMm ?? 0) * U
+    const bendZ = Number(c.state.cableBendZMm ?? 0) * U
+    const endOffX = Number(c.state.cableEndXMm ?? 0) * U
+    const endOffY = Number(c.state.cableEndYMm ?? 0) * U
+    const endOffZ = Number(c.state.cableEndZMm ?? 0) * U
+    const cableRad = Math.max(2.5, Math.min(10, Number(c.state.cableDiameterMm ?? 8.8) * 0.5)) * U
+
+    const baseTarget = tankContext.externalCableTarget
       ? new THREE.Vector3(...tankContext.externalCableTarget)
       : new THREE.Vector3(exitSide * (tankR * 0.72 + 0.55), -0.32, 0.14)
+    const extTarget = new THREE.Vector3(
+      baseTarget.x + endOffX,
+      baseTarget.y + endOffY,
+      baseTarget.z + endOffZ,
+    )
+    // Aproximação vertical limpa ao bucim (entra reto na gola PG13.5, nunca fura a parede de lado!)
     const extMid1 = new THREE.Vector3(
-      extTarget.x * 0.35,
-      Math.max(0.32, extTarget.y + 0.38),
-      extTarget.z * 0.35,
+      extTarget.x * 0.42 + bendX,
+      Math.max(0.36, extTarget.y + 0.48) + bendY,
+      extTarget.z * 0.42 + bendZ,
     )
     const extMid2 = new THREE.Vector3(
-      extTarget.x * 0.86,
-      Math.max(0.16, extTarget.y + 0.24),
-      extTarget.z * 0.85,
+      extTarget.x + bendX * 0.25,
+      extTarget.y + 0.30 + bendY * 0.25,
+      extTarget.z + bendZ * 0.25,
     )
+    const extGlandEntry = new THREE.Vector3(extTarget.x, extTarget.y + 0.08, extTarget.z)
+    const extInsideBox = new THREE.Vector3(extTarget.x, extTarget.y - 0.12, extTarget.z)
     const externalCurve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(0, 0.22, 0),
       extMid1,
       extMid2,
-      extTarget,
+      extGlandEntry,
+      tankContext.externalCableTarget ? extInsideBox : extTarget,
     ])
-    const externalCableTube = new THREE.TubeGeometry(externalCurve, 32, 4.4 * U, 10, false)
+    const externalCableTube = new THREE.TubeGeometry(externalCurve, 44, cableRad, 12, false)
 
     return { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen, externalCableTube, extTarget }
-  }, [tankContext])
+  }, [
+    tankContext,
+    c.state.cableBendXMm,
+    c.state.cableBendYMm,
+    c.state.cableBendZMm,
+    c.state.cableEndXMm,
+    c.state.cableEndYMm,
+    c.state.cableEndZMm,
+    c.state.cableDiameterMm,
+  ])
 
   useEffect(() => () => {
     inTankGeom?.tetherTube.dispose()
@@ -303,6 +329,7 @@ export function FloatSwitchFelix3D({
   if (tankContext && inTankGeom) {
     const { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen, externalCableTube, extTarget } = inTankGeom
     const floatScale = Math.max(0.75, Math.min(1.25, tankContext.tankRadius * 0.68))
+    const cableColor = typeof c.state.cableColor === 'string' && c.state.cableColor ? c.state.cableColor : '#18181b'
     return (
       <group
         position={position}
@@ -325,12 +352,13 @@ export function FloatSwitchFelix3D({
           </mesh>
         </group>
 
-        {/* Cabo preto H07RN-F encaminhado FORA do reservatório até à caixa de derivação exterior */}
+        {/* Cabo H07RN-F encaminhado FORA do reservatório até ao bucim da caixa de derivação exterior */}
         <mesh geometry={externalCableTube} castShadow receiveShadow>
-          <meshStandardMaterial color="#18181b" roughness={0.58} metalness={0.08} />
+          <meshStandardMaterial color={cableColor} roughness={0.56} metalness={0.08} />
         </mesh>
 
-        {/* 3 fios de ligação elétrica (Castanho NA · Preto C · Azul NF) protegidos FORA do tanque / na entrada da caixa OBO */}
+        {/* 3 fios de ligação elétrica (Castanho NA · Preto C · Azul NF) — se não entrar numa caixa OBO, mostra pontas livres */}
+        {!tankContext.externalCableTarget && (
         <group position={[extTarget.x, extTarget.y, extTarget.z]}>
           {[
             { x: -10 * U, color: '#78350f' },
@@ -349,6 +377,7 @@ export function FloatSwitchFelix3D({
             </group>
           ))}
         </group>
+        )}
 
         {/* Cabo vertical submerso H07RN-F desde a tampa até ao contrapeso */}
         <mesh position={[0, -verticalDropLen / 2, 0]} castShadow renderOrder={4}>
@@ -1962,6 +1991,350 @@ export function WaterFlowMeterZjLcd3D({
           ))}
         </group>
       )}
+    </group>
+  )
+}
+
+// ============================================================================
+// 7. CAIXA DE FONTE DE ÁGUA / CONTADOR DE ÁGUA 3D (fiel a image-52.png e image-53.png)
+//    - Caixa branca de embutir/parede "ÁGUA" com porta basculante que abre e fecha
+//    - Reaproveita passador ARCO + tubo UPVC + contador eletrónico ZJLCD-BT01 no interior
+//    - Caixa de derivação interna com 3 conectores WAGO 221 transparentes já ligados ao contador!
+// ============================================================================
+
+function createWaterBoxApronTexture(): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null
+  const c = document.createElement('canvas')
+  c.width = 512
+  c.height = 256
+  const ctx = c.getContext('2d')
+  if (!ctx) return null
+
+  ctx.fillStyle = '#eceff3'
+  ctx.fillRect(0, 0, c.width, c.height)
+
+  ctx.strokeStyle = '#cbd2da'
+  ctx.lineWidth = 4
+  ctx.strokeRect(24, 18, 66, 214)
+
+  ctx.font = '800 58px system-ui, -apple-system, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#d3d9e1'
+  ctx.fillText('ÁGUA', 282, 134)
+  ctx.fillStyle = '#f8fafc'
+  ctx.fillText('ÁGUA', 280, 132)
+  ctx.fillStyle = '#dfe4eb'
+  ctx.fillText('ÁGUA', 281, 133)
+
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  tex.needsUpdate = true
+  return tex
+}
+
+export function WaterSupplyBox3D({
+  c,
+  position = [0, 0, 0],
+  onToggleDoor,
+  onToggleValve,
+  onPressSet,
+  onPressClear,
+}: {
+  c: ElectricalComponent
+  position?: [number, number, number]
+  onToggleDoor?: () => void
+  onToggleValve?: () => void
+  onPressSet?: () => void
+  onPressClear?: () => void
+}) {
+  const { invalidate } = useThree()
+  const doorPivotRef = useRef<THREE.Group>(null)
+  const valvePivotRef = useRef<THREE.Group>(null)
+  const doorProgressRef = useRef(c.state.doorOpen !== false ? 1 : 0)
+  const valveAngleRef = useRef(c.state.valveOpen !== false ? 0 : Math.PI / 2)
+
+  const doorOpen = c.state.doorOpen !== false
+  const valveOpen = c.state.valveOpen !== false
+  const windowOpen = Boolean(c.state.windowOpen)
+
+  const W = 460 * U
+  const H = 330 * U
+  const D = 170 * U
+  const wallT = 10 * U
+
+  const apronTex = useMemo(() => createWaterBoxApronTexture(), [])
+  const arcoGripTex = useMemo(() => createArcoTuriaGripTexture(), [])
+  useEffect(() => () => {
+    apronTex?.dispose()
+    arcoGripTex?.dispose()
+  }, [apronTex, arcoGripTex])
+
+  // Sub-componente virtual para reaproveitar o modelo real WaterFlowMeterZjLcd3D no interior!
+  const meterComp = useMemo<ElectricalComponent>(() => ({
+    ...c,
+    id: `${c.id}-inner-meter`,
+    type: 'hydraulicFlowMeter',
+    state: {
+      ...c.state,
+      pipeDN: c.state.pipeDN ?? 'DN32',
+      withCable: true,
+      installOrientation: 'horizontal',
+    },
+  }), [c])
+
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.08)
+    const targetDoor = doorOpen ? 1 : 0
+    if (Math.abs(doorProgressRef.current - targetDoor) > 0.004) {
+      doorProgressRef.current += (targetDoor - doorProgressRef.current) * Math.min(1, dt * 8)
+      if (Math.abs(doorProgressRef.current - targetDoor) <= 0.004) doorProgressRef.current = targetDoor
+      invalidate()
+    }
+    if (doorPivotRef.current) {
+      doorPivotRef.current.rotation.y = doorProgressRef.current * (Math.PI * 0.78)
+    }
+    const targetValve = valveOpen ? 0 : Math.PI / 2
+    if (Math.abs(valveAngleRef.current - targetValve) > 0.005) {
+      valveAngleRef.current += (targetValve - valveAngleRef.current) * Math.min(1, dt * 12)
+      if (Math.abs(valveAngleRef.current - targetValve) <= 0.005) valveAngleRef.current = targetValve
+      invalidate()
+    }
+    if (valvePivotRef.current) {
+      valvePivotRef.current.rotation.y = valveAngleRef.current
+    }
+  })
+
+  const boxWhite = '#eef1f5'
+  const innerWhite = '#dfe4eb'
+  const pipeGrey = '#464d56'
+
+  return (
+    <group position={position} name={`water-supply-box-3d-${c.id}`}>
+      {/* Fundo da caixa com 2 furos de fixação */}
+      <mesh position={[0, 0, -D / 2 + wallT / 2]} castShadow receiveShadow>
+        <boxGeometry args={[W, H, wallT]} />
+        <meshStandardMaterial color={innerWhite} roughness={0.46} />
+      </mesh>
+      {[-W * 0.36, W * 0.32].map((hx, i) => (
+        <mesh key={i} position={[hx, H * 0.34, -D / 2 + wallT + 1 * U]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[7 * U, 7 * U, 3 * U, 14]} />
+          <meshStandardMaterial color="#475569" roughness={0.65} />
+        </mesh>
+      ))}
+
+      {/* 4 paredes laterais */}
+      <mesh position={[0, H / 2 - wallT / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, wallT, D]} />
+        <meshStandardMaterial color={boxWhite} roughness={0.38} />
+      </mesh>
+      <mesh position={[0, -H / 2 + wallT / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, wallT, D]} />
+        <meshStandardMaterial color={boxWhite} roughness={0.38} />
+      </mesh>
+      <mesh position={[-W / 2 + wallT / 2, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[wallT, H - wallT * 2, D]} />
+        <meshStandardMaterial color={boxWhite} roughness={0.38} />
+      </mesh>
+      <mesh position={[W / 2 - wallT / 2, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[wallT, H - wallT * 2, D]} />
+        <meshStandardMaterial color={boxWhite} roughness={0.38} />
+      </mesh>
+
+      {/* Moldura frontal perimetral saliente */}
+      {[
+        [0, H / 2 + 5 * U, W + 24 * U, 16 * U],
+        [0, -H / 2 - 5 * U, W + 24 * U, 16 * U],
+        [-W / 2 - 5 * U, 0, 16 * U, H + 12 * U],
+        [W / 2 + 5 * U, 0, 16 * U, H + 12 * U],
+      ].map(([x, y, bw, bh], idx) => (
+        <mesh key={idx} position={[x, y, D / 2 - 4 * U]} castShadow receiveShadow>
+          <boxGeometry args={[bw, bh, 12 * U]} />
+          <meshStandardMaterial color="#f4f6f9" roughness={0.34} />
+        </mesh>
+      ))}
+
+      {/* Painel frontal inferior fixo com relevo "ÁGUA" e orifício da fechadura */}
+      <group position={[0, -H * 0.24, D / 2 - 5 * U]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[W - wallT * 1.6, H * 0.46, 9 * U]} />
+          <meshStandardMaterial color={boxWhite} roughness={0.38} />
+        </mesh>
+        <mesh position={[0, 0, 5.2 * U]}>
+          <planeGeometry args={[W - wallT * 2.2, H * 0.42]} />
+          <meshStandardMaterial map={apronTex} roughness={0.4} polygonOffset polygonOffsetFactor={-1} />
+        </mesh>
+        <mesh position={[-W * 0.37, H * 0.12, 5.5 * U]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[9 * U, 9 * U, 6 * U, 16]} />
+          <meshStandardMaterial color="#334155" roughness={0.6} />
+        </mesh>
+      </group>
+
+      {/* Conjunto hidráulico interno: tubos UPVC + passador ARCO + contador ZJLCD-BT01 */}
+      <group position={[0, H * 0.08, -D * 0.06]}>
+        <mesh position={[-W * 0.40, -52 * U, 0]} castShadow>
+          <cylinderGeometry args={[17 * U, 17 * U, 104 * U, 20]} />
+          <meshStandardMaterial color={pipeGrey} roughness={0.42} metalness={0.08} />
+        </mesh>
+        <mesh position={[-W * 0.40, 0, 0]} castShadow>
+          <sphereGeometry args={[20 * U, 16, 16]} />
+          <meshStandardMaterial color={pipeGrey} roughness={0.4} />
+        </mesh>
+        <mesh position={[-W * 0.33, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[17 * U, 17 * U, 66 * U, 20]} />
+          <meshStandardMaterial color={pipeGrey} roughness={0.42} />
+        </mesh>
+
+        {/* Passador ARCO TURIA 3000 clicável em 3D */}
+        <group
+          position={[-W * 0.19, 0, 0]}
+          onClick={(e) => {
+            if (!onToggleValve) return
+            e.stopPropagation()
+            onToggleValve()
+          }}
+        >
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[20 * U, 20 * U, 52 * U, 16]} />
+            <meshStandardMaterial color="#d4dce5" metalness={0.88} roughness={0.22} />
+          </mesh>
+          {[-24 * U, 24 * U].map((nx, i) => (
+            <mesh key={i} position={[nx, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[23 * U, 23 * U, 16 * U, 6]} />
+              <meshStandardMaterial color="#c4ced9" metalness={0.86} roughness={0.24} />
+            </mesh>
+          ))}
+          <group ref={valvePivotRef} position={[0, 22 * U, 0]}>
+            <mesh castShadow>
+              <cylinderGeometry args={[6 * U, 7 * U, 16 * U, 12]} />
+              <meshStandardMaterial color="#94a3b8" metalness={0.9} roughness={0.2} />
+            </mesh>
+            <mesh position={[34 * U, 11 * U, 0]} castShadow>
+              <boxGeometry args={[76 * U, 9 * U, 13 * U]} />
+              <meshStandardMaterial map={arcoGripTex} color="#dc2626" roughness={0.34} />
+            </mesh>
+          </group>
+        </group>
+
+        <mesh position={[-W * 0.08, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[17 * U, 17 * U, 44 * U, 20]} />
+          <meshStandardMaterial color={pipeGrey} roughness={0.42} />
+        </mesh>
+
+        {/* Contador Eletrónico de Água ZJLCD-BT01 REAL reaproveitado no interior! */}
+        <group position={[W * 0.11, 2 * U, 6 * U]} scale={0.68}>
+          <WaterFlowMeterZjLcd3D
+            c={meterComp}
+            position={[0, 0, 0]}
+            onPressSet={onPressSet}
+            onPressClear={onPressClear}
+          />
+        </group>
+
+        {/* Tubo UPVC de saída (OUT) */}
+        <mesh position={[W * 0.37, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[17 * U, 17 * U, 86 * U, 20]} />
+          <meshStandardMaterial color={pipeGrey} roughness={0.42} />
+        </mesh>
+        <mesh position={[W * 0.45, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[21 * U, 21 * U, 18 * U, 20]} />
+          <meshStandardMaterial color="#383e46" roughness={0.38} />
+        </mesh>
+      </group>
+
+      {/* Caixa de derivação interna + 3 WAGOs 221 em acrílico transparente já ligados ao contador! */}
+      <group position={[W * 0.16, -H * 0.20, -D * 0.16]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[112 * U, 78 * U, 44 * U]} />
+          <meshStandardMaterial color="#c4ccd5" roughness={0.48} />
+        </mesh>
+        <mesh position={[0, 0, 12 * U]}>
+          <boxGeometry args={[98 * U, 64 * U, 26 * U]} />
+          <meshStandardMaterial color="#8792a0" roughness={0.65} />
+        </mesh>
+        <mesh position={[-18 * U, 45 * U, 4 * U]} castShadow>
+          <cylinderGeometry args={[8 * U, 10 * U, 16 * U, 6]} />
+          <meshStandardMaterial color="#64748b" roughness={0.42} />
+        </mesh>
+        <mesh position={[-18 * U, 74 * U, 6 * U]} castShadow>
+          <cylinderGeometry args={[4 * U, 4 * U, 52 * U, 10]} />
+          <meshStandardMaterial color="#181c22" roughness={0.6} />
+        </mesh>
+        {[
+          { x: -30 * U, wireCol: '#dc2626' },
+          { x: 0, wireCol: '#eab308' },
+          { x: 30 * U, wireCol: '#111827' },
+        ].map(({ x, wireCol }, idx) => (
+          <group key={idx} position={[x, -4 * U, 18 * U]}>
+            <mesh position={[0, -2 * U, 0]}>
+              <boxGeometry args={[20 * U, 5 * U, 10 * U]} />
+              <meshStandardMaterial color="#d97724" metalness={0.92} roughness={0.18} />
+            </mesh>
+            <mesh renderOrder={3}>
+              <boxGeometry args={[23 * U, 15 * U, 16 * U]} />
+              <meshPhysicalMaterial
+                userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+                color="#e0f2fe"
+                transparent
+                opacity={0.26}
+                roughness={0.05}
+                ior={1.58}
+                clearcoat={1.0}
+                depthWrite={false}
+              />
+            </mesh>
+            {[-6 * U, 0, 6 * U].map((lx, j) => (
+              <mesh key={j} position={[lx, 8 * U, 2 * U]}>
+                <boxGeometry args={[4.8 * U, 3.8 * U, 11 * U]} />
+                <meshPhysicalMaterial color="#ff550c" roughness={0.22} clearcoat={0.85} />
+              </mesh>
+            ))}
+            <mesh position={[-4 * U, 22 * U, 0]}>
+              <cylinderGeometry args={[2.1 * U, 2.1 * U, 34 * U, 8]} />
+              <meshStandardMaterial color={wireCol} roughness={0.45} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+
+      {/* Porta frontal basculante que abre e fecha (clicar na porta alterna!) */}
+      <group
+        ref={doorPivotRef}
+        position={[W / 2 - 4 * U, 0, D / 2 + 2 * U]}
+        onClick={(e) => {
+          if (!onToggleDoor) return
+          e.stopPropagation()
+          onToggleDoor()
+        }}
+      >
+        <group position={[-(W / 2 - 4 * U), 0, 0]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[W - 6 * U, H - 6 * U, 10 * U]} />
+            <meshStandardMaterial color="#f1f4f8" roughness={0.35} />
+          </mesh>
+          <group position={[W * 0.06, H * 0.17, 6 * U]} rotation={[windowOpen ? -Math.PI * 0.45 : 0, 0, 0]}>
+            <mesh castShadow>
+              <boxGeometry args={[W * 0.52, H * 0.34, 6 * U]} />
+              <meshStandardMaterial color="#f6f8fb" roughness={0.32} />
+            </mesh>
+            {[-W * 0.16, W * 0.16].map((hx, i) => (
+              <mesh key={i} position={[hx, H * 0.17, 1 * U]}>
+                <boxGeometry args={[8 * U, 6 * U, 7 * U]} />
+                <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.25} />
+              </mesh>
+            ))}
+          </group>
+          <mesh position={[-W * 0.42, 0, -4 * U]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[6 * U, 6 * U, 14 * U, 12]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.88} roughness={0.22} />
+          </mesh>
+        </group>
+      </group>
+
+      <Text position={[0, -H / 2 - 14 * U, D / 2]} fontSize={0.08} color="#1e293b" anchorX="center" anchorY="top">
+        {`${c.ref} · Fonte de Água · ${valveOpen ? 'ABERTA' : 'FECHADA'} · ${Number(c.state.flowRateLpm ?? 0).toFixed(1)} L/m`}
+      </Text>
     </group>
   )
 }

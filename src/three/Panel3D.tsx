@@ -87,11 +87,34 @@ import {
 } from './SchneiderComponents3D'
 import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
-import { FloatSwitchFelix3D, type FloatSwitchTankContext, HydraulicTee3D, HydraulicValve3D, WaterFlowMeterZjLcd3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
+import {
+  FloatSwitchFelix3D,
+  type FloatSwitchTankContext,
+  HydraulicTee3D,
+  HydraulicValve3D,
+  WaterFlowMeterZjLcd3D,
+  WaterPumpCalpeda3D,
+  WaterSupplyBox3D,
+  WaterTankTransparent3D,
+} from './HydraulicsDevices3D'
 import { waterTankDimensionsOf } from './hydraulicsModel'
 import { OboJunctionBox3D, Wago221Connector3D } from './JunctionWagoDevices3D'
 import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
 import { WireTrayElbow903D, WireTrayRiser903D, WireTrayStraight3D, WireTrayTee3D } from './WireMeshTrayDevices3D'
+import {
+  ConduitCorrugated3D,
+  ConduitVdsElbow903D,
+  ConduitVdsStraight3D,
+  PipeClampStandalone3D,
+} from './ConduitDevices3D'
+import { TriProofLedBatten3D } from './TriProofBatten3D'
+import { EditableFieldCable3D, isEditableCableDeviceType } from './EditableCable3D'
+import {
+  computeFactoryRoomBounds,
+  isSolidCollisionComponentType,
+  resolveFactoryPlacement3D,
+  type SolidObstacle3D,
+} from './factoryPhysics'
 import {
   ElectricCylinderEpcs3D,
   PneumaticCylinder3D,
@@ -3352,6 +3375,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const runState = useSimStore((s) => s.sim.runState)
   const demoMode = useSimStore((s) => s.demoMode)
   const viewLocked = useSimStore((s) => s.viewLocked)
+  const allowOutsideFactory = useSimStore((s) => s.allowOutsideFactory)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = demoMode ? 'navigate' : tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
   // Regra GLOBAL de manobra (store/manobra): nenhum aparelho se atua antes de ▶ —
@@ -3989,6 +4013,46 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }
   }
 
+  // Limites interiores reais do pavilhão fabril 3D (espelhando FactoryEnvironment3D)
+  const factoryPlateSpan =
+    Number.isFinite(panelOnlyBox.minX) && Number.isFinite(panelOnlyBox.maxX)
+      ? Math.max(12, panelOnlyBox.maxX - panelOnlyBox.minX)
+      : 18
+  const factoryRoomBounds = computeFactoryRoomBounds(factoryPlateSpan, factoryWallFrontZ, factoryFloorY)
+
+  // Resolver sobreposições iniciais entre componentes sólidos (ex.: 2 reservatórios de água) em QUALQUER modo (Canvas normal ou Ambiente fabril)
+  // e manter tudo dentro dos limites interiores do pavilhão fabril quando `factoryMode` está ativo!
+  {
+    const placedSolids: SolidObstacle3D[] = []
+    for (const component of components) {
+      if (isPanelBound(component) || component.panelMount?.enclosureId) continue
+      const pivot = panelPivots[component.id]
+      if (!pivot) continue
+      const half = componentHalfExtents(component, orientationFor(component))
+      const sizeU = { x: half.x * 2, y: half.y * 2, z: half.z * 2 }
+      const floorLocked = factoryMode && (isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type))
+      const resolved = resolveFactoryPlacement3D({
+        movingId: component.id,
+        movingType: component.type,
+        candidate: { x: pivot.x, y: pivot.y, z: pivot.z },
+        movingSize: sizeU,
+        obstacles: placedSolids,
+        bounds: factoryRoomBounds,
+        allowOutside: !factoryMode || allowOutsideFactory,
+        floorLocked,
+      })
+      pivot.set(resolved.x, floorLocked && !allowOutsideFactory ? factoryFloorY + half.y : resolved.y, resolved.z)
+      if (isSolidCollisionComponentType(component.type)) {
+        placedSolids.push({
+          id: component.id,
+          type: component.type,
+          center: { x: pivot.x, y: pivot.y, z: pivot.z },
+          size: sizeU,
+        })
+      }
+    }
+  }
+
   // Montagem física real de bóias (`floatSwitch`) DENTRO do reservatório (`waterTank`) associado!
   const floatTankContexts: Record<string, FloatSwitchTankContext> = {}
   const waterTanks3D = components.filter((c) => c.type === 'waterTank' && !!panelPivots[c.id])
@@ -4055,9 +4119,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       if (targetBox) {
         const bp = panelPivots[targetBox.id]
         const bSz = JUNCTION_WAGO_SIZE_MM[targetBox.type as JunctionBoxType]
-        const boxTopY = bp.y + (bSz.y * PANEL_UNITS_PER_MM) * 0.52
+        // Alinhar exatamente com o bucim superior real (na OBO T60 o bucim esquerdo está em -W*0.24, nunca furar a parede entre bucins!)
+        const glandOffsetX =
+          targetBox.type === 'junctionBoxOboT60'
+            ? -(bSz.x * PANEL_UNITS_PER_MM) * 0.24
+            : 0
+        const boxTopY = bp.y + (bSz.y * PANEL_UNITS_PER_MM) * 0.62
         const fp = panelPivots[fs.id]
-        externalCableTarget = [bp.x - fp.x, boxTopY - fp.y, bp.z - fp.z]
+        externalCableTarget = [bp.x + glandOffsetX - fp.x, boxTopY - fp.y, bp.z - fp.z]
       }
 
       floatTankContexts[fs.id] = {
@@ -4235,11 +4304,43 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         ? point.z
         : (component.panel3DPosition?.z ?? currentPivot?.z ?? frontPivot(component)[2])
       // Nunca atravessar a parede traseira do pavilhão; mas pode afastar-se livremente para a frente (+Z)!
-      const minZ = factoryMode ? factoryWallFrontZ + half.z + 0.14 : -18
+      const minZ = factoryMode && !store.allowOutsideFactory ? factoryWallFrontZ + half.z + 0.14 : -48
       const clampedZ = Math.max(minZ, rawZ)
-      const nextY = (factoryMode && (isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type)))
+      const floorLocked = factoryMode && (isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type))
+      const rawY = floorLocked && !store.allowOutsideFactory
         ? factoryFloorY + half.y
         : targetPt.y
+      // Prevenção de colisões entre equipamentos sólidos (ex.: reservatórios) em QUALQUER modo + limites do pavilhão fabril
+      let finalPos = { x: targetPt.x, y: rawY, z: clampedZ }
+      {
+        const obstacles: SolidObstacle3D[] = []
+        for (const other of store.components) {
+          if (other.id === id || !isSolidCollisionComponentType(other.type)) continue
+          const op = other.panel3DPosition ?? panelPivots[other.id]
+          if (!op) continue
+          const oh = componentHalfExtents(other, orientationFor(other))
+          obstacles.push({
+            id: other.id,
+            type: other.type,
+            center: { x: op.x, y: op.y, z: op.z },
+            size: { x: oh.x * 2, y: oh.y * 2, z: oh.z * 2 },
+          })
+        }
+        finalPos = resolveFactoryPlacement3D({
+          movingId: id,
+          movingType: component.type,
+          candidate: finalPos,
+          movingSize: { x: half.x * 2, y: half.y * 2, z: half.z * 2 },
+          obstacles,
+          bounds: factoryRoomBounds,
+          allowOutside: !factoryMode || store.allowOutsideFactory,
+          floorLocked,
+        })
+        if (floorLocked && !store.allowOutsideFactory) {
+          finalPos.y = factoryFloorY + half.y
+        }
+      }
+      targetPt = { x: finalPos.x, y: finalPos.y }
       // Se o utilizador arrastar uma bóia instalada para longe do reservatório, solta-a suavemente
       if (component.type === 'floatSwitch' && component.state.linkedTankId) {
         const linked = store.components.find((c) => c.id === component.state.linkedTankId)
@@ -4247,13 +4348,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         if (linked && tp) {
           const td = waterTankDimensionsOf(linked.state)
           const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
-          if (Math.hypot(targetPt.x - tp.x, clampedZ - tp.z) > tankR + 1.8) {
+          if (Math.hypot(finalPos.x - tp.x, finalPos.z - tp.z) > tankR + 1.8) {
             store.setComponentState(id, { linkedTankId: '', detachedFromTank: true })
           }
         }
       }
       store.updateComponent(id, {
-        panel3DPosition: { x: targetPt.x, y: nextY, z: clampedZ },
+        panel3DPosition: { x: finalPos.x, y: finalPos.y, z: finalPos.z },
       })
     }
     // Durante o arrasto o equipamento acompanha o ponteiro livremente (passando por cima de calhas DIN/técnicas e para fora de quadros);
@@ -5468,6 +5569,40 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <WireTrayTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'wireTrayRiser90') {
             content = <WireTrayRiser903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'conduitVdsStraight') {
+            content = <ConduitVdsStraight3D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'conduitVdsElbow90') {
+            content = <ConduitVdsElbow903D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'conduitCorrugated') {
+            content = <ConduitCorrugated3D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pipeClampPvc' || c.type === 'pipeClampMetalEpdm' || c.type === 'pipeClampMetalScrew') {
+            content = <PipeClampStandalone3D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'triProofLedBatten') {
+            content = (
+              <TriProofLedBatten3D
+                component={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+              />
+            )
+          } else if (c.type === 'waterSupplyBox') {
+            content = (
+              <WaterSupplyBox3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onToggleDoor={() => {
+                  const st = useSimStore.getState()
+                  const patch = { doorOpen: !(c.state.doorOpen !== false) }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+                onToggleValve={() => {
+                  const st = useSimStore.getState()
+                  const patch = { valveOpen: !(c.state.valveOpen !== false) }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+              />
+            )
           } else if (c.type === 'hydraulicFlowMeter') {
             content = (
               <WaterFlowMeterZjLcd3D
@@ -5531,6 +5666,38 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           } else if ((c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR') && getCommandModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />}><Suspense fallback={null}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} /></Suspense></Model3DErrorBoundary>
           else if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat'].includes(c.type)) content = <Sensor3D c={c} x={x} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered }))} />
           else content = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
+          // Cabo de campo editável 3D para torres de sinalização, sensores, luminárias e bombas/atuadores (quando ativo)
+          if (
+            isEditableCableDeviceType(c.type) &&
+            c.type !== 'triProofLedBatten' &&
+            c.type !== 'floatSwitch' &&
+            c.state.cableEnabled === true &&
+            basePivots[c.id]
+          ) {
+            const dimU = component3DDimensions(c)
+            const bp = basePivots[c.id]
+            const exitRaw = String(c.state.cableExitDir ?? 'bottom')
+            const ox = exitRaw === 'left' ? -dimU.x * 0.5 : exitRaw === 'right' ? dimU.x * 0.5 : 0
+            const oy = exitRaw === 'top' ? dimU.y * 0.5 : exitRaw === 'bottom' ? -dimU.y * 0.5 : 0
+            const oz = exitRaw === 'back' ? -dimU.z * 0.5 : 0
+            content = (
+              <group>
+                {content}
+                <group position={[bp.x, bp.y, bp.z]}>
+                  <EditableFieldCable3D
+                    component={c}
+                    anchor={[ox, oy, oz]}
+                    defaultConfig={{
+                      enabled: true,
+                      exitDir: 'bottom',
+                      lengthMm: c.type === 'towerLight' ? 500 : 420,
+                      diameterMm: c.type === 'proximitySensor' || c.type === 'photoSensor' ? 6 : 8,
+                    }}
+                  />
+                </group>
+              </group>
+            )
+          }
           return wrapOriented(c, content)
         })}
         {/* Cabeçalhos unificados e pontes FBS 3D das réguas de bornes — zero sobreposição de TAGs */}

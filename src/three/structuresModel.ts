@@ -12,6 +12,31 @@ export type StructureComponentType =
   | 'wireTrayElbow90'
   | 'wireTrayTee'
   | 'wireTrayRiser90'
+  | 'conduitVdsStraight'
+  | 'conduitVdsElbow90'
+  | 'conduitCorrugated'
+  | 'pipeClampPvc'
+  | 'pipeClampMetalEpdm'
+  | 'pipeClampMetalScrew'
+
+export type ConduitStructureType =
+  | 'conduitVdsStraight'
+  | 'conduitVdsElbow90'
+  | 'conduitCorrugated'
+  | 'pipeClampPvc'
+  | 'pipeClampMetalEpdm'
+  | 'pipeClampMetalScrew'
+
+export function isConduitStructureType(type: string): type is ConduitStructureType {
+  return (
+    type === 'conduitVdsStraight' ||
+    type === 'conduitVdsElbow90' ||
+    type === 'conduitCorrugated' ||
+    type === 'pipeClampPvc' ||
+    type === 'pipeClampMetalEpdm' ||
+    type === 'pipeClampMetalScrew'
+  )
+}
 
 export type CableTrayComponentType =
   | 'cableTrayStraight'
@@ -48,7 +73,8 @@ export function isStructureComponentType(type: string): type is StructureCompone
     type === 'cableTrayCross' ||
     type === 'cableTrayVerticalBend' ||
     type === 'cableTrayRiser90' ||
-    isWireMeshTrayType(type)
+    isWireMeshTrayType(type) ||
+    isConduitStructureType(type)
   )
 }
 
@@ -142,6 +168,20 @@ export function structureComponentSizeMm(
     const span = d.radiusMm + d.sideHeightMm + 150
     return { x: span, y: span, z: d.widthMm }
   }
+  if (type === 'conduitVdsStraight' || type === 'conduitCorrugated') {
+    const dMm = Math.max(16, Math.min(63, Number(state?.diameterMm ?? 25)))
+    const lMm = Math.max(250, Math.min(3000, Number(state?.lengthMm ?? 1000)))
+    return { x: lMm, y: dMm + 28, z: dMm + 28 }
+  }
+  if (type === 'conduitVdsElbow90') {
+    const dMm = Math.max(16, Math.min(63, Number(state?.diameterMm ?? 25)))
+    const span = Math.max(160, Math.round(dMm * 5.2))
+    return { x: span, y: dMm + 20, z: span }
+  }
+  if (type === 'pipeClampPvc' || type === 'pipeClampMetalEpdm' || type === 'pipeClampMetalScrew') {
+    const dMm = Math.max(16, Math.min(63, Number(state?.diameterMm ?? 25)))
+    return { x: dMm + 24, y: dMm + 36, z: dMm + 28 }
+  }
   return null
 }
 
@@ -162,6 +202,11 @@ export function computeQuickAttach3D(
   if (isCableTrayComponentType(nextType)) {
     statePatch.widthMm = inheritedWidth
     statePatch.sideHeightMm = inheritedSideH
+  }
+  if (isConduitStructureType(nextType)) {
+    statePatch.diameterMm = Number(anchor.state.diameterMm) || 25
+    statePatch.clampStyle = anchor.state.clampStyle ?? 'pvc-clip'
+    statePatch.autoCouplers = true
   }
   if (nextType === 'industrialWall' && anchor.type === 'industrialWall') {
     statePatch.heightMm = anchor.state.heightMm ?? 3200
@@ -342,5 +387,47 @@ export const STRUCTURES_DATASHEETS: Record<StructureComponentType, StructureData
     manufacturer: 'Cablofil / OBO GR-Magic',
     model: 'Riser Vertical 90° Aramado',
     summary: 'Subida/descida vertical 90° interior ou exterior em malha aramada eletrozincada Ø4,8 mm',
+  },
+  conduitVdsStraight: {
+    path: '/datasheets/structures/conduit-vds-corrugated-clamps-3d.pdf',
+    name: 'Tubo VDS Rígido PVC-U c/ Serigrafia, Encaixes e Abraçadeiras (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu / EN 61386-21',
+    model: 'Tubo VDS Rígido Ø16–Ø50 mm · 750N',
+    summary: 'PVC-U rígido cinzento com serigrafia técnica, uniões fêmea automáticas e 0–10 abraçadeiras PVC ou metálicas',
+  },
+  conduitVdsElbow90: {
+    path: '/datasheets/structures/conduit-vds-corrugated-clamps-3d.pdf',
+    name: 'Curva 90° Tubo VDS Rígido c/ Encaixes Automáticos (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu / EN 61386-21',
+    model: 'Curva VDS 90° · Ø16–Ø50 mm',
+    summary: 'Curva rígida 90° em PVC-U com bolsas de encaixe fêmea automáticas nas duas extremidades',
+  },
+  conduitCorrugated: {
+    path: '/datasheets/structures/conduit-vds-corrugated-clamps-3d.pdf',
+    name: 'Tubo Corrugado Flexível Anelado Ø16–Ø40 mm (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu / EN 61386-22',
+    model: 'Tubo Corrugado Flexível 320N / 750N',
+    summary: 'Tubo flexível corrugado preto/cinza/laranja, reto ou curvo até 180°, com abraçadeiras opcionais',
+  },
+  pipeClampPvc: {
+    path: '/datasheets/structures/conduit-vds-corrugated-clamps-3d.pdf',
+    name: 'Abraçadeira Clip PVC VDS Modular (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu / VDS',
+    model: 'Clip PVC Encaixe Rápido Ø16–Ø50 mm',
+    summary: 'Abraçadeira em PVC cinzento com encaixe lateral modular em rabo-de-andorinha e furo central',
+  },
+  pipeClampMetalEpdm: {
+    path: '/datasheets/structures/conduit-vds-corrugated-clamps-3d.pdf',
+    name: 'Abraçadeira Metálica Zincada c/ Borracha EPDM (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu / DIN 3567',
+    model: 'Abraçadeira Isófona EPDM M8/M10',
+    summary: 'Cinta metálica galvanizada bipartida com perfil antivibração em borracha preta EPDM e porca soldada M8/M10',
+  },
+  pipeClampMetalScrew: {
+    path: '/datasheets/structures/conduit-vds-corrugated-clamps-3d.pdf',
+    name: 'Abraçadeira Metálica Simples c/ Espigão Roscado (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu / Fixação',
+    model: 'Abraçadeira Metálica 2 Parafusos + Espigão',
+    summary: 'Abraçadeira em aço galvanizado de 2 parafusos laterais com espigão roscado para bucha/parede',
   },
 }

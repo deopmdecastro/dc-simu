@@ -358,6 +358,9 @@ interface Store extends CircuitState {
   viewLocked: boolean
   setViewLocked: (on: boolean) => void
   toggleViewLocked: () => void
+  /** Quando false (por defeito), impede mover equipamentos para fora das paredes/chão/teto do pavilhão fabril. */
+  allowOutsideFactory: boolean
+  setAllowOutsideFactory: (allow: boolean) => void
   /** Guarda o projeto atual no navegador (localStorage) sob este nome, criando
    *  ou sobrescrevendo. Usado pelo Ctrl+S e pelo painel "Projetos". */
   saveProjectAs: (name: string) => boolean
@@ -1018,10 +1021,10 @@ function runOneTick(state: Store, dtMs: number) {
     if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'pilotLightAd22' || c.type === 'pilotLightSchneiderIil1p' || c.type === 'buzzer') {
       c.state.on = isLoadPowered(c, pass3.energizedTerminals)
     }
-    if (c.type === 'lampIncandescentE27' || c.type === 'lampFluorescentE27' || c.type === 'lampLedE27') {
+    if (c.type === 'lampIncandescentE27' || c.type === 'lampFluorescentE27' || c.type === 'lampLedE27' || c.type === 'triProofLedBatten') {
       const ctx: IndustrialElectricalContext = { components, live: pass3.energizedTerminals, adjacency: pass3.reachable, phases: indicationPhases }
       const input = industrialInput(c, 'L', 'N', ctx)
-      c.state.on = !input.dc && input.voltage >= 110 && input.voltage <= 260
+      c.state.on = Boolean((!input.dc && input.voltage >= 110 && input.voltage <= 260) || (c.type === 'triProofLedBatten' && c.state.testOn))
     }
     if (c.type === 'pilotLightSchneiderIil1p' || c.type === 'pilotLightSchneiderIil3p') {
       const ctx: IndustrialElectricalContext = { components, live: pass3.energizedTerminals, adjacency: pass3.reachable, phases: indicationPhases }
@@ -1231,6 +1234,12 @@ function runOneTick(state: Store, dtMs: number) {
         activeHydraulicTerminals.add(outT.id)
         pumpFlowQueue.push(outT.id)
       }
+    } else if (p.type === 'waterSupplyBox' && p.state.mainsSupplyOn !== false && p.state.valveOpen !== false) {
+      const outT = p.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')
+      if (outT && !activeHydraulicTerminals.has(outT.id)) {
+        activeHydraulicTerminals.add(outT.id)
+        pumpFlowQueue.push(outT.id)
+      }
     }
   }
   while (pumpFlowQueue.length > 0) {
@@ -1259,16 +1268,25 @@ function runOneTick(state: Store, dtMs: number) {
     if (tk.state.outletValveOpen) lvl -= dtSec * 10
     tk.state.levelPct = Math.max(0, Math.min(100, Math.round(lvl * 10) / 10))
   }
-  // Contadores de água eletrónicos ZJLCD-BT01: cálculo de caudal instantâneo (L/min), volume parcial e totalizador (L)
+  // Contadores de água eletrónicos ZJLCD-BT01 e Caixa / Fonte de Água: cálculo de caudal instantâneo (L/min), volume parcial e totalizador (L)
   for (const fm of components) {
-    if (fm.type !== 'hydraulicFlowMeter') continue
+    if (fm.type !== 'hydraulicFlowMeter' && fm.type !== 'waterSupplyBox') continue
     const inT = fm.terminals.find((t) => t.label === 'IN' || t.kind === 'hydraulic-in')
     const outT = fm.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')
-    const hasFlow = Boolean(
-      (inT && activeHydraulicTerminals.has(inT.id)) ||
-      (outT && activeHydraulicTerminals.has(outT.id)) ||
-      fm.state.manualTestFlow,
-    )
+    let hasFlow = false
+    if (fm.type === 'waterSupplyBox') {
+      const supplyActive = fm.state.mainsSupplyOn !== false && fm.state.valveOpen !== false
+      const hasDownstreamPipe = Boolean(
+        outT && hydraulicWires.some((hw) => hw.fromTerminalId === outT.id || hw.toTerminalId === outT.id),
+      )
+      hasFlow = Boolean(supplyActive && (hasDownstreamPipe || fm.state.manualTestFlow))
+    } else {
+      hasFlow = Boolean(
+        (inT && activeHydraulicTerminals.has(inT.id)) ||
+        (outT && activeHydraulicTerminals.has(outT.id)) ||
+        fm.state.manualTestFlow,
+      )
+    }
     const dn = String(fm.state.pipeDN ?? 'DN32')
     const nominalLpm = dn === 'DN25' ? 38 : dn === 'DN40' ? 95 : dn === 'DN50' ? 150 : dn === 'DN65' ? 240 : dn === 'DN80' ? 360 : 60
     const flowLpm = hasFlow ? Math.round((nominalLpm * 0.65) * 10) / 10 : 0
@@ -6014,6 +6032,8 @@ export const useSimStore = create<Store>((set, get) => {
   viewLocked: false,
   setViewLocked: (on) => set({ viewLocked: !!on }),
   toggleViewLocked: () => set((s) => ({ viewLocked: !s.viewLocked })),
+  allowOutsideFactory: false,
+  setAllowOutsideFactory: (allow) => set({ allowOutsideFactory: !!allow }),
 
   saveProjectAs: (name) => {
     const trimmed = name.trim()

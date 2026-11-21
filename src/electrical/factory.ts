@@ -1324,6 +1324,124 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       model: 'ZJLCD-BT01 · PVC DN32',
     },
   },
+  waterSupplyBox: {
+    category: 'power', paletteName: 'Caixa / Fonte de Água 3D · ARCO + ZJLCD-BT01 + WAGO 221', group: 'Hidráulica', tag: 'AG', w: 184, h: 132,
+    terminals: [
+      T('OUT', 'hydraulic-out', 0.96, 0.56, { position3D: { x: 0.98, y: 0.48, z: 0.44 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 11 }),
+      T('+24V', 'power-in', 0.30, 0.96, { position3D: { x: 0.30, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#dc2626', diameter: 8 }),
+      T('PULSE', 'io', 0.50, 0.96, { position3D: { x: 0.50, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#eab308', diameter: 8 }),
+      T('GND', 'neutral', 0.70, 0.96, { position3D: { x: 0.70, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#111827', diameter: 8 }),
+    ],
+    defaultState: {
+      doorOpen: true,
+      readingHatchOpen: false,
+      valveOpen: true,
+      mainsSupplyOn: true,
+      pressureBar: 3.5,
+      pipeDN: 'DN32',
+      singleVolumeL: 0,
+      totalVolumeL: 124.5,
+      flowRateLpm: 0,
+      flowing: false,
+      manualTestFlow: false,
+      pulseHigh: false,
+      internalBoxCoverOpen: true,
+      manufacturer: 'DC-Simu Hidráulica',
+      model: 'Caixa Água ABS · ARCO + ZJLCD-BT01 + WAGO 221',
+    },
+  },
+  triProofLedBatten: {
+    category: 'signaling', paletteName: 'Luminária LED Tri-Proof IP65 · Potência & CCT Ajustável (Linkable)', group: 'Iluminação', tag: 'H', w: 196, h: 64,
+    terminals: [
+      T('L', 'power-in', 0.06, 0.24, { position3D: { x: 0.04, y: 0.54, z: 0.50 }, face: 'left', terminalType: 'screw', color: '#8b4513', diameter: 8 }),
+      T('N', 'neutral', 0.06, 0.50, { position3D: { x: 0.04, y: 0.44, z: 0.50 }, face: 'left', terminalType: 'screw', color: '#2563eb', diameter: 8 }),
+      T('PE', 'earth', 0.06, 0.76, { position3D: { x: 0.04, y: 0.34, z: 0.50 }, face: 'left', terminalType: 'screw', color: '#16a34a', diameter: 8 }),
+      T('L_OUT', 'power-out', 0.94, 0.24, { position3D: { x: 0.96, y: 0.54, z: 0.50 }, face: 'right', terminalType: 'screw', color: '#8b4513', diameter: 8 }),
+      T('N_OUT', 'neutral', 0.94, 0.50, { position3D: { x: 0.96, y: 0.44, z: 0.50 }, face: 'right', terminalType: 'screw', color: '#2563eb', diameter: 8 }),
+      T('PE_OUT', 'earth', 0.94, 0.76, { position3D: { x: 0.96, y: 0.34, z: 0.50 }, face: 'right', terminalType: 'screw', color: '#16a34a', diameter: 8 }),
+    ],
+    defaultState: {
+      on: false,
+      testOn: false,
+      wattage: 40,
+      cctK: 4000,
+      linkable: true,
+      ipRating: 'IP65',
+      cableEnabled: true,
+      cableLengthMm: 650,
+      cableExitDir: 'left',
+      cableColor: '#1f2937',
+      manufacturer: 'DC-Simu Iluminação',
+      model: 'Tri-Proof LED IP65 · 18–60W · 3000K–6500K · Linkable',
+    },
+  },
+  conduitVdsStraight: {
+    category: 'terminal', paletteName: 'Tubo VDS Rígido PVC c/ Serigrafia & Encaixes Automáticos', group: 'Tubos VDS & Abraçadeiras', tag: 'TV', w: 180, h: 48,
+    terminals: [],
+    defaultState: {
+      diameterMm: 25,
+      lengthMm: 1000,
+      autoCouplers: true,
+      clampCount: 2,
+      clampStyle: 'pvc-clip',
+      serigraphy: 'VDS PVC-U Ø25mm · EN 61386-21 · 750N · IP65',
+      manufacturer: 'DC-Simu / EN 61386-21',
+      model: 'Tubo VDS Rígido Ø25 mm',
+    },
+  },
+  conduitVdsElbow90: {
+    category: 'terminal', paletteName: 'Curva 90° Tubo VDS PVC c/ Encaixes Automáticos', group: 'Tubos VDS & Abraçadeiras', tag: 'CV', w: 108, h: 108,
+    terminals: [],
+    defaultState: {
+      diameterMm: 25,
+      autoCouplers: true,
+      clampCount: 0,
+      clampStyle: 'pvc-clip',
+      manufacturer: 'DC-Simu / EN 61386-21',
+      model: 'Curva VDS 90° Ø25 mm',
+    },
+  },
+  conduitCorrugated: {
+    category: 'terminal', paletteName: 'Tubo Corrugado Flexível Anelado Ø16–Ø40 mm', group: 'Tubos VDS & Abraçadeiras', tag: 'TC', w: 180, h: 52,
+    terminals: [],
+    defaultState: {
+      diameterMm: 25,
+      lengthMm: 1000,
+      bendAngleDeg: 0,
+      color: '#1b1f25',
+      clampCount: 2,
+      clampStyle: 'pvc-clip',
+      manufacturer: 'DC-Simu / EN 61386-22',
+      model: 'Tubo Corrugado Flexível Ø25 mm',
+    },
+  },
+  pipeClampPvc: {
+    category: 'terminal', paletteName: 'Abraçadeira Clip PVC VDS Encaixe Rápido', group: 'Tubos VDS & Abraçadeiras', tag: 'AB', w: 72, h: 72,
+    terminals: [],
+    defaultState: {
+      diameterMm: 25,
+      manufacturer: 'DC-Simu / VDS',
+      model: 'Clip PVC VDS Ø25 mm',
+    },
+  },
+  pipeClampMetalEpdm: {
+    category: 'terminal', paletteName: 'Abraçadeira Metálica Galvanizada c/ Borracha EPDM', group: 'Tubos VDS & Abraçadeiras', tag: 'AB', w: 76, h: 76,
+    terminals: [],
+    defaultState: {
+      diameterMm: 25,
+      manufacturer: 'DC-Simu / DIN 3567',
+      model: 'Abraçadeira Isófona EPDM Ø25 mm',
+    },
+  },
+  pipeClampMetalScrew: {
+    category: 'terminal', paletteName: 'Abraçadeira Metálica Simples c/ Espigão Roscado', group: 'Tubos VDS & Abraçadeiras', tag: 'AB', w: 76, h: 76,
+    terminals: [],
+    defaultState: {
+      diameterMm: 25,
+      manufacturer: 'DC-Simu / Fixação',
+      model: 'Abraçadeira Metálica Espigão Ø25 mm',
+    },
+  },
   junctionBoxOboT60: {
     category: 'terminal', paletteName: 'Caixa de derivação OBO T60 · IP66 (114×114×57 mm)', group: 'Caixas OBO & WAGO 221', tag: 'CX', w: 116, h: 116,
     terminals: [],
@@ -2611,6 +2729,109 @@ export function upgradeTerminalAssemblyPositions(c: ElectricalComponent): Electr
 
 export function terminalByLabel(c: ElectricalComponent, label: string): Terminal | undefined {
   return c.terminals.find((t) => t.label === label)
+}
+
+export interface PaletteSubgroup {
+  id: string
+  label: string
+  items: Array<{ type: ComponentType; name: string; category: ComponentCategory }>
+}
+
+export interface PaletteDomain {
+  id: 'eletricidade' | 'hidraulica' | 'pneumatica' | 'serralharia'
+  label: string
+  icon: string
+  accent: string
+  subgroups: PaletteSubgroup[]
+}
+
+/**
+ * Hierarquia oficial da Biblioteca de Componentes por Domínio -> Subcategoria:
+ * Eletricidade, Hidráulica, Pneumática e Serralharia & Infraestrutura.
+ */
+export function paletteDomains(): PaletteDomain[] {
+  const domains: PaletteDomain[] = [
+    { id: 'eletricidade', label: 'Eletricidade', icon: '⚡', accent: '#f59e0b', subgroups: [] },
+    { id: 'hidraulica', label: 'Hidráulica', icon: '💧', accent: '#0284c7', subgroups: [] },
+    { id: 'pneumatica', label: 'Pneumática', icon: '💨', accent: '#06b6d4', subgroups: [] },
+    { id: 'serralharia', label: 'Serralharia & Infraestrutura', icon: '🏗️', accent: '#64748b', subgroups: [] },
+  ]
+  const byId = Object.fromEntries(domains.map((d) => [d.id, d])) as Record<PaletteDomain['id'], PaletteDomain>
+  const subMap = new Map<string, PaletteSubgroup>()
+
+  const pushTo = (
+    domainId: PaletteDomain['id'],
+    subId: string,
+    subLabel: string,
+    item: { type: ComponentType; name: string; category: ComponentCategory },
+  ) => {
+    const key = `${domainId}:${subId}`
+    let sg = subMap.get(key)
+    if (!sg) {
+      sg = { id: subId, label: subLabel, items: [] }
+      subMap.set(key, sg)
+      byId[domainId].subgroups.push(sg)
+    }
+    sg.items.push(item)
+  }
+
+  for (const [type, tpl] of Object.entries(TEMPLATES) as Array<[ComponentType, ComponentTemplate]>) {
+    if (hiddenCatalogTypes.has(type)) continue
+    const item = { type, name: tpl.paletteName, category: tpl.category }
+
+    if (tpl.group === 'Hidráulica') {
+      if (type === 'waterSupplyBox' || type === 'hydraulicFlowMeter') {
+        pushTo('hidraulica', 'hid-abastecimento', 'Abastecimento & Medição', item)
+      } else {
+        pushTo('hidraulica', 'hid-bombagem', 'Reservatórios, Bombas & Válvulas', item)
+      }
+      continue
+    }
+
+    if (tpl.group === 'Pneumática') {
+      if (type === 'pneumaticFrl' || type === 'pneumaticManifold' || type === 'pneumaticTee') {
+        pushTo('pneumatica', 'pneu-tratamento', 'Tratamento & Distribuição de Ar', item)
+      } else if (type === 'pneumaticValve52') {
+        pushTo('pneumatica', 'pneu-valvulas', 'Eletroválvulas', item)
+      } else {
+        pushTo('pneumatica', 'pneu-atuadores', 'Cilindros, Atuadores & Vácuo', item)
+      }
+      continue
+    }
+
+    if (tpl.group === 'Estruturas e esteiras' || tpl.group === 'Tubos VDS & Abraçadeiras' || type === 'rollerConveyor') {
+      if (type === 'industrialWall' || type === 'industrialPillar') {
+        pushTo('serralharia', 'ser-estruturas', 'Paredes & Pilares Metálicos', item)
+      } else if (type === 'wireTrayStraight' || type === 'wireTrayElbow90' || type === 'wireTrayTee' || type === 'wireTrayRiser90') {
+        pushTo('serralharia', 'ser-aramadas', 'Esteiras Aramadas (Cablofil)', item)
+      } else if (
+        type === 'cableTrayStraight' ||
+        type === 'cableTrayElbow90' ||
+        type === 'cableTrayCross' ||
+        type === 'cableTrayVerticalBend' ||
+        type === 'cableTrayRiser90'
+      ) {
+        pushTo('serralharia', 'ser-perfuradas', 'Esteiras Perfuradas Galvanizadas', item)
+      } else if (
+        type === 'conduitVdsStraight' ||
+        type === 'conduitVdsElbow90' ||
+        type === 'conduitCorrugated' ||
+        type === 'pipeClampPvc' ||
+        type === 'pipeClampMetalEpdm' ||
+        type === 'pipeClampMetalScrew'
+      ) {
+        pushTo('serralharia', 'ser-tubos-vds', 'Tubos VDS, Corrugados & Abraçadeiras', item)
+      } else {
+        pushTo('serralharia', 'ser-transportadores', 'Tapetes & Mecânica Industrial', item)
+      }
+      continue
+    }
+
+    // Todos os restantes pertencem ao domínio Eletricidade, mantendo cada grupo como subcategoria limpa
+    pushTo('eletricidade', `ele-${tpl.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, tpl.group, item)
+  }
+
+  return domains.filter((d) => d.subgroups.length > 0)
 }
 
 /** Lista da biblioteca agrupada, para a paleta lateral. */

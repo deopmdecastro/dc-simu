@@ -7,6 +7,7 @@ export type HydraulicComponentType =
   | 'hydraulicValve'
   | 'hydraulicTee'
   | 'hydraulicFlowMeter'
+  | 'waterSupplyBox'
 
 export function isHydraulicComponentType(type: string): type is HydraulicComponentType {
   return (
@@ -15,7 +16,8 @@ export function isHydraulicComponentType(type: string): type is HydraulicCompone
     type === 'waterPump' ||
     type === 'hydraulicValve' ||
     type === 'hydraulicTee' ||
-    type === 'hydraulicFlowMeter'
+    type === 'hydraulicFlowMeter' ||
+    type === 'waterSupplyBox'
   )
 }
 
@@ -141,6 +143,9 @@ export function hydraulicComponentSizeMm(
     const spec = flowMeterSpecOf(state)
     return { x: spec.lengthMm, y: spec.heightMm, z: spec.depthMm }
   }
+  if (type === 'waterSupplyBox') {
+    return { x: 460, y: 330, z: 170 }
+  }
   return null
 }
 
@@ -194,5 +199,12 @@ export const HYDRAULIC_DATASHEETS: Record<HydraulicComponentType, HydraulicDatas
     manufacturer: 'ZJLCD / SEA',
     model: 'ZJLCD-BT01 · PVC DN25–DN80 · Open-Drain',
     summary: 'Display LCD caudal instantâneo (L/min) & totalizador (L) · Botões SET/CLEAR · Saída impulsos Open-Drain +24V/PULSE/GND',
+  },
+  waterSupplyBox: {
+    path: '/datasheets/hydraulics/water-supply-box-3d.pdf',
+    name: 'Caixa de Fonte e Contador de Água 3D (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu Hidráulica',
+    model: 'Caixa Água ABS · ARCO + ZJLCD-BT01 + WAGO 221',
+    summary: 'Quadro estanque com porta basculante, passador ARCO, contador ZJLCD-BT01, saída OUT pressurizada e caixa de derivação interna com WAGOs pré-ligados',
   },
 }

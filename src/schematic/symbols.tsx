@@ -612,6 +612,67 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
+      case 'waterSupplyBox': {
+        const open = c.state.valveOpen !== false && c.state.mainsSupplyOn !== false
+        const flow = Number(c.state.flowRateLpm ?? 0).toFixed(1)
+        return (
+          <g>
+            <rect x={6} y={6} width={w - 12} height={h - 12} rx={8} fill="#f1f5f9" stroke="#334155" strokeWidth={1.8} />
+            <rect x={14} y={14} width={w - 28} height={22} rx={4} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} />
+            <text x={w / 2} y={28} textAnchor="middle" fontSize={9.5} fontWeight={800} fill="#0284c7">ÁGUA · {c.ref}</text>
+            <rect x={16} y={44} width={w - 32} height={28} rx={4} fill="#1d55a6" stroke="#0f172a" strokeWidth={1.2} />
+            <text x={w / 2} y={61} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#f8fafc">
+              {open ? `ABERTO · ${flow} L/m` : 'FECHADO'}
+            </text>
+            <text x={w / 2} y={h - 16} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="#475569">
+              ARCO + ZJLCD-BT01 + WAGO 221
+            </text>
+          </g>
+        )
+      }
+      case 'triProofLedBatten': {
+        const on = Boolean(c.state.on || c.state.testOn)
+        const watts = Number(c.state.wattage ?? 40)
+        const cct = Number(c.state.cctK ?? 4000)
+        return (
+          <g>
+            <rect x={10} y={16} width={w - 20} height={h - 32} rx={10} fill={on ? '#fef9c3' : '#e2e8f0'} stroke={on ? '#f59e0b' : '#475569'} strokeWidth={1.8} />
+            <rect x={10} y={16} width={16} height={h - 32} rx={4} fill="#94a3b8" />
+            <rect x={w - 26} y={16} width={16} height={h - 32} rx={4} fill="#94a3b8" />
+            <text x={w / 2} y={h / 2 + 3} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#0f172a">
+              {`${c.ref} · ${watts}W · ${cct}K`}
+            </text>
+          </g>
+        )
+      }
+      case 'conduitVdsStraight':
+      case 'conduitVdsElbow90':
+      case 'conduitCorrugated':
+      case 'pipeClampPvc':
+      case 'pipeClampMetalEpdm':
+      case 'pipeClampMetalScrew': {
+        const dMm = Number(c.state.diameterMm ?? 25)
+        const isCorr = c.type === 'conduitCorrugated'
+        const isClamp = c.type.startsWith('pipeClamp')
+        const fill = isCorr ? '#1f2937' : c.type === 'pipeClampMetalEpdm' || c.type === 'pipeClampMetalScrew' ? '#cbd5e1' : '#9aa3ad'
+        const txt = isCorr ? '#f8fafc' : '#0f172a'
+        const short =
+          c.type === 'conduitVdsStraight' ? `VDS Ø${dMm}` :
+          c.type === 'conduitVdsElbow90' ? `CURVA 90° Ø${dMm}` :
+          c.type === 'conduitCorrugated' ? `CORRUG. Ø${dMm}` :
+          c.type === 'pipeClampPvc' ? `CLIP PVC Ø${dMm}` :
+          c.type === 'pipeClampMetalEpdm' ? `EPDM Ø${dMm}` : `MET. Ø${dMm}`
+        return (
+          <g>
+            {isClamp ? (
+              <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) * 0.36} fill={fill} stroke="#334155" strokeWidth={1.8} />
+            ) : (
+              <rect x={8} y={h * 0.28} width={w - 16} height={h * 0.44} rx={6} fill={fill} stroke="#334155" strokeWidth={1.6} />
+            )}
+            <text x={w / 2} y={h / 2 + 3} textAnchor="middle" fontSize={7.8} fontWeight={800} fill={txt}>{short}</text>
+          </g>
+        )
+      }
       case 'junctionBoxOboT60':
       case 'junctionBoxOboA6':
       case 'junctionBoxOboT25': {

@@ -435,6 +435,8 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'hydraulicValve' ||
     type === 'hydraulicTee' ||
     type === 'hydraulicFlowMeter' ||
+    type === 'waterSupplyBox' ||
+    type === 'triProofLedBatten' ||
     type === 'pneumaticFrl' ||
     type === 'pneumaticValve52' ||
     type === 'pneumaticCylinder' ||
@@ -456,6 +458,12 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'wireTrayElbow90' ||
     type === 'wireTrayTee' ||
     type === 'wireTrayRiser90' ||
+    type === 'conduitVdsStraight' ||
+    type === 'conduitVdsElbow90' ||
+    type === 'conduitCorrugated' ||
+    type === 'pipeClampPvc' ||
+    type === 'pipeClampMetalEpdm' ||
+    type === 'pipeClampMetalScrew' ||
     type === 'junctionBoxOboT60' ||
     type === 'junctionBoxOboA6' ||
     type === 'junctionBoxOboT25' ||

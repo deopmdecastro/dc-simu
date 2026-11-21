@@ -114,6 +114,11 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
   if (jw) return { x: jw.x * PANEL_UNITS_PER_MM, y: jw.y * PANEL_UNITS_PER_MM, z: jw.z * PANEL_UNITS_PER_MM }
   const conveyor = conveyorComponentSizeMm(component.type, component.state)
   if (conveyor) return { x: conveyor.width * PANEL_UNITS_PER_MM, y: conveyor.height * PANEL_UNITS_PER_MM, z: conveyor.depth * PANEL_UNITS_PER_MM }
+  if (component.type === 'triProofLedBatten') {
+    const wRaw = Number(component.state.wattage ?? 40)
+    const lengthMm = wRaw <= 22 ? 600 : wRaw <= 35 ? 900 : wRaw <= 45 ? 1200 : 1500
+    return { x: lengthMm * PANEL_UNITS_PER_MM, y: 68 * PANEL_UNITS_PER_MM, z: 78 * PANEL_UNITS_PER_MM }
+  }
   if (component.type === 'dinRail15x55') {
     const profile = dinRailProfileOf(component.state)
     return { x: clampRailLengthMm(component.state.lengthMm) * PANEL_UNITS_PER_MM, y: profile.width * PANEL_UNITS_PER_MM, z: profile.height * PANEL_UNITS_PER_MM }

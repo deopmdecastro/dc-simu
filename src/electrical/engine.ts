@@ -379,6 +379,16 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       }
       break
     }
+    case 'triProofLedBatten': {
+      if (c.state.linkable !== false) {
+        for (const [aLbl, bLbl] of [['L', 'L_OUT'], ['N', 'N_OUT'], ['PE', 'PE_OUT']] as const) {
+          const a = t(c, aLbl)?.id
+          const b = t(c, bLbl)?.id
+          if (a && b) bridges.push([a, b])
+        }
+      }
+      break
+    }
     case 'busbarPhase': {
       // L1/L2/L3 são condutores distintos; o barramento apenas os disponibiliza.
       break

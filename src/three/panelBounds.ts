@@ -46,7 +46,8 @@ export function isPanelBound(component: ElectricalComponent): boolean {
     isPneumaticComponentType(component.type) ||
     isHydraulicComponentType(component.type) ||
     isJunctionBoxType(component.type) ||
-    component.type === 'opticalReflector'
+    component.type === 'opticalReflector' ||
+    component.type === 'triProofLedBatten'
   ) return false
   // Conector WAGO 221: fica dentro do quadro apenas quando o utilizador escolhe "Quadro elétrico".
   if (isWagoConnectorType(component.type)) {

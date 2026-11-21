@@ -1,5 +1,5 @@
 {
-  "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representa\u00e7\u00e3o 3D da aplica\u00e7\u00e3o (GLB ou reconstru\u00e7\u00e3o procedural; n\u00e3o implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortogr\u00e1fica. WebP sem fundo.",
+  "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.",
   "generatedAt": "2026-11-21T16:42:27.529039Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
@@ -330,5 +330,15 @@
   "wireTrayStraight": "wireTrayStraight.webp",
   "wireTrayElbow90": "wireTrayElbow90.webp",
   "wireTrayTee": "wireTrayTee.webp",
-  "wireTrayRiser90": "wireTrayRiser90.webp"
+  "wireTrayRiser90": "wireTrayRiser90.webp",
+  "waterSupplyBox": "/component-covers/waterSupplyBox.webp",
+  "triProofLedBatten": "/component-covers/triProofLedBatten.webp",
+  "conduitVdsStraight": "/component-covers/conduitVdsStraight.webp",
+  "conduitVdsElbow90": "/component-covers/conduitVdsElbow90.webp",
+  "conduitCorrugated": "/component-covers/conduitCorrugated.webp",
+  "pipeClampPvc": "/component-covers/pipeClampPvc.webp",
+  "pipeClampMetalEpdm": "/component-covers/pipeClampMetalEpdm.webp",
+  "pipeClampMetalScrew": "/component-covers/pipeClampMetalScrew.webp",
+  "wago221_2": "/component-covers/wago221_2.webp",
+  "wago221_5": "/component-covers/wago221_5.webp"
 }

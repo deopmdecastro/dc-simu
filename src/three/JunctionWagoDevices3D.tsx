@@ -401,8 +401,10 @@ export function OboJunctionBox3D({
     }
   })
 
-  const bodyColor = '#d2d6da'
-  const cavityColor = '#aeb5bc'
+  const bodyColor = '#c5cdd6'
+  const wallOuterRimColor = '#b4bec9'
+  const cavityColor = '#8f99a6'
+  const gasketColor = '#334155'
 
   return (
     <group>
@@ -461,46 +463,82 @@ export function OboJunctionBox3D({
         </group>
       ) : (
         <group>
-          {/* Placa traseira (fundo da caixa) */}
+          {/* Placa traseira (fundo da caixa) com nervuras e orifícios de fixação */}
           <mesh position={[0, 0, -D * 0.43]} castShadow receiveShadow>
             <boxGeometry args={[W, H, D * 0.14]} />
-            <meshStandardMaterial color={bodyColor} roughness={0.44} metalness={0.04} />
+            <meshStandardMaterial color={bodyColor} roughness={0.52} metalness={0.04} />
           </mesh>
-          {/* Fundo interno da cavidade + 2 nervuras de fixação */}
-          <mesh position={[0, 0, -D * 0.35]} receiveShadow>
-            <boxGeometry args={[W - wallT * 2, H - wallT * 2, 0.04]} />
-            <meshStandardMaterial color={cavityColor} roughness={0.62} />
+          {/* Fundo interno da cavidade em cinza-ardósia mate (contraste real com WAGOs transparentes) */}
+          <mesh position={[0, 0, -D * 0.355]} receiveShadow>
+            <boxGeometry args={[W - wallT * 2, H - wallT * 2, 0.035]} />
+            <meshStandardMaterial color={cavityColor} roughness={0.68} metalness={0.04} />
           </mesh>
-          {/* 4 paredes laterais (formando cavidade real para alojar WAGOs!) */}
+          {/* Nervuras interiores de rigidez e 2 orifícios de fixação à parede */}
+          {[-H * 0.24, H * 0.24].map((ry, i) => (
+            <mesh key={i} position={[0, ry, -D * 0.32]} receiveShadow>
+              <boxGeometry args={[W - wallT * 2.5, 0.035, 0.04]} />
+              <meshStandardMaterial color="#9aa5b2" roughness={0.62} />
+            </mesh>
+          ))}
+          {[-W * 0.28, W * 0.28].map((hx, i) => (
+            <mesh key={i} position={[hx, 0, -D * 0.332]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.055, 0.055, 0.025, 14]} />
+              <meshStandardMaterial color="#475569" roughness={0.65} metalness={0.25} />
+            </mesh>
+          ))}
+          {/* 4 paredes laterais com acabamento ABS industrial RAL 7035 */}
           <mesh position={[0, H / 2 - wallT / 2, -D * 0.02]} castShadow receiveShadow>
             <boxGeometry args={[W, wallT, D * 0.78]} />
-            <meshStandardMaterial color={bodyColor} roughness={0.42} />
+            <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={0.04} />
           </mesh>
           <mesh position={[0, -H / 2 + wallT / 2, -D * 0.02]} castShadow receiveShadow>
             <boxGeometry args={[W, wallT, D * 0.78]} />
-            <meshStandardMaterial color={bodyColor} roughness={0.42} />
+            <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={0.04} />
           </mesh>
           <mesh position={[-W / 2 + wallT / 2, 0, -D * 0.02]} castShadow receiveShadow>
             <boxGeometry args={[wallT, H - wallT * 2, D * 0.78]} />
-            <meshStandardMaterial color={bodyColor} roughness={0.42} />
+            <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={0.04} />
           </mesh>
           <mesh position={[W / 2 - wallT / 2, 0, -D * 0.02]} castShadow receiveShadow>
             <boxGeometry args={[wallT, H - wallT * 2, D * 0.78]} />
-            <meshStandardMaterial color={bodyColor} roughness={0.42} />
+            <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={0.04} />
+          </mesh>
+          {/* Junta perimetral EPDM de vedação IP66 na borda frontal da caixa */}
+          <mesh position={[0, H / 2 - wallT * 0.5, D * 0.375]}>
+            <boxGeometry args={[W * 0.96, 0.028, 0.022]} />
+            <meshStandardMaterial color={gasketColor} roughness={0.82} />
+          </mesh>
+          <mesh position={[0, -H / 2 + wallT * 0.5, D * 0.375]}>
+            <boxGeometry args={[W * 0.96, 0.028, 0.022]} />
+            <meshStandardMaterial color={gasketColor} roughness={0.82} />
+          </mesh>
+          <mesh position={[-W / 2 + wallT * 0.5, 0, D * 0.375]}>
+            <boxGeometry args={[0.028, H * 0.92, 0.022]} />
+            <meshStandardMaterial color={gasketColor} roughness={0.82} />
+          </mesh>
+          <mesh position={[W / 2 - wallT * 0.5, 0, D * 0.375]}>
+            <boxGeometry args={[0.028, H * 0.92, 0.022]} />
+            <meshStandardMaterial color={gasketColor} roughness={0.82} />
           </mesh>
 
-          {/* 4 torres de parafuso internas nos cantos (T60) ou patilha de montagem externa (A6) */}
+          {/* 4 torres de parafuso internas nos cantos com casquilho metálico (T60) ou patilha lateral (A6) */}
           {variant === 't60' ? (
             [
-              [-W * 0.41, H * 0.41],
-              [W * 0.41, H * 0.41],
-              [-W * 0.41, -H * 0.41],
-              [W * 0.41, -H * 0.41],
+              [-W * 0.405, H * 0.405],
+              [W * 0.405, H * 0.405],
+              [-W * 0.405, -H * 0.405],
+              [W * 0.405, -H * 0.405],
             ].map(([cx, cy], idx) => (
-              <mesh key={idx} position={[cx, cy, -D * 0.03]} rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[0.11, 0.11, D * 0.74, 14]} />
-                <meshStandardMaterial color="#c4c9cf" roughness={0.46} />
-              </mesh>
+              <group key={idx} position={[cx, cy, -D * 0.03]}>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.105, 0.115, D * 0.74, 16]} />
+                  <meshStandardMaterial color={wallOuterRimColor} roughness={0.5} />
+                </mesh>
+                <mesh position={[0, 0, D * 0.365]} rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.048, 0.048, 0.04, 14]} />
+                  <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.35} />
+                </mesh>
+              </group>
             ))
           ) : (
             /* Patilha lateral característica da OBO A6 (image-37.png) */
@@ -699,20 +737,30 @@ function WagoOrangeLever({
         onToggle?.()
       }}
     >
-      {/* Corpo principal laranja WAGO (#f25610) */}
+      {/* Corpo principal laranja translúcido/brilhante WAGO 221 (#ff550c) */}
       <mesh position={[0, 0.036, pivotSign * halfL]} castShadow>
-        <boxGeometry args={[width, 0.072, length]} />
-        <meshStandardMaterial color="#f25610" roughness={0.32} metalness={0.05} />
+        <boxGeometry args={[width, 0.068, length]} />
+        <meshPhysicalMaterial
+          color="#ff550c"
+          roughness={0.22}
+          metalness={0.04}
+          clearcoat={0.85}
+          clearcoatRoughness={0.14}
+        />
       </mesh>
       {/* Topo impresso com serigrafia WAGO 221 */}
-      <mesh position={[0, 0.075, pivotSign * halfL]} rotation={[-Math.PI / 2, 0, pivotSign > 0 ? 0 : Math.PI]}>
+      <mesh position={[0, 0.072, pivotSign * halfL]} rotation={[-Math.PI / 2, 0, pivotSign > 0 ? 0 : Math.PI]}>
         <planeGeometry args={[width * 0.94, length * 0.92]} />
-        <meshStandardMaterial map={leverTex} roughness={0.34} />
+        <meshStandardMaterial map={leverTex} roughness={0.28} />
       </mesh>
-      {/* Aba ergonomicamente elevada na extremidade para levantar com o dedo */}
-      <mesh position={[0, 0.072, pivotSign * (length - 0.045)]} castShadow>
-        <boxGeometry args={[width, 0.055, 0.09]} />
-        <meshStandardMaterial color="#ea4c08" roughness={0.28} />
+      {/* Aba ergonómica curva na ponta + pino de articulação */}
+      <mesh position={[0, 0.076, pivotSign * (length - 0.042)]} castShadow>
+        <boxGeometry args={[width * 1.02, 0.058, 0.088]} />
+        <meshPhysicalMaterial color="#e84304" roughness={0.2} clearcoat={0.9} clearcoatRoughness={0.12} />
+      </mesh>
+      <mesh position={[0, 0.015, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.026, 0.026, width * 1.04, 10]} />
+        <meshStandardMaterial color="#c23b08" roughness={0.35} />
       </mesh>
     </group>
   )
@@ -759,27 +807,32 @@ export function Wago221Connector3D({
   if (type === 'wago221_inline') {
     return (
       <group>
-        {/* Barramento interno de cobre estanhado + 2 molas CAGE CLAMP */}
+        {/* Barramento interno de cobre + 2 molas CAGE CLAMP em aço inox */}
         <mesh position={[0, -H * 0.08, 0]}>
-          <boxGeometry args={[W * 0.78, H * 0.16, D * 0.36]} />
-          <meshStandardMaterial color="#d49552" metalness={0.88} roughness={0.22} />
+          <boxGeometry args={[W * 0.80, H * 0.16, D * 0.34]} />
+          <meshStandardMaterial color="#d97a2b" metalness={0.92} roughness={0.18} />
         </mesh>
         {[-W * 0.24, W * 0.24].map((x, i) => (
           <mesh key={i} position={[x, 0.02, 0]}>
-            <boxGeometry args={[W * 0.18, H * 0.28, D * 0.42]} />
-            <meshStandardMaterial color="#cbd5e1" metalness={0.85} roughness={0.25} />
+            <boxGeometry args={[W * 0.18, H * 0.30, D * 0.42]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.94} roughness={0.16} />
           </mesh>
         ))}
 
-        {/* Invólucro transparente cristal de policarbonato WAGO 221 */}
-        <mesh userData={{ keepTransparent: true }} renderOrder={3}>
+        {/* Invólucro transparente cristal em policarbonato/acrílico WAGO 221 */}
+        <mesh renderOrder={3}>
           <boxGeometry args={[W, H * 0.78, D * 0.88]} />
-          <meshStandardMaterial
-            color="#dbeafe"
+          <meshPhysicalMaterial
+            userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+            color="#e2f1ff"
             transparent
-            opacity={0.22}
-            roughness={0.08}
-            metalness={0.12}
+            opacity={0.26}
+            roughness={0.05}
+            metalness={0.04}
+            ior={1.58}
+            reflectivity={1.0}
+            clearcoat={1.0}
+            clearcoatRoughness={0.04}
             depthWrite={false}
           />
         </mesh>
@@ -787,7 +840,7 @@ export function Wago221Connector3D({
         {/* Serigrafia lateral transparente */}
         <mesh position={[0, 0, D * 0.45]}>
           <planeGeometry args={[W * 0.92, H * 0.66]} />
-          <meshBasicMaterial map={sideTex} transparent opacity={0.9} depthWrite={false} />
+          <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={sideTex} transparent opacity={0.9} depthWrite={false} />
         </mesh>
 
         {/* 2 alavancas laranja opostas (esquerda e direita) */}
@@ -817,7 +870,7 @@ export function Wago221Connector3D({
     )
   }
 
-  /* ── Variantes 221-412 (2 vias), 221-415 (5 vias) e Duplo 2×5 (image-39/40/42.png) ── */
+  /* ── Variantes 221-412 (2 vias), 221-415 (5 vias) e Duplo 2×5 (acrílico cristal realista!) ── */
   const cols = type === 'wago221_2' ? 2 : 5
   const isDouble = type === 'wago221_double'
   const pitch = (W * 0.84) / cols
@@ -826,32 +879,64 @@ export function Wago221Connector3D({
 
   const renderTier = (tierY: number, offsetIdx: number, leverDir: 1 | -1) => (
     <group position={[0, tierY, 0]}>
-      {/* Barramento interno de cobre estanhado bem visível através do policarbonato transparente! */}
-      <mesh position={[0, -0.03, -D * 0.12]}>
-        <boxGeometry args={[W * 0.86, 0.075, D * 0.48]} />
-        <meshStandardMaterial color="#e08030" metalness={0.86} roughness={0.22} />
+      {/* Barramento interno de cobre eletrolítico estanhado perfeitamente visível através do acrílico transparente */}
+      <mesh position={[0, -0.04, -D * 0.14]}>
+        <boxGeometry args={[W * 0.86, 0.068, D * 0.44]} />
+        <meshStandardMaterial color="#d97724" metalness={0.92} roughness={0.18} />
       </mesh>
-      {/* Molas individuais de aço inox CAGE CLAMP + orifícios frontais embutidos (fiel a image-39/40.png) */}
+      {/* Placa base isolante interna escura sob o cobre */}
+      <mesh position={[0, -0.088, -D * 0.08]}>
+        <boxGeometry args={[W * 0.88, 0.025, D * 0.64]} />
+        <meshStandardMaterial color="#334155" roughness={0.55} />
+      </mesh>
+      {/* Molas individuais de aço inox CAGE CLAMP + canais condutores + divisórias cristal entre vias */}
       {Array.from({ length: cols }).map((_, idx) => {
         const lx = -((cols - 1) / 2) * pitch + idx * pitch
+        const open = isLeverOpen(offsetIdx + idx)
         return (
           <group key={idx} position={[lx, 0, 0]}>
-            <mesh position={[0, 0.015, -D * 0.06]}>
-              <boxGeometry args={[leverW * 0.74, 0.12, D * 0.34]} />
-              <meshStandardMaterial color="#94a3b8" metalness={0.88} roughness={0.22} />
+            {/* Mola de pressão em aço inoxidável brilhante */}
+            <mesh position={[0, 0.012, -D * 0.08]}>
+              <boxGeometry args={[leverW * 0.72, 0.115, D * 0.34]} />
+              <meshStandardMaterial color="#d8e0e8" metalness={0.94} roughness={0.14} />
             </mesh>
-            {/* Furo frontal retangular-arredondado embutido no corpo transparente */}
-            <mesh position={[0, -0.02, D * 0.445]}>
-              <boxGeometry args={[leverW * 0.56, 0.09, 0.025]} />
-              <meshStandardMaterial color="#1e293b" roughness={0.78} />
+            {/* Canal de entrada de cobre polido visível dentro da janela transparente */}
+            <mesh position={[0, -0.025, D * 0.22]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[leverW * 0.20, leverW * 0.20, D * 0.36, 12]} />
+              <meshStandardMaterial color={open ? '#64748b' : '#c26d27'} metalness={0.82} roughness={0.24} />
             </mesh>
+            {/* Furo frontal retangular-arredondado para inserção do fio */}
+            <mesh position={[0, -0.022, D * 0.455]}>
+              <boxGeometry args={[leverW * 0.56, 0.092, 0.026]} />
+              <meshStandardMaterial color="#0f172a" roughness={0.82} />
+            </mesh>
+            {/* Orifício traseiro de ponta de prova (teste com multímetro!) */}
+            <mesh position={[0, -0.02, -D * 0.455]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.028, 0.028, 0.022, 10]} />
+              <meshStandardMaterial color="#0f172a" roughness={0.78} />
+            </mesh>
+            {/* Divisória cristal interna entre polos */}
+            {idx < cols - 1 && (
+              <mesh position={[pitch * 0.5, 0, 0]} renderOrder={3}>
+                <boxGeometry args={[0.018, H * 0.68, D * 0.86]} />
+                <meshPhysicalMaterial
+                  userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+                  color="#bae6fd"
+                  transparent
+                  opacity={0.28}
+                  roughness={0.06}
+                  clearcoat={1.0}
+                  depthWrite={false}
+                />
+              </mesh>
+            )}
             {/* Alavanca laranja clicável */}
             <WagoOrangeLever
               position={[0, leverDir > 0 ? 0.125 : -0.125, -D * 0.24]}
               pivotSign={1}
               width={leverW}
               length={leverLen}
-              isOpen={isLeverOpen(offsetIdx + idx)}
+              isOpen={open}
               leverTex={leverTex}
               onToggle={() => onToggleLever?.(offsetIdx + idx)}
             />
@@ -863,33 +948,42 @@ export function Wago221Connector3D({
 
   return (
     <group>
-      {/* Invólucro de policarbonato transparente cristal (revela cobre + molas CAGE CLAMP como em image-39/40/42.png!) */}
-      <mesh userData={{ keepTransparent: true }} renderOrder={3}>
+      {/* Invólucro de acrílico / policarbonato cristal transparente WAGO 221 (brilho especular + IOR vidro/acrílico!) */}
+      <mesh renderOrder={3}>
         <boxGeometry args={[W, H * 0.74, D * 0.92]} />
-        <meshStandardMaterial
-          color="#dbeafe"
+        <meshPhysicalMaterial
+          userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+          color="#e2f1ff"
           transparent
-          opacity={0.22}
-          roughness={0.08}
-          metalness={0.12}
+          opacity={0.24}
+          roughness={0.05}
+          metalness={0.04}
+          ior={1.58}
+          reflectivity={1.0}
+          clearcoat={1.0}
+          clearcoatRoughness={0.04}
           depthWrite={false}
         />
       </mesh>
 
-      {/* Borda inferior e traseira translúcida para definir o contorno cristalino */}
-      <mesh position={[0, -H * 0.365, 0]}>
-        <boxGeometry args={[W * 0.99, 0.025, D * 0.90]} />
-        <meshStandardMaterial color="#94a3b8" transparent opacity={0.38} roughness={0.2} />
+      {/* Moldura translúcida inferior e arestas cristalinas (dá refração nítida nas quinas do acrílico!) */}
+      <mesh position={[0, -H * 0.365, 0]} renderOrder={3}>
+        <boxGeometry args={[W * 1.005, 0.032, D * 0.925]} />
+        <meshPhysicalMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} color="#cbd5e1" transparent opacity={0.36} roughness={0.12} clearcoat={0.9} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 0, D * 0.455]} renderOrder={3}>
+        <boxGeometry args={[W * 1.005, H * 0.74, 0.022]} />
+        <meshPhysicalMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} color="#e0f2fe" transparent opacity={0.22} roughness={0.05} clearcoat={1.0} depthWrite={false} />
       </mesh>
 
       {/* Serigrafia lateral técnica impressa no corpo transparente */}
       <mesh position={[W / 2 + 0.006, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[D * 0.86, H * 0.64]} />
-        <meshBasicMaterial map={sideTex} transparent opacity={0.92} depthWrite={false} />
+        <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={sideTex} transparent opacity={0.92} depthWrite={false} />
       </mesh>
       <mesh position={[-W / 2 - 0.006, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[D * 0.86, H * 0.64]} />
-        <meshBasicMaterial map={sideTex} transparent opacity={0.92} depthWrite={false} />
+        <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={sideTex} transparent opacity={0.92} depthWrite={false} />
       </mesh>
 
       {isDouble ? (

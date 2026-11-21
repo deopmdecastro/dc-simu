@@ -34,7 +34,7 @@ import { useManobraAllowed } from '../store/useManobraAllowed'
 import { MANOBRA_BLOCKED_TITLE, MANOBRA_STATE_KEYS } from '../store/manobra'
 import { blockedDuplicateReplacement } from '../catalog/blockedDuplicates'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
-import { paletteGroups, TEMPLATES } from '../electrical/factory'
+import { paletteDomains, TEMPLATES, type PaletteDomain } from '../electrical/factory'
 import { iecAssociationOf, iecPrimaryLabel, iecRelatedLabels } from '../electrical/iecAssociation'
 import type { ComponentType, TerminalElectricalClass, TerminalKind, TerminalType, Wire, WireColor, WireRoute } from '../types'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
@@ -431,7 +431,24 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const [terminalLibOpen, setTerminalLibOpen] = useState(false)
   const inspectorRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command', 'Iluminação', 'Bornes e barras'].includes(g))))
+  const [activeDomain, setActiveDomain] = useState<'all' | PaletteDomain['id']>('all')
+  const [collapsedDomains, setCollapsedDomains] = useState<Set<string>>(() => new Set())
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    const keepOpen = new Set(['hid-abastecimento', 'hid-bombagem', 'ser-tubos-vds', 'ele-ilumina--o', 'ele-prote--o', 'ele-comando'])
+    return new Set(
+      paletteDomains()
+        .flatMap((d) => d.subgroups.map((sg) => sg.id))
+        .filter((id) => !keepOpen.has(id)),
+    )
+  })
+  const toggleDomain = (domainId: string) => {
+    setCollapsedDomains((prev) => {
+      const next = new Set(prev)
+      if (next.has(domainId)) next.delete(domainId)
+      else next.add(domainId)
+      return next
+    })
+  }
   const [favorites, setFavorites] = useState<ComponentType[]>(() => {
     try { return (JSON.parse(localStorage.getItem('dcsimu:library:favorites') ?? '[]') as ComponentType[]).map((type) => (type as string) === 'powerSupplyProauto24B' ? 'powerSupplyProauto24A' : type) }
     catch { return [] }
@@ -482,7 +499,18 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
     }
     return hidden
   }, [adminHidden, explicitlyBlocked, disabledComponents, catalogRevision])
-  const groups = useMemo(() => paletteGroups().map((g) => ({ ...g, items: g.items.filter((it) => !hiddenComponents[it.type]) })).filter((g) => g.items.length > 0), [catalogRevision, hiddenComponents])
+  const domains = useMemo(
+    () =>
+      paletteDomains()
+        .map((d) => ({
+          ...d,
+          subgroups: d.subgroups
+            .map((sg) => ({ ...sg, items: sg.items.filter((it) => !hiddenComponents[it.type]) }))
+            .filter((sg) => sg.items.length > 0),
+        }))
+        .filter((d) => d.subgroups.length > 0),
+    [catalogRevision, hiddenComponents],
+  )
   const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => canInsertComponent3D(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
   const [stripFocusId, setStripFocusId] = useState<string | null>(null)
@@ -603,14 +631,30 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
     else add(type)
   }
 
-  const filtered = useMemo(() => {
-    if (!filter.trim()) return groups
-    const f = filter.trim().toLocaleLowerCase('pt-PT')
-    return groups
-      .map((g) => ({ ...g, items: g.items.filter((i) => i.name.toLocaleLowerCase('pt-PT').includes(f) || i.type.toLowerCase().includes(f) || g.group.toLocaleLowerCase('pt-PT').includes(f)) }))
-      .filter((g) => g.items.length)
-  }, [groups, filter])
-  const filteredItems = filtered.flatMap((group) => group.items)
+  const filteredDomains = useMemo(() => {
+    const q = filter.trim().toLocaleLowerCase('pt-PT')
+    return domains
+      .filter((d) => activeDomain === 'all' || d.id === activeDomain)
+      .map((d) => ({
+        ...d,
+        subgroups: d.subgroups
+          .map((sg) => ({
+            ...sg,
+            items: !q
+              ? sg.items
+              : sg.items.filter(
+                  (i) =>
+                    i.name.toLocaleLowerCase('pt-PT').includes(q) ||
+                    i.type.toLowerCase().includes(q) ||
+                    sg.label.toLocaleLowerCase('pt-PT').includes(q) ||
+                    d.label.toLocaleLowerCase('pt-PT').includes(q),
+                ),
+          }))
+          .filter((sg) => sg.items.length > 0),
+      }))
+      .filter((d) => d.subgroups.length > 0)
+  }, [domains, activeDomain, filter])
+  const filteredItems = filteredDomains.flatMap((d) => d.subgroups.flatMap((sg) => sg.items))
   const filteredReadyCount = filteredItems.filter((item) => canInsert(item.type)).length
   const filteredLockedCount = filteredItems.length - filteredReadyCount
 
@@ -657,30 +701,115 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
             <IconLock size={13} />
             <span><strong>{lockedCount} componentes bloqueados.</strong> Itens sem GLB ou representação 3D disponível, e os desativados pelo administrador, não podem ser inseridos.</span>
           </div>
+          <div className="pn-section is-compact flex flex-wrap gap-1" role="tablist" aria-label="Domínios da biblioteca">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeDomain === 'all'}
+              onClick={() => setActiveDomain('all')}
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border transition ${
+                activeDomain === 'all'
+                  ? 'bg-brand-600 text-white border-brand-600'
+                  : 'bg-surface-sunken text-ink-600 border-line hover:bg-surface'
+              }`}
+            >
+              Todos
+            </button>
+            {domains.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                role="tab"
+                aria-selected={activeDomain === d.id}
+                onClick={() => setActiveDomain(activeDomain === d.id ? 'all' : d.id)}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border transition ${
+                  activeDomain === d.id
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-surface-sunken text-ink-600 border-line hover:bg-surface'
+                }`}
+              >
+                {d.icon} {d.id === 'serralharia' ? 'Serralharia' : d.label}
+              </button>
+            ))}
+          </div>
           <div className="pn-section is-compact flex items-center justify-between text-[10px] text-ink-500">
             <span>{filteredReadyCount} com 3D · {filteredLockedCount} bloqueados{filter ? ' na pesquisa' : ''}</span>
-            <span className="flex gap-2"><button onClick={() => setCollapsedGroups(new Set())}>Expandir</button><button onClick={() => setCollapsedGroups(new Set(groups.map((g) => g.group)))}>Recolher</button></span>
+            <span className="flex gap-2">
+              <button onClick={() => { setCollapsedDomains(new Set()); setCollapsedGroups(new Set()) }}>Expandir</button>
+              <button onClick={() => setCollapsedGroups(new Set(domains.flatMap((d) => d.subgroups.map((sg) => sg.id))))}>Recolher</button>
+            </span>
           </div>
           {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
           <div className="pn-body flex-1 overflow-y-auto min-h-0 dc-library-scroll">
-            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title"><strong><IconHistory size={11} />Recentes</strong><span>{recent.length}</span></div><div className="dc-library-recent">{recent.filter((type) => !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
-            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title"><strong><IconStar size={11} />Favoritos</strong><span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type] && !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
-            {!filtered.length && (
+            {recent.length > 0 && !filter && activeDomain === 'all' && <section className="dc-library-section"><div className="dc-library-section-title"><strong><IconHistory size={11} />Recentes</strong><span>{recent.length}</span></div><div className="dc-library-recent">{recent.filter((type) => !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {favorites.length > 0 && !filter && activeDomain === 'all' && <section className="dc-library-section"><div className="dc-library-section-title"><strong><IconStar size={11} />Favoritos</strong><span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type] && !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {!filteredDomains.length && (
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconSearch size={18} /></span>
                 <strong>Nenhum componente encontrado</strong>
                 <p>Não há resultados para «{filter.trim()}». Experimente outro termo, o nome do fabricante ou a categoria.</p>
-                <button className="dc-btn dc-btn-primary" onClick={() => setFilter('')}>Limpar pesquisa</button>
+                <button className="dc-btn dc-btn-primary" onClick={() => { setFilter(''); setActiveDomain('all') }}>Limpar pesquisa</button>
               </div>
             )}
-            {filtered.map((g) => {
-              const isCollapsed = !filter.trim() && collapsedGroups.has(g.group)
-              return <section className="dc-library-folder" key={g.group}>
-                <button type="button" aria-expanded={!isCollapsed} className="dc-library-folder-head" onClick={() => toggleGroup(g.group)} title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${g.group}`}>
-                  <span className="dc-library-folder-icon"><IconProjects size={16} /></span><strong>{g.group}</strong><span className="dc-library-folder-count">{g.items.length}</span><IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
-                </button>
-                {!isCollapsed && <div className="dc-library-grid">{g.items.map((it) => <LibraryTile key={it.type} type={it.type} name={it.name} favorite={favorites.includes(it.type)} placing={placingType === it.type} onPick={() => pickFromLibrary(it.type)} onQuickAdd={() => addImmediate(it.type)} onFavorite={() => toggleFavorite(it.type)} onRecent={() => markRecent(it.type)} />)}</div>}
-              </section>
+            {filteredDomains.map((domain) => {
+              const domainCount = domain.subgroups.reduce((acc, sg) => acc + sg.items.length, 0)
+              const domainCollapsed = !filter.trim() && activeDomain === 'all' && collapsedDomains.has(domain.id)
+              return (
+                <section className="mb-2 rounded-md border border-line-soft bg-surface/60" key={domain.id} data-library-domain={domain.id}>
+                  <button
+                    type="button"
+                    aria-expanded={!domainCollapsed}
+                    onClick={() => toggleDomain(domain.id)}
+                    className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-[11px] font-bold tracking-wide text-ink-800 hover:bg-surface-sunken/70 rounded-t-md"
+                    style={{ borderLeft: `3px solid ${domain.accent}` }}
+                  >
+                    <span className="text-[13px] leading-none">{domain.icon}</span>
+                    <span className="flex-1 truncate">{domain.label}</span>
+                    <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-[9.5px] font-mono text-ink-500">{domainCount}</span>
+                    <IconChevronDown size={13} className={`dc-library-folder-chevron ${domainCollapsed ? '' : 'is-open'}`} />
+                  </button>
+                  {!domainCollapsed && (
+                    <div className="pl-1.5 pr-1 pb-1 pt-0.5 space-y-0.5">
+                      {domain.subgroups.map((sg) => {
+                        const isCollapsed = !filter.trim() && collapsedGroups.has(sg.id)
+                        return (
+                          <section className="dc-library-folder" key={sg.id} data-library-subgroup={sg.id}>
+                            <button
+                              type="button"
+                              aria-expanded={!isCollapsed}
+                              className="dc-library-folder-head"
+                              onClick={() => toggleGroup(sg.id)}
+                              title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${sg.label}`}
+                            >
+                              <span className="dc-library-folder-icon"><IconProjects size={14} /></span>
+                              <strong>{sg.label}</strong>
+                              <span className="dc-library-folder-count">{sg.items.length}</span>
+                              <IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
+                            </button>
+                            {!isCollapsed && (
+                              <div className="dc-library-grid">
+                                {sg.items.map((it) => (
+                                  <LibraryTile
+                                    key={it.type}
+                                    type={it.type}
+                                    name={it.name}
+                                    favorite={favorites.includes(it.type)}
+                                    placing={placingType === it.type}
+                                    onPick={() => pickFromLibrary(it.type)}
+                                    onQuickAdd={() => addImmediate(it.type)}
+                                    onFavorite={() => toggleFavorite(it.type)}
+                                    onRecent={() => markRecent(it.type)}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </section>
+                        )
+                      })}
+                    </div>
+                  )}
+                </section>
+              )
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
                Nos itens <b className="text-ink-500">disponíveis</b>, clique ou arraste: o componente aparece em pré-visualização no esquema

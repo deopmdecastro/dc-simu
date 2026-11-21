@@ -27,7 +27,8 @@ import {
 } from '../three/hydraulicsModel'
 import { isPanelBound } from '../three/panelBounds'
 import { isFloorMountedMachineType } from '../three/conveyorModel'
-import { isFloorGroundedStructureType } from '../three/structuresModel'
+import { isFloorGroundedStructureType, isConduitStructureType } from '../three/structuresModel'
+import { isEditableCableDeviceType } from '../three/EditableCable3D'
 import { isPneumaticComponentType } from '../three/pneumaticsModel'
 import {
   computeJunctionBoxSurfaceSnap,
@@ -1241,6 +1242,7 @@ export function hasDeviceControls(type: string): boolean {
     isContactorLike(type) ||
     isPlcModule(type) ||
     isLightingType(type) ||
+    type === 'triProofLedBatten' ||
     isHydraulicComponentType(type) ||
     isPneumaticComponentType(type) ||
     isStructureComponentType(type) ||
@@ -3004,8 +3006,544 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
   )
 }
 
+function WaterSupplyBoxControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const simActive = useSimStore((s) => s.sim.runState === 'running')
+  const setComponentState = useSimStore((s) => s.setComponentState)
+  const operateComponent = useSimStore((s) => s.operateComponent)
+  const apply = (patch: Record<string, any>) => {
+    if (simActive) operateComponent(c.id, patch)
+    else setComponentState(c.id, patch)
+  }
+  const doorOpen = c.state.doorOpen !== false
+  const readingHatchOpen = c.state.readingHatchOpen === true
+  const valveOpen = c.state.valveOpen !== false
+  const mainsOn = c.state.mainsSupplyOn !== false
+  const internalCoverOpen = c.state.internalBoxCoverOpen !== false
+  const flowLpm = Number(c.state.flowRateLpm ?? 0)
+  const totalL = Number(c.state.totalVolumeL ?? 0)
+  const singleL = Number(c.state.singleVolumeL ?? 0)
+  const pipeDN = String(c.state.pipeDN ?? 'DN32') as FlowMeterPipeDN
+
+  return (
+    <div className="flex flex-col gap-2" data-device-controls="water-supply-box">
+      <div className="flex items-center justify-between gap-1">
+        <span className="dc-field-label">Caixa / Fonte de Água</span>
+        <StatusBadge
+          label={mainsOn && valveOpen ? `Pressurizada (${flowLpm.toFixed(1)} L/m)` : 'Passador fechado'}
+          tone={mainsOn && valveOpen ? 'ok' : 'warn'}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => apply({ doorOpen: !doorOpen })}
+          className={`dc-btn text-[11px] justify-center ${doorOpen ? 'dc-btn-primary' : ''}`}
+        >
+          {doorOpen ? 'Fechar porta ÁGUA' : 'Abrir porta ÁGUA'}
+        </button>
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => apply({ valveOpen: !valveOpen })}
+          className={`dc-btn text-[11px] justify-center ${valveOpen ? 'dc-btn-primary' : ''}`}
+        >
+          {valveOpen ? 'Fechar passador ARCO' : 'Abrir passador ARCO'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => apply({ readingHatchOpen: !readingHatchOpen })}
+          className={`dc-btn text-[10.5px] justify-center ${readingHatchOpen ? 'dc-btn-primary' : ''}`}
+        >
+          {readingHatchOpen ? 'Fechar visor' : 'Abrir visor leitura'}
+        </button>
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => apply({ internalBoxCoverOpen: !internalCoverOpen })}
+          className={`dc-btn text-[10.5px] justify-center ${internalCoverOpen ? 'dc-btn-primary' : ''}`}
+        >
+          {internalCoverOpen ? 'Fechar tampa WAGO' : 'Abrir caixa WAGO'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1 text-[10.5px] rounded border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono">
+        <span>Parcial: <strong>{singleL.toFixed(2)} L</strong></span>
+        <span>Total: <strong>{totalL.toFixed(1)} L</strong></span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => apply({ manualTestFlow: !c.state.manualTestFlow })}
+          className={`dc-btn text-[10.5px] justify-center ${c.state.manualTestFlow ? 'dc-btn-primary' : ''}`}
+        >
+          {c.state.manualTestFlow ? 'Parar caudal teste' : 'Simular caudal'}
+        </button>
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => apply({ singleVolumeL: 0 })}
+          className="dc-btn text-[10.5px] justify-center"
+        >
+          Zerar parcial
+        </button>
+      </div>
+
+      <label className="flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-slate-600">Diâmetro contador</span>
+        <select
+          className="dc-input !h-7 !text-[11px] !w-28"
+          disabled={locked}
+          value={pipeDN}
+          onChange={(e) => apply({ pipeDN: e.target.value })}
+        >
+          {(Object.keys(FLOW_METER_PIPE_SPECS) as FlowMeterPipeDN[]).map((dn) => (
+            <option key={dn} value={dn}>{dn}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-slate-600">Rede pública com pressão</span>
+        <input
+          type="checkbox"
+          disabled={locked}
+          checked={mainsOn}
+          onChange={(e) => apply({ mainsSupplyOn: e.target.checked })}
+        />
+      </label>
+      <p className="text-[9.5px] leading-snug text-slate-500">
+        Ligue a saída hidráulica <strong>OUT</strong> (à direita) a bombas, válvulas ou reservatórios. A caixa de derivação interna tem 3 conectores <strong>WAGO 221</strong> transparentes pré-ligados aos bornes +24V / PULSE / GND do contador ZJLCD-BT01.
+      </p>
+    </div>
+  )
+}
+
+function TriProofLedControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const simActive = useSimStore((s) => s.sim.runState === 'running')
+  const setComponentState = useSimStore((s) => s.setComponentState)
+  const operateComponent = useSimStore((s) => s.operateComponent)
+  const apply = (patch: Record<string, any>) => {
+    if (simActive) operateComponent(c.id, patch)
+    else setComponentState(c.id, patch)
+  }
+  const on = Boolean(c.state.on || c.state.testOn)
+  const wattage = Number(c.state.wattage ?? 40)
+  const cctK = Number(c.state.cctK ?? 4000)
+  const linkable = c.state.linkable !== false
+  const lumens = Math.round(wattage * 130)
+
+  return (
+    <div className="flex flex-col gap-2" data-device-controls="tri-proof-led">
+      <div className="flex items-center justify-between gap-1">
+        <span className="dc-field-label">Tri-Proof LED IP65</span>
+        <StatusBadge
+          label={on ? `LIGADA · ${wattage}W · ${cctK}K` : `DESLIGADA · ${wattage}W`}
+          tone={on ? 'ok' : 'neutral'}
+        />
+      </div>
+
+      <button
+        type="button"
+        disabled={locked}
+        onClick={() => apply({ testOn: !c.state.testOn })}
+        className={`dc-btn text-[11px] justify-center ${c.state.testOn ? 'dc-btn-primary' : ''}`}
+      >
+        {c.state.testOn ? 'Desligar teste local' : 'Acender teste local (230V)'}
+      </button>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[10.5px] text-slate-600 flex justify-between">
+          <span>Potência selecionável (DIP)</span>
+          <strong className="font-mono text-slate-800">{wattage} W · {lumens} lm</strong>
+        </span>
+        <div className="grid grid-cols-3 gap-1">
+          {[18, 24, 36, 40, 50, 60].map((w) => (
+            <button
+              key={w}
+              type="button"
+              disabled={locked}
+              onClick={() => apply({ wattage: w })}
+              className={`dc-btn text-[10.5px] justify-center ${wattage === w ? 'dc-btn-primary' : ''}`}
+            >
+              {w}W
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[10.5px] text-slate-600 flex justify-between">
+          <span>Temperatura de cor (CCT)</span>
+          <strong className="font-mono text-slate-800">{cctK} K</strong>
+        </span>
+        <div className="grid grid-cols-4 gap-1">
+          {[
+            { k: 3000, lbl: '3000K' },
+            { k: 4000, lbl: '4000K' },
+            { k: 5000, lbl: '5000K' },
+            { k: 6500, lbl: '6500K' },
+          ].map((opt) => (
+            <button
+              key={opt.k}
+              type="button"
+              disabled={locked}
+              onClick={() => apply({ cctK: opt.k })}
+              className={`dc-btn text-[10px] justify-center ${cctK === opt.k ? 'dc-btn-primary' : ''}`}
+            >
+              {opt.lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-slate-600">Linkable (passagem L/N/PE → OUT)</span>
+        <input
+          type="checkbox"
+          disabled={locked}
+          checked={linkable}
+          onChange={(e) => apply({ linkable: e.target.checked })}
+        />
+      </label>
+    </div>
+  )
+}
+
+function ConduitAndClampControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const setComponentState = useSimStore((s) => s.setComponentState)
+  const addComponent = useSimStore((s) => s.addComponent)
+  const updateComponent = useSimStore((s) => s.updateComponent)
+  const selectComponents = useSimStore((s) => s.selectComponents)
+  const apply = (patch: Record<string, any>) => setComponentState(c.id, patch)
+
+  const dMm = Number(c.state.diameterMm ?? 25)
+  const lMm = Number(c.state.lengthMm ?? 1000)
+  const clampCount = Number(c.state.clampCount ?? (c.type === 'conduitVdsElbow90' ? 0 : 2))
+  const clampStyle = String(c.state.clampStyle ?? 'pvc-clip')
+  const isTube = c.type === 'conduitVdsStraight' || c.type === 'conduitCorrugated'
+  const isVds = c.type === 'conduitVdsStraight' || c.type === 'conduitVdsElbow90'
+
+  const quickAddNext = (nextType: 'conduitVdsStraight' | 'conduitVdsElbow90' | 'conduitCorrugated') => {
+    const newId = addComponent(nextType, (c.schematicX ?? 400) + 120, c.schematicY ?? 260)
+    if (!newId) return
+    const curPos = c.panel3DPosition ?? { x: 0, y: 1.5, z: 1.0 }
+    const stepX = ((c.type === 'conduitVdsStraight' || c.type === 'conduitCorrugated' ? lMm : dMm * 5) * 0.5 + 500) * 0.01
+    setComponentState(newId, { diameterMm: dMm, clampStyle, autoCouplers: true })
+    updateComponent(newId, { panel3DPosition: { x: curPos.x + stepX, y: curPos.y, z: curPos.z } })
+    selectComponents([newId])
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-device-controls="conduit-vds-clamps">
+      <div className="flex items-center justify-between gap-1">
+        <span className="dc-field-label">
+          {c.type === 'conduitVdsStraight'
+            ? 'Tubo VDS Rígido PVC'
+            : c.type === 'conduitVdsElbow90'
+              ? 'Curva VDS 90°'
+              : c.type === 'conduitCorrugated'
+                ? 'Tubo Corrugado Flexível'
+                : 'Abraçadeira de Tubo'}
+        </span>
+        <StatusBadge label={`Ø${dMm} mm`} tone="ok" />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[10.5px] text-slate-600">Diâmetro nominal (mm)</span>
+        <div className="grid grid-cols-6 gap-1">
+          {[16, 20, 25, 32, 40, 50].map((d) => (
+            <button
+              key={d}
+              type="button"
+              disabled={locked}
+              onClick={() => apply({ diameterMm: d, serigraphy: `VDS PVC-U Ø${d}mm · EN 61386-21 · 750N · IP65` })}
+              className={`dc-btn text-[10px] justify-center !px-1 ${dMm === d ? 'dc-btn-primary' : ''}`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isTube && (
+        <label className="flex flex-col gap-0.5 text-[11px]">
+          <span className="flex justify-between text-slate-600">
+            <span>Comprimento</span>
+            <strong className="font-mono text-slate-800">{lMm} mm</strong>
+          </span>
+          <input
+            type="range"
+            min={250}
+            max={3000}
+            step={50}
+            disabled={locked}
+            value={lMm}
+            onChange={(e) => apply({ lengthMm: Number(e.target.value) })}
+          />
+        </label>
+      )}
+
+      {isVds && (
+        <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] text-emerald-800">
+          <strong>Encaixes automáticos ativos:</strong> bolsas/uniões VDS aparecem automaticamente nas pontas. Basta escolher quantas abraçadeiras pretende.
+        </div>
+      )}
+
+      {(isTube || c.type === 'conduitVdsElbow90') && (
+        <>
+          <label className="flex flex-col gap-0.5 text-[11px]">
+            <span className="flex justify-between text-slate-600">
+              <span>Nº de abraçadeiras no tubo</span>
+              <strong className="font-mono text-slate-800">{clampCount}</strong>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              step={1}
+              disabled={locked}
+              value={clampCount}
+              onChange={(e) => apply({ clampCount: Number(e.target.value) })}
+            />
+          </label>
+          {clampCount > 0 && (
+            <label className="flex flex-col gap-1 text-[11px]">
+              <span className="text-slate-600">Tipo de abraçadeira</span>
+              <select
+                className="dc-input !h-7 !text-[11px]"
+                disabled={locked}
+                value={clampStyle}
+                onChange={(e) => apply({ clampStyle: e.target.value })}
+              >
+                <option value="pvc-clip">Clip PVC VDS (encaixe rápido)</option>
+                <option value="metal-epdm">Metálica galvanizada c/ borracha EPDM</option>
+                <option value="metal-screw">Metálica simples c/ espigão roscado</option>
+              </select>
+            </label>
+          )}
+        </>
+      )}
+
+      {c.type === 'conduitCorrugated' && (
+        <>
+          <label className="flex flex-col gap-0.5 text-[11px]">
+            <span className="flex justify-between text-slate-600">
+              <span>Curvatura flexível</span>
+              <strong className="font-mono text-slate-800">{Number(c.state.bendAngleDeg ?? 0)}°</strong>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={180}
+              step={15}
+              disabled={locked}
+              value={Number(c.state.bendAngleDeg ?? 0)}
+              onChange={(e) => apply({ bendAngleDeg: Number(e.target.value) })}
+            />
+          </label>
+          <div className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="text-slate-600">Cor do corrugado</span>
+            <div className="flex gap-1">
+              {[
+                { c: '#1b1f25', lbl: 'Preto' },
+                { c: '#7c8590', lbl: 'Cinza' },
+                { c: '#ea580c', lbl: 'Laranja' },
+              ].map((sw) => (
+                <button
+                  key={sw.c}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => apply({ color: sw.c })}
+                  className={`dc-btn text-[10px] !px-1.5 ${String(c.state.color ?? '#1b1f25') === sw.c ? 'dc-btn-primary' : ''}`}
+                >
+                  {sw.lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {isVds && (
+        <div className="grid grid-cols-2 gap-1 pt-1">
+          <button type="button" disabled={locked} onClick={() => quickAddNext('conduitVdsStraight')} className="dc-btn text-[10px] justify-center">
+            + Acoplar Tubo VDS
+          </button>
+          <button type="button" disabled={locked} onClick={() => quickAddNext('conduitVdsElbow90')} className="dc-btn text-[10px] justify-center">
+            + Acoplar Curva 90°
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EditableCableControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const setComponentState = useSimStore((s) => s.setComponentState)
+  const apply = (patch: Record<string, any>) => setComponentState(c.id, patch)
+  const isFloat = c.type === 'floatSwitch'
+  const isTriProof = c.type === 'triProofLedBatten'
+  const enabled = isFloat ? true : isTriProof ? c.state.cableEnabled !== false : c.state.cableEnabled === true
+  const lengthMm = Number(c.state.cableLengthMm ?? (isTriProof ? 650 : 480))
+  const diamMm = Number(c.state.cableDiameterMm ?? 8.5)
+  const exitDir = String(c.state.cableExitDir ?? (isTriProof ? 'left' : 'bottom'))
+  const color = String(c.state.cableColor ?? '#18181b')
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px]" data-editable-cable-controls>
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[10.5px] font-semibold text-slate-700">Cabo de ligação editável (3D)</span>
+        {!isFloat && (
+          <input
+            type="checkbox"
+            disabled={locked}
+            checked={enabled}
+            onChange={(e) => apply({ cableEnabled: e.target.checked })}
+          />
+        )}
+      </div>
+
+      {enabled && (
+        <>
+          {!isFloat && (
+            <>
+              <label className="flex items-center justify-between gap-2 text-[10.5px]">
+                <span className="text-slate-600">Saída do cabo</span>
+                <select
+                  className="dc-input !h-6 !text-[10.5px] !w-28"
+                  disabled={locked}
+                  value={exitDir}
+                  onChange={(e) => apply({ cableExitDir: e.target.value })}
+                >
+                  <option value="bottom">Por baixo</option>
+                  <option value="top">Por cima</option>
+                  <option value="left">Esquerda</option>
+                  <option value="right">Direita</option>
+                  <option value="back">Trás</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-0.5 text-[10.5px]">
+                <span className="flex justify-between text-slate-600">
+                  <span>Comprimento</span>
+                  <strong className="font-mono text-slate-800">{lengthMm} mm</strong>
+                </span>
+                <input
+                  type="range"
+                  min={150}
+                  max={2500}
+                  step={50}
+                  disabled={locked}
+                  value={lengthMm}
+                  onChange={(e) => apply({ cableLengthMm: Number(e.target.value) })}
+                />
+              </label>
+            </>
+          )}
+
+          <label className="flex flex-col gap-0.5 text-[10.5px]">
+            <span className="flex justify-between text-slate-600">
+              <span>Espessura do cabo</span>
+              <strong className="font-mono text-slate-800">Ø{diamMm.toFixed(1)} mm</strong>
+            </span>
+            <input
+              type="range"
+              min={5}
+              max={16}
+              step={0.5}
+              disabled={locked}
+              value={diamMm}
+              onChange={(e) => apply({ cableDiameterMm: Number(e.target.value) })}
+            />
+          </label>
+
+          <div className="flex items-center justify-between gap-1 text-[10.5px]">
+            <span className="text-slate-600">Bainha</span>
+            <div className="flex gap-1">
+              {[
+                { hex: '#18181b', lbl: 'Preto' },
+                { hex: '#64748b', lbl: 'Cinza' },
+                { hex: '#2563eb', lbl: 'Azul' },
+                { hex: '#ea580c', lbl: 'Laranja' },
+              ].map((sw) => (
+                <button
+                  key={sw.hex}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => apply({ cableColor: sw.hex })}
+                  className={`dc-btn text-[9.5px] !px-1.5 !h-6 ${color === sw.hex ? 'dc-btn-primary' : ''}`}
+                >
+                  {sw.lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-1 text-[10px]">
+            <label className="flex flex-col gap-0.5">
+              <span className="text-slate-500">Curva X</span>
+              <input
+                type="number"
+                step={25}
+                className="dc-input !h-6 !text-[10px]"
+                disabled={locked}
+                value={Number(c.state.cableBendXMm ?? 0)}
+                onChange={(e) => apply({ cableBendXMm: Number(e.target.value) || 0 })}
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-slate-500">Curva Y</span>
+              <input
+                type="number"
+                step={25}
+                className="dc-input !h-6 !text-[10px]"
+                disabled={locked}
+                value={Number(c.state.cableBendYMm ?? 0)}
+                onChange={(e) => apply({ cableBendYMm: Number(e.target.value) || 0 })}
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-slate-500">Curva Z</span>
+              <input
+                type="number"
+                step={25}
+                className="dc-input !h-6 !text-[10px]"
+                disabled={locked}
+                value={Number(c.state.cableBendZMm ?? 0)}
+                onChange={(e) => apply({ cableBendZMm: Number(e.target.value) || 0 })}
+              />
+            </label>
+          </div>
+
+          {!isFloat && (
+            <label className="flex items-center justify-between gap-2 text-[10.5px]">
+              <span className="text-slate-600">Proteger com tubo corrugado</span>
+              <input
+                type="checkbox"
+                disabled={locked}
+                checked={c.state.cableCorrugated === true}
+                onChange={(e) => apply({ cableCorrugated: e.target.checked })}
+              />
+            </label>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const updateComponent = useSimStore((s) => s.updateComponent)
+  const allowOutsideFactory = useSimStore((s) => s.allowOutsideFactory)
+  const setAllowOutsideFactory = useSimStore((s) => s.setAllowOutsideFactory)
   const isFloor = isFloorMountedMachineType(c.type) || isFloorGroundedStructureType(c.type)
   const cur = c.panel3DPosition ?? {
     x: ((c.schematicX ?? 420) - 420) * 0.02,
@@ -3075,6 +3613,14 @@ function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; lo
       <p className="text-[9.5px] leading-snug text-slate-500">
         Arraste no 3D para mover livremente no pavimento (X/Z). Segure <strong>Shift</strong> ao arrastar para ajustar a altura (Y).
       </p>
+      <label className="mt-1 flex items-center justify-between gap-2 border-t border-slate-200 pt-1.5 text-[10.5px]">
+        <span className="text-slate-700 font-medium">Permitir sair dos limites do pavilhão</span>
+        <input
+          type="checkbox"
+          checked={allowOutsideFactory}
+          onChange={(e) => setAllowOutsideFactory(e.target.checked)}
+        />
+      </label>
     </div>
   )
 }
@@ -3082,16 +3628,21 @@ function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; lo
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
   const free3DExtra = !isPanelBound(c) ? <FreeSpacePosition3DControls c={c} locked={locked} /> : null
+  const editableCableExtra = isEditableCableDeviceType(c.type) ? <EditableCableControls c={c} locked={locked} /> : null
   const wrap = (node: React.ReactNode) => (
     <>
       {node}
+      {editableCableExtra}
       {free3DExtra}
     </>
   )
   if (industrialDeviceTypeOf(c)) return wrap(<IndustrialDeviceControls component={c} disabled={locked} />)
+  if (c.type === 'triProofLedBatten') return wrap(<TriProofLedControls c={c} locked={locked} />)
   if (isLightingType(c.type)) return wrap(<LightingControls c={c} locked={locked} />)
+  if (c.type === 'waterSupplyBox') return wrap(<WaterSupplyBoxControls c={c} locked={locked} />)
   if (isHydraulicComponentType(c.type)) return wrap(<HydraulicControls c={c} locked={locked} />)
   if (isPneumaticComponentType(c.type)) return wrap(<PneumaticControls c={c} locked={locked} />)
+  if (isConduitStructureType(c.type)) return wrap(<ConduitAndClampControls c={c} locked={locked} />)
   if (isStructureComponentType(c.type)) return wrap(<StructureControls c={c} locked={locked} />)
   if (isConveyorComponentType(c.type)) return wrap(<ConveyorControls c={c} locked={locked} />)
   if (isJunctionOrWagoType(c.type)) return wrap(<JunctionAndWagoControls c={c} locked={locked} />)
