@@ -27,6 +27,7 @@ import {
 } from '../three/hydraulicsModel'
 import { isPanelBound } from '../three/panelBounds'
 import { isFloorMountedMachineType } from '../three/conveyorModel'
+import { isFloorStandingComponent } from '../three/factoryPhysics'
 import { isFloorGroundedStructureType, isConduitStructureType } from '../three/structuresModel'
 import { isEditableCableDeviceType } from '../three/EditableCable3D'
 import { isPneumaticComponentType } from '../three/pneumaticsModel'
@@ -1447,6 +1448,10 @@ function LightingControls({ c, locked }: { c: ElectricalComponent; locked: boole
 function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setState = useSimStore((s) => s.setComponentState)
   const operate = useSimStore((s) => s.operateComponent)
+  // Hooks antes de qualquer return antecipado (o mesmo inspetor serve vários tipos hidráulicos).
+  const allComponents = useSimStore((s) => s.components)
+  const addComponent = useSimStore((s) => s.addComponent)
+  const updateComponent = useSimStore((s) => s.updateComponent)
 
   if (c.type === 'waterTank') {
     const dims = waterTankDimensionsOf(c.state)
@@ -1746,9 +1751,6 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
   }
 
   // floatSwitch — instalação real dentro do reservatório com contrapeso ajustável + saída dos fios para caixa exterior!
-  const allComponents = useSimStore((s) => s.components)
-  const addComponent = useSimStore((s) => s.addComponent)
-  const updateComponent = useSimStore((s) => s.updateComponent)
   const tanks = allComponents.filter((item) => item.type === 'waterTank')
   const oboBoxes = allComponents.filter((item) => isJunctionBoxType(item.type))
   const triggered = !!c.state.triggered
@@ -2662,10 +2664,10 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
                     </div>
                     <div className="grid grid-cols-2 gap-1">
                       <button type="button" disabled={locked} aria-pressed={dropOutPlate} onClick={() => setState(c.id, { dropOutPlate: !dropOutPlate })} className={`dc-btn text-[10px] justify-center ${dropOutPlate ? 'dc-btn-primary' : ''}`}>
-                        {dropOutPlate ? '✓ Cascata saída' : '+ Cascata saída'}
+                        {dropOutPlate ? 'Cascata saída' : '+ Cascata saída'}
                       </button>
                       <button type="button" disabled={locked} aria-pressed={couplerClips} onClick={() => setState(c.id, { couplerClips: !couplerClips })} className={`dc-btn text-[10px] justify-center ${couplerClips ? 'dc-btn-primary' : ''}`}>
-                        {couplerClips ? '✓ Clipes união' : '+ Clipes união'}
+                        {couplerClips ? 'Clipes união' : '+ Clipes união'}
                       </button>
                     </div>
                   </>
@@ -2828,7 +2830,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
                 onClick={() => setState(c.id, { [key]: !active })}
                 className={`dc-btn text-[10px] justify-center ${active ? 'dc-btn-primary' : ''}`}
               >
-                {active ? `✓ Bucim ${lbl}` : `+ Bucim ${lbl}`}
+                {active ? `Bucim ${lbl}` : `+ Bucim ${lbl}`}
               </button>
             ))}
           </div>
@@ -2844,12 +2846,12 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
             onChange={(e) => setState(c.id, { lidSticker: e.target.value as JunctionLidSticker })}
           >
             <option value="none">Sem adesivo</option>
-            <option value="warning-bolt">⚠ Perigo elétrico (raio amarelo)</option>
-            <option value="230v">⚡ 230V ~ Perigo Elétrico</option>
-            <option value="400v">⚡ 400V 3~ Alta Tensão</option>
-            <option value="24v">🔵 24V DC Comando / PLC</option>
-            <option value="command">⬛ Derivação de Comando</option>
-            <option value="hydraulics">💧 Hidráulica · Bóia / Bomba</option>
+            <option value="warning-bolt">Perigo elétrico (raio amarelo)</option>
+            <option value="230v">230V ~ Perigo Elétrico</option>
+            <option value="400v">400V 3~ Alta Tensão</option>
+            <option value="24v">24V DC Comando / PLC</option>
+            <option value="command">Derivação de Comando</option>
+            <option value="hydraulics">Hidráulica · Bóia / Bomba</option>
           </select>
           <input
             type="text"
@@ -3023,6 +3025,7 @@ function WaterSupplyBoxControls({ c, locked }: { c: ElectricalComponent; locked:
   const totalL = Number(c.state.totalVolumeL ?? 0)
   const singleL = Number(c.state.singleVolumeL ?? 0)
   const pipeDN = String(c.state.pipeDN ?? 'DN32') as FlowMeterPipeDN
+  const wallMounted = c.state.mounting === 'wall'
 
   return (
     <div className="flex flex-col gap-2" data-device-controls="water-supply-box">
@@ -3110,6 +3113,17 @@ function WaterSupplyBoxControls({ c, locked }: { c: ElectricalComponent; locked:
         </select>
       </label>
 
+      <div className="flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-slate-600">Montagem</span>
+        <div className="dc-acc-seg" role="group" aria-label="Montagem do armário do contador">
+          <button type="button" disabled={locked} aria-pressed={!wallMounted} className={!wallMounted ? 'is-on' : ''} onClick={() => setComponentState(c.id, { mounting: 'floor' })}>No chão</button>
+          <button type="button" disabled={locked} aria-pressed={wallMounted} className={wallMounted ? 'is-on' : ''} onClick={() => setComponentState(c.id, { mounting: 'wall' })}>Fixo na parede</button>
+        </div>
+      </div>
+      <p className="text-[9.5px] leading-snug text-slate-500">
+        {wallMounted ? 'Na parede: Shift + arrastar ajusta a altura; arrastar sem Shift desliza no plano horizontal.' : 'No chão: no ambiente fabril o armário assenta no pavimento e desliza pelo chão ao arrastar.'}
+      </p>
+
       <label className="flex items-center justify-between gap-2 text-[11px]">
         <span className="text-slate-600">Rede pública com pressão</span>
         <input
@@ -3120,7 +3134,7 @@ function WaterSupplyBoxControls({ c, locked }: { c: ElectricalComponent; locked:
         />
       </label>
       <p className="text-[9.5px] leading-snug text-slate-500">
-        Ligue a saída hidráulica <strong>OUT</strong> (à direita) a bombas, válvulas ou reservatórios. A caixa de derivação interna tem 3 conectores <strong>WAGO 221</strong> transparentes pré-ligados aos bornes +24V / PULSE / GND do contador ZJLCD-BT01.
+        Ligue a saída hidráulica <strong>OUT</strong> (à direita) a bombas, válvulas ou reservatórios. Na caixa de derivação interna cada condutor do contador ZJLCD-BT01 (+24V / PULSE / GND) fica no seu próprio <strong>WAGO 221-2411</strong> (1-1), com o cabo de saída pelo topo do armário.
       </p>
     </div>
   )
@@ -3544,7 +3558,7 @@ function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; lo
   const updateComponent = useSimStore((s) => s.updateComponent)
   const allowOutsideFactory = useSimStore((s) => s.allowOutsideFactory)
   const setAllowOutsideFactory = useSimStore((s) => s.setAllowOutsideFactory)
-  const isFloor = isFloorMountedMachineType(c.type) || isFloorGroundedStructureType(c.type)
+  const isFloor = isFloorStandingComponent(c)
   const cur = c.panel3DPosition ?? {
     x: ((c.schematicX ?? 420) - 420) * 0.02,
     y: -((c.schematicY ?? 260) - 260) * 0.02,

@@ -345,12 +345,17 @@ function OboSteppedMembrane({
    1. CAIXA DE DERIVAÇÃO OBO BETTERMANN (T60 / A6 / T25)
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/** Cabo que entra por um bucim superior da caixa e fica emendado em WAGO 221-2411 (um por condutor). */
+export interface OboSpliceCable { key: string; glandX: number; conductors: Array<{ color: string; label?: string }> }
+
 export function OboJunctionBox3D({
   component,
   onToggleCover,
+  spliceCables = [],
 }: {
   component: ElectricalComponent
   onToggleCover?: () => void
+  spliceCables?: OboSpliceCable[]
 }) {
   const { invalidate } = useThree()
   const lidRef = useRef<THREE.Group>(null)
@@ -400,6 +405,35 @@ export function OboJunctionBox3D({
       lidRef.current.visible = p < 0.85
     }
   })
+
+  // Emendas: colunas sob os bucins, WAGO deitados com as alavancas para a frente, saída pelo bucim inferior.
+  const splices = useMemo<WagoSpliceCable[]>(() => {
+    if (!spliceCables.length) return []
+    const z0 = -D * 0.06
+    const innerHalfW = W / 2 - wallT - 0.03
+    // Abaixo das torres de parafuso dos cantos (T60) e da entrada dos bucins.
+    const originY = H / 2 - wallT - (variant === 't60' ? 0.26 : 0.14), bottomY = -H / 2 + wallT + 0.12
+    const n = spliceCables.length
+    return spliceCables.map((cable, k) => {
+      const colX = n === 1 ? cable.glandX * 0.85 : (k - (n - 1) / 2) * W * 0.44
+      const exitX = variant === 't60' ? (colX < 0 ? -W * 0.24 : W * 0.24) : 0
+      return {
+        key: cable.key,
+        sheathEntry: [cable.glandX, H / 2 + 0.06, z0] as [number, number, number],
+        sheathEnd: [cable.glandX, H / 2 - wallT - 0.06, z0] as [number, number, number],
+        origin: [Math.max(-innerHalfW, Math.min(innerHalfW, colX)), originY, z0] as [number, number, number],
+        conductors: cable.conductors,
+        exitSheathStart: [exitX, Math.min(bottomY, -H / 2 + wallT + 0.08), z0] as [number, number, number],
+        exitSheathEnd: [exitX, -H / 2 - 0.62, z0] as [number, number, number],
+      }
+    })
+  }, [spliceCables, W, H, D, variant])
+  // Escala e passo dos WAGO ajustados ao interior (a T60 cabe à escala 0,6; a A6, mais baixa, encolhe).
+  const spliceRows = Math.max(1, ...spliceCables.map((cable) => cable.conductors.length))
+  const spliceSpanY = H - 2 * wallT - 0.26
+  const spliceColHalf = W / 2 - wallT - 0.03 - Math.max(0, ...splices.map((item) => Math.abs(item.origin[0])))
+  const spliceScale = Math.max(0.3, Math.min(0.6, spliceColHalf / 0.33, spliceRows > 1 ? spliceSpanY / ((spliceRows - 1) * 0.223) : 0.6))
+  const splicePitch = Math.min(0.15, spliceScale * 0.223)
 
   const bodyColor = '#c5cdd6'
   const wallOuterRimColor = '#b4bec9'
@@ -631,6 +665,8 @@ export function OboJunctionBox3D({
           </mesh>
         </group>
       )}
+
+      {splices.length > 0 && <InlineWagoSplices3D cables={splices} scale={spliceScale} rowPitch={splicePitch} />}
 
       {/* ─── TAMPA REMOVÍVEL OBO (duplo-clique abre/fecha!) ─── */}
       <group
@@ -998,4 +1034,86 @@ export function Wago221Connector3D({
       )}
     </group>
   )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3. EMENDAS COM WAGO 221-2411 (1-1): UM CONDUTOR POR CONECTOR
+   Cada condutor do cabo que entra fica no seu próprio WAGO inline (um
+   condutor de cada lado). Nunca vários condutores de sinais diferentes no
+   mesmo 221-415, que os poria em curto-circuito.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export interface WagoSpliceCable {
+  key: string
+  /** Ponto onde a bainha do cabo entra (bucim), no referencial do pai. */
+  sheathEntry: [number, number, number]
+  /** Fim da bainha dentro da caixa: daqui saem os condutores. */
+  sheathEnd: [number, number, number]
+  /** Centro do primeiro WAGO (os seguintes descem `rowPitch`). */
+  origin: [number, number, number]
+  /** Cores dos condutores, pela ordem dos WAGO. */
+  conductors: Array<{ color: string; label?: string }>
+  /** Início da bainha do cabo de saída (onde convergem os condutores que saem). */
+  exitSheathStart?: [number, number, number]
+  /** Fim da bainha de saída (fora do bucim). */
+  exitSheathEnd?: [number, number, number]
+  sheathColor?: string
+}
+
+const SPLICE_WAGO: ElectricalComponent = {
+  id: 'splice-wago-221-2411', type: 'wago221_inline' as ElectricalComponent['type'], ref: '', label: '',
+  x: 0, y: 0, w: 0, h: 0, terminals: [], state: { leversOpen: [] },
+} as unknown as ElectricalComponent
+
+function tube(points: THREE.Vector3[], radius: number): THREE.TubeGeometry {
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), Math.max(8, points.length * 10), radius, 8, false)
+}
+
+/** Bainhas, condutores e WAGO 221-2411 de cada cabo emendado (um WAGO por condutor). */
+export function InlineWagoSplices3D({ cables, scale = 0.6, rowPitch = 0.15 }: { cables: WagoSpliceCable[]; scale?: number; rowPitch?: number }) {
+  const halfLen = (JUNCTION_WAGO_SIZE_MM.wago221_inline.x * U * scale) / 2
+  const geometry = useMemo(() => cables.map((cable) => {
+    const v = (p: [number, number, number]) => new THREE.Vector3(...p)
+    const entry = v(cable.sheathEntry), end = v(cable.sheathEnd), origin = v(cable.origin)
+    const sheath = tube([entry, entry.clone().lerp(end, 0.5), end], 4.2 * U)
+    const exitStart = cable.exitSheathStart ? v(cable.exitSheathStart) : null
+    const exitEnd = cable.exitSheathEnd ? v(cable.exitSheathEnd) : null
+    const exitSheath = exitStart && exitEnd ? tube([exitStart, exitStart.clone().lerp(exitEnd, 0.5), exitEnd], 4.2 * U) : null
+    const n = cable.conductors.length
+    const wires = cable.conductors.map((_, i) => {
+      const center = origin.clone().add(new THREE.Vector3(0, -i * rowPitch, 0))
+      const spread = (i - (n - 1) / 2) * 3.2 * U
+      const inPort = center.clone().add(new THREE.Vector3(-halfLen, 0, 0))
+      const fromSheath = end.clone().add(new THREE.Vector3(spread, 0, 0))
+      const inWire = tube([fromSheath, new THREE.Vector3(fromSheath.x, (fromSheath.y + inPort.y) / 2, fromSheath.z), new THREE.Vector3(inPort.x - 0.06, inPort.y, inPort.z), inPort], 1.9 * U)
+      const outPort = center.clone().add(new THREE.Vector3(halfLen, 0, 0))
+      const outWire = exitStart
+        ? tube([outPort, new THREE.Vector3(outPort.x + 0.06, outPort.y, outPort.z), new THREE.Vector3(exitStart.x + spread, (outPort.y + exitStart.y) / 2, exitStart.z), exitStart.clone().add(new THREE.Vector3(spread, 0, 0))], 1.9 * U)
+        : null
+      return { center, inWire, outWire }
+    })
+    return { sheath, exitSheath, wires }
+  }), [cables, halfLen, rowPitch])
+  useEffect(() => () => geometry.forEach((g) => {
+    g.sheath.dispose(); g.exitSheath?.dispose()
+    g.wires.forEach((w) => { w.inWire.dispose(); w.outWire?.dispose() })
+  }), [geometry])
+  return <group name="inline-wago-splices">
+    {cables.map((cable, c) => {
+      const g = geometry[c]
+      const sheathMat = <meshStandardMaterial color={cable.sheathColor ?? '#18181b'} roughness={0.56} metalness={0.08} />
+      return <group key={cable.key} name={`wago-splice-${cable.key}`}>
+        <mesh geometry={g.sheath} castShadow>{sheathMat}</mesh>
+        {g.exitSheath && <mesh geometry={g.exitSheath} castShadow>{sheathMat}</mesh>}
+        {g.wires.map((w, i) => <group key={i}>
+          <mesh geometry={w.inWire} castShadow><meshStandardMaterial color={cable.conductors[i].color} roughness={0.45} /></mesh>
+          {w.outWire && <mesh geometry={w.outWire} castShadow><meshStandardMaterial color={cable.conductors[i].color} roughness={0.45} /></mesh>}
+          {/* WAGO 221-2411 com as alavancas fechadas viradas para quem abre a caixa */}
+          <group position={w.center.toArray() as [number, number, number]} rotation={[Math.PI / 2, 0, 0]} scale={scale} name={`wago-221-2411-${cable.key}-${i}`} userData={{ conductor: cable.conductors[i].label ?? '' }}>
+            <Wago221Connector3D component={SPLICE_WAGO} />
+          </group>
+        </group>)}
+      </group>
+    })}
+  </group>
 }

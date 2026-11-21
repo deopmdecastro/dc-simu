@@ -2751,10 +2751,10 @@ export interface PaletteDomain {
  */
 export function paletteDomains(): PaletteDomain[] {
   const domains: PaletteDomain[] = [
-    { id: 'eletricidade', label: 'Eletricidade', icon: '⚡', accent: '#f59e0b', subgroups: [] },
-    { id: 'hidraulica', label: 'Hidráulica', icon: '💧', accent: '#0284c7', subgroups: [] },
-    { id: 'pneumatica', label: 'Pneumática', icon: '💨', accent: '#06b6d4', subgroups: [] },
-    { id: 'serralharia', label: 'Serralharia & Infraestrutura', icon: '🏗️', accent: '#64748b', subgroups: [] },
+    { id: 'eletricidade', label: 'Eletricidade', icon: 'bolt', accent: '#f59e0b', subgroups: [] },
+    { id: 'hidraulica', label: 'Hidráulica', icon: 'water', accent: '#0284c7', subgroups: [] },
+    { id: 'pneumatica', label: 'Pneumática', icon: 'air', accent: '#06b6d4', subgroups: [] },
+    { id: 'serralharia', label: 'Serralharia & Infraestrutura', icon: 'structure', accent: '#64748b', subgroups: [] },
   ]
   const byId = Object.fromEntries(domains.map((d) => [d.id, d])) as Record<PaletteDomain['id'], PaletteDomain>
   const subMap = new Map<string, PaletteSubgroup>()

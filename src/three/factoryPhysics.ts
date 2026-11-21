@@ -1,4 +1,6 @@
 import { PLATE_TOP } from './panelBounds'
+import { isFloorMountedMachineType } from './conveyorModel'
+import { isFloorGroundedStructureType } from './structuresModel'
 
 export interface Vec3U {
   x: number
@@ -178,4 +180,15 @@ export function resolveFactoryPlacement3D(params: {
   }
 
   return cur
+}
+
+/**
+ * Assenta no pavimento do pavilhão (Y bloqueado no chão, arrasto livre em XZ): máquinas de chão,
+ * paredes/pilares e o armário do contador de água, exceto quando o utilizador o marca como fixo
+ * na parede (`mounting: 'wall'`, altura ajustável com Shift + arrastar).
+ */
+export function isFloorStandingComponent(component: { type: string; state?: Record<string, unknown> }): boolean {
+  return isFloorMountedMachineType(component.type)
+    || isFloorGroundedStructureType(component.type)
+    || (component.type === 'waterSupplyBox' && component.state?.mounting !== 'wall')
 }

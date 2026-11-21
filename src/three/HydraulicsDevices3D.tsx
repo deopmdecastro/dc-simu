@@ -13,6 +13,7 @@ import {
   waterTankDimensionsOf,
 } from './hydraulicsModel'
 import { useSimStore } from '../store/useSimStore'
+import { InlineWagoSplices3D, type WagoSpliceCable } from './JunctionWagoDevices3D'
 import { Text } from './SceneText'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
 
@@ -2057,7 +2058,8 @@ export function WaterSupplyBox3D({
 
   const doorOpen = c.state.doorOpen !== false
   const valveOpen = c.state.valveOpen !== false
-  const windowOpen = Boolean(c.state.windowOpen)
+  const windowOpen = Boolean(c.state.readingHatchOpen ?? c.state.windowOpen)
+  const junctionCoverOpen = c.state.internalBoxCoverOpen !== false
 
   const W = 460 * U
   const H = 330 * U
@@ -2079,7 +2081,7 @@ export function WaterSupplyBox3D({
     state: {
       ...c.state,
       pipeDN: c.state.pipeDN ?? 'DN32',
-      withCable: true,
+      withCable: false,
       installOrientation: 'horizontal',
     },
   }), [c])
@@ -2105,6 +2107,41 @@ export function WaterSupplyBox3D({
       valvePivotRef.current.rotation.y = valveAngleRef.current
     }
   })
+
+  const junction = useMemo(() => {
+    const w = 110 * U, h = 80 * U, d = 45 * U, glandX = 30 * U
+    const backInner = -D / 2 + wallT
+    const center: [number, number, number] = [W * 0.31, H * 0.31, backInner + d / 2]
+    // Saída do cabo do contador (referencial do contador → armário): conjunto [0, H·0,08, −D·0,06], contador [W·0,11, 2, 6] mm, escala 0,68.
+    const pipeOuterR = (flowMeterSpecOf(meterComp.state).outerMm / 2) * U
+    const scale = 0.68
+    const meterExit = new THREE.Vector3(W * 0.11 + scale * -0.08, H * 0.08 + 2 * U + scale * (-pipeOuterR * 0.45), -D * 0.06 + 6 * U + scale * (pipeOuterR * 0.65))
+    const gIn = new THREE.Vector3(center[0] - glandX, center[1] - h / 2 - 14 * U, center[2])
+    // Desce por baixo do tubo, passa por trás dele (junto ao fundo) e sobe até ao bucim de entrada.
+    const meterCable = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+      meterExit,
+      new THREE.Vector3(meterExit.x + 0.02, -0.06, meterExit.z),
+      new THREE.Vector3((meterExit.x + gIn.x) / 2, -0.08, (meterExit.z + gIn.z) / 2),
+      new THREE.Vector3(gIn.x, 0.12, gIn.z),
+      gIn,
+    ]), 48, 3.6 * U, 10, false)
+    const gOut = new THREE.Vector3(center[0] + glandX, center[1] + h / 2 + 14 * U, center[2])
+    const outCable = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+      gOut, new THREE.Vector3(gOut.x, (gOut.y + H / 2) / 2, gOut.z), new THREE.Vector3(gOut.x, H / 2 + 0.35, gOut.z),
+    ]), 16, 3.6 * U, 10, false)
+    const z0 = 0
+    const splice: WagoSpliceCable = {
+      key: 'contador',
+      sheathEntry: [-glandX, -h / 2 - 14 * U, z0],
+      sheathEnd: [-glandX, -h / 2 + 12 * U, z0],
+      origin: [0, h / 2 - 23 * U, z0],
+      conductors: [{ color: '#dc2626', label: '+24V' }, { color: '#eab308', label: 'PULSE' }, { color: '#111827', label: 'GND' }],
+      exitSheathStart: [glandX, h / 2 - 13 * U, z0],
+      exitSheathEnd: [glandX, h / 2 + 14 * U, z0],
+    }
+    return { w, h, d, glandX, center, splice, meterCable, outCable, outX: gOut.x }
+  }, [W, H, D, wallT, meterComp.state])
+  useEffect(() => () => { junction.meterCable.dispose(); junction.outCable.dispose() }, [junction])
 
   const boxWhite = '#eef1f5'
   const innerWhite = '#dfe4eb'
@@ -2243,60 +2280,42 @@ export function WaterSupplyBox3D({
         </mesh>
       </group>
 
-      {/* Caixa de derivação interna + 3 WAGOs 221 em acrílico transparente já ligados ao contador! */}
-      <group position={[W * 0.16, -H * 0.20, -D * 0.16]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[112 * U, 78 * U, 44 * U]} />
-          <meshStandardMaterial color="#c4ccd5" roughness={0.48} />
+      {/* Caixa de derivação interna (acima do contador, visível com a porta aberta): cabo do contador
+          entra pelo bucim inferior e cada condutor (+24V / PULSE / GND) fica no seu WAGO 221-2411 (1-1);
+          o cabo de saída sobe e atravessa o topo do armário. */}
+      <group position={junction.center} name="water-box-junction">
+        <mesh position={[0, 0, -junction.d / 2 + 3 * U]} castShadow receiveShadow>
+          <boxGeometry args={[junction.w, junction.h, 6 * U]} />
+          <meshStandardMaterial color="#c5cdd6" roughness={0.5} />
         </mesh>
-        <mesh position={[0, 0, 12 * U]}>
-          <boxGeometry args={[98 * U, 64 * U, 26 * U]} />
-          <meshStandardMaterial color="#8792a0" roughness={0.65} />
-        </mesh>
-        <mesh position={[-18 * U, 45 * U, 4 * U]} castShadow>
-          <cylinderGeometry args={[8 * U, 10 * U, 16 * U, 6]} />
-          <meshStandardMaterial color="#64748b" roughness={0.42} />
-        </mesh>
-        <mesh position={[-18 * U, 74 * U, 6 * U]} castShadow>
-          <cylinderGeometry args={[4 * U, 4 * U, 52 * U, 10]} />
-          <meshStandardMaterial color="#181c22" roughness={0.6} />
-        </mesh>
-        {[
-          { x: -30 * U, wireCol: '#dc2626' },
-          { x: 0, wireCol: '#eab308' },
-          { x: 30 * U, wireCol: '#111827' },
-        ].map(({ x, wireCol }, idx) => (
-          <group key={idx} position={[x, -4 * U, 18 * U]}>
-            <mesh position={[0, -2 * U, 0]}>
-              <boxGeometry args={[20 * U, 5 * U, 10 * U]} />
-              <meshStandardMaterial color="#d97724" metalness={0.92} roughness={0.18} />
-            </mesh>
-            <mesh renderOrder={3}>
-              <boxGeometry args={[23 * U, 15 * U, 16 * U]} />
-              <meshPhysicalMaterial
-                userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
-                color="#e0f2fe"
-                transparent
-                opacity={0.26}
-                roughness={0.05}
-                ior={1.58}
-                clearcoat={1.0}
-                depthWrite={false}
-              />
-            </mesh>
-            {[-6 * U, 0, 6 * U].map((lx, j) => (
-              <mesh key={j} position={[lx, 8 * U, 2 * U]}>
-                <boxGeometry args={[4.8 * U, 3.8 * U, 11 * U]} />
-                <meshPhysicalMaterial color="#ff550c" roughness={0.22} clearcoat={0.85} />
-              </mesh>
-            ))}
-            <mesh position={[-4 * U, 22 * U, 0]}>
-              <cylinderGeometry args={[2.1 * U, 2.1 * U, 34 * U, 8]} />
-              <meshStandardMaterial color={wireCol} roughness={0.45} />
-            </mesh>
-          </group>
+        {[[0, junction.h / 2 - 3 * U, junction.w, 6 * U], [0, -junction.h / 2 + 3 * U, junction.w, 6 * U], [-junction.w / 2 + 3 * U, 0, 6 * U, junction.h], [junction.w / 2 - 3 * U, 0, 6 * U, junction.h]].map(([x, y, bw, bh], i) => (
+          <mesh key={i} position={[x, y, 0]} castShadow receiveShadow>
+            <boxGeometry args={[bw, bh, junction.d]} />
+            <meshStandardMaterial color="#c5cdd6" roughness={0.5} />
+          </mesh>
         ))}
+        {/* Bucins: entrada (em baixo, à esquerda) e saída (em cima, à direita) */}
+        {[[-junction.glandX, -junction.h / 2 - 7 * U], [junction.glandX, junction.h / 2 + 7 * U]].map(([x, y], i) => (
+          <mesh key={i} position={[x, y, 0]} castShadow>
+            <cylinderGeometry args={[9 * U, 11 * U, 16 * U, 6]} />
+            <meshStandardMaterial color="#64748b" roughness={0.42} />
+          </mesh>
+        ))}
+        <InlineWagoSplices3D cables={[junction.splice]} scale={0.55} rowPitch={0.14} />
+        {!junctionCoverOpen && (
+          <mesh position={[0, 0, junction.d / 2 + 2 * U]} castShadow receiveShadow>
+            <boxGeometry args={[junction.w + 4 * U, junction.h + 4 * U, 5 * U]} />
+            <meshStandardMaterial color="#d8dce0" roughness={0.36} />
+          </mesh>
+        )}
       </group>
+      {/* Cabo do contador (do sensor até ao bucim de entrada) e cabo de saída pelo topo do armário */}
+      <mesh geometry={junction.meterCable} castShadow><meshStandardMaterial color="#18181b" roughness={0.58} metalness={0.08} /></mesh>
+      <mesh geometry={junction.outCable} castShadow><meshStandardMaterial color="#18181b" roughness={0.58} metalness={0.08} /></mesh>
+      <mesh position={[junction.outX, H / 2, junction.center[2]]} castShadow>
+        <cylinderGeometry args={[10 * U, 10 * U, wallT + 6 * U, 14]} />
+        <meshStandardMaterial color="#334155" roughness={0.6} />
+      </mesh>
 
       {/* Porta frontal basculante que abre e fecha (clicar na porta alterna!) */}
       <group

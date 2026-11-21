@@ -98,7 +98,7 @@ import {
   WaterTankTransparent3D,
 } from './HydraulicsDevices3D'
 import { waterTankDimensionsOf } from './hydraulicsModel'
-import { OboJunctionBox3D, Wago221Connector3D } from './JunctionWagoDevices3D'
+import { OboJunctionBox3D, Wago221Connector3D, type OboSpliceCable } from './JunctionWagoDevices3D'
 import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
 import { WireTrayElbow903D, WireTrayRiser903D, WireTrayStraight3D, WireTrayTee3D } from './WireMeshTrayDevices3D'
 import {
@@ -113,6 +113,7 @@ import {
   computeFactoryRoomBounds,
   isSolidCollisionComponentType,
   resolveFactoryPlacement3D,
+  isFloorStandingComponent,
   type SolidObstacle3D,
 } from './factoryPhysics'
 import {
@@ -3979,7 +3980,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   // Assentar máquinas de chão (motores, bombas, reservatórios, tapetes rolantes) e estruturas de chão (paredes, pilares)
   const enclosures = accessories.filter((item) => item.type === 'panelEnclosure')
   for (const component of components) {
-    if ((!isFloorMountedMachineType(component.type) && !isFloorGroundedStructureType(component.type)) || component.panelMount?.enclosureId) continue
+    if (!isFloorStandingComponent(component) || component.panelMount?.enclosureId) continue
     const pivot = panelPivots[component.id]
     if (!pivot) continue
     const half = componentHalfExtents(component, orientationFor(component))
@@ -4030,7 +4031,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       if (!pivot) continue
       const half = componentHalfExtents(component, orientationFor(component))
       const sizeU = { x: half.x * 2, y: half.y * 2, z: half.z * 2 }
-      const floorLocked = factoryMode && (isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type))
+      const floorLocked = factoryMode && isFloorStandingComponent(component)
       const resolved = resolveFactoryPlacement3D({
         movingId: component.id,
         movingType: component.type,
@@ -4055,6 +4056,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
 
   // Montagem física real de bóias (`floatSwitch`) DENTRO do reservatório (`waterTank`) associado!
   const floatTankContexts: Record<string, FloatSwitchTankContext> = {}
+  // Cabos de bóia que entram em cada caixa OBO: cada condutor fica num WAGO 221-2411 (1-1) lá dentro.
+  const oboSpliceCables = new Map<string, OboSpliceCable[]>()
   const waterTanks3D = components.filter((c) => c.type === 'waterTank' && !!panelPivots[c.id])
   if (waterTanks3D.length > 0) {
     const mountedCountByTank = new Map<string, number>()
@@ -4120,10 +4123,17 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         const bp = panelPivots[targetBox.id]
         const bSz = JUNCTION_WAGO_SIZE_MM[targetBox.type as JunctionBoxType]
         // Alinhar exatamente com o bucim superior real (na OBO T60 o bucim esquerdo está em -W*0.24, nunca furar a parede entre bucins!)
+        // Cada bóia entra pelo seu bucim superior (T60: alterna esquerdo/direito; A6/T25: bucim central).
+        const boxCables = oboSpliceCables.get(targetBox.id) ?? []
         const glandOffsetX =
           targetBox.type === 'junctionBoxOboT60'
-            ? -(bSz.x * PANEL_UNITS_PER_MM) * 0.24
+            ? (boxCables.length % 2 === 0 ? -1 : 1) * (bSz.x * PANEL_UNITS_PER_MM) * 0.24
             : 0
+        boxCables.push({
+          key: fs.id, glandX: glandOffsetX,
+          conductors: [{ color: '#78350f', label: 'NA' }, { color: '#111827', label: 'C' }, { color: '#2563eb', label: 'NF' }],
+        })
+        oboSpliceCables.set(targetBox.id, boxCables)
         const boxTopY = bp.y + (bSz.y * PANEL_UNITS_PER_MM) * 0.62
         const fp = panelPivots[fs.id]
         externalCableTarget = [bp.x + glandOffsetX - fp.x, boxTopY - fp.y, bp.z - fp.z]
@@ -4171,7 +4181,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       const ox = colsInRow === 1 ? 0 : (col - (colsInRow - 1) / 2) * Math.min(bw * 0.42, 0.56)
       const oy = rows === 1 ? 0 : ((rows - 1) / 2 - row) * Math.min(bh * 0.36, 0.44)
       const oz = -bd * 0.04
-      panelPivots[w.id] = new THREE.Vector3(bp.x + ox, bp.y + oy, bp.z + oz)
+      // Com emendas de bóias na caixa, os WAGO do utilizador descem para o fundo e deixam livres as colunas das emendas.
+      const spliceShift = oboSpliceCables.has(boxId) ? -bh * 0.3 - oy * 0.5 : 0
+      panelPivots[w.id] = new THREE.Vector3(bp.x + ox, bp.y + oy + spliceShift, bp.z + oz)
     })
   }
 
@@ -4306,7 +4318,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       // Nunca atravessar a parede traseira do pavilhão; mas pode afastar-se livremente para a frente (+Z)!
       const minZ = factoryMode && !store.allowOutsideFactory ? factoryWallFrontZ + half.z + 0.14 : -48
       const clampedZ = Math.max(minZ, rawZ)
-      const floorLocked = factoryMode && (isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type))
+      const floorLocked = factoryMode && isFloorStandingComponent(component)
       const rawY = floorLocked && !store.allowOutsideFactory
         ? factoryFloorY + half.y
         : targetPt.y
@@ -5628,6 +5640,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               <group position={basePivots[c.id].toArray() as [number, number, number]}>
                 <OboJunctionBox3D
                   component={c}
+                  spliceCables={oboSpliceCables.get(c.id)}
                   onToggleCover={() => {
                     const st = useSimStore.getState()
                     const patch = { coverOpen: !c.state.coverOpen }
