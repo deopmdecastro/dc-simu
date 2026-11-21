@@ -47,7 +47,7 @@ export function inferTerminalElectricalClass(component: ElectricalComponent, ter
   if (component.type === 'phoenixEcb3000760' || component.type === 'surgeProtectorWegSpw12') {
     return 'dc'
   }
-  if (component.type === 'motor3ph' || component.type === 'motor1ph' || component.type === 'waterPump') return 'ac'
+  if (component.type === 'motor3ph' || component.type === 'motor1ph' || component.type === 'waterPump' || component.type === 'rollerConveyor') return 'ac'
   if (component.type === 'floatSwitch' || component.type === 'waterTank') return 'other'
   if (component.type === 'lampIncandescentE27' || component.type === 'lampFluorescentE27' || component.type === 'lampLedE27') return 'ac'
   if (component.type === 'wallSwitchSimple' || component.type === 'wallSwitchDouble' || component.type === 'wallSwitchStaircase') return 'ac'

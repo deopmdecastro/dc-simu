@@ -1,0 +1,52 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 718 >>
+stream
+BT
+/F1 14 Tf
+50 780 Td
+(SCHNEIDER XUZC50 / DC-SIMU - Espelho Refletor Otico Prismatico) Tj
+/F1 10 Tf
+0 -20 Td
+(Ficha Tecnica - Retrorrefletor Catadioptrico para Sensores Fotoeletricos) Tj
+0 -16 Td
+(Tipo: Espelho refletor prismaticos cubicos de alta eficiencia \(polarizado\)) Tj
+0 -15 Td
+(Dimensoes: 50 x 50 mm \(ou 80 x 80 mm configuravel no Inspetor\)) Tj
+0 -15 Td
+(Material: PMMA optico de alta refletancia com moldura ABS cinzento escuro) Tj
+0 -15 Td
+(Fixacao: 2 furos M4 + suporte metalico em L orientavel \(-180 a +180 graus\)) Tj
+0 -15 Td
+(Compatibilidade: Sensores fotoeletricos reflex / polarizados \(ex. XUKT1KSML2\)) Tj
+0 -15 Td
+(Grau de protecao: IP67 | Temperatura de operacao: -25 a +65 C) Tj
+0 -15 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1080
+%%EOF

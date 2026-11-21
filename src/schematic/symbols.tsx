@@ -412,6 +412,39 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
+      case 'rollerConveyor': {
+        const run = Boolean(c.state.running)
+        const mot = c.state.motorized !== false
+        const len = Number(c.state.lengthMm ?? 1600)
+        return (
+          <g>
+            <rect x={6} y={14} width={w - 12} height={h - 32} rx={5} fill="#cbd5e1" stroke={run ? '#16a34a' : '#475569'} strokeWidth={run ? 2.4 : 1.6} />
+            {Array.from({ length: 9 }).map((_, idx) => {
+              const rx = 18 + (idx * (w - 36)) / 8
+              return <line key={idx} x1={rx} y1={18} x2={rx} y2={h - 22} stroke="#475569" strokeWidth={3} strokeLinecap="round" />
+            })}
+            {mot && (
+              <g>
+                <rect x={w * 0.56} y={h - 22} width={w * 0.34} height={18} rx={3} fill="#64748b" stroke={run ? '#22c55e' : '#1e293b'} strokeWidth={1.3} />
+                <text x={w * 0.73} y={h - 10} textAnchor="middle" fontSize={8} fontWeight={800} fill="#f8fafc">M3~</text>
+              </g>
+            )}
+            <text x={w * 0.34} y={h - 6} textAnchor="middle" fontSize={8} fontWeight={700} fill="#334155">{`${len}mm${mot ? '' : ' livre'}`}</text>
+            {label(10, 11, c.ref, 10, '#1e40af')}
+          </g>
+        )
+      }
+      case 'opticalReflector': {
+        return (
+          <g>
+            <rect x={8} y={8} width={w - 16} height={h - 16} rx={5} fill="#334155" stroke="#0f172a" strokeWidth={1.5} />
+            <rect x={14} y={14} width={w - 28} height={h - 28} rx={2} fill="#e2e8f0" stroke="#64748b" strokeWidth={1} />
+            <polygon points={`${w / 2},18 ${w - 18},${h / 2} ${w / 2},${h - 18} 18,${h / 2}`} fill="#cbd5e1" stroke="#475569" strokeWidth={1.1} />
+            <line x1={18} y1={h / 2} x2={w - 18} y2={h / 2} stroke="#ef4444" strokeWidth={1} strokeDasharray="3 2" />
+            {label(8, 10, c.ref, 9, '#93c5fd')}
+          </g>
+        )
+      }
 
       // ------------------------------------------------------------ contatores
       case 'contactorWegCWC09':

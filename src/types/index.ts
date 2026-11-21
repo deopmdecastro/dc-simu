@@ -112,6 +112,8 @@ export type ComponentType =
   | 'motor1ph'
   | 'waterPump'
   | 'waterTank'
+  | 'rollerConveyor'
+  | 'opticalReflector'
   | 'capacitorRun60uF'
   | 'vfd'
   | 'softStarter'

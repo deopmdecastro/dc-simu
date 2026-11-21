@@ -431,7 +431,9 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'breakerMurrelektronikMico24' ||
     type === 'floatSwitch' ||
     type === 'waterPump' ||
-    type === 'waterTank'
+    type === 'waterTank' ||
+    type === 'rollerConveyor' ||
+    type === 'opticalReflector'
   )
 }
 

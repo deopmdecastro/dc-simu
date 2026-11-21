@@ -16,6 +16,7 @@ const LOAD_COMPONENT_TYPES = new Set([
   'motor3ph',
   'motor1ph',
   'waterPump',
+  'rollerConveyor',
   'contactor',
   'contactor4p',
   'contactorWegCWC09',

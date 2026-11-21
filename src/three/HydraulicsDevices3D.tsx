@@ -12,6 +12,7 @@ import {
   waterTankDimensionsOf,
 } from './hydraulicsModel'
 import { Text } from './SceneText'
+import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
 
 const U = PANEL_UNITS_PER_MM
 
@@ -875,9 +876,13 @@ export function WaterPumpCalpeda3D({
         {/* Motor 3D realista reaproveitado (posicionado à direita da cabeça da bomba) */}
         <group position={[W * 0.14, 0, 0]}>
           <primitive object={motorModel} />
-          {/* Chapa de características CALPEDA CT 61 no topo da caixa de bornes */}
-          {nameplateTex && (
-            <mesh position={[0, H * 0.835, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          {/* Tampa da caixa de bornes destapada por defeito e tapável no Inspetor */}
+          <group rotation={[0, Math.PI, 0]} scale={[0.88, 0.88, 0.88]}>
+            <MotorTerminalBoxCover3D covered={!!c.state.terminalBoxCovered} color={pumpTealHex} />
+          </group>
+          {/* Chapa de características CALPEDA CT 61 no topo da caixa de bornes (visível quando tapada) */}
+          {nameplateTex && !!c.state.terminalBoxCovered && (
+            <mesh position={[0, H * 0.89, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[84 * U, 44 * U]} />
               <meshStandardMaterial map={nameplateTex} roughness={0.35} metalness={0.25} />
             </mesh>

@@ -967,7 +967,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
       manufacturer: 'SEW-EURODRIVE', model: 'DRN80MK4/B3', mounting: 'B3', frame: 80,
       phases: 3, powerKw: 0.55, cv: 0.75, rpm: 1435, frequencyHz: 50, voltage: '400V', currentA: 1.29,
-      cosPhi: 0.75, torqueNm: 3.65, massKg: 11, motorConnection: 'star', // opção: 'star' | 'delta'
+      cosPhi: 0.75, torqueNm: 3.65, massKg: 11, motorConnection: 'star', terminalBoxCovered: false, // opção: 'star' | 'delta'
     },
   },
   motor1ph: {
@@ -983,7 +983,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     // Adaptado do motor3ph SEW; cor azul característica DC-Simu para identificação visual no esquema e 3D.
     defaultState: {
-      running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
+      running: false, direction: 'stopped', rpmVisual: 0, tripped: false, terminalBoxCovered: false,
       manufacturer: 'DC-Simu', model: 'Mono 0,37 kW', mounting: 'B3', frame: 71,
       phases: 1, powerKw: 0.37, cv: 0.5, rpm: 1400, frequencyHz: 50, voltage: '230V', currentA: 2.5,
       cosPhi: 0.85, torqueNm: 2.5, massKg: 7, motorConnection: 'single', color: '#2563eb',
@@ -999,10 +999,54 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('OUT', 'hydraulic-out', 0.22, 0.04, { position3D: { x: 0.16, y: 0.89, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
     ],
     defaultState: {
-      running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
+      running: false, direction: 'stopped', rpmVisual: 0, tripped: false, terminalBoxCovered: false,
       manufacturer: 'CALPEDA', model: 'CT 61',
       phases: 1, powerKw: 0.37, cv: 0.5, rpm: 2900, frequencyHz: 50, voltage: '230V~', currentA: 2.4,
       cosPhi: 0.90, flowLmin: 40, headM: 40, portSize: 'G 1"', protection: 'IP54',
+    },
+  },
+  rollerConveyor: {
+    category: 'motor', paletteName: 'Tapete rolante industrial 3D · FERPLAST (motorizado / livre)', group: 'Motores', tag: 'TR', w: 220, h: 120,
+    terminals: [
+      T('U1', 'power-in', 0.58, 0.94, { position3D: { x: 0.76, y: 0.86, z: 0.94 }, face: 'top', terminalType: 'screw', color: '#78350f', diameter: 10 }),
+      T('V1', 'power-in', 0.68, 0.94, { position3D: { x: 0.80, y: 0.86, z: 0.94 }, face: 'top', terminalType: 'screw', color: '#111827', diameter: 10 }),
+      T('W1', 'power-in', 0.78, 0.94, { position3D: { x: 0.84, y: 0.86, z: 0.94 }, face: 'top', terminalType: 'screw', color: '#6b7280', diameter: 10 }),
+      T('PE', 'earth', 0.88, 0.94, { position3D: { x: 0.88, y: 0.86, z: 0.94 }, face: 'top', terminalType: 'screw', color: '#84cc16', diameter: 10 }),
+    ],
+    defaultState: {
+      running: false,
+      direction: 'stopped',
+      rpmVisual: 0,
+      tripped: false,
+      motorized: true,
+      motorSide: 'front',
+      terminalBoxCovered: false,
+      lengthMm: 1600,
+      widthMm: 680,
+      heightMm: 750,
+      testBoxActive: true,
+      testBoxPosPct: 24,
+      lineSensors: [
+        { id: 's-in', label: 'S1 Entrada', kind: 'optical', positionPct: 18, side: 'front', angleDeg: 0, heightOffsetMm: 65, withReflector: true, triggered: false },
+        { id: 's-out', label: 'S2 Saída', kind: 'optical', positionPct: 82, side: 'front', angleDeg: 0, heightOffsetMm: 65, withReflector: true, triggered: false },
+      ],
+      manufacturer: 'FERPLAST / DC-Simu',
+      model: 'Série RLM 3~',
+      phases: 3,
+      powerKw: 0.55,
+      voltage: '400V~',
+    },
+  },
+  opticalReflector: {
+    category: 'sensor', paletteName: 'Espelho refletor ótico prismático · XUZC50', group: 'Sensores', tag: 'ER', w: 68, h: 74,
+    terminals: [],
+    defaultState: {
+      angleDeg: 0,
+      tiltDeg: 0,
+      faceSizeMm: 50,
+      bracketMounted: true,
+      manufacturer: 'Schneider / DC-Simu',
+      model: 'XUZC50 · IP67',
     },
   },
   waterTank: {

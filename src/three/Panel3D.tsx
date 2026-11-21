@@ -89,6 +89,9 @@ import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
 import { FloatSwitchFelix3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
+import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
+import { OpticalReflector3D, RollerConveyor3D } from './ConveyorDevices3D'
+import { isFloorMountedMachineType } from './conveyorModel'
 import { AcrylicBusbar3D, CombBusbar3D, CombConnector3D, SteppedBusbar3D } from './Busbar3D'
 import { isAcrylicBusbarType, isCombBusbarType, isCombConnectorType, isSteppedBusbarType } from './busbarParts'
 import MotorShaftFan3D from './MotorShaftFan3D'
@@ -1991,6 +1994,8 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
       <primitive object={model} name={`motor-model-${c.id}`} />
       {/* Pontes Y/Δ só no trifásico; a placa monofásica (U1 Z1 / U2 Z2) não tem pontes. */}
       {!mono && <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} />}
+      {/* Tampa da caixa de bornes — destapada por defeito para ver ligações, tapável no Inspetor */}
+      <MotorTerminalBoxCover3D covered={!!c.state.terminalBoxCovered} color={mono ? '#2563eb' : '#4a5568'} />
       {/* Pá de três pás no veio (Ø19, x = 241…264 mm do CAD): roda com a velocidade simulada.
           Mostrar/ocultar: olho «Pá do veio» nas propriedades (state.showFan). */}
       {c.state.showFan !== false && <group position={motorCadToCentered([MOTOR_FAN.hubX, 0, 0]).map((v) => v * PANEL_UNITS_PER_MM) as [number, number, number]}>
@@ -3855,6 +3860,80 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [components, wires.length, runState])
 
+  // Chão fabril e assentamento de máquinas de chão (motores, bombas, reservatórios, tapetes rolantes):
+  // em Ambiente fabril ficam sempre assentes no chão de betão, nunca a flutuar nem dentro do quadro elétrico.
+  const factoryMode = sceneEnvironment === 'factory'
+  const factoryWallFrontZ = hasEnclosure
+    ? PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM - 0.02
+    : PLATE_Z - PLATE_THICKNESS / 2 - 0.02
+  const primaryEnclosure = accessories.find((item) => item.type === 'panelEnclosure')
+  const panelOnlyBox = (() => {
+    const b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+    for (const component of components) {
+      if (!isPanelBound(component)) continue
+      const pivot = panelPivots[component.id]
+      if (!pivot) continue
+      const half = componentHalfExtents(component, orientationFor(component))
+      b.minX = Math.min(b.minX, pivot.x - half.x); b.maxX = Math.max(b.maxX, pivot.x + half.x)
+      b.minY = Math.min(b.minY, pivot.y - half.y); b.maxY = Math.max(b.maxY, pivot.y + half.y)
+    }
+    return b
+  })()
+  const factoryMountBounds: FactoryWallMountBounds | null = (() => {
+    if (primaryEnclosure) {
+      const { x, y } = componentPanelXY(primaryEnclosure)
+      const dims = enclosureDimsOf(primaryEnclosure.state)
+      const halfW = (dims.widthMm * PANEL_UNITS_PER_MM) / 2
+      const halfH = (dims.heightMm * PANEL_UNITS_PER_MM) / 2
+      return { minX: x - halfW, maxX: x + halfW, minY: y - halfH, maxY: y + halfH }
+    }
+    if (Number.isFinite(panelOnlyBox.minX)) {
+      return {
+        minX: panelOnlyBox.minX - PLATE_MARGIN, maxX: panelOnlyBox.maxX + PLATE_MARGIN,
+        minY: panelOnlyBox.minY - PLATE_MARGIN, maxY: panelOnlyBox.maxY + PLATE_MARGIN,
+      }
+    }
+    return null
+  })()
+  const factoryFloorY = factoryMountBounds
+    ? factoryMountBounds.minY - Math.max(4.6, (factoryMountBounds.maxY - factoryMountBounds.minY) * 0.45)
+    : -4.8
+
+  // Assentar máquinas de chão (motores, bombas, reservatórios, tapetes rolantes) fora de qualquer quadro e sobre o chão fabril
+  const enclosures = accessories.filter((item) => item.type === 'panelEnclosure')
+  for (const component of components) {
+    if (!isFloorMountedMachineType(component.type) || component.panelMount?.enclosureId) continue
+    const pivot = panelPivots[component.id]
+    if (!pivot) continue
+    const half = componentHalfExtents(component, orientationFor(component))
+    if (factoryMode) {
+      // Pés encostados ao pavimento industrial (y = factoryFloorY) — nunca a flutuar nem dentro do quadro!
+      pivot.y = factoryFloorY + half.y
+      let minSafeZ = factoryWallFrontZ + half.z + 1.85
+      for (const enc of enclosures) {
+        const encXY = componentPanelXY(enc)
+        const ed = enclosureDimsOf(enc.state)
+        const encHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2
+        const encFrontZ = PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + ed.depthMm * PANEL_UNITS_PER_MM
+        if (Math.abs(pivot.x - encXY.x) < encHalfW + half.x + 0.5) {
+          minSafeZ = Math.max(minSafeZ, encFrontZ + half.z + 1.55)
+        }
+      }
+      pivot.z = Math.max(pivot.z, minSafeZ)
+    } else {
+      // Mesmo em modo Estúdio, nunca deixar um motor/tapete preso dentro do armário elétrico
+      for (const enc of enclosures) {
+        const encXY = componentPanelXY(enc)
+        const ed = enclosureDimsOf(enc.state)
+        const encHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2
+        const encHalfH = (ed.heightMm * PANEL_UNITS_PER_MM) / 2
+        if (Math.abs(pivot.x - encXY.x) < encHalfW + half.x * 0.4 && Math.abs(pivot.y - encXY.y) < encHalfH + half.y * 0.4) {
+          pivot.y = encXY.y - encHalfH - half.y - 0.85
+        }
+      }
+    }
+  }
+
   // Chapa e enquadramento derivados do conteúdo real.
   const sceneBounds = (() => {
     const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
@@ -3880,31 +3959,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const contentBounds = Number.isFinite(sceneBounds.all.minX) ? sceneBounds.all : null
   // Câmara de sombras à medida da cena (por omissão cobre só ±5 u): um quadro grande ficava meio sombreado.
   const shadowExtent = contentBounds
-    ? Math.min(16, Math.max(5, Math.ceil(Math.max(Math.abs(contentBounds.minX), Math.abs(contentBounds.maxX), Math.abs(contentBounds.minY), Math.abs(contentBounds.maxY)) + 1.5)))
-    : 5
+    ? Math.min(22, Math.max(6, Math.ceil(Math.max(Math.abs(contentBounds.minX), Math.abs(contentBounds.maxX), Math.abs(contentBounds.minY), Math.abs(contentBounds.maxY)) + 2.5)))
+    : 6
   const sceneCenter: [number, number, number] = contentBounds
     ? [(contentBounds.minX + contentBounds.maxX) / 2, (contentBounds.minY + contentBounds.maxY) / 2, 0.3]
     : [0, 0, 0.3]
   const sceneWidth = contentBounds ? Math.max(3.5, contentBounds.maxX - contentBounds.minX + 1.2, (contentBounds.maxY - contentBounds.minY + 1.2) * 1.3) : 6
-  const floorY = (contentBounds?.minY ?? 0) - 0.35
-  const factoryMode = sceneEnvironment === 'factory'
-  const factoryMountBounds: FactoryWallMountBounds | null = (() => {
-    const primaryEnc = accessories.find((item) => item.type === 'panelEnclosure')
-    if (primaryEnc) {
-      const { x, y } = componentPanelXY(primaryEnc)
-      const dims = enclosureDimsOf(primaryEnc.state)
-      const halfW = (dims.widthMm * PANEL_UNITS_PER_MM) / 2
-      const halfH = (dims.heightMm * PANEL_UNITS_PER_MM) / 2
-      return { minX: x - halfW, maxX: x + halfW, minY: y - halfH, maxY: y + halfH }
-    }
-    return plateBounds
-  })()
-  const factoryWallFrontZ = hasEnclosure
-    ? PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM - 0.02
-    : PLATE_Z - PLATE_THICKNESS / 2 - 0.02
-  const factoryFloorY = factoryMountBounds
-    ? Math.min(floorY, factoryMountBounds.minY - Math.max(4.6, (factoryMountBounds.maxY - factoryMountBounds.minY) * 0.45))
-    : floorY - 4.5
+  const floorY = factoryMode ? factoryFloorY : (contentBounds?.minY ?? 0) - 0.35
   sceneCenterRef.current = sceneCenter
 
   // --- Edição direta no 3D: traduz X/Y do painel para o Esquema (com imã de calha) ---
@@ -5048,6 +5109,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <WaterTankTransparent3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggleValve={() => activateComponent(c, () => operateComponent(c.id, { outletValveOpen: !c.state.outletValveOpen }))} />
           } else if (c.type === 'floatSwitch') {
             content = <FloatSwitchFelix3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered, level: !c.state.triggered ? 'alto' : 'baixo' }))} />
+          } else if (c.type === 'rollerConveyor') {
+            content = <Model3DErrorBoundary fallback={<Motor3D c={c} x={x} interactive={false} />}><Suspense fallback={null}><RollerConveyor3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'opticalReflector') {
+            content = <OpticalReflector3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           }
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => operateComponent(c.id, { startPressed: pressed }))} />

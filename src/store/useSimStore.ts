@@ -1142,6 +1142,52 @@ function runOneTick(state: Store, dtMs: number) {
         }
       }
     }
+    if (c.type === 'rollerConveyor') {
+      const motorized = c.state.motorized !== false
+      const u1 = c.terminals.find((t) => t.label === 'U1')
+      const v1 = c.terminals.find((t) => t.label === 'V1')
+      const w1 = c.terminals.find((t) => t.label === 'W1')
+      const live3 = motorized && !!u1 && !!v1 && !!w1 &&
+        pass3.energizedTerminals.has(u1.id) &&
+        pass3.energizedTerminals.has(v1.id) &&
+        pass3.energizedTerminals.has(w1.id)
+      const phaseDir = live3 ? motorDirectionFromPhases(c, phaseLabels, pass3.energizedTerminals) : 'stopped'
+      const resolvedDir = phaseDir === 'unknown' ? 'cw' : phaseDir
+      const runNow = live3 && resolvedDir !== 'stopped' && !sim.faults.phaseLoss
+      c.state.running = runNow
+      if (runNow) {
+        const prev = Number(c.state.rpmVisual ?? 0)
+        c.state.rpmVisual = Math.min(1.6, prev + (1.6 - prev) * (dtMs / 320))
+        c.state.direction = resolvedDir
+      } else {
+        const prev = Number(c.state.rpmVisual ?? 0)
+        if (prev > 0.03) {
+          c.state.rpmVisual = Math.max(0, prev + (0 - prev) * (dtMs / 520))
+          if (c.state.rpmVisual < 0.04) c.state.direction = 'stopped'
+        } else {
+          c.state.rpmVisual = 0
+          c.state.direction = 'stopped'
+        }
+      }
+      // Deslocamento físico da caixa de teste sobre os rolos + disparo automático dos sensores da linha
+      if (c.state.testBoxActive !== false) {
+        let pos = Number(c.state.testBoxPosPct ?? 24)
+        if (!Number.isFinite(pos)) pos = 24
+        if (runNow) {
+          const stepPct = (Math.max(0.016, dtMs / 1000) * 18) * (phaseDir === 'ccw' ? -1 : 1)
+          pos += stepPct
+          if (pos > 94) pos = 6
+          if (pos < 6) pos = 94
+          c.state.testBoxPosPct = Math.round(pos * 10) / 10
+        }
+        if (Array.isArray(c.state.lineSensors)) {
+          c.state.lineSensors = c.state.lineSensors.map((s: any) => ({
+            ...s,
+            triggered: Math.abs(pos - Number(s?.positionPct ?? 50)) <= 9,
+          }))
+        }
+      }
+    }
   }
 
   // 9b) Simulação hidráulica em tempo real: bombas -> tubos hidráulicos -> reservatórios -> bóias

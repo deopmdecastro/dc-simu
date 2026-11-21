@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -22,79 +22,280 @@ interface FactoryEnvironment3DProps {
 
 const NO_RAYCAST: THREE.Object3D['raycast'] = () => {}
 
-/** Textura procedural leve de pavimento industrial (betão polido com juntas de dilatação). */
-function createConcreteFloorTexture(): THREE.CanvasTexture | null {
-  if (typeof document === 'undefined') return null
-  const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 512
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-
-  ctx.fillStyle = '#a3aab3'
-  ctx.fillRect(0, 0, 512, 512)
-
-  // Variação mineral subtil de betão afagado
-  for (let i = 0; i < 1800; i++) {
-    const x = (i * 197) % 512
-    const y = (i * 353) % 512
-    const w = 2 + (i % 5)
-    const shade = 152 + ((i * 29) % 24)
-    ctx.fillStyle = `rgba(${shade}, ${shade + 4}, ${shade + 9}, 0.16)`
-    ctx.fillRect(x, y, w, w)
-  }
-
-  // Juntas de dilatação em quadrícula limpa
-  ctx.strokeStyle = 'rgba(71, 85, 105, 0.28)'
-  ctx.lineWidth = 2
-  for (const pos of [0, 256]) {
-    ctx.beginPath(); ctx.moveTo(pos, 0); ctx.lineTo(pos, 512); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(0, pos); ctx.lineTo(512, pos); ctx.stroke()
-  }
-
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.repeat.set(16, 14)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.needsUpdate = true
-  return tex
+interface PbrTexturePair {
+  map: THREE.CanvasTexture
+  bumpMap: THREE.CanvasTexture
+  roughnessMap: THREE.CanvasTexture
 }
 
-/** Textura procedural subtil para paredes bege/areia da nave fabril (referência arquitetónica). */
-function createFactoryWallTexture(): THREE.CanvasTexture | null {
-  if (typeof document === 'undefined') return null
-  const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 512
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return null
-
-  ctx.fillStyle = '#ddd0b8'
-  ctx.fillRect(0, 0, 512, 512)
-
-  // Painéis pré-fabricados industriais verticais muito suaves
-  ctx.strokeStyle = 'rgba(138, 121, 95, 0.16)'
-  ctx.lineWidth = 2
-  for (let x = 0; x < 512; x += 128) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke()
+/** Gerador determinístico rápido (LCG) para grão mineral realista sem ruído aleatório a cada render. */
+function makeRng(seed: number) {
+  let s = seed >>> 0
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0
+    return s / 4294967296
   }
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
+}
+
+/**
+ * Pavimento industrial em betão polido / epóxi acetinado (1024×1024):
+ * - Grão mineral multi-escala + manchas suaves de betão afagado a helicóptero
+ * - Juntas de dilatação com bisel subtil
+ * - Mapas PBR de cor, relevo (bump) e rugosidade (roughness)
+ */
+function createConcreteFloorPbr(): PbrTexturePair | null {
+  if (typeof document === 'undefined') return null
+  const size = 1024
+  const cMap = document.createElement('canvas')
+  const cBump = document.createElement('canvas')
+  const cRough = document.createElement('canvas')
+  cMap.width = cBump.width = cRough.width = size
+  cMap.height = cBump.height = cRough.height = size
+
+  const ctx = cMap.getContext('2d')
+  const btx = cBump.getContext('2d')
+  const rtx = cRough.getContext('2d')
+  if (!ctx || !btx || !rtx) return null
+
+  const rand = makeRng(42071)
+
+  // Base betão industrial polido cinzento-ardósia claro
+  ctx.fillStyle = '#9aa1aa'
+  ctx.fillRect(0, 0, size, size)
+  btx.fillStyle = '#808080'
+  btx.fillRect(0, 0, size, size)
+  rtx.fillStyle = '#b6b6b6' // rugosidade base ~0.71 (acetinado realista)
+  rtx.fillRect(0, 0, size, size)
+
+  // Manchas amplas de afagamento (trowel clouding) — dá aspeto fotográfico real
+  for (let i = 0; i < 140; i++) {
+    const x = rand() * size
+    const y = rand() * size
+    const r = 45 + rand() * 130
+    const delta = (rand() - 0.5) * 26
+    const v = Math.round(152 + delta)
+    const g = ctx.createRadialGradient(x, y, 4, x, y, r)
+    g.addColorStop(0, `rgba(${v}, ${v + 3}, ${v + 7}, 0.22)`)
+    g.addColorStop(1, `rgba(${v}, ${v + 3}, ${v + 7}, 0)`)
+    ctx.fillStyle = g
+    ctx.fillRect(x - r, y - r, r * 2, r * 2)
+
+    // Variação correspondente de brilho/rugosidade (zonas ligeiramente mais polidas)
+    const rv = Math.round(170 + (rand() - 0.5) * 58)
+    const rg = rtx.createRadialGradient(x, y, 4, x, y, r)
+    rg.addColorStop(0, `rgba(${rv}, ${rv}, ${rv}, 0.35)`)
+    rg.addColorStop(1, `rgba(${rv}, ${rv}, ${rv}, 0)`)
+    rtx.fillStyle = rg
+    rtx.fillRect(x - r, y - r, r * 2, r * 2)
+  }
+
+  // Agregado mineral fino + microporos reais
+  for (let i = 0; i < 9000; i++) {
+    const x = rand() * size
+    const y = rand() * size
+    const w = 1 + rand() * 3.2
+    const h = 1 + rand() * 3.2
+    const dark = rand() < 0.52
+    const shade = dark ? Math.round(112 + rand() * 28) : Math.round(172 + rand() * 26)
+    ctx.fillStyle = `rgba(${shade}, ${shade + 2}, ${shade + 5}, ${0.09 + rand() * 0.14})`
+    ctx.fillRect(x, y, w, h)
+
+    const bv = dark ? Math.round(104 + rand() * 20) : Math.round(138 + rand() * 22)
+    btx.fillStyle = `rgba(${bv}, ${bv}, ${bv}, 0.25)`
+    btx.fillRect(x, y, w, h)
+  }
+
+  // Micro-riscos subtis de circulação industrial
+  ctx.strokeStyle = 'rgba(218, 224, 232, 0.14)'
   ctx.lineWidth = 1
-  for (let x = 2; x < 512; x += 128) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke()
+  for (let i = 0; i < 36; i++) {
+    const x = rand() * size
+    const y = rand() * size
+    const ang = rand() * Math.PI * 2
+    const len = 18 + rand() * 65
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len)
+    ctx.stroke()
   }
 
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.repeat.set(10, 2)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.needsUpdate = true
-  return tex
+  // Juntas de dilatação de laje industrial (2×2 por mosaico) com sulco + bisel claro
+  const joints = [0, 512]
+  for (const pos of joints) {
+    // Sombra do sulco
+    ctx.strokeStyle = 'rgba(52, 60, 72, 0.52)'
+    ctx.lineWidth = 4
+    ctx.beginPath(); ctx.moveTo(pos, 0); ctx.lineTo(pos, size); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, pos); ctx.lineTo(size, pos); ctx.stroke()
+
+    // Bisel claro adjacente
+    ctx.strokeStyle = 'rgba(226, 232, 240, 0.28)'
+    ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.moveTo(pos + 3, 0); ctx.lineTo(pos + 3, size); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, pos + 3); ctx.lineTo(size, pos + 3); ctx.stroke()
+
+    // Sulco profundo no bump map e rugosidade alta na junta
+    btx.strokeStyle = '#282828'
+    btx.lineWidth = 5
+    btx.beginPath(); btx.moveTo(pos, 0); btx.lineTo(pos, size); btx.stroke()
+    btx.beginPath(); btx.moveTo(0, pos); btx.lineTo(size, pos); btx.stroke()
+
+    rtx.strokeStyle = '#f2f2f2'
+    rtx.lineWidth = 6
+    rtx.beginPath(); rtx.moveTo(pos, 0); rtx.lineTo(pos, size); rtx.stroke()
+    rtx.beginPath(); rtx.moveTo(0, pos); rtx.lineTo(size, pos); rtx.stroke()
+  }
+
+  const configure = (canvas: HTMLCanvasElement, isColor: boolean) => {
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(10, 9)
+    tex.anisotropy = 8
+    if (isColor) tex.colorSpace = THREE.SRGBColorSpace
+    tex.needsUpdate = true
+    return tex
+  }
+
+  return {
+    map: configure(cMap, true),
+    bumpMap: configure(cBump, false),
+    roughnessMap: configure(cRough, false),
+  }
 }
 
-/** Textura de faixa de segurança amarela e preta (área de manobra do quadro elétrico). */
+/**
+ * Paredes industriais em betão pré-fabricado arquitetónico (1024×1024):
+ * - Painéis verticais e juntas horizontais reais
+ * - Furos de tirante de cofragem (tie-rod cones) subtis
+ * - Textura mineral real de betão à vista (cor + bump + roughness)
+ */
+function createConcreteWallPbr(): PbrTexturePair | null {
+  if (typeof document === 'undefined') return null
+  const size = 1024
+  const cMap = document.createElement('canvas')
+  const cBump = document.createElement('canvas')
+  const cRough = document.createElement('canvas')
+  cMap.width = cBump.width = cRough.width = size
+  cMap.height = cBump.height = cRough.height = size
+
+  const ctx = cMap.getContext('2d')
+  const btx = cBump.getContext('2d')
+  const rtx = cRough.getContext('2d')
+  if (!ctx || !btx || !rtx) return null
+
+  const rand = makeRng(9137)
+
+  // Base betão arquitetónico claro quente (aspeto real de nave moderna)
+  ctx.fillStyle = '#d3cfc7'
+  ctx.fillRect(0, 0, size, size)
+  btx.fillStyle = '#808080'
+  btx.fillRect(0, 0, size, size)
+  rtx.fillStyle = '#d8d8d8' // rugosidade ~0.85 (mate mineral real)
+  rtx.fillRect(0, 0, size, size)
+
+  // Diferença tonal subtil entre painéis pré-fabricados (4 colunas × 2 fiadas)
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 4; col++) {
+      const shift = Math.round((rand() - 0.5) * 14)
+      ctx.fillStyle = `rgb(${210 + shift}, ${206 + shift}, ${198 + shift})`
+      ctx.fillRect(col * 256, row * 512, 256, 512)
+    }
+  }
+
+  // Nuvens subtis de cura do betão
+  for (let i = 0; i < 110; i++) {
+    const x = rand() * size
+    const y = rand() * size
+    const r = 40 + rand() * 110
+    const v = Math.round(200 + (rand() - 0.5) * 24)
+    const g = ctx.createRadialGradient(x, y, 4, x, y, r)
+    g.addColorStop(0, `rgba(${v}, ${v - 3}, ${v - 8}, 0.18)`)
+    g.addColorStop(1, `rgba(${v}, ${v - 3}, ${v - 8}, 0)`)
+    ctx.fillStyle = g
+    ctx.fillRect(x - r, y - r, r * 2, r * 2)
+  }
+
+  // Textura porosa / mineral fina
+  for (let i = 0; i < 8000; i++) {
+    const x = rand() * size
+    const y = rand() * size
+    const w = 1 + rand() * 2.6
+    const dark = rand() < 0.5
+    const shade = dark ? Math.round(166 + rand() * 24) : Math.round(218 + rand() * 22)
+    ctx.fillStyle = `rgba(${shade}, ${shade - 2}, ${shade - 6}, ${0.08 + rand() * 0.11})`
+    ctx.fillRect(x, y, w, w)
+
+    const bv = dark ? 112 : 146
+    btx.fillStyle = `rgba(${bv}, ${bv}, ${bv}, 0.22)`
+    btx.fillRect(x, y, w, w)
+  }
+
+  // Juntas de painel verticais e horizontais com relevo real
+  for (let x = 0; x < size; x += 256) {
+    ctx.strokeStyle = 'rgba(92, 96, 102, 0.42)'
+    ctx.lineWidth = 4
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, size); ctx.stroke()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)'
+    ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.moveTo(x + 3, 0); ctx.lineTo(x + 3, size); ctx.stroke()
+
+    btx.strokeStyle = '#303030'
+    btx.lineWidth = 5
+    btx.beginPath(); btx.moveTo(x, 0); btx.lineTo(x, size); btx.stroke()
+  }
+  for (let y = 0; y < size; y += 512) {
+    ctx.strokeStyle = 'rgba(92, 96, 102, 0.36)'
+    ctx.lineWidth = 4
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(size, y); ctx.stroke()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)'
+    ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.moveTo(0, y + 3); ctx.lineTo(size, y + 3); ctx.stroke()
+
+    btx.strokeStyle = '#343434'
+    btx.lineWidth = 5
+    btx.beginPath(); btx.moveTo(0, y); btx.lineTo(size, y); btx.stroke()
+  }
+
+  // Furos de tirante (tie-rod holes) característicos de betão industrial pré-fabricado
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 4; col++) {
+      for (const ox of [54, 202]) {
+        for (const oy of [130, 382]) {
+          const cx = col * 256 + ox
+          const cy = row * 512 + oy
+          ctx.fillStyle = 'rgba(94, 98, 106, 0.42)'
+          ctx.beginPath(); ctx.arc(cx, cy, 4.2, 0, Math.PI * 2); ctx.fill()
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+          ctx.lineWidth = 1
+          ctx.beginPath(); ctx.arc(cx + 0.8, cy + 0.8, 4.4, 0, Math.PI * 2); ctx.stroke()
+
+          btx.fillStyle = '#3a3a3a'
+          btx.beginPath(); btx.arc(cx, cy, 4.5, 0, Math.PI * 2); btx.fill()
+        }
+      }
+    }
+  }
+
+  const configure = (canvas: HTMLCanvasElement, isColor: boolean) => {
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(6, 2)
+    tex.anisotropy = 8
+    if (isColor) tex.colorSpace = THREE.SRGBColorSpace
+    tex.needsUpdate = true
+    return tex
+  }
+
+  return {
+    map: configure(cMap, true),
+    bumpMap: configure(cBump, false),
+    roughnessMap: configure(cRough, false),
+  }
+}
+
+/** Textura de faixa de segurança amarela e preta discreta (zona de acesso ao quadro elétrico). */
 function createHazardStripeTexture(): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') return null
   const canvas = document.createElement('canvas')
@@ -103,7 +304,7 @@ function createHazardStripeTexture(): THREE.CanvasTexture | null {
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
 
-  ctx.fillStyle = '#facc15'
+  ctx.fillStyle = '#eab308'
   ctx.fillRect(0, 0, 256, 64)
   ctx.fillStyle = '#1e293b'
   for (let x = -64; x < 320; x += 48) {
@@ -178,536 +379,292 @@ function createElectricalSignTexture(): THREE.CanvasTexture | null {
   return tex
 }
 
-interface BoxInstance {
-  pos: [number, number, number]
-  scale: [number, number, number]
-  color?: string
-}
-
-function InstancedBoxes({
-  items,
-  material,
-  castShadow = false,
-  receiveShadow = true,
+/** Pilar estrutural metálico em perfil I (H-beam) com chapa de base e chumbadouros no piso. */
+function SteelColumn({
+  x,
+  z,
+  floorY,
+  height,
+  rotateY = 0,
 }: {
-  items: BoxInstance[]
-  material: THREE.Material
-  castShadow?: boolean
-  receiveShadow?: boolean
+  x: number
+  z: number
+  floorY: number
+  height: number
+  rotateY?: number
 }) {
-  const ref = useRef<THREE.InstancedMesh>(null)
-  const geometry = useMemo(() => new THREE.BoxGeometry(1, 1, 1), [])
-  useEffect(() => () => geometry.dispose(), [geometry])
-
-  useEffect(() => {
-    const mesh = ref.current
-    if (!mesh) return
-    const dummy = new THREE.Object3D()
-    const col = new THREE.Color()
-    items.forEach((item, idx) => {
-      dummy.position.set(item.pos[0], item.pos[1], item.pos[2])
-      dummy.scale.set(item.scale[0], item.scale[1], item.scale[2])
-      dummy.updateMatrix()
-      mesh.setMatrixAt(idx, dummy.matrix)
-      if (item.color) {
-        col.set(item.color)
-        mesh.setColorAt(idx, col)
-      }
-    })
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  }, [items])
-
-  if (!items.length) return null
   return (
-    <instancedMesh
-      ref={ref}
-      args={[geometry, material, items.length]}
-      castShadow={castShadow}
-      receiveShadow={receiveShadow}
-      raycast={NO_RAYCAST}
-    />
+    <group position={[x, floorY, z]} rotation={[0, rotateY, 0]}>
+      {/* Chapa de base aparafusada ao pavimento */}
+      <mesh position={[0, 0.04, 0]} receiveShadow castShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[0.72, 0.08, 0.62]} />
+        <meshStandardMaterial color="#3b434f" roughness={0.55} metalness={0.68} />
+      </mesh>
+      {/* 4 porcas/chumbadouros */}
+      {[
+        [-0.25, -0.2],
+        [0.25, -0.2],
+        [-0.25, 0.2],
+        [0.25, 0.2],
+      ].map(([bx, bz], i) => (
+        <mesh key={i} position={[bx, 0.095, bz]} raycast={NO_RAYCAST}>
+          <cylinderGeometry args={[0.035, 0.035, 0.04, 6]} />
+          <meshStandardMaterial color="#cbd5e1" roughness={0.3} metalness={0.85} />
+        </mesh>
+      ))}
+      {/* Alma central */}
+      <mesh position={[0, height / 2, 0]} castShadow receiveShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[0.07, height, 0.34]} />
+        <meshStandardMaterial color="#586372" roughness={0.48} metalness={0.62} />
+      </mesh>
+      {/* Abas esquerda e direita do perfil I */}
+      <mesh position={[-0.17, height / 2, 0]} castShadow receiveShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[0.06, height, 0.42]} />
+        <meshStandardMaterial color="#647080" roughness={0.44} metalness={0.65} />
+      </mesh>
+      <mesh position={[0.17, height / 2, 0]} castShadow receiveShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[0.06, height, 0.42]} />
+        <meshStandardMaterial color="#647080" roughness={0.44} metalness={0.65} />
+      </mesh>
+    </group>
   )
 }
 
 /**
- * Ambiente fabril arquitetónico 3D (vista isométrica em corte, inspirada numa nave industrial moderna):
- * - O quadro elétrico e a chapa ficam fisicamente fixos na parede principal bege com suportes,
- *   esteira de cabos superior e zona de segurança amarela no piso.
- * - Ao redor distribuem-se estantes de paletização azuis com cargas, tapetes transportadores com
- *   passadiço metálico, empilhadores, escritório técnico envidraçado e cais de carga.
- * - Todas as malhas ignoram raycast para nunca interferir com edição, arrasto ou cablagem.
+ * Ambiente fabril limpo e realista (sem prateleiras, camiões nem empilhadores):
+ * apenas o quadro elétrico fixo na parede de betão industrial, pilares metálicos,
+ * calha técnica superior e pavimento de betão polido com texturas PBR reais.
  */
-export function FactoryEnvironment3D({ center, wallFrontZ, floorY, mountBounds }: FactoryEnvironment3DProps) {
-  const invalidate = useThree((s) => s.invalidate)
-  const textures = useMemo(() => ({
-    floor: createConcreteFloorTexture(),
-    wall: createFactoryWallTexture(),
-    hazard: createHazardStripeTexture(),
-    sign: createElectricalSignTexture(),
-  }), [])
-
-  const materials = useMemo(() => ({
-    floor: new THREE.MeshStandardMaterial({
-      color: '#aeb5be',
-      map: textures.floor ?? undefined,
-      roughness: 0.78,
-      metalness: 0.06,
-    }),
-    wall: new THREE.MeshStandardMaterial({
-      color: '#e0d3bc',
-      map: textures.wall ?? undefined,
-      roughness: 0.85,
-      metalness: 0.02,
-    }),
-    wallCap: new THREE.MeshStandardMaterial({ color: '#c4b396', roughness: 0.75, metalness: 0.04 }),
-    dado: new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.65, metalness: 0.14 }),
-    column: new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.55, metalness: 0.28 }),
-    steel: new THREE.MeshStandardMaterial({ color: '#7c8796', roughness: 0.42, metalness: 0.62 }),
-    rackBlue: new THREE.MeshStandardMaterial({ color: '#1d4ed8', roughness: 0.48, metalness: 0.35 }),
-    rackOrange: new THREE.MeshStandardMaterial({ color: '#ea580c', roughness: 0.48, metalness: 0.25 }),
-    cargo: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.72, metalness: 0.03 }),
-    yellowLine: new THREE.MeshStandardMaterial({ color: '#facc15', roughness: 0.55, metalness: 0.04 }),
-    hazard: new THREE.MeshStandardMaterial({
-      color: '#ffffff',
-      map: textures.hazard ?? undefined,
-      roughness: 0.58,
-      metalness: 0.05,
-    }),
-    sign: new THREE.MeshStandardMaterial({
-      color: '#ffffff',
-      map: textures.sign ?? undefined,
-      roughness: 0.42,
-      metalness: 0.08,
-    }),
-    conveyorBelt: new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.72, metalness: 0.18 }),
-    conveyorFrame: new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.46, metalness: 0.48 }),
-    glass: new THREE.MeshPhysicalMaterial({
-      color: '#bfdbfe',
-      transparent: true,
-      opacity: 0.36,
-      roughness: 0.12,
-      metalness: 0.08,
-      depthWrite: false,
-    }),
-    forkliftYellow: new THREE.MeshStandardMaterial({ color: '#eab308', roughness: 0.42, metalness: 0.22 }),
-    truckOrange: new THREE.MeshStandardMaterial({ color: '#ea580c', roughness: 0.44, metalness: 0.22 }),
-    trailerGray: new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.55, metalness: 0.16 }),
-    darkTire: new THREE.MeshStandardMaterial({ color: '#1f2937', roughness: 0.85, metalness: 0.08 }),
-    officeWhite: new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.65, metalness: 0.05 }),
-    screenGlow: new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0ea5e9', emissiveIntensity: 0.55, roughness: 0.25 }),
-  }), [textures])
-
-  useEffect(() => () => {
-    Object.values(materials).forEach((m) => m.dispose())
-    Object.values(textures).forEach((t) => t?.dispose())
-  }, [materials, textures])
+export function FactoryEnvironment3D({
+  center,
+  wallFrontZ,
+  floorY,
+  mountBounds,
+}: FactoryEnvironment3DProps) {
+  const { invalidate } = useThree()
+  const floorPbr = useMemo(() => createConcreteFloorPbr(), [])
+  const wallPbr = useMemo(() => createConcreteWallPbr(), [])
+  const hazardTex = useMemo(() => createHazardStripeTexture(), [])
+  const signTex = useMemo(() => createElectricalSignTexture(), [])
 
   useEffect(() => {
     invalidate()
-  }, [invalidate, center, wallFrontZ, floorY, mountBounds])
+  }, [invalidate, center[0], center[1], wallFrontZ, floorY])
 
-  // Dimensões da nave industrial em unidades da cena (1 u = 100 mm; 10 u = 1 m)
-  const originX = center[0]
-  const hallW = 138       // ~13,8 m de largura visível (estantes + zona do quadro + corredor)
-  const hallD = 112       // ~11,2 m de profundidade à frente da parede
-  const wallH = 26        // ~2,6 m em corte arquitetónico limpo (acima do quadro, sem tapar vista)
-  const wallT = 1.6
-  const backWallZ = wallFrontZ - wallT / 2
-  const leftWallX = originX - hallW / 2
-  const rightWallX = originX + hallW / 2
-  const floorCenterZ = wallFrontZ + hallD / 2
+  useEffect(() => () => {
+    floorPbr?.map.dispose()
+    floorPbr?.bumpMap.dispose()
+    floorPbr?.roughnessMap.dispose()
+    wallPbr?.map.dispose()
+    wallPbr?.bumpMap.dispose()
+    wallPbr?.roughnessMap.dispose()
+    hazardTex?.dispose()
+    signTex?.dispose()
+  }, [floorPbr, wallPbr, hazardTex, signTex])
 
-  // Caixa efetiva do quadro na parede para alinhar suportes, calha superior e faixa de segurança
-  const panelMinX = mountBounds ? mountBounds.minX : originX - 4
-  const panelMaxX = mountBounds ? mountBounds.maxX : originX + 4
-  const panelMinY = mountBounds ? mountBounds.minY : floorY + 6
-  const panelMaxY = mountBounds ? mountBounds.maxY : floorY + 16
-  const panelCenterX = (panelMinX + panelMaxX) / 2
-  const panelWidth = Math.max(4, panelMaxX - panelMinX)
-  const trayY = Math.min(floorY + wallH - 3.2, panelMaxY + 3.4)
+  // Dimensões realistas da nave industrial limpa em torno do quadro elétrico
+  const cx = center[0]
+  const hallWidth = 42
+  const hallDepth = 30
+  const wallThickness = 0.65
+  const panelTop = mountBounds ? mountBounds.maxY : center[1] + 5.5
+  const wallHeight = Math.max(14.5, panelTop - floorY + 5.2)
+  const wallCenterY = floorY + wallHeight / 2
+  const backWallZ = wallFrontZ - wallThickness / 2
+  const leftWallX = cx - hallWidth / 2
+  const rightWallX = cx + hallWidth / 2
+  const floorCenterZ = wallFrontZ + hallDepth / 2 - 0.5
 
-  // Construção instanciada das estantes azuis + vigas laranja + paletes/caixas (estilo image-8.png)
-  const warehouse = useMemo(() => {
-    const blueParts: BoxInstance[] = []
-    const orangeParts: BoxInstance[] = []
-    const cargoBoxes: BoxInstance[] = []
+  const panelMinX = mountBounds ? mountBounds.minX : cx - 4.0
+  const panelMaxX = mountBounds ? mountBounds.maxX : cx + 4.0
+  const panelMinY = mountBounds ? mountBounds.minY : floorY + 5.0
+  const panelMaxY = mountBounds ? mountBounds.maxY : floorY + 12.0
+  const panelCx = (panelMinX + panelMaxX) / 2
+  const panelW = Math.max(2.6, panelMaxX - panelMinX)
 
-    const addRackRow = (startX: number, startZ: number, bays: number, levels: number, alongZ: boolean, bayLen = 6.2, rackDepth = 3.2, levelH = 3.4) => {
-      const totalH = levels * levelH + 0.8
-      for (let b = 0; b <= bays; b++) {
-        const bx = alongZ ? startX : startX + b * bayLen
-        const bz = alongZ ? startZ + b * bayLen : startZ
-        const dx = alongZ ? rackDepth / 2 : 0
-        const dz = alongZ ? 0 : rackDepth / 2
-        // Montantes verticais azuis (frente e trás)
-        blueParts.push({ pos: [bx - dx, floorY + totalH / 2, bz - dz], scale: [0.34, totalH, 0.34] })
-        blueParts.push({ pos: [bx + dx, floorY + totalH / 2, bz + dz], scale: [0.34, totalH, 0.34] })
-        // Travessas laterais azuis
-        for (let lv = 1; lv <= levels; lv++) {
-          const y = floorY + lv * levelH - 0.15
-          blueParts.push({
-            pos: [bx, y, bz],
-            scale: alongZ ? [rackDepth, 0.22, 0.22] : [0.22, 0.22, rackDepth],
-          })
-        }
-      }
-      // Longarinas horizontais laranja + caixas brancas/cinzentas em cada módulo
-      const cargoPalette = ['#f8fafc', '#e2e8f0', '#f1f5f9', '#dbeafe', '#e7e5e4']
-      for (let b = 0; b < bays; b++) {
-        const cx = alongZ ? startX : startX + (b + 0.5) * bayLen
-        const cz = alongZ ? startZ + (b + 0.5) * bayLen : startZ
-        const dx = alongZ ? rackDepth / 2 : 0
-        const dz = alongZ ? 0 : rackDepth / 2
-        for (let lv = 0; lv < levels; lv++) {
-          const beamY = floorY + lv * levelH + 0.32
-          orangeParts.push({
-            pos: [cx - dx, beamY, cz - dz],
-            scale: alongZ ? [0.22, 0.26, bayLen - 0.2] : [bayLen - 0.2, 0.26, 0.22],
-          })
-          orangeParts.push({
-            pos: [cx + dx, beamY, cz + dz],
-            scale: alongZ ? [0.22, 0.26, bayLen - 0.2] : [bayLen - 0.2, 0.26, 0.22],
-          })
-          // 2 paletes/caixas por módulo (com ligeira variação realista de altura)
-          for (let slot = 0; slot < 2; slot++) {
-            const seed = (b * 13 + lv * 7 + slot * 5 + Math.round(startX)) & 31
-            if (seed % 9 === 0 && lv === levels - 1) continue // algumas vagas livres no topo
-            const offset = (slot - 0.5) * (bayLen * 0.46)
-            const px = alongZ ? cx : cx + offset
-            const pz = alongZ ? cz + offset : cz
-            const boxH = 1.9 + (seed % 3) * 0.34
-            const boxW = bayLen * 0.4
-            const boxD = rackDepth * 0.82
-            cargoBoxes.push({
-              pos: [px, beamY + 0.14 + boxH / 2, pz],
-              scale: alongZ ? [boxD, boxH, boxW] : [boxW, boxH, boxD],
-              color: cargoPalette[seed % cargoPalette.length],
-            })
-          }
-        }
-      }
-    }
+  const safeZoneW = Math.max(5.2, panelW + 2.6)
+  const safeZoneD = 3.2
+  const trayY = Math.min(floorY + wallHeight - 1.4, panelMaxY + 1.45)
 
-    // Bloco esquerdo de estantes (enquadramento fabril rico com corredor livre em frente ao quadro)
-    addRackRow(originX - 46, wallFrontZ + 10, 4, 4, false, 6.2, 3.2, 3.5)
-    addRackRow(originX - 46, wallFrontZ + 18, 4, 4, false, 6.2, 3.2, 3.5)
-    addRackRow(originX - 46, wallFrontZ + 26, 4, 4, false, 6.2, 3.2, 3.5)
+  // Pilares metálicos distribuídos na parede traseira (evitando coincidir com o quadro)
+  const backColumnXs = [-18, -11, -4, 4, 11, 18]
+    .map((offset) => cx + offset)
+    .filter((x) => x < panelMinX - 1.4 || x > panelMaxX + 1.4)
 
-    // Bloco direito de estantes azuis de alta densidade (como no canto direito de image-8.png,
-    // preservando linha de visão limpa para o quadro e motores em vista isométrica)
-    addRackRow(originX + 30, wallFrontZ + 20, 5, 5, true, 6.0, 3.2, 3.3)
-    addRackRow(originX + 40, wallFrontZ + 20, 5, 5, true, 6.0, 3.2, 3.3)
-    addRackRow(originX + 50, wallFrontZ + 20, 5, 5, true, 6.0, 3.2, 3.3)
-
-    // Pilhas de paletes brancas no corredor logístico central (como em image-8.png)
-    const stackOrigin = [
-      { x: originX - 8, z: wallFrontZ + 56, cols: 3, rows: 2 },
-      { x: originX + 10, z: wallFrontZ + 62, cols: 3, rows: 2 },
-    ]
-    for (const st of stackOrigin) {
-      for (let c = 0; c < st.cols; c++) {
-        for (let r = 0; r < st.rows; r++) {
-          const h = ((c + r) % 2 === 0) ? 2.4 : 1.7
-          cargoBoxes.push({
-            pos: [st.x + c * 2.7, floorY + h / 2, st.z + r * 2.7],
-            scale: [2.35, h, 2.35],
-            color: (c + r) % 2 === 0 ? '#f8fafc' : '#e2e8f0',
-          })
-        }
-      }
-    }
-
-    return { blueParts, orangeParts, cargoBoxes }
-  }, [originX, wallFrontZ, floorY])
-
-  // Pilares estruturais ao longo da parede traseira (evitando sobrepor a zona do quadro elétrico)
-  const wallPillars = useMemo(() => {
-    const xs: number[] = []
-    for (let x = leftWallX + 8; x <= rightWallX - 8; x += 22) {
-      if (x > panelMinX - 4.5 && x < panelMaxX + 4.5) continue
-      xs.push(x)
-    }
-    return xs
-  }, [leftWallX, rightWallX, panelMinX, panelMaxX])
-
-  // Posição das 4 orelhas exteriores de fixação do quadro à parede (fora do perímetro da caixa, sem invadir o interior)
-  const mountBrackets = useMemo((): Array<[number, number]> => {
-    const outX = 0.22
-    const insetY = 0.85
-    return [
-      [panelMinX - outX, panelMaxY - insetY],
-      [panelMaxX + outX, panelMaxY - insetY],
-      [panelMinX - outX, panelMinY + insetY],
-      [panelMaxX + outX, panelMinY + insetY],
-    ]
-  }, [panelMinX, panelMaxX, panelMinY, panelMaxY])
+  const leftColumnZs = [4, 11, 18, 25].map((dz) => wallFrontZ + dz)
 
   return (
-    <group name="factory-environment-3d" userData={{ excludeFromCover: true, noSnapshot: true }}>
-      {/* === PISO INDUSTRIAL DE BETÃO === */}
+    <group name="dc-simu-factory-environment">
+      {/* === 1. PAVIMENTO INDUSTRIAL EM BETÃO POLIDO PBR === */}
       <mesh
-        position={[originX, floorY - 0.4, floorCenterZ]}
-        material={materials.floor}
+        position={[cx, floorY - 0.14, floorCenterZ]}
         receiveShadow
         raycast={NO_RAYCAST}
       >
-        <boxGeometry args={[hallW, 0.8, hallD]} />
-      </mesh>
-      {/* Plinto cinzento exterior subtil da maquete arquitetónica */}
-      <mesh position={[originX, floorY - 0.9, floorCenterZ]} material={materials.dado} raycast={NO_RAYCAST}>
-        <boxGeometry args={[hallW + 1.8, 0.45, hallD + 1.8]} />
+        <boxGeometry args={[hallWidth + 1.2, 0.28, hallDepth + 1.2]} />
+        <meshStandardMaterial
+          map={floorPbr?.map}
+          bumpMap={floorPbr?.bumpMap}
+          bumpScale={0.045}
+          roughnessMap={floorPbr?.roughnessMap}
+          roughness={0.72}
+          metalness={0.08}
+        />
       </mesh>
 
-      {/* === PAREDE PRINCIPAL (ONDE O QUADRO ELÉTRICO FICA FIXO) === */}
+      {/* === 2. PAREDE TRASEIRA (BETÃO ARQUITETÓNICO PRÉ-FABRICADO) === */}
       <mesh
-        position={[originX, floorY + wallH / 2, backWallZ]}
-        material={materials.wall}
+        position={[cx, wallCenterY, backWallZ]}
         receiveShadow
         raycast={NO_RAYCAST}
       >
-        <boxGeometry args={[hallW, wallH, wallT]} />
-      </mesh>
-      {/* Remate superior arquitetónico da parede traseira */}
-      <mesh position={[originX, floorY + wallH + 0.14, backWallZ]} material={materials.wallCap} raycast={NO_RAYCAST}>
-        <boxGeometry args={[hallW + 0.2, 0.28, wallT + 0.2]} />
-      </mesh>
-      {/* Rodapé técnico cinzento da parede traseira */}
-      <mesh position={[originX, floorY + 0.9, wallFrontZ + 0.04]} material={materials.dado} raycast={NO_RAYCAST}>
-        <boxGeometry args={[hallW, 1.8, 0.12]} />
+        <boxGeometry args={[hallWidth + wallThickness * 2, wallHeight, wallThickness]} />
+        <meshStandardMaterial
+          map={wallPbr?.map}
+          bumpMap={wallPbr?.bumpMap}
+          bumpScale={0.055}
+          roughnessMap={wallPbr?.roughnessMap}
+          roughness={0.86}
+          metalness={0.04}
+        />
       </mesh>
 
-      {/* === PAREDE LATERAL ESQUERDA (EM CORTE ISOMÉTRICO) === */}
+      {/* Parede lateral esquerda (betão pré-fabricado) */}
       <mesh
-        position={[leftWallX - wallT / 2, floorY + wallH / 2, floorCenterZ]}
-        material={materials.wall}
+        position={[leftWallX - wallThickness / 2, wallCenterY, floorCenterZ]}
         receiveShadow
         raycast={NO_RAYCAST}
       >
-        <boxGeometry args={[wallT, wallH, hallD]} />
-      </mesh>
-      <mesh position={[leftWallX - wallT / 2, floorY + wallH + 0.14, floorCenterZ]} material={materials.wallCap} raycast={NO_RAYCAST}>
-        <boxGeometry args={[wallT + 0.2, 0.28, hallD + 0.2]} />
-      </mesh>
-      <mesh position={[leftWallX + 0.04, floorY + 0.9, floorCenterZ]} material={materials.dado} raycast={NO_RAYCAST}>
-        <boxGeometry args={[0.12, 1.8, hallD]} />
-      </mesh>
-
-      {/* === MURETE PERIMETRAL BAIXO À DIREITA E FRENTE-DIREITA (ESTILO CORTE DA REFERÊNCIA) === */}
-      <mesh position={[rightWallX + wallT / 2, floorY + 3.2, floorCenterZ - 14]} material={materials.wall} raycast={NO_RAYCAST}>
-        <boxGeometry args={[wallT, 6.4, hallD - 28]} />
-      </mesh>
-      <mesh position={[rightWallX + wallT / 2, floorY + 6.5, floorCenterZ - 14]} material={materials.wallCap} raycast={NO_RAYCAST}>
-        <boxGeometry args={[wallT + 0.18, 0.24, hallD - 28]} />
+        <boxGeometry args={[wallThickness, wallHeight, hallDepth + 0.6]} />
+        <meshStandardMaterial
+          map={wallPbr?.map}
+          bumpMap={wallPbr?.bumpMap}
+          bumpScale={0.055}
+          roughnessMap={wallPbr?.roughnessMap}
+          roughness={0.86}
+          metalness={0.04}
+        />
       </mesh>
 
-      {/* Pilares estruturais verticais na parede traseira */}
-      {wallPillars.map((px) => (
-        <mesh key={`pillar-${px}`} position={[px, floorY + wallH / 2, wallFrontZ + 0.22]} material={materials.column} castShadow receiveShadow raycast={NO_RAYCAST}>
-          <boxGeometry args={[0.9, wallH, 0.52]} />
-        </mesh>
+      {/* Murete baixo na lateral direita para manter enquadramento isométrico limpo */}
+      <mesh
+        position={[rightWallX + wallThickness / 2, floorY + 0.72, floorCenterZ]}
+        receiveShadow
+        raycast={NO_RAYCAST}
+      >
+        <boxGeometry args={[wallThickness, 1.44, hallDepth + 0.6]} />
+        <meshStandardMaterial
+          map={wallPbr?.map}
+          bumpMap={wallPbr?.bumpMap}
+          bumpScale={0.045}
+          roughness={0.86}
+          metalness={0.04}
+        />
+      </mesh>
+
+      {/* Rodapé técnico industrial cinzento escuro na base das paredes */}
+      <mesh position={[cx, floorY + 0.24, wallFrontZ + 0.035]} receiveShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[hallWidth, 0.48, 0.07]} />
+        <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
+      </mesh>
+      <mesh position={[leftWallX + 0.035, floorY + 0.24, floorCenterZ]} receiveShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[0.07, 0.48, hallDepth]} />
+        <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
+      </mesh>
+      <mesh position={[rightWallX - 0.035, floorY + 0.24, floorCenterZ]} receiveShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[0.07, 0.48, hallDepth]} />
+        <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
+      </mesh>
+
+      {/* Viga metálica de coroamento no topo da parede traseira */}
+      <mesh position={[cx, floorY + wallHeight - 0.22, wallFrontZ + 0.16]} castShadow receiveShadow raycast={NO_RAYCAST}>
+        <boxGeometry args={[hallWidth, 0.42, 0.34]} />
+        <meshStandardMaterial color="#525d6c" roughness={0.46} metalness={0.62} />
+      </mesh>
+
+      {/* === 3. PILARES ESTRUTURAIS METÁLICOS EM PERFIL I === */}
+      {backColumnXs.map((x, idx) => (
+        <SteelColumn key={`bcol-${idx}`} x={x} z={wallFrontZ + 0.22} floorY={floorY} height={wallHeight} />
+      ))}
+      {leftColumnZs.map((z, idx) => (
+        <SteelColumn key={`lcol-${idx}`} x={leftWallX + 0.22} z={z} floorY={floorY} height={wallHeight} rotateY={Math.PI / 2} />
       ))}
 
-      {/* === FIXAÇÃO DO QUADRO NA PAREDE + ESTEIRA DE CABOS + ZONA DE SEGURANÇA === */}
-      {/* 4 orelhas metálicas exteriores de ancoragem do quadro à parede */}
-      {mountBounds && mountBrackets.map(([bx, by], idx) => (
-        <mesh key={`bracket-${idx}`} position={[bx, by, wallFrontZ + 0.04]} material={materials.steel} raycast={NO_RAYCAST}>
-          <boxGeometry args={[0.42, 0.56, 0.08]} />
+      {/* === 4. CALHA TÉCNICA DE CABOS + FIXAÇÃO DO QUADRO NA PAREDE === */}
+      <group>
+        {/* Calha metálica galvanizada horizontal */}
+        <mesh position={[cx, trayY, wallFrontZ + 0.17]} castShadow receiveShadow raycast={NO_RAYCAST}>
+          <boxGeometry args={[hallWidth - 2, 0.24, 0.3]} />
+          <meshStandardMaterial color="#8793a2" roughness={0.34} metalness={0.78} />
         </mesh>
-      ))}
-      {/* Placa industrial amarela de aviso elétrico na parede junto ao quadro */}
-      {mountBounds && (
-        <mesh position={[panelMaxX + 2.2, Math.min(panelMaxY - 1.1, floorY + 17), wallFrontZ + 0.04]} material={materials.sign} raycast={NO_RAYCAST}>
-          <boxGeometry args={[1.65, 1.95, 0.06]} />
+        {/* Tampa/bordo superior da calha */}
+        <mesh position={[cx, trayY + 0.13, wallFrontZ + 0.18]} raycast={NO_RAYCAST}>
+          <boxGeometry args={[hallWidth - 2, 0.03, 0.32]} />
+          <meshStandardMaterial color="#6e7a8a" roughness={0.38} metalness={0.8} />
         </mesh>
-      )}
-      {/* Esteira metálica superior de distribuição elétrica correndo pela parede */}
-      <mesh position={[originX, trayY, wallFrontZ + 0.45]} material={materials.steel} raycast={NO_RAYCAST}>
-        <boxGeometry args={[hallW - 6, 0.22, 0.9]} />
-      </mesh>
-      <mesh position={[originX, trayY + 0.25, wallFrontZ + 0.88]} material={materials.steel} raycast={NO_RAYCAST}>
-        <boxGeometry args={[hallW - 6, 0.34, 0.08]} />
-      </mesh>
-      {/* Descida vertical de eletroduto/calha da esteira superior até ao topo do quadro */}
-      {mountBounds && trayY > panelMaxY + 0.4 && (
-        <group>
-          <mesh position={[panelCenterX - panelWidth * 0.22, (trayY + panelMaxY) / 2, wallFrontZ + 0.32]} material={materials.steel} raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.55, trayY - panelMaxY, 0.45]} />
+
+        {/* Orelhas de fixação do quadro elétrico (exteriores ao perímetro, sem atravessar a chapa interna) */}
+        {[
+          [panelMinX - 0.18, panelMaxY - 0.55],
+          [panelMaxX + 0.18, panelMaxY - 0.55],
+          [panelMinX - 0.18, panelMinY + 0.55],
+          [panelMaxX + 0.18, panelMinY + 0.55],
+        ].map(([bx, by], i) => (
+          <mesh key={`br-${i}`} position={[bx, by, wallFrontZ + 0.04]} castShadow raycast={NO_RAYCAST}>
+            <boxGeometry args={[0.36, 0.42, 0.08]} />
+            <meshStandardMaterial color="#4b5563" roughness={0.46} metalness={0.72} />
           </mesh>
-          <mesh position={[panelCenterX + panelWidth * 0.22, (trayY + panelMaxY) / 2, wallFrontZ + 0.32]} material={materials.steel} raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.42, trayY - panelMaxY, 0.38]} />
+        ))}
+
+        {/* Eletrodutos galvanizados de alimentação desde a calha superior até ao topo do quadro */}
+        {trayY > panelMaxY + 0.25 && (
+          <>
+            <mesh
+              position={[panelCx - Math.min(1.1, panelW * 0.22), (trayY + panelMaxY) / 2, wallFrontZ + 0.2]}
+              castShadow
+              raycast={NO_RAYCAST}
+            >
+              <cylinderGeometry args={[0.11, 0.11, Math.max(0.2, trayY - panelMaxY), 14]} />
+              <meshStandardMaterial color="#8b96a6" roughness={0.32} metalness={0.82} />
+            </mesh>
+            <mesh
+              position={[panelCx + Math.min(1.1, panelW * 0.22), (trayY + panelMaxY) / 2, wallFrontZ + 0.2]}
+              castShadow
+              raycast={NO_RAYCAST}
+            >
+              <cylinderGeometry args={[0.09, 0.09, Math.max(0.2, trayY - panelMaxY), 14]} />
+              <meshStandardMaterial color="#8b96a6" roughness={0.32} metalness={0.82} />
+            </mesh>
+          </>
+        )}
+
+        {/* Placa normativa de aviso "PERIGO · ALTA TENSÃO" na parede ao lado do quadro */}
+        {signTex && (
+          <mesh position={[panelMaxX + 1.45, Math.max(floorY + 3.4, (panelMinY + panelMaxY) / 2 + 0.8), wallFrontZ + 0.03]} raycast={NO_RAYCAST}>
+            <planeGeometry args={[1.25, 1.46]} />
+            <meshStandardMaterial map={signTex} roughness={0.38} metalness={0.08} />
           </mesh>
-        </group>
-      )}
-      {/* Faixa de segurança amarela e preta no piso diretamente em frente ao quadro elétrico */}
-      <mesh position={[panelCenterX, floorY + 0.025, wallFrontZ + 5.2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.hazard} raycast={NO_RAYCAST}>
-        <planeGeometry args={[panelWidth + 4.8, 0.72]} />
-      </mesh>
-      <mesh position={[panelCenterX - (panelWidth + 4.8) / 2 + 0.28, floorY + 0.025, wallFrontZ + 2.6]} rotation={[-Math.PI / 2, 0, 0]} material={materials.yellowLine} raycast={NO_RAYCAST}>
-        <planeGeometry args={[0.38, 5.2]} />
-      </mesh>
-      <mesh position={[panelCenterX + (panelWidth + 4.8) / 2 - 0.28, floorY + 0.025, wallFrontZ + 2.6]} rotation={[-Math.PI / 2, 0, 0]} material={materials.yellowLine} raycast={NO_RAYCAST}>
-        <planeGeometry args={[0.38, 5.2]} />
-      </mesh>
+        )}
 
-      {/* === LINHAS AMARELAS DE CIRCULAÇÃO INDUSTRIAL NO PISO === */}
-      <mesh position={[originX, floorY + 0.02, wallFrontZ + 44]} rotation={[-Math.PI / 2, 0, 0]} material={materials.yellowLine} raycast={NO_RAYCAST}>
-        <planeGeometry args={[hallW - 10, 0.38]} />
-      </mesh>
-      <mesh position={[originX + 20, floorY + 0.02, wallFrontZ + 46]} rotation={[-Math.PI / 2, 0, 0]} material={materials.yellowLine} raycast={NO_RAYCAST}>
-        <planeGeometry args={[0.38, 72]} />
-      </mesh>
-      <mesh position={[originX - 24, floorY + 0.02, wallFrontZ + 58]} rotation={[-Math.PI / 2, 0, 0]} material={materials.yellowLine} raycast={NO_RAYCAST}>
-        <planeGeometry args={[0.38, 62]} />
-      </mesh>
-
-      {/* === ESTANTES DE PALETIZAÇÃO AZUIS + PALETES INSTANCIADAS === */}
-      <InstancedBoxes items={warehouse.blueParts} material={materials.rackBlue} castShadow />
-      <InstancedBoxes items={warehouse.orangeParts} material={materials.rackOrange} />
-      <InstancedBoxes items={warehouse.cargoBoxes} material={materials.cargo} castShadow />
-
-      {/* === TAPETES TRANSPORTADORES (CONVEYORS) E PASSADIÇO AZUL À ESQUERDA === */}
-      <group position={[originX - 44, floorY, wallFrontZ + 52]}>
-        {[0, 5.5, 11].map((zOff, i) => (
-          <group key={`conv-${i}`} position={[0, 0, zOff]}>
-            <mesh position={[0, 1.85, 0]} material={materials.conveyorFrame} castShadow raycast={NO_RAYCAST}>
-              <boxGeometry args={[28, 0.42, 2.2]} />
+        {/* Faixa de segurança amarela e preta no pavimento sob o quadro elétrico */}
+        {hazardTex && (
+          <group position={[panelCx, floorY + 0.012, wallFrontZ + safeZoneD / 2 + 0.2]}>
+            {/* Bordo frontal */}
+            <mesh position={[0, 0, safeZoneD / 2]} rotation={[-Math.PI / 2, 0, 0]} raycast={NO_RAYCAST}>
+              <planeGeometry args={[safeZoneW, 0.22]} />
+              <meshStandardMaterial map={hazardTex} roughness={0.62} />
             </mesh>
-            <mesh position={[0, 2.1, 0]} material={materials.conveyorBelt} raycast={NO_RAYCAST}>
-              <boxGeometry args={[27.6, 0.14, 1.85]} />
+            {/* Bordos laterais esquerdo e direito */}
+            <mesh position={[-safeZoneW / 2 + 0.11, 0, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} raycast={NO_RAYCAST}>
+              <planeGeometry args={[safeZoneD, 0.22]} />
+              <meshStandardMaterial map={hazardTex} roughness={0.62} />
             </mesh>
-            {[-12, -4, 4, 12].map((lx) => (
-              <mesh key={`leg-${lx}`} position={[lx, 0.9, 0]} material={materials.rackBlue} raycast={NO_RAYCAST}>
-                <boxGeometry args={[0.32, 1.8, 2.0]} />
-              </mesh>
-            ))}
-            {/* Caixas sobre o tapete */}
-            <mesh position={[-7 + i * 5, 2.85, 0]} material={materials.cargo} castShadow raycast={NO_RAYCAST}>
-              <boxGeometry args={[2.1, 1.4, 1.55]} />
-            </mesh>
-            <mesh position={[6 - i * 3, 2.85, 0]} material={materials.cargo} castShadow raycast={NO_RAYCAST}>
-              <boxGeometry args={[1.9, 1.4, 1.5]} />
+            <mesh position={[safeZoneW / 2 - 0.11, 0, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} raycast={NO_RAYCAST}>
+              <planeGeometry args={[safeZoneD, 0.22]} />
+              <meshStandardMaterial map={hazardTex} roughness={0.62} />
             </mesh>
           </group>
-        ))}
-        {/* Passadiço metálico elevado azul (assinatura da referência) */}
-        <mesh position={[0, 6.2, -5.2]} material={materials.rackBlue} castShadow raycast={NO_RAYCAST}>
-          <boxGeometry args={[32, 0.35, 3.2]} />
-        </mesh>
-        <mesh position={[0, 7.6, -3.7]} material={materials.rackBlue} raycast={NO_RAYCAST}>
-          <boxGeometry args={[32, 0.18, 0.14]} />
-        </mesh>
-        <mesh position={[0, 7.6, -6.7]} material={materials.rackBlue} raycast={NO_RAYCAST}>
-          <boxGeometry args={[32, 0.18, 0.14]} />
-        </mesh>
-        {[-14, -5, 5, 14].map((px) => (
-          <mesh key={`mezz-col-${px}`} position={[px, 3.1, -5.2]} material={materials.rackBlue} raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.36, 6.2, 0.36]} />
-          </mesh>
-        ))}
-      </group>
-
-      {/* === SALA TÉCNICA MODULAR (CANTO TRASEIRO DIREITO, COMO EM IMAGE-8) === */}
-      <group position={[originX + 46, floorY, wallFrontZ + 10]}>
-        <mesh position={[0, 4.4, 0]} material={materials.officeWhite} castShadow receiveShadow raycast={NO_RAYCAST}>
-          <boxGeometry args={[14, 8.8, 9]} />
-        </mesh>
-        <mesh position={[-4.5, 3.1, 4.55]} material={materials.dado} raycast={NO_RAYCAST}>
-          <boxGeometry args={[2.6, 6.2, 0.16]} />
-        </mesh>
-      </group>
-
-      {/* === ESCRITÓRIO / SALA DE CONTROLO ENVIDRAÇADA (FRENTE-DIREITA) === */}
-      <group position={[originX + 16, floorY, wallFrontZ + 92]}>
-        <mesh position={[0, 0.08, 0]} material={materials.officeWhite} receiveShadow raycast={NO_RAYCAST}>
-          <boxGeometry args={[24, 0.16, 16]} />
-        </mesh>
-        {/* Paredes de vidro frontais e laterais */}
-        <mesh position={[0, 3.2, -8]} material={materials.glass} raycast={NO_RAYCAST}>
-          <boxGeometry args={[24, 6.4, 0.16]} />
-        </mesh>
-        <mesh position={[-12, 3.2, 0]} material={materials.glass} raycast={NO_RAYCAST}>
-          <boxGeometry args={[0.16, 6.4, 16]} />
-        </mesh>
-        {/* Parede exterior bege baixa do escritório */}
-        <mesh position={[0, 3.4, 8]} material={materials.wall} raycast={NO_RAYCAST}>
-          <boxGeometry args={[24.4, 6.8, 0.9]} />
-        </mesh>
-        <mesh position={[12, 3.4, 0]} material={materials.wall} raycast={NO_RAYCAST}>
-          <boxGeometry args={[0.9, 6.8, 16.4]} />
-        </mesh>
-        {/* Secretárias e monitores de supervisão */}
-        {[-4, 4].map((dx) => (
-          <group key={`desk-${dx}`} position={[dx, 0, -1]}>
-            <mesh position={[0, 1.5, 0]} material={materials.officeWhite} raycast={NO_RAYCAST}>
-              <boxGeometry args={[5.2, 0.22, 2.4]} />
-            </mesh>
-            <mesh position={[0, 2.35, -0.5]} material={materials.screenGlow} raycast={NO_RAYCAST}>
-              <boxGeometry args={[1.6, 1.0, 0.12]} />
-            </mesh>
-          </group>
-        ))}
-      </group>
-
-      {/* === DOIS EMPILHADORES AMARELOS NO CORREDOR LOGÍSTICO === */}
-      {[
-        { pos: [originX + 2, floorY, wallFrontZ + 48] as [number, number, number], rotY: 0.25 },
-        { pos: [originX + 24, floorY, wallFrontZ + 76] as [number, number, number], rotY: -1.1 },
-      ].map((fl, idx) => (
-        <group key={`forklift-${idx}`} position={fl.pos} rotation={[0, fl.rotY, 0]}>
-          <mesh position={[0, 1.4, 0]} material={materials.forkliftYellow} castShadow raycast={NO_RAYCAST}>
-            <boxGeometry args={[2.5, 1.6, 4.0]} />
-          </mesh>
-          <mesh position={[0, 3.1, -0.3]} material={materials.darkTire} raycast={NO_RAYCAST}>
-            <boxGeometry args={[2.2, 2.0, 2.4]} />
-          </mesh>
-          {/* Mastro frontal + garfos */}
-          <mesh position={[-0.75, 2.8, 2.15]} material={materials.darkTire} raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.24, 5.2, 0.26]} />
-          </mesh>
-          <mesh position={[0.75, 2.8, 2.15]} material={materials.darkTire} raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.24, 5.2, 0.26]} />
-          </mesh>
-          <mesh position={[-0.6, 0.35, 3.25]} material={materials.steel} raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.24, 0.14, 2.2]} />
-          </mesh>
-          <mesh position={[0.6, 0.35, 3.25]} material={materials.steel} raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.24, 0.14, 2.2]} />
-          </mesh>
-        </group>
-      ))}
-
-      {/* === CAIS DE CARGA E CAMIÃO LARANJA/CINZENTO (FRENTE-ESQUERDA, COMO IMAGE-8) === */}
-      <group position={[originX - 38, floorY, wallFrontZ + 92]}>
-        {/* Guias de doca no chão */}
-        {[-7, 1, 9].map((dx) => (
-          <mesh key={`dock-${dx}`} position={[dx, 0.45, 2]} material={materials.column} raycast={NO_RAYCAST}>
-            <boxGeometry args={[1.1, 0.9, 14]} />
-          </mesh>
-        ))}
-        {/* Camião estacionado no cais 1 */}
-        <group position={[-3, 0, 1]} rotation={[0, Math.PI, 0]}>
-          {/* Reboque cinzento */}
-          <mesh position={[0, 4.1, -2.5]} material={materials.trailerGray} castShadow raycast={NO_RAYCAST}>
-            <boxGeometry args={[5.2, 5.6, 13.5]} />
-          </mesh>
-          {/* Cabina laranja */}
-          <mesh position={[0, 3.4, 6.2]} material={materials.truckOrange} castShadow raycast={NO_RAYCAST}>
-            <boxGeometry args={[4.9, 4.8, 3.8]} />
-          </mesh>
-          {/* Para-brisas */}
-          <mesh position={[0, 4.2, 8.15]} material={materials.darkTire} raycast={NO_RAYCAST}>
-            <boxGeometry args={[4.3, 1.8, 0.12]} />
-          </mesh>
-          {/* Rodas */}
-          {[-2.35, 2.35].map((wx) =>
-            [-6.5, -2.2, 6.0].map((wz) => (
-              <mesh key={`wheel-${wx}-${wz}`} position={[wx, 1.1, wz]} rotation={[0, 0, Math.PI / 2]} material={materials.darkTire} raycast={NO_RAYCAST}>
-                <cylinderGeometry args={[1.1, 1.1, 0.65, 16]} />
-              </mesh>
-            )),
-          )}
-        </group>
+        )}
       </group>
     </group>
   )

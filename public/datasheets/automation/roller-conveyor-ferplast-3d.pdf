@@ -1,0 +1,54 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 873 >>
+stream
+BT
+/F1 14 Tf
+50 780 Td
+(DC-SIMU / FERPLAST - Tapete Rolante Motorizado e Livre 3D) Tj
+/F1 10 Tf
+0 -20 Td
+(Ficha Tecnica - Transportador de Rolos Industriais (Serie RLM)) Tj
+0 -16 Td
+(Estrutura: Aco galvanizado / pintado cinzento RAL 7035, perfil C com pes regulaveis) Tj
+0 -15 Td
+(Rolos: Aco zincado diametro 50 mm com rolamentos de esferas vedados) Tj
+0 -15 Td
+(Dimensoes configuraveis: Comprimento 800-4000 mm | Largura 400-1200 mm | Altura 500-1100 mm) Tj
+0 -15 Td
+(Acionamento: Motoredutor trifasico SEW DRN80 + redutor parafuso sem-fim \(opcional livre\)) Tj
+0 -15 Td
+(Ligacao eletrica: 3~ 400V 50Hz \(U1 / V1 / W1 / PE\), reversivel horario/anti-horario) Tj
+0 -15 Td
+(Caixa de bornes: Destapavel / tapavel no Inspetor para ligacao de cabos em 3D) Tj
+0 -15 Td
+(Sensores na linha: Suporte multiponto para sensores oticos e indutivos com angulo ajustavel) Tj
+0 -15 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1235
+%%EOF

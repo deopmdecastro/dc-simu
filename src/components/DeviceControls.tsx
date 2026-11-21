@@ -19,6 +19,12 @@ import {
   SWITCH_SPECS,
 } from '../three/lightingModel'
 import { isHydraulicComponentType, waterTankDimensionsOf } from '../three/hydraulicsModel'
+import {
+  conveyorDimensionsOf,
+  conveyorLineSensorsOf,
+  isConveyorComponentType,
+  type ConveyorLineSensor,
+} from '../three/conveyorModel'
 
 /**
  * Chaves de `component.state` geridas diretamente por `DeviceControls`, apenas de chapa técnica
@@ -110,6 +116,7 @@ export const DEVICE_MANAGED_STATE_KEYS = new Set([
   'direction',
   'rpmVisual',
   'motorConnection',
+  'terminalBoxCovered',
   'powerKw',
   'cv',
   'rpm',
@@ -117,6 +124,18 @@ export const DEVICE_MANAGED_STATE_KEYS = new Set([
   'cosPhi',
   'torqueNm',
   'massKg',
+  // Tapete rolante & espelho refletor
+  'motorized',
+  'motorSide',
+  'lengthMm',
+  'widthMm',
+  'testBoxActive',
+  'testBoxPosPct',
+  'lineSensors',
+  'angleDeg',
+  'tiltDeg',
+  'faceSizeMm',
+  'bracketMounted',
   'phases',
   'frame',
   'mounting',
@@ -981,6 +1000,7 @@ function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; lock
   const inA = Number(c.state.currentA) > 0 ? Number(c.state.currentA) : is3ph ? 1.29 : 2.5
   const liveA = running ? inA : 0
   const conn = (c.state.motorConnection as 'star' | 'delta' | 'none' | undefined) ?? 'star'
+  const covered = !!c.state.terminalBoxCovered
   const presets = is3ph ? MOTOR_3PH_PRESETS : MOTOR_1PH_PRESETS
   const dirLabel = !running && liveRpm < 10 ? 'Parado' : dir === 'ccw' ? 'Anti-horário ↺' : 'Horário ↻'
 
@@ -989,6 +1009,24 @@ function MotorAndCapacitorControls({ c, locked }: { c: ElectricalComponent; lock
       <div className="flex items-center justify-between gap-1">
         <span className="dc-field-label">{is3ph ? 'Motor trifásico 3~' : 'Motor monofásico 1~'}</span>
         <StatusBadge label={dirLabel} tone={running ? 'ok' : 'neutral'} />
+      </div>
+
+      {/* Tampa da caixa de bornes — destapada por defeito para ver ligações, tapável depois */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-1">
+          <span className="dc-field-label">Caixa de bornes</span>
+          <StatusBadge label={covered ? 'Tapada (IP55)' : 'Aberta (ligações visíveis)'} tone={covered ? 'ok' : 'warn'} />
+        </div>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={covered}
+          data-motor-cover-toggle
+          onClick={() => setState(c.id, { terminalBoxCovered: !covered })}
+          className={`dc-btn text-[11px] justify-center ${covered ? 'dc-btn-primary' : ''}`}
+        >
+          {covered ? 'Destapar caixa de bornes' : 'Tapar caixa de bornes'}
+        </button>
       </div>
 
       {/* Telemetria em tempo real (apenas leitura) */}
@@ -1137,6 +1175,7 @@ export function hasDeviceControls(type: string): boolean {
     isPlcModule(type) ||
     isLightingType(type) ||
     isHydraulicComponentType(type) ||
+    isConveyorComponentType(type) ||
     [
       'selectorSchneiderXa2ed33',
       'selector3',
@@ -1417,14 +1456,25 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
   if (c.type === 'waterPump') {
     const running = !!c.state.running
+    const covered = !!c.state.terminalBoxCovered
     return (
-      <div className="flex flex-col gap-1.5 text-[11px]" data-water-pump-controls>
+      <div className="flex flex-col gap-2 text-[11px]" data-water-pump-controls>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[var(--dc-text-muted)]">CALPEDA CT 61</span>
           <strong className="font-mono" style={{ color: running ? '#16a34a' : '#64748b' }}>
             {running ? 'Em marcha · 2900 rpm' : 'Parada'}
           </strong>
         </div>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={covered}
+          data-motor-cover-toggle
+          onClick={() => setState(c.id, { terminalBoxCovered: !covered })}
+          className={`dc-btn text-[11px] justify-center ${covered ? 'dc-btn-primary' : ''}`}
+        >
+          {covered ? 'Destapar caixa de bornes' : 'Tapar caixa de bornes'}
+        </button>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[var(--dc-text-muted)]">Hidráulica</span>
           <span className="font-mono text-[10px]">Q 5–40 L/min · H 40–5 m · G 1&quot;</span>
@@ -1467,11 +1517,369 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
   )
 }
 
+function ConveyorControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const setState = useSimStore((s) => s.setComponentState)
+
+  if (c.type === 'opticalReflector') {
+    const angleDeg = Number(c.state.angleDeg ?? 0)
+    const tiltDeg = Number(c.state.tiltDeg ?? 0)
+    const faceSizeMm = Number(c.state.faceSizeMm ?? 50) >= 65 ? 80 : 50
+    const bracketMounted = c.state.bracketMounted !== false
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-optical-reflector-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Espelho refletor prismático</span>
+          <StatusBadge label={`${faceSizeMm}×${faceSizeMm} mm`} tone="ok" />
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Rotação horizontal</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${Math.round(angleDeg)}°`}</strong>
+          </span>
+          <input
+            type="range"
+            min={-180}
+            max={180}
+            step={5}
+            disabled={locked}
+            value={angleDeg}
+            onChange={(e) => setState(c.id, { angleDeg: Number(e.target.value) })}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Inclinação vertical</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${Math.round(tiltDeg)}°`}</strong>
+          </span>
+          <input
+            type="range"
+            min={-45}
+            max={45}
+            step={5}
+            disabled={locked}
+            value={tiltDeg}
+            onChange={(e) => setState(c.id, { tiltDeg: Number(e.target.value) })}
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-1.5">
+          {[50, 80].map((sz) => (
+            <button
+              key={sz}
+              type="button"
+              disabled={locked}
+              aria-pressed={faceSizeMm === sz}
+              onClick={() => setState(c.id, { faceSizeMm: sz })}
+              className={`dc-btn text-[10.5px] justify-center font-mono ${faceSizeMm === sz ? 'dc-btn-primary' : ''}`}
+            >
+              {`${sz}×${sz} mm`}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={bracketMounted}
+          onClick={() => setState(c.id, { bracketMounted: !bracketMounted })}
+          className={`dc-btn text-[11px] justify-center ${bracketMounted ? 'dc-btn-primary' : ''}`}
+        >
+          {bracketMounted ? 'Suporte metálico L: ativo' : 'Suporte metálico L: oculto'}
+        </button>
+      </div>
+    )
+  }
+
+  // rollerConveyor
+  const dims = conveyorDimensionsOf(c.state)
+  const motorized = c.state.motorized !== false
+  const motorSide = c.state.motorSide === 'back' ? 'back' : 'front'
+  const covered = !!c.state.terminalBoxCovered
+  const running = !!c.state.running
+  const testBoxActive = c.state.testBoxActive !== false
+  const sensors = conveyorLineSensorsOf(c.state)
+
+  const updateSensor = (id: string, patch: Partial<ConveyorLineSensor>) => {
+    const next = sensors.map((s) => (s.id === id ? { ...s, ...patch } : s))
+    setState(c.id, { lineSensors: next })
+  }
+  const addSensor = () => {
+    const idx = sensors.length + 1
+    const nextPos = Math.min(92, Math.max(10, 15 + idx * 18))
+    const next: ConveyorLineSensor[] = [
+      ...sensors,
+      {
+        id: `s-${Date.now().toString(36)}-${idx}`,
+        label: `S${idx} Linha`,
+        kind: 'optical',
+        positionPct: nextPos,
+        side: 'front',
+        angleDeg: 0,
+        heightOffsetMm: 65,
+        withReflector: true,
+        triggered: false,
+      },
+    ]
+    setState(c.id, { lineSensors: next })
+  }
+  const removeSensor = (id: string) => {
+    setState(c.id, { lineSensors: sensors.filter((s) => s.id !== id) })
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5 text-[11px]" data-conveyor-controls>
+      <div className="flex items-center justify-between gap-2">
+        <span className="dc-field-label">Tapete rolante industrial</span>
+        <StatusBadge label={!motorized ? 'Livre (gravidade)' : running ? 'Em marcha' : 'Motorizado'} tone={running ? 'ok' : 'neutral'} />
+      </div>
+
+      {/* Modo de tração */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={motorized}
+          data-conveyor-mode="motorized"
+          onClick={() => setState(c.id, { motorized: true })}
+          className={`dc-btn text-[11px] justify-center ${motorized ? 'dc-btn-primary' : ''}`}
+        >
+          Com motor (3~)
+        </button>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={!motorized}
+          data-conveyor-mode="free"
+          onClick={() => setState(c.id, { motorized: false, running: false, direction: 'stopped', rpmVisual: 0 })}
+          className={`dc-btn text-[11px] justify-center ${!motorized ? 'dc-btn-primary' : ''}`}
+        >
+          Sem motor (livre)
+        </button>
+      </div>
+
+      {/* Opções do motorredutor acoplado */}
+      {motorized && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10.5px] font-semibold text-slate-700">Motorredutor acoplado (U1/V1/W1/PE)</span>
+            <StatusBadge label={covered ? 'Tapado' : 'Aberto'} tone={covered ? 'ok' : 'warn'} />
+          </div>
+          <button
+            type="button"
+            disabled={locked}
+            aria-pressed={covered}
+            data-motor-cover-toggle
+            onClick={() => setState(c.id, { terminalBoxCovered: !covered })}
+            className={`dc-btn text-[11px] justify-center ${covered ? 'dc-btn-primary' : ''}`}
+          >
+            {covered ? 'Destapar caixa de bornes' : 'Tapar caixa de bornes'}
+          </button>
+          <div className="grid grid-cols-2 gap-1">
+            {(['front', 'back'] as const).map((side) => (
+              <button
+                key={side}
+                type="button"
+                disabled={locked}
+                aria-pressed={motorSide === side}
+                onClick={() => setState(c.id, { motorSide: side })}
+                className={`dc-btn text-[10.5px] justify-center ${motorSide === side ? 'dc-btn-primary' : ''}`}
+              >
+                {side === 'front' ? 'Motor à frente' : 'Motor atrás'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dimensões editáveis da linha */}
+      <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2">
+        <span className="text-[10.5px] font-semibold text-slate-700">Dimensões da linha de rolos</span>
+        <label className="flex flex-col gap-0.5">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Comprimento</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${dims.lengthMm} mm`}</strong>
+          </span>
+          <input
+            type="range"
+            min={800}
+            max={4000}
+            step={50}
+            disabled={locked}
+            value={dims.lengthMm}
+            onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })}
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Largura útil</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${dims.widthMm} mm`}</strong>
+          </span>
+          <input
+            type="range"
+            min={350}
+            max={1200}
+            step={25}
+            disabled={locked}
+            value={dims.widthMm}
+            onChange={(e) => setState(c.id, { widthMm: Number(e.target.value) })}
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Altura dos rolos</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${dims.heightMm} mm`}</strong>
+          </span>
+          <input
+            type="range"
+            min={450}
+            max={1200}
+            step={25}
+            disabled={locked}
+            value={dims.heightMm}
+            onChange={(e) => setState(c.id, { heightMm: Number(e.target.value) })}
+          />
+        </label>
+      </div>
+
+      {/* Caixa de teste sobre o tapete */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={testBoxActive}
+          onClick={() => setState(c.id, { testBoxActive: !testBoxActive })}
+          className={`dc-btn text-[10.5px] justify-center ${testBoxActive ? 'dc-btn-primary' : ''}`}
+        >
+          {testBoxActive ? 'Caixa de teste: ON' : 'Caixa de teste: OFF'}
+        </button>
+        <button
+          type="button"
+          disabled={locked || !testBoxActive}
+          onClick={() => setState(c.id, { testBoxPosPct: 18 })}
+          className="dc-btn text-[10.5px] justify-center"
+        >
+          Repor caixa início
+        </button>
+      </div>
+
+      {/* Sensores editáveis montados na linha (mover + rodar + refletor) */}
+      <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10.5px] font-semibold text-slate-700">{`Sensores na linha (${sensors.length})`}</span>
+          <button
+            type="button"
+            disabled={locked || sensors.length >= 8}
+            onClick={addSensor}
+            className="dc-btn text-[10px] px-2 py-0.5 dc-btn-primary"
+          >
+            + Sensor
+          </button>
+        </div>
+        {sensors.length === 0 && (
+          <p className="text-[10.5px] text-slate-500">Sem sensores definidos. Clique em &quot;+ Sensor&quot; para montar fotocélulas ou indutivos na linha.</p>
+        )}
+        {sensors.map((sensor) => (
+          <div key={sensor.id} className="flex flex-col gap-1 rounded border border-slate-200 bg-white p-1.5">
+            <div className="flex items-center justify-between gap-1">
+              <span className="font-semibold text-slate-800">{sensor.label}</span>
+              <div className="flex items-center gap-1">
+                <StatusBadge label={sensor.triggered ? 'Detetado' : 'Livre'} tone={sensor.triggered ? 'ok' : 'neutral'} />
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => removeSensor(sensor.id)}
+                  className="dc-btn text-[10px] px-1.5 py-0"
+                  title="Remover sensor"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => updateSensor(sensor.id, { kind: sensor.kind === 'optical' ? 'inductive' : 'optical' })}
+                className="dc-btn text-[10px] justify-center"
+              >
+                {sensor.kind === 'optical' ? 'Tipo: Ótico' : 'Tipo: Indutivo'}
+              </button>
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => updateSensor(sensor.id, { side: sensor.side === 'front' ? 'back' : 'front' })}
+                className="dc-btn text-[10px] justify-center"
+              >
+                {sensor.side === 'front' ? 'Lado: Frente' : 'Lado: Trás'}
+              </button>
+            </div>
+            <label className="flex flex-col gap-0.5">
+              <span className="flex items-center justify-between text-[10px] text-slate-600">
+                <span>Posição na linha</span>
+                <strong className="font-mono">{`${Math.round(sensor.positionPct)}%`}</strong>
+              </span>
+              <input
+                type="range"
+                min={5}
+                max={95}
+                step={1}
+                disabled={locked}
+                value={sensor.positionPct}
+                onChange={(e) => updateSensor(sensor.id, { positionPct: Number(e.target.value) })}
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="flex items-center justify-between text-[10px] text-slate-600">
+                <span>Rotação do sensor</span>
+                <strong className="font-mono">{`${Math.round(sensor.angleDeg)}°`}</strong>
+              </span>
+              <input
+                type="range"
+                min={-60}
+                max={60}
+                step={5}
+                disabled={locked}
+                value={sensor.angleDeg}
+                onChange={(e) => updateSensor(sensor.id, { angleDeg: Number(e.target.value) })}
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="flex items-center justify-between text-[10px] text-slate-600">
+                <span>Altura sobre rolos</span>
+                <strong className="font-mono">{`${Math.round(sensor.heightOffsetMm)} mm`}</strong>
+              </span>
+              <input
+                type="range"
+                min={10}
+                max={220}
+                step={5}
+                disabled={locked}
+                value={sensor.heightOffsetMm}
+                onChange={(e) => updateSensor(sensor.id, { heightOffsetMm: Number(e.target.value) })}
+              />
+            </label>
+            {sensor.kind === 'optical' && (
+              <button
+                type="button"
+                disabled={locked}
+                aria-pressed={sensor.withReflector}
+                onClick={() => updateSensor(sensor.id, { withReflector: !sensor.withReflector })}
+                className={`dc-btn text-[10px] justify-center ${sensor.withReflector ? 'dc-btn-primary' : ''}`}
+              >
+                {sensor.withReflector ? 'Espelho refletor oposto: ON' : 'Espelho refletor oposto: OFF'}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
   if (industrialDeviceTypeOf(c)) return <IndustrialDeviceControls component={c} disabled={locked} />
   if (isLightingType(c.type)) return <LightingControls c={c} locked={locked} />
   if (isHydraulicComponentType(c.type)) return <HydraulicControls c={c} locked={locked} />
+  if (isConveyorComponentType(c.type)) return <ConveyorControls c={c} locked={locked} />
   if (c.type === 'multimeterDm20') return <MultimeterControls c={c} locked={locked} />
   if (
     c.type === 'powerSource3ph' ||

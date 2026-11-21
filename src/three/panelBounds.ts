@@ -3,6 +3,7 @@ import type { ElectricalComponent, SpatialPoint3D } from '../types'
 import { component3DDimensions, component3DScaleOf, schematicRotationRadians } from './terminal3D'
 import { getComponentModelSpec } from './modelPaths'
 import { orientationRadians, componentOrientationOf } from './componentOrientation'
+import { isFloorMountedMachineType } from './conveyorModel'
 
 /** Altura do trilho principal (centro) no Painel 3D. */
 export const RAIL_Y = 0.4
@@ -29,12 +30,13 @@ export function panelLimits(plateWidth: number): PanelLimits {
   }
 }
 
-/** Máquinas externas (motores) não vivem dentro do painel. */
+/** Máquinas externas (motores, bombas, reservatórios, tapetes rolantes, espelho ótico) não vivem dentro do painel. */
 export function isPanelBound(component: ElectricalComponent): boolean {
   // O quadro envolve a chapa: não conta para o tamanho da chapa nem é um obstáculo nela.
   if (component.type === 'panelEnclosure') return false
   // Um relé plug-in encaixado na base undecal passa a viver no painel (posição derivada da base).
   if (component.mountedOn) return true
+  if (isFloorMountedMachineType(component.type) || component.type === 'opticalReflector') return false
   return getComponentModelSpec(component.type)?.placement !== 'machine'
     && component.type !== 'motor3ph' && component.type !== 'motor1ph'
 }
