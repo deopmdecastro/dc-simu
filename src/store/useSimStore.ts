@@ -263,6 +263,13 @@ interface Store extends CircuitState {
   updateFc: (id: 'fc1' | 'fc2', rungs: LadderRung[]) => void
   history: Snapshot[]
   future: Snapshot[]
+  selectedDecal: { componentId: string; decalId: string } | null
+  _decalMove: { componentId: string; decalId: string; x: number; y: number; before: Snapshot; dirty: boolean } | null
+  selectDecal: (componentId: string, decalId: string | null) => void
+  beginDecalMove: () => void
+  moveSelectedDecal: (dxMm: number, dyMm: number) => void
+  endDecalMove: () => void
+  cancelDecalMove: () => void
   probeResult: ProbeResult | null
   /** primeiro ponto fixado da sonda (o segundo clique conclui a medição) */
   probeA: string | null
@@ -1522,6 +1529,8 @@ export const useSimStore = create<Store>((set, get) => {
   simTick: 0,
   activeScenario: 'custom',
   selectedComponentIds: [],
+  selectedDecal: null,
+  _decalMove: null,
   selectedWireId: null,
   selectedWireIds: [] as string[],
   selectedTerminalId: null,
@@ -3392,7 +3401,7 @@ export const useSimStore = create<Store>((set, get) => {
   },
   addDecal: (componentId, decal) => {
     const target = get().components.find((c) => c.id === componentId)
-    if (!target) return
+    if (!target || target.locked || isSimEditLocked(get())) return
     get().commitHistory()
     const id = decal.id ?? `decal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
     const next: import('../types').ComponentDecal = {
@@ -3411,25 +3420,81 @@ export const useSimStore = create<Store>((set, get) => {
       fontSizeMm: decal.fontSizeMm ?? 4,
       border: decal.border ?? true,
       imageUrl: (decal as any).imageUrl,
+      stickerId: decal.stickerId,
+      imageAspectRatio: decal.imageAspectRatio,
+      keepAspectRatio: decal.keepAspectRatio,
     }
     set((s) => ({
       components: s.components.map((c) => (c.id === componentId ? { ...c, decals: [...(c.decals ?? []), next] } : c)),
       dirty: true,
+      selectedDecal: { componentId, decalId: next.id },
+      selectedComponentIds: [componentId], selectedWireId: null, selectedWireIds: [], selectedTerminalId: null,
     }))
   },
   updateDecal: (componentId, decalId, patch) => {
-    get().commitHistory()
+    const target = get().components.find((c) => c.id === componentId)
+    if (!target || target.locked || isSimEditLocked(get()) || !target.decals?.some((d) => d.id === decalId)) return
+    const safePatch = { ...patch }
+    for (const field of ['offsetXmm', 'offsetYmm', 'rotationDeg', 'widthMm', 'heightMm', 'fontSizeMm', 'imageAspectRatio'] as const) {
+      const value = safePatch[field]
+      if (value !== undefined && (!Number.isFinite(value) || (['widthMm', 'heightMm', 'fontSizeMm', 'imageAspectRatio'].includes(field) && value <= 0))) delete safePatch[field]
+    }
+    if (!Object.keys(safePatch).length) return
+    if (shouldCommitGroupedEdit(`decal:${componentId}:${decalId}:${Object.keys(safePatch).sort().join(',')}`)) get().commitHistory()
     set((s) => ({
-      components: s.components.map((c) => (c.id === componentId && c.decals?.some((d) => d.id === decalId) ? { ...c, decals: c.decals!.map((d) => (d.id === decalId ? { ...d, ...patch } : d)) } : c)),
+      components: s.components.map((c) => (c.id === componentId ? { ...c, decals: c.decals!.map((d) => (d.id === decalId ? { ...d, ...safePatch } : d)) } : c)),
       dirty: true,
     }))
   },
   removeDecal: (componentId, decalId) => {
+    const target = get().components.find((c) => c.id === componentId)
+    if (!target || target.locked || isSimEditLocked(get()) || !target.decals?.some((d) => d.id === decalId)) return
+    get().cancelDecalMove()
     get().commitHistory()
     set((s) => ({
       components: s.components.map((c) => (c.id === componentId ? { ...c, decals: (c.decals ?? []).filter((d) => d.id !== decalId) } : c)),
       dirty: true,
+      selectedDecal: s.selectedDecal?.componentId === componentId && s.selectedDecal.decalId === decalId ? null : s.selectedDecal,
     }))
+  },
+
+  selectDecal: (componentId, decalId) => {
+    get().cancelDecalMove()
+    if (!decalId) { set({ selectedDecal: null }); return }
+    const owner = get().components.find((item) => item.id === componentId)
+    if (!owner || owner.locked || isSimEditLocked(get()) || !owner.decals?.some((item) => item.id === decalId)) return
+    set({ selectedDecal: { componentId, decalId }, selectedComponentIds: [componentId], selectedWireId: null, selectedWireIds: [], selectedTerminalId: null, viewOrientationEditor: null })
+  },
+  beginDecalMove: () => {
+    const state = get(), selection = state.selectedDecal
+    if (!selection || state._decalMove || isSimEditLocked(state)) return
+    const owner = state.components.find((item) => item.id === selection.componentId)
+    const decal = owner?.decals?.find((item) => item.id === selection.decalId)
+    if (!owner || owner.locked || !decal) return
+    set({ _decalMove: { ...selection, x: decal.offsetXmm ?? 0, y: decal.offsetYmm ?? 0, before: snapshot(state), dirty: state.dirty } })
+  },
+  moveSelectedDecal: (dxMm, dyMm) => {
+    const state = get(), gesture = state._decalMove
+    if (!gesture || !Number.isFinite(dxMm) || !Number.isFinite(dyMm) || isSimEditLocked(state)) return
+    const owner = state.components.find((item) => item.id === gesture.componentId)
+    if (!owner || owner.locked || state.selectedDecal?.decalId !== gesture.decalId) return
+    set({ components: state.components.map((item) => item.id === owner.id ? { ...item, decals: item.decals?.map((decal) => decal.id === gesture.decalId ? { ...decal, offsetXmm: Math.round((gesture.x + dxMm) * 100) / 100, offsetYmm: Math.round((gesture.y + dyMm) * 100) / 100 } : decal) } : item), dirty: true })
+  },
+  endDecalMove: () => {
+    const state = get(), gesture = state._decalMove
+    if (!gesture) return
+    if (isSimEditLocked(state) || state.components.find((item) => item.id === gesture.componentId)?.locked) { get().cancelDecalMove(); return }
+    const decal = state.components.find((item) => item.id === gesture.componentId)?.decals?.find((item) => item.id === gesture.decalId)
+    const changed = decal && ((decal.offsetXmm ?? 0) !== gesture.x || (decal.offsetYmm ?? 0) !== gesture.y)
+    set({ _decalMove: null, ...(changed ? { history: [...state.history.slice(-49), gesture.before], future: [] } : {}) })
+    resetGroupedEdit()
+  },
+  cancelDecalMove: () => {
+    const state = get(), gesture = state._decalMove
+    if (!gesture) return
+    const components = state.components.map((item) => item.id === gesture.componentId ? { ...item, decals: item.decals?.map((decal) => decal.id === gesture.decalId ? { ...decal, offsetXmm: gesture.x, offsetYmm: gesture.y } : decal) } : item)
+    const restored = snapshot({ ...state, components })
+    set({ components, _decalMove: null, dirty: JSON.stringify(restored) === JSON.stringify(gesture.before) ? gesture.dirty : state.dirty })
   },
   addPanelHole: (enclosureId, hole) => {
     const target = get().components.find((c) => c.id === enclosureId)
@@ -3568,12 +3633,14 @@ export const useSimStore = create<Store>((set, get) => {
 
   selectComponents: (ids, additive = false) => {
     if (isSimEditLocked(get()) && ids.length) return
+    get().cancelDecalMove()
     set((s) => {
       // Selecionar um componente agrupado traz consigo todo o grupo.
       const groups = new Set(ids.map((id) => s.components.find((item) => item.id === id)?.groupId).filter(Boolean) as string[])
       const expanded = groups.size ? [...new Set([...ids, ...s.components.filter((item) => item.groupId && groups.has(item.groupId)).map((item) => item.id)])] : ids
       return {
       selectedComponentIds: additive ? [...new Set([...s.selectedComponentIds, ...expanded])] : expanded,
+      selectedDecal: null,
       selectedWireId: null,
       selectedWireIds: [],
       selectedTerminalId: null,
@@ -5178,6 +5245,8 @@ export const useSimStore = create<Store>((set, get) => {
   sendSelectionBackward: () => reorderSelection(get, set, 'backward'),
 
   deleteSelection: () => {
+    const decal = get().selectedDecal
+    if (decal) { get().removeDecal(decal.componentId, decal.decalId); return }
     if (get().demoMode) return
     const { selectedComponentIds, selectedWireId, selectedTerminalId } = get()
     if (selectedTerminalId) return get().deleteTerminal(selectedTerminalId)
@@ -5792,6 +5861,17 @@ let tagSyncTimer: ReturnType<typeof setTimeout> | undefined
 useSimStore.subscribe((state, prev) => {
   if (isSimEditLocked(state) && !isSimEditLocked(prev) && (state.selectedComponentIds.length || state.selectedWireId || state.selectedTerminalId)) {
     useSimStore.setState({ selectedComponentIds: [], selectedWireId: null, selectedTerminalId: null, viewOrientationEditor: null })
+  }
+})
+
+// A seleção/rascunho de etiquetas pertence à sessão de edição, nunca ao ficheiro do projeto.
+useSimStore.subscribe((state) => {
+  const selection = state.selectedDecal
+  if (!selection) return
+  const owner = state.components.find((item) => item.id === selection.componentId)
+  if (isSimEditLocked(state) || owner?.locked || !state.selectedComponentIds.includes(selection.componentId) || !owner?.decals?.some((item) => item.id === selection.decalId) || state.tool !== 'select') {
+    state.cancelDecalMove()
+    useSimStore.setState({ selectedDecal: null })
   }
 })
 

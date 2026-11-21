@@ -301,7 +301,8 @@ export interface PanelMount {
 
 /** Etiqueta/decalque realista colado na face de um aparelho ou porta (raio, logotipo, texto). */
 export type DecalKind = 'text' | 'warning' | 'logo' | 'symbol' | 'image'
-export type DecalFace = EnclosureFace | 'front'
+/** `innerCover`: sobretampa modular (proteção interior DIN) do quadro. */
+export type DecalFace = EnclosureFace | 'front' | 'innerCover'
 export interface ComponentDecal {
   id: string
   kind: DecalKind
@@ -320,6 +321,9 @@ export interface ComponentDecal {
   fontSizeMm?: number
   border?: boolean
   imageUrl?: string // data URL ou URL externa para decal de imagem (tampa do quadro)
+  stickerId?: string
+  imageAspectRatio?: number
+  keepAspectRatio?: boolean
 }
 
 export type EnclosureHoleFace = 'door' | 'doorOuter' | 'left' | 'right' | 'top' | 'bottom' | 'back'

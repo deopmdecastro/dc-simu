@@ -1,3 +1,4 @@
+import ComponentDecalControls from './ComponentDecalControls'
 import InspectorNumberInput from '../ui/InspectorNumberInput'
 import { uiConfirm } from '../ui/dialogs'
 import { importedComponentInfo } from '../electrical/importedComponents'
@@ -152,6 +153,11 @@ const EXTRA_STATE_LABELS: Record<string, string> = {
   // Bornes e barras
   bridged: 'Pontes ligadas', connection: 'Ligação', sectionMm2: 'Secção nominal (mm²)', maxSectionMm2: 'Secção máxima (mm²)',
   nominalA: 'Corrente nominal (A)', article: 'Artigo', poleCount: 'Número de pólos', source: 'Fonte de alimentação',
+  brand: 'Marca', rcdType: 'Tipo diferencial', frequency: 'Frequência (Hz)', powerFactor: 'Fator de potência',
+  power: 'Potência (W)', energy: 'Energia (kWh)', temp: 'Temperatura (°C)', primaryA: 'Corrente primária (A)', secondaryA: 'Corrente secundária (A)',
+  l1On: 'Fase L1 presente', l2On: 'Fase L2 presente', l3On: 'Fase L3 presente', phaseLoss: 'Falta de fase',
+  vA: 'Tensão L1 (V)', vB: 'Tensão L2 (V)', vC: 'Tensão L3 (V)', iA: 'Corrente L1 (A)', iB: 'Corrente L2 (A)', iC: 'Corrente L3 (A)',
+  pA: 'Potência L1 (W)', pB: 'Potência L2 (W)', pC: 'Potência L3 (W)',
 }
 const stateLabel = (key: string) => STATE_LABELS[key] ?? EXTRA_STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
 
@@ -414,7 +420,6 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => canInsertComponent3D(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
   const [stripFocusId, setStripFocusId] = useState<string | null>(null)
-  const [stickerPickerOpen, setStickerPickerOpen] = useState(false)
   const selectedComponent = useMemo(() => {
     if (!editingStopped || !selectedIds.length) return undefined
     if (stripFocusId && selectedIds.includes(stripFocusId)) {
@@ -627,25 +632,6 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
         </div>
       </div>, document.body)}
 
-      {stickerPickerOpen && selectedComponent && createPortal(
-        <PanelStickerPicker
-          onClose={() => setStickerPickerOpen(false)}
-          onPick={(sticker) => {
-            useSimStore.getState().addDecal(selectedComponent.id, {
-              kind: 'symbol',
-              icon: sticker.icon,
-              text: sticker.label,
-              background: sticker.bg || '#ffffff',
-              color: sticker.fg || '#1e293b',
-              widthMm: sticker.category === 'numbers' ? 16 : 24,
-              heightMm: sticker.category === 'numbers' ? 16 : 24,
-              face: 'front',
-            })
-            useSimStore.getState().pushEvent('info', `Adesivo «${sticker.label}» colado em ${selectedComponent.ref}.`)
-          }}
-        />,
-        document.body
-      )}
       {tab === 'inspector' && (
         <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
           {wireTool && (
@@ -714,7 +700,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <span className={`dc-inspector-indicator ${selectedComponent.state.energized ? 'is-on' : ''}`} title={selectedComponent.state.energized ? 'Energizado' : 'Desligado'} />
               </header>
               <div className="text-[10px] font-mono text-ink-400 px-1 truncate">{selectedComponent.type} · {selectedComponent.terminals.length} bornes{selectedComponent.locked ? ' · bloqueado' : ''}</div>
-              <nav className="dc-inspector-jump" aria-label="Secções do inspetor">
+              <nav className={`dc-inspector-jump${hasConfiguration ? ' has-configuration' : ''}`} aria-label="Secções do inspetor">
                 {['Identificação', ...(hasConfiguration ? ['Configuração'] : []), 'Posição e aparência', 'Bornes'].map((name) => <button type="button" key={name} onClick={() => {
                   const section = name === 'Configuração' ? inspectorRef.current?.querySelector<HTMLDetailsElement>('[data-inspector-configuration]') : Array.from(inspectorRef.current?.querySelectorAll<HTMLDetailsElement>('details.dc-inspector-group') ?? []).find((item) => item.querySelector('summary')?.textContent?.startsWith(name))
                   // A margem acompanha o cartão sticky, incluindo zoom de texto e nomes longos.
@@ -1056,64 +1042,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               })()}
 
               {/* Etiquetas realistas na face — só para aparelhos, não para calhas/quadro */}
-              {!isPanelAccessoryType(selectedComponent.type) && <div className="dc-rail-length">
-                <div className="flex items-center justify-between gap-2">
-                <label className={label + ' !mb-0'}>Etiquetas na face (realistas)</label>
-                <span className="text-[10px] text-ink-400">{(selectedComponent.decals ?? []).length} etiqueta(s)</span>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  <button type="button" className="dc-btn bg-brand-50 text-brand-700 border-brand-200 font-semibold" title="Abre a biblioteca de adesivos de circuitos residenciais/industriais: tomadas, iluminação, AC, forno, bomba, números DIN..." onClick={() => setStickerPickerOpen(true)}><IconTag size={12} /> Adesivos de Circuito</button>
-                  <button type="button" className="dc-btn" title="Etiqueta de texto simples" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'text', text: selectedComponent.ref || 'Q1', background:'#ffffff', color:'#0f172a', widthMm:28, heightMm:10 })}>+ Texto</button>
-                  <button type="button" className="dc-btn" style={{background:'#facc15'}} title="Aviso triângulo amarelo com raio" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'warning', text:'PERIGO', icon:'bolt', background:'#facc15', color:'#0f172a', widthMm:36, heightMm:18, face:'front' })}><IconWarning size={12} /> Aviso</button>
-                  <button type="button" className="dc-btn" style={{background:'#22c55e',color:'white'}} title="Etiqueta CE verde" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text:'CE', background:'#22c55e', color:'white', widthMm:22, heightMm:14 })}>CE</button>
-                  <button type="button" className="dc-btn" style={{background:'#0ea5e9',color:'white'}} title="Símbolo raio dentro de triângulo" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'symbol', icon:'bolt', text:'400V', background:'#fef3c7', color:'#92400e', widthMm:30, heightMm:14 })}><IconCommands size={12} /> 400V</button>
-                  <button type="button" className="dc-btn" title="Logotipo de fabricante (editável abaixo)" onClick={()=> useSimStore.getState().addDecal(selectedComponent.id, { kind:'logo', text: String(selectedComponent.state.manufacturer ?? 'WEG').split(' ')[0].toUpperCase().slice(0, 12) || 'WEG', background:'#0f172a', color:'#ffffff', widthMm:32, heightMm:10 })}>+ Marca</button>
-                </div>
-                {(selectedComponent.decals ?? []).map((d)=>(
-                  <div key={d.id} className="rounded border border-line p-1.5 space-y-1 bg-slate-50/50">
-                    <div className="flex items-center gap-1">
-                      <Select className="dc-input w-20" value={d.kind} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {kind: e.target.value as any})}>
-                        <option value="text">Texto</option><option value="warning">Aviso</option><option value="symbol">Símbolo</option><option value="logo">Logo</option>
-                      </Select>
-                      <input className="dc-input flex-1" value={d.text ?? ''} placeholder="Texto" onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {text:e.target.value})} />
-                      <button type="button" className="dc-btn text-red-600" aria-label="Remover etiqueta" onClick={()=> useSimStore.getState().removeDecal(selectedComponent.id, d.id)}><IconClose size={12} /></button>
-                    </div>
-                    {d.kind === 'logo' && (
-                      <div className="flex flex-wrap gap-1">
-                        {['WEG', 'SIEMENS', 'SCHNEIDER', 'PHOENIX', 'HAGER', 'ABB', 'CE'].map((brand) => (
-                          <button
-                            key={brand}
-                            type="button"
-                            onClick={() => useSimStore.getState().updateDecal(selectedComponent.id, d.id, { text: brand })}
-                            className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono border ${(d.text ?? '').toUpperCase() === brand ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200'}`}
-                          >
-                            {brand}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
-                      <span>Ícone</span>
-                      <Select className="dc-input w-20" value={d.icon ?? ''} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {icon: e.target.value || undefined})}>
-                        <option value="">—</option><option value="bolt"><IconCommands size={11} /> Raio</option><option value="danger"><IconDanger size={11} /> Perigo</option><option value="ce">CE</option><option value="wago">WAGO</option><option value="siemens">Siemens</option>
-                      </Select>
-                      <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.background ?? '#facc15'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {background:e.target.value})} title="Fundo" />
-                      <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.color ?? '#0f172a'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {color:e.target.value})} title="Texto" />
-                      <label className="flex items-center gap-1">L <InspectorNumberInput type="number" className="dc-input w-12" min={6} max={120} step={2} value={d.widthMm ?? 30} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {widthMm: Number(e.target.value)})} /></label>
-                      <label className="flex items-center gap-1">A <InspectorNumberInput type="number" className="dc-input w-12" min={6} max={80} step={2} value={d.heightMm ?? 15} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {heightMm: Number(e.target.value)})} /></label>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
-                      <label className="flex items-center gap-1">X <InspectorNumberInput type="number" className="dc-input w-14" step={2} value={d.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetXmm: Number(e.target.value)})} /></label>
-                      <label className="flex items-center gap-1">Y <InspectorNumberInput type="number" className="dc-input w-14" step={2} value={d.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetYmm: Number(e.target.value)})} /></label>
-                      <label className="flex items-center gap-1">↻ <InspectorNumberInput type="number" className="dc-input w-12" step={15} value={d.rotationDeg ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {rotationDeg: Number(e.target.value)})} /></label>
-                      <Select aria-label="Face da etiqueta" className="dc-input w-20" value={d.face ?? 'front'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {face: e.target.value as any})}>
-                        <option value="front">Frente</option><option value="door">Porta</option><option value="inside">Interior</option><option value="left">Esq.</option><option value="right">Dir.</option><option value="top">Topo</option><option value="bottom">Base</option>
-                      </Select>
-                    </div>
-                  </div>
-                ))}
-                <small className="text-ink-400">Etiquetas movem-se com o aparelho/quadro. Use X/Y (mm) para posicionar na face (contator, porta, disjuntor).</small>
-              </div>}
+              {!isPanelAccessoryType(selectedComponent.type) && <ComponentDecalControls key={selectedComponent.id} component={selectedComponent} />}
               </fieldset>
               <div className="flex flex-wrap gap-1">
                 <button className="dc-btn" disabled={!!selectedComponent.locked} title={selectedComponent.locked ? 'Desbloqueie o componente para alterar a geometria.' : undefined} onClick={() => useSimStore.getState().rotateComponent(selectedComponent.id)}><IconRotate size={12} /> Girar 90°</button>

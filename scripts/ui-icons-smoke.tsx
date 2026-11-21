@@ -80,14 +80,17 @@ for (const name of CIRCUIT_ICON_NAMES) {
   assert.ok(!forbidden.test(markup))
 }
 for (const preset of PANEL_STICKER_PRESETS.filter((item) => item.category !== 'numbers')) {
-  assert.ok(isCircuitIcon(preset.icon), `Falta o SVG da etiqueta ${preset.id}`)
+  // Marcas: o símbolo é o logótipo vetorial do fabricante em public/brands (registado em sources.json).
+  if (preset.icon.startsWith('brand:')) assert.ok(fs.existsSync(path.join('public', 'brands', `${preset.icon.slice(6)}.svg`)), `Falta o logótipo da etiqueta ${preset.id}`)
+  else if (preset.icon) assert.ok(isCircuitIcon(preset.icon), `Falta o SVG da etiqueta ${preset.id}`)
+  else assert.ok(preset.label.trim(), `Etiqueta de texto ${preset.id} precisa de conteúdo`)
 }
 assert.equal(isCircuitIcon('unknown'), false)
 const picker = renderToStaticMarkup(createElement(PanelStickerPicker, { onPick() {}, onClose() {} }))
 assert.ok(!forbidden.test(picker))
-assert.ok((picker.match(/<svg\b/g) ?? []).length > 30)
-assert.match(picker, /Fechar etiquetas de circuito/)
-console.log('PASS — SVG: todas as etiquetas DIN têm pictograma vetorial, incluindo energia e perigo')
+assert.equal((picker.match(/aria-label="Escolher /g) ?? []).length, PANEL_STICKER_PRESETS.length, 'Todos os modelos têm uma ação de escolha nomeada; a prévia raster partilhada é verificada no navegador')
+assert.match(picker, /Fechar biblioteca de etiquetas/)
+console.log('PASS — Pictogramas vetoriais e modelos de texto da biblioteca de etiquetas válidos')
 
 const prices = renderToStaticMarkup(createElement(LandingPricing, { pricing: DEFAULT_PRICING, onChoose() {} }))
 const rows = prices.match(/<li\b[\s\S]*?<\/li>/g) ?? []

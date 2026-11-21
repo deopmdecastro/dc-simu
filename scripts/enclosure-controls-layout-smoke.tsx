@@ -25,14 +25,14 @@ for (const [, label] of ENCLOSURE_FACES) {
   assert.ok(html.includes(`aria-label="Ocultar ${label.toLowerCase()}"`), `controlo individual acessível: ${label}`)
 }
 
-for (const summary of ['Imagem da tampa', 'Furos no quadro', 'Aparelhos internos']) {
+for (const summary of ['Imagens e etiquetas', 'Furos no quadro', 'Aparelhos internos']) {
   assert.ok(html.includes(`<summary>${summary}`), `grupo disponível: ${summary}`)
 }
-assert.ok(html.includes('type="file" accept="image/*"'), 'upload de imagem continua acessível')
+assert.match(html, /type="file"[^>]*accept="[^"]*image\/png[^"]*image\/jpeg/, 'upload de imagens PNG e JPG continua acessível')
 assert.ok(html.includes('Fazer furo'), 'criação de furos continua acessível')
 assert.ok(html.includes('Marcar seleção como dentro'), 'montagem de aparelhos internos continua acessível')
 
-const groups = [...html.matchAll(/<details\b([^>]*)>/g)]
+const groups = [...html.matchAll(/<details\b([^>]*)>/g)].filter(([, attributes]) => /class="[^"]*\bdc-inspector-group\b[^"]*"/.test(attributes))
 assert.equal(groups.length, 4, 'existem grupos de visibilidade, imagem, furos e aparelhos internos')
 assert.ok(groups.every(([, attributes]) => !/\bopen\b/.test(attributes)), 'grupos menos frequentes iniciam recolhidos')
 

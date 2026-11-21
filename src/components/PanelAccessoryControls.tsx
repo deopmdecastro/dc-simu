@@ -1,3 +1,7 @@
+import ComponentDecalControls, { ENCLOSURE_DECAL_FACES, innerCoverSlot, stickerDecal } from './ComponentDecalControls'
+import PanelStickerPicker from './PanelStickerPicker'
+import { createPortal } from 'react-dom'
+import EnclosureHolesControls from './EnclosureHolesControls'
 import InspectorNumberInput from '../ui/InspectorNumberInput'
 import { innerCoverInsetOf, innerCoverModeOf, modularCoverLayout } from '../three/modularCoverLayout'
 
@@ -33,6 +37,7 @@ import {
   IconPlus,
   IconEye,
   IconEyeOff,
+  IconTag,
 } from '../ui/icons'
 
 /** Estado do inspetor que estes controlos já mostram (não se repete na lista genérica). */
@@ -209,30 +214,10 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const attached = components.filter((item) => item.enclosureId === c.id)
   const selectionToAssign = selectedIds.filter((id) => id !== c.id && !components.find((item) => item.id === id)?.enclosureId)
-  const imageDecals = (c.decals ?? []).filter((de) => de.kind === 'image')
-  const handleImageUpload = (files: FileList | null) => {
-    if (!files?.length) return
-    const file = files[0]
-    if (!file.type.startsWith('image/')) { useSimStore.getState().pushEvent('warning', 'Ficheiro não é imagem. Use PNG/JPG/WebP.'); return }
-    if (file.size > 4_000_000) { useSimStore.getState().pushEvent('warning', 'Imagem muito grande (>4 MB). Comprima antes.'); return }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const url = String(reader.result ?? '')
-      if (!url.startsWith('data:')) return
-      // cria decal na porta, centrado, 60% da porta
-      const w = Math.round(d.widthMm * 0.62)
-      const h = Math.round(w * 0.45)
-      useSimStore.getState().addDecal(c.id, { kind: 'image' as any, face: 'door', offsetXmm: 0, offsetYmm: 0, widthMm: w, heightMm: h, imageUrl: url, border: false } as any)
-      useSimStore.getState().pushEvent('info', `Imagem "${file.name}" adicionada à tampa.`)
-    }
-    reader.readAsDataURL(file)
-  }
   const holes: import('../types').EnclosureHole[] = (c.state as any).holes ?? []
-  const [holeFace, setHoleFace] = useState<import('../types').EnclosureHoleFace>('bottom')
-  const [holeDia, setHoleDia] = useState<number>(20)
-  const [holeOx, setHoleOx] = useState<number>(0)
-  const [holeOy, setHoleOy] = useState<number>(0)
   const [fitFeedback, setFitFeedback] = useState('')
+  const [coverLibrary, setCoverLibrary] = useState(false)
+  const coverStickers = (c.decals ?? []).filter((d) => d.face === 'innerCover').length
   const fitToContent = () => {
     const result = fitEnclosureToContent(c)
     if (result === 'empty') setFitFeedback('Não há equipamentos dentro do quadro para ajustar.')
@@ -323,7 +308,17 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       <label className={`dc-acc-row ${innerCoverModeOf(c.state)==='outline'?'opacity-45':''}`} title={innerCoverModeOf(c.state)==='outline'?'A sobretampa tracejada é só contornos: não tem obturadores.':undefined}><span>Obturadores nas aberturas livres</span><input aria-label="Obturadores automáticos" type="checkbox" disabled={innerCoverModeOf(c.state)==='outline'} checked={innerCoverModeOf(c.state)==='solid'&&c.state.innerCoverBlanking!==false} onChange={e=>set({innerCoverBlanking:e.target.checked})}/></label>
       {innerCoverModeOf(c.state)==='solid' && <p className="text-[11px] text-slate-500 leading-snug">Tiras brancas fracionáveis. As vagas são recalculadas sem tapar aparelhos, incluindo os que não estão centrados nos módulos de 18 mm.</p>}
       </>)}
+      <div className="dc-cover-stickers" data-inner-cover-stickers>
+        <div className="flex items-center justify-between gap-2 text-xs"><span className="text-slate-600">Etiquetas na sobretampa</span><span className="dc-inspector-count">{coverStickers}</span></div>
+        <button type="button" className="dc-btn w-full justify-center" disabled={!!c.locked} onClick={() => setCoverLibrary(true)}><IconTag size={13} /> Adicionar etiqueta na sobretampa</button>
+        {innerCoverModeOf(c.state) !== 'solid' && <p className="text-[11px] text-amber-700 leading-snug">As etiquetas só se veem com a sobretampa <strong>Sólida</strong>{coverStickers ? ' — as atuais estão guardadas.' : '.'}</p>}
+      </div>
     </div>
+    {coverLibrary && createPortal(<PanelStickerPicker faces={[ENCLOSURE_DECAL_FACES[1], ENCLOSURE_DECAL_FACES[0]]} onClose={() => setCoverLibrary(false)} onPick={(sticker, custom) => {
+      const decal = stickerDecal(sticker, true, custom)
+      if (decal.face === 'innerCover') Object.assign(decal, innerCoverSlot(c, coverStickers, decal.widthMm ?? 28))
+      useSimStore.getState().addDecal(c.id, decal)
+    }} />, document.body)}
 
     <details className="dc-inspector-group" data-enclosure-visibility>
       <summary>Visibilidade das chapas <span className="dc-inspector-count">{hiddenFaces.length}/{ENCLOSURE_FACES.length} ocultas</span></summary>
@@ -348,143 +343,11 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
       </div>
     </details>
 
-    {/* Imagem da tampa */}
-    <details className="dc-inspector-group">
-      <summary>Imagem da tampa</summary>
-      <div className="dc-inspector-group-body">
-          <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tampa do quadro — imagem</div>
-      <label className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/60 px-3 py-3 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition">
-        <span className="text-xs font-medium text-slate-700 inline-flex items-center gap-1.5"><IconCamera size={14} /> Carregar imagem (PNG/JPG)</span>
-        <input type="file" accept="image/*" className="hidden" onChange={(e)=> handleImageUpload(e.target.files)} />
-      </label>
-      {imageDecals.length===0 ? <p className="text-[11px] text-slate-400">A imagem fica na porta (face <code>door</code>), move-se com o quadro. Use X/Y e tamanho nos controlos abaixo.</p>
-      : <div className="space-y-1.5">
-        {imageDecals.map((de)=> <div key={de.id} className="flex items-center gap-2 rounded border border-slate-200 p-1.5 bg-slate-50">
-          {de.imageUrl && <img src={de.imageUrl} alt={de.text ?? 'tampa'} className="w-10 h-10 rounded object-cover border border-slate-200" />}
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium truncate">{de.text ?? 'Imagem tampa'}</div>
-            <div className="text-[10px] text-slate-500">{de.widthMm}×{de.heightMm} mm • {de.offsetXmm??0},{de.offsetYmm??0} mm</div>
-          </div>
-          <div className="flex items-center gap-1">
-            {/* Limitado à porta: sem tamanhos nulos/negativos nem imagem fora da tampa. */}
-            <DraftNumber label="Largura da imagem" className="w-14 h-7 text-xs" value={de.widthMm??30} min={5} max={d.widthMm} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {widthMm: mm})} />
-            <DraftNumber label="Altura da imagem" className="w-14 h-7 text-xs" value={de.heightMm??30} min={5} max={d.heightMm} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {heightMm: mm})} />
-            <DraftNumber label="X da imagem" className="w-12 h-7 text-xs" value={de.offsetXmm??0} min={-Math.round(d.widthMm/2)} max={Math.round(d.widthMm/2)} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetXmm: mm})} />
-            <DraftNumber label="Y da imagem" className="w-12 h-7 text-xs" value={de.offsetYmm??0} min={-Math.round(d.heightMm/2)} max={Math.round(d.heightMm/2)} onCommit={(mm)=> useSimStore.getState().updateDecal(c.id, de.id, {offsetYmm: mm})} />
-            <button type="button" className="dc-btn text-red-600 px-1.5 py-1" onClick={()=> useSimStore.getState().removeDecal(c.id, de.id)} aria-label="Remover imagem"><IconClose size={12} /></button>
-          </div>
-        </div>)}
-      </div>}
-      </div>
-    </details>
+    <ComponentDecalControls key={c.id} component={c} />
 
-    {/* Furos no quadro — escolher face e diâmetro */}
     <details className="dc-inspector-group">
       <summary>Furos no quadro <span className="dc-inspector-count">{holes.length}</span></summary>
-      <div className="dc-inspector-group-body">
-      <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Furos no quadro</div>
-      <p className="text-[11px] text-slate-400">Escolha a face e o diâmetro, faça o furo e depois coloque bucim ou aparelho.</p>
-      <div className="flex flex-wrap gap-1" role="group" aria-label="Face do furo">
-        {(['door','top','bottom','left','right','back'] as const).map((fid) => {
-          const FaceIcon = {door: IconImage, top: IconArrowUp, bottom: IconArrowDown, left: IconArrowLeft, right: IconArrowRight, back: IconLayers}[fid] ?? IconImage
-          const labels: Record<string,string> = {door:'Porta', top:'Topo', bottom:'Fundo', left:'Esq.', right:'Dir.', back:'Traseira'}
-          return <button key={fid} type="button" aria-pressed={holeFace===fid} className={`min-h-[34px] rounded-full border px-2.5 py-1 text-xs inline-flex items-center gap-1.5 transition ${holeFace===fid?'bg-brand-600 text-white border-brand-700':'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} onClick={()=> setHoleFace(fid as any)}><FaceIcon size={12} /> <span>{labels[fid]}</span></button>
-        })}
-      </div>
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Diâmetro do furo">
-        <span className="text-xs text-slate-600 font-semibold">Ø</span>
-        <div className="flex flex-wrap gap-1">
-          {[{label:'M16',mm:16,gland:'M16'},{label:'M20',mm:20,gland:'M20'},{label:'M25',mm:25,gland:'M25'},{label:'M32',mm:32,gland:'M32'},{label:'M40',mm:40,gland:'M40'},{label:'22mm',mm:22,gland:'none'},{label:'30mm',mm:30,gland:'none'}].map((p)=> (
-            <button
-              key={p.label}
-              type="button"
-              aria-pressed={holeDia===p.mm}
-              className={`min-h-[34px] rounded-full border px-2 py-1 text-xs transition ${holeDia===p.mm?'bg-brand-600 text-white border-brand-700 font-semibold':'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-              onClick={()=> setHoleDia(p.mm)}
-            >
-              {p.label} <span className="opacity-60 text-[10px]">{p.mm}mm</span>
-            </button>
-          ))}
-        </div>
-        <InspectorNumberInput type="number" className="dc-input w-16 h-9 text-xs" min={6} max={80} value={holeDia} aria-label="Diâmetro do furo (mm)" onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
-        <span className="text-xs text-slate-400">mm</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <label className="flex items-center gap-1 text-xs">X <InspectorNumberInput type="number" className="dc-input w-14 h-9 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
-        <label className="flex items-center gap-1 text-xs">Y <InspectorNumberInput type="number" className="dc-input w-14 h-9 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
-        <span className="text-[11px] text-slate-400">mm</span>
-        <button
-          type="button"
-          onClick={()=> {
-            const isGlandMetric = holeDia === 16 || holeDia === 20 || holeDia === 25 || holeDia === 32 || holeDia === 40
-            const glandType = isGlandMetric ? (`M${holeDia}` as const) : 'none'
-            useSimStore.getState().addPanelHole(c.id, { face: holeFace, diameterMm: holeDia, offsetXmm: holeOx, offsetYmm: holeOy, glandType })
-          }}
-          className="ml-auto min-h-[38px] dc-btn dc-btn-primary rounded-full px-3 py-1 text-xs inline-flex items-center gap-1.5"
-        >
-          <IconPlus size={12} /> Fazer furo
-        </button>
-      </div>
-
-      {/* Modelos rápidos de furação */}
-      <div className="flex flex-wrap gap-1.5 pt-1">
-        <button
-          type="button"
-          className="dc-btn text-[11px] py-1 px-2.5 h-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md"
-          title="Fura no fundo com bucim M20 para passagem de cabos"
-          onClick={() => useSimStore.getState().addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 0, offsetYmm: 0, glandType: 'M20' })}
-        >
-          <IconPlus size={11} /> Bucim M20 no fundo
-        </button>
-        <button
-          type="button"
-          className="dc-btn text-[11px] py-1 px-2.5 h-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md"
-          title="Fura 3 bucins M20 no fundo espaçados"
-          onClick={() => {
-            const store = useSimStore.getState()
-            store.addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: -60, offsetYmm: 0, glandType: 'M20' })
-            store.addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 0, offsetYmm: 0, glandType: 'M20' })
-            store.addPanelHole(c.id, { face: 'bottom', diameterMm: 20, offsetXmm: 60, offsetYmm: 0, glandType: 'M20' })
-          }}
-        >
-          <IconPlus size={11} /> 3 Bucins M20 fundo
-        </button>
-        <button
-          type="button"
-          className="dc-btn text-[11px] py-1 px-2.5 h-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-md"
-          title="Fura Ø22 na porta para botoeira ou luz piloto"
-          onClick={() => useSimStore.getState().addPanelHole(c.id, { face: 'door', diameterMm: 22, offsetXmm: 0, offsetYmm: 60, glandType: 'none' })}
-        >
-          <IconPlus size={11} /> Furo Ø22 na porta
-        </button>
-      </div>
-      {holes.length===0 ? <p className="text-[11px] text-slate-400 border border-dashed border-slate-200 rounded p-2 text-center">Nenhum furo. Os furos aparecem no Esquema e no 3D; depois pode pôr bucim ou aparelho.</p>
-      : <div className="space-y-1.5 max-h-44 overflow-auto pr-1">
-        {holes.map((h)=> {
-          const occupiedBy = typeof h.occupiedBy === 'string' ? h.occupiedBy : ''
-          const hasGland = !!h.glandType && h.glandType !== 'none'
-          return <div key={h.id} className="flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 p-1.5">
-          <div className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold">{h.diameterMm}Ø</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium">{h.face} • Ø{h.diameterMm}mm <span className="text-[10px] text-slate-500">({h.offsetXmm},{h.offsetYmm})</span></div>
-            <div className="text-[10px] text-slate-500">{hasGland ? `Bucim ${h.glandType}` : occupiedBy ? `Aparelho ${occupiedBy.slice(0,6)}` : 'vazio — escolha bucim ou aparelho'}</div>
-          </div>
-          <Select className="dc-input h-9 text-xs w-24" aria-label={`Bucim do furo ${h.id}`} value={(h as any).glandType ?? ''} onChange={(e)=> useSimStore.getState().updatePanelHole(c.id, h.id, { glandType: e.target.value as any })}>
-            <option value="">— bucim —</option><option value="M16">M16</option><option value="M20">M20</option><option value="M25">M25</option><option value="M32">M32</option><option value="M40">M40</option><option value="none">sem bucim</option>
-          </Select>
-          <Select className="dc-input h-9 text-xs w-28" aria-label={`Adicionar aparelho ao furo ${h.id}`} disabled={!!occupiedBy} title={occupiedBy ? 'Este furo já tem um aparelho montado.' : undefined} defaultValue="" resetOnSelect onChange={(e)=> { const v=e.target.value; if(!v || occupiedBy) return; useSimStore.getState().addMountedDevice(v as any, c.id, h.face as any, h.offsetXmm, h.offsetYmm, h.diameterMm, h.id) }}>
-            <option value="">{occupiedBy ? 'Aparelho montado' : '＋ aparelho'}</option>
-            <option value="buttonNO">Botão NA (Verde)</option>
-            <option value="buttonNC">Botão NF (Vermelho)</option>
-            <option value="selector2">Chave 2 pos</option>
-            <option value="pilotLightAd22">Sinalizador LED AD22</option>
-            <option value="emergencyButton">Emergência</option>
-          </Select>
-          <button type="button" className="dc-btn min-h-[34px] min-w-[34px] justify-center text-red-600 px-1 py-1" onClick={()=> useSimStore.getState().removePanelHole(c.id, h.id)} aria-label="Remover furo"><IconClose size={12} /></button>
-          </div>
-        })}
-      </div>}
-      </div>
+      <div className="dc-inspector-group-body"><EnclosureHolesControls key={c.id} c={c} holes={holes} /></div>
     </details>
 
     <details className="dc-inspector-group">

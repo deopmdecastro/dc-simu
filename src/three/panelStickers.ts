@@ -6,19 +6,36 @@
 
 import { faBolt } from '@fortawesome/free-solid-svg-icons/faBolt'
 import { faSkullCrossbones } from '@fortawesome/free-solid-svg-icons/faSkullCrossbones'
+import { BRAND_ICON_PREFIX, BRAND_LOGOS } from './brandLogos'
 
 export interface PanelStickerDef {
   id: string
-  category: 'sockets' | 'lighting' | 'appliances' | 'climate' | 'security' | 'numbers'
+  category: 'sockets' | 'lighting' | 'appliances' | 'climate' | 'security' | 'numbers' | 'commands' | 'safety' | 'voltage' | 'brands'
   categoryName: string
   icon: string
   label: string
   bg?: string
   fg?: string
   accent?: string
+  widthMm?: number
+  heightMm?: number
 }
 
+/** Etiqueta → logótipo (ids estáveis: projetos antigos guardam `brand_<ETIQUETA>`). */
+const BRAND_STICKERS: Array<[string, string]> = [
+  ['SCHNEIDER', 'schneider-electric'], ['SIEMENS', 'siemens'], ['ABB', 'abb'], ['WEG', 'weg'], ['PHOENIX', 'phoenix-contact'],
+  ['HAGER', 'hager'], ['WAGO', 'wago'], ['EATON', 'eaton'], ['GEYA', 'geya'], ['PHILIPS', 'philips'], ['CE', 'ce'],
+]
+
 export const PANEL_STICKER_PRESETS: PanelStickerDef[] = [
+  { id: 'safety_danger_hv', category: 'safety', categoryName: 'Segurança', icon: 'bolt', label: 'PERIGO\nALTA TENSÃO', bg: '#ffffff', fg: '#111827', widthMm: 90, heightMm: 60 },
+  { id: 'safety_voltage', category: 'safety', categoryName: 'Segurança', icon: 'bolt', label: 'RISCO ELÉTRICO', bg: '#facc15', fg: '#111827', widthMm: 60, heightMm: 40 },
+  ...['START', 'STOP', 'ON', 'OFF', 'OVERLOAD', 'LOCAL-OFF-REMOTE', 'BOMBA 1', 'BOMBA 2', 'CIRCUITO 1', 'CIRCUITO 2'].map((label): PanelStickerDef => ({ id: `tag_${label.toLowerCase().split(' ').join( '_')}`, category: 'commands', categoryName: 'Comandos e tags', icon: '', label, bg: '#111827', fg: '#ffffff', widthMm: label.length > 12 ? 70 : 42, heightMm: 16 })),
+  // Marcas: logótipo real do fabricante (public/brands); sem ficheiro aprovado fica a etiqueta de texto.
+  ...BRAND_STICKERS.map(([label, slug]): PanelStickerDef => BRAND_LOGOS[slug]
+    ? { id: `brand_${label}`, category: 'brands', categoryName: 'Marcas', icon: `${BRAND_ICON_PREFIX}${slug}`, label: BRAND_LOGOS[slug].name, bg: BRAND_LOGOS[slug].background, fg: '#cbd5e1', widthMm: 36, heightMm: 14 }
+    : { id: `brand_${label}`, category: 'brands', categoryName: 'Marcas', icon: '', label, bg: '#111827', fg: '#ffffff', widthMm: 32, heightMm: 12 }),
+  ...['110 V', '220 V', '230 V', '400 V', '24 V CC'].map((label): PanelStickerDef => ({ id: `voltage_${label.split(' ').join( '_')}`, category: 'voltage', categoryName: 'Tensões', icon: 'bolt', label, bg: '#fef3c7', fg: '#111827', widthMm: 40, heightMm: 25 })),
   // --- TOMADAS ---
   { id: 'sock_hall', category: 'sockets', categoryName: 'Tomadas', icon: 'socket', label: 'Corredor', bg: '#ffffff', fg: '#1e293b' },
   { id: 'sock_kitchen', category: 'sockets', categoryName: 'Tomadas', icon: 'socket', label: 'Cozinha', bg: '#ffffff', fg: '#1e293b' },
@@ -522,3 +539,22 @@ export function drawCircuitSticker(
   }
   ctx.fillText(sticker.label, w / 2, textY)
 }
+
+/** Símbolos disponíveis para escolher numa etiqueta (nomes para a interface). */
+export const STICKER_ICONS: ReadonlyArray<{ id: string; name: string }> = [
+  { id: 'bolt', name: 'Raio' }, { id: 'danger', name: 'Perigo de morte' }, { id: 'power', name: 'Alimentação' },
+  { id: 'socket', name: 'Tomada' }, { id: 'light', name: 'Lâmpada' }, { id: 'gardenlight', name: 'Luz exterior' },
+  { id: 'ac', name: 'Ar condicionado' }, { id: 'fan', name: 'Ventilação' }, { id: 'floorheat', name: 'Piso radiante' },
+  { id: 'oven', name: 'Forno' }, { id: 'cooktop', name: 'Placa' }, { id: 'hood', name: 'Exaustor' },
+  { id: 'waterheater', name: 'Termoacumulador' }, { id: 'fridge', name: 'Frigorífico' }, { id: 'washer', name: 'Máquina de lavar' },
+  { id: 'gate', name: 'Portão' }, { id: 'garage', name: 'Garagem' }, { id: 'wifi', name: 'Router' },
+  { id: 'cctv', name: 'Videovigilância' }, { id: 'pump', name: 'Bomba' }, { id: 'shield', name: 'Segurança' },
+  { id: 'alarm', name: 'Alarme' }, { id: 'intercom', name: 'Videoporteiro' },
+]
+
+/** Cores de fundo frequentes em sinalética de quadros (o seletor livre continua disponível). */
+export const STICKER_BACKGROUNDS: ReadonlyArray<{ value: string; name: string }> = [
+  { value: '#ffffff', name: 'Branco' }, { value: '#facc15', name: 'Amarelo segurança' }, { value: '#dc2626', name: 'Vermelho' },
+  { value: '#2563eb', name: 'Azul' }, { value: '#16a34a', name: 'Verde' }, { value: '#ea580c', name: 'Laranja' },
+  { value: '#111827', name: 'Preto' }, { value: '#e5e7eb', name: 'Cinza claro' },
+]

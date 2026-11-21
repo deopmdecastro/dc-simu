@@ -3364,6 +3364,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   useEffect(() => {
     if (!placingText && !selectedTextId && !groupTextIds.length) return
     const onKey = (event: KeyboardEvent) => {
+      if (useSimStore.getState().selectedDecal) return
       if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"],[role="scrollbar"]')) return
       if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setPlacingText(false); setSelectedTextId(null); setGroupTextIds([]); useSimStore.getState().selectComponents([]); return }
       if (groupTextIds.length && (event.key === 'Delete' || event.key === 'Backspace')) {
@@ -4998,7 +4999,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               {(c.decals ?? []).map((d) => <group key={d.id}
                 position={[(d.offsetXmm ?? 0) * PANEL_UNITS_PER_MM, (d.offsetYmm ?? 0) * PANEL_UNITS_PER_MM, half.z + 0.02]}
                 rotation={[0, 0, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}>
-                <EquipmentDecal3D decal={d} />
+                <EquipmentDecal3D decal={d} componentId={c.id} />
               </group>)}
             </group>
           })}

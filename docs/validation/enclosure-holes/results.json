@@ -1,0 +1,27 @@
+{
+  "checks": 17,
+  "layouts": [
+    {
+      "width": 291,
+      "overflow": false,
+      "small": []
+    },
+    {
+      "width": 311,
+      "overflow": false,
+      "small": []
+    },
+    {
+      "width": 315,
+      "overflow": false,
+      "small": []
+    },
+    {
+      "width": 315,
+      "overflow": false,
+      "small": []
+    }
+  ],
+  "errors": [],
+  "scope": "React/Sidebar/store reais; criar, validar, editar, remover, desfazer, persistir e proteger furo ocupado; pedidos externos bloqueados."
+}

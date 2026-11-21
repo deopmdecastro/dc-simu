@@ -163,6 +163,9 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label, coverOccupants
     return vacantCoverBlanks(layout, coverOccupants).map((b) => ({ ...b, zMm: layout.zMm }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBlanks, occupantsKey, dims.widthMm, dims.heightMm, dims.depthMm, modularRows, coverInsetMm])
+  // Autocolantes na sobretampa: na face da chapa (recuo incluído), só quando a sobretampa é sólida e visível.
+  const coverDecals = innerCoverMode === 'solid' && !hiddenEnclosureFaces(c.state).includes('innerCover') ? (c.decals ?? []).filter((d) => d.face === 'innerCover') : []
+  const coverFaceZ = (modularCoverLayout(dims, modularRows, coverInsetMm).zMm + 0.75) * U + 0.0015
   const blankMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: '#f3f3ef', roughness: 0.62, metalness: 0 }), [])
   useEffect(() => () => blankMaterial.dispose(), [blankMaterial])
   useEffect(() => { gl.shadowMap.needsUpdate = true; invalidate() }, [coverBlanks, gl, invalidate])
@@ -205,6 +208,21 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label, coverOccupants
     <primitive object={parts.door} onClick={toggleDoor}
       onPointerOver={() => { if (interactive && !c.locked) document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { document.body.style.cursor = '' }} />
+    {coverDecals.length > 0 && <group name="enclosure-inner-cover-decals" position={[0, 0, coverFaceZ]}>
+      {coverDecals.map((d) => <group key={d.id}>
+        <group position={[(d.offsetXmm ?? 0) * U, (d.offsetYmm ?? 0) * U, 0]} rotation={[0, 0, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}><EquipmentDecal3D decal={d} componentId={c.id} interactive={interactive} /></group>
+      </group>)}
+    </group>}
+    {/* Faces importadas de projetos anteriores conservam o seu plano físico. */}
+    {(c.decals ?? []).filter((d) => !['door', 'doorOuter', 'front'].includes(d.face)).map((d) => {
+      const halfW = dims.widthMm * U / 2, halfH = dims.heightMm * U / 2, depth = dims.depthMm * U
+      const positions: Record<string, [number, number, number]> = { inside: [0, 0, (ENCLOSURE_PLATE_FRONT_MM + .5) * U], left: [-halfW - .002, 0, depth / 2], right: [halfW + .002, 0, depth / 2], top: [0, halfH + .002, depth / 2], bottom: [0, -halfH - .002, depth / 2] }
+      const rotations: Record<string, [number, number, number]> = { inside: [0, 0, 0], left: [0, -Math.PI / 2, 0], right: [0, Math.PI / 2, 0], top: [-Math.PI / 2, 0, 0], bottom: [Math.PI / 2, 0, 0] }
+      if (!positions[d.face]) return null
+      return <group key={d.id} position={positions[d.face]} rotation={rotations[d.face]}>
+        <group position={[(d.offsetXmm ?? 0) * U, (d.offsetYmm ?? 0) * U, .002]} rotation={[0, 0, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}><EquipmentDecal3D decal={d} componentId={c.id} interactive={interactive} /></group>
+      </group>
+    })}
     {/* Decalques e furos na porta — rodam com a porta (mesmo hinge/angle) */}
     <group ref={decalsDoorRef} position={parts.hinge} visible={enclosureFaceVisible(c.state, 'door')}>
       {(c.decals ?? []).filter((d) => d.face === 'door' || d.face === 'doorOuter' || d.face === 'front').map((d) => {
@@ -215,7 +233,7 @@ export function Enclosure3D({ c, interactive, plateFrontZ, label, coverOccupants
         const cx = dir * (dims.widthMm / 2 + 3) * U
         const skinZ = (ENCLOSURE.doorReturn - 4) * U
         return <group key={d.id} position={[cx + offX, offY, skinZ + 0.015]} rotation={[0, 0, THREE.MathUtils.degToRad(d.rotationDeg ?? 0)]}>
-          <EquipmentDecal3D decal={d} />
+          <EquipmentDecal3D decal={d} componentId={c.id} interactive={interactive} />
         </group>
       })}
       {/* Furos na porta (rodam com a porta!) */}

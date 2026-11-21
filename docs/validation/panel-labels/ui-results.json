@@ -1,0 +1,5 @@
+{
+  "checks": 22,
+  "errors": [],
+  "scope": "React/Sidebar/SVG/store reais; texto, upload, biblioteca, seleção, arrasto, teclas, Undo e persistência; pedidos externos bloqueados."
+}

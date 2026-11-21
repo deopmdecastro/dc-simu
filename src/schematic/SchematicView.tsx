@@ -1,3 +1,5 @@
+import ComponentDecals2D from './ComponentDecals2D'
+import { useDecalKeyboard } from '../ui/useDecalKeyboard'
 import { ductLengthFromPointer, fitDuctSideResize } from './ductResize'
 import { ductJunctionOpenings } from './ductJunctions'
 import { useCanvasAction, useSimUi } from '../ui/simUi'
@@ -75,6 +77,7 @@ type SchematicCanvasMode = '2d' | '3d'
 const MAX_SCHEMATIC_ZOOM = 5
 
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
+  useDecalKeyboard()
   const placingType = useSimStore((state) => state.placingType)
   const demoMode = useSimStore((state) => state.demoMode)
   // Editor SVG antigo, mantido como alternativa (localStorage 'dc-simu:classic2d' = '1' ou ?classic2d na URL).
@@ -630,6 +633,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   // ---------------------------------------------------------------- teclado
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return
       if (e.key === 'Escape') {
         setWireFrom(null)
         setFreeStart(null)
@@ -1877,33 +1881,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           </g>
         ) : <SymbolGlyph c={c} selected={selected} />}
         {c.locked && <g transform={`translate(${bounds.x + bounds.w - 17},${bounds.y + 3})`} color="#b45309"><IconLock size={11} /></g>}
-        {(c.decals ?? []).map((d) => {
-          const px = SCHEMATIC_PX_PER_MM
-          const dw = (d.widthMm ?? 30) * px
-          const dh = (d.heightMm ?? 15) * px
-          const ox = (d.offsetXmm ?? 0) * px
-          const oy = -(d.offsetYmm ?? 0) * px
-          const cx = c.w / 2 + ox
-          const cy = c.h / 2 + oy
-          const vectorIcon = isCircuitIcon(d.icon)
-          const iconMap: Record<string, string> = { ce: 'CE', wago: 'WAGO', siemens: 'Siemens' }
-          const iconTxt = !vectorIcon && d.icon && d.icon !== 'num' ? (iconMap[d.icon] ?? d.icon) : ''
-          const iconSize = Math.min(dh * 0.48, dw * 0.5)
-          const bg = d.background ?? '#facc15'
-          const fg = d.color ?? '#0f172a'
-          if (d.kind === 'image' && (d as any).imageUrl) {
-            return <g key={d.id} transform={`translate(${cx},${cy}) rotate(${d.rotationDeg ?? 0})`}>
-              <image href={(d as any).imageUrl} x={-dw / 2} y={-dh / 2} width={dw} height={dh} preserveAspectRatio="xMidYMid meet" />
-              {d.border && <rect x={-dw / 2} y={-dh / 2} width={dw} height={dh} rx={Math.min(3, dh * 0.25)} fill="none" stroke={fg} strokeWidth={0.9} />}
-            </g>
-          }
-          return <g key={d.id} transform={`translate(${cx},${cy}) rotate(${d.rotationDeg ?? 0})`}>
-            <rect x={-dw / 2} y={-dh / 2} width={dw} height={dh} rx={Math.min(3, dh * 0.25)} fill={bg} stroke={d.border ? fg : 'none'} strokeWidth={d.border ? 0.9 : 0} />
-            {d.kind === 'warning' && <path d={`M 0 ${-dh * 0.43} L ${dh * 0.32} ${dh * 0.13} L ${-dh * 0.32} ${dh * 0.13} Z`} fill="none" stroke={fg} strokeWidth={0.8} />}
-            {vectorIcon && <g transform={`translate(${-iconSize / 2},${-dh * 0.4})`} color={fg}><CircuitIcon icon={d.icon!} size={iconSize} /></g>}
-            <text x={0} y={vectorIcon || d.kind === 'warning' ? dh * 0.3 : 0} textAnchor="middle" dominantBaseline="middle" fontSize={Math.max(6, dh * (vectorIcon ? 0.23 : 0.42))} fill={fg} fontWeight={d.kind === 'logo' ? 800 : 700} letterSpacing={d.kind === 'logo' ? 0.5 : 0}>{iconTxt ? `${iconTxt} ` : ''}{d.text ?? ''}</text>
-          </g>
-        })}
+        <ComponentDecals2D c={c} />
       </g>
     )
   }

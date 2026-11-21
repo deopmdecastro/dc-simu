@@ -165,14 +165,13 @@ const elementTypes = (node: unknown): string[] => {
   assert.match(inspector, /role="status" aria-live="polite" data-enclosure-fit-feedback/, 'mensagem local de ajuste tem live region anunciável')
   assert.match(inspector, /aria-label="Largura do quadro \(mm\)"/, 'slider de largura tem nome acessível')
   assert.match(inspector, /role="group" aria-label="Face do furo"/, 'opções da face formam grupo nomeado')
-  assert.match(inspector, /role="group" aria-label="Diâmetro do furo"/, 'opções do diâmetro formam grupo nomeado')
+  assert.match(inspector, /role="group" aria-label="Diâmetros comuns"/, 'opções do diâmetro formam grupo nomeado')
   assert.match(inspector, /aria-label="Diâmetro do furo \(mm\)"/, 'campo numérico do diâmetro tem nome acessível')
   assert.match(inspector, /aria-pressed="true"[^>]*>.*?Fundo/s, 'face selecionada expõe estado acessível')
   assert.match(inspector, /aria-pressed="true"[^>]*>M20/, 'diâmetro selecionado expõe estado acessível')
-  assert.match(inspector, /min-h-\[34px\]/, 'alvos das opções de furo têm pelo menos 34 px')
-  assert.match(inspector, /min-h-\[38px\]/, 'slider e ação principal usam alvo de pelo menos 38 px')
-  assert.match(inspector, /h-9 text-xs[^>]*aria-label="Diâmetro do furo/, 'campo numérico tem alvo superior a 34 px')
-  assert.match(inspector, /vazio — escolha bucim ou aparelho/, 'resumo trata none como ausência de bucim')
+  // O tamanho real dos alvos é medido no browser por test:enclosure-holes-ui;
+  // as classes utilitárias antigas deram lugar aos estilos dc-hole-*.
+  assert.match(inspector, /Sem acessório/, 'resumo trata none como ausência de bucim')
   assert.doesNotMatch(inspector, /Bucim none/, 'resumo não exibe none como um bucim')
 
   const schematic = renderSchematic(enclosure)
