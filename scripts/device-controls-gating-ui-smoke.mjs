@@ -3,7 +3,7 @@ import path from 'node:path'
 import { browserFixture } from './lib/browser-fixture.mjs'
 
 /** Gating de manobra nos DeviceControls: em STOP a manobra física fica bloqueada e os
- *  parâmetros nominais continuam editáveis; em RUN (ou demoMode) a manobra atua.
+ *  parâmetros nominais continuam editáveis; em RUN/PAUSA a manobra atua.
  *  Espelha a regra dos ProtectionControls (DC-ADR-071). */
 const f = await browserFixture({ baseURL: process.env.FIXTURE_URL, output: process.env.DEVICE_GATING_OUTPUT, height: 1000 })
 const { page, check } = f
@@ -54,14 +54,14 @@ try {
   await page.waitForTimeout(150)
   check(await disabled('23–24'), 'voltar a STOP bloqueia de novo o seletor')
 
-  // demoMode conta como simulação ativa (landing)
+  // A regra global exige RUN/PAUSA também na demonstração.
   await page.evaluate(async () => {
     const { useSimStore } = await window.__fixtureImport('/src/store/useSimStore.ts')
     useSimStore.setState({ demoMode: true })
     await window.__fixtureFrames()
   })
   await page.waitForTimeout(150)
-  check(await enabled('23–24'), 'demoMode: manobra do seletor ativa sem RUN')
+  check(await disabled('23–24'), 'demoMode em STOP: seletor continua a exigir RUN/PAUSA')
 
   // ── Fonte de alimentação: ON/OFF bloqueado; tensão nominal editável ──
   await renderControls('powerSource1ph')

@@ -1,5 +1,5 @@
 {
-  "kinds": 114,
+  "kinds": 120,
   "coverage": [
     {
       "kind": "supply",
@@ -199,6 +199,30 @@
     },
     {
       "kind": "lamp",
+      "controls": 16
+    },
+    {
+      "kind": "lampIncandescent",
+      "controls": 15
+    },
+    {
+      "kind": "lampFluorescent",
+      "controls": 15
+    },
+    {
+      "kind": "lampLed",
+      "controls": 15
+    },
+    {
+      "kind": "wallSwitchSimple",
+      "controls": 15
+    },
+    {
+      "kind": "wallSwitchDouble",
+      "controls": 16
+    },
+    {
+      "kind": "wallSwitchStaircase",
       "controls": 16
     },
     {
@@ -458,7 +482,7 @@
       "controls": 19
     }
   ],
-  "checks": 339,
+  "checks": 357,
   "errors": [],
   "scope": "Todos CMD_PARTS no inspetor IEC React real, configuração e persistência; pedidos externos bloqueados."
 }

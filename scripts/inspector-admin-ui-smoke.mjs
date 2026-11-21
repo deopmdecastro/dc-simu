@@ -7,7 +7,6 @@ const f = await browserFixture({ output }), { page, check } = f
 try {
   await page.evaluate(async () => {
     await import('/src/styles/catalog-editor.css')
-    const { useEditorStore, BASE_STATE, newTerminal } = await window.__fixtureImport('/src/admin/editor3d/editorStore.ts')
     const { defaultDefinition, defaultPart, DEFAULT_META } = await window.__fixtureImport('/src/catalog/definition.ts')
     const { newControl, newDisplay } = await window.__fixtureImport('/src/admin/editor3d/controlOps.ts')
     const T = await import('/node_modules/.vite/deps/three.js')
@@ -15,6 +14,8 @@ try {
     const tabs1 = await import('/src/admin/editor3d/tabs1.tsx'), tabs2 = await import('/src/admin/editor3d/tabs2.tsx')
     const { WiresTab } = await import('/src/admin/editor3d/WireInspector.tsx')
     const controls = await import('/src/admin/editor3d/tabsControls.tsx'), { IecTab } = await import('/src/admin/editor3d/tabsIec.tsx')
+    // Resolve the same Vite/HMR store URL imported by the tabs, after loading them.
+    const { useEditorStore, BASE_STATE, newTerminal } = await window.__fixtureImport('/src/admin/editor3d/editorStore.ts')
     const def = defaultDefinition()
     def.parts.push({ ...defaultPart('box', def.materials[0].id, 'Segunda peça'), position: [0, 40, 0] })
     def.terminals = ['1', '2'].map((label, i) => ({ ...newTerminal(def, [i * 10, 40, 29], [0, 0, 1]), id: 'port-' + label, label, name: 'Borne ' + label }))

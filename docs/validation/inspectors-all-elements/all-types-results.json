@@ -1,7 +1,7 @@
 {
-  "totalTypes": 129,
-  "tested": 129,
-  "checks": 775,
+  "totalTypes": 135,
+  "tested": 135,
+  "checks": 811,
   "coverage": [
     {
       "type": "fuseHolderSchneiderDf103nv",
@@ -522,6 +522,42 @@
     {
       "type": "towerLight",
       "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "lampIncandescentE27",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "lampFluorescentE27",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "lampLedE27",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "wallSwitchSimple",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "wallSwitchDouble",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "wallSwitchStaircase",
+      "terminals": 3,
       "checks": 6,
       "ok": true
     },
