@@ -1327,7 +1327,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   waterSupplyBox: {
     category: 'power', paletteName: 'Caixa / Fonte de Água 3D · ARCO + ZJLCD-BT01 + WAGO 221', group: 'Hidráulica', tag: 'AG', w: 184, h: 132,
     terminals: [
-      T('OUT', 'hydraulic-out', 0.96, 0.56, { position3D: { x: 0.98, y: 0.48, z: 0.44 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 11 }),
+      T('OUT', 'hydraulic-out', 0.96, 0.56, { position3D: { x: 1.03, y: 0.58, z: 0.44 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 11 }),
       T('+24V', 'power-in', 0.30, 0.96, { position3D: { x: 0.30, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#dc2626', diameter: 8 }),
       T('PULSE', 'io', 0.50, 0.96, { position3D: { x: 0.50, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#eab308', diameter: 8 }),
       T('GND', 'neutral', 0.70, 0.96, { position3D: { x: 0.70, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#111827', diameter: 8 }),
@@ -1335,7 +1335,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: {
       doorOpen: true,
       readingHatchOpen: false,
-      valveOpen: true,
+      // Passador fechado ao criar: sem tubo no OUT, abrir derrama água no chão.
+      valveOpen: false,
       mainsSupplyOn: true,
       pressureBar: 3.5,
       pipeDN: 'DN32',
@@ -1608,7 +1609,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: {
       diameterMm: 360,
       heightMm: 480,
-      levelPct: 68,
+      // Começa vazio: enche pela fonte de água, por uma bomba ou pelo enchimento manual.
+      levelPct: 0,
       outletValveOpen: false,
       manualFill: false,
       filling: false,

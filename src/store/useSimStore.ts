@@ -1262,8 +1262,8 @@ function runOneTick(state: Store, dtMs: number) {
     const pumpFilling = !!(inTerm && activeHydraulicTerminals.has(inTerm.id))
     const filling = pumpFilling || !!tk.state.manualFill
     tk.state.filling = filling
-    let lvl = Number(tk.state.levelPct ?? 68)
-    if (!Number.isFinite(lvl)) lvl = 68
+    let lvl = Number(tk.state.levelPct ?? 0)
+    if (!Number.isFinite(lvl)) lvl = 0
     if (filling) lvl += dtSec * 12
     if (tk.state.outletValveOpen) lvl -= dtSec * 10
     tk.state.levelPct = Math.max(0, Math.min(100, Math.round(lvl * 10) / 10))
@@ -1279,7 +1279,9 @@ function runOneTick(state: Store, dtMs: number) {
       const hasDownstreamPipe = Boolean(
         outT && hydraulicWires.some((hw) => hw.fromTerminalId === outT.id || hw.toTerminalId === outT.id),
       )
-      hasFlow = Boolean(supplyActive && (hasDownstreamPipe || fm.state.manualTestFlow))
+      // Sem tubo no OUT a água sai pelo racor e cai no chão: também passa pelo contador.
+      fm.state.spilling = Boolean(supplyActive && !hasDownstreamPipe)
+      hasFlow = Boolean(supplyActive || fm.state.manualTestFlow)
     } else {
       hasFlow = Boolean(
         (inT && activeHydraulicTerminals.has(inT.id)) ||
@@ -1403,7 +1405,7 @@ function runOneTick(state: Store, dtMs: number) {
         (fs.state.linkedTankId ? tanks.find((tk) => tk.id === fs.state.linkedTankId) : null) ??
         tanks[0]
       if (!targetTank) continue
-      const lvl = Number(targetTank.state.levelPct ?? 68)
+      const lvl = Number(targetTank.state.levelPct ?? 0)
       const customDepth = typeof fs.state.mountDepthPct === 'number' ? fs.state.mountDepthPct : null
       const highThresh = customDepth !== null ? Math.min(96, customDepth + 4) : 82
       const lowThresh = customDepth !== null ? Math.max(4, customDepth - 6) : 25

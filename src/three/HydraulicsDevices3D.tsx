@@ -13,6 +13,7 @@ import {
   waterTankDimensionsOf,
 } from './hydraulicsModel'
 import { useSimStore } from '../store/useSimStore'
+import { tankHasJunctionBracket, tankJunctionBracketOf, type TankJunctionBracket } from './hydraulicsModel'
 import { InlineWagoSplices3D, type WagoSpliceCable } from './JunctionWagoDevices3D'
 import { Text } from './SceneText'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
@@ -782,6 +783,59 @@ function ArcoTuria3000ValveMesh({
   )
 }
 
+/** Suporte em inox escovado: duas cintas aparafusadas ao cilindro, braços em barra chata e placa de
+ *  montagem com quatro furos (a caixa OBO aparafusa-se pelo fundo). Geometria em tankJunctionBracketOf. */
+function TankJunctionBracket3D({ bracket }: { bracket: TankJunctionBracket }) {
+  const { radius: R, plate, bandYs } = bracket
+  const steel = { color: '#c3cad2', metalness: 0.86, roughness: 0.3 } as const
+  const plateLeft = plate.x - plate.w / 2
+  const armLen = Math.max(0.02, plateLeft - R)
+  return (
+    <group name="tank-junction-bracket">
+      {bandYs.map((y, i) => (
+        <group key={i} position={[0, y, 0]}>
+          {/* Cinta à volta do cilindro */}
+          <mesh castShadow>
+            <cylinderGeometry args={[R + 3 * U, R + 3 * U, 20 * U, 48, 1, true]} />
+            <meshStandardMaterial {...steel} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Patilhas de aperto com parafuso */}
+          <mesh position={[R + 10 * U, 0, 0]} castShadow>
+            <boxGeometry args={[16 * U, 20 * U, 26 * U]} />
+            <meshStandardMaterial {...steel} />
+          </mesh>
+          <mesh position={[R + 10 * U, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[3.5 * U, 3.5 * U, 34 * U, 10]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.9} roughness={0.25} />
+          </mesh>
+          {/* Braço em barra chata até à placa */}
+          <mesh position={[R + armLen / 2, 0, 0]} castShadow>
+            <boxGeometry args={[armLen, 20 * U, 4 * U]} />
+            <meshStandardMaterial {...steel} />
+          </mesh>
+        </group>
+      ))}
+      {/* Placa de montagem com quatro furos e dobra de reforço */}
+      <group position={[plate.x, plate.y, plate.z]} name="tank-junction-bracket-plate">
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[plate.w, plate.h, plate.t]} />
+          <meshStandardMaterial {...steel} />
+        </mesh>
+        <mesh position={[-plate.w / 2 + 2 * U, 0, -8 * U]} castShadow>
+          <boxGeometry args={[4 * U, plate.h, 16 * U]} />
+          <meshStandardMaterial {...steel} />
+        </mesh>
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy], i) => (
+          <mesh key={i} position={[sx * plate.w * 0.4, sy * plate.h * 0.4, plate.t / 2 + 0.002]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[3 * U, 3 * U, 1 * U, 12]} />
+            <meshStandardMaterial color="#1f2937" roughness={0.7} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  )
+}
+
 export function WaterTankTransparent3D({
   c,
   position,
@@ -792,7 +846,7 @@ export function WaterTankTransparent3D({
   onToggleValve?: () => void
 }) {
   const dims = waterTankDimensionsOf(c.state)
-  const levelPct = Math.max(0, Math.min(100, Number(c.state.levelPct ?? 68)))
+  const levelPct = Math.max(0, Math.min(100, Number(c.state.levelPct ?? 0)))
   const filling = !!c.state.filling || !!c.state.manualFill
   const outletOpen = !!c.state.outletValveOpen
 
@@ -915,7 +969,7 @@ export function WaterTankTransparent3D({
         if (st.sim.runState !== 'running') {
           const curTank = st.components.find((item) => item.id === c.id)
           if (curTank && curTank.state.outletValveOpen) {
-            const curLvl = Number(curTank.state.levelPct ?? 68)
+            const curLvl = Number(curTank.state.levelPct ?? 0)
             if (curLvl > 0) {
               // Descarga realista proporcional à coluna de água (esvazia gradualmente até 0%!)
               const headFactor = 0.45 + 0.55 * Math.sqrt(Math.max(0.01, curLvl / 100))
@@ -1297,6 +1351,9 @@ export function WaterTankTransparent3D({
         <torusGeometry args={[R, 10 * U, 12, 42]} />
         <meshStandardMaterial color="#475569" roughness={0.42} metalness={0.62} />
       </mesh>
+      {/* Suporte inox para a caixa de derivação (cintas + braços + placa) */}
+      {tankHasJunctionBracket(c.state) && <TankJunctionBracket3D bracket={tankJunctionBracketOf(c.state, U)} />}
+
       {/* Cúpula transparente superior + tampa de inspeção */}
       <mesh position={[0, cylTopY, 0]} scale={[1, domeH / R, 1]} renderOrder={5}>
         <sphereGeometry args={[R, 36, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
@@ -2042,6 +2099,7 @@ export function WaterSupplyBox3D({
   onToggleValve,
   onPressSet,
   onPressClear,
+  floorOffsetY,
 }: {
   c: ElectricalComponent
   position?: [number, number, number]
@@ -2049,6 +2107,8 @@ export function WaterSupplyBox3D({
   onToggleValve?: () => void
   onPressSet?: () => void
   onPressClear?: () => void
+  /** Cota do pavimento relativa ao centro do armário (onde a água derramada cai). */
+  floorOffsetY?: number
 }) {
   const { invalidate } = useThree()
   const doorPivotRef = useRef<THREE.Group>(null)
@@ -2105,6 +2165,56 @@ export function WaterSupplyBox3D({
     }
     if (valvePivotRef.current) {
       valvePivotRef.current.rotation.y = valveAngleRef.current
+    }
+  })
+
+  // Racor de saída na parede direita, no ponto do borne OUT (onde o tubo hidráulico encaixa).
+  const outTerminal = c.terminals.find((t) => t.label === 'OUT')
+  const outPos = outTerminal?.position3D ?? { x: 1.03, y: 0.58, z: 0.44 }
+  const outlet = useMemo(() => {
+    const tip = new THREE.Vector3((outPos.x - 0.5) * W, (outPos.y - 0.5) * H, (outPos.z - 0.5) * D)
+    const wallX = W / 2
+    // Tubo interior desde a saída do conjunto hidráulico até à parede (com curva se a cota diferir).
+    const from = new THREE.Vector3(W * 0.45 + 9 * U, H * 0.08, -D * 0.06)
+    const inner = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([from, new THREE.Vector3((from.x + wallX) / 2, (from.y + tip.y) / 2, (from.z + tip.z) / 2), new THREE.Vector3(wallX, tip.y, tip.z)]), 16, 17 * U, 14, false)
+    return { tip, wallX, inner }
+  }, [W, H, D, outPos.x, outPos.y, outPos.z])
+  useEffect(() => () => outlet.inner.dispose(), [outlet])
+  const outId = outTerminal?.id
+  const pipeConnected = useSimStore((st) => !!outId && st.wires.some((w) => w.kind === 'hydraulic' && (w.fromTerminalId === outId || w.toTerminalId === outId)))
+  const spilling = c.state.mainsSupplyOn !== false && valveOpen && !pipeConnected
+  // Derrame: jato parabólico desde o racor até ao chão, gotas e poça que cresce enquanto corre.
+  const floorY = floorOffsetY ?? -H / 2
+  const spill = useMemo(() => {
+    const { tip } = outlet
+    const land = new THREE.Vector3(tip.x + 0.42, floorY + 0.01, tip.z)
+    const curve = new THREE.CatmullRomCurve3([
+      tip.clone().add(new THREE.Vector3(0.02, 0, 0)),
+      new THREE.Vector3(tip.x + 0.2, tip.y - 0.04, tip.z),
+      new THREE.Vector3(tip.x + 0.34, (tip.y + land.y) / 2, tip.z),
+      land,
+    ])
+    return { curve, land, stream: new THREE.TubeGeometry(curve, 40, 7 * U, 10, false) }
+  }, [outlet, floorY])
+  useEffect(() => () => spill.stream.dispose(), [spill])
+  const spillDropsRef = useRef<THREE.Group>(null)
+  const puddleRef = useRef<THREE.Mesh>(null)
+  const splashRef = useRef<THREE.Mesh>(null)
+  const puddleSize = useRef(0)
+  const spillPhase = useRef(0)
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.08)
+    if (spilling || puddleSize.current > 0.001) {
+      // A poça cresce enquanto corre água (até ~0,9 m) e seca devagar depois de fechar.
+      puddleSize.current = spilling ? Math.min(1, puddleSize.current + dt * 0.12) : Math.max(0, puddleSize.current - dt * 0.04)
+      spillPhase.current += dt
+      if (puddleRef.current) { const sc = 0.15 + puddleSize.current * 0.85; puddleRef.current.scale.set(sc, sc, 1); puddleRef.current.visible = puddleSize.current > 0.002 }
+      if (spillDropsRef.current) spillDropsRef.current.children.forEach((child, i, all) => {
+        const frac = (spillPhase.current * 0.9 + i / all.length) % 1
+        child.position.copy(spill.curve.getPoint(frac))
+      })
+      if (splashRef.current) { const p = 0.8 + ((spillPhase.current * 1.1) % 1) * 0.8; splashRef.current.scale.set(p, p, 1) }
+      invalidate()
     }
   })
 
@@ -2316,6 +2426,59 @@ export function WaterSupplyBox3D({
         <cylinderGeometry args={[10 * U, 10 * U, wallT + 6 * U, 14]} />
         <meshStandardMaterial color="#334155" roughness={0.6} />
       </mesh>
+
+      {/* Saída lateral OUT: tubo interior até à parede, passa-parede, porca de união e niple roscado */}
+      <mesh geometry={outlet.inner} castShadow>
+        <meshStandardMaterial color={pipeGrey} roughness={0.42} metalness={0.08} />
+      </mesh>
+      <group position={[outlet.wallX, outlet.tip.y, outlet.tip.z]} name={`water-box-outlet-${c.id}`}>
+        <mesh position={[0.02, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[30 * U, 30 * U, 8 * U, 24]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.7} />
+        </mesh>
+        <mesh position={[0.07, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[25 * U, 25 * U, 22 * U, 6]} />
+          <meshStandardMaterial color="#c8a14a" metalness={0.85} roughness={0.28} />
+        </mesh>
+        <mesh position={[(outlet.tip.x - outlet.wallX + 0.1) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[16 * U, 16 * U, Math.max(0.04, outlet.tip.x - outlet.wallX - 0.08), 20]} />
+          <meshStandardMaterial color="#d4b15c" metalness={0.88} roughness={0.24} />
+        </mesh>
+        {/* Rosca do niple (anéis) */}
+        {[0, 1, 2, 3].map((i) => (
+          <mesh key={i} position={[0.1 + i * 0.022, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+            <torusGeometry args={[16.5 * U, 1.4 * U, 6, 20]} />
+            <meshStandardMaterial color="#b8923f" metalness={0.9} roughness={0.22} />
+          </mesh>
+        ))}
+      </group>
+      {(spilling || puddleSize.current > 0.002) && (
+        <group name={`water-box-spill-${c.id}`} userData={{ spilling }}>
+          {spilling && (
+            <>
+              <mesh geometry={spill.stream} renderOrder={4}>
+                <meshPhysicalMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} color="#38bdf8" emissive="#0ea5e9" emissiveIntensity={0.38} roughness={0.05} transparent opacity={0.85} clearcoat={1} />
+              </mesh>
+              <group ref={spillDropsRef}>
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <mesh key={i} renderOrder={4}>
+                    <sphereGeometry args={[6 * U, 10, 10]} />
+                    <meshStandardMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} color="#e0f2fe" emissive="#38bdf8" emissiveIntensity={0.6} transparent opacity={0.9} />
+                  </mesh>
+                ))}
+              </group>
+              <mesh ref={splashRef} position={[spill.land.x, spill.land.y + 0.012, spill.land.z]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={4}>
+                <ringGeometry args={[10 * U, 18 * U, 24]} />
+                <meshStandardMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} color="#e0f2fe" emissive="#7dd3fc" emissiveIntensity={0.55} transparent opacity={0.82} side={THREE.DoubleSide} />
+              </mesh>
+            </>
+          )}
+          <mesh ref={puddleRef} position={[spill.land.x + 0.1, spill.land.y, spill.land.z + 0.12]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
+            <circleGeometry args={[0.9, 36]} />
+            <meshPhysicalMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.2} roughness={0.06} transparent opacity={0.5} clearcoat={1} depthWrite={false} />
+          </mesh>
+        </group>
+      )}
 
       {/* Porta frontal basculante que abre e fecha (clicar na porta alterna!) */}
       <group

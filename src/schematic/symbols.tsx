@@ -387,7 +387,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         )
       }
       case 'waterTank': {
-        const lvl = Math.max(0, Math.min(100, Number(c.state.levelPct ?? 68)))
+        const lvl = Math.max(0, Math.min(100, Number(c.state.levelPct ?? 0)))
         const fillH = ((h - 36) * lvl) / 100
         return (
           <g>

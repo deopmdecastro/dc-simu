@@ -208,3 +208,31 @@ export const HYDRAULIC_DATASHEETS: Record<HydraulicComponentType, HydraulicDatas
     summary: 'Quadro estanque com porta basculante, passador ARCO, contador ZJLCD-BT01, saída OUT pressurizada e caixa de derivação interna com WAGOs pré-ligados',
   },
 }
+
+/**
+ * Suporte em inox para a caixa de derivação no reservatório: duas cintas à volta do cilindro, do lado
+ * direito e junto ao topo (livre da entrada à esquerda e da descarga em baixo), com braços até uma placa
+ * vertical virada para a frente onde a caixa OBO assenta pelo fundo. Unidades de cena (1 mm = 0,01),
+ * referencial do reservatório (centro do modelo). Fonte única para o desenho 3D e o encaixe da caixa.
+ */
+export interface TankJunctionBracket {
+  /** Cotas das duas cintas e raio do cilindro. */
+  bandYs: [number, number]
+  radius: number
+  /** Centro e dimensões da placa de montagem (plano XY, frente em +Z). */
+  plate: { x: number; y: number; z: number; w: number; h: number; t: number }
+}
+
+export function tankJunctionBracketOf(state?: Record<string, any>, unit = 0.01): TankJunctionBracket {
+  const dims = waterTankDimensionsOf(state)
+  const radius = (dims.diameterMm / 2) * unit
+  const totalH = dims.totalHeightMm * unit
+  const cylTopY = -totalH / 2 + (dims.standHeightMm + dims.heightMm) * unit
+  const w = 156 * unit, h = 156 * unit, t = 4 * unit
+  const topBand = cylTopY - 70 * unit
+  const plate = { x: radius + 140 * unit + w / 2, y: topBand + 30 * unit - h / 2, z: 0, w, h, t }
+  return { bandYs: [topBand, topBand - h * 0.72], radius, plate }
+}
+
+/** Suporte ativo por omissão; o inspetor do reservatório pode retirá-lo. */
+export const tankHasJunctionBracket = (state?: Record<string, any>) => state?.junctionBracket !== false

@@ -1455,11 +1455,15 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
   if (c.type === 'waterTank') {
     const dims = waterTankDimensionsOf(c.state)
-    const levelPct = Math.max(0, Math.min(100, Math.round(Number(c.state.levelPct ?? 68))))
+    const levelPct = Math.max(0, Math.min(100, Math.round(Number(c.state.levelPct ?? 0))))
     const outletOpen = !!c.state.outletValveOpen
     const manualFill = !!c.state.manualFill
     return (
       <div className="flex flex-col gap-2" data-water-tank-controls>
+        <label className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="text-[var(--dc-text-muted)]">Suporte para caixa de derivação</span>
+          <input type="checkbox" aria-label="Suporte para caixa de derivação" disabled={locked} checked={c.state.junctionBracket !== false} onChange={(e) => setState(c.id, { junctionBracket: e.target.checked })} />
+        </label>
         <div className="flex items-center justify-between gap-2 text-[11px]">
           <span className="text-[var(--dc-text-muted)]">Volume útil</span>
           <strong className="font-mono text-[var(--dc-text)]">{dims.volumeLiters} L · {levelPct}%</strong>
@@ -1819,7 +1823,7 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
           <option value="__none__">Fora do reservatório (solta)</option>
           {tanks.map((tk) => (
             <option key={tk.id} value={tk.id}>
-              Dentro de {tk.ref} ({Math.round(Number(tk.state.levelPct ?? 68))}%)
+              Dentro de {tk.ref} ({Math.round(Number(tk.state.levelPct ?? 0))}%)
             </option>
           ))}
         </select>
@@ -2811,6 +2815,24 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
           {coverOpen ? 'Colocar tampa (fechar caixa)' : 'Remover tampa (abrir interior)'}
         </button>
         <span className="text-[10px] text-slate-500">Dica: duplo-clique na tampa no 3D também abre/fecha.</span>
+
+        {/* Montagem no suporte inox de um reservatório (também encaixa ao arrastar para perto da placa) */}
+        <label className="flex items-center justify-between gap-2" data-obo-tank-bracket>
+          <span className="text-slate-600">Suporte do reservatório</span>
+          <select
+            className="dc-input !h-7 !text-[11px] !w-36"
+            aria-label="Suporte do reservatório"
+            disabled={locked}
+            value={typeof c.state.tankBracketId === 'string' ? c.state.tankBracketId : ''}
+            onChange={(e) => setState(c.id, { tankBracketId: e.target.value })}
+          >
+            <option value="">Livre (sem suporte)</option>
+            {allComponents.filter((t) => t.type === 'waterTank' && t.state.junctionBracket !== false).map((t) => {
+              const taken = allComponents.some((b) => b.id !== c.id && b.state.tankBracketId === t.id)
+              return <option key={t.id} value={t.id} disabled={taken}>{t.ref}{taken ? ' (ocupado)' : ''}</option>
+            })}
+          </select>
+        </label>
 
         {/* Bucins PG / M20 configuráveis */}
         <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50 p-2" data-obo-glands>

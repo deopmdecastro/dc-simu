@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import type { ElectricalComponent } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import {
@@ -729,6 +730,15 @@ export function OboJunctionBox3D({
    2. CONECTORES DE ALAVANCA WAGO 221 (221-412 / 221-415 / 221-2411 / DUPLO 2×5)
    ═══════════════════════════════════════════════════════════════════════════ */
 
+const inlineBodyGeometries = new Map<string, THREE.BufferGeometry>()
+/** Corpo boleado do 221-2411 (cacheado por dimensões: há um por condutor emendado). */
+function wagoInlineBodyGeometry(w: number, h: number, d: number): THREE.BufferGeometry {
+  const key = [w, h, d].map((v) => v.toFixed(4)).join(':')
+  let geometry = inlineBodyGeometries.get(key)
+  if (!geometry) { geometry = new RoundedBoxGeometry(w, h, d, 3, Math.min(h, d) * 0.22); inlineBodyGeometries.set(key, geometry) }
+  return geometry
+}
+
 function WagoOrangeLever({
   position,
   pivotSign = 1,
@@ -839,69 +849,85 @@ export function Wago221Connector3D({
 
   const isLeverOpen = (idx: number) => leverStates[idx] === true
 
-  /* ── Variante Inline 221-2411 (image-41.png) ── */
+  /* ── Variante Inline 221-2411 (image-41.png) ──
+     Corpo em policarbonato transparente de arestas boleadas, duas bocas de entrada nos topos,
+     barramento estanhado com duas molas CAGE CLAMP e alavancas laranja articuladas no meio
+     (abrem pela ponta exterior), com abas de pega estriadas. */
   if (type === 'wago221_inline') {
+    const bodyW = W * 0.97, bodyH = H * 0.8, bodyD = D * 0.9
     return (
       <group>
-        {/* Barramento interno de cobre + 2 molas CAGE CLAMP em aço inox */}
-        <mesh position={[0, -H * 0.08, 0]}>
-          <boxGeometry args={[W * 0.80, H * 0.16, D * 0.34]} />
-          <meshStandardMaterial color="#d97a2b" metalness={0.92} roughness={0.18} />
+        {/* Base interior cinzenta onde assenta o barramento (vista através do corpo) */}
+        <mesh position={[0, -bodyH * 0.36, 0]}>
+          <boxGeometry args={[bodyW * 0.9, bodyH * 0.1, bodyD * 0.78]} />
+          <meshStandardMaterial color="#5b6573" roughness={0.6} />
         </mesh>
-        {[-W * 0.24, W * 0.24].map((x, i) => (
-          <mesh key={i} position={[x, 0.02, 0]}>
-            <boxGeometry args={[W * 0.18, H * 0.30, D * 0.42]} />
-            <meshStandardMaterial color="#cbd5e1" metalness={0.94} roughness={0.16} />
-          </mesh>
+        {/* Barramento de cobre estanhado de ponta a ponta */}
+        <mesh position={[0, -bodyH * 0.2, 0]}>
+          <boxGeometry args={[bodyW * 0.84, bodyH * 0.1, bodyD * 0.36]} />
+          <meshStandardMaterial color="#c9a46a" metalness={0.9} roughness={0.22} />
+        </mesh>
+        {/* Molas CAGE CLAMP em aço inox, uma junto a cada boca */}
+        {[-1, 1].map((side) => (
+          <group key={side} position={[side * bodyW * 0.27, 0, 0]}>
+            <mesh position={[0, bodyH * 0.02, 0]}>
+              <boxGeometry args={[bodyW * 0.16, bodyH * 0.42, bodyD * 0.44]} />
+              <meshStandardMaterial color="#d6dde4" metalness={0.95} roughness={0.14} />
+            </mesh>
+            <mesh position={[side * bodyW * 0.05, bodyH * 0.2, 0]} rotation={[0, 0, side * 0.5]}>
+              <boxGeometry args={[bodyW * 0.12, bodyH * 0.06, bodyD * 0.44]} />
+              <meshStandardMaterial color="#c5ced8" metalness={0.95} roughness={0.16} />
+            </mesh>
+          </group>
         ))}
-
-        {/* Invólucro transparente cristal em policarbonato/acrílico WAGO 221 */}
+        {/* Bocas de entrada dos condutores (topos) e canal interior até à mola */}
+        {[-1, 1].map((side) => (
+          <group key={side} position={[side * bodyW * 0.5, -bodyH * 0.08, 0]}>
+            <mesh rotation={[0, 0, Math.PI / 2]} name="wago-entry-hole">
+              <cylinderGeometry args={[bodyH * 0.17, bodyH * 0.2, bodyW * 0.03, 16]} />
+              <meshStandardMaterial color="#0f172a" roughness={0.8} />
+            </mesh>
+            <mesh position={[-side * bodyW * 0.1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[bodyH * 0.14, bodyH * 0.14, bodyW * 0.18, 14, 1, true]} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.4} transparent opacity={0.45} side={THREE.DoubleSide} />
+            </mesh>
+          </group>
+        ))}
+        {/* Corpo transparente cristal com arestas boleadas e reflexo de policarbonato */}
         <mesh renderOrder={3}>
-          <boxGeometry args={[W, H * 0.78, D * 0.88]} />
+          <primitive object={wagoInlineBodyGeometry(bodyW, bodyH, bodyD)} attach="geometry" />
           <meshPhysicalMaterial
             userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
-            color="#e2f1ff"
+            color="#dbeafe"
             transparent
-            opacity={0.26}
-            roughness={0.05}
-            metalness={0.04}
+            opacity={0.34}
+            roughness={0.08}
+            metalness={0.02}
             ior={1.58}
-            reflectivity={1.0}
             clearcoat={1.0}
-            clearcoatRoughness={0.04}
+            clearcoatRoughness={0.05}
             depthWrite={false}
           />
         </mesh>
-
-        {/* Serigrafia lateral transparente */}
-        <mesh position={[0, 0, D * 0.45]}>
-          <planeGeometry args={[W * 0.92, H * 0.66]} />
+        {/* Serigrafia lateral (WAGO 221-2411 · 4 mm² · 450 V) */}
+        <mesh position={[0, -bodyH * 0.04, bodyD * 0.5 + 0.002]}>
+          <planeGeometry args={[bodyW * 0.7, bodyH * 0.5]} />
           <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={sideTex} transparent opacity={0.9} depthWrite={false} />
         </mesh>
-
-        {/* 2 alavancas laranja opostas (esquerda e direita) */}
-        <group position={[-W * 0.12, H * 0.38, 0]} rotation={[0, -Math.PI / 2, 0]}>
-          <WagoOrangeLever
-            position={[0, 0, 0]}
-            pivotSign={1}
-            width={D * 0.66}
-            length={W * 0.36}
-            isOpen={isLeverOpen(0)}
-            leverTex={leverTex}
-            onToggle={() => onToggleLever?.(0)}
-          />
-        </group>
-        <group position={[W * 0.12, H * 0.38, 0]} rotation={[0, Math.PI / 2, 0]}>
-          <WagoOrangeLever
-            position={[0, 0, 0]}
-            pivotSign={1}
-            width={D * 0.66}
-            length={W * 0.36}
-            isOpen={isLeverOpen(1)}
-            leverTex={leverTex}
-            onToggle={() => onToggleLever?.(1)}
-          />
-        </group>
+        {/* Alavancas laranja: articuladas junto ao meio, pega na ponta exterior */}
+        {[-1, 1].map((side, idx) => (
+          <group key={side} position={[side * bodyW * 0.04, bodyH * 0.5, 0]} rotation={[0, side < 0 ? -Math.PI / 2 : Math.PI / 2, 0]}>
+            <WagoOrangeLever
+              position={[0, 0, 0]}
+              pivotSign={1}
+              width={bodyD * 0.78}
+              length={bodyW * 0.44}
+              isOpen={isLeverOpen(idx)}
+              leverTex={leverTex}
+              onToggle={() => onToggleLever?.(idx)}
+            />
+          </group>
+        ))}
       </group>
     )
   }
@@ -1108,6 +1134,13 @@ export function InlineWagoSplices3D({ cables, scale = 0.6, rowPitch = 0.15 }: { 
         {g.wires.map((w, i) => <group key={i}>
           <mesh geometry={w.inWire} castShadow><meshStandardMaterial color={cable.conductors[i].color} roughness={0.45} /></mesh>
           {w.outWire && <mesh geometry={w.outWire} castShadow><meshStandardMaterial color={cable.conductors[i].color} roughness={0.45} /></mesh>}
+          {/* Ponta descarnada (≈11 mm de cobre) dentro do WAGO, até à mola: o isolamento pára à boca */}
+          {(w.outWire ? [-1, 1] : [-1]).map((side) => (
+            <mesh key={side} name="wago-stripped-copper" position={[w.center.x + side * halfLen * 0.74, w.center.y - 0.02 * scale, w.center.z]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[1.25 * U, 1.25 * U, halfLen * 0.5, 8]} />
+              <meshStandardMaterial color="#d4904a" metalness={0.85} roughness={0.25} />
+            </mesh>
+          ))}
           {/* WAGO 221-2411 com as alavancas fechadas viradas para quem abre a caixa */}
           <group position={w.center.toArray() as [number, number, number]} rotation={[Math.PI / 2, 0, 0]} scale={scale} name={`wago-221-2411-${cable.key}-${i}`} userData={{ conductor: cable.conductors[i].label ?? '' }}>
             <Wago221Connector3D component={SPLICE_WAGO} />

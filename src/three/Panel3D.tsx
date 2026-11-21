@@ -97,7 +97,7 @@ import {
   WaterSupplyBox3D,
   WaterTankTransparent3D,
 } from './HydraulicsDevices3D'
-import { waterTankDimensionsOf } from './hydraulicsModel'
+import { tankHasJunctionBracket, tankJunctionBracketOf, waterTankDimensionsOf } from './hydraulicsModel'
 import { OboJunctionBox3D, Wago221Connector3D, type OboSpliceCable } from './JunctionWagoDevices3D'
 import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
 import { WireTrayElbow903D, WireTrayRiser903D, WireTrayStraight3D, WireTrayTee3D } from './WireMeshTrayDevices3D'
@@ -4063,6 +4063,16 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const mountedCountByTank = new Map<string, number>()
     for (const fs of components) {
       if (fs.type !== 'floatSwitch' || !panelPivots[fs.id]) continue
+  // Caixas de derivação montadas no suporte inox de um reservatório: assentam pelo fundo na placa.
+  for (const box of components) {
+    if (!isJunctionBoxType(box.type) || typeof box.state.tankBracketId !== 'string' || !box.state.tankBracketId) continue
+    const tank = components.find((t) => t.id === box.state.tankBracketId && t.type === 'waterTank')
+    const tp = tank ? panelPivots[tank.id] : null
+    if (!tank || !tp || !tankHasJunctionBracket(tank.state)) continue
+    const { plate } = tankJunctionBracketOf(tank.state, PANEL_UNITS_PER_MM)
+    const boxDepth = JUNCTION_WAGO_SIZE_MM[box.type as JunctionBoxType].z * PANEL_UNITS_PER_MM
+    panelPivots[box.id] = new THREE.Vector3(tp.x + plate.x, tp.y + plate.y, tp.z + plate.z + plate.t / 2 + boxDepth / 2)
+  }
       const explicitId = typeof fs.state.linkedTankId === 'string' && fs.state.linkedTankId ? fs.state.linkedTankId : null
       let tank = explicitId ? waterTanks3D.find((t) => t.id === explicitId) : null
       // Se não estiver explicitamente desacoplada, instala automaticamente no reservatório mais próximo quando estiver por perto ou em modo auto
@@ -4142,7 +4152,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       floatTankContexts[fs.id] = {
         tankRadius: tankR,
         tankHeight: tankH,
-        waterLevelPct: Math.max(0, Math.min(100, Number(tank.state.levelPct ?? 68))),
+        waterLevelPct: Math.max(0, Math.min(100, Number(tank.state.levelPct ?? 0))),
         mountDepthPct,
         sideSign,
         externalCableTarget,
@@ -4361,6 +4371,22 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           const td = waterTankDimensionsOf(linked.state)
           const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
           if (Math.hypot(finalPos.x - tp.x, finalPos.z - tp.z) > tankR + 1.8) {
+      // Caixa de derivação: encaixa no suporte de um reservatório quando chega perto da placa; solta ao afastar.
+      if (isJunctionBoxType(component.type)) {
+        const mountedOn = typeof component.state.tankBracketId === 'string' ? component.state.tankBracketId : ''
+        let nearest: { id: string; d: number } | null = null
+        for (const tank of store.components) {
+          if (tank.type !== 'waterTank' || !tankHasJunctionBracket(tank.state)) continue
+          const tp = panelPivots[tank.id]
+          if (!tp) continue
+          const { plate } = tankJunctionBracketOf(tank.state, PANEL_UNITS_PER_MM)
+          const d = Math.hypot(finalPos.x - (tp.x + plate.x), finalPos.y - (tp.y + plate.y))
+          const taken = store.components.some((b) => b.id !== id && b.state.tankBracketId === tank.id)
+          if (!taken && d < 0.9 && (!nearest || d < nearest.d)) nearest = { id: tank.id, d }
+        }
+        if (mountedOn && (!nearest || nearest.id !== mountedOn)) store.setComponentState(id, { tankBracketId: '' })
+        else if (!mountedOn && nearest) store.setComponentState(id, { tankBracketId: nearest.id })
+      }
             store.setComponentState(id, { linkedTankId: '', detachedFromTank: true })
           }
         }
@@ -5615,6 +5641,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                 }}
               />
             )
+                floorOffsetY={floorY - (panelPivots[c.id]?.y ?? 0)}
           } else if (c.type === 'hydraulicFlowMeter') {
             content = (
               <WaterFlowMeterZjLcd3D
