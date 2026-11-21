@@ -74,6 +74,7 @@ import { registerCoverCapture, setCoverWiresReady } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
 import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
+import { FactoryEnvironment3D, type FactoryWallMountBounds } from './FactoryEnvironment3D'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import { MeterD522066_3D, MeterKws306_3D } from './DigitalMeters3D'
@@ -2892,7 +2893,7 @@ function FaultEffectsLayer({ panelPivots }: { panelPivots: Record<string, THREE.
 }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
-function PanelCameraRig({ command, railWidth, onStats, scrollBridge, scrollBounds, frontEdit = false, panMode = false, viewLocked = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; scrollBridge: React.MutableRefObject<PanelScrollBridge>; scrollBounds: CameraScrollBounds; frontEdit?: boolean; panMode?: boolean; viewLocked?: boolean }) {
+function PanelCameraRig({ command, railWidth, onStats, scrollBridge, scrollBounds, frontEdit = false, panMode = false, viewLocked = false, maxDistance = 60 }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; scrollBridge: React.MutableRefObject<PanelScrollBridge>; scrollBounds: CameraScrollBounds; frontEdit?: boolean; panMode?: boolean; viewLocked?: boolean; maxDistance?: number }) {
   const { camera, size, invalidate } = useThree()
   const controlsRef = useRef<any>(null)
   // Enquadramento usa os valores mais recentes sem reiniciar a câmara quando o conteúdo/tamanho muda.
@@ -2956,6 +2957,7 @@ function PanelCameraRig({ command, railWidth, onStats, scrollBridge, scrollBound
     controls.update()
     report()
     if (raw >= 1) { camera.up.copy(anim.toUp); animRef.current = null }
+    invalidate()
   })
   useEffect(() => {
     const controls = controlsRef.current
@@ -3039,6 +3041,7 @@ function PanelCameraRig({ command, railWidth, onStats, scrollBridge, scrollBound
       fromDist: fromOffset.length(), toDist: toOffset.length(),
       fromTarget, toTarget: target.clone(), fromUp, toUp,
     }
+    invalidate()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, command])
   // A mão «Arrastar malha» faz pan também no esquema 3D. Fora desse modo,
@@ -3049,7 +3052,7 @@ function PanelCameraRig({ command, railWidth, onStats, scrollBridge, scrollBound
   const touches = panMode
     ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }
     : frontEdit ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined
-  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan={!viewLocked} enableRotate={!viewLocked} enableZoom={!viewLocked} rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning autoRotate={false} />
+  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={maxDistance} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan={!viewLocked} enableRotate={!viewLocked} enableZoom={!viewLocked} rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning autoRotate={false} />
 }
 
 /** Textura repetível da grelha. Mipmaps e filtragem anisotrópica evitam o
@@ -3378,6 +3381,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       return saved === 'white' || saved === 'dark' ? saved : 'technical'
     } catch { return 'technical' }
   })
+  const [sceneEnvironment, setSceneEnvironment] = useState<'canvas' | 'factory'>(() => {
+    try {
+      return localStorage.getItem('dc-simu:panel3d:environment') === 'factory' ? 'factory' : 'canvas'
+    } catch { return 'canvas' }
+  })
   const [cameraStats, setCameraStats] = useState({ yaw: 0, pitch: 0, zoom: 100 })
   /* Anotações: comentário em nota (abre já para escrever, sem caixa do sistema) e texto livre (clicar para colocar). */
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
@@ -3439,6 +3447,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     try { localStorage.setItem('dc-simu:panel3d:background', next) } catch {}
     return next
   })
+  const selectEnvironment = (next: 'canvas' | 'factory') => {
+    setSceneEnvironment(next)
+    try { localStorage.setItem('dc-simu:panel3d:environment', next) } catch {}
+    if (next === 'factory') {
+      moveCamera('isometric')
+    }
+  }
   const moveCamera = (view: PanelCameraView, target: [number, number, number] = sceneCenterRef.current) =>
     setCameraCommand((current) => ({ id: current.id + 1, view, target }))
   const pickCubeView = (view: ViewCubeFace) => moveCamera(view === 'isometric' ? 'isometric' : view)
@@ -3868,6 +3883,24 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     : [0, 0, 0.3]
   const sceneWidth = contentBounds ? Math.max(3.5, contentBounds.maxX - contentBounds.minX + 1.2, (contentBounds.maxY - contentBounds.minY + 1.2) * 1.3) : 6
   const floorY = (contentBounds?.minY ?? 0) - 0.35
+  const factoryMode = sceneEnvironment === 'factory'
+  const factoryMountBounds: FactoryWallMountBounds | null = (() => {
+    const primaryEnc = accessories.find((item) => item.type === 'panelEnclosure')
+    if (primaryEnc) {
+      const { x, y } = componentPanelXY(primaryEnc)
+      const dims = enclosureDimsOf(primaryEnc.state)
+      const halfW = (dims.widthMm * PANEL_UNITS_PER_MM) / 2
+      const halfH = (dims.heightMm * PANEL_UNITS_PER_MM) / 2
+      return { minX: x - halfW, maxX: x + halfW, minY: y - halfH, maxY: y + halfH }
+    }
+    return plateBounds
+  })()
+  const factoryWallFrontZ = hasEnclosure
+    ? PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM - 0.02
+    : PLATE_Z - PLATE_THICKNESS / 2 - 0.02
+  const factoryFloorY = factoryMountBounds
+    ? Math.min(floorY, factoryMountBounds.minY - Math.max(4.6, (factoryMountBounds.maxY - factoryMountBounds.minY) * 0.45))
+    : floorY - 4.5
   sceneCenterRef.current = sceneCenter
 
   // --- Edição direta no 3D: traduz X/Y do painel para o Esquema (com imã de calha) ---
@@ -4412,11 +4445,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   // grelha de pontos de 20 px e as mesmas cores de chão.
   const stageBackground = ''
   const palette = editorPalette(backgroundMode === 'dark')
-  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : palette.background
-  const stageStyle = backgroundMode === 'white'
-    ? { background: '#ffffff' }
-    : editorGridBackground({ enabled: showGrid && gridSettings.enabled, style: gridSettings.style,
-        spacing: gridSettings.size, dark: backgroundMode === 'dark' })
+  const sceneBackground = factoryMode ? '#eef3f8' : backgroundMode === 'white' ? '#ffffff' : palette.background
+  const stageStyle = factoryMode
+    ? { background: 'linear-gradient(180deg, #e6edf6 0%, #f4f7fb 100%)' }
+    : backgroundMode === 'white'
+      ? { background: '#ffffff' }
+      : editorGridBackground({ enabled: showGrid && gridSettings.enabled, style: gridSettings.style,
+          spacing: gridSettings.size, dark: backgroundMode === 'dark' })
 
   // Atalhos dos cabos (leem sempre o estado atual através da ref).
   const wireKeysRef = useRef<(event: KeyboardEvent) => boolean>(() => false)
@@ -4596,6 +4631,38 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           }}
         />
       )}
+      {!demoMode && (
+        <div className="panel3d-env-switch" role="radiogroup" aria-label="Ambiente da vista 3D">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!factoryMode}
+            className={!factoryMode ? 'is-active' : ''}
+            onClick={() => selectEnvironment('canvas')}
+            title="Vista técnica limpa com grelha de edição"
+          >
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <rect x="2" y="2" width="12" height="12" rx="2" />
+              <path d="M2 6h12M2 10h12M6 2v12M10 2v12" opacity="0.65" />
+            </svg>
+            <span>Canvas normal</span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={factoryMode}
+            className={factoryMode ? 'is-active' : ''}
+            onClick={() => selectEnvironment('factory')}
+            title="Nave industrial 3D com o quadro fixo na parede"
+          >
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1.5 14V7.2l4 2.2V7.2l4 2.2V3.5h5V14H1.5Z" />
+              <path d="M11 6h1.6M11 8.5h1.6M5 11.5h2" />
+            </svg>
+            <span>Ambiente fabril</span>
+          </button>
+        </div>
+      )}
       <ViewCube
           yaw={cameraStats.yaw}
           pitch={cameraStats.pitch}
@@ -4759,14 +4826,24 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <ShadowsOnDemand watch={shadowWatch} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
-        <hemisphereLight args={['#f8fafc', '#3b4350', 0.38]} />
-        <directionalLight key={`sun-${shadowExtent}`} position={[-3.2, 7.5, 6.2]} intensity={1.25} color="#fff7ee" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003}
-          shadow-camera-left={-shadowExtent} shadow-camera-right={shadowExtent} shadow-camera-top={shadowExtent} shadow-camera-bottom={-shadowExtent} />
+        <hemisphereLight args={[factoryMode ? '#ffffff' : '#f8fafc', factoryMode ? '#8a94a6' : '#3b4350', factoryMode ? 0.65 : 0.38]} />
+        <directionalLight key={`sun-${factoryMode ? 'factory' : shadowExtent}`} position={factoryMode ? [-12, 24, 18] : [-3.2, 7.5, 6.2]} intensity={factoryMode ? 1.15 : 1.25} color="#fff7ee" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003}
+          shadow-camera-left={-(factoryMode ? Math.max(shadowExtent, 34) : shadowExtent)} shadow-camera-right={factoryMode ? Math.max(shadowExtent, 34) : shadowExtent} shadow-camera-top={factoryMode ? Math.max(shadowExtent, 34) : shadowExtent} shadow-camera-bottom={-(factoryMode ? Math.max(shadowExtent, 34) : shadowExtent)} />
         <directionalLight position={[5.8, 3.2, 2.4]} intensity={0.45} color="#e8f0ff" />
-        {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
-            A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
-        {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} showFloor={floorGridVisible(cameraStats.pitch)} />}
-        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} style={gridSettings.style} dark={backgroundMode === 'dark'} bounds={frontEdit ? null : plateBounds} />}
+        {/* Escolha exclusiva: ou Canvas normal (grelha técnica) ou Ambiente fabril (quadro fixo na parede da nave). */}
+        {factoryMode ? (
+          <FactoryEnvironment3D
+            center={sceneCenter}
+            wallFrontZ={factoryWallFrontZ}
+            floorY={factoryFloorY}
+            mountBounds={factoryMountBounds}
+          />
+        ) : (
+          <>
+            {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} showFloor={floorGridVisible(cameraStats.pitch)} />}
+            {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} style={gridSettings.style} dark={backgroundMode === 'dark'} bounds={frontEdit ? null : plateBounds} />}
+          </>
+        )}
         {frontEdit && placingType && canInsertComponent3D(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
           const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)
@@ -5061,7 +5138,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           })}
         </group>
         <FaultEffectsLayer panelPivots={panelPivots} />
-        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth}
+        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} maxDistance={factoryMode ? 220 : 60}
           onStats={stats => setCameraStats(previous => previous.zoom === stats.zoom && Math.abs(previous.yaw - stats.yaw) < 0.001 && Math.abs(previous.pitch - stats.pitch) < 0.001 ? previous : stats)}
           scrollBridge={cameraScrollBridge} scrollBounds={contentBounds ?? { minX: -2, maxX: 2, minY: -2, maxY: 2, minZ: -0.2, maxZ: 0.6 }}
           frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} viewLocked={viewLocked} />
