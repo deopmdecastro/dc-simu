@@ -7,6 +7,7 @@
  * com serigrafia nítida em `CanvasTexture` atualizada em tempo real consoante as opções do Inspetor.
  */
 import * as THREE from 'three'
+import { drawBrandArtwork } from './brandArtwork'
 import {
   combBrandOf,
   combBusbarDimsOf,
@@ -539,13 +540,13 @@ function drawBrandArt(
 
   if (brand === 'schneider') {
     // Acti9 industrial (imagem 42): verde Schneider #009530 + A9XPC712 / A9XPH… + Ui 400V~ / 500V~ + barcode + CE
+    // Logótipo vetorial real da Schneider Electric (caminhos do ficheiro do fabricante) + gama Acti9.
+    drawBrandArtwork(ctx, 'schneider-electric', W * 0.02, mainCy - mainH * 0.42, W * 0.17, mainH * 0.5)
     ctx.fillStyle = '#009530'
-    ctx.font = `800 ${Math.round(mainH * 0.36)}px Inter, Arial, sans-serif`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText('Schneider', W * 0.03, mainCy - mainH * 0.1)
-    ctx.font = `600 ${Math.round(mainH * 0.2)}px Inter, Arial, sans-serif`
-    ctx.fillText('Electric · Acti9', W * 0.03, mainCy + mainH * 0.22)
+    ctx.font = `700 ${Math.round(mainH * 0.2)}px Inter, Arial, sans-serif`
+    ctx.fillText('Acti9', W * 0.03, mainCy + mainH * 0.24)
 
     if (!compact) {
       ctx.fillStyle = '#1e293b'

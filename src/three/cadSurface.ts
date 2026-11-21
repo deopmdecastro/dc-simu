@@ -33,6 +33,8 @@ export function onCadTexturesReady(listener: () => void): () => void {
   return () => { readyListeners.delete(listener) }
 }
 const notifyReady = () => { for (const listener of readyListeners) listener() }
+/** Pede um novo frame às vistas 3D quando uma textura gerada fica pronta fora do ciclo de render (ex.: logótipos). */
+export const notifyCadTexturesReady = notifyReady
 
 function baseTexture(url: string, srgb: boolean): Promise<THREE.Texture> {
   const key = `${url}|${srgb ? 's' : 'l'}`

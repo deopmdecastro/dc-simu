@@ -9,6 +9,9 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { bindCachedCanvasTexture, cachedCanvasTexture } from './canvasTextureCache'
+import { drawBrandArtwork } from './brandArtwork'
+import { paintBrandLogoOnTexture } from './brandLogos'
+import { notifyCadTexturesReady } from './cadSurface'
 
 export type LightingLampType =
   | 'lampIncandescentE27'
@@ -941,7 +944,7 @@ export function applyLightingMarkings(
     // Serigrafia no corpo/balastro da CFL e da LED (tampografia direta transparente, sem retângulo de fundo)
     const ballastLabel = root.getObjectByName('lighting_ballast_label') as THREE.Mesh | undefined
     if (ballastLabel?.isMesh) {
-      const tex = cachedCanvasTexture(`lighting:ballast:${type}:${powerW}:${cctK}:v2`, 512, 160, (ctx, w, h) => {
+      const tex = cachedCanvasTexture(`lighting:ballast:${type}:${powerW}:${cctK}:v3`, 512, 160, (ctx, w, h) => {
         ctx.clearRect(0, 0, w, h)
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
@@ -955,6 +958,8 @@ export function applyLightingMarkings(
         ctx.font = '600 20px "Inter", Arial, sans-serif'
         ctx.fillText(`${lumens} lm · ${cctK}K · 220-240V~`, w / 2, h * 0.85)
       })
+      // Logótipo real da Philips no lugar do texto provisório (SVG original, assíncrono).
+      paintBrandLogoOnTexture(tex, 'philips', { x: 128, y: 14, w: 256, h: 46 }, { background: 'transparent', onPainted: notifyCadTexturesReady })
       const mat = ballastLabel.material as THREE.MeshStandardMaterial
       if (tex && mat.map !== tex) {
         bindCachedCanvasTexture(mat, tex)
@@ -973,13 +978,12 @@ export function applyLightingMarkings(
   const swSpec = SWITCH_SPECS[type]
   const brandStrip = root.getObjectByName('lighting_switch_brand') as THREE.Mesh | undefined
   if (brandStrip?.isMesh) {
-    const tex = cachedCanvasTexture(`lighting:odace-brand:${type}:v2`, 640, 108, (ctx, w, h) => {
+    const tex = cachedCanvasTexture(`lighting:odace-brand:${type}:v3`, 640, 108, (ctx, w, h) => {
       ctx.clearRect(0, 0, w, h)
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillStyle = '#0f8a3c'
-      ctx.font = '800 34px "Inter", Arial, sans-serif'
-      ctx.fillText('Schneider Electric', w / 2, h * 0.34)
+      // Logótipo vetorial real da Schneider Electric (mesmos caminhos do ficheiro do fabricante).
+      drawBrandArtwork(ctx, 'schneider-electric', w * 0.27, 2, w * 0.46, h * 0.58)
       ctx.fillStyle = '#525b64'
       ctx.font = '600 22px "Inter", Arial, sans-serif'
       const termLegend = type === 'wallSwitchSimple' ? 'L · 1' : 'L · 1 · 2'

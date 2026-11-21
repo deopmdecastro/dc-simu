@@ -2,6 +2,8 @@ import { cachedCanvasTexture, bindCachedCanvasTexture } from './canvasTextureCac
 import { prepareMsr127Leds, applyMsr127Leds } from './msr127Model'
 import * as THREE from 'three'
 import { drawBrandArtwork } from './brandArtwork'
+import { paintBrandLogoOnTexture } from './brandLogos'
+import { notifyCadTexturesReady } from './cadSurface'
 import type { ComponentType } from '../types'
 import {
   GV2ME_RANGES,
@@ -983,6 +985,8 @@ function buildPhoenixEcbMarkings(state: Record<string, unknown> | undefined, u: 
     ctx.fillText(r.ueDc, w / 2, 196)
     drawStatusPill(ctx, 16, 222, w - 32, 44, r.closed, r.tripped)
   })
+  // Logótipo real Phoenix Contact (branco sobre a faixa) em vez do texto provisório.
+  paintBrandLogoOnTexture(tex, 'phoenix-contact', { x: 14, y: 7, w: 164, h: 32 }, { background: '#0098a1', color: '#ffffff', onPainted: notifyCadTexturesReady })
   return tex ? [makePlateMesh(tex, 10.2, 14.4, [0, 56.8, 38.80], u, 0.068, false)] : []
 }
 
@@ -1011,6 +1015,7 @@ function buildWegSpdMarkings(
       ctx.font = '800 22px "Inter", "Arial", sans-serif'
       ctx.fillText('DPS · T2 · L', w / 2, 132)
     })
+    paintBrandLogoOnTexture(upTex, 'weg', { x: 70, y: 7, w: 100, h: 44 }, { background: '#00579d', color: '#ffffff', onPainted: notifyCadTexturesReady })
     const lowTex = cachedCanvasTexture(`spw02:low:${r.ucV}:${r.imaxKa}:${r.failed ? 1 : 0}`, 240, 160, (ctx, w, h) => {
       ctx.fillStyle = '#e2e5e9'
       ctx.fillRect(0, 0, w, h)
@@ -1057,6 +1062,7 @@ function buildWegSpdMarkings(
         ctx.fillText(labels[i], x0 + pw / 2, 132)
       }
     })
+    for (let i = 0; i < 3; i += 1) paintBrandLogoOnTexture(upTex, 'weg', { x: i * 240 + 73, y: 7, w: 94, h: 44 }, { background: '#00579d', color: '#ffffff', onPainted: notifyCadTexturesReady })
     const lowTex = cachedCanvasTexture(`spw12:low:${r.ucV}:${r.imaxKa}:${r.failed ? 1 : 0}`, 720, 160, (ctx, w, h) => {
       const pw = w / 3
       for (let i = 0; i < 3; i += 1) {
@@ -1150,6 +1156,7 @@ function buildPkzmOverrideMarkings(state: Record<string, unknown> | undefined, u
     ctx.font = '600 20px "Inter", "Arial", sans-serif'
     ctx.fillText('Ue 690V~ · IEC/EN 60947-4-1', 16, 128)
   })
+  paintBrandLogoOnTexture(tex, 'eaton', { x: 12, y: 6, w: 156, h: 32 }, { background: '#005eb8', color: '#ffffff', onPainted: notifyCadTexturesReady })
   return tex ? [makePlateMesh(tex, 41.4, 10.6, [0, 57.6, 30.22], u, 0, false)] : []
 }
 

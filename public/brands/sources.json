@@ -18,6 +18,78 @@
       "conditions": "https://assets.sc.hager.com/es/-/media/project/hagerdeep/spain/hager/spain/documentacion/hager-logo_usage_guideline.pdf",
       "changes": "Nenhuma. Azul original #0078c3.",
       "sha256": "e551e9d2151bff4a8c56cfd1a40ed124263fdd1bb14a2a6df4309025e544cdfb"
+    },
+    {
+      "brand": "ABB",
+      "asset": "abb.svg",
+      "source": "https://commons.wikimedia.org/wiki/File:ABB_logo.svg",
+      "downloaded": "2026-11-21",
+      "originalSha256": "c69ccbe3325b56e7b8b9d8e65d54ebd45a24bdcc51bd604b0acc93a87ffbefe7",
+      "changes": "Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada.",
+      "sha256": "c7030e523ce3c6d810dfe2b3e49b7866ee178380bb2f6ad3213a9cf4881ecd05"
+    },
+    {
+      "brand": "Marcação CE",
+      "asset": "ce.svg",
+      "source": "https://commons.wikimedia.org/wiki/File:Conformit%C3%A9_Europ%C3%A9enne_(logo).svg",
+      "downloaded": "2026-11-21",
+      "originalSha256": "2b0ae6baa1b1e14986fd2aec903105c87f6983caafcbbf99b8fc5c13ead25447",
+      "changes": "Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada. Marcação de conformidade (Regulamento (CE) n.º 765/2008, anexo II).",
+      "sha256": "0f8579f2993e47d185d0992388a685d91390cdafe58d191256c93d2271eac539"
+    },
+    {
+      "brand": "Eaton",
+      "asset": "eaton.svg",
+      "source": "https://commons.wikimedia.org/wiki/File:Eaton_Corporation_logo.svg",
+      "downloaded": "2026-11-21",
+      "originalSha256": "42d24849528191454af054a146343adeb979db42e31b8225ee62ddea127e708c",
+      "changes": "Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada.",
+      "sha256": "d74a9893cfaf609d99d4b23f737c3337543895148be4eb97507a44eaffd428ca"
+    },
+    {
+      "brand": "Philips",
+      "asset": "philips.svg",
+      "source": "https://commons.wikimedia.org/wiki/File:Philips_logo_new.svg",
+      "downloaded": "2026-11-21",
+      "originalSha256": "0a2dc381960ff407c7e61e77bdda1e4a61e08c47eb182df8e8000620459f47ab",
+      "changes": "Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada.",
+      "sha256": "e7be99d488c62793bd6c3a969f0412ffb39604c81f6c5e4226c1f9f320199bfb"
+    },
+    {
+      "brand": "Siemens",
+      "asset": "siemens.svg",
+      "source": "https://commons.wikimedia.org/wiki/File:Siemens-logo.svg",
+      "downloaded": "2026-11-21",
+      "originalSha256": "9aecdd21358888517612816505e9dd31250d9ee63a4b7c48bdab05164af75bb9",
+      "changes": "Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada.",
+      "sha256": "c257f02ed410501db14c67002cd22e6d543bf0c91f9df4d550e0e7ae4d2f01af"
+    },
+    {
+      "brand": "WAGO",
+      "asset": "wago.svg",
+      "source": "https://www.wago.com/global/ (logótipo SVG do cabeçalho; cor --wago-color-brand-100 do CSS oficial)",
+      "downloaded": "2026-11-21",
+      "originalSha256": "4108a268aa8bf78d474d22533e148b26d6b75929a4956f14ecf18516606db569",
+      "changes": "fill=currentColor substituído pela cor oficial #6ec800. Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada.",
+      "sha256": "9012d55bc54ceba91e3fe26fffc7407781cf1c8d1a8799efeba4f1d023e8b57f"
+    },
+    {
+      "brand": "Phoenix Contact",
+      "asset": "phoenix-contact.svg",
+      "source": "https://cdn.worldvectorlogo.com/logos/phoenix-contact.svg",
+      "downloaded": "2026-11-21",
+      "originalSha256": "09c3f4bdb36845590259d3a50b89316e3440208b13f0c991cced445895859c2e",
+      "changes": "Removido o retângulo branco de fundo do serviço de origem (não faz parte do logótipo). Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada.",
+      "sha256": "627849d101cb290910338c207fbe4f3fb59b9dcc665cd863f6f31769a08701f4"
+    },
+    {
+      "brand": "WEG",
+      "asset": "weg.svg",
+      "source": "https://cdn.worldvectorlogo.com/logos/weg-equipamentos-eletricos.svg",
+      "downloaded": "2026-11-21",
+      "originalSha256": "6ab9fbe73e19df6dc3e47e7e834005a04298f077f2ccf0401d3ae8e8a59d16ff",
+      "changes": "Recorte do viewBox ao limite do desenho e width/height explícitos (tamanho intrínseco no canvas). Geometria vetorial conservada. Azul #005da4 conservado.",
+      "sha256": "1323460952f478514842cb073140b7585d5aeabdab6ee36441bd24fb28d3b5f3"
     }
   ]
 }
