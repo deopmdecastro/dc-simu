@@ -11,13 +11,15 @@ if(process.argv.includes('--refresh-iid-barrel')){
  const bytes=await fs.readFile(file),{scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')
  const root=scene.getObjectByName('schneider_residualBreakerSchneiderIid4p')
  if(!root)throw Error('Missing original iID model root')
- root.traverse(n=>{if(n.isMesh)n.geometry.scale(1000,1000,1000);n.position.multiplyScalar(1000)})
+ const scaled=new Set()
+ root.traverse(n=>{if(n.isMesh&&!scaled.has(n.geometry)){scaled.add(n.geometry);n.geometry.scale(1000,1000,1000)}n.position.multiplyScalar(1000)})
  completeSchneiderIidHandle(root,1)
- const note='Added a capped black handle barrel behind the original STEP grip, concentric with the reviewed iID axis. Reconstructed closure prevents visibility through the simplified handle aperture; no electrical interfaces changed.'
- const record=await saveModel(root,previous.path,previous.nominalSizeMm,previous.source,[...new Set([...previous.adaptations,note])])
+ const note='Photo-reference finish: satin white shell and moving rocker, light grey fixed cradle, grey grip, recessed zinc-steel cross-head screws and completed test-button face. Capped white rocker remains concentric with the reviewed iID axis; markings and electrical interfaces preserved. Visible details reconstructed from reference, not manufacturer internal CAD.'
+ const adaptations=previous.adaptations.filter(n=>!/black.*barrel|barrel.*black|Photo-reference finish:/.test(n))
+ const record=await saveModel(root,previous.path,previous.nominalSizeMm,previous.source,[...new Set([...adaptations,note])])
  provenance.models=provenance.models.map(m=>m.path===record.path?record:m)
  await fs.writeFile(manifestFile,JSON.stringify(provenance,null,2)+'\n')
- console.log('iID: obturador preto integrado no GLB ('+record.bytes+' bytes)');process.exit(0)
+ console.log('iID: acabamento da referência integrado no GLB ('+record.bytes+' bytes)');process.exit(0)
 }
 const sourceDir=process.argv.includes('--source-dir')?process.argv[process.argv.indexOf('--source-dir')+1]:undefined
 const models=[]
@@ -62,7 +64,7 @@ const models=[]
   'Fused simplified STEP explicitly split by reviewed original faces: rocker 103/117-120, dark grip 104-116, test button 186-190. No replacement generic shell.',
   'Rear clips rigidly translated to mounting pose. Body and curved front remain at source scale; nominal depth differs from source handle envelope by less than 1 mm.',
   'Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged.',
-  'Closed black handle barrel reconstructed behind the original grip, concentric with the real hinge axis, to occlude the hollow simplified STEP aperture.'
+  'Photo-reference finish: satin white shell and closed white rocker, grey grip, light grey fixed cradle, recessed zinc-steel cross-head screws and completed test button. Reconstructed visible details; real hinge axis, electrical interfaces and markings preserved.'
  ]))
 }
 await manifest('models/protecao/schneider-acti9-rcd-sources.json',models)

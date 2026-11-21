@@ -1374,12 +1374,12 @@ function buildSchneiderRcdMarkings(
     })
     projected(letters, width - 2, 2.3, 0, y)
   }
-  if (!iid) {
+  {
     const letter = cachedCanvasTexture('acti9:vigi:T:v1', 160, 80, (ctx, w, h) => {
       ctx.fillStyle = '#7f867c'; ctx.font = 'bold 62px Arial, sans-serif'
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('T', w / 2, h / 2)
     })
-    const marking = projected(letter, 4, 2.2, 8.9, 59.6, test)
+    const marking = projected(letter, 4, 2.2, iid ? -26.9 : 8.9, iid ? 59.5 : 59.6, test)
     if (marking) {
       marking.name = '__dcSchneiderTestMarking'
       marking.userData.followSchneiderTest = true

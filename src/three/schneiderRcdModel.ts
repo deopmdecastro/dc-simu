@@ -1,5 +1,6 @@
 import { bindCachedCanvasTexture } from './canvasTextureCache'
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import type { ComponentType, ElectricalComponent } from '../types'
 import { cachedCanvasTexture } from './protectionMarkings'
 
@@ -16,7 +17,7 @@ export const SCHNEIDER_IID_AXIS_OFFSET_M = new THREE.Vector3(0, -0.0032, -0.006)
 export type SchneiderRcdAction = 'toggle' | 'test'
 const ownedIndicators = new WeakSet<THREE.Object3D>()
 
-/** Obturador preto atrás da pega do iID: fecha o interior omitido no STEP
+/** Tambor fechado atrás da pega do iID: fecha o interior omitido no STEP
  * simplificado. Cilindro fechado no eixo real, por isso acompanha o manípulo
  * sem abrir uma folga durante o curso. `unit` converte mm para o referencial local. */
 export function completeSchneiderIidHandle(root: THREE.Object3D, unit = .001): void {
@@ -25,26 +26,53 @@ export function completeSchneiderIidHandle(root: THREE.Object3D, unit = .001): v
   // A fita VisiSafe assenta à frente da superfície curva, na mesma posição XY.
   for (const suffix of ['', '_on', '_trip']) {
     const indicator = root.getObjectByName('schneider_visisafe' + suffix)
-    if (indicator) indicator.position.z = (68.45 + (suffix === '_on' ? .016 : suffix === '_trip' ? .008 : 0)) * unit
+    if (indicator) {
+      // Em ON a pega sobe à altura da faixa OFF. A indicação vermelha surge
+      // na parte inferior exposta do tambor, sem ficar escondida pela pega.
+      indicator.position.y = (suffix === '_on' ? 27 : 41.8) * unit
+      indicator.position.z = (suffix === '_on' ? 70.5 : 69.5 + (suffix === '_trip' ? .008 : 0)) * unit
+    }
   }
-  // O ombro da alavanca vinha no branco da carcaça e, à volta do tambor escuro, lia-se como
-  // uma bola branca. No iID a alavanca é toda antracite: mesmo material da pega.
+  // Fotografia de referência: alavanca branca, pega cinzenta e berço cinzento-claro.
+  // Nunca recolorir a alavanca com o material da pega (nem a carcaça com o do berço).
   const grip = pivot.getObjectByName('schneider_handle_grip') as THREE.Mesh | undefined
   const shoulder = pivot.getObjectByName('schneider_handle_white') as THREE.Mesh | undefined
-  if (grip?.isMesh && shoulder?.isMesh && shoulder.material !== grip.material) shoulder.material = grip.material
-  if (grip?.isMesh) splitIidCradle(root, grip.material as THREE.Material, unit)
+  const polymer = (name: string, color: string, roughness: number) => new THREE.MeshStandardMaterial({ name, color, roughness, metalness: 0 })
+  // Materiais distintos também quando um GLB antigo fundiu as duas cores.
+  if (grip?.isMesh && grip.userData.iidPhotoFinish !== 1) {
+    grip.material = polymer('iID pega cinzenta', '#55595d', .42)
+    grip.userData.iidPhotoFinish = 1
+  }
+  if (shoulder?.isMesh && shoulder.userData.iidPhotoFinish !== 1) {
+    shoulder.material = polymer('iID alavanca branca', '#f4f5f3', .32)
+    shoulder.userData.iidPhotoFinish = 1
+  }
+  const body = root.getObjectByName('schneider_body') as THREE.Mesh | undefined
+  if (body?.isMesh && body.userData.iidPhotoFinish !== 1) {
+    body.material = polymer('iID carcaça branca acetinada', '#f4f5f3', .34)
+    body.userData.iidPhotoFinish = 1
+  }
+  const cradle = root.getObjectByName('schneider_handle_cradle') as THREE.Mesh | undefined
+  const cradleMaterial = cradle?.userData.iidPhotoFinish === 1 ? cradle.material as THREE.Material
+    : polymer('iID berço cinzento-claro', '#bfc3c2', .4)
+  splitIidCradle(root, cradleMaterial, unit)
+  const finishedCradle = root.getObjectByName('schneider_handle_cradle') as THREE.Mesh | undefined
+  if (finishedCradle) { finishedCradle.material = cradleMaterial; finishedCradle.userData.iidPhotoFinish = 1 }
+  const edge = root.getObjectByName('schneider_handle_edge') as THREE.Mesh | undefined
+  if (edge && grip) edge.material = grip.material
+  completeIidPhotoDetails(root, unit)
   const previous = pivot.getObjectByName('schneider_handle_barrel')
-  if (previous?.userData.schneiderHandleClosure === 4) return
+  if (previous?.userData.schneiderHandleClosure === 5) return
   previous?.removeFromParent()
   // A ranhura da carcaça tem 9,0 mm (x −31,4…−22,4); com 8,9 mm ficavam duas frestas
   // brancas ao lado da alavanca. 9,6 mm: as pontas ficam escondidas na carcaça.
   const geometry = new THREE.CylinderGeometry(15.85 * unit, 15.85 * unit, 9.6 * unit, 96, 1, false)
   geometry.rotateZ(Math.PI / 2)
-  const barrel = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#181b1b', metalness: .02, roughness: .43 }))
+  const barrel = new THREE.Mesh(geometry, shoulder?.material ?? polymer('iID alavanca branca', '#f4f5f3', .32))
   barrel.name = 'schneider_handle_barrel'
   barrel.position.copy(SCHNEIDER_IID_AXIS_OFFSET_M).multiplyScalar(unit / .001)
   barrel.userData.schneiderControl = 'toggle'
-  barrel.userData.schneiderHandleClosure = 4
+  barrel.userData.schneiderHandleClosure = 5
   pivot.add(barrel)
 }
 
@@ -54,9 +82,7 @@ const IID_CRADLE = { x: [-37, -17], y: [24.5, 47.5], zMin: 66.3, face: 69, cente
 const IID_HANDLE_EDGE = { x: [-36, -22], y: [20, 26], z: [65.3, 66.3] } as const
 const IID_HANDLE_EDGE_PATCH = { x: [-34.5, -21.5], y: [21, 21.65] } as const
 
-/** O STEP funde a cúpula do berço na carcaça branca; ao lado da alavanca lia-se como uma
- *  bola branca. Passa para uma malha própria com o material antracite da alavanca (fixa:
- *  não roda). A aresta curta da carcaça logo abaixo da pega também fica antracite. */
+/** Separa o berço fixo da carcaça para lhe dar o cinzento-claro da referência. */
 function splitIidCradle(root: THREE.Object3D, material: THREE.Material, unit: number): void {
   const body = root.getObjectByName('schneider_body') as THREE.Mesh | undefined
   if (!body?.isMesh) return
@@ -93,6 +119,45 @@ function splitIidCradle(root: THREE.Object3D, material: THREE.Material, unit: nu
     body.parent!.add(mesh)
   }
   addIidHandleEdge(root, material, unit)
+}
+
+/** Pormenores visíveis omitidos no STEP simplificado. Não ocupam as entradas de
+ * condutores (eixo Y): os parafusos ficam nos poços frontais existentes (eixo Z). */
+function completeIidPhotoDetails(root: THREE.Object3D, unit: number): void {
+  if (!root.getObjectByName('schneider_terminal_screw_0')) {
+    const steel = new THREE.MeshStandardMaterial({ name: 'iID parafusos aço zincado', color: '#c2c7cb', metalness: .86, roughness: .27 })
+    const recess = new THREE.MeshStandardMaterial({ name: 'iID fundo da cruz', color: '#555b60', metalness: .65, roughness: .4 })
+    const shape = new THREE.Shape()
+    shape.absarc(0, 0, 3.08, 0, Math.PI * 2, false)
+    const cross = new THREE.Path()
+    const points = [[-.48, -2.2], [-.48, -.48], [-2.2, -.48], [-2.2, .48], [-.48, .48], [-.48, 2.2], [.48, 2.2], [.48, .48], [2.2, .48], [2.2, -.48], [.48, -.48], [.48, -2.2]]
+    points.forEach(([x, y], i) => i ? cross.lineTo(x, y) : cross.moveTo(x, y))
+    cross.closePath(); shape.holes.push(cross)
+    const head = new THREE.ExtrudeGeometry(shape, { depth: .65, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .12, bevelThickness: .12, curveSegments: 32 })
+    head.scale(unit, unit, unit)
+    const floor = new THREE.CylinderGeometry(3.2 * unit, 3.2 * unit, .35 * unit, 48)
+    floor.rotateX(Math.PI / 2)
+    for (const [row, y] of [78.56, 9.04].entries()) for (let pole = 0; pole < 4; pole++) {
+      const group = new THREE.Group()
+      group.name = 'schneider_terminal_screw_' + (row * 4 + pole)
+      group.position.set((-26.7 + pole * 17.8) * unit, y * unit, 46.9 * unit)
+      group.rotation.z = (pole % 2 ? 27 : -31) * Math.PI / 180
+      group.add(new THREE.Mesh(head, steel), new THREE.Mesh(floor, recess))
+      root.add(group)
+    }
+  }
+  // O STEP representa apenas a aresta do botão. Completa a face sem alterar o nó
+  // de atuação; o T continua a ser aplicado pelo sistema de serigrafia existente.
+  const test = root.getObjectByName('schneider_test') as THREE.Mesh | undefined
+  if (test?.isMesh && test.userData.iidPhotoFinish !== 2) {
+    root.updateMatrixWorld(true)
+    const toLocal = new THREE.Matrix4().copy(test.matrixWorld).invert().multiply(root.matrixWorld)
+    const geometry = new RoundedBoxGeometry(9.5 * unit, 3.9 * unit, 1.1 * unit, 3, .2 * unit)
+    geometry.translate(-26.9 * unit, 59.5 * unit, 71.35 * unit).applyMatrix4(toLocal)
+    test.geometry = geometry
+    test.material = new THREE.MeshStandardMaterial({ name: 'iID botão de ensaio branco', color: '#e8ebe8', roughness: .36, metalness: 0 })
+    test.userData.iidPhotoFinish = 2
+  }
 }
 
 function addIidHandleEdge(root: THREE.Object3D, material: THREE.Material, unit: number): void {

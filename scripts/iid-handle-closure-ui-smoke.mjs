@@ -3,7 +3,7 @@ import {mkdir,mkdtemp,rename,rm,writeFile} from 'node:fs/promises'
 import {panelFixture,attachPanel} from './lib/panel-fixture.mjs'
 import {attachAdmin} from './lib/admin-fixture.mjs'
 
-const output=path.resolve('docs/validation/iid-handle-closure')
+const output=path.resolve('docs/validation/iid-photo-finish')
 await mkdir(output,{recursive:true})
 const staging=await mkdtemp(path.join(output,'.iid-handle-closure-'))
 let f,page,check
@@ -16,6 +16,12 @@ try{
   const c=b.getCenter(new T.Vector3()),d=r.camera.position.distanceTo(c)*.78;r.controls?.dispatchEvent({type:'start'})
   r.camera.position.copy(c).add(new T.Vector3(-.37,.17,1).normalize().multiplyScalar(d));r.camera.lookAt(c);r.controls?.target.copy(c);r.controls?.update();r.invalidate()
  });await f.frame()
+ const finish=await page.evaluate(()=>{
+  const s=window.__panelState().scene,color=name=>s.getObjectByName(name).material.color.getHexString()
+  return{rocker:color('schneider_handle_white'),grip:color('schneider_handle_grip'),cradle:color('schneider_handle_cradle'),test:!!s.getObjectByName('__dcSchneiderTestMarking'),screws:Array.from({length:8},(_,i)=>!!s.getObjectByName('schneider_terminal_screw_'+i))}
+ })
+ check(finish.rocker==='f4f5f3'&&finish.grip==='55595d'&&finish.cradle==='bfc3c2','Painel: alavanca branca, pega cinzenta e berço cinzento-claro da referência')
+ check(finish.screws.every(Boolean)&&finish.test,'Painel: oito parafusos metálicos e botão de teste com T visível')
  const measurements=[]
  for(const [name,state]of [['off',{closed:false,tripped:false}],['on',{closed:true,tripped:false}],['trip',{closed:false,tripped:true}]]){
   await f.store((s,state)=>s.setState({components:s.getState().components.map(c=>({...c,state:{...c.state,...state}}))}),state);await f.frame()
@@ -25,43 +31,54 @@ try{
    const axis=p.parent.localToWorld(new T.Vector3(-.0269,.0333,.055)),fwd=new T.Vector3(0,0,1).transformDirection(p.parent.matrixWorld)
    for(const x of [-.0025,0,.0025])for(const y of [-.005,0,.005]){
     const target=p.parent.localToWorld(new T.Vector3(-.0269+x,.0333+y,.055)),origin=target.clone().addScaledVector(fwd,.4)
-    const hit=new T.Raycaster(origin,fwd.clone().negate()).intersectObject(p.parent,true)[0];hits.push(hit?.object.name??null)
+    const hit=new T.Raycaster(origin,fwd.clone().negate()).intersectObject(p.parent,true).find(h=>!h.object.name.startsWith('schneider_visisafe'));hits.push(hit?.object.name??null)
    }
    const edge=p.parent.localToWorld(new T.Vector3(-.0326,.0214,.06552)).project(r.camera),edgeRay=new T.Raycaster()
    edgeRay.setFromCamera(new T.Vector2(edge.x,edge.y),r.camera)
    const edgeName=edgeRay.intersectObject(r.scene,true).find(hit=>hit.object.name==='schneider_handle_edge'||hit.object.name==='schneider_handle_cradle'||hit.object.name==='schneider_body')?.object.name
    const mats=Array.isArray(b.material)?b.material:[b.material]
-   return{hits,edgeName,centerError:center.distanceTo(axis),opaque:mats.every(m=>!m.transparent&&m.opacity===1),angle:p.rotation.x}
+   const status=['','_on','_trip'].map(s=>p.parent.getObjectByName('schneider_visisafe'+s)).find(n=>n.material.visible)
+   const labelHits=[-.0011,0,.0011].map(dy=>{
+    const target=status.localToWorld(new T.Vector3(0,dy,0)),origin=target.clone().addScaledVector(fwd,.4)
+    return new T.Raycaster(origin,fwd.clone().negate()).intersectObject(p.parent,true)[0]?.object.name
+   })
+   return{hits,labelHits,edgeName,centerError:center.distanceTo(axis),opaque:mats.every(m=>!m.transparent&&m.opacity===1),angle:p.rotation.x}
   })
-  check(actual.opaque,name+': obturador preto opaco, sem transparência')
-  check(actual.centerError<1e-7,name+': corpo preto permanece concêntrico com o eixo real')
+  check(actual.opaque,name+': alavanca opaca, sem transparência')
+  check(actual.centerError<1e-7,name+': tambor branco permanece concêntrico com o eixo real')
   check(actual.hits.every(n=>n&&(/schneider_handle|schneider_body/.test(n))),name+': nove raios na abertura não veem os componentes interiores '+JSON.stringify(actual.hits))
-  check(actual.hits.includes('schneider_handle_barrel'),name+': a peça preta fecha a abertura atrás da pega')
-  if(name==='off')check(actual.edgeName==='schneider_handle_edge','A aresta branca sob a pega é coberta pelo acabamento antracite')
+  check(actual.hits.includes('schneider_handle_barrel'),name+': o tambor fecha a abertura atrás da pega')
+  check(actual.labelHits.every(n=>n?.startsWith('schneider_visisafe')),name+': faixa VisiSafe livre em toda a altura, sem corte pela alavanca '+JSON.stringify(actual.labelHits))
+  if(name==='off')check(actual.edgeName==='schneider_handle_edge','A aresta sob a pega recebe acabamento cinzento')
   measurements.push({name,...actual});await page.screenshot({path:path.join(staging,name+'.png')})
  }
+ const cameraPosition=await page.evaluate(()=>{
+  const r=window.__panelState(),T=window.__fixtureThree,c=r.controls.target.clone(),p=r.camera.position.toArray(),d=r.camera.position.distanceTo(c)
+  r.camera.position.copy(c).add(new T.Vector3(0,0,d));r.camera.lookAt(c);r.controls.update();r.invalidate();return p
+ });await f.frame();await page.screenshot({path:path.join(staging,'front.png')})
+ await page.evaluate(p=>{const r=window.__panelState();r.camera.position.fromArray(p);r.camera.lookAt(r.controls.target);r.controls.update();r.invalidate()},cameraPosition);await f.frame()
  await f.store(s=>{s.getState().play();s.getState().pause()});await f.frame()
  const before=await f.store(s=>s.getState().components[0].state.closed)
  await f.click('schneider_handle_barrel')
- check(await f.store((s,before)=>s.getState().components[0].state.closed!==before,before),'Clique na peça preta continua a manobrar o diferencial')
+ check(await f.store((s,before)=>s.getState().components[0].state.closed!==before,before),'Clique na alavanca continua a manobrar o diferencial')
  const admin=await attachAdmin(f),draft=await admin.open('residualBreakerSchneiderIid4p')
- check(!!await page.evaluate(()=>{const s=window.__adminState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_handle_edge')}),'Admin importa o obturador e a aresta acabada do GLB')
+ check(!!await page.evaluate(()=>{const s=window.__adminState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_handle_edge')}),'Admin importa o tambor e a aresta acabada do GLB')
  await page.getByRole('tab',{name:'Simular',exact:true}).first().click()
  const centers=[]
  for(const closed of [false,true]){
   await admin.editor((s,closed)=>s.getState().set({previewVars:{...s.getState().previewVars,closed,tripped:false}}),closed);await admin.frame()
   centers.push(await page.evaluate(()=>window.__adminState().scene.getObjectByName('schneider_handle_barrel').getWorldPosition(new window.__fixtureThree.Vector3()).toArray()))
  }
- check(centers[0].every((v,i)=>Math.abs(v-centers[1][i])<.0001),'Admin: o corpo preto roda no eixo sem deslocar o centro')
+ check(centers[0].every((v,i)=>Math.abs(v-centers[1][i])<.0001),'Admin: o tambor roda no eixo sem deslocar o centro')
  await admin.editor(s=>s.getState().edit(def=>({...def,terminals:def.terminals.map((t,i)=>i?t:{...t,name:'Ensaio local '+t.label})})))
  await admin.reopen(draft.id)
- check(!!await page.evaluate(()=>window.__adminState().scene.getObjectByName('schneider_handle_barrel')),'Admin guardar/reabrir conserva a peça preta')
+ check(!!await page.evaluate(()=>window.__adminState().scene.getObjectByName('schneider_handle_barrel')),'Admin guardar/reabrir conserva a alavanca completa')
  const published=await admin.publish()
  await f.reload();const panel=await attachPanel(f)
  await page.evaluate(async()=>{const {useCatalogStore}=await window.__fixtureImport('/src/catalog/registry.ts');await useCatalogStore.getState().load()})
  await panel.show('cat:'+published.id+':v'+published.version.version)
- check(!!await page.evaluate(()=>{const s=window.__panelState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_handle_edge')}),'Catálogo local de teste: GLB exportado conserva o obturador e a aresta acabada')
- f.stable();await writeFile(path.join(staging,'results.json'),JSON.stringify({checks:f.count(),measurements,errors:f.errors,scope:'Painel/Admin React/R3F reais, guardar/reabrir/exportar para catálogo em IndexedDB isolado, pedidos externos bloqueados'},null,2)+'\n')
- for(const name of ['off.png','on.png','trip.png','results.json'])await rename(path.join(staging,name),path.join(output,name))
+ check(!!await page.evaluate(()=>{const s=window.__panelState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_handle_edge')}),'Catálogo local de teste: GLB exportado conserva o tambor e a aresta acabada')
+ f.stable();await writeFile(path.join(staging,'results.json'),JSON.stringify({checks:f.count(),finish,measurements,errors:f.errors,scope:'Painel/Admin React/R3F reais, guardar/reabrir/exportar para catálogo em IndexedDB isolado, pedidos externos bloqueados'},null,2)+'\n')
+ for(const name of ['off.png','on.png','trip.png','front.png','results.json'])await rename(path.join(staging,name),path.join(output,name))
 }catch(error){if(page)await page.screenshot({path:path.join(output,'failure.png')}).catch(()=>{});throw error}
 finally{try{if(f)await f.browser.close()}finally{await rm(staging,{recursive:true,force:true})}}

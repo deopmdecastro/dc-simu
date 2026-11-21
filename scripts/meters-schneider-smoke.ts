@@ -78,7 +78,10 @@ for(const type of types){
  check(!occluded.length,type+': terminal rays enter a finite unobstructed cavity '+occluded.join(','))
  if(type==='residualBreakerSchneiderIid4p'){
   const barrel=clone.getObjectByName('schneider_handle_barrel')!
-  check(!!barrel,'iID: source GLB includes the black handle closure')
+  check(!!barrel,'iID: source GLB includes the closed white rocker')
+  const color=(name:string)=>(clone.getObjectByName(name) as THREE.Mesh).material as THREE.MeshStandardMaterial
+  check(color('schneider_handle_white').color.getHexString()==='f4f5f3'&&color('schneider_handle_grip').color.getHexString()==='55595d'&&color('schneider_handle_cradle').color.getHexString()==='bfc3c2','iID: photo-reference white rocker, grey grip and light grey fixed cradle have distinct materials')
+  check(Array.from({length:8},(_,i)=>clone.getObjectByName('schneider_terminal_screw_'+i)).every(Boolean),'iID: eight recessed front screw heads present without obstructing conductor cavities')
   barrel.removeFromParent();completeSchneiderIidHandle(clone);completeSchneiderIidHandle(clone)
   let count=0;clone.traverse(n=>{if(n.name==='schneider_handle_barrel')count++})
   check(count===1,'iID: legacy asset closure is restored once, without duplicate geometry')
@@ -86,7 +89,7 @@ for(const type of types){
   for(const state of [{closed:false},{closed:true},{closed:false,tripped:true}]){
    applySchneiderRcdState(clone,state);centers.push(clone.getObjectByName('schneider_handle_barrel')!.getWorldPosition(new THREE.Vector3()))
   }
-  check(centers.every(c=>c.distanceTo(centers[0])<1e-9),'iID: black barrel remains on the real hinge axis in OFF/ON/TRIP')
+  check(centers.every(c=>c.distanceTo(centers[0])<1e-9),'iID: white rocker remains on the real hinge axis in OFF/ON/TRIP')
  }
  if(type==='pilotLightSchneiderIil3p'){
   const second=fitComponentModel(cloneModelScene(scene),spec,.01,'center');applySchneiderModularState(fitted,type,{l1On:true,l2On:false,l3On:true});applySchneiderModularState(second,type,{l1On:false,l2On:true,l3On:false})
