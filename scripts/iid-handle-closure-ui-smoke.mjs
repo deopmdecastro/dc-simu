@@ -18,38 +18,48 @@ try{
  });await f.frame()
  const finish=await page.evaluate(()=>{
   const s=window.__panelState().scene,color=name=>s.getObjectByName(name).material.color.getHexString()
-  return{rocker:color('schneider_handle_white'),grip:color('schneider_handle_grip'),cradle:color('schneider_handle_cradle'),test:!!s.getObjectByName('__dcSchneiderTestMarking'),screws:Array.from({length:8},(_,i)=>!!s.getObjectByName('schneider_terminal_screw_'+i))}
+  return{
+   rocker:color('schneider_handle_white'),
+   grip:color('schneider_handle_grip'),
+   body:color('schneider_body'),
+   test:!!s.getObjectByName('__dcSchneiderTestMarking'),
+   testRecess:!!s.getObjectByName('schneider_test_recess'),
+   visitrip:!!s.getObjectByName('schneider_visitrip_flag'),
+   screws:Array.from({length:8},(_,i)=>!!s.getObjectByName('schneider_terminal_screw_'+i)),
+  }
  })
- check(finish.rocker==='f4f5f3'&&finish.grip==='55595d'&&finish.cradle==='bfc3c2','Painel: alavanca branca, pega cinzenta e berço cinzento-claro da referência')
- check(finish.screws.every(Boolean)&&finish.test,'Painel: oito parafusos metálicos e botão de teste com T visível')
+ check(finish.rocker==='f5f6f4'&&finish.grip==='42474c'&&finish.body==='f5f6f4','Painel: carcaça/alavanca branca acetinada e pega antracite da referência')
+ check(finish.screws.every(Boolean)&&finish.test&&finish.testRecess&&finish.visitrip,'Painel: oito poços de parafuso profundos, botão T em cavidade fechada e janela VisiTrip visíveis')
  const measurements=[]
  for(const [name,state]of [['off',{closed:false,tripped:false}],['on',{closed:true,tripped:false}],['trip',{closed:false,tripped:true}]]){
   await f.store((s,state)=>s.setState({components:s.getState().components.map(c=>({...c,state:{...c.state,...state}}))}),state);await f.frame()
   const actual=await page.evaluate(()=>{
    const r=window.__panelState(),T=window.__fixtureThree,p=r.scene.getObjectByName('schneider_handle_pivot'),b=r.scene.getObjectByName('schneider_handle_barrel');r.scene.updateMatrixWorld(true)
    const center=b.getWorldPosition(new T.Vector3()),hits=[]
-   const axis=p.parent.localToWorld(new T.Vector3(-.0269,.0333,.055)),fwd=new T.Vector3(0,0,1).transformDirection(p.parent.matrixWorld)
-   for(const x of [-.0025,0,.0025])for(const y of [-.005,0,.005]){
-    const target=p.parent.localToWorld(new T.Vector3(-.0269+x,.0333+y,.055)),origin=target.clone().addScaledVector(fwd,.4)
+   const axis=p.parent.localToWorld(new T.Vector3(-.0269,.0350,.0605)),fwd=new T.Vector3(0,0,1).transformDirection(p.parent.matrixWorld)
+   for(const x of [-.0025,0,.0025])for(const y of [-.004,0,.004]){
+    const target=p.parent.localToWorld(new T.Vector3(-.0269+x,.0350+y,.0605)),origin=target.clone().addScaledVector(fwd,.4)
     const hit=new T.Raycaster(origin,fwd.clone().negate()).intersectObject(p.parent,true).find(h=>!h.object.name.startsWith('schneider_visisafe'));hits.push(hit?.object.name??null)
    }
-   const edge=p.parent.localToWorld(new T.Vector3(-.0326,.0214,.06552)).project(r.camera),edgeRay=new T.Raycaster()
-   edgeRay.setFromCamera(new T.Vector2(edge.x,edge.y),r.camera)
-   const edgeName=edgeRay.intersectObject(r.scene,true).find(hit=>hit.object.name==='schneider_handle_edge'||hit.object.name==='schneider_handle_cradle'||hit.object.name==='schneider_body')?.object.name
    const mats=Array.isArray(b.material)?b.material:[b.material]
    const status=['','_on','_trip'].map(s=>p.parent.getObjectByName('schneider_visisafe'+s)).find(n=>n.material.visible)
-   const labelHits=[-.0011,0,.0011].map(dy=>{
-    const target=status.localToWorld(new T.Vector3(0,dy,0)),origin=target.clone().addScaledVector(fwd,.4)
-    return new T.Raycaster(origin,fwd.clone().negate()).intersectObject(p.parent,true)[0]?.object.name
-   })
-   return{hits,labelHits,edgeName,centerError:center.distanceTo(axis),opaque:mats.every(m=>!m.transparent&&m.opacity===1),angle:p.rotation.x}
+   const statusBox=new T.Box3().setFromObject(status,true)
+   const statusCenter=statusBox.getCenter(new T.Vector3())
+   const statusRayHit=new T.Raycaster(statusCenter.clone().addScaledVector(fwd,.4),fwd.clone().negate()).intersectObject(p.parent,true)[0]?.object.name
+   const vtFlag=r.scene.getObjectByName('schneider_visitrip_flag')
+   const vtColor=vtFlag?.material?.color?.getHexString()??null
+   const barrelBox=new T.Box3().setFromObject(b,true)
+   const bodyBox=new T.Box3().setFromObject(r.scene.getObjectByName('schneider_body'),true)
+   const barrelRelMinY=(barrelBox.min.y-bodyBox.min.y)/(bodyBox.max.y-bodyBox.min.y)
+   return{hits,statusRayHit,vtColor,barrelRelMinY,centerError:center.distanceTo(axis),opaque:mats.every(m=>!m.transparent&&m.opacity===1),angle:p.rotation.x}
   })
   check(actual.opaque,name+': alavanca opaca, sem transparência')
   check(actual.centerError<1e-7,name+': tambor branco permanece concêntrico com o eixo real')
+  check(actual.barrelRelMinY>0.28,name+': tambor permanece contido no berço sem sobressair abaixo da frente ('+actual.barrelRelMinY.toFixed(3)+')')
   check(actual.hits.every(n=>n&&(/schneider_handle|schneider_body/.test(n))),name+': nove raios na abertura não veem os componentes interiores '+JSON.stringify(actual.hits))
   check(actual.hits.includes('schneider_handle_barrel'),name+': o tambor fecha a abertura atrás da pega')
-  check(actual.labelHits.every(n=>n?.startsWith('schneider_visisafe')),name+': faixa VisiSafe livre em toda a altura, sem corte pela alavanca '+JSON.stringify(actual.labelHits))
-  if(name==='off')check(actual.edgeName==='schneider_handle_edge','A aresta sob a pega recebe acabamento cinzento')
+  check(actual.statusRayHit?.startsWith('schneider_visisafe'),name+': faixa VisiSafe curva livre e visível de frente ('+actual.statusRayHit+')')
+  check(name==='trip'?actual.vtColor==='d92027':actual.vtColor==='ebeeeb',name+': janela VisiTrip mostra '+(name==='trip'?'vermelho':'branco')+' ('+actual.vtColor+')')
   measurements.push({name,...actual});await page.screenshot({path:path.join(staging,name+'.png')})
  }
  const cameraPosition=await page.evaluate(()=>{
@@ -62,7 +72,7 @@ try{
  await f.click('schneider_handle_barrel')
  check(await f.store((s,before)=>s.getState().components[0].state.closed!==before,before),'Clique na alavanca continua a manobrar o diferencial')
  const admin=await attachAdmin(f),draft=await admin.open('residualBreakerSchneiderIid4p')
- check(!!await page.evaluate(()=>{const s=window.__adminState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_handle_edge')}),'Admin importa o tambor e a aresta acabada do GLB')
+ check(!!await page.evaluate(()=>{const s=window.__adminState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_visitrip_flag')&&s.getObjectByName('schneider_test_recess')}),'Admin importa tambor concêntrico, janela VisiTrip e cavidade do botão T do GLB')
  await page.getByRole('tab',{name:'Simular',exact:true}).first().click()
  const centers=[]
  for(const closed of [false,true]){
@@ -77,7 +87,7 @@ try{
  await f.reload();const panel=await attachPanel(f)
  await page.evaluate(async()=>{const {useCatalogStore}=await window.__fixtureImport('/src/catalog/registry.ts');await useCatalogStore.getState().load()})
  await panel.show('cat:'+published.id+':v'+published.version.version)
- check(!!await page.evaluate(()=>{const s=window.__panelState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_handle_edge')}),'Catálogo local de teste: GLB exportado conserva o tambor e a aresta acabada')
+ check(!!await page.evaluate(()=>{const s=window.__panelState().scene;return s.getObjectByName('schneider_handle_barrel')&&s.getObjectByName('schneider_visitrip_flag')&&s.getObjectByName('schneider_test_recess')}),'Catálogo local de teste: GLB exportado conserva todos os acabamentos iID')
  f.stable();await writeFile(path.join(staging,'results.json'),JSON.stringify({checks:f.count(),finish,measurements,errors:f.errors,scope:'Painel/Admin React/R3F reais, guardar/reabrir/exportar para catálogo em IndexedDB isolado, pedidos externos bloqueados'},null,2)+'\n')
  for(const name of ['off.png','on.png','trip.png','front.png','results.json'])await rename(path.join(staging,name),path.join(output,name))
 }catch(error){if(page)await page.screenshot({path:path.join(output,'failure.png')}).catch(()=>{});throw error}

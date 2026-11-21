@@ -32,16 +32,16 @@
     },
     {
       "path": "/models/protecao/schneider-acti9-iid-4p.glb",
-      "bytes": 905884,
-      "sha256": "16181dc9b67531d28154aa877aee9ca2ff0965a08f2537c46e182ae2ca3fa0c3",
+      "bytes": 1083880,
+      "sha256": "955cd8ac8409277b62b6fc2e9a003a3736edd9f17eb1a5ee4ff5369d137668d6",
       "nominalSizeMm": {
         "width": 72,
         "height": 85,
         "depth": 73.5
       },
       "measuredSizeMm": {
-        "width": 71.69999694824219,
-        "height": 85,
+        "width": 71.81999847769737,
+        "height": 88.69999694824219,
         "depth": 74.4354888945818
       },
       "source": {
@@ -54,7 +54,7 @@
         "Fused simplified STEP explicitly split by reviewed original faces: rocker 103/117-120, dark grip 104-116, test button 186-190. No replacement generic shell.",
         "Rear clips rigidly translated to mounting pose. Body and curved front remain at source scale; nominal depth differs from source handle envelope by less than 1 mm.",
         "Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged.",
-        "Photo-reference finish: satin white shell and moving rocker, light grey fixed cradle, grey grip, recessed zinc-steel cross-head screws and completed test-button face. Capped white rocker remains concentric with the reviewed iID axis; markings and electrical interfaces preserved. Visible details reconstructed from reference, not manufacturer internal CAD."
+        "Photo-reference finish v2: satin white shell, white cradle, concentric R8.5mm closed rocker drum + solid neck (no lower bezel protrusion), curved VisiSafe bands, live VisiTrip window, closed recessed 3D test button, beveled terminal collars with deep recessed zinc-steel combo/PZ2 screws, subtle fascia/inter-pole seams and visible upper yellow DIN clips. Reconstructed visible details; electrical interfaces preserved."
       ]
     }
   ]

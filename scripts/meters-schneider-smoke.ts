@@ -80,8 +80,13 @@ for(const type of types){
   const barrel=clone.getObjectByName('schneider_handle_barrel')!
   check(!!barrel,'iID: source GLB includes the closed white rocker')
   const color=(name:string)=>(clone.getObjectByName(name) as THREE.Mesh).material as THREE.MeshStandardMaterial
-  check(color('schneider_handle_white').color.getHexString()==='f4f5f3'&&color('schneider_handle_grip').color.getHexString()==='55595d'&&color('schneider_handle_cradle').color.getHexString()==='bfc3c2','iID: photo-reference white rocker, grey grip and light grey fixed cradle have distinct materials')
-  check(Array.from({length:8},(_,i)=>clone.getObjectByName('schneider_terminal_screw_'+i)).every(Boolean),'iID: eight recessed front screw heads present without obstructing conductor cavities')
+  check(color('schneider_handle_white').color.getHexString()==='f5f6f4'&&color('schneider_handle_grip').color.getHexString()==='42474c'&&color('schneider_body').color.getHexString()==='f5f6f4','iID: photo-reference satin white housing/rocker and anthracite grip have distinct materials')
+  check(Array.from({length:8},(_,i)=>clone.getObjectByName('schneider_terminal_screw_'+i)).every(Boolean),'iID: eight deep recessed front screw wells with collars present without obstructing conductor cavities')
+  check(!!clone.getObjectByName('schneider_test_recess')&&!!clone.getObjectByName('schneider_visitrip_flag'),'iID: closed test button pocket and live VisiTrip window present')
+  const barrelBox=new THREE.Box3().setFromObject(scene.getObjectByName('schneider_handle_barrel')!,true)
+  check(barrelBox.min.y>0.024&&barrelBox.max.y<0.045,'iID: concentric rocker drum stays inside cradle slot without protruding below bezel')
+  const visOn=clone.getObjectByName('schneider_visisafe_on') as THREE.Mesh
+  check((visOn?.geometry.attributes.position?.count??0)>4,'iID: VisiSafe indicator uses curved cylindrical arc geometry')
   barrel.removeFromParent();completeSchneiderIidHandle(clone);completeSchneiderIidHandle(clone)
   let count=0;clone.traverse(n=>{if(n.name==='schneider_handle_barrel')count++})
   check(count===1,'iID: legacy asset closure is restored once, without duplicate geometry')

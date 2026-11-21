@@ -1,10 +1,12 @@
 {
-  "checks": 24,
+  "checks": 29,
   "finish": {
-    "rocker": "f4f5f3",
-    "grip": "55595d",
-    "cradle": "bfc3c2",
+    "rocker": "f5f6f4",
+    "grip": "42474c",
+    "body": "f5f6f4",
     "test": true,
+    "testRecess": true,
+    "visitrip": true,
     "screws": [
       true,
       true,
@@ -20,23 +22,20 @@
     {
       "name": "off",
       "hits": [
-        "schneider_handle_grip",
         "schneider_handle_white",
         "schneider_handle_barrel",
-        "schneider_handle_grip",
+        "schneider_handle_barrel",
         "schneider_handle_white",
         "schneider_handle_barrel",
-        "schneider_handle_grip",
+        "schneider_handle_barrel",
+        "schneider_handle_white",
         "schneider_handle_barrel",
         "schneider_handle_barrel"
       ],
-      "labelHits": [
-        "schneider_visisafe",
-        "schneider_visisafe",
-        "schneider_visisafe"
-      ],
-      "edgeName": "schneider_handle_edge",
-      "centerError": 5.551115123125783e-17,
+      "statusRayHit": "schneider_visisafe",
+      "vtColor": "ebeeeb",
+      "barrelRelMinY": 0.31132075216327343,
+      "centerError": 8.881784197001252e-16,
       "opaque": true,
       "angle": 0
     },
@@ -44,47 +43,41 @@
       "name": "on",
       "hits": [
         "schneider_handle_barrel",
-        "schneider_handle_barrel",
+        "schneider_handle_neck",
         "schneider_handle_grip",
         "schneider_handle_barrel",
-        "schneider_handle_barrel",
+        "schneider_handle_neck",
         "schneider_handle_grip",
         "schneider_handle_barrel",
-        "schneider_handle_barrel",
+        "schneider_handle_neck",
         "schneider_handle_grip"
       ],
-      "labelHits": [
-        "schneider_visisafe_on",
-        "schneider_visisafe_on",
-        "schneider_visisafe_on"
-      ],
-      "edgeName": "schneider_handle_edge",
-      "centerError": 5.551115123125783e-17,
+      "statusRayHit": "schneider_visisafe_on",
+      "vtColor": "ebeeeb",
+      "barrelRelMinY": 0.31135510286363177,
+      "centerError": 8.881784197001252e-16,
       "opaque": true,
-      "angle": -0.7853981633974483
+      "angle": -1.1519173063162575
     },
     {
       "name": "trip",
       "hits": [
-        "schneider_handle_barrel",
+        "schneider_handle_grip",
         "schneider_handle_grip",
         "schneider_handle_barrel",
-        "schneider_handle_barrel",
+        "schneider_handle_grip",
         "schneider_handle_grip",
         "schneider_handle_barrel",
-        "schneider_handle_barrel",
+        "schneider_handle_grip",
         "schneider_handle_grip",
         "schneider_handle_barrel"
       ],
-      "labelHits": [
-        "schneider_visisafe_trip",
-        "schneider_visisafe_trip",
-        "schneider_visisafe_trip"
-      ],
-      "edgeName": "schneider_handle_edge",
+      "statusRayHit": "schneider_visisafe_trip",
+      "vtColor": "d92027",
+      "barrelRelMinY": 0.3113293518112732,
       "centerError": 8.881784197001252e-16,
       "opaque": true,
-      "angle": -0.39269908169872414
+      "angle": -0.5759586531581288
     }
   ],
   "errors": [],

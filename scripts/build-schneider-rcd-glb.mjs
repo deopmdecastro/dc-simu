@@ -7,19 +7,29 @@ import {completeSchneiderIidHandle} from '../src/three/schneiderRcdModel.ts'
 // Atualiza um GLB existente sem repetir o download/conversão do STEP original.
 if(process.argv.includes('--refresh-iid-barrel')){
  const file='public/models/protecao/schneider-acti9-iid-4p.glb',manifestFile='public/models/protecao/schneider-acti9-rcd-sources.json'
+ const inputFile=process.argv.includes('--base-glb')?process.argv[process.argv.indexOf('--base-glb')+1]:file
  const provenance=JSON.parse(await fs.readFile(manifestFile,'utf8')),previous=provenance.models.find(m=>m.path==='/models/protecao/schneider-acti9-iid-4p.glb')
- const bytes=await fs.readFile(file),{scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')
+ const bytes=await fs.readFile(inputFile),{scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'')
  const root=scene.getObjectByName('schneider_residualBreakerSchneiderIid4p')
  if(!root)throw Error('Missing original iID model root')
  const scaled=new Set()
  root.traverse(n=>{if(n.isMesh&&!scaled.has(n.geometry)){scaled.add(n.geometry);n.geometry.scale(1000,1000,1000)}n.position.multiplyScalar(1000)})
+ // Patilhas amarelas superiores (como na referência Acti9 iID: sobressaem ~3,8 mm no topo traseiro).
+ for(const clipName of ['schneider_clip_1','schneider_clip_2']){
+  const clip=root.getObjectByName(clipName)
+  if(clip?.isMesh){
+   clip.geometry.computeBoundingBox()
+   const maxY=(clip.geometry.boundingBox?.max.y??0)+clip.position.y
+   if(maxY<88.4){clip.geometry.translate(0,88.7-maxY,0);clip.geometry.computeBoundingBox()}
+  }
+ }
  completeSchneiderIidHandle(root,1)
- const note='Photo-reference finish: satin white shell and moving rocker, light grey fixed cradle, grey grip, recessed zinc-steel cross-head screws and completed test-button face. Capped white rocker remains concentric with the reviewed iID axis; markings and electrical interfaces preserved. Visible details reconstructed from reference, not manufacturer internal CAD.'
- const adaptations=previous.adaptations.filter(n=>!/black.*barrel|barrel.*black|Photo-reference finish:/.test(n))
+ const note='Photo-reference finish v2: satin white shell, white cradle, concentric R8.5mm closed rocker drum + solid neck (no lower bezel protrusion), curved VisiSafe bands, live VisiTrip window, closed recessed 3D test button, beveled terminal collars with deep recessed zinc-steel combo/PZ2 screws, subtle fascia/inter-pole seams and visible upper yellow DIN clips. Reconstructed visible details; electrical interfaces preserved.'
+ const adaptations=previous.adaptations.filter(n=>!/black.*barrel|barrel.*black|Photo-reference finish/.test(n))
  const record=await saveModel(root,previous.path,previous.nominalSizeMm,previous.source,[...new Set([...adaptations,note])])
  provenance.models=provenance.models.map(m=>m.path===record.path?record:m)
  await fs.writeFile(manifestFile,JSON.stringify(provenance,null,2)+'\n')
- console.log('iID: acabamento da referência integrado no GLB ('+record.bytes+' bytes)');process.exit(0)
+ console.log('iID: acabamento fiel v2 integrado no GLB ('+record.bytes+' bytes)');process.exit(0)
 }
 const sourceDir=process.argv.includes('--source-dir')?process.argv[process.argv.indexOf('--source-dir')+1]:undefined
 const models=[]
@@ -53,7 +63,7 @@ const models=[]
  const b=addMesh(root,shell,map,m.dark,'schneider_handle_grip',darkHandle)
  pivot(root,'schneider_handle_pivot',[a,b],[-26.9,36.5,61])
  addMesh(root,shell,map,m.white,'schneider_test',test)
- for(let i=1;i<s.meshes.length;i++)addMesh(root,s.meshes[i],(x,y,z)=>map(x,y+(i<=2?-5.504:5.069),z),m.latch,'schneider_clip_'+i)
+ for(let i=1;i<s.meshes.length;i++)addMesh(root,s.meshes[i],(x,y,z)=>map(x,y+(i<=2?-1.704:5.069),z),m.latch,'schneider_clip_'+i)
  status(root,'schneider_visisafe',-26.9,41.8,66.4,9)
  completeSchneiderIidHandle(root,1)
  const rows=[]
@@ -64,7 +74,7 @@ const models=[]
   'Fused simplified STEP explicitly split by reviewed original faces: rocker 103/117-120, dark grip 104-116, test button 186-190. No replacement generic shell.',
   'Rear clips rigidly translated to mounting pose. Body and curved front remain at source scale; nominal depth differs from source handle envelope by less than 1 mm.',
   'Added live VisiSafe regions and reopened all eight conductor cavities; identities and RCCB electrical function unchanged.',
-  'Photo-reference finish: satin white shell and closed white rocker, grey grip, light grey fixed cradle, recessed zinc-steel cross-head screws and completed test button. Reconstructed visible details; real hinge axis, electrical interfaces and markings preserved.'
+  'Photo-reference finish v2: satin white shell, white cradle, concentric R8.5mm closed rocker drum + solid neck (no lower bezel protrusion), curved VisiSafe bands, live VisiTrip window, closed recessed 3D test button, beveled terminal collars with deep recessed zinc-steel combo/PZ2 screws, subtle fascia/inter-pole seams and visible upper yellow DIN clips. Reconstructed visible details; electrical interfaces preserved.'
  ]))
 }
 await manifest('models/protecao/schneider-acti9-rcd-sources.json',models)

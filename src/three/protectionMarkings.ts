@@ -1327,59 +1327,106 @@ function buildSchneiderRcdMarkings(
     plates.push(plate)
     return plate
   }
-  const brand = cachedCanvasTexture(`acti9:${code}:brand:v2:${r.inA}:${r.curve}`, 1024, 172, (ctx, w) => {
-    const green = '#14833e'
+  const brand = cachedCanvasTexture(`acti9:${code}:brand:v3:${r.inA}:${r.curve}`, 1024, 172, (ctx, w) => {
+    const green = '#0e8a42'
     ctx.fillStyle = green
-    drawBrandArtwork(ctx, 'schneider-electric', 8, 7, iid ? 350 : 560, 102)
-    ctx.fillRect(iid ? 380 : 608, 16, w - (iid ? 380 : 608) - 12, 20)
-    ctx.fillStyle = '#363936'
-    ctx.font = `${iid ? 34 : 39}px Arial, sans-serif`
-    ctx.fillText(iid ? 'iID' : `iDPN N Vigi  ${r.curve} ${formatAmpPt(r.inA)}A`, 9, 158)
+    drawBrandArtwork(ctx, 'schneider-electric', 6, 12, iid ? 320 : 560, iid ? 92 : 102)
+    ctx.fillRect(iid ? 344 : 608, iid ? 22 : 16, w - (iid ? 344 : 608) - 10, iid ? 22 : 20)
+    ctx.fillStyle = '#363a37'
+    ctx.font = `${iid ? '600 32px' : '39px'} Arial, sans-serif`
+    ctx.fillText(iid ? 'iID' : `iDPN N Vigi  ${r.curve} ${formatAmpPt(r.inA)}A`, 9, iid ? 150 : 158)
   })
   // iID: botão T à esquerda do logótipo; Vigi: botão à direita, sob a faixa verde.
-  // O ressalto superior termina a ≈66,7 mm: toda a marca fica na face
-  // saliente, sem atravessar o degrau e desaparecer numa vista em perspetiva.
-  projected(brand, iid ? 51 : 33, iid ? 8.5 : 8.3, iid ? 8.5 : 0, 61.6)
-  const technical = cachedCanvasTexture(`acti9:${code}:technical:v2:${r.inA}:${r.sensmA}:${r.rcdType}`, 1024, 210, (ctx, w, h) => {
-    ctx.fillStyle = '#636963'
-    ctx.font = '28px Arial, sans-serif'
-    ctx.fillText(code, 18, 37)
-    ctx.font = '31px Arial, sans-serif'
-    ctx.fillText(`${formatAmpPt(r.inA)}A   IΔn ${r.sensmA}mA   ${iid ? '400V~' : '230/240V~'}`, 180, 50)
-    ctx.font = '25px Arial, sans-serif'
-    ctx.fillText(iid ? 'IEC/EN 61008-1' : 'IEC/EN 61009-2-1   6000', 180, 98)
-    drawRcdTypeSymbol(ctx, w - 160, 122, 130, 57, r.rcdType)
-    ctx.font = '31px Arial, sans-serif'
-    ctx.fillText('T   Regular test', 390, h - 28)
-    // Esquema dos polos, incluindo o neutro do lado esquerdo.
-    ctx.lineWidth = 2.8; ctx.strokeStyle = '#636963'
-    const count = iid ? 4 : 2
-    for (let i = 0; i < count; i++) {
-      const x = 25 + i * 34
-      ctx.beginPath(); ctx.moveTo(x, 73); ctx.lineTo(x, 104); ctx.lineTo(x + 10, 120)
-      ctx.moveTo(x, 125); ctx.lineTo(x, 157); ctx.stroke()
-    }
-    ctx.font = '24px Arial, sans-serif'; ctx.fillText('N', 17, 190)
-  })
-  projected(technical, width - 3, 7.2, 0, 70.6)
-  for (const [row, y] of [['top', 81.1], ['bottom', 3.2]] as const) {
-    const letters = cachedCanvasTexture(`acti9:${code}:terminals:${row}:v2`, iid ? 1024 : 512, 64, (ctx, w) => {
-      const count = iid ? 4 : 2
-      ctx.font = 'bold 40px Arial, sans-serif'; ctx.textBaseline = 'middle'
-      for (let pole = 0; pole < count; pole++) {
-        ctx.fillStyle = pole === 0 ? '#2477a1' : '#626760'
-        const atX = iid ? pole * w / count + 10 : (row === 'top' ? [0.035, 0.30] : [0.56, 0.82])[pole] * w
-        ctx.fillText(pole === 0 ? 'N' : (iid ? String(pole * 2 - (row === 'top' ? 1 : 0)) : row === 'top' ? '1' : '2'), atX, 34)
+  projected(brand, iid ? 51 : 33, iid ? 8.5 : 8.3, iid ? 8.8 : 0, iid ? 60.8 : 61.6)
+  if (iid) {
+    // Escala uniforme 20 px/mm (1380 × 144 para 69 × 7,2 mm) — elimina o achatamento horizontal.
+    const technical = cachedCanvasTexture(`acti9:${code}:technical:v4:${r.inA}:${r.sensmA}:${r.rcdType}`, 1380, 144, (ctx, w, h) => {
+      ctx.fillStyle = '#6c726d'
+      ctx.font = '600 24px Arial, sans-serif'
+      ctx.fillText(code, 22, 32)
+      ctx.font = '600 26px Arial, sans-serif'
+      ctx.fillText(`${formatAmpPt(r.inA)}A   IΔn ${r.sensmA}mA   400V~`, 210, 36)
+      ctx.font = '21px Arial, sans-serif'
+      ctx.fillText('IEC/EN 61008-1', 210, 72)
+      drawRcdTypeSymbol(ctx, w - 150, 62, 118, 52, r.rcdType)
+      ctx.font = '600 22px Arial, sans-serif'
+      ctx.fillText('T  Regular test', 520, h - 24)
+      // Esquema unifilar dos 4 polos com neutro à esquerda.
+      ctx.lineWidth = 2.4; ctx.strokeStyle = '#6c726d'
+      for (let i = 0; i < 4; i++) {
+        const x = 30 + i * 28
+        ctx.beginPath(); ctx.moveTo(x, 48); ctx.lineTo(x, 76); ctx.lineTo(x + 9, 92)
+        ctx.moveTo(x, 96); ctx.lineTo(x, 122); ctx.stroke()
       }
+      ctx.font = '600 20px Arial, sans-serif'; ctx.fillText('N', 23, 141)
     })
-    projected(letters, width - 2, 2.3, 0, y)
-  }
-  {
+    projected(technical, width - 3, 7.2, 0, 70.8)
+    // Marcação dos bornes com escala uniforme 24 px/mm (1680 × 96 para 70 × 4,0 mm):
+    // N azul alto no canto esquerdo junto ao colarinho do borne (como na referência Acti9 iID).
+    for (const [row, y] of [['top', 81.3], ['bottom', 4.4]] as const) {
+      const letters = cachedCanvasTexture(`acti9:${code}:terminals:${row}:v3`, 1680, 96, (ctx, w) => {
+        ctx.textBaseline = 'middle'
+        for (let pole = 0; pole < 4; pole++) {
+          const isN = pole === 0
+          ctx.fillStyle = isN ? '#0068a5' : '#6c726d'
+          ctx.font = isN ? '600 76px "Inter", Arial, sans-serif' : '600 44px "Inter", Arial, sans-serif'
+          const atX = isN ? 22 : pole * (w / 4) + 28
+          ctx.fillText(isN ? 'N' : String(pole * 2 - (row === 'top' ? 1 : 0)), atX, 50)
+        }
+      })
+      projected(letters, width - 2, 4.0, 0, y)
+    }
+    // Letra «T» gravada em relevo no centro do botão de ensaio (escala uniforme 50 px/mm).
+    const letter = cachedCanvasTexture('acti9:iid:T:v4', 260, 125, (ctx, w, h) => {
+      ctx.font = '700 94px "Inter", Arial, sans-serif'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'
+      ctx.fillText('T', w / 2 + 2.6, h / 2 + 2.6)
+      ctx.fillStyle = '#5e6560'
+      ctx.fillText('T', w / 2, h / 2)
+    })
+    const marking = projected(letter, 5.2, 2.5, -26.95, 59.51, test)
+    if (marking) {
+      marking.name = '__dcSchneiderTestMarking'
+      marking.userData.followSchneiderTest = true
+    }
+  } else {
+    const technical = cachedCanvasTexture(`acti9:${code}:technical:v2:${r.inA}:${r.sensmA}:${r.rcdType}`, 1024, 210, (ctx, w, h) => {
+      ctx.fillStyle = '#636963'
+      ctx.font = '28px Arial, sans-serif'
+      ctx.fillText(code, 18, 37)
+      ctx.font = '31px Arial, sans-serif'
+      ctx.fillText(`${formatAmpPt(r.inA)}A   IΔn ${r.sensmA}mA   230/240V~`, 180, 50)
+      ctx.font = '25px Arial, sans-serif'
+      ctx.fillText('IEC/EN 61009-2-1   6000', 180, 98)
+      drawRcdTypeSymbol(ctx, w - 160, 122, 130, 57, r.rcdType)
+      ctx.font = '31px Arial, sans-serif'
+      ctx.fillText('T   Regular test', 390, h - 28)
+      ctx.lineWidth = 2.8; ctx.strokeStyle = '#636963'
+      for (let i = 0; i < 2; i++) {
+        const x = 25 + i * 34
+        ctx.beginPath(); ctx.moveTo(x, 73); ctx.lineTo(x, 104); ctx.lineTo(x + 10, 120)
+        ctx.moveTo(x, 125); ctx.lineTo(x, 157); ctx.stroke()
+      }
+      ctx.font = '24px Arial, sans-serif'; ctx.fillText('N', 17, 190)
+    })
+    projected(technical, width - 3, 7.2, 0, 70.6)
+    for (const [row, y] of [['top', 81.1], ['bottom', 3.2]] as const) {
+      const letters = cachedCanvasTexture(`acti9:${code}:terminals:${row}:v2`, 512, 64, (ctx, w) => {
+        ctx.font = 'bold 40px Arial, sans-serif'; ctx.textBaseline = 'middle'
+        for (let pole = 0; pole < 2; pole++) {
+          ctx.fillStyle = pole === 0 ? '#2477a1' : '#626760'
+          const atX = (row === 'top' ? [0.035, 0.30] : [0.56, 0.82])[pole] * w
+          ctx.fillText(pole === 0 ? 'N' : (row === 'top' ? '1' : '2'), atX, 34)
+        }
+      })
+      projected(letters, width - 2, 2.3, 0, y)
+    }
     const letter = cachedCanvasTexture('acti9:vigi:T:v1', 160, 80, (ctx, w, h) => {
       ctx.fillStyle = '#7f867c'; ctx.font = 'bold 62px Arial, sans-serif'
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('T', w / 2, h / 2)
     })
-    const marking = projected(letter, 4, 2.2, iid ? -26.9 : 8.9, iid ? 59.5 : 59.6, test)
+    const marking = projected(letter, 4, 2.2, 8.9, 59.6, test)
     if (marking) {
       marking.name = '__dcSchneiderTestMarking'
       marking.userData.followSchneiderTest = true
