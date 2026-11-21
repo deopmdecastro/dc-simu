@@ -96,6 +96,9 @@ export const KIND_COLOR: Record<TerminalKind, string> = {
   io: '#a855f7',
   analog: '#06b6d4',
   bus: '#94a3b8',
+  'hydraulic-in': '#0284c7',
+  'hydraulic-out': '#0ea5e9',
+  pneumatic: '#38bdf8',
 }
 
 const KIND_TYPE: Record<TerminalKind, TerminalType> = {
@@ -110,6 +113,9 @@ const KIND_TYPE: Record<TerminalKind, TerminalType> = {
   io: 'spring',
   analog: 'plug',
   bus: 'screw',
+  'hydraulic-in': 'plug',
+  'hydraulic-out': 'plug',
+  pneumatic: 'plug',
 }
 
 const T = (label: string, kind: TerminalKind, x: number, y: number, extra: Partial<TerminalTemplate> = {}): TerminalTemplate => ({
@@ -609,9 +615,23 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { triggered: false, celsius: 60 },
   },
   floatSwitch: {
-    category: 'sensor', paletteName: 'Boia / chave de nível', group: 'Sensores', tag: 'B', w: 80, h: 90,
-    terminals: [T('C', 'aux-no', 0.15, 0.5), T('NA', 'aux-no', 0.85, 0.3), T('NF', 'aux-nc', 0.85, 0.75)],
-    defaultState: { triggered: false, level: 'alto' },
+    category: 'sensor', paletteName: 'Boia / chave de nível · FELIX ENERGY IP68', group: 'Sensores', tag: 'B', w: 110, h: 100,
+    terminals: [
+      T('NA', 'aux-no', 0.14, 0.22, { position3D: { x: 0.43, y: 0.88, z: 0.5 }, face: 'left', contact: 'lead', color: '#92400e', terminalType: 'tinned' as any }),
+      T('C', 'aux-no', 0.14, 0.50, { position3D: { x: 0.43, y: 0.82, z: 0.5 }, face: 'left', contact: 'lead', color: '#111827', terminalType: 'tinned' as any }),
+      T('NF', 'aux-nc', 0.14, 0.78, { position3D: { x: 0.43, y: 0.76, z: 0.5 }, face: 'left', contact: 'lead', color: '#2563eb', terminalType: 'tinned' as any }),
+    ],
+    defaultState: {
+      triggered: false,
+      level: 'baixo',
+      autoCoupleTank: true,
+      manufacturer: 'FELIX ENERGY',
+      model: 'Float Switch IP68',
+      voltage: '250V~',
+      currentA: 16,
+      cable: 'H07RN-F 3×1.0 mm²',
+      protection: 'IP68 · T60',
+    },
   },
 
   // ---------------- Contatores ----------------
@@ -967,6 +987,39 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       manufacturer: 'DC-Simu', model: 'Mono 0,37 kW', mounting: 'B3', frame: 71,
       phases: 1, powerKw: 0.37, cv: 0.5, rpm: 1400, frequencyHz: 50, voltage: '230V', currentA: 2.5,
       cosPhi: 0.85, torqueNm: 2.5, massKg: 7, motorConnection: 'single', color: '#2563eb',
+    },
+  },
+  waterPump: {
+    category: 'motor', paletteName: 'Bomba de água periférica · CALPEDA CT 61 (0,37 kW)', group: 'Motores', tag: 'P', w: 160, h: 130,
+    terminals: [
+      T('L1', 'power-in', 0.45, 0, { position3D: { x: 0.54, y: 0.90, z: 0.42 }, face: 'top', terminalType: 'screw', color: '#92400e', diameter: 10 }),
+      T('N', 'neutral', 0.65, 0, { position3D: { x: 0.64, y: 0.90, z: 0.42 }, face: 'top', terminalType: 'screw', color: '#3b82f6', diameter: 10 }),
+      T('PE', 'earth', 0.85, 0, { position3D: { x: 0.74, y: 0.90, z: 0.42 }, face: 'top', terminalType: 'screw', color: '#84cc16', diameter: 10 }),
+      T('IN', 'hydraulic-in', 0.04, 0.58, { position3D: { x: 0.03, y: 0.46, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#0ea5e9', diameter: 12 }),
+      T('OUT', 'hydraulic-out', 0.22, 0.04, { position3D: { x: 0.16, y: 0.89, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
+    ],
+    defaultState: {
+      running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
+      manufacturer: 'CALPEDA', model: 'CT 61',
+      phases: 1, powerKw: 0.37, cv: 0.5, rpm: 2900, frequencyHz: 50, voltage: '230V~', currentA: 2.4,
+      cosPhi: 0.90, flowLmin: 40, headM: 40, portSize: 'G 1"', protection: 'IP54',
+    },
+  },
+  waterTank: {
+    category: 'sensor', paletteName: 'Reservatório de água 3D (transparente)', group: 'Sensores', tag: 'TK', w: 150, h: 170,
+    terminals: [
+      T('IN', 'hydraulic-in', 0.04, 0.22, { position3D: { x: 0.04, y: 0.78, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#0ea5e9', diameter: 12 }),
+      T('OUT', 'hydraulic-out', 0.96, 0.78, { position3D: { x: 0.96, y: 0.22, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#dc2626', diameter: 12 }),
+    ],
+    defaultState: {
+      diameterMm: 360,
+      heightMm: 480,
+      levelPct: 68,
+      outletValveOpen: false,
+      manualFill: false,
+      filling: false,
+      manufacturer: 'DC-Simu Hidráulica',
+      model: 'Reservatório Transparente 3D',
     },
   },
   /**

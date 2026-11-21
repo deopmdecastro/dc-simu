@@ -379,11 +379,36 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         const trig = !!c.state.triggered
         return (
           <g>
-            <rect x={4} y={10} width={w - 8} height={h - 20} rx={4} fill={trig ? '#065f46' : '#111827'} stroke={trig ? '#22c55e' : s} />
-            <circle cx={w / 2} cy={h / 2} r={8} fill={trig ? '#22c55e' : '#374151'} />
-            {c.type === 'photoSensor' && <polygon points={`${w / 2 - 16},${h / 2} ${w / 2 - 6},${h / 2 - 6} ${w / 2 - 6},${h / 2 + 6}`} fill="#f59e0b" />}
-            {label(6, 12, c.ref, 10, '#93c5fd')}
-            {label(6, h - 4, trig ? 'ATUADO' : 'livre', 8, trig ? '#4ade80' : '#64748b')}
+            <rect x={8} y={14} width={w - 16} height={h - 28} rx={10} fill="#1d4ed8" stroke="#facc15" strokeWidth={3} />
+            <text x={w / 2} y={h / 2 - 2} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#facc15">FELIX</text>
+            <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="#e2e8f0">{trig ? 'ALTO (C-NA)' : 'BAIXO (C-NF)'}</text>
+            {label(6, 11, c.ref, 10, '#93c5fd')}
+          </g>
+        )
+      }
+      case 'waterTank': {
+        const lvl = Math.max(0, Math.min(100, Number(c.state.levelPct ?? 68)))
+        const fillH = ((h - 36) * lvl) / 100
+        return (
+          <g>
+            <rect x={16} y={16} width={w - 32} height={h - 32} rx={8} fill="#e0f2fe" fillOpacity={0.22} stroke="#64748b" strokeWidth={2} />
+            <rect x={18} y={h - 18 - fillH} width={w - 36} height={Math.max(2, fillH)} rx={4} fill="#0ea5e9" fillOpacity={0.72} />
+            <line x1={16} y1={16 + (h - 32) * 0.15} x2={w - 16} y2={16 + (h - 32) * 0.15} stroke="#dc2626" strokeWidth={1.2} strokeDasharray="4 3" />
+            {label(18, 12, c.ref, 10, '#93c5fd')}
+            <text x={w / 2} y={h - 4} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="#38bdf8">{`${Math.round(lvl)}%`}</text>
+          </g>
+        )
+      }
+      case 'waterPump': {
+        const run = !!c.state.running
+        return (
+          <g>
+            <rect x={6} y={12} width={w - 12} height={h - 24} rx={8} fill="#0b748d" stroke={run ? '#38bdf8' : '#085b70'} strokeWidth={run ? 2.5 : 1.6} />
+            <circle cx={w * 0.38} cy={h / 2} r={22} fill="#085b70" stroke="#e2e8f0" strokeWidth={1.6} />
+            <polygon points={`${w * 0.38 - 10},${h / 2 + 8} ${w * 0.38 + 12},${h / 2} ${w * 0.38 - 10},${h / 2 - 8}`} fill={run ? '#38bdf8' : '#cbd5e1'} />
+            <text x={w * 0.72} y={h / 2 - 2} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#f8fafc">CT 61</text>
+            <text x={w * 0.72} y={h / 2 + 10} textAnchor="middle" fontSize={7.5} fontWeight={700} fill={run ? '#4ade80' : '#cbd5e1'}>{run ? 'ON' : 'OFF'}</text>
+            {label(10, 11, c.ref, 10, '#93c5fd')}
           </g>
         )
       }

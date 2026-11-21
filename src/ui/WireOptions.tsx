@@ -1,4 +1,5 @@
-import type { Wire, WireColor, WireDefaults, WireEndType, WireFlexibility, WireRoute } from '../types'
+import type { ConduitMedium, Wire, WireColor, WireDefaults, WireEndType, WireFlexibility, WireRoute } from '../types'
+import { HYDRAULIC_GAUGES, PNEUMATIC_GAUGES } from '../three/hydraulicsModel'
 import { expandWireMarkerRings } from '../electrical/wireMarkers'
 import { ConductorIcon, WIRE_END_OPTIONS, WireEndIcon } from '../schematic/wireEnds'
 import {
@@ -308,10 +309,52 @@ export function WireOptionsFields({
   const ampacityA = wireAmpacityIecA(value.gauge)
   const activeRoute: WireRoute = value.route ?? 'orthogonal'
   const activePreset = matchCablePreset(value)
+  const activeMedium: ConduitMedium = value.medium ?? 'electrical'
+  const pickMedium = (medium: ConduitMedium) => {
+    if (medium === 'hydraulic') {
+      onChange({ medium, gauge: 'DN20 (Ø25mm)', endType: 'hydraulicFitting', color: 'grey', autoColor: false, route: 'orthogonal', conductorCount: 1, sheathed: false })
+    } else if (medium === 'pneumatic') {
+      onChange({ medium, gauge: 'PU Ø6mm', endType: 'pneumaticPushIn', color: 'lightblue', autoColor: false, route: 'arc', conductorCount: 1, sheathed: false })
+    } else {
+      onChange({ medium: 'electrical', gauge: '1.5mm²', endType: 'ferrule', autoColor: true, route: 'orthogonal' })
+    }
+  }
+  const activeGauges: readonly string[] = activeMedium === 'hydraulic'
+    ? HYDRAULIC_GAUGES
+    : activeMedium === 'pneumatic'
+      ? PNEUMATIC_GAUGES
+      : WIRE_GAUGES
 
   return (
     <div className={`wo-fields${compact ? ' is-compact' : ''}`}>
-      {/* Amostra visual em direto do cabo configurado + cotas físicas */}
+      {/* Seletor de meio físico: Cabo elétrico | Tubo hidráulico | Tubo pneumático */}
+      <div className="wo-group" data-conduit-medium-group>
+        <div className="wo-label">
+          <span>Tipo de conduta</span>
+          <em>{activeMedium === 'hydraulic' ? 'Hidráulica' : activeMedium === 'pneumatic' ? 'Pneumática' : 'Elétrica'}</em>
+        </div>
+        <div className="wo-routes" role="radiogroup" aria-label="Tipo de conduta (cabo elétrico, tubo hidráulico ou pneumático)">
+          {([
+            ['electrical', 'Cabo elétrico', 'Condutor elétrico normalizado'],
+            ['hydraulic', 'Tubo hidráulico', 'Tubagem hidráulica com uniões roscadas'],
+            ['pneumatic', 'Tubo pneumático', 'Tubo PU de ar comprimido com conectores Push-In'],
+          ] as const).map(([id, labelText, hint]) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={activeMedium === id}
+              title={hint}
+              className={`wo-route${activeMedium === id ? ' is-on' : ''}`}
+              onClick={() => pickMedium(id)}
+            >
+              <span>{labelText}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Amostra visual em direto do cabo/tubo configurado + cotas físicas */}
       <div className="wo-preview-card">
         <CableSpecimen
           color={value.color}
@@ -418,21 +461,21 @@ export function WireOptionsFields({
 
       <div className="wo-group">
         <div className="wo-label">
-          <span>Secção</span>
-          <em>{value.gauge}{ampacityA !== null ? ` · ≈ ${ampacityA} A` : ''}</em>
+          <span>{activeMedium === 'electrical' ? 'Secção' : 'Diâmetro nominal'}</span>
+          <em>{value.gauge}{activeMedium === 'electrical' && ampacityA !== null ? ` · ≈ ${ampacityA} A` : ''}</em>
         </div>
-        <div className="wo-gauges" role="radiogroup" aria-label="Secção do cabo">
-          {WIRE_GAUGES.map((gauge) => (
+        <div className="wo-gauges" role="radiogroup" aria-label={activeMedium === 'electrical' ? 'Secção do cabo' : 'Diâmetro do tubo'}>
+          {activeGauges.map((gauge) => (
             <button
               key={gauge}
               type="button"
               role="radio"
               aria-checked={value.gauge === gauge}
-              aria-label={`Secção ${gauge}`}
+              aria-label={`Bitola ${gauge}`}
               className={`wo-gauge${value.gauge === gauge ? ' is-on' : ''}`}
               onClick={() => onChange({ gauge })}
             >
-              {gauge.replace('mm²', '')}<i>mm²</i>
+              {gauge.includes('mm²') ? <>{gauge.replace('mm²', '')}<i>mm²</i></> : <span>{gauge}</span>}
             </button>
           ))}
         </div>

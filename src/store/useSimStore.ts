@@ -41,6 +41,7 @@ import type {
   LadderTag,
   LadderDataType,
   Wire,
+  WireKind,
   WireColor,
   WireDefaults,
   EditorTool,
@@ -1123,6 +1124,89 @@ function runOneTick(state: Store, dtMs: number) {
         }
       }
     }
+    if (c.type === 'waterPump') {
+      const live = isLoadPowered(c, pass3.energizedTerminals, 'L1', 'N')
+      c.state.running = live && !sim.faults.phaseLoss
+      if (c.state.running) {
+        const prev = c.state.rpmVisual ?? 0
+        c.state.rpmVisual = Math.min(2.2, prev + (2.2 - prev) * (dtMs / 280))
+        c.state.direction = 'cw'
+      } else {
+        const prev = c.state.rpmVisual ?? 0
+        if (prev > 0.03) {
+          c.state.rpmVisual = Math.max(0, prev + (0 - prev) * (dtMs / 480))
+          if (c.state.rpmVisual < 0.04) c.state.direction = 'stopped'
+        } else {
+          c.state.rpmVisual = 0
+          c.state.direction = 'stopped'
+        }
+      }
+    }
+  }
+
+  // 9b) Simulação hidráulica em tempo real: bombas -> tubos hidráulicos -> reservatórios -> bóias
+  const hydraulicWires = wires.filter((w) => w.kind === 'hydraulic' && w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint)
+  const hydraulicAdj = new Map<string, string[]>()
+  for (const hw of hydraulicWires) {
+    if (!hydraulicAdj.has(hw.fromTerminalId)) hydraulicAdj.set(hw.fromTerminalId, [])
+    if (!hydraulicAdj.has(hw.toTerminalId)) hydraulicAdj.set(hw.toTerminalId, [])
+    hydraulicAdj.get(hw.fromTerminalId)!.push(hw.toTerminalId)
+    hydraulicAdj.get(hw.toTerminalId)!.push(hw.fromTerminalId)
+  }
+  const activeHydraulicTerminals = new Set<string>()
+  const pumpFlowQueue: string[] = []
+  for (const p of components) {
+    if (p.type === 'waterPump' && p.state.running) {
+      const outT = p.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')
+      if (outT && !activeHydraulicTerminals.has(outT.id)) {
+        activeHydraulicTerminals.add(outT.id)
+        pumpFlowQueue.push(outT.id)
+      }
+    }
+  }
+  while (pumpFlowQueue.length > 0) {
+    const cur = pumpFlowQueue.shift()!
+    for (const nb of hydraulicAdj.get(cur) ?? []) {
+      if (!activeHydraulicTerminals.has(nb)) {
+        activeHydraulicTerminals.add(nb)
+        pumpFlowQueue.push(nb)
+      }
+    }
+  }
+  for (const hw of hydraulicWires) {
+    hw.energized = activeHydraulicTerminals.has(hw.fromTerminalId) && activeHydraulicTerminals.has(hw.toTerminalId)
+    if (hw.energized && pass3.activeWires) pass3.activeWires.add(hw.id)
+  }
+  const dtSec = Math.max(0.016, dtMs / 1000)
+  const tanks = components.filter((c) => c.type === 'waterTank')
+  for (const tk of tanks) {
+    const inTerm = tk.terminals.find((t) => t.label === 'IN' || t.kind === 'hydraulic-in')
+    const pumpFilling = !!(inTerm && activeHydraulicTerminals.has(inTerm.id))
+    const filling = pumpFilling || !!tk.state.manualFill
+    tk.state.filling = filling
+    let lvl = Number(tk.state.levelPct ?? 68)
+    if (!Number.isFinite(lvl)) lvl = 68
+    if (filling) lvl += dtSec * 12
+    if (tk.state.outletValveOpen) lvl -= dtSec * 10
+    tk.state.levelPct = Math.max(0, Math.min(100, Math.round(lvl * 10) / 10))
+  }
+  // Acoplamento automático de bóias (floatSwitch) ao reservatório mais próximo / associado
+  if (tanks.length > 0) {
+    for (const fs of components) {
+      if (fs.type !== 'floatSwitch' || fs.state.autoCoupleTank === false) continue
+      const targetTank =
+        (fs.state.linkedTankId ? tanks.find((tk) => tk.id === fs.state.linkedTankId) : null) ??
+        tanks[0]
+      if (!targetTank) continue
+      const lvl = Number(targetTank.state.levelPct ?? 68)
+      if (lvl >= 82 && !fs.state.triggered) {
+        fs.state.triggered = true
+        fs.state.level = 'alto'
+      } else if (lvl <= 25 && fs.state.triggered) {
+        fs.state.triggered = false
+        fs.state.level = 'baixo'
+      }
+    }
   }
 
   updatePanelMeters(components, wires, pass3, dtMs, true)
@@ -1333,6 +1417,8 @@ export const WIRE_KIND_COLOR: Record<Wire['kind'], WireColor> = {
   neutral: 'lightblue',
   earth: 'green-yellow',
   bus: 'violet',
+  hydraulic: 'lightblue',
+  pneumatic: 'blue',
 }
 
 /** latch = interruptor · push = botão NO (1 enquanto premido) · nc = botão NC (1 em repouso, 0 enquanto premido) */
@@ -4789,12 +4875,33 @@ export const useSimStore = create<Store>((set, get) => {
     if (a?.kind === 'earth' || b?.kind === 'earth') wire.kind = 'earth'
     if (a?.kind === 'io' || b?.kind === 'io') wire.kind = 'signal'
     if (a?.electricalClass === 'network' || b?.electricalClass === 'network') wire.kind = 'bus'
-    // cor automática pela função (IEC 60204-1): força preto, comando vermelho,
-    // neutro azul-claro, PE verde-amarelo, sinal laranja, bus violeta
+    const isHydraulicConn =
+      a?.kind === 'hydraulic-in' || a?.kind === 'hydraulic-out' ||
+      b?.kind === 'hydraulic-in' || b?.kind === 'hydraulic-out' ||
+      defs.medium === 'hydraulic'
+    const isPneumaticConn =
+      a?.kind === 'pneumatic' || b?.kind === 'pneumatic' || defs.medium === 'pneumatic'
+    if (isHydraulicConn) {
+      wire.kind = 'hydraulic'
+      if (!/Ø\s*[0-9]/i.test(wire.gauge)) wire.gauge = 'DN20 (Ø25mm)'
+      wire.endType = 'hydraulicFitting'
+      wire.fromEndType = 'hydraulicFitting'
+      wire.toEndType = 'hydraulicFitting'
+      wire.number = `TH${get().wires.filter((x) => x.kind === 'hydraulic').length + 1}`
+    } else if (isPneumaticConn) {
+      wire.kind = 'pneumatic'
+      if (!/Ø\s*[0-9]/i.test(wire.gauge)) wire.gauge = 'PU Ø6mm'
+      wire.endType = 'pneumaticPushIn'
+      wire.fromEndType = 'pneumaticPushIn'
+      wire.toEndType = 'pneumaticPushIn'
+      wire.number = `TP${get().wires.filter((x) => x.kind === 'pneumatic').length + 1}`
+    }
+    // cor automática pela função (IEC 60204-1 + hidráulica/pneumática)
     if (!color && defs.autoColor) wire.color = WIRE_KIND_COLOR[wire.kind]
 
     set((s) => ({ wires: normalizeWires([...s.wires, wire], s.components), selectedWireId: wire.id, dirty: true }))
-    get().pushEvent('info', `Cabo ${wire.number} criado (${a?.comp.ref ?? '?'} → ${b?.comp.ref ?? '?'}).`)
+    const conduitNoun = wire.kind === 'hydraulic' ? 'Tubo hidráulico' : wire.kind === 'pneumatic' ? 'Tubo pneumático' : 'Cabo'
+    get().pushEvent('info', `${conduitNoun} ${wire.number} criado (${a?.comp.ref ?? '?'} → ${b?.comp.ref ?? '?'}).`)
     if (a && b && !terminalClassesCompatible(a.electricalClass, b.electricalClass)) {
       get().pushEvent('warning', `Verifique ${wire.number}: ${TERMINAL_ELECTRICAL_CLASS_LABEL[a.electricalClass]} ligado a ${TERMINAL_ELECTRICAL_CLASS_LABEL[b.electricalClass]}.`)
     }
@@ -4806,14 +4913,20 @@ export const useSimStore = create<Store>((set, get) => {
     if (from.point && to.point && Math.hypot(from.point.x - to.point.x, from.point.y - to.point.y) < 5) return
     const defs = get().wireDefaults
     const coreCount = defs.conductorCount ?? 1
+    const freeKind: WireKind = defs.medium === 'hydraulic' ? 'hydraulic' : defs.medium === 'pneumatic' ? 'pneumatic' : 'control'
+    const freeGauge = freeKind === 'hydraulic' && !/Ø\s*[0-9]/i.test(defs.gauge) ? 'DN20 (Ø25mm)'
+      : freeKind === 'pneumatic' && !/Ø\s*[0-9]/i.test(defs.gauge) ? 'PU Ø6mm' : defs.gauge
+    const freeEnd = freeKind === 'hydraulic' ? 'hydraulicFitting' : freeKind === 'pneumatic' ? 'pneumaticPushIn' : defs.endType
     get().commitHistory()
     const wire: Wire = {
       id: nanoid(8), fromTerminalId: from.terminalId ?? '', toTerminalId: to.terminalId ?? '',
       fromPoint: from.point, toPoint: to.point, waypoints,
-      color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
-      endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
+      color: defs.color, gauge: freeGauge, kind: freeKind, flexibility: defs.flexibility,
+      endType: freeEnd, fromEndType: freeEnd, toEndType: freeEnd,
       fromEndLayer: 'back', toEndLayer: 'back', route: defs.route ?? 'orthogonal', bend: 0.5, curveOffset: 0,
-      number: `W${get().wires.length + 1}`,
+      number: freeKind === 'hydraulic' ? `TH${get().wires.filter((x) => x.kind === 'hydraulic').length + 1}`
+        : freeKind === 'pneumatic' ? `TP${get().wires.filter((x) => x.kind === 'pneumatic').length + 1}`
+        : `W${get().wires.length + 1}`,
       conductorCount: coreCount,
       sheathed: defs.sheathed ?? false,
       sheathColor: defs.sheathed ? (defs.sheathColor ?? '#0f172a') : undefined,
@@ -4845,6 +4958,10 @@ export const useSimStore = create<Store>((set, get) => {
     const project = (p: SpatialPoint3D) => ({ x: Math.round(panelToSchematicX(p.x)), y: Math.round(panelToSchematicY(p.y)) })
     const defs = get().wireDefaults
     const coreCount = defs.conductorCount ?? 1
+    const freeKind3D: WireKind = defs.medium === 'hydraulic' ? 'hydraulic' : defs.medium === 'pneumatic' ? 'pneumatic' : 'control'
+    const freeGauge3D = freeKind3D === 'hydraulic' && !/Ø\s*[0-9]/i.test(defs.gauge) ? 'DN20 (Ø25mm)'
+      : freeKind3D === 'pneumatic' && !/Ø\s*[0-9]/i.test(defs.gauge) ? 'PU Ø6mm' : defs.gauge
+    const freeEnd3D = freeKind3D === 'hydraulic' ? 'hydraulicFitting' : freeKind3D === 'pneumatic' ? 'pneumaticPushIn' : defs.endType
     get().commitHistory()
     const wire: Wire = {
       id: nanoid(8),
@@ -4855,8 +4972,8 @@ export const useSimStore = create<Store>((set, get) => {
       fromPoint3D: 'point' in from ? from.point : undefined,
       toPoint3D: 'point' in to ? to.point : undefined,
       waypoints3D: path,
-      color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
-      endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
+      color: defs.color, gauge: freeGauge3D, kind: freeKind3D, flexibility: defs.flexibility,
+      endType: freeEnd3D, fromEndType: freeEnd3D, toEndType: freeEnd3D,
       fromEndLayer: 'back', toEndLayer: 'back', route: defs.route ?? 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`,
       conductorCount: coreCount,

@@ -15,6 +15,7 @@ export interface ShortCircuitDiagnostic {
 const LOAD_COMPONENT_TYPES = new Set([
   'motor3ph',
   'motor1ph',
+  'waterPump',
   'contactor',
   'contactor4p',
   'contactorWegCWC09',
@@ -102,6 +103,7 @@ export function evaluateShortCircuits(
 
   // A) Identifica colisões de fase diretas através de cabos condutores
   for (const w of wires) {
+    if (w.kind === 'hydraulic' || w.kind === 'pneumatic') continue
     if (!w.fromTerminalId || !w.toTerminalId || w.fromPoint || w.toPoint) continue
     const tA = energizedTerminals.has(w.fromTerminalId)
     const tB = energizedTerminals.has(w.toTerminalId)

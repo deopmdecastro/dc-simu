@@ -12,6 +12,8 @@ export const WIRE_END_OPTIONS: Array<{ id: WireEndType; label: string; hint: str
   { id: 'probe', label: 'Ponteira de teste', hint: 'Ponta metálica com guarda de dedos e punho isolado' },
   { id: 'faston', label: 'Faston', hint: 'Terminal de encaixe rápido (faston)' },
   { id: 'tinned', label: 'Estanhado', hint: 'Ponta estanhada, sem terminal' },
+  { id: 'hydraulicFitting', label: 'União hidráulica', hint: 'Porca sextavada e união roscada para tubos hidráulicos' },
+  { id: 'pneumaticPushIn', label: 'Conector Push-In', hint: 'Ligador rápido pneumático com anel de libertação azul' },
   { id: 'none', label: 'Nu', hint: 'Ponta nua (sem terminação)' },
 ]
 
@@ -51,6 +53,12 @@ export function WireEndIcon({ type, color = '#ef4444', size = 34 }: { type: Wire
       break
     case 'tinned':
       end = <line x1={10} y1={8} x2={22} y2={8} stroke="#aeb8c6" strokeWidth={3} strokeLinecap="round" />
+      break
+    case 'hydraulicFitting':
+      end = (<><rect x={3} y={4.5} width={7} height={7} rx={1} fill="#b45309" stroke="#78350f" strokeWidth={0.6} /><rect x={10} y={2.8} width={8} height={10.4} rx={1.2} fill="#d97706" stroke="#78350f" strokeWidth={0.7} /><rect x={18} y={5} width={4} height={6} fill={metal} stroke={edge} strokeWidth={0.5} /></>)
+      break
+    case 'pneumaticPushIn':
+      end = (<><rect x={3} y={4.5} width={7} height={7} rx={1} fill={metal} stroke={edge} strokeWidth={0.6} /><rect x={10} y={3.2} width={7} height={9.6} rx={1.2} fill="#94a3b8" stroke={edge} strokeWidth={0.6} /><rect x={17} y={4} width={5} height={8} rx={1.4} fill="#2563eb" stroke="#1d4ed8" strokeWidth={0.6} /></>)
       break
     default:
       end = <line x1={14} y1={8} x2={22} y2={8} stroke="#b87333" strokeWidth={2} strokeLinecap="round" />

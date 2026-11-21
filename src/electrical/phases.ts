@@ -26,7 +26,7 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
       adjacency.get(a)!.push(b)
       adjacency.get(b)!.push(a)
     }
-    for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) addEdge(w.fromTerminalId, w.toTerminalId)
+    for (const w of wires) if (w.kind !== 'hydraulic' && w.kind !== 'pneumatic' && w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) addEdge(w.fromTerminalId, w.toTerminalId)
     for (const c of components) {
       for (const [a, b] of internalBridges(c)) addEdge(a, b)
       if (topology) for (const [a, b] of poleTerminalPairs(c)) addEdge(a, b)

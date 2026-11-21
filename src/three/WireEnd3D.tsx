@@ -229,6 +229,32 @@ export function WireEnd3D({ geometry, wireRadius, color, side, onSelect }: { geo
       }
       case 'tinned':
         return <Cyl y={geometry.length / 2} length={geometry.length} radius={R * 0.46} color={TIN} metalness={0.7} roughness={0.35} />
+      case 'hydraulicFitting': {
+        // União hidráulica roscada em latão/aço com porca sextavada e anel de vedação
+        const nutR = Math.max(R * 1.48, 8 * U)
+        const threadR = Math.max(R * 1.12, 6 * U)
+        return <>
+          <Cyl y={3 * U} length={7 * U} radius={threadR} color="#b45309" metalness={0.78} roughness={0.32} />
+          <mesh position={[0, 11 * U, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[nutR, nutR, 9 * U, 6]} />
+            <meshStandardMaterial color="#d97706" metalness={0.82} roughness={0.26} />
+          </mesh>
+          <Cyl y={19 * U} length={7 * U} radius={R * 1.18} color="#64748b" metalness={0.78} roughness={0.28} />
+        </>
+      }
+      case 'pneumaticPushIn': {
+        // Conector rápido pneumático Push-In: corpo sextavado niquelado + anel azul de libertação
+        const bodyR = Math.max(R * 1.55, 5.5 * U)
+        const collarR2 = Math.max(R * 1.38, 4.8 * U)
+        return <>
+          <Cyl y={2.5 * U} length={5.5 * U} radius={Math.max(R * 1.1, 4 * U)} color="#cbd5e1" metalness={0.88} roughness={0.22} />
+          <mesh position={[0, 8.5 * U, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <cylinderGeometry args={[bodyR, bodyR, 7 * U, 6]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.86} roughness={0.24} />
+          </mesh>
+          <Cyl y={14.5 * U} length={5.5 * U} radius={collarR2} color="#2563eb" metalness={0.14} roughness={0.36} />
+        </>
+      }
       default:
         // ponta nua: cobre à vista
         return <Cyl y={geometry.length / 2} length={geometry.length} radius={R * 0.46} color={COPPER} metalness={0.6} roughness={0.4} />

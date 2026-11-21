@@ -60,6 +60,7 @@ import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
 import { isRealBusbarType } from '../three/busbarParts'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
+import { HYDRAULIC_GAUGES, PNEUMATIC_GAUGES } from '../three/hydraulicsModel'
 import {
   CABLE_PRESETS,
   WIRE_COLOR_LABEL,
@@ -1856,14 +1857,41 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                       </div>
 
                       <div>
+                        <label className={label}>Tipo de conduta</label>
+                        <div className="wo-routes" role="radiogroup" aria-label="Tipo de conduta (elétrica, hidráulica ou pneumática)">
+                          {([
+                            ['control', 'Cabo elétrico', () => patchSelectedWire({ kind: 'control', gauge: /Ø\s*[0-9]/i.test(selectedWire.gauge) ? '1.5mm²' : selectedWire.gauge, endType: 'ferrule', fromEndType: 'ferrule', toEndType: 'ferrule' })],
+                            ['hydraulic', 'Tubo hidráulico', () => patchSelectedWire({ kind: 'hydraulic', gauge: /Ø\s*[0-9]/i.test(selectedWire.gauge) ? selectedWire.gauge : 'DN20 (Ø25mm)', color: 'grey', endType: 'hydraulicFitting', fromEndType: 'hydraulicFitting', toEndType: 'hydraulicFitting', route: 'orthogonal' })],
+                            ['pneumatic', 'Tubo pneumático', () => patchSelectedWire({ kind: 'pneumatic', gauge: /Ø\s*[0-9]/i.test(selectedWire.gauge) ? selectedWire.gauge : 'PU Ø6mm', color: 'lightblue', endType: 'pneumaticPushIn', fromEndType: 'pneumaticPushIn', toEndType: 'pneumaticPushIn', route: 'arc' })],
+                          ] as const).map(([id, text, onPick]) => {
+                            const active = id === 'control' ? (selectedWire.kind !== 'hydraulic' && selectedWire.kind !== 'pneumatic') : selectedWire.kind === id
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                role="radio"
+                                aria-checked={active}
+                                className={`wo-route${active ? ' is-on' : ''}`}
+                                onClick={onPick}
+                              >
+                                <span>{text}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <label className={label + ' !mb-0'}>Secção nominal</label>
+                          <label className={label + ' !mb-0'}>
+                            {selectedWire.kind === 'hydraulic' || selectedWire.kind === 'pneumatic' ? 'Diâmetro nominal' : 'Secção nominal'}
+                          </label>
                           <span className="text-[10px] font-mono text-ink-500">
-                            {selectedWire.gauge} · Ø {outerMm.toFixed(1)} mm{ampacityA ? ` · ≈ ${ampacityA} A` : ''}
+                            {selectedWire.gauge} · Ø {outerMm.toFixed(1)} mm{selectedWire.kind !== 'hydraulic' && selectedWire.kind !== 'pneumatic' && ampacityA ? ` · ≈ ${ampacityA} A` : ''}
                           </span>
                         </div>
-                        <div className="wo-gauges" role="radiogroup" aria-label="Secção do cabo">
-                          {WIRE_GAUGES.map((g) => {
+                        <div className="wo-gauges" role="radiogroup" aria-label="Bitola da conduta">
+                          {(selectedWire.kind === 'hydraulic' ? HYDRAULIC_GAUGES : selectedWire.kind === 'pneumatic' ? PNEUMATIC_GAUGES : WIRE_GAUGES).map((g) => {
                             const on = selectedWire.gauge === g
                             return (
                               <button
@@ -1871,11 +1899,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                 type="button"
                                 role="radio"
                                 aria-checked={on}
-                                aria-label={`Secção ${g}`}
+                                aria-label={`Bitola ${g}`}
                                 className={`wo-gauge${on ? ' is-on' : ''}`}
                                 onClick={() => patchSelectedWire({ gauge: g })}
                               >
-                                {g.replace('mm²', '')}<i>mm²</i>
+                                {g.includes('mm²') ? <>{g.replace('mm²', '')}<i>mm²</i></> : <span>{g}</span>}
                               </button>
                             )
                           })}

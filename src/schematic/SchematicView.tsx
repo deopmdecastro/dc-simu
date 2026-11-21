@@ -217,6 +217,24 @@ function WireEnd({ p, dir, type, color, scale = 1 }: { p: Pt; dir: Pt; type: Wir
         </>
       )
       break
+    case 'hydraulicFitting':
+      body = (
+        <>
+          <rect x={0} y={-2.8} width={5} height={5.6} rx={0.6} fill="#c89a38" stroke="#785313" strokeWidth={0.6} />
+          <rect x={5} y={-4.6} width={5.5} height={9.2} rx={0.8} fill="#dfb552" stroke="#785313" strokeWidth={0.6} />
+          <rect x={10.5} y={-3.4} width={4.5} height={6.8} rx={0.8} fill="#b8892a" stroke="#785313" strokeWidth={0.5} />
+        </>
+      )
+      break
+    case 'pneumaticPushIn':
+      body = (
+        <>
+          <rect x={0} y={-2.8} width={5} height={5.6} rx={0.6} fill="#b8c2cc" stroke="#475569" strokeWidth={0.6} />
+          <rect x={5} y={-4.2} width={5} height={8.4} rx={0.8} fill="#cbd5e1" stroke="#475569" strokeWidth={0.6} />
+          <rect x={10} y={-3.6} width={3.6} height={7.2} rx={1} fill="#2563eb" stroke="#1e3a8a" strokeWidth={0.5} />
+        </>
+      )
+      break
     case 'tinned':
     default:
       body = <line x1={0} y1={0} x2={6} y2={0} stroke="#aeb8c6" strokeWidth={2.2} strokeLinecap="round" />

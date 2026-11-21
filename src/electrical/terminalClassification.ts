@@ -16,7 +16,7 @@ const AC_LABEL = /(^|[^A-Z])(L\d*|N|U\d*|V\d*|W\d*|T\d*|S\d*)([^A-Z]|$)/i
 export function inferTerminalElectricalClass(component: ElectricalComponent, terminal: Terminal): TerminalElectricalClass {
   const label = `${terminal.label} ${terminal.displayName ?? ''}`.trim()
   if (NETWORK_LABEL.test(label) || terminal.kind === 'bus') return 'network'
-  if (terminal.kind === 'earth') return 'other'
+  if (terminal.kind === 'earth' || terminal.kind === 'hydraulic-in' || terminal.kind === 'hydraulic-out' || terminal.kind === 'pneumatic') return 'other'
 
   if (component.type === 'powerSupplyProauto24A') {
     if (/^(L|N)$/i.test(terminal.label)) return 'ac'
@@ -47,7 +47,8 @@ export function inferTerminalElectricalClass(component: ElectricalComponent, ter
   if (component.type === 'phoenixEcb3000760' || component.type === 'surgeProtectorWegSpw12') {
     return 'dc'
   }
-  if (component.type === 'motor3ph' || component.type === 'motor1ph') return 'ac'
+  if (component.type === 'motor3ph' || component.type === 'motor1ph' || component.type === 'waterPump') return 'ac'
+  if (component.type === 'floatSwitch' || component.type === 'waterTank') return 'other'
   if (component.type === 'lampIncandescentE27' || component.type === 'lampFluorescentE27' || component.type === 'lampLedE27') return 'ac'
   if (component.type === 'wallSwitchSimple' || component.type === 'wallSwitchDouble' || component.type === 'wallSwitchStaircase') return 'ac'
   if (component.type === 'transformer') return 'ac'

@@ -515,7 +515,7 @@ function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set
     return root
   }
   const union = (a: string, b: string) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb) }
-  for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) union(w.fromTerminalId, w.toTerminalId)
+  for (const w of wires) if (w.kind !== 'hydraulic' && w.kind !== 'pneumatic' && w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) union(w.fromTerminalId, w.toTerminalId)
   // Bornes, réguas e barramentos repartidores: condutores passivos, sempre em continuidade por barra.
   for (const c of components) {
     if (/^(terminal|busbarPhaseAcrylic|busbarPhaseStepped|busbarComb|combBusbarConnector|busbarNeutral)/.test(c.type)) {
@@ -668,6 +668,7 @@ function buildGraph(components: ElectricalComponent[], wires: Wire[]): Graph {
     adjacency.get(b)!.push(a)
   }
   for (const w of wires) {
+    if (w.kind === 'hydraulic' || w.kind === 'pneumatic') continue
     // Etiquetas de rede (comunicação entre folhas do esquema): a ponta marcada
     // liga-se ao nó virtual «net:NOME», partilhado por todos os fios com a
     // mesma etiqueta — continuidade elétrica mesmo sem fio desenhado.
@@ -750,6 +751,14 @@ export function computeCurrentFlow(
     if (u1 && v1 && w1 && energizedTerminals.has(u1) && energizedTerminals.has(v1) && energizedTerminals.has(w1)) {
       activeSingleTerminals.push(u1, v1, w1)
     }
+    // Eletrobomba periférica monofásica (L1 + N)
+    if (c.type === 'waterPump' && c.state.running) {
+      const l1 = t(c, 'L1')?.id
+      const n = t(c, 'N')?.id
+      if (l1 && n && energizedTerminals.has(l1) && energizedTerminals.has(n)) {
+        activeTerminalPairs.push([l1, n])
+      }
+    }
     // Fontes DC / PLCs com alimentação ligada
     if (c.type === 'powerSupplyProauto24A' && c.state.powered) {
       const l = t(c, 'L')?.id
@@ -781,6 +790,7 @@ export function computeCurrentFlow(
 
   const wireByEdge = new Map<string, string>()
   for (const w of wires) {
+    if (w.kind === 'hydraulic' || w.kind === 'pneumatic') continue
     if (energizedTerminals.has(w.fromTerminalId) && energizedTerminals.has(w.toTerminalId)) {
       wireByEdge.set(`${w.fromTerminalId}|${w.toTerminalId}`, w.id)
       wireByEdge.set(`${w.toTerminalId}|${w.fromTerminalId}`, w.id)

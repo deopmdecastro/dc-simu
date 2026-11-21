@@ -12,6 +12,8 @@
  * 16 mm² pareça maior do que a de 0,5 mm² — como no equipamento real.
  */
 
+import { parseTubularDiameterMm } from '../three/hydraulicsModel'
+
 /** Secções oferecidas na interface (mm²). */
 export const WIRE_GAUGE_MM: Record<string, number> = {
   '0.5mm²': 0.5,
@@ -48,6 +50,12 @@ const MAX_GAUGE = 16
  * legível junto à grelha e aos componentes.
  */
 export function wireStrokeWidth(gauge: string | undefined, opts?: { conductorCount?: number; sheathed?: boolean }): number {
+  const tubeMm = parseTubularDiameterMm(gauge)
+  if (tubeMm !== null) {
+    // Tubos hidráulicos (20–50 mm) e pneumáticos (4–12 mm): espessura visual proporcional e legível no 2D
+    const w = 2.2 + Math.min(8.5, Math.sqrt(tubeMm) * 1.15)
+    return Math.round(w * 100) / 100
+  }
   const mm = Math.min(MAX_GAUGE, Math.max(MIN_GAUGE, gaugeMm(gauge)))
   const t = (Math.sqrt(mm) - Math.sqrt(MIN_GAUGE)) / (Math.sqrt(MAX_GAUGE) - Math.sqrt(MIN_GAUGE))
   let w = MIN_WIDTH + t * (MAX_WIDTH - MIN_WIDTH)

@@ -1,5 +1,6 @@
 import { INDUSTRIAL_INFO, isIndustrialDevice } from '../electrical/industrialDevices'
 import { isLightingLampType, isLightingSwitchType, LAMP_SPECS, SWITCH_SPECS } from '../three/lightingModel'
+import { HYDRAULIC_DATASHEETS, isHydraulicComponentType } from '../three/hydraulicsModel'
 import { IconExternalLink, IconDownload } from '../ui/icons'
 import { uiConfirm } from '../ui/dialogs'
 import { useEffect, useRef, useState } from 'react'
@@ -24,9 +25,14 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
     : isLightingSwitchType(type)
       ? { path: SWITCH_SPECS[type].datasheetPath, name: SWITCH_SPECS[type].datasheetName }
       : null
+  const hydraulicInfo = isHydraulicComponentType(type)
+    ? { path: HYDRAULIC_DATASHEETS[type].path, name: HYDRAULIC_DATASHEETS[type].name }
+    : null
   const builtinInfo = lightingInfo
     ? lightingInfo
-    : industrialInfo ? {path:industrialInfo.datasheet,name:industrialInfo.datasheet.split('/').pop()!} : type === 'safetyRelay' ? {path:'/datasheets/rockwell-msr127-440r-in079d-en-p.pdf',name:'MSR127 · Rockwell 440R-IN079D-EN-P.pdf'} : type === 'phoenixEcb3000760'
+    : hydraulicInfo
+      ? hydraulicInfo
+      : industrialInfo ? {path:industrialInfo.datasheet,name:industrialInfo.datasheet.split('/').pop()!} : type === 'safetyRelay' ? {path:'/datasheets/rockwell-msr127-440r-in079d-en-p.pdf',name:'MSR127 · Rockwell 440R-IN079D-EN-P.pdf'} : type === 'phoenixEcb3000760'
     ? { path: '/datasheets/phoenix-contact-3000760-pt.pdf', name: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760 (PT).pdf' }
     : type === 'terminalPhoenixPti6'
       ? { path: '/datasheets/phoenix-contact-3213972-pt.pdf', name: 'Phoenix Contact PTI 6 · 3213972 (PT).pdf' }

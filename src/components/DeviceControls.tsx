@@ -18,6 +18,7 @@ import {
   lampPhotometrics,
   SWITCH_SPECS,
 } from '../three/lightingModel'
+import { isHydraulicComponentType, waterTankDimensionsOf } from '../three/hydraulicsModel'
 
 /**
  * Chaves de `component.state` geridas diretamente por `DeviceControls`, apenas de chapa técnica
@@ -60,6 +61,23 @@ export const DEVICE_MANAGED_STATE_KEYS = new Set([
   'dualChannel',
   'reset',
   'safetyCategory',
+  // Hidráulica / pneumática (geridos por HydraulicControls)
+  'diameterMm',
+  'heightMm',
+  'levelPct',
+  'outletValveOpen',
+  'manualFill',
+  'filling',
+  'autoCoupleTank',
+  'linkedTankId',
+  'flowLpm',
+  'flowLmin',
+  'portSize',
+  'headM',
+  'cableLengthM',
+  'cable',
+  'level',
+  'ratedA',
   // Aparelhos de comando
   'position',
   'maintain',
@@ -1118,6 +1136,7 @@ export function hasDeviceControls(type: string): boolean {
     isContactorLike(type) ||
     isPlcModule(type) ||
     isLightingType(type) ||
+    isHydraulicComponentType(type) ||
     [
       'selectorSchneiderXa2ed33',
       'selector3',
@@ -1314,10 +1333,145 @@ function LightingControls({ c, locked }: { c: ElectricalComponent; locked: boole
   return null
 }
 
+function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const setState = useSimStore((s) => s.setComponentState)
+  const operate = useSimStore((s) => s.operateComponent)
+
+  if (c.type === 'waterTank') {
+    const dims = waterTankDimensionsOf(c.state)
+    const levelPct = Math.max(0, Math.min(100, Math.round(Number(c.state.levelPct ?? 68))))
+    const outletOpen = !!c.state.outletValveOpen
+    const manualFill = !!c.state.manualFill
+    return (
+      <div className="flex flex-col gap-2" data-water-tank-controls>
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="text-[var(--dc-text-muted)]">Volume útil</span>
+          <strong className="font-mono text-[var(--dc-text)]">{dims.volumeLiters} L · {levelPct}%</strong>
+        </div>
+        <label className="flex flex-col gap-0.5 text-[11px]">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Diâmetro</span>
+            <strong className="font-mono text-[var(--dc-text)]">{dims.diameterMm} mm</strong>
+          </span>
+          <input
+            type="range"
+            min={200}
+            max={2000}
+            step={20}
+            disabled={locked}
+            value={dims.diameterMm}
+            onChange={(e) => setState(c.id, { diameterMm: Number(e.target.value) })}
+          />
+        </label>
+        <label className="flex flex-col gap-0.5 text-[11px]">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Altura</span>
+            <strong className="font-mono text-[var(--dc-text)]">{dims.heightMm} mm</strong>
+          </span>
+          <input
+            type="range"
+            min={250}
+            max={2500}
+            step={20}
+            disabled={locked}
+            value={dims.heightMm}
+            onChange={(e) => setState(c.id, { heightMm: Number(e.target.value) })}
+          />
+        </label>
+        <label className="flex flex-col gap-0.5 text-[11px]">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Nível de água</span>
+            <strong className="font-mono text-[var(--dc-text)]">{levelPct}%</strong>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            disabled={locked}
+            value={levelPct}
+            onChange={(e) => setState(c.id, { levelPct: Number(e.target.value) })}
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            disabled={locked}
+            className={`dc-btn text-[11px] justify-center ${outletOpen ? 'dc-btn-primary' : ''}`}
+            onClick={() => operate(c.id, { outletValveOpen: !outletOpen })}
+          >
+            {outletOpen ? 'Fechar saída' : 'Abrir saída'}
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            className={`dc-btn text-[11px] justify-center ${manualFill ? 'dc-btn-primary' : ''}`}
+            onClick={() => operate(c.id, { manualFill: !manualFill })}
+          >
+            {manualFill ? 'Parar entrada' : 'Encher (teste)'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (c.type === 'waterPump') {
+    const running = !!c.state.running
+    return (
+      <div className="flex flex-col gap-1.5 text-[11px]" data-water-pump-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[var(--dc-text-muted)]">CALPEDA CT 61</span>
+          <strong className="font-mono" style={{ color: running ? '#16a34a' : '#64748b' }}>
+            {running ? 'Em marcha · 2900 rpm' : 'Parada'}
+          </strong>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[var(--dc-text-muted)]">Hidráulica</span>
+          <span className="font-mono text-[10px]">Q 5–40 L/min · H 40–5 m · G 1&quot;</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[var(--dc-text-muted)]">Alimentação</span>
+          <span className="font-mono text-[10px]">230V~ · 0,37 kW · L1/N/PE</span>
+        </div>
+      </div>
+    )
+  }
+
+  // floatSwitch
+  const triggered = !!c.state.triggered
+  const autoCouple = c.state.autoCoupleTank !== false
+  return (
+    <div className="flex flex-col gap-2 text-[11px]" data-float-switch-controls>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[var(--dc-text-muted)]">FELIX ENERGY IP68</span>
+        <strong className="font-mono text-[var(--dc-text)]">{triggered ? 'Nível ALTO (C–NA)' : 'Nível BAIXO (C–NF)'}</strong>
+      </div>
+      <button
+        type="button"
+        disabled={locked}
+        className={`dc-btn text-[11px] justify-center ${triggered ? 'dc-btn-primary' : ''}`}
+        onClick={() => operate(c.id, { triggered: !triggered, level: !triggered ? 'alto' : 'baixo' })}
+      >
+        {triggered ? 'Descer bóia (C–NF)' : 'Subir bóia (C–NA)'}
+      </button>
+      <label className="dc-inspector-state-row is-toggle">
+        <span className="dc-inspector-state-label">Acoplar ao reservatório</span>
+        <input
+          type="checkbox"
+          checked={autoCouple}
+          disabled={locked}
+          onChange={(e) => setState(c.id, { autoCoupleTank: e.target.checked })}
+        />
+      </label>
+    </div>
+  )
+}
+
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
   if (industrialDeviceTypeOf(c)) return <IndustrialDeviceControls component={c} disabled={locked} />
   if (isLightingType(c.type)) return <LightingControls c={c} locked={locked} />
+  if (isHydraulicComponentType(c.type)) return <HydraulicControls c={c} locked={locked} />
   if (c.type === 'multimeterDm20') return <MultimeterControls c={c} locked={locked} />
   if (
     c.type === 'powerSource3ph' ||

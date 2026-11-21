@@ -94,6 +94,7 @@ export function detectDiagnostics(
   // 7. Curto-circuito entre fases (duas fases alcançam o mesmo nó)
   const phaseCollision = new Map<string, Set<string>>()
   for (const w of wires) {
+    if (w.kind === 'hydraulic' || w.kind === 'pneumatic') continue
     const ph = (tid: string) => {
       for (const c of components) {
         const t = c.terminals.find((x) => x.id === tid)
@@ -177,8 +178,9 @@ export function detectDiagnostics(
     (!w.fromPoint && w.fromTerminalId === terminalId) || (!w.toPoint && w.toTerminalId === terminalId)
   const isConnected = (terminalId: string) => linked.some((w) => wireTouches(w, terminalId))
 
-  // 13. Cabos soltos / ponta livre
+  // 13. Cabos soltos / ponta livre (tubagens hidráulicas e pneumáticas podem ter ponta aberta de sucção/descarga)
   wires.forEach((w) => {
+    if (w.kind === 'hydraulic' || w.kind === 'pneumatic') return
     const fromFree = Boolean(w.fromPoint) || !w.fromTerminalId
     const toFree = Boolean(w.toPoint) || !w.toTerminalId
     const label = w.number ?? w.id.slice(0, 6)
@@ -192,6 +194,7 @@ export function detectDiagnostics(
 
   // 14. Classes eléctricas incompatíveis (AC↔DC, rede↔potência, etc.)
   wires.forEach((w) => {
+    if (w.kind === 'hydraulic' || w.kind === 'pneumatic') return
     if (w.fromPoint || w.toPoint || !w.fromTerminalId || !w.toTerminalId) return
     const a = termIndex.get(w.fromTerminalId)
     const b = termIndex.get(w.toTerminalId)
@@ -222,6 +225,7 @@ export function detectDiagnostics(
       const { component: c, terminal: term } = hit
       // O verde-amarelo é a marca do condutor de proteção (IEC 60446): manda a cor, não um
       // `kind` antigo gravado no projeto. Evita acusar de «fase/potência» um cabo PE.
+      if (w.kind === 'hydraulic' || w.kind === 'pneumatic') continue
       const kind = w.color === 'green-yellow' ? 'earth' : (w.kind ?? 'control')
       // Neutro do cabo em borne que não é neutro/comum
       if (kind === 'neutral' && term.kind !== 'neutral' && term.kind !== 'coil-minus' && !/^N$|^COM$|^0V$|^M$/i.test(term.label)) {

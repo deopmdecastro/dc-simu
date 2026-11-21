@@ -1,5 +1,6 @@
 import type { TerminalDef } from '../../catalog/types'
-import type { WireColor, WireEndType, WireFlexibility, WireKind, WireRoute } from '../../types'
+import type { ConduitMedium, WireColor, WireEndType, WireFlexibility, WireKind, WireRoute } from '../../types'
+import { parseTubularDiameterMm } from '../../three/hydraulicsModel'
 
 /**
  * Aparência dos cabos de teste — as mesmas opções do simulador (cor, secção, função,
@@ -14,12 +15,23 @@ export const WIRE_COLOR_LABEL: Record<WireColor, string> = {
   red: 'Vermelho', blue: 'Azul', 'green-yellow': 'Verde-amarelo (PE)', black: 'Preto', orange: 'Laranja', grey: 'Cinzento', brown: 'Castanho',
   white: 'Branco', pink: 'Rosa', violet: 'Violeta', green: 'Verde', yellow: 'Amarelo', lightblue: 'Azul-claro',
 }
-export const WIRE_KIND_LABEL: Record<WireKind, string> = { power: 'Força', control: 'Comando', signal: 'Sinal', neutral: 'Neutro', earth: 'Terra (PE)', bus: 'Barramento' }
-/** Cor normalizada pela função (IEC 60204-1) — igual à do simulador. */
-export const WIRE_KIND_COLOR: Record<WireKind, WireColor> = { power: 'black', control: 'red', signal: 'orange', neutral: 'lightblue', earth: 'green-yellow', bus: 'violet' }
+export const WIRE_KIND_LABEL: Record<WireKind, string> = {
+  power: 'Força', control: 'Comando', signal: 'Sinal', neutral: 'Neutro', earth: 'Terra (PE)', bus: 'Barramento',
+  hydraulic: 'Tubo hidráulico', pneumatic: 'Tubo pneumático',
+}
+/** Cor normalizada pela função (IEC 60204-1) + fluidos (hidráulica/pneumática). */
+export const WIRE_KIND_COLOR: Record<WireKind, WireColor> = {
+  power: 'black', control: 'red', signal: 'orange', neutral: 'lightblue', earth: 'green-yellow', bus: 'violet',
+  hydraulic: 'grey', pneumatic: 'lightblue',
+}
 export const WIRE_GAUGES = ['0.5mm²', '0.75mm²', '1mm²', '1.5mm²', '2.5mm²', '4mm²', '6mm²', '10mm²', '16mm²']
 
-export const WIRE_END_LABEL: Record<WireEndType, string> = { none: 'Nu', ferrule: 'Ponteira', ferruleDouble: 'Ponteira dupla', heatShrink: 'Termoretrátil', ring: 'Olhal', fork: 'Forquilha', pin: 'Pino', faston: 'Faston', tinned: 'Estanhado', banana: 'Ficha banana 4 mm', probe: 'Ponteira de teste' }
+export const WIRE_END_LABEL: Record<WireEndType, string> = {
+  none: 'Nu', ferrule: 'Ponteira', ferruleDouble: 'Ponteira dupla', heatShrink: 'Termoretrátil',
+  ring: 'Olhal', fork: 'Forquilha', pin: 'Pino', faston: 'Faston', tinned: 'Estanhado',
+  banana: 'Ficha banana 4 mm', probe: 'Ponteira de teste',
+  hydraulicFitting: 'União hidráulica', pneumaticPushIn: 'Conector Push-In',
+}
 export const WIRE_ROUTE_LABEL: Record<WireRoute, string> = {
   orthogonal: 'Ortogonal',
   manhattan: 'Manhattan',
@@ -78,13 +90,15 @@ export interface WireStyle {
   endB: WireEndType
 }
 /** Valores usados nos cabos novos (como a ferramenta Cabo do simulador). */
-export interface WireDefaults { autoColor: boolean; color: WireColor; gauge: string; flexibility: WireFlexibility; endType: WireEndType; conductorCount?: number; sheathed?: boolean; sheathColor?: string; conductorColors?: string[]; route?: WireRoute; chainMode?: boolean; orthoSnap?: boolean }
-export const DEFAULT_WIRE_DEFAULTS: WireDefaults = { autoColor: true, color: 'red', gauge: '1.5mm²', flexibility: 'flexible', endType: 'ferrule', conductorCount: 1, sheathed: false }
+export interface WireDefaults { medium?: ConduitMedium; autoColor: boolean; color: WireColor; gauge: string; flexibility: WireFlexibility; endType: WireEndType; conductorCount?: number; sheathed?: boolean; sheathColor?: string; conductorColors?: string[]; route?: WireRoute; chainMode?: boolean; orthoSnap?: boolean }
+export const DEFAULT_WIRE_DEFAULTS: WireDefaults = { medium: 'electrical', autoColor: true, color: 'red', gauge: '1.5mm²', flexibility: 'flexible', endType: 'ferrule', conductorCount: 1, sheathed: false }
 
 /** Função sugerida a partir dos dois bornes (mesma heurística do simulador). */
 export function inferWireKind(a?: TerminalDef, b?: TerminalDef): WireKind {
   const kinds = [a, b].filter((item): item is TerminalDef => !!item)
   const has = (test: (t: TerminalDef) => boolean) => kinds.some(test)
+  if (has((t) => t.kind === 'hydraulic-in' || t.kind === 'hydraulic-out')) return 'hydraulic'
+  if (has((t) => t.kind === 'pneumatic')) return 'pneumatic'
   let kind: WireKind = 'control'
   if (has((t) => t.kind === 'power-in' || t.kind === 'power-out')) kind = 'power'
   if (has((t) => t.kind === 'neutral')) kind = 'neutral'
@@ -162,8 +176,10 @@ export function matchCablePreset(d: { conductorCount?: number; sheathed?: boolea
 /** Diâmetro exterior ligeiramente maior em multicore / com capa. */
 
 export const CABLE_VISUAL_SCALE = 0.72
-/** Diâmetro exterior (mm) a partir da secção do condutor — igual ao Painel 3D. */
+/** Diâmetro exterior (mm) a partir da secção do condutor ou da bitola tubular (Ø..mm). */
 export function cableOuterDiameterMm(gauge: string, opts?: { conductorCount?: number; sheathed?: boolean }): number {
+  const tubularMm = parseTubularDiameterMm(gauge)
+  if (tubularMm !== null) return tubularMm
   const area = Number.parseFloat(gauge.replace(',', '.'))
   if (!Number.isFinite(area) || area <= 0) return 2.8
   const conductor = Math.sqrt((4 * area) / Math.PI)
@@ -187,6 +203,8 @@ export function wireEndLengthMm(type: WireEndType): number {
     case 'tinned': return 8
     case 'banana': return 24
     case 'probe': return 110
+    case 'hydraulicFitting': return 24
+    case 'pneumaticPushIn': return 18
     default: return 7
   }
 }

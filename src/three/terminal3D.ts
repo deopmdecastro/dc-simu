@@ -7,6 +7,7 @@ import { editorTerminalRadiusMm } from '../catalog/terminalGeometry'
 import { isTerminalAssemblyComponent, terminalAssemblyConductors } from './terminalAssembly'
 import { panelAccessorySizeMm } from './enclosureParts'
 import { busbarSizeMm } from './busbarParts'
+import { hydraulicComponentSizeMm } from './hydraulicsModel'
 import { clampRailLengthMm, dinRailProfileOf } from './dinRailGeometry'
 
 export type Terminal3DFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom'
@@ -99,6 +100,8 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
   if (accessory) return { x: accessory.x * PANEL_UNITS_PER_MM, y: accessory.y * PANEL_UNITS_PER_MM, z: accessory.z * PANEL_UNITS_PER_MM }
   const busbar = busbarSizeMm(component.type, component.state)
   if (busbar) return { x: busbar.x * PANEL_UNITS_PER_MM, y: busbar.y * PANEL_UNITS_PER_MM, z: busbar.z * PANEL_UNITS_PER_MM }
+  const hydraulic = hydraulicComponentSizeMm(component.type, component.state)
+  if (hydraulic) return { x: hydraulic.x * PANEL_UNITS_PER_MM, y: hydraulic.y * PANEL_UNITS_PER_MM, z: hydraulic.z * PANEL_UNITS_PER_MM }
   if (component.type === 'dinRail15x55') {
     const profile = dinRailProfileOf(component.state)
     return { x: clampRailLengthMm(component.state.lengthMm) * PANEL_UNITS_PER_MM, y: profile.width * PANEL_UNITS_PER_MM, z: profile.height * PANEL_UNITS_PER_MM }

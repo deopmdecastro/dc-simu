@@ -110,6 +110,8 @@ export type ComponentType =
   // --- Motores / acionamentos ------------------------------------------
   | 'motor3ph'
   | 'motor1ph'
+  | 'waterPump'
+  | 'waterTank'
   | 'capacitorRun60uF'
   | 'vfd'
   | 'softStarter'
@@ -188,6 +190,9 @@ export type TerminalKind =
   | 'io'
   | 'analog'
   | 'bus'
+  | 'hydraulic-in'
+  | 'hydraulic-out'
+  | 'pneumatic'
 
 /** Domínio elétrico do borne. É opcional no objeto para que projetos antigos
  * continuem válidos; a interface infere uma sugestão quando está omisso. */
@@ -451,8 +456,11 @@ export type WireColor =
   | 'yellow'
   | 'lightblue'
 
-/** Função do cabo — define cor/roteamento sugeridos. */
-export type WireKind = 'power' | 'control' | 'signal' | 'neutral' | 'earth' | 'bus'
+/** Função do cabo/tubo — define cor/roteamento sugeridos e se é elétrico, hidráulico ou pneumático. */
+export type WireKind = 'power' | 'control' | 'signal' | 'neutral' | 'earth' | 'bus' | 'hydraulic' | 'pneumatic'
+
+/** Meio físico da ligação: cabo elétrico, tubo hidráulico ou tubo pneumático. */
+export type ConduitMedium = 'electrical' | 'hydraulic' | 'pneumatic'
 
 /** Condutor rígido (fio sólido) ou flexível (multifilar). */
 export type WireFlexibility = 'rigid' | 'flexible'
@@ -460,14 +468,16 @@ export type WireFlexibility = 'rigid' | 'flexible'
 export type WireRoute = 'orthogonal' | 'direct' | 'arc' | 'manhattan'
 
 /**
- * Terminação aplicada a cada ponta do cabo:
- * ponteira tubular, ponteira dupla, olhal, forquilha, pino, faston, estanhado
- * ou ponta nua.
+ * Terminação aplicada a cada ponta do cabo ou tubo:
+ * ponteira tubular, ponteira dupla, olhal, forquilha, pino, faston, estanhado,
+ * união hidráulica roscada, conector rápido pneumático push-in ou ponta nua.
  */
-export type WireEndType = 'none' | 'ferrule' | 'ferruleDouble' | 'heatShrink' | 'ring' | 'fork' | 'pin' | 'faston' | 'tinned' | 'banana' | 'probe'
+export type WireEndType = 'none' | 'ferrule' | 'ferruleDouble' | 'heatShrink' | 'ring' | 'fork' | 'pin' | 'faston' | 'tinned' | 'banana' | 'probe' | 'hydraulicFitting' | 'pneumaticPushIn'
 
-/** Valores usados ao desenhar novos cabos (ferramenta Cabo). */
+/** Valores usados ao desenhar novos cabos ou tubos hidráulicos/pneumáticos (ferramenta Cabo/Tubo). */
 export interface WireDefaults {
+  /** Meio físico selecionado ao desenhar: elétrico (padrão), hidráulico ou pneumático. */
+  medium?: ConduitMedium
   /** true = cor automática pela função do cabo (força, neutro, PE…) */
   autoColor: boolean
   color: WireColor

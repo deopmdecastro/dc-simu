@@ -1,0 +1,62 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >> endobj
+6 0 obj << /Length 3335 >> stream
+0.05 0.34 0.56 rg 0 760 595 82 re f
+1 1 1 rg BT /F2 18 Tf 42 805 Td (CALPEDA CT 61 ? Eletrobomba Periferica Monofasica) Tj ET
+0.85 0.93 1 rg BT /F1 10.5 Tf 42 782 Td (Bomba de Agua Periferica 0.37 kW \(0.5 HP\) · 230V~ 50Hz · Q 5-40 L/min · H 40-5 m · IP54) Tj ET
+0.08 0.16 0.28 rg BT /F2 12 Tf 42 728 Td (ESPECIFICACOES TECNICAS / TECHNICAL DATA) Tj ET
+0.05 0.34 0.56 RG 1.2 w 42 722 m 553 722 l S
+0.95 0.97 0.99 rg 42 697 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 702 Td (Fabricante / Modelo) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 702 Td (CALPEDA · Serie CT 61 \(bomba periferica com impulsor em latao\)) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 680 Td (Potencia nominal \(P2\)) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 680 Td (0.37 kW \(0.5 HP\)) Tj ET
+0.95 0.97 0.99 rg 42 653 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 658 Td (Alimentacao eletrica) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 658 Td (230 V AC · 50 Hz · Monofasica \(com condensador integrado\)) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 636 Td (Corrente nominal) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 636 Td (2.4 A · cos phi 0.90) Tj ET
+0.95 0.97 0.99 rg 42 609 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 614 Td (Rotacao nominal) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 614 Td (2900 rpm \(2 polos\)) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 592 Td (Caudal \(Q\)) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 592 Td (5 a 40 L/min \(0.3 a 2.4 m3/h\)) Tj ET
+0.95 0.97 0.99 rg 42 565 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 570 Td (Altura manometrica \(H\)) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 570 Td (40 m a 5 m c.a.) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 548 Td (Ligacoes hidraulicas) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 548 Td (Aspiracao IN: G 1" femea · Recalque OUT \(topo\): G 1" femea) Tj ET
+0.95 0.97 0.99 rg 42 521 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 526 Td (Grau de protecao) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 526 Td (IP54 · Isolamento Classe F · Servico continuo S1) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 504 Td (Corpo e acabamento) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 504 Td (Ferro fundido + motor aletado em azul petroleo industrial Calpeda) Tj ET
+0.08 0.16 0.28 rg BT /F2 12 Tf 42 464 Td (LIGACOES / BORNES E PORTAS) Tj ET
+0.05 0.34 0.56 RG 1.2 w 42 458 m 553 458 l S
+0.10 0.16 0.24 rg BT /F1 9.5 Tf 50 440 Td (- Bornes eletricos \(caixa superior\): L1 \(Fase 230V\), N \(Neutro\), PE \(Terra de protecao\).) Tj ET
+0.10 0.16 0.24 rg BT /F1 9.5 Tf 50 423 Td (- Porta IN \(Aspiracao\): Entrada horizontal roscada na voluta frontal da bomba.) Tj ET
+0.10 0.16 0.24 rg BT /F1 9.5 Tf 50 406 Td (- Porta OUT \(Recalque\): Saida vertical roscada no topo da voluta \(ligar com Tubo Hidraulico\).) Tj ET
+0.08 0.16 0.28 rg BT /F2 12 Tf 42 373 Td (NOTAS DE INSTALACAO E SIMULACAO DC-SIMU) Tj ET
+0.05 0.34 0.56 RG 1.2 w 42 367 m 553 367 l S
+0.22 0.29 0.38 rg BT /F1 9.2 Tf 50 349 Td (- Baseada no motor 3D realista do simulador, acoplado a cabeca periferica CAD com bujao de escorva.) Tj ET
+0.22 0.29 0.38 rg BT /F1 9.2 Tf 50 333 Td (- Em RUN, quando alimentada em L1/N, bombeia agua automaticamente pelos Tubos Hidraulicos ligados.) Tj ET
+0.75 0.80 0.86 RG 0.6 w 42 46 m 553 46 l S
+0.42 0.48 0.56 rg BT /F1 8.5 Tf 42 30 Td (DC-Simu 3D CAD · Ficha Tecnica Integrada · Documento de Referencia) Tj ET
+endstream endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000348 00000 n 
+0000000450 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+3837
+%%EOF

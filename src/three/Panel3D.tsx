@@ -87,6 +87,7 @@ import {
 } from './SchneiderComponents3D'
 import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
+import { FloatSwitchFelix3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import { AcrylicBusbar3D, CombBusbar3D, CombConnector3D, SteppedBusbar3D } from './Busbar3D'
 import { isAcrylicBusbarType, isCombBusbarType, isCombConnectorType, isSteppedBusbarType } from './busbarParts'
@@ -2394,13 +2395,13 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
         <tubeGeometry args={[curve, segments, radius, 14, false]} />
         <meshPhysicalMaterial
           color={displayWireColor}
-          roughness={wireRoughness}
-          metalness={0.03}
-          clearcoat={wireClearcoat}
-          clearcoatRoughness={0.24}
-          envMapIntensity={1.15}
-          emissive={emissiveColor}
-          emissiveIntensity={emissiveInt}
+          roughness={wire.kind === 'hydraulic' ? 0.30 : wire.kind === 'pneumatic' ? 0.16 : wireRoughness}
+          metalness={wire.kind === 'hydraulic' ? 0.54 : wire.kind === 'pneumatic' ? 0.08 : 0.03}
+          clearcoat={wire.kind === 'pneumatic' ? 0.9 : wire.kind === 'hydraulic' ? 0.45 : wireClearcoat}
+          clearcoatRoughness={wire.kind === 'pneumatic' ? 0.12 : 0.24}
+          envMapIntensity={wire.kind === 'hydraulic' ? 1.45 : 1.15}
+          emissive={wire.kind === 'hydraulic' && flowing ? '#0284c7' : emissiveColor}
+          emissiveIntensity={wire.kind === 'hydraulic' && flowing ? 0.32 : emissiveInt}
         />
       </mesh>
       {/* Volume transparente maior: seleção fiável (clique) e curvas novas (duplo clique) sem falsificar a secção visível. */}
@@ -2475,7 +2476,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
       })}
       {/* Anilhas clip-on encaixáveis 3D (código internacional de cores IEC 60062 e letras CAB3/WIC) */}
       {wire.markers && wire.markers.length > 0 && <WireMarkers3D markers={wire.markers} curve={curve} wireRadius={radius} />}
-      {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
+      {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wire.kind === 'hydraulic' ? '#38bdf8' : wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         snap={snapWaypointFor(storedWire, index, baseFrom.position, baseTo.position)}
         onSelect={handlers.onSelectWaypoint}
@@ -3565,6 +3566,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
 
   const frontPivot = (component: ElectricalComponent): [number, number, number] => {
     if (component.type === 'motor3ph' || component.type === 'motor1ph') return [0, MOTOR_CENTER_Y, 0.7]
+    if (component.type === 'waterPump') return [0, MOTOR_CENTER_Y, 0.95]
+    if (component.type === 'waterTank') return [0, MOTOR_CENTER_Y + 0.5, 4.2]
+    if (component.type === 'floatSwitch') return [0, RAIL_Y + 0.9, 0.55]
     if (component.type === 'towerLight') return [0, RAIL_Y + 1.3, 0.12]
     if (component.type === 'pilotLightAd22') return [0, RAIL_Y + 1.05, 0.4]
     if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [0, RAIL_Y + 1.15, 0.12]
@@ -5037,6 +5041,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           } else if (c.type === 'motor1ph') {
             const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'waterPump') {
+            const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><WaterPumpCalpeda3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'waterTank') {
+            content = <WaterTankTransparent3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggleValve={() => activateComponent(c, () => operateComponent(c.id, { outletValveOpen: !c.state.outletValveOpen }))} />
+          } else if (c.type === 'floatSwitch') {
+            content = <FloatSwitchFelix3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered, level: !c.state.triggered ? 'alto' : 'baixo' }))} />
           }
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => operateComponent(c.id, { startPressed: pressed }))} />
@@ -5044,7 +5055,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               onStart={(pressed) => activateComponent(c, () => operateComponent(c.id, { startPressed: pressed }))}
               onStop={(pressed) => activateComponent(c, () => operateComponent(c.id, { stopPressed: pressed }))} /></Suspense></Model3DErrorBoundary>
           } else if ((c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR') && getCommandModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />}><Suspense fallback={null}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} /></Suspense></Model3DErrorBoundary>
-          else if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) content = <Sensor3D c={c} x={x} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered }))} />
+          else if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat'].includes(c.type)) content = <Sensor3D c={c} x={x} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered }))} />
           else content = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
           return wrapOriented(c, content)
         })}

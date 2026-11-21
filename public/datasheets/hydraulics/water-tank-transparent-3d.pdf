@@ -1,0 +1,56 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >> endobj
+6 0 obj << /Length 2968 >> stream
+0.05 0.34 0.56 rg 0 760 595 82 re f
+1 1 1 rg BT /F2 18 Tf 42 805 Td (Reservatorio de Agua Transparente 3D) Tj ET
+0.85 0.93 1 rg BT /F1 10.5 Tf 42 782 Td (Tanque Cilindrico Transparente Parametrico com Escala de Nivel, Valvula Flutuadora e Saida) Tj ET
+0.08 0.16 0.28 rg BT /F2 12 Tf 42 728 Td (ESPECIFICACOES TECNICAS / TECHNICAL DATA) Tj ET
+0.05 0.34 0.56 RG 1.2 w 42 722 m 553 722 l S
+0.95 0.97 0.99 rg 42 697 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 702 Td (Material do corpo) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 702 Td (Policarbonato / Acrilico cristal transparente com protecao UV) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 680 Td (Estrutura de suporte) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 680 Td (Base metalica industrial de 4 apoios com anel perimetral) Tj ET
+0.95 0.97 0.99 rg 42 653 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 658 Td (Diametro configuravel) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 658 Td (350 mm a 2000 mm \(padrao: 750 mm\)) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 636 Td (Altura configuravel) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 636 Td (450 mm a 2500 mm \(padrao: 1050 mm\)) Tj ET
+0.95 0.97 0.99 rg 42 609 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 614 Td (Volume util aproximado) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 614 Td (50 L a 6000 L \(calculado automaticamente no Inspetor\)) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 592 Td (Porta de entrada \(IN\)) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 592 Td (Flange superior esquerda DN20 com valvula flutuadora interna) Tj ET
+0.95 0.97 0.99 rg 42 565 511 20 re f
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 570 Td (Porta de saida \(OUT\)) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 570 Td (Flange inferior direita DN20 com valvula de esfera manual \(vermelha\)) Tj ET
+0.15 0.23 0.35 rg BT /F2 9.5 Tf 50 548 Td (Indicacao de nivel) Tj ET
+0.08 0.12 0.18 rg BT /F1 9.5 Tf 255 548 Td (Escala graduada 0-100% + linha vermelha de nivel maximo \(85%\)) Tj ET
+0.08 0.16 0.28 rg BT /F2 12 Tf 42 508 Td (LIGACOES / BORNES E PORTAS) Tj ET
+0.05 0.34 0.56 RG 1.2 w 42 502 m 553 502 l S
+0.10 0.16 0.24 rg BT /F1 9.5 Tf 50 484 Td (- Porta IN \(Hidraulica\): Ligar com Tubo Hidraulico a partir da descarga \(OUT\) de uma Bomba de Agua.) Tj ET
+0.10 0.16 0.24 rg BT /F1 9.5 Tf 50 467 Td (- Porta OUT \(Hidraulica\): Saida de consumo / drenagem com valvula manual clicavel em 3D.) Tj ET
+0.08 0.16 0.28 rg BT /F2 12 Tf 42 434 Td (NOTAS DE INSTALACAO E SIMULACAO DC-SIMU) Tj ET
+0.05 0.34 0.56 RG 1.2 w 42 428 m 553 428 l S
+0.22 0.29 0.38 rg BT /F1 9.2 Tf 50 410 Td (- Redimensione o diametro e a altura livremente no Inspetor; a agua 3D e as portas ajustam-se automaticamente.) Tj ET
+0.22 0.29 0.38 rg BT /F1 9.2 Tf 50 394 Td (- Ao receber caudal de uma bomba ligada em RUN, o nivel sobe com jato e ondulacao realista.) Tj ET
+0.75 0.80 0.86 RG 0.6 w 42 46 m 553 46 l S
+0.42 0.48 0.56 rg BT /F1 8.5 Tf 42 30 Td (DC-Simu 3D CAD · Ficha Tecnica Integrada · Documento de Referencia) Tj ET
+endstream endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000348 00000 n 
+0000000450 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+3470
+%%EOF

@@ -1,0 +1,131 @@
+import type { ConduitMedium, WireKind } from '../types'
+
+export type HydraulicComponentType = 'floatSwitch' | 'waterTank' | 'waterPump'
+
+export function isHydraulicComponentType(type: string): type is HydraulicComponentType {
+  return type === 'floatSwitch' || type === 'waterTank' || type === 'waterPump'
+}
+
+export function isFluidWireKind(kind: WireKind | undefined): boolean {
+  return kind === 'hydraulic' || kind === 'pneumatic'
+}
+
+export function conduitMediumOfKind(kind: WireKind | undefined): ConduitMedium {
+  if (kind === 'hydraulic') return 'hydraulic'
+  if (kind === 'pneumatic') return 'pneumatic'
+  return 'electrical'
+}
+
+export const HYDRAULIC_GAUGES = [
+  'DN15 (Ø20mm)',
+  'DN20 (Ø25mm)',
+  'DN25 (Ø32mm)',
+  'DN32 (Ø40mm)',
+  'DN40 (Ø50mm)',
+] as const
+
+export const PNEUMATIC_GAUGES = [
+  'PU Ø4mm',
+  'PU Ø6mm',
+  'PU Ø8mm',
+  'PU Ø10mm',
+  'PU Ø12mm',
+] as const
+
+/** Extrai o diâmetro exterior em mm de bitolas tubulares (hidráulicas/pneumáticas), ex. "DN20 (Ø25mm)" → 25. */
+export function parseTubularDiameterMm(gauge?: string | null): number | null {
+  if (!gauge) return null
+  const match = gauge.match(/Ø\s*([0-9]+(?:[.,][0-9]+)?)\s*mm/i)
+  if (!match) return null
+  const val = Number.parseFloat(match[1].replace(',', '.'))
+  return Number.isFinite(val) && val > 0 ? val : null
+}
+
+export interface WaterTankDimensionsMm {
+  diameterMm: number
+  heightMm: number
+  standHeightMm: number
+  domeHeightMm: number
+  totalWidthMm: number
+  totalHeightMm: number
+  totalDepthMm: number
+  volumeLiters: number
+}
+
+export function waterTankDimensionsOf(state?: Record<string, any>): WaterTankDimensionsMm {
+  const rawD = Number(state?.diameterMm)
+  const rawH = Number(state?.heightMm)
+  const diameterMm = Number.isFinite(rawD) ? Math.max(200, Math.min(2000, Math.round(rawD))) : 360
+  const heightMm = Number.isFinite(rawH) ? Math.max(250, Math.min(2500, Math.round(rawH))) : 480
+  const standHeightMm = Math.round(Math.max(55, Math.min(220, heightMm * 0.14)))
+  const domeHeightMm = Math.round(Math.max(32, Math.min(180, diameterMm * 0.13)))
+  const pipeMarginMm = Math.round(Math.max(70, Math.min(260, diameterMm * 0.24)))
+  const totalWidthMm = diameterMm + pipeMarginMm * 2
+  const totalHeightMm = standHeightMm + heightMm + domeHeightMm
+  const totalDepthMm = diameterMm
+  const radiusM = (diameterMm / 2) / 1000
+  const heightM = heightMm / 1000
+  const volumeLiters = Math.round(Math.PI * radiusM * radiusM * heightM * 1000)
+  return {
+    diameterMm,
+    heightMm,
+    standHeightMm,
+    domeHeightMm,
+    totalWidthMm,
+    totalHeightMm,
+    totalDepthMm,
+    volumeLiters,
+  }
+}
+
+export const FLOAT_SWITCH_SIZE_MM = { width: 240, height: 185, depth: 64 } as const
+export const WATER_PUMP_SIZE_MM = { width: 340, height: 225, depth: 175 } as const
+
+export function hydraulicComponentSizeMm(
+  type: string,
+  state?: Record<string, any>,
+): { x: number; y: number; z: number } | null {
+  if (type === 'floatSwitch') {
+    return { x: FLOAT_SWITCH_SIZE_MM.width, y: FLOAT_SWITCH_SIZE_MM.height, z: FLOAT_SWITCH_SIZE_MM.depth }
+  }
+  if (type === 'waterPump') {
+    return { x: WATER_PUMP_SIZE_MM.width, y: WATER_PUMP_SIZE_MM.height, z: WATER_PUMP_SIZE_MM.depth }
+  }
+  if (type === 'waterTank') {
+    const d = waterTankDimensionsOf(state)
+    return { x: d.totalWidthMm, y: d.totalHeightMm, z: d.totalDepthMm }
+  }
+  return null
+}
+
+export interface HydraulicDatasheetInfo {
+  path: string
+  name: string
+  manufacturer: string
+  model: string
+  summary: string
+}
+
+export const HYDRAULIC_DATASHEETS: Record<HydraulicComponentType, HydraulicDatasheetInfo> = {
+  floatSwitch: {
+    path: '/datasheets/hydraulics/float-switch-felix-energy.pdf',
+    name: 'FELIX ENERGY · Interruptor de Boia IP68 (Ficha Técnica).pdf',
+    manufacturer: 'FELIX ENERGY',
+    model: 'Interruptor de Boia 16(8)A · IP68',
+    summary: '250V~ · 16(8)A · SPDT (C Preto / NA Castanho / NF Azul) · Cabo H07RN-F 3×1.0 mm² + Contrapeso',
+  },
+  waterTank: {
+    path: '/datasheets/hydraulics/water-tank-transparent-3d.pdf',
+    name: 'Reservatório de Água Transparente 3D (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu Hidráulica',
+    model: 'Tanque Transparente Paramétrico',
+    summary: 'Corpo acrílico transparente · Dimensões configuráveis · Entrada IN com boia · Saída OUT com válvula',
+  },
+  waterPump: {
+    path: '/datasheets/hydraulics/water-pump-calpeda-ct61.pdf',
+    name: 'CALPEDA CT 61 · Eletrobomba Periférica 0,37 kW (Ficha Técnica).pdf',
+    manufacturer: 'CALPEDA',
+    model: 'CT 61 · 0,37 kW (0,5 HP)',
+    summary: '230V~ 50Hz · 2,4 A · 2900 rpm · Q 5–40 L/min · H 40–5 m · G 1" (IN/OUT) · IP54',
+  },
+}

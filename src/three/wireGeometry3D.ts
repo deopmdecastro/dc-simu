@@ -27,8 +27,13 @@ export const WIRE_3D_COLORS: Record<WireColor, string> = {
   pink: '#ec4899', violet: '#8b5cf6', green: '#22c55e', yellow: '#eab308', lightblue: '#67e8f9',
 }
 
-/** Diâmetro exterior aproximado do cabo isolado a partir da secção do condutor. */
+/** Diâmetro exterior aproximado do cabo isolado ou tubo hidráulico/pneumático (Ø..mm). */
 export function cableOuterDiameterMm(gauge: string, opts?: { conductorCount?: number; sheathed?: boolean }): number {
+  const tubularMatch = gauge.match(/Ø\s*([0-9]+(?:[.,][0-9]+)?)\s*mm/i)
+  if (tubularMatch) {
+    const val = Number.parseFloat(tubularMatch[1].replace(',', '.'))
+    if (Number.isFinite(val) && val > 0) return val
+  }
   const area = Number.parseFloat(gauge.replace(',', '.'))
   if (!Number.isFinite(area) || area <= 0) return 2.8
   const conductorDiameter = Math.sqrt((4 * area) / Math.PI)
@@ -248,6 +253,8 @@ export function wireEndLengthMm(type: WireEndType): number {
     case 'tinned': return 8
     case 'banana': return 22
     case 'probe': return 96
+    case 'hydraulicFitting': return 22
+    case 'pneumaticPushIn': return 17
     default: return 7
   }
 }
