@@ -284,6 +284,7 @@ export const SUGGESTED_PROFILES: Record<ComponentCategory, string[]> = {
   contactor: ['contactor-power', 'contactor-aux'],
   relay: ['relay', 'relay-no'],
   signaling: ['pilot-lamp'],
+  lighting: ['pilot-lamp', 'selector'],
   sensor: ['sensor-3w', 'sensor-4w', 'sensor-analog'],
   measurement: ['multimeter-basic', 'multimeter-3', 'multimeter-clamp', 'multimeter-bench', 'test-probes', 'oscilloscope'],
   motor: ['motor-3ph', 'motor-6', 'motor-1ph'],

@@ -132,8 +132,9 @@ const EXTRA_STATE_LABELS: Record<string, string> = {
   magnetic: 'Disparo magnético (A)', upKv: 'Nível de proteção Up (kV)', currentPct: 'Corrente (% da regulação)', rangeInA: 'Regulação (A)',
   ie: 'Corrente de emprego Ie (A)', coil: 'Bobina', dualChannel: 'Dois canais', supply: 'Alimentação', reset: 'Rearme',
   safetyCategory: 'Categoria de segurança', bypass: 'Contactor de bypass',
-  // Sinalização e sensores
+  // Sinalização, iluminação e sensores
   red: 'Lâmpada vermelha', yellow: 'Lâmpada amarela', green: 'Lâmpada verde', db: 'Nível sonoro (dB)',
+  powerW: 'Potência (W)', cctK: 'Temperatura de cor (K)', socket: 'Casquilho', on1: 'Tecla 1', on2: 'Tecla 2',
   rangeM: 'Alcance (m)', actuator: 'Atuador', sensingMm: 'Distância de deteção (mm)', mode: 'Modo',
   bar: 'Pressão de ajuste (bar)', celsius: 'Temperatura de ajuste (°C)', level: 'Nível',
   // Temporizadores e contadores
@@ -358,7 +359,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const [terminalLibOpen, setTerminalLibOpen] = useState(false)
   const inspectorRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command', 'Bornes e barras'].includes(g))))
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command', 'Iluminação', 'Bornes e barras'].includes(g))))
   const [favorites, setFavorites] = useState<ComponentType[]>(() => {
     try { return (JSON.parse(localStorage.getItem('dcsimu:library:favorites') ?? '[]') as ComponentType[]).map((type) => (type as string) === 'powerSupplyProauto24B' ? 'powerSupplyProauto24A' : type) }
     catch { return [] }

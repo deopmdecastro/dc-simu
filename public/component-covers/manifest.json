@@ -1,6 +1,6 @@
 {
   "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.",
-  "generatedAt": "2026-11-21T07:00:41.591Z",
+  "generatedAt": "2026-11-21T08:38:23.767Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
     "fuseHolderSchneiderDf101v",
@@ -56,6 +56,12 @@
     "pilotLightAd22",
     "pilotLightSchneiderIil1p",
     "pilotLightSchneiderIil3p",
+    "lampIncandescentE27",
+    "lampFluorescentE27",
+    "lampLedE27",
+    "wallSwitchSimple",
+    "wallSwitchDouble",
+    "wallSwitchStaircase",
     "motor3ph",
     "motor1ph",
     "capacitorRun60uF",
@@ -116,6 +122,9 @@
     "fuseHolderSchneiderDf103nv": "fuseHolderSchneiderDf103nv.webp",
     "fuseHolderSchneiderDf81n": "fuseHolderSchneiderDf81n.webp",
     "keyActuatorEao61": "keyActuatorEao61.webp",
+    "lampFluorescentE27": "lampFluorescentE27.webp",
+    "lampIncandescentE27": "lampIncandescentE27.webp",
+    "lampLedE27": "lampLedE27.webp",
     "levelRelayAvel411": "levelRelayAvel411.webp",
     "meterD522066": "meterD522066.webp",
     "meterKws306": "meterKws306.webp",
@@ -169,7 +178,10 @@
     "timerGeyaGrt8M1": "timerGeyaGrt8M1.webp",
     "timerGeyaGrt8M2": "timerGeyaGrt8M2.webp",
     "towerLightSb23011": "towerLightSb23011.webp",
-    "vfdSchneiderAtv320": "vfdSchneiderAtv320.webp"
+    "vfdSchneiderAtv320": "vfdSchneiderAtv320.webp",
+    "wallSwitchDouble": "wallSwitchDouble.webp",
+    "wallSwitchSimple": "wallSwitchSimple.webp",
+    "wallSwitchStaircase": "wallSwitchStaircase.webp"
   },
   "front": {
     "breaker1p": "front/breaker1p.webp",
@@ -199,6 +211,9 @@
     "fuseHolderSchneiderDf103nv": "front/fuseHolderSchneiderDf103nv.webp",
     "fuseHolderSchneiderDf81n": "front/fuseHolderSchneiderDf81n.webp",
     "keyActuatorEao61": "front/keyActuatorEao61.webp",
+    "lampFluorescentE27": "front/lampFluorescentE27.webp",
+    "lampIncandescentE27": "front/lampIncandescentE27.webp",
+    "lampLedE27": "front/lampLedE27.webp",
     "levelRelayAvel411": "front/levelRelayAvel411.webp",
     "meterD522066": "front/meterD522066.webp",
     "meterKws306": "front/meterKws306.webp",
@@ -252,6 +267,9 @@
     "timerGeyaGrt8M1": "front/timerGeyaGrt8M1.webp",
     "timerGeyaGrt8M2": "front/timerGeyaGrt8M2.webp",
     "towerLightSb23011": "front/towerLightSb23011.webp",
-    "vfdSchneiderAtv320": "front/vfdSchneiderAtv320.webp"
+    "vfdSchneiderAtv320": "front/vfdSchneiderAtv320.webp",
+    "wallSwitchDouble": "front/wallSwitchDouble.webp",
+    "wallSwitchSimple": "front/wallSwitchSimple.webp",
+    "wallSwitchStaircase": "front/wallSwitchStaircase.webp"
   }
 }

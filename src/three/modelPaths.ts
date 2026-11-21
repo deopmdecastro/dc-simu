@@ -56,6 +56,12 @@ export const MODEL_PATHS = {
   /** Condensador genérico CBB65 (STEP Godrej → GLB). Valores de capacitância/tensão são atribuídos no estado. */
   capacitorRunGeneric: '/models/motores/capacitor-run-generic.glb',
   pilotLightAd22: '/models/sinalizacao/ad22-22ds-24v.glb',
+  lampIncandescentE27: '/models/iluminacao/philips-incandescent-e27.glb',
+  lampFluorescentE27: '/models/iluminacao/philips-fluorescent-cfl-e27.glb',
+  lampLedE27: '/models/iluminacao/philips-led-a60-e27.glb',
+  wallSwitchSimple: '/models/iluminacao/schneider-odace-simple.glb',
+  wallSwitchDouble: '/models/iluminacao/schneider-odace-double.glb',
+  wallSwitchStaircase: '/models/iluminacao/schneider-odace-staircase.glb',
   multimeterDm20: '/models/aparelhos-de-medir/rgk-dm20-multimetro.glb',
 } as const
 
@@ -159,6 +165,12 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   /** Cilindro CBB65 genérico (~Ø50 × 119 mm). Valores elétricos vêm do estado. */
   capacitorRun60uF: { width: 50, height: 132, depth: 50 },
   pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
+  lampIncandescentE27: { width: 64, height: 132, depth: 64 },
+  lampFluorescentE27: { width: 64, height: 154, depth: 64 },
+  lampLedE27: { width: 64, height: 138, depth: 64 },
+  wallSwitchSimple: { width: 85, height: 85, depth: 38 },
+  wallSwitchDouble: { width: 85, height: 85, depth: 38 },
+  wallSwitchStaircase: { width: 85, height: 85, depth: 38 },
   multimeterDm20: { width: 88, height: 184, depth: 53 },
   meterD522066: { width: 54, height: 80, depth: 64 },
   meterKws306: { width: 74, height: 86.5, depth: 65 },
@@ -288,6 +300,12 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   /** Condensador genérico (STEP → GLB). Capacitância/tensão editáveis no estado. */
   capacitorRun60uF: spec('capacitorRun60uF', MODEL_PATHS.capacitorRunGeneric, [0, 0, 0], 'machine'),
   pilotLightAd22: spec('pilotLightAd22', MODEL_PATHS.pilotLightAd22, [Math.PI / 2, 0, 0], 'panel-front'),
+  lampIncandescentE27: spec('lampIncandescentE27', MODEL_PATHS.lampIncandescentE27, [0, 0, 0], 'panel-front'),
+  lampFluorescentE27: spec('lampFluorescentE27', MODEL_PATHS.lampFluorescentE27, [0, 0, 0], 'panel-front'),
+  lampLedE27: spec('lampLedE27', MODEL_PATHS.lampLedE27, [0, 0, 0], 'panel-front'),
+  wallSwitchSimple: spec('wallSwitchSimple', MODEL_PATHS.wallSwitchSimple, [0, 0, 0], 'panel-front'),
+  wallSwitchDouble: spec('wallSwitchDouble', MODEL_PATHS.wallSwitchDouble, [0, 0, 0], 'panel-front'),
+  wallSwitchStaircase: spec('wallSwitchStaircase', MODEL_PATHS.wallSwitchStaircase, [0, 0, 0], 'panel-front'),
   multimeterDm20: spec('multimeterDm20', MODEL_PATHS.multimeterDm20, [0, 0, 0], 'machine'),
 }
 

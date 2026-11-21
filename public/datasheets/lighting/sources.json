@@ -1,0 +1,37 @@
+{
+  "notice": "Official manufacturer PDFs (Schneider Odace, Philips CorePro LED, Philips Genie CFL) plus compiled IEC 60064 reference sheet for classic A60 incandescent.",
+  "files": [
+    {
+      "file": "schneider-odace-s520204.pdf",
+      "brand": "Schneider Electric",
+      "series": "Odace (S520201 / S520204 / S520214)",
+      "origin": "Official Schneider Electric Odace datasheet PDF (entrepot-du-bricolage.fr)",
+      "bytes": 1173062,
+      "sha256": "81ab50792ca87393af94ec8090d8d7fe0e9ad99f79fc2884e156115be64c634f"
+    },
+    {
+      "file": "philips-corepro-ledbulb-a60-e27.pdf",
+      "brand": "Philips (Signify)",
+      "series": "CorePro LEDbulb A60 E27 5CCT",
+      "origin": "Official Signify / Philips datasheet PDF (signify.com)",
+      "bytes": 746845,
+      "sha256": "913e88058803103155a916b9edf4dc02738ec6e9e252be9e14e96bd7445978ed"
+    },
+    {
+      "file": "philips-genie-cfl-e27.pdf",
+      "brand": "Philips (Signify)",
+      "series": "Genie CFL Integrated E27",
+      "origin": "Official Signify / Philips Genie technical datasheet PDF (assets.signify.com)",
+      "bytes": 621704,
+      "sha256": "ffa03114034511250c4e794e900e63de91025aedf7482a39b77c0e544f9ab94c"
+    },
+    {
+      "file": "philips-standard-a60-incandescente-e27-pt.pdf",
+      "brand": "Philips (Referência técnica IEC 60064)",
+      "series": "Standard Classic A60 E27 + Guia Comparativo & Ligações",
+      "origin": "Generated local technical reference PDF compiled from IEC 60064 / Philips A60 specs",
+      "bytes": 14845,
+      "sha256": "0962daeaba29e6b90454a4a8661021e032012a2b68e84bab1f155ca26809f20b"
+    }
+  ]
+}

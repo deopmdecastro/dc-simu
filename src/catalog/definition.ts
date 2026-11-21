@@ -16,6 +16,7 @@ import { finishCadMaterial } from '../three/catalogMaterials'
 import { getComponentModelSpec } from '../three/modelPaths'
 import { applyProtectionMarkings } from '../three/protectionMarkings'
 import { applySchneiderRcdState, isSchneiderRcd, prepareSchneiderRcdModel } from '../three/schneiderRcdModel'
+import { applyLightingMarkings, applyLightingVisualState, isLightingType } from '../three/lightingModel'
 import { buildTerminalAssemblyCoverGroup, tintTerminalBodyMaterials } from '../three/terminalAssembly'
 import { textureLibraryEntry } from '../three/textureLibrary'
 import type {
@@ -505,6 +506,9 @@ export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): 
           prepareSchneiderModular(fitted)
           applyProtectionMarkings(fitted,asset.builtinType,{state:{closed:false,inA:20,curve:'C'},unitsPerMm:1,anchor:'bottom',heightMm:builtin.physicalSizeMm.height})
           applySchneiderModularState(fitted,asset.builtinType,{closed:false})
+        }
+        if (asset.builtinType && isLightingType(asset.builtinType)) {
+          applyLightingMarkings(fitted, asset.builtinType)
         }
         // Botões de emergência: a cabeça (cogumelo/fole) passa a ser um nó próprio
         // (`dcsimu_head`) para o controlo a afundar sem arrastar a carcaça.

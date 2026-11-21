@@ -192,6 +192,8 @@
     "test:geya-terminal-steps": "tsx scripts/geya-terminal-steps-smoke.ts",
     "test:geya-terminal-steps-ui": "node scripts/geya-terminal-steps-ui-smoke.mjs",
     "test:industrial-iec": "tsx scripts/industrial-iec-smoke.tsx",
+    "test:lighting": "tsx scripts/lighting-smoke.ts",
+    "test:lighting-ui": "node scripts/lighting-ui-smoke.mjs",
     "test:commands-geometry": "tsx scripts/commands-geometry-editing-smoke.ts",
     "test:editor-routes-export": "tsx scripts/editor-routes-export-smoke.tsx",
     "test:grafcet-clipboard-routes": "tsx scripts/grafcet-clipboard-routes-smoke.ts",

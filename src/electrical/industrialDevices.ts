@@ -188,7 +188,7 @@ export function industrialSchematicFootprint(type: IndustrialDeviceType): { w: n
 /** Pasta da biblioteca por categoria (as mesmas dos integrados) — nunca «o resto vai para Relés». */
 const INDUSTRIAL_PALETTE_GROUP: Record<ComponentTemplate['category'], string> = {
   protection: 'Proteção', command: 'Comando', sensor: 'Sensores', measurement: 'Aparelhos de medir',
-  contactor: 'Contatores', relay: 'Relés', signaling: 'Sinalização', motor: 'Motores', drive: 'Acionamentos',
+  contactor: 'Contatores', relay: 'Relés', signaling: 'Sinalização', lighting: 'Iluminação', motor: 'Motores', drive: 'Acionamentos',
   controller: 'Controladores', terminal: 'Bornes e barras', power: 'Fontes',
 }
 

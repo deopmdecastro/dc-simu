@@ -571,6 +571,77 @@ export function symbolBody(part: Pick<CmdPart, 'kind' | 'lines' | 'color' | 'sym
         <path d="M -8.5 21.5 L 8.5 38.5 M 8.5 21.5 L -8.5 38.5" />
       </>
     }
+    case 'lampIncandescent': {
+      const glow = st.lit ? '#f59e0b' : '#fff'
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+        {st.lit && <circle cx={0} cy={30} r={18} fill="#fbbf24" opacity={0.32} stroke="none" />}
+        <circle cx={0} cy={30} r={12} fill={glow} stroke={st.lit ? '#d97706' : INK} />
+        <path d="M -8.5 21.5 L 8.5 38.5 M 8.5 21.5 L -8.5 38.5" stroke={st.lit ? '#78350f' : INK} />
+        <text x={0} y={53} textAnchor="middle" fontSize={6.5} fontWeight={700} fill={INK} stroke="none">INC</text>
+      </>
+    }
+    case 'lampFluorescent': {
+      const glow = st.lit ? '#e0f2fe' : '#fff'
+      return <>
+        <line x1={0} y1={0} x2={0} y2={14} /><line x1={0} y1={46} x2={0} y2={60} />
+        {st.lit && <rect x={-13} y={13} width={26} height={34} rx={6} fill="#38bdf8" opacity={0.24} stroke="none" />}
+        <rect x={-9} y={16} width={18} height={28} rx={4} fill={glow} stroke={st.lit ? '#0284c7' : INK} />
+        <line x1={-6} y1={21} x2={6} y2={21} stroke={INK} strokeWidth={1.3} />
+        <line x1={-6} y1={39} x2={6} y2={39} stroke={INK} strokeWidth={1.3} />
+        <text x={0} y={32.5} textAnchor="middle" fontSize={6.5} fontWeight={700} fill={INK} stroke="none">CFL</text>
+      </>
+    }
+    case 'lampLed': {
+      const glow = st.lit ? '#fef08a' : '#fff'
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
+        {st.lit && <circle cx={0} cy={30} r={18} fill="#fde047" opacity={0.34} stroke="none" />}
+        <circle cx={0} cy={30} r={12} fill={glow} stroke={st.lit ? '#ca8a04' : INK} />
+        <path d="M -8.5 21.5 L 8.5 38.5 M 8.5 21.5 L -8.5 38.5" stroke={st.lit ? '#854d0e' : INK} />
+        <path d="M 11 20 L 16 15 M 14 15 L 16 15 L 16 17" stroke={st.lit ? '#ca8a04' : INK} strokeWidth={1.1} fill="none" />
+        <path d="M 13 25 L 18 20 M 16 20 L 18 20 L 18 22" stroke={st.lit ? '#ca8a04' : INK} strokeWidth={1.1} fill="none" />
+        <text x={0} y={53} textAnchor="middle" fontSize={6.5} fontWeight={700} fill={INK} stroke="none">LED</text>
+      </>
+    }
+    case 'wallSwitchSimple': {
+      const closed = !!st.closed
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} />
+        <line x1={0} y1={42} x2={0} y2={60} />
+        <circle cx={0} cy={18} r={2.2} fill="#fff" stroke={INK} strokeWidth={1.2} />
+        <line x1={0} y1={18} x2={closed ? 0 : -10} y2={closed ? 42 : 40} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
+        <path d="M -20 30 L -6 30" strokeDasharray="2.5 2" strokeWidth={1.1} />
+        <path d="M -20 25 L -20 35 M -20 25 L -16 25" strokeWidth={1.3} fill="none" />
+      </>
+    }
+    case 'wallSwitchDouble': {
+      const closed = !!st.closed
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} />
+        <line x1={0} y1={42} x2={0} y2={60} />
+        <line x1={20} y1={42} x2={20} y2={60} />
+        <circle cx={0} cy={18} r={2.2} fill="#fff" stroke={INK} strokeWidth={1.2} />
+        <line x1={0} y1={18} x2={closed ? 0 : -9} y2={closed ? 42 : 40} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
+        <line x1={0} y1={18} x2={closed ? 20 : 12} y2={closed ? 42 : 40} stroke={closed && !st.idle ? active : INK} strokeWidth={closed && !st.idle ? 2 : 1.6} />
+        <path d="M -20 30 L -6 30" strokeDasharray="2.5 2" strokeWidth={1.1} />
+        <path d="M -20 24 L -20 36 M -20 24 L -16 24 M -20 36 L -16 36" strokeWidth={1.3} fill="none" />
+      </>
+    }
+    case 'wallSwitchStaircase': {
+      const pos2 = !!st.closed
+      return <>
+        <line x1={0} y1={0} x2={0} y2={18} />
+        <line x1={0} y1={42} x2={0} y2={60} />
+        <line x1={20} y1={42} x2={20} y2={60} />
+        <circle cx={0} cy={18} r={2.2} fill="#fff" stroke={INK} strokeWidth={1.2} />
+        <circle cx={0} cy={42} r={1.8} fill="#fff" stroke={INK} strokeWidth={1.1} />
+        <circle cx={20} cy={42} r={1.8} fill="#fff" stroke={INK} strokeWidth={1.1} />
+        <line x1={0} y1={18} x2={pos2 ? 20 : 0} y2={42} stroke={!st.idle ? active : INK} strokeWidth={!st.idle ? 2 : 1.6} />
+        <path d="M -20 30 L -4 30" strokeDasharray="2.5 2" strokeWidth={1.1} />
+        <path d="M -20 25 L -16 30 L -20 35" strokeWidth={1.3} fill="none" />
+      </>
+    }
     case 'buzzer': return <>
       <line x1={0} y1={0} x2={0} y2={18} /><line x1={0} y1={42} x2={0} y2={60} />
       <path d="M -13 36 A 13 13 0 0 1 13 36 Z" transform="translate(0 6)" fill={loadOn ? '#fef3c7' : '#fff'} stroke={loadOn ? '#d97706' : INK} />

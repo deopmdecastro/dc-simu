@@ -3,7 +3,7 @@
 import SymbolThumb from './SymbolThumb'
 import { useMemo } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { CMD_PARTS, MOTOR_KINDS, emptyCommands, type CmdKind } from './model'
+import { CMD_PARTS, LAMP_CMD_KINDS, MOTOR_KINDS, emptyCommands, type CmdKind } from './model'
 import { devicesOf } from './engine'
 import { MOMENTARY, TOGGLES, useCommandsUi } from './commandsUi'
 import { SimTransportControls } from '../ui/toolbarKit'
@@ -56,14 +56,14 @@ export function CommandsIoPanel() {
   const { press, toggle, trip } = useCommandsUi.getState()
   const devices = useMemo(() => devicesOf(diagram), [diagram])
   const inputs = devices.filter(({ kinds }) => has(kinds, [...MOMENTARY, ...TOGGLES]) || kinds.some((k) => k.startsWith('thermal')))
-  const outputs = devices.filter(({ kinds }) => has(kinds, ['coil', 'timerCoil', 'lamp', ...MOTOR_KINDS]))
+  const outputs = devices.filter(({ kinds }) => has(kinds, ['coil', 'timerCoil', ...LAMP_CMD_KINDS, ...MOTOR_KINDS]))
   const { empty, running, stopped, onPlay, onPause, onStop, onReset, onStep } = useCommandsTransport()
   const idle = stopped
 
   const activeInputs = inputs.filter(({ tag, kinds }) => !!(rt.pressed[tag] || rt.toggled[tag] || rt.tripped[tag])).length
   const activeOutputs = outputs.filter(({ tag, kinds }) => {
     const motor = diagram.parts.find((p) => p.tag === tag && MOTOR_KINDS.includes(p.kind))
-    const lamp = diagram.parts.find((p) => p.tag === tag && p.kind === 'lamp')
+    const lamp = diagram.parts.find((p) => p.tag === tag && LAMP_CMD_KINDS.includes(p.kind))
     const m = motor ? rt.motors[motor.id] : undefined
     return !!rt.coils[tag] || !!(lamp && rt.lamps[lamp.id]) || !!(m && m.mode !== 'stop')
   }).length
@@ -194,7 +194,7 @@ export function CommandsIoPanel() {
                   <div className="vio-outputs">
                     {outputs.map(({ tag, kinds }) => {
                       const motor = diagram.parts.find((p) => p.tag === tag && MOTOR_KINDS.includes(p.kind))
-                      const lamp = diagram.parts.find((p) => p.tag === tag && p.kind === 'lamp')
+                      const lamp = diagram.parts.find((p) => p.tag === tag && LAMP_CMD_KINDS.includes(p.kind))
                       const m = motor ? rt.motors[motor.id] : undefined
                       const coilOn = !!rt.coils[tag]
                       const lampOn = !!(lamp && rt.lamps[lamp.id])

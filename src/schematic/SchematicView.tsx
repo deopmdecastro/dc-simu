@@ -1148,7 +1148,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   const isPressable = (c: ElectricalComponent) =>
     !!importedComponentInfo(c.type) ||
-    ['buttonNO', 'buttonNC', 'dualPushButtonNpb22D11', 'emergencyButton', 'emergencyButtonKeyP20ACR', 'selector2', 'selector3', 'keySwitch', 'footSwitch', 'limitSwitch', 'proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat'].includes(c.type)
+    ['buttonNO', 'buttonNC', 'dualPushButtonNpb22D11', 'emergencyButton', 'emergencyButtonKeyP20ACR', 'selector2', 'selector3', 'keySwitch', 'footSwitch', 'limitSwitch', 'proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'wallSwitchSimple', 'wallSwitchDouble', 'wallSwitchStaircase'].includes(c.type)
 
   /** Disjuntores: duplo clique no corpo arma/desarma (e rearma um disparo), como o clique no Painel 3D. */
   const isToggleBreaker = (c: ElectricalComponent) =>
@@ -1168,6 +1168,10 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     if (!isPressable(c)) return
     if (c.type === 'proximitySensor' || c.type === 'photoSensor' || c.type === 'pressureSwitch' || c.type === 'thermostat') {
       useSimStore.getState().operateComponent(c.id, { triggered: down })
+    } else if (c.type === 'wallSwitchSimple' || c.type === 'wallSwitchStaircase') {
+      if (down) useSimStore.getState().operateComponent(c.id, { on: !c.state.on })
+    } else if (c.type === 'wallSwitchDouble') {
+      if (down) useSimStore.getState().operateComponent(c.id, { on1: !c.state.on1 })
     } else if (c.type === 'dualPushButtonNpb22D11') {
       useSimStore.getState().operateComponent(c.id, { startPressed: down })
     } else if (c.state.maintain) {

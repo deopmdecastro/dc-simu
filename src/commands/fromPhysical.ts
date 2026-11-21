@@ -62,7 +62,8 @@ export function generateIecDiagramFromPhysical(
   const motors = electricalComps.filter((c) => c.type.startsWith('motor'))
   const capacitors = electricalComps.filter((c) => c.type.startsWith('capacitor'))
   const buttons = electricalComps.filter((c) => c.type.startsWith('emergency') || c.type.startsWith('push') || c.type.startsWith('dualPush') || c.type.startsWith('key') || c.type.startsWith('selector'))
-  const lamps = electricalComps.filter((c) => c.type.startsWith('pilot') || c.type.startsWith('led') || c.type.startsWith('tower') || c.type === 'buzzer')
+  const wallSwitches = electricalComps.filter((c) => c.type === 'wallSwitchSimple' || c.type === 'wallSwitchDouble' || c.type === 'wallSwitchStaircase')
+  const lamps = electricalComps.filter((c) => c.type.startsWith('pilot') || c.type.startsWith('led') || c.type.startsWith('tower') || c.type === 'buzzer' || c.type === 'lampIncandescentE27' || c.type === 'lampFluorescentE27' || c.type === 'lampLedE27')
 
   // 1. Títulos de secção
   diagram.texts!.push({ id: 't_power', x: 80, y: 16, text: 'CIRCUITO DE POTÊNCIA (FORÇA)', page })
@@ -226,12 +227,36 @@ export function generateIecDiagramFromPhysical(
     cY += 80
   }
 
-  // Sinalizadores luminosos (X1-X2)
+  // Interruptores de iluminação (Odace)
+  for (let i = 0; i < wallSwitches.length; i++) {
+    const sw = wallSwitches[i]
+    const kind: CmdKind = sw.type === 'wallSwitchDouble'
+      ? 'wallSwitchDouble'
+      : sw.type === 'wallSwitchStaircase'
+        ? 'wallSwitchStaircase'
+        : 'wallSwitchSimple'
+    const swPart = addPart(kind, cX + 80 * i, cY, sw.ref)
+    terminalMap.set(`${sw.id}:L`, { partId: swPart.id, termIdx: 0 })
+    terminalMap.set(`${sw.id}:1`, { partId: swPart.id, termIdx: 1 })
+    if (kind !== 'wallSwitchSimple') terminalMap.set(`${sw.id}:2`, { partId: swPart.id, termIdx: 2 })
+  }
+  if (wallSwitches.length) cY += 80
+
+  // Sinalizadores e lâmpadas de iluminação
   for (let i = 0; i < lamps.length; i++) {
     const lamp = lamps[i]
-    const lampPart = addPart('lamp', cX + 80 * (i + 1), cY - 80, lamp.ref, { color: lamp.state.color as any || 'green' })
+    const kind: CmdKind = lamp.type === 'lampIncandescentE27'
+      ? 'lampIncandescent'
+      : lamp.type === 'lampFluorescentE27'
+        ? 'lampFluorescent'
+        : lamp.type === 'lampLedE27'
+          ? 'lampLed'
+          : 'lamp'
+    const lampPart = addPart(kind, cX + 80 * (i + 1), cY - 80, lamp.ref, kind === 'lamp' ? { color: lamp.state.color as any || 'green' } : {})
     terminalMap.set(`${lamp.id}:X1`, { partId: lampPart.id, termIdx: 0 })
     terminalMap.set(`${lamp.id}:X2`, { partId: lampPart.id, termIdx: 1 })
+    terminalMap.set(`${lamp.id}:L`, { partId: lampPart.id, termIdx: 0 })
+    terminalMap.set(`${lamp.id}:N`, { partId: lampPart.id, termIdx: 1 })
     terminalMap.set(`${lamp.id}:1`, { partId: lampPart.id, termIdx: 0 })
     terminalMap.set(`${lamp.id}:2`, { partId: lampPart.id, termIdx: 1 })
   }

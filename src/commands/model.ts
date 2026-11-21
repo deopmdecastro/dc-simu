@@ -48,6 +48,9 @@ export type CmdKind =
   | 'plcS71500Di32'
   /** Siemens S7-1500 CPU 1511C-1 PN · 6ES7511-1CK00-0AB0 (16DI/16DO). */
   | 'plcS71500Cpu1511c'
+  /** Iluminação residencial / edifícios (IEC 60617-08 / IEC 60617-11). */
+  | 'lampIncandescent' | 'lampFluorescent' | 'lampLed'
+  | 'wallSwitchSimple' | 'wallSwitchDouble' | 'wallSwitchStaircase'
   /** Siemens S7-300 CPU 315-2 DP (alimentação + MPI/DP). */
   | 'plcS7300Cpu315'
 
@@ -233,6 +236,12 @@ export const CMD_PARTS: Record<CmdKind, CmdPartDef> = {
   coil: { label: 'Bobina', hint: 'K · A1-A2 do contactor/relé', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   timerCoil: { label: 'Temporizador', hint: 'K · bobina com atraso à operação', family: 'coil', prefix: 'K', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   lamp: { label: 'Sinalizador', hint: 'H · lâmpada de indicação', family: 'load', prefix: 'H', terminals: pole(0, 'X1', 'X2'), poles: [], box: { x: -14, y: 0, w: 28, h: 60 } },
+  lampIncandescent: { label: 'Lâmpada Incandescente', hint: 'E · E27 230 V~ (40–100 W · 2700 K)', family: 'load', prefix: 'E', terminals: pole(0, 'L', 'N'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  lampFluorescent: { label: 'Lâmpada Fluorescente CFL', hint: 'E · E27 230 V~ (8–20 W · até 80 %)', family: 'load', prefix: 'E', terminals: pole(0, 'L', 'N'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
+  lampLed: { label: 'Lâmpada LED', hint: 'E · E27 230 V~ (4–10 W · até 95 %)', family: 'load', prefix: 'E', terminals: pole(0, 'L', 'N'), poles: [], box: { x: -18, y: 0, w: 36, h: 60 } },
+  wallSwitchSimple: { label: 'Interruptor Simples', hint: 'S · Odace 10 AX 250 V~ (L–1)', family: 'button', prefix: 'S', terminals: pole(0, 'L', '1'), poles: [[0, 1]], box: { x: -24, y: 0, w: 38, h: 60 } },
+  wallSwitchDouble: { label: 'Interruptor Duplo', hint: 'S · Odace 2×10 AX 250 V~ (L–1–2)', family: 'button', prefix: 'S', terminals: [{ x: 0, y: 0, label: 'L' }, { x: 0, y: 60, label: '1' }, { x: 20, y: 60, label: '2' }], poles: [[0, 1], [0, 2]], box: { x: -24, y: 0, w: 54, h: 60 } },
+  wallSwitchStaircase: { label: 'Comutador de Escada', hint: 'S · Odace SPDT 10 AX (L↔1 / L↔2)', family: 'button', prefix: 'S', terminals: [{ x: 0, y: 0, label: 'L' }, { x: 0, y: 60, label: '1' }, { x: 20, y: 60, label: '2' }], poles: [[0, 1]], box: { x: -24, y: 0, w: 54, h: 60 } },
   buzzer: { label: 'Campainha / buzzer', hint: 'H · sinalização sonora', family: 'load', prefix: 'H', terminals: pole(0, 'X1', 'X2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   solenoid: { label: 'Solenoide', hint: 'Y · bobina de válvula ou travão', family: 'load', prefix: 'Y', terminals: pole(0, 'A1', 'A2'), poles: [], box: { x: -16, y: 0, w: 32, h: 60 } },
   heater: { label: 'Resistência / aquecedor', hint: 'E · carga resistiva', family: 'load', prefix: 'E', terminals: pole(0, '1', '2'), poles: [], box: { x: -14, y: 0, w: 28, h: 60 } },
@@ -344,6 +353,9 @@ export function variantOf(part: Pick<CmdPart, 'kind' | 'variant'>): string | und
 /** Motores do esquema de comandos (estado de marcha em `rt.motors`). */
 export const MOTOR_KINDS: CmdKind[] = ['motor3', 'motor6', 'motor1', 'motorDC', 'motorSlipRing']
 
+/** Lâmpadas e luminárias do esquema de comandos (estado luminoso em `rt.lamps`). */
+export const LAMP_CMD_KINDS: CmdKind[] = ['lamp', 'lampIncandescent', 'lampFluorescent', 'lampLed']
+
 const CONVERTER_LABELS: Record<string, string[]> = {
   acdc: ['L', 'N', '+', '−'], dcac: ['+', '−', 'L', 'N'], dcdc: ['+', '−', '+', '−'], acac: ['L', 'N', 'L', 'N'],
 }
@@ -353,6 +365,7 @@ export const CMD_PALETTE: Array<{ title: string; kinds: CmdKind[] }> = [
   { title: 'Proteção', kinds: ['fuse', 'fuse2', 'fuse3', 'fuseDisconnector', 'fuseDisconnector3', 'fuseSwitchDisconnector3', 'breaker1', 'breakerTM1', 'breaker2', 'breaker3', 'motorBreaker3', 'disconnector1', 'disconnector2', 'disconnector3', 'switchDisconnector1', 'switchDisconnector3', 'thermal3', 'rcd', 'mainSwitch'] },
   { title: 'Contactos', kinds: ['contact3', 'contactNO', 'contactNC', 'changeover', 'timedNO', 'timedNC', 'timedOffNO', 'timedOffNC', 'thermalNC', 'thermalNO'] },
   { title: 'Comando', kinds: ['pushNO', 'pushNC', 'pushIllum', 'emergency', 'pullCord', 'selector', 'footNO', 'footNC'] },
+  { title: 'Iluminação', kinds: ['lampIncandescent', 'lampFluorescent', 'lampLed', 'wallSwitchSimple', 'wallSwitchDouble', 'wallSwitchStaircase'] },
   { title: 'Sensores', kinds: ['limitNO', 'limitNC', 'proximity', 'pressureSwitch', 'levelNO', 'levelNC', 'temperatureController', 'sensor3wNO', 'sensor3wNC'] },
   { title: 'Instrumentos', kinds: ['ammeter', 'voltmeter', 'meter', 'energyMeter', 'currentTransformer', 'counter'] },
   { title: 'Bobinas e cargas', kinds: ['coil', 'timerCoil', 'timerOffCoil', 'overcurrentRelay', 'undervoltageRelay', 'latchingRelay', 'overvoltageRelay', 'shortCircuitRelay', 'slowRelay', 'lamp', 'buzzer', 'siren', 'solenoid', 'heater', 'motor3', 'motor6', 'motor1', 'motorDC', 'motorSlipRing'] },

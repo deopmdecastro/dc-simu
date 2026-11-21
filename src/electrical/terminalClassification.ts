@@ -48,6 +48,8 @@ export function inferTerminalElectricalClass(component: ElectricalComponent, ter
     return 'dc'
   }
   if (component.type === 'motor3ph' || component.type === 'motor1ph') return 'ac'
+  if (component.type === 'lampIncandescentE27' || component.type === 'lampFluorescentE27' || component.type === 'lampLedE27') return 'ac'
+  if (component.type === 'wallSwitchSimple' || component.type === 'wallSwitchDouble' || component.type === 'wallSwitchStaircase') return 'ac'
   if (component.type === 'transformer') return 'ac'
   if (component.type === 'contactorWegCWC09') {
     if (/^(A1|A2|[1-6][LT]\d)$/i.test(terminal.label)) return 'ac'

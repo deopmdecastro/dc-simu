@@ -9,6 +9,7 @@ import { createDigitalMeterObject, digitalMeterSpec, isDigitalMeterType } from '
 import { paintImportedModel, rigImportedModel, animateImportedRig } from './importedFinish'
 import { applyProtectionMarkings } from './protectionMarkings'
 import { applySchneiderRcdState, isSchneiderRcd, prepareSchneiderRcdModel } from './schneiderRcdModel'
+import { applyLightingMarkings, applyLightingVisualState, isLightingType } from './lightingModel'
 import { applyCombBusbarFinish } from './combBusbarMarkings'
 import { TEMPLATES } from '../electrical/factory'
 import { importedComponentInfo } from '../electrical/importedComponents'
@@ -164,7 +165,16 @@ async function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentTy
   } else {
     root.traverse((child) => {
       const mesh = child as THREE.Mesh
-      if (!mesh.isMesh || mesh.userData?.protectionMarking) return
+      if (
+        !mesh.isMesh ||
+        mesh.userData?.protectionMarking ||
+        mesh.name === 'lighting_bulb_glass' ||
+        mesh.name === 'lamp_glow_core' ||
+        mesh.name.startsWith('lighting_socket_decal') ||
+        mesh.name.startsWith('lighting_ballast_label') ||
+        mesh.name === 'lighting_switch_brand' ||
+        (mesh.name.startsWith('lighting_rocker') && mesh.name.endsWith('_decal'))
+      ) return
       const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       const enhanced = source.map((entry) => finishCadMaterial(entry, { envMapIntensity: 1.2 }))
       mesh.material = Array.isArray(mesh.material) ? enhanced : enhanced[0]
@@ -224,6 +234,10 @@ async function prepareObject(type: ComponentType): Promise<THREE.Object3D> {
     await applyIndustrialTextures(object, type)
   }
   if (isSchneiderRcd(type)) applySchneiderRcdState(object, defaultState)
+  if (isLightingType(type)) {
+    applyLightingMarkings(object, type, defaultState)
+    applyLightingVisualState(object, type, defaultState, 0)
+  }
   applyProtectionMarkings(object, type, {
     state: defaultState,
     unitsPerMm: 1,

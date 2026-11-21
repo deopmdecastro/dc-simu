@@ -400,7 +400,54 @@ export function pneumaticCylinderExample(): CommandsDiagram {
   return b.diagram
 }
 
-export type CommandsExampleCategory = 'motores' | 'seguranca' | 'sinalizacao' | 'avancado'
+/** Comutação de escada (2 comutadores Schneider Odace S520204 + lâmpada LED E27 + comparação CFL/Incandescente). */
+export function staircaseLightingExample(): CommandsDiagram {
+  const b = builder('Comutação de escada (Iluminação 230 V~)')
+  b.text(60, 0, 'Comutação de escada · 2 pontos de comando')
+  b.text(60, 16, 'Q1 (10 A) → S1 (Piso 0) ⇄ S2 (Piso 1) → E1 (LED E27 8 W)')
+  const net = b.part('supply', 100, 40, '', { lines: ['L1'] })
+  const q1 = b.part('breaker1', 100, 60, 'Q1')
+  const s1 = b.part('wallSwitchStaircase', 100, 160, 'S1')
+  // S2 rodado 180°: bornes 2 e 1 ficam virados para cima em x=100 e x=120, comum L em baixo (x=120, y=320).
+  const s2 = b.part('wallSwitchStaircase', 120, 320, 'S2', {}, 180)
+  const e1 = b.part('lampLed', 120, 360, 'E1')
+  const n = b.part('supply', 80, 460, '', { lines: ['N'] })
+  const n1 = b.node(120, 460)
+  b.wire(net, 0, q1, 0)
+  b.wire(q1, 1, s1, 0)
+  // Dois condutores de navette paralelos (sem cruzamentos)
+  b.wire(s1, 1, s2, 2)
+  b.wire(s1, 2, s2, 1)
+  b.wire(s2, 0, e1, 0)
+  b.wire(e1, 1, n1, 0)
+  b.wire(n, 0, n1, 0)
+
+  b.text(260, 0, 'Ponto de luz simples + circuito CFL')
+  b.text(260, 16, 'S3 (Simples) → E2 (CFL 12 W) · S4 → E3 (Incandescente 60 W)')
+  const l2 = b.part('supply', 280, 40, '', { lines: ['L1'] })
+  const top1 = b.node(280, 80)
+  const top2 = b.node(380, 80)
+  const s3 = b.part('wallSwitchSimple', 280, 160, 'S3')
+  const e2 = b.part('lampFluorescent', 280, 280, 'E2')
+  const s4 = b.part('wallSwitchSimple', 380, 160, 'S4')
+  const e3 = b.part('lampIncandescent', 380, 280, 'E3')
+  const nb1 = b.node(280, 460)
+  const nb2 = b.node(380, 460)
+  b.wire(l2, 0, top1, 0)
+  b.wire(top1, 0, top2, 0)
+  b.wire(top1, 0, s3, 0)
+  b.wire(s3, 1, e2, 0)
+  b.wire(e2, 1, nb1, 0)
+  b.wire(top2, 0, s4, 0)
+  b.wire(s4, 1, e3, 0)
+  b.wire(e3, 1, nb2, 0)
+  b.wire(n1, 0, nb1, 0)
+  b.wire(nb1, 0, nb2, 0)
+  b.text(60, 488, 'Clique em S1 ou S2 em RUN para acender/apagar E1 a partir de qualquer piso.')
+  return b.diagram
+}
+
+export type CommandsExampleCategory = 'motores' | 'seguranca' | 'sinalizacao' | 'iluminacao' | 'avancado'
 
 export interface CommandsExampleInfo {
   id: string
@@ -419,6 +466,7 @@ export const COMMANDS_EXAMPLE_CATEGORIES: Array<{ id: CommandsExampleCategory; l
   { id: 'motores', label: 'Motores e arranques', hint: 'Partidas industriais com contactores e temporização' },
   { id: 'seguranca', label: 'Segurança', hint: 'Paragens e encravamentos de proteção' },
   { id: 'sinalizacao', label: 'Sinalização e painel', hint: 'Botões, lâmpadas e seletores' },
+  { id: 'iluminacao', label: 'Iluminação', hint: 'Lâmpadas E27 e comutação de escada 230 V~' },
   { id: 'avancado', label: 'Avançado', hint: 'Várias páginas e circuitos mistos' },
 ]
 
@@ -429,6 +477,7 @@ export const COMMANDS_EXAMPLES: CommandsExampleInfo[] = [
   { id: 'delayed', title: 'Arranque temporizado', detail: 'Temporizador K6 (3 s) antes de fechar o contactor do motor.', category: 'motores', level: 1, order: 4, tag: 'TON', build: delayedStartExample },
   { id: 'emergency', title: 'Paragem de emergência', detail: 'Cogumelo S0 em série no comando, lâmpada de emergência e retenção K1.', category: 'seguranca', level: 1, order: 1, tag: 'S0', build: emergencyStopExample },
   { id: 'signaling', title: 'Painel de sinalização', detail: 'Botões iluminados, seletor, fim-de-curso, lâmpadas e buzzer a 24 V.', category: 'sinalizacao', level: 2, order: 1, build: signalingPanelExample },
+  { id: 'staircase-lighting', title: 'Comutação de escada (Iluminação)', detail: 'Dois comutadores S1/S2 a comandar uma lâmpada LED E27, mais comparação CFL e Incandescente.', category: 'iluminacao', level: 1, order: 1, tag: 'Escada', build: staircaseLightingExample },
   { id: 'multipage', title: 'Duas páginas (potência + comando)', detail: 'Potência e comando em folhas separadas, unidos por ligações entre páginas.', category: 'avancado', level: 3, order: 1, tag: 'Páginas', build: multiPageExample },
   { id: 'pneumatic', title: 'Cilindro pneumático 5/2', detail: 'Fonte de ar, válvula 5/2, cilindro de duplo efeito e solenoides de comando.', category: 'avancado', level: 2, order: 2, tag: 'Pneumática', build: pneumaticCylinderExample },
 ]

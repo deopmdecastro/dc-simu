@@ -10,6 +10,8 @@ const SUPPORTED = new Set<ComponentType>([
   'breakerSchneiderIc60h1p','pilotLightSchneiderIil1p','pilotLightSchneiderIil3p',
   'residualBreakerSchneiderIid4p','residualBreakerSchneiderIdpnVigi','safetyRelay',
   'contactorWegCwbc65',
+  'lampIncandescentE27','lampFluorescentE27','lampLedE27',
+  'wallSwitchSimple','wallSwitchDouble','wallSwitchStaircase',
   'powerSource1ph','powerSource3ph','powerSource24v','terminalSet1ph','terminalSet3ph','terminalSet24v',
 ])
 export const supportsBuiltinRuntime=(type:ComponentType)=>SUPPORTED.has(type)

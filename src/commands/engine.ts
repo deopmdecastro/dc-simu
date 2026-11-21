@@ -9,7 +9,7 @@
 // fase nos motores e oscilações (circuitos que nunca estabilizam).
 // ============================================================================
 
-import { CMD_PARTS, LOGO_INPUTS, LOGO_OUTPUTS, MOTOR_KINDS, S71500_CPU_INPUTS, S71500_CPU_OUTPUTS, S71500_DI32_INPUTS, partTerminals, variantOf, type CmdPart, type CommandsDiagram } from './model'
+import { CMD_PARTS, LAMP_CMD_KINDS, LOGO_INPUTS, LOGO_OUTPUTS, MOTOR_KINDS, S71500_CPU_INPUTS, S71500_CPU_OUTPUTS, S71500_DI32_INPUTS, partTerminals, variantOf, type CmdPart, type CommandsDiagram } from './model'
 
 export interface CmdRuntime {
   running: boolean
@@ -122,7 +122,10 @@ export function isClosed(part: CmdPart, rt: CmdRuntime): boolean {
     case 'pushNO': case 'pushIllum': case 'limitNO': case 'proximity': return !!rt.pressed[part.tag]
     case 'pushNC': case 'limitNC': return !rt.pressed[part.tag]
     case 'emergency': return !rt.toggled[part.tag]
-    case 'selector': return !!rt.toggled[part.tag]
+    case 'selector':
+    case 'wallSwitchSimple':
+    case 'wallSwitchDouble':
+    case 'wallSwitchStaircase': return !!rt.toggled[part.tag]
     // Saída do PLC: comandada pelo programa (simulador do PLC) ou à mão, com um clique.
     case 'plcOut': return !!rt.coils[part.tag] || !!rt.toggled[part.tag] || !!rt.plc?.[part.tag]
     // Válvulas: posição 1 quando a bobina Y com o mesmo tag está sob tensão, ou toggle manual
@@ -154,6 +157,12 @@ function solve(diagram: CommandsDiagram, rt: CmdRuntime): Solved {
     if (part.kind === 'changeover') {
       if (isClosed(part, rt)) nets.union(key(part.id, 0), key(part.id, 1))
       else nets.union(key(part.id, 0), key(part.id, 2))
+      continue
+    }
+    if (part.kind === 'wallSwitchStaircase') {
+      // Comutador de escada SPDT: repouso liga L↔1, atuado liga L↔2.
+      if (isClosed(part, rt)) nets.union(key(part.id, 0), key(part.id, 2))
+      else nets.union(key(part.id, 0), key(part.id, 1))
       continue
     }
     if (part.kind === 'plcLogo') {
@@ -285,7 +294,9 @@ export function stepCommands(diagram: CommandsDiagram, previous: CmdRuntime, dtM
   for (const w of diagram.wires) { const p = live[key(w.a.part, w.a.term)]; if (p) liveWires[w.id] = p }
 
   const lamps: Record<string, boolean> = {}
-  for (const lamp of diagram.parts.filter((p) => p.kind === 'lamp')) lamps[lamp.id] = powered(potentialOf(solved, lamp.id, 0), potentialOf(solved, lamp.id, 1))
+  for (const lamp of diagram.parts.filter((p) => LAMP_CMD_KINDS.includes(p.kind))) {
+    lamps[lamp.id] = powered(potentialOf(solved, lamp.id, 0), potentialOf(solved, lamp.id, 1))
+  }
 
   const loadKinds = new Set(['buzzer', 'siren', 'solenoid', 'heater', 'plcOut', 'pushIllum', 'counter'])
   const loads: Record<string, boolean> = {}

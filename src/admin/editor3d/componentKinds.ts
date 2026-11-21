@@ -1,7 +1,7 @@
 import type { ComponentCategory } from '../../types'
 import type { ComponentDefinition } from '../../catalog/types'
 
-export const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['sensor', 'Sensor'], ['measurement', 'Aparelho de medir'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC / HMI'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
+export const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['lighting', 'Iluminação'], ['sensor', 'Sensor'], ['measurement', 'Aparelho de medir'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC / HMI'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
 
 export interface ComponentKind {
   id: string
@@ -19,6 +19,7 @@ export const COMPONENT_KINDS: ComponentKind[] = [
   { id: 'relay', label: 'Relé', category: 'relay', tag: 'KA', mount: 'din-rail', hint: 'Relés auxiliares e temporizadores' },
   { id: 'pushbutton', label: 'Botão / seletor', category: 'command', tag: 'S', mount: 'panel-front', hint: 'Botões, seletores, paragem de emergência' },
   { id: 'pilot', label: 'Sinalizador', category: 'signaling', tag: 'H', mount: 'panel-front', hint: 'Lâmpadas, buzzers, torres de sinalização' },
+  { id: 'lighting', label: 'Iluminação', category: 'lighting', tag: 'E', mount: 'panel-front', hint: 'Lâmpadas E27 e interruptores de parede' },
   { id: 'sensor', label: 'Sensor', category: 'sensor', tag: 'B', mount: 'machine', hint: 'Indutivos, fotoelétricos, finais de curso' },
   { id: 'instrument', label: 'Aparelho de medir', category: 'measurement', tag: 'P', mount: 'machine', hint: 'Multímetros, osciloscópios, ponteiras de teste' },
   { id: 'motor', label: 'Motor', category: 'motor', tag: 'M', mount: 'machine', hint: 'Motores e atuadores' },

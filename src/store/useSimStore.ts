@@ -1010,6 +1010,11 @@ function runOneTick(state: Store, dtMs: number) {
     if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'pilotLightAd22' || c.type === 'pilotLightSchneiderIil1p' || c.type === 'buzzer') {
       c.state.on = isLoadPowered(c, pass3.energizedTerminals)
     }
+    if (c.type === 'lampIncandescentE27' || c.type === 'lampFluorescentE27' || c.type === 'lampLedE27') {
+      const ctx: IndustrialElectricalContext = { components, live: pass3.energizedTerminals, adjacency: pass3.reachable, phases: indicationPhases }
+      const input = industrialInput(c, 'L', 'N', ctx)
+      c.state.on = !input.dc && input.voltage >= 110 && input.voltage <= 260
+    }
     if (c.type === 'pilotLightSchneiderIil1p' || c.type === 'pilotLightSchneiderIil3p') {
       const ctx: IndustrialElectricalContext = { components, live: pass3.energizedTerminals, adjacency: pass3.reachable, phases: indicationPhases }
       if (c.type === 'pilotLightSchneiderIil1p') {
@@ -1346,6 +1351,9 @@ function deenergizeComponents(components: ElectricalComponent[]): ElectricalComp
       component.type === 'ledYellow' ||
       component.type === 'ledWhite' ||
       component.type === 'pilotLightAd22' ||
+      component.type === 'lampIncandescentE27' ||
+      component.type === 'lampFluorescentE27' ||
+      component.type === 'lampLedE27' ||
       component.type === 'buzzer' ||
       component.type === 'hmi'
     ) {
@@ -2146,6 +2154,8 @@ export const useSimStore = create<Store>((set, get) => {
         else if (typeof patch.stopPressed === 'boolean' && patch.stopPressed !== c.state.stopPressed && patch.stopPressed) sfx = info?.behavior === 'thermal' ? 'thermal' : 'button'
         else if (typeof patch.pressed === 'boolean' && patch.pressed !== c.state.pressed) sfx = 'button'
         else if (typeof patch.startPressed === 'boolean' && patch.startPressed !== c.state.startPressed && patch.startPressed) sfx = 'button'
+        else if ((c.type === 'wallSwitchSimple' || c.type === 'wallSwitchStaircase') && typeof patch.on === 'boolean' && patch.on !== c.state.on) sfx = 'button'
+        else if (c.type === 'wallSwitchDouble' && ((typeof patch.on1 === 'boolean' && patch.on1 !== c.state.on1) || (typeof patch.on2 === 'boolean' && patch.on2 !== c.state.on2))) sfx = 'button'
         c.state = { ...c.state, ...patch }
       }
       return { components: [...s.components], dirty: true }

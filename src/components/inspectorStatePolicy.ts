@@ -8,10 +8,12 @@ const NONNEGATIVE_SETTINGS = new Set(['presetMs', 'transitionMs', 'rampMs', 'ram
 export function inspectorStatePolicy(type: string, key: string): { readOnly: boolean; min?: number; integer?: boolean } {
   const meter = type === 'meterD522066' || type === 'meterKws306'
   const pilot = type === 'pilotLightSchneiderIil1p' || type === 'pilotLightSchneiderIil3p'
+  const lamp = type === 'lampIncandescentE27' || type === 'lampFluorescentE27' || type === 'lampLedE27'
   const readOnly = DERIVED.has(key) || FIXED_METADATA.has(key)
     || (FIXED_SCHNEIDER.has(type) && FIXED_RATINGS.has(key))
     || (meter && !['switchOn', 'screenMode', 'resetPressed'].includes(key))
     || (pilot && ['on', 'l1On', 'l2On', 'l3On', 'phaseLoss', 'voltage'].includes(key))
+    || (lamp && ['on', 'socket', 'voltage'].includes(key))
     || (type === 'vfd' && key === 'frequencyHz')
     || (type === 'softStarter' && key === 'bypass')
     || (type === 'timerRelayTOF' && key === 'offDelay')

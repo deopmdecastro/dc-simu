@@ -528,7 +528,7 @@ export function InteractionsTab() {
   </>
 }
 
-const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['sensor', 'Sensor'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
+const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['lighting', 'Iluminação'], ['sensor', 'Sensor'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
 
 function DatasheetSection() {
   const meta = useEditorStore((s) => s.meta)

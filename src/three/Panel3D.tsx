@@ -84,6 +84,8 @@ import {
   SchneiderPilotLight1P_3D,
   SchneiderPilotLight3P_3D,
 } from './SchneiderComponents3D'
+import { LightingDevice3D } from './LightingDevices3D'
+import { isLightingType } from './lightingModel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import { AcrylicBusbar3D, CombBusbar3D, CombConnector3D, SteppedBusbar3D } from './Busbar3D'
 import { isAcrylicBusbarType, isCombBusbarType, isCombConnectorType, isSteppedBusbarType } from './busbarParts'
@@ -3481,6 +3483,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (component.type === 'pilotLightAd22') return [0, RAIL_Y + 1.05, 0.4]
     if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [0, RAIL_Y + 1.15, 0.12]
     if (component.type === 'capacitorRun60uF') return [0, RAIL_Y + 0.7, 0.5]
+    if (isLightingType(component.type)) return [0, RAIL_Y + 0.95, 0.12]
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [0, RAIL_Y + 0.9, 0.3]
     return [0, RAIL_Y + 1.05, 0.4]
   }
@@ -4861,6 +4864,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
           else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
           else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
+          else if (isLightingType(c.type)) content = <LightingDevice3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
           else if (c.type === 'capacitorRun60uF' && getComponentModelSpec(c.type)) {
             const [px, py, pz] = frontPivot(c)
             const fallback = <group position={[x + px, py, pz]}>

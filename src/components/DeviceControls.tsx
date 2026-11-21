@@ -9,6 +9,15 @@ import { importedComponentInfo } from '../electrical/importedComponents'
 import Select from '../ui/Select'
 import IndustrialDeviceControls from './IndustrialDeviceControls'
 import { industrialDeviceTypeOf, isIndustrialDevice } from '../electrical/industrialDevices'
+import {
+  cctLightPalette,
+  isLightingLampType,
+  isLightingSwitchType,
+  isLightingType,
+  LAMP_SPECS,
+  lampPhotometrics,
+  SWITCH_SPECS,
+} from '../three/lightingModel'
 
 /**
  * Chaves de `component.state` geridas diretamente por `DeviceControls`, apenas de chapa técnica
@@ -26,6 +35,12 @@ export const DEVICE_MANAGED_STATE_KEYS = new Set([
   'relative',
   // Fontes e alimentações
   'on',
+  'on1',
+  'on2',
+  'powerW',
+  'cctK',
+  'socket',
+  'brand',
   'nominalV',
   'frequencyHz',
   'outV',
@@ -1102,6 +1117,7 @@ export function hasDeviceControls(type: string): boolean {
     type === 'powerSupplyProauto24A' ||
     isContactorLike(type) ||
     isPlcModule(type) ||
+    isLightingType(type) ||
     [
       'selectorSchneiderXa2ed33',
       'selector3',
@@ -1132,9 +1148,176 @@ export function hasDeviceControls(type: string): boolean {
   )
 }
 
+function LightingControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const setState = useSimStore((s) => s.setComponentState)
+  const operate = useSimStore((s) => s.operateComponent)
+  const simActive = useManobraAllowed()
+  const gateAct = locked || !simActive
+  const actTitle = !simActive ? MANOBRA_BLOCKED_TITLE : undefined
+
+  if (isLightingLampType(c.type)) {
+    const spec = LAMP_SPECS[c.type]
+    const photo = lampPhotometrics(c.type, c.state.powerW)
+    const cct = Number(c.state.cctK) || spec.defaultCctK
+    const pal = cctLightPalette(cct, c.type === 'lampIncandescentE27')
+    const lit = simActive && !!c.state.on
+
+    return (
+      <div className="flex flex-col gap-2" data-device-controls="lighting-lamp">
+        <div className="flex items-center justify-between gap-1">
+          <span className="dc-field-label">{spec.brand} {spec.series} · {spec.socketLabel}</span>
+          <StatusBadge label={lit ? 'Acesa (230 V~)' : 'Apagada'} tone={lit ? 'ok' : 'neutral'} />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] text-[var(--dc-text-muted)]">Potência nominal</span>
+          <div className="grid grid-cols-4 gap-1">
+            {spec.powerOptionsW.map((w) => {
+              const active = photo.powerW === w
+              return (
+                <button
+                  key={w}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={active}
+                  onClick={() => setState(c.id, { powerW: w })}
+                  className={`dc-btn text-[11px] justify-center px-1 ${active ? 'dc-btn-primary' : ''}`}
+                >
+                  {w} W
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {spec.cctOptionsK.length > 1 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-[var(--dc-text-muted)]">Temperatura de cor</span>
+            <div className="grid grid-cols-3 gap-1">
+              {spec.cctOptionsK.map((k) => {
+                const active = cct === k
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    disabled={locked}
+                    aria-pressed={active}
+                    onClick={() => setState(c.id, { cctK: k })}
+                    className={`dc-btn text-[11px] justify-center px-1 ${active ? 'dc-btn-primary' : ''}`}
+                  >
+                    {k} K
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-x-2 gap-y-1 rounded border border-[var(--dc-border)] bg-[var(--dc-surface-subtle)] p-2 text-[10px]">
+          <span className="text-[var(--dc-text-muted)]">Fluxo luminoso</span>
+          <span className="text-right font-mono font-semibold text-[var(--dc-text)]">{photo.lumens} lm</span>
+          <span className="text-[var(--dc-text-muted)]">Equiv. incandescente</span>
+          <span className="text-right font-mono text-[var(--dc-text)]">≈ {photo.equivW} W</span>
+          <span className="text-[var(--dc-text-muted)]">Corrente (230 V~)</span>
+          <span className="text-right font-mono text-[var(--dc-text)]">{photo.currentA.toFixed(3)} A (cos φ {spec.powerFactor.toFixed(2)})</span>
+          <span className="text-[var(--dc-text-muted)]">Cor da luz</span>
+          <span className="text-right text-[var(--dc-text)]">{pal.label}</span>
+          <span className="text-[var(--dc-text-muted)]">Vida útil</span>
+          <span className="text-right font-semibold text-[var(--dc-text)]">{spec.lifespanLabel}</span>
+          <span className="text-[var(--dc-text-muted)]">Poupança energética</span>
+          <span className="text-right font-semibold text-emerald-600 dark:text-emerald-400">{spec.energySavingLabel}</span>
+        </div>
+        <div className="text-[10px] text-[var(--dc-text-muted)]">
+          Alimentar em <strong>L</strong> (fase 230 V~) e <strong>N</strong> (neutro) no casquilho E27.
+        </div>
+      </div>
+    )
+  }
+
+  if (isLightingSwitchType(c.type)) {
+    const spec = SWITCH_SPECS[c.type]
+    if (c.type === 'wallSwitchDouble') {
+      const on1 = !!c.state.on1
+      const on2 = !!c.state.on2
+      return (
+        <div className="flex flex-col gap-2" data-device-controls="lighting-switch-double">
+          {!simActive && <ManobraStopHint />}
+          <div className="flex items-center justify-between gap-1">
+            <span className="dc-field-label">{spec.brand} {spec.series} · {spec.reference}</span>
+            <StatusBadge
+              label={on1 && on2 ? 'T1 + T2 ON' : on1 ? 'T1 ON' : on2 ? 'T2 ON' : 'OFF'}
+              tone={on1 || on2 ? 'ok' : 'neutral'}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              disabled={gateAct}
+              title={actTitle}
+              aria-pressed={on1}
+              onClick={() => operate(c.id, { on1: !on1 })}
+              className={`dc-btn text-[11px] justify-center ${on1 ? 'dc-btn-primary' : ''}`}
+            >
+              Tecla 1 (L–1) · {on1 ? 'ON' : 'OFF'}
+            </button>
+            <button
+              type="button"
+              disabled={gateAct}
+              title={actTitle}
+              aria-pressed={on2}
+              onClick={() => operate(c.id, { on2: !on2 })}
+              className={`dc-btn text-[11px] justify-center ${on2 ? 'dc-btn-primary' : ''}`}
+            >
+              Tecla 2 (L–2) · {on2 ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          <div className="text-[10px] text-[var(--dc-text-muted)]">
+            {spec.ratingLabel} · {spec.norm} · Comum <strong>L</strong> com saídas independentes <strong>1</strong> e <strong>2</strong>.
+          </div>
+        </div>
+      )
+    }
+
+    const on = !!c.state.on
+    const isStair = c.type === 'wallSwitchStaircase'
+    return (
+      <div className="flex flex-col gap-2" data-device-controls={isStair ? 'lighting-switch-staircase' : 'lighting-switch-simple'}>
+        {!simActive && <ManobraStopHint />}
+        <div className="flex items-center justify-between gap-1">
+          <span className="dc-field-label">{spec.brand} {spec.series} · {spec.reference}</span>
+          <StatusBadge
+            label={isStair ? (on ? 'Posição 2 (L–2)' : 'Posição 1 (L–1)') : (on ? 'Ligado (L–1)' : 'Desligado')}
+            tone={isStair ? 'warn' : on ? 'ok' : 'neutral'}
+          />
+        </div>
+        <button
+          type="button"
+          disabled={gateAct}
+          title={actTitle}
+          aria-pressed={on}
+          onClick={() => operate(c.id, { on: !on })}
+          className={`dc-btn text-[11px] justify-center ${on ? 'dc-btn-primary' : ''}`}
+        >
+          {isStair
+            ? (on ? 'Comutar para Posição 1 (L–1)' : 'Comutar para Posição 2 (L–2)')
+            : (on ? 'Desligar (O)' : 'Ligar (I)')}
+        </button>
+        <div className="text-[10px] text-[var(--dc-text-muted)]">
+          {spec.ratingLabel} · {spec.norm} · {isStair
+            ? 'Contacto inversor SPDT: liga L↔1 (Pos. 1) ou L↔2 (Pos. 2) para comutação de escada.'
+            : 'Contacto 1P: fecha L↔1 quando ligado.'}
+        </div>
+      </div>
+    )
+  }
+
+  return null
+}
+
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
   if (industrialDeviceTypeOf(c)) return <IndustrialDeviceControls component={c} disabled={locked} />
+  if (isLightingType(c.type)) return <LightingControls c={c} locked={locked} />
   if (c.type === 'multimeterDm20') return <MultimeterControls c={c} locked={locked} />
   if (
     c.type === 'powerSource3ph' ||

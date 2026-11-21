@@ -466,6 +466,43 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         )
       }
 
+      // ------------------------------------------------------------ iluminação
+      case 'lampIncandescentE27':
+      case 'lampFluorescentE27':
+      case 'lampLedE27': {
+        const lit = !!c.state.on
+        const col = c.type === 'lampIncandescentE27' ? '#f59e0b' : c.type === 'lampFluorescentE27' ? '#bae6fd' : '#fef08a'
+        const badge = c.type === 'lampIncandescentE27' ? 'INC' : c.type === 'lampFluorescentE27' ? 'CFL' : 'LED'
+        const r = Math.min(w, h) * 0.3
+        return (
+          <g>
+            <rect x={2} y={2} width={w - 4} height={h - 4} rx={5} fill="#0f172a" stroke={lit ? col : '#475569'} strokeWidth={1.5} />
+            {lit && <circle cx={w / 2} cy={h * 0.44} r={r + 5} fill={col} opacity={0.28} />}
+            <circle cx={w / 2} cy={h * 0.44} r={r} fill={lit ? col : '#1e293b'} stroke={lit ? col : '#94a3b8'} strokeWidth={1.8} />
+            <line x1={w / 2 - r * 0.68} y1={h * 0.44 - r * 0.68} x2={w / 2 + r * 0.68} y2={h * 0.44 + r * 0.68} stroke={lit ? '#451a03' : '#94a3b8'} strokeWidth={1.5} />
+            <line x1={w / 2 + r * 0.68} y1={h * 0.44 - r * 0.68} x2={w / 2 - r * 0.68} y2={h * 0.44 + r * 0.68} stroke={lit ? '#451a03' : '#94a3b8'} strokeWidth={1.5} />
+            <text x={w / 2} y={h * 0.82} textAnchor="middle" fontSize={8} fill="#e2e8f0" fontWeight="bold">{`${badge} ${c.state.powerW ?? ''}W`}</text>
+            {label(4, 11, c.ref, 9, '#93c5fd')}
+          </g>
+        )
+      }
+      case 'wallSwitchSimple':
+      case 'wallSwitchDouble':
+      case 'wallSwitchStaircase': {
+        const active = c.type === 'wallSwitchDouble' ? (!!c.state.on1 || !!c.state.on2) : !!c.state.on
+        const tag = c.type === 'wallSwitchDouble' ? '2×10AX' : c.type === 'wallSwitchStaircase' ? '⇄ 10AX' : 'I/O 10AX'
+        return (
+          <g>
+            <rect x={2} y={2} width={w - 4} height={h - 4} rx={6} fill="#f8fafc" stroke={active ? '#0284c7' : '#64748b'} strokeWidth={1.8} />
+            <rect x={10} y={12} width={w - 20} height={h - 28} rx={3} fill={active ? '#e0f2fe' : '#e2e8f0'} stroke="#94a3b8" strokeWidth={1.2} />
+            {c.type === 'wallSwitchDouble' && <line x1={w / 2} y1={12} x2={w / 2} y2={h - 16} stroke="#94a3b8" strokeWidth={1.2} />}
+            <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={9} fill="#0f172a" fontWeight="bold">{tag}</text>
+            <text x={w / 2} y={h - 6} textAnchor="middle" fontSize={7} fill="#475569">Odace</text>
+            {label(4, 10, c.ref, 9, '#1d4ed8')}
+          </g>
+        )
+      }
+
       // ------------------------------------------------------------ sinalização
       case 'ledGreen':
       case 'ledRed':

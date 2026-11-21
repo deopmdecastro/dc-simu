@@ -1,0 +1,176 @@
+{
+  "format": 1,
+  "generatedBy": "scripts/build-lighting-glbs.mjs",
+  "units": "metres",
+  "note": "Parametric CAD-grade simulation assets modeled to real Philips A60/Genie/CorePro E27 and Schneider Electric Odace dimensions; not official manufacturer STEP CAD.",
+  "models": [
+    {
+      "type": "lampIncandescentE27",
+      "path": "/models/iluminacao/philips-incandescent-e27.glb",
+      "bytes": 527604,
+      "sha256": "6bca80604a0f1dfa92f68e2d7f2e11486dadb15f75b1dbe7d525c28d472fd446",
+      "nominalSizeMm": {
+        "width": 64,
+        "height": 132,
+        "depth": 64
+      },
+      "measuredSizeMm": {
+        "width": 64,
+        "height": 132,
+        "depth": 64
+      },
+      "boundsMm": {
+        "min": [
+          -32,
+          0,
+          0
+        ],
+        "max": [
+          32,
+          132,
+          64
+        ]
+      }
+    },
+    {
+      "type": "lampFluorescentE27",
+      "path": "/models/iluminacao/philips-fluorescent-cfl-e27.glb",
+      "bytes": 541452,
+      "sha256": "39c33790857485020ef0b80cfae0fd8a6a7451eebc3b718bf05156d062b9053b",
+      "nominalSizeMm": {
+        "width": 64,
+        "height": 154,
+        "depth": 64
+      },
+      "measuredSizeMm": {
+        "width": 64,
+        "height": 154,
+        "depth": 64
+      },
+      "boundsMm": {
+        "min": [
+          -32,
+          0,
+          0
+        ],
+        "max": [
+          32,
+          154,
+          64
+        ]
+      }
+    },
+    {
+      "type": "lampLedE27",
+      "path": "/models/iluminacao/philips-led-a60-e27.glb",
+      "bytes": 458976,
+      "sha256": "ed9f4a0472345e88501983fa14bcb28672ea8c13c821f2411d0b5fc2eafd53ca",
+      "nominalSizeMm": {
+        "width": 64,
+        "height": 138,
+        "depth": 64
+      },
+      "measuredSizeMm": {
+        "width": 64,
+        "height": 138,
+        "depth": 64
+      },
+      "boundsMm": {
+        "min": [
+          -32,
+          0,
+          0
+        ],
+        "max": [
+          32,
+          138,
+          64
+        ]
+      }
+    },
+    {
+      "type": "wallSwitchSimple",
+      "path": "/models/iluminacao/schneider-odace-simple.glb",
+      "bytes": 425000,
+      "sha256": "146942004378747dbb5c0069672cd7f6dbbff1c255d94f1a1592c47947a41d58",
+      "nominalSizeMm": {
+        "width": 85,
+        "height": 85,
+        "depth": 38
+      },
+      "measuredSizeMm": {
+        "width": 85,
+        "height": 85,
+        "depth": 38.17
+      },
+      "boundsMm": {
+        "min": [
+          -42.5,
+          0,
+          0
+        ],
+        "max": [
+          42.5,
+          85,
+          38.17
+        ]
+      }
+    },
+    {
+      "type": "wallSwitchDouble",
+      "path": "/models/iluminacao/schneider-odace-double.glb",
+      "bytes": 506296,
+      "sha256": "bb7c2c3a59a289e74bce118616aeb5e06de5b74a9df2581ba0cca083cf31db61",
+      "nominalSizeMm": {
+        "width": 85,
+        "height": 85,
+        "depth": 38
+      },
+      "measuredSizeMm": {
+        "width": 85,
+        "height": 85,
+        "depth": 38.17
+      },
+      "boundsMm": {
+        "min": [
+          -42.5,
+          0,
+          0
+        ],
+        "max": [
+          42.5,
+          85,
+          38.17
+        ]
+      }
+    },
+    {
+      "type": "wallSwitchStaircase",
+      "path": "/models/iluminacao/schneider-odace-staircase.glb",
+      "bytes": 451404,
+      "sha256": "6214c00cc533067c942c82e322058d57be9d4b8431eec29544299c2c849c64f2",
+      "nominalSizeMm": {
+        "width": 85,
+        "height": 85,
+        "depth": 38
+      },
+      "measuredSizeMm": {
+        "width": 85,
+        "height": 85,
+        "depth": 38.17
+      },
+      "boundsMm": {
+        "min": [
+          -42.5,
+          0,
+          0
+        ],
+        "max": [
+          42.5,
+          85,
+          38.17
+        ]
+      }
+    }
+  ]
+}

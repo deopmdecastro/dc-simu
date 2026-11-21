@@ -189,6 +189,23 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       break
     }
 
+    // ---- iluminação: interruptores e comutador de escada (Schneider Odace) ----
+    case 'wallSwitchSimple': {
+      if (c.state.on) pair(la('L'), la('1'))
+      break
+    }
+    case 'wallSwitchDouble': {
+      if (c.state.on1) pair(la('L'), la('1'))
+      if (c.state.on2) pair(la('L'), la('2'))
+      break
+    }
+    case 'wallSwitchStaircase': {
+      // Contacto inversor SPDT real: posição 1 liga L–1; posição 2 liga L–2.
+      if (c.state.on) pair(la('L'), la('2'))
+      else pair(la('L'), la('1'))
+      break
+    }
+
     // ---- sensores ----
     case 'proximitySensor': {
       if (c.state.triggered && c.state.no !== false) pair(la('V+'), la('OUT'))

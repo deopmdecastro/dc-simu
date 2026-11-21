@@ -14,9 +14,16 @@ function net(start: string | undefined, graph: Map<string, Set<string>>): Set<st
   for (let i=0; i<queue.length; i++) { const id=queue[i]; if(found.has(id))continue; found.add(id); for(const next of graph.get(id)??[])if(!found.has(next))queue.push(next) }
   return found
 }
-function loadEstimate(c: ElectricalComponent): { amps: number; pf: number; terminals: string[] } | null {
+export function loadEstimate(c: ElectricalComponent): { amps: number; pf: number; terminals: string[] } | null {
   const ids = (labels: string[]) => labels.map(label=>idOf(c,label)).filter((id):id is string=>!!id)
   if (c.type==='motor1ph' || c.type==='motor3ph') return c.state.running ? { amps:Math.max(0,finite(c.state.currentA)),pf:Math.max(0,Math.min(1,finite(c.state.powerFactor,.8))),terminals:ids(c.type==='motor3ph'?['U1','V1','W1']:['U1','U2']) } : null
+  if (c.type==='lampIncandescentE27' || c.type==='lampFluorescentE27' || c.type==='lampLedE27') {
+    if (!c.state.on) return null
+    const pf = c.type === 'lampIncandescentE27' ? 1.0 : c.type === 'lampFluorescentE27' ? 0.6 : 0.7
+    const fallbackW = c.type === 'lampIncandescentE27' ? 60 : c.type === 'lampFluorescentE27' ? 12 : 8
+    const powerW = Math.max(1, finite(c.state.powerW, fallbackW))
+    return { amps: powerW / (230 * pf), pf, terminals: ids(['L', 'N']) }
+  }
   if (/pilotLight|^led|^lamp$|^buzzer/.test(c.type)) return c.state.on ? {amps:Math.max(0,finite(c.state.currentA,.02)),pf:1,terminals:ids(['X1','X2','L','N'])}:null
   if (/contactor|^auxRelay|^relayFinder/.test(c.type)) return c.state.energized ? {amps:Math.max(0,finite(c.state.coilCurrentA,.04)),pf:Math.max(0,Math.min(1,finite(c.state.powerFactor,.8))),terminals:ids(['A1','A2'])}:null
   return null

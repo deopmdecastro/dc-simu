@@ -23,7 +23,7 @@ export const MANOBRA_BLOCKED_TITLE = 'Inicie a simulação (▶) para manobrar o
 export const MANOBRA_STATE_KEYS: ReadonlySet<string> = new Set([
   'closed', 'tripped', 'tripReason', 'blown',
   'pressed', 'startPressed', 'stopPressed', 'testPressed', 'resetPressed', 'pressedButton',
-  'position', 'triggered', 'switchOn', 'screenMode', 'energy',
+  'position', 'triggered', 'switchOn', 'on1', 'on2', 'screenMode', 'energy',
   'catalogState', 'catalogVars', 'channels', 'controlCoverOpen', 'editing', 'menu',
 ])
 

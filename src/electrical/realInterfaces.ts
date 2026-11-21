@@ -310,6 +310,34 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"X1","face":"back","x":0.346,"y":0.5,"z":0,"diameterMm":5.8,"holeDepthMm":7.2},
     {"label":"X2","face":"back","x":0.654,"y":0.5,"z":0,"diameterMm":5.8,"holeDepthMm":7.2},
   ],
+  // Lâmpadas E27 com soquete de porcelana (64 × H × 64 mm) — bornes L/N na base inferior (x = ±12 mm, z = 23 mm).
+  lampIncandescentE27: [
+    {"label":"L","face":"bottom","x":0.3125,"y":1,"z":0.359375,"diameterMm":5,"holeDepthMm":6},
+    {"label":"N","face":"bottom","x":0.6875,"y":1,"z":0.359375,"diameterMm":5,"holeDepthMm":6},
+  ],
+  lampFluorescentE27: [
+    {"label":"L","face":"bottom","x":0.3125,"y":1,"z":0.359375,"diameterMm":5,"holeDepthMm":6},
+    {"label":"N","face":"bottom","x":0.6875,"y":1,"z":0.359375,"diameterMm":5,"holeDepthMm":6},
+  ],
+  lampLedE27: [
+    {"label":"L","face":"bottom","x":0.3125,"y":1,"z":0.359375,"diameterMm":5,"holeDepthMm":6},
+    {"label":"N","face":"bottom","x":0.6875,"y":1,"z":0.359375,"diameterMm":5,"holeDepthMm":6},
+  ],
+  // Interruptores Schneider Electric Odace (85 × 85 × 38 mm) — bornes na base inferior da caixa (z = 12 mm).
+  wallSwitchSimple: [
+    {"label":"L","face":"bottom","x":0.335294,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+    {"label":"1","face":"bottom","x":0.664706,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+  ],
+  wallSwitchDouble: [
+    {"label":"L","face":"bottom","x":0.288235,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+    {"label":"1","face":"bottom","x":0.5,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+    {"label":"2","face":"bottom","x":0.711765,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+  ],
+  wallSwitchStaircase: [
+    {"label":"L","face":"bottom","x":0.288235,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+    {"label":"1","face":"bottom","x":0.5,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+    {"label":"2","face":"bottom","x":0.711765,"y":1,"z":0.315789,"diameterMm":5,"holeDepthMm":6},
+  ],
   contactorWegCWC09: [
     {"label":"1L1","face":"top","x":0.133,"y":0.09861,"z":0.828,"diameterMm":5,"holeDepthMm":4.283},
     {"label":"3L2","face":"top","x":0.32,"y":0.09861,"z":0.828,"diameterMm":5,"holeDepthMm":4.282},

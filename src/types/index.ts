@@ -22,6 +22,7 @@ export type ComponentCategory =
   | 'contactor'
   | 'relay'
   | 'signaling'
+  | 'lighting'
   | 'motor'
   | 'drive'
   | 'controller'
@@ -99,6 +100,13 @@ export type ComponentType =
   | 'pilotLightSchneiderIil3p'
   | 'buzzer'
   | 'towerLight'
+  // --- Iluminação residencial / predial ---------------------------------
+  | 'lampIncandescentE27'
+  | 'lampFluorescentE27'
+  | 'lampLedE27'
+  | 'wallSwitchSimple'
+  | 'wallSwitchDouble'
+  | 'wallSwitchStaircase'
   // --- Motores / acionamentos ------------------------------------------
   | 'motor3ph'
   | 'motor1ph'

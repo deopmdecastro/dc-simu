@@ -117,6 +117,14 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   buzzer: { primary: 'lamp', iec60617: '60617-8 / 08-10-10', refLetter: 'H', note: 'Sinalizador acústico' },
   towerLight: { primary: 'lamp', iec60617: '60617-8', refLetter: 'H', note: 'Coluna luminosa' },
 
+  // --- Iluminação residencial / predial -----------------------------------
+  lampIncandescentE27: { primary: 'lampIncandescent', iec60617: '60617-8 / 08-10-01', refLetter: 'E', note: 'Lâmpada incandescente E27 (40–100 W)' },
+  lampFluorescentE27: { primary: 'lampFluorescent', iec60617: '60617-8 / 08-10-03', refLetter: 'E', note: 'Lâmpada fluorescente compacta CFL E27 (8–20 W)' },
+  lampLedE27: { primary: 'lampLed', iec60617: '60617-8 / 08-10-05', refLetter: 'E', note: 'Lâmpada LED E27 (4–10 W)' },
+  wallSwitchSimple: { primary: 'wallSwitchSimple', iec60617: '60617-7 / 07-02-01', refLetter: 'S', note: 'Interruptor simples unipolar 10AX 250V~' },
+  wallSwitchDouble: { primary: 'wallSwitchDouble', iec60617: '60617-7 / 07-02-01 (×2)', refLetter: 'S', note: 'Interruptor duplo 2×10AX 250V~' },
+  wallSwitchStaircase: { primary: 'wallSwitchStaircase', iec60617: '60617-7 / 07-02-06', refLetter: 'S', note: 'Comutador de escada inversor SPDT 10AX 250V~' },
+
   // --- Motores / acionamentos ---------------------------------------------
   motor3ph: { primary: 'motor3', related: ['motor6'], iec60617: '60617-6 / 06-08-01', refLetter: 'M' },
   motor1ph: { primary: 'motor3', iec60617: '60617-6 / 06-04-01', refLetter: 'M', note: 'Motor monofásico — símbolo de máquina' },

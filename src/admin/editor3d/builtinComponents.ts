@@ -20,6 +20,7 @@ import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, moto
 import { seedLogoPanel } from './seedLogoPanel'
 import { digitalMeterGlbData, isDigitalMeterType } from '../../three/digitalMeterModel'
 import { isSchneiderRcd, SCHNEIDER_IID_AXIS_OFFSET_M, SCHNEIDER_IID_THROW_DEG, SCHNEIDER_RCD_HANDLE_NODE, SCHNEIDER_RCD_TEST_NODE, SCHNEIDER_RCD_THROW_DEG } from '../../three/schneiderRcdModel'
+import { isLightingType } from '../../three/lightingModel'
 import { ACTI9_MCB_HANDLE, isSchneiderModular } from '../../three/schneiderModularModel'
 import { ACTUATOR_HEAD_NAME, ACTUATOR_HEAD_TYPES } from '../../three/actuatorHead'
 
@@ -57,7 +58,7 @@ export function upgradeBuiltinMeta(type: ComponentType, meta: CatalogMeta): Cata
 
 const MOUNT: Record<string, ComponentDefinition['mount']> = {
   protection: 'din-rail', relay: 'din-rail', contactor: 'din-rail', terminal: 'din-rail', controller: 'din-rail', power: 'din-rail', drive: 'din-rail',
-  command: 'panel-front', signaling: 'panel-front', motor: 'machine', sensor: 'machine', measurement: 'machine',
+  command: 'panel-front', signaling: 'panel-front', lighting: 'panel-front', motor: 'machine', sensor: 'machine', measurement: 'machine',
 }
 
 /** Rotação base do modelo (e inversão de profundidade) como Euler XYZ em graus. */
@@ -119,7 +120,7 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
   // clip / OFF handle changes visible bounds, not the measured terminal frame.
   // loadGlbAssets fits this family at x/z centre and y=0 at its nominal base.
   // Também qualquer GLB carregado com referencial nominal (ex.: Easy9 Switch), detetado em fitComponentModel.
-  const physical = (isSchneiderModular(type) || isSchneiderRcd(type) || isDigitalMeterType(type) || usesNominalFrame(getComponentModelSpec(type)?.path)) ? getComponentPhysicalSizeMm(type) : undefined
+  const physical = (isSchneiderModular(type) || isSchneiderRcd(type) || isDigitalMeterType(type) || isLightingType(type) || usesNominalFrame(getComponentModelSpec(type)?.path)) ? getComponentPhysicalSizeMm(type) : undefined
   if (physical) box = new THREE.Box3(new THREE.Vector3(-physical.width / 2, 0, -physical.depth / 2), new THREE.Vector3(physical.width / 2, physical.height, physical.depth / 2))
   const size = box.getSize(new THREE.Vector3())
   return legacyTerminalsFor(list, box).map((terminal, index) => {
