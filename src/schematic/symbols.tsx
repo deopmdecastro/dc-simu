@@ -566,9 +566,14 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'cableTrayElbow90':
       case 'cableTrayCross':
       case 'cableTrayVerticalBend':
-      case 'cableTrayRiser90': {
+      case 'cableTrayRiser90':
+      case 'wireTrayStraight':
+      case 'wireTrayElbow90':
+      case 'wireTrayTee':
+      case 'wireTrayRiser90': {
         const isWall = c.type === 'industrialWall'
         const isPillar = c.type === 'industrialPillar'
+        const isWire = c.type.startsWith('wireTray')
         return (
           <g>
             <rect
@@ -577,14 +582,33 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
               width={w - 12}
               height={h - 16}
               rx={isPillar ? 2 : 4}
-              fill={isWall ? '#d6d3cb' : isPillar ? '#475569' : '#cbd5e1'}
+              fill={isWall ? '#d6d3cb' : isPillar ? '#475569' : isWire ? '#eef2f6' : '#cbd5e1'}
               stroke="#334155"
               strokeWidth={1.6}
-              strokeDasharray={isWall || isPillar ? undefined : '5 3'}
+              strokeDasharray={isWall || isPillar ? undefined : isWire ? '3 2' : '5 3'}
             />
+            {isWire && (
+              <>
+                <line x1={12} y1={h * 0.35} x2={w - 12} y2={h * 0.35} stroke="#94a3b8" strokeWidth={1} />
+                <line x1={12} y1={h * 0.65} x2={w - 12} y2={h * 0.65} stroke="#94a3b8" strokeWidth={1} />
+              </>
+            )}
             <text x={w / 2} y={h / 2 + 3} textAnchor="middle" fontSize={8.5} fontWeight={700} fill={isPillar ? '#f8fafc' : '#1e293b'}>
               {c.ref}
             </text>
+          </g>
+        )
+      }
+      case 'hydraulicFlowMeter': {
+        const singleL = Number(c.state.singleVolumeL ?? 0).toFixed(2)
+        const dn = String(c.state.pipeDN ?? 'DN32')
+        return (
+          <g>
+            <rect x={8} y={h * 0.44} width={w - 16} height={18} rx={4} fill="#525861" stroke="#1e293b" strokeWidth={1.5} />
+            <rect x={w * 0.20} y={8} width={w * 0.60} height={38} rx={5} fill="#1d55a6" stroke="#1e293b" strokeWidth={1.5} />
+            <rect x={w * 0.36} y={16} width={w * 0.38} height={20} rx={2} fill="#c6cfb9" stroke="#e2e8f0" strokeWidth={1} />
+            <text x={w * 0.55} y={29} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#0f172a">{singleL}L</text>
+            <text x={w / 2} y={h - 8} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="#334155">{c.ref} · {dn}</text>
           </g>
         )
       }

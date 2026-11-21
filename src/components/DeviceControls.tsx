@@ -18,7 +18,13 @@ import {
   lampPhotometrics,
   SWITCH_SPECS,
 } from '../three/lightingModel'
-import { isHydraulicComponentType, waterTankDimensionsOf } from '../three/hydraulicsModel'
+import {
+  FLOW_METER_PIPE_SPECS,
+  flowMeterSpecOf,
+  isHydraulicComponentType,
+  waterTankDimensionsOf,
+  type FlowMeterPipeDN,
+} from '../three/hydraulicsModel'
 import { isPanelBound } from '../three/panelBounds'
 import { isFloorMountedMachineType } from '../three/conveyorModel'
 import { isFloorGroundedStructureType } from '../three/structuresModel'
@@ -38,6 +44,7 @@ import {
   industrialWallDimsOf,
   isCableTrayComponentType,
   isStructureComponentType,
+  isWireMeshTrayType,
   type StructureComponentType,
 } from '../three/structuresModel'
 import {
@@ -1526,10 +1533,22 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
             {manualFill ? 'Parar entrada' : 'Encher (teste)'}
           </button>
         </div>
+        {levelPct < 20 && (
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => setState(c.id, { levelPct: 80 })}
+            className="dc-btn text-[10.5px] justify-center"
+          >
+            Reencher reservatório para 80%
+          </button>
+        )}
         <p className="text-[10px] text-slate-500">
           {outletOpen && levelPct > 0
-            ? 'Passador ARCO aberto: água a sair pelo bico de descarga. Faça duplo clique no passador em 3D ou clique acima para fechar.'
-            : 'Faça duplo clique diretamente no passador ARCO em 3D (ou clique acima) para abrir e soltar água.'}
+            ? 'Passador ARCO aberto: nível da água a baixar gradualmente até esvaziar (0%). Duplo clique no passador em 3D para fechar.'
+            : levelPct <= 0.1
+              ? 'Reservatório vazio (0%). Feche o passador e ligue a bomba ou clique em Reencher.'
+              : 'Faça duplo clique diretamente no passador ARCO em 3D (ou clique acima) para abrir e esvaziar gradualmente.'}
         </p>
       </div>
     )
@@ -1597,6 +1616,129 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
           <StatusBadge label="3 vias · G 1&quot;" tone="ok" />
         </div>
         <p className="text-[10.5px] text-slate-500">Liga tubos hidráulicos nas 3 portas (A, B e C) para derivar o caudal de água.</p>
+      </div>
+    )
+  }
+
+  if (c.type === 'hydraulicFlowMeter') {
+    const spec = flowMeterSpecOf(c.state)
+    const singleL = Number(c.state.singleVolumeL ?? 0)
+    const totalL = Number(c.state.totalVolumeL ?? 0)
+    const flowLpm = Number(c.state.flowRateLpm ?? 0)
+    const withCable = c.state.withCable !== false
+    const displayMode = c.state.displayMode === 'instant' ? 'instant' : 'total'
+    const installOrientation = c.state.installOrientation === 'vertical' ? 'vertical' : 'horizontal'
+    const manualTestFlow = Boolean(c.state.manualTestFlow)
+
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-water-flow-meter-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[var(--dc-text-muted)]">ZJLCD-BT01 · PVC {spec.dn}</span>
+          <StatusBadge label={flowLpm > 0 ? `${flowLpm.toFixed(1)} L/min` : 'Sem fluxo'} tone={flowLpm > 0 ? 'ok' : 'warn'} />
+        </div>
+
+        {/* Leitura digital viva */}
+        <div className="grid grid-cols-2 gap-1.5 rounded-md border border-blue-200 bg-blue-50/70 p-2 font-mono text-[10.5px]">
+          <div>
+            <div className="text-[9.5px] text-slate-500">Parcial (L)</div>
+            <strong className="text-[12.5px] text-slate-900">{singleL.toFixed(3)} L</strong>
+          </div>
+          <div>
+            <div className="text-[9.5px] text-slate-500">{displayMode === 'instant' ? 'Caudal (L/min)' : 'Totalizador'}</div>
+            <strong className="text-[12.5px] text-blue-900">
+              {displayMode === 'instant' ? `${flowLpm.toFixed(1)} L/m` : `${totalL.toFixed(1)} L`}
+            </strong>
+          </div>
+        </div>
+
+        {/* Botões SET / CLEAR / Zerar Total (fiel a image-49.png) */}
+        <div className="grid grid-cols-3 gap-1">
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => operate(c.id, { displayMode: displayMode === 'instant' ? 'total' : 'instant' })}
+            className="dc-btn text-[10px] justify-center font-semibold"
+          >
+            SET ({displayMode === 'instant' ? 'L/m' : 'TOT'})
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => operate(c.id, { singleVolumeL: 0 })}
+            className="dc-btn text-[10px] justify-center font-semibold"
+          >
+            CLEAR
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => operate(c.id, { singleVolumeL: 0, totalVolumeL: 0 })}
+            className="dc-btn text-[10px] justify-center"
+            title="Equivalente a manter CLEAR pressionado > 5s"
+          >
+            Zerar Total
+          </button>
+        </div>
+
+        {/* Seleção de diâmetro PVC (tabela exata de image-51.png) */}
+        <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="flex items-center justify-between text-[10.5px]">
+            <span className="font-semibold text-slate-700">Diâmetro PVC</span>
+            <span className="font-mono text-[10px] text-slate-600">Int Ø{spec.innerMm} / Ext Ø{spec.outerMm} mm</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {(Object.keys(FLOW_METER_PIPE_SPECS) as FlowMeterPipeDN[]).map((dn) => (
+              <button
+                key={dn}
+                type="button"
+                disabled={locked}
+                aria-pressed={spec.dn === dn}
+                onClick={() => setState(c.id, { pipeDN: dn, model: `ZJLCD-BT01 · PVC ${dn}` })}
+                className={`dc-btn text-[10px] justify-center font-mono ${spec.dn === dn ? 'dc-btn-primary' : ''}`}
+              >
+                {dn}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Versão com cabo Open-Drain vs sem cabo (fiel a image-48.png) + orientação */}
+        <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              disabled={locked}
+              aria-pressed={withCable}
+              onClick={() => setState(c.id, { withCable: !withCable })}
+              className={`dc-btn text-[10px] justify-center ${withCable ? 'dc-btn-primary' : ''}`}
+            >
+              {withCable ? 'Com cabo Open-Drain' : 'Sem cabo (local)'}
+            </button>
+            <button
+              type="button"
+              disabled={locked}
+              aria-pressed={installOrientation === 'vertical'}
+              onClick={() => setState(c.id, { installOrientation: installOrientation === 'vertical' ? 'horizontal' : 'vertical' })}
+              className={`dc-btn text-[10px] justify-center ${installOrientation === 'vertical' ? 'dc-btn-primary' : ''}`}
+            >
+              {installOrientation === 'vertical' ? 'Vertical ↑' : 'Horizontal →'}
+            </button>
+          </div>
+          <button
+            type="button"
+            disabled={locked}
+            aria-pressed={manualTestFlow}
+            onClick={() => operate(c.id, { manualTestFlow: !manualTestFlow })}
+            className={`dc-btn text-[10px] justify-center ${manualTestFlow ? 'dc-btn-primary' : ''}`}
+          >
+            {manualTestFlow ? 'Parar fluxo de teste' : 'Simular passagem de água (teste)'}
+          </button>
+          {withCable && (
+            <span className="text-[9.5px] text-slate-600">
+              Saída Open-Drain: Vermelho (+24V) · Amarelo (PULSE) · Preto (GND). Bornes e fios totalmente editáveis.
+            </span>
+          )}
+        </div>
       </div>
     )
   }
@@ -2475,13 +2617,19 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
         )
       })()}
 
-      {/* ESTEIRAS PORTA-CABOS E ACESSÓRIOS */}
+      {/* ESTEIRAS PORTA-CABOS E ACESSÓRIOS (PERFURADA + ARAMADA CABLOFIL) */}
       {isCableTrayComponentType(c.type) && (() => {
         const d = cableTrayDimsOf(c.type, c.state)
+        const isWire = isWireMeshTrayType(c.type)
+        const mountBracket = (c.state.mountBracket === 'wall-console' || c.state.mountBracket === 'ceiling-trapeze'
+          ? c.state.mountBracket
+          : 'none') as 'none' | 'wall-console' | 'ceiling-trapeze'
+        const dropOutPlate = Boolean(c.state.dropOutPlate)
+        const couplerClips = c.state.couplerClips !== false
         return (
           <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-700">Esteira galvanizada</span>
+              <span className="font-semibold text-slate-700">{isWire ? 'Esteira aramada (Cablofil)' : 'Esteira galvanizada'}</span>
               <StatusBadge label={`${d.widthMm}×${d.sideHeightMm} mm`} tone="ok" />
             </div>
             <div className="grid grid-cols-5 gap-1">
@@ -2491,18 +2639,38 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
                 </button>
               ))}
             </div>
-            {c.type === 'cableTrayStraight' && (
+            {(c.type === 'cableTrayStraight' || c.type === 'wireTrayStraight') && (
               <>
                 <label className="flex flex-col gap-0.5">
                   <span className="flex justify-between text-slate-600"><span>Comprimento</span><strong className="font-mono">{`${d.lengthMm} mm`}</strong></span>
                   <input type="range" min={300} max={3000} step={100} disabled={locked} value={d.lengthMm} onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })} />
                 </label>
-                <button type="button" disabled={locked} aria-pressed={d.withCover} onClick={() => setState(c.id, { withCover: !d.withCover })} className={`dc-btn text-[10.5px] justify-center ${d.withCover ? 'dc-btn-primary' : ''}`}>
-                  {d.withCover ? 'Tampa galvanizada: ON' : 'Tampa galvanizada: OFF'}
-                </button>
+                {c.type === 'cableTrayStraight' ? (
+                  <button type="button" disabled={locked} aria-pressed={d.withCover} onClick={() => setState(c.id, { withCover: !d.withCover })} className={`dc-btn text-[10.5px] justify-center ${d.withCover ? 'dc-btn-primary' : ''}`}>
+                    {d.withCover ? 'Tampa galvanizada: ON' : 'Tampa galvanizada: OFF'}
+                  </button>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 gap-1">
+                      {([['none', 'Sem suporte'], ['wall-console', 'Consola'], ['ceiling-trapeze', 'Trapézio']] as const).map(([mKey, mLbl]) => (
+                        <button key={mKey} type="button" disabled={locked} aria-pressed={mountBracket === mKey} onClick={() => setState(c.id, { mountBracket: mKey })} className={`dc-btn text-[9.5px] justify-center px-1 ${mountBracket === mKey ? 'dc-btn-primary' : ''}`}>
+                          {mLbl}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                      <button type="button" disabled={locked} aria-pressed={dropOutPlate} onClick={() => setState(c.id, { dropOutPlate: !dropOutPlate })} className={`dc-btn text-[10px] justify-center ${dropOutPlate ? 'dc-btn-primary' : ''}`}>
+                        {dropOutPlate ? '✓ Cascata saída' : '+ Cascata saída'}
+                      </button>
+                      <button type="button" disabled={locked} aria-pressed={couplerClips} onClick={() => setState(c.id, { couplerClips: !couplerClips })} className={`dc-btn text-[10px] justify-center ${couplerClips ? 'dc-btn-primary' : ''}`}>
+                        {couplerClips ? '✓ Clipes união' : '+ Clipes união'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
-            {c.type === 'cableTrayCross' && (
+            {(c.type === 'cableTrayCross' || c.type === 'wireTrayTee') && (
               <div className="grid grid-cols-2 gap-1">
                 {([['cross', 'Cruzamento X (4 vias)'], ['tee', 'Derivação T (3 vias)']] as const).map(([v, lbl]) => (
                   <button key={v} type="button" disabled={locked} aria-pressed={d.variant === v} onClick={() => setState(c.id, { variant: v })} className={`dc-btn text-[10px] justify-center ${d.variant === v ? 'dc-btn-primary' : ''}`}>
@@ -2526,7 +2694,7 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
                 </div>
               </>
             )}
-            {c.type === 'cableTrayRiser90' && (
+            {(c.type === 'cableTrayRiser90' || c.type === 'wireTrayRiser90') && (
               <div className="grid grid-cols-2 gap-1">
                 {([['exterior', 'Curva Exterior'], ['interior', 'Curva Interior']] as const).map(([k, lbl]) => (
                   <button key={k} type="button" disabled={locked} aria-pressed={d.riserKind === k} onClick={() => setState(c.id, { riserKind: k })} className={`dc-btn text-[10px] justify-center ${d.riserKind === k ? 'dc-btn-primary' : ''}`}>
@@ -2547,7 +2715,16 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
             Rodar 90°
           </button>
         </div>
-        {isTray ? (
+        {isWireMeshTrayType(c.type) ? (
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" disabled={locked} onClick={() => quickAttach('wireTrayStraight', 'right')} className="dc-btn text-[10px] justify-center">+ Aramada Reta (dir.)</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('wireTrayElbow90', 'right')} className="dc-btn text-[10px] justify-center">+ Curva 90° Aram.</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('wireTrayTee', 'right')} className="dc-btn text-[10px] justify-center">+ Tê / Cruz Aram.</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('wireTrayRiser90', 'right')} className="dc-btn text-[10px] justify-center">+ Subida Vert. 90°</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('wireTrayStraight', 'left')} className="dc-btn text-[10px] justify-center">+ Aramada Reta (esq.)</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('wireTrayStraight', 'front')} className="dc-btn text-[10px] justify-center">+ Aramada Frente</button>
+          </div>
+        ) : isTray ? (
           <div className="grid grid-cols-2 gap-1">
             <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayStraight', 'right')} className="dc-btn text-[10px] justify-center">+ Reta (dir.)</button>
             <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayElbow90', 'right')} className="dc-btn text-[10px] justify-center">+ Curva 90°</button>

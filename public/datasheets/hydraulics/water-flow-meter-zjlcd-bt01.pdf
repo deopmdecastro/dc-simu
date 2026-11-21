@@ -1,0 +1,39 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj
+6 0 obj << /Length 1299 >> stream
+0.08 0.14 0.24 rg 36 726 540 62 re f
+1 1 1 rg
+BT /F2 15 Tf 48 764 Td (ZJLCD-BT01 · Electronic Turbine Water Flow Meter) Tj ET
+BT /F1 10 Tf 48 742 Td (Contador de Agua Eletronico PVC DN25 - DN80 · Display LCD & Saida Open-Drain) Tj ET
+0.08 0.12 0.18 rg
+0.85 0.88 0.92 RG 1 w 48 708 m 564 708 l S
+BT /F2 11 Tf 48 690 Td (Especificacoes Tecnicas / Technical Specifications) Tj ET
+BT /F2 10 Tf 48 666 Td (Modelo / Display:) Tj ET
+BT /F1 10 Tf 220 666 Td (ZJLCD-BT01 · LCD Parcial \(L\), Totalizador \(TOTAL\) e Caudal \(L/min\)) Tj ET
+BT /F2 10 Tf 48 646 Td (Operacao frontal:) Tj ET
+BT /F1 10 Tf 220 646 Td (Botao SET \(alterna Total / Caudal\) · CLEAR \(zera parcial; >5s zera total\)) Tj ET
+BT /F2 10 Tf 48 626 Td (Diametros PVC:) Tj ET
+BT /F1 10 Tf 220 626 Td (DN25 \(25/32\), DN32 \(32/40\), DN40 \(40/50\), DN50 \(50/63\), DN65 \(65/75\), DN80 \(80/90 mm\)) Tj ET
+BT /F2 10 Tf 48 606 Td (Versoes disponiveis:) Tj ET
+BT /F1 10 Tf 220 606 Td (Sem cabo \(leitura local\) ou Com cabo Open-Drain \(+24V Vermelho / PULSE Amarelo / GND Preto\)) Tj ET
+BT /F2 10 Tf 48 586 Td (Instalacao recomendada:) Tj ET
+BT /F1 10 Tf 220 586 Td (Tubagem cheia horizontal ou vertical ascendente \(evitar descida livre / ar\)) Tj ET
+BT /F1 9 Tf 48 72 Td (DC-Simu Industrial 3D Library · Datasheet oficial integrado) Tj ET
+endstream endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+1747
+%%EOF

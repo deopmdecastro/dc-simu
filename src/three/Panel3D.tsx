@@ -87,10 +87,11 @@ import {
 } from './SchneiderComponents3D'
 import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
-import { FloatSwitchFelix3D, type FloatSwitchTankContext, HydraulicTee3D, HydraulicValve3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
+import { FloatSwitchFelix3D, type FloatSwitchTankContext, HydraulicTee3D, HydraulicValve3D, WaterFlowMeterZjLcd3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
 import { waterTankDimensionsOf } from './hydraulicsModel'
 import { OboJunctionBox3D, Wago221Connector3D } from './JunctionWagoDevices3D'
 import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
+import { WireTrayElbow903D, WireTrayRiser903D, WireTrayStraight3D, WireTrayTee3D } from './WireMeshTrayDevices3D'
 import {
   ElectricCylinderEpcs3D,
   PneumaticCylinder3D,
@@ -638,7 +639,7 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} userData={{ noSnapshot: true }} />
 }
 
-function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, free3D = false, connectionMode, connectionStartId, probing, onTerminalPick, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
+function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, free3D = false, preferFloorXZ = false, connectionMode, connectionStartId, probing, onTerminalPick, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   sourcePivot: [number, number, number]
@@ -649,6 +650,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   /** Clicar e arrastar o corpo do componente move-o diretamente no painel (ou no chão 3D XZ quando livre). */
   draggable: boolean
   free3D?: boolean
+  preferFloorXZ?: boolean
   connectionMode: boolean
   connectionStartId: string | null
   probing: boolean
@@ -714,10 +716,11 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     event.stopPropagation()
     onSelect()
     const dir = camera.getWorldDirection(new THREE.Vector3())
-    // Equipamentos livres fora do quadro (reservatórios, bombas, motores, esteiras, paredes, bóias, pneumática):
-    // arrastam livremente no plano horizontal do pavimento XZ (esquerda/direita E afastar/aproximar do quadro!).
-    // Segurar Shift (ou vista quase horizontal de frente) arrasta no plano vertical XY para subir/descer em altura.
-    const useFloorXZ = free3D && !event.shiftKey && Math.abs(dir.y) >= 0.14
+    // Equipamentos livres fora do quadro (reservatórios, bombas, motores, esteiras, paredes, pilares, contadores, OBO, WAGO):
+    // arrastam livremente por TODO o pavimento XZ (incluindo para o meio da sala fabril!).
+    // Segurar Shift arrasta no plano vertical XY para ajustar a altura Y.
+    const canDragXZ = free3D && !event.shiftKey && (preferFloorXZ ? Math.abs(dir.y) >= 0.04 : Math.abs(dir.y) >= 0.12)
+    const useFloorXZ = canDragXZ
     const normal = useFloorXZ
       ? new THREE.Vector3(0, 1, 0)
       : (Math.abs(dir.z) >= 0.3 ? new THREE.Vector3(0, 0, 1) : dir.clone())
@@ -745,7 +748,15 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       const next = point.clone().add(state.offset)
       const snap = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
       if (free3D) {
-        onDragTo({ x: snap(next.x), y: useFloorXZ ? origin.y : snap(next.y), z: useFloorXZ ? snap(next.z) : origin.z })
+        if (useFloorXZ) {
+          onDragTo({ x: snap(next.x), y: origin.y, z: snap(next.z) })
+        } else if (preferFloorXZ && !domEvent.shiftKey) {
+          // Mesmo em vista frontal plana (pitch ~0°), arrastar para baixo puxa o equipamento para o meio da sala (+Z)!
+          const depthFromScreenY = -(next.y - origin.y) * 1.4
+          onDragTo({ x: snap(next.x), y: origin.y, z: snap(origin.z + depthFromScreenY) })
+        } else {
+          onDragTo({ x: snap(next.x), y: snap(next.y), z: origin.z })
+        }
       } else {
         onDragTo({ x: snap(next.x), y: snap(next.y) })
       }
@@ -4394,7 +4405,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       editingTerminals={viewOrientationEditor?.componentId === component.id}
       movable={false}
       draggable={tool === 'select' && !simLocked && !gridDragEnabled && !component.locked && !viewOrientationEditor && !reconnect}
-      free3D={!frontEdit && !isPanelBound(component)}
+      free3D={!isPanelBound(component) && (factoryMode || !frontEdit)}
+      preferFloorXZ={factoryMode || isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type)}
       connectionMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
       probing={tool === 'probe'}
       connectionStartId={tool === 'probe' ? probeA : draft && 'terminalId' in draft.from ? draft.from.terminalId : null}
@@ -5448,6 +5460,34 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <CableTrayVerticalBend3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'cableTrayRiser90') {
             content = <CableTrayRiser903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'wireTrayStraight') {
+            content = <WireTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'wireTrayElbow90') {
+            content = <WireTrayElbow903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'wireTrayTee') {
+            content = <WireTrayTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'wireTrayRiser90') {
+            content = <WireTrayRiser903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'hydraulicFlowMeter') {
+            content = (
+              <WaterFlowMeterZjLcd3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onPressSet={() => {
+                  const st = useSimStore.getState()
+                  const nextMode = c.state.displayMode === 'instant' ? 'total' : 'instant'
+                  const patch = { displayMode: nextMode }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+                onPressClear={() => {
+                  const st = useSimStore.getState()
+                  const patch = { singleVolumeL: 0 }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+              />
+            )
           } else if (isJunctionBoxType(c.type)) {
             content = (
               <group position={basePivots[c.id].toArray() as [number, number, number]}>

@@ -114,6 +114,7 @@ export type ComponentType =
   | 'waterTank'
   | 'hydraulicValve'
   | 'hydraulicTee'
+  | 'hydraulicFlowMeter'
   | 'pneumaticFrl'
   | 'pneumaticValve52'
   | 'pneumaticCylinder'
@@ -132,6 +133,10 @@ export type ComponentType =
   | 'cableTrayCross'
   | 'cableTrayVerticalBend'
   | 'cableTrayRiser90'
+  | 'wireTrayStraight'
+  | 'wireTrayElbow90'
+  | 'wireTrayTee'
+  | 'wireTrayRiser90'
   // --- Caixas de derivação OBO Bettermann & Conectores WAGO 221 ---------
   | 'junctionBoxOboT60'
   | 'junctionBoxOboA6'

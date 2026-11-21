@@ -434,6 +434,7 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'waterTank' ||
     type === 'hydraulicValve' ||
     type === 'hydraulicTee' ||
+    type === 'hydraulicFlowMeter' ||
     type === 'pneumaticFrl' ||
     type === 'pneumaticValve52' ||
     type === 'pneumaticCylinder' ||
@@ -451,6 +452,10 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'cableTrayCross' ||
     type === 'cableTrayVerticalBend' ||
     type === 'cableTrayRiser90' ||
+    type === 'wireTrayStraight' ||
+    type === 'wireTrayElbow90' ||
+    type === 'wireTrayTee' ||
+    type === 'wireTrayRiser90' ||
     type === 'junctionBoxOboT60' ||
     type === 'junctionBoxOboA6' ||
     type === 'junctionBoxOboT25' ||

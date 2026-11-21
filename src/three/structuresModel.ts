@@ -8,6 +8,10 @@ export type StructureComponentType =
   | 'cableTrayCross'
   | 'cableTrayVerticalBend'
   | 'cableTrayRiser90'
+  | 'wireTrayStraight'
+  | 'wireTrayElbow90'
+  | 'wireTrayTee'
+  | 'wireTrayRiser90'
 
 export type CableTrayComponentType =
   | 'cableTrayStraight'
@@ -15,6 +19,25 @@ export type CableTrayComponentType =
   | 'cableTrayCross'
   | 'cableTrayVerticalBend'
   | 'cableTrayRiser90'
+  | 'wireTrayStraight'
+  | 'wireTrayElbow90'
+  | 'wireTrayTee'
+  | 'wireTrayRiser90'
+
+export type WireMeshTrayComponentType =
+  | 'wireTrayStraight'
+  | 'wireTrayElbow90'
+  | 'wireTrayTee'
+  | 'wireTrayRiser90'
+
+export function isWireMeshTrayType(type: string): type is WireMeshTrayComponentType {
+  return (
+    type === 'wireTrayStraight' ||
+    type === 'wireTrayElbow90' ||
+    type === 'wireTrayTee' ||
+    type === 'wireTrayRiser90'
+  )
+}
 
 export function isStructureComponentType(type: string): type is StructureComponentType {
   return (
@@ -24,7 +47,8 @@ export function isStructureComponentType(type: string): type is StructureCompone
     type === 'cableTrayElbow90' ||
     type === 'cableTrayCross' ||
     type === 'cableTrayVerticalBend' ||
-    type === 'cableTrayRiser90'
+    type === 'cableTrayRiser90' ||
+    isWireMeshTrayType(type)
   )
 }
 
@@ -34,7 +58,8 @@ export function isCableTrayComponentType(type: string): type is CableTrayCompone
     type === 'cableTrayElbow90' ||
     type === 'cableTrayCross' ||
     type === 'cableTrayVerticalBend' ||
-    type === 'cableTrayRiser90'
+    type === 'cableTrayRiser90' ||
+    isWireMeshTrayType(type)
   )
 }
 
@@ -90,19 +115,19 @@ export function structureComponentSizeMm(
     const d = industrialPillarDimsOf(state)
     return { x: d.basePlateMm, y: d.heightMm, z: d.basePlateMm }
   }
-  if (type === 'cableTrayStraight') {
+  if (type === 'cableTrayStraight' || type === 'wireTrayStraight') {
     const d = cableTrayDimsOf(type, state)
-    return { x: d.lengthMm, y: d.sideHeightMm + 8, z: d.widthMm }
+    return { x: d.lengthMm, y: d.sideHeightMm + 10, z: d.widthMm }
   }
-  if (type === 'cableTrayElbow90') {
+  if (type === 'cableTrayElbow90' || type === 'wireTrayElbow90') {
     const d = cableTrayDimsOf(type, state)
     const span = d.radiusMm + d.widthMm + 80
-    return { x: span, y: d.sideHeightMm + 8, z: span }
+    return { x: span, y: d.sideHeightMm + 10, z: span }
   }
-  if (type === 'cableTrayCross') {
+  if (type === 'cableTrayCross' || type === 'wireTrayTee') {
     const d = cableTrayDimsOf(type, state)
     const span = d.widthMm + 280
-    return { x: span, y: d.sideHeightMm + 8, z: span }
+    return { x: span, y: d.sideHeightMm + 10, z: span }
   }
   if (type === 'cableTrayVerticalBend') {
     const d = cableTrayDimsOf(type, state)
@@ -112,7 +137,7 @@ export function structureComponentSizeMm(
     const spanY = Math.max(d.sideHeightMm + 80, Math.round(seg * Math.sin(rad) + d.sideHeightMm + 110))
     return { x: spanX, y: spanY, z: d.widthMm }
   }
-  if (type === 'cableTrayRiser90') {
+  if (type === 'cableTrayRiser90' || type === 'wireTrayRiser90') {
     const d = cableTrayDimsOf(type, state)
     const span = d.radiusMm + d.sideHeightMm + 150
     return { x: span, y: span, z: d.widthMm }
@@ -289,5 +314,33 @@ export const STRUCTURES_DATASHEETS: Record<StructureComponentType, StructureData
     manufacturer: 'DC-Simu / IEC 61537',
     model: 'Riser Vertical 90° · Galvanizado',
     summary: 'Curva vertical rígida 90° exterior ou interior com uniões perfuradas',
+  },
+  wireTrayStraight: {
+    path: '/datasheets/structures/wire-mesh-tray-cablofil-3d.pdf',
+    name: 'Esteira Aramada Reta Galvanizada · Cablofil / OBO GR-Magic (Ficha Técnica).pdf',
+    manufacturer: 'Cablofil / OBO GR-Magic',
+    model: 'Leito Aramado Reto · Arame Ø4,8 mm',
+    summary: 'Malha aberta soldada em aço eletrozincado · Borda de segurança T · Suportes consola/trapézio & cascata drop-out',
+  },
+  wireTrayElbow90: {
+    path: '/datasheets/structures/wire-mesh-tray-cablofil-3d.pdf',
+    name: 'Curva 90° de Esteira Aramada Galvanizada (Ficha Técnica).pdf',
+    manufacturer: 'Cablofil / OBO GR-Magic',
+    model: 'Curva Horizontal 90° Aramada',
+    summary: 'Curva horizontal 90° em malha de aço eletrozincado Ø4,8 mm com grampos de união rápida',
+  },
+  wireTrayTee: {
+    path: '/datasheets/structures/wire-mesh-tray-cablofil-3d.pdf',
+    name: 'Derivação Tê / Cruz de Esteira Aramada Galvanizada (Ficha Técnica).pdf',
+    manufacturer: 'Cablofil / OBO GR-Magic',
+    model: 'Derivação Tê / Cruz X Aramada',
+    summary: 'Derivação 3 vias (T) ou 4 vias (X) em arame galvanizado soldado com acessórios de união rápida',
+  },
+  wireTrayRiser90: {
+    path: '/datasheets/structures/wire-mesh-tray-cablofil-3d.pdf',
+    name: 'Curva Vertical / Subida 90° de Esteira Aramada (Ficha Técnica).pdf',
+    manufacturer: 'Cablofil / OBO GR-Magic',
+    model: 'Riser Vertical 90° Aramado',
+    summary: 'Subida/descida vertical 90° interior ou exterior em malha aramada eletrozincada Ø4,8 mm',
   },
 }

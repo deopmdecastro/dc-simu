@@ -1,6 +1,12 @@
 import type { ConduitMedium, WireKind } from '../types'
 
-export type HydraulicComponentType = 'floatSwitch' | 'waterTank' | 'waterPump' | 'hydraulicValve' | 'hydraulicTee'
+export type HydraulicComponentType =
+  | 'floatSwitch'
+  | 'waterTank'
+  | 'waterPump'
+  | 'hydraulicValve'
+  | 'hydraulicTee'
+  | 'hydraulicFlowMeter'
 
 export function isHydraulicComponentType(type: string): type is HydraulicComponentType {
   return (
@@ -8,8 +14,30 @@ export function isHydraulicComponentType(type: string): type is HydraulicCompone
     type === 'waterTank' ||
     type === 'waterPump' ||
     type === 'hydraulicValve' ||
-    type === 'hydraulicTee'
+    type === 'hydraulicTee' ||
+    type === 'hydraulicFlowMeter'
   )
+}
+
+export type FlowMeterPipeDN = 'DN25' | 'DN32' | 'DN40' | 'DN50' | 'DN65' | 'DN80'
+
+export const FLOW_METER_PIPE_SPECS: Record<
+  FlowMeterPipeDN,
+  { innerMm: number; outerMm: number; nominalFlowLpm: number; lengthMm: number; heightMm: number; depthMm: number }
+> = {
+  DN25: { innerMm: 25, outerMm: 32, nominalFlowLpm: 38, lengthMm: 205, heightMm: 122, depthMm: 86 },
+  DN32: { innerMm: 32, outerMm: 40, nominalFlowLpm: 60, lengthMm: 222, heightMm: 132, depthMm: 94 },
+  DN40: { innerMm: 40, outerMm: 50, nominalFlowLpm: 95, lengthMm: 242, heightMm: 144, depthMm: 104 },
+  DN50: { innerMm: 50, outerMm: 63, nominalFlowLpm: 150, lengthMm: 266, heightMm: 158, depthMm: 118 },
+  DN65: { innerMm: 65, outerMm: 75, nominalFlowLpm: 240, lengthMm: 292, heightMm: 172, depthMm: 132 },
+  DN80: { innerMm: 80, outerMm: 90, nominalFlowLpm: 360, lengthMm: 318, heightMm: 188, depthMm: 146 },
+}
+
+export function flowMeterSpecOf(state?: Record<string, any>) {
+  const dn = (typeof state?.pipeDN === 'string' && state.pipeDN in FLOW_METER_PIPE_SPECS
+    ? state.pipeDN
+    : 'DN32') as FlowMeterPipeDN
+  return { dn, ...FLOW_METER_PIPE_SPECS[dn] }
 }
 
 export function isFluidWireKind(kind: WireKind | undefined): boolean {
@@ -109,6 +137,10 @@ export function hydraulicComponentSizeMm(
   if (type === 'hydraulicTee') {
     return { x: HYDRAULIC_TEE_SIZE_MM.width, y: HYDRAULIC_TEE_SIZE_MM.height, z: HYDRAULIC_TEE_SIZE_MM.depth }
   }
+  if (type === 'hydraulicFlowMeter') {
+    const spec = flowMeterSpecOf(state)
+    return { x: spec.lengthMm, y: spec.heightMm, z: spec.depthMm }
+  }
   return null
 }
 
@@ -155,5 +187,12 @@ export const HYDRAULIC_DATASHEETS: Record<HydraulicComponentType, HydraulicDatas
     manufacturer: 'DC-Simu Hidráulica',
     model: 'Tê Latão 3 Vias G 1"',
     summary: 'Derivação hidráulica em T 3 vias (A / B / C) · Latão forjado · PN16',
+  },
+  hydraulicFlowMeter: {
+    path: '/datasheets/hydraulics/water-flow-meter-zjlcd-bt01.pdf',
+    name: 'ZJLCD-BT01 · Contador de Água Eletrónico de Turbina PVC DN25–DN80 (Ficha Técnica).pdf',
+    manufacturer: 'ZJLCD / SEA',
+    model: 'ZJLCD-BT01 · PVC DN25–DN80 · Open-Drain',
+    summary: 'Display LCD caudal instantâneo (L/min) & totalizador (L) · Botões SET/CLEAR · Saída impulsos Open-Drain +24V/PULSE/GND',
   },
 }

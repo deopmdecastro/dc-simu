@@ -1210,12 +1210,22 @@ function runOneTick(state: Store, dtMs: number) {
       for (let i = 0; i < ids.length; i += 1) {
         for (let j = i + 1; j < ids.length; j += 1) linkH(ids[i], ids[j])
       }
+    } else if (hc.type === 'hydraulicFlowMeter') {
+      const inT = hc.terminals.find((t) => t.label === 'IN' || t.kind === 'hydraulic-in')?.id
+      const outT = hc.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')?.id
+      if (inT && outT) linkH(inT, outT)
     }
   }
   const activeHydraulicTerminals = new Set<string>()
   const pumpFlowQueue: string[] = []
   for (const p of components) {
     if (p.type === 'waterPump' && p.state.running) {
+      const outT = p.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')
+      if (outT && !activeHydraulicTerminals.has(outT.id)) {
+        activeHydraulicTerminals.add(outT.id)
+        pumpFlowQueue.push(outT.id)
+      }
+    } else if (p.type === 'waterTank' && p.state.outletValveOpen && Number(p.state.levelPct ?? 0) > 0.2) {
       const outT = p.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')
       if (outT && !activeHydraulicTerminals.has(outT.id)) {
         activeHydraulicTerminals.add(outT.id)
@@ -1248,6 +1258,30 @@ function runOneTick(state: Store, dtMs: number) {
     if (filling) lvl += dtSec * 12
     if (tk.state.outletValveOpen) lvl -= dtSec * 10
     tk.state.levelPct = Math.max(0, Math.min(100, Math.round(lvl * 10) / 10))
+  }
+  // Contadores de água eletrónicos ZJLCD-BT01: cálculo de caudal instantâneo (L/min), volume parcial e totalizador (L)
+  for (const fm of components) {
+    if (fm.type !== 'hydraulicFlowMeter') continue
+    const inT = fm.terminals.find((t) => t.label === 'IN' || t.kind === 'hydraulic-in')
+    const outT = fm.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')
+    const hasFlow = Boolean(
+      (inT && activeHydraulicTerminals.has(inT.id)) ||
+      (outT && activeHydraulicTerminals.has(outT.id)) ||
+      fm.state.manualTestFlow,
+    )
+    const dn = String(fm.state.pipeDN ?? 'DN32')
+    const nominalLpm = dn === 'DN25' ? 38 : dn === 'DN40' ? 95 : dn === 'DN50' ? 150 : dn === 'DN65' ? 240 : dn === 'DN80' ? 360 : 60
+    const flowLpm = hasFlow ? Math.round((nominalLpm * 0.65) * 10) / 10 : 0
+    fm.state.flowRateLpm = flowLpm
+    fm.state.flowing = hasFlow
+    if (hasFlow) {
+      const deltaL = (flowLpm / 60) * dtSec
+      fm.state.singleVolumeL = Math.round((Number(fm.state.singleVolumeL ?? 0) + deltaL) * 1000) / 1000
+      fm.state.totalVolumeL = Math.round((Number(fm.state.totalVolumeL ?? 0) + deltaL) * 1000) / 1000
+      fm.state.pulseHigh = Math.floor(Number(fm.state.totalVolumeL ?? 0) * 10) % 2 === 0
+    } else {
+      fm.state.pulseHigh = false
+    }
   }
 
   // 9c) Simulação pneumática em tempo real: FRL -> tubos pneumáticos -> Tês -> Eletroválvulas 5/2 -> Cilindros ISO

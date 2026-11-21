@@ -9,8 +9,10 @@ import { updateMotorBodyMotion } from './motorBodyMotion'
 import {
   FLOAT_SWITCH_SIZE_MM,
   WATER_PUMP_SIZE_MM,
+  flowMeterSpecOf,
   waterTankDimensionsOf,
 } from './hydraulicsModel'
+import { useSimStore } from '../store/useSimStore'
 import { Text } from './SceneText'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
 
@@ -872,14 +874,43 @@ export function WaterTankTransparent3D({
     drainStreamGeom.dispose()
   }, [waveGeom, scaleTex, spoutGeom, drainStreamGeom])
 
-  // Temporizador adaptativo para manter as ondas 3D e o jato de água a cair vivos em frameloop="demand"
+  // Temporizador adaptativo para manter as ondas 3D vivas + baixar o nível da água gradualmente até 0% com a torneira aberta!
   useEffect(() => {
-    if (levelPct <= 0.5) return
+    if (levelPct <= 0.05) return
+    const intervalMs = outletOpen ? 95 : 115
     const timer = window.setInterval(() => {
+      if (outletOpen) {
+        const st = useSimStore.getState()
+        // Em modo RUN o motor de simulação (useSimStore) já atualiza o nível; fora do RUN esvazia suavemente em tempo real!
+        if (st.sim.runState !== 'running') {
+          const curTank = st.components.find((item) => item.id === c.id)
+          if (curTank && curTank.state.outletValveOpen) {
+            const curLvl = Number(curTank.state.levelPct ?? 68)
+            if (curLvl > 0) {
+              // Descarga realista proporcional à coluna de água (esvazia gradualmente até 0%!)
+              const headFactor = 0.45 + 0.55 * Math.sqrt(Math.max(0.01, curLvl / 100))
+              const drop = (intervalMs / 1000) * 6.5 * headFactor
+              const nextLvl = curLvl - drop <= 0.15 ? 0 : Math.round((curLvl - drop) * 10) / 10
+              st.setComponentState(c.id, { levelPct: nextLvl })
+              // Sincroniza de imediato qualquer bóia acoplada dentro deste reservatório
+              for (const comp of st.components) {
+                if (comp.type !== 'floatSwitch' || comp.state.detachedFromTank === true) continue
+                if (comp.state.linkedTankId === c.id || (!comp.state.linkedTankId && comp.state.autoCoupleTank !== false)) {
+                  const thresh = typeof comp.state.mountDepthPct === 'number' ? comp.state.mountDepthPct : 74
+                  const nextTrig = nextLvl >= thresh
+                  if (Boolean(comp.state.triggered) !== nextTrig) {
+                    st.setComponentState(comp.id, { triggered: nextTrig, level: nextTrig ? 'alto' : 'baixo' })
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
       invalidate()
-    }, outletOpen ? 75 : 110)
+    }, intervalMs)
     return () => window.clearInterval(timer)
-  }, [levelPct > 0.5, outletOpen, invalidate])
+  }, [levelPct > 0.05, outletOpen, c.id, invalidate])
 
   // Animação realista das ondas 3D + rotação suave do manípulo + queda real de água e salpicos no chão!
   useFrame((_state, delta) => {
@@ -1637,3 +1668,301 @@ export function HydraulicTee3D({
     </group>
   )
 }
+
+// ============================================================================
+// 5. CONTADOR DE ÁGUA ELETRÓNICO 3D — ZJLCD-BT01 (fiel a image-46..51.png)
+// ============================================================================
+
+function createFlowMeterFaceplateTexture(
+  singleL: number,
+  totalL: number,
+  flowLpm: number,
+  displayMode: 'total' | 'instant',
+  pipeDN: string,
+): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null
+  const c = document.createElement('canvas')
+  c.width = 512
+  c.height = 296
+  const ctx = c.getContext('2d')
+  if (!ctx) return null
+
+  // Corpo azul cobalto industrial do frontal ZJLCD-BT01 (fiel a image-46/47.png)
+  const bg = ctx.createLinearGradient(0, 0, 0, c.height)
+  bg.addColorStop(0, '#225fb8')
+  bg.addColorStop(1, '#1a4a94')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, c.width, c.height)
+
+  // Moldura octogonal chanfrada cinzento-escuro nos cantos
+  ctx.fillStyle = '#525861'
+  const ch = 44
+  for (const pts of [
+    [[0, 0], [ch, 0], [0, ch]],
+    [[c.width, 0], [c.width - ch, 0], [c.width, ch]],
+    [[0, c.height], [ch, c.height], [0, c.height - ch]],
+    [[c.width, c.height], [c.width - ch, c.height], [c.width, c.height - ch]],
+  ]) {
+    ctx.beginPath()
+    ctx.moveTo(pts[0][0], pts[0][1])
+    ctx.lineTo(pts[1][0], pts[1][1])
+    ctx.lineTo(pts[2][0], pts[2][1])
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  // Serigrafia branca superior & inferior exata de image-46/47.png
+  ctx.fillStyle = '#f8fafc'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = '800 28px Arial, sans-serif'
+  ctx.fillText('ZJLCD-BT01', 286, 40)
+
+  ctx.font = '600 17px Arial, sans-serif'
+  ctx.fillText(`Model Number under battery  ·  ${pipeDN}`, 286, 260)
+
+  // Botões de membrana pretos com anel branco (SET e CLEAR)
+  const drawMembraneBtn = (bx: number, by: number, label: string) => {
+    ctx.beginPath()
+    ctx.arc(bx, by, 34, 0, Math.PI * 2)
+    ctx.fillStyle = '#e2e8f0'
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(bx, by, 28, 0, Math.PI * 2)
+    ctx.fillStyle = '#111827'
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '800 15px Arial, sans-serif'
+    ctx.fillText(label, bx, by + 1)
+  }
+  drawMembraneBtn(92, 92, 'SET')
+  drawMembraneBtn(92, 206, 'CLEAR')
+
+  // Visor LCD reflexivo verde-acinzentado com borda branca
+  const lx = 158
+  const ly = 68
+  const lw = 312
+  const lh = 160
+  ctx.fillStyle = '#e2e8f0'
+  ctx.fillRect(lx - 5, ly - 5, lw + 10, lh + 10)
+  const lcdGrad = ctx.createLinearGradient(lx, ly, lx, ly + lh)
+  lcdGrad.addColorStop(0, '#c6cfb9')
+  lcdGrad.addColorStop(1, '#aeb9a0')
+  ctx.fillStyle = lcdGrad
+  ctx.fillRect(lx, ly, lw, lh)
+
+  // Leitura LCD principal (Single batch volume em litros, ex. 14.894 L)
+  ctx.fillStyle = '#1e241b'
+  ctx.textAlign = 'right'
+  ctx.font = '800 62px "Courier New", monospace'
+  ctx.fillText(singleL.toFixed(3).slice(0, 7), lx + lw - 34, ly + 56)
+  ctx.font = '800 20px Arial, sans-serif'
+  ctx.fillText('L', lx + lw - 12, ly + 66)
+
+  // Linha inferior do LCD: Total acumulado (TOTAL) ou Caudal instantâneo (L/min)
+  if (displayMode === 'instant') {
+    ctx.font = '800 40px "Courier New", monospace'
+    ctx.fillText(flowLpm.toFixed(1), lx + lw - 76, ly + 124)
+    ctx.font = '700 17px Arial, sans-serif'
+    ctx.fillText('L/min', lx + lw - 12, ly + 126)
+    ctx.textAlign = 'left'
+    ctx.font = '700 13px Arial, sans-serif'
+    ctx.fillText('FLOW RATE', lx + 12, ly + 126)
+  } else {
+    ctx.font = '800 38px "Courier New", monospace'
+    ctx.fillText(totalL.toFixed(1).padStart(7, '0'), lx + lw - 66, ly + 124)
+    ctx.font = '700 15px Arial, sans-serif'
+    ctx.fillText('TOTAL', lx + lw - 10, ly + 126)
+  }
+
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  return tex
+}
+
+export function WaterFlowMeterZjLcd3D({
+  c,
+  position,
+  onPressSet,
+  onPressClear,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+  onPressSet?: () => void
+  onPressClear?: () => void
+}) {
+  const spec = flowMeterSpecOf(c.state)
+  const L = spec.lengthMm * U
+  const pipeOuterR = (spec.outerMm / 2) * U
+  const pipeInnerR = (spec.innerMm / 2) * U
+  const nutR = pipeOuterR * 1.42
+  const nutLen = L * 0.19
+  const withCable = c.state.withCable !== false
+  const singleL = Math.max(0, Number(c.state.singleVolumeL ?? 0))
+  const totalL = Math.max(0, Number(c.state.totalVolumeL ?? 0))
+  const flowLpm = Math.max(0, Number(c.state.flowRateLpm ?? 0))
+  const displayMode: 'total' | 'instant' = c.state.displayMode === 'instant' ? 'instant' : 'total'
+  const verticalMount = c.state.installOrientation === 'vertical'
+
+  // Quantizar leitura para não recriar CanvasTexture a cada milissegundo
+  const qSingle = Math.round(singleL * 100) / 100
+  const qTotal = Math.round(totalL * 10) / 10
+  const qFlow = Math.round(flowLpm * 10) / 10
+
+  const faceTex = useMemo(
+    () => createFlowMeterFaceplateTexture(qSingle, qTotal, qFlow, displayMode, spec.dn),
+    [qSingle, qTotal, qFlow, displayMode, spec.dn],
+  )
+  useEffect(() => () => faceTex?.dispose(), [faceTex])
+
+  const cableGeom = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.08, -pipeOuterR * 0.45, pipeOuterR * 0.65),
+      new THREE.Vector3(-0.18, -pipeOuterR * 1.15, pipeOuterR * 0.92),
+      new THREE.Vector3(0.0, -pipeOuterR * 1.38, pipeOuterR * 0.78),
+      new THREE.Vector3(0.16, -pipeOuterR * 1.28, pipeOuterR * 0.48),
+    ])
+    return new THREE.TubeGeometry(curve, 24, 3.6 * U, 8, false)
+  }, [pipeOuterR])
+  useEffect(() => () => cableGeom.dispose(), [cableGeom])
+
+  const headW = Math.max(0.86, L * 0.47)
+  const headH = headW * 0.56
+  const headD = Math.max(0.28, pipeOuterR * 0.95)
+  const pvcDark = '#4b525c'
+  const pvcMid = '#5a626e'
+
+  return (
+    <group position={position} rotation={[0, 0, verticalMount ? Math.PI / 2 : 0]} name={`water-flow-meter-3d-${c.id}`}>
+      {/* Corpo central tubular UPVC cinzento-escuro */}
+      <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[pipeOuterR * 1.06, pipeOuterR * 1.06, L * 0.62, 24]} />
+        <meshStandardMaterial color={pvcDark} roughness={0.44} metalness={0.08} />
+      </mesh>
+
+      {/* 2 pés moldados inferiores de apoio (fiel a image-46.png) */}
+      {[-L * 0.16, L * 0.16].map((fx, i) => (
+        <mesh key={i} position={[fx, -pipeOuterR * 1.16, 0]} castShadow>
+          <boxGeometry args={[L * 0.075, pipeOuterR * 0.68, pipeOuterR * 1.48]} />
+          <meshStandardMaterial color={pvcDark} roughness={0.48} />
+        </mesh>
+      ))}
+
+      {/* 2 porcas de união estriadas (esquerda e direita) + bocais lisos UPVC (fiel a image-46/47.png) */}
+      {[-1, 1].map((side) => (
+        <group key={side}>
+          {/* Bocal liso PVC com interior escuro */}
+          <mesh position={[side * (L * 0.43), 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+            <cylinderGeometry args={[pipeOuterR, pipeOuterR, L * 0.14, 24]} />
+            <meshStandardMaterial color={pvcMid} roughness={0.38} metalness={0.06} />
+          </mesh>
+          <mesh position={[side * (L * 0.501), 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[pipeInnerR * 0.92, pipeInnerR * 0.92, 0.015, 20]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.85} />
+          </mesh>
+          {/* Porca de união PVC + 12 nervuras de aperto */}
+          <group position={[side * (L * 0.285), 0, 0]}>
+            <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+              <cylinderGeometry args={[nutR, nutR, nutLen, 24]} />
+              <meshStandardMaterial color={pvcMid} roughness={0.40} metalness={0.08} />
+            </mesh>
+            {Array.from({ length: 12 }).map((_, rIdx) => {
+              const ang = (rIdx * Math.PI * 2) / 12
+              return (
+                <mesh
+                  key={rIdx}
+                  position={[0, Math.sin(ang) * (nutR * 0.98), Math.cos(ang) * (nutR * 0.98)]}
+                  rotation={[ang, 0, 0]}
+                >
+                  <boxGeometry args={[nutLen * 0.74, 0.036, 0.042]} />
+                  <meshStandardMaterial color="#3f4650" roughness={0.48} />
+                </mesh>
+              )
+            })}
+          </group>
+        </group>
+      ))}
+
+      {/* Pescoço de suporte da cabeça eletrónica */}
+      <mesh position={[0, pipeOuterR * 0.85, pipeOuterR * 0.25]} castShadow>
+        <boxGeometry args={[headW * 0.62, pipeOuterR * 0.95, pipeOuterR * 0.95]} />
+        <meshStandardMaterial color={pvcDark} roughness={0.44} />
+      </mesh>
+
+      {/* Cabeça eletrónica LCD ZJLCD-BT01 ligeiramente inclinada para o operador (fiel a image-46.png) */}
+      <group position={[0, pipeOuterR * 1.18 + headH * 0.24, pipeOuterR * 0.56]} rotation={[-0.24, 0, 0]}>
+        {/* Caixa exterior cinzento-escuro */}
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[headW, headH, headD]} />
+          <meshStandardMaterial color="#58606a" roughness={0.40} metalness={0.12} />
+        </mesh>
+        {/* Faceplate azul + LCD dinâmico */}
+        {faceTex && (
+          <mesh position={[0, 0, headD / 2 + 0.008]}>
+            <planeGeometry args={[headW * 0.95, headH * 0.92]} />
+            <meshStandardMaterial map={faceTex} roughness={0.34} metalness={0.05} polygonOffset polygonOffsetFactor={-1} />
+          </mesh>
+        )}
+        {/* 4 parafusos metálicos Phillips nos cantos */}
+        {[
+          [-headW * 0.43, headH * 0.40],
+          [headW * 0.43, headH * 0.40],
+          [-headW * 0.43, -headH * 0.40],
+          [headW * 0.43, -headH * 0.40],
+        ].map(([sx, sy], idx) => (
+          <mesh key={idx} position={[sx, sy, headD / 2 + 0.015]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.026, 0.026, 0.018, 12]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.22} />
+          </mesh>
+        ))}
+
+        {/* Zonas clicáveis 3D dos botões SET e CLEAR no frontal! */}
+        <mesh
+          position={[-headW * 0.30, headH * 0.18, headD / 2 + 0.018]}
+          onClick={(e) => {
+            e.stopPropagation()
+            onPressSet?.()
+          }}
+        >
+          <circleGeometry args={[headH * 0.14, 18]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+        <mesh
+          position={[-headW * 0.30, -headH * 0.19, headD / 2 + 0.018]}
+          onClick={(e) => {
+            e.stopPropagation()
+            onPressClear?.()
+          }}
+        >
+          <circleGeometry args={[headH * 0.14, 18]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      </group>
+
+      {/* Versão com cabo Open-Drain (+24V Vermelho · PULSE Amarelo · GND Preto — fiel a image-48.png) */}
+      {withCable && (
+        <group>
+          <mesh geometry={cableGeom} castShadow>
+            <meshStandardMaterial color="#18181b" roughness={0.58} metalness={0.08} />
+          </mesh>
+          {[
+            { dy: 0.05, color: '#dc2626' },
+            { dy: 0, color: '#eab308' },
+            { dy: -0.05, color: '#111827' },
+          ].map((lead, idx) => (
+            <mesh
+              key={idx}
+              position={[0.24, -pipeOuterR * 1.28 + lead.dy, pipeOuterR * 0.48]}
+              rotation={[0, 0, Math.PI / 2]}
+            >
+              <cylinderGeometry args={[2.1 * U, 2.1 * U, 18 * U, 8]} />
+              <meshStandardMaterial color={lead.color} roughness={0.48} />
+            </mesh>
+          ))}
+        </group>
+      )}
+    </group>
+  )
+}
+
