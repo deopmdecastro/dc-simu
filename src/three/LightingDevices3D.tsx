@@ -8,6 +8,7 @@ import { isManobraAllowed } from '../store/manobra'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import { finishCadMaterial } from './catalogMaterials'
+import { playClick } from '../audio/sfx'
 import GlowHalo from './GlowHalo'
 import {
   applyLightingMarkings,
@@ -28,11 +29,52 @@ type Props = {
   interactive?: boolean
 }
 
+/** 0 = tecla única (simples/escada); 1 e 2 = teclas do interruptor duplo. */
+type RockerKey = 0 | 1 | 2
+const ROCKER_PIVOTS: Record<RockerKey, string> = { 0: 'lighting_rocker_pivot', 1: 'lighting_rocker_1_pivot', 2: 'lighting_rocker_2_pivot' }
+/** Curso da tecla ao premir (GLB em metros). */
+const ROCKER_TRAVEL_M = 0.0008
+
+const switchKeysOf = (type: LightingComponentType): RockerKey[] => (type === 'wallSwitchDouble' ? [1, 2] : [0])
+const switchKeyOn = (type: LightingComponentType, state: Record<string, unknown> | undefined, key: RockerKey) =>
+  Boolean(type === 'wallSwitchDouble' ? state?.[key === 2 ? 'on2' : 'on1'] : state?.on)
+
+/** Tecla atingida pelo raio, ou null se o toque foi na moldura, caixa ou bornes. */
+export function rockerKeyOf(object: THREE.Object3D | null): RockerKey | null {
+  for (let node = object; node; node = node.parent) {
+    if (/^lighting_rocker_1(?:_|$)/.test(node.name)) return 1
+    if (/^lighting_rocker_2(?:_|$)/.test(node.name)) return 2
+    if (/^lighting_rocker(?:_pivot|_decal)?$/.test(node.name)) return 0
+  }
+  return null
+}
+
+/** O R3F chama o handler do grupo uma vez por interseção (da mais próxima à mais distante):
+ *  decide-se sempre pela peça à frente, para a moldura por trás não desfazer o que a tecla fez. */
+const nearestHit = (e: ThreeEvent<PointerEvent | MouseEvent>): THREE.Object3D => e.intersections[0]?.object ?? e.object
+
+function switchTogglePatch(type: LightingComponentType, state: Record<string, unknown>, key: RockerKey): Record<string, boolean> {
+  if (type === 'wallSwitchDouble') {
+    const field = key === 2 ? 'on2' : 'on1'
+    return { [field]: !state[field] }
+  }
+  return { on: !state.on }
+}
+
+function switchEventMessage(type: LightingComponentType, ref: string, key: RockerKey, patch: Record<string, boolean>): string {
+  if (type === 'wallSwitchDouble') {
+    const on = key === 2 ? patch.on2 : patch.on1
+    return `${ref} (Tecla ${key}): ${on ? `Ligado (L–${key})` : 'Desligado'}.`
+  }
+  if (type === 'wallSwitchStaircase') return `${ref} (Comutador): ${patch.on ? 'Posição 2 (L–2)' : 'Posição 1 (L–1)'}.`
+  return `${ref}: ${patch.on ? 'Ligado (ON)' : 'Desligado (OFF)'}.`
+}
+
 function LightingCadInner({ c, x, position, interactive = true }: Props) {
   const type = c.type as LightingComponentType
   const spec = getComponentModelSpec(type)!
   const { scene } = useGLTF(spec.path)
-  const { invalidate } = useThree()
+  const { invalidate, controls, gl } = useThree()
 
   const model = useMemo(() => {
     const raw = cloneModelScene(scene)
@@ -67,9 +109,10 @@ function LightingCadInner({ c, x, position, interactive = true }: Props) {
   const prevOnRef = useRef(Boolean(c.state?.on))
   const lampPointLightRef = useRef<THREE.PointLight>(null)
 
-  const rockerAngleRef = useRef(0)
-  const rocker1AngleRef = useRef(0)
-  const rocker2AngleRef = useRef(0)
+  const anglesRef = useRef<Partial<Record<RockerKey, number>>>({})
+  const depthRef = useRef<Partial<Record<RockerKey, number>>>({})
+  const pressedKeyRef = useRef<RockerKey | null>(null)
+  const orbitRef = useRef<{ target: { enabled: boolean }; enabled: boolean } | null>(null)
 
   // Atualiza imediatamente em montagens estáticas / snapshots sem depender só do próximo frame
   useEffect(() => {
@@ -82,9 +125,7 @@ function LightingCadInner({ c, x, position, interactive = true }: Props) {
     } else if (isLightingSwitchType(type)) {
       applyLightingVisualState(model, type, c.state)
       const tilt = THREE.MathUtils.degToRad(SWITCH_SPECS[type].rockerTiltDeg)
-      rockerAngleRef.current = c.state?.on ? -tilt : tilt
-      rocker1AngleRef.current = c.state?.on1 ? -tilt : tilt
-      rocker2AngleRef.current = c.state?.on2 ? -tilt : tilt
+      for (const key of switchKeysOf(type)) anglesRef.current[key] = switchKeyOn(type, c.state, key) ? -tilt : tilt
     }
     invalidate()
   }, [model, type, c.state?.on, c.state?.on1, c.state?.on2, powerW, cctK, invalidate])
@@ -130,77 +171,87 @@ function LightingCadInner({ c, x, position, interactive = true }: Props) {
     }
 
     if (isLightingSwitchType(type)) {
+      // Tecla basculante: rotação até ao novo batente e afundamento de 0,8 mm enquanto está premida.
       const tilt = THREE.MathUtils.degToRad(SWITCH_SPECS[type].rockerTiltDeg)
-      if (type === 'wallSwitchDouble') {
-        const t1 = c.state?.on1 ? -tilt : tilt
-        const t2 = c.state?.on2 ? -tilt : tilt
-        const p1 = model.getObjectByName('lighting_rocker_1_pivot')
-        const p2 = model.getObjectByName('lighting_rocker_2_pivot')
-        let moved = false
-        if (p1 && Math.abs(t1 - rocker1AngleRef.current) > 0.001) {
-          rocker1AngleRef.current += (t1 - rocker1AngleRef.current) * Math.min(1, dt * 22)
-          p1.rotation.x = rocker1AngleRef.current
+      let moved = false
+      for (const key of switchKeysOf(type)) {
+        const pivot = model.getObjectByName(ROCKER_PIVOTS[key])
+        if (!pivot) continue
+        const target = switchKeyOn(type, c.state, key) ? -tilt : tilt
+        const angle = anglesRef.current[key] ?? target
+        if (Math.abs(target - angle) > 0.0005) {
+          anglesRef.current[key] = angle + (target - angle) * Math.min(1, dt * 30)
+          pivot.rotation.x = anglesRef.current[key]!
           moved = true
         }
-        if (p2 && Math.abs(t2 - rocker2AngleRef.current) > 0.001) {
-          rocker2AngleRef.current += (t2 - rocker2AngleRef.current) * Math.min(1, dt * 22)
-          p2.rotation.x = rocker2AngleRef.current
+        if (typeof pivot.userData.restZ !== 'number') pivot.userData.restZ = pivot.position.z
+        const depthTarget = pressedKeyRef.current === key ? 1 : 0
+        const depth = depthRef.current[key] ?? 0
+        if (depth !== depthTarget) {
+          const next = Math.abs(depthTarget - depth) > 0.01 ? depth + (depthTarget - depth) * Math.min(1, dt * 40) : depthTarget
+          depthRef.current[key] = next
+          pivot.position.z = pivot.userData.restZ - next * ROCKER_TRAVEL_M
           moved = true
-        }
-        if (moved) invalidate()
-      } else {
-        const target = c.state?.on ? -tilt : tilt
-        const p = model.getObjectByName('lighting_rocker_pivot')
-        if (p && Math.abs(target - rockerAngleRef.current) > 0.001) {
-          rockerAngleRef.current += (target - rockerAngleRef.current) * Math.min(1, dt * 22)
-          p.rotation.x = rockerAngleRef.current
-          invalidate()
         }
       }
+      if (moved) invalidate()
     }
   })
 
-  const handleSwitchClick = (e: ThreeEvent<MouseEvent>) => {
-    if (!isLightingSwitchType(type)) return
-    if (!interactive || c.locked || useSimStore.getState().tool !== 'select') return
+  // Só as teclas acionam o interruptor: moldura, caixa e bornes continuam a selecionar/arrastar
+  // o aparelho. A tecla atua ao premir (como no aparelho real) e a câmara não roda durante o toque.
+  const mayActuate = () => isLightingSwitchType(type) && interactive && !c.locked && useSimStore.getState().tool === 'select'
+
+  useEffect(() => {
+    const release = () => {
+      if (orbitRef.current) { orbitRef.current.target.enabled = orbitRef.current.enabled; orbitRef.current = null }
+      if (pressedKeyRef.current !== null) { pressedKeyRef.current = null; invalidate() }
+    }
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+    window.addEventListener('blur', release)
+    return () => {
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
+      window.removeEventListener('blur', release)
+      release()
+    }
+  }, [invalidate])
+
+  const handleSwitchDown = (e: ThreeEvent<PointerEvent>) => {
+    if (!isLightingSwitchType(type) || e.button !== 0 || !mayActuate()) return
+    const key = rockerKeyOf(nearestHit(e))
+    if (key === null) return
     e.stopPropagation()
     const store = useSimStore.getState()
     if (!isManobraAllowed(store)) {
       store.selectComponents([c.id])
       return
     }
+    const target = controls as unknown as { enabled: boolean } | null
+    if (target && !orbitRef.current) { orbitRef.current = { target, enabled: target.enabled }; target.enabled = false }
+    pressedKeyRef.current = key
     const current = store.components.find((item) => item.id === c.id) ?? c
-    if (type === 'wallSwitchDouble') {
-      // Identifica tecla 1 (esquerda) vs tecla 2 (direita) pelo nó atingido ou coordenada local X
-      let hitKey: 1 | 2 | null = null
-      let cur: THREE.Object3D | null = e.object
-      while (cur) {
-        if (cur.name.includes('rocker_1')) { hitKey = 1; break }
-        if (cur.name.includes('rocker_2')) { hitKey = 2; break }
-        cur = cur.parent
-      }
-      if (!hitKey) {
-        const localPt = model.worldToLocal(e.point.clone())
-        hitKey = localPt.x < 0 ? 1 : 2
-      }
-      if (hitKey === 1) {
-        const next = !current.state.on1
-        store.operateComponent(c.id, { on1: next })
-        store.pushEvent('info', `${c.ref} (Tecla 1): ${next ? 'Ligado (L–1)' : 'Desligado'}.`)
-      } else {
-        const next = !current.state.on2
-        store.operateComponent(c.id, { on2: next })
-        store.pushEvent('info', `${c.ref} (Tecla 2): ${next ? 'Ligado (L–2)' : 'Desligado'}.`)
-      }
-    } else if (type === 'wallSwitchStaircase') {
-      const next = !current.state.on
-      store.operateComponent(c.id, { on: next })
-      store.pushEvent('info', `${c.ref} (Comutador): ${next ? 'Posição 2 (L–2)' : 'Posição 1 (L–1)'}.`)
-    } else {
-      const next = !current.state.on
-      store.operateComponent(c.id, { on: next })
-      store.pushEvent('info', `${c.ref}: ${next ? 'Ligado (ON)' : 'Desligado (OFF)'}.`)
-    }
+    const patch = switchTogglePatch(type, current.state, key)
+    store.operateComponent(c.id, patch)
+    playClick('selector')
+    store.pushEvent('info', switchEventMessage(type, c.ref, key, patch))
+    invalidate()
+  }
+
+  // O clique que se segue ao premir não deve chegar à seleção nem a outros aparelhos.
+  const handleSwitchClick = (e: ThreeEvent<MouseEvent>) => {
+    if (mayActuate() && rockerKeyOf(nearestHit(e)) !== null) e.stopPropagation()
+  }
+
+  const handleSwitchMove = (e: ThreeEvent<PointerEvent>) => {
+    if (!mayActuate()) return
+    const overKey = rockerKeyOf(nearestHit(e)) !== null && isManobraAllowed(useSimStore.getState())
+    if (overKey) { e.stopPropagation(); gl.domElement.style.cursor = 'pointer' }
+    else if (gl.domElement.style.cursor === 'pointer') gl.domElement.style.cursor = ''
+  }
+  const handleSwitchOut = () => {
+    if (gl.domElement.style.cursor === 'pointer') gl.domElement.style.cursor = ''
   }
 
   const lampVisual = useMemo(() => {
@@ -229,7 +280,7 @@ function LightingCadInner({ c, x, position, interactive = true }: Props) {
   }, [type, c.state?.powerW, c.state?.cctK])
 
   return (
-    <group position={position ?? [x, 0, 0]} onClick={isLightingSwitchType(type) ? handleSwitchClick : undefined}>
+    <group position={position ?? [x, 0, 0]} {...(isLightingSwitchType(type) ? { onPointerDown: handleSwitchDown, onClick: handleSwitchClick, onPointerMove: handleSwitchMove, onPointerOut: handleSwitchOut } : {})}>
       <primitive object={model} />
       {lampVisual && (
         <>
