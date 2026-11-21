@@ -18,6 +18,10 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 /** Nós que vieram do GLB (clonados de cache): só estes podem ser «atravessados» ao juntar malhas. */
 const CAD_MARK = Symbol.for('dcsimu.cadNode')
 type Marked = THREE.Object3D & { [CAD_MARK]?: true }
+
+/** Geometrias do cache GLTF, partilhadas por todos os clones do mesmo modelo: nunca se libertam por instância.
+ *  Preenchido por `cloneModelScene`; usado aqui e em `disposeModelClone`. */
+export const sharedModelGeometries = new WeakSet<THREE.BufferGeometry>()
 const isCadNode = (node: THREE.Object3D) => (node as Marked)[CAD_MARK] === true
 export function markCadNodes(root: THREE.Object3D) { root.traverse((node) => { (node as Marked)[CAD_MARK] = true }) }
 
@@ -54,6 +58,7 @@ export function mergeStaticMeshes(root: THREE.Object3D, options: { minGroup?: nu
   })
   const inverse = new THREE.Matrix4()
   const relative = new THREE.Matrix4()
+  const removed = new Set<THREE.BufferGeometry>()
   for (const { target, meshes } of groups.values()) {
     if (meshes.length < minGroup) continue
     inverse.copy(target.matrixWorld).invert()
@@ -80,12 +85,16 @@ export function mergeStaticMeshes(root: THREE.Object3D, options: { minGroup?: nu
     combined.layers.mask = first.layers.mask
     combined.frustumCulled = meshes.every((mesh) => mesh.frustumCulled)
     combined.userData = { dcMerged: meshes.length }
-    for (const mesh of meshes) mesh.removeFromParent()
+    for (const mesh of meshes) { removed.add(mesh.geometry as THREE.BufferGeometry); mesh.removeFromParent() }
     target.add(combined)
     combined.updateMatrixWorld(true)
   }
   let after = 0
-  root.traverse((node) => { if ((node as THREE.Mesh).isMesh) after += 1 })
+  const inUse = new Set<THREE.BufferGeometry>()
+  root.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) { after += 1; inUse.add(mesh.geometry as THREE.BufferGeometry) } })
+  // As malhas retiradas deixam de ser desenhadas: as geometrias criadas por código (cabeças cortadas,
+  // ferragens geradas) libertam-se já, senão ficavam na GPU até fechar a página. As do cache GLTF ficam.
+  for (const geometry of removed) if (!inUse.has(geometry) && !sharedModelGeometries.has(geometry)) geometry.dispose()
   return { before, after }
 }
 

@@ -236,7 +236,10 @@ function canvasPlane(widthMm: number, depthMm: number, units: number, draw: (ctx
   texture.anisotropy = 4
   const geometry = new THREE.PlaneGeometry(widthMm * units, depthMm * units)
   geometry.rotateX(-Math.PI / 2)
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ map: texture, transparent: true, roughness: .6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }))
+  const material = new THREE.MeshStandardMaterial({ map: texture, transparent: true, roughness: .6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
+  // Textura própria desta instância: sai da GPU com o material (disposeModelClone liberta materiais, não mapas).
+  material.addEventListener('dispose', () => texture.dispose())
+  const mesh = new THREE.Mesh(geometry, material)
   mesh.raycast = () => {}
   return mesh
 }

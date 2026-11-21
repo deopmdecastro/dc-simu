@@ -1,5 +1,5 @@
 import { bindCachedCanvasTexture } from './canvasTextureCache'
-import { markCadNodes } from './staticMerge'
+import { markCadNodes, sharedModelGeometries as cachedGeometries } from './staticMerge'
 import * as THREE from 'three'
 import type { ComponentModelSpec } from './modelPaths'
 import { addTerminalSocketBlocks } from './terminalSocketGeometry'
@@ -64,7 +64,6 @@ function shareCloneMaterials(root: THREE.Object3D): Set<THREE.Material> {
   return new Set(byReference.values())
 }
 
-const cachedGeometries = new WeakSet<THREE.BufferGeometry>()
 const cloneMaterials = new WeakMap<THREE.Object3D, Set<THREE.Material>>()
 /** Dispose only instance-owned resources; never invalidate a useGLTF geometry
  * or its texture shared by another mounted component/the persistent cache. */

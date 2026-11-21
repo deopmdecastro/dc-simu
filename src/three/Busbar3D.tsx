@@ -530,7 +530,12 @@ export function SteppedBusbar3D({
     return res
   }, [dims.holesPerBar, dims.barsMode, materials])
 
-  useEffect(() => () => disposeGroupGeometries(built.root), [built])
+  // body e cover são primitivas próprias (saem de built.root ao montar): libertar as três árvores.
+  useEffect(() => () => {
+    for (const group of [built.root, built.body, built.cover]) disposeGroupGeometries(group)
+    const decal = built.cover.getObjectByName('stepped-cover-danger-decal') as THREE.Mesh | undefined
+    ;(decal?.material as THREE.Material | undefined)?.dispose()
+  }, [built])
 
   // Animação suave com amortecimento crítico da tampa articulada (0° fechada ↔ 92° aberta)
   const angleRef = useRef(coverOpen ? STEPPED_BUSBAR.openDeg : 0)

@@ -22,7 +22,7 @@ import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, Billboard, useGLTF, useProgress } from '@react-three/drei'
 import { Text } from './SceneText'
-import { useRef, useMemo, useState, useEffect, useId, Suspense, Component, type MutableRefObject } from 'react'
+import { useRef, useMemo, useState, useEffect, useLayoutEffect, useId, Suspense, Component, type MutableRefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -854,6 +854,8 @@ function LogoSiemens1224RCMesh({ c, x, interactive = true }: { c: ElectricalComp
     const fitted = fitComponentModel(obj, getComponentModelSpec(c.type)!, PANEL_UNITS_PER_MM, 'bottom')
     return fitted
   }, [scene])
+  // Liberta geometrias/materiais próprios deste clone ao desmontar (sem isto ficavam na GPU).
+  useEffect(() => () => disposeModelClone(model), [model])
   const screen = useMemo(() => logoScreenRect(model), [model])
 
   const on = !!c.state.powered
@@ -907,6 +909,8 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec])
+  // Liberta geometrias/materiais próprios deste clone ao desmontar (sem isto ficavam na GPU).
+  useEffect(() => () => disposeModelClone(model), [model])
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
     <Label text={c.ref} position={[0, spec.targetHeight + 0.12, 0.25]} color="#e2e8f0" />
@@ -928,6 +932,8 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec])
+  // Liberta geometrias/materiais próprios deste clone ao desmontar (sem isto ficavam na GPU).
+  useEffect(() => () => disposeModelClone(model), [model])
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const en = simActive && !!c.state.energized
   const armature = useMemo(() => {
@@ -1084,7 +1090,8 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   // Só depois de montado é que o modelo tem pai (o grupo do componente), e é
   // nesse referencial que a frente é mesmo +Z.
   const [handle, setHandle] = useState<ReturnType<typeof extractBreakerHandle>>(null)
-  useEffect(() => {
+  // Layout: a limpeza corre antes de o R3F retirar os descendentes do grupo onde o pivô vive.
+  useLayoutEffect(() => {
     if (!breaker) { setHandle(null); return }
     const frame = model.parent
     if (!frame) return
@@ -1092,7 +1099,7 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     // coincide com o centro da caixa do manípulo, e sem isto a alavanca orbitaria em vez de rodar sobre si.
     const extracted = extractBreakerHandle(model, frame, rig?.hinge)
     setHandle(extracted)
-    return () => { if (extracted) extracted.pivot.removeFromParent() }
+    return () => { if (extracted) disposeExtractedPivot(extracted.pivot) }
   }, [model, breaker, rig])
   // Curso real: o ECB é um botão de pressão, os outros são alavancas.
   const pushButton = c.type === 'phoenixEcb3000760'
@@ -1312,6 +1319,12 @@ function ImportedCadDevice({ c, x, position, mechanical, interactive, labelColor
   </group>
 }
 
+/** A cabeça/chave separada do corpo tem geometrias novas (o material é o do corpo, libertado com o modelo). */
+function disposeExtractedPivot(pivot: THREE.Object3D) {
+  pivot.removeFromParent()
+  pivot.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) mesh.geometry?.dispose() })
+}
+
 function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: number; onPress: (pressed: boolean) => void }) {
   const spec = getCommandModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
@@ -1322,6 +1335,8 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     markCadNodes(fitted)
     return fitted
   }, [scene, spec, c.type])
+  // Liberta geometrias/materiais próprios deste clone ao desmontar (sem isto ficavam na GPU).
+  useEffect(() => () => disposeModelClone(model), [model])
   const pressed = !!c.state.pressed
   const keyOperated = c.type === 'emergencyButtonKeyP20ACR'
 
@@ -1330,13 +1345,14 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
    * carcaça e o aro de fixação para dentro da chapa — a animação acontecia no
    * sítio errado. */
   const [head, setHead] = useState<ReturnType<typeof extractActuatorHead>>(null)
-  useEffect(() => {
+  // Layout: a limpeza corre antes de o R3F retirar os descendentes do grupo (o pivô vive lá, fora do modelo).
+  useLayoutEffect(() => {
     if (keyOperated) { setHead(null); return }
     const frame = model.parent
     if (!frame) return
     const extracted = extractActuatorHead(model, frame)
     setHead(extracted)
-    return () => { if (extracted) extracted.pivot.removeFromParent() }
+    return () => { if (extracted) disposeExtractedPivot(extracted.pivot) }
   }, [model, keyOperated])
 
   /* Chave seletora (P20ACR): não se carrega, roda-se.
@@ -1344,13 +1360,13 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
    * caixa —, nunca pelo nome do nó, que muda de CAD para CAD. O curso é o da
    * chave real: um quarto de volta entre as duas posições. */
   const [keyHandle, setKeyHandle] = useState<ReturnType<typeof extractKeyBarrel>>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!keyOperated) { setKeyHandle(null); return }
     const frame = model.parent
     if (!frame) return
     const extracted = extractKeyBarrel(model, frame)
     setKeyHandle(extracted)
-    return () => { if (extracted) extracted.pivot.removeFromParent() }
+    return () => { if (extracted) disposeExtractedPivot(extracted.pivot) }
   }, [model, keyOperated])
 
   const KEY_TURN_DEG = 90
@@ -1400,6 +1416,8 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec])
+  // Liberta geometrias/materiais próprios deste clone ao desmontar (sem isto ficavam na GPU).
+  useEffect(() => () => disposeModelClone(model), [model])
   /* As tampas são encontradas pela cor do material do GLB, não pelo nome do nó:
    * o `Node8` (vermelho) nem sempre é o que se vê, e era por isso que só o
    * verde reagia. Verde = START (NA 13-14), vermelho = STOP (NF 21-22). */
@@ -1534,6 +1552,7 @@ function Pti6Strip3D({ c, x, labelColor }: { c: ElectricalComponent; x: number; 
     void applyCadSurfaceTextures(fitted)
     return Array.from({ length: n }, () => fitted.clone())
   }, [scene, spec, n])
+  useEffect(() => () => poleModels.forEach(disposeModelClone), [poleModels])
   const step = 8.15 * PANEL_UNITS_PER_MM // largura física real de 1 borne PTI 6
   const offsets = useMemo(() => Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * step), [n, step])
   const disconnected = c.state?.bridged === false
@@ -1668,6 +1687,8 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
     void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec])
+  // Liberta geometrias/materiais próprios deste clone ao desmontar (sem isto ficavam na GPU).
+  useEffect(() => () => disposeModelClone(model), [model])
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const on = simActive && !!c.state.on
   const color = typeof c.state.color === 'string' ? c.state.color : '#ef4444'
@@ -1897,6 +1918,8 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
     applyEditorMotorTextures(object)
     return fitComponentModel(object, spec, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene, spec])
+  // Liberta geometrias/materiais próprios deste clone ao desmontar (sem isto ficavam na GPU).
+  useEffect(() => () => disposeModelClone(model), [model])
   const running = !!c.state.running
   const direction = c.state.direction
   const bodyRef = useRef<THREE.Group>(null)
