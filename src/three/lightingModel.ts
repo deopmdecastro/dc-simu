@@ -247,7 +247,53 @@ function stdMat(name: string, color: string, roughness: number, metalness = 0, e
   return new THREE.MeshStandardMaterial({ name, color, roughness, metalness, ...extra })
 }
 
-/** Cria um poço de borne de latão com parafuso de fenda em (x, yBottom, z). */
+/** Cor de marcação de cada borne de iluminação (fase castanha, neutro azul, retornos laranja/âmbar). */
+export const LIGHTING_TERMINAL_INK: Record<string, string> = { L: '#8b4513', N: '#1d4ed8', '1': '#c2410c', '2': '#b45309' }
+
+/** Parafuso de aperto visível, num alvéolo escuro, e marcação do borne ao lado.
+ *  `face: 'front'` → cabeça virada para +Z; `face: 'bottom'` → cabeça virada para −Y. */
+type TerminalAccess = { face: 'front' | 'bottom'; screw: [number, number, number]; label: [number, number, number] }
+
+function addTerminalScrewAndLabel(well: THREE.Group, label: string, access: TerminalAccess) {
+  const front = access.face === 'front'
+  const orient = (m: THREE.Object3D) => { if (front) m.rotation.x = Math.PI / 2 }
+  const [sx, sy, sz] = access.screw
+  // Normal exterior da face: os elementos ficam em camadas, à frente do alojamento.
+  // Na face inferior a saliência é menor: os interruptores só têm 1,5 mm até ao limite do envelope.
+  const k = front ? 1 : 0.7
+  const out = (d: number): [number, number, number] => front ? [sx, sy, sz + d * k] : [sx, sy - d * k, sz]
+
+  const pocket = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, 0.5 * k, 24), stdMat(`terminal_pocket_${label}`, '#1f252c', 0.7, 0.05))
+  orient(pocket); pocket.position.set(...out(0.25)); well.add(pocket)
+
+  const brass = stdMat(`terminal_screw_${label}`, '#d9b65a', 0.22, 0.9)
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(2.25, 2.25, 1.3 * k, 24), brass)
+  head.name = `lighting_terminal_screw_${label}`
+  orient(head); head.position.set(...out(0.95)); well.add(head)
+
+  // Cabeça pozidriv: fenda + cruz rebaixadas.
+  const slotMat = stdMat(`terminal_slot_${label}`, '#4a3c18', 0.5, 0.5)
+  for (const turn of [0, Math.PI / 2]) {
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.6, 0.6), slotMat)
+    if (front) slot.rotation.z = turn
+    else slot.rotation.y = turn
+    slot.position.set(...out(1.45)); well.add(slot)
+  }
+
+  // Marcação do borne (texto aplicado em runtime por applyLightingMarkings).
+  const mark = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 5.2), stdMat(`lighting_terminal_label_${label}_mat`, '#f2f3ef', 0.4, 0.02))
+  mark.name = `lighting_terminal_label_${label}`
+  const [lx, ly, lz] = access.label
+  if (front) mark.position.set(lx, ly, lz + 0.06)
+  else {
+    // Lida de baixo, com o topo do texto virado para a frente (espelho).
+    mark.rotation.set(Math.PI / 2, 0, 0)
+    mark.position.set(lx, ly - 0.06, lz)
+  }
+  well.add(mark)
+}
+
+/** Cria um borne de latão com entrada inferior do condutor em (x, yBottom, z) e parafuso acessível. */
 function addBrassTerminalWell(
   parent: THREE.Group,
   label: string,
@@ -255,6 +301,7 @@ function addBrassTerminalWell(
   yBottom: number,
   z: number,
   wireColorHex: string,
+  access: TerminalAccess,
 ) {
   const well = new THREE.Group()
   well.name = `lighting_terminal_${label}`
@@ -276,25 +323,13 @@ function addBrassTerminalWell(
   ring.position.set(x, yBottom + 0.5, z)
   well.add(ring)
 
-  // Miolo cilíndrico de latão com parafuso frontal visível para aperto
+  // Miolo cilíndrico de latão (gaiola de aperto) dentro do alojamento
   const brass = stdMat(`terminal_brass_${label}`, '#d4b054', 0.24, 0.86)
   const collar = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 2.15, 5.2, 16), brass)
   collar.position.set(x, yBottom + 4.4, z)
   well.add(collar)
 
-  // Cabeça do parafuso de aperto visível na frente do bloco de bornes
-  const screwHead = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 1.4, 18), brass)
-  screwHead.rotation.x = Math.PI / 2
-  screwHead.position.set(x, yBottom + 5.2, z + 4.1)
-  well.add(screwHead)
-
-  const slot = new THREE.Mesh(
-    new THREE.BoxGeometry(3.1, 0.55, 0.55),
-    stdMat(`terminal_slot_${label}`, '#5c4b22', 0.48, 0.5),
-  )
-  slot.position.set(x, yBottom + 5.2, z + 4.7)
-  well.add(slot)
-
+  addTerminalScrewAndLabel(well, label, access)
   parent.add(well)
 }
 
@@ -326,14 +361,16 @@ function buildE27WallSocket(root: THREE.Group) {
     socketGroup.add(screw)
   }
 
-  // Bloco de bornes saliente na base inferior (L à esquerda, N à direita, z = 14..32)
-  const termHousing = new THREE.Mesh(new RoundedBoxGeometry(40, 14, 18, 3, 1.4), porcelain)
-  termHousing.position.set(0, 7.0, 19.0)
+  // Bloco de bornes saliente na base inferior (y = 0..11,5; z = 12..50): face frontal
+  // abaixo da aba do casquilho, com os parafusos à vista e marcação L / N.
+  const termHousing = new THREE.Mesh(new RoundedBoxGeometry(44, 11.5, 38, 3, 1.4), porcelain)
+  termHousing.position.set(0, 5.75, 31.0)
   socketGroup.add(termHousing)
 
-  // Dois bornes reais com entrada inferior (y = 2 mm, z = 23 mm)
-  addBrassTerminalWell(socketGroup, 'L', -12, 0.6, 23, '#8b4513')
-  addBrassTerminalWell(socketGroup, 'N', 12, 0.6, 23, '#1d4ed8')
+  // Dois bornes reais: entrada inferior do condutor (z = 23 mm, inalterada) e parafuso frontal.
+  const termFront = 50
+  addBrassTerminalWell(socketGroup, 'L', -12, 0.6, 23, '#8b4513', { face: 'front', screw: [-12, 5.75, termFront], label: [-18.4, 5.75, termFront] })
+  addBrassTerminalWell(socketGroup, 'N', 12, 0.6, 23, '#1d4ed8', { face: 'front', screw: [12, 5.75, termFront], label: [18.4, 5.75, termFront] })
 
   // Consola / suporte horizontal que liga a placa mural ao casquilho E27 (centrado em z = 34 mm)
   const bracket = new THREE.Mesh(new RoundedBoxGeometry(44, 15, 32, 4, 3.0), porcelain)
@@ -370,15 +407,13 @@ function buildE27WallSocket(root: THREE.Group) {
   innerFloor.position.set(0, 32.5, 34.0)
   socketGroup.add(innerFloor)
 
-  // Placa frontal lisa no soquete para serigrafia L / N e E27 230V~
+  // Serigrafia E27 · 230V~ entre os dois parafusos, na face frontal do bloco de bornes
   const socketLabel = new THREE.Mesh(
-    new THREE.PlaneGeometry(34, 7.2),
+    new THREE.PlaneGeometry(15, 7),
     stdMat('lighting_socket_label_mat', '#f2f3ef', 0.34, 0.02),
   )
   socketLabel.name = 'lighting_socket_label'
-  socketLabel.position.set(0, 16.5, 64.08 - 30.0 + 29.92) // rente à frente do soquete (z ≈ 64.0)
-  // Em vez de sair fora de 64 mm, colocamos a etiqueta no degrau do bloco de bornes frontal (z = 28.1)
-  socketLabel.position.set(0, 11.4, 28.15)
+  socketLabel.position.set(0, 5.75, 50.06)
   socketGroup.add(socketLabel)
 
   root.add(socketGroup)
@@ -688,14 +723,14 @@ function buildOdaceSwitch(root: THREE.Group, type: LightingSwitchType) {
   backBox.position.set(0, 42.5, 11.0)
   root.add(backBox)
 
-  // Bloco de bornes na face inferior (y = 0..10 mm, z = 6..20 mm)
-  if (type === 'wallSwitchSimple') {
-    addBrassTerminalWell(root, 'L', -14, 0.8, 12.0, '#8b4513')
-    addBrassTerminalWell(root, '1', 14, 0.8, 12.0, '#ea580c')
-  } else {
-    addBrassTerminalWell(root, 'L', -18, 0.8, 12.0, '#8b4513')
-    addBrassTerminalWell(root, '1', 0, 0.8, 12.0, '#ea580c')
-    addBrassTerminalWell(root, '2', 18, 0.8, 12.0, '#d97706')
+  // Bornes na face inferior da caixa saliente (y = 1,5): entrada do condutor em z = 12 (inalterada),
+  // parafuso de aperto à frente da entrada e marcação L / 1 / 2 ao lado do parafuso, lida por baixo.
+  const boxBottom = 42.5 - 41
+  const terminals: Array<[string, number, string]> = type === 'wallSwitchSimple'
+    ? [['L', -14, '#8b4513'], ['1', 14, '#ea580c']]
+    : [['L', -18, '#8b4513'], ['1', 0, '#ea580c'], ['2', 18, '#d97706']]
+  for (const [label, tx, color] of terminals) {
+    addBrassTerminalWell(root, label, tx, 0.8, 12.0, color, { face: 'bottom', screw: [tx, boxBottom, 17.6], label: [tx + 6.8, boxBottom, 17.6] })
   }
 
   // Moldura quadrada frontal Schneider Odace Styl (85 × 85 × 10 mm, z = 22..32 mm)
@@ -849,6 +884,31 @@ export function applyLightingMarkings(
 ) {
   if (typeof document === 'undefined') return
 
+  // Marcação de cada borne (L / N / 1 / 2) junto ao parafuso, na cor do condutor.
+  root.traverse((node) => {
+    const mesh = node as THREE.Mesh
+    const label = /^lighting_terminal_label_(.+)$/.exec(mesh.name)?.[1]
+    if (!mesh.isMesh || !label) return
+    const tex = cachedCanvasTexture(`lighting:terminal-mark:${label}:v1`, 96, 96, (ctx, w, h) => {
+      ctx.clearRect(0, 0, w, h)
+      ctx.fillStyle = LIGHTING_TERMINAL_INK[label] ?? '#334155'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.font = '800 76px "Inter", Arial, sans-serif'
+      ctx.fillText(label, w / 2, h * 0.54, w - 8)
+    })
+    const mat = mesh.material as THREE.MeshStandardMaterial
+    if (tex && mat.map !== tex) {
+      bindCachedCanvasTexture(mat, tex)
+      mat.map = tex
+      mat.transparent = true
+      mat.alphaTest = 0.04
+      mat.depthWrite = false
+      mat.color.set('#ffffff')
+      mat.needsUpdate = true
+    }
+  })
+
   if (isLightingLampType(type)) {
     const spec = LAMP_SPECS[type]
     const { powerW, lumens } = lampPhotometrics(type, state?.powerW)
@@ -857,21 +917,17 @@ export function applyLightingMarkings(
     // Etiqueta no soquete E27 (bornes L e N + 230V~ E27)
     const socketLabel = root.getObjectByName('lighting_socket_label') as THREE.Mesh | undefined
     if (socketLabel?.isMesh) {
-      const tex = cachedCanvasTexture('lighting:e27-socket:v1', 512, 112, (ctx, w, h) => {
+      // Os parafusos L / N ficam de cada lado; ao centro só a referência do casquilho.
+      const tex = cachedCanvasTexture('lighting:e27-socket:v2', 300, 140, (ctx, w, h) => {
         ctx.fillStyle = '#f2f3ef'
         ctx.fillRect(0, 0, w, h)
-        ctx.textBaseline = 'middle'
-        ctx.font = '700 44px "Inter", Arial, sans-serif'
-        ctx.fillStyle = '#8b4513'
-        ctx.fillText('L', 36, h * 0.54)
-        ctx.fillStyle = '#1d4ed8'
-        ctx.fillText('N', w - 74, h * 0.54)
         ctx.textAlign = 'center'
-        ctx.fillStyle = '#5c646c'
-        ctx.font = '600 24px "Inter", Arial, sans-serif'
-        ctx.fillText('E27 · 230V~', w / 2, h * 0.42)
-        ctx.font = '500 18px "Inter", Arial, sans-serif'
-        ctx.fillText('CE · IEC 60238', w / 2, h * 0.76)
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = '#4b535b'
+        ctx.font = '700 48px "Inter", Arial, sans-serif'
+        ctx.fillText('E27', w / 2, h * 0.34, w - 16)
+        ctx.font = '600 34px "Inter", Arial, sans-serif'
+        ctx.fillText('230V~', w / 2, h * 0.74, w - 16)
       })
       const mat = socketLabel.material as THREE.MeshStandardMaterial
       if (tex && mat.map !== tex) {

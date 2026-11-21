@@ -7,8 +7,8 @@
     {
       "type": "lampIncandescentE27",
       "path": "/models/iluminacao/philips-incandescent-e27.glb",
-      "bytes": 527604,
-      "sha256": "6bca80604a0f1dfa92f68e2d7f2e11486dadb15f75b1dbe7d525c28d472fd446",
+      "bytes": 549916,
+      "sha256": "0974fa66bb9eaa9bc79433f50e3850c0a7c1edf5fb4f0fbe2ea269fd139b0b73",
       "nominalSizeMm": {
         "width": 64,
         "height": 132,
@@ -35,8 +35,8 @@
     {
       "type": "lampFluorescentE27",
       "path": "/models/iluminacao/philips-fluorescent-cfl-e27.glb",
-      "bytes": 541452,
-      "sha256": "39c33790857485020ef0b80cfae0fd8a6a7451eebc3b718bf05156d062b9053b",
+      "bytes": 563768,
+      "sha256": "e4cb0aab89233c71a23f142b30ff5110fd3f123532298e58339473025602cde0",
       "nominalSizeMm": {
         "width": 64,
         "height": 154,
@@ -63,8 +63,8 @@
     {
       "type": "lampLedE27",
       "path": "/models/iluminacao/philips-led-a60-e27.glb",
-      "bytes": 458976,
-      "sha256": "ed9f4a0472345e88501983fa14bcb28672ea8c13c821f2411d0b5fc2eafd53ca",
+      "bytes": 481288,
+      "sha256": "a9f6d653b8bb2c491efc00c9dbc4621ae6607621cd413bc7cc8a128fc23df143",
       "nominalSizeMm": {
         "width": 64,
         "height": 138,
@@ -91,8 +91,8 @@
     {
       "type": "wallSwitchSimple",
       "path": "/models/iluminacao/schneider-odace-simple.glb",
-      "bytes": 425000,
-      "sha256": "146942004378747dbb5c0069672cd7f6dbbff1c255d94f1a1592c47947a41d58",
+      "bytes": 447340,
+      "sha256": "a12dd1447a72c179ad3fbf799981d31ef687ddd4f3cb2508b382990ae4614507",
       "nominalSizeMm": {
         "width": 85,
         "height": 85,
@@ -119,8 +119,8 @@
     {
       "type": "wallSwitchDouble",
       "path": "/models/iluminacao/schneider-odace-double.glb",
-      "bytes": 506296,
-      "sha256": "bb7c2c3a59a289e74bce118616aeb5e06de5b74a9df2581ba0cca083cf31db61",
+      "bytes": 539896,
+      "sha256": "dad5dede7833eeea5cc3f9f75e6f5cd21b6b6c1e39fa54657686b6ea85a84572",
       "nominalSizeMm": {
         "width": 85,
         "height": 85,
@@ -147,8 +147,8 @@
     {
       "type": "wallSwitchStaircase",
       "path": "/models/iluminacao/schneider-odace-staircase.glb",
-      "bytes": 451404,
-      "sha256": "6214c00cc533067c942c82e322058d57be9d4b8431eec29544299c2c849c64f2",
+      "bytes": 484980,
+      "sha256": "722a3fc6d72bb40d77fa452c3ab9ea4a6dc7ded630ed13bc016925dae2d44b34",
       "nominalSizeMm": {
         "width": 85,
         "height": 85,
