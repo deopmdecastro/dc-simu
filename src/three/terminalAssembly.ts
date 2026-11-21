@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { ComponentType } from '../types'
-import { cachedDangerStickerTexture } from './protectionMarkings'
+import { cachedDangerStickerTexture, DANGER_STICKER_ASPECT } from './protectionMarkings'
 
 /** Tipos nativos com GLBs compostos a partir do borne Phoenix PTI6 original. */
 export const TERMINAL_ASSEMBLY_COVER_SEED = 'terminal-assembly-cover-v1'
@@ -100,8 +100,10 @@ export function buildTerminalAssemblyCoverGroup(widthMm: number, heightMm: numbe
 
   const dangerTex = cachedDangerStickerTexture()
   if (dangerTex) {
-    const decalSizeMm = Math.min(24, Math.max(16, covW * 0.72))
-    const decalGeo = new THREE.PlaneGeometry(decalSizeMm * unit, decalSizeMm * unit)
+    // Pictograma + «PERIGO DE MORTE»; a altura fica entre as filas de parafusos de retenção.
+    const freeH = covH - 2 * (3.4 + screwR + 0.6)
+    const decalHMm = Math.min(Math.min(24, Math.max(16, covW * 0.72)) * DANGER_STICKER_ASPECT, freeH)
+    const decalGeo = new THREE.PlaneGeometry((decalHMm / DANGER_STICKER_ASPECT) * unit, decalHMm * unit)
     const decalMat = new THREE.MeshBasicMaterial({
       map: dangerTex,
       transparent: true,

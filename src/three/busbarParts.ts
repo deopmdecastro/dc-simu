@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { ComponentType, Terminal, TerminalKind } from '../types'
-import { cachedDangerStickerTexture } from './protectionMarkings'
+import { cachedDangerStickerTexture, DANGER_STICKER_ASPECT } from './protectionMarkings'
 import {
   COMB_CONNECTOR,
   combBusbarDimsOf,
@@ -1104,11 +1104,11 @@ export function buildSteppedBusbar(
     buildMergedMesh(coverEdgeParts, materials.coverEdge, unit, 'stepped-cover-rim', 60, false, false),
   )
 
-  // Adesivo de triângulo e raio perigo (ISO 7010-W012) na tampa acrílica
+  // Autocolante ISO 7010-W012 + «PERIGO DE MORTE» na tampa acrílica, contido no avental.
   const dangerTex = cachedDangerStickerTexture()
   if (dangerTex) {
-    const decalSizeMm = Math.min(22, covW * 0.32)
-    const decalGeo = new THREE.PlaneGeometry(decalSizeMm * unit, decalSizeMm * unit)
+    const decalHMm = Math.min(Math.min(22, covW * 0.32) * DANGER_STICKER_ASPECT, Math.max(8, apronH - 2))
+    const decalGeo = new THREE.PlaneGeometry((decalHMm / DANGER_STICKER_ASPECT) * unit, decalHMm * unit)
     const decalMat = new THREE.MeshBasicMaterial({
       map: dangerTex,
       transparent: true,

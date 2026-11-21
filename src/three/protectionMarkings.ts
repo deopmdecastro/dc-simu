@@ -1176,59 +1176,90 @@ export function clearProtectionMarkings(fitted: THREE.Object3D): void {
   }
 }
 
+/** Proporção altura/largura do autocolante de perigo (pictograma + legenda). */
+export const DANGER_STICKER_ASPECT = 400 / 288
+
+/** Raio ISO 7010-W012 normalizado (0..1, y para baixo): dois traços paralelos
+ * de espessura constante, degrau horizontal e ponta de seta no fim. */
+const W012_BOLT: ReadonlyArray<readonly [number, number]> = [
+  [0.50, 0.0], [0.82, 0.0], [0.62, 0.38], [0.82, 0.38], [0.47, 0.74], [0.63, 0.74],
+  [0.22, 1.0], [0.16, 0.66], [0.31, 0.66], [0.50, 0.52], [0.26, 0.52],
+]
+
 /**
- * Gera ou obtém em cache o autocolante padrão de perigo elétrico (ISO 7010-W012):
- * triângulo amarelo com orla preta grossa e raio/relâmpago preto.
+ * Gera ou obtém em cache o autocolante de perigo elétrico para tampas acrílicas:
+ * placa amarela com pictograma ISO 7010-W012 (triângulo de cantos arredondados,
+ * orla preta, raio com ponta de seta) e a legenda «PERIGO DE MORTE».
  */
 export function cachedDangerStickerTexture(): THREE.CanvasTexture | null {
-  return cachedCanvasTexture('decal:iso-danger-w012:v1', 256, 256, (ctx, w, h) => {
+  return cachedCanvasTexture('decal:iso-danger-w012:v2-perigo-morte', 288, 400, (ctx, w, h) => {
     ctx.clearRect(0, 0, w, h)
-    const margin = 16
-    const x0 = w / 2
-    const y0 = margin + 8
-    const xL = margin
-    const yL = h - margin - 8
-    const xR = w - margin
-    const yR = h - margin - 8
+    const yellow = '#f9c80e', black = '#111111'
+    const roundRect = (x: number, y: number, rw: number, rh: number, r: number) => {
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.arcTo(x + rw, y, x + rw, y + rh, r)
+      ctx.arcTo(x + rw, y + rh, x, y + rh, r)
+      ctx.arcTo(x, y + rh, x, y, r)
+      ctx.arcTo(x, y, x + rw, y, r)
+      ctx.closePath()
+    }
+    const roundTriangle = (cx: number, top: number, side: number, r: number) => {
+      const tH = side * Math.sqrt(3) / 2
+      const p = [[cx, top], [cx + side / 2, top + tH], [cx - side / 2, top + tH]] as const
+      ctx.beginPath()
+      ctx.moveTo((p[0][0] + p[2][0]) / 2, (p[0][1] + p[2][1]) / 2)
+      for (let i = 0; i < 3; i++) {
+        const a = p[i], b = p[(i + 1) % 3]
+        ctx.arcTo(a[0], a[1], b[0], b[1], r)
+      }
+      ctx.closePath()
+      return tH
+    }
 
-    // Triângulo equilátero amarelo de alta visibilidade (RAL 1023)
-    ctx.fillStyle = '#facc15'
-    ctx.strokeStyle = '#000000'
-    ctx.lineWidth = 14
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
-
-    ctx.beginPath()
-    ctx.moveTo(x0, y0)
-    ctx.lineTo(xR, yR)
-    ctx.lineTo(xL, yL)
-    ctx.closePath()
+    // Placa amarela com orla preta fina (autocolante de vinil).
+    roundRect(6, 6, w - 12, h - 12, 18)
+    ctx.fillStyle = yellow
     ctx.fill()
+    ctx.lineWidth = 6
+    ctx.strokeStyle = black
     ctx.stroke()
 
-    // Borda interna preta fina ISO 7010-W012
-    ctx.lineWidth = 4
-    ctx.strokeStyle = '#000000'
-    ctx.beginPath()
-    const inset = 14
-    ctx.moveTo(x0, y0 + inset * 1.5)
-    ctx.lineTo(xR - inset, yR - inset * 0.7)
-    ctx.lineTo(xL + inset, yL - inset * 0.7)
-    ctx.closePath()
-    ctx.stroke()
-
-    // Raio preto de alta tensão clássico (proporções reais de sinalética)
-    ctx.fillStyle = '#000000'
-    ctx.beginPath()
-    ctx.moveTo(w / 2 + 8, y0 + 38)
-    ctx.lineTo(w / 2 - 22, y0 + 104)
-    ctx.lineTo(w / 2 - 3, y0 + 104)
-    ctx.lineTo(w / 2 - 20, y0 + 172)
-    ctx.lineTo(w / 2 + 24, y0 + 92)
-    ctx.lineTo(w / 2 + 6, y0 + 92)
-    ctx.lineTo(w / 2 + 20, y0 + 38)
-    ctx.closePath()
+    // Pictograma W012: orla preta grossa, interior amarelo e raio centrado no baricentro visual.
+    const side = 228, top = 22, cx = w / 2
+    const tH = roundTriangle(cx, top, side, 22)
+    ctx.fillStyle = black
     ctx.fill()
+    const border = 17
+    const innerSide = side - border * 2 * Math.sqrt(3)
+    const innerTop = top + border * 2
+    const innerH = roundTriangle(cx, innerTop, innerSide, 10)
+    ctx.fillStyle = yellow
+    ctx.fill()
+
+    const boltH = innerH * 0.7, boltW = boltH * 0.74
+    const bx = cx - boltW / 2, by = innerTop + innerH * 0.24
+    ctx.beginPath()
+    W012_BOLT.forEach(([u, v], i) => {
+      const x = bx + u * boltW, y = by + v * boltH
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    })
+    ctx.closePath()
+    ctx.fillStyle = black
+    ctx.lineJoin = 'miter'
+    ctx.fill()
+
+    // Legenda em duas linhas, preto sobre amarelo, separada do pictograma.
+    const textTop = top + tH + 18
+    ctx.fillStyle = black
+    ctx.fillRect(28, textTop - 6, w - 56, 5)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.font = '900 64px "Arial Black", Arial, sans-serif'
+    ctx.fillText('PERIGO', cx, textTop + 44, w - 44)
+    ctx.font = '900 44px "Arial Black", Arial, sans-serif'
+    ctx.fillText('DE MORTE', cx, textTop + 104, w - 44)
   })
 }
 
