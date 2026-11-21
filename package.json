@@ -174,6 +174,7 @@
     "test:toolbar-row2-ui": "node scripts/toolbar-row2-standard-ui-smoke.mjs",
     "test:align-ui": "node scripts/align-ui-smoke.mjs",
     "test:library-covers-ui": "node scripts/library-covers-ui-smoke.mjs",
+    "test:library-thumbs-ui": "node scripts/library-thumbs-ui-smoke.mjs",
     "test:native-signals-sync-ui": "node scripts/native-signals-sync-ui-smoke.mjs",
     "test:selection-groups-ui": "node scripts/selection-groups-ui-smoke.mjs",
     "test:ui-extra": "npm run -s test:cade-simu-import-ui && npm run -s test:commands-text-zoom-ui && npm run -s test:commands-wire-color-ui && npm run -s test:meter-probe-select-ui && npm run -s test:native-diagnostics-ui && npm run -s test:toolbar-row2-ui && npm run -s test:align-ui && npm run -s test:library-covers-ui && npm run -s test:native-signals-sync-ui && npm run -s test:selection-groups-ui && npm run -s test:inspector-ui",

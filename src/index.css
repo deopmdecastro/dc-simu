@@ -1922,6 +1922,12 @@ button:disabled { cursor:not-allowed; }
 .dc-inspector-group > summary::before { content:'›'; width:14px; height:16px; color:var(--dx-ink-3); font-size:17px; line-height:14px; transition:transform .16s; }
 .dc-inspector-group[open] > summary::before { transform:rotate(90deg); }
 .dc-inspector-group > summary:hover { background:#e8f0fc; }
+/* Capa de recurso com o símbolo do esquema: traço legível a 58 px, sem textos, cadeado em selo no canto. */
+.dc-thumb-symbol { background:#fff; }
+.dc-thumb-symbol * { vector-effect:non-scaling-stroke; stroke-width:1.5px; }
+.dc-thumb-symbol text { display:none; }
+.dc-library-tile-image:has([data-thumb-state="simbolo-esquema"]) .dc-library-tile-lock { inset:auto 1px 1px auto; background:none; }
+.dc-library-tile-image:has([data-thumb-state="simbolo-esquema"]) .dc-library-tile-lock svg { width:17px; height:17px; padding:3px; }
 .dc-inspector-group-body { display:flex; flex-direction:column; gap:9px; padding:10px; }
 .dc-inspector-count { margin-left:auto; background:#fff; border:1px solid #dce4ef; border-radius:999px; padding:0 6px; font-size:10px; color:var(--dx-ink-3); }
 .dc-inspector-terminal { background:#fff; overflow: visible; }

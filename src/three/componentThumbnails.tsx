@@ -1,9 +1,10 @@
 /**
  * Miniaturas da biblioteca de componentes.
  *
- * Só imagens do modelo real: capa pré-gerada do GLB (public/component-covers) → IndexedDB → captura
- * única do GLB (WebP). Sem miniaturas genéricas desenhadas à mão: enquanto a capa não chega o cartão
- * fica vazio e neutro, e os tipos sem GLB mostram só o espaço vazio (o cartão indica o bloqueio).
+ * Imagem do modelo real: capa pré-gerada do GLB (public/component-covers) → IndexedDB → captura
+ * única do GLB (WebP). Enquanto a capa não chega o cartão fica neutro; se o tipo não tiver imagem 3D
+ * (sem GLB ou captura indisponível) mostra o símbolo do próprio componente no esquema, nunca um
+ * desenho genérico — o cartão continua a indicar o bloqueio quando não há modelo 3D.
  * A grelha nunca mantém WebGL por cartão.
  *
  * O turntable interativo (InteractiveComponentThumb) gera fotogramas a pedido
@@ -12,7 +13,45 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { defaultComponentTurntablePitch, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'
 import { findStaticCover, resolveLibraryCover } from './componentCoverAssets'
-import type { ComponentType } from '../types'
+import type { ComponentType, ElectricalComponent } from '../types'
+import { createComponent } from '../electrical/factory'
+import { SymbolGlyph } from '../schematic/symbols'
+
+const symbolComponents = new Map<string, ElectricalComponent | null>()
+function symbolComponentOf(type: ComponentType): ElectricalComponent | null {
+  if (!symbolComponents.has(type)) {
+    let c: ElectricalComponent | null = null
+    try {
+      c = createComponent(type)
+      // Símbolo em repouso (sem energia nem estado acionado), com a etiqueta do tipo.
+      c = { ...c, state: { ...c.state, energized: false, on: false } }
+    } catch { c = null }
+    symbolComponents.set(type, c)
+  }
+  return symbolComponents.get(type) ?? null
+}
+
+/** Capa de recurso: o símbolo do esquema do próprio tipo (o mesmo do Esquema 2D), em SVG. */
+function SymbolThumb({ type, size }: { type: ComponentType; size: number }) {
+  const c = symbolComponentOf(type)
+  if (!c) return null
+  const pad = Math.max(c.w, c.h) * 0.06
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`${-pad} ${-pad} ${c.w + pad * 2} ${c.h + pad * 2}`}
+      preserveAspectRatio="xMidYMid meet"
+      className="dc-thumb-symbol shrink-0 rounded-[4px]"
+      data-thumb-state="simbolo-esquema"
+      role="img"
+      aria-label="Símbolo do esquema (sem imagem do modelo 3D)"
+      style={{ width: size, height: size }}
+    >
+      <SymbolGlyph c={c} selected={false} />
+    </svg>
+  )
+}
 
 /**
  * Capa do cartão da biblioteca: imagem do modelo real (estática ou em cache) — sem WebGL.
@@ -48,6 +87,10 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
     return () => { active = false }
   }, [inView, type])
 
+  if (!coverSrc && resolved) {
+    const symbol = <SymbolThumb type={type} size={size} />
+    if (symbolComponentOf(type)) return <div ref={holderRef} style={{ width: size, height: size }} className="shrink-0">{symbol}</div>
+  }
   if (!coverSrc) {
     return (
       <div

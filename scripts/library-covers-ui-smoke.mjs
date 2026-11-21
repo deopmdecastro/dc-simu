@@ -11,7 +11,7 @@ let checks = 0
 const check = (ok, message) => { assert.ok(ok, message); checks++; console.log(`PASS — ${message}`) }
 const manifest = JSON.parse(fs.readFileSync('public/component-covers/manifest.json', 'utf8'))
 try {
-  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, serviceWorkers: 'block' })
   await context.route('**/*', (route) => {
     const url = new URL(route.request().url())
     return url.origin === new URL(baseURL).origin && !url.pathname.startsWith('/api/') ? route.continue() : route.abort()
@@ -19,6 +19,7 @@ try {
   await context.addInitScript(() => {
     localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
     localStorage.removeItem('dcsimu:supabase:config:v1')
+    localStorage.setItem('dcsimu:cookie-consent:v1', JSON.stringify({ accepted: true, at: '2026-11-20T21:55:44.266Z', version: 1 }))
     // IndexedDB limpo: sem capas antigas capturadas no dispositivo.
     try { indexedDB.deleteDatabase('dc-simu-covers') } catch { /* noop */ }
     // Recentes com o contator WEG (o caso da caixa genérica antes da capa real).
@@ -73,7 +74,9 @@ try {
   const generic = await page.evaluate(() => window.__genericThumbs)
   check(generic.length === 0, `nenhuma miniatura genérica mostrada antes da capa real (${generic.length ? [...new Set(generic)].slice(0, 4).join(' | ') : 'nenhuma'})`)
   const states = await page.evaluate(() => [...document.querySelectorAll('[data-thumb-state]')].map((n) => n.getAttribute('data-thumb-state')))
-  check(states.every((state) => state === 'sem-modelo') && states.length >= 1, `tipos sem GLB ficam com o espaço vazio, sem modelo genérico (${states.length})`)
+  // Sem imagem 3D: o cartão mostra o símbolo do esquema do próprio tipo (SVG), nunca uma miniatura genérica.
+  const symbols = await page.evaluate(() => [...document.querySelectorAll('[data-thumb-state="simbolo-esquema"]')].filter((n) => n.tagName.toLowerCase() === 'svg' && n.querySelector('line, path, rect, circle, polyline')).length)
+  check(states.every((state) => state === 'simbolo-esquema') && states.length >= 1 && symbols === states.length, `tipos sem imagem 3D mostram o símbolo do esquema do próprio tipo (${symbols}/${states.length})`)
   // Esquema 2D e capas de projeto: a vista frontal pré-gerada substitui a captura do GLB.
   const frontTypes = ['powerSupplyProauto24A', 'breaker2p', 'terminalSet3ph']
   const fronts = await page.evaluate(async (types) => {
