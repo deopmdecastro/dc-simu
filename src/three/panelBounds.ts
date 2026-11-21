@@ -7,6 +7,7 @@ import { isFloorMountedMachineType } from './conveyorModel'
 import { isStructureComponentType } from './structuresModel'
 import { isPneumaticComponentType } from './pneumaticsModel'
 import { isHydraulicComponentType } from './hydraulicsModel'
+import { isJunctionBoxType, isWagoConnectorType } from './junctionWagoModel'
 
 /** Altura do trilho principal (centro) no Painel 3D. */
 export const RAIL_Y = 0.4
@@ -44,8 +45,13 @@ export function isPanelBound(component: ElectricalComponent): boolean {
     isStructureComponentType(component.type) ||
     isPneumaticComponentType(component.type) ||
     isHydraulicComponentType(component.type) ||
+    isJunctionBoxType(component.type) ||
     component.type === 'opticalReflector'
   ) return false
+  // Conector WAGO 221: fica dentro do quadro apenas quando o utilizador escolhe "Quadro elétrico".
+  if (isWagoConnectorType(component.type)) {
+    return component.state.hostLocation === 'panel'
+  }
   return getComponentModelSpec(component.type)?.placement !== 'machine'
     && component.type !== 'motor3ph' && component.type !== 'motor1ph'
 }

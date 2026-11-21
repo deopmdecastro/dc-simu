@@ -4,6 +4,7 @@ import { HYDRAULIC_DATASHEETS, isHydraulicComponentType } from '../three/hydraul
 import { PNEUMATIC_DATASHEETS, isPneumaticComponentType } from '../three/pneumaticsModel'
 import { STRUCTURES_DATASHEETS, isStructureComponentType } from '../three/structuresModel'
 import { CONVEYOR_DATASHEETS, isConveyorComponentType } from '../three/conveyorModel'
+import { JUNCTION_WAGO_DATASHEETS, isJunctionOrWagoType } from '../three/junctionWagoModel'
 import { IconExternalLink, IconDownload } from '../ui/icons'
 import { uiConfirm } from '../ui/dialogs'
 import { useEffect, useRef, useState } from 'react'
@@ -40,6 +41,9 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
   const conveyorInfo = isConveyorComponentType(type)
     ? { path: CONVEYOR_DATASHEETS[type].path, name: CONVEYOR_DATASHEETS[type].name }
     : null
+  const junctionWagoInfo = isJunctionOrWagoType(type)
+    ? { path: JUNCTION_WAGO_DATASHEETS[type].path, name: JUNCTION_WAGO_DATASHEETS[type].name }
+    : null
   const builtinInfo = lightingInfo
     ? lightingInfo
     : hydraulicInfo
@@ -50,7 +54,9 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
           ? structureInfo
           : conveyorInfo
             ? conveyorInfo
-            : industrialInfo ? {path:industrialInfo.datasheet,name:industrialInfo.datasheet.split('/').pop()!} : type === 'safetyRelay' ? {path:'/datasheets/rockwell-msr127-440r-in079d-en-p.pdf',name:'MSR127 · Rockwell 440R-IN079D-EN-P.pdf'} : type === 'phoenixEcb3000760'
+            : junctionWagoInfo
+              ? junctionWagoInfo
+              : industrialInfo ? {path:industrialInfo.datasheet,name:industrialInfo.datasheet.split('/').pop()!} : type === 'safetyRelay' ? {path:'/datasheets/rockwell-msr127-440r-in079d-en-p.pdf',name:'MSR127 · Rockwell 440R-IN079D-EN-P.pdf'} : type === 'phoenixEcb3000760'
     ? { path: '/datasheets/phoenix-contact-3000760-pt.pdf', name: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760 (PT).pdf' }
     : type === 'terminalPhoenixPti6'
       ? { path: '/datasheets/phoenix-contact-3213972-pt.pdf', name: 'Phoenix Contact PTI 6 · 3213972 (PT).pdf' }

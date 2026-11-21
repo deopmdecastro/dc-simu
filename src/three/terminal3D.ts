@@ -10,6 +10,7 @@ import { busbarSizeMm } from './busbarParts'
 import { hydraulicComponentSizeMm } from './hydraulicsModel'
 import { pneumaticComponentSizeMm } from './pneumaticsModel'
 import { structureComponentSizeMm } from './structuresModel'
+import { junctionWagoSizeMm } from './junctionWagoModel'
 import { conveyorComponentSizeMm } from './conveyorModel'
 import { clampRailLengthMm, dinRailProfileOf } from './dinRailGeometry'
 
@@ -109,6 +110,8 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
   if (pneumatic) return { x: pneumatic.x * PANEL_UNITS_PER_MM, y: pneumatic.y * PANEL_UNITS_PER_MM, z: pneumatic.z * PANEL_UNITS_PER_MM }
   const structure = structureComponentSizeMm(component.type, component.state)
   if (structure) return { x: structure.x * PANEL_UNITS_PER_MM, y: structure.y * PANEL_UNITS_PER_MM, z: structure.z * PANEL_UNITS_PER_MM }
+  const jw = junctionWagoSizeMm(component.type)
+  if (jw) return { x: jw.x * PANEL_UNITS_PER_MM, y: jw.y * PANEL_UNITS_PER_MM, z: jw.z * PANEL_UNITS_PER_MM }
   const conveyor = conveyorComponentSizeMm(component.type, component.state)
   if (conveyor) return { x: conveyor.width * PANEL_UNITS_PER_MM, y: conveyor.height * PANEL_UNITS_PER_MM, z: conveyor.depth * PANEL_UNITS_PER_MM }
   if (component.type === 'dinRail15x55') {

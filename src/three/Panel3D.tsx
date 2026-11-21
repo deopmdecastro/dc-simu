@@ -89,6 +89,8 @@ import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
 import { FloatSwitchFelix3D, type FloatSwitchTankContext, HydraulicTee3D, HydraulicValve3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
 import { waterTankDimensionsOf } from './hydraulicsModel'
+import { OboJunctionBox3D, Wago221Connector3D } from './JunctionWagoDevices3D'
+import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
 import {
   ElectricCylinderEpcs3D,
   PneumaticCylinder3D,
@@ -3604,6 +3606,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (component.type === 'waterPump') return [0, MOTOR_CENTER_Y, 0.95]
     if (component.type === 'waterTank') return [0, MOTOR_CENTER_Y + 0.5, 4.2]
     if (component.type === 'floatSwitch') return [0, RAIL_Y + 0.9, 0.55]
+    if (isJunctionBoxType(component.type)) return [2.4, RAIL_Y + 0.4, 0.35]
+    if (isWagoConnectorType(component.type)) return [2.4, RAIL_Y + 0.4, 0.42]
     if (component.type === 'towerLight') return [0, RAIL_Y + 1.3, 0.12]
     if (component.type === 'pilotLightAd22') return [0, RAIL_Y + 1.05, 0.4]
     if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [0, RAIL_Y + 1.15, 0.12]
@@ -4020,14 +4024,75 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         tankTopY,
         tp.z + (idxInTank > 1 ? 0.25 : 0),
       )
+
+      // Encaminhar o cabo exterior da bóia até à caixa de derivação OBO associada (ou mais próxima fora do reservatório)
+      const oboBoxes = components.filter((b) => isJunctionBoxType(b.type) && !!panelPivots[b.id])
+      const explicitBoxId = typeof fs.state.linkedJunctionBoxId === 'string' && fs.state.linkedJunctionBoxId ? fs.state.linkedJunctionBoxId : null
+      let targetBox = explicitBoxId ? oboBoxes.find((b) => b.id === explicitBoxId) : null
+      if (!targetBox && oboBoxes.length > 0) {
+        let bestBoxDist = Infinity
+        for (const b of oboBoxes) {
+          const bp = panelPivots[b.id]
+          const d = bp.distanceTo(panelPivots[fs.id])
+          if (d < Math.max(tankR + 3.6, 5.2) && d < bestBoxDist) {
+            bestBoxDist = d
+            targetBox = b
+          }
+        }
+      }
+      let externalCableTarget: [number, number, number] | null = null
+      if (targetBox) {
+        const bp = panelPivots[targetBox.id]
+        const bSz = JUNCTION_WAGO_SIZE_MM[targetBox.type as JunctionBoxType]
+        const boxTopY = bp.y + (bSz.y * PANEL_UNITS_PER_MM) * 0.52
+        const fp = panelPivots[fs.id]
+        externalCableTarget = [bp.x - fp.x, boxTopY - fp.y, bp.z - fp.z]
+      }
+
       floatTankContexts[fs.id] = {
         tankRadius: tankR,
         tankHeight: tankH,
         waterLevelPct: Math.max(0, Math.min(100, Number(tank.state.levelPct ?? 68))),
         mountDepthPct,
         sideSign,
+        externalCableTarget,
       }
     }
+  }
+
+  // Alojamento real de conectores WAGO 221 dentro da caixa de derivação OBO escolhida no Inspetor!
+  const hostedWagosByBox = new Map<string, ElectricalComponent[]>()
+  for (const w of components) {
+    if (!isWagoConnectorType(w.type)) continue
+    if (w.state.hostLocation === 'box' && typeof w.state.hostBoxId === 'string' && w.state.hostBoxId) {
+      const box = components.find((b) => b.id === w.state.hostBoxId && isJunctionBoxType(b.type))
+      if (box && panelPivots[box.id]) {
+        const list = hostedWagosByBox.get(box.id) ?? []
+        list.push(w)
+        hostedWagosByBox.set(box.id, list)
+      }
+    }
+  }
+  for (const [boxId, list] of hostedWagosByBox.entries()) {
+    const box = components.find((b) => b.id === boxId)
+    const bp = panelPivots[boxId]
+    if (!box || !bp) continue
+    const bSz = JUNCTION_WAGO_SIZE_MM[box.type as JunctionBoxType]
+    const bw = bSz.x * PANEL_UNITS_PER_MM
+    const bh = bSz.y * PANEL_UNITS_PER_MM
+    const bd = bSz.z * PANEL_UNITS_PER_MM
+    list.forEach((w, idx) => {
+      const total = list.length
+      // Distribui automaticamente os conectores WAGO dentro da cavidade interior da caixa OBO
+      const row = total <= 2 ? 0 : Math.floor(idx / 2)
+      const col = total <= 2 ? idx : idx % 2
+      const colsInRow = total <= 2 ? total : Math.min(2, total - row * 2)
+      const rows = total <= 2 ? 1 : Math.ceil(total / 2)
+      const ox = colsInRow === 1 ? 0 : (col - (colsInRow - 1) / 2) * Math.min(bw * 0.42, 0.56)
+      const oy = rows === 1 ? 0 : ((rows - 1) / 2 - row) * Math.min(bh * 0.36, 0.44)
+      const oz = -bd * 0.04
+      panelPivots[w.id] = new THREE.Vector3(bp.x + ox, bp.y + oy, bp.z + oz)
+    })
   }
 
   // Chapa e enquadramento derivados do conteúdo real.
@@ -5383,6 +5448,36 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <CableTrayVerticalBend3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'cableTrayRiser90') {
             content = <CableTrayRiser903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (isJunctionBoxType(c.type)) {
+            content = (
+              <group position={basePivots[c.id].toArray() as [number, number, number]}>
+                <OboJunctionBox3D
+                  component={c}
+                  onToggleCover={() => {
+                    const st = useSimStore.getState()
+                    const patch = { coverOpen: !c.state.coverOpen }
+                    if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                    else st.setComponentState(c.id, patch)
+                  }}
+                />
+              </group>
+            )
+          } else if (isWagoConnectorType(c.type)) {
+            content = (
+              <group position={basePivots[c.id].toArray() as [number, number, number]}>
+                <Wago221Connector3D
+                  component={c}
+                  onToggleLever={(idx) => {
+                    const st = useSimStore.getState()
+                    const prev = Array.isArray(c.state.leversOpen) ? [...(c.state.leversOpen as boolean[])] : []
+                    prev[idx] = !prev[idx]
+                    const patch = { leversOpen: prev }
+                    if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                    else st.setComponentState(c.id, patch)
+                  }}
+                />
+              </group>
+            )
           } else if (c.type === 'rollerConveyor') {
             content = <Model3DErrorBoundary fallback={<Motor3D c={c} x={x} interactive={false} />}><Suspense fallback={null}><RollerConveyor3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'opticalReflector') {

@@ -1,0 +1,41 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj
+6 0 obj << /Length 1143 >> stream
+0.08 0.14 0.24 rg 36 726 540 62 re f
+1 1 1 rg
+BT /F2 15 Tf 48 764 Td (OBO Bettermann A6) Tj ET
+BT /F1 10 Tf 48 742 Td (Caixa de Derivacao Compacta IP55 · 400V · 80x43x34 mm) Tj ET
+0.08 0.12 0.18 rg
+0.85 0.88 0.92 RG 1 w 48 708 m 564 708 l S
+BT /F2 11 Tf 48 700 Td (Especificacoes Tecnicas / Technical Specifications) Tj ET
+BT /F2 10 Tf 48 678 Td (Fabricante:) Tj ET
+BT /F1 10 Tf 220 678 Td (OBO Bettermann \(Serie A\)) Tj ET
+BT /F2 10 Tf 48 658 Td (Dimensoes externas:) Tj ET
+BT /F1 10 Tf 220 658 Td (80 x 43 x 34 mm \(RAL 7035\)) Tj ET
+BT /F2 10 Tf 48 638 Td (Grau de protecao:) Tj ET
+BT /F1 10 Tf 220 638 Td (IP55 · VDE · Polipropileno estabilizado UV) Tj ET
+BT /F2 10 Tf 48 618 Td (Tensao nominal:) Tj ET
+BT /F1 10 Tf 220 618 Td (400 V AC · Seccao nominal 2,5 mm2) Tj ET
+BT /F2 10 Tf 48 598 Td (Fixacao:) Tj ET
+BT /F1 10 Tf 220 598 Td (Patilha lateral externa integrada + fixacao em superficie) Tj ET
+BT /F2 10 Tf 48 578 Td (Entradas de cabo:) Tj ET
+BT /F1 10 Tf 220 578 Td (Membranas elasticas + bucins PG11 / M16) Tj ET
+BT /F1 9 Tf 48 72 Td (DC-Simu Industrial 3D Library · Normas IEC 60670 / EN 60998 · Datasheet oficial integrado) Tj ET
+endstream endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+1591
+%%EOF

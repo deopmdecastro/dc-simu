@@ -354,6 +354,31 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       for (let i = 0; i < c.terminals.length - 1; i++) bridges.push([c.terminals[i].id, c.terminals[i + 1].id])
       break
     }
+    // ---- conectores WAGO 221: continuidade real condicionada ao fecho de cada alavanca laranja ----
+    case 'wago221_2':
+    case 'wago221_5':
+    case 'wago221_inline': {
+      const leversOpen = Array.isArray(c.state.leversOpen) ? (c.state.leversOpen as boolean[]) : []
+      const closedIds = c.terminals.filter((_, i) => leversOpen[i] !== true).map((term) => term.id)
+      for (let i = 0; i < closedIds.length - 1; i++) {
+        bridges.push([closedIds[i], closedIds[i + 1]])
+      }
+      break
+    }
+    case 'wago221_double': {
+      const leversOpen = Array.isArray(c.state.leversOpen) ? (c.state.leversOpen as boolean[]) : []
+      if (c.state.commonBus === true) {
+        const closedIds = c.terminals.filter((_, i) => leversOpen[i] !== true).map((term) => term.id)
+        for (let i = 0; i < closedIds.length - 1; i++) bridges.push([closedIds[i], closedIds[i + 1]])
+      } else {
+        // 2 barramentos independentes: fila superior (A1..A5) e fila inferior (B1..B5)
+        const topClosed = c.terminals.slice(0, 5).filter((_, i) => leversOpen[i] !== true).map((term) => term.id)
+        const botClosed = c.terminals.slice(5, 10).filter((_, i) => leversOpen[5 + i] !== true).map((term) => term.id)
+        for (let i = 0; i < topClosed.length - 1; i++) bridges.push([topClosed[i], topClosed[i + 1]])
+        for (let i = 0; i < botClosed.length - 1; i++) bridges.push([botClosed[i], botClosed[i + 1]])
+      }
+      break
+    }
     case 'busbarPhase': {
       // L1/L2/L3 são condutores distintos; o barramento apenas os disponibiliza.
       break

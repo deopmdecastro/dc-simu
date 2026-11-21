@@ -588,6 +588,38 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
+      case 'junctionBoxOboT60':
+      case 'junctionBoxOboA6':
+      case 'junctionBoxOboT25': {
+        const isRound = c.type === 'junctionBoxOboT25'
+        const code = c.type === 'junctionBoxOboT60' ? 'OBO T60' : c.type === 'junctionBoxOboA6' ? 'OBO A6' : 'OBO T25'
+        return (
+          <g>
+            {isRound ? (
+              <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) * 0.42} fill="#d8dce0" stroke="#475569" strokeWidth={1.8} />
+            ) : (
+              <rect x={6} y={6} width={w - 12} height={h - 12} rx={8} fill="#d8dce0" stroke="#475569" strokeWidth={1.8} />
+            )}
+            <text x={w / 2} y={h / 2 - 4} textAnchor="middle" fontSize={9.5} fontWeight={800} fill="#1e293b">{code}</text>
+            <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={8} fontWeight={700} fill="#475569">{c.ref}</text>
+          </g>
+        )
+      }
+      case 'wago221_2':
+      case 'wago221_5':
+      case 'wago221_inline':
+      case 'wago221_double': {
+        const sub = c.type === 'wago221_2' ? '221-412' : c.type === 'wago221_5' ? '221-415' : c.type === 'wago221_inline' ? '221-2411' : '221 2×5'
+        return (
+          <g>
+            <rect x={6} y={10} width={w - 12} height={h - 20} rx={5} fill="rgba(226,232,240,0.85)" stroke="#64748b" strokeWidth={1.5} />
+            <rect x={10} y={13} width={w - 20} height={8} rx={2} fill="#f25610" />
+            <line x1={14} y1={h / 2 + 4} x2={w - 14} y2={h / 2 + 4} stroke="#b45309" strokeWidth={2.4} />
+            <text x={w / 2} y={h / 2 + 1} textAnchor="middle" fontSize={8} fontWeight={800} fill="#0f172a">WAGO {sub}</text>
+            {label(8, 9, c.ref, 8.5, '#ea580c')}
+          </g>
+        )
+      }
 
       // ------------------------------------------------------------ contatores
       case 'contactorWegCWC09':

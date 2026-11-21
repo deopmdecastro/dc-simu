@@ -110,6 +110,8 @@ export interface FloatSwitchTankContext {
   mountDepthPct: number
   /** Lado de instalação no interior da tampa (-1 esq, 0 centro, +1 dir) */
   sideSign: number
+  /** Destino externo do cabo da bóia (coordenadas locais desde o prensa-cabo até à caixa OBO exterior) */
+  externalCableTarget?: [number, number, number] | null
 }
 
 export function FloatSwitchFelix3D({
@@ -264,15 +266,40 @@ export function FloatSwitchFelix3D({
     ])
     const tetherTube = new THREE.TubeGeometry(tetherCurve, 28, 4.2 * U, 10, false)
     const verticalDropLen = Math.max(0.12, Math.abs(counterY))
-    return { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen }
+
+    // Cabo preto H07RN-F estanque a sair FORA do reservatório até à caixa de derivação exterior!
+    const exitSide = tankContext.sideSign === 0 ? 1 : tankContext.sideSign
+    const extTarget = tankContext.externalCableTarget
+      ? new THREE.Vector3(...tankContext.externalCableTarget)
+      : new THREE.Vector3(exitSide * (tankR * 0.72 + 0.55), -0.32, 0.14)
+    const extMid1 = new THREE.Vector3(
+      extTarget.x * 0.35,
+      Math.max(0.32, extTarget.y + 0.38),
+      extTarget.z * 0.35,
+    )
+    const extMid2 = new THREE.Vector3(
+      extTarget.x * 0.86,
+      Math.max(0.16, extTarget.y + 0.24),
+      extTarget.z * 0.85,
+    )
+    const externalCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.22, 0),
+      extMid1,
+      extMid2,
+      extTarget,
+    ])
+    const externalCableTube = new THREE.TubeGeometry(externalCurve, 32, 4.4 * U, 10, false)
+
+    return { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen, externalCableTube, extTarget }
   }, [tankContext])
 
   useEffect(() => () => {
     inTankGeom?.tetherTube.dispose()
+    inTankGeom?.externalCableTube.dispose()
   }, [inTankGeom])
 
   if (tankContext && inTankGeom) {
-    const { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen } = inTankGeom
+    const { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen, externalCableTube, extTarget } = inTankGeom
     const floatScale = Math.max(0.75, Math.min(1.25, tankContext.tankRadius * 0.68))
     return (
       <group
@@ -294,16 +321,30 @@ export function FloatSwitchFelix3D({
             <cylinderGeometry args={[14 * U, 17 * U, 18 * U, 6]} />
             <meshStandardMaterial color="#475569" roughness={0.38} metalness={0.62} />
           </mesh>
-          {/* 3 fios de ligação elétrica (NA / C / NF) a sair no topo da tampa para o quadro */}
+        </group>
+
+        {/* Cabo preto H07RN-F encaminhado FORA do reservatório até à caixa de derivação exterior */}
+        <mesh geometry={externalCableTube} castShadow receiveShadow>
+          <meshStandardMaterial color="#18181b" roughness={0.58} metalness={0.08} />
+        </mesh>
+
+        {/* 3 fios de ligação elétrica (Castanho NA · Preto C · Azul NF) protegidos FORA do tanque / na entrada da caixa OBO */}
+        <group position={[extTarget.x, extTarget.y, extTarget.z]}>
           {[
-            { x: -12 * U, color: '#78350f' },
+            { x: -10 * U, color: '#78350f' },
             { x: 0, color: '#111827' },
-            { x: 12 * U, color: '#2563eb' },
+            { x: 10 * U, color: '#2563eb' },
           ].map((w, idx) => (
-            <mesh key={idx} position={[w.x, 38 * U, 0]}>
-              <cylinderGeometry args={[2.2 * U, 2.2 * U, 30 * U, 8]} />
-              <meshStandardMaterial color={w.color} roughness={0.5} />
-            </mesh>
+            <group key={idx} position={[w.x, -14 * U, 0]}>
+              <mesh>
+                <cylinderGeometry args={[2.2 * U, 2.2 * U, 28 * U, 8]} />
+                <meshStandardMaterial color={w.color} roughness={0.48} />
+              </mesh>
+              <mesh position={[0, -15 * U, 0]}>
+                <cylinderGeometry args={[1.2 * U, 1.2 * U, 6 * U, 8]} />
+                <meshStandardMaterial color="#cbd5e1" metalness={0.88} roughness={0.25} />
+              </mesh>
+            </group>
           ))}
         </group>
 

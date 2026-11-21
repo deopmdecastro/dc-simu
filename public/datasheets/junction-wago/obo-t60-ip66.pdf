@@ -1,0 +1,43 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj
+6 0 obj << /Length 1294 >> stream
+0.08 0.14 0.24 rg 36 726 540 62 re f
+1 1 1 rg
+BT /F2 15 Tf 48 764 Td (OBO Bettermann T60) Tj ET
+BT /F1 10 Tf 48 742 Td (Caixa de Derivacao Estanque IP66 · 500V · 114x114x57 mm) Tj ET
+0.08 0.12 0.18 rg
+0.85 0.88 0.92 RG 1 w 48 708 m 564 708 l S
+BT /F2 11 Tf 48 700 Td (Especificacoes Tecnicas / Technical Specifications) Tj ET
+BT /F2 10 Tf 48 678 Td (Fabricante:) Tj ET
+BT /F1 10 Tf 220 678 Td (OBO Bettermann \(Serie T\)) Tj ET
+BT /F2 10 Tf 48 658 Td (Dimensoes externas:) Tj ET
+BT /F1 10 Tf 220 658 Td (114 x 114 x 57 mm \(RAL 7035\)) Tj ET
+BT /F2 10 Tf 48 638 Td (Grau de protecao:) Tj ET
+BT /F1 10 Tf 220 638 Td (IP66 / IK07 · Sem halogenios \(PP\)) Tj ET
+BT /F2 10 Tf 48 618 Td (Tensao nominal:) Tj ET
+BT /F1 10 Tf 220 618 Td (500 V AC · Seccao nominal 2,5 - 6 mm2) Tj ET
+BT /F2 10 Tf 48 598 Td (Entradas de cabo:) Tj ET
+BT /F1 10 Tf 220 598 Td (7 membranas elasticas escalonadas + bucins PG / M20) Tj ET
+BT /F2 10 Tf 48 578 Td (Fecho da tampa:) Tj ET
+BT /F1 10 Tf 220 578 Td (4 parafusos rapidos 1/4 de volta \(posicoes 0 / I\)) Tj ET
+BT /F2 10 Tf 48 558 Td (Compativel com:) Tj ET
+BT /F1 10 Tf 220 558 Td (Conectores WAGO 221-412 / 221-415 / 221-2411 / Duplo 2x5) Tj ET
+BT /F1 9 Tf 48 72 Td (DC-Simu Industrial 3D Library · Normas IEC 60670 / EN 60998 · Datasheet oficial integrado) Tj ET
+endstream endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+1742
+%%EOF

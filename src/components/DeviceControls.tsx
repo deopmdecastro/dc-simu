@@ -24,6 +24,14 @@ import { isFloorMountedMachineType } from '../three/conveyorModel'
 import { isFloorGroundedStructureType } from '../three/structuresModel'
 import { isPneumaticComponentType } from '../three/pneumaticsModel'
 import {
+  computeJunctionBoxSurfaceSnap,
+  isJunctionBoxType,
+  isJunctionOrWagoType,
+  isWagoConnectorType,
+  type JunctionLidSticker,
+} from '../three/junctionWagoModel'
+import { PANEL_UNITS_PER_MM } from '../three/modelPaths'
+import {
   cableTrayDimsOf,
   computeQuickAttach3D,
   industrialPillarDimsOf,
@@ -1230,6 +1238,7 @@ export function hasDeviceControls(type: string): boolean {
     isPneumaticComponentType(type) ||
     isStructureComponentType(type) ||
     isConveyorComponentType(type) ||
+    isJunctionOrWagoType(type) ||
     [
       'selectorSchneiderXa2ed33',
       'selector3',
@@ -1592,17 +1601,43 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
     )
   }
 
-  // floatSwitch — instalação real dentro do reservatório com contrapeso ajustável!
+  // floatSwitch — instalação real dentro do reservatório com contrapeso ajustável + saída dos fios para caixa exterior!
   const allComponents = useSimStore((s) => s.components)
+  const addComponent = useSimStore((s) => s.addComponent)
+  const updateComponent = useSimStore((s) => s.updateComponent)
   const tanks = allComponents.filter((item) => item.type === 'waterTank')
+  const oboBoxes = allComponents.filter((item) => isJunctionBoxType(item.type))
   const triggered = !!c.state.triggered
   const autoCouple = c.state.autoCoupleTank !== false
   const linkedTankId = typeof c.state.linkedTankId === 'string' ? c.state.linkedTankId : ''
+  const linkedJunctionBoxId = typeof c.state.linkedJunctionBoxId === 'string' ? c.state.linkedJunctionBoxId : ''
   const detached = c.state.detachedFromTank === true
   const mountDepthPct = typeof c.state.mountDepthPct === 'number' ? c.state.mountDepthPct : 74
   const mountSide = (c.state.mountSide === 'left' || c.state.mountSide === 'center' || c.state.mountSide === 'right')
     ? c.state.mountSide
     : 'left'
+
+  const createExternalOboBoxForFloat = () => {
+    const tank = tanks.find((tk) => tk.id === linkedTankId) ?? tanks[0]
+    const tp = tank?.panel3DPosition ?? { x: 0, y: 0, z: 4.2 }
+    const td = tank ? waterTankDimensionsOf(tank.state) : null
+    const tankR = td ? (td.diameterMm / 2) * PANEL_UNITS_PER_MM : 1.8
+    const tankH = td ? td.totalHeightMm * PANEL_UNITS_PER_MM : 3.2
+    const boxPos = {
+      x: Math.round((tp.x + tankR + 0.92) * 20) / 20,
+      y: Math.round((tp.y + tankH * 0.28) * 20) / 20,
+      z: Math.round((tp.z + tankR * 0.25) * 20) / 20,
+    }
+    const newBoxId = addComponent('junctionBoxOboT60', (c.schematicX ?? 420) + 140, c.schematicY ?? 260)
+    if (!newBoxId) return
+    updateComponent(newBoxId, { panel3DPosition: boxPos })
+    setState(newBoxId, { coverOpen: true, glandTop: true, glandBottom: true, lidSticker: 'hydraulics', lidLabelText: `BÓIA ${c.ref}` })
+    const newWagoId = addComponent('wago221_5', (c.schematicX ?? 420) + 160, (c.schematicY ?? 260) + 70)
+    if (newWagoId) {
+      setState(newWagoId, { hostLocation: 'box', hostBoxId: newBoxId })
+    }
+    setState(c.id, { linkedJunctionBoxId: newBoxId })
+  }
 
   return (
     <div className="flex flex-col gap-2 text-[11px]" data-float-switch-controls>
@@ -1673,6 +1708,31 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
                   {sLbl}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-1 flex flex-col gap-1 border-t border-slate-200 pt-1.5" data-float-external-box>
+              <span className="text-[10.5px] font-semibold text-slate-700">Caixa exterior (saída dos fios)</span>
+              <select
+                disabled={locked}
+                className="dc-input text-[11px]"
+                value={linkedJunctionBoxId}
+                onChange={(e) => setState(c.id, { linkedJunctionBoxId: e.target.value })}
+              >
+                <option value="">Auto / Caixa OBO mais próxima</option>
+                {oboBoxes.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.ref} · {String(b.state.model ?? b.type)}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={locked}
+                onClick={createExternalOboBoxForFloat}
+                className="dc-btn text-[10px] justify-center"
+              >
+                + Criar OBO T60 + WAGO ao lado do tanque
+              </button>
             </div>
           </>
         )}
@@ -2509,6 +2569,264 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
   )
 }
 
+function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const allComponents = useSimStore((s) => s.components)
+  const setState = useSimStore((s) => s.setComponentState)
+  const operate = useSimStore((s) => s.operateComponent)
+  const simRunning = useSimStore((s) => s.sim.runState === 'running')
+  const addComponent = useSimStore((s) => s.addComponent)
+  const updateComponent = useSimStore((s) => s.updateComponent)
+  const selectComponents = useSimStore((s) => s.selectComponents)
+
+  const applyState = (patch: Record<string, unknown>) => {
+    if (simRunning) operate(c.id, patch)
+    else setState(c.id, patch)
+  }
+
+  /* ── Controles das Caixas de Derivação OBO Bettermann (T60 / A6 / T25) ── */
+  if (isJunctionBoxType(c.type)) {
+    const coverOpen = c.state.coverOpen === true
+    const glandTop = c.state.glandTop !== false
+    const glandBottom = c.state.glandBottom !== false
+    const glandLeft = c.state.glandLeft === true
+    const glandRight = c.state.glandRight === true
+    const lidSticker = (typeof c.state.lidSticker === 'string' ? c.state.lidSticker : 'none') as JunctionLidSticker
+    const lidLabelText = typeof c.state.lidLabelText === 'string' ? c.state.lidLabelText : ''
+    const hostedWagos = allComponents.filter(
+      (item) => isWagoConnectorType(item.type) && item.state.hostLocation === 'box' && item.state.hostBoxId === c.id,
+    )
+
+    const snapToNearestSurface = () => {
+      const cur = c.panel3DPosition ?? { x: 2.4, y: 0.8, z: 0.35 }
+      const snapped = computeJunctionBoxSurfaceSnap(c, allComponents, cur, -0.34)
+      updateComponent(c.id, {
+        panel3DPosition: snapped.position,
+        state: { ...c.state, snappedSurface: snapped.surfaceLabel },
+      })
+    }
+
+    const addWagoInside = (wagoType: 'wago221_2' | 'wago221_5' | 'wago221_inline' | 'wago221_double') => {
+      const createdId = addComponent(wagoType, (c.schematicX ?? 420) + 120, (c.schematicY ?? 260) + 40)
+      if (!createdId) return
+      setState(createdId, { hostLocation: 'box', hostBoxId: c.id })
+      if (!coverOpen) setState(c.id, { coverOpen: true })
+      selectComponents([createdId])
+    }
+
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-obo-junction-box-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[var(--dc-text-muted)]">OBO Bettermann</span>
+          <strong className="font-mono text-[var(--dc-text)]">{String(c.state.model ?? c.type)}</strong>
+        </div>
+
+        {/* Tampa removível */}
+        <button
+          type="button"
+          disabled={locked}
+          className={`dc-btn text-[11px] justify-center ${coverOpen ? 'dc-btn-primary' : ''}`}
+          onClick={() => applyState({ coverOpen: !coverOpen })}
+        >
+          {coverOpen ? 'Colocar tampa (fechar caixa)' : 'Remover tampa (abrir interior)'}
+        </button>
+        <span className="text-[10px] text-slate-500">Dica: duplo-clique na tampa no 3D também abre/fecha.</span>
+
+        {/* Bucins PG / M20 configuráveis */}
+        <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50 p-2" data-obo-glands>
+          <span className="text-[10.5px] font-semibold text-slate-700">Bucins de entrada (PG / M20)</span>
+          <div className="grid grid-cols-2 gap-1">
+            {([
+              ['glandTop', 'Topo', glandTop],
+              ['glandBottom', 'Base', glandBottom],
+              ['glandLeft', 'Esquerda', glandLeft],
+              ['glandRight', 'Direita', glandRight],
+            ] as const).map(([key, lbl, active]) => (
+              <button
+                key={key}
+                type="button"
+                disabled={locked}
+                aria-pressed={active}
+                onClick={() => setState(c.id, { [key]: !active })}
+                className={`dc-btn text-[10px] justify-center ${active ? 'dc-btn-primary' : ''}`}
+              >
+                {active ? `✓ Bucim ${lbl}` : `+ Bucim ${lbl}`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Adesivo e etiqueta personalizada na tampa */}
+        <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2" data-obo-stickers>
+          <span className="text-[10.5px] font-semibold text-slate-700">Adesivos e etiqueta na tampa</span>
+          <select
+            disabled={locked}
+            className="dc-input text-[11px]"
+            value={lidSticker}
+            onChange={(e) => setState(c.id, { lidSticker: e.target.value as JunctionLidSticker })}
+          >
+            <option value="none">Sem adesivo</option>
+            <option value="warning-bolt">⚠ Perigo elétrico (raio amarelo)</option>
+            <option value="230v">⚡ 230V ~ Perigo Elétrico</option>
+            <option value="400v">⚡ 400V 3~ Alta Tensão</option>
+            <option value="24v">🔵 24V DC Comando / PLC</option>
+            <option value="command">⬛ Derivação de Comando</option>
+            <option value="hydraulics">💧 Hidráulica · Bóia / Bomba</option>
+          </select>
+          <input
+            type="text"
+            maxLength={22}
+            disabled={locked}
+            className="dc-input text-[11px]"
+            placeholder="Etiqueta gravada (ex.: BÓIA R1)"
+            value={lidLabelText}
+            onChange={(e) => setState(c.id, { lidLabelText: e.target.value })}
+          />
+        </div>
+
+        {/* Fixação rápida na superfície mais próxima */}
+        <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50 p-2" data-obo-snap>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={snapToNearestSurface}
+            className="dc-btn text-[10.5px] justify-center"
+          >
+            Fixar na superfície mais próxima (parede / esteira / tanque)
+          </button>
+          {typeof c.state.snappedSurface === 'string' && c.state.snappedSurface && (
+            <span className="text-[10px] text-emerald-700">Fixada em: {c.state.snappedSurface}</span>
+          )}
+        </div>
+
+        {/* Conectores WAGO 221 alojados dentro desta caixa */}
+        <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2" data-obo-hosted-wagos>
+          <span className="text-[10.5px] font-semibold text-slate-700">
+            Conectores WAGO no interior ({hostedWagos.length})
+          </span>
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_2')} className="dc-btn text-[10px] justify-center">+ WAGO 2 vias</button>
+            <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_5')} className="dc-btn text-[10px] justify-center">+ WAGO 5 vias</button>
+            <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_inline')} className="dc-btn text-[10px] justify-center">+ WAGO Inline</button>
+            <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_double')} className="dc-btn text-[10px] justify-center">+ WAGO 2×5</button>
+          </div>
+          {hostedWagos.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {hostedWagos.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => selectComponents([w.id])}
+                  className="rounded border border-orange-300 bg-orange-50 px-1.5 py-0.5 font-mono text-[10px] text-orange-800 hover:bg-orange-100"
+                >
+                  {w.ref}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── Controles dos Conectores WAGO 221 (221-412 / 221-415 / Inline / 2×5) ── */
+  const oboBoxes = allComponents.filter((item) => isJunctionBoxType(item.type))
+  const hostLocation = c.state.hostLocation === 'panel' || c.state.hostLocation === 'box' ? c.state.hostLocation : 'free'
+  const hostBoxId = typeof c.state.hostBoxId === 'string' ? c.state.hostBoxId : ''
+  const hostValue = hostLocation === 'box' && hostBoxId ? `box:${hostBoxId}` : hostLocation
+  const leversOpen = Array.isArray(c.state.leversOpen) ? (c.state.leversOpen as boolean[]) : []
+  const leverCount = c.terminals.length
+
+  const handleHostChange = (val: string) => {
+    if (val === 'free') {
+      setState(c.id, { hostLocation: 'free', hostBoxId: '' })
+    } else if (val === 'panel') {
+      setState(c.id, { hostLocation: 'panel', hostBoxId: '' })
+    } else if (val.startsWith('box:')) {
+      const boxId = val.slice(4)
+      setState(c.id, { hostLocation: 'box', hostBoxId: boxId })
+      // Abre automaticamente a tampa da caixa OBO para o utilizador ver o WAGO lá dentro!
+      const targetBox = oboBoxes.find((b) => b.id === boxId)
+      if (targetBox && targetBox.state.coverOpen !== true) {
+        setState(targetBox.id, { coverOpen: true })
+      }
+    }
+  }
+
+  const toggleLever = (idx: number) => {
+    const next = Array.from({ length: leverCount }, (_, i) => leversOpen[i] === true)
+    next[idx] = !next[idx]
+    applyState({ leversOpen: next })
+  }
+
+  return (
+    <div className="flex flex-col gap-2 text-[11px]" data-wago-221-controls>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[var(--dc-text-muted)]">WAGO 221 · 450V 32A</span>
+        <strong className="font-mono text-[var(--dc-text)]">{String(c.state.model ?? c.type)}</strong>
+      </div>
+
+      {/* Seletor de Alojamento (Espaço livre / Quadro elétrico / Caixa OBO) */}
+      <div className="flex flex-col gap-1 rounded-md border border-orange-200 bg-orange-50/70 p-2" data-wago-host-selector>
+        <span className="text-[10.5px] font-semibold text-orange-950">Onde alojar este conector WAGO</span>
+        <select
+          disabled={locked}
+          className="dc-input text-[11px]"
+          value={hostValue}
+          onChange={(e) => handleHostChange(e.target.value)}
+        >
+          <option value="free">Espaço livre (3D)</option>
+          <option value="panel">Dentro do Quadro Elétrico</option>
+          {oboBoxes.map((b) => (
+            <option key={b.id} value={`box:${b.id}`}>
+              Dentro da Caixa {b.ref} · {String(b.state.model ?? b.type)}
+            </option>
+          ))}
+        </select>
+        {oboBoxes.length === 0 && (
+          <span className="text-[10px] text-orange-800/80">
+            Adicione uma caixa OBO (T60, A6 ou T25) para alojar este WAGO no interior dela.
+          </span>
+        )}
+      </div>
+
+      {/* Alavancas laranja individuais (abrem/fecham o contacto elétrico real!) */}
+      <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50 p-2" data-wago-levers>
+        <span className="text-[10.5px] font-semibold text-slate-700">Alavancas CAGE CLAMP (clique para abrir/fechar)</span>
+        <div className={`grid gap-1 ${leverCount <= 2 ? 'grid-cols-2' : 'grid-cols-5'}`}>
+          {c.terminals.map((term, idx) => {
+            const open = leversOpen[idx] === true
+            return (
+              <button
+                key={term.id}
+                type="button"
+                disabled={locked}
+                aria-pressed={open}
+                onClick={() => toggleLever(idx)}
+                className={`dc-btn text-[10px] justify-center px-1 ${open ? 'border-orange-500 bg-orange-500 text-white' : ''}`}
+                title={open ? `Alavanca ${term.label} aberta (desligada)` : `Alavanca ${term.label} fechada (condutiva)`}
+              >
+                {term.label}{open ? ' ↑' : ' ↓'}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {c.type === 'wago221_double' && (
+        <label className="dc-inspector-state-row is-toggle">
+          <span className="dc-inspector-state-label">Unir filas A e B (barramento comum 10 vias)</span>
+          <input
+            type="checkbox"
+            checked={c.state.commonBus === true}
+            disabled={locked}
+            onChange={(e) => applyState({ commonBus: e.target.checked })}
+          />
+        </label>
+      )}
+    </div>
+  )
+}
+
 function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const updateComponent = useSimStore((s) => s.updateComponent)
   const isFloor = isFloorMountedMachineType(c.type) || isFloorGroundedStructureType(c.type)
@@ -2599,6 +2917,7 @@ export default function DeviceControls({ component: c, disabled = false }: { com
   if (isPneumaticComponentType(c.type)) return wrap(<PneumaticControls c={c} locked={locked} />)
   if (isStructureComponentType(c.type)) return wrap(<StructureControls c={c} locked={locked} />)
   if (isConveyorComponentType(c.type)) return wrap(<ConveyorControls c={c} locked={locked} />)
+  if (isJunctionOrWagoType(c.type)) return wrap(<JunctionAndWagoControls c={c} locked={locked} />)
   if (c.type === 'multimeterDm20') return wrap(<MultimeterControls c={c} locked={locked} />)
   if (
     c.type === 'powerSource3ph' ||

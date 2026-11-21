@@ -450,7 +450,14 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'cableTrayElbow90' ||
     type === 'cableTrayCross' ||
     type === 'cableTrayVerticalBend' ||
-    type === 'cableTrayRiser90'
+    type === 'cableTrayRiser90' ||
+    type === 'junctionBoxOboT60' ||
+    type === 'junctionBoxOboA6' ||
+    type === 'junctionBoxOboT25' ||
+    type === 'wago221_2' ||
+    type === 'wago221_5' ||
+    type === 'wago221_inline' ||
+    type === 'wago221_double'
   )
 }
 
