@@ -58,7 +58,7 @@ import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/co
 import TerminalStripControls from './TerminalStripControls'
 import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
 import { isRealBusbarType } from '../three/busbarParts'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconFolder, IconOpen, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
 import { HYDRAULIC_GAUGES, PNEUMATIC_GAUGES } from '../three/hydraulicsModel'
 import {
@@ -780,6 +780,13 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                               onClick={() => toggleGroup(sg.id)}
                               title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${sg.label}`}
                             >
+                              <span
+                                className={`dc-library-folder-icon dc-library-subfolder-icon ${isCollapsed ? '' : 'is-open'}`}
+                                style={{ color: domain.accent }}
+                                aria-hidden="true"
+                              >
+                                {isCollapsed ? <IconFolder size={13} /> : <IconOpen size={13} />}
+                              </span>
                               <strong>{sg.label}</strong>
                               <span className="dc-library-folder-count">{sg.items.length}</span>
                               <IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
