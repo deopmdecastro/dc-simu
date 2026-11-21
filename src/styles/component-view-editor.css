@@ -533,3 +533,37 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .dc-acc-select { width: auto; min-width: 96px; height: 34px; font-size: 13px; }
 .dc-acc-swatches { flex-wrap: wrap; }
 @media (pointer: coarse) { .dc-acc input[type="range"] { min-height: 28px; touch-action: pan-y; } .dc-acc-swatch { width: 26px; height: 26px; } }
+
+/* Quadro metálico: cabeçalho e medidas compactos. */
+.dc-encl-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+.dc-encl-head > div { flex: 1; }
+.dc-encl-eyebrow, .dc-encl-card-head > span { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+.dc-encl-dims { font-size: 15px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.dc-encl-dims small { font-size: 11px; font-weight: 500; color: #94a3b8; }
+.dc-encl-door { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 11px; color: #047857; }
+.dc-encl-door i { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+.dc-encl-door.is-open { color: #b45309; }
+.dc-encl-door.is-open i { background: #f59e0b; }
+.dc-encl-door-btn { flex-shrink: 0; min-height: 32px; padding: 0 12px; border: 1px solid #1d4ed8; border-radius: 8px; background: #2563eb; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+.dc-encl-door-btn:hover { background: #1d4ed8; }
+.dc-encl-door-btn.is-open { border-color: #cbd5e1; background: #fff; color: #334155; }
+.dc-encl-door-btn.is-open:hover { background: #f1f5f9; }
+.dc-encl-card { display: grid; gap: 8px; padding: 10px 12px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+.dc-encl-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dc-encl-link { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 6px; margin-right: -6px; border: 0; border-radius: 6px; background: none; color: #2563eb; font-size: 11px; font-weight: 500; cursor: pointer; }
+.dc-encl-link:hover { background: #eff6ff; }
+.dc-encl-dim { display: grid; grid-template-columns: 52px 92px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 12px; color: #475569; }
+.dc-encl-dim input[type="range"] { width: 100%; min-width: 0; accent-color: #2563eb; }
+.dc-encl-dim-hint { font-size: 10.5px; color: #94a3b8; }
+.dc-encl-num { position: relative; display: block; }
+.dc-encl-num .dc-acc-num { width: 100%; height: 30px; padding: 0 26px 0 8px; text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; }
+.dc-encl-num small { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10.5px; color: #94a3b8; pointer-events: none; }
+.dc-encl-sub { margin-top: 2px; font-size: 11px; color: #64748b; }
+.dc-encl-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.dc-encl-presets button { height: 28px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #334155; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
+.dc-encl-presets button:hover { border-color: #93c5fd; background: #f8fafc; }
+.dc-encl-presets button.is-on { border-color: #1d4ed8; background: #2563eb; color: #fff; }
+.dc-encl-rows { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid #f1f5f9; }
+.dc-encl-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 32px; font-size: 12px; color: #475569; }
+.dc-encl-row > .dc-acc-seg { justify-self: start; }
+@media (pointer: coarse) { .dc-encl-num .dc-acc-num, .dc-encl-presets button, .dc-encl-door-btn { min-height: 38px; height: 38px; } }

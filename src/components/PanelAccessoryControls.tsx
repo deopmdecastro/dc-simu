@@ -241,44 +241,54 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
   }
   return <div className="dc-acc space-y-3">
     {/* Cabeçalho com estado porta */}
-    <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 flex items-center gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Quadro metálico</div>
-        <div className="text-[13px] font-bold text-slate-800">{d.widthMm} × {d.heightMm} × {d.depthMm} mm <span className={`ml-1.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${open ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>{open ? 'porta aberta' : 'porta fechada'}</span></div>
+    <div className="dc-encl-head">
+      <div className="min-w-0">
+        <div className="dc-encl-eyebrow">Quadro metálico</div>
+        <div className="dc-encl-dims">{d.widthMm} × {d.heightMm} × {d.depthMm} <small>mm</small></div>
+        <div className={`dc-encl-door${open ? ' is-open' : ''}`}><i aria-hidden="true" />{open ? 'Porta aberta' : 'Porta fechada'}</div>
       </div>
-      <button type="button" className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-sm transition ${open ? 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-brand-600 border-brand-700 text-white hover:bg-brand-500'}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
+      <button type="button" aria-pressed={open} className={`dc-encl-door-btn${open ? ' is-open' : ''}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
     </div>
 
-    {/* Medidas — prática */}
-    <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
-      <div className="flex items-center justify-between"><span className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Medidas</span><button type="button" className="min-h-[38px] text-[11px] font-medium text-blue-600 hover:underline" onClick={fitToContent}><IconDistH size={12} className="inline mr-1" />Ajustar ao conteúdo</button></div>
+    {/* Medidas: cada dimensão numa linha (campo + barra), tamanhos padrão em chips compactos. */}
+    <div className="dc-encl-card">
+      <div className="dc-encl-card-head"><span>Medidas</span><button type="button" className="dc-encl-link" onClick={fitToContent}><IconDistH size={12} />Ajustar ao conteúdo</button></div>
       <p role="status" aria-live="polite" data-enclosure-fit-feedback className={fitFeedback ? 'text-[11px] text-amber-800 leading-snug' : 'sr-only'}>{fitFeedback}</p>
-      <div className="grid grid-cols-3 gap-2">
-        {/* Rascunho até sair/Enter, valor limitado aos mínimos/máximos e o mesmo no estado e no footprint. */}
-        <label className="space-y-1"><span className="text-xs text-slate-600">Largura</span><div className="flex items-center gap-1"><DraftNumber label="Largura do quadro" className="h-8 w-full text-sm" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} onCommit={(mm)=> resize(c, mm, d.heightMm, {widthMm: mm})} /><span className="text-xs text-slate-400">mm</span></div></label>
-        <label className="space-y-1"><span className="text-xs text-slate-600">Altura</span><div className="flex items-center gap-1"><DraftNumber label="Altura do quadro" className="h-8 w-full text-sm" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} onCommit={(mm)=> resize(c, d.widthMm, mm, {heightMm: mm})} /><span className="text-xs text-slate-400">mm</span></div></label>
-        <label className="space-y-1"><span className="text-xs text-slate-600">Prof.</span><div className="flex items-center gap-1"><DraftNumber label="Profundidade do quadro" className="h-8 w-full text-sm" value={d.depthMm} min={ENCLOSURE.minDepthMm} max={ENCLOSURE.maxDepthMm} onCommit={(mm)=> set({depthMm: mm})} /><span className="text-xs text-slate-400">mm</span></div></label>
+      {/* Rascunho até sair/Enter, valor limitado aos mínimos/máximos e o mesmo no estado e no footprint. */}
+      <div className="dc-encl-dim">
+        <span>Largura</span>
+        <label className="dc-encl-num"><DraftNumber label="Largura do quadro" value={d.widthMm} min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} onCommit={(mm)=> resize(c, mm, d.heightMm, {widthMm: mm})} /><small>mm</small></label>
+        <input type="range" aria-label="Largura do quadro (mm)" min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} value={d.widthMm} onChange={(e)=> resize(c, Number(e.target.value), d.heightMm, {widthMm: Number(e.target.value)})} />
       </div>
-      <input type="range" className="w-full accent-slate-700 min-h-[38px]" aria-label="Largura do quadro (mm)" min={ENCLOSURE.minWidthMm} max={ENCLOSURE.maxWidthMm} step={10} value={d.widthMm} onChange={(e)=> resize(c, Number(e.target.value), d.heightMm, {widthMm: Number(e.target.value)})} />
-      <input type="range" className="w-full accent-slate-700 min-h-[38px]" aria-label="Altura do quadro (mm)" min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} step={10} value={d.heightMm} onChange={(e)=> resize(c, d.widthMm, Number(e.target.value), {heightMm: Number(e.target.value)})} />
-      <div className="grid grid-cols-3 gap-1.5">
-        {ENCLOSURE_PRESETS.map(([w,h,dp])=> <button key={`${w}x${h}`} type="button" className={`rounded-lg border p-2 text-center transition ${d.widthMm===w&&d.heightMm===h ? 'bg-brand-600 border-brand-700 text-white' : 'bg-white border-slate-200 hover:bg-slate-50'}`} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}><div className="text-xs font-bold">{w}×{h}</div><div className="text-[10px] opacity-60">{dp} prof.</div></button>)}
+      <div className="dc-encl-dim">
+        <span>Altura</span>
+        <label className="dc-encl-num"><DraftNumber label="Altura do quadro" value={d.heightMm} min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} onCommit={(mm)=> resize(c, d.widthMm, mm, {heightMm: mm})} /><small>mm</small></label>
+        <input type="range" aria-label="Altura do quadro (mm)" min={ENCLOSURE.minHeightMm} max={ENCLOSURE.maxHeightMm} step={10} value={d.heightMm} onChange={(e)=> resize(c, d.widthMm, Number(e.target.value), {heightMm: Number(e.target.value)})} />
       </div>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-slate-600 shrink-0">Dobradiças</span>
-          <div className="dc-acc-seg" role="group" aria-label="Lado das dobradiças"><button type="button" aria-pressed={hinge==='left'} className={hinge==='left'?'is-on':''} onClick={()=> set({hingeSide:'left'})}>Esq.</button><button type="button" aria-pressed={hinge==='right'} className={hinge==='right'?'is-on':''} onClick={()=> set({hingeSide:'right'})}>Dir.</button></div>
+      <div className="dc-encl-dim">
+        <span>Profund.</span>
+        <label className="dc-encl-num"><DraftNumber label="Profundidade do quadro" value={d.depthMm} min={ENCLOSURE.minDepthMm} max={ENCLOSURE.maxDepthMm} onCommit={(mm)=> set({depthMm: mm})} /><small>mm</small></label>
+        <span className="dc-encl-dim-hint">{ENCLOSURE.minDepthMm}–{ENCLOSURE.maxDepthMm} mm</span>
+      </div>
+      <div className="dc-encl-sub">Tamanhos padrão</div>
+      <div className="dc-encl-presets" role="group" aria-label="Tamanhos padrão">
+        {ENCLOSURE_PRESETS.map(([w,h,dp])=> { const on = d.widthMm===w&&d.heightMm===h; return <button key={`${w}x${h}`} type="button" aria-pressed={on} aria-label={`${w} × ${h} mm, profundidade ${dp} mm`} title={`Profundidade ${dp} mm`} className={on ? 'is-on' : ''} onClick={()=> resize(c,w,h,{widthMm:w,heightMm:h,depthMm:dp})}>{w}×{h}</button> })}
+      </div>
+      <div className="dc-encl-rows">
+        <div className="dc-encl-row">
+          <span>Dobradiças</span>
+          <div className="dc-acc-seg" role="group" aria-label="Lado das dobradiças"><button type="button" aria-pressed={hinge==='left'} className={hinge==='left'?'is-on':''} onClick={()=> set({hingeSide:'left'})}>Esquerda</button><button type="button" aria-pressed={hinge==='right'} className={hinge==='right'?'is-on':''} onClick={()=> set({hingeSide:'right'})}>Direita</button></div>
         </div>
-        <label className="flex items-center justify-between gap-2 text-xs">
-          <span className="text-slate-600 shrink-0">Chapa de montagem</span>
+        <label className="dc-encl-row">
+          <span>Chapa</span>
           <Select className="dc-input h-8 flex-1 min-w-0 text-xs" aria-label="Acabamento da chapa" value={typeof c.state.plateFinish==='string'?c.state.plateFinish:'Aço galvanizado'} onChange={(e)=> set({plateFinish:e.target.value})}>{ENCLOSURE_PLATE_FINISH_IDS.map(id=> <option key={id} value={id}>{id}</option>)}</Select>
         </label>
+        <div className="dc-encl-row"><span>Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(v)=> useSimStore.getState().updateComponent(c.id,{bodyColor:v})} /></div>
       </div>
-      <div className="flex items-center gap-2"><span className="text-xs text-slate-600">Pintura</span><Swatches options={ENCLOSURE_COLORS} value={color} onPick={(v)=> useSimStore.getState().updateComponent(c.id,{bodyColor:v})} /></div>
     </div>
 
-    <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-2" data-enclosure-exterior-toggle>
-      <button type="button" aria-pressed={exteriorHidden} aria-label={exteriorHidden ? 'Mostrar exteriores do quadro' : 'Ocultar exteriores do quadro'} title="Oculta ou mostra a porta, laterais, topo e base; preserva o fundo e a chapa de montagem" className="dc-btn w-full justify-center border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => set({ editorHiddenFaces: toggleEnclosureExteriorVisibility(c.state) })}>
+    <div data-enclosure-exterior-toggle>
+      <button type="button" aria-pressed={exteriorHidden} aria-label={exteriorHidden ? 'Mostrar exteriores do quadro' : 'Ocultar exteriores do quadro'} title="Oculta ou mostra a porta, laterais, topo e base; preserva o fundo e a chapa de montagem" className="dc-btn w-full justify-center border-blue-200 bg-blue-50/40 text-blue-700 hover:bg-blue-50" onClick={() => set({ editorHiddenFaces: toggleEnclosureExteriorVisibility(c.state) })}>
         {exteriorHidden ? <IconEye size={14} /> : <IconEyeOff size={14} />}
         {exteriorHidden ? 'Mostrar exteriores' : 'Ocultar exteriores'}
       </button>
