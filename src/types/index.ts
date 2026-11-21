@@ -118,6 +118,10 @@ export type ComponentType =
   | 'pneumaticValve52'
   | 'pneumaticCylinder'
   | 'pneumaticTee'
+  | 'electricCylinderEpcs'
+  | 'pneumaticGuidedCylinder'
+  | 'pneumaticManifold'
+  | 'pneumaticVacuumCup'
   | 'rollerConveyor'
   | 'opticalReflector'
   // --- Estruturas industriais e esteiras porta-cabos --------------------

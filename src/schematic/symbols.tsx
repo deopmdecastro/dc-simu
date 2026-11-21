@@ -503,6 +503,63 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
+      case 'electricCylinderEpcs': {
+        const pct = Number(c.state.positionPct ?? 0)
+        return (
+          <g>
+            <rect x={8} y={20} width={w * 0.24} height={h - 40} rx={3} fill="#1e293b" stroke="#0091dc" strokeWidth={1.6} />
+            <rect x={8 + w * 0.24} y={24} width={w * 0.42} height={h - 48} rx={3} fill="#dbe4ee" stroke="#334155" strokeWidth={1.6} />
+            <line x1={8 + w * 0.66} y1={h / 2} x2={8 + w * 0.66 + 16 + (pct / 100) * (w * 0.22)} y2={h / 2} stroke="#475569" strokeWidth={5} strokeLinecap="round" />
+            <text x={8 + w * 0.45} y={h / 2 + 3} textAnchor="middle" fontSize={8} fontWeight={800} fill="#0077c8">{`EPCS ${pct}%`}</text>
+            {label(8, 13, c.ref, 9, '#0091dc')}
+          </g>
+        )
+      }
+      case 'pneumaticGuidedCylinder': {
+        const pct = Number(c.state.positionPct ?? 0)
+        const ext = 14 + (pct / 100) * (w * 0.26)
+        const bx = 10 + w * 0.48
+        return (
+          <g>
+            <rect x={10} y={18} width={w * 0.48} height={h - 36} rx={4} fill="#dbe4ee" stroke="#334155" strokeWidth={1.8} />
+            <line x1={bx} y1={28} x2={bx + ext} y2={28} stroke="#64748b" strokeWidth={4} />
+            <line x1={bx} y1={h / 2} x2={bx + ext} y2={h / 2} stroke="#475569" strokeWidth={3.5} />
+            <line x1={bx} y1={h - 28} x2={bx + ext} y2={h - 28} stroke="#64748b" strokeWidth={4} />
+            <rect x={bx + ext} y={16} width={10} height={h - 32} rx={2} fill="#cbd5e1" stroke="#334155" strokeWidth={1.5} />
+            <text x={10 + w * 0.24} y={h / 2 + 3} textAnchor="middle" fontSize={8} fontWeight={800} fill="#0f172a">{`DFM ${pct}%`}</text>
+            {label(8, 13, c.ref, 9, '#0284c7')}
+          </g>
+        )
+      }
+      case 'pneumaticManifold': {
+        return (
+          <g>
+            <rect x={8} y={20} width={w - 16} height={h - 40} rx={4} fill="#334155" stroke="#0091dc" strokeWidth={1.6} />
+            {[1, 2, 3, 4].map((st) => {
+              const sx = 24 + (st - 1) * ((w - 48) / 4)
+              const on = Boolean(c.state[`station${st}On`] || c.state[`station${st}Manual`])
+              return (
+                <g key={st}>
+                  <rect x={sx} y={26} width={(w - 60) / 4} height={h - 52} rx={2} fill={on ? '#0091dc' : '#475569'} stroke="#cbd5e1" strokeWidth={1} />
+                  <text x={sx + (w - 60) / 8} y={h / 2 + 3} textAnchor="middle" fontSize={8} fontWeight={800} fill="#ffffff">{`Y${st}`}</text>
+                </g>
+              )
+            })}
+            {label(8, 13, `${c.ref} VTUG`, 9, '#0091dc')}
+          </g>
+        )
+      }
+      case 'pneumaticVacuumCup': {
+        const vac = Boolean(c.state.vacuumActive || c.state.manualVacuum)
+        return (
+          <g>
+            <path d={`M ${w * 0.2} 34 L ${w * 0.8} 34 L ${w * 0.65} 52 L ${w * 0.35} 52 Z`} fill={vac ? '#0ea5e9' : '#1554c6'} stroke="#1e3a8a" strokeWidth={1.6} />
+            <rect x={w * 0.28} y={52} width={w * 0.44} height={h - 66} rx={4} fill="#dbe4ee" stroke="#334155" strokeWidth={1.6} />
+            <text x={w / 2} y={h * 0.72} textAnchor="middle" fontSize={8} fontWeight={800} fill="#0f172a">{vac ? 'VÁCUO' : 'VFG30'}</text>
+            {label(8, 14, c.ref, 9, '#1554c6')}
+          </g>
+        )
+      }
       case 'industrialWall':
       case 'industrialPillar':
       case 'cableTrayStraight':

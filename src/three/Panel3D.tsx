@@ -87,8 +87,18 @@ import {
 } from './SchneiderComponents3D'
 import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
-import { FloatSwitchFelix3D, HydraulicTee3D, HydraulicValve3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
-import { PneumaticCylinder3D, PneumaticFrl3D, PneumaticTee3D, PneumaticValve523D } from './PneumaticsDevices3D'
+import { FloatSwitchFelix3D, type FloatSwitchTankContext, HydraulicTee3D, HydraulicValve3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
+import { waterTankDimensionsOf } from './hydraulicsModel'
+import {
+  ElectricCylinderEpcs3D,
+  PneumaticCylinder3D,
+  PneumaticFrl3D,
+  PneumaticGuidedCylinder3D,
+  PneumaticManifold3D,
+  PneumaticTee3D,
+  PneumaticVacuumCup3D,
+  PneumaticValve523D,
+} from './PneumaticsDevices3D'
 import {
   CableTrayCross3D,
   CableTrayElbow903D,
@@ -626,7 +636,7 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} userData={{ noSnapshot: true }} />
 }
 
-function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, probing, onTerminalPick, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
+function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, free3D = false, connectionMode, connectionStartId, probing, onTerminalPick, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   sourcePivot: [number, number, number]
@@ -634,17 +644,18 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   selected: boolean
   editingTerminals: boolean
   movable: boolean
-  /** Clicar e arrastar o corpo do componente move-o diretamente no painel. */
+  /** Clicar e arrastar o corpo do componente move-o diretamente no painel (ou no chão 3D XZ quando livre). */
   draggable: boolean
+  free3D?: boolean
   connectionMode: boolean
   connectionStartId: string | null
   probing: boolean
   onSelect: (additive?: boolean) => void
   /** Gizmo de mover: posição final (o 3D só edita o plano do painel — X/Y). */
   onMove: (position: SpatialPoint3D) => void
-  /** Arrasto direto: início (histórico), posição viva no plano do painel e fim (imã de calha). */
+  /** Arrasto direto: início (histórico), posição viva (X/Y ou X/Y/Z livre) e fim (imã de calha/tanque). */
   onDragStart: () => void
-  onDragTo: (position: { x: number; y: number }) => void
+  onDragTo: (position: { x: number; y: number; z?: number }) => void
   onDragEnd: () => void
   onTerminalPick: (terminalId: string) => void
   children: ReactNode
@@ -697,13 +708,17 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   useEffect(() => () => dragRef.current?.cleanup(), [])
 
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
-    if (!draggable || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || !rootRef.current) return
+    if (!draggable || event.button !== 0 || event.ctrlKey || event.metaKey || (!free3D && event.shiftKey) || !rootRef.current) return
     event.stopPropagation()
     onSelect()
-    // O Painel 3D e o Esquema partilham o plano X/Y: arrasta-se sempre nesse plano.
-    // Vista de topo (plano de frente quase paralelo ao olhar) usa um plano paralelo ao ecrã.
     const dir = camera.getWorldDirection(new THREE.Vector3())
-    const normal = Math.abs(dir.z) >= 0.3 ? new THREE.Vector3(0, 0, 1) : dir.clone()
+    // Equipamentos livres fora do quadro (reservatórios, bombas, motores, esteiras, paredes, bóias, pneumática):
+    // arrastam livremente no plano horizontal do pavimento XZ (esquerda/direita E afastar/aproximar do quadro!).
+    // Segurar Shift (ou vista quase horizontal de frente) arrasta no plano vertical XY para subir/descer em altura.
+    const useFloorXZ = free3D && !event.shiftKey && Math.abs(dir.y) >= 0.14
+    const normal = useFloorXZ
+      ? new THREE.Vector3(0, 1, 0)
+      : (Math.abs(dir.z) >= 0.3 ? new THREE.Vector3(0, 0, 1) : dir.clone())
     const origin = rootRef.current.position.clone()
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, origin)
     const hit = event.ray.intersectPlane(plane, new THREE.Vector3())
@@ -727,7 +742,11 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       if (!raycaster.ray.intersectPlane(state.plane, point)) return
       const next = point.clone().add(state.offset)
       const snap = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
-      onDragTo({ x: snap(next.x), y: snap(next.y) })
+      if (free3D) {
+        onDragTo({ x: snap(next.x), y: useFloorXZ ? origin.y : snap(next.y), z: useFloorXZ ? snap(next.z) : origin.z })
+      } else {
+        onDragTo({ x: snap(next.x), y: snap(next.y) })
+      }
     }
     const finish = () => {
       const moved = dragRef.current?.moved
@@ -3361,7 +3380,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   } : component), [storedComponents, viewOrientationEditor])
   const sceneCenterRef = useRef<[number, number, number]>([0, 0, 0.3])
   const stageRef = useRef<HTMLDivElement>(null)
-  const multiDragOrigins = useRef<Record<string, { x: number; y: number }>>({})
+  const multiDragOrigins = useRef<Record<string, { x: number; y: number; z: number }>>({})
   const cameraProjectRef = useRef<THREE.Camera | null>(null)
   const [marquee3d, setMarquee3d] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const marqueeDrag = useRef<{ x0: number; y0: number; additive: boolean } | null>(null)
@@ -3687,7 +3706,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       ;[px, py] = clampInsideAnyEnclosure(px, py, half)
       panelPivots[component.id] = new THREE.Vector3(px, py, PLATE_FRONT_Z + half.z)
     } else if (!isPanelBound(component)) {
-      if (isStructureComponentType(component.type) && component.panel3DPosition) {
+      if (component.panel3DPosition) {
         panelPivots[component.id] = new THREE.Vector3(
           component.panel3DPosition.x,
           component.panel3DPosition.y,
@@ -3955,6 +3974,62 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }
   }
 
+  // Montagem física real de bóias (`floatSwitch`) DENTRO do reservatório (`waterTank`) associado!
+  const floatTankContexts: Record<string, FloatSwitchTankContext> = {}
+  const waterTanks3D = components.filter((c) => c.type === 'waterTank' && !!panelPivots[c.id])
+  if (waterTanks3D.length > 0) {
+    const mountedCountByTank = new Map<string, number>()
+    for (const fs of components) {
+      if (fs.type !== 'floatSwitch' || !panelPivots[fs.id]) continue
+      const explicitId = typeof fs.state.linkedTankId === 'string' && fs.state.linkedTankId ? fs.state.linkedTankId : null
+      let tank = explicitId ? waterTanks3D.find((t) => t.id === explicitId) : null
+      // Se não estiver explicitamente desacoplada, instala automaticamente no reservatório mais próximo quando estiver por perto ou em modo auto
+      if (!tank && fs.state.autoCoupleTank !== false && fs.state.detachedFromTank !== true) {
+        const fp = panelPivots[fs.id]
+        let bestDist = Infinity
+        for (const tk of waterTanks3D) {
+          const tp = panelPivots[tk.id]
+          const td = waterTankDimensionsOf(tk.state)
+          const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
+          const d = Math.hypot(fp.x - tp.x, fp.z - tp.z)
+          if (d < Math.max(tankR + 2.8, 4.5) && d < bestDist) {
+            bestDist = d
+            tank = tk
+          }
+        }
+      }
+      if (!tank) continue
+      const tp = panelPivots[tank.id]
+      const td = waterTankDimensionsOf(tank.state)
+      const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
+      const tankH = td.heightMm * PANEL_UNITS_PER_MM
+      const standH = td.standHeightMm * PANEL_UNITS_PER_MM
+      const domeH = td.domeHeightMm * PANEL_UNITS_PER_MM
+      const totalH = td.totalHeightMm * PANEL_UNITS_PER_MM
+      const tankTopY = tp.y - totalH / 2 + standH + tankH + domeH * 0.55
+
+      const idxInTank = mountedCountByTank.get(tank.id) ?? 0
+      mountedCountByTank.set(tank.id, idxInTank + 1)
+      const sidePref = fs.state.mountSide
+      const sideSign = sidePref === 'left' ? -1 : sidePref === 'right' ? 1 : sidePref === 'center' ? 0 : (idxInTank % 2 === 0 ? -1 : 1)
+      const defaultDepth = idxInTank === 0 ? 74 : 28
+      const mountDepthPct = typeof fs.state.mountDepthPct === 'number' ? fs.state.mountDepthPct : defaultDepth
+
+      panelPivots[fs.id] = new THREE.Vector3(
+        tp.x + sideSign * tankR * 0.44,
+        tankTopY,
+        tp.z + (idxInTank > 1 ? 0.25 : 0),
+      )
+      floatTankContexts[fs.id] = {
+        tankRadius: tankR,
+        tankHeight: tankH,
+        waterLevelPct: Math.max(0, Math.min(100, Number(tank.state.levelPct ?? 68))),
+        mountDepthPct,
+        sideSign,
+      }
+    }
+  }
+
   // Chapa e enquadramento derivados do conteúdo real.
   const sceneBounds = (() => {
     const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
@@ -4015,22 +4090,22 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     texts.forEach((id, i) => store.removeCanvasText(id, i === 0 && !comps.length))
     setGroupTextIds([]); setSelectedTextId(null)
   }
-  /** Arrasto em conjunto (componentes + textos) com um deslocamento no plano do painel. */
-  const groupDragLast = useRef<{ dx: number; dy: number } | null>(null)
-  const groupDrag = useRef<{ comps: Record<string, { x: number; y: number }>; texts: Record<string, { x: number; y: number }> } | null>(null)
+  /** Arrasto em conjunto (componentes + textos) com deslocamento X/Y e profundidade Z para equipamentos livres 3D. */
+  const groupDragLast = useRef<{ dx: number; dy: number; dz: number } | null>(null)
+  const groupDrag = useRef<{ comps: Record<string, { x: number; y: number; z: number }>; texts: Record<string, { x: number; y: number }> } | null>(null)
   const beginGroupDrag = (compIds: string[], textIds: string[]) => {
     const store = useSimStore.getState()
-    const comps: Record<string, { x: number; y: number }> = {}
-    for (const id of compIds) { beginPanelDrag(id); const pivot = panelPivots[id]; if (pivot) comps[id] = { x: pivot.x, y: pivot.y } }
+    const comps: Record<string, { x: number; y: number; z: number }> = {}
+    for (const id of compIds) { beginPanelDrag(id); const pivot = panelPivots[id]; if (pivot) comps[id] = { x: pivot.x, y: pivot.y, z: pivot.z } }
     if (!compIds.length) store.commitHistory()
     const texts: Record<string, { x: number; y: number }> = {}
     for (const t of store.canvasTexts) if (textIds.includes(t.id)) texts[t.id] = { x: t.x, y: t.y }
     groupDrag.current = { comps, texts }
   }
-  const moveGroupDrag = (dx: number, dy: number) => {
+  const moveGroupDrag = (dx: number, dy: number, dz = 0) => {
     const g = groupDrag.current
     if (!g) return
-    for (const [id, o] of Object.entries(g.comps)) dragPanelTo(id, { x: o.x + dx, y: o.y + dy })
+    for (const [id, o] of Object.entries(g.comps)) dragPanelTo(id, { x: o.x + dx, y: o.y + dy, z: dz !== 0 ? o.z + dz : undefined })
     setGroupTextOffset(Object.keys(g.texts).length ? { dx, dy } : null)
   }
   const endGroupDrag = (moved: boolean, dx: number, dy: number) => {
@@ -4066,20 +4141,44 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       components: state.components.map((item) => (item.id === id && item.railId ? { ...item, railId: undefined, railOffsetMm: undefined } : item)),
     }))
   }
-  const dragPanelTo = (id: string, point: { x: number; y: number }) => {
+  const dragPanelTo = (id: string, point: { x: number; y: number; z?: number }) => {
     const store = useSimStore.getState()
     const component = store.components.find((item) => item.id === id)
     if (!component) return
+    const free3D = !isPanelBound(component)
+    let targetPt = { x: point.x, y: point.y }
     // Encaixe magnético fácil para paredes, pilares e esteiras porta-cabos (soltar e encaixar borda-a-borda!)
-    let targetPt = point
     if (isStructureComponentType(component.type)) {
       const snapped = snapStructureDragXY(component, point, store.components, panelPivots)
       targetPt = { x: snapped.x, y: snapped.y }
-      if (component.panel3DPosition) {
-        store.updateComponent(id, {
-          panel3DPosition: { x: targetPt.x, y: targetPt.y, z: component.panel3DPosition.z },
-        })
+    }
+    if (free3D) {
+      const currentPivot = panelPivots[id]
+      const half = componentHalfExtents(component, orientationFor(component))
+      const rawZ = typeof point.z === 'number'
+        ? point.z
+        : (component.panel3DPosition?.z ?? currentPivot?.z ?? frontPivot(component)[2])
+      // Nunca atravessar a parede traseira do pavilhão; mas pode afastar-se livremente para a frente (+Z)!
+      const minZ = factoryMode ? factoryWallFrontZ + half.z + 0.14 : -18
+      const clampedZ = Math.max(minZ, rawZ)
+      const nextY = (factoryMode && (isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type)))
+        ? factoryFloorY + half.y
+        : targetPt.y
+      // Se o utilizador arrastar uma bóia instalada para longe do reservatório, solta-a suavemente
+      if (component.type === 'floatSwitch' && component.state.linkedTankId) {
+        const linked = store.components.find((c) => c.id === component.state.linkedTankId)
+        const tp = linked ? panelPivots[linked.id] : null
+        if (linked && tp) {
+          const td = waterTankDimensionsOf(linked.state)
+          const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
+          if (Math.hypot(targetPt.x - tp.x, clampedZ - tp.z) > tankR + 1.8) {
+            store.setComponentState(id, { linkedTankId: '', detachedFromTank: true })
+          }
+        }
       }
+      store.updateComponent(id, {
+        panel3DPosition: { x: targetPt.x, y: nextY, z: clampedZ },
+      })
     }
     // Durante o arrasto o equipamento acompanha o ponteiro livremente (passando por cima de calhas DIN/técnicas e para fora de quadros);
     // o imã da calha atua apenas ao largar em `endPanelDrag`.
@@ -4092,6 +4191,30 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const endPanelDrag = (id: string) => {
     const store = useSimStore.getState()
+    const comp = store.components.find((c) => c.id === id)
+    // Se largar uma bóia perto de um reservatório, encaixa-a automaticamente DENTRO dele!
+    if (comp && comp.type === 'floatSwitch') {
+      const fp = comp.panel3DPosition ?? panelPivots[id]
+      if (fp) {
+        let bestTank: ElectricalComponent | null = null
+        let bestDist = Infinity
+        for (const tk of store.components) {
+          if (tk.type !== 'waterTank') continue
+          const tp = tk.panel3DPosition ?? panelPivots[tk.id]
+          if (!tp) continue
+          const td = waterTankDimensionsOf(tk.state)
+          const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
+          const d = Math.hypot(fp.x - tp.x, fp.z - tp.z)
+          if (d <= tankR + 1.6 && d < bestDist) {
+            bestDist = d
+            bestTank = tk
+          }
+        }
+        if (bestTank) {
+          store.setComponentState(id, { linkedTankId: bestTank.id, autoCoupleTank: true, detachedFromTank: false })
+        }
+      }
+    }
     if (store.grid.railMagnet !== false) store.snapToRails([id], false)
     store.step()
   }
@@ -4206,6 +4329,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       editingTerminals={viewOrientationEditor?.componentId === component.id}
       movable={false}
       draggable={tool === 'select' && !simLocked && !gridDragEnabled && !component.locked && !viewOrientationEditor && !reconnect}
+      free3D={!frontEdit && !isPanelBound(component)}
       connectionMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
       probing={tool === 'probe'}
       connectionStartId={tool === 'probe' ? probeA : draft && 'terminalId' in draft.from ? draft.from.terminalId : null}
@@ -4232,13 +4356,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         const comps = members.filter((id) => compIds.has(id) && !useSimStore.getState().components.find((c) => c.id === id)?.locked)
         beginGroupDrag(comps.length ? comps : [component.id], members.filter((id) => !compIds.has(id)))
         const pivot = panelPivots[component.id]
-        multiDragOrigins.current = pivot ? { [component.id]: { x: pivot.x, y: pivot.y } } : {}
+        multiDragOrigins.current = pivot ? { [component.id]: { x: pivot.x, y: pivot.y, z: pivot.z } } : {}
       }}
       onDragTo={(point) => {
         const origin = multiDragOrigins.current[component.id]
         if (!origin) { dragPanelTo(component.id, point); return }
-        moveGroupDrag(point.x - origin.x, point.y - origin.y)
-        groupDragLast.current = { dx: point.x - origin.x, dy: point.y - origin.y }
+        const dz = typeof point.z === 'number' ? point.z - origin.z : 0
+        moveGroupDrag(point.x - origin.x, point.y - origin.y, dz)
+        groupDragLast.current = { dx: point.x - origin.x, dy: point.y - origin.y, dz }
       }}
       onDragEnd={() => {
         const last = groupDragLast.current
@@ -4933,6 +5058,21 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             wallFrontZ={factoryWallFrontZ}
             floorY={factoryFloorY}
             mountBounds={factoryMountBounds}
+            sceneSpan={
+              Number.isFinite(sceneBounds.all.minX) || plateBounds
+                ? {
+                    minX: Math.min(
+                      Number.isFinite(sceneBounds.all.minX) ? sceneBounds.all.minX : -6,
+                      plateBounds ? plateBounds.minX - (plateBounds.maxX - plateBounds.minX) - 2.5 : -10,
+                    ),
+                    maxX: Math.max(
+                      Number.isFinite(sceneBounds.all.maxX) ? sceneBounds.all.maxX : 12,
+                      plateBounds ? plateBounds.maxX + 4 : 12,
+                    ),
+                    maxZ: Number.isFinite(sceneBounds.all.maxZ) ? sceneBounds.all.maxZ : 10,
+                  }
+                : null
+            }
           />
         ) : (
           <>
@@ -5137,11 +5277,43 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><WaterPumpCalpeda3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'waterTank') {
-            content = <WaterTankTransparent3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggleValve={() => activateComponent(c, () => operateComponent(c.id, { outletValveOpen: !c.state.outletValveOpen }))} />
+            content = (
+              <WaterTankTransparent3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onToggleValve={() => {
+                  const st = useSimStore.getState()
+                  const nextOpen = !c.state.outletValveOpen
+                  if (st.sim.runState === 'running') {
+                    st.operateComponent(c.id, { outletValveOpen: nextOpen })
+                  } else {
+                    st.setComponentState(c.id, { outletValveOpen: nextOpen })
+                  }
+                }}
+              />
+            )
           } else if (c.type === 'floatSwitch') {
-            content = <FloatSwitchFelix3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered, level: !c.state.triggered ? 'alto' : 'baixo' }))} />
+            content = (
+              <FloatSwitchFelix3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                tankContext={floatTankContexts[c.id] ?? null}
+                onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered, level: !c.state.triggered ? 'alto' : 'baixo' }))}
+              />
+            )
           } else if (c.type === 'hydraulicValve') {
-            content = <HydraulicValve3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggle={() => activateComponent(c, () => operateComponent(c.id, { open: c.state.open === false }))} />
+            content = (
+              <HydraulicValve3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onToggle={() => {
+                  const st = useSimStore.getState()
+                  const nextOpen = c.state.open === false
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, { open: nextOpen })
+                  else st.setComponentState(c.id, { open: nextOpen })
+                }}
+              />
+            )
           } else if (c.type === 'hydraulicTee') {
             content = <HydraulicTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'pneumaticFrl') {
@@ -5152,6 +5324,51 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <PneumaticCylinder3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'pneumaticTee') {
             content = <PneumaticTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'electricCylinderEpcs') {
+            content = (
+              <ElectricCylinderEpcs3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onJogStep={(dir) => {
+                  const st = useSimStore.getState()
+                  const curPct = Number(c.state.positionPct ?? 0)
+                  const nextPct = dir === 'out' ? Math.min(100, curPct + 25) : Math.max(0, curPct - 25)
+                  const patch = { positionPct: nextPct, extended: nextPct >= 92 }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+              />
+            )
+          } else if (c.type === 'pneumaticGuidedCylinder') {
+            content = <PneumaticGuidedCylinder3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticManifold') {
+            content = (
+              <PneumaticManifold3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onToggleStation={(idx) => {
+                  const st = useSimStore.getState()
+                  const key = `station${idx}Manual`
+                  const patch = { [key]: !c.state[key] }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+              />
+            )
+          } else if (c.type === 'pneumaticVacuumCup') {
+            content = (
+              <PneumaticVacuumCup3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onToggleVacuum={() => {
+                  const st = useSimStore.getState()
+                  const next = !c.state.manualVacuum
+                  const patch = { manualVacuum: next, vacuumActive: next }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+              />
+            )
           } else if (c.type === 'industrialWall') {
             content = <IndustrialWall3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'industrialPillar') {

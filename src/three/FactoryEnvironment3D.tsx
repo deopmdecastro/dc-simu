@@ -18,6 +18,8 @@ interface FactoryEnvironment3DProps {
   floorY: number
   /** Caixa do quadro/chapa montado na parede (para fixações, eletroduto e faixa de segurança). */
   mountBounds: FactoryWallMountBounds | null
+  /** Extensão real de todos os equipamentos no espaço 3D (evita qualquer parede atravessar quadros ou reservatórios). */
+  sceneSpan?: { minX: number; maxX: number; maxZ: number } | null
 }
 
 const NO_RAYCAST: THREE.Object3D['raycast'] = () => {}
@@ -440,6 +442,7 @@ export function FactoryEnvironment3D({
   wallFrontZ,
   floorY,
   mountBounds,
+  sceneSpan,
 }: FactoryEnvironment3DProps) {
   const { invalidate } = useThree()
   const floorPbr = useMemo(() => createConcreteFloorPbr(), [])
@@ -449,7 +452,7 @@ export function FactoryEnvironment3D({
 
   useEffect(() => {
     invalidate()
-  }, [invalidate, center[0], center[1], wallFrontZ, floorY])
+  }, [invalidate, center[0], center[1], wallFrontZ, floorY, sceneSpan?.minX, sceneSpan?.maxX, sceneSpan?.maxZ])
 
   useEffect(() => () => {
     floorPbr?.map.dispose()
@@ -462,36 +465,41 @@ export function FactoryEnvironment3D({
     signTex?.dispose()
   }, [floorPbr, wallPbr, hazardTex, signTex])
 
-  // Dimensões realistas da nave industrial limpa em torno do quadro elétrico
-  const cx = center[0]
-  const hallWidth = 42
-  const hallDepth = 30
-  const wallThickness = 0.65
-  const panelTop = mountBounds ? mountBounds.maxY : center[1] + 5.5
-  const wallHeight = Math.max(14.5, panelTop - floorY + 5.2)
-  const wallCenterY = floorY + wallHeight / 2
-  const backWallZ = wallFrontZ - wallThickness / 2
-  const leftWallX = cx - hallWidth / 2
-  const rightWallX = cx + hallWidth / 2
-  const floorCenterZ = wallFrontZ + hallDepth / 2 - 0.5
-
-  const panelMinX = mountBounds ? mountBounds.minX : cx - 4.0
-  const panelMaxX = mountBounds ? mountBounds.maxX : cx + 4.0
+  // Dimensões dinâmicas da nave industrial — envolve SEMPRE quadros, portas abertas, reservatórios e máquinas com folga generosa!
+  const panelMinX = mountBounds ? mountBounds.minX : center[0] - 4.0
+  const panelMaxX = mountBounds ? mountBounds.maxX : center[0] + 4.0
   const panelMinY = mountBounds ? mountBounds.minY : floorY + 5.0
   const panelMaxY = mountBounds ? mountBounds.maxY : floorY + 12.0
   const panelCx = (panelMinX + panelMaxX) / 2
   const panelW = Math.max(2.6, panelMaxX - panelMinX)
 
+  const contentMinX = Math.min(panelMinX - panelW * 0.65, sceneSpan ? sceneSpan.minX : panelMinX)
+  const contentMaxX = Math.max(panelMaxX, sceneSpan ? sceneSpan.maxX : panelMaxX)
+  const leftWallX = Math.min(center[0] - 21, contentMinX - 8.5)
+  const rightWallX = Math.max(center[0] + 21, contentMaxX + 8.5)
+  const cx = (leftWallX + rightWallX) / 2
+  const hallWidth = Math.max(42, rightWallX - leftWallX)
+  const hallDepth = Math.max(32, (sceneSpan ? sceneSpan.maxZ - wallFrontZ : 16) + 14)
+  const wallThickness = 0.65
+  const panelTop = mountBounds ? mountBounds.maxY : center[1] + 5.5
+  const wallHeight = Math.max(14.5, panelTop - floorY + 5.2)
+  const wallCenterY = floorY + wallHeight / 2
+  const backWallZ = wallFrontZ - wallThickness / 2
+  const floorCenterZ = wallFrontZ + hallDepth / 2 - 0.5
+
   const safeZoneW = Math.max(5.2, panelW + 2.6)
   const safeZoneD = 3.2
   const trayY = Math.min(floorY + wallHeight - 1.4, panelMaxY + 1.45)
 
-  // Pilares metálicos distribuídos na parede traseira (evitando coincidir com o quadro)
-  const backColumnXs = [-18, -11, -4, 4, 11, 18]
-    .map((offset) => cx + offset)
-    .filter((x) => x < panelMinX - 1.4 || x > panelMaxX + 1.4)
+  // Pilares metálicos distribuídos ao longo de toda a parede traseira (evitando sempre coincidir com o quadro!)
+  const backColumnXs: number[] = []
+  const colStep = 7.5
+  for (let x = leftWallX + 3.2; x <= rightWallX - 3.0; x += colStep) {
+    if (x < panelMinX - 1.8 || x > panelMaxX + 1.8) backColumnXs.push(x)
+  }
 
-  const leftColumnZs = [4, 11, 18, 25].map((dz) => wallFrontZ + dz)
+  const leftColumnZs: number[] = []
+  for (let dz = 4; dz <= hallDepth - 3.5; dz += 7.5) leftColumnZs.push(wallFrontZ + dz)
 
   return (
     <group name="dc-simu-factory-environment">

@@ -1,0 +1,29 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Length 536 >> stream
+BT /F1 16 Tf 50 760 Td (Festo DFM-20-40-P-A-GF (Part No. 163346)) Tj
+0 -22 Td /F1 12 Tf
+(Compact Guided Pneumatic Drive with Plain-Bearing Guide Rods) Tj
+0 -28 Td /F1 10 Tf
+(Manufacturer: Festo SE & Co. KG) Tj 0 -16 Td
+(Piston Diameter / Stroke: 20 mm / 40 mm) Tj 0 -16 Td
+(Guide System: Twin hardened chrome guide rods in bronze GF bushings) Tj 0 -16 Td
+(Operating Pressure: 1.5 - 10 bar [145 psi max]) Tj 0 -16 Td
+(Ports: G 1/8 pneumatic ports A / B) Tj 0 -16 Td
+(Front Interface: Machined aluminum yoke tooling plate) Tj 0 -16 Td ET
+endstream endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+897
+%%EOF

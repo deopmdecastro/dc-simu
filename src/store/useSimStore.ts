@@ -1275,6 +1275,17 @@ function runOneTick(state: Store, dtMs: number) {
       const bTerm = pc.terminals.find((t) => t.label === 'B')?.id
       if (pTerm && active && aTerm) linkP(pTerm, aTerm)
       if (pTerm && !active && bTerm) linkP(pTerm, bTerm)
+    } else if (pc.type === 'pneumaticManifold') {
+      const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
+      for (const stNum of [1, 2, 3, 4]) {
+        const coilOn = isLoadPowered(pc, pass3.energizedTerminals, `Y${stNum}`, '0V')
+        const active = coilOn || Boolean(pc.state[`station${stNum}Manual`])
+        pc.state[`station${stNum}On`] = active
+        const aTerm = pc.terminals.find((t) => t.label === `A${stNum}`)?.id
+        const bTerm = pc.terminals.find((t) => t.label === `B${stNum}`)?.id
+        if (pTerm && active && aTerm) linkP(pTerm, aTerm)
+        if (pTerm && !active && bTerm) linkP(pTerm, bTerm)
+      }
     }
   }
   const activePneumaticTerminals = new Set<string>()
@@ -1302,31 +1313,52 @@ function runOneTick(state: Store, dtMs: number) {
     if (pw.energized && pass3.activeWires) pass3.activeWires.add(pw.id)
   }
   for (const cyl of components) {
-    if (cyl.type !== 'pneumaticCylinder') continue
-    const aId = cyl.terminals.find((t) => t.label === 'A')?.id
-    const bId = cyl.terminals.find((t) => t.label === 'B')?.id
-    const aAir = Boolean(aId && activePneumaticTerminals.has(aId))
-    const bAir = Boolean(bId && activePneumaticTerminals.has(bId))
-    let pct = Number(cyl.state.positionPct ?? 0)
-    if (!Number.isFinite(pct)) pct = 0
-    if (aAir && !bAir) pct = Math.min(100, pct + dtSec * 140)
-    else if (bAir && !aAir) pct = Math.max(0, pct - dtSec * 140)
-    cyl.state.positionPct = Math.round(pct)
-    cyl.state.extended = cyl.state.positionPct >= 90
+    if (cyl.type === 'pneumaticCylinder' || cyl.type === 'pneumaticGuidedCylinder') {
+      const aId = cyl.terminals.find((t) => t.label === 'A')?.id
+      const bId = cyl.terminals.find((t) => t.label === 'B')?.id
+      const aAir = Boolean(aId && activePneumaticTerminals.has(aId))
+      const bAir = Boolean(bId && activePneumaticTerminals.has(bId))
+      let pct = Number(cyl.state.positionPct ?? 0)
+      if (!Number.isFinite(pct)) pct = 0
+      if (aAir && !bAir) pct = Math.min(100, pct + dtSec * 140)
+      else if (bAir && !aAir) pct = Math.max(0, pct - dtSec * 140)
+      cyl.state.positionPct = Math.round(pct)
+      cyl.state.extended = cyl.state.positionPct >= 90
+    } else if (cyl.type === 'electricCylinderEpcs') {
+      const pwr = isLoadPowered(cyl, pass3.energizedTerminals, '+24V', '0V')
+      cyl.state.powered = pwr
+      const in1 = Boolean(cyl.terminals.find((t) => t.label === 'IN1')?.id && pass3.energizedTerminals.has(cyl.terminals.find((t) => t.label === 'IN1')!.id))
+      const in2 = Boolean(cyl.terminals.find((t) => t.label === 'IN2')?.id && pass3.energizedTerminals.has(cyl.terminals.find((t) => t.label === 'IN2')!.id))
+      let pct = Number(cyl.state.positionPct ?? 0)
+      if (!Number.isFinite(pct)) pct = 0
+      const spdOut = Math.max(20, Number(cyl.state.speedOutPct ?? 70)) * 1.4
+      const spdIn = Math.max(20, Number(cyl.state.speedInPct ?? 70)) * 1.4
+      if (pwr && in1 && !in2) pct = Math.min(100, pct + dtSec * spdOut)
+      else if (pwr && in2 && !in1) pct = Math.max(0, pct - dtSec * spdIn)
+      cyl.state.positionPct = Math.round(pct)
+      cyl.state.extended = cyl.state.positionPct >= 92
+    } else if (cyl.type === 'pneumaticVacuumCup') {
+      const pId = cyl.terminals.find((t) => t.label === 'P')?.id
+      const hasAir = Boolean(pId && activePneumaticTerminals.has(pId))
+      cyl.state.vacuumActive = hasAir || Boolean(cyl.state.manualVacuum)
+    }
   }
-  // Acoplamento automático de bóias (floatSwitch) ao reservatório mais próximo / associado
+  // Acoplamento automático de bóias (floatSwitch) ao reservatório associado (suporta várias bóias a cotas distintas no mesmo tanque!)
   if (tanks.length > 0) {
     for (const fs of components) {
-      if (fs.type !== 'floatSwitch' || fs.state.autoCoupleTank === false) continue
+      if (fs.type !== 'floatSwitch' || fs.state.autoCoupleTank === false || fs.state.detachedFromTank === true) continue
       const targetTank =
         (fs.state.linkedTankId ? tanks.find((tk) => tk.id === fs.state.linkedTankId) : null) ??
         tanks[0]
       if (!targetTank) continue
       const lvl = Number(targetTank.state.levelPct ?? 68)
-      if (lvl >= 82 && !fs.state.triggered) {
+      const customDepth = typeof fs.state.mountDepthPct === 'number' ? fs.state.mountDepthPct : null
+      const highThresh = customDepth !== null ? Math.min(96, customDepth + 4) : 82
+      const lowThresh = customDepth !== null ? Math.max(4, customDepth - 6) : 25
+      if (lvl >= highThresh && !fs.state.triggered) {
         fs.state.triggered = true
         fs.state.level = 'alto'
-      } else if (lvl <= 25 && fs.state.triggered) {
+      } else if (lvl <= lowThresh && fs.state.triggered) {
         fs.state.triggered = false
         fs.state.level = 'baixo'
       }

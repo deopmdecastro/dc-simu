@@ -1,0 +1,29 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+5 0 obj << /Length 565 >> stream
+BT /F1 16 Tf 50 760 Td (Festo VTUG-14-VRLK-4) Tj
+0 -22 Td /F1 12 Tf
+(4-Station 5/2 Solenoid Valve Terminal on 35mm DIN Rail) Tj
+0 -28 Td /F1 10 Tf
+(Manufacturer: Festo SE & Co. KG) Tj 0 -16 Td
+(Stations: 4 independent 5/2 monostable solenoid valves [Y1-Y4]) Tj 0 -16 Td
+(Coil Voltage: 24 V DC common 0V + amber diagnostic LEDs) Tj 0 -16 Td
+(Pneumatic Supply: Common P port QS-8 + individual A1/B1..A4/B4 QS ports) Tj 0 -16 Td
+(Manual Override: Blue Festo detenting manual override tabs per station) Tj 0 -16 Td
+(Mounting: Direct 35 mm DIN rail clip) Tj 0 -16 Td ET
+endstream endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+926
+%%EOF

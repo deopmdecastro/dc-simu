@@ -99,18 +99,34 @@ function roundedRectShape(w: number, h: number, r: number): THREE.Shape {
   return s
 }
 
+export interface FloatSwitchTankContext {
+  /** Raio interior do reservatório (unidades 3D) */
+  tankRadius: number
+  /** Altura útil da coluna de água (unidades 3D) */
+  tankHeight: number
+  /** Nível atual da água no reservatório (0–100%) */
+  waterLevelPct: number
+  /** Profundidade / cota do contrapeso onde a bóia bascula (10–92%) */
+  mountDepthPct: number
+  /** Lado de instalação no interior da tampa (-1 esq, 0 centro, +1 dir) */
+  sideSign: number
+}
+
 export function FloatSwitchFelix3D({
   c,
   position,
   onToggle,
+  tankContext,
 }: {
   c: ElectricalComponent
   position: [number, number, number]
   onToggle?: () => void
+  tankContext?: FloatSwitchTankContext | null
 }) {
   const invalidate = useThree((s) => s.invalidate)
   const triggered = !!c.state.triggered
   const floatPivotRef = useRef<THREE.Group>(null)
+  const bobPhaseRef = useRef(0)
   const currentAngle = useRef(triggered ? 0.42 : -0.22)
 
   const W = FLOAT_SWITCH_SIZE_MM.width * U
@@ -202,19 +218,161 @@ export function FloatSwitchFelix3D({
     textures.back?.dispose()
   }, [geoms, textures])
 
-  // Animação suave da inclinação da bóia ao comutar nível
+  // Animação suave da inclinação da bóia ao comutar nível + flutuação viva sobre a superfície da água no tanque
   useFrame((_, delta) => {
-    const target = triggered ? 0.36 : -0.18
+    if (tankContext) {
+      bobPhaseRef.current += Math.min(delta, 0.1) * 3.1
+    }
+    const target = tankContext
+      ? (tankContext.waterLevelPct >= tankContext.mountDepthPct ? 0.62 : -0.82)
+      : (triggered ? 0.36 : -0.18)
     const diff = target - currentAngle.current
     if (Math.abs(diff) > 0.002) {
       currentAngle.current += diff * Math.min(1, delta * 9)
       if (floatPivotRef.current) floatPivotRef.current.rotation.z = currentAngle.current
       invalidate()
-    } else if (floatPivotRef.current && floatPivotRef.current.rotation.z !== target) {
-      currentAngle.current = target
-      floatPivotRef.current.rotation.z = target
+    } else if (floatPivotRef.current) {
+      const bob = tankContext && tankContext.waterLevelPct >= tankContext.mountDepthPct - 8
+        ? Math.sin(bobPhaseRef.current) * 0.06
+        : 0
+      floatPivotRef.current.rotation.z = target + bob
     }
   })
+
+  // === MODO REAL INSTALADO DENTRO DO RESERVATÓRIO (cabo pendente + contrapeso + flutuador na água) ===
+  const inTankGeom = useMemo(() => {
+    if (!tankContext) return null
+    const tankH = tankContext.tankHeight
+    const tankR = tankContext.tankRadius
+    const depthFrac = Math.max(0.12, Math.min(0.92, tankContext.mountDepthPct / 100))
+    const waterFrac = Math.max(0.02, Math.min(0.98, tankContext.waterLevelPct / 100))
+    // `position` da bóia montada fica exatamente no topo do reservatório (y = 0 local = tampa do reservatório)
+    const counterY = -(1 - depthFrac) * tankH
+    const tetherLen = Math.min(tankR * 0.62, Math.max(0.36, tankH * 0.22))
+    const waterY = -(1 - waterFrac) * tankH
+    // Flutuador acompanha a superfície real da água, limitado pelo raio do cabo preso ao contrapeso
+    const rawDy = waterY - counterY
+    const clampedDy = Math.max(-tetherLen * 0.92, Math.min(tetherLen * 0.85, rawDy))
+    const horizSign = tankContext.sideSign >= 0 ? -1 : 1
+    const dx = horizSign * Math.sqrt(Math.max(0.02, tetherLen * tetherLen - clampedDy * clampedDy))
+    const floatX = dx
+    const floatY = counterY + clampedDy
+    const tetherCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, counterY - 0.05, 0),
+      new THREE.Vector3(dx * 0.45, counterY + clampedDy * 0.35 - 0.09, 0.03),
+      new THREE.Vector3(floatX - horizSign * 0.06, floatY, 0),
+    ])
+    const tetherTube = new THREE.TubeGeometry(tetherCurve, 28, 4.2 * U, 10, false)
+    const verticalDropLen = Math.max(0.12, Math.abs(counterY))
+    return { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen }
+  }, [tankContext])
+
+  useEffect(() => () => {
+    inTankGeom?.tetherTube.dispose()
+  }, [inTankGeom])
+
+  if (tankContext && inTankGeom) {
+    const { counterY, floatX, floatY, horizSign, tetherTube, verticalDropLen } = inTankGeom
+    const floatScale = Math.max(0.75, Math.min(1.25, tankContext.tankRadius * 0.68))
+    return (
+      <group
+        position={position}
+        name={`float-switch-3d-${c.id}`}
+        onClick={(e) => {
+          if (!onToggle) return
+          e.stopPropagation()
+          onToggle()
+        }}
+      >
+        {/* Prensa-cabo estanque PG13.5 aparafusado na tampa superior do reservatório */}
+        <group position={[0, 0.04, 0]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[20 * U, 24 * U, 22 * U, 16]} />
+            <meshStandardMaterial color="#334155" roughness={0.42} metalness={0.55} />
+          </mesh>
+          <mesh position={[0, 16 * U, 0]} castShadow>
+            <cylinderGeometry args={[14 * U, 17 * U, 18 * U, 6]} />
+            <meshStandardMaterial color="#475569" roughness={0.38} metalness={0.62} />
+          </mesh>
+          {/* 3 fios de ligação elétrica (NA / C / NF) a sair no topo da tampa para o quadro */}
+          {[
+            { x: -12 * U, color: '#78350f' },
+            { x: 0, color: '#111827' },
+            { x: 12 * U, color: '#2563eb' },
+          ].map((w, idx) => (
+            <mesh key={idx} position={[w.x, 38 * U, 0]}>
+              <cylinderGeometry args={[2.2 * U, 2.2 * U, 30 * U, 8]} />
+              <meshStandardMaterial color={w.color} roughness={0.5} />
+            </mesh>
+          ))}
+        </group>
+
+        {/* Cabo vertical submerso H07RN-F desde a tampa até ao contrapeso */}
+        <mesh position={[0, -verticalDropLen / 2, 0]} castShadow renderOrder={4}>
+          <cylinderGeometry args={[4.2 * U, 4.2 * U, verticalDropLen, 10]} />
+          <meshStandardMaterial color="#18181b" roughness={0.62} metalness={0.08} />
+        </mesh>
+
+        {/* Contrapeso cilíndrico regulável amarelo/preto à cota de disparo (mountDepthPct) */}
+        <group position={[0, counterY, 0]} renderOrder={4}>
+          <mesh castShadow>
+            <cylinderGeometry args={[22 * U, 22 * U, 52 * U, 20]} />
+            <meshStandardMaterial color="#f5c518" roughness={0.36} metalness={0.06} />
+          </mesh>
+          <mesh position={[0, 0, 0]}>
+            <cylinderGeometry args={[23 * U, 23 * U, 10 * U, 20]} />
+            <meshStandardMaterial color="#1e293b" roughness={0.5} metalness={0.18} />
+          </mesh>
+        </group>
+
+        {/* Cabo flexível curvo do contrapeso até ao corpo da bóia */}
+        <mesh geometry={tetherTube} castShadow renderOrder={4}>
+          <meshStandardMaterial color="#18181b" roughness={0.62} metalness={0.08} />
+        </mesh>
+
+        {/* Corpo flutuador FELIX ENERGY dentro da água, basculando com o nível real! */}
+        <group
+          ref={floatPivotRef}
+          position={[floatX, floatY, 0]}
+          rotation={[0, horizSign < 0 ? 0 : Math.PI, currentAngle.current]}
+          scale={[floatScale, floatScale, floatScale]}
+          renderOrder={4}
+        >
+          <group position={[-58 * U, 0, 0]}>
+            <mesh geometry={geoms.rimGeom} castShadow receiveShadow>
+              <meshStandardMaterial color="#f5c518" roughness={0.32} metalness={0.06} />
+            </mesh>
+            <mesh geometry={geoms.shellGeom} castShadow receiveShadow>
+              <meshStandardMaterial color="#1d4ed8" roughness={0.28} metalness={0.08} />
+            </mesh>
+            {textures.front && (
+              <mesh position={[0, 0, 19.6 * U]}>
+                <planeGeometry args={[68 * U, 48 * U]} />
+                <meshStandardMaterial map={textures.front} roughness={0.34} metalness={0.04} />
+              </mesh>
+            )}
+            {textures.back && (
+              <mesh position={[0, 0, -19.6 * U]} rotation={[0, Math.PI, 0]}>
+                <planeGeometry args={[68 * U, 48 * U]} />
+                <meshStandardMaterial map={textures.back} roughness={0.34} metalness={0.04} />
+              </mesh>
+            )}
+          </group>
+          {/* Bota prensa-cabos amarela flexível */}
+          <group position={[-4 * U, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+            <mesh position={[0, -4 * U, 0]} castShadow>
+              <cylinderGeometry args={[10.5 * U, 14.5 * U, 18 * U, 14]} />
+              <meshStandardMaterial color="#f5c518" roughness={0.38} />
+            </mesh>
+            <mesh position={[0, 13 * U, 0]} castShadow>
+              <cylinderGeometry args={[6.2 * U, 10.2 * U, 18 * U, 14]} />
+              <meshStandardMaterial color="#f5c518" roughness={0.38} />
+            </mesh>
+          </group>
+        </group>
+      </group>
+    )
+  }
 
   return (
     <group
@@ -377,6 +535,180 @@ function createTankScaleTexture(): THREE.CanvasTexture | null {
   return tex
 }
 
+/** Textura realista do punho vermelho PVC impresso "TURIA 3000 · ARCO" (fiel a image-34.png) */
+function createArcoTuriaGripTexture(): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null
+  const W = 384
+  const H = 96
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const grad = ctx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0, '#e32424')
+  grad.addColorStop(0.5, '#c81919')
+  grad.addColorStop(1, '#a61414')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, W, H)
+
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '900 22px sans-serif'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('TURIA', 24, 34)
+  ctx.font = 'bold 21px sans-serif'
+  ctx.fillText('3000', 26, 62)
+
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 4
+  ctx.beginPath()
+  ctx.arc(146, 48, 22, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(134, 62)
+  ctx.lineTo(146, 30)
+  ctx.lineTo(158, 62)
+  ctx.stroke()
+
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '900 44px sans-serif'
+  ctx.fillText('arco', 180, 50)
+  ctx.font = 'bold 14px sans-serif'
+  ctx.fillText('®', 292, 34)
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  tex.needsUpdate = true
+  return tex
+}
+
+/** Malha ultra-realista do passador de esfera cromado ARCO TURIA 3000 (fiel a image-34.png!) */
+function ArcoTuria3000ValveMesh({
+  scale,
+  open,
+  leverRef,
+  withSpout = false,
+}: {
+  scale: number
+  open: boolean
+  leverRef?: React.RefObject<THREE.Group>
+  withSpout?: boolean
+}) {
+  const gripTex = useMemo(() => createArcoTuriaGripTexture(), [])
+  useEffect(() => () => { gripTex?.dispose() }, [gripTex])
+
+  const s = scale
+  return (
+    <group>
+      {/* Corpo central forjado em latão cromado/niquelado acetinado (forma barril ARCO TURIA 3000) */}
+      <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[s * 1.44, s * 1.44, s * 1.95, 28]} />
+        <meshStandardMaterial color="#dce2e8" roughness={0.21} metalness={0.92} />
+      </mesh>
+      {/* Nervura central de união das duas meias-carcaças do corpo */}
+      <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[s * 1.54, s * 1.54, s * 0.34, 28]} />
+        <meshStandardMaterial color="#cfd7df" roughness={0.24} metalness={0.9} />
+      </mesh>
+      {/* 2 uniões sextavadas fêmea cromadas pesadas (-X entrada / +X saída) */}
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * s * 1.56, 0, 0]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+            <cylinderGeometry args={[s * 1.48, s * 1.48, s * 1.25, 6]} />
+            <meshStandardMaterial color="#d8dfe6" roughness={0.2} metalness={0.93} />
+          </mesh>
+          {/* Chanfro frontal da boca */}
+          <mesh position={[side * s * 0.66, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[s * 1.18, s * 1.32, s * 0.18, 22]} />
+            <meshStandardMaterial color="#e2e8f0" roughness={0.18} metalness={0.94} />
+          </mesh>
+          {/* Interior com rosca BSP dourada em latão visível (assinatura visual de image-34.png!) */}
+          {(!withSpout || side === -1) && (
+            <>
+              <mesh position={[side * s * 0.68, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[s * 0.94, s * 0.94, s * 0.42, 22, 1, true]} />
+                <meshStandardMaterial color="#c99c38" roughness={0.32} metalness={0.84} side={THREE.DoubleSide} />
+              </mesh>
+              <mesh position={[side * s * 0.56, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[s * 0.86, s * 0.86, s * 0.12, 20]} />
+                <meshStandardMaterial color={open ? '#0f172a' : '#dce2e8'} roughness={open ? 0.85 : 0.14} metalness={open ? 0.1 : 0.95} />
+              </mesh>
+            </>
+          )}
+        </group>
+      ))}
+
+      {/* Castelo superior cromado + porca sextavada prensa-empanque */}
+      <mesh position={[0, s * 1.32, 0]} castShadow>
+        <cylinderGeometry args={[s * 0.62, s * 0.78, s * 0.92, 20]} />
+        <meshStandardMaterial color="#d8dfe6" roughness={0.22} metalness={0.92} />
+      </mesh>
+      <mesh position={[0, s * 1.82, 0]} castShadow>
+        <cylinderGeometry args={[s * 0.62, s * 0.62, s * 0.36, 6]} />
+        <meshStandardMaterial color="#cbd5e1" roughness={0.24} metalness={0.92} />
+      </mesh>
+
+      {/* === ALAVANCA ESCALONADA PRETA + PUNHO VERMELHO PVC "TURIA 3000 ARCO" (fiel a image-34.png!) === */}
+      <group
+        ref={leverRef}
+        position={[0, s * 2.04, 0]}
+        rotation={[0, open ? 0 : Math.PI / 2, 0]}
+      >
+        {/* Porca sextavada superior de fixação + topo do veio */}
+        <mesh position={[0, s * 0.32, 0]} castShadow>
+          <cylinderGeometry args={[s * 0.48, s * 0.48, s * 0.38, 6]} />
+          <meshStandardMaterial color="#dce2e8" roughness={0.2} metalness={0.94} />
+        </mesh>
+        <mesh position={[0, s * 0.52, 0]}>
+          <cylinderGeometry args={[s * 0.28, s * 0.28, s * 0.1, 14]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.28} metalness={0.9} />
+        </mesh>
+
+        {/* Base horizontal da alavanca em aço pintado preto + patilha batente dobrada 90° */}
+        <mesh position={[s * 0.22, s * 0.08, 0]} castShadow>
+          <boxGeometry args={[s * 1.65, s * 0.22, s * 0.86]} />
+          <meshStandardMaterial color="#14181f" roughness={0.28} metalness={0.76} />
+        </mesh>
+        <mesh position={[-s * 0.66, -s * 0.22, 0]} castShadow>
+          <boxGeometry args={[s * 0.22, s * 0.72, s * 0.58]} />
+          <meshStandardMaterial color="#14181f" roughness={0.28} metalness={0.76} />
+        </mesh>
+
+        {/* Braço escalonado inclinado a ~38° para cima em aço preto (assinatura de image-34.png!) */}
+        <mesh position={[s * 1.48, s * 0.68, 0]} rotation={[0, 0, 0.68]} castShadow>
+          <boxGeometry args={[s * 1.65, s * 0.22, s * 0.78]} />
+          <meshStandardMaterial color="#14181f" roughness={0.28} metalness={0.76} />
+        </mesh>
+
+        {/* Braço horizontal superior revestido em PVC VERMELHO ARCO com impressão "TURIA 3000 · ARCO" */}
+        <mesh position={[s * 3.85, s * 1.22, 0]} castShadow receiveShadow>
+          <boxGeometry args={[s * 3.75, s * 0.44, s * 0.96]} />
+          <meshPhysicalMaterial
+            color="#d91e1e"
+            roughness={0.34}
+            metalness={0.06}
+            clearcoat={0.25}
+            clearcoatRoughness={0.28}
+          />
+        </mesh>
+        {/* Ponta arredondada do punho vermelho */}
+        <mesh position={[s * 5.72, s * 1.22, 0]} castShadow>
+          <cylinderGeometry args={[s * 0.48, s * 0.48, s * 0.44, 16]} />
+          <meshPhysicalMaterial color="#d91e1e" roughness={0.34} metalness={0.06} clearcoat={0.25} />
+        </mesh>
+        {/* Face superior impressa "TURIA 3000 · ARCO" */}
+        {gripTex && (
+          <mesh position={[s * 3.85, s * 1.45, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[s * 3.6, s * 0.88]} />
+            <meshStandardMaterial map={gripTex} roughness={0.32} metalness={0.05} />
+          </mesh>
+        )}
+      </group>
+    </group>
+  )
+}
+
 export function WaterTankTransparent3D({
   c,
   position,
@@ -443,30 +775,78 @@ export function WaterTankTransparent3D({
   const waveMeshRef = useRef<THREE.Mesh>(null)
   const jetRef = useRef<THREE.Mesh>(null)
   const dropRef = useRef<THREE.Mesh>(null)
+  const leverRef = useRef<THREE.Group>(null)
+  const drainStreamRef = useRef<THREE.Mesh>(null)
+  const drainDropsRef = useRef<THREE.Group>(null)
+  const splashRingRef = useRef<THREE.Mesh>(null)
+  const leverAngleRef = useRef(outletOpen ? 0 : Math.PI / 2)
   const phaseRef = useRef(0)
-  const { invalidate } = useThree()
+  const { invalidate, gl } = useThree()
+
+  const waterR = R * 0.945
+  const waterH = Math.max(0.01, (H * 0.96 * levelPct) / 100)
+  const waterSurfaceY = cylBottomY + 0.02 + waterH
+  const inletY = bottomY + totalH * 0.78
+  const outletY = bottomY + totalH * 0.22
+  const leftNozzleX = -totalW / 2 + totalW * 0.04
+  const rightNozzleX = -totalW / 2 + totalW * 0.96
+  const pipeRadius = Math.min(24 * U, Math.max(14 * U, R * 0.068))
+  const valveSpoutX = -R * 0.34
+  const valveSpoutY = inletY - pipeRadius * 1.6
+  const jetHeight = Math.max(0.06, valveSpoutY - waterSurfaceY)
+
+  // Geometria do bico curvo 90° do passador real + curva parabólica real da água a cair até ao chão
+  const valveBodyX = R + Math.max(pipeRadius * 2.1, Math.min(pipeRadius * 3.2, (rightNozzleX - R) * 0.52))
+  const spoutStartX = valveBodyX + pipeRadius * 2.1
+  const spoutEndX = spoutStartX + pipeRadius * 2.4
+  const spoutEndY = -pipeRadius * 2.35
+  const dropDistY = Math.max(0.28, (outletY + spoutEndY) - bottomY)
+  const pressureThrow = pipeRadius * (1.2 + (levelPct / 100) * 2.6)
+
+  const { spoutGeom, drainStreamGeom, drainCurve } = useMemo(() => {
+    const sc = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(spoutStartX - pipeRadius * 0.4, 0, 0),
+      new THREE.Vector3(spoutStartX + pipeRadius * 1.4, 0, 0),
+      new THREE.Vector3(spoutEndX, -pipeRadius * 0.85, 0),
+      new THREE.Vector3(spoutEndX, spoutEndY, 0),
+    ])
+    const sGeom = new THREE.TubeGeometry(sc, 20, pipeRadius * 0.86, 14, false)
+
+    // Trajetória parabólica realista da água em queda livre (desde a ponta do bico até ao chão!)
+    const dc = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(spoutEndX, spoutEndY, 0),
+      new THREE.Vector3(spoutEndX + pressureThrow * 0.25, spoutEndY - dropDistY * 0.22, 0),
+      new THREE.Vector3(spoutEndX + pressureThrow * 0.58, spoutEndY - dropDistY * 0.58, 0),
+      new THREE.Vector3(spoutEndX + pressureThrow * 0.88, spoutEndY - dropDistY * 0.98, 0),
+    ])
+    const streamR = Math.max(pipeRadius * 0.34, pipeRadius * (0.34 + (levelPct / 100) * 0.34))
+    const dGeom = new THREE.TubeGeometry(dc, 24, streamR, 12, false)
+    return { spoutGeom: sGeom, drainStreamGeom: dGeom, drainCurve: dc }
+  }, [spoutStartX, spoutEndX, spoutEndY, pipeRadius, dropDistY, pressureThrow, levelPct])
 
   useEffect(() => () => {
     waveGeom.dispose()
     scaleTex?.dispose()
-  }, [waveGeom, scaleTex])
+    spoutGeom.dispose()
+    drainStreamGeom.dispose()
+  }, [waveGeom, scaleTex, spoutGeom, drainStreamGeom])
 
-  // Temporizador adaptativo para manter as ondas 3D vivas em frameloop="demand" sem saturar GPUs lentas
+  // Temporizador adaptativo para manter as ondas 3D e o jato de água a cair vivos em frameloop="demand"
   useEffect(() => {
     if (levelPct <= 0.5) return
     const timer = window.setInterval(() => {
       invalidate()
-    }, 95)
+    }, outletOpen ? 75 : 110)
     return () => window.clearInterval(timer)
-  }, [levelPct > 0.5, invalidate])
+  }, [levelPct > 0.5, outletOpen, invalidate])
 
-  // Animação realista das ondas 3D na superfície da água + gota/jato de enchimento
+  // Animação realista das ondas 3D + rotação suave do manípulo + queda real de água e salpicos no chão!
   useFrame((_state, delta) => {
     const dt = Math.min(delta, 0.12)
-    phaseRef.current += dt * (filling ? 4.2 : outletOpen ? 3.2 : 2.2)
+    phaseRef.current += dt * (filling ? 4.4 : outletOpen ? 5.2 : 2.2)
     const t = phaseRef.current
     const pos = waveGeom.attributes.position as THREE.BufferAttribute
-    const amp = filling ? 0.072 : outletOpen ? 0.048 : 0.036
+    const amp = filling ? 0.072 : outletOpen ? 0.052 : 0.036
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i)
       const z = pos.getZ(i)
@@ -483,6 +863,16 @@ export function WaterTankTransparent3D({
     pos.needsUpdate = true
     waveGeom.computeVertexNormals()
 
+    // Animação suave de 90° do manípulo do passador (aberto ↔ fechado)
+    const targetLever = outletOpen ? 0 : Math.PI / 2
+    if (Math.abs(targetLever - leverAngleRef.current) > 0.004) {
+      leverAngleRef.current += (targetLever - leverAngleRef.current) * Math.min(1, dt * 14)
+      if (leverRef.current) leverRef.current.rotation.y = leverAngleRef.current
+      invalidate()
+    } else if (leverRef.current) {
+      leverRef.current.rotation.y = targetLever
+    }
+
     if (jetRef.current && filling) {
       const pulse = 0.88 + Math.sin(t * 5.2) * 0.14
       jetRef.current.scale.set(pulse, 1, pulse)
@@ -491,19 +881,27 @@ export function WaterTankTransparent3D({
       const fallFrac = (t * 0.65) % 1
       dropRef.current.position.y = -fallFrac * Math.max(0.15, H * (1 - levelPct / 100) * 0.72)
     }
+    if (outletOpen && levelPct > 0.5) {
+      if (drainStreamRef.current) {
+        const wPulse = 0.9 + Math.sin(t * 8.5) * 0.12
+        drainStreamRef.current.scale.set(1, 1, wPulse)
+      }
+      if (drainDropsRef.current) {
+        const children = drainDropsRef.current.children
+        for (let i = 0; i < children.length; i += 1) {
+          const frac = ((t * 0.72) + i / children.length) % 1
+          const pt = drainCurve.getPoint(frac)
+          children[i].position.set(pt.x, pt.y, pt.z + Math.sin(t * 7 + i * 2.1) * pipeRadius * 0.18)
+          const s = 0.75 + Math.sin(frac * Math.PI) * 0.55
+          children[i].scale.setScalar(s)
+        }
+      }
+      if (splashRingRef.current) {
+        const sPulse = 0.85 + ((t * 0.85) % 1) * 0.75
+        splashRingRef.current.scale.set(sPulse, sPulse, 1)
+      }
+    }
   })
-
-  const waterR = R * 0.945
-  const waterH = Math.max(0.01, (H * 0.96 * levelPct) / 100)
-  const waterSurfaceY = cylBottomY + 0.02 + waterH
-  const inletY = bottomY + totalH * 0.78
-  const outletY = bottomY + totalH * 0.22
-  const leftNozzleX = -totalW / 2 + totalW * 0.04
-  const rightNozzleX = -totalW / 2 + totalW * 0.96
-  const pipeRadius = Math.max(14 * U, R * 0.075)
-  const valveSpoutX = -R * 0.34
-  const valveSpoutY = inletY - pipeRadius * 1.6
-  const jetHeight = Math.max(0.06, valveSpoutY - waterSurfaceY)
 
   return (
     <group position={position} name={`water-tank-3d-${c.id}`}>
@@ -653,36 +1051,116 @@ export function WaterTankTransparent3D({
         </group>
       )}
 
-      {/* === SAÍDA INFERIOR DIREITA (OUT) COM VÁLVULA DE ESFERA VERMELHA CLICÁVEL === */}
-      <group position={[0, outletY, 0]}>
-        <mesh position={[(R + rightNozzleX) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[pipeRadius, pipeRadius, Math.max(0.05, rightNozzleX - R + 16 * U), 16]} />
-          <meshStandardMaterial color="#94a3b8" roughness={0.35} metalness={0.72} />
+      {/* === PASSADOR REAL DE DESCARGA ARCO TURIA 3000 (DUPLO CLIQUE ABRE/FECHA + BICO CURVO + ÁGUA REAL A CAIR!) === */}
+      <group
+        position={[0, outletY, 0]}
+        onPointerOver={(e) => {
+          if (!onToggleValve) return
+          e.stopPropagation()
+          gl.domElement.style.cursor = 'pointer'
+        }}
+        onPointerOut={() => {
+          gl.domElement.style.cursor = ''
+        }}
+        onDoubleClick={(e) => {
+          if (!onToggleValve) return
+          e.stopPropagation()
+          onToggleValve()
+        }}
+      >
+        {/* Flange passa-parede (bulkhead) + junta EPDM preta encostada à parede acrílica do reservatório */}
+        <mesh position={[R - pipeRadius * 0.12, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[pipeRadius * 1.95, pipeRadius * 1.95, pipeRadius * 0.55, 22]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.72} metalness={0.12} />
         </mesh>
-        {/* Flange exterior direita */}
-        <mesh position={[rightNozzleX - 12 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[pipeRadius * 1.65, pipeRadius * 1.65, 14 * U, 18]} />
-          <meshStandardMaterial color="#64748b" roughness={0.38} metalness={0.78} />
+        <mesh position={[R + pipeRadius * 0.42, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[pipeRadius * 1.75, pipeRadius * 1.75, pipeRadius * 0.7, 6]} />
+          <meshStandardMaterial color="#d8dfe6" roughness={0.22} metalness={0.92} />
         </mesh>
-        {/* Manípulo vermelho clicável da válvula de saída */}
-        <group
-          position={[R + (rightNozzleX - R) * 0.48, pipeRadius * 1.35, 0]}
-          rotation={[0, outletOpen ? 0 : Math.PI / 2, 0]}
-          onClick={(e) => {
-            if (!onToggleValve) return
-            e.stopPropagation()
-            onToggleValve()
-          }}
-        >
-          <mesh position={[0, -pipeRadius * 0.4, 0]}>
-            <cylinderGeometry args={[pipeRadius * 0.32, pipeRadius * 0.32, pipeRadius * 0.9, 10]} />
-            <meshStandardMaterial color="#cbd5e1" roughness={0.3} metalness={0.8} />
-          </mesh>
-          <mesh castShadow>
-            <boxGeometry args={[pipeRadius * 3.2, pipeRadius * 0.45, pipeRadius * 0.65]} />
-            <meshStandardMaterial color={outletOpen ? '#16a34a' : '#dc2626'} roughness={0.38} metalness={0.18} />
-          </mesh>
+        {/* Troço roscado de ligação desde o tanque até ao passador ARCO TURIA 3000 */}
+        <mesh position={[(R + valveBodyX) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[pipeRadius * 0.96, pipeRadius * 0.96, Math.max(0.04, valveBodyX - R), 16]} />
+          <meshStandardMaterial color="#cbd5e1" roughness={0.24} metalness={0.9} />
+        </mesh>
+        {/* Corpo realista da válvula de esfera cromada ARCO TURIA 3000 */}
+        <group position={[valveBodyX, 0, 0]}>
+          <ArcoTuria3000ValveMesh scale={pipeRadius * 1.04} open={outletOpen} leverRef={leverRef} withSpout />
         </group>
+        {/* Bico curvo 90° cromado de descarga virado para baixo */}
+        <mesh geometry={spoutGeom} castShadow receiveShadow>
+          <meshStandardMaterial color="#dce2e8" roughness={0.2} metalness={0.92} />
+        </mesh>
+        {/* Bocal/anel estriado na ponta inferior do bico */}
+        <mesh position={[spoutEndX, spoutEndY + pipeRadius * 0.12, 0]} castShadow>
+          <cylinderGeometry args={[pipeRadius * 0.98, pipeRadius * 0.92, pipeRadius * 0.55, 16]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.26} metalness={0.88} />
+        </mesh>
+
+        {/* === JATO PARABÓLICO REAL DE ÁGUA A CAIR + GOTAS + POÇA E SALPICOS NO CHÃO === */}
+        {outletOpen && levelPct > 0.5 && (
+          <group name={`water-tank-drain-stream-${c.id}`}>
+            {/* Jato contínuo parabólico de água cristalina */}
+            <mesh ref={drainStreamRef} geometry={drainStreamGeom} renderOrder={4}>
+              <meshPhysicalMaterial
+                userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+                color="#38bdf8"
+                emissive="#0ea5e9"
+                emissiveIntensity={0.38}
+                roughness={0.05}
+                metalness={0.04}
+                transparent
+                opacity={0.86}
+                clearcoat={1}
+                clearcoatRoughness={0.04}
+              />
+            </mesh>
+            {/* 6 gotas/bolhas brilhantes em queda contínua ao longo do jato */}
+            <group ref={drainDropsRef}>
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
+                <mesh key={idx} renderOrder={4}>
+                  <sphereGeometry args={[pipeRadius * 0.42, 10, 10]} />
+                  <meshStandardMaterial
+                    userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+                    color="#e0f2fe"
+                    emissive="#38bdf8"
+                    emissiveIntensity={0.6}
+                    transparent
+                    opacity={0.9}
+                  />
+                </mesh>
+              ))}
+            </group>
+            {/* Poça translúcida no pavimento + anel animado de espuma/salpico no ponto de impacto */}
+            <group position={[spoutEndX + pressureThrow * 0.88, bottomY - outletY + 0.025, 0]}>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
+                <circleGeometry args={[pipeRadius * (3.2 + (levelPct / 100) * 2.2), 28]} />
+                <meshPhysicalMaterial
+                  userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+                  color="#38bdf8"
+                  emissive="#0284c7"
+                  emissiveIntensity={0.22}
+                  roughness={0.08}
+                  metalness={0.05}
+                  transparent
+                  opacity={0.56}
+                  clearcoat={1}
+                />
+              </mesh>
+              <mesh ref={splashRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, 0]} renderOrder={4}>
+                <ringGeometry args={[pipeRadius * 1.1, pipeRadius * 1.9, 24]} />
+                <meshStandardMaterial
+                  userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+                  color="#e0f2fe"
+                  emissive="#7dd3fc"
+                  emissiveIntensity={0.55}
+                  transparent
+                  opacity={0.82}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            </group>
+          </group>
+        )}
       </group>
 
       {/* === CORPO CILÍNDRICO TRANSPARENTE DO RESERVATÓRIO + CÚPULA SUPERIOR === */}
@@ -1015,7 +1493,7 @@ export function WaterPumpCalpeda3D({
   )
 }
 
-/** 4. Válvula de esfera hidráulica 3D (latão forjado G 1" + manípulo vermelho interativo) */
+/** 4. Válvula de esfera hidráulica 3D ARCO TURIA 3000 (cromada G 1" + alavanca escalonada preta/vermelha · duplo clique abre/fecha!) */
 export function HydraulicValve3D({
   c,
   position,
@@ -1026,51 +1504,48 @@ export function HydraulicValve3D({
   onToggle?: () => void
 }) {
   const open = c.state.open !== false
+  const leverRef = useRef<THREE.Group>(null)
+  const angleRef = useRef(open ? 0 : Math.PI / 2)
+  const { invalidate, gl } = useThree()
+
+  useFrame((_, delta) => {
+    const target = open ? 0 : Math.PI / 2
+    const diff = target - angleRef.current
+    if (Math.abs(diff) > 0.006) {
+      angleRef.current += diff * Math.min(1, delta * 12)
+      invalidate()
+    } else {
+      angleRef.current = target
+    }
+    if (leverRef.current) leverRef.current.rotation.y = angleRef.current
+  })
+
   return (
-    <group position={position} name={`hydraulic-valve-3d-${c.id}`}>
-      {/* Corpo esférico central em latão niquelado/forjado */}
-      <mesh position={[0, -14 * U, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[28 * U, 24, 20]} />
-        <meshStandardMaterial color="#d4a029" roughness={0.3} metalness={0.82} />
-      </mesh>
-      {/* Porcas sextavadas laterais G 1" (IN -X / OUT +X) */}
-      {[-1, 1].map((side) => (
-        <group key={side} position={[side * 42 * U, -14 * U, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-            <cylinderGeometry args={[23 * U, 23 * U, 28 * U, 6]} />
-            <meshStandardMaterial color="#ca9522" roughness={0.28} metalness={0.84} />
-          </mesh>
-          <mesh position={[side * 15 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[15 * U, 15 * U, 4 * U, 18]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.75} />
-          </mesh>
-        </group>
-      ))}
-      {/* Castelo superior e veio cromado */}
-      <mesh position={[0, 14 * U, 0]} castShadow>
-        <cylinderGeometry args={[12 * U, 15 * U, 24 * U, 16]} />
-        <meshStandardMaterial color="#e2e8f0" roughness={0.22} metalness={0.9} />
-      </mesh>
-      {/* Manípulo vermelho 1/4 de volta (alinhado com tubo = aberta; 90° = fechada) */}
-      <group
-        position={[0, 28 * U, 0]}
-        rotation={[0, open ? 0 : Math.PI / 2, 0]}
-        onClick={(e) => { e.stopPropagation(); onToggle?.() }}
-      >
-        <mesh position={[34 * U, 6 * U, 0]} castShadow>
-          <boxGeometry args={[76 * U, 10 * U, 14 * U]} />
-          <meshStandardMaterial color={open ? '#dc2626' : '#991b1b'} roughness={0.38} metalness={0.12} />
-        </mesh>
-        <mesh castShadow>
-          <cylinderGeometry args={[9 * U, 9 * U, 12 * U, 14]} />
-          <meshStandardMaterial color="#cbd5e1" roughness={0.24} metalness={0.88} />
-        </mesh>
+    <group
+      position={position}
+      name={`hydraulic-valve-3d-${c.id}`}
+      onPointerOver={(e) => {
+        if (!onToggle) return
+        e.stopPropagation()
+        gl.domElement.style.cursor = 'pointer'
+      }}
+      onPointerOut={() => {
+        gl.domElement.style.cursor = ''
+      }}
+      onDoubleClick={(e) => {
+        if (!onToggle) return
+        e.stopPropagation()
+        onToggle()
+      }}
+    >
+      <group position={[0, -14 * U, 0]}>
+        <ArcoTuria3000ValveMesh scale={19.5 * U} open={open} leverRef={leverRef} />
       </group>
     </group>
   )
 }
 
-/** 5. União em T hidráulica latão 3 vias (A / B / C) */
+/** 5. União em T hidráulica em latão forjado pesado G 1" (3 vias A / B / C com colares sextavados e roscas) */
 export function HydraulicTee3D({
   c,
   position,
@@ -1080,27 +1555,44 @@ export function HydraulicTee3D({
 }) {
   return (
     <group position={position} name={`hydraulic-tee-3d-${c.id}`}>
+      {/* Esfera central de reforço do corpo forjado */}
+      <mesh position={[0, -10 * U, 0]} castShadow receiveShadow>
+        <sphereGeometry args={[23 * U, 22, 18]} />
+        <meshStandardMaterial color="#d9b252" roughness={0.28} metalness={0.86} />
+      </mesh>
       {/* Corpo horizontal A (-X) ↔ B (+X) */}
       <mesh position={[0, -10 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-        <cylinderGeometry args={[20 * U, 20 * U, 96 * U, 20]} />
-        <meshStandardMaterial color="#d4a029" roughness={0.3} metalness={0.82} />
+        <cylinderGeometry args={[19 * U, 19 * U, 92 * U, 22]} />
+        <meshStandardMaterial color="#d4a029" roughness={0.28} metalness={0.86} />
       </mesh>
       {/* Derivação vertical C (+Y) */}
       <mesh position={[0, 14 * U, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[20 * U, 20 * U, 52 * U, 20]} />
-        <meshStandardMaterial color="#d4a029" roughness={0.3} metalness={0.82} />
+        <cylinderGeometry args={[19 * U, 19 * U, 52 * U, 22]} />
+        <meshStandardMaterial color="#d4a029" roughness={0.28} metalness={0.86} />
       </mesh>
-      {/* 3 colares sextavados de união */}
+      {/* 3 colares sextavados + furos roscados internos */}
       {[-44 * U, 44 * U].map((xPos, i) => (
-        <mesh key={i} position={[xPos, -10 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[24 * U, 24 * U, 16 * U, 6]} />
-          <meshStandardMaterial color="#c48e1c" roughness={0.28} metalness={0.85} />
-        </mesh>
+        <group key={i} position={[xPos, -10 * U, 0]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[24.5 * U, 24.5 * U, 16 * U, 6]} />
+            <meshStandardMaterial color="#c99522" roughness={0.25} metalness={0.88} />
+          </mesh>
+          <mesh position={[(i === 0 ? -9 : 9) * U, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[14 * U, 14 * U, 3 * U, 18]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.75} />
+          </mesh>
+        </group>
       ))}
-      <mesh position={[0, 34 * U, 0]} castShadow>
-        <cylinderGeometry args={[24 * U, 24 * U, 16 * U, 6]} />
-        <meshStandardMaterial color="#c48e1c" roughness={0.28} metalness={0.85} />
-      </mesh>
+      <group position={[0, 36 * U, 0]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[24.5 * U, 24.5 * U, 16 * U, 6]} />
+          <meshStandardMaterial color="#c99522" roughness={0.25} metalness={0.88} />
+        </mesh>
+        <mesh position={[0, 9 * U, 0]}>
+          <cylinderGeometry args={[14 * U, 14 * U, 3 * U, 18]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.75} />
+        </mesh>
+      </group>
     </group>
   )
 }

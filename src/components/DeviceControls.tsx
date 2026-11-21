@@ -19,6 +19,9 @@ import {
   SWITCH_SPECS,
 } from '../three/lightingModel'
 import { isHydraulicComponentType, waterTankDimensionsOf } from '../three/hydraulicsModel'
+import { isPanelBound } from '../three/panelBounds'
+import { isFloorMountedMachineType } from '../three/conveyorModel'
+import { isFloorGroundedStructureType } from '../three/structuresModel'
 import { isPneumaticComponentType } from '../three/pneumaticsModel'
 import {
   cableTrayDimsOf,
@@ -86,6 +89,26 @@ export const DEVICE_MANAGED_STATE_KEYS = new Set([
   'filling',
   'autoCoupleTank',
   'linkedTankId',
+  'mountDepthPct',
+  'mountSide',
+  'detachedFromTank',
+  'cylinderVariant',
+  'speedOutPct',
+  'speedInPct',
+  'forcePct',
+  'boreMm',
+  'strokeMm',
+  'station1On',
+  'station2On',
+  'station3On',
+  'station4On',
+  'station1Manual',
+  'station2Manual',
+  'station3Manual',
+  'station4Manual',
+  'vacuumActive',
+  'manualVacuum',
+  'mountingFlange',
   'flowLpm',
   'flowLmin',
   'portSize',
@@ -1467,20 +1490,38 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
           <button
             type="button"
             disabled={locked}
+            data-water-tank-valve-toggle
             className={`dc-btn text-[11px] justify-center ${outletOpen ? 'dc-btn-primary' : ''}`}
-            onClick={() => operate(c.id, { outletValveOpen: !outletOpen })}
+            onClick={() => {
+              if (useSimStore.getState().sim.runState === 'running') {
+                operate(c.id, { outletValveOpen: !outletOpen })
+              } else {
+                setState(c.id, { outletValveOpen: !outletOpen })
+              }
+            }}
           >
-            {outletOpen ? 'Fechar saída' : 'Abrir saída'}
+            {outletOpen ? 'Fechar passador' : 'Abrir passador'}
           </button>
           <button
             type="button"
             disabled={locked}
             className={`dc-btn text-[11px] justify-center ${manualFill ? 'dc-btn-primary' : ''}`}
-            onClick={() => operate(c.id, { manualFill: !manualFill })}
+            onClick={() => {
+              if (useSimStore.getState().sim.runState === 'running') {
+                operate(c.id, { manualFill: !manualFill })
+              } else {
+                setState(c.id, { manualFill: !manualFill })
+              }
+            }}
           >
             {manualFill ? 'Parar entrada' : 'Encher (teste)'}
           </button>
         </div>
+        <p className="text-[10px] text-slate-500">
+          {outletOpen && levelPct > 0
+            ? 'Passador ARCO aberto: água a sair pelo bico de descarga. Faça duplo clique no passador em 3D ou clique acima para fechar.'
+            : 'Faça duplo clique diretamente no passador ARCO em 3D (ou clique acima) para abrir e soltar água.'}
+        </p>
       </div>
     )
   }
@@ -1551,9 +1592,18 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
     )
   }
 
-  // floatSwitch
+  // floatSwitch — instalação real dentro do reservatório com contrapeso ajustável!
+  const allComponents = useSimStore((s) => s.components)
+  const tanks = allComponents.filter((item) => item.type === 'waterTank')
   const triggered = !!c.state.triggered
   const autoCouple = c.state.autoCoupleTank !== false
+  const linkedTankId = typeof c.state.linkedTankId === 'string' ? c.state.linkedTankId : ''
+  const detached = c.state.detachedFromTank === true
+  const mountDepthPct = typeof c.state.mountDepthPct === 'number' ? c.state.mountDepthPct : 74
+  const mountSide = (c.state.mountSide === 'left' || c.state.mountSide === 'center' || c.state.mountSide === 'right')
+    ? c.state.mountSide
+    : 'left'
+
   return (
     <div className="flex flex-col gap-2 text-[11px]" data-float-switch-controls>
       <div className="flex items-center justify-between gap-2">
@@ -1568,8 +1618,68 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
       >
         {triggered ? 'Descer bóia (C–NF)' : 'Subir bóia (C–NA)'}
       </button>
+
+      {/* Instalação real dentro do reservatório */}
+      <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2" data-float-tank-mount>
+        <span className="text-[10.5px] font-semibold text-slate-700">Instalação no reservatório</span>
+        <select
+          disabled={locked}
+          className="dc-input text-[11px]"
+          value={detached ? '__none__' : (linkedTankId || (tanks[0]?.id ?? '__none__'))}
+          onChange={(e) => {
+            const val = e.target.value
+            if (val === '__none__') {
+              setState(c.id, { linkedTankId: '', detachedFromTank: true, autoCoupleTank: false })
+            } else {
+              setState(c.id, { linkedTankId: val, detachedFromTank: false, autoCoupleTank: true })
+            }
+          }}
+        >
+          <option value="__none__">Fora do reservatório (solta)</option>
+          {tanks.map((tk) => (
+            <option key={tk.id} value={tk.id}>
+              Dentro de {tk.ref} ({Math.round(Number(tk.state.levelPct ?? 68))}%)
+            </option>
+          ))}
+        </select>
+
+        {!detached && tanks.length > 0 && (
+          <>
+            <label className="flex flex-col gap-0.5">
+              <span className="flex items-center justify-between text-[10.5px] text-slate-600">
+                <span>Cota do contrapeso (disparo)</span>
+                <strong className="font-mono text-slate-800">{`${mountDepthPct}%`}</strong>
+              </span>
+              <input
+                type="range"
+                min={15}
+                max={90}
+                step={1}
+                disabled={locked}
+                value={mountDepthPct}
+                onChange={(e) => setState(c.id, { mountDepthPct: Number(e.target.value) })}
+              />
+            </label>
+            <div className="grid grid-cols-3 gap-1">
+              {([['left', 'Esquerda'], ['center', 'Centro'], ['right', 'Direita']] as const).map(([sKey, sLbl]) => (
+                <button
+                  key={sKey}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={mountSide === sKey}
+                  onClick={() => setState(c.id, { mountSide: sKey })}
+                  className={`dc-btn text-[10px] justify-center ${mountSide === sKey ? 'dc-btn-primary' : ''}`}
+                >
+                  {sLbl}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
       <label className="dc-inspector-state-row is-toggle">
-        <span className="dc-inspector-state-label">Acoplar ao reservatório</span>
+        <span className="dc-inspector-state-label">Acoplar ao nível real</span>
         <input
           type="checkbox"
           checked={autoCouple}
@@ -2003,17 +2113,39 @@ function PneumaticControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
   if (c.type === 'pneumaticCylinder') {
     const pct = Number(c.state.positionPct ?? 0)
+    const variant = (c.state.cylinderVariant === 'adn' || c.state.cylinderVariant === 'dsnu')
+      ? c.state.cylinderVariant
+      : 'dsbc'
+    const applyPos = (nextPct: number) => {
+      const patch = { positionPct: nextPct, extended: nextPct >= 90 }
+      if (useSimStore.getState().sim.runState === 'running') operate(c.id, patch)
+      else setState(c.id, patch)
+    }
     return (
       <div className="flex flex-col gap-2 text-[11px]" data-pneumatic-cylinder-controls>
         <div className="flex items-center justify-between gap-2">
-          <span className="dc-field-label">Cilindro ISO 15552</span>
+          <span className="dc-field-label">Cilindro Festo {variant.toUpperCase()}</span>
           <StatusBadge label={`${pct}% ${pct >= 90 ? 'Avançado' : pct <= 10 ? 'Recuado' : 'Em curso'}`} tone={pct >= 90 ? 'ok' : 'neutral'} />
+        </div>
+        <div className="grid grid-cols-3 gap-1">
+          {([['dsbc', 'DSBC ISO'], ['adn', 'ADN Comp.'], ['dsnu', 'DSNU Inox']] as const).map(([vKey, vLbl]) => (
+            <button
+              key={vKey}
+              type="button"
+              disabled={locked}
+              aria-pressed={variant === vKey}
+              onClick={() => setState(c.id, { cylinderVariant: vKey })}
+              className={`dc-btn text-[10px] justify-center ${variant === vKey ? 'dc-btn-primary' : ''}`}
+            >
+              {vLbl}
+            </button>
+          ))}
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
             disabled={locked}
-            onClick={() => operate(c.id, { positionPct: 100, extended: true })}
+            onClick={() => applyPos(100)}
             className={`dc-btn text-[11px] justify-center ${pct >= 90 ? 'dc-btn-primary' : ''}`}
           >
             Avançar (100%)
@@ -2021,12 +2153,163 @@ function PneumaticControls({ c, locked }: { c: ElectricalComponent; locked: bool
           <button
             type="button"
             disabled={locked}
-            onClick={() => operate(c.id, { positionPct: 0, extended: false })}
+            onClick={() => applyPos(0)}
             className={`dc-btn text-[11px] justify-center ${pct <= 10 ? 'dc-btn-primary' : ''}`}
           >
             Recuar (0%)
           </button>
         </div>
+      </div>
+    )
+  }
+
+  if (c.type === 'electricCylinderEpcs') {
+    const pct = Number(c.state.positionPct ?? 0)
+    const speedOut = Number(c.state.speedOutPct ?? 70)
+    const speedIn = Number(c.state.speedInPct ?? 70)
+    const applyPos = (nextPct: number) => {
+      const patch = { positionPct: nextPct, extended: nextPct >= 92 }
+      if (useSimStore.getState().sim.runState === 'running') operate(c.id, patch)
+      else setState(c.id, patch)
+    }
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-electric-cylinder-epcs-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Festo EPCS-BS-45-200 SMS</span>
+          <StatusBadge label={`${pct}% · 200 mm`} tone={pct >= 90 ? 'ok' : 'neutral'} />
+        </div>
+        <label className="flex flex-col gap-0.5">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Posição da haste</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${Math.round(pct * 2)} mm (${pct}%)`}</strong>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            disabled={locked}
+            value={pct}
+            onChange={(e) => applyPos(Number(e.target.value))}
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button type="button" disabled={locked} onClick={() => applyPos(100)} className={`dc-btn text-[11px] justify-center ${pct >= 92 ? 'dc-btn-primary' : ''}`}>
+            Avançar (IN1)
+          </button>
+          <button type="button" disabled={locked} onClick={() => applyPos(0)} className={`dc-btn text-[11px] justify-center ${pct <= 8 ? 'dc-btn-primary' : ''}`}>
+            Recuar (IN2)
+          </button>
+        </div>
+        <label className="flex flex-col gap-0.5">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Speed Out / Speed In</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${speedOut}% / ${speedIn}%`}</strong>
+          </span>
+          <input
+            type="range"
+            min={20}
+            max={100}
+            step={5}
+            disabled={locked}
+            value={speedOut}
+            onChange={(e) => setState(c.id, { speedOutPct: Number(e.target.value), speedInPct: Number(e.target.value) })}
+          />
+        </label>
+      </div>
+    )
+  }
+
+  if (c.type === 'pneumaticGuidedCylinder') {
+    const pct = Number(c.state.positionPct ?? 0)
+    const applyPos = (nextPct: number) => {
+      const patch = { positionPct: nextPct, extended: nextPct >= 90 }
+      if (useSimStore.getState().sim.runState === 'running') operate(c.id, patch)
+      else setState(c.id, patch)
+    }
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-pneumatic-guided-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Festo DFM-20-40-P-A-GF</span>
+          <StatusBadge label={`${pct}% · 40 mm`} tone={pct >= 90 ? 'ok' : 'neutral'} />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button type="button" disabled={locked} onClick={() => applyPos(100)} className={`dc-btn text-[11px] justify-center ${pct >= 90 ? 'dc-btn-primary' : ''}`}>
+            Avançar (100%)
+          </button>
+          <button type="button" disabled={locked} onClick={() => applyPos(0)} className={`dc-btn text-[11px] justify-center ${pct <= 10 ? 'dc-btn-primary' : ''}`}>
+            Recuar (0%)
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (c.type === 'pneumaticManifold') {
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-pneumatic-manifold-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Festo VTUG · 4 Estações DIN</span>
+          <StatusBadge label="4× 5/2 · 24V DC" tone="ok" />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {[1, 2, 3, 4].map((stNum) => {
+            const on = Boolean(c.state[`station${stNum}On`] || c.state[`station${stNum}Manual`])
+            return (
+              <button
+                key={stNum}
+                type="button"
+                disabled={locked}
+                aria-pressed={on}
+                onClick={() => {
+                  const key = `station${stNum}Manual`
+                  const patch = { [key]: !c.state[key] }
+                  if (useSimStore.getState().sim.runState === 'running') operate(c.id, patch)
+                  else setState(c.id, patch)
+                }}
+                className={`dc-btn text-[10.5px] justify-center ${on ? 'dc-btn-primary' : ''}`}
+              >
+                {`Y${stNum}: ${on ? 'P→A' : 'P→B'}`}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  if (c.type === 'pneumaticVacuumCup') {
+    const active = Boolean(c.state.vacuumActive || c.state.manualVacuum)
+    const flange = c.state.mountingFlange !== false
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-pneumatic-vacuum-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">DIYI VFG30-20 · Ventosa</span>
+          <StatusBadge label={active ? 'Sucção ATIVA' : 'Repouso'} tone={active ? 'ok' : 'neutral'} />
+        </div>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={active}
+          onClick={() => {
+            const next = !active
+            const patch = { manualVacuum: next, vacuumActive: next }
+            if (useSimStore.getState().sim.runState === 'running') operate(c.id, patch)
+            else setState(c.id, patch)
+          }}
+          className={`dc-btn text-[11px] justify-center ${active ? 'dc-btn-primary' : ''}`}
+        >
+          {active ? 'Libertar vácuo' : 'Ativar vácuo (sucção)'}
+        </button>
+        <label className="dc-inspector-state-row is-toggle">
+          <span className="dc-inspector-state-label">Bloco flange CNC lateral</span>
+          <input
+            type="checkbox"
+            checked={flange}
+            disabled={locked}
+            onChange={(e) => setState(c.id, { mountingFlange: e.target.checked })}
+          />
+        </label>
       </div>
     )
   }
@@ -2226,15 +2509,97 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
   )
 }
 
+function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const updateComponent = useSimStore((s) => s.updateComponent)
+  const isFloor = isFloorMountedMachineType(c.type) || isFloorGroundedStructureType(c.type)
+  const cur = c.panel3DPosition ?? {
+    x: ((c.schematicX ?? 420) - 420) * 0.02,
+    y: -((c.schematicY ?? 260) - 260) * 0.02,
+    z: isFloor ? 3.2 : 1.6,
+  }
+  const setAxis = (axis: 'x' | 'y' | 'z', val: number) => {
+    const next = { ...cur, [axis]: Math.round(val * 20) / 20 }
+    updateComponent(c.id, { panel3DPosition: next })
+  }
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px]" data-free-3d-position-controls>
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[10.5px] font-semibold text-slate-700">Posição no espaço 3D</span>
+        <span className="font-mono text-[10px] text-slate-500">Z: {(cur.z * 0.4).toFixed(2)} m</span>
+      </div>
+      <label className="flex flex-col gap-0.5">
+        <span className="flex items-center justify-between text-[10.5px] text-slate-600">
+          <span>Afastar do quadro (Z)</span>
+          <strong className="font-mono text-slate-800">{cur.z.toFixed(2)}</strong>
+        </span>
+        <input
+          type="range"
+          min={0.2}
+          max={26}
+          step={0.1}
+          disabled={locked}
+          value={cur.z}
+          onChange={(e) => setAxis('z', Number(e.target.value))}
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => setAxis('z', Math.max(0.2, cur.z - 1.5))}
+          className="dc-btn text-[10px] justify-center"
+        >
+          ← Aproximar
+        </button>
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => setAxis('z', Math.min(26, cur.z + 1.5))}
+          className="dc-btn text-[10px] justify-center"
+        >
+          Afastar →
+        </button>
+      </div>
+      {!isFloor && (
+        <label className="flex flex-col gap-0.5">
+          <span className="flex items-center justify-between text-[10.5px] text-slate-600">
+            <span>Altura vertical (Y)</span>
+            <strong className="font-mono text-slate-800">{cur.y.toFixed(2)}</strong>
+          </span>
+          <input
+            type="range"
+            min={-8}
+            max={12}
+            step={0.1}
+            disabled={locked}
+            value={cur.y}
+            onChange={(e) => setAxis('y', Number(e.target.value))}
+          />
+        </label>
+      )}
+      <p className="text-[9.5px] leading-snug text-slate-500">
+        Arraste no 3D para mover livremente no pavimento (X/Z). Segure <strong>Shift</strong> ao arrastar para ajustar a altura (Y).
+      </p>
+    </div>
+  )
+}
+
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
-  if (industrialDeviceTypeOf(c)) return <IndustrialDeviceControls component={c} disabled={locked} />
-  if (isLightingType(c.type)) return <LightingControls c={c} locked={locked} />
-  if (isHydraulicComponentType(c.type)) return <HydraulicControls c={c} locked={locked} />
-  if (isPneumaticComponentType(c.type)) return <PneumaticControls c={c} locked={locked} />
-  if (isStructureComponentType(c.type)) return <StructureControls c={c} locked={locked} />
-  if (isConveyorComponentType(c.type)) return <ConveyorControls c={c} locked={locked} />
-  if (c.type === 'multimeterDm20') return <MultimeterControls c={c} locked={locked} />
+  const free3DExtra = !isPanelBound(c) ? <FreeSpacePosition3DControls c={c} locked={locked} /> : null
+  const wrap = (node: React.ReactNode) => (
+    <>
+      {node}
+      {free3DExtra}
+    </>
+  )
+  if (industrialDeviceTypeOf(c)) return wrap(<IndustrialDeviceControls component={c} disabled={locked} />)
+  if (isLightingType(c.type)) return wrap(<LightingControls c={c} locked={locked} />)
+  if (isHydraulicComponentType(c.type)) return wrap(<HydraulicControls c={c} locked={locked} />)
+  if (isPneumaticComponentType(c.type)) return wrap(<PneumaticControls c={c} locked={locked} />)
+  if (isStructureComponentType(c.type)) return wrap(<StructureControls c={c} locked={locked} />)
+  if (isConveyorComponentType(c.type)) return wrap(<ConveyorControls c={c} locked={locked} />)
+  if (c.type === 'multimeterDm20') return wrap(<MultimeterControls c={c} locked={locked} />)
   if (
     c.type === 'powerSource3ph' ||
     c.type === 'powerSource1ph' ||
@@ -2242,10 +2607,10 @@ export default function DeviceControls({ component: c, disabled = false }: { com
     c.type === 'powerSupply' ||
     c.type === 'powerSupplyProauto24A'
   ) {
-    return <PowerControls c={c} locked={locked} />
+    return wrap(<PowerControls c={c} locked={locked} />)
   }
-  if (isContactorLike(c.type)) return <ContactorControls c={c} locked={locked} />
-  if (isPlcModule(c.type)) return <PlcModuleControls c={c} locked={locked} />
+  if (isContactorLike(c.type)) return wrap(<ContactorControls c={c} locked={locked} />)
+  if (isPlcModule(c.type)) return wrap(<PlcModuleControls c={c} locked={locked} />)
   if (
     [
       'selectorSchneiderXa2ed33',
@@ -2258,7 +2623,7 @@ export default function DeviceControls({ component: c, disabled = false }: { com
       'safetyRelay',
     ].includes(c.type)
   ) {
-    return <CommandAndSafetyControls c={c} locked={locked} />
+    return wrap(<CommandAndSafetyControls c={c} locked={locked} />)
   }
   if (
     [
@@ -2278,10 +2643,10 @@ export default function DeviceControls({ component: c, disabled = false }: { com
       'buzzer',
     ].includes(c.type)
   ) {
-    return <SensorAndLightControls c={c} locked={locked} />
+    return wrap(<SensorAndLightControls c={c} locked={locked} />)
   }
   if (c.type === 'motor3ph' || c.type === 'motor1ph' || c.type === 'capacitorRun60uF') {
-    return <MotorAndCapacitorControls c={c} locked={locked} />
+    return wrap(<MotorAndCapacitorControls c={c} locked={locked} />)
   }
-  return null
+  return free3DExtra
 }

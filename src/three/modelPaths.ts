@@ -438,6 +438,10 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'pneumaticValve52' ||
     type === 'pneumaticCylinder' ||
     type === 'pneumaticTee' ||
+    type === 'electricCylinderEpcs' ||
+    type === 'pneumaticGuidedCylinder' ||
+    type === 'pneumaticManifold' ||
+    type === 'pneumaticVacuumCup' ||
     type === 'rollerConveyor' ||
     type === 'opticalReflector' ||
     type === 'industrialWall' ||
