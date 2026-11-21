@@ -8,6 +8,10 @@ import { createHash } from 'node:crypto'
 import occtImportJs from '@sunbox/occt-import-js'
 import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { optimizeGlbBuffer } from './optimize-cad-glbs.mjs'
+
+/** CAD muito densos (> 90 mil triângulos): simplificados com o meshoptimizer à saída (ver optimize-cad-glbs.mjs). */
+const SIMPLIFY_TYPES = new Set(['thermalRelaySiemens3ru1116', 'surgeProtectorWegSpw12', 'safetyRelaySiemens3tk2840'])
 
 globalThis.FileReader ??= class {
   readAsArrayBuffer(blob) { blob.arrayBuffer().then(value => { this.result = value; this.onloadend?.() }).catch(error => this.onerror?.(error)) }
@@ -92,7 +96,8 @@ for (const item of config) {
   group.updateMatrixWorld(true)
   const scene = new THREE.Scene()
   scene.add(group)
-  const glb = Buffer.from(await new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible: true }))
+  let glb = Buffer.from(await new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible: true }))
+  if (SIMPLIFY_TYPES.has(item.type)) { const optimized = await optimizeGlbBuffer(glb); glb = optimized.output; triangles = optimized.trisAfter }
   const filename = `${item.type}.glb`
   await fs.writeFile(path.join(output, filename), glb)
   const source = sources.find(entry => entry.type === item.type)

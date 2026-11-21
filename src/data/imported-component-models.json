@@ -155,9 +155,9 @@
       "format": "STEP"
     },
     "meshes": 32,
-    "triangles": 175145,
-    "bytes": 6219576,
-    "glbSha256": "9245d644883bc4d39887c131dbf6dd011fdcad19ae1418bfe03c0665309d279c"
+    "triangles": 118691,
+    "bytes": 4109508,
+    "glbSha256": "e57c201514dfcaca7e922e174c4c20ac5109cff10a0685fb0251f9997f4aae8e"
   },
   {
     "type": "residualBreakerHagerCfc225p",
@@ -320,9 +320,9 @@
       "format": "STEP"
     },
     "meshes": 36,
-    "triangles": 106576,
-    "bytes": 3723328,
-    "glbSha256": "4e22941d0a10428000ab4bb950f94af58e89809e04043f054dc022fb043f5355"
+    "triangles": 43546,
+    "bytes": 1541456,
+    "glbSha256": "ac08172068b77fa83965a38c759d42caa1d80807d1c07772612567a085360360"
   },
   {
     "type": "safetyRelaySiemens3tk2840",
@@ -352,9 +352,9 @@
       "format": "STEP"
     },
     "meshes": 46,
-    "triangles": 90900,
-    "bytes": 3299056,
-    "glbSha256": "a816877ffd32e92de80bf3fd2dcd6c78482442a19eb8e6447ea9506917237208"
+    "triangles": 30806,
+    "bytes": 1095100,
+    "glbSha256": "523111f9aa13d0c0c5488b1de8a691b23f6b79404dad01f1e7d7a12b8cb3003f"
   },
   {
     "type": "motorBreakerSchneiderGv2me",
