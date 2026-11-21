@@ -58,7 +58,7 @@ import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/co
 import TerminalStripControls from './TerminalStripControls'
 import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
 import { isRealBusbarType } from '../three/busbarParts'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
 import { HYDRAULIC_GAUGES, PNEUMATIC_GAUGES } from '../three/hydraulicsModel'
 import {
@@ -762,6 +762,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     onClick={() => toggleDomain(domain.id)}
                     className="dc-library-domain-head"
                   >
+                    <span className="dc-library-folder-icon dc-library-domain-icon" style={{ color: domain.accent }} aria-hidden="true"><IconProjects size={16} /></span>
                     <span className="dc-library-domain-label">{domain.label}</span>
                     <span className="dc-library-domain-count">{domainCount}</span>
                     <IconChevronDown size={13} className={`dc-library-folder-chevron ${domainCollapsed ? '' : 'is-open'}`} />

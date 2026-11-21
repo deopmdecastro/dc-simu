@@ -1887,6 +1887,7 @@ button:disabled { cursor:not-allowed; }
 .dc-library-domain { margin-bottom:8px; border:1px solid var(--dx-line-soft, #dfe7f2); border-radius:7px; background:var(--dx-surface, #fff); overflow:hidden; }
 .dc-library-domain-head { width:100%; min-height:40px; display:flex; align-items:center; gap:8px; padding:8px 11px; text-align:left; color:var(--dx-ink, #25344c); font-size:11px; font-weight:700; }
 .dc-library-domain-head:hover { background:var(--dx-surface-2, #f5f7fa); }
+.dc-library-domain-icon { flex:none; }
 .dc-library-domain-label { flex:1; min-width:0; line-height:1.4; }
 .dc-library-domain-count { flex:none; min-width:25px; padding:2px 5px; border-radius:4px; background:var(--dx-surface-2, #f1f4f8); color:var(--dx-ink-2, #526174); text-align:center; font-size:10px; font-variant-numeric:tabular-nums; font-weight:500; }
 .dc-library-domain-groups { padding:0 7px 7px; }
