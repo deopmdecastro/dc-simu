@@ -47,6 +47,8 @@ import {
   wireMinBendRadiusMm,
 } from '../admin/editor3d/wireStyle'
 import Select from './Select'
+import type { CSSProperties, ReactNode } from 'react'
+import { IconChevronDown } from './icons'
 
 /**
  * Opções dos cabos novos e átomos visuais partilhados entre:
@@ -314,11 +316,20 @@ export function CableAccessoryMap({ wire }: { wire: Pick<Wire, 'color' | 'sheath
   )
 }
 
+function WireOptionSection({ progressive, name, title, summary, children }: { progressive: boolean; name: string; title: string; summary: ReactNode; children: ReactNode }) {
+  if (!progressive) return <>{children}</>
+  return <details className="wo-disclosure" data-wire-section={name}>
+    <summary><strong>{title}</strong><span className="wo-disclosure-value">{summary}</span><IconChevronDown size={13} /></summary>
+    <div className="wo-disclosure-body">{children}</div>
+  </details>
+}
+
 export function WireOptionsFields({
   value,
   onChange,
   compact = false,
   showRouting = false,
+  progressive = false,
 }: {
   value: WireDefaults
   onChange: (patch: WireOptionPatch) => void
@@ -326,6 +337,8 @@ export function WireOptionsFields({
   compact?: boolean
   /** Mostra os controlos de traçado/curva e ligação contínua (simulador 2D/3D). */
   showRouting?: boolean
+  /** Opções essenciais visíveis e ajustes secundários a pedido no simulador. */
+  progressive?: boolean
 }) {
   const endColor = value.autoColor ? '#ef4444' : WIRE_COLOR_HEX[value.color]
   const selectedEnd = WIRE_END_OPTIONS.find((option) => option.id === value.endType)
@@ -343,6 +356,7 @@ export function WireOptionsFields({
   const isPneumatic = activeMedium === 'pneumatic'
   const isElectrical = !isHydraulic && !isPneumatic
   const pickMedium = (medium: ConduitMedium) => {
+    if (medium === activeMedium) return
     if (medium === 'hydraulic') {
       onChange({
         medium,
@@ -399,15 +413,39 @@ export function WireOptionsFields({
     if (id) st.selectComponents([id])
   }
 
+  const dimensions = (
+    <div className="wo-group wo-dimensions">
+        <div className="wo-label">
+          <span>{isElectrical ? 'Secção nominal' : isHydraulic ? 'Diâmetro hidráulico' : 'Diâmetro tubo PU'}</span>
+          <em>{value.gauge}{isElectrical && ampacityA !== null ? ` · ≈ ${ampacityA} A` : ''}</em>
+        </div>
+        <div className="wo-gauges" role="radiogroup" aria-label={isElectrical ? 'Secção do cabo' : 'Diâmetro do tubo'}>
+          {activeGauges.map((gauge) => (
+            <button
+              key={gauge}
+              type="button"
+              role="radio"
+              aria-checked={value.gauge === gauge}
+              aria-label={`Bitola ${gauge}`}
+              className={`wo-gauge${value.gauge === gauge ? ' is-on' : ''}`}
+              onClick={() => onChange({ gauge })}
+            >
+              {gauge.includes('mm²') ? <>{gauge.replace('mm²', '')}<i>mm²</i></> : <span>{gauge}</span>}
+            </button>
+          ))}
+        </div>
+    </div>
+  )
+
   return (
-    <div className={`wo-fields${compact ? ' is-compact' : ''}`} data-conduit-active-medium={activeMedium}>
+    <div className={`wo-fields${compact ? ' is-compact' : ''}${progressive ? ' is-progressive' : ''}`} data-conduit-active-medium={activeMedium}>
       {/* Seletor de meio físico: Cabo elétrico | Tubo hidráulico | Tubo pneumático */}
       <div className="wo-group" data-conduit-medium-group>
         <div className="wo-label">
-          <span>Tipo de conduta</span>
-          <em>{isHydraulic ? 'Hidráulica' : isPneumatic ? 'Pneumática' : 'Elétrica'}</em>
+          <span>{progressive ? 'Tipo de ligação' : 'Tipo de conduta'}</span>
+          {!progressive && <em>{isHydraulic ? 'Hidráulica' : isPneumatic ? 'Pneumática' : 'Elétrica'}</em>}
         </div>
-        <div className="wo-routes" role="radiogroup" aria-label="Tipo de conduta (cabo elétrico, tubo hidráulico ou pneumático)">
+        <div className="wo-routes wo-medium-choices" role="radiogroup" aria-label="Tipo de conduta (cabo elétrico, tubo hidráulico ou pneumático)">
           {([
             ['electrical', 'Cabo elétrico', 'Condutor elétrico normalizado'],
             ['hydraulic', 'Tubo hidráulico', 'Tubagem hidráulica com uniões roscadas'],
@@ -453,6 +491,9 @@ export function WireOptionsFields({
           {isPneumatic && <span>Ar · {value.pneumaticPressureBar ?? 6} bar</span>}
         </div>
       </div>
+
+      {/* Secção (elétrico) OU Diâmetro nominal (hidráulico / pneumático) */}
+      {progressive && dimensions}
 
       {showRouting && (
         <div className="wo-group">
@@ -501,6 +542,7 @@ export function WireOptionsFields({
       )}
 
       {/* Cor filtrada pelo tipo de conduta */}
+      <WireOptionSection progressive={progressive} name="color" title={isElectrical ? 'Cor do cabo' : 'Cor do tubo'} summary={<>{!(isElectrical && value.autoColor) && <i className="wo-current-color" style={{ background: wireColorSwatchBg(value.color) }} />}{isElectrical && value.autoColor ? 'Automática' : WIRE_COLOR_LABEL[value.color]}</>}>
       <div className="wo-group wo-colors">
         <div className="wo-label">
           <span>{isHydraulic ? 'Cor da tubagem / fluido' : isPneumatic ? 'Cor do tubo PU' : 'Cor do cabo'}</span>
@@ -526,38 +568,18 @@ export function WireOptionsFields({
               aria-label={WIRE_COLOR_LABEL[name]}
               title={WIRE_COLOR_LABEL[name]}
               className={`wo-swatch${(!isElectrical || !value.autoColor) && value.color === name ? ' is-on' : ''}${isElectrical && value.autoColor ? ' is-dim' : ''}`}
-              style={{ background: wireColorSwatchBg(name) }}
+              style={progressive ? { '--wo-swatch-color': wireColorSwatchBg(name) } as CSSProperties : { background: wireColorSwatchBg(name) }}
               onClick={() => onChange({ color: name, autoColor: false })}
             />
           ))}
         </div>
       </div>
-
-      {/* Secção (elétrico) OU Diâmetro nominal (hidráulico / pneumático) */}
-      <div className="wo-group">
-        <div className="wo-label">
-          <span>{isElectrical ? 'Secção nominal' : isHydraulic ? 'Diâmetro hidráulico' : 'Diâmetro tubo PU'}</span>
-          <em>{value.gauge}{isElectrical && ampacityA !== null ? ` · ≈ ${ampacityA} A` : ''}</em>
-        </div>
-        <div className="wo-gauges" role="radiogroup" aria-label={isElectrical ? 'Secção do cabo' : 'Diâmetro do tubo'}>
-          {activeGauges.map((gauge) => (
-            <button
-              key={gauge}
-              type="button"
-              role="radio"
-              aria-checked={value.gauge === gauge}
-              aria-label={`Bitola ${gauge}`}
-              className={`wo-gauge${value.gauge === gauge ? ' is-on' : ''}`}
-              onClick={() => onChange({ gauge })}
-            >
-              {gauge.includes('mm²') ? <>{gauge.replace('mm²', '')}<i>mm²</i></> : <span>{gauge}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
+      </WireOptionSection>
+      {!progressive && dimensions}
 
       {/* === OPÇÕES EXCLUSIVAMENTE HIDRÁULICAS === */}
       {isHydraulic && (
+        <WireOptionSection progressive={progressive} name="hydraulic" title="Uniões e material" summary={`${HYDRAULIC_FITTING_OPTIONS.find((f) => f.id === (value.hydraulicFitting ?? 'union'))?.label} · ${HYDRAULIC_MATERIALS.find((material) => material.id === (value.hydraulicMaterial ?? 'ppr'))?.label} · PN${value.hydraulicPressureBar ?? 10}`}>
         <div className="wo-group" data-hydraulic-only-controls>
           <div className="wo-label">
             <span>Uniões e acessórios hidráulicos</span>
@@ -583,8 +605,8 @@ export function WireOptionsFields({
             })}
           </div>
           <div className="wo-label mt-2">
-            <span>Material &amp; pressão nominal</span>
-            <em>{`${(value.hydraulicMaterial ?? 'ppr').toUpperCase()} · PN${value.hydraulicPressureBar ?? 10}`}</em>
+            <span>Material do tubo</span>
+            <em>{HYDRAULIC_MATERIALS.find((material) => material.id === (value.hydraulicMaterial ?? 'ppr'))?.label}</em>
           </div>
           <div className="wo-gauges" role="radiogroup" aria-label="Material hidráulico">
             {HYDRAULIC_MATERIALS.map((mat) => (
@@ -600,10 +622,15 @@ export function WireOptionsFields({
                 <span>{mat.label}</span>
               </button>
             ))}
+          </div>
+          <div className="wo-label mt-2"><span>Pressão nominal</span><em>PN{value.hydraulicPressureBar ?? 10}</em></div>
+          <div className="wo-gauges wo-pressure-choices" role="radiogroup" aria-label="Pressão nominal hidráulica">
             {[10, 16].map((bar) => (
               <button
                 key={bar}
                 type="button"
+                role="radio"
+                aria-checked={(value.hydraulicPressureBar ?? 10) === bar}
                 className={`wo-gauge${(value.hydraulicPressureBar ?? 10) === bar ? ' is-on' : ''}`}
                 onClick={() => onChange({ hydraulicPressureBar: bar })}
               >
@@ -620,10 +647,12 @@ export function WireOptionsFields({
             </button>
           </div>
         </div>
+        </WireOptionSection>
       )}
 
       {/* === OPÇÕES EXCLUSIVAMENTE PNEUMÁTICAS === */}
       {isPneumatic && (
+        <WireOptionSection progressive={progressive} name="pneumatic" title="Conectores e pressão" summary={`${PNEUMATIC_FITTING_OPTIONS.find((f) => f.id === (value.pneumaticFitting ?? 'pushInStraight'))?.label} · ${value.pneumaticPressureBar ?? 6} bar`}>
         <div className="wo-group" data-pneumatic-only-controls>
           <div className="wo-label">
             <span>Conectores e uniões Push-In</span>
@@ -675,6 +704,7 @@ export function WireOptionsFields({
             </button>
           </div>
         </div>
+        </WireOptionSection>
       )}
 
       {/* === OPÇÕES EXCLUSIVAMENTE ELÉTRICAS === */}
@@ -702,6 +732,7 @@ export function WireOptionsFields({
             </div>
           </div>
 
+          <WireOptionSection progressive={progressive} name="ends" title="Terminal das pontas" summary={selectedEnd?.label ?? 'Sem terminal'}>
           <div className="wo-group">
             <div className="wo-label"><span>Terminal das pontas</span><em>{selectedEnd?.label ?? ''}</em></div>
             <div className="wo-ends" role="radiogroup" aria-label="Terminal das pontas do cabo">
@@ -723,7 +754,9 @@ export function WireOptionsFields({
             </div>
             <small className="wo-note">{selectedEnd?.hint}</small>
           </div>
+          </WireOptionSection>
 
+          <WireOptionSection progressive={progressive} name="formation" title="Formação e proteção" summary={`${value.conductorCount ?? 1} condutor${(value.conductorCount ?? 1) > 1 ? 'es' : ''} · ${value.sheathed ? 'Com capa' : 'Sem capa'}`}>
           <div className="wo-group">
             <div className="wo-label">
               <span>Formação / multicore</span>
@@ -789,6 +822,7 @@ export function WireOptionsFields({
               )}
             </div>
           </div>
+          </WireOptionSection>
         </>
       )}
     </div>

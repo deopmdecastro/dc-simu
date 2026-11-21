@@ -174,7 +174,10 @@ function renderModelImage(model: THREE.Group, _shared: { motor?: boolean; emerge
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     // Os materiais do motor estão em cache partilhado (texturas já carregadas).
     materials.forEach((material) => { if (!material.userData?.__dcMotorTextured) material.dispose() })
-    if (mesh.userData.generatedTerminalSocket) mesh.geometry.dispose()
+    if (mesh.userData.generatedTerminalSocket || mesh.userData.structureCapture) mesh.geometry.dispose()
+    if (mesh.userData.structureCapture) {
+      materials.forEach((material) => Object.values(material).forEach((value) => { if (value instanceof THREE.Texture) value.dispose() }))
+    }
   })
   return image
 }

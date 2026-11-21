@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useGLTF } from '@react-three/drei'
+import { RoundedBox, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
+import { FontLoader, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
+import embossFont from 'three/examples/fonts/helvetiker_bold.typeface.json'
 import type { ElectricalComponent } from '../types'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
@@ -657,28 +660,36 @@ function createArcoTuriaGripTexture(): THREE.CanvasTexture | null {
   return tex
 }
 
-/** Malha ultra-realista do passador de esfera cromado ARCO TURIA 3000 (fiel a image-34.png!) */
+/** Passador com ombros arredondados, uniões sextavadas, roscas e alavanca revestida. */
 function ArcoTuria3000ValveMesh({
   scale,
   open,
   leverRef,
   withSpout = false,
+  closedAngle = Math.PI / 2,
 }: {
   scale: number
   open: boolean
   leverRef?: React.RefObject<THREE.Group>
   withSpout?: boolean
+  closedAngle?: number
 }) {
   const gripTex = useMemo(() => createArcoTuriaGripTexture(), [])
   useEffect(() => () => { gripTex?.dispose() }, [gripTex])
+  const bodyGeometry = useMemo(() => new THREE.LatheGeometry([
+    new THREE.Vector2(scale * 1.18, -scale * 0.98), new THREE.Vector2(scale * 1.32, -scale * 0.87),
+    new THREE.Vector2(scale * 1.44, -scale * 0.64), new THREE.Vector2(scale * 1.46, 0),
+    new THREE.Vector2(scale * 1.44, scale * 0.64), new THREE.Vector2(scale * 1.32, scale * 0.87),
+    new THREE.Vector2(scale * 1.18, scale * 0.98),
+  ], 40), [scale])
+  useEffect(() => () => bodyGeometry.dispose(), [bodyGeometry])
 
   const s = scale
   return (
     <group>
       {/* Corpo central forjado em latão cromado/niquelado acetinado (forma barril ARCO TURIA 3000) */}
-      <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-        <cylinderGeometry args={[s * 1.44, s * 1.44, s * 1.95, 28]} />
-        <meshStandardMaterial color="#dce2e8" roughness={0.21} metalness={0.92} />
+      <mesh name="arco-nickel-body" geometry={bodyGeometry} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <meshStandardMaterial name="Nickel acetinado" color="#cbd0d2" roughness={0.24} metalness={0.94} />
       </mesh>
       {/* Nervura central de união das duas meias-carcaças do corpo */}
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
@@ -692,6 +703,10 @@ function ArcoTuria3000ValveMesh({
             <cylinderGeometry args={[s * 1.48, s * 1.48, s * 1.25, 6]} />
             <meshStandardMaterial color="#d8dfe6" roughness={0.2} metalness={0.93} />
           </mesh>
+          {[-1, 1].map((edge) => <mesh key={edge} position={[edge * s * 0.64, 0, 0]} rotation={[0, 0, edge * Math.PI / 2]}>
+            <cylinderGeometry args={[s * 1.48, s * 1.34, s * 0.12, 6]} />
+            <meshStandardMaterial name="Chanfro niquelado" color="#cbd1d4" roughness={0.23} metalness={0.94} />
+          </mesh>)}
           {/* Chanfro frontal da boca */}
           <mesh position={[side * s * 0.66, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[s * 1.18, s * 1.32, s * 0.18, 22]} />
@@ -708,6 +723,10 @@ function ArcoTuria3000ValveMesh({
                 <cylinderGeometry args={[s * 0.86, s * 0.86, s * 0.12, 20]} />
                 <meshStandardMaterial color={open ? '#0f172a' : '#dce2e8'} roughness={open ? 0.85 : 0.14} metalness={open ? 0.1 : 0.95} />
               </mesh>
+              {Array.from({ length: 5 }, (_, thread) => <mesh key={thread} position={[side * s * (0.48 + thread * 0.07), 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                <torusGeometry args={[s * 0.96, s * 0.035, 6, 32]} />
+                <meshStandardMaterial name="Latão da rosca" color="#ad883c" roughness={0.3} metalness={0.88} />
+              </mesh>)}
             </>
           )}
         </group>
@@ -727,7 +746,7 @@ function ArcoTuria3000ValveMesh({
       <group
         ref={leverRef}
         position={[0, s * 2.04, 0]}
-        rotation={[0, open ? 0 : Math.PI / 2, 0]}
+        rotation={[0, open ? 0 : closedAngle, 0]}
       >
         {/* Porca sextavada superior de fixação + topo do veio */}
         <mesh position={[0, s * 0.32, 0]} castShadow>
@@ -756,8 +775,7 @@ function ArcoTuria3000ValveMesh({
         </mesh>
 
         {/* Braço horizontal superior revestido em PVC VERMELHO ARCO com impressão "TURIA 3000 · ARCO" */}
-        <mesh position={[s * 3.85, s * 1.22, 0]} castShadow receiveShadow>
-          <boxGeometry args={[s * 3.75, s * 0.44, s * 0.96]} />
+        <RoundedBox name="arco-pvc-grip" position={[s * 3.85, s * 1.22, 0]} args={[s * 3.75, s * 0.44, s * 0.96]} radius={s * 0.12} smoothness={3} castShadow receiveShadow>
           <meshPhysicalMaterial
             color="#d91e1e"
             roughness={0.34}
@@ -765,7 +783,7 @@ function ArcoTuria3000ValveMesh({
             clearcoat={0.25}
             clearcoatRoughness={0.28}
           />
-        </mesh>
+        </RoundedBox>
         {/* Ponta arredondada do punho vermelho */}
         <mesh position={[s * 5.72, s * 1.22, 0]} castShadow>
           <cylinderGeometry args={[s * 0.48, s * 0.48, s * 0.44, 16]} />
@@ -1766,6 +1784,7 @@ function createFlowMeterFaceplateTexture(
   flowLpm: number,
   displayMode: 'total' | 'instant',
   pipeDN: string,
+  powered: boolean,
 ): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') return null
   const c = document.createElement('canvas')
@@ -1806,7 +1825,7 @@ function createFlowMeterFaceplateTexture(
   ctx.fillText('ZJLCD-BT01', 286, 40)
 
   ctx.font = '600 17px Arial, sans-serif'
-  ctx.fillText(`Model Number under battery  ·  ${pipeDN}`, 286, 260)
+  ctx.fillText(`${pipeDN}  ·  VOLUME / CAUDAL`, 286, 260)
 
   // Botões de membrana pretos com anel branco (SET e CLEAR)
   const drawMembraneBtn = (bx: number, by: number, label: string) => {
@@ -1833,12 +1852,14 @@ function createFlowMeterFaceplateTexture(
   ctx.fillStyle = '#e2e8f0'
   ctx.fillRect(lx - 5, ly - 5, lw + 10, lh + 10)
   const lcdGrad = ctx.createLinearGradient(lx, ly, lx, ly + lh)
-  lcdGrad.addColorStop(0, '#c6cfb9')
-  lcdGrad.addColorStop(1, '#aeb9a0')
+  lcdGrad.addColorStop(0, powered ? '#c6cfb9' : '#777f71')
+  lcdGrad.addColorStop(1, powered ? '#aeb9a0' : '#666e61')
   ctx.fillStyle = lcdGrad
   ctx.fillRect(lx, ly, lw, lh)
 
-  // Leitura LCD principal (Single batch volume em litros, ex. 14.894 L)
+  // Sem alimentação, o LCD permanece sem segmentos; a serigrafia física mantém-se visível.
+  if (powered) {
+  // Leitura LCD principal (volume parcial em litros).
   ctx.fillStyle = '#1e241b'
   ctx.textAlign = 'right'
   ctx.font = '800 62px "Courier New", monospace'
@@ -1860,6 +1881,7 @@ function createFlowMeterFaceplateTexture(
     ctx.fillText(totalL.toFixed(1).padStart(7, '0'), lx + lw - 66, ly + 124)
     ctx.font = '700 15px Arial, sans-serif'
     ctx.fillText('TOTAL', lx + lw - 10, ly + 126)
+  }
   }
 
   const tex = new THREE.CanvasTexture(c)
@@ -1891,6 +1913,7 @@ export function WaterFlowMeterZjLcd3D({
   const flowLpm = Math.max(0, Number(c.state.flowRateLpm ?? 0))
   const displayMode: 'total' | 'instant' = c.state.displayMode === 'instant' ? 'instant' : 'total'
   const verticalMount = c.state.installOrientation === 'vertical'
+  const powered = c.state.powered === true
 
   // Quantizar leitura para não recriar CanvasTexture a cada milissegundo
   const qSingle = Math.round(singleL * 100) / 100
@@ -1898,8 +1921,8 @@ export function WaterFlowMeterZjLcd3D({
   const qFlow = Math.round(flowLpm * 10) / 10
 
   const faceTex = useMemo(
-    () => createFlowMeterFaceplateTexture(qSingle, qTotal, qFlow, displayMode, spec.dn),
-    [qSingle, qTotal, qFlow, displayMode, spec.dn],
+    () => createFlowMeterFaceplateTexture(qSingle, qTotal, qFlow, displayMode, spec.dn, powered),
+    [qSingle, qTotal, qFlow, displayMode, spec.dn, powered],
   )
   useEffect(() => () => faceTex?.dispose(), [faceTex])
 
@@ -1921,7 +1944,7 @@ export function WaterFlowMeterZjLcd3D({
   const pvcMid = '#5a626e'
 
   return (
-    <group position={position} rotation={[0, 0, verticalMount ? Math.PI / 2 : 0]} name={`water-flow-meter-3d-${c.id}`}>
+    <group position={position} rotation={[0, 0, verticalMount ? Math.PI / 2 : 0]} name={`water-flow-meter-3d-${c.id}`} userData={{ meterPowered: powered }}>
       {/* Corpo central tubular UPVC cinzento-escuro */}
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
         <cylinderGeometry args={[pipeOuterR * 1.06, pipeOuterR * 1.06, L * 0.62, 24]} />
@@ -1957,14 +1980,14 @@ export function WaterFlowMeterZjLcd3D({
             {Array.from({ length: 12 }).map((_, rIdx) => {
               const ang = (rIdx * Math.PI * 2) / 12
               return (
-                <mesh
+                <RoundedBox
                   key={rIdx}
                   position={[0, Math.sin(ang) * (nutR * 0.98), Math.cos(ang) * (nutR * 0.98)]}
                   rotation={[ang, 0, 0]}
+                  args={[nutLen * 0.74, 0.036, 0.042]} radius={0.006} smoothness={2}
                 >
-                  <boxGeometry args={[nutLen * 0.74, 0.036, 0.042]} />
                   <meshStandardMaterial color="#3f4650" roughness={0.48} />
-                </mesh>
+                </RoundedBox>
               )
             })}
           </group>
@@ -1980,17 +2003,26 @@ export function WaterFlowMeterZjLcd3D({
       {/* Cabeça eletrónica LCD ZJLCD-BT01 ligeiramente inclinada para o operador (fiel a image-46.png) */}
       <group position={[0, pipeOuterR * 1.18 + headH * 0.24, pipeOuterR * 0.56]} rotation={[-0.24, 0, 0]}>
         {/* Caixa exterior cinzento-escuro */}
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[headW, headH, headD]} />
-          <meshStandardMaterial color="#58606a" roughness={0.40} metalness={0.12} />
-        </mesh>
+        <RoundedBox name="flow-meter-electronics-housing" args={[headW, headH, headD]} radius={2.2 * U} smoothness={3} castShadow receiveShadow>
+          <meshPhysicalMaterial name="ABS do contador" color="#4d5660" roughness={0.38} metalness={0.02} clearcoat={0.15} clearcoatRoughness={0.38} />
+        </RoundedBox>
         {/* Faceplate azul + LCD dinâmico */}
         {faceTex && (
-          <mesh position={[0, 0, headD / 2 + 0.008]}>
+          <mesh name="flow-meter-faceplate" position={[0, 0, headD / 2 + 0.008]} userData={{ meterPowered: powered }}>
             <planeGeometry args={[headW * 0.95, headH * 0.92]} />
-            <meshStandardMaterial map={faceTex} roughness={0.34} metalness={0.05} polygonOffset polygonOffsetFactor={-1} />
+            <meshStandardMaterial name="Serigrafia do contador" map={faceTex} roughness={0.34} metalness={0.05} polygonOffset polygonOffsetFactor={-1} />
           </mesh>
         )}
+        {/* Rebaixo, junta e cobertura ótica do visor, em planos distintos da serigrafia. */}
+        <group position={[headW * 0.107, 0, headD / 2 + 0.017]} name="flow-meter-lcd-bezel">
+          {[[0, headH * 0.255, headW * 0.60, 0.012], [0, -headH * 0.255, headW * 0.60, 0.012], [-headW * 0.296, 0, 0.012, headH * 0.52], [headW * 0.296, 0, 0.012, headH * 0.52]].map(([x, y, w, h], i) => <RoundedBox key={i} position={[x, y, 0]} args={[w, h, 0.018]} radius={0.004} smoothness={2}>
+            <meshStandardMaterial name="Junta LCD" color="#303a35" roughness={0.78} />
+          </RoundedBox>)}
+          <mesh name="flow-meter-lcd-glass" position={[0, 0, 0.012]} userData={{ meterPowered: powered }}>
+            <boxGeometry args={[headW * 0.578, headH * 0.49, 0.008]} />
+            <meshPhysicalMaterial name="LCD glass" userData={{ dcSimuBodySurface: 'preserve', keepTransparent: true }} color="#d5e1d0" transparent opacity={0.13} roughness={0.09} metalness={0} clearcoat={1} clearcoatRoughness={0.06} depthWrite={false} />
+          </mesh>
+        </group>
         {/* 4 parafusos metálicos Phillips nos cantos */}
         {[
           [-headW * 0.43, headH * 0.40],
@@ -1998,33 +2030,39 @@ export function WaterFlowMeterZjLcd3D({
           [-headW * 0.43, -headH * 0.40],
           [headW * 0.43, -headH * 0.40],
         ].map(([sx, sy], idx) => (
-          <mesh key={idx} position={[sx, sy, headD / 2 + 0.015]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.026, 0.026, 0.018, 12]} />
-            <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.22} />
-          </mesh>
+          <group key={idx} position={[sx, sy, headD / 2 + 0.015]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.026, 0.026, 0.018, 24]} /><meshStandardMaterial name="Aço do parafuso" color="#aeb8c1" metalness={0.9} roughness={0.25} /></mesh>
+            {[0, Math.PI / 2].map((angle, i) => <mesh key={i} position={[0, 0, 0.01]} rotation={[0, 0, angle]}><boxGeometry args={[0.029, 0.006, 0.002]} /><meshStandardMaterial color="#3a4044" roughness={0.7} /></mesh>)}
+          </group>
         ))}
 
-        {/* Zonas clicáveis 3D dos botões SET e CLEAR no frontal! */}
+        {/* Botões de membrana com espessura física, sem interação eletrónica quando desligados. */}
         <mesh
+          name="flow-meter-set"
           position={[-headW * 0.30, headH * 0.18, headD / 2 + 0.018]}
+          rotation={[Math.PI / 2, 0, 0]}
           onClick={(e) => {
             e.stopPropagation()
-            onPressSet?.()
+            if (powered) onPressSet?.()
           }}
         >
-          <circleGeometry args={[headH * 0.14, 18]} />
-          <meshBasicMaterial transparent opacity={0} />
+          <cylinderGeometry args={[headH * 0.13, headH * 0.14, 0.018, 24]} />
+          <meshStandardMaterial name="Membrana SET" color="#252d34" roughness={0.61} />
         </mesh>
         <mesh
+          name="flow-meter-clear"
           position={[-headW * 0.30, -headH * 0.19, headD / 2 + 0.018]}
+          rotation={[Math.PI / 2, 0, 0]}
           onClick={(e) => {
             e.stopPropagation()
-            onPressClear?.()
+            if (powered) onPressClear?.()
           }}
         >
-          <circleGeometry args={[headH * 0.14, 18]} />
-          <meshBasicMaterial transparent opacity={0} />
+          <cylinderGeometry args={[headH * 0.13, headH * 0.14, 0.018, 24]} />
+          <meshStandardMaterial name="Membrana CLEAR" color="#252d34" roughness={0.61} />
         </mesh>
+        <Text position={[-headW * 0.30, headH * 0.18, headD / 2 + 0.031]} fontSize={headH * 0.055} color="#e8edf2" anchorX="center" anchorY="middle">SET</Text>
+        <Text position={[-headW * 0.30, -headH * 0.19, headD / 2 + 0.031]} fontSize={headH * 0.047} color="#e8edf2" anchorX="center" anchorY="middle">CLEAR</Text>
       </group>
 
       {/* Versão com cabo Open-Drain (+24V Vermelho · PULSE Amarelo · GND Preto — fiel a image-48.png) */}
@@ -2060,38 +2098,6 @@ export function WaterFlowMeterZjLcd3D({
 //    - Caixa de derivação interna com 3 conectores WAGO 221 transparentes já ligados ao contador!
 // ============================================================================
 
-function createWaterBoxApronTexture(): THREE.CanvasTexture | null {
-  if (typeof document === 'undefined') return null
-  const c = document.createElement('canvas')
-  c.width = 512
-  c.height = 256
-  const ctx = c.getContext('2d')
-  if (!ctx) return null
-
-  ctx.fillStyle = '#eceff3'
-  ctx.fillRect(0, 0, c.width, c.height)
-
-  ctx.strokeStyle = '#cbd2da'
-  ctx.lineWidth = 4
-  ctx.strokeRect(24, 18, 66, 214)
-
-  ctx.font = '800 58px system-ui, -apple-system, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillStyle = '#d3d9e1'
-  ctx.fillText('ÁGUA', 282, 134)
-  ctx.fillStyle = '#f8fafc'
-  ctx.fillText('ÁGUA', 280, 132)
-  ctx.fillStyle = '#dfe4eb'
-  ctx.fillText('ÁGUA', 281, 133)
-
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 4
-  tex.needsUpdate = true
-  return tex
-}
-
 export function WaterSupplyBox3D({
   c,
   position = [0, 0, 0],
@@ -2114,7 +2120,7 @@ export function WaterSupplyBox3D({
   const doorPivotRef = useRef<THREE.Group>(null)
   const valvePivotRef = useRef<THREE.Group>(null)
   const doorProgressRef = useRef(c.state.doorOpen !== false ? 1 : 0)
-  const valveAngleRef = useRef(c.state.valveOpen !== false ? 0 : Math.PI / 2)
+  const valveAngleRef = useRef(c.state.valveOpen !== false ? 0 : -Math.PI / 2)
 
   const doorOpen = c.state.doorOpen !== false
   const valveOpen = c.state.valveOpen !== false
@@ -2126,12 +2132,15 @@ export function WaterSupplyBox3D({
   const D = 170 * U
   const wallT = 10 * U
 
-  const apronTex = useMemo(() => createWaterBoxApronTexture(), [])
-  const arcoGripTex = useMemo(() => createArcoTuriaGripTexture(), [])
-  useEffect(() => () => {
-    apronTex?.dispose()
-    arcoGripTex?.dispose()
-  }, [apronTex, arcoGripTex])
+  const embossedLabel = useMemo(() => {
+    const font = new FontLoader().parse(embossFont as unknown as FontData)
+    const geometry = new TextGeometry('ÁGUA', { font, size: 27 * U, depth: 0.6 * U, curveSegments: 5, bevelEnabled: true, bevelSize: 0.15 * U, bevelThickness: 0.15 * U, bevelSegments: 1 })
+    geometry.computeBoundingBox()
+    const center = geometry.boundingBox!.getCenter(new THREE.Vector3())
+    geometry.translate(-center.x, -center.y, 0)
+    return geometry
+  }, [])
+  useEffect(() => () => embossedLabel.dispose(), [embossedLabel])
 
   // Sub-componente virtual para reaproveitar o modelo real WaterFlowMeterZjLcd3D no interior!
   const meterComp = useMemo<ElectricalComponent>(() => ({
@@ -2157,7 +2166,7 @@ export function WaterSupplyBox3D({
     if (doorPivotRef.current) {
       doorPivotRef.current.rotation.y = doorProgressRef.current * (Math.PI * 0.78)
     }
-    const targetValve = valveOpen ? 0 : Math.PI / 2
+    const targetValve = valveOpen ? 0 : -Math.PI / 2
     if (Math.abs(valveAngleRef.current - targetValve) > 0.005) {
       valveAngleRef.current += (targetValve - valveAngleRef.current) * Math.min(1, dt * 12)
       if (Math.abs(valveAngleRef.current - targetValve) <= 0.005) valveAngleRef.current = targetValve
@@ -2253,17 +2262,16 @@ export function WaterSupplyBox3D({
   }, [W, H, D, wallT, meterComp.state])
   useEffect(() => () => { junction.meterCable.dispose(); junction.outCable.dispose() }, [junction])
 
-  const boxWhite = '#eef1f5'
-  const innerWhite = '#dfe4eb'
+  const boxWhite = '#dfe3e5'
+  const innerWhite = '#cbd1d5'
   const pipeGrey = '#464d56'
 
   return (
     <group position={position} name={`water-supply-box-3d-${c.id}`}>
       {/* Fundo da caixa com 2 furos de fixação */}
-      <mesh position={[0, 0, -D / 2 + wallT / 2]} castShadow receiveShadow>
-        <boxGeometry args={[W, H, wallT]} />
-        <meshStandardMaterial color={innerWhite} roughness={0.46} />
-      </mesh>
+      <RoundedBox name="water-box-backplate" position={[0, 0, -D / 2 + wallT / 2]} args={[W, H, wallT]} radius={1.2 * U} smoothness={3} castShadow receiveShadow>
+        <meshStandardMaterial name="ABS interior do armário" color={innerWhite} roughness={0.52} />
+      </RoundedBox>
       {[-W * 0.36, W * 0.32].map((hx, i) => (
         <mesh key={i} position={[hx, H * 0.34, -D / 2 + wallT + 1 * U]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[7 * U, 7 * U, 3 * U, 14]} />
@@ -2272,22 +2280,9 @@ export function WaterSupplyBox3D({
       ))}
 
       {/* 4 paredes laterais */}
-      <mesh position={[0, H / 2 - wallT / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[W, wallT, D]} />
-        <meshStandardMaterial color={boxWhite} roughness={0.38} />
-      </mesh>
-      <mesh position={[0, -H / 2 + wallT / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[W, wallT, D]} />
-        <meshStandardMaterial color={boxWhite} roughness={0.38} />
-      </mesh>
-      <mesh position={[-W / 2 + wallT / 2, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[wallT, H - wallT * 2, D]} />
-        <meshStandardMaterial color={boxWhite} roughness={0.38} />
-      </mesh>
-      <mesh position={[W / 2 - wallT / 2, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[wallT, H - wallT * 2, D]} />
-        <meshStandardMaterial color={boxWhite} roughness={0.38} />
-      </mesh>
+      {[[0, H / 2 - wallT / 2, W, wallT], [0, -H / 2 + wallT / 2, W, wallT], [-W / 2 + wallT / 2, 0, wallT, H - wallT * 2], [W / 2 - wallT / 2, 0, wallT, H - wallT * 2]].map(([x, y, w, h], i) => <RoundedBox key={i} position={[x, y, 0]} args={[w, h, D]} radius={1.2 * U} smoothness={3} castShadow receiveShadow>
+        <meshPhysicalMaterial name="ABS acetinado do armário" color={boxWhite} roughness={0.42} clearcoat={0.12} clearcoatRoughness={0.4} />
+      </RoundedBox>)}
 
       {/* Moldura frontal perimetral saliente */}
       {[
@@ -2296,22 +2291,28 @@ export function WaterSupplyBox3D({
         [-W / 2 - 5 * U, 0, 16 * U, H + 12 * U],
         [W / 2 + 5 * U, 0, 16 * U, H + 12 * U],
       ].map(([x, y, bw, bh], idx) => (
-        <mesh key={idx} position={[x, y, D / 2 - 4 * U]} castShadow receiveShadow>
-          <boxGeometry args={[bw, bh, 12 * U]} />
-          <meshStandardMaterial color="#f4f6f9" roughness={0.34} />
-        </mesh>
+        <RoundedBox key={idx} position={[x, y, D / 2 - 4 * U]} args={[bw, bh, 12 * U]} radius={1.2 * U} smoothness={3} castShadow receiveShadow>
+          <meshStandardMaterial name="Moldura ABS" color="#e2e6e8" roughness={0.42} />
+        </RoundedBox>
       ))}
+      {/* Vedante recuado e dobradiças reais, visíveis com a porta aberta. */}
+      {[[0, H / 2 - 7 * U, W - 12 * U, 2.5 * U], [0, -H / 2 + 7 * U, W - 12 * U, 2.5 * U], [-W / 2 + 7 * U, 0, 2.5 * U, H - 12 * U], [W / 2 - 7 * U, 0, 2.5 * U, H - 12 * U]].map(([x, y, w, h], i) => <mesh key={`seal-${i}`} position={[x, y, D / 2 - 11 * U]}><boxGeometry args={[w, h, 2.5 * U]} /><meshStandardMaterial name="Borracha do vedante" color="#525a5d" roughness={0.86} /></mesh>)}
+      {[-H * 0.32, H * 0.32].map((y, i) => <group key={`hinge-${i}`} position={[W / 2 - 3 * U, y, D / 2 + 1 * U]} name="water-box-hinge">
+        <mesh castShadow><cylinderGeometry args={[4 * U, 4 * U, 30 * U, 24]} /><meshStandardMaterial name="Aço das dobradiças" color="#aab4bb" metalness={0.9} roughness={0.3} /></mesh>
+        {[-8 * U, 8 * U].map((dy, k) => <mesh key={k} position={[-7 * U, dy, -3 * U]}><boxGeometry args={[12 * U, 9 * U, 2 * U]} /><meshStandardMaterial color="#aab4bb" metalness={0.9} roughness={0.3} /></mesh>)}
+      </group>)}
 
       {/* Painel frontal inferior fixo com relevo "ÁGUA" e orifício da fechadura */}
       <group position={[0, -H * 0.24, D / 2 - 5 * U]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[W - wallT * 1.6, H * 0.46, 9 * U]} />
-          <meshStandardMaterial color={boxWhite} roughness={0.38} />
+        <RoundedBox args={[W - wallT * 1.6, H * 0.46, 9 * U]} radius={1.1 * U} smoothness={3} castShadow receiveShadow>
+          <meshStandardMaterial name="ABS do painel inferior" color={boxWhite} roughness={0.44} />
+        </RoundedBox>
+        <mesh name="water-box-embossed-label" geometry={embossedLabel} position={[W * 0.05, 0, 4.6 * U]} castShadow receiveShadow>
+          <meshStandardMaterial name="ABS do relevo ÁGUA" color="#d5dadd" roughness={0.46} />
         </mesh>
-        <mesh position={[0, 0, 5.2 * U]}>
-          <planeGeometry args={[W - wallT * 2.2, H * 0.42]} />
-          <meshStandardMaterial map={apronTex} roughness={0.4} polygonOffset polygonOffsetFactor={-1} />
-        </mesh>
+        <RoundedBox name="water-box-service-hatch" position={[-W * 0.37, 0, 5 * U]} args={[58 * U, 116 * U, 2 * U]} radius={0.8 * U} smoothness={2} castShadow receiveShadow>
+          <meshStandardMaterial name="ABS da tampa de serviço" color="#d3d9dc" roughness={0.46} />
+        </RoundedBox>
         <mesh position={[-W * 0.37, H * 0.12, 5.5 * U]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[9 * U, 9 * U, 6 * U, 16]} />
           <meshStandardMaterial color="#334155" roughness={0.6} />
@@ -2320,16 +2321,16 @@ export function WaterSupplyBox3D({
 
       {/* Conjunto hidráulico interno: tubos UPVC + passador ARCO + contador ZJLCD-BT01 */}
       <group position={[0, H * 0.08, -D * 0.06]}>
-        <mesh position={[-W * 0.40, -52 * U, 0]} castShadow>
-          <cylinderGeometry args={[17 * U, 17 * U, 104 * U, 20]} />
+        <mesh position={[-W * 0.40, -62 * U, 0]} castShadow>
+          <cylinderGeometry args={[17 * U, 17 * U, 84 * U, 32]} />
           <meshStandardMaterial color={pipeGrey} roughness={0.42} metalness={0.08} />
         </mesh>
-        <mesh position={[-W * 0.40, 0, 0]} castShadow>
-          <sphereGeometry args={[20 * U, 16, 16]} />
+        <mesh position={[-W * 0.40 + 20 * U, -20 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <torusGeometry args={[20 * U, 17 * U, 16, 24, Math.PI / 2]} />
           <meshStandardMaterial color={pipeGrey} roughness={0.4} />
         </mesh>
-        <mesh position={[-W * 0.33, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[17 * U, 17 * U, 66 * U, 20]} />
+        <mesh position={[-W * 0.31, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[17 * U, 17 * U, 46 * U, 32]} />
           <meshStandardMaterial color={pipeGrey} roughness={0.42} />
         </mesh>
 
@@ -2342,26 +2343,7 @@ export function WaterSupplyBox3D({
             onToggleValve()
           }}
         >
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[20 * U, 20 * U, 52 * U, 16]} />
-            <meshStandardMaterial color="#d4dce5" metalness={0.88} roughness={0.22} />
-          </mesh>
-          {[-24 * U, 24 * U].map((nx, i) => (
-            <mesh key={i} position={[nx, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[23 * U, 23 * U, 16 * U, 6]} />
-              <meshStandardMaterial color="#c4ced9" metalness={0.86} roughness={0.24} />
-            </mesh>
-          ))}
-          <group ref={valvePivotRef} position={[0, 22 * U, 0]}>
-            <mesh castShadow>
-              <cylinderGeometry args={[6 * U, 7 * U, 16 * U, 12]} />
-              <meshStandardMaterial color="#94a3b8" metalness={0.9} roughness={0.2} />
-            </mesh>
-            <mesh position={[34 * U, 11 * U, 0]} castShadow>
-              <boxGeometry args={[76 * U, 9 * U, 13 * U]} />
-              <meshStandardMaterial map={arcoGripTex} color="#dc2626" roughness={0.34} />
-            </mesh>
-          </group>
+          <ArcoTuria3000ValveMesh scale={13 * U} open={valveOpen} leverRef={valvePivotRef} closedAngle={-Math.PI / 2} />
         </group>
 
         <mesh position={[-W * 0.08, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
@@ -2484,6 +2466,7 @@ export function WaterSupplyBox3D({
       <group
         ref={doorPivotRef}
         position={[W / 2 - 4 * U, 0, D / 2 + 2 * U]}
+        rotation={[0, doorProgressRef.current * (Math.PI * 0.78), 0]}
         onClick={(e) => {
           if (!onToggleDoor) return
           e.stopPropagation()
@@ -2491,15 +2474,13 @@ export function WaterSupplyBox3D({
         }}
       >
         <group position={[-(W / 2 - 4 * U), 0, 0]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[W - 6 * U, H - 6 * U, 10 * U]} />
-            <meshStandardMaterial color="#f1f4f8" roughness={0.35} />
-          </mesh>
+          <RoundedBox name="water-box-door" args={[W - 6 * U, H - 6 * U, 10 * U]} radius={1.6 * U} smoothness={3} castShadow receiveShadow>
+            <meshPhysicalMaterial name="ABS acetinado da porta" color={boxWhite} roughness={0.42} clearcoat={0.12} clearcoatRoughness={0.4} />
+          </RoundedBox>
           <group position={[W * 0.06, H * 0.17, 6 * U]} rotation={[windowOpen ? -Math.PI * 0.45 : 0, 0, 0]}>
-            <mesh castShadow>
-              <boxGeometry args={[W * 0.52, H * 0.34, 6 * U]} />
-              <meshStandardMaterial color="#f6f8fb" roughness={0.32} />
-            </mesh>
+            <RoundedBox args={[W * 0.52, H * 0.34, 6 * U]} radius={1.2 * U} smoothness={3} castShadow>
+              <meshStandardMaterial name="ABS da tampa de leitura" color="#e5e8e9" roughness={0.4} />
+            </RoundedBox>
             {[-W * 0.16, W * 0.16].map((hx, i) => (
               <mesh key={i} position={[hx, H * 0.17, 1 * U]}>
                 <boxGeometry args={[8 * U, 6 * U, 7 * U]} />
@@ -2509,8 +2490,9 @@ export function WaterSupplyBox3D({
           </group>
           <mesh position={[-W * 0.42, 0, -4 * U]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[6 * U, 6 * U, 14 * U, 12]} />
-            <meshStandardMaterial color="#94a3b8" metalness={0.88} roughness={0.22} />
+            <meshStandardMaterial name="Aço do fecho" color="#a4afb7" metalness={0.88} roughness={0.26} />
           </mesh>
+          <mesh position={[-W * 0.42, 0, 6.5 * U]}><boxGeometry args={[2 * U, 7 * U, 0.8 * U]} /><meshStandardMaterial color="#263238" roughness={0.76} /></mesh>
         </group>
       </group>
 

@@ -1322,6 +1322,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       pulseHigh: false,
       manufacturer: 'ZJLCD / SEA',
       model: 'ZJLCD-BT01 · PVC DN32',
+      powered: false,
     },
   },
   waterSupplyBox: {
@@ -1349,6 +1350,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       internalBoxCoverOpen: true,
       manufacturer: 'DC-Simu Hidráulica',
       model: 'Caixa Água ABS · ARCO + ZJLCD-BT01 + WAGO 221',
+      powered: false,
     },
   },
   triProofLedBatten: {

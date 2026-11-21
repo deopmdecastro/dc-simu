@@ -65,6 +65,10 @@ run('1. Caixa / Fonte de Água: alimentação hidráulica pressurizada OUT + pas
   st.setComponentState(boxId, { valveOpen: true, mainsSupplyOn: true, singleVolumeL: 0, totalVolumeL: 100 })
 
   const box = useSimStore.getState().components.find((c) => c.id === boxId)!
+  const dcId = st.addComponent('powerSource24v', 40, 400)!
+  const dc = useSimStore.getState().components.find(c => c.id === dcId)!
+  st.addWire(dc.terminals.find(t => t.label === '+24V')!.id, box.terminals.find(t => t.label === '+24V')!.id)
+  st.addWire(dc.terminals.find(t => t.label === '0V')!.id, box.terminals.find(t => t.label === 'GND')!.id)
   const tank = useSimStore.getState().components.find((c) => c.id === tankId)!
   const outT = box.terminals.find((t) => t.label === 'OUT')!
   const inT = tank.terminals.find((t) => t.label === 'IN')!

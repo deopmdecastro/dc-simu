@@ -261,3 +261,66 @@
   .wi-swap-btn { width:34px; min-height:38px; }
   .wi-end-tabs { grid-template-columns:1fr; }
 }
+
+/* Novo cabo/tubo: escolhas essenciais e ajustes a pedido. Os outros inspetores mantêm o desenho. */
+.wo-fields.is-progressive { gap:14px; }
+.wo-fields.is-progressive .wo-label { font-size:11px; line-height:1.4; font-weight:650; letter-spacing:0; text-transform:none; color:var(--dx-ink-2,#3d4b5e); }
+.wo-fields.is-progressive .wo-label em { font-size:10px; font-weight:500; color:var(--dx-ink-3,#64748b); }
+.wo-fields.is-progressive .wo-group { gap:7px; }
+.wo-fields.is-progressive button { min-height:40px; }
+.wo-fields.is-progressive .wo-medium-choices { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.wo-fields.is-progressive .wo-medium-choices .wo-route { min-height:44px; font-size:11px; padding:6px 4px; }
+.wo-fields.is-progressive .wo-medium-choices .wo-route span { white-space:normal; line-height:1.25; text-align:center; }
+.wo-fields.is-progressive .wo-preview-card { gap:7px; padding:10px; background:var(--dx-surface,#fff); border-color:var(--dx-line-soft,#e2e8f0); }
+.wo-fields.is-progressive .wo-specimen { border:0; background:var(--dx-surface-2,#f8fafc); height:30px; }
+.wo-fields.is-progressive .wo-preview-specs { gap:5px 10px; }
+.wo-fields.is-progressive .wo-preview-specs span { border:0; padding:0; height:auto; background:transparent; color:var(--dx-ink-2,#3d4b5e); font-size:10px; }
+.wo-fields.is-progressive .wo-routes:not(.wo-medium-choices) { grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; }
+.wo-fields.is-progressive .wo-route { min-height:48px; font-size:10px; }
+.wo-fields.is-progressive .wo-gauges { grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; }
+.wo-fields.is-progressive .wo-gauge { min-height:40px; font-size:11px; line-height:1.2; padding:4px 2px; }
+.wo-fields.is-progressive .wo-gauge i { font-size:9px; }
+.wo-fields.is-progressive .wo-gauge.is-on { background:var(--dx-brand-soft,#eff5ff); color:var(--dx-brand-700,#1f55e0); }
+.wo-fields.is-progressive .wo-gauge.is-on i { color:var(--dx-brand-700,#1f55e0); }
+.wo-fields.is-progressive .wo-toggle { min-height:40px; font-size:10.5px; }
+.wo-fields.is-progressive .wo-pressure-choices { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.wo-fields.is-progressive [aria-label="Material hidráulico"] { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.wo-fields.is-progressive .wo-choice { min-height:74px; padding:8px; gap:3px; }
+.wo-fields.is-progressive .wo-choice strong,.wo-fields.is-progressive .wo-preset strong { font-size:11px; }
+.wo-fields.is-progressive .wo-choice small,.wo-fields.is-progressive .wo-preset small { font-size:10px; line-height:1.4; }
+.wo-fields.is-progressive .wo-preset { min-height:62px; padding:8px; gap:3px; }
+.wo-fields.is-progressive .wo-end { min-height:44px; padding:6px; font-size:11px; }
+.wo-fields.is-progressive .wo-note { font-size:10.5px; line-height:1.45; }
+.wo-fields.is-progressive .wo-select,.wo-fields.is-progressive .wo-sheath-color { min-height:40px; }
+.wo-fields.is-progressive .wo-sheath-color { width:40px; }
+.wo-fields.is-progressive .wo-auto { min-height:40px; border-radius:6px; font-size:10px; }
+.wo-fields.is-progressive .wo-colors .wo-label > span { display:none; }
+.wo-fields.is-progressive .wo-swatches { gap:4px; }
+.wo-fields.is-progressive .wo-swatch { display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid transparent; border-radius:6px; background:transparent; box-shadow:none; transform:none; }
+.wo-fields.is-progressive .wo-swatch::before { content:''; width:20px; height:20px; border:2px solid var(--dx-surface,#fff); border-radius:50%; background:var(--wo-swatch-color); box-shadow:0 0 0 1px var(--dx-line-strong,#c3ccd8); }
+.wo-fields.is-progressive .wo-swatch.is-on { border-color:var(--dx-brand-line,#b9cdf8); background:var(--dx-brand-soft,#eff5ff); }
+.wo-fields.is-progressive .wo-swatch.is-on::before { box-shadow:0 0 0 2px var(--dx-brand,#2f6bff); }
+.wo-fields.is-progressive .wo-swatch:hover { background:var(--dx-surface-2,#f8fafc); }
+.wo-fields.is-progressive .wo-swatch.is-dim { opacity:.7; }
+.wo-current-color { flex:none; display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid var(--dx-line-strong,#c3ccd8); }
+.wo-disclosure { min-width:0; border:1px solid var(--dx-line,#dbe4ef); border-radius:8px; background:var(--dx-surface,#fff); }
+.wo-disclosure > summary { display:flex; align-items:center; gap:8px; min-height:48px; padding:8px 10px; list-style:none; cursor:pointer; }
+.wo-disclosure > summary::-webkit-details-marker,.wo-tool-help > summary::-webkit-details-marker { display:none; }
+.wo-disclosure > summary strong { flex:1; min-width:0; color:var(--dx-ink,#17202e); font-size:11px; line-height:1.35; font-weight:650; }
+.wo-disclosure-value { display:flex; align-items:center; justify-content:flex-end; gap:5px; max-width:55%; color:var(--dx-ink-3,#64748b); font-size:10px; line-height:1.35; text-align:right; }
+.wo-disclosure > summary > svg { flex:none; color:var(--dx-ink-3,#64748b); transition:transform .15s; }
+.wo-disclosure[open] > summary > svg { transform:rotate(180deg); }
+.wo-disclosure[open] > summary { border-bottom:1px solid var(--dx-line-soft,#e2e8f0); }
+.wo-disclosure-body { padding:10px; }
+.wo-disclosure summary:hover { background:var(--dx-surface-2,#f8fafc); }
+.wo-fields.is-progressive :is(button,input,summary):focus-visible,.wo-tool-help > summary:focus-visible { outline:2px solid var(--dx-brand,#2f6bff); outline-offset:2px; }
+.dc-wire-new .wo-draft-card.is-ready { gap:1px; padding:8px 10px; border:0; border-radius:0; background:transparent; }
+.dc-wire-new .wo-draft-card.is-ready strong { font-size:11px; color:var(--dx-ink-2,#3d4b5e); }
+.dc-wire-new .wo-draft-card.is-ready .wo-draft-hint { font-size:10.5px; color:var(--dx-ink-3,#64748b); line-height:1.4; }
+.dc-wire-new .wo-draft-actions button { min-height:40px; font-size:10.5px; }
+.wo-tool-help { border-top:1px solid var(--dx-line-soft,#e2e8f0); color:var(--dx-ink-3,#64748b); }
+.wo-tool-help > summary { display:flex; justify-content:space-between; align-items:center; min-height:42px; padding:6px 2px; cursor:pointer; list-style:none; font-size:11px; }
+.wo-tool-help > summary > svg { transition:transform .15s; }
+.wo-tool-help[open] > summary > svg { transform:rotate(180deg); }
+.wo-tool-help > p { margin:0 0 8px; font-size:10.5px; line-height:1.5; }
+.wo-tool-help .wo-shortcuts { padding:8px; font-size:10px; line-height:1.7; }

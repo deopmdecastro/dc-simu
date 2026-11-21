@@ -1883,6 +1883,24 @@ button:disabled { cursor:not-allowed; }
 .dc-library-folder-count { font-size:10px; color:var(--dx-ink-3); }
 .dc-library-folder-chevron { color:var(--dx-ink-3); transition:transform .18s; }
 .dc-library-folder-chevron.is-open { transform:rotate(180deg); }
+/* Biblioteca física: hierarquia neutra, sem ornamentos nas categorias. */
+.dc-library-domain { margin-bottom:8px; border:1px solid var(--dx-line-soft, #dfe7f2); border-radius:7px; background:var(--dx-surface, #fff); overflow:hidden; }
+.dc-library-domain-head { width:100%; min-height:40px; display:flex; align-items:center; gap:8px; padding:8px 11px; text-align:left; color:var(--dx-ink, #25344c); font-size:11px; font-weight:700; }
+.dc-library-domain-head:hover { background:var(--dx-surface-2, #f5f7fa); }
+.dc-library-domain-label { flex:1; min-width:0; line-height:1.4; }
+.dc-library-domain-count { flex:none; min-width:25px; padding:2px 5px; border-radius:4px; background:var(--dx-surface-2, #f1f4f8); color:var(--dx-ink-2, #526174); text-align:center; font-size:10px; font-variant-numeric:tabular-nums; font-weight:500; }
+.dc-library-domain-groups { padding:0 7px 7px; }
+.dc-library-domain .dc-library-folder { margin:0; border:0; border-top:1px solid var(--dx-line-soft, #dfe7f2); border-radius:0; background:transparent; }
+.dc-library-domain .dc-library-folder-head { min-height:40px; gap:8px; padding:8px 8px 8px 12px; border-radius:4px; background:transparent; }
+.dc-library-domain .dc-library-folder-head:hover { background:var(--dx-surface-2, #f5f7fa); }
+.dc-library-domain .dc-library-folder-head strong { min-width:0; text-transform:none; font-size:11px; font-weight:500; line-height:1.45; letter-spacing:0; color:var(--dx-ink-2, #526174); }
+.dc-library-domain .dc-library-folder-count { flex:none; min-width:25px; text-align:center; font-variant-numeric:tabular-nums; }
+.dc-library-domain .dc-library-folder-chevron { flex:none; }
+.dc-library-domain-head:focus-visible,.dc-library-domain .dc-library-folder-head:focus-visible { outline:2px solid var(--dx-brand); outline-offset:-3px; }
+.dc-library-help { margin-top:12px; padding:10px 2px 2px; border-top:1px solid var(--dx-line-soft, #dfe7f2); font-size:10px; line-height:1.6; color:var(--dx-ink-2, #526174); }
+.dc-library-help p + p { margin-top:6px; }
+.dc-library-help strong { font-weight:650; }
+.dc-library-help kbd { font:inherit; font-weight:600; }
 .dc-library-tile { position:relative; min-width:0; border:1px solid transparent; border-radius:8px; transition:background .15s,border-color .15s,box-shadow .15s; }
 .dc-library-tile:hover,.dc-library-tile:focus-within { background:#fff; border-color:var(--dx-brand-line); box-shadow:0 2px 7px #10161d14; }
 .dc-library-tile.is-placing { border-color:var(--dx-brand); background:var(--dx-brand-soft); box-shadow:0 0 0 2px var(--dx-brand-line); }
@@ -1904,6 +1922,12 @@ button:disabled { cursor:not-allowed; }
 .dc-library-tile.is-locked .dc-library-tile-image img { opacity:.36; }
 .dc-library-tile-lock { position:absolute; inset:0; display:grid; place-items:center; color:#475569; background:#f8fafc70; }
 .dc-library-tile-lock svg { padding:6px; width:30px; height:30px; border:1px solid #cbd5e1; border-radius:999px; background:#fff; box-shadow:0 2px 7px #0f172a1f; }
+/* Capa de recurso com o símbolo do esquema: traço legível a 58 px, sem textos, cadeado em selo no canto. */
+.dc-thumb-symbol { background:#fff; }
+.dc-thumb-symbol * { vector-effect:non-scaling-stroke; stroke-width:1.5px; }
+.dc-thumb-symbol text { display:none; }
+.dc-library-tile-image:has([data-thumb-state="simbolo-esquema"]) .dc-library-tile-lock { inset:auto 1px 1px auto; background:none; }
+.dc-library-tile-image:has([data-thumb-state="simbolo-esquema"]) .dc-library-tile-lock svg { width:17px; height:17px; padding:3px; }
 .dc-library-tile-status { display:block; margin-top:-1px; color:#9a3412; font-size:8px; font-weight:750; line-height:1.2; letter-spacing:.025em; text-transform:uppercase; }
 .dc-library-tile.is-locked .dc-library-tile-name { color:var(--dx-ink-3); }
 .dc-library-tile.is-locked .dc-library-tile-favorite { z-index:2; }
@@ -1922,12 +1946,6 @@ button:disabled { cursor:not-allowed; }
 .dc-inspector-group > summary::before { content:'›'; width:14px; height:16px; color:var(--dx-ink-3); font-size:17px; line-height:14px; transition:transform .16s; }
 .dc-inspector-group[open] > summary::before { transform:rotate(90deg); }
 .dc-inspector-group > summary:hover { background:#e8f0fc; }
-/* Capa de recurso com o símbolo do esquema: traço legível a 58 px, sem textos, cadeado em selo no canto. */
-.dc-thumb-symbol { background:#fff; }
-.dc-thumb-symbol * { vector-effect:non-scaling-stroke; stroke-width:1.5px; }
-.dc-thumb-symbol text { display:none; }
-.dc-library-tile-image:has([data-thumb-state="simbolo-esquema"]) .dc-library-tile-lock { inset:auto 1px 1px auto; background:none; }
-.dc-library-tile-image:has([data-thumb-state="simbolo-esquema"]) .dc-library-tile-lock svg { width:17px; height:17px; padding:3px; }
 .dc-inspector-group-body { display:flex; flex-direction:column; gap:9px; padding:10px; }
 .dc-inspector-count { margin-left:auto; background:#fff; border:1px solid #dce4ef; border-radius:999px; padding:0 6px; font-size:10px; color:var(--dx-ink-3); }
 .dc-inspector-terminal { background:#fff; overflow: visible; }

@@ -36,6 +36,14 @@ const simState = () => page.evaluate(async () => {
   const state = useSimStore.getState()
   return { tool: state.tool, wireDefaults: state.wireDefaults }
 })
+const openOption = async (locator) => {
+  const parents = await locator.evaluate((el) => {
+    const all = [...document.querySelectorAll('details')], result = []
+    for (let parent = el.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) result.unshift(all.indexOf(parent))
+    return result
+  })
+  for (const index of parents) await page.locator('details').nth(index).locator(':scope > summary').click()
+}
 
 try {
   // ---------------------------------------------------------------- simulador
@@ -84,9 +92,13 @@ try {
   await capture('cabos-painel-simulador')
 
   // Escolhas feitas no painel lateral aplicam-se aos cabos novos.
-  await page.locator('.dc-wire-new .wo-end', { hasText: 'Olhal' }).first().click()
+  const ringOption = page.locator('.dc-wire-new .wo-end', { hasText: 'Olhal' }).first()
+  await openOption(ringOption)
+  await ringOption.click()
   await page.locator('.dc-wire-new .wo-choice', { hasText: 'Rígido' }).first().click()
-  await page.locator('.dc-wire-new .wo-swatch[aria-label="Azul"]').click()
+  const blueOption = page.locator('.dc-wire-new .wo-swatch[aria-label="Azul"]')
+  await openOption(blueOption)
+  await blueOption.click()
   await page.locator('.dc-wire-new .wo-gauge', { hasText: '2.5' }).first().click()
   await page.waitForTimeout(300)
   const applied = await simState()

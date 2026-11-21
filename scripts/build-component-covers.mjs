@@ -21,9 +21,13 @@ const only = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',
 const baseURL = process.env.COVERS_URL || 'http://127.0.0.1:5207'
 
 if (args.includes('--check')) {
-  // Verificação sem browser: compara o índice com os tipos que têm GLB (lista gravada pelo gerador).
+  // Usa o catálogo atual: o índice anterior pode ainda não conhecer componentes recém-adicionados.
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-  const missing = manifest.expected.flatMap((type) => [manifest.types[type], manifest.front?.[type]]
+  const { tsImport } = await import('tsx/esm/api')
+  const { TEMPLATES } = await tsImport('../src/electrical/factory.ts', import.meta.url)
+  const { hasComponent3DVisual } = await tsImport('../src/three/modelPaths.ts', import.meta.url)
+  const expected = Object.keys(TEMPLATES).filter(hasComponent3DVisual)
+  const missing = expected.flatMap((type) => [manifest.types[type], manifest.front?.[type]]
     .map((file, i) => (!file || !fs.existsSync(path.join(outDir, file)) ? `${type}${i ? ' (frontal)' : ''}` : null)).filter(Boolean))
   if (missing.length) { console.error(`Capas em falta: ${missing.join(', ')}`); process.exit(1) }
   console.log(`${Object.keys(manifest.types).length} capas e ${Object.keys(manifest.front ?? {}).length} vistas frontais presentes`)
@@ -51,6 +55,12 @@ try {
   const previous = fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, 'utf8')) : { types: {} }
   const done = { ...previous.types }
   const front = { ...(previous.front ?? {}) }
+  // Recupera imagens reais já geradas mas omitidas do índice (ou registadas, por engano, na raiz).
+  for (const type of types) {
+    const file = `${type}.webp`
+    if (!done[type] && fs.existsSync(path.join(outDir, file))) done[type] = file
+    if (!front[type] && fs.existsSync(path.join(outDir, 'front', file))) front[type] = `front/${file}`
+  }
   const wanted = only ? types.filter((type) => only.includes(type)) : types
   if (only?.some(type => !types.includes(type))) throw new Error('Tipo sem representação partilhada: ' + only.filter(type => !types.includes(type)).join(', '))
   const failed = []

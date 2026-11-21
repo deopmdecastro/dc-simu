@@ -229,6 +229,8 @@ export function surfaceFamilyOf(material: THREE.MeshStandardMaterial): SurfaceFa
   if (emissive * material.emissiveIntensity > 0.35) return null
   const name = (material.name || '').toLowerCase()
   if (/ecra|ecrã|screen|display|lcd|lente|lens|vidro|glass/.test(name)) return null
+  const explicitFamily = material.userData.cadSurfaceFamily as SurfaceFamily | undefined
+  if (explicitFamily && FAMILIES[explicitFamily]) return explicitFamily
   const hsl = material.color.getHSL({ h: 0, s: 0, l: 0 })
   if (material.metalness >= 0.6) {
     if (/cobre|copper/.test(name) || (hsl.h >= 0.02 && hsl.h < 0.07 && hsl.s > 0.4)) return 'copper'
@@ -249,6 +251,8 @@ interface SurfaceOptions {
   renderUnitsPerMm?: number
   /** Tipos com acabamento próprio (motor) dispensam a passagem. */
   skip?: boolean
+  /** Peças novas: relevo e variação de brilho subtis, sem transferir manchas da fotografia para a cor. */
+  procedural?: boolean
 }
 
 /**
@@ -276,18 +280,49 @@ export function applyCadSurfaceTextures(root: THREE.Object3D, options: SurfaceOp
       const entry = textureLibraryEntry(spec.entry)
       if (!entry) continue
       material.userData.cadSurface = family
-      jobs.push(assignMaps(material, entry, spec, renderUnitsPerMm))
+      jobs.push(assignMaps(material, entry, spec, renderUnitsPerMm, !!options.procedural))
     }
   })
   if (!jobs.length) return Promise.resolve()
   return Promise.all(jobs).then(() => { notifyReady() }, () => { notifyReady() })
 }
 
-function assignMaps(material: THREE.MeshStandardMaterial, entry: TextureLibraryEntry, spec: FamilySpec, renderUnitsPerMm: number): Promise<void> {
+const subtleRoughness = new Map<string, Promise<THREE.Texture>>()
+function proceduralRoughness(url: string, tileMm: number): Promise<THREE.Texture> {
+  const key = `${url}|${tileMm}`
+  let pending = subtleRoughness.get(key)
+  if (!pending) {
+    pending = baseTexture(url, false).then((source) => {
+      const canvas = document.createElement('canvas'), img = source.image
+      canvas.width = img.width; canvas.height = img.height
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+      ctx.drawImage(img, 0, 0)
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      let mean = 0
+      for (let i = 0; i < pixels.data.length; i += 4) mean += pixels.data[i]
+      mean /= pixels.data.length / 4
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const v = Math.max(232, Math.min(252, Math.round(242 + (pixels.data[i] - mean) * 0.08)))
+        pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = v
+      }
+      ctx.putImageData(pixels, 0, 0)
+      const texture = new THREE.CanvasTexture(canvas)
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+      texture.repeat.set(1 / tileMm, 1 / tileMm)
+      texture.colorSpace = THREE.NoColorSpace; texture.anisotropy = 8
+      return texture
+    })
+    pending.catch(() => subtleRoughness.delete(key))
+    subtleRoughness.set(key, pending)
+  }
+  return pending
+}
+
+function assignMaps(material: THREE.MeshStandardMaterial, entry: TextureLibraryEntry, spec: FamilySpec, renderUnitsPerMm: number, procedural: boolean): Promise<void> {
   const normalP = tiledTexture(entry.maps.normal, false, spec.tileMm)
-  const roughP = tiledTexture(entry.maps.roughness, false, spec.tileMm)
+  const roughP = procedural ? proceduralRoughness(entry.maps.roughness, spec.tileMm) : tiledTexture(entry.maps.roughness, false, spec.tileMm)
   const metalP = spec.metalness && entry.maps.metalness ? tiledTexture(entry.maps.metalness, false, spec.tileMm) : Promise.resolve(null)
-  const colorP = tintedAlbedo(entry, spec.tileMm)
+  const colorP = procedural ? Promise.resolve(null) : tintedAlbedo(entry, spec.tileMm)
   let cancelled=false
   const cancel=()=>{cancelled=true;delete material.userData.cadSurface}
   material.addEventListener('dispose',cancel)
@@ -297,10 +332,11 @@ function assignMaps(material: THREE.MeshStandardMaterial, entry: TextureLibraryE
     // fotografia real (riscos, grão, nuance) sem perder a cor de fábrica.
     if (albedo && !material.map) material.map = albedo
     material.normalMap = normalMap
-    material.normalScale.set(spec.normalScale, spec.normalScale)
+    const normalStrength = procedural ? spec.metalness ? 0.18 : 0.10 : spec.normalScale
+    material.normalScale.set(normalStrength, normalStrength)
     material.roughnessMap = roughnessMap
     // Conserva o brilho médio: o mapa modula à volta do valor já calibrado.
-    material.roughness = THREE.MathUtils.clamp(material.roughness / spec.roughnessMean, 0.05, 1)
+    material.roughness = THREE.MathUtils.clamp(material.roughness / (procedural ? 242 / 255 : spec.roughnessMean), 0.05, 1)
     if (metalnessMap) material.metalnessMap = metalnessMap
     if (spec.grain) {
       material.bumpMap = polymerGrain()

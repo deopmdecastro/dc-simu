@@ -36,7 +36,10 @@ import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
 import { EDITOR_THEME, editorPalette, editorGridBackground } from '../ui/editorTheme'
 import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
-import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
+import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, ConduitMedium } from '../types'
+import FluidConnectionMarker3D from './FluidConnectionMarker3D'
+import { terminalConnectionMedium, terminalMatchesConnectionMedium } from './connectionMedium'
+import { usesProceduralSurface } from './proceduralSurface'
 import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
@@ -591,10 +594,11 @@ function EditableTerminal3D({ component, terminal, active }: { component: Electr
   </group>
 }
 
-function ConnectionTerminal3D({ component, terminal, active, onPick }: {
+function ConnectionTerminal3D({ component, terminal, active, fluid = false, onPick }: {
   component: ElectricalComponent
   terminal: ElectricalComponent['terminals'][number]
   active: boolean
+  fluid?: boolean
   onPick?: (id: string) => void
 }) {
   const position = terminalLocal3D(component, terminal)
@@ -602,11 +606,12 @@ function ConnectionTerminal3D({ component, terminal, active, onPick }: {
   const [hover, setHover] = useState(false)
   const isLead = terminal.contact === 'lead'
   const radius = Math.max(isLead ? 0.014 : 0, terminalMarkerRadius(component, terminal)) * (active ? 1.1 : hover ? 1.05 : 1)
-  return <group position={position}
+  return <group position={position} userData={{ connectionTerminalId: terminal.id, connectionMedium: terminalConnectionMedium(terminal.kind), fluidConnectionMarker: fluid }}
     onClick={onPick ? (event) => { event.stopPropagation(); onPick(terminal.id) } : undefined}
     onPointerDown={(event) => event.stopPropagation()}
     onPointerOver={(event) => { event.stopPropagation(); setHover(true) }}
     onPointerOut={() => setHover(false)}>
+    {fluid ? <FluidConnectionMarker3D active={active} hover={hover} label={`${component.ref} · ${terminal.label}`} /> : <>
     <mesh renderOrder={30}>
       <sphereGeometry args={[radius, 16, 16]} />
       <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : terminal.color} emissiveIntensity={active ? 1 : hover ? 0.45 : 0.2} />
@@ -615,6 +620,7 @@ function ConnectionTerminal3D({ component, terminal, active, onPick }: {
     {(active || hover || isLead) && <Billboard position={[0, 0.045 + 0.035 * k, 0]}>
       <Text fontSize={0.048} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>
     </Billboard>}
+    </>}
   </group>
 }
 
@@ -663,7 +669,7 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} userData={{ noSnapshot: true }} />
 }
 
-function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, free3D = false, preferFloorXZ = false, connectionMode, connectionStartId, probing, onTerminalPick, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
+function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, free3D = false, preferFloorXZ = false, connectionMode, connectionMedium, connectionStartId, probing, onTerminalPick, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   sourcePivot: [number, number, number]
@@ -676,6 +682,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   free3D?: boolean
   preferFloorXZ?: boolean
   connectionMode: boolean
+  connectionMedium: ConduitMedium
   connectionStartId: string | null
   probing: boolean
   onSelect: (additive?: boolean) => void
@@ -698,6 +705,19 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   const renderMode = c.view3DRenderMode ?? 'solid'
   const isTerminalInsulator = isTerminalStripType(c.type) && c.type !== 'terminalPE'
   useEffect(() => applyRenderMode(modelRef.current, renderMode, c.bodyColor, isTerminalInsulator), [renderMode, c.bodyColor, isTerminalInsulator, children])
+  const surfaceSize = component3DDimensions(c)
+  useEffect(() => {
+    const model = modelRef.current
+    if (!model || !usesProceduralSurface(c.type)) return
+    if (c.type === 'panelEnclosure') model.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        if (material instanceof THREE.MeshStandardMaterial && !material.transparent && material.metalness >= 0.05 && material.metalness < 0.6 && material.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.25) material.userData.cadSurfaceFamily = 'powder-paint'
+      }
+    })
+    void applyCadSurfaceTextures(model, { procedural: true })
+  }, [c.type, surfaceSize.x, surfaceSize.y, surfaceSize.z, c.bodyColor, renderMode])
   // Modelos que carregam depois (Suspense/GLB) recebem o modo numa verificação leve, ~3× por segundo
   // (materiais já tratados saltam pela chave) — antes corria a cada frame com `needsUpdate` em todos.
   // Junta as malhas estáticas do CAD por material (menos chamadas de desenho). Corre depois de os efeitos
@@ -821,7 +841,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
           <group ref={modelRef} position={[-sourcePivot[0], -sourcePivot[1], -sourcePivot[2]]}>{children}</group>
           <LeadPigtails3D component={c} />
           {editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}</group>}
-          {connectionMode && !editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} onPick={probing ? onTerminalPick : undefined} />)}</group>}
+          {connectionMode && !editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.filter((terminal) => probing || terminalMatchesConnectionMedium(terminal.kind, connectionMedium)).map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} fluid={!probing && connectionMedium !== 'electrical'} onPick={probing ? onTerminalPick : undefined} />)}</group>}
         </group>
       </group>
     </group>
@@ -3572,7 +3592,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const setCanvasHint = useSimUi((state) => state.setCanvasHint)
   const canvasHint = useMemo(() => {
     if (placingText) return 'Clique no desenho para colocar o texto · Esc cancela'
-    const base = tool === 'wire' ? 'Cabo: clique nos bornes para ligar · Esc termina'
+    const base = tool === 'wire' ? wireDefaults.medium === 'hydraulic' || wireDefaults.medium === 'pneumatic'
+      ? 'Tubagem: clique nos conectores assinalados para ligar · Esc termina'
+      : 'Cabo: clique nos bornes para ligar · Esc termina'
       : tool === 'erase' ? 'Apagar: clique num componente ou cabo · Ctrl+Z desfaz'
       : tool === 'probe' ? (probeA ? 'Sonda: escolha o segundo borne' : 'Sonda: escolha o primeiro borne')
       : tool === 'pan' ? 'Mover vista: arraste o desenho'
@@ -3580,7 +3602,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra`
       : 'Selecionar: clique para escolher · arraste para mover'
     return probeResult ? `${base} · ${probeResult.note}${probeResult.b ? ` · ${probeResult.voltage}` : ''}` : base
-  }, [tool, probeA, probeResult, interactive, selectedIds.length, placingText])
+  }, [tool, probeA, probeResult, interactive, selectedIds.length, placingText, wireDefaults.medium])
   useEffect(() => { setCanvasHint(canvasHint) }, [canvasHint, setCanvasHint])
   useCanvasAction((action) => {
     if (demoMode && (action === 'addNote' || action === 'addText')) return
@@ -3602,7 +3624,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     resetInteraction()
     if (tool === 'wire') selectComponents([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tool])
+  }, [tool, wireDefaults.medium])
   const pickConnectionTerminal = (terminalId: string) => {
     const store = useSimStore.getState()
     if (store.tool === 'probe') { store.selectTerminal(terminalId); store.runProbe(); return }
@@ -4055,14 +4077,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
 
   // Montagem física real de bóias (`floatSwitch`) DENTRO do reservatório (`waterTank`) associado!
-  const floatTankContexts: Record<string, FloatSwitchTankContext> = {}
-  // Cabos de bóia que entram em cada caixa OBO: cada condutor fica num WAGO 221-2411 (1-1) lá dentro.
-  const oboSpliceCables = new Map<string, OboSpliceCable[]>()
-  const waterTanks3D = components.filter((c) => c.type === 'waterTank' && !!panelPivots[c.id])
-  if (waterTanks3D.length > 0) {
-    const mountedCountByTank = new Map<string, number>()
-    for (const fs of components) {
-      if (fs.type !== 'floatSwitch' || !panelPivots[fs.id]) continue
   // Caixas de derivação montadas no suporte inox de um reservatório: assentam pelo fundo na placa.
   for (const box of components) {
     if (!isJunctionBoxType(box.type) || typeof box.state.tankBracketId !== 'string' || !box.state.tankBracketId) continue
@@ -4073,6 +4087,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const boxDepth = JUNCTION_WAGO_SIZE_MM[box.type as JunctionBoxType].z * PANEL_UNITS_PER_MM
     panelPivots[box.id] = new THREE.Vector3(tp.x + plate.x, tp.y + plate.y, tp.z + plate.z + plate.t / 2 + boxDepth / 2)
   }
+  const floatTankContexts: Record<string, FloatSwitchTankContext> = {}
+  // Cabos de bóia que entram em cada caixa OBO: cada condutor fica num WAGO 221-2411 (1-1) lá dentro.
+  const oboSpliceCables = new Map<string, OboSpliceCable[]>()
+  const waterTanks3D = components.filter((c) => c.type === 'waterTank' && !!panelPivots[c.id])
+  if (waterTanks3D.length > 0) {
+    const mountedCountByTank = new Map<string, number>()
+    for (const fs of components) {
+      if (fs.type !== 'floatSwitch' || !panelPivots[fs.id]) continue
       const explicitId = typeof fs.state.linkedTankId === 'string' && fs.state.linkedTankId ? fs.state.linkedTankId : null
       let tank = explicitId ? waterTanks3D.find((t) => t.id === explicitId) : null
       // Se não estiver explicitamente desacoplada, instala automaticamente no reservatório mais próximo quando estiver por perto ou em modo auto
@@ -4363,14 +4385,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }
       }
       targetPt = { x: finalPos.x, y: finalPos.y }
-      // Se o utilizador arrastar uma bóia instalada para longe do reservatório, solta-a suavemente
-      if (component.type === 'floatSwitch' && component.state.linkedTankId) {
-        const linked = store.components.find((c) => c.id === component.state.linkedTankId)
-        const tp = linked ? panelPivots[linked.id] : null
-        if (linked && tp) {
-          const td = waterTankDimensionsOf(linked.state)
-          const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
-          if (Math.hypot(finalPos.x - tp.x, finalPos.z - tp.z) > tankR + 1.8) {
       // Caixa de derivação: encaixa no suporte de um reservatório quando chega perto da placa; solta ao afastar.
       if (isJunctionBoxType(component.type)) {
         const mountedOn = typeof component.state.tankBracketId === 'string' ? component.state.tankBracketId : ''
@@ -4387,6 +4401,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         if (mountedOn && (!nearest || nearest.id !== mountedOn)) store.setComponentState(id, { tankBracketId: '' })
         else if (!mountedOn && nearest) store.setComponentState(id, { tankBracketId: nearest.id })
       }
+      // Se o utilizador arrastar uma bóia instalada para longe do reservatório, solta-a suavemente
+      if (component.type === 'floatSwitch' && component.state.linkedTankId) {
+        const linked = store.components.find((c) => c.id === component.state.linkedTankId)
+        const tp = linked ? panelPivots[linked.id] : null
+        if (linked && tp) {
+          const td = waterTankDimensionsOf(linked.state)
+          const tankR = (td.diameterMm / 2) * PANEL_UNITS_PER_MM
+          if (Math.hypot(finalPos.x - tp.x, finalPos.z - tp.z) > tankR + 1.8) {
             store.setComponentState(id, { linkedTankId: '', detachedFromTank: true })
           }
         }
@@ -4547,6 +4569,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       free3D={!isPanelBound(component) && (factoryMode || !frontEdit)}
       preferFloorXZ={factoryMode || isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type)}
       connectionMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
+      connectionMedium={connectionMedium}
       probing={tool === 'probe'}
       connectionStartId={tool === 'probe' ? probeA : draft && 'terminalId' in draft.from ? draft.from.terminalId : null}
       onSelect={(additive) => {
@@ -4591,6 +4614,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     >{content}</OrientedInstance>
   }
   const selectedWire = selectedWireId ? wires.find((wire) => wire.id === selectedWireId) : undefined
+  const reconnectKind = reconnect ? wires.find((wire) => wire.id === reconnect.wireId)?.kind : undefined
+  const connectionMedium: ConduitMedium = reconnect
+    ? reconnectKind === 'hydraulic' ? 'hydraulic' : reconnectKind === 'pneumatic' ? 'pneumatic' : 'electrical'
+    : wireDefaults.medium ?? 'electrical'
   useEffect(() => {
     wireEditBaselineRef.current = selectedWire ? { id: selectedWire.id, wire: structuredClone(selectedWire) } : null
     setWireEditDirty(false)
@@ -4829,6 +4856,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         label: terminal.label,
         ref: component.ref,
         color: terminal.color,
+        kind: terminal.kind,
         electricalClass: terminalElectricalClassOf(component, terminal),
       }
     })
@@ -5627,6 +5655,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               <WaterSupplyBox3D
                 c={c}
                 position={basePivots[c.id].toArray() as [number, number, number]}
+                floorOffsetY={floorY - (panelPivots[c.id]?.y ?? 0)}
                 onToggleDoor={() => {
                   const st = useSimStore.getState()
                   const patch = { doorOpen: !(c.state.doorOpen !== false) }
@@ -5641,7 +5670,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                 }}
               />
             )
-                floorOffsetY={floorY - (panelPivots[c.id]?.y ?? 0)}
           } else if (c.type === 'hydraulicFlowMeter') {
             content = (
               <WaterFlowMeterZjLcd3D
@@ -5797,7 +5825,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           active={!demoMode && !simLocked && (editMode === 'connect' || reconnect !== null)}
           draft={draft}
           getDraft={() => draftRef.current}
-          terminals={drawTerminals}
+          terminals={drawTerminals.filter((terminal) => terminalMatchesConnectionMedium(terminal.kind, connectionMedium))}
           wireRadius={(cableOuterDiameterMm(wireDefaults.gauge, { conductorCount: wireDefaults.conductorCount, sheathed: wireDefaults.sheathed }) * PANEL_UNITS_PER_MM) / 2}
           wireColor={WIRE_3D_COLORS[wireDefaults.autoColor ? 'red' : wireDefaults.color]}
           sheathed={!!wireDefaults.sheathed}

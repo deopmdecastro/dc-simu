@@ -1269,8 +1269,14 @@ function runOneTick(state: Store, dtMs: number) {
     tk.state.levelPct = Math.max(0, Math.min(100, Math.round(lvl * 10) / 10))
   }
   // Contadores de água eletrónicos ZJLCD-BT01 e Caixa / Fonte de Água: cálculo de caudal instantâneo (L/min), volume parcial e totalizador (L)
-  for (const fm of components) {
-    if (fm.type !== 'hydraulicFlowMeter' && fm.type !== 'waterSupplyBox') continue
+  const flowMeters = components.filter((c) => c.type === 'hydraulicFlowMeter' || c.type === 'waterSupplyBox')
+  const meterPowerContext: IndustrialElectricalContext = { components, live: pass3.energizedTerminals, adjacency: pass3.reachable, phases: flowMeters.length ? computePhaseLabels(components, wires) : new Map() }
+  for (const fm of flowMeters) {
+    const supply = industrialInput(fm, '+24V', 'GND', meterPowerContext)
+    const powered = supply.dc && supply.positive && supply.voltage >= 19.2 && supply.voltage <= 28.8
+    fm.state.powered = powered
+    fm.state.supplyVoltage = supply.voltage
+    fm.state.supplyMismatch = supply.voltage > 0 && !powered
     const inT = fm.terminals.find((t) => t.label === 'IN' || t.kind === 'hydraulic-in')
     const outT = fm.terminals.find((t) => t.label === 'OUT' || t.kind === 'hydraulic-out')
     let hasFlow = false
@@ -1294,7 +1300,7 @@ function runOneTick(state: Store, dtMs: number) {
     const flowLpm = hasFlow ? Math.round((nominalLpm * 0.65) * 10) / 10 : 0
     fm.state.flowRateLpm = flowLpm
     fm.state.flowing = hasFlow
-    if (hasFlow) {
+    if (hasFlow && powered) {
       const deltaL = (flowLpm / 60) * dtSec
       fm.state.singleVolumeL = Math.round((Number(fm.state.singleVolumeL ?? 0) + deltaL) * 1000) / 1000
       fm.state.totalVolumeL = Math.round((Number(fm.state.totalVolumeL ?? 0) + deltaL) * 1000) / 1000

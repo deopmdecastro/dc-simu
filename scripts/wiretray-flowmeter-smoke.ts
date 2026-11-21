@@ -64,12 +64,16 @@ check('Hydraulic simulation: Tank drain lowers levelPct all the way to 0% AND co
   const st = useSimStore.getState()
   const tkId = st.addComponent('waterTank', 200, 200)!
   const fmId = st.addComponent('hydraulicFlowMeter', 420, 200)!
+  const dcId = st.addComponent('powerSource24v', 60, 400)!
   st.setComponentState(tkId, { levelPct: 18, outletValveOpen: true })
   st.setComponentState(fmId, { singleVolumeL: 0, totalVolumeL: 0, pipeDN: 'DN32' })
 
   const comps = useSimStore.getState().components
   const tk = comps.find((c) => c.id === tkId)!
   const fm = comps.find((c) => c.id === fmId)!
+  const dc = comps.find((c) => c.id === dcId)!
+  st.addWire(dc.terminals.find(t => t.label === '+24V')!.id, fm.terminals.find(t => t.label === '+24V')!.id)
+  st.addWire(dc.terminals.find(t => t.label === '0V')!.id, fm.terminals.find(t => t.label === 'GND')!.id)
   const tkOut = tk.terminals.find((t) => t.label === 'OUT')!
   const fmIn = fm.terminals.find((t) => t.label === 'IN')!
 

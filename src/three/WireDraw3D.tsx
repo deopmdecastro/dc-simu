@@ -4,7 +4,7 @@ import { Text } from './SceneText'
 import * as THREE from 'three'
 import { create } from 'zustand'
 import { useSimStore } from '../store/useSimStore'
-import type { TerminalElectricalClass, WireRoute } from '../types'
+import type { TerminalElectricalClass, TerminalKind, WireRoute } from '../types'
 import { TERMINAL_ELECTRICAL_CLASS_LABEL, terminalClassesCompatible } from '../electrical/terminalClassification'
 import {
   buildDraftPreviewPoints3D,
@@ -26,6 +26,7 @@ export type DrawTerminal = {
   ref: string
   color: string
   electricalClass?: TerminalElectricalClass
+  kind?: TerminalKind
 }
 
 export interface WireDrawLiveState {
@@ -595,12 +596,14 @@ export function WireDraftSideCard({
   onCancel: () => void
 }) {
   const info = useWireDrawInfo()
+  const medium = useSimStore((state) => state.wireDefaults.medium ?? 'electrical')
+  const fluid = medium === 'hydraulic' || medium === 'pneumatic'
   if (reconnectingLabel) {
     return (
       <div className="wo-draft-card is-active" role="status" aria-live="polite">
         <div className="wo-draft-head">
           <strong>A religar {reconnectingLabel}</strong>
-          <span className="wo-draft-pill is-warn">Escolha borne</span>
+          <span className="wo-draft-pill is-warn">{fluid ? 'Escolha conector' : 'Escolha borne'}</span>
         </div>
         {info.hover && <div className="wo-draft-route">Novo destino: <b>{info.hover}</b></div>}
         <div className="wo-draft-actions">
@@ -613,14 +616,11 @@ export function WireDraftSideCard({
     info.surface === 'terminal' ? 'Borne' : info.surface === 'duct' ? 'Calha técnica' : info.surface === 'surface' ? 'Superfície' : 'Espaço 3D'
   if (!draft) {
     return (
-      <div className="wo-draft-card" role="status" aria-live="polite">
+      <div className="wo-draft-card is-ready" role="status" aria-live="polite">
         <div className="wo-draft-head">
-          <strong>Pronto a ligar no 3D</strong>
-          <span className="wo-draft-pill">{info.hover ? `Borne ${info.hover}` : surfaceLabel}</span>
+          <strong>{fluid ? 'Escolha um conector assinalado' : 'Escolha o borne de origem'}</strong>
         </div>
-        <p className="wo-draft-hint">
-          Clique no borne de origem (ou numa superfície para ponta livre). As calhas técnicas e eixos X/Y/Z encaixam magneticamente.
-        </p>
+        <p className="wo-draft-hint">{info.hover ? `${fluid ? 'Conector' : 'Borne'} ${info.hover}` : 'Depois escolha o destino no desenho.'}</p>
       </div>
     )
   }

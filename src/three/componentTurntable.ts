@@ -17,6 +17,7 @@ import { applyEditorMotorTextures, waitMotorTextures } from './motorEditorTextur
 import { applyCadSurfaceTextures } from './cadSurface'
 import { addStudioLights, getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
+import { isConduitStructureType, isWireMeshTrayType } from './structuresModel'
 
 export interface ComponentTurntableFrames {
   frames: string[]
@@ -189,7 +190,12 @@ function cleanupPreparedObject(turntable: THREE.Group, object: THREE.Object3D) {
   object.traverse((child) => {
     const mesh = child as THREE.Mesh
     if (mesh.isMesh && mesh.material) disposeMaterial(mesh.material)
-    if (mesh.isMesh && mesh.userData.generatedTerminalSocket) mesh.geometry.dispose()
+    if (mesh.isMesh && (mesh.userData.generatedTerminalSocket || mesh.userData.structureCapture)) mesh.geometry.dispose()
+    if (mesh.isMesh && mesh.userData.structureCapture) {
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        Object.values(material).forEach((value) => { if (value instanceof THREE.Texture) value.dispose() })
+      }
+    }
     if (child.userData.turntableOutline) {
       const line = child as THREE.LineSegments
       line.geometry.dispose()
@@ -212,6 +218,14 @@ function restPose(type: ComponentType, pitchIndex = DEFAULT_PITCH_INDEX): [numbe
 const RAIL_SECTION_MM = 180
 
 async function prepareObject(type: ComponentType): Promise<THREE.Object3D> {
+  if (isConduitStructureType(type) || isWireMeshTrayType(type) || type === 'hydraulicFlowMeter' || type === 'waterSupplyBox') {
+    const { createProceduralCaptureObject } = await import('./proceduralCaptureObject')
+    const object = await createProceduralCaptureObject(type, true)
+    normalizeObject(object)
+    object.scale.multiplyScalar(0.85)
+    object.position.multiplyScalar(0.85)
+    return object
+  }
   const spec = getComponentGlbSpec(type) ?? (isDigitalMeterType(type) ? digitalMeterSpec(type) : undefined)
   if (!spec) throw new Error('Modelo 3D indisponível')
   const defaultState = isSchneiderRcd(type)

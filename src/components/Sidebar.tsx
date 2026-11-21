@@ -58,7 +58,7 @@ import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/co
 import TerminalStripControls from './TerminalStripControls'
 import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
 import { isRealBusbarType } from '../three/busbarParts'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
 import { HYDRAULIC_GAUGES, PNEUMATIC_GAUGES } from '../three/hydraulicsModel'
 import {
@@ -661,8 +661,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   return (
     <div className="pn-panel shrink-0 flex flex-col h-full min-h-0" style={{ width }}>
       <SidePanelHeader
-        eyebrow={tab === 'library' ? 'ESQUEMA' : wireTool || (selectedWire && !selectedComponent) ? 'CABO' : selectedTerminal && !selectedComponent ? 'BORNE' : 'COMPONENTE'}
-        title={tab === 'library' ? 'Elementos' : wireTool ? 'Novo cabo' : selectedWire && !selectedComponent ? 'Inspetor do cabo' : selectedTerminal && !selectedComponent ? 'Propriedades do borne' : 'Propriedades do componente'}
+        eyebrow={tab === 'library' ? 'ESQUEMA' : wireTool && wireDefaults.medium && wireDefaults.medium !== 'electrical' ? 'TUBAGEM' : wireTool || (selectedWire && !selectedComponent) ? 'CABO' : selectedTerminal && !selectedComponent ? 'BORNE' : 'COMPONENTE'}
+        title={tab === 'library' ? 'Elementos' : wireTool ? wireDefaults.medium === 'hydraulic' ? 'Tubo hidráulico' : wireDefaults.medium === 'pneumatic' ? 'Tubo pneumático' : 'Novo cabo' : selectedWire && !selectedComponent ? 'Inspetor do cabo' : selectedTerminal && !selectedComponent ? 'Propriedades do borne' : 'Propriedades do componente'}
         side="left"
         onToggle={onCollapse}
         toggleLabel="Recolher biblioteca e inspetor"
@@ -728,7 +728,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     : 'bg-surface-sunken text-ink-600 border-line hover:bg-surface'
                 }`}
               >
-                {d.icon} {d.id === 'serralharia' ? 'Serralharia' : d.label}
+                {d.id === 'serralharia' ? 'Serralharia' : d.label}
               </button>
             ))}
           </div>
@@ -755,21 +755,19 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               const domainCount = domain.subgroups.reduce((acc, sg) => acc + sg.items.length, 0)
               const domainCollapsed = !filter.trim() && activeDomain === 'all' && collapsedDomains.has(domain.id)
               return (
-                <section className="mb-2 rounded-md border border-line-soft bg-surface/60" key={domain.id} data-library-domain={domain.id}>
+                <section className="dc-library-domain" key={domain.id} data-library-domain={domain.id}>
                   <button
                     type="button"
                     aria-expanded={!domainCollapsed}
                     onClick={() => toggleDomain(domain.id)}
-                    className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-[11px] font-bold tracking-wide text-ink-800 hover:bg-surface-sunken/70 rounded-t-md"
-                    style={{ borderLeft: `3px solid ${domain.accent}` }}
+                    className="dc-library-domain-head"
                   >
-                    <span className="text-[13px] leading-none">{domain.icon}</span>
-                    <span className="flex-1 truncate">{domain.label}</span>
-                    <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-[9.5px] font-mono text-ink-500">{domainCount}</span>
+                    <span className="dc-library-domain-label">{domain.label}</span>
+                    <span className="dc-library-domain-count">{domainCount}</span>
                     <IconChevronDown size={13} className={`dc-library-folder-chevron ${domainCollapsed ? '' : 'is-open'}`} />
                   </button>
                   {!domainCollapsed && (
-                    <div className="pl-1.5 pr-1 pb-1 pt-0.5 space-y-0.5">
+                    <div className="dc-library-domain-groups">
                       {domain.subgroups.map((sg) => {
                         const isCollapsed = !filter.trim() && collapsedGroups.has(sg.id)
                         return (
@@ -781,7 +779,6 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                               onClick={() => toggleGroup(sg.id)}
                               title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${sg.label}`}
                             >
-                              <span className="dc-library-folder-icon"><IconProjects size={14} /></span>
                               <strong>{sg.label}</strong>
                               <span className="dc-library-folder-count">{sg.items.length}</span>
                               <IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
@@ -811,11 +808,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 </section>
               )
             })}
-             <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
-               Nos itens <b className="text-ink-500">disponíveis</b>, clique ou arraste: o componente aparece em pré-visualização no esquema
-               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). O cadeado indica que falta uma representação 3D ou que o item foi desativado.
-               Duplo clique insere já no esquema · Shift+clique posiciona vários · Esc cancela.
-             </p>
+            <div className="dc-library-help">
+              <p><strong>Clique ou arraste</strong> um componente disponível. Posicione a pré-visualização no esquema com um clique ou ao soltar; encaixa na malha.</p>
+              <p>Duplo clique insere de imediato. <kbd>Shift</kbd> + clique posiciona vários; <kbd>Esc</kbd> cancela.</p>
+              <p>O cadeado indica que falta uma representação 3D ou que o componente foi desativado.</p>
+            </div>
           </div>
         </>
       )}
@@ -831,13 +828,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
         <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
           {wireTool && (
             <section className="dc-wire-new space-y-2.5" aria-label="Opções dos cabos novos">
-              <header className="flex items-baseline justify-between gap-2 border-b border-line pb-1.5">
-                <strong className="text-[11px] font-semibold text-ink-900">Cabos e ponteiras</strong>
-                <span className="text-[9.5px] text-ink-400">próximos cabos</span>
-              </header>
               {/* Estado em direto da construção de cabos no 3D (portal montado pelo Panel3D) */}
               <div ref={setWireDraftSlot} className="dc-wire-draft-slot" data-slot="wire-draft-3d" />
-              <WireOptionsFields value={wireDefaults} onChange={setWireDefaults} showRouting />
+              <WireOptionsFields value={wireDefaults} onChange={setWireDefaults} showRouting progressive />
+              <details className="wo-tool-help">
+                <summary>Ajuda e atalhos<IconChevronDown size={13} /></summary>
+                <p>{wireDefaults.medium === 'hydraulic' || wireDefaults.medium === 'pneumatic' ? 'Clique num conector assinalado para começar e noutro para ligar. Também pode criar uma ponta livre numa superfície.' : 'Clique num borne para começar e noutro para ligar. Também pode criar uma ponta livre numa superfície.'} As calhas técnicas e os eixos X/Y/Z permitem encaixe magnético.</p>
               <div className="wo-shortcuts" aria-label="Atalhos da ferramenta Cabo">
                 <span><kbd>Clique</kbd> borne / ponto</span>
                 <span><kbd>Shift</kbd> eixo 90° / cadeia</span>
@@ -846,6 +842,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <span><kbd>Enter</kbd> ponta livre</span>
                 <span><kbd>Esc</kbd> termina</span>
               </div>
+              </details>
             </section>
           )}
           {!wireTool && !selectedComponent && !selectedWire && !selectedTerminal && (
