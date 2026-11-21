@@ -12,12 +12,14 @@ import { updateMotorBodyMotion } from './motorBodyMotion'
 import {
   FLOAT_SWITCH_SIZE_MM,
   WATER_PUMP_SIZE_MM,
+  WATER_SUPPLY_BOX_JUNCTION_MM,
+  WATER_SUPPLY_BOX_SIZE_MM,
   flowMeterSpecOf,
   waterTankDimensionsOf,
 } from './hydraulicsModel'
 import { useSimStore } from '../store/useSimStore'
 import { tankHasJunctionBracket, tankJunctionBracketOf, type TankJunctionBracket } from './hydraulicsModel'
-import { InlineWagoSplices3D, type WagoSpliceCable } from './JunctionWagoDevices3D'
+import { CableGlandPG, InlineWagoSplices3D, OboSteppedMembrane, type WagoSpliceCable } from './JunctionWagoDevices3D'
 import { Text } from './SceneText'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
 
@@ -2127,20 +2129,48 @@ export function WaterSupplyBox3D({
   const windowOpen = Boolean(c.state.readingHatchOpen ?? c.state.windowOpen)
   const junctionCoverOpen = c.state.internalBoxCoverOpen !== false
 
-  const W = 460 * U
-  const H = 330 * U
-  const D = 170 * U
-  const wallT = 10 * U
+  const W = WATER_SUPPLY_BOX_SIZE_MM.w * U
+  const H = WATER_SUPPLY_BOX_SIZE_MM.h * U
+  const D = WATER_SUPPLY_BOX_SIZE_MM.d * U
+  const wallT = WATER_SUPPLY_BOX_SIZE_MM.wallT * U
 
+  // `helvetiker_bold` só contém glifos ASCII ('Á' virava '?'); renderizamos 'AGUA' + acento agudo 3D sobre o 'A'.
   const embossedLabel = useMemo(() => {
     const font = new FontLoader().parse(embossFont as unknown as FontData)
-    const geometry = new TextGeometry('ÁGUA', { font, size: 27 * U, depth: 0.6 * U, curveSegments: 5, bevelEnabled: true, bevelSize: 0.15 * U, bevelThickness: 0.15 * U, bevelSegments: 1 })
+    const geometry = new TextGeometry('AGUA', { font, size: 27 * U, depth: 1.2 * U, curveSegments: 5, bevelEnabled: true, bevelSize: 0.2 * U, bevelThickness: 0.2 * U, bevelSegments: 2 })
     geometry.computeBoundingBox()
     const center = geometry.boundingBox!.getCenter(new THREE.Vector3())
     geometry.translate(-center.x, -center.y, 0)
     return geometry
   }, [])
   useEffect(() => () => embossedLabel.dispose(), [embossedLabel])
+
+  // Porca sextavada oca em latão CW617N para o passa-paredes lateral G 1" (furo interior real, sem tampa amarela maciça!)
+  const brassHexNutGeom = useMemo(() => {
+    const shape = new THREE.Shape()
+    const outerR = 23 * U
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3
+      const x = Math.cos(a) * outerR
+      const y = Math.sin(a) * outerR
+      if (i === 0) shape.moveTo(x, y)
+      else shape.lineTo(x, y)
+    }
+    shape.closePath()
+    const hole = new THREE.Path()
+    hole.absarc(0, 0, 15.8 * U, 0, Math.PI * 2, true)
+    shape.holes.push(hole)
+    const g = new THREE.ExtrudeGeometry(shape, {
+      depth: 8.5 * U,
+      bevelEnabled: true,
+      bevelThickness: 1.0 * U,
+      bevelSize: 0.9 * U,
+      bevelSegments: 2,
+    })
+    g.rotateY(Math.PI / 2)
+    return g
+  }, [])
+  useEffect(() => () => brassHexNutGeom.dispose(), [brassHexNutGeom])
 
   // Sub-componente virtual para reaproveitar o modelo real WaterFlowMeterZjLcd3D no interior!
   const meterComp = useMemo<ElectricalComponent>(() => ({
@@ -2227,40 +2257,61 @@ export function WaterSupplyBox3D({
     }
   })
 
+  // Detetar em direto quais dos bornes (+24V / PULSE / GND) têm fio elétrico ligado vindo do quadro.
+  const termIdsKey = useMemo(() => {
+    const byLabel = (lbl: string) => c.terminals.find((t) => t.label.toUpperCase() === lbl)?.id ?? ''
+    return {
+      v24: byLabel('+24V'),
+      pulse: byLabel('PULSE'),
+      gnd: byLabel('GND'),
+    }
+  }, [c.terminals])
+
+  const connectedMask = useSimStore((st) => {
+    const has = (id: string) =>
+      !!id && st.wires.some((w) => w.kind !== 'hydraulic' && w.kind !== 'pneumatic' && (w.fromTerminalId === id || w.toTerminalId === id))
+    return (has(termIdsKey.v24) ? 1 : 0) | (has(termIdsKey.pulse) ? 2 : 0) | (has(termIdsKey.gnd) ? 4 : 0)
+  })
+
   const junction = useMemo(() => {
-    const w = 110 * U, h = 80 * U, d = 45 * U, glandX = 30 * U
-    const backInner = -D / 2 + wallT
-    const center: [number, number, number] = [W * 0.31, H * 0.31, backInner + d / 2]
+    const j = WATER_SUPPLY_BOX_JUNCTION_MM
+    const w = j.w * U, h = j.h * U, d = j.d * U, jWall = j.wallT * U, glandX = j.glandOffsetX * U
+    const center: [number, number, number] = [j.center.x * U, j.center.y * U, j.center.z * U]
     // Saída do cabo do contador (referencial do contador → armário): conjunto [0, H·0,08, −D·0,06], contador [W·0,11, 2, 6] mm, escala 0,68.
     const pipeOuterR = (flowMeterSpecOf(meterComp.state).outerMm / 2) * U
     const scale = 0.68
     const meterExit = new THREE.Vector3(W * 0.11 + scale * -0.08, H * 0.08 + 2 * U + scale * (-pipeOuterR * 0.45), -D * 0.06 + 6 * U + scale * (pipeOuterR * 0.65))
-    const gIn = new THREE.Vector3(center[0] - glandX, center[1] - h / 2 - 14 * U, center[2])
-    // Desce por baixo do tubo, passa por trás dele (junto ao fundo) e sobe até ao bucim de entrada.
+    const gIn = new THREE.Vector3(center[0] - glandX, center[1] - h / 2 - 18 * U, center[2])
+    // Cabo preto do contador: desce por baixo do tubo, passa por trás dele e entra reto no bucim PG13.5 inferior esquerdo.
     const meterCable = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
       meterExit,
       new THREE.Vector3(meterExit.x + 0.02, -0.06, meterExit.z),
       new THREE.Vector3((meterExit.x + gIn.x) / 2, -0.08, (meterExit.z + gIn.z) / 2),
-      new THREE.Vector3(gIn.x, 0.12, gIn.z),
+      new THREE.Vector3(gIn.x, 0.08, gIn.z),
       gIn,
     ]), 48, 3.6 * U, 10, false)
-    const gOut = new THREE.Vector3(center[0] + glandX, center[1] + h / 2 + 14 * U, center[2])
-    const outCable = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-      gOut, new THREE.Vector3(gOut.x, (gOut.y + H / 2) / 2, gOut.z), new THREE.Vector3(gOut.x, H / 2 + 0.35, gOut.z),
-    ]), 16, 3.6 * U, 10, false)
-    const z0 = 0
+    const z0 = j.wagoZ * U
+    // Apenas o cabo vindo do contador entra pelo bucim inferior e liga ao lado ESQUERDO dos 3 WAGO 221-2411.
+    // Sem fios fictícios do lado direito: os fios vindos do quadro entram automaticamente pelo bucim superior!
     const splice: WagoSpliceCable = {
       key: 'contador',
-      sheathEntry: [-glandX, -h / 2 - 14 * U, z0],
+      sheathEntry: [-glandX, -h / 2 - 18 * U, z0],
       sheathEnd: [-glandX, -h / 2 + 12 * U, z0],
-      origin: [0, h / 2 - 23 * U, z0],
-      conductors: [{ color: '#dc2626', label: '+24V' }, { color: '#eab308', label: 'PULSE' }, { color: '#111827', label: 'GND' }],
-      exitSheathStart: [glandX, h / 2 - 13 * U, z0],
-      exitSheathEnd: [glandX, h / 2 + 14 * U, z0],
+      origin: [j.wagoOriginX * U, j.wagoOriginY * U, z0],
+      conductors: [
+        { color: '#dc2626', label: '+24V', connectedRight: Boolean(connectedMask & 1) },
+        { color: '#eab308', label: 'PULSE', connectedRight: Boolean(connectedMask & 2) },
+        { color: '#111827', label: 'GND', connectedRight: Boolean(connectedMask & 4) },
+      ],
     }
-    return { w, h, d, glandX, center, splice, meterCable, outCable, outX: gOut.x }
-  }, [W, H, D, wallT, meterComp.state])
-  useEffect(() => () => { junction.meterCable.dispose(); junction.outCable.dispose() }, [junction])
+    return {
+      w, h, d, jWall, glandX, center, splice, meterCable,
+      wagoScale: j.wagoScale,
+      rowPitch: j.rowPitch * U,
+      topGlandX: center[0] + glandX,
+    }
+  }, [W, H, D, meterComp.state, connectedMask])
+  useEffect(() => () => { junction.meterCable.dispose() }, [junction])
 
   const boxWhite = '#dfe3e5'
   const innerWhite = '#cbd1d5'
@@ -2308,8 +2359,12 @@ export function WaterSupplyBox3D({
           <meshStandardMaterial name="ABS do painel inferior" color={boxWhite} roughness={0.44} />
         </RoundedBox>
         <mesh name="water-box-embossed-label" geometry={embossedLabel} position={[W * 0.05, 0, 4.6 * U]} castShadow receiveShadow>
-          <meshStandardMaterial name="ABS do relevo ÁGUA" color="#d5dadd" roughness={0.46} />
+          <meshStandardMaterial name="ABS do relevo ÁGUA" color="#cdd3d8" roughness={0.44} />
         </mesh>
+        {/* Acento agudo 3D sobre o 'A' de ÁGUA */}
+        <RoundedBox position={[W * 0.05 - 39.5 * U, 19.8 * U, 5.2 * U]} rotation={[0, 0, -0.58]} args={[3.8 * U, 9.0 * U, 1.5 * U]} radius={0.45 * U} smoothness={2} castShadow receiveShadow>
+          <meshStandardMaterial name="ABS do relevo ÁGUA" color="#cdd3d8" roughness={0.44} />
+        </RoundedBox>
         <RoundedBox name="water-box-service-hatch" position={[-W * 0.37, 0, 5 * U]} args={[58 * U, 116 * U, 2 * U]} radius={0.8 * U} smoothness={2} castShadow receiveShadow>
           <meshStandardMaterial name="ABS da tampa de serviço" color="#d3d9dc" roughness={0.46} />
         </RoundedBox>
@@ -2372,67 +2427,158 @@ export function WaterSupplyBox3D({
         </mesh>
       </group>
 
-      {/* Caixa de derivação interna (acima do contador, visível com a porta aberta): cabo do contador
-          entra pelo bucim inferior e cada condutor (+24V / PULSE / GND) fica no seu WAGO 221-2411 (1-1);
-          o cabo de saída sobe e atravessa o topo do armário. */}
+      {/* Caixa de derivação OBO IP65 realista (acima do contador, visível com a porta aberta):
+          corpo RAL 7035 com nervuras, junta perimetral EPDM, 4 torres de parafuso, membranas escalonadas,
+          bucim PG13.5 inferior (entrada do cabo do contador) e bucim PG13.5 superior livre para os fios vindos do quadro. */}
       <group position={junction.center} name="water-box-junction">
-        <mesh position={[0, 0, -junction.d / 2 + 3 * U]} castShadow receiveShadow>
-          <boxGeometry args={[junction.w, junction.h, 6 * U]} />
-          <meshStandardMaterial color="#c5cdd6" roughness={0.5} />
+        {/* Costas da caixa OBO RAL 7035 */}
+        <RoundedBox position={[0, 0, -junction.d * 0.43]} args={[junction.w, junction.h, junction.d * 0.14]} radius={2.2 * U} smoothness={3} castShadow receiveShadow>
+          <meshStandardMaterial color="#cfd4da" roughness={0.48} metalness={0.04} />
+        </RoundedBox>
+        {/* Fundo interno em cinza-ardósia mate (contraste real com os WAGOs cristalinos) */}
+        <mesh position={[0, 0, -junction.d * 0.35]} receiveShadow>
+          <boxGeometry args={[junction.w - junction.jWall * 2, junction.h - junction.jWall * 2, 2.2 * U]} />
+          <meshStandardMaterial color="#aab3be" roughness={0.68} metalness={0.04} />
         </mesh>
-        {[[0, junction.h / 2 - 3 * U, junction.w, 6 * U], [0, -junction.h / 2 + 3 * U, junction.w, 6 * U], [-junction.w / 2 + 3 * U, 0, 6 * U, junction.h], [junction.w / 2 - 3 * U, 0, 6 * U, junction.h]].map(([x, y, bw, bh], i) => (
-          <mesh key={i} position={[x, y, 0]} castShadow receiveShadow>
-            <boxGeometry args={[bw, bh, junction.d]} />
-            <meshStandardMaterial color="#c5cdd6" roughness={0.5} />
+        {/* Nervuras de rigidez e 2 parafusos de fixação ao armário */}
+        {[-junction.h * 0.25, junction.h * 0.25].map((ry, i) => (
+          <mesh key={`rib-${i}`} position={[0, ry, -junction.d * 0.31]} receiveShadow>
+            <boxGeometry args={[junction.w - junction.jWall * 2.6, 2.4 * U, 2.6 * U]} />
+            <meshStandardMaterial color="#96a1ae" roughness={0.62} />
           </mesh>
         ))}
-        {/* Bucins: entrada (em baixo, à esquerda) e saída (em cima, à direita) */}
-        {[[-junction.glandX, -junction.h / 2 - 7 * U], [junction.glandX, junction.h / 2 + 7 * U]].map(([x, y], i) => (
-          <mesh key={i} position={[x, y, 0]} castShadow>
-            <cylinderGeometry args={[9 * U, 11 * U, 16 * U, 6]} />
-            <meshStandardMaterial color="#64748b" roughness={0.42} />
+        {[-junction.w * 0.30, junction.w * 0.30].map((hx, i) => (
+          <mesh key={`fix-${i}`} position={[hx, 0, -junction.d * 0.315]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[3.6 * U, 3.6 * U, 2.0 * U, 14]} />
+            <meshStandardMaterial color="#64748b" metalness={0.72} roughness={0.34} />
           </mesh>
         ))}
-        <InlineWagoSplices3D cables={[junction.splice]} scale={0.55} rowPitch={0.14} />
+        {/* 4 paredes laterais moldadas OBO RAL 7035 */}
+        {[
+          [0, junction.h / 2 - junction.jWall / 2, junction.w, junction.jWall],
+          [0, -junction.h / 2 + junction.jWall / 2, junction.w, junction.jWall],
+          [-junction.w / 2 + junction.jWall / 2, 0, junction.jWall, junction.h - junction.jWall * 2],
+          [junction.w / 2 - junction.jWall / 2, 0, junction.jWall, junction.h - junction.jWall * 2],
+        ].map(([x, y, bw, bh], i) => (
+          <RoundedBox key={`wall-${i}`} position={[x, y, -junction.d * 0.02]} args={[bw, bh, junction.d * 0.80]} radius={1.2 * U} smoothness={2} castShadow receiveShadow>
+            <meshStandardMaterial color="#cfd4da" roughness={0.46} metalness={0.04} />
+          </RoundedBox>
+        ))}
+        {/* Junta perimetral EPDM de vedação IP66 na borda frontal */}
+        {[
+          [0, junction.h / 2 - junction.jWall * 0.5, junction.w * 0.95, 2.0 * U],
+          [0, -junction.h / 2 + junction.jWall * 0.5, junction.w * 0.95, 2.0 * U],
+          [-junction.w / 2 + junction.jWall * 0.5, 0, 2.0 * U, junction.h * 0.91],
+          [junction.w / 2 - junction.jWall * 0.5, 0, 2.0 * U, junction.h * 0.91],
+        ].map(([x, y, gw, gh], i) => (
+          <mesh key={`gasket-${i}`} position={[x, y, junction.d * 0.38]}>
+            <boxGeometry args={[gw, gh, 1.8 * U]} />
+            <meshStandardMaterial color="#374151" roughness={0.84} />
+          </mesh>
+        ))}
+        {/* 4 torres de parafuso internas nos cantos com casquilho metálico */}
+        {[
+          [-junction.w * 0.415, junction.h * 0.39],
+          [junction.w * 0.415, junction.h * 0.39],
+          [-junction.w * 0.415, -junction.h * 0.39],
+          [junction.w * 0.415, -junction.h * 0.39],
+        ].map(([cx, cy], idx) => (
+          <group key={`tower-${idx}`} position={[cx, cy, -junction.d * 0.02]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[6.2 * U, 6.8 * U, junction.d * 0.74, 14]} />
+              <meshStandardMaterial color="#c4cbd2" roughness={0.5} />
+            </mesh>
+            <mesh position={[0, 0, junction.d * 0.37]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[2.8 * U, 2.8 * U, 2.4 * U, 12]} />
+              <meshStandardMaterial color="#334155" metalness={0.75} roughness={0.32} />
+            </mesh>
+          </group>
+        ))}
+        {/* Bucim PG13.5 inferior esquerdo (cabo do contador ZJLCD-BT01) e bucim PG13.5 superior direito (entrada automática do quadro) */}
+        <CableGlandPG position={[-junction.glandX, -junction.h / 2, 0]} rotation={[0, 0, Math.PI]} scale={0.56} />
+        <CableGlandPG position={[junction.glandX, junction.h / 2, 0]} rotation={[0, 0, 0]} scale={0.56} />
+        {/* Membranas OBO escalonadas nas entradas de reserva */}
+        <OboSteppedMembrane position={[-junction.glandX, junction.h / 2, 0]} rotation={[0, 0, 0]} scale={0.52} />
+        <OboSteppedMembrane position={[junction.glandX, -junction.h / 2, 0]} rotation={[0, 0, Math.PI]} scale={0.52} />
+        <OboSteppedMembrane position={[-junction.w / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.52} />
+        <OboSteppedMembrane position={[junction.w / 2, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.52} />
+
+        {/* Emendas WAGO 221-2411 transparentes: apenas o cabo do contador ligado à esquerda; lado direito pronto para os fios vindos do quadro! */}
+        <InlineWagoSplices3D cables={[junction.splice]} scale={junction.wagoScale} rowPitch={junction.rowPitch} />
+
         {!junctionCoverOpen && (
-          <mesh position={[0, 0, junction.d / 2 + 2 * U]} castShadow receiveShadow>
-            <boxGeometry args={[junction.w + 4 * U, junction.h + 4 * U, 5 * U]} />
-            <meshStandardMaterial color="#d8dce0" roughness={0.36} />
-          </mesh>
+          <group position={[0, 0, junction.d * 0.45]}>
+            <RoundedBox args={[junction.w + 3 * U, junction.h + 3 * U, 6 * U]} radius={2.2 * U} smoothness={3} castShadow receiveShadow>
+              <meshStandardMaterial color="#d8dce0" roughness={0.36} />
+            </RoundedBox>
+            {[
+              [-junction.w * 0.415, junction.h * 0.39],
+              [junction.w * 0.415, junction.h * 0.39],
+              [-junction.w * 0.415, -junction.h * 0.39],
+              [junction.w * 0.415, -junction.h * 0.39],
+            ].map(([sx, sy], idx) => (
+              <mesh key={`lid-screw-${idx}`} position={[sx, sy, 3.2 * U]} rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[3.4 * U, 3.4 * U, 1.8 * U, 12]} />
+                <meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.35} />
+              </mesh>
+            ))}
+          </group>
         )}
       </group>
-      {/* Cabo do contador (do sensor até ao bucim de entrada) e cabo de saída pelo topo do armário */}
+      {/* Cabo preto do contador (do sensor ZJLCD-BT01 até ao bucim PG13.5 inferior da caixa OBO) */}
       <mesh geometry={junction.meterCable} castShadow><meshStandardMaterial color="#18181b" roughness={0.58} metalness={0.08} /></mesh>
-      <mesh geometry={junction.outCable} castShadow><meshStandardMaterial color="#18181b" roughness={0.58} metalness={0.08} /></mesh>
-      <mesh position={[junction.outX, H / 2, junction.center[2]]} castShadow>
-        <cylinderGeometry args={[10 * U, 10 * U, wallT + 6 * U, 14]} />
-        <meshStandardMaterial color="#334155" roughness={0.6} />
-      </mesh>
+      {/* Bucim passa-teto PG16 no topo do armário alinhado com o bucim superior da caixa OBO */}
+      <CableGlandPG position={[junction.topGlandX, H / 2, junction.center[2]]} rotation={[0, 0, 0]} scale={0.62} />
 
-      {/* Saída lateral OUT: tubo interior até à parede, passa-parede, porca de união e niple roscado */}
+      {/* Saída lateral OUT realista: passa-paredes G 1" CNC em latão CW617N com anilha EPDM, porca sextavada oca, rosca BSP e furo interior oco */}
       <mesh geometry={outlet.inner} castShadow>
         <meshStandardMaterial color={pipeGrey} roughness={0.42} metalness={0.08} />
       </mesh>
       <group position={[outlet.wallX, outlet.tip.y, outlet.tip.z]} name={`water-box-outlet-${c.id}`}>
-        <mesh position={[0.02, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[30 * U, 30 * U, 8 * U, 24]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.7} />
+        {/* Junta de vedação EPDM preta encostada à parede lateral do armário */}
+        <mesh position={[2.2 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[27.5 * U, 27.5 * U, 4.4 * U, 28, 1, true]} />
+          <meshStandardMaterial color="#181c22" roughness={0.86} side={THREE.DoubleSide} />
         </mesh>
-        <mesh position={[0.07, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[25 * U, 25 * U, 22 * U, 6]} />
-          <meshStandardMaterial color="#c8a14a" metalness={0.85} roughness={0.28} />
+        <mesh position={[4.4 * U, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <ringGeometry args={[16 * U, 27.5 * U, 28]} />
+          <meshStandardMaterial color="#1e242c" roughness={0.84} side={THREE.DoubleSide} />
         </mesh>
-        <mesh position={[(outlet.tip.x - outlet.wallX + 0.1) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[16 * U, 16 * U, Math.max(0.04, outlet.tip.x - outlet.wallX - 0.08), 20]} />
-          <meshStandardMaterial color="#d4b15c" metalness={0.88} roughness={0.24} />
+        {/* Colar/anilha metálica cromada sob a porca */}
+        <mesh position={[5.8 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[24.5 * U, 24.5 * U, 2.8 * U, 28, 1, true]} />
+          <meshStandardMaterial color="#b8c2cc" metalness={0.86} roughness={0.28} side={THREE.DoubleSide} />
         </mesh>
-        {/* Rosca do niple (anéis) */}
-        {[0, 1, 2, 3].map((i) => (
-          <mesh key={i} position={[0.1 + i * 0.022, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-            <torusGeometry args={[16.5 * U, 1.4 * U, 6, 20]} />
-            <meshStandardMaterial color="#b8923f" metalness={0.9} roughness={0.22} />
+        {/* Porca sextavada oca chanfrada em latão CW617N */}
+        <mesh position={[6.8 * U, 0, 0]} geometry={brassHexNutGeom} castShadow receiveShadow>
+          <meshStandardMaterial color="#c9a24b" metalness={0.86} roughness={0.26} />
+        </mesh>
+        {/* Corpo cilíndrico oco do niple roscado G 1" (parede exterior em latão) */}
+        <mesh position={[19.5 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[16.2 * U, 16.2 * U, 22 * U, 28, 1, true]} />
+          <meshStandardMaterial color="#d2ad56" metalness={0.88} roughness={0.22} />
+        </mesh>
+        {/* 6 filetes nítidos de rosca BSP G 1" */}
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <mesh key={`thd-${i}`} position={[(16.8 + i * 2.35) * U, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+            <torusGeometry args={[16.5 * U, 1.15 * U, 8, 28]} />
+            <meshStandardMaterial color="#bc943d" metalness={0.9} roughness={0.2} />
           </mesh>
         ))}
+        {/* Borda frontal chanfrada do niple (anel oco: 11.2 mm a 16.2 mm) */}
+        <mesh position={[30.5 * U, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <ringGeometry args={[11.2 * U, 16.2 * U, 28]} />
+          <meshStandardMaterial color="#dec06e" metalness={0.88} roughness={0.2} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Canal interior oco escuro do passa-paredes (permite ver o interior real do tubo!) */}
+        <mesh position={[15.5 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[11.2 * U, 11.2 * U, 30 * U, 24, 1, true]} />
+          <meshStandardMaterial color="#111827" roughness={0.78} metalness={0.2} side={THREE.BackSide} />
+        </mesh>
+        <mesh position={[2 * U, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <circleGeometry args={[11.2 * U, 20]} />
+          <meshStandardMaterial color="#090d14" roughness={0.92} />
+        </mesh>
       </group>
       {(spilling || puddleSize.current > 0.002) && (
         <group name={`water-box-spill-${c.id}`} userData={{ spilling }}>

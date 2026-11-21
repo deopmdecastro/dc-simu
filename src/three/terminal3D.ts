@@ -7,7 +7,7 @@ import { editorTerminalRadiusMm } from '../catalog/terminalGeometry'
 import { isTerminalAssemblyComponent, terminalAssemblyConductors } from './terminalAssembly'
 import { panelAccessorySizeMm } from './enclosureParts'
 import { busbarSizeMm } from './busbarParts'
-import { hydraulicComponentSizeMm } from './hydraulicsModel'
+import { hydraulicComponentSizeMm, waterSupplyBoxTerminalPosition3D } from './hydraulicsModel'
 import { pneumaticComponentSizeMm } from './pneumaticsModel'
 import { structureComponentSizeMm } from './structuresModel'
 import { junctionWagoSizeMm } from './junctionWagoModel'
@@ -160,7 +160,12 @@ export function component3DVolumeCenter(_component: ElectricalComponent): THREE.
 }
 
 export function terminalLocal3D(component: ElectricalComponent, terminal: Terminal): THREE.Vector3 {
-  const point = terminal3DPositionOf(terminal)
+  // Projetos guardados anteriormente tinham +24V/PULSE/GND na base (y≈0.14); alinhar automaticamente com a boca direita dos 3 WAGO 221-2411 na caixa OBO interior.
+  const wagoPos = component.type === 'waterSupplyBox' ? waterSupplyBoxTerminalPosition3D(terminal.label) : null
+  const isLegacyWaterBoxTerminal = Boolean(
+    wagoPos && (!terminal.position3D || (Math.abs(terminal.position3D.y - 0.14) < 0.03 && Math.abs(terminal.position3D.z - 0.52) < 0.04)),
+  )
+  const point = isLegacyWaterBoxTerminal && wagoPos ? wagoPos : terminal3DPositionOf(terminal)
   const size = component3DDimensions(component)
   return new THREE.Vector3(
     (point.x - 0.5) * size.x,
@@ -214,7 +219,10 @@ export function terminalNormalWorld3D(component: ElectricalComponent, terminal: 
   // Face declarada no catálogo: manda sobre a geometria. Os PLC Siemens S7 têm o
   // encaixe na lateral do CAD e o cabo sai pela frente do módulo — a posição 3D
   // continua a ser a do encaixe, só a direção do cabo é que vem daqui.
-  const normal = terminal.face && terminal.socket3D == null ? new THREE.Vector3(...(atMeasuredSocket && spot?.normal ? spot.normal : normals[terminal.face])).normalize()
+  const isWaterBoxWago = component.type === 'waterSupplyBox' && Boolean(waterSupplyBoxTerminalPosition3D(terminal.label))
+  const normal = isWaterBoxWago
+    ? new THREE.Vector3(1, 0, 0)
+    : terminal.face && terminal.socket3D == null ? new THREE.Vector3(...(atMeasuredSocket && spot?.normal ? spot.normal : normals[terminal.face])).normalize()
     : atCatalogSocket ? new THREE.Vector3(...socket.normal).normalize()
     : atMeasuredSocket && spot ? new THREE.Vector3(...(spot.normal ?? normals[spot.face])) : faces.sort((a, b) => a[0] - b[0])[0][1].clone()
   const [x, y, z] = orientationRadians(componentOrientationOf(component))

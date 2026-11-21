@@ -7,6 +7,7 @@ import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPan
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { MOTOR_BOX, MOTOR_CAD, MOTOR_GLAND, MOTOR_SIZE } from './motorTerminalLayout'
+import { WATER_SUPPLY_BOX_JUNCTION_MM, WATER_SUPPLY_BOX_SIZE_MM, waterSupplyBoxWagoPortMm } from './hydraulicsModel'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { sharedFerrulePort } from '../electrical/sharedFerrules'
 import { isWireOutsideSolids, keepWireOutsideSolids, segmentEntersBox, OrientedWireBox, type EnclosureWallKind } from './solidWireRouting'
@@ -89,6 +90,8 @@ export type WireEndpoint3D = {
   sharedFollower?: boolean
   /** Contexto geométrico para encaminhar cabos do motor pelo bucim M20. */
   motorContext?: { component: ElectricalComponent; pivot: V3; terminalLabel: string; endType: WireEndType }
+  /** Contexto geométrico para encaminhar automaticamente os fios (+24V/PULSE/GND) pelo bucim superior da Caixa de Água até aos WAGO 221-2411 interiores. */
+  waterBoxGlandContext?: { component: ElectricalComponent; pivot: V3; terminalLabel: string }
   /** Contexto geométrico para chicotes de aparelhos montados na porta de um quadro (`door`/`doorOuter`). */
   doorContext?: {
     enclosureId: string
@@ -219,6 +222,9 @@ export function wireEndpoint3D(
       sharedFollower: endKind === 'ferruleDouble' && portInfo.shared && !portInfo.isLeader,
       motorContext: (component.type === 'motor3ph' || component.type === 'motor1ph')
         ? { component, pivot: arr(pivot), terminalLabel: terminal.label, endType: endKind }
+        : undefined,
+      waterBoxGlandContext: component.type === 'waterSupplyBox' && Boolean(waterSupplyBoxWagoPortMm(terminal.label))
+        ? { component, pivot: arr(pivot), terminalLabel: terminal.label }
         : undefined,
       doorContext: doorEnc && doorEncPivot && doorDims
         ? {
@@ -2039,6 +2045,86 @@ function buildMotorGlandBody3D(
   }
 }
 
+/** Transforma coordenadas locais (mm, centro do armário = 0) da Caixa de Água para coordenadas mundiais 3D. */
+function waterBoxLocalMmToWorld(component: ElectricalComponent, pivot: THREE.Vector3, mmX: number, mmY: number, mmZ: number): V3 {
+  const scale = component3DScaleOf(component)
+  const local = new THREE.Vector3(mmX * U * scale.x, mmY * U * scale.y, mmZ * U * scale.z)
+  const [rx, ry, rz] = orientationRadians(componentOrientationOf(component))
+  local.applyEuler(new THREE.Euler(rx, ry, rz, 'XYZ'))
+  if (component.mirrored) local.x *= -1
+  local.applyEuler(new THREE.Euler(0, 0, schematicRotationRadians(component), 'XYZ')).add(pivot)
+  return arr(local)
+}
+
+/** Encaminhamento automático de fios elétricos (+24V / PULSE / GND) que entram na Caixa / Fonte de Água:
+ *  entram verticalmente pelo bucim PG16 do teto do armário, atravessam o bucim PG13.5 superior direito
+ *  da caixa de derivação OBO interior e curvam limpos para a boca direita livre de cada WAGO 221-2411. */
+function buildWaterBoxGlandBody3D(
+  otherEnd: WireEndpoint3D,
+  otherHead: V3,
+  otherAxis: V3,
+  boxEnd: WireEndpoint3D,
+  boxHead: V3,
+  outerMm: number,
+  obstacles: WireObstacle[],
+  manual: V3[] = [],
+): { points: V3[]; entry: V3 } {
+  const ctx = boxEnd.waterBoxGlandContext
+  if (!ctx) throw new Error('Water supply box gland routing requires waterBoxGlandContext')
+  const port = waterSupplyBoxWagoPortMm(ctx.terminalLabel)!
+  const s = WATER_SUPPLY_BOX_SIZE_MM
+  const j = WATER_SUPPLY_BOX_JUNCTION_MM
+  const bPivot = v(ctx.pivot)
+  const local = (mx: number, my: number, mz: number) => waterBoxLocalMmToWorld(ctx.component, bPivot, mx, my, mz)
+
+  const gx = j.center.x + j.glandOffsetX + port.glandDx
+  const gz = j.center.z + port.glandDz
+  const roofY = s.h / 2
+  const oboTopY = j.center.y + j.h / 2
+
+  // Troço físico fixo: entrada reta vertical no bucim do teto -> bucim PG13.5 da caixa OBO -> curva limpa -> boca direita do WAGO 221-2411.
+  const glandAbove = local(gx, roofY + 50, gz)
+  const roofMouth = local(gx, roofY + 18, gz)
+  const roofThru = local(gx, roofY - 4, gz)
+  const oboMouth = local(gx, oboTopY + 11, gz)
+  const oboInside = local(gx, oboTopY - 10, gz)
+  const cornerInObo = local(gx, port.y, port.z)
+  const wagoApproach = local(port.x + 7.5, port.y, port.z)
+
+  // Curva interior C¹ limpa dentro da caixa OBO (do bucim superior até à boca horizontal do WAGO).
+  const oboCurvePts = roundCorners(
+    [oboMouth, oboInside, cornerInObo, wagoApproach, boxHead],
+    outerMm,
+    2.4,
+  )
+  const protectedTail: V3[] = [glandAbove, roofMouth, roofThru, ...oboCurvePts]
+
+  // Troço exterior do quadro/outro componente até acima do bucim PG16 do teto da Caixa de Água.
+  const lead = Math.max(outerMm * 2.8 * U, 0.08)
+  const exitOther: V3 = [
+    otherHead[0] + otherAxis[0] * lead,
+    otherHead[1] + otherAxis[1] * lead,
+    otherHead[2] + otherAxis[2] * lead,
+  ]
+  const highY = Math.max(exitOther[1] + 0.14, glandAbove[1] + 0.12)
+  const transitZ = Math.max(wireFrontLimit(outerMm), glandAbove[2])
+  const outerControls: V3[] = manual.length
+    ? [otherHead, exitOther, ...manual, glandAbove]
+    : [
+      otherHead,
+      exitOther,
+      [exitOther[0], highY, Math.max(exitOther[2], transitZ)],
+      [glandAbove[0], highY, transitZ],
+      [glandAbove[0], glandAbove[1] + 0.06, glandAbove[2]],
+      glandAbove,
+    ]
+  const dedupedOuter = outerControls.filter((pt, i) => i === 0 || v(pt).distanceTo(v(outerControls[i - 1])) > 1e-4)
+  const smoothOuter = roundCorners(dedupedOuter, outerMm, manual.length ? 3.2 : 4.2)
+  const combined: V3[] = [...smoothOuter.slice(0, -1), ...protectedTail]
+  const cleaned = combined.filter((pt, i) => i === 0 || v(pt).distanceTo(v(combined[i - 1])) > 1e-4)
+  return { points: cleaned, entry: glandAbove }
+}
+
 /** Corrige os sólidos só no troço exterior; a passagem física no motor é fixa. */
 function clearPathSolids(
   points: V3[],
@@ -2101,6 +2187,49 @@ export function buildWirePath3D(
         { componentId: to.componentId, axis: b.geometry.axis, glandBypass: toMotorGland, enclosureGlandId: gland.enclosureGlandId },
       ], wireFrontLimit(outerMm), wireHash(wire), motorRoute)
     return { points: safe, starts: [a.geometry, b.geometry], motorRoute }
+  }
+
+  // Fios elétricos (+24V / PULSE / GND) ligados à Caixa / Fonte de Água entram automaticamente pelo bucim PG16 do topo e pelo bucim PG13.5 da caixa OBO até aos WAGO 221-2411!
+  const isFluidWire = wire.kind === 'hydraulic' || wire.kind === 'pneumatic'
+  const fromWaterBoxGland = !isMultimeterLead && !isFluidWire && Boolean(from.waterBoxGlandContext) && !to.waterBoxGlandContext
+  const toWaterBoxGland = !isMultimeterLead && !isFluidWire && Boolean(to.waterBoxGlandContext) && !from.waterBoxGlandContext
+
+  if (toWaterBoxGland || fromWaterBoxGland) {
+    const boxSide = toWaterBoxGland ? to : from
+    const ctx = boxSide.waterBoxGlandContext!
+    const port = waterSupplyBoxWagoPortMm(ctx.terminalLabel)!
+    const j = WATER_SUPPLY_BOX_JUNCTION_MM
+    const s = WATER_SUPPLY_BOX_SIZE_MM
+    const bPivot = v(ctx.pivot)
+    const wagoApproachTarget = waterBoxLocalMmToWorld(ctx.component, bPivot, port.x + 10, port.y, port.z)
+    const glandAboveTarget = waterBoxLocalMmToWorld(ctx.component, bPivot, j.center.x + j.glandOffsetX + port.glandDx, s.h / 2 + 50, j.center.z + port.glandDz)
+    const a = endHead(from, fromType, fromWaterBoxGland ? wagoApproachTarget : glandAboveTarget, outerMm)
+    const b = endHead(to, toType, toWaterBoxGland ? wagoApproachTarget : glandAboveTarget, outerMm)
+    const gland = toWaterBoxGland
+      ? buildWaterBoxGlandBody3D(from, a.head, a.geometry.axis, to, b.head, outerMm, obstacles, manualPoints)
+      : buildWaterBoxGlandBody3D(to, b.head, b.geometry.axis, from, a.head, outerMm, obstacles, manualPoints.slice().reverse())
+    let entryIndex = 0
+    for (let i = 1; i < gland.points.length; i++) {
+      if (v(gland.points[i]).distanceToSquared(v(gland.entry)) < v(gland.points[entryIndex]).distanceToSquared(v(gland.entry))) entryIndex = i
+    }
+    const protectedRoute: NonNullable<WirePath3D['motorRoute']> = {
+      side: toWaterBoxGland ? 'to' : 'from',
+      points: toWaterBoxGland ? gland.points.slice(entryIndex) : gland.points.slice(entryIndex).reverse(),
+    }
+    const glandBody = toWaterBoxGland ? gland.points : gland.points.slice().reverse()
+    const safe = clearPathSolids(
+      glandBody,
+      outerMm,
+      obstacles,
+      [
+        { componentId: from.componentId, axis: a.geometry.axis, glandBypass: fromWaterBoxGland },
+        { componentId: to.componentId, axis: b.geometry.axis, glandBypass: toWaterBoxGland },
+      ],
+      wireFrontLimit(outerMm),
+      wireHash(wire),
+      protectedRoute,
+    )
+    return { points: safe.length > 1 ? safe : glandBody, starts: [a.geometry, b.geometry], motorRoute: protectedRoute }
   }
 
   // Chicote industrial de aparelhos montados na porta (`door`/`doorOuter`) — sem pontos manuais 3D.
@@ -3333,7 +3462,13 @@ export function buildAllWirePaths3D(
   }
 
   for (const item of builtPaths) {
-    const front = keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm)
+    const rawPts = item.pts.map(arr)
+    const nFix = item.motorRoute?.points.length ?? 0
+    const front = nFix > 0 && item.motorRoute
+      ? (item.motorRoute.side === 'to'
+        ? [...keepInFrontOfPlate(rawPts.slice(0, Math.max(1, rawPts.length - nFix)), item.entry.outerMm), ...item.motorRoute.points]
+        : [...item.motorRoute.points, ...keepInFrontOfPlate(rawPts.slice(Math.min(rawPts.length - 1, nFix)), item.entry.outerMm)])
+      : keepInFrontOfPlate(rawPts, item.entry.outerMm)
     const cleared = clearPathSolids(front, item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute)
     const cleanPoints = cleared.length > 1 ? cleared : front
     const finalPoints = compactExterior(removeBacktracksOutsideMotor(cleanPoints, item.motorRoute), item.motorRoute)

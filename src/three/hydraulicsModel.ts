@@ -144,9 +144,70 @@ export function hydraulicComponentSizeMm(
     return { x: spec.lengthMm, y: spec.heightMm, z: spec.depthMm }
   }
   if (type === 'waterSupplyBox') {
-    return { x: 460, y: 330, z: 170 }
+    return { x: WATER_SUPPLY_BOX_SIZE_MM.w, y: WATER_SUPPLY_BOX_SIZE_MM.h, z: WATER_SUPPLY_BOX_SIZE_MM.d }
   }
   return null
+}
+
+/** Dimensões (mm) da Caixa / Fonte de Água 3D e da caixa de derivação OBO interior.
+ *  Fonte única de verdade para o modelo 3D, posição dos bornes (+24V/PULSE/GND nos WAGO 221-2411)
+ *  e encaminhamento automático dos fios pelo bucim superior da caixa. */
+export const WATER_SUPPLY_BOX_SIZE_MM = { w: 460, h: 330, d: 170, wallT: 10 } as const
+
+export const WATER_SUPPLY_BOX_JUNCTION_MM = {
+  /** Dimensões da caixa de derivação OBO interior (mm). */
+  w: 120,
+  h: 88,
+  d: 48,
+  wallT: 5.5,
+  /** Centro da caixa OBO no referencial do armário (mm). */
+  center: { x: 138, y: 96, z: -51 },
+  /** Desvio X dos dois bucins PG13.5 (inferior esq. = contador; superior dir. = entrada do quadro). */
+  glandOffsetX: 30,
+  /** Centro X dos 3 WAGO 221-2411 no referencial da caixa OBO (mm). */
+  wagoOriginX: -2,
+  /** Cota Y (mm, no referencial da caixa OBO) do 1.º WAGO (+24V); os seguintes descem `rowPitch`. */
+  wagoOriginY: 19,
+  rowPitch: 19,
+  /** Profundidade Z (mm, no referencial da caixa OBO) dos WAGO. */
+  wagoZ: 2,
+  /** Escala do Wago221Connector3D (`wago221_inline`, 66 mm nominal) dentro da caixa OBO. */
+  wagoScale: 0.58,
+  /** Meia-largura do WAGO 221-2411 já escalado (66 * 0.58 / 2 = 19.14 mm). */
+  wagoHalfLen: (66 * 0.58) / 2,
+  /** Ordem fixa das 3 filas (+24V em cima, PULSE ao meio, GND em baixo). */
+  conductors: [
+    { label: '+24V' as const, color: '#dc2626', glandDx: -2.4, glandDz: 1.4 },
+    { label: 'PULSE' as const, color: '#eab308', glandDx: 0, glandDz: 0 },
+    { label: 'GND' as const, color: '#111827', glandDx: 2.4, glandDz: -1.4 },
+  ],
+} as const
+
+/** Posição 3D normalizada (0..1) da boca direita livre de cada WAGO 221-2411 dentro da caixa OBO. */
+export function waterSupplyBoxWagoPortMm(label: string): { x: number; y: number; z: number; rowIndex: number; glandDx: number; glandDz: number } | null {
+  const j = WATER_SUPPLY_BOX_JUNCTION_MM
+  const idx = j.conductors.findIndex((c) => c.label.toUpperCase() === label.toUpperCase())
+  if (idx < 0) return null
+  const c = j.conductors[idx]
+  return {
+    x: j.center.x + j.wagoOriginX + j.wagoHalfLen,
+    y: j.center.y + j.wagoOriginY - idx * j.rowPitch,
+    z: j.center.z + j.wagoZ,
+    rowIndex: idx,
+    glandDx: c.glandDx,
+    glandDz: c.glandDz,
+  }
+}
+
+export function waterSupplyBoxTerminalPosition3D(label: string): { x: number; y: number; z: number } | null {
+  const port = waterSupplyBoxWagoPortMm(label)
+  if (!port) return null
+  const s = WATER_SUPPLY_BOX_SIZE_MM
+  return {
+    x: port.x / s.w + 0.5,
+    y: port.y / s.h + 0.5,
+    z: port.z / s.d + 0.5,
+  }
 }
 
 export interface HydraulicDatasheetInfo {

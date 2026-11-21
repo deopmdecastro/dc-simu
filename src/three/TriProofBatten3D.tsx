@@ -35,9 +35,11 @@ export function triProofDimsOf(state: Record<string, unknown> | undefined) {
 export function TriProofLedBatten3D({
   component,
   position = [0, 0, 0],
+  externalCableTarget = null,
 }: {
   component: ElectricalComponent
   position?: [number, number, number]
+  externalCableTarget?: [number, number, number] | null
 }) {
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const { wattage, cct, lengthMm, widthMm, heightMm, linkable } = triProofDimsOf(component.state)
@@ -157,13 +159,29 @@ export function TriProofLedBatten3D({
         <pointLight position={[0, -H * 0.85, 0]} color={palette.bulbTintHex} intensity={0.42 + (wattage / 60) * 0.48} distance={6.5} decay={2} />
       )}
 
-      {/* Cabo editável opcional na saída do prensa-cabo */}
-      <EditableFieldCable3D
-        component={component}
-        anchor={[L / 2 + 24 * U, H * 0.12, 0]}
-        defaultConfig={{ exitDir: 'right', lengthMm: 650, diameterMm: 9, color: '#181c22' }}
-        conductorColors={['#92400e', '#2563eb', '#16a34a']}
-      />
+      {/* Cabo editável opcional alinhado exatamente com o prensa-cabo PG13.5 escolhido */}
+      {(() => {
+        const exitDir = String(component.state.cableExitDir ?? 'right')
+        const anchor: [number, number, number] =
+          exitDir === 'left'
+            ? [-(L / 2 + 24 * U), H * 0.12, 0]
+            : exitDir === 'top'
+              ? [0, H * 0.44, 0]
+              : exitDir === 'bottom'
+                ? [0, -H * 0.44, 0]
+                : exitDir === 'back'
+                  ? [0, H * 0.12, -W * 0.48]
+                  : [L / 2 + 24 * U, H * 0.12, 0]
+        return (
+          <EditableFieldCable3D
+            component={component}
+            anchor={anchor}
+            externalTarget={externalCableTarget}
+            defaultConfig={{ exitDir: 'right', lengthMm: 650, diameterMm: 9, color: '#181c22' }}
+            conductorColors={['#92400e', '#2563eb', '#16a34a']}
+          />
+        )
+      })()}
     </group>
   )
 }

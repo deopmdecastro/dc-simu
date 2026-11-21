@@ -111,7 +111,7 @@ import {
   PipeClampStandalone3D,
 } from './ConduitDevices3D'
 import { TriProofLedBatten3D } from './TriProofBatten3D'
-import { EditableFieldCable3D, isEditableCableDeviceType } from './EditableCable3D'
+import { EditableFieldCable3D, editableCableConductorsOf, isEditableCableDeviceType } from './EditableCable3D'
 import {
   computeFactoryRoomBounds,
   isSolidCollisionComponentType,
@@ -4182,6 +4182,43 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }
   }
 
+  // Encaminhamento de cabos de campo editáveis (luminárias, sensores, torres de sinalização, contadores, bóias soltas)
+  // diretamente para dentro da caixa de derivação OBO escolhida (`linkedJunctionBoxId`), com WAGO 221-2411 interiores!
+  const fieldCableTargets = new Map<string, [number, number, number]>()
+  const oboBoxesAll = components.filter((b) => isJunctionBoxType(b.type) && !!panelPivots[b.id])
+  if (oboBoxesAll.length > 0) {
+    for (const dev of components) {
+      if (!isEditableCableDeviceType(dev.type) || dev.type === 'floatSwitch') continue
+      const cableOn = dev.type === 'triProofLedBatten' ? dev.state.cableEnabled !== false : dev.state.cableEnabled === true
+      if (!cableOn) continue
+      const boxId = typeof dev.state.linkedJunctionBoxId === 'string' ? dev.state.linkedJunctionBoxId : ''
+      if (!boxId || !panelPivots[dev.id]) continue
+      const targetBox = oboBoxesAll.find((b) => b.id === boxId)
+      if (!targetBox) continue
+      const bp = panelPivots[targetBox.id]
+      const dp = panelPivots[dev.id]
+      const bSz = JUNCTION_WAGO_SIZE_MM[targetBox.type as JunctionBoxType]
+      const boxCables = oboSpliceCables.get(targetBox.id) ?? []
+      const glandOffsetX =
+        targetBox.type === 'junctionBoxOboT60'
+          ? (boxCables.length % 2 === 0 ? -1 : 1) * (bSz.x * PANEL_UNITS_PER_MM) * 0.24
+          : 0
+      boxCables.push({
+        key: dev.id,
+        glandX: glandOffsetX,
+        conductors: editableCableConductorsOf(dev.type),
+      })
+      oboSpliceCables.set(targetBox.id, boxCables)
+      const boxTopY = bp.y + (bSz.y * PANEL_UNITS_PER_MM) * 0.62
+      // Converter o alvo mundial do bucim PG13.5 para o referencial local do equipamento (respeitando rotação 3D!)
+      const worldDelta = new THREE.Vector3(bp.x + glandOffsetX - dp.x, boxTopY - dp.y, bp.z - dp.z)
+      const [rx, ry, rz] = orientationRadians(componentOrientationOf(dev))
+      const invQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'XYZ')).invert()
+      worldDelta.applyQuaternion(invQuat)
+      fieldCableTargets.set(dev.id, [worldDelta.x, worldDelta.y, worldDelta.z])
+    }
+  }
+
   // Alojamento real de conectores WAGO 221 dentro da caixa de derivação OBO escolhida no Inspetor!
   const hostedWagosByBox = new Map<string, ElectricalComponent[]>()
   for (const w of components) {
@@ -5648,6 +5685,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               <TriProofLedBatten3D
                 component={c}
                 position={basePivots[c.id].toArray() as [number, number, number]}
+                externalCableTarget={fieldCableTargets.get(c.id) ?? null}
               />
             )
           } else if (c.type === 'waterSupplyBox') {
@@ -5755,6 +5793,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                   <EditableFieldCable3D
                     component={c}
                     anchor={[ox, oy, oz]}
+                    externalTarget={fieldCableTargets.get(c.id) ?? null}
                     defaultConfig={{
                       enabled: true,
                       exitDir: 'bottom',

@@ -1328,10 +1328,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   waterSupplyBox: {
     category: 'power', paletteName: 'Caixa / Fonte de Água 3D · ARCO + ZJLCD-BT01 + WAGO 221', group: 'Hidráulica', tag: 'AG', w: 184, h: 132,
     terminals: [
-      T('OUT', 'hydraulic-out', 0.96, 0.56, { position3D: { x: 1.03, y: 0.58, z: 0.44 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 11 }),
-      T('+24V', 'power-in', 0.30, 0.96, { position3D: { x: 0.30, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#dc2626', diameter: 8 }),
-      T('PULSE', 'io', 0.50, 0.96, { position3D: { x: 0.50, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#eab308', diameter: 8 }),
-      T('GND', 'neutral', 0.70, 0.96, { position3D: { x: 0.70, y: 0.14, z: 0.52 }, face: 'bottom', terminalType: 'screw', color: '#111827', diameter: 8 }),
+      T('OUT', 'hydraulic-out', 0.96, 0.56, { position3D: { x: 1.066, y: 0.58, z: 0.44 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 11 }),
+      T('+24V', 'power-in', 0.30, 0.96, { position3D: { x: 0.8373, y: 0.8485, z: 0.2118 }, face: 'right', terminalType: 'screw', color: '#dc2626', diameter: 7 }),
+      T('PULSE', 'io', 0.50, 0.96, { position3D: { x: 0.8373, y: 0.7909, z: 0.2118 }, face: 'right', terminalType: 'screw', color: '#eab308', diameter: 7 }),
+      T('GND', 'neutral', 0.70, 0.96, { position3D: { x: 0.8373, y: 0.7333, z: 0.2118 }, face: 'right', terminalType: 'screw', color: '#111827', diameter: 7 }),
     ],
     defaultState: {
       doorOpen: true,

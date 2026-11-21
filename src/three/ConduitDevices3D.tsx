@@ -17,8 +17,10 @@ export function conduitDimsOf(state: Record<string, unknown> | undefined) {
     clampStyleRaw === 'metal-epdm' || clampStyleRaw === 'metal-screw' ? clampStyleRaw : 'pvc-clip'
   const autoCouplers = s.autoCouplers !== false
   const bendAngleDeg = Math.max(0, Math.min(180, Number(s.bendAngleDeg ?? 0)))
-  const corrugatedColor = typeof s.corrugatedColor === 'string' && s.corrugatedColor ? s.corrugatedColor : '#1b1f26'
-  return { diameterMm, lengthMm, clampCount, clampStyle, autoCouplers, bendAngleDeg, corrugatedColor }
+  const clampRollDeg = (((Number(s.clampRollDeg ?? 0) || 0) % 360) + 360) % 360
+  const rawColor = typeof s.corrugatedColor === 'string' && s.corrugatedColor ? s.corrugatedColor : (typeof s.color === 'string' && s.color ? s.color : '')
+  const corrugatedColor = rawColor || '#1b1f26'
+  return { diameterMm, lengthMm, clampCount, clampStyle, autoCouplers, bendAngleDeg, clampRollDeg, corrugatedColor }
 }
 
 /** Textura realista de serigrafia técnica branca impressa no tubo VDS cinza PVC-U (fiel a image-54.png) */
@@ -257,7 +259,8 @@ export function ConduitVdsStraight3D({
   component: ElectricalComponent
   position?: [number, number, number]
 }) {
-  const { diameterMm, lengthMm, clampCount, clampStyle, autoCouplers } = conduitDimsOf(component.state)
+  const { diameterMm, lengthMm, clampCount, clampStyle, autoCouplers, clampRollDeg } = conduitDimsOf(component.state)
+  const clampRollRad = (clampRollDeg * Math.PI) / 180
   const L = lengthMm * U
   const r = (diameterMm * 0.5) * U
   const couplerLen = Math.max(26 * U, diameterMm * 1.25 * U)
@@ -304,9 +307,9 @@ export function ConduitVdsStraight3D({
         </group>
       ))}
 
-      {/* Abraçadeiras distribuídas automaticamente conforme a quantidade definida pelo utilizador */}
+      {/* Abraçadeiras distribuídas automaticamente e orientáveis em 360° à volta do tubo (`clampRollDeg`) */}
       {clampXs.map((xPos, idx) => (
-        <group key={idx} position={[xPos, 0, 0]}>
+        <group key={idx} position={[xPos, 0, 0]} rotation={[clampRollRad, 0, 0]}>
           <ClampByStyle style={clampStyle} diameterMm={diameterMm} />
         </group>
       ))}
@@ -397,7 +400,8 @@ export function ConduitCorrugated3D({
   component: ElectricalComponent
   position?: [number, number, number]
 }) {
-  const { diameterMm, lengthMm, clampCount, clampStyle, bendAngleDeg, corrugatedColor } = conduitDimsOf(component.state)
+  const { diameterMm, lengthMm, clampCount, clampStyle, bendAngleDeg, clampRollDeg, corrugatedColor } = conduitDimsOf(component.state)
+  const clampRollRad = (clampRollDeg * Math.PI) / 180
   const L = lengthMm * U
   const r = (diameterMm * 0.5) * U
 
@@ -459,10 +463,12 @@ export function ConduitCorrugated3D({
           <meshStandardMaterial color={corrugatedColor} roughness={0.44} metalness={0.14} />
         </mesh>
       ))}
-      {/* Abraçadeiras opcionais ao longo do tubo corrugado */}
+      {/* Abraçadeiras opcionais ao longo do tubo corrugado, orientáveis em 360° (`clampRollDeg`) */}
       {built.clamps.map((cl, idx) => (
         <group key={idx} position={cl.pos} quaternion={cl.quat}>
-          <ClampByStyle style={clampStyle} diameterMm={diameterMm} />
+          <group rotation={[clampRollRad, 0, 0]}>
+            <ClampByStyle style={clampStyle} diameterMm={diameterMm} />
+          </group>
         </group>
       ))}
     </group>
@@ -481,6 +487,8 @@ export function PipeClampStandalone3D({
   position?: [number, number, number]
 }) {
   const diameterMm = Math.max(16, Math.min(63, Number(component.state.diameterMm ?? 25)))
+  const clampRollDeg = (((Number(component.state.clampRollDeg ?? 0) || 0) % 360) + 360) % 360
+  const clampRollRad = (clampRollDeg * Math.PI) / 180
   const style: PipeClampStyle =
     component.type === 'pipeClampMetalEpdm'
       ? 'metal-epdm'
@@ -488,7 +496,7 @@ export function PipeClampStandalone3D({
         ? 'metal-screw'
         : 'pvc-clip'
   return (
-    <group position={position} name={`pipe-clamp-${component.id}`}>
+    <group position={position} rotation={[clampRollRad, 0, 0]} name={`pipe-clamp-${component.id}`}>
       <ClampByStyle style={style} diameterMm={diameterMm} />
     </group>
   )

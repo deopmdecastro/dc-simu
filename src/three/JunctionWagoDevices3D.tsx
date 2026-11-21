@@ -271,7 +271,7 @@ function makeWagoLeverTopTexture(): THREE.CanvasTexture {
    SUBCOMPONENTES REUTILIZÁVEIS: BUCIM PG/M20 + MEMBRANA OBO ESCALONADA
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function CableGlandPG({
+export function CableGlandPG({
   position,
   rotation,
   scale = 1,
@@ -315,7 +315,7 @@ function CableGlandPG({
   )
 }
 
-function OboSteppedMembrane({
+export function OboSteppedMembrane({
   position,
   rotation,
   scale = 1,
@@ -1077,8 +1077,10 @@ export interface WagoSpliceCable {
   sheathEnd: [number, number, number]
   /** Centro do primeiro WAGO (os seguintes descem `rowPitch`). */
   origin: [number, number, number]
-  /** Cores dos condutores, pela ordem dos WAGO. */
-  conductors: Array<{ color: string; label?: string }>
+  /** Cores dos condutores, pela ordem dos WAGO.
+   *  `connectedRight`: se definido como `false` (sem fio ligado do lado direito), a alavanca direita
+   *  fica aberta à espera da ligação vinda do quadro; quando `true`, fecha e mostra o cobre descarnado. */
+  conductors: Array<{ color: string; label?: string; connectedRight?: boolean }>
   /** Início da bainha do cabo de saída (onde convergem os condutores que saem). */
   exitSheathStart?: [number, number, number]
   /** Fim da bainha de saída (fora do bucim). */
@@ -1088,7 +1090,12 @@ export interface WagoSpliceCable {
 
 const SPLICE_WAGO: ElectricalComponent = {
   id: 'splice-wago-221-2411', type: 'wago221_inline' as ElectricalComponent['type'], ref: '', label: '',
-  x: 0, y: 0, w: 0, h: 0, terminals: [], state: { leversOpen: [] },
+  x: 0, y: 0, w: 0, h: 0, terminals: [], state: { leversOpen: [false, false] },
+} as unknown as ElectricalComponent
+
+const SPLICE_WAGO_RIGHT_OPEN: ElectricalComponent = {
+  id: 'splice-wago-221-2411-open', type: 'wago221_inline' as ElectricalComponent['type'], ref: '', label: '',
+  x: 0, y: 0, w: 0, h: 0, terminals: [], state: { leversOpen: [false, true] },
 } as unknown as ElectricalComponent
 
 function tube(points: THREE.Vector3[], radius: number): THREE.TubeGeometry {
@@ -1131,21 +1138,26 @@ export function InlineWagoSplices3D({ cables, scale = 0.6, rowPitch = 0.15 }: { 
       return <group key={cable.key} name={`wago-splice-${cable.key}`}>
         <mesh geometry={g.sheath} castShadow>{sheathMat}</mesh>
         {g.exitSheath && <mesh geometry={g.exitSheath} castShadow>{sheathMat}</mesh>}
-        {g.wires.map((w, i) => <group key={i}>
-          <mesh geometry={w.inWire} castShadow><meshStandardMaterial color={cable.conductors[i].color} roughness={0.45} /></mesh>
-          {w.outWire && <mesh geometry={w.outWire} castShadow><meshStandardMaterial color={cable.conductors[i].color} roughness={0.45} /></mesh>}
-          {/* Ponta descarnada (≈11 mm de cobre) dentro do WAGO, até à mola: o isolamento pára à boca */}
-          {(w.outWire ? [-1, 1] : [-1]).map((side) => (
-            <mesh key={side} name="wago-stripped-copper" position={[w.center.x + side * halfLen * 0.74, w.center.y - 0.02 * scale, w.center.z]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[1.25 * U, 1.25 * U, halfLen * 0.5, 8]} />
-              <meshStandardMaterial color="#d4904a" metalness={0.85} roughness={0.25} />
-            </mesh>
-          ))}
-          {/* WAGO 221-2411 com as alavancas fechadas viradas para quem abre a caixa */}
-          <group position={w.center.toArray() as [number, number, number]} rotation={[Math.PI / 2, 0, 0]} scale={scale} name={`wago-221-2411-${cable.key}-${i}`} userData={{ conductor: cable.conductors[i].label ?? '' }}>
-            <Wago221Connector3D component={SPLICE_WAGO} />
+        {g.wires.map((w, i) => {
+          const cond = cable.conductors[i]
+          const hasRightCopper = Boolean(w.outWire) || cond.connectedRight === true
+          const wagoComp = !w.outWire && cond.connectedRight === false ? SPLICE_WAGO_RIGHT_OPEN : SPLICE_WAGO
+          return <group key={i}>
+            <mesh geometry={w.inWire} castShadow><meshStandardMaterial color={cond.color} roughness={0.45} /></mesh>
+            {w.outWire && <mesh geometry={w.outWire} castShadow><meshStandardMaterial color={cond.color} roughness={0.45} /></mesh>}
+            {/* Ponta descarnada (≈11 mm de cobre) dentro do WAGO, até à mola: o isolamento pára à boca */}
+            {(hasRightCopper ? [-1, 1] : [-1]).map((side) => (
+              <mesh key={side} name="wago-stripped-copper" position={[w.center.x + side * halfLen * 0.74, w.center.y - 0.02 * scale, w.center.z]} rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[1.25 * U, 1.25 * U, halfLen * 0.5, 8]} />
+                <meshStandardMaterial color="#d4904a" metalness={0.85} roughness={0.25} />
+              </mesh>
+            ))}
+            {/* WAGO 221-2411 com as alavancas viradas para quem abre a caixa (alavanca direita abre quando livre) */}
+            <group position={w.center.toArray() as [number, number, number]} rotation={[Math.PI / 2, 0, 0]} scale={scale} name={`wago-221-2411-${cable.key}-${i}`} userData={{ conductor: cond.label ?? '' }}>
+              <Wago221Connector3D component={wagoComp} />
+            </group>
           </group>
-        </group>)}
+        })}
       </group>
     })}
   </group>

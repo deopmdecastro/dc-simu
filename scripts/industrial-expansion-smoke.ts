@@ -9,10 +9,18 @@
  * 7) Realismo de caixas OBO & conectores WAGO 221 transparentes
  */
 import assert from 'node:assert/strict'
+import * as THREE from 'three'
 import { useSimStore } from '../src/store/useSimStore'
 import { paletteDomains, paletteGroups } from '../src/electrical/factory'
-import { canInsertComponent3D } from '../src/three/modelPaths'
-import { hydraulicComponentSizeMm, isHydraulicComponentType } from '../src/three/hydraulicsModel'
+import { canInsertComponent3D, PANEL_UNITS_PER_MM } from '../src/three/modelPaths'
+import {
+  hydraulicComponentSizeMm,
+  isHydraulicComponentType,
+  WATER_SUPPLY_BOX_JUNCTION_MM,
+  WATER_SUPPLY_BOX_SIZE_MM,
+  waterSupplyBoxWagoPortMm,
+} from '../src/three/hydraulicsModel'
+import { buildWirePath3D, wireEndpoint3D } from '../src/three/wireGeometry3D'
 import {
   computeQuickAttach3D,
   isConduitStructureType,
@@ -20,7 +28,12 @@ import {
   structureComponentSizeMm,
 } from '../src/three/structuresModel'
 import { triProofDimsOf } from '../src/three/TriProofBatten3D'
-import { editableCableConfigOf, isEditableCableDeviceType } from '../src/three/EditableCable3D'
+import {
+  editableCableConductorsOf,
+  editableCableConfigOf,
+  isEditableCableDeviceType,
+} from '../src/three/EditableCable3D'
+import { conduitDimsOf } from '../src/three/ConduitDevices3D'
 import {
   clampPositionToFactoryRoom,
   computeFactoryRoomBounds,
@@ -267,4 +280,77 @@ run('6. Prevenção de colisões entre reservatórios sólidos + Limites do pavi
   assert.equal(free.z, -100)
 })
 
-console.log('\nALL 6 INDUSTRIAL EXPANSION SMOKE CHECKS PASSED!')
+run('7. Caixa OBO interior da Fonte de Água: bornes nos WAGO 221-2411 e entrada automática pelo bucim PG', () => {
+  useSimStore.setState({ components: [], wires: [] })
+  const st = useSimStore.getState()
+  const psuId = st.addComponent('powerSource24v', 100, 120)
+  const wbId = st.addComponent('waterSupplyBox', 500, 260)
+  const comps = useSimStore.getState().components
+  const psu = comps.find((c) => c.id === psuId)!
+  const wb = comps.find((c) => c.id === wbId)!
+
+  const tPsu24 = psu.terminals.find((t) => t.label === '+24V')!
+  const tWb24 = wb.terminals.find((t) => t.label === '+24V')!
+  st.addWire(tPsu24.id, tWb24.id, 'red')
+
+  const wire = useSimStore.getState().wires[0]
+  assert.ok(wire, 'Ligação +24V deve ser criada')
+
+  const wbPivot = new THREE.Vector3(6.0, 2.0, 1.2)
+  const pivots: Record<string, THREE.Vector3> = {
+    [psu.id]: new THREE.Vector3(-2.0, 4.0, 0.3),
+    [wb.id]: wbPivot,
+  }
+  const from = wireEndpoint3D(wire, 'from', comps, pivots, [wire])!
+  const to = wireEndpoint3D(wire, 'to', comps, pivots, [wire])!
+  assert.ok(to.waterBoxGlandContext, 'Terminal +24V da Caixa de Água deve ativar encaminhamento automático pelo bucim')
+
+  const path = buildWirePath3D(wire, from, to, [])
+  assert.ok(path.motorRoute && path.motorRoute.side === 'to', 'Troço de entrada pelo bucim PG deve estar protegido')
+
+  const j = WATER_SUPPLY_BOX_JUNCTION_MM
+  const s = WATER_SUPPLY_BOX_SIZE_MM
+  const port = waterSupplyBoxWagoPortMm('+24V')!
+  const expectedRoofX = wbPivot.x + (j.center.x + j.glandOffsetX + port.glandDx) * PANEL_UNITS_PER_MM
+  const expectedRoofY = wbPivot.y + (s.h / 2) * PANEL_UNITS_PER_MM
+  const passesRoofGland = path.points.some(
+    (p) => Math.abs(p[0] - expectedRoofX) < 0.04 && Math.abs(p[1] - expectedRoofY) < 0.25,
+  )
+  assert.ok(passesRoofGland, 'O fio vindo do quadro deve entrar verticalmente pelo bucim PG do topo da Caixa de Água')
+
+  const expectedOboTopY = wbPivot.y + (j.center.y + j.h / 2) * PANEL_UNITS_PER_MM
+  const passesOboGland = path.points.some(
+    (p) => Math.abs(p[0] - expectedRoofX) < 0.04 && Math.abs(p[1] - expectedOboTopY) < 0.16,
+  )
+  assert.ok(passesOboGland, 'O fio deve atravessar o bucim PG13.5 superior direito da caixa de derivação OBO interior')
+})
+
+run('8. Polimento 3D: saída lateral G 1" em latão, cabos editáveis multi-curva/OBO e rotação de abraçadeira VDS/corrugado', () => {
+  // 8a. Terminal OUT da Caixa de Água alinhado com o bocal roscado em latão G 1"
+  resetClean()
+  const st = useSimStore.getState()
+  const wbId = st.addComponent('waterSupplyBox', 200, 200)
+  const wb = useSimStore.getState().components.find((c) => c.id === wbId)!
+  const tOut = wb.terminals.find((t) => t.label === 'OUT')!
+  assert.ok(tOut.position3D && Math.abs(tOut.position3D.x - 1.066) < 1e-4, 'Terminal OUT deve alinhar com o bocal roscado G 1"')
+
+  // 8b. Cabos editáveis multi-curva + ligação a caixa de derivação OBO
+  const cfg = editableCableConfigOf({
+    cableEnabled: true,
+    cableWaypointsMm: [{ x: 180, y: -60, z: 40 }, { x: 320, y: 120, z: -20 }],
+    linkedJunctionBoxId: 'obo-box-1',
+  })
+  assert.equal(cfg.waypointsMm.length, 2)
+  assert.equal(cfg.linkedJunctionBoxId, 'obo-box-1')
+  assert.equal(editableCableConductorsOf('triProofLedBatten').length, 3)
+  assert.equal(editableCableConductorsOf('towerLight').length, 4)
+
+  // 8c. Rotação 360° da abraçadeira em tubos VDS e corrugados + fallback de cor
+  const dimsDefault = conduitDimsOf({})
+  assert.equal(dimsDefault.clampRollDeg, 0)
+  const dimsRotated = conduitDimsOf({ clampRollDeg: 270, color: '#2563eb' })
+  assert.equal(dimsRotated.clampRollDeg, 270)
+  assert.equal(dimsRotated.corrugatedColor, '#2563eb')
+})
+
+console.log('\nALL 8 INDUSTRIAL EXPANSION SMOKE CHECKS PASSED!')

@@ -3264,8 +3264,18 @@ function ConduitAndClampControls({ c, locked }: { c: ElectricalComponent; locked
   const lMm = Number(c.state.lengthMm ?? 1000)
   const clampCount = Number(c.state.clampCount ?? (c.type === 'conduitVdsElbow90' ? 0 : 2))
   const clampStyle = String(c.state.clampStyle ?? 'pvc-clip')
+  const clampRollDeg = (((Number(c.state.clampRollDeg ?? 0) || 0) % 360) + 360) % 360
   const isTube = c.type === 'conduitVdsStraight' || c.type === 'conduitCorrugated'
   const isVds = c.type === 'conduitVdsStraight' || c.type === 'conduitVdsElbow90'
+  const curOri = c.viewOrientation ?? { x: 0, y: 0, z: 0 }
+
+  const setOri = (next: { x: number; y: number; z: number }) =>
+    updateComponent(c.id, { viewOrientation: next })
+  const bumpOri = (axis: 'x' | 'y' | 'z', delta = 90) => {
+    const nextVal = (((curOri[axis] + delta) % 360) + 360) % 360
+    const wrapped = nextVal > 180 ? nextVal - 360 : nextVal
+    setOri({ ...curOri, [axis]: wrapped })
+  }
 
   const quickAddNext = (nextType: 'conduitVdsStraight' | 'conduitVdsElbow90' | 'conduitCorrugated') => {
     const newId = addComponent(nextType, (c.schematicX ?? 400) + 120, c.schematicY ?? 260)
@@ -3368,6 +3378,98 @@ function ConduitAndClampControls({ c, locked }: { c: ElectricalComponent; locked
         </>
       )}
 
+      {/* Rotação 3D do tubo & escolha do lado da abraçadeira (parede/teto/chão/frente/esquerda/direita) */}
+      <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2 text-[10.5px]" data-conduit-rotation-controls>
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-slate-700">Orientação 3D &amp; lado da abraçadeira</span>
+          <span className="font-mono text-[10px] text-slate-500">{Math.round(clampRollDeg)}°</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1">
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => setOri({ x: 0, y: 0, z: 0 })}
+            className={`dc-btn text-[10px] justify-center !px-1 ${curOri.y === 0 && curOri.z === 0 ? 'dc-btn-primary' : ''}`}
+          >
+            Horizontal
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => setOri({ x: 0, y: 0, z: 90 })}
+            className={`dc-btn text-[10px] justify-center !px-1 ${Math.abs(curOri.z) === 90 && curOri.y === 0 ? 'dc-btn-primary' : ''}`}
+          >
+            Vertical
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => setOri({ x: 0, y: 90, z: 0 })}
+            className={`dc-btn text-[10px] justify-center !px-1 ${Math.abs(curOri.y) === 90 && curOri.z === 0 ? 'dc-btn-primary' : ''}`}
+          >
+            Frente/Trás
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1">
+          <button type="button" disabled={locked} onClick={() => bumpOri('x', 90)} className="dc-btn text-[10px] justify-center !px-1">
+            Rodar X +90°
+          </button>
+          <button type="button" disabled={locked} onClick={() => bumpOri('y', 90)} className="dc-btn text-[10px] justify-center !px-1">
+            Rodar Y +90°
+          </button>
+          <button type="button" disabled={locked} onClick={() => bumpOri('z', 90)} className="dc-btn text-[10px] justify-center !px-1">
+            Rodar Z +90°
+          </button>
+        </div>
+
+        {(clampCount > 0 || !isTube) && (
+          <>
+            <span className="text-[10px] text-slate-600 pt-0.5">Lado onde fica a abraçadeira</span>
+            <div className="grid grid-cols-4 gap-1">
+              {[
+                { deg: 90, lbl: 'Parede' },
+                { deg: 0, lbl: 'Baixo' },
+                { deg: 180, lbl: 'Cima' },
+                { deg: 270, lbl: 'Frente' },
+              ].map((p) => (
+                <button
+                  key={p.deg}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => apply({ clampRollDeg: p.deg })}
+                  className={`dc-btn text-[9.5px] justify-center !px-1 ${Math.round(clampRollDeg) === p.deg ? 'dc-btn-primary' : ''}`}
+                >
+                  {p.lbl}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min={0}
+                max={345}
+                step={15}
+                disabled={locked}
+                value={clampRollDeg}
+                onChange={(e) => apply({ clampRollDeg: Number(e.target.value) })}
+                className="flex-1"
+              />
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => apply({ clampRollDeg: (clampRollDeg + 90) % 360 })}
+                className="dc-btn text-[9.5px] !px-1.5 !h-6"
+                title="Rodar abraçadeira 90° à volta do tubo"
+              >
+                +90°
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       {c.type === 'conduitCorrugated' && (
         <>
           <label className="flex flex-col gap-0.5 text-[11px]">
@@ -3424,14 +3526,26 @@ function ConduitAndClampControls({ c, locked }: { c: ElectricalComponent; locked
 
 function EditableCableControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
   const setComponentState = useSimStore((s) => s.setComponentState)
+  const allComponents = useSimStore((s) => s.components)
   const apply = (patch: Record<string, any>) => setComponentState(c.id, patch)
   const isFloat = c.type === 'floatSwitch'
   const isTriProof = c.type === 'triProofLedBatten'
   const enabled = isFloat ? true : isTriProof ? c.state.cableEnabled !== false : c.state.cableEnabled === true
   const lengthMm = Number(c.state.cableLengthMm ?? (isTriProof ? 650 : 480))
   const diamMm = Number(c.state.cableDiameterMm ?? 8.5)
-  const exitDir = String(c.state.cableExitDir ?? (isTriProof ? 'left' : 'bottom'))
+  const exitDir = String(c.state.cableExitDir ?? (isTriProof ? 'right' : 'bottom'))
   const color = String(c.state.cableColor ?? '#18181b')
+  const linkedBoxId = typeof c.state.linkedJunctionBoxId === 'string' ? c.state.linkedJunctionBoxId : ''
+  const waypoints = Array.isArray(c.state.cableWaypointsMm) ? (c.state.cableWaypointsMm as Array<{ x: number; y: number; z: number }>) : []
+  const oboBoxes = allComponents.filter((other) => other.id !== c.id && isJunctionBoxType(other.type))
+
+  const addCurvePoint = () => {
+    const last = waypoints[waypoints.length - 1] ?? { x: 120, y: -120, z: 40 }
+    apply({ cableWaypointsMm: [...waypoints, { x: last.x + 120, y: last.y - 80, z: last.z }] })
+  }
+  const resetCurve = () => {
+    apply({ cableWaypointsMm: [], cableBendXMm: 0, cableBendYMm: 0, cableBendZMm: 0, cableEndXMm: 0, cableEndYMm: 0, cableEndZMm: 0 })
+  }
 
   return (
     <div className="mt-2 flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px]" data-editable-cable-controls>
@@ -3449,6 +3563,27 @@ function EditableCableControls({ c, locked }: { c: ElectricalComponent; locked: 
 
       {enabled && (
         <>
+          <div className="rounded border border-sky-200 bg-sky-50 px-1.5 py-1 text-[9.5px] text-sky-900">
+            <strong>Edição direta em 3D:</strong> clique no cabo para o selecionar, arraste as bolas <strong>azuis</strong> (curvas) ou <strong>verde</strong> (ponta/encaixe em caixa OBO), clique nos pontos <strong>+</strong> para criar curvas ou duplo-clique para remover.
+          </div>
+
+          {/* Ligar o cabo diretamente dentro de qualquer caixa de derivação OBO (com WAGO 221-2411 interiores) */}
+          <label className="flex items-center justify-between gap-2 text-[10.5px]">
+            <span className="text-slate-600">Ligar em caixa OBO</span>
+            <select
+              className="dc-input !h-6 !text-[10px] !w-36"
+              disabled={locked}
+              value={linkedBoxId}
+              onChange={(e) => apply({ linkedJunctionBoxId: e.target.value })}
+            >
+              <option value="">Solto (ponta livre)</option>
+              {oboBoxes.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.ref} · {b.type === 'junctionBoxOboT60' ? 'OBO T60' : b.type === 'junctionBoxOboA6' ? 'OBO A6' : 'OBO T25'}
+                </option>
+              ))}
+            </select>
+          </label>
           {!isFloat && (
             <>
               <label className="flex items-center justify-between gap-2 text-[10.5px]">
@@ -3557,6 +3692,15 @@ function EditableCableControls({ c, locked }: { c: ElectricalComponent; locked: 
                 onChange={(e) => apply({ cableBendZMm: Number(e.target.value) || 0 })}
               />
             </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 pt-0.5">
+            <button type="button" disabled={locked} onClick={addCurvePoint} className="dc-btn text-[10px] justify-center !h-6">
+              + Ponto de curva ({waypoints.length})
+            </button>
+            <button type="button" disabled={locked} onClick={resetCurve} className="dc-btn text-[10px] justify-center !h-6">
+              Repor curva
+            </button>
           </div>
 
           {!isFloat && (
