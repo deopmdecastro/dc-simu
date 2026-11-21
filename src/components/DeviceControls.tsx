@@ -19,6 +19,16 @@ import {
   SWITCH_SPECS,
 } from '../three/lightingModel'
 import { isHydraulicComponentType, waterTankDimensionsOf } from '../three/hydraulicsModel'
+import { isPneumaticComponentType } from '../three/pneumaticsModel'
+import {
+  cableTrayDimsOf,
+  computeQuickAttach3D,
+  industrialPillarDimsOf,
+  industrialWallDimsOf,
+  isCableTrayComponentType,
+  isStructureComponentType,
+  type StructureComponentType,
+} from '../three/structuresModel'
 import {
   conveyorDimensionsOf,
   conveyorLineSensorsOf,
@@ -136,6 +146,25 @@ export const DEVICE_MANAGED_STATE_KEYS = new Set([
   'tiltDeg',
   'faceSizeMm',
   'bracketMounted',
+  // Estruturas, esteiras, hidráulica & pneumática
+  'thicknessMm',
+  'finish',
+  'skirting',
+  'profile',
+  'sideHeightMm',
+  'radiusMm',
+  'withCover',
+  'variant',
+  'riserKind',
+  'open',
+  'airSupplyOn',
+  'pressureBar',
+  'manualOverride',
+  'coilVoltage',
+  'positionPct',
+  'extended',
+  'boreMm',
+  'strokeMm',
   'phases',
   'frame',
   'mounting',
@@ -1175,6 +1204,8 @@ export function hasDeviceControls(type: string): boolean {
     isPlcModule(type) ||
     isLightingType(type) ||
     isHydraulicComponentType(type) ||
+    isPneumaticComponentType(type) ||
+    isStructureComponentType(type) ||
     isConveyorComponentType(type) ||
     [
       'selectorSchneiderXa2ed33',
@@ -1483,6 +1514,39 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
           <span className="text-[var(--dc-text-muted)]">Alimentação</span>
           <span className="font-mono text-[10px]">230V~ · 0,37 kW · L1/N/PE</span>
         </div>
+      </div>
+    )
+  }
+
+  if (c.type === 'hydraulicValve') {
+    const open = c.state.open !== false
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-hydraulic-valve-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Válvula de esfera G 1&quot;</span>
+          <StatusBadge label={open ? 'Aberta (fluxo ON)' : 'Fechada (bloqueio)'} tone={open ? 'ok' : 'warn'} />
+        </div>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={open}
+          onClick={() => operate(c.id, { open: !open })}
+          className={`dc-btn text-[11px] justify-center ${open ? 'dc-btn-primary' : ''}`}
+        >
+          {open ? 'Fechar válvula' : 'Abrir válvula'}
+        </button>
+      </div>
+    )
+  }
+
+  if (c.type === 'hydraulicTee') {
+    return (
+      <div className="flex flex-col gap-1.5 text-[11px]" data-hydraulic-tee-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">União em T hidráulica</span>
+          <StatusBadge label="3 vias · G 1&quot;" tone="ok" />
+        </div>
+        <p className="text-[10.5px] text-slate-500">Liga tubos hidráulicos nas 3 portas (A, B e C) para derivar o caudal de água.</p>
       </div>
     )
   }
@@ -1874,11 +1938,301 @@ function ConveyorControls({ c, locked }: { c: ElectricalComponent; locked: boole
   )
 }
 
+function PneumaticControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const setState = useSimStore((s) => s.setComponentState)
+  const operate = useSimStore((s) => s.operateComponent)
+
+  if (c.type === 'pneumaticFrl') {
+    const airOn = c.state.airSupplyOn !== false
+    const bar = Number(c.state.pressureBar ?? 6)
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-pneumatic-frl-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Unidade FRL Pneumática</span>
+          <StatusBadge label={airOn ? `${bar.toFixed(1)} bar` : 'Ar cortado'} tone={airOn ? 'ok' : 'warn'} />
+        </div>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={airOn}
+          onClick={() => operate(c.id, { airSupplyOn: !airOn })}
+          className={`dc-btn text-[11px] justify-center ${airOn ? 'dc-btn-primary' : ''}`}
+        >
+          {airOn ? 'Cortar ar comprimido' : 'Abrir ar comprimido'}
+        </button>
+        <label className="flex flex-col gap-1">
+          <span className="flex items-center justify-between text-[var(--dc-text-muted)]">
+            <span>Regulador de pressão</span>
+            <strong className="font-mono text-[var(--dc-text)]">{`${bar.toFixed(1)} bar`}</strong>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={10}
+            step={0.5}
+            disabled={locked}
+            value={bar}
+            onChange={(e) => setState(c.id, { pressureBar: Number(e.target.value) })}
+          />
+        </label>
+      </div>
+    )
+  }
+
+  if (c.type === 'pneumaticValve52') {
+    const energized = Boolean(c.state.energized)
+    const manual = Boolean(c.state.manualOverride)
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-pneumatic-valve-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Eletroválvula 5/2 · 24V DC</span>
+          <StatusBadge label={energized || manual ? 'Ativa (P→A)' : 'Repouso (P→B)'} tone={energized || manual ? 'ok' : 'neutral'} />
+        </div>
+        <button
+          type="button"
+          disabled={locked}
+          aria-pressed={manual}
+          onClick={() => operate(c.id, { manualOverride: !manual })}
+          className={`dc-btn text-[11px] justify-center ${manual ? 'dc-btn-primary' : ''}`}
+        >
+          {manual ? 'Soltar comando manual' : 'Acionar manualmente (P→A)'}
+        </button>
+      </div>
+    )
+  }
+
+  if (c.type === 'pneumaticCylinder') {
+    const pct = Number(c.state.positionPct ?? 0)
+    return (
+      <div className="flex flex-col gap-2 text-[11px]" data-pneumatic-cylinder-controls>
+        <div className="flex items-center justify-between gap-2">
+          <span className="dc-field-label">Cilindro ISO 15552</span>
+          <StatusBadge label={`${pct}% ${pct >= 90 ? 'Avançado' : pct <= 10 ? 'Recuado' : 'Em curso'}`} tone={pct >= 90 ? 'ok' : 'neutral'} />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => operate(c.id, { positionPct: 100, extended: true })}
+            className={`dc-btn text-[11px] justify-center ${pct >= 90 ? 'dc-btn-primary' : ''}`}
+          >
+            Avançar (100%)
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => operate(c.id, { positionPct: 0, extended: false })}
+            className={`dc-btn text-[11px] justify-center ${pct <= 10 ? 'dc-btn-primary' : ''}`}
+          >
+            Recuar (0%)
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 text-[11px]" data-pneumatic-tee-controls>
+      <div className="flex items-center justify-between gap-2">
+        <span className="dc-field-label">União em T Push-In</span>
+        <StatusBadge label="3 vias · Ar" tone="ok" />
+      </div>
+      <p className="text-[10.5px] text-slate-500">Bifurca tubos pneumáticos PU entre P1, P2 e P3.</p>
+    </div>
+  )
+}
+
+function StructureControls({ c, locked }: { c: ElectricalComponent; locked: boolean }) {
+  const setState = useSimStore((s) => s.setComponentState)
+  const updateComponent = useSimStore((s) => s.updateComponent)
+
+  const rotate90 = () => {
+    const cur = c.viewOrientation ?? { x: 0, y: 0, z: 0 }
+    updateComponent(c.id, { viewOrientation: { x: cur.x, y: (cur.y + 90) % 360, z: cur.z } })
+  }
+
+  const quickAttach = (
+    nextType: StructureComponentType,
+    dir: 'right' | 'left' | 'front' | 'back' | 'up' | 'down',
+  ) => {
+    const store = useSimStore.getState()
+    const cx = c.schematicX ?? 420
+    const cy = c.schematicY ?? 260
+    const anchorPos = c.panel3DPosition ?? { x: (cx - 420) * 0.02, y: -(cy - 260) * 0.02, z: 1.8 }
+    const { position3D, statePatch } = computeQuickAttach3D(c, anchorPos, nextType, dir)
+    const newId = store.addComponent(nextType, cx + (dir === 'right' ? 140 : dir === 'left' ? -140 : 0), cy + (dir === 'down' ? 90 : dir === 'up' ? -90 : 0))
+    if (!newId) return
+    if (Object.keys(statePatch).length) store.setComponentState(newId, statePatch)
+    store.updateComponent(newId, { panel3DPosition: position3D })
+    store.selectComponents([newId])
+  }
+
+  const isWall = c.type === 'industrialWall'
+  const isPillar = c.type === 'industrialPillar'
+  const isTray = isCableTrayComponentType(c.type)
+
+  return (
+    <div className="flex flex-col gap-2.5 text-[11px]" data-structure-controls={c.type}>
+      {/* PAREDE INDUSTRIAL */}
+      {isWall && (() => {
+        const d = industrialWallDimsOf(c.state)
+        return (
+          <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-700">Parede industrial PBR</span>
+              <StatusBadge label={`${(d.lengthMm / 1000).toFixed(1)}×${(d.heightMm / 1000).toFixed(1)} m`} tone="ok" />
+            </div>
+            <label className="flex flex-col gap-0.5">
+              <span className="flex justify-between text-slate-600"><span>Comprimento</span><strong className="font-mono">{`${d.lengthMm} mm`}</strong></span>
+              <input type="range" min={1000} max={8000} step={200} disabled={locked} value={d.lengthMm} onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })} />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="flex justify-between text-slate-600"><span>Altura</span><strong className="font-mono">{`${d.heightMm} mm`}</strong></span>
+              <input type="range" min={1800} max={5000} step={100} disabled={locked} value={d.heightMm} onChange={(e) => setState(c.id, { heightMm: Number(e.target.value) })} />
+            </label>
+            <div className="grid grid-cols-3 gap-1">
+              {([['concrete', 'Betão'], ['panel', 'Painel'], ['brick', 'Tijolo']] as const).map(([id, lbl]) => (
+                <button key={id} type="button" disabled={locked} aria-pressed={d.finish === id} onClick={() => setState(c.id, { finish: id })} className={`dc-btn text-[10.5px] justify-center ${d.finish === id ? 'dc-btn-primary' : ''}`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* PILAR METÁLICO */}
+      {isPillar && (() => {
+        const d = industrialPillarDimsOf(c.state)
+        return (
+          <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-700">Pilar estrutural</span>
+              <StatusBadge label={d.profile} tone="ok" />
+            </div>
+            <label className="flex flex-col gap-0.5">
+              <span className="flex justify-between text-slate-600"><span>Altura</span><strong className="font-mono">{`${d.heightMm} mm`}</strong></span>
+              <input type="range" min={1800} max={5500} step={100} disabled={locked} value={d.heightMm} onChange={(e) => setState(c.id, { heightMm: Number(e.target.value) })} />
+            </label>
+            <div className="grid grid-cols-3 gap-1">
+              {(['IPE160', 'HEB200', 'HEB240'] as const).map((p) => (
+                <button key={p} type="button" disabled={locked} aria-pressed={d.profile === p} onClick={() => setState(c.id, { profile: p })} className={`dc-btn text-[10px] justify-center font-mono ${d.profile === p ? 'dc-btn-primary' : ''}`}>
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {([['steel', 'Aço'], ['galvanized', 'Galv.'], ['safetyYellow', 'Amarelo']] as const).map(([id, lbl]) => (
+                <button key={id} type="button" disabled={locked} aria-pressed={d.finish === id} onClick={() => setState(c.id, { finish: id })} className={`dc-btn text-[10px] justify-center ${d.finish === id ? 'dc-btn-primary' : ''}`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ESTEIRAS PORTA-CABOS E ACESSÓRIOS */}
+      {isCableTrayComponentType(c.type) && (() => {
+        const d = cableTrayDimsOf(c.type, c.state)
+        return (
+          <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-700">Esteira galvanizada</span>
+              <StatusBadge label={`${d.widthMm}×${d.sideHeightMm} mm`} tone="ok" />
+            </div>
+            <div className="grid grid-cols-5 gap-1">
+              {[100, 150, 200, 300, 400].map((wMm) => (
+                <button key={wMm} type="button" disabled={locked} aria-pressed={d.widthMm === wMm} onClick={() => setState(c.id, { widthMm: wMm })} className={`dc-btn text-[10px] justify-center font-mono px-1 ${d.widthMm === wMm ? 'dc-btn-primary' : ''}`}>
+                  {wMm}
+                </button>
+              ))}
+            </div>
+            {c.type === 'cableTrayStraight' && (
+              <>
+                <label className="flex flex-col gap-0.5">
+                  <span className="flex justify-between text-slate-600"><span>Comprimento</span><strong className="font-mono">{`${d.lengthMm} mm`}</strong></span>
+                  <input type="range" min={300} max={3000} step={100} disabled={locked} value={d.lengthMm} onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })} />
+                </label>
+                <button type="button" disabled={locked} aria-pressed={d.withCover} onClick={() => setState(c.id, { withCover: !d.withCover })} className={`dc-btn text-[10.5px] justify-center ${d.withCover ? 'dc-btn-primary' : ''}`}>
+                  {d.withCover ? 'Tampa galvanizada: ON' : 'Tampa galvanizada: OFF'}
+                </button>
+              </>
+            )}
+            {c.type === 'cableTrayCross' && (
+              <div className="grid grid-cols-2 gap-1">
+                {([['cross', 'Cruzamento X (4 vias)'], ['tee', 'Derivação T (3 vias)']] as const).map(([v, lbl]) => (
+                  <button key={v} type="button" disabled={locked} aria-pressed={d.variant === v} onClick={() => setState(c.id, { variant: v })} className={`dc-btn text-[10px] justify-center ${d.variant === v ? 'dc-btn-primary' : ''}`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            )}
+            {c.type === 'cableTrayVerticalBend' && (
+              <>
+                <label className="flex flex-col gap-0.5">
+                  <span className="flex justify-between text-slate-600"><span>Ângulo do pescoço</span><strong className="font-mono">{`${d.angleDeg}°`}</strong></span>
+                  <input type="range" min={15} max={90} step={5} disabled={locked} value={d.angleDeg} onChange={(e) => setState(c.id, { angleDeg: Number(e.target.value) })} />
+                </label>
+                <div className="grid grid-cols-2 gap-1">
+                  {([['up', 'Subida ↗'], ['down', 'Descida ↘']] as const).map(([dir, lbl]) => (
+                    <button key={dir} type="button" disabled={locked} aria-pressed={d.direction === dir} onClick={() => setState(c.id, { direction: dir })} className={`dc-btn text-[10px] justify-center ${d.direction === dir ? 'dc-btn-primary' : ''}`}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {c.type === 'cableTrayRiser90' && (
+              <div className="grid grid-cols-2 gap-1">
+                {([['exterior', 'Curva Exterior'], ['interior', 'Curva Interior']] as const).map(([k, lbl]) => (
+                  <button key={k} type="button" disabled={locked} aria-pressed={d.riserKind === k} onClick={() => setState(c.id, { riserKind: k })} className={`dc-btn text-[10px] justify-center ${d.riserKind === k ? 'dc-btn-primary' : ''}`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* CONSTRUÇÃO RÁPIDA COM ENCAIXE FÁCIL (1 CLIQUE) */}
+      <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2" data-quick-snap-builder>
+        <div className="flex items-center justify-between gap-1">
+          <span className="text-[10.5px] font-semibold text-slate-700">Encaixe rápido (construir linha)</span>
+          <button type="button" disabled={locked} onClick={rotate90} className="dc-btn text-[10px] px-2 py-0.5">
+            Rodar 90°
+          </button>
+        </div>
+        {isTray ? (
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayStraight', 'right')} className="dc-btn text-[10px] justify-center">+ Reta (dir.)</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayElbow90', 'right')} className="dc-btn text-[10px] justify-center">+ Curva 90°</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayCross', 'right')} className="dc-btn text-[10px] justify-center">+ Cruz X / Tê</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayVerticalBend', 'right')} className="dc-btn text-[10px] justify-center">+ Pescoço</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayRiser90', 'right')} className="dc-btn text-[10px] justify-center">+ Curva Vert. 90°</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayStraight', 'left')} className="dc-btn text-[10px] justify-center">+ Reta (esq.)</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-1">
+            <button type="button" disabled={locked} onClick={() => quickAttach('industrialWall', 'right')} className="dc-btn text-[10px] justify-center">+ Parede (dir.)</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('industrialPillar', 'right')} className="dc-btn text-[10px] justify-center">+ Pilar (dir.)</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('industrialWall', 'left')} className="dc-btn text-[10px] justify-center">+ Parede (esq.)</button>
+            <button type="button" disabled={locked} onClick={() => quickAttach('cableTrayStraight', 'front')} className="dc-btn text-[10px] justify-center">+ Esteira frente</button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
   if (industrialDeviceTypeOf(c)) return <IndustrialDeviceControls component={c} disabled={locked} />
   if (isLightingType(c.type)) return <LightingControls c={c} locked={locked} />
   if (isHydraulicComponentType(c.type)) return <HydraulicControls c={c} locked={locked} />
+  if (isPneumaticComponentType(c.type)) return <PneumaticControls c={c} locked={locked} />
+  if (isStructureComponentType(c.type)) return <StructureControls c={c} locked={locked} />
   if (isConveyorComponentType(c.type)) return <ConveyorControls c={c} locked={locked} />
   if (c.type === 'multimeterDm20') return <MultimeterControls c={c} locked={locked} />
   if (

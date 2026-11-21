@@ -8,6 +8,8 @@ import { isTerminalAssemblyComponent, terminalAssemblyConductors } from './termi
 import { panelAccessorySizeMm } from './enclosureParts'
 import { busbarSizeMm } from './busbarParts'
 import { hydraulicComponentSizeMm } from './hydraulicsModel'
+import { pneumaticComponentSizeMm } from './pneumaticsModel'
+import { structureComponentSizeMm } from './structuresModel'
 import { conveyorComponentSizeMm } from './conveyorModel'
 import { clampRailLengthMm, dinRailProfileOf } from './dinRailGeometry'
 
@@ -103,6 +105,10 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
   if (busbar) return { x: busbar.x * PANEL_UNITS_PER_MM, y: busbar.y * PANEL_UNITS_PER_MM, z: busbar.z * PANEL_UNITS_PER_MM }
   const hydraulic = hydraulicComponentSizeMm(component.type, component.state)
   if (hydraulic) return { x: hydraulic.x * PANEL_UNITS_PER_MM, y: hydraulic.y * PANEL_UNITS_PER_MM, z: hydraulic.z * PANEL_UNITS_PER_MM }
+  const pneumatic = pneumaticComponentSizeMm(component.type, component.state)
+  if (pneumatic) return { x: pneumatic.x * PANEL_UNITS_PER_MM, y: pneumatic.y * PANEL_UNITS_PER_MM, z: pneumatic.z * PANEL_UNITS_PER_MM }
+  const structure = structureComponentSizeMm(component.type, component.state)
+  if (structure) return { x: structure.x * PANEL_UNITS_PER_MM, y: structure.y * PANEL_UNITS_PER_MM, z: structure.z * PANEL_UNITS_PER_MM }
   const conveyor = conveyorComponentSizeMm(component.type, component.state)
   if (conveyor) return { x: conveyor.width * PANEL_UNITS_PER_MM, y: conveyor.height * PANEL_UNITS_PER_MM, z: conveyor.depth * PANEL_UNITS_PER_MM }
   if (component.type === 'dinRail15x55') {

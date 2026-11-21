@@ -432,8 +432,21 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'floatSwitch' ||
     type === 'waterPump' ||
     type === 'waterTank' ||
+    type === 'hydraulicValve' ||
+    type === 'hydraulicTee' ||
+    type === 'pneumaticFrl' ||
+    type === 'pneumaticValve52' ||
+    type === 'pneumaticCylinder' ||
+    type === 'pneumaticTee' ||
     type === 'rollerConveyor' ||
-    type === 'opticalReflector'
+    type === 'opticalReflector' ||
+    type === 'industrialWall' ||
+    type === 'industrialPillar' ||
+    type === 'cableTrayStraight' ||
+    type === 'cableTrayElbow90' ||
+    type === 'cableTrayCross' ||
+    type === 'cableTrayVerticalBend' ||
+    type === 'cableTrayRiser90'
   )
 }
 

@@ -4,6 +4,9 @@ import { component3DDimensions, component3DScaleOf, schematicRotationRadians } f
 import { getComponentModelSpec } from './modelPaths'
 import { orientationRadians, componentOrientationOf } from './componentOrientation'
 import { isFloorMountedMachineType } from './conveyorModel'
+import { isStructureComponentType } from './structuresModel'
+import { isPneumaticComponentType } from './pneumaticsModel'
+import { isHydraulicComponentType } from './hydraulicsModel'
 
 /** Altura do trilho principal (centro) no Painel 3D. */
 export const RAIL_Y = 0.4
@@ -36,7 +39,13 @@ export function isPanelBound(component: ElectricalComponent): boolean {
   if (component.type === 'panelEnclosure') return false
   // Um relé plug-in encaixado na base undecal passa a viver no painel (posição derivada da base).
   if (component.mountedOn) return true
-  if (isFloorMountedMachineType(component.type) || component.type === 'opticalReflector') return false
+  if (
+    isFloorMountedMachineType(component.type) ||
+    isStructureComponentType(component.type) ||
+    isPneumaticComponentType(component.type) ||
+    isHydraulicComponentType(component.type) ||
+    component.type === 'opticalReflector'
+  ) return false
   return getComponentModelSpec(component.type)?.placement !== 'machine'
     && component.type !== 'motor3ph' && component.type !== 'motor1ph'
 }

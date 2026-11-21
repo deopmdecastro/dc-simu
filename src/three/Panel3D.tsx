@@ -87,7 +87,18 @@ import {
 } from './SchneiderComponents3D'
 import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
-import { FloatSwitchFelix3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
+import { FloatSwitchFelix3D, HydraulicTee3D, HydraulicValve3D, WaterPumpCalpeda3D, WaterTankTransparent3D } from './HydraulicsDevices3D'
+import { PneumaticCylinder3D, PneumaticFrl3D, PneumaticTee3D, PneumaticValve523D } from './PneumaticsDevices3D'
+import {
+  CableTrayCross3D,
+  CableTrayElbow903D,
+  CableTrayRiser903D,
+  CableTrayStraight3D,
+  CableTrayVerticalBend3D,
+  IndustrialPillar3D,
+  IndustrialWall3D,
+} from './StructuresDevices3D'
+import { isFloorGroundedStructureType, isStructureComponentType, snapStructureDragXY } from './structuresModel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
 import { OpticalReflector3D, RollerConveyor3D } from './ConveyorDevices3D'
@@ -3360,7 +3371,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const [stageVisible, setStageVisible] = useState(true)
   const [burstActive, setBurstActive] = useState(true)
   // No simulador a câmara abre sempre em vista frontal; apenas o motor tem orientação isométrica.
-  const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'front', target: [0, 0, 0.3] })
+  const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0, 0.3] })
   useEffect(() => {
     setBurstActive(true)
     const timer = window.setTimeout(() => setBurstActive(false), 950)
@@ -3475,7 +3486,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const fittedRef = useRef(false)
   const initialCameraRef = useRef(initialCamera)
   useEffect(() => {
-    if (!initialCameraRef.current) moveCamera('front')
+    if (!initialCameraRef.current) moveCamera(frontEdit ? 'front' : 'isometric')
     if (!initialCameraRef.current) return
     onInitialCameraUsed?.()
     // Sem equipamento ainda, aplica já a vista para o cubo refletir o pedido.
@@ -3676,7 +3687,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       ;[px, py] = clampInsideAnyEnclosure(px, py, half)
       panelPivots[component.id] = new THREE.Vector3(px, py, PLATE_FRONT_Z + half.z)
     } else if (!isPanelBound(component)) {
-      panelPivots[component.id] = new THREE.Vector3(x, y, frontPivot(component)[2])
+      if (isStructureComponentType(component.type) && component.panel3DPosition) {
+        panelPivots[component.id] = new THREE.Vector3(
+          component.panel3DPosition.x,
+          component.panel3DPosition.y,
+          component.panel3DPosition.z,
+        )
+      } else {
+        panelPivots[component.id] = new THREE.Vector3(x, y, frontPivot(component)[2])
+      }
     } else {
       // Assente na face da calha (mesma profundidade, esteja ou não fixo numa calha).
       const half = componentHalfExtents(component, baseOrientationFor(component))
@@ -3899,28 +3918,30 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     ? factoryMountBounds.minY - Math.max(4.6, (factoryMountBounds.maxY - factoryMountBounds.minY) * 0.45)
     : -4.8
 
-  // Assentar máquinas de chão (motores, bombas, reservatórios, tapetes rolantes) fora de qualquer quadro e sobre o chão fabril
+  // Assentar máquinas de chão (motores, bombas, reservatórios, tapetes rolantes) e estruturas de chão (paredes, pilares)
   const enclosures = accessories.filter((item) => item.type === 'panelEnclosure')
   for (const component of components) {
-    if (!isFloorMountedMachineType(component.type) || component.panelMount?.enclosureId) continue
+    if ((!isFloorMountedMachineType(component.type) && !isFloorGroundedStructureType(component.type)) || component.panelMount?.enclosureId) continue
     const pivot = panelPivots[component.id]
     if (!pivot) continue
     const half = componentHalfExtents(component, orientationFor(component))
     if (factoryMode) {
       // Pés encostados ao pavimento industrial (y = factoryFloorY) — nunca a flutuar nem dentro do quadro!
       pivot.y = factoryFloorY + half.y
-      let minSafeZ = factoryWallFrontZ + half.z + 1.85
-      for (const enc of enclosures) {
-        const encXY = componentPanelXY(enc)
-        const ed = enclosureDimsOf(enc.state)
-        const encHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2
-        const encFrontZ = PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + ed.depthMm * PANEL_UNITS_PER_MM
-        if (Math.abs(pivot.x - encXY.x) < encHalfW + half.x + 0.5) {
-          minSafeZ = Math.max(minSafeZ, encFrontZ + half.z + 1.55)
+      if (isFloorMountedMachineType(component.type)) {
+        let minSafeZ = factoryWallFrontZ + half.z + 1.85
+        for (const enc of enclosures) {
+          const encXY = componentPanelXY(enc)
+          const ed = enclosureDimsOf(enc.state)
+          const encHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2
+          const encFrontZ = PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + ed.depthMm * PANEL_UNITS_PER_MM
+          if (Math.abs(pivot.x - encXY.x) < encHalfW + half.x + 0.5) {
+            minSafeZ = Math.max(minSafeZ, encFrontZ + half.z + 1.55)
+          }
         }
+        pivot.z = Math.max(pivot.z, minSafeZ)
       }
-      pivot.z = Math.max(pivot.z, minSafeZ)
-    } else {
+    } else if (isFloorMountedMachineType(component.type)) {
       // Mesmo em modo Estúdio, nunca deixar um motor/tapete preso dentro do armário elétrico
       for (const enc of enclosures) {
         const encXY = componentPanelXY(enc)
@@ -4049,9 +4070,20 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const store = useSimStore.getState()
     const component = store.components.find((item) => item.id === id)
     if (!component) return
+    // Encaixe magnético fácil para paredes, pilares e esteiras porta-cabos (soltar e encaixar borda-a-borda!)
+    let targetPt = point
+    if (isStructureComponentType(component.type)) {
+      const snapped = snapStructureDragXY(component, point, store.components, panelPivots)
+      targetPt = { x: snapped.x, y: snapped.y }
+      if (component.panel3DPosition) {
+        store.updateComponent(id, {
+          panel3DPosition: { x: targetPt.x, y: targetPt.y, z: component.panel3DPosition.z },
+        })
+      }
+    }
     // Durante o arrasto o equipamento acompanha o ponteiro livremente (passando por cima de calhas DIN/técnicas e para fora de quadros);
     // o imã da calha atua apenas ao largar em `endPanelDrag`.
-    const drop = dropOnSchematic(component, point, [])
+    const drop = dropOnSchematic(component, targetPt, [])
     // Edição frontal: o componente alinha à grelha por pontos do projeto (a calha continua a ter prioridade no fim do arrasto).
     const g = store.grid
     const step = frontEdit && g.enabled && g.snap && g.size > 0 ? g.size : 0
@@ -4237,9 +4269,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const focusSelection = () => {
     if (!selectedTarget || !selectionSphere) return
     const selected = components.filter((item) => selectedIds.includes(item.id))
-    const onlyMotor = selected.length > 0 && selected.every((c) => c.type === 'motor3ph' || !isPanelBound(c))
-    const hasMotor = selected.some((c) => c.type === 'motor3ph')
-    const view: PanelCameraView = hasMotor && (onlyMotor || selected.length === 1) ? 'isometric' : 'front'
+    const isFree3D = selected.length > 0 && selected.every((c) => c.type === 'motor3ph' || !isPanelBound(c))
+    const view: PanelCameraView = isFree3D ? 'isometric' : 'front'
     setCameraCommand((current) => ({
       id: current.id + 1,
       view,
@@ -5109,6 +5140,32 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <WaterTankTransparent3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggleValve={() => activateComponent(c, () => operateComponent(c.id, { outletValveOpen: !c.state.outletValveOpen }))} />
           } else if (c.type === 'floatSwitch') {
             content = <FloatSwitchFelix3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered, level: !c.state.triggered ? 'alto' : 'baixo' }))} />
+          } else if (c.type === 'hydraulicValve') {
+            content = <HydraulicValve3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onToggle={() => activateComponent(c, () => operateComponent(c.id, { open: c.state.open === false }))} />
+          } else if (c.type === 'hydraulicTee') {
+            content = <HydraulicTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticFrl') {
+            content = <PneumaticFrl3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticValve52') {
+            content = <PneumaticValve523D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onManualToggle={() => activateComponent(c, () => operateComponent(c.id, { manualOverride: !c.state.manualOverride }))} />
+          } else if (c.type === 'pneumaticCylinder') {
+            content = <PneumaticCylinder3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticTee') {
+            content = <PneumaticTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'industrialWall') {
+            content = <IndustrialWall3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'industrialPillar') {
+            content = <IndustrialPillar3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'cableTrayStraight') {
+            content = <CableTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'cableTrayElbow90') {
+            content = <CableTrayElbow903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'cableTrayCross') {
+            content = <CableTrayCross3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'cableTrayVerticalBend') {
+            content = <CableTrayVerticalBend3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'cableTrayRiser90') {
+            content = <CableTrayRiser903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'rollerConveyor') {
             content = <Model3DErrorBoundary fallback={<Motor3D c={c} x={x} interactive={false} />}><Suspense fallback={null}><RollerConveyor3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'opticalReflector') {

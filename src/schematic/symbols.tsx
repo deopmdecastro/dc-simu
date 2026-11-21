@@ -445,6 +445,92 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
+      case 'hydraulicValve': {
+        const open = c.state.open !== false
+        return (
+          <g>
+            <polygon points={`14,${h * 0.35} ${w / 2},${h * 0.62} 14,${h * 0.88}`} fill="#d4a029" stroke="#78350f" strokeWidth={1.4} />
+            <polygon points={`${w - 14},${h * 0.35} ${w / 2},${h * 0.62} ${w - 14},${h * 0.88}`} fill="#d4a029" stroke="#78350f" strokeWidth={1.4} />
+            <line x1={w / 2} y1={h * 0.62} x2={w / 2} y2={16} stroke="#334155" strokeWidth={2} />
+            <line x1={open ? w / 2 - 18 : w / 2 - 6} y1={16} x2={open ? w / 2 + 18 : w / 2 + 6} y2={16} stroke="#dc2626" strokeWidth={4} strokeLinecap="round" />
+            {label(8, 12, c.ref, 9, '#0369a1')}
+          </g>
+        )
+      }
+      case 'hydraulicTee':
+      case 'pneumaticTee': {
+        const isP = c.type === 'pneumaticTee'
+        return (
+          <g>
+            <line x1={8} y1={h * 0.6} x2={w - 8} y2={h * 0.6} stroke={isP ? '#0284c7' : '#ca8a04'} strokeWidth={6} strokeLinecap="round" />
+            <line x1={w / 2} y1={h * 0.6} x2={w / 2} y2={10} stroke={isP ? '#0284c7' : '#ca8a04'} strokeWidth={6} strokeLinecap="round" />
+            <circle cx={w / 2} cy={h * 0.6} r={5} fill="#0f172a" />
+            {label(6, 12, c.ref, 9, isP ? '#0284c7' : '#b45309')}
+          </g>
+        )
+      }
+      case 'pneumaticFrl': {
+        const bar = c.state.airSupplyOn === false ? 0 : Number(c.state.pressureBar ?? 6)
+        return (
+          <g>
+            <rect x={16} y={14} width={w - 32} height={h - 28} rx={6} fill="#334155" stroke="#0284c7" strokeWidth={1.8} />
+            <circle cx={w / 2} cy={h * 0.42} r={18} fill="#f8fafc" stroke="#0f172a" strokeWidth={1.5} />
+            <text x={w / 2} y={h * 0.45} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#0f172a">{`${bar}b`}</text>
+            <text x={w / 2} y={h - 22} textAnchor="middle" fontSize={8} fontWeight={700} fill="#7dd3fc">FRL</text>
+            {label(8, 11, c.ref, 9, '#0284c7')}
+          </g>
+        )
+      }
+      case 'pneumaticValve52': {
+        const active = Boolean(c.state.energized || c.state.manualOverride)
+        return (
+          <g>
+            <rect x={8} y={16} width={w - 16} height={h - 32} rx={4} fill="#1e293b" stroke={active ? '#f59e0b' : '#38bdf8'} strokeWidth={1.8} />
+            <rect x={12} y={24} width={28} height={h - 48} rx={2} fill={active ? '#f59e0b' : '#475569'} />
+            <text x={w * 0.62} y={h / 2 + 3} textAnchor="middle" fontSize={10} fontWeight={800} fill="#f8fafc">5/2</text>
+            {label(8, 12, c.ref, 9, '#0284c7')}
+          </g>
+        )
+      }
+      case 'pneumaticCylinder': {
+        const pct = Number(c.state.positionPct ?? 0)
+        return (
+          <g>
+            <rect x={10} y={22} width={w * 0.58} height={h - 44} rx={4} fill="#cbd5e1" stroke="#334155" strokeWidth={1.8} />
+            <line x1={10 + w * 0.58} y1={h / 2} x2={10 + w * 0.58 + 18 + (pct / 100) * (w * 0.28)} y2={h / 2} stroke="#475569" strokeWidth={5} strokeLinecap="round" />
+            <text x={10 + w * 0.29} y={h / 2 + 3} textAnchor="middle" fontSize={8.5} fontWeight={800} fill="#0f172a">{`${pct}%`}</text>
+            {label(8, 14, c.ref, 9, '#0284c7')}
+          </g>
+        )
+      }
+      case 'industrialWall':
+      case 'industrialPillar':
+      case 'cableTrayStraight':
+      case 'cableTrayElbow90':
+      case 'cableTrayCross':
+      case 'cableTrayVerticalBend':
+      case 'cableTrayRiser90': {
+        const isWall = c.type === 'industrialWall'
+        const isPillar = c.type === 'industrialPillar'
+        return (
+          <g>
+            <rect
+              x={6}
+              y={8}
+              width={w - 12}
+              height={h - 16}
+              rx={isPillar ? 2 : 4}
+              fill={isWall ? '#d6d3cb' : isPillar ? '#475569' : '#cbd5e1'}
+              stroke="#334155"
+              strokeWidth={1.6}
+              strokeDasharray={isWall || isPillar ? undefined : '5 3'}
+            />
+            <text x={w / 2} y={h / 2 + 3} textAnchor="middle" fontSize={8.5} fontWeight={700} fill={isPillar ? '#f8fafc' : '#1e293b'}>
+              {c.ref}
+            </text>
+          </g>
+        )
+      }
 
       // ------------------------------------------------------------ contatores
       case 'contactorWegCWC09':

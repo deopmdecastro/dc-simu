@@ -112,8 +112,22 @@ export type ComponentType =
   | 'motor1ph'
   | 'waterPump'
   | 'waterTank'
+  | 'hydraulicValve'
+  | 'hydraulicTee'
+  | 'pneumaticFrl'
+  | 'pneumaticValve52'
+  | 'pneumaticCylinder'
+  | 'pneumaticTee'
   | 'rollerConveyor'
   | 'opticalReflector'
+  // --- Estruturas industriais e esteiras porta-cabos --------------------
+  | 'industrialWall'
+  | 'industrialPillar'
+  | 'cableTrayStraight'
+  | 'cableTrayElbow90'
+  | 'cableTrayCross'
+  | 'cableTrayVerticalBend'
+  | 'cableTrayRiser90'
   | 'capacitorRun60uF'
   | 'vfd'
   | 'softStarter'
@@ -194,6 +208,8 @@ export type TerminalKind =
   | 'bus'
   | 'hydraulic-in'
   | 'hydraulic-out'
+  | 'pneumatic-in'
+  | 'pneumatic-out'
   | 'pneumatic'
 
 /** Domínio elétrico do borne. É opcional no objeto para que projetos antigos
@@ -500,6 +516,16 @@ export interface WireDefaults {
   chainMode?: boolean
   /** Encaixe ortogonal magnético (90° nos eixos X/Y/Z) ao construir pontos de passagem. */
   orthoSnap?: boolean
+  /** Acessório/união hidráulica ativa (só quando medium === 'hydraulic'). */
+  hydraulicFitting?: 'union' | 'elbow90' | 'tee' | 'valve' | 'flange' | 'gauge'
+  /** Material da tubagem hidráulica (só quando medium === 'hydraulic'). */
+  hydraulicMaterial?: 'ppr' | 'pvc' | 'inox' | 'copper'
+  /** Pressão nominal hidráulica em bar (ex.: 10, 16). */
+  hydraulicPressureBar?: number
+  /** Conector/união pneumática Push-In ativa (só quando medium === 'pneumatic'). */
+  pneumaticFitting?: 'pushInStraight' | 'pushInElbow90' | 'pushInTee' | 'pushInY' | 'flowControl' | 'silencer'
+  /** Pressão pneumática nominal em bar (ex.: 6, 8, 10). */
+  pneumaticPressureBar?: number
 }
 
 export interface Wire {
@@ -523,6 +549,16 @@ export interface Wire {
   /** Seção transversal, ex.: "1.5mm²" */
   gauge: string
   kind: WireKind
+  /** Acessório hidráulico associado ao tubo (só para kind === 'hydraulic'). */
+  hydraulicFitting?: 'union' | 'elbow90' | 'tee' | 'valve' | 'flange' | 'gauge'
+  /** Material da tubagem hidráulica (PPR / PVC-U / Inox / Cobre). */
+  hydraulicMaterial?: 'ppr' | 'pvc' | 'inox' | 'copper'
+  /** Pressão nominal hidráulica (bar). */
+  hydraulicPressureBar?: number
+  /** Conector pneumático associado ao tubo (só para kind === 'pneumatic'). */
+  pneumaticFitting?: 'pushInStraight' | 'pushInElbow90' | 'pushInTee' | 'pushInY' | 'flowControl' | 'silencer'
+  /** Pressão pneumática nominal (bar). */
+  pneumaticPressureBar?: number
   flexibility: WireFlexibility
   route: WireRoute
   /** 0..1 — deslocamento do ponto de dobra (arrastável no editor) */

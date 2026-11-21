@@ -1190,14 +1190,27 @@ function runOneTick(state: Store, dtMs: number) {
     }
   }
 
-  // 9b) Simulação hidráulica em tempo real: bombas -> tubos hidráulicos -> reservatórios -> bóias
+  // 9b) Simulação hidráulica em tempo real: bombas -> válvulas/tês -> tubos hidráulicos -> reservatórios -> bóias
   const hydraulicWires = wires.filter((w) => w.kind === 'hydraulic' && w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint)
   const hydraulicAdj = new Map<string, string[]>()
-  for (const hw of hydraulicWires) {
-    if (!hydraulicAdj.has(hw.fromTerminalId)) hydraulicAdj.set(hw.fromTerminalId, [])
-    if (!hydraulicAdj.has(hw.toTerminalId)) hydraulicAdj.set(hw.toTerminalId, [])
-    hydraulicAdj.get(hw.fromTerminalId)!.push(hw.toTerminalId)
-    hydraulicAdj.get(hw.toTerminalId)!.push(hw.fromTerminalId)
+  const linkH = (a: string, b: string) => {
+    if (!hydraulicAdj.has(a)) hydraulicAdj.set(a, [])
+    if (!hydraulicAdj.has(b)) hydraulicAdj.set(b, [])
+    hydraulicAdj.get(a)!.push(b)
+    hydraulicAdj.get(b)!.push(a)
+  }
+  for (const hw of hydraulicWires) linkH(hw.fromTerminalId, hw.toTerminalId)
+  // Passagem interna em válvulas hidráulicas abertas e uniões T hidráulicas
+  for (const hc of components) {
+    if (hc.type === 'hydraulicValve' && hc.state.open !== false) {
+      const a = hc.terminals[0]?.id, b = hc.terminals[1]?.id
+      if (a && b) linkH(a, b)
+    } else if (hc.type === 'hydraulicTee') {
+      const ids = hc.terminals.map((t) => t.id)
+      for (let i = 0; i < ids.length; i += 1) {
+        for (let j = i + 1; j < ids.length; j += 1) linkH(ids[i], ids[j])
+      }
+    }
   }
   const activeHydraulicTerminals = new Set<string>()
   const pumpFlowQueue: string[] = []
@@ -1235,6 +1248,71 @@ function runOneTick(state: Store, dtMs: number) {
     if (filling) lvl += dtSec * 12
     if (tk.state.outletValveOpen) lvl -= dtSec * 10
     tk.state.levelPct = Math.max(0, Math.min(100, Math.round(lvl * 10) / 10))
+  }
+
+  // 9c) Simulação pneumática em tempo real: FRL -> tubos pneumáticos -> Tês -> Eletroválvulas 5/2 -> Cilindros ISO
+  const pneumaticWires = wires.filter((w) => w.kind === 'pneumatic' && w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint)
+  const pneumaticAdj = new Map<string, string[]>()
+  const linkP = (a: string, b: string) => {
+    if (!pneumaticAdj.has(a)) pneumaticAdj.set(a, [])
+    if (!pneumaticAdj.has(b)) pneumaticAdj.set(b, [])
+    pneumaticAdj.get(a)!.push(b)
+    pneumaticAdj.get(b)!.push(a)
+  }
+  for (const pw of pneumaticWires) linkP(pw.fromTerminalId, pw.toTerminalId)
+  for (const pc of components) {
+    if (pc.type === 'pneumaticTee') {
+      const ids = pc.terminals.map((t) => t.id)
+      for (let i = 0; i < ids.length; i += 1) {
+        for (let j = i + 1; j < ids.length; j += 1) linkP(ids[i], ids[j])
+      }
+    } else if (pc.type === 'pneumaticValve52') {
+      const coilOn = isLoadPowered(pc, pass3.energizedTerminals, 'A1', 'A2')
+      const active = coilOn || Boolean(pc.state.manualOverride)
+      pc.state.energized = active
+      const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
+      const aTerm = pc.terminals.find((t) => t.label === 'A')?.id
+      const bTerm = pc.terminals.find((t) => t.label === 'B')?.id
+      if (pTerm && active && aTerm) linkP(pTerm, aTerm)
+      if (pTerm && !active && bTerm) linkP(pTerm, bTerm)
+    }
+  }
+  const activePneumaticTerminals = new Set<string>()
+  const airQueue: string[] = []
+  for (const frl of components) {
+    if (frl.type === 'pneumaticFrl' && frl.state.airSupplyOn !== false && Number(frl.state.pressureBar ?? 6) > 0.2) {
+      const outT = frl.terminals.find((t) => t.label === 'OUT' || t.kind === 'pneumatic-out')
+      if (outT && !activePneumaticTerminals.has(outT.id)) {
+        activePneumaticTerminals.add(outT.id)
+        airQueue.push(outT.id)
+      }
+    }
+  }
+  while (airQueue.length > 0) {
+    const cur = airQueue.shift()!
+    for (const nb of pneumaticAdj.get(cur) ?? []) {
+      if (!activePneumaticTerminals.has(nb)) {
+        activePneumaticTerminals.add(nb)
+        airQueue.push(nb)
+      }
+    }
+  }
+  for (const pw of pneumaticWires) {
+    pw.energized = activePneumaticTerminals.has(pw.fromTerminalId) && activePneumaticTerminals.has(pw.toTerminalId)
+    if (pw.energized && pass3.activeWires) pass3.activeWires.add(pw.id)
+  }
+  for (const cyl of components) {
+    if (cyl.type !== 'pneumaticCylinder') continue
+    const aId = cyl.terminals.find((t) => t.label === 'A')?.id
+    const bId = cyl.terminals.find((t) => t.label === 'B')?.id
+    const aAir = Boolean(aId && activePneumaticTerminals.has(aId))
+    const bAir = Boolean(bId && activePneumaticTerminals.has(bId))
+    let pct = Number(cyl.state.positionPct ?? 0)
+    if (!Number.isFinite(pct)) pct = 0
+    if (aAir && !bAir) pct = Math.min(100, pct + dtSec * 140)
+    else if (bAir && !aAir) pct = Math.max(0, pct - dtSec * 140)
+    cyl.state.positionPct = Math.round(pct)
+    cyl.state.extended = cyl.state.positionPct >= 90
   }
   // Acoplamento automático de bóias (floatSwitch) ao reservatório mais próximo / associado
   if (tanks.length > 0) {

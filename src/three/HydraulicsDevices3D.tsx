@@ -880,12 +880,28 @@ export function WaterPumpCalpeda3D({
           <group rotation={[0, Math.PI, 0]} scale={[0.88, 0.88, 0.88]}>
             <MotorTerminalBoxCover3D covered={!!c.state.terminalBoxCovered} color={pumpTealHex} />
           </group>
-          {/* Chapa de características CALPEDA CT 61 no topo da caixa de bornes (visível quando tapada) */}
-          {nameplateTex && !!c.state.terminalBoxCovered && (
-            <mesh position={[0, H * 0.89, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[84 * U, 44 * U]} />
-              <meshStandardMaterial map={nameplateTex} roughness={0.35} metalness={0.25} />
-            </mesh>
+          {/* Chapa metálica CALPEDA CT 61 rebitada sobre base plana na lateral frontal da carcaça (longe das alhetas e da caixa de bornes!) */}
+          {nameplateTex && (
+            <group position={[0, H * 0.44, 73.5 * U]}>
+              <mesh position={[0, 0, -2.5 * U]} castShadow>
+                <boxGeometry args={[78 * U, 40 * U, 5 * U]} />
+                <meshStandardMaterial color={pumpTealHex} roughness={0.34} metalness={0.55} />
+              </mesh>
+              <mesh castShadow>
+                <boxGeometry args={[76 * U, 38 * U, 2.4 * U]} />
+                <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.7} />
+              </mesh>
+              <mesh position={[0, 0, 1.5 * U]}>
+                <planeGeometry args={[72 * U, 34 * U]} />
+                <meshStandardMaterial map={nameplateTex} roughness={0.32} metalness={0.28} />
+              </mesh>
+              {[[-32, 13], [32, 13], [-32, -13], [32, -13]].map(([rx, ry], idx) => (
+                <mesh key={idx} position={[rx * U, ry * U, 1.8 * U]} rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[1.4 * U, 1.4 * U, 1.4 * U, 8]} />
+                  <meshStandardMaterial color="#e2e8f0" roughness={0.22} metalness={0.92} />
+                </mesh>
+              ))}
+            </group>
           )}
         </group>
 
@@ -995,6 +1011,96 @@ export function WaterPumpCalpeda3D({
       <Text position={[0, baseY - 10 * U, (WATER_PUMP_SIZE_MM.depth / 2) * U + 6 * U]} fontSize={0.095} color="#0f172a" anchorX="center" anchorY="top">
         {`${c.ref} · Bomba CALPEDA CT 61 · ${running ? 'EM MARCHA (2900 rpm)' : 'PARADA'}`}
       </Text>
+    </group>
+  )
+}
+
+/** 4. Válvula de esfera hidráulica 3D (latão forjado G 1" + manípulo vermelho interativo) */
+export function HydraulicValve3D({
+  c,
+  position,
+  onToggle,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+  onToggle?: () => void
+}) {
+  const open = c.state.open !== false
+  return (
+    <group position={position} name={`hydraulic-valve-3d-${c.id}`}>
+      {/* Corpo esférico central em latão niquelado/forjado */}
+      <mesh position={[0, -14 * U, 0]} castShadow receiveShadow>
+        <sphereGeometry args={[28 * U, 24, 20]} />
+        <meshStandardMaterial color="#d4a029" roughness={0.3} metalness={0.82} />
+      </mesh>
+      {/* Porcas sextavadas laterais G 1" (IN -X / OUT +X) */}
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * 42 * U, -14 * U, 0]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+            <cylinderGeometry args={[23 * U, 23 * U, 28 * U, 6]} />
+            <meshStandardMaterial color="#ca9522" roughness={0.28} metalness={0.84} />
+          </mesh>
+          <mesh position={[side * 15 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[15 * U, 15 * U, 4 * U, 18]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.75} />
+          </mesh>
+        </group>
+      ))}
+      {/* Castelo superior e veio cromado */}
+      <mesh position={[0, 14 * U, 0]} castShadow>
+        <cylinderGeometry args={[12 * U, 15 * U, 24 * U, 16]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.22} metalness={0.9} />
+      </mesh>
+      {/* Manípulo vermelho 1/4 de volta (alinhado com tubo = aberta; 90° = fechada) */}
+      <group
+        position={[0, 28 * U, 0]}
+        rotation={[0, open ? 0 : Math.PI / 2, 0]}
+        onClick={(e) => { e.stopPropagation(); onToggle?.() }}
+      >
+        <mesh position={[34 * U, 6 * U, 0]} castShadow>
+          <boxGeometry args={[76 * U, 10 * U, 14 * U]} />
+          <meshStandardMaterial color={open ? '#dc2626' : '#991b1b'} roughness={0.38} metalness={0.12} />
+        </mesh>
+        <mesh castShadow>
+          <cylinderGeometry args={[9 * U, 9 * U, 12 * U, 14]} />
+          <meshStandardMaterial color="#cbd5e1" roughness={0.24} metalness={0.88} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
+/** 5. União em T hidráulica latão 3 vias (A / B / C) */
+export function HydraulicTee3D({
+  c,
+  position,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+}) {
+  return (
+    <group position={position} name={`hydraulic-tee-3d-${c.id}`}>
+      {/* Corpo horizontal A (-X) ↔ B (+X) */}
+      <mesh position={[0, -10 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[20 * U, 20 * U, 96 * U, 20]} />
+        <meshStandardMaterial color="#d4a029" roughness={0.3} metalness={0.82} />
+      </mesh>
+      {/* Derivação vertical C (+Y) */}
+      <mesh position={[0, 14 * U, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[20 * U, 20 * U, 52 * U, 20]} />
+        <meshStandardMaterial color="#d4a029" roughness={0.3} metalness={0.82} />
+      </mesh>
+      {/* 3 colares sextavados de união */}
+      {[-44 * U, 44 * U].map((xPos, i) => (
+        <mesh key={i} position={[xPos, -10 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[24 * U, 24 * U, 16 * U, 6]} />
+          <meshStandardMaterial color="#c48e1c" roughness={0.28} metalness={0.85} />
+        </mesh>
+      ))}
+      <mesh position={[0, 34 * U, 0]} castShadow>
+        <cylinderGeometry args={[24 * U, 24 * U, 16 * U, 6]} />
+        <meshStandardMaterial color="#c48e1c" roughness={0.28} metalness={0.85} />
+      </mesh>
     </group>
   )
 }

@@ -1,6 +1,8 @@
 import { INDUSTRIAL_INFO, isIndustrialDevice } from '../electrical/industrialDevices'
 import { isLightingLampType, isLightingSwitchType, LAMP_SPECS, SWITCH_SPECS } from '../three/lightingModel'
 import { HYDRAULIC_DATASHEETS, isHydraulicComponentType } from '../three/hydraulicsModel'
+import { PNEUMATIC_DATASHEETS, isPneumaticComponentType } from '../three/pneumaticsModel'
+import { STRUCTURES_DATASHEETS, isStructureComponentType } from '../three/structuresModel'
 import { CONVEYOR_DATASHEETS, isConveyorComponentType } from '../three/conveyorModel'
 import { IconExternalLink, IconDownload } from '../ui/icons'
 import { uiConfirm } from '../ui/dialogs'
@@ -29,6 +31,12 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
   const hydraulicInfo = isHydraulicComponentType(type)
     ? { path: HYDRAULIC_DATASHEETS[type].path, name: HYDRAULIC_DATASHEETS[type].name }
     : null
+  const pneumaticInfo = isPneumaticComponentType(type)
+    ? { path: PNEUMATIC_DATASHEETS[type].path, name: PNEUMATIC_DATASHEETS[type].name }
+    : null
+  const structureInfo = isStructureComponentType(type)
+    ? { path: STRUCTURES_DATASHEETS[type].path, name: STRUCTURES_DATASHEETS[type].name }
+    : null
   const conveyorInfo = isConveyorComponentType(type)
     ? { path: CONVEYOR_DATASHEETS[type].path, name: CONVEYOR_DATASHEETS[type].name }
     : null
@@ -36,9 +44,13 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
     ? lightingInfo
     : hydraulicInfo
       ? hydraulicInfo
-      : conveyorInfo
-        ? conveyorInfo
-        : industrialInfo ? {path:industrialInfo.datasheet,name:industrialInfo.datasheet.split('/').pop()!} : type === 'safetyRelay' ? {path:'/datasheets/rockwell-msr127-440r-in079d-en-p.pdf',name:'MSR127 · Rockwell 440R-IN079D-EN-P.pdf'} : type === 'phoenixEcb3000760'
+      : pneumaticInfo
+        ? pneumaticInfo
+        : structureInfo
+          ? structureInfo
+          : conveyorInfo
+            ? conveyorInfo
+            : industrialInfo ? {path:industrialInfo.datasheet,name:industrialInfo.datasheet.split('/').pop()!} : type === 'safetyRelay' ? {path:'/datasheets/rockwell-msr127-440r-in079d-en-p.pdf',name:'MSR127 · Rockwell 440R-IN079D-EN-P.pdf'} : type === 'phoenixEcb3000760'
     ? { path: '/datasheets/phoenix-contact-3000760-pt.pdf', name: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760 (PT).pdf' }
     : type === 'terminalPhoenixPti6'
       ? { path: '/datasheets/phoenix-contact-3213972-pt.pdf', name: 'Phoenix Contact PTI 6 · 3213972 (PT).pdf' }

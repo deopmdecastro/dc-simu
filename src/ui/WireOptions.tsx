@@ -1,5 +1,34 @@
 import type { ConduitMedium, Wire, WireColor, WireDefaults, WireEndType, WireFlexibility, WireRoute } from '../types'
 import { HYDRAULIC_GAUGES, PNEUMATIC_GAUGES } from '../three/hydraulicsModel'
+import { useSimStore } from '../store/useSimStore'
+
+const HYDRAULIC_COLORS: readonly WireColor[] = ['blue', 'red', 'grey', 'green', 'yellow', 'white']
+const PNEUMATIC_COLORS: readonly WireColor[] = ['lightblue', 'grey', 'black', 'orange', 'blue']
+
+const HYDRAULIC_FITTING_OPTIONS = [
+  { id: 'union', label: 'União roscada', hint: 'Racor reto latão roscado G 1"' },
+  { id: 'elbow90', label: 'Cotovelo 90°', hint: 'Curva hidráulica 90° em latão' },
+  { id: 'tee', label: 'União em T', hint: 'Derivação hidráulica 3 vias (T)' },
+  { id: 'valve', label: 'Válvula esfera', hint: 'Corte manual 1/4 de volta' },
+  { id: 'flange', label: 'Flange PN16', hint: 'Flange aparafusada de alta pressão' },
+  { id: 'gauge', label: 'Manómetro', hint: 'Tomada de pressão hidráulica' },
+] as const
+
+const HYDRAULIC_MATERIALS = [
+  { id: 'ppr', label: 'PPR', hint: 'Polipropileno termofusão' },
+  { id: 'pvc', label: 'PVC-U', hint: 'PVC rígido pressão' },
+  { id: 'inox', label: 'Aço Inox', hint: 'Inox AISI 316' },
+  { id: 'copper', label: 'Cobre', hint: 'Tubo cobre sanitário/industrial' },
+] as const
+
+const PNEUMATIC_FITTING_OPTIONS = [
+  { id: 'pushInStraight', label: 'Push-In reto', hint: 'Racor rápido reto com colar azul' },
+  { id: 'pushInElbow90', label: 'Cotovelo 90°', hint: 'Joelho rápido Push-In orientável' },
+  { id: 'pushInTee', label: 'União em T', hint: 'Derivação pneumática 3 vias (T)' },
+  { id: 'pushInY', label: 'União em Y', hint: 'Bifurcação dupla em Y' },
+  { id: 'flowControl', label: 'Regulador caudal', hint: 'Válvula estranguladora unidirecional' },
+  { id: 'silencer', label: 'Silenciador', hint: 'Escape sinterizado em latão' },
+] as const
 import { expandWireMarkerRings } from '../electrical/wireMarkers'
 import { ConductorIcon, WIRE_END_OPTIONS, WireEndIcon } from '../schematic/wireEnds'
 import {
@@ -310,28 +339,73 @@ export function WireOptionsFields({
   const activeRoute: WireRoute = value.route ?? 'orthogonal'
   const activePreset = matchCablePreset(value)
   const activeMedium: ConduitMedium = value.medium ?? 'electrical'
+  const isHydraulic = activeMedium === 'hydraulic'
+  const isPneumatic = activeMedium === 'pneumatic'
+  const isElectrical = !isHydraulic && !isPneumatic
   const pickMedium = (medium: ConduitMedium) => {
     if (medium === 'hydraulic') {
-      onChange({ medium, gauge: 'DN20 (Ø25mm)', endType: 'hydraulicFitting', color: 'grey', autoColor: false, route: 'orthogonal', conductorCount: 1, sheathed: false })
+      onChange({
+        medium,
+        gauge: 'DN20 (Ø25mm)',
+        endType: 'hydraulicFitting',
+        color: 'blue',
+        autoColor: false,
+        route: 'orthogonal',
+        conductorCount: 1,
+        sheathed: false,
+        hydraulicFitting: value.hydraulicFitting ?? 'union',
+        hydraulicMaterial: value.hydraulicMaterial ?? 'ppr',
+        hydraulicPressureBar: value.hydraulicPressureBar ?? 10,
+      })
     } else if (medium === 'pneumatic') {
-      onChange({ medium, gauge: 'PU Ø6mm', endType: 'pneumaticPushIn', color: 'lightblue', autoColor: false, route: 'arc', conductorCount: 1, sheathed: false })
+      onChange({
+        medium,
+        gauge: 'PU Ø6mm',
+        endType: 'pneumaticPushIn',
+        color: 'lightblue',
+        autoColor: false,
+        route: 'arc',
+        conductorCount: 1,
+        sheathed: false,
+        pneumaticFitting: value.pneumaticFitting ?? 'pushInStraight',
+        pneumaticPressureBar: value.pneumaticPressureBar ?? 6,
+      })
     } else {
-      onChange({ medium: 'electrical', gauge: '1.5mm²', endType: 'ferrule', autoColor: true, route: 'orthogonal' })
+      onChange({
+        medium: 'electrical',
+        gauge: '1.5mm²',
+        endType: 'ferrule',
+        autoColor: true,
+        route: 'orthogonal',
+      })
     }
   }
-  const activeGauges: readonly string[] = activeMedium === 'hydraulic'
+  const activeGauges: readonly string[] = isHydraulic
     ? HYDRAULIC_GAUGES
-    : activeMedium === 'pneumatic'
+    : isPneumatic
       ? PNEUMATIC_GAUGES
       : WIRE_GAUGES
+  const activeColorSwatches: readonly WireColor[] = isHydraulic
+    ? HYDRAULIC_COLORS
+    : isPneumatic
+      ? PNEUMATIC_COLORS
+      : WIRE_COLOR_ORDER
+  const electricalEndOptions = WIRE_END_OPTIONS.filter(
+    (opt) => opt.id !== 'hydraulicFitting' && opt.id !== 'pneumaticPushIn',
+  )
+  const insertAccessory = (type: 'hydraulicTee' | 'hydraulicValve' | 'pneumaticTee' | 'pneumaticFrl') => {
+    const st = useSimStore.getState()
+    const id = st.addComponent(type, 380, 260)
+    if (id) st.selectComponents([id])
+  }
 
   return (
-    <div className={`wo-fields${compact ? ' is-compact' : ''}`}>
+    <div className={`wo-fields${compact ? ' is-compact' : ''}`} data-conduit-active-medium={activeMedium}>
       {/* Seletor de meio físico: Cabo elétrico | Tubo hidráulico | Tubo pneumático */}
       <div className="wo-group" data-conduit-medium-group>
         <div className="wo-label">
           <span>Tipo de conduta</span>
-          <em>{activeMedium === 'hydraulic' ? 'Hidráulica' : activeMedium === 'pneumatic' ? 'Pneumática' : 'Elétrica'}</em>
+          <em>{isHydraulic ? 'Hidráulica' : isPneumatic ? 'Pneumática' : 'Elétrica'}</em>
         </div>
         <div className="wo-routes" role="radiogroup" aria-label="Tipo de conduta (cabo elétrico, tubo hidráulico ou pneumático)">
           {([
@@ -354,37 +428,39 @@ export function WireOptionsFields({
         </div>
       </div>
 
-      {/* Amostra visual em direto do cabo/tubo configurado + cotas físicas */}
+      {/* Amostra visual em direto do cabo/tubo configurado + cotas físicas filtradas por tipo */}
       <div className="wo-preview-card">
         <CableSpecimen
           color={value.color}
-          autoColor={value.autoColor}
+          autoColor={isElectrical && value.autoColor}
           gauge={value.gauge}
-          flexibility={value.flexibility}
-          conductorCount={value.conductorCount ?? 1}
-          sheathed={!!value.sheathed}
+          flexibility={isElectrical ? value.flexibility : isPneumatic ? 'flexible' : 'rigid'}
+          conductorCount={isElectrical ? (value.conductorCount ?? 1) : 1}
+          sheathed={isElectrical && !!value.sheathed}
           sheathColor={value.sheathColor}
-          conductorColors={value.conductorColors}
-          fromEndType={value.endType}
-          toEndType={value.endType}
+          conductorColors={isElectrical ? value.conductorColors : undefined}
+          fromEndType={isHydraulic ? 'hydraulicFitting' : isPneumatic ? 'pneumaticPushIn' : value.endType}
+          toEndType={isHydraulic ? 'hydraulicFitting' : isPneumatic ? 'pneumaticPushIn' : value.endType}
         />
         <div className="wo-preview-specs">
-          <span title="Secção nominal e número de condutores">
-            {(value.conductorCount ?? 1) > 1 ? `${value.conductorCount}×` : ''}{value.gauge}
+          <span>
+            {isElectrical && (value.conductorCount ?? 1) > 1 ? `${value.conductorCount}×` : ''}{value.gauge}
           </span>
-          <span title="Diâmetro exterior aproximado">Ø {outerMm.toFixed(1)} mm</span>
-          <span title="Raio mínimo de curvatura recomendado (IEC 60204-1)">Rmín {minBendMm.toFixed(0)} mm</span>
-          {ampacityA !== null && <span title="Corrente admissível indicativa em quadro (IEC 60204-1, PVC 70 °C)">≈ {ampacityA} A</span>}
+          <span>Ø {outerMm.toFixed(1)} mm</span>
+          {isElectrical && <span>Rmín {minBendMm.toFixed(0)} mm</span>}
+          {isElectrical && ampacityA !== null && <span>≈ {ampacityA} A</span>}
+          {isHydraulic && <span>{(value.hydraulicMaterial ?? 'ppr').toUpperCase()} · PN{value.hydraulicPressureBar ?? 10}</span>}
+          {isPneumatic && <span>Ar · {value.pneumaticPressureBar ?? 6} bar</span>}
         </div>
       </div>
 
       {showRouting && (
         <div className="wo-group">
           <div className="wo-label">
-            <span>Rastreamento e curva</span>
+            <span>{isElectrical ? 'Rastreamento e curva' : 'Traçado da tubagem'}</span>
             <em>{WIRE_ROUTE_LABEL[activeRoute]}</em>
           </div>
-          <div className="wo-routes" role="radiogroup" aria-label="Modo de traçado dos cabos novos">
+          <div className="wo-routes" role="radiogroup" aria-label="Modo de traçado">
             {WIRE_ROUTES_ORDER.map((route) => {
               const on = activeRoute === route
               return (
@@ -408,16 +484,14 @@ export function WireOptionsFields({
               type="button"
               className={`wo-toggle${value.orthoSnap !== false ? ' is-on' : ''}`}
               aria-pressed={value.orthoSnap !== false}
-              title="Alinha automaticamente os pontos de curva a 90° nos eixos X/Y/Z e no centro das calhas técnicas (Alt desliga pontualmente)"
               onClick={() => onChange({ orthoSnap: value.orthoSnap === false })}
             >
-              Guias 90° / calha
+              Guias 90°
             </button>
             <button
               type="button"
               className={`wo-toggle${value.chainMode ? ' is-on' : ''}`}
               aria-pressed={!!value.chainMode}
-              title="Ao terminar num borne, inicia imediatamente o próximo cabo nesse borne (pontes em série)"
               onClick={() => onChange({ chainMode: !value.chainMode })}
             >
               Ligação contínua
@@ -426,45 +500,46 @@ export function WireOptionsFields({
         </div>
       )}
 
+      {/* Cor filtrada pelo tipo de conduta */}
       <div className="wo-group wo-colors">
         <div className="wo-label">
-          <span>Cor do cabo</span>
-          <button
-            type="button"
-            className={`wo-auto${value.autoColor ? ' is-on' : ''}`}
-            aria-pressed={value.autoColor}
-            onClick={() => onChange({ autoColor: !value.autoColor })}
-            title="Cor automática pela função do cabo (força preto, comando vermelho, neutro azul-claro, PE verde-amarelo…)"
-          >
-            AUTO
-          </button>
+          <span>{isHydraulic ? 'Cor da tubagem / fluido' : isPneumatic ? 'Cor do tubo PU' : 'Cor do cabo'}</span>
+          {isElectrical && (
+            <button
+              type="button"
+              className={`wo-auto${value.autoColor ? ' is-on' : ''}`}
+              aria-pressed={value.autoColor}
+              onClick={() => onChange({ autoColor: !value.autoColor })}
+              title="Cor automática pela função do cabo (IEC 60204-1)"
+            >
+              AUTO
+            </button>
+          )}
         </div>
-        <div className="wo-swatches" role="radiogroup" aria-label="Cor do cabo">
-          {WIRE_COLOR_ORDER.map((name) => (
+        <div className="wo-swatches" role="radiogroup" aria-label="Cor">
+          {activeColorSwatches.map((name) => (
             <button
               key={name}
               type="button"
               role="radio"
-              aria-checked={!value.autoColor && value.color === name}
+              aria-checked={(!isElectrical || !value.autoColor) && value.color === name}
               aria-label={WIRE_COLOR_LABEL[name]}
               title={WIRE_COLOR_LABEL[name]}
-              className={`wo-swatch${!value.autoColor && value.color === name ? ' is-on' : ''}${value.autoColor ? ' is-dim' : ''}`}
+              className={`wo-swatch${(!isElectrical || !value.autoColor) && value.color === name ? ' is-on' : ''}${isElectrical && value.autoColor ? ' is-dim' : ''}`}
               style={{ background: wireColorSwatchBg(name) }}
               onClick={() => onChange({ color: name, autoColor: false })}
             />
           ))}
         </div>
-        <small className="wo-note">
-          {value.autoColor ? 'Cor automática pela função (IEC 60204-1).' : `Cor fixa: ${WIRE_COLOR_LABEL[value.color]}.`}
-        </small>
       </div>
 
+      {/* Secção (elétrico) OU Diâmetro nominal (hidráulico / pneumático) */}
       <div className="wo-group">
         <div className="wo-label">
-          <span>{activeMedium === 'electrical' ? 'Secção' : 'Diâmetro nominal'}</span>
-          <em>{value.gauge}{activeMedium === 'electrical' && ampacityA !== null ? ` · ≈ ${ampacityA} A` : ''}</em>
+          <span>{isElectrical ? 'Secção nominal' : isHydraulic ? 'Diâmetro hidráulico' : 'Diâmetro tubo PU'}</span>
+          <em>{value.gauge}{isElectrical && ampacityA !== null ? ` · ≈ ${ampacityA} A` : ''}</em>
         </div>
-        <div className="wo-gauges" role="radiogroup" aria-label={activeMedium === 'electrical' ? 'Secção do cabo' : 'Diâmetro do tubo'}>
+        <div className="wo-gauges" role="radiogroup" aria-label={isElectrical ? 'Secção do cabo' : 'Diâmetro do tubo'}>
           {activeGauges.map((gauge) => (
             <button
               key={gauge}
@@ -481,115 +556,241 @@ export function WireOptionsFields({
         </div>
       </div>
 
-      <div className="wo-group">
-        <div className="wo-label"><span>Condutor</span></div>
-        <div className="wo-choices" role="radiogroup" aria-label="Condutor">
-          {CONDUCTORS.map((conductor) => (
-            <button
-              key={conductor.id}
-              type="button"
-              role="radio"
-              aria-checked={value.flexibility === conductor.id}
-              aria-label={`Condutor ${conductor.name}`}
-              title={`${conductor.name} — ${conductor.hint}`}
-              className={`wo-choice${value.flexibility === conductor.id ? ' is-on' : ''}`}
-              onClick={() => onChange({ flexibility: conductor.id })}
-            >
-              <ConductorIcon flexible={conductor.id === 'flexible'} color={value.autoColor ? '#1f2937' : WIRE_COLOR_HEX[value.color]} size={40} />
-              <strong>{conductor.name}</strong>
-              <small>{conductor.hint}</small>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="wo-group">
-        <div className="wo-label"><span>Terminal das pontas</span><em>{selectedEnd?.label ?? ''}</em></div>
-        <div className="wo-ends" role="radiogroup" aria-label="Terminal das pontas do cabo">
-          {WIRE_END_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="radio"
-              aria-checked={value.endType === option.id}
-              aria-label={option.label}
-              title={option.hint}
-              className={`wo-end${value.endType === option.id ? ' is-on' : ''}`}
-              onClick={() => onChange({ endType: option.id as WireEndType })}
-            >
-              <WireEndIcon type={option.id} color={endColor} size={34} />
-              <span>{option.label}</span>
-            </button>
-          ))}
-        </div>
-        <small className="wo-note">{selectedEnd?.hint}</small>
-      </div>
-
-      <div className="wo-group">
-        <div className="wo-label">
-          <span>Formação / multicore</span>
-          <em>{activePreset === 'custom' ? 'Personalizado' : (CABLE_PRESETS.find((p) => p.id === activePreset)?.label ?? '')}</em>
-        </div>
-        <div className="wo-presets" role="radiogroup" aria-label="Tipo de cabo">
-          {CABLE_PRESETS.map((preset) => {
-            const on = activePreset === preset.id
-            return (
+      {/* === OPÇÕES EXCLUSIVAMENTE HIDRÁULICAS === */}
+      {isHydraulic && (
+        <div className="wo-group" data-hydraulic-only-controls>
+          <div className="wo-label">
+            <span>Uniões e acessórios hidráulicos</span>
+            <em>{HYDRAULIC_FITTING_OPTIONS.find((f) => f.id === (value.hydraulicFitting ?? 'union'))?.label}</em>
+          </div>
+          <div className="wo-presets" role="radiogroup" aria-label="Uniões hidráulicas">
+            {HYDRAULIC_FITTING_OPTIONS.map((opt) => {
+              const on = (value.hydraulicFitting ?? 'union') === opt.id
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  title={opt.hint}
+                  className={`wo-preset${on ? ' is-on' : ''}`}
+                  onClick={() => onChange({ hydraulicFitting: opt.id, endType: 'hydraulicFitting' })}
+                >
+                  <strong>{opt.label}</strong>
+                  <small>{opt.hint}</small>
+                </button>
+              )
+            })}
+          </div>
+          <div className="wo-label mt-2">
+            <span>Material &amp; pressão nominal</span>
+            <em>{`${(value.hydraulicMaterial ?? 'ppr').toUpperCase()} · PN${value.hydraulicPressureBar ?? 10}`}</em>
+          </div>
+          <div className="wo-gauges" role="radiogroup" aria-label="Material hidráulico">
+            {HYDRAULIC_MATERIALS.map((mat) => (
               <button
-                key={preset.id}
+                key={mat.id}
                 type="button"
                 role="radio"
-                aria-checked={on}
-                aria-label={preset.label}
-                title={`${preset.label} — ${preset.hint}`}
-                className={`wo-preset${on ? ' is-on' : ''}`}
-                onClick={() => onChange({
-                  ...applyCablePreset(preset),
-                  conductorColors: preset.conductors > 1 ? defaultCoreColors(preset.conductors) : undefined,
-                })}
+                aria-checked={(value.hydraulicMaterial ?? 'ppr') === mat.id}
+                title={mat.hint}
+                className={`wo-gauge${(value.hydraulicMaterial ?? 'ppr') === mat.id ? ' is-on' : ''}`}
+                onClick={() => onChange({ hydraulicMaterial: mat.id })}
               >
-                <strong>{preset.label}</strong>
-                <small>{preset.hint}</small>
+                <span>{mat.label}</span>
               </button>
-            )
-          })}
+            ))}
+            {[10, 16].map((bar) => (
+              <button
+                key={bar}
+                type="button"
+                className={`wo-gauge${(value.hydraulicPressureBar ?? 10) === bar ? ' is-on' : ''}`}
+                onClick={() => onChange({ hydraulicPressureBar: bar })}
+              >
+                <span>{`PN${bar}`}</span>
+              </button>
+            ))}
+          </div>
+          <div className="wo-toggles mt-1.5">
+            <button type="button" className="wo-toggle" onClick={() => insertAccessory('hydraulicTee')}>
+              + Inserir União T
+            </button>
+            <button type="button" className="wo-toggle" onClick={() => insertAccessory('hydraulicValve')}>
+              + Inserir Válvula
+            </button>
+          </div>
         </div>
-        <div className="wo-row">
-          <label className="wo-inline">
-            <span>Nº</span>
-            <Select
-              className="wo-select"
-              value={value.conductorCount ?? 1}
-              onChange={(e) => {
-                const n = Number(e.target.value)
-                onChange({ conductorCount: n, conductorColors: n > 1 ? defaultCoreColors(n) : undefined })
-              }}
-              aria-label="Número de condutores"
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
-            </Select>
-          </label>
-          <button
-            type="button"
-            className={`wo-sheath-btn wo-sheath${value.sheathed ? ' is-on' : ''}`}
-            aria-pressed={!!value.sheathed}
-            onClick={() => onChange({ sheathed: !value.sheathed, sheathColor: !value.sheathed ? (value.sheathColor ?? '#0f172a') : value.sheathColor })}
-            title="Capa exterior (isolamento global do cabo)"
-          >
-            <strong>{value.sheathed ? 'Com capa' : 'Sem capa'}</strong>
-            <small>{value.sheathed ? 'Isolamento global PVC' : 'Isolação individual'}</small>
-          </button>
-          {value.sheathed && (
-            <input
-              type="color"
-              className="wo-sheath-color"
-              aria-label="Cor da capa exterior"
-              value={value.sheathColor ?? '#0f172a'}
-              title="Cor da capa exterior"
-              onChange={(e) => onChange({ sheathColor: e.target.value })}
-            />
-          )}
+      )}
+
+      {/* === OPÇÕES EXCLUSIVAMENTE PNEUMÁTICAS === */}
+      {isPneumatic && (
+        <div className="wo-group" data-pneumatic-only-controls>
+          <div className="wo-label">
+            <span>Conectores e uniões Push-In</span>
+            <em>{PNEUMATIC_FITTING_OPTIONS.find((f) => f.id === (value.pneumaticFitting ?? 'pushInStraight'))?.label}</em>
+          </div>
+          <div className="wo-presets" role="radiogroup" aria-label="Conectores pneumáticos">
+            {PNEUMATIC_FITTING_OPTIONS.map((opt) => {
+              const on = (value.pneumaticFitting ?? 'pushInStraight') === opt.id
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  title={opt.hint}
+                  className={`wo-preset${on ? ' is-on' : ''}`}
+                  onClick={() => onChange({ pneumaticFitting: opt.id, endType: 'pneumaticPushIn' })}
+                >
+                  <strong>{opt.label}</strong>
+                  <small>{opt.hint}</small>
+                </button>
+              )
+            })}
+          </div>
+          <div className="wo-label mt-2">
+            <span>Pressão de serviço</span>
+            <em>{`${value.pneumaticPressureBar ?? 6} bar`}</em>
+          </div>
+          <div className="wo-gauges" role="radiogroup" aria-label="Pressão pneumática">
+            {[4, 6, 8, 10].map((bar) => (
+              <button
+                key={bar}
+                type="button"
+                role="radio"
+                aria-checked={(value.pneumaticPressureBar ?? 6) === bar}
+                className={`wo-gauge${(value.pneumaticPressureBar ?? 6) === bar ? ' is-on' : ''}`}
+                onClick={() => onChange({ pneumaticPressureBar: bar })}
+              >
+                <span>{`${bar} bar`}</span>
+              </button>
+            ))}
+          </div>
+          <div className="wo-toggles mt-1.5">
+            <button type="button" className="wo-toggle" onClick={() => insertAccessory('pneumaticTee')}>
+              + Inserir União T
+            </button>
+            <button type="button" className="wo-toggle" onClick={() => insertAccessory('pneumaticFrl')}>
+              + Inserir FRL
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* === OPÇÕES EXCLUSIVAMENTE ELÉTRICAS === */}
+      {isElectrical && (
+        <>
+          <div className="wo-group" data-electrical-only-controls>
+            <div className="wo-label"><span>Condutor</span></div>
+            <div className="wo-choices" role="radiogroup" aria-label="Condutor">
+              {CONDUCTORS.map((conductor) => (
+                <button
+                  key={conductor.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={value.flexibility === conductor.id}
+                  aria-label={`Condutor ${conductor.name}`}
+                  title={`${conductor.name} — ${conductor.hint}`}
+                  className={`wo-choice${value.flexibility === conductor.id ? ' is-on' : ''}`}
+                  onClick={() => onChange({ flexibility: conductor.id })}
+                >
+                  <ConductorIcon flexible={conductor.id === 'flexible'} color={value.autoColor ? '#1f2937' : WIRE_COLOR_HEX[value.color]} size={40} />
+                  <strong>{conductor.name}</strong>
+                  <small>{conductor.hint}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="wo-group">
+            <div className="wo-label"><span>Terminal das pontas</span><em>{selectedEnd?.label ?? ''}</em></div>
+            <div className="wo-ends" role="radiogroup" aria-label="Terminal das pontas do cabo">
+              {electricalEndOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={value.endType === option.id}
+                  aria-label={option.label}
+                  title={option.hint}
+                  className={`wo-end${value.endType === option.id ? ' is-on' : ''}`}
+                  onClick={() => onChange({ endType: option.id as WireEndType })}
+                >
+                  <WireEndIcon type={option.id} color={endColor} size={34} />
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <small className="wo-note">{selectedEnd?.hint}</small>
+          </div>
+
+          <div className="wo-group">
+            <div className="wo-label">
+              <span>Formação / multicore</span>
+              <em>{activePreset === 'custom' ? 'Personalizado' : (CABLE_PRESETS.find((p) => p.id === activePreset)?.label ?? '')}</em>
+            </div>
+            <div className="wo-presets" role="radiogroup" aria-label="Tipo de cabo">
+              {CABLE_PRESETS.map((preset) => {
+                const on = activePreset === preset.id
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    aria-label={preset.label}
+                    title={`${preset.label} — ${preset.hint}`}
+                    className={`wo-preset${on ? ' is-on' : ''}`}
+                    onClick={() => onChange({
+                      ...applyCablePreset(preset),
+                      conductorColors: preset.conductors > 1 ? defaultCoreColors(preset.conductors) : undefined,
+                    })}
+                  >
+                    <strong>{preset.label}</strong>
+                    <small>{preset.hint}</small>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="wo-row">
+              <label className="wo-inline">
+                <span>Nº</span>
+                <Select
+                  className="wo-select"
+                  value={value.conductorCount ?? 1}
+                  onChange={(e) => {
+                    const n = Number(e.target.value)
+                    onChange({ conductorCount: n, conductorColors: n > 1 ? defaultCoreColors(n) : undefined })
+                  }}
+                  aria-label="Número de condutores"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 12].map((n) => <option key={n} value={n}>{n}×</option>)}
+                </Select>
+              </label>
+              <button
+                type="button"
+                className={`wo-sheath-btn wo-sheath${value.sheathed ? ' is-on' : ''}`}
+                aria-pressed={!!value.sheathed}
+                onClick={() => onChange({ sheathed: !value.sheathed, sheathColor: !value.sheathed ? (value.sheathColor ?? '#0f172a') : value.sheathColor })}
+                title="Capa exterior (isolamento global do cabo)"
+              >
+                <strong>{value.sheathed ? 'Com capa' : 'Sem capa'}</strong>
+                <small>{value.sheathed ? 'Isolamento global PVC' : 'Isolação individual'}</small>
+              </button>
+              {value.sheathed && (
+                <input
+                  type="color"
+                  className="wo-sheath-color"
+                  aria-label="Cor da capa exterior"
+                  value={value.sheathColor ?? '#0f172a'}
+                  title="Cor da capa exterior"
+                  onChange={(e) => onChange({ sheathColor: e.target.value })}
+                />
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

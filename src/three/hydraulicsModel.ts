@@ -1,9 +1,15 @@
 import type { ConduitMedium, WireKind } from '../types'
 
-export type HydraulicComponentType = 'floatSwitch' | 'waterTank' | 'waterPump'
+export type HydraulicComponentType = 'floatSwitch' | 'waterTank' | 'waterPump' | 'hydraulicValve' | 'hydraulicTee'
 
 export function isHydraulicComponentType(type: string): type is HydraulicComponentType {
-  return type === 'floatSwitch' || type === 'waterTank' || type === 'waterPump'
+  return (
+    type === 'floatSwitch' ||
+    type === 'waterTank' ||
+    type === 'waterPump' ||
+    type === 'hydraulicValve' ||
+    type === 'hydraulicTee'
+  )
 }
 
 export function isFluidWireKind(kind: WireKind | undefined): boolean {
@@ -80,6 +86,8 @@ export function waterTankDimensionsOf(state?: Record<string, any>): WaterTankDim
 
 export const FLOAT_SWITCH_SIZE_MM = { width: 240, height: 185, depth: 64 } as const
 export const WATER_PUMP_SIZE_MM = { width: 340, height: 225, depth: 175 } as const
+export const HYDRAULIC_VALVE_SIZE_MM = { width: 135, height: 108, depth: 66 } as const
+export const HYDRAULIC_TEE_SIZE_MM = { width: 112, height: 86, depth: 56 } as const
 
 export function hydraulicComponentSizeMm(
   type: string,
@@ -94,6 +102,12 @@ export function hydraulicComponentSizeMm(
   if (type === 'waterTank') {
     const d = waterTankDimensionsOf(state)
     return { x: d.totalWidthMm, y: d.totalHeightMm, z: d.totalDepthMm }
+  }
+  if (type === 'hydraulicValve') {
+    return { x: HYDRAULIC_VALVE_SIZE_MM.width, y: HYDRAULIC_VALVE_SIZE_MM.height, z: HYDRAULIC_VALVE_SIZE_MM.depth }
+  }
+  if (type === 'hydraulicTee') {
+    return { x: HYDRAULIC_TEE_SIZE_MM.width, y: HYDRAULIC_TEE_SIZE_MM.height, z: HYDRAULIC_TEE_SIZE_MM.depth }
   }
   return null
 }
@@ -127,5 +141,19 @@ export const HYDRAULIC_DATASHEETS: Record<HydraulicComponentType, HydraulicDatas
     manufacturer: 'CALPEDA',
     model: 'CT 61 · 0,37 kW (0,5 HP)',
     summary: '230V~ 50Hz · 2,4 A · 2900 rpm · Q 5–40 L/min · H 40–5 m · G 1" (IN/OUT) · IP54',
+  },
+  hydraulicValve: {
+    path: '/datasheets/hydraulics/hydraulic-valve-tee-3d.pdf',
+    name: 'Válvula de Esfera Hidráulica G 1" · PN16 (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu Hidráulica',
+    model: 'Válvula Esfera Latão G 1"',
+    summary: 'Latão forjado CW617N · PN16 · Abertura 1/4 de volta · Portas IN/OUT G 1"',
+  },
+  hydraulicTee: {
+    path: '/datasheets/hydraulics/hydraulic-valve-tee-3d.pdf',
+    name: 'União em T Hidráulica Latão G 1" (Ficha Técnica).pdf',
+    manufacturer: 'DC-Simu Hidráulica',
+    model: 'Tê Latão 3 Vias G 1"',
+    summary: 'Derivação hidráulica em T 3 vias (A / B / C) · Latão forjado · PN16',
   },
 }

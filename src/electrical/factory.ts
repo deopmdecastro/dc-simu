@@ -99,6 +99,8 @@ export const KIND_COLOR: Record<TerminalKind, string> = {
   'hydraulic-in': '#0284c7',
   'hydraulic-out': '#0ea5e9',
   pneumatic: '#38bdf8',
+  'pneumatic-in': '#38bdf8',
+  'pneumatic-out': '#0284c7',
 }
 
 const KIND_TYPE: Record<TerminalKind, TerminalType> = {
@@ -116,6 +118,8 @@ const KIND_TYPE: Record<TerminalKind, TerminalType> = {
   'hydraulic-in': 'plug',
   'hydraulic-out': 'plug',
   pneumatic: 'plug',
+  'pneumatic-in': 'plug',
+  'pneumatic-out': 'plug',
 }
 
 const T = (label: string, kind: TerminalKind, x: number, y: number, extra: Partial<TerminalTemplate> = {}): TerminalTemplate => ({
@@ -615,7 +619,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { triggered: false, celsius: 60 },
   },
   floatSwitch: {
-    category: 'sensor', paletteName: 'Boia / chave de nível · FELIX ENERGY IP68', group: 'Sensores', tag: 'B', w: 110, h: 100,
+    category: 'sensor', paletteName: 'Boia / chave de nível · FELIX ENERGY IP68', group: 'Hidráulica', tag: 'B', w: 110, h: 100,
     terminals: [
       T('NA', 'aux-no', 0.14, 0.22, { position3D: { x: 0.43, y: 0.88, z: 0.5 }, face: 'left', contact: 'lead', color: '#92400e', terminalType: 'tinned' as any }),
       T('C', 'aux-no', 0.14, 0.50, { position3D: { x: 0.43, y: 0.82, z: 0.5 }, face: 'left', contact: 'lead', color: '#111827', terminalType: 'tinned' as any }),
@@ -990,7 +994,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     },
   },
   waterPump: {
-    category: 'motor', paletteName: 'Bomba de água periférica · CALPEDA CT 61 (0,37 kW)', group: 'Motores', tag: 'P', w: 160, h: 130,
+    category: 'motor', paletteName: 'Bomba de água periférica · CALPEDA CT 61 (0,37 kW)', group: 'Hidráulica', tag: 'P', w: 160, h: 130,
     terminals: [
       T('L1', 'power-in', 0.45, 0, { position3D: { x: 0.54, y: 0.90, z: 0.42 }, face: 'top', terminalType: 'screw', color: '#92400e', diameter: 10 }),
       T('N', 'neutral', 0.65, 0, { position3D: { x: 0.64, y: 0.90, z: 0.42 }, face: 'top', terminalType: 'screw', color: '#3b82f6', diameter: 10 }),
@@ -1003,6 +1007,169 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       manufacturer: 'CALPEDA', model: 'CT 61',
       phases: 1, powerKw: 0.37, cv: 0.5, rpm: 2900, frequencyHz: 50, voltage: '230V~', currentA: 2.4,
       cosPhi: 0.90, flowLmin: 40, headM: 40, portSize: 'G 1"', protection: 'IP54',
+    },
+  },
+  hydraulicValve: {
+    category: 'motor', paletteName: 'Válvula de esfera hidráulica 3D · Latão G 1"', group: 'Hidráulica', tag: 'VH', w: 110, h: 86,
+    terminals: [
+      T('IN', 'hydraulic-in', 0.04, 0.62, { position3D: { x: 0.04, y: 0.37, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#0ea5e9', diameter: 12 }),
+      T('OUT', 'hydraulic-out', 0.96, 0.62, { position3D: { x: 0.96, y: 0.37, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
+    ],
+    defaultState: {
+      open: true,
+      manufacturer: 'DC-Simu Hidráulica',
+      model: 'Válvula Esfera G 1" PN16',
+    },
+  },
+  hydraulicTee: {
+    category: 'terminal', paletteName: 'União em T hidráulica · Latão 3 vias G 1"', group: 'Hidráulica', tag: 'TH', w: 96, h: 78,
+    terminals: [
+      T('A', 'hydraulic-in', 0.04, 0.62, { position3D: { x: 0.04, y: 0.38, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#0ea5e9', diameter: 12 }),
+      T('B', 'hydraulic-out', 0.96, 0.62, { position3D: { x: 0.96, y: 0.38, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
+      T('C', 'hydraulic-out', 0.50, 0.04, { position3D: { x: 0.50, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
+    ],
+    defaultState: {
+      manufacturer: 'DC-Simu Hidráulica',
+      model: 'Tê Latão 3 Vias G 1"',
+    },
+  },
+  pneumaticFrl: {
+    category: 'power', paletteName: 'Unidade FRL Pneumática · Filtro + Regulador + Manómetro', group: 'Pneumática', tag: 'FRL', w: 120, h: 150,
+    terminals: [
+      T('IN', 'pneumatic-in', 0.04, 0.42, { position3D: { x: 0.04, y: 0.58, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 10 }),
+      T('OUT', 'pneumatic-out', 0.96, 0.42, { position3D: { x: 0.96, y: 0.58, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 10 }),
+    ],
+    defaultState: {
+      airSupplyOn: true,
+      pressureBar: 6,
+      manufacturer: 'DC-Simu Pneumática',
+      model: 'FRL-2000 · 0–10 bar',
+    },
+  },
+  pneumaticValve52: {
+    category: 'motor', paletteName: 'Eletroválvula pneumática 5/2 vias · 24 V DC', group: 'Pneumática', tag: 'YV', w: 140, h: 100,
+    terminals: [
+      T('A1', 'coil-plus', 0.14, 0.08, { position3D: { x: 0.16, y: 0.80, z: 0.50 }, face: 'top', terminalType: 'screw', color: '#dc2626', diameter: 9 }),
+      T('A2', 'coil-minus', 0.30, 0.08, { position3D: { x: 0.24, y: 0.80, z: 0.50 }, face: 'top', terminalType: 'screw', color: '#2563eb', diameter: 9 }),
+      T('P', 'pneumatic-in', 0.62, 0.94, { position3D: { x: 0.60, y: 0.06, z: 0.50 }, face: 'bottom', terminalType: 'plug', color: '#0284c7', diameter: 10 }),
+      T('A', 'pneumatic-out', 0.50, 0.06, { position3D: { x: 0.48, y: 0.88, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 10 }),
+      T('B', 'pneumatic-out', 0.78, 0.06, { position3D: { x: 0.72, y: 0.88, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 10 }),
+    ],
+    defaultState: {
+      energized: false,
+      manualOverride: false,
+      coilVoltage: '24V DC',
+      manufacturer: 'DC-Simu Pneumática',
+      model: 'EV52-24DC · 5/2 Vias',
+    },
+  },
+  pneumaticCylinder: {
+    category: 'motor', paletteName: 'Cilindro pneumático dupla ação · ISO 15552', group: 'Pneumática', tag: 'CIL', w: 200, h: 86,
+    terminals: [
+      T('A', 'pneumatic-in', 0.12, 0.06, { position3D: { x: 0.10, y: 0.92, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 10 }),
+      T('B', 'pneumatic-in', 0.62, 0.06, { position3D: { x: 0.64, y: 0.92, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 10 }),
+    ],
+    defaultState: {
+      positionPct: 0,
+      extended: false,
+      boreMm: 32,
+      strokeMm: 125,
+      manufacturer: 'DC-Simu Pneumática',
+      model: 'ISO 15552 · Ø32×125',
+    },
+  },
+  pneumaticTee: {
+    category: 'terminal', paletteName: 'União em T pneumática Push-In · 3 vias', group: 'Pneumática', tag: 'TP', w: 80, h: 64,
+    terminals: [
+      T('P1', 'pneumatic-in', 0.04, 0.56, { position3D: { x: 0.04, y: 0.44, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.96, 0.56, { position3D: { x: 0.96, y: 0.44, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P3', 'pneumatic-out', 0.50, 0.04, { position3D: { x: 0.50, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+    ],
+    defaultState: {
+      manufacturer: 'DC-Simu Pneumática',
+      model: 'QST-8 · Push-In T',
+    },
+  },
+  industrialWall: {
+    category: 'terminal', paletteName: 'Parede industrial modular 3D (betão / painel / tijolo)', group: 'Estruturas e esteiras', tag: 'PAR', w: 220, h: 48,
+    terminals: [],
+    defaultState: {
+      lengthMm: 3000,
+      heightMm: 3200,
+      thicknessMm: 200,
+      finish: 'concrete',
+      skirting: true,
+      manufacturer: 'DC-Simu Estruturas',
+      model: 'Parede Modular PBR',
+    },
+  },
+  industrialPillar: {
+    category: 'terminal', paletteName: 'Pilar metálico estrutural 3D · Perfil IPE / HEB', group: 'Estruturas e esteiras', tag: 'PIL', w: 68, h: 68,
+    terminals: [],
+    defaultState: {
+      heightMm: 3200,
+      profile: 'HEB200',
+      finish: 'steel',
+      manufacturer: 'DC-Simu Estruturas',
+      model: 'Coluna HEB 200',
+    },
+  },
+  cableTrayStraight: {
+    category: 'terminal', paletteName: 'Esteira porta-cabos reta perfurada galvanizada', group: 'Estruturas e esteiras', tag: 'EST', w: 200, h: 64,
+    terminals: [],
+    defaultState: {
+      lengthMm: 1200,
+      widthMm: 200,
+      sideHeightMm: 60,
+      withCover: false,
+      manufacturer: 'DC-Simu / IEC 61537',
+      model: 'Esteira Perfurada Galvanizada',
+    },
+  },
+  cableTrayElbow90: {
+    category: 'terminal', paletteName: 'Curva horizontal 90° de esteira porta-cabos', group: 'Estruturas e esteiras', tag: 'EC', w: 120, h: 120,
+    terminals: [],
+    defaultState: {
+      widthMm: 200,
+      sideHeightMm: 60,
+      radiusMm: 220,
+      manufacturer: 'DC-Simu / IEC 61537',
+      model: 'Curva 90° Galvanizada',
+    },
+  },
+  cableTrayCross: {
+    category: 'terminal', paletteName: 'Cruzamento X / Derivação T de esteira porta-cabos', group: 'Estruturas e esteiras', tag: 'EX', w: 130, h: 130,
+    terminals: [],
+    defaultState: {
+      widthMm: 200,
+      sideHeightMm: 60,
+      variant: 'cross',
+      manufacturer: 'DC-Simu / IEC 61537',
+      model: 'Cruzamento X / Tê Galvanizado',
+    },
+  },
+  cableTrayVerticalBend: {
+    category: 'terminal', paletteName: 'Pescoço / Curva vertical articulada de esteira', group: 'Estruturas e esteiras', tag: 'EP', w: 130, h: 90,
+    terminals: [],
+    defaultState: {
+      widthMm: 200,
+      sideHeightMm: 60,
+      angleDeg: 45,
+      direction: 'up',
+      manufacturer: 'DC-Simu / IEC 61537',
+      model: 'Pescoço Articulado Galvanizado',
+    },
+  },
+  cableTrayRiser90: {
+    category: 'terminal', paletteName: 'Curva vertical 90° exterior/interior de esteira (riser)', group: 'Estruturas e esteiras', tag: 'ER', w: 120, h: 110,
+    terminals: [],
+    defaultState: {
+      widthMm: 200,
+      sideHeightMm: 60,
+      radiusMm: 220,
+      riserKind: 'exterior',
+      manufacturer: 'DC-Simu / IEC 61537',
+      model: 'Curva Vertical 90° Galvanizada',
     },
   },
   rollerConveyor: {
@@ -1050,7 +1217,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     },
   },
   waterTank: {
-    category: 'sensor', paletteName: 'Reservatório de água 3D (transparente)', group: 'Sensores', tag: 'TK', w: 150, h: 170,
+    category: 'sensor', paletteName: 'Reservatório de água 3D (transparente)', group: 'Hidráulica', tag: 'TK', w: 150, h: 170,
     terminals: [
       T('IN', 'hydraulic-in', 0.04, 0.22, { position3D: { x: 0.04, y: 0.78, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#0ea5e9', diameter: 12 }),
       T('OUT', 'hydraulic-out', 0.96, 0.78, { position3D: { x: 0.96, y: 0.22, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#dc2626', diameter: 12 }),
