@@ -5,7 +5,7 @@ import { useSimStore } from '../store/useSimStore'
 import { useDecalKeyboard } from '../ui/useDecalKeyboard'
 import InspectorNumberInput from '../ui/InspectorNumberInput'
 import Select from '../ui/Select'
-import { IconClose, IconImage, IconPlus, IconTag } from '../ui/icons'
+import { IconDelete, IconFileUpload, IconFocus, IconPlus, IconRuler, IconSwap, IconTag } from '../ui/icons'
 import PanelStickerPicker, { StickerIconGrid, type StickerCustomization } from './PanelStickerPicker'
 import DecalPreview from './DecalPreview'
 import { PANEL_STICKER_PRESETS, type PanelStickerDef } from '../three/panelStickers'
@@ -34,6 +34,32 @@ export function stickerDecal(sticker: PanelStickerDef, enclosure = false, custom
   return { ...decal, fontSizeMm: defaultDecalFontSizeMm(decal) }
 }
 
+const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/bmp', 'image/svg+xml']
+const ACCEPTED_IMAGE_ATTR = ACCEPTED_IMAGE_TYPES.join(',')
+
+async function readImageFile(file: File): Promise<{ url: string; ratio: number }> {
+  const url = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+  const image = new Image()
+  image.src = url
+  await image.decode()
+  const ratio = image.naturalWidth > 0 && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : 1
+  return { url, ratio }
+}
+
+function fitImageDimensions(c: ElectricalComponent, ratio: number): { widthMm: number; heightMm: number } {
+  const enclosure = c.type === 'panelEnclosure'
+  const maxWidth = enclosure ? Number(c.state.widthMm ?? 600) * .6 : 40
+  const maxHeight = enclosure ? Number(c.state.heightMm ?? 800) * .6 : 30
+  const width = Math.min(maxWidth, maxHeight * ratio)
+  const height = width / ratio
+  return { widthMm: Math.round(width * 100) / 100, heightMm: Math.round(height * 100) / 100 }
+}
+
 export default function ComponentDecalControls({ component: c }: { component: ElectricalComponent }) {
   useDecalKeyboard()
   const selection = useSimStore((s) => s.selectedDecal)
@@ -41,6 +67,7 @@ export default function ComponentDecalControls({ component: c }: { component: El
   const [library, setLibrary] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const section = useRef<HTMLDetailsElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const libraryButton = useRef<HTMLButtonElement>(null)
@@ -55,21 +82,22 @@ export default function ComponentDecalControls({ component: c }: { component: El
     while (node) { if (node instanceof HTMLDetailsElement) node.open = true; node = node.parentElement }
   }, [current?.id])
   const add = (decal: Partial<ComponentDecal>) => { if (!disabled) useSimStore.getState().addDecal(c.id, decal) }
+  const removeItem = (decal: ComponentDecal) => {
+    if (disabled) return
+    useSimStore.getState().removeDecal(c.id, decal.id)
+    setFeedback(decal.kind === 'image' ? 'Imagem apagada.' : 'Etiqueta apagada.')
+  }
   const closeLibrary = () => { setLibrary(false); requestAnimationFrame(() => libraryButton.current?.focus({ preventScroll: true })) }
   const upload = async (file: File | undefined) => {
     if (!file || disabled) return
-    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/bmp'].includes(file.type)) { setFeedback('Escolha uma imagem PNG, JPG, WebP, GIF ou BMP.'); return }
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) { setFeedback('Escolha uma imagem PNG, JPG, WebP, GIF, BMP ou SVG.'); return }
     if (file.size > 4_000_000) { setFeedback('A imagem excede 4 MB. Reduza o ficheiro antes de carregar.'); return }
     setLoading(true); setFeedback('A carregar imagem…')
     try {
-      const url = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file) })
-      const image = new Image(); image.src = url; await image.decode()
+      const { url, ratio } = await readImageFile(file)
       if (!alive.current) return
-      const ratio = image.naturalWidth / image.naturalHeight
-      const maxWidth = enclosure ? Number(c.state.widthMm ?? 600) * .6 : 40
-      const maxHeight = enclosure ? Number(c.state.heightMm ?? 800) * .6 : 30
-      const width = Math.min(maxWidth, maxHeight * ratio), height = width / ratio
-      add({ kind: 'image', text: file.name, face: enclosure ? 'door' : 'front', imageUrl: url, widthMm: Math.round(width * 100) / 100, heightMm: Math.round(height * 100) / 100, imageAspectRatio: ratio, keepAspectRatio: true, border: false })
+      const { widthMm, heightMm } = fitImageDimensions(c, ratio)
+      add({ kind: 'image', text: file.name, face: enclosure ? 'door' : 'front', imageUrl: url, widthMm, heightMm, imageAspectRatio: ratio, keepAspectRatio: true, border: false })
       setFeedback(`Imagem «${file.name}» adicionada.`)
     } catch { if (alive.current) setFeedback('Não foi possível ler a imagem. Experimente outro ficheiro.') }
     finally { if (alive.current) setLoading(false) }
@@ -78,18 +106,51 @@ export default function ComponentDecalControls({ component: c }: { component: El
     <summary>Imagens e etiquetas <span className="dc-inspector-count">{decals.length}</span></summary>
     <div className="dc-inspector-group-body">
       <div className="dc-decal-add">
-        <button type="button" className="dc-btn dc-btn-primary" disabled={disabled} onClick={() => add({ kind: 'text', text: 'Nova etiqueta', face: enclosure ? 'door' : 'front', widthMm: enclosure ? 60 : 30, heightMm: enclosure ? 20 : 12, background: '#ffffff', color: '#111827' })}><IconPlus size={13} /> Adicionar texto</button>
-        <button ref={libraryButton} type="button" className="dc-btn" disabled={disabled} onClick={() => setLibrary(true)}><IconTag size={13} /> Biblioteca de etiquetas</button>
-        <button type="button" className="dc-btn" disabled={disabled || loading} onClick={() => input.current?.click()}><IconImage size={13} /> Carregar imagem</button>
-        <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="Ficheiro de imagem" className="sr-only" disabled={disabled || loading} onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = '' }} />
+        <div className="dc-decal-add-row">
+          <button type="button" className="dc-btn dc-btn-primary" disabled={disabled} onClick={() => add({ kind: 'text', text: 'Nova etiqueta', face: enclosure ? 'door' : 'front', widthMm: enclosure ? 60 : 30, heightMm: enclosure ? 20 : 12, background: '#ffffff', color: '#111827' })}><IconPlus size={13} /> Adicionar texto</button>
+          <button ref={libraryButton} type="button" className="dc-btn" disabled={disabled} onClick={() => setLibrary(true)}><IconTag size={13} /> Biblioteca de etiquetas</button>
+        </div>
+        <button
+          type="button"
+          className={`dc-decal-dropzone${dragOver ? ' is-dragover' : ''}`}
+          disabled={disabled || loading}
+          onClick={() => input.current?.click()}
+          onDragOver={(event) => { if (disabled || loading) return; event.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(event) => {
+            event.preventDefault()
+            setDragOver(false)
+            if (disabled || loading) return
+            void upload(event.dataTransfer.files?.[0])
+          }}
+        >
+          <span className="dc-decal-dropzone-icon" aria-hidden="true"><IconFileUpload size={15} /></span>
+          <span className="dc-decal-dropzone-copy">
+            <strong>{loading ? 'A carregar imagem…' : 'Carregar imagem'}</strong>
+            <small>Clique ou arraste · PNG, JPG, WebP, SVG (máx. 4 MB)</small>
+          </span>
+        </button>
+        <input ref={input} type="file" accept={ACCEPTED_IMAGE_ATTR} aria-label="Ficheiro de imagem" className="sr-only" disabled={disabled || loading} onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = '' }} />
       </div>
       <p className={feedback ? 'dc-decal-feedback' : 'sr-only'} role="status" aria-live="polite">{feedback}</p>
       {decals.length === 0 ? <p className="dc-decal-empty">Adicione texto, escolha um modelo ou carregue uma imagem. A etiqueta acompanha a {enclosure ? 'porta' : 'face do aparelho'}.</p> : <div className="dc-decal-list" role="listbox" aria-label="Imagens e etiquetas do elemento">
-        {decals.map((decal, index) => <button key={decal.id} type="button" role="option" aria-label={`Selecionar etiqueta ${index + 1}`} aria-selected={current?.id === decal.id} className={`dc-decal-list-item${current?.id === decal.id ? ' is-selected' : ''}`} disabled={disabled} onClick={() => useSimStore.getState().selectDecal(c.id, decal.id)}>
-          <DecalPreview decal={decal} /><span><strong>{decal.text?.split('\n').join( ' · ') || (decal.kind === 'image' ? 'Imagem' : 'Etiqueta')}</strong><small>{decal.widthMm ?? 30} × {decal.heightMm ?? 15} mm</small></span>
-        </button>)}
+        {decals.map((decal, index) => <div key={decal.id} className={`dc-decal-list-row${current?.id === decal.id ? ' is-selected' : ''}`}>
+          <button type="button" role="option" aria-label={`Selecionar etiqueta ${index + 1}`} aria-selected={current?.id === decal.id} className={`dc-decal-list-item${current?.id === decal.id ? ' is-selected' : ''}`} disabled={disabled} onClick={() => useSimStore.getState().selectDecal(c.id, decal.id)}>
+            <DecalPreview decal={decal} /><span><strong>{decal.text?.split('\n').join(' · ') || (decal.kind === 'image' ? 'Imagem' : 'Etiqueta')}</strong><small>{decal.kind === 'image' ? 'Imagem · ' : ''}{Math.round((decal.widthMm ?? 30) * 10) / 10} × {Math.round((decal.heightMm ?? 15) * 10) / 10} mm</small></span>
+          </button>
+          <button
+            type="button"
+            className="dc-btn dc-decal-item-delete"
+            disabled={disabled}
+            title={decal.kind === 'image' ? 'Apagar imagem' : 'Apagar etiqueta'}
+            aria-label={`Apagar ${decal.kind === 'image' ? 'imagem' : 'etiqueta'} ${index + 1}`}
+            onClick={() => removeItem(decal)}
+          >
+            <IconDelete size={12} />
+          </button>
+        </div>)}
       </div>}
-      {current && <DecalFields key={current.id} component={c} decal={current} disabled={disabled} />}
+      {current && <DecalFields key={current.id} component={c} decal={current} disabled={disabled} onFeedback={setFeedback} onRemove={() => removeItem(current)} />}
       {current && <p className="dc-decal-help">X/Y a partir do centro da face; Y positivo sobe. Arraste no esquema ou no 3D. Setas: 1 mm · Shift + setas: 10 mm · Esc: desselecionar.</p>}
     </div>
     {library && createPortal(<PanelStickerPicker onClose={closeLibrary} faces={enclosure ? ENCLOSURE_DECAL_FACES : undefined} onPick={(sticker, custom) => {
@@ -100,13 +161,53 @@ export default function ComponentDecalControls({ component: c }: { component: El
   </details>
 }
 
-function DecalFields({ component: c, decal: d, disabled }: { component: ElectricalComponent; decal: ComponentDecal; disabled: boolean }) {
+function DecalFields({ component: c, decal: d, disabled, onFeedback, onRemove }: {
+  component: ElectricalComponent
+  decal: ComponentDecal
+  disabled: boolean
+  onFeedback: (message: string) => void
+  onRemove: () => void
+}) {
   const enclosure = c.type === 'panelEnclosure'
+  const replaceInput = useRef<HTMLInputElement>(null)
+  const [replacing, setReplacing] = useState(false)
   const patch = (value: Partial<ComponentDecal>) => useSimStore.getState().updateDecal(c.id, d.id, value)
   const ratio = d.imageAspectRatio ?? (d.widthMm ?? 30) / (d.heightMm ?? 15)
   const resize = (key: 'widthMm' | 'heightMm', value: number) => patch({ [key]: value, ...(d.kind === 'image' && d.keepAspectRatio !== false ? { [key === 'widthMm' ? 'heightMm' : 'widthMm']: Math.round((key === 'widthMm' ? value / ratio : value * ratio) * 100) / 100 } : {}) })
+  const replaceImage = async (file: File | undefined) => {
+    if (!file || disabled) return
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) { onFeedback('Escolha uma imagem PNG, JPG, WebP, GIF, BMP ou SVG.'); return }
+    if (file.size > 4_000_000) { onFeedback('A imagem excede 4 MB. Reduza o ficheiro antes de carregar.'); return }
+    setReplacing(true); onFeedback('A substituir imagem…')
+    try {
+      const { url, ratio: nextRatio } = await readImageFile(file)
+      const currentW = d.widthMm ?? fitImageDimensions(c, nextRatio).widthMm
+      patch({
+        imageUrl: url,
+        text: file.name,
+        imageAspectRatio: nextRatio,
+        heightMm: Math.round((currentW / nextRatio) * 100) / 100,
+      })
+      onFeedback(`Imagem substituída por «${file.name}».`)
+    } catch { onFeedback('Não foi possível ler a imagem. Experimente outro ficheiro.') }
+    finally { setReplacing(false) }
+  }
   return <div className="dc-decal-fields" aria-label="Editar etiqueta selecionada">
     <DecalPreview decal={d} className="is-large" />
+    {d.kind === 'image' && (
+      <div className="dc-decal-image-actions">
+        <button type="button" className="dc-btn" disabled={disabled || replacing} onClick={() => replaceInput.current?.click()} title="Substituir ficheiro da imagem">
+          <IconSwap size={12} /> Substituir
+        </button>
+        <button type="button" className="dc-btn" disabled={disabled} onClick={() => patch(fitImageDimensions(c, ratio))} title="Ajustar tamanho à face mantendo a proporção">
+          <IconRuler size={12} /> Ajustar
+        </button>
+        <button type="button" className="dc-btn" disabled={disabled} onClick={() => patch({ offsetXmm: 0, offsetYmm: 0 })} title="Centrar na face (0, 0)">
+          <IconFocus size={12} /> Centrar
+        </button>
+        <input ref={replaceInput} type="file" accept={ACCEPTED_IMAGE_ATTR} aria-label="Substituir ficheiro de imagem" className="sr-only" disabled={disabled || replacing} onChange={(event) => { void replaceImage(event.target.files?.[0]); event.target.value = '' }} />
+      </div>
+    )}
     <label><span>{d.kind === 'image' ? 'Nome da imagem' : 'Texto da etiqueta'}</span><textarea aria-label="Texto da etiqueta" className="dc-input" rows={d.kind === 'image' ? 2 : 3} value={d.text ?? ''} disabled={disabled} onChange={(event) => patch({ text: event.target.value })} /></label>
     <div className="dc-decal-grid">
       {(['widthMm', 'heightMm'] as const).map((key) => <label key={key}><span>{key === 'widthMm' ? 'Largura' : 'Altura'} (mm)</span><InspectorNumberInput className="dc-input" type="number" min={1} step={.5} value={d[key] ?? (key === 'widthMm' ? 30 : 15)} aria-label={`${key === 'widthMm' ? 'Largura' : 'Altura'} da etiqueta (mm)`} disabled={disabled} onChange={(event) => resize(key, Number(event.target.value))} /></label>)}
@@ -128,6 +229,6 @@ function DecalFields({ component: c, decal: d, disabled }: { component: Electric
     <details className="dc-decal-advanced"><summary>Tipo de etiqueta</summary><div className="dc-decal-grid">
       <label><span>Tipo</span><Select aria-label="Tipo de etiqueta" className="dc-input" disabled={disabled} value={d.kind} onChange={(event) => { const kind = event.target.value as ComponentDecal['kind']; patch({ kind, stickerId: undefined, icon: ['text', 'logo', 'image'].includes(kind) ? undefined : d.icon || 'bolt' }) }}><option value="text">Texto</option><option value="warning">Aviso</option><option value="logo">Marca</option><option value="symbol">Símbolo</option>{d.imageUrl && <option value="image">Imagem</option>}</Select></label>
     </div></details>
-    <button type="button" className="dc-btn dc-btn-danger" aria-label="Remover etiqueta selecionada" disabled={disabled} onClick={() => useSimStore.getState().removeDecal(c.id, d.id)}><IconClose size={13} /> Remover etiqueta</button>
+    <button type="button" className="dc-btn dc-btn-danger" aria-label="Remover etiqueta selecionada" disabled={disabled} onClick={onRemove}><IconDelete size={13} /> {d.kind === 'image' ? 'Apagar imagem' : 'Apagar etiqueta'}</button>
   </div>
 }

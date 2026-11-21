@@ -157,18 +157,34 @@
 .dc-hole-occupied { display: grid; gap: 7px; color: #92400e; font-size: 11px; line-height: 1.5; }
 .dc-decal-controls { min-width: 0; }
 .dc-decal-controls .dc-inspector-group-body { gap: 12px; }
-.dc-decal-add { display: grid; gap: 6px; }
-.dc-decal-controls .dc-btn, .dc-decal-controls .dc-input, .dc-decal-controls input[type="color"] { min-height: 40px !important; max-width: 100%; font-size: 12px !important; }
-.dc-decal-add .dc-btn { justify-content: flex-start; gap: 7px; }
+.dc-decal-add { display: grid; gap: 7px; min-width: 0; }
+.dc-decal-add-row { display: grid; gap: 6px; min-width: 0; }
+.dc-decal-add-row .dc-btn { justify-content: flex-start; gap: 7px; }
+.dc-decal-dropzone { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 10px 11px; text-align: left; border: 1.5px dashed #93c5fd; border-radius: 7px; background: linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%); color: #1e3a8a; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
+.dc-decal-dropzone:hover:not(:disabled) { border-color: #2563eb; background: #eff6ff; box-shadow: 0 2px 6px #2563eb18; }
+.dc-decal-dropzone.is-dragover { border-color: #1d4ed8; background: #dbeafe; box-shadow: 0 0 0 2px #93c5fd; }
+.dc-decal-dropzone:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.dc-decal-dropzone:disabled { opacity: .55; cursor: not-allowed; }
+.dc-decal-dropzone-icon { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: none; border-radius: 6px; background: #dbeafe; color: #1d4ed8; }
+.dc-decal-dropzone-copy { display: grid; gap: 2px; min-width: 0; }
+.dc-decal-dropzone-copy strong { font-size: 11.5px; font-weight: 700; color: #1e3a8a; line-height: 1.3; }
+.dc-decal-dropzone-copy small { font-size: 10px; color: #475569; line-height: 1.35; overflow-wrap: anywhere; }
+.dc-decal-controls .dc-btn, .dc-decal-controls .dc-input, .dc-decal-controls input[type="color"] { min-height: 38px !important; max-width: 100%; font-size: 12px !important; }
 .dc-decal-feedback, .dc-decal-help, .dc-decal-empty { color: #475569; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.dc-decal-feedback { padding: 6px 8px; border-radius: 5px; background: #f1f5f9; color: #334155; }
 .dc-decal-empty { padding: 12px; border: 1px dashed #cbd5e1; background: #f8fafc; border-radius: 5px; }
-.dc-decal-list { display: grid; gap: 5px; min-width: 0; }
-.dc-decal-list-item { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 58px; padding: 7px; text-align: left; border: 1px solid #e2e8f0; border-radius: 5px; background: #fff; }
+.dc-decal-list { display: grid; gap: 6px; min-width: 0; }
+.dc-decal-list-row { display: flex; align-items: stretch; gap: 5px; min-width: 0; }
+.dc-decal-list-item { display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 0; min-height: 54px; padding: 6px 8px; text-align: left; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; cursor: pointer; transition: border-color .12s, background .12s; }
 .dc-decal-list-item.is-selected { border-color: #2563eb; background: #eff6ff; }
 .dc-decal-list-item:hover:not(:disabled) { border-color: #93c5fd; }
-.dc-decal-list-item > span:last-child { display: grid; min-width: 0; gap: 4px; }
+.dc-decal-list-item > span:last-child { display: grid; min-width: 0; gap: 3px; }
 .dc-decal-list-item strong { color: #334155; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dc-decal-list-item small { color: #64748b; font-size: 10px; }
+.dc-decal-item-delete { width: 34px; min-width: 34px; min-height: 54px !important; flex: none; justify-content: center; padding: 0 !important; border-color: #fecaca !important; background: #fff5f5 !important; color: #dc2626 !important; border-radius: 6px; }
+.dc-decal-item-delete:hover:not(:disabled) { border-color: #ef4444 !important; background: #fee2e2 !important; color: #b91c1c !important; }
+.dc-decal-image-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+.dc-decal-image-actions .dc-btn { justify-content: center; gap: 4px; padding-inline: 6px !important; min-height: 34px !important; font-size: 11px !important; }
 .dc-decal-preview { display: flex; align-items: center; justify-content: center; width: 56px; max-height: 48px; flex: none; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; }
 .dc-decal-preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .dc-decal-preview.is-large { width: 100%; max-height: 160px; min-height: 60px; background: #f8fafc; padding: 8px; }

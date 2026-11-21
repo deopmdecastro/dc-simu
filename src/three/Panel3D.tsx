@@ -340,6 +340,10 @@ const LOGO_1224RC_MODEL_URL = LOGO_1224RC_SPEC.path
 const LOGO_1224RC_TARGET_HEIGHT = LOGO_1224RC_SPEC.targetHeight
 
 const BODY_TINT = new THREE.Color()
+const BODY_BASE = new THREE.Color()
+const BODY_HSL = { h: 0, s: 0, l: 0 }
+const NON_BODY_MATERIAL_RE = /(lente|lens|led|vidro|glass|visor|screen|display|chrome|cromado|copper|cobre|brass|lat[aã]o|screw|parafuso|terminal|borne|label|etiqueta|sticker|placa|nameplate)/i
+
 /**
  * Modo de apresentação (sólido/arames/raio-X) e tinta do corpo. Só toca no que mudou: a cor do material
  * fica com quem a gere (lentes, LEDs, estados) exceto quando há tinta do corpo — antes cada render repunha
@@ -356,9 +360,21 @@ function applyRenderMode(
   group.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh || mesh.userData.presentationOverlay || mesh.userData.protectionMarking || mesh.userData.terminalMarking) return
+    if (bodyColor && !mesh.userData.dcSimuBodyCloned) {
+      // Clona materiais partilhados (cache GLTF/motores) antes de pintar para não tingir outras instâncias iguais.
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => m.clone()) : mesh.material.clone()
+      mesh.userData.dcSimuBodyCloned = true
+    }
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     materials.forEach((material) => {
-      const visual = material as THREE.Material & { wireframe?: boolean; opacity: number; transparent: boolean; depthWrite: boolean; metalness?: number }
+      const visual = material as THREE.Material & {
+        wireframe?: boolean
+        opacity: number
+        transparent: boolean
+        depthWrite: boolean
+        metalness?: number
+        emissiveIntensity?: number
+      }
       if (visual.userData.dcSimuRenderKey === key) return
       const colorMaterial = visual as typeof visual & { color?: THREE.Color }
       if (!visual.userData.dcSimuPresentationBase) visual.userData.dcSimuPresentationBase = {
@@ -381,10 +397,40 @@ function applyRenderMode(
       visual.depthWrite = depthWrite
       if (physicalSurface) visual.depthTest = true
       if (colorMaterial.color && base.color) {
-        const isMetallicPart = strongInsulatorTint && typeof visual.metalness === 'number' && visual.metalness > 0.42
-        if (bodyColor && !isMetallicPart) {
-          // Bornes PA66 (PTI 6 BU/BN/BK/RD/OG): pigmentação realista de corpo moldado preservando o relevo.
-          colorMaterial.color.set(`#${base.color}`).lerp(BODY_TINT.set(bodyColor), strongInsulatorTint ? 0.84 : 0.34)
+        const surfaceTag = visual.userData.dcSimuBodySurface as 'body' | 'preserve' | undefined
+        const isTransparentPart = !!visual.userData.keepTransparent || base.opacity < 0.85
+        const isEmissiveOrLens = !!visual.userData.acti9Lens
+          || !!visual.userData.towerLens
+          || (typeof visual.emissiveIntensity === 'number' && visual.emissiveIntensity > 0.05)
+          || NON_BODY_MATERIAL_RE.test(visual.name || '')
+          || NON_BODY_MATERIAL_RE.test(mesh.name || '')
+        const isBareMetal = surfaceTag !== 'body'
+          && typeof visual.metalness === 'number'
+          && visual.metalness > (strongInsulatorTint ? 0.42 : 0.55)
+        const preserveMaterial = surfaceTag === 'body'
+          ? false
+          : surfaceTag === 'preserve' || isTransparentPart || isEmissiveOrLens || isBareMetal
+
+        if (bodyColor && !preserveMaterial) {
+          BODY_TINT.set(bodyColor)
+          BODY_BASE.set(`#${base.color}`)
+          if (surfaceTag === 'body') {
+            // Superfície pintada dedicada (ex.: carcaça esmaltada de motor): aplica a cor escolhida fielmente sem misturar matizes (vermelho + azul ≠ roxo).
+            colorMaterial.color.copy(BODY_TINT)
+          } else if (strongInsulatorTint) {
+            // Bornes PA66 (PTI 6 BU/BN/BK/RD/OG): pigmentação fiel preservando ligeiro relevo do molde.
+            colorMaterial.color.copy(BODY_BASE).lerp(BODY_TINT, 0.9)
+          } else {
+            BODY_BASE.getHSL(BODY_HSL)
+            if (BODY_HSL.l < 0.14) {
+              // Detalhes muito escuros (borrachas, pegas, molduras pretas) mantêm contraste com leve harmonia.
+              colorMaterial.color.copy(BODY_BASE).lerp(BODY_TINT, 0.14)
+            } else {
+              // Substitui o matiz pela cor escolhida preservando variação tonal entre painéis claros e sombreados.
+              const shade = Math.min(1.08, Math.max(0.76, 0.76 + 0.32 * Math.min(1, BODY_HSL.l / 0.72)))
+              colorMaterial.color.copy(BODY_TINT).multiplyScalar(shade)
+            }
+          }
           visual.userData.dcSimuBodyTinted = true
         } else if (visual.userData.dcSimuBodyTinted) {
           colorMaterial.color.set(`#${base.color}`)
@@ -3570,15 +3616,18 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }
       }
     }
-    // Helper: se o ponto cai dentro da projeção XY de algum quadro, não deixa atravessar a chapa/paredes — prende dentro do volume útil.
+    // Helper: se o centro do elemento está dentro do interior útil de algum quadro, mantém-no livre das chapas laterais;
+    // se estiver fora do quadro, deixa-o livre no exterior (nunca puxa de volta para dentro).
     const clampInsideAnyEnclosure = (px: number, py: number, half: { x: number; y: number }) => {
       for (const enc of accessories.filter((a) => a.type === 'panelEnclosure')) {
         const ed = enclosureDimsOf(enc.state)
         const ex = componentPanelXY(enc).x, ey = componentPanelXY(enc).y
         const outerHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2, outerHalfH = (ed.heightMm * PANEL_UNITS_PER_MM) / 2
-        if (Math.abs(px - ex) <= outerHalfW + half.x + 0.02 && Math.abs(py - ey) <= outerHalfH + half.y + 0.02) {
-          const innerHalfW = outerHalfW - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.04 - half.x
-          const innerHalfH = outerHalfH - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.04 - half.y
+        const interiorHalfW = outerHalfW - ENCLOSURE.sheet * PANEL_UNITS_PER_MM
+        const interiorHalfH = outerHalfH - ENCLOSURE.sheet * PANEL_UNITS_PER_MM
+        if (Math.abs(px - ex) < interiorHalfW && Math.abs(py - ey) < interiorHalfH) {
+          const innerHalfW = interiorHalfW - 0.04 - half.x
+          const innerHalfH = interiorHalfH - 0.04 - half.y
           const minX = ex - Math.max(0, innerHalfW), maxX = ex + Math.max(0, innerHalfW)
           const minY = ey - Math.max(0, innerHalfH), maxY = ey + Math.max(0, innerHalfH)
           px = Math.max(minX, Math.min(maxX, px))
@@ -3612,14 +3661,18 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         if (enc) {
           const ed = enclosureDimsOf(enc.state)
           const ex = componentPanelXY(enc).x, ey = componentPanelXY(enc).y
-          const innerHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2 - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.06 - half.x
-          const innerHalfH = (ed.heightMm * PANEL_UNITS_PER_MM) / 2 - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.06 - half.y
-          const minX = ex - Math.max(0, innerHalfW), maxX = ex + Math.max(0, innerHalfW)
-          const minY = ey - Math.max(0, innerHalfH), maxY = ey + Math.max(0, innerHalfH)
-          if (px < minX) px = minX
-          if (px > maxX) px = maxX
-          if (py < minY) py = minY
-          if (py > maxY) py = maxY
+          const outerHalfW = (ed.widthMm * PANEL_UNITS_PER_MM) / 2
+          const outerHalfH = (ed.heightMm * PANEL_UNITS_PER_MM) / 2
+          if (Math.abs(px - ex) <= outerHalfW && Math.abs(py - ey) <= outerHalfH) {
+            const innerHalfW = outerHalfW - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.06 - half.x
+            const innerHalfH = outerHalfH - ENCLOSURE.sheet * PANEL_UNITS_PER_MM - 0.06 - half.y
+            const minX = ex - Math.max(0, innerHalfW), maxX = ex + Math.max(0, innerHalfW)
+            const minY = ey - Math.max(0, innerHalfH), maxY = ey + Math.max(0, innerHalfH)
+            if (px < minX) px = minX
+            if (px > maxX) px = maxX
+            if (py < minY) py = minY
+            if (py > maxY) py = maxY
+          }
         }
       } else {
         ;[px, py] = clampInsideAnyEnclosure(px, py, half)
@@ -3897,7 +3950,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const store = useSimStore.getState()
     const component = store.components.find((item) => item.id === id)
     if (!component) return
-    const drop = dropOnSchematic(component, point, store.grid.railMagnet === false ? [] : store.components)
+    // Durante o arrasto o equipamento acompanha o ponteiro livremente (passando por cima de calhas DIN/técnicas e para fora de quadros);
+    // o imã da calha atua apenas ao largar em `endPanelDrag`.
+    const drop = dropOnSchematic(component, point, [])
     // Edição frontal: o componente alinha à grelha por pontos do projeto (a calha continua a ter prioridade no fim do arrasto).
     const g = store.grid
     const step = frontEdit && g.enabled && g.snap && g.size > 0 ? g.size : 0

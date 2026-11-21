@@ -3121,12 +3121,31 @@ export const useSimStore = create<Store>((set, get) => {
       }
 
       const wires = enclosures.length ? shiftGroupWires(nextWires, s.components, groupIds, dx, dy) : (nextWires !== s.wires ? nextWires : null)
+      const enclosureById = new Map(s.components.filter((c) => c.type === 'panelEnclosure').map((c) => [c.id, c]))
       return {
-        components: s.components.map((component) => groupIds.has(component.id) ? {
-          ...component,
-          schematicX: component.schematicX + dx,
-          schematicY: component.schematicY + dy,
-        } : component),
+        components: s.components.map((component) => {
+          if (!groupIds.has(component.id)) return component
+          const nextX = component.schematicX + dx
+          const nextY = component.schematicY + dy
+          let nextEnclosureId = component.enclosureId
+          // Se o elemento foi arrastado para fora do quadro a que pertencia (sem arrastar o quadro), desvincula-o automaticamente.
+          if (nextEnclosureId && !groupIds.has(nextEnclosureId)) {
+            const parent = enclosureById.get(nextEnclosureId)
+            if (parent) {
+              const cx = nextX + component.w / 2
+              const cy = nextY + component.h / 2
+              const stillInside = cx >= parent.schematicX && cx <= parent.schematicX + parent.w
+                && cy >= parent.schematicY && cy <= parent.schematicY + parent.h
+              if (!stillInside) nextEnclosureId = undefined
+            }
+          }
+          return {
+            ...component,
+            schematicX: nextX,
+            schematicY: nextY,
+            ...(nextEnclosureId !== component.enclosureId ? { enclosureId: nextEnclosureId } : {}),
+          }
+        }),
         ...(wires ? { wires } : {}),
         dirty: true,
       }

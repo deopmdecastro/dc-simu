@@ -186,29 +186,34 @@ export function applyEditorMotorTextures(root: THREE.Object3D, opts?: { forcePai
         material.metalness = 0.46
         material.roughness = 0.29
         material.envMapIntensity = 1.65
+        material.userData.dcSimuBodySurface = 'body'
       } else if (role === 'machined-steel') {
         // Veio, chaveta, flange e parafusos em aço torneado/escovado brilhante
         material.color.set('#e4eaf2')
         material.metalness = 0.95
         material.roughness = 0.19
         material.envMapIntensity = 1.85
+        material.userData.dcSimuBodySurface = 'preserve'
       } else if (role === 'brass') {
         material.color.set('#d8a63a')
         material.metalness = 0.93
         material.roughness = 0.22
         material.envMapIntensity = 1.75
+        material.userData.dcSimuBodySurface = 'preserve'
       } else if (role === 'dark-iron') {
         // Tampa defletora traseira / caixa de ligações / detalhes em ferro fundido grafite
         material.color.set('#282e37')
         material.metalness = 0.68
         material.roughness = 0.34
         material.envMapIntensity = 1.55
+        material.userData.dcSimuBodySurface = 'preserve'
       } else {
         // Tampas de rolamento e pés em ferro fundido maquinado
         material.color.set('#687280')
         material.metalness = 0.82
         material.roughness = 0.28
         material.envMapIntensity = 1.65
+        material.userData.dcSimuBodySurface = 'preserve'
       }
 
       material.userData.__dcMotorTextured = true

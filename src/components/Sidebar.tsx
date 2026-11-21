@@ -58,7 +58,7 @@ import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/co
 import TerminalStripControls from './TerminalStripControls'
 import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
 import { isRealBusbarType } from '../three/busbarParts'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
 import {
   CABLE_PRESETS,
@@ -183,10 +183,11 @@ function inspectorStateEntries(component: ElectricalComponent) {
 
 const BODY_COLOR_OPTIONS = [
   { name: 'Grafite', value: '#344054' }, { name: 'Antracite', value: '#1f2937' },
-  { name: 'Cinza claro', value: '#cbd5e1' }, { name: 'Branco', value: '#f8fafc' },
-  { name: 'Vermelho', value: '#e11d48' }, { name: 'Laranja', value: '#f97316' },
+  { name: 'Cinza RAL 7035', value: '#cbd5e1' }, { name: 'Branco', value: '#f8fafc' },
+  { name: 'Vermelho', value: '#dc2626' }, { name: 'Laranja', value: '#f97316' },
   { name: 'Amarelo', value: '#facc15' }, { name: 'Verde', value: '#16a34a' },
-  { name: 'Azul', value: '#2563eb' }, { name: 'Castanho', value: '#8b4513' },
+  { name: 'Azul', value: '#2563eb' }, { name: 'Azul escuro', value: '#1e3a8a' },
+  { name: 'Ciano', value: '#0891b2' }, { name: 'Castanho', value: '#8b4513' },
 ] as const
 
 const CABLE_DUCT_COLOR_OPTIONS = [
@@ -197,36 +198,75 @@ const CABLE_DUCT_COLOR_OPTIONS = [
   { name: 'Branco', value: '#f8fafc' },
 ] as const
 
-function ColorPaletteField({ value, options, ariaLabel, fieldLabel, onChange }: {
+function ColorPaletteField({ value, options, ariaLabel, fieldLabel, isCustom, disabled, onChange, onReset }: {
   value: string
   options: readonly { name: string; value: string }[]
   ariaLabel: string
   fieldLabel: string
+  isCustom?: boolean
+  disabled?: boolean
   onChange: (value: string) => void
+  onReset?: () => void
 }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   const valid = /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(draft)
+  const activeCustom = isCustom ?? true
   const normalize = (hex: string) => hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`.toLowerCase() : hex.toLowerCase()
+  const resolved = valid ? normalize(draft) : normalize(value)
   const apply = (hex: string) => {
+    if (disabled) return
     setDraft(hex)
     if (/^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(hex)) onChange(normalize(hex))
   }
 
   return <div className="dc-color-field">
-    <div className="dc-color-field-heading"><span>{fieldLabel}</span><span className="dc-color-field-current" title={value}>{value.toUpperCase()}</span></div>
+    <div className="dc-color-field-heading">
+      <span>{fieldLabel}</span>
+      <span className="dc-color-field-meta">
+        {activeCustom ? (
+          <>
+            <span className="dc-color-field-current" title={value}>{value.toUpperCase()}</span>
+            {onReset && (
+              <button
+                type="button"
+                className="dc-color-reset"
+                disabled={disabled}
+                title="Repor cor original de fábrica"
+                aria-label={`Repor ${ariaLabel} original`}
+                onClick={onReset}
+              >
+                <IconReset size={10} /> Repor
+              </button>
+            )}
+          </>
+        ) : (
+          <span className="dc-color-field-current" title="Cor original de fábrica">Original</span>
+        )}
+      </span>
+    </div>
     <div className="dc-color-swatches" role="group" aria-label={`Cores predefinidas: ${ariaLabel}`}>
       {options.map((option) => <button key={option.value} type="button"
-        className={`dc-color-swatch${value.toLowerCase() === option.value.toLowerCase() ? ' is-selected' : ''}`}
+        disabled={disabled}
+        className={`dc-color-swatch${activeCustom && value.toLowerCase() === option.value.toLowerCase() ? ' is-selected' : ''}`}
         style={{ backgroundColor: option.value }} title={`${option.name} (${option.value})`} aria-label={option.name}
-        aria-pressed={value.toLowerCase() === option.value.toLowerCase()}
+        aria-pressed={activeCustom && value.toLowerCase() === option.value.toLowerCase()}
         onClick={() => apply(option.value)} />)}
     </div>
     <label className="dc-color-hex-row">
-      <span>Ajustar HEX</span>
+      <span>Cor personalizada</span>
       <span className="dc-color-hex-input-wrap">
-        <span className="dc-color-preview" style={{ backgroundColor: valid ? normalize(draft) : value }} aria-hidden="true" />
+        <input
+          type="color"
+          className="dc-color-native"
+          value={resolved}
+          disabled={disabled}
+          aria-label={`Seletor de ${ariaLabel}`}
+          title="Escolher qualquer cor"
+          onChange={(event) => apply(event.target.value)}
+        />
         <input className="dc-input dc-color-hex-input" type="text" value={draft} maxLength={7} spellCheck={false}
+          disabled={disabled}
           aria-label={`Valor HEX de ${ariaLabel}`} aria-invalid={!valid} placeholder="#RRGGBB"
           onChange={(event) => apply(event.target.value)} onBlur={() => { if (!valid) setDraft(value) }} />
       </span>
@@ -829,7 +869,10 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     options={selectedComponent.type === 'cableDuct' ? CABLE_DUCT_COLOR_OPTIONS : BODY_COLOR_OPTIONS}
                     ariaLabel="cor do corpo"
                     fieldLabel={selectedComponent.type === 'cableDuct' ? 'Cor da calha (PVC)' : 'Cor do corpo'}
+                    isCustom={Boolean(selectedComponent.bodyColor)}
+                    disabled={!!selectedComponent.locked}
                     onChange={(value) => useSimStore.getState().updateComponent(selectedComponent.id, { bodyColor: value })}
+                    onReset={() => useSimStore.getState().updateComponent(selectedComponent.id, { bodyColor: undefined })}
                   />
                 </div>
               </div>

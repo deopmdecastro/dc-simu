@@ -176,10 +176,17 @@ function settleAgainstEnclosureWalls(
   return { x, y }
 }
 
+/** Calhas técnicas, calhas DIN e espirais são transponíveis durante o arrasto. */
+function isPassableTrack(component: Pick<ElectricalComponent, 'type'>): boolean {
+  return component.type === 'cableDuct' || component.type === 'spiralWrap' || isDinRail(component)
+}
+
 /**
  * Resolve o movimento por varrimento de caixas, impedindo atravessar outro
  * equipamento mesmo quando o cursor salta vários píxeis entre eventos.
  * Testa X→Y e Y→X para permitir deslizar naturalmente junto aos bordos.
+ * Durante o arrasto, permite passar livremente por cima de calhas (técnicas e DIN)
+ * e paredes de quadros para levar elementos para dentro ou para fora.
  */
 export function resolveComponentMove(
   component: ElectricalComponent,
@@ -190,12 +197,18 @@ export function resolveComponentMove(
   gap = COMPONENT_COLLISION_GAP,
 ): { x: number; y: number; blocked: boolean } {
   // Paredes de quadros: o aparelho é levantado por cima delas durante o arrasto (não desliza
-  // contra a parede exterior, o que impedia levar algo de fora para dentro do quadro). Só a
+  // contra a parede exterior, o que impedia levar algo de fora para dentro/fora do quadro). Só a
   // posição final é ajustada para nunca ficar a atravessar a parede.
   const enclosureWalls = component.type === 'panelEnclosure' ? [] : all.filter((other) =>
     other.type === 'panelEnclosure' && other.id !== component.id && !ignoreIds.has(other.id) && component.enclosureId !== other.id)
   const wallIds = new Set(enclosureWalls.map((enclosure) => enclosure.id))
-  const obstacles = obstaclesFor(component, all, ignoreIds).filter((other) => !wallIds.has(other.id))
+  // Calhas técnicas e calhas DIN: o aparelho pode passar por cima delas ao arrastar
+  // (sem ficar bloqueado numa calha horizontal entre duas filas do quadro).
+  const passableTrackIds = new Set(
+    all.filter((other) => other.id !== component.id && !ignoreIds.has(other.id) && isPassableTrack(other)).map((other) => other.id),
+  )
+  const dragIgnoreIds = passableTrackIds.size ? new Set([...ignoreIds, ...passableTrackIds]) : ignoreIds
+  const obstacles = obstaclesFor(component, all, dragIgnoreIds).filter((other) => !wallIds.has(other.id))
   const dx = targetX - component.schematicX
   const dy = targetY - component.schematicY
   const solve = (first: 'x' | 'y') => {
@@ -214,7 +227,7 @@ export function resolveComponentMove(
   // a regra do quadro depende de o aparelho ficar dentro ou fora do interior útil).
   const isFreeAt = (point: { x: number; y: number }) => {
     const moved = { ...component, schematicX: point.x, schematicY: point.y }
-    return componentPositionIsFree(moved, point.x, point.y, all, ignoreIds, gap)
+    return componentPositionIsFree(moved, point.x, point.y, all, dragIgnoreIds, gap)
   }
   if (!isFreeAt(best) && isFreeAt({ x: component.schematicX, y: component.schematicY })) {
     best = { x: component.schematicX, y: component.schematicY }
