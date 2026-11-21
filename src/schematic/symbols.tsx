@@ -512,10 +512,11 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'pilotLightSchneiderIil1p':
       case 'buzzer': {
         const col = c.state.color && (c.type.startsWith('led') || c.type.startsWith('pilotLight')) ? c.state.color : '#f59e0b'
+        const glass = typeof c.state.glassColor === 'string' ? c.state.glassColor : col
         const lit = !!c.state.on
         return (
           <g>
-            <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 6} fill={lit ? col : '#1f2937'} stroke={lit ? col : '#4b5563'} strokeWidth={2} />
+            <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 6} fill={lit ? col : '#1f2937'} stroke={lit ? col : (c.type === 'buzzer' ? '#4b5563' : glass)} strokeWidth={2} />
             {lit && <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 1} fill="none" stroke={col} opacity={0.35} strokeWidth={4} />}
             {c.type === 'buzzer' && <g transform={`translate(${w / 2 - 6},${h / 2 - 6})`} color={lit ? '#111827' : '#94a3b8'}><IconSound size={12} /></g>}
             {label(4, 10, c.ref, 9, '#93c5fd')}
@@ -527,6 +528,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         const l2Lit = !!c.state.l2On
         const l3Lit = !!c.state.l3On
         const col = c.state.color || '#ef4444'
+        const glass = typeof c.state.glassColor === 'string' ? c.state.glassColor : col
         return (
           <g>
             <rect x={4} y={12} width={w - 8} height={h - 24} rx={4} fill="#1e293b" stroke={s} />
@@ -536,7 +538,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
               { x: w * 0.78, lit: l3Lit, lbl: 'L3' },
             ].map((p, idx) => (
               <g key={idx}>
-                <circle cx={p.x} cy={h / 2} r={10} fill={p.lit ? col : '#334155'} stroke={p.lit ? '#f87171' : '#475569'} strokeWidth={1.5} />
+                <circle cx={p.x} cy={h / 2} r={10} fill={p.lit ? col : '#334155'} stroke={p.lit ? col : glass} strokeWidth={1.5} />
                 {p.lit && <circle cx={p.x} cy={h / 2} r={13} fill="none" stroke={col} opacity={0.4} strokeWidth={2} />}
                 <text x={p.x} y={h / 2 + 3} fontSize={8} fill={p.lit ? '#ffffff' : '#94a3b8'} textAnchor="middle" fontWeight="bold">{p.lbl}</text>
               </g>

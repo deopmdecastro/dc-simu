@@ -96,28 +96,53 @@ const STATE_LABELS: Record<string, string> = {
   operatingTemperature: 'Temperatura de serviço', motorConnection: 'Pontes da caixa de bornes',
 }
 /** Sinaleiros nativos: a cor escolhe-se na biblioteca de cores de luzes (vidro + brilho). */
-const SIGNAL_LAMP_TYPES = new Set(['pilotLightAd22', 'ledGreen', 'ledRed', 'ledYellow', 'ledWhite'])
+const SIGNAL_LAMP_TYPES = new Set([
+  'pilotLightAd22',
+  'pilotLightSchneiderIil1p',
+  'pilotLightSchneiderIil3p',
+  'ledGreen',
+  'ledRed',
+  'ledYellow',
+  'ledWhite',
+])
 
 /** Cor de um sinaleiro: pares da biblioteca (anel = vidro, centro = brilho) + brilho e vidro à medida. */
-function LightColorStateField({ color, glass, onChange }: { color: string; glass?: string; onChange: (patch: { color: string; glassColor?: string }) => void }) {
+function LightColorStateField({ color, glass, disabled, onChange }: {
+  color: string
+  glass?: string
+  disabled?: boolean
+  onChange: (patch: { color: string; glassColor?: string }) => void
+}) {
   const custom = useLightColorLibrary((s) => s.custom)
   const library = allLightSwatches(custom)
-  const valid = (hex: string) => /^#[\da-f]{6}$/i.test(hex)
-  const current = library.find((item) => item.glow === color.toLowerCase() && (!glass || item.glass === glass.toLowerCase()))
+  const [hexDraft, setHexDraft] = useState(color)
+  useEffect(() => setHexDraft(color), [color])
+  const valid = (hex: string) => /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(hex)
+  const normalize = (hex: string) => hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`.toLowerCase() : hex.toLowerCase()
+  const resolvedGlow = valid(color) ? normalize(color) : '#ef4444'
+  const current = library.find((item) => item.glow === resolvedGlow && (!glass || item.glass === glass.toLowerCase()))
+  const applyGlow = (hex: string) => {
+    if (disabled) return
+    setHexDraft(hex)
+    if (valid(hex)) onChange({ color: normalize(hex), glassColor: undefined })
+  }
   return <div className="dc-color-field" data-light-color-field>
     <div className="dc-color-field-heading"><span>Cor da luz</span><span className="dc-color-field-current" title={`vidro ${glass ?? 'automático'} · brilho ${color}`}>{current?.name ?? color.toUpperCase()}</span></div>
     <div className="dc-color-swatches" role="group" aria-label="Biblioteca de cores de luzes">
       {library.map((item) => {
-        const selected = item.glow === color.toLowerCase() && (glass ?? '').toLowerCase() === item.glass
-        return <button key={item.id} type="button" className={`dc-color-swatch${selected ? ' is-selected' : ''}`} style={{ background: swatchBackground(item.glass, item.glow) }}
+        const selected = item.glow === resolvedGlow && (!glass || glass.toLowerCase() === item.glass)
+        return <button key={item.id} type="button" disabled={disabled} className={`dc-color-swatch${selected ? ' is-selected' : ''}`} style={{ background: swatchBackground(item.glass, item.glow) }}
           title={`${item.name} · vidro ${item.glass} · brilho ${item.glow}`} aria-label={item.name} aria-pressed={selected} onClick={() => onChange({ color: item.glow, glassColor: item.glass })} />
       })}
     </div>
     <label className="dc-color-hex-row"><span>Brilho</span><span className="dc-color-hex-input-wrap">
-      <input type="color" className="dc-color-native" value={valid(color) ? color : '#ff0000'} aria-label="Cor do brilho" onChange={(event) => onChange({ color: event.target.value, glassColor: glass })} />
-      <code>{color}</code></span></label>
+      <input type="color" className="dc-color-native" disabled={disabled} value={resolvedGlow} aria-label="Cor do brilho" onChange={(event) => applyGlow(event.target.value)} />
+      <input className="dc-input dc-color-hex-input" type="text" disabled={disabled} value={hexDraft} maxLength={7} spellCheck={false}
+        aria-label="Valor HEX da cor da luz" aria-invalid={!valid(hexDraft)} placeholder="#RRGGBB"
+        onChange={(event) => applyGlow(event.target.value)} onBlur={() => { if (!valid(hexDraft)) setHexDraft(color) }} />
+    </span></label>
     <label className="dc-color-hex-row"><span>Vidro</span><span className="dc-color-hex-input-wrap">
-      <input type="color" className="dc-color-native" value={glass && valid(glass) ? glass : '#666666'} aria-label="Cor do vidro" onChange={(event) => onChange({ color, glassColor: event.target.value })} />
+      <input type="color" className="dc-color-native" disabled={disabled} value={glass && valid(glass) ? normalize(glass) : resolvedGlow} aria-label="Cor do vidro" onChange={(event) => onChange({ color: resolvedGlow, glassColor: event.target.value })} />
       <code>{glass ?? 'automático'}</code></span></label>
   </div>
 }
@@ -1174,6 +1199,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   if (k === 'glassColor') return null
                   if (k === 'color' && typeof v === 'string' && SIGNAL_LAMP_TYPES.has(selectedComponent.type)) {
                     return <LightColorStateField key={k} color={v} glass={typeof selectedComponent.state.glassColor === 'string' ? selectedComponent.state.glassColor : undefined}
+                      disabled={!!selectedComponent.locked}
                       onChange={(patch) => useSimStore.getState().setComponentState(selectedComponent.id, patch)} />
                   }
                   if (k === 'color' && typeof v === 'string') {

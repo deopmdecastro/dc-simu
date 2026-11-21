@@ -9,6 +9,15 @@ export const isSchneiderModular = (type: string): type is SchneiderModularType =
 // WeakSet, não uma flag exportada no GLB: um clone precisa dos seus materiais.
 const ownedLenses = new WeakSet<THREE.Object3D>()
 
+const HEX_COLOR_RE = /^#(?:[\da-f]{3}|[\da-f]{6})$/i
+
+function tagLensMaterials(mesh: THREE.Mesh): void {
+  for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+    material.userData.acti9Lens = true
+    material.userData.dcSimuBodySurface = 'preserve'
+  }
+}
+
 /** Anota só peças funcionais. O corpo não se torna uma zona de manobra invisível. */
 export function prepareSchneiderModular(root: THREE.Object3D): void {
   const handle = root.getObjectByName(ACTI9_MCB_HANDLE)
@@ -22,6 +31,7 @@ export function prepareSchneiderModular(root: THREE.Object3D): void {
         mesh.material = Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone()
         ownedLenses.add(node)
       }
+      tagLensMaterials(mesh)
     }
     if (node.name.startsWith('acti9_visisafe')) node.userData.protectionMarking = true
   })
@@ -47,15 +57,26 @@ export function applySchneiderModularState(root: THREE.Object3D, type: Schneider
     }
   } else {
     const count = type === 'pilotLightSchneiderIil3p' ? 3 : 1
+    const rawColor = typeof state.color === 'string' && HEX_COLOR_RE.test(state.color) ? state.color : '#ef4444'
+    const rawGlass = typeof state.glassColor === 'string' && HEX_COLOR_RE.test(state.glassColor) ? state.glassColor : null
+    const glowColor = new THREE.Color(rawColor)
+    const offColor = rawGlass ? new THREE.Color(rawGlass) : glowColor.clone().multiplyScalar(0.42)
     for (let i = 1; i <= count; i++) {
       const lens = root.getObjectByName(`acti9_lens_${i}`) as THREE.Mesh | undefined
       if (!lens?.isMesh) continue
+      tagLensMaterials(lens)
       const lit = Boolean(state[count === 1 ? 'on' : `l${i}On`])
       for (const material of Array.isArray(lens.material) ? lens.material : [lens.material]) {
         if (!(material instanceof THREE.MeshStandardMaterial)) continue
-        material.color.set(lit ? '#e12924' : '#681319')
-        material.emissive.set(lit ? '#ff1d12' : '#000000')
-        material.emissiveIntensity = lit ? 1.1 : 0
+        // A lente reflete sempre a cor da luz/vidro escolhida (tanto apagada como acesa).
+        material.color.copy(lit ? (rawGlass ? offColor : glowColor) : offColor)
+        material.emissive.copy(lit ? glowColor : new THREE.Color('#000000'))
+        material.emissiveIntensity = lit ? 1.65 : 0
+        const nextToneMapped = !lit
+        if (material.toneMapped !== nextToneMapped) {
+          material.toneMapped = nextToneMapped
+          material.needsUpdate = true
+        }
       }
     }
   }

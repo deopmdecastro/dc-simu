@@ -1707,7 +1707,7 @@ function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
     <group position={[x, RAIL_Y + 1.15, 0.12]}>
       <mesh castShadow>
         <cylinderGeometry args={[0.115, 0.115, 0.14, 24]} />
-        <meshStandardMaterial color={glass ?? (on ? color : '#374151')} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} transparent opacity={on ? 0.82 : 1} depthWrite={!on} />
+        <meshStandardMaterial userData={{ dcSimuBodySurface: 'preserve' }} color={glass ?? (on ? color : '#374151')} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} transparent opacity={on ? 0.82 : 1} depthWrite={!on} />
       </mesh>
       {/* Luz por dentro da lente: halo no centro do cilindro, vidro translúcido quando aceso */}
       <GlowHalo color={color} on={on} radius={0.115} kind="lens" position={[0, 0, 0]} />
@@ -1751,6 +1751,7 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
         const standard = material as THREE.MeshStandardMaterial
         // Material FF0000FF = lente frontal (z 42,5…51,5 mm) no GLB recebido.
         if (standard.name.toUpperCase() !== 'FF0000FF') return
+        standard.userData.dcSimuBodySurface = 'preserve'
         // Vidro: cor própria da lente (biblioteca de cores); sem vidro, deriva do brilho como antes.
         if (lens) standard.color.copy(lens)
         else standard.color.copy(selected).multiplyScalar(on ? 1 : 0.42)
