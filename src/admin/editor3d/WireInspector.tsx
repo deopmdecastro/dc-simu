@@ -130,7 +130,7 @@ export function WiresTab() {
         {wire.points.length === 0 && <p className="ce-hint">Sem pontos intermédios: o cabo segue direto entre as pontas. Duplo clique no cabo (viewport) acrescenta um ponto; arraste-o para o mover; duplo clique no ponto remove-o.</p>}
         {wire.points.map((point, index) => <div key={index} className="ce-pointrow">
           <b>{index + 1}</b>
-          {point.map((value, axis) => <Num key={axis} value={value} step={0.5} onChange={(next) => { const copy = [...point] as Vec3; copy[axis] = next; editPoint(index, copy) }} />)}
+          {point.map((value, axis) => <Num key={axis} aria-label={`Ponto ${index + 1}: ${['X', 'Y', 'Z'][axis]} (mm)`} value={value} step={0.5} onChange={(next) => { const copy = [...point] as Vec3; copy[axis] = next; editPoint(index, copy) }} />)}
           <button className="ce-icon" title="Remover ponto" aria-label={`Remover ponto ${index + 1}`} onClick={() => patch(wire.id, { points: wire.points.filter((_, position) => position !== index) })}><IconClose size={12} /></button>
         </div>)}
       </Section>
@@ -150,7 +150,7 @@ export function WireRow({ wire, selected }: { wire: TestWire; selected: boolean 
   const verdict = useMemo(() => evaluateWire(terminals, wire), [terminals, wire])
   return <div role="option" aria-selected={selected} tabIndex={0} className={`ce-wrow${selected ? ' is-active' : ''}${wire.hidden ? ' is-hidden' : ''} is-${verdict.level}`}
     onClick={() => set({ selectedWire: wire.id, selection: null, tab: 'wires' })}
-    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); set({ selectedWire: wire.id, selection: null, tab: 'wires' }) } }}
+    onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); set({ selectedWire: wire.id, selection: null, tab: 'wires' }) } }}
     onPointerEnter={() => set({ hoverWire: wire.id })} onPointerLeave={() => set({ hoverWire: null })}>
     <i className="ce-dot" style={{ background: wireColorSwatchBg(wire.color) }} />
     <span className="ce-wrow-name"><b>{wire.number}</b> {endLabel(terminals, wire.a)} <span className="ce-wire-link"><IconArrowRight size={11} /></span> {endLabel(terminals, wire.b)}</span>

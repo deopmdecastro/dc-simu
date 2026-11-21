@@ -57,7 +57,7 @@ export function updateCatalogComponent(componentId: string, entries: CatalogEntr
       const before = oldRuntime.get(next.defId as string)
       const after = newVersion.runtime.terminals.find((t) => t.id === next.defId)
       if (!before || !same(before.position3D, after?.position3D)) movedTerminals.add(previous.id)
-      return { ...next, id: previous.id, componentId: component.id, electricalClass: previous.electricalClass, electricalClassCustom: previous.electricalClassCustom, pinned: previous.pinned, energized: previous.energized }
+      return { ...next, id: previous.id, componentId: component.id, displayName: previous.displayName, electricalClass: previous.electricalClass, electricalClassCustom: previous.electricalClassCustom, pinned: previous.pinned, energized: previous.energized }
     }
     added += 1
     return { ...next, id: `${component.id}-${next.label}-${next.defId ?? added}`, componentId: component.id }

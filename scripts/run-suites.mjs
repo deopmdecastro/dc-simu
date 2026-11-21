@@ -23,7 +23,11 @@ async function worker() {
     const t0 = Date.now()
     const output = []
     const code = await new Promise(resolve => {
-      const child = spawn('npm', ['run', '-s', name], { stdio: ['ignore', 'pipe', 'pipe'] })
+      // No Windows `npm` é um .cmd: reutilizar o npm-cli.js que lançou este script evita ENOENT sem shell.
+      const npmCli = process.env.npm_execpath
+      const child = npmCli && /\.c?js$/.test(npmCli)
+        ? spawn(process.execPath, [npmCli, 'run', '-s', name], { stdio: ['ignore', 'pipe', 'pipe'] })
+        : spawn('npm', ['run', '-s', name], { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' })
       child.stdout.on('data', d => output.push(d))
       child.stderr.on('data', d => output.push(d))
       child.on('close', resolve)

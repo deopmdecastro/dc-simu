@@ -25,6 +25,7 @@ export default function CatalogInspector({ component }: { component: ElectricalC
   const meter = useCatalogMeter(component, version?.definition)
   // Regra global de manobra: nada se atua antes de ▶.
   const simActive = useManobraAllowed()
+  const editingStopped = useSimStore((s) => s.sim.runState === 'stopped')
   if (!link) return null
   const controls = version?.definition.controls ?? []
   const states = version?.definition.states ?? []
@@ -49,7 +50,7 @@ export default function CatalogInspector({ component }: { component: ElectricalC
         </ul>}
         <div className="flex gap-1 flex-wrap mt-1">
           <button className="dc-btn" onClick={() => setShowChanges((value) => !value)}>{showChanges ? 'Ocultar alterações' : 'Ver alterações'}</button>
-          <button className="dc-btn dc-btn-primary" onClick={() => updateCatalogComponent(component.id, entries)}>Atualizar</button>
+          <button className="dc-btn dc-btn-primary" disabled={!editingStopped} onClick={() => updateCatalogComponent(component.id, entries)}>Atualizar</button>
         </div>
         <div className="text-[10px] text-ink-400 mt-1">A versão do administrador prevalece e é aplicada sozinha, mantendo posição, estado e cabos ligados (Ctrl+Z desfaz). Para fixar esta versão, use «Duplicar como independente».</div>
       </div>}
@@ -61,14 +62,14 @@ export default function CatalogInspector({ component }: { component: ElectricalC
           {meter.reading.warning && <span className="dc-meter-warn">{meter.reading.warning}</span>}
         </div>}
         {controls.filter((control) => control.kind === 'selector').map((control) => <div key={control.id}>
-          <label className="dc-field-label">{control.name}</label>
-          <Select className="dc-select" value={selectorValue(control, meter.vars)} disabled={!simActive} onChange={(event) => triggerControl(version.definition, component.id, control, { select: event.target.value })}>
+          <label className="dc-field-label" htmlFor={`catalog-control-${component.id}-${control.id}`}>{control.name}</label>
+          <Select id={`catalog-control-${component.id}-${control.id}`} className="dc-select" value={selectorValue(control, meter.vars)} disabled={!simActive} onChange={(event) => triggerControl(version.definition, component.id, control, { select: event.target.value })}>
             {control.positions.map((position) => <option key={position.id} value={position.id}>{position.label}</option>)}
           </Select>
         </div>)}
         <div className="flex gap-1 flex-wrap mt-1">
           {controls.filter((control) => control.kind !== 'selector').map((control) => <button key={control.id} className="dc-btn" disabled={!simActive} onClick={() => triggerControl(version.definition, component.id, control, 'press')}
-            onContextMenu={(event) => { event.preventDefault(); triggerControl(version.definition, component.id, control, 'long') }} title={simActive ? 'Clique: ação · botão direito: premir longo' : MANOBRA_BLOCKED_TITLE}>{control.name}</button>)}
+            onContextMenu={(event) => { event.preventDefault(); if (simActive) triggerControl(version.definition, component.id, control, 'long') }} title={simActive ? 'Clique: ação · botão direito: premir longo' : MANOBRA_BLOCKED_TITLE}>{control.name}</button>)}
         </div>
       </div>}
       {colorZones.length > 0 && <div className="dc-catalog-colors">
@@ -80,19 +81,19 @@ export default function CatalogInspector({ component }: { component: ElectricalC
             const glass = zone.tintMaterial === false ? undefined : glassFor(zone, color)
             const name = swatchName(color, glass, customSwatches)
             const title = `${name ? `${name} · ` : ''}${glass ? `vidro ${glass} · ` : ''}brilho ${color}`
-            return <button key={color} type="button" aria-label={`${zone.name}: ${name ?? color}`} aria-pressed={selected} title={title}
+            return <button key={color} type="button" disabled={!editingStopped} aria-label={`${zone.name}: ${name ?? color}`} aria-pressed={selected} title={title}
               className={`h-7 w-7 rounded-full border-2 ${selected ? 'border-brand-600 ring-2 ring-brand-200' : 'border-slate-300'}`}
               style={{ background: swatchBackground(glass, color) }} onClick={() => useSimStore.getState().setComponentState(component.id, { catalogColors: { ...selectedColors, [zone.id]: color } })} />
           })}</div>
         </div>)}
       </div>}
       {states.length > 1 && <div>
-        <label className="dc-field-label">Estado</label>
-        <Select className="dc-select" value={current} disabled={!simActive} title={simActive ? undefined : MANOBRA_BLOCKED_TITLE} onChange={(event) => useSimStore.getState().updateComponent(component.id, { state: { ...component.state, catalogState: event.target.value } })}>
+        <label className="dc-field-label" htmlFor={`catalog-state-${component.id}`}>Estado</label>
+        <Select id={`catalog-state-${component.id}`} className="dc-select" value={current} disabled={!simActive} title={simActive ? undefined : MANOBRA_BLOCKED_TITLE} onChange={(event) => useSimStore.getState().setComponentState(component.id, { catalogState: event.target.value })}>
           {states.map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}
         </Select>
       </div>}
-      <button className="dc-btn" title="Cria uma cópia fixa nesta versão, independente do componente oficial" onClick={async () => {
+      <button className="dc-btn" disabled={!editingStopped} title="Cria uma cópia fixa nesta versão, independente do componente oficial" onClick={async () => {
         const name = await uiPrompt('Nome da cópia independente', `${component.label} (cópia)`)
         if (name !== null) duplicateAsIndependent(component.id, name)
       }}>Duplicar como independente</button>

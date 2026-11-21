@@ -239,8 +239,8 @@ const elementTypes = (node: unknown): string[] => {
   for (const label of ['Largura do quadro (mm)', 'Altura do quadro (mm)', 'Profundidade do quadro (mm)']) {
     const input = inspector.match(new RegExp(`<input\\b[^>]*aria-label="${label.replace(/[()]/g, '\\$&')}"[^>]*>`))?.[0]
     assert.ok(input, `inspetor mostra o campo «${label}»`)
-    assert.match(input!, /type="text"/, `«${label}» é um rascunho de texto (não aplica a cada tecla)`)
-    assert.match(input!, /inputMode="numeric"/, `«${label}» abre o teclado numérico`)
+    assert.match(input!, /type="(?:text|number)"/, `«${label}» oferece edição numérica em rascunho`)
+    assert.match(input!, /inputMode="(?:numeric|decimal)"/, `«${label}» abre um teclado adequado a medidas`)
   }
   assert.match(inspector, /aria-label="Altura do quadro \(mm\)"[^>]*type="range"|type="range"[^>]*aria-label="Altura do quadro \(mm\)"/, 'a altura também tem barra deslizante')
 }

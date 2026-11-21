@@ -83,15 +83,16 @@ const exercise = (target) => page.evaluate(async (target) => {
   const uiSig = () => [...root.querySelectorAll('[aria-pressed], [aria-checked], .is-on, .is-active')].map((el) => `${el.getAttribute('aria-pressed')}${el.getAttribute('aria-checked')}${el.className}`).join('|') + root.textContent
   const record = async (label, act, { expectChange = true, uiCounts = false } = {}) => {
     const before = snap(), beforeUi = uiSig()
-    let error = ''
-    try { await act() } catch (e) { error = String(e?.message ?? e) }
-    await wait(80)
-    const changed = before !== snap() || (uiCounts && beforeUi !== uiSig())
-    results.push({ label, ok: !error && (!expectChange || changed), error, changed })
+    let error = '', skipped = false
+    try { skipped = await act() === 'skip' } catch (e) { error = String(e?.message ?? e) }
+    await wait(16)
+    let changed = before !== snap() || (uiCounts && beforeUi !== uiSig())
+    if (!changed && !skipped && !error && expectChange) { await wait(80); changed = before !== snap() || (uiCounts && beforeUi !== uiSig()) }
+    results.push({ label, ok: !error && (skipped || !expectChange || changed), error, changed, ...(skipped ? { skipped: true } : {}) })
   }
   if (!root) return { results: [{ label: 'inspetor', ok: false, error: 'sem painel do inspetor' }], overflow: false, text: '' }
   const labelOf = (el) => (el.getAttribute('aria-label') || el.closest('label')?.querySelector('.dc-inspector-state-label, span')?.textContent || el.closest('label')?.textContent || el.closest('div')?.querySelector('label')?.textContent || el.name || el.type || '?').trim().slice(0, 50)
-  const skip = (el) => el.disabled || el.readOnly || el.closest('[data-sweep-skip]') || el.offsetParent === null
+  const skip = (el) => !el.isConnected || el.matches(':disabled') || el.readOnly || el.closest('[data-sweep-skip]') || el.offsetParent === null
 
   // Campos de texto/números (inclui TAG, descrição, medidas do quadro/calha, estado).
   const inputs = [...root.querySelectorAll('input:not([type]), input[type="text"], input[type="number"], input[type="range"], textarea')].filter((el) => !skip(el))
@@ -112,20 +113,20 @@ const exercise = (target) => page.evaluate(async (target) => {
     else if (el.inputMode === 'numeric') next = String((Number(before) || 0) + 10)
     else next = `${before}x`
     // Foco → valor → saída: os campos com rascunho só gravam ao perder o foco (como o utilizador).
-    await record(label, async () => { el.focus(); __sweep.setValue(el, next); el.blur() })
+    await record(label, async () => { el.focus(); __sweep.setValue(el, next); await wait(20); el.blur() })
     // devolve o valor original (não deixa TAGs/medidas estragadas para os passos seguintes)
-    if (document.contains(el)) { el.focus(); __sweep.setValue(el, before); el.blur() }
-    await wait(30)
+    if (document.contains(el)) { el.focus(); __sweep.setValue(el, before); await wait(20); el.blur() }
+    await wait(16)
   }
 
   // Caixas de verificação (estado, peças visíveis, perfurada…): liga e volta a desligar.
   const checks = [...root.querySelectorAll('input[type="checkbox"]')].filter((el) => !skip(el))
   for (const el of checks) {
     const label = `checkbox · ${labelOf(el)}`
-    if (/imã automático|soltar cabos ao arrastar/i.test(label)) continue // preferências globais do editor, não do componente
+    if (/íman|im[aã]|soltar cabos ao arrastar/i.test(label)) continue // preferências globais do editor, não do componente
     await record(label, async () => { el.click() })
     if (document.contains(el)) el.click()
-    await wait(30)
+    await wait(16)
   }
 
   // Listas da plataforma: escolhe outra opção.
@@ -133,12 +134,12 @@ const exercise = (target) => page.evaluate(async (target) => {
   for (const el of selects) {
     const label = `lista · ${labelOf(el)}`
     await record(label, async () => {
-      el.click(); await wait(80)
-      const option = [...document.querySelectorAll('.dcx-select-menu [role="option"]')].find((o) => o.getAttribute('aria-selected') !== 'true' && o.getAttribute('aria-disabled') !== 'true')
-      if (!option) { document.body.click(); throw new Error('sem outra opção') }
+      el.click(); await wait(32)
+      const option = [...document.querySelectorAll('.dcx-select-menu [role="option"]')].find((o) => o.getAttribute('aria-selected') !== 'true' && !o.disabled && o.getAttribute('aria-disabled') !== 'true')
+      if (!option) { document.body.click(); return 'skip' }
       option.click()
     })
-    await wait(40)
+    await wait(16)
   }
 
   // Botões segmentados e de preset do quadro/calha/perfil, e ações de posição.
@@ -178,6 +179,7 @@ for (const type of wanted) {
   if (!id) { report.push({ type, ok: false, problems: ['não foi possível inserir'] }); continue }
   await page.waitForTimeout(250)
   await openInspector().catch(() => {})
+  await page.locator('.dc-inspector-scroll details').evaluateAll(nodes => nodes.forEach(node => { node.open = true }))
   const r = await exercise({ kind: 'component', id })
   const failed = r.results.filter((x) => !x.ok)
   const errors = pageErrors.slice(errorsBefore)

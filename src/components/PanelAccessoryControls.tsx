@@ -1,3 +1,4 @@
+import InspectorNumberInput from '../ui/InspectorNumberInput'
 import { innerCoverInsetOf, innerCoverModeOf, modularCoverLayout } from '../three/modularCoverLayout'
 
 /** Cores do tracejado da sobretampa (contraste sobre chapa clara e sobre fundo escuro). */
@@ -139,16 +140,8 @@ function MmField({ label, value, min, max, step = 10, onChange }: { label: strin
 
 /** Campo numérico que deixa escrever (rascunho) e só aplica ao sair ou com Enter — sem saltar para o mínimo a meio da escrita. */
 function DraftNumber({ value, min, max, step = 1, onCommit, label, className = '' }: { value: number; min: number; max: number; step?: number; onCommit: (v: number) => void; label: string; className?: string }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const commit = () => {
-    if (draft === null) return
-    const n = Number(draft.replace(',', '.'))
-    setDraft(null)
-    if (draft.trim() !== '' && Number.isFinite(n)) { const v = Math.max(min, Math.min(max, Math.round(n))); if (v !== value) onCommit(v) }
-  }
-  return <input type="text" inputMode="numeric" enterKeyHint="done" className={`dc-input dc-acc-num ${className}`} value={draft ?? String(value)} aria-label={`${label} (mm)`}
-    onFocus={(e) => e.currentTarget.select()} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setDraft(null); e.currentTarget.blur() } }} />
+  return <InspectorNumberInput type="number" inputMode="decimal" enterKeyHint="done" className={`dc-input dc-acc-num ${className}`} value={value} min={min} max={max} step={step} aria-label={`${label} (mm)`}
+    onFocus={(e) => e.currentTarget.select()} onChange={(e) => onCommit(Number(e.target.value))} />
 }
 
 function Swatches({ options, value, onPick }: { options: Array<{ name: string; value: string }>; value: string; onPick: (color: string) => void }) {
@@ -403,12 +396,12 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
             </button>
           ))}
         </div>
-        <input type="number" className="dc-input w-16 h-9 text-xs" min={6} max={80} value={holeDia} aria-label="Diâmetro do furo (mm)" onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
+        <InspectorNumberInput type="number" className="dc-input w-16 h-9 text-xs" min={6} max={80} value={holeDia} aria-label="Diâmetro do furo (mm)" onChange={(e)=> setHoleDia(Number(e.target.value)||20)} title="Diâmetro mm" />
         <span className="text-xs text-slate-400">mm</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <label className="flex items-center gap-1 text-xs">X <input type="number" className="dc-input w-14 h-9 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
-        <label className="flex items-center gap-1 text-xs">Y <input type="number" className="dc-input w-14 h-9 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
+        <label className="flex items-center gap-1 text-xs">X <InspectorNumberInput type="number" className="dc-input w-14 h-9 text-xs" value={holeOx} onChange={(e)=> setHoleOx(Number(e.target.value)||0)} /></label>
+        <label className="flex items-center gap-1 text-xs">Y <InspectorNumberInput type="number" className="dc-input w-14 h-9 text-xs" value={holeOy} onChange={(e)=> setHoleOy(Number(e.target.value)||0)} /></label>
         <span className="text-[11px] text-slate-400">mm</span>
         <button
           type="button"

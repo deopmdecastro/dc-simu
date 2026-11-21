@@ -7,6 +7,8 @@ import type { DialMode } from '../catalog/behavior'
 import { DM20_CONTROLS, DM20_DEFINITION } from '../three/MultimeterDm20Panel'
 import { importedComponentInfo } from '../electrical/importedComponents'
 import Select from '../ui/Select'
+import IndustrialDeviceControls from './IndustrialDeviceControls'
+import { industrialDeviceTypeOf, isIndustrialDevice } from '../electrical/industrialDevices'
 
 /**
  * Chaves de `component.state` geridas diretamente por `DeviceControls`, apenas de chapa técnica
@@ -1091,6 +1093,7 @@ function PlcModuleControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
 export function hasDeviceControls(type: string): boolean {
   return (
+    isIndustrialDevice(type) ||
     type === 'multimeterDm20' ||
     type === 'powerSource3ph' ||
     type === 'powerSource1ph' ||
@@ -1131,6 +1134,7 @@ export function hasDeviceControls(type: string): boolean {
 
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
+  if (industrialDeviceTypeOf(c)) return <IndustrialDeviceControls component={c} disabled={locked} />
   if (c.type === 'multimeterDm20') return <MultimeterControls c={c} locked={locked} />
   if (
     c.type === 'powerSource3ph' ||

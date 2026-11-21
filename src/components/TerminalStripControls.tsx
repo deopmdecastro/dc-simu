@@ -1,5 +1,6 @@
 import { IconContact } from '../ui/icons'
 import { useEffect, useMemo, useState } from 'react'
+import InspectorNumberInput from '../ui/InspectorNumberInput'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import {
@@ -67,9 +68,8 @@ export default function TerminalStripControls({
   useEffect(() => { setNumbering(defaultMode) }, [defaultMode, strip?.key])
 
   const stripCount = Math.max(2, Math.min(48, Math.floor(Number(countDraft)) || 4))
+  const validStripCount = countDraft.trim() !== '' && Number.isInteger(Number(countDraft)) && Number(countDraft) >= 2 && Number(countDraft) <= 48
   const poles = Math.max(1, Math.min(48, Math.floor(Number(active.state?.poleCount ?? 1)) || 1))
-  const [poleDraft, setPoleDraft] = useState(String(poles))
-  useEffect(() => { setPoleDraft(String(poles)) }, [poles, active.id])
 
   const isGrouped = useMemo(() => {
     if (members.length < 2) return false
@@ -345,9 +345,12 @@ export default function TerminalStripControls({
             data-sweep-draft="true"
             disabled={lock}
             value={countDraft}
+            aria-invalid={!validStripCount || undefined}
+            aria-describedby={!validStripCount ? 'strip-count-error' : undefined}
             onChange={(e) => setCountDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') createStrip(active.id, stripCount, { hierarchical: numbering !== 'loose', startIndex: numbering === 'hier0' ? 0 : 1 })
+              if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setCountDraft('4') }
+              if (e.key === 'Enter' && validStripCount) createStrip(active.id, stripCount, { hierarchical: numbering !== 'loose', startIndex: numbering === 'hier0' ? 0 : 1 })
             }}
             aria-label="Quantidade de bornes a gerar"
             className="dc-input w-16 text-center font-mono"
@@ -355,12 +358,13 @@ export default function TerminalStripControls({
           <button
             type="button"
             className="dc-btn flex-1 justify-center"
-            disabled={lock}
+            disabled={lock || !validStripCount}
             onClick={() => createStrip(active.id, stripCount, { hierarchical: numbering !== 'loose', startIndex: numbering === 'hier0' ? 0 : 1 })}
           >
             {`Gerar ${stripCount} bornes`}
           </button>
         </div>
+        {!validStripCount && <small id="strip-count-error" className="dc-inspector-number-error" role="status">Introduza um número inteiro entre 2 e 48.</small>}
         <div className="grid grid-cols-3 gap-1" role="group" aria-label="Modo de numeração">
           {([
             ['hier1', 'X1.1…'],
@@ -525,18 +529,14 @@ export default function TerminalStripControls({
               >
                 −
               </button>
-              <input
+              <InspectorNumberInput
                 type="number"
                 min={1}
                 max={24}
                 step={1}
                 disabled={lock}
-                value={poleDraft}
-                onChange={(e) => {
-                  setPoleDraft(e.target.value)
-                  const v = Math.floor(Number(e.target.value))
-                  if (Number.isFinite(v) && v >= 1 && v <= 24 && v !== poles) setPoleCount(active.id, v)
-                }}
+                integer resetKey={active.id} value={poles}
+                onChange={(e) => setPoleCount(active.id, Number(e.target.value))}
                 aria-label="Número de pólos do bloco PTI 6"
                 className="dc-input w-16 text-center font-mono"
               />

@@ -1,3 +1,4 @@
+import InspectorNumberInput from '../ui/InspectorNumberInput'
 // Lateral esquerda do simulador de comandos: Biblioteca de símbolos IEC e Inspetor
 // (mesma estrutura da biblioteca/inspetor do Esquema 3D).
 import { useEffect, useMemo, useState } from 'react'
@@ -160,9 +161,9 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
         </>
       ) : (
         <div className="dc-cmd-palette-body">
-          {selectedPart ? <PartProperties part={selectedPart} disabled={running} />
-            : selection?.type === 'text' ? <TextProperties textId={selection.id} disabled={running} />
-            : selectedWire ? <WireProperties wire={selectedWire} disabled={running} />
+          {selectedPart ? <PartProperties key={selectedPart.id} part={selectedPart} disabled={running} />
+            : selection?.type === 'text' ? <TextProperties key={selection.id} textId={selection.id} disabled={running} />
+            : selectedWire ? <WireProperties key={selectedWire.id} wire={selectedWire} disabled={running} />
             : <DiagramSummary />}
         </div>
       )}
@@ -227,8 +228,8 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
       {part.tag && part.kind !== 'node' && part.kind !== 'supply' && <div className="dc-cmd-field">
         <span>Formatação da referência</span>
         <p className="dc-cmd-muted">Clique e arraste a referência no esquema para a mover. Duplo clique edita o nome.</p>
-        <label>Tamanho <input className="dc-input" type="number" min={6} max={72} step={1} aria-label="Tamanho da referência" value={part.tagStyle?.fontSize ?? (isPageLink(part.kind) ? 10.5 : 12)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, fontSize: Math.min(72, Math.max(6, n)) } }) }} /></label>
-        <label>Rotação (°) <input className="dc-input" type="number" step={1} aria-label="Rotação da referência" value={part.tagStyle?.rotation ?? 0} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, rotation: Math.max(-360, Math.min(360, n)) } }) }} /></label>
+        <label>Tamanho <InspectorNumberInput className="dc-input" type="number" min={6} max={72} step={1} aria-label="Tamanho da referência" value={part.tagStyle?.fontSize ?? (isPageLink(part.kind) ? 10.5 : 12)} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, fontSize: Math.min(72, Math.max(6, n)) } }) }} /></label>
+        <label>Rotação (°) <InspectorNumberInput className="dc-input" type="number" min={-360} max={360} step={1} aria-label="Rotação da referência" value={part.tagStyle?.rotation ?? 0} onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) onChange({ tagStyle: { ...part.tagStyle, rotation: n } }) }} /></label>
         <label>Cor <input type="color" aria-label="Cor da referência" value={/^#[0-9a-f]{6}$/i.test(part.tagStyle?.color ?? '') ? part.tagStyle!.color : '#0f172a'} onChange={(e) => onChange({ tagStyle: { ...part.tagStyle, color: e.target.value } })} /></label>
         <div className="dc-cmd-tag-presets" role="group" aria-label="Posição da referência">
           <span className="dc-cmd-muted" style={{ display: 'block', marginBottom: 4 }}>Posição</span>
@@ -253,7 +254,7 @@ function PartProperties({ part, disabled }: { part: CmdPart; disabled: boolean }
         </Select>
       </label>}
       {(part.kind === 'timerCoil' || part.kind === 'timerOffCoil') && <label className="dc-cmd-field"><span>{part.kind === 'timerOffCoil' ? 'Atraso à desoperação (s)' : 'Atraso à operação (s)'}</span>
-        <input className="dc-input" type="number" min={0.1} step={0.5} value={(part.delayMs ?? 3000) / 1000} onChange={(e) => onChange({ delayMs: Math.max(100, Math.round(Number(e.target.value) * 1000) || 100) })} aria-label="Atraso do temporizador em segundos" />
+        <InspectorNumberInput className="dc-input" type="number" min={0.1} step={0.5} value={(part.delayMs ?? 3000) / 1000} onChange={(e) => onChange({ delayMs: Math.max(100, Math.round(Number(e.target.value) * 1000) || 100) })} aria-label="Atraso do temporizador em segundos" />
       </label>}
       {(['fuse', 'resistor', 'capacitor', 'diode'] as CmdKind[]).includes(part.kind) && <div className="dc-cmd-field">
         <label><span>Desenho do símbolo</span>
@@ -323,7 +324,7 @@ function TextProperties({ textId, disabled }: { textId: string; disabled: boolea
         <p className="dc-cmd-muted">Ajuste tamanho, rotação, cor e alinhamento. A barra flutuante no canvas oferece as mesmas opções.</p>
         <label>
           Tamanho
-          <input
+          <InspectorNumberInput
             className="dc-input"
             type="number"
             min={6}
@@ -339,10 +340,11 @@ function TextProperties({ textId, disabled }: { textId: string; disabled: boolea
         </label>
         <label>
           Rotação (°)
-          <input
+          <InspectorNumberInput
             className="dc-input"
             type="number"
             step={1}
+            min={-360} max={360}
             aria-label="Rotação do texto"
             value={text.rotation ?? 0}
             onChange={(e) => {

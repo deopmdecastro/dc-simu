@@ -3657,7 +3657,10 @@ export const useSimStore = create<Store>((set, get) => {
     get().pushEvent('info', 'Chicote desfeito.')
   },
 
-  selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedWireIds: [], selectedComponentIds: [], viewOrientationEditor: null }),
+  selectTerminal: (id) => {
+    if (id && isSimEditLocked(get())) return
+    set({ selectedTerminalId: id, selectedWireId: null, selectedWireIds: [], selectedComponentIds: [], viewOrientationEditor: null })
+  },
 
   addTerminal: (componentId) => {
     get().commitHistory()

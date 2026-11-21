@@ -1,3 +1,4 @@
+import InspectorNumberInput from '../ui/InspectorNumberInput'
 import { useEffect, useState } from 'react'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
@@ -109,7 +110,7 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
   if (!isAcrylic && !isStepped) return null
 
   const parsedDraft = isAcrylic ? clampAcrylicBusbarPoles(draft) : clampSteppedBusbarHoles(draft)
-  const hasChange = parsedDraft !== currentCount
+  const hasChange = draft.trim() !== '' && Number.isInteger(Number(draft)) && Number(draft) >= minN && Number(draft) <= maxN && parsedDraft !== currentCount
 
   const applyCount = (next = parsedDraft) => {
     useSimStore.getState().setBusbarPoleCount(c.id, next)
@@ -145,25 +146,17 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
             >
               −
             </button>
-            <input
-              type="number"
+            <InspectorNumberInput type="number"
               min={minN}
               max={maxN}
               step={1}
               className="dc-input w-20 text-center"
               aria-label="Número de bornes do barramento"
               data-busbar-pole-input
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value)
-                const raw = Number(e.target.value)
-                if (e.target.value.trim() !== '' && Number.isInteger(raw) && raw >= minN && raw <= maxN && raw !== currentCount) {
-                  useSimStore.getState().setBusbarPoleCount(c.id, raw)
-                }
-              }}
-              onBlur={() => applyCount()}
-              onKeyDown={(e) => { if (e.key === 'Enter') applyCount() }}
-            />
+              integer resetKey={c.id}
+              value={currentCount}
+              onDraftChange={setDraft}
+              onChange={(e) => applyCount(Number(e.target.value))} />
             <button
               type="button"
               className="dc-btn"
@@ -422,25 +415,17 @@ export default function BusbarControls({ c }: { c: ElectricalComponent }) {
           >
             −
           </button>
-          <input
-            type="number"
-            min={minN}
-            max={maxN}
-            step={1}
-            className="dc-input w-20 text-center"
-            aria-label="Número de bornes por barra"
-            data-busbar-pole-input
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              const raw = Number(e.target.value)
-              if (e.target.value.trim() !== '' && Number.isInteger(raw) && raw >= minN && raw <= maxN && raw !== currentCount) {
-                useSimStore.getState().setBusbarPoleCount(c.id, raw)
-              }
-            }}
-            onBlur={() => applyCount()}
-            onKeyDown={(e) => { if (e.key === 'Enter') applyCount() }}
-          />
+          <InspectorNumberInput type="number"
+              min={minN}
+              max={maxN}
+              step={1}
+              className="dc-input w-20 text-center"
+              aria-label="Número de bornes por barra"
+              data-busbar-pole-input
+              integer resetKey={c.id}
+              value={currentCount}
+              onDraftChange={setDraft}
+              onChange={(e) => applyCount(Number(e.target.value))} />
           <button
             type="button"
             className="dc-btn"
@@ -524,14 +509,10 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
   const mountCombBusbar = useSimStore((s) => s.mountCombBusbar)
   const unmountCombBusbar = useSimStore((s) => s.unmountCombBusbar)
 
-  const [draft, setDraft] = useState(String(poles))
-  useEffect(() => setDraft(String(poles)), [poles, c.id])
-
   const patch = (next: Record<string, unknown>) => useSimStore.getState().updateCombBusbar(c.id, next)
 
   const applyPoles = (n: number) => {
     const clamped = clampCombBusbarPoles(n)
-    setDraft(String(clamped))
     if (clamped !== poles) patch({ poleCount: clamped })
   }
 
@@ -630,31 +611,16 @@ function CombBusbarInspector({ c }: { c: ElectricalComponent }) {
           >
             −
           </button>
-          <input
-            type="number"
-            min={COMB_BUSBAR.minPoles}
-            max={COMB_BUSBAR.maxPoles}
-            step={1}
-            value={draft}
-            aria-label="Número de pinos do pente"
-            data-busbar-pole-input
-            className="dc-input text-center font-mono"
-            onChange={(e) => {
-              const raw = e.target.value
-              setDraft(raw)
-              const v = Number(raw)
-              if (raw.trim() !== '' && Number.isInteger(v) && v >= COMB_BUSBAR.minPoles && v <= COMB_BUSBAR.maxPoles) {
-                patch({ poleCount: v })
-              }
-            }}
-            onBlur={() => applyPoles(Number(draft))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                applyPoles(Number(draft))
-              }
-            }}
-          />
+          <InspectorNumberInput type="number"
+              min={COMB_BUSBAR.minPoles}
+              max={COMB_BUSBAR.maxPoles}
+              step={1}
+              aria-label="Número de pinos do pente"
+              data-busbar-pole-input
+              className="dc-input text-center font-mono"
+              integer resetKey={c.id}
+              value={poles}
+              onChange={(e) => applyPoles(Number(e.target.value))} />
           <button
             type="button"
             className="dc-btn px-2.5"

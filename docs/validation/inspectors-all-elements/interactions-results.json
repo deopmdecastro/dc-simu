@@ -1,0 +1,5 @@
+{
+  "checks": 20,
+  "errors": [],
+  "scope": "Sidebar e store reais: nomes de bornes, números inválidos, Enter/Escape, bloqueio, manobra, cancelamento multicabo e persistência; pedidos externos bloqueados."
+}

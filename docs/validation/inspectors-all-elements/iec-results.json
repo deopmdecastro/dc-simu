@@ -1,0 +1,464 @@
+{
+  "kinds": 114,
+  "coverage": [
+    {
+      "kind": "supply",
+      "controls": 3
+    },
+    {
+      "kind": "node",
+      "controls": 2
+    },
+    {
+      "kind": "ground",
+      "controls": 15
+    },
+    {
+      "kind": "pageRef",
+      "controls": 14
+    },
+    {
+      "kind": "pageRefIn",
+      "controls": 14
+    },
+    {
+      "kind": "fuse",
+      "controls": 16
+    },
+    {
+      "kind": "fuse3",
+      "controls": 19
+    },
+    {
+      "kind": "breaker1",
+      "controls": 15
+    },
+    {
+      "kind": "breaker3",
+      "controls": 19
+    },
+    {
+      "kind": "disconnector3",
+      "controls": 19
+    },
+    {
+      "kind": "thermal3",
+      "controls": 19
+    },
+    {
+      "kind": "rcd",
+      "controls": 17
+    },
+    {
+      "kind": "contact3",
+      "controls": 19
+    },
+    {
+      "kind": "contactNO",
+      "controls": 15
+    },
+    {
+      "kind": "contactNC",
+      "controls": 15
+    },
+    {
+      "kind": "changeover",
+      "controls": 16
+    },
+    {
+      "kind": "timedNO",
+      "controls": 15
+    },
+    {
+      "kind": "timedNC",
+      "controls": 15
+    },
+    {
+      "kind": "thermalNC",
+      "controls": 15
+    },
+    {
+      "kind": "thermalNO",
+      "controls": 15
+    },
+    {
+      "kind": "pushNO",
+      "controls": 15
+    },
+    {
+      "kind": "pushNC",
+      "controls": 15
+    },
+    {
+      "kind": "pushIllum",
+      "controls": 17
+    },
+    {
+      "kind": "emergency",
+      "controls": 15
+    },
+    {
+      "kind": "selector",
+      "controls": 15
+    },
+    {
+      "kind": "limitNO",
+      "controls": 15
+    },
+    {
+      "kind": "limitNC",
+      "controls": 15
+    },
+    {
+      "kind": "proximity",
+      "controls": 15
+    },
+    {
+      "kind": "ammeter",
+      "controls": 15
+    },
+    {
+      "kind": "voltmeter",
+      "controls": 15
+    },
+    {
+      "kind": "currentTransformer",
+      "controls": 15
+    },
+    {
+      "kind": "overcurrentRelay",
+      "controls": 15
+    },
+    {
+      "kind": "undervoltageRelay",
+      "controls": 15
+    },
+    {
+      "kind": "latchingRelay",
+      "controls": 15
+    },
+    {
+      "kind": "fuseDisconnector",
+      "controls": 15
+    },
+    {
+      "kind": "temperatureController",
+      "controls": 15
+    },
+    {
+      "kind": "pressureSwitch",
+      "controls": 15
+    },
+    {
+      "kind": "siren",
+      "controls": 15
+    },
+    {
+      "kind": "timerOffCoil",
+      "controls": 16
+    },
+    {
+      "kind": "counter",
+      "controls": 15
+    },
+    {
+      "kind": "overvoltageRelay",
+      "controls": 15
+    },
+    {
+      "kind": "shortCircuitRelay",
+      "controls": 15
+    },
+    {
+      "kind": "slowRelay",
+      "controls": 15
+    },
+    {
+      "kind": "mainSwitch",
+      "controls": 19
+    },
+    {
+      "kind": "threePhaseTransformer",
+      "controls": 19
+    },
+    {
+      "kind": "sensor3wNO",
+      "controls": 16
+    },
+    {
+      "kind": "sensor3wNC",
+      "controls": 16
+    },
+    {
+      "kind": "coil",
+      "controls": 15
+    },
+    {
+      "kind": "timerCoil",
+      "controls": 16
+    },
+    {
+      "kind": "lamp",
+      "controls": 16
+    },
+    {
+      "kind": "buzzer",
+      "controls": 15
+    },
+    {
+      "kind": "solenoid",
+      "controls": 15
+    },
+    {
+      "kind": "heater",
+      "controls": 15
+    },
+    {
+      "kind": "motor3",
+      "controls": 16
+    },
+    {
+      "kind": "motor6",
+      "controls": 19
+    },
+    {
+      "kind": "diode",
+      "controls": 16
+    },
+    {
+      "kind": "resistor",
+      "controls": 16
+    },
+    {
+      "kind": "capacitor",
+      "controls": 16
+    },
+    {
+      "kind": "transformer",
+      "controls": 17
+    },
+    {
+      "kind": "rectifier",
+      "controls": 17
+    },
+    {
+      "kind": "plcIn",
+      "controls": 15
+    },
+    {
+      "kind": "plcOut",
+      "controls": 15
+    },
+    {
+      "kind": "valve22",
+      "controls": 15
+    },
+    {
+      "kind": "valve42",
+      "controls": 17
+    },
+    {
+      "kind": "valve53c",
+      "controls": 18
+    },
+    {
+      "kind": "valve53p",
+      "controls": 18
+    },
+    {
+      "kind": "valve53e",
+      "controls": 18
+    },
+    {
+      "kind": "airFilter",
+      "controls": 15
+    },
+    {
+      "kind": "airLubricator",
+      "controls": 15
+    },
+    {
+      "kind": "airRegulator",
+      "controls": 15
+    },
+    {
+      "kind": "manometer",
+      "controls": 14
+    },
+    {
+      "kind": "silencer",
+      "controls": 13
+    },
+    {
+      "kind": "reservoir",
+      "controls": 14
+    },
+    {
+      "kind": "airSource",
+      "controls": 14
+    },
+    {
+      "kind": "exhaust",
+      "controls": 14
+    },
+    {
+      "kind": "valve32",
+      "controls": 16
+    },
+    {
+      "kind": "valve52",
+      "controls": 18
+    },
+    {
+      "kind": "cylSE",
+      "controls": 14
+    },
+    {
+      "kind": "cylDE",
+      "controls": 15
+    },
+    {
+      "kind": "throttle",
+      "controls": 15
+    },
+    {
+      "kind": "checkValve",
+      "controls": 15
+    },
+    {
+      "kind": "hydPump",
+      "controls": 15
+    },
+    {
+      "kind": "hydTank",
+      "controls": 14
+    },
+    {
+      "kind": "hydCyl",
+      "controls": 15
+    },
+    {
+      "kind": "fuse2",
+      "controls": 17
+    },
+    {
+      "kind": "breaker2",
+      "controls": 17
+    },
+    {
+      "kind": "breakerTM1",
+      "controls": 15
+    },
+    {
+      "kind": "motorBreaker3",
+      "controls": 19
+    },
+    {
+      "kind": "disconnector1",
+      "controls": 15
+    },
+    {
+      "kind": "disconnector2",
+      "controls": 17
+    },
+    {
+      "kind": "switchDisconnector1",
+      "controls": 15
+    },
+    {
+      "kind": "switchDisconnector3",
+      "controls": 19
+    },
+    {
+      "kind": "fuseDisconnector3",
+      "controls": 19
+    },
+    {
+      "kind": "fuseSwitchDisconnector3",
+      "controls": 19
+    },
+    {
+      "kind": "meter",
+      "controls": 16
+    },
+    {
+      "kind": "energyMeter",
+      "controls": 16
+    },
+    {
+      "kind": "converter",
+      "controls": 18
+    },
+    {
+      "kind": "autotransformer",
+      "controls": 16
+    },
+    {
+      "kind": "transformer3Line",
+      "controls": 16
+    },
+    {
+      "kind": "motor1",
+      "controls": 15
+    },
+    {
+      "kind": "motorDC",
+      "controls": 15
+    },
+    {
+      "kind": "timedOffNO",
+      "controls": 15
+    },
+    {
+      "kind": "timedOffNC",
+      "controls": 15
+    },
+    {
+      "kind": "pullCord",
+      "controls": 15
+    },
+    {
+      "kind": "levelNO",
+      "controls": 15
+    },
+    {
+      "kind": "levelNC",
+      "controls": 15
+    },
+    {
+      "kind": "footNO",
+      "controls": 15
+    },
+    {
+      "kind": "footNC",
+      "controls": 15
+    },
+    {
+      "kind": "transformerCT",
+      "controls": 18
+    },
+    {
+      "kind": "plcLogo",
+      "controls": 31
+    },
+    {
+      "kind": "plcS71500Di32",
+      "controls": 47
+    },
+    {
+      "kind": "plcS71500Cpu1511c",
+      "controls": 64
+    },
+    {
+      "kind": "plcS7300Cpu315",
+      "controls": 17
+    },
+    {
+      "kind": "motorSlipRing",
+      "controls": 19
+    }
+  ],
+  "checks": 339,
+  "errors": [],
+  "scope": "Todos CMD_PARTS no inspetor IEC React real, configuração e persistência; pedidos externos bloqueados."
+}

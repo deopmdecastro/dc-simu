@@ -50,8 +50,16 @@ export default function InspectorNavigation({ collapsed = false, onToggle, onMob
     <div className="ce-inspector-groups" role="group" aria-label="Áreas de propriedades">
       {GROUPS.map((item) => <button key={item.id} aria-pressed={item.id === group.id} className={item.id === group.id ? 'is-on' : ''} onClick={() => set({ tab: lastTabs[item.id] ?? item.tabs[0][0] })}>{item.id === 'component' && <IconBox size={12} />}{item.label}</button>)}
     </div>
-    <div className="ce-tabs" role="tablist" aria-label={`Propriedades — ${group.label}`}>
-      {group.tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'is-on' : ''} onClick={() => set({ tab: key })}>{label}</button>)}
+    <div className="ce-tabs" role="tablist" aria-label={`Propriedades — ${group.label}`} onKeyDown={(event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+      event.preventDefault()
+      const index = group.tabs.findIndex(([key]) => key === tab)
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? group.tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + group.tabs.length) % group.tabs.length
+      const key = group.tabs[next][0]
+      set({ tab: key })
+      document.getElementById(`ce-inspector-tab-${key}`)?.focus()
+    }}>
+      {group.tabs.map(([key, label]) => <button key={key} id={`ce-inspector-tab-${key}`} role="tab" aria-controls="ce-inspector-panel" aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} className={tab === key ? 'is-on' : ''} onClick={() => set({ tab: key })}>{label}</button>)}
     </div>
   </>
 }

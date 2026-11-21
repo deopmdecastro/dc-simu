@@ -483,6 +483,7 @@ function UpdateDialog({ dirty, onAnswer }: { dirty: boolean; onAnswer: (accept: 
 }
 
 export default function ComponentEditor3D({ id, onClose, account }: { id: string; onClose: (message?: string) => void; /** Avatar e notificações (mesmos do simulador). */ account?: ReactNode }) {
+  const inspectorScope = useEditorStore((s) => `${s.selection?.kind ?? ''}:${s.selection?.id ?? ''}:${s.selectedWire ?? ''}:${s.tab}`)
   const entry = useEditorStore((s) => s.entry)
   const meta = useEditorStore((s) => s.meta)
   const def = useEditorStore((s) => s.def)
@@ -802,7 +803,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       <PanelResizer side="right" width={panels.widths.right} onChange={(value) => panels.change('right', value)} />
       <aside className={`ce-right${panels.collapsed.right ? ' is-collapsed' : ''}`} aria-label="Inspetor">
         <InspectorNavigation collapsed={panels.collapsed.right} onToggle={() => panels.toggle('right')} onMobileClose={() => setMobilePane('canvas')} />
-        <div className="ce-inspector">
+        <div key={inspectorScope} id="ce-inspector-panel" role="tabpanel" aria-labelledby={`ce-inspector-tab-${tab}`} className="ce-inspector">
           {tab === 'object' && <ObjectTab />}{tab === 'materials' && <MaterialsTab />}{tab === 'terminals' && <TerminalsTab />}
           {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'controls' && <ControlsTab />}{tab === 'displays' && <DisplaysTab />}{tab === 'component' && <ComponentTab />}{tab === 'iec' && <IecTab />}
         </div>

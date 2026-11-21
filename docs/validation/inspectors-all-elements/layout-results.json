@@ -1,0 +1,288 @@
+{
+  "checks": 2,
+  "layouts": [
+    {
+      "width": 360,
+      "type": "plcSiemensLogo1224RC",
+      "ok": true,
+      "scrollWidth": 359,
+      "clientWidth": 359,
+      "overflowing": []
+    },
+    {
+      "width": 360,
+      "type": "timerGeyaGrt8M2",
+      "ok": true,
+      "scrollWidth": 359,
+      "clientWidth": 359,
+      "overflowing": []
+    },
+    {
+      "width": 360,
+      "type": "residualBreakerSchneiderIid4p",
+      "ok": true,
+      "scrollWidth": 359,
+      "clientWidth": 359,
+      "overflowing": []
+    },
+    {
+      "width": 360,
+      "type": "busbarPhaseStepped",
+      "ok": true,
+      "scrollWidth": 359,
+      "clientWidth": 359,
+      "overflowing": []
+    },
+    {
+      "width": 360,
+      "type": "panelEnclosure",
+      "ok": true,
+      "scrollWidth": 359,
+      "clientWidth": 359,
+      "overflowing": []
+    },
+    {
+      "width": 360,
+      "type": "motor3ph",
+      "ok": true,
+      "scrollWidth": 359,
+      "clientWidth": 359,
+      "overflowing": []
+    },
+    {
+      "width": 360,
+      "type": "multimeterDm20",
+      "ok": true,
+      "scrollWidth": 359,
+      "clientWidth": 359,
+      "overflowing": []
+    },
+    {
+      "width": 390,
+      "type": "plcSiemensLogo1224RC",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 390,
+      "type": "timerGeyaGrt8M2",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 390,
+      "type": "residualBreakerSchneiderIid4p",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 390,
+      "type": "busbarPhaseStepped",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 390,
+      "type": "panelEnclosure",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 390,
+      "type": "motor3ph",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 390,
+      "type": "multimeterDm20",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 768,
+      "type": "plcSiemensLogo1224RC",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 768,
+      "type": "timerGeyaGrt8M2",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 768,
+      "type": "residualBreakerSchneiderIid4p",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 768,
+      "type": "busbarPhaseStepped",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 768,
+      "type": "panelEnclosure",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 768,
+      "type": "motor3ph",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 768,
+      "type": "multimeterDm20",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1024,
+      "type": "plcSiemensLogo1224RC",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1024,
+      "type": "timerGeyaGrt8M2",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1024,
+      "type": "residualBreakerSchneiderIid4p",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1024,
+      "type": "busbarPhaseStepped",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1024,
+      "type": "panelEnclosure",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1024,
+      "type": "motor3ph",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1024,
+      "type": "multimeterDm20",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1440,
+      "type": "plcSiemensLogo1224RC",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1440,
+      "type": "timerGeyaGrt8M2",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1440,
+      "type": "residualBreakerSchneiderIid4p",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1440,
+      "type": "busbarPhaseStepped",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1440,
+      "type": "panelEnclosure",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1440,
+      "type": "motor3ph",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    },
+    {
+      "width": 1440,
+      "type": "multimeterDm20",
+      "ok": true,
+      "scrollWidth": 379,
+      "clientWidth": 379,
+      "overflowing": []
+    }
+  ],
+  "failures": [],
+  "errors": [],
+  "scope": "Inspetor real, 7 famílias em360/390/768/1024/1440px; grupos avançados abertos."
+}

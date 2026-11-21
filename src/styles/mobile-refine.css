@@ -101,6 +101,30 @@
 }
 
 /* ===== 4. Inspetor de componentes (Sidebar) — alvos de toque e leitura ===== */
+.dc-inspector-number { display: contents; }
+.dc-inspector-number > input { min-width: 0; max-width: 100%; }
+.dc-inspector-number-error { display: block; grid-column: 1 / -1; flex-basis: 100%; color: #b91c1c; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.dc-inspector-number > input[aria-invalid="true"] { border-color: #dc2626; }
+.dc-inspector-geometry { display: grid; gap: 10px; min-width: 0; padding: 0; margin: 0; border: 0; }
+.dc-inspector-note { color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; line-height: 1.5; font-size: 11px; }
+.dc-inspector-jump { display: grid; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); gap: 4px; margin-block: 10px; }
+.dc-inspector-jump > button { min-width: 0; min-height: 32px; padding: 5px 3px; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 5px; font-size: 10.5px; font-weight: 600; overflow-wrap: anywhere; }
+.dc-inspector-jump > button:hover { background: #dbeafe; }
+.dc-inspector-jump > button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.dc-inspector-group { scroll-margin-top: 8px; }
+.dc-inspector-scroll, .dc-inspector-group-body, .dc-inspector-component, .ce-inspector { min-width: 0; }
+@media (max-width: 720px) { .dc-inspector-jump > button { min-height: 40px; font-size: 11px; } }
+/* Valores calculados pelo motor: leitura com aspeto de estado, nunca de campo. */
+.dc-inspector-state-row.is-readonly { background: #f8fafc; }
+.dc-inspector-state-output { min-width: 0; color: #0f172a; font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.dc-industrial-controls { display: grid; gap: 6px; min-width: 0; }
+.dc-industrial-controls > .dc-field-label { margin: 0; }
+.dc-industrial-help { margin: 0; color: #475569; font-size: 10.5px; line-height: 1.45; }
+.dc-industrial-status { display: grid; gap: 1px; margin: 0; overflow: hidden; border: 1px solid #e5ebf3; border-radius: 6px; background: #e5ebf3; }
+.dc-industrial-readout { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; padding: 5px 7px; background: #f8fafc; }
+.dc-industrial-readout > dt { min-width: 0; color: #475569; font-size: 10px; font-weight: 600; line-height: 1.35; }
+.dc-industrial-readout > dd { margin: 0; min-width: 0; color: #0f172a; font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.dc-industrial-channel { display: grid; gap: 4px; padding: 6px; border: 1px solid #e5ebf3; border-radius: 6px; background: #fff; }
 .dc-inspector-group-body > .flex.items-center.justify-between { gap: 8px; }
 .dc-inspector-terminal { box-shadow: 0 1px 0 rgba(15, 23, 42, .03); }
 .dc-inspector-terminal-status { display: inline-flex; align-items: center; gap: 4px; }

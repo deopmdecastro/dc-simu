@@ -1,3 +1,4 @@
+import InspectorNumberInput from '../ui/InspectorNumberInput'
 import { uiConfirm } from '../ui/dialogs'
 import { importedComponentInfo } from '../electrical/importedComponents'
 import Select from '../ui/Select'
@@ -75,6 +76,9 @@ import {
 } from '../admin/editor3d/wireStyle'
 import { setWireActionSlot, setWireDraftSlot } from '../ui/wireActionSlot'
 import { allLightSwatches, swatchBackground, useLightColorLibrary } from '../catalog/lightColorLibrary'
+import { industrialDeviceTypeOf } from '../electrical/industrialDevices'
+import { inspectorStatePolicy } from './inspectorStatePolicy'
+import type { ElectricalComponent } from '../types'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
@@ -149,6 +153,26 @@ const EXTRA_STATE_LABELS: Record<string, string> = {
   nominalA: 'Corrente nominal (A)', article: 'Artigo', poleCount: 'Número de pólos', source: 'Fonte de alimentação',
 }
 const stateLabel = (key: string) => STATE_LABELS[key] ?? EXTRA_STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
+
+function inspectorStateEntries(component: ElectricalComponent) {
+  const type = component.type
+  const industrial = !!industrialDeviceTypeOf(component)
+  const thermal = importedComponentInfo(type)?.behavior === 'thermal'
+  const protection = !!protectionControlKindOf(type)
+  const device = hasDeviceControls(type)
+  return Object.entries(component.state).filter(([key]) => {
+    if (industrial || key.startsWith('_')) return false
+    if (isMountingRail(type) && (key === 'lengthMm' || RAIL_PROFILE_STATE_KEYS.has(key))) return false
+    if (isPanelAccessoryType(type) && PANEL_ACCESSORY_STATE_KEYS.has(key)) return false
+    if (isRealBusbarType(type) && BUSBAR_STATE_KEYS.has(key)) return false
+    if (isTerminalStripType(type) && TERMINAL_STRIP_STATE_KEYS.has(key)) return false
+    if (protection && (PROTECTION_MANAGED_STATE_KEYS.has(key) || DEVICE_MANAGED_STATE_KEYS.has(key))) return false
+    if (device && DEVICE_MANAGED_STATE_KEYS.has(key)) return false
+    if (['showFan', 'acrylicCover', 'hiddenParts', 'simInputs', 'simInputModes', 'glassColor'].includes(key)) return false
+    if (thermal && ['testPressed', 'stopPressed', 'tripped', 'manual', 'manufacturer', 'code'].includes(key)) return false
+    return true
+  })
+}
 
 const BODY_COLOR_OPTIONS = [
   { name: 'Grafite', value: '#344054' }, { name: 'Antracite', value: '#1f2937' },
@@ -309,6 +333,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
  */
 export default function Sidebar({ width = 300, quickAddOnPick = false, onComponentAdded, onCollapse }: { width?: number | string; quickAddOnPick?: boolean; onComponentAdded?: () => void; onCollapse?: () => void }) {
   const components = useSimStore((s) => s.components)
+  const editingStopped = useSimStore((s) => s.sim.runState === 'stopped')
   const manobraAllowed = useManobraAllowed()
   // Estado elétrico do inspetor (bornes energizados, indicadores): tick da simulação.
   useSimStore((s) => s.simTick)
@@ -328,7 +353,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const setWireDefaults = useSimStore((s) => s.setWireDefaults)
   // Subscrições também são hooks: nunca as chamar dentro do ramo do inspetor.
   const detachWiresOnDrag = useSimStore((s) => s.detachWiresOnDrag)
-  const wireTool = tool === 'wire'
+  const wireTool = editingStopped && tool === 'wire'
   useEffect(() => { if (wireTool) setTab('inspector') }, [wireTool])
   const [terminalLibOpen, setTerminalLibOpen] = useState(false)
   const inspectorRef = useRef<HTMLDivElement>(null)
@@ -390,13 +415,13 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const [stripFocusId, setStripFocusId] = useState<string | null>(null)
   const [stickerPickerOpen, setStickerPickerOpen] = useState(false)
   const selectedComponent = useMemo(() => {
-    if (!selectedIds.length) return undefined
+    if (!editingStopped || !selectedIds.length) return undefined
     if (stripFocusId && selectedIds.includes(stripFocusId)) {
       const focused = components.find((c) => c.id === stripFocusId)
       if (focused) return focused
     }
     return components.find((c) => c.id === selectedIds[0])
-  }, [components, selectedIds, stripFocusId])
+  }, [components, selectedIds, stripFocusId, editingStopped])
   const multiSelectedComponents = useMemo(
     () => (selectedIds.length > 1 ? selectedIds.map((id) => components.find((c) => c.id === id)).filter((c): c is NonNullable<typeof c> => !!c) : []),
     [components, selectedIds],
@@ -408,7 +433,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
     const set = new Set(st.members.map((m) => m.id))
     return multiSelectedComponents.every((c) => set.has(c.id))
   }, [components, multiSelectedComponents])
-  const selectedWire = wires.find((w) => w.id === selectedWireId)
+  const selectedWire = editingStopped ? wires.find((w) => w.id === selectedWireId) : undefined
+  const selectedStateEntries = selectedComponent ? inspectorStateEntries(selectedComponent) : []
+  const hasConfiguration = !!selectedComponent && (!!industrialDeviceTypeOf(selectedComponent) || hasDeviceControls(selectedComponent.type) || !!protectionControlKindOf(selectedComponent.type) || importedComponentInfo(selectedComponent.type)?.behavior === 'thermal' || selectedStateEntries.length > 0)
   const wireEditingStopped = useSimStore(s => s.sim.runState === 'stopped')
   const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
   const wireToTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.toTerminalId) : undefined
@@ -417,45 +444,65 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const wireFromClass = wireFromOwner && wireFromTerminal ? terminalElectricalClassOf(wireFromOwner, wireFromTerminal) : undefined
   const wireToClass = wireToOwner && wireToTerminal ? terminalElectricalClassOf(wireToOwner, wireToTerminal) : undefined
   const wireClassCompatible = !wireFromClass || !wireToClass || terminalClassesCompatible(wireFromClass, wireToClass)
-  const selectedTerminal = components.flatMap((c) => c.terminals).find((t) => t.id === selectedTerminalId)
+  const selectedTerminal = editingStopped ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedTerminalId) : undefined
   const terminalOwner = selectedTerminal ? components.find((c) => c.id === selectedTerminal.componentId) : undefined
   const connections = selectedTerminal ? terminalConnections(selectedTerminal.id, components, wires) : []
-  const wireEditBaselineRef = useRef<{ id: string; wire: Wire } | null>(null)
+  // A sessão pertence à seleção; só se revertem os campos escritos pelo inspetor.
+  const wireEditBaselineRef = useRef(new Map<string, { before: Wire; applied: Wire; fields: Set<keyof Wire> }>())
   const [wireEditDirty, setWireEditDirty] = useState(false)
-
+  const wireSelectionKey = [selectedWire?.id ?? '', ...selectedWireIds].join('|')
   useEffect(() => {
-    wireEditBaselineRef.current = selectedWire ? { id: selectedWire.id, wire: structuredClone(selectedWire) } : null
+    wireEditBaselineRef.current.clear()
     setWireEditDirty(false)
-  }, [selectedWire?.id, selectedWire?.locked])
+  }, [wireSelectionKey, editingStopped])
 
   const patchSelectedWire = (patch: Partial<Wire>) => {
-    if (!selectedWire || selectedWire.locked) return
+    if (!selectedWire || selectedWire.locked || !editingStopped) return
     const store = useSimStore.getState()
-    const ids = store.selectedWireIds?.length
-      ? store.selectedWireIds
-      : (store.selectedWireId ? [store.selectedWireId] : [selectedWire.id])
-    if (!wireEditDirty) store.commitHistory()
-    for (const id of ids) store.updateWire(id, patch)
+    const ids = store.selectedWireIds?.includes(selectedWire.id) ? store.selectedWireIds : [selectedWire.id]
+    const editable = store.wires.filter((wire) => ids.includes(wire.id) && !wire.locked)
+    if (!editable.length) return
+    if (!wireEditBaselineRef.current.size) store.commitHistory()
+    for (const wire of editable) {
+      const baseline = wireEditBaselineRef.current.get(wire.id) ?? { before: structuredClone(wire), applied: structuredClone(wire), fields: new Set<keyof Wire>() }
+      store.updateWire(wire.id, patch)
+      const current = useSimStore.getState().wires.find((item) => item.id === wire.id)
+      if (!current) continue
+      for (const field of new Set([...Object.keys(wire), ...Object.keys(current)]) as Set<keyof Wire>) {
+        if (JSON.stringify(wire[field]) !== JSON.stringify(current[field])) {
+          if (!baseline.fields.has(field)) Object.assign(baseline.before, { [field]: structuredClone(wire[field]) })
+          baseline.fields.add(field)
+          Object.assign(baseline.applied, { [field]: structuredClone(current[field]) })
+        }
+      }
+      wireEditBaselineRef.current.set(wire.id, baseline)
+    }
     setWireEditDirty(true)
   }
   const saveWireChanges = () => {
-    if (!selectedWire) return
-    const current = useSimStore.getState().wires.find((wire) => wire.id === selectedWire.id)
-    if (current) wireEditBaselineRef.current = { id: current.id, wire: structuredClone(current) }
+    const n = wireEditBaselineRef.current.size
+    wireEditBaselineRef.current.clear()
     setWireEditDirty(false)
-    const n = useSimStore.getState().selectedWireIds?.length || 1
     useSimStore.getState().pushEvent('info', n > 1
       ? `Alterações aplicadas a ${n} cabos e guardadas no projeto.`
-      : `Alterações do cabo ${selectedWire.number ?? selectedWire.id} guardadas no projeto.`)
+      : 'Alterações do cabo guardadas no projeto.')
   }
   const cancelWireChanges = () => {
-    const baseline = wireEditBaselineRef.current
-    if (!baseline) return
-    // Cancela só o cabo base da edição (pré-visualização multi já foi escrita; o histórico cobre o resto via Undo).
-    useSimStore.getState().updateWire(baseline.id, structuredClone(baseline.wire))
-    useSimStore.getState().step()
+    const store = useSimStore.getState()
+    for (const [id, baseline] of wireEditBaselineRef.current) {
+      const current = store.wires.find((wire) => wire.id === id)
+      if (!current || current.locked) continue
+      const patch: Partial<Wire> = {}
+      for (const field of baseline.fields) {
+        // Uma alteração posterior de outra origem no mesmo campo tem prioridade.
+        if (JSON.stringify(current[field]) === JSON.stringify(baseline.applied[field])) Object.assign(patch, { [field]: structuredClone(baseline.before[field]) })
+      }
+      if (Object.keys(patch).length) store.updateWire(id, patch)
+    }
+    wireEditBaselineRef.current.clear()
+    store.step()
     setWireEditDirty(false)
-    useSimStore.getState().pushEvent('info', 'Edição do cabo cancelada; use Desfazer (Ctrl+Z) se alterou vários cabos.')
+    store.pushEvent('info', 'Edição cancelada em todos os cabos alterados nesta seleção.')
   }
 
   const placingType = useSimStore((s) => s.placingType)
@@ -623,9 +670,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
             <div className="h-full flex items-center justify-center">
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconLayers size={18} /></span>
-                <strong>Nada selecionado</strong>
-                <p>Escolha um componente, um cabo ou um borne — no esquema ou no painel 3D — para editar as propriedades aqui.</p>
-                <span className="dc-empty-state-hint">Dica: <kbd>Esc</kbd> limpa a seleção</span>
+                <strong>{editingStopped ? 'Nada selecionado' : 'Simulação em curso'}</strong>
+                <p>{editingStopped ? 'Escolha um componente, um cabo ou um borne — no esquema ou no painel 3D — para editar as propriedades aqui.' : 'Pare a simulação (STOP) para configurar elementos. Os comandos e as medições continuam disponíveis no circuito.'}</p>
+                {editingStopped && <span className="dc-empty-state-hint">Dica: <kbd>Esc</kbd> limpa a seleção</span>}
               </div>
             </div>
           )}
@@ -666,15 +713,24 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <span className={`dc-inspector-indicator ${selectedComponent.state.energized ? 'is-on' : ''}`} title={selectedComponent.state.energized ? 'Energizado' : 'Desligado'} />
               </header>
               <div className="text-[10px] font-mono text-ink-400 px-1 truncate">{selectedComponent.type} · {selectedComponent.terminals.length} bornes{selectedComponent.locked ? ' · bloqueado' : ''}</div>
+              <nav className="dc-inspector-jump" aria-label="Secções do inspetor">
+                {['Identificação', ...(hasConfiguration ? ['Configuração'] : []), 'Posição e aparência', 'Bornes'].map((name) => <button type="button" key={name} onClick={() => {
+                  const section = name === 'Configuração' ? inspectorRef.current?.querySelector<HTMLDetailsElement>('[data-inspector-configuration]') : Array.from(inspectorRef.current?.querySelectorAll<HTMLDetailsElement>('details.dc-inspector-group') ?? []).find((item) => item.querySelector('summary')?.textContent?.startsWith(name))
+                  // A margem acompanha o cartão sticky, incluindo zoom de texto e nomes longos.
+                  const hero = inspectorRef.current?.querySelector<HTMLElement>('.dc-inspector-hero')
+                  if (section && hero) section.style.scrollMarginTop = `${Math.ceil(hero.getBoundingClientRect().height + 20)}px`
+                  if (section) { section.open = true; section.scrollIntoView({ block: 'start', behavior: 'auto' }); const summary = section.querySelector('summary'); summary?.focus({ preventScroll: true }) }
+                }}>{name === 'Posição e aparência' ? 'Geometria' : name}</button>)}
+              </nav>
               <details className="dc-inspector-group" open><summary>Identificação</summary><div className="dc-inspector-group-body">
 
               <div>
-                <label className={label}>TAG / referência</label>
-                <input className="dc-input" value={selectedComponent.ref} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { ref: e.target.value })} />
+                <label className={label} htmlFor="inspector-component-ref">TAG / referência</label>
+                <input id="inspector-component-ref" className="dc-input" value={selectedComponent.ref} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { ref: e.target.value })} />
               </div>
               <div>
-                <label className={label}>Descrição</label>
-                <input className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
+                <label className={label} htmlFor="inspector-component-description">Descrição</label>
+                <input id="inspector-component-description" className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
               </div></details>
               {isTerminalStripType(selectedComponent.type) && (
@@ -734,11 +790,14 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 )
               })()}
               <details className="dc-inspector-group" open><summary>Posição e aparência</summary><div className="dc-inspector-group-body">
+              {selectedComponent.locked && <p className="dc-inspector-note" role="status">Geometria bloqueada. Use «Desbloquear» para mover, rodar ou redimensionar.</p>}
+              <fieldset disabled={!!selectedComponent.locked} className="dc-inspector-geometry">
               <LayerButtons />
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className={label}>X</label>
-                  <input
+                  <label className={label} htmlFor="inspector-component-x">X (px)</label>
+                  <InspectorNumberInput
+                    id="inspector-component-x" aria-label="Posição X (px)" disabled={!!selectedComponent.locked}
                     type="number"
                     className="dc-input"
                     value={Math.round(selectedComponent.schematicX)}
@@ -746,8 +805,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   />
                 </div>
                 <div>
-                  <label className={label}>Y</label>
-                  <input
+                  <label className={label} htmlFor="inspector-component-y">Y (px)</label>
+                  <InspectorNumberInput
+                    id="inspector-component-y" aria-label="Posição Y (px)" disabled={!!selectedComponent.locked}
                     type="number"
                     className="dc-input"
                     value={Math.round(selectedComponent.schematicY)}
@@ -757,19 +817,19 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 {selectedComponent.type !== 'cableDuct' && !isMountingRail(selectedComponent.type) && (
                   <>
                     <div>
-                      <label className={label}>Largura</label>
-                      <input type="number" className="dc-input" value={selectedComponent.w} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { w: Math.max(30, Number(e.target.value)) })} />
+                      <label className={label} htmlFor="inspector-component-width">Largura (px)</label>
+                      <InspectorNumberInput id="inspector-component-width" aria-label="Largura (px)" disabled={!!selectedComponent.locked} min={30} type="number" className="dc-input" value={selectedComponent.w} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { w: Number(e.target.value) })} />
                     </div>
                     <div>
-                      <label className={label}>Altura</label>
-                      <input type="number" className="dc-input" value={selectedComponent.h} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { h: Math.max(30, Number(e.target.value)) })} />
+                      <label className={label} htmlFor="inspector-component-height">Altura (px)</label>
+                      <InspectorNumberInput id="inspector-component-height" aria-label="Altura (px)" disabled={!!selectedComponent.locked} min={30} type="number" className="dc-input" value={selectedComponent.h} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { h: Number(e.target.value) })} />
                     </div>
                   </>
                 )}
                 {selectedComponent.type !== 'cableDuct' && (
                   <div>
-                    <label className={label}>Rotação</label>
-                    <Select className="dc-select" value={selectedComponent.rotation} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { rotation: Number(e.target.value) })}>
+                    <label className={label} htmlFor="inspector-component-rotation">Rotação</label>
+                    <Select id="inspector-component-rotation" disabled={!!selectedComponent.locked} className="dc-select" value={selectedComponent.rotation} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { rotation: Number(e.target.value) })}>
                       {[0, 90, 180, 270].map((r) => (
                         <option key={r} value={r}>{r}°</option>
                       ))}
@@ -796,7 +856,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   <DinRailProfileControls c={selectedComponent} />
                   <label className={label}>Comprimento da calha (mm)</label>
                   <div className="dc-rail-length-row">
-                    <input type="number" className="dc-input" min={DIN_RAIL_15X55.minLengthMm} max={DIN_RAIL_15X55.maxLengthMm} step={5} value={length} onChange={(e) => setLength(Number(e.target.value))} />
+                    <InspectorNumberInput aria-label="Comprimento da calha (mm)" type="number" className="dc-input" min={DIN_RAIL_15X55.minLengthMm} max={DIN_RAIL_15X55.maxLengthMm} step={5} value={length} onChange={(e) => setLength(Number(e.target.value))} />
                     <input type="range" min={DIN_RAIL_15X55.minLengthMm} max={DIN_RAIL_15X55.maxLengthMm} step={5} value={length} aria-label="Comprimento da calha" onChange={(e) => setLength(Number(e.target.value))} />
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -981,13 +1041,13 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   </div>
                   {pm && <div className="flex flex-wrap items-center gap-1 mt-1">
                     <label className="text-[10px] text-ink-600">Ø furo
-                      <input type="number" className="dc-input w-16 ml-1" min={8} max={60} step={1} value={pm.cutoutMm ?? 22} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {cutoutMm: Math.max(8,Math.min(60,Number(e.target.value)))})}/>
+                      <InspectorNumberInput type="number" className="dc-input w-16 ml-1" min={8} max={60} step={1} value={pm.cutoutMm ?? 22} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {cutoutMm: Math.max(8,Math.min(60,Number(e.target.value)))})}/>
                     </label>
                     <label className="text-[10px] text-ink-600">X
-                      <input type="number" className="dc-input w-14 ml-1" step={5} value={pm.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {offsetXmm: Number(e.target.value)})}/>
+                      <InspectorNumberInput type="number" className="dc-input w-14 ml-1" step={5} value={pm.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {offsetXmm: Number(e.target.value)})}/>
                     </label>
                     <label className="text-[10px] text-ink-600">Y
-                      <input type="number" className="dc-input w-14 ml-1" step={5} value={pm.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {offsetYmm: Number(e.target.value)})}/>
+                      <InspectorNumberInput type="number" className="dc-input w-14 ml-1" step={5} value={pm.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updatePanelMount([selectedComponent.id], {offsetYmm: Number(e.target.value)})}/>
                     </label>
                   </div>}
                   <small className="text-ink-400">{parent ? `Lente/botão fora em ${parent.ref} (${pm?.face}); bornes dentro.` : 'Para luzes/botões na porta/lateral — parte fora visível, ligação dentro.'}</small>
@@ -1038,14 +1098,14 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                       </Select>
                       <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.background ?? '#facc15'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {background:e.target.value})} title="Fundo" />
                       <input type="color" className="w-7 h-7 rounded border border-line cursor-pointer" value={d.color ?? '#0f172a'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {color:e.target.value})} title="Texto" />
-                      <label className="flex items-center gap-1">L <input type="number" className="dc-input w-12" min={6} max={120} step={2} value={d.widthMm ?? 30} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {widthMm: Number(e.target.value)})} /></label>
-                      <label className="flex items-center gap-1">A <input type="number" className="dc-input w-12" min={6} max={80} step={2} value={d.heightMm ?? 15} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {heightMm: Number(e.target.value)})} /></label>
+                      <label className="flex items-center gap-1">L <InspectorNumberInput type="number" className="dc-input w-12" min={6} max={120} step={2} value={d.widthMm ?? 30} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {widthMm: Number(e.target.value)})} /></label>
+                      <label className="flex items-center gap-1">A <InspectorNumberInput type="number" className="dc-input w-12" min={6} max={80} step={2} value={d.heightMm ?? 15} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {heightMm: Number(e.target.value)})} /></label>
                     </div>
                     <div className="flex flex-wrap items-center gap-1 text-[11px]">
-                      <label className="flex items-center gap-1">X <input type="number" className="dc-input w-14" step={2} value={d.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetXmm: Number(e.target.value)})} /></label>
-                      <label className="flex items-center gap-1">Y <input type="number" className="dc-input w-14" step={2} value={d.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetYmm: Number(e.target.value)})} /></label>
-                      <label className="flex items-center gap-1">↻ <input type="number" className="dc-input w-12" step={15} value={d.rotationDeg ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {rotationDeg: Number(e.target.value)})} /></label>
-                      <Select className="dc-input w-20" value={d.face ?? 'front'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {face: e.target.value as any})}>
+                      <label className="flex items-center gap-1">X <InspectorNumberInput type="number" className="dc-input w-14" step={2} value={d.offsetXmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetXmm: Number(e.target.value)})} /></label>
+                      <label className="flex items-center gap-1">Y <InspectorNumberInput type="number" className="dc-input w-14" step={2} value={d.offsetYmm ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {offsetYmm: Number(e.target.value)})} /></label>
+                      <label className="flex items-center gap-1">↻ <InspectorNumberInput type="number" className="dc-input w-12" step={15} value={d.rotationDeg ?? 0} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {rotationDeg: Number(e.target.value)})} /></label>
+                      <Select aria-label="Face da etiqueta" className="dc-input w-20" value={d.face ?? 'front'} onChange={(e)=> useSimStore.getState().updateDecal(selectedComponent.id, d.id, {face: e.target.value as any})}>
                         <option value="front">Frente</option><option value="door">Porta</option><option value="inside">Interior</option><option value="left">Esq.</option><option value="right">Dir.</option><option value="top">Topo</option><option value="bottom">Base</option>
                       </Select>
                     </div>
@@ -1053,9 +1113,10 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 ))}
                 <small className="text-ink-400">Etiquetas movem-se com o aparelho/quadro. Use X/Y (mm) para posicionar na face (contator, porta, disjuntor).</small>
               </div>}
+              </fieldset>
               <div className="flex flex-wrap gap-1">
-                <button className="dc-btn" onClick={() => useSimStore.getState().rotateComponent(selectedComponent.id)}><IconRotate size={12} /> Girar 90°</button>
-                <button className="dc-btn" onClick={() => useSimStore.getState().mirrorComponent(selectedComponent.id)}>Espelhar</button>
+                <button className="dc-btn" disabled={!!selectedComponent.locked} title={selectedComponent.locked ? 'Desbloqueie o componente para alterar a geometria.' : undefined} onClick={() => useSimStore.getState().rotateComponent(selectedComponent.id)}><IconRotate size={12} /> Girar 90°</button>
+                <button className="dc-btn" disabled={!!selectedComponent.locked} onClick={() => useSimStore.getState().mirrorComponent(selectedComponent.id)}>Espelhar</button>
                 {wires.some((w) => selectedComponent.terminals.some((t) => w.fromTerminalId === t.id || w.toTerminalId === t.id)) && (
                   <button
                     type="button"
@@ -1096,25 +1157,17 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               {(() => {
                 const isThermal = importedComponentInfo(selectedComponent.type)?.behavior === 'thermal'
                 const hasProt = !!protectionControlKindOf(selectedComponent.type)
-                const hasDev = hasDeviceControls(selectedComponent.type)
-                const extraEntries = Object.entries(selectedComponent.state).filter(([k]) => {
-                  if (isMountingRail(selectedComponent.type) && (k === 'lengthMm' || RAIL_PROFILE_STATE_KEYS.has(k))) return false
-                  if (isPanelAccessoryType(selectedComponent.type) && PANEL_ACCESSORY_STATE_KEYS.has(k)) return false
-                  if (isRealBusbarType(selectedComponent.type) && BUSBAR_STATE_KEYS.has(k)) return false
-                  if (isTerminalStripType(selectedComponent.type) && TERMINAL_STRIP_STATE_KEYS.has(k)) return false
-                  if (hasProt && (PROTECTION_MANAGED_STATE_KEYS.has(k) || DEVICE_MANAGED_STATE_KEYS.has(k))) return false
-                  if (hasDev && DEVICE_MANAGED_STATE_KEYS.has(k)) return false
-                  if (k === 'showFan' || k === 'acrylicCover' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes' || k === 'glassColor') return false
-                  if (isThermal && (['testPressed', 'stopPressed', 'tripped', 'manual', 'manufacturer', 'code'].includes(k))) return false
-                  return true
-                })
+                const hasDev = hasDeviceControls(selectedComponent.type) || !!industrialDeviceTypeOf(selectedComponent)
+                const extraEntries = selectedStateEntries
                 if (!isThermal && !hasProt && !hasDev && extraEntries.length === 0) return null
                 return (
-              <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body dc-inspector-state-list">
+              <details className="dc-inspector-group" data-inspector-configuration open><summary>Configuração e estado</summary><div className="dc-inspector-group-body dc-inspector-state-list">
                 {isThermal && <ThermalRelayControls component={selectedComponent} />}
                 {hasProt && <ProtectionControls component={selectedComponent} />}
                 {hasDev && <DeviceControls component={selectedComponent} />}
                 {extraEntries.map(([k, v]) => {
+                  const policy = inspectorStatePolicy(selectedComponent.type, k)
+                  if (policy.readOnly && ['number', 'boolean', 'string'].includes(typeof v)) return <div key={k} className="dc-inspector-state-row is-readonly"><span className="dc-inspector-state-label">{stateLabel(k)}</span><output className="dc-inspector-state-output" aria-label={`${stateLabel(k)} (só leitura)`}>{typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : String(v)}</output></div>
                   if (typeof v === 'boolean') {
                     return (
                       <label key={k} className="dc-inspector-state-row is-toggle">
@@ -1133,8 +1186,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     return (
                       <label key={k} className="dc-inspector-state-row">
                         <span className="dc-inspector-state-label" title={k}>{stateLabel(k)}</span>
-                        <input
+                        <InspectorNumberInput
                           type="number"
+                          min={policy.min} integer={policy.integer}
                           className="dc-input dc-inspector-state-input text-right"
                           value={v}
                           disabled={!manobraAllowed && MANOBRA_STATE_KEYS.has(k)}
@@ -1196,7 +1250,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <details className="dc-inspector-group" open><summary>Bornes <span className="dc-inspector-count">{selectedComponent.terminals.length}</span></summary><div className="dc-inspector-group-body">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-ink-400">Ligação e identificação</span>
-                  <button className="dc-btn !h-6 !px-2 !text-[10px]" title="Adicionar e classificar segundo a ficha técnica" onClick={() => useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')}><IconPlus size={10} /> Adicionar borne</button>
+                  <button className="dc-btn !h-6 !px-2 !text-[10px]" disabled={!!selectedComponent.locked} title="Adicionar e classificar segundo a ficha técnica" onClick={() => useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')}><IconPlus size={10} /> Adicionar borne</button>
                 </div>
                 <p className="mb-2 rounded-md border border-blue-100 bg-blue-50/70 px-2 py-1.5 text-[9px] leading-4 text-blue-800">{terminalDatasheetGuidance(selectedComponent)}</p>
                 <div className="flex flex-col gap-1">
@@ -1207,12 +1261,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           <input
                             className="dc-input dc-inspector-terminal-label font-mono"
                             aria-label={`Nome do borne ${t.label}`}
-                            value={t.label}
-                            onChange={(e) => useSimStore.getState().updateTerminal(t.id, { label: e.target.value })}
+                            value={t.displayName ?? ''} placeholder={t.label}
+                            onChange={(e) => useSimStore.getState().updateTerminal(t.id, { displayName: e.target.value })}
                           />
                           <LabelLibrary
                             title="Escolher rótulo padrão IEC para este borne"
-                            onPick={(l) => useSimStore.getState().updateTerminal(t.id, { label: l })}
+                            onPick={(l) => useSimStore.getState().updateTerminal(t.id, { displayName: l })}
                           />
                           <Select
                             className="dc-select dc-inspector-terminal-kind"
@@ -1238,7 +1292,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                             useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')
                             useSimStore.getState().setViewActiveTerminal(t.id)
                           }}>Editar</button>
-                          <button type="button" className="dc-icon-btn dc-inspector-terminal-remove !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={async () => {
+                          <button type="button" disabled={!!selectedComponent.locked} aria-label={`Remover borne ${t.label}`} className="dc-icon-btn dc-inspector-terminal-remove !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={async () => {
                             const linked = wires.filter((wire) => wire.fromTerminalId === t.id || wire.toTerminalId === t.id).length
                             if (linked && !await uiConfirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
                             useSimStore.getState().deleteTerminal(t.id)
@@ -1252,6 +1306,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                         onChange={(e) => useSimStore.getState().updateTerminal(t.id, { electricalClass: e.target.value as TerminalElectricalClass, electricalClassCustom: e.target.value === 'other' ? t.electricalClassCustom : undefined })}
                       >{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, classLabel]) => <option key={id} value={id}>{classLabel}</option>)}</Select></label>
                       {terminalElectricalClassOf(selectedComponent, t) === 'other' && <label className="mt-1 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Designação personalizada</span><input className="dc-input !h-[26px] !text-[10px]" value={t.electricalClassCustom ?? ''} placeholder="Ex.: PE, contacto seco" onChange={(e) => useSimStore.getState().updateTerminal(t.id, { electricalClassCustom: e.target.value || undefined })} /></label>}
+                      <div className="text-[10px] text-ink-600 mt-1">Código físico: <code>{t.label}</code></div>
                       <div className="dc-inspector-terminal-details">
                         <label><span>Tipo</span><Select
                           className="dc-select !h-[24px] !text-[10px]"
@@ -1263,9 +1318,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                             <option key={k} value={k}>{v}</option>
                           ))}
                         </Select></label>
-                        <label><span>X</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.x} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { x: Number(e.target.value) })} /></label>
-                        <label><span>Y</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.y} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { y: Number(e.target.value) })} /></label>
-                        <label title="Diâmetro do desenho do borne no Esquema (vazio = padrão)"><span>Ø px</span><input type="number" step="0.5" min="3" max="24" placeholder="auto" className="dc-input !h-[24px] !text-[10px]" value={t.diameter ?? ''} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { diameter: e.target.value === '' ? undefined : Math.max(3, Math.min(24, Number(e.target.value))) })} /></label>
+                        <label><span>X</span><InspectorNumberInput aria-label={`Posição X do borne ${t.label} (0–1)`} disabled={!!selectedComponent.locked} type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.x} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { x: Number(e.target.value) })} /></label>
+                        <label><span>Y</span><InspectorNumberInput aria-label={`Posição Y do borne ${t.label} (0–1)`} disabled={!!selectedComponent.locked} type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.y} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { y: Number(e.target.value) })} /></label>
+                        <label title="Diâmetro do desenho do borne no Esquema (vazio = padrão)"><span>Ø px</span><InspectorNumberInput allowEmpty aria-label={`Diâmetro do borne ${t.label} (px)`} type="number" step="0.5" min="3" max="24" placeholder="auto" className="dc-input !h-[24px] !text-[10px]" value={t.diameter ?? ''} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { diameter: e.target.value === '' ? undefined : Number(e.target.value) })} /></label>
                       </div>
                       <span className={`dc-inspector-terminal-status ${t.energized ? 'is-on' : ''}`}>{t.energized ? '● Energizado' : '○ Sem tensão'}</span>
                     </div>
@@ -1320,7 +1375,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
             const iecSuggestedColor = WIRE_KIND_COLOR[selectedWire.kind]
 
             return (
-              <section className="dc-wire-inspector wi-root" aria-label="Propriedades do cabo selecionado">
+              <section key={wireSelectionKey} className="dc-wire-inspector wi-root" aria-label="Propriedades do cabo selecionado">
                 {/* Cabeçalho fixo com identificação, estado energético e amostra técnica */}
                 <header className="dc-wire-inspector-head wi-hero">
                   <div className="wi-hero-top">
@@ -1430,7 +1485,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     type="button"
                     className="dc-btn"
                     aria-pressed={!!selectedWire.locked}
-                    disabled={!wireEditingStopped}
+                    disabled={!wireEditingStopped || wireEditDirty}
+                    title={wireEditDirty ? 'Guarde ou cancele a edição antes de bloquear os cabos.' : undefined}
                     onClick={() => useSimStore.getState().setWiresLocked(!selectedWire.locked, targetIds)}
                   >
                     {selectedWire.locked ? <IconUnlock size={12} /> : <IconLock size={12} />}
@@ -1662,7 +1718,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           )}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <input
+                          <InspectorNumberInput
+                            allowEmpty
                             type="number"
                             min={0}
                             step={5}
@@ -2479,7 +2536,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                   }}
                                 />
                                 <label className="wi-pct-field" title="Posição ao longo do cabo (0% = ponta A, 100% = ponta B)">
-                                  <input
+                                  <InspectorNumberInput
                                     type="number"
                                     min={0}
                                     max={100}
@@ -2584,7 +2641,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           <div key={i} className="wi-acc-block">
                             <div className="wi-acc-row">
                               <label className="wi-pct-field" title="Início da espiral (%)">
-                                <input
+                                <InspectorNumberInput
                                   type="number"
                                   min={0}
                                   max={100}
@@ -2601,7 +2658,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                               </label>
                               <span className="text-ink-400 text-[10px]"><IconArrowRight size={10} /></span>
                               <label className="wi-pct-field" title="Fim da espiral (%)">
-                                <input
+                                <InspectorNumberInput
                                   type="number"
                                   min={0}
                                   max={100}
@@ -2643,7 +2700,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                             <div className="wi-acc-row">
                               <label className="wi-unit-field">
                                 <span>Passo</span>
-                                <input
+                                <InspectorNumberInput
                                   type="number"
                                   min={4}
                                   max={30}
@@ -2659,7 +2716,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                               </label>
                               <label className="wi-unit-field">
                                 <span>Ø int.</span>
-                                <input
+                                <InspectorNumberInput
                                   type="number"
                                   min={4}
                                   max={40}
@@ -2698,7 +2755,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                         {(selectedWire.isolation ?? []).map((seg, i) => (
                           <div key={i} className="wi-acc-row">
                             <label className="wi-pct-field" title="Início da manga (%)">
-                              <input
+                              <InspectorNumberInput
                                 type="number"
                                 min={0}
                                 max={100}
@@ -2718,7 +2775,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                             </label>
                             <span className="text-ink-400 text-[10px]"><IconArrowRight size={10} /></span>
                             <label className="wi-pct-field" title="Fim da manga (%)">
-                              <input
+                              <InspectorNumberInput
                                 type="number"
                                 min={0}
                                 max={100}
@@ -2783,7 +2840,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
           {/* ---------------------------------------------------- borne */}
           {selectedTerminal && terminalOwner && !selectedComponent && (
-            <section className="space-y-3">
+            <section key={selectedTerminal.id} className="space-y-3">
               <header className="border-b border-line pb-2 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
@@ -2834,7 +2891,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <div className="dc-inspector-group-body grid grid-cols-2 gap-2">
                   {(['x', 'y'] as const).map((axis) => <div key={axis}>
                     <label className={label} htmlFor={`terminal-${axis}`}>{axis.toUpperCase()} (0–1)</label>
-                    <input id={`terminal-${axis}`} type="number" min="0" max="1" step="0.01" className="dc-input" value={selectedTerminal[axis]}
+                    <InspectorNumberInput disabled={!!terminalOwner.locked} id={`terminal-${axis}`} type="number" min="0" max="1" step="0.01" className="dc-input" value={selectedTerminal[axis]}
                       onChange={(e) => { const value = Number(e.target.value); if (Number.isFinite(value)) useSimStore.getState().updateTerminal(selectedTerminal.id, { [axis]: Math.min(1, Math.max(0, value)) }) }} />
                   </div>)}
                   <p className="col-span-2 text-[10px] text-ink-400">Alterar a posição pode afastar este borne do parafuso físico no modelo 3D.</p>

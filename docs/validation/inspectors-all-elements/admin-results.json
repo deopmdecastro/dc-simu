@@ -1,0 +1,18 @@
+{
+  "tabs": [
+    "object",
+    "materials",
+    "terminals",
+    "wires",
+    "controls",
+    "displays",
+    "lights",
+    "states",
+    "interactions",
+    "component",
+    "iec"
+  ],
+  "checks": 17,
+  "errors": [],
+  "scope": "11 separadores reais do editor, definição sintética local; posição/escala, Undo e troca de seleção. Sem API ou publicação."
+}

@@ -20,6 +20,7 @@ useSimStore.getState().loadJSON(JSON.stringify(nativePartidaDiretaContent()))
 const st = () => useSimStore.getState()
 const comp = (ref: string) => st().components.find((c) => c.ref === ref)!
 const wireId = st().wires[0]?.id ?? null
+const terminalId = comp('B1').terminals[0].id
 
 // STOP: a seleção funciona normalmente.
 st().selectComponents([comp('B1').id])
@@ -43,6 +44,8 @@ if (wireId) {
 }
 st().selectComponents([comp('M1').id], true)
 check('RUN: seleção aditiva (Ctrl/Shift) também fica bloqueada', st().selectedComponentIds.length === 0)
+st().selectTerminal(terminalId)
+check('RUN: navegar para um borne não reabre a edição', st().selectedTerminalId === null)
 
 // RUN: os botões e atuadores continuam a atuar.
 const before = JSON.stringify(comp('B1').state)
@@ -55,12 +58,18 @@ st().pause()
 check('Pausa coloca a simulação em PAUSA', st().sim.runState === 'paused')
 st().selectComponents([comp('B1').id])
 check('PAUSA: continua sem seleção de componentes', st().selectedComponentIds.length === 0)
+st().selectTerminal(terminalId)
+check('PAUSA: seleção de borne também fica bloqueada', st().selectedTerminalId === null)
+st().selectTerminal(null)
+check('PAUSA: limpar seleção continua permitido', st().selectedTerminalId === null)
 
 // STOP: volta a selecionar.
 st().stop()
 check('Stop coloca a simulação em STOP', st().sim.runState === 'stopped')
 st().selectComponents([comp('B1').id])
 check('STOP: a seleção volta depois de parar', st().selectedComponentIds.includes(comp('B1').id))
+st().selectTerminal(terminalId)
+check('STOP: o inspetor do borne volta a abrir', st().selectedTerminalId === terminalId)
 
 if (failed) {
   console.log(`\n❌ ${failed} verificação(ões) falharam`)

@@ -1,0 +1,784 @@
+{
+  "totalTypes": 129,
+  "tested": 129,
+  "checks": 775,
+  "coverage": [
+    {
+      "type": "fuseHolderSchneiderDf103nv",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "fuseHolderSchneiderDf101v",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "fuseHolderSchneiderDf81n",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "keyActuatorEao61",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "thermalRelaySiemens3ru1116",
+      "terminals": 11,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "residualBreakerHagerCfc225p",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "limitSwitchLongRoller",
+      "terminals": 0,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "selectorSchneiderXa2ed33",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "contactorWegCwbc65",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "surgeProtectorWegSpw02",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "surgeProtectorWegSpw12",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "safetyRelaySiemens3tk2840",
+      "terminals": 11,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "motorBreakerSchneiderGv2me",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "buttonStart22",
+      "terminals": 0,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "buttonStop22",
+      "terminals": 0,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "towerLightSb23011",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "photoSensorXukt1ksml2",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "vfdSchneiderAtv320",
+      "terminals": 35,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "relaySocketFinder9023",
+      "terminals": 22,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "relayFinder5534",
+      "terminals": 14,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "timerGeyaGrt8M1",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "timerGeyaGrt8B1",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "levelRelayAvel411",
+      "terminals": 11,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "buzzerMetaltexTby301",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pushButtonXb2No",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pushButtonXb2Nc",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pushButtonXb2Black",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pushButtonXb2Yellow",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pushButtonXb2Blue",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pushButtonXb2White",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breakerMurrelektronikMico46",
+      "terminals": 12,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "timerGeyaGrt8M2",
+      "terminals": 9,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breakerMurrelektronikMico24",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breaker1p",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breakerSchneiderIc60h1p",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breakerSteckSdC25",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "motorBreakerPkzmC10",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breaker2p",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breaker3p",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "switchSchneiderEz9s1p",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "switchSchneiderEz9s2p",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "switchSchneiderEz9s4p",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "breaker4p",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "phoenixEcb3000760",
+      "terminals": 5,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "motorBreaker",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "residualBreaker",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "residualBreakerSchneiderIid4p",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "residualBreakerSchneiderIdpnVigi",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "fuse",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "fuseHolder",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "surgeProtector",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "thermalRelay",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "buttonNO",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "buttonNC",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "dualPushButtonNpb22D11",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "emergencyButton",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "emergencyButtonKeyP20ACR",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "selector2",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "selector3",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "keySwitch",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "footSwitch",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "limitSwitch",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "proximitySensor",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "photoSensor",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pressureSwitch",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "thermostat",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "floatSwitch",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "contactorWegCWC09",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "contactor",
+      "terminals": 12,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "contactor4p",
+      "terminals": 14,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "auxContactBlock",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "auxRelay",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "auxRelay4",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "timerRelayTON",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "timerRelayTOF",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "timerRelayStarDelta",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "counterRelay",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "safetyRelay",
+      "terminals": 16,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "ledGreen",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "ledRed",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "ledYellow",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "ledWhite",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pilotLightAd22",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pilotLightSchneiderIil1p",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "pilotLightSchneiderIil3p",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "buzzer",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "towerLight",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "motor3ph",
+      "terminals": 7,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "motor1ph",
+      "terminals": 5,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "capacitorRun60uF",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "vfd",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "softStarter",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "plcLogo",
+      "terminals": 14,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "plcSiemensLogo1224RC",
+      "terminals": 19,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "plcLsXbmDn32s",
+      "terminals": 34,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "plcSiemensS71500Di32",
+      "terminals": 34,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "plcSiemensS71500Cpu1511c",
+      "terminals": 35,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "plcSiemensS7300Cpu315",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "siemensTsAdapterIeBasic",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "plcCompact",
+      "terminals": 22,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "hmi",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "terminalBlock",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "terminalPhoenixPti6",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "terminalPE",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "dinRail15x55",
+      "terminals": 0,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "panelEnclosure",
+      "terminals": 0,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "cableDuct",
+      "terminals": 0,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "spiralWrap",
+      "terminals": 0,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "busbarPhase",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "busbarPhaseAcrylic",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "busbarNeutral",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "earthBar",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "busbarPhaseStepped",
+      "terminals": 28,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "busbarComb",
+      "terminals": 12,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "combBusbarConnector",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "terminalSet1ph",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "terminalSet24v",
+      "terminals": 6,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "terminalSet3ph",
+      "terminals": 10,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "transformer",
+      "terminals": 5,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "powerSupplyProauto24A",
+      "terminals": 9,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "powerSupply",
+      "terminals": 5,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "powerSource1ph",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "powerSource3ph",
+      "terminals": 5,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "powerSource24v",
+      "terminals": 3,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "analogAmmeter",
+      "terminals": 2,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "multimeterDm20",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "currentTransformerSplitCore",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "meterD522066",
+      "terminals": 4,
+      "checks": 6,
+      "ok": true
+    },
+    {
+      "type": "meterKws306",
+      "terminals": 8,
+      "checks": 6,
+      "ok": true
+    }
+  ],
+  "failures": [],
+  "errors": [],
+  "scope": "Todos os TEMPLATES nativos, incluindo elementos 2D/legados sem inserção 3D. Inspetor React real, grupos abertos, Undo/Redo e persistência; pedidos externos bloqueados."
+}

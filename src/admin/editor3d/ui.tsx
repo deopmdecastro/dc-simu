@@ -1,7 +1,15 @@
+import InspectorNumberInput from '../../ui/InspectorNumberInput'
 import DcxSelect from '../../ui/Select'
-import { useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Vec3 } from '../../catalog/types'
 import { IconChevronRight } from '../../ui/icons'
+import { useEditorStore } from './editorStore'
+
+const FieldLabel = createContext<string | undefined>(undefined)
+// Uma seleção nova recebe sempre um rascunho próprio, mesmo quando os valores coincidem.
+function useInspectorScope() {
+  return useEditorStore((s) => `${s.selection?.kind ?? ''}:${s.selection?.id ?? ''}:${s.selectedWire ?? ''}:${s.tab}`)
+}
 
 /** Pequenos controlos do editor 3D (mantêm o visual dx do resto da administração). */
 export function Section({ title, children, open = true, actions }: { title: ReactNode; children: ReactNode; open?: boolean; actions?: ReactNode }) {
@@ -35,13 +43,15 @@ export function PresetCard({ title, description, onClick, disabled, active }: { 
 }
 
 export function Field({ label, children, hint, wide }: { label: string; children: ReactNode; hint?: string; wide?: boolean }) {
-  return <label className={`ce-field${wide ? ' is-wide' : ''}`}><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>
+  return <FieldLabel.Provider value={label}><label className={`ce-field${wide ? ' is-wide' : ''}`}><span>{label}</span>{children}{hint && <small>{hint}</small>}</label></FieldLabel.Provider>
 }
 
-export function Num({ value, onChange, step = 1, min, max, unit, disabled }: { value: number; onChange: (value: number) => void; step?: number; min?: number; max?: number; unit?: string; disabled?: boolean }) {
+export function Num({ value, onChange, step = 1, min, max, unit, disabled, 'aria-label': ariaLabel }: { value: number; onChange: (value: number) => void; step?: number; min?: number; max?: number; unit?: string; disabled?: boolean; 'aria-label'?: string }) {
+  const scope = useInspectorScope()
+  const label = useContext(FieldLabel)
   return <span className="ce-num">
-    <input type="number" className="dx-input" value={Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0} step={step} min={min} max={max} disabled={disabled}
-      onChange={(event) => { const next = parseFloat(event.target.value); if (Number.isFinite(next)) onChange(min !== undefined ? Math.max(min, max !== undefined ? Math.min(max, next) : next) : next) }} />
+    <InspectorNumberInput resetKey={scope} aria-label={ariaLabel ?? (label ? `${label}${unit ? ` (${unit})` : ''}` : undefined)} type="number" className="dx-input" value={Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0} step={step} min={min} max={max} disabled={disabled}
+      onChange={(event) => onChange(Number(event.target.value))} />
     {unit && <i>{unit}</i>}
   </span>
 }
@@ -51,19 +61,21 @@ export function Vec3Input({ label, value, onChange, step = 1, min, unit, disable
     <span className="ce-vec-label">{label}</span>
     {(['X', 'Y', 'Z'] as const).map((axis, index) => <span key={axis} className={`ce-axis ce-axis-${axis}`}>
       <b>{axis}</b>
-      <Num value={value[index]} step={step} min={min} unit={index === 2 ? unit : undefined} disabled={disabled} onChange={(next) => { const copy = [...value] as Vec3; copy[index] = next; onChange(copy) }} />
+      <Num aria-label={`${label} ${axis}${unit ? ` (${unit})` : ''}`} value={value[index]} step={step} min={min} unit={index === 2 ? unit : undefined} disabled={disabled} onChange={(next) => { const copy = [...value] as Vec3; copy[index] = next; onChange(copy) }} />
     </span>)}
   </div>
 }
 
 export function Text({ value, onChange, placeholder, multiline }: { value: string; onChange: (value: string) => void; placeholder?: string; multiline?: boolean }) {
+  const label = useContext(FieldLabel)
   return multiline
-    ? <textarea className="dx-input" rows={3} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    : <input className="dx-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+    ? <textarea aria-label={label} className="dx-input" rows={3} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+    : <input aria-label={label} className="dx-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
 }
 
 export function Select<T extends string>({ value, onChange, options, disabled }: { value: T; onChange: (value: T) => void; options: Array<[T, string]>; disabled?: boolean }) {
-  return <DcxSelect className="dx-input" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value as T)}>
+  const label = useContext(FieldLabel)
+  return <DcxSelect aria-label={label} className="dx-input" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value as T)}>
     {options.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
   </DcxSelect>
 }
@@ -73,8 +85,9 @@ export const COLOR_SWATCHES: Array<[string, string]> = [['#f8fafc', 'Branco'], [
 
 /** Cor: amostra (seletor do sistema) + HEX editável + cores rápidas; um HEX inválido não é aplicado e repõe-se ao sair. */
 export function Color({ value, onChange, swatches = COLOR_SWATCHES }: { value: string; onChange: (value: string) => void; swatches?: Array<[string, string]> | false }) {
+  const scope = useInspectorScope()
   const [draft, setDraft] = useState(value)
-  useEffect(() => setDraft(value), [value])
+  useEffect(() => setDraft(value), [value, scope])
   const valid = (hex: string) => /^#[0-9a-f]{6}$/i.test(hex)
   return <span className="ce-color">
     <input type="color" value={valid(value) ? value : '#000000'} onChange={(event) => onChange(event.target.value)} aria-label="Escolher cor" />
@@ -93,11 +106,12 @@ export function Check({ checked, onChange, label }: { checked: boolean; onChange
 
 /** Deslizador + valor exato editável (limitado ao intervalo). */
 export function Slider({ value, onChange, min = 0, max = 1, step = 0.01 }: { value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number }) {
-  const clamp = (next: number) => Math.max(min, Math.min(max, next))
+  const scope = useInspectorScope()
+  const label = useContext(FieldLabel) ?? 'Valor'
   return <span className="ce-slider">
-    <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(parseFloat(event.target.value))} />
-    <input type="number" className="dx-input ce-slider-num" min={min} max={max} step={step} value={Math.round(value * 100) / 100} aria-label="Valor"
-      onChange={(event) => { const next = parseFloat(event.target.value); if (Number.isFinite(next)) onChange(clamp(next)) }} />
+    <input aria-label={`${label}: ajustar`} type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(parseFloat(event.target.value))} />
+    <InspectorNumberInput resetKey={scope} type="number" className="dx-input ce-slider-num" min={min} max={max} step={step} value={Math.round(value * 100) / 100} aria-label={`${label}: valor exato`}
+      onChange={(event) => onChange(Number(event.target.value))} />
   </span>
 }
 
