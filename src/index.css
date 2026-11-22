@@ -1926,6 +1926,20 @@ button:disabled { cursor:not-allowed; }
 .dc-library-tile.is-locked .dc-library-tile-image img { opacity:.36; }
 .dc-library-tile-lock { position:absolute; inset:0; display:grid; place-items:center; color:#475569; background:#f8fafc70; }
 .dc-library-tile-lock svg { padding:6px; width:30px; height:30px; border:1px solid #cbd5e1; border-radius:999px; background:#fff; box-shadow:0 2px 7px #0f172a1f; }
+
+/* Maquetes prontas: cartão grande com o render da montagem completa (um clique = bancada inteira). */
+.dc-maquette-list { display:flex; flex-direction:column; gap:8px; padding:8px 7px 10px; }
+.dc-maquette-tile { display:grid; grid-template-columns:84px minmax(0,1fr); gap:9px; align-items:center; padding:8px; border:1px solid #dfe7f2; border-radius:10px; background:#fff; text-align:left; transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease; }
+.dc-maquette-tile:hover,.dc-maquette-tile:focus-visible { border-color:#c4b5fd; box-shadow:0 3px 12px #10161d14; }
+.dc-maquette-tile:active { transform:translateY(1px); }
+.dc-maquette-tile-image { width:84px; height:84px; display:grid; place-items:center; overflow:hidden; border:1px solid #e6ecf5; border-radius:8px; background:radial-gradient(circle at 50% 38%,#ffffff 0%,#eef2f8 72%); }
+.dc-maquette-tile-image img { width:100%; height:100%; object-fit:contain; display:block; }
+.dc-maquette-tile-body { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.dc-maquette-tile-body strong { font-size:11.5px; font-weight:700; line-height:1.25; color:#25344c; }
+.dc-maquette-tile-sub { font-size:10px; line-height:1.35; color:var(--dx-ink-3,#64748b); }
+.dc-maquette-tile-meta { display:flex; align-items:center; gap:4px; margin-top:3px; font-size:9.5px; font-weight:600; color:#7c3aed; white-space:nowrap; }
+.dc-maquette-tile-meta em { margin-left:auto; padding:2px 7px; border-radius:999px; background:#7c3aed; color:#fff; font-style:normal; font-size:9.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
+.dc-maquette-tile:hover .dc-maquette-tile-meta em { background:#6d28d9; }
 /* Capa de recurso com o símbolo do esquema: traço legível a 58 px, sem textos, cadeado em selo no canto. */
 .dc-thumb-symbol { background:#fff; }
 .dc-thumb-symbol * { vector-effect:non-scaling-stroke; stroke-width:1.5px; }

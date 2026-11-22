@@ -82,6 +82,7 @@ import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBr
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
+import { benchBaseUnits, benchPartUnits, MAQUETTE_PLATE_TYPE, readyMaquetteById, readyMaquetteParts, type ReadyMaquetteId } from '../electrical/readyMaquettes'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
 import {
   canTerminalHaveJumper,
@@ -206,6 +207,19 @@ interface RuntimeExtras {
   plcRuntime: Record<string, PlcScanRuntime>
   energizedTerminals: Set<string>
   energizedWires: Set<string>
+}
+
+/**
+ * Opções de inserção de uma peça. `history`/`events` a `false` servem às montagens em lote
+ * (maquetes prontas, planos de componentes): um só `commitHistory()` e um só evento no fim.
+ */
+export interface AddComponentOptions {
+  /** Passo de histórico próprio (por omissão true). */
+  history?: boolean
+  /** Evento «Componente X adicionado» (por omissão true). */
+  events?: boolean
+  /** Estado inicial da instância, sobre o `defaultState` do template. */
+  state?: Record<string, any>
 }
 
 interface Store extends CircuitState {
@@ -468,7 +482,12 @@ interface Store extends CircuitState {
   /** Preferências aplicadas aos novos cabos (ferramenta Cabo) */
   wireDefaults: WireDefaults
   setWireDefaults: (patch: Partial<WireDefaults>) => void
-  addComponent: (type: ComponentType, x: number, y: number) => string | null
+  addComponent: (type: ComponentType, x: number, y: number, options?: AddComponentOptions) => string | null
+  /**
+   * Monta uma maquete pronta («Maquetes prontas»): base ranhurada + estrutura + todos os componentes
+   * nas cotas do relatório, num único passo de histórico. Devolve os IDs criados (base primeiro).
+   */
+  insertReadyMaquette: (id: ReadyMaquetteId, at?: { x: number; y: number }) => string[]
   /** Calha técnica nova encostada à existente: prolonga pela ponta (`left`/`right`) ou ramifica em T (`top`/`bottom`). */
   addDuctAdjacent: (id: string, slot: import('../schematic/ductPlacement').DuctSlot, lengthMm?: number) => string | null
   addMountedDevice: (type: ComponentType, enclosureId: string, face: import('../types').EnclosureHoleFace, offsetXmm: number, offsetYmm: number, cutoutMm: number, holeId?: string) => string | null
@@ -2969,14 +2988,16 @@ export const useSimStore = create<Store>((set, get) => {
   wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule', conductorCount: 1, sheathed: false },
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
-  addComponent: (type, x, y) => {
+  addComponent: (type, x, y, options) => {
+    const recordHistory = options?.history !== false
+    const logEvents = options?.events !== false
     if (get().demoMode) return null
     if (!canInsertComponent3D(type)) {
-      get().pushEvent('warning', `Componente bloqueado: não existe representação 3D disponível para ${TEMPLATES[type]?.paletteName ?? type}.`)
+      if (logEvents) get().pushEvent('warning', `Componente bloqueado: não existe representação 3D disponível para ${TEMPLATES[type]?.paletteName ?? type}.`)
       return null
     }
-    get().commitHistory()
-    const comp = createComponent(type, undefined, undefined, get().components.length, x, y)
+    if (recordHistory) get().commitHistory()
+    const comp = createComponent(type, undefined, undefined, get().components.length, x, y, options?.state ?? {})
     // Calha técnica largada junto a outra: encaixa (prolonga ou ramifica em T) e herda medidas e cor.
     const snap = type === 'cableDuct' ? snapNewDuct({ x, y }, get().components, comp) : null
     const free = snap ? { x: snap.placement.schematicX, y: snap.placement.schematicY, displaced: false } : nearestFreeComponentPosition(comp, x, y, get().components)
@@ -2992,12 +3013,55 @@ export const useSimStore = create<Store>((set, get) => {
       selectedWireId: null,
       dirty: true,
     }))
-    get().pushEvent('info', `Componente ${comp.ref} (${comp.label}) adicionado ao esquema.`)
-    if (free.displaced) get().pushEvent('warning', `${comp.ref} foi colocado na posição livre mais próxima para evitar sobreposição.`)
-    if (snap) get().pushEvent('info', `${comp.ref} encaixada em ${snap.hostRef}: ${snap.slot === 'left' || snap.slot === 'right' ? 'prolonga a calha' : 'ramal em T'} (mesma largura, altura e cor).`)
-    if (get().grid.railMagnet !== false) get().snapToRails([comp.id])
+    if (logEvents) get().pushEvent('info', `Componente ${comp.ref} (${comp.label}) adicionado ao esquema.`)
+    if (logEvents && free.displaced) get().pushEvent('warning', `${comp.ref} foi colocado na posição livre mais próxima para evitar sobreposição.`)
+    if (logEvents && snap) get().pushEvent('info', `${comp.ref} encaixada em ${snap.hostRef}: ${snap.slot === 'left' || snap.slot === 'right' ? 'prolonga a calha' : 'ramal em T'} (mesma largura, altura e cor).`)
+    if (recordHistory && get().grid.railMagnet !== false) get().snapToRails([comp.id])
     recomputeIfActive()
     return comp.id
+  },
+  insertReadyMaquette: (id, at) => {
+    if (get().demoMode) return []
+    const mq = readyMaquetteById(id)
+    if (!mq) {
+      get().pushEvent('warning', `Maquete desconhecida: ${id}.`)
+      return []
+    }
+    const parts = readyMaquetteParts(mq.id, mq.plateState)
+    if (!canInsertComponent3D(MAQUETTE_PLATE_TYPE)) {
+      get().pushEvent('warning', `Maquete bloqueada: sem representação 3D para a base ${MAQUETTE_PLATE_TYPE}.`)
+      return []
+    }
+    const placed = get().components.length
+    const originX = at?.x ?? 80 + (placed % 6) * 160
+    const originY = at?.y ?? 90 + Math.floor(placed / 6) * 150
+    // Um único passo de histórico para a bancada inteira: Ctrl+Z desmonta tudo de uma vez.
+    get().commitHistory()
+    const created: string[] = []
+    const plateId = get().addComponent(MAQUETTE_PLATE_TYPE, originX, originY, { history: false, events: false, state: mq.plateState })
+    if (!plateId) return []
+    created.push(plateId)
+    const plate = get().components.find((c) => c.id === plateId)
+    const base = benchBaseUnits(plate?.schematicX, plate?.schematicY)
+    get().updateComponentRaw(plateId, { panel3DPosition: base })
+    parts.forEach((part, i) => {
+      const compId = get().addComponent(part.type, originX + 40 + (i % 5) * 140, originY + 180 + Math.floor(i / 5) * 160, {
+        history: false,
+        events: false,
+        state: part.state ? { ...part.state } : undefined,
+      })
+      if (!compId) return
+      get().updateComponentRaw(compId, { panel3DPosition: benchPartUnits(base, part) })
+      created.push(compId)
+    })
+    set({ selectedComponentIds: created, selectedWireId: null, selectedTerminalId: null, dirty: true })
+    get().pushEvent(
+      'info',
+      `${mq.name} montada: ${created.length} componentes sobre a base ranhurada 700 × 500 mm` +
+        `${mq.id === 'atec-estampagem' ? ', com as cotas do relatório ATEC / Guião 1185' : ''}. Ctrl+Z desmonta num só passo.`,
+    )
+    recomputeIfActive()
+    return created
   },
   addDuctAdjacent: (id, slot, lengthMm) => {
     if (get().demoMode || isSimEditLocked(get())) return null

@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
+import { READY_MAQUETTES, type ReadyMaquette } from './readyMaquettes'
 import { importedTemplates, upgradeImportedTerminals } from './importedComponents'
 import { industrialTemplates } from './industrialDevices'
 import { FACE_INWARD, terminalInsetMm, realTerminalPosition, leadRootPosition, LEAD_PIGTAIL_LENGTH_MM, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
@@ -3006,10 +3007,12 @@ export interface PaletteSubgroup {
   id: string
   label: string
   items: Array<{ type: ComponentType; name: string; category: ComponentCategory }>
+  /** Maquetes prontas (montagens completas) — não são componentes do catálogo. */
+  maquetes?: ReadyMaquette[]
 }
 
 export interface PaletteDomain {
-  id: 'eletricidade' | 'hidraulica' | 'pneumatica' | 'serralharia'
+  id: 'eletricidade' | 'hidraulica' | 'pneumatica' | 'serralharia' | 'maquetes'
   label: string
   icon: string
   accent: string
@@ -3018,7 +3021,7 @@ export interface PaletteDomain {
 
 /**
  * Hierarquia oficial da Biblioteca de Componentes por Domínio -> Subcategoria:
- * Eletricidade, Hidráulica, Pneumática e Serralharia & Infraestrutura.
+ * Eletricidade, Hidráulica, Pneumática, Serralharia & Infraestrutura e Maquetes prontas.
  */
 export function paletteDomains(): PaletteDomain[] {
   const domains: PaletteDomain[] = [
@@ -3026,6 +3029,7 @@ export function paletteDomains(): PaletteDomain[] {
     { id: 'hidraulica', label: 'Hidráulica', icon: 'water', accent: '#0284c7', subgroups: [] },
     { id: 'pneumatica', label: 'Pneumática', icon: 'air', accent: '#06b6d4', subgroups: [] },
     { id: 'serralharia', label: 'Serralharia & Infraestrutura', icon: 'structure', accent: '#64748b', subgroups: [] },
+    { id: 'maquetes', label: 'Maquetes prontas', icon: 'maquete', accent: '#7c3aed', subgroups: [] },
   ]
   const byId = Object.fromEntries(domains.map((d) => [d.id, d])) as Record<PaletteDomain['id'], PaletteDomain>
   const subMap = new Map<string, PaletteSubgroup>()
@@ -3125,6 +3129,17 @@ export function paletteDomains(): PaletteDomain[] {
 
     // Todos os restantes pertencem ao domínio Eletricidade, mantendo cada grupo como subcategoria limpa
     pushTo('eletricidade', `ele-${tpl.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, tpl.group, item)
+  }
+
+  // Maquetes prontas: montagens completas da bancada (base + estrutura + componentes já colocados).
+  // Ficam num domínio próprio e não entram na contagem de componentes do catálogo.
+  if (READY_MAQUETTES.length) {
+    byId.maquetes.subgroups.push({
+      id: 'mq-bancada-atec',
+      label: 'Bancada ATEC · estampagem & transferência',
+      items: [],
+      maquetes: READY_MAQUETTES,
+    })
   }
 
   return domains.filter((d) => d.subgroups.length > 0)

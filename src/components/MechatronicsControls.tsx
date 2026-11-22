@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { stampingBenchLayout } from '../electrical/stampingBench'
-import { PANEL_UNITS_PER_MM } from '../three/modelPaths'
+import { benchBaseUnits, benchPartUnits } from '../electrical/readyMaquettes'
 import {
   MAGAZINE_CAPACITY,
   MECHATRONICS_INFO,
@@ -42,14 +42,13 @@ const MaterialSelect = ({ value, onChange, disabled, allowEmpty }: { value: stri
 function assembleBench(plate: ElectricalComponent) {
   const st = useSimStore.getState()
   st.commitHistory()
-  const base = plate.panel3DPosition ?? { x: ((plate.schematicX ?? 420) - 420) * 0.02, y: -((plate.schematicY ?? 260) - 260) * 0.02, z: 1.6 }
+  const base = plate.panel3DPosition ?? benchBaseUnits(plate.schematicX, plate.schematicY)
   if (!plate.panel3DPosition) st.updateComponent(plate.id, { panel3DPosition: base })
-  const U = PANEL_UNITS_PER_MM
   stampingBenchLayout(plate.state).forEach((p, i) => {
     const id = useSimStore.getState().addComponent(p.type, (plate.schematicX ?? 0) + 40 + (i % 5) * 140, (plate.schematicY ?? 0) + 180 + Math.floor(i / 5) * 160)
     if (!id) return
     const s2 = useSimStore.getState()
-    s2.updateComponent(id, { panel3DPosition: { x: base.x + p.x * U, y: base.y + p.y * U, z: base.z + p.z * U } })
+    s2.updateComponent(id, { panel3DPosition: benchPartUnits(base, p) })
     if (p.state) s2.setComponentState(id, p.state)
   })
 }

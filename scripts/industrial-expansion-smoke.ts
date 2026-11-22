@@ -227,8 +227,13 @@ run('4. Luminária Tri-Proof LED IP65: potência/CCT ajustáveis e ligação em 
 run('5. Biblioteca hierárquica por Domínios -> Subcategorias sem perder nenhum componente', () => {
   const flatTotal = paletteGroups().reduce((sum, g) => sum + g.items.length, 0)
   const domains = paletteDomains()
-  const domainIds = domains.map((d) => d.id)
+  const domainIds = domains.filter((d) => d.id !== 'maquetes').map((d) => d.id)
   assert.deepEqual(domainIds, ['eletricidade', 'hidraulica', 'pneumatica', 'serralharia'])
+  // «Maquetes prontas» é um domínio de montagens, não de componentes: fica fora da contagem.
+  const maquetes = domains.find((d) => d.id === 'maquetes')
+  assert.ok(maquetes, 'Domínio «Maquetes prontas» presente')
+  assert.ok(maquetes!.subgroups.some((sg) => (sg.maquetes?.length ?? 0) > 0), 'Maquetes prontas com montagens')
+  assert.equal(maquetes!.subgroups.reduce((sum, sg) => sum + sg.items.length, 0), 0, 'Maquetes não inflacionam o catálogo')
 
   const hierarchicalTotal = domains.reduce(
     (sum, d) => sum + d.subgroups.reduce((s2, sg) => s2 + sg.items.length, 0),

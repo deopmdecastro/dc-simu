@@ -36,6 +36,8 @@ import { MANOBRA_BLOCKED_TITLE, MANOBRA_STATE_KEYS } from '../store/manobra'
 import { blockedDuplicateReplacement } from '../catalog/blockedDuplicates'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteDomains, TEMPLATES, type PaletteDomain } from '../electrical/factory'
+import type { ReadyMaquette } from '../electrical/readyMaquettes'
+import { requestCanvasAction } from '../ui/simUi'
 import { iecAssociationOf, iecPrimaryLabel, iecRelatedLabels } from '../electrical/iecAssociation'
 import type { ComponentType, TerminalElectricalClass, TerminalKind, TerminalType, Wire, WireColor, WireRoute } from '../types'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
@@ -402,6 +404,37 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
 }
 
 /**
+ * Cartão de uma maquete pronta: monta a bancada inteira (base + estrutura + componentes) num só
+ * clique, com um único passo de histórico — Ctrl+Z desmonta tudo de uma vez.
+ */
+function MaquetteTile({ maquette, onInsert }: { maquette: ReadyMaquette; onInsert: () => void }) {
+  const title = `${maquette.name} — ${maquette.subtitle}. Monta ${maquette.componentCount} componentes; Ctrl+Z desmonta num só passo.`
+  return (
+    <button
+      type="button"
+      className="dc-maquette-tile"
+      data-maquette={maquette.id}
+      title={title}
+      aria-label={`Montar ${maquette.name} (${maquette.componentCount} componentes)`}
+      onClick={onInsert}
+    >
+      <span className="dc-maquette-tile-image">
+        <img src={maquette.thumb} alt="" width={112} height={112} loading="lazy" decoding="async" />
+      </span>
+      <span className="dc-maquette-tile-body">
+        <strong>{maquette.name}</strong>
+        <span className="dc-maquette-tile-sub">{maquette.subtitle}</span>
+        <span className="dc-maquette-tile-meta">
+          <IconLayers size={11} />
+          {maquette.componentCount} componentes
+          <em>Montar</em>
+        </span>
+      </span>
+    </button>
+  )
+}
+
+/**
  * Painel esquerdo: biblioteca de componentes (clique adiciona ao esquema) e
  * inspetor completo do que está selecionado (componente, borne ou cabo).
  */
@@ -435,7 +468,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const [activeDomain, setActiveDomain] = useState<'all' | PaletteDomain['id']>('all')
   const [collapsedDomains, setCollapsedDomains] = useState<Set<string>>(() => new Set())
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
-    const keepOpen = new Set(['hid-abastecimento', 'hid-bombagem', 'ser-tubos-vds', 'ele-ilumina--o', 'ele-prote--o', 'ele-comando'])
+    const keepOpen = new Set(['hid-abastecimento', 'hid-bombagem', 'ser-tubos-vds', 'ele-ilumina--o', 'ele-prote--o', 'ele-comando', 'mq-bancada-atec'])
     return new Set(
       paletteDomains()
         .flatMap((d) => d.subgroups.map((sg) => sg.id))
@@ -512,7 +545,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           ...d,
           subgroups: d.subgroups
             .map((sg) => ({ ...sg, items: sg.items.filter((it) => !hiddenComponents[it.type]) }))
-            .filter((sg) => sg.items.length > 0),
+            .filter((sg) => sg.items.length > 0 || !!sg.maquetes?.length),
         }))
         .filter((d) => d.subgroups.length > 0),
     [catalogRevision, hiddenComponents],
@@ -637,6 +670,18 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
     else add(type)
   }
 
+  /** Maquete pronta: monta base + estrutura + componentes num único passo de histórico. */
+  const insertMaquette = (maquette: ReadyMaquette) => {
+    const st = useSimStore.getState()
+    st.setPlacingType(null)
+    const created = st.insertReadyMaquette(maquette.id)
+    if (!created.length) return
+    setTab('inspector')
+    // Depois do React montar as peças: enquadra a vista na bancada acabada de montar.
+    window.setTimeout(() => requestCanvasAction('focusSelection'), 350)
+    onComponentAdded?.()
+  }
+
   const filteredDomains = useMemo(() => {
     const q = filter.trim().toLocaleLowerCase('pt-PT')
     return domains
@@ -655,8 +700,17 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     sg.label.toLocaleLowerCase('pt-PT').includes(q) ||
                     d.label.toLocaleLowerCase('pt-PT').includes(q),
                 ),
+            maquetes: !q
+              ? sg.maquetes
+              : sg.maquetes?.filter(
+                  (m) =>
+                    m.name.toLocaleLowerCase('pt-PT').includes(q) ||
+                    m.subtitle.toLocaleLowerCase('pt-PT').includes(q) ||
+                    sg.label.toLocaleLowerCase('pt-PT').includes(q) ||
+                    d.label.toLocaleLowerCase('pt-PT').includes(q),
+                ),
           }))
-          .filter((sg) => sg.items.length > 0),
+          .filter((sg) => sg.items.length > 0 || !!sg.maquetes?.length),
       }))
       .filter((d) => d.subgroups.length > 0)
   }, [domains, activeDomain, filter])
@@ -734,7 +788,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     : 'bg-surface-sunken text-ink-600 border-line hover:bg-surface'
                 }`}
               >
-                {d.id === 'serralharia' ? 'Serralharia' : d.label}
+                {d.id === 'serralharia' ? 'Serralharia' : d.id === 'maquetes' ? 'Maquetes' : d.label}
               </button>
             ))}
           </div>
@@ -758,7 +812,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               </div>
             )}
             {filteredDomains.map((domain) => {
-              const domainCount = domain.subgroups.reduce((acc, sg) => acc + sg.items.length, 0)
+              const domainCount = domain.subgroups.reduce((acc, sg) => acc + sg.items.length + (sg.maquetes?.length ?? 0), 0)
               const domainCollapsed = !filter.trim() && activeDomain === 'all' && collapsedDomains.has(domain.id)
               return (
                 <section className="dc-library-domain" key={domain.id} data-library-domain={domain.id}>
@@ -768,7 +822,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     onClick={() => toggleDomain(domain.id)}
                     className="dc-library-domain-head"
                   >
-                    <span className="dc-library-folder-icon dc-library-domain-icon" style={{ color: domain.accent }} aria-hidden="true"><IconProjects size={16} /></span>
+                    <span className="dc-library-folder-icon dc-library-domain-icon" style={{ color: domain.accent }} aria-hidden="true">{domain.id === 'maquetes' ? <IconLayers size={16} /> : <IconProjects size={16} />}</span>
                     <span className="dc-library-domain-label">{domain.label}</span>
                     <span className="dc-library-domain-count">{domainCount}</span>
                     <IconChevronDown size={13} className={`dc-library-folder-chevron ${domainCollapsed ? '' : 'is-open'}`} />
@@ -794,25 +848,36 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                 {isCollapsed ? <IconFolder size={13} /> : <IconOpen size={13} />}
                               </span>
                               <strong>{sg.label}</strong>
-                              <span className="dc-library-folder-count">{sg.items.length}</span>
+                              <span className="dc-library-folder-count">{sg.items.length + (sg.maquetes?.length ?? 0)}</span>
                               <IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
                             </button>
                             {!isCollapsed && (
-                              <div className="dc-library-grid">
-                                {sg.items.map((it) => (
-                                  <LibraryTile
-                                    key={it.type}
-                                    type={it.type}
-                                    name={it.name}
-                                    favorite={favorites.includes(it.type)}
-                                    placing={placingType === it.type}
-                                    onPick={() => pickFromLibrary(it.type)}
-                                    onQuickAdd={() => addImmediate(it.type)}
-                                    onFavorite={() => toggleFavorite(it.type)}
-                                    onRecent={() => markRecent(it.type)}
-                                  />
-                                ))}
-                              </div>
+                              <>
+                                {!!sg.maquetes?.length && (
+                                  <div className="dc-maquette-list">
+                                    {sg.maquetes.map((mq) => (
+                                      <MaquetteTile key={mq.id} maquette={mq} onInsert={() => insertMaquette(mq)} />
+                                    ))}
+                                  </div>
+                                )}
+                                {sg.items.length > 0 && (
+                                  <div className="dc-library-grid">
+                                    {sg.items.map((it) => (
+                                      <LibraryTile
+                                        key={it.type}
+                                        type={it.type}
+                                        name={it.name}
+                                        favorite={favorites.includes(it.type)}
+                                        placing={placingType === it.type}
+                                        onPick={() => pickFromLibrary(it.type)}
+                                        onQuickAdd={() => addImmediate(it.type)}
+                                        onFavorite={() => toggleFavorite(it.type)}
+                                        onRecent={() => markRecent(it.type)}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </>
                             )}
                           </section>
                         )
@@ -826,6 +891,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <p><strong>Clique ou arraste</strong> um componente disponível. Posicione a pré-visualização no esquema com um clique ou ao soltar; encaixa na malha.</p>
               <p>Duplo clique insere de imediato. <kbd>Shift</kbd> + clique posiciona vários; <kbd>Esc</kbd> cancela.</p>
               <p>O cadeado indica que falta uma representação 3D ou que o componente foi desativado.</p>
+              <p><strong>Maquetes prontas</strong> montam a bancada inteira (base, estrutura e componentes) num clique: <kbd>Ctrl</kbd> + <kbd>Z</kbd> desmonta num só passo.</p>
             </div>
           </div>
         </>
