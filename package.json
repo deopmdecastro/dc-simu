@@ -35,6 +35,7 @@
     "test:panel-accessories": "tsx scripts/panel-accessories-smoke.ts",
     "test:mechanical": "tsx scripts/mechanical-refinement-smoke.ts",
     "test:mechanical-ui": "node scripts/mechanical-refinement-ui-smoke.mjs",
+    "test:pneumatics-fidelity-ui": "node scripts/pneumatics-fidelity-ui-smoke.mjs",
     "test:mechanical-catalog-ui": "node scripts/mechanical-catalog-ui-smoke.mjs",
     "test:enclosure-move": "tsx scripts/enclosure-move-smoke.ts",
     "test:motor-star-delta": "tsx scripts/motor-star-delta-external-smoke.ts",

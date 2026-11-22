@@ -18,6 +18,7 @@ import { applyCadSurfaceTextures } from './cadSurface'
 import { addStudioLights, getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { isConduitStructureType, isWireMeshTrayType } from './structuresModel'
+import { hasProceduralCapture } from './proceduralKinds'
 
 export interface ComponentTurntableFrames {
   frames: string[]
@@ -218,7 +219,7 @@ function restPose(type: ComponentType, pitchIndex = DEFAULT_PITCH_INDEX): [numbe
 const RAIL_SECTION_MM = 180
 
 async function prepareObject(type: ComponentType): Promise<THREE.Object3D> {
-  if (isConduitStructureType(type) || isWireMeshTrayType(type) || type === 'hydraulicFlowMeter' || type === 'waterSupplyBox') {
+  if (hasProceduralCapture(type)) {
     const { createProceduralCaptureObject } = await import('./proceduralCaptureObject')
     const object = await createProceduralCaptureObject(type, true)
     normalizeObject(object)

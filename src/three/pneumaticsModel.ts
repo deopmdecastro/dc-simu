@@ -78,9 +78,11 @@ export function pneumaticComponentSizeMm(
   if (type === 'pneumaticManifold') {
     return { x: PNEUMATIC_MANIFOLD_SIZE_MM.width, y: PNEUMATIC_MANIFOLD_SIZE_MM.height, z: PNEUMATIC_MANIFOLD_SIZE_MM.depth }
   }
-  if (type === 'pneumaticVacuumCup' ||
-    type === 'airCompressor') {
+  if (type === 'pneumaticVacuumCup') {
     return { x: PNEUMATIC_VACUUM_CUP_SIZE_MM.width, y: PNEUMATIC_VACUUM_CUP_SIZE_MM.height, z: PNEUMATIC_VACUUM_CUP_SIZE_MM.depth }
+  }
+  if (type === 'airCompressor') {
+    return { x: AIR_COMPRESSOR_SIZE_MM.width, y: AIR_COMPRESSOR_SIZE_MM.height, z: AIR_COMPRESSOR_SIZE_MM.depth }
   }
   return null
 }

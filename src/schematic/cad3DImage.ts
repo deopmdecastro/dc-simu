@@ -20,6 +20,7 @@ import { TEMPLATES } from '../electrical/factory'
 import { createDigitalMeterObject, digitalMeterSpec, isDigitalMeterType } from '../three/digitalMeterModel'
 import { fitComponentModel } from '../three/modelFit'
 import { isConduitStructureType, isWireMeshTrayType } from '../three/structuresModel'
+import { hasProceduralCapture } from '../three/proceduralKinds'
 
 const imagePromises = new Map<ComponentType, Promise<string>>()
 let terminalSource: Promise<THREE.Object3D> | undefined
@@ -64,7 +65,7 @@ export function getCad3DImage(type: ComponentType): Promise<string> {
   const cached = imagePromises.get(type)
   if (cached) return cached
   const spec = getComponentModelSpec(type)
-  if (!spec && !isTerminalAssemblyComponent(type) && !isDigitalMeterType(type)) return Promise.reject(new Error(`Sem modelo CAD para ${type}`))
+  if (!spec && !isTerminalAssemblyComponent(type) && !isDigitalMeterType(type) && !hasProceduralCapture(type)) return Promise.reject(new Error(`Sem modelo CAD para ${type}`))
 
   const promise = findStaticFrontImage(type).then((image) => image ?? captureCad3DImage(type)).catch((error) => {
     imagePromises.delete(type)
@@ -76,7 +77,7 @@ export function getCad3DImage(type: ComponentType): Promise<string> {
 
 /** Captura em tempo real a partir do GLB (também usada pelo gerador das imagens pré-geradas). */
 export async function captureCad3DImage(type: ComponentType, viewRotation?: [number, number, number]): Promise<string> {
-  if (isConduitStructureType(type) || isWireMeshTrayType(type) || type === 'hydraulicFlowMeter' || type === 'waterSupplyBox') {
+  if (hasProceduralCapture(type)) {
     const { createProceduralCaptureObject } = await import('../three/proceduralCaptureObject')
     return captureOrthographicObjectImage(await createProceduralCaptureObject(type), viewRotation)
   }

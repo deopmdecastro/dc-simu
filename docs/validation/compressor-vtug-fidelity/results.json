@@ -1,0 +1,11 @@
+{
+  "components": {
+    "airCompressor": {
+      "meshes": 122
+    },
+    "pneumaticManifold": {
+      "meshes": 211
+    }
+  },
+  "errors": []
+}

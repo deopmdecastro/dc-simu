@@ -1,6 +1,6 @@
 {
-  "note": "Capas 3D isométricas leves (WebP ~3-8 KiB) para componentes procedurais pneumáticos.",
-  "generatedAt": "2026-11-22T00:42:00Z",
+  "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.",
+  "generatedAt": "2026-11-22T01:40:25.516Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
     "fuseHolderSchneiderDf101v",
@@ -68,10 +68,14 @@
     "waterPump",
     "hydraulicValve",
     "hydraulicTee",
+    "airCompressor",
     "pneumaticFrl",
     "pneumaticValve52",
     "pneumaticCylinder",
     "pneumaticTee",
+    "pneumaticUnion",
+    "pneumaticElbow",
+    "pneumaticY",
     "electricCylinderEpcs",
     "pneumaticGuidedCylinder",
     "pneumaticManifold",
@@ -137,6 +141,7 @@
     "meterKws306"
   ],
   "types": {
+    "airCompressor": "airCompressor.webp",
     "breaker1p": "breaker1p.webp",
     "breaker2p": "breaker2p.webp",
     "breaker3p": "breaker3p.webp",
@@ -209,12 +214,15 @@
     "plcSiemensS71500Di32": "plcSiemensS71500Di32.webp",
     "plcSiemensS7300Cpu315": "plcSiemensS7300Cpu315.webp",
     "pneumaticCylinder": "pneumaticCylinder.webp",
+    "pneumaticElbow": "pneumaticElbow.webp",
     "pneumaticFrl": "pneumaticFrl.webp",
     "pneumaticGuidedCylinder": "pneumaticGuidedCylinder.webp",
     "pneumaticManifold": "pneumaticManifold.webp",
     "pneumaticTee": "pneumaticTee.webp",
+    "pneumaticUnion": "pneumaticUnion.webp",
     "pneumaticVacuumCup": "pneumaticVacuumCup.webp",
     "pneumaticValve52": "pneumaticValve52.webp",
+    "pneumaticY": "pneumaticY.webp",
     "powerSource1ph": "powerSource1ph.webp",
     "powerSource24v": "powerSource24v.webp",
     "powerSource3ph": "powerSource3ph.webp",
@@ -265,13 +273,10 @@
     "wireTrayElbow90": "wireTrayElbow90.webp",
     "wireTrayRiser90": "wireTrayRiser90.webp",
     "wireTrayStraight": "wireTrayStraight.webp",
-    "wireTrayTee": "wireTrayTee.webp",
-    "pneumaticUnion": "pneumaticUnion.webp",
-    "pneumaticElbow": "pneumaticElbow.webp",
-    "pneumaticY": "pneumaticY.webp",
-    "airCompressor": "airCompressor.webp"
+    "wireTrayTee": "wireTrayTee.webp"
   },
   "front": {
+    "airCompressor": "front/airCompressor.webp",
     "breaker1p": "front/breaker1p.webp",
     "breaker2p": "front/breaker2p.webp",
     "breaker3p": "front/breaker3p.webp",
@@ -344,12 +349,15 @@
     "plcSiemensS71500Di32": "front/plcSiemensS71500Di32.webp",
     "plcSiemensS7300Cpu315": "front/plcSiemensS7300Cpu315.webp",
     "pneumaticCylinder": "front/pneumaticCylinder.webp",
+    "pneumaticElbow": "front/pneumaticElbow.webp",
     "pneumaticFrl": "front/pneumaticFrl.webp",
     "pneumaticGuidedCylinder": "front/pneumaticGuidedCylinder.webp",
     "pneumaticManifold": "front/pneumaticManifold.webp",
     "pneumaticTee": "front/pneumaticTee.webp",
+    "pneumaticUnion": "front/pneumaticUnion.webp",
     "pneumaticVacuumCup": "front/pneumaticVacuumCup.webp",
     "pneumaticValve52": "front/pneumaticValve52.webp",
+    "pneumaticY": "front/pneumaticY.webp",
     "powerSource1ph": "front/powerSource1ph.webp",
     "powerSource24v": "front/powerSource24v.webp",
     "powerSource3ph": "front/powerSource3ph.webp",
@@ -400,11 +408,6 @@
     "wireTrayElbow90": "front/wireTrayElbow90.webp",
     "wireTrayRiser90": "front/wireTrayRiser90.webp",
     "wireTrayStraight": "front/wireTrayStraight.webp",
-    "wireTrayTee": "front/wireTrayTee.webp",
-    "pneumaticUnion": "front/pneumaticUnion.webp",
-    "pneumaticElbow": "front/pneumaticElbow.webp",
-    "pneumaticY": "front/pneumaticY.webp",
-    "airCompressor": "front/airCompressor.webp"
-  },
-  "version": 2
+    "wireTrayTee": "front/wireTrayTee.webp"
+  }
 }

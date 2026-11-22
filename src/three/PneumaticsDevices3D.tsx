@@ -1255,7 +1255,76 @@ export function PneumaticGuidedCylinder3D({
   )
 }
 
-/** 7. NOVO — Ilha de Válvulas Festo VTUG 4 Estações em Calha DIN (fiel a image-30.png!) */
+/** Parafuso sextavado prateado das placas das estações (VTUG). */
+function VtugHexScrew({
+  position,
+  rotation,
+}: {
+  position: [number, number, number]
+  rotation?: [number, number, number]
+}) {
+  return (
+    <group position={position} rotation={rotation ?? [Math.PI / 2, 0, 0]}>
+      <mesh castShadow>
+        <cylinderGeometry args={[2.6 * U, 2.6 * U, 2 * U, 6]} />
+        <meshStandardMaterial color="#c9d2db" roughness={0.24} metalness={0.92} />
+      </mesh>
+      <mesh position={[0, 1.2 * U, 0]}>
+        <cylinderGeometry args={[1.25 * U, 1.25 * U, 1.2 * U, 10]} />
+        <meshStandardMaterial color="#87929e" roughness={0.34} metalness={0.86} />
+      </mesh>
+    </group>
+  )
+}
+
+/** Tubo PU branco com colar azul de fixação (saídas laterais do VTUG). */
+function PuTubeStub({
+  position,
+  rotation,
+  length = 38 * U,
+}: {
+  position: [number, number, number]
+  rotation?: [number, number, number]
+  length?: number
+}) {
+  return (
+    <group position={position} rotation={rotation ?? [0, 0, 0]}>
+      <mesh position={[0, length * 0.5, 0]} castShadow>
+        <cylinderGeometry args={[5.2 * U, 5.2 * U, length, 18]} />
+        <meshStandardMaterial color="#eef2f6" roughness={0.5} metalness={0.05} />
+      </mesh>
+      <mesh position={[0, 5 * U, 0]} castShadow>
+        <cylinderGeometry args={[6.6 * U, 6.6 * U, 9 * U, 18]} />
+        <meshStandardMaterial color={FESTO_BLUE} roughness={0.3} metalness={0.1} />
+      </mesh>
+    </group>
+  )
+}
+
+/** Faixa FESTO gravada no topo do módulo elétrico (azul sobre alumínio). */
+function createVtugTopLabelTexture(): THREE.CanvasTexture | null {
+  return makeCanvasTex(256, 160, (ctx, W, H) => {
+    ctx.fillStyle = ALU_ANODIZED
+    ctx.fillRect(0, 0, W, H)
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+    for (let y = 0; y < H; y += 4) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
+    }
+    ctx.fillStyle = FESTO_BLUE
+    ctx.font = '900 52px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('FESTO', W / 2, H * 0.38)
+    ctx.fillStyle = '#1e293b'
+    ctx.font = 'bold 22px monospace'
+    ctx.fillText('VTUG-14-VRLK', W / 2, H * 0.72)
+  })
+}
+
+/** 7. Ilha de Válvulas Festo VTUG 4 Estações em Calha DIN — reconstrução fiel à fotografia do produto:
+ *  base de alumínio maquinado com degrau frontal, módulo elétrico à esquerda com conector M12,
+ *  fatias prateadas entre placas pretas com parafusos, tampas brancas + anel azul, duas filas de
+ *  racores QS niquelados na frente, pilha de racores no topo e tubos PU brancos com colar azul. */
 export function PneumaticManifold3D({
   c,
   position,
@@ -1266,181 +1335,238 @@ export function PneumaticManifold3D({
   onToggleStation?: (idx: number) => void
 }) {
   const stations = [1, 2, 3, 4]
-  const pitch = 36 * U
-  const baseW = 210 * U
-  const baseH = 28 * U
-  const baseD = 72 * U
+  const pitch = 40 * U
+  const baseW = 250 * U
+  const baseH = 47 * U
+  const baseD = 86 * U
+  const stationXs = [-50, -10, 30, 70].map((v) => v * U)
+  const plateXs = [-70, -30, 10, 50, 90].map((v) => v * U)
+  const topLabel = useMemo(() => createVtugTopLabelTexture(), [])
+  useEffect(() => () => { topLabel?.dispose() }, [topLabel])
 
   return (
     <group position={position} name={`pneumatic-manifold-3d-${c.id}`}>
       {/* ——— Calha DIN 35 mm (traseira) ——— */}
-      <mesh position={[0, 4 * U, -baseD * 0.55]} castShadow receiveShadow>
-        <boxGeometry args={[baseW + 30 * U, 38 * U, 7 * U]} />
+      <mesh position={[0, -58 * U, -baseD * 0.56]} castShadow receiveShadow>
+        <boxGeometry args={[baseW + 24 * U, 30 * U, 7 * U]} />
         <meshStandardMaterial color="#aeb8c2" roughness={0.32} metalness={0.88} />
       </mesh>
-      {/* Perfil DIN em C */}
-      <mesh position={[0, 18 * U, -baseD * 0.52]} castShadow>
-        <boxGeometry args={[baseW + 28 * U, 4 * U, 12 * U]} />
+      <mesh position={[0, -45 * U, -baseD * 0.53]} castShadow>
+        <boxGeometry args={[baseW + 22 * U, 4 * U, 12 * U]} />
         <meshStandardMaterial color="#9aa6b2" roughness={0.3} metalness={0.9} />
       </mesh>
-      <mesh position={[0, -10 * U, -baseD * 0.52]} castShadow>
-        <boxGeometry args={[baseW + 28 * U, 4 * U, 12 * U]} />
+      <mesh position={[0, -70 * U, -baseD * 0.53]} castShadow>
+        <boxGeometry args={[baseW + 22 * U, 4 * U, 12 * U]} />
         <meshStandardMaterial color="#9aa6b2" roughness={0.3} metalness={0.9} />
       </mesh>
 
-      {/* ——— Bloco distribuidor base alumínio anodizado ——— */}
-      <mesh position={[0, -22 * U, 0]} castShadow receiveShadow>
+      {/* ——— Base de alumínio maquinado (perfil com degrau frontal) ——— */}
+      <mesh position={[0, -21.5 * U, 0]} castShadow receiveShadow>
         <boxGeometry args={[baseW, baseH, baseD]} />
         <meshStandardMaterial color={ALU_ANODIZED} roughness={0.26} metalness={0.86} />
       </mesh>
-      {/* Chanfros / arestas do bloco */}
-      <mesh position={[0, -8 * U, 0]} castShadow>
-        <boxGeometry args={[baseW * 0.98, 4 * U, baseD * 0.92]} />
+      {/* Degrau frontal inferior (banco dos racores A/B) */}
+      <mesh position={[0, -32 * U, baseD * 0.52]} castShadow receiveShadow>
+        <boxGeometry args={[baseW - 10 * U, 26 * U, 20 * U]} />
+        <meshStandardMaterial color={ALU_BRUSHED} roughness={0.3} metalness={0.84} />
+      </mesh>
+      {/* Ranhura de maquinagem ao comprimento */}
+      <mesh position={[0, -10 * U, baseD * 0.505]}>
+        <boxGeometry args={[baseW - 26 * U, 3 * U, 2 * U]} />
+        <meshStandardMaterial color="#b9c3cd" roughness={0.35} metalness={0.8} />
+      </mesh>
+      {/* Chanfro superior */}
+      <mesh position={[0, 1.2 * U, 0]} castShadow>
+        <boxGeometry args={[baseW, 2.4 * U, baseD * 0.985]} />
         <meshStandardMaterial color={ALU_BRUSHED} roughness={0.3} metalness={0.84} />
       </mesh>
 
-      {/* ——— Porta elétrica multipinos (esquerda) + placa FESTO ——— */}
-      <group position={[-baseW * 0.48, 8 * U, 0]}>
+      {/* ——— Módulo elétrico à esquerda (alumínio + M12 + FESTO + botão + LED) ——— */}
+      <group position={[-101 * U, 26 * U, 0]}>
         <mesh castShadow receiveShadow>
-          <boxGeometry args={[28 * U, 70 * U, 58 * U]} />
+          <boxGeometry args={[48 * U, 50 * U, 64 * U]} />
           <meshStandardMaterial color={ALU_ANODIZED} roughness={0.25} metalness={0.85} />
         </mesh>
-        {/* Conector circular multipinos */}
-        <mesh position={[-16 * U, 8 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[10 * U, 10 * U, 12 * U, 20]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.35} metalness={0.5} />
+        {/* Chanfro do topo do módulo */}
+        <mesh position={[0, 24 * U, 0]} castShadow>
+          <boxGeometry args={[44 * U, 4 * U, 60 * U]} />
+          <meshStandardMaterial color={ALU_BRUSHED} roughness={0.28} metalness={0.84} />
         </mesh>
-        <mesh position={[-20 * U, 8 * U, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[6 * U, 6 * U, 4 * U, 16]} />
-          <meshStandardMaterial color="#334155" roughness={0.4} />
+        {/* Etiqueta FESTO no topo */}
+        {topLabel && (
+          <mesh position={[0, 26.3 * U, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[34 * U, 22 * U]} />
+            <meshStandardMaterial map={topLabel} roughness={0.32} metalness={0.5} />
+          </mesh>
+        )}
+        {/* Conector circular M12 (preto, com rosca) no topo */}
+        <group position={[6 * U, 30 * U, -6 * U]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[8 * U, 8 * U, 11 * U, 22]} />
+            <meshStandardMaterial color="#171c23" roughness={0.34} metalness={0.42} />
+          </mesh>
+          <mesh position={[0, 6 * U, 0]}>
+            <cylinderGeometry args={[6.2 * U, 6.2 * U, 2.4 * U, 22]} />
+            <meshStandardMaterial color="#2c333d" roughness={0.3} metalness={0.5} />
+          </mesh>
+          <mesh position={[0, 7.4 * U, 0]}>
+            <cylinderGeometry args={[3.4 * U, 3.4 * U, 1.2 * U, 16]} />
+            <meshStandardMaterial color="#0b0e12" roughness={0.7} />
+          </mesh>
+          {/* pinos */}
+          {[0, 1, 2, 3, 4].map((i) => {
+            const a = (i / 5) * Math.PI * 2 + 0.3
+            return (
+              <mesh key={i} position={[Math.cos(a) * 2.1 * U, 8.2 * U, Math.sin(a) * 2.1 * U]}>
+                <cylinderGeometry args={[0.6 * U, 0.6 * U, 1.6 * U, 8]} />
+                <meshStandardMaterial color="#d9c37e" roughness={0.3} metalness={0.85} />
+              </mesh>
+            )
+          })}
+        </group>
+        {/* Botão de teste prateado + LED verde na face frontal */}
+        <mesh position={[8 * U, 8 * U, 33.5 * U]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[5 * U, 5 * U, 5 * U, 18]} />
+          <meshStandardMaterial color="#c3ccd6" roughness={0.28} metalness={0.88} />
         </mesh>
-        {/* LED status */}
-        <mesh position={[-10 * U, 28 * U, 30 * U]}>
-          <boxGeometry args={[6 * U, 4 * U, 2 * U]} />
-          <meshStandardMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.8} />
+        <mesh position={[8 * U, -8 * U, 33.5 * U]}>
+          <boxGeometry args={[7 * U, 4.6 * U, 2.6 * U]} />
+          <meshStandardMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.85} />
         </mesh>
+        {/* Símbolo gravado (pequeno quadrado técnico) */}
+        <mesh position={[-12 * U, 6 * U, 32.6 * U]}>
+          <planeGeometry args={[12 * U, 9 * U]} />
+          <meshStandardMaterial color="#c6ced7" roughness={0.42} metalness={0.6} />
+        </mesh>
+        {/* Racor em cotovelo latão + tubos PU brancos (entrada P / exaustão R) */}
+        <group position={[-14 * U, -12 * U, 24 * U]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[6 * U, 6 * U, 12 * U, 6]} />
+            <meshStandardMaterial color={METAL_BRASS} roughness={0.3} metalness={0.85} />
+          </mesh>
+          <FestoQsPushInPort position={[0, 0, 10 * U]} rotation={[Math.PI / 2, 0, 0]} scale={0.8} variant="black" />
+        </group>
+        <PuTubeStub position={[-24 * U, -20 * U, 10 * U]} rotation={[0, 0, Math.PI / 2]} length={36 * U} />
+        <PuTubeStub position={[-24 * U, -20 * U, -12 * U]} rotation={[0, 0, Math.PI / 2]} length={36 * U} />
       </group>
 
-      {/* ——— Tampa direita (R / silenciadores) ——— */}
-      <group position={[baseW * 0.48, 0, 0]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[22 * U, 70 * U, 58 * U]} />
-          <meshStandardMaterial color={ALU_BRUSHED} roughness={0.28} metalness={0.82} />
-        </mesh>
-        {/* Silenciadores PE brancos (exaustão) */}
-        {[-14 * U, 14 * U].map((dz, i) => (
-          <group key={i} position={[14 * U, -8 * U, dz]}>
-            <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[7 * U, 8 * U, 18 * U, 14]} />
-              <meshStandardMaterial color="#f1f5f9" roughness={0.55} metalness={0.05} />
-            </mesh>
-            <mesh position={[10 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[5 * U, 5 * U, 6 * U, 12]} />
-              <meshStandardMaterial color={FESTO_BLUE} roughness={0.3} />
-            </mesh>
-          </group>
-        ))}
-      </group>
+      {/* ——— Pilha de racores QS no topo do deck esquerdo (2 × 5, corpo branco + anel azul) ——— */}
+      {[0, 1].map((row) =>
+        [0, 1, 2, 3, 4].map((col) => (
+          <FestoQsPushInPort
+            key={`top-${row}-${col}`}
+            position={[-66 * U + col * 15 * U, 2 * U, (-14 + row * 22) * U]}
+            scale={0.52}
+            variant="nickel"
+          />
+        )),
+      )}
 
-      {/* ——— Alimentação P (entrada) + QS laterais na base ——— */}
-      <FestoQsPushInPort position={[-baseW * 0.52, -28 * U, 18 * U]} rotation={[0, 0, Math.PI / 2]} scale={0.92} variant="black" />
-      <FestoQsPushInPort position={[-baseW * 0.52, -28 * U, -18 * U]} rotation={[0, 0, Math.PI / 2]} scale={0.92} variant="black" />
-
-      {/* ——— Fila dupla de pórticos QS na face frontal da base (A/B por estação) ——— */}
-      {stations.map((stNum, idx) => {
-        const sx = -54 * U + idx * pitch
+      {/* ——— 4 estações: placas pretas + fatias prateadas + tampa branca + comando manual ——— */}
+      {plateXs.map((px, plateIdx) => {
         return (
-          <group key={`ports-${stNum}`} position={[sx, -36 * U, baseD * 0.42]}>
-            <FestoQsPushInPort position={[-8 * U, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
-            <FestoQsPushInPort position={[8 * U, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
-            {/* Segunda fila mais atrás */}
-            <FestoQsPushInPort position={[-8 * U, 0, -14 * U]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
-            <FestoQsPushInPort position={[8 * U, 0, -14 * U]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
+          <group key={`plate-${plateIdx}`} position={[px, 32 * U, 0]}>
+            {/* Placa preta vertical */}
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[6 * U, 60 * U, 62 * U]} />
+              <meshStandardMaterial color={PBT_BLACK} roughness={0.36} metalness={0.2} />
+            </mesh>
+            {/* Rebaixo frontal da placa */}
+            <mesh position={[0, 0, 31.6 * U]}>
+              <boxGeometry args={[4.4 * U, 52 * U, 2 * U]} />
+              <meshStandardMaterial color={PBT_CHARCOAL} roughness={0.34} metalness={0.22} />
+            </mesh>
+            {/* Parafusos sextavados (2 por placa, na face frontal) */}
+            <VtugHexScrew position={[0, 20 * U, 33 * U]} />
+            <VtugHexScrew position={[0, -20 * U, 33 * U]} />
           </group>
         )
       })}
-
-      {/* ——— 4 estações de válvula (fatias pretas + pilotos brancos + teclas azuis) ——— */}
       {stations.map((stNum, idx) => {
-        const sx = -54 * U + idx * pitch
+        const sx = stationXs[idx]
         const isOn = Boolean(c.state[`station${stNum}On`] || c.state[`station${stNum}Manual`])
         return (
-          <group key={stNum} position={[sx, 18 * U, 0]}>
-            {/* Corpo da válvula (PBT preto) */}
+          <group key={stNum} position={[sx, 30 * U, 0]}>
+            {/* Fatia de válvula em alumínio */}
             <mesh castShadow receiveShadow>
-              <boxGeometry args={[32 * U, 52 * U, 52 * U]} />
-              <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.18} />
+              <boxGeometry args={[34 * U, 52 * U, 56 * U]} />
+              <meshStandardMaterial color={ALU_BRUSHED} roughness={0.27} metalness={0.85} />
             </mesh>
-            {/* Face frontal com rebaixo */}
-            <mesh position={[0, 0, 27 * U]} castShadow>
-              <boxGeometry args={[28 * U, 44 * U, 3 * U]} />
-              <meshStandardMaterial color={PBT_CHARCOAL} roughness={0.38} metalness={0.2} />
+            {/* Nervura superior da fatia */}
+            <mesh position={[0, 27 * U, 0]} castShadow>
+              <boxGeometry args={[30 * U, 4 * U, 52 * U]} />
+              <meshStandardMaterial color={ALU_ANODIZED} roughness={0.24} metalness={0.88} />
             </mesh>
-            {/* 2 teclas azuis de comando manual */}
-            {[-10 * U, 10 * U].map((dy, bi) => (
-              <mesh
-                key={bi}
-                position={[0, dy, 30 * U]}
-                castShadow
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleStation?.(stNum)
-                }}
-                onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
-                onPointerOut={() => { document.body.style.cursor = '' }}
-              >
-                <boxGeometry args={[24 * U, 11 * U, 5 * U]} />
-                <meshStandardMaterial
-                  color={isOn && bi === 1 ? '#f59e0b' : FESTO_BLUE}
-                  emissive={isOn && bi === 1 ? '#d97706' : '#000000'}
-                  emissiveIntensity={isOn && bi === 1 ? 0.5 : 0}
-                  roughness={0.28}
-                />
-              </mesh>
-            ))}
-            {/* LED amarelo de estado */}
-            <mesh position={[0, 22 * U, 29.5 * U]}>
-              <boxGeometry args={[12 * U, 5 * U, 2 * U]} />
+            {/* Tampa / piloto branco com anel azul no topo */}
+            <mesh position={[0, 38 * U, -6 * U]} castShadow>
+              <cylinderGeometry args={[8.4 * U, 8.4 * U, 16 * U, 20]} />
+              <meshStandardMaterial color="#f4f7fa" roughness={0.34} metalness={0.08} />
+            </mesh>
+            <mesh position={[0, 31 * U, -6 * U]}>
+              <cylinderGeometry args={[9.4 * U, 9.4 * U, 3.4 * U, 20]} />
+              <meshStandardMaterial color={FESTO_BLUE} roughness={0.28} />
+            </mesh>
+            <mesh position={[0, 46.6 * U, -6 * U]}>
+              <cylinderGeometry args={[7.4 * U, 7.4 * U, 1.8 * U, 20]} />
+              <meshStandardMaterial color="#e2e8f0" roughness={0.3} />
+            </mesh>
+            {/* Comando manual azul (clique = alternar estação) */}
+            <mesh
+              position={[0, -6 * U, 29.5 * U]}
+              castShadow
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleStation?.(stNum)
+              }}
+              onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
+              onPointerOut={() => { document.body.style.cursor = '' }}
+            >
+              <boxGeometry args={[16 * U, 9 * U, 5 * U]} />
+              <meshStandardMaterial
+                color={isOn ? '#f59e0b' : FESTO_BLUE}
+                emissive={isOn ? '#d97706' : '#000000'}
+                emissiveIntensity={isOn ? 0.55 : 0}
+                roughness={0.28}
+              />
+            </mesh>
+            {/* LED de estado da estação */}
+            <mesh position={[0, 12 * U, 29.5 * U]}>
+              <boxGeometry args={[10 * U, 4.4 * U, 2 * U]} />
               <meshStandardMaterial
                 color={isOn ? '#facc15' : '#475569'}
                 emissive={isOn ? '#eab308' : '#000000'}
                 emissiveIntensity={isOn ? 1.6 : 0}
               />
             </mesh>
-            {/* Piloto solenoide branco no topo (bobina 24V) */}
-            <mesh position={[0, 36 * U, 0]} castShadow>
-              <boxGeometry args={[26 * U, 22 * U, 40 * U]} />
-              <meshStandardMaterial color="#f8fafc" roughness={0.35} metalness={0.08} />
-            </mesh>
-            <mesh position={[0, 48 * U, 0]} castShadow>
-              <cylinderGeometry args={[8 * U, 8 * U, 10 * U, 16]} />
-              <meshStandardMaterial color="#e2e8f0" roughness={0.3} metalness={0.1} />
-            </mesh>
-            {/* Anel azul no piloto */}
-            <mesh position={[0, 52 * U, 0]}>
-              <cylinderGeometry args={[9 * U, 9 * U, 3 * U, 16]} />
-              <meshStandardMaterial color={FESTO_BLUE} roughness={0.28} />
-            </mesh>
-            {/* Conector elétrico do piloto (traseira) */}
-            <mesh position={[0, 40 * U, -24 * U]} castShadow>
-              <boxGeometry args={[18 * U, 12 * U, 10 * U]} />
-              <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.3} />
+            {/* Gravação do número da estação */}
+            <mesh position={[0, -18 * U, 29.5 * U]}>
+              <boxGeometry args={[9 * U, 7 * U, 1.6 * U]} />
+              <meshStandardMaterial color="#9aa5b0" roughness={0.36} metalness={0.7} />
             </mesh>
           </group>
         )
       })}
 
-      {/* Tampa superior translúcida sobre etiquetas */}
-      <mesh position={[0, 58 * U, 8 * U]}>
-        <boxGeometry args={[160 * U, 6 * U, 28 * U]} />
-        <meshPhysicalMaterial
-          color="#e2e8f0"
-          transparent
-          opacity={0.35}
-          roughness={0.12}
-          userData={{ keepTransparent: true }}
-        />
-      </mesh>
+      {/* ——— Filas de racores QS niquelados no degrau frontal (A/B por estação) ——— */}
+      {stationXs.map((sx, idx) => (
+        <group key={`front-ports-${idx}`}>
+          <FestoQsPushInPort position={[sx, -25 * U, baseD * 0.52 + 10 * U]} rotation={[Math.PI / 2, 0, 0]} scale={0.78} variant="nickel" />
+          <FestoQsPushInPort position={[sx, -40 * U, baseD * 0.52 + 10 * U]} rotation={[Math.PI / 2, 0, 0]} scale={0.78} variant="nickel" />
+        </group>
+      ))}
+
+      {/* ——— Tampa / placa final direita + silenciadores PE ——— */}
+      <group position={[110 * U, 32 * U, 0]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[26 * U, 62 * U, 62 * U]} />
+          <meshStandardMaterial color={PBT_BLACK} roughness={0.36} metalness={0.2} />
+        </mesh>
+        <VtugHexScrew position={[0, 20 * U, 33 * U]} />
+        <VtugHexScrew position={[0, -20 * U, 33 * U]} />
+        {/* Tubos de exaustão brancos apontados para a direita */}
+        <PuTubeStub position={[16 * U, -8 * U, -14 * U]} rotation={[0, 0, -Math.PI / 2]} length={34 * U} />
+        <PuTubeStub position={[16 * U, -8 * U, 14 * U]} rotation={[0, 0, -Math.PI / 2]} length={34 * U} />
+      </group>
     </group>
   )
 }
@@ -1568,7 +1694,9 @@ export function PneumaticVacuumCup3D({
 }
 
 // ============================================================================
-// COMPRESSOR DE AR MAXXIM 24 L · 2,0 HP — modelo procedural ultra-realista
+// COMPRESSOR DE AR MAXXIM 24 L · 2,0 HP — modelo procedural fiel ao produto
+// (carcaça preta esculpida, motor prata, mangueira trançada inox, manómetros,
+//  regulador vermelho, rodas com para-lamas azuis e puxador tubular)
 // ============================================================================
 
 const MAXXIM_BLUE = '#0077c8'
@@ -1578,37 +1706,168 @@ const COVER_BLACK = '#1a1d22'
 const METAL_CAST = '#b8c0c8'
 const METAL_BRASS = '#c9a24b'
 
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
 function createMaxximLogoTexture(): THREE.CanvasTexture | null {
   return makeCanvasTex(512, 160, (ctx, w, h) => {
     ctx.clearRect(0, 0, w, h)
-    // Fundo preto do logo
+    // Placa preta com o logótipo MAXXIM a branco (como no tanque do produto)
     ctx.fillStyle = '#0b0e12'
-    roundRect(ctx, 8, 18, w - 16, h - 36, 18)
+    roundRect(ctx, 6, 26, w - 12, h - 52, 8)
     ctx.fill()
     ctx.fillStyle = '#ffffff'
-    ctx.font = '900 78px Arial, sans-serif'
+    ctx.font = '900 84px Arial, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText('MAXXIM', w / 2, h / 2 + 4)
+    ctx.fillText('MAXXIM', w / 2, h / 2 + 2)
   })
 }
 
-function createTankSpecsTexture(): THREE.CanvasTexture | null {
-  return makeCanvasTex(420, 120, (ctx, w, h) => {
+/** Faixa de especificações no flanco da carcaça preta: 1.8 | 116 | 24 · HP | PSI | LT */
+function createShroudSpecsTexture(): THREE.CanvasTexture | null {
+  return makeCanvasTex(512, 128, (ctx, w, h) => {
     ctx.clearRect(0, 0, w, h)
-    ctx.fillStyle = 'rgba(10,20,30,0.55)'
-    roundRect(ctx, 0, 0, w, h, 10)
+    const cells = ['1.8', '116', '24']
+    const units = ['HP', 'PSI', 'LT']
+    for (let i = 0; i < 3; i++) {
+      const cx = w * (0.18 + i * 0.32)
+      ctx.fillStyle = '#eef2f6'
+      ctx.font = '900 56px Arial, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(cells[i], cx, h * 0.38)
+      ctx.font = 'bold 28px Arial, sans-serif'
+      ctx.fillText(units[i], cx, h * 0.72)
+      if (i < 2) {
+        ctx.strokeStyle = 'rgba(238,242,246,0.85)'
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.moveTo(w * (0.34 + i * 0.32), h * 0.18)
+        ctx.lineTo(w * (0.34 + i * 0.32), h * 0.82)
+        ctx.stroke()
+      }
+    }
+  })
+}
+
+/** Selo circular "8 Bar" com seta curva (lado direito do tanque, como no produto). */
+function createBarBadgeTexture(): THREE.CanvasTexture | null {
+  return makeCanvasTex(256, 256, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h)
+    const cx = w / 2
+    const cy = h / 2
+    ctx.fillStyle = '#0b0e12'
+    ctx.beginPath()
+    ctx.arc(cx, cy, w * 0.46, 0, Math.PI * 2)
+    ctx.fill()
+    // Arco da seta (sentido horário)
+    ctx.strokeStyle = '#f8fafc'
+    ctx.lineWidth = 10
+    ctx.beginPath()
+    ctx.arc(cx, cy, w * 0.335, -Math.PI * 0.78, Math.PI * 0.28)
+    ctx.stroke()
+    const tipA = Math.PI * 0.28
+    ctx.fillStyle = '#f8fafc'
+    ctx.beginPath()
+    ctx.moveTo(cx + w * 0.335 * Math.cos(tipA), cy + w * 0.335 * Math.sin(tipA))
+    ctx.lineTo(cx + w * 0.42 * Math.cos(tipA + 0.28), cy + w * 0.42 * Math.sin(tipA + 0.28))
+    ctx.lineTo(cx + w * 0.25 * Math.cos(tipA + 0.3), cy + w * 0.25 * Math.sin(tipA + 0.3))
+    ctx.closePath()
     ctx.fill()
     ctx.fillStyle = '#f8fafc'
-    ctx.font = 'bold 36px Arial, sans-serif'
+    ctx.font = '900 84px Arial, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('1.8 HP   ·   116 PSI   ·   24 LT', w / 2, h * 0.42)
-    ctx.font = 'bold 28px Arial, sans-serif'
-    ctx.fillStyle = '#e2e8f0'
-    ctx.fillText('MAX 8 bar', w / 2, h * 0.78)
+    ctx.textBaseline = 'middle'
+    ctx.fillText('8', cx, cy - 18)
+    ctx.font = 'bold 42px Arial, sans-serif'
+    ctx.fillText('Bar', cx, cy + 44)
   })
 }
 
+/** Malha trançada da mangueira flexível em aço inox. */
+function createBraidedHoseTexture(): THREE.CanvasTexture | null {
+  return makeCanvasTex(256, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#b9c2cb'
+    ctx.fillRect(0, 0, w, h)
+    ctx.lineCap = 'square'
+    const weave = (color: string, dx: number, dir: number) => {
+      ctx.strokeStyle = color
+      ctx.lineWidth = 9
+      for (let i = -h; i < w + h; i += 15) {
+        ctx.beginPath()
+        ctx.moveTo(i + dx, 0)
+        ctx.lineTo(i + dx + dir * h, h)
+        ctx.stroke()
+      }
+    }
+    weave('rgba(248,250,252,0.6)', 0, 1)
+    weave('rgba(96,110,124,0.55)', 7, 1)
+    weave('rgba(248,250,252,0.52)', 0, -1)
+    weave('rgba(96,110,124,0.5)', 7, -1)
+  })
+}
+
+/** Etiqueta "AVISO" do pressostato (caixa preta com botão vermelho). */
+function createPressostatoTexture(): THREE.CanvasTexture | null {
+  return makeCanvasTex(256, 192, (ctx, w, h) => {
+    ctx.fillStyle = '#f4f6f8'
+    roundRect(ctx, 8, 8, w - 16, h - 16, 6)
+    ctx.fill()
+    ctx.fillStyle = '#0b0e12'
+    ctx.beginPath()
+    ctx.moveTo(34, 30)
+    ctx.lineTo(48, 52)
+    ctx.lineTo(20, 52)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = '#f4f6f8'
+    ctx.font = 'bold 13px Arial, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('!', 31, 45)
+    ctx.fillStyle = '#0b0e12'
+    ctx.font = 'bold 24px Arial, sans-serif'
+    ctx.fillText('AVISO', 60, 42)
+    // faixa azul com texto de segurança
+    ctx.fillStyle = '#1d4ed8'
+    roundRect(ctx, 20, 66, w - 40, 58, 4)
+    ctx.fill()
+    ctx.fillStyle = '#e8edf2'
+    ctx.font = '13px Arial, sans-serif'
+    ctx.fillText('Não retire as tampas em serviço.', 28, 82)
+    ctx.fillText('Corte a energia antes da manutenção.', 28, 100)
+    ctx.fillText('Pressão máx. 8 bar.', 28, 116)
+    // diagrama ON/OFF
+    ctx.fillStyle = '#0b0e12'
+    ctx.font = 'bold 15px Arial, sans-serif'
+    ctx.fillText('ON', 40, 148)
+    ctx.fillText('OFF', 40, 172)
+    ctx.strokeStyle = '#0b0e12'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(112, 148, 6, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(112, 172, 6, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(136, 142)
+    ctx.lineTo(160, 132)
+    ctx.moveTo(136, 168)
+    ctx.lineTo(160, 178)
+    ctx.stroke()
+  })
+}
+
+/** Manómetro analógico 0–12 bar com ponteiro vermelho e zona vermelha (produto Maxxim). */
 function createBarGaugeTexture(pressureBar: number, maxBar = 12): THREE.CanvasTexture | null {
   return makeCanvasTex(280, 280, (ctx, w, h) => {
     const cx = w / 2
@@ -1665,17 +1924,124 @@ function createBarGaugeTexture(pressureBar: number, maxBar = 12): THREE.CanvasTe
   })
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + w, y, x + w, y + h, r)
-  ctx.arcTo(x + w, y + h, x, y + h, r)
-  ctx.arcTo(x, y + h, x, y, r)
-  ctx.arcTo(x, y, x + w, y, r)
-  ctx.closePath()
+/**
+ * Decal curvo que abraça o tanque cilíndrico (eixo em X, centro em +Z).
+ * O plano é deformado sobre a superfície do cilindro — o texto segue a curvatura.
+ * Entradas em mm; a geometria sai em unidades de cena (U).
+ */
+function createTankDecalGeometry(radiusMm: number, widthMm: number, arcMm: number): THREE.BufferGeometry {
+  const radius = radiusMm * U
+  const geo = new THREE.PlaneGeometry(widthMm * U, arcMm * U, 24, 8)
+  const pos = geo.attributes.position
+  for (let i = 0; i < pos.count; i += 1) {
+    const x = pos.getX(i)
+    const y = pos.getY(i)
+    const ang = y / radius
+    pos.setXYZ(i, x, Math.sin(ang) * radius, Math.cos(ang) * radius)
+  }
+  geo.computeVertexNormals()
+  return geo
 }
 
-/** Compressor de ar Maxxim 24 L · 2,0 HP — tanque, motor, tampas, manómetros e bornes. */
+function TankDecal({
+  texture,
+  widthMm,
+  arcMm,
+  position,
+  radiusMm = 95.8,
+}: {
+  texture: THREE.CanvasTexture | null
+  widthMm: number
+  arcMm: number
+  position: [number, number, number]
+  radiusMm?: number
+}) {
+  const geo = useMemo(() => createTankDecalGeometry(radiusMm, widthMm, arcMm), [radiusMm, widthMm, arcMm])
+  useEffect(() => () => { geo.dispose() }, [geo])
+  if (!texture) return null
+  return (
+    <mesh geometry={geo} position={position}>
+      <meshStandardMaterial map={texture} transparent side={THREE.DoubleSide} roughness={0.42} metalness={0.08} />
+    </mesh>
+  )
+}
+
+/** Rosto do manómetro: aro cromado + vidro + mostrador. */
+function GaugeFace({
+  texture,
+  radius = 23 * U,
+}: {
+  texture: THREE.CanvasTexture | null
+  radius?: number
+}) {
+  return (
+    <group>
+      {/* Aro cromado */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[radius * 1.12, radius * 1.12, 10 * U, 28]} />
+        <meshStandardMaterial color="#cdd6df" roughness={0.18} metalness={0.92} />
+      </mesh>
+      {/* Mostrador */}
+      {texture && (
+        <mesh position={[0, 0, 5.2 * U]}>
+          <circleGeometry args={[radius, 36]} />
+          <meshStandardMaterial map={texture} roughness={0.24} metalness={0.05} />
+        </mesh>
+      )}
+      {/* Vidro */}
+      <mesh position={[0, 0, 6.2 * U]}>
+        <circleGeometry args={[radius * 1.04, 36]} />
+        <meshPhysicalMaterial
+          color="#eef4fa"
+          transparent
+          opacity={0.16}
+          roughness={0.06}
+          metalness={0}
+          userData={{ keepTransparent: true }}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+/** Roda preta com 8 raios, cubo e parafuso de eixo em latão (fiel ao produto). */
+function CompressorWheel({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      {/* Pneu (plano XY, eixo em Z — a roda encara o observador, como no produto) */}
+      <mesh castShadow>
+        <torusGeometry args={[50 * U, 13 * U, 14, 30]} />
+        <meshStandardMaterial color="#15181d" roughness={0.62} metalness={0.12} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[50 * U, 50 * U, 22 * U, 30]} />
+        <meshStandardMaterial color="#15181d" roughness={0.62} metalness={0.12} />
+      </mesh>
+      {/* Disco + raios */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 1 * U]}>
+        <cylinderGeometry args={[42 * U, 42 * U, 8 * U, 28]} />
+        <meshStandardMaterial color="#1c2128" roughness={0.5} metalness={0.2} />
+      </mesh>
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <mesh key={i} rotation={[0, 0, (i * Math.PI) / 4]} position={[0, 0, 6 * U]}>
+          <boxGeometry args={[7 * U, 38 * U, 3 * U]} />
+          <meshStandardMaterial color="#111418" roughness={0.52} metalness={0.18} />
+        </mesh>
+      ))}
+      {/* Cubo + parafuso de eixo em latão */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 9 * U]}>
+        <cylinderGeometry args={[13 * U, 13 * U, 10 * U, 20]} />
+        <meshStandardMaterial color="#23282f" roughness={0.42} metalness={0.35} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 15 * U]}>
+        <cylinderGeometry args={[7 * U, 7 * U, 7 * U, 6]} />
+        <meshStandardMaterial color={METAL_BRASS} roughness={0.28} metalness={0.88} />
+      </mesh>
+    </group>
+  )
+}
+
+/** Compressor de ar Maxxim 24 L · 2,0 HP — tanque, carcaça, motor, mangueira, manómetros e bornes. */
 export function AirCompressor3D({
   c,
   position,
@@ -1692,162 +2058,266 @@ export function AirCompressor3D({
   const tankBar = Math.max(0, Math.min(8, Number(c.state.tankPressureBar ?? 0)))
   const outBar = Math.max(0, Math.min(8, Number(c.state.outletPressureBar ?? tankBar * 0.92)))
   const logoTex = useMemo(() => createMaxximLogoTexture(), [])
-  const specsTex = useMemo(() => createTankSpecsTexture(), [])
+  const specsTex = useMemo(() => createShroudSpecsTexture(), [])
+  const badgeTex = useMemo(() => createBarBadgeTexture(), [])
+  const hoseTex = useMemo(() => createBraidedHoseTexture(), [])
+  const pressTex = useMemo(() => createPressostatoTexture(), [])
   const tankGauge = useMemo(() => createBarGaugeTexture(tankBar, 12), [tankBar])
   const outGauge = useMemo(() => createBarGaugeTexture(outBar, 12), [outBar])
   useEffect(() => () => {
     logoTex?.dispose()
     specsTex?.dispose()
+    badgeTex?.dispose()
+    hoseTex?.dispose()
+    pressTex?.dispose()
     tankGauge?.dispose()
     outGauge?.dispose()
-  }, [logoTex, specsTex, tankGauge, outGauge])
+  }, [logoTex, specsTex, badgeTex, hoseTex, pressTex, tankGauge, outGauge])
 
   const fanRef = useRef<THREE.Group>(null)
   useFrame((_, dt) => {
-    if (fanRef.current && running) fanRef.current.rotation.z += dt * 18
+    if (fanRef.current && running) fanRef.current.rotation.x += dt * 18
   })
 
-  // Dimensões aproximadas fiéis ao Maxxim 24 L (unidades de cena: 1 u = 100 mm)
+  // —— Cotas do produto (1 U = 1 mm) ——
   const tankR = 95 * U
   const tankL = 420 * U
-  const motorY = tankR + 55 * U
+  const tankY = -55 * U // eixo do tanque
+  const groundY = -190 * U
+
+  // Perfil esculpido da carcaça preta (extrudido ao comprimento, eixo em X)
+  const shroudGeo = useMemo(() => {
+    const s = new THREE.Shape()
+    s.moveTo(-88, 0)
+    s.lineTo(66, 0)
+    s.quadraticCurveTo(90, 0, 90, 20)
+    s.lineTo(90, 52)
+    s.quadraticCurveTo(90, 108, 26, 108)
+    s.lineTo(-52, 108)
+    s.quadraticCurveTo(-88, 108, -88, 80)
+    s.lineTo(-88, 0)
+    const geo = new THREE.ExtrudeGeometry(s, { depth: 236, bevelEnabled: true, bevelThickness: 3, bevelSize: 3, bevelSegments: 3, curveSegments: 18 })
+    geo.translate(0, 0, -118)
+    geo.rotateY(-Math.PI / 2)
+    geo.scale(U, U, U) // perfil em mm → unidades de cena
+    return geo
+  }, [])
+  useEffect(() => () => { shroudGeo.dispose() }, [shroudGeo])
+
+  // Mangueira trançada: do cotovelo do pistão até ao racor do tanque
+  const hoseGeo = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-138 * U, 150 * U, 52 * U),
+      new THREE.Vector3(-132 * U, 104 * U, 74 * U),
+      new THREE.Vector3(-108 * U, 58 * U, 66 * U),
+      new THREE.Vector3(-45 * U, 34 * U, 53 * U),
+      new THREE.Vector3(14 * U, 30 * U, 50 * U),
+      new THREE.Vector3(52 * U, 33 * U, 46 * U),
+    ])
+    return new THREE.TubeGeometry(curve, 56, 6.2 * U, 12, false)
+  }, [])
+  useEffect(() => () => { hoseGeo.dispose() }, [hoseGeo])
+
+  // Puxador tubular azul (curva + punho preto)
+  const handleGeo = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(150 * U, 30 * U, -42 * U),
+      new THREE.Vector3(186 * U, 120 * U, -42 * U),
+      new THREE.Vector3(210 * U, 196 * U, -42 * U),
+      new THREE.Vector3(196 * U, 226 * U, -42 * U),
+    ])
+    return new THREE.TubeGeometry(curve, 40, 9 * U, 14, false)
+  }, [])
+  useEffect(() => () => { handleGeo.dispose() }, [handleGeo])
+
+  // Tubo de cobre fino (descarregador) do pressostato para o racor do tanque
+  const copperGeo = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(96 * U, 132 * U, 18 * U),
+      new THREE.Vector3(88 * U, 96 * U, 26 * U),
+      new THREE.Vector3(74 * U, 60 * U, 36 * U),
+      new THREE.Vector3(60 * U, 42 * U, 42 * U),
+    ])
+    return new THREE.TubeGeometry(curve, 24, 2.4 * U, 8, false)
+  }, [])
+  useEffect(() => () => { copperGeo.dispose() }, [copperGeo])
 
   return (
     <group position={position} name={`air-compressor-3d-${c.id}`}>
-      {/* ——— Tanque horizontal azul ——— */}
-      <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-        <cylinderGeometry args={[tankR, tankR, tankL, 40]} />
-        <meshStandardMaterial color={TANK_BLUE} roughness={0.28} metalness={0.55} />
+      {/* ——— Tanque horizontal azul (acabamento satinado) ——— */}
+      <mesh rotation={[0, 0, Math.PI / 2]} position={[0, tankY, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[tankR, tankR, tankL, 48]} />
+        <meshStandardMaterial color={TANK_BLUE} roughness={0.42} metalness={0.38} />
       </mesh>
-      {/* Tops hemisfericos */}
-      <mesh position={[-tankL / 2, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
-        <sphereGeometry args={[tankR, 28, 18, 0, Math.PI]} />
-        <meshStandardMaterial color={TANK_BLUE} roughness={0.28} metalness={0.55} />
+      {/* Fundos abaulados */}
+      <mesh position={[-tankL / 2, tankY, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+        <sphereGeometry args={[tankR, 32, 20, 0, Math.PI]} />
+        <meshStandardMaterial color={TANK_BLUE} roughness={0.42} metalness={0.38} />
       </mesh>
-      <mesh position={[tankL / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <sphereGeometry args={[tankR, 28, 18, 0, Math.PI]} />
-        <meshStandardMaterial color={TANK_BLUE} roughness={0.28} metalness={0.55} />
+      <mesh position={[tankL / 2, tankY, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <sphereGeometry args={[tankR, 32, 20, 0, Math.PI]} />
+        <meshStandardMaterial color={TANK_BLUE} roughness={0.42} metalness={0.38} />
       </mesh>
-      {/* Costuras / anéis do tanque */}
-      {[-0.28, 0, 0.28].map((t, i) => (
-        <mesh key={i} position={[t * tankL, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <torusGeometry args={[tankR + 1.2 * U, 2.2 * U, 10, 40]} />
-          <meshStandardMaterial color={MAXXIM_BLUE_DARK} roughness={0.4} metalness={0.4} />
+      {/* Costura / anel de soldadura do tanque */}
+      <mesh position={[0, tankY, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <torusGeometry args={[tankR + 0.8 * U, 2.6 * U, 10, 48]} />
+        <meshStandardMaterial color={MAXXIM_BLUE_DARK} roughness={0.5} metalness={0.32} />
+      </mesh>
+      {([-1, 1] as const).map((s) => (
+        <mesh key={s} position={[s * tankL * 0.42, tankY, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <torusGeometry args={[tankR + 0.6 * U, 2 * U, 8, 40]} />
+          <meshStandardMaterial color={MAXXIM_BLUE_DARK} roughness={0.5} metalness={0.32} />
         </mesh>
       ))}
-      {/* Logo MAXXIM */}
-      {logoTex && (
-        <mesh position={[0, 0, tankR + 0.5 * U]} castShadow>
-          <planeGeometry args={[180 * U, 55 * U]} />
-          <meshStandardMaterial map={logoTex} transparent roughness={0.45} metalness={0.1} />
-        </mesh>
-      )}
-      {/* Specs 1.8 HP / 116 PSI / 24 LT */}
-      {specsTex && (
-        <mesh position={[0, tankR * 0.35, tankR + 0.4 * U]}>
-          <planeGeometry args={[140 * U, 40 * U]} />
-          <meshStandardMaterial map={specsTex} transparent roughness={0.5} metalness={0.05} />
-        </mesh>
-      )}
-      {/* Selo 8 Bar */}
-      <mesh position={[tankL * 0.32, 0, tankR + 0.4 * U]}>
-        <circleGeometry args={[22 * U, 24]} />
-        <meshStandardMaterial color="#0b0e12" roughness={0.5} />
-      </mesh>
-      <mesh position={[tankL * 0.32, 0, tankR + 0.6 * U]}>
-        <ringGeometry args={[14 * U, 20 * U, 24]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.4} />
-      </mesh>
 
-      {/* ——— Rodas ——— */}
-      {([-1, 1] as const).map((side) => (
-        <group key={side} position={[tankL * 0.32, -tankR * 0.55, side * (tankR * 0.95)]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[48 * U, 48 * U, 28 * U, 24]} />
-            <meshStandardMaterial color="#1c1f24" roughness={0.7} metalness={0.15} />
-          </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[18 * U, 18 * U, 30 * U, 16]} />
-            <meshStandardMaterial color="#64748b" roughness={0.35} metalness={0.7} />
-          </mesh>
-        </group>
-      ))}
-      {/* Rodízio frontal */}
-      <mesh position={[-tankL * 0.38, -tankR * 0.85, 0]} castShadow>
-        <sphereGeometry args={[18 * U, 16, 12]} />
-        <meshStandardMaterial color="#1c1f24" roughness={0.65} metalness={0.2} />
-      </mesh>
-      <mesh position={[-tankL * 0.38, -tankR * 0.55, 0]}>
-        <cylinderGeometry args={[6 * U, 6 * U, 40 * U, 12]} />
-        <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.75} />
-      </mesh>
+      {/* ——— Decais do tanque (curvos, seguem a curvatura) ——— */}
+      <TankDecal texture={logoTex} widthMm={175} arcMm={58} position={[-35 * U, tankY, 0]} />
+      <TankDecal texture={badgeTex} widthMm={52} arcMm={52} position={[95 * U, tankY, 0]} />
 
-      {/* ——— Motor / cabeça de compressão ——— */}
-      <group position={[-tankL * 0.12, motorY, 0]}>
-        {/* Bloco motor alumínio */}
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[140 * U, 90 * U, 110 * U]} />
-          <meshStandardMaterial color={METAL_CAST} roughness={0.35} metalness={0.7} />
+      {/* ——— Motor elétrico (alumínio com aletas) ——— */}
+      <group position={[-70 * U, 100 * U, -18 * U]}>
+        <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+          <cylinderGeometry args={[50 * U, 50 * U, 160 * U, 28]} />
+          <meshStandardMaterial color={METAL_CAST} roughness={0.38} metalness={0.72} />
         </mesh>
-        {/* Cilindro / cabeça */}
-        <mesh position={[-55 * U, 35 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[42 * U, 48 * U, 55 * U, 24]} />
-          <meshStandardMaterial color="#9aa5b0" roughness={0.32} metalness={0.75} />
-        </mesh>
-        {/* Tampas do motor (articuladas) */}
-        <group
-          position={[20 * U, 55 * U, 0]}
-          rotation={[0, 0, coverOpen ? -Math.PI * 0.55 : 0]}
-          onDoubleClick={(e) => {
-            e.stopPropagation()
-            onToggleCover?.()
-          }}
-          onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
-          onPointerOut={() => { document.body.style.cursor = '' }}
-        >
-          <mesh position={[0, 25 * U, 0]} castShadow>
-            <boxGeometry args={[130 * U, 50 * U, 100 * U]} />
-            <meshStandardMaterial color={COVER_BLACK} roughness={0.45} metalness={0.25} />
+        {/* Aletas de refrigeração */}
+        {[-60, -42, -24, -6, 12, 30, 48].map((fx, i) => (
+          <mesh key={i} position={[fx * U, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[53.5 * U, 53.5 * U, 3.4 * U, 28]} />
+            <meshStandardMaterial color="#a9b4bf" roughness={0.42} metalness={0.7} />
           </mesh>
-          {/* Grelha de ventilação na tampa */}
-          {[-1, 0, 1].map((i) => (
-            <mesh key={i} position={[i * 28 * U, 25 * U, 51 * U]}>
-              <boxGeometry args={[18 * U, 32 * U, 2 * U]} />
-              <meshStandardMaterial color="#0f1216" roughness={0.6} />
-            </mesh>
-          ))}
-        </group>
-        {/* Ventoinha (roda quando running) */}
-        <group ref={fanRef} position={[75 * U, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        ))}
+        {/* Tampa traseira do motor */}
+        <mesh position={[-82 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[42 * U, 50 * U, 10 * U, 28]} />
+          <meshStandardMaterial color="#8f9aa6" roughness={0.4} metalness={0.72} />
+        </mesh>
+        {/* Ventoinha interna (roda em RUN, eixo em X) */}
+        <group ref={fanRef} position={[-88 * U, 0, 0]}>
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <mesh key={i} rotation={[0, 0, (i * Math.PI) / 3]} position={[0, 22 * U, 0]} castShadow>
-              <boxGeometry args={[10 * U, 44 * U, 3 * U]} />
+            <mesh key={i} rotation={[(i * Math.PI) / 3, 0, 0]}>
+              <boxGeometry args={[3 * U, 40 * U, 8 * U]} />
               <meshStandardMaterial color="#cbd5e1" roughness={0.4} metalness={0.5} />
             </mesh>
           ))}
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[12 * U, 12 * U, 8 * U, 16]} />
-            <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.7} />
-          </mesh>
         </group>
-        {/* Indicador running */}
-        {running && (
-          <mesh position={[0, 50 * U, 56 * U]}>
-            <sphereGeometry args={[6 * U, 12, 12]} />
-            <meshStandardMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.9} />
-          </mesh>
-        )}
       </group>
 
-      {/* ——— Mangueira flexível prateada motor → tanque ——— */}
-      <mesh position={[-tankL * 0.05, tankR * 0.55, tankR * 0.55]} rotation={[0.4, 0.2, 0.6]} castShadow>
-        <cylinderGeometry args={[6 * U, 6 * U, 120 * U, 12]} />
-        <meshStandardMaterial color="#c0c8d0" roughness={0.35} metalness={0.85} />
+      {/* ——— Cabeça do pistão (cilindro prateado com aletas, à vista no lado esquerdo) ——— */}
+      <group position={[-138 * U, 98 * U, 34 * U]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[42 * U, 42 * U, 78 * U, 26]} />
+          <meshStandardMaterial color="#aeb9c4" roughness={0.34} metalness={0.78} />
+        </mesh>
+        {/* Aletas da cabeça */}
+        {[-22, -8, 6, 20].map((fz, i) => (
+          <mesh key={i} position={[0, 0, fz * U]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[45.5 * U, 45.5 * U, 3.2 * U, 26]} />
+            <meshStandardMaterial color="#9daab6" roughness={0.38} metalness={0.76} />
+          </mesh>
+        ))}
+        {/* Tampa frontal com parafusos */}
+        <mesh position={[0, 0, 42 * U]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[34 * U, 34 * U, 6 * U, 26]} />
+          <meshStandardMaterial color="#8f9aa6" roughness={0.36} metalness={0.8} />
+        </mesh>
+        {[0, 1, 2, 3, 4].map((i) => {
+          const a = (i / 5) * Math.PI * 2
+          return (
+            <mesh key={i} position={[Math.cos(a) * 26 * U, Math.sin(a) * 26 * U, 45 * U]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[3 * U, 3 * U, 3.4 * U, 6]} />
+              <meshStandardMaterial color="#c9d2db" roughness={0.26} metalness={0.9} />
+            </mesh>
+          )
+        })}
+        {/* Cotovelo latão + porca da mangueira (topo) */}
+        <mesh position={[0, 44 * U, 8 * U]} castShadow>
+          <cylinderGeometry args={[7 * U, 7 * U, 16 * U, 6]} />
+          <meshStandardMaterial color={METAL_BRASS} roughness={0.28} metalness={0.88} />
+        </mesh>
+        <mesh position={[0, 54 * U, 8 * U]} castShadow>
+          <cylinderGeometry args={[8.6 * U, 8.6 * U, 9 * U, 6]} />
+          <meshStandardMaterial color="#c3ccd6" roughness={0.22} metalness={0.92} />
+        </mesh>
+        {/* Filtro de aspiração (cilindro preto com tampa redonda) */}
+        <group position={[-40 * U, 44 * U, -6 * U]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[13 * U, 13 * U, 36 * U, 18]} />
+            <meshStandardMaterial color="#1c2128" roughness={0.55} metalness={0.14} />
+          </mesh>
+          <mesh position={[0, 21 * U, 0]}>
+            <sphereGeometry args={[13 * U, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial color="#1c2128" roughness={0.55} metalness={0.14} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* ——— Mangueira trançada inox ——— */}
+      <mesh geometry={hoseGeo} castShadow>
+        <meshStandardMaterial map={hoseTex} roughness={0.42} metalness={0.82} />
+      </mesh>
+      {/* Porca hexagonal na cabeça */}
+      <mesh position={[-138 * U, 150 * U, 52 * U]} rotation={[0.9, 0, 0]} castShadow>
+        <cylinderGeometry args={[8 * U, 8 * U, 12 * U, 6]} />
+        <meshStandardMaterial color="#c3ccd6" roughness={0.22} metalness={0.92} />
+      </mesh>
+      {/* Racoр em T de latão no tanque + tubo de cobre */}
+      <group position={[52 * U, 33 * U, 46 * U]}>
+        <mesh rotation={[1.1, 0, 0]} castShadow>
+          <cylinderGeometry args={[8 * U, 8 * U, 13 * U, 6]} />
+          <meshStandardMaterial color="#c3ccd6" roughness={0.22} metalness={0.92} />
+        </mesh>
+        <mesh position={[0, -14 * U, 6 * U]} rotation={[0.45, 0, 0]} castShadow>
+          <cylinderGeometry args={[6.4 * U, 6.4 * U, 16 * U, 12]} />
+          <meshStandardMaterial color={METAL_BRASS} roughness={0.28} metalness={0.88} />
+        </mesh>
+      </group>
+      <mesh geometry={copperGeo}>
+        <meshStandardMaterial color="#c1763f" roughness={0.32} metalness={0.85} />
       </mesh>
 
-      {/* ——— Painel de controlo (pressostato + manómetros + regulador) ——— */}
-      <group position={[tankL * 0.22, tankR + 70 * U, 0]}>
-        {/* Caixa preta pressostato */}
+      {/* ——— Carcaça preta esculpida (abre em duplo clique) ——— */}
+      <group
+        position={[-207 * U, 102 * U, 0]}
+        rotation={[0, 0, coverOpen ? 0.55 : 0]}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          onToggleCover?.()
+        }}
+        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
+        onPointerOut={() => { document.body.style.cursor = '' }}
+      >
+        <mesh geometry={shroudGeo} position={[112 * U, 0, 0]} castShadow receiveShadow>
+          <meshStandardMaterial color={COVER_BLACK} roughness={0.46} metalness={0.22} />
+        </mesh>
+        {/* Nervura superior da carcaça */}
+        <mesh position={[112 * U, 113 * U, -14 * U]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[10 * U, 10 * U, 180 * U, 18]} />
+          <meshStandardMaterial color="#14171c" roughness={0.42} metalness={0.25} />
+        </mesh>
+        {/* Grelha de ventilação superior traseira */}
+        {[-46, -8, 30].map((gx, i) => (
+          <mesh key={i} position={[gx * U, 112.6 * U, -48 * U]} rotation={[0.35, 0, 0]}>
+            <boxGeometry args={[30 * U, 3 * U, 22 * U]} />
+            <meshStandardMaterial color="#0d1014" roughness={0.72} />
+          </mesh>
+        ))}
+        {/* Faixa de especificações (flanco frontal) */}
+        {specsTex && (
+          <mesh position={[112 * U, 36 * U, 94.6 * U]}>
+            <planeGeometry args={[148 * U, 37 * U]} />
+            <meshStandardMaterial map={specsTex} transparent roughness={0.44} metalness={0.08} />
+          </mesh>
+        )}
+        {/* Parafuso sextavado do flanco */}
+        <mesh position={[52 * U, 74 * U, 94.2 * U]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[5.4 * U, 5.4 * U, 3.4 * U, 6]} />
+          <meshStandardMaterial color="#c3ccd6" roughness={0.22} metalness={0.92} />
+        </mesh>
+      </group>
+
+      {/* ——— Pressostato (caixa preta com botão vermelho · duplo clique = ON/OFF) ——— */}
+      <group position={[108 * U, 152 * U, 12 * U]}>
         <mesh
           castShadow
           onDoubleClick={(e) => {
@@ -1857,74 +2327,156 @@ export function AirCompressor3D({
           onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
           onPointerOut={() => { document.body.style.cursor = '' }}
         >
-          <boxGeometry args={[70 * U, 55 * U, 45 * U]} />
-          <meshStandardMaterial color={COVER_BLACK} roughness={0.4} metalness={0.2} />
+          <boxGeometry args={[58 * U, 50 * U, 44 * U]} />
+          <meshStandardMaterial color={COVER_BLACK} roughness={0.42} metalness={0.2} />
         </mesh>
-        {/* Botão ON/OFF */}
-        <mesh position={[0, 5 * U, 24 * U]} castShadow>
-          <cylinderGeometry args={[10 * U, 10 * U, 8 * U, 20]} />
-          <meshStandardMaterial
-            color={running ? '#16a34a' : '#dc2626'}
-            emissive={running ? '#15803d' : '#991b1b'}
-            emissiveIntensity={0.45}
-            roughness={0.35}
-          />
-        </mesh>
-        {/* Manómetro tanque */}
-        <group position={[-40 * U, -5 * U, 30 * U]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[22 * U, 22 * U, 12 * U, 24]} />
-            <meshStandardMaterial color="#d4dbe3" roughness={0.25} metalness={0.8} />
+        {/* Etiqueta AVISO */}
+        {pressTex && (
+          <mesh position={[0, -2 * U, 22.4 * U]}>
+            <planeGeometry args={[42 * U, 32 * U]} />
+            <meshStandardMaterial map={pressTex} roughness={0.4} metalness={0.05} />
           </mesh>
-          {tankGauge && (
-            <mesh position={[0, 0, 7 * U]}>
-              <circleGeometry args={[20 * U, 32]} />
-              <meshStandardMaterial map={tankGauge} roughness={0.2} metalness={0.05} />
-            </mesh>
-          )}
-        </group>
-        {/* Manómetro saída / regulador */}
-        <group position={[40 * U, -5 * U, 30 * U]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[22 * U, 22 * U, 12 * U, 24]} />
-            <meshStandardMaterial color="#d4dbe3" roughness={0.25} metalness={0.8} />
-          </mesh>
-          {outGauge && (
-            <mesh position={[0, 0, 7 * U]}>
-              <circleGeometry args={[20 * U, 32]} />
-              <meshStandardMaterial map={outGauge} roughness={0.2} metalness={0.05} />
-            </mesh>
-          )}
-        </group>
-        {/* Regulador vermelho */}
-        <mesh position={[55 * U, 25 * U, 10 * U]} castShadow>
-          <cylinderGeometry args={[12 * U, 14 * U, 28 * U, 16]} />
-          <meshStandardMaterial color="#b91c1c" roughness={0.4} metalness={0.2} />
+        )}
+        {/* Botão vermelho no topo */}
+        <mesh position={[-8 * U, 30 * U, 0]} castShadow>
+          <cylinderGeometry args={[11 * U, 11 * U, 12 * U, 20]} />
+          <meshStandardMaterial color="#c1121f" roughness={0.32} metalness={0.16} />
         </mesh>
-        {/* Saída de ar (porta OUT) — engate rápido */}
-        <group position={[70 * U, -15 * U, 5 * U]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[9 * U, 9 * U, 28 * U, 16]} />
+        <mesh position={[-8 * U, 36.5 * U, 0]}>
+          <cylinderGeometry args={[8.4 * U, 8.4 * U, 2.4 * U, 20]} />
+          <meshStandardMaterial color="#e63946" roughness={0.28} />
+        </mesh>
+        {/* LED de estado */}
+        {running && (
+          <mesh position={[18 * U, 18 * U, 22.4 * U]}>
+            <sphereGeometry args={[3.6 * U, 12, 12]} />
+            <meshStandardMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={1.1} />
+          </mesh>
+        )}
+      </group>
+
+      {/* ——— Bloco regulador + manómetros + regulador vermelho + engate rápido ——— */}
+      <group position={[152 * U, 96 * U, 10 * U]}>
+        {/* Corpo preto do regulador */}
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[80 * U, 52 * U, 52 * U]} />
+          <meshStandardMaterial color="#16191e" roughness={0.38} metalness={0.24} />
+        </mesh>
+        {/* Manómetro do tanque (maior, à esquerda) */}
+        <group position={[-26 * U, -4 * U, 30 * U]}>
+          <GaugeFace texture={tankGauge} radius={24 * U} />
+        </group>
+        {/* Manómetro da saída (menor, à direita) */}
+        <group position={[22 * U, -10 * U, 30 * U]}>
+          <GaugeFace texture={outGauge} radius={20 * U} />
+        </group>
+        {/* Regulador vermelho nervurado (topo direito) */}
+        <group position={[26 * U, 36 * U, -4 * U]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[16 * U, 16 * U, 26 * U, 22]} />
+            <meshStandardMaterial color="#b91c1c" roughness={0.38} metalness={0.18} />
+          </mesh>
+          {Array.from({ length: 12 }, (_, i) => {
+            const a = (i / 12) * Math.PI * 2
+            return (
+              <mesh key={i} position={[Math.cos(a) * 16 * U, 0, Math.sin(a) * 16 * U]} rotation={[0, -a, 0]}>
+                <boxGeometry args={[3 * U, 22 * U, 4 * U]} />
+                <meshStandardMaterial color="#9f1515" roughness={0.42} />
+              </mesh>
+            )
+          })}
+          <mesh position={[0, 15 * U, 0]}>
+            <cylinderGeometry args={[13 * U, 13 * U, 3 * U, 22]} />
+            <meshStandardMaterial color="#d32f2f" roughness={0.3} />
+          </mesh>
+          <mesh position={[0, -18 * U, 0]}>
+            <cylinderGeometry args={[7 * U, 7 * U, 12 * U, 14]} />
+            <meshStandardMaterial color="#cdd6df" roughness={0.2} metalness={0.9} />
+          </mesh>
+        </group>
+        {/* Engate rápido de saída (latão + colar niquelado), aponta para +X */}
+        <group position={[52 * U, -6 * U, 4 * U]} rotation={[0, 0, -Math.PI / 2]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[10 * U, 10 * U, 18 * U, 6]} />
             <meshStandardMaterial color={METAL_BRASS} roughness={0.28} metalness={0.88} />
           </mesh>
-          <FestoQsPushInPort position={[22 * U, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.85} variant="black" />
+          <mesh position={[0, 14 * U, 0]} castShadow>
+            <cylinderGeometry args={[11.5 * U, 11.5 * U, 10 * U, 18]} />
+            <meshStandardMaterial color="#c3ccd6" roughness={0.22} metalness={0.9} />
+          </mesh>
+          <mesh position={[0, 22 * U, 0]}>
+            <cylinderGeometry args={[7.4 * U, 8.6 * U, 7 * U, 18]} />
+            <meshStandardMaterial color={METAL_BRASS} roughness={0.3} metalness={0.86} />
+          </mesh>
+          <mesh position={[0, 26.4 * U, 0]}>
+            <cylinderGeometry args={[5.6 * U, 5.6 * U, 3 * U, 14]} />
+            <meshStandardMaterial color="#0b0e12" roughness={0.7} />
+          </mesh>
         </group>
-        {/* Entrada de ar / filtro aspiração (lado motor) */}
-        <mesh position={[-90 * U, 10 * U, -40 * U]} castShadow>
-          <cylinderGeometry args={[18 * U, 22 * U, 30 * U, 16]} />
-          <meshStandardMaterial color="#334155" roughness={0.55} metalness={0.3} />
+      </group>
+
+      {/* ——— Puxador tubular azul + punho preto ——— */}
+      <mesh geometry={handleGeo} castShadow>
+        <meshStandardMaterial color={MAXXIM_BLUE} roughness={0.36} metalness={0.42} />
+      </mesh>
+      <mesh position={[190 * U, 230 * U, -42 * U]} rotation={[0, 0, 1.25]} castShadow>
+        <cylinderGeometry args={[12 * U, 12 * U, 46 * U, 18]} />
+        <meshStandardMaterial color="#1c2128" roughness={0.6} metalness={0.12} />
+      </mesh>
+
+      {/* ——— Rodas traseiras com para-lamas azuis ——— */}
+      {([-1, 1] as const).map((side) => (
+        <group key={side}>
+          <CompressorWheel position={[-115 * U, groundY + 58 * U, side * 100 * U]} />
+          {/* Para-lamas azul (banda curva sobre a roda) */}
+          <mesh position={[-115 * U, groundY + 58 * U, side * 100 * U]} rotation={[0, 0, 0.4]}>
+            <torusGeometry args={[74 * U, 7.5 * U, 10, 26, 2.35]} />
+            <meshStandardMaterial color={TANK_BLUE} roughness={0.38} metalness={0.4} />
+          </mesh>
+          {/* Suporte do eixo */}
+          <mesh position={[-115 * U, groundY + 58 * U, side * 84 * U]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[11 * U, 11 * U, 34 * U, 14]} />
+            <meshStandardMaterial color={MAXXIM_BLUE_DARK} roughness={0.4} metalness={0.45} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ——— Pés dianteiros (perna azul dobrada + borracha) ——— */}
+      {([-1, 1] as const).map((side) => (
+        <group key={side} position={[165 * U, 0, side * 78 * U]}>
+          {/* Perna em chapa azul dobrada */}
+          <mesh position={[2 * U, -138 * U, 0]} rotation={[0, 0, 0.12]} castShadow>
+            <boxGeometry args={[22 * U, 88 * U, 9 * U]} />
+            <meshStandardMaterial color={TANK_BLUE} roughness={0.38} metalness={0.4} />
+          </mesh>
+          <mesh position={[6 * U, -88 * U, 0]} rotation={[0, 0, -0.5]} castShadow>
+            <boxGeometry args={[26 * U, 34 * U, 9 * U]} />
+            <meshStandardMaterial color={TANK_BLUE} roughness={0.38} metalness={0.4} />
+          </mesh>
+          {/* Pé de borracha */}
+          <mesh position={[2 * U, groundY + 8 * U, 0]} castShadow>
+            <cylinderGeometry args={[17 * U, 18 * U, 15 * U, 18]} />
+            <meshStandardMaterial color="#15181d" roughness={0.72} metalness={0.08} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ——— Válvula de esgotamento (latão, fundo do tanque) ——— */}
+      <group position={[58 * U, tankY - tankR - 3 * U, 0]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[5.4 * U, 5.4 * U, 14 * U, 6]} />
+          <meshStandardMaterial color={METAL_BRASS} roughness={0.28} metalness={0.88} />
+        </mesh>
+        <mesh position={[0, -8.6 * U, 0]}>
+          <cylinderGeometry args={[4.2 * U, 4.2 * U, 5 * U, 10]} />
+          <meshStandardMaterial color="#8a6a2f" roughness={0.34} metalness={0.85} />
         </mesh>
       </group>
 
-      {/* ——— Pega / guiador ——— */}
-      <mesh position={[-tankL * 0.05, tankR + 130 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <torusGeometry args={[55 * U, 7 * U, 12, 32, Math.PI]} />
-        <meshStandardMaterial color={MAXXIM_BLUE} roughness={0.35} metalness={0.45} />
-      </mesh>
-      {/* Pés de apoio do motor no tanque */}
+      {/* ——— Sapatas de apoio do motor no tanque ——— */}
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[-tankL * 0.12, tankR * 0.15, s * 35 * U]} castShadow>
-          <boxGeometry args={[40 * U, 20 * U, 12 * U]} />
+        <mesh key={s} position={[-70 * U, tankY + tankR * 0.72, s * 38 * U]} castShadow>
+          <boxGeometry args={[46 * U, 22 * U, 13 * U]} />
           <meshStandardMaterial color="#475569" roughness={0.4} metalness={0.5} />
         </mesh>
       ))}

@@ -5,14 +5,14 @@ import { createComponent } from '../electrical/factory'
 import type { ComponentType } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import { isConduitStructureType, isWireMeshTrayType } from './structuresModel'
+import { hasProceduralCapture } from './proceduralKinds'
 import { WireTrayStraight3D, WireTrayElbow903D, WireTrayTee3D, WireTrayRiser903D } from './WireMeshTrayDevices3D'
 import { ConduitVdsStraight3D, ConduitVdsElbow903D, ConduitCorrugated3D, PipeClampStandalone3D } from './ConduitDevices3D'
 import { WaterFlowMeterZjLcd3D, WaterSupplyBox3D } from './HydraulicsDevices3D'
+import { AirCompressor3D, PneumaticManifold3D, PneumaticTee3D, PneumaticUnion3D, PneumaticElbow3D, PneumaticY3D } from './PneumaticsDevices3D'
 import { applyCadSurfaceTextures } from './cadSurface'
 
-export function hasProceduralCapture(type: string): boolean {
-  return isConduitStructureType(type) || isWireMeshTrayType(type) || type === 'hydraulicFlowMeter' || type === 'waterSupplyBox'
-}
+export { hasProceduralCapture } from './proceduralKinds'
 
 /** A mesma geometria e os mesmos materiais do Panel3D, em milímetros para as capturas. */
 function Snapshot({ type, section, ready }: { type: ComponentType; section: boolean; ready: (object: THREE.Object3D) => void }) {
@@ -59,6 +59,12 @@ function Snapshot({ type, section, ready }: { type: ComponentType; section: bool
   return <group ref={ref}>
     {type === 'waterSupplyBox' ? <WaterSupplyBox3D c={c} />
       : type === 'hydraulicFlowMeter' ? <WaterFlowMeterZjLcd3D c={c} position={position} />
+      : type === 'airCompressor' ? <AirCompressor3D c={c} position={position} />
+      : type === 'pneumaticManifold' ? <PneumaticManifold3D c={c} position={position} />
+      : type === 'pneumaticTee' ? <PneumaticTee3D c={c} position={position} />
+      : type === 'pneumaticUnion' ? <PneumaticUnion3D c={c} position={position} />
+      : type === 'pneumaticElbow' ? <PneumaticElbow3D c={c} position={position} />
+      : type === 'pneumaticY' ? <PneumaticY3D c={c} position={position} />
       : Tray ? <Tray c={c} position={position} />
       : type === 'conduitVdsStraight' ? <ConduitVdsStraight3D component={c} />
       : type === 'conduitVdsElbow90' ? <ConduitVdsElbow903D component={c} />
