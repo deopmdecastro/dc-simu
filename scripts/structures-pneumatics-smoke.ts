@@ -99,6 +99,16 @@ check('3. Encaixe magnético (snapStructureDragXY) e construção rápida (compu
   assert.equal(snap.snapped, true, 'Deve encaixar magneticamente')
   assert.ok(Math.abs(snap.x - attach.position3D.x) < 0.01, 'Encaixe exato borda-a-borda em X')
   assert.equal(snap.y, 2, 'Alinhamento exato em Y')
+
+  // Alcance por omissão (25 mm): perto encaixa; a 50 mm o arrasto segue o rato sem saltar.
+  const pivots = { [t1.id]: { x: 0, y: 2, z: 1.5 } }
+  const near = snapStructureDragXY(t2, { x: attach.position3D.x + 0.1, y: 2.1 }, [t1, t2], pivots)
+  assert.equal(near.snapped, true, 'A 10 mm encaixa')
+  assert.ok(Math.abs(near.x - attach.position3D.x) < 0.01)
+  const free = snapStructureDragXY(t2, { x: attach.position3D.x + 0.5, y: 2.4 }, [t1, t2], pivots)
+  assert.equal(free.snapped, false, 'A 50 mm não puxa (antes puxava até 180 mm)')
+  assert.equal(free.x, attach.position3D.x + 0.5)
+  assert.equal(free.y, 2.4)
 })
 
 check('4. Simulação pneumática completa (FRL → Válvula 5/2 → Cilindro ISO avança e recua com 0 erros)', () => {

@@ -242,12 +242,17 @@ export function computeQuickAttach3D(
  * Encaixe magnético (snap) ao arrastar uma estrutura ou esteira perto de outras:
  * alinha automaticamente bordas X/Y e centro Z quando dentro de `snapDistU` (~180 mm).
  */
+/** Alcance do íman de estruturas (unidades do painel; 1 U = 100 mm). */
+export const STRUCTURE_SNAP_DIST_U = 0.25
+
 export function snapStructureDragXY(
   moving: ElectricalComponent,
   candidateXY: { x: number; y: number },
   others: ElectricalComponent[],
   pivots: Record<string, { x: number; y: number; z: number }>,
-  snapDistU = 1.8,
+  // 0,25 U = 25 mm. Era 1,8 U (180 mm): numa parede com vários perfis quase todo o ponto ficava dentro do
+  // alcance de algum alinhamento e a peça saltava de alvo em alvo em vez de seguir o rato.
+  snapDistU = STRUCTURE_SNAP_DIST_U,
 ): { x: number; y: number; snapped: boolean } {
   if (!isStructureComponentType(moving.type)) return { ...candidateXY, snapped: false }
   const mSize = structureComponentSizeMm(moving.type, moving.state)

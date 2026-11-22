@@ -703,7 +703,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   onMove: (position: SpatialPoint3D) => void
   /** Arrasto direto: início (histórico), posição viva (X/Y ou X/Y/Z livre) e fim (imã de calha/tanque). */
   onDragStart: () => void
-  onDragTo: (position: { x: number; y: number; z?: number }) => void
+  onDragTo: (position: { x: number; y: number; z?: number; free?: boolean }) => void
   onDragEnd: () => void
   onTerminalPick: (terminalId: string) => void
   children: ReactNode
@@ -806,7 +806,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       if (screenFloor) {
         const snapFloor = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
         const d = floorDragDelta(screenFloor, domEvent.clientX - state.startX, domEvent.clientY - state.startY, rect.height)
-        onDragTo({ x: snapFloor(origin.x + d.x), y: origin.y, z: snapFloor(origin.z + d.z) })
+        onDragTo({ x: snapFloor(origin.x + d.x), y: origin.y, z: snapFloor(origin.z + d.z), free: domEvent.altKey })
         return
       }
       ndc.set(((domEvent.clientX - rect.left) / rect.width) * 2 - 1, -(((domEvent.clientY - rect.top) / rect.height) * 2 - 1))
@@ -816,16 +816,16 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       const snap = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
       if (free3D) {
         if (useFloorXZ) {
-          onDragTo({ x: snap(next.x), y: origin.y, z: snap(next.z) })
+          onDragTo({ x: snap(next.x), y: origin.y, z: snap(next.z), free: domEvent.altKey })
         } else if (preferFloorXZ && !domEvent.shiftKey) {
           // Mesmo em vista frontal plana (pitch ~0°), arrastar para baixo puxa o equipamento para o meio da sala (+Z)!
           const depthFromScreenY = -(next.y - origin.y) * 1.4
-          onDragTo({ x: snap(next.x), y: origin.y, z: snap(origin.z + depthFromScreenY) })
+          onDragTo({ x: snap(next.x), y: origin.y, z: snap(origin.z + depthFromScreenY), free: domEvent.altKey })
         } else {
-          onDragTo({ x: snap(next.x), y: snap(next.y), z: origin.z })
+          onDragTo({ x: snap(next.x), y: snap(next.y), z: origin.z, free: domEvent.altKey })
         }
       } else {
-        onDragTo({ x: snap(next.x), y: snap(next.y) })
+        onDragTo({ x: snap(next.x), y: snap(next.y), free: domEvent.altKey })
       }
     }
     const finish = () => {
@@ -4441,14 +4441,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       components: state.components.map((item) => (item.id === id && item.railId ? { ...item, railId: undefined, railOffsetMm: undefined } : item)),
     }))
   }
-  const dragPanelTo = (id: string, point: { x: number; y: number; z?: number }) => {
+  const dragPanelTo = (id: string, point: { x: number; y: number; z?: number; free?: boolean }) => {
     const store = useSimStore.getState()
     const component = store.components.find((item) => item.id === id)
     if (!component) return
     const free3D = !isPanelBound(component)
     let targetPt = { x: point.x, y: point.y }
     // Encaixe magnético fácil para paredes, pilares e esteiras porta-cabos (soltar e encaixar borda-a-borda!)
-    if (isStructureComponentType(component.type)) {
+    // Alt = arrasto totalmente livre (sem íman nem passo), como no passo de 5 mm.
+    if (isStructureComponentType(component.type) && !point.free) {
       const snapped = snapStructureDragXY(component, point, store.components, panelPivots)
       targetPt = { x: snapped.x, y: snapped.y }
     }
