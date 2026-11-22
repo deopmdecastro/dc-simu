@@ -5743,6 +5743,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = (
               <Mechatronics3D
                 c={c}
+                floorY={factoryMode ? factoryFloorY : undefined}
                 position={basePivots[c.id].toArray() as [number, number, number]}
                 onPatch={(patch) => {
                   const st = useSimStore.getState()

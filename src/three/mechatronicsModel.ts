@@ -100,8 +100,17 @@ export function slotPlateDimsOf(state?: Record<string, any>) {
     widthMm: clampNum(state?.widthMm, 100, 1000, MEC_DIMS.slotPlate.widthMm),
     thicknessMm: MEC_DIMS.slotPlate.thicknessMm,
     slotPitchMm: MEC_DIMS.slotPlate.slotPitchMm,
+    /** Pés da mesa (perfil 40 × 40 com travessas e pés niveladores). Ligados por omissão. */
+    legs: state?.legs !== false,
+    /** 'auto' = até ao chão do pavilhão; número = altura fixa das pernas (mm). */
+    legHeightMm: state?.legHeightMm === undefined || state?.legHeightMm === 'auto' ? 'auto' as const : clampNum(state?.legHeightMm, MEC_LEG_MIN_MM, MEC_LEG_MAX_MM, 750),
   }
 }
+
+export const MEC_LEG_MIN_MM = 100
+export const MEC_LEG_MAX_MM = 1500
+/** Altura das pernas quando não há chão conhecido (fora do pavilhão fabril). */
+export const MEC_LEG_DEFAULT_MM = 750
 
 export function aluProfileDimsOf(state?: Record<string, any>) {
   const sectionMm = Number(state?.sectionMm) === 40 ? 40 : 30

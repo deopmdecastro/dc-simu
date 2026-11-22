@@ -14,6 +14,9 @@ import {
   dragChainDimsOf,
   isMechatronicsType,
   slotPlateDimsOf,
+  MEC_LEG_MIN_MM,
+  MEC_LEG_MAX_MM,
+  MEC_LEG_DEFAULT_MM,
   supportBlockDimsOf,
   workpieceMaterialOf,
 } from '../three/mechatronicsModel'
@@ -74,6 +77,23 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
         <>
           <Row label="Comprimento" value={`${d.lengthMm} mm`}><input type="range" min={300} max={1400} step={25} disabled={locked} value={d.lengthMm} onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })} /></Row>
           <Row label="Largura" value={`${d.widthMm} mm · ${Math.floor(d.widthMm / d.slotPitchMm)} ranhuras`}><input type="range" min={150} max={900} step={25} disabled={locked} value={d.widthMm} onChange={(e) => setState(c.id, { widthMm: Number(e.target.value) })} /></Row>
+          <label className="flex items-center justify-between gap-2 text-[11px]" data-mec-legs>
+            <span>Pés da mesa <span className="text-[var(--dc-text-muted)]">(perfil 40 × 40 com travessas)</span></span>
+            <input type="checkbox" disabled={locked} checked={d.legs} onChange={(e) => setState(c.id, { legs: e.target.checked })} />
+          </label>
+          {d.legs && (
+            <>
+              <Row label="Altura das pernas">
+                <Select className="dc-input text-[11px]" disabled={locked} value={d.legHeightMm === 'auto' ? 'auto' : 'fixed'} onChange={(e) => setState(c.id, { legHeightMm: e.target.value === 'auto' ? 'auto' : MEC_LEG_DEFAULT_MM })} data-mec-leg-mode>
+                  <option value="auto">Até ao chão (automático)</option>
+                  <option value="fixed">Altura fixa</option>
+                </Select>
+              </Row>
+              {d.legHeightMm !== 'auto' && (
+                <Row label="Altura" value={`${d.legHeightMm} mm`}><input type="range" min={MEC_LEG_MIN_MM} max={MEC_LEG_MAX_MM} step={10} disabled={locked} value={d.legHeightMm} onChange={(e) => setState(c.id, { legHeightMm: Number(e.target.value) })} /></Row>
+              )}
+            </>
+          )}
           <button type="button" className="dc-btn dc-btn-primary text-[11px] justify-center" disabled={locked || running} onClick={() => assembleBench(c)} data-mec-assemble>
             Montar maquete completa sobre esta base
           </button>

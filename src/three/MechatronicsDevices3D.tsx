@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
@@ -17,6 +17,9 @@ import {
   mechatronicsSizeMm,
   rampDimsOf,
   slotPlateDimsOf,
+  MEC_LEG_MIN_MM,
+  MEC_LEG_MAX_MM,
+  MEC_LEG_DEFAULT_MM,
   supportBlockDimsOf,
   workpieceMaterialOf,
   type WorkpieceMaterial,
@@ -202,11 +205,97 @@ function FlowRegulator({ position, rotation }: { position: [number, number, numb
 
 /* ================================================================ estrutura */
 
-function SlotPlate({ c }: { c: ElectricalComponent }) {
+/**
+ * Pernas da mesa em perfil T 40 × 40: quatro montantes sob os cantos da base, cantoneiras no topo,
+ * travessas inferiores (longitudinais e transversais) e pés niveladores M12 com base em borracha.
+ * `heightMm` = da face inferior da base até ao chão.
+ */
+function BenchLegs({ lengthMm, widthMm, heightMm, topY }: { lengthMm: number; widthMm: number; heightMm: number; topY: number }) {
+  const S = 40
+  const footH = Math.min(45, heightMm * 0.25)
+  const legLen = Math.max(20, heightMm - footH)
+  const legGeom = tSlotProfileGeometry(S, legLen)
+  const xs = lengthMm / 2 - S / 2 - 15
+  const zs = widthMm / 2 - S / 2 - 15
+  const legCy = topY - legLen / 2
+  const railY = topY - legLen + Math.min(160, legLen * 0.22)
+  const spanX = xs * 2 - S
+  const spanZ = zs * 2 - S
+  const railX = spanX > 40 ? tSlotProfileGeometry(S, spanX) : null
+  const railZ = spanZ > 40 ? tSlotProfileGeometry(S, spanZ) : null
+  const corners: Array<[number, number]> = [[-1, -1], [1, -1], [-1, 1], [1, 1]]
+  return (
+    <group name="Maquete_Pes_Mesa">
+      {corners.map(([sx, sz], i) => (
+        <group key={i} position={[sx * xs, 0, sz * zs]}>
+          <mesh geometry={legGeom} position={[0, legCy, 0]} castShadow receiveShadow>
+            <Mat f={ALU} name="Perna em perfil 40 × 40" />
+          </mesh>
+          {/* Tampa inferior + pé nivelador (haste roscada e base articulada em borracha) */}
+          <mesh position={[0, topY - legLen - 1, 0]}>
+            <boxGeometry args={[S - 0.6, 2, S - 0.6]} />
+            <Mat f={PA_BLACK} name="Tampa de topo" />
+          </mesh>
+          <mesh position={[0, topY - legLen - footH / 2, 0]} castShadow>
+            <cylinderGeometry args={[6, 6, footH, 16]} />
+            <Mat f={STEEL} name="Haste niveladora M12" />
+          </mesh>
+          <mesh position={[0, topY - legLen - footH * 0.35, 0]}>
+            <cylinderGeometry args={[11, 11, 7, 6]} />
+            <Mat f={STEEL} name="Porca de bloqueio" />
+          </mesh>
+          <mesh position={[0, topY - heightMm + 6, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[24, 28, 12, 28]} />
+            <Mat f={RUBBER} name="Pé nivelador em borracha" />
+          </mesh>
+          {/* Cantoneiras de ligação perna ↔ base: aba encostada à face inferior da base e aba vertical
+              para baixo, na face interior da perna (viradas ao centro da mesa, nos dois eixos). */}
+          <group position={[-sx * S / 2, topY, 0]} rotation={[Math.PI, 0, 0]}>
+            <AngleBracket size={30} position={[0, 0, 0]} rotationY={sx > 0 ? Math.PI : 0} />
+          </group>
+          <group position={[0, topY, -sz * S / 2]} rotation={[Math.PI, 0, 0]}>
+            <AngleBracket size={30} position={[0, 0, 0]} rotationY={sz > 0 ? -Math.PI / 2 : Math.PI / 2} />
+          </group>
+        </group>
+      ))}
+      {/* Travessas inferiores: duas ao comprido (X) e duas ao largo (Z) */}
+      {railX && [-1, 1].map((sz) => (
+        <mesh key={`x${sz}`} geometry={railX} position={[0, railY, sz * zs]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+          <Mat f={ALU} name="Travessa longitudinal 40 × 40" />
+        </mesh>
+      ))}
+      {railZ && [-1, 1].map((sx) => (
+        <mesh key={`z${sx}`} geometry={railZ} position={[sx * xs, railY, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+          <Mat f={ALU} name="Travessa transversal 40 × 40" />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function SlotPlate({ c, floorY }: { c: ElectricalComponent; floorY?: number }) {
   const d = slotPlateDimsOf(c.state)
   const geom = slotPlateGeometry(d.lengthMm, d.widthMm, d.thicknessMm, d.slotPitchMm)
+  // Altura automática: distância real (em mm) da face inferior da base até ao chão do pavilhão,
+  // medida no mundo para seguir a posição/escala do componente. Atualiza só quando muda ≥ 2 mm.
+  const ref = useRef<THREE.Group>(null)
+  const [autoMm, setAutoMm] = useState<number | null>(null)
+  const probe = useMemo(() => ({ p: new THREE.Vector3(), s: new THREE.Vector3() }), [])
+  useFrame(() => {
+    if (!d.legs || d.legHeightMm !== 'auto' || floorY === undefined || !ref.current) return
+    ref.current.getWorldPosition(probe.p)
+    ref.current.getWorldScale(probe.s)
+    if (!probe.s.y) return
+    const mm = (probe.p.y - floorY) / probe.s.y - d.thicknessMm / 2
+    const next = mm >= MEC_LEG_MIN_MM && mm <= MEC_LEG_MAX_MM * 2 ? Math.round(mm) : null
+    if (next !== autoMm && (next === null || autoMm === null || Math.abs(next - autoMm) >= 2)) setAutoMm(next)
+  })
+  const legHeight = !d.legs ? 0
+    : d.legHeightMm !== 'auto' ? d.legHeightMm
+    : autoMm ?? (floorY === undefined ? MEC_LEG_DEFAULT_MM : 0)
   return (
-    <group name="Maquete_Base">
+    <group name="Maquete_Base" ref={ref}>
+      {legHeight > 0 && <BenchLegs lengthMm={d.lengthMm} widthMm={d.widthMm} heightMm={legHeight} topY={-d.thicknessMm / 2} />}
       <mesh geometry={geom} castShadow receiveShadow>
         <Mat f={ALU} name="Alumínio extrudido anodizado" />
       </mesh>
@@ -217,8 +306,8 @@ function SlotPlate({ c }: { c: ElectricalComponent }) {
           <Mat f={PA_GREY} name="Tampa de topo" />
         </mesh>
       ))}
-      {/* Pés niveladores em borracha nos cantos */}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+      {/* Pés de borracha nos cantos (só quando a base assenta diretamente, sem pernas) */}
+      {legHeight <= 0 && [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <mesh key={i} position={[sx * (d.lengthMm / 2 - 30), -d.thicknessMm / 2 - 2.5, sz * (d.widthMm / 2 - 30)]}>
           <cylinderGeometry args={[11, 12, 5, 20]} />
           <Mat f={RUBBER} name="Pé de borracha" />
@@ -1654,10 +1743,10 @@ function BenchDuct({ c }: { c: ElectricalComponent }) {
 
 /* ================================================================ despacho */
 
-export function Mechatronics3D({ c, position, onPatch }: { c: ElectricalComponent; position: [number, number, number]; onPatch?: (patch: MechatronicsPatch) => void }) {
+export function Mechatronics3D({ c, position, onPatch, floorY }: { c: ElectricalComponent; position: [number, number, number]; onPatch?: (patch: MechatronicsPatch) => void; /** Chão do pavilhão (coordenadas do mundo) para as pernas da mesa irem até ao chão. */ floorY?: number }) {
   let body: JSX.Element | null = null
   switch (c.type) {
-    case 'mecSlotPlate': body = <SlotPlate c={c} />; break
+    case 'mecSlotPlate': body = <SlotPlate c={c} floorY={floorY} />; break
     case 'mecAluProfile': body = <AluProfile c={c} />; break
     case 'mecGravityMagazine': body = <GravityMagazine c={c} onPatch={onPatch} />; break
     case 'mecWorkpiece': body = <Workpiece material={workpieceMaterialOf(c.state.material)} />; break
