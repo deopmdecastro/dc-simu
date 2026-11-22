@@ -2739,3 +2739,11 @@
   height: 100%;
 }
 
+
+/* Paleta em árvore (domínio GRAFCET → pastas), com o desenho da biblioteca do Esquema 3D.
+   Anula as margens/grelha genéricas de `.grafcet-toolbox-list section` nas pastas. */
+.grafcet-toolbox .grafcet-toolbox-list section.dc-library-domain,
+.grafcet-toolbox .grafcet-toolbox-list section.dc-library-folder { display:block; width:auto; margin:0; }
+.grafcet-toolbox .grafcet-toolbox-list section.dc-library-domain { margin:10px 0 8px; }
+.grafcet-toolbox-folder-items { padding:2px 2px 6px 6px; }
+.grafcet-toolbox-folder-items .grafcet-toolbox-item { margin:2px 0; }

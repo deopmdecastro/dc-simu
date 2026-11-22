@@ -1,3 +1,4 @@
+import { LibraryDomain, LibraryFolder, LibraryTreeSummary } from '../ui/LibraryTree'
 import { downloadBlob } from '../utils/downloadBlob'
 import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
@@ -235,6 +236,7 @@ function actionLinkPath(x1: number, y1: number, busX: number, y2: number, x2: nu
   const r = Math.max(0, Math.min(radius, Math.abs(dy) / 2, Math.abs(busX - x1), Math.abs(x2 - busX)))
   return `M ${x1} ${y1} H ${busX - r} Q ${busX} ${y1} ${busX} ${y1 + dir * r} V ${y2 - dir * r} Q ${busX} ${y2} ${busX + r} ${y2} H ${x2}`
 }
+const GRAFCET_PALETTE_COLLAPSED_KEY = 'dcsimu:grafcet:palette:collapsed'
 const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; name: string; detail: string }> }> = [
   {
     group: 'Etapas e ligações',
@@ -492,6 +494,17 @@ export default function GrafcetEditor({
     }
   })
   const [paletteFilter, setPaletteFilter] = useState('')
+  // Paleta em árvore (domínio GRAFCET → pastas), como na biblioteca do Esquema 3D; pastas recolhidas guardadas no navegador.
+  const [paletteCollapsed, setPaletteCollapsed] = useState<Set<string>>(() => {
+    try { const saved = localStorage.getItem(GRAFCET_PALETTE_COLLAPSED_KEY); if (saved) return new Set(JSON.parse(saved) as string[]) } catch { /* armazenamento indisponível */ }
+    return new Set()
+  })
+  const [paletteDomainCollapsed, setPaletteDomainCollapsed] = useState(false)
+  const savePaletteCollapsed = (next: Set<string>) => { setPaletteCollapsed(next); try { localStorage.setItem(GRAFCET_PALETTE_COLLAPSED_KEY, JSON.stringify([...next])) } catch { /* armazenamento indisponível */ } }
+  const togglePaletteGroup = (group: string) => { const next = new Set(paletteCollapsed); if (next.has(group)) next.delete(group); else next.add(group); savePaletteCollapsed(next) }
+  const paletteGroups = PALETTE
+    .map((group) => ({ ...group, items: group.items.filter((item) => norm(`${item.name} ${item.detail}`).includes(norm(paletteFilter))) }))
+    .filter((group) => group.items.length)
   const [entityFilter, setEntityFilter] = useState('')
   const [dropActive, setDropActive] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -4263,12 +4276,23 @@ export default function GrafcetEditor({
                 )}
               </div>
 
-              <div className="grafcet-toolbox-list">
-                {PALETTE.map((group) => {
-                  const items = group.items.filter((item) => norm(`${item.name} ${item.detail}`).includes(norm(paletteFilter)))
-                  return items.length ? (
-                    <section key={group.group}>
-                      <h3>{group.group}</h3>
+              <LibraryTreeSummary
+                onExpand={() => { savePaletteCollapsed(new Set()); setPaletteDomainCollapsed(false) }}
+                onCollapse={() => savePaletteCollapsed(new Set(PALETTE.map((g) => g.group)))}
+              >
+                {paletteGroups.reduce((n, g) => n + g.items.length, 0)} componentes{paletteFilter ? ' na pesquisa' : ''} · {paletteGroups.length} pastas
+              </LibraryTreeSummary>
+              <div className="grafcet-toolbox-list dc-library-scroll">
+                {paletteGroups.length > 0 && (
+                <LibraryDomain id="grafcet" label="GRAFCET · IEC 60848" accent="#2655e5" icon={<IconGrafcet size={16} />}
+                  count={paletteGroups.reduce((n, g) => n + g.items.length, 0)}
+                  collapsed={!paletteFilter.trim() && paletteDomainCollapsed} onToggle={() => setPaletteDomainCollapsed((v) => !v)}>
+                {paletteGroups.map((group) => {
+                  const items = group.items
+                  return (
+                    <LibraryFolder key={group.group} id={group.group} label={group.group} accent="#2655e5" count={items.length}
+                      collapsed={!paletteFilter.trim() && paletteCollapsed.has(group.group)} onToggle={() => togglePaletteGroup(group.group)}>
+                      <div className="grafcet-toolbox-folder-items">
                       {items.map((item) => (
                         <button
                           key={item.kind}
@@ -4289,9 +4313,12 @@ export default function GrafcetEditor({
                           </span>
                         </button>
                       ))}
-                    </section>
-                  ) : null
+                      </div>
+                    </LibraryFolder>
+                  )
                 })}
+                </LibraryDomain>
+                )}
                 {!PALETTE.some((group) => group.items.some((item) => norm(`${item.name} ${item.detail}`).includes(norm(paletteFilter)))) && (
                   <div className="grafcet-toolbox-empty">Nenhum componente encontrado.</div>
                 )}

@@ -15,6 +15,7 @@ import { patchPart, patchWire, removeSelected, rotateSelected } from './editing'
 import { WIRE_COLOR_HEX, WIRE_COLOR_LABEL } from '../admin/editor3d/wireStyle'
 import type { WireColor } from '../types'
 import Select from '../ui/Select'
+import { LibraryDomain, LibraryDomainChips, LibraryFolder, LibraryTreeSummary } from '../ui/LibraryTree'
 import { terminalLabel, type CmdWire } from './model'
 import { devicesOf } from './engine'
 
@@ -24,6 +25,13 @@ const FAVORITES_KEY = 'dcsimu:commands:library:favorites'
 const COLLAPSED_KEY = 'dcsimu:commands:library:collapsed'
 /** Pastas abertas na primeira utilização: as que se usam para montar o primeiro circuito. */
 const DEFAULT_OPEN = ['Alimentação', 'Comando', 'Contactos', 'Bobinas e cargas']
+const COLLAPSED_DOMAINS_KEY = 'dcsimu:commands:library:collapsed-domains'
+/** Pastas IEC agrupadas nos mesmos domínios (e cores) da biblioteca do Esquema 3D. */
+const CMD_DOMAINS: Array<{ id: string; label: string; accent: string; folders: string[] }> = [
+  { id: 'eletricidade', label: 'Eletricidade', accent: '#f59e0b', folders: ['Alimentação', 'Proteção', 'Contactos', 'Comando', 'Iluminação', 'Sensores', 'Instrumentos', 'Bobinas e cargas', 'Eletrónica'] },
+  { id: 'hidraulica', label: 'Hidráulica', accent: '#0284c7', folders: ['Hidráulica'] },
+  { id: 'pneumatica', label: 'Pneumática', accent: '#06b6d4', folders: ['Pneumática'] },
+]
 const readKinds = (key: string): CmdKind[] => {
   try { return (JSON.parse(localStorage.getItem(key) ?? '[]') as string[]).filter((k): k is CmdKind => k in CMD_PARTS) } catch { return [] }
 }
@@ -89,6 +97,18 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
   })
   const saveCollapsed = (next: Set<string>) => { setCollapsed(next); try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next])) } catch { /* armazenamento indisponível */ } }
   const toggleGroup = (title: string) => { const next = new Set(collapsed); if (next.has(title)) next.delete(title); else next.add(title); saveCollapsed(next) }
+  // Domínios (Eletricidade / Hidráulica / Pneumática), como na biblioteca do Esquema 3D.
+  const [activeDomain, setActiveDomain] = useState('all')
+  const [collapsedDomains, setCollapsedDomains] = useState<Set<string>>(() => {
+    try { const saved = localStorage.getItem(COLLAPSED_DOMAINS_KEY); if (saved) return new Set(JSON.parse(saved) as string[]) } catch { /* armazenamento indisponível */ }
+    return new Set()
+  })
+  const saveCollapsedDomains = (next: Set<string>) => { setCollapsedDomains(next); try { localStorage.setItem(COLLAPSED_DOMAINS_KEY, JSON.stringify([...next])) } catch { /* armazenamento indisponível */ } }
+  const toggleDomain = (id: string) => { const next = new Set(collapsedDomains); if (next.has(id)) next.delete(id); else next.add(id); saveCollapsedDomains(next) }
+  const visibleDomains = CMD_DOMAINS
+    .filter((d) => activeDomain === 'all' || d.id === activeDomain)
+    .map((d) => ({ ...d, groups: groups.filter((g) => d.folders.includes(g.title)) }))
+    .filter((d) => d.groups.length)
   const toggleFavorite = (kind: CmdKind) => setFavorites((current) => {
     const next = current.includes(kind) ? current.filter((k) => k !== kind) : [...current, kind]
     try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(next)) } catch { /* armazenamento indisponível */ }
@@ -118,25 +138,29 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
-          <div className="pn-section is-compact flex items-center justify-between text-[10px] text-ink-500">
-            <span>{groups.reduce((n, g) => n + g.kinds.length, 0)} símbolos{filter ? ' na pesquisa' : ''} · {CMD_PALETTE.length} pastas</span>
-            <span className="flex gap-2"><button type="button" onClick={() => saveCollapsed(new Set())}>Expandir</button><button type="button" onClick={() => saveCollapsed(new Set(CMD_PALETTE.map((g) => g.title)))}>Recolher</button></span>
-          </div>
-          <div className="px-3 py-1.5 border-b border-line bg-surface-subtle">
+          <div className="pn-section is-compact dc-library-actions is-single">
             <button
               type="button"
-              className="dc-btn w-full justify-center text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border-brand-200"
-              title="Analisa os componentes e cabos colocados no painel 3D e gera o esquema elétrico de comandos e potência correspondente"
+              className="dc-btn is-primary-soft"
+              title="Gerar Esquema IEC pelo 3D: analisa os componentes e cabos colocados no painel 3D e gera o esquema elétrico de comandos e potência correspondente"
               onClick={() => useSimStore.getState().generateIecFromPhysical()}
             >
               <IconCommands size={12} /> Gerar Esquema IEC pelo 3D
             </button>
           </div>
+          <LibraryDomainChips label="Domínios dos símbolos" active={activeDomain} onChange={setActiveDomain}
+            domains={CMD_DOMAINS.map((d) => ({ id: d.id, label: d.label, count: CMD_PALETTE.filter((g) => d.folders.includes(g.title)).reduce((n, g) => n + g.kinds.length, 0) }))} />
+          <LibraryTreeSummary
+            onExpand={() => { saveCollapsed(new Set()); saveCollapsedDomains(new Set()) }}
+            onCollapse={() => saveCollapsed(new Set(CMD_PALETTE.map((g) => g.title)))}
+          >
+            {visibleDomains.reduce((n, d) => n + d.groups.reduce((m, g) => m + g.kinds.length, 0), 0)} símbolos{filter ? ' na pesquisa' : ''} · {visibleDomains.reduce((n, d) => n + d.groups.length, 0)} pastas
+          </LibraryTreeSummary>
           {placing && <div className="dc-cmd-placing p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center" role="status"><span className="flex-1">A posicionar: {CMD_PARTS[placing].label} · Shift mantém · Esc cancela</span><button type="button" className="dc-btn !h-6" onClick={() => setPlacing(null)}>Cancelar</button></div>}
           <div className="pn-body flex-1 overflow-y-auto min-h-0 dc-library-scroll">
             {recent.length > 0 && !filter && <section className="dc-library-section" aria-label="Símbolos recentes"><div className="dc-library-section-title"><strong><IconHistory size={11} />Recentes</strong><span>{recent.length}</span></div><div className="dc-library-recent">{recent.map(tile)}</div></section>}
             {favorites.length > 0 && !filter && <section className="dc-library-section" aria-label="Símbolos favoritos"><div className="dc-library-section-title"><strong><IconStar size={11} />Favoritos</strong><span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.map(tile)}</div></section>}
-            {!groups.length && (
+            {!visibleDomains.length && (
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconSearch size={18} /></span>
                 <strong>Nenhum símbolo encontrado</strong>
@@ -144,15 +168,19 @@ export default function CommandsSidebar({ width, onCollapse }: { width: number |
                 <button type="button" className="dc-btn dc-btn-primary" onClick={() => setFilter('')}>Limpar pesquisa</button>
               </div>
             )}
-            {groups.map((group) => {
-              const isCollapsed = !filter.trim() && collapsed.has(group.title)
-              return <section className="dc-library-folder" key={group.title} aria-label={group.title}>
-                <button type="button" aria-expanded={!isCollapsed} className="dc-library-folder-head" onClick={() => toggleGroup(group.title)} title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${group.title}`}>
-                  <span className="dc-library-folder-icon"><IconProjects size={16} /></span><strong>{group.title}</strong><span className="dc-library-folder-count">{group.kinds.length}</span><IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
-                </button>
-                {!isCollapsed && <div className="dc-library-grid">{group.kinds.map(tile)}</div>}
-              </section>
-            })}
+            {visibleDomains.map((domain) => (
+              <LibraryDomain key={domain.id} id={domain.id} label={domain.label} accent={domain.accent}
+                count={domain.groups.reduce((n, g) => n + g.kinds.length, 0)}
+                collapsed={!filter.trim() && activeDomain === 'all' && collapsedDomains.has(domain.id)}
+                onToggle={() => toggleDomain(domain.id)}>
+                {domain.groups.map((group) => (
+                  <LibraryFolder key={group.title} id={group.title} label={group.title} accent={domain.accent} count={group.kinds.length}
+                    collapsed={!filter.trim() && collapsed.has(group.title)} onToggle={() => toggleGroup(group.title)}>
+                    <div className="dc-library-grid">{group.kinds.map(tile)}</div>
+                  </LibraryFolder>
+                ))}
+              </LibraryDomain>
+            ))}
             <p className="text-ink-400 text-[10px] p-2">Variantes QElectroTech: selecione um fusível, resistência, condensador ou díodo no esquema e escolha o desenho no Inspetor.</p>
             <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
               Clique num símbolo e depois no esquema (encaixa na malha), ou <b className="text-ink-500">arraste-o</b>. Duplo clique insere já no centro da vista · Shift+clique posiciona vários · Esc cancela. Ligue os bornes com a ferramenta Cabo — largar sobre um cabo cria um nó.
