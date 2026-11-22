@@ -3668,7 +3668,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
 
 
-  const mountingRails = components.filter((c) => isMountingRail(c.type))
+  const mountingRails = components.filter((c) => !c.hidden && isMountingRail(c.type))
 
   // Layout "de fábrica" de cada peça (pivô de origem do conteúdo procedural/GLB). A posição
   // final de cada instância é derivada do Esquema — ver `panelPivots` mais abaixo.
@@ -3679,9 +3679,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     return { positions: pos }
   }, [components])
 
-  const railComponents = components.filter((c) => positions[c.id])
-  const offRail = components.filter((c) => !positions[c.id] && !isMountingRail(c.type) && !isPanelAccessoryType(c.type))
-  const accessories = components.filter((c) => isPanelAccessoryType(c.type))
+  const railComponents = components.filter((c) => !c.hidden && positions[c.id])
+  const offRail = components.filter((c) => !c.hidden && !positions[c.id] && !isMountingRail(c.type) && !isPanelAccessoryType(c.type))
+  const accessories = components.filter((c) => !c.hidden && isPanelAccessoryType(c.type))
   // Só os quadros de parede ancoram a chapa e o pavilhão; um quadro de máquina (sob uma bancada) é uma peça livre.
   const isWallEnclosure = (c: ElectricalComponent) => c.type === 'panelEnclosure' && c.state?.hostLocation !== 'machine'
   const hasEnclosure = accessories.some(isWallEnclosure)

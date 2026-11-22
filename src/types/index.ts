@@ -471,6 +471,8 @@ export interface ElectricalComponentBase {
   mirrored?: boolean
   /** Bloqueado contra arraste acidental */
   locked?: boolean
+  /** Oculto na vista 3D/esquema (mantém-se no projeto e na simulação) */
+  hidden?: boolean
   /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
    *  componentes compartilham o mesmo espaço de camadas. */
   z?: number
