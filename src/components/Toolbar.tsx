@@ -421,12 +421,13 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     const state = useSimStore.getState()
     const name = (currentProjectName || 'Projeto').trim()
     const json = state.saveJSON()
+    downloadDc(json)
     saveProject(name, json)
     saveAutosave(json)
     setLastOpened(name)
     useSimStore.setState({ dirty: false })
     window.dispatchEvent(new CustomEvent('dcsimu:save-project'))
-    state.pushEvent('info', `Projeto «${name}» guardado.`)
+    state.pushEvent('info', `Download do projeto «${name}» em .dc iniciado.`)
   }
 
   useEffect(() => {
@@ -448,8 +449,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   /** Formato nativo .dc — header mágico + JSON. Só o DC-Simu interpreta. */
   const DCSIMU_MAGIC = 'DCSIMU\x01'
   const download = () => saveBlob(saveJSON(), 'application/json', `dc-simu-${fileSlug}.json`)
-  const downloadDc = () => {
-    const payload = saveJSON()
+  const downloadDc = (payload = saveJSON()) => {
     const body = DCSIMU_MAGIC + payload
     saveBlob(body, 'application/x-dcsimu', `dc-simu-${fileSlug}.dc`)
   }
@@ -523,8 +523,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     items: [
       { id: 'new', label: 'Novo projeto', hint: 'Volta aos projetos para criar um em branco', icon: <IconPlus size={15} />, onSelect: createNewProject },
       { id: 'open', label: 'Abrir ficheiro', hint: 'Escolhe um projeto .dc (nativo) ou .json do dispositivo', icon: <IconOpen size={15} />, onSelect: () => fileRef.current?.click() },
-      { id: 'save', label: 'Guardar projeto', hint: dirty ? 'Guardar alterações no projeto (Ctrl+S)' : 'Projeto guardado', icon: <IconSave size={15} />, onSelect: handleSave, primary: dirty },
-      { id: 'export-dc', label: 'Exportar ficheiro (.dc)', hint: 'Formato nativo DC-Simu — só abre nesta aplicação', icon: <IconDownload size={15} />, onSelect: downloadDc },
+      { id: 'save', label: 'Guardar projeto', hint: 'Descarrega o projeto em .dc (Ctrl+S)', icon: <IconSave size={15} />, onSelect: handleSave, primary: dirty },
+      { id: 'export-dc', label: 'Exportar ficheiro (.dc)', hint: 'Formato nativo DC-Simu — só abre nesta aplicação', icon: <IconDownload size={15} />, onSelect: () => downloadDc() },
       { id: 'export-json', label: 'Exportar ficheiro (.json)', hint: 'Descarrega uma cópia do projeto em .json (legado)', icon: <IconDownload size={15} />, onSelect: download },
       { id: 'add-module', label: 'Adicionar módulo…', hint: 'Abrir 3D, Ladder, GRAFCET ou IEC neste projeto', icon: <IconPlus size={15} />, onSelect: () => void addProjectModule() },
     ],
@@ -755,7 +755,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button onClick={() => fileRef.current?.click()} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Abrir projeto (.json)">
               <IconOpen size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Abrir</span>
             </button>
-            <button onClick={handleSave} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 relative" title="Guardar projeto (Ctrl+S)">
+            <button onClick={handleSave} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 relative" title="Descarregar projeto (.dc) (Ctrl+S)">
               <IconSave size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Salvar</span>
               {dirty && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-state-pause" title="Alterações por guardar" />}
             </button>
