@@ -313,9 +313,9 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     state: { labelText: 'FRL · ENTRADA DE AR' },
   })
   // Subida do topo do QGD até à esteira aérea (cabos da maquete e do compressor).
-  const riser = trayBottom - panelTop - 20
+  const riser = trayBottom - panelTop
   if (riser >= 300) list.push({
-    key: 'tray-riser-qgd', type: 'cableTrayStraight', x: panelX, y: panelTop + 20 + riser / 2, z: wallZ + 125,
+    key: 'tray-riser-qgd', type: 'cableTrayStraight', x: panelX, y: panelTop + riser / 2, z: wallTrayZ,
     state: { lengthMm: Math.round(riser), widthMm: 200, sideHeightMm: 60, withCover: false, labelText: 'QGD → ESTEIRA', ...laced([BENCH_CABLE, COMP_CABLE]) },
     orientation: { x: 0, y: 0, z: 90 },
   })
@@ -338,7 +338,7 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     state: { lengthMm: Math.round(benchDrop), widthMm: 100, sideHeightMm: 60, withCover: false, labelText: 'DESCIDA BANCADA', ...laced([BENCH_CABLE, AIR_TUBE]) },
     orientation: { x: 0, y: 0, z: 90 },
   })
-  const compDropBottom = floor + comp.y + 80
+  const compDropBottom = floor + comp.y * 0.55
   list.push({
     key: 'tray-drop-compressor', type: 'cableTrayStraight', x: compDropX, y: (trayBottom + compDropBottom) / 2, z: wallTrayZ,
     state: { lengthMm: Math.round(trayBottom - compDropBottom), widthMm: 100, sideHeightMm: 60, withCover: false, labelText: 'DESCIDA COMPRESSOR', ...laced([COMP_CABLE, AIR_TUBE]) },
