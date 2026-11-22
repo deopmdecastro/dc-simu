@@ -1444,7 +1444,7 @@ function HmiKtp700({ c }: { c: ElectricalComponent }) {
   const keys = Array.from({ length: 8 }, (_, i) => i + 1)
   const keyStart = -(((keyW + keyGap) * keys.length) - keyGap) / 2 + keyW / 2
   return (
-    <group>
+    <group name="Consola_HMI_KTP700">
       {/* Bastidor de perfil 30 × 30: 2 montantes + 3 travessas */}
       {[-1, 1].map((s) => (
         <mesh key={`post-${s}`} geometry={tSlotProfileGeometry(30, h.heightMm)} position={[s * (halfW - 15), 0, 0]} castShadow receiveShadow>
@@ -1458,6 +1458,27 @@ function HmiKtp700({ c }: { c: ElectricalComponent }) {
       ))}
       {[-1, 1].map((s) => (
         <AngleBracket key={`brk-${s}`} size={24} position={[s * (halfW - 30), -halfY, 0]} rotationY={s > 0 ? Math.PI : 0} />
+      ))}
+      {/* Pés / suportes realistas do bastidor que assentam na mesa (como nas fotos) */}
+      {[-1, 1].map((s) => (
+        <group key={`foot-${s}`} position={[s * (halfW - 18), -halfY - 8, 0]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[28, 10, 36]} />
+            <Mat f={ALU_MILLED} name="Pé do bastidor HMI" />
+          </mesh>
+          {/* Cantoneira de reforço sob o perfil */}
+          <mesh position={[0, 6, 0]} castShadow>
+            <boxGeometry args={[22, 6, 22]} />
+            <Mat f={ALU} name="Cantoneira do pé HMI" />
+          </mesh>
+          {/* Parafusos de nivelamento */}
+          {[-1, 1].map((sz) => (
+            <mesh key={sz} position={[0, -6, sz * 10]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[2.2, 2.2, 8, 10]} />
+              <Mat f={STEEL} name="Parafuso de nivelamento" />
+            </mesh>
+          ))}
+        </group>
       ))}
       {/* Caixa traseira ventilada com etiqueta Siemens e ligações 24 V / PROFINET */}
       <mesh position={[0, bezelY, -13.5]} castShadow receiveShadow>
@@ -1584,11 +1605,41 @@ function OperatorHead({ kind, active }: { kind: string; active: boolean }) {
   )
 }
 
-/** Pupitre de 6 operadores Ø22 (EMERG · MAN/AUTO · REARME · CICLO · STOP · START). */
+/** Bucim / prensa-cabos industrial realista (corpo + porca + entrada de cabo). */
+function CableGland({ position, rotation = [0, 0, 0] as [number, number, number], size = 1 }: { position: [number, number, number]; rotation?: [number, number, number]; size?: number }) {
+  const r = 3.6 * size
+  return (
+    <group position={position} rotation={rotation}>
+      {/* Porca hexagonal de fixação */}
+      <mesh rotation={[0, 0, Math.PI / 6]} castShadow>
+        <cylinderGeometry args={[r * 1.35, r * 1.35, 2.8 * size, 6]} />
+        <Mat f={PA_BLACK} name="Porca do bucim" />
+      </mesh>
+      {/* Corpo cilíndrico do bucim */}
+      <mesh position={[0, 0, 4 * size]} castShadow>
+        <cylinderGeometry args={[r, r * 0.92, 7 * size, 16]} />
+        <Mat f={PA_BLACK} name="Corpo do bucim" />
+      </mesh>
+      {/* Anel de aperto / entrada de cabo */}
+      <mesh position={[0, 0, 8.2 * size]}>
+        <cylinderGeometry args={[r * 0.72, r * 0.85, 2.4 * size, 12]} />
+        <Mat f={PA_GREY} name="Anel de aperto do bucim" />
+      </mesh>
+      {/* Cabo saindo do bucim */}
+      <mesh position={[0, 0, 14 * size]} rotation={[0.15, 0, 0]}>
+        <cylinderGeometry args={[1.9 * size, 1.9 * size, 12 * size, 10]} />
+        <meshStandardMaterial name="Cabo do pupitre" color="#1f2937" roughness={0.72} metalness={0.02} />
+      </mesh>
+    </group>
+  )
+}
+
+/** Pupitre de 6 operadores Ø22 (EMERG · MAN/AUTO · REARME · CICLO · STOP · START) — fiel às fotos ATEC. */
 function OperatorBox({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: MechatronicsPatch) => void }) {
   const o = MEC_DIMS.operatorBox
   const halfD = o.depthMm / 2
   const frontZ = halfD - 14
+  // Layout alinhado com a fotografia da bancada (emergência à esquerda, seletor, rearme; linha inferior com stop/start).
   const ops = [
     { kind: 'emerg', x: -48, y: 25, label: 'EMERG', active: !!c.state.emergLatched, patch: { emergLatched: !c.state.emergLatched } },
     { kind: 'selector', x: 0, y: 25, label: 'MAN/AUTO', active: c.state.autoMode !== false, patch: { autoMode: c.state.autoMode === false } },
@@ -1598,8 +1649,8 @@ function OperatorBox({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch:
     { kind: 'start', x: 48, y: -25, label: 'START', active: !!c.state.startPressed, patch: { startPressed: !c.state.startPressed } },
   ]
   return (
-    <group>
-      {/* Caixa cinzenta com tampa frontal e prensa-cabos traseiro */}
+    <group name="Caixa_Botões_Comando">
+      {/* Caixa cinzenta industrial com tampa frontal */}
       <mesh position={[0, 0, -10]} castShadow receiveShadow>
         <boxGeometry args={[o.widthMm, o.heightMm, 94]} />
         <meshStandardMaterial name="Caixa do pupitre" color="#9aa0a6" roughness={0.55} metalness={0.06} />
@@ -1608,12 +1659,20 @@ function OperatorBox({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch:
         <boxGeometry args={[o.widthMm, o.heightMm, 6]} />
         <meshStandardMaterial name="Tampa frontal do pupitre" color="#b3b8bd" roughness={0.5} metalness={0.05} />
       </mesh>
-      {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * (o.widthMm / 2 - 6), -o.heightMm / 2 + 2, -10]}>
-          <cylinderGeometry args={[3.4, 3.4, 5, 14]} />
-          <Mat f={PA_BLACK} name="Prensa-cabos do pupitre" />
-        </mesh>
-      ))}
+      {/* Rebordo interno da tampa (acabamento industrial) */}
+      <mesh position={[0, 0, frontZ + 0.4]}>
+        <boxGeometry args={[o.widthMm - 8, o.heightMm - 8, 1.2]} />
+        <meshStandardMaterial name="Rebordo da tampa" color="#7a8086" roughness={0.6} metalness={0.04} />
+      </mesh>
+
+      {/* Bucins realistas — entrada e saída de cabos (fundo e laterais) */}
+      <CableGland position={[-42, -o.heightMm / 2 + 1, -28]} rotation={[Math.PI / 2, 0, 0]} size={1.05} />
+      <CableGland position={[42, -o.heightMm / 2 + 1, -28]} rotation={[Math.PI / 2, 0, 0]} size={1.05} />
+      <CableGland position={[0, -o.heightMm / 2 + 1, -48]} rotation={[Math.PI / 2, 0, 0]} size={0.9} />
+      {/* Bucins laterais (saída de cabos para a calha) */}
+      <CableGland position={[-o.widthMm / 2 + 2, -8, -10]} rotation={[0, 0, Math.PI / 2]} size={0.85} />
+      <CableGland position={[o.widthMm / 2 - 2, -8, -10]} rotation={[0, 0, -Math.PI / 2]} size={0.85} />
+
       {!c.state.shellOnly && ops.map((op) => (
         <group
           key={op.label}
@@ -1623,11 +1682,19 @@ function OperatorBox({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch:
           <OperatorHead kind={op.kind} active={op.active} />
         </group>
       ))}
+      {/* Suportes em L de alumínio (quando a caixa é colocada sozinha) */}
       {c.state.shellOnly && [-1, 1].map(side => (
-        <mesh key={`support-${side}`} position={[side * 65, -o.heightMm / 2 - 21, -10]} castShadow>
-          <boxGeometry args={[8, 42, 32]} />
-          <Mat f={ALU} name="Suporte do pupitre" />
-        </mesh>
+        <group key={`support-${side}`} position={[side * 65, -o.heightMm / 2 - 21, -10]}>
+          <mesh castShadow>
+            <boxGeometry args={[8, 42, 32]} />
+            <Mat f={ALU} name="Suporte do pupitre" />
+          </mesh>
+          {/* Cantoneira de reforço */}
+          <mesh position={[0, 18, 12]} castShadow>
+            <boxGeometry args={[8, 8, 8]} />
+            <Mat f={ALU} name="Cantoneira do suporte" />
+          </mesh>
+        </group>
       ))}
       {ops.map((op) => (
         <LabelPlate key={`lbl-${op.label}`} text={op.label} position={[op.x, op.y - 19, frontZ + 6.15]} w={25} h={7.5} bg="#e2e8f0" />
