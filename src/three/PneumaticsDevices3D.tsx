@@ -49,17 +49,17 @@ function makeCanvasTex(
 
 /** Manómetro analógico Festo MS4-LFR (0–16 bar, ponteiro azul Festo, escala dupla bar/psi) */
 function createFestoGaugeTexture(pressureBar: number): THREE.CanvasTexture | null {
-  return makeCanvasTex(320, 320, (ctx, S) => {
-    const cx = S / 2
-    const cy = S / 2
+  return makeCanvasTex(320, 320, (ctx, w, h) => {
+    const cx = w / 2
+    const cy = h / 2
     // Fundo branco fosco com leve sombra periférica
-    const grad = ctx.createRadialGradient(cx, cy, S * 0.1, cx, cy, S * 0.47)
+    const grad = ctx.createRadialGradient(cx, cy, w * 0.1, cx, cy, w * 0.47)
     grad.addColorStop(0, '#ffffff')
     grad.addColorStop(0.86, '#f1f5f9')
     grad.addColorStop(1, '#cbd5e1')
     ctx.fillStyle = grad
     ctx.beginPath()
-    ctx.arc(cx, cy, S * 0.46, 0, Math.PI * 2)
+    ctx.arc(cx, cy, w * 0.46, 0, Math.PI * 2)
     ctx.fill()
 
     // Anel fino interno
@@ -73,8 +73,8 @@ function createFestoGaugeTexture(pressureBar: number): THREE.CanvasTexture | nul
     for (let b = 0; b <= 16; b += 1) {
       const a = startA + (b / 16) * sweepA
       const major = b % 2 === 0
-      const r1 = S * (major ? 0.34 : 0.37)
-      const r2 = S * 0.42
+      const r1 = w * (major ? 0.34 : 0.37)
+      const r2 = w * 0.42
       ctx.strokeStyle = b >= 12 ? '#dc2626' : '#0f172a'
       ctx.lineWidth = major ? 3.2 : 1.6
       ctx.beginPath()
@@ -86,7 +86,7 @@ function createFestoGaugeTexture(pressureBar: number): THREE.CanvasTexture | nul
         ctx.font = 'bold 17px sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(String(b), cx + Math.cos(a) * (S * 0.275), cy + Math.sin(a) * (S * 0.275))
+        ctx.fillText(String(b), cx + Math.cos(a) * (w * 0.275), cy + Math.sin(a) * (w * 0.275))
       }
     }
 
@@ -94,17 +94,17 @@ function createFestoGaugeTexture(pressureBar: number): THREE.CanvasTexture | nul
     ctx.strokeStyle = FESTO_BLUE
     ctx.lineWidth = 2
     ctx.beginPath()
-    ctx.arc(cx, cy, S * 0.21, startA, startA + sweepA)
+    ctx.arc(cx, cy, w * 0.21, startA, startA + sweepA)
     ctx.stroke()
 
     // Marca FESTO azul + bar
     ctx.fillStyle = FESTO_BLUE
     ctx.font = '900 20px sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('FESTO', cx, S * 0.72)
+    ctx.fillText('FESTO', cx, w * 0.72)
     ctx.fillStyle = '#334155'
     ctx.font = 'bold 13px sans-serif'
-    ctx.fillText('bar / 16 max', cx, S * 0.81)
+    ctx.fillText('bar / 16 max', cx, w * 0.81)
 
     // Ponteiro azul Festo
     const clamped = Math.max(0, Math.min(16, pressureBar))
@@ -114,7 +114,7 @@ function createFestoGaugeTexture(pressureBar: number): THREE.CanvasTexture | nul
     ctx.lineCap = 'round'
     ctx.beginPath()
     ctx.moveTo(cx - Math.cos(needleA) * 18, cy - Math.sin(needleA) * 18)
-    ctx.lineTo(cx + Math.cos(needleA) * (S * 0.35), cy + Math.sin(needleA) * (S * 0.35))
+    ctx.lineTo(cx + Math.cos(needleA) * (w * 0.35), cy + Math.sin(needleA) * (w * 0.35))
     ctx.stroke()
 
     ctx.fillStyle = FESTO_BLUE_DARK
@@ -1265,89 +1265,182 @@ export function PneumaticManifold3D({
   position: [number, number, number]
   onToggleStation?: (idx: number) => void
 }) {
-  const W = PNEUMATIC_MANIFOLD_SIZE_MM.width * U
   const stations = [1, 2, 3, 4]
+  const pitch = 36 * U
+  const baseW = 210 * U
+  const baseH = 28 * U
+  const baseD = 72 * U
 
   return (
     <group position={position} name={`pneumatic-manifold-3d-${c.id}`}>
-      {/* Calha DIN 35 mm galvanizada traseira (fiel a image-30.png) */}
-      <mesh position={[0, 6 * U, -42 * U]} castShadow receiveShadow>
-        <boxGeometry args={[W + 22 * U, 36 * U, 8 * U]} />
-        <meshStandardMaterial color="#b8c4cf" roughness={0.34} metalness={0.86} />
+      {/* ——— Calha DIN 35 mm (traseira) ——— */}
+      <mesh position={[0, 4 * U, -baseD * 0.55]} castShadow receiveShadow>
+        <boxGeometry args={[baseW + 30 * U, 38 * U, 7 * U]} />
+        <meshStandardMaterial color="#aeb8c2" roughness={0.32} metalness={0.88} />
       </mesh>
-      {/* Bloco distribuidor base em alumínio anodizado */}
-      <mesh position={[-4 * U, -24 * U, 0]} castShadow receiveShadow>
-        <boxGeometry args={[178 * U, 26 * U, 58 * U]} />
-        <meshStandardMaterial color={ALU_ANODIZED} roughness={0.28} metalness={0.84} />
+      {/* Perfil DIN em C */}
+      <mesh position={[0, 18 * U, -baseD * 0.52]} castShadow>
+        <boxGeometry args={[baseW + 28 * U, 4 * U, 12 * U]} />
+        <meshStandardMaterial color="#9aa6b2" roughness={0.3} metalness={0.9} />
       </mesh>
-      {/* Tampa lateral esquerda (alimentação P + silenciador) */}
-      <mesh position={[-98 * U, 8 * U, 0]} castShadow>
-        <boxGeometry args={[20 * U, 92 * U, 62 * U]} />
-        <meshStandardMaterial color={ALU_BRUSHED} roughness={0.3} metalness={0.82} />
-      </mesh>
-      <FestoQsPushInPort position={[-106 * U, -18 * U, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.95} />
-      {/* Cabeçote elétrico direito multi-pinos 24V DC (fiel a image-30.png) */}
-      <mesh position={[96 * U, 8 * U, 0]} castShadow>
-        <boxGeometry args={[32 * U, 92 * U, 62 * U]} />
-        <meshStandardMaterial color={ALU_ANODIZED} roughness={0.28} metalness={0.82} />
-      </mesh>
-      {/* Tampa superior translúcida de etiquetas de circuito */}
-      <mesh position={[-4 * U, 58 * U, 2 * U]}>
-        <boxGeometry args={[170 * U, 12 * U, 34 * U]} />
-        <meshPhysicalMaterial
-          color="#e2e8f0"
-          transparent
-          opacity={0.5}
-          roughness={0.14}
-          userData={{ keepTransparent: true }}
-        />
+      <mesh position={[0, -10 * U, -baseD * 0.52]} castShadow>
+        <boxGeometry args={[baseW + 28 * U, 4 * U, 12 * U]} />
+        <meshStandardMaterial color="#9aa6b2" roughness={0.3} metalness={0.9} />
       </mesh>
 
-      {/* 4 estações de eletroválvulas Festo lado-a-lado com patilhas azuis + LEDs + pórticos QS inferiores */}
+      {/* ——— Bloco distribuidor base alumínio anodizado ——— */}
+      <mesh position={[0, -22 * U, 0]} castShadow receiveShadow>
+        <boxGeometry args={[baseW, baseH, baseD]} />
+        <meshStandardMaterial color={ALU_ANODIZED} roughness={0.26} metalness={0.86} />
+      </mesh>
+      {/* Chanfros / arestas do bloco */}
+      <mesh position={[0, -8 * U, 0]} castShadow>
+        <boxGeometry args={[baseW * 0.98, 4 * U, baseD * 0.92]} />
+        <meshStandardMaterial color={ALU_BRUSHED} roughness={0.3} metalness={0.84} />
+      </mesh>
+
+      {/* ——— Porta elétrica multipinos (esquerda) + placa FESTO ——— */}
+      <group position={[-baseW * 0.48, 8 * U, 0]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[28 * U, 70 * U, 58 * U]} />
+          <meshStandardMaterial color={ALU_ANODIZED} roughness={0.25} metalness={0.85} />
+        </mesh>
+        {/* Conector circular multipinos */}
+        <mesh position={[-16 * U, 8 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[10 * U, 10 * U, 12 * U, 20]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.35} metalness={0.5} />
+        </mesh>
+        <mesh position={[-20 * U, 8 * U, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[6 * U, 6 * U, 4 * U, 16]} />
+          <meshStandardMaterial color="#334155" roughness={0.4} />
+        </mesh>
+        {/* LED status */}
+        <mesh position={[-10 * U, 28 * U, 30 * U]}>
+          <boxGeometry args={[6 * U, 4 * U, 2 * U]} />
+          <meshStandardMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.8} />
+        </mesh>
+      </group>
+
+      {/* ——— Tampa direita (R / silenciadores) ——— */}
+      <group position={[baseW * 0.48, 0, 0]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[22 * U, 70 * U, 58 * U]} />
+          <meshStandardMaterial color={ALU_BRUSHED} roughness={0.28} metalness={0.82} />
+        </mesh>
+        {/* Silenciadores PE brancos (exaustão) */}
+        {[-14 * U, 14 * U].map((dz, i) => (
+          <group key={i} position={[14 * U, -8 * U, dz]}>
+            <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[7 * U, 8 * U, 18 * U, 14]} />
+              <meshStandardMaterial color="#f1f5f9" roughness={0.55} metalness={0.05} />
+            </mesh>
+            <mesh position={[10 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[5 * U, 5 * U, 6 * U, 12]} />
+              <meshStandardMaterial color={FESTO_BLUE} roughness={0.3} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+
+      {/* ——— Alimentação P (entrada) + QS laterais na base ——— */}
+      <FestoQsPushInPort position={[-baseW * 0.52, -28 * U, 18 * U]} rotation={[0, 0, Math.PI / 2]} scale={0.92} variant="black" />
+      <FestoQsPushInPort position={[-baseW * 0.52, -28 * U, -18 * U]} rotation={[0, 0, Math.PI / 2]} scale={0.92} variant="black" />
+
+      {/* ——— Fila dupla de pórticos QS na face frontal da base (A/B por estação) ——— */}
       {stations.map((stNum, idx) => {
-        const sx = -60 * U + idx * 38 * U
+        const sx = -54 * U + idx * pitch
+        return (
+          <group key={`ports-${stNum}`} position={[sx, -36 * U, baseD * 0.42]}>
+            <FestoQsPushInPort position={[-8 * U, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
+            <FestoQsPushInPort position={[8 * U, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
+            {/* Segunda fila mais atrás */}
+            <FestoQsPushInPort position={[-8 * U, 0, -14 * U]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
+            <FestoQsPushInPort position={[8 * U, 0, -14 * U]} rotation={[Math.PI / 2, 0, 0]} scale={0.72} variant="black" />
+          </group>
+        )
+      })}
+
+      {/* ——— 4 estações de válvula (fatias pretas + pilotos brancos + teclas azuis) ——— */}
+      {stations.map((stNum, idx) => {
+        const sx = -54 * U + idx * pitch
         const isOn = Boolean(c.state[`station${stNum}On`] || c.state[`station${stNum}Manual`])
         return (
-          <group key={stNum} position={[sx, 14 * U, 0]}>
-            {/* Corpo da fatia de válvula */}
+          <group key={stNum} position={[sx, 18 * U, 0]}>
+            {/* Corpo da válvula (PBT preto) */}
             <mesh castShadow receiveShadow>
-              <boxGeometry args={[33 * U, 68 * U, 56 * U]} />
-              <meshStandardMaterial color={PBT_CHARCOAL} roughness={0.42} metalness={0.25} />
+              <boxGeometry args={[32 * U, 52 * U, 52 * U]} />
+              <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.18} />
             </mesh>
-            {/* 2 teclas azuis Festo de acionamento manual (clicável em 3D!) */}
-            {[-12 * U, 12 * U].map((dy, bi) => (
+            {/* Face frontal com rebaixo */}
+            <mesh position={[0, 0, 27 * U]} castShadow>
+              <boxGeometry args={[28 * U, 44 * U, 3 * U]} />
+              <meshStandardMaterial color={PBT_CHARCOAL} roughness={0.38} metalness={0.2} />
+            </mesh>
+            {/* 2 teclas azuis de comando manual */}
+            {[-10 * U, 10 * U].map((dy, bi) => (
               <mesh
                 key={bi}
-                position={[0, dy, 29 * U]}
+                position={[0, dy, 30 * U]}
+                castShadow
                 onClick={(e) => {
                   e.stopPropagation()
                   onToggleStation?.(stNum)
                 }}
+                onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
+                onPointerOut={() => { document.body.style.cursor = '' }}
               >
-                <boxGeometry args={[28 * U, 12 * U, 4 * U]} />
+                <boxGeometry args={[24 * U, 11 * U, 5 * U]} />
                 <meshStandardMaterial
                   color={isOn && bi === 1 ? '#f59e0b' : FESTO_BLUE}
-                  emissive={isOn && bi === 1 ? '#f59e0b' : '#000000'}
-                  emissiveIntensity={isOn && bi === 1 ? 0.55 : 0}
-                  roughness={0.32}
+                  emissive={isOn && bi === 1 ? '#d97706' : '#000000'}
+                  emissiveIntensity={isOn && bi === 1 ? 0.5 : 0}
+                  roughness={0.28}
                 />
               </mesh>
             ))}
-            {/* LED indicador de estado na face frontal superior */}
-            <mesh position={[0, 27 * U, 28.6 * U]}>
-              <boxGeometry args={[10 * U, 5 * U, 1.5 * U]} />
+            {/* LED amarelo de estado */}
+            <mesh position={[0, 22 * U, 29.5 * U]}>
+              <boxGeometry args={[12 * U, 5 * U, 2 * U]} />
               <meshStandardMaterial
                 color={isOn ? '#facc15' : '#475569'}
                 emissive={isOn ? '#eab308' : '#000000'}
-                emissiveIntensity={isOn ? 1.8 : 0}
+                emissiveIntensity={isOn ? 1.6 : 0}
               />
             </mesh>
-            {/* Par de saídas inferiores QS (A_i e B_i) */}
-            <FestoQsPushInPort position={[-8 * U, -50 * U, 8 * U]} rotation={[0, 0, Math.PI]} scale={0.74} />
-            <FestoQsPushInPort position={[8 * U, -50 * U, -8 * U]} rotation={[0, 0, Math.PI]} scale={0.74} />
+            {/* Piloto solenoide branco no topo (bobina 24V) */}
+            <mesh position={[0, 36 * U, 0]} castShadow>
+              <boxGeometry args={[26 * U, 22 * U, 40 * U]} />
+              <meshStandardMaterial color="#f8fafc" roughness={0.35} metalness={0.08} />
+            </mesh>
+            <mesh position={[0, 48 * U, 0]} castShadow>
+              <cylinderGeometry args={[8 * U, 8 * U, 10 * U, 16]} />
+              <meshStandardMaterial color="#e2e8f0" roughness={0.3} metalness={0.1} />
+            </mesh>
+            {/* Anel azul no piloto */}
+            <mesh position={[0, 52 * U, 0]}>
+              <cylinderGeometry args={[9 * U, 9 * U, 3 * U, 16]} />
+              <meshStandardMaterial color={FESTO_BLUE} roughness={0.28} />
+            </mesh>
+            {/* Conector elétrico do piloto (traseira) */}
+            <mesh position={[0, 40 * U, -24 * U]} castShadow>
+              <boxGeometry args={[18 * U, 12 * U, 10 * U]} />
+              <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.3} />
+            </mesh>
           </group>
         )
       })}
+
+      {/* Tampa superior translúcida sobre etiquetas */}
+      <mesh position={[0, 58 * U, 8 * U]}>
+        <boxGeometry args={[160 * U, 6 * U, 28 * U]} />
+        <meshPhysicalMaterial
+          color="#e2e8f0"
+          transparent
+          opacity={0.35}
+          roughness={0.12}
+          userData={{ keepTransparent: true }}
+        />
+      </mesh>
     </group>
   )
 }
@@ -1517,16 +1610,16 @@ function createTankSpecsTexture(): THREE.CanvasTexture | null {
 }
 
 function createBarGaugeTexture(pressureBar: number, maxBar = 12): THREE.CanvasTexture | null {
-  return makeCanvasTex(280, 280, (ctx, S) => {
-    const cx = S / 2
-    const cy = S / 2
-    const grad = ctx.createRadialGradient(cx, cy, S * 0.08, cx, cy, S * 0.48)
+  return makeCanvasTex(280, 280, (ctx, w, h) => {
+    const cx = w / 2
+    const cy = h / 2
+    const grad = ctx.createRadialGradient(cx, cy, w * 0.08, cx, cy, w * 0.48)
     grad.addColorStop(0, '#ffffff')
     grad.addColorStop(0.85, '#eef2f6')
     grad.addColorStop(1, '#94a3b8')
     ctx.fillStyle = grad
     ctx.beginPath()
-    ctx.arc(cx, cy, S * 0.46, 0, Math.PI * 2)
+    ctx.arc(cx, cy, w * 0.46, 0, Math.PI * 2)
     ctx.fill()
     ctx.strokeStyle = '#64748b'
     ctx.lineWidth = 3
@@ -1536,8 +1629,8 @@ function createBarGaugeTexture(pressureBar: number, maxBar = 12): THREE.CanvasTe
     for (let b = 0; b <= maxBar; b += 1) {
       const a = startA + (b / maxBar) * sweepA
       const major = b % 2 === 0
-      const r1 = S * (major ? 0.33 : 0.36)
-      const r2 = S * 0.42
+      const r1 = w * (major ? 0.33 : 0.36)
+      const r2 = w * 0.42
       ctx.strokeStyle = b >= maxBar * 0.75 ? '#dc2626' : '#0f172a'
       ctx.lineWidth = major ? 2.8 : 1.4
       ctx.beginPath()
@@ -1549,13 +1642,13 @@ function createBarGaugeTexture(pressureBar: number, maxBar = 12): THREE.CanvasTe
         ctx.font = 'bold 15px sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(String(b), cx + Math.cos(a) * (S * 0.26), cy + Math.sin(a) * (S * 0.26))
+        ctx.fillText(String(b), cx + Math.cos(a) * (w * 0.26), cy + Math.sin(a) * (w * 0.26))
       }
     }
     ctx.fillStyle = '#334155'
     ctx.font = 'bold 14px sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('bar', cx, S * 0.72)
+    ctx.fillText('bar', cx, w * 0.72)
     const clamped = Math.max(0, Math.min(maxBar, pressureBar))
     const needleA = startA + (clamped / maxBar) * sweepA
     ctx.strokeStyle = '#dc2626'
@@ -1563,7 +1656,7 @@ function createBarGaugeTexture(pressureBar: number, maxBar = 12): THREE.CanvasTe
     ctx.lineCap = 'round'
     ctx.beginPath()
     ctx.moveTo(cx - Math.cos(needleA) * 12, cy - Math.sin(needleA) * 12)
-    ctx.lineTo(cx + Math.cos(needleA) * (S * 0.34), cy + Math.sin(needleA) * (S * 0.34))
+    ctx.lineTo(cx + Math.cos(needleA) * (w * 0.34), cy + Math.sin(needleA) * (w * 0.34))
     ctx.stroke()
     ctx.fillStyle = '#1e293b'
     ctx.beginPath()

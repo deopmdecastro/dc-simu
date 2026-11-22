@@ -935,8 +935,6 @@ export function Wago221Connector3D({
             roughness={0.07}
             metalness={0.02}
             ior={1.58}
-            transmission={0.1}
-            thickness={0.3}
             clearcoat={1.0}
             clearcoatRoughness={0.05}
             depthWrite={false}
@@ -1052,7 +1050,7 @@ export function Wago221Connector3D({
   return (
     <group>
       {/* Invólucro PC transparente com arestas boleadas — mais visível e cristalino */}
-      <mesh geometry={mainBodyGeom!} renderOrder={3} castShadow>
+      <mesh geometry={mainBodyGeom ?? undefined} renderOrder={3} castShadow>
         <meshPhysicalMaterial
           userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
           color="#dbeafe"
@@ -1061,8 +1059,6 @@ export function Wago221Connector3D({
           roughness={0.06}
           metalness={0.02}
           ior={1.58}
-          transmission={0.12}
-          thickness={0.35}
           clearcoat={1.0}
           clearcoatRoughness={0.05}
           depthWrite={false}
