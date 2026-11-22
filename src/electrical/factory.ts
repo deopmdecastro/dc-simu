@@ -43,7 +43,18 @@ import type {
 } from '../types'
 import { getDefaultComponent3DPresentation, getDefaultComponentOrientation, getDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { getComponentModelSpec, getComponentPhysicalSizeMm, getSchematicPhysicalFootprint } from '../three/modelPaths'
-import { S7_FRONT_FACE, SIEMENS_S7_TYPES, s71500Cpu1511cTerminalRows, s71500Di32TerminalRows, s7300Cpu315TerminalRows } from './siemensPlc'
+import {
+  S7_FRONT_FACE,
+  SIEMENS_S7_TYPES,
+  SIEMENS_S7300_MODULE_TYPES,
+  s71500Cpu1511cTerminalRows,
+  s71500Di32TerminalRows,
+  s7300Cpu315TerminalRows,
+  s7300Cpu315PnDpTerminalRows,
+  s7300Sm321TerminalRows,
+  s7300Sm322TerminalRows,
+  s7300Sm334TerminalRows,
+} from './siemensPlc'
 
 export interface TerminalTemplate {
   label: string
@@ -287,6 +298,46 @@ function plcS7300Cpu315Terminals(): TerminalTemplate[] {
     (label) => ({
       terminalType: label === 'L+' || label === 'M' ? 'screw' : 'plug',
       color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : '#94a3b8',
+      row: 'frente',
+    }))
+}
+
+function plcS7300Cpu315PnDpTerminals(): TerminalTemplate[] {
+  return s7Terminals(s7300Cpu315PnDpTerminalRows(),
+    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => ({
+      terminalType: label === 'L+' || label === 'M' ? 'screw' : 'plug',
+      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : label.startsWith('PN') ? '#22c55e' : '#94a3b8',
+      row: 'frente',
+    }))
+}
+
+function plcS7300Sm321Terminals(): TerminalTemplate[] {
+  return s7Terminals(s7300Sm321TerminalRows(),
+    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => ({
+      terminalType: 'screw',
+      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : '#94a3b8',
+      row: 'frente',
+    }))
+}
+
+function plcS7300Sm322Terminals(): TerminalTemplate[] {
+  return s7Terminals(s7300Sm322TerminalRows(),
+    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => ({
+      terminalType: 'screw',
+      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : '#94a3b8',
+      row: 'frente',
+    }))
+}
+
+function plcS7300Sm334Terminals(): TerminalTemplate[] {
+  return s7Terminals(s7300Sm334TerminalRows(),
+    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => ({
+      terminalType: 'screw',
+      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : label.startsWith('AI') ? '#a78bfa' : '#f59e0b',
       row: 'frente',
     }))
 }
@@ -1985,6 +2036,55 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       ledFRCE: false,
       ledRUN: false,
       ledSTOP: true,
+    },
+  },
+  /** CPU 315-2 PN/DP · 6ES7315-2EH14-0AB0 — PROFINET + PROFIBUS. */
+  plcSiemensS7300Cpu315PnDp: {
+    category: 'controller',
+    paletteName: 'Siemens S7-300 CPU 315-2 PN/DP · 6ES7315-2EH14-0AB0',
+    group: 'Controladores', tag: 'PLC', w: 280, h: 220,
+    terminals: plcS7300Cpu315PnDpTerminals(),
+    defaultState: {
+      powered: false, inputs: {}, outputs: {}, memories: {},
+      supply: '24 V DC', reference: 'CPU 315-2 PN/DP', orderNo: '6ES7315-2EH14-0AB0',
+      mode: 'STOP', ledSF: false, ledBF1: false, ledBF2: false, ledDC5V: false, ledFRCE: false, ledRUN: false, ledSTOP: true,
+      datasheet: 'https://support.industry.siemens.com/cs/document/44380801',
+    },
+  },
+  /** SM321 DI 32×DC24V · 6ES7321-1BL00-0AA0 */
+  plcSiemensS7300Sm321Di32: {
+    category: 'controller',
+    paletteName: 'Siemens S7-300 SM321 DI 32×DC24V · 6ES7321-1BL00-0AA0',
+    group: 'Controladores', tag: 'DI', w: 200, h: 280,
+    terminals: plcS7300Sm321Terminals(),
+    defaultState: {
+      powered: false, inputs: {},
+      supply: '24 V DC', reference: 'SM321 DI 32×DC24V', orderNo: '6ES7321-1BL00-0AA0',
+      datasheet: 'https://support.industry.siemens.com/cs/document/13088406',
+    },
+  },
+  /** SM322 DO 32×DC24V/0.5A · 6ES7322-1BL00-0AA0 */
+  plcSiemensS7300Sm322Do32: {
+    category: 'controller',
+    paletteName: 'Siemens S7-300 SM322 DO 32×DC24V/0.5A · 6ES7322-1BL00-0AA0',
+    group: 'Controladores', tag: 'DO', w: 200, h: 280,
+    terminals: plcS7300Sm322Terminals(),
+    defaultState: {
+      powered: false, outputs: {},
+      supply: '24 V DC', reference: 'SM322 DO 32×DC24V/0.5A', orderNo: '6ES7322-1BL00-0AA0',
+      datasheet: 'https://support.industry.siemens.com/cs/document/13088408',
+    },
+  },
+  /** SM334 AI 4 / AO 2 · 6ES7334-0CE01-0AA0 */
+  plcSiemensS7300Sm334AiAo: {
+    category: 'controller',
+    paletteName: 'Siemens S7-300 SM334 AI 4 / AO 2 · 6ES7334-0CE01-0AA0',
+    group: 'Controladores', tag: 'AI', w: 200, h: 280,
+    terminals: plcS7300Sm334Terminals(),
+    defaultState: {
+      powered: false, analogs: {},
+      supply: '24 V DC', reference: 'SM334 AI4/AO2', orderNo: '6ES7334-0CE01-0AA0',
+      datasheet: 'https://support.industry.siemens.com/cs/document/13088412',
     },
   },
   siemensTsAdapterIeBasic: {

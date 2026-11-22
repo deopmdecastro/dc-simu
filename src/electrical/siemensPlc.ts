@@ -124,3 +124,95 @@ export function s7300Cpu315TerminalRows(): Array<{ label: string; x: number; y: 
     { label: 'DP', x: 0.18, y: 0.94 },
   ]
 }
+
+/* ==========================================================================
+ * S7-300 modules — CPU 315-2 PN/DP + SM321 / SM322 / SM334
+ * Cotas oficiais Siemens (mm): largura de passo 40 mm, altura ~125 mm, profundidade ~120 mm.
+ * ========================================================================== */
+
+export const S7300_SM_WIDTH_MM = 40
+export const S7300_SM_HEIGHT_MM = 125
+export const S7300_SM_DEPTH_MM = 120
+
+/** CPU 315-2 PN/DP 6ES7315-2EH14-0AB0 — mesma envolvente da 315-2 DP + portas PN. */
+export const S7300_CPU_PN_ORDER = '6ES7315-2EH14-0AB0'
+export const S7300_SM321_ORDER = '6ES7321-1BL00-0AA0'
+export const S7300_SM322_ORDER = '6ES7322-1BL00-0AA0'
+export const S7300_SM334_ORDER = '6ES7334-0CE01-0AA0'
+
+export const SIEMENS_S7300_MODULE_TYPES: ComponentType[] = [
+  'plcSiemensS7300Cpu315PnDp',
+  'plcSiemensS7300Sm321Di32',
+  'plcSiemensS7300Sm322Do32',
+  'plcSiemensS7300Sm334AiAo',
+]
+
+/** Bornes da CPU 315-2 PN/DP: alimentação + MPI + DP + 2× PN. */
+export function s7300Cpu315PnDpTerminalRows(): Array<{ label: string; x: number; y: number }> {
+  return [
+    { label: 'L+', x: 0.18, y: 0.58 },
+    { label: 'M', x: 0.18, y: 0.66 },
+    { label: 'MPI', x: 0.18, y: 0.78 },
+    { label: 'DP', x: 0.18, y: 0.86 },
+    { label: 'PN1', x: 0.55, y: 0.90 },
+    { label: 'PN2', x: 0.78, y: 0.90 },
+  ]
+}
+
+/** SM321 DI 32×DC24V — 32 entradas + L+/M por grupo (front connector). */
+export function s7300Sm321TerminalRows(): Array<{ label: string; x: number; y: number }> {
+  const rows = column(18, 0.08, 0.96)
+  const out: Array<{ label: string; x: number; y: number }> = [
+    { label: 'L+', x: 0.22, y: rows[0] },
+    { label: 'M', x: 0.78, y: rows[0] },
+  ]
+  for (let i = 0; i < 32; i++) {
+    const byte = Math.floor(i / 8)
+    const bit = i % 8
+    out.push({
+      label: `I${byte}.${bit}`,
+      x: byte % 2 === 0 ? 0.22 : 0.78,
+      y: rows[(i % 16) + 1],
+    })
+  }
+  return out
+}
+
+/** SM322 DO 32×DC24V/0.5A — 32 saídas + L+/M. */
+export function s7300Sm322TerminalRows(): Array<{ label: string; x: number; y: number }> {
+  const rows = column(18, 0.08, 0.96)
+  const out: Array<{ label: string; x: number; y: number }> = [
+    { label: 'L+', x: 0.22, y: rows[0] },
+    { label: 'M', x: 0.78, y: rows[0] },
+  ]
+  for (let i = 0; i < 32; i++) {
+    const byte = Math.floor(i / 8)
+    const bit = i % 8
+    out.push({
+      label: `Q${byte}.${bit}`,
+      x: byte % 2 === 0 ? 0.22 : 0.78,
+      y: rows[(i % 16) + 1],
+    })
+  }
+  return out
+}
+
+/** SM334 AI 4 / AO 2 — 4 entradas analógicas + 2 saídas + alimentação. */
+export function s7300Sm334TerminalRows(): Array<{ label: string; x: number; y: number }> {
+  return [
+    { label: 'L+', x: 0.20, y: 0.10 },
+    { label: 'M', x: 0.80, y: 0.10 },
+    { label: 'AI0+', x: 0.20, y: 0.22 },
+    { label: 'AI0-', x: 0.80, y: 0.22 },
+    { label: 'AI1+', x: 0.20, y: 0.34 },
+    { label: 'AI1-', x: 0.80, y: 0.34 },
+    { label: 'AI2+', x: 0.20, y: 0.46 },
+    { label: 'AI2-', x: 0.80, y: 0.46 },
+    { label: 'AI3+', x: 0.20, y: 0.58 },
+    { label: 'AI3-', x: 0.80, y: 0.58 },
+    { label: 'AO0+', x: 0.20, y: 0.72 },
+    { label: 'AO0-', x: 0.80, y: 0.72 },
+    { label: 'AO1+', x: 0.20, y: 0.84 },
+    { label: 'AO1-', x: 0.80, y: 0.84 },
+  ]
+}
