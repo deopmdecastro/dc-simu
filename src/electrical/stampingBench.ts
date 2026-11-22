@@ -184,10 +184,10 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   })
 
   // ---------------------------------------------------------------------------
-  // QE1 · quadro de campo sob a mesa (porta aberta): calhas técnicas, 2 calhas DIN,
-  // fonte 24 V, relé de segurança KS1 e relés de interface K1–K6 (nenhuma saída
-  // pilota uma válvula diretamente) e réguas de bornes etiquetadas para os sensores,
-  // as válvulas, o motor M1 e os botões. Bucins à esquerda (campo) e em cima (QGD).
+  // QE1 · quadro de campo sob a mesa, lado esquerdo (porta aberta para fora):
+  // calhas técnicas, 2 calhas DIN, fonte 24 V, relé de segurança KS1 e relés de
+  // interface K1–K6 e réguas de bornes. Bucins à esquerda (campo) e em cima (QGD).
+  // Dobradiça à direita (lado da mesa) → a porta abre para a esquerda, para fora.
   // ---------------------------------------------------------------------------
   if (plate.legs) {
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
@@ -196,11 +196,13 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       const cab = { w: 480, h: cabinetH, d: 200 }
       const cabinetY = -55 - cab.h / 2
       const cabinetZ = -plate.widthMm / 2 + 145
+      // Lado esquerdo da mesa (folga ~50 mm da borda); dobradiça à direita → porta abre para fora.
+      const cabinetX = -plate.lengthMm / 2 + cab.w / 2 + 50
       list.push({
-        key: 'cabinet', type: 'panelEnclosure', x: 0, y: cabinetY, z: cabinetZ,
+        key: 'cabinet', type: 'panelEnclosure', x: cabinetX, y: cabinetY, z: cabinetZ,
         state: {
           hostLocation: 'machine', widthMm: cab.w, heightMm: cab.h, depthMm: cab.d,
-          doorOpen: true, hingeSide: 'left', plateFinish: 'Aço galvanizado',
+          doorOpen: true, hingeSide: 'right', plateFinish: 'Aço galvanizado',
           labelText: 'QE1 · CAMPO ESTAMPAGEM',
           holes: [
             { id: 'field-entry-left', face: 'left', offsetXmm: 40, offsetYmm: -150, diameterMm: 32, glandType: 'M32' },
@@ -215,20 +217,22 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       })
       // Descida dos cabos de campo pela perna traseira esquerda até aos bucins laterais.
       const dropX = -plate.lengthMm / 2 + 40
+      const cabLeft = cabinetX - cab.w / 2
       list.push({
         key: 'ductDrop', type: 'mecBenchDuct', x: dropX, y: (20 + cabinetY - 150) / 2, z: cabinetZ + 30,
         state: { lengthMm: Math.round(20 - cabinetY + 150), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO → QE1' },
         orientation: { x: 0, y: 0, z: 90 },
       })
       list.push({
-        key: 'ductUnder', type: 'mecBenchDuct', x: (dropX - cab.w / 2) / 2, y: cabinetY - 150, z: cabinetZ + 30,
-        state: { lengthMm: Math.round(-cab.w / 2 - dropX), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO' },
+        key: 'ductUnder', type: 'mecBenchDuct', x: (dropX + cabLeft) / 2, y: cabinetY - 150, z: cabinetZ + 30,
+        state: { lengthMm: Math.round(Math.abs(cabLeft - dropX)), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO' },
       })
       // Placa de montagem: a 14 mm da traseira; calha DIN 7,5 mm; aparelhos encostados à calha.
       const plateFront = cabinetZ - cab.d / 2 + 14
       const onRail = (depthMm: number) => plateFront + 7.5 + depthMm / 2
+      // `x` relativo ao centro do quadro → convertido para coordenadas da base.
       const inside = (key: string, type: ComponentType, x: number, y: number, z: number, state: Record<string, unknown> = {}): BenchPlacement =>
-        ({ key, type, x, y: cabinetY + y, z, state: { hostLocation: 'machine', ...state } })
+        ({ key, type, x: cabinetX + x, y: cabinetY + y, z, state: { hostLocation: 'machine', ...state } })
       const usable = cab.w - 40
       // Calhas técnicas 40 × 60 (cima, meio, baixo) e calhas DIN TS35 (relés e bornes).
       for (const [key, y] of [['top', cab.h / 2 - 45], ['mid', 20], ['bottom', -cab.h / 2 + 50]] as const) {
