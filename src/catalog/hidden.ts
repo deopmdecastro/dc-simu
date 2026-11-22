@@ -46,9 +46,5 @@ export const hiddenCatalogTypes = new Set<string>([
   'limitSwitchLongRoller',
   'buttonStart22',
   'buttonStop22',
-  // S7-300 (CPU 315-2 PN/DP, SM321, SM322, SM334): bornes e símbolo prontos; AGUARDA GLB 3D e capa.
-  'plcSiemensS7300Cpu315PnDp',
-  'plcSiemensS7300Sm321Di32',
-  'plcSiemensS7300Sm322Do32',
-  'plcSiemensS7300Sm334AiAo',
+  // S7-300 PN/DP + SM321/322/334: modelos procedurais activos (siemensS7300Model).
 ])

@@ -137,6 +137,10 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   plcSiemensS71500Di32: { width: S71500_DI32_WIDTH_MM, height: S71500_HEIGHT_MM, depth: S71500_DEPTH_MM },
   plcSiemensS71500Cpu1511c: { width: S71500_CPU_WIDTH_MM, height: S71500_HEIGHT_MM, depth: S71500_DEPTH_MM },
   plcSiemensS7300Cpu315: { width: S7300_CPU_WIDTH_MM, height: S7300_CPU_HEIGHT_MM, depth: S7300_CPU_DEPTH_MM },
+  plcSiemensS7300Cpu315PnDp: { width: 40, height: 125, depth: 130 },
+  plcSiemensS7300Sm321Di32: { width: 40, height: 125, depth: 120 },
+  plcSiemensS7300Sm322Do32: { width: 40, height: 125, depth: 120 },
+  plcSiemensS7300Sm334AiAo: { width: 40, height: 125, depth: 120 },
   siemensTsAdapterIeBasic: { width: 30, height: 105.58, depth: 75.1 },
   terminalPhoenixPti6: { width: 8.15, height: 66.02, depth: 48.5 },
   terminalSet1ph: { width: 24.45, height: 66.02, depth: 48.5 },
@@ -406,6 +410,10 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'socketFamatelCombo' ||
     type === 'socketFamatelSwitch' ||
     type === 'socketEfapelIp65' ||
+    type === 'plcSiemensS7300Cpu315PnDp' ||
+    type === 'plcSiemensS7300Sm321Di32' ||
+    type === 'plcSiemensS7300Sm322Do32' ||
+    type === 'plcSiemensS7300Sm334AiAo' ||
     isMechatronicsType(type) ||
     hasComponent3DModel(type) ||
     isTerminalAssemblyComponent(type) ||
@@ -495,7 +503,11 @@ export function hasDinRailModel(type: ComponentType): boolean {
     type === 'residualBreakerSchneiderIid4p' ||
     type === 'residualBreakerSchneiderIdpnVigi' ||
     type === 'pilotLightSchneiderIil1p' ||
-    type === 'pilotLightSchneiderIil3p'
+    type === 'pilotLightSchneiderIil3p' ||
+    type === 'plcSiemensS7300Cpu315PnDp' ||
+    type === 'plcSiemensS7300Sm321Di32' ||
+    type === 'plcSiemensS7300Sm322Do32' ||
+    type === 'plcSiemensS7300Sm334AiAo'
   ) {
     return true
   }

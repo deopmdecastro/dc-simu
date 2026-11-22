@@ -27,7 +27,7 @@
 import type { ComponentType } from '../types'
 
 /** Os três PLC Siemens S7 importados (ver `factory.ts` e `realInterfaces.ts`). */
-export const SIEMENS_S7_TYPES: ComponentType[] = ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315']
+export const SIEMENS_S7_TYPES: ComponentType[] = ['plcSiemensS71500Di32', 'plcSiemensS71500Cpu1511c', 'plcSiemensS7300Cpu315', 'plcSiemensS7300Cpu315PnDp', 'plcSiemensS7300Sm321Di32', 'plcSiemensS7300Sm322Do32', 'plcSiemensS7300Sm334AiAo']
 
 /** Larguras de passo do S7-1500: 25 mm (1×) e 70 mm (2×); o CAD mede 47 e 84,9 mm. */
 export const S71500_DI32_WIDTH_MM = 47

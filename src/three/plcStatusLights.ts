@@ -93,12 +93,14 @@ export function plcLamps(type: ComponentType, state: PlcLampState): PlcLamp[] {
                 : stopped(state) && state.powered,
     }))
   }
+  // LEDs do modelo procedural (CPU PN/DP) — o desenho 3D já os anima via applyS7300ModuleState.
+  if (type === 'plcSiemensS7300Cpu315PnDp') return []
   return []
 }
 
 /** O aparelho tem lâmpadas próprias no CAD? (só estes três, por agora) */
 export const hasPlcLamps = (type: ComponentType): boolean =>
-  type === 'plcSiemensS71500Di32' || type === 'plcSiemensS71500Cpu1511c' || type === 'plcSiemensS7300Cpu315'
+  type === 'plcSiemensS71500Di32' || type === 'plcSiemensS71500Cpu1511c' || type === 'plcSiemensS7300Cpu315' || type === 'plcSiemensS7300Cpu315PnDp' || type === 'plcSiemensS7300Sm321Di32' || type === 'plcSiemensS7300Sm322Do32' || type === 'plcSiemensS7300Sm334AiAo'
 
 /**
  * Posição de um ponto normalizado da frente do modelo, no referencial do grupo do

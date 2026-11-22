@@ -2075,7 +2075,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       supply: '24 V DC', reference: 'CPU 315-2 PN/DP', orderNo: '6ES7315-2EH14-0AB0',
       mode: 'STOP', ledSF: false, ledBF1: false, ledBF2: false, ledDC5V: false, ledFRCE: false, ledRUN: false, ledSTOP: true,
       // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
-      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7315-2EH14-0AB0',
+      datasheet: 'https://support.industry.siemens.com/cs/document/44355816',
     },
   },
   /** SM321 DI 32×DC24V · 6ES7321-1BL00-0AA0 */
@@ -2088,7 +2088,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       powered: false, inputs: {},
       supply: '24 V DC', reference: 'SM321 DI 32×DC24V', orderNo: '6ES7321-1BL00-0AA0',
       // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
-      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7321-1BL00-0AA0',
+      datasheet: 'https://support.industry.siemens.com/cs/document/12114604',
     },
   },
   /** SM322 DO 32×DC24V/0.5A · 6ES7322-1BL00-0AA0 */
@@ -2101,7 +2101,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       powered: false, outputs: {},
       supply: '24 V DC', reference: 'SM322 DO 32×DC24V/0.5A', orderNo: '6ES7322-1BL00-0AA0',
       // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
-      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7322-1BL00-0AA0',
+      datasheet: 'https://support.industry.siemens.com/cs/document/12114604',
     },
   },
   /** SM334 AI 4 / AO 2 · 6ES7334-0CE01-0AA0 */
@@ -2114,7 +2114,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       powered: false, analogs: {},
       supply: '24 V DC', reference: 'SM334 AI4/AO2', orderNo: '6ES7334-0CE01-0AA0',
       // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
-      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7334-0CE01-0AA0',
+      datasheet: 'https://support.industry.siemens.com/cs/document/12114604',
     },
   },
   siemensTsAdapterIeBasic: {

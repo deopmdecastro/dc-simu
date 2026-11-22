@@ -68,6 +68,7 @@ import { applyWorldUv, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enc
 import { CableDuct3D, Enclosure3D, SpiralWrap3D } from './PanelAccessories3D'
 import { ductJunctionOpenings } from '../schematic/ductJunctions'
 import { SocketDevice3D } from './SocketDevices3D'
+import { SiemensS7300Module3D, isS7300ModuleType, S7300_MODULE_DIMS } from './SiemensS7300Devices3D'
 import { galvanizedSteel } from './proceduralTextures'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
 import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
@@ -5503,6 +5504,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           let content: ReactNode
           if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={(industrialDeviceTypeOf(c) ? mechanicalControls : interactive) && !c.locked} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
           else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={null}><ImportedCadDevice c={c} x={x} interactive={interactive && !c.locked} mechanical={mechanicalControls && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
+          else if (isS7300ModuleType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><SiemensS7300Module3D c={c} position={[x, RAIL_Y + (S7300_MODULE_DIMS[c.type as keyof typeof S7300_MODULE_DIMS]?.h ?? 125) * PANEL_UNITS_PER_MM / 2, 0]} interactive={interactive && !c.locked} /></Model3DErrorBoundary>
           else if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><Suspense fallback={null}><LogoSiemens1224RCMesh c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={null}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={null}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
@@ -5633,7 +5635,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {offRail.map((c) => {
           const x = front[c.id]
           let content: ReactNode
-          if (isCatalogType(c.type)) {
+          if (isS7300ModuleType(c.type)) {
+            const [px, py, pz] = frontPivot(c)
+            content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><SiemensS7300Module3D c={c} position={[x + px, py, pz]} interactive={interactive && !c.locked} /></Model3DErrorBoundary>
+          } else if (isCatalogType(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
             const [px, py, pz] = frontPivot(c)
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={(industrialDeviceTypeOf(c) ? mechanicalControls : interactive) && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
