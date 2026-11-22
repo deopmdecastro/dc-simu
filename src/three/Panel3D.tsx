@@ -4631,7 +4631,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       editingTerminals={viewOrientationEditor?.componentId === component.id}
       movable={false}
       draggable={tool === 'select' && !simLocked && !gridDragEnabled && !component.locked && !viewOrientationEditor && !reconnect}
-      free3D={!isPanelBound(component) && (factoryMode || !frontEdit)}
+      free3D={
+        isFloorMountedMachineType(component.type)
+        || (!isPanelBound(component) && (factoryMode || !frontEdit))
+      }
       preferFloorXZ={factoryMode || isFloorMountedMachineType(component.type) || isFloorGroundedStructureType(component.type)}
       connectionMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
       connectionMedium={connectionMedium}

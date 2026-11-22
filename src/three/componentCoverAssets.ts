@@ -21,7 +21,7 @@ const IDB_NAME = 'dc-simu-covers'
 const IDB_STORE = 'covers'
 const IDB_VERSION = 1
 /** Prefixo de versão: mudar quando o enquadramento/estilo das capas mudar. */
-const COVER_KEY_PREFIX = 'v3-glb:'
+const COVER_KEY_PREFIX = 'v4-glb:'
 
 const staticProbe = new Map<string, Promise<string | null>>()
 const memory = new Map<string, string>()
