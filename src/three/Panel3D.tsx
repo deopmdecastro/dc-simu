@@ -79,6 +79,7 @@ import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
 import { FactoryEnvironment3D, type FactoryWallMountBounds } from './FactoryEnvironment3D'
 import { FactoryHallSizeControl } from './FactoryHallSizeControl'
+import { FactoryWallsControl } from './FactoryWallsControl'
 import { Mechatronics3D } from './MechatronicsDevices3D'
 import { isMechatronicsType } from './mechatronicsModel'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
@@ -5236,6 +5237,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               onChange={(next) => useSimStore.getState().setFactoryHall(next)}
             />
           )}
+          {factoryMode && <FactoryWallsControl />}
         </div>
       )}
       <ViewCube

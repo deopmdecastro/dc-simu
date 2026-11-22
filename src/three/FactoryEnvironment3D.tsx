@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { computeFactoryHallLayout, type FactoryHallSize } from './factoryPhysics'
+import { factoryWallVisibility, useFactoryWalls } from './factoryWalls'
 
 export interface FactoryWallMountBounds {
   minX: number
@@ -501,6 +502,22 @@ export function FactoryEnvironment3D({
   const leftColumnZs: number[] = []
   for (let dz = 4; dz <= hallDepth - 3.5; dz += 7.5) leftColumnZs.push(wallFrontZ + dz)
 
+  // Paredes: Mostrar / Auto (corte do lado da câmara) / Ocultar. Atualiza só `visible`, sem re-render.
+  const wallsMode = useFactoryWalls((s) => s.mode)
+  const backRef = useRef<THREE.Group>(null)
+  const leftRef = useRef<THREE.Group>(null)
+  const rightRef = useRef<THREE.Group>(null)
+  useEffect(() => { invalidate() }, [invalidate, wallsMode])
+  useFrame(({ camera, gl }) => {
+    const visible = factoryWallVisibility(wallsMode, camera.position, { backZ: wallFrontZ, leftX: leftWallX, rightX: rightWallX })
+    let changed = false
+    for (const [ref, on] of [[backRef, visible.back], [leftRef, visible.left], [rightRef, visible.right]] as const) {
+      if (ref.current && ref.current.visible !== on) { ref.current.visible = on; changed = true }
+    }
+    // As sombras são assadas a pedido (autoUpdate = false): sem isto ficavam as sombras dos pilares escondidos.
+    if (changed) { if (gl.shadowMap.enabled) gl.shadowMap.needsUpdate = true; invalidate() }
+  })
+
   return (
     <group name="dc-simu-factory-environment">
       {/* === 1. PAVIMENTO INDUSTRIAL EM BETÃO POLIDO PBR === */}
@@ -520,140 +537,139 @@ export function FactoryEnvironment3D({
         />
       </mesh>
 
-      {/* === 2. PAREDE TRASEIRA (BETÃO ARQUITETÓNICO PRÉ-FABRICADO) === */}
-      <mesh
-        position={[cx, wallCenterY, backWallZ]}
-        receiveShadow
-        raycast={NO_RAYCAST}
-      >
-        <boxGeometry args={[hallWidth + wallThickness * 2, wallHeight, wallThickness]} />
-        <meshStandardMaterial
-          map={wallPbr?.map}
-          bumpMap={wallPbr?.bumpMap}
-          bumpScale={0.055}
-          roughnessMap={wallPbr?.roughnessMap}
-          roughness={0.86}
-          metalness={0.04}
-        />
-      </mesh>
-
-      {/* Parede lateral esquerda (betão pré-fabricado) */}
-      <mesh
-        position={[leftWallX - wallThickness / 2, wallCenterY, floorCenterZ]}
-        receiveShadow
-        raycast={NO_RAYCAST}
-      >
-        <boxGeometry args={[wallThickness, wallHeight, hallDepth + 0.6]} />
-        <meshStandardMaterial
-          map={wallPbr?.map}
-          bumpMap={wallPbr?.bumpMap}
-          bumpScale={0.055}
-          roughnessMap={wallPbr?.roughnessMap}
-          roughness={0.86}
-          metalness={0.04}
-        />
-      </mesh>
-
-      {/* Murete baixo na lateral direita para manter enquadramento isométrico limpo */}
-      <mesh
-        position={[rightWallX + wallThickness / 2, floorY + 0.72, floorCenterZ]}
-        receiveShadow
-        raycast={NO_RAYCAST}
-      >
-        <boxGeometry args={[wallThickness, 1.44, hallDepth + 0.6]} />
-        <meshStandardMaterial
-          map={wallPbr?.map}
-          bumpMap={wallPbr?.bumpMap}
-          bumpScale={0.045}
-          roughness={0.86}
-          metalness={0.04}
-        />
-      </mesh>
-
-      {/* Rodapé técnico industrial cinzento escuro na base das paredes */}
-      <mesh position={[cx, floorY + 0.24, wallFrontZ + 0.035]} receiveShadow raycast={NO_RAYCAST}>
-        <boxGeometry args={[hallWidth, 0.48, 0.07]} />
-        <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
-      </mesh>
-      <mesh position={[leftWallX + 0.035, floorY + 0.24, floorCenterZ]} receiveShadow raycast={NO_RAYCAST}>
-        <boxGeometry args={[0.07, 0.48, hallDepth]} />
-        <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
-      </mesh>
-      <mesh position={[rightWallX - 0.035, floorY + 0.24, floorCenterZ]} receiveShadow raycast={NO_RAYCAST}>
-        <boxGeometry args={[0.07, 0.48, hallDepth]} />
-        <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
-      </mesh>
-
-      {/* Viga metálica de coroamento no topo da parede traseira */}
-      <mesh position={[cx, floorY + wallHeight - 0.22, wallFrontZ + 0.16]} castShadow receiveShadow raycast={NO_RAYCAST}>
-        <boxGeometry args={[hallWidth, 0.42, 0.34]} />
-        <meshStandardMaterial color="#525d6c" roughness={0.46} metalness={0.62} />
-      </mesh>
-
-      {/* === 3. PILARES ESTRUTURAIS METÁLICOS EM PERFIL I === */}
-      {backColumnXs.map((x, idx) => (
-        <SteelColumn key={`bcol-${idx}`} x={x} z={wallFrontZ + 0.22} floorY={floorY} height={wallHeight} />
-      ))}
-      {leftColumnZs.map((z, idx) => (
-        <SteelColumn key={`lcol-${idx}`} x={leftWallX + 0.22} z={z} floorY={floorY} height={wallHeight} rotateY={Math.PI / 2} />
-      ))}
-
-      {/* === 4. CALHA TÉCNICA DE CABOS + FIXAÇÃO DO QUADRO NA PAREDE === */}
-      <group>
-        {/* Calha metálica galvanizada horizontal */}
-        <mesh position={[cx, trayY, wallFrontZ + 0.17]} castShadow receiveShadow raycast={NO_RAYCAST}>
-          <boxGeometry args={[hallWidth - 2, 0.24, 0.3]} />
-          <meshStandardMaterial color="#8793a2" roughness={0.34} metalness={0.78} />
+      {/* Paredes agrupadas por lado: «Paredes» (Mostrar/Auto/Ocultar) esconde cada grupo sem tocar no pavimento */}
+      <group ref={backRef} name="factory-wall-back">
+        {/* === 2. PAREDE TRASEIRA (BETÃO ARQUITETÓNICO PRÉ-FABRICADO) === */}
+        <mesh
+          position={[cx, wallCenterY, backWallZ]}
+          receiveShadow
+          raycast={NO_RAYCAST}
+        >
+          <boxGeometry args={[hallWidth + wallThickness * 2, wallHeight, wallThickness]} />
+          <meshStandardMaterial
+            map={wallPbr?.map}
+            bumpMap={wallPbr?.bumpMap}
+            bumpScale={0.055}
+            roughnessMap={wallPbr?.roughnessMap}
+            roughness={0.86}
+            metalness={0.04}
+          />
         </mesh>
-        {/* Tampa/bordo superior da calha */}
-        <mesh position={[cx, trayY + 0.13, wallFrontZ + 0.18]} raycast={NO_RAYCAST}>
-          <boxGeometry args={[hallWidth - 2, 0.03, 0.32]} />
-          <meshStandardMaterial color="#6e7a8a" roughness={0.38} metalness={0.8} />
+        {/* Rodapé técnico industrial cinzento escuro na base das paredes */}
+        <mesh position={[cx, floorY + 0.24, wallFrontZ + 0.035]} receiveShadow raycast={NO_RAYCAST}>
+          <boxGeometry args={[hallWidth, 0.48, 0.07]} />
+          <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
         </mesh>
-
-        {/* Orelhas de fixação do quadro elétrico (exteriores ao perímetro, sem atravessar a chapa interna) */}
-        {[
-          [panelMinX - 0.18, panelMaxY - 0.55],
-          [panelMaxX + 0.18, panelMaxY - 0.55],
-          [panelMinX - 0.18, panelMinY + 0.55],
-          [panelMaxX + 0.18, panelMinY + 0.55],
-        ].map(([bx, by], i) => (
-          <mesh key={`br-${i}`} position={[bx, by, wallFrontZ + 0.04]} castShadow raycast={NO_RAYCAST}>
-            <boxGeometry args={[0.36, 0.42, 0.08]} />
-            <meshStandardMaterial color="#4b5563" roughness={0.46} metalness={0.72} />
-          </mesh>
+        {/* Viga metálica de coroamento no topo da parede traseira */}
+        <mesh position={[cx, floorY + wallHeight - 0.22, wallFrontZ + 0.16]} castShadow receiveShadow raycast={NO_RAYCAST}>
+          <boxGeometry args={[hallWidth, 0.42, 0.34]} />
+          <meshStandardMaterial color="#525d6c" roughness={0.46} metalness={0.62} />
+        </mesh>
+        {/* === 3. PILARES ESTRUTURAIS METÁLICOS EM PERFIL I === */}
+        {backColumnXs.map((x, idx) => (
+          <SteelColumn key={`bcol-${idx}`} x={x} z={wallFrontZ + 0.22} floorY={floorY} height={wallHeight} />
         ))}
-
-        {/* Eletrodutos galvanizados de alimentação desde a calha superior até ao topo do quadro */}
-        {trayY > panelMaxY + 0.25 && (
-          <>
-            <mesh
-              position={[panelCx - Math.min(1.1, panelW * 0.22), (trayY + panelMaxY) / 2, wallFrontZ + 0.2]}
-              castShadow
-              raycast={NO_RAYCAST}
-            >
-              <cylinderGeometry args={[0.11, 0.11, Math.max(0.2, trayY - panelMaxY), 14]} />
-              <meshStandardMaterial color="#8b96a6" roughness={0.32} metalness={0.82} />
-            </mesh>
-            <mesh
-              position={[panelCx + Math.min(1.1, panelW * 0.22), (trayY + panelMaxY) / 2, wallFrontZ + 0.2]}
-              castShadow
-              raycast={NO_RAYCAST}
-            >
-              <cylinderGeometry args={[0.09, 0.09, Math.max(0.2, trayY - panelMaxY), 14]} />
-              <meshStandardMaterial color="#8b96a6" roughness={0.32} metalness={0.82} />
-            </mesh>
-          </>
-        )}
-
-        {/* Placa normativa de aviso "PERIGO · ALTA TENSÃO" na parede ao lado do quadro */}
-        {signTex && (
-          <mesh position={[panelMaxX + 1.45, Math.max(floorY + 3.4, (panelMinY + panelMaxY) / 2 + 0.8), wallFrontZ + 0.03]} raycast={NO_RAYCAST}>
-            <planeGeometry args={[1.25, 1.46]} />
-            <meshStandardMaterial map={signTex} roughness={0.38} metalness={0.08} />
+        {/* === 4. CALHA TÉCNICA DE CABOS + FIXAÇÃO DO QUADRO NA PAREDE === */}
+          {/* Calha metálica galvanizada horizontal */}
+          <mesh position={[cx, trayY, wallFrontZ + 0.17]} castShadow receiveShadow raycast={NO_RAYCAST}>
+            <boxGeometry args={[hallWidth - 2, 0.24, 0.3]} />
+            <meshStandardMaterial color="#8793a2" roughness={0.34} metalness={0.78} />
           </mesh>
-        )}
+          {/* Tampa/bordo superior da calha */}
+          <mesh position={[cx, trayY + 0.13, wallFrontZ + 0.18]} raycast={NO_RAYCAST}>
+            <boxGeometry args={[hallWidth - 2, 0.03, 0.32]} />
+            <meshStandardMaterial color="#6e7a8a" roughness={0.38} metalness={0.8} />
+          </mesh>
 
+          {/* Orelhas de fixação do quadro elétrico (exteriores ao perímetro, sem atravessar a chapa interna) */}
+          {[
+            [panelMinX - 0.18, panelMaxY - 0.55],
+            [panelMaxX + 0.18, panelMaxY - 0.55],
+            [panelMinX - 0.18, panelMinY + 0.55],
+            [panelMaxX + 0.18, panelMinY + 0.55],
+          ].map(([bx, by], i) => (
+            <mesh key={`br-${i}`} position={[bx, by, wallFrontZ + 0.04]} castShadow raycast={NO_RAYCAST}>
+              <boxGeometry args={[0.36, 0.42, 0.08]} />
+              <meshStandardMaterial color="#4b5563" roughness={0.46} metalness={0.72} />
+            </mesh>
+          ))}
+
+          {/* Eletrodutos galvanizados de alimentação desde a calha superior até ao topo do quadro */}
+          {trayY > panelMaxY + 0.25 && (
+            <>
+              <mesh
+                position={[panelCx - Math.min(1.1, panelW * 0.22), (trayY + panelMaxY) / 2, wallFrontZ + 0.2]}
+                castShadow
+                raycast={NO_RAYCAST}
+              >
+                <cylinderGeometry args={[0.11, 0.11, Math.max(0.2, trayY - panelMaxY), 14]} />
+                <meshStandardMaterial color="#8b96a6" roughness={0.32} metalness={0.82} />
+              </mesh>
+              <mesh
+                position={[panelCx + Math.min(1.1, panelW * 0.22), (trayY + panelMaxY) / 2, wallFrontZ + 0.2]}
+                castShadow
+                raycast={NO_RAYCAST}
+              >
+                <cylinderGeometry args={[0.09, 0.09, Math.max(0.2, trayY - panelMaxY), 14]} />
+                <meshStandardMaterial color="#8b96a6" roughness={0.32} metalness={0.82} />
+              </mesh>
+            </>
+          )}
+
+          {/* Placa normativa de aviso "PERIGO · ALTA TENSÃO" na parede ao lado do quadro */}
+          {signTex && (
+            <mesh position={[panelMaxX + 1.45, Math.max(floorY + 3.4, (panelMinY + panelMaxY) / 2 + 0.8), wallFrontZ + 0.03]} raycast={NO_RAYCAST}>
+              <planeGeometry args={[1.25, 1.46]} />
+              <meshStandardMaterial map={signTex} roughness={0.38} metalness={0.08} />
+            </mesh>
+          )}
+      </group>
+      <group ref={leftRef} name="factory-wall-left">
+        {/* Parede lateral esquerda (betão pré-fabricado) */}
+        <mesh
+          position={[leftWallX - wallThickness / 2, wallCenterY, floorCenterZ]}
+          receiveShadow
+          raycast={NO_RAYCAST}
+        >
+          <boxGeometry args={[wallThickness, wallHeight, hallDepth + 0.6]} />
+          <meshStandardMaterial
+            map={wallPbr?.map}
+            bumpMap={wallPbr?.bumpMap}
+            bumpScale={0.055}
+            roughnessMap={wallPbr?.roughnessMap}
+            roughness={0.86}
+            metalness={0.04}
+          />
+        </mesh>
+        <mesh position={[leftWallX + 0.035, floorY + 0.24, floorCenterZ]} receiveShadow raycast={NO_RAYCAST}>
+          <boxGeometry args={[0.07, 0.48, hallDepth]} />
+          <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
+        </mesh>
+        {leftColumnZs.map((z, idx) => (
+          <SteelColumn key={`lcol-${idx}`} x={leftWallX + 0.22} z={z} floorY={floorY} height={wallHeight} rotateY={Math.PI / 2} />
+        ))}
+      </group>
+      <group ref={rightRef} name="factory-wall-right">
+        {/* Murete baixo na lateral direita para manter enquadramento isométrico limpo */}
+        <mesh
+          position={[rightWallX + wallThickness / 2, floorY + 0.72, floorCenterZ]}
+          receiveShadow
+          raycast={NO_RAYCAST}
+        >
+          <boxGeometry args={[wallThickness, 1.44, hallDepth + 0.6]} />
+          <meshStandardMaterial
+            map={wallPbr?.map}
+            bumpMap={wallPbr?.bumpMap}
+            bumpScale={0.045}
+            roughness={0.86}
+            metalness={0.04}
+          />
+        </mesh>
+        <mesh position={[rightWallX - 0.035, floorY + 0.24, floorCenterZ]} receiveShadow raycast={NO_RAYCAST}>
+          <boxGeometry args={[0.07, 0.48, hallDepth]} />
+          <meshStandardMaterial color="#3c4450" roughness={0.62} metalness={0.18} />
+        </mesh>
+      </group>
         {/* Faixa de segurança amarela e preta no pavimento sob o quadro elétrico */}
         {hazardTex && (
           <group position={[panelCx, floorY + 0.012, wallFrontZ + safeZoneD / 2 + 0.2]}>
@@ -673,7 +689,6 @@ export function FactoryEnvironment3D({
             </mesh>
           </group>
         )}
-      </group>
     </group>
   )
 }
