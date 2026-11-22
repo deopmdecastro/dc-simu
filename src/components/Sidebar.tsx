@@ -2161,7 +2161,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           </div>
                           <div>
                             <label className={label}>Material e pressão</label>
-                            <div className="wo-gauges">
+                            <div className="wo-gauges wo-material-gauges" aria-label="Material hidráulico">
                               {(['ppr', 'pvc', 'inox', 'copper'] as const).map((mat) => (
                                 <button
                                   key={mat}
@@ -2172,6 +2172,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                                   <span>{mat.toUpperCase()}</span>
                                 </button>
                               ))}
+                            </div>
+                            <div className="wo-gauges wo-pressure-gauges" aria-label="Pressão nominal">
                               {[10, 16].map((bar) => (
                                 <button
                                   key={bar}
