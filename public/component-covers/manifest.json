@@ -1,6 +1,6 @@
 {
-  "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.",
-  "generatedAt": "2026-11-22T00:30:00Z",
+  "note": "Capas 3D isométricas leves (WebP ~3-8 KiB) para componentes procedurais pneumáticos.",
+  "generatedAt": "2026-11-22T00:42:00Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
     "fuseHolderSchneiderDf101v",
@@ -406,5 +406,5 @@
     "pneumaticY": "front/pneumaticY.webp",
     "airCompressor": "front/airCompressor.webp"
   },
-  "version": 1
+  "version": 2
 }
