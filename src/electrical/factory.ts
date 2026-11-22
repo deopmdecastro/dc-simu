@@ -1138,9 +1138,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   pneumaticY: {
     category: 'terminal', paletteName: 'Festo QSY-8 · União em Y pneumática Push-In · 3 vias', group: 'Pneumática', tag: 'UY', w: 72, h: 64,
     terminals: [
+      // P1 entrada em baixo; P2/P3 saídas paralelas no topo (como QSY real)
       T('P1', 'pneumatic-in', 0.50, 0.98, { position3D: { x: 0.50, y: 0.02, z: 0.50 }, face: 'bottom', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P2', 'pneumatic-out', 0.18, 0.06, { position3D: { x: 0.18, y: 0.92, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P3', 'pneumatic-out', 0.82, 0.06, { position3D: { x: 0.82, y: 0.92, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.32, 0.04, { position3D: { x: 0.32, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P3', 'pneumatic-out', 0.68, 0.04, { position3D: { x: 0.68, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
     ],
     defaultState: {
       manufacturer: 'Festo',

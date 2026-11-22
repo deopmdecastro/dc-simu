@@ -353,15 +353,24 @@ function FestoQsPushInPort({
         <cylinderGeometry args={[8.4 * U, 8.8 * U, 10 * U, 20]} />
         <meshStandardMaterial color={body2} roughness={roughness} metalness={metalness} />
       </mesh>
-      {/* Anel de libertação azul biselado */}
-      <mesh position={[0, 18.5 * U, 0]} castShadow>
-        <cylinderGeometry args={[9.2 * U, 7.6 * U, 5.5 * U, 20]} />
-        <meshStandardMaterial color={FESTO_BLUE} roughness={0.3} metalness={0.12} />
+      {/* Anel de libertação azul Festo (bisel + face plana com rebaixo) */}
+      <mesh position={[0, 17.8 * U, 0]} castShadow>
+        <cylinderGeometry args={[9.4 * U, 8.6 * U, 4.2 * U, 24]} />
+        <meshStandardMaterial color={FESTO_BLUE} roughness={0.28} metalness={0.1} />
       </mesh>
-      {/* Furo escuro do tubo PU */}
-      <mesh position={[0, 21.5 * U, 0]}>
-        <cylinderGeometry args={[4.6 * U, 4.6 * U, 2.2 * U, 16]} />
+      <mesh position={[0, 20.2 * U, 0]} castShadow>
+        <cylinderGeometry args={[8.8 * U, 7.4 * U, 2.2 * U, 24]} />
+        <meshStandardMaterial color="#2f9fe0" roughness={0.32} metalness={0.08} />
+      </mesh>
+      {/* Furo do tubo PU */}
+      <mesh position={[0, 21.6 * U, 0]}>
+        <cylinderGeometry args={[4.5 * U, 4.5 * U, 2.4 * U, 16]} />
         <meshStandardMaterial color="#0b111b" roughness={0.75} />
+      </mesh>
+      {/* Anel interior prateado (colar de retenção) */}
+      <mesh position={[0, 15.2 * U, 0]}>
+        <cylinderGeometry args={[7.2 * U, 7.2 * U, 1.6 * U, 20]} />
+        <meshStandardMaterial color="#c5ced6" metalness={0.85} roughness={0.22} />
       </mesh>
     </group>
   )
@@ -906,7 +915,7 @@ export function PneumaticElbow3D({
   )
 }
 
-/** União em Y Push-In (3 vias divergentes) — corpo preto + anéis azuis. */
+/** União em Y Festo QSY Push-In — 1 entrada + 2 saídas paralelas (fiel ao catálogo). */
 export function PneumaticY3D({
   c,
   position,
@@ -914,39 +923,55 @@ export function PneumaticY3D({
   c: ElectricalComponent
   position: [number, number, number]
 }) {
-  const arm = 20 * U
-  const ang = Math.PI / 5 // ~36° cada lado
+  // Geometria QSY: porta única em baixo; duas portas paralelas lado a lado em cima
+  const stem = 16 * U
+  const branch = 18 * U
+  const split = 11 * U // distância entre eixos das duas saídas
   return (
     <group position={position} name={`pneumatic-y-3d-${c.id}`}>
-      <PushInFittingCore radius={12 * U} />
-      {/* Entrada inferior */}
-      <mesh position={[0, -arm * 0.35, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.75, 18]} />
-        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      {/* Corpo central preto (bloco Y arredondado) */}
+      <mesh castShadow receiveShadow>
+        <sphereGeometry args={[11 * U, 20, 16]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.38} metalness={0.12} />
       </mesh>
-      {/* Braço esquerdo */}
-      <mesh position={[-Math.sin(ang) * arm * 0.4, Math.cos(ang) * arm * 0.35, 0]} rotation={[0, 0, -ang]} castShadow receiveShadow>
-        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.75, 18]} />
-        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      {/* Ombros laterais do Y (ligam o tronco às duas saídas) */}
+      <mesh position={[-split * 0.35, branch * 0.15, 0]} rotation={[0, 0, -0.35]} castShadow receiveShadow>
+        <cylinderGeometry args={[8.5 * U, 9.2 * U, 16 * U, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.38} metalness={0.12} />
       </mesh>
-      {/* Braço direito */}
-      <mesh position={[Math.sin(ang) * arm * 0.4, Math.cos(ang) * arm * 0.35, 0]} rotation={[0, 0, ang]} castShadow receiveShadow>
-        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.75, 18]} />
-        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      <mesh position={[split * 0.35, branch * 0.15, 0]} rotation={[0, 0, 0.35]} castShadow receiveShadow>
+        <cylinderGeometry args={[8.5 * U, 9.2 * U, 16 * U, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.38} metalness={0.12} />
       </mesh>
-      <FestoQsPushInPort position={[0, -arm * 0.95, 0]} rotation={[0, 0, Math.PI]} scale={0.86} variant="black" />
-      <FestoQsPushInPort
-        position={[-Math.sin(ang) * arm * 0.95, Math.cos(ang) * arm * 0.9, 0]}
-        rotation={[0, 0, -ang]}
-        scale={0.86}
-        variant="black"
-      />
-      <FestoQsPushInPort
-        position={[Math.sin(ang) * arm * 0.95, Math.cos(ang) * arm * 0.9, 0]}
-        rotation={[0, 0, ang]}
-        scale={0.86}
-        variant="black"
-      />
+      {/* Tronco vertical da entrada */}
+      <mesh position={[0, -stem * 0.35, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[9.2 * U, 9.2 * U, stem * 0.7, 20]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.38} metalness={0.12} />
+      </mesh>
+      {/* Colo das duas saídas (paralelas, lado a lado — como no QSY real) */}
+      <mesh position={[-split, branch * 0.55, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[8.8 * U, 8.8 * U, 12 * U, 20]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.38} metalness={0.12} />
+      </mesh>
+      <mesh position={[split, branch * 0.55, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[8.8 * U, 8.8 * U, 12 * U, 20]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.38} metalness={0.12} />
+      </mesh>
+      {/* Furo de fixação no corpo (característico do QSY) */}
+      <mesh position={[0, 2 * U, 9 * U]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[3.2 * U, 3.2 * U, 6 * U, 14]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 2 * U, 10.5 * U]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[5 * U, 5 * U, 1.2 * U, 14]} />
+        <meshStandardMaterial color={PBT_CHARCOAL} roughness={0.4} metalness={0.15} />
+      </mesh>
+
+      {/* Porta de entrada (P1) — baixo */}
+      <FestoQsPushInPort position={[0, -stem * 1.05, 0]} rotation={[0, 0, Math.PI]} scale={0.9} variant="black" />
+      {/* Duas saídas paralelas (P2 / P3) — cima, mesmo sentido */}
+      <FestoQsPushInPort position={[-split, branch * 1.05, 0]} scale={0.9} variant="black" />
+      <FestoQsPushInPort position={[split, branch * 1.05, 0]} scale={0.9} variant="black" />
     </group>
   )
 }
