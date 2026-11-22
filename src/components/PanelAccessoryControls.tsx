@@ -17,6 +17,7 @@ import { fitDuctResize, fitDuctSideResize } from '../schematic/ductResize'
 import type { DuctSlot } from '../schematic/ductPlacement'
 import { ENCLOSURE_EXTERIOR_FACES, ENCLOSURE_FACES, hiddenEnclosureFaces, toggleEnclosureExteriorVisibility } from '../three/enclosureVisibility'
 import { useSimStore } from '../store/useSimStore'
+import { requestFocusEnclosure } from '../ui/simUi'
 import type { ElectricalComponent } from '../types'
 import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { CABLE_DUCT, cableDuctDimsOf, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, INNER_COVER_OUTLINE_DEFAULT_COLOR, spiralWrapDimsOf } from '../three/enclosureParts'
@@ -232,7 +233,10 @@ export function EnclosureControls({ c }: { c: ElectricalComponent }) {
         <div className="dc-encl-dims">{d.widthMm} × {d.heightMm} × {d.depthMm} <small>mm</small></div>
         <div className={`dc-encl-door${open ? ' is-open' : ''}`}><i aria-hidden="true" />{open ? 'Porta aberta' : 'Porta fechada'}</div>
       </div>
-      <button type="button" aria-pressed={open} className={`dc-encl-door-btn${open ? ' is-open' : ''}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
+      <div className="flex flex-col gap-1.5">
+        <button type="button" aria-pressed={open} className={`dc-encl-door-btn${open ? ' is-open' : ''}`} onClick={() => set({ doorOpen: !open })}>{open ? 'Fechar porta' : 'Abrir porta'}</button>
+        <button type="button" className="dc-encl-door-btn" onClick={() => requestFocusEnclosure(c.id)} title="Aproxima a câmara deste quadro e dos seus aparelhos" aria-label="Focar quadro">Focar quadro</button>
+      </div>
     </div>
 
     {/* Medidas: cada dimensão numa linha (campo + barra), tamanhos padrão em chips compactos. */}

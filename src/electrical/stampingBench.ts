@@ -295,23 +295,44 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   const panelX = env?.panelXmm ?? 0
   const panelTop = env?.panelTopMm ?? floor + 1460
   const trayBottom = Math.max(floor + 2215, panelTop + 220)
-  const trayY = trayBottom + 35 // centro da esteira (abas de 60 mm + fundo)
+  const TRAY_SIDE_MM = 60
+  const trayY = trayBottom + TRAY_SIDE_MM / 2 // centro da esteira aérea (fundo em trayBottom)
+  const trayTop = trayBottom + TRAY_SIDE_MM
   const comp = pneumaticComponentSizeMm('airCompressor')!
   const frl = pneumaticComponentSizeMm('pneumaticFrl')!
   const compX = panelX - 400 - 250 - comp.x / 2
   const compDropX = compX - comp.x / 2 - 60
-  // Offset generoso para a face de trás das esteiras não se apoiar/encostar na parede.
-  // Largura 200 mm → face traseira a ~200 mm da parede (folga para consolas/suportes).
-  // A orientação vertical {x:0,y:0,z:90} mantém o fundo paralelo à parede; a abertura
-  // fica lateral (eixo X). Se for necessário virar a abertura para a nave, experimentar
-  // {x:90,y:0,z:90} e reposicionar o z das verticais (extensão em Z passa a ser sideH).
+  // Esteira aérea afastada 300 mm da parede (consolas), face traseira a ~200 mm.
   const wallTrayZ = wallZ + 300
-  const branch = { from: wallTrayZ + 100, to: -plate.widthMm / 2 }
+  const WALL_TRAY_W = 200
+  const wallTrayNearZ = wallTrayZ - WALL_TRAY_W / 2
+  // Verticais (subida do QGD, descida do compressor, descida da bancada): fundo apoiado na
+  // parede/pilar sobre espaçadores de 10 mm, abertura virada para a nave (+Z), largura em X.
+  // Euler XYZ {0, 90, 90}: comprimento → +Y, abas (abertura) → +Z, largura → X.
+  const VERTICAL_ON_SUPPORT: ComponentViewOrientation = { x: 0, y: 90, z: 90 }
+  const ALONG_Z: ComponentViewOrientation = { x: 0, y: 90, z: 0 }
+  const STANDOFF_MM = 10
+  const onWallZ = wallZ + STANDOFF_MM + TRAY_SIDE_MM / 2
+  const branch = { from: wallTrayZ + WALL_TRAY_W / 2, to: -plate.widthMm / 2 }
   // Cabos e tubos dentro de cada esteira (lidos pelo desenho 3D da esteira, com abraçadeiras).
   const BENCH_CABLE = { kind: 'cable', color: '#9ca3af', diameterMm: 11, label: 'H07RN-F 3G2,5 · MAQUETE' }
   const COMP_CABLE = { kind: 'cable', color: '#1f2937', diameterMm: 10, label: 'H07RN-F 3G2,5 · COMPRESSOR' }
   const AIR_TUBE = { kind: 'tube', color: '#2563eb', diameterMm: 10, label: 'PU Ø10 · AR COMPRIMIDO' }
   const laced = (cables: object[]) => ({ cables, tieEveryMm: 250 })
+  const tray = (key: string, x: number, y: number, z: number, lengthMm: number, widthMm: number, labelText: string, cables: object[], orientation?: ComponentViewOrientation): BenchPlacement => ({
+    key, type: 'cableTrayStraight', x, y, z,
+    state: { lengthMm: Math.round(lengthMm), widthMm, sideHeightMm: TRAY_SIDE_MM, withCover: false, labelText, ...laced(cables) },
+    ...(orientation ? { orientation } : {}),
+  })
+  /** Vertical apoiada (fundo na parede/pilar) de `bottomY` até ao topo das abas da esteira de cima. */
+  const vertical = (key: string, x: number, z: number, bottomY: number, widthMm: number, labelText: string, cables: object[]) =>
+    tray(key, x, (bottomY + trayTop) / 2, z, trayTop - bottomY, widthMm, labelText, cables, VERTICAL_ON_SUPPORT)
+  /** Pescoço horizontal da parede até à esteira aérea: entra 20 mm no canal (união em T automática). */
+  const neck = (key: string, x: number, widthMm: number, labelText: string, cables: object[]) => {
+    const z0 = wallZ + STANDOFF_MM
+    const z1 = wallTrayNearZ + 20
+    return tray(key, x, trayY, (z0 + z1) / 2, z1 - z0, widthMm, labelText, cables, ALONG_Z)
+  }
 
   list.push({
     key: 'compressor', type: 'airCompressor', x: compX, y: floor + comp.y / 2, z: wallZ + 40 + comp.z / 2,
@@ -321,66 +342,61 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     key: 'airTreatment', type: 'pneumaticFrl', x: -plate.lengthMm / 2 - frl.x / 2 - 2, y: -top - 30 - frl.y / 2, z: -plate.widthMm / 2 + 60,
     state: { labelText: 'FRL · ENTRADA DE AR' },
   })
-  // Subida do topo do QGD até à esteira aérea (cabos da maquete e do compressor).
-  const riser = trayBottom - panelTop
-  if (riser >= 300) list.push({
-    key: 'tray-riser-qgd', type: 'cableTrayStraight', x: panelX, y: panelTop + riser / 2, z: wallTrayZ,
-    state: { lengthMm: Math.round(riser), widthMm: 200, sideHeightMm: 60, withCover: false, labelText: 'QGD → ESTEIRA', ...laced([BENCH_CABLE, COMP_CABLE]) },
-    orientation: { x: 0, y: 0, z: 90 },
-  })
-  list.push({
-    key: 'tray-wall', type: 'cableTrayStraight', x: (compDropX - 50 + panelX + 150) / 2, y: trayY, z: wallTrayZ,
-    state: { lengthMm: Math.round(panelX + 150 - (compDropX - 50)), widthMm: 200, sideHeightMm: 60, withCover: false, labelText: 'ESTEIRA AÉREA · PAREDE', ...laced([BENCH_CABLE, COMP_CABLE, AIR_TUBE]) },
-  })
-  list.push({
-    key: 'tray-to-bench', type: 'cableTrayStraight', x: 0, y: trayY, z: (branch.from + branch.to) / 2,
-    state: { lengthMm: Math.round(branch.to - branch.from), widthMm: 150, sideHeightMm: 60, withCover: false, labelText: 'QGD → BANCADA', ...laced([BENCH_CABLE, AIR_TUBE]) },
-    orientation: { x: 0, y: 90, z: 0 },
-  })
-  list.push({
-    key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: -plate.widthMm / 2 - 125,
-    state: { heightMm: Math.round(trayBottom - floor), profile: 'IPE100', finish: 'safetyYellow' },
-  })
-  const benchDrop = trayBottom - top
-  list.push({
-    key: 'tray-drop-bench', type: 'cableTrayStraight', x: 0, y: top + benchDrop / 2, z: -plate.widthMm / 2 - 55,
-    state: { lengthMm: Math.round(benchDrop), widthMm: 100, sideHeightMm: 60, withCover: false, labelText: 'DESCIDA BANCADA', ...laced([BENCH_CABLE, AIR_TUBE]) },
-    orientation: { x: 0, y: 0, z: 90 },
-  })
-  const compDropBottom = floor + comp.y * 0.55
-  list.push({
-    key: 'tray-drop-compressor', type: 'cableTrayStraight', x: compDropX, y: (trayBottom + compDropBottom) / 2, z: wallTrayZ,
-    state: { lengthMm: Math.round(trayBottom - compDropBottom), widthMm: 100, sideHeightMm: 60, withCover: false, labelText: 'DESCIDA COMPRESSOR', ...laced([COMP_CABLE, AIR_TUBE]) },
-    orientation: { x: 0, y: 0, z: 90 },
-  })
 
   // ---------------------------------------------------------------------------
-  // Tomadas RoadEu 70929 (CEE 2P+T 16 A + seccionador 0-1) no fim das descidas:
+  // Tomadas RoadEu 70929 (CEE 2P+T 16 A + seccionador 0-1) no fim das descidas, com folga de
+  // 20 mm entre o topo da caixa e a ponta da esteira:
   //  - parede, junto ao compressor (alimentação do compressor);
   //  - face do pilar IPE100 virada à mesa (alimentação da maquete).
-  // Centro a ~1,10 m do chão; costas encostadas ao suporte (parede / alma do pilar).
+  // Centro a ~1,10 m do chão; costas no mesmo plano do fundo da esteira.
   // ---------------------------------------------------------------------------
   const socketH = 115 // mm · altura da caixa RoadEu 70929
   const socketD = 112 // mm · profundidade total (caseDepth 75 + saliências)
+  const SOCKET_GAP_MM = 20
   const socketY = floor + 1100
-  // Parede: costas em wallZ, face a olhar para a nave (+Z).
+  const pillarZ = -plate.widthMm / 2 - 125
+  const pillarFaceZ = pillarZ + 50
+  const socketBenchY = Math.max(socketY, top + socketH / 2 + 40)
+
+  // Subida do topo do QGD, apoiada na parede, e pescoço até à esteira aérea.
+  const QGD_CABLES = [BENCH_CABLE, COMP_CABLE]
+  if (trayBottom - panelTop >= 300) {
+    list.push(vertical('tray-riser-qgd', panelX, onWallZ, panelTop, WALL_TRAY_W, 'QGD → ESTEIRA', QGD_CABLES))
+    list.push(neck('tray-neck-qgd', panelX, WALL_TRAY_W, 'PESCOÇO QGD', QGD_CABLES))
+  }
+  // A aérea passa 60 mm além de cada pescoço: as uniões ficam em T (aba do lado da parede aberta).
+  const wallTrayX0 = compDropX - 50 - 60
+  const wallTrayX1 = panelX + WALL_TRAY_W / 2 + 60
+  list.push(tray('tray-wall', (wallTrayX0 + wallTrayX1) / 2, trayY, wallTrayZ, wallTrayX1 - wallTrayX0, WALL_TRAY_W,
+    'ESTEIRA AÉREA · PAREDE', [BENCH_CABLE, COMP_CABLE, AIR_TUBE]))
+  list.push(tray('tray-to-bench', 0, trayY, (branch.from + branch.to) / 2, branch.to - branch.from, 150, 'QGD → BANCADA', [BENCH_CABLE, AIR_TUBE], ALONG_Z))
+  list.push({
+    key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: pillarZ,
+    state: { heightMm: Math.round(trayBottom - floor), profile: 'IPE100', finish: 'safetyYellow' },
+  })
+  // Descida da bancada: fundo na face do pilar, termina 20 mm acima da tomada da maquete.
+  list.push(vertical('tray-drop-bench', 0, pillarFaceZ + 2 + TRAY_SIDE_MM / 2, socketBenchY + socketH / 2 + SOCKET_GAP_MM, 100,
+    'DESCIDA BANCADA', [BENCH_CABLE, AIR_TUBE]))
+  // Descida do compressor: fundo na parede, pescoço até à ponta da esteira aérea, termina 20 mm acima da tomada.
+  list.push(neck('tray-neck-compressor', compDropX, 100, 'PESCOÇO COMPRESSOR', [COMP_CABLE, AIR_TUBE]))
+  list.push(vertical('tray-drop-compressor', compDropX, onWallZ, socketY + socketH / 2 + SOCKET_GAP_MM, 100,
+    'DESCIDA COMPRESSOR', [COMP_CABLE, AIR_TUBE]))
+
   list.push({
     key: 'socket-compressor',
     type: 'socketFamatelSwitch',
     x: compDropX,
     y: socketY,
-    z: wallZ + socketD / 2 + 8,
+    z: wallZ + STANDOFF_MM + socketD / 2,
     state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · COMPRESSOR · RoadEu 70929' },
     ref: 'XS-COMP',
   })
-  // Pilar IPE100 (≈100 mm de alma): costas no face +Z do pilar, face a olhar a mesa.
-  const pillarZ = -plate.widthMm / 2 - 125
   list.push({
     key: 'socket-bench',
     type: 'socketFamatelSwitch',
     x: 0,
-    y: Math.max(socketY, top + socketH / 2 + 40),
-    z: pillarZ + 50 + socketD / 2,
+    y: socketBenchY,
+    z: pillarFaceZ + 2 + socketD / 2,
     state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · MAQUETE · RoadEu 70929' },
     ref: 'XS-MAQ',
   })

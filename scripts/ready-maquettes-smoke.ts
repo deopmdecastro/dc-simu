@@ -22,6 +22,9 @@ import { componentPanelXY } from '../src/three/panelLayout'
 import { stampingWallPanelContent } from '../src/electrical/stampingWallPanel'
 import { computeContinuity } from '../src/electrical/engine'
 import { industrialPillarDimsOf } from '../src/three/structuresModel'
+import { ductJunctionOpenings } from '../src/schematic/ductJunctions'
+import { enclosureCarryBox, enclosureFreeContents, translatePanelGroup } from '../src/three/panelGroupMove'
+import { enclosureDimsOf } from '../src/three/enclosureParts'
 
 /** Quadro geral de parede (QGD) montado com a maquete completa. */
 const QGD_COUNT = stampingWallPanelContent('t-').components.length
@@ -83,15 +86,15 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 94 peças + QGD (53 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 96 peças + QGD (54 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
   assert.equal(QGD_COUNT, 50, 'QGD: 3 sinalizadores monofásicos e porta-fusíveis 3P+N substituem o iIL 3P')
-  assert.equal(parts.length, 94, '94 peças: bancada (42) + QE1 com calhas, relés, fonte e 29 bornes (43) + ambiente fabril (9 — +2 tomadas RoadEu)')
-  assert.equal(full.componentCount, 145, '145 componentes no total (base + 94 + QGD 50)')
+  assert.equal(parts.length, 96, '96 peças: bancada (42) + QE1 com calhas, relés, fonte e 29 bornes (43) + ambiente fabril (11 — +2 tomadas RoadEu, +2 pescoços)')
+  assert.equal(full.componentCount, 147, '147 componentes no total (base + 96 + QGD 50)')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
   // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
-  assert.equal(full.types.length, 53, 'os tipos do catálogo representados na bancada (base incluída)')
+  assert.equal(full.types.length, 54, 'os tipos do catálogo representados na bancada (base incluída, com a tomada RoadEu)')
   assert.ok(!full.types.includes('mecWorkpiece' as any), 'o tarugo não é colocado sobre a base')
   assert.equal(MECHATRONICS_TYPES.length, 23, 'catálogo da maquete com 23 tipos (inclui o HZ20)')
   const keys = new Set(parts.map((p) => p.key))
@@ -107,15 +110,15 @@ check('3. Bancada completa = base + 94 peças + QGD (53 tipos) na adaptação fo
   for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 145 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
+check('4. Inserção: 147 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 145, '145 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 145, '145 componentes no projeto')
+  assert.equal(created.length, 147, '147 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 147, '147 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
@@ -136,8 +139,8 @@ check('4. Inserção: 145 componentes (QGD na parede + bancada no centro da nave
   const bench = after.components.filter((c) => created.slice(QGD_COUNT + 1).includes(c.id))
   const expected = new Set(readyMaquetteParts('atec-estampagem', undefined, env).map((part) => positionKey(benchPartUnits(base, part))))
   const actual = bench.map((c) => positionKey(c.panel3DPosition!))
-  assert.equal(actual.length, 94)
-  assert.deepEqual(new Set(actual), expected, 'as 94 peças estão nas posições do relatório')
+  assert.equal(actual.length, 96)
+  assert.deepEqual(new Set(actual), expected, 'as 96 peças estão nas posições do relatório')
   for (const c of bench) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
   const refs = after.components.map((c) => c.ref)
   assert.equal(new Set(refs).size, refs.length, 'TAGs sem repetições entre o QGD (X1.x) e o QE1 (X20…X24)')
@@ -153,11 +156,29 @@ check('4. Inserção: 145 componentes (QGD na parede + bancada no centro da nave
   assert.equal(byType('mecDischargeRamp').length, 3, '3 rampas')
   assert.equal(byType('mecBenchDuct').length, 6, '4 calhas perimetrais')
 
+  // Esteiras: verticais com fundo na parede/pilar, pescoços em T na aérea e tomadas no fim das descidas.
+  const trays = byType('cableTrayStraight')
+  const trayBy = (label: string) => trays.find((c) => c.state.labelText === label)!
+  const riser = trayBy('QGD → ESTEIRA'), neck = trayBy('PESCOÇO QGD'), wall = trayBy('ESTEIRA AÉREA · PAREDE')
+  const drop = trayBy('DESCIDA COMPRESSOR'), dropBench = trayBy('DESCIDA BANCADA')
+  for (const v of [riser, drop, dropBench]) assert.deepEqual(v.viewOrientation, { x: 0, y: 90, z: 90 }, `${v.state.labelText}: fundo apoiado, abertura para a nave`)
+  const wallZu = env.wallZmm / 100 + base.z
+  assert.ok(Math.abs(riser.panel3DPosition!.z - (wallZu + 0.4)) < 0.01, 'subida do QGD com o fundo a 10 mm da parede')
+  assert.ok(ductJunctionOpenings(riser, trays).some((o) => o.endTrim), 'topo da subida aparado dentro do pescoço')
+  assert.ok(ductJunctionOpenings(neck, trays).some((o) => o.side === 'floor'), 'pescoço abre o fundo por cima da subida')
+  assert.ok(ductJunctionOpenings(neck, trays).some((o) => o.endTrim), 'pescoço entra na esteira aérea (T)')
+  assert.ok(ductJunctionOpenings(wall, trays).filter((o) => o.side === 'top').length >= 2, 'esteira aérea abre a aba do lado da parede nos 2 pescoços')
+  assert.ok(ductJunctionOpenings(wall, trays).some((o) => o.side === 'bottom'), 'esteira aérea abre a aba do lado da nave para o ramal da bancada')
+  const sockComp = byType('socketFamatelSwitch').find((c) => c.ref === 'XS-COMP')!
+  const dropBottom = drop.panel3DPosition!.y - Number(drop.state.lengthMm) / 200
+  const gapMm = (dropBottom - (sockComp.panel3DPosition!.y + 115 / 200)) * 100
+  assert.ok(Math.abs(gapMm - 20) < 1, `tomada do compressor a 20 mm da ponta da descida (${gapMm.toFixed(1)} mm)`)
+
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 145 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 147 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 145, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 147, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {
@@ -254,6 +275,30 @@ check('8. O pilar da bancada mantém IPE100 e as tomadas com geometria própria 
     const dims = component3DDimensions(createComponent(type))
     assert.ok(dims.x >= .64 && dims.z >= .517, 'dimensões físicas em vez do fallback genérico')
   }
+})
+
+check('9. Arrastar o QE1 leva os aparelhos e os troços de cabo que estão dentro do quadro', () => {
+  const st = useSimStore.getState()
+  st.newProject('all')
+  st.insertReadyMaquette('atec-estampagem')
+  const comps = useSimStore.getState().components
+  const qe1 = comps.find((c) => c.type === 'panelEnclosure' && String(c.state.labelText ?? '').startsWith('QE1'))!
+  const pivots = Object.fromEntries(comps.filter((c) => c.panel3DPosition).map((c) => [c.id, c.panel3DPosition!]))
+  const box = enclosureCarryBox(qe1.panel3DPosition!, enclosureDimsOf(qe1.state))
+  const inside = enclosureFreeContents(qe1.id, box, comps, pivots)
+  const byRef = (ref: string) => comps.find((c) => c.ref === ref)!
+  for (const ref of ['X21.1', 'X20']) assert.ok(inside.includes(byRef(ref).id), `${ref} acompanha o QE1`)
+  assert.ok(!inside.includes(comps.find((c) => c.type === 'airCompressor')!.id), 'o compressor não vai com o quadro')
+  const pIn = { x: qe1.panel3DPosition!.x, y: qe1.panel3DPosition!.y, z: qe1.panel3DPosition!.z }
+  const pOut = { x: pIn.x, y: pIn.y + 20, z: pIn.z }
+  const wire = { id: 'w-test', fromTerminalId: byRef('X21.1').terminals[0].id, toTerminalId: 'fora', waypoints3D: [pIn, pOut] } as any
+  const origins = [qe1, ...inside.map((id) => comps.find((c) => c.id === id)!)].map((c) => ({ component: c, pivot: c.panel3DPosition! }))
+  const moved = translatePanelGroup(comps, [wire], origins, { x: 1, y: 0, z: 0.5 }, [box])
+  const w = moved.wires[0]
+  assert.deepEqual(w.waypoints3D![0], { x: pIn.x + 1, y: pIn.y, z: pIn.z + 0.5 }, 'ponto dentro do quadro acompanha')
+  assert.deepEqual(w.waypoints3D![1], pOut, 'ponto fora do quadro mantém-se')
+  const x21 = moved.components.find((c) => c.ref === 'X21.1')!
+  assert.ok(Math.abs(x21.panel3DPosition!.x - (byRef('X21.1').panel3DPosition!.x + 1)) < 1e-9, 'borne desloca-se com o quadro')
 })
 
 console.log(`\n${passed} verificações · Maquetes prontas OK`)

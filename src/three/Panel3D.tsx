@@ -32,7 +32,7 @@ import { useWireActionSlot, useWireDraftSlot } from '../ui/wireActionSlot'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
 import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
-import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
+import { takePendingEnclosureFocus, useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
 import { EDITOR_THEME, editorPalette, editorGridBackground } from '../ui/editorTheme'
 import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
@@ -47,7 +47,7 @@ import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterial
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
 import CanvasAnnotations3D, { type TextGroupHandlers } from './CanvasAnnotations3D'
 import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
-import { translatePanelGroup, type PanelGroupOrigin } from './panelGroupMove'
+import { enclosureCarryBox, enclosureFreeContents, translatePanelGroup, type CarryBox, type PanelGroupOrigin } from './panelGroupMove'
 import { alignMessage, alignOffsets, useAlignAction, type AlignBox } from '../ui/alignItems'
 import PanelCanvasScrollbars, { type PanelScrollBridge } from './PanelCanvasScrollbars'
 import { cameraScrollMetrics, panCameraToScroll, type CameraScrollBounds } from './cameraScroll'
@@ -3635,6 +3635,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (demoMode && (action === 'addNote' || action === 'addText')) return
     if (action === 'fit') moveCamera('fit')
     else if (action === 'focusSelection' && selectedTarget) focusSelection()
+    else if (action === 'focusEnclosure') focusEnclosure(takePendingEnclosureFocus())
     else if (action === 'addNote') addNote()
     else if (action === 'addText') { setPlacingText(value => !value); setSelectedTextId(null) }
   })
@@ -4402,11 +4403,25 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   /** Arrasto em conjunto (componentes + textos) com deslocamento X/Y e profundidade Z para equipamentos livres 3D. */
   const groupDragLast = useRef<{ dx: number; dy: number; dz: number } | null>(null)
-  const groupDrag = useRef<{ comps: Record<string, SpatialPoint3D>; texts: Record<string, { x: number; y: number }>; origins: PanelGroupOrigin[]; wires: Wire[]; rigid: boolean; delta: SpatialPoint3D } | null>(null)
-  const beginGroupDrag = (compIds: string[], textIds: string[]) => {
+  const groupDrag = useRef<{ comps: Record<string, SpatialPoint3D>; texts: Record<string, { x: number; y: number }>; origins: PanelGroupOrigin[]; wires: Wire[]; rigid: boolean; delta: SpatialPoint3D; carry: CarryBox[] } | null>(null)
+  const beginGroupDrag = (requestedIds: string[], textIds: string[]) => {
     const store = useSimStore.getState()
     groupDrag.current = null
     groupDragLast.current = null
+    // Quadro livre na nave (ex.: QE1 da maquete): leva os aparelhos, calhas e bornes que estão no seu
+    // volume e os troços de cabo que lá passam, em vez de deixar o conteúdo e os fios para trás.
+    const carry: CarryBox[] = []
+    const compIds = [...requestedIds]
+    for (const id of requestedIds) {
+      const enc = store.components.find((c) => c.id === id)
+      const pivot = panelPivots[id]
+      if (!enc || enc.type !== 'panelEnclosure' || isPanelBound(enc) || !pivot) continue
+      const box = enclosureCarryBox(pivot, enclosureDimsOf(enc.state))
+      const inside = enclosureFreeContents(id, box, store.components, panelPivots)
+      if (!inside.length) continue
+      carry.push(box)
+      for (const member of inside) if (!compIds.includes(member)) compIds.push(member)
+    }
     const members = expandSel(compIds)
     if (members.some((id) => store.components.find((c) => c.id === id)?.locked)) {
       store.pushEvent('warning', 'Desbloqueie os elementos do grupo para o mover.')
@@ -4425,7 +4440,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     else store.commitHistory()
     const texts: Record<string, { x: number; y: number }> = {}
     for (const t of store.canvasTexts) if (textIds.includes(t.id)) texts[t.id] = { x: t.x, y: t.y }
-    groupDrag.current = { comps, texts, origins, wires: store.wires, rigid, delta: { x: 0, y: 0, z: 0 } }
+    groupDrag.current = { comps, texts, origins, wires: store.wires, rigid, delta: { x: 0, y: 0, z: 0 }, carry }
   }
   const moveGroupDrag = (dx: number, dy: number, dz = 0) => {
     const g = groupDrag.current
@@ -4448,7 +4463,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           allowOutside: !factoryMode || store.allowOutsideFactory, floorLocked: factoryMode && isFloorStandingComponent(component) })
         if (Math.hypot(resolved.x - candidate.x, resolved.y - candidate.y, resolved.z - candidate.z) > 1e-5) return
       }
-      useSimStore.setState({ ...translatePanelGroup(store.components, g.wires, g.origins, { x: dx, y: dy, z: dz }), dirty: true })
+      useSimStore.setState({ ...translatePanelGroup(store.components, g.wires, g.origins, { x: dx, y: dy, z: dz }, g.carry), dirty: true })
     } else {
       for (const [id, o] of Object.entries(g.comps)) dragPanelTo(id, { x: o.x + dx, y: o.y + dy, z: dz !== 0 ? o.z + dz : undefined })
     }
@@ -4808,6 +4823,67 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       target: selectedTarget,
       radius: selectionSphere.radius,
     }))
+  }
+  /** Último quadro focado sem seleção: cliques seguidos em «Focar quadro» alternam entre quadros. */
+  const lastFocusedEnclosure = useRef<string | null>(null)
+  /** Quadro (`panelEnclosure`) que contém o componente: explícito, na face, ou pelo volume 3D. */
+  const enclosureOfComponent = (component: ElectricalComponent, enclosures: ElectricalComponent[]): ElectricalComponent | undefined => {
+    if (component.type === 'panelEnclosure') return component
+    const explicit = component.enclosureId ?? component.panelMount?.enclosureId
+    if (explicit) return enclosures.find((e) => e.id === explicit)
+    const p = panelPivots[component.id]
+    if (!p) return undefined
+    return enclosures.find((e) => {
+      const ep = panelPivots[e.id]
+      if (!ep) return false
+      const box = enclosureCarryBox(ep, enclosureDimsOf(e.state))
+      return p.x >= box.min.x && p.x <= box.max.x && p.y >= box.min.y && p.y <= box.max.y && p.z >= box.min.z && p.z <= box.max.z
+    })
+  }
+  /** Foca a câmara (vista frontal, aproximada) no quadro e nos aparelhos que tem dentro ou na face. */
+  const focusEnclosure = (requestedId: string | null) => {
+    const enclosures = components.filter((c) => c.type === 'panelEnclosure' && panelPivots[c.id])
+    if (!enclosures.length) {
+      useSimStore.getState().pushEvent('info', 'Não há quadros neste projeto para focar.')
+      return
+    }
+    let target = requestedId ? enclosures.find((e) => e.id === requestedId) : undefined
+    if (!target) {
+      for (const id of selectedIds) {
+        const c = components.find((item) => item.id === id)
+        target = c ? enclosureOfComponent(c, enclosures) : undefined
+        if (target) break
+      }
+    }
+    if (!target) {
+      const i = enclosures.findIndex((e) => e.id === lastFocusedEnclosure.current)
+      target = enclosures[(i + 1) % enclosures.length]
+    }
+    lastFocusedEnclosure.current = target.id
+    const pivot = panelPivots[target.id]
+    const box = new THREE.Box3()
+    const carry = enclosureCarryBox(pivot, enclosureDimsOf(target.state))
+    box.expandByPoint(new THREE.Vector3(carry.min.x, carry.min.y, carry.min.z))
+    box.expandByPoint(new THREE.Vector3(carry.max.x, carry.max.y, carry.max.z))
+    // Aparelhos montados na face (porta/laterais) ou associados ao quadro também entram no enquadramento.
+    for (const c of components) {
+      if (c.id === target.id || !panelPivots[c.id]) continue
+      const linked = c.enclosureId === target.id || c.panelMount?.enclosureId === target.id
+      if (!linked) continue
+      const p = panelPivots[c.id]
+      const half = componentHalfExtents(c, orientationFor(c))
+      box.expandByPoint(new THREE.Vector3(p.x - half.x, p.y - half.y, p.z - half.z))
+      box.expandByPoint(new THREE.Vector3(p.x + half.x, p.y + half.y, p.z + half.z))
+    }
+    const sphere = box.getBoundingSphere(new THREE.Sphere())
+    setCameraCommand((current) => ({
+      id: current.id + 1,
+      view: 'front',
+      target: sphere.center.toArray() as [number, number, number],
+      // Ligeiramente mais justo do que a esfera: o quadro ocupa a vista e os aparelhos leem-se.
+      radius: sphere.radius * 0.85,
+    }))
+    useSimStore.getState().pushEvent('info', `Foco no quadro ${target.state.labelText || target.ref}.`)
   }
   const beginWireEdit = (wire: Wire) => {
     const store = useSimStore.getState()

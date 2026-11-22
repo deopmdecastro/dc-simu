@@ -85,13 +85,31 @@ export function useShortcutsRequest(view: ShortcutView, open: () => void) {
    Enquadrar a vista e a seleção viviam em botões flutuantes sobre o canvas.
    Passaram para a barra: a barra pede, o editor montado executa.
 */
-export type CanvasAction = 'fit' | 'focusSelection' | 'addNote' | 'addText' | 'toggleMinimap'
+export type CanvasAction = 'fit' | 'focusSelection' | 'focusEnclosure' | 'addNote' | 'addText' | 'toggleMinimap'
 
 const CANVAS_EVENT = 'dcsimu:canvas-action'
 
 /** Pede ao canvas ativo (Esquema 2D/3D) que enquadre a vista ou a seleção. */
 export function requestCanvasAction(action: CanvasAction) {
   window.dispatchEvent(new CustomEvent<CanvasAction>(CANVAS_EVENT, { detail: action }))
+}
+
+let pendingEnclosureFocus: string | null = null
+
+/**
+ * «Focar quadro»: aproxima a câmara do quadro indicado (ou, sem `id`, do quadro da seleção; sem
+ * seleção, alterna entre os quadros do projeto a cada clique), enquadrando-o com os seus aparelhos.
+ */
+export function requestFocusEnclosure(id?: string) {
+  pendingEnclosureFocus = id ?? null
+  requestCanvasAction('focusEnclosure')
+}
+
+/** Lê e limpa o quadro pedido por `requestFocusEnclosure`. */
+export function takePendingEnclosureFocus(): string | null {
+  const id = pendingEnclosureFocus
+  pendingEnclosureFocus = null
+  return id
 }
 
 /** O canvas regista-se para cumprir os pedidos de enquadramento da barra. */

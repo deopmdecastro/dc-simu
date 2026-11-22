@@ -7,7 +7,7 @@ import { listSimModules, moduleOfView, scopeNeedsCommands, scopeNeedsPanel } fro
 import { ADDABLE_MODULES, allowedViews, type WorkspaceView } from '../project/kind'
 import { PHONE_TOUCH_QUERY, WIDE_DESKTOP_QUERY, isPhoneTouch, isTabletDevice } from '../ui/device'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, ToolInlineItems, useNarrowMenu, useOverflowCompact, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
-import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
+import { requestCanvasAction, requestFocusEnclosure, requestShortcuts, useSimUi } from '../ui/simUi'
 import { ALIGN_ACTIONS, requestAlign, type AlignAction } from '../ui/alignItems'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -592,6 +592,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     } : null
   const isCanvas = mode === 'schematic'
   const sel = selectedComponentIds.length
+  const hasEnclosure = useSimStore((state) => state.components.some((c) => c.type === 'panelEnclosure'))
   // Ações do componente selecionado: antes eram botões flutuantes sobre o canvas (DC-ADR-059).
   const singleSelection = useSimStore((state) => (state.selectedComponentIds.length === 1 ? state.components.find((c) => c.id === state.selectedComponentIds[0]) : undefined))
   const hintsOn = useSimUi((state) => state.hints)
@@ -1273,6 +1274,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             ><IconHand size={13} /><span>Arrastar malha</span></button>}
             {sel > 0 && <button type="button" className="dc-tool-btn !gap-1.5" onClick={() => requestCanvasAction('focusSelection')} title="Enquadrar a vista na seleção (F)" aria-label="Enquadrar a vista na seleção">
               <IconFocus size={13} /><span>Enquadrar</span>
+            </button>}
+            {hasEnclosure && <button type="button" className="dc-tool-btn !gap-1.5" onClick={() => requestFocusEnclosure()}
+              title="Focar quadro: aproxima a câmara do quadro da seleção e dos seus aparelhos (sem seleção, alterna entre os quadros a cada clique)"
+              aria-label="Focar quadro">
+              <IconFocus size={13} /><span>Focar quadro</span>
             </button>}
             <button
               type="button"

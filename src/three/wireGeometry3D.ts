@@ -1009,7 +1009,26 @@ function enclosureContainingPoint(pt: V3, enclosures: EnclosureVolume[], explici
     const found = enclosures.find((e) => e.id === explicitId)
     if (found) return found
   }
-  return enclosures.find((e) => pt[0] >= e.minX - 0.02 && pt[0] <= e.maxX + 0.02 && pt[1] >= e.minY - 0.02 && pt[1] <= e.maxY + 0.02)
+  // Também em Z: quadros livres na nave (ex.: QE1 sob a mesa) podem sobrepor-se em X/Y ao quadro de
+  // parede; sem a profundidade o cabo do QE1 era encaminhado pelas calhas do QGD, fora do seu quadro.
+  return enclosures.find((e) => pt[0] >= e.minX - 0.02 && pt[0] <= e.maxX + 0.02 && pt[1] >= e.minY - 0.02 && pt[1] <= e.maxY + 0.02
+    && pt[2] >= e.backZ - 0.05 && pt[2] <= e.frontZ + 0.6)
+}
+
+/** Calha técnica dentro do volume (X, Y e Z) de um quadro. */
+const ductInsideEnclosure = (b: WireObstacle, enc: EnclosureVolume) =>
+  b.max.x > enc.minX && b.min.x < enc.maxX && b.max.y > enc.minY && b.min.y < enc.maxY && b.max.z > enc.backZ && b.min.z < enc.frontZ
+
+/**
+ * Desvio em Z entre a chapa de um quadro livre (ex.: QE1 sob a mesa da maquete) e a chapa do quadro
+ * principal, onde assentam as cotas por omissão das pistas (`wireFrontLimit`). Zero para o quadro principal.
+ */
+function enclosurePlateShift(enc: EnclosureVolume | undefined, obstacles: WireObstacle[]): number {
+  if (!enc) return 0
+  const ducts = obstacles.filter((b) => b.duct && ductInsideEnclosure(b, enc))
+  const plateFront = ducts.length ? Math.min(...ducts.map((b) => b.min.z)) : enc.backZ + 0.14
+  const shift = plateFront - (PLATE_Z + PLATE_THICKNESS / 2)
+  return Math.abs(shift) > 0.3 ? shift : 0
 }
 
 /** Determina se o borne fica no topo (+1), na base (-1) ou neutro (0) do respetivo aparelho. */
@@ -1151,8 +1170,7 @@ function computeBasePlan(
   // ── Caso 1: Quadro com calhas técnicas ranhuradas (`cableDuct`, ex.: CT1..CT5) ──
   // Todos os cabos interiores correm dentro das calhas horizontais e transferem pelas calhas verticais!
   if (sharedEnc) {
-    const insideEnc = (b: WireObstacle) =>
-      b.max.x > sharedEnc.minX && b.min.x < sharedEnc.maxX && b.max.y > sharedEnc.minY && b.min.y < sharedEnc.maxY
+    const insideEnc = (b: WireObstacle) => ductInsideEnclosure(b, sharedEnc)
     const hDucts = obstacles
       .filter((b) => b.duct && b.ductAxis === 'x' && insideEnc(b))
       .map((b) => (b.min.y + b.max.y) * 0.5)
@@ -2452,11 +2470,17 @@ export function buildAllWirePaths3D(
   }
 
   type SpanReq = { wireId: string; bundleKey: string; side: 'A' | 'B'; minX: number; maxX: number; outerMm: number; inDuct: boolean }
-  const byLane = new Map<string, { laneVal: number; inDuct: boolean; spans: SpanReq[] }>()
+  // Cada quadro tem as suas pistas: o QE1 da maquete não partilha faixas nem calhas com o QGD de parede.
+  const encById = new Map(enclosures.map((enc) => [enc.id, enc]))
+  const zShiftOf = new Map<string, number>()
+  for (const e of entries) zShiftOf.set(e.wire.id, enclosurePlateShift(e.basePlan?.enclosureId ? encById.get(e.basePlan.enclosureId) : undefined, obstacles))
+  const encOfWire = new Map(entries.map((e) => [e.wire.id, e.basePlan?.enclosureId ?? '']))
+  const byLane = new Map<string, { laneVal: number; inDuct: boolean; encId: string; spans: SpanReq[] }>()
   const addLaneSpan = (lane: number, inDuct: boolean, wire: Wire, side: 'A' | 'B', x0: number, x1: number, outerMm: number) => {
     const laneVal = Math.round(lane * 1000) / 1000
-    const key = `${inDuct ? 'D' : 'O'}:${laneVal}`
-    const group = byLane.get(key) ?? { laneVal, inDuct, spans: [] }
+    const encId = encOfWire.get(wire.id) ?? ''
+    const key = `${inDuct ? 'D' : 'O'}:${encId}:${laneVal}`
+    const group = byLane.get(key) ?? { laneVal, inDuct, encId, spans: [] }
     group.spans.push({
       wireId: wire.id,
       bundleKey: wire.bundleId ?? `~solo~${wire.kind}`,
@@ -2485,7 +2509,8 @@ export function buildAllWirePaths3D(
   const hDuctBoxes = obstacles.filter((box) => box.duct && box.ductAxis === 'x')
   let globalMaxOpenDuctZ = PLATE_Z + PLATE_THICKNESS / 2 + 0.10
 
-  for (const { laneVal, inDuct, spans } of byLane.values()) {
+  for (const { laneVal, inDuct, encId, spans } of byLane.values()) {
+    const laneEnc = encId ? encById.get(encId) : undefined
     // Agrupa primeiro por `bundleKey` para que todos os cabos do mesmo chicote ocupem pistas vizinhas encostadas!
     spans.sort((a, b) =>
       a.bundleKey.localeCompare(b.bundleKey)
@@ -2510,7 +2535,7 @@ export function buildAllWirePaths3D(
     if (inDuct) {
       // Dentro de calha técnica ranhurada real (ex.: CT1, CT4, CT3 — largura 40 mm, altura 40 mm),
       // ou no corredor inferior compacto sob a régua de bornes (quando `matchDuct === undefined`).
-      const matchDuct = hDuctBoxes.find((d) => laneVal >= d.min.y - 0.05 && laneVal <= d.max.y + 0.05)
+      const matchDuct = hDuctBoxes.find((d) => laneVal >= d.min.y - 0.05 && laneVal <= d.max.y + 0.05 && (!laneEnc || ductInsideEnclosure(d, laneEnc)))
       const innerHalfY = matchDuct ? Math.max(0.06, (matchDuct.max.y - matchDuct.min.y) * 0.5 - 0.065) : 0.032
       const centerY = matchDuct ? (matchDuct.min.y + matchDuct.max.y) * 0.5 : laneVal
       const pitchY = matchDuct ? 0.036 : 0.022
@@ -2527,7 +2552,7 @@ export function buildAllWirePaths3D(
         const t = assignedTrack.get(sp) ?? 0
         const row = t % maxRows
         const layer = Math.floor(t / maxRows)
-        const frontZ = wireFrontLimit(sp.outerMm)
+        const frontZ = wireFrontLimit(sp.outerMm) + (zShiftOf.get(sp.wireId) ?? 0)
         const targetY = centerY + (row - (rowsUsed - 1) * 0.5) * pitchY
         const yOffset = targetY - laneVal
         const ductZ = Math.max(frontZ + 0.125, clearZBase) + (layer % 5) * 0.038
@@ -2639,9 +2664,9 @@ export function buildAllWirePaths3D(
     for (const sp of spans) {
       const t = assignedTrack.get(sp) ?? 0
       const tp = trackPos[t] ?? { yOff: 0, zOff: 0 }
-      const frontZ = wireFrontLimit(sp.outerMm)
+      const frontZ = wireFrontLimit(sp.outerMm) + (zShiftOf.get(sp.wireId) ?? 0)
       const ductZ = frontZ + 0.018 + tp.zOff
-      globalMaxOpenDuctZ = Math.max(globalMaxOpenDuctZ, ductZ)
+      globalMaxOpenDuctZ = Math.max(globalMaxOpenDuctZ, ductZ - (zShiftOf.get(sp.wireId) ?? 0))
       const s = slots.get(sp.wireId)!
       if (sp.side === 'A') {
         s.yOffsetA = tp.yOff; s.ductZA = ductZ
@@ -2658,7 +2683,7 @@ export function buildAllWirePaths3D(
     if (e.basePlan?.riserX === undefined) continue
     const inDuct = Boolean(e.basePlan.inDuct)
     const rx = Math.round(e.basePlan.riserX * 100) / 100
-    const key = `${inDuct ? 'D' : 'O'}:${rx}`
+    const key = `${inDuct ? 'D' : 'O'}:${e.basePlan.enclosureId ?? ''}:${rx}`
     const g = byRiser.get(key) ?? { inDuct, riserX: rx, list: [] }
     g.list.push(e)
     byRiser.set(key, g)
@@ -2677,7 +2702,7 @@ export function buildAllWirePaths3D(
         const col = idx % maxCols
         const layer = Math.floor(idx / maxCols)
         s.riserXOffset = (col - (colsUsed - 1) * 0.5) * 0.036
-        s.riserZ = wireFrontLimit(e.outerMm) + 0.145 + (layer % 5) * 0.038
+        s.riserZ = wireFrontLimit(e.outerMm) + (zShiftOf.get(e.wire.id) ?? 0) + 0.145 + (layer % 5) * 0.038
       })
     } else {
       // Passagem vertical em painel aberto: cada chicote em feixe encostado (ponte trifásica lado a lado justo ou favo)!
@@ -2714,7 +2739,7 @@ export function buildAllWirePaths3D(
       list.forEach((e, idx) => {
         const s = slots.get(e.wire.id)!
         s.riserXOffset = xVals[idx] - midX
-        s.riserZ = globalMaxOpenDuctZ + 0.044 + zVals[idx]
+        s.riserZ = globalMaxOpenDuctZ + (zShiftOf.get(e.wire.id) ?? 0) + 0.044 + zVals[idx]
       })
     }
   }
@@ -2743,7 +2768,7 @@ export function buildAllWirePaths3D(
     while (used.has(vLayer)) vLayer += 1
     activeCols.push({ x: d.x, y: d.y, vLayer })
     const s = slots.get(d.wireId)!
-    const baseZ = d.inDuct ? wireFrontLimit(d.outerMm) + 0.22 : globalMaxOpenDuctZ + 0.046
+    const baseZ = (d.inDuct ? wireFrontLimit(d.outerMm) + 0.22 : globalMaxOpenDuctZ + 0.046) + (zShiftOf.get(d.wireId) ?? 0)
     const zVal = baseZ + (vLayer % 4) * 0.040
     // Quando dois bornes DISTINTOS estão na mesma coluna vertical (ex.: B0.21 sobre B0.22, não ponteira dupla no mesmo borne),
     // desfasa ligeiramente X para o fio superior descer em paralelo limpo sem tocar na ponteira inferior!
