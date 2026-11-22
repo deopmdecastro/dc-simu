@@ -83,12 +83,12 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 92 peças + QGD (53 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 94 peças + QGD (53 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
   assert.equal(QGD_COUNT, 50, 'QGD: 3 sinalizadores monofásicos e porta-fusíveis 3P+N substituem o iIL 3P')
-  assert.equal(parts.length, 92, '92 peças: bancada (42) + QE1 com calhas, relés, fonte e 29 bornes (43) + ambiente fabril (7)')
-  assert.equal(full.componentCount, 143, '143 componentes no total (base + 92 + QGD 50)')
+  assert.equal(parts.length, 94, '94 peças: bancada (42) + QE1 com calhas, relés, fonte e 29 bornes (43) + ambiente fabril (9 — +2 tomadas RoadEu)')
+  assert.equal(full.componentCount, 145, '145 componentes no total (base + 94 + QGD 50)')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
   // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
   assert.equal(full.types.length, 53, 'os tipos do catálogo representados na bancada (base incluída)')
@@ -107,15 +107,15 @@ check('3. Bancada completa = base + 92 peças + QGD (53 tipos) na adaptação fo
   for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 143 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
+check('4. Inserção: 145 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 143, '143 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 143, '143 componentes no projeto')
+  assert.equal(created.length, 145, '145 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 145, '145 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
@@ -136,8 +136,8 @@ check('4. Inserção: 143 componentes (QGD na parede + bancada no centro da nave
   const bench = after.components.filter((c) => created.slice(QGD_COUNT + 1).includes(c.id))
   const expected = new Set(readyMaquetteParts('atec-estampagem', undefined, env).map((part) => positionKey(benchPartUnits(base, part))))
   const actual = bench.map((c) => positionKey(c.panel3DPosition!))
-  assert.equal(actual.length, 92)
-  assert.deepEqual(new Set(actual), expected, 'as 92 peças estão nas posições do relatório')
+  assert.equal(actual.length, 94)
+  assert.deepEqual(new Set(actual), expected, 'as 94 peças estão nas posições do relatório')
   for (const c of bench) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
   const refs = after.components.map((c) => c.ref)
   assert.equal(new Set(refs).size, refs.length, 'TAGs sem repetições entre o QGD (X1.x) e o QE1 (X20…X24)')
@@ -155,9 +155,9 @@ check('4. Inserção: 143 componentes (QGD na parede + bancada no centro da nave
 
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 143 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 145 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 143, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 145, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {

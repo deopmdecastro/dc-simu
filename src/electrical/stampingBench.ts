@@ -348,6 +348,37 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     orientation: { x: 0, y: 0, z: 90 },
   })
 
+  // ---------------------------------------------------------------------------
+  // Tomadas RoadEu 70929 (CEE 2P+T 16 A + seccionador 0-1) no fim das descidas:
+  //  - parede, junto ao compressor (alimentação do compressor);
+  //  - face do pilar IPE100 virada à mesa (alimentação da maquete).
+  // Centro a ~1,10 m do chão; costas encostadas ao suporte (parede / alma do pilar).
+  // ---------------------------------------------------------------------------
+  const socketH = 115 // mm · altura da caixa RoadEu 70929
+  const socketD = 112 // mm · profundidade total (caseDepth 75 + saliências)
+  const socketY = floor + 1100
+  // Parede: costas em wallZ, face a olhar para a nave (+Z).
+  list.push({
+    key: 'socket-compressor',
+    type: 'socketFamatelSwitch',
+    x: compDropX,
+    y: socketY,
+    z: wallZ + socketD / 2 + 8,
+    state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · COMPRESSOR · RoadEu 70929' },
+    ref: 'XS-COMP',
+  })
+  // Pilar IPE100 (≈100 mm de alma): costas no face +Z do pilar, face a olhar a mesa.
+  const pillarZ = -plate.widthMm / 2 - 125
+  list.push({
+    key: 'socket-bench',
+    type: 'socketFamatelSwitch',
+    x: 0,
+    y: Math.max(socketY, top + socketH / 2 + 40),
+    z: pillarZ + 50 + socketD / 2,
+    state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · MAQUETE · RoadEu 70929' },
+    ref: 'XS-MAQ',
+  })
+
   // A orientação é construtiva nesta montagem; deve sobreviver à reabertura do ficheiro.
   return list.map(part => ({ ...part, state: { ...part.state, benchAssembly: true } }))
 }
