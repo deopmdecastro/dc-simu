@@ -8,7 +8,7 @@ import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress, signalAliasMap } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
-import { groupIds, parseSelectionGroups, ungroupIds, type SelectionGroup, type SelectionGroupView } from '../ui/selectionGroups'
+import { expandToGroups, groupIds, parseSelectionGroups, ungroupIds, type SelectionGroup, type SelectionGroupView } from '../ui/selectionGroups'
 
 /** Grupos antigos (Ctrl+G do Esquema 2D gravava `groupId` nos componentes) → grupos de seleção. */
 function legacyComponentGroups(components: Array<{ id: string; groupId?: string }>): SelectionGroup[] {
@@ -539,7 +539,7 @@ interface Store extends CircuitState {
   /** Agrupa e desagrupa os componentes selecionados (Ctrl+G / Ctrl+Shift+G). */
   groupSelection: () => void
   ungroupSelection: () => void
-  selectComponents: (ids: string[], additive?: boolean) => void
+  selectComponents: (ids: string[], additive?: boolean, expandGroups?: boolean) => void
   /** Quando ativo, cliques em componentes/cabos acumulam na seleção (como Shift). */
   multiSelectMode: boolean
   setMultiSelectMode: (on: boolean) => void
@@ -2009,6 +2009,7 @@ export const useSimStore = create<Store>((set, get) => {
   },
   selectionGroups: [],
   groupItems: (view, ids) => {
+    if (isSimEditLocked(get())) return false
     const targetSet = new Set(ids)
     const state = get()
     const terminalTargets = view === 'schematic'
@@ -2036,13 +2037,15 @@ export const useSimStore = create<Store>((set, get) => {
     return true
   },
   ungroupItems: (view, ids) => {
+    if (isSimEditLocked(get())) return false
     const state = get()
     const targetSet = new Set(ids)
     const terminalTargets = view === 'schematic'
       ? state.components.filter((c) => targetSet.has(c.id) && isTerminalStripType(c.type))
       : []
     const next = ungroupIds(state.selectionGroups, view, ids)
-    if (!next && !terminalTargets.some((c) => c.state?.stripId && !c.state?.stripUngrouped)) return false
+    const legacyGroups = new Set(view === 'schematic' ? state.components.filter((c) => targetSet.has(c.id) && c.groupId).map((c) => c.groupId!) : [])
+    if (!next && !legacyGroups.size && !terminalTargets.some((c) => c.state?.stripId && !c.state?.stripUngrouped)) return false
     get().commitHistory()
     const nextComponents = terminalTargets.length
       ? state.components.map((c) => {
@@ -2053,7 +2056,7 @@ export const useSimStore = create<Store>((set, get) => {
         })
       : state.components
     set({
-      components: nextComponents,
+      components: legacyGroups.size ? nextComponents.map((c) => c.groupId && legacyGroups.has(c.groupId) ? { ...c, groupId: undefined } : c) : nextComponents,
       selectionGroups: next ?? state.selectionGroups,
       dirty: true,
     })
@@ -4146,13 +4149,15 @@ export const useSimStore = create<Store>((set, get) => {
     reorderSelection(get, set, where, ids)
   },
 
-  selectComponents: (ids, additive = false) => {
+  selectComponents: (ids, additive = false, expandGroups = true) => {
     if (isSimEditLocked(get()) && ids.length) return
     get().cancelDecalMove()
     set((s) => {
       // Selecionar um componente agrupado traz consigo todo o grupo.
       const groups = new Set(ids.map((id) => s.components.find((item) => item.id === id)?.groupId).filter(Boolean) as string[])
-      const expanded = groups.size ? [...new Set([...ids, ...s.components.filter((item) => item.groupId && groups.has(item.groupId)).map((item) => item.id)])] : ids
+      const legacy = expandGroups && groups.size ? [...new Set([...ids, ...s.components.filter((item) => item.groupId && groups.has(item.groupId)).map((item) => item.id)])] : ids
+      const componentIds = new Set(s.components.map((item) => item.id))
+      const expanded = expandGroups ? expandToGroups(s.selectionGroups, 'schematic', legacy).filter((id) => componentIds.has(id)) : ids
       return {
       selectedComponentIds: additive ? [...new Set([...s.selectedComponentIds, ...expanded])] : expanded,
       selectedDecal: null,

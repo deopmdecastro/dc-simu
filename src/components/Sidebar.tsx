@@ -951,15 +951,15 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   <div className="mb-2 rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-1">
                       <strong className="text-[11px] text-ink-800">{`${multiSelectedComponents.length} elementos selecionados`}</strong>
-                      <button type="button" className="text-[10px] text-blue-600 hover:underline" onClick={() => useSimStore.getState().selectComponents([selectedComponent.id])}>
+                      <button type="button" className="text-[10px] text-blue-600 hover:underline" onClick={() => useSimStore.getState().selectComponents([selectedComponent.id], false, false)}>
                         Só este
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      <button type="button" className="dc-btn dc-btn-primary text-[10.5px]" onClick={() => useSimStore.getState().groupItems('schematic', selectedIds)}>
+                      <button type="button" className="dc-btn dc-btn-primary text-[10.5px]" disabled={!editingStopped} onClick={() => useSimStore.getState().groupItems('schematic', selectedIds)}>
                         {allTerminals ? 'Agrupar régua' : 'Agrupar'}
                       </button>
-                      <button type="button" className="dc-btn text-[10.5px]" onClick={() => useSimStore.getState().ungroupItems('schematic', selectedIds)}>
+                      <button type="button" className="dc-btn text-[10.5px]" disabled={!editingStopped} onClick={() => useSimStore.getState().ungroupItems('schematic', selectedIds)}>
                         Desagrupar
                       </button>
                       <button type="button" className="dc-btn text-[10.5px]" onClick={() => useSimStore.getState().duplicateComponents(selectedIds)}>

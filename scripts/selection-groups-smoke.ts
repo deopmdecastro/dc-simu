@@ -49,5 +49,8 @@ const legacy = { app: 'dc-simu', version: 6, wires: [], components: [
 useSimStore.getState().loadJSON(JSON.stringify(legacy))
 const migrated = useSimStore.getState().selectionGroups
 check(migrated.length === 1 && migrated[0].view === 'schematic' && migrated[0].members.sort().join() === 'k1,k2', 'projeto antigo: os componentes agrupados no Esquema 2D ficam num grupo de seleção')
+useSimStore.getState().ungroupItems('schematic', ['k1'])
+useSimStore.getState().selectComponents(['k1'])
+check(useSimStore.getState().selectedComponentIds.join() === 'k1', 'desagrupar projeto antigo também remove o groupId legado')
 
 console.log(`\n${checks} verificações dos grupos de seleção passaram`)

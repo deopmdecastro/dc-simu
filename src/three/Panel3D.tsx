@@ -47,6 +47,7 @@ import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterial
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
 import CanvasAnnotations3D, { type TextGroupHandlers } from './CanvasAnnotations3D'
 import { expandToGroups, toggleInSelection } from '../ui/selectionGroups'
+import { translatePanelGroup, type PanelGroupOrigin } from './panelGroupMove'
 import { alignMessage, alignOffsets, useAlignAction, type AlignBox } from '../ui/alignItems'
 import PanelCanvasScrollbars, { type PanelScrollBridge } from './PanelCanvasScrollbars'
 import { cameraScrollMetrics, panCameraToScroll, type CameraScrollBounds } from './cameraScroll'
@@ -4392,29 +4393,67 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   /** Arrasto em conjunto (componentes + textos) com deslocamento X/Y e profundidade Z para equipamentos livres 3D. */
   const groupDragLast = useRef<{ dx: number; dy: number; dz: number } | null>(null)
-  const groupDrag = useRef<{ comps: Record<string, { x: number; y: number; z: number }>; texts: Record<string, { x: number; y: number }> } | null>(null)
+  const groupDrag = useRef<{ comps: Record<string, SpatialPoint3D>; texts: Record<string, { x: number; y: number }>; origins: PanelGroupOrigin[]; wires: Wire[]; rigid: boolean; delta: SpatialPoint3D } | null>(null)
   const beginGroupDrag = (compIds: string[], textIds: string[]) => {
     const store = useSimStore.getState()
+    groupDrag.current = null
+    groupDragLast.current = null
+    const members = expandSel(compIds)
+    if (members.some((id) => store.components.find((c) => c.id === id)?.locked)) {
+      store.pushEvent('warning', 'Desbloqueie os elementos do grupo para o mover.')
+      return
+    }
     const comps: Record<string, { x: number; y: number; z: number }> = {}
-    for (const id of compIds) { beginPanelDrag(id); const pivot = panelPivots[id]; if (pivot) comps[id] = { x: pivot.x, y: pivot.y, z: pivot.z } }
-    if (!compIds.length) store.commitHistory()
+    const origins: PanelGroupOrigin[] = []
+    for (const id of compIds) {
+      const component = store.components.find((c) => c.id === id), pivot = panelPivots[id]
+      if (!component || !pivot) continue
+      comps[id] = { x: pivot.x, y: pivot.y, z: pivot.z }
+      origins.push({ component, pivot: comps[id] })
+    }
+    const rigid = compIds.length + textIds.length > 1
+    if (!rigid && compIds.length === 1) beginPanelDrag(compIds[0])
+    else store.commitHistory()
     const texts: Record<string, { x: number; y: number }> = {}
     for (const t of store.canvasTexts) if (textIds.includes(t.id)) texts[t.id] = { x: t.x, y: t.y }
-    groupDrag.current = { comps, texts }
+    groupDrag.current = { comps, texts, origins, wires: store.wires, rigid, delta: { x: 0, y: 0, z: 0 } }
   }
   const moveGroupDrag = (dx: number, dy: number, dz = 0) => {
     const g = groupDrag.current
     if (!g) return
-    for (const [id, o] of Object.entries(g.comps)) dragPanelTo(id, { x: o.x + dx, y: o.y + dy, z: dz !== 0 ? o.z + dz : undefined })
+    if (g.rigid) {
+      const store = useSimStore.getState(), movingIds = new Set(g.origins.map((o) => o.component.id))
+      const obstacles = store.components.filter((c) => !movingIds.has(c.id) && isSolidCollisionComponentType(c.type)).flatMap((c) => {
+        const p = c.panel3DPosition ?? panelPivots[c.id]
+        if (!p) return []
+        const half = componentHalfExtents(c, orientationFor(c))
+        return [{ id: c.id, type: c.type, center: p, size: { x: half.x * 2, y: half.y * 2, z: half.z * 2 } }]
+      })
+      // Validar o conjunto antes de atualizar: nunca deslocar uma peça isoladamente para corrigir colisões.
+      for (const { component, pivot } of g.origins) {
+        if (isPanelBound(component)) continue
+        const half = componentHalfExtents(component, orientationFor(component))
+        const candidate = { x: pivot.x + dx, y: pivot.y + dy, z: pivot.z + dz }
+        const resolved = resolveFactoryPlacement3D({ movingId: component.id, movingType: component.type, candidate,
+          movingSize: { x: half.x * 2, y: half.y * 2, z: half.z * 2 }, obstacles, bounds: factoryRoomBounds,
+          allowOutside: !factoryMode || store.allowOutsideFactory, floorLocked: factoryMode && isFloorStandingComponent(component) })
+        if (Math.hypot(resolved.x - candidate.x, resolved.y - candidate.y, resolved.z - candidate.z) > 1e-5) return
+      }
+      useSimStore.setState({ ...translatePanelGroup(store.components, g.wires, g.origins, { x: dx, y: dy, z: dz }), dirty: true })
+    } else {
+      for (const [id, o] of Object.entries(g.comps)) dragPanelTo(id, { x: o.x + dx, y: o.y + dy, z: dz !== 0 ? o.z + dz : undefined })
+    }
     setGroupTextOffset(Object.keys(g.texts).length ? { dx, dy } : null)
+    g.delta = { x: dx, y: dy, z: dz }
+    groupDragLast.current = { dx, dy, dz }
   }
   const endGroupDrag = (moved: boolean, dx: number, dy: number) => {
     const g = groupDrag.current
     groupDrag.current = null
     setGroupTextOffset(null)
     if (!g) return
-    for (const id of Object.keys(g.comps)) endPanelDrag(id)
-    if (moved) for (const [id, o] of Object.entries(g.texts)) useSimStore.getState().updateCanvasText(id, { x: o.x + dx, y: o.y + dy })
+    if (!g.rigid) for (const id of Object.keys(g.comps)) endPanelDrag(id)
+    if (moved) for (const [id, o] of Object.entries(g.texts)) useSimStore.getState().updateCanvasText(id, { x: o.x + g.delta.x, y: o.y + g.delta.y })
   }
   const textGroup: TextGroupHandlers = {
     ids: groupTextIds,
@@ -4423,7 +4462,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       if (demoMode || simLocked || tool !== 'select') return 'none'
       if (event.ctrlKey || event.metaKey || event.shiftKey) { applyMixedSelection(toggleInSelection(selectionGroups, 'schematic', mixedSelection(), item.id)); return 'handled' }
       const current = mixedSelection()
-      const members = current.includes(item.id) && current.length > 1 ? current : expandSel([item.id])
+      const members = expandSel(current.includes(item.id) && current.length > 1 ? current : [item.id])
       if (members.length < 2) return 'none'
       applyMixedSelection(members)
       const compIds = new Set(useSimStore.getState().components.map((c) => c.id))
@@ -4565,7 +4604,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       }
     }
     if (store.grid.railMagnet !== false) store.snapToRails([id], false)
-    store.step()
+    if (store.sim.runState !== 'stopped') store.step()
   }
   const movePanelComponent = (component: ElectricalComponent, point: { x: number; y: number }) => {
     const current = panelPivots[component.id]
@@ -4697,15 +4736,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         if (additive) { applyMixedSelection(toggleInSelection(selectionGroups, 'schematic', mixedSelection(), component.id)); return }
         // Clique simples: seleciona o grupo (Ctrl+G) ou mantém a multi-seleção de que o componente faz parte.
         const current = mixedSelection()
-        if (current.includes(component.id) && current.length > 1) return
+        if (current.includes(component.id) && current.length > 1) { applyMixedSelection(expandSel(current)); return }
         applyMixedSelection(expandSel([component.id]))
       }}
       onMove={(position) => movePanelComponent(component, position)}
       onDragStart={() => {
         // O grupo do componente (Ctrl+G) ou a multi-seleção de que faz parte move-se inteiro, com os textos.
         const current = mixedSelection()
-        const members = current.includes(component.id) && current.length > 1 ? current : expandSel([component.id])
-        if (members.length > 1 && !(current.includes(component.id) && current.length > 1)) applyMixedSelection(members)
+        const members = expandSel(current.includes(component.id) && current.length > 1 ? current : [component.id])
+        if (members.length > 1) applyMixedSelection(members)
         const compIds = new Set(useSimStore.getState().components.map((c) => c.id))
         const comps = members.filter((id) => compIds.has(id) && !useSimStore.getState().components.find((c) => c.id === id)?.locked)
         beginGroupDrag(comps.length ? comps : [component.id], members.filter((id) => !compIds.has(id)))
@@ -4713,11 +4752,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         multiDragOrigins.current = pivot ? { [component.id]: { x: pivot.x, y: pivot.y, z: pivot.z } } : {}
       }}
       onDragTo={(point) => {
+        if (!groupDrag.current) return
         const origin = multiDragOrigins.current[component.id]
         if (!origin) { dragPanelTo(component.id, point); return }
         const dz = typeof point.z === 'number' ? point.z - origin.z : 0
         moveGroupDrag(point.x - origin.x, point.y - origin.y, dz)
-        groupDragLast.current = { dx: point.x - origin.x, dy: point.y - origin.y, dz }
       }}
       onDragEnd={() => {
         const last = groupDragLast.current

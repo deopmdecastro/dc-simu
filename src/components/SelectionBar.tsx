@@ -10,7 +10,7 @@ type MenuItem = { key: string; label: string; hint?: string; icon: ReactNode; ru
 
 /**
  * Barra contextual flutuante da seleção (Esquema). Ações principais sempre visíveis;
- * as secundárias (ordem, grupo, apresentação) ficam no menu «Mais», que em ecrãs
+ * agrupar/desagrupar ficam junto da seleção; ordem e apresentação ficam no menu «Mais», que em ecrãs
  * estreitos recebe também as ações que deixam de caber — nunca há ações escondidas
  * atrás de deslocamento horizontal. Setas ←/→ percorrem os botões (padrão toolbar).
  */
@@ -59,6 +59,7 @@ export default function SelectionBar() {
   const anyLocked = lockedCount > 0
   const single = ids.length === 1
   const grouped = hasComponents && ids.some((id) => groupOf(groups, 'schematic', id))
+  const exactGroup = hasComponents && groups.some((g) => g.view === 'schematic' && g.members.length === ids.length && g.members.every((id) => ids.includes(id)))
 
   const singleWire = multiWires.length === 1 ? selectedWires[0] : undefined
   const label = hasComponents
@@ -73,8 +74,6 @@ export default function SelectionBar() {
     ...(single ? [{ key: 'mirror', label: 'Espelhar', icon: <IconSwap size={14} />, run: () => st().mirrorComponent(ids[0]), disabled: anyLocked, narrowOnly: true }] : []),
     { key: 'front', label: 'Trazer para a frente', hint: 'Ctrl+]', icon: <IconChevronUp size={14} />, run: () => st().reorderComponents(ids, 'front') },
     { key: 'back', label: 'Enviar para trás', hint: 'Ctrl+[', icon: <IconChevronDown size={14} />, run: () => st().reorderComponents(ids, 'back') },
-    ...(ids.length > 1 ? [{ key: 'group', label: 'Agrupar', hint: 'Ctrl+G', icon: <IconGroup size={14} />, run: () => st().groupSelection() }] : []),
-    ...(grouped ? [{ key: 'ungroup', label: 'Desagrupar', hint: 'Ctrl+Shift+G', icon: <IconUngroup size={14} />, run: () => st().ungroupSelection() }] : []),
     ...(single ? [{ key: 'edit', label: 'Editar apresentação…', icon: <IconTools size={14} />, run: () => st().openViewOrientationEditor(ids[0]) }] : []),
   ] : multiWires.length ? [
     { key: 'organize', label: 'Organizar cabos', hint: 'Ctrl+Z desfaz', icon: <IconOrganize size={14} />, run: () => st().organizeWires(multiWires), disabled: allWiresLocked, narrowOnly: true },
@@ -127,6 +126,10 @@ export default function SelectionBar() {
       </div>
 
       {hasComponents && <>
+        {(ids.length > 1 || grouped) && <div className="dc-sel-group" data-selection-group-actions>
+          {btn({ label: 'Agrupar', title: simBusy ? 'Pare a simulação para agrupar' : exactGroup ? 'Os elementos já formam um grupo' : 'Agrupar elementos selecionados (Ctrl+G)', onClick: () => st().groupSelection(), icon: <IconGroup size={14} />, disabled: simBusy || ids.length < 2 || exactGroup, className: 'dc-selection-action', text: 'Agrupar' })}
+          {btn({ label: 'Desagrupar', title: simBusy ? 'Pare a simulação para desagrupar' : !grouped ? 'Selecione um grupo para o desagrupar' : 'Desagrupar elementos (Ctrl+Shift+G)', onClick: () => st().ungroupSelection(), icon: <IconUngroup size={14} />, disabled: simBusy || !grouped, className: 'dc-selection-action', text: 'Desagrupar' })}
+        </div>}
         <div className="dc-sel-group">
           {btn({ label: 'Rodar 90° à esquerda', title: lockHint ?? 'Rodar 90° à esquerda (Shift+R)', onClick: () => st().rotateComponents(ids, -90), icon: <IconRotateLeft size={14} />, disabled: anyLocked, className: 'dc-sel-wide' })}
           {btn({ label: 'Rodar 90° à direita', title: lockHint ?? 'Rodar 90° à direita (R)', onClick: () => st().rotateComponents(ids, 90), icon: <IconRotateRight size={14} />, disabled: anyLocked })}

@@ -80,6 +80,8 @@
   .dc-selection-bar .dc-selection-menu button { height: 42px; }
   .dc-sel-group { gap: 1px; padding-left: 3px; margin-left: 2px; }
   .dc-selection-label { max-width: 84px; height: 36px; padding: 0 8px; }
+  .dc-selection-bar [data-selection-group-actions] .dc-selection-action-label { display: none; }
+  .dc-selection-bar [data-selection-group-actions] button:disabled { display: none; }
 }
 @media (max-width: 430px) {
   /* Largura 36 px, altura tátil de 40 px mantida. */
@@ -88,6 +90,7 @@
   .dc-selection-bar button.dc-selection-multi { width: 36px; padding: 0; }
   .dc-selection-action-label { display: none; }
   .dc-selection-bar button.dc-selection-action { padding: 0; }
+  .dc-selection-bar [data-selection-group-actions] button.dc-selection-action { width: 40px; min-width: 40px; }
   .dc-selection-bar .dc-selection-menu button { width: 100%; }
   .dc-selection-label { max-width: 64px; }
   /* Seleção múltipla: o contador basta («2»); a palavra cortada só confundia. */

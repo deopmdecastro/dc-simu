@@ -164,6 +164,8 @@
     "test:qet-symbols": "tsx scripts/qet-symbols-smoke.tsx",
     "test:cade-simu-import": "tsx scripts/cade-simu-import-smoke.ts",
     "test:selection-groups": "tsx scripts/selection-groups-smoke.ts",
+    "test:panel-groups": "tsx scripts/panel-groups-smoke.ts",
+    "test:panel-groups-ui": "node scripts/panel-groups-ui-smoke.mjs",
     "test:cross-project-clipboard": "tsx scripts/cross-project-clipboard-smoke.ts",
     "test:panel-mount-decal": "tsx scripts/panel-mount-decal-smoke.ts",
     "test:wire-isolation": "tsx scripts/wire-isolation-markers-lace-smoke.ts",
