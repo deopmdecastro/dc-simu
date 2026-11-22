@@ -1,6 +1,6 @@
 {
   "note": "Gerado por scripts/build-component-covers.mjs a partir da mesma representação 3D da aplicação (GLB ou reconstrução procedural; não implica CAD oficial): types = capa 3/4 de 192 px; front = vista frontal ortográfica. WebP sem fundo.",
-  "generatedAt": "2026-11-22T01:40:25.516Z",
+  "generatedAt": "2026-11-22T02:55:45.935Z",
   "expected": [
     "fuseHolderSchneiderDf103nv",
     "fuseHolderSchneiderDf101v",

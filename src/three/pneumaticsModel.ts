@@ -42,7 +42,9 @@ export const ELECTRIC_CYLINDER_EPCS_SIZE_MM = { width: 410, height: 122, depth: 
 export const PNEUMATIC_GUIDED_CYLINDER_SIZE_MM = { width: 220, height: 118, depth: 66 } as const
 export const PNEUMATIC_MANIFOLD_SIZE_MM = { width: 250, height: 146, depth: 94 } as const
 export const PNEUMATIC_VACUUM_CUP_SIZE_MM = { width: 88, height: 185, depth: 88 } as const
-export const AIR_COMPRESSOR_SIZE_MM = { width: 520, height: 420, depth: 280 } as const
+// Volume conservador de enquadramento do modelo proporcional à fotografia.
+// O manual fornecido não contém um desenho cotado do MCA2420.
+export const AIR_COMPRESSOR_SIZE_MM = { width: 520, height: 530, depth: 280 } as const
 
 export function pneumaticComponentSizeMm(
   type: string,
@@ -175,10 +177,10 @@ export const PNEUMATIC_DATASHEETS: Record<PneumaticComponentType, PneumaticDatas
   },
   airCompressor: {
     path: '/datasheets/pneumatics/maxxim-air-compressor-24l-manual.pdf',
-    name: 'Maxxim · Compressor de Ar 24 L · 2,0 HP (Manual).pdf',
+    name: 'Maxxim MCA2420 · Compressor de Ar 24 L · Manual original.pdf',
     manufacturer: 'Maxxim',
-    model: '24L · 1.8–2.0 HP · 8 bar / 116 PSI',
-    summary: 'Compressor de ar com tanque 24 L · motor 2,0 HP · manómetros tanque/saída · saída Push-In · máx. 8 bar',
+    model: 'MCA2420 · 24 L · 2,0 HP · 8 bar / 116 PSI',
+    summary: 'Manual original MCA2420/MCA5020 (36 páginas, PT/ES/FR), com figuras de montagem e manutenção e declaração de conformidade. MCA2420: 24 L e 2,0 HP; a fotografia de referência apresenta a inscrição 1.8 HP.',
   },
 }
 

@@ -1,0 +1,13 @@
+{
+  "components": {
+    "airCompressor": {
+      "ratio": 2.272727250833923,
+      "roundness": 1,
+      "front": 2009,
+      "back": 1960,
+      "manualBytes": 1990866,
+      "meshes": 142
+    }
+  },
+  "errors": []
+}
