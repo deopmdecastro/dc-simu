@@ -47,10 +47,10 @@ export default function ProjectObjects() {
           if (!map.has(it.type)) {
             map.set(it.type, {
               domainId: d.id,
-              domainTitle: d.title,
+              domainTitle: d.label,
               domainOrder: dIdx,
               subgroupId: sg.id,
-              subgroupTitle: sg.title,
+              subgroupTitle: sg.label,
               subgroupOrder: sgIdx,
             })
           }
