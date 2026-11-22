@@ -329,8 +329,8 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     orientation: { x: 0, y: 90, z: 0 },
   })
   list.push({
-    key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: (branch.from + branch.to) / 2 - 45,
-    state: { heightMm: Math.round(trayBottom - floor), profile: 'HEB200', finish: 'safetyYellow' },
+    key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: -plate.widthMm / 2 - 125,
+    state: { heightMm: Math.round(trayBottom - floor), profile: 'IPE100', finish: 'safetyYellow' },
   })
   const benchDrop = trayBottom - top
   list.push({
