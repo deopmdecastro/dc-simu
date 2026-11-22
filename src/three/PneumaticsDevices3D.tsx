@@ -1448,3 +1448,368 @@ export function PneumaticVacuumCup3D({
     </group>
   )
 }
+
+// ============================================================================
+// COMPRESSOR DE AR MAXXIM 24 L · 2,0 HP — modelo procedural ultra-realista
+// ============================================================================
+
+const MAXXIM_BLUE = '#0077c8'
+const MAXXIM_BLUE_DARK = '#005a96'
+const TANK_BLUE = '#0a7abf'
+const COVER_BLACK = '#1a1d22'
+const METAL_CAST = '#b8c0c8'
+const METAL_BRASS = '#c9a24b'
+
+function createMaxximLogoTexture(): THREE.CanvasTexture | null {
+  return makeCanvasTex(512, 160, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h)
+    // Fundo preto do logo
+    ctx.fillStyle = '#0b0e12'
+    roundRect(ctx, 8, 18, w - 16, h - 36, 18)
+    ctx.fill()
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '900 78px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('MAXXIM', w / 2, h / 2 + 4)
+  })
+}
+
+function createTankSpecsTexture(): THREE.CanvasTexture | null {
+  return makeCanvasTex(420, 120, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h)
+    ctx.fillStyle = 'rgba(10,20,30,0.55)'
+    roundRect(ctx, 0, 0, w, h, 10)
+    ctx.fill()
+    ctx.fillStyle = '#f8fafc'
+    ctx.font = 'bold 36px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('1.8 HP   ·   116 PSI   ·   24 LT', w / 2, h * 0.42)
+    ctx.font = 'bold 28px Arial, sans-serif'
+    ctx.fillStyle = '#e2e8f0'
+    ctx.fillText('MAX 8 bar', w / 2, h * 0.78)
+  })
+}
+
+function createBarGaugeTexture(pressureBar: number, maxBar = 12): THREE.CanvasTexture | null {
+  return makeCanvasTex(280, 280, (ctx, S) => {
+    const cx = S / 2
+    const cy = S / 2
+    const grad = ctx.createRadialGradient(cx, cy, S * 0.08, cx, cy, S * 0.48)
+    grad.addColorStop(0, '#ffffff')
+    grad.addColorStop(0.85, '#eef2f6')
+    grad.addColorStop(1, '#94a3b8')
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(cx, cy, S * 0.46, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#64748b'
+    ctx.lineWidth = 3
+    ctx.stroke()
+    const startA = Math.PI * 0.75
+    const sweepA = Math.PI * 1.5
+    for (let b = 0; b <= maxBar; b += 1) {
+      const a = startA + (b / maxBar) * sweepA
+      const major = b % 2 === 0
+      const r1 = S * (major ? 0.33 : 0.36)
+      const r2 = S * 0.42
+      ctx.strokeStyle = b >= maxBar * 0.75 ? '#dc2626' : '#0f172a'
+      ctx.lineWidth = major ? 2.8 : 1.4
+      ctx.beginPath()
+      ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1)
+      ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2)
+      ctx.stroke()
+      if (major) {
+        ctx.fillStyle = b >= maxBar * 0.75 ? '#dc2626' : '#0f172a'
+        ctx.font = 'bold 15px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(String(b), cx + Math.cos(a) * (S * 0.26), cy + Math.sin(a) * (S * 0.26))
+      }
+    }
+    ctx.fillStyle = '#334155'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('bar', cx, S * 0.72)
+    const clamped = Math.max(0, Math.min(maxBar, pressureBar))
+    const needleA = startA + (clamped / maxBar) * sweepA
+    ctx.strokeStyle = '#dc2626'
+    ctx.lineWidth = 4.5
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(cx - Math.cos(needleA) * 12, cy - Math.sin(needleA) * 12)
+    ctx.lineTo(cx + Math.cos(needleA) * (S * 0.34), cy + Math.sin(needleA) * (S * 0.34))
+    ctx.stroke()
+    ctx.fillStyle = '#1e293b'
+    ctx.beginPath()
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2)
+    ctx.fill()
+  })
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+/** Compressor de ar Maxxim 24 L · 2,0 HP — tanque, motor, tampas, manómetros e bornes. */
+export function AirCompressor3D({
+  c,
+  position,
+  onToggleRun,
+  onToggleCover,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+  onToggleRun?: () => void
+  onToggleCover?: () => void
+}) {
+  const running = Boolean(c.state.running)
+  const coverOpen = Boolean(c.state.coverOpen)
+  const tankBar = Math.max(0, Math.min(8, Number(c.state.tankPressureBar ?? 0)))
+  const outBar = Math.max(0, Math.min(8, Number(c.state.outletPressureBar ?? tankBar * 0.92)))
+  const logoTex = useMemo(() => createMaxximLogoTexture(), [])
+  const specsTex = useMemo(() => createTankSpecsTexture(), [])
+  const tankGauge = useMemo(() => createBarGaugeTexture(tankBar, 12), [tankBar])
+  const outGauge = useMemo(() => createBarGaugeTexture(outBar, 12), [outBar])
+  useEffect(() => () => {
+    logoTex?.dispose()
+    specsTex?.dispose()
+    tankGauge?.dispose()
+    outGauge?.dispose()
+  }, [logoTex, specsTex, tankGauge, outGauge])
+
+  const fanRef = useRef<THREE.Group>(null)
+  useFrame((_, dt) => {
+    if (fanRef.current && running) fanRef.current.rotation.z += dt * 18
+  })
+
+  // Dimensões aproximadas fiéis ao Maxxim 24 L (unidades de cena: 1 u = 100 mm)
+  const tankR = 95 * U
+  const tankL = 420 * U
+  const motorY = tankR + 55 * U
+
+  return (
+    <group position={position} name={`air-compressor-3d-${c.id}`}>
+      {/* ——— Tanque horizontal azul ——— */}
+      <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[tankR, tankR, tankL, 40]} />
+        <meshStandardMaterial color={TANK_BLUE} roughness={0.28} metalness={0.55} />
+      </mesh>
+      {/* Tops hemisfericos */}
+      <mesh position={[-tankL / 2, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+        <sphereGeometry args={[tankR, 28, 18, 0, Math.PI]} />
+        <meshStandardMaterial color={TANK_BLUE} roughness={0.28} metalness={0.55} />
+      </mesh>
+      <mesh position={[tankL / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <sphereGeometry args={[tankR, 28, 18, 0, Math.PI]} />
+        <meshStandardMaterial color={TANK_BLUE} roughness={0.28} metalness={0.55} />
+      </mesh>
+      {/* Costuras / anéis do tanque */}
+      {[-0.28, 0, 0.28].map((t, i) => (
+        <mesh key={i} position={[t * tankL, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <torusGeometry args={[tankR + 1.2 * U, 2.2 * U, 10, 40]} />
+          <meshStandardMaterial color={MAXXIM_BLUE_DARK} roughness={0.4} metalness={0.4} />
+        </mesh>
+      ))}
+      {/* Logo MAXXIM */}
+      {logoTex && (
+        <mesh position={[0, 0, tankR + 0.5 * U]} castShadow>
+          <planeGeometry args={[180 * U, 55 * U]} />
+          <meshStandardMaterial map={logoTex} transparent roughness={0.45} metalness={0.1} />
+        </mesh>
+      )}
+      {/* Specs 1.8 HP / 116 PSI / 24 LT */}
+      {specsTex && (
+        <mesh position={[0, tankR * 0.35, tankR + 0.4 * U]}>
+          <planeGeometry args={[140 * U, 40 * U]} />
+          <meshStandardMaterial map={specsTex} transparent roughness={0.5} metalness={0.05} />
+        </mesh>
+      )}
+      {/* Selo 8 Bar */}
+      <mesh position={[tankL * 0.32, 0, tankR + 0.4 * U]}>
+        <circleGeometry args={[22 * U, 24]} />
+        <meshStandardMaterial color="#0b0e12" roughness={0.5} />
+      </mesh>
+      <mesh position={[tankL * 0.32, 0, tankR + 0.6 * U]}>
+        <ringGeometry args={[14 * U, 20 * U, 24]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.4} />
+      </mesh>
+
+      {/* ——— Rodas ——— */}
+      {([-1, 1] as const).map((side) => (
+        <group key={side} position={[tankL * 0.32, -tankR * 0.55, side * (tankR * 0.95)]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[48 * U, 48 * U, 28 * U, 24]} />
+            <meshStandardMaterial color="#1c1f24" roughness={0.7} metalness={0.15} />
+          </mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[18 * U, 18 * U, 30 * U, 16]} />
+            <meshStandardMaterial color="#64748b" roughness={0.35} metalness={0.7} />
+          </mesh>
+        </group>
+      ))}
+      {/* Rodízio frontal */}
+      <mesh position={[-tankL * 0.38, -tankR * 0.85, 0]} castShadow>
+        <sphereGeometry args={[18 * U, 16, 12]} />
+        <meshStandardMaterial color="#1c1f24" roughness={0.65} metalness={0.2} />
+      </mesh>
+      <mesh position={[-tankL * 0.38, -tankR * 0.55, 0]}>
+        <cylinderGeometry args={[6 * U, 6 * U, 40 * U, 12]} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.75} />
+      </mesh>
+
+      {/* ——— Motor / cabeça de compressão ——— */}
+      <group position={[-tankL * 0.12, motorY, 0]}>
+        {/* Bloco motor alumínio */}
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[140 * U, 90 * U, 110 * U]} />
+          <meshStandardMaterial color={METAL_CAST} roughness={0.35} metalness={0.7} />
+        </mesh>
+        {/* Cilindro / cabeça */}
+        <mesh position={[-55 * U, 35 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[42 * U, 48 * U, 55 * U, 24]} />
+          <meshStandardMaterial color="#9aa5b0" roughness={0.32} metalness={0.75} />
+        </mesh>
+        {/* Tampas do motor (articuladas) */}
+        <group
+          position={[20 * U, 55 * U, 0]}
+          rotation={[0, 0, coverOpen ? -Math.PI * 0.55 : 0]}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            onToggleCover?.()
+          }}
+          onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
+          onPointerOut={() => { document.body.style.cursor = '' }}
+        >
+          <mesh position={[0, 25 * U, 0]} castShadow>
+            <boxGeometry args={[130 * U, 50 * U, 100 * U]} />
+            <meshStandardMaterial color={COVER_BLACK} roughness={0.45} metalness={0.25} />
+          </mesh>
+          {/* Grelha de ventilação na tampa */}
+          {[-1, 0, 1].map((i) => (
+            <mesh key={i} position={[i * 28 * U, 25 * U, 51 * U]}>
+              <boxGeometry args={[18 * U, 32 * U, 2 * U]} />
+              <meshStandardMaterial color="#0f1216" roughness={0.6} />
+            </mesh>
+          ))}
+        </group>
+        {/* Ventoinha (roda quando running) */}
+        <group ref={fanRef} position={[75 * U, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <mesh key={i} rotation={[0, 0, (i * Math.PI) / 3]} position={[0, 22 * U, 0]} castShadow>
+              <boxGeometry args={[10 * U, 44 * U, 3 * U]} />
+              <meshStandardMaterial color="#cbd5e1" roughness={0.4} metalness={0.5} />
+            </mesh>
+          ))}
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[12 * U, 12 * U, 8 * U, 16]} />
+            <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.7} />
+          </mesh>
+        </group>
+        {/* Indicador running */}
+        {running && (
+          <mesh position={[0, 50 * U, 56 * U]}>
+            <sphereGeometry args={[6 * U, 12, 12]} />
+            <meshStandardMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.9} />
+          </mesh>
+        )}
+      </group>
+
+      {/* ——— Mangueira flexível prateada motor → tanque ——— */}
+      <mesh position={[-tankL * 0.05, tankR * 0.55, tankR * 0.55]} rotation={[0.4, 0.2, 0.6]} castShadow>
+        <cylinderGeometry args={[6 * U, 6 * U, 120 * U, 12]} />
+        <meshStandardMaterial color="#c0c8d0" roughness={0.35} metalness={0.85} />
+      </mesh>
+
+      {/* ——— Painel de controlo (pressostato + manómetros + regulador) ——— */}
+      <group position={[tankL * 0.22, tankR + 70 * U, 0]}>
+        {/* Caixa preta pressostato */}
+        <mesh
+          castShadow
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            onToggleRun?.()
+          }}
+          onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
+          onPointerOut={() => { document.body.style.cursor = '' }}
+        >
+          <boxGeometry args={[70 * U, 55 * U, 45 * U]} />
+          <meshStandardMaterial color={COVER_BLACK} roughness={0.4} metalness={0.2} />
+        </mesh>
+        {/* Botão ON/OFF */}
+        <mesh position={[0, 5 * U, 24 * U]} castShadow>
+          <cylinderGeometry args={[10 * U, 10 * U, 8 * U, 20]} />
+          <meshStandardMaterial
+            color={running ? '#16a34a' : '#dc2626'}
+            emissive={running ? '#15803d' : '#991b1b'}
+            emissiveIntensity={0.45}
+            roughness={0.35}
+          />
+        </mesh>
+        {/* Manómetro tanque */}
+        <group position={[-40 * U, -5 * U, 30 * U]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[22 * U, 22 * U, 12 * U, 24]} />
+            <meshStandardMaterial color="#d4dbe3" roughness={0.25} metalness={0.8} />
+          </mesh>
+          {tankGauge && (
+            <mesh position={[0, 0, 7 * U]}>
+              <circleGeometry args={[20 * U, 32]} />
+              <meshStandardMaterial map={tankGauge} roughness={0.2} metalness={0.05} />
+            </mesh>
+          )}
+        </group>
+        {/* Manómetro saída / regulador */}
+        <group position={[40 * U, -5 * U, 30 * U]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[22 * U, 22 * U, 12 * U, 24]} />
+            <meshStandardMaterial color="#d4dbe3" roughness={0.25} metalness={0.8} />
+          </mesh>
+          {outGauge && (
+            <mesh position={[0, 0, 7 * U]}>
+              <circleGeometry args={[20 * U, 32]} />
+              <meshStandardMaterial map={outGauge} roughness={0.2} metalness={0.05} />
+            </mesh>
+          )}
+        </group>
+        {/* Regulador vermelho */}
+        <mesh position={[55 * U, 25 * U, 10 * U]} castShadow>
+          <cylinderGeometry args={[12 * U, 14 * U, 28 * U, 16]} />
+          <meshStandardMaterial color="#b91c1c" roughness={0.4} metalness={0.2} />
+        </mesh>
+        {/* Saída de ar (porta OUT) — engate rápido */}
+        <group position={[70 * U, -15 * U, 5 * U]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[9 * U, 9 * U, 28 * U, 16]} />
+            <meshStandardMaterial color={METAL_BRASS} roughness={0.28} metalness={0.88} />
+          </mesh>
+          <FestoQsPushInPort position={[22 * U, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.85} variant="black" />
+        </group>
+        {/* Entrada de ar / filtro aspiração (lado motor) */}
+        <mesh position={[-90 * U, 10 * U, -40 * U]} castShadow>
+          <cylinderGeometry args={[18 * U, 22 * U, 30 * U, 16]} />
+          <meshStandardMaterial color="#334155" roughness={0.55} metalness={0.3} />
+        </mesh>
+      </group>
+
+      {/* ——— Pega / guiador ——— */}
+      <mesh position={[-tankL * 0.05, tankR + 130 * U, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <torusGeometry args={[55 * U, 7 * U, 12, 32, Math.PI]} />
+        <meshStandardMaterial color={MAXXIM_BLUE} roughness={0.35} metalness={0.45} />
+      </mesh>
+      {/* Pés de apoio do motor no tanque */}
+      {([-1, 1] as const).map((s) => (
+        <mesh key={s} position={[-tankL * 0.12, tankR * 0.15, s * 35 * U]} castShadow>
+          <boxGeometry args={[40 * U, 20 * U, 12 * U]} />
+          <meshStandardMaterial color="#475569" roughness={0.4} metalness={0.5} />
+        </mesh>
+      ))}
+    </group>
+  )
+}

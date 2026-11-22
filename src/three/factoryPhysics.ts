@@ -68,6 +68,7 @@ export function isSolidCollisionComponentType(type: string): boolean {
     type === 'electricCylinderEpcs' ||
     type === 'pneumaticGuidedCylinder' ||
     type === 'pneumaticManifold' ||
+    type === 'airCompressor' ||
     type === 'rollerConveyor' ||
     type === 'motor3ph' ||
     type === 'motor1ph' ||

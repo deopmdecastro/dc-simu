@@ -122,6 +122,7 @@ import {
 import {
   ElectricCylinderEpcs3D,
   PneumaticCylinder3D,
+  AirCompressor3D,
   PneumaticFrl3D,
   PneumaticGuidedCylinder3D,
   PneumaticManifold3D,
@@ -5624,6 +5625,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             )
           } else if (c.type === 'hydraulicTee') {
             content = <HydraulicTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'airCompressor') {
+            content = (
+              <AirCompressor3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onToggleRun={() => activateComponent(c, () => operateComponent(c.id, { running: !c.state.running }))}
+                onToggleCover={() => activateComponent(c, () => operateComponent(c.id, { coverOpen: !c.state.coverOpen }))}
+              />
+            )
           } else if (c.type === 'pneumaticFrl') {
             content = <PneumaticFrl3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'pneumaticValve52') {

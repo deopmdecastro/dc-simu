@@ -128,6 +128,7 @@ export type ComponentType =
   | 'pneumaticGuidedCylinder'
   | 'pneumaticManifold'
   | 'pneumaticVacuumCup'
+  | 'airCompressor'
   | 'rollerConveyor'
   | 'opticalReflector'
   // --- Estruturas industriais e esteiras porta-cabos --------------------

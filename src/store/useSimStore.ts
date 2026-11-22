@@ -1350,8 +1350,30 @@ function runOneTick(state: Store, dtMs: number) {
   }
   const activePneumaticTerminals = new Set<string>()
   const airQueue: string[] = []
+  // Compressores Maxxim: enchem o tanque quando running e alimentam a rede pela porta OUT
+  for (const cmp of components) {
+    if (cmp.type !== 'airCompressor') continue
+    const maxP = Number(cmp.state.maxPressureBar ?? 8)
+    let tank = Number(cmp.state.tankPressureBar ?? 0)
+    if (cmp.state.running) {
+      tank = Math.min(maxP, tank + 0.35)
+    } else {
+      tank = Math.max(0, tank - 0.02)
+    }
+    // Consumo leve quando há caudal na rede (pressão desce se não estiver a correr)
+    cmp.state.tankPressureBar = tank
+    cmp.state.outletPressureBar = tank * (cmp.state.airSupplyOn === false ? 0 : 0.92)
+    cmp.state.pressureBar = cmp.state.outletPressureBar
+  }
   for (const frl of components) {
     if (frl.type === 'pneumaticFrl' && frl.state.airSupplyOn !== false && Number(frl.state.pressureBar ?? 6) > 0.2) {
+      const outT = frl.terminals.find((t) => t.label === 'OUT' || t.kind === 'pneumatic-out')
+      if (outT && !activePneumaticTerminals.has(outT.id)) {
+        activePneumaticTerminals.add(outT.id)
+        airQueue.push(outT.id)
+      }
+    }
+    if (frl.type === 'airCompressor' && frl.state.airSupplyOn !== false && Number(frl.state.outletPressureBar ?? frl.state.tankPressureBar ?? 0) > 0.2) {
       const outT = frl.terminals.find((t) => t.label === 'OUT' || t.kind === 'pneumatic-out')
       if (outT && !activePneumaticTerminals.has(outT.id)) {
         activePneumaticTerminals.add(outT.id)

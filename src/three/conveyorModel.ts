@@ -10,7 +10,8 @@ export function isFloorMountedMachineType(type: string): boolean {
     type === 'motor1ph' ||
     type === 'waterPump' ||
     type === 'waterTank' ||
-    type === 'rollerConveyor'
+    type === 'rollerConveyor' ||
+    type === 'airCompressor'
   )
 }
 

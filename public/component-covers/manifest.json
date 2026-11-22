@@ -268,7 +268,8 @@
     "wireTrayTee": "wireTrayTee.webp",
     "pneumaticUnion": "pneumaticUnion.webp",
     "pneumaticElbow": "pneumaticElbow.webp",
-    "pneumaticY": "pneumaticY.webp"
+    "pneumaticY": "pneumaticY.webp",
+    "airCompressor": "airCompressor.webp"
   },
   "front": {
     "breaker1p": "front/breaker1p.webp",
@@ -402,6 +403,7 @@
     "wireTrayTee": "front/wireTrayTee.webp",
     "pneumaticUnion": "front/pneumaticUnion.webp",
     "pneumaticElbow": "front/pneumaticElbow.webp",
-    "pneumaticY": "front/pneumaticY.webp"
+    "pneumaticY": "front/pneumaticY.webp",
+    "airCompressor": "front/airCompressor.webp"
   }
 }

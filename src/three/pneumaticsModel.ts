@@ -12,6 +12,7 @@ export type PneumaticComponentType =
   | 'pneumaticGuidedCylinder'
   | 'pneumaticManifold'
   | 'pneumaticVacuumCup'
+  | 'airCompressor'
 
 export function isPneumaticComponentType(type: string): type is PneumaticComponentType {
   return (
@@ -25,7 +26,8 @@ export function isPneumaticComponentType(type: string): type is PneumaticCompone
     type === 'electricCylinderEpcs' ||
     type === 'pneumaticGuidedCylinder' ||
     type === 'pneumaticManifold' ||
-    type === 'pneumaticVacuumCup'
+    type === 'pneumaticVacuumCup' ||
+    type === 'airCompressor'
   )
 }
 
@@ -40,6 +42,7 @@ export const ELECTRIC_CYLINDER_EPCS_SIZE_MM = { width: 410, height: 122, depth: 
 export const PNEUMATIC_GUIDED_CYLINDER_SIZE_MM = { width: 220, height: 118, depth: 66 } as const
 export const PNEUMATIC_MANIFOLD_SIZE_MM = { width: 250, height: 146, depth: 94 } as const
 export const PNEUMATIC_VACUUM_CUP_SIZE_MM = { width: 88, height: 185, depth: 88 } as const
+export const AIR_COMPRESSOR_SIZE_MM = { width: 520, height: 420, depth: 280 } as const
 
 export function pneumaticComponentSizeMm(
   type: string,
@@ -75,7 +78,8 @@ export function pneumaticComponentSizeMm(
   if (type === 'pneumaticManifold') {
     return { x: PNEUMATIC_MANIFOLD_SIZE_MM.width, y: PNEUMATIC_MANIFOLD_SIZE_MM.height, z: PNEUMATIC_MANIFOLD_SIZE_MM.depth }
   }
-  if (type === 'pneumaticVacuumCup') {
+  if (type === 'pneumaticVacuumCup' ||
+    type === 'airCompressor') {
     return { x: PNEUMATIC_VACUUM_CUP_SIZE_MM.width, y: PNEUMATIC_VACUUM_CUP_SIZE_MM.height, z: PNEUMATIC_VACUUM_CUP_SIZE_MM.depth }
   }
   return null
@@ -166,6 +170,13 @@ export const PNEUMATIC_DATASHEETS: Record<PneumaticComponentType, PneumaticDatas
     manufacturer: 'DIYI',
     model: 'VFG30-20 · 0.4–0.7 MPa',
     summary: 'Atuador linear com ventosa dupla de silicone azul para pick-and-place · Curso 20 mm · Pressão 4–7 bar',
+  },
+  airCompressor: {
+    path: '/datasheets/pneumatics/maxxim-air-compressor-24l-manual.pdf',
+    name: 'Maxxim · Compressor de Ar 24 L · 2,0 HP (Manual).pdf',
+    manufacturer: 'Maxxim',
+    model: '24L · 1.8–2.0 HP · 8 bar / 116 PSI',
+    summary: 'Compressor de ar com tanque 24 L · motor 2,0 HP · manómetros tanque/saída · saída Push-In · máx. 8 bar',
   },
 }
 

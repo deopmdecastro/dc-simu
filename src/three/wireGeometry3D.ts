@@ -937,15 +937,25 @@ export function wireBodyPoints3D(
   }
 
   if (smooth && controls.length > 2) {
-    const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.22)
-    return keepInFrontOfPlate(curve.getPoints(Math.max(64, controls.length * 28)).map(arr), outerMm)
+    // Tubos fluidos: mais amostras + tensão suave → sem vincos nas curvas
+    const fluid = wire.kind === 'hydraulic' || wire.kind === 'pneumatic'
+    const tension = fluid ? 0.35 : 0.22
+    const samples = fluid ? Math.max(96, controls.length * 40) : Math.max(64, controls.length * 28)
+    const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', tension)
+    return keepInFrontOfPlate(curve.getPoints(samples).map(arr), outerMm)
   }
   if (controls.length <= 2 && wire.route !== 'direct') {
     controls = ensureDetoured(controls, outerMm)
   }
   if (controls.length <= 2) return keepInFrontOfPlate(controls, outerMm)
-  const radiusFactor = wire.flexibility === 'flexible' ? 10.5 : 8.2
-  return keepInFrontOfPlate(roundCorners(controls, outerMm, radiusFactor), outerMm)
+  const fluid = wire.kind === 'hydraulic' || wire.kind === 'pneumatic'
+  // Raios maiores em tubos PU/hidráulicos evitam cotovelos em «V» (vincos)
+  const radiusFactor = fluid ? 14.5 : (wire.flexibility === 'flexible' ? 10.5 : 8.2)
+  let rounded = roundCorners(controls, outerMm, radiusFactor)
+  if (fluid && rounded.length > 3) {
+    rounded = smoothSharpCorners(rounded, outerMm * 1.35, 0.12)
+  }
+  return keepInFrontOfPlate(rounded, outerMm)
 }
 
 /* ------------------------------------------------------- máquinas (obstáculos duros) */
