@@ -74,7 +74,7 @@ function mergeOpenings(raw: DuctOpening[]): DuctOpening[] {
  *  3. Calhas paralelas lado a lado não abrem passagem.
  */
 export function ductJunctionOpenings(c: ElectricalComponent, all: ElectricalComponent[]): DuctOpening[] {
-  if (c.type !== 'cableDuct') return []
+  if (c.type !== 'cableDuct' && c.type !== 'cableTrayStraight') return []
   const px = SCHEMATIC_PX_PER_MM
   const a = effectiveDuctAngleRad(c)
   const ux = Math.cos(a), uy = Math.sin(a), vx = -Math.sin(a), vy = Math.cos(a)
@@ -84,7 +84,7 @@ export function ductJunctionOpenings(c: ElectricalComponent, all: ElectricalComp
   const raw: DuctOpening[] = []
 
   for (const o of all) {
-    if (o.id === c.id || o.type !== 'cableDuct') continue
+    if (o.id === c.id || o.type !== c.type) continue
     const b = effectiveDuctAngleRad(o)
     // Só calhas perpendiculares (ou quase perpendiculares); paralelas lado a lado não cortam dentes.
     if (Math.abs(Math.cos(b) * ux + Math.sin(b) * uy) > 0.5) continue

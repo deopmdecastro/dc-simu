@@ -5808,7 +5808,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           } else if (c.type === 'industrialPillar') {
             content = <IndustrialPillar3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'cableTrayStraight') {
-            content = <CableTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <CableTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} openings={ductJunctionOpenings(c, components)} />
           } else if (c.type === 'cableTrayElbow90') {
             content = <CableTrayElbow903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'cableTrayCross') {

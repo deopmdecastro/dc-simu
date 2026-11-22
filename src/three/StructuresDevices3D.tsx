@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
+import { closedSpans, type DuctOpening } from '../schematic/ductJunctions'
 import {
   cableTrayDimsOf,
   industrialPillarDimsOf,
@@ -416,9 +417,11 @@ export function IndustrialPillar3D({
 export function CableTrayStraight3D({
   c,
   position,
+  openings = [],
 }: {
   c: ElectricalComponent
   position: [number, number, number]
+  openings?: DuctOpening[]
 }) {
   const d = cableTrayDimsOf('cableTrayStraight', c.state)
   const L = d.lengthMm * U
@@ -445,32 +448,44 @@ export function CableTrayStraight3D({
           metalness={0.78}
         />
       </mesh>
-      {/* Abas laterais perfuradas + rebordo superior enrolado de segurança */}
-      {[-1, 1].map((side) => (
-        <group key={side}>
-          <mesh position={[0, 0, side * (W / 2 - t / 2)]} castShadow receiveShadow>
-            <boxGeometry args={[L, H, t]} />
-            <meshStandardMaterial
-              color="#cfd6de"
-              map={perfTex?.map ?? null}
-              bumpMap={perfTex?.bumpMap ?? null}
-              bumpScale={0.012}
-              roughness={0.32}
-              metalness={0.8}
-            />
-          </mesh>
-          {/* Borda enrolada cilíndrica superior (como image-16.png) */}
-          <mesh position={[0, H / 2, side * (W / 2 - lip * 0.38)]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[lip * 0.42, lip * 0.42, L, 12]} />
-            <meshStandardMaterial
-              color="#dce2e9"
-              map={solidTex?.map ?? null}
-              roughness={0.26}
-              metalness={0.86}
-            />
-          </mesh>
-        </group>
-      ))}
+      {/* Abas laterais perfuradas + rebordo superior enrolado de segurança (com aberturas automáticas em T/L/+) */}
+      {([-1, 1] as const).map((side) => {
+        const spans = closedSpans(d.lengthMm / 2, openings, side === -1 ? 'top' : 'bottom')
+        return (
+          <group key={side}>
+            {spans.map(([fromMm, toMm], idx) => {
+              const spanL = (toMm - fromMm) * U
+              const centerX = ((fromMm + toMm) / 2) * U
+              if (spanL <= 0) return null
+              return (
+                <group key={idx} position={[centerX, 0, 0]}>
+                  <mesh position={[0, 0, side * (W / 2 - t / 2)]} castShadow receiveShadow>
+                    <boxGeometry args={[spanL, H, t]} />
+                    <meshStandardMaterial
+                      color="#cfd6de"
+                      map={perfTex?.map ?? null}
+                      bumpMap={perfTex?.bumpMap ?? null}
+                      bumpScale={0.012}
+                      roughness={0.32}
+                      metalness={0.8}
+                    />
+                  </mesh>
+                  {/* Borda enrolada cilíndrica superior (como image-16.png) */}
+                  <mesh position={[0, H / 2, side * (W / 2 - lip * 0.38)]} rotation={[0, 0, Math.PI / 2]} castShadow>
+                    <cylinderGeometry args={[lip * 0.42, lip * 0.42, spanL, 12]} />
+                    <meshStandardMaterial
+                      color="#dce2e9"
+                      map={solidTex?.map ?? null}
+                      roughness={0.26}
+                      metalness={0.86}
+                    />
+                  </mesh>
+                </group>
+              )
+            })}
+          </group>
+        )
+      })}
       {/* Patilhas de encaixe rápido nas duas pontas (-X e +X) */}
       {[-1, 1].map((endSign) => (
         <group key={`end-${endSign}`} position={[endSign * (L / 2 - 22 * U), 0, 0]}>
