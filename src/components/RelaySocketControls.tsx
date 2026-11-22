@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { findSocketMountTarget, isPlugInRelay, isRelaySocket } from '../three/relaySocketMount'
@@ -62,7 +63,7 @@ export default function RelaySocketControls({ component: c }: { component: Elect
               </div>
             ) : freeSockets.length > 0 ? (
               <div className="flex items-center gap-1.5">
-                <select
+                <Select
                   className="dc-input flex-1 text-xs"
                   aria-label="Selecionar base para encaixe"
                   value=""
@@ -75,7 +76,7 @@ export default function RelaySocketControls({ component: c }: { component: Elect
                   {freeSockets.map((s) => (
                     <option key={s.id} value={s.id}>{s.ref} · {s.label}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             ) : (
               <small className="text-ink-400">

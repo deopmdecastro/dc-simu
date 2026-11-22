@@ -1810,7 +1810,7 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
       {/* Instalação real dentro do reservatório */}
       <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2" data-float-tank-mount>
         <span className="text-[10.5px] font-semibold text-slate-700">Instalação no reservatório</span>
-        <select
+        <Select
           disabled={locked}
           className="dc-input text-[11px]"
           value={detached ? '__none__' : (linkedTankId || (tanks[0]?.id ?? '__none__'))}
@@ -1829,7 +1829,7 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
               Dentro de {tk.ref} ({Math.round(Number(tk.state.levelPct ?? 0))}%)
             </option>
           ))}
-        </select>
+        </Select>
 
         {!detached && tanks.length > 0 && (
           <>
@@ -1865,7 +1865,7 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
             <div className="mt-1 flex flex-col gap-1 border-t border-slate-200 pt-1.5" data-float-external-box>
               <span className="text-[10.5px] font-semibold text-slate-700">Caixa exterior (saída dos fios)</span>
-              <select
+              <Select
                 disabled={locked}
                 className="dc-input text-[11px]"
                 value={linkedJunctionBoxId}
@@ -1877,7 +1877,7 @@ function HydraulicControls({ c, locked }: { c: ElectricalComponent; locked: bool
                     {b.ref} · {String(b.state.model ?? b.type)}
                   </option>
                 ))}
-              </select>
+              </Select>
               <button
                 type="button"
                 disabled={locked}
@@ -2822,7 +2822,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
         {/* Montagem no suporte inox de um reservatório (também encaixa ao arrastar para perto da placa) */}
         <label className="flex items-center justify-between gap-2" data-obo-tank-bracket>
           <span className="text-slate-600">Suporte do reservatório</span>
-          <select
+          <Select
             className="dc-input !h-7 !text-[11px] !w-36"
             aria-label="Suporte do reservatório"
             disabled={locked}
@@ -2834,7 +2834,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
               const taken = allComponents.some((b) => b.id !== c.id && b.state.tankBracketId === t.id)
               return <option key={t.id} value={t.id} disabled={taken}>{t.ref}{taken ? ' (ocupado)' : ''}</option>
             })}
-          </select>
+          </Select>
         </label>
 
         {/* Bucins PG / M20 configuráveis */}
@@ -2864,7 +2864,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
         {/* Adesivo e etiqueta personalizada na tampa */}
         <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2" data-obo-stickers>
           <span className="text-[10.5px] font-semibold text-slate-700">Adesivos e etiqueta na tampa</span>
-          <select
+          <Select
             disabled={locked}
             className="dc-input text-[11px]"
             value={lidSticker}
@@ -2877,7 +2877,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
             <option value="24v">24V DC Comando / PLC</option>
             <option value="command">Derivação de Comando</option>
             <option value="hydraulics">Hidráulica · Bóia / Bomba</option>
-          </select>
+          </Select>
           <input
             type="text"
             maxLength={22}
@@ -2975,7 +2975,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
       {/* Seletor de Alojamento (Espaço livre / Quadro elétrico / Caixa OBO) */}
       <div className="flex flex-col gap-1 rounded-md border border-orange-200 bg-orange-50/70 p-2" data-wago-host-selector>
         <span className="text-[10.5px] font-semibold text-orange-950">Onde alojar este conector WAGO</span>
-        <select
+        <Select
           disabled={locked}
           className="dc-input text-[11px]"
           value={hostValue}
@@ -2988,7 +2988,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
               Dentro da Caixa {b.ref} · {String(b.state.model ?? b.type)}
             </option>
           ))}
-        </select>
+        </Select>
         {oboBoxes.length === 0 && (
           <span className="text-[10px] text-orange-800/80">
             Adicione uma caixa OBO (T60, A6 ou T25) para alojar este WAGO no interior dela.
@@ -3127,7 +3127,7 @@ function WaterSupplyBoxControls({ c, locked }: { c: ElectricalComponent; locked:
 
       <label className="flex items-center justify-between gap-2 text-[11px]">
         <span className="text-slate-600">Diâmetro contador</span>
-        <select
+        <Select
           className="dc-input !h-7 !text-[11px] !w-28"
           disabled={locked}
           value={pipeDN}
@@ -3136,7 +3136,7 @@ function WaterSupplyBoxControls({ c, locked }: { c: ElectricalComponent; locked:
           {(Object.keys(FLOW_METER_PIPE_SPECS) as FlowMeterPipeDN[]).map((dn) => (
             <option key={dn} value={dn}>{dn}</option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <div className="flex items-center justify-between gap-2 text-[11px]">
@@ -3367,7 +3367,7 @@ function ConduitAndClampControls({ c, locked }: { c: ElectricalComponent; locked
           {clampCount > 0 && (
             <label className="flex flex-col gap-1 text-[11px]">
               <span className="text-slate-600">Tipo de abraçadeira</span>
-              <select
+              <Select
                 className="dc-input !h-7 !text-[11px]"
                 disabled={locked}
                 value={clampStyle}
@@ -3376,7 +3376,7 @@ function ConduitAndClampControls({ c, locked }: { c: ElectricalComponent; locked
                 <option value="pvc-clip">Clip PVC VDS (encaixe rápido)</option>
                 <option value="metal-epdm">Metálica galvanizada c/ borracha EPDM</option>
                 <option value="metal-screw">Metálica simples c/ espigão roscado</option>
-              </select>
+              </Select>
             </label>
           )}
         </>
@@ -3574,7 +3574,7 @@ function EditableCableControls({ c, locked }: { c: ElectricalComponent; locked: 
           {/* Ligar o cabo diretamente dentro de qualquer caixa de derivação OBO (com WAGO 221-2411 interiores) */}
           <label className="flex items-center justify-between gap-2 text-[10.5px]">
             <span className="text-slate-600">Ligar em caixa OBO</span>
-            <select
+            <Select
               className="dc-input !h-6 !text-[10px] !w-36"
               disabled={locked}
               value={linkedBoxId}
@@ -3586,13 +3586,13 @@ function EditableCableControls({ c, locked }: { c: ElectricalComponent; locked: 
                   {b.ref} · {b.type === 'junctionBoxOboT60' ? 'OBO T60' : b.type === 'junctionBoxOboA6' ? 'OBO A6' : 'OBO T25'}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           {!isFloat && (
             <>
               <label className="flex items-center justify-between gap-2 text-[10.5px]">
                 <span className="text-slate-600">Saída do cabo</span>
-                <select
+                <Select
                   className="dc-input !h-6 !text-[10.5px] !w-28"
                   disabled={locked}
                   value={exitDir}
@@ -3603,7 +3603,7 @@ function EditableCableControls({ c, locked }: { c: ElectricalComponent; locked: 
                   <option value="left">Esquerda</option>
                   <option value="right">Direita</option>
                   <option value="back">Trás</option>
-                </select>
+                </Select>
               </label>
 
               <label className="flex flex-col gap-0.5 text-[10.5px]">

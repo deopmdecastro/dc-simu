@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import type { ReactNode } from 'react'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
@@ -32,10 +33,10 @@ function Row({ label, value, children }: { label: string; value?: string; childr
 }
 
 const MaterialSelect = ({ value, onChange, disabled, allowEmpty }: { value: string; onChange: (v: string) => void; disabled: boolean; allowEmpty?: boolean }) => (
-  <select className="dc-input text-[11px]" disabled={disabled} value={value} onChange={(e) => onChange(e.target.value)}>
+  <Select className="dc-input text-[11px]" disabled={disabled} value={value} onChange={(e) => onChange(e.target.value)}>
     {allowEmpty && <option value="">— sem peça —</option>}
     {WORKPIECE_MATERIALS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-  </select>
+  </Select>
 )
 
 /** Insere os componentes da maquete nas posições da bancada, relativas ao centro da base. */
@@ -86,17 +87,17 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
       body = (
         <>
           <Row label="Secção">
-            <select className="dc-input text-[11px]" disabled={locked} value={d.sectionMm} onChange={(e) => setState(c.id, { sectionMm: Number(e.target.value) })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={d.sectionMm} onChange={(e) => setState(c.id, { sectionMm: Number(e.target.value) })}>
               <option value={30}>30 × 30 mm (ranhura 8)</option>
               <option value={40}>40 × 40 mm (ranhura 8)</option>
-            </select>
+            </Select>
           </Row>
           <Row label="Comprimento" value={`${d.lengthMm} mm`}><input type="range" min={40} max={1200} step={10} disabled={locked} value={d.lengthMm} onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })} /></Row>
           <Row label="Orientação">
-            <select className="dc-input text-[11px]" disabled={locked} value={d.vertical ? 'vertical' : 'horizontal'} onChange={(e) => setState(c.id, { orientation: e.target.value })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={d.vertical ? 'vertical' : 'horizontal'} onChange={(e) => setState(c.id, { orientation: e.target.value })}>
               <option value="vertical">Vertical (coluna)</option>
               <option value="horizontal">Horizontal (travessa)</option>
-            </select>
+            </Select>
           </Row>
           <label className="flex items-center justify-between gap-2"><span>Tampas de topo</span><input type="checkbox" disabled={locked} checked={d.endCaps} onChange={(e) => setState(c.id, { endCaps: e.target.checked })} /></label>
           <label className="flex items-center justify-between gap-2"><span>Cantoneiras na base</span><input type="checkbox" disabled={locked} checked={d.brackets} onChange={(e) => setState(c.id, { brackets: e.target.checked })} /></label>
@@ -123,9 +124,9 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
       body = (
         <>
           <Row label="Pilar traseiro">
-            <select className="dc-input text-[11px]" disabled={locked} value={num(c.state.pillarMm, 110)} onChange={(e) => setState(c.id, { pillarMm: Number(e.target.value) })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={num(c.state.pillarMm, 110)} onChange={(e) => setState(c.id, { pillarMm: Number(e.target.value) })}>
               {RAMP_PILLAR_OPTIONS.map((h, i) => <option key={h} value={h}>{`${h} mm (rampa ${i + 1})`}</option>)}
-            </select>
+            </Select>
           </Row>
           <div className="flex items-center justify-between"><span>Peças na rampa</span><strong>{pieces}</strong></div>
           <button type="button" className="dc-btn text-[11px] justify-center" disabled={locked || pieces === 0} onClick={() => act({ pieces: [] })}>Esvaziar rampa</button>
@@ -166,10 +167,10 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
           <Row label="Curso do cilindro vertical da ventosa" value={`${down} %`}><input type="range" min={0} max={100} step={5} disabled={locked || running} value={down} onChange={(e) => setState(c.id, { armDownPct: Number(e.target.value) })} /></Row>
           <button type="button" className={`dc-btn text-[11px] justify-center ${c.state.manualVacuum ? 'dc-btn-primary' : ''}`} disabled={locked} aria-pressed={!!c.state.manualVacuum} onClick={() => act({ manualVacuum: !c.state.manualVacuum })}>{c.state.manualVacuum ? 'Desligar vácuo manual' : 'Ligar vácuo manual'}</button>
           <Row label="Motor de acionamento (M1)">
-            <select className="dc-input text-[11px]" disabled={locked} value={typeof c.state.driveMotorId === 'string' ? c.state.driveMotorId : ''} onChange={(e) => setState(c.id, { driveMotorId: e.target.value })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={typeof c.state.driveMotorId === 'string' ? c.state.driveMotorId : ''} onChange={(e) => setState(c.id, { driveMotorId: e.target.value })}>
               <option value="">{motors.length ? 'Primeiro motorredutor do projeto' : 'Sem motorredutor no projeto'}</option>
               {motors.map((m) => <option key={m.id} value={m.id}>{m.ref}</option>)}
-            </select>
+            </Select>
           </Row>
           <div className="flex items-center justify-between"><span>S_HOME_BRACO</span><strong>{c.state.homeActive ? 'ON (0°)' : 'off'}</strong></div>
           <div className="flex items-center justify-between"><span>Peça na ventosa</span><strong>{c.state.holding ? `${c.state.holding}${c.state.holdingStamped ? ' · estampada' : ''}` : '—'}</strong></div>
@@ -191,10 +192,10 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
       body = (
         <>
           <Row label="Acionamento">
-            <select className="dc-input text-[11px]" disabled={locked} value={c.state.actuation === 'manual' ? 'manual' : 'feeder'} onChange={(e) => setState(c.id, { actuation: e.target.value })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={c.state.actuation === 'manual' ? 'manual' : 'feeder'} onChange={(e) => setState(c.id, { actuation: e.target.value })}>
               <option value="feeder">Pela peça na zona de recolha</option>
               <option value="manual">Manual (clique no 3D)</option>
-            </select>
+            </Select>
           </Row>
           <button type="button" className={`dc-btn text-[11px] justify-center ${c.state.pressed ? 'dc-btn-primary' : ''}`} disabled={locked || c.state.actuation !== 'manual'} aria-pressed={!!c.state.pressed} onClick={() => act({ pressed: !c.state.pressed })}>{c.state.pressed ? 'Soltar rolete' : 'Pressionar rolete'}</button>
           <div className="flex items-center justify-between"><span>Contacto</span><strong>{c.state.pressed ? 'C–NA fechado' : 'C–NF fechado'}</strong></div>
@@ -238,10 +239,10 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
       body = (
         <>
           <Row label="Etiqueta da ilha">
-            <select className="dc-input text-[11px]" disabled={locked} value={textLabel(c.state.islandTag, 'C1A')} onChange={(e) => setState(c.id, { islandTag: e.target.value })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={textLabel(c.state.islandTag, 'C1A')} onChange={(e) => setState(c.id, { islandTag: e.target.value })}>
               <option value="C1A">C1A</option>
               <option value="C2A">C2A</option>
-            </select>
+            </Select>
           </Row>
           {stations.map((n) => {
             const on = !!c.state[`station${n}On`]
@@ -271,10 +272,10 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
       body = (
         <>
           <Row label="Acionamento">
-            <select className="dc-input text-[11px]" disabled={locked} value={manual ? 'manual' : 'feeder'} onChange={(e) => setState(c.id, { actuation: e.target.value })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={manual ? 'manual' : 'feeder'} onChange={(e) => setState(c.id, { actuation: e.target.value })}>
               <option value="feeder">Pela peça na zona de recolha</option>
               <option value="manual">Manual (inspetor)</option>
-            </select>
+            </Select>
           </Row>
           <button
             type="button"
@@ -301,10 +302,10 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
             </button>
           </div>
           <Row label="Ecrã">
-            <select className="dc-input text-[11px]" disabled={locked || !powered} value={page} onChange={(e) => setState(c.id, { screenPage: e.target.value })}>
+            <Select className="dc-input text-[11px]" disabled={locked || !powered} value={page} onChange={(e) => setState(c.id, { screenPage: e.target.value })}>
               <option value="start-center">Start Center</option>
               <option value="process">Processo (estampagem)</option>
-            </select>
+            </Select>
           </Row>
           <Row label="Item selecionado" value={`${Math.round(num(c.state.selectedRow, 1)) + 1} / 3`}>
             <input type="range" min={0} max={2} step={1} disabled={locked || !powered || page !== 'start-center'} value={Math.round(num(c.state.selectedRow, 1))} onChange={(e) => setState(c.id, { selectedRow: Number(e.target.value) })} />
@@ -377,10 +378,10 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
           </Row>
           <Row label="Altura da calha" value={`${d.heightMm} mm`}><input type="range" min={25} max={80} step={1} disabled={locked} value={d.heightMm} onChange={(e) => setState(c.id, { heightMm: Number(e.target.value) })} /></Row>
           <Row label="Orientação">
-            <select className="dc-input text-[11px]" disabled={locked} value={d.alongZ ? 'z' : 'x'} onChange={(e) => setState(c.id, { axis: e.target.value })}>
+            <Select className="dc-input text-[11px]" disabled={locked} value={d.alongZ ? 'z' : 'x'} onChange={(e) => setState(c.id, { axis: e.target.value })}>
               <option value="x">Ao longo de X (frente/trás)</option>
               <option value="z">Ao longo Z (laterais)</option>
-            </select>
+            </Select>
           </Row>
           <label className="flex items-center justify-between gap-2"><span>Tampa da calha</span><input type="checkbox" disabled={locked} checked={d.coverOn} onChange={(e) => setState(c.id, { coverOn: e.target.checked })} /></label>
           <label className="flex items-center justify-between gap-2"><span>Folha do projeto ATEC</span><input type="checkbox" disabled={locked} checked={c.state.plaque === 'atec'} onChange={(e) => setState(c.id, { plaque: e.target.checked ? 'atec' : '' })} /></label>

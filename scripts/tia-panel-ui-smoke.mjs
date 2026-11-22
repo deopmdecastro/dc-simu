@@ -51,8 +51,9 @@ try {
   await page.fill('[data-tia-bridge-url]', bridgeUrl)
   await page.fill('[data-tia-key]', token)
   await page.click('[data-tia-find]')
-  await page.locator('select[data-tia-instance]').waitFor()
-  check(await page.locator('select[data-tia-instance]').inputValue() === 'CPU_Estampagem', '«Procurar» lista as instâncias do PLCSIM Advanced através da ponte')
+  // Lista pendente da plataforma (ui/Select): o botão expõe o valor escolhido em `value`.
+  await page.locator('button[data-tia-instance]').waitFor()
+  check(await page.locator('button[data-tia-instance]').getAttribute('value') === 'CPU_Estampagem', '«Procurar» lista as instâncias do PLCSIM Advanced através da ponte')
 
   await page.locator('[data-tia-map] > summary').click()
   const rows = await page.locator('[data-tia-map-row]').count()

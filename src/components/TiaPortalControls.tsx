@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
@@ -101,10 +102,10 @@ export default function TiaPortalControls({ plc }: { plc: ElectricalComponent })
           <span>Instância PLCSIM</span>
           <div className="dc-tia-inline">
             {instances && instances.length
-              ? <select className="dc-input text-[11px]" value={config.instanceName} disabled={configLocked} onChange={(e) => setConfig({ instanceName: e.target.value })} data-tia-instance>
+              ? <Select className="dc-input text-[11px]" value={config.instanceName} disabled={configLocked} onChange={(e) => setConfig({ instanceName: e.target.value })} data-tia-instance>
                   {!instances.includes(config.instanceName) && config.instanceName && <option value={config.instanceName}>{config.instanceName}</option>}
                   {instances.map((name) => <option key={name} value={name}>{name}</option>)}
-                </select>
+                </Select>
               : <input className="dc-input text-[11px]" value={config.instanceName} disabled={configLocked} onChange={(e) => setConfig({ instanceName: e.target.value })} placeholder="nome da instância" data-tia-instance />}
             <button type="button" className="dc-btn text-[11px]" disabled={busy || connected || !key.trim() || !!bridgeError} onClick={() => void findInstances()} data-tia-find>Procurar</button>
           </div>

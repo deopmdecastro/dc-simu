@@ -187,6 +187,12 @@ const EXTRA_STATE_LABELS: Record<string, string> = {
   l1On: 'Fase L1 presente', l2On: 'Fase L2 presente', l3On: 'Fase L3 presente', phaseLoss: 'Falta de fase',
   vA: 'Tensão L1 (V)', vB: 'Tensão L2 (V)', vC: 'Tensão L3 (V)', iA: 'Corrente L1 (A)', iB: 'Corrente L2 (A)', iC: 'Corrente L3 (A)',
   pA: 'Potência L1 (W)', pB: 'Potência L2 (W)', pC: 'Potência L3 (W)',
+  // Hidráulica (contador de água e caixa de alimentação)
+  pipeDN: 'Diâmetro do tubo (DN)', flowing: 'Água a circular', doorOpen: 'Porta aberta', spilling: 'A derramar',
+  pulseHigh: 'Impulso ativo', valveOpen: 'Passador aberto', flowRateLpm: 'Caudal (L/min)', totalVolumeL: 'Volume total (L)',
+  singleVolumeL: 'Volume parcial (L)', mainsSupplyOn: 'Rede de água ligada', pressureBar: 'Pressão (bar)',
+  readingHatchOpen: 'Tampa de leitura aberta', internalBoxCoverOpen: 'Tampa interna aberta', manualTestFlow: 'Caudal de teste manual',
+  withCable: 'Com cabo', displayMode: 'Modo do visor', installOrientation: 'Orientação de instalação',
 }
 const stateLabel = (key: string) => STATE_LABELS[key] ?? EXTRA_STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
 

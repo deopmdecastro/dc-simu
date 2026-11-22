@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { transitionsOf } from './engine'
@@ -369,7 +370,7 @@ export default function GrafcetLiveDock({ onOpenEditor }: { onOpenEditor?: () =>
               </div>
               <div className="grafcet-live-modal-actions">
                 {(program.charts?.length ?? 0) > 1 && (
-                  <select
+                  <Select
                     className="dc-select"
                     aria-label="Página do GRAFCET"
                     value={fullModalChartId ?? program.charts?.[0]?.id ?? ''}
@@ -380,7 +381,7 @@ export default function GrafcetLiveDock({ onOpenEditor }: { onOpenEditor?: () =>
                         {c.title || c.name || `G${idx}`}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 )}
                 <button
                   type="button"

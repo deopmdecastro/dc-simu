@@ -33,6 +33,8 @@ type SelectProps = {
   autoFocus?: boolean
   resetOnSelect?: boolean
   'aria-label'?: string
+  /** Atributos `data-*` (ganchos de teste e estilos) passam para o botão, como no `<select>` nativo. */
+  [data: `data-${string}`]: string | number | boolean | undefined
 }
 
 function collect(children: ReactNode, group: string | undefined, out: Item[]) {
@@ -64,6 +66,7 @@ export default function Select({ value, defaultValue, onChange, children, classN
   collect(children, undefined, items)
   const current = value !== undefined ? String(value) : internal
   const selected = items.find((item) => item.value === current)
+  const dataAttrs = Object.fromEntries(Object.entries(rest).filter(([key]) => key.startsWith('data-')))
 
   const updatePosition = () => {
     const anchor = anchorRef.current
@@ -114,8 +117,10 @@ export default function Select({ value, defaultValue, onChange, children, classN
     <>
       <button
         type="button"
+        {...dataAttrs}
         ref={anchorRef}
         id={id}
+        value={current}
         name={name}
         disabled={disabled}
         autoFocus={autoFocus}
