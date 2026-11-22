@@ -492,6 +492,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const hiddenComponents = useMemo(() => {
     const hidden = { ...adminHidden }
     for (const type of Object.keys(TEMPLATES) as ComponentType[]) {
+      // Sem modelo 3D → fora da biblioteca (nunca mais «AGUARDA GLB 3D»)
+      if (!canInsertComponent3D(type) || hiddenCatalogTypes.has(type)) {
+        hidden[type] = true
+        continue
+      }
       if (blockedDuplicateReplacement(type, {
         blocked: t => !!explicitlyBlocked[t], has3D: canInsertComponent3D,
         available: t => !(t in disabledComponents) && !adminHidden[t] && !hiddenCatalogTypes.has(t),
