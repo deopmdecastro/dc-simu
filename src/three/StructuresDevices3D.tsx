@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
-import { closedSpans, type DuctOpening } from '../schematic/ductJunctions'
+import { closedFloorSpans, closedSpans, type DuctOpening } from '../schematic/ductJunctions'
 import {
   cableTrayDimsOf,
   industrialPillarDimsOf,
@@ -433,22 +433,34 @@ export function CableTrayStraight3D({
   const solidTex = useGalvTextures(false, Math.max(1, d.lengthMm / 500), 1)
   const baseY = -H / 2
 
+  // Pontas aparadas (endTrim) → não desenhar patilhas de encaixe nesse extremo
+  const trimNeg = openings.some((o) => o.endTrim && Math.min(o.from, o.to) <= -d.lengthMm / 2 + 12)
+  const trimPos = openings.some((o) => o.endTrim && Math.max(o.from, o.to) >= d.lengthMm / 2 - 12)
+  const floorSpans = closedFloorSpans(d.lengthMm, openings)
+
   return (
     <group position={position} name={`cable-tray-straight-3d-${c.id}`}>
-      {/* Fundo perfurado galvanizado */}
-      <mesh position={[0, baseY + t / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[L, t, W]} />
-        <meshStandardMaterial
-          color="#d2d8df"
-          map={perfTex?.map ?? null}
-          bumpMap={perfTex?.bumpMap ?? null}
-          bumpScale={0.015}
-          roughnessMap={perfTex?.roughnessMap ?? null}
-          roughness={0.34}
-          metalness={0.78}
-        />
-      </mesh>
-      {/* Abas laterais perfuradas + rebordo superior enrolado de segurança (com aberturas automáticas em T/L/+) */}
+      {/* Fundo perfurado — segmentado nas pontas que entram noutra esteira (T/L) */}
+      {floorSpans.map(([fromMm, toMm], idx) => {
+        const spanL = (toMm - fromMm) * U
+        const centerX = ((fromMm + toMm) / 2) * U
+        if (spanL <= 0) return null
+        return (
+          <mesh key={`floor-${idx}`} position={[centerX, baseY + t / 2, 0]} castShadow receiveShadow>
+            <boxGeometry args={[spanL, t, W]} />
+            <meshStandardMaterial
+              color="#d2d8df"
+              map={perfTex?.map ?? null}
+              bumpMap={perfTex?.bumpMap ?? null}
+              bumpScale={0.015}
+              roughnessMap={perfTex?.roughnessMap ?? null}
+              roughness={0.34}
+              metalness={0.78}
+            />
+          </mesh>
+        )
+      })}
+      {/* Abas laterais perfuradas + rebordo superior enrolado (aberturas automáticas T/L/+) */}
       {([-1, 1] as const).map((side) => {
         const spans = closedSpans(d.lengthMm, openings, side === -1 ? 'top' : 'bottom')
         return (
@@ -470,7 +482,6 @@ export function CableTrayStraight3D({
                       metalness={0.8}
                     />
                   </mesh>
-                  {/* Borda enrolada cilíndrica superior (como image-16.png) */}
                   <mesh position={[0, H / 2, side * (W / 2 - lip * 0.38)]} rotation={[0, 0, Math.PI / 2]} castShadow>
                     <cylinderGeometry args={[lip * 0.42, lip * 0.42, spanL, 12]} />
                     <meshStandardMaterial
@@ -486,19 +497,22 @@ export function CableTrayStraight3D({
           </group>
         )
       })}
-      {/* Patilhas de encaixe rápido nas duas pontas (-X e +X) */}
-      {[-1, 1].map((endSign) => (
-        <group key={`end-${endSign}`} position={[endSign * (L / 2 - 22 * U), 0, 0]}>
-          {[-1, 1].map((side) => (
-            <mesh key={side} position={[0, -H * 0.08, side * (W / 2 + 1.8 * U)]} castShadow>
-              <boxGeometry args={[46 * U, H * 0.68, 2.2 * U]} />
-              <meshStandardMaterial color="#b7c0ca" roughness={0.34} metalness={0.82} />
-            </mesh>
-          ))}
-        </group>
-      ))}
-      <TrayCableBundle state={c.state} lengthMm={d.lengthMm} floorY={baseY + t} />
-      {/* Tampa galvanizada opcional encaixada */}
+      {/* Patilhas só nas pontas livres (não aparadas por união) */}
+      {([-1, 1] as const).map((endSign) => {
+        if ((endSign < 0 && trimNeg) || (endSign > 0 && trimPos)) return null
+        return (
+          <group key={`end-${endSign}`} position={[endSign * (L / 2 - 22 * U), 0, 0]}>
+            {([-1, 1] as const).map((side) => (
+              <mesh key={side} position={[0, -H * 0.08, side * (W / 2 + 1.8 * U)]} castShadow>
+                <boxGeometry args={[46 * U, H * 0.68, 2.2 * U]} />
+                <meshStandardMaterial color="#b7c0ca" roughness={0.34} metalness={0.82} />
+              </mesh>
+            ))}
+          </group>
+        )
+      })}
+      {/* Cabos/tubos a quase todo o comprimento para não interromper nas junções */}
+      <TrayCableBundle state={c.state} lengthMm={d.lengthMm} floorY={baseY + t} fullRun />
       {d.withCover && (
         <mesh position={[0, H / 2 + 4 * U, 0]} castShadow receiveShadow>
           <boxGeometry args={[L, 3 * U, W + 6 * U]} />
@@ -518,7 +532,18 @@ export function CableTrayStraight3D({
  * Cabos e tubos assentes no fundo da esteira (`state.cables`: cor, Ø e tipo), lado a lado e
  * filaçados por abraçadeiras de nylon preto a cada `state.tieEveryMm` (por omissão 250 mm).
  */
-function TrayCableBundle({ state, lengthMm, floorY }: { state: Record<string, any>; lengthMm: number; floorY: number }) {
+function TrayCableBundle({
+  state,
+  lengthMm,
+  floorY,
+  fullRun = false,
+}: {
+  state: Record<string, any>
+  lengthMm: number
+  floorY: number
+  /** Quando true, o cabo/tubo corre quase de ponta a ponta (junções 3D sem interrupção visual). */
+  fullRun?: boolean
+}) {
   const cables = Array.isArray(state?.cables)
     ? (state.cables as Array<{ color?: string; diameterMm?: number; kind?: string }>).filter((x) => x && Number(x.diameterMm) > 0).slice(0, 12)
     : []
@@ -527,7 +552,8 @@ function TrayCableBundle({ state, lengthMm, floorY }: { state: Record<string, an
   const widths = cables.map((x) => Number(x.diameterMm))
   const total = widths.reduce((a, b) => a + b, 0) + gap * (cables.length - 1)
   const tallest = Math.max(...widths)
-  const run = Math.max(0, lengthMm - 30)
+  // fullRun: só 4 mm de rebaixo em cada ponta para não atravessar a união metálica
+  const run = Math.max(0, lengthMm - (fullRun ? 8 : 30))
   let z = -total / 2
   const lanes = cables.map((cable, i) => {
     const dMm = widths[i]

@@ -1,5 +1,6 @@
-import type { ElectricalComponent } from '../types'
-import { SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import type { ElectricalComponent, SpatialPoint3D } from '../types'
+import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { orientationRadians } from '../three/componentOrientation'
 
 /**
  * Passagem de cabos numa junção de calhas ranhuradas (T, L e cruz `+`):
@@ -65,6 +66,132 @@ function mergeOpenings(raw: DuctOpening[]): DuctOpening[] {
   return out
 }
 
+/** Dimensões úteis de uma esteira/calha em mm (comprimento ao longo do eixo local X). */
+function trayDimsMm(c: ElectricalComponent): { lengthMm: number; widthMm: number; sideHeightMm: number } {
+  const lengthMm = Math.max(50, Math.round(Number(c.state?.lengthMm) || (c.w / SCHEMATIC_PX_PER_MM) || 1200))
+  const widthMm = Math.max(40, Math.round(Number(c.state?.widthMm) || (c.h / SCHEMATIC_PX_PER_MM) || 200))
+  const sideHeightMm = Math.max(20, Math.round(Number(c.state?.sideHeightMm) || 60))
+  return { lengthMm, widthMm, sideHeightMm }
+}
+
+/** Eixo local de comprimento (X) da esteira após a orientação Euler XYZ, em unidades de mundo. */
+function trayLengthAxis(c: ElectricalComponent): { x: number; y: number; z: number } {
+  const [rx, ry, rz] = orientationRadians(c.viewOrientation)
+  // Matriz Euler XYZ aplicada ao vetor (1,0,0)
+  const cx = Math.cos(rx), sx = Math.sin(rx)
+  const cy = Math.cos(ry), sy = Math.sin(ry)
+  const cz = Math.cos(rz), sz = Math.sin(rz)
+  // R = Rz * Ry * Rx  →  primeira coluna
+  return {
+    x: cy * cz,
+    y: cx * sz + sx * sy * cz,
+    z: sx * sz - cx * sy * cz,
+  }
+}
+
+/** Eixo local de largura (Z) após a mesma orientação. */
+function trayWidthAxis(c: ElectricalComponent): { x: number; y: number; z: number } {
+  const [rx, ry, rz] = orientationRadians(c.viewOrientation)
+  const cx = Math.cos(rx), sx = Math.sin(rx)
+  const cy = Math.cos(ry), sy = Math.sin(ry)
+  const cz = Math.cos(rz), sz = Math.sin(rz)
+  // terceira coluna de R = Rz*Ry*Rx
+  return {
+    x: -sy,
+    y: sx * cy,
+    z: cx * cy,
+  }
+}
+
+function posOf(c: ElectricalComponent): SpatialPoint3D | null {
+  const p = c.panel3DPosition
+  if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) return null
+  return p
+}
+
+/**
+ * Junções 3D entre esteiras livres (nave fabril / maquete): usa `panel3DPosition` e a
+ * orientação em vez das coordenadas do Esquema 2D (que para estes objectos são só placeholders).
+ * Produz as mesmas `DuctOpening` que o caminho 2D, para reutilizar `closedSpans` / `closedFloorSpans`.
+ */
+function trayJunctionOpenings3D(c: ElectricalComponent, all: ElectricalComponent[]): DuctOpening[] {
+  const pc = posOf(c)
+  if (!pc) return []
+  const dc = trayDimsMm(c)
+  const halfL = dc.lengthMm / 2
+  const halfW = dc.widthMm / 2
+  const ax = trayLengthAxis(c)
+  const wx = trayWidthAxis(c)
+  const raw: DuctOpening[] = []
+  // panel3DPosition está em unidades de painel: 1 u = 100 mm (PANEL_UNITS_PER_MM = 0.01)
+  const U_TO_MM = 1 / PANEL_UNITS_PER_MM
+  const TOUCH_MM = 45
+  const MIN_OPEN_MM = 25
+
+  for (const o of all) {
+    if (o.id === c.id || o.type !== 'cableTrayStraight') continue
+    const po = posOf(o)
+    if (!po) continue
+    const do_ = trayDimsMm(o)
+    const ox = trayLengthAxis(o)
+    // Só perpendiculares (produto escalar dos eixos de comprimento ≈ 0)
+    const parallel = Math.abs(ax.x * ox.x + ax.y * ox.y + ax.z * ox.z)
+    if (parallel > 0.55) continue
+
+    const dx = (po.x - pc.x) * U_TO_MM
+    const dy = (po.y - pc.y) * U_TO_MM
+    const dz = (po.z - pc.z) * U_TO_MM
+    // Projectar o centro de `o` no referencial local de `c` (comprimento, largura) em mm
+    const along = dx * ax.x + dy * ax.y + dz * ax.z
+    const across = dx * wx.x + dy * wx.y + dz * wx.z
+    const halfO = do_.lengthMm / 2
+    const halfOw = do_.widthMm / 2
+
+    // Sobreposição ao longo do comprimento de `c` causada pela largura de `o`
+    const from = Math.max(-halfL, along - halfOw)
+    const to = Math.min(halfL, along + halfOw)
+    const overlap = to - from
+    if (overlap < MIN_END_TRIM_MM) continue
+
+    // `o` apara uma ponta de `c` (ramal a entrar na principal) ?
+    const touchesEnd = from <= -halfL + 8 || to >= halfL - 8
+    // `o` atravessa o canal de `c` (projecta-se para fora de ambos os lados)?
+    const spansAcross = (across - halfO) < -halfW - 5 && (across + halfO) > halfW + 5
+    const isBranchEndTrim = touchesEnd && spansAcross && overlap < do_.widthMm - 5
+
+    if (!isBranchEndTrim && overlap < MIN_OPEN_MM) continue
+
+    let f = from
+    let t = to
+    if (f - (-halfL) < 8) f = -halfL
+    if (halfL - t < 8) t = halfL
+
+    // Distância do centro de `o` a cada parede lateral de `c` (across = 0 no centro)
+    for (const side of ['top', 'bottom'] as const) {
+      const wall = side === 'top' ? -halfW : halfW
+      // O ramal chega por este lado se o seu intervalo em `across` cruzar a parede
+      const oNear = across - halfO
+      const oFar = across + halfO
+      const crossesWall = side === 'top'
+        ? (oNear < wall - 2 && oFar >= wall - TOUCH_MM)
+        : (oFar > wall + 2 && oNear <= wall + TOUCH_MM)
+      if (!crossesWall && !isBranchEndTrim) continue
+      // Em endTrim cortamos os dois lados para limpar a ponta do ramal
+      if (!crossesWall && isBranchEndTrim) {
+        raw.push({ side, from: Number(f.toFixed(2)), to: Number(t.toFixed(2)), endTrim: true })
+        continue
+      }
+      raw.push({
+        side,
+        from: Number(f.toFixed(2)),
+        to: Number(t.toFixed(2)),
+        ...(isBranchEndTrim ? { endTrim: true } : {}),
+      })
+    }
+  }
+  return mergeOpenings(raw)
+}
+
 /**
  * Calcula onde calhas perpendiculares encontram as paredes de `c` (uniões em T, L e cruz `+`):
  *  1. Na calha principal do T: corta os dentes e abre a parede exatamente na boca do ramal,
@@ -72,9 +199,20 @@ function mergeOpenings(raw: DuctOpening[]): DuctOpening[] {
  *  2. Na ponta do ramal que entra na calha principal: apara quaisquer dentes/paredes que
  *     ultrapassariam a face exterior da calha principal, deixando o canal do T totalmente livre.
  *  3. Calhas paralelas lado a lado não abrem passagem.
+ *
+ * Para `cableTrayStraight` com `panel3DPosition` (nave / maquete) usa geometria 3D;
+ * para calhas de painel mantém o caminho clássico por coordenadas do Esquema.
  */
 export function ductJunctionOpenings(c: ElectricalComponent, all: ElectricalComponent[]): DuctOpening[] {
   if (c.type !== 'cableDuct' && c.type !== 'cableTrayStraight') return []
+
+  // Esteiras livres da nave: detecção 3D (as coords do Esquema são só placeholders de inserção)
+  if (c.type === 'cableTrayStraight' && posOf(c)) {
+    const from3d = trayJunctionOpenings3D(c, all)
+    if (from3d.length) return from3d
+    // Se nenhum vizinho 3D tocou, cai no caminho 2D (útil para esteiras ainda no painel)
+  }
+
   const px = SCHEMATIC_PX_PER_MM
   const a = effectiveDuctAngleRad(c)
   const ux = Math.cos(a), uy = Math.sin(a), vx = -Math.sin(a), vy = Math.cos(a)
@@ -162,19 +300,11 @@ export function closedSpans(L: number, openings: DuctOpening[], side: 'top' | 'b
 
 /** Intervalos `[a, b]` do fundo (`base`) da calha sem sobreposição coplanar nas pontas que entram noutra calha. */
 export function closedFloorSpans(L: number, openings: DuctOpening[]): Array<[number, number]> {
-  const topTrims = openings.filter((o) => o.side === 'top' && o.endTrim)
-  const botTrims = openings.filter((o) => o.side === 'bottom' && o.endTrim)
-  if (!topTrims.length || !botTrims.length) return [[-L / 2, L / 2]]
-  const shared: DuctOpening[] = []
-  for (const a of topTrims) {
-    for (const b of botTrims) {
-      const f = Math.max(Math.min(a.from, a.to), Math.min(b.from, b.to))
-      const t = Math.min(Math.max(a.from, a.to), Math.max(b.from, b.to))
-      if (t - f > 0.2) shared.push({ side: 'top', from: f, to: t, endTrim: true })
-    }
-  }
-  if (!shared.length) return [[-L / 2, L / 2]]
-  const spans = closedSpans(L, shared, 'top')
+  const trims = openings.filter((o) => o.endTrim)
+  if (!trims.length) return [[-L / 2, L / 2]]
+  // Qualquer endTrim (um ou dois lados) remove o fundo nessa zona — evita o “corte” visual
+  // e a sobreposição do fundo do ramal dentro da esteira principal.
+  const spans = closedSpans(L, trims.map((o) => ({ ...o, side: 'top' as const })), 'top')
   return spans.length ? spans : [[-L / 2, L / 2]]
 }
 
