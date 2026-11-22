@@ -482,6 +482,7 @@ export function CableTrayStraight3D({
           ))}
         </group>
       ))}
+      <TrayCableBundle state={c.state} lengthMm={d.lengthMm} floorY={baseY + t} />
       {/* Tampa galvanizada opcional encaixada */}
       {d.withCover && (
         <mesh position={[0, H / 2 + 4 * U, 0]} castShadow receiveShadow>
@@ -494,6 +495,56 @@ export function CableTrayStraight3D({
           />
         </mesh>
       )}
+    </group>
+  )
+}
+
+/**
+ * Cabos e tubos assentes no fundo da esteira (`state.cables`: cor, Ø e tipo), lado a lado e
+ * filaçados por abraçadeiras de nylon preto a cada `state.tieEveryMm` (por omissão 250 mm).
+ */
+function TrayCableBundle({ state, lengthMm, floorY }: { state: Record<string, any>; lengthMm: number; floorY: number }) {
+  const cables = Array.isArray(state?.cables)
+    ? (state.cables as Array<{ color?: string; diameterMm?: number; kind?: string }>).filter((x) => x && Number(x.diameterMm) > 0).slice(0, 12)
+    : []
+  if (!cables.length) return null
+  const gap = 1.5
+  const widths = cables.map((x) => Number(x.diameterMm))
+  const total = widths.reduce((a, b) => a + b, 0) + gap * (cables.length - 1)
+  const tallest = Math.max(...widths)
+  const run = Math.max(0, lengthMm - 30)
+  let z = -total / 2
+  const lanes = cables.map((cable, i) => {
+    const dMm = widths[i]
+    const lane = { z: z + dMm / 2, dMm, color: cable.color || '#4b5563', tube: cable.kind === 'tube' }
+    z += dMm + gap
+    return lane
+  })
+  const every = Math.max(120, Number(state?.tieEveryMm) || 250)
+  const ties = Math.max(1, Math.floor(run / every))
+  const tieXs = Array.from({ length: ties }, (_, i) => (-run / 2 + (i + 0.5) * (run / ties)) * U)
+  const midY = floorY + (tallest / 2) * U
+  return (
+    <group name="esteira-cabos-filacados">
+      {lanes.map((lane, i) => (
+        <mesh key={i} position={[0, floorY + (lane.dMm / 2) * U, lane.z * U]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[(lane.dMm / 2) * U, (lane.dMm / 2) * U, run * U, 14]} />
+          <meshStandardMaterial
+            name={lane.tube ? 'Tubo de ar PU' : 'Cabo H07RN-F'}
+            color={lane.color}
+            roughness={lane.tube ? 0.3 : 0.7}
+            metalness={0}
+            transparent={lane.tube}
+            opacity={lane.tube ? 0.9 : 1}
+          />
+        </mesh>
+      ))}
+      {tieXs.map((x, i) => (
+        <mesh key={`tie-${i}`} name="Abraçadeira de nylon" position={[x, midY, 0]} rotation={[0, Math.PI / 2, 0]} scale={[1, (tallest / 2 + 1.2) / (total / 2 + 1.2), 1]}>
+          <torusGeometry args={[(total / 2 + 1.2) * U, 0.9 * U, 6, 28]} />
+          <meshStandardMaterial color="#111827" roughness={0.6} metalness={0} />
+        </mesh>
+      ))}
     </group>
   )
 }

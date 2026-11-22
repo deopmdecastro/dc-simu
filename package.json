@@ -218,6 +218,7 @@
     "test:maquetes": "tsx scripts/ready-maquettes-smoke.ts",
     "test:maquetes-ui": "node scripts/ready-maquettes-ui-smoke.mjs",
     "test:stamping-photo-ui": "node scripts/stamping-photo-ui.mjs",
+    "test:stamping-factory-ui": "node scripts/stamping-factory-ui.mjs",
     "build:maquettes-covers": "node scripts/ready-maquettes-covers.mjs",
     "test:mechatronics-ui": "node scripts/mechatronics-ui-smoke.mjs",
     "test:commands-geometry": "tsx scripts/commands-geometry-editing-smoke.ts",

@@ -6,7 +6,7 @@ import {
   MAQUETTE_PLATE_STATE,
   MAQUETTE_PLATE_TYPE,
   READY_MAQUETTES,
-  benchBaseUnits,
+  benchInFactoryHall,
   benchPartUnits,
   readyMaquetteById,
   readyMaquetteParts,
@@ -18,6 +18,11 @@ import { createComponent } from '../src/electrical/factory'
 import { canInsertComponent3D } from '../src/three/modelPaths'
 import { useSimStore } from '../src/store/useSimStore'
 import { isPanelBound } from '../src/three/panelBounds'
+import { componentPanelXY } from '../src/three/panelLayout'
+import { stampingWallPanelContent } from '../src/electrical/stampingWallPanel'
+
+/** Quadro geral de parede (QGD) montado com a maquete completa. */
+const QGD_COUNT = stampingWallPanelContent('t-').components.length
 
 /** Maquetes prontas: domínio próprio na biblioteca, montagem completa num só passo de histórico. */
 let passed = 0
@@ -66,7 +71,7 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
     const keys = parts.map((p) => p.key)
     assert.equal(new Set(keys).size, keys.length, `${mq.id} sem chaves repetidas`)
     for (const key of keys) assert.ok(layoutKeys.includes(key), `${mq.id}: ${key} pertence ao layout da bancada`)
-    assert.equal(mq.componentCount, parts.length + 1, `${mq.id}: contagem inclui a base`)
+    assert.equal(mq.componentCount, parts.length + 1 + (mq.wallPanel ? QGD_COUNT : 0), `${mq.id}: contagem inclui a base (e o QGD)`)
     assert.equal(mq.types[0], MAQUETTE_PLATE_TYPE, `${mq.id} começa pela base ranhurada`)
     assert.equal(new Set(mq.types).size, mq.types.length, `${mq.id} sem tipos repetidos`)
     for (const type of mq.types) {
@@ -76,14 +81,15 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 56 peças (35 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 92 peças + QGD (52 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
-  assert.equal(parts.length, 56, '56 peças: bancada (42, com o suporte do Cilindro 3) + quadro de campo (5) + ambiente fabril (9)')
-  assert.equal(full.componentCount, 57, '57 componentes no total')
+  assert.equal(QGD_COUNT, 47, 'QGD: invólucro, 4 calhas DIN, 7 calhas técnicas, corte 4P, 4 DPS, proteções, barramentos, 12 bornes X1 e 2 reservas')
+  assert.equal(parts.length, 92, '92 peças: bancada (42) + QE1 com calhas, relés, fonte e 29 bornes (43) + ambiente fabril (7)')
+  assert.equal(full.componentCount, 140, '140 componentes no total (base + 92 + QGD 47)')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
   // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
-  assert.equal(full.types.length, 35, 'os tipos do catálogo representados na bancada (base incluída)')
+  assert.equal(full.types.length, 52, 'os tipos do catálogo representados na bancada (base incluída)')
   assert.ok(!full.types.includes('mecWorkpiece' as any), 'o tarugo não é colocado sobre a base')
   assert.equal(MECHATRONICS_TYPES.length, 23, 'catálogo da maquete com 23 tipos (inclui o HZ20)')
   const keys = new Set(parts.map((p) => p.key))
@@ -99,31 +105,41 @@ check('3. Bancada completa = base + 56 peças (35 tipos) na adaptação fotográ
   for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 57 componentes colocados na bancada, num único passo de histórico', () => {
+check('4. Inserção: 140 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 57, '57 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 57, '57 componentes no projeto')
+  assert.equal(created.length, 140, '140 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 140, '140 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
-  const plate = after.components.find((c) => c.id === created[0])!
-  assert.equal(plate.type, MAQUETTE_PLATE_TYPE, 'primeiro componente é a base')
-  const base = benchBaseUnits(plate.schematicX, plate.schematicY)
-  assert.deepEqual(plate.panel3DPosition, base, 'base assente no chão do painel')
+  const qgd = after.components.find((c) => c.id === created[0])!
+  assert.equal(qgd.ref, 'QGD', 'o QGD de parede é montado primeiro (ancora a nave)')
+  assert.equal(qgd.state.hostLocation, undefined, 'QGD no plano da parede, não é peça de máquina')
+  const plate = after.components.find((c) => c.id === created[QGD_COUNT])!
+  assert.equal(plate.type, MAQUETTE_PLATE_TYPE, 'a base vem logo a seguir ao QGD')
+  const { base, env } = benchInFactoryHall({ ...componentPanelXY(qgd), heightMm: 1000 }, plate.state, after.factoryHall!.depthM * 10)
+  assert.deepEqual(after.factoryHall, { widthM: 8, depthM: 6, heightM: 3.5 }, 'nave à escala real para a esteira aérea')
+  assert.deepEqual(plate.panel3DPosition, base, 'mesa no centro da nave, com os pés no chão')
+  assert.deepEqual(plate.state.benchEnv, env, 'a posição da parede e do QGD fica gravada na base')
+  assert.ok(env.wallZmm < -2500 && env.panelXmm === 0, 'mesa a ~3 m da parede, centrada no QGD')
   assert.equal(plate.state.lengthMm, 700)
   assert.equal(plate.state.widthMm, 700)
 
   // Cada peça do layout existe exatamente na cota esperada (mm → unidades do painel).
-  const expected = new Set(readyMaquetteParts('atec-estampagem').map((part) => positionKey(benchPartUnits(base, part))))
-  const actual = after.components.filter((c) => c.id !== plate.id).map((c) => positionKey(c.panel3DPosition!))
-  assert.equal(actual.length, 56)
-  assert.deepEqual(new Set(actual), expected, 'as 56 peças estão nas posições do relatório')
-  for (const c of after.components) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
+  const bench = after.components.filter((c) => created.slice(QGD_COUNT + 1).includes(c.id))
+  const expected = new Set(readyMaquetteParts('atec-estampagem', undefined, env).map((part) => positionKey(benchPartUnits(base, part))))
+  const actual = bench.map((c) => positionKey(c.panel3DPosition!))
+  assert.equal(actual.length, 92)
+  assert.deepEqual(new Set(actual), expected, 'as 92 peças estão nas posições do relatório')
+  for (const c of bench) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
+  const refs = after.components.map((c) => c.ref)
+  assert.equal(new Set(refs).size, refs.length, 'TAGs sem repetições entre o QGD (X1.x) e o QE1 (X20…X24)')
+  assert.ok(['X20', 'X21.1', 'X21.12', 'X22.6', 'X23.4', 'X24.6'].every((r) => refs.includes(r)), 'réguas do QE1 com TAG por borne')
 
   // Estado das peças veio do layout (etiquetas B1/B8, ilhas C1A/C2A, gaveta virada para trás…)
   const byType = (type: string) => after.components.filter((c) => c.type === type)
@@ -137,9 +153,9 @@ check('4. Inserção: 57 componentes colocados na bancada, num único passo de h
 
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 57 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 140 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 57, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 140, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {
@@ -178,9 +194,10 @@ check('6. Fotografia: modelos do catálogo, HMI exterior, operadores independent
   assert.equal(new Set(ops.map(c => c.panel3DPosition!.y)).size, 2, 'duas filas')
   assert.ok(ops.every(c => !isPanelBound(c)), 'operadores montados na máquina')
   assert.ok(isPanelBound(createComponent('pushButtonXb2No', undefined, undefined, 0, 0, 0)), 'botão solto mantém o comportamento normal do painel')
-  const cabinet = components.find(c => c.type === 'panelEnclosure')!
-  assert.ok(cabinet.panel3DPosition!.y < 0)
-  assert.equal(cabinet.state.doorOpen, false)
+  const cabinet = components.find(c => c.type === 'panelEnclosure' && String(c.state.labelText).startsWith('QE1'))!
+  const plateC = components.find(c => c.type === MAQUETTE_PLATE_TYPE)!
+  assert.ok(cabinet.panel3DPosition!.y < plateC.panel3DPosition!.y, 'QE1 por baixo do tampo')
+  assert.equal(cabinet.state.doorOpen, true, 'QE1 aberto: relés, fonte e bornes à vista')
   const saved = useSimStore.getState().saveJSON()
   useSimStore.getState().newProject('all')
   useSimStore.getState().loadJSON(saved)

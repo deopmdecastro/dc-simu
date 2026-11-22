@@ -3682,7 +3682,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const railComponents = components.filter((c) => positions[c.id])
   const offRail = components.filter((c) => !positions[c.id] && !isMountingRail(c.type) && !isPanelAccessoryType(c.type))
   const accessories = components.filter((c) => isPanelAccessoryType(c.type))
-  const hasEnclosure = accessories.some((c) => c.type === 'panelEnclosure')
+  // Só os quadros de parede ancoram a chapa e o pavilhão; um quadro de máquina (sob uma bancada) é uma peça livre.
+  const isWallEnclosure = (c: ElectricalComponent) => c.type === 'panelEnclosure' && c.state?.hostLocation !== 'machine'
+  const hasEnclosure = accessories.some(isWallEnclosure)
 
   const frontPivot = (component: ElectricalComponent): [number, number, number] => {
     if (component.type === 'motor3ph' || component.type === 'motor1ph') return [0, MOTOR_CENTER_Y, 0.7]
@@ -3778,7 +3780,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       }
       return [px, py] as const
     }
-    if (isMountingRail(component.type)) {
+    // Calhas DIN e calhas técnicas dentro de um quadro de máquina: posição 3D explícita, como os aparelhos.
+    if ((isMountingRail(component.type) || component.type === 'cableDuct') && component.state?.hostLocation === 'machine' && component.panel3DPosition) {
+      panelPivots[component.id] = new THREE.Vector3(component.panel3DPosition.x, component.panel3DPosition.y, component.panel3DPosition.z)
+    } else if (isMountingRail(component.type)) {
       const half = componentHalfExtents(component, baseOrientationFor(component))
       let px = x, py = y
       ;[px, py] = clampInsideAnyEnclosure(px, py, half)
@@ -4011,7 +4016,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const factoryWallFrontZ = hasEnclosure
     ? PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM - 0.02
     : PLATE_Z - PLATE_THICKNESS / 2 - 0.02
-  const primaryEnclosure = accessories.find((item) => item.type === 'panelEnclosure')
+  const primaryEnclosure = accessories.find(isWallEnclosure)
   const panelOnlyBox = (() => {
     const b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
     for (const component of components) {
@@ -4046,7 +4051,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     : -4.8
 
   // Assentar máquinas de chão (motores, bombas, reservatórios, tapetes rolantes) e estruturas de chão (paredes, pilares)
-  const enclosures = accessories.filter((item) => item.type === 'panelEnclosure')
+  const enclosures = accessories.filter(isWallEnclosure)
   for (const component of components) {
     if (!isFloorStandingComponent(component) || component.panelMount?.enclosureId) continue
     const pivot = panelPivots[component.id]
@@ -5612,7 +5617,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {accessories.map((c) => {
           const plateFrontZ = c.type === 'panelEnclosure' && c.state.hostLocation === 'machine'
             ? (ENCLOSURE_PLATE_FRONT_MM - enclosureDimsOf(c.state).depthMm / 2) * PANEL_UNITS_PER_MM
-            : PLATE_FRONT_Z - panelPivots[c.id].z
+            // Calha técnica num quadro de máquina: o pivô é o centro da calha; o fundo assenta meia altura atrás.
+            : c.type === 'cableDuct' && c.state.hostLocation === 'machine'
+              ? -(Number(c.state.heightMm) || 60) * PANEL_UNITS_PER_MM / 2
+              : PLATE_FRONT_Z - panelPivots[c.id].z
           const label = <Label text={c.ref} position={[0, 0, 0]} size={0.075} color="#475569" />
           return wrapOriented(c, c.type === 'panelEnclosure'
             ? <Enclosure3D c={c} interactive={assemblyControls} plateFrontZ={plateFrontZ} label={label} coverOccupants={enclosureCoverOccupants(c)} />

@@ -33,6 +33,8 @@ export interface BenchPlacement {
   z: number
   state?: Record<string, unknown>
   orientation?: ComponentViewOrientation
+  /** TAG fixa (réguas de bornes X21.1…); sem ela o projeto atribui a próxima livre. */
+  ref?: string
 }
 
 /** Eixo da torre do manipulador na base. */
@@ -47,7 +49,25 @@ export const BENCH_RAMP_LENGTHS_MM = [170, 180, 140] as const
 const FC_ABOVE_SEAT_MM = 18
 const FC_FROM_POCKET_MM = 41
 
-export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlacement[] {
+/** Réguas de bornes do QE1 (X20 alimentação; X21… um sinal de campo por borne, marcação na plaqueta ZB). */
+export const BENCH_FIELD_TERMINALS: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['X21', ['B1', 'B2', 'B3', 'B4', 'B6', 'B7', 'B8', 'B9', 'B11', 'FC1', 'FC2', 'S.IND']],
+  ['X22', ['Y1', 'Y2', 'Y3', 'Y4', 'Y5', '0V']],
+  ['X23', ['M+', 'M-', 'ENC A', 'ENC B']],
+  ['X24', ['EMERG', 'AUTO', 'REARME', 'CICLO', 'STOP', 'START']],
+]
+
+/**
+ * Onde está a parede e o quadro geral (QGD), em mm relativos ao centro da base. Sem estes dados
+ * assume-se a montagem por omissão: QGD centrado atrás da mesa, parede a 1,2 m da traseira.
+ */
+export interface BenchEnvironment {
+  wallZmm: number
+  panelXmm: number
+  panelTopMm: number
+}
+
+export function stampingBenchLayout(plateState?: Record<string, any>, env?: BenchEnvironment): BenchPlacement[] {
   const plate = slotPlateDimsOf(plateState)
   const top = plate.thicknessMm / 2
   const h = (type: ComponentType, state?: Record<string, unknown>) => mechatronicsSizeMm(type, state)!.y
@@ -164,70 +184,86 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
   })
 
   // ---------------------------------------------------------------------------
-  // Quadro sob a mesa (QE de máquina) — bornes de campo, relés, fonte 24 V,
-  // relé de segurança, calhas e batentes. Nenhuma válvula é pilotada diretamente:
-  // as saídas passam por relés.
+  // QE1 · quadro de campo sob a mesa (porta aberta): calhas técnicas, 2 calhas DIN,
+  // fonte 24 V, relé de segurança KS1 e relés de interface K1–K6 (nenhuma saída
+  // pilota uma válvula diretamente) e réguas de bornes etiquetadas para os sensores,
+  // as válvulas, o motor M1 e os botões. Bucins à esquerda (campo) e em cima (QGD).
   // ---------------------------------------------------------------------------
   if (plate.legs) {
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
     const cabinetH = Math.min(520, leg - 110)
-    if (cabinetH >= 200) {
-      const cabinetY = -55 - cabinetH / 2
+    if (cabinetH >= 300) {
+      const cab = { w: 480, h: cabinetH, d: 200 }
+      const cabinetY = -55 - cab.h / 2
       const cabinetZ = -plate.widthMm / 2 + 145
-      // Quadro de campo sob a mesa com etiqueta e bucins de entrada
       list.push({
         key: 'cabinet', type: 'panelEnclosure', x: 0, y: cabinetY, z: cabinetZ,
         state: {
-          hostLocation: 'machine', widthMm: 480, heightMm: cabinetH, depthMm: 200,
-          doorOpen: false, plateFinish: 'Aço galvanizado',
+          hostLocation: 'machine', widthMm: cab.w, heightMm: cab.h, depthMm: cab.d,
+          doorOpen: true, hingeSide: 'left', plateFinish: 'Aço galvanizado',
           labelText: 'QE1 · CAMPO ESTAMPAGEM',
           holes: [
-            { id: 'field-entry-left', face: 'left', offsetXmm: 40, offsetYmm: 20, diameterMm: 32, glandType: 'M32' },
-            { id: 'field-entry-right', face: 'right', offsetXmm: 40, offsetYmm: 20, diameterMm: 25, glandType: 'M25' },
-            { id: 'field-entry-top', face: 'top', offsetXmm: 0, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
+            { id: 'field-entry-left', face: 'left', offsetXmm: 40, offsetYmm: -150, diameterMm: 32, glandType: 'M32' },
+            { id: 'field-entry-left-2', face: 'left', offsetXmm: -40, offsetYmm: -150, diameterMm: 25, glandType: 'M25' },
+            { id: 'supply-top', face: 'top', offsetXmm: 150, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
           ],
         },
       })
-      // Travessas de suporte do quadro
-      for (const [key, y] of [['upper', -75], ['lower', -35 - cabinetH]] as const) {
-        list.push({
-          key: `cabinet-rail-${key}`, type: 'mecAluProfile', x: 0, y, z: cabinetZ - 120,
-          state: { sectionMm: 40, lengthMm: plate.lengthMm - 90, orientation: 'horizontal', endCaps: true, brackets: true },
-        })
-      }
-      // Calha vertical de descida de cabos de campo
+      for (const [key, y] of [['upper', -75], ['lower', -35 - cab.h]] as const) list.push({
+        key: `cabinet-rail-${key}`, type: 'mecAluProfile', x: 0, y, z: cabinetZ - 120,
+        state: { sectionMm: 40, lengthMm: plate.lengthMm - 90, orientation: 'horizontal', endCaps: true, brackets: true },
+      })
+      // Descida dos cabos de campo pela perna traseira esquerda até aos bucins laterais.
       const dropX = -plate.lengthMm / 2 + 40
-      const runLength = Math.max(40, -200 - dropX)
       list.push({
-        key: 'ductDrop', type: 'mecBenchDuct', x: dropX, y: (20 + cabinetY - 17.5) / 2, z: cabinetZ + 30,
-        state: { lengthMm: 20 - cabinetY + 17.5, widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO → QE1' },
+        key: 'ductDrop', type: 'mecBenchDuct', x: dropX, y: (20 + cabinetY - 150) / 2, z: cabinetZ + 30,
+        state: { lengthMm: Math.round(20 - cabinetY + 150), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO → QE1' },
         orientation: { x: 0, y: 0, z: 90 },
       })
       list.push({
-        key: 'ductUnder', type: 'mecBenchDuct', x: dropX + runLength / 2, y: cabinetY, z: cabinetZ + 30,
-        state: { lengthMm: runLength, widthMm: 30, heightMm: 35, coverOn: true, labelText: 'RESERVA CABOS' },
+        key: 'ductUnder', type: 'mecBenchDuct', x: (dropX - cab.w / 2) / 2, y: cabinetY - 150, z: cabinetZ + 30,
+        state: { lengthMm: Math.round(-cab.w / 2 - dropX), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO' },
       })
-      // Fonte 24 V DC no interior do quadro de campo (posição relativa aproximada)
-      list.push({
-        key: 'psu24', type: 'powerSupplyProauto24A',
-        x: -80, y: cabinetY + cabinetH * 0.28, z: cabinetZ + 40,
-        state: { labelText: 'PSU 24V · 5A', hostLocation: 'machine' },
-      })
-      // Relés de interface (saídas do PLC/HMI não ativam válvulas diretamente)
-      const relayYs = [cabinetY + cabinetH * 0.05, cabinetY - cabinetH * 0.12, cabinetY - cabinetH * 0.28]
-      ;['K1 · CIL1', 'K2 · PRENSA', 'K3 · BRAÇO'].forEach((tag, i) => {
-        list.push({
-          key: `relay-${i + 1}`, type: 'relayFinder5534',
-          x: 40, y: relayYs[i], z: cabinetZ + 35,
-          state: { labelText: tag, hostLocation: 'machine' },
-        })
-      })
-      // Relé de segurança
-      list.push({
-        key: 'safetyRelay', type: 'safetyRelay',
-        x: 110, y: cabinetY + cabinetH * 0.18, z: cabinetZ + 35,
-        state: { labelText: 'KS1 · SEGURANÇA', hostLocation: 'machine' },
-      })
+      // Placa de montagem: a 14 mm da traseira; calha DIN 7,5 mm; aparelhos encostados à calha.
+      const plateFront = cabinetZ - cab.d / 2 + 14
+      const onRail = (depthMm: number) => plateFront + 7.5 + depthMm / 2
+      const inside = (key: string, type: ComponentType, x: number, y: number, z: number, state: Record<string, unknown> = {}): BenchPlacement =>
+        ({ key, type, x, y: cabinetY + y, z, state: { hostLocation: 'machine', ...state } })
+      const usable = cab.w - 40
+      // Calhas técnicas 40 × 60 (cima, meio, baixo) e calhas DIN TS35 (relés e bornes).
+      for (const [key, y] of [['top', cab.h / 2 - 45], ['mid', 20], ['bottom', -cab.h / 2 + 50]] as const) {
+        list.push(inside(`cabinet-duct-${key}`, 'cableDuct', 0, y, plateFront + 30, { lengthMm: usable, widthMm: 40, heightMm: 60, coverOn: true }))
+      }
+      const railA = 120, railB = -80
+      for (const [key, y] of [['relays', railA], ['terminals', railB]] as const) {
+        list.push(inside(`cabinet-din-${key}`, 'dinRail15x55', 0, y, plateFront + 3.75, { lengthMm: usable, profile: '35×15 mm', perforated: true, finish: 'Aço galvanizado' }))
+      }
+      // Fila A: fonte 24 V · relé de segurança · relés de interface das válvulas e do motor.
+      const sizeOf = (type: ComponentType) => COMPONENT_PHYSICAL_SIZE_MM[type]!
+      let ax = -usable / 2 + 4
+      const putA = (key: string, type: ComponentType, state: Record<string, unknown>) => {
+        const s = sizeOf(type)
+        list.push(inside(key, type, ax + s.width / 2, railA, onRail(s.depth), state))
+        ax += s.width + 2
+      }
+      putA('psu24', 'powerSupplyProauto24A', { labelText: 'G1 · 24 V DC 5 A' })
+      putA('safetyRelay', 'safetyRelay', { labelText: 'KS1 · SEGURANÇA (EMERG.)' })
+      ;['K1 · Y1 CIL.1', 'K2 · Y2 CIL.3', 'K3 · Y3 PRENSA', 'K4 · Y4 BRAÇO Z', 'K5 · Y5 VÁCUO', 'K6 · M1 MOTOR']
+        .forEach((tag, i) => putA(`relay-${i + 1}`, 'relayFinder5534', { labelText: tag }))
+      // Fila B: bornes de alimentação + réguas X2 (sensores), X3 (válvulas), X4 (motor), X5 (botões).
+      let bx = -usable / 2 + 4
+      const pti = sizeOf('terminalPhoenixPti6')
+      const power = sizeOf('terminalSet24v')
+      list.push({ ...inside('terminals-x20', 'terminalSet24v', bx + power.width / 2, railB, onRail(power.depth), { labelText: 'X20 · +24 V / 0 V / PE' }), ref: 'X20' })
+      bx += power.width + 6
+      for (const [strip, markers] of BENCH_FIELD_TERMINALS) {
+        markers.forEach((marker, i) => list.push({
+          ...inside(`terminals-${strip}-${i + 1}`, 'terminalPhoenixPti6', bx + (i + 0.5) * pti.width, railB, onRail(pti.depth),
+            { markerText: marker, labelText: `${strip}.${i + 1} · ${marker}` }),
+          ref: `${strip}.${i + 1}`,
+        }))
+        bx += markers.length * pti.width + 6
+      }
     }
   }
 
@@ -242,77 +278,70 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
   })
 
   // ---------------------------------------------------------------------------
-  // Ambiente fabril à volta da bancada (coordenadas relativas ao centro da base;
-  // o chão fica por baixo dos pés da mesa). Cotas estimadas, editáveis:
-  // - parede em painel a 650 mm da traseira da mesa, com o quadro geral a 1–2 m do chão;
-  // - compressor no chão, à esquerda, encostado à parede;
-  // - esteira aérea ao longo da parede (2,2 m), ramal até à mesa sobre um pilar HEB
-  //   e descidas verticais para a bancada e para o compressor;
-  // - FRL de entrada de ar preso ao pé dianteiro esquerdo da mesa.
+  // Ambiente fabril: a mesa fica no centro da nave, à frente do QGD de parede.
+  // - compressor no chão, encostado à parede, à esquerda do QGD;
+  // - esteira aérea a 2,2 m: sobe do topo do QGD, corre ao longo da parede até ao compressor
+  //   e segue num ramal (apoiado num pilar HEB) até à traseira da mesa;
+  // - cabos da maquete e do compressor e o tubo de ar filaçados nas esteiras;
+  // - FRL com manómetro no pé traseiro esquerdo da mesa (entrada de ar).
   // ---------------------------------------------------------------------------
   const legMm = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
   const floor = -top - legMm
-  const wallFrontZ = -plate.widthMm / 2 - 650
-  const wall = { lengthMm: 3000, heightMm: 2600, thicknessMm: 150 }
-  const trayBottom = floor + 2215
+  const wallZ = env?.wallZmm ?? -plate.widthMm / 2 - 1200
+  const panelX = env?.panelXmm ?? 0
+  const panelTop = env?.panelTopMm ?? floor + 1460
+  const trayBottom = Math.max(floor + 2215, panelTop + 220)
   const trayY = trayBottom + 35 // centro da esteira (abas de 60 mm + fundo)
   const comp = pneumaticComponentSizeMm('airCompressor')!
   const frl = pneumaticComponentSizeMm('pneumaticFrl')!
-  const compX = -plate.lengthMm / 2 - 750
-  const wallTray = { from: compX - comp.x / 2 - 110, to: 100 }
-  const branch = { from: wallFrontZ + 260, to: -plate.widthMm / 2 }
+  const compX = panelX - 400 - 250 - comp.x / 2
+  const compDropX = compX - comp.x / 2 - 60
+  const wallTrayZ = wallZ + 160
+  const branch = { from: wallTrayZ + 100, to: -plate.widthMm / 2 }
+  // Cabos e tubos dentro de cada esteira (lidos pelo desenho 3D da esteira, com abraçadeiras).
+  const BENCH_CABLE = { kind: 'cable', color: '#9ca3af', diameterMm: 11, label: 'H07RN-F 3G2,5 · MAQUETE' }
+  const COMP_CABLE = { kind: 'cable', color: '#1f2937', diameterMm: 10, label: 'H07RN-F 3G2,5 · COMPRESSOR' }
+  const AIR_TUBE = { kind: 'tube', color: '#2563eb', diameterMm: 10, label: 'PU Ø10 · AR COMPRIMIDO' }
+  const laced = (cables: object[]) => ({ cables, tieEveryMm: 250 })
 
   list.push({
-    key: 'factoryWall', type: 'industrialWall', x: -400, y: floor + wall.heightMm / 2, z: wallFrontZ - wall.thicknessMm / 2,
-    state: { ...wall, finish: 'panel', skirting: true, labelText: 'PAREDE FABRIL' },
-  })
-  list.push({
-    key: 'wallPanel', type: 'panelEnclosure', x: -450, y: floor + 1500, z: wallFrontZ + 125,
-    state: {
-      hostLocation: 'machine', widthMm: 800, heightMm: 1000, depthMm: 250, doorOpen: false,
-      plateFinish: 'Aço galvanizado', labelText: 'QE · GERAL ESTAMPAGEM',
-      holes: [
-        { id: 'main-in', face: 'top', offsetXmm: -120, offsetYmm: 0, diameterMm: 40, glandType: 'M40' },
-        { id: 'out-to-bench', face: 'top', offsetXmm: 120, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
-        { id: 'out-to-compressor', face: 'top', offsetXmm: 0, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
-      ],
-    },
-  })
-  list.push({
-    key: 'compressor', type: 'airCompressor', x: compX, y: floor + comp.y / 2, z: wallFrontZ + 40 + comp.z / 2,
+    key: 'compressor', type: 'airCompressor', x: compX, y: floor + comp.y / 2, z: wallZ + 40 + comp.z / 2,
     state: { labelText: 'COMPRESSOR · AR COMPRIMIDO' },
   })
   list.push({
-    key: 'airTreatment', type: 'pneumaticFrl', x: -plate.lengthMm / 2 - frl.x / 2 - 2, y: -top - 30 - frl.y / 2, z: plate.widthMm / 2 - 20,
+    key: 'airTreatment', type: 'pneumaticFrl', x: -plate.lengthMm / 2 - frl.x / 2 - 2, y: -top - 30 - frl.y / 2, z: -plate.widthMm / 2 + 60,
     state: { labelText: 'FRL · ENTRADA DE AR' },
   })
-
-  // Esteira aérea ao longo da parede: por cima do quadro geral, do compressor até ao ramal da mesa.
-  list.push({
-    key: 'tray-wall', type: 'cableTrayStraight', x: (wallTray.from + wallTray.to) / 2, y: trayY, z: wallFrontZ + 160,
-    state: { lengthMm: wallTray.to - wallTray.from, widthMm: 200, sideHeightMm: 60, withCover: true, labelText: 'QE → BANCADA / COMPRESSOR' },
+  // Subida do topo do QGD até à esteira aérea (cabos da maquete e do compressor).
+  const riser = trayBottom - panelTop - 20
+  if (riser >= 300) list.push({
+    key: 'tray-riser-qgd', type: 'cableTrayStraight', x: panelX, y: panelTop + 20 + riser / 2, z: wallZ + 125,
+    state: { lengthMm: Math.round(riser), widthMm: 200, sideHeightMm: 60, withCover: false, labelText: 'QGD → ESTEIRA', ...laced([BENCH_CABLE, COMP_CABLE]) },
+    orientation: { x: 0, y: 0, z: 90 },
   })
-  // Ramal até à traseira da mesa (eixo Z), apoiado num pilar HEB 200.
+  list.push({
+    key: 'tray-wall', type: 'cableTrayStraight', x: (compDropX - 50 + panelX + 150) / 2, y: trayY, z: wallTrayZ,
+    state: { lengthMm: Math.round(panelX + 150 - (compDropX - 50)), widthMm: 200, sideHeightMm: 60, withCover: false, labelText: 'ESTEIRA AÉREA · PAREDE', ...laced([BENCH_CABLE, COMP_CABLE, AIR_TUBE]) },
+  })
   list.push({
     key: 'tray-to-bench', type: 'cableTrayStraight', x: 0, y: trayY, z: (branch.from + branch.to) / 2,
-    state: { lengthMm: branch.to - branch.from, widthMm: 150, sideHeightMm: 60, withCover: true, labelText: 'QE → BANCADA' },
+    state: { lengthMm: Math.round(branch.to - branch.from), widthMm: 150, sideHeightMm: 60, withCover: false, labelText: 'QGD → BANCADA', ...laced([BENCH_CABLE, AIR_TUBE]) },
     orientation: { x: 0, y: 90, z: 0 },
   })
   list.push({
     key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: (branch.from + branch.to) / 2 - 45,
     state: { heightMm: Math.round(trayBottom - floor), profile: 'HEB200', finish: 'safetyYellow' },
   })
-  // Descidas verticais: para a calha traseira da mesa e para o compressor.
   const benchDrop = trayBottom - top
   list.push({
     key: 'tray-drop-bench', type: 'cableTrayStraight', x: 0, y: top + benchDrop / 2, z: -plate.widthMm / 2 - 55,
-    state: { lengthMm: Math.round(benchDrop), widthMm: 100, sideHeightMm: 60, withCover: true, labelText: 'DESCIDA BANCADA' },
+    state: { lengthMm: Math.round(benchDrop), widthMm: 100, sideHeightMm: 60, withCover: false, labelText: 'DESCIDA BANCADA', ...laced([BENCH_CABLE, AIR_TUBE]) },
     orientation: { x: 0, y: 0, z: 90 },
   })
   const compDropBottom = floor + comp.y + 80
   list.push({
-    key: 'tray-drop-compressor', type: 'cableTrayStraight', x: compX - comp.x / 2 - 60, y: (trayBottom + compDropBottom) / 2, z: wallFrontZ + 160,
-    state: { lengthMm: Math.round(trayBottom - compDropBottom), widthMm: 100, sideHeightMm: 60, withCover: true, labelText: 'DESCIDA COMPRESSOR' },
+    key: 'tray-drop-compressor', type: 'cableTrayStraight', x: compDropX, y: (trayBottom + compDropBottom) / 2, z: wallTrayZ,
+    state: { lengthMm: Math.round(trayBottom - compDropBottom), widthMm: 100, sideHeightMm: 60, withCover: false, labelText: 'DESCIDA COMPRESSOR', ...laced([COMP_CABLE, AIR_TUBE]) },
     orientation: { x: 0, y: 0, z: 90 },
   })
 

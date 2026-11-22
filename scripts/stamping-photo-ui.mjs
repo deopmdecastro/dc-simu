@@ -59,7 +59,8 @@ try {
   await writeFile(path.join(output, 'initial-geometry.json'), JSON.stringify(up, null, 2))
   const assert = (ok, name) => { if (!ok) throw new Error(name); console.log(`PASS ${name}`) }
   assert(up.hmiNormal[0] > 0.99, 'HMI com ecrã virado para o exterior (+X)')
-  assert(up.cabinet.max[1] < -0.5 && up.cabinet.min[1] > -7.4, 'Quadro sob a mesa e acima do chão')
+  const plateY = up.plate.point[1]
+  assert(up.cabinet.max[1] < plateY - 0.5 && up.cabinet.min[1] > plateY - 7.4, 'Quadro sob a mesa e acima do chão')
   const operators = Object.values(up).filter(v => v?.desired && ['pushButtonXb2No', 'pushButtonXb2Nc', 'pushButtonXb2Blue', 'selectorSchneiderXa2ed33', 'emergencyButton'].includes(v.type))
   assert(operators.length === 6, 'Seis operadores reais da biblioteca')
   for (const op of operators) {

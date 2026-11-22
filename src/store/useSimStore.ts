@@ -82,7 +82,10 @@ import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBr
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
-import { benchBaseUnits, benchPartUnits, MAQUETTE_PLATE_TYPE, readyMaquetteById, readyMaquetteParts, type ReadyMaquetteId } from '../electrical/readyMaquettes'
+import { benchBaseUnits, benchInFactoryHall, benchPartUnits, MAQUETTE_PLATE_TYPE, readyMaquetteById, readyMaquetteParts, type ReadyMaquetteId } from '../electrical/readyMaquettes'
+import { stampingWallPanelContent } from '../electrical/stampingWallPanel'
+/** Nave fabril da maquete pronta com quadro de parede (m). */
+const MAQUETTE_FACTORY_HALL = { widthM: 8, depthM: 6, heightM: 3.5 }
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradeRemovedControlTypes, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
 import {
   canTerminalHaveJumper,
@@ -115,7 +118,7 @@ import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils
 import { writeElectricalCrossClipboard, readElectricalCrossClipboard } from '../clipboard/crossProjectClipboard'
 import { canInsertComponent3D, getComponentModelSpec, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { PlannedComponent } from '../excel/componentSheet'
-import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
+import { SCHEMATIC_ORIGIN, componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { findMountTarget, isThermalRelay, syncMounted } from '../three/thermalMount'
 import { normalizeFactoryHallSize, type FactoryHallSize } from '../three/factoryPhysics'
@@ -3030,7 +3033,6 @@ export const useSimStore = create<Store>((set, get) => {
       get().pushEvent('warning', `Maquete desconhecida: ${id}.`)
       return []
     }
-    const parts = readyMaquetteParts(mq.id, mq.plateState)
     if (!canInsertComponent3D(MAQUETTE_PLATE_TYPE)) {
       get().pushEvent('warning', `Maquete bloqueada: sem representação 3D para a base ${MAQUETTE_PLATE_TYPE}.`)
       return []
@@ -3041,11 +3043,26 @@ export const useSimStore = create<Store>((set, get) => {
     // Um único passo de histórico para a bancada inteira: Ctrl+Z desmonta tudo de uma vez.
     get().commitHistory()
     const created: string[] = []
-    const plateId = get().addComponent(MAQUETTE_PLATE_TYPE, originX, originY, { history: false, events: false, state: mq.plateState })
+    // Quadro geral de parede (QGD) primeiro: é ele que ancora a parede, o chão e o centro da nave.
+    let hall: ReturnType<typeof benchInFactoryHall> | null = null
+    if (mq.wallPanel) {
+      const panel = stampingWallPanelContent(`mq${nanoid(6)}-`, originX - 420, originY - 260)
+      set((s) => ({ components: [...s.components, ...panel.components], wires: [...s.wires, ...panel.wires] }))
+      created.push(...panel.components.map((c) => c.id))
+      const enc = panel.components.find((c) => c.id === panel.enclosureId)!
+      // Nave à escala real (8 × 6 × 3,5 m) para a esteira aérea a 2,2 m; respeita um tamanho já escolhido.
+      if (!get().factoryHall) set({ factoryHall: MAQUETTE_FACTORY_HALL })
+      const depthU = get().factoryHall!.depthM * 10
+      hall = benchInFactoryHall({ ...componentPanelXY(enc), heightMm: Number(enc.state.heightMm) || 1000 }, mq.plateState, depthU)
+    }
+    const parts = readyMaquetteParts(mq.id, mq.plateState, hall?.env)
+    const plateId = get().addComponent(MAQUETTE_PLATE_TYPE, originX, originY, {
+      history: false, events: false, state: hall ? { ...mq.plateState, benchEnv: hall.env } : mq.plateState,
+    })
     if (!plateId) return []
     created.push(plateId)
     const plate = get().components.find((c) => c.id === plateId)
-    const base = benchBaseUnits(plate?.schematicX, plate?.schematicY)
+    const base = hall?.base ?? benchBaseUnits(plate?.schematicX, plate?.schematicY)
     get().updateComponentRaw(plateId, { panel3DPosition: base })
     parts.forEach((part, i) => {
       const compId = get().addComponent(part.type, originX + 40 + (i % 5) * 140, originY + 180 + Math.floor(i / 5) * 160, {
@@ -3054,7 +3071,9 @@ export const useSimStore = create<Store>((set, get) => {
         state: part.state ? { ...part.state } : undefined,
       })
       if (!compId) return
-      get().updateComponentRaw(compId, { panel3DPosition: benchPartUnits(base, part), ...(part.orientation ? { viewOrientation: part.orientation } : {}) })
+      // TAG fixa só se ainda estiver livre (uma segunda maquete fica com a numeração automática).
+      const ref = part.ref && !get().components.some((c) => c.ref === part.ref) ? { ref: part.ref } : {}
+      get().updateComponentRaw(compId, { panel3DPosition: benchPartUnits(base, part), ...(part.orientation ? { viewOrientation: part.orientation } : {}), ...ref })
       created.push(compId)
     })
     set({ selectedComponentIds: created, selectedWireId: null, selectedTerminalId: null, dirty: true })
