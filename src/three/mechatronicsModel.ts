@@ -28,6 +28,7 @@ export const MECHATRONICS_TYPES = [
   'mecOperatorBox',
   'mecSignalTower',
   'mecBenchDuct',
+  'mecHz20VacuumCylinder',
 ] as const
 
 export type MechatronicsComponentType = typeof MECHATRONICS_TYPES[number]
@@ -72,6 +73,22 @@ export const MEC_DIMS = {
   operatorBox: { widthMm: 168, heightMm: 116, depthMm: 94 },
   signalTower: { baseMm: 58, heightMm: 330, lensDiameterMm: 50 },
   benchDuct: { lengthMm: 700, widthMm: 35, heightMm: 45 },
+  /** TECHNIK HZ20 series — cilindro guiado com ventosa (duplo ou simples efeito). Cotas base HZ20D15-15. */
+  hz20: {
+    bodyWidthMm: 42,
+    bodyDepthMm: 42,
+    bodyHeightMm: 48,
+    guideRodDiameterMm: 6,
+    guideRodSpacingMm: 28,
+    pistonRodDiameterMm: 10,
+    strokeMm: 15,
+    flangeWidthMm: 48,
+    flangeHeightMm: 22,
+    flangeDepthMm: 36,
+    cupDiameterMm: 32,
+    cupHeightMm: 18,
+    portThread: 'M5',
+  },
 } as const
 
 /**
@@ -158,6 +175,33 @@ export function benchDuctDimsOf(state?: Record<string, any>) {
   }
 }
 
+/** TECHNIK HZ20 — cilindro guiado com ventosa. Inspector expõe curso, diâmetro da ventosa e tipo de efeito. */
+export function hz20DimsOf(state?: Record<string, any>) {
+  const h = MEC_DIMS.hz20
+  return {
+    bodyWidthMm: h.bodyWidthMm,
+    bodyDepthMm: h.bodyDepthMm,
+    bodyHeightMm: h.bodyHeightMm,
+    guideRodDiameterMm: h.guideRodDiameterMm,
+    guideRodSpacingMm: h.guideRodSpacingMm,
+    pistonRodDiameterMm: h.pistonRodDiameterMm,
+    strokeMm: clampNum(state?.strokeMm, 5, 50, h.strokeMm),
+    flangeWidthMm: h.flangeWidthMm,
+    flangeHeightMm: h.flangeHeightMm,
+    flangeDepthMm: h.flangeDepthMm,
+    cupDiameterMm: clampNum(state?.cupDiameterMm, 16, 50, h.cupDiameterMm),
+    cupHeightMm: clampNum(state?.cupHeightMm, 10, 30, h.cupHeightMm),
+    /** 'double' = duplo efeito (HZ20D…), 'single' = simples efeito (HZ20S…). */
+    acting: state?.acting === 'single' ? 'single' as const : 'double' as const,
+    hasVacuumPort: state?.hasVacuumPort !== false,
+    modelTag: textOf(state?.modelTag) || (state?.acting === 'single' ? 'HZ20S15-15' : 'HZ20D15-15V'),
+  }
+}
+
+function textOf(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
 export const MAGAZINE_CAPACITY = 6
 
 /** Volume (mm) de cada peça — o pivô 3D é o centro deste volume. */
@@ -236,6 +280,11 @@ export function mechatronicsSizeMm(type: string, state?: Record<string, any>): {
     case 'mecDragChain': {
       const d = dragChainDimsOf(state)
       return { x: d.lengthMm + d.bendRadiusMm + d.linkHeightMm, y: d.bendRadiusMm * 2 + d.linkHeightMm, z: d.widthMm + 6 }
+    }
+    case 'mecHz20VacuumCylinder': {
+      const d = hz20DimsOf(state)
+      // Corpo + curso + flange + ventosa
+      return { x: d.flangeWidthMm, y: d.bodyHeightMm + d.strokeMm + d.flangeHeightMm + d.cupHeightMm + 8, z: d.flangeDepthMm }
     }
     default:
       return null
@@ -322,4 +371,9 @@ export const MECHATRONICS_INFO: Record<MechatronicsComponentType, MechatronicsIn
   mecBenchDuct: { name: 'Calha técnica ranhurada da bancada', model: 'PVC cinzento RAL 7030 · dentes ranhurados com tampa', summary: 'Calha perimetral de cablagem elétrica e pneumática à volta da base ranhurada da maquete.' },
   mecSupportBlock: { name: 'Suporte / bloco maquinado de elevação', model: 'Alumínio fresado · cotas parametrizáveis', summary: 'Bloco de elevação para o magazine, a mesa de receção e a gaveta da prensa, fixo à base por parafusos Allen.' },
   mecDragChain: { name: 'Esteira porta-cabos articulada', model: 'Elos 26 × 17 mm · poliamida preta', summary: 'Corrente porta-cabos articulada para proteção dos cabos e tubos móveis da gaveta de estampagem e do manipulador.' },
+  mecHz20VacuumCylinder: {
+    name: 'Cilindro guiado TECHNIK HZ20 com ventosa',
+    model: 'HZ20D15-15V / HZ20S15-15 · alumínio anodizado · guias Ø6 · ventosa de fole',
+    summary: 'Cilindro pneumático guiado de simples ou duplo efeito com ventosa integrada, serigrafia TECHNIK, portas M5, flange de montagem e sensores reed opcionais. Dimensões editáveis no inspetor.',
+  },
 }

@@ -19,6 +19,7 @@ import {
   MEC_LEG_DEFAULT_MM,
   supportBlockDimsOf,
   workpieceMaterialOf,
+  hz20DimsOf,
 } from '../three/mechatronicsModel'
 
 const textLabel = (value: unknown, fallback = '') => (typeof value === 'string' && value.trim() ? value.trim() : fallback)
@@ -409,6 +410,38 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
           </Row>
           <label className="flex items-center justify-between gap-2"><span>Tampa da calha</span><input type="checkbox" disabled={locked} checked={d.coverOn} onChange={(e) => setState(c.id, { coverOn: e.target.checked })} /></label>
           <label className="flex items-center justify-between gap-2"><span>Folha do projeto ATEC</span><input type="checkbox" disabled={locked} checked={c.state.plaque === 'atec'} onChange={(e) => setState(c.id, { plaque: e.target.checked ? 'atec' : '' })} /></label>
+        </>
+      )
+      break
+    }
+    case 'mecHz20VacuumCylinder': {
+      const d = hz20DimsOf(c.state)
+      body = (
+        <>
+          <Row label="Tipo de efeito">
+            <Select className="dc-input text-[11px]" disabled={locked} value={d.acting} onChange={(e) => setState(c.id, { acting: e.target.value, modelTag: e.target.value === 'single' ? 'HZ20S15-15' : 'HZ20D15-15V' })}>
+              <option value="double">Duplo efeito (HZ20D…)</option>
+              <option value="single">Simples efeito (HZ20S…)</option>
+            </Select>
+          </Row>
+          <Row label="Curso" value={`${d.strokeMm} mm`}>
+            <input type="range" min={5} max={50} step={1} disabled={locked} value={d.strokeMm} onChange={(e) => setState(c.id, { strokeMm: Number(e.target.value) })} />
+          </Row>
+          <Row label="Ø ventosa" value={`${d.cupDiameterMm} mm`}>
+            <input type="range" min={16} max={50} step={1} disabled={locked} value={d.cupDiameterMm} onChange={(e) => setState(c.id, { cupDiameterMm: Number(e.target.value) })} />
+          </Row>
+          <Row label="Altura da ventosa" value={`${d.cupHeightMm} mm`}>
+            <input type="range" min={10} max={30} step={1} disabled={locked} value={d.cupHeightMm} onChange={(e) => setState(c.id, { cupHeightMm: Number(e.target.value) })} />
+          </Row>
+          <Row label="Referência">
+            <input className="dc-input text-[11px]" disabled={locked} value={d.modelTag} onChange={(e) => setState(c.id, { modelTag: e.target.value })} />
+          </Row>
+          <label className="flex items-center justify-between gap-2"><span>Porta de vácuo</span><input type="checkbox" disabled={locked} checked={d.hasVacuumPort} onChange={(e) => setState(c.id, { hasVacuumPort: e.target.checked })} /></label>
+          <label className="flex items-center justify-between gap-2"><span>Sensores reed (B_REC / B_AVA)</span><input type="checkbox" disabled={locked} checked={c.state.hasReedSensors !== false} onChange={(e) => setState(c.id, { hasReedSensors: e.target.checked })} /></label>
+          <Row label="Extensão" value={`${Math.round(Number(c.state.extensionPct ?? 0))}%`}>
+            <input type="range" min={0} max={100} step={1} disabled={locked || running} value={Number(c.state.extensionPct ?? 0)} onChange={(e) => act({ extensionPct: Number(e.target.value) })} />
+          </Row>
+          <label className="flex items-center justify-between gap-2"><span>Vácuo ativo</span><input type="checkbox" disabled={locked || running} checked={!!c.state.vacuumActive} onChange={(e) => act({ vacuumActive: e.target.checked })} /></label>
         </>
       )
       break

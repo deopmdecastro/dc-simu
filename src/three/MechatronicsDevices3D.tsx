@@ -23,6 +23,7 @@ import {
   MEC_LEG_DEFAULT_MM,
   supportBlockDimsOf,
   workpieceMaterialOf,
+  hz20DimsOf,
   type WorkpieceMaterial,
 } from './mechatronicsModel'
 import {
@@ -1813,6 +1814,150 @@ function BenchDuct({ c }: { c: ElectricalComponent }) {
   )
 }
 
+/** TECHNIK HZ20 series — cilindro guiado com ventosa (simples ou duplo efeito). Ultra-realista. */
+function Hz20VacuumCylinder({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: MechatronicsPatch) => void }) {
+  const d = hz20DimsOf(c.state)
+  const extended = Math.max(0, Math.min(100, Number(c.state.extensionPct ?? (c.state.extended ? 100 : 0))))
+  const vacuum = !!c.state.vacuumActive
+  const rodRef = useRef<THREE.Group>(null)
+  const extSm = useSmoothed(extended / 100, 12)
+  useFrame(() => {
+    if (rodRef.current) rodRef.current.position.y = -extSm.current * d.strokeMm
+  })
+  const halfBody = d.bodyHeightMm / 2
+  const guideOff = d.guideRodSpacingMm / 2
+  const cupR = d.cupDiameterMm / 2
+  const isDouble = d.acting === 'double'
+  const tag = d.modelTag
+
+  return (
+    <group name="HZ20_Vacuum_Cylinder" onDoubleClick={(e) => { if (!onPatch) return; e.stopPropagation(); onPatch({ vacuumActive: !c.state.vacuumActive }) }}>
+      {/* Corpo principal anodizado (bloco superior) */}
+      <mesh position={[0, halfBody, 0]} castShadow receiveShadow>
+        <boxGeometry args={[d.bodyWidthMm, d.bodyHeightMm, d.bodyDepthMm]} />
+        <meshStandardMaterial name="Corpo HZ20 anodizado" color="#c8ced4" roughness={0.28} metalness={0.55} />
+      </mesh>
+      {/* Chanfros / arestas do corpo */}
+      <mesh position={[0, halfBody, d.bodyDepthMm / 2 + 0.3]}>
+        <boxGeometry args={[d.bodyWidthMm - 4, d.bodyHeightMm - 4, 0.6]} />
+        <meshStandardMaterial color="#aeb6be" roughness={0.35} metalness={0.5} />
+      </mesh>
+      {/* Serigrafia TECHNIK + referência do modelo (lateral) */}
+      <mesh position={[d.bodyWidthMm / 2 + 0.15, halfBody + 4, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[28, 14]} />
+        <meshStandardMaterial
+          name="Serigrafia TECHNIK HZ20"
+          map={labelTexture(`TECHNIK\n${tag}`, '#1e3a5f', '#e8eef4') ?? undefined}
+          color="#ffffff"
+          roughness={0.55}
+          metalness={0}
+        />
+      </mesh>
+      {/* Parafusos de fixação do corpo (topo) */}
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+        <CapScrew key={i} position={[sx * 14, d.bodyHeightMm + 0.5, sz * 12]} d={3.2} />
+      ))}
+
+      {/* Guias cromadas Ø6 (2 barras) */}
+      {[-1, 1].map((s) => (
+        <mesh key={`guide-${s}`} position={[s * guideOff, -d.strokeMm / 2, 0]} castShadow>
+          <cylinderGeometry args={[d.guideRodDiameterMm / 2, d.guideRodDiameterMm / 2, d.bodyHeightMm + d.strokeMm + d.flangeHeightMm + 4, 16]} />
+          <meshStandardMaterial name="Guia cromada" color="#d8dee6" roughness={0.18} metalness={0.85} />
+        </mesh>
+      ))}
+
+      {/* Haste do êmbolo + flange móvel + ventosa */}
+      <group ref={rodRef}>
+        {/* Haste principal */}
+        <mesh position={[0, -d.strokeMm / 2 - 2, 0]} castShadow>
+          <cylinderGeometry args={[d.pistonRodDiameterMm / 2, d.pistonRodDiameterMm / 2, d.strokeMm + d.flangeHeightMm + 6, 16]} />
+          <meshStandardMaterial name="Haste do êmbolo" color="#c0c8d0" roughness={0.2} metalness={0.8} />
+        </mesh>
+        {/* Flange / bloco de montagem da ventosa */}
+        <mesh position={[0, -d.strokeMm - d.flangeHeightMm / 2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[d.flangeWidthMm, d.flangeHeightMm, d.flangeDepthMm]} />
+          <meshStandardMaterial name="Flange da ventosa" color="#b8c0c8" roughness={0.32} metalness={0.5} />
+        </mesh>
+        {/* Portas de ar na flange (M5 / latão) */}
+        {d.hasVacuumPort && (
+          <mesh position={[d.flangeWidthMm / 2 - 6, -d.strokeMm - d.flangeHeightMm / 2, d.flangeDepthMm / 2 + 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[2.4, 2.4, 6, 12]} />
+            <Mat f={BRASS} name="Porta de vácuo M5" />
+          </mesh>
+        )}
+        {isDouble && (
+          <mesh position={[-d.flangeWidthMm / 2 + 6, -d.strokeMm - d.flangeHeightMm / 2, d.flangeDepthMm / 2 + 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[2.2, 2.2, 5, 12]} />
+            <Mat f={BRASS} name="Porta de ar M5" />
+          </mesh>
+        )}
+        {/* Furos roscados laterais da flange */}
+        {[-1, 1].map((s) => (
+          <mesh key={`th-${s}`} position={[s * (d.flangeWidthMm / 2 - 2), -d.strokeMm - d.flangeHeightMm / 2, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[2.8, 2.8, 4, 12]} />
+            <meshStandardMaterial color="#8a929a" roughness={0.4} metalness={0.4} />
+          </mesh>
+        ))}
+        {/* Ventosa de fole (borracha preta) — estilo da fotografia */}
+        <group position={[0, -d.strokeMm - d.flangeHeightMm - d.cupHeightMm / 2 + 2, 0]}>
+          {/* Base / pescoço */}
+          <mesh castShadow>
+            <cylinderGeometry args={[cupR * 0.55, cupR * 0.7, 4, 24]} />
+            <meshStandardMaterial name="Base da ventosa" color="#1a1a1a" roughness={0.7} metalness={0.05} />
+          </mesh>
+          {/* Foles (2–3 anéis) */}
+          {[0.35, 0.7, 1.05].map((t, i) => (
+            <mesh key={i} position={[0, -3 - i * 4.2, 0]} castShadow>
+              <cylinderGeometry args={[cupR * (0.85 + i * 0.08), cupR * (0.95 + i * 0.05), 3.8, 28]} />
+              <meshStandardMaterial
+                name="Fole da ventosa"
+                color={vacuum ? '#0f0f0f' : '#1c1c1c'}
+                roughness={0.82}
+                metalness={0.02}
+              />
+            </mesh>
+          ))}
+          {/* Lábio de contacto */}
+          <mesh position={[0, -d.cupHeightMm + 3, 0]} castShadow>
+            <cylinderGeometry args={[cupR, cupR * 0.98, 2.5, 32]} />
+            <meshStandardMaterial name="Lábio de contacto" color="#111" roughness={0.75} metalness={0.02} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* Portas de ar no corpo (topo / traseira) */}
+      <mesh position={[0, halfBody + 2, -d.bodyDepthMm / 2 - 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[2.6, 2.6, 5, 12]} />
+        <Mat f={BRASS} name="Porta de ar do corpo" />
+      </mesh>
+      {isDouble && (
+        <mesh position={[8, halfBody - 6, -d.bodyDepthMm / 2 - 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[2.4, 2.4, 5, 12]} />
+          <Mat f={BRASS} name="Porta de retorno" />
+        </mesh>
+      )}
+
+      {/* Sensores reed (opcionais, cinta no corpo) */}
+      {c.state.hasReedSensors !== false && (
+        <>
+          <ReedSensor position={[d.bodyWidthMm / 2 + 3, halfBody - 6, 0]} active={extended < 8} label="B_REC" rotation={[0, 0, Math.PI / 2]} />
+          <ReedSensor position={[d.bodyWidthMm / 2 + 3, halfBody + 10, 0]} active={extended > 92} label="B_AVA" rotation={[0, 0, Math.PI / 2]} />
+        </>
+      )}
+
+      {/* Etiqueta de estado */}
+      <LabelPlate
+        text={isDouble ? 'DUPLO EFEITO' : 'SIMPLES EFEITO'}
+        position={[0, d.bodyHeightMm + 4, d.bodyDepthMm / 2 + 0.2]}
+        w={36}
+        h={8}
+        bg={isDouble ? '#1e40af' : '#0f766e'}
+        fg="#f8fafc"
+      />
+    </group>
+  )
+}
+
 /* ================================================================ despacho */
 
 export function Mechatronics3D({ c, position, onPatch, floorY }: { c: ElectricalComponent; position: [number, number, number]; onPatch?: (patch: MechatronicsPatch) => void; /** Chão do pavilhão (coordenadas do mundo) para as pernas da mesa irem até ao chão. */ floorY?: number }) {
@@ -1840,6 +1985,7 @@ export function Mechatronics3D({ c, position, onPatch, floorY }: { c: Electrical
     case 'mecBenchDuct': body = <BenchDuct c={c} />; break
     case 'mecDragChain': body = <DragChain c={c} />; break
     case 'mecSupportBlock': body = <SupportBlock c={c} />; break
+    case 'mecHz20VacuumCylinder': body = <Hz20VacuumCylinder c={c} onPatch={onPatch} />; break
     default: return null
   }
   return (
