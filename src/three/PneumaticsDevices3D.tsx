@@ -833,22 +833,23 @@ export function PneumaticTee3D({
   c: ElectricalComponent
   position: [number, number, number]
 }) {
-  const arm = 22 * U
+  // Braços dimensionados para as bocas coincidirem com os bornes (faces do volume 82×60 mm)
+  const armX = 28 * U
+  const armY = 22 * U
   return (
     <group position={position} name={`pneumatic-tee-3d-${c.id}`}>
       <PushInFittingCore radius={12 * U} />
-      {/* Braços do T em PBT preto */}
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-        <cylinderGeometry args={[9.2 * U, 9.2 * U, arm * 2, 18]} />
+        <cylinderGeometry args={[9.2 * U, 9.2 * U, armX * 1.55, 18]} />
         <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
       </mesh>
-      <mesh position={[0, arm * 0.55, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[9.2 * U, 9.2 * U, arm * 0.9, 18]} />
+      <mesh position={[0, armY * 0.55, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[9.2 * U, 9.2 * U, armY * 0.95, 18]} />
         <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
       </mesh>
-      <FestoQsPushInPort position={[-arm * 0.95, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.88} variant="black" />
-      <FestoQsPushInPort position={[arm * 0.95, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.88} variant="black" />
-      <FestoQsPushInPort position={[0, arm * 1.05, 0]} scale={0.88} variant="black" />
+      <FestoQsPushInPort position={[-armX, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.9} variant="black" />
+      <FestoQsPushInPort position={[armX, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.9} variant="black" />
+      <FestoQsPushInPort position={[0, armY * 1.15, 0]} scale={0.9} variant="black" />
     </group>
   )
 }

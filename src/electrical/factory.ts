@@ -1024,9 +1024,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   hydraulicTee: {
     category: 'terminal', paletteName: 'União em T hidráulica · Latão 3 vias G 1"', group: 'Hidráulica', tag: 'TH', w: 96, h: 78,
     terminals: [
-      T('A', 'hydraulic-in', 0.04, 0.62, { position3D: { x: 0.04, y: 0.38, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#0ea5e9', diameter: 12 }),
-      T('B', 'hydraulic-out', 0.96, 0.62, { position3D: { x: 0.96, y: 0.38, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
-      T('C', 'hydraulic-out', 0.50, 0.04, { position3D: { x: 0.50, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
+      // Bocas dos colares sextavados A/B/C alinhadas ao volume 3D do tê de latão
+      T('A', 'hydraulic-in', 0.06, 0.58, { position3D: { x: 0.06, y: 0.38, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#0ea5e9', diameter: 12 }),
+      T('B', 'hydraulic-out', 0.94, 0.58, { position3D: { x: 0.94, y: 0.38, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
+      T('C', 'hydraulic-out', 0.50, 0.04, { position3D: { x: 0.50, y: 0.94, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#0284c7', diameter: 12 }),
     ],
     defaultState: {
       manufacturer: 'DC-Simu Hidráulica',
@@ -1082,9 +1083,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   pneumaticTee: {
     category: 'terminal', paletteName: 'Festo QST-8 · União em T pneumática Push-In · 3 vias', group: 'Pneumática', tag: 'TP', w: 80, h: 64,
     terminals: [
-      T('P1', 'pneumatic-in', 0.04, 0.56, { position3D: { x: 0.04, y: 0.44, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P2', 'pneumatic-out', 0.96, 0.56, { position3D: { x: 0.96, y: 0.44, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P3', 'pneumatic-out', 0.50, 0.04, { position3D: { x: 0.50, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      // Bornes centrados nas bocas dos anéis azuis (iguais ao rastreamento elétrico)
+      T('P1', 'pneumatic-in', 0.02, 0.50, { position3D: { x: 0.02, y: 0.50, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.98, 0.50, { position3D: { x: 0.98, y: 0.50, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P3', 'pneumatic-out', 0.50, 0.02, { position3D: { x: 0.50, y: 0.98, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
     ],
     defaultState: {
       manufacturer: 'Festo',
@@ -1094,8 +1096,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   pneumaticUnion: {
     category: 'terminal', paletteName: 'Festo QS-8 · União reta pneumática Push-In · 2 vias', group: 'Pneumática', tag: 'UR', w: 72, h: 36,
     terminals: [
-      T('P1', 'pneumatic-in', 0.04, 0.50, { position3D: { x: 0.04, y: 0.50, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P2', 'pneumatic-out', 0.96, 0.50, { position3D: { x: 0.96, y: 0.50, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P1', 'pneumatic-in', 0.02, 0.50, { position3D: { x: 0.02, y: 0.50, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.98, 0.50, { position3D: { x: 0.98, y: 0.50, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
     ],
     defaultState: {
       manufacturer: 'Festo',
@@ -1105,8 +1107,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   pneumaticElbow: {
     category: 'terminal', paletteName: 'Festo QSL-8 · Cotovelo 90° pneumático Push-In', group: 'Pneumática', tag: 'UE', w: 56, h: 56,
     terminals: [
-      T('P1', 'pneumatic-in', 0.04, 0.50, { position3D: { x: 0.04, y: 0.50, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P2', 'pneumatic-out', 0.50, 0.04, { position3D: { x: 0.50, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P1', 'pneumatic-in', 0.02, 0.50, { position3D: { x: 0.02, y: 0.50, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.50, 0.02, { position3D: { x: 0.50, y: 0.98, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
     ],
     defaultState: {
       manufacturer: 'Festo',
@@ -1116,9 +1118,9 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   pneumaticY: {
     category: 'terminal', paletteName: 'Festo QSY-8 · União em Y pneumática Push-In · 3 vias', group: 'Pneumática', tag: 'UY', w: 72, h: 64,
     terminals: [
-      T('P1', 'pneumatic-in', 0.50, 0.96, { position3D: { x: 0.50, y: 0.04, z: 0.50 }, face: 'bottom', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P2', 'pneumatic-out', 0.18, 0.08, { position3D: { x: 0.22, y: 0.88, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
-      T('P3', 'pneumatic-out', 0.82, 0.08, { position3D: { x: 0.78, y: 0.88, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P1', 'pneumatic-in', 0.50, 0.98, { position3D: { x: 0.50, y: 0.02, z: 0.50 }, face: 'bottom', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.18, 0.06, { position3D: { x: 0.18, y: 0.92, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P3', 'pneumatic-out', 0.82, 0.06, { position3D: { x: 0.82, y: 0.92, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
     ],
     defaultState: {
       manufacturer: 'Festo',

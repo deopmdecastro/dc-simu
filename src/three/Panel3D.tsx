@@ -3841,27 +3841,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (motion) panelPivots[component.id].sub(motion.hinge).applyAxisAngle(new THREE.Vector3(0, 1, 0), motion.angle).add(motion.hinge)
   }
 
-  // Interruptores/lâmpadas de parede: não penetrar os perfis/colunas de aço da nave (passo 7.5 u).
-  // Empurra lateralmente o pivô para fora do volume do perfil (~0.5 u de semi-largura + folga).
-  if (factoryMode) {
-    const COL_STEP = 7.5
-    const COL_HALF = 0.42
-    const CLEAR = 0.55
-    for (const component of components) {
-      if (!isLightingType(component.type)) continue
-      const pivot = panelPivots[component.id]
-      if (!pivot) continue
-      const half = componentHalfExtents(component, orientationFor(component))
-      // Colunas aproximadas centradas em múltiplos de COL_STEP (espelha FactoryEnvironment3D)
-      const nearestCol = Math.round(pivot.x / COL_STEP) * COL_STEP
-      const dist = pivot.x - nearestCol
-      const minDist = COL_HALF + half.x + CLEAR
-      if (Math.abs(dist) < minDist && Math.abs(nearestCol) > 0.01) {
-        pivot.x = nearestCol + Math.sign(dist || 1) * minDist
-      }
-    }
-  }
-
   // Réguas de bornes resolvidas (explícitas, hierárquicas `X1.0…X1.3` ou bornes soltos encostados):
   // substitui as TAGs individuais sobrepostas por um único cabeçalho limpo + barra de agrupamento + pontes FBS 3D.
   const { terminalStripMemberIds, terminalStripHeaders, terminalStripJumpers } = (() => {
@@ -3987,6 +3966,24 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   // Chão fabril e assentamento de máquinas de chão (motores, bombas, reservatórios, tapetes rolantes):
   // em Ambiente fabril ficam sempre assentes no chão de betão, nunca a flutuar nem dentro do quadro elétrico.
   const factoryMode = sceneEnvironment === 'factory'
+  // Interruptores/lâmpadas de parede: não penetrar os perfis/colunas de aço da nave (passo 7.5 u).
+  if (factoryMode) {
+    const COL_STEP = 7.5
+    const COL_HALF = 0.42
+    const CLEAR = 0.55
+    for (const component of components) {
+      if (!isLightingType(component.type)) continue
+      const pivot = panelPivots[component.id]
+      if (!pivot) continue
+      const half = componentHalfExtents(component, orientationFor(component))
+      const nearestCol = Math.round(pivot.x / COL_STEP) * COL_STEP
+      const dist = pivot.x - nearestCol
+      const minDist = COL_HALF + half.x + CLEAR
+      if (Math.abs(dist) < minDist && Math.abs(nearestCol) > 0.01) {
+        pivot.x = nearestCol + Math.sign(dist || 1) * minDist
+      }
+    }
+  }
   const factoryWallFrontZ = hasEnclosure
     ? PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM - 0.02
     : PLATE_Z - PLATE_THICKNESS / 2 - 0.02
