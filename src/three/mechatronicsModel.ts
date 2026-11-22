@@ -175,6 +175,9 @@ export function benchDuctDimsOf(state?: Record<string, any>) {
   }
 }
 
+/** Folga entre o corpo e a flange com o HZ20 recolhido. */
+export const HZ20_FLANGE_GAP_MM = 2
+
 /** TECHNIK HZ20 — cilindro guiado com ventosa. Inspector expõe curso, diâmetro da ventosa e tipo de efeito. */
 export function hz20DimsOf(state?: Record<string, any>) {
   const h = MEC_DIMS.hz20
@@ -283,8 +286,8 @@ export function mechatronicsSizeMm(type: string, state?: Record<string, any>): {
     }
     case 'mecHz20VacuumCylinder': {
       const d = hz20DimsOf(state)
-      // Corpo + curso + flange + ventosa
-      return { x: d.flangeWidthMm, y: d.bodyHeightMm + d.strokeMm + d.flangeHeightMm + d.cupHeightMm + 8, z: d.flangeDepthMm }
+      // Corpo + folga + flange + ventosa + curso (todo estendido)
+      return { x: Math.max(d.flangeWidthMm, d.bodyWidthMm + 10), y: d.bodyHeightMm + HZ20_FLANGE_GAP_MM + d.flangeHeightMm + d.cupHeightMm + d.strokeMm, z: Math.max(d.flangeDepthMm, d.bodyDepthMm) + 10 }
     }
     default:
       return null

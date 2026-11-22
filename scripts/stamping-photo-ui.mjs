@@ -47,7 +47,8 @@ try {
         const arm = root.getObjectByName('Braco_Estrutura_Metalica')
         result.armRotation = arm.getWorldQuaternion(new T.Quaternion()).toArray()
       }
-      result[c.type === 'mecOperatorBox' ? 'box' : c.type === 'panelEnclosure' ? 'cabinet' : c.type === 'mecSlotPlate' ? 'plate' : c.id] = {
+      const named = c.type === 'mecOperatorBox' ? 'box' : c.type === 'panelEnclosure' ? (String(c.state.labelText).startsWith('QE1') ? 'cabinet' : 'wallPanel') : c.type === 'mecSlotPlate' ? 'plate' : c.type === 'industrialWall' ? 'wall' : c.type === 'airCompressor' ? 'compressor' : c.type === 'industrialPillar' ? 'pillar' : c.id
+      result[named] = {
         type: c.type, label: c.state.labelText, point: point.toArray(), min: b.min.toArray(), max: b.max.toArray(), desired: c.panel3DPosition,
       }
     }

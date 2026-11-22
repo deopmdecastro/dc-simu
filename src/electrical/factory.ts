@@ -1442,6 +1442,20 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [],
     defaultState: { lengthMm: 700, widthMm: 35, heightMm: 45, axis: 'x', coverOn: true, manufacturer: 'DC-Simu Mecatrónica', model: 'Calha ranhurada 35 × 45' },
   },
+  /** TECHNIK HZ20 — portas M5 na traseira do corpo, vácuo na flange e reed na lateral direita (cotas do curso 15). */
+  mecHz20VacuumCylinder: {
+    category: 'motor', paletteName: 'Cilindro guiado TECHNIK HZ20 com ventosa · simples / duplo efeito', group: 'Mecatrónica', tag: 'CIL', w: 90, h: 110,
+    terminals: [
+      T('A', 'pneumatic-in', 0.3, 0.05, { position3D: { x: 0.5, y: 0.83, z: 0 }, face: 'back', terminalType: 'plug', color: '#38bdf8', diameter: 5 }),
+      T('B', 'pneumatic-in', 0.5, 0.05, { position3D: { x: 0.5, y: 0.695, z: 0 }, face: 'back', terminalType: 'plug', color: '#38bdf8', diameter: 5 }),
+      T('VAC', 'pneumatic-in', 0.7, 0.05, { position3D: { x: 0.846, y: 0.42, z: 0.94 }, face: 'front', terminalType: 'plug', color: '#0284c7', diameter: 5 }),
+      T('REC+', 'power-in', 0.1, 0.95, { position3D: { x: 1, y: 0.914, z: 0.4 }, face: 'right', color: '#92400e', diameter: 4 }),
+      T('REC', 'io', 0.3, 0.95, { position3D: { x: 1, y: 0.914, z: 0.6 }, face: 'right', color: '#111827', diameter: 4 }),
+      T('AVA+', 'power-in', 0.7, 0.95, { position3D: { x: 1, y: 0.63, z: 0.4 }, face: 'right', color: '#92400e', diameter: 4 }),
+      T('AVA', 'io', 0.9, 0.95, { position3D: { x: 1, y: 0.63, z: 0.6 }, face: 'right', color: '#111827', diameter: 4 }),
+    ],
+    defaultState: { extensionPct: 0, vacuumActive: false, acting: 'double', strokeMm: 15, cupDiameterMm: 32, cupHeightMm: 18, hasVacuumPort: true, hasReedSensors: true, manufacturer: 'TECHNIK', model: 'HZ20D15-15V' },
+  },
   industrialWall: {
     category: 'terminal', paletteName: 'Parede industrial modular 3D (betão / painel / tijolo)', group: 'Estruturas e esteiras', tag: 'PAR', w: 220, h: 48,
     terminals: [],
@@ -2048,7 +2062,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       powered: false, inputs: {}, outputs: {}, memories: {},
       supply: '24 V DC', reference: 'CPU 315-2 PN/DP', orderNo: '6ES7315-2EH14-0AB0',
       mode: 'STOP', ledSF: false, ledBF1: false, ledBF2: false, ledDC5V: false, ledFRCE: false, ledRUN: false, ledSTOP: true,
-      datasheet: 'https://support.industry.siemens.com/cs/document/44380801',
+      // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
+      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7315-2EH14-0AB0',
     },
   },
   /** SM321 DI 32×DC24V · 6ES7321-1BL00-0AA0 */
@@ -2060,7 +2075,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: {
       powered: false, inputs: {},
       supply: '24 V DC', reference: 'SM321 DI 32×DC24V', orderNo: '6ES7321-1BL00-0AA0',
-      datasheet: 'https://support.industry.siemens.com/cs/document/13088406',
+      // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
+      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7321-1BL00-0AA0',
     },
   },
   /** SM322 DO 32×DC24V/0.5A · 6ES7322-1BL00-0AA0 */
@@ -2072,7 +2088,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: {
       powered: false, outputs: {},
       supply: '24 V DC', reference: 'SM322 DO 32×DC24V/0.5A', orderNo: '6ES7322-1BL00-0AA0',
-      datasheet: 'https://support.industry.siemens.com/cs/document/13088408',
+      // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
+      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7322-1BL00-0AA0',
     },
   },
   /** SM334 AI 4 / AO 2 · 6ES7334-0CE01-0AA0 */
@@ -2084,7 +2101,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: {
       powered: false, analogs: {},
       supply: '24 V DC', reference: 'SM334 AI4/AO2', orderNo: '6ES7334-0CE01-0AA0',
-      datasheet: 'https://support.industry.siemens.com/cs/document/13088412',
+      // Página do produto pelo n.º de encomenda (o documento do manual não foi verificado).
+      datasheet: 'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/6ES7334-0CE01-0AA0',
     },
   },
   siemensTsAdapterIeBasic: {
@@ -3173,6 +3191,7 @@ export function paletteDomains(): PaletteDomain[] {
       if (
         type === 'mecStampingPress' ||
         type === 'mecFeederCylinder' ||
+        type === 'mecHz20VacuumCylinder' ||
         type === 'mecDrawerCylinder' ||
         type === 'mecRotaryArm' ||
         type === 'mecVacuumEjector' ||

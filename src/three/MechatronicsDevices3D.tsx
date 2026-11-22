@@ -24,6 +24,7 @@ import {
   supportBlockDimsOf,
   workpieceMaterialOf,
   hz20DimsOf,
+  HZ20_FLANGE_GAP_MM,
   type WorkpieceMaterial,
 } from './mechatronicsModel'
 import {
@@ -1814,7 +1815,12 @@ function BenchDuct({ c }: { c: ElectricalComponent }) {
   )
 }
 
-/** TECHNIK HZ20 series — cilindro guiado com ventosa (simples ou duplo efeito). Ultra-realista. */
+/**
+ * TECHNIK HZ20 — cilindro guiado com ventosa (simples ou duplo efeito).
+ * Pivô no centro do volume de `mechatronicsSizeMm`: o topo do corpo fica em +y/2 e o lábio da ventosa,
+ * com o cilindro todo estendido, em −y/2. Recolhido, a flange fica a 2 mm do corpo; a haste, as guias
+ * (presas à flange) e a ventosa descem juntas com o curso.
+ */
 function Hz20VacuumCylinder({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: MechatronicsPatch) => void }) {
   const d = hz20DimsOf(c.state)
   const extended = Math.max(0, Math.min(100, Number(c.state.extensionPct ?? (c.state.extended ? 100 : 0))))
@@ -1824,136 +1830,98 @@ function Hz20VacuumCylinder({ c, onPatch }: { c: ElectricalComponent; onPatch?: 
   useFrame(() => {
     if (rodRef.current) rodRef.current.position.y = -extSm.current * d.strokeMm
   })
+  const size = mechatronicsSizeMm('mecHz20VacuumCylinder', c.state)!
+  const y0 = size.y / 2 - d.bodyHeightMm
   const halfBody = d.bodyHeightMm / 2
   const guideOff = d.guideRodSpacingMm / 2
   const cupR = d.cupDiameterMm / 2
   const isDouble = d.acting === 'double'
-  const tag = d.modelTag
+  const flangeTop = -HZ20_FLANGE_GAP_MM
+  const flangeMid = flangeTop - d.flangeHeightMm / 2
+  const flangeBottom = flangeTop - d.flangeHeightMm
+  const rodTop = d.strokeMm + 4 // fica sempre dentro do corpo
+  const guideTop = d.bodyHeightMm - 1 // nunca sai pelo topo, mesmo recolhido
+  const bellowsPitch = Math.max(1.5, (d.cupHeightMm - 7) / 3)
 
   return (
-    <group name="HZ20_Vacuum_Cylinder" onDoubleClick={(e) => { if (!onPatch) return; e.stopPropagation(); onPatch({ vacuumActive: !c.state.vacuumActive }) }}>
-      {/* Corpo principal anodizado (bloco superior) */}
+    <group name="HZ20_Vacuum_Cylinder" position={[0, y0, 0]} onDoubleClick={(e) => { if (!onPatch) return; e.stopPropagation(); onPatch({ vacuumActive: !c.state.vacuumActive }) }}>
+      {/* Corpo anodizado com face frontal rebaixada */}
       <mesh position={[0, halfBody, 0]} castShadow receiveShadow>
         <boxGeometry args={[d.bodyWidthMm, d.bodyHeightMm, d.bodyDepthMm]} />
         <meshStandardMaterial name="Corpo HZ20 anodizado" color="#c8ced4" roughness={0.28} metalness={0.55} />
       </mesh>
-      {/* Chanfros / arestas do corpo */}
       <mesh position={[0, halfBody, d.bodyDepthMm / 2 + 0.3]}>
         <boxGeometry args={[d.bodyWidthMm - 4, d.bodyHeightMm - 4, 0.6]} />
         <meshStandardMaterial color="#aeb6be" roughness={0.35} metalness={0.5} />
       </mesh>
-      {/* Serigrafia TECHNIK + referência do modelo (lateral) */}
-      <mesh position={[d.bodyWidthMm / 2 + 0.15, halfBody + 4, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[28, 14]} />
-        <meshStandardMaterial
-          name="Serigrafia TECHNIK HZ20"
-          map={labelTexture(`TECHNIK\n${tag}`, '#1e3a5f', '#e8eef4') ?? undefined}
-          color="#ffffff"
-          roughness={0.55}
-          metalness={0}
-        />
-      </mesh>
-      {/* Parafusos de fixação do corpo (topo) */}
+      {/* Serigrafia TECHNIK + referência na lateral esquerda (a direita leva os sensores reed) */}
+      <LabelPlate text="TECHNIK" position={[-d.bodyWidthMm / 2 - 0.15, halfBody + 6, 0]} rotation={[0, -Math.PI / 2, 0]} w={28} h={7} bg="#1e3a5f" fg="#e8eef4" />
+      <LabelPlate text={d.modelTag} position={[-d.bodyWidthMm / 2 - 0.15, halfBody - 3, 0]} rotation={[0, -Math.PI / 2, 0]} w={30} h={6.5} bg="#1e3a5f" fg="#e8eef4" />
+      <LabelPlate text={isDouble ? 'DUPLO EFEITO' : 'SIMPLES EFEITO'} position={[0, halfBody, d.bodyDepthMm / 2 + 0.65]} w={34} h={7.5} bg={isDouble ? '#1e40af' : '#0f766e'} fg="#f8fafc" />
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <CapScrew key={i} position={[sx * 14, d.bodyHeightMm + 0.5, sz * 12]} d={3.2} />
       ))}
 
-      {/* Guias cromadas Ø6 (2 barras) */}
-      {[-1, 1].map((s) => (
-        <mesh key={`guide-${s}`} position={[s * guideOff, -d.strokeMm / 2, 0]} castShadow>
-          <cylinderGeometry args={[d.guideRodDiameterMm / 2, d.guideRodDiameterMm / 2, d.bodyHeightMm + d.strokeMm + d.flangeHeightMm + 4, 16]} />
-          <meshStandardMaterial name="Guia cromada" color="#d8dee6" roughness={0.18} metalness={0.85} />
-        </mesh>
-      ))}
-
-      {/* Haste do êmbolo + flange móvel + ventosa */}
-      <group ref={rodRef}>
-        {/* Haste principal */}
-        <mesh position={[0, -d.strokeMm / 2 - 2, 0]} castShadow>
-          <cylinderGeometry args={[d.pistonRodDiameterMm / 2, d.pistonRodDiameterMm / 2, d.strokeMm + d.flangeHeightMm + 6, 16]} />
-          <meshStandardMaterial name="Haste do êmbolo" color="#c0c8d0" roughness={0.2} metalness={0.8} />
-        </mesh>
-        {/* Flange / bloco de montagem da ventosa */}
-        <mesh position={[0, -d.strokeMm - d.flangeHeightMm / 2, 0]} castShadow receiveShadow>
-          <boxGeometry args={[d.flangeWidthMm, d.flangeHeightMm, d.flangeDepthMm]} />
-          <meshStandardMaterial name="Flange da ventosa" color="#b8c0c8" roughness={0.32} metalness={0.5} />
-        </mesh>
-        {/* Portas de ar na flange (M5 / latão) */}
-        {d.hasVacuumPort && (
-          <mesh position={[d.flangeWidthMm / 2 - 6, -d.strokeMm - d.flangeHeightMm / 2, d.flangeDepthMm / 2 + 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[2.4, 2.4, 6, 12]} />
-            <Mat f={BRASS} name="Porta de vácuo M5" />
-          </mesh>
-        )}
-        {isDouble && (
-          <mesh position={[-d.flangeWidthMm / 2 + 6, -d.strokeMm - d.flangeHeightMm / 2, d.flangeDepthMm / 2 + 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[2.2, 2.2, 5, 12]} />
-            <Mat f={BRASS} name="Porta de ar M5" />
-          </mesh>
-        )}
-        {/* Furos roscados laterais da flange */}
-        {[-1, 1].map((s) => (
-          <mesh key={`th-${s}`} position={[s * (d.flangeWidthMm / 2 - 2), -d.strokeMm - d.flangeHeightMm / 2, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[2.8, 2.8, 4, 12]} />
-            <meshStandardMaterial color="#8a929a" roughness={0.4} metalness={0.4} />
-          </mesh>
-        ))}
-        {/* Ventosa de fole (borracha preta) — estilo da fotografia */}
-        <group position={[0, -d.strokeMm - d.flangeHeightMm - d.cupHeightMm / 2 + 2, 0]}>
-          {/* Base / pescoço */}
-          <mesh castShadow>
-            <cylinderGeometry args={[cupR * 0.55, cupR * 0.7, 4, 24]} />
-            <meshStandardMaterial name="Base da ventosa" color="#1a1a1a" roughness={0.7} metalness={0.05} />
-          </mesh>
-          {/* Foles (2–3 anéis) */}
-          {[0.35, 0.7, 1.05].map((t, i) => (
-            <mesh key={i} position={[0, -3 - i * 4.2, 0]} castShadow>
-              <cylinderGeometry args={[cupR * (0.85 + i * 0.08), cupR * (0.95 + i * 0.05), 3.8, 28]} />
-              <meshStandardMaterial
-                name="Fole da ventosa"
-                color={vacuum ? '#0f0f0f' : '#1c1c1c'}
-                roughness={0.82}
-                metalness={0.02}
-              />
-            </mesh>
-          ))}
-          {/* Lábio de contacto */}
-          <mesh position={[0, -d.cupHeightMm + 3, 0]} castShadow>
-            <cylinderGeometry args={[cupR, cupR * 0.98, 2.5, 32]} />
-            <meshStandardMaterial name="Lábio de contacto" color="#111" roughness={0.75} metalness={0.02} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* Portas de ar no corpo (topo / traseira) */}
-      <mesh position={[0, halfBody + 2, -d.bodyDepthMm / 2 - 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+      {/* Portas de ar M5 na traseira: A (avanço) e B (recuo) — no simples efeito B é o respiro com silenciador */}
+      <mesh position={[0, halfBody + 6, -d.bodyDepthMm / 2 - 2.5]} rotation={[Math.PI / 2, 0, 0]} castShadow>
         <cylinderGeometry args={[2.6, 2.6, 5, 12]} />
-        <Mat f={BRASS} name="Porta de ar do corpo" />
+        <Mat f={BRASS} name="Porta de ar A (M5)" />
       </mesh>
-      {isDouble && (
-        <mesh position={[8, halfBody - 6, -d.bodyDepthMm / 2 - 1]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[2.4, 2.4, 5, 12]} />
-          <Mat f={BRASS} name="Porta de retorno" />
-        </mesh>
-      )}
+      <mesh position={[0, halfBody - 8, -d.bodyDepthMm / 2 - 2.5]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={isDouble ? [2.6, 2.6, 5, 12] : [2.2, 2.2, 5, 12]} />
+        {isDouble ? <Mat f={BRASS} name="Porta de ar B (M5)" /> : <Mat f={PA_BLACK} name="Silenciador do respiro" />}
+      </mesh>
 
-      {/* Sensores reed (opcionais, cinta no corpo) */}
       {c.state.hasReedSensors !== false && (
         <>
-          <ReedSensor position={[d.bodyWidthMm / 2 + 3, halfBody - 6, 0]} active={extended < 8} label="B_REC" rotation={[0, 0, Math.PI / 2]} />
-          <ReedSensor position={[d.bodyWidthMm / 2 + 3, halfBody + 10, 0]} active={extended > 92} label="B_AVA" rotation={[0, 0, Math.PI / 2]} />
+          <ReedSensor position={[d.bodyWidthMm / 2 + 2.5, d.bodyHeightMm - 9, 0]} active={extended <= 8} label="B_REC" rotation={[0, Math.PI / 2, Math.PI / 2]} />
+          <ReedSensor position={[d.bodyWidthMm / 2 + 2.5, 9, 0]} active={extended >= 92} label="B_AVA" rotation={[0, Math.PI / 2, Math.PI / 2]} />
         </>
       )}
 
-      {/* Etiqueta de estado */}
-      <LabelPlate
-        text={isDouble ? 'DUPLO EFEITO' : 'SIMPLES EFEITO'}
-        position={[0, d.bodyHeightMm + 4, d.bodyDepthMm / 2 + 0.2]}
-        w={36}
-        h={8}
-        bg={isDouble ? '#1e40af' : '#0f766e'}
-        fg="#f8fafc"
-      />
+      {/* Conjunto móvel: haste, guias, flange e ventosa */}
+      <group ref={rodRef}>
+        <mesh position={[0, (flangeTop + rodTop) / 2, 0]} castShadow>
+          <cylinderGeometry args={[d.pistonRodDiameterMm / 2, d.pistonRodDiameterMm / 2, rodTop - flangeTop, 18]} />
+          <Mat f={CHROME} name="Haste do êmbolo" />
+        </mesh>
+        {[-1, 1].map((s) => (
+          <mesh key={`guide-${s}`} position={[s * guideOff, (flangeTop + guideTop) / 2, 0]} castShadow>
+            <cylinderGeometry args={[d.guideRodDiameterMm / 2, d.guideRodDiameterMm / 2, guideTop - flangeTop, 16]} />
+            <Mat f={CHROME} name="Guia cromada Ø6" />
+          </mesh>
+        ))}
+        <mesh position={[0, flangeMid, 0]} castShadow receiveShadow>
+          <boxGeometry args={[d.flangeWidthMm, d.flangeHeightMm, d.flangeDepthMm]} />
+          <meshStandardMaterial name="Flange da ventosa" color="#b8c0c8" roughness={0.32} metalness={0.5} />
+        </mesh>
+        {[-1, 1].map((s) => (
+          <CapScrew key={`fs-${s}`} position={[s * guideOff, flangeBottom - 0.5, 0]} d={3.2} rotation={[Math.PI, 0, 0]} />
+        ))}
+        {d.hasVacuumPort && (
+          <mesh position={[d.flangeWidthMm / 2 - 6, flangeMid, d.flangeDepthMm / 2 + 2.5]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[2.4, 2.4, 5, 12]} />
+            <Mat f={BRASS} name="Porta de vácuo M5" />
+          </mesh>
+        )}
+        {/* Ventosa de fole: o pescoço encosta à flange e o lábio fecha a altura da ventosa */}
+        <group position={[0, flangeBottom - 2, 0]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[cupR * 0.55, cupR * 0.7, 4, 24]} />
+            <Mat f={RUBBER} name="Base da ventosa" />
+          </mesh>
+          {[0, 1, 2].map((i) => (
+            <mesh key={i} position={[0, -3 - i * bellowsPitch, 0]} castShadow>
+              <cylinderGeometry args={[cupR * (0.85 + i * 0.08), cupR * (0.95 + i * 0.05), Math.min(3.8, bellowsPitch + 0.6), 28]} />
+              <meshStandardMaterial name="Fole da ventosa" color={vacuum ? '#0f0f0f' : '#1c1c1c'} roughness={0.82} metalness={0.02} />
+            </mesh>
+          ))}
+          <mesh position={[0, -d.cupHeightMm + 3.25, 0]} castShadow>
+            <cylinderGeometry args={[cupR * 0.98, cupR, 2.5, 32]} />
+            <Mat f={RUBBER} name="Lábio de contacto" />
+          </mesh>
+        </group>
+      </group>
     </group>
   )
 }

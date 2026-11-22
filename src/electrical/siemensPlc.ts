@@ -171,7 +171,7 @@ export function s7300Sm321TerminalRows(): Array<{ label: string; x: number; y: n
     const bit = i % 8
     out.push({
       label: `I${byte}.${bit}`,
-      x: byte % 2 === 0 ? 0.22 : 0.78,
+      x: byte < 2 ? 0.22 : 0.78, // conector de 40 pinos: bytes 0–1 à esquerda, 2–3 à direita
       y: rows[(i % 16) + 1],
     })
   }
@@ -190,7 +190,7 @@ export function s7300Sm322TerminalRows(): Array<{ label: string; x: number; y: n
     const bit = i % 8
     out.push({
       label: `Q${byte}.${bit}`,
-      x: byte % 2 === 0 ? 0.22 : 0.78,
+      x: byte < 2 ? 0.22 : 0.78, // conector de 40 pinos: bytes 0–1 à esquerda, 2–3 à direita
       y: rows[(i % 16) + 1],
     })
   }

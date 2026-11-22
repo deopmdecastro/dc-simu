@@ -8,6 +8,7 @@ import {
   mechatronicsSizeMm,
   slotPlateDimsOf,
 } from '../three/mechatronicsModel'
+import { pneumaticComponentSizeMm } from '../three/pneumaticsModel'
 
 /**
  * Adaptação fotográfica da maquete ATEC / Guião 1185 sobre uma base ranhurada paramétrica,
@@ -18,7 +19,7 @@ import {
  * - Calhas ranhuradas perimetrais, coluna luminosa, ilhas Festo, sensores, HMI KTP700, pupitre
  * - Quadro de campo sob a mesa (QE1) com fonte 24 V, relés de interface e relé de segurança
  * - Ambiente fabril: parede, quadro de parede completo, compressor, tratamento de ar (FRL)
- * - Pilares + esteiras elétricas aéreas (QE → bancada, QE → compressor, ar compressor → FRL)
+ * - Esteira aérea na parede, ramal sobre pilar HEB e descidas para a bancada e o compressor
  *
  * Coordenadas em mm, relativas ao centro da base; `y` é a cota do centro do volume de cada peça.
  * A mesa fica no centro do ambiente fabril.
@@ -194,7 +195,7 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
       const relayYs = [cabinetY + cabinetH * 0.05, cabinetY - cabinetH * 0.12, cabinetY - cabinetH * 0.28]
       ;['K1 · CIL1', 'K2 · PRENSA', 'K3 · BRAÇO'].forEach((tag, i) => {
         list.push({
-          key: `relay-${i + 1}`, type: 'relay',
+          key: `relay-${i + 1}`, type: 'relayFinder5534',
           x: 40, y: relayYs[i], z: cabinetZ + 35,
           state: { labelText: tag, hostLocation: 'machine' },
         })
@@ -219,104 +220,78 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
   })
 
   // ---------------------------------------------------------------------------
-  // Ambiente fabril: parede, quadro de parede, compressor, pilares e esteiras
-  // elétricas aéreas. A mesa fica no centro; as coordenadas são relativas ao
-  // centro da base ranhurada.
+  // Ambiente fabril à volta da bancada (coordenadas relativas ao centro da base;
+  // o chão fica por baixo dos pés da mesa). Cotas estimadas, editáveis:
+  // - parede em painel a 650 mm da traseira da mesa, com o quadro geral a 1–2 m do chão;
+  // - compressor no chão, à esquerda, encostado à parede;
+  // - esteira aérea ao longo da parede (2,2 m), ramal até à mesa sobre um pilar HEB
+  //   e descidas verticais para a bancada e para o compressor;
+  // - FRL de entrada de ar preso ao pé dianteiro esquerdo da mesa.
   // ---------------------------------------------------------------------------
-  const wallZ = -plate.widthMm / 2 - 420
-  const wallX = 0
-  const trayY = 280 // altura das esteiras aéreas (mm acima do plano da mesa)
+  const legMm = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
+  const floor = -top - legMm
+  const wallFrontZ = -plate.widthMm / 2 - 650
+  const wall = { lengthMm: 3000, heightMm: 2600, thicknessMm: 150 }
+  const trayBottom = floor + 2215
+  const trayY = trayBottom + 35 // centro da esteira (abas de 60 mm + fundo)
+  const comp = pneumaticComponentSizeMm('airCompressor')!
+  const frl = pneumaticComponentSizeMm('pneumaticFrl')!
+  const compX = -plate.lengthMm / 2 - 750
+  const wallTray = { from: compX - comp.x / 2 - 110, to: 100 }
+  const branch = { from: wallFrontZ + 260, to: -plate.widthMm / 2 }
 
-  // Parede industrial atrás da bancada
   list.push({
-    key: 'factoryWall', type: 'industrialWall',
-    x: wallX, y: 400, z: wallZ,
-    state: { widthMm: 2200, heightMm: 900, thicknessMm: 80, finish: 'panel', labelText: 'PAREDE FÁBRIL' },
+    key: 'factoryWall', type: 'industrialWall', x: -400, y: floor + wall.heightMm / 2, z: wallFrontZ - wall.thicknessMm / 2,
+    state: { ...wall, finish: 'panel', skirting: true, labelText: 'PAREDE FABRIL' },
   })
-
-  // Quadro elétrico completo de parede (proteção, sinalização de fases, DPS, cortes, disjuntores, reservas)
   list.push({
-    key: 'wallPanel', type: 'panelEnclosure',
-    x: wallX - 180, y: 320, z: wallZ + 55,
+    key: 'wallPanel', type: 'panelEnclosure', x: -450, y: floor + 1500, z: wallFrontZ + 125,
     state: {
-      hostLocation: 'wall',
-      widthMm: 800, heightMm: 1000, depthMm: 250,
-      doorOpen: false,
-      plateFinish: 'Aço galvanizado',
-      labelText: 'QE · GERAL ESTAMPAGEM',
+      hostLocation: 'machine', widthMm: 800, heightMm: 1000, depthMm: 250, doorOpen: false,
+      plateFinish: 'Aço galvanizado', labelText: 'QE · GERAL ESTAMPAGEM',
       holes: [
         { id: 'main-in', face: 'top', offsetXmm: -120, offsetYmm: 0, diameterMm: 40, glandType: 'M40' },
-        { id: 'out-to-bench', face: 'bottom', offsetXmm: 80, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
-        { id: 'out-to-compressor', face: 'bottom', offsetXmm: -80, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
+        { id: 'out-to-bench', face: 'top', offsetXmm: 120, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
+        { id: 'out-to-compressor', face: 'top', offsetXmm: 0, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
       ],
     },
   })
-
-  // Compressor de ar (lado esquerdo da fábrica)
-  const compX = -plate.lengthMm / 2 - 520
-  const compZ = -80
   list.push({
-    key: 'compressor', type: 'airCompressor',
-    x: compX, y: 180, z: compZ,
-    state: { labelText: 'COMPRESSOR · AR COMPRIMIDO', on: true },
+    key: 'compressor', type: 'airCompressor', x: compX, y: floor + comp.y / 2, z: wallFrontZ + 40 + comp.z / 2,
+    state: { labelText: 'COMPRESSOR · AR COMPRIMIDO' },
+  })
+  list.push({
+    key: 'airTreatment', type: 'pneumaticFrl', x: -plate.lengthMm / 2 - frl.x / 2 - 2, y: -top - 30 - frl.y / 2, z: plate.widthMm / 2 - 20,
+    state: { labelText: 'FRL · ENTRADA DE AR' },
   })
 
-  // Tratamento de ar (FRL) na maquete com manómetro — entrada de ar da esteira
+  // Esteira aérea ao longo da parede: por cima do quadro geral, do compressor até ao ramal da mesa.
   list.push({
-    key: 'airTreatment', type: 'pneumaticManifold',
-    x: -plate.lengthMm / 2 + 70, y: top + 55, z: plate.widthMm / 2 - 70,
-    state: { labelText: 'FRL · TRATAMENTO DE AR', stations: 1, islandTag: 'FRL' },
+    key: 'tray-wall', type: 'cableTrayStraight', x: (wallTray.from + wallTray.to) / 2, y: trayY, z: wallFrontZ + 160,
+    state: { lengthMm: wallTray.to - wallTray.from, widthMm: 200, sideHeightMm: 60, withCover: true, labelText: 'QE → BANCADA / COMPRESSOR' },
   })
-
-  // Pilares para fixação das esteiras aéreas
-  const pillarPositions: Array<{ key: string; x: number; z: number }> = [
-    { key: 'pillar-wall-l', x: -420, z: wallZ + 80 },
-    { key: 'pillar-wall-r', x: 420, z: wallZ + 80 },
-    { key: 'pillar-bench-l', x: -plate.lengthMm / 2 - 40, z: -plate.widthMm / 2 - 40 },
-    { key: 'pillar-bench-r', x: plate.lengthMm / 2 + 40, z: -plate.widthMm / 2 - 40 },
-    { key: 'pillar-comp', x: compX + 80, z: compZ - 120 },
-  ]
-  pillarPositions.forEach((p) => {
-    list.push({
-      key: p.key, type: 'industrialPillar',
-      x: p.x, y: 350, z: p.z,
-      state: { heightMm: 700, profile: 'HEB200', finish: 'galvanized' },
-    })
-  })
-
-  // Esteira elétrica aérea: Quadro de parede → Bancada (cabos de potência e comando)
+  // Ramal até à traseira da mesa (eixo Z), apoiado num pilar HEB 200.
   list.push({
-    key: 'tray-wall-to-bench', type: 'cableTrayStraight',
-    x: (wallX - 180 + 0) / 2, y: trayY, z: (wallZ + 55 + (-plate.widthMm / 2)) / 2,
-    state: { lengthMm: 520, widthMm: 150, heightMm: 50, coverOn: true, labelText: 'QE → BANCADA' },
+    key: 'tray-to-bench', type: 'cableTrayStraight', x: 0, y: trayY, z: (branch.from + branch.to) / 2,
+    state: { lengthMm: branch.to - branch.from, widthMm: 150, sideHeightMm: 60, withCover: true, labelText: 'QE → BANCADA' },
+    orientation: { x: 0, y: 90, z: 0 },
+  })
+  list.push({
+    key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: (branch.from + branch.to) / 2 - 45,
+    state: { heightMm: Math.round(trayBottom - floor), profile: 'HEB200', finish: 'safetyYellow' },
+  })
+  // Descidas verticais: para a calha traseira da mesa e para o compressor.
+  const benchDrop = trayBottom - top
+  list.push({
+    key: 'tray-drop-bench', type: 'cableTrayStraight', x: 0, y: top + benchDrop / 2, z: -plate.widthMm / 2 - 55,
+    state: { lengthMm: Math.round(benchDrop), widthMm: 100, sideHeightMm: 60, withCover: true, labelText: 'DESCIDA BANCADA' },
     orientation: { x: 0, y: 0, z: 90 },
   })
-  // Riser / descida junto à bancada
+  const compDropBottom = floor + comp.y + 80
   list.push({
-    key: 'tray-riser-bench', type: 'cableTrayRiser90',
-    x: 0, y: trayY - 80, z: -plate.widthMm / 2 - 30,
-    state: { lengthMm: 180, widthMm: 150, heightMm: 50, labelText: 'DESCIDA BANCADA' },
-  })
-
-  // Esteira elétrica aérea: Quadro de parede → Compressor
-  list.push({
-    key: 'tray-wall-to-comp', type: 'cableTrayStraight',
-    x: (wallX - 180 + compX) / 2, y: trayY, z: (wallZ + 55 + compZ) / 2 - 40,
-    state: { lengthMm: 680, widthMm: 100, heightMm: 50, coverOn: true, labelText: 'QE → COMPRESSOR' },
-    orientation: { x: 0, y: 0, z: 45 },
-  })
-  list.push({
-    key: 'tray-riser-comp', type: 'cableTrayRiser90',
-    x: compX + 40, y: trayY - 90, z: compZ - 60,
-    state: { lengthMm: 200, widthMm: 100, heightMm: 50, labelText: 'DESCIDA COMPRESSOR' },
-  })
-
-  // Esteira / percurso de ar: Compressor → Tratamento de ar na maquete
-  list.push({
-    key: 'tray-air-to-bench', type: 'cableTrayStraight',
-    x: (compX + (-plate.lengthMm / 2 + 70)) / 2, y: trayY - 30, z: (compZ + (plate.widthMm / 2 - 70)) / 2,
-    state: { lengthMm: 620, widthMm: 80, heightMm: 40, coverOn: true, labelText: 'AR · COMPRESSOR → FRL' },
-    orientation: { x: 0, y: 0, z: -30 },
+    key: 'tray-drop-compressor', type: 'cableTrayStraight', x: compX - comp.x / 2 - 60, y: (trayBottom + compDropBottom) / 2, z: wallFrontZ + 160,
+    state: { lengthMm: Math.round(trayBottom - compDropBottom), widthMm: 100, sideHeightMm: 60, withCover: true, labelText: 'DESCIDA COMPRESSOR' },
+    orientation: { x: 0, y: 0, z: 90 },
   })
 
   // A orientação é construtiva nesta montagem; deve sobreviver à reabertura do ficheiro.

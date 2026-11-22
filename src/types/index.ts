@@ -151,6 +151,7 @@ export type ComponentType =
   | 'mecOperatorBox'
   | 'mecSignalTower'
   | 'mecBenchDuct'
+  | 'mecHz20VacuumCylinder'
   // --- Estruturas industriais e esteiras porta-cabos --------------------
   | 'industrialWall'
   | 'industrialPillar'
@@ -189,6 +190,10 @@ export type ComponentType =
   | 'plcSiemensS71500Di32'
   | 'plcSiemensS71500Cpu1511c'
   | 'plcSiemensS7300Cpu315'
+  | 'plcSiemensS7300Cpu315PnDp'
+  | 'plcSiemensS7300Sm321Di32'
+  | 'plcSiemensS7300Sm322Do32'
+  | 'plcSiemensS7300Sm334AiAo'
   | 'siemensTsAdapterIeBasic'
   | 'hmi'
   // --- Bornes, barras e fontes -----------------------------------------

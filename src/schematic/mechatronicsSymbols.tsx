@@ -72,6 +72,26 @@ export function MechatronicsSymbol({ c, stroke }: { c: ElectricalComponent; stro
         </g>
       )
     }
+    case 'mecHz20VacuumCylinder': {
+      // Cilindro vertical guiado (2 guias) com ventosa na ponta da haste.
+      const pct = Math.max(0, Math.min(100, Number(c.state.extensionPct ?? 0)))
+      const top = 18, len = h * 0.34, travel = h * 0.18 * (pct / 100)
+      const rodEnd = top + len + 8 + travel
+      const single = c.state.acting === 'single'
+      return (
+        <g>
+          <rect x={w * 0.26} y={top} width={w * 0.48} height={len} fill="#e2e8f0" stroke={stroke} strokeWidth={1.6} />
+          <rect x={w * 0.28} y={top + 2 + (len - 10) * (pct / 100)} width={w * 0.44} height={6} fill="#475569" />
+          {single && <path d={`M ${w * 0.4} ${top + len - 4} l 4 -4 l 4 4 l 4 -4 l 4 4`} fill="none" stroke="#475569" strokeWidth={1} />}
+          {[0.32, 0.68].map((fx) => <line key={fx} x1={w * fx} y1={top + len} x2={w * fx} y2={rodEnd} stroke="#94a3b8" strokeWidth={1.4} />)}
+          <line x1={w / 2} y1={top + len} x2={w / 2} y2={rodEnd} stroke="#0f172a" strokeWidth={2.4} />
+          <rect x={w * 0.24} y={rodEnd} width={w * 0.52} height={5} fill="#94a3b8" stroke="#334155" />
+          <path d={`M ${w * 0.36} ${rodEnd + 5} L ${w * 0.3} ${rodEnd + 13} L ${w * 0.7} ${rodEnd + 13} L ${w * 0.64} ${rodEnd + 5} Z`} fill={c.state.vacuumActive ? '#0ea5e9' : '#1f2937'} />
+          {ref()}
+          {caption(single ? 'HZ20 · simples efeito' : 'HZ20 · duplo efeito')}
+        </g>
+      )
+    }
     case 'mecRotaryArm': {
       const ang = (Number(c.state.angleDeg ?? 0) * Math.PI) / 180
       const cx = w / 2, cy = h * 0.52, r = Math.min(w, h) * 0.34
