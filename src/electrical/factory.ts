@@ -1091,6 +1091,40 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       model: 'QST-8 · Push-In T',
     },
   },
+  pneumaticUnion: {
+    category: 'terminal', paletteName: 'Festo QS-8 · União reta pneumática Push-In · 2 vias', group: 'Pneumática', tag: 'UR', w: 72, h: 36,
+    terminals: [
+      T('P1', 'pneumatic-in', 0.04, 0.50, { position3D: { x: 0.04, y: 0.50, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.96, 0.50, { position3D: { x: 0.96, y: 0.50, z: 0.50 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+    ],
+    defaultState: {
+      manufacturer: 'Festo',
+      model: 'QS-8 · Push-In Reta',
+    },
+  },
+  pneumaticElbow: {
+    category: 'terminal', paletteName: 'Festo QSL-8 · Cotovelo 90° pneumático Push-In', group: 'Pneumática', tag: 'UE', w: 56, h: 56,
+    terminals: [
+      T('P1', 'pneumatic-in', 0.04, 0.50, { position3D: { x: 0.04, y: 0.50, z: 0.50 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.50, 0.04, { position3D: { x: 0.50, y: 0.96, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+    ],
+    defaultState: {
+      manufacturer: 'Festo',
+      model: 'QSL-8 · Push-In 90°',
+    },
+  },
+  pneumaticY: {
+    category: 'terminal', paletteName: 'Festo QSY-8 · União em Y pneumática Push-In · 3 vias', group: 'Pneumática', tag: 'UY', w: 72, h: 64,
+    terminals: [
+      T('P1', 'pneumatic-in', 0.50, 0.96, { position3D: { x: 0.50, y: 0.04, z: 0.50 }, face: 'bottom', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P2', 'pneumatic-out', 0.18, 0.08, { position3D: { x: 0.22, y: 0.88, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+      T('P3', 'pneumatic-out', 0.82, 0.08, { position3D: { x: 0.78, y: 0.88, z: 0.50 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 9 }),
+    ],
+    defaultState: {
+      manufacturer: 'Festo',
+      model: 'QSY-8 · Push-In Y',
+    },
+  },
   electricCylinderEpcs: {
     category: 'motor', paletteName: 'Festo EPCS-BS-45-200 · Cilindro elétrico SMS 24 V DC', group: 'Pneumática', tag: 'EPCS', w: 220, h: 96,
     terminals: [
@@ -2793,7 +2827,7 @@ export function paletteDomains(): PaletteDomain[] {
     }
 
     if (tpl.group === 'Pneumática') {
-      if (type === 'pneumaticFrl' || type === 'pneumaticManifold' || type === 'pneumaticTee') {
+      if (type === 'pneumaticFrl' || type === 'pneumaticManifold' || type === 'pneumaticTee' || type === 'pneumaticUnion' || type === 'pneumaticElbow' || type === 'pneumaticY') {
         pushTo('pneumatica', 'pneu-tratamento', 'Tratamento & Distribuição de Ar', item)
       } else if (type === 'pneumaticValve52') {
         pushTo('pneumatica', 'pneu-valvulas', 'Eletroválvulas', item)

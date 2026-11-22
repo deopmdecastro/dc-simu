@@ -5,6 +5,9 @@ export type PneumaticComponentType =
   | 'pneumaticValve52'
   | 'pneumaticCylinder'
   | 'pneumaticTee'
+  | 'pneumaticUnion'
+  | 'pneumaticElbow'
+  | 'pneumaticY'
   | 'electricCylinderEpcs'
   | 'pneumaticGuidedCylinder'
   | 'pneumaticManifold'
@@ -16,6 +19,9 @@ export function isPneumaticComponentType(type: string): type is PneumaticCompone
     type === 'pneumaticValve52' ||
     type === 'pneumaticCylinder' ||
     type === 'pneumaticTee' ||
+    type === 'pneumaticUnion' ||
+    type === 'pneumaticElbow' ||
+    type === 'pneumaticY' ||
     type === 'electricCylinderEpcs' ||
     type === 'pneumaticGuidedCylinder' ||
     type === 'pneumaticManifold' ||
@@ -27,6 +33,9 @@ export const PNEUMATIC_FRL_SIZE_MM = { width: 150, height: 245, depth: 96 } as c
 export const PNEUMATIC_VALVE52_SIZE_MM = { width: 170, height: 102, depth: 56 } as const
 export const PNEUMATIC_CYLINDER_SIZE_MM = { width: 330, height: 88, depth: 78 } as const
 export const PNEUMATIC_TEE_SIZE_MM = { width: 82, height: 60, depth: 34 } as const
+export const PNEUMATIC_UNION_SIZE_MM = { width: 64, height: 28, depth: 28 } as const
+export const PNEUMATIC_ELBOW_SIZE_MM = { width: 52, height: 52, depth: 28 } as const
+export const PNEUMATIC_Y_SIZE_MM = { width: 72, height: 64, depth: 30 } as const
 export const ELECTRIC_CYLINDER_EPCS_SIZE_MM = { width: 410, height: 122, depth: 82 } as const
 export const PNEUMATIC_GUIDED_CYLINDER_SIZE_MM = { width: 220, height: 118, depth: 66 } as const
 export const PNEUMATIC_MANIFOLD_SIZE_MM = { width: 250, height: 146, depth: 94 } as const
@@ -47,6 +56,15 @@ export function pneumaticComponentSizeMm(
   }
   if (type === 'pneumaticTee') {
     return { x: PNEUMATIC_TEE_SIZE_MM.width, y: PNEUMATIC_TEE_SIZE_MM.height, z: PNEUMATIC_TEE_SIZE_MM.depth }
+  }
+  if (type === 'pneumaticUnion') {
+    return { x: PNEUMATIC_UNION_SIZE_MM.width, y: PNEUMATIC_UNION_SIZE_MM.height, z: PNEUMATIC_UNION_SIZE_MM.depth }
+  }
+  if (type === 'pneumaticElbow') {
+    return { x: PNEUMATIC_ELBOW_SIZE_MM.width, y: PNEUMATIC_ELBOW_SIZE_MM.height, z: PNEUMATIC_ELBOW_SIZE_MM.depth }
+  }
+  if (type === 'pneumaticY') {
+    return { x: PNEUMATIC_Y_SIZE_MM.width, y: PNEUMATIC_Y_SIZE_MM.height, z: PNEUMATIC_Y_SIZE_MM.depth }
   }
   if (type === 'electricCylinderEpcs') {
     return { x: ELECTRIC_CYLINDER_EPCS_SIZE_MM.width, y: ELECTRIC_CYLINDER_EPCS_SIZE_MM.height, z: ELECTRIC_CYLINDER_EPCS_SIZE_MM.depth }
@@ -99,6 +117,27 @@ export const PNEUMATIC_DATASHEETS: Record<PneumaticComponentType, PneumaticDatas
     manufacturer: 'Festo',
     model: 'QST-8 · Push-In 3 Vias',
     summary: 'Derivação pneumática rápida Festo QST em T (P1 / P2 / P3) · 0–14 bar',
+  },
+  pneumaticUnion: {
+    path: '/datasheets/pneumatics/pneumatic-frl-unit-3d.pdf',
+    name: 'Festo QS-8 · União Reta Pneumática Push-In (Ficha Técnica).pdf',
+    manufacturer: 'Festo',
+    model: 'QS-8 · Push-In Reta',
+    summary: 'União reta Push-In 2 vias · corpo PBT preto · anéis azuis de libertação · 0–14 bar',
+  },
+  pneumaticElbow: {
+    path: '/datasheets/pneumatics/pneumatic-frl-unit-3d.pdf',
+    name: 'Festo QSL-8 · Cotovelo 90° Pneumático Push-In (Ficha Técnica).pdf',
+    manufacturer: 'Festo',
+    model: 'QSL-8 · Push-In 90°',
+    summary: 'Cotovelo 90° Push-In · corpo PBT preto · anéis azuis · 0–14 bar',
+  },
+  pneumaticY: {
+    path: '/datasheets/pneumatics/pneumatic-frl-unit-3d.pdf',
+    name: 'Festo QSY-8 · União em Y Pneumática Push-In (Ficha Técnica).pdf',
+    manufacturer: 'Festo',
+    model: 'QSY-8 · Push-In Y',
+    summary: 'Derivação em Y Push-In 3 vias · corpo PBT preto · anéis azuis · 0–14 bar',
   },
   electricCylinderEpcs: {
     path: '/datasheets/pneumatics/festo-epcs-bs-45-200-sms.pdf',

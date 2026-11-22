@@ -1321,7 +1321,7 @@ function runOneTick(state: Store, dtMs: number) {
   }
   for (const pw of pneumaticWires) linkP(pw.fromTerminalId, pw.toTerminalId)
   for (const pc of components) {
-    if (pc.type === 'pneumaticTee') {
+    if (pc.type === 'pneumaticTee' || pc.type === 'pneumaticUnion' || pc.type === 'pneumaticElbow' || pc.type === 'pneumaticY') {
       const ids = pc.terminals.map((t) => t.id)
       for (let i = 0; i < ids.length; i += 1) {
         for (let j = i + 1; j < ids.length; j += 1) linkP(ids[i], ids[j])

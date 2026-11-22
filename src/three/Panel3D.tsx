@@ -126,6 +126,9 @@ import {
   PneumaticGuidedCylinder3D,
   PneumaticManifold3D,
   PneumaticTee3D,
+  PneumaticUnion3D,
+  PneumaticElbow3D,
+  PneumaticY3D,
   PneumaticVacuumCup3D,
   PneumaticValve523D,
 } from './PneumaticsDevices3D'
@@ -5632,6 +5635,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <PneumaticCylinder3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'pneumaticTee') {
             content = <PneumaticTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticUnion') {
+            content = <PneumaticUnion3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticElbow') {
+            content = <PneumaticElbow3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticY') {
+            content = <PneumaticY3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'electricCylinderEpcs') {
             content = (
               <ElectricCylinderEpcs3D

@@ -265,7 +265,10 @@
     "wireTrayElbow90": "wireTrayElbow90.webp",
     "wireTrayRiser90": "wireTrayRiser90.webp",
     "wireTrayStraight": "wireTrayStraight.webp",
-    "wireTrayTee": "wireTrayTee.webp"
+    "wireTrayTee": "wireTrayTee.webp",
+    "pneumaticUnion": "pneumaticUnion.webp",
+    "pneumaticElbow": "pneumaticElbow.webp",
+    "pneumaticY": "pneumaticY.webp"
   },
   "front": {
     "breaker1p": "front/breaker1p.webp",
@@ -396,6 +399,9 @@
     "wireTrayElbow90": "front/wireTrayElbow90.webp",
     "wireTrayRiser90": "front/wireTrayRiser90.webp",
     "wireTrayStraight": "front/wireTrayStraight.webp",
-    "wireTrayTee": "front/wireTrayTee.webp"
+    "wireTrayTee": "front/wireTrayTee.webp",
+    "pneumaticUnion": "front/pneumaticUnion.webp",
+    "pneumaticElbow": "front/pneumaticElbow.webp",
+    "pneumaticY": "front/pneumaticY.webp"
   }
 }

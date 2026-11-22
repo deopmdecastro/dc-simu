@@ -1171,13 +1171,36 @@ export function WaterTankTransparent3D({
         {/* Tubo de entrada horizontal desde a flange esquerda até à válvula flutuadora interna */}
         <mesh position={[(leftNozzleX - R * 0.56) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[pipeRadius, pipeRadius, Math.max(0.05, Math.abs(-R * 0.56 - leftNozzleX)), 16]} />
-          <meshStandardMaterial color="#94a3b8" roughness={0.35} metalness={0.72} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.32} metalness={0.78} />
         </mesh>
-        {/* Flange exterior esquerda de ligação hidráulica (porta IN) */}
-        <mesh position={[leftNozzleX + 12 * U, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[pipeRadius * 1.65, pipeRadius * 1.65, 14 * U, 18]} />
-          <meshStandardMaterial color="#64748b" roughness={0.38} metalness={0.78} />
-        </mesh>
+        {/* Entrada passa-parede realista (IN): junta EPDM + porca sextavada oca + niple com furo interior */}
+        <group position={[leftNozzleX + pipeRadius * 0.15, 0, 0]}>
+          {/* Junta EPDM preta encostada à parede do reservatório */}
+          <mesh position={[pipeRadius * 0.08, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[pipeRadius * 1.85, pipeRadius * 1.85, pipeRadius * 0.28, 24]} />
+            <meshStandardMaterial color="#1a1f26" roughness={0.88} metalness={0.04} />
+          </mesh>
+          {/* Porca sextavada oca (latão / aço niquelado) */}
+          <mesh position={[pipeRadius * 0.55, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[pipeRadius * 1.72, pipeRadius * 1.72, pipeRadius * 0.72, 6]} />
+            <meshStandardMaterial color="#c8d0d8" roughness={0.28} metalness={0.88} />
+          </mesh>
+          {/* Corpo cilíndrico do niple */}
+          <mesh position={[pipeRadius * 1.35, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[pipeRadius * 1.05, pipeRadius * 1.05, pipeRadius * 1.1, 20]} />
+            <meshStandardMaterial color="#b8c2cc" roughness={0.26} metalness={0.9} />
+          </mesh>
+          {/* Anel de aperto frontal */}
+          <mesh position={[pipeRadius * 1.95, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[pipeRadius * 1.28, pipeRadius * 1.18, pipeRadius * 0.38, 20]} />
+            <meshStandardMaterial color="#9aa5b1" roughness={0.3} metalness={0.85} />
+          </mesh>
+          {/* Canal interior oco (escuro) */}
+          <mesh position={[pipeRadius * 1.1, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[pipeRadius * 0.72, pipeRadius * 0.72, pipeRadius * 2.4, 16]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.82} metalness={0.1} />
+          </mesh>
+        </group>
         {/* Corpo azul/branco da válvula flutuadora interna */}
         <mesh position={[-R * 0.56, -R * 0.14, 0]}>
           <cylinderGeometry args={[R * 0.18, R * 0.16, R * 0.34, 20]} />
@@ -1244,16 +1267,25 @@ export function WaterTankTransparent3D({
           onToggleValve()
         }}
       >
-        {/* Flange passa-parede (bulkhead) + junta EPDM preta encostada à parede acrílica do reservatório */}
-        <mesh position={[R - pipeRadius * 0.12, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[pipeRadius * 1.95, pipeRadius * 1.95, pipeRadius * 0.55, 22]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.72} metalness={0.12} />
+        {/* Passa-parede OUT realista: junta EPDM + porca sextavada oca + niple com interior oco */}
+        <mesh position={[R - pipeRadius * 0.08, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[pipeRadius * 1.95, pipeRadius * 1.95, pipeRadius * 0.32, 24]} />
+          <meshStandardMaterial color="#1a1f26" roughness={0.88} metalness={0.04} />
         </mesh>
-        <mesh position={[R + pipeRadius * 0.42, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[pipeRadius * 1.75, pipeRadius * 1.75, pipeRadius * 0.7, 6]} />
-          <meshStandardMaterial color="#d8dfe6" roughness={0.22} metalness={0.92} />
+        <mesh position={[R + pipeRadius * 0.38, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[pipeRadius * 1.78, pipeRadius * 1.78, pipeRadius * 0.68, 6]} />
+          <meshStandardMaterial color="#c8d0d8" roughness={0.26} metalness={0.9} />
         </mesh>
-        {/* Troço roscado de ligação desde o tanque até ao passador ARCO TURIA 3000 */}
+        <mesh position={[R + pipeRadius * 0.95, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[pipeRadius * 1.08, pipeRadius * 1.08, pipeRadius * 0.55, 20]} />
+          <meshStandardMaterial color="#b8c2cc" roughness={0.24} metalness={0.92} />
+        </mesh>
+        {/* Canal interior oco do passa-parede */}
+        <mesh position={[R + pipeRadius * 0.55, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[pipeRadius * 0.74, pipeRadius * 0.74, pipeRadius * 1.6, 16]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.82} metalness={0.1} />
+        </mesh>
+        {/* Troço de ligação desde o tanque até ao passador ARCO TURIA 3000 */}
         <mesh position={[(R + valveBodyX) / 2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[pipeRadius * 0.96, pipeRadius * 0.96, Math.max(0.04, valveBodyX - R), 16]} />
           <meshStandardMaterial color="#cbd5e1" roughness={0.24} metalness={0.9} />

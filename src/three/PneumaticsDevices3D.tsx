@@ -324,28 +324,36 @@ function createFestoLogoBadge(): THREE.CanvasTexture | null {
 }
 
 /** Racor rápido Festo QS metálico niquelado de 2 estágios + anel azul biselado */
+/** Porta Push-In estilo Festo QS / DIYI — anel azul de libertação + corpo preto (referência comercial). */
 function FestoQsPushInPort({
   position,
   rotation,
   scale = 1,
+  variant = 'nickel',
 }: {
   position: [number, number, number]
   rotation?: [number, number, number]
   scale?: number
+  /** 'nickel' = QS clássico niquelado; 'black' = corpo preto + anel azul (catálogo união) */
+  variant?: 'nickel' | 'black'
 }) {
+  const body = variant === 'black' ? PBT_BLACK : '#d2dbe4'
+  const body2 = variant === 'black' ? PBT_CHARCOAL : '#e2e8f0'
+  const metalness = variant === 'black' ? 0.12 : 0.9
+  const roughness = variant === 'black' ? 0.42 : 0.2
   return (
     <group position={position} rotation={rotation ?? [0, 0, 0]} scale={[scale, scale, scale]}>
-      {/* Base roscada sextavada em latão niquelado */}
+      {/* Base / colar do corpo */}
       <mesh position={[0, 3 * U, 0]} castShadow>
-        <cylinderGeometry args={[9.5 * U, 9.5 * U, 7 * U, 6]} />
-        <meshStandardMaterial color="#d2dbe4" roughness={0.22} metalness={0.9} />
+        <cylinderGeometry args={[9.5 * U, 9.5 * U, 7 * U, variant === 'black' ? 20 : 6]} />
+        <meshStandardMaterial color={body} roughness={roughness} metalness={metalness} />
       </mesh>
-      {/* Corpo cilíndrico niquelado polido com rebaixo */}
+      {/* Corpo cilíndrico com rebaixo */}
       <mesh position={[0, 11 * U, 0]} castShadow>
         <cylinderGeometry args={[8.4 * U, 8.8 * U, 10 * U, 20]} />
-        <meshStandardMaterial color="#e2e8f0" roughness={0.18} metalness={0.92} />
+        <meshStandardMaterial color={body2} roughness={roughness} metalness={metalness} />
       </mesh>
-      {/* Anel de libertação Festo azul biselado */}
+      {/* Anel de libertação azul biselado */}
       <mesh position={[0, 18.5 * U, 0]} castShadow>
         <cylinderGeometry args={[9.2 * U, 7.6 * U, 5.5 * U, 20]} />
         <meshStandardMaterial color={FESTO_BLUE} roughness={0.3} metalness={0.12} />
@@ -356,6 +364,16 @@ function FestoQsPushInPort({
         <meshStandardMaterial color="#0b111b" roughness={0.75} />
       </mesh>
     </group>
+  )
+}
+
+/** Núcleo preto arredondado partilhado pelas uniões Push-In (reta / cotovelo / T / Y). */
+function PushInFittingCore({ radius = 11 * U }: { radius?: number }) {
+  return (
+    <mesh castShadow receiveShadow>
+      <sphereGeometry args={[radius, 22, 18]} />
+      <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+    </mesh>
   )
 }
 
@@ -807,6 +825,7 @@ export function PneumaticCylinder3D({
 }
 
 /** 4. União em T Pneumática Festo QST-8 (3 vias Push-In) */
+/** União em T Push-In (3 vias) — corpo preto + anéis azuis, fiel ao catálogo comercial. */
 export function PneumaticTee3D({
   c,
   position,
@@ -814,27 +833,119 @@ export function PneumaticTee3D({
   c: ElectricalComponent
   position: [number, number, number]
 }) {
-  const W = PNEUMATIC_TEE_SIZE_MM.width * U
+  const arm = 22 * U
   return (
     <group position={position} name={`pneumatic-tee-3d-${c.id}`}>
-      {/* Corpo ergonómico em PBT preto reforçado */}
+      <PushInFittingCore radius={12 * U} />
+      {/* Braços do T em PBT preto */}
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-        <cylinderGeometry args={[10.5 * U, 10.5 * U, W * 0.62, 20]} />
-        <meshStandardMaterial color={PBT_BLACK} roughness={0.42} metalness={0.18} />
+        <cylinderGeometry args={[9.2 * U, 9.2 * U, arm * 2, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
       </mesh>
-      <mesh position={[0, 12 * U, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[10.5 * U, 10.5 * U, 26 * U, 20]} />
-        <meshStandardMaterial color={PBT_BLACK} roughness={0.42} metalness={0.18} />
+      <mesh position={[0, arm * 0.55, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[9.2 * U, 9.2 * U, arm * 0.9, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
       </mesh>
-      {/* Olhal central de fixação */}
-      <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[5.5 * U, 5.5 * U, 23 * U, 14]} />
-        <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.84} />
+      <FestoQsPushInPort position={[-arm * 0.95, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.88} variant="black" />
+      <FestoQsPushInPort position={[arm * 0.95, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.88} variant="black" />
+      <FestoQsPushInPort position={[0, arm * 1.05, 0]} scale={0.88} variant="black" />
+    </group>
+  )
+}
+
+/** União reta Push-In (2 vias) — macho-macho preto + anéis azuis. */
+export function PneumaticUnion3D({
+  c,
+  position,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+}) {
+  const arm = 18 * U
+  return (
+    <group position={position} name={`pneumatic-union-3d-${c.id}`}>
+      <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[9.5 * U, 9.5 * U, arm * 1.6, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
       </mesh>
-      {/* 3 pórticos Festo QS com anel azul */}
-      <FestoQsPushInPort position={[-W * 0.24, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.85} />
-      <FestoQsPushInPort position={[W * 0.24, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.85} />
-      <FestoQsPushInPort position={[0, 18 * U, 0]} scale={0.85} />
+      {/* Nervura central de união */}
+      <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[11.2 * U, 11.2 * U, 8 * U, 18]} />
+        <meshStandardMaterial color={PBT_CHARCOAL} roughness={0.38} metalness={0.16} />
+      </mesh>
+      <FestoQsPushInPort position={[-arm * 0.85, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.9} variant="black" />
+      <FestoQsPushInPort position={[arm * 0.85, 0, 0]} rotation={[0, 0, -Math.PI / 2]} scale={0.9} variant="black" />
+    </group>
+  )
+}
+
+/** Cotovelo 90° Push-In — corpo preto + 2 anéis azuis. */
+export function PneumaticElbow3D({
+  c,
+  position,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+}) {
+  const arm = 18 * U
+  return (
+    <group position={position} name={`pneumatic-elbow-3d-${c.id}`}>
+      <PushInFittingCore radius={11 * U} />
+      <mesh rotation={[0, 0, Math.PI / 2]} position={[-arm * 0.35, 0, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.85, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      </mesh>
+      <mesh position={[0, arm * 0.35, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.85, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      </mesh>
+      <FestoQsPushInPort position={[-arm * 0.9, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={0.88} variant="black" />
+      <FestoQsPushInPort position={[0, arm * 0.9, 0]} scale={0.88} variant="black" />
+    </group>
+  )
+}
+
+/** União em Y Push-In (3 vias divergentes) — corpo preto + anéis azuis. */
+export function PneumaticY3D({
+  c,
+  position,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+}) {
+  const arm = 20 * U
+  const ang = Math.PI / 5 // ~36° cada lado
+  return (
+    <group position={position} name={`pneumatic-y-3d-${c.id}`}>
+      <PushInFittingCore radius={12 * U} />
+      {/* Entrada inferior */}
+      <mesh position={[0, -arm * 0.35, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.75, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      </mesh>
+      {/* Braço esquerdo */}
+      <mesh position={[-Math.sin(ang) * arm * 0.4, Math.cos(ang) * arm * 0.35, 0]} rotation={[0, 0, -ang]} castShadow receiveShadow>
+        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.75, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      </mesh>
+      {/* Braço direito */}
+      <mesh position={[Math.sin(ang) * arm * 0.4, Math.cos(ang) * arm * 0.35, 0]} rotation={[0, 0, ang]} castShadow receiveShadow>
+        <cylinderGeometry args={[9 * U, 9 * U, arm * 0.75, 18]} />
+        <meshStandardMaterial color={PBT_BLACK} roughness={0.4} metalness={0.14} />
+      </mesh>
+      <FestoQsPushInPort position={[0, -arm * 0.95, 0]} rotation={[0, 0, Math.PI]} scale={0.86} variant="black" />
+      <FestoQsPushInPort
+        position={[-Math.sin(ang) * arm * 0.95, Math.cos(ang) * arm * 0.9, 0]}
+        rotation={[0, 0, -ang]}
+        scale={0.86}
+        variant="black"
+      />
+      <FestoQsPushInPort
+        position={[Math.sin(ang) * arm * 0.95, Math.cos(ang) * arm * 0.9, 0]}
+        rotation={[0, 0, ang]}
+        scale={0.86}
+        variant="black"
+      />
     </group>
   )
 }
