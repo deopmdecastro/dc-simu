@@ -2245,11 +2245,31 @@ export function WaterSupplyBox3D({
   const outlet = useMemo(() => {
     const tip = new THREE.Vector3((outPos.x - 0.5) * W, (outPos.y - 0.5) * H, (outPos.z - 0.5) * D)
     const wallX = W / 2
-    // Tubo interior desde a saída do conjunto hidráulico até à parede (com curva se a cota diferir).
+    const pipeR = 17 * U
+    // Tubo interior desde a saída do conjunto hidráulico até à parede. Termina SEMPRE num troço axial
+    // dentro da espessura da parede: a curva fica no interior do armário e a ponta nunca atravessa a junta
+    // na diagonal (antes, com o borne OUT fora da cota da saída interna, o tubo saía torcido pela parede).
     const from = new THREE.Vector3(W * 0.45 + 9 * U, H * 0.08, -D * 0.06)
-    const inner = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([from, new THREE.Vector3((from.x + wallX) / 2, (from.y + tip.y) / 2, (from.z + tip.z) / 2), new THREE.Vector3(wallX, tip.y, tip.z)]), 16, 17 * U, 14, false)
+    const end = new THREE.Vector3(wallX - wallT * 0.4, tip.y, tip.z)
+    const offset = Math.hypot(tip.y - from.y, tip.z - from.z)
+    const path = new THREE.CurvePath<THREE.Vector3>()
+    if (offset < 0.5 * U) {
+      path.add(new THREE.LineCurve3(new THREE.Vector3(from.x, tip.y, tip.z), end))
+    } else {
+      // Cotovelos a 90° com raio real; o troço transversal fica recuado o suficiente para não tocar na parede.
+      const bend = Math.min(pipeR * 1.1, offset / 2)
+      const riserX = Math.min(from.x, wallX - wallT - pipeR - bend - 2 * U)
+      const dir = new THREE.Vector3(0, tip.y - from.y, tip.z - from.z).normalize()
+      const a = new THREE.Vector3(riserX, from.y, from.z)
+      const b = new THREE.Vector3(riserX, tip.y, tip.z)
+      path.add(new THREE.QuadraticBezierCurve3(a.clone().setX(riserX - bend), a, a.clone().addScaledVector(dir, bend)))
+      if (offset > bend * 2 + 0.1 * U) path.add(new THREE.LineCurve3(a.clone().addScaledVector(dir, bend), b.clone().addScaledVector(dir, -bend)))
+      path.add(new THREE.QuadraticBezierCurve3(b.clone().addScaledVector(dir, -bend), b, b.clone().setX(riserX + bend)))
+      path.add(new THREE.LineCurve3(b.clone().setX(riserX + bend), end))
+    }
+    const inner = new THREE.TubeGeometry(path, 48, pipeR, 14, false)
     return { tip, wallX, inner }
-  }, [W, H, D, outPos.x, outPos.y, outPos.z])
+  }, [W, H, D, wallT, outPos.x, outPos.y, outPos.z])
   useEffect(() => () => outlet.inner.dispose(), [outlet])
   const outId = outTerminal?.id
   const pipeConnected = useSimStore((st) => !!outId && st.wires.some((w) => w.kind === 'hydraulic' && (w.fromTerminalId === outId || w.toTerminalId === outId)))
