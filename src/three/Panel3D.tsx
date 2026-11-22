@@ -78,6 +78,7 @@ import { WireEnd3D } from './WireEnd3D'
 import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
 import { FactoryEnvironment3D, type FactoryWallMountBounds } from './FactoryEnvironment3D'
+import { FactoryHallSizeControl } from './FactoryHallSizeControl'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import { MeterD522066_3D, MeterKws306_3D } from './DigitalMeters3D'
@@ -100,7 +101,7 @@ import {
   WaterSupplyBox3D,
   WaterTankTransparent3D,
 } from './HydraulicsDevices3D'
-import { tankHasJunctionBracket, tankJunctionBracketOf, waterTankDimensionsOf } from './hydraulicsModel'
+import { tankHasJunctionBracket, tankJunctionBracketOf, waterTankDimensionsOf, waterTankRightReachU } from './hydraulicsModel'
 import { OboJunctionBox3D, Wago221Connector3D, type OboSpliceCable } from './JunctionWagoDevices3D'
 import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
 import { WireTrayElbow903D, WireTrayRiser903D, WireTrayStraight3D, WireTrayTee3D } from './WireMeshTrayDevices3D'
@@ -114,6 +115,9 @@ import { TriProofLedBatten3D } from './TriProofBatten3D'
 import { EditableFieldCable3D, editableCableConductorsOf, isEditableCableDeviceType } from './EditableCable3D'
 import {
   computeFactoryRoomBounds,
+  computeFactoryHallLayout,
+  factoryHallSizeFromLayout,
+  factoryRoomBoundsFromLayout,
   isSolidCollisionComponentType,
   resolveFactoryPlacement3D,
   isFloorStandingComponent,
@@ -3401,6 +3405,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const demoMode = useSimStore((s) => s.demoMode)
   const viewLocked = useSimStore((s) => s.viewLocked)
   const allowOutsideFactory = useSimStore((s) => s.allowOutsideFactory)
+  const factoryHall = useSimStore((s) => s.factoryHall)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = demoMode ? 'navigate' : tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
   // Regra GLOBAL de manobra (store/manobra): nenhum aparelho se atua antes de ▶ —
@@ -4064,7 +4069,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     Number.isFinite(panelOnlyBox.minX) && Number.isFinite(panelOnlyBox.maxX)
       ? Math.max(12, panelOnlyBox.maxX - panelOnlyBox.minX)
       : 18
-  const factoryRoomBounds = computeFactoryRoomBounds(factoryPlateSpan, factoryWallFrontZ, factoryFloorY)
+  // Nave com tamanho fixo: os limites físicos são exatamente as paredes desenhadas e não crescem ao mover equipamentos.
+  const factoryRoomBounds = factoryHall
+    ? factoryRoomBoundsFromLayout(
+      computeFactoryHallLayout({ center: [0, 0, 0], wallFrontZ: factoryWallFrontZ, floorY: factoryFloorY, mountBounds: factoryMountBounds, fixedSize: factoryHall }),
+      factoryWallFrontZ,
+      factoryFloorY,
+    )
+    : computeFactoryRoomBounds(factoryPlateSpan, factoryWallFrontZ, factoryFloorY)
 
   // Resolver sobreposições iniciais entre componentes sólidos (ex.: 2 reservatórios de água) em QUALQUER modo (Canvas normal ou Ambiente fabril)
   // e manter tudo dentro dos limites interiores do pavilhão fabril quando `factoryMode` está ativo!
@@ -4083,7 +4095,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         candidate: { x: pivot.x, y: pivot.y, z: pivot.z },
         movingSize: sizeU,
         obstacles: placedSolids,
-        bounds: factoryRoomBounds,
+        // Reservatório: o suporte da caixa OBO e o passador sobressaem à direita do corpo declarado.
+        bounds: component.type === 'waterTank'
+          ? { ...factoryRoomBounds, maxX: factoryRoomBounds.maxX - waterTankRightReachU(component.state, PANEL_UNITS_PER_MM) }
+          : factoryRoomBounds,
         allowOutside: !factoryMode || allowOutsideFactory,
         floorLocked,
       })
@@ -4317,6 +4332,22 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const sceneWidth = contentBounds ? Math.max(3.5, contentBounds.maxX - contentBounds.minX + 1.2, (contentBounds.maxY - contentBounds.minY + 1.2) * 1.3) : 6
   const floorY = factoryMode ? factoryFloorY : (contentBounds?.minY ?? 0) - 0.35
   sceneCenterRef.current = sceneCenter
+  const factorySceneSpan =
+    Number.isFinite(sceneBounds.all.minX) || plateBounds
+      ? {
+          minX: Math.min(
+            Number.isFinite(sceneBounds.all.minX) ? sceneBounds.all.minX : -6,
+            plateBounds ? plateBounds.minX - (plateBounds.maxX - plateBounds.minX) - 2.5 : -10,
+          ),
+          maxX: Math.max(
+            Number.isFinite(sceneBounds.all.maxX) ? sceneBounds.all.maxX : 12,
+            plateBounds ? plateBounds.maxX + 4 : 12,
+          ),
+          maxZ: Number.isFinite(sceneBounds.all.maxZ) ? sceneBounds.all.maxZ : 10,
+        }
+      : null
+  // Geometria atual da nave (automática ou fixa) — usada para pré-preencher o editor de dimensões.
+  const factoryHallLayout = computeFactoryHallLayout({ center: sceneCenter, wallFrontZ: factoryWallFrontZ, floorY: factoryFloorY, mountBounds: factoryMountBounds, sceneSpan: factorySceneSpan, fixedSize: factoryHall })
 
   // --- Edição direta no 3D: traduz X/Y do painel para o Esquema (com imã de calha) ---
   // —— Seleção mista (componentes + textos livres) e grupos de seleção (Ctrl+G), iguais no 2D frontal e no 3D.
@@ -5194,6 +5225,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             </svg>
             <span>Ambiente fabril</span>
           </button>
+          {factoryMode && (
+            <FactoryHallSizeControl
+              layout={factoryHallLayout}
+              value={factoryHall}
+              disabled={simLocked}
+              onChange={(next) => useSimStore.getState().setFactoryHall(next)}
+            />
+          )}
         </div>
       )}
       <ViewCube
@@ -5370,21 +5409,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             wallFrontZ={factoryWallFrontZ}
             floorY={factoryFloorY}
             mountBounds={factoryMountBounds}
-            sceneSpan={
-              Number.isFinite(sceneBounds.all.minX) || plateBounds
-                ? {
-                    minX: Math.min(
-                      Number.isFinite(sceneBounds.all.minX) ? sceneBounds.all.minX : -6,
-                      plateBounds ? plateBounds.minX - (plateBounds.maxX - plateBounds.minX) - 2.5 : -10,
-                    ),
-                    maxX: Math.max(
-                      Number.isFinite(sceneBounds.all.maxX) ? sceneBounds.all.maxX : 12,
-                      plateBounds ? plateBounds.maxX + 4 : 12,
-                    ),
-                    maxZ: Number.isFinite(sceneBounds.all.maxZ) ? sceneBounds.all.maxZ : 10,
-                  }
-                : null
-            }
+            sceneSpan={factorySceneSpan}
+            fixedSize={factoryHall}
           />
         ) : (
           <>

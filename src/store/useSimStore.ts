@@ -114,6 +114,7 @@ import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { findMountTarget, isThermalRelay, syncMounted } from '../three/thermalMount'
+import { normalizeFactoryHallSize, type FactoryHallSize } from '../three/factoryPhysics'
 import { findSocketMountTarget, isPlugInRelay, isRelaySocket, relaySocketMountPosition, syncSocketMounted } from '../three/relaySocketMount'
 import {
   combConnectorMountPosition,
@@ -361,6 +362,9 @@ interface Store extends CircuitState {
   /** Quando false (por defeito), impede mover equipamentos para fora das paredes/chão/teto do pavilhão fabril. */
   allowOutsideFactory: boolean
   setAllowOutsideFactory: (allow: boolean) => void
+  /** Tamanho fixo da nave fabril (m), guardado no projeto; `null` = cresce automaticamente com os equipamentos. */
+  factoryHall: FactoryHallSize | null
+  setFactoryHall: (size: FactoryHallSize | null) => void
   /** Guarda o projeto atual no navegador (localStorage) sob este nome, criando
    *  ou sobrescrevendo. Usado pelo Ctrl+S e pelo painel "Projetos". */
   saveProjectAs: (name: string) => boolean
@@ -5903,6 +5907,7 @@ export const useSimStore = create<Store>((set, get) => {
         canvasNotes: s.canvasNotes,
         canvasTexts: s.canvasTexts,
         selectionGroups: s.selectionGroups,
+        factoryHall: s.factoryHall,
       },
       null,
       2,
@@ -5993,6 +5998,7 @@ export const useSimStore = create<Store>((set, get) => {
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: EDITOR_THEME.background } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
+        factoryHall: normalizeFactoryHallSize(parsed.factoryHall),
         runtime: EMPTY_RUNTIME(),
         selectedComponentIds: [],
         selectedWireId: null,
@@ -6019,6 +6025,7 @@ export const useSimStore = create<Store>((set, get) => {
       canvasNotes: [],
       canvasTexts: [],
       selectionGroups: [],
+      factoryHall: null,
       components: [],
       wires: [],
       showEmptyWelcome: true,
@@ -6064,6 +6071,8 @@ export const useSimStore = create<Store>((set, get) => {
   toggleViewLocked: () => set((s) => ({ viewLocked: !s.viewLocked })),
   allowOutsideFactory: false,
   setAllowOutsideFactory: (allow) => set({ allowOutsideFactory: !!allow }),
+  factoryHall: null,
+  setFactoryHall: (size) => set({ factoryHall: normalizeFactoryHallSize(size), dirty: true }),
 
   saveProjectAs: (name) => {
     const trimmed = name.trim()

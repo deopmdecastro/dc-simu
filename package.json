@@ -199,6 +199,7 @@
     "test:lighting-switch-action-ui": "node scripts/lighting-switch-action-ui-smoke.mjs",
     "test:panel3d-dispose-ui": "node scripts/panel3d-dispose-ui-smoke.mjs",
     "test:water-box-wago-ui": "node scripts/water-box-wago-ui-smoke.mjs",
+    "test:factory-hall-ui": "node scripts/factory-hall-size-ui-smoke.mjs",
     "test:commands-geometry": "tsx scripts/commands-geometry-editing-smoke.ts",
     "test:editor-routes-export": "tsx scripts/editor-routes-export-smoke.tsx",
     "test:grafcet-clipboard-routes": "tsx scripts/grafcet-clipboard-routes-smoke.ts",

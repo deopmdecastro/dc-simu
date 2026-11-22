@@ -18,7 +18,7 @@ import {
   waterTankDimensionsOf,
 } from './hydraulicsModel'
 import { useSimStore } from '../store/useSimStore'
-import { tankHasJunctionBracket, tankJunctionBracketOf, type TankJunctionBracket } from './hydraulicsModel'
+import { tankHasJunctionBracket, tankJunctionBracketOf, waterTankOutletGeometry, type TankJunctionBracket } from './hydraulicsModel'
 import { CableGlandPG, InlineWagoSplices3D, OboSteppedMembrane, type WagoSpliceCable } from './JunctionWagoDevices3D'
 import { Text } from './SceneText'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
@@ -937,15 +937,12 @@ export function WaterTankTransparent3D({
   const outletY = bottomY + totalH * 0.22
   const leftNozzleX = -totalW / 2 + totalW * 0.04
   const rightNozzleX = -totalW / 2 + totalW * 0.96
-  const pipeRadius = Math.min(24 * U, Math.max(14 * U, R * 0.068))
+  const { pipeRadius, valveBodyX, spoutStartX, spoutEndX } = waterTankOutletGeometry(c.state, U)
   const valveSpoutX = -R * 0.34
   const valveSpoutY = inletY - pipeRadius * 1.6
   const jetHeight = Math.max(0.06, valveSpoutY - waterSurfaceY)
 
   // Geometria do bico curvo 90° do passador real + curva parabólica real da água a cair até ao chão
-  const valveBodyX = R + Math.max(pipeRadius * 2.1, Math.min(pipeRadius * 3.2, (rightNozzleX - R) * 0.52))
-  const spoutStartX = valveBodyX + pipeRadius * 2.1
-  const spoutEndX = spoutStartX + pipeRadius * 2.4
   const spoutEndY = -pipeRadius * 2.35
   const dropDistY = Math.max(0.28, (outletY + spoutEndY) - bottomY)
   const pressureThrow = pipeRadius * (1.2 + (levelPct / 100) * 2.6)

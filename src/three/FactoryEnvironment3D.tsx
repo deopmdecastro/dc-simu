@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { computeFactoryHallLayout, type FactoryHallSize } from './factoryPhysics'
 
 export interface FactoryWallMountBounds {
   minX: number
@@ -20,6 +21,8 @@ interface FactoryEnvironment3DProps {
   mountBounds: FactoryWallMountBounds | null
   /** Extensão real de todos os equipamentos no espaço 3D (evita qualquer parede atravessar quadros ou reservatórios). */
   sceneSpan?: { minX: number; maxX: number; maxZ: number } | null
+  /** Tamanho fixo da nave (m); `null` mantém o crescimento automático. */
+  fixedSize?: FactoryHallSize | null
 }
 
 const NO_RAYCAST: THREE.Object3D['raycast'] = () => {}
@@ -443,6 +446,7 @@ export function FactoryEnvironment3D({
   floorY,
   mountBounds,
   sceneSpan,
+  fixedSize = null,
 }: FactoryEnvironment3DProps) {
   const { invalidate } = useThree()
   const floorPbr = useMemo(() => createConcreteFloorPbr(), [])
@@ -452,7 +456,7 @@ export function FactoryEnvironment3D({
 
   useEffect(() => {
     invalidate()
-  }, [invalidate, center[0], center[1], wallFrontZ, floorY, sceneSpan?.minX, sceneSpan?.maxX, sceneSpan?.maxZ])
+  }, [invalidate, center[0], center[1], wallFrontZ, floorY, sceneSpan?.minX, sceneSpan?.maxX, sceneSpan?.maxZ, fixedSize?.widthM, fixedSize?.depthM, fixedSize?.heightM])
 
   useEffect(() => () => {
     floorPbr?.map.dispose()
@@ -465,47 +469,20 @@ export function FactoryEnvironment3D({
     signTex?.dispose()
   }, [floorPbr, wallPbr, hazardTex, signTex])
 
-  // Dimensões dinâmicas da nave industrial — envolve SEMPRE quadros, portas abertas, reservatórios e máquinas com folga generosa.
-  // Caps duros evitam que um interruptor de parede (ou pivot errado) abra o pavilhão de forma exagerada
-  // à esquerda enquanto bloqueia o movimento à direita (problema observado 2026-11-22).
-  const panelMinX = mountBounds ? mountBounds.minX : center[0] - 4.0
-  const panelMaxX = mountBounds ? mountBounds.maxX : center[0] + 4.0
+  // Nave industrial: automática (envolve quadros, reservatórios e máquinas, com teto) ou com tamanho fixo
+  // escolhido pelo utilizador — nesse caso mover equipamentos já não faz crescer o pavilhão.
+  // Sem quadro na parede, a zona do «quadro virtual» segue o centro da cena — exceto com nave fixa (fica no centro da nave).
+  const virtualPanelX = fixedSize ? 0 : center[0]
+  const panelMinX = mountBounds ? mountBounds.minX : virtualPanelX - 4.0
+  const panelMaxX = mountBounds ? mountBounds.maxX : virtualPanelX + 4.0
   const panelMinY = mountBounds ? mountBounds.minY : floorY + 5.0
   const panelMaxY = mountBounds ? mountBounds.maxY : floorY + 12.0
   const panelCx = (panelMinX + panelMaxX) / 2
   const panelW = Math.max(2.6, panelMaxX - panelMinX)
-
-  // Contribuição do sceneSpan limitada: no máximo ~22 u para além do quadro em cada lado.
-  const SPAN_EXTRA = 22
-  const spanMinX = sceneSpan && Number.isFinite(sceneSpan.minX)
-    ? Math.max(sceneSpan.minX, panelMinX - SPAN_EXTRA)
-    : panelMinX
-  const spanMaxX = sceneSpan && Number.isFinite(sceneSpan.maxX)
-    ? Math.min(sceneSpan.maxX, panelMaxX + SPAN_EXTRA)
-    : panelMaxX
-  const contentMinX = Math.min(panelMinX - panelW * 0.65, spanMinX)
-  const contentMaxX = Math.max(panelMaxX + panelW * 0.15, spanMaxX)
-
-  // Base mínima simétrica ±21 u em torno do centro; expandir só o necessário e com teto.
-  const HALL_HALF_MIN = 21
-  const HALL_HALF_MAX = 48
-  let leftWallX = Math.min(center[0] - HALL_HALF_MIN, contentMinX - 8.5)
-  let rightWallX = Math.max(center[0] + HALL_HALF_MIN, contentMaxX + 8.5)
-  leftWallX = Math.max(leftWallX, center[0] - HALL_HALF_MAX)
-  rightWallX = Math.min(rightWallX, center[0] + HALL_HALF_MAX)
-  // Garantir largura mínima e simetria razoável (evita “só um lado cresce”).
-  if (rightWallX - leftWallX < HALL_HALF_MIN * 2) {
-    const mid = (leftWallX + rightWallX) / 2
-    leftWallX = mid - HALL_HALF_MIN
-    rightWallX = mid + HALL_HALF_MIN
-  }
-  const cx = (leftWallX + rightWallX) / 2
-  const hallWidth = Math.max(42, rightWallX - leftWallX)
-  const rawDepth = sceneSpan && Number.isFinite(sceneSpan.maxZ) ? sceneSpan.maxZ - wallFrontZ : 16
-  const hallDepth = Math.max(32, Math.min(56, rawDepth + 14))
+  const { leftWallX, rightWallX, cx, hallWidth, hallDepth, wallHeight } = computeFactoryHallLayout({
+    center, wallFrontZ, floorY, mountBounds, sceneSpan: fixedSize ? null : sceneSpan, fixedSize,
+  })
   const wallThickness = 0.65
-  const panelTop = mountBounds ? mountBounds.maxY : center[1] + 5.5
-  const wallHeight = Math.max(14.5, panelTop - floorY + 5.2)
   const wallCenterY = floorY + wallHeight / 2
   const backWallZ = wallFrontZ - wallThickness / 2
   const floorCenterZ = wallFrontZ + hallDepth / 2 - 0.5

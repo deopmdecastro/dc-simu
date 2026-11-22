@@ -297,3 +297,31 @@ export function tankJunctionBracketOf(state?: Record<string, any>, unit = 0.01):
 
 /** Suporte ativo por omissão; o inspetor do reservatório pode retirá-lo. */
 export const tankHasJunctionBracket = (state?: Record<string, any>) => state?.junctionBracket !== false
+
+/** Passador lateral de descarga (válvula + bico curvo) do reservatório, em unidades de cena a partir do eixo. */
+export function waterTankOutletGeometry(state?: Record<string, any>, unit = 0.01) {
+  const dims = waterTankDimensionsOf(state)
+  const radius = (dims.diameterMm / 2) * unit
+  const totalW = dims.totalWidthMm * unit
+  const rightNozzleX = -totalW / 2 + totalW * 0.96
+  const pipeRadius = Math.min(24 * unit, Math.max(14 * unit, radius * 0.068))
+  const valveBodyX = radius + Math.max(pipeRadius * 2.1, Math.min(pipeRadius * 3.2, (rightNozzleX - radius) * 0.52))
+  const spoutStartX = valveBodyX + pipeRadius * 2.1
+  const spoutEndX = spoutStartX + pipeRadius * 2.4
+  return { pipeRadius, valveBodyX, spoutStartX, spoutEndX }
+}
+
+/**
+ * Quanto o reservatório sobressai para a direita (+X) além da sua largura declarada:
+ * suporte inox da caixa OBO e bico do passador. Usado para o manter dentro das paredes da nave.
+ */
+export function waterTankRightReachU(state?: Record<string, any>, unit = 0.01): number {
+  const halfW = (waterTankDimensionsOf(state).totalWidthMm * unit) / 2
+  const { spoutEndX, pipeRadius } = waterTankOutletGeometry(state, unit)
+  let right = spoutEndX + pipeRadius
+  if (tankHasJunctionBracket(state)) {
+    const { plate } = tankJunctionBracketOf(state, unit)
+    right = Math.max(right, plate.x + plate.w / 2)
+  }
+  return Math.max(0, right - halfW)
+}
