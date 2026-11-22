@@ -2385,6 +2385,35 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { on: true, nominalV: 230, frequencyHz: 50 },
   },
+  socketFamatelCombo: {
+    category: 'power', paletteName: 'FAMATEL · Caixa estanque IP44 · 2P+T 16A 250V + 3P+N+T 16A 400V', group: 'Tomadas', tag: 'X', w: 170, h: 120,
+    terminals: [
+      T('L1', 'power-in', 0.14, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.2, y: 0.2, z: 0.6 } }),
+      T('L2', 'power-in', 0.32, 0, { color: '#8b4513', terminalType: 'screw', position3D: { x: 0.35, y: 0.2, z: 0.6 } }),
+      T('L3', 'power-in', 0.50, 0, { color: '#6b7280', terminalType: 'screw', position3D: { x: 0.5, y: 0.2, z: 0.6 } }),
+      T('N', 'neutral', 0.68, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.65, y: 0.2, z: 0.6 } }),
+      T('PE', 'earth', 0.86, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.8, y: 0.2, z: 0.6 } }),
+    ],
+    defaultState: { coverOpen: false, brand: 'FAMATEL', refCode: 'Ref. 23331', ip: 'IP44', ratedA: 16 },
+  },
+  socketFamatelSwitch: {
+    category: 'power', paletteName: 'FAMATEL / ROADEU · Caixa estanque IP44 · 2P+T 16A 250V c/ seccionador', group: 'Tomadas', tag: 'X', w: 160, h: 110,
+    terminals: [
+      T('L', 'power-in', 0.2, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.25, y: 0.2, z: 0.6 } }),
+      T('N', 'neutral', 0.5, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.5, y: 0.2, z: 0.6 } }),
+      T('PE', 'earth', 0.8, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.75, y: 0.2, z: 0.6 } }),
+    ],
+    defaultState: { coverOpen: false, switchOn: true, brand: 'FAMATEL', ip: 'IP44', ratedA: 16 },
+  },
+  socketEfapelIp65: {
+    category: 'power', paletteName: 'EFAPEL · Tomada Schuko c/ Obturador IP65 · Estanque 48', group: 'Tomadas', tag: 'X', w: 95, h: 95,
+    terminals: [
+      T('L', 'power-in', 0.2, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.25, y: 0.2, z: 0.6 } }),
+      T('N', 'neutral', 0.5, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.5, y: 0.2, z: 0.6 } }),
+      T('PE', 'earth', 0.8, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.75, y: 0.2, z: 0.6 } }),
+    ],
+    defaultState: { coverOpen: false, brand: 'EFAPEL', series: 'Estanque 48', ip: 'IP65', ratedA: 16 },
+  },
   powerSource3ph: {
     category: 'power', paletteName: 'Fonte AC trifásica · L1/L2/L3/N/PE', group: 'Fontes', tag: 'QG', w: 205, h: 105,
     terminals: [

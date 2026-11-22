@@ -217,6 +217,10 @@ export type ComponentType =
   | 'transformer'
   | 'powerSupply'
   | 'powerSource1ph'
+  // --- Tomadas estanques e industriais --------------------------------
+  | 'socketFamatelCombo'
+  | 'socketFamatelSwitch'
+  | 'socketEfapelIp65'
   | 'powerSource3ph'
   | 'powerSource24v'
   | 'powerSupplyProauto24A'

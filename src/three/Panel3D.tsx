@@ -67,6 +67,7 @@ import { buildDinRailGroup, clampRailLengthMm, DIN_RAIL_15X55, DIN_RAIL_FINISHES
 import { applyWorldUv, ENCLOSURE, ENCLOSURE_PLATE_FRONT_MM, enclosureDimsOf, enclosureHingeOf, isPanelAccessoryType } from './enclosureParts'
 import { CableDuct3D, Enclosure3D, SpiralWrap3D } from './PanelAccessories3D'
 import { ductJunctionOpenings } from '../schematic/ductJunctions'
+import { SocketDevice3D } from './SocketDevices3D'
 import { galvanizedSteel } from './proceduralTextures'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
 import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
@@ -5807,6 +5808,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <IndustrialWall3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'industrialPillar') {
             content = <IndustrialPillar3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'socketFamatelCombo' || c.type === 'socketFamatelSwitch' || c.type === 'socketEfapelIp65') {
+            content = <SocketDevice3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
           } else if (c.type === 'cableTrayStraight') {
             content = <CableTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} openings={ductJunctionOpenings(c, components)} />
           } else if (c.type === 'cableTrayElbow90') {
