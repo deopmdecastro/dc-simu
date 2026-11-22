@@ -820,7 +820,8 @@ function MicroSwitchRoller({ c, onPatch }: { c: ElectricalComponent; onPatch?: (
   const sm = useSmoothed(pressed ? 1 : 0, 16)
   useFrame(() => { if (leverRef.current) leverRef.current.rotation.z = -0.13 + sm.current * 0.12 })
   return (
-    <group onClick={(e) => { if (!onPatch) return; e.stopPropagation(); onPatch({ pressed: !pressed }) }}>
+    // Em «alimentador» o rolete segue a peça (motor da mecatrónica); só o modo manual aceita o clique.
+    <group onClick={(e) => { if (!onPatch || c.state.actuation !== 'manual') return; e.stopPropagation(); onPatch({ pressed: !pressed }) }}>
       {/* Chapa de montagem traseira (fixada à lateral da gaveta) */}
       <mesh position={[0, -2, -6.4]} castShadow>
         <boxGeometry args={[40, 26, 2]} />

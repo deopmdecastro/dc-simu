@@ -1844,9 +1844,19 @@ export const useSimStore = create<Store>((set, get) => {
     const { runState } = get().sim
     if (runState === 'running' || runState === 'paused') get().step()
   }
+  /**
+   * Resposta imediata a uma manobra ou alteração. Em RUN corre um scan extra com
+   * dt = 0 (sem adiantar temporizadores) e a simulação CONTINUA em RUN: `step()`
+   * pausa, e chamá-lo aqui fazia qualquer botão/atuador pausar a simulação
+   * (DC-ADR-086: em RUN e PAUSA os aparelhos atuam). Em PAUSA mantém o STEP.
+   */
   const recomputeIfActive = () => {
-    const { runState } = get().sim
-    if (runState === 'running' || runState === 'paused') get().step()
+    const st = get()
+    const { runState } = st.sim
+    if (runState === 'running') {
+      runOneTick(st as unknown as Store, 0)
+      pushRuntime(set, st)
+    } else if (runState === 'paused') get().step()
   }
   return ({
   components: [],
