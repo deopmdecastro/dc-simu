@@ -204,6 +204,7 @@
     "test:factory-hall-ui": "node scripts/factory-hall-size-ui-smoke.mjs",
     "test:tia-panel-ui": "node scripts/tia-panel-ui-smoke.mjs",
     "test:tia-bridge": "tsx scripts/tia-bridge-smoke.ts",
+    "test:tia-e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-TiaE2E.ps1",
     "test:sim-run-manobra": "tsx scripts/sim-run-manobra-smoke.ts",
     "test:mechatronics": "tsx scripts/mechatronics-smoke.ts",
     "test:mechatronics-ui": "node scripts/mechatronics-ui-smoke.mjs",

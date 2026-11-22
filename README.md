@@ -29,6 +29,20 @@ A chave não é guardada no projeto nem no navegador. Sem a CPU ligada e em RUN,
 Se a CPU passar a STOP ou a ponte deixar de responder durante 1,5 s, as saídas caem para 0.
 Testes: `npm run test:tia-bridge` (ponte real com uma CPU simulada) e `scripts/tia-panel-ui-smoke.mjs` (ecrã).
 
+**Ensaio real (manual):** `npm run test:tia-e2e` exige o S7-PLCSIM Advanced e o TIA Portal V21 com Openness
+(grupo «Siemens TIA Openness»). O ensaio:
+
+1. cria a instância `DCSIMU_E2E` (CPU 1511C, Softbus);
+2. num projeto TIA temporário sem interface, importa `bridge/tia/e2e/Estampagem.scl` (mapa %I0.0–%Q0.5 da
+   maquete de estampagem), compila e carrega pelo interface PLCSIM;
+3. coloca a CPU em RUN e percorre um ciclo completo pelo DC-Simu, com uma peça metálica e uma polimérica;
+4. remove a instância e o projeto (`-Keep` mantém-nos).
+
+Na primeira execução, e sempre que `TiaDeploy.cs` muda, o TIA Portal mostra «Openness access», que tem de ser
+autorizado no ambiente de trabalho. Só no projeto temporário e para a CPU simulada, o ensaio ativa o
+utilizador anónimo com «Full access», desliga a proteção dos dados confidenciais e confia no certificado TLS da
+CPU virtual. Nunca use estas definições num projeto real.
+
 ## Recuperação de 17 de novembro de 2026
 
 A revisão reúne os sete aparelhos industriais, medidores D52-2066/KWS-306,

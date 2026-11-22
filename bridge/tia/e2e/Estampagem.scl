@@ -1,0 +1,60 @@
+DATA_BLOCK "Ciclo"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      Passo : Int;   // 0 repouso · 1 alimentar · 2 recolher peça · 3 estampar · 4 subir prensa e triar
+      Metal : Bool;  // S_INDUTIVO memorizado na alimentação (rampa 1 = metal)
+      Ciclos : Int;  // peças estampadas
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = DC-Simu E2E - maquete de estampagem e transferencia
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Mapa de E/S do relatorio tecnico (secao 4):
+	// %I0.0 S_OTICO · %I0.1 S_INDUTIVO · %I0.2 FC1_PECA · %I0.3 FC_CIL1_REC · %I0.4 FC_CIL1_AVA
+	// %I0.5 FC_PRENSA_SUP · %I0.6 FC_PRENSA_INF · %I0.7 S_HOME_BRACO
+	// %Q0.0 Y1_ALIMENTA · %Q0.1 Y2_PRENSA · %Q0.2 Y3_BRACO_DESCE · %Q0.3 Y4_VACUO
+	// %Q0.4 K1_M1_HORARIO · %Q0.5 K2_M1_ANTIHOR
+	CASE "Ciclo".Passo OF
+	    0:  // Homing: cilindro recuado, prensa em cima, braco em 0 graus e peca vista no magazine
+	        IF %I0.3 AND %I0.5 AND %I0.7 AND %I0.0 THEN
+	            "Ciclo".Passo := 1;
+	        END_IF;
+	    1:  // Alimentacao: Y1 ate o Cilindro 1 avancar; memoriza o material
+	        "Ciclo".Metal := %I0.1;
+	        IF %I0.4 THEN
+	            "Ciclo".Passo := 2;
+	        END_IF;
+	    2:  // Recolha por vacuo: cilindro recua, peca encostada no FC1
+	        IF %I0.3 AND %I0.2 THEN
+	            "Ciclo".Passo := 3;
+	        END_IF;
+	    3:  // Estampagem: Y2 ate FC_PRENSA_INF
+	        IF %I0.6 THEN
+	            "Ciclo".Passo := 4;
+	        END_IF;
+	    4:  // Prensa sobe; o braco roda para a rampa do material
+	        IF %I0.5 THEN
+	            "Ciclo".Ciclos := "Ciclo".Ciclos + 1;
+	            "Ciclo".Passo := 0;
+	        END_IF;
+	    ELSE
+	        "Ciclo".Passo := 0;
+	END_CASE;
+
+	%Q0.0 := "Ciclo".Passo = 1;
+	%Q0.1 := "Ciclo".Passo = 3;
+	%Q0.2 := "Ciclo".Passo = 2 AND %I0.2;
+	%Q0.3 := "Ciclo".Passo >= 2 AND "Ciclo".Passo <= 3;
+	%Q0.4 := "Ciclo".Passo = 4 AND "Ciclo".Metal;
+	%Q0.5 := "Ciclo".Passo = 4 AND NOT "Ciclo".Metal;
+END_ORGANIZATION_BLOCK
+

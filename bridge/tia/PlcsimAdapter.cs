@@ -85,7 +85,9 @@ public static class PlcsimAdapter
 
     static string[] Addresses(object raw, char prefix)
     {
-        var array = raw as object[];
+        // Deserialize<Dictionary<string, object>> entrega listas JSON como ArrayList (não object[]).
+        var list = raw as System.Collections.IEnumerable;
+        var array = list == null || raw is string ? null : list.Cast<object>().ToArray();
         if (array == null || array.Length == 0 || array.Length > 256) throw new ArgumentException("Mapeamento vazio ou demasiado extenso.");
         var result = array.Select(Convert.ToString).ToArray();
         if (result.Any(a => !Address.IsMatch(a) || a[0] != prefix || ByteOffset(a) > 65535) || result.Distinct().Count() != result.Length) throw new ArgumentException("Endereços inválidos ou repetidos.");
