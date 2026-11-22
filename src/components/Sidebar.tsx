@@ -61,7 +61,7 @@ import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/co
 import TerminalStripControls from './TerminalStripControls'
 import BusbarControls, { BUSBAR_STATE_KEYS } from './BusbarControls'
 import { isRealBusbarType } from '../three/busbarParts'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconFolder, IconOpen, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
+import { IconSearch, IconWire, IconLayers, IconPlus, IconCopy, IconLock, IconUnlock, IconRotate, IconReset, IconDelete, IconChevronDown, IconProjects, IconFolder, IconOpen, IconCube, IconClose, IconCheck, IconEye, IconEyeOff, IconStar, IconCommands, IconTag, IconWarning, IconDanger, IconBackspace, IconHistory, IconArrowUp, IconArrowDown, IconArrowRight } from '../ui/icons'
 import { CableAccessoryMap, CableSpecimen, WIRE_COLOR_ORDER, WIRE_ROUTES_ORDER, WireOptionsFields, WireRouteGlyph } from '../ui/WireOptions'
 import { HYDRAULIC_GAUGES, PNEUMATIC_GAUGES } from '../three/hydraulicsModel'
 import {
@@ -556,6 +556,16 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
         .filter((d) => d.subgroups.length > 0),
     [catalogRevision, hiddenComponents],
   )
+  // Itens inseríveis por domínio (os chips mostram o total para orientar antes de clicar).
+  const domainCount = useMemo(() => {
+    const out: Record<string, number> = { all: 0 }
+    for (const d of domains) {
+      const n = d.subgroups.reduce((sum, sg) => sum + sg.items.length + (sg.maquetes?.length ?? 0), 0)
+      out[d.id] = n
+      out.all += n
+    }
+    return out
+  }, [domains])
   const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => canInsertComponent3D(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
   const [stripFocusId, setStripFocusId] = useState<string | null>(null)
@@ -747,26 +757,33 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
         <>
           <div className="pn-section">
             <div className="relative">
-              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar nome, tipo ou categoria…" aria-label="Pesquisar componentes" className="dc-input !pl-7 !pr-7" />
+              <input value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape' && filter) { e.preventDefault(); setFilter('') } }} placeholder="Pesquisar nome, tipo ou categoria…" aria-label="Pesquisar componentes" className="dc-input !pl-7 !pr-7" />
               {filter && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" title="Limpar pesquisa" onClick={() => setFilter('')}><IconClose size={12} /></button>}
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
-          <div className="pn-section is-compact space-y-1">
-            <button type="button" className="dc-btn w-full justify-center" onClick={() => setTerminalLibOpen(true)} title="Consulte os perfis de bornes e ligações usados nos componentes (L, N, PE, A1/A2, 13/14…)">Biblioteca de bornes e perfis de ligação</button>
+          {/* Ações da biblioteca lado a lado: rótulos curtos, explicação completa no título (tooltip). */}
+          <div className="pn-section is-compact dc-library-actions">
+            <button type="button" className="dc-btn" onClick={() => setTerminalLibOpen(true)} title="Biblioteca de bornes e perfis de ligação: consulte os perfis usados nos componentes (L, N, PE, A1/A2, 13/14…)" data-library-terminals>
+              <IconWire size={12} /> Bornes e perfis
+            </button>
             <button
               type="button"
-              className="dc-btn w-full justify-center text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border-brand-200"
+              className="dc-btn is-primary-soft"
               onClick={() => useSimStore.getState().generateIecFromPhysical()}
-              title="Gera automaticamente o Esquema IEC 60617 (comandos e força) a partir dos equipamentos e cabos montados no painel 3D"
+              title="Gerar Esquema IEC pelo 3D: cria automaticamente o Esquema IEC 60617 (comandos e força) a partir dos equipamentos e cabos montados no painel 3D"
+              data-library-iec
             >
-              <IconCommands size={12} /> Gerar Esquema IEC pelo 3D
+              <IconCommands size={12} /> Esquema IEC pelo 3D
             </button>
           </div>
-          <div className="dc-library-model-notice" role="note">
-            <IconLock size={13} />
-            <span><strong>{lockedCount} componentes bloqueados.</strong> Itens sem GLB ou representação 3D disponível, e os desativados pelo administrador, não podem ser inseridos.</span>
-          </div>
+          {/* Só aparece quando há algo bloqueado (um aviso «0 bloqueados» não diz nada e ocupava três linhas). */}
+          {lockedCount > 0 && (
+            <div className="dc-library-model-notice" role="note" title="Itens sem GLB ou representação 3D disponível, e os desativados pelo administrador, não podem ser inseridos.">
+              <IconLock size={12} />
+              <span><strong>{lockedCount} {lockedCount === 1 ? 'componente bloqueado' : 'componentes bloqueados'}</strong> · sem 3D ou desativados pelo administrador</span>
+            </div>
+          )}
           <div className="pn-section is-compact flex flex-wrap gap-1" role="tablist" aria-label="Domínios da biblioteca">
             <button
               type="button"
@@ -779,7 +796,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   : 'bg-surface-sunken text-ink-600 border-line hover:bg-surface'
               }`}
             >
-              Todos
+              Todos <span className="dc-domain-count">{domainCount.all}</span>
             </button>
             {domains.map((d) => (
               <button
@@ -795,6 +812,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 }`}
               >
                 {d.id === 'serralharia' ? 'Serralharia' : d.id === 'maquetes' ? 'Maquetes' : d.label}
+                {domainCount[d.id] > 0 && <span className="dc-domain-count">{domainCount[d.id]}</span>}
               </button>
             ))}
           </div>

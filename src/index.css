@@ -1953,8 +1953,18 @@ button:disabled { cursor:not-allowed; }
 .dc-library-tile-favorite { position:absolute; top:3px; right:3px; width:21px; height:21px; display:grid; place-items:center; border-radius:4px; background:#ffffffd9; color:#94a3b8; font-size:14px; box-shadow:0 0 0 1px #e3e8ee; transition:all .12s ease; }
 .dc-library-tile-favorite:hover { color:#b45309; background:#fff7ed; }
 .dc-library-tile-favorite.is-favorite { color:#f59e0b; }
-.dc-library-model-notice { display:flex; align-items:flex-start; gap:7px; padding:7px 9px; border-bottom:1px solid #fed7aa; background:#fff7ed; color:#9a3412; font-size:10px; line-height:1.35; }
-.dc-library-model-notice svg { flex:none; margin-top:1px; }
+.dc-library-model-notice { display:flex; align-items:center; gap:6px; padding:5px 10px; border-bottom:1px solid #fed7aa; background:#fff7ed; color:#9a3412; font-size:10px; line-height:1.35; cursor:help; }
+.dc-library-model-notice svg { flex:none; }
+.dc-library-model-notice span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Ações da biblioteca: duas colunas iguais (em ecrãs estreitos empilham). */
+.dc-library-actions { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px; }
+.dc-library-actions .dc-btn { justify-content:center; gap:5px; min-height:30px; padding-inline:8px; font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dc-library-actions .dc-btn.is-primary-soft { color:var(--dx-brand-700, #1f55e0); background:var(--dx-brand-soft, #eff5ff); border-color:#c7d7fe; }
+.dc-library-actions .dc-btn.is-primary-soft:hover { background:#e0eaff; }
+@media (max-width: 300px) { .dc-library-actions { grid-template-columns:1fr; } }
+/* Contagem nos chips de domínio da biblioteca. */
+.dc-domain-count { display:inline-block; margin-left:4px; padding:0 5px; border-radius:999px; font-size:9px; font-weight:700; line-height:14px; background:rgba(15, 23, 42, .07); color:inherit; opacity:.85; font-variant-numeric:tabular-nums; }
+[aria-selected="true"] > .dc-domain-count { background:rgba(255, 255, 255, .25); opacity:1; }
 .dc-library-tile.is-locked { background:#f5f6f8; border-color:#e2e5e9; }
 .dc-library-tile.is-locked:hover,.dc-library-tile.is-locked:focus-within { background:#f5f6f8; border-color:#d8dde4; box-shadow:none; }
 .dc-library-tile.is-locked .dc-library-tile-main { cursor:not-allowed; }

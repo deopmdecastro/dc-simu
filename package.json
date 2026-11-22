@@ -207,6 +207,7 @@
     "test:tia-panel-ui": "node scripts/tia-panel-ui-smoke.mjs",
     "test:form-controls-ui": "node scripts/form-controls-ui-smoke.mjs",
     "test:bench-legs-ui": "node scripts/bench-legs-ui-smoke.mjs",
+    "test:library-header-ui": "node scripts/library-header-ui-smoke.mjs",
     "test:tia-bridge": "tsx scripts/tia-bridge-smoke.ts",
     "test:tia-e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-TiaE2E.ps1",
     "test:sim-run-manobra": "tsx scripts/sim-run-manobra-smoke.ts",
