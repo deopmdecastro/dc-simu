@@ -9,7 +9,13 @@
 import type { CanvasNoteView } from '../types'
 
 export type SelectionGroupView = Exclude<CanvasNoteView, '3d'>
-export interface SelectionGroup { id: string; view: SelectionGroupView; members: string[] }
+export interface SelectionGroup {
+  id: string
+  view: SelectionGroupView
+  members: string[]
+  /** Nome dado na lista de Objetos (opcional; sem nome mostra «Grupo N»). */
+  name?: string
+}
 
 const uniq = (ids: string[]) => [...new Set(ids)]
 

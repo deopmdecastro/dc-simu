@@ -2651,6 +2651,20 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 .dc-objects-text { display:flex; flex-direction:column; min-width:0; gap:1px; }
 .dc-objects-text .dc-objects-ref { display:flex; align-items:center; gap:5px; }
 .dc-objects-row.is-on .dc-objects-card { border-color:#1a44c8; background:#fff; }
+/* Grupos (Ctrl+G) em árvore: pasta com contagem e membros indentados por uma guia vertical. */
+.dc-objects-group { display:flex; flex-direction:column; gap:3px; }
+.dc-objects-group-head { padding-left:0; }
+.dc-objects-twisty { flex:0 0 auto; align-self:center; width:18px; height:22px; display:flex; align-items:center; justify-content:center; border:0; background:none; color:#6b7684; border-radius:5px; cursor:pointer; padding:0; }
+.dc-objects-twisty:hover { background:#e6edff; color:#1a44c8; }
+.dc-objects-twisty svg { transform:rotate(-90deg); transition:transform .15s ease; }
+.dc-objects-twisty svg.is-open { transform:none; }
+.dc-objects-group-card { position:relative; overflow:visible; }
+.dc-objects-group-icon { position:absolute; right:-5px; bottom:-5px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:5px; background:#fff; border:1px solid #c9d8fb; color:#1a44c8; }
+.dc-objects-count { font-size:10px; font-weight:700; color:#1a44c8; background:#eef3ff; border-radius:999px; padding:0 6px; line-height:16px; }
+.dc-objects-rename { font:inherit; font-size:11px; font-weight:700; border:1px solid #1a44c8; border-radius:5px; padding:1px 5px; min-width:0; width:100%; outline:0; }
+.dc-objects-children { list-style:none; margin:0 0 2px 12px; padding:0 0 0 10px; display:flex; flex-direction:column; gap:2px; border-left:2px solid #e3e8ef; }
+.dc-objects-row.is-nested .dc-objects-card { width:40px; height:32px; }
+.dc-objects-row.is-nested .dc-objects-main { padding:2px; }
 
 
 /* ======================================================================
