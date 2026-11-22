@@ -1,4 +1,5 @@
 import type { Component3DScale, ElectricalComponent, Terminal } from '../types'
+import { mechatronicsSizeMm } from './mechatronicsModel'
 import { getComponentModelSpec, getComponentPhysicalSizeMm, PANEL_UNITS_PER_MM } from './modelPaths'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import * as THREE from 'three'
@@ -112,6 +113,8 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
   if (structure) return { x: structure.x * PANEL_UNITS_PER_MM, y: structure.y * PANEL_UNITS_PER_MM, z: structure.z * PANEL_UNITS_PER_MM }
   const jw = junctionWagoSizeMm(component.type)
   if (jw) return { x: jw.x * PANEL_UNITS_PER_MM, y: jw.y * PANEL_UNITS_PER_MM, z: jw.z * PANEL_UNITS_PER_MM }
+  const mechatronics = mechatronicsSizeMm(component.type, component.state)
+  if (mechatronics) return { x: mechatronics.x * PANEL_UNITS_PER_MM, y: mechatronics.y * PANEL_UNITS_PER_MM, z: mechatronics.z * PANEL_UNITS_PER_MM }
   const conveyor = conveyorComponentSizeMm(component.type, component.state)
   if (conveyor) return { x: conveyor.width * PANEL_UNITS_PER_MM, y: conveyor.height * PANEL_UNITS_PER_MM, z: conveyor.depth * PANEL_UNITS_PER_MM }
   if (component.type === 'triProofLedBatten') {

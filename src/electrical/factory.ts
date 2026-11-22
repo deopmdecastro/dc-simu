@@ -1227,6 +1227,111 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       model: 'VFG30-20 · 0.4–0.7 MPa',
     },
   },
+  // ---------------- Mecatrónica didática: maquete de estampagem e transferência ----------------
+  // Cotas do relatório técnico da bancada (estimadas por proporção). Sem fabricante atribuído.
+  mecSlotPlate: {
+    category: 'terminal', paletteName: 'Base ranhurada em alumínio 700 × 500 mm · ranhuras T', group: 'Mecatrónica', tag: 'BAS', w: 140, h: 100,
+    terminals: [],
+    defaultState: { lengthMm: 700, widthMm: 500, manufacturer: 'DC-Simu Mecatrónica', model: 'Base T 700 × 500 × 20' },
+  },
+  mecAluProfile: {
+    category: 'terminal', paletteName: 'Perfil de alumínio ranhurado 30 × 30 / 40 × 40 + cantoneiras', group: 'Mecatrónica', tag: 'PRF', w: 40, h: 120,
+    terminals: [],
+    defaultState: { sectionMm: 30, lengthMm: 300, orientation: 'vertical', endCaps: true, brackets: true, manufacturer: 'DC-Simu Mecatrónica', model: 'Perfil T 30 × 30' },
+  },
+  mecGravityMagazine: {
+    category: 'terminal', paletteName: 'Magazine vertical de alimentação por gravidade 50 × 50 × 260', group: 'Mecatrónica', tag: 'MAG', w: 60, h: 140,
+    terminals: [],
+    defaultState: { pieceCount: 6, pieceOffset: 0, pickupMaterial: '', pieceSequence: ['aluminio', 'branco', 'preto'], manufacturer: 'DC-Simu Mecatrónica', model: 'Magazine 50 × 50 × 260' },
+  },
+  mecWorkpiece: {
+    category: 'terminal', paletteName: 'Peça de trabalho (tarugo) Ø40 × 35 · alumínio / polímero', group: 'Mecatrónica', tag: 'PÇ', w: 50, h: 50,
+    terminals: [],
+    defaultState: { material: 'aluminio', manufacturer: 'DC-Simu Mecatrónica', model: 'Tarugo Ø40 × 35' },
+  },
+  mecDischargeRamp: {
+    category: 'terminal', paletteName: 'Rampa de descarga inclinada 15° · 220 × 50 mm', group: 'Mecatrónica', tag: 'RMP', w: 120, h: 60,
+    terminals: [],
+    defaultState: { pillarMm: 110, manufacturer: 'DC-Simu Mecatrónica', model: 'Rampa 220 × 50 · 15°' },
+  },
+  mecStampingTable: {
+    category: 'terminal', paletteName: 'Gaveta / mesa de estampagem 120 × 80 × 45 · rebaixo Ø42', group: 'Mecatrónica', tag: 'MES', w: 100, h: 60,
+    terminals: [],
+    defaultState: { pieceMaterial: '', manufacturer: 'DC-Simu Mecatrónica', model: 'Mesa 120 × 80 × 45' },
+  },
+  mecStampingPress: {
+    category: 'motor', paletteName: 'Prensa pneumática de estampagem · pórtico 300 · cilindro Ø32 × 50', group: 'Mecatrónica', tag: 'PRS', w: 110, h: 150,
+    terminals: [
+      T('A', 'pneumatic-in', 0.2, 0.05, { position3D: { x: 0.5, y: 0.975, z: 0.77 }, face: 'front', terminalType: 'plug', color: '#38bdf8', diameter: 8 }),
+      T('B', 'pneumatic-in', 0.2, 0.45, { position3D: { x: 0.5, y: 0.745, z: 0.77 }, face: 'front', terminalType: 'plug', color: '#38bdf8', diameter: 8 }),
+      T('SUP+', 'power-in', 0.95, 0.15, { position3D: { x: 0.62, y: 0.95, z: 0.5 }, face: 'right', color: '#92400e', diameter: 4 }),
+      T('SUP', 'io', 0.95, 0.3, { position3D: { x: 0.62, y: 0.93, z: 0.5 }, face: 'right', color: '#111827', diameter: 4 }),
+      T('INF+', 'power-in', 0.95, 0.6, { position3D: { x: 0.62, y: 0.79, z: 0.5 }, face: 'right', color: '#92400e', diameter: 4 }),
+      T('INF', 'io', 0.95, 0.75, { position3D: { x: 0.62, y: 0.77, z: 0.5 }, face: 'right', color: '#111827', diameter: 4 }),
+    ],
+    defaultState: { positionPct: 0, extended: false, pressureBar: 0, manufacturer: 'DC-Simu Mecatrónica', model: 'Prensa Ø32 × 50 · prato Ø65' },
+  },
+  mecFeederCylinder: {
+    category: 'motor', paletteName: 'Cilindro de alimentação Ø20 × 80 com empurrador e sensores', group: 'Mecatrónica', tag: 'CIL', w: 150, h: 60,
+    terminals: [
+      T('A', 'pneumatic-in', 0.06, 0.05, { position3D: { x: 0.025, y: 0.98, z: 0.5 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 7 }),
+      T('B', 'pneumatic-in', 0.45, 0.05, { position3D: { x: 0.475, y: 0.98, z: 0.5 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 7 }),
+      T('REC+', 'power-in', 0.1, 0.95, { position3D: { x: 0.08, y: 0.66, z: 1 }, face: 'front', color: '#92400e', diameter: 4 }),
+      T('REC', 'io', 0.2, 0.95, { position3D: { x: 0.12, y: 0.66, z: 1 }, face: 'front', color: '#111827', diameter: 4 }),
+      T('AVA+', 'power-in', 0.38, 0.95, { position3D: { x: 0.36, y: 0.66, z: 1 }, face: 'front', color: '#92400e', diameter: 4 }),
+      T('AVA', 'io', 0.48, 0.95, { position3D: { x: 0.40, y: 0.66, z: 1 }, face: 'front', color: '#111827', diameter: 4 }),
+    ],
+    defaultState: { positionPct: 0, extended: false, manufacturer: 'DC-Simu Mecatrónica', model: 'Cilindro Ø20 × 80 · dupla ação' },
+  },
+  mecRotaryArm: {
+    category: 'motor', paletteName: 'Manipulador rotativo com braço articulado e ventosa Ø25', group: 'Mecatrónica', tag: 'BR', w: 130, h: 130,
+    terminals: [
+      T('Z', 'pneumatic-in', 0.1, 0.05, { position3D: { x: 0.5, y: 0.5, z: 0.56 }, face: 'front', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('VAC', 'pneumatic-in', 0.9, 0.05, { position3D: { x: 0.535, y: 0.985, z: 0.965 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('HOME+', 'power-in', 0.35, 0.95, { position3D: { x: 0.48, y: 0.17, z: 0.69 }, face: 'front', color: '#92400e', diameter: 4 }),
+      T('HOME', 'io', 0.65, 0.95, { position3D: { x: 0.52, y: 0.17, z: 0.69 }, face: 'front', color: '#111827', diameter: 4 }),
+    ],
+    defaultState: { angleDeg: 0, armDownPct: 0, vacuumActive: false, manualVacuum: false, holding: '', homeActive: true, manufacturer: 'DC-Simu Mecatrónica', model: 'Disco Ø140 · braço 240 · ventosa Ø25' },
+  },
+  mecDcGearmotor: {
+    category: 'motor', paletteName: 'Motorredutor DC M1 com pinhão cónico e encoder incremental', group: 'Mecatrónica', tag: 'M', w: 140, h: 80,
+    terminals: [
+      T('+24V', 'power-in', 0.08, 0.05, { position3D: { x: 0.17, y: 0.8, z: 0.64 }, face: 'top', color: '#dc2626', diameter: 4 }),
+      T('0V', 'coil-minus', 0.24, 0.05, { position3D: { x: 0.17, y: 0.52, z: 0.64 }, face: 'front', color: '#2563eb', diameter: 4 }),
+      T('CW', 'coil-plus', 0.42, 0.05, { position3D: { x: 0.21, y: 0.8, z: 0.64 }, face: 'top', color: '#f59e0b', diameter: 4 }),
+      T('CCW', 'coil-plus', 0.58, 0.05, { position3D: { x: 0.21, y: 0.52, z: 0.64 }, face: 'front', color: '#f59e0b', diameter: 4 }),
+      T('A', 'io', 0.78, 0.05, { position3D: { x: 0.04, y: 0.98, z: 0.5 }, face: 'top', color: '#a855f7', diameter: 4 }),
+      T('B', 'io', 0.94, 0.05, { position3D: { x: 0.08, y: 0.98, z: 0.5 }, face: 'top', color: '#a855f7', diameter: 4 }),
+    ],
+    defaultState: { running: false, direction: 'cw', motorAngleDeg: 0, encoderCount: 0, manufacturer: 'DC-Simu Mecatrónica', model: 'Motor DC Ø36 × 95 · encoder Ø30' },
+  },
+  mecMicroSwitchRoller: {
+    category: 'sensor', paletteName: 'Microinterruptor de rolete FC 1 · C / NA / NF', group: 'Mecatrónica', tag: 'FC', w: 70, h: 60,
+    terminals: [
+      T('C', 'io', 0.2, 1, { position3D: { x: 0.30, y: 0.06, z: 0.5 }, face: 'bottom', diameter: 3 }),
+      T('NO', 'aux-no', 0.5, 1, { position3D: { x: 0.50, y: 0.06, z: 0.5 }, face: 'bottom', diameter: 3 }),
+      T('NC', 'aux-nc', 0.8, 1, { position3D: { x: 0.70, y: 0.06, z: 0.5 }, face: 'bottom', diameter: 3 }),
+    ],
+    defaultState: { pressed: false, actuation: 'feeder', manufacturer: 'DC-Simu Mecatrónica', model: 'Microinterruptor de rolete' },
+  },
+  mecVacuumEjector: {
+    category: 'terminal', paletteName: 'Gerador de vácuo Venturi com silenciador', group: 'Mecatrónica', tag: 'VAC', w: 100, h: 50,
+    terminals: [
+      T('P', 'pneumatic-in', 0.3, 0.05, { position3D: { x: 0.23, y: 1, z: 0.5 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('V', 'pneumatic-out', 0.02, 0.5, { position3D: { x: 0.02, y: 0.5, z: 0.5 }, face: 'left', terminalType: 'plug', color: '#0284c7', diameter: 6 }),
+    ],
+    defaultState: { vacuumActive: false, manufacturer: 'DC-Simu Mecatrónica', model: 'Ejetor Venturi' },
+  },
+  mecSupportBlock: {
+    category: 'terminal', paletteName: 'Suporte / bloco maquinado de elevação em alumínio', group: 'Mecatrónica', tag: 'SUP', w: 90, h: 70,
+    terminals: [],
+    defaultState: { lengthMm: 120, heightMm: 100, depthMm: 80, manufacturer: 'DC-Simu Mecatrónica', model: 'Bloco fresado 120 × 100 × 80' },
+  },
+  mecDragChain: {
+    category: 'terminal', paletteName: 'Esteira porta-cabos articulada 26 × 17 mm', group: 'Mecatrónica', tag: 'EPC', w: 140, h: 50,
+    terminals: [],
+    defaultState: { lengthMm: 320, manufacturer: 'DC-Simu Mecatrónica', model: 'Corrente porta-cabos 26 × 17' },
+  },
   industrialWall: {
     category: 'terminal', paletteName: 'Parede industrial modular 3D (betão / painel / tijolo)', group: 'Estruturas e esteiras', tag: 'PAR', w: 220, h: 48,
     terminals: [],
@@ -2864,6 +2969,16 @@ export function paletteDomains(): PaletteDomain[] {
     if (hiddenCatalogTypes.has(type)) continue
     const item = { type, name: tpl.paletteName, category: tpl.category }
 
+    if (tpl.group === 'Mecatrónica') {
+      if (type === 'mecStampingPress' || type === 'mecFeederCylinder' || type === 'mecRotaryArm' || type === 'mecVacuumEjector') {
+        pushTo('pneumatica', 'pneu-maquete', 'Maquete de estampagem · Atuadores & vácuo', item)
+      } else if (type === 'mecDcGearmotor' || type === 'mecMicroSwitchRoller') {
+        pushTo('eletricidade', 'ele-mecatronica', 'Mecatrónica · Motor DC, encoder & fins de curso', item)
+      } else {
+        pushTo('serralharia', 'ser-mecatronica', 'Mecatrónica · Perfis, base, magazine & rampas', item)
+      }
+      continue
+    }
     if (tpl.group === 'Hidráulica') {
       if (type === 'waterSupplyBox' || type === 'hydraulicFlowMeter') {
         pushTo('hidraulica', 'hid-abastecimento', 'Abastecimento & Medição', item)

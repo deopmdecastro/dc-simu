@@ -1,4 +1,6 @@
 import { IconSound, IconStop, IconRotateRight, IconRotateLeft } from '../ui/icons'
+import { isMechatronicsType } from '../three/mechatronicsModel'
+import { MechatronicsSymbol } from './mechatronicsSymbols'
 import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { componentTerminalLocal } from './componentTerminalViews'
@@ -214,6 +216,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
   )
 
   const body = () => {
+    if (isMechatronicsType(c.type)) return <MechatronicsSymbol c={c} stroke={s} />
     switch (c.type) {
       // ------------------------------------------------------------- proteção
       case 'breakerMurrelektronikMico46':

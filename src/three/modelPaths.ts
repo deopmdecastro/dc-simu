@@ -1,4 +1,5 @@
 import { INDUSTRIAL_GEOMETRY, industrialSchematicFootprint, isIndustrialDevice } from '../electrical/industrialDevices'
+import { isMechatronicsType } from './mechatronicsModel'
 import type { ComponentType } from '../types'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
 import importedModels from '../data/imported-component-models.json'
@@ -398,6 +399,7 @@ export function hasComponent3DModel(type: ComponentType): boolean {
 
 export function hasComponent3DVisual(type: ComponentType): boolean {
   return (
+    isMechatronicsType(type) ||
     hasComponent3DModel(type) ||
     isTerminalAssemblyComponent(type) ||
     type === 'meterD522066' ||

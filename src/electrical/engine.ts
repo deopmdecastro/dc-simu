@@ -1,4 +1,5 @@
 import { electricalComponentView } from './builtinRuntime'
+import { armAtHome, reedExtended, reedRetracted } from '../three/mechatronicsModel'
 // ============================================================================
 // Motor de continuidade elétrica (DC-Simu v2)
 //
@@ -224,6 +225,35 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     }
     case 'thermostat': {
       if (c.state.triggered) pair(la('1'), la('2'))
+      break
+    }
+
+    // ---- mecatrónica: maquete de estampagem ----
+    case 'mecMicroSwitchRoller': {
+      if (c.state.pressed) pair(la('C'), la('NO'))
+      else pair(la('C'), la('NC'))
+      break
+    }
+    case 'mecFeederCylinder': {
+      const pct = Number(c.state.positionPct ?? 0)
+      if (reedRetracted(pct)) pair(la('REC+'), la('REC'))
+      if (reedExtended(pct)) pair(la('AVA+'), la('AVA'))
+      break
+    }
+    case 'mecStampingPress': {
+      const pct = Number(c.state.positionPct ?? 0)
+      if (reedRetracted(pct)) pair(la('SUP+'), la('SUP'))
+      if (reedExtended(pct)) pair(la('INF+'), la('INF'))
+      break
+    }
+    case 'mecRotaryArm': {
+      if (armAtHome(Number(c.state.angleDeg ?? 0))) pair(la('HOME+'), la('HOME'))
+      break
+    }
+    case 'mecDcGearmotor': {
+      // Saídas push-pull do encoder alimentadas pelo +24V do próprio motor.
+      if (c.state.encA) pair(la('+24V'), la('A'))
+      if (c.state.encB) pair(la('+24V'), la('B'))
       break
     }
 

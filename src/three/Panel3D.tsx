@@ -79,6 +79,8 @@ import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
 import { FactoryEnvironment3D, type FactoryWallMountBounds } from './FactoryEnvironment3D'
 import { FactoryHallSizeControl } from './FactoryHallSizeControl'
+import { Mechatronics3D } from './MechatronicsDevices3D'
+import { isMechatronicsType } from './mechatronicsModel'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import { MeterD522066_3D, MeterKws306_3D } from './DigitalMeters3D'
@@ -5718,6 +5720,18 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
                   const st = useSimStore.getState()
                   const next = !c.state.manualVacuum
                   const patch = { manualVacuum: next, vacuumActive: next }
+                  if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
+                  else st.setComponentState(c.id, patch)
+                }}
+              />
+            )
+          } else if (isMechatronicsType(c.type)) {
+            content = (
+              <Mechatronics3D
+                c={c}
+                position={basePivots[c.id].toArray() as [number, number, number]}
+                onPatch={(patch) => {
+                  const st = useSimStore.getState()
                   if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
                   else st.setComponentState(c.id, patch)
                 }}

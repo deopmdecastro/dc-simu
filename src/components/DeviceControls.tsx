@@ -1,4 +1,6 @@
 import type { ElectricalComponent } from '../types'
+import { MechatronicsControls } from './MechatronicsControls'
+import { isMechatronicsType } from '../three/mechatronicsModel'
 import { useSimStore } from '../store/useSimStore'
 import { useManobraAllowed } from '../store/useManobraAllowed'
 import { MANOBRA_BLOCKED_TITLE } from '../store/manobra'
@@ -1234,6 +1236,7 @@ function PlcModuleControls({ c, locked }: { c: ElectricalComponent; locked: bool
 export function hasDeviceControls(type: string): boolean {
   return (
     isIndustrialDevice(type) ||
+    isMechatronicsType(type) ||
     type === 'multimeterDm20' ||
     type === 'powerSource3ph' ||
     type === 'powerSource1ph' ||
@@ -3817,6 +3820,7 @@ export default function DeviceControls({ component: c, disabled = false }: { com
       {free3DExtra}
     </>
   )
+  if (isMechatronicsType(c.type)) return wrap(<MechatronicsControls c={c} locked={locked} />)
   if (industrialDeviceTypeOf(c)) return wrap(<IndustrialDeviceControls component={c} disabled={locked} />)
   if (c.type === 'triProofLedBatten') return wrap(<TriProofLedControls c={c} locked={locked} />)
   if (isLightingType(c.type)) return wrap(<LightingControls c={c} locked={locked} />)

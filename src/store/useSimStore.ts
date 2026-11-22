@@ -1,4 +1,5 @@
 import { electricalComponentView, builtinRuntimeType } from '../electrical/builtinRuntime'
+import { stepMechatronics } from '../electrical/mechatronicsSim'
 import { adjacentDuctPlacement, fitAdjacentDuct, snapNewDuct, type DuctPlacement } from '../schematic/ductPlacement'
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
@@ -1339,6 +1340,11 @@ function runOneTick(state: Store, dtMs: number) {
       const bTerm = pc.terminals.find((t) => t.label === 'B')?.id
       if (pTerm && active && aTerm) linkP(pTerm, aTerm)
       if (pTerm && !active && bTerm) linkP(pTerm, bTerm)
+    } else if (pc.type === 'mecVacuumEjector') {
+      // Ejetor Venturi: o ar em P gera vácuo na porta V (modelado como continuidade do circuito de ar).
+      const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
+      const vTerm = pc.terminals.find((t) => t.label === 'V')?.id
+      if (pTerm && vTerm) linkP(pTerm, vTerm)
     } else if (pc.type === 'pneumaticManifold') {
       const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
       for (const stNum of [1, 2, 3, 4]) {
@@ -1399,7 +1405,7 @@ function runOneTick(state: Store, dtMs: number) {
     if (pw.energized && pass3.activeWires) pass3.activeWires.add(pw.id)
   }
   for (const cyl of components) {
-    if (cyl.type === 'pneumaticCylinder' || cyl.type === 'pneumaticGuidedCylinder') {
+    if (cyl.type === 'pneumaticCylinder' || cyl.type === 'pneumaticGuidedCylinder' || cyl.type === 'mecFeederCylinder' || cyl.type === 'mecStampingPress') {
       const aId = cyl.terminals.find((t) => t.label === 'A')?.id
       const bId = cyl.terminals.find((t) => t.label === 'B')?.id
       const aAir = Boolean(aId && activePneumaticTerminals.has(aId))
@@ -1429,6 +1435,11 @@ function runOneTick(state: Store, dtMs: number) {
       cyl.state.vacuumActive = hasAir || Boolean(cyl.state.manualVacuum)
     }
   }
+  stepMechatronics(components, {
+    dtSec,
+    airAt: (id) => activePneumaticTerminals.has(id),
+    loadPowered: (c, a, b) => isLoadPowered(c, pass3.energizedTerminals, a, b),
+  })
   // Acoplamento automático de bóias (floatSwitch) ao reservatório associado (suporta várias bóias a cotas distintas no mesmo tanque!)
   if (tanks.length > 0) {
     for (const fs of components) {

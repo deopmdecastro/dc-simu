@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isMechatronicsType } from './mechatronicsModel'
 import type { ElectricalComponent, SpatialPoint3D } from '../types'
 import { component3DDimensions, component3DScaleOf, schematicRotationRadians } from './terminal3D'
 import { getComponentModelSpec } from './modelPaths'
@@ -46,6 +47,7 @@ export function isPanelBound(component: ElectricalComponent): boolean {
     isPneumaticComponentType(component.type) ||
     isHydraulicComponentType(component.type) ||
     isJunctionBoxType(component.type) ||
+    isMechatronicsType(component.type) ||
     component.type === 'opticalReflector' ||
     component.type === 'triProofLedBatten'
   ) return false

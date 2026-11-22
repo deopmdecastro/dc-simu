@@ -13,6 +13,8 @@ import { AirCompressor3D, PneumaticManifold3D, PneumaticTee3D, PneumaticUnion3D,
 import { Wago221Connector3D } from './JunctionWagoDevices3D'
 import { SensorMountBalluff3D } from './SensorMounts3D'
 import { applyCadSurfaceTextures } from './cadSurface'
+import { Mechatronics3D } from './MechatronicsDevices3D'
+import { isMechatronicsType } from './mechatronicsModel'
 
 export { hasProceduralCapture } from './proceduralKinds'
 
@@ -59,7 +61,8 @@ function Snapshot({ type, section, ready }: { type: ComponentType; section: bool
     return () => { active = false }
   }, [ready])
   return <group ref={ref}>
-    {type === 'waterSupplyBox' ? <WaterSupplyBox3D c={c} />
+    {isMechatronicsType(type) ? <Mechatronics3D c={c} position={position} />
+      : type === 'waterSupplyBox' ? <WaterSupplyBox3D c={c} />
       : type === 'hydraulicFlowMeter' ? <WaterFlowMeterZjLcd3D c={c} position={position} />
       : type === 'airCompressor' ? <AirCompressor3D c={c} position={position} />
       : type === 'pneumaticManifold' ? <PneumaticManifold3D c={c} position={position} />
