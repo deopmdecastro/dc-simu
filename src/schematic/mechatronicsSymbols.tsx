@@ -1,5 +1,5 @@
 import type { ElectricalComponent } from '../types'
-import { MECHATRONICS_INFO, armAtHome, isMechatronicsType, workpieceMaterialOf } from '../three/mechatronicsModel'
+import { MEC_DIMS, MECHATRONICS_INFO, armAtHome, isMechatronicsType, workpieceMaterialOf } from '../three/mechatronicsModel'
 
 /**
  * Símbolos de esquema da maquete de estampagem: pictogramas técnicos simples (IEC 60617 onde
@@ -57,7 +57,7 @@ export function MechatronicsSymbol({ c, stroke }: { c: ElectricalComponent; stro
             <line x1={w / 2} y1={top + 8 + (len - 10) * (pct / 100)} x2={w / 2} y2={top + len + 8 + (pct / 100) * 18} stroke="#0f172a" strokeWidth={2.4} />
             <rect x={w * 0.24} y={top + len + 8 + (pct / 100) * 18} width={w * 0.52} height={5} fill="#94a3b8" stroke="#334155" />
             {ref()}
-            {caption('Prensa Ø32 × 50')}
+            {caption(`Prensa Ø32 × ${MEC_DIMS.press.strokeMm}`)}
           </g>
         )
       }

@@ -48,10 +48,10 @@ export const MEC_DIMS = {
   // Base 170 × 80: tubo a −40 mm do centro e zona de recolha a +40 mm (curso do Cilindro 1 = 80 mm).
   magazine: { outerMm: 50, heightMm: 260, wallMm: 3, liftMm: 45, slotW: 20, slotH: 85, baseLengthMm: 170, baseDepthMm: 80, tubeOffsetMm: -40, pickupOffsetMm: 40 },
   feeder: { boreMm: 20, strokeMm: 80, bodyMm: 118 },
-  rotaryArm: { discDiameterMm: 140, discThicknessMm: 15, towerMm: 160, armLengthMm: 240, cupDiameterMm: 25, sweepMm: 440 },
+  rotaryArm: { discDiameterMm: 140, discThicknessMm: 15, towerMm: 160, armLengthMm: 240, cupDiameterMm: 25, sweepMm: 440, cylinderBoreMm: 16, cylinderBodyMm: 32, cylinderStrokeMm: 18 },
   gearmotor: { motorDiameterMm: 36, motorLengthMm: 95, encoderDiameterMm: 30, pinionDiameterMm: 30, wheelDiameterMm: 60, ratio: 2 },
-  // Cilindro montado por cima da travessa (haste atravessa-a); o prato recolhido fica 46 mm abaixo dela.
-  press: { gantryHeightMm: 300, gantryWidthMm: 170, profileMm: 30, boreMm: 32, strokeMm: 50, plateDiameterMm: 65, bodyMm: 110, plateDropMm: 46, totalHeightMm: 420 },
+  // Curso estimado adaptado para permitir a entrada do cilindro vertical da ventosa sob o prato.
+  press: { gantryHeightMm: 300, gantryWidthMm: 170, profileMm: 30, boreMm: 32, strokeMm: 80, plateDiameterMm: 65, bodyMm: 110, plateDropMm: 16, totalHeightMm: 420 },
   table: { lengthMm: 120, depthMm: 80, heightMm: 45, recessDiameterMm: 42 },
   ramp: { lengthMm: 220, widthMm: 50, flangeMm: 20, slopeDeg: 15 },
   microSwitch: { bodyMm: 28, leverMm: 30 },
@@ -61,17 +61,19 @@ export const MEC_DIMS = {
 } as const
 
 /**
- * Cinemática do manipulador (mm, a partir da base do componente): eixo da articulação, alcance
- * da ventosa e descida. Todas as estações (recolha, gaveta da prensa) ficam com o topo da peça
+ * Cinemática do manipulador (mm, a partir da base do componente): braço metálico rígido,
+ * cilindro vertical na extremidade e ventosa na haste. Todas as estações ficam com o topo da peça
  * à mesma cota `ARM_STATION_TOP_MM`, como na bancada (blocos maquinados de elevação).
  */
 export const ARM_PIVOT_MM = 12 + 16 + 15 + 160 + 6
-export const ARM_TILT_RAD = 0.09
 export const ARM_TIP_MM = 205
 export const ARM_CUP_STEM_MM = 4
-/** Fundo da ventosa com o braço em cima (mm acima da base do manipulador). */
+/** Corpo fixo do cilindro por cima do braço; curso e corpo são estimativas construtivas. */
+export const ARM_CYLINDER_BASE_MM = ARM_PIVOT_MM + 2
+export const ARM_TOTAL_HEIGHT_MM = ARM_CYLINDER_BASE_MM + MEC_DIMS.rotaryArm.cylinderBodyMm + 4
+/** Fundo da ventosa com a haste recolhida (mm acima da base do manipulador). */
 export const ARM_CUP_UP_MM = ARM_PIVOT_MM + 2 - ARM_CUP_STEM_MM - 17
-export const ARM_STATION_TOP_MM = Math.round(ARM_CUP_UP_MM - ARM_TIP_MM * Math.sin(ARM_TILT_RAD))
+export const ARM_STATION_TOP_MM = ARM_CUP_UP_MM - MEC_DIMS.rotaryArm.cylinderStrokeMm
 
 const clampNum = (value: unknown, min: number, max: number, fallback: number) => {
   const n = Number(value)
@@ -156,7 +158,7 @@ export function mechatronicsSizeMm(type: string, state?: Record<string, any>): {
       return { x: 236, y: 46, z: 42 }
     case 'mecRotaryArm': {
       const a = MEC_DIMS.rotaryArm
-      return { x: a.sweepMm, y: 205, z: a.sweepMm }
+      return { x: a.sweepMm, y: ARM_TOTAL_HEIGHT_MM, z: a.sweepMm }
     }
     case 'mecDcGearmotor':
       return { x: 212, y: 62, z: 56 }
@@ -187,7 +189,18 @@ export const armDirection = (angleDeg: number) => {
   return { x: -Math.sin(a), z: Math.cos(a) }
 }
 /** Raio da ventosa ao eixo da torre (mm). */
-export const ARM_REACH_MM = Math.round(205 * Math.cos(0.09))
+export const ARM_REACH_MM = ARM_TIP_MM
+
+/** Lábio da ventosa nas coordenadas locais do componente, sem inclinação da estrutura. */
+export function armCupLocalMm(angleDeg: number, downPct: number, offsetMm = 0) {
+  const direction = armDirection(angleDeg)
+  const down = Math.max(0, Math.min(100, downPct)) / 100
+  return {
+    x: direction.x * ARM_REACH_MM,
+    y: ARM_CUP_UP_MM - down * MEC_DIMS.rotaryArm.cylinderStrokeMm + offsetMm - ARM_TOTAL_HEIGHT_MM / 2,
+    z: direction.z * ARM_REACH_MM,
+  }
+}
 
 /** Sensor de referência do manipulador: ativo numa janela de ±4° em torno de 0°. */
 export const armAtHome = (angleDeg: number) => {
@@ -226,9 +239,9 @@ export const MECHATRONICS_INFO: Record<MechatronicsComponentType, MechatronicsIn
   mecWorkpiece: { name: 'Peça de trabalho (tarugo)', model: 'Ø40 × 35 mm', summary: 'Cilindro maciço de ensaio: alumínio, polímero branco ou polímero escuro.' },
   mecDischargeRamp: { name: 'Rampa de descarga', model: '220 × 50 mm · abas 20 mm · 15°', summary: 'Calha inclinada em chapa de alumínio dobrada sobre pilar traseiro (110, 95 ou 80 mm).' },
   mecStampingTable: { name: 'Gaveta / mesa de estampagem', model: '120 × 80 × 45 mm · rebaixo Ø42', summary: 'Bloco maquinado com alojamento de centragem da peça sob o prato da prensa.' },
-  mecStampingPress: { name: 'Prensa pneumática de estampagem', model: 'Pórtico 300 mm · cilindro Ø32 × 50 · prato Ø65', summary: 'Cilindro vertical de dupla ação sobre a travessa de um pórtico de perfil 30 × 30, haste com prato circular, manómetro e sensores magnéticos SUP/INF.' },
+  mecStampingPress: { name: 'Prensa pneumática de estampagem', model: 'Pórtico 300 mm · cilindro Ø32 × 80 (estimado) · prato Ø65', summary: 'Cilindro vertical de dupla ação sobre a travessa de um pórtico de perfil 30 × 30, haste com prato circular, manómetro e sensores magnéticos SUP/INF. Curso adaptado para dar passagem ao cilindro vertical da ventosa.' },
   mecFeederCylinder: { name: 'Cilindro de alimentação (Cilindro 1)', model: 'Ø20 × 80 mm · dupla ação', summary: 'Cilindro horizontal com empurrador e sensores magnéticos de recuo/avanço na base do magazine.' },
-  mecRotaryArm: { name: 'Manipulador rotativo com ventosa', model: 'Disco Ø140 · torre 160 · braço 240 · ventosa Ø25', summary: 'Base rotativa com roda cónica Ø60, braço aligeirado articulado, elevação pneumática, ventosa de fole e sensor de referência 0°.' },
+  mecRotaryArm: { name: 'Manipulador rotativo com ventosa', model: 'Braço metálico rígido · cilindro vertical Ø16 × 18 (estimado) · ventosa Ø25', summary: 'Base rotativa com roda cónica Ø60 e sensor de referência 0°. A estrutura metálica mantém-se horizontal; o cilindro na extremidade sobe e desce a ventosa montada na ponta da haste.' },
   mecDcGearmotor: { name: 'Motorredutor DC M1 com encoder', model: 'Motor Ø36 × 95 · pinhão cónico Ø30 · encoder Ø30', summary: 'Motor de corrente contínua com redutor, pinhão cónico 2:1, encoder incremental A/B e entradas de sentido horário/anti-horário.' },
   mecMicroSwitchRoller: { name: 'Microinterruptor de rolete (FC 1)', model: 'Contacto comutado C / NA / NF', summary: 'Microinterruptor com alavanca e rolete na lateral da gaveta de receção.' },
   mecVacuumEjector: { name: 'Gerador de vácuo Venturi', model: 'Ejetor com silenciador · Push-In', summary: 'Ejetor Venturi: ar comprimido em P produz vácuo na porta V da ventosa.' },

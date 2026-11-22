@@ -8,8 +8,8 @@ import { component3DDimensions } from '../src/three/terminal3D'
 import { isPanelBound } from '../src/three/panelBounds'
 import { hasDeviceControls } from '../src/components/DeviceControls'
 import { usesProceduralSurface } from '../src/three/proceduralSurface'
-import { ARM_PIVOT_MM, ARM_STATION_TOP_MM, MECHATRONICS_TYPES, MAGAZINE_CAPACITY, MEC_DIMS, encoderPhases, mechatronicsSizeMm, slotPlateDimsOf } from '../src/three/mechatronicsModel'
-import { stampingBenchLayout } from '../src/electrical/stampingBench'
+import { ARM_CYLINDER_BASE_MM, ARM_STATION_TOP_MM, armCupLocalMm, MECHATRONICS_TYPES, MAGAZINE_CAPACITY, MEC_DIMS, encoderPhases, mechatronicsSizeMm, slotPlateDimsOf } from '../src/three/mechatronicsModel'
+import { BENCH_RAMP_ANGLES, stampingBenchLayout } from '../src/electrical/stampingBench'
 import type { ElectricalComponent } from '../src/types'
 import { readFileSync } from 'node:fs'
 
@@ -21,6 +21,16 @@ function check(name: string, fn: () => void) {
   console.log(`  PASS: ${name}`)
 }
 const make = (type: string, ref = 'X') => createComponent(type as any, ref, '', 0, 0, 0) as ElectricalComponent
+const makeBench = (offsetX = 0) => {
+  const entries = stampingBenchLayout().map((p) => {
+    const c = make(p.type, p.key)
+    Object.assign(c.state, p.state)
+    c.panel3DPosition = { x: offsetX + p.x * 0.01, y: p.y * 0.01, z: p.z * 0.01 }
+    return [p.key, c] as const
+  })
+  return Object.fromEntries(entries) as Record<string, ElectricalComponent>
+}
+const idleContext = { dtSec: 0, airAt: () => false, loadPowered: () => false }
 const labelsOf = (c: ElectricalComponent, pairs: Array<[string, string]>) => {
   const byId = new Map(c.terminals.map((t) => [t.id, t.label]))
   return pairs.map(([a, b]) => [byId.get(a), byId.get(b)].sort().join('-'))
@@ -74,9 +84,8 @@ check('3. Contactos: FC1 comutado, reeds REC/AVA e SUP/INF, sensor de referênci
 })
 
 check('4. Ciclo: alimentar → recolher → prensa → estampar → triar pela rampa do material', () => {
-  const mag = make('mecGravityMagazine'), feeder = make('mecFeederCylinder'), sw = make('mecMicroSwitchRoller')
-  const arm = make('mecRotaryArm'), table = make('mecStampingTable'), press = make('mecStampingPress')
-  const ramps = [make('mecDischargeRamp', 'R1'), make('mecDischargeRamp', 'R2'), make('mecDischargeRamp', 'R3')]
+  const { magazine: mag, feeder, fc1: sw, arm, table, press, ramp1, ramp2, ramp3 } = makeBench()
+  const ramps = [ramp1, ramp2, ramp3]
   const all = [mag, feeder, sw, arm, table, press, ...ramps]
   const airOn = new Set<string>()
   const ctx = { dtSec: 0.05, airAt: (id: string) => airOn.has(id), loadPowered: () => false }
@@ -95,6 +104,11 @@ check('4. Ciclo: alimentar → recolher → prensa → estampar → triar pela r
   assert.equal(arm.state.holding, 'aluminio')
   assert.equal(sw.state.pressed, false, 'FC1 liberta quando a peça sai')
   // Cortar o vácuo em baixo: deposita na gaveta da prensa.
+  airOn.delete(t(arm, 'Z'))
+  for (let i = 0; i < 12; i += 1) stepMechatronics(all, ctx)
+  arm.state.angleDeg = 180
+  airOn.add(t(arm, 'Z'))
+  for (let i = 0; i < 12; i += 1) stepMechatronics(all, ctx)
   airOn.delete(t(arm, 'VAC'))
   stepMechatronics(all, ctx)
   assert.equal(table.state.pieceMaterial, 'aluminio')
@@ -102,6 +116,7 @@ check('4. Ciclo: alimentar → recolher → prensa → estampar → triar pela r
   press.state.positionPct = 100
   stepMechatronics(all, ctx)
   assert.equal(table.state.stamped, true)
+  press.state.positionPct = 0
   // Recolha pós-estampagem, subida do braço e descarga por gravidade: peça metálica → rampa 1.
   airOn.add(t(arm, 'VAC'))
   stepMechatronics(all, ctx)
@@ -109,12 +124,125 @@ check('4. Ciclo: alimentar → recolher → prensa → estampar → triar pela r
   airOn.delete(t(arm, 'Z'))
   for (let i = 0; i < 12; i += 1) stepMechatronics(all, ctx)
   assert.equal(arm.state.holding, 'aluminio', 'a peça continua presa enquanto há vácuo')
+  arm.state.angleDeg = 270
   airOn.delete(t(arm, 'VAC'))
   stepMechatronics(all, ctx)
   assert.deepEqual(ramps[0].state.pieces, ['aluminio'])
   assert.equal(rampIndexFor('branco', 3), 1)
   assert.equal(rampIndexFor('preto', 3), 2)
   assert.equal(rampIndexFor('preto', 2), 1)
+})
+
+check('9. Recolha exige vácuo, descida e contacto real; não atravessa ângulos, alturas ou bancadas', () => {
+  for (const angle of [90, 180, 270]) {
+    const b = makeBench()
+    Object.assign(b.magazine.state, { pickupMaterial: 'branco' })
+    Object.assign(b.arm.state, { angleDeg: angle, armDownPct: 100, manualVacuum: true })
+    stepMechatronics(Object.values(b), idleContext)
+    assert.equal(b.arm.state.holding, '', `não recolhe a ${angle}°`)
+    assert.equal(b.magazine.state.pickupMaterial, 'branco')
+  }
+  for (const angle of [0, 1, 359, 360]) {
+    const b = makeBench()
+    b.magazine.state.pickupMaterial = 'branco'
+    Object.assign(b.arm.state, { angleDeg: angle, armDownPct: 100, manualVacuum: true })
+    stepMechatronics(Object.values(b), idleContext)
+    assert.equal(b.arm.state.holding, 'branco', `contacto perto de 0° (${angle}°)`)
+  }
+  for (const patch of [{ armDownPct: 0, manualVacuum: true }, { armDownPct: 100, manualVacuum: false }]) {
+    const b = makeBench()
+    b.magazine.state.pickupMaterial = 'aluminio'
+    Object.assign(b.arm.state, patch)
+    stepMechatronics(Object.values(b), idleContext)
+    assert.equal(b.arm.state.holding, '')
+  }
+  for (const axis of ['x', 'y', 'z'] as const) {
+    const b = makeBench()
+    b.magazine.state.pickupMaterial = 'preto'
+    b.magazine.panel3DPosition![axis] += 0.5 // deslocação de 50 mm
+    Object.assign(b.arm.state, { armDownPct: 100, manualVacuum: true })
+    stepMechatronics(Object.values(b), idleContext)
+    assert.equal(b.arm.state.holding, '', `não alcança magazine deslocado em ${axis}`)
+  }
+  const b = makeBench(), remote = makeBench(10)
+  remote.magazine.state.pickupMaterial = 'preto'
+  Object.assign(b.arm.state, { armDownPct: 100, manualVacuum: true })
+  stepMechatronics([...Object.values(remote), ...Object.values(b)], idleContext)
+  assert.equal(b.arm.state.holding, '', 'não recolhe de outra bancada')
+  assert.equal(remote.magazine.state.pickupMaterial, 'preto')
+})
+
+check('10. Gaveta: só transfere em contacto; não substitui peças e preserva a estampagem', () => {
+  for (const [angle, down] of [[0, 100], [90, 100], [180, 0]]) {
+    const b = makeBench()
+    Object.assign(b.arm.state, { angleDeg: angle, armDownPct: down, holding: 'branco' })
+    stepMechatronics(Object.values(b), idleContext)
+    assert.equal(b.table.state.pieceMaterial, '', `não deposita a ${angle}° / ${down}%`)
+    assert.equal(b.arm.state.holding, '', 'sem vácuo, a peça cai')
+  }
+  const b = makeBench()
+  b.table.state.pieceMaterial = 'preto'
+  Object.assign(b.arm.state, { angleDeg: 180, armDownPct: 100, holding: 'branco' })
+  stepMechatronics(Object.values(b), idleContext)
+  assert.equal(b.table.state.pieceMaterial, 'preto', 'gaveta ocupada não é substituída')
+  Object.assign(b.arm.state, { holding: '', manualVacuum: true })
+  b.magazine.state.pickupMaterial = 'branco'
+  b.table.state.stamped = true
+  stepMechatronics(Object.values(b), idleContext)
+  assert.equal(b.arm.state.holding, 'preto', 'a peça vem da gaveta alinhada, mesmo com peça no magazine')
+  assert.equal(b.arm.state.holdingStamped, true)
+  assert.equal(b.magazine.state.pickupMaterial, 'branco')
+  b.arm.state.manualVacuum = false
+  stepMechatronics(Object.values(b), idleContext)
+  assert.equal(b.table.state.pieceMaterial, 'preto', 'permite repor a peça estampada na gaveta')
+  assert.equal(b.table.state.stamped, true)
+})
+
+check('11. Descarga segue a rampa física, independentemente do material e da ordem dos componentes', () => {
+  for (const material of ['aluminio', 'branco', 'preto']) {
+    for (const [i, angle] of BENCH_RAMP_ANGLES.entries()) {
+      const b = makeBench()
+      Object.assign(b.arm.state, { holding: material, holdingStamped: true, angleDeg: angle })
+      stepMechatronics(Object.values(b).reverse(), idleContext)
+      for (let n = 0; n < 3; n += 1) {
+        assert.deepEqual(b[`ramp${n + 1}`].state.pieces ?? [], n === i ? [material] : [], `${material} a ${angle}° na rampa ${i + 1}`)
+      }
+      assert.equal(b.arm.state.holding, '')
+      stepMechatronics(Object.values(b), idleContext)
+      assert.deepEqual(b[`ramp${i + 1}`].state.pieces, [material], 'sem duplicação no passo seguinte')
+    }
+  }
+  for (const angle of [0, 90, 180]) {
+    const b = makeBench()
+    Object.assign(b.arm.state, { angleDeg: angle, holding: 'aluminio', holdingStamped: true })
+    stepMechatronics(Object.values(b), idleContext)
+    assert.ok([b.ramp1, b.ramp2, b.ramp3].every((r) => !r.state.pieces?.length), 'soltar fora das rampas perde a peça')
+  }
+  for (const axis of ['x', 'y', 'z'] as const) {
+    const b = makeBench()
+    b.ramp1.panel3DPosition![axis] += 5
+    Object.assign(b.arm.state, { angleDeg: 270, holding: 'aluminio', holdingStamped: true })
+    stepMechatronics(Object.values(b), idleContext)
+    assert.equal(b.ramp1.state.pieces, undefined, `rampa deslocada em ${axis} não recebe a peça`)
+  }
+})
+
+check('12. Geometria de contacto acompanha translação, rotação e escala das instâncias 3D', () => {
+  const b = makeBench()
+  // Rodar a bancada 90° em Y, escalar 2× e deslocar o conjunto.
+  for (const c of Object.values(b)) {
+    const p = c.panel3DPosition!
+    c.panel3DPosition = { x: 4 + p.z * 2, y: 3 + p.y * 2, z: 2 - p.x * 2 }
+    c.viewOrientation = { x: 0, y: 90, z: 0 }
+    c.view3DScale = { x: 2, y: 2, z: 2 }
+  }
+  b.magazine.state.pickupMaterial = 'preto'
+  Object.assign(b.arm.state, { armDownPct: 100, manualVacuum: true })
+  stepMechatronics(Object.values(b), idleContext)
+  assert.equal(b.arm.state.holding, 'preto')
+  Object.assign(b.arm.state, { armDownPct: 0, angleDeg: 270, manualVacuum: false, holdingStamped: true })
+  stepMechatronics(Object.values(b), idleContext)
+  assert.deepEqual(b.ramp1.state.pieces, ['preto'])
 })
 
 check('5. Motor M1: CW/CCW com 0V rodam o braço pelo par cónico 2:1 e o encoder conta', () => {
@@ -180,18 +308,32 @@ check('7. Montagem da maquete: tudo sobre a base, estações à cota da ventosa 
   assert.equal(Math.round(pieceTopAtTable), ARM_STATION_TOP_MM)
   const p = MEC_DIMS.press
   const plateRetracted = p.gantryHeightMm - p.profileMm - p.plateDropMm
-  assert.ok(plateRetracted > ARM_PIVOT_MM + 10, `prato recolhido (${plateRetracted} mm) acima do braço (${ARM_PIVOT_MM + 10} mm)`)
-  assert.ok(Math.abs(plateRetracted - p.strokeMm - ARM_STATION_TOP_MM) <= 4, 'curso de 50 mm chega ao topo da peça na gaveta')
+  const cylinderTop = ARM_CYLINDER_BASE_MM + MEC_DIMS.rotaryArm.cylinderBodyMm
+  assert.ok(plateRetracted > cylinderTop + 4, `prato recolhido (${plateRetracted} mm) acima do cilindro da ventosa (${cylinderTop} mm)`)
+  assert.ok(Math.abs(plateRetracted - p.strokeMm - ARM_STATION_TOP_MM) <= 4, 'curso da prensa chega ao topo da peça na gaveta')
 })
 
-check('8. Hierarquia de pivôs GLB do relatório: base, hastes, torre → articulação e pinhão do motor', () => {
+check('8. Hierarquia de pivôs: torre → estrutura metálica → cilindro vertical → haste da ventosa', () => {
   const src = readFileSync(new URL('../src/three/MechatronicsDevices3D.tsx', import.meta.url), 'utf8')
-  for (const pivot of ['Maquete_Base', 'Cilindro1_Haste', 'Prensa_Haste', 'Braco_Torre_Rotacao', 'Braco_Articulacao_Z', 'Motor_Pinhao']) {
+  for (const pivot of ['Maquete_Base', 'Cilindro1_Haste', 'Prensa_Haste', 'Braco_Torre_Rotacao', 'Braco_Estrutura_Metalica', 'Braco_Cilindro_Corpo', 'Braco_Cilindro_Z', 'Motor_Pinhao']) {
     assert.ok(src.includes(`name="${pivot}"`), `pivô ${pivot} nomeado`)
   }
-  // A articulação Z é filha da torre rotativa (vem depois dela no mesmo componente).
+  // A haste Z é filha do corpo fixo do cilindro, solidário à estrutura metálica e à torre.
   const arm = src.slice(src.indexOf('function RotaryArm'), src.indexOf('function DcGearmotor'))
-  assert.ok(arm.indexOf('Braco_Torre_Rotacao') < arm.indexOf('Braco_Articulacao_Z'), 'articulação dentro da torre')
+  assert.ok(arm.indexOf('Braco_Torre_Rotacao') < arm.indexOf('Braco_Cilindro_Z'), 'cilindro dentro da torre')
+  assert.ok(!arm.includes('Braco_Articulacao_Z'), 'sem inclinação do braço metálico')
+})
+
+check('13. O cilindro desloca a ventosa só na vertical, com alcance radial constante', () => {
+  for (const angle of [0, 90, 180, 270, 359]) {
+    const up = armCupLocalMm(angle, 0)
+    for (const pct of [25, 50, 75, 100]) {
+      const down = armCupLocalMm(angle, pct)
+      assert.equal(down.x, up.x)
+      assert.equal(down.z, up.z)
+      assert.ok(Math.abs(up.y - down.y - MEC_DIMS.rotaryArm.cylinderStrokeMm * pct / 100) < 1e-9)
+    }
+  }
 })
 
 console.log(`\n✅ ${passed} verificações da maquete de estampagem passaram`)

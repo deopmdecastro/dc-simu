@@ -161,7 +161,7 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
       body = (
         <>
           <Row label="Ângulo do braço" value={`${angle.toFixed(0)}°`}><input type="range" min={0} max={359} step={1} disabled={locked || running} value={angle} onChange={(e) => setState(c.id, { angleDeg: Number(e.target.value), homeActive: Number(e.target.value) <= 4 || Number(e.target.value) >= 356 })} /></Row>
-          <Row label="Descida da ventosa" value={`${down} %`}><input type="range" min={0} max={100} step={5} disabled={locked || running} value={down} onChange={(e) => setState(c.id, { armDownPct: Number(e.target.value) })} /></Row>
+          <Row label="Curso do cilindro vertical da ventosa" value={`${down} %`}><input type="range" min={0} max={100} step={5} disabled={locked || running} value={down} onChange={(e) => setState(c.id, { armDownPct: Number(e.target.value) })} /></Row>
           <button type="button" className={`dc-btn text-[11px] justify-center ${c.state.manualVacuum ? 'dc-btn-primary' : ''}`} disabled={locked} aria-pressed={!!c.state.manualVacuum} onClick={() => act({ manualVacuum: !c.state.manualVacuum })}>{c.state.manualVacuum ? 'Desligar vácuo manual' : 'Ligar vácuo manual'}</button>
           <Row label="Motor de acionamento (M1)">
             <select className="dc-input text-[11px]" disabled={locked} value={typeof c.state.driveMotorId === 'string' ? c.state.driveMotorId : ''} onChange={(e) => setState(c.id, { driveMotorId: e.target.value })}>

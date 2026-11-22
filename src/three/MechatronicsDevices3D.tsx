@@ -5,7 +5,9 @@ import type { ElectricalComponent } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import {
   ARM_CUP_STEM_MM,
-  ARM_TILT_RAD,
+  ARM_CYLINDER_BASE_MM,
+  ARM_PIVOT_MM,
+  ARM_TOTAL_HEIGHT_MM,
   ARM_TIP_MM,
   MAGAZINE_CAPACITY,
   MEC_DIMS,
@@ -575,17 +577,14 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
   const vacuum = !!c.state.vacuumActive
   const held = typeof c.state.holding === 'string' && c.state.holding ? workpieceMaterialOf(c.state.holding) : null
   const rotRef = useRef<THREE.Group>(null)
-  const armRef = useRef<THREE.Group>(null)
-  const actRodRef = useRef<THREE.Group>(null)
+  const cylinderRodRef = useRef<THREE.Group>(null)
   const angleSm = useSmoothed((angle * Math.PI) / 180, 12)
   const downSm = useSmoothed(down / 100, 10)
-  const TILT = ARM_TILT_RAD // a ponta da ventosa desce ~18 mm até ao topo das peças nas estações
   useFrame(() => {
     if (rotRef.current) rotRef.current.rotation.y = -angleSm.current - Math.PI / 2
-    if (armRef.current) armRef.current.rotation.z = -downSm.current * TILT
-    if (actRodRef.current) actRodRef.current.scale.y = 1 - downSm.current * 0.35
+    if (cylinderRodRef.current) cylinderRodRef.current.position.y = -downSm.current * a.cylinderStrokeMm
   })
-  const y0 = -205 / 2
+  const y0 = -ARM_TOTAL_HEIGHT_MM / 2
   const housingTop = y0 + 12
   const wheelTop = housingTop + 16
   const discY = wheelTop + a.discThicknessMm / 2
@@ -651,30 +650,8 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
         <mesh geometry={tower} position={[0, towerBase + a.towerMm / 2, 0]} castShadow receiveShadow>
           <Mat f={ALU} name="Coluna do braço" />
         </mesh>
-        {/* Cilindro de elevação inclinado entre a coluna e o braço */}
-        <mesh position={[19, towerBase + 92, 0]} castShadow>
-          <boxGeometry args={[8, 16, 16]} />
-          <Mat f={ALU_DARK} name="Chumaceira do cilindro de elevação" />
-        </mesh>
-        <group position={[22, towerBase + 92, 0]} rotation={[0, 0, -0.42]}>
-          <mesh position={[0, 25, 0]} castShadow>
-            <cylinderGeometry args={[8, 8, 50, 20]} />
-            <Mat f={ALU} name="Cilindro de elevação" />
-          </mesh>
-          <group ref={actRodRef} position={[0, 50, 0]}>
-            <mesh position={[0, 15, 0]}>
-              <cylinderGeometry args={[2.5, 2.5, 30, 12]} />
-              <Mat f={CHROME} name="Haste de elevação" />
-            </mesh>
-          </group>
-          <PushInFitting position={[8, 6, 0]} rotation={[0, 0, -Math.PI / 2]} d={3.6} />
-        </group>
-        {/* Articulação (charneira) no topo da coluna */}
-        <mesh position={[0, towerTop + 6, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[6, 6, 40, 20]} />
-          <Mat f={STEEL} name="Eixo da articulação" />
-        </mesh>
-        <group ref={armRef} name="Braco_Articulacao_Z" position={[0, towerTop + 6, 0]}>
+        {/* Estrutura rígida aparafusada à torre: não inclina durante o curso Z. */}
+        <group name="Braco_Estrutura_Metalica" position={[0, y0 + ARM_PIVOT_MM, 0]}>
           {/* Braço aligeirado com dois rasgos oblongos */}
           <mesh geometry={armPlate} position={[armLen / 2 - armBack, 6, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
             <Mat f={ALU_MILLED} name="Braço aligeirado" />
@@ -682,7 +659,7 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
           {[-1, 1].map((s) => (
             <mesh key={s} position={[0, 2, s * 17]} castShadow>
               <boxGeometry args={[26, 20, 4]} />
-              <Mat f={ALU_DARK} name="Garfo da articulação" />
+              <Mat f={ALU_DARK} name="Esquadro de fixação do braço" />
             </mesh>
           ))}
           {/* Tubo de vácuo azul ao longo do braço */}
@@ -690,21 +667,40 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
             <cylinderGeometry args={[2, 2, tipX - 14, 10]} />
             <Mat f={PU_TUBE} name="Tubo de poliuretano" />
           </mesh>
-          {/* Ventosa na ponta: racor, haste roscada e fole */}
-          <group position={[tipX, 2, 0]}>
+          {/* Corpo fixo do cilindro vertical na extremidade da estrutura metálica. */}
+          <group name="Braco_Cilindro_Corpo" position={[tipX, ARM_CYLINDER_BASE_MM - ARM_PIVOT_MM, 0]}>
+            <mesh position={[0, 5, 0]} castShadow>
+              <boxGeometry args={[36, 6, 32]} />
+              <Mat f={ALU_MILLED} name="Flange do cilindro da ventosa" />
+            </mesh>
+            <mesh position={[0, a.cylinderBodyMm / 2, 0]} castShadow receiveShadow>
+              <boxGeometry args={[a.cylinderBoreMm + 6, a.cylinderBodyMm - 8, a.cylinderBoreMm + 6]} />
+              <Mat f={ALU} name="Corpo fixo do cilindro vertical da ventosa" />
+            </mesh>
+            {[3, a.cylinderBodyMm - 3].map((y) => (
+              <mesh key={y} position={[0, y, 0]} castShadow>
+                <boxGeometry args={[a.cylinderBoreMm + 8, 6, a.cylinderBoreMm + 8]} />
+                <Mat f={ALU_DARK} name="Cabeça do cilindro vertical" />
+              </mesh>
+            ))}
+            {[-1, 1].map((s) => <CapScrew key={s} position={[s * 13, 8, 0]} d={3.2} />)}
+            <PushInFitting position={[a.cylinderBoreMm / 2 + 4, a.cylinderBodyMm - 6, 0]} rotation={[0, 0, -Math.PI / 2]} d={3.6} />
+            {/* Só a haste e o conjunto ventosa/peça se deslocam verticalmente. */}
+            <group ref={cylinderRodRef} name="Braco_Cilindro_Z">
             <PushInFitting position={[0, 0, 15]} rotation={[Math.PI / 2, 0, 0]} d={3.6} />
             <mesh position={[0, -2, 0]}>
               <cylinderGeometry args={[4.5, 4.5, 10, 6]} />
               <Mat f={BRASS} name="Porca da haste da ventosa" />
             </mesh>
-            <mesh position={[0, -STEM / 2, 0]}>
-              <cylinderGeometry args={[3, 3, STEM, 14]} />
-              <Mat f={STEEL} name="Haste roscada da ventosa" />
+            <mesh position={[0, (a.cylinderStrokeMm - STEM) / 2, 0]} castShadow>
+              <cylinderGeometry args={[3, 3, a.cylinderStrokeMm + STEM, 18]} />
+              <Mat f={CHROME} name="Haste cromada do cilindro da ventosa" />
             </mesh>
             <mesh geometry={cup} position={[0, -STEM, 0]} castShadow>
               <meshStandardMaterial name="Borracha da ventosa" color={vacuum ? '#1f2937' : RUBBER.color} roughness={0.78} metalness={0.02} />
             </mesh>
             {held && <Workpiece material={held} position={[0, -STEM - 17 - MEC_DIMS.workpiece.heightMm / 2, 0]} />}
+            </group>
           </group>
         </group>
       </group>

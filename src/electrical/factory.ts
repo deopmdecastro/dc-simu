@@ -1260,7 +1260,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { pieceMaterial: '', manufacturer: 'DC-Simu Mecatrónica', model: 'Mesa 120 × 80 × 45' },
   },
   mecStampingPress: {
-    category: 'motor', paletteName: 'Prensa pneumática de estampagem · pórtico 300 · cilindro Ø32 × 50', group: 'Mecatrónica', tag: 'PRS', w: 110, h: 150,
+    category: 'motor', paletteName: 'Prensa pneumática de estampagem · pórtico 300 · cilindro Ø32 × 80 (estimado)', group: 'Mecatrónica', tag: 'PRS', w: 110, h: 150,
     terminals: [
       T('A', 'pneumatic-in', 0.2, 0.05, { position3D: { x: 0.5, y: 0.975, z: 0.77 }, face: 'front', terminalType: 'plug', color: '#38bdf8', diameter: 8 }),
       T('B', 'pneumatic-in', 0.2, 0.45, { position3D: { x: 0.5, y: 0.745, z: 0.77 }, face: 'front', terminalType: 'plug', color: '#38bdf8', diameter: 8 }),
@@ -1269,7 +1269,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('INF+', 'power-in', 0.95, 0.6, { position3D: { x: 0.62, y: 0.79, z: 0.5 }, face: 'right', color: '#92400e', diameter: 4 }),
       T('INF', 'io', 0.95, 0.75, { position3D: { x: 0.62, y: 0.77, z: 0.5 }, face: 'right', color: '#111827', diameter: 4 }),
     ],
-    defaultState: { positionPct: 0, extended: false, pressureBar: 0, manufacturer: 'DC-Simu Mecatrónica', model: 'Prensa Ø32 × 50 · prato Ø65' },
+    defaultState: { positionPct: 0, extended: false, pressureBar: 0, manufacturer: 'DC-Simu Mecatrónica', model: 'Prensa Ø32 × 80 (estimado) · prato Ø65' },
   },
   mecFeederCylinder: {
     category: 'motor', paletteName: 'Cilindro de alimentação Ø20 × 80 com empurrador e sensores', group: 'Mecatrónica', tag: 'CIL', w: 150, h: 60,
@@ -1284,10 +1284,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { positionPct: 0, extended: false, manufacturer: 'DC-Simu Mecatrónica', model: 'Cilindro Ø20 × 80 · dupla ação' },
   },
   mecRotaryArm: {
-    category: 'motor', paletteName: 'Manipulador rotativo com braço articulado e ventosa Ø25', group: 'Mecatrónica', tag: 'BR', w: 130, h: 130,
+    category: 'motor', paletteName: 'Manipulador rotativo · braço metálico rígido, cilindro vertical e ventosa Ø25', group: 'Mecatrónica', tag: 'BR', w: 130, h: 130,
     terminals: [
-      T('Z', 'pneumatic-in', 0.1, 0.05, { position3D: { x: 0.5, y: 0.5, z: 0.56 }, face: 'front', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
-      T('VAC', 'pneumatic-in', 0.9, 0.05, { position3D: { x: 0.535, y: 0.985, z: 0.965 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('Z', 'pneumatic-in', 0.1, 0.05, { position3D: { x: 0.5, y: 0.96, z: 0.985 }, face: 'front', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('VAC', 'pneumatic-in', 0.9, 0.05, { position3D: { x: 0.466, y: 0.854, z: 0.966 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
       T('HOME+', 'power-in', 0.35, 0.95, { position3D: { x: 0.48, y: 0.17, z: 0.69 }, face: 'front', color: '#92400e', diameter: 4 }),
       T('HOME', 'io', 0.65, 0.95, { position3D: { x: 0.52, y: 0.17, z: 0.69 }, face: 'front', color: '#111827', diameter: 4 }),
     ],

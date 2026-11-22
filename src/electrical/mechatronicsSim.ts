@@ -1,4 +1,5 @@
 import type { ElectricalComponent } from '../types'
+import { cupTouchesWorkpiece, rampBelowWorkpiece } from './mechatronicsContact'
 import {
   GEARMOTOR_OUTPUT_RPM,
   MEC_DIMS,
@@ -17,7 +18,8 @@ import {
  *
  * Fluxo de peças (didático): o Cilindro 1 empurra o tarugo inferior do magazine para a zona de
  * recolha → a ventosa recolhe-o → pousa-o na gaveta da prensa → depois de estampado, a ventosa
- * volta a recolhê-lo e larga-o, por gravidade, na rampa do seu material (1 = metálicas; 2/3 = polímeros).
+ * volta a recolhê-lo e larga-o, por gravidade, na rampa sob a ventosa. A triagem depende
+ * da manobra do programa; o material não corrige uma posição de descarga errada.
  */
 export interface MechatronicsStepContext {
   dtSec: number
@@ -49,7 +51,7 @@ export function magazineColumn(state: Record<string, any>, capacity: number): Wo
   return Array.from({ length: count }, (_, i) => seq[(offset + i) % seq.length])
 }
 
-/** Rampa de destino: 1.ª rampa para metálicas, 2.ª para branco, 3.ª (ou 2.ª) para escuro. */
+/** Destino recomendado para programar a triagem; a transferência efetiva depende da geometria. */
 export function rampIndexFor(material: WorkpieceMaterial, rampCount: number): number {
   if (rampCount <= 0) return -1
   if (WORKPIECE_MATERIALS.find((m) => m.id === material)?.metallic) return 0
@@ -88,13 +90,6 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
     }
     f.state.wasExtended = extended
   })
-  const pickup = magazines.find((m) => typeof m.state.pickupMaterial === 'string' && m.state.pickupMaterial)
-
-  // FC1: confirma o encosto da peça na posição de recolha (modo «feeder»); em «manual» fica no clique.
-  for (const sw of ofType('mecMicroSwitchRoller')) {
-    if (sw.state.actuation !== 'manual') sw.state.pressed = !!pickup
-  }
-
   // Prensa: o curso inferior com peça na gaveta marca-a como estampada.
   for (const p of presses) {
     if (Number(p.state.positionPct ?? 0) >= 92) {
@@ -138,14 +133,14 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
     const holding = typeof arm.state.holding === 'string' && arm.state.holding ? workpieceMaterialOf(arm.state.holding) : null
     const atBottom = down >= 90
     if (vacuum && atBottom && !holding) {
-      // Recolha: peça na zona de recolha (bruta) tem prioridade; senão a peça estampada da gaveta.
-      const src = pickup && pickup.state.pickupMaterial ? pickup : null
+      // Recolha apenas na estação em contacto com o lábio da ventosa.
+      const src = magazines.find((m) => m.state.pickupMaterial && cupTouchesWorkpiece(arm, m))
       if (src) {
         arm.state.holding = workpieceMaterialOf(src.state.pickupMaterial)
         arm.state.holdingStamped = false
         src.state.pickupMaterial = ''
       } else {
-        const t = tables.find((tb) => typeof tb.state.pieceMaterial === 'string' && tb.state.pieceMaterial)
+        const t = tables.find((tb) => tb.state.pieceMaterial && cupTouchesWorkpiece(arm, tb))
         if (t) {
           arm.state.holding = workpieceMaterialOf(t.state.pieceMaterial)
           arm.state.holdingStamped = !!t.state.stamped
@@ -154,15 +149,14 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
         }
       }
     } else if (!vacuum && holding) {
-      // Deposição: peça bruta pousada (braço em baixo) na gaveta livre da prensa; peça estampada
-      // largada por gravidade (sem descer) na rampa do seu material. Fora destes casos a peça cai e perde-se.
-      const freeTable = tables.find((tb) => !tb.state.pieceMaterial)
-      if (!arm.state.holdingStamped && atBottom && freeTable) {
+      // Uma gaveta livre só recebe a peça quando esta está pousada no alojamento.
+      // Fora da gaveta, a peça cai na calha que estiver por baixo ou perde-se.
+      const freeTable = atBottom ? tables.find((tb) => !tb.state.pieceMaterial && cupTouchesWorkpiece(arm, tb)) : null
+      if (freeTable) {
         freeTable.state.pieceMaterial = holding
-        freeTable.state.stamped = false
-      } else if (arm.state.holdingStamped) {
-        const idx = rampIndexFor(holding, ramps.length)
-        const ramp = idx >= 0 ? ramps[idx] : null
+        freeTable.state.stamped = !!arm.state.holdingStamped
+      } else {
+        const ramp = ramps.find((r) => rampBelowWorkpiece(arm, r))
         if (ramp) {
           const list = Array.isArray(ramp.state.pieces) ? ramp.state.pieces.slice(-4) : []
           ramp.state.pieces = [...list, holding]
@@ -171,5 +165,10 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
       arm.state.holding = ''
       arm.state.holdingStamped = false
     }
+  }
+
+  // Refletir a recolha no mesmo passo, sem deixar FC1 ativo por mais uma varredura.
+  for (const sw of ofType('mecMicroSwitchRoller')) {
+    if (sw.state.actuation !== 'manual') sw.state.pressed = magazines.some((m) => !!m.state.pickupMaterial)
   }
 }
