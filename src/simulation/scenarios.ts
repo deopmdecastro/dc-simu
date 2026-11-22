@@ -47,8 +47,8 @@ export function buildDirectStartScenario(): Scenario {
   const QF1 = createComponent('breaker3p', 'QF1', 'Disjuntor Geral', 0, 60, 40)
   const RT1 = createComponent('thermalRelay', 'RT1', 'Relé Térmico', 1, 220, 40)
   const KM1 = createComponent('contactor', 'KM1', 'Contator Partida', 2, 380, 40)
-  const S1 = createComponent('buttonNC', 'S1', 'STOP', 3, 560, 300)
-  const S2 = createComponent('buttonNO', 'S2', 'START', 4, 680, 300)
+  const S1 = createComponent('pushButtonXb2Nc', 'S1', 'STOP', 3, 560, 300)
+  const S2 = createComponent('pushButtonXb2No', 'S2', 'START', 4, 680, 300)
   const PLC1 = createComponent('plcLogo', 'PLC1', 'LOGO! 230RCE', 5, 560, 60, { outputs: { 'Q0.0': false, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false } })
   const H1 = createComponent('ledGreen', 'H1', 'Motor Ligado', 6, 800, 60)
   const H2 = createComponent('ledRed', 'H2', 'Falha / Parado', 7, 800, 150)
@@ -77,10 +77,10 @@ export function buildDirectStartScenario(): Scenario {
     wire(T(KM1, '6T3')!, T(M1, 'W1')!, 'black', '2.5mm²', undefined, 'power'),
     wire(T(M1, 'PE')!, T(BPE, 'PE2')!, 'green-yellow', '2.5mm²', 'PE', 'earth'),
 
-    wire(T(QF1, '2')!, T(S1, '21')!, 'orange', '1mm²', 'L-ctrl'),
-    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
-    wire(T(QF1, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
+    wire(T(QF1, '2')!, T(S1, '1')!, 'orange', '1mm²', 'L-ctrl'),
+    wire(T(S1, '2')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
+    wire(T(QF1, '2')!, T(S2, '3')!, 'orange', '1mm²'),
+    wire(T(S2, '4')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
     wire(T(QF1, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
 
@@ -120,9 +120,9 @@ export function buildReversalScenario(): Scenario {
   const KM1 = createComponent('contactor', 'KM1', 'Contator Avanço', 2, 380, 40)
   const KM2 = createComponent('contactor', 'KM2', 'Contator Reversão', 3, 540, 40)
   const S0 = createComponent('emergencyButton', 'S0', 'Emergência', 4, 120, 340)
-  const S1 = createComponent('buttonNC', 'S1', 'STOP', 5, 240, 340)
-  const S2 = createComponent('buttonNO', 'S2', 'AVANÇO', 6, 360, 340)
-  const S3 = createComponent('buttonNO', 'S3', 'REVERSÃO', 7, 480, 340)
+  const S1 = createComponent('pushButtonXb2Nc', 'S1', 'STOP', 5, 240, 340)
+  const S2 = createComponent('pushButtonXb2No', 'S2', 'AVANÇO', 6, 360, 340)
+  const S3 = createComponent('pushButtonXb2No', 'S3', 'REVERSÃO', 7, 480, 340)
   const PLC1 = createComponent('plcLogo', 'PLC1', 'LOGO! 230RCE', 8, 640, 40, { outputs: { 'Q0.0': false, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false } })
   const H1 = createComponent('ledGreen', 'H1', 'Avanço', 9, 880, 40)
   const H2 = createComponent('ledYellow', 'H2', 'Reversão', 10, 880, 130)
@@ -157,12 +157,12 @@ export function buildReversalScenario(): Scenario {
     wire(T(M1, 'PE')!, T(BPE, 'PE2')!, 'green-yellow', '2.5mm²', 'PE', 'earth'),
 
     wire(T(BR, '2')!, T(S0, '21')!, 'orange', '1mm²'),
-    wire(T(S0, '22')!, T(S1, '21')!, 'orange', '1mm²'),
-    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
-    wire(T(BR, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
-    wire(T(BR, '2')!, T(S3, '13')!, 'orange', '1mm²'),
-    wire(T(S3, '14')!, T(PLC1, 'I0.2')!, 'orange', '1mm²'),
+    wire(T(S0, '22')!, T(S1, '1')!, 'orange', '1mm²'),
+    wire(T(S1, '2')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
+    wire(T(BR, '2')!, T(S2, '3')!, 'orange', '1mm²'),
+    wire(T(S2, '4')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
+    wire(T(BR, '2')!, T(S3, '3')!, 'orange', '1mm²'),
+    wire(T(S3, '4')!, T(PLC1, 'I0.2')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
 
@@ -219,8 +219,8 @@ export function buildStarDeltaScenario(): Scenario {
   const KT1 = createComponent('timerRelayStarDelta', 'KT1', 'Temporizador Y-Δ', 5, 380, 220)
   KT1.state.presetMs = 4000
   KT1.state.transitionMs = 80
-  const S1 = createComponent('buttonNC', 'S1', 'STOP', 6, 240, 400)
-  const S2 = createComponent('buttonNO', 'S2', 'START', 7, 380, 400)
+  const S1 = createComponent('pushButtonXb2Nc', 'S1', 'STOP', 6, 240, 400)
+  const S2 = createComponent('pushButtonXb2No', 'S2', 'START', 7, 380, 400)
   const PLC1 = createComponent('plcLogo', 'PLC1', 'LOGO! 230RCE', 8, 620, 220, { outputs: { 'Q0.0': false, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false } })
   const H1 = createComponent('ledGreen', 'H1', 'Estrela', 9, 880, 220)
   const H2 = createComponent('ledYellow', 'H2', 'Triângulo', 10, 880, 300)
@@ -253,10 +253,10 @@ export function buildStarDeltaScenario(): Scenario {
     wire(T(KM1, '6T3')!, T(KM3, '3L2')!, 'black', '2.5mm²', undefined, 'power'),
     wire(T(M1, 'PE')!, T(BPE, 'PE2')!, 'green-yellow', '2.5mm²', 'PE', 'earth'),
 
-    wire(T(BR, '2')!, T(S1, '21')!, 'orange', '1mm²'),
-    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
-    wire(T(BR, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
+    wire(T(BR, '2')!, T(S1, '1')!, 'orange', '1mm²'),
+    wire(T(S1, '2')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
+    wire(T(BR, '2')!, T(S2, '3')!, 'orange', '1mm²'),
+    wire(T(S2, '4')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
 
@@ -320,8 +320,8 @@ export function buildSequentialScenario(): Scenario {
   const RT2 = createComponent('thermalRelay', 'RT2', 'Térmico M2', 2, 340, 40)
   const KM1 = createComponent('contactor', 'KM1', 'Contator M1', 3, 480, 40)
   const KM2 = createComponent('contactor', 'KM2', 'Contator M2', 4, 620, 40)
-  const S1 = createComponent('buttonNC', 'S1', 'STOP', 5, 120, 400)
-  const S2 = createComponent('buttonNO', 'S2', 'START', 6, 240, 400)
+  const S1 = createComponent('pushButtonXb2Nc', 'S1', 'STOP', 5, 120, 400)
+  const S2 = createComponent('pushButtonXb2No', 'S2', 'START', 6, 240, 400)
   const B1 = createComponent('proximitySensor', 'B1', 'Sensor indutivo (peças)', 7, 360, 400)
   const PLC1 = createComponent('plcCompact', 'PLC1', 'CLP 12I/8Q', 8, 560, 220, { outputs: { 'Q0.0': false, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false, 'Q0.4': false, 'Q0.5': false, 'Q0.6': false, 'Q0.7': false } })
   const H1 = createComponent('ledGreen', 'H1', 'M1 ligado', 9, 880, 200)
@@ -355,10 +355,10 @@ export function buildSequentialScenario(): Scenario {
     wire(T(KM2, '4T2')!, T(M2, 'V1')!, 'black', '2.5mm²', undefined, 'power'),
     wire(T(KM2, '6T3')!, T(M2, 'W1')!, 'black', '2.5mm²', undefined, 'power'),
 
-    wire(T(BR, '2')!, T(S1, '21')!, 'orange', '1mm²'),
-    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
-    wire(T(BR, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
+    wire(T(BR, '2')!, T(S1, '1')!, 'orange', '1mm²'),
+    wire(T(S1, '2')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
+    wire(T(BR, '2')!, T(S2, '3')!, 'orange', '1mm²'),
+    wire(T(S2, '4')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
     wire(T(BR, '2')!, T(B1, 'V+')!, 'brown' as WireColor, '0.5mm²'),

@@ -31,7 +31,7 @@ const WIDTHS = [10, 38, 22, 28, 10, 10, 10, 11, 11, 10, 20]
 /** Linha da tabela de componentes (editável no diálogo e lida do Excel). */
 export interface ComponentRow {
   ref: string
-  /** Código do tipo (`contactor`, `buttonNO`…), já resolvido; vazio enquanto não for válido. */
+  /** Código do tipo (`contactor`, `pushButtonXb2No`…), já resolvido; vazio enquanto não for válido. */
   type: ComponentType | ''
   label: string
   xMm: number | null
@@ -55,7 +55,7 @@ export function componentTypeOptions(): ComponentTypeOption[] {
   return paletteGroups().flatMap(({ group, items }) => items.filter((item) => hasComponent3DModel(item.type)).map((item) => ({ type: item.type, name: item.name, group })))
 }
 
-/** Aceita o código (`buttonNO`) ou o nome da biblioteca («Botão NA…»), sem distinguir maiúsculas ou acentos. */
+/** Aceita o código (`pushButtonXb2No`) ou o nome da biblioteca («Botoeira KEOLEA…»), sem distinguir maiúsculas ou acentos. */
 export function resolveComponentType(text: string): ComponentType | null {
   const key = headerKey(text)
   if (!key) return null
@@ -119,7 +119,7 @@ export function componentTemplateSheets(): SheetData[] {
     { ...emptyComponentRow(), ref: 'DIN1', type: 'dinRail15x55', label: 'Calha DIN', xMm: 0, yMm: 120 },
     { ...emptyComponentRow(), ref: 'QF1', type: 'breaker3p', label: 'Disjuntor geral', rail: 'DIN1', railOffsetMm: 20 },
     { ...emptyComponentRow(), ref: 'KM1', type: 'contactor', label: 'Contactor do motor', xMm: -60, yMm: -40, rotation: 0 },
-    { ...emptyComponentRow(), ref: 'S1', type: 'buttonNO', label: 'Botão de arranque', xMm: 80, yMm: -40 },
+    { ...emptyComponentRow(), ref: 'S1', type: 'pushButtonXb2No', label: 'Botão de arranque', xMm: 80, yMm: -40 },
   ]
   return componentRowsToSheets(examples.filter((row) => resolveComponentType(row.type)))
 }

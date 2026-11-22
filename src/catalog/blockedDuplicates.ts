@@ -19,8 +19,8 @@ export const FUNCTIONAL_DUPLICATE_REPLACEMENTS: Partial<Record<ComponentType, Co
   // Interruptor diferencial 4P 40 A / 30 mA tipo AC.
   residualBreaker: 'residualBreakerSchneiderIid4p',
   // Botões Ø22 momentâneos ainda sem CAD nem bornes.
-  buttonStart22: 'buttonNO',
-  buttonStop22: 'buttonNC',
+  buttonStart22: 'pushButtonXb2No',
+  buttonStop22: 'pushButtonXb2Nc',
   // Sensor fotoelétrico 3 fios com saída COM/NA/NF.
   photoSensor: 'photoSensorXukt1ksml2',
   // Torre R/Y/G com comum.
