@@ -15,6 +15,15 @@ import { SensorMountBalluff3D } from './SensorMounts3D'
 import { applyCadSurfaceTextures } from './cadSurface'
 import { Mechatronics3D } from './MechatronicsDevices3D'
 import { isMechatronicsType } from './mechatronicsModel'
+import { isSocketDevice } from '../electrical/socketDevices'
+import { applySocketDeviceState, createSocketDeviceObject, disposeSocketDeviceObject } from './socketDeviceModel'
+import { useMemo } from 'react'
+
+function SocketSnapshot({type}:{type: Parameters<typeof createSocketDeviceObject>[0]}) {
+  const object=useMemo(()=>{const o=createSocketDeviceObject(type);applySocketDeviceState(o,{});return o},[type])
+  useEffect(()=>()=>disposeSocketDeviceObject(object),[object])
+  return <group scale={PANEL_UNITS_PER_MM}><primitive object={object}/></group>
+}
 
 export { hasProceduralCapture } from './proceduralKinds'
 
@@ -61,7 +70,8 @@ function Snapshot({ type, section, ready }: { type: ComponentType; section: bool
     return () => { active = false }
   }, [ready])
   return <group ref={ref}>
-    {isMechatronicsType(type) ? <Mechatronics3D c={c} position={position} />
+    {isSocketDevice(type) ? <SocketSnapshot type={type}/>
+      : isMechatronicsType(type) ? <Mechatronics3D c={c} position={position} />
       : type === 'waterSupplyBox' ? <WaterSupplyBox3D c={c} />
       : type === 'hydraulicFlowMeter' ? <WaterFlowMeterZjLcd3D c={c} position={position} />
       : type === 'airCompressor' ? <AirCompressor3D c={c} position={position} />

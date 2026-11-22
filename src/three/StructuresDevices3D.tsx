@@ -450,7 +450,7 @@ export function CableTrayStraight3D({
       </mesh>
       {/* Abas laterais perfuradas + rebordo superior enrolado de segurança (com aberturas automáticas em T/L/+) */}
       {([-1, 1] as const).map((side) => {
-        const spans = closedSpans(d.lengthMm / 2, openings, side === -1 ? 'top' : 'bottom')
+        const spans = closedSpans(d.lengthMm, openings, side === -1 ? 'top' : 'bottom')
         return (
           <group key={side}>
             {spans.map(([fromMm, toMm], idx) => {

@@ -20,6 +20,8 @@ import { useSimStore } from '../src/store/useSimStore'
 import { isPanelBound } from '../src/three/panelBounds'
 import { componentPanelXY } from '../src/three/panelLayout'
 import { stampingWallPanelContent } from '../src/electrical/stampingWallPanel'
+import { computeContinuity } from '../src/electrical/engine'
+import { industrialPillarDimsOf } from '../src/three/structuresModel'
 
 /** Quadro geral de parede (QGD) montado com a maquete completa. */
 const QGD_COUNT = stampingWallPanelContent('t-').components.length
@@ -81,15 +83,15 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 92 peças + QGD (52 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 92 peças + QGD (53 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
-  assert.equal(QGD_COUNT, 47, 'QGD: invólucro, 4 calhas DIN, 7 calhas técnicas, corte 4P, 4 DPS, proteções, barramentos, 12 bornes X1 e 2 reservas')
+  assert.equal(QGD_COUNT, 50, 'QGD: 3 sinalizadores monofásicos e porta-fusíveis 3P+N substituem o iIL 3P')
   assert.equal(parts.length, 92, '92 peças: bancada (42) + QE1 com calhas, relés, fonte e 29 bornes (43) + ambiente fabril (7)')
-  assert.equal(full.componentCount, 140, '140 componentes no total (base + 92 + QGD 47)')
+  assert.equal(full.componentCount, 143, '143 componentes no total (base + 92 + QGD 50)')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
   // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
-  assert.equal(full.types.length, 52, 'os tipos do catálogo representados na bancada (base incluída)')
+  assert.equal(full.types.length, 53, 'os tipos do catálogo representados na bancada (base incluída)')
   assert.ok(!full.types.includes('mecWorkpiece' as any), 'o tarugo não é colocado sobre a base')
   assert.equal(MECHATRONICS_TYPES.length, 23, 'catálogo da maquete com 23 tipos (inclui o HZ20)')
   const keys = new Set(parts.map((p) => p.key))
@@ -105,15 +107,15 @@ check('3. Bancada completa = base + 92 peças + QGD (52 tipos) na adaptação fo
   for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 140 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
+check('4. Inserção: 143 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 140, '140 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 140, '140 componentes no projeto')
+  assert.equal(created.length, 143, '143 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 143, '143 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
@@ -153,9 +155,9 @@ check('4. Inserção: 140 componentes (QGD na parede + bancada no centro da nave
 
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 140 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 143 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 140, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 143, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {
@@ -210,6 +212,48 @@ check('6. Fotografia: modelos do catálogo, HMI exterior, operadores independent
     assert.equal(next.state.hostLocation, c.state.hostLocation)
   }
   assert.ok(!stampingBenchLayout({ legs: false }).some(p => p.key === 'cabinet'), 'base sem pernas não recebe quadro suspenso')
+})
+
+check('7. Sinalização de fases: três iIL 1P protegidos pelos três polos do DF103NV, com neutro seccionável', () => {
+  const { components, wires } = stampingWallPanelContent('phase-')
+  const lights = components.filter(c => c.type === 'pilotLightSchneiderIil1p')
+  const holder = components.find(c => c.type === 'fuseHolderSchneiderDf103nv')!
+  const main = components.find(c => c.ref === 'QG1')!
+  assert.equal(lights.length, 3)
+  assert.equal(components.filter(c => c.type === 'pilotLightSchneiderIil3p').length, 0)
+  assert.equal(components.filter(c => c.type === 'fuseHolder').length, 0, 'não introduz porta-fusíveis genéricos sem modelo')
+  assert.ok(holder && canInsertComponent3D(holder.type), 'proteção representável no painel')
+  assert.equal(holder.state.inA, 2)
+  const terminal = (c: typeof main, label: string) => c.terminals.find(t => t.label === label)!.id
+  const allTerminals = new Set(components.flatMap(c => c.terminals.map(t => t.id)))
+  assert.ok(wires.every(w => allTerminals.has(w.fromTerminalId) && allTerminals.has(w.toTerminalId)), 'todos os cabos têm extremos existentes')
+  assert.equal(new Set(wires.map(w => w.id)).size, wires.length, 'ids de cabos únicos')
+  for (let i = 0; i < 3; i++) {
+    const source = terminal(main, String(2 * i + 2))
+    const light = lights.find(c => c.ref === `H_L${i + 1}`)!
+    const reachable = computeContinuity(components, wires, [source]).energizedTerminals
+    assert.ok(reachable.has(terminal(light, 'X1')), `L${i + 1} alimenta o seu sinalizador`)
+    for (const other of lights.filter(c => c.id !== light.id)) assert.ok(!reachable.has(terminal(other, 'X1')), 'fases isoladas')
+    holder.state.closed = false
+    assert.ok(!computeContinuity(components, wires, [source]).energizedTerminals.has(terminal(light, 'X1')), 'abrir o porta-fusíveis corta a sinalização')
+    holder.state.closed = true
+  }
+  const neutral = terminal(main, '8')
+  assert.ok(lights.every(c => computeContinuity(components, wires, [neutral]).energizedTerminals.has(terminal(c, 'X2'))))
+  holder.state.closed = false
+  assert.ok(lights.every(c => !computeContinuity(components, wires, [neutral]).energizedTerminals.has(terminal(c, 'X2'))), 'o neutro também secciona')
+})
+
+check('8. O pilar da bancada mantém IPE100 e as tomadas com geometria própria podem ser inseridas', () => {
+  const pillar = readyMaquetteParts('atec-estampagem').find(p => p.key === 'pillar-bench')!
+  const dims = industrialPillarDimsOf(pillar.state)
+  assert.equal(dims.profile, 'IPE100', 'não regressa silenciosamente a HEB200')
+  assert.equal(dims.sectionMm, 100)
+  for (const type of ['socketFamatelCombo', 'socketFamatelSwitch', 'socketEfapelIp65'] as const) {
+    assert.ok(canInsertComponent3D(type), `${type}: não bloqueado na Biblioteca`)
+    const dims = component3DDimensions(createComponent(type))
+    assert.ok(dims.x >= .64 && dims.z >= .517, 'dimensões físicas em vez do fallback genérico')
+  }
 })
 
 console.log(`\n${passed} verificações · Maquetes prontas OK`)

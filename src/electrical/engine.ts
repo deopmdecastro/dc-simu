@@ -112,6 +112,16 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
   if (Array.isArray(meterBridge) && meterBridge.length === 2) pair(la(String(meterBridge[0])), la(String(meterBridge[1])))
 
   switch (c.type) {
+    case 'socketFamatelCombo':
+      for (const [a,b] of [['L1','S.L'],['N','S.N'],['PE','S.PE'],['L1','CEE.L1'],['L2','CEE.L2'],['L3','CEE.L3'],['N','CEE.N'],['PE','CEE.PE']]) pair(la(a),la(b))
+      break
+    case 'socketFamatelSwitch':
+    case 'socketEfapelIp65':
+      pair(la('PE'),la('OUT.PE'))
+      if (c.type !== 'socketFamatelSwitch' || c.state.switchOn !== false) {
+        pair(la('L'),la('OUT.L')); pair(la('N'),la('OUT.N'))
+      }
+      break
     // ---- proteção: fecha os polos quando armado e não disparado ----
     case 'breaker1p':
     case 'breakerSchneiderIc60h1p':

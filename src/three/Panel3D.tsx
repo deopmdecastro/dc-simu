@@ -3685,7 +3685,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const accessories = components.filter((c) => !c.hidden && isPanelAccessoryType(c.type))
   // Só os quadros de parede ancoram a chapa e o pavilhão; um quadro de máquina (sob uma bancada) é uma peça livre.
   const isWallEnclosure = (c: ElectricalComponent) => c.type === 'panelEnclosure' && c.state?.hostLocation !== 'machine'
-  const hasEnclosure = accessories.some(isWallEnclosure)
+  const hasEnclosure = components.some(isWallEnclosure)
 
   const frontPivot = (component: ElectricalComponent): [number, number, number] => {
     if (component.type === 'motor3ph' || component.type === 'motor1ph') return [0, MOTOR_CENTER_Y, 0.7]
@@ -4017,7 +4017,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const factoryWallFrontZ = hasEnclosure
     ? PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM - 0.02
     : PLATE_Z - PLATE_THICKNESS / 2 - 0.02
-  const primaryEnclosure = accessories.find(isWallEnclosure)
+  const primaryEnclosure = components.find(isWallEnclosure)
   const panelOnlyBox = (() => {
     const b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
     for (const component of components) {
@@ -5809,7 +5809,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           } else if (c.type === 'industrialPillar') {
             content = <IndustrialPillar3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'socketFamatelCombo' || c.type === 'socketFamatelSwitch' || c.type === 'socketEfapelIp65') {
-            content = <SocketDevice3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
+            content = <SocketDevice3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} interactive={!demoMode && tool === 'select' && !viewOrientationEditor && !c.locked} />
           } else if (c.type === 'cableTrayStraight') {
             content = <CableTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} openings={ductJunctionOpenings(c, components)} />
           } else if (c.type === 'cableTrayElbow90') {
@@ -6041,7 +6041,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
 
         {/* Etiquetas realistas em aparelhos — movem-se com o hospedeiro (contator, disjuntor) */}
         <group>
-          {components.filter((c) => (c.decals ?? []).length && c.type !== 'panelEnclosure').map((c) => {
+          {components.filter((c) => !c.hidden && (c.decals ?? []).length && c.type !== 'panelEnclosure').map((c) => {
             const pivot = panelPivots[c.id]
             if (!pivot) return null
             const half = componentHalfExtents(c, baseOrientationFor(c))

@@ -524,7 +524,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const showHints = useSimUi((state) => state.hints)
   const setCanvasHint = useSimUi((state) => state.setCanvasHint)
 
-  const displayComponents = useMemo(() => components.map((component) => viewOrientationEditor?.componentId === component.id ? {
+  const displayComponents = useMemo(() => components.filter((component) => !component.hidden).map((component) => viewOrientationEditor?.componentId === component.id ? {
     ...component,
     viewOrientation: viewOrientationEditor.draft,
     terminalViewPositions: viewOrientationEditor.terminalViewPositions,
@@ -1071,7 +1071,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       const x1 = Math.max(marquee.x0, marquee.x1)
       const y0 = Math.min(marquee.y0, marquee.y1)
       const y1 = Math.max(marquee.y0, marquee.y1)
-      const hit = components.filter((comp) => comp.schematicX < x1 && comp.schematicX + comp.w > x0 && comp.schematicY < y1 && comp.schematicY + comp.h > y0)
+      const hit = components.filter((comp) => !comp.hidden && comp.schematicX < x1 && comp.schematicX + comp.w > x0 && comp.schematicY < y1 && comp.schematicY + comp.h > y0)
       if (hit.length) selectComponents(hit.map((comp) => comp.id), marquee.additive)
       else if (!marquee.additive && Math.hypot(marquee.x1 - marquee.x0, marquee.y1 - marquee.y0) > 2) selectComponents([])
     }

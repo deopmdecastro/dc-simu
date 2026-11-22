@@ -72,7 +72,7 @@ const offenders = files.filter((file) => {
 })
 check('Nenhuma exceção local à regra (demo/allowStopped)', offenders.length === 0, offenders.join(', '))
 const panel = readFileSync('src/three/Panel3D.tsx', 'utf8')
-check('Panel3D: comandos mecânicos dos CAD seguem a mesma regra', /const mechanicalControls = canActuate\n/.test(panel) && /isManobraAllowed\(/.test(panel))
+check('Panel3D: comandos mecânicos dos CAD seguem a mesma regra', /const mechanicalControls = canActuate\r?\n/.test(panel) && /isManobraAllowed\(/.test(panel))
 
 if (failed) { console.error(`\n${failed} verificação(ões) falharam`); process.exit(1) }
 console.log('\nmanobra-gate: OK')

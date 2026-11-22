@@ -1,6 +1,7 @@
 import type { ElectricalComponent } from '../types'
 import { MechatronicsControls } from './MechatronicsControls'
 import { isMechatronicsType } from '../three/mechatronicsModel'
+import { isSocketDevice, SOCKET_DEVICES } from '../electrical/socketDevices'
 import { useSimStore } from '../store/useSimStore'
 import { useManobraAllowed } from '../store/useManobraAllowed'
 import { MANOBRA_BLOCKED_TITLE } from '../store/manobra'
@@ -64,6 +65,7 @@ import {
  * controlos duplicados, valores em inglês ou campos que não têm efeito prático.
  */
 export const DEVICE_MANAGED_STATE_KEYS = new Set([
+  'serviceOpen', 'blueCoverOpen', 'redCoverOpen', 'socketGeometryRevision',
   // Internos de catálogo / multímetro DM-20
   'catalogVars',
   'catalogState',
@@ -1235,6 +1237,7 @@ function PlcModuleControls({ c, locked }: { c: ElectricalComponent; locked: bool
 
 export function hasDeviceControls(type: string): boolean {
   return (
+    isSocketDevice(type) ||
     isIndustrialDevice(type) ||
     isMechatronicsType(type) ||
     type === 'multimeterDm20' ||
@@ -2610,7 +2613,7 @@ function StructureControls({ c, locked }: { c: ElectricalComponent; locked: bool
               <input type="range" min={1800} max={5500} step={100} disabled={locked} value={d.heightMm} onChange={(e) => setState(c.id, { heightMm: Number(e.target.value) })} />
             </label>
             <div className="grid grid-cols-3 gap-1">
-              {(['IPE160', 'HEB200', 'HEB240'] as const).map((p) => (
+              {(['IPE100', 'IPE160', 'HEB200', 'HEB240'] as const).map((p) => (
                 <button key={p} type="button" disabled={locked} aria-pressed={d.profile === p} onClick={() => setState(c.id, { profile: p })} className={`dc-btn text-[10px] justify-center font-mono ${d.profile === p ? 'dc-btn-primary' : ''}`}>
                   {p}
                 </button>
@@ -3808,6 +3811,20 @@ function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; lo
   )
 }
 
+function SocketControls({c,locked}:{c:ElectricalComponent;locked:boolean}) {
+  const setState=useSimStore(s=>s.setComponentState),operate=useSimStore(s=>s.operateComponent),allowed=useManobraAllowed()
+  if(!isSocketDevice(c.type))return null
+  const spec=SOCKET_DEVICES[c.type]
+  const toggle=(key:string)=><button type="button" className="dc-btn text-[11px]" disabled={locked} aria-pressed={Boolean(c.state[key]??c.state.coverOpen)} onClick={()=>setState(c.id,{[key]:!(c.state[key]??c.state.coverOpen)})}>{(c.state[key]??c.state.coverOpen)?'Fechar':'Abrir'} {key==='blueCoverOpen'?'tampa azul':key==='redCoverOpen'?'tampa vermelha':'tampa da tomada'}</button>
+  return <div className="flex flex-col gap-2" data-socket-controls={c.type}>
+    <strong>{spec.brand} · {spec.reference}</strong>
+    {c.type==='socketEfapelIp65'?toggle('coverOpen'):toggle('blueCoverOpen')}
+    {c.type==='socketFamatelCombo'&&toggle('redCoverOpen')}
+    <button type="button" className="dc-btn text-[11px]" disabled={locked} aria-pressed={Boolean(c.state.serviceOpen)} onClick={()=>setState(c.id,{serviceOpen:!c.state.serviceOpen})}>{c.state.serviceOpen?'Repor tampa de serviço':'Aceder à cablagem'}</button>
+    {c.type==='socketFamatelSwitch'&&<button type="button" className="dc-btn text-[11px]" disabled={locked||!allowed} title={allowed?'Seccionar L e N; PE mantém continuidade':MANOBRA_BLOCKED_TITLE} aria-pressed={c.state.switchOn!==false} onClick={()=>operate(c.id,{switchOn:c.state.switchOn===false})}>Seccionador · {c.state.switchOn===false?'0 — desligado':'I — ligado'}</button>}
+  </div>
+}
+
 export default function DeviceControls({ component: c, disabled = false }: { component: ElectricalComponent; disabled?: boolean }) {
   const locked = disabled || !!c.locked
   const free3DExtra = !isPanelBound(c) ? <FreeSpacePosition3DControls c={c} locked={locked} /> : null
@@ -3819,6 +3836,7 @@ export default function DeviceControls({ component: c, disabled = false }: { com
       {free3DExtra}
     </>
   )
+  if (isSocketDevice(c.type)) return wrap(<SocketControls c={c} locked={locked} />)
   if (isMechatronicsType(c.type)) return wrap(<MechatronicsControls c={c} locked={locked} />)
   if (industrialDeviceTypeOf(c)) return wrap(<IndustrialDeviceControls component={c} disabled={locked} />)
   if (c.type === 'triProofLedBatten') return wrap(<TriProofLedControls c={c} locked={locked} />)

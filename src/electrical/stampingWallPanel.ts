@@ -55,6 +55,17 @@ export interface WallPanelContent {
  * `prefix` torna os ids únicos por montagem.
  */
 export function stampingWallPanelContent(prefix: string, dx = 0, dy = 0): WallPanelContent {
+  // Declarações de função: também disponíveis nos callbacks síncronos de criação
+  // do quadro. Evita TDZ ao abrir a Biblioteca e avaliar componentCount.
+  function term(c: ElectricalComponent, label: string): string {
+    return c.terminals.find((t) => t.label === label)!.id
+  }
+  function wire(num: string, from: string, to: string, color: Wire['color']): Wire {
+    return {
+      id: `${prefix}qd-wire-${num.toLowerCase()}`, fromTerminalId: from, toTerminalId: to, color, gauge: '2.5mm²', number: num,
+      kind: color === 'blue' ? 'neutral' : 'power', flexibility: 'flexible', endType: 'ferrule', fromEndType: 'ferrule', toEndType: 'ferrule', route: 'manhattan', bend: 0.5, curveOffset: 0, energized: false,
+    } as Wire
+  }
   const raw = nativeQuadroDistribuicaoContent()
   const all = raw.components as ElectricalComponent[]
   const dropIds = new Set(all.filter((c) => FIELD_LOADS.has(c.ref)).map((c) => c.id))
@@ -134,48 +145,43 @@ export function stampingWallPanelContent(prefix: string, dx = 0, dy = 0): WallPa
     return t
   }
   const x11 = reserveTerminal(11, 130), x12 = reserveTerminal(12, 142)
-  const nBar = content.components.find((c) => c.ref === 'N_BAR')
   const iil3p = content.components.find((c) => c.type === 'pilotLightSchneiderIil3p')
   if (iil3p) {
     const iilTerms = new Set(iil3p.terminals.map((t) => t.id))
     content.wires = content.wires.filter((w) => !iilTerms.has(w.fromTerminalId) && !iilTerms.has(w.toTerminalId))
     content.components = content.components.filter((c) => c.id !== iil3p.id)
     const baseOffset = (iil3p as ElectricalComponent & { railOffsetMm?: number }).railOffsetMm ?? 290
+    // Três cartuchos num único porta-fusíveis 3P+N do catálogo, com neutro seccionável.
+    const fu = createComponent('fuseHolderSchneiderDf103nv', 'FU_H', 'Proteção da sinalização · 3 × 2 A gG + N', 0, iil3p.schematicX, iil3p.schematicY)
+    fu.id = `${prefix}qd-fu-phases`
+    fu.terminals = fu.terminals.map((t) => ({ ...t, id: `${fu.id}-${t.label}`, componentId: fu.id }))
+    Object.assign(fu, { railId: iil3p.railId, railOffsetMm: baseOffset, enclosureId: iil3p.enclosureId })
+    fu.state = { ...fu.state, closed: true, blown: false, inA: 2, fuseClass: 'gG', labelText: 'FU · SINALIZAÇÃO' }
+    content.components.push(fu)
+    content.wires.push(wire('WFUN', term(qg1, '8'), term(fu, 'N1'), 'blue'))
     const phases = [
       { pole: 'L1', qgOut: '2', wireColor: 'black' as Wire['color'], lightColor: '#ef4444', label: 'FASE L1' },
       { pole: 'L2', qgOut: '4', wireColor: 'brown' as Wire['color'], lightColor: '#f59e0b', label: 'FASE L2' },
       { pole: 'L3', qgOut: '6', wireColor: 'grey' as Wire['color'], lightColor: '#22c55e', label: 'FASE L3' },
     ]
     phases.forEach((p, idx) => {
-      const fu = createComponent('fuseHolder', `FU${idx + 1}`, `Fusível ${p.pole} · 2 A gG`, 0, iil3p.schematicX + idx * 27, iil3p.schematicY)
-      fu.id = `${prefix}qd-fu-${p.pole.toLowerCase()}`
-      fu.terminals = fu.terminals.map((t) => ({ ...t, id: `${fu.id}-${t.label}`, componentId: fu.id }))
-      Object.assign(fu, { railId: iil3p.railId, railOffsetMm: baseOffset + idx * 18, enclosureId: iil3p.enclosureId })
-      fu.state = { ...fu.state, closed: true, blown: false, inA: 2, fuseClass: 'gG', labelText: `FU ${p.pole}` }
-
-      const h = createComponent('pilotLightSchneiderIil1p', `H_${p.pole}`, `Sinalizador ${p.pole}`, 0, iil3p.schematicX + (idx + 3) * 27, iil3p.schematicY)
+      const h = createComponent('pilotLightSchneiderIil1p', `H_${p.pole}`, `Sinalizador ${p.pole}`, 0, iil3p.schematicX + fu.w + idx * 27, iil3p.schematicY)
       h.id = `${prefix}qd-h-${p.pole.toLowerCase()}`
       h.terminals = h.terminals.map((t) => ({ ...t, id: `${h.id}-${t.label}`, componentId: h.id }))
-      Object.assign(h, { railId: iil3p.railId, railOffsetMm: baseOffset + (idx + 3) * 18, enclosureId: iil3p.enclosureId })
+      Object.assign(h, { railId: iil3p.railId, railOffsetMm: baseOffset + 72 + idx * 18, enclosureId: iil3p.enclosureId })
       h.state = { ...h.state, color: p.lightColor, labelText: p.label }
 
-      content.components.push(fu, h)
-      const nDest = nBar?.terminals[idx]?.id ?? term(qg1, '8')
+      content.components.push(h)
       content.wires.push(
-        wire(`WFU${idx + 1}A`, term(qg1, p.qgOut), term(fu, '1'), p.wireColor),
-        wire(`WFU${idx + 1}B`, term(fu, '2'), term(h, 'X1'), p.wireColor),
-        { ...wire(`WFU${idx + 1}N`, term(h, 'X2'), nDest, 'blue'), kind: 'neutral' },
+        wire(`WFU${idx + 1}A`, term(qg1, p.qgOut), term(fu, String(idx * 2 + 1)), p.wireColor),
+        wire(`WFU${idx + 1}B`, term(fu, String(idx * 2 + 2)), term(h, 'X1'), p.wireColor),
+        wire(`WFU${idx + 1}N`, term(h, 'X2'), term(fu, 'N2'), 'blue'),
       )
     })
   }
 
   content.components.push(res1, res2, x11, x12)
-  const term = (c: ElectricalComponent, label: string) => c.terminals.find((t) => t.label === label)!.id
   const bb = content.components.find((c) => c.ref === 'BB_ESCADA')!
-  const wire = (num: string, from: string, to: string, color: Wire['color']): Wire => ({
-    id: `${prefix}qd-wire-${num.toLowerCase()}`, fromTerminalId: from, toTerminalId: to, color, gauge: '2.5mm²', number: num,
-    kind: 'power', flexibility: 'flexible', endType: 'ferrule', fromEndType: 'ferrule', toEndType: 'ferrule', route: 'manhattan', bend: 0.5, curveOffset: 0, energized: false,
-  } as Wire)
   content.wires.push(
     wire('W71', term(bb, 'L1.4'), term(res1, '1'), 'black'),
     wire('W72', term(bb, 'L2.4'), term(res2, '1'), 'brown'),

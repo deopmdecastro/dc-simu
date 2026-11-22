@@ -174,7 +174,9 @@ export default function ProjectObjects() {
 
   const toggleHidden = (items: ElectricalComponent[]) => {
     const allHidden = items.every((i) => i.hidden)
-    items.forEach((i) => updateComponent(i.id, { hidden: !allHidden }))
+    const store = useSimStore.getState()
+    store.commitHistory()
+    items.forEach((i) => store.updateComponentRaw(i.id, { hidden: !allHidden }))
   }
 
   const itemRow = (item: ElectricalComponent) => {

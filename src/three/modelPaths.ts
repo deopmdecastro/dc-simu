@@ -1,5 +1,6 @@
 import { INDUSTRIAL_GEOMETRY, industrialSchematicFootprint, isIndustrialDevice } from '../electrical/industrialDevices'
 import { isMechatronicsType } from './mechatronicsModel'
+import { SOCKET_DEVICES } from '../electrical/socketDevices'
 import type { ComponentType } from '../types'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
 import importedModels from '../data/imported-component-models.json'
@@ -87,6 +88,9 @@ export const SCHEMATIC_PX_PER_MM = 1.5
 export const MIN_SCHEMATIC_HIT_WIDTH = 24
 
 export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalSizeMm>> = {
+  socketFamatelCombo: SOCKET_DEVICES.socketFamatelCombo,
+  socketFamatelSwitch: SOCKET_DEVICES.socketFamatelSwitch,
+  socketEfapelIp65: SOCKET_DEVICES.socketEfapelIp65,
   ...Object.fromEntries(importedModels.map(model => [model.type, model.physicalSizeMm])),
   ...Object.fromEntries(Object.entries(INDUSTRIAL_GEOMETRY).map(([type, model]) => [type, model.physicalSizeMm])),
   plcSiemensLogo1224RC: { width: 72, height: 90, depth: 55 },
@@ -399,6 +403,9 @@ export function hasComponent3DModel(type: ComponentType): boolean {
 
 export function hasComponent3DVisual(type: ComponentType): boolean {
   return (
+    type === 'socketFamatelCombo' ||
+    type === 'socketFamatelSwitch' ||
+    type === 'socketEfapelIp65' ||
     isMechatronicsType(type) ||
     hasComponent3DModel(type) ||
     isTerminalAssemblyComponent(type) ||

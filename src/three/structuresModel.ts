@@ -94,7 +94,7 @@ export function isFloorGroundedStructureType(type: string): boolean {
 }
 
 export type WallFinish = 'concrete' | 'panel' | 'brick'
-export type PillarProfile = 'IPE160' | 'HEB200' | 'HEB240'
+export type PillarProfile = 'IPE100' | 'IPE160' | 'HEB200' | 'HEB240'
 export type PillarFinish = 'steel' | 'galvanized' | 'safetyYellow'
 
 export function industrialWallDimsOf(state?: Record<string, any>) {
@@ -108,10 +108,10 @@ export function industrialWallDimsOf(state?: Record<string, any>) {
 
 export function industrialPillarDimsOf(state?: Record<string, any>) {
   const heightMm = Math.max(1600, Math.min(6000, Math.round(Number(state?.heightMm) || 3200)))
-  const profile: PillarProfile = state?.profile === 'IPE160' || state?.profile === 'HEB240' ? state.profile : 'HEB200'
+  const profile: PillarProfile = state?.profile === 'IPE100' || state?.profile === 'IPE160' || state?.profile === 'HEB240' ? state.profile : 'HEB200'
   const finish: PillarFinish =
     state?.finish === 'galvanized' || state?.finish === 'safetyYellow' ? state.finish : 'steel'
-  const sectionMm = profile === 'IPE160' ? 160 : profile === 'HEB240' ? 240 : 200
+  const sectionMm = profile === 'IPE100' ? 100 : profile === 'IPE160' ? 160 : profile === 'HEB240' ? 240 : 200
   const basePlateMm = sectionMm + 120
   return { heightMm, profile, finish, sectionMm, basePlateMm }
 }

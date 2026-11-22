@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
+import { isSocketDevice, SOCKET_DEVICES, socketOutletLabels, socketOutletFraction, socketWiringFraction, type SocketDeviceType } from './socketDevices'
 import { READY_MAQUETTES, type ReadyMaquette } from './readyMaquettes'
 import { importedTemplates, upgradeImportedTerminals } from './importedComponents'
 import { industrialTemplates } from './industrialDevices'
@@ -143,6 +144,17 @@ const T = (label: string, kind: TerminalKind, x: number, y: number, extra: Parti
   terminalType: extra.terminalType ?? KIND_TYPE[kind],
   color: extra.color ?? KIND_COLOR[kind],
 })
+
+function socketTerminals(type: SocketDeviceType): TerminalTemplate[] {
+  const labels = type === 'socketFamatelCombo' ? ['L1','L2','L3','N','PE'] : ['L','N','PE']
+  const wiring = labels.map((label,i) => T(label,label==='PE'?'earth':label==='N'?'neutral':'power-in',(i+1)/(labels.length+1),0,{terminalType:'screw',face:'front',position3D:socketWiringFraction(type,label)}))
+  const outlets = socketOutletLabels(type).map((label,i,all) => {
+    const position=socketOutletFraction(type,label)
+    const normal:[number,number,number]=type==='socketFamatelCombo'&&label.startsWith('CEE.')?[0,-Math.sin(Math.PI/18),Math.cos(Math.PI/18)]:[0,0,1]
+    return T(label,label.endsWith('.PE')?'earth':label.endsWith('.N')?'neutral':'power-out',(i+1)/(all.length+1),1,{terminalType:'plug',face:'front',position3D:position,socket3D:{diameterMm:4.8,depthMm:6,insetMm:1.5,normal,position}})
+  })
+  return [...wiring,...outlets]
+}
 
 /** 3 polos de potência (1/2, 3/4, 5/6) — usados por disjuntores e térmicos. */
 function poles3(): TerminalTemplate[] {
@@ -2386,33 +2398,19 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { on: true, nominalV: 230, frequencyHz: 50 },
   },
   socketFamatelCombo: {
-    category: 'power', paletteName: 'FAMATEL · Caixa estanque IP44 · 2P+T 16A 250V + 3P+N+T 16A 400V', group: 'Tomadas', tag: 'X', w: 170, h: 120,
-    terminals: [
-      T('L1', 'power-in', 0.14, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.2, y: 0.2, z: 0.6 } }),
-      T('L2', 'power-in', 0.32, 0, { color: '#8b4513', terminalType: 'screw', position3D: { x: 0.35, y: 0.2, z: 0.6 } }),
-      T('L3', 'power-in', 0.50, 0, { color: '#6b7280', terminalType: 'screw', position3D: { x: 0.5, y: 0.2, z: 0.6 } }),
-      T('N', 'neutral', 0.68, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.65, y: 0.2, z: 0.6 } }),
-      T('PE', 'earth', 0.86, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.8, y: 0.2, z: 0.6 } }),
-    ],
-    defaultState: { coverOpen: false, brand: 'FAMATEL', refCode: 'Ref. 23331', ip: 'IP44', ratedA: 16 },
+    category: 'power', paletteName: 'FAMATEL ? Caixa IP44 ? Schuko + CEE 23331 ? 16 A 400 V', group: 'Tomadas', tag: 'X', w: 300, h: 225,
+    terminals: socketTerminals('socketFamatelCombo'),
+    defaultState: { coverOpen: false, serviceOpen: false, brand: 'FAMATEL', refCode: '23331 (base CEE)', ip: 'IP44', ratedA: 16, socketGeometryRevision: 2 },
   },
   socketFamatelSwitch: {
-    category: 'power', paletteName: 'FAMATEL / ROADEU · Caixa estanque IP44 · 2P+T 16A 250V c/ seccionador', group: 'Tomadas', tag: 'X', w: 160, h: 110,
-    terminals: [
-      T('L', 'power-in', 0.2, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.25, y: 0.2, z: 0.6 } }),
-      T('N', 'neutral', 0.5, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.5, y: 0.2, z: 0.6 } }),
-      T('PE', 'earth', 0.8, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.75, y: 0.2, z: 0.6 } }),
-    ],
-    defaultState: { coverOpen: false, switchOn: true, brand: 'FAMATEL', ip: 'IP44', ratedA: 16 },
+    category: 'power', paletteName: 'RoadEu 70929 ? CEE 2P+T 16 A 230 V ? Seccionador 0?1 ? IP44', group: 'Tomadas', tag: 'X', w: 278, h: 173,
+    terminals: socketTerminals('socketFamatelSwitch'),
+    defaultState: { coverOpen: false, serviceOpen: false, switchOn: true, brand: 'RoadEu', refCode: '70929', ip: 'IP44', ratedA: 16, socketGeometryRevision: 2 },
   },
   socketEfapelIp65: {
-    category: 'power', paletteName: 'EFAPEL · Tomada Schuko c/ Obturador IP65 · Estanque 48', group: 'Tomadas', tag: 'X', w: 95, h: 95,
-    terminals: [
-      T('L', 'power-in', 0.2, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.25, y: 0.2, z: 0.6 } }),
-      T('N', 'neutral', 0.5, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.5, y: 0.2, z: 0.6 } }),
-      T('PE', 'earth', 0.8, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.75, y: 0.2, z: 0.6 } }),
-    ],
-    defaultState: { coverOpen: false, brand: 'EFAPEL', series: 'Estanque 48', ip: 'IP65', ratedA: 16 },
+    category: 'power', paletteName: 'EFAPEL 48132 C ? Schuko com obturador ? Estanque 48 ? IP65', group: 'Tomadas', tag: 'X', w: 96, h: 111,
+    terminals: socketTerminals('socketEfapelIp65'),
+    defaultState: { coverOpen: false, serviceOpen: false, brand: 'EFAPEL', series: 'Estanque 48', refCode: '48132 C', ip: 'IP65', ratedA: 16, socketGeometryRevision: 2 },
   },
   powerSource3ph: {
     category: 'power', paletteName: 'Fonte AC trifásica · L1/L2/L3/N/PE', group: 'Fontes', tag: 'QG', w: 205, h: 105,
@@ -2564,6 +2562,16 @@ function surfacePosition(spot: RealTerminalSpot): { x: number; y: number; z: num
 /** Migra posições automáticas antigas (Y invertido ou ponto na superfície).
  *  Preserva bornes movidos à mão e a identidade dos componentes já atualizados. */
 export function upgradeRealInterfacePositions(input: ElectricalComponent): ElectricalComponent {
+  if (isSocketDevice(input.type) && input.state.socketGeometryRevision !== 2) {
+    const template = TEMPLATES[input.type]
+    const terminals = template.terminals.map(spec => {
+      const old = input.terminals.find(t => t.label === spec.label)
+      const p=old?.position3D
+      const legacy=!p || (Math.abs(p.y-.2)<1e-6 && Math.abs(p.z-.6)<1e-6) || (Math.abs(p.z-1)<1e-6 && (Math.abs(p.y-(.5+46/120))<1e-6 || Math.abs(p.y-(.5+22/76))<1e-6))
+      return { ...createTerminal(input.id,spec.label,spec.kind,spec.x,spec.y), ...old, terminalType:spec.terminalType!, face:spec.face, position3D:legacy?spec.position3D:p, socket3D:legacy?spec.socket3D:old?.socket3D }
+    })
+    return { ...input, terminals:[...terminals,...input.terminals.filter(t => !template.terminals.some(s => s.label === t.label))], state:{...input.state,brand:SOCKET_DEVICES[input.type].brand,socketGeometryRevision:2} }
+  }
   // Authored native geometry has priority over the mechanical factory revision.
   if (MECHANICAL_INTERFACE_TYPES.has(input.type) && (input.editorVersion ?? 1) > 1) return input
   const imported = upgradeImportedTerminals(input, createTerminal)
