@@ -38,7 +38,7 @@ const labelsOf = (c: ElectricalComponent, pairs: Array<[string, string]>) => {
 
 console.log('=== Smoke Test: Mecatrónica · Maquete de estampagem e transferência ===')
 
-check('1. Os 14 componentes estão na biblioteca, com 3D desbloqueado, inspetor e acabamento PBR', () => {
+check('1. Os 22 componentes estão na biblioteca, com 3D desbloqueado, inspetor e acabamento PBR', () => {
   const listed = new Set(paletteDomains().flatMap((d) => d.subgroups.flatMap((sg) => sg.items.map((i) => i.type as string))))
   for (const type of MECHATRONICS_TYPES) {
     assert.ok(listed.has(type), `${type} na biblioteca`)
@@ -297,7 +297,7 @@ check('7. Montagem da maquete: tudo sobre a base, estações à cota da ventosa 
   const top = plate.thicknessMm / 2
   for (const p of layout) {
     const size = mechatronicsSizeMm(p.type, p.state)!
-    assert.ok(Math.abs(p.y - size.y / 2 - top) < 0.6 || ['magazine', 'feeder', 'fc1', 'table'].includes(p.key), `${p.key} assente na base`)
+    assert.ok(Math.abs(p.y - size.y / 2 - top) < 0.6 || ['magazine', 'feeder', 'fc1', 'table', 'inductiveSensor'].includes(p.key), `${p.key} assente na base`)
     assert.ok(Math.abs(p.x) + size.x / 2 <= plate.lengthMm / 2 + 1, `${p.key} dentro do comprimento da base`)
     // A prensa tem 110 mm de profundidade por causa do manómetro; os perfis ficam dentro da base.
     assert.ok(Math.abs(p.z) + (p.key === 'press' ? 15 : size.z / 2) <= plate.widthMm / 2 + 1, `${p.key} dentro da largura da base`)

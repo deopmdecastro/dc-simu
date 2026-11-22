@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { panelFixture } from './lib/panel-fixture.mjs'
 
-/** Maquete de estampagem no Painel 3D: os 14 modelos desenham-se, a montagem completa cabe na base
+/** Maquete de estampagem no Painel 3D: os 22 modelos desenham-se, a montagem completa cabe na base
  *  e a ventosa em baixo encosta ao topo do tarugo na zona de recolha e na gaveta da prensa. */
 const output = process.env.MECHATRONICS_OUTPUT || path.resolve('runtime/mechatronics')
 const f = await panelFixture({ baseURL: process.env.MECHATRONICS_TEST_URL, output, height: 820 }), { page, check, frame, store, show } = f
@@ -49,7 +49,8 @@ try {
   })
   await frame()
   const types = ['mecSlotPlate', 'mecAluProfile', 'mecGravityMagazine', 'mecWorkpiece', 'mecDischargeRamp', 'mecStampingTable', 'mecStampingPress',
-    'mecFeederCylinder', 'mecRotaryArm', 'mecDcGearmotor', 'mecMicroSwitchRoller', 'mecVacuumEjector', 'mecDragChain', 'mecSupportBlock']
+    'mecFeederCylinder', 'mecRotaryArm', 'mecDcGearmotor', 'mecMicroSwitchRoller', 'mecVacuumEjector', 'mecDragChain', 'mecSupportBlock',
+    'mecDrawerCylinder', 'mecValveIsland', 'mecOpticalSensor', 'mecInductiveSensor', 'mecHmiKtp700', 'mecOperatorBox', 'mecSignalTower', 'mecBenchDuct']
   for (const type of types) check(!!(await boxOf(`mec-${type}-3d-`)), `${type}: modelo 3D desenhado no Painel 3D`)
 
   const set = (id, patch) => store((s, a) => s.getState().setComponentState(a.id, a.patch), { id, patch })

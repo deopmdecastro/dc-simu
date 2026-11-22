@@ -167,8 +167,27 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
     }
   }
 
-  // Refletir a recolha no mesmo passo, sem deixar FC1 ativo por mais uma varredura.
+  // Refletir a recolha no mesmo passo, sem deixar FC1 / S. OTICO / S. INDUTIVO ativos por mais uma varredura.
+  const activePickupMat = magazines.find((m) => !!m.state.pickupMaterial)?.state.pickupMaterial
   for (const sw of ofType('mecMicroSwitchRoller')) {
-    if (sw.state.actuation !== 'manual') sw.state.pressed = magazines.some((m) => !!m.state.pickupMaterial)
+    if (sw.state.actuation === 'drawer') {
+      sw.state.pressed = tables.some((t) => !!t.state.pieceMaterial) || ofType('mecDrawerCylinder').some((d) => Number(d.state.positionPct ?? 0) >= 92)
+    } else if (sw.state.actuation !== 'manual') {
+      sw.state.pressed = Boolean(activePickupMat)
+    }
+  }
+  for (const opt of ofType('mecOpticalSensor')) {
+    if (opt.state.actuation !== 'manual') {
+      const mat = activePickupMat ? workpieceMaterialOf(activePickupMat) : null
+      // S. OTICO difuso: deteta peças brancas e metálicas; o polímero preto absorve o feixe.
+      opt.state.triggered = mat === 'branco' || mat === 'aluminio'
+    }
+  }
+  for (const ind of ofType('mecInductiveSensor')) {
+    if (ind.state.actuation !== 'manual') {
+      const mat = activePickupMat ? workpieceMaterialOf(activePickupMat) : null
+      // S. INDUTIVO: responde apenas a peças metálicas (alumínio).
+      ind.state.triggered = mat === 'aluminio'
+    }
   }
 }

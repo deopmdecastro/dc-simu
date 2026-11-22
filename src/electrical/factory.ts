@@ -1332,6 +1332,87 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [],
     defaultState: { lengthMm: 320, manufacturer: 'DC-Simu Mecatrónica', model: 'Corrente porta-cabos 26 × 17' },
   },
+  mecDrawerCylinder: {
+    category: 'motor', paletteName: 'Cilindro da gaveta de estampagem (Cilindro 3) · Ø20 × 75 · B2/B1', group: 'Mecatrónica', tag: 'CIL', w: 150, h: 60,
+    terminals: [
+      T('A', 'pneumatic-in', 0.08, 0.05, { position3D: { x: 0.5, y: 0.98, z: 0.06 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 7 }),
+      T('B', 'pneumatic-in', 0.45, 0.05, { position3D: { x: 0.5, y: 0.98, z: 0.54 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 7 }),
+      T('REC+', 'power-in', 0.1, 0.95, { position3D: { x: 0.98, y: 0.66, z: 0.12 }, face: 'right', color: '#92400e', diameter: 4 }),
+      T('REC', 'io', 0.2, 0.95, { position3D: { x: 0.98, y: 0.66, z: 0.16 }, face: 'right', color: '#111827', diameter: 4 }),
+      T('AVA+', 'power-in', 0.38, 0.95, { position3D: { x: 0.98, y: 0.66, z: 0.46 }, face: 'right', color: '#92400e', diameter: 4 }),
+      T('AVA', 'io', 0.48, 0.95, { position3D: { x: 0.98, y: 0.66, z: 0.50 }, face: 'right', color: '#111827', diameter: 4 }),
+    ],
+    defaultState: { positionPct: 0, extended: false, labelText: 'CILINDRO 3', sensorRecLabel: 'B2', sensorAvaLabel: 'B1', manufacturer: 'DC-Simu Mecatrónica', model: 'Cilindro Ø20 × 75 · dupla ação' },
+  },
+  mecValveIsland: {
+    category: 'motor', paletteName: 'Ilha de eletroválvulas 2× 5/2 Festo (C1A / C2A) · 24 V DC', group: 'Mecatrónica', tag: 'YV', w: 130, h: 72,
+    terminals: [
+      T('P', 'pneumatic-in', 0.05, 0.5, { position3D: { x: 0.03, y: 0.52, z: 0.5 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 7 }),
+      T('A1', 'pneumatic-out', 0.28, 0.05, { position3D: { x: 0.36, y: 0.98, z: 0.32 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('B1', 'pneumatic-out', 0.44, 0.05, { position3D: { x: 0.54, y: 0.98, z: 0.32 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('A2', 'pneumatic-out', 0.66, 0.05, { position3D: { x: 0.36, y: 0.98, z: 0.68 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('B2', 'pneumatic-out', 0.82, 0.05, { position3D: { x: 0.54, y: 0.98, z: 0.68 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      T('Y1', 'coil-plus', 0.25, 0.95, { position3D: { x: 0.05, y: 0.62, z: 0.32 }, face: 'left', color: '#f59e0b', diameter: 4 }),
+      T('Y2', 'coil-plus', 0.52, 0.95, { position3D: { x: 0.05, y: 0.62, z: 0.68 }, face: 'left', color: '#f59e0b', diameter: 4 }),
+      T('0V', 'coil-minus', 0.82, 0.95, { position3D: { x: 0.95, y: 0.62, z: 0.5 }, face: 'right', color: '#2563eb', diameter: 4 }),
+    ],
+    defaultState: { islandTag: 'C1A', station1On: false, station2On: false, station1Manual: false, station2Manual: false, manufacturer: 'DC-Simu Mecatrónica', model: 'Sub-base 2× 5/2 · 24 V DC' },
+  },
+  mecOpticalSensor: {
+    category: 'sensor', paletteName: 'Sensor ótico difuso M18 (S. OTICO · B11) · PNP NA', group: 'Mecatrónica', tag: 'B', w: 72, h: 64,
+    terminals: [
+      T('+24V', 'power-in', 0.2, 0.95, { position3D: { x: 0.16, y: 0.14, z: 0.5 }, face: 'left', color: '#92400e', diameter: 4 }),
+      T('0V', 'coil-minus', 0.5, 0.95, { position3D: { x: 0.22, y: 0.14, z: 0.5 }, face: 'left', color: '#2563eb', diameter: 4 }),
+      T('OUT', 'io', 0.8, 0.95, { position3D: { x: 0.28, y: 0.14, z: 0.5 }, face: 'left', color: '#111827', diameter: 4 }),
+    ],
+    defaultState: { triggered: false, actuation: 'feeder', labelText: 'S. OTICO', manufacturer: 'DC-Simu Mecatrónica', model: 'Fotocélula difusa M18 · Sn 400 mm' },
+  },
+  mecInductiveSensor: {
+    category: 'sensor', paletteName: 'Sensor indutivo faceado M12 (S. INDUTIVO) · PNP NA', group: 'Mecatrónica', tag: 'B', w: 72, h: 60,
+    terminals: [
+      T('+24V', 'power-in', 0.2, 0.95, { position3D: { x: 0.35, y: 0.06, z: 0.5 }, face: 'bottom', color: '#92400e', diameter: 4 }),
+      T('0V', 'coil-minus', 0.5, 0.95, { position3D: { x: 0.50, y: 0.06, z: 0.5 }, face: 'bottom', color: '#2563eb', diameter: 4 }),
+      T('OUT', 'io', 0.8, 0.95, { position3D: { x: 0.65, y: 0.06, z: 0.5 }, face: 'bottom', color: '#111827', diameter: 4 }),
+    ],
+    defaultState: { triggered: false, actuation: 'feeder', labelText: 'S. INDUTIVO', manufacturer: 'DC-Simu Mecatrónica', model: 'Indutivo M12 faceado · metais' },
+  },
+  mecHmiKtp700: {
+    category: 'controller', paletteName: 'Consola Siemens SIMATIC HMI KTP700 Basic · bastidor 30 × 30', group: 'Mecatrónica', tag: 'HMI', w: 140, h: 110,
+    terminals: [
+      T('L+', 'power-in', 0.25, 0.95, { position3D: { x: 0.36, y: 0.38, z: 0.18 }, face: 'back', color: '#dc2626', diameter: 4 }),
+      T('M', 'coil-minus', 0.5, 0.95, { position3D: { x: 0.42, y: 0.38, z: 0.18 }, face: 'back', color: '#2563eb', diameter: 4 }),
+      T('PN', 'io', 0.78, 0.95, { position3D: { x: 0.66, y: 0.38, z: 0.18 }, face: 'back', color: '#16a34a', diameter: 5 }),
+    ],
+    defaultState: { on: true, powered: true, screenPage: 'start-center', selectedRow: 1, manufacturer: 'Siemens', model: 'SIMATIC HMI KTP700 Basic · 6AV2 123-2GB03-0AX0' },
+  },
+  mecOperatorBox: {
+    category: 'command', paletteName: 'Caixa de botões de comando 6 furos · EMERG / MAN-AUTO / START / STOP', group: 'Mecatrónica', tag: 'CMD', w: 160, h: 86,
+    terminals: [
+      T('+24V', 'power-in', 0.06, 0.05, { position3D: { x: 0.12, y: 0.5, z: 0.02 }, face: 'back', color: '#dc2626', diameter: 4 }),
+      T('EMERG', 'aux-nc', 0.20, 0.95, { position3D: { x: 0.22, y: 0.5, z: 0.02 }, face: 'back', color: '#ef4444', diameter: 4 }),
+      T('AUTO', 'aux-no', 0.35, 0.95, { position3D: { x: 0.36, y: 0.5, z: 0.02 }, face: 'back', color: '#f59e0b', diameter: 4 }),
+      T('REARME', 'aux-no', 0.50, 0.95, { position3D: { x: 0.50, y: 0.5, z: 0.02 }, face: 'back', color: '#3b82f6', diameter: 4 }),
+      T('CICLO', 'aux-no', 0.65, 0.95, { position3D: { x: 0.64, y: 0.5, z: 0.02 }, face: 'back', color: '#a855f7', diameter: 4 }),
+      T('STOP', 'aux-nc', 0.80, 0.95, { position3D: { x: 0.78, y: 0.5, z: 0.02 }, face: 'back', color: '#dc2626', diameter: 4 }),
+      T('START', 'aux-no', 0.94, 0.95, { position3D: { x: 0.90, y: 0.5, z: 0.02 }, face: 'back', color: '#16a34a', diameter: 4 }),
+    ],
+    defaultState: { emergLatched: false, autoMode: true, resetPressed: false, dirRight: false, stopPressed: false, startPressed: false, manufacturer: 'DC-Simu Mecatrónica', model: 'Pupitre 6 furos Ø22 · Guião 1185' },
+  },
+  mecSignalTower: {
+    category: 'signaling', paletteName: 'Coluna luminosa de sinalização 3 cores · base quadrada em alumínio', group: 'Mecatrónica', tag: 'HL', w: 68, h: 120,
+    terminals: [
+      T('G', 'coil-plus', 0.2, 0.95, { position3D: { x: 0.32, y: 0.04, z: 0.5 }, face: 'bottom', color: '#16a34a', diameter: 4 }),
+      T('Y', 'coil-plus', 0.45, 0.95, { position3D: { x: 0.46, y: 0.04, z: 0.5 }, face: 'bottom', color: '#eab308', diameter: 4 }),
+      T('R', 'coil-plus', 0.7, 0.95, { position3D: { x: 0.60, y: 0.04, z: 0.5 }, face: 'bottom', color: '#dc2626', diameter: 4 }),
+      T('0V', 'coil-minus', 0.9, 0.95, { position3D: { x: 0.76, y: 0.04, z: 0.5 }, face: 'bottom', color: '#2563eb', diameter: 4 }),
+    ],
+    defaultState: { green: true, yellow: false, red: false, manualGreen: true, manualYellow: false, manualRed: false, manufacturer: 'DC-Simu Mecatrónica', model: 'Torre LED Ø50 · 24 V DC' },
+  },
+  mecBenchDuct: {
+    category: 'terminal', paletteName: 'Calha técnica ranhurada da bancada · PVC cinzento RAL 7030', group: 'Mecatrónica', tag: 'CAL', w: 140, h: 42,
+    terminals: [],
+    defaultState: { lengthMm: 700, widthMm: 35, heightMm: 45, axis: 'x', coverOn: true, manufacturer: 'DC-Simu Mecatrónica', model: 'Calha ranhurada 35 × 45' },
+  },
   industrialWall: {
     category: 'terminal', paletteName: 'Parede industrial modular 3D (betão / painel / tijolo)', group: 'Estruturas e esteiras', tag: 'PAR', w: 220, h: 48,
     terminals: [],
@@ -2970,12 +3051,27 @@ export function paletteDomains(): PaletteDomain[] {
     const item = { type, name: tpl.paletteName, category: tpl.category }
 
     if (tpl.group === 'Mecatrónica') {
-      if (type === 'mecStampingPress' || type === 'mecFeederCylinder' || type === 'mecRotaryArm' || type === 'mecVacuumEjector') {
+      if (
+        type === 'mecStampingPress' ||
+        type === 'mecFeederCylinder' ||
+        type === 'mecDrawerCylinder' ||
+        type === 'mecRotaryArm' ||
+        type === 'mecVacuumEjector' ||
+        type === 'mecValveIsland'
+      ) {
         pushTo('pneumatica', 'pneu-maquete', 'Maquete de estampagem · Atuadores & vácuo', item)
-      } else if (type === 'mecDcGearmotor' || type === 'mecMicroSwitchRoller') {
-        pushTo('eletricidade', 'ele-mecatronica', 'Mecatrónica · Motor DC, encoder & fins de curso', item)
+      } else if (
+        type === 'mecDcGearmotor' ||
+        type === 'mecMicroSwitchRoller' ||
+        type === 'mecOpticalSensor' ||
+        type === 'mecInductiveSensor' ||
+        type === 'mecHmiKtp700' ||
+        type === 'mecOperatorBox' ||
+        type === 'mecSignalTower'
+      ) {
+        pushTo('eletricidade', 'ele-mecatronica', 'Mecatrónica · Motor DC, encoder, sensores & HMI', item)
       } else {
-        pushTo('serralharia', 'ser-mecatronica', 'Mecatrónica · Perfis, base, magazine & rampas', item)
+        pushTo('serralharia', 'ser-mecatronica', 'Mecatrónica · Perfis, base, calhas, magazine & rampas', item)
       }
       continue
     }

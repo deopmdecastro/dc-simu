@@ -1,10 +1,8 @@
 /**
- * Mecatrónica didática — Maquete de estampagem e transferência eletropneumática.
+ * Mecatrónica didática — Maquete de estampagem e transferência eletropneumática (ATEC / Guião 1185).
  *
- * Componentes paramétricos a partir do relatório técnico da bancada (cotas ESTIMADAS por
- * proporção fotográfica, escala 1:1). Sem fabricante nem referência comercial inventados:
- * a identificação é sempre «DC-Simu Mecatrónica» + a cota do relatório.
- * Todas as dimensões em mm; o 3D converte com PANEL_UNITS_PER_MM (1 u = 100 mm).
+ * Componentes paramétricos a partir do relatório técnico e levantamento fotográfico da bancada
+ * (cotas em escala 1:1). Todas as dimensões em mm; o 3D converte com PANEL_UNITS_PER_MM (1 u = 100 mm).
  */
 
 export const MECHATRONICS_TYPES = [
@@ -22,6 +20,14 @@ export const MECHATRONICS_TYPES = [
   'mecVacuumEjector',
   'mecDragChain',
   'mecSupportBlock',
+  'mecDrawerCylinder',
+  'mecValveIsland',
+  'mecOpticalSensor',
+  'mecInductiveSensor',
+  'mecHmiKtp700',
+  'mecOperatorBox',
+  'mecSignalTower',
+  'mecBenchDuct',
 ] as const
 
 export type MechatronicsComponentType = typeof MECHATRONICS_TYPES[number]
@@ -48,8 +54,9 @@ export const MEC_DIMS = {
   // Base 170 × 80: tubo a −40 mm do centro e zona de recolha a +40 mm (curso do Cilindro 1 = 80 mm).
   magazine: { outerMm: 50, heightMm: 260, wallMm: 3, liftMm: 45, slotW: 20, slotH: 85, baseLengthMm: 170, baseDepthMm: 80, tubeOffsetMm: -40, pickupOffsetMm: 40 },
   feeder: { boreMm: 20, strokeMm: 80, bodyMm: 118 },
+  drawerCylinder: { boreMm: 20, strokeMm: 75, bodyMm: 112 },
   rotaryArm: { discDiameterMm: 140, discThicknessMm: 15, towerMm: 160, armLengthMm: 240, cupDiameterMm: 25, sweepMm: 440, cylinderBoreMm: 16, cylinderBodyMm: 32, cylinderStrokeMm: 18 },
-  gearmotor: { motorDiameterMm: 36, motorLengthMm: 95, encoderDiameterMm: 30, pinionDiameterMm: 30, wheelDiameterMm: 60, ratio: 2 },
+  gearmotor: { motorDiameterMm: 36, motorLengthMm: 95, encoderDiameterMm: 38, pinionDiameterMm: 30, wheelDiameterMm: 60, ratio: 2 },
   // Curso estimado adaptado para permitir a entrada do cilindro vertical da ventosa sob o prato.
   press: { gantryHeightMm: 300, gantryWidthMm: 170, profileMm: 30, boreMm: 32, strokeMm: 80, plateDiameterMm: 65, bodyMm: 110, plateDropMm: 16, totalHeightMm: 420 },
   table: { lengthMm: 120, depthMm: 80, heightMm: 45, recessDiameterMm: 42 },
@@ -58,6 +65,13 @@ export const MEC_DIMS = {
   ejector: { bodyMm: 52, silencerMm: 30 },
   dragChain: { widthMm: 26, linkHeightMm: 17, bendRadiusMm: 38 },
   supportBlock: { lengthMm: 120, heightMm: 100, depthMm: 80 },
+  valveIsland: { lengthMm: 92, heightMm: 44, depthMm: 56 },
+  opticalSensor: { lengthMm: 62, heightMm: 76, depthMm: 44, barrelDiameterMm: 18 },
+  inductiveSensor: { lengthMm: 36, heightMm: 34, depthMm: 36, barrelDiameterMm: 12 },
+  hmiKtp700: { widthMm: 234, heightMm: 286, depthMm: 86, bezelWidthMm: 214, bezelHeightMm: 158 },
+  operatorBox: { widthMm: 168, heightMm: 66, depthMm: 114 },
+  signalTower: { baseMm: 58, heightMm: 330, lensDiameterMm: 50 },
+  benchDuct: { lengthMm: 700, widthMm: 35, heightMm: 45 },
 } as const
 
 /**
@@ -118,7 +132,18 @@ export function supportBlockDimsOf(state?: Record<string, any>) {
 }
 
 export function dragChainDimsOf(state?: Record<string, any>) {
-  return { ...MEC_DIMS.dragChain, lengthMm: clampNum(state?.lengthMm, 120, 1200, 320) }
+  return { ...MEC_DIMS.dragChain, lengthMm: clampNum(state?.lengthMm, 80, 1200, 320) }
+}
+
+export function benchDuctDimsOf(state?: Record<string, any>) {
+  const d = MEC_DIMS.benchDuct
+  return {
+    lengthMm: clampNum(state?.lengthMm, 100, 1800, d.lengthMm),
+    widthMm: clampNum(state?.widthMm, 20, 80, d.widthMm),
+    heightMm: clampNum(state?.heightMm, 25, 90, d.heightMm),
+    alongZ: state?.axis === 'z',
+    coverOn: state?.coverOn !== false,
+  }
 }
 
 export const MAGAZINE_CAPACITY = 6
@@ -156,6 +181,8 @@ export function mechatronicsSizeMm(type: string, state?: Record<string, any>): {
     }
     case 'mecFeederCylinder':
       return { x: 236, y: 46, z: 42 }
+    case 'mecDrawerCylinder':
+      return { x: 42, y: 44, z: 210 }
     case 'mecRotaryArm': {
       const a = MEC_DIMS.rotaryArm
       return { x: a.sweepMm, y: ARM_TOTAL_HEIGHT_MM, z: a.sweepMm }
@@ -166,6 +193,34 @@ export function mechatronicsSizeMm(type: string, state?: Record<string, any>): {
       return { x: 46, y: 32, z: 18 }
     case 'mecVacuumEjector':
       return { x: 96, y: 28, z: 22 }
+    case 'mecValveIsland': {
+      const v = MEC_DIMS.valveIsland
+      return { x: v.lengthMm, y: v.heightMm, z: v.depthMm }
+    }
+    case 'mecOpticalSensor': {
+      const s = MEC_DIMS.opticalSensor
+      return { x: s.lengthMm, y: s.heightMm, z: s.depthMm }
+    }
+    case 'mecInductiveSensor': {
+      const s = MEC_DIMS.inductiveSensor
+      return { x: s.lengthMm, y: s.heightMm, z: s.depthMm }
+    }
+    case 'mecHmiKtp700': {
+      const h = MEC_DIMS.hmiKtp700
+      return { x: h.widthMm, y: h.heightMm, z: h.depthMm }
+    }
+    case 'mecOperatorBox': {
+      const o = MEC_DIMS.operatorBox
+      return { x: o.widthMm, y: o.heightMm, z: o.depthMm }
+    }
+    case 'mecSignalTower': {
+      const t = MEC_DIMS.signalTower
+      return { x: t.baseMm, y: t.heightMm, z: t.baseMm }
+    }
+    case 'mecBenchDuct': {
+      const d = benchDuctDimsOf(state)
+      return d.alongZ ? { x: d.widthMm, y: d.heightMm, z: d.lengthMm } : { x: d.lengthMm, y: d.heightMm, z: d.widthMm }
+    }
     case 'mecDragChain': {
       const d = dragChainDimsOf(state)
       return { x: d.lengthMm + d.bendRadiusMm + d.linkHeightMm, y: d.bendRadiusMm * 2 + d.linkHeightMm, z: d.widthMm + 6 }
@@ -231,20 +286,28 @@ export interface MechatronicsInfo {
   summary: string
 }
 
-/** Identificação no inspetor/biblioteca: cotas do relatório (estimadas), sem fabricante atribuído. */
+/** Identificação no inspetor/biblioteca: cotas e etiquetagem da maquete ATEC / Guião 1185. */
 export const MECHATRONICS_INFO: Record<MechatronicsComponentType, MechatronicsInfo> = {
-  mecSlotPlate: { name: 'Base ranhurada em alumínio', model: '700 × 500 × 20 mm · ranhuras T passo 25', summary: 'Placa de alumínio extrudido com 20 ranhuras em T longitudinais para fixação modular.' },
-  mecAluProfile: { name: 'Perfil de alumínio ranhurado', model: '30 × 30 / 40 × 40 mm · tampas + cantoneiras', summary: 'Perfil estrutural com ranhuras em T, tampas de topo em plástico e cantoneiras de fixação.' },
-  mecGravityMagazine: { name: 'Magazine vertical de alimentação', model: '50 × 50 × 260 mm · parede 3 mm', summary: 'Tubo quadrado maquinado com 2 rasgos frontais 20 × 85 mm, elevado 45 mm sobre base fresada com zona de recolha.' },
-  mecWorkpiece: { name: 'Peça de trabalho (tarugo)', model: 'Ø40 × 35 mm', summary: 'Cilindro maciço de ensaio: alumínio, polímero branco ou polímero escuro.' },
-  mecDischargeRamp: { name: 'Rampa de descarga', model: '220 × 50 mm · abas 20 mm · 15°', summary: 'Calha inclinada em chapa de alumínio dobrada sobre pilar traseiro (110, 95 ou 80 mm).' },
-  mecStampingTable: { name: 'Gaveta / mesa de estampagem', model: '120 × 80 × 45 mm · rebaixo Ø42', summary: 'Bloco maquinado com alojamento de centragem da peça sob o prato da prensa.' },
-  mecStampingPress: { name: 'Prensa pneumática de estampagem', model: 'Pórtico 300 mm · cilindro Ø32 × 80 (estimado) · prato Ø65', summary: 'Cilindro vertical de dupla ação sobre a travessa de um pórtico de perfil 30 × 30, haste com prato circular, manómetro e sensores magnéticos SUP/INF. Curso adaptado para dar passagem ao cilindro vertical da ventosa.' },
-  mecFeederCylinder: { name: 'Cilindro de alimentação (Cilindro 1)', model: 'Ø20 × 80 mm · dupla ação', summary: 'Cilindro horizontal com empurrador e sensores magnéticos de recuo/avanço na base do magazine.' },
-  mecRotaryArm: { name: 'Manipulador rotativo com ventosa', model: 'Braço metálico rígido · cilindro vertical Ø16 × 18 (estimado) · ventosa Ø25', summary: 'Base rotativa com roda cónica Ø60 e sensor de referência 0°. A estrutura metálica mantém-se horizontal; o cilindro na extremidade sobe e desce a ventosa montada na ponta da haste.' },
-  mecDcGearmotor: { name: 'Motorredutor DC M1 com encoder', model: 'Motor Ø36 × 95 · pinhão cónico Ø30 · encoder Ø30', summary: 'Motor de corrente contínua com redutor, pinhão cónico 2:1, encoder incremental A/B e entradas de sentido horário/anti-horário.' },
-  mecMicroSwitchRoller: { name: 'Microinterruptor de rolete (FC 1)', model: 'Contacto comutado C / NA / NF', summary: 'Microinterruptor com alavanca e rolete na lateral da gaveta de receção.' },
-  mecVacuumEjector: { name: 'Gerador de vácuo Venturi', model: 'Ejetor com silenciador · Push-In', summary: 'Ejetor Venturi: ar comprimido em P produz vácuo na porta V da ventosa.' },
-  mecSupportBlock: { name: 'Suporte / bloco maquinado de elevação', model: 'Alumínio fresado · cotas parametrizáveis', summary: 'Bloco de elevação para o magazine, a mesa de receção e a gaveta da prensa, fixo à base por parafusos e porcas T.' },
-  mecDragChain: { name: 'Esteira porta-cabos articulada', model: 'Elos 26 × 17 mm · raio 38 mm', summary: 'Corrente porta-cabos em poliamida para a cablagem do manipulador até ao PLC.' },
+  mecSlotPlate: { name: 'Base ranhurada em alumínio', model: '700 × 500 × 20 mm · ranhuras T passo 25', summary: 'Placa de alumínio extrudido anodizado com 20 ranhuras em T longitudinais para fixação modular da bancada.' },
+  mecAluProfile: { name: 'Perfil de alumínio ranhurado', model: '30 × 30 / 40 × 40 mm · tampas + cantoneiras', summary: 'Perfil estrutural com ranhuras em T nas 4 faces, tampas de topo e cantoneiras injetadas.' },
+  mecGravityMagazine: { name: 'Magazine vertical de alimentação (MAG1)', model: '50 × 50 × 260 mm · 2 rasgos frontais · zona B10', summary: 'Tubo quadrado em alumínio maquinado com 2 rasgos oblongos de inspeção, elevado sobre pés fresados e canal de recolha.' },
+  mecWorkpiece: { name: 'Peça de trabalho (tarugo)', model: 'Ø40 × 35 mm · alumínio / polímero branco / polímero preto', summary: 'Cilindro de ensaio da estação de estampagem: metálico, plástico branco ou plástico preto.' },
+  mecDischargeRamp: { name: 'Rampa de descarga em inox', model: '220 × 50 mm · BRANCA / PRETA / METALICA · 15°', summary: 'Calha inclinada em chapa de aço inox dobrada sobre pilar de perfil 30 × 30 com perno transversal de paragem.' },
+  mecStampingTable: { name: 'Gaveta deslizante de estampagem (MES1 · FC 2)', model: '120 × 80 × 45 mm · alojamento quadrado fresado', summary: 'Gaveta maquinada em alumínio com cavidade chanfrada para o tarugo e etiqueta frontal FC 2.' },
+  mecStampingPress: { name: 'Prensa pneumática de estampagem (Cilindro 4)', model: 'Pórtico 300 mm · CILINDRO 4 (B3 / B4) · prato Ø65', summary: 'Pórtico de perfil 30 × 30 com manómetro na coluna esquerda, cilindro vertical roscado com porca sextavada, sensores B3/B4 e prato circular.' },
+  mecFeederCylinder: { name: 'Cilindro de alimentação (Cilindro 1)', model: 'Ø20 × 80 mm · inox · sensores B8 / B9', summary: 'Cilindro redondo em inox de dupla ação com reguladores de caudal, sensores de cinta B8/B9 e bloco empurrador.' },
+  mecDrawerCylinder: { name: 'Cilindro da gaveta de estampagem (Cilindro 3)', model: 'Ø20 × 75 mm · inox · sensores B2 / B1', summary: 'Cilindro horizontal traseiro que avança e recua a gaveta de estampagem entre a recolha e o prato da prensa.' },
+  mecRotaryArm: { name: 'Manipulador rotativo com ventosa (BR1 · Cilindro 2)', model: 'Torre linear Festo (B6 / B7) · braço aligeirado · ventosa Ø25', summary: 'Prato rotativo sobre 4 colunas com polia dentada, atuador vertical guiado, braço trapezoidal com 2 rasgos, filtro ZFC e ventosa de fole.' },
+  mecDcGearmotor: { name: 'Motorredutor DC M1 com par cónico e encoder', model: 'Portescap M1 (1 / 2) · roda cónica nylon · RT3806-AB-400N', summary: 'Motorredutor dourado com borne branco de 2 polos, par cónico 90°, disco ótico de 4 pás e encoder incremental A/B.' },
+  mecMicroSwitchRoller: { name: 'Microinterruptor de rolete (FC 1 / FC 2)', model: 'Contacto comutado C / NA / NF · terminais Faston', summary: 'Microinterruptor preto com alavanca de rolete e terminais isolados a vermelho para deteção de fim de curso.' },
+  mecVacuumEjector: { name: 'Gerador de vácuo (VAC1 · C4A)', model: 'Ejetor Festo C4A em linha · suporte em L', summary: 'Gerador de vácuo compacto montado em esquadro de inox com racores Push-In para tubo azul Ø4/6 mm.' },
+  mecValveIsland: { name: 'Ilha de eletroválvulas 2× 5/2 (C1A / C2A)', model: 'Bloco sub-base Festo 2 estações · comandos manuais azuis', summary: ' Sub-base coletora em alumínio com 2 eletroválvulas 5/2 biestáveis/monoestáveis, bobinas 24 V DC e racores superiores.' },
+  mecOpticalSensor: { name: 'Sensor ótico difuso M18 (S. OTICO · B11)', model: 'Corpo cilíndrico M18 niquelado · Sn = 400 mm · suporte L', summary: 'Fotocélula difusa M18 em suporte vertical de alumínio: distingue peças claras/metálicas das peças pretas.' },
+  mecInductiveSensor: { name: 'Sensor indutivo de proximidade (S. INDUTIVO)', model: 'M12 faceado no fundo da zona de recolha · PNP NA', summary: 'Sensor indutivo montado à face sob a zona de recolha para deteção exclusiva de tarugos metálicos.' },
+  mecHmiKtp700: { name: 'Consola Siemens SIMATIC HMI KTP700 Basic', model: '6AV2 123-2GB03-0AX0 · ecrã 7" · 8 teclas F1–F8', summary: 'Painel operador SIMATIC HMI montado em bastidor de perfil 30 × 30, com caixa traseira ventilada, ficha 24 V DC e cabo PROFINET.' },
+  mecOperatorBox: { name: 'Caixa de botões de comando (6 furos Ø22)', model: 'EMERG · MAN/AUTO · REARME · CICLO · STOP · START', summary: 'Pupitre cinzento de 6 operadores Ø22 fixado à calha frontal: emergência, seletores, rearme azul, paragem e arranque.' },
+  mecSignalTower: { name: 'Coluna luminosa de sinalização (Torre LED)', model: 'Base quadrada fundida · tubo alumínio · verde / amarelo / vermelho', summary: 'Coluna de sinalização de 3 níveis LED (Q5.4 amarelo, Q5.5 verde, Q5.6 vermelho) aparafusada ao canto traseiro esquerdo da base.' },
+  mecBenchDuct: { name: 'Calha técnica ranhurada da bancada', model: 'PVC cinzento RAL 7030 · dentes ranhurados com tampa', summary: 'Calha perimetral de cablagem elétrica e pneumática à volta da base ranhurada da maquete.' },
+  mecSupportBlock: { name: 'Suporte / bloco maquinado de elevação', model: 'Alumínio fresado · cotas parametrizáveis', summary: 'Bloco de elevação para o magazine, a mesa de receção e a gaveta da prensa, fixo à base por parafusos Allen.' },
+  mecDragChain: { name: 'Esteira porta-cabos articulada', model: 'Elos 26 × 17 mm · poliamida preta', summary: 'Corrente porta-cabos articulada para proteção dos cabos e tubos móveis da gaveta de estampagem e do manipulador.' },
 }

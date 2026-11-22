@@ -234,10 +234,25 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       else pair(la('C'), la('NC'))
       break
     }
-    case 'mecFeederCylinder': {
+    case 'mecFeederCylinder':
+    case 'mecDrawerCylinder': {
       const pct = Number(c.state.positionPct ?? 0)
       if (reedRetracted(pct)) pair(la('REC+'), la('REC'))
       if (reedExtended(pct)) pair(la('AVA+'), la('AVA'))
+      break
+    }
+    case 'mecOpticalSensor':
+    case 'mecInductiveSensor': {
+      if (c.state.triggered) pair(la('+24V'), la('OUT'))
+      break
+    }
+    case 'mecOperatorBox': {
+      if (!c.state.emergLatched) pair(la('+24V'), la('EMERG'))
+      if (c.state.autoMode !== false) pair(la('+24V'), la('AUTO'))
+      if (c.state.resetPressed) pair(la('+24V'), la('REARME'))
+      if (c.state.dirRight) pair(la('+24V'), la('CICLO'))
+      if (!c.state.stopPressed) pair(la('+24V'), la('STOP'))
+      if (c.state.startPressed) pair(la('+24V'), la('START'))
       break
     }
     case 'mecStampingPress': {

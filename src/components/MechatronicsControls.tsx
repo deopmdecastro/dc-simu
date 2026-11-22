@@ -9,12 +9,15 @@ import {
   RAMP_PILLAR_OPTIONS,
   WORKPIECE_MATERIALS,
   aluProfileDimsOf,
+  benchDuctDimsOf,
   dragChainDimsOf,
   isMechatronicsType,
   slotPlateDimsOf,
   supportBlockDimsOf,
   workpieceMaterialOf,
 } from '../three/mechatronicsModel'
+
+const textLabel = (value: unknown, fallback = '') => (typeof value === 'string' && value.trim() ? value.trim() : fallback)
 
 function Row({ label, value, children }: { label: string; value?: string; children: ReactNode }) {
   return (
@@ -216,6 +219,174 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
     case 'mecDragChain': {
       const d = dragChainDimsOf(c.state)
       body = <Row label="Comprimento do troço" value={`${d.lengthMm} mm`}><input type="range" min={120} max={900} step={20} disabled={locked} value={d.lengthMm} onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })} /></Row>
+      break
+    }
+    case 'mecDrawerCylinder': {
+      const pct = Math.round(num(c.state.positionPct))
+      body = (
+        <>
+          <Row label="Curso da gaveta (comando manual)" value={`${pct} %`}>
+            <input type="range" min={0} max={100} step={1} disabled={locked || running} value={pct} onChange={(e) => setState(c.id, { positionPct: Number(e.target.value), extended: Number(e.target.value) >= 92 })} />
+          </Row>
+          <div className="flex items-center justify-between"><span>{`B2 (${textLabel(c.state.sensorRecLabel, 'recuado')}) / B1 (${textLabel(c.state.sensorAvaLabel, 'avançado')})`}</span><strong>{`${pct <= 8 ? 'ON' : 'off'} / ${pct >= 92 ? 'ON' : 'off'}`}</strong></div>
+          <p className="text-[10px] text-[var(--dc-text-muted)]">Em simulação o curso segue o ar nas portas A (avanço) e B (recuo); os reeds fecham +24 V no fim de curso.</p>
+        </>
+      )
+      break
+    }
+    case 'mecValveIsland': {
+      const stations = [1, 2]
+      body = (
+        <>
+          <Row label="Etiqueta da ilha">
+            <select className="dc-input text-[11px]" disabled={locked} value={textLabel(c.state.islandTag, 'C1A')} onChange={(e) => setState(c.id, { islandTag: e.target.value })}>
+              <option value="C1A">C1A</option>
+              <option value="C2A">C2A</option>
+            </select>
+          </Row>
+          {stations.map((n) => {
+            const on = !!c.state[`station${n}On`]
+            const manual = !!c.state[`station${n}Manual`]
+            return (
+              <div key={n} className="flex items-center justify-between gap-2">
+                <span>{`Y${n} · ${on ? 'bobina comandada' : 'em repouso'}`}</span>
+                <button
+                  type="button"
+                  className={`dc-btn text-[10px] ${manual ? 'dc-btn-primary' : ''}`}
+                  disabled={locked}
+                  aria-pressed={manual}
+                  onClick={() => act({ [`station${n}Manual`]: !manual })}
+                >{`Ação manual ${n}`}</button>
+              </div>
+            )
+          })}
+          <p className="text-[10px] text-[var(--dc-text-muted)]">Com Y1/Y2 alimentado (24 V em relação a 0V) a saída passa de Bn para An; sem bobina ativa o ar fica em Bn.</p>
+        </>
+      )
+      break
+    }
+    case 'mecOpticalSensor':
+    case 'mecInductiveSensor': {
+      const optical = c.type === 'mecOpticalSensor'
+      const manual = c.state.actuation === 'manual'
+      body = (
+        <>
+          <Row label="Acionamento">
+            <select className="dc-input text-[11px]" disabled={locked} value={manual ? 'manual' : 'feeder'} onChange={(e) => setState(c.id, { actuation: e.target.value })}>
+              <option value="feeder">Pela peça na zona de recolha</option>
+              <option value="manual">Manual (inspetor)</option>
+            </select>
+          </Row>
+          <button
+            type="button"
+            className={`dc-btn text-[11px] justify-center ${c.state.triggered ? 'dc-btn-primary' : ''}`}
+            disabled={locked || !manual}
+            aria-pressed={!!c.state.triggered}
+            onClick={() => act({ triggered: !c.state.triggered })}
+          >{c.state.triggered ? 'Soltar deteção' : 'Simular peça à frente'}</button>
+          <div className="flex items-center justify-between"><span>Saída OUT</span><strong>{c.state.triggered ? '+24 V (PNP)' : '0 V'}</strong></div>
+          <p className="text-[10px] text-[var(--dc-text-muted)]">{optical ? 'A fotocélula difusa deteta tarugos claros e metálicos; as peças pretas absorvem o feixe.' : 'O indutivo só comuta com tarugos metálicos (alumínio); os polímeros não excitam o oscilador.'}</p>
+        </>
+      )
+      break
+    }
+    case 'mecHmiKtp700': {
+      const powered = c.state.powered !== false && c.state.on !== false
+      const page = textLabel(c.state.screenPage, 'start-center')
+      body = (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <span>{powered ? 'Consola alimentada (24 V DC)' : 'Consola sem alimentação'}</span>
+            <button type="button" className={`dc-btn text-[10px] ${c.state.manualPower !== false ? 'dc-btn-primary' : ''}`} disabled={locked} aria-pressed={c.state.manualPower !== false} onClick={() => setState(c.id, { manualPower: c.state.manualPower === false })}>
+              {c.state.manualPower === false ? 'Ligar 24 V' : 'Cortar 24 V'}
+            </button>
+          </div>
+          <Row label="Ecrã">
+            <select className="dc-input text-[11px]" disabled={locked || !powered} value={page} onChange={(e) => setState(c.id, { screenPage: e.target.value })}>
+              <option value="start-center">Start Center</option>
+              <option value="process">Processo (estampagem)</option>
+            </select>
+          </Row>
+          <Row label="Item selecionado" value={`${Math.round(num(c.state.selectedRow, 1)) + 1} / 3`}>
+            <input type="range" min={0} max={2} step={1} disabled={locked || !powered || page !== 'start-center'} value={Math.round(num(c.state.selectedRow, 1))} onChange={(e) => setState(c.id, { selectedRow: Number(e.target.value) })} />
+          </Row>
+          <p className="text-[10px] text-[var(--dc-text-muted)]">L+ / M alimentam a consola; o ecrã fica apagado sem 24 V (fidelidade LCD). O cabo PROFINET liga ao PLC do projeto.</p>
+        </>
+      )
+      break
+    }
+    case 'mecOperatorBox': {
+      const ops = [
+        { key: 'emergLatched', label: 'EMERG (cogumelo)' },
+        { key: 'autoMode', label: 'MAN / AUTO' },
+        { key: 'resetPressed', label: 'REARME' },
+        { key: 'dirRight', label: 'CICLO' },
+        { key: 'stopPressed', label: 'STOP' },
+        { key: 'startPressed', label: 'START' },
+      ]
+      body = (
+        <>
+          {ops.map((op) => {
+            const active = op.key === 'autoMode' ? c.state.autoMode !== false : !!c.state[op.key]
+            return (
+              <div key={op.key} className="flex items-center justify-between gap-2">
+                <span>{op.label}</span>
+                <button
+                  type="button"
+                  className={`dc-btn text-[10px] ${active ? 'dc-btn-primary' : ''}`}
+                  disabled={locked}
+                  aria-pressed={active}
+                  onClick={() => act({ [op.key]: op.key === 'autoMode' ? c.state.autoMode === false : !c.state[op.key] })}
+                >{active ? 'ON' : 'off'}</button>
+              </div>
+            )
+          })}
+          <p className="text-[10px] text-[var(--dc-text-muted)]">Os operadores também respondem ao clique no 3D: EMERG e STOP são contactos NF; REARME, CICLO e START são NA.</p>
+        </>
+      )
+      break
+    }
+    case 'mecSignalTower': {
+      const leds = [
+        { flag: 'manualGreen', state: 'green', label: 'Verde (Q5.5)' },
+        { flag: 'manualYellow', state: 'yellow', label: 'Amarelo (Q5.4)' },
+        { flag: 'manualRed', state: 'red', label: 'Vermelho (Q5.6)' },
+      ]
+      body = (
+        <>
+          {leds.map((led) => {
+            const on = !!c.state[led.state]
+            return (
+              <div key={led.flag} className="flex items-center justify-between gap-2">
+                <span>{led.label}</span>
+                <button type="button" className={`dc-btn text-[10px] ${on ? 'dc-btn-primary' : ''}`} disabled={locked} aria-pressed={on} onClick={() => act({ [led.flag]: !on })}>{on ? 'ON' : 'off'}</button>
+              </div>
+            )
+          })}
+          <p className="text-[10px] text-[var(--dc-text-muted)]">Com G/Y/R ligados a 0 V o nível segue a cablagem (Q5.4/Q5.5/Q5.6); sem fios, os níveis seguem o comando manual.</p>
+        </>
+      )
+      break
+    }
+    case 'mecBenchDuct': {
+      const d = benchDuctDimsOf(c.state)
+      body = (
+        <>
+          <Row label="Comprimento" value={`${d.lengthMm} mm`}><input type="range" min={120} max={1200} step={10} disabled={locked} value={d.lengthMm} onChange={(e) => setState(c.id, { lengthMm: Number(e.target.value) })} /></Row>
+          <Row label="Largura × altura" value={`${d.widthMm} × ${d.heightMm} mm`}>
+            <input type="range" min={20} max={60} step={1} disabled={locked} value={d.widthMm} onChange={(e) => setState(c.id, { widthMm: Number(e.target.value) })} />
+          </Row>
+          <Row label="Altura da calha" value={`${d.heightMm} mm`}><input type="range" min={25} max={80} step={1} disabled={locked} value={d.heightMm} onChange={(e) => setState(c.id, { heightMm: Number(e.target.value) })} /></Row>
+          <Row label="Orientação">
+            <select className="dc-input text-[11px]" disabled={locked} value={d.alongZ ? 'z' : 'x'} onChange={(e) => setState(c.id, { axis: e.target.value })}>
+              <option value="x">Ao longo de X (frente/trás)</option>
+              <option value="z">Ao longo Z (laterais)</option>
+            </select>
+          </Row>
+          <label className="flex items-center justify-between gap-2"><span>Tampa da calha</span><input type="checkbox" disabled={locked} checked={d.coverOn} onChange={(e) => setState(c.id, { coverOn: e.target.checked })} /></label>
+          <label className="flex items-center justify-between gap-2"><span>Folha do projeto ATEC</span><input type="checkbox" disabled={locked} checked={c.state.plaque === 'atec'} onChange={(e) => setState(c.id, { plaque: e.target.checked ? 'atec' : '' })} /></label>
+        </>
+      )
       break
     }
   }

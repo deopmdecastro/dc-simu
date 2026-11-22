@@ -1068,6 +1068,19 @@ function runOneTick(state: Store, dtMs: number) {
     }
     updateImportedLoads(c, pass3.energizedTerminals)
     if (c.type === 'hmi') c.state.on = isLoadPowered(c, pass3.energizedTerminals, 'L', 'N')
+    if (c.type === 'mecHmiKtp700') {
+      const hasSupplyWire = c.terminals.some((t) => (t.label === 'L+' || t.label === 'M') && wires.some((w) => w.fromTerminalId === t.id || w.toTerminalId === t.id))
+      const powered = hasSupplyWire ? isLoadPowered(c, pass3.energizedTerminals, 'L+', 'M') : c.state.manualPower !== false
+      c.state.powered = powered
+      c.state.on = powered
+    }
+    if (c.type === 'mecSignalTower') {
+      const hasTowerWire = c.terminals.some((t) => wires.some((w) => w.fromTerminalId === t.id || w.toTerminalId === t.id))
+      c.state.green = hasTowerWire ? isLoadPowered(c, pass3.energizedTerminals, 'G', '0V') : Boolean(c.state.manualGreen)
+      c.state.yellow = hasTowerWire ? isLoadPowered(c, pass3.energizedTerminals, 'Y', '0V') : Boolean(c.state.manualYellow)
+      c.state.red = hasTowerWire ? isLoadPowered(c, pass3.energizedTerminals, 'R', '0V') : Boolean(c.state.manualRed)
+      c.state.on = Boolean(c.state.green || c.state.yellow || c.state.red)
+    }
     if (c.type === 'analogAmmeter') {
       const live = isLoadPowered(c, pass3.energizedTerminals, '1', '2')
       c.state.reading = live ? Number((c.state.scaleInA * 0.6).toFixed(1)) : 0
@@ -1360,9 +1373,10 @@ function runOneTick(state: Store, dtMs: number) {
       const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
       const vTerm = pc.terminals.find((t) => t.label === 'V')?.id
       if (pTerm && vTerm) linkP(pTerm, vTerm)
-    } else if (pc.type === 'pneumaticManifold') {
+    } else if (pc.type === 'pneumaticManifold' || pc.type === 'mecValveIsland') {
       const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
-      for (const stNum of [1, 2, 3, 4]) {
+      const stationList = pc.type === 'mecValveIsland' ? [1, 2] : [1, 2, 3, 4]
+      for (const stNum of stationList) {
         const coilOn = isLoadPowered(pc, pass3.energizedTerminals, `Y${stNum}`, '0V')
         const active = coilOn || Boolean(pc.state[`station${stNum}Manual`])
         pc.state[`station${stNum}On`] = active
@@ -1420,7 +1434,7 @@ function runOneTick(state: Store, dtMs: number) {
     if (pw.energized && pass3.activeWires) pass3.activeWires.add(pw.id)
   }
   for (const cyl of components) {
-    if (cyl.type === 'pneumaticCylinder' || cyl.type === 'pneumaticGuidedCylinder' || cyl.type === 'mecFeederCylinder' || cyl.type === 'mecStampingPress') {
+    if (cyl.type === 'pneumaticCylinder' || cyl.type === 'pneumaticGuidedCylinder' || cyl.type === 'mecFeederCylinder' || cyl.type === 'mecDrawerCylinder' || cyl.type === 'mecStampingPress') {
       const aId = cyl.terminals.find((t) => t.label === 'A')?.id
       const bId = cyl.terminals.find((t) => t.label === 'B')?.id
       const aAir = Boolean(aId && activePneumaticTerminals.has(aId))

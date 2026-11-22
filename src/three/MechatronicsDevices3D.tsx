@@ -12,6 +12,7 @@ import {
   MAGAZINE_CAPACITY,
   MEC_DIMS,
   aluProfileDimsOf,
+  benchDuctDimsOf,
   dragChainDimsOf,
   mechatronicsSizeMm,
   rampDimsOf,
@@ -21,15 +22,24 @@ import {
   type WorkpieceMaterial,
 } from './mechatronicsModel'
 import {
+  atecProjectSheetTexture,
   bellowsCupGeometry,
   bevelGearGeometry,
   dragChainGeometry,
   gaugeDialTexture,
+  ktp700BackLabelTexture,
+  ktp700BezelTexture,
+  ktp700ScreenTexture,
   labelTexture,
+  portescapMotorLabelTexture,
   rampChannelGeometry,
   recessedBlockGeometry,
+  rotaryEncoderWrapTexture,
   slotPlateGeometry,
+  slottedDuctGeometry,
   slottedPanelGeometry,
+  squarePocketBlockGeometry,
+  taperedArmGeometry,
   tSlotProfileGeometry,
   workpieceGeometry,
 } from './mechatronicsGeometry'
@@ -52,10 +62,12 @@ const CHROME = { color: '#f1f5f9', roughness: 0.12, metalness: 0.96 }
 const BLACK_OXIDE = { color: '#23272e', roughness: 0.42, metalness: 0.7 }
 const PA_BLACK = { color: '#16191e', roughness: 0.62, metalness: 0.05 }
 const PA_GREY = { color: '#3b424c', roughness: 0.55, metalness: 0.08 }
+const PA_LIGHT = { color: '#c8ccd2', roughness: 0.58, metalness: 0.04 }
 const RUBBER = { color: '#111316', roughness: 0.82, metalness: 0.02 }
 const BRASS = { color: '#c9a24b', roughness: 0.25, metalness: 0.9 }
 const BLUE_RING = { color: '#1d8fd8', roughness: 0.42, metalness: 0.1 }
 const PU_TUBE = { color: '#2b9be0', roughness: 0.38, metalness: 0.02 }
+const PVC_DUCT = { color: '#8d8f86', roughness: 0.62, metalness: 0.02 }
 
 const WORKPIECE_FINISH: Record<WorkpieceMaterial, { color: string; roughness: number; metalness: number }> = {
   aluminio: { color: '#d3d9df', roughness: 0.26, metalness: 0.9 },
@@ -69,6 +81,8 @@ const Mat = ({ f, name }: { f: Finish; name?: string }) => (
 )
 
 export type MechatronicsPatch = Record<string, unknown>
+
+const textOf = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 /** Parafuso de cabeça cilíndrica com sextavado interior (Allen), eixo Y, assento em y = 0. */
 function CapScrew({ position, d = 5, rotation }: { position: [number, number, number]; d?: number; rotation?: [number, number, number] }) {
@@ -106,8 +120,8 @@ function PushInFitting({ position, rotation, d = 6 }: { position: [number, numbe
   )
 }
 
-/** Sensor magnético (reed) de ranhura com LED e cabo. */
-function ReedSensor({ position, active, rotation }: { position: [number, number, number]; active: boolean; rotation?: [number, number, number] }) {
+/** Sensor magnético (reed) de ranhura com LED e cabo; aceita a etiqueta impressa Bn da maquete. */
+function ReedSensor({ position, active, rotation, label }: { position: [number, number, number]; active: boolean; rotation?: [number, number, number]; label?: string }) {
   return (
     <group position={position} rotation={rotation}>
       <mesh castShadow>
@@ -118,9 +132,69 @@ function ReedSensor({ position, active, rotation }: { position: [number, number,
         <boxGeometry args={[3, 0.6, 2.6]} />
         <meshStandardMaterial name="LED do sensor" color={active ? '#fbbf24' : '#4b3a12'} emissive={active ? '#f59e0b' : '#000000'} emissiveIntensity={active ? 1.4 : 0} />
       </mesh>
+      <LabelPlate text={label} position={[-4.6, 2.32, 0]} rotation={[-Math.PI / 2, 0, 0]} w={11.5} h={3.1} />
       <mesh position={[-14, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[1.5, 1.5, 8, 10]} />
         <Mat f={PA_BLACK} name="Cabo do sensor" />
+      </mesh>
+    </group>
+  )
+}
+
+/** Etiqueta impressa tipo fita Brother (o `map` impede o acabamento CAD procedural de a lavar). */
+function LabelPlate({
+  text, position, rotation, w = 30, h = 7.5, bg = '#f8fafc', fg = '#0f172a',
+}: {
+  text?: unknown
+  position: [number, number, number]
+  rotation?: [number, number, number]
+  w?: number
+  h?: number
+  bg?: string
+  fg?: string
+}) {
+  const label = textOf(text)
+  if (!label) return null
+  return (
+    <mesh position={position} rotation={rotation}>
+      <planeGeometry args={[w, h]} />
+      <meshStandardMaterial name="Etiqueta impressa" map={labelTexture(label, bg, fg) ?? undefined} color="#ffffff" roughness={0.62} metalness={0} />
+    </mesh>
+  )
+}
+
+/** Ponto luminoso (LED de estado) com halo esbatido quando apagado. */
+function StatusLed({ position, on, color = '#f59e0b', size = 2.1 }: { position: [number, number, number]; on: boolean; color?: string; size?: number }) {
+  return (
+    <mesh position={position}>
+      <sphereGeometry args={[size, 14, 10]} />
+      <meshStandardMaterial
+        name="LED de estado"
+        color={on ? color : '#41464f'}
+        emissive={on ? color : '#000000'}
+        emissiveIntensity={on ? 1.8 : 0}
+        roughness={0.32}
+        metalness={0.08}
+      />
+    </mesh>
+  )
+}
+
+/** Regulador de caudal unidirecional (válvula de agulha + anel azul) montado num racor. */
+function FlowRegulator({ position, rotation }: { position: [number, number, number]; rotation?: [number, number, number] }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh position={[0, 4, 0]}>
+        <cylinderGeometry args={[4.4, 4.4, 8, 16]} />
+        <Mat f={PA_BLACK} name="Corpo do regulador de caudal" />
+      </mesh>
+      <mesh position={[0, 9.2, 0]}>
+        <cylinderGeometry args={[3.4, 3.4, 3, 6]} />
+        <Mat f={BRASS} name="Porca do regulador" />
+      </mesh>
+      <mesh position={[0, 11.4, 0]}>
+        <cylinderGeometry args={[2.6, 2.6, 2, 14]} />
+        <Mat f={BLUE_RING} name="Botão do regulador" />
       </mesh>
     </group>
   )
@@ -197,6 +271,7 @@ function AluProfile({ c }: { c: ElectricalComponent }) {
           <Mat f={PA_BLACK} name="Tampa de topo em plástico" />
         </mesh>
       ))}
+      <LabelPlate text={c.state.labelText} position={[0, half - 26, d.sectionMm / 2 + 0.1]} w={44} h={11} />
       {d.brackets && d.vertical && (
         <>
           <AngleBracket size={d.sectionMm * 0.75} position={[d.sectionMm / 2, -half, 0]} />
@@ -270,6 +345,8 @@ function GravityMagazine({ c, onPatch }: { c: ElectricalComponent; onPatch?: (pa
           <Mat f={ALU} name="Tubo quadrado maquinado" />
         </mesh>
       ))}
+      {/* Etiqueta de identificação do alimentador no topo do tubo */}
+      <LabelPlate text={c.state.labelText} position={[tx, tubeY + m.heightMm / 2 + 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]} w={40} h={10} />
       {/* Placas de fixação do tubo aos suportes */}
       {[-1, 1].map((s) => (
         <group key={s}>
@@ -320,6 +397,8 @@ function DischargeRamp({ c }: { c: ElectricalComponent }) {
           <boxGeometry args={[1.5, r.flangeMm * 0.9, r.widthMm]} />
           <Mat f={ALU_MILLED} name="Batente da rampa" />
         </mesh>
+        {/* Etiqueta de destino impressa na aba da calha (METALICA / PRETA / BRANCA) */}
+        <LabelPlate text={c.state.rampLabel} position={[r.lengthMm / 2 - 52, r.flangeMm + 0.15, 0]} rotation={[-Math.PI / 2, 0, 0]} w={64} h={15} />
         {/* Esquadro de apoio + parafusos */}
         {[-r.lengthMm / 2 + 14, r.lengthMm / 2 - 30].map((x, i) => (
           <CapScrew key={i} position={[x, 1.5, 0]} d={3.6} />
@@ -335,8 +414,14 @@ function DischargeRamp({ c }: { c: ElectricalComponent }) {
 
 function StampingTable({ c }: { c: ElectricalComponent }) {
   const t = MEC_DIMS.table
-  const g = recessedBlockGeometry(t.lengthMm, t.heightMm, t.depthMm, t.recessDiameterMm, 8)
+  const depth = 8
+  // A gaveta FC 2 fotografada tem alojamento quadrado; o modo redondo mantém o assento do tarugo Ø40.
+  const square = c.state.pocketShape === 'square'
+  const g = square
+    ? squarePocketBlockGeometry(t.lengthMm, t.heightMm, t.depthMm, t.recessDiameterMm, depth)
+    : recessedBlockGeometry(t.lengthMm, t.heightMm, t.depthMm, t.recessDiameterMm, depth)
   const holding = typeof c.state.pieceMaterial === 'string' && c.state.pieceMaterial !== ''
+  const floorY = t.heightMm / 2 - depth
   return (
     <group>
       <mesh geometry={g} castShadow receiveShadow>
@@ -345,13 +430,22 @@ function StampingTable({ c }: { c: ElectricalComponent }) {
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <CapScrew key={i} position={[sx * (t.lengthMm / 2 - 10), t.heightMm / 2, sz * (t.depthMm / 2 - 10)]} d={4.2} />
       ))}
-      {/* Chanfro de entrada do rebaixo (anel ligeiramente mais escuro) */}
-      <mesh position={[0, t.heightMm / 2 - 8 + 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[t.recessDiameterMm / 2, 40]} />
-        <Mat f={ALU_DARK} name="Fundo do rebaixo" />
-      </mesh>
+      {/* Fundo do alojamento (chanfro de entrada ligeiramente mais escuro) */}
+      {square ? (
+        <mesh position={[0, floorY + 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[t.recessDiameterMm, t.recessDiameterMm]} />
+          <Mat f={ALU_DARK} name="Fundo do rebaixo" />
+        </mesh>
+      ) : (
+        <mesh position={[0, floorY + 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[t.recessDiameterMm / 2, 40]} />
+          <Mat f={ALU_DARK} name="Fundo do rebaixo" />
+        </mesh>
+      )}
+      {/* Etiqueta FC 2 colada à face frontal da gaveta */}
+      <LabelPlate text={c.state.labelText ?? 'FC 2'} position={[0, -3, t.depthMm / 2 + 0.1]} w={42} h={13} />
       {holding && (
-        <group position={[0, t.heightMm / 2 - 8 + MEC_DIMS.workpiece.heightMm / 2 + 0.1, 0]}>
+        <group position={[0, floorY + MEC_DIMS.workpiece.heightMm / 2 + 0.1, 0]}>
           <Workpiece name="tarugo-gaveta" material={workpieceMaterialOf(c.state.pieceMaterial)} />
           {c.state.stamped && (
             <mesh position={[0, MEC_DIMS.workpiece.heightMm / 2 + 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -411,12 +505,17 @@ function FeederCylinder({ c }: { c: ElectricalComponent }) {
   useFrame(() => { if (rodRef.current) rodRef.current.position.x = pos.current * f.strokeMm })
   const xBody = -118
   const axisY = -23 + 8 + MEC_DIMS.workpiece.heightMm / 2
+  const r = f.boreMm / 2 + 1.6
   return (
     <group>
       <group position={[xBody, axisY, 0]}>
         <RoundCylinderBody bore={f.boreMm} length={f.bodyMm} />
         <PushInFitting position={[6, f.boreMm / 2 + 3, 0]} d={4.5} />
         <PushInFitting position={[f.bodyMm - 6, f.boreMm / 2 + 3, 0]} d={4.5} />
+        <FlowRegulator position={[f.bodyMm - 6, f.boreMm / 2 + 3, 0]} />
+        <FlowRegulator position={[6, -(f.boreMm / 2 + 3), 0]} rotation={[0, 0, Math.PI]} />
+        {/* Etiqueta impressa CILINDRO 1 no dorso da camisa */}
+        <LabelPlate text={c.state.labelText ?? 'CILINDRO 1'} position={[f.bodyMm / 2, r + 0.15, 0]} rotation={[-Math.PI / 2, 0, 0]} w={62} h={11} />
       </group>
       {/* Pés de fixação em L aparafusados à base */}
       {[xBody + 8, xBody + f.bodyMm - 8].map((x, i) => (
@@ -431,8 +530,8 @@ function FeederCylinder({ c }: { c: ElectricalComponent }) {
           </mesh>
         </group>
       ))}
-      <ReedSensor position={[xBody + 26, axisY + 5, f.boreMm / 2 + 3.6]} active={pct <= 8} />
-      <ReedSensor position={[xBody + f.bodyMm - 26, axisY + 5, f.boreMm / 2 + 3.6]} active={pct >= 92} />
+      <ReedSensor position={[xBody + 26, axisY + 5, f.boreMm / 2 + 3.6]} active={pct <= 8} label={textOf(c.state.sensorRecLabel) || 'B8'} />
+      <ReedSensor position={[xBody + f.bodyMm - 26, axisY + 5, f.boreMm / 2 + 3.6]} active={pct >= 92} label={textOf(c.state.sensorAvaLabel) || 'B9'} />
       {/* Haste cromada + empurrador */}
       <group ref={rodRef} name="Cilindro1_Haste">
         <mesh position={[xBody + f.bodyMm + 5, axisY, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
@@ -514,6 +613,9 @@ function StampingPress({ c }: { c: ElectricalComponent }) {
       ))}
       <PushInFitting position={[0, cylTop - 5, cylR + 2]} rotation={[Math.PI / 2, 0, 0]} d={5} />
       <PushInFitting position={[0, cylBottom + 5, cylR + 2]} rotation={[Math.PI / 2, 0, 0]} d={5} />
+      <FlowRegulator position={[0, cylTop - 5, cylR + 2]} rotation={[Math.PI / 2, 0, 0]} />
+      {/* Etiqueta impressa CILINDRO 4 na face frontal da camisa */}
+      <LabelPlate text={textOf(c.state.labelText) || 'CILINDRO 4'} position={[0, (cylBottom + cylTop) / 2, cylR + 0.15]} w={66} h={12} />
       <ReedSensor position={[cylR + 2.4, cylTop - 22, 0]} rotation={[0, 0, Math.PI / 2]} active={pct <= 8} />
       <ReedSensor position={[cylR + 2.4, cylBottom + 22, 0]} rotation={[0, 0, Math.PI / 2]} active={pct >= 92} />
       {/* Haste (atravessa a travessa) + prato de estampagem Ø65 */}
@@ -524,6 +626,10 @@ function StampingPress({ c }: { c: ElectricalComponent }) {
         </mesh>
         <mesh position={[0, plateBottom + 11, 0]}>
           <cylinderGeometry args={[10, 10, 6, 6]} />
+          <Mat f={STEEL} name="Porca da haste" />
+        </mesh>
+        <mesh position={[0, plateBottom + 16, 0]}>
+          <cylinderGeometry args={[9.2, 9.2, 5, 6]} />
           <Mat f={STEEL} name="Porca da haste" />
         </mesh>
         <mesh position={[0, plateBottom + 4, 0]} castShadow>
@@ -595,10 +701,11 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
   const cup = bellowsCupGeometry(a.cupDiameterMm)
   const armLen = a.armLengthMm
   const armBack = 30
-  const armPlate = slottedPanelGeometry(armLen, 30, 8, [
-    { x: armLen * 0.1, y: 0, w: 58, h: 12 },
-    { x: armLen * 0.38, y: 0, w: 58, h: 12 },
-  ], 'arm-plate')
+  // Braço trapezoidal aligeirado (fiel às fotos ATEC): 2 rasgos oblongos e ponta arredondada.
+  const armPlate = taperedArmGeometry(armLen, 34, 20, 8, [
+    { x: -armLen * 0.25, w: 58, h: 12 },
+    { x: armLen * 0.04, w: 58, h: 12 },
+  ])
   const tipX = ARM_TIP_MM
   const STEM = ARM_CUP_STEM_MM
   return (
@@ -609,6 +716,11 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
         <Mat f={ALU_MILLED} name="Caixa do rolamento" />
       </mesh>
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => <CapScrew key={i} position={[sx * 38, y0 + 12, sz * 38]} d={4} />)}
+      {/* Correia dentada sob o disco: veio vertical do motorredutor aciona a torre */}
+      <mesh position={[0, housingTop + 4, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[26, 3.2, 10, 40]} />
+        <Mat f={RUBBER} name="Correia dentada da torre" />
+      </mesh>
       <group position={[0, y0 + 12, a.discDiameterMm / 2 + 14]}>
         <mesh position={[0, 14, 0]} castShadow>
           <boxGeometry args={[18, 28, 4]} />
@@ -652,7 +764,7 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
         </mesh>
         {/* Estrutura rígida aparafusada à torre: não inclina durante o curso Z. */}
         <group name="Braco_Estrutura_Metalica" position={[0, y0 + ARM_PIVOT_MM, 0]}>
-          {/* Braço aligeirado com dois rasgos oblongos */}
+          {/* Braço trapezoidal aligeirado com dois rasgos oblongos */}
           <mesh geometry={armPlate} position={[armLen / 2 - armBack, 6, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
             <Mat f={ALU_MILLED} name="Braço aligeirado" />
           </mesh>
@@ -667,6 +779,18 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
             <cylinderGeometry args={[2, 2, tipX - 14, 10]} />
             <Mat f={PU_TUBE} name="Tubo de poliuretano" />
           </mesh>
+          {/* Filtro em linha ZFC do circuito de vácuo (junto à base do braço) */}
+          <group position={[44, 13, 9]} rotation={[0, 0, Math.PI / 2]}>
+            <mesh castShadow>
+              <cylinderGeometry args={[6.2, 6.2, 26, 20]} />
+              <Mat f={PA_GREY} name="Corpo do filtro ZFC" />
+            </mesh>
+            <mesh position={[0, 15, 0]}>
+              <cylinderGeometry args={[5.4, 5.4, 5, 20]} />
+              <Mat f={BLUE_RING} name="Tampa do filtro ZFC" />
+            </mesh>
+          </group>
+          <LabelPlate text="ZFC" position={[44, 20.2, 9]} rotation={[0, 0, Math.PI / 2]} w={22} h={7} />
           {/* Corpo fixo do cilindro vertical na extremidade da estrutura metálica. */}
           <group name="Braco_Cilindro_Corpo" position={[tipX, ARM_CYLINDER_BASE_MM - ARM_PIVOT_MM, 0]}>
             <mesh position={[0, 5, 0]} castShadow>
@@ -685,6 +809,9 @@ function RotaryArm({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: M
             ))}
             {[-1, 1].map((s) => <CapScrew key={s} position={[s * 13, 8, 0]} d={3.2} />)}
             <PushInFitting position={[a.cylinderBoreMm / 2 + 4, a.cylinderBodyMm - 6, 0]} rotation={[0, 0, -Math.PI / 2]} d={3.6} />
+            <LabelPlate text={textOf(c.state.labelText) || 'CILINDRO 2'} position={[0, a.cylinderBodyMm / 2, a.cylinderBoreMm / 2 + 3.15]} w={40} h={9} />
+            <ReedSensor position={[0, 5, a.cylinderBoreMm / 2 + 3.3]} active={down <= 4} label={textOf(c.state.sensorRecLabel) || 'B6'} />
+            <ReedSensor position={[0, a.cylinderBodyMm - 5, a.cylinderBoreMm / 2 + 3.3]} active={down >= 96} label={textOf(c.state.sensorAvaLabel) || 'B7'} />
             {/* Só a haste e o conjunto ventosa/peça se deslocam verticalmente. */}
             <group ref={cylinderRodRef} name="Braco_Cilindro_Z">
             <PushInFitting position={[0, 0, 15]} rotation={[Math.PI / 2, 0, 0]} d={3.6} />
@@ -737,20 +864,28 @@ function DcGearmotor({ c }: { c: ElectricalComponent }) {
         <Mat f={ALU_MILLED} name="Flange do motor" />
       </mesh>
       {[[-18, -18], [18, -18], [-18, 18], [18, 18]].map(([x, z], i) => <CapScrew key={i} position={[38 + x, -26, z]} d={3.4} />)}
-      {/* Encoder incremental Ø30 com bucim de cabo */}
+      {/* Encoder incremental Ø38 RT3806-AB-400N com bucim de cabo */}
       <mesh position={[xEnc + 11, axisY, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[g.encoderDiameterMm / 2, g.encoderDiameterMm / 2, 22, 32]} />
         <Mat f={PA_BLACK} name="Corpo do encoder" />
+      </mesh>
+      {/* Manga impressa do encoder (RT3806) por cima do corpo */}
+      <mesh position={[xEnc + 11, axisY, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[g.encoderDiameterMm / 2 + 0.25, g.encoderDiameterMm / 2 + 0.25, 13, 32, 1, true]} />
+        <meshStandardMaterial name="Etiqueta do encoder" map={rotaryEncoderWrapTexture() ?? undefined} color="#ffffff" roughness={0.62} metalness={0.05} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[xEnc + 11, axisY + g.encoderDiameterMm / 2 + 3, 0]} castShadow>
         <cylinderGeometry args={[3.5, 4, 8, 12]} />
         <Mat f={PA_GREY} name="Bucim do cabo do encoder" />
       </mesh>
-      <mesh position={[xEnc - 1, axisY, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <circleGeometry args={[g.encoderDiameterMm / 2 - 2, 32]} />
-        <meshStandardMaterial name="Etiqueta do encoder" map={labelTexture('ENC A/B') ?? undefined} color="#ffffff" />
-      </mesh>
       <group ref={encRef} name="Encoder_Veio" position={[xEnc + 31, axisY, 0]}>
+        {/* Disco ótico de 4 pás do encoder (roda com o veio) */}
+        {[0, 1, 2, 3].map((i) => (
+          <mesh key={i} position={[0, 0, 0]} rotation={[0, 0, (i * Math.PI) / 2]}>
+            <boxGeometry args={[0.8, 16, 12]} />
+            <Mat f={ALU_DARK} name="Disco ótico de pás" />
+          </mesh>
+        ))}
         {/* Acoplamento flexível de hélice */}
         <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[8, 8, 18, 24]} />
@@ -763,15 +898,30 @@ function DcGearmotor({ c }: { c: ElectricalComponent }) {
           </mesh>
         ))}
       </group>
-      {/* Motor DC Ø36 × 95 (carcaça de aço) + redutor */}
+      {/* Motor DC Ø36 × 95 (carcaça de aço) + manga impressa Portescap */}
       <mesh position={[-66 + 47.5, axisY, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
         <cylinderGeometry args={[r, r, 95, 40]} />
         <meshStandardMaterial name="Carcaça do motor DC" color="#2a2f36" roughness={0.38} metalness={0.72} />
+      </mesh>
+      <mesh position={[-66 + 47.5, axisY, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[r + 0.22, r + 0.22, 44, 40, 1, true]} />
+        <meshStandardMaterial name="Etiqueta do motor Portescap" map={portescapMotorLabelTexture() ?? undefined} color="#ffffff" roughness={0.6} metalness={0.05} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[-66 + 3, axisY, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[r - 2, r, 6, 40]} />
         <Mat f={PA_BLACK} name="Tampa traseira do motor" />
       </mesh>
+      {/* Borne branco de 2 polos com parafusos de ligação */}
+      <mesh position={[-66 + 4, axisY + 4, 15]} castShadow>
+        <boxGeometry args={[16, 13, 7]} />
+        <Mat f={PA_LIGHT} name="Borne branco de 2 polos" />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[-66 + 4 + s * 4.2, axisY + 4.5, 18.7]}>
+          <boxGeometry args={[4.4, 4.4, 0.6]} />
+          <Mat f={BRASS} name="Parafuso do borne" />
+        </mesh>
+      ))}
       {[1, -1].map((s) => (
         <mesh key={s} position={[-66, axisY + s * 7, 8]}>
           <boxGeometry args={[4, 2.4, 1]} />
@@ -806,6 +956,7 @@ function DcGearmotor({ c }: { c: ElectricalComponent }) {
           <Mat f={STEEL} name="Pinhão cónico" />
         </mesh>
       </group>
+      <LabelPlate text={textOf(c.state.labelText) || 'M1'} position={[-66 + 47.5, axisY + r + 0.15, 0]} rotation={[-Math.PI / 2, 0, 0]} w={30} h={9} />
     </group>
   )
 }
@@ -834,17 +985,25 @@ function MicroSwitchRoller({ c, onPatch }: { c: ElectricalComponent; onPatch?: (
           <meshStandardMaterial color="#050607" roughness={0.9} />
         </mesh>
       ))}
-      {/* Terminais C / NA / NF */}
+      {/* Terminais C / NA / NF isolados a vermelho (Faston) */}
       {[-9, 0, 9].map((x) => (
-        <mesh key={x} position={[x, -13.5, 0]}>
-          <boxGeometry args={[3.2, 4, 0.6]} />
-          <Mat f={BRASS} name="Terminal de lingueta" />
-        </mesh>
+        <group key={x}>
+          <mesh position={[x, -13.5, 0]}>
+            <boxGeometry args={[3.2, 4, 0.6]} />
+            <Mat f={BRASS} name="Terminal de lingueta" />
+          </mesh>
+          <mesh position={[x, -15.8, 0]}>
+            <cylinderGeometry args={[1.8, 1.8, 4, 10]} />
+            <meshStandardMaterial name="Isolador do terminal" color="#b91c1c" roughness={0.55} />
+          </mesh>
+        </group>
       ))}
       <mesh position={[-7, 4.6, 0]}>
         <boxGeometry args={[3, 2, 3]} />
         <meshStandardMaterial name="Pino de acionamento" color="#b91c1c" roughness={0.5} />
       </mesh>
+      {/* Etiqueta FC 1 / FC 2 na face do corpo */}
+      <LabelPlate text={textOf(c.state.labelText)} position={[0, -4, 5.25]} w={24} h={7} />
       {/* Alavanca de aço com rolete */}
       <group ref={leverRef} position={[11.5, 4.2, 0]}>
         <mesh position={[-14, 0.4, 0]} castShadow>
@@ -868,10 +1027,7 @@ function VacuumEjector({ c }: { c: ElectricalComponent }) {
         <boxGeometry args={[52, 20, 14]} />
         <meshStandardMaterial name="Corpo do ejetor" color="#1f4f8f" roughness={0.36} metalness={0.55} />
       </mesh>
-      <mesh position={[-14, -3.2, 7.05]}>
-        <planeGeometry args={[22, 5.5]} />
-        <meshStandardMaterial name="Etiqueta do ejetor" map={labelTexture('VÁCUO', '#e2e8f0', '#0f172a') ?? undefined} color="#ffffff" />
-      </mesh>
+      <LabelPlate text={textOf(c.state.labelText) || 'C4A'} position={[-14, -3.2, 7.05]} w={24} h={6} bg="#e2e8f0" />
       {[-33, 5].map((x) => (
         <mesh key={x} position={[x, 2, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[1.8, 1.8, 14.4, 12]} />
@@ -907,6 +1063,595 @@ function DragChain({ c }: { c: ElectricalComponent }) {
   )
 }
 
+/* ============================================ gaveta, válvulas, sensores, HMI */
+
+/** Cilindro 3 da gaveta de estampagem: corpo horizontal em Z, haste com forquilha e reed B2/B1. */
+function DrawerCylinder({ c }: { c: ElectricalComponent }) {
+  const d = MEC_DIMS.drawerCylinder
+  const size = mechatronicsSizeMm('mecDrawerCylinder', c.state)!
+  const pct = Math.max(0, Math.min(100, Number(c.state.positionPct ?? 0)))
+  const pos = useSmoothed(pct / 100, 9)
+  const rodRef = useRef<THREE.Group>(null)
+  useFrame(() => { if (rodRef.current) rodRef.current.position.z = pos.current * d.strokeMm })
+  const r = d.boreMm / 2 + 1.6
+  const axisY = 4
+  const zRear = -size.z / 2 + 6
+  const bodyFront = zRear + d.bodyMm
+  const footY = (-size.y / 2 + axisY - r) / 2
+  const footH = axisY - r + size.y / 2
+  return (
+    <group rotation={c.state.facing === 'z-' ? [0, Math.PI, 0] : [0, 0, 0]}>
+      {/* Pés em L de fixação aparafusados à base */}
+      {[zRear + 22, zRear + 92].map((z, i) => (
+        <group key={i}>
+          <mesh position={[0, footY, z]} castShadow>
+            <boxGeometry args={[40, footH, 8]} />
+            <Mat f={STEEL} name="Pé de fixação" />
+          </mesh>
+          <mesh position={[0, -size.y / 2 + 1.4, z]} castShadow>
+            <boxGeometry args={[46, 2.8, 16]} />
+            <Mat f={STEEL} name="Pé de fixação" />
+          </mesh>
+          <CapScrew position={[-15, -size.y / 2 + 2.8, z]} d={3.2} />
+          <CapScrew position={[15, -size.y / 2 + 2.8, z]} d={3.2} />
+        </group>
+      ))}
+      {/* Corpo ISO 6432 ao longo de +Z (a tampa traseira fica do lado do pórtico) */}
+      <group position={[0, axisY, zRear]} rotation={[0, -Math.PI / 2, 0]}>
+        <RoundCylinderBody bore={d.boreMm} length={d.bodyMm} />
+        <PushInFitting position={[7, r + 3, 0]} d={4.4} />
+        <PushInFitting position={[d.bodyMm - 7, r + 3, 0]} d={4.4} />
+        <FlowRegulator position={[d.bodyMm - 7, -(r + 3), 0]} rotation={[0, 0, Math.PI]} />
+        <LabelPlate text={textOf(c.state.labelText) || 'CILINDRO 3'} position={[d.bodyMm / 2, r + 0.15, 0]} rotation={[-Math.PI / 2, 0, 0]} w={58} h={10} />
+        <ReedSensor position={[24, r + 3.4, 0]} active={pct <= 8} label={textOf(c.state.sensorRecLabel) || 'B2'} />
+        <ReedSensor position={[d.bodyMm - 24, r + 3.4, 0]} active={pct >= 92} label={textOf(c.state.sensorAvaLabel) || 'B1'} />
+      </group>
+      {/* Haste cromada + forquilha de arrasto da gaveta FC 2 */}
+      <group ref={rodRef} name="CILINDRO3_Haste">
+        <mesh position={[0, axisY, bodyFront + 6]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[4, 4, 18, 20]} />
+          <Mat f={CHROME} name="Haste cromada" />
+        </mesh>
+        <mesh position={[0, axisY, bodyFront + 17]} castShadow>
+          <boxGeometry args={[20, 16, 6]} />
+          <Mat f={ALU_MILLED} name="Forquilha de arrasto" />
+        </mesh>
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[s * 8, axisY, bodyFront + 23]} castShadow>
+            <boxGeometry args={[4, 16, 12]} />
+            <Mat f={ALU_MILLED} name="Forquilha de arrasto" />
+          </mesh>
+        ))}
+        <mesh position={[0, axisY, bodyFront + 23]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[2.4, 2.4, 20, 12]} />
+          <Mat f={STEEL} name="Perno da forquilha" />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
+/** Ilha de eletroválvulas Festo 2 × 5/2 (C1A / C2A) com bobinas 24 V DC e comandos manuais azuis. */
+function ValveIsland({ c }: { c: ElectricalComponent }) {
+  const v = MEC_DIMS.valveIsland
+  const halfL = v.lengthMm / 2
+  const halfD = v.depthMm / 2
+  const stationOn = (n: number) => Boolean(c.state[`station${n}On`])
+  return (
+    <group>
+      {/* Sub-base coletora em alumínio com rasgos T laterais */}
+      <mesh position={[0, -v.heightMm / 2 + 7, 0]} castShadow receiveShadow>
+        <boxGeometry args={[v.lengthMm, 14, v.depthMm]} />
+        <Mat f={ALU_MILLED} name="Sub-base coletora" />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (halfL - 2), -v.heightMm / 2 + 16, 0]} castShadow>
+          <boxGeometry args={[4, 22, v.depthMm - 4]} />
+          <Mat f={ALU_DARK} name="Tampa lateral da sub-base" />
+        </mesh>
+      ))}
+      {/* Duas eletroválvulas 5/2 com bobina, LED e comando manual azul */}
+      {[-1, 1].map((s, idx) => {
+        const on = stationOn(idx + 1)
+        const cx = s * 22
+        return (
+          <group key={s} position={[cx, 0, 0]}>
+            <mesh position={[0, 2.5, 0]} castShadow receiveShadow>
+              <boxGeometry args={[34, 21, v.depthMm - 12]} />
+              <Mat f={PA_GREY} name="Corpo da eletroválvula 5/2" />
+            </mesh>
+            <mesh position={[0, 2.5, halfD - 5.9]}>
+              <boxGeometry args={[30, 17, 0.6]} />
+              <Mat f={PA_BLACK} name="Face frontal da eletroválvula" />
+            </mesh>
+            {s > 0 && (
+              <mesh position={[17, 2.5, 0]} castShadow>
+                <boxGeometry args={[9, 18, v.depthMm - 16]} />
+                <Mat f={BLACK_OXIDE} name="Bobina 24 V DC" />
+              </mesh>
+            )}
+            {s < 0 && (
+              <mesh position={[-17, 2.5, 0]} castShadow>
+                <boxGeometry args={[9, 18, v.depthMm - 16]} />
+                <Mat f={BLACK_OXIDE} name="Bobina 24 V DC" />
+              </mesh>
+            )}
+            <StatusLed position={[s * 8, 8.5, halfD - 5.4]} on={on} color="#fbbf24" size={1.8} />
+            {/* Comando manual auxiliar (botão azul) */}
+            <mesh position={[-s * 7, 8.5, halfD - 5.2]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[2.6, 2.6, 3.2, 12]} />
+              <Mat f={BLUE_RING} name="Comando manual azul" />
+            </mesh>
+            {/* Racores Push-In das ligações A / B */}
+            <PushInFitting position={[-6, 13, -12]} d={4.4} />
+            <PushInFitting position={[6, 13, 12]} d={4.4} />
+            <LabelPlate text={`${idx + 1}`} position={[0, -3, halfD - 5.7]} w={8} h={6} />
+          </group>
+        )
+      })}
+      {/* Alimentação P à esquerda e retorno 0V à direita */}
+      <PushInFitting position={[-halfL + 0.5, -8, 0]} rotation={[0, 0, Math.PI / 2]} d={5} />
+      <mesh position={[halfL - 0.5, -8, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[3.4, 3.4, 4, 6]} />
+        <Mat f={BRASS} name="Conector de alimentação" />
+      </mesh>
+      {/* Etiqueta C1A / C2A na face frontal da sub-base */}
+      <LabelPlate text={textOf(c.state.islandTag) || 'C1A'} position={[0, -v.heightMm / 2 + 7, halfD + 0.15]} w={30} h={10} />
+    </group>
+  )
+}
+
+/** Fotocélula difusa M18 (S. OTICO · B11) em suporte L vertical de alumínio. */
+function OpticalSensor({ c }: { c: ElectricalComponent }) {
+  const s = MEC_DIMS.opticalSensor
+  const triggered = !!c.state.triggered
+  const halfY = s.heightMm / 2
+  const barrelY = 18
+  const lensX = 17
+  return (
+    <group rotation={c.state.facing === 'x-' ? [0, Math.PI, 0] : [0, 0, 0]}>
+      {/* Suporte L: prumo vertical + base aparafusada */}
+      <mesh position={[-26, -1.5, 0]} castShadow receiveShadow>
+        <boxGeometry args={[4, 63, 30]} />
+        <Mat f={ALU_MILLED} name="Suporte em L do sensor" />
+      </mesh>
+      <mesh position={[-17, -halfY + 2.5, 0]} castShadow>
+        <boxGeometry args={[46, 5, 30]} />
+        <Mat f={ALU_MILLED} name="Suporte em L do sensor" />
+      </mesh>
+      {[[-34, -11], [-34, 11], [-6, -11], [-6, 11]].map(([x, z], i) => (
+        <CapScrew key={i} position={[x, -halfY + 5, z]} d={3.2} />
+      ))}
+      {/* Corpo cilíndrico M18 roscado, eixo +X */}
+      <mesh position={[-4, barrelY, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[9, 9, 42, 32]} />
+        <Mat f={STEEL} name="Corpo M18 niquelado" />
+      </mesh>
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} position={[-20 + i * 0.9, barrelY, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <torusGeometry args={[9.05, 0.35, 6, 32]} />
+          <Mat f={ALU_DARK} name="Rosca M18" />
+        </mesh>
+      ))}
+      {/* Porcas sextavadas de fixação ao suporte */}
+      {[-16.6, -12.4].map((x) => (
+        <mesh key={x} position={[x, barrelY, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[11, 11, 3.2, 6]} />
+          <Mat f={STEEL} name="Porca sextavada M18" />
+        </mesh>
+      ))}
+      {/* Tampa traseira com bucim e cabo */}
+      <mesh position={[-27, barrelY, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[8.4, 8.4, 6, 24]} />
+        <Mat f={PA_BLACK} name="Tampa traseira do sensor" />
+      </mesh>
+      <mesh position={[-27, barrelY - 10, 0]}>
+        <cylinderGeometry args={[2.4, 2.4, 18, 10]} />
+        <Mat f={PA_BLACK} name="Cabo do sensor ótico" />
+      </mesh>
+      {/* Ótica frontal e anel de LED de comutação */}
+      <mesh position={[lensX, barrelY, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[8.8, 9, 3, 32]} />
+        <Mat f={PA_BLACK} name="Aro da ótica" />
+      </mesh>
+      <mesh position={[lensX + 1.8, barrelY, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <circleGeometry args={[6.4, 28]} />
+        <meshStandardMaterial
+          name="Lente do sensor ótico"
+          color={triggered ? '#fca5a5' : '#1e2430'}
+          emissive={triggered ? '#dc2626' : '#000000'}
+          emissiveIntensity={triggered ? 1.3 : 0}
+          roughness={0.12}
+          metalness={0.35}
+        />
+      </mesh>
+      <StatusLed position={[lensX - 6, barrelY + 8.2, 0]} on={triggered} color="#f97316" size={1.6} />
+      <LabelPlate text={textOf(c.state.labelText) || 'S. OTICO'} position={[-28.15, 24, 0]} rotation={[0, -Math.PI / 2, 0]} w={26} h={8.5} />
+    </group>
+  )
+}
+
+/** Sensor indutivo faceado M12 (S. INDUTIVO) embutido na zona de recolha. */
+function InductiveSensor({ c }: { c: ElectricalComponent }) {
+  const s = MEC_DIMS.inductiveSensor
+  const triggered = !!c.state.triggered
+  const topY = s.heightMm / 2
+  const bodyTop = topY - 6
+  return (
+    <group>
+      {/* Corpo roscado M12 com face de deteção no topo */}
+      <mesh position={[0, (bodyTop - topY) / 2, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[6, 6, bodyTop + topY, 28]} />
+        <Mat f={STEEL} name="Corpo M12 niquelado" />
+      </mesh>
+      {[0, 1, 2, 3].map((i) => (
+        <mesh key={i} position={[0, -topY + 5 + i * 6, 0]}>
+          <torusGeometry args={[6.05, 0.3, 6, 28]} />
+          <Mat f={ALU_DARK} name="Rosca M12" />
+        </mesh>
+      ))}
+      {/* Porcas de fixação faceadas */}
+      <mesh position={[0, topY - 13, 0]}>
+        <cylinderGeometry args={[8.4, 8.4, 3, 6]} />
+        <Mat f={STEEL} name="Porca sextavada M12" />
+      </mesh>
+      <mesh position={[0, topY - 9.4, 0]}>
+        <cylinderGeometry args={[8.4, 8.4, 3, 6]} />
+        <Mat f={STEEL} name="Porca sextavada M12" />
+      </mesh>
+      {/* Face de deteção em policarbonato e anel de LED */}
+      <mesh position={[0, topY - 3, 0]}>
+        <cylinderGeometry args={[6.2, 6.2, 6, 28]} />
+        <Mat f={PA_BLACK} name="Aro da face de deteção" />
+      </mesh>
+      <mesh position={[0, topY + 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[5.4, 24]} />
+        <meshStandardMaterial
+          name="Lente do sensor indutivo"
+          color={triggered ? '#fde68a' : '#cbd5e1'}
+          emissive={triggered ? '#f59e0b' : '#000000'}
+          emissiveIntensity={triggered ? 1.1 : 0}
+          roughness={0.3}
+          metalness={0.1}
+        />
+      </mesh>
+      <StatusLed position={[6.6, topY - 5, 0]} on={triggered} color="#22c55e" size={1.5} />
+      {/* Cabo de ligação no fundo do corpo */}
+      <mesh position={[0, -topY + 1, 0]}>
+        <cylinderGeometry args={[2.6, 3, 9, 10]} />
+        <Mat f={PA_BLACK} name="Bucim do cabo do sensor" />
+      </mesh>
+      <mesh position={[6, -topY + 1, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[2.2, 2.2, 14, 10]} />
+        <Mat f={PA_BLACK} name="Cabo do sensor indutivo" />
+      </mesh>
+    </group>
+  )
+}
+
+/** Consola Siemens SIMATIC HMI KTP700 Basic em bastidor de perfil 30 × 30 (ecrã, F1–F8, caixa ventilada). */
+function HmiKtp700({ c }: { c: ElectricalComponent }) {
+  const h = MEC_DIMS.hmiKtp700
+  const halfW = h.widthMm / 2
+  const halfY = h.heightMm / 2
+  const halfD = h.depthMm / 2
+  const powered = c.state.powered !== false && c.state.on !== false
+  const page = textOf(c.state.screenPage) || 'start-center'
+  const row = Number(c.state.selectedRow ?? 1)
+  const bezelW = h.bezelWidthMm
+  const bezelH = h.bezelHeightMm
+  const bezelY = 30
+  const bezelTop = bezelY + bezelH / 2
+  const bezelBottom = bezelY - bezelH / 2
+  const frontZ = halfD - 3
+  const screenW = 154
+  const screenH = (screenW * 9) / 16
+  const screenY = bezelTop - 26 - screenH / 2
+  const keyY = bezelBottom + 17
+  const keyW = 20
+  const keyGap = 4
+  const screen = ktp700ScreenTexture(powered, page, row)
+  const bezel = ktp700BezelTexture()
+  const backLabel = ktp700BackLabelTexture()
+  const keys = Array.from({ length: 8 }, (_, i) => i + 1)
+  const keyStart = -(((keyW + keyGap) * keys.length) - keyGap) / 2 + keyW / 2
+  return (
+    <group>
+      {/* Bastidor de perfil 30 × 30: 2 montantes + 3 travessas */}
+      {[-1, 1].map((s) => (
+        <mesh key={`post-${s}`} geometry={tSlotProfileGeometry(30, h.heightMm)} position={[s * (halfW - 15), 0, 0]} castShadow receiveShadow>
+          <Mat f={ALU} name="Perfil do bastidor HMI" />
+        </mesh>
+      ))}
+      {[128, -64, -128].map((y) => (
+        <mesh key={`beam-${y}`} geometry={tSlotProfileGeometry(30, halfW * 2 - 60)} position={[0, y, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+          <Mat f={ALU} name="Perfil do bastidor HMI" />
+        </mesh>
+      ))}
+      {[-1, 1].map((s) => (
+        <AngleBracket key={`brk-${s}`} size={24} position={[s * (halfW - 30), -halfY, 0]} rotationY={s > 0 ? Math.PI : 0} />
+      ))}
+      {/* Caixa traseira ventilada com etiqueta Siemens e ligações 24 V / PROFINET */}
+      <mesh position={[0, bezelY, -13.5]} castShadow receiveShadow>
+        <boxGeometry args={[200, 150, 59]} />
+        <Mat f={PA_GREY} name="Caixa traseira da consola" />
+      </mesh>
+      {Array.from({ length: 9 }, (_, i) => (
+        <mesh key={`vent-${i}`} position={[-64 + i * 16, bezelY + 58, -halfD + 1]}>
+          <boxGeometry args={[3.4, 18, 3]} />
+          <Mat f={PA_BLACK} name="Grelha de ventilação" />
+        </mesh>
+      ))}
+      <mesh position={[24, bezelY - 30, -halfD + 0.1]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[86, 43]} />
+        <meshStandardMaterial name="Etiqueta traseira Siemens" map={backLabel ?? undefined} color="#ffffff" roughness={0.7} metalness={0} />
+      </mesh>
+      {/* Ficha 24 V DC laranja + cabo PROFINET vermelho */}
+      <mesh position={[52, -52, -18]} castShadow>
+        <boxGeometry args={[17, 11, 15]} />
+        <meshStandardMaterial name="Ficha 24 V da consola" color="#ea580c" roughness={0.5} metalness={0.05} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[52 + s * 4.4, -52, -10.2]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[1.6, 1.6, 3, 8]} />
+          <Mat f={BRASS} name="Terminal da ficha 24 V" />
+        </mesh>
+      ))}
+      <mesh position={[52, -60, -14]} rotation={[0.35, 0, 0]}>
+        <cylinderGeometry args={[2.6, 2.6, 26, 10]} />
+        <meshStandardMaterial name="Cabo PROFINET" color="#b91c1c" roughness={0.6} metalness={0.02} />
+      </mesh>
+      <mesh position={[70, -52, -34]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[4.4, 4.4, 10, 14]} />
+        <Mat f={PA_GREY} name="Conector PROFINET" />
+      </mesh>
+      {/* Painel frontal: moldura impressa, ecrã LCD e teclas F1–F8 */}
+      <mesh position={[0, bezelY, frontZ - 12]} castShadow receiveShadow>
+        <boxGeometry args={[bezelW, bezelH, 24]} />
+        <Mat f={PA_GREY} name="Corpo do painel operador" />
+      </mesh>
+      <mesh position={[0, bezelY, frontZ + 0.1]}>
+        <planeGeometry args={[bezelW, bezelH]} />
+        <meshStandardMaterial name="Moldura do painel SIMATIC" map={bezel ?? undefined} color="#ffffff" roughness={0.62} metalness={0.05} />
+      </mesh>
+      <mesh position={[0, screenY, frontZ + 0.2]}>
+        <planeGeometry args={[screenW, screenH]} />
+        <meshStandardMaterial
+          name="Ecrã do painel SIMATIC (LCD)"
+          map={screen ?? undefined}
+          emissiveMap={powered ? screen ?? undefined : undefined}
+          emissive={powered ? '#ffffff' : '#000000'}
+          emissiveIntensity={powered ? 0.28 : 0}
+          color="#ffffff"
+          roughness={0.16}
+          metalness={0.05}
+        />
+      </mesh>
+      {keys.map((n, i) => {
+        const x = keyStart + i * (keyW + keyGap)
+        return (
+          <group key={n} position={[x, keyY, frontZ + 1.3]}>
+            <mesh castShadow>
+              <boxGeometry args={[keyW, 14, 2.6]} />
+              <Mat f={PA_LIGHT} name="Tecla de função" />
+            </mesh>
+            <LabelPlate text={`F${n}`} position={[0, 0, 1.35]} w={keyW - 2} h={11} bg="#e2e8f0" />
+          </group>
+        )
+      })}
+    </group>
+  )
+}
+
+/** Cabeça de cada operador Ø22 do pupitre de comando. */
+function OperatorHead({ kind, active }: { kind: string; active: boolean }) {
+  if (kind === 'emerg') {
+    return (
+      <group>
+        <mesh position={[0, 0, 1.6]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[15, 15, 3.2, 28]} />
+          <meshStandardMaterial name="Colarinho amarelo da emergência" color="#facc15" roughness={0.45} metalness={0.05} />
+        </mesh>
+        <mesh position={[0, 0, 7]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[12, 13.5, 7, 28]} />
+          <meshStandardMaterial name="Cogumelo de emergência" color={active ? '#7f1d1d' : '#dc2626'} roughness={0.42} metalness={0.05} />
+        </mesh>
+        <mesh position={[0, 0, 10.6]}>
+          <sphereGeometry args={[12, 26, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial name="Cogumelo de emergência" color={active ? '#7f1d1d' : '#dc2626'} roughness={0.42} metalness={0.05} />
+        </mesh>
+      </group>
+    )
+  }
+  if (kind === 'selector') {
+    return (
+      <group>
+        <mesh position={[0, 0, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[13, 13, 2.8, 26]} />
+          <Mat f={PA_BLACK} name="Colarinho do seletor" />
+        </mesh>
+        <mesh position={[0, 0, 7]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[9.6, 10.4, 10, 26]} />
+          <meshStandardMaterial name="Manípulo do seletor" color={active ? '#3f3f46' : '#18181b'} roughness={0.5} metalness={0.06} />
+        </mesh>
+        <mesh position={[0, 0, 12.3]} rotation={[0, 0, active ? Math.PI / 4 : -Math.PI / 4]}>
+          <boxGeometry args={[2, 12, 1.2]} />
+          <meshStandardMaterial name="Marca do seletor" color="#f8fafc" roughness={0.6} />
+        </mesh>
+      </group>
+    )
+  }
+  const color = kind === 'start' ? '#16a34a' : kind === 'stop' ? '#dc2626' : kind === 'reset' ? '#2563eb' : '#6b7280'
+  return (
+    <group>
+      <mesh position={[0, 0, 1.4]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[13, 13, 2.8, 26]} />
+        <Mat f={PA_BLACK} name="Colarinho do botão" />
+      </mesh>
+      <mesh position={[0, 0, active ? 4 : 6]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[11, 11.6, active ? 5 : 8, 26]} />
+        <meshStandardMaterial name="Botão de comando" color={color} roughness={0.44} metalness={0.04} />
+      </mesh>
+    </group>
+  )
+}
+
+/** Pupitre de 6 operadores Ø22 (EMERG · MAN/AUTO · REARME · CICLO · STOP · START). */
+function OperatorBox({ c, onPatch }: { c: ElectricalComponent; onPatch?: (patch: MechatronicsPatch) => void }) {
+  const o = MEC_DIMS.operatorBox
+  const halfD = o.depthMm / 2
+  const frontZ = halfD - 14
+  const ops = [
+    { kind: 'emerg', x: -65, label: 'EMERG', active: !!c.state.emergLatched, patch: { emergLatched: !c.state.emergLatched } },
+    { kind: 'selector', x: -39, label: 'MAN/AUTO', active: c.state.autoMode !== false, patch: { autoMode: c.state.autoMode === false } },
+    { kind: 'reset', x: -13, label: 'REARME', active: !!c.state.resetPressed, patch: { resetPressed: !c.state.resetPressed } },
+    { kind: 'selector', x: 13, label: 'CICLO', active: !!c.state.dirRight, patch: { dirRight: !c.state.dirRight } },
+    { kind: 'stop', x: 39, label: 'STOP', active: !!c.state.stopPressed, patch: { stopPressed: !c.state.stopPressed } },
+    { kind: 'start', x: 65, label: 'START', active: !!c.state.startPressed, patch: { startPressed: !c.state.startPressed } },
+  ]
+  return (
+    <group>
+      {/* Caixa cinzenta com tampa frontal e prensa-cabos traseiro */}
+      <mesh position={[0, 0, -10]} castShadow receiveShadow>
+        <boxGeometry args={[o.widthMm, o.heightMm, 94]} />
+        <meshStandardMaterial name="Caixa do pupitre" color="#9aa0a6" roughness={0.55} metalness={0.06} />
+      </mesh>
+      <mesh position={[0, 0, frontZ + 3]} castShadow>
+        <boxGeometry args={[o.widthMm, o.heightMm, 6]} />
+        <meshStandardMaterial name="Tampa frontal do pupitre" color="#b3b8bd" roughness={0.5} metalness={0.05} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (o.widthMm / 2 - 6), -o.heightMm / 2 + 2, -10]}>
+          <cylinderGeometry args={[3.4, 3.4, 5, 14]} />
+          <Mat f={PA_BLACK} name="Prensa-cabos do pupitre" />
+        </mesh>
+      ))}
+      {ops.map((op) => (
+        <group
+          key={op.label}
+          position={[op.x, 2, frontZ + 6]}
+          onClick={(e) => { if (!onPatch) return; e.stopPropagation(); onPatch(op.patch) }}
+        >
+          <OperatorHead kind={op.kind} active={op.active} />
+        </group>
+      ))}
+      {ops.map((op) => (
+        <LabelPlate key={`lbl-${op.label}`} text={op.label} position={[op.x, -20, frontZ + 6.15]} w={25} h={7.5} bg="#e2e8f0" />
+      ))}
+    </group>
+  )
+}
+
+/** Coluna luminosa de 3 níveis (verde / amarelo / vermelho) sobre tubo e base quadrada fundida. */
+function SignalTower({ c }: { c: ElectricalComponent }) {
+  const t = MEC_DIMS.signalTower
+  const halfY = t.heightMm / 2
+  const baseTop = -halfY + 13
+  const poleTop = -9
+  const poleLen = poleTop - baseTop
+  const tierH = 48
+  const lensR = t.lensDiameterMm / 2
+  const tiers = [
+    { key: 'green', on: !!c.state.green, color: '#22c55e', dark: '#14532d', name: 'Lente verde da torre', y: poleTop + tierH / 2 },
+    { key: 'yellow', on: !!c.state.yellow, color: '#facc15', dark: '#78350f', name: 'Lente amarela da torre', y: poleTop + tierH * 1.5 },
+    { key: 'red', on: !!c.state.red, color: '#ef4444', dark: '#7f1d1d', name: 'Lente vermelha da torre', y: poleTop + tierH * 2.5 },
+  ]
+  const lensTop = poleTop + tierH * 3
+  return (
+    <group>
+      {/* Base quadrada fundida com parafusos e bucim de cabo */}
+      <mesh position={[0, -halfY + 6.5, 0]} castShadow receiveShadow>
+        <boxGeometry args={[t.baseMm, 13, t.baseMm]} />
+        <Mat f={PA_BLACK} name="Base da coluna luminosa" />
+      </mesh>
+      <mesh position={[0, baseTop - 1, 0]}>
+        <cylinderGeometry args={[17, 19, 5, 24]} />
+        <Mat f={PA_GREY} name="Aro da base da coluna" />
+      </mesh>
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+        <CapScrew key={i} position={[sx * (t.baseMm / 2 - 7), -halfY + 13, sz * (t.baseMm / 2 - 7)]} d={3.4} />
+      ))}
+      <mesh position={[0, -halfY + 1, t.baseMm / 2 - 4]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[2.4, 2.4, 16, 10]} />
+        <Mat f={PA_BLACK} name="Cabo da coluna luminosa" />
+      </mesh>
+      {/* Tubo de alumínio de suporte */}
+      <mesh position={[0, baseTop + poleLen / 2, 0]} castShadow>
+        <cylinderGeometry args={[8, 8, poleLen, 24]} />
+        <Mat f={ALU} name="Tubo da coluna luminosa" />
+      </mesh>
+      {/* Três níveis óticos empilhados (verde, amarelo, vermelho) */}
+      {tiers.map((tier, i) => (
+        <group key={tier.key}>
+          <mesh position={[0, tier.y, 0]} castShadow>
+            <cylinderGeometry args={[lensR, lensR, tierH - 2, 32]} />
+            <meshStandardMaterial
+              name={tier.name}
+              color={tier.on ? tier.color : tier.dark}
+              emissive={tier.on ? tier.color : '#000000'}
+              emissiveIntensity={tier.on ? 1.35 : 0}
+              roughness={0.22}
+              metalness={0.05}
+              transparent={tier.on}
+              opacity={tier.on ? 0.94 : 1}
+            />
+          </mesh>
+          {[0, 1, 2].map((r) => (
+            <mesh key={r} position={[0, tier.y - (tierH - 2) / 2 + 8 + r * 14, 0]}>
+              <torusGeometry args={[lensR + 0.3, 0.7, 6, 32]} />
+              <Mat f={PA_BLACK} name="Nervura da lente" />
+            </mesh>
+          ))}
+          {i < tiers.length - 1 && (
+            <mesh position={[0, tier.y + tierH / 2, 0]}>
+              <cylinderGeometry args={[lensR * 0.62, lensR * 0.62, 2, 24]} />
+              <Mat f={PA_GREY} name="Separador dos níveis" />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {/* Tampa superior preta abaulada */}
+      <mesh position={[0, lensTop + 2.5, 0]} castShadow>
+        <cylinderGeometry args={[lensR + 1, lensR + 1, 5, 32]} />
+        <Mat f={PA_BLACK} name="Tampa da coluna luminosa" />
+      </mesh>
+      <mesh position={[0, lensTop + 5, 0]}>
+        <sphereGeometry args={[lensR + 0.6, 26, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <Mat f={PA_BLACK} name="Tampa da coluna luminosa" />
+      </mesh>
+    </group>
+  )
+}
+
+/** Calha técnica ranhurada em PVC cinzento, com dentes e tampa opcional. */
+function BenchDuct({ c }: { c: ElectricalComponent }) {
+  const d = benchDuctDimsOf(c.state)
+  const geo = slottedDuctGeometry(d.lengthMm, d.widthMm, d.heightMm, d.coverOn)
+  const plaque = c.state.plaque === 'atec' ? atecProjectSheetTexture() : null
+  return (
+    <group rotation={d.alongZ ? [0, Math.PI / 2, 0] : [0, 0, 0]}>
+      <mesh geometry={geo} castShadow receiveShadow>
+        <Mat f={PVC_DUCT} name="PVC cinzento RAL 7030" />
+      </mesh>
+      {/* Boca de entrada de cabos nas pontas */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (d.lengthMm / 2 - 0.5), 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[d.heightMm * 0.3, d.heightMm * 0.34, 1.4, 16]} />
+          <Mat f={PA_BLACK} name="Tampa de topo da calha" />
+        </mesh>
+      ))}
+      {/* Folha do projeto ATEC pregada na face exterior da calha frontal */}
+      {plaque && (
+        <mesh position={[-40, 0, d.widthMm / 2 + 0.2]}>
+          <planeGeometry args={[68, 34]} />
+          <meshStandardMaterial name="Folha do projeto ATEC" map={plaque} color="#ffffff" roughness={0.85} metalness={0} />
+        </mesh>
+      )}
+      <LabelPlate text={c.state.labelText} position={[d.lengthMm / 2 - 90, 4, d.widthMm / 2 + 0.2]} w={60} h={11} />
+    </group>
+  )
+}
+
 /* ================================================================ despacho */
 
 export function Mechatronics3D({ c, position, onPatch }: { c: ElectricalComponent; position: [number, number, number]; onPatch?: (patch: MechatronicsPatch) => void }) {
@@ -920,10 +1665,18 @@ export function Mechatronics3D({ c, position, onPatch }: { c: ElectricalComponen
     case 'mecStampingTable': body = <StampingTable c={c} />; break
     case 'mecStampingPress': body = <StampingPress c={c} />; break
     case 'mecFeederCylinder': body = <FeederCylinder c={c} />; break
+    case 'mecDrawerCylinder': body = <DrawerCylinder c={c} />; break
     case 'mecRotaryArm': body = <RotaryArm c={c} onPatch={onPatch} />; break
     case 'mecDcGearmotor': body = <DcGearmotor c={c} />; break
     case 'mecMicroSwitchRoller': body = <MicroSwitchRoller c={c} onPatch={onPatch} />; break
     case 'mecVacuumEjector': body = <VacuumEjector c={c} />; break
+    case 'mecValveIsland': body = <ValveIsland c={c} />; break
+    case 'mecOpticalSensor': body = <OpticalSensor c={c} />; break
+    case 'mecInductiveSensor': body = <InductiveSensor c={c} />; break
+    case 'mecHmiKtp700': body = <HmiKtp700 c={c} />; break
+    case 'mecOperatorBox': body = <OperatorBox c={c} onPatch={onPatch} />; break
+    case 'mecSignalTower': body = <SignalTower c={c} />; break
+    case 'mecBenchDuct': body = <BenchDuct c={c} />; break
     case 'mecDragChain': body = <DragChain c={c} />; break
     case 'mecSupportBlock': body = <SupportBlock c={c} />; break
     default: return null
