@@ -46,9 +46,4 @@ export const hiddenCatalogTypes = new Set<string>([
   'limitSwitchLongRoller',
   'buttonStart22',
   'buttonStop22',
-  // Botão NA/NF e seletores genéricos: substituídos pelas botoeiras KEOLEA KL-XB2 e pelo seletor Schneider XA2.
-  'buttonNO',
-  'buttonNC',
-  'selector2',
-  'selector3',
 ])

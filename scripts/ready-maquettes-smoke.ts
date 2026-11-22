@@ -76,13 +76,14 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 41 peças (26 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 41 peças (27 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
   assert.equal(parts.length, 41, '41 peças sobre a base')
   assert.equal(full.componentCount, 42, '42 componentes no total')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
-  assert.equal(full.types.length, 26, 'os tipos do catálogo representados na bancada (base incluída)')
+  // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
+  assert.equal(full.types.length, 27, 'os tipos do catálogo representados na bancada (base incluída)')
   assert.ok(!full.types.includes('mecWorkpiece' as any), 'o tarugo não é colocado sobre a base')
   assert.equal(MECHATRONICS_TYPES.length, 22, 'catálogo da maquete com 22 tipos')
   const keys = new Set(parts.map((p) => p.key))
@@ -171,11 +172,11 @@ check('6. Fotografia: modelos do catálogo, HMI exterior, operadores independent
   assert.ok(!components.some(c => c.type === 'mecSignalTower'), 'sem torre genérica na montagem')
   const hmi = components.find(c => c.type === 'mecHmiKtp700')!
   assert.equal(hmi.viewOrientation?.y, 90)
-  const ops = components.filter(c => ['buttonNO', 'buttonNC', 'selectorSchneiderXa2ed33', 'emergencyButton'].includes(c.type))
+  const ops = components.filter(c => ['pushButtonXb2No', 'pushButtonXb2Nc', 'pushButtonXb2Blue', 'selectorSchneiderXa2ed33', 'emergencyButton'].includes(c.type))
   assert.equal(ops.length, 6)
   assert.equal(new Set(ops.map(c => c.panel3DPosition!.y)).size, 2, 'duas filas')
   assert.ok(ops.every(c => !isPanelBound(c)), 'operadores montados na máquina')
-  assert.ok(isPanelBound(createComponent('buttonNO', undefined, undefined, 0, 0, 0)), 'botão solto mantém o comportamento normal do painel')
+  assert.ok(isPanelBound(createComponent('pushButtonXb2No', undefined, undefined, 0, 0, 0)), 'botão solto mantém o comportamento normal do painel')
   const cabinet = components.find(c => c.type === 'panelEnclosure')!
   assert.ok(cabinet.panel3DPosition!.y < 0)
   assert.equal(cabinet.state.doorOpen, false)

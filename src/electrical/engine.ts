@@ -165,9 +165,6 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     }
 
     // ---- comando: contato mecânico ----
-    case 'buttonNO':
-    case 'selector2':
-    case 'selector3':
     case 'keySwitch':
     case 'footSwitch':
     case 'limitSwitch': {
@@ -177,7 +174,6 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       }
       break
     }
-    case 'buttonNC':
     case 'emergencyButton':
     case 'emergencyButtonKeyP20ACR': {
       if (!c.state.pressed) pair(la('21'), la('22'))

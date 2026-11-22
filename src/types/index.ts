@@ -55,13 +55,9 @@ export type ComponentType =
   | 'surgeProtector'
   | 'thermalRelay'
   // --- Comando ----------------------------------------------------------
-  | 'buttonNO'
-  | 'buttonNC'
   | 'dualPushButtonNpb22D11'
   | 'emergencyButton'
   | 'emergencyButtonKeyP20ACR'
-  | 'selector2'
-  | 'selector3'
   | 'keySwitch'
   | 'footSwitch'
   | 'limitSwitch'

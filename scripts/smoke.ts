@@ -1168,7 +1168,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   {
     const covers = JSON.parse(fs.readFileSync('public/component-covers/manifest.json', 'utf8')) as { types: Record<string, string>; front: Record<string, string> }
     // Capas WebP vêm do turntable sobre GLB/modelo de catálogo — tipos só procedurais no Panel3D
-    // (ex.: buttonNO) contam como visual mas não exigem WebP pré-gerada.
+    // (ex.: keySwitch) contam como visual mas não exigem WebP pré-gerada.
     const visual = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(
       (type) => hasComponent3DVisual(type) && !!getComponentModelSpec(type),
     )
@@ -1177,7 +1177,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     const missingFront = visual.filter((type) => !covers.front?.[type] || !fs.existsSync(`public/component-covers/${covers.front[type]}`))
     check('vistas frontais WebP pré-geradas para o Esquema 2D de todos os componentes com 3D', missingFront.length === 0, missingFront.length ? `sem vista frontal: ${missingFront.join(', ')}` : '')
   }
-  check('componentes sem GLB permanecem bloqueados', ['contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
+  check('componentes sem GLB permanecem bloqueados', ['contactor', 'keySwitch', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
   // Os Easy9 foram gerados dos STEP já de pé (topo em +Y, frente em +Z): sem rotação nem espelho.
   check('disjuntores Schneider EZ9 1P/2P/3P e interruptores Easy9 Switch 1P/2P/4P ficam de pé, sem rotação nem espelho, em calha DIN', (['breaker1p', 'breaker2p', 'breaker3p', 'switchSchneiderEz9s1p', 'switchSchneiderEz9s2p', 'switchSchneiderEz9s4p'] as const).every((type) => {

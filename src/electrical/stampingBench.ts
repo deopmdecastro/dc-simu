@@ -124,16 +124,15 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
   const operators: Array<[string, ComponentType, number, number, string, string?]> = [
     ['emergency', 'emergencyButton', -50, 26, 'EMERGÊNCIA'],
     ['mode', 'selectorSchneiderXa2ed33', 0, 26, 'MAN / AUTO'],
-    ['reset', 'buttonNO', 50, 26, 'REARME', '#2563eb'],
+    ['reset', 'pushButtonXb2Blue', 50, 26, 'REARME'],
     ['cycle', 'selectorSchneiderXa2ed33', -50, -26, 'CICLO'],
-    ['stop', 'buttonNC', 0, -26, 'STOP'],
-    ['start', 'buttonNO', 50, -26, 'START'],
+    ['stop', 'pushButtonXb2Nc', 0, -26, 'STOP'],
+    ['start', 'pushButtonXb2No', 50, -26, 'START'],
   ]
   for (const [key, type, x, y, label, color] of operators) list.push({
     key: `operator-${key}`, type, x: box.x + x, y: box.y + y,
-    z: box.z + opBoxSize.z / 2 - ((type === 'buttonNO' || type === 'buttonNC') ? 6 : 25),
+    z: box.z + opBoxSize.z / 2 - 25,
     state: { labelText: label, hostLocation: 'machine', ...(color ? { color } : {}) },
-    ...((type === 'buttonNO' || type === 'buttonNC') ? { orientation: { x: 90, y: 0, z: 0 } } : {}),
   })
 
   // Quadro vazio da biblioteca, preso a duas travessas da estrutura. Dimensões de montagem

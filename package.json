@@ -209,6 +209,7 @@
     "test:bench-legs-ui": "node scripts/bench-legs-ui-smoke.mjs",
     "test:library-header-ui": "node scripts/library-header-ui-smoke.mjs",
     "test:library-trees-ui": "node scripts/library-trees-ui-smoke.mjs",
+    "test:removed-controls": "tsx scripts/removed-controls-migration-smoke.ts",
     "test:tia-bridge": "tsx scripts/tia-bridge-smoke.ts",
     "test:tia-e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-TiaE2E.ps1",
     "test:sim-run-manobra": "tsx scripts/sim-run-manobra-smoke.ts",

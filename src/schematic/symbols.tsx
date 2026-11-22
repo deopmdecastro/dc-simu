@@ -334,8 +334,6 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           {label(6, 12, c.ref, 10, '#93c5fd')}
         </g>
       }
-      case 'buttonNO':
-      case 'buttonNC':
       case 'pushButtonXb2No':
       case 'pushButtonXb2Nc':
       case 'pushButtonXb2Black':
@@ -344,15 +342,13 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'pushButtonXb2White':
       case 'emergencyButton':
       case 'emergencyButtonKeyP20ACR':
-      case 'selector2':
-      case 'selector3':
       case 'keySwitch':
       case 'limitSwitch':
       case 'footSwitch': {
         const pressed = c.state.pressed
-        const isNC = c.type === 'buttonNC' || c.type === 'pushButtonXb2Nc' || c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
+        const isNC = c.type === 'pushButtonXb2Nc' || c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
         const isEmg = c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
-        const col = c.type === 'buttonNO' || c.type === 'pushButtonXb2No' ? '#22c55e'
+        const col = c.type === 'pushButtonXb2No' ? '#22c55e'
           : c.type === 'pushButtonXb2Black' ? '#1f2937'
           : c.type === 'pushButtonXb2Yellow' ? '#eab308'
           : c.type === 'pushButtonXb2Blue' ? '#2563eb'
@@ -368,7 +364,6 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
             {/* contato desenhado: NA abre/fecha, NF o contrário */}
             <line x1={w / 2 - 12} y1={cy + (isNC === pressed ? 10 : -2)} x2={w / 2 + 12} y2={cy + 2} stroke={col} strokeWidth={2.5} />
             {label(4, 12, c.ref, 10, '#93c5fd')}
-            {c.type === 'selector3' && label(w - 12, 12, `P${c.state.position ?? 0}`, 9, '#94a3b8')}
           </g>
         )
       }

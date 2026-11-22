@@ -69,8 +69,6 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   thermalRelay: { primary: 'thermal3', related: ['thermalNC', 'thermalNO'], iec60617: '60617-7 / 07-15-01', refLetter: 'F' },
 
   // --- Comando ------------------------------------------------------------
-  buttonNO: { primary: 'pushNO', iec60617: '60617-7 / 07-07-02', refLetter: 'S' },
-  buttonNC: { primary: 'pushNC', iec60617: '60617-7 / 07-07-03', refLetter: 'S' },
   pushButtonXb2No: { primary: 'pushNO', iec60617: '60617-7 / 07-07-02', refLetter: 'S', note: 'Botoeira KEOLEA KL-XB2 verde NA 3-4' },
   pushButtonXb2Nc: { primary: 'pushNC', iec60617: '60617-7 / 07-07-03', refLetter: 'S', note: 'Botoeira KEOLEA KL-XB2 vermelha NF 1-2' },
   pushButtonXb2Black: { primary: 'pushNO', iec60617: '60617-7 / 07-07-02', refLetter: 'S', note: 'Botoeira KEOLEA KL-XB2 preta NA 3-4' },
@@ -80,8 +78,6 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   dualPushButtonNpb22D11: { primary: 'pushNO', related: ['pushNC'], iec60617: '60617-7', refLetter: 'S', note: 'Botoeira dupla START/STOP' },
   emergencyButton: { primary: 'emergency', iec60617: '60617-7 / 07-07-07', refLetter: 'S' },
   emergencyButtonKeyP20ACR: { primary: 'emergency', iec60617: '60617-7 / 07-07-07', refLetter: 'S' },
-  selector2: { primary: 'selector', iec60617: '60617-7 / 07-07-06', refLetter: 'S' },
-  selector3: { primary: 'selector', iec60617: '60617-7 / 07-07-06', refLetter: 'S' },
   keySwitch: { primary: 'selector', iec60617: '60617-7', refLetter: 'S', note: 'Chave com segredo — seletor com chave' },
   footSwitch: { primary: 'pushNO', iec60617: '60617-7', refLetter: 'S', note: 'Pedal de comando' },
   limitSwitch: { primary: 'limitNO', iec60617: '60617-7 / 07-08-01', refLetter: 'S' },

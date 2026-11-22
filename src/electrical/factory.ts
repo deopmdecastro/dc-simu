@@ -471,16 +471,6 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   },
 
   // ---------------- Comando ----------------
-  buttonNO: {
-    category: 'command', paletteName: 'Botão NA (verde)', group: 'Comando', tag: 'S', w: 70, h: 80,
-    terminals: [T('13', 'aux-no', 0.15, 0.5), T('14', 'aux-no', 0.85, 0.5)],
-    defaultState: { pressed: false, momentary: true, color: '#22c55e' },
-  },
-  buttonNC: {
-    category: 'command', paletteName: 'Botão NF (vermelho)', group: 'Comando', tag: 'S', w: 70, h: 80,
-    terminals: [T('21', 'aux-nc', 0.15, 0.5), T('22', 'aux-nc', 0.85, 0.5)],
-    defaultState: { pressed: false, momentary: true, color: '#ef4444' },
-  },
   dualPushButtonNpb22D11: {
     category: 'command', paletteName: 'Botoeira dupla NHD NPB22-D11 · START/STOP', group: 'Comando', tag: 'S', w: 105, h: 100,
     terminals: [
@@ -503,19 +493,6 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('22', 'aux-nc', 0.85, 0.5, { terminalType: 'screw' }),
     ],
     defaultState: { pressed: false, latched: true, resetMethod: 'chave', color: '#dc2626', mountingMm: 22, ithA: 10 },
-  },
-  selector2: {
-    category: 'command', paletteName: 'Seletor 2 posições', group: 'Comando', tag: 'S', w: 80, h: 80,
-    terminals: [T('13', 'aux-no', 0.15, 0.5), T('14', 'aux-no', 0.85, 0.5)],
-    defaultState: { pressed: false, position: 0, maintain: true },
-  },
-  selector3: {
-    category: 'command', paletteName: 'Seletor 3 posições', group: 'Comando', tag: 'S', w: 90, h: 80,
-    terminals: [
-      T('13', 'aux-no', 0.15, 0.3), T('14', 'aux-no', 0.85, 0.3),
-      T('23', 'aux-no', 0.15, 0.7), T('24', 'aux-no', 0.85, 0.7),
-    ],
-    defaultState: { pressed: false, position: 0, maintain: true },
   },
   keySwitch: {
     category: 'command', paletteName: 'Chave com segredo', group: 'Comando', tag: 'S', w: 80, h: 80,
@@ -2882,6 +2859,44 @@ export function upgradeLsXbmFront(c: ElectricalComponent): ElectricalComponent {
     terminals: c.terminals.map((terminal) => {
       const at = terminal.pinned ? null : lsXbmTerminalLayout(terminal.label)
       return at ? { ...terminal, x: at.x, y: at.y } : terminal
+    }),
+  }
+}
+
+/**
+ * Tipos genéricos apagados (sem capa/3D): Botão NA/NF e Seletor 2/3 posições. Projetos gravados com eles
+ * abrem com o aparelho real equivalente; os bornes correspondentes mantêm o id, por isso os cabos continuam
+ * ligados. Seletor: «acionado» passa à posição esquerda do XA2ED33 (fecha 13–14); em repouso, ao centro.
+ */
+const REMOVED_CONTROL_TYPES: Record<string, { to: ComponentType; labels: Record<string, string> }> = {
+  buttonNO: { to: 'pushButtonXb2No', labels: { '13': '3', '14': '4' } },
+  buttonNC: { to: 'pushButtonXb2Nc', labels: { '21': '1', '22': '2' } },
+  selector2: { to: 'selectorSchneiderXa2ed33', labels: {} },
+  selector3: { to: 'selectorSchneiderXa2ed33', labels: {} },
+}
+
+export function upgradeRemovedControlTypes(c: ElectricalComponent): ElectricalComponent {
+  const rule = REMOVED_CONTROL_TYPES[c.type as string]
+  if (!rule) return c
+  const fresh = createComponent(rule.to, c.ref, c.label, 0, c.schematicX, c.schematicY)
+  const oldByNewLabel = Object.fromEntries(Object.entries(rule.labels).map(([oldLabel, newLabel]) => [newLabel, oldLabel]))
+  const pressed = c.state?.pressed === true
+  const state = rule.to === 'selectorSchneiderXa2ed33'
+    ? { ...fresh.state, position: pressed ? -1 : 0 }
+    : { ...fresh.state, pressed: false }
+  const centerX = c.schematicX + c.w / 2, centerY = c.schematicY + c.h / 2
+  return {
+    ...c,
+    type: rule.to,
+    w: fresh.w,
+    h: fresh.h,
+    schematicX: Math.round(centerX - fresh.w / 2),
+    schematicY: Math.round(centerY - fresh.h / 2),
+    state,
+    terminals: fresh.terminals.map((terminal) => {
+      const oldLabel = oldByNewLabel[terminal.label] ?? terminal.label
+      const old = c.terminals.find((t) => t.label === oldLabel)
+      return { ...terminal, id: old?.id ?? `${c.id}-${terminal.label}`, componentId: c.id }
     }),
   }
 }

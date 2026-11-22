@@ -17,7 +17,7 @@ const ok = (label: string, condition: boolean) => {
 const store = () => useSimStore.getState()
 
 // ---- continuidade elétrica entre folhas via etiqueta de rede ----
-const btn = createComponent('buttonNO', undefined, undefined, 0, 0, 0)
+const btn = createComponent('pushButtonXb2No', undefined, undefined, 0, 0, 0)
 const lamp = createComponent('ledGreen', undefined, undefined, 1, 300, 0)
 btn.sheet = 'sheet-1'
 lamp.sheet = 'sheet-2'

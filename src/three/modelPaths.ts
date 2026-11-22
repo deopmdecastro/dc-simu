@@ -411,13 +411,9 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'pilotLightSchneiderIil1p' ||
     type === 'pilotLightSchneiderIil3p' ||
     // Procedural 3D no Panel3D / IndustrialDevice3D — não devem mostrar cadeado
-    type === 'buttonNO' ||
-    type === 'buttonNC' ||
     type === 'emergencyButton' ||
     type === 'emergencyButtonKeyP20ACR' ||
     type === 'dualPushButtonNpb22D11' ||
-    type === 'selector2' ||
-    type === 'selector3' ||
     type === 'capacitorRun60uF' ||
     type === 'buzzerMetaltexTby301' ||
     type === 'timerGeyaGrt8M1' ||

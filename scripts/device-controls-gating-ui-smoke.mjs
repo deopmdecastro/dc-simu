@@ -31,7 +31,7 @@ const disabled = async (label) => btn(label).isDisabled()
 
 try {
   // ── Seletor de 3 posições: manobra (posição) bloqueada em STOP; retorno editável ──
-  await renderControls('selector3')
+  await renderControls('selectorSchneiderXa2ed33')
   check(await disabled('23–24'), 'STOP: rodar o seletor está bloqueado')
   check(await disabled('13–14'), 'STOP: posição 13–14 bloqueada')
   check(await enabled('Posição fixa'), 'STOP: tipo de retorno (mola/fixo) continua editável')

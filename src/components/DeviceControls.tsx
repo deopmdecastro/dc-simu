@@ -685,7 +685,7 @@ function CommandAndSafetyControls({ c, locked }: { c: ElectricalComponent; locke
   const actTitle = simActive ? undefined : MANOBRA_BLOCKED_TITLE
 
   // Seletor Schneider Harmony XA2ED33 · 3 posições (-1: 13–14, 0: aberto, +1: 23–24)
-  if (c.type === 'selectorSchneiderXa2ed33' || c.type === 'selector3') {
+  if (c.type === 'selectorSchneiderXa2ed33') {
     const pos = Number(c.state.position ?? 0)
     const maintain = c.state.maintain !== false
     return (
@@ -1254,7 +1254,6 @@ export function hasDeviceControls(type: string): boolean {
     isJunctionOrWagoType(type) ||
     [
       'selectorSchneiderXa2ed33',
-      'selector3',
       'keyActuatorEao61',
       'emergencyButton',
       'emergencyButtonKeyP20ACR',
@@ -3846,7 +3845,6 @@ export default function DeviceControls({ component: c, disabled = false }: { com
   if (
     [
       'selectorSchneiderXa2ed33',
-      'selector3',
       'keyActuatorEao61',
       'emergencyButton',
       'emergencyButtonKeyP20ACR',

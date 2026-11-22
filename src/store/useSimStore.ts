@@ -83,7 +83,7 @@ import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type 
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { benchBaseUnits, benchPartUnits, MAQUETTE_PLATE_TYPE, readyMaquetteById, readyMaquetteParts, type ReadyMaquetteId } from '../electrical/readyMaquettes'
-import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
+import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradeRemovedControlTypes, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
 import {
   canTerminalHaveJumper,
   describeTerminalStripRefs,
@@ -6090,7 +6090,8 @@ export const useSimStore = create<Store>((set, get) => {
       setStoredCover(parsed?.cover, parsed?.coverVersion)
       get().disconnectExternalController()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
-      const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeMonoMotorTerminals).map(upgradeProauto24A).map(upgradeTerminalAssemblyPositions).map(upgradeRealInterfacePositions).map(upgradeProtectionTerminalPositions).map(upgradePhysicalFootprint).map(upgradeLsXbmFront)
+      // Botão NA/NF e Seletor 2/3 posições genéricos foram apagados: abrem como o aparelho real equivalente.
+      const loadedComponents = sourceComponents.map(upgradeRemovedControlTypes).map(upgradeLogoTerminals).map(upgradeMonoMotorTerminals).map(upgradeProauto24A).map(upgradeTerminalAssemblyPositions).map(upgradeRealInterfacePositions).map(upgradeProtectionTerminalPositions).map(upgradePhysicalFootprint).map(upgradeLsXbmFront)
         .map((component) => upgradeComponentEditorMetadata(component, parsed.savedAt))
         .map((component) => ({
           ...component,

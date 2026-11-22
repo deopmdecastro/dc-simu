@@ -18,9 +18,9 @@ function check(name: string, fn: () => void) {
 
 /** Um gesto representativo por família (elétrico, comando, iluminação, pneumático, hidráulico, mecatrónica). */
 const SAMPLES: Array<[ComponentType, Record<string, unknown>, string]> = [
-  ['buttonNO', { pressed: true }, 'pressed'],
+  ['pushButtonXb2No', { pressed: true }, 'pressed'],
   ['emergencyButton', { pressed: true }, 'pressed'],
-  ['selector2', { position: 1 }, 'position'],
+  ['selectorSchneiderXa2ed33', { position: 1 }, 'position'],
   ['breaker1p', { closed: true }, 'closed'],
   ['wallSwitchDouble', { on1: true }, 'on1'],
   ['pneumaticValve52', { manualOverride: true }, 'manualOverride'],
@@ -55,7 +55,7 @@ check(`1. Em RUN, ${SAMPLES.length} aparelhos de todas as famílias atuam e a si
 })
 
 check('2. Um botão de mola premido e largado entre dois ticks é processado (scan imediato) sem pausar', () => {
-  const id = setup('buttonNO')
+  const id = setup('pushButtonXb2No')
   setRunState('running')
   const before = useSimStore.getState().sim.scanCount
   useSimStore.getState().operateComponent(id, { pressed: true })
@@ -74,7 +74,7 @@ check('3. O scan imediato em RUN não adianta o tempo dos temporizadores (dt = 0
 })
 
 check('4. Em PAUSA a manobra atua e a simulação continua em PAUSA', () => {
-  const id = setup('buttonNO')
+  const id = setup('pushButtonXb2No')
   setRunState('paused')
   useSimStore.getState().operateComponent(id, { pressed: true })
   assert.equal(useSimStore.getState().sim.runState, 'paused')
@@ -82,7 +82,7 @@ check('4. Em PAUSA a manobra atua e a simulação continua em PAUSA', () => {
 })
 
 check('5. Em STOP a manobra continua bloqueada (só a libertação de mola passa)', () => {
-  const id = setup('buttonNO')
+  const id = setup('pushButtonXb2No')
   useSimStore.getState().operateComponent(id, { pressed: true })
   assert.equal(useSimStore.getState().sim.runState, 'stopped')
   assert.notEqual(stateOf(id).pressed, true)

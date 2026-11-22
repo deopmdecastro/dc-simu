@@ -1170,7 +1170,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   const isPressable = (c: ElectricalComponent) =>
     !!importedComponentInfo(c.type) ||
-    ['buttonNO', 'buttonNC', 'dualPushButtonNpb22D11', 'emergencyButton', 'emergencyButtonKeyP20ACR', 'selector2', 'selector3', 'keySwitch', 'footSwitch', 'limitSwitch', 'proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'wallSwitchSimple', 'wallSwitchDouble', 'wallSwitchStaircase'].includes(c.type)
+    ['dualPushButtonNpb22D11', 'emergencyButton', 'emergencyButtonKeyP20ACR', 'keySwitch', 'footSwitch', 'limitSwitch', 'proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'wallSwitchSimple', 'wallSwitchDouble', 'wallSwitchStaircase'].includes(c.type)
 
   /** Disjuntores: duplo clique no corpo arma/desarma (e rearma um disparo), como o clique no Painel 3D. */
   const isToggleBreaker = (c: ElectricalComponent) =>

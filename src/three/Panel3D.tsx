@@ -1954,9 +1954,9 @@ function pressWhileHeld(event: ThreeEvent<PointerEvent>, press: () => void, rele
 function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; onPress: (p: boolean) => void }) {
   const pressed = !!c.state.pressed
   const isEmg = c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
-  const isNC = c.type === 'buttonNC'
+  const isNC = c.type === 'pushButtonXb2Nc'
   // Cor do estado (permite botões coloridos via state.color) ou fallback por tipo.
-  const color = (typeof c.state.color === 'string' && c.state.color) || (isEmg ? '#dc2626' : isNC ? '#ef4444' : c.type === 'buttonNO' ? '#22c55e' : '#eab308')
+  const color = (typeof c.state.color === 'string' && c.state.color) || (isEmg ? '#dc2626' : isNC ? '#ef4444' : '#eab308')
   // Cotas aproximadas Ø29 cabeça / furação 22 mm (imagem de referência KEOLEA).
   const headR = isEmg ? 0.17 : 0.145
   const bezelR = headR + 0.018

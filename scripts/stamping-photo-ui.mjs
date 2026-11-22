@@ -59,7 +59,7 @@ try {
   const assert = (ok, name) => { if (!ok) throw new Error(name); console.log(`PASS ${name}`) }
   assert(up.hmiNormal[0] > 0.99, 'HMI com ecrã virado para o exterior (+X)')
   assert(up.cabinet.max[1] < -0.5 && up.cabinet.min[1] > -7.4, 'Quadro sob a mesa e acima do chão')
-  const operators = Object.values(up).filter(v => v?.desired && ['buttonNO', 'buttonNC', 'selectorSchneiderXa2ed33', 'emergencyButton'].includes(v.type))
+  const operators = Object.values(up).filter(v => v?.desired && ['pushButtonXb2No', 'pushButtonXb2Nc', 'pushButtonXb2Blue', 'selectorSchneiderXa2ed33', 'emergencyButton'].includes(v.type))
   assert(operators.length === 6, 'Seis operadores reais da biblioteca')
   for (const op of operators) {
     assert(Math.abs(op.point[0] - op.desired.x) < 0.001 && Math.abs(op.point[1] - op.desired.y) < 0.001, `Operador ${op.label} na posição física da caixa`)
