@@ -296,7 +296,10 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   const frl = pneumaticComponentSizeMm('pneumaticFrl')!
   const compX = panelX - 400 - 250 - comp.x / 2
   const compDropX = compX - comp.x / 2 - 60
-  const wallTrayZ = wallZ + 160
+  // Offset generoso para a face de trás das esteiras não se apoiar/encostar na parede
+  // (largura 200 mm → face a ~120 mm da parede). A orientação vertical mantém o
+  // fundo da esteira paralelo à parede e a abertura virada para a nave.
+  const wallTrayZ = wallZ + 220
   const branch = { from: wallTrayZ + 100, to: -plate.widthMm / 2 }
   // Cabos e tubos dentro de cada esteira (lidos pelo desenho 3D da esteira, com abraçadeiras).
   const BENCH_CABLE = { kind: 'cable', color: '#9ca3af', diameterMm: 11, label: 'H07RN-F 3G2,5 · MAQUETE' }
