@@ -2,6 +2,8 @@ import { electricalComponentView, builtinRuntimeType } from '../electrical/built
 import { stepMechatronics } from '../electrical/mechatronicsSim'
 import { adjacentDuctPlacement, fitAdjacentDuct, snapNewDuct, type DuctPlacement } from '../schematic/ductPlacement'
 import { create } from 'zustand'
+import { controllerMappings, defaultControllerConfig, disconnectedController, externalOutputsUsable, normalizeControllerConfig, type ExternalControllerConfig, type ExternalControllerRuntime } from '../plc/externalController'
+import { ExternalControllerClient } from '../plc/externalTransport'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress, signalAliasMap } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
@@ -207,6 +209,11 @@ interface RuntimeExtras {
 }
 
 interface Store extends CircuitState {
+  controller: ExternalControllerConfig
+  externalController: ExternalControllerRuntime
+  setControllerConfig: (patch: Partial<ExternalControllerConfig>) => void
+  connectExternalController: (sessionKey: string) => Promise<void>
+  disconnectExternalController: () => void
   canvasNotes: CanvasNote[]
   addCanvasNote: (note: Omit<CanvasNote, 'id' | 'createdAt'>) => void
   updateCanvasNote: (id: string, patch: Partial<CanvasNote>) => void
@@ -862,7 +869,7 @@ function runOneTick(state: Store, dtMs: number) {
   // saídas num espaço I/Q/M/T/C independente. O programa ativo é só a vista.
   const plcs = components.filter(isProgrammablePlc)
   const selectedId = plcs.some((p) => p.id === state.activePlcId) ? state.activePlcId : plcs[0]?.id
-  if (!plcs.length) {
+  if (!plcs.length && state.controller.mode === 'internal') {
     // Sem PLC no esquema: as entradas vêm do painel de entradas virtuais.
     // Botões NC ainda não tocados repousam a 1 (contacto fechado).
     for (const [address, mode] of Object.entries(state.virtualInputModes)) if (mode === 'nc' && !(address in state.virtualInputs)) state.runtime.table[address] = true
@@ -921,6 +928,14 @@ function runOneTick(state: Store, dtMs: number) {
         table[t.label] = wired ? table[t.label] && closed : closed
       } else if (simInputs?.[t.label]) table[t.label] = true
     }
+    const external = state.controller.mode === 'tia-portal'
+    const externalTarget = plc.id === state.controller.plcId
+    const externalLive = external && externalTarget && state.sim.runState === 'running' && externalOutputsUsable(state.externalController)
+    if (external) {
+      for (const key of Object.keys(table)) if (/^Q\d+\.[0-7]$/.test(key)) table[key] = false
+      for (const key of Object.keys(plc.state.outputs)) table[key] = externalLive && state.externalController.outputs[key] === true
+      prior.rungPowered = {}
+    }
     const program = plc.id === state.activePlcId ? ladder.rungs
       : state.plcPrograms[plc.id]?.rungs ?? (state.activePlcId === null && plc.id === plcs[0].id ? ladder.rungs : [])
     const fc = plc.id === state.activePlcId ? state.fcBlocks : state.plcPrograms[plc.id]
@@ -932,13 +947,13 @@ function runOneTick(state: Store, dtMs: number) {
     const declared = parseDataBlocks(files).values
     prior.db = { ...declared, ...prior.db } // idem: o valor de execução prevalece sobre o inicial do DB
     const trace: RungTraceEntry[] | undefined = plc.id === selectedId ? [] : undefined
-    const scan = runScan({ rungs: [...scheduled, ...program, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges, plc.id === selectedId ? state.forces : {}, { trace })
+    const scan = external ? { table, rungPowered: {}, skipped: [] } : runScan({ rungs: [...scheduled, ...program, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges, plc.id === selectedId ? state.forces : {}, { trace })
     state.runtime.plcRuntime[plc.id] = { ...prior, startupDone: true, rungPowered: scan.rungPowered }
     if (trace) {
       state.runtime.rungTrace = trace
       state.runtime.rungSkipped = Object.fromEntries(scan.skipped.map((id) => [id, true]))
     }
-    const cpuRunning = powered && plc.state.cpuMode !== 'STOP'
+    const cpuRunning = powered && plc.state.cpuMode !== 'STOP' && (!external || externalLive)
     if ('ledRUN' in plc.state) plc.state.ledRUN = cpuRunning
     if ('ledSTOP' in plc.state) plc.state.ledSTOP = powered && !cpuRunning
     if ('ledDC5V' in plc.state) plc.state.ledDC5V = powered
@@ -955,7 +970,7 @@ function runOneTick(state: Store, dtMs: number) {
     state.runtime.db = active.db
   }
   // GRAFCET global mantém o comportamento anterior sobre a vista ativa.
-  state.grafcetRuntime = scanGrafcet(state.grafcet, state.grafcetRuntime, state.runtime.table, dtMs)
+  if (state.controller.mode === 'internal') state.grafcetRuntime = scanGrafcet(state.grafcet, state.grafcetRuntime, state.runtime.table, dtMs)
 
   // 5) Segunda passagem — agora com as saídas do CLP ativas
   const pass2 = computeContinuity(components, wires, srcs)
@@ -1833,6 +1848,8 @@ function shiftGroupWires(wires: Wire[], components: ElectricalComponent[], group
   return changed ? next : null
 }
 
+let externalClient: ExternalControllerClient | null = null
+
 export const useSimStore = create<Store>((set, get) => {
   /**
    * Reavalia um scan apenas quando a simulação já está em RUN ou PAUSA.
@@ -1840,10 +1857,9 @@ export const useSimStore = create<Store>((set, get) => {
    * isso fazia operações mecânicas (encaixe de relé, snap à calha, etc.)
    * «ativarem» a simulação. A única forma de sair de STOP é o botão Play.
    */
-  const recomputeIfPaused = () => {
-    const { runState } = get().sim
-    if (runState === 'running' || runState === 'paused') get().step()
-  }
+  // Igual a recomputeIfActive (definido abaixo): em RUN recalcula sem pausar. Antes chamava step(),
+  // que pausa em RUN, e premir um sinal no painel «Simular sinais» pausava a simulação.
+  const recomputeIfPaused = () => recomputeIfActive()
   /**
    * Resposta imediata a uma manobra ou alteração. Em RUN corre um scan extra com
    * dt = 0 (sem adiantar temporizadores) e a simulação CONTINUA em RUN: `step()`
@@ -1859,6 +1875,55 @@ export const useSimStore = create<Store>((set, get) => {
     } else if (runState === 'paused') get().step()
   }
   return ({
+  controller: defaultControllerConfig(),
+  externalController: disconnectedController(),
+  setControllerConfig: (patch) => {
+    get().disconnectExternalController()
+    set({ controller: normalizeControllerConfig({ ...get().controller,...patch }), dirty: true })
+  },
+  disconnectExternalController: () => {
+    const client = externalClient
+    externalClient = null
+    void client?.disconnect()
+    get().stop()
+    set({ externalController: disconnectedController() })
+  },
+  connectExternalController: async (sessionKey) => {
+    get().disconnectExternalController()
+    const state = get(), config = state.controller
+    const plc = state.components.find(c => c.id === config.plcId && isProgrammablePlc(c))
+    try {
+      if (config.mode !== 'tia-portal' || !plc) throw new Error('Escolha o modo TIA Portal e o PLC do cenário.')
+      if (!sessionKey.trim()) throw new Error('Introduza a chave apresentada na consola da ponte local.')
+      if (!config.instanceName.trim()) throw new Error('Escolha a instância PLCSIM Advanced.')
+      const mapping = controllerMappings(config,plc)
+      set({ externalController: { ...disconnectedController('A ligar ao PLCSIM Advanced…'), status: 'connecting' } })
+      const client = new ExternalControllerClient({
+        url: config.bridgeUrl, token: sessionKey.trim(), instanceName: config.instanceName, mapping,
+        readInputs: () => {
+          const current = get()
+          const exists = current.components.some(c => c.id === config.plcId)
+          if (!exists || current.controller !== config) throw new Error('O PLC ou a configuração do projeto mudou. Volte a ligar.')
+          const table = current.runtime.plcRuntime[plc.id]?.table ?? {}
+          return Object.fromEntries(Object.keys(mapping.inputs).map(a => [a,current.sim.runState === 'running' && table[a] === true]))
+        },
+        onFrame: frame => { if (externalClient === client) set({ externalController: frame }) },
+        onError: message => {
+          if (externalClient !== client) return
+          externalClient = null
+          get().stop()
+          set({ externalController: { ...disconnectedController(message), status: 'error' } })
+          get().pushEvent('error',`TIA Portal: ${message}`)
+        },
+      })
+      externalClient = client
+      await client.connect()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível ligar ao PLCSIM.'
+      set({ externalController: { ...disconnectedController(message), status: 'error' } })
+      throw error
+    }
+  },
   components: [],
   wires: [],
   ladder: { rungs: [] },
@@ -2278,7 +2343,11 @@ export const useSimStore = create<Store>((set, get) => {
     const existing = get()._intervalId
     if (existing) return
     // LADDER-COMPILE-01: com a opção ativa, um programa com erros de compilação não entra em RUN.
-    if (compileGateEnabled() && get().sim.runState === 'stopped') {
+    if (get().controller.mode === 'tia-portal' && !externalOutputsUsable(get().externalController)) {
+      get().pushEvent('error','Ligue a ponte e coloque a CPU PLCSIM em RUN no TIA Portal antes de executar o cenário.')
+      return
+    }
+    if (get().controller.mode === 'internal' && compileGateEnabled() && get().sim.runState === 'stopped') {
       const state = get()
       const result = compileLadder(compileInputOf(state, state.components.some(isProgrammablePlc)))
       if (!result.ok) {
@@ -4569,10 +4638,7 @@ export const useSimStore = create<Store>((set, get) => {
     if (mountedRef) get().pushEvent('info', `${get().components.find((c) => c.id === relayId)?.ref ?? 'Relé'} encaixado na base ${mountedRef}: pinos 1–11 nos alvéolos P1–P11.`)
     // Montagem mecânica nunca inicia nem tira a simulação de STOP puro.
     // Só recalcula o scan se já estiver em RUN ou PAUSA (Play continua a ser a única forma de ativar).
-    {
-      const { runState } = get().sim
-      if (runState === 'running' || runState === 'paused') get().step()
-    }
+    recomputeIfActive()
   },
 
   unmountRelayFromSocket: (relayId) => {
@@ -4588,10 +4654,7 @@ export const useSimStore = create<Store>((set, get) => {
     })
     if (moved) get().pushEvent('info', `${get().components.find((c) => c.id === relayId)?.ref ?? 'Relé'} desencaixado da base.`)
     // Desmontagem mecânica nunca inicia nem tira a simulação de STOP puro.
-    {
-      const { runState } = get().sim
-      if (runState === 'running' || runState === 'paused') get().step()
-    }
+    recomputeIfActive()
   },
 
   setTerminalPoleCount: (componentId, poleCount) => {
@@ -5929,6 +5992,7 @@ export const useSimStore = create<Store>((set, get) => {
         canvasTexts: s.canvasTexts,
         selectionGroups: s.selectionGroups,
         factoryHall: s.factoryHall,
+        controller: s.controller,
       },
       null,
       2,
@@ -5941,7 +6005,7 @@ export const useSimStore = create<Store>((set, get) => {
       const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
       const parsed = upgradeNativeGrafcetTags(addNativeAnnotations(addNativeIecSchematic(syncNativeLadder(refreshNativeWireCurves(addNativeSignals(addNativeThermalRelay(fixNativeCoilWiring(upgradeNativeNcSimInputs(upgradeNativeMotorRings(upgradeNativeMotorMeter(original)))))))))))
       setStoredCover(parsed?.cover, parsed?.coverVersion)
-      get().stop()
+      get().disconnectExternalController()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
       const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeMonoMotorTerminals).map(upgradeProauto24A).map(upgradeTerminalAssemblyPositions).map(upgradeRealInterfacePositions).map(upgradeProtectionTerminalPositions).map(upgradePhysicalFootprint).map(upgradeLsXbmFront)
         .map((component) => upgradeComponentEditorMetadata(component, parsed.savedAt))
@@ -5966,6 +6030,8 @@ export const useSimStore = create<Store>((set, get) => {
       const activeProgram = loadedActiveId && programs[loadedActiveId]
       set({
         projectRevision: get().projectRevision + 1,
+        controller: normalizeControllerConfig(parsed.controller),
+        externalController: disconnectedController(),
         projectKind: normalizeKind(parsed.projectKind),
         unlockedViews: normalizeUnlockedViews(parsed.unlockedViews),
         nativeId: typeof parsed.nativeId === 'string' ? parsed.nativeId : null,
@@ -6038,9 +6104,11 @@ export const useSimStore = create<Store>((set, get) => {
 
   newProject: (kind = 'all') => {
     setStoredCover(null)
-    get().stop()
+    get().disconnectExternalController()
     set({
       projectRevision: get().projectRevision + 1,
+      controller: defaultControllerConfig(),
+      externalController: disconnectedController(),
       sheets: [{ id: 'sheet-1', name: 'Página 1' }],
       activeSheetId: 'sheet-1',
       canvasNotes: [],

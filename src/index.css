@@ -3437,3 +3437,31 @@ button.dc-diag-tag:focus-visible { outline: 2px solid #2563eb; outline-offset: 1
   .dc-acc-num, .dc-acc-select { min-height: 36px; }
   .dc-acc-measure-head { min-height: 32px; }
 }
+
+/* Controlador TIA Portal (inspetor do PLC): ligação ao S7-PLCSIM Advanced pela ponte local */
+.dc-tia-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.dc-tia-note { margin: 0; color: var(--dc-text-muted, #64748b); font-size: 10.5px; line-height: 1.35; }
+.dc-tia-error { margin: 0; padding: 5px 7px; border: 1px solid #f0b4b9; border-radius: 6px; background: #fff1f2; color: #b4232f; font-size: 10.5px; line-height: 1.35; }
+.dc-tia-field { display: flex; flex-direction: column; gap: 3px; }
+.dc-tia-field > span { color: var(--dc-text-muted, #64748b); font-size: 10.5px; font-weight: 600; }
+.dc-tia-inline { display: grid; grid-template-columns: 1fr auto; gap: 4px; }
+.dc-tia-help summary, .dc-tia-map summary { cursor: pointer; font-weight: 600; }
+.dc-tia-help ol { margin: 4px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; line-height: 1.35; }
+.dc-tia-help code { font-size: 10px; }
+.dc-tia-map table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.dc-tia-map th { text-align: left; font-weight: 600; color: var(--dc-text-muted, #64748b); font-size: 10px; padding: 2px 3px; }
+.dc-tia-map td { padding: 2px 3px; font-size: 10.5px; }
+.dc-tia-map td input { width: 100%; min-width: 0; }
+.dc-tia-actions { display: grid; }
+.dc-tia-status { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 0; }
+.dc-tia-status > div { padding: 4px 5px; border: 1px solid var(--dc-border, #e2e8f0); border-radius: 6px; }
+.dc-tia-status dt { color: var(--dc-text-muted, #64748b); font-size: 9.5px; }
+.dc-tia-status dd { margin: 0; font-weight: 700; }
+.dc-tia-status dd.is-connected { color: #15803d; }
+.dc-tia-status dd.is-error { color: #b4232f; }
+.dc-tia-status dd.is-connecting { color: #92590a; }
+.dc-tia-io { display: flex; flex-direction: column; gap: 4px; }
+.dc-tia-io > div { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.dc-tia-io b { min-width: 52px; font-size: 10.5px; }
+.dc-tia-io span { padding: 1px 5px; border: 1px solid var(--dc-border, #cbd5e1); border-radius: 4px; font-family: ui-monospace, monospace; font-size: 10px; color: var(--dc-text-muted, #64748b); }
+.dc-tia-io span.is-on { border-color: #16a34a; background: #dcfce7; color: #15803d; font-weight: 700; }

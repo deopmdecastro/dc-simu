@@ -88,5 +88,13 @@ check('5. Em STOP a manobra continua bloqueada (só a libertação de mola passa
   assert.notEqual(stateOf(id).pressed, true)
 })
 
+check('6. «Simular sinais» do PLC em RUN: a entrada aplica-se e a simulação continua em RUN', () => {
+  const id = setup('plcSiemensS71500Cpu1511c')
+  setRunState('running')
+  useSimStore.getState().setPlcSimInput(id, 'I0.0', true)
+  assert.equal(useSimStore.getState().sim.runState, 'running', 'premir um sinal simulado pausou a simulação')
+  assert.equal((stateOf(id).simInputs as Record<string, boolean>)['I0.0'], true)
+})
+
 useSimStore.getState().stop()
 console.log(`\n✅ ${passed} verificações de manobra em RUN passaram`)

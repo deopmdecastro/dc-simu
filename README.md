@@ -9,6 +9,26 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Ligação ao TIA Portal (S7-PLCSIM Advanced)
+
+O PLC do cenário pode ser comandado por um programa feito no TIA Portal, em vez do Ladder/GRAFCET
+interno. O DC-Simu escreve as entradas `I` da CPU simulada e lê as saídas `Q`, cerca de 10 vezes por segundo.
+
+1. No TIA Portal, carregue o programa numa instância do **S7-PLCSIM Advanced** e coloque a CPU em RUN.
+   O S7-PLCSIM normal não tem a API de ligação.
+2. No Windows, execute `scripts\Start-TiaBridge.ps1`. O script compila o adaptador contra o SDK instalado
+   e abre a ponte local em `http://127.0.0.1:8787`. A consola mostra a **chave da sessão**.
+   `Start-TiaBridge.ps1 -Check` só confirma que a API responde.
+3. No inspetor do PLC, abra **Controlador TIA Portal** e escolha «TIA Portal». Cole a chave, escolha a
+   instância («Procurar») e confirme o mapa de E/S (por omissão, cada borne usa o mesmo endereço na CPU).
+4. Carregue em **Ligar** e depois em ▶. Em RUN, o estado (CPU, latência, E/S) e o botão «Desligar»
+   ficam no painel **Simulação**.
+
+Na primeira ligação, o Chrome pede autorização de acesso à rede local (a ponte corre em `127.0.0.1`).
+A chave não é guardada no projeto nem no navegador. Sem a CPU ligada e em RUN, o ▶ fica bloqueado.
+Se a CPU passar a STOP ou a ponte deixar de responder durante 1,5 s, as saídas caem para 0.
+Testes: `npm run test:tia-bridge` (ponte real com uma CPU simulada) e `scripts/tia-panel-ui-smoke.mjs` (ecrã).
+
 ## Recuperação de 17 de novembro de 2026
 
 A revisão reúne os sete aparelhos industriais, medidores D52-2066/KWS-306,

@@ -3,6 +3,7 @@ import { useSimStore } from '../store/useSimStore'
 import { isProgrammablePlc } from '../ladder/plcPrograms'
 import { stepNumberOf } from '../grafcet/engine'
 import PlcSignalPanel from './PlcSignalPanel'
+import { TiaLiveStatus } from './TiaPortalControls'
 import VirtualIoPanel from './VirtualIoPanel'
 import Select from '../ui/Select'
 import { IconClose, IconPlay } from '../ui/icons'
@@ -22,6 +23,7 @@ export function SimulationSignals({ extraBits = [] }: { extraBits?: string[] }) 
   const plcs = useMemo(() => components.filter(isProgrammablePlc), [components])
   const selectedPlc = plcs.find((plc) => plc.id === selectedId)
   const plc = selectedPlc ?? plcs.find((item) => item.id === activePlcId) ?? plcs[0]
+  const tiaPlc = useSimStore((s) => (s.controller.mode === 'tia-portal' ? s.controller.plcId : null))
   return <div className="simulation-signals" data-simulation-signals>
     {plc ? <>
       {plcs.length > 1 && <label className="schematic-sim-dock-plc"><span>PLC</span>
@@ -29,6 +31,7 @@ export function SimulationSignals({ extraBits = [] }: { extraBits?: string[] }) 
           {plcs.map((item) => <option key={item.id} value={item.id}>{item.ref} · {item.label || item.type}</option>)}
         </Select>
       </label>}
+      {tiaPlc === plc.id && <TiaLiveStatus plc={plc} />}
       <PlcSignalPanel plcId={plc.id} compact />
     </> : <VirtualIoPanel compact extraBits={extraBits} />}
   </div>
