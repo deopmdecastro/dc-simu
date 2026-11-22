@@ -84,7 +84,7 @@ export const READY_MAQUETTES: ReadyMaquette[] = [
   maquette(
     'atec-estampagem',
     'Maquete ATEC · estampagem e transferência',
-    'Montagem fotográfica · torre e comandos da biblioteca · HMI exterior · quadro e calhas sob a mesa',
+    'Ambiente fabril · quadro de parede + compressor + esteiras aéreas · QE de campo com relés e 24 V · HMI e comandos',
     '/maquetes/atec-estampagem.webp',
     'all',
   ),

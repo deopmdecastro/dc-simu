@@ -13,10 +13,15 @@ import {
  * Adaptação fotográfica da maquete ATEC / Guião 1185 sobre uma base ranhurada paramétrica,
  * derivada da cinemática do manipulador: recolha a 0° (frente-esquerda), gaveta/prensa a 180° (trás)
  * e rampas em inox a 270°/300°/240° (direita: BRANCA, PRETA, METALICA).
- * Inclui calhas ranhuradas perimetrais, coluna luminosa no canto traseiro esquerdo, ilhas de
- * eletroválvulas Festo 2× 5/2 (C1A/C2A), sensores S. OTICO / S. INDUTIVO, cilindro da gaveta
- * (Cilindro 3), consola Siemens SIMATIC HMI KTP700 Basic e caixa de 6 botões de comando.
+ *
+ * Inclui:
+ * - Calhas ranhuradas perimetrais, coluna luminosa, ilhas Festo, sensores, HMI KTP700, pupitre
+ * - Quadro de campo sob a mesa (QE1) com fonte 24 V, relés de interface e relé de segurança
+ * - Ambiente fabril: parede, quadro de parede completo, compressor, tratamento de ar (FRL)
+ * - Pilares + esteiras elétricas aéreas (QE → bancada, QE → compressor, ar compressor → FRL)
+ *
  * Coordenadas em mm, relativas ao centro da base; `y` é a cota do centro do volume de cada peça.
+ * A mesa fica no centro do ambiente fabril.
  */
 export interface BenchPlacement {
   key: string
@@ -135,40 +140,185 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
     state: { labelText: label, hostLocation: 'machine', ...(color ? { color } : {}) },
   })
 
-  // Quadro vazio da biblioteca, preso a duas travessas da estrutura. Dimensões de montagem
-  // estimadas; os percursos ficam preparados, sem representar cablagem ou ligação elétrica.
+  // ---------------------------------------------------------------------------
+  // Quadro sob a mesa (QE de máquina) — bornes de campo, relés, fonte 24 V,
+  // relé de segurança, calhas e batentes. Nenhuma válvula é pilotada diretamente:
+  // as saídas passam por relés.
+  // ---------------------------------------------------------------------------
   if (plate.legs) {
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
-    const cabinetH = Math.min(500, leg - 130)
+    const cabinetH = Math.min(520, leg - 110)
     if (cabinetH >= 200) {
       const cabinetY = -55 - cabinetH / 2
       const cabinetZ = -plate.widthMm / 2 + 145
-      list.push({ key: 'cabinet', type: 'panelEnclosure', x: 0, y: cabinetY, z: cabinetZ,
-        state: { hostLocation: 'machine', widthMm: 400, heightMm: cabinetH, depthMm: 180, doorOpen: false, plateFinish: 'Aço galvanizado', labelText: 'QE1 · ESTAMPAGEM',
-          holes: [{ id: 'bench-field-entry', face: 'left', offsetXmm: 30, offsetYmm: 0, diameterMm: 25, glandType: 'M25' }] } })
-      for (const [key, y] of [['upper', -75], ['lower', -35 - cabinetH]] as const) list.push({
-        key: `cabinet-rail-${key}`, type: 'mecAluProfile', x: 0, y, z: cabinetZ - 110,
-        state: { sectionMm: 40, lengthMm: plate.lengthMm - 110, orientation: 'horizontal', endCaps: true, brackets: true },
+      // Quadro de campo sob a mesa com etiqueta e bucins de entrada
+      list.push({
+        key: 'cabinet', type: 'panelEnclosure', x: 0, y: cabinetY, z: cabinetZ,
+        state: {
+          hostLocation: 'machine', widthMm: 480, heightMm: cabinetH, depthMm: 200,
+          doorOpen: false, plateFinish: 'Aço galvanizado',
+          labelText: 'QE1 · CAMPO ESTAMPAGEM',
+          holes: [
+            { id: 'field-entry-left', face: 'left', offsetXmm: 40, offsetYmm: 20, diameterMm: 32, glandType: 'M32' },
+            { id: 'field-entry-right', face: 'right', offsetXmm: 40, offsetYmm: 20, diameterMm: 25, glandType: 'M25' },
+            { id: 'field-entry-top', face: 'top', offsetXmm: 0, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
+          ],
+        },
       })
+      // Travessas de suporte do quadro
+      for (const [key, y] of [['upper', -75], ['lower', -35 - cabinetH]] as const) {
+        list.push({
+          key: `cabinet-rail-${key}`, type: 'mecAluProfile', x: 0, y, z: cabinetZ - 120,
+          state: { sectionMm: 40, lengthMm: plate.lengthMm - 90, orientation: 'horizontal', endCaps: true, brackets: true },
+        })
+      }
+      // Calha vertical de descida de cabos de campo
       const dropX = -plate.lengthMm / 2 + 40
       const runLength = Math.max(40, -200 - dropX)
-      list.push({ key: 'ductDrop', type: 'mecBenchDuct', x: dropX, y: (20 + cabinetY - 17.5) / 2, z: cabinetZ + 30,
-        state: { lengthMm: 20 - cabinetY + 17.5, widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO → QE1' }, orientation: { x: 0, y: 0, z: 90 } })
-      list.push({ key: 'ductUnder', type: 'mecBenchDuct', x: dropX + runLength / 2, y: cabinetY, z: cabinetZ + 30,
-        state: { lengthMm: runLength, widthMm: 30, heightMm: 35, coverOn: true, labelText: 'RESERVA CABOS' } })
+      list.push({
+        key: 'ductDrop', type: 'mecBenchDuct', x: dropX, y: (20 + cabinetY - 17.5) / 2, z: cabinetZ + 30,
+        state: { lengthMm: 20 - cabinetY + 17.5, widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO → QE1' },
+        orientation: { x: 0, y: 0, z: 90 },
+      })
+      list.push({
+        key: 'ductUnder', type: 'mecBenchDuct', x: dropX + runLength / 2, y: cabinetY, z: cabinetZ + 30,
+        state: { lengthMm: runLength, widthMm: 30, heightMm: 35, coverOn: true, labelText: 'RESERVA CABOS' },
+      })
+      // Fonte 24 V DC no interior do quadro de campo (posição relativa aproximada)
+      list.push({
+        key: 'psu24', type: 'powerSupplyProauto24A',
+        x: -80, y: cabinetY + cabinetH * 0.28, z: cabinetZ + 40,
+        state: { labelText: 'PSU 24V · 5A', hostLocation: 'machine' },
+      })
+      // Relés de interface (saídas do PLC/HMI não ativam válvulas diretamente)
+      const relayYs = [cabinetY + cabinetH * 0.05, cabinetY - cabinetH * 0.12, cabinetY - cabinetH * 0.28]
+      ;['K1 · CIL1', 'K2 · PRENSA', 'K3 · BRAÇO'].forEach((tag, i) => {
+        list.push({
+          key: `relay-${i + 1}`, type: 'relay',
+          x: 40, y: relayYs[i], z: cabinetZ + 35,
+          state: { labelText: tag, hostLocation: 'machine' },
+        })
+      })
+      // Relé de segurança
+      list.push({
+        key: 'safetyRelay', type: 'safetyRelay',
+        x: 110, y: cabinetY + cabinetH * 0.18, z: cabinetZ + 35,
+        state: { labelText: 'KS1 · SEGURANÇA', hostLocation: 'machine' },
+      })
     }
   }
 
   // 3 Rampas de descarga em inox (BRANCA, PRETA, METALICA) sobre pilares de perfil 30 × 30
-  const pillars = [110, 95, 80]
+  const rampPillars = [110, 95, 80]
   const rampLabels = ['METALICA', 'PRETA', 'BRANCA']
   BENCH_RAMP_ANGLES.forEach((deg, i) => {
     const drop = at(deg)
-    const state = { pillarMm: pillars[i], rampLabel: rampLabels[i] }
+    const state = { pillarMm: rampPillars[i], rampLabel: rampLabels[i] }
     const size = mechatronicsSizeMm('mecDischargeRamp', state)!
-    // A ponta alta da calha (pilar traseiro) fica por baixo da ventosa; a calha desce para +X.
     list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: drop.x + size.x / 2 - 22, y: top + size.y / 2, z: drop.z, state })
   })
+
+  // ---------------------------------------------------------------------------
+  // Ambiente fabril: parede, quadro de parede, compressor, pilares e esteiras
+  // elétricas aéreas. A mesa fica no centro; as coordenadas são relativas ao
+  // centro da base ranhurada.
+  // ---------------------------------------------------------------------------
+  const wallZ = -plate.widthMm / 2 - 420
+  const wallX = 0
+  const trayY = 280 // altura das esteiras aéreas (mm acima do plano da mesa)
+
+  // Parede industrial atrás da bancada
+  list.push({
+    key: 'factoryWall', type: 'industrialWall',
+    x: wallX, y: 400, z: wallZ,
+    state: { widthMm: 2200, heightMm: 900, thicknessMm: 80, finish: 'panel', labelText: 'PAREDE FÁBRIL' },
+  })
+
+  // Quadro elétrico completo de parede (proteção, sinalização de fases, DPS, cortes, disjuntores, reservas)
+  list.push({
+    key: 'wallPanel', type: 'panelEnclosure',
+    x: wallX - 180, y: 320, z: wallZ + 55,
+    state: {
+      hostLocation: 'wall',
+      widthMm: 800, heightMm: 1000, depthMm: 250,
+      doorOpen: false,
+      plateFinish: 'Aço galvanizado',
+      labelText: 'QE · GERAL ESTAMPAGEM',
+      holes: [
+        { id: 'main-in', face: 'top', offsetXmm: -120, offsetYmm: 0, diameterMm: 40, glandType: 'M40' },
+        { id: 'out-to-bench', face: 'bottom', offsetXmm: 80, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
+        { id: 'out-to-compressor', face: 'bottom', offsetXmm: -80, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
+      ],
+    },
+  })
+
+  // Compressor de ar (lado esquerdo da fábrica)
+  const compX = -plate.lengthMm / 2 - 520
+  const compZ = -80
+  list.push({
+    key: 'compressor', type: 'airCompressor',
+    x: compX, y: 180, z: compZ,
+    state: { labelText: 'COMPRESSOR · AR COMPRIMIDO', on: true },
+  })
+
+  // Tratamento de ar (FRL) na maquete com manómetro — entrada de ar da esteira
+  list.push({
+    key: 'airTreatment', type: 'pneumaticManifold',
+    x: -plate.lengthMm / 2 + 70, y: top + 55, z: plate.widthMm / 2 - 70,
+    state: { labelText: 'FRL · TRATAMENTO DE AR', stations: 1, islandTag: 'FRL' },
+  })
+
+  // Pilares para fixação das esteiras aéreas
+  const pillarPositions: Array<{ key: string; x: number; z: number }> = [
+    { key: 'pillar-wall-l', x: -420, z: wallZ + 80 },
+    { key: 'pillar-wall-r', x: 420, z: wallZ + 80 },
+    { key: 'pillar-bench-l', x: -plate.lengthMm / 2 - 40, z: -plate.widthMm / 2 - 40 },
+    { key: 'pillar-bench-r', x: plate.lengthMm / 2 + 40, z: -plate.widthMm / 2 - 40 },
+    { key: 'pillar-comp', x: compX + 80, z: compZ - 120 },
+  ]
+  pillarPositions.forEach((p) => {
+    list.push({
+      key: p.key, type: 'industrialPillar',
+      x: p.x, y: 350, z: p.z,
+      state: { heightMm: 700, profile: 'HEB200', finish: 'galvanized' },
+    })
+  })
+
+  // Esteira elétrica aérea: Quadro de parede → Bancada (cabos de potência e comando)
+  list.push({
+    key: 'tray-wall-to-bench', type: 'cableTrayStraight',
+    x: (wallX - 180 + 0) / 2, y: trayY, z: (wallZ + 55 + (-plate.widthMm / 2)) / 2,
+    state: { lengthMm: 520, widthMm: 150, heightMm: 50, coverOn: true, labelText: 'QE → BANCADA' },
+    orientation: { x: 0, y: 0, z: 90 },
+  })
+  // Riser / descida junto à bancada
+  list.push({
+    key: 'tray-riser-bench', type: 'cableTrayRiser90',
+    x: 0, y: trayY - 80, z: -plate.widthMm / 2 - 30,
+    state: { lengthMm: 180, widthMm: 150, heightMm: 50, labelText: 'DESCIDA BANCADA' },
+  })
+
+  // Esteira elétrica aérea: Quadro de parede → Compressor
+  list.push({
+    key: 'tray-wall-to-comp', type: 'cableTrayStraight',
+    x: (wallX - 180 + compX) / 2, y: trayY, z: (wallZ + 55 + compZ) / 2 - 40,
+    state: { lengthMm: 680, widthMm: 100, heightMm: 50, coverOn: true, labelText: 'QE → COMPRESSOR' },
+    orientation: { x: 0, y: 0, z: 45 },
+  })
+  list.push({
+    key: 'tray-riser-comp', type: 'cableTrayRiser90',
+    x: compX + 40, y: trayY - 90, z: compZ - 60,
+    state: { lengthMm: 200, widthMm: 100, heightMm: 50, labelText: 'DESCIDA COMPRESSOR' },
+  })
+
+  // Esteira / percurso de ar: Compressor → Tratamento de ar na maquete
+  list.push({
+    key: 'tray-air-to-bench', type: 'cableTrayStraight',
+    x: (compX + (-plate.lengthMm / 2 + 70)) / 2, y: trayY - 30, z: (compZ + (plate.widthMm / 2 - 70)) / 2,
+    state: { lengthMm: 620, widthMm: 80, heightMm: 40, coverOn: true, labelText: 'AR · COMPRESSOR → FRL' },
+    orientation: { x: 0, y: 0, z: -30 },
+  })
+
   // A orientação é construtiva nesta montagem; deve sobreviver à reabertura do ficheiro.
   return list.map(part => ({ ...part, state: { ...part.state, benchAssembly: true } }))
 }
