@@ -1550,8 +1550,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   wago221_2: {
     category: 'terminal', paletteName: 'Conector WAGO 221-412 · 2 vias (alavanca 32A)', group: 'Caixas OBO & WAGO 221', tag: 'W', w: 72, h: 64,
     terminals: [
-      T('1', 'bus', 0.30, 0.92, { position3D: { x: 0.30, y: 0.48, z: 0.96 }, face: 'front', terminalType: 'spring', color: '#f25610', diameter: 9 }),
-      T('2', 'bus', 0.70, 0.92, { position3D: { x: 0.70, y: 0.48, z: 0.96 }, face: 'front', terminalType: 'spring', color: '#f25610', diameter: 9 }),
+      T('1', 'bus', 0.30, 0.92, { position3D: { x: 0.30, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 9 }),
+      T('2', 'bus', 0.70, 0.92, { position3D: { x: 0.70, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 9 }),
     ],
     defaultState: {
       hostLocation: 'free',
@@ -1561,14 +1561,29 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       model: '221-412 · 450V 32A',
     },
   },
+  wago221_3: {
+    category: 'terminal', paletteName: 'Conector WAGO 221-413 · 3 vias (alavanca 32A)', group: 'Caixas OBO & WAGO 221', tag: 'W', w: 96, h: 64,
+    terminals: [
+      T('1', 'bus', 0.22, 0.92, { position3D: { x: 0.22, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 9 }),
+      T('2', 'bus', 0.50, 0.92, { position3D: { x: 0.50, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 9 }),
+      T('3', 'bus', 0.78, 0.92, { position3D: { x: 0.78, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 9 }),
+    ],
+    defaultState: {
+      hostLocation: 'free',
+      hostBoxId: '',
+      leversOpen: [false, false, false],
+      manufacturer: 'WAGO',
+      model: '221-413 · 450V 32A',
+    },
+  },
   wago221_5: {
     category: 'terminal', paletteName: 'Conector WAGO 221-415 · 5 vias (alavanca 32A)', group: 'Caixas OBO & WAGO 221', tag: 'W', w: 120, h: 64,
     terminals: [
-      T('1', 'bus', 0.14, 0.92, { position3D: { x: 0.16, y: 0.48, z: 0.96 }, face: 'front', terminalType: 'spring', color: '#f25610', diameter: 8 }),
-      T('2', 'bus', 0.32, 0.92, { position3D: { x: 0.33, y: 0.48, z: 0.96 }, face: 'front', terminalType: 'spring', color: '#f25610', diameter: 8 }),
-      T('3', 'bus', 0.50, 0.92, { position3D: { x: 0.50, y: 0.48, z: 0.96 }, face: 'front', terminalType: 'spring', color: '#f25610', diameter: 8 }),
-      T('4', 'bus', 0.68, 0.92, { position3D: { x: 0.67, y: 0.48, z: 0.96 }, face: 'front', terminalType: 'spring', color: '#f25610', diameter: 8 }),
-      T('5', 'bus', 0.86, 0.92, { position3D: { x: 0.84, y: 0.48, z: 0.96 }, face: 'front', terminalType: 'spring', color: '#f25610', diameter: 8 }),
+      T('1', 'bus', 0.14, 0.92, { position3D: { x: 0.16, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 8 }),
+      T('2', 'bus', 0.32, 0.92, { position3D: { x: 0.33, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 8 }),
+      T('3', 'bus', 0.50, 0.92, { position3D: { x: 0.50, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 8 }),
+      T('4', 'bus', 0.68, 0.92, { position3D: { x: 0.67, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 8 }),
+      T('5', 'bus', 0.86, 0.92, { position3D: { x: 0.84, y: 0.04, z: 0.56 }, face: 'bottom', terminalType: 'spring', color: '#f25610', diameter: 8 }),
     ],
     defaultState: {
       hostLocation: 'free',
@@ -1657,6 +1672,15 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       bracketMounted: true,
       manufacturer: 'Schneider / DC-Simu',
       model: 'XUZC50 · IP67',
+    },
+  },
+  sensorMountBalluff: {
+    category: 'sensor', paletteName: 'Base de montagem BALLUFF para sensores · braço com olhal', group: 'Sensores', tag: 'BM', w: 104, h: 118,
+    terminals: [],
+    defaultState: {
+      armYawDeg: 0,
+      manufacturer: 'BALLUFF',
+      model: 'Braço de montagem · base + coluna + braço + olhal',
     },
   },
   waterTank: {

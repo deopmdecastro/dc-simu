@@ -103,6 +103,7 @@ import {
 } from './HydraulicsDevices3D'
 import { tankHasJunctionBracket, tankJunctionBracketOf, waterTankDimensionsOf, waterTankRightReachU } from './hydraulicsModel'
 import { OboJunctionBox3D, Wago221Connector3D, type OboSpliceCable } from './JunctionWagoDevices3D'
+import { SensorMountBalluff3D } from './SensorMounts3D'
 import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
 import { WireTrayElbow903D, WireTrayRiser903D, WireTrayStraight3D, WireTrayTee3D } from './WireMeshTrayDevices3D'
 import {
@@ -5835,6 +5836,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={<Motor3D c={c} x={x} interactive={false} />}><Suspense fallback={null}><RollerConveyor3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'opticalReflector') {
             content = <OpticalReflector3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'sensorMountBalluff') {
+            content = <SensorMountBalluff3D position={basePivots[c.id].toArray() as [number, number, number]} armYawDeg={Number(c.state.armYawDeg ?? 0)} />
           }
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => operateComponent(c.id, { startPressed: pressed }))} />

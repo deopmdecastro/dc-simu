@@ -131,6 +131,7 @@ export type ComponentType =
   | 'airCompressor'
   | 'rollerConveyor'
   | 'opticalReflector'
+  | 'sensorMountBalluff'
   // --- Estruturas industriais e esteiras porta-cabos --------------------
   | 'industrialWall'
   | 'industrialPillar'
@@ -154,6 +155,7 @@ export type ComponentType =
   | 'junctionBoxOboA6'
   | 'junctionBoxOboT25'
   | 'wago221_2'
+  | 'wago221_3'
   | 'wago221_5'
   | 'wago221_inline'
   | 'wago221_double'

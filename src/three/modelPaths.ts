@@ -468,9 +468,11 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'junctionBoxOboA6' ||
     type === 'junctionBoxOboT25' ||
     type === 'wago221_2' ||
+    type === 'wago221_3' ||
     type === 'wago221_5' ||
     type === 'wago221_inline' ||
-    type === 'wago221_double'
+    type === 'wago221_double' ||
+    type === 'sensorMountBalluff'
   )
 }
 

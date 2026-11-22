@@ -202,34 +202,91 @@ function makeOboLidTexture(
   return tex
 }
 
-function makeWagoSidePrintTexture(modelCode: string): THREE.CanvasTexture {
+/* ═══ WAGO 221 — serigrafia fiel ao produto real (fotos de referência do utilizador) ═══ */
+
+function drawPseDiamond(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(Math.PI / 4)
+  ctx.lineWidth = size * 0.085
+  ctx.strokeRect(-size / 2, -size / 2, size, size)
+  ctx.restore()
+  ctx.font = `900 ${Math.round(size * 0.32)}px Arial, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText('PSE', x, y - size * 0.04)
+  ctx.fillText('E', x, y + size * 0.3)
+  ctx.textAlign = 'left'
+}
+
+/**
+ * Face lateral impressa da WAGO 221 (tinta preta no policarbonato transparente).
+ *  - face 'a' (extremidade principal): PSE · Cu 1,6/2/2,6ø · JET 20A 300V · 0,14↑/0,2-4 · 450V/32A · AWG 24-12
+ *  - face 'b' (extremidade oposta):   PSE · Cu 1,6/2/2,6ø · JET 30A 300V · calibrador de decape 11/13 mm
+ *  - face 'compact' (221-2411):       450V/32A · 0,2-4 q·mm² · AWG 18-14
+ */
+function makeWagoSidePrintTexture(
+  side: 'a' | 'b' | 'compact',
+  opts: { jet: string; gauge: string },
+): THREE.CanvasTexture {
   const c = document.createElement('canvas')
-  c.width = 512
-  c.height = 256
+  c.width = 1024
+  c.height = 440
   const ctx = c.getContext('2d')!
   ctx.clearRect(0, 0, c.width, c.height)
+  ctx.fillStyle = 'rgba(10, 14, 20, 0.94)'
+  ctx.strokeStyle = 'rgba(10, 14, 20, 0.94)'
 
-  // Serigrafia técnica gravada no policarbonato transparente (fiel a image-39..42.png)
-  ctx.fillStyle = 'rgba(226, 232, 240, 0.90)'
-  ctx.font = '800 26px Arial, sans-serif'
-  ctx.fillText('WAGO  ' + modelCode, 22, 46)
-  ctx.font = '700 21px Arial, sans-serif'
-  ctx.fillText('450V · 32A · 0,2-4□ · JET · ENEC 05', 22, 86)
-  ctx.fillText('UL 600V · AWG 24-12 · Cu 1,6/2,0', 22, 120)
-
-  // Seta de decape 11 mm característica da lateral da WAGO 221
-  ctx.strokeStyle = 'rgba(241, 245, 249, 0.92)'
-  ctx.lineWidth = 4
-  ctx.beginPath()
-  ctx.moveTo(26, 178)
-  ctx.lineTo(156, 178)
-  ctx.moveTo(26, 166)
-  ctx.lineTo(26, 190)
-  ctx.moveTo(156, 166)
-  ctx.lineTo(156, 190)
-  ctx.stroke()
-  ctx.font = '800 24px Arial, sans-serif'
-  ctx.fillText('11 mm', 174, 186)
+  if (side === 'compact') {
+    drawPseDiamond(ctx, 84, 110, 108)
+    ctx.font = '900 86px Arial, sans-serif'
+    ctx.fillText('450V/32A', 180, 118)
+    ctx.font = '700 58px Arial, sans-serif'
+    ctx.fillText('0,2-4 q·mm²', 180, 226)
+    ctx.font = '900 66px Arial, sans-serif'
+    ctx.fillText('AWG 18-14', 180, 336)
+  } else if (side === 'a') {
+    drawPseDiamond(ctx, 84, 110, 108)
+    ctx.font = '900 80px Arial, sans-serif'
+    ctx.fillText('Cu 1,6/2/2,6ø', 172, 112)
+    ctx.font = '900 74px Arial, sans-serif'
+    ctx.fillText(opts.jet, 172, 210)
+    ctx.font = '700 48px Arial, sans-serif'
+    ctx.fillText('0,14↑/0,2-4 q·mm²', 172, 296)
+    ctx.font = '900 60px Arial, sans-serif'
+    ctx.fillText('450V/32A', 172, 392)
+    ctx.font = '800 50px Arial, sans-serif'
+    ctx.fillText('AWG 24-12', 560, 392)
+  } else {
+    drawPseDiamond(ctx, 84, 110, 108)
+    ctx.font = '900 80px Arial, sans-serif'
+    ctx.fillText('Cu 1,6/2/2,6ø', 172, 112)
+    ctx.font = '900 74px Arial, sans-serif'
+    ctx.fillText(opts.jet, 172, 214)
+    // Calibrador de decape: linha com seta à esquerda + comprimento por baixo
+    const gy = 320
+    ctx.lineWidth = 14
+    ctx.beginPath()
+    ctx.moveTo(172, gy)
+    ctx.lineTo(620, gy)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(172, gy)
+    ctx.lineTo(248, gy - 30)
+    ctx.lineTo(248, gy + 30)
+    ctx.closePath()
+    ctx.fill()
+    ctx.lineWidth = 12
+    ctx.beginPath()
+    ctx.moveTo(172, gy - 40)
+    ctx.lineTo(172, gy + 40)
+    ctx.moveTo(620, gy - 40)
+    ctx.lineTo(620, gy + 40)
+    ctx.stroke()
+    ctx.font = '900 74px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(opts.gauge, 396, 424)
+    ctx.textAlign = 'left'
+  }
 
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
@@ -237,29 +294,28 @@ function makeWagoSidePrintTexture(modelCode: string): THREE.CanvasTexture {
   return tex
 }
 
+/** Topo da alavanca laranja: logótipo WAGO 221 a preto na metade da pega. */
 function makeWagoLeverTopTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas')
-  c.width = 128
-  c.height = 256
+  c.width = 256
+  c.height = 512
   const ctx = c.getContext('2d')!
 
   ctx.fillStyle = '#f25610'
   ctx.fillRect(0, 0, c.width, c.height)
 
-  // Frisos antiderrapantes na ponta da alavanca
-  ctx.fillStyle = 'rgba(130, 32, 0, 0.34)'
-  for (let i = 0; i < 4; i++) {
-    ctx.fillRect(14, 18 + i * 14, c.width - 28, 6)
-  }
-
-  // Serigrafia WAGO 221 na alavanca laranja (fiel a image-39..42.png)
-  ctx.fillStyle = 'rgba(72, 18, 0, 0.78)'
+  // Logótipo WAGO 221 (itálico forte, como impresso na peça real)
+  ctx.fillStyle = 'rgba(12, 12, 14, 0.95)'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.font = '900 28px Arial, sans-serif'
-  ctx.fillText('WAGO', c.width / 2, 146)
-  ctx.font = '900 32px Arial, sans-serif'
-  ctx.fillText('221', c.width / 2, 192)
+  ctx.save()
+  ctx.translate(128, 300)
+  ctx.transform(1, 0, -0.2, 1, 0, 0)
+  ctx.font = '900 78px Arial, sans-serif'
+  ctx.fillText('WAGO', 0, 0)
+  ctx.restore()
+  ctx.font = '900 92px Arial, sans-serif'
+  ctx.fillText('221', 128, 412)
 
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
@@ -762,11 +818,12 @@ function WagoOrangeLever({
   const { invalidate } = useThree()
   const grpRef = useRef<THREE.Group>(null)
   const angleRef = useRef(isOpen ? 1 : 0)
+  // Tecla tipo «piano»: fina, quase ao nível do corpo, ponta boleada.
   const bodyGeom = useMemo(
-    () => new RoundedBoxGeometry(width * 0.96, 0.055, length * 0.98, 3, 0.012),
+    () => new RoundedBoxGeometry(width, 0.034, length * 0.99, 3, 0.009),
     [width, length],
   )
-  useEffect(() => () => bodyGeom.dispose(), [bodyGeom])
+  useEffect(() => () => { bodyGeom.dispose() }, [bodyGeom])
 
   useFrame((_, delta) => {
     const target = isOpen ? 1 : 0
@@ -776,13 +833,11 @@ function WagoOrangeLever({
       invalidate()
     }
     if (grpRef.current) {
-      // Alavanca WAGO 221 levanta ~88°
-      grpRef.current.rotation.x = -pivotSign * angleRef.current * (Math.PI * 0.49)
+      // Alavanca WAGO 221 abre ~105° a partir da charneira traseira
+      grpRef.current.rotation.x = -pivotSign * angleRef.current * (Math.PI * 0.58)
     }
   })
 
-  const halfL = length * 0.5
-  const tipZ = pivotSign * (length * 0.82)
   return (
     <group
       ref={grpRef}
@@ -794,46 +849,45 @@ function WagoOrangeLever({
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' }}
       onPointerOut={() => { document.body.style.cursor = '' }}
     >
-      {/* Corpo principal laranja com arestas boleadas (policarbonato WAGO) */}
-      <mesh position={[0, 0.032, pivotSign * halfL]} geometry={bodyGeom} castShadow>
+      {/* Tecla laranja com arestas boleadas (policarbonato WAGO) */}
+      <mesh position={[0, 0.017, pivotSign * length * 0.5]} geometry={bodyGeom} castShadow>
         <meshPhysicalMaterial
-          color="#ff5a12"
-          roughness={0.18}
+          color="#f75912"
+          roughness={0.3}
           metalness={0.03}
-          clearcoat={0.95}
-          clearcoatRoughness={0.1}
+          clearcoat={0.6}
+          clearcoatRoughness={0.18}
         />
       </mesh>
-      {/* Serigrafia WAGO 221 no topo da alavanca */}
-      <mesh position={[0, 0.062, pivotSign * halfL]} rotation={[-Math.PI / 2, 0, pivotSign > 0 ? 0 : Math.PI]}>
-        <planeGeometry args={[width * 0.88, length * 0.86]} />
-        <meshStandardMaterial map={leverTex} roughness={0.25} transparent opacity={0.95} />
+      {/* Serigrafia WAGO 221 a preto sobre a tecla */}
+      <mesh position={[0, 0.0375, pivotSign * length * 0.56]} rotation={[-Math.PI / 2, 0, pivotSign > 0 ? 0 : Math.PI]}>
+        <planeGeometry args={[width * 0.86, length * 0.68]} />
+        <meshStandardMaterial map={leverTex} roughness={0.32} transparent />
       </mesh>
-      {/* Frisos antiderrapantes na ponta (geometria real) */}
-      {[0, 1, 2, 3].map((i) => (
-        <mesh
-          key={i}
-          position={[0, 0.058, tipZ - pivotSign * (0.02 + i * 0.018)]}
-          castShadow
-        >
-          <boxGeometry args={[width * 0.78, 0.012, 0.008]} />
-          <meshStandardMaterial color="#d44508" roughness={0.35} />
+      {/* Frisos antiderrapantes junto à pega */}
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} position={[0, 0.0385, pivotSign * (length * (0.87 + i * 0.035))]} castShadow>
+          <boxGeometry args={[width * 0.62, 0.007, 0.011]} />
+          <meshStandardMaterial color="#d8480c" roughness={0.4} />
         </mesh>
       ))}
-      {/* Aba de pega na extremidade */}
-      <mesh position={[0, 0.04, pivotSign * (length - 0.02)]} castShadow>
-        <boxGeometry args={[width * 0.92, 0.04, 0.04]} />
-        <meshPhysicalMaterial color="#e84a0a" roughness={0.2} clearcoat={0.85} clearcoatRoughness={0.12} />
-      </mesh>
       {/* Pino de articulação metálico */}
       <mesh position={[0, 0.012, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.014, 0.014, width * 1.02, 12]} />
+        <cylinderGeometry args={[0.012, 0.012, width * 1.02, 12]} />
         <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.22} />
       </mesh>
     </group>
   )
 }
 
+/**
+ * Conector WAGO 221 fiel ao produto real (fotos de referência):
+ * - corpo de policarbonato transparente com treliça diagonal nas extremidades
+ * - alavancas laranja «tecla de piano» com serigrafia WAGO 221, quase ao nível do corpo
+ * - entradas de condutor em funis laranja no fundo (uma por via)
+ * - serigrafia técnica preta nas duas extremidades (PSE · Cu 1,6/2/2,6ø · JET · 450V/32A · AWG · calibrador)
+ * - interior visível: barramento de cobre estanhado + CAGE CLAMP em aço + base isolante
+ */
 export function Wago221Connector3D({
   component,
   onToggleLever,
@@ -847,48 +901,48 @@ export function Wago221Connector3D({
   const H = sz.y * U
   const D = sz.z * U
 
-  const modelCode =
-    type === 'wago221_2'
-      ? '221-412'
-      : type === 'wago221_5'
-        ? '221-415'
-        : type === 'wago221_inline'
-          ? '221-2411'
-          : '221-415 2×5'
+  const isInline = type === 'wago221_inline'
+  const isDouble = type === 'wago221_double'
+  const jetB = type === 'wago221_5' || isDouble ? 'JET 30A 300V' : 'JET 20A 300V'
+  const gaugeB = type === 'wago221_5' || isDouble ? '13' : '11'
+  const cols = type === 'wago221_2' ? 2 : type === 'wago221_3' ? 3 : 5
+  const tiers = isDouble ? 2 : 1
+  const tH = tiers === 1 ? H * 0.94 : H * 0.47
+  const pitch = (W * 0.86) / cols
+  const leverW = pitch * 0.9
+  const leverLen = D * 0.56
+  const hullH = tH * 0.58
+  const hullY = -tH * 0.08
 
-  const sideTex = useMemo(() => makeWagoSidePrintTexture(modelCode), [modelCode])
+  const texA = useMemo(() => makeWagoSidePrintTexture('a', { jet: 'JET 20A 300V', gauge: gaugeB }), [gaugeB])
+  const texB = useMemo(() => makeWagoSidePrintTexture('b', { jet: jetB, gauge: gaugeB }), [jetB, gaugeB])
+  const texCompact = useMemo(() => makeWagoSidePrintTexture('compact', { jet: 'JET 20A 300V', gauge: '11' }), [])
   const leverTex = useMemo(() => makeWagoLeverTopTexture(), [])
+  const hullGeom = useMemo(
+    () => (isInline ? null : new RoundedBoxGeometry(W * 0.97, hullH, D * 0.95, 4, Math.min(W, D) * 0.045)),
+    [isInline, W, hullH, D],
+  )
   useEffect(() => {
     return () => {
-      sideTex.dispose()
+      texA.dispose()
+      texB.dispose()
+      texCompact.dispose()
       leverTex.dispose()
+      hullGeom?.dispose()
     }
-  }, [sideTex, leverTex])
+  }, [texA, texB, texCompact, leverTex, hullGeom])
 
   const leverStates = Array.isArray(component.state.leversOpen)
     ? (component.state.leversOpen as boolean[])
     : []
-
   const isLeverOpen = (idx: number) => leverStates[idx] === true
 
-  const mainBodyGeom = useMemo(() => {
-    if (type === 'wago221_inline') return null
-    const bw = W
-    const bh = H * 0.72
-    const bd = D * 0.94
-    return new RoundedBoxGeometry(bw, bh, bd, 4, Math.min(0.018, bw * 0.06))
-  }, [type, W, H, D])
-  useEffect(() => () => { mainBodyGeom?.dispose() }, [mainBodyGeom])
-
-  /* ── Variante Inline 221-2411 (image-41.png) ──
-     Corpo em policarbonato transparente de arestas boleadas, duas bocas de entrada nos topos,
-     barramento estanhado com duas molas CAGE CLAMP e alavancas laranja articuladas no meio
-     (abrem pela ponta exterior), com abas de pega estriadas. */
-  if (type === 'wago221_inline') {
-    const bodyW = W * 0.97, bodyH = H * 0.8, bodyD = D * 0.9
+  /* ── Variante Inline 221-2411 — emenda linear compacta (image-9.png) ── */
+  if (isInline) {
+    const bodyW = W * 0.97, bodyH = H * 0.78, bodyD = D * 0.9
     return (
       <group>
-        {/* Base interior cinzenta onde assenta o barramento (vista através do corpo) */}
+        {/* Base interior cinzenta onde assenta o barramento */}
         <mesh position={[0, -bodyH * 0.36, 0]}>
           <boxGeometry args={[bodyW * 0.9, bodyH * 0.1, bodyD * 0.78]} />
           <meshStandardMaterial color="#5b6573" roughness={0.6} />
@@ -924,7 +978,7 @@ export function Wago221Connector3D({
             </mesh>
           </group>
         ))}
-        {/* Corpo transparente cristal com arestas boleadas e reflexo de policarbonato */}
+        {/* Corpo transparente cristal com arestas boleadas */}
         <mesh renderOrder={3}>
           <primitive object={wagoInlineBodyGeometry(bodyW, bodyH, bodyD)} attach="geometry" />
           <meshPhysicalMaterial
@@ -940,12 +994,12 @@ export function Wago221Connector3D({
             depthWrite={false}
           />
         </mesh>
-        {/* Serigrafia lateral (WAGO 221-2411 · 4 mm² · 450 V) */}
+        {/* Serigrafia lateral (450V/32A · 0,2-4 q·mm² · AWG 18-14) */}
         <mesh position={[0, -bodyH * 0.04, bodyD * 0.5 + 0.002]}>
           <planeGeometry args={[bodyW * 0.7, bodyH * 0.5]} />
-          <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={sideTex} transparent opacity={0.9} depthWrite={false} />
+          <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={texCompact} transparent opacity={0.92} depthWrite={false} />
         </mesh>
-        {/* Alavancas laranja: articuladas junto ao meio, pega na ponta exterior */}
+        {/* Alavancas laranja: charneira junto ao meio, pega na ponta exterior */}
         {[-1, 1].map((side, idx) => (
           <group key={side} position={[side * bodyW * 0.04, bodyH * 0.5, 0]} rotation={[0, side < 0 ? -Math.PI / 2 : Math.PI / 2, 0]}>
             <WagoOrangeLever
@@ -963,99 +1017,17 @@ export function Wago221Connector3D({
     )
   }
 
-  /* ── Variantes 221-412 / 221-415 / Duplo 2×5 — policarbonato cristal ultra-realista ── */
-  const cols = type === 'wago221_2' ? 2 : 5
-  const isDouble = type === 'wago221_double'
-  const pitch = (W * 0.86) / cols
-  const leverW = pitch * 0.78
-  const leverLen = D * 0.58
-  const bodyH = H * 0.72
-  const bodyD = D * 0.94
-
-  const renderTier = (tierY: number, offsetIdx: number, leverDir: 1 | -1) => (
-    <group position={[0, tierY, 0]}>
-      {/* Barramento de cobre estanhado (visível através do PC) */}
-      <mesh position={[0, -0.035, -D * 0.12]} castShadow>
-        <boxGeometry args={[W * 0.88, 0.05, D * 0.42]} />
-        <meshStandardMaterial color="#c9893a" metalness={0.92} roughness={0.16} />
-      </mesh>
-      {/* Base isolante cinza */}
-      <mesh position={[0, -0.078, -D * 0.06]}>
-        <boxGeometry args={[W * 0.9, 0.022, D * 0.7]} />
-        <meshStandardMaterial color="#3b4554" roughness={0.5} />
-      </mesh>
-      {Array.from({ length: cols }).map((_, idx) => {
-        const lx = -((cols - 1) / 2) * pitch + idx * pitch
-        const open = isLeverOpen(offsetIdx + idx)
-        return (
-          <group key={idx} position={[lx, 0, 0]}>
-            {/* Bloco CAGE CLAMP — aço inox com forma em C */}
-            <mesh position={[0, 0.008, -D * 0.1]} castShadow>
-              <boxGeometry args={[leverW * 0.68, 0.1, D * 0.32]} />
-              <meshStandardMaterial color="#c5ced8" metalness={0.9} roughness={0.18} />
-            </mesh>
-            <mesh position={[0, 0.05, -D * 0.02]} rotation={[0.35, 0, 0]}>
-              <boxGeometry args={[leverW * 0.55, 0.018, D * 0.2]} />
-              <meshStandardMaterial color="#aeb8c4" metalness={0.92} roughness={0.15} />
-            </mesh>
-            {/* Canal de entrada (cor cobre quando fechado) */}
-            <mesh position={[0, -0.02, D * 0.2]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[leverW * 0.18, leverW * 0.2, D * 0.32, 14]} />
-              <meshStandardMaterial color={open ? '#64748b' : '#b87333'} metalness={0.8} roughness={0.25} />
-            </mesh>
-            {/* Boca de inserção frontal (oval escura) */}
-            <mesh position={[0, -0.018, bodyD * 0.48]}>
-              <boxGeometry args={[leverW * 0.5, 0.078, 0.02]} />
-              <meshStandardMaterial color="#0f172a" roughness={0.75} />
-            </mesh>
-            {/* Anel da boca */}
-            <mesh position={[0, -0.018, bodyD * 0.465]}>
-              <boxGeometry args={[leverW * 0.58, 0.09, 0.01]} />
-              <meshStandardMaterial color="#94a3b8" metalness={0.4} roughness={0.35} />
-            </mesh>
-            {/* Orifício de teste traseiro */}
-            <mesh position={[0, -0.018, -bodyD * 0.48]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.022, 0.022, 0.02, 12]} />
-              <meshStandardMaterial color="#0f172a" roughness={0.7} />
-            </mesh>
-            {idx < cols - 1 && (
-              <mesh position={[pitch * 0.5, 0.01, 0]} renderOrder={2}>
-                <boxGeometry args={[0.014, bodyH * 0.85, bodyD * 0.88]} />
-                <meshPhysicalMaterial
-                  userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
-                  color="#bfdbfe"
-                  transparent
-                  opacity={0.35}
-                  roughness={0.08}
-                  clearcoat={0.9}
-                  depthWrite={false}
-                />
-              </mesh>
-            )}
-            <WagoOrangeLever
-              position={[0, leverDir > 0 ? 0.11 : -0.11, -D * 0.22]}
-              pivotSign={1}
-              width={leverW}
-              length={leverLen}
-              isOpen={open}
-              leverTex={leverTex}
-              onToggle={() => onToggleLever?.(offsetIdx + idx)}
-            />
-          </group>
-        )
-      })}
-    </group>
-  )
-
-  return (
+  /* ── Variantes 221-412 / 221-413 / 221-415 / Duplo 2×5 ── */
+  const renderTier = (offsetIdx: number) => (
     <group>
-      {/* Invólucro PC transparente com arestas boleadas — mais visível e cristalino */}
-      <mesh geometry={mainBodyGeom ?? undefined} renderOrder={3} castShadow>
+      {/* ── Invólucro PC transparente ── */}
+      <mesh position={[0, hullY, 0]} renderOrder={3} castShadow>
+        <primitive object={hullGeom ?? new THREE.BufferGeometry()} attach="geometry" />
         <meshPhysicalMaterial
           userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
-          color="#dbeafe"
+          color="#e8f0f6"
           transparent
-          opacity={0.42}
+          opacity={0.2}
           roughness={0.06}
           metalness={0.02}
           ior={1.58}
@@ -1064,42 +1036,115 @@ export function Wago221Connector3D({
           depthWrite={false}
         />
       </mesh>
-      {/* Base opaca ligeira (sombra do interior) */}
-      <mesh position={[0, -bodyH * 0.48, 0]}>
-        <boxGeometry args={[W * 0.98, 0.012, bodyD * 0.96]} />
-        <meshStandardMaterial color="#64748b" roughness={0.45} transparent opacity={0.55} />
+
+      {/* ── Treliça diagonal nas faces extremas (assinatura da WAGO 221) ── */}
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * W * 0.462, hullY, 0]}>
+          {/* treliça em losango: pares de diagonais curtos + carris horizontais */}
+          {[-1, 0, 1].map((k) => (
+            <group key={k} position={[0, 0, k * D * 0.28]}>
+              <mesh rotation={[0.75, 0, 0]}>
+                <boxGeometry args={[tH * 0.05, hullH * 1.32, tH * 0.05]} />
+                <meshPhysicalMaterial color="#cfe0ee" transparent opacity={0.55} roughness={0.1} metalness={0.05} />
+              </mesh>
+              <mesh rotation={[-0.75, 0, 0]}>
+                <boxGeometry args={[tH * 0.05, hullH * 1.32, tH * 0.05]} />
+                <meshPhysicalMaterial color="#cfe0ee" transparent opacity={0.55} roughness={0.1} metalness={0.05} />
+              </mesh>
+            </group>
+          ))}
+          {[-1, 1].map((v) => (
+            <mesh key={v} position={[0, v * hullH * 0.31, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <boxGeometry args={[tH * 0.05, D * 0.94, tH * 0.05]} />
+              <meshPhysicalMaterial color="#cfe0ee" transparent opacity={0.55} roughness={0.1} metalness={0.05} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* ── Interior: base isolante, barramento estanhado e CAGE CLAMP por via ── */}
+      <mesh position={[0, -tH * 0.3, 0]}>
+        <boxGeometry args={[W * 0.92, tH * 0.022, D * 0.72]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
       </mesh>
-      {/* Face frontal semi-opaca (janela de entradas) */}
-      <mesh position={[0, -0.01, bodyD * 0.5]} renderOrder={2}>
-        <boxGeometry args={[W * 0.98, bodyH * 0.9, 0.012]} />
-        <meshPhysicalMaterial
-          userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
-          color="#e0f2fe"
-          transparent
-          opacity={0.28}
-          roughness={0.08}
-          clearcoat={0.9}
-          depthWrite={false}
-        />
+      <mesh position={[0, -tH * 0.17, -D * 0.08]}>
+        <boxGeometry args={[W * 0.86, tH * 0.035, D * 0.26]} />
+        <meshStandardMaterial color="#c9893a" metalness={0.92} roughness={0.16} />
       </mesh>
-      {/* Serigrafia lateral */}
-      <mesh position={[W / 2 + 0.004, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[bodyD * 0.9, bodyH * 0.7]} />
-        <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={sideTex} transparent opacity={0.95} depthWrite={false} />
-      </mesh>
-      <mesh position={[-W / 2 - 0.004, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[bodyD * 0.9, bodyH * 0.7]} />
-        <meshBasicMaterial userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }} map={sideTex} transparent opacity={0.95} depthWrite={false} />
-      </mesh>
-      {isDouble ? (
-        <>
-          {renderTier(H * 0.18, 0, 1)}
-          <group rotation={[Math.PI, 0, 0]}>
-            {renderTier(H * 0.18, 5, 1)}
+      {Array.from({ length: cols }).map((_, idx) => {
+        const lx = -((cols - 1) / 2) * pitch + idx * pitch
+        return (
+          <group key={idx} position={[lx, 0, 0]}>
+            {/* Bloco CAGE CLAMP — aço inox */}
+            <mesh position={[0, -tH * 0.03, -D * 0.1]}>
+              <boxGeometry args={[leverW * 0.5, tH * 0.18, D * 0.22]} />
+              <meshStandardMaterial color="#c5ced8" metalness={0.9} roughness={0.18} />
+            </mesh>
+            <mesh position={[0, tH * 0.06, -D * 0.04]} rotation={[0.35, 0, 0]}>
+              <boxGeometry args={[leverW * 0.46, tH * 0.018, D * 0.14]} />
+              <meshStandardMaterial color="#aeb8c4" metalness={0.92} roughness={0.15} />
+            </mesh>
+            {/* Canal do condutor até ao funil */}
+            <mesh position={[0, -tH * 0.14, D * 0.08]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[leverW * 0.12, leverW * 0.12, D * 0.16, 12]} />
+              <meshStandardMaterial color="#b87333" metalness={0.8} roughness={0.28} />
+            </mesh>
+            {/* Orifício de teste traseiro */}
+            <mesh position={[0, -tH * 0.12, -D * 0.472]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[tH * 0.028, tH * 0.028, tH * 0.012, 10]} />
+              <meshStandardMaterial color="#0f172a" roughness={0.7} />
+            </mesh>
+            {/* Funil laranja de entrada no fundo (uma por via) */}
+            <mesh position={[0, -tH * 0.44, D * 0.06]}>
+              <cylinderGeometry args={[leverW * 0.28, leverW * 0.36, tH * 0.19, 18]} />
+              <meshStandardMaterial color="#f25610" roughness={0.32} />
+            </mesh>
+            <mesh position={[0, -tH * 0.35, D * 0.06]}>
+              <cylinderGeometry args={[leverW * 0.33, leverW * 0.33, tH * 0.03, 18]} />
+              <meshStandardMaterial color="#ff6a1c" roughness={0.3} />
+            </mesh>
+            <mesh position={[0, -tH * 0.535, D * 0.06]}>
+              <cylinderGeometry args={[leverW * 0.19, leverW * 0.19, tH * 0.012, 14]} />
+              <meshStandardMaterial color="#0f172a" roughness={0.75} />
+            </mesh>
+            <WagoOrangeLever
+              position={[0, tH * 0.185, -D * 0.3]}
+              pivotSign={1}
+              width={leverW}
+              length={leverLen}
+              isOpen={isLeverOpen(offsetIdx + idx)}
+              leverTex={leverTex}
+              onToggle={() => onToggleLever?.(offsetIdx + idx)}
+            />
           </group>
-        </>
+        )
+      })}
+
+      {/* ── Serigrafia técnica nas duas extremidades ── */}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (W * 0.487), -tH * 0.05, 0]} rotation={[0, side > 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
+          <planeGeometry args={[D * 0.92, tH * 0.42]} />
+          <meshBasicMaterial
+            userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+            map={side > 0 ? texA : texB}
+            transparent
+            opacity={0.95}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  )
+
+  return (
+    <group>
+      {tiers === 1 ? (
+        renderTier(0)
       ) : (
-        renderTier(0, 0, 1)
+        <>
+          <group position={[0, H * 0.235, 0]}>{renderTier(0)}</group>
+          <group position={[0, -H * 0.235, 0]} rotation={[Math.PI, 0, 0]}>{renderTier(5)}</group>
+        </>
       )}
     </group>
   )

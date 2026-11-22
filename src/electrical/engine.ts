@@ -356,6 +356,7 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     }
     // ---- conectores WAGO 221: continuidade real condicionada ao fecho de cada alavanca laranja ----
     case 'wago221_2':
+    case 'wago221_3':
     case 'wago221_5':
     case 'wago221_inline': {
       const leversOpen = Array.isArray(c.state.leversOpen) ? (c.state.leversOpen as boolean[]) : []

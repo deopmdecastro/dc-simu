@@ -5,6 +5,9 @@ import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
+import { paintImportedModel } from './importedFinish'
+import { finishCadMaterial } from './catalogMaterials'
+import { SensorMountBalluff3D } from './SensorMounts3D'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
 import {
   conveyorDimensionsOf,
@@ -154,6 +157,61 @@ function createRollerMetalTexture(): THREE.CanvasTexture | null {
   return tex
 }
 
+/**
+ * Sensor fotoelétrico real Telemecanique XUKT1KSML2 — reaproveita o GLB importado
+ * (o mesmo do componente `photoSensorXukt1ksml2`), com o feixe ótico e o LED de estado.
+ * Renderizado no olhal da base BALLUFF: +Z local = eixo ótico (para o espelho oposto).
+ */
+function XuktRealSensor3D({ triggered, sideSign, beamSpan }: { triggered: boolean; sideSign: number; beamSpan: number }) {
+  const spec = getComponentModelSpec('photoSensorXukt1ksml2')!
+  const { scene } = useGLTF(spec.path)
+  const fitted = useMemo(() => {
+    const obj = cloneModelScene(scene)
+    paintImportedModel('photoSensorXukt1ksml2', obj)
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh || mesh.userData.cadFinished) return
+      mesh.userData.cadFinished = true
+      mesh.material = Array.isArray(mesh.material)
+        ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 }))
+        : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
+    })
+    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
+  }, [scene, spec])
+  useEffect(() => () => disposeModelClone(fitted), [fitted])
+  return (
+    <group>
+      {/* Corpo real do XUKT1KSML2 (lente voltada para +Z) */}
+      <group rotation={[0, Math.PI, 0]} position={[0, 0, -0.02]}>
+        <primitive object={fitted} />
+      </group>
+      {/* LED indicador de estado (verde em espera / âmbar detetado) */}
+      <mesh position={[0, 0.028, -0.028]}>
+        <sphereGeometry args={[0.0045, 10, 10]} />
+        <meshStandardMaterial
+          color={triggered ? '#f59e0b' : '#22c55e'}
+          emissive={triggered ? '#f59e0b' : '#22c55e'}
+          emissiveIntensity={1.6}
+        />
+      </mesh>
+      {/* Feixe ótico até ao espelho refletor da longarina oposta */}
+      <mesh
+        position={[0, 0, triggered ? beamSpan * 0.25 : beamSpan * 0.5]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <cylinderGeometry args={[0.0024, 0.0024, triggered ? beamSpan * 0.45 : beamSpan, 8]} />
+        <meshBasicMaterial
+          userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
+          color={triggered ? '#fbbf24' : '#ef4444'}
+          transparent
+          opacity={triggered ? 0.65 : 0.36}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
 /** Sensor montado na longarina do tapete (editável em posição, lado, altura, ângulo e espelho). */
 function ConveyorSensorMount3D({
   sensor,
@@ -179,87 +237,51 @@ function ConveyorSensorMount3D({
 
   return (
     <group>
-      {/* Suporte em L de aço inox + sensor orientável */}
-      <group position={[x, rollerTopY, railZ]}>
-        {/* Braço vertical do suporte fixo à longarina */}
-        <mesh position={[0, (sensor.heightOffsetMm * U) / 2 - 22 * U, 0]} castShadow>
-          <boxGeometry args={[18 * U, sensor.heightOffsetMm * U + 44 * U, 6 * U]} />
-          <meshStandardMaterial color="#cbd5e1" roughness={0.34} metalness={0.82} />
-        </mesh>
-        {/* Abraçadeira na longarina */}
-        <mesh position={[0, -34 * U, -sideSign * 10 * U]} castShadow>
-          <boxGeometry args={[28 * U, 24 * U, 22 * U]} />
-          <meshStandardMaterial color="#64748b" roughness={0.44} metalness={0.7} />
-        </mesh>
-
-        {/* Cabeça do sensor rotacionável pelo utilizador (`angleDeg`) */}
-        <group position={[0, sensorY - rollerTopY, -sideSign * 14 * U]} rotation={[0, yawRad, 0]}>
-          {isOptical ? (
-            <>
-              {/* Corpo fotoelétrico industrial (estilo XUKT) */}
-              <mesh castShadow>
-                <boxGeometry args={[22 * U, 44 * U, 34 * U]} />
-                <meshStandardMaterial color="#1f2937" roughness={0.42} metalness={0.18} />
-              </mesh>
-              {/* Lente frontal voltada para o tapete */}
-              <mesh position={[0, 5 * U, -sideSign * 17.5 * U]}>
-                <boxGeometry args={[14 * U, 20 * U, 2 * U]} />
-                <meshStandardMaterial
-                  color="#7f1d1d"
-                  emissive="#ef4444"
-                  emissiveIntensity={triggered ? 1.8 : 0.7}
-                  roughness={0.18}
-                />
-              </mesh>
-              {/* LED indicador de estado (verde standby / âmbar detetado) */}
-              <mesh position={[0, 23 * U, 0]}>
-                <sphereGeometry args={[4.5 * U, 10, 10]} />
-                <meshStandardMaterial
-                  color={triggered ? '#f59e0b' : '#22c55e'}
-                  emissive={triggered ? '#f59e0b' : '#22c55e'}
-                  emissiveIntensity={1.6}
-                />
-              </mesh>
-              {/* Feixe ótico laser vermelho visível até ao espelho ou até à peça */}
-              <mesh
-                position={[0, 5 * U, -sideSign * (triggered ? beamSpan * 0.25 : beamSpan * 0.5)]}
-                rotation={[Math.PI / 2, 0, 0]}
-              >
-                <cylinderGeometry
-                  args={[2.4 * U, 2.4 * U, triggered ? beamSpan * 0.45 : beamSpan, 8]}
-                />
-                <meshBasicMaterial
-                  userData={{ keepTransparent: true, dcSimuBodySurface: 'preserve' }}
-                  color={triggered ? '#fbbf24' : '#ef4444'}
-                  transparent
-                  opacity={triggered ? 0.65 : 0.36}
-                  depthWrite={false}
-                />
-              </mesh>
-            </>
-          ) : (
-            <>
-              {/* Sensor indutivo cilíndrico M18 latão niquelado + face azul */}
-              <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-                <cylinderGeometry args={[10 * U, 10 * U, 52 * U, 18]} />
-                <meshStandardMaterial color="#cbd5e1" roughness={0.28} metalness={0.86} />
-              </mesh>
-              <mesh position={[0, 0, -sideSign * 27 * U]} rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[9.2 * U, 9.2 * U, 4 * U, 18]} />
-                <meshStandardMaterial color="#2563eb" roughness={0.32} metalness={0.15} />
-              </mesh>
-              <mesh position={[0, 0, sideSign * 24 * U]} rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[10.8 * U, 10.8 * U, 6 * U, 16]} />
-                <meshStandardMaterial
-                  color={triggered ? '#f59e0b' : '#16a34a'}
-                  emissive={triggered ? '#f59e0b' : '#16a34a'}
-                  emissiveIntensity={triggered ? 1.8 : 0.6}
-                />
-              </mesh>
-            </>
-          )}
+      {isOptical ? (
+        /* Base de montagem BALLUFF + sensor real Telemecanique XUKT1KSML2 (GLB reaproveitado) */
+        <group position={[x, rollerTopY, railZ]} rotation={[0, yawRad, 0]}>
+          <SensorMountBalluff3D
+            position={[0, sensor.heightOffsetMm * U - 1.84, sideSign * 26 * U]}
+            rotation={[0, sideSign > 0 ? Math.PI : 0, 0]}
+          >
+            <XuktRealSensor3D triggered={triggered} sideSign={sideSign} beamSpan={beamSpan} />
+          </SensorMountBalluff3D>
         </group>
-      </group>
+      ) : (
+        /* Sensor indutivo M18 com suporte em L de aço inox */
+        <group position={[x, rollerTopY, railZ]}>
+          {/* Braço vertical do suporte fixo à longarina */}
+          <mesh position={[0, (sensor.heightOffsetMm * U) / 2 - 22 * U, 0]} castShadow>
+            <boxGeometry args={[18 * U, sensor.heightOffsetMm * U + 44 * U, 6 * U]} />
+            <meshStandardMaterial color="#cbd5e1" roughness={0.34} metalness={0.82} />
+          </mesh>
+          {/* Abraçadeira na longarina */}
+          <mesh position={[0, -34 * U, -sideSign * 10 * U]} castShadow>
+            <boxGeometry args={[28 * U, 24 * U, 22 * U]} />
+            <meshStandardMaterial color="#64748b" roughness={0.44} metalness={0.7} />
+          </mesh>
+          {/* Cabeça do sensor rotacionável pelo utilizador (`angleDeg`) */}
+          <group position={[0, sensorY - rollerTopY, -sideSign * 14 * U]} rotation={[0, yawRad, 0]}>
+            {/* Sensor indutivo cilíndrico M18 latão niquelado + face azul */}
+            <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <cylinderGeometry args={[10 * U, 10 * U, 52 * U, 18]} />
+              <meshStandardMaterial color="#cbd5e1" roughness={0.28} metalness={0.86} />
+            </mesh>
+            <mesh position={[0, 0, -sideSign * 27 * U]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[9.2 * U, 9.2 * U, 4 * U, 18]} />
+              <meshStandardMaterial color="#2563eb" roughness={0.32} metalness={0.15} />
+            </mesh>
+            <mesh position={[0, 0, sideSign * 24 * U]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[10.8 * U, 10.8 * U, 6 * U, 16]} />
+              <meshStandardMaterial
+                color={triggered ? '#f59e0b' : '#16a34a'}
+                emissive={triggered ? '#f59e0b' : '#16a34a'}
+                emissiveIntensity={triggered ? 1.8 : 0.6}
+              />
+            </mesh>
+          </group>
+        </group>
+      )}
 
       {/* Espelho refletor prismático montado na longarina oposta (para sensores óticos) */}
       {isOptical && sensor.withReflector && (

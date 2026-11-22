@@ -1,0 +1,51 @@
+{
+  "when": "2026-11-22T03:09:45.763Z",
+  "results": [
+    {
+      "type": "wago221_2",
+      "name": "wago221-412-iso",
+      "meshes": 48
+    },
+    {
+      "type": "wago221_3",
+      "name": "wago221-413-iso",
+      "meshes": 61
+    },
+    {
+      "type": "wago221_5",
+      "name": "wago221-415-iso",
+      "meshes": 87
+    },
+    {
+      "type": "wago221_5",
+      "name": "wago221-415-lateral",
+      "meshes": 87
+    },
+    {
+      "type": "wago221_5",
+      "name": "wago221-415-fundos",
+      "meshes": 87
+    },
+    {
+      "type": "wago221_inline",
+      "name": "wago221-2411-iso",
+      "meshes": 25
+    },
+    {
+      "type": "wago221_double",
+      "name": "wago221-duplo-iso",
+      "meshes": 173
+    },
+    {
+      "type": "sensorMountBalluff",
+      "name": "base-balluff-iso",
+      "meshes": 27
+    },
+    {
+      "type": "rollerConveyor",
+      "name": "esteira-sensor-balluff",
+      "meshes": 236
+    }
+  ],
+  "errors": []
+}

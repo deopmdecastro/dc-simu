@@ -10,6 +10,7 @@ export type JunctionBoxType =
 
 export type WagoConnectorType =
   | 'wago221_2'
+  | 'wago221_3'
   | 'wago221_5'
   | 'wago221_inline'
   | 'wago221_double'
@@ -27,6 +28,7 @@ export function isJunctionBoxType(type: string): type is JunctionBoxType {
 export function isWagoConnectorType(type: string): type is WagoConnectorType {
   return (
     type === 'wago221_2' ||
+    type === 'wago221_3' ||
     type === 'wago221_5' ||
     type === 'wago221_inline' ||
     type === 'wago221_double'
@@ -52,6 +54,7 @@ export const JUNCTION_WAGO_SIZE_MM: Record<JunctionOrWagoType, { x: number; y: n
   junctionBoxOboA6: { x: 112, y: 66, z: 48 },
   junctionBoxOboT25: { x: 102, y: 102, z: 54 },
   wago221_2: { x: 34, y: 24, z: 36 },
+  wago221_3: { x: 44, y: 24, z: 36 },
   wago221_5: { x: 64, y: 24, z: 36 },
   wago221_inline: { x: 66, y: 20, z: 22 },
   wago221_double: { x: 66, y: 38, z: 40 },
@@ -98,6 +101,13 @@ export const JUNCTION_WAGO_DATASHEETS: Record<JunctionOrWagoType, JunctionWagoDa
     manufacturer: 'WAGO',
     model: '221-412 · 2× 0,2–4 mm² · 450V 32A',
     summary: 'Conector transparente de alavanca laranja · 2 vias comuns · CAGE CLAMP · Alojável em caixa OBO ou quadro',
+  },
+  wago221_3: {
+    path: '/datasheets/junction-wago/wago-221-413.pdf',
+    name: 'WAGO 221-413 · Conector de Alavanca 3 Condutores 32A (Ficha Técnica).pdf',
+    manufacturer: 'WAGO',
+    model: '221-413 · 3× 0,2–4 mm² · 450V 32A',
+    summary: 'Conector transparente de 3 alavancas laranja · 3 vias comuns · CAGE CLAMP · Alojável em caixa OBO ou quadro',
   },
   wago221_5: {
     path: '/datasheets/junction-wago/wago-221-415.pdf',

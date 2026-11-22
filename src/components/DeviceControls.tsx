@@ -2790,7 +2790,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
       })
     }
 
-    const addWagoInside = (wagoType: 'wago221_2' | 'wago221_5' | 'wago221_inline' | 'wago221_double') => {
+    const addWagoInside = (wagoType: 'wago221_2' | 'wago221_3' | 'wago221_5' | 'wago221_inline' | 'wago221_double') => {
       const createdId = addComponent(wagoType, (c.schematicX ?? 420) + 120, (c.schematicY ?? 260) + 40)
       if (!createdId) return
       setState(createdId, { hostLocation: 'box', hostBoxId: c.id })
@@ -2908,6 +2908,7 @@ function JunctionAndWagoControls({ c, locked }: { c: ElectricalComponent; locked
           </span>
           <div className="grid grid-cols-2 gap-1">
             <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_2')} className="dc-btn text-[10px] justify-center">+ WAGO 2 vias</button>
+            <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_3')} className="dc-btn text-[10px] justify-center">+ WAGO 3 vias</button>
             <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_5')} className="dc-btn text-[10px] justify-center">+ WAGO 5 vias</button>
             <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_inline')} className="dc-btn text-[10px] justify-center">+ WAGO Inline</button>
             <button type="button" disabled={locked} onClick={() => addWagoInside('wago221_double')} className="dc-btn text-[10px] justify-center">+ WAGO 2×5</button>
