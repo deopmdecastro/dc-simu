@@ -80,6 +80,7 @@ import { GlowHalo } from './GlowHalo'
 import { FactoryEnvironment3D, type FactoryWallMountBounds } from './FactoryEnvironment3D'
 import { FactoryHallSizeControl } from './FactoryHallSizeControl'
 import { FactoryWallsControl } from './FactoryWallsControl'
+import { floorDragBasis, floorDragDelta } from './floorDrag'
 import { Mechatronics3D } from './MechatronicsDevices3D'
 import { isMechatronicsType } from './mechatronicsModel'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
@@ -775,14 +776,18 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     // Equipamentos livres fora do quadro (reservatórios, bombas, motores, esteiras, paredes, pilares, contadores, OBO, WAGO):
     // arrastam livremente por TODO o pavimento XZ (incluindo para o meio da sala fabril!).
     // Segurar Shift arrasta no plano vertical XY para ajustar a altura Y.
-    const canDragXZ = free3D && !event.shiftKey && (preferFloorXZ ? Math.abs(dir.y) >= 0.04 : Math.abs(dir.y) >= 0.12)
+    // Equipamentos de chão arrastam sempre no pavimento, de qualquer ângulo (também vista lateral a 0°).
+    const canDragXZ = free3D && !event.shiftKey && (preferFloorXZ || Math.abs(dir.y) >= 0.12)
     const useFloorXZ = canDragXZ
     const normal = useFloorXZ
       ? new THREE.Vector3(0, 1, 0)
       : (Math.abs(dir.z) >= 0.3 ? new THREE.Vector3(0, 0, 1) : dir.clone())
     const origin = rootRef.current.position.clone()
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, origin)
-    const hit = event.ray.intersectPlane(plane, new THREE.Vector3())
+    // Vista rasante (< ~30°): o raio corta o chão quase paralelo e 1 px valia metros → o equipamento
+    // «saltava». Aí o arrasto no chão segue o rato no ecrã à escala do próprio objeto (ver floorDragDelta).
+    const screenFloor = useFloorXZ && preferFloorXZ ? floorDragBasis(camera, origin, Math.abs(dir.y)) : null
+    const hit = event.ray.intersectPlane(plane, new THREE.Vector3()) ?? (screenFloor ? origin.clone() : null)
     if (!hit) return
     const raycaster = new THREE.Raycaster()
     const ndc = new THREE.Vector2()
@@ -798,6 +803,12 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
         gl.domElement.style.cursor = 'grabbing'
       }
       const rect = gl.domElement.getBoundingClientRect()
+      if (screenFloor) {
+        const snapFloor = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
+        const d = floorDragDelta(screenFloor, domEvent.clientX - state.startX, domEvent.clientY - state.startY, rect.height)
+        onDragTo({ x: snapFloor(origin.x + d.x), y: origin.y, z: snapFloor(origin.z + d.z) })
+        return
+      }
       ndc.set(((domEvent.clientX - rect.left) / rect.width) * 2 - 1, -(((domEvent.clientY - rect.top) / rect.height) * 2 - 1))
       raycaster.setFromCamera(ndc, camera)
       if (!raycaster.ray.intersectPlane(state.plane, point)) return

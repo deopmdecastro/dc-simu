@@ -199,6 +199,7 @@
     "test:lighting-switch-action-ui": "node scripts/lighting-switch-action-ui-smoke.mjs",
     "test:panel3d-dispose-ui": "node scripts/panel3d-dispose-ui-smoke.mjs",
     "test:water-box-wago-ui": "node scripts/water-box-wago-ui-smoke.mjs",
+    "test:factory-drag-ui": "node scripts/factory-drag-ui-smoke.mjs",
     "test:factory-walls-ui": "node scripts/factory-walls-ui-smoke.mjs",
     "test:factory-hall-ui": "node scripts/factory-hall-size-ui-smoke.mjs",
     "test:sim-run-manobra": "tsx scripts/sim-run-manobra-smoke.ts",
