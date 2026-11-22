@@ -252,8 +252,8 @@ export default function ProjectObjects() {
                   <IconChevronDown size={12} className={dOpen ? 'is-open' : ''} />
                 </button>
                 <button type="button" className="dc-objects-main" onClick={(event) => pick(dKey, dIds, event)} title={`${domain.title} · ${domain.items.length} objetos`}>
-                  <span className="dc-objects-card dc-objects-group-card">
-                    <span className="dc-objects-group-icon">{dOpen ? <IconOpen size={14} /> : <IconFolder size={14} />}</span>
+                  <span className={`dc-objects-folder-badge${dOpen ? ' is-open' : ''}`} aria-hidden>
+                    {dOpen ? <IconOpen size={15} /> : <IconFolder size={15} />}
                   </span>
                   <span className="dc-objects-text">
                     <span className="dc-objects-ref">{domain.title}<span className="dc-objects-count">{domain.items.length}</span></span>
@@ -280,6 +280,9 @@ export default function ProjectObjects() {
                             <IconChevronDown size={12} className={sgOpen ? 'is-open' : ''} />
                           </button>
                           <button type="button" className="dc-objects-main" onClick={(event) => pick(sgKey, sgIds, event)} title={`${sg.title} · ${sg.items.length} objetos`}>
+                            <span className={`dc-objects-folder-badge is-nested${sgOpen ? ' is-open' : ''}`} aria-hidden>
+                              {sgOpen ? <IconOpen size={13} /> : <IconFolder size={13} />}
+                            </span>
                             <span className="dc-objects-text">
                               <span className="dc-objects-ref">{sg.title}<span className="dc-objects-count">{sg.items.length}</span></span>
                             </span>

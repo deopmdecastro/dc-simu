@@ -2659,8 +2659,38 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 .dc-objects-twisty:hover { background:#e6edff; color:#1a44c8; }
 .dc-objects-twisty svg { transform:rotate(-90deg); transition:transform .15s ease; }
 .dc-objects-twisty svg.is-open { transform:none; }
-.dc-objects-group-card { position:relative; overflow:visible; }
-.dc-objects-group-icon { position:absolute; right:-5px; bottom:-5px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:5px; background:#fff; border:1px solid #c9d8fb; color:#1a44c8; }
+/* Pasta de domínio/subgrupo: ícone compacto centrado (sem card vazio 46×38). */
+.dc-objects-folder-badge {
+  flex:0 0 auto;
+  width:28px;
+  height:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:7px;
+  background:#eef3ff;
+  border:1px solid #c9d8fb;
+  color:#1a44c8;
+  transition:background .12s ease, border-color .12s ease, color .12s ease;
+}
+.dc-objects-folder-badge.is-open {
+  background:#1a44c8;
+  border-color:#1a44c8;
+  color:#fff;
+}
+.dc-objects-folder-badge.is-nested {
+  width:24px;
+  height:24px;
+  border-radius:6px;
+}
+.dc-objects-row.is-on .dc-objects-folder-badge {
+  background:#1a44c8;
+  border-color:#1a44c8;
+  color:#fff;
+}
+.dc-objects-row.is-hidden .dc-objects-folder-badge {
+  opacity:.45;
+}
 .dc-objects-count { font-size:10px; font-weight:700; color:#1a44c8; background:#eef3ff; border-radius:999px; padding:0 6px; line-height:16px; }
 .dc-objects-rename { font:inherit; font-size:11px; font-weight:700; border:1px solid #1a44c8; border-radius:5px; padding:1px 5px; min-width:0; width:100%; outline:0; }
 .dc-objects-children { list-style:none; margin:0 0 2px 12px; padding:0 0 0 10px; display:flex; flex-direction:column; gap:2px; border-left:2px solid #e3e8ef; }
