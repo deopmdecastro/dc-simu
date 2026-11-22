@@ -12,9 +12,12 @@ import {
   readyMaquetteParts,
 } from '../src/electrical/readyMaquettes'
 import { stampingBenchLayout } from '../src/electrical/stampingBench'
-import { MECHATRONICS_TYPES, mechatronicsSizeMm } from '../src/three/mechatronicsModel'
+import { MECHATRONICS_TYPES } from '../src/three/mechatronicsModel'
+import { component3DDimensions } from '../src/three/terminal3D'
+import { createComponent } from '../src/electrical/factory'
 import { canInsertComponent3D } from '../src/three/modelPaths'
 import { useSimStore } from '../src/store/useSimStore'
+import { isPanelBound } from '../src/three/panelBounds'
 
 /** Maquetes prontas: domínio próprio na biblioteca, montagem completa num só passo de histórico. */
 let passed = 0
@@ -67,20 +70,19 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
     assert.equal(mq.types[0], MAQUETTE_PLATE_TYPE, `${mq.id} começa pela base ranhurada`)
     assert.equal(new Set(mq.types).size, mq.types.length, `${mq.id} sem tipos repetidos`)
     for (const type of mq.types) {
-      assert.ok(MECHATRONICS_TYPES.includes(type as any), `${mq.id}: ${type} é um componente da maquete`)
+      assert.ok(canInsertComponent3D(type), `${mq.id}: ${type} é um componente da maquete`)
       assert.ok(canInsertComponent3D(type), `${mq.id}: ${type} tem representação 3D`)
     }
   }
 })
 
-check('3. Bancada completa = base + 27 peças (21 tipos) nas cotas do relatório; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 41 peças (26 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
-  assert.equal(parts.length, 27, '27 peças sobre a base')
-  assert.equal(full.componentCount, 28, '28 componentes no total')
-  // 21 tipos distintos: os 22 do catálogo menos `mecWorkpiece`, que é a peça simulada
-  // (nasce no magazine e circula no ciclo) e por isso não é colocada sobre a base.
-  assert.equal(full.types.length, 21, 'os tipos do catálogo representados na bancada (base incluída)')
+  assert.equal(parts.length, 41, '41 peças sobre a base')
+  assert.equal(full.componentCount, 42, '42 componentes no total')
+  // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
+  assert.equal(full.types.length, 26, 'os tipos do catálogo representados na bancada (base incluída)')
   assert.ok(!full.types.includes('mecWorkpiece' as any), 'o tarugo não é colocado sobre a base')
   assert.equal(MECHATRONICS_TYPES.length, 22, 'catálogo da maquete com 22 tipos')
   const keys = new Set(parts.map((p) => p.key))
@@ -93,18 +95,18 @@ check('3. Bancada completa = base + 27 peças (21 tipos) nas cotas do relatório
   assert.equal(shell.componentCount, 6, 'base + 4 calhas + poste')
   assert.equal(shell.types.length, 3, 'base, calha e perfil')
   // Todas as peças da maquete têm volume 3D conhecido (senão o painel não as desenhava).
-  for (const part of parts) assert.ok((mechatronicsSizeMm(part.type, part.state)?.y ?? 0) > 0, `${part.key} com altura`)
+  for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 28 componentes, todos colocados sobre a base, num único passo de histórico', () => {
+check('4. Inserção: 42 componentes colocados na bancada, num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 28, '28 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 28, '28 componentes no projeto')
+  assert.equal(created.length, 42, '42 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 42, '42 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
@@ -113,13 +115,13 @@ check('4. Inserção: 28 componentes, todos colocados sobre a base, num único p
   const base = benchBaseUnits(plate.schematicX, plate.schematicY)
   assert.deepEqual(plate.panel3DPosition, base, 'base assente no chão do painel')
   assert.equal(plate.state.lengthMm, 700)
-  assert.equal(plate.state.widthMm, 500)
+  assert.equal(plate.state.widthMm, 700)
 
   // Cada peça do layout existe exatamente na cota esperada (mm → unidades do painel).
   const expected = new Set(readyMaquetteParts('atec-estampagem').map((part) => positionKey(benchPartUnits(base, part))))
   const actual = after.components.filter((c) => c.id !== plate.id).map((c) => positionKey(c.panel3DPosition!))
-  assert.equal(actual.length, 27)
-  assert.deepEqual(new Set(actual), expected, 'as 27 peças estão nas posições do relatório')
+  assert.equal(actual.length, 41)
+  assert.deepEqual(new Set(actual), expected, 'as 41 peças estão nas posições do relatório')
   for (const c of after.components) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
 
   // Estado das peças veio do layout (etiquetas B1/B8, ilhas C1A/C2A, gaveta virada para trás…)
@@ -129,13 +131,13 @@ check('4. Inserção: 28 componentes, todos colocados sobre a base, num único p
   assert.equal(byType('mecDrawerCylinder')[0].state.facing, 'z-')
   assert.equal(byType('mecGantryRamp' as any).length, 0)
   assert.equal(byType('mecDischargeRamp').length, 3, '3 rampas')
-  assert.equal(byType('mecBenchDuct').length, 4, '4 calhas perimetrais')
+  assert.equal(byType('mecBenchDuct').length, 6, '4 calhas perimetrais')
 
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 28 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 42 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 28, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 42, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {
@@ -157,6 +159,38 @@ check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete 
   assert.deepEqual(useSimStore.getState().insertReadyMaquette('atec-estampagem'), [], 'modo demonstração bloqueia a montagem')
   useSimStore.setState({ demoMode: false })
   assert.equal(useSimStore.getState().components.length, 12, 'nenhum componente fantasma')
+})
+
+check('6. Fotografia: modelos do catálogo, HMI exterior, operadores independentes e quadro preservados ao gravar', () => {
+  const st = useSimStore.getState()
+  st.newProject('all')
+  st.insertReadyMaquette('atec-estampagem', { x: 420, y: 260 })
+  const components = useSimStore.getState().components
+  const tower = components.find(c => c.type === 'towerLightSb23011')
+  assert.ok(tower, 'torre CAD existente')
+  assert.ok(!components.some(c => c.type === 'mecSignalTower'), 'sem torre genérica na montagem')
+  const hmi = components.find(c => c.type === 'mecHmiKtp700')!
+  assert.equal(hmi.viewOrientation?.y, 90)
+  const ops = components.filter(c => ['buttonNO', 'buttonNC', 'selectorSchneiderXa2ed33', 'emergencyButton'].includes(c.type))
+  assert.equal(ops.length, 6)
+  assert.equal(new Set(ops.map(c => c.panel3DPosition!.y)).size, 2, 'duas filas')
+  assert.ok(ops.every(c => !isPanelBound(c)), 'operadores montados na máquina')
+  assert.ok(isPanelBound(createComponent('buttonNO', undefined, undefined, 0, 0, 0)), 'botão solto mantém o comportamento normal do painel')
+  const cabinet = components.find(c => c.type === 'panelEnclosure')!
+  assert.ok(cabinet.panel3DPosition!.y < 0)
+  assert.equal(cabinet.state.doorOpen, false)
+  const saved = useSimStore.getState().saveJSON()
+  useSimStore.getState().newProject('all')
+  useSimStore.getState().loadJSON(saved)
+  const restored = useSimStore.getState().components
+  assert.equal(restored.length, components.length)
+  for (const c of [...ops, hmi, cabinet]) {
+    const next = restored.find(n => n.id === c.id)!
+    assert.deepEqual(next.panel3DPosition, c.panel3DPosition)
+    assert.deepEqual(next.viewOrientation, c.viewOrientation)
+    assert.equal(next.state.hostLocation, c.state.hostLocation)
+  }
+  assert.ok(!stampingBenchLayout({ legs: false }).some(p => p.key === 'cabinet'), 'base sem pernas não recebe quadro suspenso')
 })
 
 console.log(`\n${passed} verificações · Maquetes prontas OK`)

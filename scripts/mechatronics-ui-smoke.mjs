@@ -25,7 +25,7 @@ try {
     stampingBenchLayout(plate.state).forEach((p, i) => {
       const id = useSimStore.getState().addComponent(p.type, 100 + i * 120, 400)
       const s2 = useSimStore.getState()
-      s2.updateComponent(id, { panel3DPosition: { x: base.x + p.x * 0.01, y: base.y + p.y * 0.01, z: base.z + p.z * 0.01 } })
+      s2.updateComponent(id, { panel3DPosition: { x: base.x + p.x * 0.01, y: base.y + p.y * 0.01, z: base.z + p.z * 0.01 }, ...(p.orientation ? { viewOrientation: p.orientation } : {}) })
       if (p.state) s2.setComponentState(id, p.state)
       out[p.key] = id
     })
@@ -50,7 +50,7 @@ try {
   await frame()
   const types = ['mecSlotPlate', 'mecAluProfile', 'mecGravityMagazine', 'mecWorkpiece', 'mecDischargeRamp', 'mecStampingTable', 'mecStampingPress',
     'mecFeederCylinder', 'mecRotaryArm', 'mecDcGearmotor', 'mecMicroSwitchRoller', 'mecVacuumEjector', 'mecDragChain', 'mecSupportBlock',
-    'mecDrawerCylinder', 'mecValveIsland', 'mecOpticalSensor', 'mecInductiveSensor', 'mecHmiKtp700', 'mecOperatorBox', 'mecSignalTower', 'mecBenchDuct']
+    'mecDrawerCylinder', 'mecValveIsland', 'mecOpticalSensor', 'mecInductiveSensor', 'mecHmiKtp700', 'mecOperatorBox', 'mecBenchDuct']
   for (const type of types) check(!!(await boxOf(`mec-${type}-3d-`)), `${type}: modelo 3D desenhado no Painel 3D`)
 
   const set = (id, patch) => store((s, a) => s.getState().setComponentState(a.id, a.patch), { id, patch })
@@ -59,7 +59,7 @@ try {
   for (const [angle, target, label] of [[0, 'mec-mecGravityMagazine-3d-', 'recolha'], [180, 'mec-mecStampingTable-3d-', 'gaveta da prensa']]) {
     await set(ids.arm, { angleDeg: angle, armDownPct: 100 })
     await page.waitForTimeout(1300); await frame(); await frame()
-    const cup = await boxOf('mec-mecRotaryArm-3d-', 'Borracha da ventosa')
+    const cup = await boxOf('mec-mecRotaryArm-3d-', 'vacuum-bellows')
     const piece = await boxOf(target, angle === 0 ? 'tarugo-zona-recolha' : 'tarugo-gaveta')
     const gap = (cup.minY - piece.maxY) * 100
     const offset = Math.hypot(cup.cx - piece.cx, cup.cz - piece.cz) * 100
@@ -78,10 +78,10 @@ try {
     return state
   })
   await set(ids.arm, { angleDeg: 180, armDownPct: 0 }); await page.waitForTimeout(1300); await frame()
-  const up = await motionState(), cupUp = await boxOf('mec-mecRotaryArm-3d-', 'Borracha da ventosa')
+  const up = await motionState(), cupUp = await boxOf('mec-mecRotaryArm-3d-', 'vacuum-bellows')
   await page.screenshot({ path: path.join(output, 'cylinder-up.png') })
   await set(ids.arm, { armDownPct: 100 }); await page.waitForTimeout(1300); await frame()
-  const down = await motionState(), cupDown = await boxOf('mec-mecRotaryArm-3d-', 'Borracha da ventosa')
+  const down = await motionState(), cupDown = await boxOf('mec-mecRotaryArm-3d-', 'vacuum-bellows')
   for (const key of ['Braco_Estrutura_Metalica', 'Braco_Cilindro_Corpo']) {
     const still = up[key].position.every((v, i) => Math.abs(v - down[key].position[i]) < 0.001)
       && up[key].rotation.every((v, i) => Math.abs(v - down[key].rotation[i]) < 0.001)
@@ -100,7 +100,7 @@ try {
   await set(ids.arm, { angleDeg: 180, armDownPct: 0 }); await page.waitForTimeout(1200); await frame()
   const arm = await boxOf('mec-mecRotaryArm-3d-', 'Braço aligeirado')
   check(plateBox.minY > arm.maxY, `Prato recolhido da prensa acima do braço (${((plateBox.minY - arm.maxY) * 100).toFixed(1)} mm de folga)`)
-  const cylinder = await boxOf('mec-mecRotaryArm-3d-', 'Corpo fixo do cilindro vertical da ventosa')
+  const cylinder = await boxOf('pneumatic-vacuum-cup-3d-')
   check(plateBox.minY > cylinder.maxY, `Prato recolhido acima do cilindro vertical (${((plateBox.minY - cylinder.maxY) * 100).toFixed(1)} mm de folga)`)
   await page.screenshot({ path: path.join(output, 'bench.png') })
   f.stable()

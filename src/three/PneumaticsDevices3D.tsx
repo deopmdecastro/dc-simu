@@ -1577,10 +1577,15 @@ export function PneumaticVacuumCup3D({
   c,
   position,
   onToggleVacuum,
+  extensionPct,
+  strokeMm = 14,
 }: {
   c: ElectricalComponent
   position: [number, number, number]
   onToggleVacuum?: () => void
+  /** Montagem num manipulador: curso linear independente do comando de vácuo. */
+  extensionPct?: number
+  strokeMm?: number
 }) {
   const cupGroupRef = useRef<THREE.Group>(null)
   const strokeRef = useRef(0)
@@ -1610,7 +1615,7 @@ export function PneumaticVacuumCup3D({
   useEffect(() => () => { bellowsGeom.dispose() }, [bellowsGeom])
 
   useFrame((_, delta) => {
-    const target = active ? 1 : 0
+    const target = extensionPct === undefined ? (active ? 1 : 0) : Math.max(0, Math.min(1, extensionPct / 100))
     const diff = target - strokeRef.current
     if (Math.abs(diff) > 0.01) {
       strokeRef.current += diff * Math.min(1, delta * 10)
@@ -1620,8 +1625,8 @@ export function PneumaticVacuumCup3D({
     }
     if (cupGroupRef.current) {
       // Ao ativar vácuo/avanço, a haste sobe ligeiramente e o fole comprime-se em sucção
-      cupGroupRef.current.position.y = 32 * U + strokeRef.current * 14 * U
-      cupGroupRef.current.scale.y = 1 - strokeRef.current * 0.14
+      cupGroupRef.current.position.y = 32 * U + strokeRef.current * strokeMm * U
+      cupGroupRef.current.scale.y = extensionPct === undefined ? 1 - strokeRef.current * 0.14 : 1
     }
   })
 
@@ -1673,7 +1678,7 @@ export function PneumaticVacuumCup3D({
           <cylinderGeometry args={[12 * U, 12 * U, 14 * U, 6]} />
           <meshStandardMaterial color="#dce2e8" roughness={0.22} metalness={0.92} />
         </mesh>
-        <mesh position={[0, 14 * U, 0]} geometry={bellowsGeom} castShadow receiveShadow>
+        <mesh name="vacuum-bellows" position={[0, 14 * U, 0]} geometry={bellowsGeom} castShadow receiveShadow>
           <meshPhysicalMaterial
             color="#1554c6"
             roughness={0.34}

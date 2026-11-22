@@ -3786,7 +3786,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     } else if (component.type === 'panelEnclosure') {
       // Pivô no centro do armário; a face da chapa de montagem do quadro coincide com a da chapa do painel.
       const half = componentHalfExtents(component, baseOrientationFor(component))
-      panelPivots[component.id] = new THREE.Vector3(x, y, PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + half.z)
+      panelPivots[component.id] = component.state.hostLocation === 'machine' && component.panel3DPosition
+        ? new THREE.Vector3(component.panel3DPosition.x, component.panel3DPosition.y, component.panel3DPosition.z)
+        : new THREE.Vector3(x, y, PLATE_FRONT_Z - ENCLOSURE_PLATE_FRONT_MM * PANEL_UNITS_PER_MM + half.z)
     } else if (component.type === 'cableDuct' || component.type === 'spiralWrap') {
       const half = componentHalfExtents(component, baseOrientationFor(component))
       let px = x, py = y
@@ -5608,7 +5610,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         })}
 
         {accessories.map((c) => {
-          const plateFrontZ = PLATE_FRONT_Z - panelPivots[c.id].z
+          const plateFrontZ = c.type === 'panelEnclosure' && c.state.hostLocation === 'machine'
+            ? (ENCLOSURE_PLATE_FRONT_MM - enclosureDimsOf(c.state).depthMm / 2) * PANEL_UNITS_PER_MM
+            : PLATE_FRONT_Z - panelPivots[c.id].z
           const label = <Label text={c.ref} position={[0, 0, 0]} size={0.075} color="#475569" />
           return wrapOriented(c, c.type === 'panelEnclosure'
             ? <Enclosure3D c={c} interactive={assemblyControls} plateFrontZ={plateFrontZ} label={label} coverOccupants={enclosureCoverOccupants(c)} />

@@ -55,10 +55,10 @@ export const MEC_DIMS = {
   magazine: { outerMm: 50, heightMm: 260, wallMm: 3, liftMm: 45, slotW: 20, slotH: 85, baseLengthMm: 170, baseDepthMm: 80, tubeOffsetMm: -40, pickupOffsetMm: 40 },
   feeder: { boreMm: 20, strokeMm: 80, bodyMm: 118 },
   drawerCylinder: { boreMm: 20, strokeMm: 75, bodyMm: 112 },
-  rotaryArm: { discDiameterMm: 140, discThicknessMm: 15, towerMm: 160, armLengthMm: 240, cupDiameterMm: 25, sweepMm: 440, cylinderBoreMm: 16, cylinderBodyMm: 32, cylinderStrokeMm: 18 },
+  rotaryArm: { discDiameterMm: 140, discThicknessMm: 15, pedestalMm: 60, towerMm: 100, armLengthMm: 240, cupDiameterMm: 25, sweepMm: 440, cylinderBoreMm: 16, cylinderBodyMm: 32, cylinderStrokeMm: 18 },
   gearmotor: { motorDiameterMm: 36, motorLengthMm: 95, encoderDiameterMm: 38, pinionDiameterMm: 30, wheelDiameterMm: 60, ratio: 2 },
   // Curso estimado adaptado para permitir a entrada do cilindro vertical da ventosa sob o prato.
-  press: { gantryHeightMm: 300, gantryWidthMm: 170, profileMm: 30, boreMm: 32, strokeMm: 80, plateDiameterMm: 65, bodyMm: 110, plateDropMm: 16, totalHeightMm: 420 },
+  press: { gantryHeightMm: 312, gantryWidthMm: 170, profileMm: 30, boreMm: 32, strokeMm: 94, plateDiameterMm: 65, bodyMm: 110, plateDropMm: 16, totalHeightMm: 440 },
   table: { lengthMm: 120, depthMm: 80, heightMm: 45, recessDiameterMm: 42 },
   ramp: { lengthMm: 220, widthMm: 50, flangeMm: 20, slopeDeg: 15 },
   microSwitch: { bodyMm: 28, leverMm: 30 },
@@ -69,7 +69,7 @@ export const MEC_DIMS = {
   opticalSensor: { lengthMm: 62, heightMm: 76, depthMm: 44, barrelDiameterMm: 18 },
   inductiveSensor: { lengthMm: 36, heightMm: 34, depthMm: 36, barrelDiameterMm: 12 },
   hmiKtp700: { widthMm: 234, heightMm: 286, depthMm: 86, bezelWidthMm: 214, bezelHeightMm: 158 },
-  operatorBox: { widthMm: 168, heightMm: 66, depthMm: 114 },
+  operatorBox: { widthMm: 168, heightMm: 116, depthMm: 94 },
   signalTower: { baseMm: 58, heightMm: 330, lensDiameterMm: 50 },
   benchDuct: { lengthMm: 700, widthMm: 35, heightMm: 45 },
 } as const
@@ -79,12 +79,15 @@ export const MEC_DIMS = {
  * cilindro vertical na extremidade e ventosa na haste. Todas as estações ficam com o topo da peça
  * à mesma cota `ARM_STATION_TOP_MM`, como na bancada (blocos maquinados de elevação).
  */
-export const ARM_PIVOT_MM = 12 + 16 + 15 + 160 + 6
+export const ARM_PIVOT_MM = 12 + 60 + 16 + 15 + 100 + 6
 export const ARM_TIP_MM = 205
 export const ARM_CUP_STEM_MM = 4
 /** Corpo fixo do cilindro por cima do braço; curso e corpo são estimativas construtivas. */
 export const ARM_CYLINDER_BASE_MM = ARM_PIVOT_MM + 2
-export const ARM_TOTAL_HEIGHT_MM = ARM_CYLINDER_BASE_MM + MEC_DIMS.rotaryArm.cylinderBodyMm + 4
+export const ARM_TOTAL_HEIGHT_MM = 260
+/** Adaptação do atuador da biblioteca (Ø66 → Ø25), sem mudar o ativo original. */
+export const ARM_VACUUM_SCALE = MEC_DIMS.rotaryArm.cupDiameterMm / 66
+export const ARM_VACUUM_CONTACT_MM = 32 + 14 + 45.5
 /** Fundo da ventosa com a haste recolhida (mm acima da base do manipulador). */
 export const ARM_CUP_UP_MM = ARM_PIVOT_MM + 2 - ARM_CUP_STEM_MM - 17
 export const ARM_STATION_TOP_MM = ARM_CUP_UP_MM - MEC_DIMS.rotaryArm.cylinderStrokeMm

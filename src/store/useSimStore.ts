@@ -3054,14 +3054,14 @@ export const useSimStore = create<Store>((set, get) => {
         state: part.state ? { ...part.state } : undefined,
       })
       if (!compId) return
-      get().updateComponentRaw(compId, { panel3DPosition: benchPartUnits(base, part) })
+      get().updateComponentRaw(compId, { panel3DPosition: benchPartUnits(base, part), ...(part.orientation ? { viewOrientation: part.orientation } : {}) })
       created.push(compId)
     })
     set({ selectedComponentIds: created, selectedWireId: null, selectedTerminalId: null, dirty: true })
     get().pushEvent(
       'info',
-      `${mq.name} montada: ${created.length} componentes sobre a base ranhurada 700 × 500 mm` +
-        `${mq.id === 'atec-estampagem' ? ', com as cotas do relatório ATEC / Guião 1185' : ''}. Ctrl+Z desmonta num só passo.`,
+      `${mq.name} montada: ${created.length} componentes, base ${mq.plateState.lengthMm} × ${mq.plateState.widthMm} mm. ` +
+        'Adaptação fotográfica com dimensões estimadas. Ctrl+Z desmonta num só passo.',
     )
     recomputeIfActive()
     return created
@@ -6094,7 +6094,9 @@ export const useSimStore = create<Store>((set, get) => {
         .map((component) => upgradeComponentEditorMetadata(component, parsed.savedAt))
         .map((component) => ({
           ...component,
-          viewOrientation: isIsometricMotorType(component.type)
+          viewOrientation: component.state.benchAssembly === true
+            ? normalizeComponentOrientation(component.viewOrientation)
+            : isIsometricMotorType(component.type)
             ? { ...MOTOR_ISOMETRIC_ORIENTATION }
             : { ...ZERO_COMPONENT_ORIENTATION },
         })) as ElectricalComponent[]

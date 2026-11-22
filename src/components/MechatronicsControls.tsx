@@ -52,7 +52,7 @@ function assembleBench(plate: ElectricalComponent) {
     const id = useSimStore.getState().addComponent(p.type, (plate.schematicX ?? 0) + 40 + (i % 5) * 140, (plate.schematicY ?? 0) + 180 + Math.floor(i / 5) * 160)
     if (!id) return
     const s2 = useSimStore.getState()
-    s2.updateComponent(id, { panel3DPosition: benchPartUnits(base, p) })
+    s2.updateComponent(id, { panel3DPosition: benchPartUnits(base, p), ...(p.orientation ? { viewOrientation: p.orientation } : {}) })
     if (p.state) s2.setComponentState(id, p.state)
   })
 }
@@ -336,6 +336,10 @@ export function MechatronicsControls({ c, locked }: { c: ElectricalComponent; lo
       break
     }
     case 'mecOperatorBox': {
+      if (c.state.shellOnly) {
+        body = <p className="text-[11px] leading-snug text-[var(--dc-text-muted)]">Caixa montada com seis operadores independentes da biblioteca. Selecione o botão ou seletor para editar os respetivos contactos e comandos.</p>
+        break
+      }
       const ops = [
         { key: 'emergLatched', label: 'EMERG (cogumelo)' },
         { key: 'autoMode', label: 'MAN / AUTO' },

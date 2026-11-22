@@ -1,5 +1,5 @@
 // Biblioteca → «Maquetes prontas»: o domínio novo abre com o cartão da maquete, a capa carrega e um
-// único clique monta a bancada inteira (28 componentes) num só passo de histórico.
+// único clique monta a bancada inteira (42 componentes) num só passo de histórico.
 //   npm run test:maquetes-ui            (usa http://127.0.0.1:5173)
 //   MAQUETTES_TEST_URL=http://127.0.0.1:5207 node scripts/ready-maquettes-ui-smoke.mjs
 import assert from 'node:assert/strict'
@@ -64,15 +64,15 @@ try {
     `Cinco domínios, «maquetes» no fim (${domainIds.join(', ')})`,
   )
   const pills = await page.$$eval('[role="tab"]', (nodes) => nodes.map((node) => node.textContent?.trim() ?? ''))
-  check(pills.includes('Maquetes'), 'Aba «Maquetes» na barra de domínios')
+  check(pills.some(text => /^Maquetes(?:\s*\d+)?$/.test(text)), 'Aba «Maquetes» na barra de domínios')
 
   // 2. Clicar na aba filtra apenas as maquetes e mostra o cartão com a capa.
-  await page.locator('[role="tab"]', { hasText: /^Maquetes$/ }).click()
+  await page.locator('[role="tab"]', { hasText: /^Maquetes(?:\s*\d+)?$/ }).click()
   const card = page.locator('[data-maquette="atec-estampagem"]')
   await card.waitFor({ state: 'visible' })
   check(await card.isVisible(), 'Cartão «Maquete ATEC» visível no domínio Maquetes')
   const title = await card.getAttribute('aria-label')
-  check(/Maquete ATEC/.test(title ?? '') && /28 componentes/.test(title ?? ''), `Cartão anuncia a montagem completa (${title})`)
+  check(/Maquete ATEC/.test(title ?? '') && /42 componentes/.test(title ?? ''), `Cartão anuncia a montagem completa (${title})`)
   const image = await card.locator('img').evaluate((img) => ({ src: img.getAttribute('src'), width: img.naturalWidth, complete: img.complete }))
   check(image.src === '/maquetes/atec-estampagem.webp', `Capa aponta para o render da maquete (${image.src})`)
   check(image.complete && image.width === 400, `Capa carregada (${image.width}px)`)
@@ -83,7 +83,7 @@ try {
     'Variante «Bancada ATEC · base e estrutura» também disponível',
   )
 
-  // 3. Um clique monta a bancada: base + 27 peças, tudo colocado no Painel 3D, um só passo de histórico.
+  // 3. Um clique monta a bancada: base + 41 peças, tudo colocado no Painel 3D, um só passo de histórico.
   await card.click()
   await page.waitForFunction(() => {
     const root = document.querySelector('.dc-library-tile-name')
@@ -91,14 +91,14 @@ try {
   })
   await page.waitForTimeout(1200)
   const after = await store()
-  check(after.components === 28, `28 componentes criados num clique (${after.components})`)
+  check(after.components === 42, `42 componentes criados num clique (${after.components})`)
   check(after.plates === 1, 'Base ranhurada criada (mecSlotPlate)')
-  check(after.placed3D === 28, `Todos os 28 têm posição no Painel 3D (${after.placed3D})`)
+  check(after.placed3D === 42, `Todos os 42 têm posição no Painel 3D (${after.placed3D})`)
   check(after.history - before.history === 1, `Um único passo de histórico (${after.history - before.history})`)
-  check(after.selected === 28, 'A montagem fica selecionada para mover/ajustar em bloco')
+  check(after.selected === 42, 'A montagem fica selecionada para mover/ajustar em bloco')
   check(after.events > before.events, 'Evento «maquete montada» registado no painel de eventos')
   const inspector = await page.locator('body').innerText()
-  check(/28 elementos selecionados/.test(inspector), 'Inspetor mostra os 28 elementos selecionados')
+  check(/42 elementos selecionados/.test(inspector), 'Inspetor mostra os 42 elementos selecionados')
   check(/BAS1/.test(inspector) && /Base ranhurada/.test(inspector), 'A base ranhurada (BAS1) está no projeto')
 
   // 4. Desfazer (Ctrl+Z) desmonta tudo de uma vez; o registo de eventos explica a operação.
@@ -109,7 +109,7 @@ try {
   }, MODULE_URL)
   await page.waitForTimeout(600)
   const undone = await store()
-  check(undone.components === 0, `Desfazer remove os 28 componentes de uma vez (${undone.components})`)
+  check(undone.components === 0, `Desfazer remove os 42 componentes de uma vez (${undone.components})`)
   await page.evaluate(async (moduleUrl) => {
     const url = new Function(`return (${moduleUrl})`)()('/src/store/useSimStore.ts')
     const { useSimStore } = await import(url || '/src/store/useSimStore.ts')
@@ -117,7 +117,7 @@ try {
   }, MODULE_URL)
   await page.waitForTimeout(800)
   const redone = await store()
-  check(redone.components === 28, `Refazer volta a montar a bancada (${redone.components})`)
+  check(redone.components === 42, `Refazer volta a montar a bancada (${redone.components})`)
 
   // 5. A maquete não existe no catálogo de componentes nem nos favoritos: continua a ser um domínio à parte.
   const catalogTypes = await page.evaluate(async (moduleUrl) => {

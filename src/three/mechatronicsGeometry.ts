@@ -577,8 +577,23 @@ export function ktp700ScreenTexture(powered: boolean, page: string, selectedRow:
       ctx.fillStyle = '#1e293b'
       ctx.font = 'bold 17px Arial, sans-serif'
       ctx.textAlign = 'left'
-      const icon = idx === 0 ? '⇄' : idx === 1 ? '▶' : '⚙'
-      ctx.fillText(`${icon}   ${label}`, bx + 32, ry + 27)
+      ctx.fillText(label, bx + 72, ry + 27)
+      // Pictogramas desenhados no LCD: não dependem dos glifos do sistema operativo.
+      const ix = bx + 44, iy = ry + 20
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2
+      if (idx === 1) {
+        ctx.beginPath(); ctx.moveTo(ix - 6, iy - 7); ctx.lineTo(ix + 7, iy); ctx.lineTo(ix - 6, iy + 7); ctx.closePath(); ctx.fill()
+      } else if (idx === 2) {
+        ctx.beginPath(); ctx.arc(ix, iy, 7, 0, Math.PI * 2); ctx.stroke()
+        ctx.beginPath(); ctx.arc(ix, iy, 2, 0, Math.PI * 2); ctx.stroke()
+        for (let n = 0; n < 8; n++) {
+          const angle = n * Math.PI / 4
+          ctx.beginPath(); ctx.moveTo(ix + Math.cos(angle) * 7, iy + Math.sin(angle) * 7); ctx.lineTo(ix + Math.cos(angle) * 10, iy + Math.sin(angle) * 10); ctx.stroke()
+        }
+      } else {
+        ctx.strokeRect(ix - 9, iy - 6, 18, 12)
+        ctx.beginPath(); ctx.moveTo(ix - 5, iy); ctx.lineTo(ix + 5, iy); ctx.stroke()
+      }
       if (idx !== 1) {
         ctx.textAlign = 'right'
         ctx.fillText('▸', bx + bw - 28, ry + 27)

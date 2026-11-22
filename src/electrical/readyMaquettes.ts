@@ -2,7 +2,7 @@
  * Maquetes prontas — a bancada didática ATEC / Guião 1185 montada num só passo.
  *
  * Uma maquete **não é um componente do catálogo**: é um *macro* que cria a base ranhurada e coloca
- * sobre ela todas as peças de `stampingBenchLayout()` nas cotas do relatório (base 700 × 500,
+ * sobre ela todas as peças de `stampingBenchLayout()` na adaptação fotográfica (base 700 × 700,
  * manipulador a 0°/180°, rampas a 270°/300°/240°, calhas perimetrais, coluna luminosa, HMI…).
  * Ficar fora de `TEMPLATES` é deliberado: o catálogo exige GLB, bornes, capa WebP e rascunho por
  * tipo (`test:builtin-sync`, `test:library-covers-ui`), exigências que não fazem sentido para uma
@@ -39,12 +39,14 @@ export interface ReadyMaquette {
 /** Tipo da base ranhurada: sempre o primeiro componente de qualquer maquete. */
 export const MAQUETTE_PLATE_TYPE: ComponentType = 'mecSlotPlate'
 
-/** Base 700 × 500 × 20 mm do relatório ATEC (igual ao padrão de `mecSlotPlate`). */
+/** Base alargada para libertar os comandos e a HMI; dimensões estimadas, editáveis. */
 export const MAQUETTE_PLATE_STATE: Record<string, unknown> = {
   lengthMm: 700,
-  widthMm: 500,
+  widthMm: 700,
+  legs: true,
+  legHeightMm: 750,
   manufacturer: 'DC-Simu Mecatrónica',
-  model: 'Base T 700 × 500 × 20',
+  model: 'Base T 700 × 700 × 20 · adaptação fotográfica estimada',
 }
 
 /** Estrutura da bancada, sem as estações: calhas técnicas perimetrais + poste de perfil 40 × 40. */
@@ -82,7 +84,7 @@ export const READY_MAQUETTES: ReadyMaquette[] = [
   maquette(
     'atec-estampagem',
     'Maquete ATEC · estampagem e transferência',
-    'Base ranhurada + estrutura + as 27 peças dos 22 componentes, nos devidos lugares',
+    'Montagem fotográfica · torre e comandos da biblioteca · HMI exterior · quadro e calhas sob a mesa',
     '/maquetes/atec-estampagem.webp',
     'all',
   ),

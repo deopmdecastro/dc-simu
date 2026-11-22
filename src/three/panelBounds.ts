@@ -41,6 +41,8 @@ export function isPanelBound(component: ElectricalComponent): boolean {
   if (component.type === 'panelEnclosure') return false
   // Um relé plug-in encaixado na base undecal passa a viver no painel (posição derivada da base).
   if (component.mountedOn) return true
+  // Operadores e acessórios aparafusados numa máquina usam o pivô espacial explícito.
+  if (component.state.hostLocation === 'machine' && !component.panelMount && !component.enclosureId) return false
   if (
     isFloorMountedMachineType(component.type) ||
     isStructureComponentType(component.type) ||

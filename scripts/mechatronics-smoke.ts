@@ -56,7 +56,7 @@ check('2. Cotas do relatório: base 700×500×20, tarugo Ø40×35, magazine 50×
   assert.deepEqual(mechatronicsSizeMm('mecSlotPlate'), { x: 700, y: 20, z: 500 })
   assert.deepEqual(mechatronicsSizeMm('mecWorkpiece'), { x: 40, y: 35, z: 40 })
   assert.equal(mechatronicsSizeMm('mecGravityMagazine')!.y, 45 + 260)
-  assert.equal(MEC_DIMS.press.gantryHeightMm, 300)
+  assert.equal(MEC_DIMS.press.gantryHeightMm, 312)
   assert.equal(mechatronicsSizeMm('mecStampingPress')!.y, MEC_DIMS.press.totalHeightMm, 'pórtico 300 + cilindro sobre a travessa')
   assert.deepEqual(mechatronicsSizeMm('mecAluProfile', { sectionMm: 40, lengthMm: 500, orientation: 'horizontal' }), { x: 500, y: 40, z: 40 })
 })
@@ -296,8 +296,9 @@ check('7. Montagem da maquete: tudo sobre a base, estações à cota da ventosa 
   const byKey = Object.fromEntries(layout.map((p) => [p.key, p]))
   const top = plate.thicknessMm / 2
   for (const p of layout) {
-    const size = mechatronicsSizeMm(p.type, p.state)!
-    assert.ok(Math.abs(p.y - size.y / 2 - top) < 0.6 || ['magazine', 'feeder', 'fc1', 'table', 'inductiveSensor'].includes(p.key), `${p.key} assente na base`)
+    const size = mechatronicsSizeMm(p.type, p.state)
+    if (!size || p.y < 0 || p.key.startsWith('operator-') || p.orientation) continue
+    assert.ok(Math.abs(p.y - size.y / 2 - top) < 0.6 || ['magazine', 'feeder', 'fc1', 'fc2', 'table', 'inductiveSensor', 'opticalSensor', 'operatorBox'].includes(p.key), `${p.key} assente na base ou num suporte`)
     assert.ok(Math.abs(p.x) + size.x / 2 <= plate.lengthMm / 2 + 1, `${p.key} dentro do comprimento da base`)
     // A prensa tem 110 mm de profundidade por causa do manómetro; os perfis ficam dentro da base.
     assert.ok(Math.abs(p.z) + (p.key === 'press' ? 15 : size.z / 2) <= plate.widthMm / 2 + 1, `${p.key} dentro da largura da base`)
@@ -308,7 +309,7 @@ check('7. Montagem da maquete: tudo sobre a base, estações à cota da ventosa 
   assert.equal(Math.round(pieceTopAtTable), ARM_STATION_TOP_MM)
   const p = MEC_DIMS.press
   const plateRetracted = p.gantryHeightMm - p.profileMm - p.plateDropMm
-  const cylinderTop = ARM_CYLINDER_BASE_MM + MEC_DIMS.rotaryArm.cylinderBodyMm
+  const cylinderTop = mechatronicsSizeMm('mecRotaryArm')!.y
   assert.ok(plateRetracted > cylinderTop + 4, `prato recolhido (${plateRetracted} mm) acima do cilindro da ventosa (${cylinderTop} mm)`)
   assert.ok(Math.abs(plateRetracted - p.strokeMm - ARM_STATION_TOP_MM) <= 4, 'curso da prensa chega ao topo da peça na gaveta')
 })
