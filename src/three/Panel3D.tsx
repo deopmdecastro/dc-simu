@@ -3838,6 +3838,27 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (motion) panelPivots[component.id].sub(motion.hinge).applyAxisAngle(new THREE.Vector3(0, 1, 0), motion.angle).add(motion.hinge)
   }
 
+  // Interruptores/lâmpadas de parede: não penetrar os perfis/colunas de aço da nave (passo 7.5 u).
+  // Empurra lateralmente o pivô para fora do volume do perfil (~0.5 u de semi-largura + folga).
+  if (factoryMode) {
+    const COL_STEP = 7.5
+    const COL_HALF = 0.42
+    const CLEAR = 0.55
+    for (const component of components) {
+      if (!isLightingType(component.type)) continue
+      const pivot = panelPivots[component.id]
+      if (!pivot) continue
+      const half = componentHalfExtents(component, orientationFor(component))
+      // Colunas aproximadas centradas em múltiplos de COL_STEP (espelha FactoryEnvironment3D)
+      const nearestCol = Math.round(pivot.x / COL_STEP) * COL_STEP
+      const dist = pivot.x - nearestCol
+      const minDist = COL_HALF + half.x + CLEAR
+      if (Math.abs(dist) < minDist && Math.abs(nearestCol) > 0.01) {
+        pivot.x = nearestCol + Math.sign(dist || 1) * minDist
+      }
+    }
+  }
+
   // Réguas de bornes resolvidas (explícitas, hierárquicas `X1.0…X1.3` ou bornes soltos encostados):
   // substitui as TAGs individuais sobrepostas por um único cabeçalho limpo + barra de agrupamento + pontes FBS 3D.
   const { terminalStripMemberIds, terminalStripHeaders, terminalStripJumpers } = (() => {
@@ -3970,7 +3991,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const panelOnlyBox = (() => {
     const b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
     for (const component of components) {
-      if (!isPanelBound(component)) continue
+      // Iluminação de parede não define o tamanho da chapa / mountBounds do quadro
+      if (!isPanelBound(component) || isLightingType(component.type)) continue
       const pivot = panelPivots[component.id]
       if (!pivot) continue
       const half = componentHalfExtents(component, orientationFor(component))
@@ -4262,9 +4284,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const all = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity }
     for (const component of components) {
       const pivot = panelPivots[component.id]
+      if (!pivot) continue
       const half = componentHalfExtents(component, orientationFor(component))
       all.minZ = Math.min(all.minZ, pivot.z - half.z); all.maxZ = Math.max(all.maxZ, pivot.z + half.z)
-      const target = isPanelBound(component) ? [box, all] : [all]
+      // Interruptores/lâmpadas de parede (Odace, E27) NÃO expandem a chapa do quadro elétrico.
+      // Caso contrário, um único interruptor colocado na parede lateral fazia o pavilhão inteiro
+      // abrir de forma exagerada (contentMinX/maxX → leftWallX/rightWallX).
+      const contributesToPlate = isPanelBound(component) && !isLightingType(component.type)
+      const target = contributesToPlate ? [box, all] : [all]
       for (const b of target) {
         b.minX = Math.min(b.minX, pivot.x - half.x); b.maxX = Math.max(b.maxX, pivot.x + half.x)
         b.minY = Math.min(b.minY, pivot.y - half.y); b.maxY = Math.max(b.maxY, pivot.y + half.y)

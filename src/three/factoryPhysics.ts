@@ -33,8 +33,10 @@ export function computeFactoryRoomBounds(
   wallFrontZ: number,
   floorY: number,
 ): FactoryRoomBounds {
-  const hallWidth = Math.max(42, plateWidth + 24)
-  const hallDepth = Math.max(32, hallWidth * 0.72)
+  // Teto na largura/profundidade: evita que um interruptor de parede ou pivot extremo
+  // abra o pavilhão de forma assimétrica (esquerda cresce, direita bloqueia).
+  const hallWidth = Math.min(96, Math.max(42, plateWidth + 24))
+  const hallDepth = Math.min(56, Math.max(32, hallWidth * 0.72))
   const wallHeight = Math.max(14.5, PLATE_TOP - floorY + 8.5)
   const wallMargin = 0.22 // folga interior face às paredes laterais/frontal/teto
   return {

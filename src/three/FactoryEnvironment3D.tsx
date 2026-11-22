@@ -465,7 +465,9 @@ export function FactoryEnvironment3D({
     signTex?.dispose()
   }, [floorPbr, wallPbr, hazardTex, signTex])
 
-  // Dimensões dinâmicas da nave industrial — envolve SEMPRE quadros, portas abertas, reservatórios e máquinas com folga generosa!
+  // Dimensões dinâmicas da nave industrial — envolve SEMPRE quadros, portas abertas, reservatórios e máquinas com folga generosa.
+  // Caps duros evitam que um interruptor de parede (ou pivot errado) abra o pavilhão de forma exagerada
+  // à esquerda enquanto bloqueia o movimento à direita (problema observado 2026-11-22).
   const panelMinX = mountBounds ? mountBounds.minX : center[0] - 4.0
   const panelMaxX = mountBounds ? mountBounds.maxX : center[0] + 4.0
   const panelMinY = mountBounds ? mountBounds.minY : floorY + 5.0
@@ -473,13 +475,34 @@ export function FactoryEnvironment3D({
   const panelCx = (panelMinX + panelMaxX) / 2
   const panelW = Math.max(2.6, panelMaxX - panelMinX)
 
-  const contentMinX = Math.min(panelMinX - panelW * 0.65, sceneSpan ? sceneSpan.minX : panelMinX)
-  const contentMaxX = Math.max(panelMaxX, sceneSpan ? sceneSpan.maxX : panelMaxX)
-  const leftWallX = Math.min(center[0] - 21, contentMinX - 8.5)
-  const rightWallX = Math.max(center[0] + 21, contentMaxX + 8.5)
+  // Contribuição do sceneSpan limitada: no máximo ~22 u para além do quadro em cada lado.
+  const SPAN_EXTRA = 22
+  const spanMinX = sceneSpan && Number.isFinite(sceneSpan.minX)
+    ? Math.max(sceneSpan.minX, panelMinX - SPAN_EXTRA)
+    : panelMinX
+  const spanMaxX = sceneSpan && Number.isFinite(sceneSpan.maxX)
+    ? Math.min(sceneSpan.maxX, panelMaxX + SPAN_EXTRA)
+    : panelMaxX
+  const contentMinX = Math.min(panelMinX - panelW * 0.65, spanMinX)
+  const contentMaxX = Math.max(panelMaxX + panelW * 0.15, spanMaxX)
+
+  // Base mínima simétrica ±21 u em torno do centro; expandir só o necessário e com teto.
+  const HALL_HALF_MIN = 21
+  const HALL_HALF_MAX = 48
+  let leftWallX = Math.min(center[0] - HALL_HALF_MIN, contentMinX - 8.5)
+  let rightWallX = Math.max(center[0] + HALL_HALF_MIN, contentMaxX + 8.5)
+  leftWallX = Math.max(leftWallX, center[0] - HALL_HALF_MAX)
+  rightWallX = Math.min(rightWallX, center[0] + HALL_HALF_MAX)
+  // Garantir largura mínima e simetria razoável (evita “só um lado cresce”).
+  if (rightWallX - leftWallX < HALL_HALF_MIN * 2) {
+    const mid = (leftWallX + rightWallX) / 2
+    leftWallX = mid - HALL_HALF_MIN
+    rightWallX = mid + HALL_HALF_MIN
+  }
   const cx = (leftWallX + rightWallX) / 2
   const hallWidth = Math.max(42, rightWallX - leftWallX)
-  const hallDepth = Math.max(32, (sceneSpan ? sceneSpan.maxZ - wallFrontZ : 16) + 14)
+  const rawDepth = sceneSpan && Number.isFinite(sceneSpan.maxZ) ? sceneSpan.maxZ - wallFrontZ : 16
+  const hallDepth = Math.max(32, Math.min(56, rawDepth + 14))
   const wallThickness = 0.65
   const panelTop = mountBounds ? mountBounds.maxY : center[1] + 5.5
   const wallHeight = Math.max(14.5, panelTop - floorY + 5.2)
