@@ -441,6 +441,11 @@ export function updateIndustrialDevice(c:ElectricalComponent,ctx:IndustrialElect
 }
 
 export type IndustrialControl='encoder'|'enter'|'escape'|'range'|'fraction'|'function'|'test'|'cover'|'button'|'ch1'|'ch2'|'ch3'|'ch4'|'sel1'|'sel2'|'sel3'|'sel4'
+/** Seletores de configuração (não manobra): o inspetor só os altera em STOP e o modelo 3D faz o mesmo. */
+export function isIndustrialConfigControl(type:string,control:IndustrialControl):boolean{
+  return type.startsWith('timerGeya')&&(control==='range'||control==='fraction'||control==='function')
+}
+
 export function industrialControlPatch(type:string,state:Record<string,any>,control:IndustrialControl,step:1|-1=1):Record<string,any>{
   if(!isIndustrialDevice(type))return {}
   if(control==='button'&&type.startsWith('pushButtonXb2'))return {pressed:!state.pressed}

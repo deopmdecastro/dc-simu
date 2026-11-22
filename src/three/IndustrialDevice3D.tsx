@@ -4,16 +4,17 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
-import { industrialControlPatch, industrialDeviceTypeOf, type IndustrialControl } from '../electrical/industrialDevices'
+import { industrialControlPatch, industrialDeviceTypeOf, isIndustrialConfigControl, type IndustrialControl } from '../electrical/industrialDevices'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
 import { applyIndustrialState, applyIndustrialTextures, industrialAction, industrialClickSound, prepareIndustrialModel, releaseIndustrialLcd } from './industrialFinish'
 import { mergeStaticMeshes } from './staticMerge'
 import { isInControlModel, useControlWheel } from './useControlWheel'
 
-type Props={c:ElectricalComponent;x:number;position?:[number,number,number];interactive?:boolean}
+/** `interactive`: manobra (RUN/PAUSA). `configurable`: seletores de configuração em STOP (como o inspetor). */
+type Props={c:ElectricalComponent;x:number;position?:[number,number,number];interactive?:boolean;configurable?:boolean}
 
-function IndustrialCad({c,x,position,interactive=true}:Props){
+function IndustrialCad({c,x,position,interactive=true,configurable=false}:Props){
   const type=industrialDeviceTypeOf(c)!,spec=getComponentModelSpec(c.type)!
   const {scene}=useGLTF(spec.path)
   const model=useMemo(()=>{
@@ -37,12 +38,21 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
   const simTick=useSimStore(s=>s.simTick)
   useEffect(()=>{applyIndustrialState(model,type,c.state);invalidate()},[model,type,c.state,simTick,invalidate])
   const mayActuate=()=>interactive&&!c.locked&&useSimStore.getState().tool==='select'
+  // Em STOP só os seletores de configuração respondem; o resto do clique seleciona o aparelho.
+  const mayConfigure=(control:string)=>{
+    const st=useSimStore.getState()
+    return configurable&&!c.locked&&st.tool==='select'&&st.sim.runState==='stopped'&&isIndustrialConfigControl(type,control as IndustrialControl)
+  }
   const act=(control:IndustrialControl,step:1|-1=1)=>{
-    if(!mayActuate())return
+    if(!mayActuate()&&!mayConfigure(control))return
     const store=useSimStore.getState(),live=store.components.find(n=>n.id===c.id)
     if(!live)return
     const patch=industrialControlPatch(type,live.state,control,step)
-    if(Object.keys(patch).length)store.operateComponent(c.id,patch)
+    if(!Object.keys(patch).length)return
+    // Função/escala/fração do GEYA são configuração (como no inspetor): livres em STOP
+    // (manobra.ts: «em STOP continuam livres a montagem e a configuração»).
+    if(store.sim.runState==='stopped'&&isIndustrialConfigControl(type,control))store.setComponentState(c.id,patch)
+    else store.operateComponent(c.id,patch)
   }
   useEffect(()=>{
     const release=()=>{
@@ -54,7 +64,8 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     return()=>{window.removeEventListener('pointerup',release);window.removeEventListener('pointercancel',release);window.removeEventListener('blur',release);release()}
   },[c.id])
   const down=(event:ThreeEvent<PointerEvent>)=>{
-    if(!mayActuate()||event.button!==0)return
+    if(event.button!==0)return
+    if(!mayActuate()){const a=industrialAction(event.object);if(a&&mayConfigure(a))event.stopPropagation();return}
     const action=industrialAction(event.object);if(!action)return
     event.stopPropagation()
     const target=controls as unknown as {enabled:boolean}|null
@@ -63,14 +74,15 @@ function IndustrialCad({c,x,position,interactive=true}:Props){
     else if(action==='button'){heldButton.current=true;useSimStore.getState().operateComponent(c.id,{pressed:true});industrialClickSound()}
   }
   const click=(event:ThreeEvent<MouseEvent>)=>{
-    if(!mayActuate())return
     const action=industrialAction(event.object);if(!action)return
+    if(!mayActuate()&&!mayConfigure(action))return
     event.stopPropagation();if(action!=='test'&&action!=='button')act(action as IndustrialControl,event.shiftKey?-1:1)
   }
   useControlWheel((hits,step)=>{
-    if(!mayActuate()||!hits[0]||!isInControlModel(hits[0].object,model))return false
+    if(!hits[0]||!isInControlModel(hits[0].object,model))return false
     const action=industrialAction(hits[0].object)
     if(!action||!['enter','range','fraction','function'].includes(action))return false
+    if(!mayActuate()&&!mayConfigure(action))return false
     act(action==='enter'?'encoder':action as IndustrialControl,step)
     return true
   })

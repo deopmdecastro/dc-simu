@@ -5511,7 +5511,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               </Model3DErrorBoundary>
             )
           } else if (industrialDeviceTypeOf(c)) {
-            content=<IndustrialDevice3D c={c} x={x} position={basePivots[c.id].toArray() as [number,number,number]} interactive={mechanicalControls&&!c.locked}/>
+            content=<IndustrialDevice3D c={c} x={x} position={basePivots[c.id].toArray() as [number,number,number]} interactive={mechanicalControls&&!c.locked} configurable={!demoMode&&tool==='select'&&!viewOrientationEditor&&!c.locked}/>
           } else if (hasDinRailModel(c.type) && getComponentModelSpec(c.type) && c.type !== 'residualBreakerSchneiderIid4p' && c.type !== 'residualBreakerSchneiderIdpnVigi' && !['breakerSchneiderIc60h1p', 'pilotLightSchneiderIil1p', 'pilotLightSchneiderIil3p'].includes(c.type)) {
             // Acti9 has dedicated CAD/state rendering below; do not route it
             // through this generic, envelope-based equipment renderer.
@@ -5586,7 +5586,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><CatalogComponent3D c={c} interactive={(industrialDeviceTypeOf(c) ? mechanicalControls : interactive) && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
           } else if (industrialDeviceTypeOf(c)) {
             const [px,py,pz]=frontPivot(c)
-            content=<IndustrialDevice3D c={c} x={x} position={[x+px,py,pz]} interactive={mechanicalControls&&!c.locked}/>
+            content=<IndustrialDevice3D c={c} x={x} position={[x+px,py,pz]} interactive={mechanicalControls&&!c.locked} configurable={!demoMode&&tool==='select'&&!viewOrientationEditor&&!c.locked}/>
           } else if (c.type==='currentTransformerSplitCore') {
             const [px,py,pz]=frontPivot(c)
             content=<CurrentTransformer3D c={c} x={x} position={[x+px,py,pz]} interactive={false}/>

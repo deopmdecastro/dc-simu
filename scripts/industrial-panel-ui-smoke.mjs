@@ -55,6 +55,7 @@ async function point(name, index = 0) {
 }
 const click = async name => { const p = await point(name); await page.mouse.click(p.x, p.y); await page.evaluate(() => window.__fixtureFrames()) }
 const wheel = async name => { const p = await point(name); await page.mouse.move(p.x, p.y); await page.mouse.wheel(0, -120); await page.evaluate(() => window.__fixtureFrames()) }
+const simRun = async () => { await store(s => s.setState({ sim: { ...s.getState().sim, runState: 'running' } })); await page.evaluate(() => window.__fixtureFrames()) }
 try {
   await page.evaluate(async () => {
     const { default: Panel3D } = await import('/src/three/Panel3D.tsx')
@@ -104,7 +105,13 @@ try {
   await store(s => s.setState({ tool: 'select' }))
 
   await show('relayFinder5534')
+  // Regra global de manobra: em STOP o TEST não atua (só seleciona); as manobras exigem ▶.
   let p = await point('industrial_test')
+  await page.mouse.move(p.x, p.y); await page.mouse.down()
+  check((await state()).testPressed !== true, 'Finder: in STOP the physical TEST is not actuated (manobra rule)')
+  await page.mouse.up()
+  await simRun()
+  p = await point('industrial_test')
   await page.mouse.move(p.x, p.y); await page.mouse.down()
   check((await state()).testPressed === true, 'Finder: pressing physical TEST holds the real control')
   await page.mouse.move(10, 10); await page.mouse.up()
@@ -115,6 +122,7 @@ try {
   await page.mouse.up()
 
   await show('vfdSchneiderAtv320')
+  await simRun()
   await click('industrial_encoder')
   check((await state()).editing === true && !(await state()).running, 'ATV: encoder enters reference editing, never RUN')
   const hz = (await state()).presetHz
