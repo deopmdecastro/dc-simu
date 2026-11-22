@@ -76,11 +76,11 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 55 peças (35 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 56 peças (35 tipos) na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
-  assert.equal(parts.length, 55, '55 peças: bancada (41) + quadro de campo (5) + ambiente fabril (9)')
-  assert.equal(full.componentCount, 56, '56 componentes no total')
+  assert.equal(parts.length, 56, '56 peças: bancada (42, com o suporte do Cilindro 3) + quadro de campo (5) + ambiente fabril (9)')
+  assert.equal(full.componentCount, 57, '57 componentes no total')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
   // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
   assert.equal(full.types.length, 35, 'os tipos do catálogo representados na bancada (base incluída)')
@@ -99,15 +99,15 @@ check('3. Bancada completa = base + 55 peças (35 tipos) na adaptação fotográ
   for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 56 componentes colocados na bancada, num único passo de histórico', () => {
+check('4. Inserção: 57 componentes colocados na bancada, num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 56, '56 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 56, '56 componentes no projeto')
+  assert.equal(created.length, 57, '57 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 57, '57 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
@@ -121,24 +121,25 @@ check('4. Inserção: 56 componentes colocados na bancada, num único passo de h
   // Cada peça do layout existe exatamente na cota esperada (mm → unidades do painel).
   const expected = new Set(readyMaquetteParts('atec-estampagem').map((part) => positionKey(benchPartUnits(base, part))))
   const actual = after.components.filter((c) => c.id !== plate.id).map((c) => positionKey(c.panel3DPosition!))
-  assert.equal(actual.length, 55)
-  assert.deepEqual(new Set(actual), expected, 'as 55 peças estão nas posições do relatório')
+  assert.equal(actual.length, 56)
+  assert.deepEqual(new Set(actual), expected, 'as 56 peças estão nas posições do relatório')
   for (const c of after.components) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
 
   // Estado das peças veio do layout (etiquetas B1/B8, ilhas C1A/C2A, gaveta virada para trás…)
   const byType = (type: string) => after.components.filter((c) => c.type === type)
   assert.deepEqual(byType('mecValveIsland').map((c) => c.state.islandTag).sort(), ['C1A', 'C2A'])
   assert.equal(byType('mecFeederCylinder')[0].state.sensorRecLabel, 'B8')
-  assert.equal(byType('mecDrawerCylinder')[0].state.facing, 'z-')
+  assert.equal(byType('mecDrawerCylinder')[0].viewOrientation?.y, -90, 'Cilindro 3 empurra a gaveta para −X, até à prensa')
+  assert.deepEqual(byType('mecStampingTable')[0].state.slideAxis, [-1, 0, 0])
   assert.equal(byType('mecGantryRamp' as any).length, 0)
   assert.equal(byType('mecDischargeRamp').length, 3, '3 rampas')
   assert.equal(byType('mecBenchDuct').length, 6, '4 calhas perimetrais')
 
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 56 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 57 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 56, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 57, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {

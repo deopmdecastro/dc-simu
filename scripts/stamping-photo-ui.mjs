@@ -87,6 +87,7 @@ try {
     ['overview', [-0.85, 0.65, 1.1], false],
     ['stations', [0.8, 1.15, 0.9], true],
     ['operator', [1.1, 0.5, 1.1], true],
+    ['top', [0, 1, 0.02], true],
   ]) {
     await f.page.evaluate(({ direction, upper }) => {
       const r = window.__panelState(), T = window.__fixtureThree, box = new T.Box3()
@@ -97,7 +98,10 @@ try {
         o.traverse(n => { if (n.isSprite) n.visible = false })
         const b = new T.Box3().setFromObject(o, true)
         if (upper) b.min.y = Math.max(b.min.y, -0.15)
-        if (b.max.y >= b.min.y) box.union(b)
+        // Vistas de pormenor: só a bancada (o ambiente fabril fica fora do enquadramento).
+        const c = b.getCenter(new T.Vector3())
+        const onBench = Math.abs(c.x) < 4 && Math.abs(c.z - 1.6) < 4 && b.max.y < 4.6
+        if (b.max.y >= b.min.y && (!upper || onBench)) box.union(b)
         for (let p = o; p && p !== r.scene; p = p.parent) keep.add(p)
       })
       for (const c of r.scene.children) if (!keep.has(c) && !c.isLight && !c.isCamera) c.visible = false

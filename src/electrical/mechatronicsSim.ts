@@ -90,10 +90,23 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
     }
     f.state.wasExtended = extended
   })
-  // Prensa: o curso inferior com peça na gaveta marca-a como estampada.
+  // Cilindro 3: a gaveta (e o FC 2 que viaja com ela) acompanha o curso da haste entre o ponto de
+  // depósito do braço e o prato da prensa. Só as gavetas com eixo de deslizamento são arrastadas.
+  const drawers = ofType('mecDrawerCylinder')
+  const slideOf = (pct: unknown) => Math.round((Math.max(0, Math.min(100, Number(pct ?? 0))) / 100) * MEC_DIMS.drawerCylinder.strokeMm * 10) / 10
+  tables.filter((t) => Array.isArray(t.state.slideAxis)).forEach((t, i) => {
+    const d = drawers[i] ?? drawers[0]
+    if (d) t.state.slideMm = slideOf(d.state.positionPct)
+  })
+  for (const sw of ofType('mecMicroSwitchRoller')) {
+    if (sw.state.actuation === 'drawer' && Array.isArray(sw.state.slideAxis) && drawers[0]) sw.state.slideMm = slideOf(drawers[0].state.positionPct)
+  }
+  /** Com eixo de deslizamento, a gaveta só fica sob o prato no fim do curso do cilindro. */
+  const underPress = (t: ElectricalComponent) => !Array.isArray(t.state.slideAxis) || Number(t.state.slideMm ?? 0) >= MEC_DIMS.drawerCylinder.strokeMm - 5
+  // Prensa: o curso inferior com peça na gaveta (debaixo do prato) marca-a como estampada.
   for (const p of presses) {
     if (Number(p.state.positionPct ?? 0) >= 92) {
-      const t = tables.find((tb) => typeof tb.state.pieceMaterial === 'string' && tb.state.pieceMaterial)
+      const t = tables.find((tb) => typeof tb.state.pieceMaterial === 'string' && tb.state.pieceMaterial && underPress(tb))
       if (t) t.state.stamped = true
     }
   }
@@ -121,7 +134,13 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
   for (const arm of ofType('mecRotaryArm')) {
     const motor = motors.find((m) => m.id === arm.state.driveMotorId) ?? motors[0]
     const delta = motor ? (motorDelta.get(motor.id) ?? 0) / MEC_DIMS.gearmotor.ratio : 0
-    const angle = wrapDeg(Number(arm.state.angleDeg ?? 0) + delta)
+    // Batentes mecânicos opcionais [mín, máx] (ex.: [180, 360]): o braço não entra no setor do
+    // alimentador e da prensa; o motor fica calado contra o batente.
+    const stops = Array.isArray(arm.state.rotationStops) ? arm.state.rotationStops.map(Number) : null
+    const current = Number(arm.state.angleDeg ?? 0)
+    const angle = stops && stops.length === 2 && delta !== 0
+      ? wrapDeg(Math.min(stops[1], Math.max(stops[0], (current < stops[0] ? current + 360 : current) + delta)))
+      : wrapDeg(current + delta)
     arm.state.angleDeg = Math.round(angle * 10) / 10
     arm.state.homeActive = armAtHome(angle)
     let down = Number(arm.state.armDownPct ?? 0)
@@ -171,7 +190,8 @@ export function stepMechatronics(components: ElectricalComponent[], ctx: Mechatr
   const activePickupMat = magazines.find((m) => !!m.state.pickupMaterial)?.state.pickupMaterial
   for (const sw of ofType('mecMicroSwitchRoller')) {
     if (sw.state.actuation === 'drawer') {
-      sw.state.pressed = tables.some((t) => !!t.state.pieceMaterial) || ofType('mecDrawerCylinder').some((d) => Number(d.state.positionPct ?? 0) >= 92)
+      // FC 2 no centro da gaveta: comuta só com a peça pousada no alojamento.
+      sw.state.pressed = tables.some((t) => !!t.state.pieceMaterial)
     } else if (sw.state.actuation !== 'manual') {
       sw.state.pressed = Boolean(activePickupMat)
     }

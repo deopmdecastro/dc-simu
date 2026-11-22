@@ -5,7 +5,7 @@ import { component3DScaleOf, schematicRotationRadians } from '../three/terminal3
 import { componentPanelXY } from '../three/panelLayout'
 import { PANEL_UNITS_PER_MM } from '../three/modelPaths'
 import {
-  armCupLocalMm, MEC_DIMS, mechatronicsSizeMm, rampDimsOf,
+  armCupLocalMm, MEC_DIMS, mechatronicsSizeMm, rampDimsOf, slideOffsetMm,
 } from '../three/mechatronicsModel'
 
 /** Mesma transformação do Painel 3D, em mm; sem posição explícita usa o pivô do esquema. */
@@ -31,7 +31,7 @@ export function cupTouchesWorkpiece(arm: ElectricalComponent, station: Electrica
   const size = mechatronicsSizeMm(station.type)!
   const top = station.type === 'mecGravityMagazine'
     ? new Vector3(MEC_DIMS.magazine.pickupOffsetMm, -size.y / 2 + 8 + MEC_DIMS.workpiece.heightMm, 0)
-    : new Vector3(0, size.y / 2 - 8 + MEC_DIMS.workpiece.heightMm, 0)
+    : new Vector3(0, size.y / 2 - 8 + MEC_DIMS.workpiece.heightMm, 0).add(new Vector3().copy(slideOffsetMm(station.state)))
   const cup = cupPointMm(arm).applyMatrix4(worldMatrix(station).invert())
   const radialGap = (MEC_DIMS.workpiece.diameterMm - MEC_DIMS.rotaryArm.cupDiameterMm) / 2
   return Math.hypot(cup.x - top.x, cup.z - top.z) <= radialGap && Math.abs(cup.y - top.y) <= 4

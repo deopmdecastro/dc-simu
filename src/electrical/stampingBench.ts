@@ -38,6 +38,14 @@ export interface BenchPlacement {
 /** Eixo da torre do manipulador na base. */
 export const BENCH_ARM_AXIS = { x: -66, z: 5 } as const
 export const BENCH_RAMP_ANGLES = [270, 300, 240] as const
+/** Comprimento de cada rampa (METALICA, PRETA, BRANCA): terminam antes da calha lateral e da HMI. */
+export const BENCH_RAMP_LENGTHS_MM = [170, 180, 140] as const
+/**
+ * Fim de curso de gaveta: corpo rodado −90° em Y (rolete para −Z), 18 mm acima do assento do
+ * tarugo e 41 mm à frente do centro do alojamento — o rolete toca no tarugo Ø40.
+ */
+const FC_ABOVE_SEAT_MM = 18
+const FC_FROM_POCKET_MM = 41
 
 export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlacement[] {
   const plate = slotPlateDimsOf(plateState)
@@ -49,7 +57,10 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
     return { x: A.x + d.x * ARM_REACH_MM, z: A.z + d.z * ARM_REACH_MM }
   }
   const pickup = at(0)
-  const press = at(180)
+  /** Ponto de depósito do braço (180°) e prato da prensa, um curso do Cilindro 3 mais à esquerda. */
+  const load = at(180)
+  const drawerStroke = MEC_DIMS.drawerCylinder.strokeMm
+  const pressAt = { x: load.x - drawerStroke, z: load.z }
   const mag = MEC_DIMS.magazine
   const piece = MEC_DIMS.workpiece
   const table = MEC_DIMS.table
@@ -66,11 +77,15 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
   const magRiser = { lengthMm: Math.round(riserEnd - riserStart), heightMm: Math.round(magBaseY), depthMm: mag.baseDepthMm }
   // Gaveta: topo do tarugo = topo da mesa − rebaixo 8 mm + 35 mm.
   const tableTop = ARM_STATION_TOP_MM - (piece.heightMm - 8)
-  const tableRiser = { lengthMm: table.lengthMm, heightMm: Math.round(tableTop - table.heightMm), depthMm: table.depthMm }
+  // Guia da gaveta: cobre o depósito e o prato da prensa (curso do Cilindro 3).
+  const tableRiser = { lengthMm: table.lengthMm + drawerStroke, heightMm: Math.round(tableTop - table.heightMm), depthMm: table.depthMm }
+  const tableY = top + tableRiser.heightMm + table.heightMm / 2
+  // Cilindro 3 recuado: a forquilha (42 mm à frente do pivô) encosta à face direita da gaveta.
+  const drawerCylX = load.x + table.lengthMm / 2 + 42
+  const drawerCylRiser = { lengthMm: 112, heightMm: Math.round(tableY - 4 - mechatronicsSizeMm('mecDrawerCylinder')!.y / 2 - top), depthMm: 46 }
 
   const ductFront = { lengthMm: plate.lengthMm, widthMm: 34, heightMm: 42, axis: 'x', coverOn: true, plaque: 'atec' }
   const ductSide = { lengthMm: Math.max(120, plate.widthMm - 68), widthMm: 34, heightMm: 42, axis: 'z', coverOn: true }
-  const drawerCylSize = mechatronicsSizeMm('mecDrawerCylinder')!
   const towerSize = COMPONENT_PHYSICAL_SIZE_MM.towerLightSb23011!
   const hmiSize = mechatronicsSizeMm('mecHmiKtp700')!
   const opBoxSize = mechatronicsSizeMm('mecOperatorBox')!
@@ -80,7 +95,8 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
     { key: 'magRiser', type: 'mecSupportBlock', x: (riserStart + riserEnd) / 2, y: top + magRiser.heightMm / 2, z: pickup.z, state: magRiser },
     { key: 'magazine', type: 'mecGravityMagazine', x: magX, y: top + magRiser.heightMm + h('mecGravityMagazine') / 2, z: pickup.z },
     { key: 'feeder', type: 'mecFeederCylinder', x: feederX, y: top + magRiser.heightMm + feederSize.y / 2, z: pickup.z, state: { labelText: 'CILINDRO 1', sensorRecLabel: 'B8', sensorAvaLabel: 'B9' } },
-    { key: 'fc1', type: 'mecMicroSwitchRoller', x: pickup.x, y: top + magRiser.heightMm + 8 + h('mecMicroSwitchRoller') / 2, z: pickup.z + piece.diameterMm / 2 + 11, state: { actuation: 'feeder', labelText: 'FC 1' } },
+    // FC 1 ao centro do alojamento de recolha: corpo fora da guia, rolete a tocar no tarugo.
+    { key: 'fc1', type: 'mecMicroSwitchRoller', x: pickup.x, y: top + magRiser.heightMm + 8 + FC_ABOVE_SEAT_MM, z: pickup.z + FC_FROM_POCKET_MM, state: { actuation: 'feeder', labelText: 'FC 1' }, orientation: { x: 0, y: -90, z: 0 } },
     { key: 'inductiveSensor', type: 'mecInductiveSensor', x: pickup.x, y: top + ARM_STATION_TOP_MM - piece.heightMm / 2, z: pickup.z - 45, state: { actuation: 'feeder', labelText: 'S. INDUTIVO' }, orientation: { x: 90, y: 0, z: 0 } },
     { key: 'inductiveRiser', type: 'mecAluProfile', x: pickup.x, y: top + (ARM_STATION_TOP_MM - piece.heightMm / 2 - 7) / 2, z: pickup.z - 53,
       state: { sectionMm: 30, lengthMm: ARM_STATION_TOP_MM - piece.heightMm / 2 - 7, labelText: 'S. INDUTIVO' } },
@@ -89,17 +105,23 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
       state: { sectionMm: 30, lengthMm: ARM_STATION_TOP_MM - piece.heightMm / 2 - 56, orientation: 'vertical', endCaps: false } },
 
     // Manipulador rotativo BR1 (Cilindro 2 · B6/B7) + Motorredutor M1 com par cónico e encoder RT3806
-    { key: 'arm', type: 'mecRotaryArm', x: A.x, y: top + h('mecRotaryArm') / 2, z: A.z },
+    // Batentes 180°–360°: recolha → rampas → gaveta sem passar pelo lado do alimentador e da prensa.
+    { key: 'arm', type: 'mecRotaryArm', x: A.x, y: top + h('mecRotaryArm') / 2, z: A.z, state: { rotationStops: [180, 360] } },
     { key: 'motor', type: 'mecDcGearmotor', x: A.x - MEC_DIMS.gearmotor.wheelDiameterMm / 2 - mechatronicsSizeMm('mecDcGearmotor')!.x / 2 + 6, y: top + h('mecDcGearmotor') / 2, z: A.z },
 
-    // Estação de estampagem: Pórtico Cilindro 4 (B3/B4) + Gaveta deslizante FC 2 + Cilindro 3 (B2/B1) + Esteira
-    { key: 'tableRiser', type: 'mecSupportBlock', x: press.x, y: top + tableRiser.heightMm / 2, z: press.z, state: tableRiser },
-    { key: 'table', type: 'mecStampingTable', x: press.x, y: top + tableRiser.heightMm + table.heightMm / 2, z: press.z, state: { labelText: 'FC 2', pocketShape: 'square' } },
-    { key: 'fc2', type: 'mecMicroSwitchRoller', x: press.x + 21, y: top + tableTop - 20, z: press.z + table.depthMm / 2 + 7,
-      state: { actuation: 'drawer', labelText: 'FC 2' } },
-    { key: 'press', type: 'mecStampingPress', x: press.x, y: top + h('mecStampingPress') / 2, z: press.z },
-    { key: 'drawerCylinder', type: 'mecDrawerCylinder', x: press.x, y: top + drawerCylSize.y / 2, z: -140, state: { facing: 'z-', labelText: 'CILINDRO 3', sensorRecLabel: 'B2', sensorAvaLabel: 'B1' } },
-    { key: 'chain', type: 'mecDragChain', x: press.x + 112, y: top + h('mecDragChain', { lengthMm: 120 }) / 2, z: press.z + 18, state: { lengthMm: 120 } },
+    // Estação de estampagem, orientada como o alimentador (movimento em X):
+    // o braço deposita na gaveta FC 2 a 180°; o Cilindro 3 (à direita, haste para −X) empurra a gaveta
+    // por baixo do pórtico do Cilindro 4 (B3/B4), cujas colunas ficam à frente e atrás da guia.
+    // B2 (recuado) = gaveta no depósito · B1 (avançado) = gaveta sob o prato.
+    { key: 'tableRiser', type: 'mecSupportBlock', x: load.x - drawerStroke / 2, y: top + tableRiser.heightMm / 2, z: load.z, state: tableRiser },
+    { key: 'table', type: 'mecStampingTable', x: load.x, y: tableY, z: load.z, state: { labelText: 'FC 2', pocketShape: 'square', slideAxis: [-1, 0, 0], slideMm: 0 } },
+    { key: 'fc2', type: 'mecMicroSwitchRoller', x: load.x, y: top + tableTop + FC_ABOVE_SEAT_MM, z: load.z + FC_FROM_POCKET_MM,
+      state: { actuation: 'drawer', labelText: 'FC 2', slideAxis: [0, 0, 1], slideMm: 0 }, orientation: { x: 0, y: -90, z: 0 } },
+    { key: 'press', type: 'mecStampingPress', x: pressAt.x, y: top + h('mecStampingPress') / 2, z: pressAt.z, orientation: { x: 0, y: 90, z: 0 } },
+    ...(drawerCylRiser.heightMm >= 4 ? [{ key: 'drawerCylRiser', type: 'mecSupportBlock' as ComponentType, x: drawerCylX + 43, y: top + drawerCylRiser.heightMm / 2, z: load.z, state: drawerCylRiser }] : []),
+    { key: 'drawerCylinder', type: 'mecDrawerCylinder', x: drawerCylX, y: tableY - 4, z: load.z, orientation: { x: 0, y: -90, z: 0 },
+      state: { labelText: 'CILINDRO 3', sensorRecLabel: 'B2', sensorAvaLabel: 'B1' } },
+    { key: 'chain', type: 'mecDragChain', x: load.x + 50, y: top + h('mecDragChain', { lengthMm: 120 }) / 2, z: load.z + 55, state: { lengthMm: 120 } },
 
     // Ilhas de eletroválvulas Festo 2× 5/2 (C1A, C2A) e Gerador de vácuo (VAC1 · C4A) à esquerda
     { key: 'valveIsland1', type: 'mecValveIsland', x: -plate.lengthMm / 2 + 96, y: top + h('mecValveIsland') / 2, z: -26, state: { islandTag: 'C1A' } },
@@ -214,7 +236,7 @@ export function stampingBenchLayout(plateState?: Record<string, any>): BenchPlac
   const rampLabels = ['METALICA', 'PRETA', 'BRANCA']
   BENCH_RAMP_ANGLES.forEach((deg, i) => {
     const drop = at(deg)
-    const state = { pillarMm: rampPillars[i], rampLabel: rampLabels[i] }
+    const state = { pillarMm: rampPillars[i], rampLabel: rampLabels[i], lengthMm: BENCH_RAMP_LENGTHS_MM[i] }
     const size = mechatronicsSizeMm('mecDischargeRamp', state)!
     list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: drop.x + size.x / 2 - 22, y: top + size.y / 2, z: drop.z, state })
   })

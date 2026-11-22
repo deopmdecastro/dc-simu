@@ -148,7 +148,9 @@ export const RAMP_PILLAR_OPTIONS = [110, 95, 80] as const
 export function rampDimsOf(state?: Record<string, any>) {
   const pillarMm = clampNum(state?.pillarMm, 40, 200, 110)
   const slope = (MEC_DIMS.ramp.slopeDeg * Math.PI) / 180
-  return { ...MEC_DIMS.ramp, pillarMm, slope, runMm: MEC_DIMS.ramp.lengthMm * Math.cos(slope), riseMm: MEC_DIMS.ramp.lengthMm * Math.sin(slope) }
+  // Comprimento da calha editável: as rampas mais curtas libertam a calha lateral e a HMI.
+  const lengthMm = clampNum(state?.lengthMm, 120, 300, MEC_DIMS.ramp.lengthMm)
+  return { ...MEC_DIMS.ramp, lengthMm, pillarMm, slope, runMm: lengthMm * Math.cos(slope), riseMm: lengthMm * Math.sin(slope) }
 }
 
 export function supportBlockDimsOf(state?: Record<string, any>) {
@@ -379,4 +381,15 @@ export const MECHATRONICS_INFO: Record<MechatronicsComponentType, MechatronicsIn
     model: 'HZ20D15-15V / HZ20S15-15 · alumínio anodizado · guias Ø6 · ventosa de fole',
     summary: 'Cilindro pneumático guiado de simples ou duplo efeito com ventosa integrada, serigrafia TECHNIK, portas M5, flange de montagem e sensores reed opcionais. Dimensões editáveis no inspetor.',
   },
+}
+
+/**
+ * Carro deslizante (gaveta de estampagem e o FC que viaja com ela): `slideAxis` é o vetor unitário
+ * nas coordenadas locais da peça e `slideMm` o deslocamento atual, imposto pelo cilindro da gaveta.
+ */
+export function slideOffsetMm(state?: Record<string, any>): { x: number; y: number; z: number } {
+  const axis = Array.isArray(state?.slideAxis) ? state!.slideAxis.map(Number) : null
+  const mm = Number(state?.slideMm ?? 0)
+  if (!axis || axis.length !== 3 || !Number.isFinite(mm) || mm === 0) return { x: 0, y: 0, z: 0 }
+  return { x: axis[0] * mm, y: axis[1] * mm, z: axis[2] * mm }
 }

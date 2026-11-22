@@ -84,9 +84,9 @@ check('3. Contactos: FC1 comutado, reeds REC/AVA e SUP/INF, sensor de referênci
 })
 
 check('4. Ciclo: alimentar → recolher → prensa → estampar → triar pela rampa do material', () => {
-  const { magazine: mag, feeder, fc1: sw, arm, table, press, ramp1, ramp2, ramp3 } = makeBench()
+  const { magazine: mag, feeder, fc1: sw, fc2, arm, table, press, drawerCylinder: drawer, ramp1, ramp2, ramp3 } = makeBench()
   const ramps = [ramp1, ramp2, ramp3]
-  const all = [mag, feeder, sw, arm, table, press, ...ramps]
+  const all = [mag, feeder, sw, fc2, arm, table, press, drawer, ...ramps]
   const airOn = new Set<string>()
   const ctx = { dtSec: 0.05, airAt: (id: string) => airOn.has(id), loadPowered: () => false }
   const t = (c: ElectricalComponent, l: string) => c.terminals.find((x) => x.label === l)!.id
@@ -112,11 +112,30 @@ check('4. Ciclo: alimentar → recolher → prensa → estampar → triar pela r
   airOn.delete(t(arm, 'VAC'))
   stepMechatronics(all, ctx)
   assert.equal(table.state.pieceMaterial, 'aluminio')
+  assert.equal(fc2.state.pressed, true, 'FC 2 no centro da gaveta deteta a peça')
+  // Com a gaveta no ponto de depósito, a prensa desce sem estampar (não há peça sob o prato).
+  press.state.positionPct = 100
+  stepMechatronics(all, ctx)
+  assert.equal(table.state.stamped, false, 'gaveta fora da prensa: não estampa')
+  press.state.positionPct = 0
+  // Cilindro 3 avança: a gaveta e o FC 2 deslizam 75 mm para −X até ao prato da prensa.
+  drawer.state.positionPct = 100
+  stepMechatronics(all, ctx)
+  assert.equal(table.state.slideMm, MEC_DIMS.drawerCylinder.strokeMm)
+  assert.equal(fc2.state.slideMm, MEC_DIMS.drawerCylinder.strokeMm, 'o FC 2 viaja com a gaveta')
   // Prensa desce até ao fim: estampa.
   press.state.positionPct = 100
   stepMechatronics(all, ctx)
   assert.equal(table.state.stamped, true)
   press.state.positionPct = 0
+  // Com a gaveta na prensa, a ventosa não chega à peça; o Cilindro 3 recua e devolve-a ao braço.
+  airOn.add(t(arm, 'VAC'))
+  stepMechatronics(all, ctx)
+  assert.equal(arm.state.holding, '', 'gaveta longe da ventosa')
+  airOn.delete(t(arm, 'VAC'))
+  drawer.state.positionPct = 0
+  stepMechatronics(all, ctx)
+  assert.equal(table.state.slideMm, 0)
   // Recolha pós-estampagem, subida do braço e descarga por gravidade: peça metálica → rampa 1.
   airOn.add(t(arm, 'VAC'))
   stepMechatronics(all, ctx)
@@ -335,6 +354,59 @@ check('13. O cilindro desloca a ventosa só na vertical, com alcance radial cons
       assert.ok(Math.abs(up.y - down.y - MEC_DIMS.rotaryArm.cylinderStrokeMm * pct / 100) < 1e-9)
     }
   }
+})
+
+check('14. Braço com batentes 180°–360°: varre recolha → rampas → gaveta sem tocar no magazine nem na prensa', () => {
+  const layout = stampingBenchLayout({})
+  const by = Object.fromEntries(layout.map((p) => [p.key, p]))
+  const top = slotPlateDimsOf({}).thicknessMm / 2
+  const arm = by.arm
+  assert.deepEqual(arm.state?.rotationStops, [180, 360])
+  // Lábio da ventosa recolhida: tudo o que fica abaixo passa por baixo do braço.
+  const armBottom = ARM_STATION_TOP_MM + MEC_DIMS.rotaryArm.cylinderStrokeMm - 2
+  type Rect = { key: string; x0: number; x1: number; z0: number; z1: number }
+  const rects: Rect[] = []
+  const rect = (key: string, x: number, z: number, hx: number, hz: number) => rects.push({ key, x0: x - hx, x1: x + hx, z0: z - hz, z1: z + hz })
+  const m = MEC_DIMS.magazine
+  rect('magazine-tube', by.magazine.x + m.tubeOffsetMm, by.magazine.z, m.outerMm / 2, m.outerMm / 2)
+  const p = MEC_DIMS.press
+  for (const s of [-1, 1]) rect(`press-column-${s}`, by.press.x, by.press.z + s * (p.gantryWidthMm / 2 - p.profileMm / 2), p.profileMm / 2, p.profileMm / 2)
+  for (const part of layout) {
+    if (['arm', 'motor', 'magazine', 'press'].includes(part.key)) continue
+    const size = mechatronicsSizeMm(part.type, part.state)
+    if (!size || part.y - top + size.y / 2 <= armBottom || part.y < 0) continue
+    const turned = Math.abs(part.orientation?.y ?? 0) === 90
+    rect(part.key, part.x, part.z, (turned ? size.z : size.x) / 2, (turned ? size.x : size.z) / 2)
+  }
+  const halfWidth = 21 // cilindro da ventosa + tarugo Ø40 suspenso
+  const sweep = (from: number, to: number) => {
+  const hits = new Set<string>()
+  for (let deg = from; deg <= to; deg += 1) {
+    const a = (deg * Math.PI) / 180, dx = -Math.sin(a), dz = Math.cos(a)
+    for (let r = 75; r <= MEC_DIMS.rotaryArm.armLengthMm - 10; r += 5) {
+      for (const w of [-halfWidth, 0, halfWidth]) {
+        const x = arm.x + dx * r - dz * w, z = arm.z + dz * r + dx * w
+        for (const b of rects) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) hits.add(`${b.key}@${deg}°`)
+      }
+    }
+  }
+  return [...hits]
+  }
+  assert.deepEqual(sweep(180, 360), [], 'nenhum obstáculo alto no setor varrido')
+  // Sem batentes, o lado esquerdo (0°–180°) bateria no tubo do magazine e nas colunas da prensa.
+  const left = sweep(0, 180).join(' ')
+  assert.ok(left.includes('magazine-tube') && left.includes('press-column'), left)
+  assert.ok(rects.some((r) => r.key === 'magazine-tube') && rects.some((r) => r.key.startsWith('press-column')))
+  // Motor: CW a partir de 0° fica no batente; CCW desce até às rampas e à gaveta e pára em 180°.
+  const motor = make('mecDcGearmotor'), a = make('mecRotaryArm')
+  a.state.rotationStops = [180, 360]
+  const ctx = (dir: 'CW' | 'CCW') => ({ dtSec: 0.1, airAt: () => false, loadPowered: (c: ElectricalComponent, x: string, y: string) => c === motor && x === dir && y === '0V' })
+  for (let i = 0; i < 5; i += 1) stepMechatronics([motor, a], ctx('CW'))
+  assert.equal(a.state.angleDeg, 0, 'batente a 360°/0°')
+  for (let i = 0; i < 10; i += 1) stepMechatronics([motor, a], ctx('CCW'))
+  assert.equal(a.state.angleDeg, 270)
+  for (let i = 0; i < 30; i += 1) stepMechatronics([motor, a], ctx('CCW'))
+  assert.equal(a.state.angleDeg, 180, 'batente a 180°: nunca entra no lado do alimentador')
 })
 
 console.log(`\n✅ ${passed} verificações da maquete de estampagem passaram`)

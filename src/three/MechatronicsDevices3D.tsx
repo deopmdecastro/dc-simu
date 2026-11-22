@@ -25,6 +25,7 @@ import {
   workpieceMaterialOf,
   hz20DimsOf,
   HZ20_FLANGE_GAP_MM,
+  slideOffsetMm,
   type WorkpieceMaterial,
 } from './mechatronicsModel'
 import {
@@ -145,6 +146,12 @@ function ReedSensor({ position, active, rotation, label }: { position: [number, 
       </mesh>
     </group>
   )
+}
+
+/** Deslocamento do carro da gaveta (mm locais), animado pelo cilindro da gaveta através do estado. */
+const slideVec = (state: Record<string, any>): [number, number, number] => {
+  const o = slideOffsetMm(state)
+  return [o.x, o.y, o.z]
 }
 
 /** Etiqueta impressa tipo fita Brother (o `map` impede o acabamento CAD procedural de a lavar). */
@@ -515,7 +522,7 @@ function StampingTable({ c }: { c: ElectricalComponent }) {
   const holding = typeof c.state.pieceMaterial === 'string' && c.state.pieceMaterial !== ''
   const floorY = t.heightMm / 2 - depth
   return (
-    <group>
+    <group position={slideVec(c.state)}>
       <mesh geometry={g} castShadow receiveShadow>
         <Mat f={ALU_MILLED} name="Bloco maquinado" />
       </mesh>
@@ -1057,7 +1064,7 @@ function MicroSwitchRoller({ c, onPatch }: { c: ElectricalComponent; onPatch?: (
   useFrame(() => { if (leverRef.current) leverRef.current.rotation.z = -0.13 + sm.current * 0.12 })
   return (
     // Em «alimentador» o rolete segue a peça (motor da mecatrónica); só o modo manual aceita o clique.
-    <group onClick={(e) => { if (!onPatch || c.state.actuation !== 'manual') return; e.stopPropagation(); onPatch({ pressed: !pressed }) }}>
+    <group position={slideVec(c.state)} onClick={(e) => { if (!onPatch || c.state.actuation !== 'manual') return; e.stopPropagation(); onPatch({ pressed: !pressed }) }}>
       {/* Chapa de montagem traseira (fixada à lateral da gaveta) */}
       <mesh position={[0, -2, -6.4]} castShadow>
         <boxGeometry args={[40, 26, 2]} />
