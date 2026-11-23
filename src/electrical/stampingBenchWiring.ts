@@ -390,6 +390,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       wires.push({
         id, number, label, from: src, to: { key: term.key, label: '2' }, color, gauge: '0.75mm²', kind,
         ...(toEnd ? { toEnd } : {}),
+        // Chicote de campo: filaçado nas calhas perimetrais → perna → bucim QE1.
+        bundleId: isOperator ? 'mq-campo-operadores' : 'mq-campo',
         waypointsMm: clean([
           exit,
           // Sai do borne PARA FORA do aparelho, desce ao lado dele até à cota da calha e só então
@@ -406,6 +408,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           pt(ductDrop.x + lane * 0.5, -top - 24, zDrop + lane),
           pt(ductDrop.x + lane * 0.5, yUnder + lane * 0.4, zDrop + lane),
           pt(cabLeft - 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
+          // Entrada pelo bucim lateral do QE1 → calha técnica interior.
           pt(cabLeft + 8, yUnder, zDrop),
           ...insideTo(term, lane),
         ]),
@@ -643,10 +646,16 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           ]),
         })
       }
-      // Cabo revestido 3G2,5 da ficha ao compressor (editável / arrastável — sem locked).
+      // Cabo revestido 3G2,5: sai pelo bucim traseiro da ficha, desce organizado e entra no compressor.
+      // Editável / arrastável (sem locked). Condutores L/N no mesmo chicote filaçado.
       const cmpSize = sizeOfMm('airCompressor', cmpPart.state)
       const cmpFrontZ = cmpPart.z + cmpSize.z / 2 + 18
-      for (const [label, color, kind] of [['L', 'brown', 'power'], ['N', 'blue', 'neutral']] as const) {
+      const glandExit = pt(plug.x, plug.y - 8, plug.z + 42) // saída pelo bucim da ficha
+      const dropLane = plug.y - 55
+      for (const [label, color, kind, dx] of [
+        ['L', 'brown', 'power', -3],
+        ['N', 'blue', 'neutral', 3],
+      ] as const) {
         wires.push({
           id: `mq-comp-cord-${label.toLowerCase()}`,
           number: `F-COMP:${label}`,
@@ -657,11 +666,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
           bundleId: 'chicote-ficha-comp',
           waypointsMm: clean([
-            pt(plug.x, plug.y - 5, plug.z + 30),
-            pt(plug.x, plug.y - 40, plug.z + 50),
-            pt(cmpPart.x, plug.y - 40, cmpFrontZ),
-            pt(cmpPart.x, cmpPart.y + cmpSize.y / 2 + 10, cmpFrontZ),
-            pt(cmpPart.x, cmpPart.y + cmpSize.y / 2 + 10, cmpPart.z + 40),
+            glandExit,
+            pt(plug.x + dx, dropLane, plug.z + 55),
+            pt(cmpPart.x + dx, dropLane, cmpFrontZ),
+            pt(cmpPart.x + dx, cmpPart.y + cmpSize.y / 2 + 12, cmpFrontZ),
+            pt(cmpPart.x + dx * 0.5, cmpPart.y + cmpSize.y / 2 + 12, cmpPart.z + 40),
           ]),
         })
       }
@@ -830,9 +839,13 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           ]),
         })
       }
-      // Lado do quadro: fios individuais L/N da ficha aos bornes da PS1 (cabo de ficha revestido
-      // no troço comum, depois condutores aos bornes — sheathed no bundle).
-      for (const [psLabel, color, kind] of [['L', 'black', 'power'], ['N', 'blue', 'neutral']] as const) {
+      // Lado do quadro: sai pelo bucim da ficha → sobe à calha técnica → bornes L/N/PE.
+      // Cabo revestido (sheathed) + filaçado no chicote qe1-alimentacao-plc.
+      const plugGland = pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 40)
+      for (const [psLabel, color, kind, lane] of [
+        ['L', 'black', 'power', -2.5],
+        ['N', 'blue', 'neutral', 2.5],
+      ] as const) {
         wires.push({
           id: `qe1-ps1-${psLabel.toLowerCase()}`,
           number: `F-MAQ → PS1.${psLabel}`,
@@ -843,15 +856,18 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
           bundleId: 'qe1-alimentacao-plc',
           waypointsMm: clean([
-            pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 25),
-            pt(xsMaq.x, xsMaq.y + 30, ductInZ + (psLabel === 'L' ? -2.5 : 2.5)),
-            pt(ps1.x + (psLabel === 'L' ? -6 : 6), (xsMaq.y + ps1.y) / 2, ductInZ + (psLabel === 'L' ? -2.5 : 2.5)),
+            plugGland,
+            // Sobe junto ao pilar / descida da esteira até à cota da calha do QE1.
+            pt(xsMaq.x + lane, xsMaq.y + 45, ductInZ + lane),
+            pt(ps1.x + (psLabel === 'L' ? -6 : 6), xsMaq.y + 45, ductInZ + lane),
+            // Corre dentro da calha técnica até à fonte.
+            pt(ps1.x + (psLabel === 'L' ? -6 : 6), ductTop ? ductTop.y : ps1.y + 40, ductInZ + lane),
             pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 18, ductInZ),
             pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 6, ductInZ),
           ]),
         })
       }
-      // PE da ficha ao borne de terra do quadro (X20 PE-IN ou equivalente).
+      // PE da ficha → calha → borne de terra X20.
       wires.push({
         id: 'qe1-maq-pe',
         number: 'F-MAQ → PE',
@@ -862,8 +878,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
         bundleId: 'qe1-alimentacao-plc',
         waypointsMm: clean([
-          pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 25),
-          pt(xsMaq.x, xsMaq.y + 20, ductInZ),
+          plugGland,
+          pt(xsMaq.x, xsMaq.y + 40, ductInZ),
+          pt(x20bus.x, ductTop ? ductTop.y : x20bus.y + 40, ductInZ),
           pt(x20bus.x, railBottom(x20bus) - 12, ductInZ),
         ]),
       })
