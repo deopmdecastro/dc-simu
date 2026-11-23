@@ -280,7 +280,7 @@ function useModelsLoading() {
         clearTimer = setTimeout(() => { if (alive) setActive(false) }, 280)
       }
     }
-    const unsubscribe = useProgress.subscribe((state) => { queueMicrotask(() => apply(state.active) })
+    const unsubscribe = useProgress.subscribe((state) => { queueMicrotask(() => apply(state.active)) })
     apply(useProgress.getState().active)
     return () => { alive = false; if (clearTimer) clearTimeout(clearTimer); unsubscribe() }
   }, [])
