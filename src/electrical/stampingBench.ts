@@ -505,6 +505,16 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · COMPRESSOR · RoadEu 70929' },
     ref: 'XS-COMP',
   })
+  // Ficha CEE encaixada na tomada do compressor (cabo revestido arrastável até ao motor).
+  list.push({
+    key: 'plug-compressor',
+    type: 'ceePlug16A',
+    x: compDropX,
+    y: socketY,
+    z: wallZ + STANDOFF_MM + socketD + 28,
+    state: { labelText: 'FICHA CEE · COMPRESSOR', glandVisible: true },
+    ref: 'F-COMP',
+  })
   list.push({
     key: 'socket-bench',
     type: 'socketFamatelSwitch',
@@ -513,6 +523,16 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     z: pillarFaceZ + 2 + socketD / 2,
     state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · MAQUETE · RoadEu 70929' },
     ref: 'XS-MAQ',
+  })
+  // Ficha CEE na tomada da maquete; lado do quadro = fios L/N/PE aos bornes.
+  list.push({
+    key: 'plug-bench',
+    type: 'ceePlug16A',
+    x: 0,
+    y: socketBenchY,
+    z: pillarFaceZ + 2 + socketD + 28,
+    state: { labelText: 'FICHA CEE · MAQUETE / QE', glandVisible: true },
+    ref: 'F-MAQ',
   })
 
   // A orientação é construtiva nesta montagem; deve sobreviver à reabertura do ficheiro.
