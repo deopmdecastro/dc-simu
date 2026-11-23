@@ -616,31 +616,50 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       }
     }
 
-    // ── COMPRESSOR: 230 V da tomada XS-COMP e tomada da maquete para a fonte ─────────────────
-    // O compressor não tinha um único condutor elétrico: estava apoiado e ligado ao ar, mas sem
-    // alimentação. Fase e neutro em cabo 3G2,5 revestido (secção igual à do ramal que vem do QGD)
-    // e PE no borne de terra da tomada.
+    // ── COMPRESSOR: tomada XS-COMP ← ficha CEE ← cabo 3G2,5 revestido (arrastável) → motor ─
+    // Contacto ficha↔tomada (curto) + cabo flexível revestido da ficha aos bornes L/N do compressor.
     const cmpSock = get('socket-compressor')
+    const cmpPlug = get('plug-compressor')
     const cmpPart = get('compressor')
-    if (cmpSock && cmpPart) {
+    if (cmpSock && cmpPlug && cmpPart) {
       const s2 = cmpSock
-      const gland = { y: s2.y + 55, z: s2.z - 40 }
-      // Bornes elétricos reais do compressor: L e N (IN/OUT são pneumáticos e vão pelos tubos).
-      // O compressor está encostado à parede: os bornes olham para dentro da carcaça. O cabo entra
-      // pela FRENTE do equipamento (lado da nave, +Z) e só depois sobe ao borne — nunca o atravessa.
+      const plug = cmpPlug
+      // Contacto de encaixe: tomadas OUT.* → bornes da ficha (simula pinos encaixados).
+      for (const [sockLab, plugLab, color, kind] of [
+        ['OUT.L', 'L', 'brown', 'power'],
+        ['OUT.N', 'N', 'blue', 'neutral'],
+        ['OUT.PE', 'PE', 'green-yellow', 'earth'],
+      ] as const) {
+        wires.push({
+          id: `mq-comp-contact-${plugLab.toLowerCase()}`,
+          number: `XS-COMP↔F-COMP:${plugLab}`,
+          label: `Contacto CEE · XS-COMP ${sockLab} → F-COMP ${plugLab}`,
+          from: { key: 'socket-compressor', label: sockLab },
+          to: { key: 'plug-compressor', label: plugLab },
+          color, gauge: '2.5mm²', kind,
+          waypointsMm: clean([
+            pt(s2.x, s2.y, s2.z + 20),
+            pt(plug.x, plug.y, plug.z - 10),
+          ]),
+        })
+      }
+      // Cabo revestido 3G2,5 da ficha ao compressor (editável / arrastável — sem locked).
       const cmpSize = sizeOfMm('airCompressor', cmpPart.state)
       const cmpFrontZ = cmpPart.z + cmpSize.z / 2 + 18
-      for (const [core, label, color, kind] of [['OUT.L', 'L', 'brown', 'power'], ['OUT.N', 'N', 'blue', 'neutral']] as const) {
+      for (const [label, color, kind] of [['L', 'brown', 'power'], ['N', 'blue', 'neutral']] as const) {
         wires.push({
-          id: `mq-comp-${label.toLowerCase()}`, number: `XS-COMP:${label}`,
-          label: `3G2,5 H07RN-F revestido · XS-COMP → COMPRESSOR ${label}`,
-          from: { key: 'socket-compressor', label: core }, to: { key: 'compressor', label },
-          color, gauge: '2.5mm²', kind, bundleId: 'chicote-mq-comp',
+          id: `mq-comp-cord-${label.toLowerCase()}`,
+          number: `F-COMP:${label}`,
+          label: `3G2,5 H07RN-F revestido · FICHA COMPRESSOR → MOTOR ${label}`,
+          from: { key: 'plug-compressor', label },
+          to: { key: 'compressor', label },
+          color, gauge: '2.5mm²', kind,
+          sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
+          bundleId: 'chicote-ficha-comp',
           waypointsMm: clean([
-            pt(s2.x, gland.y, gland.z),
-            pt(s2.x, gland.y + 60, gland.z),
-            pt(s2.x, gland.y + 60, cmpFrontZ),
-            pt(cmpPart.x, gland.y + 60, cmpFrontZ),
+            pt(plug.x, plug.y - 5, plug.z + 30),
+            pt(plug.x, plug.y - 40, plug.z + 50),
+            pt(cmpPart.x, plug.y - 40, cmpFrontZ),
             pt(cmpPart.x, cmpPart.y + cmpSize.y / 2 + 10, cmpFrontZ),
             pt(cmpPart.x, cmpPart.y + cmpSize.y / 2 + 10, cmpPart.z + 40),
           ]),
@@ -785,21 +804,46 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       }
     }
 
-    // Entrada de 230 V da fonte PS1: vem da tomada da maquete (XS-MAQ, saída do seccionador 0-1)
-    // e sai em 24 V para o barramento X20. Sem isto a fonte estava montada mas seca: seis avisos
-    // «PS1:X sem cabo» e nenhuma tensão a jusante.
+    // Entrada de 230 V da fonte PS1 via ficha CEE na tomada XS-MAQ:
+    // contacto tomada↔ficha + fios L/N/PE da ficha aos bornes do quadro (PS1 / terra).
     const ps1 = get('psu24')
     const x20bus = get('terminals-x20')
     const xsMaq = get('socket-bench')
-    if (ps1 && x20bus && xsMaq) {
-      for (const [psLabel, xsLabel, color, kind] of [['L', 'OUT.L', 'black', 'power'], ['N', 'OUT.N', 'blue', 'neutral']] as const) {
+    const plugMaq = get('plug-bench')
+    if (ps1 && x20bus && xsMaq && plugMaq) {
+      // Contacto de encaixe XS-MAQ → F-MAQ
+      for (const [sockLab, plugLab, color, kind] of [
+        ['OUT.L', 'L', 'brown', 'power'],
+        ['OUT.N', 'N', 'blue', 'neutral'],
+        ['OUT.PE', 'PE', 'green-yellow', 'earth'],
+      ] as const) {
+        wires.push({
+          id: `qe1-maq-contact-${plugLab.toLowerCase()}`,
+          number: `XS-MAQ↔F-MAQ:${plugLab}`,
+          label: `Contacto CEE · XS-MAQ ${sockLab} → F-MAQ ${plugLab}`,
+          from: { key: 'socket-bench', label: sockLab },
+          to: { key: 'plug-bench', label: plugLab },
+          color, gauge: '1.5mm²', kind,
+          waypointsMm: clean([
+            pt(xsMaq.x, xsMaq.y, xsMaq.z + 20),
+            pt(plugMaq.x, plugMaq.y, plugMaq.z - 10),
+          ]),
+        })
+      }
+      // Lado do quadro: fios individuais L/N da ficha aos bornes da PS1 (cabo de ficha revestido
+      // no troço comum, depois condutores aos bornes — sheathed no bundle).
+      for (const [psLabel, color, kind] of [['L', 'black', 'power'], ['N', 'blue', 'neutral']] as const) {
         wires.push({
           id: `qe1-ps1-${psLabel.toLowerCase()}`,
-          number: `XS-MAQ → PS1.${psLabel}`,
-          label: `${psLabel === 'L' ? '230 V fase' : '230 V neutro'} · XS-MAQ ${xsLabel} → PS1 ${psLabel}`,
-          from: { key: xsMaq.key, label: xsLabel }, to: { key: ps1.key, label: psLabel },
-          color, gauge: '1.5mm²', kind, bundleId: 'qe1-alimentacao-plc',
+          number: `F-MAQ → PS1.${psLabel}`,
+          label: `${psLabel === 'L' ? '230 V fase' : '230 V neutro'} · FICHA MAQ → PS1 ${psLabel}`,
+          from: { key: 'plug-bench', label: psLabel },
+          to: { key: ps1.key, label: psLabel },
+          color, gauge: '1.5mm²', kind,
+          sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
+          bundleId: 'qe1-alimentacao-plc',
           waypointsMm: clean([
+            pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 25),
             pt(xsMaq.x, xsMaq.y + 30, ductInZ + (psLabel === 'L' ? -2.5 : 2.5)),
             pt(ps1.x + (psLabel === 'L' ? -6 : 6), (xsMaq.y + ps1.y) / 2, ductInZ + (psLabel === 'L' ? -2.5 : 2.5)),
             pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 18, ductInZ),
@@ -807,6 +851,22 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           ]),
         })
       }
+      // PE da ficha ao borne de terra do quadro (X20 PE-IN ou equivalente).
+      wires.push({
+        id: 'qe1-maq-pe',
+        number: 'F-MAQ → PE',
+        label: 'PE · FICHA MAQ → terra do quadro',
+        from: { key: 'plug-bench', label: 'PE' },
+        to: { key: 'terminals-x20', label: 'PE-IN' },
+        color: 'green-yellow', gauge: '1.5mm²', kind: 'earth',
+        sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
+        bundleId: 'qe1-alimentacao-plc',
+        waypointsMm: clean([
+          pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 25),
+          pt(xsMaq.x, xsMaq.y + 20, ductInZ),
+          pt(x20bus.x, railBottom(x20bus) - 12, ductInZ),
+        ]),
+      })
       // Saída da fonte para o barramento de 24 V (X20) e terra.
       for (const [psLabel, tgt, color, kind] of [['+V1', '+24V-IN', 'brown', 'power'], ['-V1', '0V-IN', 'blue', 'neutral'], ['PE', 'PE-IN', 'green-yellow', 'earth']] as const) {
         wires.push({
