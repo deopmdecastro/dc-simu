@@ -327,7 +327,9 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
         const start = rail === 'A' ? ax : bx
         points.forEach(({ marker, tag }, i) => list.push({
           ...inside(`terminals-${strip}-${i + 1}`, 'terminalPhoenixPti6', start + (i + 0.5) * pti.width, y, onRail(pti.depth),
-            { markerText: marker, labelText: `${strip}.${i + 1} · ${marker} · ${tag}` }),
+            // X25 é +24 V e X26 é 0 V: a régua sabe-o pelo marcador, e os bornes têm de nascer com o
+            // `kind` certo para o verificador de ligações aceitar os condutores de alimentação neles.
+            { markerText: marker, labelText: `${strip}.${i + 1} · ${marker} · ${tag}`, rail: strip }),
           ref: `${strip}.${i + 1}`,
         }))
         if (rail === 'A') ax += points.length * pti.width + 6

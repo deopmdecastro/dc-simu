@@ -121,6 +121,7 @@ import { writeElectricalCrossClipboard, readElectricalCrossClipboard } from '../
 import { canInsertComponent3D, getComponentModelSpec, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
+import { componentHalfExtents } from '../three/panelBounds'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { findMountTarget, isThermalRelay, syncMounted } from '../three/thermalMount'
 import { normalizeFactoryHallSize, type FactoryHallSize } from '../three/factoryPhysics'
@@ -3117,6 +3118,17 @@ export const useSimStore = create<Store>((set, get) => {
         const compId = 'key' in end ? idByKey.get(end.key) : wallRefs.get(end.ref)
         return compId ? comps.find((c) => c.id === compId)?.terminals.find((t) => t.label === end.label)?.id : undefined
       }
+      // Réguas de alimentação: X25 é +24 V e X26 é 0 V. O borne PTI é genérico (`io`), por isso o
+      // `kind` correto é marcado aqui, a partir do estado da peça (o layout grava `state.rail`).
+      // Sem isto o verificador acusa de «neutro em borne que não é neutro» um 0 V legítimo.
+      const RAIL_KINDS: Record<string, { 1: string; 2: string }> = { X25: { 1: 'power-in', 2: 'power' }, X26: { 1: 'neutral', 2: 'neutral' } }
+      const feedingRails = new Set(['terminals-X25-1', 'terminals-X26-1', 'terminals-X25-2', 'terminals-X26-2'])
+      for (const c of comps) {
+        const rail = String(c.state?.rail ?? '')
+        if (!RAIL_KINDS[rail]) continue
+        c.terminals = c.terminals.map((t) => (RAIL_KINDS[rail][Number(t.label) as 1 | 2] ? { ...t, kind: RAIL_KINDS[rail][Number(t.label) as 1 | 2] as typeof t.kind } : t))
+      }
+      void feedingRails
       const tag = nanoid(6)
       const benchWires: Wire[] = []
       for (const spec of stampingBenchWiring(parts, mq.plateState)) {
@@ -3124,14 +3136,39 @@ export const useSimStore = create<Store>((set, get) => {
         const to = terminalOf(spec.to)
         if (!from || !to) continue
         let points = spec.waypointsMm.map((p) => benchPartUnits(base, p))
-        // Saída do QGD: o 1.º ponto fica por baixo do bucim superior; dentro do quadro o cabo segue
-        // pelas calhas técnicas (borne → calha inferior → calha vertical → calha do topo → bucim).
+        // Saída do QGD: o troço DENTRO do quadro (borne → calha → bucim) passa pelas calhas técnicas.
+        // O `wallPanelExitRoute` trabalha em unidades de cena do QGD — que está definido no ESQUEMA,
+        // não no 3D (`panel3DPosition` indefinido). Por isso a rota interior é calculada no sistema
+        // do próprio QGD e depois transposta para o sistema da bancada, em vez de misturar os dois.
         if ('ref' in spec.from && points.length > 1 && wallPanel) {
           const owner = wallPanel.components.find((c) => c.ref === (spec.from as { ref: string }).ref)
           const lane = spec.id.endsWith('-l') ? -0.04 : spec.id.endsWith('-pe') ? 0.04 : 0
-          const gland = { x: points[0].x, y: points[0].y + 0.6, z: points[0].z }
-          const inner = owner ? wallPanelExitRoute(wallPanel.components, owner, gland, lane) : []
-          if (inner.length) points = [...inner, ...points.slice(1)]
+          // Bucim do QGD em coordenadas de CENA do QGD (o topo do quadro, à cota da calha do topo).
+          const topDuct = wallPanel.components
+            .filter((c) => c.type === 'cableDuct' && componentHalfExtents(c).x >= componentHalfExtents(c).y)
+            .sort((a, b) => componentPanelXY(b).y - componentPanelXY(a).y)[0]
+          if (owner && topDuct) {
+            const tp = componentPanelXY(topDuct)
+            const tOwner = componentPanelXY(owner)
+            // Bucim: na vertical do borne, acima da calha do topo.
+            const glandQgd = { x: tOwner.x, y: tp.y + componentHalfExtents(topDuct).y + 0.12, z: 0 }
+            const inner = wallPanelExitRoute(wallPanel.components, owner, glandQgd, lane)
+            if (inner.length) {
+              // Transpõe para o sistema da bancada: o bucim tem de cair no 1.º ponto do troço da
+              // bancada (que já é o bucim em mm convertido). Aplica a diferença a todos os pontos.
+              // Duas escalas em jogo: a rota interior vem em coordenadas de cena do QGD (que está
+              // montado no esquema a y≈5.3) e o troço da bancada vem em mm do layout da mesa.
+              // Em vez de transpor (o que punha o QGD no sítio da mesa), a rota interior sobe em
+              // coluna desde o borne até à cota do bucim da bancada e aí liga ao troço da mesa.
+              const topOfInner = inner[inner.length - 1]
+              points = [
+                ...inner,
+                // Sobe na vertical do bucim da bancada, da cota do QGD até à cota do bucim.
+                { x: points[0].x, y: topOfInner.y, z: points[0].z },
+                ...points,
+              ]
+            }
+          }
         }
         benchWires.push({
           id: `${spec.id}-${tag}`,
@@ -3146,9 +3183,12 @@ export const useSimStore = create<Store>((set, get) => {
           route: 'manhattan',
           bend: 0.5,
           curveOffset: 0,
-          endType: 'ferrule',
-          fromEndType: spec.fromEnd ?? 'ferrule',
-          toEndType: spec.toEnd ?? 'ferrule',
+          endType: spec.medium ? 'pneumaticPushIn' : 'ferrule',
+          fromEndType: spec.medium ? 'pneumaticPushIn' : (spec.fromEnd ?? 'ferrule'),
+          toEndType: spec.medium ? 'pneumaticPushIn' : (spec.toEnd ?? 'ferrule'),
+          ...(spec.medium ? { pneumaticFitting: 'pushInStraight' as const } : {}),
+          ...(spec.sheathed ? { sheathed: true, sheathColor: spec.sheathColor ?? '#1c1917', conductorCount: spec.conductorCount ?? 3 } : {}),
+          ...(spec.medium === 'pneumatic' ? { pneumaticPressureBar: spec.pressureBar ?? 6 } : {}),
           ...(points.length ? { waypoints3D: points } : {}),
           ...(spec.bundleId ? { bundleId: `${spec.bundleId}-${tag}` } : {}),
           energized: false,

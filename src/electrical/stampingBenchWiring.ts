@@ -42,6 +42,17 @@ export interface BenchWireSpec {
   /** Terminação por ponta (por omissão ponteira simples): `ferruleDouble` onde dois condutores partilham o borne. */
   fromEnd?: 'ferrule' | 'ferruleDouble'
   toEnd?: 'ferrule' | 'ferruleDouble'
+  /** Tubo (ar comprimido / hidráulica) em vez de condutor elétrico. */
+  medium?: 'pneumatic' | 'hydraulic'
+  /** Pressão nominal do tubo (bar), só para tubos. */
+  pressureBar?: number
+  /** Cabo revestido (bainha exterior): os condutores são desenhados dentro de uma capa, como no
+   *  H07RN-F que alimenta a tomada — não três fios nus lado a lado. */
+  sheathed?: boolean
+  /** Cor da bainha exterior. */
+  sheathColor?: string
+  /** Nº de condutores do cabo (3 = L+N+PE). */
+  conductorCount?: number
 }
 
 /**
@@ -202,6 +213,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const s = get(socketKey)
       if (!s) return
       const g = socketGland(s)
+      // Condutores do tronco comum: sobem DENTRO da subida do QGD (eixo x = riser.x, z = riser.z),
+      // atravessam no fundo do pescoço e entram na esteira aérea. Fora da subida só a ponta.
+      const riserAxisX = riser.x
+      const riserAxisZ = riser.z
       const cores: Array<{ core: 'L' | 'N' | 'PE'; color: WireColor; kind: WireKind; from: BenchWireEnd }> = [
         { core: 'L', color: 'brown', kind: 'power', from: { ref: refs.L, label: '2' } },
         { core: 'N', color: 'blue', kind: 'neutral', from: { ref: refs.N, label: '2' } },
@@ -209,15 +224,20 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       ]
       cores.forEach(({ core, color, kind, from }, k) => {
         const dk = (k - 1) * 4
-        const lx = panelX + glandDx + dk
+        // O bucim de saída do QGD é o TOPO da subida: os condutores têm de sair na vertical dela,
+        // senão o cabo aparece a atravessar o ar entre o quadro e a esteira.
+        const lx = riserAxisX + dk * 1.5
+        // Pista dentro da subida (200 mm de largura): os três condutores separados, nunca sobrepostos.
+        const laneX = riserAxisX + dk * 1.5
         const pts = [
-          // Dentro do QGD, por baixo do bucim superior; sai na vertical e recua para o fundo da subida.
-          pt(lx, panelTop - 60, glandZ),
-          pt(lx, panelTop + 30, glandZ),
-          pt(lx, panelTop + 70, riserFloorZ),
-          // Sobe pela subida até ao pescoço e segue no fundo do pescoço até à esteira aérea.
-          pt(lx, trayFloorY, riserFloorZ),
-          pt(lx, trayFloorY, wallTray.z + aerialLaneDz + dk),
+          // O troço DENTRO do QGD (borne → calha → bucim) é desenhado pelo `wallPanelExitRoute`
+          // no store, a partir deste primeiro ponto: por isso aqui só se dá o bucim.
+          pt(lx, panelTop - 40, glandZ),
+          // Do bucim para dentro da subida e sobe por ela.
+          pt(lx, panelTop + 20, glandZ),
+          pt(laneX, panelTop + 60, riserAxisZ),
+          pt(laneX, trayFloorY, riserAxisZ),
+          pt(laneX, trayFloorY, wallTray.z + aerialLaneDz + dk),
           ...run(dk, lx),
           // Ponta da descida → folga de 20 mm → bucim superior da tomada → bornes.
           pt(s.x + dk * 0.6, g.y + 22, g.z),
@@ -230,6 +250,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           from,
           to: { key: socketKey, label: core },
           color, gauge: '2.5mm²', kind,
+          // 3G2,5 H07RN-F é um CABO: os três condutores vão dentro de uma bainha preta, não
+          // soltos. A bainha é a mesma nos três (mesmo bundle) e o 3D desenha-a por cima.
+          sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
           waypointsMm: clean(pts),
           bundleId: `chicote-${name}`,
         })
@@ -337,20 +360,44 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const { p, n } = benchTerminalPointMm(part, src.label)
       const exit = pt(p.x + n.x * 14, p.y + n.y * 14, p.z + n.z * 14)
       // Botões: descem por dentro da caixa e saem pelo fundo (a caixa está 42 mm acima da base).
-      // CPV10 e coluna: descem rente à base, junto ao módulo elétrico, e seguem para a calha traseira.
+      // CPV10 e coluna: descem rente à base, junto ao módulo elétrico, e entram na calha traseira
+      // à cota do eixo dela (top + 12), sem passar por cima da boca da calha.
       const isOperator = part.key.startsWith('operator-')
       const lowRun = part.key === 'valveTerminal' || part.key === 'signalTower'
-      const travelY = isOperator ? top + 24 : lowRun ? top + 8 : Math.max(exit.y, top + 48)
+      // Cota da perna de saída: os botões descem por dentro da caixa; os aparelhos da bancada descem
+      // por baixo da base (y < 0) e só à cota da calha entram nela — nunca à altura do borne, senão
+      // o cabo atravessa tudo o que estiver entre o borne e a calha.
+      // Os aparelhos assentam na base: para não os atravessar, o cabo desce ABAIXO do tampo
+      // (y = top − 120) e corre nessa cota até ao eixo da calha vertical, subindo aí à boca da
+      // calha. É o que acontece na bancada real: o cabo sai do aparelho, desce e entra na calha.
+      const travelY = isOperator ? top + 24 : top - 120
       // A calha frontal fica para a caixa de botões; sensores e válvulas descem para a traseira/laterais.
       const path = perimeterTo(exit, j, isOperator, lowRun ? 'back' : undefined)
       const first = path[0]
       const lane = ((j % 7) - 3) * 2.6
+      // A peça (cilindro, prensa, sensor…) tem corpo: o cabo não pode descer colado ao borne pela
+      // vertical da peça, senão atravessa-a. Desce ao lado, fora da largura da peça, e só depois
+      // entra na calha. `clearX`/`clearZ` afastam a perna da caixa do aparelho.
+      const sz = sizeOfMm(part.type, part.state)
+      // A perna de saída sai SEMPRE para baixo do aparelho (abaixo da base, y < 0) e só à cota da
+      // calha é que entra nela. É o caminho que um electricista usa: desce pelo lado da peça, nunca
+      // a atravessa nem passa por cima dela.
+      // A perna de saída vai para a BORDA da bancada mais próxima (onde estão as calhas), não para
+      // o lado da peça: assim o cabo desce fora de todos os aparelhos, no corredor perimetral.
+      const edge = plate.lengthMm / 2 - 34
+      const clearX = Math.max(-edge, Math.min(edge, exit.x + (exit.x >= part.x ? 1 : -1) * (sz.x / 2 + 14)))
+      const clearZ = Math.max(-edge, Math.min(edge, exit.z + (exit.z >= part.z ? 1 : -1) * (sz.z / 2 + 14)))
       wires.push({
         id, number, label, from: src, to: { key: term.key, label: '2' }, color, gauge: '0.75mm²', kind,
         ...(toEnd ? { toEnd } : {}),
         waypointsMm: clean([
           exit,
-          pt(exit.x, travelY, exit.z),
+          // Sai do borne PARA FORA do aparelho, desce ao lado dele até à cota da calha e só então
+          // corre para o eixo da calha: nunca corta pelo ar em diagonal nem atravessa a peça.
+          pt(clearX, exit.y, exit.z),
+          pt(clearX, travelY, exit.z),
+          pt(clearX, travelY, clearZ),
+          pt(first.x, travelY, clearZ),
           pt(first.x, travelY, first.z),
           ...path,
           // Sai por cima da borda esquerda da base, desce por fora e entra na calha da perna por baixo do tampo.
@@ -501,6 +548,242 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       fieldWire(`mq-campo-${strip.toLowerCase()}-${load.key}-${load.label.replace(/[^A-Za-z0-9]/g, '')}`,
         `${strip}.${Math.floor(idx / 2) + 1}`, `${load.rail} · ${get(load.key)?.state?.labelText ?? load.key} ${load.label} → ${strip}.${Math.floor(idx / 2) + 1}`,
         { key: load.key, label: load.label }, term, load.rail === '+24V' ? 'brown' : 'blue', 'control', 'ferruleDouble')
+    }
+
+    // ── OPERADORES DE CAMPO → QE1 ────────────────────────────────────────────────────────────
+    // Os botões da bancada (emergência, modo, rearme, ciclo, stop, start) estavam todos MUDOS: só
+    // a emergência tinha o 21 alimentado e nenhum contacto ia ao PLC. Aqui fecham-se as cadeias:
+    //  · Segurança: +24 V → EMERG 21/22 → S2 13/14?? Não: EMERG 22 → KS1 S11/S12 → KS1 A1/A2.
+    //  · Sinais: cada contacto vai a uma entrada de X21 e o retorno comum (0 V) fecha o circuito.
+    const fieldOp = (
+      id: string, number: string, label: string,
+      from: { key: string; label: string }, to: { key: string; label: string },
+      color: WireColor, kind: WireKind, j: number,
+    ) => {
+      const a = get(from.key), b = get(to.key)
+      if (!a || !b) return
+      const pa = benchTerminalPointMm(a, from.label)
+      const exit = pt(pa.p.x + pa.n.x * 14, pa.p.y + pa.n.y * 14, pa.p.z + pa.n.z * 14)
+      const path = perimeterTo(exit, j, false)
+      const lane = ((j % 7) - 3) * 2.6
+      wires.push({
+        id, number, label, from, to, color, gauge: '0.75mm²', kind,
+        waypointsMm: clean([
+          exit,
+          pt(exit.x, top + 30, exit.z),
+          pt(path[0].x, top + 30, path[0].z),
+          ...path,
+          pt(-plate.lengthMm / 2 - 14 + lane * 0.3, -top - 24, zDrop + lane),
+          pt(ductDrop.x + lane * 0.5, -top - 24, zDrop + lane),
+          pt(ductDrop.x + lane * 0.5, yUnder + lane * 0.4, zDrop + lane),
+          pt(cabLeft - 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
+          pt(cabLeft + 8, yUnder, zDrop),
+          ...insideTo(b, lane),
+        ]),
+      })
+    }
+    {
+      const em = get('operator-emergency')
+      const ks1 = get('safetyRelay')
+      if (em && ks1) {
+        // Emergência: +24 V entra no 21 (já vem do X25.7) e sai no 22 para o laço do KS1.
+        // A emergência é 1 NF: o 22 vai ao S11 e o S12 tem de fechar para o S52 (ponte do canal 2);
+        // sem essa ponte o relé de segurança fica em falha e os contactos 13/14 nunca fecham.
+        fieldOp('op-emerg-s11', 'S1:22 → KS1:S11', 'SEGURANÇA · EMERGÊNCIA 22 → KS1 S11 (canal 1)',
+          { key: 'operator-emergency', label: '22' }, { key: 'safetyRelay', label: 'S11' }, 'brown', 'control', 1)
+        fieldOp('op-emerg-s12', 'KS1:S12 → KS1:S52', 'SEGURANÇA · ponte S12 → S52 (entrada do canal 2)',
+          { key: 'safetyRelay', label: 'S12' }, { key: 'safetyRelay', label: 'S52' }, 'brown', 'control', 2)
+        fieldOp('op-emerg-a2', 'KS1:A2 → X26', 'SEGURANÇA · KS1 A2 → 0 V (X26)',
+          { key: 'safetyRelay', label: 'A2' }, { key: 'terminals-X26-2', label: '2' }, 'blue', 'neutral', 3)
+        // Contacto de sinalização 23/24 → entrada I1.6 já está no 13/14; fecha-se o 23/24 como reserva.
+      }
+      // Botões de comando → entradas digitais livres (X21.11…X21.14) e retorno comum a 0 V.
+      // O MAN/AUTO já vai ao X21.15 pelo mapeamento do guião (não duplicar a entrada).
+      const SIGNALS: Array<[string, string, number]> = [
+        ['operator-reset', '4', 1],   // REARME     → X21.11 (I1.0)
+        ['operator-cycle', '14', 2],  // CICLO      → X21.12 (I1.1)
+        ['operator-stop', '2', 3],    // STOP (NF)  → X21.13 (I1.2)
+        ['operator-start', '2', 4],   // START      → X21.14 (I1.3)
+      ]
+      for (const [key, pin, idx] of SIGNALS) {
+        const part = get(key)
+        const term = get(`terminals-X21-${10 + idx}`)
+        if (!part || !term) continue
+        const ref = part.state?.labelText ?? key.replace('operator-', '').toUpperCase()
+        fieldOp(`op-sig-${key.replace('operator-', '')}`, `${ref}:${pin} → X21.${10 + idx}`,
+          `COMANDO · ${ref} ${pin} → X21.${10 + idx} (I${idx === 4 ? '1.3' : `1.${idx - 1}`})`,
+          { key, label: pin }, { key: term.key, label: '2' }, 'black', 'signal', 4 + idx)
+      }
+    }
+
+    // ── COMPRESSOR: 230 V da tomada XS-COMP e tomada da maquete para a fonte ─────────────────
+    // O compressor não tinha um único condutor elétrico: estava apoiado e ligado ao ar, mas sem
+    // alimentação. Fase e neutro em cabo 3G2,5 revestido (secção igual à do ramal que vem do QGD)
+    // e PE no borne de terra da tomada.
+    const cmpSock = get('socket-compressor')
+    const cmpPart = get('compressor')
+    if (cmpSock && cmpPart) {
+      const s2 = cmpSock
+      const gland = { y: s2.y + 55, z: s2.z - 40 }
+      // Bornes elétricos reais do compressor: L e N (IN/OUT são pneumáticos e vão pelos tubos).
+      // O compressor está encostado à parede: os bornes olham para dentro da carcaça. O cabo entra
+      // pela FRENTE do equipamento (lado da nave, +Z) e só depois sobe ao borne — nunca o atravessa.
+      const cmpSize = sizeOfMm('airCompressor', cmpPart.state)
+      const cmpFrontZ = cmpPart.z + cmpSize.z / 2 + 18
+      for (const [core, label, color, kind] of [['OUT.L', 'L', 'brown', 'power'], ['OUT.N', 'N', 'blue', 'neutral']] as const) {
+        wires.push({
+          id: `mq-comp-${label.toLowerCase()}`, number: `XS-COMP:${label}`,
+          label: `3G2,5 H07RN-F revestido · XS-COMP → COMPRESSOR ${label}`,
+          from: { key: 'socket-compressor', label: core }, to: { key: 'compressor', label },
+          color, gauge: '2.5mm²', kind, bundleId: 'chicote-mq-comp',
+          waypointsMm: clean([
+            pt(s2.x, gland.y, gland.z),
+            pt(s2.x, gland.y + 60, gland.z),
+            pt(s2.x, gland.y + 60, cmpFrontZ),
+            pt(cmpPart.x, gland.y + 60, cmpFrontZ),
+            pt(cmpPart.x, cmpPart.y + cmpSize.y / 2 + 10, cmpFrontZ),
+            pt(cmpPart.x, cmpPart.y + cmpSize.y / 2 + 10, cmpPart.z + 40),
+          ]),
+        })
+      }
+    }
+
+    // ── AR COMPRIMIDO ────────────────────────────────────────────────────────────────────────
+    // Compressor (parede) → unidade de tratamento FRL (pé da bancada) → terminal CPV10 →
+    // cilindros. Sem estes tubos a maquete não tinha um único condutor pneumático: as válvulas
+    // não recebiam ar e os cilindros não se moviam.
+    const trim = (w: { gauge: string }) => (/^\d/.test(w.gauge) ? `PU Ø${w.gauge}` : w.gauge)
+    const airTube = (
+      id: string, number: string, label: string,
+      a: { key: string; label: string }, b: { key: string; label: string },
+      waypointsMm: BenchPointMm[], diameterMm = 8,
+    ) => {
+      const pa = get(a.key), pb = get(b.key)
+      if (!pa || !pb) return
+      const exit = benchTerminalPointMm(pa, a.label)
+      const enter = benchTerminalPointMm(pb, b.label)
+      wires.push({
+        id, number, label,
+        from: a, to: b,
+        color: '#2563eb', gauge: `${diameterMm}`, kind: 'pneumatic',
+        medium: 'pneumatic', pressureBar: 6,
+        bundleId: 'ar-comprimido',
+        waypointsMm: clean([
+          pt(exit.p.x + exit.n.x * 12, exit.p.y + exit.n.y * 12, exit.p.z + exit.n.z * 12),
+          ...waypointsMm,
+          pt(enter.p.x + enter.n.x * 12, enter.p.y + enter.n.y * 12, enter.p.z + enter.n.z * 12),
+        ]),
+      })
+    }
+
+    // 1. Compressor → FRL. O compressor está na parede, atrás e à esquerda; o FRL no pé da bancada.
+    // Sobe à cota da esteira aérea, atravessa no fundo dela e desce até à entrada do FRL.
+    const cmp = get('compressor'), frlPart = get('airTreatment')
+    const cmpDrop = get('tray-drop-compressor')
+    const benchDrop = get('tray-drop-bench')
+    if (cmp && frlPart) {
+      const out = benchTerminalPointMm(cmp, 'OUT')
+      const inn = benchTerminalPointMm(frlPart, 'IN')
+      const wallTrayP = get('tray-wall')
+      const laneY = wallTrayP ? wallTrayP.y - 18 : out.p.y + 200
+      // O tubo sobe pela descida do compressor (mesmo eixo X da esteira vertical), segue na esteira
+      // aérea da parede, ramal para a bancada e desce até à entrada do FRL.
+      const dropX = cmpDrop ? cmpDrop.x : out.p.x
+      const dropZ = cmpDrop ? cmpDrop.z : out.p.z
+      const benchDropX = benchDrop ? benchDrop.x : 0
+      const benchDropZ = benchDrop ? benchDrop.z : 0
+      airTube('ar-cmp-frl', 'AR 1', 'PU Ø10 · COMPRESSOR → FRL (entrada de ar)',
+        { key: 'compressor', label: 'OUT' }, { key: 'airTreatment', label: 'IN' },
+        [
+          // Sobe em frente ao compressor (nunca por dentro dele) até à cota da esteira da parede,
+          // desloca-se em Z até ao eixo da descida do compressor e sobe por ela.
+          pt(out.p.x + 20, out.p.y + 10, out.p.z),
+          pt(dropX, out.p.y + 10, dropZ + 22),
+          pt(dropX, laneY - 80, dropZ + 22),
+          pt(dropX, laneY, dropZ + 22),
+          pt(dropX, laneY, wallTrayP ? wallTrayP.z : dropZ),
+          pt(benchDropX + 24, laneY, wallTrayP ? wallTrayP.z : dropZ),
+          pt(benchDropX + 24, laneY, benchDropZ + 20),
+          // Desce pela descida da bancada e corre na calha de trás até à vertical do FRL.
+          pt(benchDropX + 24, -top + 40, benchDropZ + 20),
+          // O FRL está pendurado fora do perímetro (à esquerda da bancada): vai-se pela calha
+          // lateral esquerda até à cota do FRL e sai em frente para a entrada de ar.
+          pt(benchDropX + 24, -top + 40, -plate.widthMm / 2 + 17 + 12),
+          pt(benchDropX + 24, inn.p.y, -plate.widthMm / 2 + 17 + 12),
+          pt(-plate.lengthMm / 2 + 20, inn.p.y, -plate.widthMm / 2 + 17 + 12),
+          pt(-plate.lengthMm / 2 + 20, inn.p.y, inn.p.z + 30),
+          pt(inn.p.x + 30, inn.p.y, inn.p.z + 30),
+          pt(inn.p.x + 30, inn.p.y, inn.p.z),
+        ], 10)
+    }
+
+    // 2. FRL → P do CPV10 (alimentação da ilha de válvulas).
+    if (frlPart && get('valveTerminal')) {
+      const out = benchTerminalPointMm(frlPart, 'OUT')
+      const pIn = benchTerminalPointMm(get('valveTerminal')!, 'P')
+      const zRun = pIn.p.z - 26
+      airTube('ar-frl-cpv', 'AR 2', 'PU Ø8 · FRL → CPV10 P (alimentação de ar)',
+        { key: 'airTreatment', label: 'OUT' }, { key: 'valveTerminal', label: 'P' },
+        [
+          pt(out.p.x + 40, out.p.y, out.p.z),
+          pt(out.p.x + 40, out.p.y, zRun),
+          pt(pIn.p.x - 24, out.p.y, zRun),
+          pt(pIn.p.x - 24, pIn.p.y, zRun),
+        ], 8)
+    }
+
+    // 3. Saídas do CPV10 → cilindros (C1 esteira, C3 gaveta, C4 prensa) e ejetor de vácuo.
+    // Estação 1 = Cil1 (A1/B1) · 2 = Cil2 (A2/B2) · 3 = Cil3 (A3/B3) · 4 = Cil4 (A4/B4) · 5 = vácuo (A5).
+    const airRun = (
+      id: string, number: string, valveLabel: string,
+      target: { key: string; label: string }, lane: number, diameterMm = 6,
+    ) => {
+      const cpv = get('valveTerminal')
+      const tgt = get(target.key)
+      if (!cpv || !tgt) return
+      const v = benchTerminalPointMm(cpv, valveLabel)
+      const t = benchTerminalPointMm(tgt, target.label)
+      // Percurso pela calha perimetral (a mesma dos condutores), a uma cota própria para os tubos
+      // não se cruzarem com os cabos: sobe do CPV10 até à calha de trás, corre na calha até à
+      // vertical da peça e desce até ao racore de ar.
+      const yTubeDuct = top + 12 + 16 // metade de cima da calha (42 mm), pista dos tubos
+      const zBack = -plate.widthMm / 2 + 17
+      const zLane = zBack + lane
+      airTube(id, number, `PU Ø${diameterMm} · ${valveLabel} → ${target.key} ${target.label}`,
+        { key: 'valveTerminal', label: valveLabel }, target,
+        [
+          pt(v.p.x, v.p.y + 22, v.p.z),
+          pt(v.p.x, v.p.y + 22, zLane),
+          pt(v.p.x, yTubeDuct, zLane),
+          pt(t.p.x, yTubeDuct, zLane),
+          pt(t.p.x, t.p.y + 30, zLane),
+          pt(t.p.x, t.p.y + 30, t.p.z),
+          pt(t.p.x, t.p.y + 12, t.p.z),
+        ], diameterMm)
+    }
+    // Estação 5 (vácuo): A5 alimenta o ejetor Venturi; o vácuo gerado vai à ventosa do braço.
+    airRun('ar-vac-p', 'AR 9', 'A5', { key: 'ejector', label: 'P' }, -6)
+    {
+      const ej = get('ejector'), arm = get('arm')
+      if (ej && arm) {
+        const v = benchTerminalPointMm(ej, 'V')
+        const a = benchTerminalPointMm(arm, 'VAC')
+        const yTubeDuct = top + 12 + 16
+        const zFront = plate.widthMm / 2 - 17
+        airTube('ar-vac-suc', 'AR 10', 'PU Ø6 · VÁCUO · ejetor → ventosa do braço',
+          { key: 'ejector', label: 'V' }, { key: 'arm', label: 'VAC' },
+          [
+            pt(v.p.x - 18, v.p.y, v.p.z),
+            // Sobe pelo lado esquerdo da bancada (fora da magazine e do magRiser) e corre na calha
+            // frontal até à vertical do braço.
+            pt(v.p.x - 18, v.p.y, -plate.widthMm / 2 + 17 + 12),
+            pt(v.p.x - 18, yTubeDuct, -plate.widthMm / 2 + 17 + 12),
+            pt(a.p.x, yTubeDuct, -plate.widthMm / 2 + 17 + 12),
+            pt(a.p.x, a.p.y + 40, -plate.widthMm / 2 + 17 + 12),
+            pt(a.p.x, a.p.y + 40, a.p.z + 42),
+            pt(a.p.x - 14, a.p.y + 16, a.p.z + 42),
+          ], 6)
+      }
     }
 
     // Entrada de 230 V da fonte PS1: vem da tomada da maquete (XS-MAQ, saída do seccionador 0-1)
