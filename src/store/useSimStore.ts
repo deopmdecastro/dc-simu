@@ -3210,13 +3210,23 @@ export const useSimStore = create<Store>((set, get) => {
           energized: false,
         })
       }
-      if (benchWires.length) set((s) => ({ wires: [...s.wires, ...benchWires] }))
+      if (benchWires.length) {
+        // Junta os cabos da maquete e filaça automaticamente os que correm paralelos
+        // (abraçadeiras nas calhas / esteiras; respeita bundleIds já atribuídos).
+        set((s) => {
+          const merged = [...s.wires, ...benchWires]
+          const laced = lacePairBundles(s.components, merged, {
+            skip: (w) => w.endType === 'probe' || w.fromEndType === 'probe' || w.toEndType === 'probe',
+          })
+          return { wires: laced }
+        })
+      }
     }
     set({ selectedComponentIds: created, selectedWireId: null, selectedTerminalId: null, dirty: true })
     get().pushEvent(
       'info',
       `${mq.name} montada: ${created.length} componentes, base ${mq.plateState.lengthMm} × ${mq.plateState.widthMm} mm. ` +
-        'Adaptação fotográfica com dimensões estimadas. Ctrl+Z desmonta num só passo.',
+        'Cablagem filaçada nas calhas/esteiras. Ctrl+Z desmonta num só passo.',
     )
     recomputeIfActive()
     return created
