@@ -53,6 +53,10 @@ export interface BenchWireSpec {
   sheathColor?: string
   /** Nº de condutores do cabo (3 = L+N+PE). */
   conductorCount?: number
+  /** Traçado 3D: `arc` para tubos com curvas; por omissão manhattan. */
+  route?: 'manhattan' | 'arc' | 'direct'
+  /** `false` = arrastável no 3D (tubos de ar editáveis). */
+  locked?: boolean
 }
 
 /**
@@ -680,6 +684,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     // Compressor (parede) → unidade de tratamento FRL (pé da bancada) → terminal CPV10 →
     // cilindros. Sem estes tubos a maquete não tinha um único condutor pneumático: as válvulas
     // não recebiam ar e os cilindros não se moviam.
+    /** Tubo pneumático PU: curvas (`route: 'arc'`) e editável (`locked: false`). */
     const airTube = (
       id: string, number: string, label: string,
       a: { key: string; label: string }, b: { key: string; label: string },
@@ -695,52 +700,61 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         color: 'blue', gauge: `${diameterMm}`, kind: 'pneumatic',
         medium: 'pneumatic', pressureBar: 6,
         bundleId: 'ar-comprimido',
+        route: 'arc',
+        locked: false,
         waypointsMm: clean([
-          pt(exit.p.x + exit.n.x * 12, exit.p.y + exit.n.y * 12, exit.p.z + exit.n.z * 12),
+          pt(exit.p.x + exit.n.x * 14, exit.p.y + exit.n.y * 14, exit.p.z + exit.n.z * 14),
           ...waypointsMm,
-          pt(enter.p.x + enter.n.x * 12, enter.p.y + enter.n.y * 12, enter.p.z + enter.n.z * 12),
+          pt(enter.p.x + enter.n.x * 14, enter.p.y + enter.n.y * 14, enter.p.z + enter.n.z * 14),
         ]),
       })
     }
 
-    // 1. Compressor → FRL. O compressor está na parede, atrás e à esquerda; o FRL no pé da bancada.
-    // Sobe à cota da esteira aérea, atravessa no fundo dela e desce até à entrada do FRL.
+    // 1. Compressor → FRL (unidade de tratamento de ar).
+    // Saída → descida da esteira do compressor → esteira de parede → ramal bancada →
+    // desce → traseira/lateral → entrada IN do FRL. Curvas em cada mudança de eixo.
     const cmp = get('compressor'), frlPart = get('airTreatment')
     const cmpDrop = get('tray-drop-compressor')
     const benchDrop = get('tray-drop-bench')
+    const neckCmp = get('tray-neck-compressor')
     if (cmp && frlPart) {
       const out = benchTerminalPointMm(cmp, 'OUT')
       const inn = benchTerminalPointMm(frlPart, 'IN')
       const wallTrayP = get('tray-wall')
-      const laneY = wallTrayP ? wallTrayP.y - 18 : out.p.y + 200
-      // O tubo sobe pela descida do compressor (mesmo eixo X da esteira vertical), segue na esteira
-      // aérea da parede, ramal para a bancada e desce até à entrada do FRL.
-      const dropX = cmpDrop ? cmpDrop.x : out.p.x
-      const dropZ = cmpDrop ? cmpDrop.z : out.p.z
+      const laneY = wallTrayP ? wallTrayP.y - 14 : out.p.y + 220
+      const wallZ = wallTrayP ? wallTrayP.z : (cmpDrop ? cmpDrop.z : out.p.z)
+      const dropX = cmpDrop ? cmpDrop.x : (neckCmp ? neckCmp.x : out.p.x)
+      const dropZ = cmpDrop ? cmpDrop.z : out.p.z + 30
       const benchDropX = benchDrop ? benchDrop.x : 0
       const benchDropZ = benchDrop ? benchDrop.z : 0
+      const backZ = -plate.widthMm / 2 + 28
+      const leftX = -plate.lengthMm / 2 + 24
       airTube('ar-cmp-frl', 'AR 1', 'PU Ø10 · COMPRESSOR → FRL (entrada de ar)',
         { key: 'compressor', label: 'OUT' }, { key: 'airTreatment', label: 'IN' },
         [
-          // Sobe em frente ao compressor (nunca por dentro dele) até à cota da esteira da parede,
-          // desloca-se em Z até ao eixo da descida do compressor e sobe por ela.
-          pt(out.p.x + 20, out.p.y + 10, out.p.z),
-          pt(dropX, out.p.y + 10, dropZ + 22),
-          pt(dropX, laneY - 80, dropZ + 22),
-          pt(dropX, laneY, dropZ + 22),
-          pt(dropX, laneY, wallTrayP ? wallTrayP.z : dropZ),
-          pt(benchDropX + 24, laneY, wallTrayP ? wallTrayP.z : dropZ),
-          pt(benchDropX + 24, laneY, benchDropZ + 20),
-          // Desce pela descida da bancada e corre na calha de trás até à vertical do FRL.
-          pt(benchDropX + 24, -top + 40, benchDropZ + 20),
-          // O FRL está pendurado fora do perímetro (à esquerda da bancada): vai-se pela calha
-          // lateral esquerda até à cota do FRL e sai em frente para a entrada de ar.
-          pt(benchDropX + 24, -top + 40, -plate.widthMm / 2 + 17 + 12),
-          pt(benchDropX + 24, inn.p.y, -plate.widthMm / 2 + 17 + 12),
-          pt(-plate.lengthMm / 2 + 20, inn.p.y, -plate.widthMm / 2 + 17 + 12),
-          pt(-plate.lengthMm / 2 + 20, inn.p.y, inn.p.z + 30),
-          pt(inn.p.x + 30, inn.p.y, inn.p.z + 30),
-          pt(inn.p.x + 30, inn.p.y, inn.p.z),
+          // Folga à saída do compressor e curva para o eixo da descida.
+          pt(out.p.x + 28, out.p.y + 8, out.p.z + 8),
+          pt(out.p.x + 28, out.p.y + 8, dropZ + 26),
+          pt(dropX, out.p.y + 8, dropZ + 26),
+          // Sobe pela descida até à esteira aérea (curva no topo).
+          pt(dropX, laneY - 120, dropZ + 26),
+          pt(dropX, laneY - 40, dropZ + 18),
+          pt(dropX, laneY, wallZ + 8),
+          // Esteira de parede até ao ramal da bancada.
+          pt((dropX + benchDropX) * 0.5, laneY, wallZ + 8),
+          pt(benchDropX + 20, laneY, wallZ + 8),
+          // Curva no pescoço / início da descida da bancada.
+          pt(benchDropX + 20, laneY, benchDropZ + 18),
+          pt(benchDropX + 20, laneY - 60, benchDropZ + 18),
+          // Desce e corre na traseira até à lateral esquerda.
+          pt(benchDropX + 20, -top + 50, benchDropZ + 18),
+          pt(benchDropX + 20, -top + 50, backZ),
+          pt(leftX, -top + 50, backZ),
+          // Cota do FRL e curva para a entrada IN.
+          pt(leftX, inn.p.y + 20, backZ),
+          pt(leftX, inn.p.y, inn.p.z + 40),
+          pt(inn.p.x + 24, inn.p.y, inn.p.z + 40),
+          pt(inn.p.x + 24, inn.p.y, inn.p.z + 8),
         ], 10)
     }
 
