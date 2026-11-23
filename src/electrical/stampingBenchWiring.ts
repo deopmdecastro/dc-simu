@@ -631,11 +631,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     if (cmpSock && cmpPlug && cmpPart) {
       const s2 = cmpSock
       const plug = cmpPlug
-      // Contacto de encaixe: tomadas OUT.* → bornes da ficha (simula pinos encaixados).
-      for (const [sockLab, plugLab, color, kind] of [
-        ['OUT.L', 'L', 'brown', 'power'],
-        ['OUT.N', 'N', 'blue', 'neutral'],
-        ['OUT.PE', 'PE', 'green-yellow', 'earth'],
+      // Contacto de encaixe: OUT.* da tomada → L/N/PE da ficha (pinos encaixados, troço curto).
+      for (const [sockLab, plugLab, color, kind, dx] of [
+        ['OUT.L', 'L', 'brown', 'power', -4],
+        ['OUT.N', 'N', 'blue', 'neutral', 4],
+        ['OUT.PE', 'PE', 'green-yellow', 'earth', 0],
       ] as const) {
         wires.push({
           id: `mq-comp-contact-${plugLab.toLowerCase()}`,
@@ -644,9 +644,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           from: { key: 'socket-compressor', label: sockLab },
           to: { key: 'plug-compressor', label: plugLab },
           color, gauge: '2.5mm²', kind,
+          route: 'direct',
+          locked: true,
           waypointsMm: clean([
-            pt(s2.x, s2.y, s2.z + 20),
-            pt(plug.x, plug.y, plug.z - 10),
+            pt(s2.x + dx, s2.y + (plugLab === 'PE' ? -6 : 2), s2.z + 18),
+            pt(plug.x + dx, plug.y + (plugLab === 'PE' ? -6 : 2), plug.z - 6),
           ]),
         })
       }
@@ -834,11 +836,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     const xsMaq = get('socket-bench')
     const plugMaq = get('plug-bench')
     if (ps1 && x20bus && xsMaq && plugMaq) {
-      // Contacto de encaixe XS-MAQ → F-MAQ
-      for (const [sockLab, plugLab, color, kind] of [
-        ['OUT.L', 'L', 'brown', 'power'],
-        ['OUT.N', 'N', 'blue', 'neutral'],
-        ['OUT.PE', 'PE', 'green-yellow', 'earth'],
+      // Contacto de encaixe XS-MAQ → F-MAQ (pinos encaixados, troço curto fixo).
+      for (const [sockLab, plugLab, color, kind, dx] of [
+        ['OUT.L', 'L', 'brown', 'power', -4],
+        ['OUT.N', 'N', 'blue', 'neutral', 4],
+        ['OUT.PE', 'PE', 'green-yellow', 'earth', 0],
       ] as const) {
         wires.push({
           id: `qe1-maq-contact-${plugLab.toLowerCase()}`,
@@ -847,9 +849,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           from: { key: 'socket-bench', label: sockLab },
           to: { key: 'plug-bench', label: plugLab },
           color, gauge: '1.5mm²', kind,
+          route: 'direct',
+          locked: true,
           waypointsMm: clean([
-            pt(xsMaq.x, xsMaq.y, xsMaq.z + 20),
-            pt(plugMaq.x, plugMaq.y, plugMaq.z - 10),
+            pt(xsMaq.x + dx, xsMaq.y + (plugLab === 'PE' ? -6 : 2), xsMaq.z + 18),
+            pt(plugMaq.x + dx, plugMaq.y + (plugLab === 'PE' ? -6 : 2), plugMaq.z - 6),
           ]),
         })
       }
