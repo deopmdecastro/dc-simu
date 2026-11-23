@@ -43,6 +43,7 @@ import { usesProceduralSurface } from './proceduralSurface'
 import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, disposeModelClone, fitComponentModel } from './modelFit'
+import { installGltfLoaders, scheduleSceneGlbPreload } from './gltfLoader'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
 import CanvasAnnotations3D, { type TextGroupHandlers } from './CanvasAnnotations3D'
@@ -260,14 +261,28 @@ const terminalMarkerScale = (terminal: { diameter?: number }): number =>
  * Carregamento dos GLB sem atualizar estado a meio de outra renderização: o `useGLTF` arranca o
  * carregamento durante a renderização do aparelho e o `useProgress` notificava logo os subscritores
  * (aviso do React «Cannot update a component while rendering a different component»).
+ *
+ * Debounce ao desligar: evita o overlay a piscar entre GLBs em série; ao ligar reage de imediato.
  */
 function useModelsLoading() {
   const [active, setActive] = useState(() => useProgress.getState().active)
   useEffect(() => {
     let alive = true
-    const unsubscribe = useProgress.subscribe((state) => { queueMicrotask(() => { if (alive) setActive(state.active) }) })
-    setActive(useProgress.getState().active)
-    return () => { alive = false; unsubscribe() }
+    let clearTimer: ReturnType<typeof setTimeout> | undefined
+    const apply = (next: boolean) => {
+      if (!alive) return
+      if (next) {
+        if (clearTimer) { clearTimeout(clearTimer); clearTimer = undefined }
+        setActive(true)
+      } else {
+        // 280 ms sem atividade → considera carga concluída (todos os projetos).
+        if (clearTimer) clearTimeout(clearTimer)
+        clearTimer = setTimeout(() => { if (alive) setActive(false) }, 280)
+      }
+    }
+    const unsubscribe = useProgress.subscribe((state) => { queueMicrotask(() => apply(state.active) })
+    apply(useProgress.getState().active)
+    return () => { alive = false; if (clearTimer) clearTimeout(clearTimer); unsubscribe() }
   }, [])
   return active
 }
@@ -3521,6 +3536,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     }, 12000)
     return () => window.clearTimeout(t)
   }, [routingLoading, modelsLoading])
+  // Pipeline GLB: Meshopt + Draco uma vez (todos os projetos).
+  useEffect(() => { installGltfLoaders() }, [])
   const gridSettings = useSimStore((s) => s.grid)
   // LEDs/estados dos componentes em RUN: subscrição explícita do tick da simulação
   // (a identidade das listas já não muda a cada varredura).
@@ -3528,6 +3545,20 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
   const storedComponents = useSimStore((s) => s.components)
+  // Pré-carga GLB dos tipos presentes na cena (todos os projetos) — concorrência limitada.
+  const sceneModelTypesKey = useMemo(
+    () => [...new Set(storedComponents.map((c) => c.type))].sort().join('|'),
+    [storedComponents],
+  )
+  useEffect(() => {
+    if (!sceneModelTypesKey) return
+    const types = sceneModelTypesKey.split('|') as ComponentType[]
+    const ac = new AbortController()
+    const coarse = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 767px) and (pointer: coarse)').matches
+    void scheduleSceneGlbPreload(types, { concurrency: coarse ? 2 : 4, signal: ac.signal })
+    return () => ac.abort()
+  }, [sceneModelTypesKey])
   const addCanvasNote = useSimStore((s) => s.addCanvasNote)
   const updateCanvasNote = useSimStore((s) => s.updateCanvasNote)
   const canvasTexts = useSimStore((s) => s.canvasTexts)
