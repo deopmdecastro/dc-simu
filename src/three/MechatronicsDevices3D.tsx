@@ -1297,6 +1297,84 @@ function ValveIsland({ c }: { c: ElectricalComponent }) {
   )
 }
 
+/**
+ * Terminal de válvulas Festo CPV10: sub-base em alumínio com 5 eletroválvulas de 10 mm (C1, C2, C3
+ * biestáveis com duas bobinas, C4 monoestável, vácuo biestável), LED amarelo e comando manual azul por
+ * bobina, racores QS-4 para A/B por cima, alimentação P à esquerda e módulo elétrico à direita com os
+ * bornes das bobinas (Y0…Y6, VON/VOFF) e o comum 0 V.
+ */
+function ValveTerminalCpv10({ c }: { c: ElectricalComponent }) {
+  const v = MEC_DIMS.valveTerminalCpv10
+  const halfL = v.lengthMm / 2
+  const halfD = v.depthMm / 2
+  const pitch = 15.1
+  const stations: Array<{ tag: string; bistable: boolean }> = [
+    { tag: 'C1', bistable: true }, { tag: 'C2', bistable: true }, { tag: 'C3', bistable: true },
+    { tag: 'C4', bistable: false }, { tag: 'VAC', bistable: true },
+  ]
+  const x0 = -halfL + 16
+  const elecX = halfL - 11
+  return (
+    <group>
+      {/* Sub-base / placa coletora */}
+      <mesh position={[-4, -v.heightMm / 2 + 8, 0]} castShadow receiveShadow>
+        <boxGeometry args={[v.lengthMm - 8, 16, v.depthMm]} />
+        <Mat f={ALU_MILLED} name="Sub-base CPV10" />
+      </mesh>
+      {/* Placa final esquerda com alimentação P e escapes */}
+      <mesh position={[-halfL + 4, -2, 0]} castShadow>
+        <boxGeometry args={[8, v.heightMm - 4, v.depthMm]} />
+        <Mat f={ALU_DARK} name="Placa final esquerda" />
+      </mesh>
+      <PushInFitting position={[-halfL - 0.5, -v.heightMm / 2 + 15, 0]} rotation={[0, 0, Math.PI / 2]} d={5.2} />
+      {stations.map((st, i) => {
+        const x = x0 + i * pitch
+        const onA = Boolean(c.state[`station${i + 1}On`])
+        return (
+          <group key={st.tag} position={[x, 0, 0]}>
+            <mesh position={[0, 6, 0]} castShadow receiveShadow>
+              <boxGeometry args={[pitch - 1.2, 24, v.depthMm - 6]} />
+              <Mat f={PA_GREY} name={`Eletroválvula 5/2 · ${st.tag}`} />
+            </mesh>
+            {/* Bobinas: 14 à frente; 12 atrás nas biestáveis */}
+            <mesh position={[0, 6, halfD - 7]} castShadow>
+              <boxGeometry args={[pitch - 2, 18, 8]} />
+              <Mat f={BLACK_OXIDE} name="Bobina 14 · 24 V DC" />
+            </mesh>
+            {st.bistable && (
+              <mesh position={[0, 6, -halfD + 7]} castShadow>
+                <boxGeometry args={[pitch - 2, 18, 8]} />
+                <Mat f={BLACK_OXIDE} name="Bobina 12 · 24 V DC" />
+              </mesh>
+            )}
+            <StatusLed position={[0, 12, halfD - 2.6]} on={onA} color="#fbbf24" size={1.5} />
+            {st.bistable && <StatusLed position={[0, 12, -halfD + 2.6]} on={!onA} color="#fbbf24" size={1.5} />}
+            <mesh position={[0, 3, halfD - 2.4]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[2.2, 2.2, 2.6, 12]} />
+              <Mat f={BLUE_RING} name="Comando manual" />
+            </mesh>
+            <PushInFitting position={[0, 19.5, -8]} d={4} />
+            <PushInFitting position={[0, 19.5, 8]} d={4} />
+            <LabelPlate text={st.tag} position={[0, -v.heightMm / 2 + 8, halfD + 0.15]} w={pitch - 2} h={7} />
+          </group>
+        )
+      })}
+      {/* Módulo elétrico com bornes de mola das bobinas e do 0 V comum */}
+      <mesh position={[elecX, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[22, v.heightMm, v.depthMm]} />
+        <Mat f={PA_BLACK} name="Módulo elétrico CPV10" />
+      </mesh>
+      {[0.66, 0.4].map((fy, row) => [0, 1, 2, 3, 4].map((k) => (
+        <mesh key={`${row}-${k}`} position={[halfL + 0.2, (fy - 0.5) * v.heightMm, (0.18 + k * 0.16 - 0.5) * v.depthMm]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[1.8, 1.8, 1.2, 10]} />
+          <Mat f={row === 1 && k === 3 ? BLUE_RING : BRASS} name="Borne de bobina" />
+        </mesh>
+      )))}
+      <LabelPlate text={textOf(c.state.labelText) || 'YV · CPV10'} position={[-8, -v.heightMm / 2 - 0.5, halfD + 0.15]} w={44} h={7} />
+    </group>
+  )
+}
+
 /** Fotocélula difusa M18 (S. OTICO · B11) em suporte L vertical de alumínio. */
 function OpticalSensor({ c }: { c: ElectricalComponent }) {
   const s = MEC_DIMS.opticalSensor
@@ -1952,6 +2030,7 @@ export function Mechatronics3D({ c, position, onPatch, floorY }: { c: Electrical
     case 'mecMicroSwitchRoller': body = <MicroSwitchRoller c={c} onPatch={onPatch} />; break
     case 'mecVacuumEjector': body = <VacuumEjector c={c} />; break
     case 'mecValveIsland': body = <ValveIsland c={c} />; break
+    case 'mecValveTerminalCpv10': body = <ValveTerminalCpv10 c={c} />; break
     case 'mecOpticalSensor': body = <OpticalSensor c={c} />; break
     case 'mecInductiveSensor': body = <InductiveSensor c={c} />; break
     case 'mecHmiKtp700': body = <HmiKtp700 c={c} />; break

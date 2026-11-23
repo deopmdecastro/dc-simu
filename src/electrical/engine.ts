@@ -269,6 +269,10 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
     }
     case 'mecRotaryArm': {
       if (armAtHome(Number(c.state.angleDeg ?? 0))) pair(la('HOME+'), la('HOME'))
+      // Cilindro 2: B6 com a ventosa em cima, B7 com a ventosa em baixo (como os reeds do 3D).
+      const down = Number(c.state.armDownPct ?? 0)
+      if (down <= 4) pair(la('B6+'), la('B6'))
+      if (down >= 96) pair(la('B7+'), la('B7'))
       break
     }
     case 'mecDcGearmotor': {

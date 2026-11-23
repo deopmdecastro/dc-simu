@@ -1397,6 +1397,26 @@ function runOneTick(state: Store, dtMs: number) {
       const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
       const vTerm = pc.terminals.find((t) => t.label === 'V')?.id
       if (pTerm && vTerm) linkP(pTerm, vTerm)
+    } else if (pc.type === 'mecValveTerminalCpv10') {
+      // CPV10: estações biestáveis memorizam a última bobina comandada; a estação 4 (C4) é monoestável.
+      const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
+      const stations: Array<[number, string, string | null]> = [[1, 'Y0', 'Y1'], [2, 'Y2', 'Y3'], [3, 'Y4', 'Y5'], [4, 'Y6', null], [5, 'VON', 'VOFF']]
+      for (const [n, coilA, coilB] of stations) {
+        const onA = isLoadPowered(pc, pass3.energizedTerminals, coilA, '0V')
+        const onB = coilB ? isLoadPowered(pc, pass3.energizedTerminals, coilB, '0V') : false
+        const manual = Boolean(pc.state[`station${n}Manual`])
+        let toA: boolean
+        if (!coilB) toA = onA || manual
+        else if (onA && !onB) toA = true
+        else if (onB && !onA) toA = false
+        else toA = manual || pc.state[`station${n}Pos`] === 'a'
+        if (coilB) pc.state[`station${n}Pos`] = toA ? 'a' : 'b'
+        pc.state[`station${n}On`] = toA
+        const aTerm = pc.terminals.find((t) => t.label === `A${n}`)?.id
+        const bTerm = pc.terminals.find((t) => t.label === `B${n}`)?.id
+        if (pTerm && toA && aTerm) linkP(pTerm, aTerm)
+        if (pTerm && !toA && bTerm) linkP(pTerm, bTerm)
+      }
     } else if (pc.type === 'pneumaticManifold' || pc.type === 'mecValveIsland') {
       const pTerm = pc.terminals.find((t) => t.label === 'P')?.id
       const stationList = pc.type === 'mecValveIsland' ? [1, 2] : [1, 2, 3, 4]
@@ -3126,8 +3146,8 @@ export const useSimStore = create<Store>((set, get) => {
           bend: 0.5,
           curveOffset: 0,
           endType: 'ferrule',
-          fromEndType: 'ferrule',
-          toEndType: 'ferrule',
+          fromEndType: spec.fromEnd ?? 'ferrule',
+          toEndType: spec.toEnd ?? 'ferrule',
           ...(points.length ? { waypoints3D: points } : {}),
           ...(spec.bundleId ? { bundleId: `${spec.bundleId}-${tag}` } : {}),
           energized: false,

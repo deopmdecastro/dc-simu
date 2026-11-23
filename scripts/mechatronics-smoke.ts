@@ -75,9 +75,15 @@ check('3. Contactos: FC1 comutado, reeds REC/AVA e SUP/INF, sensor de referênci
   press.state.positionPct = 100
   assert.deepEqual(labelsOf(press, internalBridges(press)), ['INF-INF+'])
   const arm = make('mecRotaryArm')
-  assert.deepEqual(labelsOf(arm, internalBridges(arm)), ['HOME-HOME+'])
+  // Em repouso: braço a 0° (HOME) e ventosa em cima (B6 · C2_FC_1).
+  assert.deepEqual(labelsOf(arm, internalBridges(arm)), ['HOME-HOME+', 'B6-B6+'])
   arm.state.angleDeg = 90
-  assert.deepEqual(labelsOf(arm, internalBridges(arm)), [])
+  assert.deepEqual(labelsOf(arm, internalBridges(arm)), ['B6-B6+'])
+  // Ventosa em baixo: só B7 (C2_FC_0).
+  arm.state.armDownPct = 100
+  assert.deepEqual(labelsOf(arm, internalBridges(arm)), ['B7-B7+'])
+  arm.state.armDownPct = 50
+  assert.deepEqual(labelsOf(arm, internalBridges(arm)), [], 'a meio do curso nenhum reed do Cilindro 2')
   const seen = new Set<string>()
   for (let deg = 0; deg < 15; deg += 0.5) { const p = encoderPhases(deg); seen.add(`${+p.a}${+p.b}`) }
   assert.deepEqual([...seen].sort(), ['00', '01', '10', '11'], 'quadratura completa')

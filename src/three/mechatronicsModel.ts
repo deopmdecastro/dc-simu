@@ -22,6 +22,7 @@ export const MECHATRONICS_TYPES = [
   'mecSupportBlock',
   'mecDrawerCylinder',
   'mecValveIsland',
+  'mecValveTerminalCpv10',
   'mecOpticalSensor',
   'mecInductiveSensor',
   'mecHmiKtp700',
@@ -67,6 +68,8 @@ export const MEC_DIMS = {
   dragChain: { widthMm: 26, linkHeightMm: 17, bendRadiusMm: 38 },
   supportBlock: { lengthMm: 120, heightMm: 100, depthMm: 80 },
   valveIsland: { lengthMm: 92, heightMm: 44, depthMm: 56 },
+  /** Terminal de válvulas Festo CPV10: 5 estações de 10 mm + placas finais + módulo elétrico. */
+  valveTerminalCpv10: { lengthMm: 112, heightMm: 52, depthMm: 58 },
   opticalSensor: { lengthMm: 62, heightMm: 76, depthMm: 44, barrelDiameterMm: 18 },
   inductiveSensor: { lengthMm: 36, heightMm: 34, depthMm: 36, barrelDiameterMm: 12 },
   hmiKtp700: { widthMm: 234, heightMm: 286, depthMm: 86, bezelWidthMm: 214, bezelHeightMm: 158 },
@@ -258,6 +261,10 @@ export function mechatronicsSizeMm(type: string, state?: Record<string, any>): {
       const v = MEC_DIMS.valveIsland
       return { x: v.lengthMm, y: v.heightMm, z: v.depthMm }
     }
+    case 'mecValveTerminalCpv10': {
+      const v = MEC_DIMS.valveTerminalCpv10
+      return { x: v.lengthMm, y: v.heightMm, z: v.depthMm }
+    }
     case 'mecOpticalSensor': {
       const s = MEC_DIMS.opticalSensor
       return { x: s.lengthMm, y: s.heightMm, z: s.depthMm }
@@ -368,6 +375,7 @@ export const MECHATRONICS_INFO: Record<MechatronicsComponentType, MechatronicsIn
   mecMicroSwitchRoller: { name: 'Microinterruptor de rolete (FC 1 / FC 2)', model: 'Contacto comutado C / NA / NF · terminais Faston', summary: 'Microinterruptor preto com alavanca de rolete e terminais isolados a vermelho para deteção de fim de curso.' },
   mecVacuumEjector: { name: 'Gerador de vácuo (VAC1 · C4A)', model: 'Ejetor Festo C4A em linha · suporte em L', summary: 'Gerador de vácuo compacto montado em esquadro de inox com racores Push-In para tubo azul Ø4/6 mm.' },
   mecValveIsland: { name: 'Ilha de eletroválvulas 2× 5/2 (C1A / C2A)', model: 'Bloco sub-base Festo 2 estações · comandos manuais azuis', summary: ' Sub-base coletora em alumínio com 2 eletroválvulas 5/2 biestáveis/monoestáveis, bobinas 24 V DC e racores superiores.' },
+  mecValveTerminalCpv10: { name: 'Terminal de válvulas Festo CPV10 (YV · 9 bobinas)', model: 'CPV10 · 5 estações 5/2 (C1, C2, C3 biestáveis · C4 monoestável · vácuo biestável) · 24 V DC', summary: 'Sub-base CPV10 com 5 eletroválvulas de 10 mm, LEDs e comandos manuais por bobina, racores QS-4 para A/B, alimentação P à esquerda e módulo elétrico com bornes Y0…Y6, VACUO_ON/OFF e 0 V à direita.' },
   mecOpticalSensor: { name: 'Sensor ótico difuso M18 (S. OTICO · B11)', model: 'Corpo cilíndrico M18 niquelado · Sn = 400 mm · suporte L', summary: 'Fotocélula difusa M18 em suporte vertical de alumínio: distingue peças claras/metálicas das peças pretas.' },
   mecInductiveSensor: { name: 'Sensor indutivo de proximidade (S. INDUTIVO)', model: 'M12 faceado no fundo da zona de recolha · PNP NA', summary: 'Sensor indutivo montado à face sob a zona de recolha para deteção exclusiva de tarugos metálicos.' },
   mecHmiKtp700: { name: 'Consola Siemens SIMATIC HMI KTP700 Basic', model: '6AV2 123-2GB03-0AX0 · ecrã 7" · 8 teclas F1–F8', summary: 'Painel operador SIMATIC HMI montado em bastidor de perfil 30 × 30, com caixa traseira ventilada, ficha 24 V DC e cabo PROFINET.' },

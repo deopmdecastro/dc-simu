@@ -146,6 +146,7 @@ export type ComponentType =
   | 'mecSupportBlock'
   | 'mecDrawerCylinder'
   | 'mecValveIsland'
+  | 'mecValveTerminalCpv10'
   | 'mecOpticalSensor'
   | 'mecInductiveSensor'
   | 'mecHmiKtp700'

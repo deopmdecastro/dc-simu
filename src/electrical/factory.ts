@@ -1340,6 +1340,11 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('VAC', 'pneumatic-in', 0.9, 0.05, { position3D: { x: 0.466, y: 0.854, z: 0.966 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
       T('HOME+', 'power-in', 0.35, 0.95, { position3D: { x: 0.48, y: 0.17, z: 0.69 }, face: 'front', color: '#92400e', diameter: 4 }),
       T('HOME', 'io', 0.65, 0.95, { position3D: { x: 0.52, y: 0.17, z: 0.69 }, face: 'front', color: '#111827', diameter: 4 }),
+      // Reeds do Cilindro 2 (torre vertical): B6 = ventosa em cima (C2_FC_1), B7 = em baixo (C2_FC_0).
+      T('B6+', 'power-in', 0.2, 0.95, { position3D: { x: 0.44, y: 0.62, z: 0.72 }, face: 'front', color: '#92400e', diameter: 3 }),
+      T('B6', 'io', 0.3, 0.95, { position3D: { x: 0.47, y: 0.62, z: 0.72 }, face: 'front', color: '#111827', diameter: 3 }),
+      T('B7+', 'power-in', 0.75, 0.95, { position3D: { x: 0.53, y: 0.62, z: 0.72 }, face: 'front', color: '#92400e', diameter: 3 }),
+      T('B7', 'io', 0.85, 0.95, { position3D: { x: 0.56, y: 0.62, z: 0.72 }, face: 'front', color: '#111827', diameter: 3 }),
     ],
     defaultState: { angleDeg: 0, armDownPct: 0, vacuumActive: false, manualVacuum: false, holding: '', homeActive: true, manufacturer: 'DC-Simu Mecatrónica', model: 'Disco Ø140 · braço 240 · ventosa Ø25' },
   },
@@ -1407,6 +1412,22 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('0V', 'coil-minus', 0.82, 0.95, { position3D: { x: 0.95, y: 0.62, z: 0.5 }, face: 'right', color: '#2563eb', diameter: 4 }),
     ],
     defaultState: { islandTag: 'C1A', station1On: false, station2On: false, station1Manual: false, station2Manual: false, manufacturer: 'DC-Simu Mecatrónica', model: 'Sub-base 2× 5/2 · 24 V DC' },
+  },
+  mecValveTerminalCpv10: {
+    category: 'motor', paletteName: 'Terminal de válvulas Festo CPV10 · 5 estações (C1, C2, C3, C4, vácuo) · 24 V DC', group: 'Mecatrónica', tag: 'YV', w: 160, h: 80,
+    terminals: [
+      T('P', 'pneumatic-in', 0.02, 0.5, { position3D: { x: 0.02, y: 0.3, z: 0.5 }, face: 'left', terminalType: 'plug', color: '#38bdf8', diameter: 6 }),
+      ...[1, 2, 3, 4, 5].flatMap((n) => [
+        T(`A${n}`, 'pneumatic-out', 0.1 + n * 0.12, 0.05, { position3D: { x: 0.16 + (n - 1) * 0.135, y: 0.98, z: 0.36 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 4 }),
+        T(`B${n}`, 'pneumatic-out', 0.16 + n * 0.12, 0.05, { position3D: { x: 0.16 + (n - 1) * 0.135, y: 0.98, z: 0.64 }, face: 'top', terminalType: 'plug', color: '#38bdf8', diameter: 4 }),
+      ]),
+      // Módulo elétrico na placa final direita: 2 filas de bornes (bobinas 14 em cima, 12 em baixo).
+      ...(['Y0', 'Y2', 'Y4', 'Y6', 'VON'] as const).map((label, i) =>
+        T(label, 'coil-plus', 0.1 + i * 0.16, 0.95, { position3D: { x: 0.985, y: 0.66, z: 0.18 + i * 0.16 }, face: 'right', color: '#f59e0b', diameter: 3 })),
+      ...(['Y1', 'Y3', 'Y5', '0V', 'VOFF'] as const).map((label, i) =>
+        T(label, label === '0V' ? 'coil-minus' : 'coil-plus', 0.18 + i * 0.16, 0.95, { position3D: { x: 0.985, y: 0.4, z: 0.18 + i * 0.16 }, face: 'right', color: label === '0V' ? '#2563eb' : '#f59e0b', diameter: 3 })),
+    ],
+    defaultState: { station1Pos: 'b', station2Pos: 'a', station3Pos: 'a', station4On: false, station5Pos: 'b', manufacturer: 'Festo', model: 'CPV10-VI · 5 estações 5/2 · 24 V DC' },
   },
   mecOpticalSensor: {
     category: 'sensor', paletteName: 'Sensor ótico difuso M18 (S. OTICO · B11) · PNP NA', group: 'Mecatrónica', tag: 'B', w: 72, h: 64,
@@ -3241,7 +3262,8 @@ export function paletteDomains(): PaletteDomain[] {
         type === 'mecDrawerCylinder' ||
         type === 'mecRotaryArm' ||
         type === 'mecVacuumEjector' ||
-        type === 'mecValveIsland'
+        type === 'mecValveIsland' ||
+        type === 'mecValveTerminalCpv10'
       ) {
         pushTo('pneumatica', 'pneu-maquete', 'Maquete de estampagem · Atuadores & vácuo', item)
       } else if (

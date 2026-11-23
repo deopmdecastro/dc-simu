@@ -4,16 +4,18 @@
  * 1. Alimentação 230 V em cabo 3G2,5 (L castanho, N azul, PE verde/amarelo), do QGD às tomadas RoadEu:
  *    borne de saída X1 → bucim superior do QGD → subida → pescoço → esteira aérea → ramal/pescoço →
  *    descida → bucim superior da tomada → bornes L/N/PE. Ponteiras nas duas pontas, condutores filaçados.
- * 2. Cabos de campo (sensores, eletroválvulas, motor e botões) às réguas X21…X24 do QE1:
- *    aparelho → calha perimetral da base → descida pela perna → calha inferior → bucim lateral do QE1 →
- *    calha inferior do quadro → borne (ponta de campo = borne `2`).
+ * 2. Cabos de campo segundo o relatório Ex10 (S7-300): X21 = entradas I0.0…I1.7, X22 = saídas
+ *    Q0.0…Q1.5 (bobinas do CPV10 e coluna luminosa), X23 = motor M1, X24 = botões de reserva,
+ *    X25 / X26 = +24 V / 0 V dos sensores (ponteiras duplas, pontes entre bornes).
+ *    Percurso: aparelho → calha perimetral da base → descida pela perna → calha inferior → bucim lateral
+ *    do QE1 → calha técnica → borne (ponta de campo = borne `2`; distribuição pela calha intermédia).
  *
  * Coordenadas em mm relativas ao centro da base (como `BenchPlacement`).
  */
 import * as THREE from 'three'
 import type { ComponentType, WireColor, WireKind } from '../types'
 import type { BenchPlacement } from './stampingBench'
-import { BENCH_FIELD_TERMINALS } from './stampingBench'
+import { BENCH_TERMINAL_STRIPS } from './stampingBench'
 import { createComponent } from './factory'
 import { mechatronicsSizeMm, slotPlateDimsOf } from '../three/mechatronicsModel'
 import { pneumaticComponentSizeMm } from '../three/pneumaticsModel'
@@ -37,39 +39,64 @@ export interface BenchWireSpec {
   waypointsMm: BenchPointMm[]
   /** Chicote: condutores do mesmo cabo filaçados com abraçadeiras. */
   bundleId?: string
+  /** Terminação por ponta (por omissão ponteira simples): `ferruleDouble` onde dois condutores partilham o borne. */
+  fromEnd?: 'ferrule' | 'ferruleDouble'
+  toEnd?: 'ferrule' | 'ferruleDouble'
 }
 
-/** Sinais de campo → peça e borne do aparelho (os marcadores vêm de `BENCH_FIELD_TERMINALS`). */
+/** Tag do relatório Ex10 → peça e borne do aparelho de campo (sem entrada = ligação interna ao QE1). */
 export const BENCH_FIELD_SOURCES: Record<string, { key: string; label: string } | undefined> = {
-  B1: { key: 'drawerCylinder', label: 'AVA' },
-  B2: { key: 'drawerCylinder', label: 'REC' },
-  B3: { key: 'press', label: 'SUP' },
-  B4: { key: 'press', label: 'INF' },
-  B6: { key: 'arm', label: 'HOME' },
-  B8: { key: 'feeder', label: 'REC' },
-  B9: { key: 'feeder', label: 'AVA' },
-  B11: { key: 'opticalSensor', label: 'OUT' },
-  FC1: { key: 'fc1', label: 'NO' },
+  C1_FC_0: { key: 'feeder', label: 'REC' },
+  C1_FC_1: { key: 'feeder', label: 'AVA' },
+  C3_FC_1: { key: 'drawerCylinder', label: 'AVA' },
+  C3_FC_0: { key: 'drawerCylinder', label: 'REC' },
+  C4_FC_0: { key: 'press', label: 'SUP' },
+  C4_FC_1: { key: 'press', label: 'INF' },
+  SENSOR_COR: { key: 'opticalSensor', label: 'OUT' },
   FC2: { key: 'fc2', label: 'NO' },
-  'S.IND': { key: 'inductiveSensor', label: 'OUT' },
-  Y1: { key: 'valveIsland1', label: 'Y1' },
-  Y2: { key: 'valveIsland1', label: 'Y2' },
-  Y3: { key: 'valveIsland2', label: 'Y1' },
-  Y4: { key: 'valveIsland2', label: 'Y2' },
-  '0V': { key: 'valveIsland1', label: '0V' },
-  'M+': { key: 'motor', label: 'CW' },
-  'M-': { key: 'motor', label: 'CCW' },
+  FC1: { key: 'fc1', label: 'NO' },
+  SENSOR_INDUTIVO: { key: 'inductiveSensor', label: 'OUT' },
+  C2_FC_1: { key: 'arm', label: 'B6' },
+  C2_FC_0: { key: 'arm', label: 'B7' },
+  B_START: { key: 'operator-start', label: '4' },
+  B_STOP_NF: { key: 'operator-stop', label: '2' },
+  INT_MAN: { key: 'operator-mode', label: '14' },
+  B_EMERG_NF: { key: 'operator-emergency', label: '22' },
+  'Y0_C1+': { key: 'valveTerminal', label: 'Y0' },
+  'Y1_C1-': { key: 'valveTerminal', label: 'Y1' },
+  'Y3_C2-': { key: 'valveTerminal', label: 'Y3' },
+  'Y2_C2+': { key: 'valveTerminal', label: 'Y2' },
+  VACUO_ON: { key: 'valveTerminal', label: 'VON' },
+  VACUO_OFF: { key: 'valveTerminal', label: 'VOFF' },
+  'Y5_C3-': { key: 'valveTerminal', label: 'Y5' },
+  'Y4_C3+': { key: 'valveTerminal', label: 'Y4' },
+  'Y6_C4+': { key: 'valveTerminal', label: 'Y6' },
+  L_VERDE: { key: 'signalTower', label: 'G' },
+  L_AMRL: { key: 'signalTower', label: 'Y' },
+  L_VERM: { key: 'signalTower', label: 'R' },
+  'M1 +': { key: 'motor', label: 'CW' },
+  'M1 -': { key: 'motor', label: 'CCW' },
   'ENC A': { key: 'motor', label: 'A' },
   'ENC B': { key: 'motor', label: 'B' },
-  EMERG: { key: 'operator-emergency', label: '22' },
-  AUTO: { key: 'operator-mode', label: '14' },
-  REARME: { key: 'operator-reset', label: '4' },
-  CICLO: { key: 'operator-cycle', label: '14' },
-  STOP: { key: 'operator-stop', label: '2' },
-  START: { key: 'operator-start', label: '4' },
+  'REARME (reserva)': { key: 'operator-reset', label: '4' },
+  'CICLO (reserva)': { key: 'operator-cycle', label: '14' },
 }
 
-const FIELD_COLORS: Record<string, WireColor> = { X21: 'black', X22: 'blue', X23: 'violet', X24: 'red' }
+/** Alimentação dos sensores/atuadores: +24 V em X25, 0 V em X26 (dois condutores por borne). */
+export const BENCH_SUPPLY_LOADS: ReadonlyArray<{ key: string; label: string; rail: '+24V' | '0V' }> = [
+  { key: 'feeder', label: 'REC+', rail: '+24V' }, { key: 'feeder', label: 'AVA+', rail: '+24V' },
+  { key: 'drawerCylinder', label: 'REC+', rail: '+24V' }, { key: 'drawerCylinder', label: 'AVA+', rail: '+24V' },
+  { key: 'press', label: 'SUP+', rail: '+24V' }, { key: 'press', label: 'INF+', rail: '+24V' },
+  { key: 'arm', label: 'B6+', rail: '+24V' }, { key: 'arm', label: 'B7+', rail: '+24V' },
+  { key: 'opticalSensor', label: '+24V', rail: '+24V' }, { key: 'inductiveSensor', label: '+24V', rail: '+24V' },
+  { key: 'fc1', label: 'C', rail: '+24V' }, { key: 'fc2', label: 'C', rail: '+24V' },
+  { key: 'operator-emergency', label: '21', rail: '+24V' }, { key: 'motor', label: '+24V', rail: '+24V' },
+  { key: 'opticalSensor', label: '0V', rail: '0V' }, { key: 'inductiveSensor', label: '0V', rail: '0V' },
+  { key: 'motor', label: '0V', rail: '0V' }, { key: 'valveTerminal', label: '0V', rail: '0V' },
+  { key: 'signalTower', label: 'COM', rail: '0V' },
+]
+
+const STRIP_COLORS: Record<string, WireColor> = { X21: 'black', X22: 'violet', X23: 'grey', X24: 'black' }
 
 const SIDE_H = 60 // abas das esteiras perfuradas
 const R_FLOOR = 4.5 // fundo (2,5 mm) + raio do condutor 2,5 mm² flexível
@@ -88,6 +115,12 @@ function sizeOfMm(type: ComponentType, state?: Record<string, unknown>): BenchPo
  * e não na face do botão. Aplicado por componente ao montar a maquete e usado no percurso dos cabos.
  */
 export function benchTerminalOverrides(part: Pick<BenchPlacement, 'key' | 'type'>): Record<string, { position3D: { x: number; y: number; z: number }; face: 'back' }> {
+  // Coluna luminosa: o cabo de 4 fios (R, Y, G, COM) sai pela traseira da base.
+  if (part.key === 'signalTower') {
+    const out: Record<string, { position3D: { x: number; y: number; z: number }; face: 'back' }> = {}
+    ;['R', 'Y', 'G', 'COM'].forEach((label, k) => { out[label] = { position3D: { x: 0.38 + k * 0.08, y: 0.05, z: 0.02 }, face: 'back' } })
+    return out
+  }
   if (!part.key.startsWith('operator-')) return {}
   const labels = createComponent(part.type).terminals.map((t) => t.label)
   const out: Record<string, { position3D: { x: number; y: number; z: number }; face: 'back' }> = {}
@@ -233,15 +266,16 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     const ductInZ = ductBottom.z
 
     /** Percurso pelas calhas perimetrais até ao canto da descida (lado esquerdo, junto à traseira). */
-    const perimeterTo = (from: BenchPointMm, j: number, allowFront = true): BenchPointMm[] => {
-      const dl = ((j % 5) - 2) * 3 // pistas lado a lado dentro da calha
-      const y = yDuct + Math.floor(j / 5) * 4
+    const perimeterTo = (from: BenchPointMm, j: number, allowFront = true, prefer?: 'back'): BenchPointMm[] => {
+      // Grelha de 7 × 7 pistas dentro da calha (34 × 42 mm): nenhum cabo fica sobreposto a outro.
+      const dl = ((j % 7) - 3) * 3.2
+      const y = yDuct + (Math.floor(j / 7) % 7) * 4.2
       const candidates = [
         { side: 'front', d: Math.abs(from.z - zf), p: pt(from.x, y, zf + dl) },
         { side: 'back', d: Math.abs(from.z - zb), p: pt(from.x, y, zb + dl) },
         { side: 'left', d: Math.abs(from.x - xl), p: pt(xl + dl, y, from.z) },
         { side: 'right', d: Math.abs(from.x - xr), p: pt(xr + dl, y, from.z) },
-      ].filter((c) => allowFront || c.side !== 'front').sort((a, b) => a.d - b.d)
+      ].filter((c) => (allowFront || c.side !== 'front') && (!prefer || c.side === prefer)).sort((a, b) => a.d - b.d)
       const entry = candidates[0]
       const out: BenchPointMm[] = [entry.p]
       if (entry.side === 'front') out.push(pt(xl + dl, y, zf + dl))
@@ -251,97 +285,133 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       return out
     }
 
+    const ductMid = get('cabinet-duct-mid')
+    const ductTop = get('cabinet-duct-top')
+    const railTop = (term: BenchPlacement) => term.y + 33 // borne PTI 6 com 66 mm de altura
+    const railBottom = (term: BenchPlacement) => term.y - 33
+    /** Dentro do QE1: do bucim lateral até ao borne `2` (calha B pela calha inferior; calha A pela intermédia). */
+    const insideTo = (term: BenchPlacement, lane: number): BenchPointMm[] => {
+      const rail = BENCH_TERMINAL_STRIPS.find((st) => term.key.startsWith(`terminals-${st.strip}-`))?.rail ?? 'B'
+      const z = ductInZ + lane * 0.5
+      if (rail === 'A' && ductMid) {
+        return [
+          pt(cabLeft + 14 + lane * 0.3, yUnder, z),
+          pt(cabLeft + 14 + lane * 0.3, ductMid.y + lane * 0.4, z),
+          pt(term.x, ductMid.y + lane * 0.4, z),
+          pt(term.x, railBottom(term) - 14, ductInZ),
+        ]
+      }
+      return [
+        pt(cabLeft + 30, ductBottom.y + lane * 0.4, z),
+        pt(term.x, ductBottom.y + lane * 0.4, z),
+        pt(term.x, railBottom(term) - 14, ductInZ),
+      ]
+    }
+
     let j = 0
-    for (const [strip, markers] of BENCH_FIELD_TERMINALS) {
-      markers.forEach((marker, i) => {
-        const src = BENCH_FIELD_SOURCES[marker]
-        const term = get(`terminals-${strip}-${i + 1}`)
-        const part = src ? get(src.key) : undefined
-        if (!src || !term || !part) return
-        const { p, n } = benchTerminalPointMm(part, src.label)
-        const exit = pt(p.x + n.x * 14, p.y + n.y * 14, p.z + n.z * 14)
-        // Desloca-se à cota da saída (ou por cima da calha) até à calha mais próxima e desce para dentro.
-        // Botões: descem por dentro da caixa e saem pelo fundo (a caixa está 42 mm acima da base).
-        const travelY = part.key.startsWith('operator-') ? top + 24 : Math.max(exit.y, top + 48)
-        // A calha frontal fica para a caixa de botões; sensores e válvulas descem para a traseira/laterais.
-        const path = perimeterTo(exit, j, part.key.startsWith('operator-'))
-        const first = path[0]
-        const lane = ((j % 5) - 2) * 3
-        const termX = term.x
-        const pts = [
+    /** Cabo de campo: aparelho → calhas da base → perna → bucim do QE1 → borne. */
+    const fieldWire = (id: string, number: string, label: string, src: { key: string; label: string }, term: BenchPlacement,
+      color: WireColor, kind: WireKind, toEnd?: 'ferruleDouble') => {
+      const part = get(src.key)
+      if (!part) return
+      const { p, n } = benchTerminalPointMm(part, src.label)
+      const exit = pt(p.x + n.x * 14, p.y + n.y * 14, p.z + n.z * 14)
+      // Botões: descem por dentro da caixa e saem pelo fundo (a caixa está 42 mm acima da base).
+      // CPV10 e coluna: descem rente à base, junto ao módulo elétrico, e seguem para a calha traseira.
+      const isOperator = part.key.startsWith('operator-')
+      const lowRun = part.key === 'valveTerminal' || part.key === 'signalTower'
+      const travelY = isOperator ? top + 24 : lowRun ? top + 8 : Math.max(exit.y, top + 48)
+      // A calha frontal fica para a caixa de botões; sensores e válvulas descem para a traseira/laterais.
+      const path = perimeterTo(exit, j, isOperator, lowRun ? 'back' : undefined)
+      const first = path[0]
+      const lane = ((j % 7) - 3) * 2.6
+      wires.push({
+        id, number, label, from: src, to: { key: term.key, label: '2' }, color, gauge: '0.75mm²', kind,
+        ...(toEnd ? { toEnd } : {}),
+        waypointsMm: clean([
           exit,
           pt(exit.x, travelY, exit.z),
           pt(first.x, travelY, first.z),
           ...path,
-          // Desce pela calha vertical da perna até à calha inferior e segue até ao bucim lateral do QE1.
-          pt(ductDrop.x + lane * 0.5, top - 4, zDrop + lane),
+          // Sai por cima da borda esquerda da base, desce por fora e entra na calha da perna por baixo do tampo.
+          pt(-L / 2 - 14 + lane * 0.3, path[path.length - 1].y, zDrop + lane),
+          pt(-L / 2 - 14 + lane * 0.3, -top - 24, zDrop + lane),
+          pt(ductDrop.x + lane * 0.5, -top - 24, zDrop + lane),
           pt(ductDrop.x + lane * 0.5, yUnder + lane * 0.4, zDrop + lane),
           pt(cabLeft - 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
           pt(cabLeft + 8, yUnder, zDrop),
-          // Dentro do QE1: entra na calha técnica inferior, corre até ao borne e sobe.
-          pt(cabLeft + 30, ductBottom.y + lane * 0.4, ductInZ + lane * 0.5),
-          pt(termX, ductBottom.y + lane * 0.4, ductInZ + lane * 0.5),
-          pt(termX, ductBottom.y + 40, ductInZ),
-        ]
-        wires.push({
-          id: `mq-campo-${strip.toLowerCase()}-${i + 1}`,
-          number: `${strip}.${i + 1}`,
-          label: `${marker} · ${part.state?.labelText ?? part.key} → ${strip}.${i + 1}`,
-          from: { key: src.key, label: src.label },
-          to: { key: term.key, label: '2' },
-          color: FIELD_COLORS[strip] ?? 'black',
-          gauge: '0.75mm²',
-          kind: strip === 'X22' || strip === 'X23' ? 'control' : 'signal',
-          waypointsMm: clean(pts),
-        })
-        j += 1
+          ...insideTo(term, lane),
+        ]),
+      })
+      j += 1
+    }
+
+    // Entradas, saídas, motor e reservas (X21…X24), pela ordem das réguas.
+    for (const { strip, points } of BENCH_TERMINAL_STRIPS) {
+      if (strip === 'X25' || strip === 'X26') continue
+      points.forEach(({ marker, tag }, i) => {
+        const src = BENCH_FIELD_SOURCES[tag]
+        const term = get(`terminals-${strip}-${i + 1}`)
+        if (!src || !term) return
+        fieldWire(`mq-campo-${strip.toLowerCase()}-${i + 1}`, `${strip}.${i + 1}`,
+          `${marker} ${tag} · ${get(src.key)?.state?.labelText ?? src.key} → ${strip}.${i + 1}`,
+          src, term, STRIP_COLORS[strip] ?? 'black', strip === 'X21' ? 'signal' : 'control')
       })
     }
 
-    // Comum +24 V dos botões: X20 → EMERGÊNCIA e pontes entre operadores dentro da caixa.
+    // Alimentação dos sensores e atuadores: dois condutores (ponteira dupla) no borne `2` de X25 / X26.
+    const supplyCount = { '+24V': 0, '0V': 0 }
+    for (const load of BENCH_SUPPLY_LOADS) {
+      const idx = supplyCount[load.rail]++
+      const strip = load.rail === '+24V' ? 'X25' : 'X26'
+      const term = get(`terminals-${strip}-${Math.floor(idx / 2) + 1}`)
+      if (!term) continue
+      fieldWire(`mq-campo-${strip.toLowerCase()}-${load.key}-${load.label.replace(/[^A-Za-z0-9]/g, '')}`,
+        `${strip}.${Math.floor(idx / 2) + 1}`, `${load.rail} · ${get(load.key)?.state?.labelText ?? load.key} ${load.label} → ${strip}.${Math.floor(idx / 2) + 1}`,
+        { key: load.key, label: load.label }, term, load.rail === '+24V' ? 'brown' : 'blue', 'control', 'ferruleDouble')
+    }
+
+    // Distribuição: X20 alimenta X25.1 / X26.1 pela calha do topo; pontes entre bornes vizinhos por cima.
+    const x20 = get('terminals-x20')
+    for (const [strip, out] of [['X25', '+24V-OUT'], ['X26', '0V-OUT']] as const) {
+      const count = BENCH_TERMINAL_STRIPS.find((st) => st.strip === strip)?.points.length ?? 0
+      const firstTerm = get(`terminals-${strip}-1`)
+      if (x20 && firstTerm && ductTop) {
+        const z = ductInZ + (strip === 'X25' ? -3 : 3)
+        wires.push({
+          id: `mq-campo-x20-${strip.toLowerCase()}`, number: `X20 → ${strip}.1`, label: `${out === '+24V-OUT' ? '+24 V' : '0 V'} · X20 → ${strip}.1`,
+          from: { key: 'terminals-x20', label: out }, to: { key: firstTerm.key, label: '1' },
+          color: strip === 'X25' ? 'brown' : 'blue', gauge: '1.5mm²', kind: 'control',
+          toEnd: 'ferruleDouble',
+          waypointsMm: clean([
+            pt(x20.x, railBottom(x20) - 14, ductInZ),
+            pt(x20.x, ductBottom.y, z),
+            pt(cabLeft + 14, ductBottom.y, z),
+            pt(cabLeft + 14, ductTop.y, z),
+            pt(firstTerm.x, ductTop.y, z),
+            pt(firstTerm.x, railTop(firstTerm) + 14, ductInZ),
+          ]),
+        })
+      }
+      for (let k = 1; k < count; k += 1) {
+        const a = get(`terminals-${strip}-${k}`), b = get(`terminals-${strip}-${k + 1}`)
+        if (!a || !b) continue
+        const y = railTop(a) + 10
+        wires.push({
+          id: `mq-campo-ponte-${strip.toLowerCase()}-${k}`, number: `${strip}.${k}–${k + 1}`, label: `Ponte ${strip}.${k} → ${strip}.${k + 1}`,
+          from: { key: a.key, label: '1' }, to: { key: b.key, label: '1' },
+          color: strip === 'X25' ? 'brown' : 'blue', gauge: '1.5mm²', kind: 'control',
+          fromEnd: 'ferruleDouble', toEnd: 'ferruleDouble',
+          waypointsMm: [pt(a.x, y, ductInZ), pt(b.x, y, ductInZ)],
+        })
+      }
+    }
+
+    // Comum dos botões (+24 V de X25 em S1.21) e pontes entre operadores dentro da caixa.
     const chain: Array<[string, string]> = [
       ['operator-emergency', '21'], ['operator-mode', '13'], ['operator-reset', '3'],
       ['operator-cycle', '13'], ['operator-stop', '1'], ['operator-start', '3'],
     ]
-    const x20 = get('terminals-x20')
-    const emerg = get('operator-emergency')
-    if (x20 && emerg) {
-      const { p, n } = benchTerminalPointMm(emerg, '21')
-      const exit = pt(p.x + n.x * 14, p.y + n.y * 14, p.z + n.z * 14)
-      const path = perimeterTo(exit, j)
-      const travelY = top + 24
-      wires.push({
-        id: 'mq-campo-x20-comum-botoes',
-        number: 'X20:+24V',
-        label: '+24 V · X20 → comum dos botões',
-        from: { key: 'terminals-x20', label: '+24V-OUT' },
-        to: { key: 'operator-emergency', label: '21' },
-        color: 'red', gauge: '0.75mm²', kind: 'control',
-        waypointsMm: clean([
-          pt(x20.x, ductBottom.y + 40, ductInZ),
-          pt(x20.x, ductBottom.y, ductInZ),
-          pt(cabLeft + 30, ductBottom.y, ductInZ),
-          pt(cabLeft + 8, yUnder, zDrop),
-          pt(cabLeft - 18, yUnder, zDrop),
-          pt(ductDrop.x, yUnder, zDrop),
-          pt(ductDrop.x, top - 4, zDrop),
-          ...[...path].reverse(),
-          pt(path[0].x, travelY, path[0].z),
-          pt(exit.x, travelY, exit.z),
-          exit,
-        ]),
-      })
-    }
-    // Pontes curtas com percurso explícito (o traçado automático entre aparelhos de máquina vizinhos,
-    // dentro da caixa de comando, é demasiado pesado e não acrescenta nada a uma ponte de 50 mm).
-    const bridge = (aKey: string, aLabel: string, bKey: string, bLabel: string, lift: number): BenchPointMm[] => {
-      const a = benchTerminalPointMm(get(aKey)!, aLabel)
-      const b = benchTerminalPointMm(get(bKey)!, bLabel)
-      const ea = pt(a.p.x + a.n.x * 12, a.p.y + a.n.y * 12, a.p.z + a.n.z * 12)
-      const eb = pt(b.p.x + b.n.x * 12, b.p.y + b.n.y * 12, b.p.z + b.n.z * 12)
-      const y = Math.max(ea.y, eb.y) + lift
-      return clean([ea, pt(ea.x, y, ea.z), pt(eb.x, y, eb.z), eb])
-    }
     for (let k = 1; k < chain.length; k += 1) {
       const [aKey, aLabel] = chain[k - 1]
       const [bKey, bLabel] = chain[k]
@@ -356,20 +426,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         label: `Ponte +24 V · ${aKey.replace('operator-', '')} → ${bKey.replace('operator-', '')}`,
         from: { key: aKey, label: aLabel },
         to: { key: bKey, label: bLabel },
-        color: 'red', gauge: '0.75mm²', kind: 'control',
-        waypointsMm: clean([pt(ta.p.x, ta.p.y, back), pt(tb.p.x, tb.p.y, back)]),
-      })
-    }
-    // 0 V das duas ilhas: ponte entre a ilha C2A e a C1A (que segue para X22.6).
-    if (get('valveIsland1') && get('valveIsland2')) {
-      wires.push({
-        id: 'mq-campo-ponte-0v-ilhas',
-        number: 'X22.6',
-        label: 'Ponte 0 V · ilha C2A → ilha C1A',
-        from: { key: 'valveIsland2', label: '0V' },
-        to: { key: 'valveIsland1', label: '0V' },
-        color: 'blue', gauge: '0.75mm²', kind: 'control',
-        waypointsMm: bridge('valveIsland2', '0V', 'valveIsland1', '0V', 10),
+        color: 'brown', gauge: '0.75mm²', kind: 'control',
+        // Em «L» por trás dos operadores: primeiro na horizontal, depois na vertical.
+        waypointsMm: clean([pt(ta.p.x, ta.p.y, back), pt(tb.p.x, ta.p.y, back), pt(tb.p.x, tb.p.y, back)]),
       })
     }
   }

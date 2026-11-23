@@ -49,13 +49,39 @@ export const BENCH_RAMP_LENGTHS_MM = [170, 180, 140] as const
 const FC_ABOVE_SEAT_MM = 18
 const FC_FROM_POCKET_MM = 41
 
-/** Réguas de bornes do QE1 (X20 alimentação; X21… um sinal de campo por borne, marcação na plaqueta ZB). */
-export const BENCH_FIELD_TERMINALS: ReadonlyArray<readonly [string, readonly string[]]> = [
-  ['X21', ['B1', 'B2', 'B3', 'B4', 'B6', 'B7', 'B8', 'B9', 'B11', 'FC1', 'FC2', 'S.IND']],
-  ['X22', ['Y1', 'Y2', 'Y3', 'Y4', 'Y5', '0V']],
-  ['X23', ['M+', 'M-', 'ENC A', 'ENC B']],
-  ['X24', ['EMERG', 'AUTO', 'REARME', 'CICLO', 'STOP', 'START']],
+/**
+ * Réguas de bornes do QE1 segundo o relatório Ex10 (S7-300 · DI 32 / DO 32, guião fig. 16–18):
+ * X21 = entradas I0.0…I1.7, X22 = saídas Q0.0…Q1.5, X23 = motor M1, X24 = botões sem entrada
+ * no autómato, X25 / X26 = distribuição +24 V / 0 V dos sensores (calha A, por cima dos relés).
+ * `marker` vai na plaqueta do borne; `tag` é a variável do programa.
+ */
+export interface BenchTerminalStrip {
+  strip: string
+  rail: 'A' | 'B'
+  points: ReadonlyArray<{ marker: string; tag: string }>
+}
+const io = (marker: string, tag: string) => ({ marker, tag })
+export const BENCH_TERMINAL_STRIPS: ReadonlyArray<BenchTerminalStrip> = [
+  { strip: 'X21', rail: 'B', points: [
+    io('I0.0', 'C1_FC_0'), io('I0.1', 'C1_FC_1'), io('I0.2', 'C3_FC_1'), io('I0.3', 'C3_FC_0'),
+    io('I0.4', 'C4_FC_0'), io('I0.5', 'C4_FC_1'), io('I0.6', 'SENSOR_COR'), io('I0.7', 'FC2'),
+    io('I1.0', 'FC1'), io('I1.1', 'SENSOR_INDUTIVO'), io('I1.2', 'C2_FC_1'), io('I1.3', 'C2_FC_0'),
+    io('I1.4', 'B_START'), io('I1.5', 'B_STOP_NF'), io('I1.6', 'INT_MAN'), io('I1.7', 'B_EMERG_NF'),
+  ] },
+  { strip: 'X22', rail: 'B', points: [
+    io('Q0.0', 'Y0_C1+'), io('Q0.1', 'Y1_C1-'), io('Q0.2', 'Y3_C2-'), io('Q0.3', 'Y2_C2+'),
+    io('Q0.4', 'VACUO_ON'), io('Q0.5', 'VACUO_OFF'), io('Q0.6', 'Y5_C3-'), io('Q0.7', 'Y4_C3+'),
+    io('Q1.0', 'Y6_C4+'), io('Q1.1', 'M1_ESQ'), io('Q1.2', 'M1_DI'), io('Q1.3', 'L_VERDE'),
+    io('Q1.4', 'L_AMRL'), io('Q1.5', 'L_VERM'),
+  ] },
+  { strip: 'X23', rail: 'B', points: [io('M+', 'M1 +'), io('M-', 'M1 -'), io('ENC A', 'ENC A'), io('ENC B', 'ENC B')] },
+  { strip: 'X24', rail: 'B', points: [io('REARME', 'REARME (reserva)'), io('CICLO', 'CICLO (reserva)')] },
+  { strip: 'X25', rail: 'A', points: Array.from({ length: 7 }, () => io('+24V', '+24 V sensores')) },
+  { strip: 'X26', rail: 'A', points: Array.from({ length: 3 }, () => io('0V', '0 V sensores')) },
 ]
+/** Compatibilidade: [régua, marcadores] por ordem de montagem. */
+export const BENCH_FIELD_TERMINALS: ReadonlyArray<readonly [string, readonly string[]]> =
+  BENCH_TERMINAL_STRIPS.map((s) => [s.strip, s.points.map((p) => p.marker)] as const)
 
 /**
  * Onde está a parede e o quadro geral (QGD), em mm relativos ao centro da base. Sem estes dados
@@ -144,8 +170,8 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     { key: 'chain', type: 'mecDragChain', x: load.x + 50, y: top + h('mecDragChain', { lengthMm: 120 }) / 2, z: load.z + 55, state: { lengthMm: 120 } },
 
     // Ilhas de eletroválvulas Festo 2× 5/2 (C1A, C2A) e Gerador de vácuo (VAC1 · C4A) à esquerda
-    { key: 'valveIsland1', type: 'mecValveIsland', x: -plate.lengthMm / 2 + 96, y: top + h('mecValveIsland') / 2, z: -26, state: { islandTag: 'C1A' } },
-    { key: 'valveIsland2', type: 'mecValveIsland', x: -plate.lengthMm / 2 + 96, y: top + h('mecValveIsland') / 2, z: -118, state: { islandTag: 'C2A' } },
+    // Terminal de válvulas Festo CPV10 (relatório Ex10): C1, C2, C3 biestáveis, C4 monoestável e vácuo.
+    { key: 'valveTerminal', type: 'mecValveTerminalCpv10', x: -plate.lengthMm / 2 + 100, y: top + h('mecValveTerminalCpv10') / 2, z: -72, state: { labelText: 'YV1 · CPV10' } },
     { key: 'ejector', type: 'mecVacuumEjector', x: -plate.lengthMm / 2 + 92, y: top + h('mecVacuumEjector') / 2, z: -188, state: { labelText: 'C4A' } },
 
     // Coluna luminosa de sinalização no canto traseiro esquerdo (verde / amarelo / vermelho)
@@ -243,7 +269,7 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       for (const [key, y] of [['relays', railA], ['terminals', railB]] as const) {
         list.push(inside(`cabinet-din-${key}`, 'dinRail15x55', 0, y, plateFront + 3.75, { lengthMm: usable, profile: '35×15 mm', perforated: true, finish: 'Aço galvanizado' }))
       }
-      // Fila A: fonte 24 V · relé de segurança · relés de interface das válvulas e do motor.
+      // Fila A: fonte 24 V · relé de segurança · relés K1/K2 do motor M1 (relatório Ex10) · distribuição +24 V / 0 V.
       const sizeOf = (type: ComponentType) => COMPONENT_PHYSICAL_SIZE_MM[type]!
       let ax = -usable / 2 + 4
       const putA = (key: string, type: ComponentType, state: Record<string, unknown>) => {
@@ -253,21 +279,25 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       }
       putA('psu24', 'powerSupplyProauto24A', { labelText: 'G1 · 24 V DC 5 A' })
       putA('safetyRelay', 'safetyRelay', { labelText: 'KS1 · SEGURANÇA (EMERG.)' })
-      ;['K1 · Y1 CIL.1', 'K2 · Y2 CIL.3', 'K3 · Y3 PRENSA', 'K4 · Y4 BRAÇO Z', 'K5 · Y5 VÁCUO', 'K6 · M1 MOTOR']
+      ;['K1 · Q1.1 M1_ESQ', 'K2 · Q1.2 M1_DI']
         .forEach((tag, i) => putA(`relay-${i + 1}`, 'relayFinder5534', { labelText: tag }))
-      // Fila B: bornes de alimentação + réguas X2 (sensores), X3 (válvulas), X4 (motor), X5 (botões).
+      // Fila B: X20 (alimentação 24 V) + X21 (DI) + X22 (DO) + X23 (motor) + X24 (reservas).
       let bx = -usable / 2 + 4
       const pti = sizeOf('terminalPhoenixPti6')
       const power = sizeOf('terminalSet24v')
       list.push({ ...inside('terminals-x20', 'terminalSet24v', bx + power.width / 2, railB, onRail(power.depth), { labelText: 'X20 · +24 V / 0 V / PE' }), ref: 'X20' })
       bx += power.width + 6
-      for (const [strip, markers] of BENCH_FIELD_TERMINALS) {
-        markers.forEach((marker, i) => list.push({
-          ...inside(`terminals-${strip}-${i + 1}`, 'terminalPhoenixPti6', bx + (i + 0.5) * pti.width, railB, onRail(pti.depth),
-            { markerText: marker, labelText: `${strip}.${i + 1} · ${marker}` }),
+      ax += 4
+      for (const { strip, rail, points } of BENCH_TERMINAL_STRIPS) {
+        const y = rail === 'A' ? railA : railB
+        const start = rail === 'A' ? ax : bx
+        points.forEach(({ marker, tag }, i) => list.push({
+          ...inside(`terminals-${strip}-${i + 1}`, 'terminalPhoenixPti6', start + (i + 0.5) * pti.width, y, onRail(pti.depth),
+            { markerText: marker, labelText: `${strip}.${i + 1} · ${marker} · ${tag}` }),
           ref: `${strip}.${i + 1}`,
         }))
-        bx += markers.length * pti.width + 6
+        if (rail === 'A') ax += points.length * pti.width + 6
+        else bx += points.length * pti.width + 6
       }
     }
   }
