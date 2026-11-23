@@ -667,7 +667,13 @@ export function stopCompressorSound(): void {
     try { compGain.gain.setTargetAtTime(0.0001, audio.currentTime, 0.12) } catch { /* ignore */ }
   }
   const nodes = [compOscA, compOscB, compPiston, compNoise]
-  window.setTimeout(() => {
+  // Fade-out antes de parar; `globalThis` mantém o módulo carregável fora do browser
+  // (testes em Node, onde `window` não existe).
+  const later = (fn: () => void, ms: number) => {
+    const timer = (globalThis as { setTimeout?: (cb: () => void, t: number) => unknown }).setTimeout
+    if (typeof timer === 'function') timer(fn, ms)
+  }
+  later(() => {
     for (const node of nodes) { try { node?.stop() } catch { /* já parado */ } }
   }, 220)
   for (const node of [compOscA, compOscB, compPiston]) { try { node?.disconnect() } catch { /* ignore */ } }

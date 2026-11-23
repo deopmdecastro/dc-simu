@@ -71,15 +71,17 @@ export const BENCH_FIELD_SOURCES: Record<string, { key: string; label: string } 
   // I1.7 lê o contacto de segurança KS1 (13/14) — o cabo vai da régua ao relé, dentro do QE1.
   Seguranca_OK: { key: 'safetyRelay', label: '14' },
   // ── Saídas digitais (X22) — bobinas Y1…Y9 do CPV10, relés K1/K2 e coluna luminosa ──
-  Y6_Cil1_Av: { key: 'valveTerminal', label: 'Y6' },
-  Y7_Cil1_Rec: { key: 'valveTerminal', label: 'Y7' },
-  Y5_Cil2_Rec: { key: 'valveTerminal', label: 'Y5' },
-  Y4_Cil2_Av: { key: 'valveTerminal', label: 'Y4' },
-  Y8_Ventosa_On: { key: 'valveTerminal', label: 'VON' },
-  Y9_Ventosa_Off: { key: 'valveTerminal', label: 'VOFF' },
-  Y2_Cil3_Rec: { key: 'valveTerminal', label: 'Y2' },
-  Y1_Cil3_Av: { key: 'valveTerminal', label: 'Y1' },
-  Y3_Cil4_Estampa: { key: 'valveTerminal', label: 'Y3' },
+  // Bobinas do CPV10 por FUNÇÃO (o guião numera Y1–Y9 num terminal diferente; o CPV10 da
+  // maquete tem Y0…Y6 + VON/VOFF, e é este o aparelho que está montado na bancada).
+  Cil1_Avanc: { key: 'valveTerminal', label: 'Y0' },
+  Cil1_Recuo: { key: 'valveTerminal', label: 'Y1' },
+  Cil2_Recuo: { key: 'valveTerminal', label: 'Y2' },
+  Cil2_Avanc: { key: 'valveTerminal', label: 'Y3' },
+  Cil3_Recuo: { key: 'valveTerminal', label: 'Y5' },
+  Cil3_Avanc: { key: 'valveTerminal', label: 'Y4' },
+  Cil4_Estampa: { key: 'valveTerminal', label: 'Y6' },
+  Ventosa_On: { key: 'valveTerminal', label: 'VON' },
+  Ventosa_Off: { key: 'valveTerminal', label: 'VOFF' },
   K1_M1_Esq: { key: 'relay-1', label: 'A1' },
   K2_M1_Dir: { key: 'relay-2', label: 'A1' },
   LED_Amarelo: { key: 'signalTower', label: 'Y' },

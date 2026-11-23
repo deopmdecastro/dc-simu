@@ -76,9 +76,12 @@ export const BENCH_TERMINAL_STRIPS: ReadonlyArray<BenchTerminalStrip> = [
     io('I1.4', 'B_Start'), io('I1.5', 'B_Stop'), io('I1.6', 'Sel_Auto'), io('I1.7', 'Seguranca_OK'),
   ] },
   { strip: 'X22', rail: 'B', points: [
-    io('Q4.0', 'Y6_Cil1_Av'), io('Q4.1', 'Y7_Cil1_Rec'), io('Q4.2', 'Y5_Cil2_Rec'), io('Q4.3', 'reserva'),
-    io('Q4.4', 'Y4_Cil2_Av'), io('Q4.5', 'Y8_Ventosa_On'), io('Q4.6', 'Y9_Ventosa_Off'), io('Q4.7', 'Y2_Cil3_Rec'),
-    io('Q5.0', 'Y1_Cil3_Av'), io('Q5.1', 'Y3_Cil4_Estampa'), io('Q5.2', 'K1_M1_Esq'), io('Q5.3', 'K2_M1_Dir'),
+    // Endereços do guião (Q4.x/Q5.x) ligados às bobinas REAIS do CPV10 da maquete:
+    // estação 1 = Cil1 (Y0/Y1) · estação 2 = Cil2 (Y2/Y3) · estação 3 = Cil3 (Y4/Y5) ·
+    // estação 4 = Cil4 monoestável (Y6) · estação 5 = ventosa (VON/VOFF).
+    io('Q4.0', 'Cil1_Avanc'), io('Q4.1', 'Cil1_Recuo'), io('Q4.2', 'Cil2_Recuo'), io('Q4.3', 'reserva'),
+    io('Q4.4', 'Cil2_Avanc'), io('Q4.5', 'Ventosa_On'), io('Q4.6', 'Ventosa_Off'), io('Q4.7', 'Cil3_Recuo'),
+    io('Q5.0', 'Cil3_Avanc'), io('Q5.1', 'Cil4_Estampa'), io('Q5.2', 'K1_M1_Esq'), io('Q5.3', 'K2_M1_Dir'),
     io('Q5.4', 'LED_Amarelo'), io('Q5.5', 'LED_Verde'), io('Q5.6', 'LED_Vermelho'),
   ] },
   { strip: 'X23', rail: 'B', points: [io('M+', 'M1 +'), io('M-', 'M1 -'), io('ENC A', 'ENC A'), io('ENC B', 'ENC B')] },
