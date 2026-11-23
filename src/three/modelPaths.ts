@@ -91,6 +91,7 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   socketFamatelCombo: SOCKET_DEVICES.socketFamatelCombo,
   socketFamatelSwitch: SOCKET_DEVICES.socketFamatelSwitch,
   socketEfapelIp65: SOCKET_DEVICES.socketEfapelIp65,
+  ceePlug16A: SOCKET_DEVICES.ceePlug16A,
   ...Object.fromEntries(importedModels.map(model => [model.type, model.physicalSizeMm])),
   ...Object.fromEntries(Object.entries(INDUSTRIAL_GEOMETRY).map(([type, model]) => [type, model.physicalSizeMm])),
   plcSiemensLogo1224RC: { width: 72, height: 90, depth: 55 },
@@ -410,6 +411,7 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'socketFamatelCombo' ||
     type === 'socketFamatelSwitch' ||
     type === 'socketEfapelIp65' ||
+    type === 'ceePlug16A' ||
     type === 'plcSiemensS7300Cpu315PnDp' ||
     type === 'plcSiemensS7300Sm321Di32' ||
     type === 'plcSiemensS7300Sm322Do32' ||
