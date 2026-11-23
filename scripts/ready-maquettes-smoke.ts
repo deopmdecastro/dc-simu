@@ -111,15 +111,15 @@ check('3. Bancada completa = base + 119 peças + QGD na adaptação fotográfica
   for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 168 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
+check('4. Inserção: 170 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 168, '168 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 168, '168 componentes no projeto')
+  assert.equal(created.length, 170, '170 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 170, '170 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
@@ -260,9 +260,9 @@ check('4. Inserção: 168 componentes (QGD na parede + bancada no centro da nave
 
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 168 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 170 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 168, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 170, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {
