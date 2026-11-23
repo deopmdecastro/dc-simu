@@ -23,9 +23,11 @@ export function useWireRouting(key: string, job: () => WireRoutingJob) {
   useEffect(() => {
     let active = true
     let worker: Worker | undefined
+    let watchdog: ReturnType<typeof setTimeout> | undefined
     // Não fazer setResult(null) aqui: evita overlay de loading e “piscar” dos cabos.
     const fail = (message: string) => {
       if (active) setResult({ key, error: message })
+      if (watchdog) clearTimeout(watchdog)
       worker?.terminate()
     }
     try {
@@ -37,8 +39,11 @@ export function useWireRouting(key: string, job: () => WireRoutingJob) {
         return
       }
       worker = createWireRoutingWorker()
+      // Watchdog: maquetes grandes no telemóvel não devem prender o editor indefinidamente.
+      watchdog = setTimeout(() => fail('Cálculo dos cabos excedeu o tempo limite'), 10000)
       worker.onmessage = (event: MessageEvent<WireRoutingReply>) => {
         if (!active) return
+        if (watchdog) clearTimeout(watchdog)
         if ('error' in event.data) fail(event.data.error)
         else {
           const paths = new Map(event.data.paths)
@@ -53,7 +58,7 @@ export function useWireRouting(key: string, job: () => WireRoutingJob) {
     } catch (error) {
       fail(error instanceof Error ? error.message : 'Falha no cálculo dos cabos')
     }
-    return () => { active = false; worker?.terminate() }
+    return () => { active = false; if (watchdog) clearTimeout(watchdog); worker?.terminate() }
   }, [key, attempt])
 
   // Preferir resultado da chave atual; senão o último bom (evita loading a cada re-key).
