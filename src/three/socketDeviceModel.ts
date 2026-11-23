@@ -160,8 +160,34 @@ function isolator(fascia:T.Group,x:number,y:number,z:number){
   const lock=ring(dial,4.5,2.5,4,[-21,0,23],red,'isolator-padlock-hole');lock.rotation.y=Math.PI/2
   label(root,7,6,[0,24,15.2],['0'],{bg:red,fg:'#eab3a4',name:'isolator-zero'});label(root,7,6,[22,0,15.2],['I'],{bg:red,fg:'#eab3a4',name:'isolator-one'})
 }
+/** Ficha CEE 16A 2P+T (macho) — corpo azul, pinos, bucim traseiro para cabo revestido. */
+function ceePlug(root:T.Group){
+  const d=SOCKET_DEVICES.ceePlug16A,back=-d.depth/2,front=back+d.caseDepth
+  // Corpo principal
+  box(root,d.width,d.height,d.caseDepth-8,[0,0,(back+front)/2],blue,6,'cee-plug-body')
+  // Anel / flange frontal
+  ring(root,26,18,4,[0,0,front-2],blue,'cee-plug-collar')
+  // Pinos macho (L, N, PE)
+  for(const [x,y,name] of [[-9,6,'pin-L'],[9,6,'pin-N'],[0,-11,'pin-PE']] as const){
+    const pin=mesh(root,new T.CylinderGeometry(2.2,2.2,14,16),metal(),[x,y,front+7],name)
+    pin.rotation.x=Math.PI/2
+  }
+  // Bucim / prensa-cabos traseiro (entrada do cabo revestido)
+  const gland=new T.Group();gland.name='auto-cable-gland';gland.position.set(0,0,back+4);root.add(gland)
+  for(const [z,r,h] of [[0,14,5],[6,12,8],[13,9,6]])mesh(gland,new T.CylinderGeometry(r,r,h,20),plastic('#b5b9b1'),[0,0,z])
+  const bore=ring(gland,7,4,2,[0,0,18],'#555e52','cable-gland-bore');bore.rotation.x=Math.PI/2
+  // Bornes internos L/N/PE (lado do cabo)
+  for(const [label,x,y] of [['L',-10,6],['N',10,6],['PE',0,-8]] as const){
+    const t=new T.Group();t.position.set(x,y,back+16);t.name=`socket-terminal-${label}`;root.add(t)
+    ring(t,3.2,2.1,2,[0,0,0],'#a1a38c')
+    const s=mesh(t,new T.CylinderGeometry(1.8,1.8,.7,16),metal(),[0,0,-2],'socket-terminal-screw');s.rotation.x=Math.PI/2
+  }
+  label(root,28,10,[0,18,front-6],['CEE 16A','2P+T IP44'],{bg:blue,fg:'#e2e8f0',name:'cee-plug-rating'})
+}
+
 export function createSocketDeviceObject(type:SocketDeviceType):T.Group{
   const root=new T.Group();root.name=`socket-product-${type}`;root.userData.socketDevice=type
+  if(type==='ceePlug16A'){ceePlug(root);return root}
   if(type==='socketEfapelIp65')efapel(root)
   else{
     const {fascia,front}=caseShell(root,type)
