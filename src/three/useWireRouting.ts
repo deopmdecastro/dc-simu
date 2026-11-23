@@ -67,8 +67,8 @@ export function useWireRouting(key: string, job: () => WireRoutingJob) {
       ? result.paths
       : lastGood.current?.paths
   const error = result?.key === key ? result.error : undefined
-  /** Só “a carregar” na 1.ª vez — nunca quando já há traçado em ecrã. */
-  const loading = !paths && !error
+  /** Só “a carregar” na 1.ª vez sem qualquer traçado — nunca quando já há cabos em ecrã. */
+  const loading = !paths && !error && !lastGood.current
 
   return {
     paths,
