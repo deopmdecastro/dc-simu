@@ -1,20 +1,27 @@
 import type { ComponentType } from '../types'
-export type SocketDeviceType = 'socketFamatelCombo' | 'socketFamatelSwitch' | 'socketEfapelIp65'
+export type SocketDeviceType = 'socketFamatelCombo' | 'socketFamatelSwitch' | 'socketEfapelIp65' | 'ceePlug16A'
 export const isSocketDevice = (type: string): type is SocketDeviceType =>
-  type === 'socketFamatelCombo' || type === 'socketFamatelSwitch' || type === 'socketEfapelIp65'
+  type === 'socketFamatelCombo' || type === 'socketFamatelSwitch' || type === 'socketEfapelIp65' || type === 'ceePlug16A'
 
 /** Cotas nominais em mm (largura/altura do corpo, sem orelhas ou bucim).
  * Caixas industriais estimadas pela fotografia; flange FAMATEL 75×85 e
- * EFAPEL 64×74×51,7 segundo fichas indicadas. */
+ * EFAPEL 64×74×51,7 segundo fichas indicadas.
+ * Ficha CEE 16A 2P+T: corpo ~52×52, comprimento com bucim ~85 mm. */
 export const SOCKET_DEVICES = {
   socketFamatelCombo: { width: 200, height: 150, depth: 128, caseDepth: 90, brand: 'FAMATEL', reference: '23331 (base CEE)', ip: 'IP44', source: 'https://famatel.com/wp-content/uploads/23230.pdf', estimatedEnvelope: true },
   socketFamatelSwitch: { width: 185, height: 115, depth: 112, caseDepth: 75, brand: 'RoadEu', reference: '70929', ip: 'IP44', source: 'https://roadeu.com/sklep/en/produkt/switched-16amp-socket-3p-230v-monophase-cee-socket-with-padlockable-power-isolator-ip44/', estimatedEnvelope: true },
   socketEfapelIp65: { width: 64, height: 74, depth: 51.7, caseDepth: 41.7, brand: 'EFAPEL', reference: '48132 C', ip: 'IP65', source: 'https://www.efapel.com/media/Aparelhagem-Estanque-624d711457614.pdf', estimatedEnvelope: false },
+  ceePlug16A: { width: 52, height: 52, depth: 85, caseDepth: 70, brand: 'CEE', reference: 'Plug 16A 2P+T 230V IP44', ip: 'IP44', source: '', estimatedEnvelope: true },
 } as const
 
 /** Bornes de cablagem sob a tampa de serviço, distintos dos alvéolos da ficha. */
 export function socketWiringPoint(type: SocketDeviceType, label: string): [number, number, number] {
   const d = SOCKET_DEVICES[type]
+  if (type === 'ceePlug16A') {
+    // Bornes no interior do corpo, lado do bucim (traseira da ficha)
+    const idx = label === 'L' ? -1 : label === 'N' ? 1 : 0
+    return [idx * 10, label === 'PE' ? -8 : 6, -d.depth / 2 + 18]
+  }
   const labels = type === 'socketFamatelCombo' ? ['L1', 'L2', 'L3', 'N', 'PE'] : ['L', 'N', 'PE']
   const index = Math.max(0, labels.indexOf(label))
   return [(index - (labels.length - 1) / 2) * (type === 'socketEfapelIp65' ? 12 : 15), type === 'socketEfapelIp65' ? -22 : 0, -d.depth / 2 + 20]
@@ -28,6 +35,12 @@ export const socketOutletLabels = (type: ComponentType) =>
 
 export function socketOutletPoint(type: SocketDeviceType, label: string): [number, number, number] {
   const d = SOCKET_DEVICES[type], front = -d.depth / 2 + d.caseDepth
+  if (type === 'ceePlug16A') {
+    // Pinos macho na face frontal da ficha
+    if (label === 'OUT.L' || label === 'L') return [-9, 6, front + 8]
+    if (label === 'OUT.N' || label === 'N') return [9, 6, front + 8]
+    return [0, -11, front + 8]
+  }
   if (type === 'socketEfapelIp65') return [label.endsWith('.L') ? -9.5 : label.endsWith('.N') ? 9.5 : 0, label.endsWith('.PE') ? 16 : -2, d.depth / 2 - (label.endsWith('.PE') ? 15 : 23)]
   if (label.startsWith('S.')) return [-49 + (label === 'S.L' ? -9.5 : label === 'S.N' ? 9.5 : 0), label === 'S.PE' ? 24 : 6, front + (label === 'S.PE' ? 19 : 11)]
   if (type === 'socketFamatelSwitch') return [-47 + (label === 'OUT.L' ? -9 : label === 'OUT.N' ? 9 : 0), -3 + (label === 'OUT.PE' ? -11 : 6), front + 17]
