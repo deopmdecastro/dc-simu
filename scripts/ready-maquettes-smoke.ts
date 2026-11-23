@@ -86,18 +86,16 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 117 peças + QGD na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 119 peças + QGD na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
   assert.equal(QGD_COUNT, 50, 'QGD: 3 sinalizadores monofásicos e porta-fusíveis 3P+N substituem o iIL 3P')
-  // 117 peças = bancada + QE1 (agora com calha e ilha S7-300: CPU 315-2 PN/DP, SM321 DI 32,
-  // SM322 DO 32 e SM334 AI/AO) + ambiente fabril. O 4.º módulo e a 3.ª calha DIN são a diferença
-  // para as 110 peças da versão anterior.
-  assert.equal(parts.length, 117, '117 peças: bancada (41) + QE1 com fonte, KS1, K1/K2, 3 calhas DIN, ilha S7-300 e bornes do guião (64) + ambiente fabril (12)')
-  assert.equal(full.componentCount, 168, '168 componentes no total (base + 117 + QGD 50)')
+  // 119 peças = bancada + QE1 (S7-300) + ambiente fabril + 2 fichas CEE (compressor e maquete).
+  assert.equal(parts.length, 119, '119 peças: bancada + QE1 + ambiente fabril + fichas CEE F-COMP e F-MAQ')
+  assert.equal(full.componentCount, 170, '170 componentes no total (base + 119 + QGD 50)')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
   // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
-  assert.equal(full.types.length, 59, 'os tipos do catálogo representados na bancada (base incluída; CPV10 substitui a ilha de válvulas; entram os 4 módulos S7-300)')
+  assert.equal(full.types.length, 60, 'tipos do catálogo na bancada (base + CPV10 + S7-300 + ceePlug16A)')
   assert.ok(!full.types.includes('mecWorkpiece' as any), 'o tarugo não é colocado sobre a base')
   assert.equal(MECHATRONICS_TYPES.length, 24, 'catálogo da maquete com 24 tipos (inclui o HZ20 e o CPV10)')
   const keys = new Set(parts.map((p) => p.key))
@@ -142,8 +140,8 @@ check('4. Inserção: 168 componentes (QGD na parede + bancada no centro da nave
   const bench = after.components.filter((c) => created.slice(QGD_COUNT + 1).includes(c.id))
   const expected = new Set(readyMaquetteParts('atec-estampagem', undefined, env).map((part) => positionKey(benchPartUnits(base, part))))
   const actual = bench.map((c) => positionKey(c.panel3DPosition!))
-  assert.equal(actual.length, 117)
-  assert.deepEqual(new Set(actual), expected, 'as 117 peças estão nas posições do relatório')
+  assert.equal(actual.length, 119)
+  assert.deepEqual(new Set(actual), expected, 'as 119 peças estão nas posições do relatório')
   for (const c of bench) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
   const refs = after.components.map((c) => c.ref)
   assert.equal(new Set(refs).size, refs.length, 'TAGs sem repetições entre o QGD (X1.x) e o QE1 (X20…X24)')
