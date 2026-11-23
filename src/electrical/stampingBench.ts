@@ -142,7 +142,7 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     { key: 'magazine', type: 'mecGravityMagazine', x: magX, y: top + magRiser.heightMm + h('mecGravityMagazine') / 2, z: pickup.z },
     { key: 'feeder', type: 'mecFeederCylinder', x: feederX, y: top + magRiser.heightMm + feederSize.y / 2, z: pickup.z, state: { labelText: 'CILINDRO 1', sensorRecLabel: 'B8', sensorAvaLabel: 'B9' } },
     // FC 1 ao centro do alojamento de recolha: corpo fora da guia, rolete a tocar no tarugo.
-    { key: 'fc1', type: 'mecMicroSwitchRoller', x: pickup.x, y: top + magRiser.heightMm + 8 + FC_ABOVE_SEAT_MM, z: pickup.z + FC_FROM_POCKET_MM, state: { actuation: 'feeder', labelText: 'FC 1' }, orientation: { x: 0, y: -90, z: 0 } },
+    { key: 'fc1', type: 'mecMicroSwitchRoller', x: pickup.x + 5, y: top + magRiser.heightMm + 8 + FC_ABOVE_SEAT_MM, z: pickup.z + FC_FROM_POCKET_MM - 10, state: { actuation: 'feeder', labelText: 'FC 1' }, orientation: { x: 0, y: -90, z: 0 } },
     { key: 'inductiveSensor', type: 'mecInductiveSensor', x: pickup.x, y: top + ARM_STATION_TOP_MM - piece.heightMm / 2, z: pickup.z - 45, state: { actuation: 'feeder', labelText: 'S. INDUTIVO' }, orientation: { x: 90, y: 0, z: 0 } },
     { key: 'inductiveRiser', type: 'mecAluProfile', x: pickup.x, y: top + (ARM_STATION_TOP_MM - piece.heightMm / 2 - 7) / 2, z: pickup.z - 53,
       state: { sectionMm: 30, lengthMm: ARM_STATION_TOP_MM - piece.heightMm / 2 - 7, labelText: 'S. INDUTIVO' } },
@@ -153,7 +153,7 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     // Manipulador rotativo BR1 (Cilindro 2 · B6/B7) + Motorredutor M1 com par cónico e encoder RT3806
     // Batentes 180°–360°: recolha → rampas → gaveta sem passar pelo lado do alimentador e da prensa.
     { key: 'arm', type: 'mecRotaryArm', x: A.x, y: top + h('mecRotaryArm') / 2, z: A.z, state: { rotationStops: [180, 360] } },
-    { key: 'motor', type: 'mecDcGearmotor', x: A.x - MEC_DIMS.gearmotor.wheelDiameterMm / 2 - mechatronicsSizeMm('mecDcGearmotor')!.x / 2 + 6, y: top + h('mecDcGearmotor') / 2, z: A.z },
+    { key: 'motor', type: 'mecDcGearmotor', x: A.x - MEC_DIMS.gearmotor.wheelDiameterMm / 2 - mechatronicsSizeMm('mecDcGearmotor')!.x / 2 + 6, y: top + h('mecDcGearmotor') / 2, z: A.z, orientation: { x: 0, y: 90, z: 0 } },
 
     // Estação de estampagem, orientada como o alimentador (movimento em X):
     // o braço deposita na gaveta FC 2 a 180°; o Cilindro 3 (à direita, haste para −X) empurra a gaveta
@@ -161,11 +161,11 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     // B2 (recuado) = gaveta no depósito · B1 (avançado) = gaveta sob o prato.
     { key: 'tableRiser', type: 'mecSupportBlock', x: load.x - drawerStroke / 2, y: top + tableRiser.heightMm / 2, z: load.z, state: tableRiser },
     { key: 'table', type: 'mecStampingTable', x: load.x, y: tableY, z: load.z, state: { labelText: 'FC 2', pocketShape: 'square', slideAxis: [-1, 0, 0], slideMm: 0 } },
-    { key: 'fc2', type: 'mecMicroSwitchRoller', x: load.x, y: top + tableTop + FC_ABOVE_SEAT_MM, z: load.z + FC_FROM_POCKET_MM,
+    { key: 'fc2', type: 'mecMicroSwitchRoller', x: load.x - 5, y: top + tableTop + FC_ABOVE_SEAT_MM, z: load.z + FC_FROM_POCKET_MM + 10,
       state: { actuation: 'drawer', labelText: 'FC 2', slideAxis: [0, 0, 1], slideMm: 0 }, orientation: { x: 0, y: -90, z: 0 } },
     { key: 'press', type: 'mecStampingPress', x: pressAt.x, y: top + h('mecStampingPress') / 2, z: pressAt.z, orientation: { x: 0, y: 90, z: 0 } },
     ...(drawerCylRiser.heightMm >= 4 ? [{ key: 'drawerCylRiser', type: 'mecSupportBlock' as ComponentType, x: drawerCylX + 43, y: top + drawerCylRiser.heightMm / 2, z: load.z, state: drawerCylRiser }] : []),
-    { key: 'drawerCylinder', type: 'mecDrawerCylinder', x: drawerCylX, y: tableY - 4, z: load.z, orientation: { x: 0, y: -90, z: 0 },
+    { key: 'drawerCylinder', type: 'mecDrawerCylinder', x: drawerCylX - 10, y: tableY - 4, z: load.z + 5, orientation: { x: 0, y: 90, z: 0 },
       state: { labelText: 'CILINDRO 3', sensorRecLabel: 'B2', sensorAvaLabel: 'B1' } },
     { key: 'chain', type: 'mecDragChain', x: load.x + 50, y: top + h('mecDragChain', { lengthMm: 120 }) / 2, z: load.z + 55, state: { lengthMm: 120 } },
 
@@ -303,13 +303,18 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   }
 
   // 3 Rampas de descarga em inox (BRANCA, PRETA, METALICA) sobre pilares de perfil 30 × 30
+  // Espaçamento uniforme: 20 mm entre rampas
   const rampPillars = [110, 95, 80]
   const rampLabels = ['METALICA', 'PRETA', 'BRANCA']
+  const rampSpacing = 20 // mm
   BENCH_RAMP_ANGLES.forEach((deg, i) => {
     const drop = at(deg)
+    // Ajustar o posicionamento para alinhar as rampas com espaçamento uniforme
+    // O cálculo de x e z deve considerar o espaçamento
+    const offset = (i - 1) * rampSpacing
     const state = { pillarMm: rampPillars[i], rampLabel: rampLabels[i], lengthMm: BENCH_RAMP_LENGTHS_MM[i] }
     const size = mechatronicsSizeMm('mecDischargeRamp', state)!
-    list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: drop.x + size.x / 2 - 22, y: top + size.y / 2, z: drop.z, state })
+    list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: drop.x + size.x / 2 - 22 + offset, y: top + size.y / 2, z: drop.z + offset, state })
   })
 
   // ---------------------------------------------------------------------------
