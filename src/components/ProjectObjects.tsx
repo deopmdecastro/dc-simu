@@ -4,7 +4,7 @@ import { ComponentThumb } from '../three/componentThumbnails'
 import { paletteDomains } from '../electrical/factory'
 import type { ComponentType, ElectricalComponent } from '../types'
 import ComponentTableDialog from './ComponentTableDialog'
-import { IconChevronUp, IconChevronDown, IconEye, IconEyeOff, IconFolder, IconLayers, IconLock, IconOpen, IconRotate, IconSearch, IconUnlock } from '../ui/icons'
+import { IconChevronUp, IconChevronDown, IconEye, IconEyeOff, IconFolder, IconLayers, IconLock, IconOpen, IconRotate, IconSearch, IconUnlock, IconDelete } from '../ui/icons'
 
 interface SubgroupNode {
   id: string
@@ -228,6 +228,7 @@ export default function ProjectObjects() {
         <button type="button" className="dc-btn-sm" disabled={!targets.length} title="Um passo para a frente" onClick={() => act('forward')}>+1</button>
         <button type="button" className="dc-btn-sm" disabled={!targets.length} title="Um passo para trás" onClick={() => act('backward')}>−1</button>
         <button type="button" className="dc-btn-sm" disabled={!targets.length} title="Enviar para trás (Ctrl+[)" onClick={() => act('back')}><IconChevronDown size={12} />Trás</button>
+        <button type="button" className="dc-btn-sm" disabled={!targets.length} title="Apagar componentes selecionados (Del)" onClick={() => useSimStore.getState().deleteSelection()} style={{ color: '#dc3545', borderColor: '#dc3545' }}><IconDelete size={12} />Apagar</button>
         {tree.length > 0 && (
           <button type="button" className="dc-btn-sm" style={{ marginLeft: 'auto' }} onClick={collapsed.size > 0 ? expandAll : collapseAll} title={collapsed.size > 0 ? 'Expandir árvore' : 'Recolher árvore'}>
             {collapsed.size > 0 ? 'Expandir' : 'Recolher'}
