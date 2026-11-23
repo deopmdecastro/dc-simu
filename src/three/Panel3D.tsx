@@ -84,7 +84,7 @@ import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematic
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalMarkerRadius, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
-import { floorGridVisible, wireEnergyEffectVisible } from './panel3DEditing'
+import { floorGridVisible, wireEnergyEffectVisible, wireFluidEffectVisible } from './panel3DEditing'
 import { registerCoverCapture, setCoverWiresReady } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
 import { OrientedWireBox } from './solidWireRouting'
@@ -2586,7 +2586,14 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const selected = wire.id === selectedWireId
     const outerDiameterMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
-    const flowing = wireEnergyEffectVisible(runState, wire.energized, wire.carryingCurrent)
+    const electricFlowing = wireEnergyEffectVisible(runState, wire.energized, wire.carryingCurrent)
+    const fluidFlowing = wireFluidEffectVisible(runState, wire.kind, {
+      pneumaticPressureBar: wire.pneumaticPressureBar,
+      hydraulicPressureBar: wire.hydraulicPressureBar,
+      energized: wire.energized,
+    })
+    const flowing = electricFlowing || fluidFlowing
+    const flowVariant = wire.kind === 'pneumatic' ? 'air' as const : wire.kind === 'hydraulic' ? 'water' as const : 'electric' as const
     const wireColor = WIRE_3D_COLORS[wire.color] ?? '#3b82f6'
     const heatLevel = wire.heatLevel ?? 0
     const isBurnt = !!wire.burnt
@@ -2677,7 +2684,15 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
       })}
       {/* Anilhas clip-on encaixáveis 3D (código internacional de cores IEC 60062 e letras CAB3/WIC) */}
       {wire.markers && wire.markers.length > 0 && <WireMarkers3D markers={wire.markers} curve={curve} wireRadius={radius} />}
-      {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wire.kind === 'hydraulic' ? '#38bdf8' : wireColor} />}
+      {flowing && (
+        <NeonCurrent3D
+          curve={curve}
+          segments={segments}
+          radius={radius}
+          color={flowVariant === 'water' ? '#38bdf8' : flowVariant === 'air' ? '#e0f2fe' : wireColor}
+          variant={flowVariant}
+        />
+      )}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         snap={snapWaypointFor(storedWire, index, baseFrom.position, baseTo.position)}
         onSelect={handlers.onSelectWaypoint}
