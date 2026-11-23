@@ -197,16 +197,20 @@ export function getSharedWireMaterial(opts: WireMaterialKeyOpts): THREE.MeshPhys
     ? '#ff3b00'
     : kind === 'hydraulic' && opts.flowing
       ? '#0284c7'
-      : opts.flowing
-        ? opts.color
-        : '#000000'
+      : kind === 'pneumatic' && opts.flowing
+        ? '#bae6fd'
+        : opts.flowing
+          ? opts.color
+          : '#000000'
   const emissiveIntensity = isHot
     ? Math.min(2.5, (heatBucket / 20) * 2.2)
     : kind === 'hydraulic' && opts.flowing
       ? 0.32
-      : opts.flowing
-        ? 0.07
-        : 0
+      : kind === 'pneumatic' && opts.flowing
+        ? 0.18
+        : opts.flowing
+          ? 0.07
+          : 0
 
   const mat = new THREE.MeshPhysicalMaterial({
     color: displayColor,
