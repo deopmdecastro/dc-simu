@@ -220,11 +220,11 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   })
 
   // ---------------------------------------------------------------------------
-  // QE1 · quadro de campo sob a mesa, lado esquerdo (porta aberta para fora):
-  // calhas técnicas, 2 calhas DIN, fonte 24 V, relé de segurança KS1 e relés de
-  // interface K1–K6 e réguas de bornes. Bucins à esquerda (campo) e em cima (QGD).
-  // Dobradiça à esquerda (lado de fora da mesa) → a folha roda para a esquerda, para fora da mesa,
-  // sem bater nas pernas nem no tampo.
+  // QE1 · quadro de campo de pé na LATERAL ESQUERDA da mesa (fora do tampo, sobre plinto), à frente
+  // do suporte do FRL: calhas técnicas, 3 calhas DIN, fonte 24 V, relé de segurança KS1, relés K1/K2,
+  // ilha S7-300 e réguas de bornes. O lado direito fica livre para a HMI (ecrã virado para fora).
+  // Bucins na face virada para a mesa (chegada do campo) e no topo (ficha F-MAQ).
+  // Dobradiça do lado de fora → a folha roda para longe da mesa, sem bater nas pernas.
   // ---------------------------------------------------------------------------
   if (plate.legs) {
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
@@ -233,38 +233,50 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     const cabinetH = Math.min(660, leg - 90)
     if (cabinetH >= 420) {
       const cab = { w: 560, h: cabinetH, d: 220 }
-      const cabinetY = -55 - cab.h / 2
-      const cabinetZ = -plate.widthMm / 2 + 145
-      // Lado esquerdo da mesa (folga ~50 mm da borda); dobradiça à esquerda → porta abre para fora.
-      const cabinetX = -plate.lengthMm / 2 + cab.w / 2 + 50
+      // Topo 85 mm abaixo do tampo: deixa passar por cima o cabo da ficha F-MAQ até ao bucim de topo.
+      const cabinetY = -85 - cab.h / 2
+      // À frente do suporte do FRL (pé traseiro esquerdo) e fora da projeção do tampo.
+      const cabinetZ = 40
+      // Lado da mesa onde fica o QE1 (−1 esquerda): 60 mm de folga entre a borda do tampo e a ilharga.
+      const qeSide = -1
+      const cabinetX = qeSide * (plate.lengthMm / 2 + 60 + cab.w / 2)
+      const towardTable = qeSide < 0 ? 'right' : 'left'
+      const floorY = -top - leg
+      const plinthH = Math.max(0, Math.round(cabinetY - cab.h / 2 - floorY))
       list.push({
         key: 'cabinet', type: 'panelEnclosure', x: cabinetX, y: cabinetY, z: cabinetZ,
         state: {
           hostLocation: 'machine', widthMm: cab.w, heightMm: cab.h, depthMm: cab.d,
-          doorOpen: true, hingeSide: 'left', plateFinish: 'Aço galvanizado',
+          doorOpen: true, hingeSide: qeSide < 0 ? 'left' : 'right', plateFinish: 'Aço galvanizado',
           labelText: 'QE1 · CAMPO ESTAMPAGEM',
           holes: [
-            { id: 'field-entry-left', face: 'left', offsetXmm: 40, offsetYmm: -150, diameterMm: 32, glandType: 'M32' },
-            { id: 'field-entry-left-2', face: 'left', offsetXmm: -40, offsetYmm: -150, diameterMm: 25, glandType: 'M25' },
+            // IDs históricos («-left») mantidos; a face é a que está virada para a mesa.
+            { id: 'field-entry-left', face: towardTable, offsetXmm: 40, offsetYmm: -150, diameterMm: 32, glandType: 'M32' },
+            { id: 'field-entry-left-2', face: towardTable, offsetXmm: -40, offsetYmm: -150, diameterMm: 25, glandType: 'M25' },
             { id: 'supply-top', face: 'top', offsetXmm: 150, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
           ],
         },
+      })
+      // Plinto: o quadro assenta no chão ao lado da mesa (não fica pendurado nem por baixo do tampo).
+      if (plinthH >= 4) list.push({
+        key: 'cabinetPlinth', type: 'mecSupportBlock', x: cabinetX, y: floorY + plinthH / 2, z: cabinetZ,
+        state: { lengthMm: cab.w, heightMm: plinthH, depthMm: cab.d, labelText: 'PLINTO QE1' },
       })
       for (const [key, y] of [['upper', -75], ['lower', -35 - cab.h]] as const) list.push({
         key: `cabinet-rail-${key}`, type: 'mecAluProfile', x: 0, y, z: cabinetZ - 120,
         state: { sectionMm: 40, lengthMm: plate.lengthMm - 90, orientation: 'horizontal', endCaps: true, brackets: true },
       })
-      // Descida dos cabos de campo pela perna traseira esquerda até aos bucins laterais.
-      const dropX = -plate.lengthMm / 2 + 40
-      const cabLeft = cabinetX - cab.w / 2
+      // Descida dos cabos de campo junto à borda do lado do QE1 até ao bucim da face virada para a mesa.
+      const dropX = qeSide * (plate.lengthMm / 2 - 40)
+      const cabFace = cabinetX - qeSide * cab.w / 2 // face do QE1 virada para a mesa
       list.push({
         key: 'ductDrop', type: 'mecBenchDuct', x: dropX, y: (20 + cabinetY - 150) / 2, z: cabinetZ + 30,
         state: { lengthMm: Math.round(20 - cabinetY + 150), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO → QE1' },
         orientation: { x: 0, y: 0, z: 90 },
       })
       list.push({
-        key: 'ductUnder', type: 'mecBenchDuct', x: (dropX + cabLeft) / 2, y: cabinetY - 150, z: cabinetZ + 30,
-        state: { lengthMm: Math.round(Math.abs(cabLeft - dropX)), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO' },
+        key: 'ductUnder', type: 'mecBenchDuct', x: (dropX + cabFace) / 2, y: cabinetY - 150, z: cabinetZ + 30,
+        state: { lengthMm: Math.round(Math.abs(cabFace - dropX)), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO' },
       })
       // Placa de montagem: a 14 mm da traseira; calha DIN 7,5 mm; aparelhos encostados à calha.
       const plateFront = cabinetZ - cab.d / 2 + 14

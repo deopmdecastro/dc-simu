@@ -5,7 +5,7 @@ import { chromium } from 'playwright'
 /** Isolated real React UI, Vite modules, and zero external requests. */
 export async function browserFixture({ baseURL = 'http://127.0.0.1:5173', output, height = 900 } = {}) {
   if (output) await mkdir(output, { recursive: true })
-  const browser = await chromium.launch({ args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
+  const browser = await chromium.launch({ ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}), args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
   const context = await browser.newContext({ viewport: { width: 1440, height }, serviceWorkers: 'block' })
   const origin = new URL(baseURL).origin
   await context.route('**/*', route => {

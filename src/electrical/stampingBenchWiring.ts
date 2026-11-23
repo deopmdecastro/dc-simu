@@ -140,6 +140,100 @@ function sizeOfMm(type: ComponentType, state?: Record<string, unknown>): BenchPo
 }
 
 /**
+ * Planeador 2D (x, z) rente ao tampo da bancada. Grelha de 10 mm com as pegadas (folga de 8 mm) dos
+ * aparelhos assentes na base; A* ortogonal com penalização de curvas. Assim o cabo de campo desce ao
+ * lado do aparelho e segue pelos corredores livres até à calha perimetral, como numa bancada real —
+ * em vez de atravessar o tampo ou as bases dos outros aparelhos.
+ */
+function benchPlateRouter(parts: BenchPlacement[], plate: { lengthMm: number; widthMm: number }, top: number) {
+  const STEP = 10, MARGIN = 8
+  const hx = plate.lengthMm / 2 - 20, hz = plate.widthMm / 2 - 20
+  const nx = Math.floor((2 * hx) / STEP) + 1, nz = Math.floor((2 * hz) / STEP) + 1
+  const cx = (i: number) => -hx + i * STEP, cz = (k: number) => -hz + k * STEP
+  const blocked = new Uint8Array(nx * nz)
+  for (const p of parts) {
+    if (p.type === 'mecBenchDuct' || p.key.startsWith('operator-')) continue
+    if (p.key.startsWith('cabinet') || p.key.startsWith('terminals-') || p.key.startsWith('relay-')) continue
+    const s = sizeOfMm(p.type, p.state)
+    if (!s.y) continue
+    // Só o que assenta no tampo (ou num calço que assenta nele) ocupa o corredor rente à base.
+    if (p.y - s.y / 2 > top + 40 || p.y + s.y / 2 < top) continue
+    const swap = Math.abs(Math.abs(p.orientation?.y ?? 0) - 90) < 1
+    const sx = (swap ? s.z : s.x) / 2 + MARGIN, sz = (swap ? s.x : s.z) / 2 + MARGIN
+    for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
+      if (Math.abs(cx(i) - p.x) <= sx && Math.abs(cz(k) - p.z) <= sz) blocked[i * nz + k] = 1
+    }
+  }
+  const cellOf = (x: number, z: number) => [
+    Math.max(0, Math.min(nx - 1, Math.round((x + hx) / STEP))),
+    Math.max(0, Math.min(nz - 1, Math.round((z + hz) / STEP))),
+  ] as const
+  /** Célula livre mais próxima (BFS), para sair da pegada do próprio aparelho. */
+  const nearestFree = (i0: number, k0: number) => {
+    if (!blocked[i0 * nz + k0]) return [i0, k0] as const
+    const seen = new Uint8Array(nx * nz), q: number[] = [i0 * nz + k0]
+    seen[i0 * nz + k0] = 1
+    for (let h = 0; h < q.length; h++) {
+      const c = q[h], i = Math.floor(c / nz), k = c % nz
+      if (!blocked[c]) return [i, k] as const
+      for (const [di, dk] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const a = i + di, b = k + dk
+        if (a < 0 || b < 0 || a >= nx || b >= nz || seen[a * nz + b]) continue
+        seen[a * nz + b] = 1; q.push(a * nz + b)
+      }
+    }
+    return [i0, k0] as const
+  }
+  return {
+    /** Percurso (x, z) de `from` até `to`, só com os cantos. `null` se não houver corredor livre. */
+    route(from: { x: number; z: number }, to: { x: number; z: number }): Array<{ x: number; z: number }> | null {
+      const [si, sk] = nearestFree(...cellOf(from.x, from.z))
+      const [gi, gk] = nearestFree(...cellOf(to.x, to.z))
+      const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const
+      const N = nx * nz * 4
+      const cost = new Float64Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1)
+      // Fila de prioridade simples (heap binário) sobre o estado (célula, direção).
+      const heap: Array<[number, number]> = []
+      const push = (f: number, s: number) => {
+        heap.push([f, s]); let i = heap.length - 1
+        while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p }
+      }
+      const pop = () => {
+        const top0 = heap[0], last = heap.pop()!
+        if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m } }
+        return top0
+      }
+      const hCost = (i: number, k: number) => Math.abs(i - gi) + Math.abs(k - gk)
+      for (let d = 0; d < 4; d++) { const s = (si * nz + sk) * 4 + d; cost[s] = 0; push(hCost(si, sk), s) }
+      let goal = -1
+      while (heap.length) {
+        const [, s] = pop()
+        const c = s >> 2, d = s & 3, i = Math.floor(c / nz), k = c % nz
+        if (i === gi && k === gk) { goal = s; break }
+        for (let nd = 0; nd < 4; nd++) {
+          const a = i + DIRS[nd][0], b = k + DIRS[nd][1]
+          if (a < 0 || b < 0 || a >= nx || b >= nz || blocked[a * nz + b]) continue
+          const ns = (a * nz + b) * 4 + nd
+          const g = cost[s] + 1 + (nd === d ? 0 : 6)
+          if (g < cost[ns]) { cost[ns] = g; prev[ns] = s; push(g + hCost(a, b), ns) }
+        }
+      }
+      if (goal < 0) return null
+      const cells: Array<[number, number]> = []
+      for (let s = goal; s >= 0; s = prev[s]) cells.push([Math.floor((s >> 2) / nz), (s >> 2) % nz])
+      cells.reverse()
+      const out: Array<{ x: number; z: number }> = []
+      cells.forEach(([i, k], n) => {
+        const isCorner = n === 0 || n === cells.length - 1
+          || (cells[n - 1][0] !== cells[n + 1][0] && cells[n - 1][1] !== cells[n + 1][1])
+        if (isCorner) out.push({ x: cx(i), z: cz(k) })
+      })
+      return out
+    },
+  }
+}
+
+/**
  * Operadores da caixa de comando: os bornes ficam no bloco de contactos, atrás (dentro da caixa),
  * e não na face do botão. Aplicado por componente ao montar a maquete e usado no percurso dos cabos.
  */
@@ -230,7 +324,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         const dk = (k - 1) * 4
         // O bucim de saída do QGD é o TOPO da subida: os condutores têm de sair na vertical dela,
         // senão o cabo aparece a atravessar o ar entre o quadro e a esteira.
-        const lx = riserAxisX + dk * 1.5
+        // Bucim M25 declarado no topo do QGD (`qgd-out-bench` +60 mm / `qgd-out-compressor` −60 mm).
+        const lx = riserAxisX + glandDx + dk * 1.5
         // Pista dentro da subida (200 mm de largura): os três condutores separados, nunca sobrepostos.
         const laneX = riserAxisX + dk * 1.5
         const pts = [
@@ -305,8 +400,17 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     const zDrop = ductDrop.z
     const yUnder = ductUnder.y
     const ductInZ = ductBottom.z
+    // Lado da mesa onde está o QE1 (+1 direita, −1 esquerda): a descida de campo usa a perna desse lado.
+    const qeSide = cabinet.x >= 0 ? 1 : -1
+    const xq = qeSide > 0 ? xr : xl
+    const xo = qeSide > 0 ? xl : xr
+    /** Aresta exterior da mesa do lado do QE1 (por onde os cabos saem da calha e descem). */
+    const edgeOut = (lane: number) => qeSide * (L / 2 + 14) + lane * 0.3
+    // Face do QE1 virada para a mesa (bucins de campo) e sentido para dentro do quadro.
+    const cabFace = cabinet.x - qeSide * cabW / 2
+    const inward = qeSide
 
-    /** Percurso pelas calhas perimetrais até ao canto da descida (lado esquerdo, junto à traseira). */
+    /** Percurso pelas calhas perimetrais até ao canto da descida (lado do QE1, junto à traseira). */
     const perimeterTo = (from: BenchPointMm, j: number, allowFront = true, prefer?: 'back'): BenchPointMm[] => {
       // Grelha de 7 × 7 pistas dentro da calha (34 × 42 mm): nenhum cabo fica sobreposto a outro.
       const dl = ((j % 7) - 3) * 3.2
@@ -319,14 +423,16 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       ].filter((c) => (allowFront || c.side !== 'front') && (!prefer || c.side === prefer)).sort((a, b) => a.d - b.d)
       const entry = candidates[0]
       const out: BenchPointMm[] = [entry.p]
-      if (entry.side === 'front') out.push(pt(xl + dl, y, zf + dl))
-      if (entry.side === 'right') out.push(pt(xr + dl, y, zb + dl), pt(xl + dl, y, zb + dl))
-      if (entry.side === 'back') out.push(pt(xl + dl, y, zb + dl))
-      out.push(pt(xl + dl, y, zDrop + dl))
+      const farSide = qeSide > 0 ? 'left' : 'right'
+      if (entry.side === 'front') out.push(pt(xq + dl, y, zf + dl))
+      if (entry.side === farSide) out.push(pt(xo + dl, y, zb + dl), pt(xq + dl, y, zb + dl))
+      if (entry.side === 'back') out.push(pt(xq + dl, y, zb + dl))
+      out.push(pt(xq + dl, y, zDrop + dl))
       return out
     }
 
-    const ductMid = get('cabinet-duct-mid')
+    // Calhas técnicas entre filas: A|B (fonte/relés ↔ réguas) e B|C (réguas ↔ ilha S7-300).
+    const ductMid = get('cabinet-duct-midAB')
     const ductMidBC = get('cabinet-duct-midBC')
     const ductTop = get('cabinet-duct-top')
     // Ilha S7-300 (fila C) e fonte/segurança (fila A) — ver `stampingBench.ts`.
@@ -342,16 +448,47 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const z = ductInZ + lane * 0.5
       if (rail === 'A' && ductMid) {
         return [
-          pt(cabLeft + 14 + lane * 0.3, yUnder, z),
-          pt(cabLeft + 14 + lane * 0.3, ductMid.y + lane * 0.4, z),
+          pt(cabFace + inward * (14 + lane * 0.3), yUnder, z),
+          pt(cabFace + inward * (14 + lane * 0.3), ductMid.y + lane * 0.4, z),
           pt(term.x, ductMid.y + lane * 0.4, z),
           pt(term.x, railBottom(term) - 14, ductInZ),
         ]
       }
+      // Calha B (réguas X21–X24): sobe junto à face de entrada (lado livre da ilha S7-300) até à calha
+      // entre as filas B e C e só aí corre até à régua — nunca atravessa os módulos do autómato.
+      const lowDuct = ductMidBC ?? ductBottom
       return [
-        pt(cabLeft + 30, ductBottom.y + lane * 0.4, z),
-        pt(term.x, ductBottom.y + lane * 0.4, z),
+        pt(cabFace + inward * (14 + lane * 0.3), yUnder, z),
+        pt(cabFace + inward * (14 + lane * 0.3), lowDuct.y + lane * 0.4, z),
+        pt(term.x, lowDuct.y + lane * 0.4, z),
         pt(term.x, railBottom(term) - 14, ductInZ),
+      ]
+    }
+
+    const plateRouter = benchPlateRouter(parts, plate, top)
+    /**
+     * Perna rente ao tampo: sai do borne para o corredor livre mais próximo, desce até ao tampo e segue
+     * pelos corredores entre aparelhos até à boca da calha perimetral. Operadores (caixa de botões) e
+     * casos sem corredor livre mantêm a perna ortogonal simples.
+     */
+    const plateLeg = (exit: BenchPointMm, first: BenchPointMm, clearX: number, clearZ: number, travelY: number, isOperator: boolean, lane: number): BenchPointMm[] => {
+      const simple = [
+        pt(clearX, exit.y, exit.z),
+        pt(clearX, travelY, exit.z),
+        pt(clearX, travelY, clearZ),
+        pt(first.x, travelY, clearZ),
+        pt(first.x, travelY, first.z),
+      ]
+      if (isOperator) return simple
+      const corridor = plateRouter.route({ x: exit.x, z: exit.z }, { x: first.x, z: first.z })
+      if (!corridor || !corridor.length) return simple
+      // Pista ligeiramente desfasada por cabo: o chicote fica penteado no mesmo corredor.
+      const off = lane * 0.4
+      const start = corridor[0]
+      return [
+        pt(start.x + off, exit.y, start.z + off),
+        ...corridor.map((c) => pt(c.x + off, travelY, c.z + off)),
+        pt(first.x, travelY, first.z),
       ]
     }
 
@@ -374,7 +511,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       // Os aparelhos assentam na base: para não os atravessar, o cabo desce ABAIXO do tampo
       // (y = top − 120) e corre nessa cota até ao eixo da calha vertical, subindo aí à boca da
       // calha. É o que acontece na bancada real: o cabo sai do aparelho, desce e entra na calha.
-      const travelY = isOperator ? top + 24 : top - 120
+      // Rente ao tampo (nas ranhuras do perfil) até à calha perimetral — nunca através do tampo.
+      const travelY = isOperator ? top + 24 : top + 6
       // A calha frontal fica para a caixa de botões; sensores e válvulas descem para a traseira/laterais.
       const path = perimeterTo(exit, j, isOperator, lowRun ? 'back' : undefined)
       const first = path[0]
@@ -398,22 +536,16 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         bundleId: isOperator ? 'mq-campo-operadores' : 'mq-campo',
         waypointsMm: clean([
           exit,
-          // Sai do borne PARA FORA do aparelho, desce ao lado dele até à cota da calha e só então
-          // corre para o eixo da calha: nunca corta pelo ar em diagonal nem atravessa a peça.
-          pt(clearX, exit.y, exit.z),
-          pt(clearX, travelY, exit.z),
-          pt(clearX, travelY, clearZ),
-          pt(first.x, travelY, clearZ),
-          pt(first.x, travelY, first.z),
+          ...plateLeg(exit, first, clearX, clearZ, travelY, isOperator, lane),
           ...path,
           // Sai por cima da borda esquerda da base, desce por fora e entra na calha da perna por baixo do tampo.
-          pt(-L / 2 - 14 + lane * 0.3, path[path.length - 1].y, zDrop + lane),
-          pt(-L / 2 - 14 + lane * 0.3, -top - 24, zDrop + lane),
+          pt(edgeOut(lane), path[path.length - 1].y, zDrop + lane),
+          pt(edgeOut(lane), -top - 24, zDrop + lane),
           pt(ductDrop.x + lane * 0.5, -top - 24, zDrop + lane),
           pt(ductDrop.x + lane * 0.5, yUnder + lane * 0.4, zDrop + lane),
-          pt(cabLeft - 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
+          pt(cabFace - inward * 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
           // Entrada pelo bucim lateral do QE1 → calha técnica interior.
-          pt(cabLeft + 8, yUnder, zDrop),
+          pt(cabFace + inward * 8, yUnder, zDrop),
           ...insideTo(term, lane),
         ]),
       })
@@ -580,11 +712,12 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           pt(exit.x, top + 30, exit.z),
           pt(path[0].x, top + 30, path[0].z),
           ...path,
-          pt(-plate.lengthMm / 2 - 14 + lane * 0.3, -top - 24, zDrop + lane),
+          pt(edgeOut(lane), path[path.length - 1].y, zDrop + lane),
+          pt(edgeOut(lane), -top - 24, zDrop + lane),
           pt(ductDrop.x + lane * 0.5, -top - 24, zDrop + lane),
           pt(ductDrop.x + lane * 0.5, yUnder + lane * 0.4, zDrop + lane),
-          pt(cabLeft - 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
-          pt(cabLeft + 8, yUnder, zDrop),
+          pt(cabFace - inward * 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
+          pt(cabFace + inward * 8, yUnder, zDrop),
           ...insideTo(b, lane),
         ]),
       })
@@ -731,6 +864,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const benchDropZ = benchDrop ? benchDrop.z : 0
       const backZ = -plate.widthMm / 2 + 28
       const leftX = -plate.lengthMm / 2 + 24
+      // Fora da borda esquerda do tampo e à frente do conjunto FRL + suporte (que fica no pé traseiro).
+      const outsideX = -plate.lengthMm / 2 - 22
+      const frlBracketPart = get('frlBracket')
+      const frontOfFrlZ = Math.max(inn.p.z, frlBracketPart ? frlBracketPart.z : inn.p.z) + 95
       airTube('ar-cmp-frl', 'AR 1', 'PU Ø10 · COMPRESSOR → FRL (entrada de ar)',
         { key: 'compressor', label: 'OUT' }, { key: 'airTreatment', label: 'IN' },
         [
@@ -752,11 +889,14 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           pt(benchDropX + 20, -top + 50, benchDropZ + 18),
           pt(benchDropX + 20, -top + 50, backZ),
           pt(leftX, -top + 50, backZ),
-          // Cota do FRL e curva para a entrada IN.
-          pt(leftX, inn.p.y + 20, backZ),
-          pt(leftX, inn.p.y, inn.p.z + 40),
-          pt(inn.p.x + 24, inn.p.y, inn.p.z + 40),
-          pt(inn.p.x + 24, inn.p.y, inn.p.z + 8),
+          // Sai por cima da borda esquerda e desce POR FORA do tampo, à frente do suporte do FRL
+          // (antes descia através do tampo e do suporte).
+          pt(outsideX, -top + 50, backZ),
+          pt(outsideX, -top + 50, frontOfFrlZ),
+          pt(outsideX, inn.p.y, frontOfFrlZ),
+          // Entrada IN pelo lado da sua normal (antes chegava pelo lado oposto, através do FRL).
+          pt(inn.p.x + inn.n.x * 40, inn.p.y, frontOfFrlZ),
+          pt(inn.p.x + inn.n.x * 40, inn.p.y, inn.p.z + inn.n.z * 40),
         ], 10)
     }
 
@@ -768,9 +908,13 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       airTube('ar-frl-cpv', 'AR 2', 'PU Ø8 · FRL → CPV10 P (alimentação de ar)',
         { key: 'airTreatment', label: 'OUT' }, { key: 'valveTerminal', label: 'P' },
         [
-          pt(out.p.x + 40, out.p.y, out.p.z),
-          pt(out.p.x + 40, out.p.y, zRun),
-          pt(pIn.p.x - 24, out.p.y, zRun),
+          // Sai da OUT, vem para a frente do FRL, passa para fora da borda esquerda e só sobe por fora
+          // do tampo — antes subia através da base até ao P do CPV10.
+          pt(out.p.x + out.n.x * 30, out.p.y, out.p.z + out.n.z * 30),
+          pt(out.p.x + out.n.x * 30, out.p.y, zRun),
+          pt(-plate.lengthMm / 2 - 22, out.p.y, zRun),
+          pt(-plate.lengthMm / 2 - 22, top + 18, zRun),
+          pt(pIn.p.x - 24, top + 18, zRun),
           pt(pIn.p.x - 24, pIn.p.y, zRun),
         ], 8)
     }
@@ -857,6 +1001,33 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           ]),
         })
       }
+      // Lado do quadro: o cabo revestido da ficha desce por TRÁS da mesa (nunca atravessa o tampo),
+      // corre por baixo do tampo até ao QE1 e entra pelo bucim M25 do topo («supply-top»).
+      const cabH = Number(cabinet.state?.heightMm) || 660
+      const cabTopY = cabinet.y + cabH / 2
+      const glandTop = pt(cabinet.x + 150, cabTopY, cabinet.z)
+      const behindZ = -W / 2 - 40
+      // O pilar IPE fica colado à traseira da mesa (~12 mm): a descida faz-se ao lado do pilar, do lado
+      // do QE1, e só depois o cabo passa para trás da mesa.
+      const pillar = get('pillar-bench')
+      // Lado direito do pilar: o esquerdo tem a prensa por baixo da tomada.
+      const besideX = (pillar ? pillar.x : plugMaq.x) + 150
+      // Corre por baixo do tampo (acima da travessa traseira) até ao QE1 e entra na vertical pelo bucim.
+      const runY = -top - 28
+      const supplyToGland = (lane: number): BenchPointMm[] => [
+        // Curva larga à saída do bucim e desce abaixo da tomada (sem tocar no corpo da XS-MAQ).
+        pt(plugMaq.x + lane, plugGland.y - 20, plugGland.z + 22),
+        pt(plugMaq.x + lane, xsMaq.y - 95, plugGland.z + 22),
+        pt(besideX + lane, xsMaq.y - 95, plugGland.z + 22),
+        pt(besideX + lane, xsMaq.y - 95, behindZ + lane),
+        pt(besideX + lane, runY, behindZ + lane),
+        pt(besideX + lane, runY, glandTop.z + lane),
+        pt(glandTop.x + lane * 0.5, runY, glandTop.z + lane),
+        // Entra na vertical pelo bucim M25 do topo e só dentro do quadro segue para a calha técnica.
+        pt(glandTop.x + lane * 0.5, cabTopY + 6, glandTop.z),
+        pt(glandTop.x + lane * 0.5, cabTopY - 30, glandTop.z),
+        pt(glandTop.x + lane * 0.5, ductTop ? ductTop.y : cabTopY - 40, ductInZ + lane),
+      ]
       // Lado do quadro: sai pelo bucim da ficha → sobe à calha técnica → bornes L/N/PE.
       // Cabo revestido (sheathed) + filaçado no chicote qe1-alimentacao-plc.
       const plugGland = pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 40)
@@ -875,10 +1046,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           bundleId: 'qe1-alimentacao-plc',
           waypointsMm: clean([
             plugGland,
-            // Sobe junto ao pilar / descida da esteira até à cota da calha do QE1.
-            pt(xsMaq.x + lane, xsMaq.y + 45, ductInZ + lane),
-            pt(ps1.x + (psLabel === 'L' ? -6 : 6), xsMaq.y + 45, ductInZ + lane),
-            // Corre dentro da calha técnica até à fonte.
+            ...supplyToGland(lane),
+            // Corre dentro da calha técnica do topo até à fonte.
             pt(ps1.x + (psLabel === 'L' ? -6 : 6), ductTop ? ductTop.y : ps1.y + 40, ductInZ + lane),
             pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 18, ductInZ),
             pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 6, ductInZ),
@@ -897,7 +1066,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         bundleId: 'qe1-alimentacao-plc',
         waypointsMm: clean([
           plugGland,
-          pt(xsMaq.x, xsMaq.y + 40, ductInZ),
+          ...supplyToGland(0),
           pt(x20bus.x, ductTop ? ductTop.y : x20bus.y + 40, ductInZ),
           pt(x20bus.x, railBottom(x20bus) - 12, ductInZ),
         ]),

@@ -3167,8 +3167,11 @@ export const useSimStore = create<Store>((set, get) => {
           if (owner && topDuct) {
             const tp = componentPanelXY(topDuct)
             const tOwner = componentPanelXY(owner)
-            // Bucim: na vertical do borne, acima da calha do topo.
-            const glandQgd = { x: tOwner.x, y: tp.y + componentHalfExtents(topDuct).y + 0.12, z: 0 }
+            // Bucim: o mesmo do troço da bancada (1.º ponto), acima da calha do topo — a rota interior
+            // corre na calha do topo até ele e sai na vertical (antes saía na vertical do borne a z = 0
+            // e ligava em diagonal ao bucim, fora do furo).
+            void tOwner
+            const glandQgd = { x: points[0].x, y: tp.y + componentHalfExtents(topDuct).y + 0.12, z: points[0].z }
             const inner = wallPanelExitRoute(wallPanel.components, owner, glandQgd, lane)
             if (inner.length) {
               // Transpõe para o sistema da bancada: o bucim tem de cair no 1.º ponto do troço da
@@ -3177,13 +3180,7 @@ export const useSimStore = create<Store>((set, get) => {
               // montado no esquema a y≈5.3) e o troço da bancada vem em mm do layout da mesa.
               // Em vez de transpor (o que punha o QGD no sítio da mesa), a rota interior sobe em
               // coluna desde o borne até à cota do bucim da bancada e aí liga ao troço da mesa.
-              const topOfInner = inner[inner.length - 1]
-              points = [
-                ...inner,
-                // Sobe na vertical do bucim da bancada, da cota do QGD até à cota do bucim.
-                { x: points[0].x, y: topOfInner.y, z: points[0].z },
-                ...points,
-              ]
+              points = [...inner, ...points]
             }
           }
         }

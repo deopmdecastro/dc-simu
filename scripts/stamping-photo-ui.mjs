@@ -60,7 +60,8 @@ try {
   const assert = (ok, name) => { if (!ok) throw new Error(name); console.log(`PASS ${name}`) }
   assert(up.hmiNormal[0] > 0.99, 'HMI com ecrã virado para o exterior (+X)')
   const plateY = up.plate.point[1]
-  assert(up.cabinet.max[1] < plateY - 0.5 && up.cabinet.min[1] > plateY - 7.4, 'Quadro sob a mesa e acima do chão')
+  assert(up.cabinet.max[1] < plateY - 0.5 && up.cabinet.min[1] > plateY - 7.7, 'QE1 abaixo do tampo e assente no chão (plinto)')
+  assert(up.cabinet.max[0] < up.plate.point[0] - 3.5 || up.cabinet.min[0] > up.plate.point[0] + 3.5, 'QE1 na lateral da mesa, fora da projeção do tampo')
   const operators = Object.values(up).filter(v => v?.desired && ['pushButtonXb2No', 'pushButtonXb2Nc', 'pushButtonXb2Blue', 'selectorSchneiderXa2ed33', 'emergencyButton'].includes(v.type))
   assert(operators.length === 6, 'Seis operadores reais da biblioteca')
   for (const op of operators) {
