@@ -105,9 +105,27 @@ function caseShell(root:T.Group,type:SocketDeviceType){
   box(root,d.width,d.height,3,[0,0,back+1.5],ivory,2,'socket-case-back')
   shell(root,d.width,d.height,d.caseDepth,back,ivory,7)
   const fascia=new T.Group();fascia.name='socket-service-fascia';root.add(fascia);box(fascia,d.width+.5,d.height+.5,6,[0,0,front-1],ivory,5,'socket-case-fascia')
-  for(const x of [-1,1])for(const y of [-1,1]){disc(fascia,7,1,[x*(d.width/2-10),y*(d.height/2-10),front+2.2],'#babeb6');screw(fascia,x*(d.width/2-10),y*(d.height/2-10),front+3.3,5,type==='socketFamatelCombo')}
+  // Parafusos de fecho da fascia (sempre metálicos — aparafusados)
+  for(const x of [-1,1])for(const y of [-1,1]){
+    disc(fascia,7,1,[x*(d.width/2-10),y*(d.height/2-10),front+2.2],'#babeb6')
+    screw(fascia,x*(d.width/2-10),y*(d.height/2-10),front+3.3,5,false)
+  }
   for(const side of [-1,1])for(const y of [-d.height*.23,d.height*.23]){const k=ring(root,10,9.5,.35,[side*(d.width/2+.2),y,back+d.caseDepth*.45],ivory,'socket-knockout');k.rotation.y=Math.PI/2}
-  if(type==='socketFamatelCombo')for(const x of [-1,1])for(const y of [-1,1]){const lug=box(root,12,14,4,[x*(d.width/2-6),y*(d.height/2+4),back+4],ivory,2,'socket-wall-lug');ring(lug,3.2,1.7,1,[0,0,2.2],'#b7bab4')}
+  // Orelhas de fixação à parede / pilar / final de esteira (aparafusadas)
+  // Combo já tinha; RoadEu 70929 e restantes passam a ter também para fixação visível.
+  for(const x of [-1,1])for(const y of [-1,1]){
+    const lug=box(root,14,16,4.5,[x*(d.width/2-5),y*(d.height/2+5),back+3.5],ivory,2,'socket-wall-lug')
+    ring(lug,3.4,1.8,1.2,[0,0,2.4],'#b7bab4')
+    // Parafuso de fixação (cabeça visível na orelha)
+    screw(lug,0,0,3.2,2.8,false)
+  }
+  // Abas laterais extras no RoadEu (fixação a pilar IPE / final de esteira)
+  if(type==='socketFamatelSwitch'){
+    for(const side of [-1,1]){
+      const ear=box(root,5,28,12,[side*(d.width/2+2.5),0,back+d.caseDepth*0.35],ivory,1.2,'socket-side-mount-ear')
+      for(const yy of [-8,8])screw(ear,side*1.2,yy,7,2.4,false)
+    }
+  }
   return {fascia,front,back}
 }
 function serviceTerminals(root:T.Group,type:SocketDeviceType){
