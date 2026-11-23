@@ -10,6 +10,8 @@
  * Os ids são prefixados por montagem (pode haver várias maquetes no mesmo projeto).
  */
 import { createComponent } from './factory'
+import { syncCombMounted } from '../three/combMount'
+import { busbarFootprintPx, busbarTerminalSpecs } from '../three/busbarParts'
 import { nativeQuadroDistribuicaoContent } from '../project/nativeQuadroDistribuicao'
 import type { ElectricalComponent, Wire } from '../types'
 
@@ -18,7 +20,7 @@ const FIELD_LOADS = new Set(['LUM1', 'TOM_GERAL', 'TOM_GERAL2', 'TOM_ESP', 'TOM_
 
 /** Função de cada circuito no quadro da nave (referência → etiqueta). */
 export const WALL_PANEL_CIRCUITS: Record<string, string> = {
-  QE1: 'QGD · Quadro geral da nave de estampagem (800×1000×250 mm)',
+  QE1: 'QGD · Quadro geral da nave de estampagem (600×800×250 mm)',
   QG1: 'Interruptor de corte geral 4P 100 A · QGD',
   PM1: 'Medidor trifásico KWS-306 · consumo da nave',
   HL1: 'Sinalização de fases L1/L2/L3 · falta de fase',
@@ -189,6 +191,8 @@ export function stampingWallPanelContent(prefix: string, dx = 0, dy = 0): WallPa
     wire('W74', term(res2, '2'), term(x12, '1'), 'brown'),
   )
 
+  compactWallPanel(content, prefix, enclosure)
+
   for (const c of content.components) {
     c.schematicX += dx
     c.schematicY += dy
@@ -214,4 +218,142 @@ export function stampingWallPanelContent(prefix: string, dx = 0, dy = 0): WallPa
     if (Array.isArray(ww.waypoints)) ww.waypoints = ww.waypoints.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy }))
   }
   return { components: content.components, wires: content.wires, enclosureId: enclosure.id }
+}
+
+/** px do Esquema por mm (mesma escala do quadro nativo). */
+const PX = 1.5
+
+/**
+ * Quadro de parede compacto (600 × 800 × 250 mm em vez de 800 × 1000): calhas verticais encostadas às
+ * ilhargas, cinco calhas horizontais entre as filas e quatro calhas DIN com os aparelhos juntos
+ * (passo modular, 8 mm entre grupos). Todos os aparelhos de calha ficam centrados no perfil — o
+ * medidor KWS-306 do quadro nativo estava 21 mm acima da calha.
+ *
+ * Pentes: o pente 1P (A9XPC) fica ENCAIXADO nos bornes de entrada de Q1–Q3 (adjacentes, passo
+ * 18 mm) e é alimentado por um borne de alimentação de pente (`combBusbarConnector`) no 1.º
+ * disjuntor. Os cabos pente → disjuntor deixam de existir: a continuidade é a do encaixe. O pente 3P
+ * do quadro nativo alimentava um único disjuntor — sai, e Q5 recebe as fases diretamente.
+ */
+function compactWallPanel(content: { components: ElectricalComponent[]; wires: Wire[] }, prefix: string, enclosure: ElectricalComponent) {
+  const W = 600, H = 800
+  const byRef = (ref: string) => content.components.find((c) => c.ref === ref)
+  const term = (c: ElectricalComponent, label: string) => c.terminals.find((x) => x.label === label)!.id
+  const EX = enclosure.schematicX, EY = enclosure.schematicY
+  const X = (mm: number) => EX + mm * PX
+  const Y = (mm: number) => EY + mm * PX
+  enclosure.w = W * PX
+  enclosure.h = H * PX
+  enclosure.state = {
+    ...enclosure.state, widthMm: W, heightMm: H,
+    // Bucins inferiores dentro da nova largura (mesmos furos, espaçados 90 mm).
+    holes: ((enclosure.state.holes as Array<Record<string, unknown>>) ?? []).map((h, i) => ({ ...h, offsetXmm: (i - 2) * 90 })),
+  }
+  enclosure.label = 'Quadro Geral da nave (600×800×250 mm)'
+
+  // ── Calhas técnicas: verticais nas ilhargas, horizontais entre filas ──────────────────────
+  const DUCT_W = 40
+  const vX = [18 + DUCT_W / 2, W - 18 - DUCT_W / 2]
+  const vLen = H - 40
+  const ducts = content.components.filter((c) => c.type === 'cableDuct')
+  const vertical = ducts.filter((c) => (c.rotation ?? 0) % 180 !== 0).sort((a, b) => a.schematicX - b.schematicX)
+  const horizontal = ducts.filter((c) => (c.rotation ?? 0) % 180 === 0).sort((a, b) => a.schematicY - b.schematicY)
+  vertical.forEach((d, i) => {
+    d.w = vLen * PX
+    d.state = { ...d.state, lengthMm: vLen }
+    d.schematicX = Math.round(X(vX[i] ?? vX[1]) - d.w / 2)
+    d.schematicY = Math.round(Y(H / 2) - d.h / 2)
+  })
+  const hLeft = vX[0] + DUCT_W / 2 + 2, hRight = vX[1] - DUCT_W / 2 - 2
+  const hLen = hRight - hLeft
+  const ductY = [40, 212, 384, 556, 728]
+  horizontal.forEach((d, i) => {
+    d.w = hLen * PX
+    d.state = { ...d.state, lengthMm: hLen }
+    d.schematicX = Math.round(X(hLeft))
+    d.schematicY = Math.round(Y(ductY[i] ?? ductY[ductY.length - 1]) - d.h / 2)
+  })
+
+  // Centro (antigo) da calha de cada aparelho: preserva o desvio próprio de bornes e barras.
+  const oldRailCy = new Map<string, number>()
+  for (const c of content.components) {
+    const rid = (c as ElectricalComponent & { railId?: string }).railId
+    const r = rid ? content.components.find((x) => x.id === rid) : undefined
+    if (r) oldRailCy.set(c.id, r.schematicY + r.h / 2)
+  }
+  // ── Calhas DIN entre as calhas técnicas ────────────────────────────────────────────────────
+  const railY = [126, 298, 470, 642]
+  const railLeft = hLeft + 6, railLen = hLen - 12
+  const rails = content.components.filter((c) => c.type === 'dinRail15x55').sort((a, b) => a.schematicY - b.schematicY)
+  rails.forEach((r, i) => {
+    r.w = Math.round(railLen * PX)
+    r.state = { ...r.state, lengthMm: railLen }
+    r.schematicX = Math.round(X(railLeft))
+    r.schematicY = Math.round(Y(railY[i]) - r.h / 2)
+  })
+
+  // ── Pentes: 1P encaixado em Q1–Q3 + borne de alimentação; o 3P sai ─────────────────────────
+  const comb = byRef('BB_COMB1')!
+  const comb3p = byRef('BB_COMB2')
+  const qIlum = byRef('Q_ILUM')!, qTom1 = byRef('Q_TOM1')!, qTom2 = byRef('Q_TOM2')!, qTrif = byRef('Q_TRIF')!
+  const idGeral = byRef('ID_GERAL')!, idTrif = byRef('ID_TRIF')!, nBar = byRef('N_BAR')!
+  comb.state = { ...comb.state, combMode: '1P', poleCount: 3, toothCovers: [], neutralSide: undefined }
+  // Bornes e pegada gerados a partir do novo estado (3 dentes), como no quadro nativo.
+  comb.terminals = busbarTerminalSpecs('busbarComb', comb.state).map((tt) => ({ ...tt, id: `${comb.id}-${tt.label}`, componentId: comb.id, energized: false }))
+  Object.assign(comb, busbarFootprintPx('busbarComb', comb.state) ?? {})
+  const connector = createComponent('combBusbarConnector', 'XB1', 'Borne de alimentação do pente (L1 · 16 mm²)', 0, 0, 0)
+  connector.id = `${prefix}qd-comb-feed`
+  connector.terminals = connector.terminals.map((tt) => ({ ...tt, id: `${connector.id}-${tt.label}`, componentId: connector.id }))
+  connector.enclosureId = enclosure.id
+  connector.state = { ...connector.state, labelText: 'ALIM. PENTE', mountedTerminal: '1' }
+  content.components.push(connector)
+  const id = (num: string) => `${prefix}qd-wire-${num.toLowerCase()}`
+  const dropWires = new Set(['W28', 'W29', 'W59', 'W60', 'W61', 'W62', 'W63'].map(id))
+  content.wires = content.wires.filter((w) => !dropWires.has(w.id))
+  for (const w of content.wires) {
+    // ID_GERAL → borne de alimentação do pente (antes ia direto a um dente do pente).
+    if (w.id === id('W27')) w.toTerminalId = term(connector, 'IN')
+    // Neutro do setor monofásico direto à barra de neutro (o pente 1P não leva neutro).
+    if (w.id === id('W30')) w.toTerminalId = term(nBar, 'N1')
+    // Q5 alimentado diretamente pelo ID_TRIF (sem pente para um único disjuntor).
+    if (w.id === id('W32')) w.toTerminalId = term(qTrif, '1')
+    if (w.id === id('W33')) w.toTerminalId = term(qTrif, '3')
+    if (w.id === id('W34')) w.toTerminalId = term(qTrif, '5')
+  }
+  if (comb3p) content.components = content.components.filter((c) => c.id !== comb3p.id)
+  void idGeral; void idTrif
+
+  // ── Aparelhos: juntos na calha, por grupos ─────────────────────────────────────────────────
+  const GROUP_GAP = 8
+  const rows: string[][][] = [
+    [['REDE'], ['QG1'], ['DPS1', 'DPS2', 'DPS3', 'DPS4'], ['PM1'], ['FU_H', 'H_L1', 'H_L2', 'H_L3']],
+    [['BB_ESCADA'], ['ID_TRIF'], ['ID_GERAL'], ['RCBO_ESP']],
+    [['Q_ILUM', 'Q_TOM1', 'Q_TOM2'], ['Q_ESP'], ['Q_TRIF'], ['Q_RES1', 'Q_RES2']],
+    [['X1.1', 'X1.2', 'X1.3', 'X1.4', 'X1.5', 'X1.6', 'X1.7', 'X1.8', 'X1.9', 'X1.10', 'X1.11', 'X1.12'], ['N_BAR'], ['PE_BAR']],
+  ]
+  // Desvio vertical do aparelho em relação ao eixo da calha, como no quadro nativo (bornes PTI e barras
+  // N/PE assentam em pés próprios); o medidor fica centrado no perfil como os restantes modulares.
+  const nativeDy: Record<string, number> = {}
+  rows.forEach((groups, ri) => {
+    const rail = rails[ri]
+    const railCy = rail.schematicY + rail.h / 2
+    let cursor = rail.schematicX + 6 * PX
+    groups.forEach((group, gi) => {
+      if (gi) cursor += GROUP_GAP * PX
+      for (const ref of group) {
+        const c = byRef(ref)
+        if (!c) continue
+        const dy = c.type === 'meterKws306' ? -3 : (nativeDy[ref] ?? Math.max(-40, Math.min(3, Math.round((c.schematicY + c.h / 2) - (oldRailCy.get(c.id) ?? railCy)))))
+        c.schematicX = Math.round(cursor)
+        c.schematicY = Math.round(railCy + dy - c.h / 2)
+        Object.assign(c, { railId: rail.id, railOffsetMm: Math.round(((cursor - rail.schematicX) / PX) * 10) / 10 })
+        cursor += c.w
+      }
+    })
+  })
+
+  // Pente e borne de alimentação encaixados nos bornes de entrada de Q1 (pinos nos bornes 1 de Q1–Q3).
+  Object.assign(comb, { mountedOn: qIlum.id, railId: undefined, railOffsetMm: undefined, schematicX: qIlum.schematicX, schematicY: qIlum.schematicY - comb.h })
+  Object.assign(connector, { mountedOn: qIlum.id, schematicX: qIlum.schematicX, schematicY: qIlum.schematicY - connector.h })
+  content.components = syncCombMounted(content.components)
+  void qTom1; void qTom2
 }
