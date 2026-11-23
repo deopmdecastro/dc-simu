@@ -357,18 +357,16 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   }
 
   // 3 Rampas de descarga em inox (BRANCA, PRETA, METALICA) sobre pilares de perfil 30 × 30
-  // Espaçamento uniforme: 20 mm entre rampas
+  // Espaçamento uniforme = 30° no arco do braço (BENCH_RAMP_ANGLES 240/270/300). Cada rampa fica
+  // com a boca na vertical da ventosa no seu ângulo: deslocar em x/z (ex.: ±20 mm) tira a peça do
+  // canal e a descarga por gravidade deixa de acontecer (rampBelowWorkpiece, test:mechatronics).
   const rampPillars = [110, 95, 80]
   const rampLabels = ['METALICA', 'PRETA', 'BRANCA']
-  const rampSpacing = 20 // mm
   BENCH_RAMP_ANGLES.forEach((deg, i) => {
     const drop = at(deg)
-    // Ajustar o posicionamento para alinhar as rampas com espaçamento uniforme
-    // O cálculo de x e z deve considerar o espaçamento
-    const offset = (i - 1) * rampSpacing
     const state = { pillarMm: rampPillars[i], rampLabel: rampLabels[i], lengthMm: BENCH_RAMP_LENGTHS_MM[i] }
     const size = mechatronicsSizeMm('mecDischargeRamp', state)!
-    list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: drop.x + size.x / 2 - 22 + offset, y: top + size.y / 2, z: drop.z + offset, state })
+    list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: drop.x + size.x / 2 - 22, y: top + size.y / 2, z: drop.z, state })
   })
 
   // ---------------------------------------------------------------------------
