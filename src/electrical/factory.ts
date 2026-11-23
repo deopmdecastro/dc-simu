@@ -820,8 +820,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   pilotLightSchneiderIil1p: {
     category: 'signaling', paletteName: 'Sinalizador Modular Schneider Acti9 iIL · 1P 230V', group: 'Sinalização', tag: 'H', w: 60, h: 100,
     terminals: [
-      T('X1', 'io', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
-      T('X2', 'io', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('X1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      // O X2 é o NEUTRO do sinalizador 230 V (a versão trifásica já o declara `neutral`); com
+      // `io` nos dois bornes, o neutro do cabo era acusado de estar num borne que não é neutro.
+      T('X2', 'neutral', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 9 }),
     ],
     defaultState: { on: false, color: '#ef4444', voltage: '230V AC', brand: 'Schneider Electric', code: 'A9E18320' },
   },

@@ -245,8 +245,12 @@ export function detectDiagnostics(
           componentId: c.id,
         })
       }
-      // Fase/potência no COM da torre ou neutro
-      if (PHASE_KIND.has(kind) && (term.kind === 'earth' || (term.kind === 'neutral' && kind === 'power'))) {
+      // Fase/potência no COM da torre ou neutro. Exceção: alimentação DC 24 V a um aparelho
+      // eletrónico (PLC, relé, fonte) — em DC o polo + é «fase» e o 0 V/M é o retorno. Aí a cor
+      // azul já identifica o 0 V e o `kind` do cabo pode ser `power` sem curto nenhum.
+      const DC_RETURN = /^M$|^0V$|^0V-|0V$|^L-$/i
+      const dcSupplyIntoReturn = kind === 'power' && term.kind === 'neutral' && DC_RETURN.test(term.label)
+      if (PHASE_KIND.has(kind) && (term.kind === 'earth' || (term.kind === 'neutral' && kind === 'power' && !dcSupplyIntoReturn))) {
         diags.push({
           id: id(),
           level: 'error',

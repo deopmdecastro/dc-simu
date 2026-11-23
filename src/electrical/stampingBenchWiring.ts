@@ -437,7 +437,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
               label: `${label === 'L+' ? '+24 V' : '0 V'} · X20 → ${mod.state?.labelText ?? mod.type} ${label}`,
               from: { key: x20.key, label: label === 'L+' ? '+24V-OUT' : '0V-OUT' },
               to: { key: mod.key, label },
-              color, gauge: '1.5mm²', kind: 'power',
+              color, gauge: '1.5mm²', kind: label === 'L+' ? 'power' : 'neutral',
               bundleId: 'qe1-alimentacao-plc',
               waypointsMm: clean([
                 pt(x20.x, railBottom(x20) - 12, ductInZ),
@@ -501,6 +501,46 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       fieldWire(`mq-campo-${strip.toLowerCase()}-${load.key}-${load.label.replace(/[^A-Za-z0-9]/g, '')}`,
         `${strip}.${Math.floor(idx / 2) + 1}`, `${load.rail} · ${get(load.key)?.state?.labelText ?? load.key} ${load.label} → ${strip}.${Math.floor(idx / 2) + 1}`,
         { key: load.key, label: load.label }, term, load.rail === '+24V' ? 'brown' : 'blue', 'control', 'ferruleDouble')
+    }
+
+    // Entrada de 230 V da fonte PS1: vem da tomada da maquete (XS-MAQ, saída do seccionador 0-1)
+    // e sai em 24 V para o barramento X20. Sem isto a fonte estava montada mas seca: seis avisos
+    // «PS1:X sem cabo» e nenhuma tensão a jusante.
+    const ps1 = get('psu24')
+    const x20bus = get('terminals-x20')
+    const xsMaq = get('socket-bench')
+    if (ps1 && x20bus && xsMaq) {
+      for (const [psLabel, xsLabel, color, kind] of [['L', 'OUT.L', 'black', 'power'], ['N', 'OUT.N', 'blue', 'neutral']] as const) {
+        wires.push({
+          id: `qe1-ps1-${psLabel.toLowerCase()}`,
+          number: `XS-MAQ → PS1.${psLabel}`,
+          label: `${psLabel === 'L' ? '230 V fase' : '230 V neutro'} · XS-MAQ ${xsLabel} → PS1 ${psLabel}`,
+          from: { key: xsMaq.key, label: xsLabel }, to: { key: ps1.key, label: psLabel },
+          color, gauge: '1.5mm²', kind, bundleId: 'qe1-alimentacao-plc',
+          waypointsMm: clean([
+            pt(xsMaq.x, xsMaq.y + 30, ductInZ + (psLabel === 'L' ? -2.5 : 2.5)),
+            pt(ps1.x + (psLabel === 'L' ? -6 : 6), (xsMaq.y + ps1.y) / 2, ductInZ + (psLabel === 'L' ? -2.5 : 2.5)),
+            pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 18, ductInZ),
+            pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 6, ductInZ),
+          ]),
+        })
+      }
+      // Saída da fonte para o barramento de 24 V (X20) e terra.
+      for (const [psLabel, tgt, color, kind] of [['+V1', '+24V-IN', 'brown', 'power'], ['-V1', '0V-IN', 'blue', 'neutral'], ['PE', 'PE-IN', 'green-yellow', 'earth']] as const) {
+        wires.push({
+          id: `qe1-ps1-out-${psLabel.replace('+', 'p').replace('-', 'n').toLowerCase()}`,
+          number: `PS1.${psLabel} → X20.${tgt}`,
+          label: `${psLabel.startsWith('+') ? '+24 V' : psLabel.startsWith('-') ? '0 V' : 'PE'} · PS1 ${psLabel} → X20 ${tgt}`,
+          from: { key: ps1.key, label: psLabel }, to: { key: 'terminals-x20', label: tgt },
+          color, gauge: '1.5mm²', kind, bundleId: 'qe1-alimentacao-plc',
+          waypointsMm: clean([
+            pt(ps1.x + (psLabel.startsWith('+') ? -4 : 4), ps1.y + 6, ductInZ),
+            pt(ps1.x + (psLabel.startsWith('+') ? -4 : 4), (ps1.y + x20bus.y) / 2, ductInZ + 3.5),
+            pt(x20bus.x + (psLabel.startsWith('+') ? -4 : 4), (ps1.y + x20bus.y) / 2, ductInZ + 3.5),
+            pt(x20bus.x + (psLabel.startsWith('+') ? -4 : 4), railBottom(x20bus) - 12, ductInZ),
+          ]),
+        })
+      }
     }
 
     // Distribuição: X20 alimenta X25.1 / X26.1 pela calha do topo; pontes entre bornes vizinhos por cima.
