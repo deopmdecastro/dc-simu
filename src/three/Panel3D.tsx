@@ -3505,8 +3505,18 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   useShortcutsRequest('schematic', () => setShortcutHelpOpen(true))
   const [glLost, setGlLost] = useState(false)
   const [modelsLoading, setModelsLoading] = useState(false)
-  const [routingLoading, setRoutingLoading] = useState(true)
+  // Não começar a true: se Wires3D demorar a montar, o overlay ficava eterno («A carregar o editor…»).
+  const [routingLoading, setRoutingLoading] = useState(false)
   const [softwareGl, setSoftwareGl] = useState(IS_SOFTWARE_WEBGL)
+  // Segurança: em maquetes grandes o worker dos cabos pode demorar; nunca bloquear o editor > 12 s.
+  useEffect(() => {
+    if (!routingLoading && !modelsLoading) return
+    const t = window.setTimeout(() => {
+      setRoutingLoading(false)
+      setModelsLoading(false)
+    }, 12000)
+    return () => window.clearTimeout(t)
+  }, [routingLoading, modelsLoading])
   const gridSettings = useSimStore((s) => s.grid)
   // LEDs/estados dos componentes em RUN: subscrição explícita do tick da simulação
   // (a identidade das listas já não muda a cada varredura).
