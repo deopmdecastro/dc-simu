@@ -177,8 +177,9 @@ function ceePlug(root:T.Group){
   for(const [z,r,h] of [[0,14,5],[6,12,8],[13,9,6]])mesh(gland,new T.CylinderGeometry(r,r,h,20),plastic('#b5b9b1'),[0,0,z])
   const bore=ring(gland,7,4,2,[0,0,18],'#555e52','cable-gland-bore');bore.rotation.x=Math.PI/2
   // Bornes internos L/N/PE (lado do cabo)
-  for(const [label,x,y] of [['L',-10,6],['N',10,6],['PE',0,-8]] as const){
-    const t=new T.Group();t.position.set(x,y,back+16);t.name=`socket-terminal-${label}`;root.add(t)
+  // Mesma fonte que os pontos de ligação dos cabos (socketWiringPoint): sem desvio entre malha e borne.
+  for(const label of ['L','N','PE'] as const){
+    const t=new T.Group();t.position.set(...socketWiringPoint('ceePlug16A',label));t.name=`socket-terminal-${label}`;root.add(t)
     ring(t,3.2,2.1,2,[0,0,0],'#a1a38c')
     const s=mesh(t,new T.CylinderGeometry(1.8,1.8,.7,16),metal(),[0,0,-2],'socket-terminal-screw');s.rotation.x=Math.PI/2
   }

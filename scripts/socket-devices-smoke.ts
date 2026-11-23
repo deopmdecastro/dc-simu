@@ -11,7 +11,9 @@ import { useSimStore } from '../src/store/useSimStore'
 let checks=0
 const ok=(label:string,fn:()=>void)=>{fn();checks++;console.log('PASS — '+label)}
 const visible=(o:T.Object3D)=>{for(let p:T.Object3D|null=o;p;p=p.parent)if(!p.visible)return false;return true}
-for(const type of Object.keys(SOCKET_DEVICES) as SocketDeviceType[]){
+// A ficha CEE 16A (ceePlug16A) partilha o catálogo das tomadas mas não tem tampa de serviço nem
+// alvéolos: tem verificações próprias no fim deste ficheiro.
+for(const type of (Object.keys(SOCKET_DEVICES) as SocketDeviceType[]).filter(type=>type!=='ceePlug16A')){
   const c=createComponent(type),root=createSocketDeviceObject(type)
   applySocketDeviceState(root,{coverOpen:true})
   const meshes:T.Object3D[]=[];root.traverse(o=>{if((o as T.Mesh).isMesh && visible(o))meshes.push(o)})
@@ -81,6 +83,19 @@ for(const type of Object.keys(SOCKET_DEVICES) as SocketDeviceType[]){
   })
   disposeSocketDeviceObject(root)
 }
+ok('Ficha CEE 16A: pinos L/N/PE, bucim traseiro e bornes alinhados com a ligação dos cabos',()=>{
+  const c=createComponent('ceePlug16A'),root=createSocketDeviceObject('ceePlug16A')
+  root.updateMatrixWorld(true)
+  assert.ok(hasProceduralCapture('ceePlug16A'),'a Biblioteca e o esquema capturam a geometria real')
+  assert.deepEqual(c.terminals.map(t=>t.label).sort(),['L','N','PE'])
+  for(const pin of ['pin-L','pin-N','pin-PE'])assert.ok(root.getObjectByName(pin),pin+' modelado')
+  assert.ok(root.getObjectByName('auto-cable-gland'),'entrada do cabo revestido pelo bucim')
+  for(const t of c.terminals){
+    const point=root.getObjectByName('socket-terminal-'+t.label)!.getWorldPosition(new T.Vector3())
+    assert.ok(point.distanceTo(terminalLocal3D(c,t).multiplyScalar(100))<.01,t.label+' alinhado com o ponto de ligação do cabo')
+  }
+  disposeSocketDeviceObject(root)
+})
 ok('RoadEu: seccionador corta L/N e mantém PE; manobra bloqueada em STOP',()=>{
   const c=createComponent('socketFamatelSwitch'),t=(label:string)=>c.terminals.find(t=>t.label===label)!.id
   c.state.switchOn=false
