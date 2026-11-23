@@ -84,7 +84,8 @@ export function detectDiagnostics(
     if (c.type === 'contactor' || c.type.startsWith('breaker') || c.type === 'motorBreaker' || c.type === 'thermalRelay') {
       c.terminals.forEach((t) => {
         if (t.kind === 'power-in' || t.kind === 'power-out') {
-          const connected = wires.some((w) => w.fromTerminalId === t.id || w.toTerminalId === t.id)
+          // Pinos de pente / conector de alimentação / relé encaixado também ligam o borne (sem cabo).
+          const connected = linked.some((w) => w.fromTerminalId === t.id || w.toTerminalId === t.id)
           if (!connected) diags.push({ id: id(), level: 'warning', message: `AVISO: terminal ${t.label} de ${c.ref} não conectado.`, componentId: c.id })
         }
       })
