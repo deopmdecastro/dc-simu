@@ -3021,7 +3021,8 @@ export function createComponent(
     view3DScale: presentation3D.scale,
     view3DRenderMode: presentation3D.renderMode,
     mirrored: false,
-    locked: true,
+    // Componentes avulsos nascem livres; a montagem de maquetes bloqueia as suas peças (insertReadyMaquette).
+    locked: false,
     bodyColor: presentation3D.bodyColor,
     ...(parseCatalogType(type) ? { catalog: { id: parseCatalogType(type)!.id, version: parseCatalogType(type)!.version, source: 'official' as const } } : {}),
     editorVersion: 1,

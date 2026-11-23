@@ -3241,7 +3241,13 @@ export const useSimStore = create<Store>((set, get) => {
         })
       }
     }
-    set({ selectedComponentIds: created, selectedWireId: null, selectedTerminalId: null, dirty: true })
+    // Peças da maquete nascem bloqueadas (evita arrasto acidental da bancada montada);
+    // desbloqueiam-se no painel de objetos. Componentes avulsos da biblioteca continuam livres.
+    const createdSet = new Set(created)
+    set((s) => ({
+      components: s.components.map((c) => (createdSet.has(c.id) && !c.locked ? { ...c, locked: true } : c)),
+      selectedComponentIds: created, selectedWireId: null, selectedTerminalId: null, dirty: true,
+    }))
     get().pushEvent(
       'info',
       `${mq.name} montada: ${created.length} componentes, base ${mq.plateState.lengthMm} × ${mq.plateState.widthMm} mm. ` +
