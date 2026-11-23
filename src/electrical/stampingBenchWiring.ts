@@ -15,7 +15,7 @@
 import * as THREE from 'three'
 import type { ComponentType, WireColor, WireKind } from '../types'
 import type { BenchPlacement } from './stampingBench'
-import { BENCH_TERMINAL_STRIPS } from './stampingBench'
+import { BENCH_TERMINAL_STRIPS, qe1ToWorld, type Qe1Frame } from './stampingBench'
 import { createComponent } from './factory'
 import { mechatronicsSizeMm, slotPlateDimsOf } from '../three/mechatronicsModel'
 import { pneumaticComponentSizeMm } from '../three/pneumaticsModel'
@@ -281,8 +281,18 @@ function clean(points: BenchPointMm[]): BenchPointMm[] {
 }
 
 export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record<string, any>): BenchWireSpec[] {
-  const byKey = new Map(parts.map((p) => [p.key, p]))
+  // O QE1 e o seu interior são lidos no referencial LOCAL do quadro (`qe1Local`): toda a cablagem
+  // interior é calculada como num quadro virado para +Z e, no fim, rodada com ele (`qe1ToWorld`).
+  const byKey = new Map(parts.map((p) => [p.key, p.qe1Local ? { ...p, ...p.qe1Local, orientation: undefined } : p]))
   const get = (key: string) => byKey.get(key)
+  const worldCabinet = parts.find((p) => p.key === 'cabinet')
+  const qeFrame: Qe1Frame | null = worldCabinet?.qe1Local
+    ? { local: { x: worldCabinet.qe1Local.x, z: worldCabinet.qe1Local.z }, world: { x: worldCabinet.x, z: worldCabinet.z } }
+    : null
+  /** Pontos no referencial local do QE1 (convertidos para o mundo no fim). */
+  const localPts = new Set<BenchPointMm>()
+  const asLocal = (points: BenchPointMm[]) => { for (const p of points) localPts.add(p); return points }
+  const toWorld = (p: BenchPointMm): BenchPointMm => (qeFrame ? qe1ToWorld(qeFrame, p) : p)
   const plate = slotPlateDimsOf(plateState)
   const top = plate.thicknessMm / 2
   const wires: BenchWireSpec[] = []
@@ -388,18 +398,30 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
 
   // ── 2. Cabos de campo até às réguas do QE1 ──────────────────────────────────────────────
   const cabinet = get('cabinet')
-  const ductDrop = get('ductDrop')
-  const ductUnder = get('ductUnder')
   const ductBottom = get('cabinet-duct-bottom')
-  if (cabinet && ductDrop && ductUnder && ductBottom) {
+  if (cabinet && ductBottom) {
     const L = plate.lengthMm, W = plate.widthMm
     const xl = -L / 2 + 17, xr = L / 2 - 17, zf = W / 2 - 17, zb = -W / 2 + 17
     const yDuct = top + 12
     const cabW = Number(cabinet.state?.widthMm) || 480
     const cabLeft = cabinet.x - cabW / 2
-    const zDrop = ductDrop.z
-    const yUnder = ductUnder.y
     const ductInZ = ductBottom.z
+    // Bucim de campo no topo do QE1 (referencial local) e a sua posição no mundo: o chicote sai da
+    // calha esquerda da mesa à cota z do bucim, desce por fora da perna e entra pelo topo.
+    const cabH = Number(cabinet.state?.heightMm) || 660
+    const cabTopY = cabinet.y + cabH / 2
+    const fieldHole = ((cabinet.state?.holes as Array<{ id: string; offsetXmm?: number; offsetYmm?: number }> | undefined) ?? [])
+      .find((h) => h.id === 'field-entry-left')
+    const fieldGlandL = pt(cabinet.x + (fieldHole?.offsetXmm ?? cabW / 2 - 55), cabTopY, cabinet.z + (fieldHole?.offsetYmm ?? 0))
+    const fieldGland = toWorld(fieldGlandL)
+    const zDrop = fieldGland.z
+    /** Do bordo da mesa (lado do QE1) até ao bucim de campo no topo, no mundo. */
+    const fieldEntry = (lane: number, fromY: number): BenchPointMm[] => [
+      pt(edgeOut(lane), fromY, zDrop + lane),
+      pt(edgeOut(lane), cabTopY + 40 + lane * 0.4, zDrop + lane),
+      pt(fieldGland.x + lane * 0.3, cabTopY + 40 + lane * 0.4, fieldGland.z + lane * 0.3),
+      pt(fieldGland.x + lane * 0.3, cabTopY + 6, fieldGland.z + lane * 0.3),
+    ]
     // Lado da mesa onde está o QE1 (+1 direita, −1 esquerda): a descida de campo usa a perna desse lado.
     const qeSide = cabinet.x >= 0 ? 1 : -1
     const xq = qeSide > 0 ? xr : xl
@@ -446,23 +468,31 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     const insideTo = (term: BenchPlacement, lane: number): BenchPointMm[] => {
       const rail = BENCH_TERMINAL_STRIPS.find((st) => term.key.startsWith(`terminals-${st.strip}-`))?.rail ?? 'B'
       const z = ductInZ + lane * 0.5
+      const riserX = cabFace + inward * (14 + lane * 0.3)
+      const topDuctY = ductTop ? ductTop.y : cabTopY - 60
+      // Entra pelo bucim do topo, desce à calha do topo e segue para a coluna livre do lado do bucim.
+      const fromGland = [
+        pt(fieldGlandL.x + lane * 0.3, cabTopY - 30, fieldGlandL.z + lane * 0.3),
+        pt(fieldGlandL.x + lane * 0.3, topDuctY + lane * 0.4, z),
+        pt(riserX, topDuctY + lane * 0.4, z),
+      ]
       if (rail === 'A' && ductMid) {
-        return [
-          pt(cabFace + inward * (14 + lane * 0.3), yUnder, z),
-          pt(cabFace + inward * (14 + lane * 0.3), ductMid.y + lane * 0.4, z),
+        return asLocal([
+          ...fromGland,
+          pt(riserX, ductMid.y + lane * 0.4, z),
           pt(term.x, ductMid.y + lane * 0.4, z),
           pt(term.x, railBottom(term) - 14, ductInZ),
-        ]
+        ])
       }
       // Calha B (réguas X21–X24): sobe junto à face de entrada (lado livre da ilha S7-300) até à calha
       // entre as filas B e C e só aí corre até à régua — nunca atravessa os módulos do autómato.
       const lowDuct = ductMidBC ?? ductBottom
-      return [
-        pt(cabFace + inward * (14 + lane * 0.3), yUnder, z),
-        pt(cabFace + inward * (14 + lane * 0.3), lowDuct.y + lane * 0.4, z),
+      return asLocal([
+        ...fromGland,
+        pt(riserX, lowDuct.y + lane * 0.4, z),
         pt(term.x, lowDuct.y + lane * 0.4, z),
         pt(term.x, railBottom(term) - 14, ductInZ),
-      ]
+      ])
     }
 
     const plateRouter = benchPlateRouter(parts, plate, top)
@@ -500,6 +530,30 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       if (!part) return
       const { p, n } = benchTerminalPointMm(part, src.label)
       const exit = pt(p.x + n.x * 14, p.y + n.y * 14, p.z + n.z * 14)
+      // Origem DENTRO do QE1 (relé de segurança KS1, relés K1/K2): ligação interior pelas calhas
+      // técnicas — antes saía do quadro, dava a volta à mesa e voltava a entrar pelo bucim.
+      if (part.qe1Local) {
+        const lane = ((j % 7) - 3) * 2.6
+        const z = ductInZ + lane * 0.5
+        const riserX = cabFace + inward * (14 + lane * 0.3)
+        const upper = ductMid ?? ductTop ?? ductBottom
+        const lower = ductMidBC ?? ductBottom
+        wires.push({
+          id, number, label, from: src, to: { key: term.key, label: '2' }, color, gauge: '0.75mm²', kind,
+          ...(toEnd ? { toEnd } : {}),
+          bundleId: 'qe1-interior',
+          waypointsMm: clean([
+            exit,
+            pt(exit.x, upper.y + lane * 0.4, z),
+            pt(riserX, upper.y + lane * 0.4, z),
+            pt(riserX, lower.y + lane * 0.4, z),
+            pt(term.x, lower.y + lane * 0.4, z),
+            pt(term.x, railBottom(term) - 14, ductInZ),
+          ]),
+        })
+        j += 1
+        return
+      }
       // Botões: descem por dentro da caixa e saem pelo fundo (a caixa está 42 mm acima da base).
       // CPV10 e coluna: descem rente à base, junto ao módulo elétrico, e entram na calha traseira
       // à cota do eixo dela (top + 12), sem passar por cima da boca da calha.
@@ -539,13 +593,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           ...plateLeg(exit, first, clearX, clearZ, travelY, isOperator, lane),
           ...path,
           // Sai por cima da borda esquerda da base, desce por fora e entra na calha da perna por baixo do tampo.
-          pt(edgeOut(lane), path[path.length - 1].y, zDrop + lane),
-          pt(edgeOut(lane), -top - 24, zDrop + lane),
-          pt(ductDrop.x + lane * 0.5, -top - 24, zDrop + lane),
-          pt(ductDrop.x + lane * 0.5, yUnder + lane * 0.4, zDrop + lane),
-          pt(cabFace - inward * 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
+          ...fieldEntry(lane, path[path.length - 1].y),
           // Entrada pelo bucim lateral do QE1 → calha técnica interior.
-          pt(cabFace + inward * 8, yUnder, zDrop),
           ...insideTo(term, lane),
         ]),
       })
@@ -712,12 +761,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           pt(exit.x, top + 30, exit.z),
           pt(path[0].x, top + 30, path[0].z),
           ...path,
-          pt(edgeOut(lane), path[path.length - 1].y, zDrop + lane),
-          pt(edgeOut(lane), -top - 24, zDrop + lane),
-          pt(ductDrop.x + lane * 0.5, -top - 24, zDrop + lane),
-          pt(ductDrop.x + lane * 0.5, yUnder + lane * 0.4, zDrop + lane),
-          pt(cabFace - inward * 18, yUnder + lane * 0.4, zDrop + lane * 0.5),
-          pt(cabFace + inward * 8, yUnder, zDrop),
+          ...fieldEntry(lane, path[path.length - 1].y),
           ...insideTo(b, lane),
         ]),
       })
@@ -866,8 +910,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const leftX = -plate.lengthMm / 2 + 24
       // Fora da borda esquerda do tampo e à frente do conjunto FRL + suporte (que fica no pé traseiro).
       const outsideX = -plate.lengthMm / 2 - 22
-      const frlBracketPart = get('frlBracket')
-      const frontOfFrlZ = Math.max(inn.p.z, frlBracketPart ? frlBracketPart.z : inn.p.z) + 95
+      // Passa rente à frente do FRL (12 mm), no corredor entre o FRL e o QE1 encostado às pernas.
+      const frlDepth = sizeOfMm(frlPart.type, frlPart.state).z || 96
+      const frontOfFrlZ = frlPart.z + frlDepth / 2 + 12
       airTube('ar-cmp-frl', 'AR 1', 'PU Ø10 · COMPRESSOR → FRL (entrada de ar)',
         { key: 'compressor', label: 'OUT' }, { key: 'airTreatment', label: 'IN' },
         [
@@ -1005,7 +1050,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       // corre por baixo do tampo até ao QE1 e entra pelo bucim M25 do topo («supply-top»).
       const cabH = Number(cabinet.state?.heightMm) || 660
       const cabTopY = cabinet.y + cabH / 2
-      const glandTop = pt(cabinet.x + 150, cabTopY, cabinet.z)
+      // Bucim «supply-top» no referencial local do quadro e no mundo (o quadro está rodado).
+      const glandTopL = pt(cabinet.x + 150, cabTopY, cabinet.z)
+      const glandTop = toWorld(glandTopL)
       const behindZ = -W / 2 - 40
       // O pilar IPE fica colado à traseira da mesa (~12 mm): a descida faz-se ao lado do pilar, do lado
       // do QE1, e só depois o cabo passa para trás da mesa.
@@ -1025,8 +1072,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         pt(glandTop.x + lane * 0.5, runY, glandTop.z + lane),
         // Entra na vertical pelo bucim M25 do topo e só dentro do quadro segue para a calha técnica.
         pt(glandTop.x + lane * 0.5, cabTopY + 6, glandTop.z),
-        pt(glandTop.x + lane * 0.5, cabTopY - 30, glandTop.z),
-        pt(glandTop.x + lane * 0.5, ductTop ? ductTop.y : cabTopY - 40, ductInZ + lane),
+        ...asLocal([
+          pt(glandTopL.x + lane * 0.5, cabTopY - 30, glandTopL.z),
+          pt(glandTopL.x + lane * 0.5, ductTop ? ductTop.y : cabTopY - 40, ductInZ + lane),
+        ]),
       ]
       // Lado do quadro: sai pelo bucim da ficha → sobe à calha técnica → bornes L/N/PE.
       // Cabo revestido (sheathed) + filaçado no chicote qe1-alimentacao-plc.
@@ -1048,9 +1097,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
             plugGland,
             ...supplyToGland(lane),
             // Corre dentro da calha técnica do topo até à fonte.
-            pt(ps1.x + (psLabel === 'L' ? -6 : 6), ductTop ? ductTop.y : ps1.y + 40, ductInZ + lane),
-            pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 18, ductInZ),
-            pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 6, ductInZ),
+            ...asLocal([
+              pt(ps1.x + (psLabel === 'L' ? -6 : 6), ductTop ? ductTop.y : ps1.y + 40, ductInZ + lane),
+              pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 18, ductInZ),
+              pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 6, ductInZ),
+            ]),
           ]),
         })
       }
@@ -1067,8 +1118,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         waypointsMm: clean([
           plugGland,
           ...supplyToGland(0),
-          pt(x20bus.x, ductTop ? ductTop.y : x20bus.y + 40, ductInZ),
-          pt(x20bus.x, railBottom(x20bus) - 12, ductInZ),
+          ...asLocal([
+            pt(x20bus.x, ductTop ? ductTop.y : x20bus.y + 40, ductInZ),
+            pt(x20bus.x, railBottom(x20bus) - 12, ductInZ),
+          ]),
         ]),
       })
       // Saída da fonte para o barramento de 24 V (X20) e terra.
@@ -1148,6 +1201,14 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         // Em «L» por trás dos operadores: primeiro na horizontal, depois na vertical.
         waypointsMm: clean([pt(ta.p.x, ta.p.y, back), pt(tb.p.x, ta.p.y, back), pt(tb.p.x, tb.p.y, back)]),
       })
+    }
+  }
+  // Cablagem interior do QE1 (calculada no referencial local) → mundo, com o quadro rodado.
+  if (qeFrame) {
+    const member = (end: BenchWireEnd) => 'key' in end && Boolean(parts.find((p) => p.key === end.key)?.qe1Local)
+    for (const w of wires) {
+      const internal = member(w.from) && member(w.to)
+      w.waypointsMm = w.waypointsMm.map((p) => (internal || localPts.has(p) ? toWorld(p) : p))
     }
   }
   return wires

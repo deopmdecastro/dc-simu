@@ -35,6 +35,22 @@ export interface BenchPlacement {
   orientation?: ComponentViewOrientation
   /** TAG fixa (réguas de bornes X21.1…); sem ela o projeto atribui a próxima livre. */
   ref?: string
+  /**
+   * Peças do QE1: posição no referencial LOCAL do quadro (quadro virado para +Z, sem rotação). A
+   * cablagem interior é calculada neste referencial e depois rodada com o quadro (`qe1ToWorld`).
+   */
+  qe1Local?: { x: number; y: number; z: number }
+}
+
+/** Rotação do QE1 da maquete: costas viradas para as pernas esquerdas da mesa, porta para fora (−X). */
+export const QE1_YAW_DEG = -90
+/** Referencial do QE1: centro local (virtual) e centro no mundo, em mm relativos ao centro da base. */
+export interface Qe1Frame { local: { x: number; z: number }; world: { x: number; z: number } }
+/** Converte um ponto do referencial local do QE1 para o referencial da base (rotação −90° em Y). */
+export function qe1ToWorld(frame: Qe1Frame, p: { x: number; y: number; z: number }) {
+  const lx = p.x - frame.local.x, lz = p.z - frame.local.z
+  // Ry(−90°): x' = −z, z' = x
+  return { x: frame.world.x - lz, y: p.y, z: frame.world.z + lx }
 }
 
 /** Eixo da torre do manipulador na base. */
@@ -220,11 +236,12 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   })
 
   // ---------------------------------------------------------------------------
-  // QE1 · quadro de campo de pé na LATERAL ESQUERDA da mesa (fora do tampo, sobre plinto), à frente
-  // do suporte do FRL: calhas técnicas, 3 calhas DIN, fonte 24 V, relé de segurança KS1, relés K1/K2,
-  // ilha S7-300 e réguas de bornes. O lado direito fica livre para a HMI (ecrã virado para fora).
-  // Bucins na face virada para a mesa (chegada do campo) e no topo (ficha F-MAQ).
-  // Dobradiça do lado de fora → a folha roda para longe da mesa, sem bater nas pernas.
+  // QE1 · quadro de campo na LATERAL ESQUERDA da mesa, com as COSTAS ENCOSTADAS às pernas esquerdas:
+  // fica aparafusado a um suporte de duas travessas de perfil 40 presas às duas pernas, porta virada
+  // para fora (−X). Fica à frente do conjunto FRL (canto traseiro esquerdo) e no lado oposto à HMI.
+  // Interior: calhas técnicas, 3 calhas DIN, fonte 24 V, relé de segurança KS1, relés K1/K2, ilha
+  // S7-300 e réguas de bornes. Bucins no topo: campo (vindo da calha esquerda) e ficha F-MAQ.
+  // O interior é desenhado no referencial local do quadro e rodado no fim (`qe1ToWorld`).
   // ---------------------------------------------------------------------------
   if (plate.legs) {
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
@@ -236,48 +253,50 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       // Topo 85 mm abaixo do tampo: deixa passar por cima o cabo da ficha F-MAQ até ao bucim de topo.
       const cabinetY = -85 - cab.h / 2
       // À frente do suporte do FRL (pé traseiro esquerdo) e fora da projeção do tampo.
+      // Referencial LOCAL do quadro (virado para +Z): o mesmo desenho interior de sempre.
       const cabinetZ = 40
-      // Lado da mesa onde fica o QE1 (−1 esquerda): 60 mm de folga entre a borda do tampo e a ilharga.
       const qeSide = -1
       const cabinetX = qeSide * (plate.lengthMm / 2 + 60 + cab.w / 2)
-      const towardTable = qeSide < 0 ? 'right' : 'left'
-      const floorY = -top - leg
-      const plinthH = Math.max(0, Math.round(cabinetY - cab.h / 2 - floorY))
+      // Mundo: pernas (perfil 40) com a face exterior a L/2 − 15 mm; suporte de 40 mm + 5 mm de folga;
+      // largura do quadro ao longo de Z, de z = −220 (à frente do FRL) até à perna da frente.
+      const legOuterX = plate.lengthMm / 2 - 15
+      const SUPPORT = 40
+      const frame: Qe1Frame = {
+        local: { x: cabinetX, z: cabinetZ },
+        world: { x: -(legOuterX + SUPPORT + 5 + cab.d / 2), z: plate.widthMm / 2 - 15 - cab.w / 2 + 5 },
+      }
+      const qeStart = list.length
       list.push({
         key: 'cabinet', type: 'panelEnclosure', x: cabinetX, y: cabinetY, z: cabinetZ,
         state: {
           hostLocation: 'machine', widthMm: cab.w, heightMm: cab.h, depthMm: cab.d,
-          doorOpen: true, hingeSide: qeSide < 0 ? 'left' : 'right', plateFinish: 'Aço galvanizado',
+          // Dobradiças do lado da frente da mesa: a porta abre para a frente, longe do FRL.
+          doorOpen: true, hingeSide: 'right', plateFinish: 'Aço galvanizado',
           labelText: 'QE1 · CAMPO ESTAMPAGEM',
           holes: [
-            // IDs históricos («-left») mantidos; a face é a que está virada para a mesa.
-            { id: 'field-entry-left', face: towardTable, offsetXmm: 40, offsetYmm: -150, diameterMm: 32, glandType: 'M32' },
-            { id: 'field-entry-left-2', face: towardTable, offsetXmm: -40, offsetYmm: -150, diameterMm: 25, glandType: 'M25' },
+            // IDs históricos («-left») mantidos. No topo, junto ao lado livre do quadro (fora da ilha
+            // S7-300): o chicote de campo desce da calha esquerda da mesa diretamente para aqui.
+            { id: 'field-entry-left', face: 'top', offsetXmm: cab.w / 2 - 55, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
+            { id: 'field-entry-left-2', face: 'top', offsetXmm: cab.w / 2 - 105, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
             { id: 'supply-top', face: 'top', offsetXmm: 150, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
           ],
         },
       })
-      // Plinto: o quadro assenta no chão ao lado da mesa (não fica pendurado nem por baixo do tampo).
-      if (plinthH >= 4) list.push({
-        key: 'cabinetPlinth', type: 'mecSupportBlock', x: cabinetX, y: floorY + plinthH / 2, z: cabinetZ,
-        state: { lengthMm: cab.w, heightMm: plinthH, depthMm: cab.d, labelText: 'PLINTO QE1' },
-      })
-      for (const [key, y] of [['upper', -75], ['lower', -35 - cab.h]] as const) list.push({
+      // Travessas da mesa (estrutura existente).
+      const tableRails: BenchPlacement[] = []
+      for (const [key, y] of [['upper', -75], ['lower', -35 - cab.h]] as const) tableRails.push({
         key: `cabinet-rail-${key}`, type: 'mecAluProfile', x: 0, y, z: cabinetZ - 120,
         state: { sectionMm: 40, lengthMm: plate.lengthMm - 90, orientation: 'horizontal', endCaps: true, brackets: true },
       })
-      // Descida dos cabos de campo junto à borda do lado do QE1 até ao bucim da face virada para a mesa.
-      const dropX = qeSide * (plate.lengthMm / 2 - 40)
-      const cabFace = cabinetX - qeSide * cab.w / 2 // face do QE1 virada para a mesa
-      list.push({
-        key: 'ductDrop', type: 'mecBenchDuct', x: dropX, y: (20 + cabinetY - 150) / 2, z: cabinetZ + 30,
-        state: { lengthMm: Math.round(20 - cabinetY + 150), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO → QE1' },
-        orientation: { x: 0, y: 0, z: 90 },
-      })
-      list.push({
-        key: 'ductUnder', type: 'mecBenchDuct', x: (dropX + cabFace) / 2, y: cabinetY - 150, z: cabinetZ + 30,
-        state: { lengthMm: Math.round(Math.abs(cabFace - dropX)), widthMm: 30, heightMm: 35, coverOn: true, labelText: 'CAMPO' },
-      })
+      // Suporte do QE1: duas travessas de perfil 40 aparafusadas às faces exteriores das duas pernas
+      // esquerdas (com esquadros), por baixo do FRL; as costas do quadro assentam nelas.
+      const supportX = -(legOuterX + SUPPORT / 2)
+      const supportLen = plate.widthMm - 30
+      const supports: BenchPlacement[] = [['upper', cabinetY + cab.h / 2 - 110], ['lower', cabinetY - cab.h / 2 + 90]].map(([k, y]) => ({
+        key: `cabinet-support-${k}`, type: 'mecAluProfile' as ComponentType, x: supportX, y: y as number, z: 0,
+        state: { sectionMm: SUPPORT, lengthMm: supportLen, orientation: 'horizontal', endCaps: true, brackets: true, labelText: 'SUPORTE QE1' },
+        orientation: { x: 0, y: 90, z: 0 },
+      }))
       // Placa de montagem: a 14 mm da traseira; calha DIN 7,5 mm; aparelhos encostados à calha.
       const plateFront = cabinetZ - cab.d / 2 + 14
       const onRail = (depthMm: number) => plateFront + 7.5 + depthMm / 2
@@ -365,6 +384,13 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       })
       // A calha do PLC é a mais funda da caixa: o corpo de 120–130 mm chega perto da porta.
       void islandW
+      // Roda o QE1 e todo o seu interior para a posição real: costas encostadas ao suporte nas pernas.
+      for (let i = qeStart; i < list.length; i++) {
+        const p = list[i]
+        const w = qe1ToWorld(frame, p)
+        list[i] = { ...p, x: w.x, z: w.z, qe1Local: { x: p.x, y: p.y, z: p.z }, orientation: { x: 0, y: QE1_YAW_DEG, z: 0 } }
+      }
+      list.push(...tableRails, ...supports)
     }
   }
 

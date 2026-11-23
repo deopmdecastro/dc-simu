@@ -63,6 +63,9 @@ try {
     ['overview', [1.05, 0.55, 1.2], 'bench'],
     ['qe1', [0.55, 0.25, 1.25], 'qe1'],
     ['qe1-side', [-0.2, 0.35, 1.3], 'qe1'],
+    ['qe1-door', [-1.3, 0.35, 0.35], 'qe1'],
+    ['qe1-mount', [-0.35, 0.55, 1.2], 'qe1'],
+    ['qe1-support', [-0.25, 0.3, -1.3], 'qe1'],
     ['cables-top', [0.25, 1.2, 0.55], 'bench'],
   ]) {
     await f.page.evaluate(({ direction, focus }) => {
