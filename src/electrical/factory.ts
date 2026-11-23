@@ -147,6 +147,16 @@ const T = (label: string, kind: TerminalKind, x: number, y: number, extra: Parti
 
 function socketTerminals(type: SocketDeviceType): TerminalTemplate[] {
   const labels = type === 'socketFamatelCombo' ? ['L1','L2','L3','N','PE'] : ['L','N','PE']
+  // Ficha CEE: só bornes de cabo (L/N/PE) — os pinos macho são a face de encaixe.
+  if (type === 'ceePlug16A') {
+    return labels.map((label, i) =>
+      T(label, label === 'PE' ? 'earth' : label === 'N' ? 'neutral' : 'power-out', (i + 1) / (labels.length + 1), 0, {
+        terminalType: 'screw',
+        face: 'back',
+        position3D: socketWiringFraction(type, label),
+      }),
+    )
+  }
   const wiring = labels.map((label,i) => T(label,label==='PE'?'earth':label==='N'?'neutral':'power-in',(i+1)/(labels.length+1),0,{terminalType:'screw',face:'front',position3D:socketWiringFraction(type,label)}))
   const outlets = socketOutletLabels(type).map((label,i,all) => {
     const position=socketOutletFraction(type,label)
@@ -2443,6 +2453,16 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     category: 'power', paletteName: 'EFAPEL 48132 C ? Schuko com obturador ? Estanque 48 ? IP65', group: 'Tomadas', tag: 'X', w: 96, h: 111,
     terminals: socketTerminals('socketEfapelIp65'),
     defaultState: { coverOpen: false, serviceOpen: false, brand: 'EFAPEL', series: 'Estanque 48', refCode: '48132 C', ip: 'IP65', ratedA: 16, socketGeometryRevision: 2 },
+  },
+  ceePlug16A: {
+    category: 'power',
+    paletteName: 'Ficha CEE 16A 2P+T 230V IP44 · cabo revestido',
+    group: 'Tomadas',
+    tag: 'F',
+    w: 78,
+    h: 78,
+    terminals: socketTerminals('ceePlug16A'),
+    defaultState: { brand: 'CEE', refCode: '16A 2P+T IP44', ip: 'IP44', ratedA: 16, glandVisible: true },
   },
   powerSource3ph: {
     category: 'power', paletteName: 'Fonte AC trifásica · L1/L2/L3/N/PE', group: 'Fontes', tag: 'QG', w: 205, h: 105,
