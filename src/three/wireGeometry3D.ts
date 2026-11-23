@@ -1601,6 +1601,9 @@ function finishWireBody(
   obstacles: WireObstacle[],
   exits: Parameters<typeof keepWireOutsideSolids>[3],
 ): V3[] {
+  // Percursos de maquete já com waypoints3D: confiar no traçado e evitar a varredura
+  // O(obstáculos × segmentos) — principal custo ao abrir a Maquete Estampagem.
+  if ((wire.waypoints3D?.length ?? 0) >= 2) return points
   const minZ = wireFrontLimit(outerMm)
   const instrument = endTypeOf(wire, 'from') === 'probe' || endTypeOf(wire, 'to') === 'probe'
   const safe = keepWireOutsideSolids(points, outerMm, obstacles, exits, minZ, wireHash(wire))
