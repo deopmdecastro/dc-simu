@@ -12,6 +12,8 @@ import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { sharedFerrulePort } from '../electrical/sharedFerrules'
 import { isWireOutsideSolids, keepWireOutsideSolids, segmentEntersBox, OrientedWireBox, type EnclosureWallKind } from './solidWireRouting'
 import { packBundleRosette, TIE_SPACING } from './bundleLacing'
+import { isCableTrayComponentType, isWireMeshTrayType } from './structuresModel'
+import { isSocketDevice } from '../electrical/socketDevices'
 
 /**
  * Geometria física dos cabos no Painel 3D: extremidades (bornes ou pontas livres),
@@ -420,6 +422,11 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
   for (const component of components) {
     const pivot = pivots[component.id]
     if (!pivot) continue
+    // Esteiras porta-cabos e calhas abertas da bancada são canais de passagem: os cabos assentam dentro
+    // delas (pontos de passagem pela esteira), por isso não contam como sólidos a contornar.
+    if (isCableTrayComponentType(component.type) || isWireMeshTrayType(component.type) || component.type === 'mecBenchDuct') continue
+    // Tomadas industriais (caixas ocas): os condutores entram pelo bucim e ligam aos bornes interiores.
+    if (isSocketDevice(component.type)) continue
     // Quadro: cascas sólidas (paredes); o volume interior continua livre.
     if (isEnclosureType(component.type)) {
       boxes.push(...enclosureWallObstacles(component, pivot))

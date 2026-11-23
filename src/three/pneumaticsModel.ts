@@ -2,6 +2,7 @@ import type { ElectricalComponent } from '../types'
 
 export type PneumaticComponentType =
   | 'pneumaticFrl'
+  | 'pneumaticFrlBracket'
   | 'pneumaticValve52'
   | 'pneumaticCylinder'
   | 'pneumaticTee'
@@ -17,6 +18,7 @@ export type PneumaticComponentType =
 export function isPneumaticComponentType(type: string): type is PneumaticComponentType {
   return (
     type === 'pneumaticFrl' ||
+    type === 'pneumaticFrlBracket' ||
     type === 'pneumaticValve52' ||
     type === 'pneumaticCylinder' ||
     type === 'pneumaticTee' ||
@@ -32,6 +34,47 @@ export function isPneumaticComponentType(type: string): type is PneumaticCompone
 }
 
 export const PNEUMATIC_FRL_SIZE_MM = { width: 150, height: 245, depth: 96 } as const
+/** Suporte em esquadro para FRL (aço galvanizado 3 mm): dimensões por omissão. */
+export const PNEUMATIC_FRL_BRACKET_SIZE_MM = { width: 220, height: 290, depth: 60, thickness: 3, flange: 70 } as const
+
+export interface FrlBracketDims {
+  widthMm: number
+  heightMm: number
+  depthMm: number
+  thicknessMm: number
+  /** Comprimento da aba superior (zona aparafusada por baixo do tampo). */
+  flangeLengthMm: number
+  flangeSide: 'left' | 'right'
+  /** Centro de fixação do FRL na chapa traseira (mm, local). */
+  mountXmm: number
+  mountYmm: number
+  /** Espaçadores entre a chapa e o cabeçote do FRL. */
+  standoffMm: number
+}
+
+const clampDim = (v: unknown, fallback: number, min: number, max: number) => {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.max(min, Math.min(max, n)) : fallback
+}
+
+export function frlBracketDimsOf(state?: Record<string, any>): FrlBracketDims {
+  const S = PNEUMATIC_FRL_BRACKET_SIZE_MM
+  const widthMm = clampDim(state?.widthMm, S.width, 80, 600)
+  const heightMm = clampDim(state?.heightMm, S.height, 80, 800)
+  const depthMm = clampDim(state?.depthMm, S.depth, 30, 200)
+  const thicknessMm = clampDim(state?.thicknessMm, S.thickness, 2, 6)
+  const flangeLengthMm = Math.min(widthMm, clampDim(state?.flangeLengthMm, S.flange, 30, 400))
+  const mountX = Number(state?.mountXmm)
+  const mountY = Number(state?.mountYmm)
+  return {
+    widthMm, heightMm, depthMm, thicknessMm, flangeLengthMm,
+    flangeSide: state?.flangeSide === 'left' ? 'left' : 'right',
+    mountXmm: Number.isFinite(mountX) ? mountX : -widthMm / 2 + 75,
+    mountYmm: Number.isFinite(mountY) ? mountY : 40,
+    standoffMm: clampDim(state?.standoffMm, 12, 0.5, 60),
+  }
+}
+
 export const PNEUMATIC_VALVE52_SIZE_MM = { width: 170, height: 102, depth: 56 } as const
 export const PNEUMATIC_CYLINDER_SIZE_MM = { width: 330, height: 88, depth: 78 } as const
 export const PNEUMATIC_TEE_SIZE_MM = { width: 82, height: 60, depth: 34 } as const
@@ -52,6 +95,10 @@ export function pneumaticComponentSizeMm(
 ): { x: number; y: number; z: number } | null {
   if (type === 'pneumaticFrl') {
     return { x: PNEUMATIC_FRL_SIZE_MM.width, y: PNEUMATIC_FRL_SIZE_MM.height, z: PNEUMATIC_FRL_SIZE_MM.depth }
+  }
+  if (type === 'pneumaticFrlBracket') {
+    const d = frlBracketDimsOf(_state)
+    return { x: d.widthMm, y: d.heightMm, z: d.depthMm }
   }
   if (type === 'pneumaticValve52') {
     return { x: PNEUMATIC_VALVE52_SIZE_MM.width, y: PNEUMATIC_VALVE52_SIZE_MM.height, z: PNEUMATIC_VALVE52_SIZE_MM.depth }
@@ -104,6 +151,13 @@ export const PNEUMATIC_DATASHEETS: Record<PneumaticComponentType, PneumaticDatas
     manufacturer: 'Festo',
     model: 'MS4-LFR-1/4 · 0–16 bar',
     summary: 'Preparação de ar comprimido Festo MS4 · Filtragem 5 µm · Regulador bloqueável · Manómetro 0–16 bar · Push-In QS',
+  },
+  pneumaticFrlBracket: {
+    path: '/datasheets/pneumatics/pneumatic-frl-unit-3d.pdf',
+    name: 'Festo MS4-WR · Suporte em esquadro para unidade FRL (Ficha Técnica).pdf',
+    manufacturer: 'Festo',
+    model: 'MS4-WR · Esquadro aço galvanizado 3 mm',
+    summary: 'Suporte em esquadro para MS4: aba aparafusada sob o tampo (2× M6 em rasgos), chapa traseira com 2× M5 e espaçadores ao cabeçote, reforço na dobra',
   },
   pneumaticValve52: {
     path: '/datasheets/pneumatics/pneumatic-valve-52-3d.pdf',

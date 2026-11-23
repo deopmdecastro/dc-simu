@@ -451,6 +451,7 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     type === 'waterSupplyBox' ||
     type === 'triProofLedBatten' ||
     type === 'pneumaticFrl' ||
+    type === 'pneumaticFrlBracket' ||
     type === 'pneumaticValve52' ||
     type === 'pneumaticCylinder' ||
     type === 'pneumaticTee' || type === 'pneumaticUnion' || type === 'pneumaticElbow' || type === 'pneumaticY' || type === 'airCompressor' ||

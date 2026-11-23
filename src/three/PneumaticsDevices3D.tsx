@@ -13,6 +13,7 @@ import {
   PNEUMATIC_TEE_SIZE_MM,
   PNEUMATIC_VACUUM_CUP_SIZE_MM,
   PNEUMATIC_VALVE52_SIZE_MM,
+  frlBracketDimsOf,
 } from './pneumaticsModel'
 
 const U = PANEL_UNITS_PER_MM
@@ -2162,6 +2163,108 @@ export function AirCompressor3D({ c, position, onToggleRun, onToggleCover }: {
         <mesh position={[0,-7*U,0]}><cylinderGeometry args={[5*U,5*U,9*U,6]} />{brass}</mesh>
       </group>
       </group>
+    </group>
+  )
+}
+
+/**
+ * Suporte em esquadro para unidade FRL (estilo Festo MS4-WR / MS4-WP): chapa de aço galvanizado de 3 mm
+ * dobrada a 90°. A aba superior aparafusa por baixo do tampo da bancada (2× M6 em rasgos); a chapa
+ * traseira desce por trás do FRL e prende o cabeçote com 2× M5 e espaçadores. Reforço triangular na dobra.
+ * Coordenadas locais em mm à volta do centro do volume (largura X, altura Y, profundidade Z).
+ */
+export function PneumaticFrlBracket3D({
+  c,
+  position,
+}: {
+  c: ElectricalComponent
+  position: [number, number, number]
+}) {
+  const d = frlBracketDimsOf(c.state)
+  const W = d.widthMm, H = d.heightMm, D = d.depthMm, t = d.thicknessMm, F = d.flangeLengthMm
+  const zinc = { color: '#c7cfd8', roughness: 0.36, metalness: 0.82 } as const
+  const zincDark = { color: '#aeb8c3', roughness: 0.42, metalness: 0.78 } as const
+  const steel = { color: '#8f9aa6', roughness: 0.3, metalness: 0.9 } as const
+  const slot = { color: '#1f2933', roughness: 0.85, metalness: 0.1 } as const
+  // Aba superior do lado +X (encostada à bancada) ou −X.
+  const sx = d.flangeSide === 'left' ? -1 : 1
+  const flangeX = sx * (W / 2 - F / 2)
+  const backZ = -D / 2 + t / 2
+  const topY = H / 2 - t / 2
+  const gusset = useMemo(() => {
+    const s = new THREE.Shape()
+    const g = Math.min(D - t, H * 0.3)
+    s.moveTo(0, 0)
+    s.lineTo(g, 0)
+    s.lineTo(0, -g)
+    s.closePath()
+    const geo = new THREE.ExtrudeGeometry(s, { depth: t * U, bevelEnabled: false })
+    geo.scale(U, U, 1)
+    return geo
+  }, [D, H, t])
+  useEffect(() => () => gusset.dispose(), [gusset])
+  const hex = (key: string, pos: [number, number, number], rot: [number, number, number], size = 10) => (
+    <group key={key} position={pos.map((v) => v * U) as [number, number, number]} rotation={rot}>
+      {/* Anilha + cabeça sextavada (DIN 933 / DIN 125) */}
+      <mesh castShadow><cylinderGeometry args={[size * 0.62 * U, size * 0.62 * U, 1.2 * U, 20]} /><meshStandardMaterial {...steel} /></mesh>
+      <mesh position={[0, 2.6 * U, 0]} castShadow><cylinderGeometry args={[size * 0.5 * U, size * 0.5 * U, 4 * U, 6]} /><meshStandardMaterial {...steel} /></mesh>
+    </group>
+  )
+  return (
+    <group position={position} name={`pneumatic-frl-bracket-3d-${c.id}`}>
+      {/* Chapa traseira vertical (atrás do FRL) */}
+      <mesh position={[0, -t / 2 * U, backZ * U]} castShadow receiveShadow>
+        <boxGeometry args={[W * U, (H - t) * U, t * U]} />
+        <meshStandardMaterial {...zinc} />
+      </mesh>
+      {/* Aba superior aparafusada por baixo do tampo */}
+      <mesh position={[flangeX * U, topY * U, (t / 2) * U]} castShadow receiveShadow>
+        <boxGeometry args={[F * U, t * U, (D - t) * U]} />
+        <meshStandardMaterial {...zinc} />
+      </mesh>
+      {/* Dobra a 90° (raio interior = espessura) */}
+      <mesh position={[flangeX * U, (H / 2 - t) * U, (-D / 2 + t) * U]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[t * U, t * U, F * U, 14, 1, false, Math.PI, Math.PI / 2]} />
+        <meshStandardMaterial {...zinc} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Reforço triangular soldado na dobra */}
+      <mesh geometry={gusset} position={[(flangeX - sx * (F / 2 - t)) * U - (t * U) / 2, (H / 2 - t) * U, (-D / 2 + t) * U]} rotation={[0, -Math.PI / 2, 0]} castShadow>
+        <meshStandardMaterial {...zincDark} />
+      </mesh>
+      {/* Rasgos de afinação na aba superior + parafusos M6 para o tampo (cabeças por baixo) */}
+      {[-1, 1].map((k) => (
+        <group key={`top-${k}`}>
+          <mesh position={[(flangeX + k * F * 0.22) * U, (topY - t / 2 - 0.05) * U, (t / 2 + 4) * U]}>
+            <boxGeometry args={[6.6 * U, 0.2 * U, 16 * U]} />
+            <meshStandardMaterial {...slot} />
+          </mesh>
+          {hex(`b-top-${k}`, [flangeX + k * F * 0.22, H / 2 - t - 0.6, t / 2 + 4], [Math.PI, 0, 0], 10)}
+        </group>
+      ))}
+      {/* Rasgos verticais de afinação na chapa traseira + 2× M5 com espaçadores ao cabeçote do FRL */}
+      {[-1, 1].map((k) => {
+        const x = d.mountXmm + k * 22
+        return (
+          <group key={`frl-${k}`}>
+            <mesh position={[x * U, d.mountYmm * U, (backZ - t / 2 - 0.05) * U]}>
+              <boxGeometry args={[5.6 * U, 18 * U, 0.2 * U]} />
+              <meshStandardMaterial {...slot} />
+            </mesh>
+            <mesh position={[x * U, d.mountYmm * U, (backZ + t / 2 + d.standoffMm / 2) * U]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <cylinderGeometry args={[4.2 * U, 4.2 * U, d.standoffMm * U, 6]} />
+              <meshStandardMaterial {...steel} />
+            </mesh>
+            {hex(`b-frl-${k}`, [x, d.mountYmm, backZ - t / 2 - 0.6], [-Math.PI / 2, 0, 0], 8)}
+          </group>
+        )
+      })}
+      {/* Furos de fixação de reserva (parede / pilar) na metade inferior */}
+      {[-1, 1].map((k) => (
+        <mesh key={`spare-${k}`} position={[k * (W / 2 - 18) * U, (-H / 2 + 26) * U, (backZ + t / 2 + 0.05) * U]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[3.3 * U, 3.3 * U, 0.2 * U, 18]} />
+          <meshStandardMaterial {...slot} />
+        </mesh>
+      ))}
     </group>
   )
 }

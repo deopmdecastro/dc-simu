@@ -142,6 +142,7 @@ import {
   PneumaticUnion3D,
   PneumaticElbow3D,
   PneumaticY3D,
+  PneumaticFrlBracket3D,
   PneumaticVacuumCup3D,
   PneumaticValve523D,
 } from './PneumaticsDevices3D'
@@ -5827,6 +5828,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <PneumaticElbow3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'pneumaticY') {
             content = <PneumaticY3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+          } else if (c.type === 'pneumaticFrlBracket') {
+            content = <PneumaticFrlBracket3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
           } else if (c.type === 'electricCylinderEpcs') {
             content = (
               <ElectricCylinderEpcs3D

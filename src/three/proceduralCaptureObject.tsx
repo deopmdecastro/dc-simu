@@ -9,7 +9,7 @@ import { hasProceduralCapture } from './proceduralKinds'
 import { WireTrayStraight3D, WireTrayElbow903D, WireTrayTee3D, WireTrayRiser903D } from './WireMeshTrayDevices3D'
 import { ConduitVdsStraight3D, ConduitVdsElbow903D, ConduitCorrugated3D, PipeClampStandalone3D } from './ConduitDevices3D'
 import { WaterFlowMeterZjLcd3D, WaterSupplyBox3D } from './HydraulicsDevices3D'
-import { AirCompressor3D, PneumaticManifold3D, PneumaticTee3D, PneumaticUnion3D, PneumaticElbow3D, PneumaticY3D } from './PneumaticsDevices3D'
+import { AirCompressor3D, PneumaticManifold3D, PneumaticTee3D, PneumaticUnion3D, PneumaticElbow3D, PneumaticY3D, PneumaticFrlBracket3D } from './PneumaticsDevices3D'
 import { Wago221Connector3D } from './JunctionWagoDevices3D'
 import { SensorMountBalluff3D } from './SensorMounts3D'
 import { applyCadSurfaceTextures } from './cadSurface'
@@ -80,6 +80,7 @@ function Snapshot({ type, section, ready }: { type: ComponentType; section: bool
       : type === 'pneumaticUnion' ? <PneumaticUnion3D c={c} position={position} />
       : type === 'pneumaticElbow' ? <PneumaticElbow3D c={c} position={position} />
       : type === 'pneumaticY' ? <PneumaticY3D c={c} position={position} />
+      : type === 'pneumaticFrlBracket' ? <PneumaticFrlBracket3D c={c} position={position} />
       : type === 'wago221_2' || type === 'wago221_3' || type === 'wago221_5' || type === 'wago221_double'
         ? <Wago221Connector3D component={c} />
       : type === 'wago221_inline' ? <Wago221Connector3D component={c} />

@@ -187,7 +187,8 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   // QE1 · quadro de campo sob a mesa, lado esquerdo (porta aberta para fora):
   // calhas técnicas, 2 calhas DIN, fonte 24 V, relé de segurança KS1 e relés de
   // interface K1–K6 e réguas de bornes. Bucins à esquerda (campo) e em cima (QGD).
-  // Dobradiça à direita (lado da mesa) → a porta abre para a esquerda, para fora.
+  // Dobradiça à esquerda (lado de fora da mesa) → a folha roda para a esquerda, para fora da mesa,
+  // sem bater nas pernas nem no tampo.
   // ---------------------------------------------------------------------------
   if (plate.legs) {
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
@@ -196,13 +197,13 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       const cab = { w: 480, h: cabinetH, d: 200 }
       const cabinetY = -55 - cab.h / 2
       const cabinetZ = -plate.widthMm / 2 + 145
-      // Lado esquerdo da mesa (folga ~50 mm da borda); dobradiça à direita → porta abre para fora.
+      // Lado esquerdo da mesa (folga ~50 mm da borda); dobradiça à esquerda → porta abre para fora.
       const cabinetX = -plate.lengthMm / 2 + cab.w / 2 + 50
       list.push({
         key: 'cabinet', type: 'panelEnclosure', x: cabinetX, y: cabinetY, z: cabinetZ,
         state: {
           hostLocation: 'machine', widthMm: cab.w, heightMm: cab.h, depthMm: cab.d,
-          doorOpen: true, hingeSide: 'right', plateFinish: 'Aço galvanizado',
+          doorOpen: true, hingeSide: 'left', plateFinish: 'Aço galvanizado',
           labelText: 'QE1 · CAMPO ESTAMPAGEM',
           holes: [
             { id: 'field-entry-left', face: 'left', offsetXmm: 40, offsetYmm: -150, diameterMm: 32, glandType: 'M32' },
@@ -315,8 +316,8 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   const onWallZ = wallZ + STANDOFF_MM + TRAY_SIDE_MM / 2
   const branch = { from: wallTrayZ + WALL_TRAY_W / 2, to: -plate.widthMm / 2 }
   // Cabos e tubos dentro de cada esteira (lidos pelo desenho 3D da esteira, com abraçadeiras).
-  const BENCH_CABLE = { kind: 'cable', color: '#9ca3af', diameterMm: 11, label: 'H07RN-F 3G2,5 · MAQUETE' }
-  const COMP_CABLE = { kind: 'cable', color: '#1f2937', diameterMm: 10, label: 'H07RN-F 3G2,5 · COMPRESSOR' }
+  // Os cabos 3G2,5 da maquete e do compressor são cabos reais (ver `stampingBenchWiring`); nas
+  // esteiras fica só o tubo de ar desenhado como feixe filaçado.
   const AIR_TUBE = { kind: 'tube', color: '#2563eb', diameterMm: 10, label: 'PU Ø10 · AR COMPRIMIDO' }
   const laced = (cables: object[]) => ({ cables, tieEveryMm: 250 })
   const tray = (key: string, x: number, y: number, z: number, lengthMm: number, widthMm: number, labelText: string, cables: object[], orientation?: ComponentViewOrientation): BenchPlacement => ({
@@ -338,10 +339,34 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     key: 'compressor', type: 'airCompressor', x: compX, y: floor + comp.y / 2, z: wallZ + 40 + comp.z / 2,
     state: { labelText: 'COMPRESSOR · AR COMPRIMIDO' },
   })
+  const frlPos = { x: -plate.lengthMm / 2 - frl.x / 2 - 2, y: -top - 30 - frl.y / 2, z: -plate.widthMm / 2 + 60 }
   list.push({
-    key: 'airTreatment', type: 'pneumaticFrl', x: -plate.lengthMm / 2 - frl.x / 2 - 2, y: -top - 30 - frl.y / 2, z: -plate.widthMm / 2 + 60,
+    key: 'airTreatment', type: 'pneumaticFrl', ...frlPos,
     state: { labelText: 'FRL · ENTRADA DE AR' },
   })
+  // Suporte em esquadro do FRL: aba superior aparafusada por baixo do tampo (antes da travessa do
+  // QE1) e chapa traseira atrás do cabeçote MS4 (centro do cabeçote 22 mm acima do centro do FRL).
+  {
+    const t = 3
+    const headBackZ = frlPos.z - 32 // cabeçote MS4 com 64 mm de profundidade
+    const standoff = 10
+    const backZ = headBackZ - standoff - t
+    const depth = 58
+    const x0 = frlPos.x - frl.x / 2 - 8
+    const x1 = -plate.lengthMm / 2 + 40
+    const y1 = -top
+    const y0 = frlPos.y - frl.y / 2 + 70
+    const c = { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: backZ + depth / 2 }
+    list.push({
+      key: 'frlBracket', type: 'pneumaticFrlBracket', ...c,
+      state: {
+        labelText: 'SUPORTE FRL',
+        widthMm: Math.round(x1 - x0), heightMm: Math.round(y1 - y0), depthMm: depth, thicknessMm: t,
+        flangeLengthMm: Math.round(x1 - (-plate.lengthMm / 2)), flangeSide: 'right', standoffMm: standoff,
+        mountXmm: Math.round(frlPos.x - c.x), mountYmm: Math.round(frlPos.y + 22 - c.y),
+      },
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Tomadas RoadEu 70929 (CEE 2P+T 16 A + seccionador 0-1) no fim das descidas, com folga de
@@ -359,7 +384,7 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   const socketBenchY = Math.max(socketY, top + socketH / 2 + 40)
 
   // Subida do topo do QGD, apoiada na parede, e pescoço até à esteira aérea.
-  const QGD_CABLES = [BENCH_CABLE, COMP_CABLE]
+  const QGD_CABLES: object[] = []
   if (trayBottom - panelTop >= 300) {
     list.push(vertical('tray-riser-qgd', panelX, onWallZ, panelTop, WALL_TRAY_W, 'QGD → ESTEIRA', QGD_CABLES))
     list.push(neck('tray-neck-qgd', panelX, WALL_TRAY_W, 'PESCOÇO QGD', QGD_CABLES))
@@ -368,19 +393,19 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   const wallTrayX0 = compDropX - 50 - 60
   const wallTrayX1 = panelX + WALL_TRAY_W / 2 + 60
   list.push(tray('tray-wall', (wallTrayX0 + wallTrayX1) / 2, trayY, wallTrayZ, wallTrayX1 - wallTrayX0, WALL_TRAY_W,
-    'ESTEIRA AÉREA · PAREDE', [BENCH_CABLE, COMP_CABLE, AIR_TUBE]))
-  list.push(tray('tray-to-bench', 0, trayY, (branch.from + branch.to) / 2, branch.to - branch.from, 150, 'QGD → BANCADA', [BENCH_CABLE, AIR_TUBE], ALONG_Z))
+    'ESTEIRA AÉREA · PAREDE', [AIR_TUBE]))
+  list.push(tray('tray-to-bench', 0, trayY, (branch.from + branch.to) / 2, branch.to - branch.from, 150, 'QGD → BANCADA', [AIR_TUBE], ALONG_Z))
   list.push({
     key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: pillarZ,
     state: { heightMm: Math.round(trayBottom - floor), profile: 'IPE100', finish: 'safetyYellow' },
   })
   // Descida da bancada: fundo na face do pilar, termina 20 mm acima da tomada da maquete.
   list.push(vertical('tray-drop-bench', 0, pillarFaceZ + 2 + TRAY_SIDE_MM / 2, socketBenchY + socketH / 2 + SOCKET_GAP_MM, 100,
-    'DESCIDA BANCADA', [BENCH_CABLE, AIR_TUBE]))
+    'DESCIDA BANCADA', [AIR_TUBE]))
   // Descida do compressor: fundo na parede, pescoço até à ponta da esteira aérea, termina 20 mm acima da tomada.
-  list.push(neck('tray-neck-compressor', compDropX, 100, 'PESCOÇO COMPRESSOR', [COMP_CABLE, AIR_TUBE]))
+  list.push(neck('tray-neck-compressor', compDropX, 100, 'PESCOÇO COMPRESSOR', [AIR_TUBE]))
   list.push(vertical('tray-drop-compressor', compDropX, onWallZ, socketY + socketH / 2 + SOCKET_GAP_MM, 100,
-    'DESCIDA COMPRESSOR', [COMP_CABLE, AIR_TUBE]))
+    'DESCIDA COMPRESSOR', [AIR_TUBE]))
 
   list.push({
     key: 'socket-compressor',

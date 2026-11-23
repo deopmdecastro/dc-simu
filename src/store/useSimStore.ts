@@ -84,6 +84,8 @@ import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { benchBaseUnits, benchInFactoryHall, benchPartUnits, MAQUETTE_PLATE_TYPE, readyMaquetteById, readyMaquetteParts, type ReadyMaquetteId } from '../electrical/readyMaquettes'
 import { stampingWallPanelContent } from '../electrical/stampingWallPanel'
+import { benchTerminalOverrides, stampingBenchWiring } from '../electrical/stampingBenchWiring'
+import { wallPanelExitRoute } from '../electrical/wallPanelRouting'
 /** Nave fabril da maquete pronta com quadro de parede (m). */
 const MAQUETTE_FACTORY_HALL = { widthM: 8, depthM: 6, heightM: 3.5 }
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeLsXbmFront, upgradeMonoMotorTerminals, upgradeRemovedControlTypes, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions, upgradeTerminalAssemblyPositions } from '../electrical/factory'
@@ -3045,8 +3047,10 @@ export const useSimStore = create<Store>((set, get) => {
     const created: string[] = []
     // Quadro geral de parede (QGD) primeiro: é ele que ancora a parede, o chão e o centro da nave.
     let hall: ReturnType<typeof benchInFactoryHall> | null = null
+    let wallPanel: ReturnType<typeof stampingWallPanelContent> | null = null
     if (mq.wallPanel) {
       const panel = stampingWallPanelContent(`mq${nanoid(6)}-`, originX - 420, originY - 260)
+      wallPanel = panel
       set((s) => ({ components: [...s.components, ...panel.components], wires: [...s.wires, ...panel.wires] }))
       created.push(...panel.components.map((c) => c.id))
       const enc = panel.components.find((c) => c.id === panel.enclosureId)!
@@ -3064,6 +3068,7 @@ export const useSimStore = create<Store>((set, get) => {
     const plate = get().components.find((c) => c.id === plateId)
     const base = hall?.base ?? benchBaseUnits(plate?.schematicX, plate?.schematicY)
     get().updateComponentRaw(plateId, { panel3DPosition: base })
+    const idByKey = new Map<string, string>()
     parts.forEach((part, i) => {
       const compId = get().addComponent(part.type, originX + 40 + (i % 5) * 140, originY + 180 + Math.floor(i / 5) * 160, {
         history: false,
@@ -3074,8 +3079,62 @@ export const useSimStore = create<Store>((set, get) => {
       // TAG fixa só se ainda estiver livre (uma segunda maquete fica com a numeração automática).
       const ref = part.ref && !get().components.some((c) => c.ref === part.ref) ? { ref: part.ref } : {}
       get().updateComponentRaw(compId, { panel3DPosition: benchPartUnits(base, part), ...(part.orientation ? { viewOrientation: part.orientation } : {}), ...ref })
+      // Bornes dos operadores no bloco de contactos (atrás, dentro da caixa de comando).
+      const termOverrides = benchTerminalOverrides(part)
+      if (Object.keys(termOverrides).length) {
+        const comp = get().components.find((c) => c.id === compId)
+        if (comp) get().updateComponentRaw(compId, { terminals: comp.terminals.map((t) => (termOverrides[t.label] ? { ...t, ...termOverrides[t.label] } : t)) })
+      }
+      idByKey.set(part.key, compId)
       created.push(compId)
     })
+    // Cablagem da bancada: 3G2,5 do QGD às tomadas pelas esteiras e cabos de campo às réguas do QE1.
+    {
+      const comps = get().components
+      const wallRefs = new Map((wallPanel?.components ?? []).map((c) => [c.ref, c.id]))
+      const terminalOf = (end: { key: string; label: string } | { ref: string; label: string }) => {
+        const compId = 'key' in end ? idByKey.get(end.key) : wallRefs.get(end.ref)
+        return compId ? comps.find((c) => c.id === compId)?.terminals.find((t) => t.label === end.label)?.id : undefined
+      }
+      const tag = nanoid(6)
+      const benchWires: Wire[] = []
+      for (const spec of stampingBenchWiring(parts, mq.plateState)) {
+        const from = terminalOf(spec.from)
+        const to = terminalOf(spec.to)
+        if (!from || !to) continue
+        let points = spec.waypointsMm.map((p) => benchPartUnits(base, p))
+        // Saída do QGD: o 1.º ponto fica por baixo do bucim superior; dentro do quadro o cabo segue
+        // pelas calhas técnicas (borne → calha inferior → calha vertical → calha do topo → bucim).
+        if ('ref' in spec.from && points.length > 1 && wallPanel) {
+          const owner = wallPanel.components.find((c) => c.ref === (spec.from as { ref: string }).ref)
+          const lane = spec.id.endsWith('-l') ? -0.04 : spec.id.endsWith('-pe') ? 0.04 : 0
+          const gland = { x: points[0].x, y: points[0].y + 0.6, z: points[0].z }
+          const inner = owner ? wallPanelExitRoute(wallPanel.components, owner, gland, lane) : []
+          if (inner.length) points = [...inner, ...points.slice(1)]
+        }
+        benchWires.push({
+          id: `${spec.id}-${tag}`,
+          fromTerminalId: from,
+          toTerminalId: to,
+          color: spec.color,
+          gauge: spec.gauge,
+          kind: spec.kind,
+          number: spec.number,
+          label: spec.label,
+          flexibility: 'flexible',
+          route: 'manhattan',
+          bend: 0.5,
+          curveOffset: 0,
+          endType: 'ferrule',
+          fromEndType: 'ferrule',
+          toEndType: 'ferrule',
+          ...(points.length ? { waypoints3D: points } : {}),
+          ...(spec.bundleId ? { bundleId: `${spec.bundleId}-${tag}` } : {}),
+          energized: false,
+        })
+      }
+      if (benchWires.length) set((s) => ({ wires: [...s.wires, ...benchWires] }))
+    }
     set({ selectedComponentIds: created, selectedWireId: null, selectedTerminalId: null, dirty: true })
     get().pushEvent(
       'info',

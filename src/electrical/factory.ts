@@ -1108,6 +1108,15 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       model: 'MS4-LFR-1/4 · 0–16 bar',
     },
   },
+  pneumaticFrlBracket: {
+    category: 'power', paletteName: 'Suporte em esquadro para FRL · aço galvanizado 3 mm (fixação à bancada)', group: 'Pneumática', tag: 'SP', w: 110, h: 140,
+    terminals: [],
+    defaultState: {
+      manufacturer: 'Festo',
+      model: 'MS4-WR · esquadro 220 × 290 × 60 mm',
+      widthMm: 220, heightMm: 290, depthMm: 60, thicknessMm: 3, flangeLengthMm: 70, flangeSide: 'right',
+    },
+  },
   pneumaticValve52: {
     category: 'motor', paletteName: 'Festo CPE14-M1B · Eletroválvula 5/2 vias · 24 V DC', group: 'Pneumática', tag: 'YV', w: 140, h: 100,
     terminals: [
@@ -3260,7 +3269,7 @@ export function paletteDomains(): PaletteDomain[] {
     }
 
     if (tpl.group === 'Pneumática') {
-      if (type === 'pneumaticFrl' || type === 'pneumaticManifold' || type === 'pneumaticTee' || type === 'pneumaticUnion' || type === 'pneumaticElbow' || type === 'pneumaticY' || type === 'airCompressor') {
+      if (type === 'pneumaticFrl' || type === 'pneumaticFrlBracket' || type === 'pneumaticManifold' || type === 'pneumaticTee' || type === 'pneumaticUnion' || type === 'pneumaticElbow' || type === 'pneumaticY' || type === 'airCompressor') {
         pushTo('pneumatica', 'pneu-tratamento', 'Tratamento & Distribuição de Ar', item)
       } else if (type === 'pneumaticValve52') {
         pushTo('pneumatica', 'pneu-valvulas', 'Eletroválvulas', item)

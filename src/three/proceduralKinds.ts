@@ -9,7 +9,7 @@ import { isSocketDevice } from '../electrical/socketDevices'
 
 export function hasProceduralCapture(type: string): boolean {
   return isConduitStructureType(type) || isWireMeshTrayType(type) || type === 'hydraulicFlowMeter' || type === 'waterSupplyBox'
-    || type === 'airCompressor' || type === 'pneumaticManifold'
+    || type === 'airCompressor' || type === 'pneumaticManifold' || type === 'pneumaticFrlBracket'
     || type === 'pneumaticTee' || type === 'pneumaticUnion' || type === 'pneumaticElbow' || type === 'pneumaticY'
     || type === 'wago221_2' || type === 'wago221_3' || type === 'wago221_5' || type === 'wago221_inline' || type === 'wago221_double'
     || type === 'sensorMountBalluff'

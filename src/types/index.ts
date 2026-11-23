@@ -114,6 +114,7 @@ export type ComponentType =
   | 'hydraulicFlowMeter'
   | 'waterSupplyBox'
   | 'pneumaticFrl'
+  | 'pneumaticFrlBracket'
   | 'pneumaticValve52'
   | 'pneumaticCylinder'
   | 'pneumaticTee'

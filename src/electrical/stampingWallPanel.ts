@@ -204,8 +204,8 @@ export function stampingWallPanelContent(prefix: string, dx = 0, dy = 0): WallPa
     // Bucins inferiores da casa + saídas superiores para a esteira aérea (maquete e compressor).
     holes: [
       ...((enclosure.state.holes as unknown[]) ?? []),
-      { id: 'qgd-out-bench', face: 'top', diameterMm: 32, offsetXmm: 120, offsetYmm: 0, glandType: 'M32' },
-      { id: 'qgd-out-compressor', face: 'top', diameterMm: 25, offsetXmm: -120, offsetYmm: 0, glandType: 'M25' },
+      { id: 'qgd-out-bench', face: 'top', diameterMm: 25, offsetXmm: 60, offsetYmm: 0, glandType: 'M25' },
+      { id: 'qgd-out-compressor', face: 'top', diameterMm: 25, offsetXmm: -60, offsetYmm: 0, glandType: 'M25' },
     ],
   }
   // Os pontos de passagem dos cabos acompanham o deslocamento do Esquema.
