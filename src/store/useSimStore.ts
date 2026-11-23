@@ -3195,9 +3195,11 @@ export const useSimStore = create<Store>((set, get) => {
           number: spec.number,
           label: spec.label,
           flexibility: 'flexible',
-          route: 'manhattan',
+          route: spec.route ?? (spec.medium ? 'arc' : 'manhattan'),
           bend: 0.5,
           curveOffset: 0,
+          // Tubos de ar e cabos de ficha: arrastáveis por omissão (locked só se a spec o pedir).
+          locked: spec.locked === true,
           endType: spec.medium ? 'pneumaticPushIn' : 'ferrule',
           fromEndType: spec.medium ? 'pneumaticPushIn' : (spec.fromEnd ?? 'ferrule'),
           toEndType: spec.medium ? 'pneumaticPushIn' : (spec.toEnd ?? 'ferrule'),
