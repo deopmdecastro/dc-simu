@@ -55,7 +55,9 @@ export function isPanelBound(component: ElectricalComponent): boolean {
     // Tomadas industriais de parede / pilar (RoadEu, FAMATEL, EFAPEL): pivô espacial livre.
     component.type === 'socketFamatelCombo' ||
     component.type === 'socketFamatelSwitch' ||
-    component.type === 'socketEfapelIp65'
+    component.type === 'socketEfapelIp65' ||
+    // Ficha CEE 16A: encaixa na tomada (fora de qualquer quadro), também com pivô livre.
+    component.type === 'ceePlug16A'
   ) return false
   // Conector WAGO 221: fica dentro do quadro apenas quando o utilizador escolhe "Quadro elétrico".
   if (isWagoConnectorType(component.type)) {
