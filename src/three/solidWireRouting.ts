@@ -95,13 +95,49 @@ function isBypassedSolid(box: SolidWireBox, exits: [SocketExit, SocketExit]): bo
 }
 
 /** A exceção pertence apenas ao túnel axial do encaixe, nunca a uma esfera à volta dele. */
-function clearWithSockets(points: Point[], boxes: SolidWireBox[], exits: [SocketExit, SocketExit], pad: number): boolean {
-  const tunnel = (p: Point, q: Point, end: Point, exit: SocketExit, reverse: boolean) => {
-    const axis = vec(exit.axis).normalize(), a = vec(p).sub(vec(end)), b = vec(q).sub(vec(end))
-    return a.clone().cross(axis).length() < 1e-5 && b.clone().cross(axis).length() < 1e-5
-      && a.dot(axis) >= -1e-6 && b.dot(axis) >= -1e-6
-      && (reverse ? a.dot(axis) >= b.dot(axis) - 1e-6 : b.dot(axis) >= a.dot(axis) - 1e-6)
+/** Troço dentro do túnel axial de saída do encaixe (a única passagem permitida dentro do próprio aparelho). */
+function socketTunnel(p: Point, q: Point, end: Point, exit: SocketExit, reverse: boolean) {
+  const axis = vec(exit.axis).normalize(), a = vec(p).sub(vec(end)), b = vec(q).sub(vec(end))
+  return a.clone().cross(axis).length() < 1e-5 && b.clone().cross(axis).length() < 1e-5
+    && a.dot(axis) >= -1e-6 && b.dot(axis) >= -1e-6
+    && (reverse ? a.dot(axis) >= b.dot(axis) - 1e-6 : b.dot(axis) >= a.dot(axis) - 1e-6)
+}
+
+/**
+ * Mesmo critério que `isWireOutsideSolids`, avaliado segmento a segmento com cache, para quem testa
+ * muitas variantes locais do mesmo cabo (remoção de bicos): só os segmentos novos são verificados.
+ * As pontas do cabo têm de ser as indicadas — se mudarem, recorre ao teste completo.
+ */
+export function createWireClearance(outerMm: number, obstacles: SolidWireBox[], exits: [SocketExit, SocketExit], first: Point, last: Point) {
+  const pad = outerMm * 0.005 + 0.025
+  const active = obstacles.filter((box) => !isBypassedSolid(box, exits)).map((box) => ({ box, grown: box.clone().expandByScalar(pad) }))
+  const cache = new Map<string, boolean>()
+  const same = (a: Point, b: Point) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+  const segmentClear = (a: Point, b: Point) => {
+    const key = `${a[0]},${a[1]},${a[2]}|${b[0]},${b[1]},${b[2]}`
+    const known = cache.get(key)
+    if (known !== undefined) return known
+    let ok = true
+    for (const { box, grown } of active) {
+      if (!segmentEntersBox(a, b, grown)) continue
+      if (box.componentId && box.componentId === exits[0].componentId && socketTunnel(a, b, first, exits[0], false)) continue
+      if (box.componentId && box.componentId === exits[1].componentId && socketTunnel(a, b, last, exits[1], true)) continue
+      ok = false
+      break
+    }
+    cache.set(key, ok)
+    return ok
   }
+  return (points: Point[]): boolean => {
+    if (points.length < 2) return true
+    if (!same(points[0], first) || !same(points[points.length - 1], last)) return isWireOutsideSolids(points, outerMm, obstacles, exits)
+    for (let i = 1; i < points.length; i++) if (!segmentClear(points[i - 1], points[i])) return false
+    return true
+  }
+}
+
+function clearWithSockets(points: Point[], boxes: SolidWireBox[], exits: [SocketExit, SocketExit], pad: number): boolean {
+  const tunnel = socketTunnel
   for (const box of boxes) {
     if (isBypassedSolid(box, exits)) continue
     const grown = box.clone().expandByScalar(pad)

@@ -10,7 +10,8 @@ import { MOTOR_BOX, MOTOR_CAD, MOTOR_GLAND, MOTOR_SIZE } from './motorTerminalLa
 import { WATER_SUPPLY_BOX_JUNCTION_MM, WATER_SUPPLY_BOX_SIZE_MM, waterSupplyBoxWagoPortMm } from './hydraulicsModel'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { sharedFerrulePort } from '../electrical/sharedFerrules'
-import { isWireOutsideSolids, keepWireOutsideSolids, segmentEntersBox, OrientedWireBox, type EnclosureWallKind } from './solidWireRouting'
+import { industrialPillarDimsOf } from './structuresModel'
+import { createWireClearance, isWireOutsideSolids, keepWireOutsideSolids, segmentEntersBox, OrientedWireBox, type EnclosureWallKind } from './solidWireRouting'
 import { packBundleRosette, TIE_SPACING } from './bundleLacing'
 import { isCableTrayComponentType, isWireMeshTrayType } from './structuresModel'
 import { isSocketDevice } from '../electrical/socketDevices'
@@ -385,15 +386,47 @@ function enclosureWallObstacles(component: ElectricalComponent, pivot: THREE.Vec
   if (component.state.doorOpen === false) {
     walls.push(['door', cx - halfW, cx + halfW, cy - halfH, cy + halfH, frontZ - sheet, frontZ])
   }
-  const out: WireObstacle[] = walls.map(([kind, minX, maxX, minY, maxY, minZ, maxZ]) => {
-    const box: WireObstacle = new THREE.Box3(
-      new THREE.Vector3(minX, minY, minZ),
-      new THREE.Vector3(maxX, maxY, maxZ),
-    )
-    box.componentId = component.id
-    box.hard = true
-    box.enclosureWall = kind
-    return box
+  // Bucins / furos declarados (`state.holes`): a chapa fica aberta nesse ponto para os cabos entrarem.
+  // Sem isto as entradas pelos bucins laterais/topo contavam como colisão e o encaminhador desviava o
+  // cabo inteiro em diagonal. Convenção igual ao desenho dos furos (PanelAccessories3D):
+  // laterais → (z = centro + offsetX, y = centro + offsetY); topo/base → (x = centro + offsetX, z = centro + offsetY).
+  type Hole = { face?: string; offsetXmm?: number; offsetYmm?: number; diameterMm?: number }
+  const holes = (Array.isArray(component.state.holes) ? component.state.holes as Hole[] : [])
+  const openingsOf = (kind: EnclosureWallKind): Array<[number, number, number, number]> => holes
+    .filter((h) => h.face === kind && (kind === 'left' || kind === 'right' || kind === 'top' || kind === 'bottom'))
+    .map((h) => {
+      const r = ((Number(h.diameterMm) || 20) / 2 + 6) * U
+      const ox = (Number(h.offsetXmm) || 0) * U, oy = (Number(h.offsetYmm) || 0) * U
+      // [a, b] no plano da chapa: laterais (z, y); topo/base (x, z).
+      const a = kind === 'left' || kind === 'right' ? pivot.z + ox : cx + ox
+      const b = kind === 'left' || kind === 'right' ? cy + oy : pivot.z + oy
+      return [a - r, a + r, b - r, b + r] as [number, number, number, number]
+    })
+  const out: WireObstacle[] = walls.flatMap(([kind, minX, maxX, minY, maxY, minZ, maxZ]) => {
+    const make = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
+      const box: WireObstacle = new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1))
+      box.componentId = component.id
+      box.hard = true
+      box.enclosureWall = kind
+      return box
+    }
+    const openings = openingsOf(kind)
+    if (!openings.length) return [make(minX, maxX, minY, maxY, minZ, maxZ)]
+    const side = kind === 'left' || kind === 'right'
+    // Eixos no plano da chapa e a respetiva extensão.
+    const [aMin, aMax, bMin, bMax] = side ? [minZ, maxZ, minY, maxY] : [minX, maxX, minZ, maxZ]
+    const cuts = (lo: number, hi: number, vals: number[]) => [...new Set([lo, hi, ...vals.map((v) => Math.min(hi, Math.max(lo, v)))])].sort((p, q) => p - q)
+    const as = cuts(aMin, aMax, openings.flatMap(([a0, a1]) => [a0, a1]))
+    const bs = cuts(bMin, bMax, openings.flatMap(([, , b0, b1]) => [b0, b1]))
+    const pieces: WireObstacle[] = []
+    for (let i = 0; i < as.length - 1; i++) for (let k = 0; k < bs.length - 1; k++) {
+      const a0 = as[i], a1 = as[i + 1], b0 = bs[k], b1 = bs[k + 1]
+      if (a1 - a0 < 1e-6 || b1 - b0 < 1e-6) continue
+      const am = (a0 + a1) / 2, bm = (b0 + b1) / 2
+      if (openings.some(([o0, o1, p0, p1]) => am > o0 && am < o1 && bm > p0 && bm < p1)) continue
+      pieces.push(side ? make(minX, maxX, b0, b1, a0, a1) : make(a0, a1, minY, maxY, b0, b1))
+    }
+    return pieces
   })
   // Porta aberta: volume orientado da folha metálica para impedir que cabos a atravessem.
   if (component.state.doorOpen !== false) {
@@ -430,6 +463,24 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
     // Quadro: cascas sólidas (paredes); o volume interior continua livre.
     if (isEnclosureType(component.type)) {
       boxes.push(...enclosureWallObstacles(component, pivot))
+      continue
+    }
+    // Pilar metálico: perfil ao longo da altura + placa de base só junto ao chão. A caixa envolvente
+    // (placa de base estendida a toda a altura) engolia as esteiras e tomadas montadas na face do pilar.
+    if (component.type === 'industrialPillar') {
+      const half = componentHalfExtents(component)
+      const dims = industrialPillarDimsOf(component.state)
+      const s = (dims.sectionMm * U) / 2, plateH = 25 * U
+      const bottom = pivot.y - half.y
+      for (const [x0, x1, y0, y1, z0, z1] of [
+        [pivot.x - s, pivot.x + s, bottom, pivot.y + half.y, pivot.z - s, pivot.z + s],
+        [pivot.x - half.x, pivot.x + half.x, bottom, bottom + plateH, pivot.z - half.z, pivot.z + half.z],
+      ]) {
+        const part: WireObstacle = new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1))
+        part.componentId = component.id
+        part.hard = true
+        boxes.push(part)
+      }
       continue
     }
     const half = componentHalfExtents(component)
@@ -2395,11 +2446,92 @@ function segSegClosest3D(
  * nas calhas horizontais, planos verticais separados e relaxação física 3D cápsula-a-cápsula
  * para impedir que qualquer cabo atravesse por dentro de outro cabo.
  */
+/** Código de par de segmentos (s1 · K + s2) usado pela relaxação; K > nº máximo de pontos de um cabo. */
+const RELAX_SEG_K = 1 << 16
+const RELAX_CELL = 0.05 // 5 mm
+const RELAX_SLACK = 0.02 // folga (2 mm) para o deslocamento dos pontos durante uma passagem
+const RELAX_MAX_CELLS = 2048
+
+/**
+ * Broad-phase da relaxação cápsula-a-cápsula. Antes, cada par de cabos com caixas sobrepostas testava
+ * TODOS os pares de segmentos (O(n²·s²): ~7·10⁹ testes na maquete de estampagem, 3 min no worker).
+ * Uma grelha uniforme por passagem devolve apenas os pares de segmentos próximos, ordenados por
+ * (j, s1, s2) — a mesma ordem do varrimento completo, por isso a relaxação dá o mesmo resultado.
+ */
+function relaxBroadPhase(items: Array<{ pts: THREE.Vector3[]; radius: number }>) {
+  // Chave numérica da célula (colisões de hash só acrescentam candidatos, nunca os perdem).
+  const keyOf = (x: number, y: number, z: number) => ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) | 0
+  const grid = new Map<number, number[]>()
+  const oversize: Array<[number, number]> = []
+  // Por segmento: caixa com folga [x0,x1,y0,y1,z0,z1] e intervalo de células [ix0,ix1,iy0,iy1,iz0,iz1].
+  const boxes: Float64Array[] = []
+  const cells: Int32Array[] = []
+  const big: Uint8Array[] = []
+  for (let w = 0; w < items.length; w++) {
+    const { pts, radius } = items[w]
+    const m = radius + RELAX_SLACK
+    const n = Math.max(0, pts.length - 1)
+    const bx = new Float64Array(n * 6), cx = new Int32Array(n * 6), over = new Uint8Array(n)
+    for (let s = 0; s < n; s++) {
+      const a = pts[s], b = pts[s + 1], o = s * 6
+      bx[o] = Math.min(a.x, b.x) - m; bx[o + 1] = Math.max(a.x, b.x) + m
+      bx[o + 2] = Math.min(a.y, b.y) - m; bx[o + 3] = Math.max(a.y, b.y) + m
+      bx[o + 4] = Math.min(a.z, b.z) - m; bx[o + 5] = Math.max(a.z, b.z) + m
+      for (let k = 0; k < 6; k++) cx[o + k] = Math.floor(bx[o + k] / RELAX_CELL)
+      const count = (cx[o + 1] - cx[o] + 1) * (cx[o + 3] - cx[o + 2] + 1) * (cx[o + 5] - cx[o + 4] + 1)
+      if (count > RELAX_MAX_CELLS) { over[s] = 1; oversize.push([w, s]); continue }
+      for (let x = cx[o]; x <= cx[o + 1]; x++) for (let y = cx[o + 2]; y <= cx[o + 3]; y++) for (let z = cx[o + 4]; z <= cx[o + 5]; z++) {
+        const key = keyOf(x, y, z)
+        const cell = grid.get(key)
+        // Duas células do mesmo segmento com o mesmo hash: não duplicar a entrada (o par seria tratado 2×).
+        if (!cell) grid.set(key, [w, s])
+        else if (cell[cell.length - 2] !== w || cell[cell.length - 1] !== s) cell.push(w, s)
+      }
+    }
+    boxes.push(bx); cells.push(cx); big.push(over)
+  }
+  const overlaps = (ba: Float64Array, oa: number, bb: Float64Array, ob: number) =>
+    ba[oa] <= bb[ob + 1] && bb[ob] <= ba[oa + 1] && ba[oa + 2] <= bb[ob + 3] && bb[ob + 2] <= ba[oa + 3] && ba[oa + 4] <= bb[ob + 5] && bb[ob + 4] <= ba[oa + 5]
+  return {
+    /** Pares candidatos do cabo `i` com cabos `j > i`, por ordem crescente de j e depois (s1, s2). */
+    candidates(i: number): Array<[number, number[]]> {
+      const found = new Map<number, number[]>()
+      const add = (j: number, code: number) => { const list = found.get(j); if (list) list.push(code); else found.set(j, [code]) }
+      const bA = boxes[i], cA = cells[i], overA = big[i]
+      for (let s1 = 0; s1 < overA.length; s1++) {
+        const oa = s1 * 6
+        if (overA[s1]) {
+          // Segmento muito longo (pouco frequente): compara diretamente com todos os segmentos dos cabos seguintes.
+          for (let j = i + 1; j < boxes.length; j++) for (let s2 = 0; s2 < big[j].length; s2++) if (overlaps(bA, oa, boxes[j], s2 * 6)) add(j, s1 * RELAX_SEG_K + s2)
+          continue
+        }
+        for (let x = cA[oa]; x <= cA[oa + 1]; x++) for (let y = cA[oa + 2]; y <= cA[oa + 3]; y++) for (let z = cA[oa + 4]; z <= cA[oa + 5]; z++) {
+          const cell = grid.get(keyOf(x, y, z))
+          if (!cell) continue
+          for (let k = 0; k < cell.length; k += 2) {
+            const j = cell[k]
+            if (j <= i) continue
+            const s2 = cell[k + 1], ob = s2 * 6, cB = cells[j]
+            // Cada par é emitido uma só vez: na primeira célula comum aos dois segmentos.
+            if (x !== Math.max(cA[oa], cB[ob]) || y !== Math.max(cA[oa + 2], cB[ob + 2]) || z !== Math.max(cA[oa + 4], cB[ob + 4])) continue
+            if (overlaps(bA, oa, boxes[j], ob)) add(j, s1 * RELAX_SEG_K + s2)
+          }
+        }
+        for (const [j, s2] of oversize) if (j > i && overlaps(bA, oa, boxes[j], s2 * 6)) add(j, s1 * RELAX_SEG_K + s2)
+      }
+      const out: Array<[number, number[]]> = []
+      for (const j of [...found.keys()].sort((a, b) => a - b)) out.push([j, found.get(j)!.sort((a, b) => a - b)])
+      return out
+    },
+  }
+}
+
 export function buildAllWirePaths3D(
   wires: Wire[],
   components: ElectricalComponent[],
   pivots: Record<string, THREE.Vector3>,
   obstacles: WireObstacle[] = [],
+  options: { quick?: boolean } = {},
 ): Map<string, WirePath3D> {
   const result = new Map<string, WirePath3D>()
   type Entry = {
@@ -3305,18 +3437,21 @@ export function buildAllWirePaths3D(
   //    - dentro do MESMO chicote (`bundleId`): folga mínima de 0,03 mm → mantém os cabos encostados e apertados!
   //    - entre chicotes distintos / cabos soltos: folga limpa de 0,50 mm sem criar vincos junto às ponteiras!
   const RELAX_HALF_ARC = 0.22 // 22 mm para cada lado → zero micro-vincos de 40–60°!
-  const maxPasses = 22
+  // Traçado rápido (1.ª pintura de projetos grandes): sem relaxação cabo-a-cabo; o completo substitui-o.
+  const maxPasses = options.quick ? 0 : 22
   for (let pass = 0; pass < maxPasses; pass += 1) {
     let anyCollision = false
     const touched = new Uint8Array(builtPaths.length)
     const arcs = builtPaths.map((item) => measureArc(item.pts))
     const boxes = builtPaths.map((item) => new THREE.Box3().setFromPoints(item.pts).expandByScalar(item.entry.radius + 0.01))
+    const broad = relaxBroadPhase(builtPaths.map((item) => ({ pts: item.pts, radius: item.entry.radius })))
     for (let i = 0; i < builtPaths.length; i += 1) {
       const A = builtPaths[i]
       const boxA = boxes[i]
       const arcA = arcs[i]
       const totA = arcA[arcA.length - 1] ?? 0
-      for (let j = i + 1; j < builtPaths.length; j += 1) {
+      // Só os pares de segmentos vizinhos na grelha (mesma ordem i, j, s1, s2 do varrimento completo).
+      for (const [j, codes] of broad.candidates(i)) {
         const B = builtPaths[j]
         if (!boxA.intersectsBox(boxes[j])) continue
         const arcB = arcs[j]
@@ -3335,10 +3470,13 @@ export function buildAllWirePaths3D(
 
         const baseGap = sameBundle ? 0.0012 : 0.0055
         const reqDist = A.entry.radius + B.entry.radius + baseGap
-        for (let s1 = 0; s1 < A.pts.length - 1; s1 += 1) {
-          const a0 = A.pts[s1]
-          const a1 = A.pts[s1 + 1]
-          for (let s2 = 0; s2 < B.pts.length - 1; s2 += 1) {
+        for (const code of codes) {
+          {
+            const s1 = Math.floor(code / RELAX_SEG_K)
+            const s2 = code - s1 * RELAX_SEG_K
+            if (s1 >= A.pts.length - 1 || s2 >= B.pts.length - 1) continue
+            const a0 = A.pts[s1]
+            const a1 = A.pts[s1 + 1]
             const b0 = B.pts[s2]
             const b1 = B.pts[s2 + 1]
             if (Math.max(a0.x, a1.x) + reqDist < Math.min(b0.x, b1.x) || Math.min(a0.x, a1.x) - reqDist > Math.max(b0.x, b1.x)) continue
@@ -3520,8 +3658,13 @@ export function buildAllWirePaths3D(
     const smoothed = smoothOutsideProgressive(finalPoints, item.entry.outerMm, item.exits, item.motorRoute)
     const joined = smoothMotorJunction(smoothed, item.motorRoute)
     const despiked = despikeOutsideMotor(joined, item.motorRoute)
+    // Remoção de bicos: dezenas de variantes locais do mesmo cabo → verificação por segmento com cache
+    // (mesmo critério que checkPathClear; os cabos com troço de motor usam o teste completo).
+    const pathClear = !(globalThis as any).__NOFAST && !item.motorRoute && joined.length > 1
+      ? createWireClearance(item.entry.outerMm, obstacles, item.exits, joined[0], joined[joined.length - 1])
+      : (pts: V3[]) => checkPathClear(pts, item.entry.outerMm, item.exits, item.motorRoute)
     let finalBody = joined
-    if (despiked !== joined && checkPathClear(despiked, item.entry.outerMm, item.exits, item.motorRoute)) {
+    if (despiked !== joined && pathClear(despiked)) {
       finalBody = despiked
     } else if (despiked !== joined) {
       // Remove bicos individualmente preservando qualquer vértice essencial ao contorno de obstáculos.
@@ -3537,7 +3680,7 @@ export function buildAllWirePaths3D(
           const la = a.length(), lb = b.length()
           if (la < 1e-9 || lb < 1e-9 || a.angleTo(b) <= Math.PI / 2) continue
           const delTrial = [...work.slice(0, i), ...work.slice(i + 1)]
-          if (checkPathClear(delTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+          if (pathClear(delTrial)) {
             work.splice(i, 1)
             hit = true
             break
@@ -3551,7 +3694,7 @@ export function buildAllWirePaths3D(
             const angJ = a.angleTo(fwd)
             if (angJ <= Math.PI * 0.499) {
               const skipTrial = [...work.slice(0, i + 1), ...work.slice(j)]
-              if (checkPathClear(skipTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+              if (pathClear(skipTrial)) {
                 work.splice(i + 1, j - (i + 1))
                 hit = true
                 break
@@ -3568,7 +3711,7 @@ export function buildAllWirePaths3D(
               if (a.angleTo(e1) <= Math.PI * 0.51
                 && (e2.length() < 1e-4 || e1.angleTo(e2) <= Math.PI * 0.51)
                 && (!e3 || e3.length() < 1e-4 || e2.length() < 1e-4 || e2.angleTo(e3) <= Math.PI * 0.55)
-                && checkPathClear(elbowTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+                && pathClear(elbowTrial)) {
                 work.splice(i, j - i, arr(p1Safe), elbow)
                 hit = true
                 break
@@ -3581,7 +3724,7 @@ export function buildAllWirePaths3D(
             for (const frac of [0.97, 0.9, 0.78]) {
               const pulled = arr(p0.clone().addScaledVector(dirA, Math.max(0.012, proj * frac)))
               const pullTrial = [...work.slice(0, i), pulled, ...work.slice(i + 1)]
-              if (checkPathClear(pullTrial, item.entry.outerMm, item.exits, item.motorRoute)) {
+              if (pathClear(pullTrial)) {
                 work[i] = pulled
                 hit = true
                 break

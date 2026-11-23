@@ -11,6 +11,8 @@ export type WireRoutingJob = {
   components: ElectricalComponent[]
   pivots: Record<string, V3>
   models: Array<[ComponentType, Pick<ComponentModelSpec, 'physicalSizeMm' | 'placement'>]>
+  /** Sem relaxação cabo-a-cabo: traçado provisório para mostrar os cabos depressa. */
+  quick?: boolean
 }
 export type WireRoutingReply = { paths: Array<[string, WirePath3D]> } | { error: string }
 
@@ -76,5 +78,5 @@ export function createWireRoutingJob(wires: Wire[], components: ElectricalCompon
 export function calculateWireRouting(job: WireRoutingJob): Array<[string, WirePath3D]> {
   for (const [type, model] of job.models) registerCatalogModel(type, '', model.physicalSizeMm, model.placement)
   const pivots = Object.fromEntries(Object.entries(job.pivots).map(([id, point]) => [id, new Vector3(...point)]))
-  return [...buildAllWirePaths3D(job.wires, job.components, pivots, componentObstacles(job.components, pivots))]
+  return [...buildAllWirePaths3D(job.wires, job.components, pivots, componentObstacles(job.components, pivots), { quick: job.quick })]
 }
