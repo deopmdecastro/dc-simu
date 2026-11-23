@@ -2999,7 +2999,7 @@ export function createComponent(
     view3DScale: presentation3D.scale,
     view3DRenderMode: presentation3D.renderMode,
     mirrored: false,
-    locked: false,
+    locked: true,
     bodyColor: presentation3D.bodyColor,
     ...(parseCatalogType(type) ? { catalog: { id: parseCatalogType(type)!.id, version: parseCatalogType(type)!.version, source: 'official' as const } } : {}),
     editorVersion: 1,
