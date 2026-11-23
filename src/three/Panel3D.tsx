@@ -6055,7 +6055,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <IndustrialWall3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'industrialPillar') {
             content = <IndustrialPillar3D c={c} position={basePivotTuples[c.id]} />
-          } else if (c.type === 'socketFamatelCombo' || c.type === 'socketFamatelSwitch' || c.type === 'socketEfapelIp65') {
+          } else if (c.type === 'socketFamatelCombo' || c.type === 'socketFamatelSwitch' || c.type === 'socketEfapelIp65' || c.type === 'ceePlug16A') {
             content = <SocketDevice3D c={c} position={basePivotTuples[c.id]} interactive={!demoMode && tool === 'select' && !viewOrientationEditor && !c.locked} />
           } else if (c.type === 'cableTrayStraight') {
             content = <CableTrayStraight3D c={c} position={basePivotTuples[c.id]} openings={ductOpeningsMap.get(c.id) ?? []} />
