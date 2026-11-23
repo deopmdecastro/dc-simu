@@ -14,11 +14,57 @@ export type WireRoutingJob = {
 }
 export type WireRoutingReply = { paths: Array<[string, WirePath3D]> } | { error: string }
 
+/** Copia só campos usados no traçado 3D — reduz o custo do structured clone para o worker. */
+function slimWireForRouting(w: Wire): Wire {
+  return {
+    id: w.id,
+    fromTerminalId: w.fromTerminalId,
+    toTerminalId: w.toTerminalId,
+    color: w.color,
+    gauge: w.gauge,
+    kind: w.kind,
+    flexibility: w.flexibility,
+    route: w.route,
+    bend: w.bend,
+    curveOffset: w.curveOffset,
+    endType: w.endType,
+    fromEndType: w.fromEndType,
+    toEndType: w.toEndType,
+    fromPoint: w.fromPoint,
+    toPoint: w.toPoint,
+    fromPoint3D: w.fromPoint3D,
+    toPoint3D: w.toPoint3D,
+    waypoints3D: w.waypoints3D,
+    bundleId: w.bundleId,
+    sheathed: w.sheathed,
+    sheathColor: w.sheathColor,
+    conductorCount: w.conductorCount,
+    energized: w.energized,
+  }
+}
+
 export function createWireRoutingJob(wires: Wire[], components: ElectricalComponent[], pivots: Record<string, Vector3>): WireRoutingJob {
   return {
-    wires,
+    wires: wires.map(slimWireForRouting),
     // Defaults pessoais e modelos de catálogo só existem na thread principal.
-    components: components.map(component => ({ ...component, viewOrientation: componentOrientationOf(component) })),
+    components: components.map(component => ({
+      id: component.id,
+      type: component.type,
+      ref: component.ref,
+      w: component.w,
+      h: component.h,
+      rotation: component.rotation,
+      mirrored: component.mirrored,
+      schematicX: component.schematicX,
+      schematicY: component.schematicY,
+      state: component.state,
+      terminals: component.terminals,
+      panelMount: component.panelMount,
+      enclosureId: component.enclosureId,
+      panel3DPosition: component.panel3DPosition,
+      view3DScale: component.view3DScale,
+      viewOrientation: componentOrientationOf(component),
+    } as ElectricalComponent)),
     pivots: Object.fromEntries(Object.entries(pivots).map(([id, point]) => [id, point.toArray() as V3])),
     models: [...new Set(components.map(component => component.type))].flatMap(type => {
       const spec = getComponentModelSpec(type)
