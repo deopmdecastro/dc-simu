@@ -618,8 +618,9 @@ export const CableTrayStraight3D = memo(function CableTrayStraight3D({
 /**
  * Cabos e tubos assentes no fundo da esteira (`state.cables`: cor, Ø e tipo), lado a lado e
  * filaçados por abraçadeiras de nylon preto a cada `state.tieEveryMm` (por omissão 250 mm).
- * Respeita os cortes de extremidade (`endTrim`) e aberturas de descida (`floor`) para nunca
- * sobressair fora da esteira nem atravessar perpendicularmente outra esteira.
+ * Respeita os cortes de extremidade (`endTrim`). Nas aberturas de piso (descidas) o tubo
+ * continua até ao eixo da abertura para permitir continuidade visual com o troço vertical.
+ * `fullRun` reduz o inset para junções 3D sem interrupção visual.
  */
 function TrayCableBundle({
   state,
@@ -642,11 +643,13 @@ function TrayCableBundle({
     : []
   if (!cables.length) return null
   const halfLMm = lengthMm / 2
-  const inset = fullRun ? 4 : 15
+  // Inset mínimo em fullRun para continuidade visual nas junções e descidas
+  const inset = fullRun ? 2 : 12
   let startMm = -halfLMm + inset
   let endMm = halfLMm - inset
 
-  // Recorta estritamente nas pontas aparadas (endTrim) e para no eixo de descidas terminais
+  // Recorta apenas nas pontas aparadas (endTrim). Em aberturas de piso terminais
+  // o tubo para no eixo da abertura (o troço vertical continua a partir daí).
   for (const o of openings) {
     const f = Math.min(o.from, o.to)
     const t = Math.max(o.from, o.to)
@@ -655,17 +658,18 @@ function TrayCableBundle({
       if (t >= halfLMm - 12) endMm = Math.min(endMm, f)
     } else if (o.side === 'floor') {
       const mid = (f + t) / 2
-      if (f <= -halfLMm + 24) startMm = Math.max(startMm, mid)
-      if (t >= halfLMm - 24) endMm = Math.min(endMm, mid)
+      // Só aparar se a abertura estiver junto à extremidade (descida terminal)
+      if (f <= -halfLMm + 30) startMm = Math.max(startMm, mid - 2)
+      if (t >= halfLMm - 30) endMm = Math.min(endMm, mid + 2)
     }
   }
   if (floorSpans && floorSpans.length > 0 && endMm <= startMm) {
-    startMm = floorSpans[0][0] + 4
-    endMm = floorSpans[floorSpans.length - 1][1] - 4
+    startMm = floorSpans[0][0] + 2
+    endMm = floorSpans[floorSpans.length - 1][1] - 2
   }
 
   const run = Math.max(0, endMm - startMm)
-  if (run < 16) return null
+  if (run < 12) return null
   const centerMm = (startMm + endMm) / 2
 
   const gap = 1.5
@@ -675,7 +679,7 @@ function TrayCableBundle({
   let z = -total / 2
   const lanes = cables.map((cable, i) => {
     const dMm = widths[i]
-    const lane = { z: z + dMm / 2, dMm, color: cable.color || '#4b5563', tube: cable.kind === 'tube' }
+    const lane = { z: z + dMm / 2, dMm, color: cable.color || '#4b5563', tube: cable.kind === 'tube' || cable.kind === 'pneumatic' }
     z += dMm + gap
     return lane
   })
@@ -692,15 +696,26 @@ function TrayCableBundle({
           position={[centerMm * U, floorY + (lane.dMm / 2) * U, lane.z * U]}
           rotation={[0, 0, Math.PI / 2]}
           scale={[lane.dMm * U, run * U, lane.dMm * U]}
+          name={lane.tube ? 'Tubo de ar PU' : 'Cabo H07RN-F'}
         >
-          <meshStandardMaterial
-            name={lane.tube ? 'Tubo de ar PU' : 'Cabo H07RN-F'}
-            color={lane.color}
-            roughness={lane.tube ? 0.3 : 0.7}
-            metalness={0}
-            transparent={lane.tube}
-            opacity={lane.tube ? 0.9 : 1}
-          />
+          {lane.tube ? (
+            <meshPhysicalMaterial
+              color={lane.color}
+              roughness={0.22}
+              metalness={0.05}
+              clearcoat={0.45}
+              clearcoatRoughness={0.3}
+              transparent
+              opacity={0.88}
+              transmission={0.08}
+            />
+          ) : (
+            <meshStandardMaterial
+              color={lane.color}
+              roughness={0.7}
+              metalness={0}
+            />
+          )}
         </mesh>
       ))}
       {tieXs.map((x, i) => (
@@ -715,6 +730,62 @@ function TrayCableBundle({
           <torusGeometry args={[(total / 2 + 1.2) * U, 0.9 * U, 6, 16]} />
         </mesh>
       ))}
+    </group>
+  )
+}
+
+/** Segmentos de tubo/cabo para troços curvos ou verticais de esteira (continuidade visual). */
+function TrayTubeSegments({
+  state,
+  segments,
+}: {
+  state: Record<string, any>
+  /** Lista de segmentos locais: [x, y, z, length, rotZ] em unidades de painel (já * U). */
+  segments: Array<{ x: number; y: number; z: number; length: number; rotZ?: number }>
+}) {
+  const cables = Array.isArray(state?.cables)
+    ? (state.cables as Array<{ color?: string; diameterMm?: number; kind?: string }>).filter((x) => x && Number(x.diameterMm) > 0).slice(0, 8)
+    : []
+  if (!cables.length || !segments.length) return null
+  const gap = 1.5
+  const widths = cables.map((x) => Number(x.diameterMm))
+  const total = widths.reduce((a, b) => a + b, 0) + gap * (cables.length - 1)
+  let zOff = -total / 2
+  const lanes = cables.map((cable, i) => {
+    const dMm = widths[i]
+    const lane = { z: zOff + dMm / 2, dMm, color: cable.color || '#0091dc', tube: cable.kind === 'tube' || cable.kind === 'pneumatic' }
+    zOff += dMm + gap
+    return lane
+  })
+  return (
+    <group name="esteira-tubos-segmentos">
+      {segments.map((seg, si) =>
+        lanes.map((lane, li) => (
+          <mesh
+            key={`${si}-${li}`}
+            geometry={SHARED_UNIT_CYL_10_GEO}
+            position={[seg.x, seg.y + (lane.dMm / 2) * U, seg.z + lane.z * U]}
+            rotation={[0, 0, seg.rotZ ?? Math.PI / 2]}
+            scale={[lane.dMm * U, seg.length, lane.dMm * U]}
+            name={lane.tube ? 'Tubo de ar PU' : 'Cabo H07RN-F'}
+          >
+            {lane.tube ? (
+              <meshPhysicalMaterial
+                color={lane.color}
+                roughness={0.22}
+                metalness={0.05}
+                clearcoat={0.45}
+                clearcoatRoughness={0.3}
+                transparent
+                opacity={0.88}
+                transmission={0.08}
+              />
+            ) : (
+              <meshStandardMaterial color={lane.color} roughness={0.7} metalness={0} />
+            )}
+          </mesh>
+        )),
+      )}
     </group>
   )
 }
@@ -937,6 +1008,14 @@ export const CableTrayVerticalBend3D = memo(function CableTrayVerticalBend3D({
 
   const midX = -segLen * 0.85
   const midY = -dirSign * segLen * Math.sin(rad) * 0.45
+  const floorYLocal = -H / 2 + t
+
+  // Segmentos de tubo/cabo ao longo das duas secções do pescoço (continuidade visual)
+  const tubeSegs = [
+    { x: midX + segLen * 0.5, y: midY + floorYLocal, z: 0, length: segLen * 0.92, rotZ: dirSign * (rad * 0.5) + Math.PI / 2 },
+    // Segundo troço aproximado (após a dobradiça)
+    { x: midX + segLen * 1.35, y: midY + dirSign * segLen * Math.sin(rad * 0.5) * 0.6 + floorYLocal, z: 0, length: segLen * 0.85, rotZ: dirSign * rad + Math.PI / 2 },
+  ]
 
   return (
     <group position={position} name={`cable-tray-vertical-bend-3d-${c.id}`}>
@@ -951,6 +1030,7 @@ export const CableTrayVerticalBend3D = memo(function CableTrayVerticalBend3D({
           {renderHingeBolts(segLen, 0)}
         </group>
       </group>
+      <TrayTubeSegments state={c.state} segments={tubeSegs} />
     </group>
   )
 })
@@ -1001,6 +1081,13 @@ export const CableTrayRiser903D = memo(function CableTrayRiser903D({
   }, [backCurveGeo, sideCurveGeo])
 
   const off = -(R + H) * 0.48
+  const rMid = Math.max(50 * U, R) + H * 0.35
+  // Aproximação por dois segmentos retos (horizontal + vertical) para continuidade dos tubos
+  const riserTubeSegs = [
+    { x: off + rMid * 0.55, y: off + 8 * U, z: 0, length: rMid * 0.9, rotZ: Math.PI / 2 },
+    { x: off + 8 * U, y: off + rMid * 0.55, z: 0, length: rMid * 0.9, rotZ: 0 },
+  ]
+
   return (
     <group position={position} rotation={[0, 0, flipZ]} name={`cable-tray-riser90-3d-${c.id}`}>
       <group position={[off, off, 0]}>
@@ -1026,6 +1113,7 @@ export const CableTrayRiser903D = memo(function CableTrayRiser903D({
           </group>
         ))}
       </group>
+      <TrayTubeSegments state={c.state} segments={riserTubeSegs} />
     </group>
   )
 })
