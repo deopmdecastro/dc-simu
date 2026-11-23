@@ -396,9 +396,16 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     }
   }
 
+  /** Encaminhador interior do QE1 (referencial local), definido quando o quadro existe. */
+  let qeRouter: {
+    between: (a: BenchWireEnd, b: BenchWireEnd, lane: number) => BenchPointMm[] | null
+    fromGland: (gland: 'field' | 'supply', b: BenchWireEnd, lane: number) => BenchPointMm[] | null
+  } | null = null
+
   // ── 2. Cabos de campo até às réguas do QE1 ──────────────────────────────────────────────
   const cabinet = get('cabinet')
-  const ductBottom = get('cabinet-duct-bottom')
+  // Calha mais baixa do QE1 (entre as filas B e C; o quadro compacto já não tem calha de fundo).
+  const ductBottom = get('cabinet-duct-bottom') ?? get('cabinet-duct-midBC')
   if (cabinet && ductBottom) {
     const L = plate.lengthMm, W = plate.widthMm
     const xl = -L / 2 + 17, xr = L / 2 - 17, zf = W / 2 - 17, zb = -W / 2 + 17
@@ -462,6 +469,60 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     const plcDo = get('cabinet-plc-do')
     const plcCpu = get('cabinet-plc-cpu')
     const psu = get('psu24')
+    // ── Regra de quadro para TODA a cablagem interior do QE1 ──────────────────────────────────
+    // borne → (pela normal do borne) calha horizontal desse lado → calha vertical da ilharga mais
+    // próxima → calha horizontal do destino → borne. Nenhum troço corre pela frente dos aparelhos.
+    {
+      const hDucts = [get('cabinet-duct-top'), get('cabinet-duct-midAB'), get('cabinet-duct-midBC')]
+        .filter((d): d is BenchPlacement => Boolean(d))
+      const riserXs = [get('cabinet-duct-left')?.x ?? cabinet.x - cabW / 2 + 25, get('cabinet-duct-right')?.x ?? cabinet.x + cabW / 2 - 25]
+      type Approach = { exit: BenchPointMm; duct: BenchPlacement }
+      const approach = (end: BenchWireEnd): Approach | null => {
+        if (!('key' in end) || !hDucts.length) return null
+        const part = get(end.key)
+        if (!part) return null
+        const { p, n } = benchTerminalPointMm(part, end.label)
+        const exit = pt(p.x + n.x * 12, p.y + n.y * 12, p.z + n.z * 12)
+        const above = hDucts.filter((d) => d.y > exit.y).sort((a, b) => a.y - b.y)[0]
+        const below = hDucts.filter((d) => d.y < exit.y).sort((a, b) => b.y - a.y)[0]
+        const nearest = [above, below].filter((d): d is BenchPlacement => Boolean(d)).sort((a, b) => Math.abs(a.y - exit.y) - Math.abs(b.y - exit.y))[0]
+        const duct = n.y > 0.3 ? (above ?? nearest) : n.y < -0.3 ? (below ?? nearest) : nearest
+        return { exit, duct }
+      }
+      const zIn = (lane: number) => (hDucts[0]?.z ?? ductBottom.z) + lane * 0.4
+      const route = (a: Approach, b: Approach, lane: number): BenchPointMm[] => {
+        const z = zIn(lane)
+        const ya = a.duct.y + lane * 0.3, yb = b.duct.y + lane * 0.3
+        if (a.duct === b.duct) return [a.exit, pt(a.exit.x, ya, z), pt(b.exit.x, ya, z), b.exit]
+        const mid = (a.exit.x + b.exit.x) / 2
+        const rx = (Math.abs(mid - riserXs[0]) <= Math.abs(mid - riserXs[1]) ? riserXs[0] : riserXs[1]) + lane * 0.3
+        return [a.exit, pt(a.exit.x, ya, z), pt(rx, ya, z), pt(rx, yb, z), pt(b.exit.x, yb, z), b.exit]
+      }
+      const holes = (cabinet.state?.holes as Array<{ id: string; offsetXmm?: number; offsetYmm?: number }> | undefined) ?? []
+      const glandOf = (id: string) => {
+        const h = holes.find((x) => x.id === id)
+        return h ? pt(cabinet.x + (h.offsetXmm ?? 0), cabTopY, cabinet.z + (h.offsetYmm ?? 0)) : null
+      }
+      const topDuct = get('cabinet-duct-top') ?? hDucts[0]
+      qeRouter = {
+        between: (a, b, lane) => {
+          const A = approach(a), B = approach(b)
+          return A && B ? route(A, B, lane) : null
+        },
+        fromGland: (gland, b, lane) => {
+          const g = glandOf(gland === 'field' ? 'field-entry-left' : 'supply-top')
+          const B = approach(b)
+          if (!g || !B || !topDuct) return null
+          // O bucim está sobre a calha vertical: desce na vertical para dentro do quadro e da calha.
+          const start: Approach = { exit: pt(g.x + lane * 0.3, cabTopY - 30, g.z), duct: topDuct }
+          const first = pt(g.x + lane * 0.3, cabTopY - 4, g.z)
+          if (B.duct === topDuct) return [first, ...route(start, B, lane)]
+          const z = zIn(lane), rx = g.x + lane * 0.3
+          // Entra na calha de topo (à profundidade das calhas) e só depois desce pela calha vertical.
+          return [first, start.exit, pt(rx, topDuct.y + lane * 0.3, z), pt(rx, B.duct.y + lane * 0.3, z), pt(B.exit.x, B.duct.y + lane * 0.3, z), B.exit]
+        },
+      }
+    }
     const railTop = (term: BenchPlacement) => term.y + 33 // borne PTI 6 com 66 mm de altura
     const railBottom = (term: BenchPlacement) => term.y - 33
     /** Dentro do QE1: do bucim lateral até ao borne `2` (calha B pela calha inferior; calha A pela intermédia). */
@@ -1051,7 +1112,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const cabH = Number(cabinet.state?.heightMm) || 660
       const cabTopY = cabinet.y + cabH / 2
       // Bucim «supply-top» no referencial local do quadro e no mundo (o quadro está rodado).
-      const glandTopL = pt(cabinet.x + 150, cabTopY, cabinet.z)
+      const supplyHole = ((cabinet.state?.holes as Array<{ id: string; offsetXmm?: number; offsetYmm?: number }> | undefined) ?? [])
+        .find((h) => h.id === 'supply-top')
+      const glandTopL = pt(cabinet.x + (supplyHole?.offsetXmm ?? 150), cabTopY, cabinet.z + (supplyHole?.offsetYmm ?? 0))
       const glandTop = toWorld(glandTopL)
       const behindZ = -W / 2 - 40
       // O pilar IPE fica colado à traseira da mesa (~12 mm): a descida faz-se ao lado do pilar, do lado
@@ -1206,10 +1269,22 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
   // Cablagem interior do QE1 (calculada no referencial local) → mundo, com o quadro rodado.
   if (qeFrame) {
     const member = (end: BenchWireEnd) => 'key' in end && Boolean(parts.find((p) => p.key === end.key)?.qe1Local)
-    for (const w of wires) {
-      const internal = member(w.from) && member(w.to)
+    const router = qeRouter as typeof qeRouter
+    wires.forEach((w, i) => {
+      const fromM = member(w.from), toM = member(w.to)
+      const internal = fromM && toM
+      const lane = ((i % 9) - 4) * 1.6
+      // Troço interior pela regra de quadro (calhas horizontais + verticais), calculado no referencial local.
+      let inside: BenchPointMm[] | null = null
+      if (router && internal) inside = router.between(w.from, w.to, lane)
+      else if (router && toM) inside = router.fromGland(w.id.startsWith('qe1-') ? 'supply' : 'field', w.to, lane)
+      if (inside) {
+        const outside = internal ? [] : w.waypointsMm.filter((p) => !localPts.has(p))
+        w.waypointsMm = clean([...outside, ...inside.map(toWorld)])
+        return
+      }
       w.waypointsMm = w.waypointsMm.map((p) => (internal || localPts.has(p) ? toWorld(p) : p))
-    }
+    })
   }
   return wires
 }

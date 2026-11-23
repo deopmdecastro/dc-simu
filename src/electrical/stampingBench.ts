@@ -247,9 +247,13 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
     // Três filas de aparelhos (fonte/segurança, PLC, bornes) → quadro mais alto e mais largo
     // que a versão de dois aparelhos; a calha do PLC obriga a ~120 mm de altura livre.
-    const cabinetH = Math.min(660, leg - 90)
+    // Compacto: três filas com folgas de 15 mm e calhas técnicas 40 × 40 (antes 660 mm de altura).
+    const cabinetH = Math.min(560, leg - 90)
     if (cabinetH >= 420) {
-      const cab = { w: 560, h: cabinetH, d: 220 }
+      // 460 mm de largura: fila B (réguas X20…X26, ~350 mm) + duas calhas verticais de 30 mm nas ilhargas.
+      const cab = { w: 460, h: cabinetH, d: 220 }
+      const VDUCT = 30
+      const vDuctX = cab.w / 2 - 10 - VDUCT / 2
       // Topo 85 mm abaixo do tampo: deixa passar por cima o cabo da ficha F-MAQ até ao bucim de topo.
       const cabinetY = -85 - cab.h / 2
       // À frente do suporte do FRL (pé traseiro esquerdo) e fora da projeção do tampo.
@@ -276,9 +280,11 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
           holes: [
             // IDs históricos («-left») mantidos. No topo, junto ao lado livre do quadro (fora da ilha
             // S7-300): o chicote de campo desce da calha esquerda da mesa diretamente para aqui.
-            { id: 'field-entry-left', face: 'top', offsetXmm: cab.w / 2 - 55, offsetYmm: 0, diameterMm: 32, glandType: 'M32' },
-            { id: 'field-entry-left-2', face: 'top', offsetXmm: cab.w / 2 - 105, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
-            { id: 'supply-top', face: 'top', offsetXmm: 150, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
+            // Chicote de campo (~75 condutores 0,75 mm²) por um bucim M50 sobre a calha vertical direita.
+            { id: 'field-entry-left', face: 'top', offsetXmm: cab.w / 2 - 10 - VDUCT / 2, offsetYmm: 0, diameterMm: 50, glandType: 'M50' },
+            { id: 'field-entry-left-2', face: 'top', offsetXmm: cab.w / 2 - 90, offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
+            // Ficha F-MAQ: no topo do lado da fonte G1 (desce direto à fonte).
+            { id: 'supply-top', face: 'top', offsetXmm: -(cab.w / 2 - 10 - VDUCT / 2), offsetYmm: 0, diameterMm: 25, glandType: 'M25' },
           ],
         },
       })
@@ -292,18 +298,27 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       // esquerdas (com esquadros), por baixo do FRL; as costas do quadro assentam nelas.
       const supportX = -(legOuterX + SUPPORT / 2)
       const supportLen = plate.widthMm - 30
-      const supports: BenchPlacement[] = [['upper', cabinetY + cab.h / 2 - 110], ['lower', cabinetY - cab.h / 2 + 90]].map(([k, y]) => ({
+      const supports: BenchPlacement[] = [['upper', cabinetY + cab.h / 2 - 90], ['lower', cabinetY - cab.h / 2 + 70]].map(([k, y]) => ({
         key: `cabinet-support-${k}`, type: 'mecAluProfile' as ComponentType, x: supportX, y: y as number, z: 0,
         state: { sectionMm: SUPPORT, lengthMm: supportLen, orientation: 'horizontal', endCaps: true, brackets: true, labelText: 'SUPORTE QE1' },
         orientation: { x: 0, y: 90, z: 0 },
       }))
+      // Consolas: dois perfis 40 em balanço, presos à travessa inferior/pernas, com o fundo do quadro
+      // assente neles (a estrutura vê-se de frente, por baixo do quadro).
+      const consoleLen = SUPPORT + 5 + cab.d + 15
+      for (const [k, dz] of [['back', -1], ['front', 1]] as const) supports.push({
+        key: `cabinet-console-${k}`, type: 'mecAluProfile', x: -(legOuterX + consoleLen / 2), y: cabinetY - cab.h / 2 - SUPPORT / 2,
+        z: frame.world.z + dz * (cab.w / 2 - 45),
+        state: { sectionMm: SUPPORT, lengthMm: consoleLen, orientation: 'horizontal', endCaps: true, brackets: true, labelText: 'CONSOLA QE1' },
+      })
       // Placa de montagem: a 14 mm da traseira; calha DIN 7,5 mm; aparelhos encostados à calha.
       const plateFront = cabinetZ - cab.d / 2 + 14
       const onRail = (depthMm: number) => plateFront + 7.5 + depthMm / 2
       // `x` relativo ao centro do quadro → convertido para coordenadas da base.
       const inside = (key: string, type: ComponentType, x: number, y: number, z: number, state: Record<string, unknown> = {}): BenchPlacement =>
         ({ key, type, x: cabinetX + x, y: cabinetY + y, z, state: { hostLocation: 'machine', ...state } })
-      const usable = cab.w - 40
+      // Calhas DIN e calhas horizontais entre as duas calhas verticais.
+      const usable = cab.w - 2 * (10 + VDUCT) - 10
       // Fila A (topo): fonte + segurança + K1/K2 · Fila B (meio): réguas de bornes ·
       // Fila C (fundo): ilha S7-300 do guião (CPU + DI + DO + AI).
       //
@@ -311,24 +326,29 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       // cada fila e a calha técnica seguinte (fonte 124,5 mm · bornes 66 mm · S7-300 125 mm):
       //   fundo 20 | PLC 125 | 25 | calha 60 | 25 | bornes 66 | 25 | calha 60 | 25 | fonte 124,5 | 20
       // Total ≈ 576 mm — cabe nos 620 mm do quadro standard da bancada.
-      const GAP = 25
-      const DUCT = 60
+      // Cotas tiradas do FUNDO para cima (fonte 124,5 mm · bornes 66 mm · S7-300 125 mm), folgas de 15 mm:
+      //   fundo 15 | PLC 125 | 15 | calha 40 | 15 | bornes 66 | 15 | calha 40 | 15 | fonte 139,5 | 15 | calha 40 | 12
+      // ≈ 552 mm — cabe nos 560 mm. A ilha S7-300 liga por cima (calha B|C): não há calha de fundo.
+      const GAP = 15
+      const DUCT = 40
       const HALF_PSU = 7.5 + 124.5 / 2
       const bottom = -cab.h / 2
-      const railC = bottom + GAP + 30 + 125 / 2
+      const railC = bottom + 15 + 125 / 2
       const ductBC = railC + 125 / 2 + GAP + DUCT / 2
       const railB = ductBC + DUCT / 2 + GAP + 66 / 2
       const ductAB = railB + 66 / 2 + GAP + DUCT / 2
       const railA = ductAB + DUCT / 2 + GAP + HALF_PSU
-      // Calhas técnicas 40 × 60, uma por faixa entre filas (por aqui passa a cablagem interior).
-      const ductUsable = usable - 30
-      for (const [key, y] of [
-        ['top', Math.min(cab.h / 2 - 30, railA + HALF_PSU + 30)],
-        ['midAB', ductAB],
-        ['midBC', ductBC],
-        ['bottom', railC - 125 / 2 - GAP - 17],
-      ] as const) {
+      const ductTopY = Math.min(cab.h / 2 - 12 - DUCT / 2, railA + HALF_PSU + GAP + DUCT / 2)
+      const ductUsable = usable + 6
+      for (const [key, y] of [['top', ductTopY], ['midAB', ductAB], ['midBC', ductBC]] as const) {
         list.push(inside(`cabinet-duct-${key}`, 'cableDuct', 0, y, plateFront + 30, { lengthMm: ductUsable, widthMm: 40, heightMm: DUCT, coverOn: true }))
+      }
+      // Calhas verticais nas ilhargas (subidas/descidas da cablagem: nunca pela frente dos aparelhos).
+      for (const [key, sx] of [['left', -1], ['right', 1]] as const) {
+        list.push({
+          ...inside(`cabinet-duct-${key}`, 'cableDuct', sx * vDuctX, 0, plateFront + 30, { lengthMm: cab.h - 24, widthMm: VDUCT, heightMm: DUCT, coverOn: true }),
+          orientation: { x: 0, y: 0, z: 90 },
+        })
       }
       for (const [key, y] of [['relays', railA], ['terminals', railB], ['plc', railC]] as const) {
         list.push(inside(`cabinet-din-${key}`, 'dinRail15x55', 0, y, plateFront + 3.75, { lengthMm: usable, profile: '35×15 mm', perforated: true, finish: 'Aço galvanizado' }))
@@ -388,7 +408,8 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       for (let i = qeStart; i < list.length; i++) {
         const p = list[i]
         const w = qe1ToWorld(frame, p)
-        list[i] = { ...p, x: w.x, z: w.z, qe1Local: { x: p.x, y: p.y, z: p.z }, orientation: { x: 0, y: QE1_YAW_DEG, z: 0 } }
+        // Euler XYZ: a rotação própria em Z (calhas verticais) aplica-se antes da rotação do quadro em Y.
+        list[i] = { ...p, x: w.x, z: w.z, qe1Local: { x: p.x, y: p.y, z: p.z }, orientation: { x: 0, y: QE1_YAW_DEG, z: p.orientation?.z ?? 0 } }
       }
       list.push(...tableRails, ...supports)
     }
