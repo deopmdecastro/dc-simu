@@ -55,16 +55,17 @@ export function resolveSceneQuality(input: {
   deviceTier?: DevicePerformanceTier
 }): SceneQualityProfile {
   const tier = input.deviceTier ?? detectDevicePerformanceTier(input.softwareGl)
-  const heavyScene = input.componentCount >= 80 || input.wireCount >= 80
-  const veryHeavyScene = input.componentCount >= 140 || input.wireCount >= 140
+  // Limiares mais baixos: a Maquete Estampagem (~100+ cabos) deve entrar já em perfil «pesado».
+  const heavyScene = input.componentCount >= 60 || input.wireCount >= 60
+  const veryHeavyScene = input.componentCount >= 100 || input.wireCount >= 100
 
-  if (input.softwareGl) {
+  if (input.softwareGl || (tier === 'low' && veryHeavyScene)) {
     return {
       tier: 'low',
       dpr: [0.5, 1],
       shadowMapSize: 1024,
       wireRadialSegments: 8,
-      wireTubularScale: 0.75,
+      wireTubularScale: 0.72,
       thinWireCastShadow: false,
       steadyRunFps: 12,
     }
@@ -76,32 +77,32 @@ export function resolveSceneQuality(input: {
       dpr: [1, 1],
       shadowMapSize: 1024,
       wireRadialSegments: 8,
-      wireTubularScale: 0.78,
+      wireTubularScale: 0.75,
       thinWireCastShadow: false,
-      steadyRunFps: 20,
+      steadyRunFps: 18,
     }
   }
 
   if (tier === 'medium' || veryHeavyScene) {
     return {
-      tier,
-      dpr: [1, heavyScene ? 1.2 : 1.35],
+      tier: tier === 'high' && veryHeavyScene ? 'medium' : tier,
+      dpr: [1, heavyScene ? 1.1 : 1.25],
       shadowMapSize: 1024,
       wireRadialSegments: veryHeavyScene ? 8 : 10,
-      wireTubularScale: veryHeavyScene ? 0.82 : 0.9,
-      thinWireCastShadow: !heavyScene,
-      steadyRunFps: heavyScene ? 24 : 30,
+      wireTubularScale: veryHeavyScene ? 0.8 : 0.88,
+      thinWireCastShadow: false,
+      steadyRunFps: heavyScene ? 22 : 28,
     }
   }
 
   // Dispositivo 'high'
   return {
     tier,
-    dpr: [1, heavyScene ? 1.35 : 1.5],
+    dpr: [1, heavyScene ? 1.25 : 1.5],
     shadowMapSize: heavyScene ? 1024 : 2048,
     wireRadialSegments: heavyScene ? 10 : 14,
-    wireTubularScale: heavyScene ? 0.9 : 1,
-    thinWireCastShadow: input.wireCount <= 60,
+    wireTubularScale: heavyScene ? 0.88 : 1,
+    thinWireCastShadow: input.wireCount <= 50,
     steadyRunFps: 30,
   }
 }
