@@ -3170,6 +3170,21 @@ export const useSimStore = create<Store>((set, get) => {
             }
           }
         }
+        // Anilhas de identificação junto às pontas (quadro + descidas / tomadas).
+        // Usa o número do cabo (ex.: "XS-MAQ:L", "X21.3") truncado para caber em anilhas.
+        const markerText = (() => {
+          const raw = (spec.number || spec.label || '').trim()
+          if (!raw) return ''
+          const afterArrow = raw.includes('→') ? raw.split('→').pop()!.trim() : raw
+          const short = afterArrow.length <= 10 ? afterArrow : afterArrow.slice(0, 10)
+          return short.replace(/\s+/g, '')
+        })()
+        const markers = markerText
+          ? [
+              { t: 0.10, text: markerText, color: '#111827', bg: '#facc15', style: 'yellow' as const },
+              { t: 0.90, text: markerText, color: '#111827', bg: '#facc15', style: 'yellow' as const },
+            ]
+          : undefined
         benchWires.push({
           id: `${spec.id}-${tag}`,
           fromTerminalId: from,
@@ -3191,6 +3206,7 @@ export const useSimStore = create<Store>((set, get) => {
           ...(spec.medium === 'pneumatic' ? { pneumaticPressureBar: spec.pressureBar ?? 6 } : {}),
           ...(points.length ? { waypoints3D: points } : {}),
           ...(spec.bundleId ? { bundleId: `${spec.bundleId}-${tag}` } : {}),
+          ...(markers ? { markers } : {}),
           energized: false,
         })
       }
