@@ -252,7 +252,8 @@
     "test:inspectors-all-ui": "node scripts/run-suites.mjs test:inspector-all-elements test:inspector-interactions test:inspector-iec test:inspector-admin test:inspector-layout test:enclosure-holes-ui test:timer-inspector-ui test:inspector-hooks-ui test:device-controls-gating-ui test:inspector-ui",
     "test:sockets": "tsx scripts/socket-devices-smoke.ts",
     "test:sockets-ui": "node scripts/socket-devices-ui-smoke.mjs",
-    "test:maquetes-build": "node scripts/maquettes-build-smoke.mjs"
+    "test:maquetes-build": "node scripts/maquettes-build-smoke.mjs",
+    "test:render-optimization": "tsx scripts/render-optimization-smoke.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

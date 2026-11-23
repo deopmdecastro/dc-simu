@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
@@ -9,8 +9,26 @@ import {
   industrialWallDimsOf,
   type WallFinish,
 } from './structuresModel'
+import {
+  getSharedPbrTextures,
+  SHARED_HEX_BOLT_GEO,
+  SHARED_UNIT_BOX_GEO,
+  SHARED_UNIT_CYL_10_GEO,
+  type PbrCanvasSources,
+  type PbrTextureTriplet,
+} from './renderOptimization'
 
 const U = PANEL_UNITS_PER_MM
+
+// Materiais estruturais partilhados (reduzem compilações de shaders e chamadas de estado WebGL)
+const SPLICE_BRACKET_MAT = new THREE.MeshStandardMaterial({ color: '#bfc7d1', roughness: 0.30, metalness: 0.84 })
+const END_CAP_MAT = new THREE.MeshStandardMaterial({ color: '#cfd6de', roughness: 0.32, metalness: 0.80 })
+const BOLT_ZINC_MAT = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.22, metalness: 0.90 })
+const RUBBER_EDGE_MAT = new THREE.MeshStandardMaterial({ color: '#181c22', roughness: 0.82, metalness: 0.04 })
+const NYLON_TIE_MAT = new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.60, metalness: 0 })
+const DARK_STEEL_MAT = new THREE.MeshStandardMaterial({ color: '#2c3748', roughness: 0.48, metalness: 0.72 })
+const WALL_SKIRTING_MAT = new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.82, metalness: 0.08 })
+const WALL_CAP_MAT = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.55, metalness: 0.55 })
 
 function seededNoise(seed: number): () => number {
   let s = seed >>> 0
@@ -20,14 +38,8 @@ function seededNoise(seed: number): () => number {
   }
 }
 
-interface GalvPbrPair {
-  map: THREE.CanvasTexture
-  bumpMap: THREE.CanvasTexture
-  roughnessMap: THREE.CanvasTexture
-}
-
-/** Textura PBR de aço galvanizado com cristais de zinco (spangle) + perfurações oblongas IEC 61537. */
-function createGalvanizedTrayPbr(perforated: boolean): GalvPbrPair | null {
+/** Canvases PBR de aço galvanizado com cristais de zinco (spangle) + perfurações oblongas IEC 61537. */
+function buildGalvanizedTraySources(perforated: boolean): PbrCanvasSources | null {
   if (typeof document === 'undefined') return null
   const W = 512
   const H = 512
@@ -91,10 +103,9 @@ function createGalvanizedTrayPbr(perforated: boolean): GalvPbrPair | null {
     ctx.stroke()
   }
 
-  // Perfurações oblongas estampadas (como image-16.png!)
+  // Perfurações oblongas estampadas
   if (perforated) {
     const drawSlot = (x: number, y: number, sw: number, sh: number) => {
-      const r = Math.min(sw, sh) / 2
       const path = (c: CanvasRenderingContext2D, pad = 0) => {
         const xx = x - pad, yy = y - pad, ww = sw + pad * 2, hh = sh + pad * 2
         const rr = Math.min(ww, hh) / 2
@@ -110,15 +121,12 @@ function createGalvanizedTrayPbr(perforated: boolean): GalvPbrPair | null {
         c.arcTo(xx, yy, xx + rr, yy, rr)
         c.closePath()
       }
-      // Borda estampada brilhante
       ctx.fillStyle = '#dde3ea'
       path(ctx, 2.5)
       ctx.fill()
-      // Furo escuro profundo
       ctx.fillStyle = '#2d3748'
       path(ctx, 0)
       ctx.fill()
-      // Relevo no bump map
       bctx.fillStyle = '#c8c8c8'
       path(bctx, 3)
       bctx.fill()
@@ -130,35 +138,20 @@ function createGalvanizedTrayPbr(perforated: boolean): GalvPbrPair | null {
       rctx.fill()
     }
 
-    // 4 linhas transversais de oblongos + fendas compridas intercaladas
     for (let row = 0; row < 4; row += 1) {
       const y = 34 + row * 124
       for (let col = 0; col < 4; col += 1) {
         drawSlot(34 + col * 116, y, 64, 22)
       }
-      // Fenda transversal estreita de drenagem/fixação
       drawSlot(72, y + 58, 368, 12)
     }
   }
 
-  const wrap = (canvas: HTMLCanvasElement, isSrgb: boolean) => {
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.wrapS = THREE.RepeatWrapping
-    tex.wrapT = THREE.RepeatWrapping
-    tex.anisotropy = 4
-    if (isSrgb) tex.colorSpace = THREE.SRGBColorSpace
-    tex.needsUpdate = true
-    return tex
-  }
-  return {
-    map: wrap(colCanvas, true),
-    bumpMap: wrap(bumpCanvas, false),
-    roughnessMap: wrap(roughCanvas, false),
-  }
+  return { map: colCanvas, bumpMap: bumpCanvas, roughnessMap: roughCanvas }
 }
 
-/** Textura PBR de parede modular (betão pré-fabricado, painel metálico canelado ou tijolo industrial). */
-function createWallFinishPbr(finish: WallFinish): GalvPbrPair | null {
+/** Canvases PBR de parede modular (betão pré-fabricado, painel metálico canelado ou tijolo industrial). */
+function buildWallFinishSources(finish: WallFinish): PbrCanvasSources | null {
   if (typeof document === 'undefined') return null
   const W = 512
   const H = 512
@@ -204,7 +197,6 @@ function createWallFinishPbr(finish: WallFinish): GalvPbrPair | null {
     bctx.fillRect(0, 0, W, H)
     rctx.fillStyle = '#8e8e8e'
     rctx.fillRect(0, 0, W, H)
-    // Caneluras horizontais de painel sandwich industrial
     for (let y = 0; y < H; y += 32) {
       ctx.fillStyle = '#c5ced8'
       ctx.fillRect(0, y, W, 6)
@@ -216,7 +208,6 @@ function createWallFinishPbr(finish: WallFinish): GalvPbrPair | null {
       bctx.fillRect(0, y + 6, W, 4)
     }
   } else {
-    // Betão arquitetónico pré-fabricado com juntas e furos de cofragem
     ctx.fillStyle = '#d3d0c8'
     ctx.fillRect(0, 0, W, H)
     bctx.fillStyle = '#808080'
@@ -233,7 +224,6 @@ function createWallFinishPbr(finish: WallFinish): GalvPbrPair | null {
       bctx.fillStyle = `rgba(${105 + Math.round(rand() * 45)},128,128,0.22)`
       bctx.fillRect(x, y, sz, sz)
     }
-    // Juntas de painel e furos de cofragem
     ctx.strokeStyle = 'rgba(84,82,76,0.45)'
     ctx.lineWidth = 3
     ctx.strokeRect(2, 2, W - 4, H - 4)
@@ -247,40 +237,25 @@ function createWallFinishPbr(finish: WallFinish): GalvPbrPair | null {
     }
   }
 
-  const wrap = (canvas: HTMLCanvasElement, isSrgb: boolean) => {
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.wrapS = THREE.RepeatWrapping
-    tex.wrapT = THREE.RepeatWrapping
-    tex.anisotropy = 4
-    if (isSrgb) tex.colorSpace = THREE.SRGBColorSpace
-    tex.needsUpdate = true
-    return tex
-  }
-  return {
-    map: wrap(colCanvas, true),
-    bumpMap: wrap(bumpCanvas, false),
-    roughnessMap: wrap(roughCanvas, false),
-  }
+  return { map: colCanvas, bumpMap: bumpCanvas, roughnessMap: roughCanvas }
 }
 
-function useGalvTextures(perforated: boolean, repX = 1, repY = 1) {
-  const pair = useMemo(() => createGalvanizedTrayPbr(perforated), [perforated])
-  useEffect(() => {
-    if (!pair) return
-    pair.map.repeat.set(repX, repY)
-    pair.bumpMap.repeat.set(repX, repY)
-    pair.roughnessMap.repeat.set(repX, repY)
-  }, [pair, repX, repY])
-  useEffect(() => () => {
-    pair?.map.dispose()
-    pair?.bumpMap.dispose()
-    pair?.roughnessMap.dispose()
-  }, [pair])
-  return pair
+function useGalvTextures(perforated: boolean, repX = 1, repY = 1): PbrTextureTriplet | null {
+  return useMemo(
+    () => getSharedPbrTextures(perforated ? 'galv-perf' : 'galv-solid', repX, repY, () => buildGalvanizedTraySources(perforated)),
+    [perforated, repX, repY],
+  )
+}
+
+function useWallTextures(finish: WallFinish, repX: number, repY: number): PbrTextureTriplet | null {
+  return useMemo(
+    () => getSharedPbrTextures(`wall-${finish}`, repX, repY, () => buildWallFinishSources(finish)),
+    [finish, repX, repY],
+  )
 }
 
 /** 1. Parede industrial modular PBR */
-export function IndustrialWall3D({
+export const IndustrialWall3D = memo(function IndustrialWall3D({
   c,
   position,
 }: {
@@ -291,28 +266,14 @@ export function IndustrialWall3D({
   const L = d.lengthMm * U
   const H = d.heightMm * U
   const T = d.thicknessMm * U
-  const tex = useMemo(() => createWallFinishPbr(d.finish), [d.finish])
-  useEffect(() => {
-    if (!tex) return
-    const rx = Math.max(1, d.lengthMm / 1500)
-    const ry = Math.max(1, d.heightMm / 1600)
-    tex.map.repeat.set(rx, ry)
-    tex.bumpMap.repeat.set(rx, ry)
-    tex.roughnessMap.repeat.set(rx, ry)
-  }, [tex, d.lengthMm, d.heightMm])
-  useEffect(() => () => {
-    tex?.map.dispose()
-    tex?.bumpMap.dispose()
-    tex?.roughnessMap.dispose()
-  }, [tex])
+  const tex = useWallTextures(d.finish, Math.max(1, d.lengthMm / 1500), Math.max(1, d.heightMm / 1600))
 
   const bodyTint = typeof c.bodyColor === 'string' && /^#[0-9a-f]{6}$/i.test(c.bodyColor) ? c.bodyColor : '#ffffff'
 
   return (
     <group position={position} name={`industrial-wall-3d-${c.id}`}>
       {/* Corpo principal da parede */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[L, H, T]} />
+      <mesh geometry={SHARED_UNIT_BOX_GEO} scale={[L, H, T]} castShadow receiveShadow>
         <meshStandardMaterial
           color={bodyTint}
           map={tex?.map ?? null}
@@ -325,22 +286,16 @@ export function IndustrialWall3D({
       </mesh>
       {/* Rodapé protetor em betão escuro na base */}
       {d.skirting && (
-        <mesh position={[0, -H / 2 + 90 * U, 0]} castShadow receiveShadow>
-          <boxGeometry args={[L + 8 * U, 180 * U, T + 18 * U]} />
-          <meshStandardMaterial color="#475569" roughness={0.82} metalness={0.08} />
-        </mesh>
+        <mesh geometry={SHARED_UNIT_BOX_GEO} material={WALL_SKIRTING_MAT} position={[0, -H / 2 + 90 * U, 0]} scale={[L + 8 * U, 180 * U, T + 18 * U]} receiveShadow />
       )}
       {/* Viga de coroamento metálica superior */}
-      <mesh position={[0, H / 2 - 35 * U, 0]} castShadow receiveShadow>
-        <boxGeometry args={[L + 10 * U, 70 * U, T + 22 * U]} />
-        <meshStandardMaterial color="#334155" roughness={0.55} metalness={0.55} />
-      </mesh>
+      <mesh geometry={SHARED_UNIT_BOX_GEO} material={WALL_CAP_MAT} position={[0, H / 2 - 35 * U, 0]} scale={[L + 10 * U, 70 * U, T + 22 * U]} receiveShadow />
     </group>
   )
-}
+})
 
 /** 2. Pilar metálico estrutural em perfil I / H com placa de base aparafusada */
-export function IndustrialPillar3D({
+export const IndustrialPillar3D = memo(function IndustrialPillar3D({
   c,
   position,
 }: {
@@ -369,8 +324,7 @@ export function IndustrialPillar3D({
   return (
     <group position={position} name={`industrial-pillar-3d-${c.id}`}>
       {/* Alma central do perfil I/H */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[webT, H - 36 * U, S - flangeT * 2]} />
+      <mesh geometry={SHARED_UNIT_BOX_GEO} scale={[webT, H - 36 * U, S - flangeT * 2]} castShadow receiveShadow>
         <meshStandardMaterial
           color={baseColor}
           map={d.finish === 'galvanized' ? (galv?.map ?? null) : null}
@@ -380,8 +334,7 @@ export function IndustrialPillar3D({
       </mesh>
       {/* Banzo frontal (+Z) e posterior (-Z) */}
       {[-1, 1].map((sign) => (
-        <mesh key={sign} position={[0, 0, sign * (S / 2 - flangeT / 2)]} castShadow receiveShadow>
-          <boxGeometry args={[S, H - 36 * U, flangeT]} />
+        <mesh key={sign} geometry={SHARED_UNIT_BOX_GEO} position={[0, 0, sign * (S / 2 - flangeT / 2)]} scale={[S, H - 36 * U, flangeT]} castShadow receiveShadow>
           <meshStandardMaterial
             color={baseColor}
             map={d.finish === 'galvanized' ? (galv?.map ?? null) : null}
@@ -391,30 +344,85 @@ export function IndustrialPillar3D({
         </mesh>
       ))}
       {/* Placa de base pesada aparafusada ao chão */}
-      <mesh position={[0, baseY + 12 * U, 0]} castShadow receiveShadow>
-        <boxGeometry args={[B, 24 * U, B]} />
-        <meshStandardMaterial color="#2c3748" roughness={0.48} metalness={0.72} />
-      </mesh>
+      <mesh geometry={SHARED_UNIT_BOX_GEO} material={DARK_STEEL_MAT} position={[0, baseY + 12 * U, 0]} scale={[B, 24 * U, B]} receiveShadow />
       {/* 4 pernos de ancoragem M20 + anilhas */}
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
-        <group key={i} position={[sx * (B * 0.36), baseY + 34 * U, sz * (B * 0.36)]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[12 * U, 12 * U, 24 * U, 6]} />
-            <meshStandardMaterial color="#e2e8f0" roughness={0.25} metalness={0.88} />
-          </mesh>
-        </group>
+        <mesh key={i} geometry={SHARED_HEX_BOLT_GEO} material={BOLT_ZINC_MAT} position={[sx * (B * 0.36), baseY + 34 * U, sz * (B * 0.36)]} scale={[24 * U, 24 * U, 24 * U]} />
       ))}
       {/* Chapa de topo para encaixe de vigas/esteiras */}
-      <mesh position={[0, H / 2 - 10 * U, 0]} castShadow receiveShadow>
-        <boxGeometry args={[S + 44 * U, 20 * U, S + 44 * U]} />
-        <meshStandardMaterial color="#2c3748" roughness={0.48} metalness={0.72} />
-      </mesh>
+      <mesh geometry={SHARED_UNIT_BOX_GEO} material={DARK_STEEL_MAT} position={[0, H / 2 - 10 * U, 0]} scale={[S + 44 * U, 20 * U, S + 44 * U]} receiveShadow />
+    </group>
+  )
+})
+
+/**
+ * Cantoneira exterior de união em L aparafusada (ref. caminhos de cabos IEC 61537):
+ * une a parede cortada da esteira principal à parede do ramal perpendicular em T / cruz `+`.
+ */
+function TrayTeeCornerBracket({
+  edgeX,
+  sideSign,
+  dirSign,
+  halfW,
+  H,
+}: {
+  edgeX: number
+  sideSign: -1 | 1
+  /** +1 na borda direita do rasgo (extensão em +X); -1 na borda esquerda (extensão em -X). */
+  dirSign: -1 | 1
+  halfW: number
+  H: number
+}) {
+  const plateLen = 42 * U
+  const plateH = H * 0.78
+  const plateT = 2.6 * U
+  const zWall = sideSign * (halfW + plateT * 0.65)
+  const boltSize = 8 * U
+  const boltLen = 10 * U
+  return (
+    <group name="esteira-uniao-canto-L" position={[edgeX, -H * 0.04, zWall]}>
+      {/* Aba aparafusada à parede da esteira principal */}
+      <mesh
+        geometry={SHARED_UNIT_BOX_GEO}
+        material={SPLICE_BRACKET_MAT}
+        position={[dirSign * (plateLen / 2), 0, 0]}
+        scale={[plateLen, plateH, plateT]}
+      />
+      {/* Aba perpendicular a 90° aparafusada ao ramal */}
+      <mesh
+        geometry={SHARED_UNIT_BOX_GEO}
+        material={SPLICE_BRACKET_MAT}
+        position={[dirSign * (plateT / 2), 0, sideSign * (plateLen / 2)]}
+        scale={[plateT, plateH, plateLen]}
+      />
+      {/* 2 parafusos/porcas M6 na aba principal */}
+      {[0.32, 0.72].map((frac, idx) => (
+        <mesh
+          key={`m-${idx}`}
+          geometry={SHARED_HEX_BOLT_GEO}
+          material={BOLT_ZINC_MAT}
+          position={[dirSign * (plateLen * frac), 0, sideSign * (boltLen * 0.42)]}
+          rotation={[Math.PI / 2, 0, 0]}
+          scale={[boltSize, boltLen, boltSize]}
+        />
+      ))}
+      {/* 2 parafusos/porcas M6 na aba do ramal */}
+      {[0.32, 0.72].map((frac, idx) => (
+        <mesh
+          key={`b-${idx}`}
+          geometry={SHARED_HEX_BOLT_GEO}
+          material={BOLT_ZINC_MAT}
+          position={[dirSign * (boltLen * 0.42), 0, sideSign * (plateLen * frac)]}
+          rotation={[0, 0, Math.PI / 2]}
+          scale={[boltSize, boltLen, boltSize]}
+        />
+      ))}
     </group>
   )
 }
 
-/** 3. Esteira porta-cabos reta perfurada galvanizada (ref. image-16.png) */
-export function CableTrayStraight3D({
+/** 3. Esteira porta-cabos reta perfurada galvanizada com uniões em T, descidas e tampas de topo */
+export const CableTrayStraight3D = memo(function CableTrayStraight3D({
   c,
   position,
   openings = [],
@@ -432,22 +440,28 @@ export function CableTrayStraight3D({
   const perfTex = useGalvTextures(true, Math.max(1, d.lengthMm / 420), Math.max(1, d.widthMm / 260))
   const solidTex = useGalvTextures(false, Math.max(1, d.lengthMm / 500), 1)
   const baseY = -H / 2
+  const halfLMm = d.lengthMm / 2
 
-  // Pontas aparadas (endTrim) → não desenhar patilhas de encaixe nesse extremo
-  const trimNeg = openings.some((o) => o.endTrim && Math.min(o.from, o.to) <= -d.lengthMm / 2 + 12)
-  const trimPos = openings.some((o) => o.endTrim && Math.max(o.from, o.to) >= d.lengthMm / 2 - 12)
+  // Pontas aparadas (endTrim) ou com descida vertical junto ao extremo → não desenhar patilhas soltas
+  const trimNeg = openings.some((o) => o.endTrim && Math.min(o.from, o.to) <= -halfLMm + 12)
+  const trimPos = openings.some((o) => o.endTrim && Math.max(o.from, o.to) >= halfLMm - 12)
+  const floorOpenings = openings.filter((o) => o.side === 'floor')
+  const floorNearNeg = floorOpenings.some((o) => Math.min(o.from, o.to) <= -halfLMm + 24)
+  const floorNearPos = floorOpenings.some((o) => Math.max(o.from, o.to) >= halfLMm - 24)
   const floorSpans = closedFloorSpans(d.lengthMm, openings)
+
+  // Aberturas laterais em T / cruz `+` (não endTrim) para montar cantoneiras aparafusadas em L
+  const teeOpenings = openings.filter((o) => !o.endTrim && (o.side === 'top' || o.side === 'bottom'))
 
   return (
     <group position={position} name={`cable-tray-straight-3d-${c.id}`}>
-      {/* Fundo perfurado — segmentado nas pontas que entram noutra esteira (T/L) */}
+      {/* Fundo perfurado — segmentado nas pontas aparadas (T/L) e aberturas de descida vertical */}
       {floorSpans.map(([fromMm, toMm], idx) => {
         const spanL = (toMm - fromMm) * U
         const centerX = ((fromMm + toMm) / 2) * U
         if (spanL <= 0) return null
         return (
-          <mesh key={`floor-${idx}`} position={[centerX, baseY + t / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[spanL, t, W]} />
+          <mesh key={`floor-${idx}`} geometry={SHARED_UNIT_BOX_GEO} position={[centerX, baseY + t / 2, 0]} scale={[spanL, t, W]} castShadow receiveShadow>
             <meshStandardMaterial
               color="#d2d8df"
               map={perfTex?.map ?? null}
@@ -471,8 +485,7 @@ export function CableTrayStraight3D({
               if (spanL <= 0) return null
               return (
                 <group key={idx} position={[centerX, 0, 0]}>
-                  <mesh position={[0, 0, side * (W / 2 - t / 2)]} castShadow receiveShadow>
-                    <boxGeometry args={[spanL, H, t]} />
+                  <mesh geometry={SHARED_UNIT_BOX_GEO} position={[0, 0, side * (W / 2 - t / 2)]} scale={[spanL, H, t]} castShadow receiveShadow>
                     <meshStandardMaterial
                       color="#cfd6de"
                       map={perfTex?.map ?? null}
@@ -482,8 +495,12 @@ export function CableTrayStraight3D({
                       metalness={0.8}
                     />
                   </mesh>
-                  <mesh position={[0, H / 2, side * (W / 2 - lip * 0.38)]} rotation={[0, 0, Math.PI / 2]} castShadow>
-                    <cylinderGeometry args={[lip * 0.42, lip * 0.42, spanL, 12]} />
+                  <mesh
+                    geometry={SHARED_UNIT_CYL_10_GEO}
+                    position={[0, H / 2, side * (W / 2 - lip * 0.38)]}
+                    rotation={[0, 0, Math.PI / 2]}
+                    scale={[lip * 0.84, spanL, lip * 0.84]}
+                  >
                     <meshStandardMaterial
                       color="#dce2e9"
                       map={solidTex?.map ?? null}
@@ -497,25 +514,95 @@ export function CableTrayStraight3D({
           </group>
         )
       })}
-      {/* Patilhas só nas pontas livres (não aparadas por união) */}
-      {([-1, 1] as const).map((endSign) => {
-        if ((endSign < 0 && trimNeg) || (endSign > 0 && trimPos)) return null
+      {/* Uniões em L aparafusadas nos cantos das derivações em T / cruz */}
+      {teeOpenings.map((o, idx) => {
+        const sideSign: -1 | 1 = o.side === 'top' ? -1 : 1
+        const fMm = Math.min(o.from, o.to)
+        const tMm = Math.max(o.from, o.to)
         return (
-          <group key={`end-${endSign}`} position={[endSign * (L / 2 - 22 * U), 0, 0]}>
+          <group key={`tee-brackets-${idx}`}>
+            {fMm > -halfLMm + 18 && (
+              <TrayTeeCornerBracket edgeX={fMm * U} sideSign={sideSign} dirSign={-1} halfW={W / 2} H={H} />
+            )}
+            {tMm < halfLMm - 18 && (
+              <TrayTeeCornerBracket edgeX={tMm * U} sideSign={sideSign} dirSign={1} halfW={W / 2} H={H} />
+            )}
+          </group>
+        )
+      })}
+      {/* Acabamento de descida vertical pelo fundo: perfil preto de proteção de borda + esquadros inferiores */}
+      {floorOpenings.map((o, idx) => {
+        const fMm = Math.min(o.from, o.to)
+        const tMm = Math.max(o.from, o.to)
+        const spanL = Math.max(10 * U, (tMm - fMm) * U)
+        const cx = ((fMm + tMm) / 2) * U
+        const edgeThick = 4.5 * U
+        const innerW = Math.max(20 * U, W - 2 * t)
+        const dropPlateH = 44 * U
+        return (
+          <group key={`floor-drop-${idx}`} name="esteira-descida-acabamento">
+            {/* Perfis de borracha preta nas bordas do corte (proteção contra corte de cabos) */}
+            {fMm > -halfLMm + 4 && (
+              <mesh geometry={SHARED_UNIT_BOX_GEO} material={RUBBER_EDGE_MAT} position={[fMm * U, baseY + t * 0.7, 0]} scale={[edgeThick, edgeThick * 1.15, innerW]} />
+            )}
+            {tMm < halfLMm - 4 && (
+              <mesh geometry={SHARED_UNIT_BOX_GEO} material={RUBBER_EDGE_MAT} position={[tMm * U, baseY + t * 0.7, 0]} scale={[edgeThick, edgeThick * 1.15, innerW]} />
+            )}
+            {/* Cantoneiras inferiores aparafusadas de acoplamento à descida vertical */}
             {([-1, 1] as const).map((side) => (
-              <mesh key={side} position={[0, -H * 0.08, side * (W / 2 + 1.8 * U)]} castShadow>
-                <boxGeometry args={[46 * U, H * 0.68, 2.2 * U]} />
-                <meshStandardMaterial color="#b7c0ca" roughness={0.34} metalness={0.82} />
-              </mesh>
+              <group key={side} position={[cx, baseY - dropPlateH * 0.42, side * (W / 2 - 2 * U)]}>
+                <mesh geometry={SHARED_UNIT_BOX_GEO} material={SPLICE_BRACKET_MAT} scale={[spanL * 0.86, dropPlateH, 2.8 * U]} />
+                {[-0.28, 0.28].map((frac, bi) => (
+                  <mesh
+                    key={bi}
+                    geometry={SHARED_HEX_BOLT_GEO}
+                    material={BOLT_ZINC_MAT}
+                    position={[spanL * frac, -dropPlateH * 0.14, side * 4.5 * U]}
+                    rotation={[Math.PI / 2, 0, 0]}
+                    scale={[7.5 * U, 9 * U, 7.5 * U]}
+                  />
+                ))}
+              </group>
             ))}
           </group>
         )
       })}
-      {/* Cabos/tubos a quase todo o comprimento para não interromper nas junções */}
-      <TrayCableBundle state={c.state} lengthMm={d.lengthMm} floorY={baseY + t} fullRun />
+      {/* Pontas: tampa de fecho limpa sobre descidas terminais; patilhas apenas em pontas livres */}
+      {([-1, 1] as const).map((endSign) => {
+        const isTrimmed = (endSign < 0 && trimNeg) || (endSign > 0 && trimPos)
+        if (isTrimmed) return null
+        const hasTerminalDrop = (endSign < 0 && floorNearNeg) || (endSign > 0 && floorNearPos)
+        if (hasTerminalDrop) {
+          // Tampa de topo fechada (acabamento limpo como na referência industrial, sem patilhas soltas)
+          return (
+            <group key={`endcap-${endSign}`} name="esteira-tampa-topo" position={[endSign * (L / 2 - t / 2), 0, 0]}>
+              <mesh geometry={SHARED_UNIT_BOX_GEO} material={END_CAP_MAT} scale={[t, H, W]} />
+              <mesh geometry={SHARED_UNIT_BOX_GEO} material={RUBBER_EDGE_MAT} position={[0, H / 2, 0]} scale={[t * 1.8, 4 * U, W]} />
+              {([-1, 1] as const).map((side) => (
+                <mesh
+                  key={side}
+                  geometry={SHARED_HEX_BOLT_GEO}
+                  material={BOLT_ZINC_MAT}
+                  position={[-endSign * 10 * U, 0, side * (W / 2 + 3.5 * U)]}
+                  rotation={[Math.PI / 2, 0, 0]}
+                  scale={[7.5 * U, 9 * U, 7.5 * U]}
+                />
+              ))}
+            </group>
+          )
+        }
+        return (
+          <group key={`end-${endSign}`} position={[endSign * (L / 2 - 22 * U), 0, 0]}>
+            {([-1, 1] as const).map((side) => (
+              <mesh key={side} geometry={SHARED_UNIT_BOX_GEO} material={SPLICE_BRACKET_MAT} position={[0, -H * 0.08, side * (W / 2 + 1.8 * U)]} scale={[46 * U, H * 0.68, 2.2 * U]} />
+            ))}
+          </group>
+        )
+      })}
+      {/* Cabos/tubos dentro do troço útil (nunca atravessam uniões aparadas nem sobressaem de descidas) */}
+      <TrayCableBundle state={c.state} lengthMm={d.lengthMm} floorY={baseY + t} floorSpans={floorSpans} openings={openings} fullRun />
       {d.withCover && (
-        <mesh position={[0, H / 2 + 4 * U, 0]} castShadow receiveShadow>
-          <boxGeometry args={[L, 3 * U, W + 6 * U]} />
+        <mesh geometry={SHARED_UNIT_BOX_GEO} position={[0, H / 2 + 4 * U, 0]} scale={[L, 3 * U, W + 6 * U]} castShadow receiveShadow>
           <meshStandardMaterial
             color="#d8dee5"
             map={solidTex?.map ?? null}
@@ -526,21 +613,27 @@ export function CableTrayStraight3D({
       )}
     </group>
   )
-}
+})
 
 /**
  * Cabos e tubos assentes no fundo da esteira (`state.cables`: cor, Ø e tipo), lado a lado e
  * filaçados por abraçadeiras de nylon preto a cada `state.tieEveryMm` (por omissão 250 mm).
+ * Respeita os cortes de extremidade (`endTrim`) e aberturas de descida (`floor`) para nunca
+ * sobressair fora da esteira nem atravessar perpendicularmente outra esteira.
  */
 function TrayCableBundle({
   state,
   lengthMm,
   floorY,
+  floorSpans,
+  openings = [],
   fullRun = false,
 }: {
   state: Record<string, any>
   lengthMm: number
   floorY: number
+  floorSpans?: Array<[number, number]>
+  openings?: DuctOpening[]
   /** Quando true, o cabo/tubo corre quase de ponta a ponta (junções 3D sem interrupção visual). */
   fullRun?: boolean
 }) {
@@ -548,12 +641,37 @@ function TrayCableBundle({
     ? (state.cables as Array<{ color?: string; diameterMm?: number; kind?: string }>).filter((x) => x && Number(x.diameterMm) > 0).slice(0, 12)
     : []
   if (!cables.length) return null
+  const halfLMm = lengthMm / 2
+  const inset = fullRun ? 4 : 15
+  let startMm = -halfLMm + inset
+  let endMm = halfLMm - inset
+
+  // Recorta estritamente nas pontas aparadas (endTrim) e para no eixo de descidas terminais
+  for (const o of openings) {
+    const f = Math.min(o.from, o.to)
+    const t = Math.max(o.from, o.to)
+    if (o.endTrim) {
+      if (f <= -halfLMm + 12) startMm = Math.max(startMm, t)
+      if (t >= halfLMm - 12) endMm = Math.min(endMm, f)
+    } else if (o.side === 'floor') {
+      const mid = (f + t) / 2
+      if (f <= -halfLMm + 24) startMm = Math.max(startMm, mid)
+      if (t >= halfLMm - 24) endMm = Math.min(endMm, mid)
+    }
+  }
+  if (floorSpans && floorSpans.length > 0 && endMm <= startMm) {
+    startMm = floorSpans[0][0] + 4
+    endMm = floorSpans[floorSpans.length - 1][1] - 4
+  }
+
+  const run = Math.max(0, endMm - startMm)
+  if (run < 16) return null
+  const centerMm = (startMm + endMm) / 2
+
   const gap = 1.5
   const widths = cables.map((x) => Number(x.diameterMm))
   const total = widths.reduce((a, b) => a + b, 0) + gap * (cables.length - 1)
   const tallest = Math.max(...widths)
-  // fullRun: só 4 mm de rebaixo em cada ponta para não atravessar a união metálica
-  const run = Math.max(0, lengthMm - (fullRun ? 8 : 30))
   let z = -total / 2
   const lanes = cables.map((cable, i) => {
     const dMm = widths[i]
@@ -563,13 +681,18 @@ function TrayCableBundle({
   })
   const every = Math.max(120, Number(state?.tieEveryMm) || 250)
   const ties = Math.max(1, Math.floor(run / every))
-  const tieXs = Array.from({ length: ties }, (_, i) => (-run / 2 + (i + 0.5) * (run / ties)) * U)
+  const tieXs = Array.from({ length: ties }, (_, i) => (startMm + (i + 0.5) * (run / ties)) * U)
   const midY = floorY + (tallest / 2) * U
   return (
     <group name="esteira-cabos-filacados">
       {lanes.map((lane, i) => (
-        <mesh key={i} position={[0, floorY + (lane.dMm / 2) * U, lane.z * U]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[(lane.dMm / 2) * U, (lane.dMm / 2) * U, run * U, 14]} />
+        <mesh
+          key={i}
+          geometry={SHARED_UNIT_CYL_10_GEO}
+          position={[centerMm * U, floorY + (lane.dMm / 2) * U, lane.z * U]}
+          rotation={[0, 0, Math.PI / 2]}
+          scale={[lane.dMm * U, run * U, lane.dMm * U]}
+        >
           <meshStandardMaterial
             name={lane.tube ? 'Tubo de ar PU' : 'Cabo H07RN-F'}
             color={lane.color}
@@ -581,9 +704,15 @@ function TrayCableBundle({
         </mesh>
       ))}
       {tieXs.map((x, i) => (
-        <mesh key={`tie-${i}`} name="Abraçadeira de nylon" position={[x, midY, 0]} rotation={[0, Math.PI / 2, 0]} scale={[1, (tallest / 2 + 1.2) / (total / 2 + 1.2), 1]}>
-          <torusGeometry args={[(total / 2 + 1.2) * U, 0.9 * U, 6, 28]} />
-          <meshStandardMaterial color="#111827" roughness={0.6} metalness={0} />
+        <mesh
+          key={`tie-${i}`}
+          name="Abraçadeira de nylon"
+          material={NYLON_TIE_MAT}
+          position={[x, midY, 0]}
+          rotation={[0, Math.PI / 2, 0]}
+          scale={[1, (tallest / 2 + 1.2) / (total / 2 + 1.2), 1]}
+        >
+          <torusGeometry args={[(total / 2 + 1.2) * U, 0.9 * U, 6, 16]} />
         </mesh>
       ))}
     </group>
@@ -591,7 +720,7 @@ function TrayCableBundle({
 }
 
 /** 4. Curva horizontal 90° de esteira porta-cabos (ref. image-18.png) */
-export function CableTrayElbow903D({
+export const CableTrayElbow903D = memo(function CableTrayElbow903D({
   c,
   position,
 }: {
@@ -668,10 +797,10 @@ export function CableTrayElbow903D({
       </group>
     </group>
   )
-}
+})
 
 /** 5. Cruzamento em X ou Derivação em T de esteira (ref. image-19.png) */
-export function CableTrayCross3D({
+export const CableTrayCross3D = memo(function CableTrayCross3D({
   c,
   position,
 }: {
@@ -764,10 +893,10 @@ export function CableTrayCross3D({
       ))}
     </group>
   )
-}
+})
 
 /** 6. Pescoço / Curva vertical articulada de esteira (ref. image-17.png) */
-export function CableTrayVerticalBend3D({
+export const CableTrayVerticalBend3D = memo(function CableTrayVerticalBend3D({
   c,
   position,
 }: {
@@ -801,10 +930,7 @@ export function CableTrayVerticalBend3D({
   const renderHingeBolts = (x: number, y: number) => (
     <group position={[x, y, 0]}>
       {[-1, 1].map((side) => (
-        <mesh key={side} position={[0, 0, side * (W / 2 + 3 * U)]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[6 * U, 6 * U, 10 * U, 6]} />
-          <meshStandardMaterial color="#e2e8f0" roughness={0.22} metalness={0.9} />
-        </mesh>
+        <mesh key={side} geometry={SHARED_HEX_BOLT_GEO} material={BOLT_ZINC_MAT} position={[0, 0, side * (W / 2 + 3 * U)]} rotation={[Math.PI / 2, 0, 0]} scale={[12 * U, 10 * U, 12 * U]} />
       ))}
     </group>
   )
@@ -827,10 +953,10 @@ export function CableTrayVerticalBend3D({
       </group>
     </group>
   )
-}
+})
 
 /** 7. Curva vertical 90° exterior/interior rígida (ref. image-20.png) */
-export function CableTrayRiser903D({
+export const CableTrayRiser903D = memo(function CableTrayRiser903D({
   c,
   position,
 }: {
@@ -902,4 +1028,4 @@ export function CableTrayRiser903D({
       </group>
     </group>
   )
-}
+})

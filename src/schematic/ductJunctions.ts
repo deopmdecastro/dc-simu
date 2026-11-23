@@ -149,19 +149,43 @@ function trayJunctionOpenings3D(c: ElectricalComponent, all: ElectricalComponent
     if (w1 < -halfW - TOUCH_MM || w0 > halfW + TOUCH_MM) continue
     if (h1 < -halfH - TOUCH_MM || h0 > halfH + TOUCH_MM) continue
 
+    // Distingue subida/descida vertical que chega por baixo do fundo de uma esteira horizontal
+    // da situação inversa (a ponta superior da vertical a entrar dentro da horizontal).
+    const isVerticalC = Math.abs(axC.length.y) > 0.7
+    const isVerticalO = Math.abs(axO.length.y) > 0.7
+    const arrivesFromBelowFloor = !isVerticalC
+      && (isVerticalO || Math.abs(dot(axO.length, axC.up)) > 0.7)
+      && h0 < -halfH - 2
+      && dot(d, axC.up) < -halfH * 0.5
+
     let f = Math.max(-halfL, a0)
     let t = Math.min(halfL, a1)
-    if (t - f < MIN_END_TRIM_MM) continue
+
+    // Ramal horizontal encostado à face lateral de outra esteira horizontal (0 mm de penetração):
+    // marca endTrim mínimo na ponta para suprimir as patilhas soltas e deixar espaço à união em L.
+    if (t - f < MIN_END_TRIM_MM) {
+      if (!isVerticalC && !isVerticalO && h1 > -halfH + 2 && h0 < halfH - 2 && w0 < -halfW + 8 && w1 > halfW - 8) {
+        if (a1 >= -halfL - TOUCH_MM && a0 <= -halfL + TOUCH_MM) {
+          raw.push({ side: 'top', from: fix(-halfL), to: fix(-halfL + 1), endTrim: true })
+          raw.push({ side: 'bottom', from: fix(-halfL), to: fix(-halfL + 1), endTrim: true })
+        } else if (a0 <= halfL + TOUCH_MM && a1 >= halfL - TOUCH_MM) {
+          raw.push({ side: 'top', from: fix(halfL - 1), to: fix(halfL), endTrim: true })
+          raw.push({ side: 'bottom', from: fix(halfL - 1), to: fix(halfL), endTrim: true })
+        }
+      }
+      continue
+    }
+
     if (f - (-halfL) < 8) f = -halfL
     if (halfL - t < 8) t = halfL
 
     // `o` chega por baixo do fundo de `c` (subida/descida vertical) → abre só o fundo nessa zona;
     // as abas de `c` mantêm-se (a ponta de `c` pode assentar sobre a subida, junto à parede).
-    if (h0 < -halfH - 2) {
+    if (arrivesFromBelowFloor) {
       if (t - f >= MIN_END_TRIM_MM && w1 > -halfW + 2 && w0 < halfW - 2) raw.push({ side: 'floor', from: fix(f), to: fix(t) })
       continue
     }
-    // Ponta de `c` dentro de `o` (ramal a entrar na principal ou topo de uma subida que entra
+    // Ponta de `c` dentro de `o` (ramal a entrar na principal ou topo de uma subida/descida que entra
     // na esteira de cima): apara abas e fundo nesse troço para não invadir o canal de `o`.
     const containsWhole = a0 <= -halfL + 8 && a1 >= halfL - 8
     const endInside = !containsWhole && (f <= -halfL || t >= halfL)

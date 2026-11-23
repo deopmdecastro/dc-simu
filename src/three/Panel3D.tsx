@@ -22,7 +22,7 @@ import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, Billboard, useGLTF, useProgress } from '@react-three/drei'
 import { Text } from './SceneText'
-import { useRef, useMemo, useState, useEffect, useLayoutEffect, useId, Suspense, Component, type MutableRefObject } from 'react'
+import { useRef, useMemo, useState, useEffect, useLayoutEffect, useId, Suspense, Component, lazy, memo, type MutableRefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -56,7 +56,16 @@ import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_3D, NOTE_COLORS } from '../ui/textStyle'
 import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEditorMotorTextures, onMotorTexturesReady } from './motorEditorTextures'
-import { FaultEffects3D, type FaultPoint3D } from './FaultEffects3D'
+import type { FaultPoint3D } from './FaultEffects3D'
+import {
+  DisposableLruCache,
+  getSharedSheathMaterial,
+  getSharedWireMaterial,
+  resolveSceneQuality,
+  SHARED_WIRE_HIT_MATERIAL,
+  SHARED_WIRE_SELECT_MATERIAL,
+  type SceneQualityProfile,
+} from './renderOptimization'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, getComponentPhysicalSizeMm, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { hasPlcLamps, lampScenePosition, plcChannelLamps, plcLamps } from './plcStatusLights'
@@ -80,11 +89,10 @@ import { registerCoverCapture, setCoverWiresReady } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
 import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
-import { FactoryEnvironment3D, type FactoryWallMountBounds } from './FactoryEnvironment3D'
+import type { FactoryWallMountBounds } from './FactoryEnvironment3D'
 import { FactoryHallSizeControl } from './FactoryHallSizeControl'
 import { FactoryWallsControl } from './FactoryWallsControl'
 import { floorDragBasis, floorDragDelta } from './floorDrag'
-import { Mechatronics3D } from './MechatronicsDevices3D'
 import { isMechatronicsType } from './mechatronicsModel'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
@@ -96,30 +104,12 @@ import {
   SchneiderPilotLight1P_3D,
   SchneiderPilotLight3P_3D,
 } from './SchneiderComponents3D'
-import { LightingDevice3D } from './LightingDevices3D'
 import { isLightingType } from './lightingModel'
-import {
-  FloatSwitchFelix3D,
-  type FloatSwitchTankContext,
-  HydraulicTee3D,
-  HydraulicValve3D,
-  WaterFlowMeterZjLcd3D,
-  WaterPumpCalpeda3D,
-  WaterSupplyBox3D,
-  WaterTankTransparent3D,
-} from './HydraulicsDevices3D'
+import type { FloatSwitchTankContext } from './HydraulicsDevices3D'
 import { tankHasJunctionBracket, tankJunctionBracketOf, waterTankDimensionsOf, waterTankRightReachU } from './hydraulicsModel'
-import { OboJunctionBox3D, Wago221Connector3D, type OboSpliceCable } from './JunctionWagoDevices3D'
+import type { OboSpliceCable } from './JunctionWagoDevices3D'
 import { SensorMountBalluff3D } from './SensorMounts3D'
 import { isJunctionBoxType, isWagoConnectorType, JUNCTION_WAGO_SIZE_MM, type JunctionBoxType } from './junctionWagoModel'
-import { WireTrayElbow903D, WireTrayRiser903D, WireTrayStraight3D, WireTrayTee3D } from './WireMeshTrayDevices3D'
-import {
-  ConduitCorrugated3D,
-  ConduitVdsElbow903D,
-  ConduitVdsStraight3D,
-  PipeClampStandalone3D,
-} from './ConduitDevices3D'
-import { TriProofLedBatten3D } from './TriProofBatten3D'
 import { EditableFieldCable3D, editableCableConductorsOf, isEditableCableDeviceType } from './EditableCable3D'
 import {
   computeFactoryRoomBounds,
@@ -131,35 +121,58 @@ import {
   isFloorStandingComponent,
   type SolidObstacle3D,
 } from './factoryPhysics'
-import {
-  ElectricCylinderEpcs3D,
-  PneumaticCylinder3D,
-  AirCompressor3D,
-  PneumaticFrl3D,
-  PneumaticGuidedCylinder3D,
-  PneumaticManifold3D,
-  PneumaticTee3D,
-  PneumaticUnion3D,
-  PneumaticElbow3D,
-  PneumaticY3D,
-  PneumaticFrlBracket3D,
-  PneumaticVacuumCup3D,
-  PneumaticValve523D,
-} from './PneumaticsDevices3D'
-import {
-  CableTrayCross3D,
-  CableTrayElbow903D,
-  CableTrayRiser903D,
-  CableTrayStraight3D,
-  CableTrayVerticalBend3D,
-  IndustrialPillar3D,
-  IndustrialWall3D,
-} from './StructuresDevices3D'
 import { isFloorGroundedStructureType, isStructureComponentType, snapStructureDragXY } from './structuresModel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorTerminalBoxCover3D from './MotorTerminalBoxCover3D'
-import { OpticalReflector3D, RollerConveyor3D } from './ConveyorDevices3D'
 import { isFloorMountedMachineType } from './conveyorModel'
+
+// Carregamento sob demanda (Lazy Loading) das famílias 3D especializadas:
+// projetos puramente elétricos não descarregam nem analisam ~550 KB de hidráulica,
+// pneumática, mecatrónica, tapetes, estruturas ou nave fabril até serem necessários.
+const FaultEffects3D = lazy(() => import('./FaultEffects3D').then((m) => ({ default: m.FaultEffects3D })))
+const FactoryEnvironment3D = lazy(() => import('./FactoryEnvironment3D').then((m) => ({ default: m.FactoryEnvironment3D })))
+const Mechatronics3D = lazy(() => import('./MechatronicsDevices3D').then((m) => ({ default: m.Mechatronics3D })))
+const LightingDevice3D = lazy(() => import('./LightingDevices3D').then((m) => ({ default: m.LightingDevice3D })))
+const TriProofLedBatten3D = lazy(() => import('./TriProofBatten3D').then((m) => ({ default: m.TriProofLedBatten3D })))
+const OboJunctionBox3D = lazy(() => import('./JunctionWagoDevices3D').then((m) => ({ default: m.OboJunctionBox3D })))
+const Wago221Connector3D = lazy(() => import('./JunctionWagoDevices3D').then((m) => ({ default: m.Wago221Connector3D })))
+const WireTrayStraight3D = lazy(() => import('./WireMeshTrayDevices3D').then((m) => ({ default: m.WireTrayStraight3D })))
+const WireTrayElbow903D = lazy(() => import('./WireMeshTrayDevices3D').then((m) => ({ default: m.WireTrayElbow903D })))
+const WireTrayTee3D = lazy(() => import('./WireMeshTrayDevices3D').then((m) => ({ default: m.WireTrayTee3D })))
+const WireTrayRiser903D = lazy(() => import('./WireMeshTrayDevices3D').then((m) => ({ default: m.WireTrayRiser903D })))
+const ConduitCorrugated3D = lazy(() => import('./ConduitDevices3D').then((m) => ({ default: m.ConduitCorrugated3D })))
+const ConduitVdsElbow903D = lazy(() => import('./ConduitDevices3D').then((m) => ({ default: m.ConduitVdsElbow903D })))
+const ConduitVdsStraight3D = lazy(() => import('./ConduitDevices3D').then((m) => ({ default: m.ConduitVdsStraight3D })))
+const PipeClampStandalone3D = lazy(() => import('./ConduitDevices3D').then((m) => ({ default: m.PipeClampStandalone3D })))
+const OpticalReflector3D = lazy(() => import('./ConveyorDevices3D').then((m) => ({ default: m.OpticalReflector3D })))
+const RollerConveyor3D = lazy(() => import('./ConveyorDevices3D').then((m) => ({ default: m.RollerConveyor3D })))
+const FloatSwitchFelix3D = lazy(() => import('./HydraulicsDevices3D').then((m) => ({ default: m.FloatSwitchFelix3D })))
+const HydraulicTee3D = lazy(() => import('./HydraulicsDevices3D').then((m) => ({ default: m.HydraulicTee3D })))
+const HydraulicValve3D = lazy(() => import('./HydraulicsDevices3D').then((m) => ({ default: m.HydraulicValve3D })))
+const WaterFlowMeterZjLcd3D = lazy(() => import('./HydraulicsDevices3D').then((m) => ({ default: m.WaterFlowMeterZjLcd3D })))
+const WaterPumpCalpeda3D = lazy(() => import('./HydraulicsDevices3D').then((m) => ({ default: m.WaterPumpCalpeda3D })))
+const WaterSupplyBox3D = lazy(() => import('./HydraulicsDevices3D').then((m) => ({ default: m.WaterSupplyBox3D })))
+const WaterTankTransparent3D = lazy(() => import('./HydraulicsDevices3D').then((m) => ({ default: m.WaterTankTransparent3D })))
+const ElectricCylinderEpcs3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.ElectricCylinderEpcs3D })))
+const PneumaticCylinder3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticCylinder3D })))
+const AirCompressor3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.AirCompressor3D })))
+const PneumaticFrl3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticFrl3D })))
+const PneumaticGuidedCylinder3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticGuidedCylinder3D })))
+const PneumaticManifold3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticManifold3D })))
+const PneumaticTee3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticTee3D })))
+const PneumaticUnion3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticUnion3D })))
+const PneumaticElbow3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticElbow3D })))
+const PneumaticY3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticY3D })))
+const PneumaticFrlBracket3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticFrlBracket3D })))
+const PneumaticVacuumCup3D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticVacuumCup3D })))
+const PneumaticValve523D = lazy(() => import('./PneumaticsDevices3D').then((m) => ({ default: m.PneumaticValve523D })))
+const CableTrayCross3D = lazy(() => import('./StructuresDevices3D').then((m) => ({ default: m.CableTrayCross3D })))
+const CableTrayElbow903D = lazy(() => import('./StructuresDevices3D').then((m) => ({ default: m.CableTrayElbow903D })))
+const CableTrayRiser903D = lazy(() => import('./StructuresDevices3D').then((m) => ({ default: m.CableTrayRiser903D })))
+const CableTrayStraight3D = lazy(() => import('./StructuresDevices3D').then((m) => ({ default: m.CableTrayStraight3D })))
+const CableTrayVerticalBend3D = lazy(() => import('./StructuresDevices3D').then((m) => ({ default: m.CableTrayVerticalBend3D })))
+const IndustrialPillar3D = lazy(() => import('./StructuresDevices3D').then((m) => ({ default: m.IndustrialPillar3D })))
+const IndustrialWall3D = lazy(() => import('./StructuresDevices3D').then((m) => ({ default: m.IndustrialWall3D })))
 import { AcrylicBusbar3D, CombBusbar3D, CombConnector3D, SteppedBusbar3D } from './Busbar3D'
 import { isAcrylicBusbarType, isCombBusbarType, isCombConnectorType, isSteppedBusbarType } from './busbarParts'
 import MotorShaftFan3D from './MotorShaftFan3D'
@@ -686,6 +699,32 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} userData={{ noSnapshot: true }} />
 }
 
+/**
+ * Observador condicional de modo de renderização (wireframe/cor personalizada):
+ * só monta o `useFrame` nos poucos componentes que realmente usam renderMode !== 'solid'
+ * ou `bodyColor`, evitando centenas de callbacks `useFrame` vazios em montagens grandes.
+ */
+function RenderModeWatcher({
+  modelRef,
+  renderMode,
+  bodyColor,
+  isTerminalInsulator,
+}: {
+  modelRef: MutableRefObject<THREE.Group | null>
+  renderMode: 'solid' | 'wireframe' | 'xray'
+  bodyColor?: string
+  isTerminalInsulator: boolean
+}) {
+  const tick = useRef(0)
+  useFrame((_, delta) => {
+    tick.current += delta
+    if (tick.current < 0.33) return
+    tick.current = 0
+    applyRenderMode(modelRef.current, renderMode, bodyColor, isTerminalInsulator)
+  })
+  return null
+}
+
 function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, free3D = false, preferFloorXZ = false, connectionMode, connectionMedium, connectionStartId, probing, onTerminalPick, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
@@ -735,41 +774,36 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     })
     void applyCadSurfaceTextures(model, { procedural: true })
   }, [c.type, surfaceSize.x, surfaceSize.y, surfaceSize.z, c.bodyColor, renderMode])
-  // Modelos que carregam depois (Suspense/GLB) recebem o modo numa verificação leve, ~3× por segundo
-  // (materiais já tratados saltam pela chave) — antes corria a cada frame com `needsUpdate` em todos.
   // Junta as malhas estáticas do CAD por material (menos chamadas de desenho). Corre depois de os efeitos
-  // de montagem extraírem pivôs/cabeças/teclas e de o 1.º frame anotar as malhas que se movem; repete
-  // algumas vezes para os GLB que chegam mais tarde (Suspense). Catálogo: os nós são procurados pelo nome.
+  // de montagem extraírem pivôs/cabeças/teclas e de o 1.º frame anotar as malhas que se movem; evita
+  // registar um `useFrame` por componente (poupando centenas de callbacks em montagens grandes).
   const invalidateMerge = useThree((three) => three.invalidate)
-  const framesSeen = useRef(0)
-  useFrame(() => { if (framesSeen.current < 3) framesSeen.current += 1 })
   useEffect(() => {
     if (isCatalogType(c.type)) return
     let cancelled = false
-    let runs = 0
+    let raf = 0
     let timer = 0
-    const run = () => {
+    const tryMerge = (secondPass: boolean) => {
       if (cancelled) return
-      // Só depois de pelo menos um frame desenhado: os useFrame anotam as malhas que movem (tampas, botões).
-      if (!framesSeen.current) { timer = window.setTimeout(run, 1000); return }
-      runs += 1
       if (modelRef.current) {
         const { before, after } = mergeStaticMeshes(modelRef.current)
-        if (after < before) invalidateMerge()
+        if (after < before) {
+          invalidateMerge()
+          return
+        }
       }
-      if (runs < 5) timer = window.setTimeout(run, 2500)
+      if (!secondPass) timer = window.setTimeout(() => tryMerge(true), 2800)
     }
-    timer = window.setTimeout(run, 1400)
-    return () => { cancelled = true; window.clearTimeout(timer) }
+    raf = requestAnimationFrame(() => {
+      if (!cancelled) timer = window.setTimeout(() => tryMerge(false), 1400)
+    })
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
+    }
   }, [c.type, c.id, invalidateMerge])
-  const renderModeTick = useRef(0)
-  useFrame((_, delta) => {
-    if (renderMode === 'solid' && !c.bodyColor) return
-    renderModeTick.current += delta
-    if (renderModeTick.current < 0.33) return
-    renderModeTick.current = 0
-    applyRenderMode(modelRef.current, renderMode, c.bodyColor, isTerminalInsulator)
-  })
+  const needsRenderModeWatch = renderMode !== 'solid' || !!c.bodyColor
   useEffect(() => () => dragRef.current?.cleanup(), [])
 
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
@@ -862,10 +896,11 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     onPointerOut={() => { if (!dragRef.current) gl.domElement.style.cursor = '' }}
   >
     {selected && <SelectionGlow component={c} />}
+    {needsRenderModeWatch && <RenderModeWatcher modelRef={modelRef} renderMode={renderMode} bodyColor={c.bodyColor} isTerminalInsulator={isTerminalInsulator} />}
     <group rotation={[0, 0, schematicRotation]} scale={[c.mirrored ? -1 : 1, 1, 1]}>
       <group rotation={rotation}>
         <group scale={[scale.x, scale.y, scale.z]}>
-          <group ref={modelRef} position={[-sourcePivot[0], -sourcePivot[1], -sourcePivot[2]]}>{children}</group>
+          <group ref={modelRef} position={[-sourcePivot[0], -sourcePivot[1], -sourcePivot[2]]}><Suspense fallback={null}>{children}</Suspense></group>
           <LeadPigtails3D component={c} />
           {editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}</group>}
           {connectionMode && !editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.filter((terminal) => probing || terminalMatchesConnectionMedium(terminal.kind, connectionMedium)).map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} fluid={!probing && connectionMedium !== 'electrical'} onPick={probing ? onTerminalPick : undefined} />)}</group>}
@@ -2302,19 +2337,46 @@ type WireEditHandlers = {
   terminals: DrawTerminal[]
 }
 
-/* Cache de geometria de cabos (caminho + curva + nº de segmentos):
- * a chave cobre posições das pontas, waypoints manuais e opções de traçado;
- * a simulação muda apenas bandeiras energéticas e não entra na chave. */
-type WireGeom = { path: WirePath3D; curve: THREE.Curve<THREE.Vector3>; segments: number; points: V3[] }
-const wireGeomCache = new Map<string, WireGeom>()
-function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, obstacles: WireObstacle[], prebuiltPath?: WirePath3D): WireGeom {
+/* Cache LRU de geometria de cabos (caminho + curva + buffers TubeGeometry já construídos):
+ * - A chave cobre posições, waypoints, traçado, raio, bainha e nível de detalhe radial;
+ * - A simulação muda apenas bandeiras energéticas e não entra na chave;
+ * - Ao despejar entradas antigas, liberta explicitamente os buffers GPU (.dispose()) para evitar fugas. */
+type WireGeom = {
+  path: WirePath3D
+  curve: THREE.Curve<THREE.Vector3>
+  segments: number
+  points: V3[]
+  tubeGeo: THREE.TubeGeometry | null
+  hitGeo: THREE.TubeGeometry | null
+  sheathGeo: THREE.TubeGeometry | null
+  selectGeo: THREE.TubeGeometry | null
+}
+const wireGeomCache = new DisposableLruCache<WireGeom>(450, (g) => {
+  g.tubeGeo?.dispose()
+  g.hitGeo?.dispose()
+  g.sheathGeo?.dispose()
+  g.selectGeo?.dispose()
+})
+function cachedWireGeometry(
+  wire: Wire,
+  from: WireEndpoint3D,
+  to: WireEndpoint3D,
+  obstacles: WireObstacle[],
+  prebuiltPath?: WirePath3D,
+  quality?: Pick<SceneQualityProfile, 'wireRadialSegments' | 'wireTubularScale'>,
+): WireGeom {
   const round = (n: number) => n.toFixed(4)
+  const radialSegs = quality?.wireRadialSegments ?? 14
+  const tubularScale = quality?.wireTubularScale ?? 1
+  const outerDiameterMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
+  const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
   const pathSig = prebuiltPath
     ? prebuiltPath.points.map(p => p.map(round).join(',')).join(';')
     : 'solo'
   const key = [
     wire.id, wire.route, wire.bend, wire.curveOffset, wire.gauge, wire.flexibility,
     wire.fromEndType, wire.toEndType, wire.endType,
+    wire.sheathed ? 'sh1' : 'sh0', wire.conductorCount ?? 1, radialSegs, tubularScale.toFixed(2),
     from.position.map(round).join(','), to.position.map(round).join(','),
     (wire.waypoints3D ?? []).map((p) => `${round(p.x)},${round(p.y)},${round(p.z)}`).join(';'),
     pathSig,
@@ -2325,19 +2387,67 @@ function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D
   const path = prebuiltPath ?? buildWirePath3D(wire, from, to, obstacles)
   const points = path.points
   const curve = cableCurve3D(points, wire.route === 'arc')
-  const geom: WireGeom = { path, curve, segments: Math.min(180, Math.max(28, Math.round(points.length * 1.25))), points }
-  if (wireGeomCache.size > 400) wireGeomCache.clear()
+  const baseSegments = Math.min(180, Math.max(24, Math.round(points.length * 1.25 * tubularScale)))
+  const validCurve = points.length >= 2
+  const tubeGeo = validCurve ? new THREE.TubeGeometry(curve, baseSegments, radius, radialSegs, false) : null
+  const hitGeo = validCurve ? new THREE.TubeGeometry(curve, Math.min(44, Math.max(14, Math.round(baseSegments * 0.38))), Math.max(0.055, radius * 4.2), 5, false) : null
+  const sheathGeo = validCurve && wire.sheathed ? new THREE.TubeGeometry(curve, baseSegments, radius * 1.35 + 0.005, Math.min(12, radialSegs), false) : null
+  const geom: WireGeom = { path, curve, segments: baseSegments, points, tubeGeo, hitGeo, sheathGeo, selectGeo: null }
   wireGeomCache.set(key, geom)
   return geom
 }
 
-function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, simLocked = false, ...handlers }: {
+/**
+ * Corpo memorizado de um cabo individual: durante o RUN (simTick a 10 Hz), cabos cujo estado
+ * visual (cor, energia, calor, seleção, geometria) não mudou saltam por completo a reconciliação React.
+ */
+const WireBodyMesh3D = memo(function WireBodyMesh3D({
+  wireId,
+  geom,
+  radius,
+  wireMaterial,
+  sheathMaterial,
+  selected,
+  castShadow,
+  onClickHit,
+  onDoubleClickHit,
+}: {
+  wireId: string
+  geom: WireGeom
+  radius: number
+  wireMaterial: THREE.MeshPhysicalMaterial
+  sheathMaterial: THREE.MeshPhysicalMaterial | null
+  selected: boolean
+  castShadow: boolean
+  onClickHit: (event: ThreeEvent<MouseEvent>) => void
+  onDoubleClickHit: (event: ThreeEvent<MouseEvent>) => void
+}) {
+  if (!geom.tubeGeo || !geom.hitGeo) return null
+  if (selected && !geom.selectGeo) {
+    geom.selectGeo = new THREE.TubeGeometry(geom.curve, geom.segments, radius + 0.014, 10, false)
+  }
+  return (
+    <>
+      {selected && geom.selectGeo && (
+        <mesh geometry={geom.selectGeo} material={SHARED_WIRE_SELECT_MATERIAL} renderOrder={18} raycast={() => null} userData={{ noSnapshot: true }} />
+      )}
+      <mesh name={`wire-tube-${wireId}`} geometry={geom.tubeGeo} material={wireMaterial} castShadow={castShadow} receiveShadow renderOrder={19} raycast={() => null} />
+      <mesh geometry={geom.hitGeo} material={SHARED_WIRE_HIT_MATERIAL} userData={{ wireHit: true }} onClick={onClickHit} onDoubleClick={onDoubleClickHit} />
+      {geom.sheathGeo && sheathMaterial && (
+        <mesh key="sheath" geometry={geom.sheathGeo} material={sheathMaterial} castShadow receiveShadow renderOrder={19} raycast={() => null} />
+      )}
+    </>
+  )
+})
+
+function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, simLocked = false, quality, ...handlers }: {
   pivots: Record<string, THREE.Vector3>
   editMode: Panel3DEditMode
   selectedWireId: string | null
   onRoutingLoadingChange: (loading: boolean) => void
   /** DC-ADR-071: RUN/PAUSA — o cabo não se seleciona nem se edita. */
   simLocked?: boolean
+  quality: SceneQualityProfile
 } & WireEditHandlers) {
   const wires = useSimStore((s) => s.wires)
   const runState = useSimStore((s) => s.sim.runState)
@@ -2467,24 +2577,22 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const wire = applyDrag(storedWire, { from: baseFrom, to: baseTo })
     const from = wireEndpoint3D(wire, 'from', components, pivots, wires) ?? baseFrom
     const to = wireEndpoint3D(wire, 'to', components, pivots, wires) ?? baseTo
-    // Geometria do cabo em cache: durante RUN as bandeiras energizadas mudam em
-    // cada scan, mas posições/traçado não — sem cache, cada tick reconstruía a
-    // curva e os 3-4 TubeGeometry (centenas de segmentos) por cabo. Era o peso.
+    // Geometria do cabo em cache (com buffers TubeGeometry reutilizados e libertação LRU):
+    // durante RUN as bandeiras energizadas mudam em cada scan, mas posições/traçado não.
     const prebuilt = drag?.wireId === wire.id ? undefined : coordinatedPaths.get(storedWire.id)
-    const { path, curve, segments, points } = cachedWireGeometry(wire, from, to, obstacles, prebuilt)
+    const geom = cachedWireGeometry(wire, from, to, obstacles, prebuilt, quality)
+    const { path, curve, segments, points } = geom
     if (points.length < 2) return null
     const selected = wire.id === selectedWireId
     const outerDiameterMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
     const flowing = wireEnergyEffectVisible(runState, wire.energized, wire.carryingCurrent)
-    const wireColor = WIRE_3D_COLORS[wire.color]
-    const isHot = (wire.heatLevel ?? 0) > 0.05
+    const wireColor = WIRE_3D_COLORS[wire.color] ?? '#3b82f6'
+    const heatLevel = wire.heatLevel ?? 0
     const isBurnt = !!wire.burnt
-    const displayWireColor = isBurnt ? '#18181b' : wireColor
-    const emissiveColor = isHot ? '#ff3b00' : flowing ? wireColor : '#000000'
-    const emissiveInt = isHot ? Math.min(2.5, (wire.heatLevel ?? 0) * 2.2) : flowing ? 0.07 : 0
-    const wireRoughness = isBurnt ? 0.92 : 0.32
-    const wireClearcoat = isBurnt ? 0.0 : 0.55
+    const wireMaterial = getSharedWireMaterial({ color: wireColor, kind: wire.kind, flowing, burnt: isBurnt, heatLevel })
+    const sheathMaterial = wire.sheathed ? getSharedSheathMaterial(wire.sheathColor ?? '#0f172a', 'sheath') : null
+    const castWireShadow = quality.thinWireCastShadow || !!wire.sheathed || wire.kind === 'pneumatic' || wire.kind === 'hydraulic'
     const editing = selected && !wire.locked && (editMode === 'navigate' || editMode === 'connect')
     const manual = wire.waypoints3D ?? []
     const chain = [from.position, ...manual.map(fromSpatial), to.position]
@@ -2506,51 +2614,27 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const baseCentroid = drag?.kind === 'all' && drag.wireId === wire.id && drag.origin ? drag.origin : centroidOf(storedWire.waypoints3D ?? [], baseFrom, baseTo)
     const centroid = centroidOf(manual, from, to)
     return <group key={wire.id} userData={{ noPick: true, wireId: wire.id }}>
-      {selected && <mesh renderOrder={18} raycast={() => null} userData={{ noSnapshot: true }}>
-        <tubeGeometry args={[curve, segments, radius + 0.014, 10, false]} />
-        <meshBasicMaterial color="#60a5fa" transparent opacity={0.34} depthWrite={false} />
-      </mesh>}
-      <mesh castShadow receiveShadow renderOrder={19} raycast={() => null}>
-        <tubeGeometry args={[curve, segments, radius, 14, false]} />
-        <meshPhysicalMaterial
-          color={displayWireColor}
-          roughness={wire.kind === 'hydraulic' ? 0.30 : wire.kind === 'pneumatic' ? 0.16 : wireRoughness}
-          metalness={wire.kind === 'hydraulic' ? 0.54 : wire.kind === 'pneumatic' ? 0.08 : 0.03}
-          clearcoat={wire.kind === 'pneumatic' ? 0.9 : wire.kind === 'hydraulic' ? 0.45 : wireClearcoat}
-          clearcoatRoughness={wire.kind === 'pneumatic' ? 0.12 : 0.24}
-          envMapIntensity={wire.kind === 'hydraulic' ? 1.45 : 1.15}
-          emissive={wire.kind === 'hydraulic' && flowing ? '#0284c7' : emissiveColor}
-          emissiveIntensity={wire.kind === 'hydraulic' && flowing ? 0.32 : emissiveInt}
-        />
-      </mesh>
-      {/* Volume transparente maior: seleção fiável (clique) e curvas novas (duplo clique) sem falsificar a secção visível. */}
-      <mesh userData={{ wireHit: true }}
-        onClick={(event) => { event.stopPropagation(); handlers.onSelectWire(wire.id) }}
-        onDoubleClick={(event) => {
+      <WireBodyMesh3D
+        wireId={wire.id}
+        geom={geom}
+        radius={radius}
+        wireMaterial={wireMaterial}
+        sheathMaterial={sheathMaterial}
+        selected={selected}
+        castShadow={castWireShadow}
+        onClickHit={(event) => { event.stopPropagation(); handlers.onSelectWire(wire.id) }}
+        onDoubleClickHit={(event) => {
           event.stopPropagation()
           if (simLocked || wire.locked || (editMode !== 'navigate' && editMode !== 'connect')) return
           const hit: V3 = [event.point.x, event.point.y, event.point.z]
           const onCable = closestPointOnPolyline(points, hit)
           handlers.onInsertWaypoint(wire.id, waypointInsertIndex(chain, onCable), toSpatial(onCable))
-        }}>
-        {/* O volume invisível serve só para picking: manter poucos segmentos evita que uma seleção
-            reconstrua dezenas de tubos densos, sem reduzir a qualidade do cabo visível. */}
-        <tubeGeometry args={[curve, Math.min(48, Math.max(16, Math.round(segments * 0.4))), Math.max(0.055, radius * 4.2), 6, false]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
+        }}
+      />
       {/* Clicar na terminação (pinça, ficha, ponteira) seleciona o cabo, como clicar no próprio cabo. */}
       {!from.sharedFollower && <WireEnd3D side="from" geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
       {!to.sharedFollower && <WireEnd3D side="to" geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} onSelect={() => handlers.onSelectWire(wire.id)} />}
 
-      {/* Capa exterior global (cabo isolado / multicore) */}
-      {wire.sheathed && (() => {
-        const sheathRadius = radius * 1.35 + 0.005
-        const col = wire.sheathColor ?? '#0f172a'
-        return <mesh key="sheath" castShadow receiveShadow renderOrder={19} raycast={() => null}>
-          <tubeGeometry args={[curve, segments, sheathRadius, 12, false]} />
-          <meshPhysicalMaterial color={col} roughness={0.6} metalness={0.04} clearcoat={0.18} clearcoatRoughness={0.55} envMapIntensity={0.75} />
-        </mesh>
-      })()}
       {/* Capas de isolamento 3D: tubo mais grosso na secção [start, end] */}
       {(wire.isolation ?? []).map((seg, i) => {
         const a = Math.max(0, Math.min(1, Math.min(seg.start, seg.end)))
@@ -2566,9 +2650,8 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
         }
         for (let s = 0; s < pts.length - 1; s++) isoCurve.add(new THREE.LineCurve3(pts[s], pts[s + 1]))
         const isoRadius = radius * 1.55 + 0.004
-        return <mesh key={`iso-${i}`} castShadow receiveShadow renderOrder={20} raycast={() => null}>
+        return <mesh key={`iso-${i}`} material={getSharedSheathMaterial(seg.color, 'isolation')} castShadow={castWireShadow} receiveShadow renderOrder={20} raycast={() => null}>
           <tubeGeometry args={[isoCurve as unknown as THREE.Curve<THREE.Vector3>, steps, isoRadius, 10, false]} />
-          <meshPhysicalMaterial color={seg.color} roughness={0.55} metalness={0.02} clearcoat={0.2} clearcoatRoughness={0.5} envMapIntensity={0.8} />
         </mesh>
       })}
 
@@ -2588,9 +2671,8 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
         for (let s = 0; s < pts.length - 1; s++) spCurve.add(new THREE.LineCurve3(pts[s], pts[s + 1]))
         const spRadius = radius * 1.85 + 0.006
         const col = seg.color ?? "#0a0a0a"
-        return <mesh key={`spiral-${i}`} castShadow receiveShadow renderOrder={21} raycast={() => null}>
-          <tubeGeometry args={[spCurve as unknown as THREE.Curve<THREE.Vector3>, steps, spRadius, 12, false]} />
-          <meshPhysicalMaterial color={col} roughness={0.65} metalness={0.05} clearcoat={0.15} clearcoatRoughness={0.6} envMapIntensity={0.7} />
+        return <mesh key={`spiral-${i}`} material={getSharedSheathMaterial(col, 'spiral')} castShadow={castWireShadow} receiveShadow renderOrder={21} raycast={() => null}>
+          <tubeGeometry args={[spCurve as unknown as THREE.Curve<THREE.Vector3>, steps, spRadius, 10, false]} />
         </mesh>
       })}
       {/* Anilhas clip-on encaixáveis 3D (código internacional de cores IEC 60062 e letras CAB3/WIC) */}
@@ -2847,17 +2929,27 @@ function StudioEnvironment() {
   return null
 }
 
-/** Sombras sob pedido: o shadow map só é recalculado quando a cena muda e nos
- * primeiros segundos após o mount (os GLBs entram via Suspense já depois). */
-function ShadowsOnDemand({ watch }: { watch: string }) {
+/** Sombras sob pedido: o shadow map só é recalculado quando a cena muda, quando os
+ * modelos terminam de carregar e no aquecimento inicial (GLBs / chunks lazy via Suspense). */
+function ShadowsOnDemand({ watch, modelsLoading }: { watch: string; modelsLoading: boolean }) {
   const gl = useThree((state) => state.gl)
-  useEffect(() => { if (gl.shadowMap.enabled) gl.shadowMap.needsUpdate = true }, [gl, watch])
+  const invalidate = useThree((state) => state.invalidate)
   useEffect(() => {
     if (!gl.shadowMap.enabled) return
     gl.shadowMap.needsUpdate = true
-    const timers = [150, 450, 1000, 2000, 3500, 6000].map((ms) => window.setTimeout(() => { if (gl.shadowMap.enabled) gl.shadowMap.needsUpdate = true }, ms))
+    invalidate()
+  }, [gl, invalidate, watch, modelsLoading])
+  useEffect(() => {
+    if (!gl.shadowMap.enabled) return
+    gl.shadowMap.needsUpdate = true
+    const timers = [250, 1200, 3200].map((ms) => window.setTimeout(() => {
+      if (gl.shadowMap.enabled) {
+        gl.shadowMap.needsUpdate = true
+        invalidate()
+      }
+    }, ms))
     return () => timers.forEach((t) => window.clearTimeout(t))
-  }, [gl])
+  }, [gl, invalidate])
   return null
 }
 
@@ -2876,14 +2968,12 @@ const IS_SOFTWARE_WEBGL = (() => {
   }
 })()
 
-/** Em rasterizadores WebGL por software (SwiftShader / llvmpipe em CI), reduz DPR e cadencia frames em RUN sem bloquear o compositor. */
 /**
- * Orçamento de frames em RUN (GPU real). Antes a vista corria em `frameloop="always"`: 60–144 frames/s
- * mesmo com a cena parada. Agora pede frames só quando fazem falta: ritmo total durante 1,2 s depois de
- * qualquer mudança de estado da simulação, de um toque/rato ou do arranque (`burst`), e ~30 frames/s no
- * resto do RUN (motores a rodar, pisca, corrente a fluir continuam fluidos; animações usam o `delta`).
+ * Orçamento de frames em RUN (GPU real): ritmo total durante 1,2 s depois de qualquer mudança
+ * de estado da simulação, de um toque/rato ou do arranque (`burst`), e `steadyFps` (24–30 fps
+ * consoante o perfil de qualidade) no resto do RUN.
  */
-function RunFrameBudget({ active, burst }: { active: boolean; burst: boolean }) {
+function RunFrameBudget({ active, burst, steadyFps = 30 }: { active: boolean; burst: boolean; steadyFps?: number }) {
   const invalidate = useThree((state) => state.invalidate)
   const domElement = useThree((state) => state.gl.domElement)
   useEffect(() => {
@@ -2891,6 +2981,7 @@ function RunFrameBudget({ active, burst }: { active: boolean; burst: boolean }) 
     let raf = 0
     let last = 0
     let fullUntil = performance.now() + 1200
+    const frameInterval = 1000 / Math.max(12, steadyFps) - 2
     const boost = () => { fullUntil = performance.now() + 1200 }
     const unsubscribe = useSimStore.subscribe((state, previous) => { if (state.components !== previous.components || state.wires !== previous.wires) boost() })
     domElement.addEventListener('pointermove', boost, { passive: true })
@@ -2899,7 +2990,7 @@ function RunFrameBudget({ active, burst }: { active: boolean; burst: boolean }) 
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick)
       const full = burst || now < fullUntil
-      if (full || now - last >= 1000 / 30 - 2) { last = now; invalidate() }
+      if (full || now - last >= frameInterval) { last = now; invalidate() }
     }
     raf = requestAnimationFrame(tick)
     return () => {
@@ -2909,14 +3000,14 @@ function RunFrameBudget({ active, burst }: { active: boolean; burst: boolean }) 
       domElement.removeEventListener('pointerdown', boost)
       domElement.removeEventListener('wheel', boost)
     }
-  }, [active, burst, invalidate, domElement])
+  }, [active, burst, steadyFps, invalidate, domElement])
   return null
 }
 
 /** Resolução adaptativa: se os frames ficam lentos baixa para 1×, e volta a subir quando há folga. */
-function AdaptiveResolution({ enabled }: { enabled: boolean }) {
+function AdaptiveResolution({ enabled, maxDpr = 1.5 }: { enabled: boolean; maxDpr?: number }) {
   const setDpr = useThree((state) => state.setDpr)
-  const max = Math.min(1.5, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+  const max = Math.min(maxDpr, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
   if (!enabled) return null
   return <PerformanceMonitor flipflops={3} onDecline={() => setDpr(1)} onIncline={() => setDpr(max)} onFallback={() => setDpr(1)} />
 }
@@ -2949,25 +3040,37 @@ function SoftwareRunInvalidator({ active }: { active: boolean }) {
 
 /**
  * Camada 3D de Arco Elétrico, Faíscas e Fumo para curto-circuitos e sobreaquecimento.
+ * Em condições normais (sem curto-circuito nem sobreaquecimento) devolve `null` para não
+ * carregar o chunk lazy de efeitos nem montar o `useFrame`/textura de partículas.
  */
 function FaultEffectsLayer({ panelPivots }: { panelPivots: Record<string, THREE.Vector3> }) {
   const shortCircuit = useSimStore((s) => s.sim.shortCircuit)
   const components = useSimStore((s) => s.components)
   const wires = useSimStore((s) => s.wires)
-  useSimStore((s) => s.simTick)
+  const simTick = useSimStore((s) => s.simTick)
 
   const arcActive = !!shortCircuit?.active
   const arcPosition: [number, number, number] = shortCircuit?.focalPoint ?? [0, 0, 0.22]
 
-  const smokePoints = useMemo(() => {
-    const list: FaultPoint3D[] = []
+  const { smokePoints, burntPoints } = useMemo(() => {
+    void simTick
+    const smoke: FaultPoint3D[] = []
+    const burnt: Array<[number, number, number]> = []
+    let terminalToComp: Map<string, string> | null = null
+
     for (const w of wires) {
       const heat = w.heatLevel ?? 0
       if (heat > 0.12 || w.burnt) {
-        const cFrom = components.find((c) => c.terminals.some((t) => t.id === w.fromTerminalId))
-        const p = cFrom ? panelPivots[cFrom.id] : null
+        if (!terminalToComp) {
+          terminalToComp = new Map()
+          for (const c of components) {
+            for (const t of c.terminals) terminalToComp.set(t.id, c.id)
+          }
+        }
+        const compId = terminalToComp.get(w.fromTerminalId)
+        const p = compId ? panelPivots[compId] : null
         if (p) {
-          list.push({
+          smoke.push({
             position: [p.x, p.y + 0.04, p.z + 0.08],
             intensity: Math.max(0.2, heat),
           })
@@ -2976,39 +3079,32 @@ function FaultEffectsLayer({ panelPivots }: { panelPivots: Record<string, THREE.
     }
     for (const c of components) {
       const heat = Number(c.state.heatLevel ?? 0)
-      if (heat > 0.12 || c.state.burnt) {
+      const isBurnt = !!c.state.burnt
+      if (heat > 0.12 || isBurnt) {
         const p = panelPivots[c.id]
         if (p) {
-          list.push({
+          smoke.push({
             position: [p.x, p.y, p.z + 0.07],
             intensity: Math.max(0.25, heat),
           })
+          if (isBurnt) burnt.push([p.x, p.y, p.z + 0.08])
         }
       }
     }
-    return list
-  }, [wires, components, panelPivots])
+    return { smokePoints: smoke, burntPoints: burnt }
+  }, [wires, components, panelPivots, simTick])
 
-  const burntPoints = useMemo(() => {
-    const list: Array<[number, number, number]> = []
-    for (const c of components) {
-      if (c.state.burnt) {
-        const p = panelPivots[c.id]
-        if (p) {
-          list.push([p.x, p.y, p.z + 0.08])
-        }
-      }
-    }
-    return list
-  }, [components, panelPivots])
+  if (!arcActive && smokePoints.length === 0 && burntPoints.length === 0) return null
 
   return (
-    <FaultEffects3D
-      arcActive={arcActive}
-      arcPosition={arcPosition}
-      smokePoints={smokePoints}
-      burntPoints={burntPoints}
-    />
+    <Suspense fallback={null}>
+      <FaultEffects3D
+        arcActive={arcActive}
+        arcPosition={arcPosition}
+        smokePoints={smokePoints}
+        burntPoints={burntPoints}
+      />
+    </Suspense>
   )
 }
 
@@ -3995,6 +4091,56 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     // panelPivots é objecto novo em cada render; a chave deriva de valores, não da identidade.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [components, wires.length, runState])
+
+  /** Perfil adaptativo de qualidade 3D (DPR, resolução de sombras, detalhe e sombras de fios). */
+  const sceneQuality = useMemo(
+    () => resolveSceneQuality({ componentCount: components.length, wireCount: wires.length, softwareGl }),
+    [components.length, wires.length, softwareGl],
+  )
+
+  /**
+   * Aberturas de junções (T/L/+/descidas) memorizadas por assinatura geométrica das calhas e esteiras:
+   * evita recalcular O(N²) em cada `simTick`, clique ou seleção.
+   */
+  const ductSignature = components
+    .filter((c) => c.type === 'cableDuct' || c.type === 'cableTrayStraight')
+    .map((c) => {
+      const p = c.panel3DPosition
+      const o = c.viewOrientation
+      return `${c.id}:${c.schematicX},${c.schematicY},${c.w},${c.h},${c.rotation ?? 0},${c.mirrored ? 1 : 0}:${p ? `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}` : ''}:${o ? `${o.x ?? 0},${o.y ?? 0},${o.z ?? 0}` : ''}:${c.state?.lengthMm ?? ''},${c.state?.widthMm ?? ''},${c.state?.sideHeightMm ?? ''}`
+    })
+    .join('|')
+  const ductOpeningsMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof ductJunctionOpenings>>()
+    const ductsAndTrays = components.filter((c) => c.type === 'cableDuct' || c.type === 'cableTrayStraight')
+    for (const item of ductsAndTrays) {
+      map.set(item.id, ductJunctionOpenings(item, ductsAndTrays))
+    }
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ductSignature])
+
+  /** Tuplos `[x, y, z]` estáveis por componente (evita 168+ arrays novos por render e ativa `React.memo`). */
+  const basePivotTuplesKey = components
+    .map((c) => { const p = basePivots[c.id]; return p ? `${c.id}:${p.x.toFixed(4)},${p.y.toFixed(4)},${p.z.toFixed(4)}` : c.id })
+    .join('|')
+  const basePivotTuples = useMemo(() => {
+    const out: Record<string, [number, number, number]> = {}
+    for (const c of components) {
+      const p = basePivots[c.id]
+      if (p) out[c.id] = [p.x, p.y, p.z]
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basePivotTuplesKey])
+
+  /** Obstáculos para a ferramenta de desenho de cabos: só calculados quando a ferramenta está ativa. */
+  const wireDrawActive = !demoMode && !simLocked && (editMode === 'connect' || reconnect !== null)
+  const wireDrawObstacles = useMemo(
+    () => (wireDrawActive ? componentObstacles(components, panelPivots) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [wireDrawActive, shadowWatch],
+  )
 
   // Chão fabril e assentamento de máquinas de chão (motores, bombas, reservatórios, tapetes rolantes):
   // em Ambiente fabril ficam sempre assentes no chão de betão, nunca a flutuar nem dentro do quadro elétrico.
@@ -5507,7 +5653,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <Canvas
         frameloop={!stageVisible ? 'never' : 'demand'}
         shadows
-        dpr={[1, 1.5]}
+        dpr={sceneQuality.dpr}
         gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }}
         camera={{ position: [0.6, 2.4, 6.4], fov: 44 }}
         onPointerMissed={() => { if (!demoMode && editMode !== 'connect' && !marqueeDrag.current) selectComponents([]) }}
@@ -5535,25 +5681,27 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <CameraProjectCapture camRef={cameraProjectRef} />
         <StudioEnvironment />
         <SoftwareRunInvalidator active={softwareGl && stageVisible && (runState === 'running' || burstActive)} />
-        <RunFrameBudget active={!softwareGl && stageVisible && runState === 'running'} burst={!softwareGl && stageVisible && burstActive} />
-        <AdaptiveResolution enabled={!softwareGl && stageVisible} />
-        <ShadowsOnDemand watch={shadowWatch} />
+        <RunFrameBudget active={!softwareGl && stageVisible && runState === 'running'} burst={!softwareGl && stageVisible && burstActive} steadyFps={sceneQuality.steadyRunFps} />
+        <AdaptiveResolution enabled={!softwareGl && stageVisible} maxDpr={sceneQuality.dpr[1]} />
+        <ShadowsOnDemand watch={shadowWatch} modelsLoading={modelsLoading} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
         <hemisphereLight args={[factoryMode ? '#ffffff' : '#f8fafc', factoryMode ? '#8a94a6' : '#3b4350', factoryMode ? 0.65 : 0.38]} />
-        <directionalLight key={`sun-${factoryMode ? 'factory' : shadowExtent}`} position={factoryMode ? [-12, 24, 18] : [-3.2, 7.5, 6.2]} intensity={factoryMode ? 1.15 : 1.25} color="#fff7ee" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003}
+        <directionalLight key={`sun-${factoryMode ? 'factory' : shadowExtent}-${sceneQuality.shadowMapSize}`} position={factoryMode ? [-12, 24, 18] : [-3.2, 7.5, 6.2]} intensity={factoryMode ? 1.15 : 1.25} color="#fff7ee" castShadow shadow-mapSize={[sceneQuality.shadowMapSize, sceneQuality.shadowMapSize]} shadow-bias={-0.0003}
           shadow-camera-left={-(factoryMode ? Math.max(shadowExtent, 34) : shadowExtent)} shadow-camera-right={factoryMode ? Math.max(shadowExtent, 34) : shadowExtent} shadow-camera-top={factoryMode ? Math.max(shadowExtent, 34) : shadowExtent} shadow-camera-bottom={-(factoryMode ? Math.max(shadowExtent, 34) : shadowExtent)} />
         <directionalLight position={[5.8, 3.2, 2.4]} intensity={0.45} color="#e8f0ff" />
         {/* Escolha exclusiva: ou Canvas normal (grelha técnica) ou Ambiente fabril (quadro fixo na parede da nave). */}
         {factoryMode ? (
-          <FactoryEnvironment3D
-            center={sceneCenter}
-            wallFrontZ={factoryWallFrontZ}
-            floorY={factoryFloorY}
-            mountBounds={factoryMountBounds}
-            sceneSpan={factorySceneSpan}
-            fixedSize={factoryHall}
-          />
+          <Suspense fallback={null}>
+            <FactoryEnvironment3D
+              center={sceneCenter}
+              wallFrontZ={factoryWallFrontZ}
+              floorY={factoryFloorY}
+              mountBounds={factoryMountBounds}
+              sceneSpan={factorySceneSpan}
+              fixedSize={factoryHall}
+            />
+          </Suspense>
         ) : (
           <>
             {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} showFloor={floorGridVisible(cameraStats.pitch)} />}
@@ -5638,7 +5786,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               </Model3DErrorBoundary>
             )
           } else if (industrialDeviceTypeOf(c)) {
-            content=<IndustrialDevice3D c={c} x={x} position={basePivots[c.id].toArray() as [number,number,number]} interactive={mechanicalControls&&!c.locked} configurable={!demoMode&&tool==='select'&&!viewOrientationEditor&&!c.locked}/>
+            content=<IndustrialDevice3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls&&!c.locked} configurable={!demoMode&&tool==='select'&&!viewOrientationEditor&&!c.locked}/>
           } else if (hasDinRailModel(c.type) && getComponentModelSpec(c.type) && c.type !== 'residualBreakerSchneiderIid4p' && c.type !== 'residualBreakerSchneiderIdpnVigi' && !['breakerSchneiderIc60h1p', 'pilotLightSchneiderIil1p', 'pilotLightSchneiderIil3p'].includes(c.type)) {
             // Acti9 has dedicated CAD/state rendering below; do not route it
             // through this generic, envelope-based equipment renderer.
@@ -5661,13 +5809,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
-          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
-          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
-          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} interactive={interactive && !c.locked} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
@@ -5706,7 +5854,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             ? <Enclosure3D c={c} interactive={assemblyControls} plateFrontZ={plateFrontZ} label={label} coverOccupants={enclosureCoverOccupants(c)} />
             : c.type === 'spiralWrap'
               ? <SpiralWrap3D c={c} plateFrontZ={plateFrontZ} label={label} />
-              : <CableDuct3D c={c} plateFrontZ={plateFrontZ} label={label} openings={ductJunctionOpenings(c, components)} />)
+              : <CableDuct3D c={c} plateFrontZ={plateFrontZ} label={label} openings={ductOpeningsMap.get(c.id) ?? []} />)
         })}
 
         {offRail.map((c) => {
@@ -5739,14 +5887,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
-          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
-          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
-          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
-          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={mechanicalControls && !c.locked} />
-          else if (isLightingType(c.type)) content = <LightingDevice3D c={c} x={x} position={basePivots[c.id].toArray() as [number, number, number]} interactive={canActuate} />
+          else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if (c.type === 'pilotLightSchneiderIil1p') content = <SchneiderPilotLight1P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
+          else if (c.type === 'pilotLightSchneiderIil3p') content = <SchneiderPilotLight3P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
+          else if (isLightingType(c.type)) content = <LightingDevice3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
           else if (c.type === 'capacitorRun60uF' && getComponentModelSpec(c.type)) {
             const [px, py, pz] = frontPivot(c)
             const fallback = <group position={[x + px, py, pz]}>
@@ -5764,12 +5912,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><MotorSewDrn80Mk4B3Real3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'waterPump') {
             const fallback = <Motor3D c={c} x={x} interactive={interactive && !c.locked} />
-            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><WaterPumpCalpeda3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={null}><WaterPumpCalpeda3D c={c} position={basePivotTuples[c.id]} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'waterTank') {
             content = (
               <WaterTankTransparent3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onToggleValve={() => {
                   const st = useSimStore.getState()
                   const nextOpen = !c.state.outletValveOpen
@@ -5785,7 +5933,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = (
               <FloatSwitchFelix3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 tankContext={floatTankContexts[c.id] ?? null}
                 onToggle={() => activateComponent(c, () => operateComponent(c.id, { triggered: !c.state.triggered, level: !c.state.triggered ? 'alto' : 'baixo' }))}
               />
@@ -5794,7 +5942,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = (
               <HydraulicValve3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onToggle={() => {
                   const st = useSimStore.getState()
                   const nextOpen = c.state.open === false
@@ -5804,37 +5952,37 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               />
             )
           } else if (c.type === 'hydraulicTee') {
-            content = <HydraulicTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <HydraulicTee3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'airCompressor') {
             content = (
               <AirCompressor3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onToggleRun={() => activateComponent(c, () => operateComponent(c.id, { running: !c.state.running }))}
                 onToggleCover={() => activateComponent(c, () => operateComponent(c.id, { coverOpen: !c.state.coverOpen }))}
               />
             )
           } else if (c.type === 'pneumaticFrl') {
-            content = <PneumaticFrl3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticFrl3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pneumaticValve52') {
-            content = <PneumaticValve523D c={c} position={basePivots[c.id].toArray() as [number, number, number]} onManualToggle={() => activateComponent(c, () => operateComponent(c.id, { manualOverride: !c.state.manualOverride }))} />
+            content = <PneumaticValve523D c={c} position={basePivotTuples[c.id]} onManualToggle={() => activateComponent(c, () => operateComponent(c.id, { manualOverride: !c.state.manualOverride }))} />
           } else if (c.type === 'pneumaticCylinder') {
-            content = <PneumaticCylinder3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticCylinder3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pneumaticTee') {
-            content = <PneumaticTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticTee3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pneumaticUnion') {
-            content = <PneumaticUnion3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticUnion3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pneumaticElbow') {
-            content = <PneumaticElbow3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticElbow3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pneumaticY') {
-            content = <PneumaticY3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticY3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pneumaticFrlBracket') {
-            content = <PneumaticFrlBracket3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticFrlBracket3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'electricCylinderEpcs') {
             content = (
               <ElectricCylinderEpcs3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onJogStep={(dir) => {
                   const st = useSimStore.getState()
                   const curPct = Number(c.state.positionPct ?? 0)
@@ -5846,12 +5994,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               />
             )
           } else if (c.type === 'pneumaticGuidedCylinder') {
-            content = <PneumaticGuidedCylinder3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PneumaticGuidedCylinder3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pneumaticManifold') {
             content = (
               <PneumaticManifold3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onToggleStation={(idx) => {
                   const st = useSimStore.getState()
                   const key = `station${idx}Manual`
@@ -5865,7 +6013,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = (
               <PneumaticVacuumCup3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onToggleVacuum={() => {
                   const st = useSimStore.getState()
                   const next = !c.state.manualVacuum
@@ -5880,7 +6028,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               <Mechatronics3D
                 c={c}
                 floorY={factoryMode ? factoryFloorY : undefined}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onPatch={(patch) => {
                   const st = useSimStore.getState()
                   if (st.sim.runState === 'running') st.operateComponent(c.id, patch)
@@ -5889,42 +6037,42 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               />
             )
           } else if (c.type === 'industrialWall') {
-            content = <IndustrialWall3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <IndustrialWall3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'industrialPillar') {
-            content = <IndustrialPillar3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <IndustrialPillar3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'socketFamatelCombo' || c.type === 'socketFamatelSwitch' || c.type === 'socketEfapelIp65') {
-            content = <SocketDevice3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} interactive={!demoMode && tool === 'select' && !viewOrientationEditor && !c.locked} />
+            content = <SocketDevice3D c={c} position={basePivotTuples[c.id]} interactive={!demoMode && tool === 'select' && !viewOrientationEditor && !c.locked} />
           } else if (c.type === 'cableTrayStraight') {
-            content = <CableTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} openings={ductJunctionOpenings(c, components)} />
+            content = <CableTrayStraight3D c={c} position={basePivotTuples[c.id]} openings={ductOpeningsMap.get(c.id) ?? []} />
           } else if (c.type === 'cableTrayElbow90') {
-            content = <CableTrayElbow903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <CableTrayElbow903D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'cableTrayCross') {
-            content = <CableTrayCross3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <CableTrayCross3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'cableTrayVerticalBend') {
-            content = <CableTrayVerticalBend3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <CableTrayVerticalBend3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'cableTrayRiser90') {
-            content = <CableTrayRiser903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <CableTrayRiser903D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'wireTrayStraight') {
-            content = <WireTrayStraight3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <WireTrayStraight3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'wireTrayElbow90') {
-            content = <WireTrayElbow903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <WireTrayElbow903D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'wireTrayTee') {
-            content = <WireTrayTee3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <WireTrayTee3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'wireTrayRiser90') {
-            content = <WireTrayRiser903D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <WireTrayRiser903D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'conduitVdsStraight') {
-            content = <ConduitVdsStraight3D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <ConduitVdsStraight3D component={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'conduitVdsElbow90') {
-            content = <ConduitVdsElbow903D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <ConduitVdsElbow903D component={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'conduitCorrugated') {
-            content = <ConduitCorrugated3D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <ConduitCorrugated3D component={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'pipeClampPvc' || c.type === 'pipeClampMetalEpdm' || c.type === 'pipeClampMetalScrew') {
-            content = <PipeClampStandalone3D component={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <PipeClampStandalone3D component={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'triProofLedBatten') {
             content = (
               <TriProofLedBatten3D
                 component={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 externalCableTarget={fieldCableTargets.get(c.id) ?? null}
               />
             )
@@ -5932,7 +6080,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = (
               <WaterSupplyBox3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 floorOffsetY={floorY - (panelPivots[c.id]?.y ?? 0)}
                 onToggleDoor={() => {
                   const st = useSimStore.getState()
@@ -5952,7 +6100,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             content = (
               <WaterFlowMeterZjLcd3D
                 c={c}
-                position={basePivots[c.id].toArray() as [number, number, number]}
+                position={basePivotTuples[c.id]}
                 onPressSet={() => {
                   const st = useSimStore.getState()
                   const nextMode = c.state.displayMode === 'instant' ? 'total' : 'instant'
@@ -5970,7 +6118,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             )
           } else if (isJunctionBoxType(c.type)) {
             content = (
-              <group position={basePivots[c.id].toArray() as [number, number, number]}>
+              <group position={basePivotTuples[c.id]}>
                 <OboJunctionBox3D
                   component={c}
                   spliceCables={oboSpliceCables.get(c.id)}
@@ -5985,7 +6133,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             )
           } else if (isWagoConnectorType(c.type)) {
             content = (
-              <group position={basePivots[c.id].toArray() as [number, number, number]}>
+              <group position={basePivotTuples[c.id]}>
                 <Wago221Connector3D
                   component={c}
                   onToggleLever={(idx) => {
@@ -6000,11 +6148,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
               </group>
             )
           } else if (c.type === 'rollerConveyor') {
-            content = <Model3DErrorBoundary fallback={<Motor3D c={c} x={x} interactive={false} />}><Suspense fallback={null}><RollerConveyor3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} /></Suspense></Model3DErrorBoundary>
+            content = <Model3DErrorBoundary fallback={<Motor3D c={c} x={x} interactive={false} />}><Suspense fallback={null}><RollerConveyor3D c={c} position={basePivotTuples[c.id]} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'opticalReflector') {
-            content = <OpticalReflector3D c={c} position={basePivots[c.id].toArray() as [number, number, number]} />
+            content = <OpticalReflector3D c={c} position={basePivotTuples[c.id]} />
           } else if (c.type === 'sensorMountBalluff') {
-            content = <SensorMountBalluff3D position={basePivots[c.id].toArray() as [number, number, number]} armYawDeg={Number(c.state.armYawDeg ?? 0)} />
+            content = <SensorMountBalluff3D position={basePivotTuples[c.id]} armYawDeg={Number(c.state.armYawDeg ?? 0)} />
           }
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => operateComponent(c.id, { startPressed: pressed }))} />
@@ -6088,6 +6236,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           pivots={panelPivots}
           editMode={editMode}
           simLocked={simLocked}
+          quality={sceneQuality}
           selectedWireId={demoMode || simLocked ? null : selectedWireId}
           activeWaypointIndex={demoMode || simLocked ? null : activeWaypointIndex}
           activeEnd={demoMode || simLocked ? null : activeEnd}
@@ -6103,7 +6252,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           terminals={drawTerminals}
         />
         <WireDrawController
-          active={!demoMode && !simLocked && (editMode === 'connect' || reconnect !== null)}
+          active={wireDrawActive}
           draft={draft}
           getDraft={() => draftRef.current}
           terminals={drawTerminals.filter((terminal) => terminalMatchesConnectionMedium(terminal.kind, connectionMedium))}
@@ -6116,7 +6265,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           orthoSnap={wireDefaults.orthoSnap !== false}
           reconnecting={reconnect !== null}
           fallbackCenter={sceneCenter}
-          obstacles={componentObstacles(components, panelPivots)}
+          obstacles={wireDrawObstacles}
           onStart={draftStart}
           onAddPoint={draftAddPoint}
           onFinish={draftFinish}

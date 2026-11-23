@@ -652,7 +652,6 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     // Compressor (parede) → unidade de tratamento FRL (pé da bancada) → terminal CPV10 →
     // cilindros. Sem estes tubos a maquete não tinha um único condutor pneumático: as válvulas
     // não recebiam ar e os cilindros não se moviam.
-    const trim = (w: { gauge: string }) => (/^\d/.test(w.gauge) ? `PU Ø${w.gauge}` : w.gauge)
     const airTube = (
       id: string, number: string, label: string,
       a: { key: string; label: string }, b: { key: string; label: string },
@@ -665,7 +664,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       wires.push({
         id, number, label,
         from: a, to: b,
-        color: '#2563eb', gauge: `${diameterMm}`, kind: 'pneumatic',
+        color: 'blue', gauge: `${diameterMm}`, kind: 'pneumatic',
         medium: 'pneumatic', pressureBar: 6,
         bundleId: 'ar-comprimido',
         waypointsMm: clean([

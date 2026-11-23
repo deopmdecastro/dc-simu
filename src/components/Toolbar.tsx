@@ -34,7 +34,7 @@ import { useSplitView } from '../ui/splitViewStore'
 import { useCommandsUi, type CmdTool } from '../commands/commandsUi'
 import { validateGrafcet } from '../grafcet/engine'
 import { ladderSyncStatus } from '../grafcet/ladderSync'
-import ComponentTableDialog from './ComponentTableDialog'
+const ComponentTableDialog = lazy(() => import('./ComponentTableDialog'))
 import { requireFeature } from '../saas/usePlan'
 import { IconCheck, IconWarning,
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
@@ -1311,7 +1311,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <IconLock size={13} /><span>{simBlackBox ? 'Caixa-preta ON' : 'Caixa-preta'}</span>
         </button>
       </div>}
-      {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}
+      {componentTableOpen && (
+        <Suspense fallback={null}>
+          <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />
+        </Suspense>
+      )}
       {monitorHelp && <ShortcutHelp open editor="Monitor" onClose={() => setMonitorHelp(false)} extra={[VIEW_SHORTCUTS]} />}
       {pdfOpen && (
         <Suspense fallback={null}>

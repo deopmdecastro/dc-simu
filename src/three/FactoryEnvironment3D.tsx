@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { computeFactoryHallLayout, type FactoryHallSize } from './factoryPhysics'
@@ -436,12 +436,33 @@ function SteelColumn({
   )
 }
 
+// Cache singleton das texturas PBR da nave: evita regenerar 1024×1024 + milhares de partículas
+// de betão sempre que se alterna de vista (3D ↔ Esquema ↔ GRAFCET) ou se liga/desliga o ambiente fabril.
+let cachedFactoryTextures: {
+  floorPbr: PbrTexturePair | null
+  wallPbr: PbrTexturePair | null
+  hazardTex: THREE.CanvasTexture | null
+  signTex: THREE.CanvasTexture | null
+} | null = null
+
+function getSharedFactoryTextures() {
+  if (!cachedFactoryTextures) {
+    cachedFactoryTextures = {
+      floorPbr: createConcreteFloorPbr(),
+      wallPbr: createConcreteWallPbr(),
+      hazardTex: createHazardStripeTexture(),
+      signTex: createElectricalSignTexture(),
+    }
+  }
+  return cachedFactoryTextures
+}
+
 /**
  * Ambiente fabril limpo e realista (sem prateleiras, camiões nem empilhadores):
  * apenas o quadro elétrico fixo na parede de betão industrial, pilares metálicos,
  * calha técnica superior e pavimento de betão polido com texturas PBR reais.
  */
-export function FactoryEnvironment3D({
+export const FactoryEnvironment3D = memo(function FactoryEnvironment3D({
   center,
   wallFrontZ,
   floorY,
@@ -450,25 +471,11 @@ export function FactoryEnvironment3D({
   fixedSize = null,
 }: FactoryEnvironment3DProps) {
   const { invalidate } = useThree()
-  const floorPbr = useMemo(() => createConcreteFloorPbr(), [])
-  const wallPbr = useMemo(() => createConcreteWallPbr(), [])
-  const hazardTex = useMemo(() => createHazardStripeTexture(), [])
-  const signTex = useMemo(() => createElectricalSignTexture(), [])
+  const { floorPbr, wallPbr, hazardTex, signTex } = useMemo(() => getSharedFactoryTextures(), [])
 
   useEffect(() => {
     invalidate()
   }, [invalidate, center[0], center[1], wallFrontZ, floorY, sceneSpan?.minX, sceneSpan?.maxX, sceneSpan?.maxZ, fixedSize?.widthM, fixedSize?.depthM, fixedSize?.heightM])
-
-  useEffect(() => () => {
-    floorPbr?.map.dispose()
-    floorPbr?.bumpMap.dispose()
-    floorPbr?.roughnessMap.dispose()
-    wallPbr?.map.dispose()
-    wallPbr?.bumpMap.dispose()
-    wallPbr?.roughnessMap.dispose()
-    hazardTex?.dispose()
-    signTex?.dispose()
-  }, [floorPbr, wallPbr, hazardTex, signTex])
 
   // Nave industrial: automática (envolve quadros, reservatórios e máquinas, com teto) ou com tamanho fixo
   // escolhido pelo utilizador — nesse caso mover equipamentos já não faz crescer o pavilhão.
@@ -691,4 +698,4 @@ export function FactoryEnvironment3D({
         )}
     </group>
   )
-}
+})
