@@ -223,6 +223,7 @@ export type ComponentType =
   | 'socketFamatelCombo'
   | 'socketFamatelSwitch'
   | 'socketEfapelIp65'
+  | 'ceePlug16A'
   | 'powerSource3ph'
   | 'powerSource24v'
   | 'powerSupplyProauto24A'
