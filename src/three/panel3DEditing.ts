@@ -8,6 +8,30 @@ export function wireEnergyEffectVisible(
   return runState === 'running' && (carryingCurrent !== undefined ? carryingCurrent : energized)
 }
 
+/**
+ * Fluxo visual em tubos de ar (pneumático) e água (hidráulico).
+ * Ativo em RUN quando há pressão nominal ou, em falta de pressão, quando o tubo está «energizado»
+ * (ligado a uma fonte ativa no modelo de simulação).
+ */
+export function wireFluidEffectVisible(
+  runState: 'running' | 'paused' | 'stopped',
+  kind: string | undefined,
+  opts?: { pneumaticPressureBar?: number; hydraulicPressureBar?: number; energized?: boolean },
+) {
+  if (runState !== 'running') return false
+  if (kind === 'pneumatic') {
+    const p = opts?.pneumaticPressureBar
+    if (typeof p === 'number') return p > 0.05
+    return !!opts?.energized
+  }
+  if (kind === 'hydraulic') {
+    const p = opts?.hydraulicPressureBar
+    if (typeof p === 'number') return p > 0.05
+    return !!opts?.energized
+  }
+  return false
+}
+
 /** Abaixo deste ângulo (graus) o piso é visto de perfil e degenera numa faixa de linhas. */
 export const FLOOR_GRID_MIN_PITCH = 10
 
