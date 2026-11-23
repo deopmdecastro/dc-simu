@@ -1059,7 +1059,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       if (w && target) {
         const isFrom = wireDrag.mode === 'fromPoint'
         updateWire(w.id, isFrom ? { fromTerminalId: target.id, fromPoint: undefined, fromPoint3D: undefined } : { toTerminalId: target.id, toPoint: undefined, toPoint3D: undefined })
-        useSimStore.getState().step()
+        useSimStore.getState().refreshCircuit()
       } else if (w && wireDrag.originalTerminalId && wireDrag.start && Math.hypot(p.x - wireDrag.start.x, p.y - wireDrag.start.y) < 3 / zoom) {
         // Um clique sem deslocação não desliga o borne.
         updateWire(w.id, wireDrag.mode === 'fromPoint' ? { fromTerminalId: wireDrag.originalTerminalId, fromPoint: undefined, fromPoint3D: undefined } : { toTerminalId: wireDrag.originalTerminalId, toPoint: undefined, toPoint3D: undefined })

@@ -71,7 +71,7 @@ export default function IndustrialDeviceControls({ component: c, disabled = fals
       if (!current) return
       configure({ ...industrialControlPatch(type, current.state, control), [key]: value })
       // O motor calcula o tempo e o diagnóstico; um scan em STOP não inicia a simulação.
-      if (!configDisabled) useSimStore.getState().step()
+      if (!configDisabled) useSimStore.getState().refreshCircuit()
     }
     return <div className="dc-industrial-controls" data-device-controls="geya">
       <h3 className="dc-field-label">Configuração do temporizador</h3>

@@ -89,7 +89,7 @@ export function updateCatalogComponent(componentId: string, entries: CatalogEntr
     dirty: true,
   }))
   store.pushEvent('info', `${component.ref} atualizado para a v${info.latest} de "${info.entry.meta.name}". ${added ? `${added} borne(s) novo(s). ` : ''}${removed ? `${removed} borne(s) removido(s). ` : ''}${orphans.length ? `${orphans.length} borne(s) antigo(s) mantido(s) por terem cabos ligados.` : ''}`.trim())
-  useSimStore.getState().step()
+  useSimStore.getState().refreshCircuit()
   return { ok: true, message: `Atualizado para a v${info.latest}.` }
 }
 

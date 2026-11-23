@@ -3820,7 +3820,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       if (terminalId === otherId) return
       store.commitHistory()
       store.updateWire(wire.id, reconnect.end === 'from' ? { fromTerminalId: terminalId, fromPoint: undefined, fromPoint3D: undefined } : { toTerminalId: terminalId, toPoint: undefined, toPoint3D: undefined })
-      store.step()
+      store.refreshCircuit()
       store.selectWire(wire.id)
       setReconnect(null)
       return
@@ -4835,7 +4835,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       }
     }
     if (store.grid.railMagnet !== false) store.snapToRails([id], false)
-    if (store.sim.runState !== 'stopped') store.step()
+    if (store.sim.runState !== 'stopped') store.refreshCircuit()
   }
   const movePanelComponent = (component: ElectricalComponent, point: { x: number; y: number }) => {
     const current = panelPivots[component.id]
@@ -4897,7 +4897,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       useSimStore.setState((state) => ({ components: state.components.map((item) => (compIds.includes(item.id) && item.railId ? { ...item, railId: undefined, railOffsetMm: undefined } : item)) }))
       for (const id of compIds) { const p = panelPivots[id]; const d = offsets.get(id)!; dragPanelTo(id, { x: p.x + d.dx, y: p.y + d.dy }) }
       if (store.grid.railMagnet !== false) store.snapToRails(compIds, false)
-      store.step()
+      store.refreshCircuit()
     }
     for (const t of store.canvasTexts) { const d = offsets.get(t.id); if (d) store.updateCanvasText(t.id, { x: t.x + d.dx, y: t.y + d.dy }) }
   })
@@ -5113,7 +5113,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (!baseline) return
     const store = useSimStore.getState()
     store.updateWire(baseline.id, structuredClone(baseline.wire))
-    store.step()
+    store.refreshCircuit()
     setWireEditDirty(false)
     setActiveWaypointIndex(null)
     store.pushEvent('info', 'Edição 3D do cabo cancelada; os valores anteriores foram repostos.')
@@ -5254,7 +5254,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       const projected = { x: Math.round(panelToSchematicX(point.x)), y: Math.round(panelToSchematicY(point.y)) }
       store.updateWire(wireId, side === 'from' ? { fromTerminalId: '', fromPoint: projected, fromPoint3D: point } : { toTerminalId: '', toPoint: projected, toPoint3D: point })
     }
-    store.step()
+    store.refreshCircuit()
   }
   /** Solta uma ponta ligada: o cabo mantém a forma, a ponta fica livre onde o borne estava. */
   const detachWireEnd = (side: 'from' | 'to') => {
@@ -5267,7 +5267,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const projected = { x: Math.round(panelToSchematicX(point.x)), y: Math.round(panelToSchematicY(point.y)) }
     const store = beginWireEdit(selectedWire)
     store.updateWire(selectedWire.id, side === 'from' ? { fromTerminalId: '', fromPoint: projected, fromPoint3D: point } : { toTerminalId: '', toPoint: projected, toPoint3D: point })
-    store.step()
+    store.refreshCircuit()
     setActiveEnd(side)
   }
   const moveWholeWire = (wireId: string, delta: SpatialPoint3D) => {

@@ -418,7 +418,14 @@ interface Store extends CircuitState {
   setSpeed: (n: number) => void
   setMode: (m: SimMode) => void
   toggleStepMode: () => void
+  /** STEP do utilizador (transporte): avança um scan e deixa PAUSA viva, também a partir de STOP (DC-ADR-102). */
   step: () => void
+  /**
+   * Recálculo interno após uma edição (religar ponta, cancelar edição de cabo, configurar
+   * temporizador…): em STOP calcula a continuidade sem «acordar» a simulação; em RUN/PAUSA
+   * comporta-se como recomputeIfActive. Nunca usar no botão Passo.
+   */
+  refreshCircuit: () => void
   setFaults: (patch: Partial<FaultState>) => void
   toggleBlackBox: () => void
   repairBurntEquipment: () => void
@@ -2561,13 +2568,23 @@ export const useSimStore = create<Store>((set, get) => {
         },
       }))
     }
-    // STEP avança um scan. Mesmo em STOP computa a continuidade elétrica para
-    // consultas pontuais (ex.: sonda de multímetro, verificação de lâmpada).
-    // Só não «acorda» a simulação: runState mantém-se 'stopped'.
+    // STEP do utilizador avança exatamente um scan e deixa a PAUSA viva — também a partir
+    // de STOP (DC-ADR-102: só STOP devolve a edição). Recálculos internos que não devem
+    // ativar a simulação usam refreshCircuit().
     const before = get().sim.runState
     if (before === 'running' || get()._intervalId) get().pause()
+    else if (before === 'stopped') set((s) => ({ sim: { ...s.sim, runState: 'paused' } }))
     const st = get()
     runOneTick(st as unknown as Store, 100)
+    pushRuntime(set, st)
+  },
+
+  refreshCircuit: () => {
+    const st = get()
+    if (st.sim.runState !== 'stopped') { recomputeIfActive(); return }
+    // STOP: continuidade elétrica para consultas pontuais (sonda, lâmpada, cabo religado)
+    // com dt = 0 — sem adiantar temporizadores nem mudar o runState.
+    runOneTick(st as unknown as Store, 0)
     pushRuntime(set, st)
   },
 

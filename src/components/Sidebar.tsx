@@ -655,7 +655,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
       if (Object.keys(patch).length) store.updateWire(id, patch)
     }
     wireEditBaselineRef.current.clear()
-    store.step()
+    store.refreshCircuit()
     setWireEditDirty(false)
     store.pushEvent('info', 'Edição cancelada em todos os cabos alterados nesta seleção.')
   }
