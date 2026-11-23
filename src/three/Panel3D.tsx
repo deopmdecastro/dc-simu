@@ -4623,7 +4623,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       const enc = store.components.find((c) => c.id === id)
       const pivot = panelPivots[id]
       if (!enc || enc.type !== 'panelEnclosure' || isPanelBound(enc) || !pivot) continue
-      const box = enclosureCarryBox(pivot, enclosureDimsOf(enc.state))
+      const box = enclosureCarryBox(pivot, enclosureDimsOf(enc.state), enc.viewOrientation?.y ?? 0)
       const inside = enclosureFreeContents(id, box, store.components, panelPivots)
       if (!inside.length) continue
       carry.push(box)

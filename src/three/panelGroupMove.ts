@@ -11,11 +11,14 @@ const inBox = (p: SpatialPoint3D, b: CarryBox) =>
   p.x >= b.min.x && p.x <= b.max.x && p.y >= b.min.y && p.y <= b.max.y && p.z >= b.min.z && p.z <= b.max.z
 
 /** Volume interior de um quadro (`panelEnclosure`) à volta do seu pivô, com folga de 20 mm. */
-export function enclosureCarryBox(pivot: SpatialPoint3D, dims: { widthMm: number; heightMm: number; depthMm: number }): CarryBox {
+export function enclosureCarryBox(pivot: SpatialPoint3D, dims: { widthMm: number; heightMm: number; depthMm: number }, yawDeg = 0): CarryBox {
   const pad = 20 * PANEL_UNITS_PER_MM
-  const hx = dims.widthMm * PANEL_UNITS_PER_MM / 2 + pad
+  // Quadro rodado 90°/270° em Y (ex.: QE1 encostado às pernas da mesa): largura e profundidade trocam.
+  const sideways = Math.abs(Math.round(yawDeg / 90)) % 2 === 1
+  const w = sideways ? dims.depthMm : dims.widthMm, d = sideways ? dims.widthMm : dims.depthMm
+  const hx = w * PANEL_UNITS_PER_MM / 2 + pad
   const hy = dims.heightMm * PANEL_UNITS_PER_MM / 2 + pad
-  const hz = dims.depthMm * PANEL_UNITS_PER_MM / 2 + pad
+  const hz = d * PANEL_UNITS_PER_MM / 2 + pad
   return { min: { x: pivot.x - hx, y: pivot.y - hy, z: pivot.z - hz }, max: { x: pivot.x + hx, y: pivot.y + hy, z: pivot.z + hz } }
 }
 

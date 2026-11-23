@@ -366,7 +366,36 @@ export type WireObstacle = THREE.Box3 & {
  * Paredes sólidas do quadro (cascas finas): o interior fica livre para cabos e
  * aparelhos; as chapas (fundo, laterais, topo, base e folha da porta) bloqueiam.
  */
+/**
+ * Paredes do quadro com a rotação do componente (só múltiplos de 90° em Y — ex.: QE1 da maquete com as
+ * costas encostadas às pernas da mesa). As caixas são calculadas no referencial do quadro e rodadas à
+ * volta do pivô; em múltiplos de 90° continuam alinhadas aos eixos.
+ */
 function enclosureWallObstacles(component: ElectricalComponent, pivot: THREE.Vector3): WireObstacle[] {
+  const o = component.viewOrientation
+  const yaw = o && Math.abs(o.x ?? 0) < 1e-6 && Math.abs(o.z ?? 0) < 1e-6 ? Math.round((o.y ?? 0) / 90) * 90 : 0
+  const local = enclosureWallObstaclesLocal(component, pivot)
+  if (!yaw || ((yaw % 360) + 360) % 360 === 0) return local
+  const rot = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z)
+    .multiply(new THREE.Matrix4().makeRotationY(THREE.MathUtils.degToRad(yaw)))
+    .multiply(new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z))
+  return local.map((box) => {
+    if (box instanceof OrientedWireBox) {
+      const turned = new OrientedWireBox(box.localBounds, rot.clone().multiply(box.localToWorld))
+      turned.componentId = box.componentId
+      turned.hard = box.hard
+      turned.enclosureWall = box.enclosureWall
+      return turned
+    }
+    const turned: WireObstacle = box.clone().applyMatrix4(rot)
+    turned.componentId = box.componentId
+    turned.hard = box.hard
+    turned.enclosureWall = box.enclosureWall
+    return turned
+  })
+}
+
+function enclosureWallObstaclesLocal(component: ElectricalComponent, pivot: THREE.Vector3): WireObstacle[] {
   const d = enclosureDimsOf(component.state)
   const sheet = ENCLOSURE.sheet * U
   const halfW = (d.widthMm * U) / 2
