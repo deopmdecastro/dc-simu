@@ -46,7 +46,7 @@ export function setSfxEnabled(on: boolean): void {
   try {
     localStorage.setItem(STORAGE_KEY, on ? '1' : '0')
   } catch { /* private mode */ }
-  if (!on) { stopMotorHum(); stopSounderNodes(); stopOverheatSizzle() }
+  if (!on) { stopMotorHum(); stopCompressorSound(); stopSounderNodes(); stopOverheatSizzle() }
   else if(sounderWanted)unlockAudio()
 }
 
@@ -561,9 +561,142 @@ export function playWireBurnPop(): void {
   }
 }
 
+/**
+ * Compressor de ar (Maxxim 24 L) a trabalhar.
+ *
+ * O zumbido do motor (`setMotorHum`) é de um motor elétrico livre; um compressor tem outro
+ * timbre: pancada do pistão a 2× o eixo, sibilo do ar a entrar no tanque e o ruído de corpo da
+ * carcaça. Sintetiza-se aqui à mão (Web Audio), sem ficheiros de áudio — mesma política do resto.
+ *
+ * `load` 0..1 vem da pressão relativa (0 bar → 1; perto do corte do pressostato → 0.25): o
+ * compressor "aperta" e o sibilo de admissão quase desaparece à medida que o tanque enche.
+ */
+let compWanted = false
+
+export function setCompressorSound(on: boolean, load = 0.7): void {
+  if (!enabled) {
+    if (compWanted) stopCompressorSound()
+    return
+  }
+  compWanted = on
+  const level = Math.max(0, Math.min(1, load))
+  if (!on) { stopCompressorSound(); return }
+  unlockAudio()
+  const audio = ensureCtx()
+  if (!audio) return
+  try {
+    const t = audio.currentTime
+    if (!compGain) {
+      compGain = audio.createGain()
+      compGain.gain.value = 0.0001
+      compGain.connect(audio.destination)
+
+      // Corpo: dois dentes de serra desafinados (motor 2 polos + bomba) por um passa-baixo.
+      compBody = audio.createGain()
+      compBody.gain.value = 0.55
+      compFilter = audio.createBiquadFilter()
+      compFilter.type = 'lowpass'
+      compFilter.frequency.value = 520
+      compFilter.Q.value = 1.1
+      compBody.connect(compFilter)
+      compFilter.connect(compGain)
+      compOscA = audio.createOscillator()
+      compOscA.type = 'sawtooth'
+      compOscA.frequency.value = 96
+      compOscB = audio.createOscillator()
+      compOscB.type = 'square'
+      compOscB.frequency.value = 193
+      const bGain = audio.createGain()
+      bGain.gain.value = 0.28
+      compOscA.connect(compBody)
+      compOscB.connect(bGain)
+      bGain.connect(compBody)
+      // Pistão: LFO rápido em amplitude (o "martelo" da bomba a 2× rotação).
+      compPiston = audio.createOscillator()
+      compPiston.type = 'sine'
+      compPiston.frequency.value = 12.5
+      compPistonGain = audio.createGain()
+      compPistonGain.gain.value = 0.3
+      compPiston.connect(compPistonGain)
+      compPistonGain.connect(compBody.gain)
+
+      // Ar: ruído filtrado (sibilo de admissão + fuga contínua).
+      compNoise = audio.createBufferSource()
+      compNoise.buffer = createNoiseBuffer(audio, 2)
+      compNoise.loop = true
+      compNoiseFilter = audio.createBiquadFilter()
+      compNoiseFilter.type = 'bandpass'
+      compNoiseFilter.frequency.value = 1450
+      compNoiseFilter.Q.value = 0.6
+      compNoiseGain = audio.createGain()
+      compNoiseGain.gain.value = 0.1
+      compNoise.connect(compNoiseFilter)
+      compNoiseFilter.connect(compNoiseGain)
+      compNoiseGain.connect(compGain)
+
+      compOscA.start(); compOscB.start(); compPiston.start(); compNoise.start()
+    }
+    // Carga: quanto menos pressão falta, mais "cheio" e menos ruidoso de ar.
+    compGain.gain.setTargetAtTime(0.055 + level * 0.075, t, 0.25)
+    compOscA!.frequency.setTargetAtTime(88 + level * 26, t, 0.3)
+    compOscB!.frequency.setTargetAtTime((88 + level * 26) * 2.02, t, 0.3)
+    compFilter!.frequency.setTargetAtTime(380 + level * 520, t, 0.3)
+    compPiston!.frequency.setTargetAtTime(10 + level * 6, t, 0.3)
+    compNoiseGain!.gain.setTargetAtTime(0.02 + level * 0.1, t, 0.3)
+    compNoiseFilter!.frequency.setTargetAtTime(1150 + level * 900, t, 0.3)
+  } catch {
+    stopCompressorSound()
+  }
+}
+
+let compGain: GainNode | null = null
+let compBody: GainNode | null = null
+let compFilter: BiquadFilterNode | null = null
+let compOscA: OscillatorNode | null = null
+let compOscB: OscillatorNode | null = null
+let compPiston: OscillatorNode | null = null
+let compPistonGain: GainNode | null = null
+let compNoise: AudioBufferSourceNode | null = null
+let compNoiseFilter: BiquadFilterNode | null = null
+let compNoiseGain: GainNode | null = null
+
+export function stopCompressorSound(): void {
+  compWanted = false
+  const audio = ctx
+  if (audio && compGain) {
+    try { compGain.gain.setTargetAtTime(0.0001, audio.currentTime, 0.12) } catch { /* ignore */ }
+  }
+  const nodes = [compOscA, compOscB, compPiston, compNoise]
+  window.setTimeout(() => {
+    for (const node of nodes) { try { node?.stop() } catch { /* já parado */ } }
+  }, 220)
+  for (const node of [compOscA, compOscB, compPiston]) { try { node?.disconnect() } catch { /* ignore */ } }
+  try { compNoise?.disconnect() } catch { /* ignore */ }
+  compGain = compBody = null; compFilter = compPistonGain = null; compNoiseGain = null
+  compOscA = compOscB = compPiston = null; compNoise = null; compNoiseFilter = null
+}
+
+/**
+ * Percorre os componentes e liga/desliga o som do compressor. Chamado no fim de cada scan,
+ * ao lado de `syncMotorHumFromComponents`.
+ */
+export function syncCompressorSoundFromComponents(
+  components: Array<{ type: string; state: Record<string, unknown> }>,
+): void {
+  const comp = components.find((c) => c.type === 'airCompressor')
+  if (!comp) { if (compWanted) stopCompressorSound(); return }
+  const running = Boolean(comp.state.running)
+  const maxBar = Number(comp.state.maxPressureBar ?? 8) || 8
+  const bar = Number(comp.state.tankPressureBar ?? 0)
+  const load = Math.max(0.22, 1 - bar / maxBar)
+  if (running && !compWanted) { try { playClick('breaker') } catch { /* ignore */ } }
+  setCompressorSound(running, load)
+}
+
 /** Desliga tudo (STOP, mudança de projeto). */
 export function silenceAll(): void {
   stopMotorHum()
+  stopCompressorSound()
   stopOverheatSizzle()
   sounderWanted=false;stopSounderNodes()
 }

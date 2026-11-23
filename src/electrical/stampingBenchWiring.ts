@@ -44,42 +44,54 @@ export interface BenchWireSpec {
   toEnd?: 'ferrule' | 'ferruleDouble'
 }
 
-/** Tag do relatório Ex10 → peça e borne do aparelho de campo (sem entrada = ligação interna ao QE1). */
+/**
+ * Endereço do guião 1185 → peça e borne do aparelho de campo.
+ *
+ * As chaves são os endereços que estão no borne do módulo e na régua X21/X22 (I0.0…I1.7,
+ * Q4.0…Q5.6), tal como no GRAFCET. `undefined` = ligação interna ao QE1 (ponte na régua), sem
+ * cabo de campo: é o caso das entradas e saídas que o guião não usa.
+ */
 export const BENCH_FIELD_SOURCES: Record<string, { key: string; label: string } | undefined> = {
-  C1_FC_0: { key: 'feeder', label: 'REC' },
-  C1_FC_1: { key: 'feeder', label: 'AVA' },
-  C3_FC_1: { key: 'drawerCylinder', label: 'AVA' },
-  C3_FC_0: { key: 'drawerCylinder', label: 'REC' },
-  C4_FC_0: { key: 'press', label: 'SUP' },
-  C4_FC_1: { key: 'press', label: 'INF' },
-  SENSOR_COR: { key: 'opticalSensor', label: 'OUT' },
-  FC2: { key: 'fc2', label: 'NO' },
-  FC1: { key: 'fc1', label: 'NO' },
-  SENSOR_INDUTIVO: { key: 'inductiveSensor', label: 'OUT' },
-  C2_FC_1: { key: 'arm', label: 'B6' },
-  C2_FC_0: { key: 'arm', label: 'B7' },
-  B_START: { key: 'operator-start', label: '4' },
-  B_STOP_NF: { key: 'operator-stop', label: '2' },
-  INT_MAN: { key: 'operator-mode', label: '14' },
-  B_EMERG_NF: { key: 'operator-emergency', label: '22' },
-  'Y0_C1+': { key: 'valveTerminal', label: 'Y0' },
-  'Y1_C1-': { key: 'valveTerminal', label: 'Y1' },
-  'Y3_C2-': { key: 'valveTerminal', label: 'Y3' },
-  'Y2_C2+': { key: 'valveTerminal', label: 'Y2' },
-  VACUO_ON: { key: 'valveTerminal', label: 'VON' },
-  VACUO_OFF: { key: 'valveTerminal', label: 'VOFF' },
-  'Y5_C3-': { key: 'valveTerminal', label: 'Y5' },
-  'Y4_C3+': { key: 'valveTerminal', label: 'Y4' },
-  'Y6_C4+': { key: 'valveTerminal', label: 'Y6' },
-  L_VERDE: { key: 'signalTower', label: 'G' },
-  L_AMRL: { key: 'signalTower', label: 'Y' },
-  L_VERM: { key: 'signalTower', label: 'R' },
+  // ── Entradas digitais (X21) ────────────────────────────────────────────────
+  C1_Recuado: { key: 'feeder', label: 'REC' },
+  C1_Avancado: { key: 'feeder', label: 'AVA' },
+  C3_Avancado: { key: 'drawerCylinder', label: 'AVA' },
+  C3_Recuado: { key: 'drawerCylinder', label: 'REC' },
+  C4_Recuado: { key: 'press', label: 'SUP' },
+  C4_Avancado: { key: 'press', label: 'INF' },
+  Sensor_Cor: { key: 'opticalSensor', label: 'OUT' },
+  FC_Estampagem: { key: 'fc2', label: 'NO' },
+  FC_Alimentador: { key: 'fc1', label: 'NO' },
+  Sensor_Metal: { key: 'inductiveSensor', label: 'OUT' },
+  C2_Avancado: { key: 'arm', label: 'B6' },
+  C2_Recuado: { key: 'arm', label: 'B7' },
+  B_Start: { key: 'operator-start', label: '4' },
+  B_Stop: { key: 'operator-stop', label: '2' },
+  Sel_Auto: { key: 'operator-mode', label: '14' },
+  // I1.7 lê o contacto de segurança KS1 (13/14) — o cabo vai da régua ao relé, dentro do QE1.
+  Seguranca_OK: { key: 'safetyRelay', label: '14' },
+  // ── Saídas digitais (X22) — bobinas Y1…Y9 do CPV10, relés K1/K2 e coluna luminosa ──
+  Y6_Cil1_Av: { key: 'valveTerminal', label: 'Y6' },
+  Y7_Cil1_Rec: { key: 'valveTerminal', label: 'Y7' },
+  Y5_Cil2_Rec: { key: 'valveTerminal', label: 'Y5' },
+  Y4_Cil2_Av: { key: 'valveTerminal', label: 'Y4' },
+  Y8_Ventosa_On: { key: 'valveTerminal', label: 'VON' },
+  Y9_Ventosa_Off: { key: 'valveTerminal', label: 'VOFF' },
+  Y2_Cil3_Rec: { key: 'valveTerminal', label: 'Y2' },
+  Y1_Cil3_Av: { key: 'valveTerminal', label: 'Y1' },
+  Y3_Cil4_Estampa: { key: 'valveTerminal', label: 'Y3' },
+  K1_M1_Esq: { key: 'relay-1', label: 'A1' },
+  K2_M1_Dir: { key: 'relay-2', label: 'A1' },
+  LED_Amarelo: { key: 'signalTower', label: 'Y' },
+  LED_Verde: { key: 'signalTower', label: 'G' },
+  LED_Vermelho: { key: 'signalTower', label: 'R' },
+  // ── Motor M1 e reservas (X23 / X24) ───────────────────────────────────────
   'M1 +': { key: 'motor', label: 'CW' },
   'M1 -': { key: 'motor', label: 'CCW' },
   'ENC A': { key: 'motor', label: 'A' },
   'ENC B': { key: 'motor', label: 'B' },
-  'REARME (reserva)': { key: 'operator-reset', label: '4' },
-  'CICLO (reserva)': { key: 'operator-cycle', label: '14' },
+  'S6 rearme': { key: 'operator-reset', label: '4' },
+  reserva: undefined,
 }
 
 /** Alimentação dos sensores/atuadores: +24 V em X25, 0 V em X26 (dois condutores por borne). */
@@ -286,7 +298,13 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     }
 
     const ductMid = get('cabinet-duct-mid')
+    const ductMidBC = get('cabinet-duct-midBC')
     const ductTop = get('cabinet-duct-top')
+    // Ilha S7-300 (fila C) e fonte/segurança (fila A) — ver `stampingBench.ts`.
+    const plcDi = get('cabinet-plc-di')
+    const plcDo = get('cabinet-plc-do')
+    const plcCpu = get('cabinet-plc-cpu')
+    const psu = get('psu24')
     const railTop = (term: BenchPlacement) => term.y + 33 // borne PTI 6 com 66 mm de altura
     const railBottom = (term: BenchPlacement) => term.y - 33
     /** Dentro do QE1: do bucim lateral até ao borne `2` (calha B pela calha inferior; calha A pela intermédia). */
@@ -350,6 +368,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     for (const { strip, points } of BENCH_TERMINAL_STRIPS) {
       if (strip === 'X25' || strip === 'X26') continue
       points.forEach(({ marker, tag }, i) => {
+        // `undefined` = borne de reserva (o guião não o usa): fica na régua sem cabo de campo.
         const src = BENCH_FIELD_SOURCES[tag]
         const term = get(`terminals-${strip}-${i + 1}`)
         if (!src || !term) return
@@ -357,6 +376,117 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           `${marker} ${tag} · ${get(src.key)?.state?.labelText ?? src.key} → ${strip}.${i + 1}`,
           src, term, STRIP_COLORS[strip] ?? 'black', strip === 'X21' ? 'signal' : 'control')
       })
+    }
+
+    // ── 2b. Interior do QE1: borne de régua → borne do módulo do PLC ──────────────────────
+    // É este troço que faltava: os cabos de campo chegavam às réguas X21/X22 e aí paravam, e a
+    // ilha S7-300 ficava sem ligação. Aqui cada endereço do guião desce da régua pela calha entre
+    // a fila B e a fila C até ao front connector do SM321 (I0.0…I1.7) / SM322 (Q4.0…Q5.6).
+    {
+      const ductBC = ductMidBC ?? ductBottom
+      const rowOf = (strip: 'X21' | 'X22') => BENCH_TERMINAL_STRIPS.find((st) => st.strip === strip)?.points ?? []
+      /** Borne do módulo (o front connector fica na face da frente do corpo do S7-300). */
+      const moduleTerminal = (mod: BenchPlacement, label: string): BenchPointMm | null => {
+        const tpl = createComponent(mod.type).terminals.find((t) => t.label === label)
+        if (!tpl?.position3D) return null
+        const w = Number(COMPONENT_PHYSICAL_SIZE_MM[mod.type]?.width ?? 40)
+        const h = Number(COMPONENT_PHYSICAL_SIZE_MM[mod.type]?.height ?? 125)
+        const d = Number(COMPONENT_PHYSICAL_SIZE_MM[mod.type]?.depth ?? 120)
+        return pt(mod.x + (tpl.position3D.x - 0.5) * w, mod.y + (tpl.position3D.y - 0.5) * h, mod.z + d / 2 + 4)
+      }
+      const link = (id: string, address: string, strip: 'X21' | 'X22', index: number, mod: BenchPlacement | undefined, color: WireColor, lane: number) => {
+        if (!mod) return
+        const term = get(`terminals-${strip}-${index}`)
+        if (!term) return
+        const target = moduleTerminal(mod, address)
+        if (!target) return
+        const z = ductInZ + lane * 0.5
+        wires.push({
+          id, number: `${strip}.${index} → ${address}`, label: `${address} · ${strip}.${index} → ${mod.state?.labelText ?? address}`,
+          from: { key: term.key, label: '2' }, to: { key: mod.key, label: address },
+          color, gauge: '0.75mm²', kind: 'signal',
+          bundleId: `qe1-${strip.toLowerCase()}`,
+          waypointsMm: clean([
+            pt(term.x, railBottom(term) - 12, ductInZ),
+            pt(term.x, ductBC.y + 8 + lane * 0.4, z),
+            pt(target.x + lane * 0.4, ductBC.y + 8 + lane * 0.4, z),
+            pt(target.x + lane * 0.4, target.y + 22, z),
+            target,
+          ]),
+        })
+      }
+      rowOf('X21').forEach(({ marker }, i) => link(`qe1-di-${marker.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        marker, 'X21', i + 1, plcDi, i % 2 ? 'grey' : 'black', ((i % 9) - 4) * 2.2))
+      rowOf('X22').forEach(({ marker }, i) => link(`qe1-do-${marker.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        marker, 'X22', i + 1, plcDo, 'violet', ((i % 9) - 4) * 2.2))
+
+      // Alimentação dos módulos: +24 V (X20 `+24V-OUT`) e 0 V (X20 `0V-OUT`) para L+ / M de cada um.
+      const x20 = get('terminals-x20')
+      if (x20) {
+        for (const mod of [plcCpu, plcDi, plcDo, get('cabinet-plc-ai')]) {
+          if (!mod) continue
+          for (const [label, color, rail] of [['L+', 'brown', 1], ['M', 'blue', -1]] as const) {
+            const target = moduleTerminal(mod, label)
+            if (!target) continue
+            const z = ductInZ + rail * 1.2
+            wires.push({
+              id: `qe1-supply-${mod.key}-${label.replace('+', 'p')}`,
+              number: `X20 → ${label}`,
+              label: `${label === 'L+' ? '+24 V' : '0 V'} · X20 → ${mod.state?.labelText ?? mod.type} ${label}`,
+              from: { key: x20.key, label: label === 'L+' ? '+24V-OUT' : '0V-OUT' },
+              to: { key: mod.key, label },
+              color, gauge: '1.5mm²', kind: 'power',
+              bundleId: 'qe1-alimentacao-plc',
+              waypointsMm: clean([
+                pt(x20.x, railBottom(x20) - 12, ductInZ),
+                pt(x20.x, ductBC.y + 10, z),
+                pt(target.x, ductBC.y + 10, z),
+                pt(target.x, target.y + 24, z),
+                target,
+              ]),
+            })
+          }
+        }
+      }
+
+      // Laço de segurança: +24 V no A1/A2 do KS1 e o contacto NF (13/14) livre para I1.7 Seguranca_OK.
+      const safety = get('safetyRelay')
+      if (safety && x20) {
+        const a1 = moduleTerminal(safety, 'A1')
+        const s11 = moduleTerminal(safety, 'S11')
+        const c13 = moduleTerminal(safety, '13')
+        if (a1 && s11 && c13) {
+          const z = ductInZ + 4
+          wires.push({
+            id: 'qe1-seguranca-a1', number: 'X20 → KS1.A1', label: '+24 V · X20 → KS1 A1 (alimentação do relé de segurança)',
+            from: { key: x20.key, label: '+24V-OUT' }, to: { key: safety.key, label: 'A1' },
+            color: 'brown', gauge: '0.75mm²', kind: 'power', bundleId: 'qe1-seguranca',
+            waypointsMm: clean([pt(x20.x, railBottom(x20) - 12, ductInZ), pt(x20.x, ductBC.y + 10, z), pt(a1.x, ductBC.y + 10, z), pt(a1.x, a1.y - 14, z), a1]),
+          })
+          // S11–S12: cadeia de Emergência vinda do pupitre (X24 `S6 rearme` e a seta de emergência).
+          const emergency = get('operator-emergency')
+          const emTerm = get('terminals-x24-1')
+          if (emTerm) {
+            wires.push({
+              id: 'qe1-seguranca-s11', number: 'X24.1 → KS1.S11', label: 'Emergência · X24.1 → KS1 S11',
+              from: { key: emTerm.key, label: '2' }, to: { key: safety.key, label: 'S11' },
+              color: 'grey', gauge: '0.75mm²', kind: 'control', bundleId: 'qe1-seguranca',
+              waypointsMm: clean([pt(emTerm.x, railBottom(emTerm) - 12, ductInZ), pt(emTerm.x, ductBC.y + 10, ductInZ), pt(s11.x, ductBC.y + 10, ductInZ), pt(s11.x, s11.y + 16, ductInZ), s11]),
+            })
+          }
+          // 13/14: contacto NF que fecha quando o relé está rearmado → X21.16 (I1.7 Seguranca_OK).
+          const i17 = get('terminals-X21-16')
+          if (i17) {
+            wires.push({
+              id: 'qe1-seguranca-13', number: 'KS1.13 → X21.16', label: 'Seguranca_OK · KS1 13 → X21.16 (I1.7)',
+              from: { key: safety.key, label: '13' }, to: { key: i17.key, label: '1' },
+              color: 'black', gauge: '0.75mm²', kind: 'signal', bundleId: 'qe1-seguranca',
+              waypointsMm: clean([pt(c13.x, c13.y + 12, ductInZ), pt(c13.x, ductBC.y + 8, ductInZ), pt(i17.x, ductBC.y + 8, ductInZ), pt(i17.x, railBottom(i17) - 12, ductInZ)]),
+            })
+          }
+          void emergency
+        }
+      }
     }
 
     // Alimentação dos sensores e atuadores: dois condutores (ponteira dupla) no borne `2` de X25 / X26.

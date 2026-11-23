@@ -75,7 +75,7 @@ import { importedActuationPatch, importedComponentInfo, updateImportedLoads, upd
 import { industrialInput, industrialDeviceTypeOf, updateIndustrialDevice, type IndustrialElectricalContext } from '../electrical/industrialDevices'
 import { updatePanelMeters } from '../electrical/panelMeterModel'
 import { updateMsr127 } from '../electrical/msr127'
-import { playClick, syncIndustrialSounders, syncMotorHumFromComponents, silenceAll, unlockAudio, playShortCircuitBoom, startOverheatSizzle, stopOverheatSizzle, playWireBurnPop } from '../audio/sfx'
+import { playClick, syncIndustrialSounders, syncMotorHumFromComponents, syncCompressorSoundFromComponents, silenceAll, unlockAudio, playShortCircuitBoom, startOverheatSizzle, stopOverheatSizzle, playWireBurnPop } from '../audio/sfx'
 import { evaluateShortCircuits } from '../electrical/shortCircuitEngine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
@@ -1639,6 +1639,7 @@ function runOneTick(state: Store, dtMs: number) {
   state.sim.scanCount += 1
   // Feedback sonoro do motor (zumbido enquanto algum eixo corre).
   syncMotorHumFromComponents(components)
+  syncCompressorSoundFromComponents(components)
   syncIndustrialSounders(components)
 }
 

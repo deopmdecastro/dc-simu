@@ -61,21 +61,28 @@ export interface BenchTerminalStrip {
   points: ReadonlyArray<{ marker: string; tag: string }>
 }
 const io = (marker: string, tag: string) => ({ marker, tag })
+/**
+ * Réguas de campo do QE1 com os endereços do GUIAO ATEC 1185 (relatório Ex10).
+ *
+ * A versão anterior usava a numeração sequencial Q0.x/Q1.x, que não é a do guião (o SM322 da
+ * ilha está endereçado em Q4.0…Q5.6). Aqui cada marcador é o endereço real que aparece no GRAFCET
+ * e no borne do módulo: I0.0…I1.7 em X21, Q4.0…Q5.6 em X22, motor em X23 e reservas em X24.
+ */
 export const BENCH_TERMINAL_STRIPS: ReadonlyArray<BenchTerminalStrip> = [
   { strip: 'X21', rail: 'B', points: [
-    io('I0.0', 'C1_FC_0'), io('I0.1', 'C1_FC_1'), io('I0.2', 'C3_FC_1'), io('I0.3', 'C3_FC_0'),
-    io('I0.4', 'C4_FC_0'), io('I0.5', 'C4_FC_1'), io('I0.6', 'SENSOR_COR'), io('I0.7', 'FC2'),
-    io('I1.0', 'FC1'), io('I1.1', 'SENSOR_INDUTIVO'), io('I1.2', 'C2_FC_1'), io('I1.3', 'C2_FC_0'),
-    io('I1.4', 'B_START'), io('I1.5', 'B_STOP_NF'), io('I1.6', 'INT_MAN'), io('I1.7', 'B_EMERG_NF'),
+    io('I0.0', 'C1_Recuado'), io('I0.1', 'C1_Avancado'), io('I0.2', 'C3_Avancado'), io('I0.3', 'C3_Recuado'),
+    io('I0.4', 'C4_Recuado'), io('I0.5', 'C4_Avancado'), io('I0.6', 'Sensor_Cor'), io('I0.7', 'FC_Estampagem'),
+    io('I1.0', 'FC_Alimentador'), io('I1.1', 'Sensor_Metal'), io('I1.2', 'C2_Avancado'), io('I1.3', 'C2_Recuado'),
+    io('I1.4', 'B_Start'), io('I1.5', 'B_Stop'), io('I1.6', 'Sel_Auto'), io('I1.7', 'Seguranca_OK'),
   ] },
   { strip: 'X22', rail: 'B', points: [
-    io('Q0.0', 'Y0_C1+'), io('Q0.1', 'Y1_C1-'), io('Q0.2', 'Y3_C2-'), io('Q0.3', 'Y2_C2+'),
-    io('Q0.4', 'VACUO_ON'), io('Q0.5', 'VACUO_OFF'), io('Q0.6', 'Y5_C3-'), io('Q0.7', 'Y4_C3+'),
-    io('Q1.0', 'Y6_C4+'), io('Q1.1', 'M1_ESQ'), io('Q1.2', 'M1_DI'), io('Q1.3', 'L_VERDE'),
-    io('Q1.4', 'L_AMRL'), io('Q1.5', 'L_VERM'),
+    io('Q4.0', 'Y6_Cil1_Av'), io('Q4.1', 'Y7_Cil1_Rec'), io('Q4.2', 'Y5_Cil2_Rec'), io('Q4.3', 'reserva'),
+    io('Q4.4', 'Y4_Cil2_Av'), io('Q4.5', 'Y8_Ventosa_On'), io('Q4.6', 'Y9_Ventosa_Off'), io('Q4.7', 'Y2_Cil3_Rec'),
+    io('Q5.0', 'Y1_Cil3_Av'), io('Q5.1', 'Y3_Cil4_Estampa'), io('Q5.2', 'K1_M1_Esq'), io('Q5.3', 'K2_M1_Dir'),
+    io('Q5.4', 'LED_Amarelo'), io('Q5.5', 'LED_Verde'), io('Q5.6', 'LED_Vermelho'),
   ] },
   { strip: 'X23', rail: 'B', points: [io('M+', 'M1 +'), io('M-', 'M1 -'), io('ENC A', 'ENC A'), io('ENC B', 'ENC B')] },
-  { strip: 'X24', rail: 'B', points: [io('REARME', 'REARME (reserva)'), io('CICLO', 'CICLO (reserva)')] },
+  { strip: 'X24', rail: 'B', points: [io('REARME', 'S6 rearme'), io('CICLO', 'reserva')] },
   { strip: 'X25', rail: 'A', points: Array.from({ length: 7 }, () => io('+24V', '+24 V sensores')) },
   { strip: 'X26', rail: 'A', points: Array.from({ length: 3 }, () => io('0V', '0 V sensores')) },
 ]
@@ -218,9 +225,11 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   // ---------------------------------------------------------------------------
   if (plate.legs) {
     const leg = plate.legHeightMm === 'auto' ? 750 : plate.legHeightMm
-    const cabinetH = Math.min(520, leg - 110)
-    if (cabinetH >= 300) {
-      const cab = { w: 480, h: cabinetH, d: 200 }
+    // Três filas de aparelhos (fonte/segurança, PLC, bornes) → quadro mais alto e mais largo
+    // que a versão de dois aparelhos; a calha do PLC obriga a ~120 mm de altura livre.
+    const cabinetH = Math.min(660, leg - 90)
+    if (cabinetH >= 420) {
+      const cab = { w: 560, h: cabinetH, d: 220 }
       const cabinetY = -55 - cab.h / 2
       const cabinetZ = -plate.widthMm / 2 + 145
       // Lado esquerdo da mesa (folga ~50 mm da borda); dobradiça à esquerda → porta abre para fora.
@@ -261,15 +270,37 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
       const inside = (key: string, type: ComponentType, x: number, y: number, z: number, state: Record<string, unknown> = {}): BenchPlacement =>
         ({ key, type, x: cabinetX + x, y: cabinetY + y, z, state: { hostLocation: 'machine', ...state } })
       const usable = cab.w - 40
-      // Calhas técnicas 40 × 60 (cima, meio, baixo) e calhas DIN TS35 (relés e bornes).
-      for (const [key, y] of [['top', cab.h / 2 - 45], ['mid', 20], ['bottom', -cab.h / 2 + 50]] as const) {
-        list.push(inside(`cabinet-duct-${key}`, 'cableDuct', 0, y, plateFront + 30, { lengthMm: usable, widthMm: 40, heightMm: 60, coverOn: true }))
+      // Fila A (topo): fonte + segurança + K1/K2 · Fila B (meio): réguas de bornes ·
+      // Fila C (fundo): ilha S7-300 do guião (CPU + DI + DO + AI).
+      //
+      // Cotas tiradas do FUNDO para cima, com folgas explícitas entre o aparelho mais alto de
+      // cada fila e a calha técnica seguinte (fonte 124,5 mm · bornes 66 mm · S7-300 125 mm):
+      //   fundo 20 | PLC 125 | 25 | calha 60 | 25 | bornes 66 | 25 | calha 60 | 25 | fonte 124,5 | 20
+      // Total ≈ 576 mm — cabe nos 620 mm do quadro standard da bancada.
+      const GAP = 25
+      const DUCT = 60
+      const HALF_PSU = 7.5 + 124.5 / 2
+      const bottom = -cab.h / 2
+      const railC = bottom + GAP + 30 + 125 / 2
+      const ductBC = railC + 125 / 2 + GAP + DUCT / 2
+      const railB = ductBC + DUCT / 2 + GAP + 66 / 2
+      const ductAB = railB + 66 / 2 + GAP + DUCT / 2
+      const railA = ductAB + DUCT / 2 + GAP + HALF_PSU
+      // Calhas técnicas 40 × 60, uma por faixa entre filas (por aqui passa a cablagem interior).
+      const ductUsable = usable - 30
+      for (const [key, y] of [
+        ['top', Math.min(cab.h / 2 - 30, railA + HALF_PSU + 30)],
+        ['midAB', ductAB],
+        ['midBC', ductBC],
+        ['bottom', railC - 125 / 2 - GAP - 17],
+      ] as const) {
+        list.push(inside(`cabinet-duct-${key}`, 'cableDuct', 0, y, plateFront + 30, { lengthMm: ductUsable, widthMm: 40, heightMm: DUCT, coverOn: true }))
       }
-      const railA = 120, railB = -80
-      for (const [key, y] of [['relays', railA], ['terminals', railB]] as const) {
+      for (const [key, y] of [['relays', railA], ['terminals', railB], ['plc', railC]] as const) {
         list.push(inside(`cabinet-din-${key}`, 'dinRail15x55', 0, y, plateFront + 3.75, { lengthMm: usable, profile: '35×15 mm', perforated: true, finish: 'Aço galvanizado' }))
       }
-      // Fila A: fonte 24 V · relé de segurança · relés K1/K2 do motor M1 (relatório Ex10) · distribuição +24 V / 0 V.
+      // Fila A: fonte 24 V azul do catálogo · relé de segurança KS1 · relés K1/K2 do motor M1.
+      // (O guião 1185 comanda o M1 por K1/K2 em Q5.2/Q5.3.)
       const sizeOf = (type: ComponentType) => COMPONENT_PHYSICAL_SIZE_MM[type]!
       let ax = -usable / 2 + 4
       const putA = (key: string, type: ComponentType, state: Record<string, unknown>) => {
@@ -277,9 +308,9 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
         list.push(inside(key, type, ax + s.width / 2, railA, onRail(s.depth), state))
         ax += s.width + 2
       }
-      putA('psu24', 'powerSupplyProauto24A', { labelText: 'G1 · 24 V DC 5 A' })
+      putA('psu24', 'powerSupplyProauto24A', { labelText: 'G1 · 24 V DC 5 A · azul' })
       putA('safetyRelay', 'safetyRelay', { labelText: 'KS1 · SEGURANÇA (EMERG.)' })
-      ;['K1 · Q1.1 M1_ESQ', 'K2 · Q1.2 M1_DI']
+      ;['K1 · Q5.2 M1_ESQ', 'K2 · Q5.3 M1_DIR']
         .forEach((tag, i) => putA(`relay-${i + 1}`, 'relayFinder5534', { labelText: tag }))
       // Fila B: X20 (alimentação 24 V) + X21 (DI) + X22 (DO) + X23 (motor) + X24 (reservas).
       let bx = -usable / 2 + 4
@@ -299,6 +330,24 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
         if (rail === 'A') ax += points.length * pti.width + 6
         else bx += points.length * pti.width + 6
       }
+      // Fila C: ilha Siemens S7-300 do guião ATEC 1185 (relatório Ex10), encostada como numa
+      // calha real: CPU 315-2 PN/DP + SM321 DI 32 + SM322 DO 32 + SM334 AI/AO.
+      // 4 × 40 mm + folgas = ~164 mm; sobra calha à direita para o futuro módulo de contagem.
+      const stepMm = 41.2
+      const island = [
+        ['plc-cpu', 'plcSiemensS7300Cpu315PnDp', 'PLC1 · CPU 315-2 PN/DP · 6ES7315-2EH14'],
+        ['plc-di', 'plcSiemensS7300Sm321Di32', 'PLC1 · DI 32×24 V DC · I0.0…I3.7'],
+        ['plc-do', 'plcSiemensS7300Sm322Do32', 'PLC1 · DO 32×24 V DC · Q4.0…Q7.7'],
+        ['plc-ai', 'plcSiemensS7300Sm334AiAo', 'PLC1 · AI 4 / AO 2'],
+      ] as const
+      const islandW = island.length * stepMm - (stepMm - 40)
+      const firstC = -usable / 2 + 6 + 20
+      island.forEach(([key, type, label], i) => {
+        const s = sizeOf(type)
+        list.push(inside(`cabinet-${key}`, type, firstC + s.width / 2 + i * stepMm, railC, onRail(s.depth), { labelText: label }))
+      })
+      // A calha do PLC é a mais funda da caixa: o corpo de 120–130 mm chega perto da porta.
+      void islandW
     }
   }
 

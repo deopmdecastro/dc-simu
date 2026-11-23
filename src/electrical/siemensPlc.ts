@@ -178,19 +178,28 @@ export function s7300Sm321TerminalRows(): Array<{ label: string; x: number; y: n
   return out
 }
 
-/** SM322 DO 32×DC24V/0.5A — 32 saídas + L+/M. */
-export function s7300Sm322TerminalRows(): Array<{ label: string; x: number; y: number }> {
+/** Byte de saída onde começa o SM322 nesta bancada (o guião 1185 usa Q4.0…Q5.6). */
+export const S7300_SM322_FIRST_BYTE = 4
+
+/**
+ * SM322 DO 32×DC24V/0.5A — 32 saídas + L+/M.
+ *
+ * O endereço físico do módulo na ilha define o byte inicial; no guião 1185 as saídas estão em
+ * Q4.x/Q5.x (o SM322 é o 5.º módulo depois da CPU), por isso os bornes mostram esse bloco e não
+ * Q0.x. Assim o borne do módulo, o borne da régua X22 e a tag do GRAFCET dizem o mesmo endereço.
+ */
+export function s7300Sm322TerminalRows(firstByte = S7300_SM322_FIRST_BYTE): Array<{ label: string; x: number; y: number }> {
   const rows = column(18, 0.08, 0.96)
   const out: Array<{ label: string; x: number; y: number }> = [
     { label: 'L+', x: 0.22, y: rows[0] },
     { label: 'M', x: 0.78, y: rows[0] },
   ]
   for (let i = 0; i < 32; i++) {
-    const byte = Math.floor(i / 8)
+    const byte = firstByte + Math.floor(i / 8)
     const bit = i % 8
     out.push({
       label: `Q${byte}.${bit}`,
-      x: byte < 2 ? 0.22 : 0.78, // conector de 40 pinos: bytes 0–1 à esquerda, 2–3 à direita
+      x: byte - firstByte < 2 ? 0.22 : 0.78, // conector de 40 pinos: primeiros 2 bytes à esquerda
       y: rows[(i % 16) + 1],
     })
   }
