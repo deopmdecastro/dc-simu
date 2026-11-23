@@ -2469,9 +2469,13 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
   // sólidos a contornar: os cabos passam à frente dos componentes, nunca por dentro.
   // A chave posicional mantém as caixas estáveis durante os ticks da simulação
   // (RUN muda c.state, não as posições): sem isto, cada scan re-gerava as caixas.
+  // Chave leve: evita JSON.stringify de todos os bornes (custo alto em maquetes grandes).
   const obstaclesKey = useMemo(() => components.map((c) => {
     const p = pivots[c.id]
-    return p ? `${c.id}:${p.x},${p.y},${p.z}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}:${c.mirrored}:${JSON.stringify([c.type, c.w, c.h, getComponentModelSpec(c.type)?.physicalSizeMm, componentOrientationOf(c), component3DScaleOf(c), c.terminals.map(t=>[t.id,t.label,t.x,t.y,t.diameter,t.position3D,t.socket3D])])}` : ''
+    if (!p) return ''
+    const orient = componentOrientationOf(c)
+    const scale = component3DScaleOf(c)
+    return `${c.id}:${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}:${c.type}:${c.w}x${c.h}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}:${c.mirrored ? 1 : 0}:${orient.x},${orient.y},${orient.z}:${scale}:${c.terminals.length}`
   }).join('|'), [components, pivots])
   const obstacles = useMemo(() => componentObstacles(components, pivots), [obstaclesKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
