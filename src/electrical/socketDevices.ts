@@ -36,9 +36,10 @@ export const socketOutletLabels = (type: ComponentType) =>
 export function socketOutletPoint(type: SocketDeviceType, label: string): [number, number, number] {
   const d = SOCKET_DEVICES[type], front = -d.depth / 2 + d.caseDepth
   if (type === 'ceePlug16A') {
-    // Pinos macho na face frontal da ficha
-    if (label === 'OUT.L' || label === 'L') return [-9, 6, front + 8]
-    if (label === 'OUT.N' || label === 'N') return [9, 6, front + 8]
+    // Pinos macho na face frontal da ficha. A ficha encaixa rodada 180° (a face frontal vira-se
+    // para a tomada), por isso o padrão é o espelho do da tomada — cada pino cai no alvéolo certo.
+    if (label === 'OUT.L' || label === 'L') return [9, 6, front + 8]
+    if (label === 'OUT.N' || label === 'N') return [-9, 6, front + 8]
     return [0, -11, front + 8]
   }
   if (type === 'socketEfapelIp65') return [label.endsWith('.L') ? -9.5 : label.endsWith('.N') ? 9.5 : 0, label.endsWith('.PE') ? 16 : -2, d.depth / 2 - (label.endsWith('.PE') ? 15 : 23)]

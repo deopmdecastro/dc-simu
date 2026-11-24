@@ -88,6 +88,14 @@ export const PNEUMATIC_VACUUM_CUP_SIZE_MM = { width: 88, height: 185, depth: 88 
 // Volume conservador de enquadramento do modelo proporcional à fotografia.
 // O manual fornecido não contém um desenho cotado do MCA2420.
 export const AIR_COMPRESSOR_SIZE_MM = { width: 520, height: 530, depth: 280 } as const
+/**
+ * Bucim / prensa-cabos de entrada do cabo de alimentação, no referencial local do compressor (mm,
+ * origem no centro do volume): assenta no topo da carenagem, alinhado com os bornes L/N. É a única
+ * entrada de cabo da máquina — o cabo revestido 3G2,5 entra aqui e não "flutua" sobre a carenagem.
+ */
+export const AIR_COMPRESSOR_CABLE_GLAND = { x: -140.4, y: 285, z: 14 } as const
+/** Altura do bocal (boca) do bucim acima da base, em mm. */
+export const AIR_COMPRESSOR_CABLE_GLAND_HEIGHT = 20.5
 
 export function pneumaticComponentSizeMm(
   type: string,

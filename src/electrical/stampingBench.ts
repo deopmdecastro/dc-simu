@@ -556,44 +556,39 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   list.push(vertical('tray-drop-compressor', compDropX, onWallZ, socketY + socketH / 2 + SOCKET_GAP_MM, 100,
     'DESCIDA COMPRESSOR', []))
 
-  list.push({
-    key: 'socket-compressor',
-    type: 'socketFamatelSwitch',
-    x: compDropX,
-    y: socketY,
+  // Alvéolo CEE da RoadEu 70929: 47 mm à esquerda e 3 mm abaixo do centro da caixa (o seccionador
+  // fica à direita). A ficha alinha com ele e encaixa de verdade — os pinos ficam dentro do cano da
+  // tomada e o colar encosta à boca. Antes estava 28 mm à frente da caixa, ao lado do seccionador,
+  // com os pinos virados para fora e o cabo a sair-lhe pelo meio.
+  const CEE_PLUG = { dx: -47, dy: -3, dz: 80.5 } as const
+  const ceePlugOn = (socket: { x: number; y: number; z: number }, key: string, ref: string, labelText: string): BenchPlacement => ({
+    key, type: 'ceePlug16A',
+    x: socket.x + CEE_PLUG.dx,
+    y: socket.y + CEE_PLUG.dy,
+    z: socket.z + CEE_PLUG.dz,
+    state: { labelText, glandVisible: true },
+    ref,
+    // Rodada 180°: a face frontal (pinos) vira-se para a tomada e o bucim fica do lado do cabo.
+    orientation: { x: 0, y: 180, z: 0 },
+  })
+
+  const socketCompressor: BenchPlacement = {
+    key: 'socket-compressor', type: 'socketFamatelSwitch', x: compDropX, y: socketY,
     z: wallZ + STANDOFF_MM + socketD / 2,
-    state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · COMPRESSOR · RoadEu 70929' },
+    // A ficha está encaixada: a tampa do alvéolo CEE tem de estar aberta.
+    state: { switchOn: true, coverOpen: false, blueCoverOpen: true, labelText: 'TOMADA · COMPRESSOR · RoadEu 70929' },
     ref: 'XS-COMP',
-  })
-  // Ficha CEE encaixada na tomada do compressor (cabo revestido arrastável até ao motor).
-  list.push({
-    key: 'plug-compressor',
-    type: 'ceePlug16A',
-    x: compDropX,
-    y: socketY,
-    z: wallZ + STANDOFF_MM + socketD + 28,
-    state: { labelText: 'FICHA CEE · COMPRESSOR', glandVisible: true },
-    ref: 'F-COMP',
-  })
-  list.push({
-    key: 'socket-bench',
-    type: 'socketFamatelSwitch',
-    x: 0,
-    y: socketBenchY,
+  }
+  list.push(socketCompressor)
+  list.push(ceePlugOn(socketCompressor, 'plug-compressor', 'F-COMP', 'FICHA CEE · COMPRESSOR'))
+  const socketBench: BenchPlacement = {
+    key: 'socket-bench', type: 'socketFamatelSwitch', x: 0, y: socketBenchY,
     z: pillarFaceZ + 2 + socketD / 2,
-    state: { switchOn: true, coverOpen: false, labelText: 'TOMADA · MAQUETE · RoadEu 70929' },
+    state: { switchOn: true, coverOpen: false, blueCoverOpen: true, labelText: 'TOMADA · MAQUETE · RoadEu 70929' },
     ref: 'XS-MAQ',
-  })
-  // Ficha CEE na tomada da maquete; lado do quadro = fios L/N/PE aos bornes.
-  list.push({
-    key: 'plug-bench',
-    type: 'ceePlug16A',
-    x: 0,
-    y: socketBenchY,
-    z: pillarFaceZ + 2 + socketD + 28,
-    state: { labelText: 'FICHA CEE · MAQUETE / QE', glandVisible: true },
-    ref: 'F-MAQ',
-  })
+  }
+  list.push(socketBench)
+  list.push(ceePlugOn(socketBench, 'plug-bench', 'F-MAQ', 'FICHA CEE · MAQUETE / QE'))
 
   // A orientação é construtiva nesta montagem; deve sobreviver à reabertura do ficheiro.
   return list.map(part => ({ ...part, state: { ...part.state, benchAssembly: true } }))

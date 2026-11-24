@@ -2874,6 +2874,64 @@ function resamplePolyline(points: V3[], count: number): V3[] {
  * Capa exterior de um cabo multicore: um único tubo em volta do chicote de condutores do mesmo
  * `bundleId`. O tubo é aparado nas pontas para deixar as veias visíveis junto às ponteiras.
  */
+type CableSheath3D = {
+  id: string
+  curve: THREE.Curve<THREE.Vector3>
+  radii: number[]
+  color: string
+  length: number
+  stations: number
+}
+
+/**
+ * Capa de cabo com raio variável: constrói o tubo com raio 1 e escala cada anel à volta do ponto
+ * da curva. O raio de cada estação vem do desvio máximo das veias em relação à linha média, pelo
+ * que a capa cobre sempre TODOS os condutores — nem veia azul à vista, nem bainha de lata.
+ */
+function SheathMesh3D({ sheath }: { sheath: CableSheath3D }) {
+  const geometry = useMemo(() => {
+    const radial = 12
+    const geo = new THREE.TubeGeometry(sheath.curve, sheath.stations, 1, radial, false)
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute
+    const ring = radial + 1
+    const centre = new THREE.Vector3()
+    for (let i = 0; i <= sheath.stations; i += 1) {
+      sheath.curve.getPointAt(i / sheath.stations, centre)
+      const r = sheath.radii[i] ?? sheath.radii[sheath.radii.length - 1] ?? 1
+      for (let j = 0; j < ring; j += 1) {
+        const k = i * ring + j
+        pos.setXYZ(
+          k,
+          centre.x + (pos.getX(k) - centre.x) * r,
+          centre.y + (pos.getY(k) - centre.y) * r,
+          centre.z + (pos.getZ(k) - centre.z) * r,
+        )
+      }
+    }
+    pos.needsUpdate = true
+    geo.computeVertexNormals()
+    return geo
+  }, [sheath])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return (
+    <mesh
+      geometry={geometry}
+      raycast={() => null}
+      castShadow
+      receiveShadow
+      renderOrder={19}
+    >
+      <meshPhysicalMaterial
+        color={sheath.color}
+        roughness={0.62}
+        metalness={0.02}
+        clearcoat={0.2}
+        clearcoatRoughness={0.48}
+      />
+    </mesh>
+  )
+}
+
 function CableSheaths3D({ wires, paths }: { wires: Wire[]; paths: Map<string, WirePath3D> | null | undefined }) {
   const sheaths = useMemo(() => {
     if (!paths) return []
@@ -2884,7 +2942,7 @@ function CableSheaths3D({ wires, paths }: { wires: Wire[]; paths: Map<string, Wi
       if (list) list.push(w)
       else groups.set(w.bundleId, [w])
     }
-    const out: Array<{ id: string; curve: THREE.Curve<THREE.Vector3>; radius: number; color: string; length: number }> = []
+    const out: CableSheath3D[] = []
     for (const [bundleId, members] of groups) {
       if (members.length < 2) continue
       const N = 48
@@ -2899,10 +2957,53 @@ function CableSheaths3D({ wires, paths }: { wires: Wire[]; paths: Map<string, Wi
       const trimmed = avg.slice(3, N - 3)
       if (trimmed.length < 2) continue
       const curve = new THREE.CatmullRomCurve3(trimmed.map((p) => new THREE.Vector3(...p)), false, 'centripetal')
+      // O mesmo diâmetro com que os condutores são desenhados: a capa tem de os cobrir a TODOS.
       const maxCoreRadius = Math.max(...members.map((w) =>
-        (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount ?? 1, sheathed: false }) * PANEL_UNITS_PER_MM) / 2))
-      const radius = maxCoreRadius * (members.length >= 3 ? 2.05 : 1.75) + 0.008
-      out.push({ id: bundleId, curve, radius, color: members[0].sheathColor ?? '#0f172a', length: curve.getLength() })
+        (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount ?? 1, sheathed: w.sheathed }) * PANEL_UNITS_PER_MM) / 2))
+      const length = curve.getLength()
+      const stations = Math.min(180, Math.max(28, Math.round(length * 36)))
+      // Raio variável ao longo da capa: em cada estação a capa tem de conter TODAS as veias
+      // (desvio máximo em relação à linha média). Onde o chicote abre — curvas e, sobretudo, a
+      // entrada nos bornes — a capa alarga; no cabimento fica no diâmetro nominal do cabo.
+      // Antes o raio era fixo e a veia azul corria por fora do cabo preto.
+      const base = maxCoreRadius * (members.length >= 3 ? 2.05 : 1.75) + 0.008
+      // Nunca um tubo desproporcionado: acima disto a capa deixa de parecer um cabo.
+      const cap = base + 0.04
+      // Desvio real medido na malha final de cada condutor (não por índice de reamostragem: os dois
+      // cabos têm comprimentos diferentes e o índice i já não é o mesmo ponto físico).
+      // A mesma curva com que cada condutor é desenhado (cableCurve3D): a capa tem de conter o tubo
+      // real, não a polilinha antes do arredondamento.
+      const memberCurves = members.map((w) => cableCurve3D(paths.get(w.id)!.points, false))
+      const centre = new THREE.Vector3()
+      const probe = new THREE.Vector3()
+      const radii: number[] = []
+      for (let s = 0; s <= stations; s += 1) {
+        curve.getPointAt(s / stations, centre)
+        let dev = 0
+        for (const memberCurve of memberCurves) {
+          let best = Infinity
+          for (let k = 0; k <= 90; k += 1) {
+            memberCurve.getPoint(k / 90, probe)
+            const d = probe.distanceTo(centre)
+            if (d < best) best = d
+          }
+          if (best > dev) dev = best
+        }
+        // Nas pontas as veias abrem para bornes diferentes DENTRO do aparelho (ficha/compressor):
+        // ali a capa afina para o diâmetro nominal e o que fica de fora não se vê.
+        const t = s / stations
+        const edge = Math.min(1, Math.min(t, 1 - t) / 0.07)
+        radii.push(dev * edge)
+      }
+      // Suaviza o perfil do raio (média móvel) para a capa não ficar com "nós" ao longo do cabo.
+      const rawDevs = radii.slice()
+      const half = 5
+      for (let s = 0; s <= stations; s += 1) {
+        let sum = 0, n = 0
+        for (let k = Math.max(0, s - half); k <= Math.min(stations, s + half); k += 1) { sum += rawDevs[k]; n += 1 }
+        radii[s] = Math.min(cap, Math.max(base, sum / n + maxCoreRadius + 0.014))
+      }
+      out.push({ id: bundleId, curve, radii, color: members[0].sheathColor ?? '#0f172a', length, stations })
     }
     return out
   }, [wires, paths])
@@ -2910,24 +3011,7 @@ function CableSheaths3D({ wires, paths }: { wires: Wire[]; paths: Map<string, Wi
   if (!sheaths.length) return null
   return (
     <group name="cable-sheaths-3d" userData={{ noPick: true }}>
-      {sheaths.map((sheath) => (
-        <mesh
-          key={`cable-sheath-${sheath.id}`}
-          raycast={() => null}
-          castShadow
-          receiveShadow
-          renderOrder={19}
-        >
-          <tubeGeometry args={[sheath.curve, Math.min(180, Math.max(28, Math.round(sheath.length * 36))), sheath.radius, 12, false]} />
-          <meshPhysicalMaterial
-            color={sheath.color}
-            roughness={0.62}
-            metalness={0.02}
-            clearcoat={0.2}
-            clearcoatRoughness={0.48}
-          />
-        </mesh>
-      ))}
+      {sheaths.map((sheath) => <SheathMesh3D key={`cable-sheath-${sheath.id}`} sheath={sheath} />)}
     </group>
   )
 }

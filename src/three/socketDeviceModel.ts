@@ -167,15 +167,17 @@ function ceePlug(root:T.Group){
   box(root,d.width,d.height,d.caseDepth-8,[0,0,(back+front)/2],blue,6,'cee-plug-body')
   // Anel / flange frontal
   ring(root,26,18,4,[0,0,front-2],blue,'cee-plug-collar')
-  // Pinos macho (L, N, PE)
-  for(const [x,y,name] of [[-9,6,'pin-L'],[9,6,'pin-N'],[0,-11,'pin-PE']] as const){
+  // Pinos macho (L, N, PE). A ficha encaixa rodada 180° (a face frontal vira-se para a tomada), por
+  // isso o padrão de pinos é o espelho do da tomada: só assim cada pino cai no alvéolo do mesmo polo.
+  for(const [x,y,name] of [[9,6,'pin-L'],[-9,6,'pin-N'],[0,-11,'pin-PE']] as const){
     const pin=mesh(root,new T.CylinderGeometry(2.2,2.2,14,16),metal(),[x,y,front+7],name)
     pin.rotation.x=Math.PI/2
   }
-  // Bucim / prensa-cabos traseiro (entrada do cabo revestido)
-  const gland=new T.Group();gland.name='auto-cable-gland';gland.position.set(0,0,back+4);root.add(gland)
-  for(const [z,r,h] of [[0,14,5],[6,12,8],[13,9,6]])mesh(gland,new T.CylinderGeometry(r,r,h,20),plastic('#b5b9b1'),[0,0,z])
-  const bore=ring(gland,7,4,2,[0,0,18],'#555e52','cable-gland-bore');bore.rotation.x=Math.PI/2
+  // Bucim / prensa-cabos traseiro (entrada do cabo revestido): sai para fora do corpo, no eixo do
+  // cabo — antes ficava desenhado dentro do corpo e o cabo parecia sair da chapa traseira.
+  const gland=new T.Group();gland.name='auto-cable-gland';gland.position.set(0,0,back+8);gland.rotation.x=-Math.PI/2;root.add(gland)
+  for(const [y,r,h] of [[0,14,5],[6,12,8],[13,9,6]])mesh(gland,new T.CylinderGeometry(r,r,h,20),plastic('#b5b9b1'),[0,y,0])
+  const bore=ring(gland,7,4,2,[0,18,0],'#555e52','cable-gland-bore');bore.rotation.x=Math.PI/2
   // Bornes internos L/N/PE (lado do cabo)
   // Mesma fonte que os pontos de ligação dos cabos (socketWiringPoint): sem desvio entre malha e borne.
   for(const label of ['L','N','PE'] as const){

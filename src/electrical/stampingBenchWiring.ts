@@ -18,7 +18,7 @@ import type { BenchPlacement } from './stampingBench'
 import { BENCH_TERMINAL_STRIPS, qe1ToWorld, type Qe1Frame } from './stampingBench'
 import { createComponent } from './factory'
 import { mechatronicsSizeMm, slotPlateDimsOf } from '../three/mechatronicsModel'
-import { pneumaticComponentSizeMm } from '../three/pneumaticsModel'
+import { AIR_COMPRESSOR_CABLE_GLAND, AIR_COMPRESSOR_CABLE_GLAND_HEIGHT, pneumaticComponentSizeMm } from '../three/pneumaticsModel'
 import { COMPONENT_PHYSICAL_SIZE_MM } from '../three/modelPaths'
 import { SOCKET_DEVICES } from './socketDevices'
 
@@ -881,7 +881,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     if (cmpSock && cmpPlug && cmpPart) {
       const s2 = cmpSock
       const plug = cmpPlug
-      // Contacto de encaixe: OUT.* da tomada → L/N/PE da ficha (pinos encaixados, troço curto).
+      // Contacto de encaixe: do alvéolo da tomada ao borne interno da ficha. Com a ficha encaixada
+      // (pinos dentro do cano, colar encostado à boca) este troço fica todo no interior — não se vê.
+      // `route: 'direct'` liga os dois bornes em linha reta; o ponto intermédio é só para o editor.
       for (const [sockLab, plugLab, color, kind, dx] of [
         ['OUT.L', 'L', 'brown', 'power', -4],
         ['OUT.N', 'N', 'blue', 'neutral', 4],
@@ -897,20 +899,27 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           route: 'direct',
           locked: true,
           waypointsMm: clean([
-            pt(s2.x + dx, s2.y + (plugLab === 'PE' ? -6 : 2), s2.z + 18),
-            pt(plug.x + dx, plug.y + (plugLab === 'PE' ? -6 : 2), plug.z - 6),
+            pt(plug.x + dx, plug.y + (plugLab === 'PE' ? -11 : 6), plug.z - 12),
           ]),
         })
       }
-      // Cabo revestido 3G2,5: sai pelo bucim traseiro da ficha, desce organizado e entra no compressor.
+      // Cabo revestido 3G2,5: sai pelo bucim traseiro da ficha, desce junto à parede e entra no
+      // compressor pelo bucim de entrada (prensa-cabos) no topo da carenagem — nunca ao léu.
       // Editável / arrastável (sem locked). Condutores L/N no mesmo chicote filaçado.
       const cmpSize = sizeOfMm('airCompressor', cmpPart.state)
-      const cmpFrontZ = cmpPart.z + cmpSize.z / 2 + 18
-      const glandExit = pt(plug.x, plug.y - 8, plug.z + 42) // saída pelo bucim da ficha
-      const dropLane = plug.y - 55
+      const glandExit = pt(plug.x, plug.y, plug.z + 52) // boca do bucim traseiro da ficha
+      const entry = pt(
+        cmpPart.x + AIR_COMPRESSOR_CABLE_GLAND.x,
+        cmpPart.y + AIR_COMPRESSOR_CABLE_GLAND.y + AIR_COMPRESSOR_CABLE_GLAND_HEIGHT,
+        cmpPart.z + AIR_COMPRESSOR_CABLE_GLAND.z,
+      ) // bocal do bucim do compressor
+      const dropX = plug.x
+      const dropZ = plug.z + 62
+      // Os dois condutores vão juntos dentro da mesma bainha: o desvio entre eles tem de ser menor
+      // que o raio da capa, senão a veia azul aparece a correr por fora do cabo preto.
       for (const [label, color, kind, dx] of [
-        ['L', 'brown', 'power', -3],
-        ['N', 'blue', 'neutral', 3],
+        ['L', 'brown', 'power', -1.2],
+        ['N', 'blue', 'neutral', 1.2],
       ] as const) {
         wires.push({
           id: `mq-comp-cord-${label.toLowerCase()}`,
@@ -923,10 +932,15 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           bundleId: 'chicote-ficha-comp',
           waypointsMm: clean([
             glandExit,
-            pt(plug.x + dx, dropLane, plug.z + 55),
-            pt(cmpPart.x + dx, dropLane, cmpFrontZ),
-            pt(cmpPart.x + dx, cmpPart.y + cmpSize.y / 2 + 12, cmpFrontZ),
-            pt(cmpPart.x + dx * 0.5, cmpPart.y + cmpSize.y / 2 + 12, cmpPart.z + 40),
+            pt(dropX + dx, plug.y - 55, dropZ),
+            pt(dropX + dx, plug.y - 150, dropZ),
+            pt(dropX + 30 + dx, cmpPart.y + 430, dropZ - 4),
+            pt(cmpPart.x + AIR_COMPRESSOR_CABLE_GLAND.x + dx * 2, entry.y + 70, entry.z + 6),
+            pt(entry.x + dx * 2, entry.y + 8, entry.z),
+            // Desce pelo eixo do bucim até dentro da carenagem: só aí abre para os bornes L/N.
+            // Sem este ponto o arredondamento da curva corta a esquina e as veias passam ao lado
+            // do bucim, à vista sobre a carenagem.
+            pt(entry.x + dx * 2, entry.y - 68, entry.z),
           ]),
         })
       }
@@ -1098,7 +1112,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     const xsMaq = get('socket-bench')
     const plugMaq = get('plug-bench')
     if (ps1 && x20bus && xsMaq && plugMaq) {
-      // Contacto de encaixe XS-MAQ → F-MAQ (pinos encaixados, troço curto fixo).
+      // Contacto de encaixe XS-MAQ → F-MAQ: com a ficha encaixada o troço fica dentro do cano da
+      // tomada e do corpo da ficha. `route: 'direct'` liga os bornes em linha reta.
       for (const [sockLab, plugLab, color, kind, dx] of [
         ['OUT.L', 'L', 'brown', 'power', -4],
         ['OUT.N', 'N', 'blue', 'neutral', 4],
@@ -1114,8 +1129,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           route: 'direct',
           locked: true,
           waypointsMm: clean([
-            pt(xsMaq.x + dx, xsMaq.y + (plugLab === 'PE' ? -6 : 2), xsMaq.z + 18),
-            pt(plugMaq.x + dx, plugMaq.y + (plugLab === 'PE' ? -6 : 2), plugMaq.z - 6),
+            pt(plugMaq.x + dx, plugMaq.y + (plugLab === 'PE' ? -11 : 6), plugMaq.z - 12),
           ]),
         })
       }
@@ -1136,7 +1150,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const besideX = (pillar ? pillar.x : plugMaq.x) + 150
       // Corre por baixo do tampo (acima da travessa traseira) até ao QE1 e entra na vertical pelo bucim.
       const runY = -top - 28
-      const plugGland = pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 40)
+      const plugGland = pt(plugMaq.x, plugMaq.y, plugMaq.z + 52) // boca do bucim traseiro da ficha
       const supplyToGland = (lane: number): BenchPointMm[] => [
         // Curva larga à saída do bucim e desce abaixo da tomada (sem tocar no corpo da XS-MAQ).
         pt(plugMaq.x + lane, plugGland.y - 20, plugGland.z + 22),

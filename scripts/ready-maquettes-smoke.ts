@@ -25,6 +25,8 @@ import { industrialPillarDimsOf } from '../src/three/structuresModel'
 import { ductJunctionOpenings } from '../src/schematic/ductJunctions'
 import { enclosureCarryBox, enclosureFreeContents, translatePanelGroup } from '../src/three/panelGroupMove'
 import { enclosureDimsOf } from '../src/three/enclosureParts'
+import { stampingBenchWiring, benchTerminalPointMm } from '../src/electrical/stampingBenchWiring'
+import { AIR_COMPRESSOR_CABLE_GLAND, AIR_COMPRESSOR_CABLE_GLAND_HEIGHT } from '../src/three/pneumaticsModel'
 
 /** Quadro geral de parede (QGD) montado com a maquete completa. */
 const QGD_COUNT = stampingWallPanelContent('t-').components.length
@@ -424,6 +426,64 @@ check('9. Arrastar o QE1 leva os aparelhos e os troços de cabo que estão dentr
   assert.deepEqual(w.waypoints3D![1], pOut, 'ponto fora do quadro mantém-se')
   const x21 = moved.components.find((c) => c.ref === 'X21.1')!
   assert.ok(Math.abs(x21.panel3DPosition!.x - (byRef('X21.1').panel3DPosition!.x + 1)) < 1e-9, 'borne desloca-se com o quadro')
+})
+
+check('10. Fichas CEE encaixadas, contactos interiores e cabo do compressor pelo bucim', () => {
+  const parts = stampingBenchLayout(MAQUETTE_PLATE_STATE)
+  const byKey = new Map(parts.map((p) => [p.key, p]))
+  // As fichas F-COMP e F-MAQ nascem rodadas 180° e com a tampa azul aberta: pinos virados para a
+  // tomada, nunca para a câmara (IMG_5989).
+  for (const [sockKey, plugKey] of [['socket-compressor', 'plug-compressor'], ['socket-bench', 'plug-bench']]) {
+    const plug = byKey.get(plugKey)!
+    const sock = byKey.get(sockKey)!
+    assert.equal(plug.orientation?.y, 180, `${plugKey}: ficha rodada para a tomada`)
+    assert.equal(sock.state?.blueCoverOpen, true, `${sockKey}: tampa azul do alvéolo aberta (ficha encaixada)`)
+    assert.equal(plug.state?.glandVisible, true, `${plugKey}: bucim traseiro visível`)
+    // Cada pino da ficha cai no alvéolo da tomada, e o contacto é um troço curto INTERIOR.
+    for (const [sockLab, plugLab] of [['OUT.L', 'L'], ['OUT.N', 'N'], ['OUT.PE', 'PE']] as const) {
+      const a = benchTerminalPointMm(sock, sockLab).p
+      const b = benchTerminalPointMm(plug, plugLab).p
+      assert.ok(Math.abs(b.y - a.y) < 20, `${plugKey} ${plugLab}: à mesma cota do alvéolo`)
+      assert.ok(b.z > a.z && b.z - a.z < 80, `${plugKey} ${plugLab}: contacto curto no interior da ficha`)
+    }
+  }
+  const wires = stampingBenchWiring(parts)
+  // Contactos ficha→tomada: 1 waypoint, presos, sem cabos a cruzar a bancada.
+  for (const id of ['mq-comp-contact-l', 'mq-comp-contact-n', 'mq-comp-contact-pe', 'qe1-maq-contact-l', 'qe1-maq-contact-n', 'qe1-maq-contact-pe']) {
+    const w = wires.find((x) => x.id === id)
+    if (!w) continue
+    assert.equal(w.waypointsMm.length, 1, `${id}: um só waypoint (contacto interior)`)
+    assert.equal(w.locked, true, `${id}: contacto bloqueado`)
+  }
+  // Cabo revestido 3G2,5: sai pelo bucim traseiro da ficha, desce pela parede e entra no compressor
+  // pelo prensa-cabos do topo da carenagem — nunca ao léu, nunca em leque sobre a tampa.
+  const cmp = byKey.get('compressor')!
+  const mouth = {
+    x: cmp.x + AIR_COMPRESSOR_CABLE_GLAND.x,
+    y: cmp.y + AIR_COMPRESSOR_CABLE_GLAND.y + AIR_COMPRESSOR_CABLE_GLAND_HEIGHT,
+    z: cmp.z + AIR_COMPRESSOR_CABLE_GLAND.z,
+  }
+  for (const id of ['mq-comp-cord-l', 'mq-comp-cord-n']) {
+    const w = wires.find((x) => x.id === id)!
+    assert.equal(w.sheathed, true, `${id}: cabo revestido`)
+    assert.equal(w.bundleId, 'chicote-ficha-comp', `${id}: chicote com bainha única`)
+    const wp = w.waypointsMm
+    assert.ok(wp.length >= 6, `${id}: traçado com pontos de passagem`)
+    const atMouth = wp[wp.length - 2], inside = wp[wp.length - 1]
+    assert.ok(Math.abs(atMouth.x - mouth.x) < 3 && Math.abs(atMouth.z - mouth.z) < 3, `${id}: passa no eixo do bucim`)
+    assert.ok(atMouth.y > mouth.y && atMouth.y - mouth.y < 20, `${id}: entrada logo acima da boca`)
+    assert.ok(Math.abs(inside.x - mouth.x) < 3 && Math.abs(inside.z - mouth.z) < 3, `${id}: desce pelo eixo do bucim`)
+    assert.ok(mouth.y - inside.y > 40 && mouth.y - inside.y < 90, `${id}: abre para os bornes dentro da carenagem`)
+    // O primeiro ponto sai pelo bucim TRASEIRO da ficha (z maior que o corpo), nunca pelo lado dos pinos.
+    const plug = byKey.get('plug-compressor')!
+    assert.ok(wp[0].z > plug.z + 40, `${id}: sai pelo bucim traseiro da ficha`)
+  }
+  // A ficha F-MAQ (bancada) também entrega o cabo pelo bucim traseiro — não pelo lado dos pinos.
+  const plugMaq = byKey.get('plug-bench')!
+  for (const id of ['qe1-maq-x1-l', 'qe1-maq-x1-n']) {
+    const w = wires.find((x) => x.id === id)!
+    assert.ok(Math.abs(w.waypointsMm[0].z - (plugMaq.z + 52)) < 1.5, `${id}: sai pelo bucim traseiro da ficha`)
+  }
 })
 
 console.log(`\n${passed} verificações · Maquetes prontas OK`)

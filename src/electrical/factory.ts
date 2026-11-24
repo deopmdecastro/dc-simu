@@ -1091,8 +1091,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   airCompressor: {
     category: 'power', paletteName: 'Maxxim · Compressor de Ar 24 L · 2,0 HP', group: 'Pneumática', tag: 'CMP', w: 200, h: 140,
     terminals: [
-      T('L', 'power-in', 0.12, 0.92, { position3D: { x: 0.18, y: 0.88, z: 0.55 }, face: 'top', terminalType: 'screw', color: '#dc2626', diameter: 10 }),
-      T('N', 'neutral', 0.22, 0.92, { position3D: { x: 0.28, y: 0.88, z: 0.55 }, face: 'top', terminalType: 'screw', color: '#2563eb', diameter: 10 }),
+      // L e N alinhados com o eixo do bucim de entrada (x=0,23 → -140 mm): o cabo revestido
+      // desce verticalmente pelo prensa-cabos e as veias não abrem em leque sobre a carenagem.
+      T('L', 'power-in', 0.12, 0.92, { position3D: { x: 0.23, y: 0.88, z: 0.55 }, face: 'top', terminalType: 'screw', color: '#dc2626', diameter: 10 }),
+      T('N', 'neutral', 0.22, 0.92, { position3D: { x: 0.23, y: 0.88, z: 0.55 }, face: 'top', terminalType: 'screw', color: '#2563eb', diameter: 10 }),
       T('OUT', 'pneumatic-out', 0.92, 0.55, { position3D: { x: 0.96, y: 0.62, z: 0.55 }, face: 'right', terminalType: 'plug', color: '#38bdf8', diameter: 12 }),
       T('IN', 'pneumatic-in', 0.08, 0.55, { position3D: { x: 0.08, y: 0.72, z: 0.35 }, face: 'left', terminalType: 'plug', color: '#64748b', diameter: 10 }),
     ],
