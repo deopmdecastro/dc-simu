@@ -13,7 +13,7 @@ import { pneumaticComponentSizeMm } from '../three/pneumaticsModel'
 /**
  * Adaptação fotográfica da maquete ATEC / Guião 1185 sobre uma base ranhurada paramétrica,
  * derivada da cinemática do manipulador: recolha a 0° (frente-esquerda), gaveta/prensa a 180° (trás)
- * e rampas em inox a 270°/300°/240° (direita: BRANCA, PRETA, METALICA).
+ * e três rampas em inox iguais e paralelas a 240°/270°/300° (METALICA junto à HMI, PRETA, BRANCA).
  *
  * Inclui:
  * - Calhas ranhuradas perimetrais, coluna luminosa, ilhas Festo, sensores, HMI KTP700, pupitre
@@ -56,8 +56,12 @@ export function qe1ToWorld(frame: Qe1Frame, p: { x: number; y: number; z: number
 /** Eixo da torre do manipulador na base. */
 export const BENCH_ARM_AXIS = { x: -66, z: 5 } as const
 export const BENCH_RAMP_ANGLES = [270, 300, 240] as const
-/** Comprimento de cada rampa (METALICA, PRETA, BRANCA): terminam antes da calha lateral e da HMI. */
-export const BENCH_RAMP_LENGTHS_MM = [170, 180, 140] as const
+/**
+ * Rampas iguais (como as três calhas de inox da maquete real): mesmo comprimento e mesmo pilar,
+ * terminam antes do bastidor da HMI (a de METALICA fica ao lado dela).
+ */
+export const BENCH_RAMP_LENGTHS_MM = [150, 150, 150] as const
+export const BENCH_RAMP_PILLAR_MM = 105
 /**
  * Fim de curso de gaveta: corpo rodado −90° em Y (rolete para −Z), 18 mm acima do assento do
  * tarugo e 41 mm à frente do centro do alojamento — o rolete toca no tarugo Ø40.
@@ -182,7 +186,10 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     // Manipulador rotativo BR1 (Cilindro 2 · B6/B7) + Motorredutor M1 com par cónico e encoder RT3806
     // Batentes 180°–360°: recolha → rampas → gaveta sem passar pelo lado do alimentador e da prensa.
     { key: 'arm', type: 'mecRotaryArm', x: A.x, y: top + h('mecRotaryArm') / 2, z: A.z, state: { rotationStops: [180, 360] } },
-    { key: 'motor', type: 'mecDcGearmotor', x: A.x - MEC_DIMS.gearmotor.wheelDiameterMm / 2 - mechatronicsSizeMm('mecDcGearmotor')!.x / 2 + 6, y: top + h('mecDcGearmotor') / 2, z: A.z, orientation: { x: 0, y: 90, z: 0 } },
+    // Motor M1 deitado com o eixo apontado ao eixo do braço (como na maquete real): o pinhão cónico
+    // (+X do modelo) engrena na roda cónica da torre. Antes estava rodado 90° em Y e o pinhão apontava
+    // para a traseira, longe da roda.
+    { key: 'motor', type: 'mecDcGearmotor', x: A.x - MEC_DIMS.gearmotor.wheelDiameterMm / 2 - mechatronicsSizeMm('mecDcGearmotor')!.x / 2 + 6, y: top + h('mecDcGearmotor') / 2, z: A.z },
 
     // Estação de estampagem, orientada como o alimentador (movimento em X):
     // o braço deposita na gaveta FC 2 a 180°; o Cilindro 3 (à direita, haste para −X) empurra a gaveta
@@ -418,17 +425,20 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
     }
   }
 
-  // 3 Rampas de descarga em inox (BRANCA, PRETA, METALICA) sobre pilares de perfil 30 × 30
-  // Espaçamento uniforme = 30° no arco do braço (BENCH_RAMP_ANGLES 240/270/300). Cada rampa fica
-  // com a boca na vertical da ventosa no seu ângulo: deslocar em x/z (ex.: ±20 mm) tira a peça do
-  // canal e a descarga por gravidade deixa de acontecer (rampBelowWorkpiece, test:mechatronics).
-  const rampPillars = [110, 95, 80]
-  const rampLabels = ['METALICA', 'PRETA', 'BRANCA']
+  // 3 Rampas de descarga em inox (METALICA, PRETA, BRANCA), como na maquete real: TRÊS RAMPAS IGUAIS,
+  // PARALELAS e LADO A LADO, com as bocas alinhadas na mesma linha e a mesma inclinação. A ordem é a
+  // da fotografia: METALICA junto à HMI, PRETA ao meio, BRANCA do lado da frente.
+  // A boca de cada rampa continua por baixo da ventosa no seu ângulo (240/270/300°): a peça cai no
+  // canal e escorrega (`rampBelowWorkpiece`, test:mechatronics). As bocas alinham-se pela rampa
+  // cujo ponto de queda está mais perto do braço; as outras recebem a peça um pouco mais abaixo.
+  const RAMP_LABELS: Record<number, string> = { 240: 'METALICA', 270: 'PRETA', 300: 'BRANCA' }
+  const rampState = { pillarMm: BENCH_RAMP_PILLAR_MM, lengthMm: BENCH_RAMP_LENGTHS_MM[0] }
+  const rampSize = mechatronicsSizeMm('mecDischargeRamp', rampState)!
+  const mouthX = Math.min(...BENCH_RAMP_ANGLES.map((deg) => at(deg).x)) - 22
   BENCH_RAMP_ANGLES.forEach((deg, i) => {
     const drop = at(deg)
-    const state = { pillarMm: rampPillars[i], rampLabel: rampLabels[i], lengthMm: BENCH_RAMP_LENGTHS_MM[i] }
-    const size = mechatronicsSizeMm('mecDischargeRamp', state)!
-    list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: drop.x + size.x / 2 - 22, y: top + size.y / 2, z: drop.z, state })
+    const state = { ...rampState, rampLabel: RAMP_LABELS[deg] }
+    list.push({ key: `ramp${i + 1}`, type: 'mecDischargeRamp', x: mouthX + rampSize.x / 2, y: top + rampSize.y / 2, z: drop.z, state })
   })
 
   // ---------------------------------------------------------------------------

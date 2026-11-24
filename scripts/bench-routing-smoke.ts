@@ -211,4 +211,21 @@ for (const k of ['tray-drop-compressor', 'tray-drop-bench']) {
   ok(wires.some((w) => /^qe1-supply-cabinet-plc-di-M/.test(w.id)) && !wires.some((w) => /^qe1-supply-cabinet-plc-di-Lp/.test(w.id)), 'SM321: só 1M ligado a 0 V (sem L+)')
 }
 
+// 11. Composição da maquete (fotografias): rampas iguais, paralelas, alinhadas e por ordem; motor M1
+//     com o pinhão apontado ao eixo do braço.
+{
+  const ramps = ['ramp1', 'ramp2', 'ramp3'].map(part)
+  ok(new Set(ramps.map((r) => `${r.state?.lengthMm}|${r.state?.pillarMm}|${Math.round(r.x)}|${Math.round(r.y)}`)).size === 1 && ramps.every((r) => !r.orientation),
+    'Rampas iguais e paralelas, com as bocas alinhadas na mesma linha e à mesma altura')
+  const byZ = ramps.slice().sort((a, b) => a.z - b.z).map((r) => r.state?.rampLabel)
+  ok(byZ.join() === 'METALICA,PRETA,BRANCA', `Ordem das rampas a partir da HMI: ${byZ.join(' · ')}`)
+  const zs = ramps.map((r) => r.z).sort((a, b) => a - b)
+  ok(zs[1] - zs[0] >= 58 + 20 && zs[2] - zs[1] >= 58 + 20, 'Rampas lado a lado sem se tocarem (≥ 20 mm entre abas)')
+  const hmi = part('hmi')
+  const rampEnd = ramps[0].x + 161 / 2
+  ok(rampEnd < hmi.x - 43, 'Rampa METALICA termina antes do bastidor da HMI')
+  const motor = part('motor'), arm = part('arm')
+  ok(!motor.orientation && Math.abs(motor.z - arm.z) < 1 && motor.x < arm.x, 'Motor M1 deitado, com o eixo apontado ao eixo do braço (pinhão na roda cónica)')
+}
+
 console.log(`\n${checks} verificações · encaminhamento esteiras/QE1 OK`)
