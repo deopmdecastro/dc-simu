@@ -3046,10 +3046,18 @@ function snapCoreToJacket(points: V3[], jacket: CableJacket3D, maxLateral: numbe
   const total = jacket.cum[jacket.cum.length - 1]
   const out: V3[] = []
   let sPrev = 0
+  // Pontos para lá das pontas da bainha (veias nuas dentro do quadro / da tomada): ficam onde
+  // estão. Antes eram todos puxados para a ponta da bainha e a veia ia do bucim ao borne numa
+  // diagonal pelo meio do quadro (≈ 30 cm no cabo da ficha → X1 do QE1).
+  const endTol = Math.max(1e-4, total * 1e-3)
+  const free: boolean[] = []
   for (let i = 0; i < points.length; i += 1) {
     const p = points[i]
     const { point: q, s } = nearestOnJacket(jacket, p)
     const d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])
+    const beyond = d > maxLateral && (s <= endTol || s >= total - endTol)
+    free.push(beyond)
+    if (beyond) { out.push(p); continue }
     if (d <= maxLateral) { out.push(p); sPrev = Math.max(sPrev, s); continue }
     const ss = Math.min(total, Math.max(s, sPrev))
     sPrev = ss
@@ -3063,7 +3071,7 @@ function snapCoreToJacket(points: V3[], jacket: CableJacket3D, maxLateral: numbe
   out[out.length - 1] = points[points.length - 1]
   // Suaviza para não ficarem cotovelos onde o aperto entra e sai.
   const smooth = out.map((q, i) => {
-    if (i === 0 || i === out.length - 1) return q
+    if (i === 0 || i === out.length - 1 || free[i]) return q
     const a = out[i - 1], b = out[i + 1]
     return [0.25 * a[0] + 0.5 * q[0] + 0.25 * b[0], 0.25 * a[1] + 0.5 * q[1] + 0.25 * b[1], 0.25 * a[2] + 0.5 * q[2] + 0.25 * b[2]] as V3
   })

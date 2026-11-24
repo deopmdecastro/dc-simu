@@ -250,6 +250,7 @@
     "test:labels-all-ui": "node scripts/run-suites.mjs --jobs 1 test:labels-ui test:labels-3d-ui test:stickers-custom-ui",
     "test:timer-inspector-ui": "node scripts/timer-inspector-ui-smoke.mjs",
     "test:inspectors-all-ui": "node scripts/run-suites.mjs test:inspector-all-elements test:inspector-interactions test:inspector-iec test:inspector-admin test:inspector-layout test:enclosure-holes-ui test:timer-inspector-ui test:inspector-hooks-ui test:device-controls-gating-ui test:inspector-ui",
+    "test:bench-routing": "tsx scripts/bench-routing-smoke.ts",
     "test:sockets": "tsx scripts/socket-devices-smoke.ts",
     "test:sockets-ui": "node scripts/socket-devices-ui-smoke.mjs",
     "test:maquetes-build": "node scripts/maquettes-build-smoke.mjs",

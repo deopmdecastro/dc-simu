@@ -1026,6 +1026,14 @@ export function wireBodyPoints3D(
   if (smooth && controls.length > 2) {
     // Tubos fluidos: mais amostras + tensão suave → sem vincos nas curvas
     const fluid = wire.kind === 'hydraulic' || wire.kind === 'pneumatic'
+    // Tubo encaminhado em esteira/calha (troços manuais alinhados com os eixos): a spline global
+    // cortava as esquinas com raios de vários decímetros — numa junção em T o tubo atravessava a
+    // esteira na diagonal e chegava a sair dela. Aqui cada canto leva um arco de raio fixo (raio de
+    // curvatura mínimo do PU ≈ 6–7 × Ø) e os troços retos ficam retos, na pista da esteira.
+    if (fluid && manual.length > 0 && isAxisRouted(manual)) {
+      const bent = roundCorners(dedupeControls(controls), outerMm, 6.5)
+      return keepInFrontOfPlate(smoothSharpCorners(bent, outerMm * 1.1, 0.12), outerMm)
+    }
     const tension = fluid ? 0.35 : 0.22
     const samples = fluid ? Math.max(96, controls.length * 40) : Math.max(64, controls.length * 28)
     const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', tension)
@@ -1404,6 +1412,33 @@ function computeBasePlan(
 }
 
 /** Cantos em arco de círculo suave (mais subdivisões) sem vincos poligonais nem “partir”. */
+/**
+ * Percurso «de esteira»: a maioria do comprimento corre paralela a um eixo (X, Y ou Z). É o caso
+ * dos tubos e cabos encaminhados por esteiras/calhas; um tubo desenhado à mão em curva livre não é.
+ */
+export function isAxisRouted(points: V3[]): boolean {
+  let total = 0, aligned = 0
+  for (let i = 1; i < points.length; i++) {
+    const d = [points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1], points[i][2] - points[i - 1][2]]
+    const len = Math.hypot(d[0], d[1], d[2])
+    if (len < 1e-6) continue
+    total += len
+    if (Math.max(Math.abs(d[0]), Math.abs(d[1]), Math.abs(d[2])) / len > 0.985) aligned += len
+  }
+  return total > 0 && aligned / total > 0.85
+}
+
+/** Remove pontos repetidos e recuos (A→B→A) que fariam o arco inverter. */
+function dedupeControls(points: V3[]): V3[] {
+  const out: V3[] = []
+  for (const p of points) {
+    const last = out[out.length - 1]
+    if (last && Math.hypot(p[0] - last[0], p[1] - last[1], p[2] - last[2]) < 1e-4) continue
+    out.push(p)
+  }
+  return out
+}
+
 export function roundCorners(points: V3[], outerMm: number, radiusFactor = 5.6): V3[] {
   if (points.length < 3) return points
   // Raio mínimo industrial generoso: evita cotovelos em «V» e ponteiras desalinhadas.
