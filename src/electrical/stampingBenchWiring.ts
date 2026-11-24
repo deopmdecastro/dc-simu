@@ -376,7 +376,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         const pts = [
           // O troço DENTRO do QGD (borne → calha → bucim) é desenhado pelo `wallPanelExitRoute`
           // no store, a partir deste primeiro ponto: por isso aqui só se dá o bucim.
-          pt(lx, panelTop - 40, glandZ),
+          // Logo abaixo do tecto do QGD (−4 mm), na vertical do bucim: o troço interior chega aqui à
+          // cota da calha do topo e o cabo sobe SEMPRE (sem descer e voltar a subir sob o bucim).
+          pt(lx, panelTop - 4, glandZ),
           // Do bucim para dentro da subida e sobe por ela. Sai do bucim em LINHA RETA no eixo
           // durante ~70 mm (a bainha termina na boca do bucim e as veias têm de sair por ela, não
           // a curvar já dentro do quadro) e só depois vira para o eixo da subida.
@@ -386,7 +388,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           pt(laneX, trayFloorY, wallTray.z + aerialLaneDz + dk),
           ...run(dk, lx),
           // Ponta da descida → aproximação vertical ao eixo do bucim superior da tomada → boca → bornes.
-          pt(s.x + dk * 0.6, g.y + 90, g.z),
+          // Ainda dentro da descida, à cota de aproximação (+130 mm, ≈ 4 × Ø do cabo de curva + troço reto), passa da pista para a vertical
+          // do bucim e desce A DIREITO para a boca: antes descia ao fundo da descida, voltava a subir
+          // 55 mm e entrava no bucim de esguelha.
+          pt(s.x + dk * 0.6, g.y + 130, g.z),
           pt(s.x + dk * 0.6, g.y + 22, g.z),
           // Descem JUNTAS pelo eixo do bucim até 45 mm dentro da caixa: só abrem para os bornes
           // L/N/PE no interior da tomada (antes abriam já acima do bucim e a veia PE saía da bainha).
@@ -425,7 +430,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       feed('mq-3g25-maquete', '3G2,5 H07RN-F · QGD X1.3/X1.5 → TOMADA MAQUETE', 60, TRAY_LANES.wallMaquete, (dk) => [
         pt(laneX + dk, trayFloorY, wallTray.z + TRAY_LANES.wallMaquete + dk),
         pt(laneX + dk, trayFloorY, dropFloorZ),
-        pt(laneX + dk, dropBottom + 15, dropFloorZ),
+        pt(laneX + dk, Math.max(dropBottom + 15, socketGland(get('socket-bench')!).y + 130), dropFloorZ),
       ], 'socket-bench', { L: 'X1.3', N: 'X1.5', PE: ['PE_BAR', 'PE6'] })
     }
     // Compressor: esteira aérea (lado da parede) → pescoço do compressor → descida na parede → XS-COMP.
@@ -438,7 +443,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       feed('mq-3g25-compressor', '3G2,5 H07RN-F · QGD X1.6/X1.7 → TOMADA COMPRESSOR', -60, TRAY_LANES.wallCompressor, (dk) => [
         pt(laneX + dk, trayFloorY, wallTray.z + TRAY_LANES.wallCompressor + dk),
         pt(laneX + dk, trayFloorY, dropFloorZ),
-        pt(laneX + dk, dropBottom + 15, dropFloorZ),
+        pt(laneX + dk, Math.max(dropBottom + 15, socketGland(get('socket-compressor')!).y + 130), dropFloorZ),
       ], 'socket-compressor', { L: 'X1.6', N: 'X1.7', PE: ['PE_BAR', 'PE7'] })
     }
   }

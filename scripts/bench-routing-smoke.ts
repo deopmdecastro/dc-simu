@@ -90,4 +90,30 @@ const plugCable = bundleOf('qe1-maq-x1-')
 ok(plugCable.size === 1 && !bundleOf('qe1-supply-').has([...plugCable][0]) && !bundleOf('qe1-ps1-out-').has([...plugCable][0]),
   'Cabo da ficha F-MAQ → X1 com bundle exclusivo (não puxa X20 → S7-300 nem PS1 → X20 para o seu eixo)')
 
+// 6. Cabo 3G2,5 QGD → tomadas: L, N e PE num só cabo, a sair pelo bucim do QGD e a entrar pelo bucim
+//    (bico) da tomada a direito, sem gancho (descer e voltar a subir).
+for (const cable of ['mq-3g25-maquete', 'mq-3g25-compressor']) {
+  const cores = ['l', 'n', 'pe'].map((c) => wire(`${cable}-${c}`))
+  ok(new Set(cores.map((w) => w.bundleId)).size === 1 && cores.every((w) => w.sheathed && w.conductorCount === 3),
+    `${cable}: L, N e PE no mesmo cabo revestido 3G (um bundle, bainha comum)`)
+  ok(cores.every((w) => 'ref' in w.from) && cores[2].to.label === 'PE' && cores[2].color === 'green-yellow',
+    `${cable}: terra verde-amarela da barra PE do QGD ao borne PE da tomada`)
+  for (const w of cores) {
+    const pts = w.waypointsMm
+    const firstUp = pts.findIndex((p, i) => i > 0 && p.y < pts[i - 1].y - 1)
+    ok(firstUp > 0 && pts.slice(0, firstUp).every((p, i) => i === 0 || p.y >= pts[i - 1].y - 0.01),
+      `${w.id}: sai do QGD sempre a subir pelo bucim (sem gancho por baixo dele)`)
+    const tail = pts.slice(-4)
+    ok(tail.every((p) => Math.abs(p.x - tail[0].x) < 0.01 && Math.abs(p.z - tail[0].z) < 0.01) && tail.every((p, i) => i === 0 || p.y < tail[i - 1].y),
+      `${w.id}: entra na tomada a descer a direito pelo eixo do bucim`)
+    const s = w.sheathToMm!
+    ok(Math.abs(s.x - tail[0].x) < 0.01 && Math.abs(s.z - tail[0].z) < 0.01 && s.y < tail[0].y && s.y > tail[tail.length - 1].y,
+      `${w.id}: bainha termina na boca do bucim da tomada, no eixo das veias`)
+    const fromDrop = pts.findIndex((p) => p.y < 1400 && p.z > wall.z + 200 || (cable.endsWith('compressor') && p.y < 1400 && p.x < -1000))
+    const after = pts.slice(Math.max(1, fromDrop))
+    ok(fromDrop > 0 && after.every((p, i) => i === 0 || p.y <= after[i - 1].y + 0.01),
+      `${w.id}: da esteira à tomada só desce (sem voltar a subir antes do bucim)`)
+  }
+}
+
 console.log(`\n${checks} verificações · encaminhamento esteiras/QE1 OK`)

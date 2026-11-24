@@ -3171,7 +3171,11 @@ export const useSimStore = create<Store>((set, get) => {
             // corre na calha do topo até ele e sai na vertical (antes saía na vertical do borne a z = 0
             // e ligava em diagonal ao bucim, fora do furo).
             void tOwner
-            const glandQgd = { x: points[0].x, y: tp.y + componentHalfExtents(topDuct).y + 0.12, z: points[0].z }
+            // `wallPanelExitRoute` acaba em `gland.y − 0.15`: com +0.27 o último troço interior fica À
+            // MESMA cota da saída da calha do topo (só avança em profundidade até à vertical do bucim)
+            // e daí sobe direto pelo bucim. Antes descia 15 cm e voltava a subir por baixo do bucim
+            // (gancho) e a veia PE, arredondada à parte, saía por cima da caixa ao lado do bucim.
+            const glandQgd = { x: points[0].x, y: tp.y + componentHalfExtents(topDuct).y + 0.27, z: points[0].z }
             const inner = wallPanelExitRoute(wallPanel.components, owner, glandQgd, lane)
             if (inner.length) {
               // Transpõe para o sistema da bancada: o bucim tem de cair no 1.º ponto do troço da

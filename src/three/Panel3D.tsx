@@ -2414,7 +2414,13 @@ function cachedWireGeometry(
   const path = prebuiltPath ?? buildWirePath3D(wire, from, to, obstacles)
   const points = path.points
   const curve = cableCurve3D(points, wire.route === 'arc')
-  const baseSegments = Math.min(180, Math.max(24, Math.round(points.length * 1.25 * tubularScale)))
+  // Veia de cabo multicore (dentro de uma bainha): a mesma resolução da bainha (~10 mm). Com 180
+  // segmentos num cabo de metros o tubo da veia cortava as curvas por corda e saía pelo lado de
+  // dentro da capa (a terra verde-amarela via-se nas curvas das esteiras).
+  const coreOfCable = wire.sheathed && !!wire.bundleId && (wire.conductorCount ?? 1) > 1
+  const baseSegments = coreOfCable
+    ? Math.min(1200, Math.max(24, Math.round(points.length * 1.25 * tubularScale), Math.round(curve.getLength() / 0.1)))
+    : Math.min(180, Math.max(24, Math.round(points.length * 1.25 * tubularScale)))
   const validCurve = points.length >= 2
   const tubeGeo = validCurve ? new THREE.TubeGeometry(curve, baseSegments, radius, radialSegs, false) : null
   const hitGeo = validCurve ? new THREE.TubeGeometry(curve, Math.min(44, Math.max(14, Math.round(baseSegments * 0.38))), Math.max(0.055, radius * 4.2), 5, false) : null
@@ -2611,13 +2617,17 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
   useMemo(() => {
     cableJackets.clear()
     for (const sheath of cableSheaths) {
+      // Eixo do aperto = a MESMA curva do tubo da bainha, amostrada como os anéis (~10 mm). A
+      // polilinha média (96 amostras, ~6 cm num cabo de metros) afastava-se da curva nas mudanças de
+      // pista e as veias ficavam 4–5 mm fora do eixo — a terra via-se ao lado da bainha na esteira.
+      const axis: V3[] = sheath.curve.getSpacedPoints(Math.max(2, sheath.stations)).map((v) => [v.x, v.y, v.z] as V3)
       const cum: number[] = [0]
-      for (let i = 1; i < sheath.points.length; i += 1) {
-        const a = sheath.points[i - 1], b = sheath.points[i]
+      for (let i = 1; i < axis.length; i += 1) {
+        const a = axis[i - 1], b = axis[i]
         cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]))
       }
       const maxCoreRadius = Math.max(...wires.filter((w) => w.bundleId === sheath.id).map((w) => (coreDiameterMm(w) * PANEL_UNITS_PER_MM) / 2), 0.012)
-      cableJackets.set(sheath.id, { curve: sheath.curve as THREE.CatmullRomCurve3, cum, points: sheath.points, maxCoreRadius })
+      cableJackets.set(sheath.id, { curve: sheath.curve as THREE.CatmullRomCurve3, cum, points: axis, maxCoreRadius })
     }
   }, [cableSheaths, wires])
 
@@ -3041,27 +3051,54 @@ function nearestOnJacket(j: CableJacket3D, p: V3): { point: V3; s: number } {
  * empurrado ao longo dele de forma monotónica. Os dois extremos mantêm-se (a veia continua a chegar
  * ao borne e à boca do bucim) — é assim num cabo real, onde a bainha é cortada e os fios se abrem.
  */
-function snapCoreToJacket(points: V3[], jacket: CableJacket3D, maxLateral: number): V3[] {
-  if (points.length < 2) return points
+function snapCoreToJacket(rawPoints: V3[], jacket: CableJacket3D, maxLateral: number): V3[] {
+  if (rawPoints.length < 2) return rawPoints
+  // O traçado do encaminhador tem vértices só nos cantos: um troço reto de vários cm entre dois
+  // vértices apertados atravessava as curvas em «S» da bainha e a veia aparecia por fora. Antes de
+  // apertar, a veia é subdividida ao passo dos anéis da bainha (~10 mm).
+  const step = 0.1
+  const points: V3[] = [rawPoints[0]]
+  for (let i = 1; i < rawPoints.length; i += 1) {
+    const a = rawPoints[i - 1], b = rawPoints[i]
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / step))
+    for (let k = 1; k <= n; k += 1) points.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n, a[2] + ((b[2] - a[2]) * k) / n])
+  }
   const total = jacket.cum[jacket.cum.length - 1]
   const out: V3[] = []
   let sPrev = 0
-  // Pontos para lá das pontas da bainha (veias nuas dentro do quadro / da tomada): ficam onde
-  // estão. Antes eram todos puxados para a ponta da bainha e a veia ia do bucim ao borne numa
-  // diagonal pelo meio do quadro (≈ 30 cm no cabo da ficha → X1 do QE1).
-  const endTol = Math.max(1e-4, total * 1e-3)
+  // Troço revestido da veia = entre os seus pontos mais próximos das DUAS bocas da bainha (bucim de
+  // saída e bucim de entrada). Fora dele a veia está nua dentro do quadro / da tomada e fica no seu
+  // percurso: puxá-la para a ponta da bainha fazia uma diagonal bucim → borne pelo meio do quadro.
+  // Dentro dele TODOS os pontos são apertados ao eixo — antes os pontos logo a seguir ao bucim, que
+  // projetavam na ponta da bainha, eram tratados como nus e a terra (PE) corria por fora do cabo.
+  const mouthA = jacket.points[0], mouthB = jacket.points[jacket.points.length - 1]
+  const nearestIndex = (m: V3) => {
+    let best = 0, bestD = Infinity
+    points.forEach((p, i) => {
+      const d = (p[0] - m[0]) ** 2 + (p[1] - m[1]) ** 2 + (p[2] - m[2]) ** 2
+      if (d < bestD) { bestD = d; best = i }
+    })
+    return best
+  }
+  let iStart = nearestIndex(mouthA), iEnd = nearestIndex(mouthB)
+  if (iEnd < iStart) [iStart, iEnd] = [iEnd, iStart]
   const free: boolean[] = []
   for (let i = 0; i < points.length; i += 1) {
     const p = points[i]
-    const { point: q, s } = nearestOnJacket(jacket, p)
-    const d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])
-    const beyond = d > maxLateral && (s <= endTol || s >= total - endTol)
+    const beyond = i < iStart || i > iEnd
     free.push(beyond)
     if (beyond) { out.push(p); continue }
+    const { point: q, s } = nearestOnJacket(jacket, p)
+    const d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])
     if (d <= maxLateral) { out.push(p); sPrev = Math.max(sPrev, s); continue }
     const ss = Math.min(total, Math.max(s, sPrev))
     sPrev = ss
-    const target = jacket.curve.getPointAt(total > 1e-9 ? ss / total : 0)
+    // Ponto do eixo à estação `ss`, na polilinha densa do eixo (mesma parametrização que `s`).
+    let ki = 1
+    while (ki < jacket.cum.length - 1 && jacket.cum[ki] < ss) ki += 1
+    const c0 = jacket.cum[ki - 1], c1 = jacket.cum[ki], pa = jacket.points[ki - 1], pb = jacket.points[ki]
+    const f = c1 - c0 > 1e-12 ? (ss - c0) / (c1 - c0) : 0
+    const target = { x: pa[0] + (pb[0] - pa[0]) * f, y: pa[1] + (pb[1] - pa[1]) * f, z: pa[2] + (pb[2] - pa[2]) * f }
     const dir: V3 = [p[0] - q[0], p[1] - q[1], p[2] - q[2]]
     const len = Math.max(1e-9, Math.hypot(dir[0], dir[1], dir[2]))
     const k = Math.min(maxLateral, len)
@@ -3222,7 +3259,10 @@ function buildCableSheaths(wires: Wire[], paths: Map<string, WirePath3D> | null 
     const maxCoreRadius = Math.max(...members.map((w) =>
       (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount ?? 1, sheathed: w.sheathed }) * PANEL_UNITS_PER_MM) / 2))
     const length = curve.getLength()
-    const stations = Math.min(180, Math.max(28, Math.round(length * 36)))
+    // Um anel a cada ~10 mm (máx. 1200): com o teto antigo de 180 anéis um cabo de vários metros tinha
+    // anéis a 5–6 cm e o tubo da bainha ligava-os por cordas — nas curvas a capa cortava a esquina e
+    // as veias L/N/PE (que seguem a curva verdadeira) apareciam por fora do cabo.
+    const stations = Math.min(1200, Math.max(28, Math.round(length * 36), Math.round(length / 0.1)))
     // Raio variável ao longo da capa: em cada estação a capa tem de conter TODAS as veias
     // (desvio máximo em relação à linha média). Onde o chicote abre — curvas e, sobretudo, a
     // entrada nos bornes — a capa alarga; no cabimento fica no diâmetro nominal do cabo.
@@ -3268,7 +3308,7 @@ function buildCableSheaths(wires: Wire[], paths: Map<string, WirePath3D> | null 
     }
     // Suaviza o perfil do raio (média móvel) para a capa não ficar com "nós" ao longo do cabo.
     const rawDevs = radii.slice()
-    const half = 5
+    const half = Math.max(5, Math.round((stations * 5) / 180)) // mesma janela em comprimento que com 180 anéis
     for (let s = 0; s <= stations; s += 1) {
       let sum = 0, n = 0
       for (let k = Math.max(0, s - half); k <= Math.min(stations, s + half); k += 1) { sum += rawDevs[k]; n += 1 }
