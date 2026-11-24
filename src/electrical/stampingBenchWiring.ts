@@ -54,6 +54,12 @@ export interface BenchWireSpec {
   sheathColor?: string
   /** Nº de condutores do cabo (3 = L+N+PE). */
   conductorCount?: number
+  /**
+   * Extremidades da bainha (mm da bancada): a capa começa na boca do bucim de onde o cabo sai e
+   * termina na entrada do aparelho. Fora desse troço os condutores ficam nus.
+   */
+  sheathFromMm?: BenchPointMm
+  sheathToMm?: BenchPointMm
   /** Traçado 3D: `arc` para tubos com curvas; por omissão manhattan. */
   route?: 'manhattan' | 'arc' | 'direct'
   /** `false` = arrastável no 3D (tubos de ar editáveis). */
@@ -137,6 +143,8 @@ const SENSOR_CABLE_KEYS = new Set(['feeder', 'drawerCylinder', 'press', 'arm', '
 
 const SIDE_H = 60 // abas das esteiras perfuradas
 const R_FLOOR = 4.5 // fundo (2,5 mm) + raio do condutor 2,5 mm² flexível
+/** Pista do tubo de ar dentro da esteira, em mm, encostada ao lado oposto ao dos cabos 3G2,5. */
+const AIR_LANE_DZ = 70
 
 function sizeOfMm(type: ComponentType, state?: Record<string, unknown>): BenchPointMm {
   const mec = mechatronicsSizeMm(type, state)
@@ -339,26 +347,34 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         { core: 'PE', color: 'green-yellow', kind: 'earth', from: { ref: refs.PE[0], label: refs.PE[1] } },
       ]
       cores.forEach(({ core, color, kind, from }, k) => {
-        const dk = (k - 1) * 4
+        // As três veias vão JUNTAS, como num cabo 3G2,5 real (±3,6 mm no máximo): com pistas de
+        // ±6 mm a bainha do cabo tinha de ter 19 mm de diâmetro para as cobrir.
+        const dk = (k - 1) * 2.4
         // O bucim de saída do QGD é o TOPO da subida: os condutores têm de sair na vertical dela,
         // senão o cabo aparece a atravessar o ar entre o quadro e a esteira.
         // Bucim M25 declarado no topo do QGD (`qgd-out-bench` +60 mm / `qgd-out-compressor` −60 mm).
         const lx = riserAxisX + glandDx + dk * 1.5
-        // Pista dentro da subida (200 mm de largura): os três condutores separados, nunca sobrepostos.
+        // Pista dentro da subida (200 mm de largura): o cabo no eixo, as veias encostadas.
         const laneX = riserAxisX + dk * 1.5
         const pts = [
           // O troço DENTRO do QGD (borne → calha → bucim) é desenhado pelo `wallPanelExitRoute`
           // no store, a partir deste primeiro ponto: por isso aqui só se dá o bucim.
           pt(lx, panelTop - 40, glandZ),
-          // Do bucim para dentro da subida e sobe por ela.
-          pt(lx, panelTop + 20, glandZ),
-          pt(laneX, panelTop + 60, riserAxisZ),
+          // Do bucim para dentro da subida e sobe por ela. Sai do bucim em LINHA RETA no eixo
+          // durante ~70 mm (a bainha termina na boca do bucim e as veias têm de sair por ela, não
+          // a curvar já dentro do quadro) e só depois vira para o eixo da subida.
+          pt(lx, panelTop + 70, glandZ),
+          pt(laneX, panelTop + 150, riserAxisZ),
           pt(laneX, trayFloorY, riserAxisZ),
           pt(laneX, trayFloorY, wallTray.z + aerialLaneDz + dk),
           ...run(dk, lx),
-          // Ponta da descida → folga de 20 mm → bucim superior da tomada → bornes.
+          // Ponta da descida → aproximação vertical ao eixo do bucim superior da tomada → boca → bornes.
+          pt(s.x + dk * 0.6, g.y + 90, g.z),
           pt(s.x + dk * 0.6, g.y + 22, g.z),
+          // Descem JUNTAS pelo eixo do bucim até 45 mm dentro da caixa: só abrem para os bornes
+          // L/N/PE no interior da tomada (antes abriam já acima do bucim e a veia PE saía da bainha).
           pt(s.x + dk * 0.6, g.y - 8, g.z),
+          pt(s.x + dk * 0.6, g.y - 45, g.z),
         ]
         wires.push({
           id: `${name}-${core.toLowerCase()}`,
@@ -370,6 +386,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           // 3G2,5 H07RN-F é um CABO: os três condutores vão dentro de uma bainha preta, não
           // soltos. A bainha é a mesma nos três (mesmo bundle) e o 3D desenha-a por cima.
           sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
+          // A bainha vai do bucim M25 do topo do QGD ao bucim automático da tomada: dentro do
+          // quadro e dentro da tomada os condutores ficam nus (como num H07RN-F real). As duas
+          // pontas ficam ~6 mm dentro da boca do bucim, para o corte da capa morrer dentro dele.
+          sheathFromMm: pt(riserAxisX + glandDx, panelTop + 3, glandZ),
+          sheathToMm: pt(s.x + dk * 0.6, g.y + 21, g.z),
           waypointsMm: clean(pts),
           bundleId: `chicote-${name}`,
         })
@@ -383,8 +404,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const dropFloorZ = dropBench.z - SIDE_H / 2 + R_FLOOR
       const dropBottom = dropBench.y - Number(dropBench.state?.lengthMm) / 2
       const laneX = toBench.x + 25
+      // O tubo de ar tem pista própria encostada ao lado da nave da esteira (ver `ar-cmp-frl`):
+      // os cabos 3G2,5 correm na metade da parede, longe do tubo.
       feed('mq-3g25-maquete', '3G2,5 H07RN-F · QGD X1.3/X1.5 → TOMADA MAQUETE', 60, 45, (dk) => [
-        pt(laneX + dk, trayFloorY, wallTray.z + 45 + dk),
+        pt(laneX + dk, trayFloorY, wallTray.z + 45 + AIR_LANE_DZ + dk),
         pt(laneX + dk, trayFloorY, dropFloorZ),
         pt(laneX + dk, dropBottom + 15, dropFloorZ),
       ], 'socket-bench', { L: 'X1.3', N: 'X1.5', PE: ['PE_BAR', 'PE6'] })
@@ -397,7 +420,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const dropBottom = dropComp.y - Number(dropComp.state?.lengthMm) / 2
       const laneX = dropComp.x + 25
       feed('mq-3g25-compressor', '3G2,5 H07RN-F · QGD X1.6/X1.7 → TOMADA COMPRESSOR', -60, -55, (dk) => [
-        pt(laneX + dk, trayFloorY, wallTray.z - 55 + dk),
+        pt(laneX + dk, trayFloorY, wallTray.z - 55 - AIR_LANE_DZ + dk),
         pt(laneX + dk, trayFloorY, dropFloorZ),
         pt(laneX + dk, dropBottom + 15, dropFloorZ),
       ], 'socket-compressor', { L: 'X1.6', N: 'X1.7', PE: ['PE_BAR', 'PE7'] })
@@ -929,6 +952,12 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           to: { key: 'compressor', label },
           color, gauge: '2.5mm²', kind,
           sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
+          // Bainha do bucim traseiro da ficha ao bucim do compressor: nas duas pontas os
+          // condutores ficam nus dentro da ficha e dentro da carenagem.
+          // (6 mm para dentro de cada boca, para a capa morrer dentro do bucim e não se ver a veia
+          // pelo vão entre o corte da capa e a porca.)
+          sheathFromMm: pt(glandExit.x, glandExit.y, glandExit.z - 6),
+          sheathToMm: pt(entry.x, entry.y - 6, entry.z),
           bundleId: 'chicote-ficha-comp',
           waypointsMm: clean([
             glandExit,
@@ -1007,13 +1036,17 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           pt(out.p.x + 28, out.p.y + 8, out.p.z + 8),
           pt(out.p.x + 28, out.p.y + 8, dropZ + 26),
           pt(dropX, out.p.y + 8, dropZ + 26),
-          // Sobe pela descida até à esteira aérea (curva no topo).
-          pt(dropX, laneY - 120, dropZ + 26),
-          pt(dropX, laneY - 40, dropZ + 18),
-          pt(dropX, laneY, wallZ + 8),
-          // Esteira de parede até ao ramal da bancada.
-          pt((dropX + benchDropX) * 0.5, laneY, wallZ + 8),
-          pt(benchDropX + 20, laneY, wallZ + 8),
+          // Sobe pela descida até à esteira aérea. Entra na esteira no lado da PAREDE (o lado da
+          // nave fica livre para os cabos 3G2,5) e a curva faz-se em três tramos para não ficar
+          // um cotovelo de 90°.
+          pt(dropX, laneY - 150, dropZ + 26),
+          pt(dropX, laneY - 60, dropZ + 22),
+          pt(dropX, laneY - 14, dropZ + 6),
+          pt(dropX, laneY, wallZ + AIR_LANE_DZ - 40),
+          // Esteira de parede na pista do tubo (lado da parede), afastada dos cabos.
+          pt((dropX + benchDropX) * 0.5, laneY, wallZ + AIR_LANE_DZ - 40),
+          pt(benchDropX + 60, laneY, wallZ + AIR_LANE_DZ - 40),
+          pt(benchDropX + 20, laneY, wallZ + AIR_LANE_DZ - 40),
           // Curva no pescoço / início da descida da bancada.
           pt(benchDropX + 20, laneY, benchDropZ + 18),
           pt(benchDropX + 20, laneY - 60, benchDropZ + 18),
@@ -1198,6 +1231,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           to: { key: term.key, label: '1' },
           color, gauge: '1.5mm²', kind,
           sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
+          // Bainha do bucim traseiro da ficha ao bucim M25 do topo do quadro: dentro do quadro
+          // os condutores correm nus pelas calhas. Pontas ~6 mm dentro de cada boca do bucim.
+          sheathFromMm: pt(plugGland.x, plugGland.y, plugGland.z - 6),
+          sheathToMm: pt(glandTop.x, cabTopY + 6, glandTop.z),
           bundleId: 'qe1-alimentacao-plc',
           waypointsMm: clean([plugGland, ...supplyToGland(lane), ...insideToX1(psLabel, lane)]),
         })
@@ -1227,7 +1264,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           from: fromEnd,
           to: toEnd,
           color, gauge: '1.5mm²', kind,
-          bundleId: 'qe1-alimentacao-plc',
+          // Chicote próprio: os fios X1→PS1 são uma ponte curta dentro do quadro e não fazem parte
+          // do cabo de alimentação da ficha (antes partilhavam `qe1-alimentacao-plc` e o 3D
+          // agrupava-os como se fossem o mesmo cabo).
+          bundleId: 'qe1-x1-ps1',
           waypointsMm: clean(inner),
         })
       }

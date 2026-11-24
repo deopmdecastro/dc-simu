@@ -3219,6 +3219,8 @@ export const useSimStore = create<Store>((set, get) => {
           toEndType: spec.medium ? 'pneumaticPushIn' : (spec.toEnd ?? 'ferrule'),
           ...(spec.medium ? { pneumaticFitting: 'pushInStraight' as const } : {}),
           ...(spec.sheathed ? { sheathed: true, sheathColor: spec.sheathColor ?? '#1c1917', conductorCount: spec.conductorCount ?? 3 } : {}),
+          ...(spec.sheathed && spec.sheathFromMm ? { sheathFrom3D: benchPartUnits(base, spec.sheathFromMm) } : {}),
+          ...(spec.sheathed && spec.sheathToMm ? { sheathTo3D: benchPartUnits(base, spec.sheathToMm) } : {}),
           ...(spec.medium === 'pneumatic' ? { pneumaticPressureBar: spec.pressureBar ?? 6 } : {}),
           ...(points.length ? { waypoints3D: points } : {}),
           ...(spec.bundleId ? { bundleId: `${spec.bundleId}-${tag}` } : {}),

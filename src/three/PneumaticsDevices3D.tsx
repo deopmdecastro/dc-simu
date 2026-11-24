@@ -2214,18 +2214,6 @@ export function AirCompressor3D({ c, position, onToggleRun, onToggleCover }: {
         {[-60,55].map(x => <mesh key={x} position={[x*U,18*U,4*U]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[4*U,4*U,2.5*U,20]} />{chrome}</mesh>)}
       </group>
 
-      {/* Bucim / prensa-cabos de entrada do cabo de alimentação: no topo da carenagem, alinhado com
-          os bornes L/N. É por aqui que o cabo revestido 3G2,5 da ficha CEE entra na máquina — antes
-          o cabo terminava ao léu sobre a carenagem. */}
-      <group
-        position={[AIR_COMPRESSOR_CABLE_GLAND.x * U, AIR_COMPRESSOR_CABLE_GLAND.y * U, AIR_COMPRESSOR_CABLE_GLAND.z * U]}
-        name="compressor-cable-gland"
-      >
-        <mesh position={[0, -1 * U, 0]} castShadow><cylinderGeometry args={[13 * U, 13 * U, 8 * U, 6]} /><meshStandardMaterial color="#8d969c" roughness={0.32} metalness={0.82} /></mesh>
-        <mesh position={[0, 7 * U, 0]} castShadow><cylinderGeometry args={[10.5 * U, 10.5 * U, 10 * U, 24]} /><meshStandardMaterial color="#a7aeb2" roughness={0.34} metalness={0.78} /></mesh>
-        <mesh position={[0, 15.5 * U, 0]} castShadow><cylinderGeometry args={[8.5 * U, 8.5 * U, 7 * U, 24]} /><meshStandardMaterial color="#b5b9b1" roughness={0.4} metalness={0.3} /></mesh>
-        <mesh position={[0, 19.5 * U, 0]}><cylinderGeometry args={[4.2 * U, 4.2 * U, 2 * U, 20]} /><meshStandardMaterial color="#14171a" roughness={0.9} /></mesh>
-      </group>
 
       <mesh geometry={geometry.handle} castShadow>{blue}</mesh>
       <mesh position={[219*U,258*U,-42*U]} rotation={[0,0,Math.PI/2]} castShadow><cylinderGeometry args={[12*U,12*U,30*U,32]} />{black}</mesh>
@@ -2302,6 +2290,20 @@ export function AirCompressor3D({ c, position, onToggleRun, onToggleCover }: {
         <mesh><cylinderGeometry args={[7*U,7*U,8*U,24]} />{blue}</mesh>
         <mesh position={[0,-7*U,0]}><cylinderGeometry args={[5*U,5*U,9*U,6]} />{brass}</mesh>
       </group>
+      </group>
+      {/* Bucim / prensa-cabos de entrada do cabo de alimentação: no topo da carenagem, alinhado com
+          os bornes L/N. É por aqui que o cabo revestido 3G2,5 da ficha CEE entra na máquina — antes
+          o cabo terminava ao léu sobre a carenagem. Fica FORA do grupo da carenagem (offset −26 mm)
+          para a boca ficar em `AIR_COMPRESSOR_CABLE_GLAND.y + ALTURA` acima da origem do componente:
+          é esse ponto que a bainha do cabo usa para terminar. */}
+      <group
+        position={[AIR_COMPRESSOR_CABLE_GLAND.x * U, AIR_COMPRESSOR_CABLE_GLAND.y * U, AIR_COMPRESSOR_CABLE_GLAND.z * U]}
+        name="compressor-cable-gland"
+      >
+        <mesh position={[0, -1 * U, 0]} castShadow><cylinderGeometry args={[13 * U, 13 * U, 8 * U, 6]} /><meshStandardMaterial color="#8d969c" roughness={0.32} metalness={0.82} /></mesh>
+        <mesh position={[0, 7 * U, 0]} castShadow><cylinderGeometry args={[10.5 * U, 10.5 * U, 10 * U, 24]} /><meshStandardMaterial color="#a7aeb2" roughness={0.34} metalness={0.78} /></mesh>
+        <mesh position={[0, 15.5 * U, 0]} castShadow><cylinderGeometry args={[8.5 * U, 8.5 * U, 7 * U, 24]} /><meshStandardMaterial color="#b5b9b1" roughness={0.4} metalness={0.3} /></mesh>
+        <mesh position={[0, 19.5 * U, 0]}><cylinderGeometry args={[4.2 * U, 4.2 * U, 2 * U, 20]} /><meshStandardMaterial color="#14171a" roughness={0.9} /></mesh>
       </group>
     </group>
   )

@@ -679,6 +679,13 @@ export interface Wire {
   markers?: Array<{ t: number; text: string; color: string; bg?: string; style?: 'iec' | 'yellow' | 'white' | 'custom' }>
   /** Identificador de chicote/bundle quando o cabo está filaçado com outros. */
   bundleId?: string
+  /**
+   * Extremidades da bainha exterior (capa do cabo revestido) em 3D: a capa começa na boca do
+   * bucim de onde sai e termina na entrada do aparelho (bucim do quadro / da tomada). Fora
+   * desse troço os condutores ficam nus — é assim que um H07RN-F real entra num quadro.
+   */
+  sheathFrom3D?: SpatialPoint3D
+  sheathTo3D?: SpatialPoint3D
   /** Número de condutores (1 = fio simples; 2+ = cabo multicore). */
   conductorCount?: number
   /** Capa exterior global (PVC/borracha) além da isolação individual. */

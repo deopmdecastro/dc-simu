@@ -2366,6 +2366,18 @@ type WireGeom = {
   sheathGeo: THREE.TubeGeometry | null
   selectGeo: THREE.TubeGeometry | null
 }
+/**
+ * Dentro de um cabo multicore cada condutor é um FIO, não o cabo inteiro. `cableOuterDiameterMm`
+ * devolve o diâmetro EXTERIOR do cabo (bainha incluída); usá-lo para cada veia desenhava três tubos
+ * grossos que nem cabiam na bainha — saíam para fora dela em todas as curvas.
+ */
+function coreDiameterMm(wire: Wire): number {
+  if (!(wire.sheathed && wire.bundleId && (wire.conductorCount ?? 1) > 1)) {
+    return cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
+  }
+  return Math.max(1.8, cableOuterDiameterMm(wire.gauge, { conductorCount: 1, sheathed: false }) * 0.86)
+}
+
 const wireGeomCache = new DisposableLruCache<WireGeom>(450, (g) => {
   g.tubeGeo?.dispose()
   g.hitGeo?.dispose()
@@ -2383,7 +2395,7 @@ function cachedWireGeometry(
   const round = (n: number) => n.toFixed(4)
   const radialSegs = quality?.wireRadialSegments ?? 14
   const tubularScale = quality?.wireTubularScale ?? 1
-  const outerDiameterMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
+  const outerDiameterMm = coreDiameterMm(wire)
   const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
   const pathSig = prebuiltPath
     ? prebuiltPath.points.map(p => p.map(round).join(',')).join(';')
@@ -2541,7 +2553,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const wps = (wire.waypoints3D ?? []).map(fromSpatial)
     const prev = wpIndex > 0 ? wps[wpIndex - 1] : fromPos
     const next = wpIndex + 1 < wps.length ? wps[wpIndex + 1] : toPos
-    const outerMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
+    const outerMm = coreDiameterMm(wire)
     const res = snapControlPoint3D(point, {
       anchor: prev,
       references: [next, fromPos, toPos],
@@ -2592,6 +2604,23 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     return wire
   }
 
+  // A bainha de cada cabo multicore é calculada ANTES dos condutores: é ela que define o traçado do
+  // cabo. As veias (3 fios do mesmo `bundleId`) são depois apertadas contra o seu eixo, para se
+  // comportarem como fios dentro de um H07RN-F e não como três cabos paralelos.
+  const cableSheaths = useMemo(() => buildCableSheaths(wires, coordinatedPaths), [wires, coordinatedPaths])
+  useMemo(() => {
+    cableJackets.clear()
+    for (const sheath of cableSheaths) {
+      const cum: number[] = [0]
+      for (let i = 1; i < sheath.points.length; i += 1) {
+        const a = sheath.points[i - 1], b = sheath.points[i]
+        cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]))
+      }
+      const maxCoreRadius = Math.max(...wires.filter((w) => w.bundleId === sheath.id).map((w) => (coreDiameterMm(w) * PANEL_UNITS_PER_MM) / 2), 0.012)
+      cableJackets.set(sheath.id, { curve: sheath.curve as THREE.CatmullRomCurve3, cum, points: sheath.points, maxCoreRadius })
+    }
+  }, [cableSheaths, wires])
+
   return <group userData={{ noPick: true }}>
     {!coordinatedPaths && routingError && !modelsLoading && <Html center><div role="alert" className="rounded border border-line-soft bg-white px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
       Não foi possível calcular os cabos. <button type="button" className="underline" onClick={retryRouting}>Tentar novamente</button>
@@ -2608,11 +2637,17 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     // Geometria do cabo em cache (com buffers TubeGeometry reutilizados e libertação LRU):
     // durante RUN as bandeiras energizadas mudam em cada scan, mas posições/traçado não.
     const prebuilt = drag?.wireId === wire.id ? undefined : coordinatedPaths.get(storedWire.id)
-    const geom = cachedWireGeometry(wire, from, to, obstacles, prebuilt, quality)
+    // Veia de um cabo multicore: aperta o traçado contra o eixo da bainha do mesmo `bundleId`
+    // (o encaminhador trata cada condutor como cabo independente e afastava-os até 1–2 cm).
+    const jacket = wire.bundleId && sheathedBundleIds.has(wire.bundleId) && drag?.wireId !== wire.id ? cableJackets.get(wire.bundleId) : undefined
+    const snappedPath = jacket && prebuilt
+      ? { ...prebuilt, points: snapCoreToJacket(prebuilt.points, jacket, Math.max(0.014, jacket.maxCoreRadius * 1.05)) }
+      : prebuilt
+    const geom = cachedWireGeometry(wire, from, to, obstacles, snappedPath, quality)
     const { path, curve, segments, points } = geom
     if (points.length < 2) return null
     const selected = wire.id === selectedWireId
-    const outerDiameterMm = cableOuterDiameterMm(wire.gauge, { conductorCount: wire.conductorCount, sheathed: wire.sheathed })
+    const outerDiameterMm = coreDiameterMm(wire)
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
     const electricFlowing = wireEnergyEffectVisible(runState, wire.energized, wire.carryingCurrent)
     const fluidFlowing = wireFluidEffectVisible(runState, wire.kind, {
@@ -2755,7 +2790,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     </group>
   })}
     <BundleTies3D wires={wires} paths={coordinatedPaths} components={components} obstacles={obstacles} />
-    <CableSheaths3D wires={wires} paths={coordinatedPaths} />
+    <CableSheaths3D sheaths={cableSheaths} />
   </group>
 }
 
@@ -2848,6 +2883,102 @@ function buildTensionedStrapGeometry(
 
 /** Abraçadeiras de filaçar (PA66): fita tensionada no fecho convexo dos cabos + cabeça com lingueta e corte rente. */
 /** Amostra uma polilinha em `count` pontos equidistantes ao longo do comprimento. */
+/** Ponto da polilinha a uma distância percorrida `s` (comprimento de arco desde o início). */
+function polylinePointAtLength(points: V3[], cum: number[], s: number): V3 {
+  const target = Math.max(0, Math.min(cum[cum.length - 1], s))
+  let seg = 1
+  while (seg < cum.length - 1 && cum[seg] < target) seg += 1
+  const a = points[seg - 1], b = points[seg]
+  const t = (target - cum[seg - 1]) / Math.max(1e-9, cum[seg] - cum[seg - 1])
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+}
+
+/**
+ * Reamostra a polilinha em `count` pontos EQUIDISTANTES entre as projeções de `from` e `to`
+ * (comprimento de arco entre as duas projeções). Devolve [] se as projeções coincidirem ou se o
+ * traçado tiver menos de 2 pontos.
+ */
+function resamplePolylineBetween(points: V3[], from: { x: number; y: number; z: number }, to: { x: number; y: number; z: number }, count: number): V3[] {
+  if (points.length < 2) return []
+  const cum: number[] = [0]
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1], b = points[i]
+    cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]))
+  }
+  const total = cum[cum.length - 1]
+  if (!(total > 1e-6)) return []
+  const project = (p: { x: number; y: number; z: number }) => {
+    let best = { s: 0, d: Infinity }
+    for (let i = 1; i < points.length; i += 1) {
+      const a = points[i - 1], b = points[i]
+      const abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2]
+      const len2 = abx * abx + aby * aby + abz * abz
+      if (len2 < 1e-12) continue
+      const t = Math.max(0, Math.min(1, ((p.x - a[0]) * abx + (p.y - a[1]) * aby + (p.z - a[2]) * abz) / len2))
+      const d = Math.hypot(a[0] + abx * t - p.x, a[1] + aby * t - p.y, a[2] + abz * t - p.z)
+      if (d < best.d) best = { s: cum[i - 1] + Math.sqrt(len2) * t, d }
+    }
+    return best.s
+  }
+  let sa = project(from)
+  let sb = project(to)
+  if (sb < sa) [sa, sb] = [sb, sa]
+  if (sb - sa < 1e-3) return []
+  const out: V3[] = []
+  for (let k = 0; k <= count; k += 1) out.push(polylinePointAtLength(points, cum, sa + ((sb - sa) * k) / count))
+  return out
+}
+
+/** Comprimentos acumulados de uma polilinha. */
+function polylineCum(points: V3[]): number[] {
+  const cum: number[] = [0]
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1], b = points[i]
+    cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]))
+  }
+  return cum
+}
+
+/** Estação (comprimento de arco) da projeção de `p` na polilinha, restrita a [sMin, sMax]. */
+function projectOnRange(points: V3[], cum: number[], p: V3, sMin: number, sMax: number): number {
+  let best = { s: sMin, d: Infinity }
+  for (let i = 1; i < points.length; i += 1) {
+    if (cum[i] < sMin || cum[i - 1] > sMax) continue
+    const a = points[i - 1], b = points[i]
+    const abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2]
+    const len2 = abx * abx + aby * aby + abz * abz
+    if (len2 < 1e-12) continue
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby + (p[2] - a[2]) * abz) / len2))
+    const d = Math.hypot(a[0] + abx * t - p[0], a[1] + aby * t - p[1], a[2] + abz * t - p[2])
+    if (d < best.d) best = { s: cum[i - 1] + Math.sqrt(len2) * t, d }
+  }
+  return Math.max(sMin, Math.min(sMax, best.s))
+}
+
+/**
+ * Reamostra uma veia de modo a que o ponto k coincida FISICAMENTE com o ponto k da referência
+ * (projeção mais próxima ao longo da veia, monotónica), e não com a mesma fração do seu
+ * comprimento. Veias com comprimentos ligeiramente diferentes (0,2% num cabo de 30 m = 7 cm)
+ * desencontravam-se progressivamente e o "desvio" medido era LONGITUDINAL, não lateral — a capa
+ * engordava até ao limite a meio de cada troço e afinava nos nós.
+ */
+function resamplePolylineAligned(points: V3[], from: V3, to: V3, ref: V3[]): V3[] {
+  const cum = polylineCum(points)
+  const total = cum[cum.length - 1]
+  const sa = projectOnRange(points, cum, from, 0, total)
+  const sb = projectOnRange(points, cum, to, 0, total)
+  const s0 = Math.min(sa, sb), s1 = Math.max(sa, sb)
+  const out: V3[] = []
+  let s = s0
+  for (let k = 0; k < ref.length; k += 1) {
+    if (k === 0) s = s0
+    else if (k === ref.length - 1) s = s1
+    else s = projectOnRange(points, cum, ref[k], s, s1)
+    out.push(polylinePointAtLength(points, cum, s))
+  }
+  return out
+}
+
 function resamplePolyline(points: V3[], count: number): V3[] {
   if (!points.length) return []
   if (points.length === 1) return Array.from({ length: count }, () => points[0])
@@ -2871,6 +3002,77 @@ function resamplePolyline(points: V3[], count: number): V3[] {
 }
 
 /**
+ * Registro das bainhas desenhadas: `bundleId` → eixo + raio das veias. Os condutores de um cabo
+ * 3G2,5 NÃO são três cabos paralelos: vão DENTRO da mesma bainha, encostados ao eixo. O
+ * encaminhador resolve cada veia à sua maneira (uma sai da régua X1, outra da barra de terra), pelo
+ * que as três divergiam 1–2 cm a meio do percurso e a bainha tinha de engordar até as cobrir —
+ * parecia um "charuto" com veias à vista. Agora a bainha é a referência e as veias apertam-se a ela.
+ */
+type CableJacket3D = {
+  curve: THREE.CatmullRomCurve3
+  /** Comprimento de arco acumulado em cada índice da polilinha aparada. */
+  cum: number[]
+  points: V3[]
+  /** Raio máximo das veias do cabo (para o aperto lateral). */
+  maxCoreRadius: number
+}
+const cableJackets = new Map<string, CableJacket3D>()
+
+/** Ponto do eixo da bainha mais próximo de `p` (projeção no segmento, não no vértice). */
+function nearestOnJacket(j: CableJacket3D, p: V3): { point: V3; s: number } {
+  let bestD = Infinity
+  let bestS = 0
+  let best: V3 = j.points[0]
+  for (let i = 1; i < j.points.length; i += 1) {
+    const a = j.points[i - 1], b = j.points[i]
+    const abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2]
+    const l2 = abx * abx + aby * aby + abz * abz
+    if (l2 < 1e-12) continue
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby + (p[2] - a[2]) * abz) / l2))
+    const q: V3 = [a[0] + abx * t, a[1] + aby * t, a[2] + abz * t]
+    const d = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2])
+    if (d < bestD) { bestD = d; bestS = j.cum[i - 1] + Math.sqrt(l2) * t; best = q }
+  }
+  return { point: best, s: bestS }
+}
+
+/**
+ * Aperta uma veia contra o eixo da bainha: cada ponto fica à distância máxima `maxLateral` do eixo,
+ * empurrado ao longo dele de forma monotónica. Os dois extremos mantêm-se (a veia continua a chegar
+ * ao borne e à boca do bucim) — é assim num cabo real, onde a bainha é cortada e os fios se abrem.
+ */
+function snapCoreToJacket(points: V3[], jacket: CableJacket3D, maxLateral: number): V3[] {
+  if (points.length < 2) return points
+  const total = jacket.cum[jacket.cum.length - 1]
+  const out: V3[] = []
+  let sPrev = 0
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i]
+    const { point: q, s } = nearestOnJacket(jacket, p)
+    const d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])
+    if (d <= maxLateral) { out.push(p); sPrev = Math.max(sPrev, s); continue }
+    const ss = Math.min(total, Math.max(s, sPrev))
+    sPrev = ss
+    const target = jacket.curve.getPointAt(total > 1e-9 ? ss / total : 0)
+    const dir: V3 = [p[0] - q[0], p[1] - q[1], p[2] - q[2]]
+    const len = Math.max(1e-9, Math.hypot(dir[0], dir[1], dir[2]))
+    const k = Math.min(maxLateral, len)
+    out.push([target.x + (dir[0] / len) * k, target.y + (dir[1] / len) * k, target.z + (dir[2] / len) * k])
+  }
+  out[0] = points[0]
+  out[out.length - 1] = points[points.length - 1]
+  // Suaviza para não ficarem cotovelos onde o aperto entra e sai.
+  const smooth = out.map((q, i) => {
+    if (i === 0 || i === out.length - 1) return q
+    const a = out[i - 1], b = out[i + 1]
+    return [0.25 * a[0] + 0.5 * q[0] + 0.25 * b[0], 0.25 * a[1] + 0.5 * q[1] + 0.25 * b[1], 0.25 * a[2] + 0.5 * q[2] + 0.25 * b[2]] as V3
+  })
+  smooth[0] = points[0]
+  smooth[smooth.length - 1] = points[points.length - 1]
+  return smooth
+}
+
+/**
  * Capa exterior de um cabo multicore: um único tubo em volta do chicote de condutores do mesmo
  * `bundleId`. O tubo é aparado nas pontas para deixar as veias visíveis junto às ponteiras.
  */
@@ -2881,6 +3083,8 @@ type CableSheath3D = {
   color: string
   length: number
   stations: number
+  /** Polilinha aparada que define o eixo do cabo (referência para apertar as veias). */
+  points: V3[]
 }
 
 /**
@@ -2932,82 +3136,151 @@ function SheathMesh3D({ sheath }: { sheath: CableSheath3D }) {
   )
 }
 
-function CableSheaths3D({ wires, paths }: { wires: Wire[]; paths: Map<string, WirePath3D> | null | undefined }) {
-  const sheaths = useMemo(() => {
-    if (!paths) return []
-    const groups = new Map<string, Wire[]>()
-    for (const w of wires) {
-      if (!w.sheathed || !w.bundleId || !paths.has(w.id)) continue
-      const list = groups.get(w.bundleId)
-      if (list) list.push(w)
-      else groups.set(w.bundleId, [w])
+function buildCableSheaths(wires: Wire[], paths: Map<string, WirePath3D> | null | undefined): CableSheath3D[] {
+  if (!paths) return []
+
+  const groups = new Map<string, Wire[]>()
+  for (const w of wires) {
+    if (!w.sheathed || !w.bundleId || !paths.has(w.id)) continue
+    const list = groups.get(w.bundleId)
+    if (list) list.push(w)
+    else groups.set(w.bundleId, [w])
+  }
+  const out: CableSheath3D[] = []
+  for (const [bundleId, members] of groups) {
+    if (members.length < 2) continue
+    const N = 96
+    // A capa começa na boca do bucim de onde o cabo sai e termina na entrada do aparelho
+    // (bucim do quadro / da tomada / do compressor): dentro, os condutores correm nus como num
+    // H07RN-F real. Sem estes pontos a capa avançava para o interior do aparelho.
+    const trimFrom = members[0].sheathFrom3D
+    const trimTo = members[0].sheathTo3D
+    let avg: V3[] | null = null
+    let i0 = 0
+    let i1 = -1
+    let head: V3 | null = null
+    let tail: V3 | null = null
+    let perMember: V3[][] | null = null
+    let refIdx = -1
+    if (trimFrom && trimTo) {
+      // Cada veia é reamostrada entre as SUAS projeções das duas bocas (mesma estação física em
+      // todas) e só depois se faz a média. Por índice de comprimento total, veias com traçados de
+      // comprimentos diferentes (p.ex. o PE que vem da barra de terra) desencontravam-se junto ao
+      // bucim e a linha média fazia um laço — a capa aparecia como um leque preto.
+      const samples = members.map((w) => resamplePolylineBetween(paths.get(w.id)!.points, trimFrom, trimTo, N))
+      const betweenLen = (pts: V3[]) => {
+        let len = 0
+        for (let i = 1; i < pts.length; i += 1) {
+          const a = pts[i - 1], b = pts[i]
+          len += Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2])
+        }
+        return len
+      }
+      // Referência = veia com comprimento mediano entre as bocas; as outras alinham-se a ela
+      // por projeção física (ver `resamplePolylineAligned`).
+      refIdx = samples.map((pts, i) => ({ i, len: betweenLen(pts) })).sort((a, b) => a.len - b.len)[Math.floor(samples.length / 2)].i
+      const per = samples.map((pts, i) => (i === refIdx ? pts : resamplePolylineAligned(paths.get(members[i].id)!.points, [trimFrom.x, trimFrom.y, trimFrom.z], [trimTo.x, trimTo.y, trimTo.z], pts)))
+      if (per.every((pts) => pts.length === N + 1)) {
+        perMember = per
+        avg = []
+        for (let i = 0; i <= N; i += 1) {
+          let x = 0, y = 0, z = 0
+          for (const pts of per) { x += pts[i][0]; y += pts[i][1]; z += pts[i][2] }
+          avg.push([x / perMember.length, y / perMember.length, z / perMember.length])
+        }
+        // O traçado validado pode passar a alguns cm da boca do bucim (arredondamento do
+        // encaminhador junto aos bornes): a capa parte sempre da boca e vai buscar o cabo.
+        if (Math.hypot(avg[0][0] - trimFrom.x, avg[0][1] - trimFrom.y, avg[0][2] - trimFrom.z) > 0.008) head = [trimFrom.x, trimFrom.y, trimFrom.z]
+        if (Math.hypot(avg[N][0] - trimTo.x, avg[N][1] - trimTo.y, avg[N][2] - trimTo.z) > 0.008) tail = [trimTo.x, trimTo.y, trimTo.z]
+        i1 = N
+      }
     }
-    const out: CableSheath3D[] = []
-    for (const [bundleId, members] of groups) {
-      if (members.length < 2) continue
-      const N = 48
+    if (!avg) {
+      // Sem bocas declaradas: capa ao longo de todo o cabo, aparada ~6% em cada ponta.
       const resampled = members.map((w) => resamplePolyline(paths.get(w.id)!.points, N))
-      const avg: V3[] = []
+      avg = []
       for (let i = 0; i < N; i += 1) {
         let x = 0, y = 0, z = 0
         for (const pts of resampled) { x += pts[i][0]; y += pts[i][1]; z += pts[i][2] }
         avg.push([x / resampled.length, y / resampled.length, z / resampled.length])
       }
-      // Apara ~5% em cada ponta: a capa termina antes das ponteiras e as veias ficam à vista.
-      const trimmed = avg.slice(3, N - 3)
-      if (trimmed.length < 2) continue
-      const curve = new THREE.CatmullRomCurve3(trimmed.map((p) => new THREE.Vector3(...p)), false, 'centripetal')
-      // O mesmo diâmetro com que os condutores são desenhados: a capa tem de os cobrir a TODOS.
-      const maxCoreRadius = Math.max(...members.map((w) =>
-        (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount ?? 1, sheathed: w.sheathed }) * PANEL_UNITS_PER_MM) / 2))
-      const length = curve.getLength()
-      const stations = Math.min(180, Math.max(28, Math.round(length * 36)))
-      // Raio variável ao longo da capa: em cada estação a capa tem de conter TODAS as veias
-      // (desvio máximo em relação à linha média). Onde o chicote abre — curvas e, sobretudo, a
-      // entrada nos bornes — a capa alarga; no cabimento fica no diâmetro nominal do cabo.
-      // Antes o raio era fixo e a veia azul corria por fora do cabo preto.
-      const base = maxCoreRadius * (members.length >= 3 ? 2.05 : 1.75) + 0.008
-      // Nunca um tubo desproporcionado: acima disto a capa deixa de parecer um cabo.
-      const cap = base + 0.04
-      // Desvio real medido na malha final de cada condutor (não por índice de reamostragem: os dois
-      // cabos têm comprimentos diferentes e o índice i já não é o mesmo ponto físico).
-      // A mesma curva com que cada condutor é desenhado (cableCurve3D): a capa tem de conter o tubo
-      // real, não a polilinha antes do arredondamento.
-      const memberCurves = members.map((w) => cableCurve3D(paths.get(w.id)!.points, false))
-      const centre = new THREE.Vector3()
-      const probe = new THREE.Vector3()
-      const radii: number[] = []
-      for (let s = 0; s <= stations; s += 1) {
-        curve.getPointAt(s / stations, centre)
-        let dev = 0
-        for (const memberCurve of memberCurves) {
-          let best = Infinity
-          for (let k = 0; k <= 90; k += 1) {
-            memberCurve.getPoint(k / 90, probe)
-            const d = probe.distanceTo(centre)
-            if (d < best) best = d
-          }
-          if (best > dev) dev = best
-        }
-        // Nas pontas as veias abrem para bornes diferentes DENTRO do aparelho (ficha/compressor):
-        // ali a capa afina para o diâmetro nominal e o que fica de fora não se vê.
-        const t = s / stations
-        const edge = Math.min(1, Math.min(t, 1 - t) / 0.07)
-        radii.push(dev * edge)
-      }
-      // Suaviza o perfil do raio (média móvel) para a capa não ficar com "nós" ao longo do cabo.
-      const rawDevs = radii.slice()
-      const half = 5
-      for (let s = 0; s <= stations; s += 1) {
-        let sum = 0, n = 0
-        for (let k = Math.max(0, s - half); k <= Math.min(stations, s + half); k += 1) { sum += rawDevs[k]; n += 1 }
-        radii[s] = Math.min(cap, Math.max(base, sum / n + maxCoreRadius + 0.014))
-      }
-      out.push({ id: bundleId, curve, radii, color: members[0].sheathColor ?? '#0f172a', length, stations })
+      i0 = 6
+      i1 = N - 7
     }
-    return out
-  }, [wires, paths])
+    const trimmed = [...(head ? [head] : []), ...avg.slice(i0, i1 + 1), ...(tail ? [tail] : [])]
+    if (trimmed.length < 2) continue
+    const curve = new THREE.CatmullRomCurve3(trimmed.map((p) => new THREE.Vector3(...p)), false, 'centripetal')
+    // O mesmo diâmetro com que os condutores são desenhados: a capa tem de os cobrir a TODOS.
+    const maxCoreRadius = Math.max(...members.map((w) =>
+      (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount ?? 1, sheathed: w.sheathed }) * PANEL_UNITS_PER_MM) / 2))
+    const length = curve.getLength()
+    const stations = Math.min(180, Math.max(28, Math.round(length * 36)))
+    // Raio variável ao longo da capa: em cada estação a capa tem de conter TODAS as veias
+    // (desvio máximo em relação à linha média). Onde o chicote abre — curvas e, sobretudo, a
+    // entrada nos bornes — a capa alarga; no cabimento fica no diâmetro nominal do cabo.
+    // Antes o raio era fixo e a veia azul corria por fora do cabo preto.
+    const base = maxCoreRadius * (members.length >= 3 ? 2.05 : 1.75) + 0.008
+    // Nunca um tubo desproporcionado: acima disto a capa deixa de parecer um cabo.
+    const cap = base + 0.04
+    // Desvio lateral real de cada veia em relação ao ponto médio do MESMO índice: as veias foram
+    // reamostradas na mesma estação física, por isso o índice correspondente dá o afastamento
+    // lateral exato. (Medir a distância à sonda mais próxima ao longo da veia confundia o
+    // afastamento LONGITUDINAL — sondas espaçadas de vários cm num cabo de 30 m — com o desvio
+    // lateral e a capa ficava sempre no diâmetro máximo.)
+    const memberPts = perMember ?? []
+    const devAt = new Array<number>(trimmed.length).fill(0)
+    if (memberPts.length) {
+      const headOff = head ? 1 : 0
+      for (let t = 0; t < trimmed.length; t += 1) {
+        const mi = Math.max(0, Math.min(N, i0 + t - headOff))
+        let dev = 0
+        for (const pts of memberPts) {
+          const q = pts[mi]
+          dev = Math.max(dev, Math.hypot(q[0] - trimmed[t][0], q[1] - trimmed[t][1], q[2] - trimmed[t][2]))
+        }
+        devAt[t] = dev
+      }
+    }
+    // Comprimentos acumulados do traçado aparado, para mapear a estação da curva (por
+    // comprimento de arco) no índice do traçado.
+    const cumTrim: number[] = [0]
+    for (let t = 1; t < trimmed.length; t += 1) {
+      const a = trimmed[t - 1], b = trimmed[t]
+      cumTrim.push(cumTrim[t - 1] + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]))
+    }
+    const totalTrim = Math.max(1e-9, cumTrim[cumTrim.length - 1])
+    const radii: number[] = []
+    for (let s = 0; s <= stations; s += 1) {
+      const target = ((s / stations) * totalTrim)
+      let lo = 0
+      while (lo < cumTrim.length - 2 && cumTrim[lo + 1] < target) lo += 1
+      const seg = Math.max(1e-9, cumTrim[lo + 1] - cumTrim[lo])
+      const f = Math.max(0, Math.min(1, (target - cumTrim[lo]) / seg))
+      radii.push(devAt[lo] + (devAt[lo + 1] - devAt[lo]) * f)
+    }
+    // Suaviza o perfil do raio (média móvel) para a capa não ficar com "nós" ao longo do cabo.
+    const rawDevs = radii.slice()
+    const half = 5
+    for (let s = 0; s <= stations; s += 1) {
+      let sum = 0, n = 0
+      for (let k = Math.max(0, s - half); k <= Math.min(stations, s + half); k += 1) { sum += rawDevs[k]; n += 1 }
+      radii[s] = Math.min(cap, Math.max(base, sum / n + maxCoreRadius + 0.004))
+    }
+    // As veias são apertadas contra o eixo, por isso o raio é o NOMINAL em todo o percurso; só
+    // alarga junto às bocas, onde as veias se abrem para os bornes.
+    const coreR = Math.max(...members.map((w) => (coreDiameterMm(w) * PANEL_UNITS_PER_MM) / 2), 0.012)
+    const nominal = Math.max(coreR * 2.15 + 0.016, 0.03)
+    const slim = radii.map((r, i) => {
+      const u = stations > 0 ? i / stations : 0
+      const endWeight = Math.max(0, 1 - Math.min(u, 1 - u) / 0.06)
+      return Math.max(nominal, r * endWeight + nominal * (1 - endWeight))
+    })
+  out.push({ id: bundleId, curve, radii: slim, color: members[0].sheathColor ?? '#0f172a', length, stations, points: trimmed })
+  }
+  return out
+}
 
+function CableSheaths3D({ sheaths }: { sheaths: CableSheath3D[] }) {
   if (!sheaths.length) return null
   return (
     <group name="cable-sheaths-3d" userData={{ noPick: true }}>
