@@ -184,6 +184,7 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   multimeterDm20: { width: 88, height: 184, depth: 53 },
   meterD522066: { width: 54, height: 80, depth: 64 },
   meterKws306: { width: 74, height: 86.5, depth: 65 },
+  meterSchneiderIem3255: { width: 74, height: 86.5, depth: 65 },
   breakerSchneiderIc60h1p: { width: 18, height: 91, depth: 78.5 },
   // Corpo de 85 mm; patins DIN recolhidos, não a pose de instalação do STEP.
   residualBreakerSchneiderIid4p: { width: 72, height: 85, depth: 73.5 },
@@ -421,6 +422,7 @@ export function hasComponent3DVisual(type: ComponentType): boolean {
     isTerminalAssemblyComponent(type) ||
     type === 'meterD522066' ||
     type === 'meterKws306' ||
+    type === 'meterSchneiderIem3255' ||
     type === 'currentTransformerSplitCore' ||
     type === 'breakerSchneiderIc60h1p' ||
     type === 'residualBreakerSchneiderIid4p' ||
@@ -502,6 +504,7 @@ export function hasDinRailModel(type: ComponentType): boolean {
   if (
     type === 'meterD522066' ||
     type === 'meterKws306' ||
+    type === 'meterSchneiderIem3255' ||
     type === 'breakerSchneiderIc60h1p' ||
     type === 'residualBreakerSchneiderIid4p' ||
     type === 'residualBreakerSchneiderIdpnVigi' ||

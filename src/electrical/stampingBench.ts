@@ -104,6 +104,9 @@ export const BENCH_TERMINAL_STRIPS: ReadonlyArray<BenchTerminalStrip> = [
   { strip: 'X24', rail: 'B', points: [io('REARME', 'S6 rearme'), io('CICLO', 'reserva')] },
   { strip: 'X25', rail: 'A', points: Array.from({ length: 7 }, () => io('+24V', '+24 V sensores')) },
   { strip: 'X26', rail: 'A', points: Array.from({ length: 3 }, () => io('0V', '0 V sensores')) },
+  // Entrada de 230 V da maquete: a ficha F-MAQ chega aqui (L preto, N azul, PE verde/amarelo) e
+  // é desta régua que a fonte PS1 é alimentada. A fonte distribui depois o 24 V pelo X20.
+  { strip: 'X1', rail: 'A', points: [io('L', '230 V fase'), io('N', '230 V neutro'), io('PE', 'terra')] },
 ]
 /** Compatibilidade: [régua, marcadores] por ordem de montagem. */
 export const BENCH_FIELD_TERMINALS: ReadonlyArray<readonly [string, readonly string[]]> =
@@ -461,10 +464,10 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   const STANDOFF_MM = 10
   const onWallZ = wallZ + STANDOFF_MM + TRAY_SIDE_MM / 2
   const branch = { from: wallTrayZ + WALL_TRAY_W / 2, to: -plate.widthMm / 2 }
-  // Cabos e tubos dentro de cada esteira (lidos pelo desenho 3D da esteira, com abraçadeiras).
-  // Os cabos 3G2,5 da maquete e do compressor são cabos reais (ver `stampingBenchWiring`); nas
-  // esteiras fica só o tubo de ar desenhado como feixe filaçado.
-  const AIR_TUBE = { kind: 'tube', color: '#2563eb', diameterMm: 10, label: 'PU Ø10 · AR COMPRIMIDO' }
+  // Cabos e tubos dentro de cada esteira: os cabos 3G2,5 e o tubo de ar reais são desenhados por
+  // `stampingBenchWiring` (com o seu próprio filaçamento). Não se duplica nenhum tubo azul na
+  // esteira — antes, a decoração `AIR_TUBE` repetia o tubo de ar em todas as descidas e parecia
+  // haver dois tubos azuis até à saída do compressor.
   const laced = (cables: object[]) => ({ cables, tieEveryMm: 250 })
   const tray = (key: string, x: number, y: number, z: number, lengthMm: number, widthMm: number, labelText: string, cables: object[], orientation?: ComponentViewOrientation): BenchPlacement => ({
     key, type: 'cableTrayStraight', x, y, z,
@@ -539,19 +542,19 @@ export function stampingBenchLayout(plateState?: Record<string, any>, env?: Benc
   const wallTrayX0 = compDropX - 50 - 60
   const wallTrayX1 = panelX + WALL_TRAY_W / 2 + 60
   list.push(tray('tray-wall', (wallTrayX0 + wallTrayX1) / 2, trayY, wallTrayZ, wallTrayX1 - wallTrayX0, WALL_TRAY_W,
-    'ESTEIRA AÉREA · PAREDE', [AIR_TUBE]))
-  list.push(tray('tray-to-bench', 0, trayY, (branch.from + branch.to) / 2, branch.to - branch.from, 150, 'QGD → BANCADA', [AIR_TUBE], ALONG_Z))
+    'ESTEIRA AÉREA · PAREDE', []))
+  list.push(tray('tray-to-bench', 0, trayY, (branch.from + branch.to) / 2, branch.to - branch.from, 150, 'QGD → BANCADA', [], ALONG_Z))
   list.push({
     key: 'pillar-bench', type: 'industrialPillar', x: 0, y: floor + (trayBottom - floor) / 2, z: pillarZ,
     state: { heightMm: Math.round(trayBottom - floor), profile: 'IPE100', finish: 'safetyYellow' },
   })
   // Descida da bancada: fundo na face do pilar, termina 20 mm acima da tomada da maquete.
   list.push(vertical('tray-drop-bench', 0, pillarFaceZ + 2 + TRAY_SIDE_MM / 2, socketBenchY + socketH / 2 + SOCKET_GAP_MM, 100,
-    'DESCIDA BANCADA', [AIR_TUBE]))
+    'DESCIDA BANCADA', []))
   // Descida do compressor: fundo na parede, pescoço até à ponta da esteira aérea, termina 20 mm acima da tomada.
-  list.push(neck('tray-neck-compressor', compDropX, 100, 'PESCOÇO COMPRESSOR', [AIR_TUBE]))
+  list.push(neck('tray-neck-compressor', compDropX, 100, 'PESCOÇO COMPRESSOR', []))
   list.push(vertical('tray-drop-compressor', compDropX, onWallZ, socketY + socketH / 2 + SOCKET_GAP_MM, 100,
-    'DESCIDA COMPRESSOR', [AIR_TUBE]))
+    'DESCIDA COMPRESSOR', []))
 
   list.push({
     key: 'socket-compressor',

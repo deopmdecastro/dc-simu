@@ -4,6 +4,7 @@ import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { controllerMappings, externalOutputsUsable, isIoAddress, localBridgeUrl } from '../plc/externalController'
 import { bridgeRequest } from '../plc/externalTransport'
+import { EngineSelector } from './EngineSelector'
 
 /**
  * Ligação do PLC do cenário a uma CPU simulada no S7-PLCSIM Advanced (programa feito no TIA Portal),
@@ -71,10 +72,7 @@ export default function TiaPortalControls({ plc }: { plc: ElectricalComponent })
 
   return (
     <div className="dc-tia flex flex-col gap-2 text-[11px]" data-tia-panel>
-      <div className="dc-tia-mode" role="radiogroup" aria-label="Programa do PLC">
-        <button type="button" role="radio" aria-checked={!thisPlc} className={`dc-btn text-[11px] justify-center ${!thisPlc ? 'dc-btn-primary' : ''}`} disabled={configLocked} onClick={() => choose('internal')} data-tia-mode="internal">Programa interno</button>
-        <button type="button" role="radio" aria-checked={thisPlc} className={`dc-btn text-[11px] justify-center ${thisPlc ? 'dc-btn-primary' : ''}`} disabled={configLocked} onClick={() => choose('tia-portal')} data-tia-mode="tia-portal">TIA Portal</button>
-      </div>
+      <EngineSelector plcId={plc.id} locked={configLocked} onChoose={choose} />
       {otherPlc && <p className="dc-tia-note">O TIA Portal está associado a outro PLC do cenário. Escolha «TIA Portal» para o usar neste.</p>}
       {!thisPlc && !otherPlc && <p className="dc-tia-note">O Ladder e o GRAFCET do DC-Simu comandam este PLC. Com «TIA Portal», quem decide as saídas é a CPU simulada no S7-PLCSIM Advanced.</p>}
 

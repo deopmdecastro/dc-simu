@@ -7,8 +7,8 @@ import { buildCaptiveTerminalScrew } from './terminalHardware'
 import { cachedCanvasTexture } from './protectionMarkings'
 import { DEVICE_LCD_SIZE, deviceLcdFrame, drawDeviceLcd, type DeviceLcdProfile } from './deviceLcd'
 
-export type DigitalMeterType = 'meterD522066' | 'meterKws306' | 'currentTransformerSplitCore'
-export const isDigitalMeterType = (type: string): type is DigitalMeterType => type === 'meterD522066' || type === 'meterKws306' || type === 'currentTransformerSplitCore'
+export type DigitalMeterType = 'meterD522066' | 'meterKws306' | 'meterSchneiderIem3255' | 'currentTransformerSplitCore'
+export const isDigitalMeterType = (type: string): type is DigitalMeterType => type === 'meterD522066' || type === 'meterKws306' || type === 'meterSchneiderIem3255' || type === 'currentTransformerSplitCore'
 
 export function digitalMeterSpec(type: DigitalMeterType): ComponentModelSpec {
   const physicalSizeMm = getComponentPhysicalSizeMm(type)!
@@ -192,7 +192,7 @@ export function createDigitalMeterObject(type:DigitalMeterType,state:Record<stri
     }
     silk('↓',0,68.5,SH+.03,3.4,'digital_meter_flow_arrow_top',{weight:800,color:'#2f3534'})
     silk('↓',0,17.5,SH+.03,3.4,'digital_meter_flow_arrow_bottom',{weight:800,color:'#2f3534'})
-    silk('KWS-306',-26.5,28.6,65.26,1.45,'digital_meter_type',{italic:true,weight:800,color:'#d7dbd6'})
+    silk(type==='meterSchneiderIem3255'?'Acti9 iEM3255':'KWS-306',-26.5,28.6,65.26,1.45,'digital_meter_type',{italic:true,weight:800,color:'#d7dbd6'})
     for(const y of [22,60]){box(16,2,2,shell,'digital_meter_din_clip_bar',[0,y,1]);for(const x of [-6,6])box(1.4,6,1.8,shell,'digital_meter_din_clip_arm',[x,y+2,1])}
   }
   root.traverse(n=>{if(n instanceof THREE.Mesh){n.geometry.scale(U,U,U);n.position.multiplyScalar(U);n.castShadow=n.receiveShadow=true;n.userData.digitalMeterPart=n.name}else if(n!==root)n.position.multiplyScalar(U)})

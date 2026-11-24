@@ -461,7 +461,8 @@ function componentBridges(c: ElectricalComponent): Array<[string, string]> {
       // No primary conductor bridge through the meter body.
       break
     }
-    case 'meterKws306': {
+    case 'meterKws306':
+    case 'meterSchneiderIem3255': {
       if (c.state.switchOn !== false) {
         const p1In = t(c, 'L1-IN')?.id, p1Out = t(c, 'L1-OUT')?.id
         const p2In = t(c, 'L2-IN')?.id, p2Out = t(c, 'L2-OUT')?.id

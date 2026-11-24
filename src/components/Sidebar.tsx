@@ -1382,7 +1382,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 <details className="dc-inspector-group" open><summary>Base de encaixe</summary><div className="dc-inspector-group-body"><RelaySocketControls component={selectedComponent} /></div></details>
               )}
               {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-plc-sim-group><summary>Simular sinais (entradas)</summary><div className="dc-inspector-group-body"><PlcSignalPanel plcId={selectedComponent.id} compact /></div></details>}
-              {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-tia-group><summary>Controlador TIA Portal</summary><div className="dc-inspector-group-body"><TiaPortalControls plc={selectedComponent} /></div></details>}
+              {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-tia-group><summary>Motor do simulador</summary><div className="dc-inspector-group-body"><TiaPortalControls plc={selectedComponent} /></div></details>}
               {/* estado rápido conforme o tipo — só mostra controlos realmente funcionais */}
               {(() => {
                 const isThermal = importedComponentInfo(selectedComponent.type)?.behavior === 'thermal'

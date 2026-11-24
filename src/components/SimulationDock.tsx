@@ -4,6 +4,7 @@ import { isProgrammablePlc } from '../ladder/plcPrograms'
 import { stepNumberOf } from '../grafcet/engine'
 import PlcSignalPanel from './PlcSignalPanel'
 import { TiaLiveStatus } from './TiaPortalControls'
+import { EngineBadge } from './EngineSelector'
 import VirtualIoPanel from './VirtualIoPanel'
 import Select from '../ui/Select'
 import { IconClose, IconPlay } from '../ui/icons'
@@ -31,6 +32,7 @@ export function SimulationSignals({ extraBits = [] }: { extraBits?: string[] }) 
           {plcs.map((item) => <option key={item.id} value={item.id}>{item.ref} · {item.label || item.type}</option>)}
         </Select>
       </label>}
+      <EngineBadge plcId={plc.id} />
       {tiaPlc === plc.id && <TiaLiveStatus plc={plc} />}
       <PlcSignalPanel plcId={plc.id} compact />
     </> : <VirtualIoPanel compact extraBits={extraBits} />}

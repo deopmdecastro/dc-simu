@@ -555,9 +555,10 @@ export default function ProtectionControls({ component: c }: { component: Electr
     )
   }
 
-  // ------------------------------------------------------------------ DPS (WEG SPW02 / SPW12 / genérico)
+  // ------------------------------------------------------------------ DPS (Schneider iPRD / WEG SPW02 / SPW12 / genérico)
   const isPv = c.type === 'surgeProtectorWegSpw12'
-  const isWeg = isPv || c.type === 'surgeProtectorWegSpw02'
+  const isSchneider = c.type === 'surgeProtectorSchneiderIprd'
+  const isWeg = isPv || c.type === 'surgeProtectorWegSpw02' || isSchneider
   const ucOptions = withCurrentValue(isPv ? SPW12_UC_OPTIONS : SPW02_UC_OPTIONS, r.ucV)
   const imaxOptions = withCurrentValue(isPv ? SPW12_IMAX_OPTIONS : SPW02_IMAX_OPTIONS, r.imaxKa)
   return (
@@ -582,7 +583,7 @@ export default function ProtectionControls({ component: c }: { component: Electr
               disabled={locked}
               onChange={(e) => {
                 const ucV = Number(e.target.value)
-                setState({ ucV, code: isPv ? `SPW12-${ucV}-${r.imaxKa}` : `SPW02-${ucV}-${r.imaxKa}` })
+                setState({ ucV, code: isPv ? `SPW12-${ucV}-${r.imaxKa}` : isSchneider ? `iPRD1-${ucV}` : `SPW02-${ucV}-${r.imaxKa}` })
               }}
             >
               {ucOptions.map((v) => (
@@ -599,7 +600,7 @@ export default function ProtectionControls({ component: c }: { component: Electr
               disabled={locked}
               onChange={(e) => {
                 const imaxKa = Number(e.target.value)
-                setState({ imaxKa, code: isPv ? `SPW12-${r.ucV}-${imaxKa}` : `SPW02-${r.ucV}-${imaxKa}` })
+                setState({ imaxKa, code: isPv ? `SPW12-${r.ucV}-${imaxKa}` : isSchneider ? `iPRD1-${r.ucV}` : `SPW02-${r.ucV}-${imaxKa}` })
               }}
             >
               {imaxOptions.map((ka) => (

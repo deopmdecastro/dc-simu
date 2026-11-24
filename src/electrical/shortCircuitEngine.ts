@@ -54,6 +54,7 @@ const LOAD_COMPONENT_TYPES = new Set([
   // Um TC externo não é uma carga: P1/P2 é o mesmo condutor e deve
   // continuar a denunciar um curto se for ligado entre fase e neutro.
   'meterKws306',
+  'meterSchneiderIem3255',
   'multimeterDm20',
 ])
 

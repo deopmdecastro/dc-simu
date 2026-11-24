@@ -491,7 +491,7 @@ export function DinRailProfileControls({ c }: { c: ElectricalComponent }) {
     const d=enclosureDimsOf(enclosure.state), layout=modularCoverLayout(d,Number(enclosure.state.modularRows)||undefined,innerCoverInsetOf(d,enclosure.state.innerCoverInsetMm))
     const members=all.filter(item=>item.railId===c.id)
     const fasciaDepth = (item: ElectricalComponent) => {
-      const specific: Record<string,number>={breakerSchneiderIc60h1p:69,pilotLightSchneiderIil1p:65.5,pilotLightSchneiderIil3p:65.5,residualBreakerSchneiderIid4p:64,residualBreakerSchneiderIdpnVigi:64,meterD522066:63,meterKws306:64}
+      const specific: Record<string,number>={breakerSchneiderIc60h1p:69,pilotLightSchneiderIil1p:65.5,pilotLightSchneiderIil3p:65.5,residualBreakerSchneiderIid4p:64,residualBreakerSchneiderIdpnVigi:64,meterD522066:63,meterKws306:64,meterSchneiderIem3255:64}
       return specific[item.type] ?? Math.max(35,(getComponentPhysicalSizeMm(item.type)?.depth ?? 65)-8)
     }
     const shallowest = members.length ? Math.min(...members.map(fasciaDepth)) : 64

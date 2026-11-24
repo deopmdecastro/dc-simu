@@ -293,6 +293,38 @@
     "glbSha256": "2c070efa2721c7fd561b07bdafa30716be1caf284efdd930a3242aa23615eb59"
   },
   {
+    "type": "surgeProtectorSchneiderIprd",
+    "rotation": [
+      0,
+      3.141592653589793,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      0,
+      90
+    ],
+    "path": "/models/importados/surgeProtectorWegSpw02.glb",
+    "physicalSizeMm": {
+      "width": 18,
+      "height": 81.05,
+      "depth": 69.1
+    },
+    "source": {
+      "type": "surgeProtectorSchneiderIprd",
+      "archive": "protector-contra-sobretensiones-surge-protectors-weg-spw02-275-10-40-1.snapshot.1.zip",
+      "archiveSha256": "97df30c6a8ea154c6874b09b23f6b7c9457902f6540338c875eeef48e9705178",
+      "member": "SPW02-275-10...40/Otros/SPW02-275-10...40.STEP",
+      "sourceSha256": "1c250b1cc8411767b5152046a901717b03a8807e666bc580fa14f87c2090eb5f",
+      "format": "STEP"
+    },
+    "meshes": 32,
+    "triangles": 98676,
+    "bytes": 3145752,
+    "glbSha256": "2c070efa2721c7fd561b07bdafa30716be1caf284efdd930a3242aa23615eb59"
+  },
+  {
     "type": "surgeProtectorWegSpw12",
     "rotation": [
       0,

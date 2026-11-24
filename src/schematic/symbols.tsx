@@ -1237,13 +1237,14 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
-      case 'meterKws306': {
+      case 'meterKws306':
+      case 'meterSchneiderIem3255': {
         const sw = c.state.switchOn !== false
         return (
           <g>
             <rect x={4} y={6} width={w - 8} height={h - 12} rx={6} fill="#0f172a" stroke="#334155" strokeWidth={2} />
             <rect x={10} y={12} width={w - 20} height={h * 0.72} rx={4} fill="#020617" stroke="#1e293b" />
-            <text x={16} y={26} fontSize={8} fontWeight={700} fill="#94a3b8">KWS-306 3P+N</text>
+            <text x={16} y={26} fontSize={8} fontWeight={700} fill="#94a3b8">{c.type === 'meterSchneiderIem3255' ? 'Acti9 iEM3255' : 'KWS-306 3P+N'}</text>
             <rect x={w - 42} y={16} width={28} height={12} rx={2} fill={sw ? '#15803d' : '#b91c1c'} />
             <text x={w - 28} y={25} fontSize={7} fontWeight={800} fill="#ffffff" textAnchor="middle">{sw ? 'ON' : 'OFF'}</text>
             <text x={16} y={44} fontSize={9} fill="#38bdf8">{`A: ${c.state.vA ?? 211}V · ${c.state.iA ?? 7.89}A · ${c.state.pA ?? 1.66}kW`}</text>

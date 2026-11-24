@@ -6,7 +6,7 @@ import { INDUSTRIAL_DEVICE_TYPES, industrialDeviceTypeOf } from './industrialDev
  * display/category/name guesses must never turn a user component into hardware. */
 const SUPPORTED = new Set<ComponentType>([
   ...INDUSTRIAL_DEVICE_TYPES,
-  'meterD522066','meterKws306','currentTransformerSplitCore',
+  'meterD522066','meterKws306','meterSchneiderIem3255','currentTransformerSplitCore',
   'breakerSchneiderIc60h1p','pilotLightSchneiderIil1p','pilotLightSchneiderIil3p',
   'residualBreakerSchneiderIid4p','residualBreakerSchneiderIdpnVigi','safetyRelay',
   'contactorWegCwbc65',

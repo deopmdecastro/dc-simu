@@ -185,7 +185,7 @@ export function paintImportedModel(type: string, root: THREE.Object3D): PartInfo
         paint(part, BLACK_PA) // Base e terminais
       }
     }
-  } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12') {
+  } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12' || type === 'surgeProtectorSchneiderIprd') {
     for (const part of parts) {
       if (part.size.x < 5 && part.size.y < 12 && part.box.min.z > 62) { paint(part, { color: '#2f9d47', name: 'plastico_indicador_estado', roughness: .35 }); part.mesh.userData.surgeFlag = true } // janela de estado
       else if (part.vertices > 4000 && maxDim(part) < 22) paint(part, ZINC) // parafusos e gaiolas dos bornes
@@ -427,7 +427,7 @@ export function rigImportedModel(type: string, root: THREE.Object3D, parts: Part
   } else if (type === 'safetyRelaySiemens3tk2840') {
     const leds = parts.filter((p) => p.center.x > 6 && p.center.y > 30 && p.center.y < 50 && p.box.max.z > 88 && maxDim(p) < 5).sort((a, b) => b.center.y - a.center.y)
     leds.slice(0, 3).forEach((led, index) => lampOf(led.mesh, ['power', 'ch1', 'ch2'][index], '#35ff6e', rig))
-  } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12') {
+  } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12' || type === 'surgeProtectorSchneiderIprd') {
     root.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh && mesh.userData.surgeFlag) lampOf(mesh, 'surge', '#d92020', rig) })
   } else if (type === 'photoSensorXukt1ksml2') {
     for (const part of parts) {

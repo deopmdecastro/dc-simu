@@ -131,7 +131,7 @@ export function nativeQuadroDistribuicaoContent(): Record<string, unknown> {
   const ctLeft = duct('qd-ct-left', 'CT6', 120 - 450, -50, 1400, 940, 90, 60)
   const ctRight = duct('qd-ct-right', 'CT7', 1120 - 450, -50, 1400, 940, 90, 60)
 
-  // ── 2. Aparelhos na Fila 1 (Corte Geral, DPS, Medidor KWS-306, Sinalizador iIL 3P) ───────
+  // ── 2. Aparelhos na Fila 1 (Corte Geral, DPS, Medidor iEM3255, Sinalizador iIL 3P) ──────
   const onRail = (railId: string, offsetMm: number) => ({ railId, railOffsetMm: offsetMm, enclosureId: QE })
 
   // Fonte de Alimentação da Rede Pública 400V 3F+N+PE
@@ -165,11 +165,11 @@ export function nativeQuadroDistribuicaoContent(): Record<string, unknown> {
     energized: false,
   }))
 
-  // Medidor Multifunções Digital Trifásico DIN LCD KWS-306
-  const pm1 = keep('qd-pm1', 'meterKws306', 'PM1', 600, -550, {
+  // Medidor de energia Schneider Acti9 iEM3255 (DIN 4 módulos, 3P+N, 63 A)
+  const pm1 = keep('qd-pm1', 'meterSchneiderIem3255', 'PM1', 600, -550, {
     ...onRail(tr1.id, 286.7),
-    label: 'Medidor Trifásico Multifunções KWS-306 LCD',
-    state: { on: true, switchOn: true, vA: 230.2, vB: 229.8, vC: 230.5, iA: 5.4, iB: 5.2, iC: 5.3, frequency: 50 },
+    label: 'Medidor Schneider Acti9 iEM3255 · 3P+N 63 A',
+    state: { on: true, switchOn: true, vA: 230.2, vB: 229.8, vC: 230.5, iA: 5.4, iB: 5.2, iC: 5.3, frequency: 50, brand: 'Schneider Electric', code: 'A9M3050' },
   })
 
   // Sinalizador Modular Schneider Acti9 iIL 3P (L1-L2-L3 com deteção de falta de fase)
@@ -194,11 +194,13 @@ export function nativeQuadroDistribuicaoContent(): Record<string, unknown> {
     state: { closed: true, tripped: false, inA: 40, sensmA: 30, rcdType: 'A', poles: 4, code: 'A9R11440', brand: 'Schneider Electric' },
   })
 
-  // Interruptor Diferencial 2P Hager 25A 30mA (Tomadas Gerais e Iluminação)
-  const idGeral = keep('qd-id-geral', 'residualBreakerHagerCfc225p', 'ID_GERAL', 535, -250, {
+  // RCBO 1P+N Schneider Acti9 iDPN Vigi 25A 30mA (Tomadas Gerais e Iluminação)
+  // O quadro geral é 100% Schneider: o antigo diferencial Hager CFC225P foi substituído pelo
+  // iDPN N Vigi, que junta proteção diferencial e magneto-térmica no mesmo módulo.
+  const idGeral = keep('qd-id-geral', 'residualBreakerSchneiderIdpnVigi', 'ID_GERAL', 535, -250, {
     ...onRail(tr2.id, 243.3),
-    label: 'Interruptor Diferencial 2P 25A 30mA (Setor Monofásico)',
-    state: { closed: true, tripped: false, inA: 25, sensmA: 30, rcdType: 'AC', poles: 2 },
+    label: 'Schneider Acti9 iDPN Vigi 1P+N C25 30mA (Setor Monofásico)',
+    state: { closed: true, tripped: false, inA: 25, curve: 'C', sensmA: 30, rcdType: 'AC', poles: 2, code: 'A9D33225', brand: 'Schneider Electric' },
   })
 
   // Disjuntor Diferencial Monobloco 1P+N Schneider Acti9 iDPN Vigi C16 30mA (Tomadas Especiais)
@@ -411,19 +413,19 @@ export function nativeQuadroDistribuicaoContent(): Record<string, unknown> {
   add(qg1, '4', dps1, 'L2', 'brown', 'W64', '4mm²')
   add(qg1, '6', dps1, 'L3', 'grey', 'W65', '4mm²')
 
-  // C) Saída do Disjuntor Geral 4P → Medidor Multifunções Trifásico KWS-306
+  // C) Saída do Disjuntor Geral 4P → Medidor de Energia Schneider Acti9 iEM3255
   add(qg1, '2', pm1, 'L1-IN', 'black', 'W07', '6mm²')
   add(qg1, '4', pm1, 'L2-IN', 'brown', 'W08', '6mm²')
   add(qg1, '6', pm1, 'L3-IN', 'grey', 'W09', '6mm²')
   add(qg1, '8', pm1, 'N-IN', 'blue', 'W10', '6mm²')
 
-  // D) Saída do Medidor KWS-306 → Sinalizador Schneider Acti9 iIL 3P (Presença & Falta de Fases)
+  // D) Saída do Medidor iEM3255 → Sinalizador Schneider Acti9 iIL 3P (Presença & Falta de Fases)
   add(pm1, 'L1-OUT', hl1, 'L1', 'black', 'W11', '1.5mm²')
   add(pm1, 'L2-OUT', hl1, 'L2', 'brown', 'W12', '1.5mm²')
   add(pm1, 'L3-OUT', hl1, 'L3', 'grey', 'W13', '1.5mm²')
   add(pm1, 'N-OUT', hl1, 'N', 'blue', 'W14', '1.5mm²')
 
-  // E) Saída do Medidor KWS-306 → Barramento Repartidor em Escada Tetrapolar 4P
+  // E) Saída do Medidor iEM3255 → Barramento Repartidor em Escada Tetrapolar 4P
   add(pm1, 'L1-OUT', bbEscada, 'L1.1', 'black', 'W15', '6mm²')
   add(pm1, 'L2-OUT', bbEscada, 'L2.1', 'brown', 'W16', '6mm²')
   add(pm1, 'L3-OUT', bbEscada, 'L3.1', 'grey', 'W17', '6mm²')
@@ -435,7 +437,7 @@ export function nativeQuadroDistribuicaoContent(): Record<string, unknown> {
   add(bbEscada, 'L3.2', idTrif, '5', 'grey', 'W21', '4mm²')
   add(bbEscada, 'N.2', idTrif, 'N1', 'blue', 'W22', '4mm²')
 
-  // G) Barramento Escada → Diferencial 2P Hager (Tomadas Gerais e Iluminação)
+  // G) Barramento Escada → RCBO 1P+N Schneider Acti9 iDPN Vigi (Tomadas Gerais e Iluminação)
   add(bbEscada, 'L1.3', idGeral, '1', 'black', 'W23', '4mm²')
   add(bbEscada, 'N.3', idGeral, 'N1', 'blue', 'W24', '4mm²')
 
@@ -577,7 +579,7 @@ export function nativeQuadroDistribuicaoContent(): Record<string, unknown> {
             createdAt: now,
             text:
               'Quadro Geral de Distribuição com múltiplos circuitos:\n' +
-              '• Fila 1: Corte Geral 4P 40A, DPS Tetrapolar, Medidor Trifásico LCD KWS-306 e Sinalizador Acti9 iIL 3P (presença e perda de fases).\n' +
+              '• Fila 1: Corte Geral 4P 40A, DPS Tetrapolar, Medidor Schneider Acti9 iEM3255 e Sinalizador Acti9 iIL 3P (presença e perda de fases).\n' +
               '• Fila 2: Barramento repartidor tetrapolar em escada (4P×7), Diferencial 4P 40A 30mA (Oficina), Diferencial 2P 25A 30mA e RCBO 1P+N C16 30mA (Especiais).\n' +
               '• Fila 3: Pente Schneider Acti9 1P+N (A9XPC712) com topos amarelos e coberturas snap-on, disjuntores iC60H (Iluminação, Tomadas Gerais, Especiais) e Disjuntor Trifásico 3P.\n' +
               '• Fila 4: Bornes Phoenix Contact PTI 6, Barramento de Neutro isolado e Barramento de Terra PE em latão maciço.\n' +
@@ -589,7 +591,7 @@ export function nativeQuadroDistribuicaoContent(): Record<string, unknown> {
     canvasTexts: [
       { id: 'txt-qg', x: 280, y: -545, text: 'CORTE GERAL 4P', fontSize: 13, color: '#1e293b' },
       { id: 'txt-dps', x: 470, y: -545, text: 'DPS SOBRETENSÕES', fontSize: 13, color: '#1e293b' },
-      { id: 'txt-pm', x: 610, y: -575, text: 'MEDIDOR KWS-306', fontSize: 13, color: '#1e293b' },
+      { id: 'txt-pm', x: 610, y: -575, text: 'MEDIDOR iEM3255', fontSize: 13, color: '#1e293b' },
       { id: 'txt-hl', x: 760, y: -540, text: 'ACTI9 iIL 3P (FASES)', fontSize: 13, color: '#1e293b' },
       { id: 'txt-escada', x: 180, y: -275, text: 'REPARTIDOR ESCADA 4P', fontSize: 13, color: '#1e293b' },
       { id: 'txt-idtrif', x: 360, y: -275, text: 'DDR TRIFÁSICO 4P', fontSize: 13, color: '#1e293b' },

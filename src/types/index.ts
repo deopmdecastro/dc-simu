@@ -232,6 +232,7 @@ export type ComponentType =
   | 'multimeterDm20'
   | 'meterD522066'
   | 'meterKws306'
+  | 'meterSchneiderIem3255'
   | 'currentTransformerSplitCore'
 
 /**

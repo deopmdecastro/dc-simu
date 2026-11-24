@@ -164,6 +164,7 @@ const BUILTIN: Partial<Record<ComponentType, IecAssociation>> = {
   multimeterDm20: { iec60617: '60617-8 / instrumento de medida', refLetter: 'P' },
   meterD522066: { iec60617: '60617-8 / medidor multifunções', refLetter: 'P', note: 'Medidor multifuncional digital LCD' },
   meterKws306: { iec60617: '60617-8 / analisador de energia', refLetter: 'P', note: 'Medidor de energia trifásico LCD' },
+  meterSchneiderIem3255: { iec60617: '60617-8 / analisador de energia', refLetter: 'P', note: 'Medidor de energia Schneider Acti9 iEM3255 3P+N' },
 }
 
 /** Categorias → associação por omissão (para catálogo sem iecSymbol explícito). */

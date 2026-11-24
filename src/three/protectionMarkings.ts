@@ -991,13 +991,59 @@ function buildPhoenixEcbMarkings(state: Record<string, unknown> | undefined, u: 
 }
 
 function buildWegSpdMarkings(
-  type: 'surgeProtectorWegSpw02' | 'surgeProtectorWegSpw12',
+  type: 'surgeProtectorWegSpw02' | 'surgeProtectorWegSpw12' | 'surgeProtectorSchneiderIprd',
   state: Record<string, unknown> | undefined,
   u: number,
 ): THREE.Object3D[] {
   const r = readProtectionRatings(type, state)
   const out: THREE.Object3D[] = []
-  if (type === 'surgeProtectorWegSpw02') {
+  if (type === 'surgeProtectorSchneiderIprd') {
+    // Schneider Acti9 iPRD: mesma família de módulo DIN, rótulo e logótipo Schneider.
+    const upTex = cachedCanvasTexture(`iprd:up:${r.ucV}`, 240, 160, (ctx, w, h) => {
+      ctx.fillStyle = '#f4f5f7'
+      ctx.fillRect(0, 0, w, h)
+      ctx.fillStyle = '#3dcd58'
+      ctx.fillRect(0, 0, w, 44)
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '900 30px "Inter", "Arial", sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('Acti9', w / 2, 23)
+      ctx.fillStyle = '#0f172a'
+      ctx.font = '900 30px "Inter", "Arial", sans-serif'
+      ctx.fillText('iPRD 1P', w / 2, 76)
+      ctx.fillStyle = '#1e293b'
+      ctx.font = '800 20px "Inter", "Arial", sans-serif'
+      ctx.fillText('DPS · T2 · L', w / 2, 112)
+      ctx.fillStyle = '#64748b'
+      ctx.font = '600 16px "Inter", "Arial", sans-serif'
+      ctx.fillText(`${r.ucV} V~ · ${r.imaxKa} kA`, w / 2, 142)
+    })
+    paintBrandLogoOnTexture(upTex, 'schneider-electric', { x: 70, y: 2, w: 100, h: 32 }, { background: '#3dcd58', color: '#ffffff', onPainted: notifyCadTexturesReady })
+    const lowTex = cachedCanvasTexture(`iprd:low:${r.ucV}:${r.imaxKa}:${r.failed ? 1 : 0}`, 240, 160, (ctx, w, h) => {
+      ctx.fillStyle = '#e9ecef'
+      ctx.fillRect(0, 0, w, h)
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#0f172a'
+      ctx.font = '800 26px "Inter", "Arial", sans-serif'
+      ctx.fillText(`Uc ${r.ucV} V~`, w / 2, 30)
+      ctx.fillStyle = '#1e293b'
+      ctx.font = '800 24px "Inter", "Arial", sans-serif'
+      ctx.fillText(`Imax ${r.imaxKa} kA`, w / 2, 66)
+      roundRect(ctx, 28, 92, w - 56, 36, 8)
+      ctx.fillStyle = r.failed ? '#dc2626' : '#16a34a'
+      ctx.fill()
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '800 21px "Inter", "Arial", sans-serif'
+      ctx.fillText(r.failed ? 'SUBSTITUIR' : 'OK · ⏚ PE', w / 2, 111)
+      ctx.fillStyle = '#475569'
+      ctx.font = '600 16px "Inter", "Arial", sans-serif'
+      ctx.fillText('IEC 61643-11', w / 2, 145)
+    })
+    if (upTex) out.push(makePlateMesh(upTex, 15.6, 9.6, [0, 49.5, 34.50], u, -0.06, false))
+    if (lowTex) out.push(makePlateMesh(lowTex, 15.6, 9.6, [0, 32.2, 34.72], u, -0.06, false))
+  } else if (type === 'surgeProtectorWegSpw02') {
     const upTex = cachedCanvasTexture(`spw02:up:${r.ucV}`, 240, 160, (ctx, w, h) => {
       ctx.fillStyle = '#00579d'
       ctx.fillRect(0, 0, w, 58)
@@ -1608,7 +1654,7 @@ export function applyProtectionMarkings(
     }
   } else if (type === 'phoenixEcb3000760') {
     plates = buildPhoenixEcbMarkings(options.state, u)
-  } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12') {
+  } else if (type === 'surgeProtectorWegSpw02' || type === 'surgeProtectorWegSpw12' || type === 'surgeProtectorSchneiderIprd') {
     plates = buildWegSpdMarkings(type, options.state, u)
   } else if (type === 'breakerSteckSdC25') {
     plates = buildSteckOverrideMarkings(options.state, u)

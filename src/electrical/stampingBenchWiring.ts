@@ -39,8 +39,9 @@ export interface BenchWireSpec {
   waypointsMm: BenchPointMm[]
   /** Chicote: condutores do mesmo cabo filaçados com abraçadeiras. */
   bundleId?: string
-  /** Terminação por ponta (por omissão ponteira simples): `ferruleDouble` onde dois condutores partilham o borne. */
-  fromEnd?: 'ferrule' | 'ferruleDouble'
+  /** Terminação por ponta (por omissão ponteira simples): `ferruleDouble` onde dois condutores partilham o borne.
+   *  `none` = o cabo sai diretamente do sensor (cabo de fábrica) e só recebe ponteira no borne do quadro. */
+  fromEnd?: 'ferrule' | 'ferruleDouble' | 'none'
   toEnd?: 'ferrule' | 'ferruleDouble'
   /** Tubo (ar comprimido / hidráulica) em vez de condutor elétrico. */
   medium?: 'pneumatic' | 'hydraulic'
@@ -126,6 +127,13 @@ export const BENCH_SUPPLY_LOADS: ReadonlyArray<{ key: string; label: string; rai
 ]
 
 const STRIP_COLORS: Record<string, WireColor> = { X21: 'black', X22: 'violet', X23: 'grey', X24: 'black' }
+
+/**
+ * Peças cujo cabo de saída é o próprio cabo do sensor (cinta magnética, ótico, indutivo): o cabo sai
+ * do corpo e vai direto ao borne do quadro, sem ponteira na saída do sensor — como na referência
+ * `IMG_5988.jpeg` (cilindro com cabo preto até ao borne). A ponteira fica só no borne.
+ */
+const SENSOR_CABLE_KEYS = new Set(['feeder', 'drawerCylinder', 'press', 'arm', 'opticalSensor', 'inductiveSensor'])
 
 const SIDE_H = 60 // abas das esteiras perfuradas
 const R_FLOOR = 4.5 // fundo (2,5 mm) + raio do condutor 2,5 mm² flexível
@@ -586,7 +594,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
     let j = 0
     /** Cabo de campo: aparelho → calhas da base → perna → bucim do QE1 → borne. */
     const fieldWire = (id: string, number: string, label: string, src: { key: string; label: string }, term: BenchPlacement,
-      color: WireColor, kind: WireKind, toEnd?: 'ferruleDouble') => {
+      color: WireColor, kind: WireKind, toEnd?: 'ferruleDouble', fromEnd?: 'none') => {
       const part = get(src.key)
       if (!part) return
       const { p, n } = benchTerminalPointMm(part, src.label)
@@ -601,7 +609,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         const lower = ductMidBC ?? ductBottom
         wires.push({
           id, number, label, from: src, to: { key: term.key, label: '2' }, color, gauge: '0.75mm²', kind,
-          ...(toEnd ? { toEnd } : {}),
+          ...(toEnd ? { toEnd } : {}), ...(fromEnd ? { fromEnd } : {}),
           bundleId: 'qe1-interior',
           waypointsMm: clean([
             exit,
@@ -646,7 +654,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const clearZ = Math.max(-edge, Math.min(edge, exit.z + (exit.z >= part.z ? 1 : -1) * (sz.z / 2 + 14)))
       wires.push({
         id, number, label, from: src, to: { key: term.key, label: '2' }, color, gauge: '0.75mm²', kind,
-        ...(toEnd ? { toEnd } : {}),
+        ...(toEnd ? { toEnd } : {}), ...(fromEnd ? { fromEnd } : {}),
         // Chicote de campo: filaçado nas calhas perimetrais → perna → bucim QE1.
         bundleId: isOperator ? 'mq-campo-operadores' : 'mq-campo',
         waypointsMm: clean([
@@ -664,7 +672,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
 
     // Entradas, saídas, motor e reservas (X21…X24), pela ordem das réguas.
     for (const { strip, points } of BENCH_TERMINAL_STRIPS) {
-      if (strip === 'X25' || strip === 'X26') continue
+      if (strip === 'X25' || strip === 'X26' || strip === 'X1') continue
       points.forEach(({ marker, tag }, i) => {
         // `undefined` = borne de reserva (o guião não o usa): fica na régua sem cabo de campo.
         const src = BENCH_FIELD_SOURCES[tag]
@@ -672,7 +680,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         if (!src || !term) return
         fieldWire(`mq-campo-${strip.toLowerCase()}-${i + 1}`, `${strip}.${i + 1}`,
           `${marker} ${tag} · ${get(src.key)?.state?.labelText ?? src.key} → ${strip}.${i + 1}`,
-          src, term, STRIP_COLORS[strip] ?? 'black', strip === 'X21' ? 'signal' : 'control')
+          src, term, STRIP_COLORS[strip] ?? 'black', strip === 'X21' ? 'signal' : 'control', undefined,
+          // Cabo do sensor: sai do sensor e vai direto ao borne, sem ponteira na saída do sensor.
+          strip === 'X21' && SENSOR_CABLE_KEYS.has(src.key) ? 'none' : undefined)
       })
     }
 
@@ -796,7 +806,9 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       if (!term) continue
       fieldWire(`mq-campo-${strip.toLowerCase()}-${load.key}-${load.label.replace(/[^A-Za-z0-9]/g, '')}`,
         `${strip}.${Math.floor(idx / 2) + 1}`, `${load.rail} · ${get(load.key)?.state?.labelText ?? load.key} ${load.label} → ${strip}.${Math.floor(idx / 2) + 1}`,
-        { key: load.key, label: load.label }, term, load.rail === '+24V' ? 'brown' : 'blue', 'control', 'ferruleDouble')
+        { key: load.key, label: load.label }, term, load.rail === '+24V' ? 'brown' : 'blue', 'control', 'ferruleDouble',
+        // O +24 V / 0 V dos sensores é o mesmo cabo de fábrica: sem ponteira na saída do sensor.
+        SENSOR_CABLE_KEYS.has(load.key) ? 'none' : undefined)
     }
 
     // ── OPERADORES DE CAMPO → QE1 ────────────────────────────────────────────────────────────
@@ -1124,6 +1136,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const besideX = (pillar ? pillar.x : plugMaq.x) + 150
       // Corre por baixo do tampo (acima da travessa traseira) até ao QE1 e entra na vertical pelo bucim.
       const runY = -top - 28
+      const plugGland = pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 40)
       const supplyToGland = (lane: number): BenchPointMm[] => [
         // Curva larga à saída do bucim e desce abaixo da tomada (sem tocar no corpo da XS-MAQ).
         pt(plugMaq.x + lane, plugGland.y - 20, plugGland.z + 22),
@@ -1133,60 +1146,77 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         pt(besideX + lane, runY, behindZ + lane),
         pt(besideX + lane, runY, glandTop.z + lane),
         pt(glandTop.x + lane * 0.5, runY, glandTop.z + lane),
-        // Entra na vertical pelo bucim M25 do topo e só dentro do quadro segue para a calha técnica.
+        // Entra na vertical pelo bucim M25 do topo; o troço interior é calculado pelo `qeRouter`.
         pt(glandTop.x + lane * 0.5, cabTopY + 6, glandTop.z),
-        ...asLocal([
+      ]
+
+      // ── Ficha F-MAQ → régua de entrada 230 V X1 (L preto, N azul, PE verde/amarelo) ─────────
+      // O cabo é um único H07RN-F 3G1,5: três condutores dentro da mesma bainha, sem isolamento
+      // individual por fora. O `bundleId` agrupa-os e o 3D desenha uma única capa para o cabo.
+      const x1L = get('terminals-X1-1'), x1N = get('terminals-X1-2'), x1PE = get('terminals-X1-3')
+      const x1Term = (label: 'L' | 'N' | 'PE') =>
+        label === 'L' ? x1L : label === 'N' ? x1N : x1PE
+      const insideToX1 = (label: 'L' | 'N' | 'PE', lane: number): BenchPointMm[] => {
+        const term = x1Term(label)
+        if (!term) return []
+        const routed = qeRouter?.fromGland('supply', { key: term.key, label: '1' }, lane)
+        if (routed?.length) return asLocal([pt(glandTopL.x + lane * 0.5, cabTopY + 6, glandTopL.z), ...routed])
+        return asLocal([
+          pt(glandTopL.x + lane * 0.5, cabTopY + 6, glandTopL.z),
           pt(glandTopL.x + lane * 0.5, cabTopY - 30, glandTopL.z),
           pt(glandTopL.x + lane * 0.5, ductTop ? ductTop.y : cabTopY - 40, ductInZ + lane),
-        ]),
-      ]
-      // Lado do quadro: sai pelo bucim da ficha → sobe à calha técnica → bornes L/N/PE.
-      // Cabo revestido (sheathed) + filaçado no chicote qe1-alimentacao-plc.
-      const plugGland = pt(plugMaq.x, plugMaq.y - 8, plugMaq.z + 40)
+          pt(term.x, ductTop ? ductTop.y : cabTopY - 40, ductInZ + lane),
+          pt(term.x, railTop(term) + 14, ductInZ),
+        ])
+      }
       for (const [psLabel, color, kind, lane] of [
         ['L', 'black', 'power', -2.5],
         ['N', 'blue', 'neutral', 2.5],
+        ['PE', 'green-yellow', 'earth', 0],
       ] as const) {
+        const term = x1Term(psLabel)
+        if (!term) continue
         wires.push({
-          id: `qe1-ps1-${psLabel.toLowerCase()}`,
-          number: `F-MAQ → PS1.${psLabel}`,
-          label: `${psLabel === 'L' ? '230 V fase' : '230 V neutro'} · FICHA MAQ → PS1 ${psLabel}`,
+          id: `qe1-maq-x1-${psLabel.toLowerCase()}`,
+          number: `F-MAQ → X1.${psLabel === 'L' ? 1 : psLabel === 'N' ? 2 : 3}`,
+          label: `${psLabel === 'L' ? '230 V fase' : psLabel === 'N' ? '230 V neutro' : 'Terra'} · FICHA MAQ → X1 ${psLabel}`,
           from: { key: 'plug-bench', label: psLabel },
-          to: { key: ps1.key, label: psLabel },
+          to: { key: term.key, label: '1' },
           color, gauge: '1.5mm²', kind,
           sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
           bundleId: 'qe1-alimentacao-plc',
-          waypointsMm: clean([
-            plugGland,
-            ...supplyToGland(lane),
-            // Corre dentro da calha técnica do topo até à fonte.
-            ...asLocal([
-              pt(ps1.x + (psLabel === 'L' ? -6 : 6), ductTop ? ductTop.y : ps1.y + 40, ductInZ + lane),
-              pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 18, ductInZ),
-              pt(ps1.x + (psLabel === 'L' ? -6 : 6), ps1.y + 6, ductInZ),
-            ]),
-          ]),
+          waypointsMm: clean([plugGland, ...supplyToGland(lane), ...insideToX1(psLabel, lane)]),
         })
       }
-      // PE da ficha → calha → borne de terra X20.
-      wires.push({
-        id: 'qe1-maq-pe',
-        number: 'F-MAQ → PE',
-        label: 'PE · FICHA MAQ → terra do quadro',
-        from: { key: 'plug-bench', label: 'PE' },
-        to: { key: 'terminals-x20', label: 'PE-IN' },
-        color: 'green-yellow', gauge: '1.5mm²', kind: 'earth',
-        sheathed: true, sheathColor: '#1c1917', conductorCount: 3,
-        bundleId: 'qe1-alimentacao-plc',
-        waypointsMm: clean([
-          plugGland,
-          ...supplyToGland(0),
-          ...asLocal([
-            pt(x20bus.x, ductTop ? ductTop.y : x20bus.y + 40, ductInZ),
-            pt(x20bus.x, railBottom(x20bus) - 12, ductInZ),
-          ]),
-        ]),
-      })
+
+      // ── Régua X1 → fonte PS1 (a fonte é alimentada a partir do borne, não diretamente da ficha) ──
+      for (const [psLabel, color, kind, lane] of [
+        ['L', 'black', 'power', -2],
+        ['N', 'blue', 'neutral', 2],
+        ['PE', 'green-yellow', 'earth', 0],
+      ] as const) {
+        const term = x1Term(psLabel)
+        if (!term) continue
+        const fromEnd: BenchWireEnd = { key: term.key, label: '1' }
+        const toEnd: BenchWireEnd = { key: ps1.key, label: psLabel }
+        const routed = qeRouter?.between(fromEnd, toEnd, lane)
+        const inner = routed?.length ? asLocal(routed) : asLocal([
+          pt(term.x, railTop(term) + 14, ductInZ + lane),
+          pt(term.x, ductTop ? ductTop.y : ps1.y + 40, ductInZ + lane),
+          pt(ps1.x, ductTop ? ductTop.y : ps1.y + 40, ductInZ + lane),
+          pt(ps1.x, ps1.y + 6, ductInZ),
+        ])
+        wires.push({
+          id: `qe1-x1-ps1-${psLabel.toLowerCase()}`,
+          number: `X1.${psLabel === 'L' ? 1 : psLabel === 'N' ? 2 : 3} → PS1.${psLabel}`,
+          label: `${psLabel === 'L' ? '230 V fase' : psLabel === 'N' ? '230 V neutro' : 'Terra'} · X1 ${psLabel} → PS1 ${psLabel}`,
+          from: fromEnd,
+          to: toEnd,
+          color, gauge: '1.5mm²', kind,
+          bundleId: 'qe1-alimentacao-plc',
+          waypointsMm: clean(inner),
+        })
+      }
       // Saída da fonte para o barramento de 24 V (X20) e terra.
       for (const [psLabel, tgt, color, kind] of [['+V1', '+24V-IN', 'brown', 'power'], ['-V1', '0V-IN', 'blue', 'neutral'], ['PE', 'PE-IN', 'green-yellow', 'earth']] as const) {
         wires.push({

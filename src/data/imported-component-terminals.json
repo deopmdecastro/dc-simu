@@ -189,6 +189,26 @@
       "holeDepthMm": 13.6
     }
   ],
+  "surgeProtectorSchneiderIprd": [
+    {
+      "label": "L",
+      "face": "top",
+      "x": 0.5,
+      "y": 0.006786,
+      "z": 0.277713,
+      "diameterMm": 11.1,
+      "holeDepthMm": 16.2
+    },
+    {
+      "label": "PE",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 0.993831,
+      "z": 0.277713,
+      "diameterMm": 11.1,
+      "holeDepthMm": 13.6
+    }
+  ],
   "thermalRelaySiemens3ru1116": [
     {
       "label": "1L1",

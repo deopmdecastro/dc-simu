@@ -99,7 +99,7 @@ export function updatePanelMeters(components:ElectricalComponent[],wires:Wire[],
       }
       Object.assign(c.state,{on:powered,voltage:powered?input.voltage:0,current:amps,power:watts,powerFactor:amps>0&&input.voltage>0?watts/(input.voltage*amps):0,frequency:powered?frequency(c,'1',ctx):0,measurementAmbiguous:ambiguous})
       integrate(c,watts,dtMs,running)
-    }else if(c.type==='meterKws306'){
+    }else if(c.type==='meterKws306'||c.type==='meterSchneiderIem3255'){
       let any=false,watts=0,ambiguous=false
       for(const [phase,suffix]of [['L1','A'],['L2','B'],['L3','C']]){
         const input=industrialInput(c,phase+'-IN','N-IN',ctx),v=!input.dc?input.voltage:0

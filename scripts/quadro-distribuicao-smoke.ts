@@ -13,6 +13,7 @@ import {
 import { computeContinuity, internalBridges, sourceTerminalIds } from '../src/electrical/engine'
 import { evaluateShortCircuits } from '../src/electrical/shortCircuitEngine'
 import { detectDiagnostics } from '../src/utils/errorDetection'
+import { stampingWallPanelContent } from '../src/electrical/stampingWallPanel'
 import { localApi } from '../src/auth/localBackend'
 import type { ElectricalComponent, Wire } from '../src/types'
 
@@ -31,7 +32,16 @@ check(content.nativeId === NATIVE_QUADRO_DISTRIBUICAO_ID, 'ID nativo estável')
 check(components.length === 47 && wires.length === 76, '47 componentes e 76 condutores na semente revista')
 const required = ['QE1', 'QG1', 'DPS1', 'PM1', 'HL1', 'BB_ESCADA', 'ID_TRIF', 'ID_GERAL', 'RCBO_ESP', 'BB_COMB1', 'Q_ILUM', 'Q_TOM1', 'Q_TOM2', 'Q_ESP', 'BB_COMB2', 'Q_TRIF', 'N_BAR', 'PE_BAR', 'LUM1', 'TOM_GERAL', 'TOM_GERAL2', 'TOM_ESP', 'TOM_TRIF', 'QM1', 'M1']
 check(required.every((ref) => components.some((c) => c.ref === ref)), 'Equipamentos e cinco circuitos terminais presentes, incluindo duas tomadas gerais independentes')
-check(byRef('ID_GERAL').type === 'residualBreakerHagerCfc225p', 'Setor monofásico usa efetivamente o diferencial Hager 2P')
+check(byRef('ID_GERAL').type === 'residualBreakerSchneiderIdpnVigi', 'Setor monofásico usa efetivamente o diferencial Schneider iDPN N Vigi 1P+N')
+check(byRef('PM1').type === 'meterSchneiderIem3255', 'Medidor do QGD é Schneider Acti9 iEM3255')
+check(!components.some((c) => /WegSpw|Kws306|Hager/i.test(c.type)), 'QGD nativo sem componentes WEG nem Hager')
+{
+  const wall = stampingWallPanelContent('mq-', 0, 0)
+  const wallByRef = (ref: string) => { const hit = wall.components.find((c) => c.ref === ref); assert.ok(hit, ref); return hit }
+  check(['DPS1','DPS2','DPS3','DPS4'].every((ref) => wallByRef(ref).type === 'surgeProtectorSchneiderIprd'), 'DPS do QGD 3D são Schneider Acti9 iPRD')
+  check(wallByRef('PM1').type === 'meterSchneiderIem3255' && wallByRef('ID_GERAL').type === 'residualBreakerSchneiderIdpnVigi', 'QGD 3D com medidor iEM3255 e diferencial Schneider')
+  check(!wall.components.some((c) => /WegSpw|Kws306|Hager/i.test(c.type)), 'QGD 3D sem componentes WEG nem Hager')
+}
 const holes = byRef('QE1').state.holes as Array<{ face: string }>
 check(holes.length === 5 && holes.every((h) => h.face === 'bottom'), 'Cinco furos inferiores para bucins')
 const terminalIds = new Set(components.flatMap((c) => c.terminals.map((t) => t.id)))

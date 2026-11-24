@@ -2,7 +2,7 @@
  * Quadro geral de parede da maquete de estampagem (QGD da nave).
  *
  * Reaproveita o Quadro Geral de Distribuição nativo — invólucro IP66 com bucins, 4 calhas DIN,
- * calhas técnicas, interruptor de corte 4P, DPS (4× WEG SPW02), medidor KWS-306, sinalização de fases iIL 3P, barramento
+ * calhas técnicas, interruptor de corte 4P, DPS (4× Schneider iPRD), medidor iEM3255, sinalização de fases iIL 3P, barramento
  * em escada, diferenciais 4P/2P, RCBO, pentes, disjuntores terminais, régua PTI 6, barras N/PE,
  * cablagem com ponteiras e chicotes filaçados — sem as cargas de campo da casa. Os circuitos
  * ficam com as funções da nave e acrescentam-se dois disjuntores de reserva.
@@ -22,10 +22,10 @@ const FIELD_LOADS = new Set(['LUM1', 'TOM_GERAL', 'TOM_GERAL2', 'TOM_ESP', 'TOM_
 export const WALL_PANEL_CIRCUITS: Record<string, string> = {
   QE1: 'QGD · Quadro geral da nave de estampagem (600×800×250 mm)',
   QG1: 'Interruptor de corte geral 4P 100 A · QGD',
-  PM1: 'Medidor trifásico KWS-306 · consumo da nave',
+  PM1: 'Medidor Schneider Acti9 iEM3255 · consumo da nave',
   HL1: 'Sinalização de fases L1/L2/L3 · falta de fase',
   ID_TRIF: 'Diferencial 4P 40 A 30 mA · setor trifásico',
-  ID_GERAL: 'Diferencial 2P 25 A 30 mA · maquete e iluminação',
+  ID_GERAL: 'RCBO Schneider Acti9 iDPN Vigi 1P+N C25 30 mA · maquete e iluminação',
   RCBO_ESP: 'RCBO 1P+N C16 30 mA · compressor',
   Q_ILUM: 'Q1 · Iluminação da nave · C10',
   Q_TOM1: 'Q2 · Maquete de estampagem (fonte 24 V) · C16',
@@ -105,7 +105,7 @@ export function stampingWallPanelContent(prefix: string, dx = 0, dy = 0): WallPa
   const qg1 = content.components.find((c) => c.ref === 'QG1')!
   const dpsOffset = (dpsOld as ElectricalComponent & { railOffsetMm?: number }).railOffsetMm ?? 210
   ;([['L1', '2', 'black', 'PE2'], ['L2', '4', 'brown', 'PE3'], ['L3', '6', 'grey', 'PE4'], ['N', '8', 'blue', 'PE5']] as const).forEach(([pole, from, color, pe], i) => {
-    const d = createComponent('surgeProtectorWegSpw02', `DPS${i + 1}`, `DPS classe II · ${pole}`, 0, dpsOld.schematicX + i * 27, dpsOld.schematicY)
+    const d = createComponent('surgeProtectorSchneiderIprd', `DPS${i + 1}`, `DPS Schneider iPRD · ${pole}`, 0, dpsOld.schematicX + i * 27, dpsOld.schematicY)
     d.id = `${prefix}qd-dps-${pole.toLowerCase()}`
     d.terminals = d.terminals.map((t) => ({ ...t, id: `${d.id}-${t.label}`, componentId: d.id }))
     Object.assign(d, { railId: dpsOld.railId, railOffsetMm: dpsOffset + i * 18, enclosureId: dpsOld.enclosureId })
@@ -227,7 +227,7 @@ const PX = 1.5
  * Quadro de parede compacto (600 × 800 × 250 mm em vez de 800 × 1000): calhas verticais encostadas às
  * ilhargas, cinco calhas horizontais entre as filas e quatro calhas DIN com os aparelhos juntos
  * (passo modular, 8 mm entre grupos). Todos os aparelhos de calha ficam centrados no perfil — o
- * medidor KWS-306 do quadro nativo estava 21 mm acima da calha.
+ * medidor do quadro nativo estava 21 mm acima da calha.
  *
  * Pentes: o pente 1P (A9XPC) fica ENCAIXADO nos bornes de entrada de Q1–Q3 (adjacentes, passo
  * 18 mm) e é alimentado por um borne de alimentação de pente (`combBusbarConnector`) no 1.º
@@ -342,7 +342,7 @@ function compactWallPanel(content: { components: ElectricalComponent[]; wires: W
       for (const ref of group) {
         const c = byRef(ref)
         if (!c) continue
-        const dy = c.type === 'meterKws306' ? -3 : (nativeDy[ref] ?? Math.max(-40, Math.min(3, Math.round((c.schematicY + c.h / 2) - (oldRailCy.get(c.id) ?? railCy)))))
+        const dy = c.type === 'meterKws306' || c.type === 'meterSchneiderIem3255' ? -3 : (nativeDy[ref] ?? Math.max(-40, Math.min(3, Math.round((c.schematicY + c.h / 2) - (oldRailCy.get(c.id) ?? railCy)))))
         c.schematicX = Math.round(cursor)
         c.schematicY = Math.round(railCy + dy - c.h / 2)
         Object.assign(c, { railId: rail.id, railOffsetMm: Math.round(((cursor - rail.schematicX) / PX) * 10) / 10 })

@@ -2465,6 +2465,15 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
   quality: SceneQualityProfile
 } & WireEditHandlers) {
   const wires = useSimStore((s) => s.wires)
+  // Cabos multicore (3G1,5, 3G2,5…) são grupos de condutores com o mesmo `bundleId`. A capa exterior
+  // é ÚNICA para o cabo inteiro: os condutores seguem sem isolamento individual dentro dela e só as
+  // pontas ficam visíveis junto aos bornes. Antes cada condutor tinha a sua própria bainha e o cabo
+  // parecia três cabos isolados lado a lado.
+  const sheathedBundleIds = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const w of wires) if (w.sheathed && w.bundleId) counts.set(w.bundleId, (counts.get(w.bundleId) ?? 0) + 1)
+    return new Set([...counts].filter(([, n]) => n > 1).map(([id]) => id))
+  }, [wires])
   const runState = useSimStore((s) => s.sim.runState)
   // Energia dos cabos ao vivo: as listas mantêm a referência entre varreduras,
   // logo o re-render decorre do contador `simTick` (antes: cópias a 10 Hz).
@@ -2617,7 +2626,8 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     const heatLevel = wire.heatLevel ?? 0
     const isBurnt = !!wire.burnt
     const wireMaterial = getSharedWireMaterial({ color: wireColor, kind: wire.kind, flowing, burnt: isBurnt, heatLevel })
-    const sheathMaterial = wire.sheathed ? getSharedSheathMaterial(wire.sheathColor ?? '#0f172a', 'sheath') : null
+    const sharedCableSheath = !!wire.bundleId && sheathedBundleIds.has(wire.bundleId)
+    const sheathMaterial = wire.sheathed && !sharedCableSheath ? getSharedSheathMaterial(wire.sheathColor ?? '#0f172a', 'sheath') : null
     const castWireShadow = quality.thinWireCastShadow || !!wire.sheathed || wire.kind === 'pneumatic' || wire.kind === 'hydraulic'
     const editing = selected && !wire.locked && (editMode === 'navigate' || editMode === 'connect')
     const manual = wire.waypoints3D ?? []
@@ -2745,6 +2755,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     </group>
   })}
     <BundleTies3D wires={wires} paths={coordinatedPaths} components={components} obstacles={obstacles} />
+    <CableSheaths3D wires={wires} paths={coordinatedPaths} />
   </group>
 }
 
@@ -2836,6 +2847,91 @@ function buildTensionedStrapGeometry(
 }
 
 /** Abraçadeiras de filaçar (PA66): fita tensionada no fecho convexo dos cabos + cabeça com lingueta e corte rente. */
+/** Amostra uma polilinha em `count` pontos equidistantes ao longo do comprimento. */
+function resamplePolyline(points: V3[], count: number): V3[] {
+  if (!points.length) return []
+  if (points.length === 1) return Array.from({ length: count }, () => points[0])
+  const cum: number[] = [0]
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1], b = points[i]
+    cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]))
+  }
+  const total = cum[cum.length - 1]
+  if (!(total > 1e-6)) return Array.from({ length: count }, () => points[0])
+  const out: V3[] = []
+  let seg = 1
+  for (let k = 0; k < count; k += 1) {
+    const target = (total * k) / Math.max(1, count - 1)
+    while (seg < cum.length - 1 && cum[seg] < target) seg += 1
+    const a = points[seg - 1], b = points[seg]
+    const t = (target - cum[seg - 1]) / Math.max(1e-9, cum[seg] - cum[seg - 1])
+    out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t])
+  }
+  return out
+}
+
+/**
+ * Capa exterior de um cabo multicore: um único tubo em volta do chicote de condutores do mesmo
+ * `bundleId`. O tubo é aparado nas pontas para deixar as veias visíveis junto às ponteiras.
+ */
+function CableSheaths3D({ wires, paths }: { wires: Wire[]; paths: Map<string, WirePath3D> | null | undefined }) {
+  const sheaths = useMemo(() => {
+    if (!paths) return []
+    const groups = new Map<string, Wire[]>()
+    for (const w of wires) {
+      if (!w.sheathed || !w.bundleId || !paths.has(w.id)) continue
+      const list = groups.get(w.bundleId)
+      if (list) list.push(w)
+      else groups.set(w.bundleId, [w])
+    }
+    const out: Array<{ id: string; curve: THREE.Curve<THREE.Vector3>; radius: number; color: string; length: number }> = []
+    for (const [bundleId, members] of groups) {
+      if (members.length < 2) continue
+      const N = 48
+      const resampled = members.map((w) => resamplePolyline(paths.get(w.id)!.points, N))
+      const avg: V3[] = []
+      for (let i = 0; i < N; i += 1) {
+        let x = 0, y = 0, z = 0
+        for (const pts of resampled) { x += pts[i][0]; y += pts[i][1]; z += pts[i][2] }
+        avg.push([x / resampled.length, y / resampled.length, z / resampled.length])
+      }
+      // Apara ~5% em cada ponta: a capa termina antes das ponteiras e as veias ficam à vista.
+      const trimmed = avg.slice(3, N - 3)
+      if (trimmed.length < 2) continue
+      const curve = new THREE.CatmullRomCurve3(trimmed.map((p) => new THREE.Vector3(...p)), false, 'centripetal')
+      const maxCoreRadius = Math.max(...members.map((w) =>
+        (cableOuterDiameterMm(w.gauge, { conductorCount: w.conductorCount ?? 1, sheathed: false }) * PANEL_UNITS_PER_MM) / 2))
+      const radius = maxCoreRadius * (members.length >= 3 ? 2.05 : 1.75) + 0.008
+      out.push({ id: bundleId, curve, radius, color: members[0].sheathColor ?? '#0f172a', length: curve.getLength() })
+    }
+    return out
+  }, [wires, paths])
+
+  if (!sheaths.length) return null
+  return (
+    <group name="cable-sheaths-3d" userData={{ noPick: true }}>
+      {sheaths.map((sheath) => (
+        <mesh
+          key={`cable-sheath-${sheath.id}`}
+          raycast={() => null}
+          castShadow
+          receiveShadow
+          renderOrder={19}
+        >
+          <tubeGeometry args={[sheath.curve, Math.min(180, Math.max(28, Math.round(sheath.length * 36))), sheath.radius, 12, false]} />
+          <meshPhysicalMaterial
+            color={sheath.color}
+            roughness={0.62}
+            metalness={0.02}
+            clearcoat={0.2}
+            clearcoatRoughness={0.48}
+          />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 function BundleTies3D({ wires, paths, components, obstacles }: {
   wires: Wire[]
   paths: Map<string, WirePath3D> | null | undefined
@@ -5870,7 +5966,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph' || c.type === 'powerSource24v') content = <PowerSupply3D c={c} x={x} />
           else if (c.type === 'terminalSet1ph' || c.type === 'terminalSet3ph' || c.type === 'terminalSet24v') content = <TerminalAssembly3D c={c} x={x} />
           else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
-          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if ((c.type === 'meterKws306' || c.type === 'meterSchneiderIem3255')) content = <MeterKws306_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
           else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
           else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
           else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
@@ -5948,7 +6044,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
           else if (c.type === 'meterD522066') content = <MeterD522066_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
-          else if (c.type === 'meterKws306') content = <MeterKws306_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
+          else if ((c.type === 'meterKws306' || c.type === 'meterSchneiderIem3255')) content = <MeterKws306_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
           else if (c.type === 'breakerSchneiderIc60h1p') content = <SchneiderBreaker1P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={mechanicalControls && !c.locked} />
           else if (c.type === 'residualBreakerSchneiderIid4p') content = <SchneiderRcd4P_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />
           else if (c.type === 'residualBreakerSchneiderIdpnVigi') content = <SchneiderRcd1PN_3D c={c} x={x} position={basePivotTuples[c.id]} interactive={canActuate} />

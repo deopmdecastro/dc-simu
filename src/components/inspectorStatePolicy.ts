@@ -6,7 +6,7 @@ const FIXED_RATINGS = new Set(['poles', 'curve', 'inA', 'icn', 'sensmA', 'rcdTyp
 const NONNEGATIVE_SETTINGS = new Set(['presetMs', 'transitionMs', 'rampMs', 'rampUpMs', 'rampDownMs', 'presetHz', 'preset', 'currentPct'])
 
 export function inspectorStatePolicy(type: string, key: string): { readOnly: boolean; min?: number; integer?: boolean } {
-  const meter = type === 'meterD522066' || type === 'meterKws306'
+  const meter = type === 'meterD522066' || type === 'meterKws306' || type === 'meterSchneiderIem3255'
   const pilot = type === 'pilotLightSchneiderIil1p' || type === 'pilotLightSchneiderIil3p'
   const lamp = type === 'lampIncandescentE27' || type === 'lampFluorescentE27' || type === 'lampLedE27'
   const readOnly = DERIVED.has(key) || FIXED_METADATA.has(key)

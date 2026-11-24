@@ -110,6 +110,7 @@ export function protectionControlKindOf(type: ComponentType): ProtectionControlK
       return 'ecb'
     case 'surgeProtectorWegSpw02':
     case 'surgeProtectorWegSpw12':
+    case 'surgeProtectorSchneiderIprd':
     case 'surgeProtector':
       return 'spd'
     default:
@@ -233,7 +234,7 @@ export function formatProtectionBadge(c: Pick<ElectricalComponent, 'type' | 'sta
     case 'spd':
       return c.type === 'surgeProtectorWegSpw12'
         ? `${r.ucV}Vdc · ${r.imaxKa}kA`
-        : c.type === 'surgeProtectorWegSpw02'
+        : c.type === 'surgeProtectorWegSpw02' || c.type === 'surgeProtectorSchneiderIprd'
           ? `${r.ucV}V~ · ${r.imaxKa}kA`
           : `Up ${formatAmpPt(r.upKv)}kV`
   }

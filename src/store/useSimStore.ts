@@ -1770,7 +1770,7 @@ function deenergizeComponents(components: ElectricalComponent[]): ElectricalComp
     if (runtimeType === 'safetyRelay') Object.assign(nextState, { startupElapsedMs: 0, recoveryElapsedMs: 0, channel1On: false, channel2On: false, input1Closed: false, input2Closed: false })
     if (runtimeType === 'pilotLightSchneiderIil1p' || runtimeType === 'pilotLightSchneiderIil3p') Object.assign(nextState, { on: false, l1On: false, l2On: false, l3On: false, phaseLoss: false })
     if (runtimeType === 'meterD522066') Object.assign(nextState, { on: false, voltage: 0, current: 0, power: 0, frequency: 0 })
-    if (runtimeType === 'meterKws306') Object.assign(nextState, { on: false, vA: 0, vB: 0, vC: 0, iA: 0, iB: 0, iC: 0, pA: 0, pB: 0, pC: 0, frequency: 0 })
+    if (runtimeType === 'meterKws306' || runtimeType === 'meterSchneiderIem3255') Object.assign(nextState, { on: false, vA: 0, vB: 0, vC: 0, iA: 0, iB: 0, iC: 0, pA: 0, pB: 0, pC: 0, frequency: 0 })
     if (runtimeType === 'currentTransformerSplitCore') Object.assign(nextState, { primaryCurrentA: 0, secondaryCurrentA: 0 })
     // O disparo mecânico sobrevive a STOP/reabrir; só RESET (ou Reiniciar tudo) o limpa.
     if (
@@ -3195,8 +3195,8 @@ export const useSimStore = create<Store>((set, get) => {
         })()
         const markers = markerText
           ? [
-              { t: 0.10, text: markerText, color: '#111827', bg: '#facc15', style: 'yellow' as const },
-              { t: 0.90, text: markerText, color: '#111827', bg: '#facc15', style: 'yellow' as const },
+              { t: 0.10, text: markerText, color: '#111827', bg: '#facc15', style: 'iec' as const },
+              { t: 0.90, text: markerText, color: '#111827', bg: '#facc15', style: 'iec' as const },
             ]
           : undefined
         benchWires.push({

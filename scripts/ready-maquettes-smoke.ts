@@ -86,13 +86,14 @@ check('2. Cada maquete declara as peças, os tipos e a capa que a biblioteca mos
   }
 })
 
-check('3. Bancada completa = base + 122 peças + QGD na adaptação fotográfica; bancada vazia = base + estrutura', () => {
+check('3. Bancada completa = base + 125 peças + QGD na adaptação fotográfica; bancada vazia = base + estrutura', () => {
   const full = readyMaquetteById('atec-estampagem')!
   const parts = readyMaquetteParts('atec-estampagem')
   assert.equal(QGD_COUNT, 50, 'QGD: 3 sinalizadores monofásicos e porta-fusíveis 3P+N substituem o iIL 3P')
-  // 119 peças = bancada + QE1 (S7-300) + suporte do QE1 nas pernas + ambiente fabril + 2 fichas CEE.
-  assert.equal(parts.length, 122, '122 peças: bancada + QE1 com suporte + ambiente fabril + fichas CEE F-COMP e F-MAQ')
-  assert.equal(full.componentCount, 173, '173 componentes no total (base + 122 + QGD 50)')
+  // 125 peças = bancada + QE1 (S7-300, com a régua X1 de fase/neutro/terra) + suporte do QE1 nas pernas
+  // + ambiente fabril + 2 fichas CEE.
+  assert.equal(parts.length, 125, '125 peças: bancada + QE1 com suporte + ambiente fabril + fichas CEE F-COMP e F-MAQ')
+  assert.equal(full.componentCount, 176, '176 componentes no total (base + 125 + QGD 50)')
   // QE1 na lateral esquerda com as COSTAS encostadas ao suporte aparafusado às pernas esquerdas.
   const cab = parts.find((p) => p.key === 'cabinet')!
   const plateLen = Number(full.plateState?.lengthMm ?? 700), plateWid = Number(full.plateState?.widthMm ?? 700)
@@ -127,7 +128,7 @@ check('3. Bancada completa = base + 122 peças + QGD na adaptação fotográfica
   assert.ok(inside.length > 60 && inside.every((p) => p.orientation?.y === -90), 'todo o interior do QE1 roda com o quadro')
   // A montagem combina a mecânica da maquete com torre, comandos e quadro do catálogo.
   // REARME (XB2 azul) e START (XB2 verde) passaram a ser aparelhos distintos (antes ambos o «Botão NA» genérico).
-  assert.equal(full.types.length, 61, 'tipos do catálogo na bancada (base + CPV10 + S7-300 + ceePlug16A + borne de alimentação do pente)')
+  assert.equal(full.types.length, 60, 'tipos do catálogo na bancada (base + CPV10 + S7-300 + ceePlug16A + borne de alimentação do pente)')
   assert.ok(!full.types.includes('mecWorkpiece' as any), 'o tarugo não é colocado sobre a base')
   assert.equal(MECHATRONICS_TYPES.length, 24, 'catálogo da maquete com 24 tipos (inclui o HZ20 e o CPV10)')
   const keys = new Set(parts.map((p) => p.key))
@@ -143,15 +144,15 @@ check('3. Bancada completa = base + 122 peças + QGD na adaptação fotográfica
   for (const part of parts) { const c = createComponent(part.type, undefined, undefined, 0, 0, 0); c.state = { ...c.state, ...part.state }; assert.ok(component3DDimensions(c).y > 0, `${part.key} com altura`) }
 })
 
-check('4. Inserção: 173 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
+check('4. Inserção: 176 componentes (QGD na parede + bancada no centro da nave), num único passo de histórico', () => {
   const st = useSimStore.getState()
   st.newProject('all')
   const historyBefore = historyLength()
   const componentsBefore = useSimStore.getState().components.length
   const created = useSimStore.getState().insertReadyMaquette('atec-estampagem')
   const after = useSimStore.getState()
-  assert.equal(created.length, 173, '173 componentes criados')
-  assert.equal(after.components.length - componentsBefore, 173, '173 componentes no projeto')
+  assert.equal(created.length, 176, '176 componentes criados')
+  assert.equal(after.components.length - componentsBefore, 176, '176 componentes no projeto')
   assert.equal(historyLength() - historyBefore, 1, 'um único passo de histórico (Ctrl+Z desmonta tudo)')
   assert.deepEqual(after.selectedComponentIds, created, 'a montagem fica selecionada')
 
@@ -172,8 +173,8 @@ check('4. Inserção: 173 componentes (QGD na parede + bancada no centro da nave
   const bench = after.components.filter((c) => created.slice(QGD_COUNT + 1).includes(c.id))
   const expected = new Set(readyMaquetteParts('atec-estampagem', undefined, env).map((part) => positionKey(benchPartUnits(base, part))))
   const actual = bench.map((c) => positionKey(c.panel3DPosition!))
-  assert.equal(actual.length, 122)
-  assert.deepEqual(new Set(actual), expected, 'as 122 peças estão nas posições do relatório')
+  assert.equal(actual.length, 125)
+  assert.deepEqual(new Set(actual), expected, 'as 125 peças estão nas posições do relatório')
   for (const c of bench) assert.ok(c.panel3DPosition, `${c.ref} com posição 3D`)
   const refs = after.components.map((c) => c.ref)
   assert.equal(new Set(refs).size, refs.length, 'TAGs sem repetições entre o QGD (X1.x) e o QE1 (X20…X24)')
@@ -292,9 +293,9 @@ check('4. Inserção: 173 componentes (QGD na parede + bancada no centro da nave
 
   // Um Ctrl+Z desmonta a bancada inteira; um Ctrl+Y volta a montá-la.
   useSimStore.getState().undo()
-  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 173 de uma vez')
+  assert.equal(useSimStore.getState().components.length, componentsBefore, 'desfazer remove os 176 de uma vez')
   useSimStore.getState().redo()
-  assert.equal(useSimStore.getState().components.length, 173, 'refazer volta a montar')
+  assert.equal(useSimStore.getState().components.length, 176, 'refazer volta a montar')
 })
 
 check('5. Referências, fichas e bloqueios: TAGs continuam a série e a maquete respeita o modo demonstração', () => {
