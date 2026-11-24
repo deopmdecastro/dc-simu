@@ -8,6 +8,9 @@
 import { readyMaquetteById, readyMaquetteParts } from '../src/electrical/readyMaquettes'
 import { stampingBenchWiring } from '../src/electrical/stampingBenchWiring'
 import { SOCKET_DEVICES } from '../src/electrical/socketDevices'
+import { BENCH_TERMINAL_STRIPS } from '../src/electrical/stampingBench'
+import { s7300Sm321TerminalRows, s7300Sm322TerminalRows } from '../src/electrical/siemensPlc'
+import { createComponent } from '../src/electrical/factory'
 
 type P = { x: number; y: number; z: number }
 let checks = 0
@@ -166,6 +169,46 @@ for (const k of ['tray-drop-compressor', 'tray-drop-bench']) {
     }
   }
   ok(pierce === 0, `Tubo de ar não atravessa as abas da ${k} (sai/entra pela face aberta)`)
+}
+
+// 9. Subida do QGD: os dois 3G2,5 (maquete e compressor) sobem lado a lado, encostados mas separados.
+{
+  const riser = part('tray-riser-qgd')
+  const axisAt = (cable: string) => {
+    const pts = ['l', 'n', 'pe'].map((c) => wire(`${cable}-${c}`).waypointsMm.find((p) => p.y > 150 && p.y < 1300 && Math.abs(p.z - riser.z) < 1)!)
+    return pts.reduce((a, p) => a + p.x, 0) / pts.length
+  }
+  const gap = Math.abs(axisAt('mq-3g25-maquete') - axisAt('mq-3g25-compressor'))
+  ok(gap >= 12 && gap <= 20, `Subida do QGD: os dois cabos 3G2,5 lado a lado (eixos a ${gap.toFixed(1)} mm — Ø ≈ 11 mm, encostados sem se sobreporem)`)
+}
+
+// 10. Bornes do S7-300: pinagem real do conector de 40 pólos e correspondência régua ↔ endereço.
+{
+  const di = new Map(s7300Sm321TerminalRows().map((r) => [r.label, r.pin]))
+  const dq = new Map(s7300Sm322TerminalRows().map((r) => [r.label, r.pin]))
+  ok([0, 1, 2, 3].every((b) => Array.from({ length: 8 }, (_, k) => di.get(`I${b}.${k}`)).join() === Array.from({ length: 8 }, (_, k) => [2, 12, 22, 32][b] + k).join()),
+    'SM321: I0.x bornes 2–9, I1.x 12–19, I2.x 22–29, I3.x 32–39')
+  ok(di.get('M') === 20 && di.get('2M') === 40 && ![1, 11, 21, 31].some((p) => [...di.values()].includes(p)), 'SM321: 1M borne 20, 2M borne 40; bornes 1/11/21/31 livres (sem L+)')
+  ok(dq.get('L+') === 1 && dq.get('M') === 10 && dq.get('2L+') === 11 && dq.get('2M') === 20 && dq.get('3L+') === 21 && dq.get('3M') === 30 && dq.get('4L+') === 31 && dq.get('4M') === 40,
+    'SM322: grupos 1L+/1M 1/10, 2L+/2M 11/20, 3L+/3M 21/30, 4L+/4M 31/40')
+  ok(dq.get('Q4.0') === 2 && dq.get('Q4.7') === 9 && dq.get('Q5.0') === 12 && dq.get('Q5.6') === 18, 'SM322: Q4.x bornes 2–9, Q5.x 12–19')
+  const terms = new Set(createComponent('plcSiemensS7300Sm321Di32').terminals.map((t) => t.label))
+  ok(!terms.has('L+') && terms.has('M') && terms.has('2M'), 'SM321 criado sem borne L+ (como o aparelho)')
+  // Cada cabo régua → módulo: o marcador da régua é o endereço do borne do módulo.
+  let mism = 0, count = 0
+  for (const strip of BENCH_TERMINAL_STRIPS.filter((s) => s.strip === 'X21' || s.strip === 'X22')) {
+    strip.points.forEach(({ marker }, i) => {
+      const w = wires.find((x) => x.from && 'key' in x.from && x.from.key === `terminals-${strip.strip}-${i + 1}` && /^qe1-(di|do)-/.test(x.id))
+      if (!w || !marker) return
+      count++
+      if (w.to.label !== marker) { mism++; console.error(`  ${strip.strip}.${i + 1} marcado ${marker} → módulo ${w.to.label}`) }
+    })
+  }
+  ok(count === 31 && mism === 0, `X21/X22 → S7-300: ${count} cabos, cada borne da régua ligado ao endereço que o marca`)
+  const bridges = wires.filter((w) => w.id.startsWith('qe1-sm322-ponte-'))
+  ok(bridges.length === 2 && wires.some((w) => /^qe1-supply-cabinet-plc-do-Lp/.test(w.id)) && wires.some((w) => /^qe1-supply-cabinet-plc-do-M/.test(w.id)),
+    'SM322: 1L+/1M alimentados por X20 e pontes para 2L+/2M (grupo de Q5.x)')
+  ok(wires.some((w) => /^qe1-supply-cabinet-plc-di-M/.test(w.id)) && !wires.some((w) => /^qe1-supply-cabinet-plc-di-Lp/.test(w.id)), 'SM321: só 1M ligado a 0 V (sem L+)')
 }
 
 console.log(`\n${checks} verificações · encaminhamento esteiras/QE1 OK`)

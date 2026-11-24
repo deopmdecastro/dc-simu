@@ -335,21 +335,27 @@ function plcS7300Cpu315PnDpTerminals(): TerminalTemplate[] {
 }
 
 function plcS7300Sm321Terminals(): TerminalTemplate[] {
+  // Alimentações do conector de 40 pólos: «L+»/«2L+»… (power-in) e «M»/«2M»… (neutral).
+  const isLp = (label: string) => /^\d?L\+$/.test(label)
+  const isM = (label: string) => /^\d?M$/.test(label)
   return s7Terminals(s7300Sm321TerminalRows(),
-    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => isLp(label) ? 'power-in' : isM(label) ? 'neutral' : 'io',
     (label) => ({
       terminalType: 'screw',
-      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : '#94a3b8',
+      color: isLp(label) ? '#ef4444' : isM(label) ? '#3b82f6' : '#94a3b8',
       row: 'frente',
     }))
 }
 
 function plcS7300Sm322Terminals(): TerminalTemplate[] {
+  // Alimentações do conector de 40 pólos: «L+»/«2L+»… (power-in) e «M»/«2M»… (neutral).
+  const isLp = (label: string) => /^\d?L\+$/.test(label)
+  const isM = (label: string) => /^\d?M$/.test(label)
   return s7Terminals(s7300Sm322TerminalRows(),
-    (label) => label === 'L+' ? 'power-in' : label === 'M' ? 'neutral' : 'io',
+    (label) => isLp(label) ? 'power-in' : isM(label) ? 'neutral' : 'io',
     (label) => ({
       terminalType: 'screw',
-      color: label === 'L+' ? '#ef4444' : label === 'M' ? '#3b82f6' : '#94a3b8',
+      color: isLp(label) ? '#ef4444' : isM(label) ? '#3b82f6' : '#94a3b8',
       row: 'frente',
     }))
 }

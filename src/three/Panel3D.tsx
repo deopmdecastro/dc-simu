@@ -2418,7 +2418,10 @@ function cachedWireGeometry(
   // Veia de cabo multicore (dentro de uma bainha): a mesma resolução da bainha (~10 mm). Com 180
   // segmentos num cabo de metros o tubo da veia cortava as curvas por corda e saía pelo lado de
   // dentro da capa (a terra verde-amarela via-se nas curvas das esteiras).
-  const coreOfCable = wire.sheathed && !!wire.bundleId && (wire.conductorCount ?? 1) > 1
+  // Tubos PU de ar/água: longos (vários metros) e com curvas largas — também a ~10 mm por segmento,
+  // senão cada curva ficava com 3–4 facetas e parecia um cotovelo partido.
+  const fluidTube = wire.kind === 'pneumatic' || wire.kind === 'hydraulic'
+  const coreOfCable = (wire.sheathed && !!wire.bundleId && (wire.conductorCount ?? 1) > 1) || fluidTube
   const baseSegments = coreOfCable
     ? Math.min(1200, Math.max(24, Math.round(points.length * 1.25 * tubularScale), Math.round(curve.getLength() / 0.1)))
     : Math.min(180, Math.max(24, Math.round(points.length * 1.25 * tubularScale)))

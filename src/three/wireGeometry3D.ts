@@ -1031,8 +1031,13 @@ export function wireBodyPoints3D(
     // esteira na diagonal e chegava a sair dela. Aqui cada canto leva um arco de raio fixo (raio de
     // curvatura mínimo do PU ≈ 6–7 × Ø) e os troços retos ficam retos, na pista da esteira.
     if (fluid && manual.length > 0 && isAxisRouted(manual)) {
-      const bent = roundCorners(dedupeControls(controls), outerMm, 6.5)
-      return keepInFrontOfPlate(smoothSharpCorners(bent, outerMm * 1.1, 0.12), outerMm)
+      // Raio de curvatura largo (≈ 14 × Ø, como o cabo multicore ao lado): com 6,5 × Ø as mudanças
+      // de pista pareciam cotovelos. Em troços curtos o raio reduz-se sozinho (os cortes nunca passam
+      // do comprimento do troço).
+      const bent = roundCorners(dedupeControls(controls), outerMm, 14)
+      // Onde o troço era curto demais para o raio inteiro ficava um vértice vivo: duas passagens de
+      // Chaikin (fixando as pontas) arredondam-no como num tubo PU real, sem mexer nos troços retos.
+      return keepInFrontOfPlate(chaikin(smoothSharpCorners(bent, outerMm * 1.1, 0.12), 2), outerMm)
     }
     const tension = fluid ? 0.35 : 0.22
     const samples = fluid ? Math.max(96, controls.length * 40) : Math.max(64, controls.length * 28)
@@ -1426,6 +1431,24 @@ export function isAxisRouted(points: V3[]): boolean {
     if (Math.max(Math.abs(d[0]), Math.abs(d[1]), Math.abs(d[2])) / len > 0.985) aligned += len
   }
   return total > 0 && aligned / total > 0.85
+}
+
+/** Suavização de Chaikin (cortes a ¼ e ¾ de cada troço); o primeiro e o último ponto ficam fixos. */
+function chaikin(points: V3[], iterations: number): V3[] {
+  let pts = points
+  for (let it = 0; it < iterations && pts.length > 2; it++) {
+    const out: V3[] = [pts[0]]
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1]
+      const q: V3 = [a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25, a[2] * 0.75 + b[2] * 0.25]
+      const r: V3 = [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75, a[2] * 0.25 + b[2] * 0.75]
+      if (i > 0) out.push(q)
+      if (i < pts.length - 2) out.push(r)
+    }
+    out.push(pts[pts.length - 1])
+    pts = out
+  }
+  return pts
 }
 
 /** Remove pontos repetidos e recuos (A→B→A) que fariam o arco inverter. */

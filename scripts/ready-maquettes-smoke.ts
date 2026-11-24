@@ -271,7 +271,9 @@ check('4. Inserção: 176 componentes (QGD na parede + bancada no centro da nave
   // 15 cabos X22 → SM322: os 14 endereços do guião mais o Q4.3, que fica ligado ao módulo como
   // reserva no borne (não vai a campo, mas o troço dentro do quadro existe).
   assert.equal(interior.filter((w) => w.id.startsWith('qe1-do-')).length, 15, '15 cabos X22 → SM322 (DO 32)')
-  assert.equal(interior.filter((w) => w.id.startsWith('qe1-supply-')).length, 8, 'L+ e M dos quatro módulos S7-300')
+  // Pinagem real: o SM321 DI 32 não tem L+ (bornes 1/11/21/31 livres), só 1M no borne 20 → 7 condutores.
+  assert.equal(interior.filter((w) => w.id.startsWith('qe1-supply-')).length, 7, 'L+/M da CPU, SM322 e SM334 e 1M do SM321')
+  assert.equal(interior.filter((w) => w.id.startsWith('qe1-sm322-ponte-')).length, 2, 'SM322: pontes 1L+→2L+ e 1M→2M (grupo Q5.x)')
   // Os ids das réguas levam a TAG da montagem no fim (`…-a1-IzKtTx`): compara-se pelo prefixo.
   assert.ok(interior.some((w) => w.id.startsWith('qe1-seguranca-a1')), 'KS1 A1 alimentado a 24 V')
   assert.ok(interior.some((w) => w.id.startsWith('qe1-seguranca-13')), 'contacto 13 do KS1 lido em X21.16 (I1.7)')

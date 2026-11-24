@@ -159,21 +159,36 @@ export function s7300Cpu315PnDpTerminalRows(): Array<{ label: string; x: number;
   ]
 }
 
-/** SM321 DI 32×DC24V — 32 entradas + L+/M por grupo (front connector). */
-export function s7300Sm321TerminalRows(): Array<{ label: string; x: number; y: number }> {
-  const rows = column(18, 0.08, 0.96)
-  const out: Array<{ label: string; x: number; y: number }> = [
-    { label: 'L+', x: 0.22, y: rows[0] },
-    { label: 'M', x: 0.78, y: rows[0] },
-  ]
+/**
+ * Conector frontal de 40 pólos do S7-300 (6ES7392-1AM00-0AA0, parafuso): duas colunas de 20 bornes,
+ * **1–20 à esquerda e 21–40 à direita, numerados de cima para baixo**. As cotas (fração da largura e
+ * da altura do módulo, a partir do topo) coincidem com o desenho 3D (`siemensS7300Model.ts`): por
+ * baixo da faixa de LEDs, passo ≈ 5 mm.
+ */
+export const S7300_FC40 = { xLeft: 0.3, xRight: 0.7, yTop: 0.215, yBottom: 0.955 } as const
+export function s7300Fc40Pin(pin: number): { x: number; y: number } {
+  const col = pin <= 20 ? 0 : 1
+  const row = (pin - 1) % 20
+  return {
+    x: col === 0 ? S7300_FC40.xLeft : S7300_FC40.xRight,
+    y: S7300_FC40.yTop + (row * (S7300_FC40.yBottom - S7300_FC40.yTop)) / 19,
+  }
+}
+const pinRow = (label: string, pin: number) => ({ label, pin, ...s7300Fc40Pin(pin) })
+
+/**
+ * SM321 DI 32×DC24V (6ES7321-1BL00-0AA0), conector de 40 pólos — atribuição Siemens:
+ *  - entradas: byte x nos bornes 2–9, x+1 em 12–19, x+2 em 22–29, x+3 em 32–39;
+ *  - 1M no borne 20 (grupo dos bytes x/x+1) e 2M no 40 (bytes x+2/x+3);
+ *  - bornes 1, 11, 21 e 31 **não são usados** no módulo de entradas (o mesmo conector serve o SM322,
+ *    onde são as alimentações L+ dos grupos) — por isso não há borne L+ no SM321.
+ * O rótulo «M» é o 1M (compatível com projetos antigos).
+ */
+export function s7300Sm321TerminalRows(firstByte = 0): Array<{ label: string; x: number; y: number; pin: number }> {
+  const out = [pinRow('M', 20), pinRow('2M', 40)]
   for (let i = 0; i < 32; i++) {
-    const byte = Math.floor(i / 8)
-    const bit = i % 8
-    out.push({
-      label: `I${byte}.${bit}`,
-      x: byte < 2 ? 0.22 : 0.78, // conector de 40 pinos: bytes 0–1 à esquerda, 2–3 à direita
-      y: rows[(i % 16) + 1],
-    })
+    const byte = Math.floor(i / 8), bit = i % 8
+    out.push(pinRow(`I${firstByte + byte}.${bit}`, [2, 12, 22, 32][byte] + bit))
   }
   return out
 }
@@ -182,26 +197,23 @@ export function s7300Sm321TerminalRows(): Array<{ label: string; x: number; y: n
 export const S7300_SM322_FIRST_BYTE = 4
 
 /**
- * SM322 DO 32×DC24V/0.5A — 32 saídas + L+/M.
- *
- * O endereço físico do módulo na ilha define o byte inicial; no guião 1185 as saídas estão em
- * Q4.x/Q5.x (o SM322 é o 5.º módulo depois da CPU), por isso os bornes mostram esse bloco e não
- * Q0.x. Assim o borne do módulo, o borne da régua X22 e a tag do GRAFCET dizem o mesmo endereço.
+ * SM322 DO 32×DC24V/0.5A (6ES7322-1BL00-0AA0), conector de 40 pólos — atribuição Siemens, saídas
+ * isoladas em 4 grupos de 8, cada um com a sua alimentação:
+ *  - 1L+ borne 1, Q x.0–x.7 bornes 2–9, 1M borne 10;
+ *  - 2L+ borne 11, Q x+1 bornes 12–19, 2M borne 20;
+ *  - 3L+ borne 21, Q x+2 bornes 22–29, 3M borne 30;
+ *  - 4L+ borne 31, Q x+3 bornes 32–39, 4M borne 40.
+ * O endereço físico define o byte inicial; no guião 1185 as saídas estão em Q4.x/Q5.x. «L+»/«M» são
+ * o 1L+/1M (compatível com projetos antigos).
  */
-export function s7300Sm322TerminalRows(firstByte = S7300_SM322_FIRST_BYTE): Array<{ label: string; x: number; y: number }> {
-  const rows = column(18, 0.08, 0.96)
-  const out: Array<{ label: string; x: number; y: number }> = [
-    { label: 'L+', x: 0.22, y: rows[0] },
-    { label: 'M', x: 0.78, y: rows[0] },
+export function s7300Sm322TerminalRows(firstByte = S7300_SM322_FIRST_BYTE): Array<{ label: string; x: number; y: number; pin: number }> {
+  const out = [
+    pinRow('L+', 1), pinRow('M', 10), pinRow('2L+', 11), pinRow('2M', 20),
+    pinRow('3L+', 21), pinRow('3M', 30), pinRow('4L+', 31), pinRow('4M', 40),
   ]
   for (let i = 0; i < 32; i++) {
-    const byte = firstByte + Math.floor(i / 8)
-    const bit = i % 8
-    out.push({
-      label: `Q${byte}.${bit}`,
-      x: byte - firstByte < 2 ? 0.22 : 0.78, // conector de 40 pinos: primeiros 2 bytes à esquerda
-      y: rows[(i % 16) + 1],
-    })
+    const byte = Math.floor(i / 8), bit = i % 8
+    out.push(pinRow(`Q${firstByte + byte}.${bit}`, [2, 12, 22, 32][byte] + bit))
   }
   return out
 }

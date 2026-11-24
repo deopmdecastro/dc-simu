@@ -375,8 +375,10 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         // senão o cabo aparece a atravessar o ar entre o quadro e a esteira.
         // Bucim M25 declarado no topo do QGD (`qgd-out-bench` +60 mm / `qgd-out-compressor` −60 mm).
         const lx = riserAxisX + glandDx + dk * 1.5
-        // Pista dentro da subida (200 mm de largura): o cabo no eixo, as veias encostadas.
-        const laneX = riserAxisX + dk * 1.5
+        // Pista dentro da subida (200 mm de largura): os DOIS cabos 3G2,5 sobem lado a lado, encostados
+        // (filaçados), ±7 mm do eixo — maquete do lado +X, compressor do lado −X (o lado para onde cada
+        // um segue na esteira de parede). Antes subiam no mesmo eixo e pareciam um só cabo.
+        const laneX = riserAxisX + Math.sign(glandDx) * 7 + dk * 1.5
         const pts = [
           // O troço DENTRO do QGD (borne → calha → bucim) é desenhado pelo `wallPanelExitRoute`
           // no store, a partir deste primeiro ponto: por isso aqui só se dá o bucim.
@@ -582,7 +584,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         // sobreporem (e o 3D os afastar em caracóis), escalonam-se em profundidade pela distância à
         // calha — o borne mais afastado fica mais à frente — e cada fio larga o feixe à altura do
         // seu borne, sem cruzar os outros (pente plano à frente do módulo).
-        const zF = ap.front ? ap.exit.z + gap * 0.45 : ap.exit.z
+        const zF = ap.front ? ap.exit.z + Math.min(36, gap * 0.35) : ap.exit.z
         const lead = ap.front ? [ap.exit, pt(ap.exit.x, ap.exit.y, zF)] : [ap.exit]
         return [...lead, pt(ap.exit.x, nearY, zF), pt(sx, nearY, zF), pt(sx, edge, zF), pt(sx, edge, z), pt(sx, yLane, z)]
       }
@@ -860,6 +862,24 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         }
       }
 
+      // SM322: saídas isoladas em grupos de 8 com alimentação própria (1L+/1M bornes 1/10, 2L+/2M
+      // bornes 11/20). O guião usa Q4.x (grupo 1) e Q5.x (grupo 2): o grupo 2 é alimentado por pontes
+      // curtas no próprio conector frontal, como se faz no quadro real.
+      if (plcDo) {
+        for (const [a, b, color, kind] of [['L+', '2L+', 'brown', 'power'], ['M', '2M', 'blue', 'neutral']] as const) {
+          const pa = moduleTerminal(plcDo, a), pb = moduleTerminal(plcDo, b)
+          if (!pa || !pb) continue
+          wires.push({
+            id: `qe1-sm322-ponte-${b === '2L+' ? 'l' : 'm'}`,
+            number: `SM322 ${a === 'L+' ? '1L+' : '1M'} → ${b}`,
+            label: `Ponte ${a === 'L+' ? '+24 V' : '0 V'} · SM322 ${a === 'L+' ? '1L+ (borne 1)' : '1M (borne 10)'} → ${b} (borne ${b === '2L+' ? 11 : 20})`,
+            from: { key: plcDo.key, label: a }, to: { key: plcDo.key, label: b },
+            color, gauge: '1.5mm²', kind, bundleId: 'qe1-x20-plc',
+            waypointsMm: clean([pa, pb]),
+          })
+        }
+      }
+
       // Laço de segurança: +24 V no A1/A2 do KS1 e o contacto NF (13/14) livre para I1.7 Seguranca_OK.
       const safety = get('safetyRelay')
       if (safety && x20) {
@@ -1129,8 +1149,11 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         ? {
             // 30 mm ao lado da caixa: a curva de raio fixo não toca na esquina da caixa.
             x: Math.min(laneX, sock.x - sockDims.width / 2 - 30),
-            // Cota onde o tubo sai/entra pela face aberta da descida.
-            y: drop.y - Number(drop.state?.lengthMm) / 2 + 90,
+            // Cota onde o tubo sai/entra pela face aberta da descida (140 mm acima do fundo) e cota a
+            // que chega ao lado da caixa (28 mm acima do topo dela): entre as duas o tubo desce em
+            // diagonal suave à frente das abas — curvas largas, sem cotovelos.
+            y: drop.y - Number(drop.state?.lengthMm) / 2 + 140,
+            yLow: sock.y + sockDims.height / 2 + 28,
             // Fora das abas: aba de 60 mm + rebordo enrolado (≈ 6 mm) + raio do tubo + folga.
             zOut: drop.z + SIDE_H / 2 + 14,
           }
@@ -1149,8 +1172,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           // e só entra na pista da descida no vão entre o topo da caixa e o fundo da esteira.
           ...(beside ? [
             pt(beside.x, out.p.y + 8, beside.zOut),
-            pt(beside.x, beside.y, beside.zOut),
-            pt(tubeCmpX, beside.y, beside.zOut),
+            pt(beside.x, beside.yLow, beside.zOut),
+            pt(tubeCmpX, beside.y - 40, beside.zOut),
             pt(tubeCmpX, beside.y, cmpDropFloorZ),
           ] : [pt(tubeCmpX, out.p.y + 8, cmpDropFloorZ)]),
           // Sobe pela descida do compressor até ao fundo do pescoço; cada mudança de eixo é uma
@@ -1166,8 +1189,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           // Desce na descida da bancada e contorna a tomada XS-MAQ pelo lado (ver `besideSocket`).
           ...(besideBench ? [
             pt(tubeBenchX, besideBench.y, benchDropFloorZ),
-            pt(tubeBenchX, besideBench.y, besideBench.zOut),
-            pt(besideBench.x, besideBench.y, besideBench.zOut),
+            pt(tubeBenchX, besideBench.y - 40, besideBench.zOut),
+            pt(besideBench.x, besideBench.yLow, besideBench.zOut),
           ] : []),
           // Desce e corre na traseira até à lateral esquerda.
           pt(benchDownX, -top + 50, besideBench ? besideBench.zOut : benchDropFloorZ),
