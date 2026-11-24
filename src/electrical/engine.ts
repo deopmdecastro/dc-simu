@@ -23,6 +23,7 @@ import { industrialBridges, industrialDeviceTypeOf } from './industrialDevices'
 import { mountTerminalPairs, relaySocketTerminalPairs } from './mounts'
 import { breakerInputLabels, combMountPairs, isCombBusbar, isCombConnector } from '../three/combMount'
 import { terminalStripJumperPairs } from './pti6Strip'
+import { openPlugContacts } from './socketDevices'
 import { combTerminalConductorOf, steppedTerminalBarOf } from '../three/busbarParts'
 
 export interface ContinuityResult {
@@ -607,7 +608,8 @@ function fedBreakerInputs(components: ElectricalComponent[], wires: Wire[]): Set
     return root
   }
   const union = (a: string, b: string) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb) }
-  for (const w of wires) if (w.kind !== 'hydraulic' && w.kind !== 'pneumatic' && w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) union(w.fromTerminalId, w.toTerminalId)
+  const plugOpen = openPlugContacts(components)
+  for (const w of wires) if (w.kind !== 'hydraulic' && w.kind !== 'pneumatic' && w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint && !plugOpen(w)) union(w.fromTerminalId, w.toTerminalId)
   // Bornes, réguas e barramentos repartidores: condutores passivos, sempre em continuidade por barra.
   for (const c of components) {
     if (/^(terminal|busbarPhaseAcrylic|busbarPhaseStepped|busbarComb|combBusbarConnector|busbarNeutral)/.test(c.type)) {
@@ -759,8 +761,11 @@ function buildGraph(components: ElectricalComponent[], wires: Wire[]): Graph {
     adjacency.get(a)!.push(b)
     adjacency.get(b)!.push(a)
   }
+  // Ficha CEE desencaixada: os contactos ficha ↔ tomada deixam de conduzir.
+  const plugOpen = openPlugContacts(components)
   for (const w of wires) {
     if (w.kind === 'hydraulic' || w.kind === 'pneumatic') continue
+    if (plugOpen(w)) continue
     // Etiquetas de rede (comunicação entre folhas do esquema): a ponta marcada
     // liga-se ao nó virtual «net:NOME», partilhado por todos os fios com a
     // mesma etiqueta — continuidade elétrica mesmo sem fio desenhado.

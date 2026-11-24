@@ -119,6 +119,7 @@ import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { writeElectricalCrossClipboard, readElectricalCrossClipboard } from '../clipboard/crossProjectClipboard'
 import { canInsertComponent3D, getComponentModelSpec, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { CEE_PLUG_PULL_MM, isSocketDevice } from '../electrical/socketDevices'
 import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { componentHalfExtents } from '../three/panelBounds'
@@ -435,6 +436,12 @@ interface Store extends CircuitState {
   // --- acionamento de campo ---
   pressButton: (componentId: string, pressed: boolean) => void
   setComponentState: (componentId: string, patch: Record<string, any>) => void
+  /**
+   * Ficha CEE: encaixa/desencaixa da tomada. Desencaixada, a ficha recua ao longo do seu eixo
+   * (`CEE_PLUG_PULL_MM`), os contactos ficha ↔ tomada deixam de conduzir e a tampa da tomada fecha.
+   * Gesto físico: permitido com ou sem simulação e mesmo com a peça bloqueada (bloqueio = não mover).
+   */
+  togglePlug: (plugId: string, plugged?: boolean) => void
   /** Gesto do utilizador sobre um aparelho: só com a simulação em RUN/PAUSA (regra global em store/manobra). */
   operateComponent: (componentId: string, patch: Record<string, any>) => void
   /** Manobra comum dos CAD: TEST/STOP/RESET têm a mesma semântica em todas as vistas. */
@@ -2668,6 +2675,62 @@ export const useSimStore = create<Store>((set, get) => {
       return { components: [...s.components], dirty: true }
     })
     if (sfx) playClick(sfx)
+    recomputeIfActive()
+  },
+  togglePlug: (plugId, plugged) => {
+    if (get().demoMode) return
+    const plug = get().components.find((c) => c.id === plugId && c.type === 'ceePlug16A')
+    if (!plug?.panel3DPosition) return
+    const isIn = plug.state.plugged !== false
+    const next = plugged ?? !isIn
+    if (next === isIn) return
+    get().commitHistory()
+    // Eixo de desencaixe = −Z local da ficha (os pinos ficam em +Z, virados para a tomada), rodado
+    // pela orientação da peça (Euler XYZ em graus, a mesma ordem do Three.js).
+    const o = plug.viewOrientation ?? { x: 0, y: 0, z: 0 }
+    const [ax, ay, az] = [o.x, o.y, o.z].map((d) => (Number(d) || 0) * Math.PI / 180)
+    let v: [number, number, number] = [0, 0, -1]
+    v = [v[0] * Math.cos(az) - v[1] * Math.sin(az), v[0] * Math.sin(az) + v[1] * Math.cos(az), v[2]]
+    v = [v[0] * Math.cos(ay) + v[2] * Math.sin(ay), v[1], -v[0] * Math.sin(ay) + v[2] * Math.cos(ay)]
+    v = [v[0], v[1] * Math.cos(ax) - v[2] * Math.sin(ax), v[1] * Math.sin(ax) + v[2] * Math.cos(ax)]
+    const k = CEE_PLUG_PULL_MM * PANEL_UNITS_PER_MM * (next ? -1 : 1)
+    const delta = { x: v[0] * k, y: v[1] * k, z: v[2] * k }
+    const origin = plug.panel3DPosition
+    const termIds = new Set(plug.terminals.map((t) => t.id))
+    const socketIds = new Set<string>()
+    for (const w of get().wires) {
+      const other = termIds.has(w.fromTerminalId) ? w.toTerminalId : termIds.has(w.toTerminalId) ? w.fromTerminalId : null
+      if (!other) continue
+      const owner = get().components.find((c) => c.terminals.some((t) => t.id === other))
+      if (owner && isSocketDevice(owner.type) && owner.type !== 'ceePlug16A') socketIds.add(owner.id)
+    }
+    // O cabo da ficha acompanha-a: os pontos de passagem a ≤ 16 cm da ficha deslocam-se com ela
+    // (deslocamento inteiro — encaixar volta a pôr tudo exatamente onde estava); o resto do traçado
+    // fica onde está.
+    const shift = <P extends { x: number; y: number; z: number }>(p: P): P =>
+      Math.hypot(p.x - origin.x, p.y - origin.y, p.z - origin.z) <= 1.6
+        ? { ...p, x: p.x + delta.x, y: p.y + delta.y, z: p.z + delta.z }
+        : p
+    set((s) => ({
+      components: s.components.map((c) => {
+        if (c.id === plugId) return { ...c, panel3DPosition: { x: origin.x + delta.x, y: origin.y + delta.y, z: origin.z + delta.z }, state: { ...c.state, plugged: next } }
+        // Tampa com mola: fecha quando a ficha sai; abre para a ficha entrar.
+        if (socketIds.has(c.id)) return { ...c, state: { ...c.state, blueCoverOpen: next } }
+        return c
+      }),
+      wires: s.wires.map((w) => {
+        if (!termIds.has(w.fromTerminalId) && !termIds.has(w.toTerminalId)) return w
+        return {
+          ...w,
+          ...(w.waypoints3D ? { waypoints3D: w.waypoints3D.map(shift) } : {}),
+          ...(w.sheathFrom3D ? { sheathFrom3D: shift(w.sheathFrom3D) } : {}),
+          ...(w.sheathTo3D ? { sheathTo3D: shift(w.sheathTo3D) } : {}),
+        }
+      }),
+      dirty: true,
+    }))
+    playClick('button')
+    get().pushEvent('info', `${plug.ref}: ficha ${next ? 'encaixada na tomada — circuito ligado' : 'desencaixada da tomada — sem tensão a jusante'}.`)
     recomputeIfActive()
   },
   operateComponent: (componentId, patch) => {

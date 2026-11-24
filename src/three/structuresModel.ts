@@ -119,7 +119,9 @@ export function industrialPillarDimsOf(state?: Record<string, any>) {
 export function cableTrayDimsOf(type: CableTrayComponentType, state?: Record<string, any>) {
   const widthMm = Math.max(100, Math.min(500, Math.round(Number(state?.widthMm) || 200)))
   const sideHeightMm = Math.max(40, Math.min(120, Math.round(Number(state?.sideHeightMm) || 60)))
-  const lengthMm = Math.max(300, Math.min(3000, Math.round(Number(state?.lengthMm) || 1200)))
+  // Mínimo 50 mm (o mesmo de `trayDimsMm` nas junções): com 300 mm um pescoço de 210 mm era
+  // desenhado com 300 mm e entrava 45 mm na esteira de parede, atravessando a pista dos cabos.
+  const lengthMm = Math.max(50, Math.min(3000, Math.round(Number(state?.lengthMm) || 1200)))
   const radiusMm = Math.max(120, Math.min(380, Math.round(Number(state?.radiusMm) || 220)))
   const angleDeg = Math.max(15, Math.min(90, Math.round(Number(state?.angleDeg) || 45)))
   const withCover = Boolean(state?.withCover)

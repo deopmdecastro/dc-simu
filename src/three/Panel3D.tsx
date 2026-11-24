@@ -38,6 +38,7 @@ import { EDITOR_THEME, editorPalette, editorGridBackground } from '../ui/editorT
 import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, ConduitMedium } from '../types'
 import FluidConnectionMarker3D from './FluidConnectionMarker3D'
+import { openPlugContacts } from '../electrical/socketDevices'
 import { terminalConnectionMedium, terminalMatchesConnectionMedium } from './connectionMedium'
 import { usesProceduralSurface } from './proceduralSurface'
 import * as THREE from 'three'
@@ -2613,6 +2614,7 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
   // A bainha de cada cabo multicore é calculada ANTES dos condutores: é ela que define o traçado do
   // cabo. As veias (3 fios do mesmo `bundleId`) são depois apertadas contra o seu eixo, para se
   // comportarem como fios dentro de um H07RN-F e não como três cabos paralelos.
+  const plugContactOpen = useMemo(() => openPlugContacts(components), [components])
   const cableSheaths = useMemo(() => buildCableSheaths(wires, coordinatedPaths), [wires, coordinatedPaths])
   useMemo(() => {
     cableJackets.clear()
@@ -2638,6 +2640,8 @@ function Wires3D({ pivots, editMode, selectedWireId, onRoutingLoadingChange, sim
     {wires.map((storedWire) => {
     // Sem traçado confirmado, não fazer o cálculo síncrono de cada cabo como fallback.
     if (!coordinatedPaths?.has(storedWire.id)) return null
+    // Ficha CEE desencaixada: o contacto pino ↔ alvéolo não existe (não se desenha).
+    if (plugContactOpen(storedWire)) return null
     const baseFrom = wireEndpoint3D(storedWire, 'from', components, pivots, wires)
     const baseTo = wireEndpoint3D(storedWire, 'to', components, pivots, wires)
     if (!baseFrom || !baseTo) return null

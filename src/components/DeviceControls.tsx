@@ -3811,16 +3811,43 @@ function FreeSpacePosition3DControls({ c, locked }: { c: ElectricalComponent; lo
   )
 }
 
+/** Encaixar / desencaixar a ficha CEE. Gesto físico: não depende do bloqueio de posição da peça. */
+function PlugToggleButton({plug}:{plug:ElectricalComponent}) {
+  const togglePlug=useSimStore(s=>s.togglePlug),demo=useSimStore(s=>s.demoMode)
+  const inserted=plug.state.plugged!==false
+  return <button type="button" className="dc-btn dc-btn-primary text-[11px]" disabled={demo} aria-pressed={inserted} data-plug-toggle={plug.id}
+    title={inserted?'Tirar a ficha da tomada: os contactos abrem e o aparelho fica sem tensão':'Encaixar a ficha na tomada: os pinos entram nos alvéolos e o aparelho volta a ter tensão'}
+    onClick={()=>togglePlug(plug.id)}>{inserted?`Desligar ficha ${plug.ref} (tirar da tomada)`:`Ligar ficha ${plug.ref} (encaixar na tomada)`}</button>
+}
+
 function SocketControls({c,locked}:{c:ElectricalComponent;locked:boolean}) {
   const setState=useSimStore(s=>s.setComponentState),operate=useSimStore(s=>s.operateComponent),allowed=useManobraAllowed()
+  // Ficha ligada a esta tomada pelos contactos (para mostrar a ação também na tomada).
+  const plug=useSimStore(s=>{
+    if(c.type==='ceePlug16A')return c
+    const ids=new Set(c.terminals.map(t=>t.id))
+    for(const w of s.wires){
+      const other=ids.has(w.fromTerminalId)?w.toTerminalId:ids.has(w.toTerminalId)?w.fromTerminalId:null
+      if(!other)continue
+      const owner=s.components.find(x=>x.type==='ceePlug16A'&&x.terminals.some(t=>t.id===other))
+      if(owner)return owner
+    }
+    return null
+  })
   if(!isSocketDevice(c.type))return null
   const spec=SOCKET_DEVICES[c.type]
+  if(c.type==='ceePlug16A')return <div className="flex flex-col gap-2" data-socket-controls={c.type}>
+    <strong>{spec.brand} · {spec.reference}</strong>
+    <span className="text-[11px] text-slate-600">{c.state.plugged!==false?'Encaixada na tomada':'Fora da tomada — sem contacto'}</span>
+    <PlugToggleButton plug={c}/>
+  </div>
   const toggle=(key:string)=><button type="button" className="dc-btn text-[11px]" disabled={locked} aria-pressed={Boolean(c.state[key]??c.state.coverOpen)} onClick={()=>setState(c.id,{[key]:!(c.state[key]??c.state.coverOpen)})}>{(c.state[key]??c.state.coverOpen)?'Fechar':'Abrir'} {key==='blueCoverOpen'?'tampa azul':key==='redCoverOpen'?'tampa vermelha':'tampa da tomada'}</button>
   return <div className="flex flex-col gap-2" data-socket-controls={c.type}>
     <strong>{spec.brand} · {spec.reference}</strong>
     {c.type==='socketEfapelIp65'?toggle('coverOpen'):toggle('blueCoverOpen')}
     {c.type==='socketFamatelCombo'&&toggle('redCoverOpen')}
     <button type="button" className="dc-btn text-[11px]" disabled={locked} aria-pressed={Boolean(c.state.serviceOpen)} onClick={()=>setState(c.id,{serviceOpen:!c.state.serviceOpen})}>{c.state.serviceOpen?'Repor tampa de serviço':'Aceder à cablagem'}</button>
+    {plug&&<PlugToggleButton plug={plug}/>}
     {c.type==='socketFamatelSwitch'&&<button type="button" className="dc-btn text-[11px]" disabled={locked||!allowed} title={allowed?'Seccionar L e N; PE mantém continuidade':MANOBRA_BLOCKED_TITLE} aria-pressed={c.state.switchOn!==false} onClick={()=>operate(c.id,{switchOn:c.state.switchOn===false})}>Seccionador · {c.state.switchOn===false?'0 — desligado':'I — ligado'}</button>}
   </div>
 }

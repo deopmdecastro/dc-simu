@@ -24,5 +24,11 @@ export function SocketDevice3D({c,position,interactive=true}:{c:ElectricalCompon
       store.setComponentState(c.id,{[key]:!(c.state[key]??c.state.coverOpen)})
     }
   }
-  return <group position={position} scale={PANEL_UNITS_PER_MM} onClick={click}><primitive object={object}/></group>
+  // Ficha CEE: duplo clique tira/encaixa a ficha (também no inspetor). Clique simples continua a selecionar.
+  const dbl=(e:ThreeEvent<MouseEvent>)=>{
+    if(c.type!=='ceePlug16A'||useSimStore.getState().demoMode)return
+    e.stopPropagation()
+    useSimStore.getState().togglePlug(c.id)
+  }
+  return <group position={position} scale={PANEL_UNITS_PER_MM} onClick={click} onDoubleClick={dbl}><primitive object={object}/></group>
 }

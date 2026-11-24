@@ -21,6 +21,10 @@ import { mechatronicsSizeMm, slotPlateDimsOf } from '../three/mechatronicsModel'
 import { AIR_COMPRESSOR_CABLE_GLAND, AIR_COMPRESSOR_CABLE_GLAND_HEIGHT, pneumaticComponentSizeMm } from '../three/pneumaticsModel'
 import { COMPONENT_PHYSICAL_SIZE_MM } from '../three/modelPaths'
 import { SOCKET_DEVICES } from './socketDevices'
+import { CABLE_DUCT } from '../three/enclosureParts'
+
+const DUCT_PITCH_MM = CABLE_DUCT.pitch
+const DUCT_SLOT_MM = CABLE_DUCT.slot
 
 export interface BenchPointMm { x: number; y: number; z: number }
 
@@ -528,7 +532,7 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const hDucts = [get('cabinet-duct-top'), get('cabinet-duct-midAB'), get('cabinet-duct-midBC')]
         .filter((d): d is BenchPlacement => Boolean(d))
       const riserXs = [get('cabinet-duct-left')?.x ?? cabinet.x - cabW / 2 + 25, get('cabinet-duct-right')?.x ?? cabinet.x + cabW / 2 - 25]
-      type Approach = { exit: BenchPointMm; duct: BenchPlacement }
+      type Approach = { exit: BenchPointMm; duct: BenchPlacement; front?: boolean }
       const approach = (end: BenchWireEnd): Approach | null => {
         if (!('key' in end) || !hDucts.length) return null
         const part = get(end.key)
@@ -539,7 +543,8 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         const below = hDucts.filter((d) => d.y < exit.y).sort((a, b) => b.y - a.y)[0]
         const nearest = [above, below].filter((d): d is BenchPlacement => Boolean(d)).sort((a, b) => Math.abs(a.y - exit.y) - Math.abs(b.y - exit.y))[0]
         const duct = n.y > 0.3 ? (above ?? nearest) : n.y < -0.3 ? (below ?? nearest) : nearest
-        return { exit, duct }
+        // Bornes de face (front connector do S7-300): o fio sai para a frente, não para cima/baixo.
+        return { exit, duct, front: Math.abs(n.z) > 0.7 }
       }
       const zIn = (lane: number) => (hDucts[0]?.z ?? ductBottom.z) + lane * 0.4
       /**
@@ -553,9 +558,33 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         const half = (Number(ap.duct.state?.widthMm) || 40) / 2
         return ap.duct.y + (ap.exit.y >= ap.duct.y ? 1 : -1) * (half + 3)
       }
+      /**
+       * Centro da ranhura (vão entre dois dentes) da calha mais próximo de `x`. Os dentes estão a
+       * `DUCT_PITCH_MM` centrados no meio da calha (ver `buildCableDuct`): o fio entra na calha
+       * pelo vão, nunca por cima de um dente.
+       */
+      const slotX = (duct: BenchPlacement, x: number) => {
+        const L = Number(duct.state?.lengthMm) || 376
+        const n = Math.max(1, Math.floor((L - DUCT_SLOT_MM) / DUCT_PITCH_MM))
+        const first = -((n - 1) * DUCT_PITCH_MM) / 2 // centro do 1.º dente
+        const k = Math.max(0, Math.min(n - 2, Math.round((x - duct.x - first) / DUCT_PITCH_MM - 0.5)))
+        return duct.x + first + (k + 0.5) * DUCT_PITCH_MM
+      }
       const into = (ap: Approach, yLane: number, z: number): BenchPointMm[] => {
         const edge = ductEdgeY(ap)
-        return [ap.exit, pt(ap.exit.x, edge, ap.exit.z), pt(ap.exit.x, edge, z), pt(ap.exit.x, yLane, z)]
+        const sx = slotX(ap.duct, ap.exit.x)
+        // Sai do borne a direito (vertical do borne) e só a 8 mm do bordo da calha desvia (≤ 6 mm)
+        // para a vertical da ranhura — os fios de bornes vizinhos descem paralelos e juntam-se só à
+        // entrada do vão, como numa régua real; depois entra pelo vão e assenta na pista.
+        const gap = Math.abs(edge - ap.exit.y)
+        const nearY = edge - Math.sign(edge - ap.exit.y) * Math.min(8, gap * 0.4)
+        // Front connector: os fios de um módulo descem todos na mesma coluna. Em vez de se
+        // sobreporem (e o 3D os afastar em caracóis), escalonam-se em profundidade pela distância à
+        // calha — o borne mais afastado fica mais à frente — e cada fio larga o feixe à altura do
+        // seu borne, sem cruzar os outros (pente plano à frente do módulo).
+        const zF = ap.front ? ap.exit.z + gap * 0.45 : ap.exit.z
+        const lead = ap.front ? [ap.exit, pt(ap.exit.x, ap.exit.y, zF)] : [ap.exit]
+        return [...lead, pt(ap.exit.x, nearY, zF), pt(sx, nearY, zF), pt(sx, edge, zF), pt(sx, edge, z), pt(sx, yLane, z)]
       }
       const route = (a: Approach, b: Approach, lane: number): BenchPointMm[] => {
         const z = zIn(lane)
@@ -1090,16 +1119,20 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
       const tubeWallZ = wallZ + TRAY_LANES.wallAir
       const sockDims = SOCKET_DEVICES.socketFamatelSwitch
       /**
-       * As tomadas XS-COMP / XS-MAQ estão por baixo das descidas, encostadas à parede/pilar: o tubo,
-       * que desce assente no fundo da esteira, atravessava a caixa. Passa ao lado dela (lado −X,
-       * a ficha está à frente e longe da parede) e muda de pista no vão topo da caixa ↔ fundo da
-       * descida (≈ 20 mm), nunca por cima do bucim.
+       * As tomadas XS-COMP / XS-MAQ estão por baixo das descidas, encostadas à parede/pilar. O tubo
+       * desce assente no fundo da esteira e, ACIMA da caixa (+90 mm do fundo da descida), sai da
+       * esteira pela face aberta — por cima das abas, nunca através delas — e desce ao lado da caixa
+       * (lado −X; a ficha está à frente e longe deste corredor). Antes mudava de pista no vão de
+       * 20 mm entre a caixa e o fundo da descida e o arco atravessava a aba lateral.
        */
       const besideSocket = (sock: BenchPlacement | undefined, drop: BenchPlacement | undefined, laneX: number) => (sock && drop
         ? {
-            // 30 mm ao lado da caixa: a curva de raio fixo para o vão não toca na esquina da caixa.
+            // 30 mm ao lado da caixa: a curva de raio fixo não toca na esquina da caixa.
             x: Math.min(laneX, sock.x - sockDims.width / 2 - 30),
-            jogY: Math.max(sock.y + sockDims.height / 2 + 8, drop.y - Number(drop.state?.lengthMm) / 2 - 6),
+            // Cota onde o tubo sai/entra pela face aberta da descida.
+            y: drop.y - Number(drop.state?.lengthMm) / 2 + 90,
+            // Fora das abas: aba de 60 mm + rebordo enrolado (≈ 6 mm) + raio do tubo + folga.
+            zOut: drop.z + SIDE_H / 2 + 14,
           }
         : null)
       const beside = besideSocket(get('socket-compressor'), cmpDrop, tubeCmpX)
@@ -1110,14 +1143,15 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
         [
           // Folga à saída do compressor e encosta ao fundo da descida, na pista do tubo (−X).
           pt(out.p.x + 28, out.p.y + 8, out.p.z + 8),
-          pt(out.p.x + 28, out.p.y + 8, cmpDropFloorZ),
+          pt(out.p.x + 28, out.p.y + 8, beside ? beside.zOut : cmpDropFloorZ),
           // A tomada XS-COMP está por baixo da descida: o tubo sobe ENCOSTADO à parede, ao lado da
           // caixa (lado oposto ao da ficha não interessa — a ficha está à frente, longe da parede),
           // e só entra na pista da descida no vão entre o topo da caixa e o fundo da esteira.
           ...(beside ? [
-            pt(beside.x, out.p.y + 8, cmpDropFloorZ),
-            pt(beside.x, beside.jogY, cmpDropFloorZ),
-            pt(tubeCmpX, beside.jogY, cmpDropFloorZ),
+            pt(beside.x, out.p.y + 8, beside.zOut),
+            pt(beside.x, beside.y, beside.zOut),
+            pt(tubeCmpX, beside.y, beside.zOut),
+            pt(tubeCmpX, beside.y, cmpDropFloorZ),
           ] : [pt(tubeCmpX, out.p.y + 8, cmpDropFloorZ)]),
           // Sobe pela descida do compressor até ao fundo do pescoço; cada mudança de eixo é uma
           // curva de raio fixo (ver `isAxisRouted` em wireGeometry3D) — nada de diagonais.
@@ -1131,11 +1165,12 @@ export function stampingBenchWiring(parts: BenchPlacement[], plateState?: Record
           pt(tubeBenchX, tubeY - 60, benchDropFloorZ),
           // Desce na descida da bancada e contorna a tomada XS-MAQ pelo lado (ver `besideSocket`).
           ...(besideBench ? [
-            pt(tubeBenchX, besideBench.jogY, benchDropFloorZ),
-            pt(besideBench.x, besideBench.jogY, benchDropFloorZ),
+            pt(tubeBenchX, besideBench.y, benchDropFloorZ),
+            pt(tubeBenchX, besideBench.y, besideBench.zOut),
+            pt(besideBench.x, besideBench.y, besideBench.zOut),
           ] : []),
           // Desce e corre na traseira até à lateral esquerda.
-          pt(benchDownX, -top + 50, benchDropFloorZ),
+          pt(benchDownX, -top + 50, besideBench ? besideBench.zOut : benchDropFloorZ),
           pt(benchDownX, -top + 50, backZ),
           pt(leftX, -top + 50, backZ),
           // Sai por cima da borda esquerda e desce POR FORA do tampo, à frente do suporte do FRL

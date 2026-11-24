@@ -111,4 +111,37 @@ ok('RoadEu: seccionador corta L/N e mantém PE; manobra bloqueada em STOP',()=>{
   const saved=useSimStore.getState().saveJSON();useSimStore.getState().newProject('all');useSimStore.getState().loadJSON(saved)
   assert.equal(useSimStore.getState().components[0].state.switchOn,true)
 })
+
+ok('Ficha CEE: desencaixar abre L/N/PE, recua a ficha ao longo do eixo, fecha a tampa e volta tudo ao sítio ao encaixar',()=>{
+  const st=useSimStore.getState()
+  st.newProject('all')
+  const ac=createComponent('powerSource1ph','F0','Rede 230 V');ac.state.nominalV=230
+  const sock=createComponent('socketFamatelSwitch','XS','Tomada');sock.state.blueCoverOpen=true
+  const plug=createComponent('ceePlug16A','F1','Ficha')
+  sock.panel3DPosition={x:0,y:5,z:0};plug.panel3DPosition={x:-0.47,y:4.97,z:0.805};plug.viewOrientation={x:0,y:180,z:0}
+  const tidOf=(c:typeof ac,l:string)=>c.terminals.find(t=>t.label===l)!.id
+  const W=(id:string,a:string,b:string,extra:Record<string,unknown>={})=>({id,fromTerminalId:a,toTerminalId:b,color:'black',gauge:'2.5mm²',kind:'power',flexibility:'flexible',route:'direct',bend:.5,energized:false,...extra}) as any
+  const cord={ ...W('cord',tidOf(plug,'L'),tidOf(plug,'N')), waypoints3D:[{x:-0.47,y:4.97,z:1.32},{x:-0.47,y:2,z:1.4}] }
+  const wires=[W('aL',tidOf(ac,'L'),tidOf(sock,'L')),W('aN',tidOf(ac,'N'),tidOf(sock,'N')),
+    W('cL',tidOf(sock,'OUT.L'),tidOf(plug,'L'),{waypoints3D:[{x:-0.47,y:5.03,z:0.69}]}),W('cN',tidOf(sock,'OUT.N'),tidOf(plug,'N')),W('cPE',tidOf(sock,'OUT.PE'),tidOf(plug,'PE')),cord]
+  useSimStore.setState({components:[ac,sock,plug],wires,demoMode:false})
+  const live=()=>{const s=useSimStore.getState();return computeContinuity(s.components,s.wires,[tidOf(ac,'L')]).energizedTerminals.has(tidOf(plug,'L'))}
+  assert.equal(live(),true,'ficha encaixada: borne L da ficha com tensão')
+  useSimStore.getState().togglePlug(plug.id)
+  let s=useSimStore.getState(),p=s.components.find(c=>c.id===plug.id)!
+  assert.equal(p.state.plugged,false)
+  assert.equal(live(),false,'ficha fora: o borne L da ficha fica sem tensão')
+  // y=180 → −Z local da ficha = +Z do mundo: recua 90 mm para longe da tomada.
+  assert.ok(Math.abs(p.panel3DPosition!.z-(0.805+0.9))<1e-6&&Math.abs(p.panel3DPosition!.x+0.47)<1e-6,'recua 90 mm no eixo da ficha')
+  assert.equal(s.components.find(c=>c.id===sock.id)!.state.blueCoverOpen,false,'tampa da tomada fecha')
+  const cordW=s.wires.find(w=>w.id==='cord')!
+  assert.ok(Math.abs(cordW.waypoints3D![0].z-(1.32+0.9))<1e-6,'o cabo junto à ficha acompanha-a')
+  assert.ok(Math.abs(cordW.waypoints3D![1].z-1.4)<1e-6,'o resto do cabo fica no sítio')
+  useSimStore.getState().togglePlug(plug.id)
+  s=useSimStore.getState();p=s.components.find(c=>c.id===plug.id)!
+  assert.ok(p.state.plugged===true&&Math.abs(p.panel3DPosition!.z-0.805)<1e-6,'encaixar repõe a posição')
+  assert.ok(Math.abs(s.wires.find(w=>w.id==='cord')!.waypoints3D![0].z-1.32)<1e-6,'e o cabo volta ao sítio')
+  assert.equal(live(),true,'ficha encaixada de novo: volta a ter tensão')
+  assert.equal(s.components.find(c=>c.id===sock.id)!.state.blueCoverOpen,true,'tampa abre para a ficha')
+})
 console.log(`${checks} verificações das tomadas passaram`)

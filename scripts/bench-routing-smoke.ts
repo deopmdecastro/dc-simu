@@ -116,4 +116,56 @@ for (const cable of ['mq-3g25-maquete', 'mq-3g25-compressor']) {
   }
 }
 
+// 7. QE1: cada fio entra/sai da calha por uma RANHURA (vão entre dentes), não por cima de um dente.
+{
+  const t1 = part('terminals-X21-1'), t2 = part('terminals-X21-2')
+  // Eixo do comprimento das calhas no mundo (o QE1 está rodado): sinal e eixo a partir de duas réguas.
+  const lx = t2.qe1Local!.x - t1.qe1Local!.x
+  const useZ = Math.abs(t2.z - t1.z) > Math.abs(t2.x - t1.x)
+  const sign = ((useZ ? t2.z - t1.z : t2.x - t1.x) / lx) > 0 ? 1 : -1
+  const ducts = ['cabinet-duct-top', 'cabinet-duct-midAB', 'cabinet-duct-midBC'].map(part).filter(Boolean)
+  const PITCH = 12.5, SLOT = 4.5
+  let entries = 0, worst = 0
+  for (const id of qe1Ids) {
+    const pts = wire(id).waypointsMm
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i]
+      // troço que atravessa a parede da calha: só muda a altura, dentro da faixa de uma calha horizontal
+      for (const d of ducts) {
+        const half = (Number(d.state?.widthMm) || 40) / 2
+        const crosses = Math.abs(a.y - d.y) > half && Math.abs(b.y - d.y) < half && Math.abs(a.x - b.x) < 0.01 && Math.abs(a.z - b.z) < 0.01
+        if (!crosses) continue
+        const along = sign * ((useZ ? b.z - d.z : b.x - d.x))
+        const L = Number(d.state?.lengthMm) || 376
+        const n = Math.max(1, Math.floor((L - SLOT) / PITCH))
+        const first = -((n - 1) * PITCH) / 2
+        if (Math.abs(along) > L / 2 - 2) continue // entra pela ponta (união com a calha vertical), não pelos dentes
+        const off = (along - first) / PITCH - 0.5
+        worst = Math.max(worst, Math.abs(off - Math.round(off)) * PITCH)
+        entries += 1
+      }
+    }
+  }
+  ok(entries >= qe1Ids.length, `QE1: ${entries} entradas em calha analisadas`)
+  ok(worst <= SLOT / 2 - 0.5, `QE1: todas as entradas na calha pelo vão entre dentes (pior desvio ao centro da ranhura ${worst.toFixed(2)} mm)`)
+}
+
+// 8. Tubo de ar a entrar/sair das descidas pela face aberta — nunca através das abas laterais.
+for (const k of ['tray-drop-compressor', 'tray-drop-bench']) {
+  const d = part(k)
+  const halfW = Number(d.state?.widthMm) / 2, halfL = Number(d.state?.lengthMm) / 2
+  const flangeTop = d.z + 30 + 6 // aba de 60 mm (fundo a d.z − 30) + rebordo
+  let pierce = 0
+  for (let i = 1; i < air.length; i++) {
+    const a = air[i - 1], b = air[i]
+    for (let t = 0; t <= 1; t += 0.02) {
+      const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t }
+      if (p.y < d.y - halfL - 12 || p.y > d.y + halfL || Math.abs(p.z - d.z) > 120) continue
+      const nearWall = Math.abs(Math.abs(p.x - d.x) - halfW) < 5 + 2.5 // raio do tubo + espessura da aba
+      if (nearWall && p.z < flangeTop + 5) { pierce += 1; if (process.env.DBG) console.log(k, p) }
+    }
+  }
+  ok(pierce === 0, `Tubo de ar não atravessa as abas da ${k} (sai/entra pela face aberta)`)
+}
+
 console.log(`\n${checks} verificações · encaminhamento esteiras/QE1 OK`)

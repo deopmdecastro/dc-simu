@@ -1,4 +1,4 @@
-import type { ComponentType } from '../types'
+import type { ComponentType, ElectricalComponent, Wire } from '../types'
 export type SocketDeviceType = 'socketFamatelCombo' | 'socketFamatelSwitch' | 'socketEfapelIp65' | 'ceePlug16A'
 export const isSocketDevice = (type: string): type is SocketDeviceType =>
   type === 'socketFamatelCombo' || type === 'socketFamatelSwitch' || type === 'socketEfapelIp65' || type === 'ceePlug16A'
@@ -52,4 +52,26 @@ export function socketOutletPoint(type: SocketDeviceType, label: string): [numbe
 export function socketOutletFraction(type: SocketDeviceType, label: string) {
   const p=socketOutletPoint(type,label),d=SOCKET_DEVICES[type]
   return {x:.5+p[0]/d.width,y:.5+p[1]/d.height,z:.5+p[2]/d.depth}
+}
+
+/** Curso de desencaixe da ficha CEE (pinos de 14 mm + folga): a ficha fica à frente da tomada. */
+export const CEE_PLUG_PULL_MM = 90
+
+/** Ficha encaixada? (por omissão sim — só `plugged: false` a desliga). */
+export const isPlugInserted = (c: Pick<ElectricalComponent, 'type' | 'state'>) => c.type !== 'ceePlug16A' || c.state?.plugged !== false
+
+/**
+ * Contactos ficha ↔ tomada abertos: um condutor entre um borne de uma ficha CEE DESENCAIXADA e um
+ * borne de uma tomada não conduz (os pinos estão fora dos alvéolos). Usado pelo motor elétrico,
+ * pelas fases e pelo 3D (que deixa de desenhar esses contactos).
+ */
+export function openPlugContacts(components: ElectricalComponent[]): (w: Pick<Wire, 'fromTerminalId' | 'toTerminalId'>) => boolean {
+  const unplugged = new Set<string>()
+  const socketTerms = new Set<string>()
+  for (const c of components) {
+    if (c.type === 'ceePlug16A' && c.state?.plugged === false) for (const t of c.terminals) unplugged.add(t.id)
+    else if (isSocketDevice(c.type) && c.type !== 'ceePlug16A') for (const t of c.terminals) socketTerms.add(t.id)
+  }
+  if (!unplugged.size) return () => false
+  return (w) => (unplugged.has(w.fromTerminalId) && socketTerms.has(w.toTerminalId)) || (unplugged.has(w.toTerminalId) && socketTerms.has(w.fromTerminalId))
 }
